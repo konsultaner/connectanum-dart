@@ -6,3 +6,5 @@ description: >-
   this package.
 dependencies:
   rxdart: ^0.22.6
+dev_dependencies:
+  test: ^1.9.4
