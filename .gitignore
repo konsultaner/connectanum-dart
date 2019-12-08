@@ -1,2 +1,4 @@
 .idea
 connectanum-dart.iml
+.packages
+pubspec.lock

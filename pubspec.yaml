@@ -1,0 +1,8 @@
+name: connectanum_dart
+version: 0.0.1
+description: >-
+  This projects implements the wamp protocol with some advanced features. It uses ReactiveX for dart to implement the
+  input stream conversion. The major goal is to make it easy to test and make it easy to test implementations that use
+  this package.
+dependencies:
+  rxdart: ^0.22.6
