@@ -1,4 +1,3 @@
-import 'package:connectanum_dart/src/message/message_types.dart';
 import 'package:connectanum_dart/src/message/yield.dart';
 
 import 'abstract_message_with_payload.dart';

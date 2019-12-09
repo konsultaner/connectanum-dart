@@ -7,8 +7,6 @@ import 'package:connectanum_dart/src/authentication/session.dart';
 import 'package:connectanum_dart/src/message/welcome.dart';
 import 'package:rxdart/subjects.dart';
 
-import 'src/transport/abstract_transport.dart';
-
 class ProtocolProcessor {
 
   final messageSubject = new BehaviorSubject<AbstractMessage>();
