@@ -2,11 +2,13 @@ import 'abstract_message.dart';
 
 class Register extends AbstractMessage {
     int requestId;
-    Options options;
-    Uri procedure;
+    RegisterOptions options;
+    String procedure;
+
+    Register(this.requestId, this.procedure, {this.options});
 }
 
-class Options{
+class RegisterOptions{
     static final String MATCH_EXACT = null;
     static final String MATCH_PREFIX = "prefix";
     static final String MATCH_WILDCARD = "wildcard";

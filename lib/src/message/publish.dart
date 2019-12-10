@@ -2,11 +2,15 @@ import 'abstract_message_with_payload.dart';
 
 class Publish extends AbstractMessageWithPayload {
     int requestId;
-    Options options;
-    Uri topic;
+    PublishOptions options;
+    String topic;
+    Publish(this.requestId, this.topic, {this.options, List<Object> arguments, Map<String, Object> argumentsKeywords}) {
+        this.arguments = arguments;
+        this.argumentsKeywords = argumentsKeywords;
+    }
 }
 
-class Options{
+class PublishOptions{
     bool acknowledge;
     // subscriber_blackwhite_listing == true
     List<int> exclude;

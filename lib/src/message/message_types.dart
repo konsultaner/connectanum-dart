@@ -28,7 +28,4 @@ class MessageTypes {
     static final int CODE_INVOCATION = 68;
     static final int CODE_INTERRUPT = 69;
     static final int CODE_YIELD = 70;
-
-    static final int SERIALIZER_JSON = 1;
-    static final int SERIALIZER_MESSAGE_PACK = 2;
 }

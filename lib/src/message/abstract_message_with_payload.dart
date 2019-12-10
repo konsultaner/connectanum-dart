@@ -12,7 +12,9 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
     List<Object> arguments;
     Map<String,Object> argumentsKeywords;
 
-    /**
+    AbstractMessageWithPayload({this.arguments, this.argumentsKeywords});
+
+  /**
      * Transfers the message payload to another message
      * @param message An AbstractMessageWithPayload instance
      */
