@@ -13,10 +13,12 @@ import '../message/challenge.dart';
 
 class CraAuthentication extends AbstractAuthentication {
   static final Uint8List DEFAULT_KEY_SALT = new Uint8List(0);
+  final String secret;
+
+  CraAuthentication(this.secret);
 
   @override
   Future<Authenticate> challenge(Extra extra) {
-    String secret;
     Authenticate authenticate = new Authenticate();
     if (extra == null || extra.challenge == null || secret == null) {
       // error
