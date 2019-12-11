@@ -27,5 +27,5 @@ class Error extends AbstractMessageWithPayload {
     int requestTypeId;
     int requestId;
     Map<String,Object> details;
-    Uri error;
+    String error;
 }

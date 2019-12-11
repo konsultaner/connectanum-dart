@@ -1,8 +1,12 @@
+import 'dart:async';
 import 'dart:collection';
 
+import 'package:connectanum_dart/src/protocol/session_model.dart';
+import 'package:connectanum_dart/src/message/uri_pattern.dart';
 import 'package:rxdart/subjects.dart';
 
-import '../../protocol_processor.dart';
+import 'protocol_processor.dart';
+import '../message/details.dart' as detailsPackage;
 import '../message/call.dart';
 import '../message/event.dart';
 import '../message/hello.dart';
@@ -19,16 +23,11 @@ import '../message/unregistered.dart';
 import '../message/unsubscribe.dart';
 import '../message/unsubscribed.dart';
 import '../transport/abstract_transport.dart';
-import 'abstract_authentication.dart';
-import 'basic_authentication.dart';
+import '../authentication/abstract_authentication.dart';
 
-class Session {
-  int id;
-  String realm;
-  String authId;
-  String authRole;
-  String authMethod;
-  String authProvider;
+class Session extends SessionModel {
+
+  ProtocolProcessor _protocolProcessor = new ProtocolProcessor();
 
   int nextCallId = 1;
   int nextPublishId = 1;
@@ -46,15 +45,70 @@ class Session {
   final Map<int, BehaviorSubject<Event>> events = new HashMap();
   final Map<int, BehaviorSubject<Invocation>> invocations = new HashMap();
 
-  //factory Session.start(String authId, String realm, AbstractTransport transport, {AbstractAuthentication authMethods: null,Duration reconnect: null}) {
-  //  if (authMethods == null) {
-  //    authMethods = new BasicAuthentication();
-  //  }
-  //  transport.onMessage((message) {
-  //    ProtocolProcessor().process(message);
-  //  });
-  //  transport.send(Hello());
-  //}
+  BehaviorSubject<Session> get authenticateSubject => _protocolProcessor.authenticateSubject;
+  ProtocolProcessor get protocolProcessor => _protocolProcessor;
+
+  static Future<Session> start(
+      String realm,
+      AbstractTransport transport,
+      {
+        String authId: null,
+        List<AbstractAuthentication> authMethods: null,
+        Duration reconnect: null
+      }
+  ) async
+  {
+    final completer = new Completer<Session>();
+    /**
+     * The realm object is mandatory and must mach the uri pattern
+     */
+    assert(realm != null && UriPattern.match(realm));
+    /**
+     * The connection should have been established before initializing the
+     * session.
+     */
+    assert(transport != null && transport.isOpen());
+
+    /**
+     * Initialize the session object with the realm it belongs to
+     */
+    final session = new Session();
+    session.realm = realm;
+
+    /**
+     * If an authentication process is successful the session should be filled
+     * with all session information.
+     */
+    session.authenticateSubject.listen((sessionBean) {
+      session.id = sessionBean.id;
+      session.authId = sessionBean.authId;
+      session.authMethod = sessionBean.authMethod;
+      session.authProvider = sessionBean.authProvider;
+      session.authRole = sessionBean.authRole;
+      completer.complete(session);
+    });
+
+    /**
+     * If the transport receives new messages the sessions protocol processor
+     * should receive the message
+     */
+    transport.onMessage((message) {
+      session.protocolProcessor.process(message, session, authMethods);
+    });
+
+    /**
+     * Initialize the sub protocol with a hello message
+     */
+    final hello = new Hello(realm, detailsPackage.Details.forHello());
+    if (authId != null) {
+      hello.details.authid = authId;
+    }
+    if (authMethods != null && authMethods.length > 0) {
+      hello.details.authmethods = authMethods.map((authMethod) => authMethod.getName());
+    }
+    transport.send(hello);
+    return completer.future;
+  }
 
   call(String procedure,
       {List<Object> arguments,

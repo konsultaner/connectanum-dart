@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -10,6 +11,7 @@ import 'package:pointycastle/macs/hmac.dart';
 import 'package:pointycastle/pointycastle.dart';
 
 import '../message/challenge.dart';
+import '../message/error.dart';
 
 class CraAuthentication extends AbstractAuthentication {
   static final Uint8List DEFAULT_KEY_SALT = new Uint8List(0);
@@ -21,7 +23,11 @@ class CraAuthentication extends AbstractAuthentication {
   Future<Authenticate> challenge(Extra extra) {
     Authenticate authenticate = new Authenticate();
     if (extra == null || extra.challenge == null || secret == null) {
-      // error
+      final error = new Error();
+      error.error = "wamp.authentication.error";
+      error.details = new HashMap<String, Object>();
+      error.details["reason"] = "No challenge or secret given, wrong router response";
+      return Future.error(error);
     }
 
     Uint8List key;
@@ -35,7 +41,7 @@ class CraAuthentication extends AbstractAuthentication {
     }
 
     authenticate.signature = encodeHmac(
-        key, extra.keylen, Uint8List.fromList(extra.challenge.codeUnits));
+        Uint8List.fromList(base64.encode(key).codeUnits), extra.keylen, Uint8List.fromList(extra.challenge.codeUnits));
     return Future.value(authenticate);
   }
 
@@ -54,5 +60,10 @@ class CraAuthentication extends AbstractAuthentication {
     Uint8List out = new Uint8List(keylen);
     mac.doFinal(out, 0);
     return base64.encode(out);
+  }
+
+  @override
+  getName() {
+    return "wampcra";
   }
 }

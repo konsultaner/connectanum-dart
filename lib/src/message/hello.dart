@@ -1,7 +1,10 @@
+import 'package:connectanum_dart/src/message/uri_pattern.dart';
+
 import 'abstract_message.dart';
 import 'details.dart';
 
 class Hello extends AbstractMessage {
-    Uri realm;
+    String realm;
     Details details;
+    Hello(this.realm, this.details) : assert (realm != null && UriPattern.match(realm));
 }

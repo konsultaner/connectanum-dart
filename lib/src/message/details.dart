@@ -15,6 +15,23 @@ class Details {
   Uri procedure;
   int trustlevel;
   Roles roles;
+
+  static forHello() {
+    final details = new Details();
+    details.roles = new Roles();
+
+    details.roles.caller = new Caller();
+    details.roles.caller.features = new CallerFeatures();
+
+    details.roles.callee = new Callee();
+    details.roles.callee.features = new CalleeFeatures();
+
+    details.roles.publisher = new Publisher();
+    details.roles.publisher.feature = new PublisherFeatures();
+
+    details.roles.subscriber = new Subscriber();
+    details.roles.subscriber.features = new SubscriberFeatures();
+  }
 }
 
 class Roles{

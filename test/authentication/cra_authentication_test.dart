@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:connectanum_dart/src/authentication/cra_authentication.dart';
+import 'package:connectanum_dart/src/message/challenge.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -22,6 +23,18 @@ void main() {
     test("hmac encode", () {
       final mac = CraAuthentication.encodeHmac(Uint8List.fromList(keyValue.codeUnits), 32, Uint8List.fromList(challenge.codeUnits));
       expect(mac, equals(hmac));
+    });
+
+    test("message handling", () async {
+      final authMethod = CraAuthentication(secret);
+      expect(authMethod.getName(), equals("wampcra"));
+      Extra extra = new Extra();
+      extra.challenge = challenge;
+      extra.keylen = 32;
+      extra.iterations = 1000;
+      extra.salt = salt;
+      final authenticate = await authMethod.challenge(extra);
+      expect(authenticate.signature, equals(hmac));
     });
   });
 }
