@@ -45,7 +45,7 @@ class Session extends SessionModel {
   final Map<int, BehaviorSubject<Event>> events = new HashMap();
   final Map<int, BehaviorSubject<Invocation>> invocations = new HashMap();
 
-  BehaviorSubject<Session> get authenticateSubject => _protocolProcessor.authenticateSubject;
+  BehaviorSubject<SessionModel> get authenticateSubject => _protocolProcessor.authenticateSubject;
   ProtocolProcessor get protocolProcessor => _protocolProcessor;
 
   static Future<Session> start(
@@ -79,12 +79,12 @@ class Session extends SessionModel {
      * If an authentication process is successful the session should be filled
      * with all session information.
      */
-    session.authenticateSubject.listen((sessionBean) {
-      session.id = sessionBean.id;
-      session.authId = sessionBean.authId;
-      session.authMethod = sessionBean.authMethod;
-      session.authProvider = sessionBean.authProvider;
-      session.authRole = sessionBean.authRole;
+    session.authenticateSubject.listen((sessionModel) {
+      session.id = sessionModel.id;
+      session.authId = sessionModel.authId;
+      session.authMethod = sessionModel.authMethod;
+      session.authProvider = sessionModel.authProvider;
+      session.authRole = sessionModel.authRole;
       completer.complete(session);
     });
 

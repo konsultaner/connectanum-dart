@@ -25,6 +25,7 @@ class Client {
   {}
 
   Future<Session> connect() async {
+    await transport.open();
     return Session.start(realm, transport, authId: authId, authMethods: authenticationMethods, reconnect: reconnectTime);
   }
 }

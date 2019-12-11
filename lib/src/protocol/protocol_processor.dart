@@ -20,7 +20,7 @@ import '../message/unsubscribed.dart';
 
 class ProtocolProcessor {
   final BehaviorSubject<AbstractMessage> messageSubject = new BehaviorSubject<AbstractMessage>();
-  final BehaviorSubject<Session> authenticateSubject = new BehaviorSubject<Session>();
+  final BehaviorSubject<SessionModel> authenticateSubject = new BehaviorSubject<SessionModel>();
 
   ProtocolProcessor() {}
 

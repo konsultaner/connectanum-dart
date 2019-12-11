@@ -1,5 +1,6 @@
 import 'package:connectanum_dart/src/client.dart';
 import 'package:connectanum_dart/src/message/abstract_message.dart';
+import 'package:connectanum_dart/src/message/details.dart';
 import 'package:connectanum_dart/src/message/message_types.dart';
 import 'package:connectanum_dart/src/message/welcome.dart';
 import 'package:connectanum_dart/src/transport/abstract_transport.dart';
@@ -16,10 +17,26 @@ void main() {
       );
       transport.outbound.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
-          transport.receive(new Welcome());
+          transport.receive(
+              new Welcome(
+                  sessionId: 42,
+                  details: Details.forWelcome(
+                    authId: "Richi",
+                    authMethod: "none",
+                    authProvider: "noProvider",
+                    authRole: "client"
+                  )
+              )
+          );
         }
       });
       final session = await client.connect();
+      expect(session.realm, equals("test.realm"));
+      expect(session.id, equals(42));
+      expect(session.authId, equals("Richi"));
+      expect(session.authRole, equals("client"));
+      expect(session.authProvider, equals("noProvider"));
+      expect(session.authMethod, equals("none"));
     });
   });
 }
@@ -39,7 +56,6 @@ class _MockTransport extends AbstractTransport {
     outbound.add(message);
   }
 
-  @override
   void receive(AbstractMessage message) {
     this.inbound.add(message);
   }

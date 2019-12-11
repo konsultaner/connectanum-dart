@@ -31,6 +31,31 @@ class Details {
 
     details.roles.subscriber = new Subscriber();
     details.roles.subscriber.features = new SubscriberFeatures();
+
+    return details;
+  }
+
+  static forWelcome({
+    String authId,
+    String authMethod,
+    String authProvider,
+    String authRole,
+  }) {
+    final details = new Details();
+    details.authid = authId;
+    details.authmethod = authMethod;
+    details.authprovider = authProvider;
+    details.authrole = authRole;
+
+    details.roles = new Roles();
+
+    details.roles.dealer = new Dealer();
+    details.roles.dealer.features = new DealerFeatures();
+
+    details.roles.broker = new Broker();
+    details.roles.broker.features = new BrokerFeatures();
+
+    return details;
   }
 }
 
