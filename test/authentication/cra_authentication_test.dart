@@ -28,11 +28,12 @@ void main() {
     test("message handling", () async {
       final authMethod = CraAuthentication(secret);
       expect(authMethod.getName(), equals("wampcra"));
-      Extra extra = new Extra();
-      extra.challenge = challenge;
-      extra.keylen = 32;
-      extra.iterations = 1000;
-      extra.salt = salt;
+      Extra extra = new Extra(
+          challenge : challenge,
+          keylen : 32,
+          iterations : 1000,
+          salt : salt
+      );
       final authenticate = await authMethod.challenge(extra);
       expect(authenticate.signature, equals(hmac));
     });

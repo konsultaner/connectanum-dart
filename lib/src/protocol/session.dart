@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:connectanum_dart/src/message/authenticate.dart';
 import 'package:connectanum_dart/src/protocol/session_model.dart';
 import 'package:connectanum_dart/src/message/uri_pattern.dart';
 import 'package:rxdart/subjects.dart';
@@ -28,6 +29,7 @@ import '../authentication/abstract_authentication.dart';
 class Session extends SessionModel {
 
   ProtocolProcessor _protocolProcessor = new ProtocolProcessor();
+  AbstractTransport _transport;
 
   int nextCallId = 1;
   int nextPublishId = 1;
@@ -74,6 +76,7 @@ class Session extends SessionModel {
      */
     final session = new Session();
     session.realm = realm;
+    session._transport = transport;
 
     /**
      * If an authentication process is successful the session should be filled
@@ -104,10 +107,14 @@ class Session extends SessionModel {
       hello.details.authid = authId;
     }
     if (authMethods != null && authMethods.length > 0) {
-      hello.details.authmethods = authMethods.map((authMethod) => authMethod.getName());
+      hello.details.authmethods = authMethods.map<String>((authMethod) => authMethod.getName()).toList();
     }
     transport.send(hello);
     return completer.future;
+  }
+
+  authenticate(Authenticate authenticate) {
+    this._transport.send(authenticate);
   }
 
   call(String procedure,

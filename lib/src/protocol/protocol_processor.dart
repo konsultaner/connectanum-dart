@@ -19,7 +19,6 @@ import '../message/unregistered.dart';
 import '../message/unsubscribed.dart';
 
 class ProtocolProcessor {
-  final BehaviorSubject<AbstractMessage> messageSubject = new BehaviorSubject<AbstractMessage>();
   final BehaviorSubject<SessionModel> authenticateSubject = new BehaviorSubject<SessionModel>();
 
   ProtocolProcessor() {}
@@ -29,7 +28,7 @@ class ProtocolProcessor {
       final AbstractAuthentication foundAuthMethod = authenticationStore.where((authenticationMethod) => authenticationMethod.getName() == (message as Challenge).authMethod).first;
       if (foundAuthMethod != null) {
         Authenticate authenticate = await foundAuthMethod.challenge((message as Challenge).extra);
-        messageSubject.add(authenticate);
+        session.authenticate(authenticate);
       }
     } else if (message.id == MessageTypes.CODE_WELCOME) {
       final sessionData = new SessionModel();
