@@ -4,14 +4,14 @@ import 'abstract_message_with_payload.dart';
 
 class Yield extends AbstractMessageWithPayload {
     int invocationRequestId;
-    YieldDetails details;
+    YieldOptions options;
 
-    Yield(this.invocationRequestId, this.details){
+    Yield(this.invocationRequestId, this.options){
         this.id = MessageTypes.CODE_YIELD;
     }
 }
 
-class YieldDetails {
+class YieldOptions {
     bool progress;
 }
 

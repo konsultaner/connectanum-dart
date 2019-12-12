@@ -9,14 +9,18 @@ class Result extends AbstractMessageWithPayload {
     /**
      * The ID of the publication of the published event.
      */
-    Details details;
+    ResultDetails details;
 
-    bool isProgressive(){
+    Result(this.callRequestId, this.details);
+
+  bool isProgressive(){
         return this.details != null && this.details.progress != null && this.details.progress;
     }
 }
 
-class Details {
+class ResultDetails {
     // progressive_call_results == true
     bool progress;
+
+    ResultDetails(this.progress);
 }

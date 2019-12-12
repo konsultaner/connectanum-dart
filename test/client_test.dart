@@ -23,8 +23,8 @@ void main() {
         if (message.id == MessageTypes.CODE_HELLO) {
           transport.receive(
               new Welcome(
-                  sessionId: 42,
-                  details: Details.forWelcome(
+                  42,
+                  Details.forWelcome(
                     authId: "Richi",
                     authMethod: "none",
                     authProvider: "noProvider",
@@ -68,8 +68,8 @@ void main() {
         if (message.id == MessageTypes.CODE_AUTHENTICATE && (message as Authenticate).signature == "APO4Z6Z0sfpJ8DStwj+XgwJkHkeSw+eD9URKSHf+FKQ=") {
           transport.receive(
               new Welcome(
-                  sessionId: 586844620777222,
-                  details: Details.forWelcome(
+                  586844620777222,
+                  Details.forWelcome(
                       authId: "11111111",
                       authMethod: "wampcra",
                       authProvider: "cra",

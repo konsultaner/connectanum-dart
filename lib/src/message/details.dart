@@ -27,7 +27,7 @@ class Details {
     details.roles.callee.features = new CalleeFeatures();
 
     details.roles.publisher = new Publisher();
-    details.roles.publisher.feature = new PublisherFeatures();
+    details.roles.publisher.features = new PublisherFeatures();
 
     details.roles.subscriber = new Subscriber();
     details.roles.subscriber.features = new SubscriberFeatures();
@@ -69,7 +69,7 @@ class Roles{
 }
 
 class Publisher{
-  PublisherFeatures feature;
+  PublisherFeatures features;
 }
 class PublisherFeatures{
   bool publisher_identification = true;

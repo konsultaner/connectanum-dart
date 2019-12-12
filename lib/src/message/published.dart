@@ -7,4 +7,6 @@ class Published extends AbstractMessage {
      * A Id chosen by the broker
      */
     int publicationId;
+
+    Published(this.publishRequestId, this.publicationId);
 }

@@ -10,17 +10,21 @@ class Event extends AbstractMessageWithPayload {
      * The ID of the publication of the published event.
      */
     int publicationId;
-    Details details;
+    EventDetails details;
+
+    Event(this.subscriptionId, this.publicationId, this.details);
 }
 
 /**
  * Options used influence the event behavior
  */
-class Details {
+class EventDetails {
     // publisher_identification == true
     int publisher;
     // publication_trustlevels == true
     int trustlevel;
     // for pattern-matching
     Uri topic;
+
+    EventDetails(this.publisher, this.trustlevel, this.topic);
 }

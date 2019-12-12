@@ -8,4 +8,6 @@ class Registered extends AbstractMessage {
   int registrationId;
 
   BehaviorSubject<Invocation> invocationStream;
+
+  Registered(this.registerRequestId, this.registrationId);
 }

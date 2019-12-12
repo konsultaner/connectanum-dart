@@ -6,21 +6,23 @@ class Invocation extends AbstractMessageWithPayload {
 
     int requestId;
     int registrationId;
-    Details details;
+    InvocationDetails details;
 
     Yield toYield(){
-        YieldDetails details = new YieldDetails();
+        YieldOptions details = new YieldOptions();
         return new Yield(this.requestId,details);
     }
 
-
-
+    Invocation(this.requestId, this.registrationId, this.details);
 }
-class Details {
+
+class InvocationDetails {
     // caller_identification == true
     int caller;
     // pattern_based_registration == true
-    Uri procedure;
+    String procedure;
     // pattern_based_registration == true
     bool receive_progress;
+
+    InvocationDetails(this.caller, this.procedure, this.receive_progress);
 }

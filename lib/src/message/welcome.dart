@@ -7,7 +7,7 @@ class Welcome extends AbstractMessage {
     int sessionId;
     Details details;
 
-    Welcome({this.sessionId, this.details}) {
+    Welcome(this.sessionId, this.details) {
         this.id = MessageTypes.CODE_WELCOME;
     }
 }
