@@ -93,19 +93,19 @@ class Serializer extends AbstractSerializer<String> {
   @override
   String serialize(AbstractMessage message) {
     if (message is Hello) {
-      return "[${MessageTypes.CODE_HELLO},${message.realm},${_serializeDetails(message.details)}]";
+      return '[${MessageTypes.CODE_HELLO},"${message.realm}",${_serializeDetails(message.details)}]';
     }
     if (message is Authenticate) {
-      return "[${MessageTypes.CODE_AUTHENTICATE},${message.signature},{}]";
+      return '[${MessageTypes.CODE_AUTHENTICATE},"${message.signature ?? ""}",{}]';
     }
     if (message is Register) {
-        return "[${MessageTypes.CODE_REGISTER},${message.requestId},${message.procedure},${_serializeRegisterOptions(message.options)}]";
+        return '[${MessageTypes.CODE_REGISTER},${message.requestId},"${message.procedure}",${_serializeRegisterOptions(message.options)}]';
     }
     if (message is Unregister) {
-        return "[${MessageTypes.CODE_REGISTER},${message.requestId},${message.registrationId}]";
+        return '[${MessageTypes.CODE_REGISTER},${message.requestId},${message.registrationId}]';
     }
     if (message is Call) {
-        return "[${MessageTypes.CODE_CALL},${message.requestId},${message.options},${message.procedure}${_serializePayload(message)}]";
+        return '[${MessageTypes.CODE_CALL},${message.requestId},${message.options},"${message.procedure}"${_serializePayload(message)}]';
     }
     if (message is Yield) {
         return "[${MessageTypes.CODE_YIELD},${message.invocationRequestId},${_serializeYieldOptions(message.options)}${_serializePayload(message)}]";
@@ -126,7 +126,7 @@ class Serializer extends AbstractSerializer<String> {
         return "[${MessageTypes.CODE_GOODBYE},${message.requestTypeId},${message.requestId},${json.encode(message.details)}${_serializePayload(message)}]";
     }
     if (message is Goodbye) {
-        return "[${MessageTypes.CODE_GOODBYE},${message.message != null ? "{\"message\":\"${message.message.message ?? ""}\"" : "{}"},${message.reason}]";
+        return '[${MessageTypes.CODE_GOODBYE},${message.message != null ? '"{"message":"${message.message.message ?? ""}"' : "{}"},${message.reason}]';
     }
     return null;
   }
@@ -141,7 +141,7 @@ class Serializer extends AbstractSerializer<String> {
         callerFeatures.add('"caller_identification":${details.roles.caller.features.caller_identification ? "true" : "false"}');
         callerFeatures.add('"payload_transparency":${details.roles.caller.features.payload_transparency ? "true" : "false"}');
         callerFeatures.add('"progressive_call_results":${details.roles.caller.features.progressive_call_results ? "true" : "false"}');
-        rolesJson.add('"caller":{"features":{${callerFeatures.join(",")}}');
+        rolesJson.add('"caller":{"features":{${callerFeatures.join(",")}}}');
       }
       if (details.roles.callee != null && details.roles.callee.features != null) {
         List<String> calleeFeatures = [];
@@ -153,7 +153,7 @@ class Serializer extends AbstractSerializer<String> {
         calleeFeatures.add('"call_canceling":${details.roles.callee.features.call_canceling ? "true" : "false"}');
         calleeFeatures.add('"progressive_call_results":${details.roles.callee.features.progressive_call_results ? "true" : "false"}');
         calleeFeatures.add('"payload_transparency":${details.roles.callee.features.payload_transparency ? "true" : "false"}');
-        rolesJson.add('"callee":{"features":{${calleeFeatures.join(",")}}');
+        rolesJson.add('"callee":{"features":{${calleeFeatures.join(",")}}}');
       }
       if (details.roles.subscriber != null && details.roles.subscriber.features != null) {
         List<String> subscriberFeatures = [];
@@ -161,7 +161,7 @@ class Serializer extends AbstractSerializer<String> {
         subscriberFeatures.add('"call_canceling":${details.roles.subscriber.features.call_canceling ? "true" : "false"}');
         subscriberFeatures.add('"progressive_call_results":${details.roles.subscriber.features.progressive_call_results ? "true" : "false"}');
         subscriberFeatures.add('"payload_transparency":${details.roles.subscriber.features.payload_transparency ? "true" : "false"}');
-        rolesJson.add('"subscriber":{"features":{${subscriberFeatures.join(",")}}');
+        rolesJson.add('"subscriber":{"features":{${subscriberFeatures.join(",")}}}');
       }
       if (details.roles.publisher != null && details.roles.publisher.features != null) {
         List<String> publisherFeatures = [];
@@ -169,9 +169,9 @@ class Serializer extends AbstractSerializer<String> {
         publisherFeatures.add('"subscriber_blackwhite_listing":${details.roles.publisher.features.subscriber_blackwhite_listing ? "true" : "false"}');
         publisherFeatures.add('"publisher_exclusion":${details.roles.publisher.features.publisher_exclusion ? "true" : "false"}');
         publisherFeatures.add('"payload_transparency":${details.roles.publisher.features.payload_transparency ? "true" : "false"}');
-        rolesJson.add('"publisher":{"features":{${publisherFeatures.join(",")}}');
+        rolesJson.add('"publisher":{"features":{${publisherFeatures.join(",")}}}');
       }
-      return "{${rolesJson.join(",")}";
+      return "{${rolesJson.join(",")}}";
     } else {
       return "{}";
     }

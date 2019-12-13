@@ -20,7 +20,6 @@ final client = new Client(
     realm: "my.realm",
     transport: transport
 );
-await transport.open();
 final session await client.connect();
 ```
 
@@ -29,9 +28,8 @@ final session await client.connect();
 to work with RPCs you need to have an established session. 
 
 ```dart
-final client = new Client();
-// ...
-final session await client.connect();
+final client = new Client(realm: "my.realm",new WebSocketTransport("wss://localhost:8443"));
+final session = await client.connect();
 
 // Register a procedure
 final registered = await session.register("my.procedure");
