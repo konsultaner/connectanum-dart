@@ -1,3 +1,3 @@
 abstract class AbstractMessage {
-    int id;
+  int id;
 }

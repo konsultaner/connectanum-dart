@@ -4,6 +4,7 @@ import 'dart:collection';
 import 'package:connectanum_dart/src/message/authenticate.dart';
 import 'package:connectanum_dart/src/protocol/session_model.dart';
 import 'package:connectanum_dart/src/message/uri_pattern.dart';
+import 'package:rxdart/rxdart.dart';
 import 'package:rxdart/subjects.dart';
 
 import 'protocol_processor.dart';
@@ -179,17 +180,19 @@ class Session extends SessionModel {
     }).take(1);
   }
 
-  register(String procedure, {RegisterOptions options}) {
+  Observable<Registered> register(String procedure, {RegisterOptions options}) {
     Register register =
         new Register(nextRegisterId++, procedure, options: options);
     registers[register.requestId] = new BehaviorSubject();
-    return registers[register.requestId].map((registered) {
+    final observable = registers[register.requestId].map((registered) {
       registered.invocationStream = new BehaviorSubject();
       invocations[registered.registrationId] = registered.invocationStream;
       return registered;
     }).doOnEach((notification) {
       registers.remove(register.requestId);
     }).take(1);
+    this._transport.send(register);
+    return observable;
   }
 
   unregister(int registrationId) {

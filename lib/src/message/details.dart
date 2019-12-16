@@ -59,7 +59,7 @@ class Details {
   }
 }
 
-class Roles{
+class Roles {
   Publisher publisher;
   Broker broker;
   Subscriber subscriber;
@@ -68,22 +68,23 @@ class Roles{
   Caller caller;
 }
 
-class Publisher{
+class Publisher {
   PublisherFeatures features;
 }
-class PublisherFeatures{
+
+class PublisherFeatures {
   bool publisher_identification = true;
   bool subscriber_blackwhite_listing = true;
   bool publisher_exclusion = true;
   bool payload_transparency = true;
 }
 
-class Broker{
+class Broker {
   bool reflection;
   BrokerFeatures features;
 }
 
-class BrokerFeatures{
+class BrokerFeatures {
   bool publisher_identification = false;
   bool publication_trustlevels = false;
   bool pattern_based_subscription = false;
@@ -95,23 +96,23 @@ class BrokerFeatures{
   bool payload_transparency = false;
 }
 
-class Subscriber{
+class Subscriber {
   SubscriberFeatures features;
 }
 
-class SubscriberFeatures{
+class SubscriberFeatures {
   bool call_timeout = false;
   bool call_canceling = false;
   bool progressive_call_results = false;
   bool payload_transparency = true;
 }
 
-class Dealer{
+class Dealer {
   bool reflection;
   DealerFeatures features;
 }
 
-class DealerFeatures{
+class DealerFeatures {
   bool caller_identification = false;
   bool call_trustlevels = false;
   bool pattern_based_registration = false;
@@ -124,11 +125,11 @@ class DealerFeatures{
   bool payload_transparency = false;
 }
 
-class Callee{
+class Callee {
   CalleeFeatures features;
 }
 
-class CalleeFeatures{
+class CalleeFeatures {
   bool caller_identification = true;
   bool call_trustlevels = false;
   bool pattern_based_registration = false;
@@ -139,11 +140,11 @@ class CalleeFeatures{
   bool payload_transparency = true;
 }
 
-class Caller{
+class Caller {
   CallerFeatures features;
 }
 
-class CallerFeatures{
+class CallerFeatures {
   bool caller_identification = true;
   bool call_timeout = false;
   bool call_canceling = false;

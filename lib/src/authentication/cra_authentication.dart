@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:connectanum_dart/src/authentication/abstract_authentication.dart';
 import 'package:connectanum_dart/src/message/authenticate.dart';
 import 'package:connectanum_dart/src/message/challenge.dart';
+import 'package:connectanum_dart/src/message/message_types.dart';
 import 'package:pointycastle/digests/sha256.dart';
 import 'package:pointycastle/key_derivators/pbkdf2.dart';
 import 'package:pointycastle/macs/hmac.dart';
@@ -23,9 +24,10 @@ class CraAuthentication extends AbstractAuthentication {
   Future<Authenticate> challenge(Extra extra) {
     Authenticate authenticate = new Authenticate();
     if (extra == null || extra.challenge == null || secret == null) {
-      final error = new Error();
-      error.error = "wamp.authentication.error";
-      error.details = new HashMap<String, Object>();
+      final error = new Error(
+        MessageTypes.CODE_CHALLENGE, -1, new HashMap<String, Object>(),
+        Error.AUTHORIZATION_FAILED
+      );
       error.details["reason"] = "No challenge or secret given, wrong router response";
       return Future.error(error);
     }

@@ -11,8 +11,8 @@ class Authenticate extends AbstractMessage {
   }
 
   factory Authenticate.signature(String signature) {
-      final authenticate = Authenticate();
-      authenticate.signature = signature;
-      return authenticate;
+    final authenticate = Authenticate();
+    authenticate.signature = signature;
+    return authenticate;
   }
 }

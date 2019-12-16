@@ -1,28 +1,34 @@
+import 'package:connectanum_dart/src/message/message_types.dart';
+
 import 'abstract_message.dart';
 
 class Register extends AbstractMessage {
-    int requestId;
-    RegisterOptions options;
-    String procedure;
+  int requestId;
+  RegisterOptions options;
+  String procedure;
 
-    Register(this.requestId, this.procedure, {this.options});
+  Register(this.requestId, this.procedure, {this.options}) {
+    this.id = MessageTypes.CODE_REGISTER;
+  }
 }
 
-class RegisterOptions{
-    static final String MATCH_EXACT = null;
-    static final String MATCH_PREFIX = "prefix";
-    static final String MATCH_WILDCARD = "wildcard";
+class RegisterOptions {
+  static final String MATCH_EXACT = null;
+  static final String MATCH_PREFIX = "prefix";
+  static final String MATCH_WILDCARD = "wildcard";
 
-    static final String INVOCATION_POLICY_SINGLE       = "single";
-    static final String INVOCATION_POLICY_FIRST        = "first";
-    static final String INVOCATION_POLICY_LAST         = "last";
-    static final String INVOCATION_POLICY_ROUND_ROBIN  = "roundrobin";
-    static final String INVOCATION_POLICY_RANDOM       = "random";
+  static final String INVOCATION_POLICY_SINGLE = "single";
+  static final String INVOCATION_POLICY_FIRST = "first";
+  static final String INVOCATION_POLICY_LAST = "last";
+  static final String INVOCATION_POLICY_ROUND_ROBIN = "roundrobin";
+  static final String INVOCATION_POLICY_RANDOM = "random";
 
-    // caller_identification == true
-    bool disclose_caller;
-    // pattern_based_registration == true
-    String match;
-    // shared_registration
-    String invoke;
+  // caller_identification == true
+  bool disclose_caller;
+
+  // pattern_based_registration == true
+  String match;
+
+  // shared_registration
+  String invoke;
 }

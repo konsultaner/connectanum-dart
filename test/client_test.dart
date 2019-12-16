@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:connectanum_dart/src/authentication/cra_authentication.dart';
 import 'package:connectanum_dart/src/client.dart';
 import 'package:connectanum_dart/src/message/abstract_message.dart';
@@ -6,6 +8,8 @@ import 'package:connectanum_dart/src/message/challenge.dart';
 import 'package:connectanum_dart/src/message/details.dart';
 import 'package:connectanum_dart/src/message/hello.dart';
 import 'package:connectanum_dart/src/message/message_types.dart';
+import 'package:connectanum_dart/src/message/register.dart';
+import 'package:connectanum_dart/src/message/registered.dart';
 import 'package:connectanum_dart/src/message/welcome.dart';
 import 'package:connectanum_dart/src/transport/abstract_transport.dart';
 import 'package:rxdart/rxdart.dart';
@@ -42,7 +46,6 @@ void main() {
       expect(session.authProvider, equals("noProvider"));
       expect(session.authMethod, equals("none"));
     });
-
     test("session creation with cra authentication process", () async {
       final transport = _MockTransport();
       final client = new Client(
@@ -86,6 +89,31 @@ void main() {
       expect(session.authRole, equals("client"));
       expect(session.authProvider, equals("cra"));
       expect(session.authMethod, equals("wampcra"));
+    });
+    test("procedure registration", () async {
+      final transport = _MockTransport();
+      final client = new Client(
+          realm: "test.realm",
+          transport: transport
+      );
+      transport.outbound.listen((message) {
+        if (message.id == MessageTypes.CODE_HELLO) {
+          transport.receive(new Welcome(42, Details.forWelcome()));
+        }
+        if (message.id == MessageTypes.CODE_REGISTER) {
+          transport.receive(new Registered((message as Register).requestId, 1010));
+        }
+      });
+      final session = await client.connect();
+      final registration = await session.register("my.procedure");
+      final completer = new Completer<Registered>();
+      registration.listen((registered) {
+        completer.complete(registered);
+      }, onError: (error) {});
+      final registered = await completer.future;
+      expect(registered, isNotNull);
+      expect(registered.registrationId, equals(1010));
+      expect(registered.invocationStream, isNotNull);
     });
   });
 }
