@@ -48,7 +48,46 @@ class Serializer extends AbstractSerializer<String> {
         ));
       }
       if (messageId == MessageTypes.CODE_WELCOME) {
-        return new Welcome(message[1], new Details()); // TODO
+        final details = new Details();
+        details.authid = message[2]["authid"] ?? "";
+        details.authprovider = message[2]["authprovider"] ?? "";
+        details.authmethod = message[2]["authmethod"] ?? "";
+        details.authrole = message[2]["authrole"] ?? "";
+        if (message[2]["roles"] != null) {
+          details.roles = new Roles();
+          if (message[2]["roles"]["dealer"] != null) {
+            details.roles.dealer = new Dealer();
+            if (message[2]["roles"]["broker"]["features"] != null) {
+              details.roles.dealer.features = new DealerFeatures();
+              details.roles.dealer.features.caller_identification = message[2]["roles"]["dealer"]["features"]["caller_identification"] ?? false;
+              details.roles.dealer.features.call_trustlevels = message[2]["roles"]["dealer"]["features"]["call_trustlevels"] ?? false;
+              details.roles.dealer.features.pattern_based_registration = message[2]["roles"]["dealer"]["features"]["pattern_based_registration"] ?? false;
+              details.roles.dealer.features.registration_meta_api = message[2]["roles"]["dealer"]["features"]["registration_meta_api"] ?? false;
+              details.roles.dealer.features.shared_registration = message[2]["roles"]["dealer"]["features"]["shared_registration"] ?? false;
+              details.roles.dealer.features.session_meta_api = message[2]["roles"]["dealer"]["features"]["session_meta_api"] ?? false;
+              details.roles.dealer.features.call_timeout = message[2]["roles"]["dealer"]["features"]["call_timeout"] ?? false;
+              details.roles.dealer.features.call_canceling = message[2]["roles"]["dealer"]["features"]["call_canceling"] ?? false;
+              details.roles.dealer.features.progressive_call_results = message[2]["roles"]["dealer"]["features"]["progressive_call_results"] ?? false;
+              details.roles.dealer.features.payload_transparency = message[2]["roles"]["dealer"]["features"]["payload_transparency"] ?? false;
+            }
+          }
+          if (message[2]["roles"]["broker"] != null) {
+            details.roles.broker = new Broker();
+            if (message[2]["roles"]["broker"]["features"] != null) {
+              details.roles.broker.features = new BrokerFeatures();
+              details.roles.broker.features.publisher_identification = message[2]["roles"]["broker"]["features"]["publisher_identification"] ?? false;
+              details.roles.broker.features.publication_trustlevels = message[2]["roles"]["broker"]["features"]["publication_trustlevels"] ?? false;
+              details.roles.broker.features.pattern_based_subscription = message[2]["roles"]["broker"]["features"]["pattern_based_subscription"] ?? false;
+              details.roles.broker.features.subscription_meta_api = message[2]["roles"]["broker"]["features"]["subscription_meta_api"] ?? false;
+              details.roles.broker.features.subscriber_blackwhite_listing = message[2]["roles"]["broker"]["features"]["subscriber_blackwhite_listing"] ?? false;
+              details.roles.broker.features.session_meta_api = message[2]["roles"]["broker"]["features"]["session_meta_api"] ?? false;
+              details.roles.broker.features.publisher_exclusion = message[2]["roles"]["broker"]["features"]["publisher_exclusion"] ?? false;
+              details.roles.broker.features.event_history = message[2]["roles"]["broker"]["features"]["event_history"] ?? false;
+              details.roles.broker.features.payload_transparency = message[2]["roles"]["broker"]["features"]["payload_transparency"] ?? false;
+            }
+          }
+        }
+        return new Welcome(message[1], details);
       }
       if (messageId == MessageTypes.CODE_REGISTERED) {
         return new Registered(message[1], message[2]);
