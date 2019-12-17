@@ -47,6 +47,7 @@ class ProtocolProcessor {
     } else if (message.id == MessageTypes.CODE_UNSUBSCRIBED) {
       session.unsubscribes[(message as Unsubscribed).unsubscribeRequestId].add(message);
     } else if (message.id == MessageTypes.CODE_INVOCATION) {
+      session.setInvocationTransportChannel(message);
       session.invocations[(message as Invocation).registrationId].add(message);
     } else if (message.id == MessageTypes.CODE_PUBLISHED) {
       session.publishes[(message as Published).publishRequestId].add(message);

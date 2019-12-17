@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:connectanum_dart/src/authentication/cra_authentication.dart';
 import 'package:connectanum_dart/src/client.dart';
@@ -6,11 +7,14 @@ import 'package:connectanum_dart/src/message/abstract_message.dart';
 import 'package:connectanum_dart/src/message/authenticate.dart';
 import 'package:connectanum_dart/src/message/challenge.dart';
 import 'package:connectanum_dart/src/message/details.dart';
+import 'package:connectanum_dart/src/message/error.dart';
 import 'package:connectanum_dart/src/message/hello.dart';
 import 'package:connectanum_dart/src/message/message_types.dart';
 import 'package:connectanum_dart/src/message/register.dart';
 import 'package:connectanum_dart/src/message/registered.dart';
+import 'package:connectanum_dart/src/message/invocation.dart';
 import 'package:connectanum_dart/src/message/welcome.dart';
+import 'package:connectanum_dart/src/message/yield.dart';
 import 'package:connectanum_dart/src/transport/abstract_transport.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:test/test.dart';
@@ -90,12 +94,15 @@ void main() {
       expect(session.authProvider, equals("cra"));
       expect(session.authMethod, equals("wampcra"));
     });
-    test("procedure registration", () async {
+    test("procedure registration and invocation", () async {
       final transport = _MockTransport();
       final client = new Client(
           realm: "test.realm",
           transport: transport
       );
+      final yieldCompleter = new Completer<Yield>();
+      final error1completer = new Completer<Error>();
+      final error2completer = new Completer<Error>();
       transport.outbound.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
           transport.receive(new Welcome(42, Details.forWelcome()));
@@ -103,17 +110,68 @@ void main() {
         if (message.id == MessageTypes.CODE_REGISTER) {
           transport.receive(new Registered((message as Register).requestId, 1010));
         }
+        if (message.id == MessageTypes.CODE_YIELD) {
+          yieldCompleter.complete(message as Yield);
+        }
+        if (message.id == MessageTypes.CODE_ERROR && (message as Error).error == Error.UNKNOWN) {
+          error1completer.complete(message as Error);
+        }
+        if (message.id == MessageTypes.CODE_ERROR && (message as Error).error == Error.NOT_AUTHORIZED) {
+          error2completer.complete(message as Error);
+        }
       });
       final session = await client.connect();
       final registration = await session.register("my.procedure");
-      final completer = new Completer<Registered>();
+      final registrationCompleter = new Completer<Registered>();
+      final registrationErrorCompleter = new Completer<Error>();
       registration.listen((registered) {
-        completer.complete(registered);
-      }, onError: (error) {});
-      final registered = await completer.future;
+        registrationCompleter.complete(registered);
+      }, onError: (error) {
+        registrationErrorCompleter.complete(error);
+      });
+      final registered = await registrationCompleter.future;
       expect(registered, isNotNull);
       expect(registered.registrationId, equals(1010));
-      expect(registered.invocationStream, isNotNull);
+      registered.onInvocation((invocation) {
+        if (invocation.argumentsKeywords["value"] == 0) {
+          invocation.respondWith(arguments: invocation.arguments, argumentsKeywords: invocation.argumentsKeywords);
+        }
+        if (invocation.argumentsKeywords["value"] == -1) {
+          throw new Exception("Something went wrong");
+        }
+        if (invocation.argumentsKeywords["value"] == 1) {
+          invocation.respondWith(isError: true, errorUri: Error.NOT_AUTHORIZED, arguments: invocation.arguments, argumentsKeywords: invocation.argumentsKeywords);
+        }
+      });
+      final argumentsKeywords = new HashMap<String, Object>();
+      argumentsKeywords["value"] = 0;
+      transport.receive(new Invocation(11001100, registered.registrationId, new InvocationDetails(null, null, false), arguments: ["did work"], argumentsKeywords: argumentsKeywords));
+      final yieldMessage = await yieldCompleter.future;
+      expect(yieldMessage, isNotNull);
+      expect(yieldMessage.argumentsKeywords["value"], equals(0));
+      expect(yieldMessage.arguments[0], equals("did work"));
+
+      final argumentsKeywords2 = new HashMap<String, Object>();
+      argumentsKeywords2["value"] = -1;
+      transport.receive(new Invocation(11001101, registered.registrationId, new InvocationDetails(null, null, false), arguments: ["did work"], argumentsKeywords: argumentsKeywords2));
+      final error1 = await error1completer.future;
+      expect(error1.requestTypeId, equals(MessageTypes.CODE_INVOCATION));
+      expect(error1.requestId, equals(11001101));
+      expect(error1, isNotNull);
+      expect(error1.error, equals(Error.UNKNOWN));
+      expect(error1.arguments[0], equals("Exception: Something went wrong"));
+
+      final argumentsKeywords3 = new HashMap<String, Object>();
+      argumentsKeywords3["value"] = 1;
+      transport.receive(new Invocation(11001102, registered.registrationId, new InvocationDetails(null, null, false), arguments: ["did work"], argumentsKeywords: argumentsKeywords3));
+      final error2 = await error2completer.future;
+      expect(error2, isNotNull);
+      expect(error2.requestTypeId, equals(MessageTypes.CODE_INVOCATION));
+      expect(error2.requestId, equals(11001102));
+      expect(error2.error, equals(Error.NOT_AUTHORIZED));
+      expect(error2.arguments[0], equals("did work"));
+      expect(error2.argumentsKeywords["value"], equals(1));
+
     });
   });
 }
