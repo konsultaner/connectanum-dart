@@ -41,6 +41,10 @@ class Invocation extends AbstractMessageWithPayload {
     this.argumentsKeywords = argumentsKeywords;
   }
 
+  bool isProgressive() {
+    return this.details.receive_progress ?? false;
+  }
+
   void onResponse(void Function(AbstractMessageWithPayload invocationResultMessage) onData) {
     _responseSubject = new BehaviorSubject<AbstractMessageWithPayload>();
     _responseSubject.listen(onData);

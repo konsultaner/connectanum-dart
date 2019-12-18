@@ -29,5 +29,5 @@ class CallOptions {
   // caller_identification == true
   bool disclose_me;
 
-  CallOptions(this.receive_progress, this.timeout, this.disclose_me);
+  CallOptions({this.receive_progress, this.timeout, this.disclose_me});
 }

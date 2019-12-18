@@ -144,13 +144,13 @@ class Serializer extends AbstractSerializer<String> {
         return '[${MessageTypes.CODE_REGISTER},${message.requestId},${message.registrationId}]';
     }
     if (message is Call) {
-        return '[${MessageTypes.CODE_CALL},${message.requestId},${message.options},"${message.procedure}"${_serializePayload(message)}]';
+        return '[${MessageTypes.CODE_CALL},${message.requestId},${_serializeCallOptions(message.options)},"${message.procedure}"${_serializePayload(message)}]';
     }
     if (message is Yield) {
         return "[${MessageTypes.CODE_YIELD},${message.invocationRequestId},${_serializeYieldOptions(message.options)}${_serializePayload(message)}]";
     }
     if (message is Publish) {
-        return "[${MessageTypes.CODE_PUBLISH},${message.requestId},${message.options},${message.topic}${_serializePayload(message)}]";
+        return "[${MessageTypes.CODE_PUBLISH},${message.requestId},${_serializePublish(message.options)},${message.topic}${_serializePayload(message)}]";
     }
     if (message is Event) {
         return "[${MessageTypes.CODE_EVENT},${message.subscriptionId},${message.publicationId}${_serializePayload(message)}]";
@@ -243,11 +243,35 @@ class Serializer extends AbstractSerializer<String> {
     return "{" + jsonOptions.join(",") + "}";
   }
 
+  String _serializeCallOptions(CallOptions options) {
+    List<String> jsonOptions = [];
+    if(options.receive_progress != null) {
+      jsonOptions.add('"receive_progress":"${options.receive_progress ? "true" : "false"}"');
+    }
+    if(options.disclose_me != null) {
+      jsonOptions.add('"disclose_me":${options.disclose_me ? "true" : "false"}');
+    }
+    if(options.timeout != null) {
+      jsonOptions.add('"timeout":${options.timeout}');
+    }
+
+    return "{" + jsonOptions.join(",") + "}";
+  }
+
   String _serializeYieldOptions(YieldOptions options) {
     List<String> jsonDetails = [];
     if(options.progress != null) {
       jsonDetails.add('"progress":${options.progress ? "true" : "false"}');
     }
+    return "{" + jsonDetails.join(",") + "}";
+  }
+
+  String _serializePublish(PublishOptions options) {
+    List<String> jsonDetails = [];
+    if(options.disclose_me != null) {
+      jsonDetails.add('"disclose_me":${options.disclose_me ? "true" : "false"}');
+    }
+    // TODO
     return "{" + jsonDetails.join(",") + "}";
   }
 
