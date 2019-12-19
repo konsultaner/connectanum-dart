@@ -1,7 +1,7 @@
 # connectanum-dart
 
 This is a wamp client implementation for dart or flutter projects. The projects aims to 
-provide a simple an extensible structure.
+provide a simple an extensible structure and returning something to the great WAMP-Protocol community.
 
 ## Supported WAMP features
 
