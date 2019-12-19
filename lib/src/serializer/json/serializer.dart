@@ -117,6 +117,7 @@ class Serializer extends AbstractSerializer<String> {
         )),message,5);
       }
     }
+    throw new Exception(""); // TODO think of something helpful here...
   }
 
   AbstractMessageWithPayload _addPayload(AbstractMessageWithPayload message, List<Object> messageData, argumentsOffset) {

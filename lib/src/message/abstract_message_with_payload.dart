@@ -1,7 +1,5 @@
 import 'dart:typed_data';
 
-import 'package:connectanum_dart/src/message/message_types.dart';
-
 import 'abstract_message.dart';
 
 /**
