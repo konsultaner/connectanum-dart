@@ -168,7 +168,7 @@ class Serializer extends AbstractSerializer<String> {
     if (message is Goodbye) {
         return '[${MessageTypes.CODE_GOODBYE},${message.message != null ? '"{"message":"${message.message.message ?? ""}"' : "{}"},${message.reason}]';
     }
-    return null;
+    throw new Exception(""); // TODO think of something helpful here...
   }
 
   String _serializeDetails(Details details) {
@@ -272,7 +272,30 @@ class Serializer extends AbstractSerializer<String> {
     if(options.disclose_me != null) {
       jsonDetails.add('"disclose_me":${options.disclose_me ? "true" : "false"}');
     }
-    // TODO
+    if(options.acknowledge != null) {
+      jsonDetails.add('"acknowledge":${options.acknowledge ? "true" : "false"}');
+    }
+    if(options.exclude_me != null) {
+      jsonDetails.add('"acknowledge":${options.exclude_me ? "true" : "false"}');
+    }
+    if(options.exclude != null) {
+      jsonDetails.add('"exclude":[${options.exclude.join(",")}]');
+    }
+    if(options.exclude_authid != null) {
+      jsonDetails.add('"exclude_authid":["${options.exclude_authid.join('","')}"]');
+    }
+    if(options.exclude_authrole != null) {
+      jsonDetails.add('"exclude_authrole":["${options.exclude_authrole.join('","')}"]');
+    }
+    if(options.eligible != null) {
+      jsonDetails.add('"eligible":[${options.eligible.join(",")}]');
+    }
+    if(options.eligible_authid != null) {
+      jsonDetails.add('"eligible_authid":["${options.eligible_authid.join('","')}"]');
+    }
+    if(options.eligible_authrole != null) {
+      jsonDetails.add('"eligible_authrole":["${options.eligible_authrole.join('","')}"]');
+    }
     return "{" + jsonDetails.join(",") + "}";
   }
 
