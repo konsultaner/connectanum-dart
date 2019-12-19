@@ -8,7 +8,6 @@ import 'abstract_message.dart';
  * CALL,EVENT,RESULT,ERROR,PUBLISH,INVOCATION,YIELD may have a transparent payload
  */
 abstract class AbstractMessageWithPayload extends AbstractMessage {
-  String transparentStringPayload;
   Uint8List transparentBinaryPayload;
   List<Object> arguments;
   Map<String, Object> argumentsKeywords;
@@ -24,7 +23,6 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
         ? []
         : this.arguments;
     message.argumentsKeywords = this.argumentsKeywords;
-    message.transparentStringPayload = this.transparentStringPayload;
     message.transparentBinaryPayload = this.transparentBinaryPayload;
   }
 }

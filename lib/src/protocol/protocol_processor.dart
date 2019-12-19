@@ -72,9 +72,9 @@ class ProtocolProcessor {
         session.subscribes[requestId].addError(message);
       } else if (requestTypeId == MessageTypes.CODE_UNSUBSCRIBED) {
         session.unsubscribes[requestId].addError(message);
-      } else if (requestTypeId == MessageTypes.CODE_UNSUBSCRIBED) {
+      } else if (requestTypeId == MessageTypes.CODE_PUBLISHED) {
         session.publishes[requestId].addError(message);
-      } else if (requestTypeId == MessageTypes.CODE_UNSUBSCRIBED) {
+      } else if (requestTypeId == MessageTypes.CODE_CALL) {
         session.calls[requestId].addError(message);
       }
     }

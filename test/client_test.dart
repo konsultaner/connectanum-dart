@@ -14,6 +14,7 @@ import 'package:connectanum_dart/src/message/message_types.dart';
 import 'package:connectanum_dart/src/message/register.dart';
 import 'package:connectanum_dart/src/message/registered.dart';
 import 'package:connectanum_dart/src/message/invocation.dart';
+import 'package:connectanum_dart/src/message/result.dart';
 import 'package:connectanum_dart/src/message/welcome.dart';
 import 'package:connectanum_dart/src/message/yield.dart';
 import 'package:connectanum_dart/src/transport/abstract_transport.dart';
@@ -112,6 +113,20 @@ void main() {
         if (message.id == MessageTypes.CODE_REGISTER) {
           transport.receive(new Registered((message as Register).requestId, 1010));
         }
+        if (message.id == MessageTypes.CODE_CALL && (message as Call).argumentsKeywords["value"] != -3) {
+          transport.receive(new Result((message as Call).requestId, new ResultDetails(true), arguments: (message as Call).arguments));
+          transport.receive(new Result((message as Call).requestId, new ResultDetails(false), argumentsKeywords: (message as Call).argumentsKeywords));
+        }
+        if (message.id == MessageTypes.CODE_CALL && (message as Call).argumentsKeywords["value"] == -3) {
+          transport.receive(new Error(
+              MessageTypes.CODE_CALL,
+              (message as Call).requestId,
+              new HashMap(),
+              Error.NO_SUCH_REGISTRATION,
+              arguments: (message as Call).arguments,
+              argumentsKeywords: (message as Call).argumentsKeywords
+          ));
+        }
         if (message.id == MessageTypes.CODE_YIELD && (message as Yield).argumentsKeywords["value"] == 0) {
           yieldCompleter.complete(message as Yield);
         }
@@ -182,7 +197,15 @@ void main() {
 
       // PROGRESSIVE RESULT
 
-      //final result = await session.call("my.procedure", options: new CallOptions(receive_progress: true));
+      final progressiveCallArgumentsKeywords = new HashMap<String, Object>();
+      progressiveArgumentsKeywords["value"] = 2;
+      final callCompleter = new Completer<List<Result>>();
+      final List<Result> resultList = [];
+      session.call("my.procedure", options: new CallOptions(receive_progress: true), arguments: ["called"] , argumentsKeywords: progressiveCallArgumentsKeywords).listen((result) {
+        resultList.add(result);
+      }, onDone: () => callCompleter.complete(resultList));
+      await callCompleter.future;
+      expect(resultList.length, equals(2));
 
       // ERROR BY EXCEPTION
 
@@ -208,6 +231,22 @@ void main() {
       expect(error2.error, equals(Error.NOT_AUTHORIZED));
       expect(error2.arguments[0], equals("did work"));
       expect(error2.argumentsKeywords["value"], equals(-2));
+
+      // ERROR RESULT
+
+      final errorCallArgumentsKeywords = new HashMap<String, Object>();
+      errorCallArgumentsKeywords["value"] = -3;
+      final errorCallCompleter = new Completer<Error>();
+      session.call("my.procedure", options: new CallOptions(receive_progress: true), arguments: ["was an error"] , argumentsKeywords: errorCallArgumentsKeywords)
+          .listen(
+              (result) {},
+          onError: (error) => errorCallCompleter.complete(error)
+      );
+      Error callError = await errorCallCompleter.future;
+      expect(callError, isNotNull);
+      expect(callError.requestTypeId, equals(MessageTypes.CODE_CALL));
+      expect(callError.arguments[0], equals("was an error"));
+      expect(callError.argumentsKeywords["value"], equals(-3));
     });
   });
 }

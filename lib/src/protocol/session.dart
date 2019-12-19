@@ -120,7 +120,7 @@ class Session extends SessionModel {
     this._transport.send(authenticate);
   }
 
-  call(String procedure,
+  Observable<Result> call(String procedure,
       {List<Object> arguments,
       Map<String, Object> argumentsKeywords,
       CallOptions options}) {
@@ -129,8 +129,7 @@ class Session extends SessionModel {
         argumentsKeywords: argumentsKeywords,
         options: options);
     calls[call.requestId] = new BehaviorSubject();
-    return calls[call.requestId].doOnEach((notification) {
-      calls.remove(call.requestId);
+    final observable = calls[call.requestId].doOnEach((notification) {
       if (notification.isOnData) {
         if (!notification.value.isProgressive()) {
           calls[call.requestId].close();
@@ -139,8 +138,13 @@ class Session extends SessionModel {
           calls[call.requestId].close();
           calls.remove(call.requestId);
         }
+      } else if (notification.isOnError) {
+        calls[call.requestId].close();
+        calls.remove(call.requestId);
       }
     });
+    this._transport.send(call);
+    return observable;
   }
 
   /**
