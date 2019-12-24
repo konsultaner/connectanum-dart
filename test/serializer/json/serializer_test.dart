@@ -3,6 +3,10 @@ import 'package:connectanum_dart/src/message/challenge.dart';
 import 'package:connectanum_dart/src/message/details.dart';
 import 'package:connectanum_dart/src/message/hello.dart';
 import 'package:connectanum_dart/src/message/message_types.dart';
+import 'package:connectanum_dart/src/message/register.dart';
+import 'package:connectanum_dart/src/message/registered.dart';
+import 'package:connectanum_dart/src/message/unregister.dart';
+import 'package:connectanum_dart/src/message/unregistered.dart';
 import 'package:connectanum_dart/src/message/welcome.dart';
 import 'package:connectanum_dart/src/serializer/json/serializer.dart';
 import 'package:test/test.dart';
@@ -16,6 +20,20 @@ void main() {
     test('Authenticate', () {
       expect(serializer.serialize(new Authenticate()), equals('[${MessageTypes.CODE_AUTHENTICATE},"",{}]'));
       expect(serializer.serialize(new Authenticate.signature("someSignature")), equals('[${MessageTypes.CODE_AUTHENTICATE},"${"someSignature"}",{}]'));
+    });
+    test('Register', () {
+      expect(serializer.serialize(new Register(25349185,'com.myapp.myprocedure1')), equals('[${MessageTypes.CODE_REGISTER},25349185,{},"com.myapp.myprocedure1"]'));
+      expect(
+          serializer.serialize(new Register(25349185,'com.myapp.myprocedure1',options: new RegisterOptions(disclose_caller: true, invoke: RegisterOptions.INVOCATION_POLICY_RANDOM, match: RegisterOptions.MATCH_PREFIX))),
+          equals('[${MessageTypes.CODE_REGISTER},25349185,{"match":"prefix","disclose_caller":true,"invoke":"random"},"com.myapp.myprocedure1"]')
+      );
+      expect(
+          serializer.serialize(new Register(25349185,'com.myapp.myprocedure2',options: new RegisterOptions(disclose_caller: false))),
+          equals('[${MessageTypes.CODE_REGISTER},25349185,{"disclose_caller":false},"com.myapp.myprocedure2"]')
+      );
+    });
+    test('Unregister', () {
+      expect(serializer.serialize(new Unregister(25349185,127981236)), equals('[${MessageTypes.CODE_UNREGISTER},25349185,127981236]'));
     });
   });
   group('unserialize', () {
@@ -95,6 +113,19 @@ void main() {
       expect(welcome.details.roles.dealer.features.pattern_based_registration, isTrue);
       expect(welcome.details.roles.dealer.features.registration_meta_api, isTrue);
       expect(welcome.details.roles.dealer.features.shared_registration, isTrue);
+    });
+    test('Registered', () {
+      Registered registered = serializer.deserialize("[65, 25349185, 2103333224]");
+      expect(registered, isNotNull);
+      expect(registered.id, equals(MessageTypes.CODE_REGISTERED));
+      expect(registered.registerRequestId, equals(25349185));
+      expect(registered.registrationId, equals(2103333224));
+    });
+    test('Unregistered', () {
+      Unregistered unregistered = serializer.deserialize("[67, 788923562]");
+      expect(unregistered, isNotNull);
+      expect(unregistered.id, equals(MessageTypes.CODE_UNREGISTERED));
+      expect(unregistered.unregisterRequestId, equals(788923562));
     });
   });
 }

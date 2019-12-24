@@ -139,10 +139,10 @@ class Serializer extends AbstractSerializer<String> {
       return '[${MessageTypes.CODE_AUTHENTICATE},"${message.signature ?? ""}",{}]';
     }
     if (message is Register) {
-        return '[${MessageTypes.CODE_REGISTER},${message.requestId},"${message.procedure}",${_serializeRegisterOptions(message.options)}]';
+        return '[${MessageTypes.CODE_REGISTER},${message.requestId},${_serializeRegisterOptions(message.options)},"${message.procedure}"]';
     }
     if (message is Unregister) {
-        return '[${MessageTypes.CODE_REGISTER},${message.requestId},${message.registrationId}]';
+        return '[${MessageTypes.CODE_UNREGISTER},${message.requestId},${message.registrationId}]';
     }
     if (message is Call) {
         return '[${MessageTypes.CODE_CALL},${message.requestId},${_serializeCallOptions(message.options)},"${message.procedure}"${_serializePayload(message)}]';
@@ -219,11 +219,13 @@ class Serializer extends AbstractSerializer<String> {
 
   String _serializeSubscribeOptions(SubscribeOptions options) {
     List<String> jsonOptions = [];
-    if(options.match != null) {
-      jsonOptions.add('"match":"${options.match}"');
-    }
-    if(options.meta_topic != null) {
-      jsonOptions.add('"meta_topic":"${options.meta_topic}"');
+    if (options != null) {
+      if (options.match != null) {
+        jsonOptions.add('"match":"${options.match}"');
+      }
+      if (options.meta_topic != null) {
+        jsonOptions.add('"meta_topic":"${options.meta_topic}"');
+      }
     }
 
     return "{" + jsonOptions.join(",") + "}";
@@ -231,14 +233,17 @@ class Serializer extends AbstractSerializer<String> {
 
   String _serializeRegisterOptions(RegisterOptions options) {
     List<String> jsonOptions = [];
-    if(options.match != null) {
-      jsonOptions.add('"match":"${options.match}"');
-    }
-    if(options.disclose_caller != null) {
-      jsonOptions.add('"disclose_caller":${options.disclose_caller ? "true" : "false"}');
-    }
-    if(options.invoke != null) {
-      jsonOptions.add('"invoke":"${options.invoke}"');
+    if (options != null) {
+      if (options.match != null) {
+        jsonOptions.add('"match":"${options.match}"');
+      }
+      if (options.disclose_caller != null) {
+        jsonOptions.add(
+            '"disclose_caller":${options.disclose_caller ? "true" : "false"}');
+      }
+      if (options.invoke != null) {
+        jsonOptions.add('"invoke":"${options.invoke}"');
+      }
     }
 
     return "{" + jsonOptions.join(",") + "}";
@@ -246,14 +251,19 @@ class Serializer extends AbstractSerializer<String> {
 
   String _serializeCallOptions(CallOptions options) {
     List<String> jsonOptions = [];
-    if(options.receive_progress != null) {
-      jsonOptions.add('"receive_progress":"${options.receive_progress ? "true" : "false"}"');
-    }
-    if(options.disclose_me != null) {
-      jsonOptions.add('"disclose_me":${options.disclose_me ? "true" : "false"}');
-    }
-    if(options.timeout != null) {
-      jsonOptions.add('"timeout":${options.timeout}');
+    if (options != null) {
+      if (options.receive_progress != null) {
+        jsonOptions.add('"receive_progress":"${options.receive_progress
+            ? "true"
+            : "false"}"');
+      }
+      if (options.disclose_me != null) {
+        jsonOptions.add(
+            '"disclose_me":${options.disclose_me ? "true" : "false"}');
+      }
+      if (options.timeout != null) {
+        jsonOptions.add('"timeout":${options.timeout}');
+      }
     }
 
     return "{" + jsonOptions.join(",") + "}";
@@ -261,52 +271,65 @@ class Serializer extends AbstractSerializer<String> {
 
   String _serializeYieldOptions(YieldOptions options) {
     List<String> jsonDetails = [];
-    if(options.progress != null) {
-      jsonDetails.add('"progress":${options.progress ? "true" : "false"}');
+    if (options != null) {
+      if (options.progress != null) {
+        jsonDetails.add('"progress":${options.progress ? "true" : "false"}');
+      }
     }
     return "{" + jsonDetails.join(",") + "}";
   }
 
   String _serializePublish(PublishOptions options) {
     List<String> jsonDetails = [];
-    if(options.disclose_me != null) {
-      jsonDetails.add('"disclose_me":${options.disclose_me ? "true" : "false"}');
-    }
-    if(options.acknowledge != null) {
-      jsonDetails.add('"acknowledge":${options.acknowledge ? "true" : "false"}');
-    }
-    if(options.exclude_me != null) {
-      jsonDetails.add('"acknowledge":${options.exclude_me ? "true" : "false"}');
-    }
-    if(options.exclude != null) {
-      jsonDetails.add('"exclude":[${options.exclude.join(",")}]');
-    }
-    if(options.exclude_authid != null) {
-      jsonDetails.add('"exclude_authid":["${options.exclude_authid.join('","')}"]');
-    }
-    if(options.exclude_authrole != null) {
-      jsonDetails.add('"exclude_authrole":["${options.exclude_authrole.join('","')}"]');
-    }
-    if(options.eligible != null) {
-      jsonDetails.add('"eligible":[${options.eligible.join(",")}]');
-    }
-    if(options.eligible_authid != null) {
-      jsonDetails.add('"eligible_authid":["${options.eligible_authid.join('","')}"]');
-    }
-    if(options.eligible_authrole != null) {
-      jsonDetails.add('"eligible_authrole":["${options.eligible_authrole.join('","')}"]');
+    if (options != null) {
+      if (options.disclose_me != null) {
+        jsonDetails.add(
+            '"disclose_me":${options.disclose_me ? "true" : "false"}');
+      }
+      if (options.acknowledge != null) {
+        jsonDetails.add(
+            '"acknowledge":${options.acknowledge ? "true" : "false"}');
+      }
+      if (options.exclude_me != null) {
+        jsonDetails.add(
+            '"acknowledge":${options.exclude_me ? "true" : "false"}');
+      }
+      if (options.exclude != null) {
+        jsonDetails.add('"exclude":[${options.exclude.join(",")}]');
+      }
+      if (options.exclude_authid != null) {
+        jsonDetails.add(
+            '"exclude_authid":["${options.exclude_authid.join('","')}"]');
+      }
+      if (options.exclude_authrole != null) {
+        jsonDetails.add(
+            '"exclude_authrole":["${options.exclude_authrole.join('","')}"]');
+      }
+      if (options.eligible != null) {
+        jsonDetails.add('"eligible":[${options.eligible.join(",")}]');
+      }
+      if (options.eligible_authid != null) {
+        jsonDetails.add(
+            '"eligible_authid":["${options.eligible_authid.join('","')}"]');
+      }
+      if (options.eligible_authrole != null) {
+        jsonDetails.add(
+            '"eligible_authrole":["${options.eligible_authrole.join('","')}"]');
+      }
     }
     return "{" + jsonDetails.join(",") + "}";
   }
 
   String _serializePayload(AbstractMessageWithPayload message) {
-    if (message.argumentsKeywords != null) {
-      return ",${json.encode(message.arguments ?? [])},${json.encode(message.argumentsKeywords)}";
-    } else if (message.arguments != null) {
-      return ",${json.encode(message.arguments)}";
-    } else {
-      return "";
+    if (message != null) {
+      if (message.argumentsKeywords != null) {
+        return ",${json.encode(message.arguments ?? [])},${json.encode(
+            message.argumentsKeywords)}";
+      } else if (message.arguments != null) {
+        return ",${json.encode(message.arguments)}";
+      }
     }
+    return "";
   }
 
 }

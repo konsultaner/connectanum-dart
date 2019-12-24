@@ -31,4 +31,6 @@ class RegisterOptions {
 
   // shared_registration
   String invoke;
+
+  RegisterOptions({this.disclose_caller, this.match, this.invoke});
 }
