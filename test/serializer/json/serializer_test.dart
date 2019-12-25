@@ -1,4 +1,5 @@
 import 'package:connectanum_dart/src/message/authenticate.dart';
+import 'package:connectanum_dart/src/message/call.dart';
 import 'package:connectanum_dart/src/message/challenge.dart';
 import 'package:connectanum_dart/src/message/details.dart';
 import 'package:connectanum_dart/src/message/hello.dart';
@@ -34,6 +35,14 @@ void main() {
     });
     test('Unregister', () {
       expect(serializer.serialize(new Unregister(25349185,127981236)), equals('[${MessageTypes.CODE_UNREGISTER},25349185,127981236]'));
+    });
+    test('Call', () {
+      expect(serializer.serialize(new Call(7814135,"com.myapp.ping")), equals('[${MessageTypes.CODE_CALL},7814135,{},"com.myapp.ping"]'));
+      expect(serializer.serialize(new Call(7814135,"com.myapp.ping",options: new CallOptions())), equals('[${MessageTypes.CODE_CALL},7814135,{},"com.myapp.ping"]'));
+      expect(serializer.serialize(new Call(7814135,"com.myapp.ping",options: new CallOptions(receive_progress: true, disclose_me: true, timeout: 12))), equals('[${MessageTypes.CODE_CALL},7814135,{"receive_progress":true,"disclose_me":true,"timeout":12},"com.myapp.ping"]'));
+      expect(serializer.serialize(new Call(7814135,"com.myapp.ping",arguments: ["hi",2])), equals('[${MessageTypes.CODE_CALL},7814135,{},"com.myapp.ping",["hi",2]]'));
+      expect(serializer.serialize(new Call(7814135,"com.myapp.ping",argumentsKeywords: {"hi": 12})), equals('[${MessageTypes.CODE_CALL},7814135,{},"com.myapp.ping",[],{"hi":12}]'));
+      expect(serializer.serialize(new Call(7814135,"com.myapp.ping",arguments: ["hi",2], argumentsKeywords: {"hi": 12})), equals('[${MessageTypes.CODE_CALL},7814135,{},"com.myapp.ping",["hi",2],{"hi":12}]'));
     });
   });
   group('unserialize', () {

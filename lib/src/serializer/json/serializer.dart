@@ -253,9 +253,9 @@ class Serializer extends AbstractSerializer<String> {
     List<String> jsonOptions = [];
     if (options != null) {
       if (options.receive_progress != null) {
-        jsonOptions.add('"receive_progress":"${options.receive_progress
+        jsonOptions.add('"receive_progress":${options.receive_progress
             ? "true"
-            : "false"}"');
+            : "false"}');
       }
       if (options.disclose_me != null) {
         jsonOptions.add(
