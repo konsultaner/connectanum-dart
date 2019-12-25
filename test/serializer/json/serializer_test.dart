@@ -9,6 +9,7 @@ import 'package:connectanum_dart/src/message/registered.dart';
 import 'package:connectanum_dart/src/message/unregister.dart';
 import 'package:connectanum_dart/src/message/unregistered.dart';
 import 'package:connectanum_dart/src/message/welcome.dart';
+import 'package:connectanum_dart/src/message/invocation.dart';
 import 'package:connectanum_dart/src/message/yield.dart';
 import 'package:connectanum_dart/src/serializer/json/serializer.dart';
 import 'package:test/test.dart';
@@ -144,6 +145,57 @@ void main() {
       expect(unregistered, isNotNull);
       expect(unregistered.id, equals(MessageTypes.CODE_UNREGISTERED));
       expect(unregistered.unregisterRequestId, equals(788923562));
+    });
+    test('Invocation', () {
+      Invocation invocation = serializer.deserialize('[68, 6131533, 9823526, {}]');
+      expect(invocation, isNotNull);
+      expect(invocation.id, equals(MessageTypes.CODE_INVOCATION));
+      expect(invocation.requestId, equals(6131533));
+      expect(invocation.registrationId, equals(9823526));
+      expect(invocation.details, isNotNull);
+      expect(invocation.details.receive_progress, isNull);
+      expect(invocation.details.caller, isNull);
+      expect(invocation.details.procedure, isNull);
+      expect(invocation.arguments, isNull);
+      expect(invocation.argumentsKeywords, isNull);
+
+      invocation = serializer.deserialize('[68, 6131533, 9823527, {}, ["Hello, world!"]]');
+      expect(invocation, isNotNull);
+      expect(invocation.id, equals(MessageTypes.CODE_INVOCATION));
+      expect(invocation.requestId, equals(6131533));
+      expect(invocation.registrationId, equals(9823527));
+      expect(invocation.details, isNotNull);
+      expect(invocation.details.receive_progress, isNull);
+      expect(invocation.details.caller, isNull);
+      expect(invocation.details.procedure, isNull);
+      expect(invocation.arguments[0], equals("Hello, world!"));
+      expect(invocation.argumentsKeywords, isNull);
+
+      invocation = serializer.deserialize('[68, 6131533, 9823529, {}, ["johnny"], {"firstname": "John","surname": "Doe"}]');
+      expect(invocation, isNotNull);
+      expect(invocation.id, equals(MessageTypes.CODE_INVOCATION));
+      expect(invocation.requestId, equals(6131533));
+      expect(invocation.registrationId, equals(9823529));
+      expect(invocation.details, isNotNull);
+      expect(invocation.details.receive_progress, isNull);
+      expect(invocation.details.caller, isNull);
+      expect(invocation.details.procedure, isNull);
+      expect(invocation.arguments[0], equals("johnny"));
+      expect(invocation.argumentsKeywords["firstname"], equals("John"));
+      expect(invocation.argumentsKeywords["surname"], equals("Doe"));
+
+      invocation = serializer.deserialize('[68, 6131533, 9823529, {"receive_progress": true, "caller": 13123, "procedure":"my.procedure.com"}, ["johnny"], {"firstname": "John","surname": "Doe"}]');
+      expect(invocation, isNotNull);
+      expect(invocation.id, equals(MessageTypes.CODE_INVOCATION));
+      expect(invocation.requestId, equals(6131533));
+      expect(invocation.registrationId, equals(9823529));
+      expect(invocation.details, isNotNull);
+      expect(invocation.details.receive_progress, isTrue);
+      expect(invocation.details.caller, equals(13123));
+      expect(invocation.details.procedure, equals("my.procedure.com"));
+      expect(invocation.arguments[0], equals("johnny"));
+      expect(invocation.argumentsKeywords["firstname"], equals("John"));
+      expect(invocation.argumentsKeywords["surname"], equals("Doe"));
     });
   });
 }
