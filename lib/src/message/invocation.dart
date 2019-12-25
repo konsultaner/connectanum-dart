@@ -26,7 +26,7 @@ class Invocation extends AbstractMessageWithPayload {
       final Error error = new Error(MessageTypes.CODE_INVOCATION, requestId, new HashMap(), errorUri, arguments: arguments, argumentsKeywords: argumentsKeywords);
       _responseSubject.add(error);
     } else {
-      final Yield yield = new Yield(this.requestId, new YieldOptions(progressive), arguments: arguments, argumentsKeywords: argumentsKeywords);
+      final Yield yield = new Yield(this.requestId, options: new YieldOptions(progressive), arguments: arguments, argumentsKeywords: argumentsKeywords);
       _responseSubject.add(yield);
     }
     if (!progressive) {

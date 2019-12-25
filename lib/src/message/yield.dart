@@ -6,8 +6,8 @@ class Yield extends AbstractMessageWithPayload {
   int invocationRequestId;
   YieldOptions options;
 
-  Yield(this.invocationRequestId, this.options,
-      {List<Object> arguments, Map<String, Object> argumentsKeywords}) {
+  Yield(this.invocationRequestId,
+      {this.options,List<Object> arguments, Map<String, Object> argumentsKeywords}) {
     this.id = MessageTypes.CODE_YIELD;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;

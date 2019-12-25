@@ -9,6 +9,7 @@ import 'package:connectanum_dart/src/message/registered.dart';
 import 'package:connectanum_dart/src/message/unregister.dart';
 import 'package:connectanum_dart/src/message/unregistered.dart';
 import 'package:connectanum_dart/src/message/welcome.dart';
+import 'package:connectanum_dart/src/message/yield.dart';
 import 'package:connectanum_dart/src/serializer/json/serializer.dart';
 import 'package:test/test.dart';
 
@@ -43,6 +44,14 @@ void main() {
       expect(serializer.serialize(new Call(7814135,"com.myapp.ping",arguments: ["hi",2])), equals('[${MessageTypes.CODE_CALL},7814135,{},"com.myapp.ping",["hi",2]]'));
       expect(serializer.serialize(new Call(7814135,"com.myapp.ping",argumentsKeywords: {"hi": 12})), equals('[${MessageTypes.CODE_CALL},7814135,{},"com.myapp.ping",[],{"hi":12}]'));
       expect(serializer.serialize(new Call(7814135,"com.myapp.ping",arguments: ["hi",2], argumentsKeywords: {"hi": 12})), equals('[${MessageTypes.CODE_CALL},7814135,{},"com.myapp.ping",["hi",2],{"hi":12}]'));
+    });
+    test('Yield', () {
+      expect(serializer.serialize(new Yield(6131533)), equals('[${MessageTypes.CODE_YIELD},6131533,{}]'));
+      expect(serializer.serialize(new Yield(6131533,options: new YieldOptions(false))), equals('[${MessageTypes.CODE_YIELD},6131533,{"progress":false}]'));
+      expect(serializer.serialize(new Yield(6131533,options: new YieldOptions(true))), equals('[${MessageTypes.CODE_YIELD},6131533,{"progress":true}]'));
+      expect(serializer.serialize(new Yield(6131533,arguments: ["hi",2])), equals('[${MessageTypes.CODE_YIELD},6131533,{},["hi",2]]'));
+      expect(serializer.serialize(new Yield(6131533,argumentsKeywords: {"hi": 12})), equals('[${MessageTypes.CODE_YIELD},6131533,{},[],{"hi":12}]'));
+      expect(serializer.serialize(new Yield(6131533,arguments: ["hi",2], argumentsKeywords: {"hi": 12})), equals('[${MessageTypes.CODE_YIELD},6131533,{},["hi",2],{"hi":12}]'));
     });
   });
   group('unserialize', () {
