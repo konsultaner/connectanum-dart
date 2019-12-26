@@ -6,6 +6,7 @@ import 'package:connectanum_dart/src/message/hello.dart';
 import 'package:connectanum_dart/src/message/message_types.dart';
 import 'package:connectanum_dart/src/message/register.dart';
 import 'package:connectanum_dart/src/message/registered.dart';
+import 'package:connectanum_dart/src/message/result.dart';
 import 'package:connectanum_dart/src/message/unregister.dart';
 import 'package:connectanum_dart/src/message/unregistered.dart';
 import 'package:connectanum_dart/src/message/welcome.dart';
@@ -196,6 +197,45 @@ void main() {
       expect(invocation.arguments[0], equals("johnny"));
       expect(invocation.argumentsKeywords["firstname"], equals("John"));
       expect(invocation.argumentsKeywords["surname"], equals("Doe"));
+    });
+    test('Result', () {
+      Result result = serializer.deserialize('[50, 7814135, {}]');
+      expect(result, isNotNull);
+      expect(result.id, equals(MessageTypes.CODE_RESULT));
+      expect(result.callRequestId, equals(7814135));
+      expect(result.details, isNotNull);
+      expect(result.details.progress, isNull);
+      expect(result.arguments, isNull);
+      expect(result.argumentsKeywords, isNull);
+
+      result = serializer.deserialize('[50, 7814135, {}, [30]]');
+      expect(result, isNotNull);
+      expect(result.id, equals(MessageTypes.CODE_RESULT));
+      expect(result.callRequestId, equals(7814135));
+      expect(result.details, isNotNull);
+      expect(result.details.progress, isNull);
+      expect(result.arguments[0], equals(30));
+      expect(result.argumentsKeywords, isNull);
+
+      result = serializer.deserialize('[50, 6131533, {}, ["johnny"], {"userid": 123, "karma": 10}]');
+      expect(result, isNotNull);
+      expect(result.id, equals(MessageTypes.CODE_RESULT));
+      expect(result.callRequestId, equals(6131533));
+      expect(result.details, isNotNull);
+      expect(result.details.progress, isNull);
+      expect(result.arguments[0], equals("johnny"));
+      expect(result.argumentsKeywords["userid"], equals(123));
+      expect(result.argumentsKeywords["karma"], equals(10));
+
+      result = serializer.deserialize('[50, 6131533, {"progress": true}, ["johnny"], {"firstname": "John","surname": "Doe"}]');
+      expect(result, isNotNull);
+      expect(result.id, equals(MessageTypes.CODE_RESULT));
+      expect(result.callRequestId, equals(6131533));
+      expect(result.details, isNotNull);
+      expect(result.details.progress, isTrue);
+      expect(result.arguments[0], equals("johnny"));
+      expect(result.argumentsKeywords["firstname"], equals("John"));
+      expect(result.argumentsKeywords["surname"], equals("Doe"));
     });
   });
 }
