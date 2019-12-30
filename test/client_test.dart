@@ -3,6 +3,7 @@ import 'dart:collection';
 
 import 'package:connectanum_dart/src/authentication/cra_authentication.dart';
 import 'package:connectanum_dart/src/client.dart';
+import 'package:connectanum_dart/src/message/abort.dart';
 import 'package:connectanum_dart/src/message/abstract_message.dart';
 import 'package:connectanum_dart/src/message/authenticate.dart';
 import 'package:connectanum_dart/src/message/call.dart';
@@ -27,8 +28,8 @@ void main() {
     test("session creation without authentication process", () async {
       final transport = _MockTransport();
       final client = new Client(
-        realm: "test.realm",
-        transport: transport
+          realm: "test.realm",
+          transport: transport
       );
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
@@ -36,10 +37,10 @@ void main() {
               new Welcome(
                   42,
                   Details.forWelcome(
-                    authId: "Richi",
-                    authMethod: "none",
-                    authProvider: "noProvider",
-                    authRole: "client"
+                      authId: "Richi",
+                      authMethod: "none",
+                      authProvider: "noProvider",
+                      authRole: "client"
                   )
               )
           );
@@ -52,6 +53,23 @@ void main() {
       expect(session.authRole, equals("client"));
       expect(session.authProvider, equals("noProvider"));
       expect(session.authMethod, equals("none"));
+    });
+    test("session creation router abort", () async {
+      final transport = _MockTransport();
+      final client = new Client(realm: "test.realm", transport: transport);
+      transport.outbound.stream.listen((message) {
+        if (message.id == MessageTypes.CODE_HELLO) {
+          transport.receiveMessage(
+              new Abort(Error.NO_SUCH_REALM, message: "The given realm is not valid")
+          );
+        }
+      });
+      Completer abortCompleter = new Completer<Abort>();
+      client.connect().catchError((abort) => abortCompleter.complete(abort));
+      Abort abort = await abortCompleter.future;
+      expect(abort, isNotNull);
+      expect(abort.reason, equals(Error.NO_SUCH_REALM));
+      expect(abort.message.message, equals("The given realm is not valid"));
     });
     test("session creation with cra authentication process", () async {
       final transport = _MockTransport();

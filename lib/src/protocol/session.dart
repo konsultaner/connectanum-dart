@@ -126,13 +126,13 @@ class Session extends SessionModel {
         });
         welcomeCompleter.complete(session);
       } else if (message is Abort) {
-        throw message;
+        welcomeCompleter.completeError(message);
       } else if (message is Goodbye) {
         try {
           transport.close();
         } catch (ignore) {/* my be already closed */}
       }
-    });
+    }, cancelOnError: true);
     return welcomeCompleter.future;
   }
 
