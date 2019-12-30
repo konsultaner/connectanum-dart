@@ -115,8 +115,12 @@ final session = await client.connect();
 
 // Register a procedure
 final registered = await session.register("my.procedure");
-registered.invocationStream.listen(/*Your endpoint goes here*/)
+registered.onInvoke((invocation) {
+  // to something with the invocation
+})
 
 // Call a procedure
-final result = await session.call("my.procedure");
+await for (final result in session.call("my.procedure")) {
+  // do something with the result
+}
 ```
