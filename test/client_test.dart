@@ -20,7 +20,6 @@ import 'package:connectanum_dart/src/message/unregistered.dart';
 import 'package:connectanum_dart/src/message/welcome.dart';
 import 'package:connectanum_dart/src/message/yield.dart';
 import 'package:connectanum_dart/src/transport/abstract_transport.dart';
-import 'package:rxdart/rxdart.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -31,7 +30,7 @@ void main() {
         realm: "test.realm",
         transport: transport
       );
-      transport.outbound.listen((message) {
+      transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
           transport.receiveMessage(
               new Welcome(
@@ -62,7 +61,7 @@ void main() {
           authId: "11111111",
           authenticationMethods: [new CraAuthentication("3614")]
       );
-      transport.outbound.listen((message) {
+      transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
           transport.receiveMessage(
               new Challenge(
@@ -111,7 +110,7 @@ void main() {
       final error3completer = new Completer<Error>();
 
       // ALL ROUTER MOCK RESULTS
-      transport.outbound.listen((message) {
+      transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
           transport.receiveMessage(new Welcome(42, Details.forWelcome()));
         }
@@ -298,7 +297,7 @@ class _MockTransport extends AbstractTransport {
   final StreamController<AbstractMessage> inbound = new StreamController();
 
   bool _open = false;
-  final BehaviorSubject<AbstractMessage> outbound = new BehaviorSubject();
+  final StreamController<AbstractMessage> outbound = new StreamController();
 
   @override
   bool isOpen() {
@@ -317,6 +316,7 @@ class _MockTransport extends AbstractTransport {
   @override
   Future<void> close() {
     this._open = false;
+    this.inbound.close();
     return Future.value();
   }
 

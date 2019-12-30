@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:connectanum_dart/src/message/abort.dart';
 import 'package:connectanum_dart/src/message/abstract_message.dart';
 import 'package:connectanum_dart/src/message/abstract_message_with_payload.dart';
 import 'package:connectanum_dart/src/message/authenticate.dart';
@@ -124,8 +125,12 @@ class Session extends SessionModel {
           session._openSessionStreamController.close();
         });
         welcomeCompleter.complete(session);
-      } else if (message is Goodbye) {
+      } else if (message is Abort) {
         throw message;
+      } else if (message is Goodbye) {
+        try {
+          transport.close();
+        } catch (ignore) {/* my be already closed */}
       }
     });
     return welcomeCompleter.future;
