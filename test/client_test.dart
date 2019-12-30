@@ -70,6 +70,7 @@ void main() {
       expect(abort, isNotNull);
       expect(abort.reason, equals(Error.NO_SUCH_REALM));
       expect(abort.message.message, equals("The given realm is not valid"));
+      expect(transport.isOpen(), isFalse);
     });
     test("session creation with cra authentication process", () async {
       final transport = _MockTransport();
@@ -114,6 +115,40 @@ void main() {
       expect(session.authRole, equals("client"));
       expect(session.authProvider, equals("cra"));
       expect(session.authMethod, equals("wampcra"));
+    });
+    test("session creation with cra authentication process and router abort", () async {
+      final transport = _MockTransport();
+      final client = new Client(
+          realm: "test.realm",
+          transport: transport,
+          authId: "11111111",
+          authenticationMethods: [new CraAuthentication("3614")]
+      );
+      transport.outbound.stream.listen((message) {
+        if (message.id == MessageTypes.CODE_HELLO) {
+          transport.receiveMessage(
+              new Challenge(
+                  (message as Hello).details.authmethods[0],
+                  new Extra(
+                      challenge : "{\"authid\":\"11111111\",\"authrole\":\"client\",\"authmethod\":\"wampcra\",\"authprovider\":\"mssql\",\"nonce\":\"1280303478343404\",\"timestamp\":\"2015-10-27T14:28Z\",\"session\":586844620777222}",
+                      keylen : 32,
+                      iterations : 1000,
+                      salt : "gbnk5ji1b0dgoeavu31er567nb"
+                  )
+              )
+          );
+        }
+        if (message.id == MessageTypes.CODE_AUTHENTICATE) {
+          transport.receiveMessage(new Abort(Error.AUTHORIZATION_FAILED, message: "Wrong user credentials"));
+        }
+      });
+      Completer abortCompleter = new Completer<Abort>();
+      client.connect().catchError((abort) => abortCompleter.complete(abort));
+      Abort abort = await abortCompleter.future;
+      expect(abort, isNotNull);
+      expect(abort.reason, equals(Error.AUTHORIZATION_FAILED));
+      expect(abort.message.message, equals("Wrong user credentials"));
+      expect(transport.isOpen(), isFalse);
     });
     test("procedure registration and invocation", () async {
       final transport = _MockTransport();
