@@ -1,10 +1,10 @@
+import 'dart:async';
 import 'dart:collection';
 
 import 'package:connectanum_dart/src/message/error.dart';
 import 'package:connectanum_dart/src/message/message_types.dart';
 import 'package:connectanum_dart/src/message/uri_pattern.dart';
 import 'package:connectanum_dart/src/message/yield.dart';
-import 'package:rxdart/rxdart.dart';
 
 import 'abstract_message_with_payload.dart';
 
@@ -12,7 +12,7 @@ class Invocation extends AbstractMessageWithPayload {
   int requestId;
   int registrationId;
   InvocationDetails details;
-  BehaviorSubject<AbstractMessageWithPayload> _responseSubject;
+  StreamController<AbstractMessageWithPayload> _responseStreamController;
 
   respondWith (
       {List<Object> arguments,
@@ -24,13 +24,13 @@ class Invocation extends AbstractMessageWithPayload {
       assert(progressive == false);
       assert(UriPattern.match(errorUri));
       final Error error = new Error(MessageTypes.CODE_INVOCATION, requestId, new HashMap(), errorUri, arguments: arguments, argumentsKeywords: argumentsKeywords);
-      _responseSubject.add(error);
+      _responseStreamController.add(error);
     } else {
       final Yield yield = new Yield(this.requestId, options: new YieldOptions(progressive), arguments: arguments, argumentsKeywords: argumentsKeywords);
-      _responseSubject.add(yield);
+      _responseStreamController.add(yield);
     }
     if (!progressive) {
-      _responseSubject.close();
+      _responseStreamController.close();
     }
   }
 
@@ -46,8 +46,8 @@ class Invocation extends AbstractMessageWithPayload {
   }
 
   void onResponse(void Function(AbstractMessageWithPayload invocationResultMessage) onData) {
-    _responseSubject = new BehaviorSubject<AbstractMessageWithPayload>();
-    _responseSubject.listen(onData);
+    _responseStreamController = new StreamController<AbstractMessageWithPayload>();
+    _responseStreamController.stream.listen(onData);
   }
 }
 

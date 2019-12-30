@@ -76,6 +76,14 @@ PUB/SUB events. For example a `SUBSCRIBED` will also hold the incoming message s
 the protocol itself is used to structure the code. Therefore it is necessary that a router sends a subscribed even 
 though it is not mandatory. 
 
+## Stream model
+
+The transport contains an incoming stream that is usually a single subscribe stream. A session will internally
+open a new broadcast stream as soon as the authentication process is successful. The transport stream subscription
+passes all incoming messages to the broad cast stream. If the transport stream is done, the broadcast stream will close
+as well. The broad cast stream is used to handle all session methods. The user will never touch the transport stream
+directly.
+
 
 ## Start the client
 

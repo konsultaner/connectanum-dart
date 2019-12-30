@@ -31,7 +31,7 @@ void main() {
       );
       transport.outbound.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
-          transport.receive(
+          transport.receiveMessage(
               new Welcome(
                   42,
                   Details.forWelcome(
@@ -62,7 +62,7 @@ void main() {
       );
       transport.outbound.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
-          transport.receive(
+          transport.receiveMessage(
               new Challenge(
                 (message as Hello).details.authmethods[0],
                 new Extra(
@@ -75,7 +75,7 @@ void main() {
           );
         }
         if (message.id == MessageTypes.CODE_AUTHENTICATE && (message as Authenticate).signature == "APO4Z6Z0sfpJ8DStwj+XgwJkHkeSw+eD9URKSHf+FKQ=") {
-          transport.receive(
+          transport.receiveMessage(
               new Welcome(
                   586844620777222,
                   Details.forWelcome(
@@ -108,17 +108,24 @@ void main() {
       final error2completer = new Completer<Error>();
       transport.outbound.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
-          transport.receive(new Welcome(42, Details.forWelcome()));
+          transport.receiveMessage(new Welcome(42, Details.forWelcome()));
         }
         if (message.id == MessageTypes.CODE_REGISTER) {
-          transport.receive(new Registered((message as Register).requestId, 1010));
+          if ((message as Register).procedure == "my.procedure") {
+            transport.receiveMessage(new Registered((message as Register).requestId, 1010));
+          }
+          if ((message as Register).procedure == "my.error") {
+            transport.receiveMessage(new Error(
+                MessageTypes.CODE_REGISTER,(message as Register).requestId, {}, Error.NOT_AUTHORIZED
+            ));
+          }
         }
         if (message.id == MessageTypes.CODE_CALL && (message as Call).argumentsKeywords["value"] != -3) {
-          transport.receive(new Result((message as Call).requestId, new ResultDetails(true), arguments: (message as Call).arguments));
-          transport.receive(new Result((message as Call).requestId, new ResultDetails(false), argumentsKeywords: (message as Call).argumentsKeywords));
+          transport.receiveMessage(new Result((message as Call).requestId, new ResultDetails(true), arguments: (message as Call).arguments));
+          transport.receiveMessage(new Result((message as Call).requestId, new ResultDetails(false), argumentsKeywords: (message as Call).argumentsKeywords));
         }
         if (message.id == MessageTypes.CODE_CALL && (message as Call).argumentsKeywords["value"] == -3) {
-          transport.receive(new Error(
+          transport.receiveMessage(new Error(
               MessageTypes.CODE_CALL,
               (message as Call).requestId,
               new HashMap(),
@@ -141,20 +148,25 @@ void main() {
         }
       });
       final session = await client.connect();
-      final registration = await session.register("my.procedure");
       final registrationCompleter = new Completer<Registered>();
       final registrationErrorCompleter = new Completer<Error>();
-      registration.listen((registered) {
+      session.register("my.procedure").then((registered) {
         registrationCompleter.complete(registered);
-      }, onError: (error) {
+      }, onError: (error) {});
+      session.register("my.error").then((registered) {}, onError: (error) {
         registrationErrorCompleter.complete(error);
       });
+      final registrationError = await registrationErrorCompleter.future;
+      expect(registrationError, isNotNull);
+      expect(registrationError.requestTypeId, equals(MessageTypes.CODE_REGISTER));
+      expect(registrationError.id, equals(MessageTypes.CODE_ERROR));
+
       final registered = await registrationCompleter.future;
       expect(registered, isNotNull);
       expect(registered.registrationId, equals(1010));
 
       int progressiveCalls = 0;
-      registered.onInvocation((invocation) {
+      registered.onInvoke((invocation) {
         if (invocation.argumentsKeywords["value"] == 0) {
           invocation.respondWith(arguments: invocation.arguments, argumentsKeywords: invocation.argumentsKeywords);
         }
@@ -177,7 +189,7 @@ void main() {
 
       final argumentsKeywords = new HashMap<String, Object>();
       argumentsKeywords["value"] = 0;
-      transport.receive(new Invocation(11001100, registered.registrationId, new InvocationDetails(null, null, false), arguments: ["did work"], argumentsKeywords: argumentsKeywords));
+      transport.receiveMessage(new Invocation(11001100, registered.registrationId, new InvocationDetails(null, null, false), arguments: ["did work"], argumentsKeywords: argumentsKeywords));
       final yieldMessage = await yieldCompleter.future;
       expect(yieldMessage, isNotNull);
       expect(yieldMessage.argumentsKeywords["value"], equals(0));
@@ -187,8 +199,8 @@ void main() {
 
       final progressiveArgumentsKeywords = new HashMap<String, Object>();
       progressiveArgumentsKeywords["value"] = 1;
-      transport.receive(new Invocation(21001100, registered.registrationId, new InvocationDetails(null, null, true), arguments: ["did work?"], argumentsKeywords: progressiveArgumentsKeywords));
-      transport.receive(new Invocation(21001101, registered.registrationId, new InvocationDetails(null, null, false), arguments: ["did work again"], argumentsKeywords: progressiveArgumentsKeywords));
+      transport.receiveMessage(new Invocation(21001100, registered.registrationId, new InvocationDetails(null, null, true), arguments: ["did work?"], argumentsKeywords: progressiveArgumentsKeywords));
+      transport.receiveMessage(new Invocation(21001101, registered.registrationId, new InvocationDetails(null, null, false), arguments: ["did work again"], argumentsKeywords: progressiveArgumentsKeywords));
       final finalYieldMessage = await progressiveCallYieldCompleter.future;
       expect(finalYieldMessage, isNotNull);
       expect(finalYieldMessage.argumentsKeywords["value"], equals(1));
@@ -203,7 +215,10 @@ void main() {
       final List<Result> resultList = [];
       session.call("my.procedure", options: new CallOptions(receive_progress: true), arguments: ["called"] , argumentsKeywords: progressiveCallArgumentsKeywords).listen((result) {
         resultList.add(result);
-      }, onDone: () => callCompleter.complete(resultList));
+        if (!result.isProgressive()) {
+          callCompleter.complete(resultList);
+        }
+      });
       await callCompleter.future;
       expect(resultList.length, equals(2));
 
@@ -211,7 +226,7 @@ void main() {
 
       final argumentsKeywords2 = new HashMap<String, Object>();
       argumentsKeywords2["value"] = -1;
-      transport.receive(new Invocation(11001101, registered.registrationId, new InvocationDetails(null, null, false), arguments: ["did work"], argumentsKeywords: argumentsKeywords2));
+      transport.receiveMessage(new Invocation(11001101, registered.registrationId, new InvocationDetails(null, null, false), arguments: ["did work"], argumentsKeywords: argumentsKeywords2));
       final error1 = await error1completer.future;
       expect(error1.requestTypeId, equals(MessageTypes.CODE_INVOCATION));
       expect(error1.requestId, equals(11001101));
@@ -223,7 +238,7 @@ void main() {
 
       final argumentsKeywords3 = new HashMap<String, Object>();
       argumentsKeywords3["value"] = -2;
-      transport.receive(new Invocation(11001102, registered.registrationId, new InvocationDetails(null, null, false), arguments: ["did work"], argumentsKeywords: argumentsKeywords3));
+      transport.receiveMessage(new Invocation(11001102, registered.registrationId, new InvocationDetails(null, null, false), arguments: ["did work"], argumentsKeywords: argumentsKeywords3));
       final error2 = await error2completer.future;
       expect(error2, isNotNull);
       expect(error2.requestTypeId, equals(MessageTypes.CODE_INVOCATION));
@@ -252,6 +267,7 @@ void main() {
 }
 
 class _MockTransport extends AbstractTransport {
+  final StreamController<AbstractMessage> inbound = new StreamController();
 
   bool _open = false;
   final BehaviorSubject<AbstractMessage> outbound = new BehaviorSubject();
@@ -266,8 +282,8 @@ class _MockTransport extends AbstractTransport {
     outbound.add(message);
   }
 
-  void receive(AbstractMessage message) {
-    this.inbound.add(message);
+  void receiveMessage(AbstractMessage message) {
+    Future.delayed(new Duration(milliseconds: 1), () => this.inbound.add(message));
   }
 
   @override
@@ -280,6 +296,11 @@ class _MockTransport extends AbstractTransport {
   Future<void> open() {
     this._open = true;
     return Future.value();
+  }
+
+  @override
+  Stream<AbstractMessage> receive() {
+    return this.inbound.stream;
   }
 
 }

@@ -1,8 +1,14 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:connectanum_dart/src/message/abstract_message.dart';
 import 'package:connectanum_dart/src/message/abstract_message_with_payload.dart';
 import 'package:connectanum_dart/src/message/authenticate.dart';
+import 'package:connectanum_dart/src/message/challenge.dart';
+import 'package:connectanum_dart/src/message/goodbye.dart';
+import 'package:connectanum_dart/src/message/message_types.dart';
+import 'package:connectanum_dart/src/message/unsubscribed.dart';
+import 'package:connectanum_dart/src/message/welcome.dart';
 import 'package:connectanum_dart/src/protocol/session_model.dart';
 import 'package:connectanum_dart/src/message/uri_pattern.dart';
 import 'package:rxdart/rxdart.dart';
@@ -24,7 +30,7 @@ import '../message/subscribed.dart';
 import '../message/unregister.dart';
 import '../message/unregistered.dart';
 import '../message/unsubscribe.dart';
-import '../message/unsubscribed.dart';
+import '../message/error.dart';
 import '../transport/abstract_transport.dart';
 import '../authentication/abstract_authentication.dart';
 
@@ -40,16 +46,16 @@ class Session extends SessionModel {
   int nextRegisterId = 1;
   int nextUnregisterId = 1;
 
-  final Map<int, BehaviorSubject<Result>> calls = new HashMap();
   final Map<int, BehaviorSubject<Subscribed>> subscribes = new HashMap();
   final Map<int, BehaviorSubject<Unsubscribed>> unsubscribes = new HashMap();
   final Map<int, BehaviorSubject<Published>> publishes = new HashMap();
-  final Map<int, BehaviorSubject<Registered>> registers = new HashMap();
   final Map<int, BehaviorSubject<Unregistered>> unregisters = new HashMap();
   final Map<int, BehaviorSubject<Event>> events = new HashMap();
   final Map<int, BehaviorSubject<Invocation>> invocations = new HashMap();
 
-  BehaviorSubject<SessionModel> get authenticateSubject => _protocolProcessor.authenticateSubject;
+  StreamSubscription<AbstractMessage> _transportStreamSubscription;
+  StreamController _openSessionStreamController = new StreamController.broadcast();
+
   ProtocolProcessor get protocolProcessor => _protocolProcessor;
 
   static Future<Session> start(
@@ -62,7 +68,6 @@ class Session extends SessionModel {
       }
   ) async
   {
-    final completer = new Completer<Session>();
     /**
      * The realm object is mandatory and must mach the uri pattern
      */
@@ -81,27 +86,6 @@ class Session extends SessionModel {
     session._transport = transport;
 
     /**
-     * If an authentication process is successful the session should be filled
-     * with all session information.
-     */
-    session.authenticateSubject.listen((sessionModel) {
-      session.id = sessionModel.id;
-      session.authId = sessionModel.authId;
-      session.authMethod = sessionModel.authMethod;
-      session.authProvider = sessionModel.authProvider;
-      session.authRole = sessionModel.authRole;
-      completer.complete(session);
-    });
-
-    /**
-     * If the transport receives new messages the sessions protocol processor
-     * should receive the message
-     */
-    transport.onMessage((message) {
-      session.protocolProcessor.process(message, session, authMethods);
-    });
-
-    /**
      * Initialize the sub protocol with a hello message
      */
     final hello = new Hello(realm, detailsPackage.Details.forHello());
@@ -112,38 +96,68 @@ class Session extends SessionModel {
       hello.details.authmethods = authMethods.map<String>((authMethod) => authMethod.getName()).toList();
     }
     transport.send(hello);
-    return completer.future;
+
+    /**
+     * Either return the welcome or execute a challenge before and eventually return the welcome after this
+     */
+    Completer<Session> welcomeCompleter = new Completer<Session>();
+    session._transportStreamSubscription = transport.receive().listen((message) {
+      if (message is Challenge) {
+        final AbstractAuthentication foundAuthMethod = authMethods.where((authenticationMethod) => authenticationMethod.getName() == message.authMethod).first;
+        if (foundAuthMethod != null) {
+          foundAuthMethod.challenge(message.extra).then((authenticate) => session.authenticate(authenticate));
+        } else {
+          final goodbye = new Goodbye(new GoodbyeMessage("Authmethod ${foundAuthMethod} not supported"), Goodbye.REASON_GOODBYE_AND_OUT);
+          session._transport.send(goodbye);
+          throw goodbye;
+        }
+      } else if (message is Welcome) {
+        session.id = message.sessionId;
+        session.authId = message.details.authid;
+        session.authMethod = message.details.authmethod;
+        session.authProvider = message.details.authprovider;
+        session.authRole = message.details.authrole;
+        session._transportStreamSubscription.onData((message) {
+          session._openSessionStreamController.add(message);
+        });
+        session._transportStreamSubscription.onDone(() {
+          session._openSessionStreamController.close();
+        });
+        welcomeCompleter.complete(session);
+      } else if (message is Goodbye) {
+        throw message;
+      }
+    });
+    return welcomeCompleter.future;
+  }
+
+  bool isConnected() {
+    return this._transport != null && this._transport.isOpen() && this._openSessionStreamController != null && !this._openSessionStreamController.isClosed;
   }
 
   authenticate(Authenticate authenticate) {
     this._transport.send(authenticate);
   }
 
-  Observable<Result> call(String procedure,
+  Stream<Result> call(String procedure,
       {List<Object> arguments,
       Map<String, Object> argumentsKeywords,
-      CallOptions options}) {
+      CallOptions options}) async* {
     Call call = new Call(nextCallId++, procedure,
         arguments: arguments,
         argumentsKeywords: argumentsKeywords,
         options: options);
-    calls[call.requestId] = new BehaviorSubject();
-    final observable = calls[call.requestId].doOnEach((notification) {
-      if (notification.isOnData) {
-        if (!notification.value.isProgressive()) {
-          calls[call.requestId].close();
-          calls.remove(call.requestId);
-        } else if (notification.isOnError) {
-          calls[call.requestId].close();
-          calls.remove(call.requestId);
-        }
-      } else if (notification.isOnError) {
-        calls[call.requestId].close();
-        calls.remove(call.requestId);
-      }
-    });
     this._transport.send(call);
-    return observable;
+    await for(AbstractMessageWithPayload result in this._openSessionStreamController.stream.where(
+            (message) => (message is Result && message.callRequestId == call.requestId) ||
+            (message is Error && message.requestTypeId == MessageTypes.CODE_CALL && message.requestId == call.requestId)
+    )) {
+      if (result is Result) {
+        yield result;
+      } else if (result is Error) {
+        throw result;
+      }
+    }
   }
 
   /**
@@ -185,21 +199,25 @@ class Session extends SessionModel {
     }).take(1);
   }
 
-  Observable<Registered> register(String procedure, {RegisterOptions options}) {
-    Register register =
-        new Register(nextRegisterId++, procedure, options: options);
-    registers[register.requestId] = new BehaviorSubject();
-    final observable = registers[register.requestId].map((registered) {
-      final invocationStream = new BehaviorSubject<Invocation>();
-      registered.invocationStream = invocationStream;
-      invocations[registered.registrationId] = invocationStream;
-      // TODO catch exceptions in listeners
-      return registered;
-    }).doOnEach((notification) {
-      registers.remove(register.requestId);
-    }).take(1);
+  Future<Registered> register(String procedure, {RegisterOptions options}) async {
+    Register register = new Register(nextRegisterId++, procedure, options: options);
     this._transport.send(register);
-    return observable;
+    AbstractMessage registered = await this._openSessionStreamController.stream.where(
+            (message) => (message is Registered && message.registerRequestId == register.requestId) ||
+            (message is Error && message.requestTypeId == MessageTypes.CODE_REGISTER && message.requestId == register.requestId)
+    ).first;
+    if (registered is Registered) {
+      registered.invocationStream = this._openSessionStreamController.stream.where(
+          (message) {
+            if (message is Invocation && message.registrationId == registered.registrationId) {
+              message.onResponse((message) => this._transport.send(message));
+              return true;
+            }
+            return false;
+          }
+      ).cast();
+      return registered;
+    } else throw registered as Error;
   }
 
   unregister(int registrationId) {

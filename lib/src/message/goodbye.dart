@@ -7,7 +7,7 @@ class Goodbye extends AbstractMessage {
   static final String REASON_TIMEOUT = "wamp.error.timeout";
   static final String REASON_SYSTEM_SHUTDOWN = "wamp.error.system_shutdown";
 
-  Message message;
+  GoodbyeMessage message;
   String reason;
 
   Goodbye(this.message, this.reason) {
@@ -15,6 +15,7 @@ class Goodbye extends AbstractMessage {
   }
 }
 
-class Message {
+class GoodbyeMessage {
   String message;
+  GoodbyeMessage(this.message);
 }

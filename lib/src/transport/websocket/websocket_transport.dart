@@ -25,4 +25,10 @@ class WebSocketTransport extends AbstractTransport {
     // TODO: implement send
   }
 
+  @override
+  Stream<AbstractMessage> receive() {
+    // TODO: implement receive
+    return null;
+  }
+
 }
