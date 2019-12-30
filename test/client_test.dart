@@ -15,6 +15,8 @@ import 'package:connectanum_dart/src/message/register.dart';
 import 'package:connectanum_dart/src/message/registered.dart';
 import 'package:connectanum_dart/src/message/invocation.dart';
 import 'package:connectanum_dart/src/message/result.dart';
+import 'package:connectanum_dart/src/message/unregister.dart';
+import 'package:connectanum_dart/src/message/unregistered.dart';
 import 'package:connectanum_dart/src/message/welcome.dart';
 import 'package:connectanum_dart/src/message/yield.dart';
 import 'package:connectanum_dart/src/transport/abstract_transport.dart';
@@ -106,6 +108,9 @@ void main() {
       final progressiveCallYieldCompleter = new Completer<Yield>();
       final error1completer = new Completer<Error>();
       final error2completer = new Completer<Error>();
+      final error3completer = new Completer<Error>();
+
+      // ALL ROUTER MOCK RESULTS
       transport.outbound.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
           transport.receiveMessage(new Welcome(42, Details.forWelcome()));
@@ -119,6 +124,9 @@ void main() {
                 MessageTypes.CODE_REGISTER,(message as Register).requestId, {}, Error.NOT_AUTHORIZED
             ));
           }
+        }
+        if (message.id == MessageTypes.CODE_UNREGISTER) {
+          transport.receiveMessage(new Unregistered((message as Unregister).requestId));
         }
         if (message.id == MessageTypes.CODE_CALL && (message as Call).argumentsKeywords["value"] != -3) {
           transport.receiveMessage(new Result((message as Call).requestId, new ResultDetails(true), arguments: (message as Call).arguments));
@@ -146,22 +154,28 @@ void main() {
         if (message.id == MessageTypes.CODE_ERROR && (message as Error).error == Error.NOT_AUTHORIZED) {
           error2completer.complete(message as Error);
         }
+        if (message.id == MessageTypes.CODE_ERROR && (message as Error).error == Error.NO_SUCH_REGISTRATION) {
+          error3completer.complete(message as Error);
+        }
       });
+
       final session = await client.connect();
-      final registrationCompleter = new Completer<Registered>();
       final registrationErrorCompleter = new Completer<Error>();
-      session.register("my.procedure").then((registered) {
-        registrationCompleter.complete(registered);
-      }, onError: (error) {});
+
+      // NOT WORKING REGISTRATION
+
       session.register("my.error").then((registered) {}, onError: (error) {
         registrationErrorCompleter.complete(error);
       });
+
       final registrationError = await registrationErrorCompleter.future;
       expect(registrationError, isNotNull);
       expect(registrationError.requestTypeId, equals(MessageTypes.CODE_REGISTER));
       expect(registrationError.id, equals(MessageTypes.CODE_ERROR));
 
-      final registered = await registrationCompleter.future;
+      // WORKING REGISTRATION
+
+      final registered = await session.register("my.procedure");
       expect(registered, isNotNull);
       expect(registered.registrationId, equals(1010));
 
@@ -262,6 +276,20 @@ void main() {
       expect(callError.requestTypeId, equals(MessageTypes.CODE_CALL));
       expect(callError.arguments[0], equals("was an error"));
       expect(callError.argumentsKeywords["value"], equals(-3));
+
+      // UNREGISTER
+
+      await session.unregister(registered.registrationId);
+
+      final argumentsKeywordsRegular = new HashMap<String, Object>();
+      argumentsKeywordsRegular["value"] = 0;
+      transport.receiveMessage(new Invocation(11001199, registered.registrationId, new InvocationDetails(null, null, false), arguments: ["did not work"], argumentsKeywords: argumentsKeywordsRegular));
+      final error3Message = await error3completer.future;
+      expect(error3Message, isNotNull);
+      expect(error3Message.requestTypeId, MessageTypes.CODE_INVOCATION);
+      expect(error3Message.requestId, 11001199);
+      expect(error3Message.argumentsKeywords, isNull);
+      expect(error3Message.arguments, isNull);
     });
   });
 }

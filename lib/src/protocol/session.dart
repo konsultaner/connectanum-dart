@@ -46,12 +46,12 @@ class Session extends SessionModel {
   int nextRegisterId = 1;
   int nextUnregisterId = 1;
 
+  final Map<int, Registered> registrations = {};
+
   final Map<int, BehaviorSubject<Subscribed>> subscribes = new HashMap();
   final Map<int, BehaviorSubject<Unsubscribed>> unsubscribes = new HashMap();
   final Map<int, BehaviorSubject<Published>> publishes = new HashMap();
-  final Map<int, BehaviorSubject<Unregistered>> unregisters = new HashMap();
   final Map<int, BehaviorSubject<Event>> events = new HashMap();
-  final Map<int, BehaviorSubject<Invocation>> invocations = new HashMap();
 
   StreamSubscription<AbstractMessage> _transportStreamSubscription;
   StreamController _openSessionStreamController = new StreamController.broadcast();
@@ -207,11 +207,19 @@ class Session extends SessionModel {
             (message is Error && message.requestTypeId == MessageTypes.CODE_REGISTER && message.requestId == register.requestId)
     ).first;
     if (registered is Registered) {
+      registrations[registered.registrationId] = registered;
+      registered.procedure = procedure;
       registered.invocationStream = this._openSessionStreamController.stream.where(
           (message) {
             if (message is Invocation && message.registrationId == registered.registrationId) {
-              message.onResponse((message) => this._transport.send(message));
-              return true;
+              // Check if there is a registration that has not been unregistered yet
+              if (registrations[registered.registrationId] != null) {
+                message.onResponse((message) => this._transport.send(message));
+                return true;
+              } else {
+                this._transport.send(new Error(MessageTypes.CODE_INVOCATION, message.requestId, {}, Error.NO_SUCH_REGISTRATION));
+                return false;
+              }
             }
             return false;
           }
@@ -220,15 +228,13 @@ class Session extends SessionModel {
     } else throw registered as Error;
   }
 
-  unregister(int registrationId) {
+  unregister(int registrationId) async {
     Unregister unregister = new Unregister(nextUnregisterId++, registrationId);
-    unregisters[unregister.requestId] = new BehaviorSubject();
-    return unregisters[unregister.requestId].map((unregister) {
-      invocations[registrationId].close();
-      invocations.remove(registrationId);
-    }).doOnEach((notification) {
-      unregisters.remove(unregister.requestId);
-    }).take(1);
+    this._transport.send(unregister);
+    await this._openSessionStreamController.stream.where(
+        (message) => message is Unregistered && message.unregisterRequestId == unregister.requestId
+    ).first;
+    registrations.remove(registrationId);
   }
 
   void setInvocationTransportChannel(Invocation message) {

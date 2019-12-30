@@ -21,15 +21,10 @@ class ProtocolProcessor {
   ProtocolProcessor() {}
 
   process(AbstractMessage message, Session session, List<AbstractAuthentication> authenticationStore) async {
-    if (message.id == MessageTypes.CODE_UNREGISTERED) {
-      session.unregisters[(message as Unregistered).unregisterRequestId].add(message);
-    } else if (message.id == MessageTypes.CODE_SUBSCRIBED) {
+    if (message.id == MessageTypes.CODE_SUBSCRIBED) {
       session.subscribes[(message as Subscribed).subscribeRequestId].add(message);
     } else if (message.id == MessageTypes.CODE_UNSUBSCRIBED) {
       session.unsubscribes[(message as Unsubscribed).unsubscribeRequestId].add(message);
-    } else if (message.id == MessageTypes.CODE_INVOCATION) {
-      session.setInvocationTransportChannel(message);
-      session.invocations[(message as Invocation).registrationId].add(message);
     } else if (message.id == MessageTypes.CODE_PUBLISHED) {
       session.publishes[(message as Published).publishRequestId].add(message);
     } else if (message.id == MessageTypes.CODE_EVENT) {
@@ -43,9 +38,7 @@ class ProtocolProcessor {
     } else if (message.id == MessageTypes.CODE_ERROR) {
       final requestTypeId = (message as Error).requestTypeId;
       final requestId = (message as Error).requestId;
-      if (requestTypeId == MessageTypes.CODE_UNREGISTERED) {
-        session.unregisters[requestId].addError(message);
-      } else if (requestTypeId == MessageTypes.CODE_SUBSCRIBED) {
+      if (requestTypeId == MessageTypes.CODE_SUBSCRIBED) {
         session.subscribes[requestId].addError(message);
       } else if (requestTypeId == MessageTypes.CODE_UNSUBSCRIBED) {
         session.unsubscribes[requestId].addError(message);

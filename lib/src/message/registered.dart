@@ -7,6 +7,7 @@ import 'invocation.dart';
 class Registered extends AbstractMessage {
   int registerRequestId;
   int registrationId;
+  String procedure;
 
   Stream<Invocation> _invocationStream;
 
