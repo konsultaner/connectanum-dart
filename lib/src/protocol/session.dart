@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:collection';
 
 import 'package:connectanum_dart/src/message/abort.dart';
 import 'package:connectanum_dart/src/message/abstract_message.dart';
@@ -12,8 +11,6 @@ import 'package:connectanum_dart/src/message/unsubscribed.dart';
 import 'package:connectanum_dart/src/message/welcome.dart';
 import 'package:connectanum_dart/src/protocol/session_model.dart';
 import 'package:connectanum_dart/src/message/uri_pattern.dart';
-import 'package:rxdart/rxdart.dart';
-import 'package:rxdart/subjects.dart';
 
 import 'protocol_processor.dart';
 import '../message/details.dart' as detailsPackage;
@@ -48,11 +45,7 @@ class Session extends SessionModel {
   int nextUnregisterId = 1;
 
   final Map<int, Registered> registrations = {};
-
-  final Map<int, BehaviorSubject<Subscribed>> subscribes = new HashMap();
-  final Map<int, BehaviorSubject<Unsubscribed>> unsubscribes = new HashMap();
-  final Map<int, BehaviorSubject<Published>> publishes = new HashMap();
-  final Map<int, BehaviorSubject<Event>> events = new HashMap();
+  final Map<int, Subscribed> subscriptions = {};
 
   StreamSubscription<AbstractMessage> _transportStreamSubscription;
   StreamController _openSessionStreamController = new StreamController.broadcast();
@@ -171,29 +164,40 @@ class Session extends SessionModel {
   /**
    * The events are passed to the {@see Subscribed#events subject}
    */
-  subscribe(String topic, {SubscribeOptions options}) {
-    Subscribe subscribe =
-        new Subscribe(nextSubscribeId++, topic, options: options);
-    subscribes[subscribe.requestId] = new BehaviorSubject();
-    return subscribes[subscribe.requestId].map((subscribed) {
-      subscribed.eventStream = new BehaviorSubject();
-      events[subscribed.subscriptionId] = subscribed.eventStream;
+  Future<Subscribed> subscribe(String topic, {SubscribeOptions options}) async {
+    Subscribe subscribe = new Subscribe(nextSubscribeId++, topic, options: options);
+    this._transport.send(subscribe);
+    AbstractMessage subscribed = await this._openSessionStreamController.stream.where(
+      (message) => (message is Subscribed && message.subscribeRequestId == subscribe.requestId) ||
+        (message is Error && message.requestTypeId == MessageTypes.CODE_SUBSCRIBE && message.requestId == subscribe.requestId)
+    ).first;
+    if (subscribed is Subscribed) {
+      subscriptions[subscribed.subscriptionId] = subscribed;
+      subscribed.eventStream = this._openSessionStreamController.stream.where(
+        (message) => message is Event && subscriptions[subscribed.subscriptionId] != null && message.subscriptionId == subscribed.subscriptionId
+      ).cast();
       return subscribed;
-    }).doOnEach((notification) {
-      subscribes.remove(subscribe.requestId);
-    }).take(1);
+    } else throw subscribed as Error;
   }
 
-  unsubscribe(int subscriptionId) {
-    Unsubscribe unsubscribe =
-        new Unsubscribe(nextUnsubscribeId++, subscriptionId);
-    unsubscribes[unsubscribe.requestId] = new BehaviorSubject();
-    return unsubscribes[unsubscribe.requestId].doOnEach((notification) {
-      unsubscribes.remove(unsubscribe.requestId);
-    }).take(1);
+  unsubscribe(int subscriptionId) async {
+    Unsubscribe unsubscribe = new Unsubscribe(nextUnsubscribeId++, subscriptionId);
+    this._transport.send(unsubscribe);
+    await this._openSessionStreamController.stream.where(
+      (message) {
+        if (message is Unsubscribed && message.unsubscribeRequestId == unsubscribe.requestId) {
+          return true;
+        }
+        if (message is Error && message.requestTypeId == MessageTypes.CODE_UNSUBSCRIBE && message.requestId == unsubscribe.requestId) {
+          throw message;
+        }
+        return false;
+      }
+    ).first;
+    subscriptions.remove(subscriptionId);
   }
 
-  publish(String topic,
+  Future<Published> publish(String topic,
       {List<Object> arguments,
       Map<String, Object> argumentsKeywords,
       PublishOptions options}) {
@@ -201,10 +205,17 @@ class Session extends SessionModel {
         arguments: arguments,
         argumentsKeywords: argumentsKeywords,
         options: options);
-    publishes[publish.requestId] = new BehaviorSubject();
-    return publishes[publish.requestId].doOnEach((notification) {
-      publishes.remove(publish.requestId);
-    }).take(1);
+    this._transport.send(publish);
+    return this._openSessionStreamController.stream.where(
+      (message) {
+        if (message is Published && message.publishRequestId == publish.requestId) {
+          return true;
+        }
+        if (message is Error && message.requestTypeId == MessageTypes.CODE_PUBLISH && message.requestId == publish.requestId) {
+          throw message;
+        }
+        return false;
+      }).first;
   }
 
   Future<Registered> register(String procedure, {RegisterOptions options}) async {
@@ -218,29 +229,37 @@ class Session extends SessionModel {
       registrations[registered.registrationId] = registered;
       registered.procedure = procedure;
       registered.invocationStream = this._openSessionStreamController.stream.where(
-          (message) {
-            if (message is Invocation && message.registrationId == registered.registrationId) {
-              // Check if there is a registration that has not been unregistered yet
-              if (registrations[registered.registrationId] != null) {
-                message.onResponse((message) => this._transport.send(message));
-                return true;
-              } else {
-                this._transport.send(new Error(MessageTypes.CODE_INVOCATION, message.requestId, {}, Error.NO_SUCH_REGISTRATION));
-                return false;
-              }
+        (message) {
+          if (message is Invocation && message.registrationId == registered.registrationId) {
+            // Check if there is a registration that has not been unregistered yet
+            if (registrations[registered.registrationId] != null) {
+              message.onResponse((message) => this._transport.send(message));
+              return true;
+            } else {
+              this._transport.send(new Error(MessageTypes.CODE_INVOCATION, message.requestId, {}, Error.NO_SUCH_REGISTRATION));
+              return false;
             }
-            return false;
           }
+          return false;
+        }
       ).cast();
       return registered;
     } else throw registered as Error;
   }
 
-  unregister(int registrationId) async {
+  Future<void> unregister(int registrationId) async {
     Unregister unregister = new Unregister(nextUnregisterId++, registrationId);
     this._transport.send(unregister);
     await this._openSessionStreamController.stream.where(
-        (message) => message is Unregistered && message.unregisterRequestId == unregister.requestId
+        (message) {
+          if (message is Unregistered && message.unregisterRequestId == unregister.requestId) {
+            return true;
+          }
+          if (message is Error && message.requestTypeId == MessageTypes.CODE_UNREGISTER && message.requestId == unregister.requestId) {
+            throw message;
+          }
+          return false;
+        }
     ).first;
     registrations.remove(registrationId);
   }

@@ -178,7 +178,11 @@ void main() {
           }
         }
         if (message.id == MessageTypes.CODE_UNREGISTER) {
-          transport.receiveMessage(new Unregistered((message as Unregister).requestId));
+          if ((message as Unregister).registrationId > 0) {
+            transport.receiveMessage(new Unregistered((message as Unregister).requestId));
+          } else {
+            transport.receiveMessage(new Error(MessageTypes.CODE_UNREGISTER, (message as Unregister).requestId,{},Error.NO_SUCH_REGISTRATION));
+          }
         }
         if (message.id == MessageTypes.CODE_CALL && (message as Call).argumentsKeywords["value"] != -3) {
           transport.receiveMessage(new Result((message as Call).requestId, new ResultDetails(true), arguments: (message as Call).arguments));
@@ -342,6 +346,15 @@ void main() {
       expect(error3Message.requestId, 11001199);
       expect(error3Message.argumentsKeywords, isNull);
       expect(error3Message.arguments, isNull);
+
+      // UNREGISTER ERROR
+
+      final errorUnregisterCompleter = new Completer<Error>();
+      session.unregister(-1).then((message) {}, onError: (error) => errorUnregisterCompleter.complete());
+      Error unregisterError = await errorUnregisterCompleter.future;
+      expect(unregisterError, isNotNull);
+      expect(unregisterError.requestTypeId, equals(MessageTypes.CODE_UNREGISTER));
+      expect(unregisterError.error, equals(Error.NO_SUCH_REGISTRATION));
     });
   });
 }

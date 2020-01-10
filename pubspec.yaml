@@ -5,7 +5,6 @@ description: >-
   input stream conversion. The major goal is to make it easy to test and make it easy to test implementations that use
   this package.
 dependencies:
-  rxdart: ^0.22.6
   pointycastle: ^1.0.2
 dev_dependencies:
   test: ^1.9.4
