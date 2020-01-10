@@ -15,6 +15,7 @@ import 'package:connectanum_dart/src/message/invocation.dart';
 import 'package:connectanum_dart/src/message/registered.dart';
 import 'package:connectanum_dart/src/message/result.dart';
 import 'package:connectanum_dart/src/message/subscribe.dart';
+import 'package:connectanum_dart/src/message/subscribed.dart';
 import 'package:connectanum_dart/src/message/unregister.dart';
 import 'package:connectanum_dart/src/message/unregistered.dart';
 import 'package:connectanum_dart/src/message/unsubscribe.dart';
@@ -108,13 +109,16 @@ class Serializer extends AbstractSerializer<String> {
       if (messageId == MessageTypes.CODE_PUBLISHED) {
         return new Published(message[1],message[2]);
       }
+      if (messageId == MessageTypes.CODE_SUBSCRIBED) {
+        return new Subscribed(message[1],message[2]);
+      }
       if (messageId == MessageTypes.CODE_UNSUBSCRIBED) {
         return new Unsubscribed(message[1]);
       }
       if (messageId == MessageTypes.CODE_EVENT) {
         return _addPayload(new Event(message[1], message[2], new EventDetails(
-            message[4]["publisher"], message[4]["trustlevel"], message[4]["topic"],
-        )),message,5);
+            message[3]["publisher"], message[3]["trustlevel"], message[3]["topic"],
+        )),message,4);
       }
     }
     throw new Exception(""); // TODO think of something helpful here...
@@ -151,19 +155,19 @@ class Serializer extends AbstractSerializer<String> {
         return "[${MessageTypes.CODE_YIELD},${message.invocationRequestId},${_serializeYieldOptions(message.options)}${_serializePayload(message)}]";
     }
     if (message is Publish) {
-        return "[${MessageTypes.CODE_PUBLISH},${message.requestId},${_serializePublish(message.options)},${message.topic}${_serializePayload(message)}]";
+        return '[${MessageTypes.CODE_PUBLISH},${message.requestId},${_serializePublish(message.options)},"${message.topic}"${_serializePayload(message)}]';
     }
     if (message is Event) {
         return "[${MessageTypes.CODE_EVENT},${message.subscriptionId},${message.publicationId}${_serializePayload(message)}]";
     }
     if (message is Subscribe) {
-        return "[${MessageTypes.CODE_SUBSCRIBE},${message.requestId},${_serializeSubscribeOptions(message.options)},${message.topic}]";
+        return '[${MessageTypes.CODE_SUBSCRIBE},${message.requestId},${_serializeSubscribeOptions(message.options)},"${message.topic}"]';
     }
     if (message is Unsubscribe) {
         return "[${MessageTypes.CODE_UNSUBSCRIBE},${message.requestId},${message.subscriptionId}]";
     }
     if (message is Error) {
-        return "[${MessageTypes.CODE_GOODBYE},${message.requestTypeId},${message.requestId},${json.encode(message.details)}${_serializePayload(message)}]";
+        return "[${MessageTypes.CODE_ERROR},${message.requestTypeId},${message.requestId},${json.encode(message.details)}${_serializePayload(message)}]";
     }
     if (message is Goodbye) {
         return '[${MessageTypes.CODE_GOODBYE},${message.message != null ? '"{"message":"${message.message.message ?? ""}"' : "{}"},${message.reason}]';
@@ -292,7 +296,7 @@ class Serializer extends AbstractSerializer<String> {
       }
       if (options.exclude_me != null) {
         jsonDetails.add(
-            '"acknowledge":${options.exclude_me ? "true" : "false"}');
+            '"exclude_me":${options.exclude_me ? "true" : "false"}');
       }
       if (options.exclude != null) {
         jsonDetails.add('"exclude":[${options.exclude.join(",")}]');

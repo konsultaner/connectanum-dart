@@ -2,13 +2,20 @@ import 'package:connectanum_dart/src/message/authenticate.dart';
 import 'package:connectanum_dart/src/message/call.dart';
 import 'package:connectanum_dart/src/message/challenge.dart';
 import 'package:connectanum_dart/src/message/details.dart';
+import 'package:connectanum_dart/src/message/event.dart';
 import 'package:connectanum_dart/src/message/hello.dart';
 import 'package:connectanum_dart/src/message/message_types.dart';
+import 'package:connectanum_dart/src/message/publish.dart';
+import 'package:connectanum_dart/src/message/published.dart';
 import 'package:connectanum_dart/src/message/register.dart';
 import 'package:connectanum_dart/src/message/registered.dart';
 import 'package:connectanum_dart/src/message/result.dart';
+import 'package:connectanum_dart/src/message/subscribe.dart';
+import 'package:connectanum_dart/src/message/subscribed.dart';
 import 'package:connectanum_dart/src/message/unregister.dart';
 import 'package:connectanum_dart/src/message/unregistered.dart';
+import 'package:connectanum_dart/src/message/unsubscribe.dart';
+import 'package:connectanum_dart/src/message/unsubscribed.dart';
 import 'package:connectanum_dart/src/message/welcome.dart';
 import 'package:connectanum_dart/src/message/invocation.dart';
 import 'package:connectanum_dart/src/message/yield.dart';
@@ -54,6 +61,48 @@ void main() {
       expect(serializer.serialize(new Yield(6131533,arguments: ["hi",2])), equals('[${MessageTypes.CODE_YIELD},6131533,{},["hi",2]]'));
       expect(serializer.serialize(new Yield(6131533,argumentsKeywords: {"hi": 12})), equals('[${MessageTypes.CODE_YIELD},6131533,{},[],{"hi":12}]'));
       expect(serializer.serialize(new Yield(6131533,arguments: ["hi",2], argumentsKeywords: {"hi": 12})), equals('[${MessageTypes.CODE_YIELD},6131533,{},["hi",2],{"hi":12}]'));
+    });
+    test('Subscribe', () {
+      expect(serializer.serialize(new Subscribe(713845233, "com.myapp.mytopic1")), equals('[32,713845233,{},"com.myapp.mytopic1"]'));
+      expect(serializer.serialize(new Subscribe(713845233, "com.myapp.mytopic1", options: new SubscribeOptions())), equals('[32,713845233,{},"com.myapp.mytopic1"]'));
+      expect(serializer.serialize(new Subscribe(713845233, "com.myapp.mytopic1", options: new SubscribeOptions(match: SubscribeOptions.MATCH_PLAIN))), equals('[32,713845233,{},"com.myapp.mytopic1"]'));
+      expect(serializer.serialize(new Subscribe(713845233, "com.myapp.mytopic1", options: new SubscribeOptions(match: SubscribeOptions.MATCH_PREFIX))), equals('[32,713845233,{"match":"prefix"},"com.myapp.mytopic1"]'));
+      expect(serializer.serialize(new Subscribe(713845233, "com.myapp.mytopic1", options: new SubscribeOptions(match: SubscribeOptions.MATCH_WILDCARD))), equals('[32,713845233,{"match":"wildcard"},"com.myapp.mytopic1"]'));
+      expect(serializer.serialize(new Subscribe(713845233, "com.myapp.mytopic1", options: new SubscribeOptions(meta_topic: "topic"))), equals('[32,713845233,{"meta_topic":"topic"},"com.myapp.mytopic1"]'));
+      expect(serializer.serialize(new Subscribe(713845233, "com.myapp.mytopic1", options: new SubscribeOptions(match: SubscribeOptions.MATCH_WILDCARD,meta_topic: "topic"))), equals('[32,713845233,{"match":"wildcard","meta_topic":"topic"},"com.myapp.mytopic1"]'));
+    });
+    test('Unsubscribe', () {
+      expect(serializer.serialize(new Unsubscribe(85346237,5512315355)), equals('[34,85346237,5512315355]'));
+    });
+    test('Publish', () {
+      expect(serializer.serialize(new Publish(239714735,"com.myapp.mytopic1")), equals('[16,239714735,{},"com.myapp.mytopic1"]'));
+      expect(serializer.serialize(new Publish(239714735,"com.myapp.mytopic1",options: new PublishOptions())), equals('[16,239714735,{},"com.myapp.mytopic1"]'));
+      expect(
+        serializer.serialize(
+          new Publish(
+            239714735,
+            "com.myapp.mytopic1",
+            options: new PublishOptions(
+             disclose_me: true,
+             acknowledge: true,
+             exclude_me: true,
+             eligible: [1],
+             eligible_authid: ["aaa"],
+             eligible_authrole: ["role"],
+             exclude: [2],
+             exclude_authid: ["bbb"],
+             exclude_authrole: ["admin"]
+            )
+          )
+        ),
+        equals('[16,239714735,{"disclose_me":true,"acknowledge":true,"exclude_me":true,"exclude":[2],"exclude_authid":["bbb"],"exclude_authrole":["admin"],"eligible":[1],"eligible_authid":["aaa"],"eligible_authrole":["role"]},"com.myapp.mytopic1"]')
+      );
+      expect(serializer.serialize(new Publish(239714735,"com.myapp.mytopic1",arguments: ["Hello, world!"])), equals('[16,239714735,{},"com.myapp.mytopic1",["Hello, world!"]]'));
+      expect(serializer.serialize(new Publish(239714735,"com.myapp.mytopic1",options: new PublishOptions(exclude_me: false),arguments: ["Hello, world!"])), equals('[16,239714735,{"exclude_me":false},"com.myapp.mytopic1",["Hello, world!"]]'));
+      expect(serializer.serialize(new Publish(239714735,"com.myapp.mytopic1",argumentsKeywords: {"color":"orange","sizes":[23,42,7]})), equals('[16,239714735,{},"com.myapp.mytopic1",[],{"color":"orange","sizes":[23,42,7]}]'));
+      expect(serializer.serialize(new Publish(239714735,"com.myapp.mytopic1",options: new PublishOptions(exclude_me: false),argumentsKeywords: {"color":"orange","sizes":[23,42,7]})), equals('[16,239714735,{"exclude_me":false},"com.myapp.mytopic1",[],{"color":"orange","sizes":[23,42,7]}]'));
+      expect(serializer.serialize(new Publish(239714735,"com.myapp.mytopic1",arguments: ["Hello, world!"],argumentsKeywords: {"color":"orange","sizes":[23,42,7]})), equals('[16,239714735,{},"com.myapp.mytopic1",["Hello, world!"],{"color":"orange","sizes":[23,42,7]}]'));
+      expect(serializer.serialize(new Publish(239714735,"com.myapp.mytopic1",options: new PublishOptions(exclude_me: false),arguments: ["Hello, world!"],argumentsKeywords: {"color":"orange","sizes":[23,42,7]})), equals('[16,239714735,{"exclude_me":false},"com.myapp.mytopic1",["Hello, world!"],{"color":"orange","sizes":[23,42,7]}]'));
     });
   });
   group('unserialize', () {
@@ -236,6 +285,91 @@ void main() {
       expect(result.arguments[0], equals("johnny"));
       expect(result.argumentsKeywords["firstname"], equals("John"));
       expect(result.argumentsKeywords["surname"], equals("Doe"));
+    });
+    // PUB / SUB
+    test('Subscribed', () {
+      Subscribed subscribed = serializer.deserialize('[33, 713845233, 5512315355]');
+      expect(subscribed, isNotNull);
+      expect(subscribed.id, equals(MessageTypes.CODE_SUBSCRIBED));
+      expect(subscribed.subscribeRequestId, equals(713845233));
+      expect(subscribed.subscriptionId, equals(5512315355));
+    });
+    test('Unsubscribed', () {
+      Unsubscribed unsubscribed = serializer.deserialize('[35, 85346237]');
+      expect(unsubscribed, isNotNull);
+      expect(unsubscribed.id, equals(MessageTypes.CODE_UNSUBSCRIBED));
+      expect(unsubscribed.unsubscribeRequestId, equals(85346237));
+    });
+    test('Published', () {
+      Published published = serializer.deserialize('[17, 239714735, 4429313566]');
+      expect(published, isNotNull);
+      expect(published.id, equals(MessageTypes.CODE_PUBLISHED));
+      expect(published.publishRequestId, equals(239714735));
+      expect(published.publicationId, equals(4429313566));
+    });
+    test('Event', () {
+      Event event = serializer.deserialize('[36, 5512315355, 4429313566, {}]');
+      expect(event, isNotNull);
+      expect(event.id, equals(MessageTypes.CODE_EVENT));
+      expect(event.subscriptionId, equals(5512315355));
+      expect(event.publicationId, equals(4429313566));
+      expect(event.details, isNotNull);
+      expect(event.details.publisher, isNull);
+      expect(event.details.topic, isNull);
+      expect(event.details.trustlevel, isNull);
+      expect(event.arguments, isNull);
+      expect(event.argumentsKeywords, isNull);
+
+      event = serializer.deserialize('[36, 5512315355, 4429313566, {}, [30]]');
+      expect(event, isNotNull);
+      expect(event.id, equals(MessageTypes.CODE_EVENT));
+      expect(event.subscriptionId, equals(5512315355));
+      expect(event.publicationId, equals(4429313566));
+      expect(event.details, isNotNull);
+      expect(event.details.publisher, isNull);
+      expect(event.details.topic, isNull);
+      expect(event.details.trustlevel, isNull);
+      expect(event.arguments[0], equals(30));
+      expect(event.argumentsKeywords, isNull);
+
+      event = serializer.deserialize('[36, 5512315355, 4429313566, {}, ["johnny"], {"userid": 123, "karma": 10}]');
+      expect(event, isNotNull);
+      expect(event.id, equals(MessageTypes.CODE_EVENT));
+      expect(event.subscriptionId, equals(5512315355));
+      expect(event.publicationId, equals(4429313566));
+      expect(event.details, isNotNull);
+      expect(event.details.publisher, isNull);
+      expect(event.details.topic, isNull);
+      expect(event.details.trustlevel, isNull);
+      expect(event.arguments[0], equals("johnny"));
+      expect(event.argumentsKeywords["userid"], equals(123));
+      expect(event.argumentsKeywords["karma"], equals(10));
+
+      event = serializer.deserialize('[36, 5512315355, 4429313566, {"publisher": 1231412}, ["johnny"], {"firstname": "John","surname": "Doe"}]');
+      expect(event, isNotNull);
+      expect(event.id, equals(MessageTypes.CODE_EVENT));
+      expect(event.subscriptionId, equals(5512315355));
+      expect(event.publicationId, equals(4429313566));
+      expect(event.details, isNotNull);
+      expect(event.details.publisher, equals(1231412));
+      expect(event.details.topic, isNull);
+      expect(event.details.trustlevel, isNull);
+      expect(event.arguments[0], equals("johnny"));
+      expect(event.argumentsKeywords["firstname"], equals("John"));
+      expect(event.argumentsKeywords["surname"], equals("Doe"));
+
+      event = serializer.deserialize('[36, 5512315355, 4429313566, {"publisher": 1231412, "topic":"de.de.com", "trustlevel":1}, ["johnny"], {"firstname": "John","surname": "Doe"}]');
+      expect(event, isNotNull);
+      expect(event.id, equals(MessageTypes.CODE_EVENT));
+      expect(event.subscriptionId, equals(5512315355));
+      expect(event.publicationId, equals(4429313566));
+      expect(event.details, isNotNull);
+      expect(event.details.publisher, equals(1231412));
+      expect(event.details.topic, equals("de.de.com"));
+      expect(event.details.trustlevel, equals(1));
+      expect(event.arguments[0], equals("johnny"));
+      expect(event.argumentsKeywords["firstname"], equals("John"));
+      expect(event.argumentsKeywords["surname"], equals("Doe"));
     });
   });
 }

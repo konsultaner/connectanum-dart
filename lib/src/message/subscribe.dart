@@ -18,4 +18,6 @@ class SubscribeOptions {
 
   String match;
   String meta_topic;
+
+  SubscribeOptions({this.match, this.meta_topic});
 }

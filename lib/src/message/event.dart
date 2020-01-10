@@ -30,7 +30,7 @@ class EventDetails {
   int trustlevel;
 
   // for pattern-matching
-  Uri topic;
+  String topic;
 
   EventDetails(this.publisher, this.trustlevel, this.topic);
 }

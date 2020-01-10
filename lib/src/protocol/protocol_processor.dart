@@ -9,10 +9,7 @@ import 'session_model.dart';
 import '../message/error.dart';
 import '../message/event.dart';
 import '../message/published.dart';
-import '../message/registered.dart';
-import '../message/invocation.dart';
 import '../message/subscribed.dart';
-import '../message/unregistered.dart';
 import '../message/unsubscribed.dart';
 
 class ProtocolProcessor {
