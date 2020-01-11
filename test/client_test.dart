@@ -407,12 +407,16 @@ void main() {
 
       Completer<Event> eventCompleter = new Completer<Event>();
       Completer<Event> eventCompleter2 = new Completer<Event>();
+      Completer<Event> eventCompleter3 = new Completer<Event>();
       subscribed.eventStream.listen((event) {
         if (event.publicationId == 1122) {
           eventCompleter.complete(event);
         }
         if (event.publicationId == 1133) {
           eventCompleter2.complete(event);
+        }
+        if (event.publicationId == 1144) {
+          eventCompleter3.complete(event);
         }
       });
       transport.receiveMessage(new Event(subscribed.subscriptionId, 1122, new EventDetails()));
@@ -443,6 +447,14 @@ void main() {
         unsubscribeError = error;
       }
       expect(unsubscribeError, isNull);
+
+      // DO NOT RECEIVE EVENTS WHEN UNSUBSCRIBED
+
+      transport.receiveMessage(new Event(subscribed.subscriptionId, 1144, new EventDetails()));
+      Event event3;
+      eventCompleter3.future.then((event) => event3 = event);
+      await Future.delayed(new Duration(milliseconds: 3));
+      expect(event3, isNull);
     });
   });
 }
