@@ -350,7 +350,7 @@ void main() {
       // UNREGISTER ERROR
 
       final errorUnregisterCompleter = new Completer<Error>();
-      session.unregister(-1).then((message) {}, onError: (error) => errorUnregisterCompleter.complete());
+      session.unregister(-1).then((message) {}, onError: (error) => errorUnregisterCompleter.complete(error));
       Error unregisterError = await errorUnregisterCompleter.future;
       expect(unregisterError, isNotNull);
       expect(unregisterError.requestTypeId, equals(MessageTypes.CODE_UNREGISTER));
