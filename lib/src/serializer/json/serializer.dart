@@ -117,7 +117,9 @@ class Serializer extends AbstractSerializer<String> {
       }
       if (messageId == MessageTypes.CODE_EVENT) {
         return _addPayload(new Event(message[1], message[2], new EventDetails(
-            message[3]["publisher"], message[3]["trustlevel"], message[3]["topic"],
+          publisher: message[3]["publisher"],
+          trustlevel: message[3]["trustlevel"],
+          topic: message[3]["topic"]
         )),message,4);
       }
     }

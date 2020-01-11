@@ -180,7 +180,7 @@ class Session extends SessionModel {
     } else throw subscribed as Error;
   }
 
-  unsubscribe(int subscriptionId) async {
+  Future<void> unsubscribe(int subscriptionId) async {
     Unsubscribe unsubscribe = new Unsubscribe(nextUnsubscribeId++, subscriptionId);
     this._transport.send(unsubscribe);
     await this._openSessionStreamController.stream.where(

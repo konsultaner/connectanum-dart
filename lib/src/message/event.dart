@@ -32,5 +32,5 @@ class EventDetails {
   // for pattern-matching
   String topic;
 
-  EventDetails(this.publisher, this.trustlevel, this.topic);
+  EventDetails({this.publisher, this.trustlevel, this.topic});
 }
