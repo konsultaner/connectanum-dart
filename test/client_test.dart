@@ -7,6 +7,7 @@ import 'package:connectanum_dart/src/message/abort.dart';
 import 'package:connectanum_dart/src/message/abstract_message.dart';
 import 'package:connectanum_dart/src/message/authenticate.dart';
 import 'package:connectanum_dart/src/message/call.dart';
+import 'package:connectanum_dart/src/message/cancel.dart';
 import 'package:connectanum_dart/src/message/challenge.dart';
 import 'package:connectanum_dart/src/message/details.dart';
 import 'package:connectanum_dart/src/message/error.dart';
@@ -201,6 +202,18 @@ void main() {
               argumentsKeywords: (message as Call).argumentsKeywords
           ));
         }
+        if (message.id == MessageTypes.CODE_CALL && (message as Call).argumentsKeywords["value"] == -4) {
+          // ignored because it will not complete before cancelation happens
+        }
+        if (message.id == MessageTypes.CODE_CANCEL) {
+          transport.receiveMessage(new Error(
+              MessageTypes.CODE_CALL,
+              (message as Cancel).requestId,
+              new HashMap(),
+              Error.ERROR_INVOCATION_CANCELED,
+              arguments: [(message as Cancel).options.mode]
+          ));
+        }
         if (message.id == MessageTypes.CODE_YIELD && (message as Yield).argumentsKeywords["value"] == 0) {
           yieldCompleter.complete(message as Yield);
         }
@@ -335,6 +348,21 @@ void main() {
       expect(callError.requestTypeId, equals(MessageTypes.CODE_CALL));
       expect(callError.arguments[0], equals("was an error"));
       expect(callError.argumentsKeywords["value"], equals(-3));
+
+      // ERROR BY CANCELLATION
+
+      final errorCallCancellation = new HashMap<String, Object>();
+      errorCallCancellation["value"] = -4;
+      final errorCallCancellationCompleter = new Completer<Error>();
+      final CancellationCompleter = new Completer<String>();
+      session.call("my.procedure", argumentsKeywords: errorCallCancellation, cancelCompleter: CancellationCompleter)
+          .listen((result) {}, onError: (error) => errorCallCancellationCompleter.complete(error)
+      );
+      CancellationCompleter.complete(CancelOptions.MODE_KILL_NO_WAIT);
+      Error cancelError = await errorCallCancellationCompleter.future;
+      expect(cancelError, isNotNull);
+      expect(cancelError.requestTypeId, equals(MessageTypes.CODE_CALL));
+      expect(cancelError.arguments[0], equals(CancelOptions.MODE_KILL_NO_WAIT));
 
       // UNREGISTER
 

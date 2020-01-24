@@ -149,7 +149,18 @@ class Session extends SessionModel {
     this._transport.send(call);
     if (cancelCompleter != null) {
       cancelCompleter.future.then((cancelMode) {
-        Cancel cancel = new Cancel(call.requestId);
+        CancelOptions options = null;
+        if (
+          cancelMode != null && (
+              CancelOptions.MODE_KILL_NO_WAIT == cancelMode ||
+              CancelOptions.MODE_KILL == cancelMode ||
+              CancelOptions.MODE_SKIP == cancelMode
+          )
+        ) {
+          options = new CancelOptions();
+          options.mode = cancelMode;
+        }
+        Cancel cancel = new Cancel(call.requestId, options: options);
         this._transport.send(cancel);
       });
     }
