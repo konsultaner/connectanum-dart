@@ -4,6 +4,7 @@ import 'package:connectanum_dart/src/message/abort.dart';
 import 'package:connectanum_dart/src/message/abstract_message.dart';
 import 'package:connectanum_dart/src/message/abstract_message_with_payload.dart';
 import 'package:connectanum_dart/src/message/authenticate.dart';
+import 'package:connectanum_dart/src/message/cancel.dart';
 import 'package:connectanum_dart/src/message/challenge.dart';
 import 'package:connectanum_dart/src/message/goodbye.dart';
 import 'package:connectanum_dart/src/message/message_types.dart';
@@ -12,7 +13,6 @@ import 'package:connectanum_dart/src/message/welcome.dart';
 import 'package:connectanum_dart/src/protocol/session_model.dart';
 import 'package:connectanum_dart/src/message/uri_pattern.dart';
 
-import 'protocol_processor.dart';
 import '../message/details.dart' as detailsPackage;
 import '../message/call.dart';
 import '../message/event.dart';
@@ -34,7 +34,6 @@ import '../authentication/abstract_authentication.dart';
 
 class Session extends SessionModel {
 
-  ProtocolProcessor _protocolProcessor = new ProtocolProcessor();
   AbstractTransport _transport;
 
   int nextCallId = 1;
@@ -49,8 +48,6 @@ class Session extends SessionModel {
 
   StreamSubscription<AbstractMessage> _transportStreamSubscription;
   StreamController _openSessionStreamController = new StreamController.broadcast();
-
-  ProtocolProcessor get protocolProcessor => _protocolProcessor;
 
   static Future<Session> start(
       String realm,
@@ -143,12 +140,19 @@ class Session extends SessionModel {
   Stream<Result> call(String procedure,
       {List<Object> arguments,
       Map<String, Object> argumentsKeywords,
-      CallOptions options}) async* {
+      CallOptions options,
+      Completer<String> cancelCompleter}) async* {
     Call call = new Call(nextCallId++, procedure,
         arguments: arguments,
         argumentsKeywords: argumentsKeywords,
         options: options);
     this._transport.send(call);
+    if (cancelCompleter != null) {
+      cancelCompleter.future.then((cancelMode) {
+        Cancel cancel = new Cancel(call.requestId);
+        this._transport.send(cancel);
+      });
+    }
     await for(AbstractMessageWithPayload result in this._openSessionStreamController.stream.where(
             (message) => (message is Result && message.callRequestId == call.requestId) ||
             (message is Error && message.requestTypeId == MessageTypes.CODE_CALL && message.requestId == call.requestId)
