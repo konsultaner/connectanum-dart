@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:connectanum_dart/src/message/abstract_message.dart';
 import 'package:connectanum_dart/src/message/abstract_message_with_payload.dart';
 import 'package:connectanum_dart/src/message/authenticate.dart';
@@ -28,24 +30,29 @@ import 'dart:convert';
 
 import '../abstract_serializer.dart';
 
-class Serializer extends AbstractSerializer<String> {
+class Serializer extends AbstractSerializer {
 
   @override
-  AbstractMessage deserialize(String jsonMessage) {
+  AbstractMessage deserialize(Uint8List jsonMessage) {
+    return deserializeFromString(Utf8Decoder().convert(jsonMessage));
+  }
+
+  @override
+  AbstractMessage deserializeFromString(String jsonMessage) {
     Object message = json.decode(jsonMessage);
     if (message is List) {
       int messageId = message[0];
       if (messageId == MessageTypes.CODE_CHALLENGE) {
         return Challenge(message[1], new Extra(
-          challenge: message[2]["challenge"],
-          salt: message[2]["salt"],
-          keylen: message[2]["keylen"],
-          iterations: message[2]["iterations"],
-          memory: message[2]["memory"],
-          parallel: message[2]["parallel"],
-          version_num: message[2]["version_num"],
-          version_str: message[2]["version_str"],
-          nonce: message[2]["nonce"]
+            challenge: message[2]["challenge"],
+            salt: message[2]["salt"],
+            keylen: message[2]["keylen"],
+            iterations: message[2]["iterations"],
+            memory: message[2]["memory"],
+            parallel: message[2]["parallel"],
+            version_num: message[2]["version_num"],
+            version_str: message[2]["version_str"],
+            nonce: message[2]["nonce"]
         ));
       }
       if (messageId == MessageTypes.CODE_WELCOME) {
@@ -117,9 +124,9 @@ class Serializer extends AbstractSerializer<String> {
       }
       if (messageId == MessageTypes.CODE_EVENT) {
         return _addPayload(new Event(message[1], message[2], new EventDetails(
-          publisher: message[3]["publisher"],
-          trustlevel: message[3]["trustlevel"],
-          topic: message[3]["topic"]
+            publisher: message[3]["publisher"],
+            trustlevel: message[3]["trustlevel"],
+            topic: message[3]["topic"]
         )),message,4);
       }
     }
@@ -137,7 +144,12 @@ class Serializer extends AbstractSerializer<String> {
   }
 
   @override
-  String serialize(AbstractMessage message) {
+  Uint8List serialize(AbstractMessage message) {
+    return Utf8Encoder().convert(serializeToString(message));
+  }
+
+  @override
+  String serializeToString(AbstractMessage message) {
     if (message is Hello) {
       return '[${MessageTypes.CODE_HELLO},"${message.realm}",${_serializeDetails(message.details)}]';
     }
@@ -155,6 +167,9 @@ class Serializer extends AbstractSerializer<String> {
     }
     if (message is Yield) {
         return "[${MessageTypes.CODE_YIELD},${message.invocationRequestId},${_serializeYieldOptions(message.options)}${_serializePayload(message)}]";
+    }
+    if (message is Invocation) { // for serializer unit test only
+        return "[${MessageTypes.CODE_INVOCATION},${message.requestId},${message.registrationId},{}${_serializePayload(message)}]";
     }
     if (message is Publish) {
         return '[${MessageTypes.CODE_PUBLISH},${message.requestId},${_serializePublish(message.options)},"${message.topic}"${_serializePayload(message)}]';

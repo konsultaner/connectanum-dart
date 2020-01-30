@@ -3,6 +3,14 @@
 This is a wamp client implementation for dart or flutter projects. The projects aims to 
 provide a simple an extensible structure and returning something to the great WAMP-Protocol community.
 
+## TODOs
+
+- Multithreading for callee invocations
+- callee interrupt thread on incoming cancellations
+- better docs  
+- web socket support
+- \[IN PROGRESS] raw socket compatible to connectanum router
+
 ## Supported WAMP features
 
 ### Advanced RPC features
@@ -10,7 +18,7 @@ provide a simple an extensible structure and returning something to the great WA
 - [x] Progressive Call Results
 - [x] Progressive Calls
 - [ ] Call Timeouts
-- [ ] Call Canceling
+- [x] Call Canceling
 - [x] Caller Identification
 - [ ] Call Trust Levels
 - [x] Shared Registration
