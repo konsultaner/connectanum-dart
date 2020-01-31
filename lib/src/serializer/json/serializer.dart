@@ -37,7 +37,6 @@ class Serializer extends AbstractSerializer {
     return deserializeFromString(Utf8Decoder().convert(jsonMessage));
   }
 
-  @override
   AbstractMessage deserializeFromString(String jsonMessage) {
     Object message = json.decode(jsonMessage);
     if (message is List) {
@@ -148,7 +147,6 @@ class Serializer extends AbstractSerializer {
     return Utf8Encoder().convert(serializeToString(message));
   }
 
-  @override
   String serializeToString(AbstractMessage message) {
     if (message is Hello) {
       return '[${MessageTypes.CODE_HELLO},"${message.realm}",${_serializeDetails(message.details)}]';

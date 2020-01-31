@@ -9,7 +9,7 @@ class WebSocketTransport extends AbstractTransport {
   }
 
   @override
-  bool isOpen() {
+  bool get isOpen {
     // TODO: implement isOpen
     return null;
   }

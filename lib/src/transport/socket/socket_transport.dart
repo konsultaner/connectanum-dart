@@ -29,7 +29,6 @@ class SocketTransport extends AbstractTransport {
   /**
    * will be set to true if a handshake was completed
    */
-  bool _completedHandshake = false;
   Uint8List _inboundBuffer = new Uint8List(0);
   Uint8List _outboundBuffer = new Uint8List(0);
 
@@ -40,7 +39,7 @@ class SocketTransport extends AbstractTransport {
     this._port,
     this._serializer,
     this._serializerType,
-    {ssl: true, messageLengthExponent: SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT}
+    {ssl: false, messageLengthExponent: SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT}
   ) : assert(_serializerType == SocketHelper.SERIALIZATION_JSON || _serializerType == SocketHelper.SERIALIZATION_MSGPACK) {
     _ssl = ssl;
     _messageLengthExponent = messageLengthExponent;
@@ -51,16 +50,6 @@ class SocketTransport extends AbstractTransport {
    */
   void _sendInitialHandshake() {
     _socket.add(SocketHelper.getInitialHandshake(_messageLengthExponent,_serializerType));
-  }
-
-  /**
-   * Sends an upgrade handshake of the morphology
-   * 0011 1111 0000 LLLL
-   * LLLL = 2^(25 + LLLL), the accepted max message length
-   * If a router does not accept, this upgrade it will respond with an error.
-   */
-  void _sendUpgradeHandshake() {
-    _socket.add(SocketHelper.getUpgradeHandshake(_messageLengthExponent));
   }
 
   void _sendError(int errorCode) {
@@ -76,14 +65,22 @@ class SocketTransport extends AbstractTransport {
     return isUpgradedProtocol?5:4;
   }
 
+  int get maxMessageLength => _messageLength;
+
   @override
   Future<void> close() {
     return _socket.close();
   }
 
   @override
-  bool isOpen() {
-    return _completedHandshake;
+  bool get isOpen {
+    // Dart does not provide a socket channel state
+    // TODO fix when this issue is solved: https://github.com/dart-lang/web_socket_channel/issues/16
+    return _socket != null && _handshakeCompleter.isCompleted && !onDisconnect.isCompleted;
+  }
+
+  Future get onOpen {
+    return _handshakeCompleter.future;
   }
 
   @override
@@ -93,6 +90,7 @@ class SocketTransport extends AbstractTransport {
     } else {
       _socket = await Socket.connect(_host, _port);
     }
+    onDisconnect = new Completer();
     _handshakeCompleter = new Completer();
     _sendInitialHandshake();
   }
@@ -123,49 +121,52 @@ class SocketTransport extends AbstractTransport {
   }
 
   bool _negotiateProtocol(Uint8List message) {
-    if (_completedHandshake) return false;
+    if (_handshakeCompleter.isCompleted) return false;
     int errorNumber = SocketHelper.getErrorNumber(message);
     if(errorNumber == 0){
       // RECEIVED FIRST HANDSHAKE RESPONSE
       if(SocketHelper.isRawSocket(message)){
         int maxMessageSizeExponent = SocketHelper.getMaxMessageSizeExponent(message);
-        // TRY UPGRADE TO 6 BYTE HEADER, IF WANTED
+        // TRY UPGRADE TO 5 BYTE HEADER, IF WANTED
         if(maxMessageSizeExponent == SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT && this._messageLengthExponent > SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT){
-          //if(LOGGER.isTraceEnabled()){
-          //  LOGGER.trace("Try to upgrade to 5 byte raw socket header");
-          //}
+          _logger.finer("Try to upgrade to 5 byte raw socket header");
           _socket.add(SocketHelper.getUpgradeHandshake(this._messageLengthExponent));
-          return true;
+        } else {
+          // AN UPGRADE WAS NOT WANTED SO SET THE MESSAGE LENGTH AND COMPLETE THE HANDSHAKE
+          this._messageLength = pow(2, min(SocketHelper.getMaxMessageSizeExponent(message), this._messageLengthExponent));
+          _handshakeCompleter.complete();
         }
       }
       // RECEIVED SECOND HANDSHAKE / UPGRADE
       if(SocketHelper.isUpgrade(message)){
         this._messageLength = pow(2, min(SocketHelper.getMaxUpgradeMessageSizeExponent(message), this._messageLengthExponent));
-      }else{
-        this._messageLength = pow(2, min(SocketHelper.getMaxMessageSizeExponent(message), this._messageLengthExponent));
+        _handshakeCompleter.complete();
       }
-      this._completedHandshake = true;
-      _handshakeCompleter.complete();
       return true;
     }else{
       bool closeConnection = true;
+      String error;
       if(errorNumber == SocketHelper.ERROR_SERIALIZER_UNSUPPORTED){
-        _logger.shout("Router responded with an error: ERROR_SERIALIZER_UNSUPPORTED" );
+        error = "Router responded with an error: ERROR_SERIALIZER_UNSUPPORTED";
       }else if(errorNumber == SocketHelper.ERROR_USE_OF_RESERVED_BITS){
-        _logger.shout("Router responded with an error: ERROR_USE_OF_RESERVED_BITS" );
+        error = "Router responded with an error: ERROR_USE_OF_RESERVED_BITS";
         // if another has been connected with an upgrade header
         closeConnection = false;
       }else if(errorNumber == SocketHelper.ERROR_MAX_CONNECTION_COUNT_EXCEEDED){
-        _logger.shout("Router responded with an error: ERROR_MAX_CONNECTION_COUNT_EXCEEDED" );
+        error = "Router responded with an error: ERROR_MAX_CONNECTION_COUNT_EXCEEDED";
       }else if(errorNumber == SocketHelper.ERROR_MESSAGE_LENGTH_EXCEEDED){
-        _logger.shout("Router responded with an error: ERROR_MESSAGE_LENGTH_EXCEEDED" );
+        error = "Router responded with an error: ERROR_MESSAGE_LENGTH_EXCEEDED";
         // if connectanum is configured with a lower message length
         closeConnection = false;
       }else{
-        _logger.shout("Router responded with an error: UNKNOWN "+errorNumber.toString());
+        error = "Router responded with an error: UNKNOWN "+errorNumber.toString();
       }
+      _logger.shout(errorNumber.toString() + ": " + error);
       if(closeConnection){
-        _socket.close();
+        _handshakeCompleter.completeError({"error": error, "errorNumber": errorNumber});
+        _socket.drain().then((_) {
+          _socket.close();
+        });
       }
       return true;
     }
@@ -203,11 +204,11 @@ class SocketTransport extends AbstractTransport {
         // received a pong
         _logger.finest("Received a Pong with a payload length of " + message.length.toString());
       }
-      return null;
     } on Exception catch (error) {
       // TODO handle serialization error
       _logger.fine("Error while handling incoming message " + error.toString());
     }
+    return null;
   }
 
   @override

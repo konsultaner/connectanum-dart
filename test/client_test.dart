@@ -76,7 +76,7 @@ void main() {
       expect(abort, isNotNull);
       expect(abort.reason, equals(Error.NO_SUCH_REALM));
       expect(abort.message.message, equals("The given realm is not valid"));
-      expect(transport.isOpen(), isFalse);
+      expect(transport.isOpen, isFalse);
     });
     test("session creation with cra authentication process", () async {
       final transport = _MockTransport();
@@ -154,7 +154,7 @@ void main() {
       expect(abort, isNotNull);
       expect(abort.reason, equals(Error.AUTHORIZATION_FAILED));
       expect(abort.message.message, equals("Wrong user credentials"));
-      expect(transport.isOpen(), isFalse);
+      expect(transport.isOpen, isFalse);
     });
     test("procedure registration and invocation", () async {
       final transport = _MockTransport();
@@ -494,7 +494,7 @@ class _MockTransport extends AbstractTransport {
   final StreamController<AbstractMessage> outbound = new StreamController();
 
   @override
-  bool isOpen() {
+  bool get isOpen {
     return _open;
   }
 
