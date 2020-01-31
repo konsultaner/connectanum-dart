@@ -1,4 +1,5 @@
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -28,7 +29,11 @@ class SocketTransport extends AbstractTransport {
   /**
    * will be set to true if a handshake was completed
    */
-  bool _completedHandshake;
+  bool _completedHandshake = false;
+  Uint8List _inboundBuffer = new Uint8List(0);
+  Uint8List _outboundBuffer = new Uint8List(0);
+
+  Completer _handshakeCompleter;
 
   SocketTransport(
     this._host,
@@ -73,8 +78,7 @@ class SocketTransport extends AbstractTransport {
 
   @override
   Future<void> close() {
-    // TODO: implement close
-    return null;
+    return _socket.close();
   }
 
   @override
@@ -89,21 +93,24 @@ class SocketTransport extends AbstractTransport {
     } else {
       _socket = await Socket.connect(_host, _port);
     }
+    _handshakeCompleter = new Completer();
     _sendInitialHandshake();
   }
 
   @override
   Stream<AbstractMessage> receive() {
     return _socket
-      .where((Uint8List message) {
-        // todo concat and filter non wamp messages
-        if(message.length < headerLength) {/*TODO concat until we have a full header*/};
+      .where((List<int> message) {
+        message = Uint8List.fromList(_inboundBuffer + message);
         if (_negotiateProtocol(message) || !_assertValidMessage(message)) {
           return false;
         }
         final int finalMessageLength = message.length - headerLength;
         final int payloadLength = SocketHelper.getPayloadLength(message,headerLength);
-        if(finalMessageLength <  payloadLength) {/*TODO concat until we have a full header*/};
+        if(finalMessageLength < payloadLength) {
+          _inboundBuffer = message;
+          return false;
+        };
         if(finalMessageLength > _messageLength) {
           _sendError(SocketHelper.ERROR_MESSAGE_LENGTH_EXCEEDED);
           _logger.fine("Closed raw socket channel because the message length exceeded the max value of "+ _messageLength.toString());
@@ -138,6 +145,7 @@ class SocketTransport extends AbstractTransport {
         this._messageLength = pow(2, min(SocketHelper.getMaxMessageSizeExponent(message), this._messageLengthExponent));
       }
       this._completedHandshake = true;
+      _handshakeCompleter.complete();
       return true;
     }else{
       bool closeConnection = true;
@@ -172,11 +180,16 @@ class SocketTransport extends AbstractTransport {
     return true;
   }
 
-  AbstractMessage _handleMessage(message) {
-    int messageType = SocketHelper.getMessageType(message);
-    // cut off the header
-    message = message.sublist(headerLength);
+  AbstractMessage _handleMessage(Uint8List message) {
     try {
+      int messageType = SocketHelper.getMessageType(message);
+      int messageLength = SocketHelper.getPayloadLength(message,headerLength);
+      // cut off the header
+      message = message.sublist(headerLength);
+      // send the rest of the message back to the buffer
+      _inboundBuffer = message.sublist(messageLength, message.length);
+      message = message.sublist(0, messageLength);
+
       if(messageType == SocketHelper.MESSAGE_WAMP) {
         AbstractMessage deserializedMessage = _serializer.deserialize(message);
         _logger.finest("Received message type " + deserializedMessage.id.toString());
@@ -192,14 +205,27 @@ class SocketTransport extends AbstractTransport {
       }
       return null;
     } on Exception catch (error) {
-      // handle serialization error
+      // TODO handle serialization error
+      _logger.fine("Error while handling incoming message " + error.toString());
     }
   }
 
   @override
   void send(AbstractMessage message) {
-    Uint8List serialalizedMessage = _serializer.serialize(message);
-    _socket.add(SocketHelper.buildMessageHeader(SocketHelper.MESSAGE_WAMP, serialalizedMessage.length, isUpgradedProtocol));
-    _socket.add(serialalizedMessage);
+    if (!_handshakeCompleter.isCompleted) {
+      if (_outboundBuffer.length == 0) {
+        _handshakeCompleter.future.then((aVoid) {
+          _socket.add(_outboundBuffer);
+          _outboundBuffer = null;
+        });
+      }
+      Uint8List serialalizedMessage = _serializer.serialize(message);
+      _outboundBuffer += SocketHelper.buildMessageHeader(SocketHelper.MESSAGE_WAMP, serialalizedMessage.length, isUpgradedProtocol);
+      _outboundBuffer += serialalizedMessage;
+    } else {
+      Uint8List serialalizedMessage = _serializer.serialize(message);
+      _socket.add(SocketHelper.buildMessageHeader(SocketHelper.MESSAGE_WAMP, serialalizedMessage.length, isUpgradedProtocol));
+      _socket.add(serialalizedMessage);
+    }
   }
 }

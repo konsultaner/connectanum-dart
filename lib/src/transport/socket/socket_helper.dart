@@ -75,7 +75,8 @@ class SocketHelper {
   }
 
   static int getErrorNumber(List<int> message) {
-    if(message.length > 1){
+    if(message.length > 1) {
+      if (message[0] == SocketHelper._UPGRADE_HEADER) return 0;
       int error = message[1];
       if((((error & 0xFF) << 4) & 0xFF) > 0) return 0;
       return (error & 0xFF) >> 4;
@@ -114,7 +115,7 @@ class SocketHelper {
 
   static bool isValidMessage(Uint8List message) {
     int messageType = message[0];
-    return messageType != MESSAGE_WAMP && messageType != MESSAGE_PING && messageType != MESSAGE_PONG;
+    return messageType != MESSAGE_WAMP || messageType != MESSAGE_PING || messageType != MESSAGE_PONG;
   }
 
   static int getMessageType(Uint8List message) {
@@ -138,17 +139,20 @@ class SocketHelper {
   }
 
   static int getPayloadLength(Uint8List message, int headerLength) {
-    if (headerLength == 5) {
-      return
-        (message[1] & 0xFF) << 24 |
-        (message[2] & 0xFF) << 16 |
-        (message[3] & 0xFF) << 8 |
-        (message[4] & 0xFF);
-    } else {
-      return
-        (message[1] & 0xFF) << 16 |
-        (message[2] & 0xFF) << 8 |
-        (message[3] & 0xFF);
+    if (message.length >= headerLength) {
+      if (headerLength == 5) {
+        return
+          (message[1] & 0xFF) << 24 |
+          (message[2] & 0xFF) << 16 |
+          (message[3] & 0xFF) << 8 |
+          (message[4] & 0xFF);
+      } else {
+        return
+          (message[1] & 0xFF) << 16 |
+          (message[2] & 0xFF) << 8 |
+          (message[3] & 0xFF);
+      }
     }
+    return 0;
   }
 }

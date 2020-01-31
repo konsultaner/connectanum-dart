@@ -9,6 +9,7 @@ provide a simple an extensible structure and returning something to the great WA
 - callee interrupt thread on incoming cancellations
 - better docs  
 - web socket support
+- get the auth id that called a method
 - \[IN PROGRESS] raw socket compatible to connectanum router
 
 ## Supported WAMP features
