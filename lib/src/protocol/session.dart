@@ -10,7 +10,6 @@ import 'package:connectanum_dart/src/message/goodbye.dart';
 import 'package:connectanum_dart/src/message/message_types.dart';
 import 'package:connectanum_dart/src/message/unsubscribed.dart';
 import 'package:connectanum_dart/src/message/welcome.dart';
-import 'package:connectanum_dart/src/protocol/session_model.dart';
 import 'package:connectanum_dart/src/message/uri_pattern.dart';
 
 import '../message/details.dart' as detailsPackage;
@@ -32,7 +31,14 @@ import '../message/error.dart';
 import '../transport/abstract_transport.dart';
 import '../authentication/abstract_authentication.dart';
 
-class Session extends SessionModel {
+class Session {
+
+  int id;
+  String realm;
+  String authId;
+  String authRole;
+  String authMethod;
+  String authProvider;
 
   AbstractTransport _transport;
 

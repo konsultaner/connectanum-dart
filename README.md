@@ -6,11 +6,10 @@ provide a simple an extensible structure and returning something to the great WA
 ## TODOs
 
 - Multithreading for callee invocations
-- callee interrupt thread on incoming cancellations
+    - callee interrupt thread on incoming cancellations
 - better docs  
 - web socket support
 - get the auth id that called a method
-- \[IN PROGRESS] raw socket compatible to connectanum router
 
 ## Supported WAMP features
 
@@ -35,56 +34,6 @@ provide a simple an extensible structure and returning something to the great WA
 - [ ] Sharded Subscriptions
 - [ ] Subscription Revocation
 
-## code structure
-
-```
-+----------------------------------------------------------------+
-|                                                                |
-|                     +----------------------------------------+ |
-|                     |                                        | |
-|       Client        |           Authentication               | |
-|                     |                                        | |
-|                     +----------------------------------------+ |
-|                                                                |
-|  +---------------+  +----------------------------------------+ |
-|  |               |  |                                        | |
-|  |               |  |   +---+                                | |
-|  |               |  |   |   | Session                        | |
-|  |               |  |   +-+-+                                | |
-|  |               |  |     |                                  | |
-|  |               |  |     |   outgoing messages              | |
-|  |               |  |     |                                  | |
-|  |               |  |     |       incomming messages         | |
-|  |   Transport   |  |     |     +---------------------+      | |
-|  |               |  |     |     |                     |      | |
-|  |               |  |  +--v-----+--+ +----------------v---+  | |
-|  |               |  |  |           | |                    |  | |
-|  |               |  |  | Transport | | Protocol-Processor |  | |
-|  |               |  |  |           | |                    |  | |
-|  |               |  |  +-----------+ +--------------------+  | |
-|  |               |  |                                        | |
-|  +---------------+  +----------------------------------------+ |
-|                                                                |
-+----------------------------------------------------------------+
-```
-
-The client wraps all classes to process the wamp protocol. The transport can by any type of class inheriting
-the `AbstractTransport` class. The transport also cares about serialization and deserialization of incoming
-messages. 
-
-The authentication is processed by the any class inheriting the `AbstractAuthentication` class. It is used by
-the client to negotiate a session id with the router instance.
-
-After the authentication process is successful, the client will build a session object. The
-session will carry the transport as well as a protocol processor that handles the incoming deserialized
-messages. The protocol processor also triggers all behaviour subjects located in the session to trigger
-invocations and events. Outgoing messages are created by the session object and are passed to the transport.
-
-The basic message logic is build to use serialized messages. The message objects are also used to handle RPC and 
-PUB/SUB events. For example a `SUBSCRIBED` will also hold the incoming message stream for event messages. This way
-the protocol itself is used to structure the code. Therefore it is necessary that a router sends a subscribed even 
-though it is not mandatory. 
-
 ## Stream model
 
 The transport contains an incoming stream that is usually a single subscribe stream. A session will internally
@@ -106,12 +55,8 @@ will try to authenticate an revalidate the session again. All subscriptions and 
 be recovered if possible.
 
 ```dart
-final transport = new WebSocketTransport("wss://localhost:8443");
-final client = new Client(
-    realm: "my.realm",
-    transport: transport
-);
-final session await client.connect();
+final client = new Client(realm: "my.realm",transport: new WebSocketTransport("wss://localhost:8443"));
+final session = await client.connect();
 ```
 
 ## RPC
