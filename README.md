@@ -5,9 +5,11 @@ provide a simple an extensible structure and returning something to the great WA
 
 ## TODOs
 
+- add code coverage report
 - Multithreading for callee invocations
     - callee interrupt thread on incoming cancellations
 - better docs
+- msgpack serializer
 - get the auth id that called a method
 - handle ping pong times
 - export open api in ./lib/ root
@@ -45,7 +47,6 @@ open a new broadcast stream as soon as the authentication process is successful.
 passes all incoming messages to the broad cast stream. If the transport stream is done, the broadcast stream will close
 as well. The broad cast stream is used to handle all session methods. The user will never touch the transport stream
 directly.
-
 
 ## Start the client
 
