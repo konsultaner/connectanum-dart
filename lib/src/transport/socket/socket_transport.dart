@@ -33,6 +33,7 @@ class SocketTransport extends AbstractTransport {
   Uint8List _outboundBuffer = new Uint8List(0);
 
   Completer _handshakeCompleter;
+  Completer _pingCompleter;
 
   SocketTransport(
     this._host,
@@ -69,7 +70,11 @@ class SocketTransport extends AbstractTransport {
 
   @override
   Future<void> close() {
-    return _socket.close();
+    // found at https://stackoverflow.com/questions/28745138/how-to-handle-socket-disconnects-in-dart
+    return _socket.drain().then((_) {
+      _socket.close(); // closes in and out going socket
+      //_socket.destroy(); // closes in and out going socket
+    });
   }
 
   @override
@@ -116,7 +121,7 @@ class SocketTransport extends AbstractTransport {
         }
         return true;
       })
-      .map((Uint8List message) => _handleMessage(message))
+      .expand((Uint8List message) => _handleMessage(message))
       .where((message) => message != null);
   }
 
@@ -144,32 +149,29 @@ class SocketTransport extends AbstractTransport {
       }
       return true;
     }else{
-      bool closeConnection = true;
-      String error;
-      if(errorNumber == SocketHelper.ERROR_SERIALIZER_UNSUPPORTED){
-        error = "Router responded with an error: ERROR_SERIALIZER_UNSUPPORTED";
-      }else if(errorNumber == SocketHelper.ERROR_USE_OF_RESERVED_BITS){
-        error = "Router responded with an error: ERROR_USE_OF_RESERVED_BITS";
-        // if another has been connected with an upgrade header
-        closeConnection = false;
-      }else if(errorNumber == SocketHelper.ERROR_MAX_CONNECTION_COUNT_EXCEEDED){
-        error = "Router responded with an error: ERROR_MAX_CONNECTION_COUNT_EXCEEDED";
-      }else if(errorNumber == SocketHelper.ERROR_MESSAGE_LENGTH_EXCEEDED){
-        error = "Router responded with an error: ERROR_MESSAGE_LENGTH_EXCEEDED";
-        // if connectanum is configured with a lower message length
-        closeConnection = false;
-      }else{
-        error = "Router responded with an error: UNKNOWN "+errorNumber.toString();
-      }
-      _logger.shout(errorNumber.toString() + ": " + error);
-      if(closeConnection){
-        _handshakeCompleter.completeError({"error": error, "errorNumber": errorNumber});
-        _socket.drain().then((_) {
-          _socket.close();
-        });
-      }
+      _handleError(errorNumber);
       return true;
     }
+  }
+
+  void _handleError(int errorNumber) {
+    String error;
+    if(errorNumber == SocketHelper.ERROR_SERIALIZER_NOT_SUPPORTED){
+      error = "Router responded with an error: ERROR_SERIALIZER_UNSUPPORTED";
+    }else if(errorNumber == SocketHelper.ERROR_USE_OF_RESERVED_BITS){
+      // if another router other then connectanum has been connected with an upgrade header
+      error = "Router responded with an error: ERROR_USE_OF_RESERVED_BITS";
+    }else if(errorNumber == SocketHelper.ERROR_MAX_CONNECTION_COUNT_EXCEEDED){
+      error = "Router responded with an error: ERROR_MAX_CONNECTION_COUNT_EXCEEDED";
+    }else if(errorNumber == SocketHelper.ERROR_MESSAGE_LENGTH_EXCEEDED){
+      // if connectanum is configured with a lower message length
+      error = "Router responded with an error: ERROR_MESSAGE_LENGTH_EXCEEDED";
+    }else{
+      error = "Router responded with an error: UNKNOWN "+errorNumber.toString();
+    }
+    _logger.shout(errorNumber.toString() + ": " + error);
+    _handshakeCompleter.completeError({"error": error, "errorNumber": errorNumber});
+    this.close();
   }
 
   bool _assertValidMessage(Uint8List message) {
@@ -181,34 +183,59 @@ class SocketTransport extends AbstractTransport {
     return true;
   }
 
-  AbstractMessage _handleMessage(Uint8List message) {
+  List<AbstractMessage> _handleMessage(Uint8List inboundData) {
+    List<AbstractMessage> messages = [];
     try {
-      int messageType = SocketHelper.getMessageType(message);
-      int messageLength = SocketHelper.getPayloadLength(message,headerLength);
-      // cut off the header
-      message = message.sublist(headerLength);
-      // send the rest of the message back to the buffer
-      _inboundBuffer = message.sublist(messageLength, message.length);
-      message = message.sublist(0, messageLength);
-
-      if(messageType == SocketHelper.MESSAGE_WAMP) {
-        AbstractMessage deserializedMessage = _serializer.deserialize(message);
-        _logger.finest("Received message type " + deserializedMessage.id.toString());
-        return deserializedMessage;
-      } else if(messageType == SocketHelper.MESSAGE_PING) {
-        // send pong
-        _logger.finest("Responded to ping with pong and a payload length of " + message.length.toString());
-        _socket.add(SocketHelper.getPong(message.length,isUpgradedProtocol));
-        _socket.add(message);
-      } else {
-        // received a pong
-        _logger.finest("Received a Pong with a payload length of " + message.length.toString());
+      for (Uint8List message in _splitMessages(inboundData)) {
+        int messageType = SocketHelper.getMessageType(message);
+        message = message.sublist(headerLength);
+        if (messageType == SocketHelper.MESSAGE_WAMP) {
+          AbstractMessage deserializedMessage = _serializer.deserialize(message);
+          _logger.finest("Received message type " + deserializedMessage.id.toString());
+          messages.add(deserializedMessage);
+        } else if (messageType == SocketHelper.MESSAGE_PING) {
+          // send pong
+          _logger.finest("Responded to ping with pong and a payload length of " + message.length.toString());
+          _socket.add(SocketHelper.getPong(message.length, isUpgradedProtocol));
+          _socket.add(message);
+        } else {
+          // received a pong
+          if (!_pingCompleter.isCompleted) {
+            _pingCompleter.complete(message);
+            _logger.finest("Received a Pong with a payload length of " + message.length.toString());
+          }
+        }
       }
     } on Exception catch (error) {
       // TODO handle serialization error
       _logger.fine("Error while handling incoming message " + error.toString());
     }
-    return null;
+    return messages;
+  }
+
+  List<Uint8List> _splitMessages(Uint8List inboundData) {
+    List<Uint8List> messages = [];
+    int offset = 0;
+    while (offset < inboundData.length) {
+      int messageLength = SocketHelper.getPayloadLength(inboundData, headerLength, offset: offset);
+      if (offset + headerLength + messageLength <= inboundData.length) {
+        // cut out the message
+        messages.add(inboundData.sublist(offset, offset + headerLength + messageLength));
+      } else {
+        // send the rest of the message back to the buffer
+        _inboundBuffer = inboundData.sublist(offset, inboundData.length);
+      }
+      offset += headerLength + messageLength;
+    }
+    return messages;
+  }
+
+  Future<Uint8List> sendPing({Duration timeout}) {
+    if (_pingCompleter == null || !_pingCompleter.isCompleted) {
+      _socket.add(SocketHelper.getPing(isUpgradedProtocol));
+      _pingCompleter = new Completer<Uint8List>();
+      return _pingCompleter.future.timeout(timeout == null ? new Duration(seconds: 5) : timeout);
+    } else throw new Exception("Wait for the last ping to complete or to timeout");
   }
 
   @override

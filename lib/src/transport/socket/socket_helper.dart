@@ -13,7 +13,7 @@ class SocketHelper {
   static const int MESSAGE_PING = 1;
   static const int MESSAGE_PONG = 2;
 
-  static const int ERROR_SERIALIZER_UNSUPPORTED = 1;
+  static const int ERROR_SERIALIZER_NOT_SUPPORTED = 1;
   static const int ERROR_MESSAGE_LENGTH_EXCEEDED = 2;
   static const int ERROR_USE_OF_RESERVED_BITS = 3;
   static const int ERROR_MAX_CONNECTION_COUNT_EXCEEDED = 4;
@@ -118,8 +118,8 @@ class SocketHelper {
     return messageType != MESSAGE_WAMP || messageType != MESSAGE_PING || messageType != MESSAGE_PONG;
   }
 
-  static int getMessageType(Uint8List message) {
-    return message[0];
+  static int getMessageType(Uint8List message, {offset: 0}) {
+    return message[offset + 0];
   }
 
   static bool isRawSocket(Uint8List message) {
@@ -138,19 +138,19 @@ class SocketHelper {
     return ((message[1] & 0xFF) >> 4) + 25;
   }
 
-  static int getPayloadLength(Uint8List message, int headerLength) {
+  static int getPayloadLength(Uint8List message, int headerLength, {offset: 0}) {
     if (message.length >= headerLength) {
       if (headerLength == 5) {
         return
-          (message[1] & 0xFF) << 24 |
-          (message[2] & 0xFF) << 16 |
-          (message[3] & 0xFF) << 8 |
-          (message[4] & 0xFF);
+          (message[offset + 1] & 0xFF) << 24 |
+          (message[offset + 2] & 0xFF) << 16 |
+          (message[offset + 3] & 0xFF) << 8 |
+          (message[offset + 4] & 0xFF);
       } else {
         return
-          (message[1] & 0xFF) << 16 |
-          (message[2] & 0xFF) << 8 |
-          (message[3] & 0xFF);
+          (message[offset + 1] & 0xFF) << 16 |
+          (message[offset + 2] & 0xFF) << 8 |
+          (message[offset + 3] & 0xFF);
       }
     }
     return 0;
