@@ -16,22 +16,18 @@ class SocketTransport extends AbstractTransport {
   Logger _logger = new Logger("SocketTransport");
 
   bool _ssl;
-  int _port;
   String _host;
+  int _port;
   Socket _socket;
-  int _messageLengthExponent;
   /**
    * this will be negotiated during the handshake process
    */
   int _messageLength;
-  AbstractSerializer _serializer;
+  int _messageLengthExponent;
   int _serializerType;
-  /**
-   * will be set to true if a handshake was completed
-   */
+  AbstractSerializer _serializer;
   Uint8List _inboundBuffer = new Uint8List(0);
   Uint8List _outboundBuffer = new Uint8List(0);
-
   Completer _handshakeCompleter;
   Completer _pingCompleter;
 
@@ -72,8 +68,7 @@ class SocketTransport extends AbstractTransport {
   Future<void> close() {
     // found at https://stackoverflow.com/questions/28745138/how-to-handle-socket-disconnects-in-dart
     return _socket.drain().then((_) {
-      _socket.close(); // closes in and out going socket
-      //_socket.destroy(); // closes in and out going socket
+      _socket.destroy(); // closes in and out going socket
     });
   }
 

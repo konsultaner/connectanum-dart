@@ -7,9 +7,13 @@ provide a simple an extensible structure and returning something to the great WA
 
 - Multithreading for callee invocations
     - callee interrupt thread on incoming cancellations
-- better docs  
-- web socket support
+- better docs
 - get the auth id that called a method
+- handle ping pong times
+- export open api in ./lib/ root
+- auto reconnect handling, but keep abstract socket interface
+    - difference between intentionally and unintentionally disconnect
+    - websocket has error and regular close event. use them if possible or use close with internal state from this package ?
 
 ## Supported WAMP features
 
