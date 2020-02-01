@@ -200,10 +200,8 @@ class SocketTransport extends AbstractTransport {
           _socket.add(message);
         } else {
           // received a pong
-          if (!_pingCompleter.isCompleted) {
-            _pingCompleter.complete(message);
-            _logger.finest("Received a Pong with a payload length of " + message.length.toString());
-          }
+          _pingCompleter.complete(message);
+          _logger.finest("Received a Pong with a payload length of " + message.length.toString());
         }
       }
     } on Exception catch (error) {
