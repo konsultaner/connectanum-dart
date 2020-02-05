@@ -1,8 +1,7 @@
 name: connectanum_dart
-version: 1.0.0-alpha.1
+version: 1.0.0-dev.1
 description: >-
-  This projects implements the wamp protocol with some advanced features. It uses dart streams to make the code reactive.
-  The major goal is to make it easy to use, extend and test and make it easy to test implementations that use this package.
+  This is a WAMP client (Web Application Messaging Protocol) implementation for the dart language and flutter projects.
 dependencies:
   pointycastle: ^1.0.2
   logging: 0.11.4

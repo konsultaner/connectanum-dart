@@ -1,11 +1,15 @@
 # connectanum-dart
 
-This is a wamp client implementation for dart or flutter projects. The projects aims to 
-provide a simple an extensible structure and returning something to the great WAMP-Protocol community.
+This is a WAMP client implementation for the [dart language](https://dart.dev/) and [flutter](https://flutter.dev/) projects. 
+The projects aims to provide a simple an extensible and structure that is easy to use.
+With this project I want return something to the great WAMP-Protocol community.
+
+WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
 
 ## TODOs
 
 - add code coverage report
+- add github runners to test code with multiple dart versions
 - Multithreading for callee invocations
     - callee interrupt thread on incoming cancellations
 - better docs
@@ -15,7 +19,8 @@ provide a simple an extensible structure and returning something to the great WA
 - export open api in ./lib/ root
 - auto reconnect handling, but keep abstract socket interface
     - difference between intentionally and unintentionally disconnect
-    - websocket has error and regular close event. use them if possible or use close with internal state from this package ?
+    - websocket has error and regular close event. 
+      use them if possible or use close with internal state from this package?
 
 ## Supported WAMP features
 
@@ -60,7 +65,9 @@ will try to authenticate an revalidate the session again. All subscriptions and 
 be recovered if possible.
 
 ```dart
-final client = new Client(realm: "my.realm",transport: new WebSocketTransport("wss://localhost:8443"));
+final client = new Client(
+  realm: "my.realm",transport: new WebSocketTransport("wss://localhost:8443")
+);
 final session = await client.connect();
 ```
 
@@ -69,7 +76,9 @@ final session = await client.connect();
 to work with RPCs you need to have an established session. 
 
 ```dart
-final client = new Client(realm: "my.realm",new WebSocketTransport("wss://localhost:8443"));
+final client = new Client(
+  realm: "my.realm",new WebSocketTransport("wss://localhost:8443")
+);
 final session = await client.connect();
 
 // Register a procedure
