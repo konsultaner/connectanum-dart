@@ -16,7 +16,6 @@ WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
 - msgpack serializer
 - get the auth id that called a method
 - handle ping pong times
-- export open api in ./lib/ root
 - auto reconnect handling, but keep abstract socket interface
     - difference between intentionally and unintentionally disconnect
     - websocket has error and regular close event. 
