@@ -1,0 +1,16 @@
+import 'package:connectanum_dart/src/authentication/ticket_authentication.dart';
+import 'package:connectanum_dart/src/message/challenge.dart';
+import 'package:test/test.dart';
+
+void main() {
+  group('Ticket', () {
+    String secret = "3614";
+
+    test("message handling", () async {
+      final authMethod = TicketAuthentication(secret);
+      expect(authMethod.getName(), equals("ticket"));
+      final authenticate = await authMethod.challenge(new Extra());
+      expect(authenticate.signature, equals(secret));
+    });
+  });
+}
