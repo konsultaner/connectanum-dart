@@ -23,6 +23,14 @@ WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
 
 ## Supported WAMP features
 
+### Authentication
+
+- [x] [WAMP-CRA](https://wamp-proto.org/_static/gen/wamp_latest.html#wampcra)
+- [ ] [TICKET](https://wamp-proto.org/_static/gen/wamp_latest.html#ticketauth)
+- [ ] [WAMP-SCRAM](https://wamp-proto.org/_static/gen/wamp_latest.html#wamp-scram)
+    - [ ] Argon2
+    - [ ] PBKDF2
+
 ### Advanced RPC features
 
 - [x] Progressive Call Results
