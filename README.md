@@ -1,7 +1,7 @@
 # connectanum-dart
 
 This is a WAMP client implementation for the [dart language](https://dart.dev/) and [flutter](https://flutter.dev/) projects. 
-The projects aims to provide a simple an extensible and structure that is easy to use.
+The projects aims to provide a simple and extensible structure that is easy to use.
 With this project I want return something to the great WAMP-Protocol community.
 
 WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
