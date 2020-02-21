@@ -19,6 +19,7 @@ export 'src/message/unregister.dart';
 export 'src/message/unregistered.dart';
 export 'src/authentication/abstract_authentication.dart';
 export 'src/authentication/cra_authentication.dart';
+export 'src/authentication/ticket_authentication.dart';
 export 'src/protocol/session.dart';
 export 'src/serializer/json/serializer.dart';
 export 'src/transport/socket/socket_transport.dart';
