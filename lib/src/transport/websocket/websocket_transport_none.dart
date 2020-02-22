@@ -16,7 +16,9 @@ class WebSocketTransport extends AbstractTransport {
   }
 
   @override
-  Future<void> open() {}
+  Future<void> open() {
+    return null;
+  }
 
   @override
   void send(AbstractMessage message) {}

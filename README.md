@@ -14,6 +14,7 @@ WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
     - callee interrupt thread on incoming cancellations
 - better docs
 - msgpack serializer
+- unit test websocket transport
 - get the auth id that called a method
 - handle ping pong times
 - auto reconnect handling, but keep abstract socket interface

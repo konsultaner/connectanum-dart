@@ -1,3 +1,5 @@
+library connectanum;
+
 export 'src/client.dart';
 export 'src/message/challenge.dart';
 export 'src/message/details.dart';
@@ -17,12 +19,7 @@ export 'src/message/register.dart';
 export 'src/message/registered.dart';
 export 'src/message/unregister.dart';
 export 'src/message/unregistered.dart';
-export 'src/authentication/abstract_authentication.dart';
-export 'src/authentication/cra_authentication.dart';
-export 'src/authentication/ticket_authentication.dart';
 export 'src/protocol/session.dart';
-export 'src/serializer/json/serializer.dart';
-export 'src/transport/socket/socket_transport.dart';
 export 'src/transport/abstract_transport.dart';
 export 'src/transport/websocket/websocket_transport_none.dart'
   if (dart.library.io) 'src/transport/websocket/websocket_transport_io.dart' // dart:io implementation
