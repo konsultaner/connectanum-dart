@@ -1,3 +1,7 @@
-### 1.0.0-dev
+### 1.0.0-dev.2
 
-- first deploy to https://pub.dev 
+- cleanup code to 
+
+### 1.0.0-dev.1
+
+- initial deployment to https://pub.dev 

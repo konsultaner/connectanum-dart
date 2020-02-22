@@ -11,7 +11,7 @@ import '../message/message_types.dart';
 import '../message/unsubscribed.dart';
 import '../message/welcome.dart';
 import '../message/uri_pattern.dart';
-import '../message/details.dart' as detailsPackage;
+import '../message/details.dart' as details_package;
 import '../message/call.dart';
 import '../message/event.dart';
 import '../message/hello.dart';
@@ -85,7 +85,7 @@ class Session {
     /**
      * Initialize the sub protocol with a hello message
      */
-    final hello = Hello(realm, detailsPackage.Details.forHello());
+    final hello = Hello(realm, details_package.Details.forHello());
     if (authId != null) {
       hello.details.authid = authId;
     }
@@ -166,7 +166,7 @@ class Session {
     this._transport.send(call);
     if (cancelCompleter != null) {
       cancelCompleter.future.then((cancelMode) {
-        CancelOptions options = null;
+        CancelOptions options;
         if (
           cancelMode != null && (
               CancelOptions.MODE_KILL_NO_WAIT == cancelMode ||
