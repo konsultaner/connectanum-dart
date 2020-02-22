@@ -33,8 +33,8 @@ class PublishOptions {
   // publisher_identification == true
   bool disclose_me;
 
-  PublishOptions({
-      this.acknowledge,
+  PublishOptions(
+      {this.acknowledge,
       this.exclude,
       this.exclude_authid,
       this.exclude_authrole,

@@ -1,10 +1,9 @@
 import 'dart:core';
 
 class UriPattern {
-  static final Pattern REGULAR_PATTERN =
-      new RegExp(r"^([^\s\.#]+\.)*([^\s\.#]+)$");
+  static final Pattern REGULAR_PATTERN = RegExp(r"^([^\s\.#]+\.)*([^\s\.#]+)$");
   static final Pattern WILDCARD_PATTERN =
-      new RegExp(r"^(([^\s\.#]+\.)|\.)*([^\s\.#]+)?$");
+      RegExp(r"^(([^\s\.#]+\.)|\.)*([^\s\.#]+)?$");
 
   static match(String uri) {
     return REGULAR_PATTERN.allMatches(uri).length > 0;

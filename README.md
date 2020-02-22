@@ -74,7 +74,7 @@ be recovered if possible.
 
 ```dart
 final client = Client(
-  realm: "my.realm",transport: new WebSocketTransport("wss://localhost:8443")
+  realm: "my.realm",transport: WebSocketTransport("wss://localhost:8443")
 );
 final session = await client.connect();
 ```

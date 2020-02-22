@@ -33,7 +33,6 @@ import '../abstract_serializer.dart';
 /// This is a seralizer for JSON messages. It is used to initialize an [AbstractTransport]
 /// object.
 class Serializer extends AbstractSerializer {
-
   /// Converts a uint8 JSON message into a WAMP message object
   @override
   AbstractMessage deserialize(Uint8List jsonMessage) {
@@ -46,17 +45,18 @@ class Serializer extends AbstractSerializer {
     if (message is List) {
       int messageId = message[0];
       if (messageId == MessageTypes.CODE_CHALLENGE) {
-        return Challenge(message[1], new Extra(
-            challenge: message[2]["challenge"],
-            salt: message[2]["salt"],
-            keylen: message[2]["keylen"],
-            iterations: message[2]["iterations"],
-            memory: message[2]["memory"],
-            parallel: message[2]["parallel"],
-            version_num: message[2]["version_num"],
-            version_str: message[2]["version_str"],
-            nonce: message[2]["nonce"]
-        ));
+        return Challenge(
+            message[1],
+            Extra(
+                challenge: message[2]["challenge"],
+                salt: message[2]["salt"],
+                keylen: message[2]["keylen"],
+                iterations: message[2]["iterations"],
+                memory: message[2]["memory"],
+                parallel: message[2]["parallel"],
+                version_num: message[2]["version_num"],
+                version_str: message[2]["version_str"],
+                nonce: message[2]["nonce"]));
       }
       if (messageId == MessageTypes.CODE_WELCOME) {
         final details = Details();
@@ -70,78 +70,137 @@ class Serializer extends AbstractSerializer {
             details.roles.dealer = Dealer();
             if (message[2]["roles"]["broker"]["features"] != null) {
               details.roles.dealer.features = DealerFeatures();
-              details.roles.dealer.features.caller_identification = message[2]["roles"]["dealer"]["features"]["caller_identification"] ?? false;
-              details.roles.dealer.features.call_trustlevels = message[2]["roles"]["dealer"]["features"]["call_trustlevels"] ?? false;
-              details.roles.dealer.features.pattern_based_registration = message[2]["roles"]["dealer"]["features"]["pattern_based_registration"] ?? false;
-              details.roles.dealer.features.registration_meta_api = message[2]["roles"]["dealer"]["features"]["registration_meta_api"] ?? false;
-              details.roles.dealer.features.shared_registration = message[2]["roles"]["dealer"]["features"]["shared_registration"] ?? false;
-              details.roles.dealer.features.session_meta_api = message[2]["roles"]["dealer"]["features"]["session_meta_api"] ?? false;
-              details.roles.dealer.features.call_timeout = message[2]["roles"]["dealer"]["features"]["call_timeout"] ?? false;
-              details.roles.dealer.features.call_canceling = message[2]["roles"]["dealer"]["features"]["call_canceling"] ?? false;
-              details.roles.dealer.features.progressive_call_results = message[2]["roles"]["dealer"]["features"]["progressive_call_results"] ?? false;
-              details.roles.dealer.features.payload_transparency = message[2]["roles"]["dealer"]["features"]["payload_transparency"] ?? false;
+              details.roles.dealer.features.caller_identification = message[2]
+                          ["roles"]["dealer"]["features"]
+                      ["caller_identification"] ??
+                  false;
+              details.roles.dealer.features.call_trustlevels = message[2]
+                      ["roles"]["dealer"]["features"]["call_trustlevels"] ??
+                  false;
+              details.roles.dealer.features.pattern_based_registration =
+                  message[2]["roles"]["dealer"]["features"]
+                          ["pattern_based_registration"] ??
+                      false;
+              details.roles.dealer.features.registration_meta_api = message[2]
+                          ["roles"]["dealer"]["features"]
+                      ["registration_meta_api"] ??
+                  false;
+              details.roles.dealer.features.shared_registration = message[2]
+                      ["roles"]["dealer"]["features"]["shared_registration"] ??
+                  false;
+              details.roles.dealer.features.session_meta_api = message[2]
+                      ["roles"]["dealer"]["features"]["session_meta_api"] ??
+                  false;
+              details.roles.dealer.features.call_timeout = message[2]["roles"]
+                      ["dealer"]["features"]["call_timeout"] ??
+                  false;
+              details.roles.dealer.features.call_canceling = message[2]["roles"]
+                      ["dealer"]["features"]["call_canceling"] ??
+                  false;
+              details.roles.dealer.features.progressive_call_results =
+                  message[2]["roles"]["dealer"]["features"]
+                          ["progressive_call_results"] ??
+                      false;
+              details.roles.dealer.features.payload_transparency = message[2]
+                      ["roles"]["dealer"]["features"]["payload_transparency"] ??
+                  false;
             }
           }
           if (message[2]["roles"]["broker"] != null) {
             details.roles.broker = Broker();
             if (message[2]["roles"]["broker"]["features"] != null) {
               details.roles.broker.features = BrokerFeatures();
-              details.roles.broker.features.publisher_identification = message[2]["roles"]["broker"]["features"]["publisher_identification"] ?? false;
-              details.roles.broker.features.publication_trustlevels = message[2]["roles"]["broker"]["features"]["publication_trustlevels"] ?? false;
-              details.roles.broker.features.pattern_based_subscription = message[2]["roles"]["broker"]["features"]["pattern_based_subscription"] ?? false;
-              details.roles.broker.features.subscription_meta_api = message[2]["roles"]["broker"]["features"]["subscription_meta_api"] ?? false;
-              details.roles.broker.features.subscriber_blackwhite_listing = message[2]["roles"]["broker"]["features"]["subscriber_blackwhite_listing"] ?? false;
-              details.roles.broker.features.session_meta_api = message[2]["roles"]["broker"]["features"]["session_meta_api"] ?? false;
-              details.roles.broker.features.publisher_exclusion = message[2]["roles"]["broker"]["features"]["publisher_exclusion"] ?? false;
-              details.roles.broker.features.event_history = message[2]["roles"]["broker"]["features"]["event_history"] ?? false;
-              details.roles.broker.features.payload_transparency = message[2]["roles"]["broker"]["features"]["payload_transparency"] ?? false;
+              details.roles.broker.features.publisher_identification =
+                  message[2]["roles"]["broker"]["features"]
+                          ["publisher_identification"] ??
+                      false;
+              details.roles.broker.features.publication_trustlevels = message[2]
+                          ["roles"]["broker"]["features"]
+                      ["publication_trustlevels"] ??
+                  false;
+              details.roles.broker.features.pattern_based_subscription =
+                  message[2]["roles"]["broker"]["features"]
+                          ["pattern_based_subscription"] ??
+                      false;
+              details.roles.broker.features.subscription_meta_api = message[2]
+                          ["roles"]["broker"]["features"]
+                      ["subscription_meta_api"] ??
+                  false;
+              details.roles.broker.features.subscriber_blackwhite_listing =
+                  message[2]["roles"]["broker"]["features"]
+                          ["subscriber_blackwhite_listing"] ??
+                      false;
+              details.roles.broker.features.session_meta_api = message[2]
+                      ["roles"]["broker"]["features"]["session_meta_api"] ??
+                  false;
+              details.roles.broker.features.publisher_exclusion = message[2]
+                      ["roles"]["broker"]["features"]["publisher_exclusion"] ??
+                  false;
+              details.roles.broker.features.event_history = message[2]["roles"]
+                      ["broker"]["features"]["event_history"] ??
+                  false;
+              details.roles.broker.features.payload_transparency = message[2]
+                      ["roles"]["broker"]["features"]["payload_transparency"] ??
+                  false;
             }
           }
         }
-        return new Welcome(message[1], details);
+        return Welcome(message[1], details);
       }
       if (messageId == MessageTypes.CODE_REGISTERED) {
-        return new Registered(message[1], message[2]);
+        return Registered(message[1], message[2]);
       }
       if (messageId == MessageTypes.CODE_UNREGISTERED) {
-        return new Unregistered(message[1]);
+        return Unregistered(message[1]);
       }
       if (messageId == MessageTypes.CODE_INVOCATION) {
-        return _addPayload(new Invocation(message[1], message[2], new InvocationDetails(
-            message[3]["caller"], message[3]["procedure"], message[3]["receive_progress"]
-        )),message,4);
+        return _addPayload(
+            new Invocation(
+                message[1],
+                message[2],
+                InvocationDetails(message[3]["caller"], message[3]["procedure"],
+                    message[3]["receive_progress"])),
+            message,
+            4);
       }
       if (messageId == MessageTypes.CODE_RESULT) {
-        return _addPayload(new Result(message[1], new ResultDetails(
-            message[2]["progress"]
-        )),message,3);
+        return _addPayload(
+            new Result(message[1], ResultDetails(message[2]["progress"])),
+            message,
+            3);
       }
       if (messageId == MessageTypes.CODE_PUBLISHED) {
-        return new Published(message[1],message[2]);
+        return Published(message[1], message[2]);
       }
       if (messageId == MessageTypes.CODE_SUBSCRIBED) {
-        return new Subscribed(message[1],message[2]);
+        return Subscribed(message[1], message[2]);
       }
       if (messageId == MessageTypes.CODE_UNSUBSCRIBED) {
-        return new Unsubscribed(message[1]);
+        return Unsubscribed(message[1]);
       }
       if (messageId == MessageTypes.CODE_EVENT) {
-        return _addPayload(new Event(message[1], message[2], new EventDetails(
-            publisher: message[3]["publisher"],
-            trustlevel: message[3]["trustlevel"],
-            topic: message[3]["topic"]
-        )),message,4);
+        return _addPayload(
+            new Event(
+                message[1],
+                message[2],
+                EventDetails(
+                    publisher: message[3]["publisher"],
+                    trustlevel: message[3]["trustlevel"],
+                    topic: message[3]["topic"])),
+            message,
+            4);
       }
     }
-    throw new Exception(""); // TODO think of something helpful here...
+    throw Exception(""); // TODO think of something helpful here...
   }
 
-  AbstractMessageWithPayload _addPayload(AbstractMessageWithPayload message, List<Object> messageData, argumentsOffset) {
+  AbstractMessageWithPayload _addPayload(AbstractMessageWithPayload message,
+      List<Object> messageData, argumentsOffset) {
     if (messageData.length >= argumentsOffset + 1) {
       message.arguments = messageData[argumentsOffset];
     }
     if (messageData.length >= argumentsOffset + 2) {
-      message.argumentsKeywords = messageData[argumentsOffset+1];
+      message.argumentsKeywords = messageData[argumentsOffset + 1];
     }
     return message;
   }
@@ -161,80 +220,108 @@ class Serializer extends AbstractSerializer {
       return '[${MessageTypes.CODE_AUTHENTICATE},"${message.signature ?? ""}",{}]';
     }
     if (message is Register) {
-        return '[${MessageTypes.CODE_REGISTER},${message.requestId},${_serializeRegisterOptions(message.options)},"${message.procedure}"]';
+      return '[${MessageTypes.CODE_REGISTER},${message.requestId},${_serializeRegisterOptions(message.options)},"${message.procedure}"]';
     }
     if (message is Unregister) {
-        return '[${MessageTypes.CODE_UNREGISTER},${message.requestId},${message.registrationId}]';
+      return '[${MessageTypes.CODE_UNREGISTER},${message.requestId},${message.registrationId}]';
     }
     if (message is Call) {
-        return '[${MessageTypes.CODE_CALL},${message.requestId},${_serializeCallOptions(message.options)},"${message.procedure}"${_serializePayload(message)}]';
+      return '[${MessageTypes.CODE_CALL},${message.requestId},${_serializeCallOptions(message.options)},"${message.procedure}"${_serializePayload(message)}]';
     }
     if (message is Yield) {
-        return "[${MessageTypes.CODE_YIELD},${message.invocationRequestId},${_serializeYieldOptions(message.options)}${_serializePayload(message)}]";
+      return "[${MessageTypes.CODE_YIELD},${message.invocationRequestId},${_serializeYieldOptions(message.options)}${_serializePayload(message)}]";
     }
-    if (message is Invocation) { // for serializer unit test only
-        return "[${MessageTypes.CODE_INVOCATION},${message.requestId},${message.registrationId},{}${_serializePayload(message)}]";
+    if (message is Invocation) {
+      // for serializer unit test only
+      return "[${MessageTypes.CODE_INVOCATION},${message.requestId},${message.registrationId},{}${_serializePayload(message)}]";
     }
     if (message is Publish) {
-        return '[${MessageTypes.CODE_PUBLISH},${message.requestId},${_serializePublish(message.options)},"${message.topic}"${_serializePayload(message)}]';
+      return '[${MessageTypes.CODE_PUBLISH},${message.requestId},${_serializePublish(message.options)},"${message.topic}"${_serializePayload(message)}]';
     }
     if (message is Event) {
-        return "[${MessageTypes.CODE_EVENT},${message.subscriptionId},${message.publicationId}${_serializePayload(message)}]";
+      return "[${MessageTypes.CODE_EVENT},${message.subscriptionId},${message.publicationId}${_serializePayload(message)}]";
     }
     if (message is Subscribe) {
-        return '[${MessageTypes.CODE_SUBSCRIBE},${message.requestId},${_serializeSubscribeOptions(message.options)},"${message.topic}"]';
+      return '[${MessageTypes.CODE_SUBSCRIBE},${message.requestId},${_serializeSubscribeOptions(message.options)},"${message.topic}"]';
     }
     if (message is Unsubscribe) {
-        return "[${MessageTypes.CODE_UNSUBSCRIBE},${message.requestId},${message.subscriptionId}]";
+      return "[${MessageTypes.CODE_UNSUBSCRIBE},${message.requestId},${message.subscriptionId}]";
     }
     if (message is Error) {
-        return "[${MessageTypes.CODE_ERROR},${message.requestTypeId},${message.requestId},${json.encode(message.details)}${_serializePayload(message)}]";
+      return "[${MessageTypes.CODE_ERROR},${message.requestTypeId},${message.requestId},${json.encode(message.details)}${_serializePayload(message)}]";
     }
     if (message is Goodbye) {
-        return '[${MessageTypes.CODE_GOODBYE},${message.message != null ? '"{"message":"${message.message.message ?? ""}"' : "{}"},${message.reason}]';
+      return '[${MessageTypes.CODE_GOODBYE},${message.message != null ? '"{"message":"${message.message.message ?? ""}"' : "{}"},${message.reason}]';
     }
-    throw new Exception(""); // TODO think of something helpful here...
+    throw Exception(""); // TODO think of something helpful here...
   }
 
   String _serializeDetails(Details details) {
-    if(details.roles != null) {
+    if (details.roles != null) {
       List<String> rolesJson = [];
-      if (details.roles.caller != null && details.roles.caller.features != null) {
+      if (details.roles.caller != null &&
+          details.roles.caller.features != null) {
         List<String> callerFeatures = [];
-        callerFeatures.add('"call_canceling":${details.roles.caller.features.call_canceling ? "true" : "false"}');
-        callerFeatures.add('"call_timeout":${details.roles.caller.features.call_timeout ? "true" : "false"}');
-        callerFeatures.add('"caller_identification":${details.roles.caller.features.caller_identification ? "true" : "false"}');
-        callerFeatures.add('"payload_transparency":${details.roles.caller.features.payload_transparency ? "true" : "false"}');
-        callerFeatures.add('"progressive_call_results":${details.roles.caller.features.progressive_call_results ? "true" : "false"}');
+        callerFeatures.add(
+            '"call_canceling":${details.roles.caller.features.call_canceling ? "true" : "false"}');
+        callerFeatures.add(
+            '"call_timeout":${details.roles.caller.features.call_timeout ? "true" : "false"}');
+        callerFeatures.add(
+            '"caller_identification":${details.roles.caller.features.caller_identification ? "true" : "false"}');
+        callerFeatures.add(
+            '"payload_transparency":${details.roles.caller.features.payload_transparency ? "true" : "false"}');
+        callerFeatures.add(
+            '"progressive_call_results":${details.roles.caller.features.progressive_call_results ? "true" : "false"}');
         rolesJson.add('"caller":{"features":{${callerFeatures.join(",")}}}');
       }
-      if (details.roles.callee != null && details.roles.callee.features != null) {
+      if (details.roles.callee != null &&
+          details.roles.callee.features != null) {
         List<String> calleeFeatures = [];
-        calleeFeatures.add('"caller_identification":${details.roles.callee.features.caller_identification ? "true" : "false"}');
-        calleeFeatures.add('"call_trustlevels":${details.roles.callee.features.call_trustlevels ? "true" : "false"}');
-        calleeFeatures.add('"pattern_based_registration":${details.roles.callee.features.pattern_based_registration ? "true" : "false"}');
-        calleeFeatures.add('"shared_registration":${details.roles.callee.features.shared_registration ? "true" : "false"}');
-        calleeFeatures.add('"call_timeout":${details.roles.callee.features.call_timeout ? "true" : "false"}');
-        calleeFeatures.add('"call_canceling":${details.roles.callee.features.call_canceling ? "true" : "false"}');
-        calleeFeatures.add('"progressive_call_results":${details.roles.callee.features.progressive_call_results ? "true" : "false"}');
-        calleeFeatures.add('"payload_transparency":${details.roles.callee.features.payload_transparency ? "true" : "false"}');
+        calleeFeatures.add(
+            '"caller_identification":${details.roles.callee.features.caller_identification ? "true" : "false"}');
+        calleeFeatures.add(
+            '"call_trustlevels":${details.roles.callee.features.call_trustlevels ? "true" : "false"}');
+        calleeFeatures.add(
+            '"pattern_based_registration":${details.roles.callee.features.pattern_based_registration ? "true" : "false"}');
+        calleeFeatures.add(
+            '"shared_registration":${details.roles.callee.features.shared_registration ? "true" : "false"}');
+        calleeFeatures.add(
+            '"call_timeout":${details.roles.callee.features.call_timeout ? "true" : "false"}');
+        calleeFeatures.add(
+            '"call_canceling":${details.roles.callee.features.call_canceling ? "true" : "false"}');
+        calleeFeatures.add(
+            '"progressive_call_results":${details.roles.callee.features.progressive_call_results ? "true" : "false"}');
+        calleeFeatures.add(
+            '"payload_transparency":${details.roles.callee.features.payload_transparency ? "true" : "false"}');
         rolesJson.add('"callee":{"features":{${calleeFeatures.join(",")}}}');
       }
-      if (details.roles.subscriber != null && details.roles.subscriber.features != null) {
+      if (details.roles.subscriber != null &&
+          details.roles.subscriber.features != null) {
         List<String> subscriberFeatures = [];
-        subscriberFeatures.add('"call_timeout":${details.roles.subscriber.features.call_timeout ? "true" : "false"}');
-        subscriberFeatures.add('"call_canceling":${details.roles.subscriber.features.call_canceling ? "true" : "false"}');
-        subscriberFeatures.add('"progressive_call_results":${details.roles.subscriber.features.progressive_call_results ? "true" : "false"}');
-        subscriberFeatures.add('"payload_transparency":${details.roles.subscriber.features.payload_transparency ? "true" : "false"}');
-        rolesJson.add('"subscriber":{"features":{${subscriberFeatures.join(",")}}}');
+        subscriberFeatures.add(
+            '"call_timeout":${details.roles.subscriber.features.call_timeout ? "true" : "false"}');
+        subscriberFeatures.add(
+            '"call_canceling":${details.roles.subscriber.features.call_canceling ? "true" : "false"}');
+        subscriberFeatures.add(
+            '"progressive_call_results":${details.roles.subscriber.features.progressive_call_results ? "true" : "false"}');
+        subscriberFeatures.add(
+            '"payload_transparency":${details.roles.subscriber.features.payload_transparency ? "true" : "false"}');
+        rolesJson
+            .add('"subscriber":{"features":{${subscriberFeatures.join(",")}}}');
       }
-      if (details.roles.publisher != null && details.roles.publisher.features != null) {
+      if (details.roles.publisher != null &&
+          details.roles.publisher.features != null) {
         List<String> publisherFeatures = [];
-        publisherFeatures.add('"publisher_identification":${details.roles.publisher.features.publisher_identification ? "true" : "false"}');
-        publisherFeatures.add('"subscriber_blackwhite_listing":${details.roles.publisher.features.subscriber_blackwhite_listing ? "true" : "false"}');
-        publisherFeatures.add('"publisher_exclusion":${details.roles.publisher.features.publisher_exclusion ? "true" : "false"}');
-        publisherFeatures.add('"payload_transparency":${details.roles.publisher.features.payload_transparency ? "true" : "false"}');
-        rolesJson.add('"publisher":{"features":{${publisherFeatures.join(",")}}}');
+        publisherFeatures.add(
+            '"publisher_identification":${details.roles.publisher.features.publisher_identification ? "true" : "false"}');
+        publisherFeatures.add(
+            '"subscriber_blackwhite_listing":${details.roles.publisher.features.subscriber_blackwhite_listing ? "true" : "false"}');
+        publisherFeatures.add(
+            '"publisher_exclusion":${details.roles.publisher.features.publisher_exclusion ? "true" : "false"}');
+        publisherFeatures.add(
+            '"payload_transparency":${details.roles.publisher.features.payload_transparency ? "true" : "false"}');
+        rolesJson
+            .add('"publisher":{"features":{${publisherFeatures.join(",")}}}');
       }
       return "{${rolesJson.join(",")}}";
     } else {
@@ -278,13 +365,12 @@ class Serializer extends AbstractSerializer {
     List<String> jsonOptions = [];
     if (options != null) {
       if (options.receive_progress != null) {
-        jsonOptions.add('"receive_progress":${options.receive_progress
-            ? "true"
-            : "false"}');
+        jsonOptions.add(
+            '"receive_progress":${options.receive_progress ? "true" : "false"}');
       }
       if (options.disclose_me != null) {
-        jsonOptions.add(
-            '"disclose_me":${options.disclose_me ? "true" : "false"}');
+        jsonOptions
+            .add('"disclose_me":${options.disclose_me ? "true" : "false"}');
       }
       if (options.timeout != null) {
         jsonOptions.add('"timeout":${options.timeout}');
@@ -308,23 +394,23 @@ class Serializer extends AbstractSerializer {
     List<String> jsonDetails = [];
     if (options != null) {
       if (options.disclose_me != null) {
-        jsonDetails.add(
-            '"disclose_me":${options.disclose_me ? "true" : "false"}');
+        jsonDetails
+            .add('"disclose_me":${options.disclose_me ? "true" : "false"}');
       }
       if (options.acknowledge != null) {
-        jsonDetails.add(
-            '"acknowledge":${options.acknowledge ? "true" : "false"}');
+        jsonDetails
+            .add('"acknowledge":${options.acknowledge ? "true" : "false"}');
       }
       if (options.exclude_me != null) {
-        jsonDetails.add(
-            '"exclude_me":${options.exclude_me ? "true" : "false"}');
+        jsonDetails
+            .add('"exclude_me":${options.exclude_me ? "true" : "false"}');
       }
       if (options.exclude != null) {
         jsonDetails.add('"exclude":[${options.exclude.join(",")}]');
       }
       if (options.exclude_authid != null) {
-        jsonDetails.add(
-            '"exclude_authid":["${options.exclude_authid.join('","')}"]');
+        jsonDetails
+            .add('"exclude_authid":["${options.exclude_authid.join('","')}"]');
       }
       if (options.exclude_authrole != null) {
         jsonDetails.add(
@@ -348,13 +434,11 @@ class Serializer extends AbstractSerializer {
   String _serializePayload(AbstractMessageWithPayload message) {
     if (message != null) {
       if (message.argumentsKeywords != null) {
-        return ",${json.encode(message.arguments ?? [])},${json.encode(
-            message.argumentsKeywords)}";
+        return ",${json.encode(message.arguments ?? [])},${json.encode(message.argumentsKeywords)}";
       } else if (message.arguments != null) {
         return ",${json.encode(message.arguments)}";
       }
     }
     return "";
   }
-
 }

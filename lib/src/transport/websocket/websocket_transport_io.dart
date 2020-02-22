@@ -7,7 +7,6 @@ import '../../serializer/abstract_serializer.dart';
 import '../../transport/abstract_transport.dart';
 
 class WebSocketTransport extends AbstractTransport {
-
   static const String SERIALIZATION_JSON = "wamp.2.json";
   static const String SERIALIZATION_MSGPACK = "wamp.2.msgpack";
 
@@ -35,7 +34,7 @@ class WebSocketTransport extends AbstractTransport {
 
   @override
   Future<void> open() async {
-    _socket = await WebSocket.connect(_url,protocols:[_serializerType]);
+    _socket = await WebSocket.connect(_url, protocols: [_serializerType]);
     onDisconnect = Completer();
   }
 
@@ -58,5 +57,4 @@ class WebSocketTransport extends AbstractTransport {
       }
     });
   }
-
 }

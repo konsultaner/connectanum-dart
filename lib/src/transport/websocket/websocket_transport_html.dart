@@ -7,7 +7,6 @@ import '../../serializer/abstract_serializer.dart';
 import '../../transport/abstract_transport.dart';
 
 class WebSocketTransport extends AbstractTransport {
-
   static const String SERIALIZATION_JSON = "wamp.2.json";
   static const String SERIALIZATION_MSGPACK = "wamp.2.msgpack";
 
@@ -59,5 +58,4 @@ class WebSocketTransport extends AbstractTransport {
       }
     });
   }
-
 }

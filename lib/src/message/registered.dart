@@ -24,7 +24,10 @@ class Registered extends AbstractMessage {
         try {
           onInvoke(invocation);
         } on Exception catch (e) {
-          invocation.respondWith(isError: true, errorUri: Error.UNKNOWN, arguments: [e.toString()]);
+          invocation.respondWith(
+              isError: true,
+              errorUri: Error.UNKNOWN,
+              arguments: [e.toString()]);
         }
       });
     }

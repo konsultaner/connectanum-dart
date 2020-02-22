@@ -2,7 +2,6 @@ import '../abstract_transport.dart';
 import '../../message/abstract_message.dart';
 
 class WebSocketTransport extends AbstractTransport {
-
   WebSocketTransport() {}
 
   @override
@@ -27,5 +26,4 @@ class WebSocketTransport extends AbstractTransport {
   Stream<AbstractMessage> receive() {
     return null;
   }
-
 }

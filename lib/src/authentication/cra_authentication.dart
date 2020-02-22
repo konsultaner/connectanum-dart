@@ -25,11 +25,10 @@ class CraAuthentication extends AbstractAuthentication {
   Future<Authenticate> challenge(Extra extra) {
     Authenticate authenticate = Authenticate();
     if (extra == null || extra.challenge == null || secret == null) {
-      final error = Error(
-        MessageTypes.CODE_CHALLENGE, -1, new HashMap<String, Object>(),
-        Error.AUTHORIZATION_FAILED
-      );
-      error.details["reason"] = "No challenge or secret given, wrong router response";
+      final error = Error(MessageTypes.CODE_CHALLENGE, -1,
+          HashMap<String, Object>(), Error.AUTHORIZATION_FAILED);
+      error.details["reason"] =
+          "No challenge or secret given, wrong router response";
       return Future.error(error);
     }
 
@@ -44,7 +43,9 @@ class CraAuthentication extends AbstractAuthentication {
     }
 
     authenticate.signature = encodeHmac(
-        Uint8List.fromList(base64.encode(key).codeUnits), extra.keylen, Uint8List.fromList(extra.challenge.codeUnits));
+        Uint8List.fromList(base64.encode(key).codeUnits),
+        extra.keylen,
+        Uint8List.fromList(extra.challenge.codeUnits));
     return Future.value(authenticate);
   }
 

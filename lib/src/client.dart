@@ -23,32 +23,33 @@ class Client {
   ///
   /// final client = Client(
   ///   realm: "test.realm",
-  ///   transport: new SocketTransport(
+  ///   transport: SocketTransport(
   ///     'localhost',
   ///     8080,
-  ///     new Serializer(),
+  ///     Serializer(),
   ///     SocketHelper.SERIALIZATION_JSON
   ///   )
   /// );
   ///
   /// final Session session = await client.connect();
   /// ```
-  Client({
-    this.reconnectTime: null,
-    AbstractTransport this.transport: null,
-    String this.authId: null,
-    String this.realm,
-    List<AbstractAuthentication> this.authenticationMethods: null,
-    int this.isolateCount: 1
-  }) :
-        assert (transport != null),
-        assert (realm != null && UriPattern.match(realm))
-  {}
+  Client(
+      {this.reconnectTime,
+      AbstractTransport this.transport,
+      String this.authId,
+      String this.realm,
+      List<AbstractAuthentication> this.authenticationMethods,
+      int this.isolateCount: 1})
+      : assert(transport != null),
+        assert(realm != null && UriPattern.match(realm)) {}
 
   /// Calling this method will start the authentication process and result into
   /// a [Session] object on success.
   Future<Session> connect() async {
     await transport.open();
-    return Session.start(realm, transport, authId: authId, authMethods: authenticationMethods, reconnect: reconnectTime);
+    return Session.start(realm, transport,
+        authId: authId,
+        authMethods: authenticationMethods,
+        reconnect: reconnectTime);
   }
 }

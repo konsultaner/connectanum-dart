@@ -5,7 +5,6 @@ import '../message/challenge.dart';
 /// This is the ticket based authentication implementation for this package.
 /// Use it with the [Client].
 class TicketAuthentication extends AbstractAuthentication {
-
   final String password;
 
   TicketAuthentication(this.password);

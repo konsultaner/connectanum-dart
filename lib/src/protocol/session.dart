@@ -31,7 +31,6 @@ import '../transport/abstract_transport.dart';
 import '../authentication/abstract_authentication.dart';
 
 class Session {
-
   int id;
   String realm;
   String authId;
@@ -55,16 +54,10 @@ class Session {
   StreamController _openSessionStreamController = StreamController.broadcast();
 
   /// Starting the session will also start the authentication process.
-  static Future<Session> start(
-      String realm,
-      AbstractTransport transport,
-      {
-        String authId: null,
-        List<AbstractAuthentication> authMethods: null,
-        Duration reconnect: null
-      }
-  ) async
-  {
+  static Future<Session> start(String realm, AbstractTransport transport,
+      {String authId,
+      List<AbstractAuthentication> authMethods,
+      Duration reconnect}) async {
     /**
      * The realm object is mandatory and must mach the uri pattern
      */
@@ -90,7 +83,9 @@ class Session {
       hello.details.authid = authId;
     }
     if (authMethods != null && authMethods.length > 0) {
-      hello.details.authmethods = authMethods.map<String>((authMethod) => authMethod.getName()).toList();
+      hello.details.authmethods = authMethods
+          .map<String>((authMethod) => authMethod.getName())
+          .toList();
     }
     transport.send(hello);
 
@@ -99,51 +94,60 @@ class Session {
      */
     Completer<Session> welcomeCompleter = Completer<Session>();
     session._transportStreamSubscription = transport.receive().listen(
-      (message) {
-        if (message is Challenge) {
-          final AbstractAuthentication foundAuthMethod = authMethods.where((authenticationMethod) => authenticationMethod.getName() == message.authMethod).first;
-          if (foundAuthMethod != null) {
-            foundAuthMethod.challenge(message.extra).then((authenticate) => session.authenticate(authenticate));
-          } else {
-            final goodbye = Goodbye(new GoodbyeMessage("Authmethod ${foundAuthMethod} not supported"), Goodbye.REASON_GOODBYE_AND_OUT);
-            session._transport.send(goodbye);
-            throw goodbye;
-          }
-        } else if (message is Welcome) {
-          session.id = message.sessionId;
-          session.authId = message.details.authid;
-          session.authMethod = message.details.authmethod;
-          session.authProvider = message.details.authprovider;
-          session.authRole = message.details.authrole;
-          session._transportStreamSubscription.onData((message) {
-            session._openSessionStreamController.add(message);
-          });
-          session._transportStreamSubscription.onDone(() {
-            session._openSessionStreamController.close();
-          });
-          welcomeCompleter.complete(session);
-        } else if (message is Abort) {
-          try {
-            transport.close();
-          } catch (ignore) {/* my be already closed */}
-          welcomeCompleter.completeError(message);
-        } else if (message is Goodbye) {
-          try {
-            transport.close();
-          } catch (ignore) {/* my be already closed */}
+        (message) {
+      if (message is Challenge) {
+        final AbstractAuthentication foundAuthMethod = authMethods
+            .where((authenticationMethod) =>
+                authenticationMethod.getName() == message.authMethod)
+            .first;
+        if (foundAuthMethod != null) {
+          foundAuthMethod
+              .challenge(message.extra)
+              .then((authenticate) => session.authenticate(authenticate));
+        } else {
+          final goodbye = Goodbye(
+              new GoodbyeMessage("Authmethod ${foundAuthMethod} not supported"),
+              Goodbye.REASON_GOODBYE_AND_OUT);
+          session._transport.send(goodbye);
+          throw goodbye;
         }
-      },
-      cancelOnError: true,
-      onError: (error) => transport.onDisconnect?.complete(error),
-      onDone: () => transport.onDisconnect?.complete()
-    );
+      } else if (message is Welcome) {
+        session.id = message.sessionId;
+        session.authId = message.details.authid;
+        session.authMethod = message.details.authmethod;
+        session.authProvider = message.details.authprovider;
+        session.authRole = message.details.authrole;
+        session._transportStreamSubscription.onData((message) {
+          session._openSessionStreamController.add(message);
+        });
+        session._transportStreamSubscription.onDone(() {
+          session._openSessionStreamController.close();
+        });
+        welcomeCompleter.complete(session);
+      } else if (message is Abort) {
+        try {
+          transport.close();
+        } catch (ignore) {/* my be already closed */}
+        welcomeCompleter.completeError(message);
+      } else if (message is Goodbye) {
+        try {
+          transport.close();
+        } catch (ignore) {/* my be already closed */}
+      }
+    },
+        cancelOnError: true,
+        onError: (error) => transport.onDisconnect?.complete(error),
+        onDone: () => transport.onDisconnect?.complete());
     return welcomeCompleter.future;
   }
 
   /// If there is a transport object that is opened and the incoming stream has not
   /// been closed, this will return true.
   bool isConnected() {
-    return this._transport != null && this._transport.isOpen && this._openSessionStreamController != null && !this._openSessionStreamController.isClosed;
+    return this._transport != null &&
+        this._transport.isOpen &&
+        this._openSessionStreamController != null &&
+        !this._openSessionStreamController.isClosed;
   }
 
   /// This sends the [authenticate] message to the transport outgoing stream.
@@ -167,13 +171,10 @@ class Session {
     if (cancelCompleter != null) {
       cancelCompleter.future.then((cancelMode) {
         CancelOptions options;
-        if (
-          cancelMode != null && (
-              CancelOptions.MODE_KILL_NO_WAIT == cancelMode ||
-              CancelOptions.MODE_KILL == cancelMode ||
-              CancelOptions.MODE_SKIP == cancelMode
-          )
-        ) {
+        if (cancelMode != null &&
+            (CancelOptions.MODE_KILL_NO_WAIT == cancelMode ||
+                CancelOptions.MODE_KILL == cancelMode ||
+                CancelOptions.MODE_SKIP == cancelMode)) {
           options = CancelOptions();
           options.mode = cancelMode;
         }
@@ -181,10 +182,14 @@ class Session {
         this._transport.send(cancel);
       });
     }
-    await for(AbstractMessageWithPayload result in this._openSessionStreamController.stream.where(
-            (message) => (message is Result && message.callRequestId == call.requestId) ||
-            (message is Error && message.requestTypeId == MessageTypes.CODE_CALL && message.requestId == call.requestId)
-    )) {
+    await for (AbstractMessageWithPayload result in this
+        ._openSessionStreamController
+        .stream
+        .where((message) =>
+            (message is Result && message.callRequestId == call.requestId) ||
+            (message is Error &&
+                message.requestTypeId == MessageTypes.CODE_CALL &&
+                message.requestId == call.requestId))) {
       if (result is Result) {
         yield result;
       } else if (result is Error) {
@@ -193,24 +198,35 @@ class Session {
     }
   }
 
-
   /// This subscribes the session to a [topic]. The subscriber may pass [options]
   /// while subscribing. The resulting events are passed to the [Subscribed.eventStream].
   /// The subscriber should therefore subscribe to that stream to receive the events.
   Future<Subscribed> subscribe(String topic, {SubscribeOptions options}) async {
     Subscribe subscribe = Subscribe(nextSubscribeId++, topic, options: options);
     this._transport.send(subscribe);
-    AbstractMessage subscribed = await this._openSessionStreamController.stream.where(
-      (message) => (message is Subscribed && message.subscribeRequestId == subscribe.requestId) ||
-        (message is Error && message.requestTypeId == MessageTypes.CODE_SUBSCRIBE && message.requestId == subscribe.requestId)
-    ).first;
+    AbstractMessage subscribed = await this
+        ._openSessionStreamController
+        .stream
+        .where((message) =>
+            (message is Subscribed &&
+                message.subscribeRequestId == subscribe.requestId) ||
+            (message is Error &&
+                message.requestTypeId == MessageTypes.CODE_SUBSCRIBE &&
+                message.requestId == subscribe.requestId))
+        .first;
     if (subscribed is Subscribed) {
       subscriptions[subscribed.subscriptionId] = subscribed;
-      subscribed.eventStream = this._openSessionStreamController.stream.where(
-        (message) => message is Event && subscriptions[subscribed.subscriptionId] != null && message.subscriptionId == subscribed.subscriptionId
-      ).cast();
+      subscribed.eventStream = this
+          ._openSessionStreamController
+          .stream
+          .where((message) =>
+              message is Event &&
+              subscriptions[subscribed.subscriptionId] != null &&
+              message.subscriptionId == subscribed.subscriptionId)
+          .cast();
       return subscribed;
-    } else throw subscribed as Error;
+    } else
+      throw subscribed as Error;
   }
 
   /// This unsubscribes the session from a subscription. Use the [Subscribed.subscriptionId]
@@ -218,17 +234,18 @@ class Session {
   Future<void> unsubscribe(int subscriptionId) async {
     Unsubscribe unsubscribe = Unsubscribe(nextUnsubscribeId++, subscriptionId);
     this._transport.send(unsubscribe);
-    await this._openSessionStreamController.stream.where(
-      (message) {
-        if (message is Unsubscribed && message.unsubscribeRequestId == unsubscribe.requestId) {
-          return true;
-        }
-        if (message is Error && message.requestTypeId == MessageTypes.CODE_UNSUBSCRIBE && message.requestId == unsubscribe.requestId) {
-          throw message;
-        }
-        return false;
+    await this._openSessionStreamController.stream.where((message) {
+      if (message is Unsubscribed &&
+          message.unsubscribeRequestId == unsubscribe.requestId) {
+        return true;
       }
-    ).first;
+      if (message is Error &&
+          message.requestTypeId == MessageTypes.CODE_UNSUBSCRIBE &&
+          message.requestId == unsubscribe.requestId) {
+        throw message;
+      }
+      return false;
+    }).first;
     subscriptions.remove(subscriptionId);
   }
 
@@ -242,47 +259,58 @@ class Session {
         argumentsKeywords: argumentsKeywords,
         options: options);
     this._transport.send(publish);
-    return this._openSessionStreamController.stream.where(
-      (message) {
-        if (message is Published && message.publishRequestId == publish.requestId) {
-          return true;
-        }
-        if (message is Error && message.requestTypeId == MessageTypes.CODE_PUBLISH && message.requestId == publish.requestId) {
-          throw message;
-        }
-        return false;
-      }).first;
+    return this._openSessionStreamController.stream.where((message) {
+      if (message is Published &&
+          message.publishRequestId == publish.requestId) {
+        return true;
+      }
+      if (message is Error &&
+          message.requestTypeId == MessageTypes.CODE_PUBLISH &&
+          message.requestId == publish.requestId) {
+        throw message;
+      }
+      return false;
+    }).first;
   }
 
   /// This registers a [procedure] with the given [options] that may be called
   /// by other sessions.
-  Future<Registered> register(String procedure, {RegisterOptions options}) async {
+  Future<Registered> register(String procedure,
+      {RegisterOptions options}) async {
     Register register = Register(nextRegisterId++, procedure, options: options);
     this._transport.send(register);
-    AbstractMessage registered = await this._openSessionStreamController.stream.where(
-            (message) => (message is Registered && message.registerRequestId == register.requestId) ||
-            (message is Error && message.requestTypeId == MessageTypes.CODE_REGISTER && message.requestId == register.requestId)
-    ).first;
+    AbstractMessage registered = await this
+        ._openSessionStreamController
+        .stream
+        .where((message) =>
+            (message is Registered &&
+                message.registerRequestId == register.requestId) ||
+            (message is Error &&
+                message.requestTypeId == MessageTypes.CODE_REGISTER &&
+                message.requestId == register.requestId))
+        .first;
     if (registered is Registered) {
       registrations[registered.registrationId] = registered;
       registered.procedure = procedure;
-      registered.invocationStream = this._openSessionStreamController.stream.where(
-        (message) {
-          if (message is Invocation && message.registrationId == registered.registrationId) {
-            // Check if there is a registration that has not been unregistered yet
-            if (registrations[registered.registrationId] != null) {
-              message.onResponse((message) => this._transport.send(message));
-              return true;
-            } else {
-              this._transport.send(new Error(MessageTypes.CODE_INVOCATION, message.requestId, {}, Error.NO_SUCH_REGISTRATION));
-              return false;
-            }
+      registered.invocationStream =
+          this._openSessionStreamController.stream.where((message) {
+        if (message is Invocation &&
+            message.registrationId == registered.registrationId) {
+          // Check if there is a registration that has not been unregistered yet
+          if (registrations[registered.registrationId] != null) {
+            message.onResponse((message) => this._transport.send(message));
+            return true;
+          } else {
+            this._transport.send(new Error(MessageTypes.CODE_INVOCATION,
+                message.requestId, {}, Error.NO_SUCH_REGISTRATION));
+            return false;
           }
-          return false;
         }
-      ).cast();
+        return false;
+      }).cast();
       return registered;
-    } else throw registered as Error;
+    } else
+      throw registered as Error;
   }
 
   /// This unregisters a procedure by its [registrationId]. Use the [Registered.registrationId]
@@ -290,18 +318,18 @@ class Session {
   Future<void> unregister(int registrationId) async {
     Unregister unregister = Unregister(nextUnregisterId++, registrationId);
     this._transport.send(unregister);
-    await this._openSessionStreamController.stream.where(
-        (message) {
-          if (message is Unregistered && message.unregisterRequestId == unregister.requestId) {
-            return true;
-          }
-          if (message is Error && message.requestTypeId == MessageTypes.CODE_UNREGISTER && message.requestId == unregister.requestId) {
-            throw message;
-          }
-          return false;
-        }
-    ).first;
+    await this._openSessionStreamController.stream.where((message) {
+      if (message is Unregistered &&
+          message.unregisterRequestId == unregister.requestId) {
+        return true;
+      }
+      if (message is Error &&
+          message.requestTypeId == MessageTypes.CODE_UNREGISTER &&
+          message.requestId == unregister.requestId) {
+        throw message;
+      }
+      return false;
+    }).first;
     registrations.remove(registrationId);
   }
-
 }

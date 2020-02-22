@@ -13,7 +13,7 @@ class Invocation extends AbstractMessageWithPayload {
   InvocationDetails details;
   StreamController<AbstractMessageWithPayload> _responseStreamController;
 
-  respondWith (
+  respondWith(
       {List<Object> arguments,
       Map<String, Object> argumentsKeywords,
       bool isError: false,
@@ -22,10 +22,15 @@ class Invocation extends AbstractMessageWithPayload {
     if (isError) {
       assert(progressive == false);
       assert(UriPattern.match(errorUri));
-      final Error error = Error(MessageTypes.CODE_INVOCATION, requestId, new HashMap(), errorUri, arguments: arguments, argumentsKeywords: argumentsKeywords);
+      final Error error = Error(
+          MessageTypes.CODE_INVOCATION, requestId, HashMap(), errorUri,
+          arguments: arguments, argumentsKeywords: argumentsKeywords);
       _responseStreamController.add(error);
     } else {
-      final Yield yield = Yield(this.requestId, options: new YieldOptions(progressive), arguments: arguments, argumentsKeywords: argumentsKeywords);
+      final Yield yield = Yield(this.requestId,
+          options: YieldOptions(progressive),
+          arguments: arguments,
+          argumentsKeywords: argumentsKeywords);
       _responseStreamController.add(yield);
     }
     if (!progressive) {
@@ -44,7 +49,9 @@ class Invocation extends AbstractMessageWithPayload {
     return this.details.receive_progress ?? false;
   }
 
-  void onResponse(void Function(AbstractMessageWithPayload invocationResultMessage) onData) {
+  void onResponse(
+      void Function(AbstractMessageWithPayload invocationResultMessage)
+          onData) {
     _responseStreamController = StreamController<AbstractMessageWithPayload>();
     _responseStreamController.stream.listen(onData);
   }

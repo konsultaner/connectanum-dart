@@ -22,5 +22,5 @@ export 'src/message/unregistered.dart';
 export 'src/protocol/session.dart';
 export 'src/transport/abstract_transport.dart';
 export 'src/transport/websocket/websocket_transport_none.dart'
-  if (dart.library.io) 'src/transport/websocket/websocket_transport_io.dart' // dart:io implementation
-  if (dart.library.html) 'src/transport/websocket/websocket_transport_html.dart'; // dart:html implementation
+    if (dart.library.io) 'src/transport/websocket/websocket_transport_io.dart' // dart:io implementation
+    if (dart.library.html) 'src/transport/websocket/websocket_transport_html.dart'; // dart:html implementation

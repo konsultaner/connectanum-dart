@@ -2,7 +2,6 @@ import 'dart:typed_data';
 import 'dart:math';
 
 class SocketHelper {
-
   static const int _META_HEADER = 0x7F;
   static const int _UPGRADE_HEADER = 0x3F;
 
@@ -27,7 +26,8 @@ class SocketHelper {
    * Compare to the regular wamp definition, connectanum is able to send and receive up to 2^30 octets per message
    */
   static const int MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT = 30;
-  static const int _MAX_MESSAGE_LENGTH_CONNECTANUM = 2 ^ MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT;
+  static const int _MAX_MESSAGE_LENGTH_CONNECTANUM =
+      2 ^ MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT;
 
   /**
    * Sends a handshake of the morphology
@@ -36,10 +36,12 @@ class SocketHelper {
    * SSSS = 0b0001 = JSON, 0b0010 = MsgPack
    * RRRR are reserved bytes
    */
-  static List<int> getInitialHandshake(int messageLengthExponent,int serializerType) {
+  static List<int> getInitialHandshake(
+      int messageLengthExponent, int serializerType) {
     Uint8List initialHandShake = Uint8List(4);
     initialHandShake[0] = SocketHelper._META_HEADER;
-    initialHandShake[1] = ((max(0,min(15,messageLengthExponent-9)) << 4) | serializerType);
+    initialHandShake[1] =
+        ((max(0, min(15, messageLengthExponent - 9)) << 4) | serializerType);
     initialHandShake[2] = 0;
     initialHandShake[3] = 0;
     return initialHandShake.toList(growable: false);
@@ -54,7 +56,7 @@ class SocketHelper {
   static List<int> getUpgradeHandshake(int messageLengthExponent) {
     Uint8List upgradeHandShake = Uint8List(2);
     upgradeHandShake[0] = SocketHelper._UPGRADE_HEADER;
-    upgradeHandShake[1] = (max(0,min(15,messageLengthExponent-25)) << 4);
+    upgradeHandShake[1] = (max(0, min(15, messageLengthExponent - 25)) << 4);
     return upgradeHandShake.toList(growable: false);
   }
 
@@ -70,26 +72,27 @@ class SocketHelper {
   static List<int> getPong(int pingLength, isUpgradedProtocol) {
     return buildMessageHeader(MESSAGE_PONG, pingLength, isUpgradedProtocol);
   }
+
   static List<int> getPing(isUpgradedProtocol) {
     return buildMessageHeader(MESSAGE_PING, 0, isUpgradedProtocol);
   }
 
   static int getErrorNumber(List<int> message) {
-    if(message.length > 1) {
+    if (message.length > 1) {
       if (message[0] == SocketHelper._UPGRADE_HEADER) return 0;
       int error = message[1];
-      if((((error & 0xFF) << 4) & 0xFF) > 0) return 0;
+      if ((((error & 0xFF) << 4) & 0xFF) > 0) return 0;
       return (error & 0xFF) >> 4;
     }
     return 0;
   }
 
-  static List<int> buildMessageHeader(int headerType, int messageLength, bool upgradedProtocol) {
+  static List<int> buildMessageHeader(
+      int headerType, int messageLength, bool upgradedProtocol) {
     if (upgradedProtocol) {
       if (messageLength > _MAX_MESSAGE_LENGTH_CONNECTANUM) {
-        throw new Exception(
-            "Their should be no message length larger then 2^" +
-                MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT.toString());
+        throw Exception("Their should be no message length larger then 2^" +
+            MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT.toString());
       }
       Uint8List messageHeader = Uint8List(5);
       messageHeader[0] = headerType;
@@ -100,9 +103,8 @@ class SocketHelper {
       return messageHeader.toList(growable: false);
     } else {
       if (messageLength > MAX_MESSAGE_LENGTH) {
-        throw new Exception(
-            "Their should be no message length larger then 2^" +
-                MAX_MESSAGE_LENGTH_EXPONENT.toString());
+        throw Exception("Their should be no message length larger then 2^" +
+            MAX_MESSAGE_LENGTH_EXPONENT.toString());
       }
       Uint8List messageHeader = Uint8List(5);
       messageHeader[0] = headerType;
@@ -115,7 +117,9 @@ class SocketHelper {
 
   static bool isValidMessage(Uint8List message) {
     int messageType = message[0];
-    return messageType != MESSAGE_WAMP || messageType != MESSAGE_PING || messageType != MESSAGE_PONG;
+    return messageType != MESSAGE_WAMP ||
+        messageType != MESSAGE_PING ||
+        messageType != MESSAGE_PONG;
   }
 
   static int getMessageType(Uint8List message, {offset: 0}) {
@@ -138,19 +142,18 @@ class SocketHelper {
     return ((message[1] & 0xFF) >> 4) + 25;
   }
 
-  static int getPayloadLength(Uint8List message, int headerLength, {offset: 0}) {
+  static int getPayloadLength(Uint8List message, int headerLength,
+      {offset: 0}) {
     if (message.length >= headerLength) {
       if (headerLength == 5) {
-        return
-          (message[offset + 1] & 0xFF) << 24 |
-          (message[offset + 2] & 0xFF) << 16 |
-          (message[offset + 3] & 0xFF) << 8 |
-          (message[offset + 4] & 0xFF);
+        return (message[offset + 1] & 0xFF) << 24 |
+            (message[offset + 2] & 0xFF) << 16 |
+            (message[offset + 3] & 0xFF) << 8 |
+            (message[offset + 4] & 0xFF);
       } else {
-        return
-          (message[offset + 1] & 0xFF) << 16 |
-          (message[offset + 2] & 0xFF) << 8 |
-          (message[offset + 3] & 0xFF);
+        return (message[offset + 1] & 0xFF) << 16 |
+            (message[offset + 2] & 0xFF) << 8 |
+            (message[offset + 3] & 0xFF);
       }
     }
     return 0;
