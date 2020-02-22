@@ -54,6 +54,7 @@ class Session {
   StreamSubscription<AbstractMessage> _transportStreamSubscription;
   StreamController _openSessionStreamController = new StreamController.broadcast();
 
+  /// Starting the session will also start the authentication process.
   static Future<Session> start(
       String realm,
       AbstractTransport transport,
@@ -139,14 +140,20 @@ class Session {
     return welcomeCompleter.future;
   }
 
+  /// If there is a transport object that is opened and the incoming stream has not
+  /// been closed, this will return true.
   bool isConnected() {
     return this._transport != null && this._transport.isOpen && this._openSessionStreamController != null && !this._openSessionStreamController.isClosed;
   }
 
+  /// This sends the [authenticate] message to the transport outgoing stream.
   authenticate(Authenticate authenticate) {
     this._transport.send(authenticate);
   }
 
+  /// This calls a [procedure] with the given [arguments] and/or [argumentsKeywords]
+  /// with the given [options]. The WAMP router will either respond with one or
+  /// more results or the caller may cancel the call by calling [cancelCompleter.complete()].
   Stream<Result> call(String procedure,
       {List<Object> arguments,
       Map<String, Object> argumentsKeywords,
@@ -186,9 +193,10 @@ class Session {
     }
   }
 
-  /**
-   * The events are passed to the {@see Subscribed#events subject}
-   */
+
+  /// This subscribes the session to a [topic]. The subscriber may pass [options]
+  /// while subscribing. The resulting events are passed to the [Subscribed.eventStream].
+  /// The subscriber should therefore subscribe to that stream to receive the events.
   Future<Subscribed> subscribe(String topic, {SubscribeOptions options}) async {
     Subscribe subscribe = new Subscribe(nextSubscribeId++, topic, options: options);
     this._transport.send(subscribe);
@@ -205,6 +213,8 @@ class Session {
     } else throw subscribed as Error;
   }
 
+  /// This unsubscribes the session from a subscription. Use the [Subscribed.subscriptionId]
+  /// to unsubscribe.
   Future<void> unsubscribe(int subscriptionId) async {
     Unsubscribe unsubscribe = new Unsubscribe(nextUnsubscribeId++, subscriptionId);
     this._transport.send(unsubscribe);
@@ -222,6 +232,7 @@ class Session {
     subscriptions.remove(subscriptionId);
   }
 
+  /// This publishes an event to a [topic] with the given [arguments] and [argumentsKeywords].
   Future<Published> publish(String topic,
       {List<Object> arguments,
       Map<String, Object> argumentsKeywords,
@@ -243,6 +254,8 @@ class Session {
       }).first;
   }
 
+  /// This registers a [procedure] with the given [options] that may be called
+  /// by other sessions.
   Future<Registered> register(String procedure, {RegisterOptions options}) async {
     Register register = new Register(nextRegisterId++, procedure, options: options);
     this._transport.send(register);
@@ -272,6 +285,8 @@ class Session {
     } else throw registered as Error;
   }
 
+  /// This unregisters a procedure by its [registrationId]. Use the [Registered.registrationId]
+  /// to unregister.
   Future<void> unregister(int registrationId) async {
     Unregister unregister = new Unregister(nextUnregisterId++, registrationId);
     this._transport.send(unregister);
@@ -289,9 +304,4 @@ class Session {
     registrations.remove(registrationId);
   }
 
-  void setInvocationTransportChannel(Invocation message) {
-    message.onResponse((AbstractMessageWithPayload invocationResultMessage) {
-      _transport.send(invocationResultMessage);
-    });
-  }
 }

@@ -10,6 +10,9 @@ import '../../serializer/abstract_serializer.dart';
 import '../../transport/socket/socket_helper.dart';
 import '../abstract_transport.dart';
 
+/// This class implements the raw socket transport for wamp messages. It is also
+/// capable of using connectanums own upgrade method to allow more then 16MB of
+/// payload.
 class SocketTransport extends AbstractTransport {
 
   Logger _logger = new Logger("SocketTransport");
@@ -30,6 +33,11 @@ class SocketTransport extends AbstractTransport {
   Completer _handshakeCompleter;
   Completer _pingCompleter;
 
+  /// This creates a socket transport instance. The [messageLengthExponent] configures
+  /// the max message length that will be excepted to be send and received. It is negotiated
+  /// with the router and may lead into a lower value that [messageLengthExponent] if
+  /// the router only supports shorter messages. The message length is calculated by
+  /// 2^[messageLengthExponent]
   SocketTransport(
     this._host,
     this._port,
@@ -222,6 +230,9 @@ class SocketTransport extends AbstractTransport {
     return messages;
   }
 
+  /// Send a ping message to keep the connection alive. The returning future will
+  /// fail if no pong is received withing the given [timeout]. The default timeout
+  /// is 5 seconds.
   Future<Uint8List> sendPing({Duration timeout}) {
     if (_pingCompleter == null || !_pingCompleter.isCompleted) {
       _socket.add(SocketHelper.getPing(isUpgradedProtocol));

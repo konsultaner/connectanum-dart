@@ -13,6 +13,8 @@ import '../message/authenticate.dart';
 import '../message/message_types.dart';
 import '../message/error.dart';
 
+/// This is the WAMPCRA authentication implementation for this package.
+/// Use it with the [Client].
 class CraAuthentication extends AbstractAuthentication {
   static final Uint8List DEFAULT_KEY_SALT = new Uint8List(0);
   final String secret;

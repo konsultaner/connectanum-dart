@@ -30,13 +30,17 @@ import 'dart:convert';
 
 import '../abstract_serializer.dart';
 
+/// This is a seralizer for JSON messages. It is used to initialize an [AbstractTransport]
+/// object.
 class Serializer extends AbstractSerializer {
 
+  /// Converts a uint8 JSON message into a WAMP message object
   @override
   AbstractMessage deserialize(Uint8List jsonMessage) {
     return deserializeFromString(Utf8Decoder().convert(jsonMessage));
   }
 
+  /// Converts a string JSON message into a WAMP message object
   AbstractMessage deserializeFromString(String jsonMessage) {
     Object message = json.decode(jsonMessage);
     if (message is List) {
@@ -142,11 +146,13 @@ class Serializer extends AbstractSerializer {
     return message;
   }
 
+  /// Converts a WAMP message object into a uint8 json message
   @override
   Uint8List serialize(AbstractMessage message) {
     return Utf8Encoder().convert(serializeToString(message));
   }
 
+  /// Converts a WAMP message object into a string json message
   String serializeToString(AbstractMessage message) {
     if (message is Hello) {
       return '[${MessageTypes.CODE_HELLO},"${message.realm}",${_serializeDetails(message.details)}]';
