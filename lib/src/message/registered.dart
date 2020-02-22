@@ -1,6 +1,5 @@
-import 'package:connectanum_dart/src/message/error.dart';
-import 'package:connectanum_dart/src/message/message_types.dart';
-
+import 'error.dart';
+import 'message_types.dart';
 import 'abstract_message.dart';
 import 'invocation.dart';
 

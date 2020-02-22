@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import "dart:html";
 
-import 'package:connectanum_dart/src/message/abstract_message.dart';
-import 'package:connectanum_dart/src/serializer/abstract_serializer.dart';
-import 'package:connectanum_dart/src/transport/abstract_transport.dart';
+import '../../message/abstract_message.dart';
+import '../../serializer/abstract_serializer.dart';
+import '../../transport/abstract_transport.dart';
 
 class WebSocketTransport extends AbstractTransport {
 

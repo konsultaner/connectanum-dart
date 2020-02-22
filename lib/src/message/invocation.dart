@@ -1,12 +1,11 @@
 import 'dart:async';
 import 'dart:collection';
 
-import 'package:connectanum_dart/src/message/error.dart';
-import 'package:connectanum_dart/src/message/message_types.dart';
-import 'package:connectanum_dart/src/message/uri_pattern.dart';
-import 'package:connectanum_dart/src/message/yield.dart';
-
 import 'abstract_message_with_payload.dart';
+import 'message_types.dart';
+import 'uri_pattern.dart';
+import 'error.dart';
+import 'yield.dart';
 
 class Invocation extends AbstractMessageWithPayload {
   int requestId;

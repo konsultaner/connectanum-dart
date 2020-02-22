@@ -1,14 +1,13 @@
-
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:connectanum_dart/src/message/abstract_message.dart';
-import 'package:connectanum_dart/src/serializer/abstract_serializer.dart';
-import 'package:connectanum_dart/src/transport/socket/socket_helper.dart';
 import 'package:logging/logging.dart';
 
+import '../../message/abstract_message.dart';
+import '../../serializer/abstract_serializer.dart';
+import '../../transport/socket/socket_helper.dart';
 import '../abstract_transport.dart';
 
 class SocketTransport extends AbstractTransport {

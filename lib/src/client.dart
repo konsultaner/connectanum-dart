@@ -1,8 +1,7 @@
-import 'package:connectanum_dart/src/authentication/abstract_authentication.dart';
-import 'package:connectanum_dart/src/transport/abstract_transport.dart';
-
-import 'protocol/session.dart';
+import 'authentication/abstract_authentication.dart';
+import 'transport/abstract_transport.dart';
 import 'message/uri_pattern.dart';
+import 'protocol/session.dart';
 
 class Client {
   Duration reconnectTime;

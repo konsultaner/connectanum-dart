@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:connectanum_dart/src/authentication/cra_authentication.dart';
-import 'package:connectanum_dart/src/message/challenge.dart';
+import 'package:connectanum/src/authentication/cra_authentication.dart';
+import 'package:connectanum/src/message/challenge.dart';
 import 'package:test/test.dart';
 
 void main() {

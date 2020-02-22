@@ -1,5 +1,5 @@
-import 'package:connectanum_dart/src/message/authenticate.dart';
-import 'package:connectanum_dart/src/message/challenge.dart';
+import '../message/authenticate.dart';
+import '../message/challenge.dart';
 import 'abstract_authentication.dart';
 
 class ScramAuthentication extends AbstractAuthentication {

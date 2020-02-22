@@ -1,5 +1,5 @@
-import 'package:connectanum_dart/src/authentication/ticket_authentication.dart';
-import 'package:connectanum_dart/src/message/challenge.dart';
+import 'package:connectanum/src/authentication/ticket_authentication.dart';
+import 'package:connectanum/src/message/challenge.dart';
 import 'package:test/test.dart';
 
 void main() {

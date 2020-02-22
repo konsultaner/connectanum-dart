@@ -1,17 +1,16 @@
 import 'dart:async';
 
-import 'package:connectanum_dart/src/message/abort.dart';
-import 'package:connectanum_dart/src/message/abstract_message.dart';
-import 'package:connectanum_dart/src/message/abstract_message_with_payload.dart';
-import 'package:connectanum_dart/src/message/authenticate.dart';
-import 'package:connectanum_dart/src/message/cancel.dart';
-import 'package:connectanum_dart/src/message/challenge.dart';
-import 'package:connectanum_dart/src/message/goodbye.dart';
-import 'package:connectanum_dart/src/message/message_types.dart';
-import 'package:connectanum_dart/src/message/unsubscribed.dart';
-import 'package:connectanum_dart/src/message/welcome.dart';
-import 'package:connectanum_dart/src/message/uri_pattern.dart';
-
+import '../message/abort.dart';
+import '../message/abstract_message.dart';
+import '../message/abstract_message_with_payload.dart';
+import '../message/authenticate.dart';
+import '../message/cancel.dart';
+import '../message/challenge.dart';
+import '../message/goodbye.dart';
+import '../message/message_types.dart';
+import '../message/unsubscribed.dart';
+import '../message/welcome.dart';
+import '../message/uri_pattern.dart';
 import '../message/details.dart' as detailsPackage;
 import '../message/call.dart';
 import '../message/event.dart';

@@ -1,8 +1,7 @@
-import 'package:connectanum_dart/src/message/message_types.dart';
-import 'package:connectanum_dart/src/message/uri_pattern.dart';
-
 import 'abstract_message.dart';
 import 'details.dart';
+import 'message_types.dart';
+import 'uri_pattern.dart';
 
 class Hello extends AbstractMessage {
   String realm;

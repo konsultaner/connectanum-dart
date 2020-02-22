@@ -1,6 +1,5 @@
-import 'package:connectanum_dart/src/message/abstract_message.dart';
-
 import '../abstract_transport.dart';
+import '../../message/abstract_message.dart';
 
 class WebSocketTransport extends AbstractTransport {
 

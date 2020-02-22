@@ -2,16 +2,15 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:connectanum_dart/src/authentication/abstract_authentication.dart';
-import 'package:connectanum_dart/src/message/authenticate.dart';
-import 'package:connectanum_dart/src/message/challenge.dart';
-import 'package:connectanum_dart/src/message/message_types.dart';
 import 'package:pointycastle/digests/sha256.dart';
 import 'package:pointycastle/key_derivators/pbkdf2.dart';
 import 'package:pointycastle/macs/hmac.dart';
 import 'package:pointycastle/pointycastle.dart';
 
 import '../message/challenge.dart';
+import '../authentication/abstract_authentication.dart';
+import '../message/authenticate.dart';
+import '../message/message_types.dart';
 import '../message/error.dart';
 
 class CraAuthentication extends AbstractAuthentication {
