@@ -1,6 +1,6 @@
 ### 1.0.0-dev.2
 
-- cleanup code to 
+- cleanup code to meet pana analysis requirements
 
 ### 1.0.0-dev.1
 
