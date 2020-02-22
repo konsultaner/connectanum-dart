@@ -36,7 +36,7 @@ class WebSocketTransport extends AbstractTransport {
   @override
   Future<void> open() async {
     _socket = await WebSocket.connect(_url,protocols:[_serializerType]);
-    onDisconnect = new Completer();
+    onDisconnect = Completer();
   }
 
   @override

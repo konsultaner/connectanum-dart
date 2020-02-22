@@ -17,20 +17,20 @@ class Details {
   Roles roles;
 
   static forHello() {
-    final details = new Details();
-    details.roles = new Roles();
+    final details = Details();
+    details.roles = Roles();
 
-    details.roles.caller = new Caller();
-    details.roles.caller.features = new CallerFeatures();
+    details.roles.caller = Caller();
+    details.roles.caller.features = CallerFeatures();
 
-    details.roles.callee = new Callee();
-    details.roles.callee.features = new CalleeFeatures();
+    details.roles.callee = Callee();
+    details.roles.callee.features = CalleeFeatures();
 
-    details.roles.publisher = new Publisher();
-    details.roles.publisher.features = new PublisherFeatures();
+    details.roles.publisher = Publisher();
+    details.roles.publisher.features = PublisherFeatures();
 
-    details.roles.subscriber = new Subscriber();
-    details.roles.subscriber.features = new SubscriberFeatures();
+    details.roles.subscriber = Subscriber();
+    details.roles.subscriber.features = SubscriberFeatures();
 
     return details;
   }
@@ -41,19 +41,19 @@ class Details {
     String authProvider,
     String authRole,
   }) {
-    final details = new Details();
+    final details = Details();
     details.authid = authId;
     details.authmethod = authMethod;
     details.authprovider = authProvider;
     details.authrole = authRole;
 
-    details.roles = new Roles();
+    details.roles = Roles();
 
-    details.roles.dealer = new Dealer();
-    details.roles.dealer.features = new DealerFeatures();
+    details.roles.dealer = Dealer();
+    details.roles.dealer.features = DealerFeatures();
 
-    details.roles.broker = new Broker();
-    details.roles.broker.features = new BrokerFeatures();
+    details.roles.broker = Broker();
+    details.roles.broker.features = BrokerFeatures();
 
     return details;
   }

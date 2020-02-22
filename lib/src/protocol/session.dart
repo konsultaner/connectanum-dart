@@ -52,7 +52,7 @@ class Session {
   final Map<int, Subscribed> subscriptions = {};
 
   StreamSubscription<AbstractMessage> _transportStreamSubscription;
-  StreamController _openSessionStreamController = new StreamController.broadcast();
+  StreamController _openSessionStreamController = StreamController.broadcast();
 
   /// Starting the session will also start the authentication process.
   static Future<Session> start(
@@ -78,14 +78,14 @@ class Session {
     /**
      * Initialize the session object with the realm it belongs to
      */
-    final session = new Session();
+    final session = Session();
     session.realm = realm;
     session._transport = transport;
 
     /**
      * Initialize the sub protocol with a hello message
      */
-    final hello = new Hello(realm, detailsPackage.Details.forHello());
+    final hello = Hello(realm, detailsPackage.Details.forHello());
     if (authId != null) {
       hello.details.authid = authId;
     }
@@ -97,7 +97,7 @@ class Session {
     /**
      * Either return the welcome or execute a challenge before and eventually return the welcome after this
      */
-    Completer<Session> welcomeCompleter = new Completer<Session>();
+    Completer<Session> welcomeCompleter = Completer<Session>();
     session._transportStreamSubscription = transport.receive().listen(
       (message) {
         if (message is Challenge) {
@@ -105,7 +105,7 @@ class Session {
           if (foundAuthMethod != null) {
             foundAuthMethod.challenge(message.extra).then((authenticate) => session.authenticate(authenticate));
           } else {
-            final goodbye = new Goodbye(new GoodbyeMessage("Authmethod ${foundAuthMethod} not supported"), Goodbye.REASON_GOODBYE_AND_OUT);
+            final goodbye = Goodbye(new GoodbyeMessage("Authmethod ${foundAuthMethod} not supported"), Goodbye.REASON_GOODBYE_AND_OUT);
             session._transport.send(goodbye);
             throw goodbye;
           }
@@ -159,7 +159,7 @@ class Session {
       Map<String, Object> argumentsKeywords,
       CallOptions options,
       Completer<String> cancelCompleter}) async* {
-    Call call = new Call(nextCallId++, procedure,
+    Call call = Call(nextCallId++, procedure,
         arguments: arguments,
         argumentsKeywords: argumentsKeywords,
         options: options);
@@ -174,10 +174,10 @@ class Session {
               CancelOptions.MODE_SKIP == cancelMode
           )
         ) {
-          options = new CancelOptions();
+          options = CancelOptions();
           options.mode = cancelMode;
         }
-        Cancel cancel = new Cancel(call.requestId, options: options);
+        Cancel cancel = Cancel(call.requestId, options: options);
         this._transport.send(cancel);
       });
     }
@@ -198,7 +198,7 @@ class Session {
   /// while subscribing. The resulting events are passed to the [Subscribed.eventStream].
   /// The subscriber should therefore subscribe to that stream to receive the events.
   Future<Subscribed> subscribe(String topic, {SubscribeOptions options}) async {
-    Subscribe subscribe = new Subscribe(nextSubscribeId++, topic, options: options);
+    Subscribe subscribe = Subscribe(nextSubscribeId++, topic, options: options);
     this._transport.send(subscribe);
     AbstractMessage subscribed = await this._openSessionStreamController.stream.where(
       (message) => (message is Subscribed && message.subscribeRequestId == subscribe.requestId) ||
@@ -216,7 +216,7 @@ class Session {
   /// This unsubscribes the session from a subscription. Use the [Subscribed.subscriptionId]
   /// to unsubscribe.
   Future<void> unsubscribe(int subscriptionId) async {
-    Unsubscribe unsubscribe = new Unsubscribe(nextUnsubscribeId++, subscriptionId);
+    Unsubscribe unsubscribe = Unsubscribe(nextUnsubscribeId++, subscriptionId);
     this._transport.send(unsubscribe);
     await this._openSessionStreamController.stream.where(
       (message) {
@@ -237,7 +237,7 @@ class Session {
       {List<Object> arguments,
       Map<String, Object> argumentsKeywords,
       PublishOptions options}) {
-    Publish publish = new Publish(nextPublishId++, topic,
+    Publish publish = Publish(nextPublishId++, topic,
         arguments: arguments,
         argumentsKeywords: argumentsKeywords,
         options: options);
@@ -257,7 +257,7 @@ class Session {
   /// This registers a [procedure] with the given [options] that may be called
   /// by other sessions.
   Future<Registered> register(String procedure, {RegisterOptions options}) async {
-    Register register = new Register(nextRegisterId++, procedure, options: options);
+    Register register = Register(nextRegisterId++, procedure, options: options);
     this._transport.send(register);
     AbstractMessage registered = await this._openSessionStreamController.stream.where(
             (message) => (message is Registered && message.registerRequestId == register.requestId) ||
@@ -288,7 +288,7 @@ class Session {
   /// This unregisters a procedure by its [registrationId]. Use the [Registered.registrationId]
   /// to unregister.
   Future<void> unregister(int registrationId) async {
-    Unregister unregister = new Unregister(nextUnregisterId++, registrationId);
+    Unregister unregister = Unregister(nextUnregisterId++, registrationId);
     this._transport.send(unregister);
     await this._openSessionStreamController.stream.where(
         (message) {

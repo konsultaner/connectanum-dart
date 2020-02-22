@@ -37,7 +37,7 @@ class SocketHelper {
    * RRRR are reserved bytes
    */
   static List<int> getInitialHandshake(int messageLengthExponent,int serializerType) {
-    Uint8List initialHandShake = new Uint8List(4);
+    Uint8List initialHandShake = Uint8List(4);
     initialHandShake[0] = SocketHelper._META_HEADER;
     initialHandShake[1] = ((max(0,min(15,messageLengthExponent-9)) << 4) | serializerType);
     initialHandShake[2] = 0;
@@ -52,14 +52,14 @@ class SocketHelper {
    * If a router does not accept, this upgrade it will respond with an error.
    */
   static List<int> getUpgradeHandshake(int messageLengthExponent) {
-    Uint8List upgradeHandShake = new Uint8List(2);
+    Uint8List upgradeHandShake = Uint8List(2);
     upgradeHandShake[0] = SocketHelper._UPGRADE_HEADER;
     upgradeHandShake[1] = (max(0,min(15,messageLengthExponent-25)) << 4);
     return upgradeHandShake.toList(growable: false);
   }
 
   static List<int> getError(int errorCode) {
-    Uint8List errorHandShake = new Uint8List(4);
+    Uint8List errorHandShake = Uint8List(4);
     errorHandShake[0] = SocketHelper._META_HEADER;
     errorHandShake[1] = (errorCode << 4);
     errorHandShake[2] = 0;
@@ -91,7 +91,7 @@ class SocketHelper {
             "Their should be no message length larger then 2^" +
                 MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT.toString());
       }
-      Uint8List messageHeader = new Uint8List(5);
+      Uint8List messageHeader = Uint8List(5);
       messageHeader[0] = headerType;
       messageHeader[1] = ((messageLength >> 24) & 0xFF);
       messageHeader[2] = ((messageLength >> 16) & 0xFF);
@@ -104,7 +104,7 @@ class SocketHelper {
             "Their should be no message length larger then 2^" +
                 MAX_MESSAGE_LENGTH_EXPONENT.toString());
       }
-      Uint8List messageHeader = new Uint8List(5);
+      Uint8List messageHeader = Uint8List(5);
       messageHeader[0] = headerType;
       messageHeader[1] = ((messageLength >> 16) & 0xFF);
       messageHeader[2] = ((messageLength >> 8) & 0xFF);

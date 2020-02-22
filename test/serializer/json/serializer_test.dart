@@ -23,7 +23,7 @@ import 'package:connectanum/src/serializer/json/serializer.dart';
 import 'package:test/test.dart';
 
 void main() {
-  Serializer serializer = new Serializer();
+  Serializer serializer = Serializer();
   group('serialize', () {
     test('Hello', () {
       expect(serializer.serializeToString(new Hello("my.realm", Details.forHello())), equals('[1,"my.realm",{"caller":{"features":{"call_canceling":false,"call_timeout":false,"caller_identification":true,"payload_transparency":true,"progressive_call_results":true}},"callee":{"features":{"caller_identification":true,"call_trustlevels":false,"pattern_based_registration":false,"shared_registration":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":true,"payload_transparency":true}},"subscriber":{"features":{"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_transparency":true}},"publisher":{"features":{"publisher_identification":true,"subscriber_blackwhite_listing":true,"publisher_exclusion":true,"payload_transparency":true}}}]'));
@@ -374,7 +374,7 @@ void main() {
   });
   group('string conversion', () {
     test('convert UTF-8', () {
-      Invocation invocation = new Invocation(10, 10, new InvocationDetails(1, "", false), arguments: ["𝄞 𝄢 Hello! Cześć! 你好! ご挨拶！Привет! ℌ𝔢𝔩𝔩𝔬! 🅗🅔🅛🅛🅞!"]);
+      Invocation invocation = Invocation(10, 10, new InvocationDetails(1, "", false), arguments: ["𝄞 𝄢 Hello! Cześć! 你好! ご挨拶！Привет! ℌ𝔢𝔩𝔩𝔬! 🅗🅔🅛🅛🅞!"]);
       Invocation serializedInvocation = serializer.deserialize(serializer.serialize(invocation));
       expect(serializedInvocation.arguments[0], equals("𝄞 𝄢 Hello! Cześć! 你好! ご挨拶！Привет! ℌ𝔢𝔩𝔩𝔬! 🅗🅔🅛🅛🅞!"));
     });

@@ -22,10 +22,10 @@ class Invocation extends AbstractMessageWithPayload {
     if (isError) {
       assert(progressive == false);
       assert(UriPattern.match(errorUri));
-      final Error error = new Error(MessageTypes.CODE_INVOCATION, requestId, new HashMap(), errorUri, arguments: arguments, argumentsKeywords: argumentsKeywords);
+      final Error error = Error(MessageTypes.CODE_INVOCATION, requestId, new HashMap(), errorUri, arguments: arguments, argumentsKeywords: argumentsKeywords);
       _responseStreamController.add(error);
     } else {
-      final Yield yield = new Yield(this.requestId, options: new YieldOptions(progressive), arguments: arguments, argumentsKeywords: argumentsKeywords);
+      final Yield yield = Yield(this.requestId, options: new YieldOptions(progressive), arguments: arguments, argumentsKeywords: argumentsKeywords);
       _responseStreamController.add(yield);
     }
     if (!progressive) {
@@ -45,7 +45,7 @@ class Invocation extends AbstractMessageWithPayload {
   }
 
   void onResponse(void Function(AbstractMessageWithPayload invocationResultMessage) onData) {
-    _responseStreamController = new StreamController<AbstractMessageWithPayload>();
+    _responseStreamController = StreamController<AbstractMessageWithPayload>();
     _responseStreamController.stream.listen(onData);
   }
 }

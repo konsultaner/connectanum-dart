@@ -21,7 +21,7 @@ class Client {
   /// import 'package:connectanum/connectanum.dart';
   /// import 'package:connectanum/socket.dart';
   ///
-  /// final client = new Client(
+  /// final client = Client(
   ///   realm: "test.realm",
   ///   transport: new SocketTransport(
   ///     'localhost',

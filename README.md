@@ -73,7 +73,7 @@ will try to authenticate an revalidate the session again. All subscriptions and 
 be recovered if possible.
 
 ```dart
-final client = new Client(
+final client = Client(
   realm: "my.realm",transport: new WebSocketTransport("wss://localhost:8443")
 );
 final session = await client.connect();
@@ -84,7 +84,7 @@ final session = await client.connect();
 to work with RPCs you need to have an established session. 
 
 ```dart
-final client = new Client(
+final client = Client(
   realm: "my.realm",new WebSocketTransport("wss://localhost:8443")
 );
 final session = await client.connect();

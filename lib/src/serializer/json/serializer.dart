@@ -59,17 +59,17 @@ class Serializer extends AbstractSerializer {
         ));
       }
       if (messageId == MessageTypes.CODE_WELCOME) {
-        final details = new Details();
+        final details = Details();
         details.authid = message[2]["authid"] ?? "";
         details.authprovider = message[2]["authprovider"] ?? "";
         details.authmethod = message[2]["authmethod"] ?? "";
         details.authrole = message[2]["authrole"] ?? "";
         if (message[2]["roles"] != null) {
-          details.roles = new Roles();
+          details.roles = Roles();
           if (message[2]["roles"]["dealer"] != null) {
-            details.roles.dealer = new Dealer();
+            details.roles.dealer = Dealer();
             if (message[2]["roles"]["broker"]["features"] != null) {
-              details.roles.dealer.features = new DealerFeatures();
+              details.roles.dealer.features = DealerFeatures();
               details.roles.dealer.features.caller_identification = message[2]["roles"]["dealer"]["features"]["caller_identification"] ?? false;
               details.roles.dealer.features.call_trustlevels = message[2]["roles"]["dealer"]["features"]["call_trustlevels"] ?? false;
               details.roles.dealer.features.pattern_based_registration = message[2]["roles"]["dealer"]["features"]["pattern_based_registration"] ?? false;
@@ -83,9 +83,9 @@ class Serializer extends AbstractSerializer {
             }
           }
           if (message[2]["roles"]["broker"] != null) {
-            details.roles.broker = new Broker();
+            details.roles.broker = Broker();
             if (message[2]["roles"]["broker"]["features"] != null) {
-              details.roles.broker.features = new BrokerFeatures();
+              details.roles.broker.features = BrokerFeatures();
               details.roles.broker.features.publisher_identification = message[2]["roles"]["broker"]["features"]["publisher_identification"] ?? false;
               details.roles.broker.features.publication_trustlevels = message[2]["roles"]["broker"]["features"]["publication_trustlevels"] ?? false;
               details.roles.broker.features.pattern_based_subscription = message[2]["roles"]["broker"]["features"]["pattern_based_subscription"] ?? false;

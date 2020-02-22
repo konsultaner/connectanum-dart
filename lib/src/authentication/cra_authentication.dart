@@ -16,16 +16,16 @@ import '../message/error.dart';
 /// This is the WAMPCRA authentication implementation for this package.
 /// Use it with the [Client].
 class CraAuthentication extends AbstractAuthentication {
-  static final Uint8List DEFAULT_KEY_SALT = new Uint8List(0);
+  static final Uint8List DEFAULT_KEY_SALT = Uint8List(0);
   final String secret;
 
   CraAuthentication(this.secret);
 
   @override
   Future<Authenticate> challenge(Extra extra) {
-    Authenticate authenticate = new Authenticate();
+    Authenticate authenticate = Authenticate();
     if (extra == null || extra.challenge == null || secret == null) {
-      final error = new Error(
+      final error = Error(
         MessageTypes.CODE_CHALLENGE, -1, new HashMap<String, Object>(),
         Error.AUTHORIZATION_FAILED
       );
@@ -50,17 +50,17 @@ class CraAuthentication extends AbstractAuthentication {
 
   static Uint8List deriveKey(String secret, String salt,
       {int iterations: 1000, int keylen: 32}) {
-    var derivator = new PBKDF2KeyDerivator(new HMac(new SHA256Digest(), 64))
+    var derivator = PBKDF2KeyDerivator(new HMac(new SHA256Digest(), 64))
       ..init(new Pbkdf2Parameters(
           Uint8List.fromList(salt.codeUnits), iterations, keylen));
     return derivator.process(Uint8List.fromList(secret.codeUnits));
   }
 
   static String encodeHmac(Uint8List key, int keylen, Uint8List challenge) {
-    HMac mac = new HMac(new SHA256Digest(), 64);
+    HMac mac = HMac(new SHA256Digest(), 64);
     mac.init(new KeyParameter(key));
     mac.update(challenge, 0, challenge.length);
-    Uint8List out = new Uint8List(keylen);
+    Uint8List out = Uint8List(keylen);
     mac.doFinal(out, 0);
     return base64.encode(out);
   }

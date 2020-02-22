@@ -15,7 +15,7 @@ import '../abstract_transport.dart';
 /// payload.
 class SocketTransport extends AbstractTransport {
 
-  Logger _logger = new Logger("SocketTransport");
+  Logger _logger = Logger("SocketTransport");
 
   bool _ssl;
   String _host;
@@ -28,8 +28,8 @@ class SocketTransport extends AbstractTransport {
   int _messageLengthExponent;
   int _serializerType;
   AbstractSerializer _serializer;
-  Uint8List _inboundBuffer = new Uint8List(0);
-  Uint8List _outboundBuffer = new Uint8List(0);
+  Uint8List _inboundBuffer = Uint8List(0);
+  Uint8List _outboundBuffer = Uint8List(0);
   Completer _handshakeCompleter;
   Completer _pingCompleter;
 
@@ -97,8 +97,8 @@ class SocketTransport extends AbstractTransport {
     } else {
       _socket = await Socket.connect(_host, _port);
     }
-    onDisconnect = new Completer();
-    _handshakeCompleter = new Completer();
+    onDisconnect = Completer();
+    _handshakeCompleter = Completer();
     _sendInitialHandshake();
   }
 
@@ -236,7 +236,7 @@ class SocketTransport extends AbstractTransport {
   Future<Uint8List> sendPing({Duration timeout}) {
     if (_pingCompleter == null || !_pingCompleter.isCompleted) {
       _socket.add(SocketHelper.getPing(isUpgradedProtocol));
-      _pingCompleter = new Completer<Uint8List>();
+      _pingCompleter = Completer<Uint8List>();
       return _pingCompleter.future.timeout(timeout == null ? new Duration(seconds: 5) : timeout);
     } else throw new Exception("Wait for the last ping to complete or to timeout");
   }

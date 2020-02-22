@@ -28,7 +28,7 @@ void main() {
     test("message handling", () async {
       final authMethod = CraAuthentication(secret);
       expect(authMethod.getName(), equals("wampcra"));
-      Extra extra = new Extra(
+      Extra extra = Extra(
           challenge : challenge,
           keylen : 32,
           iterations : 1000,

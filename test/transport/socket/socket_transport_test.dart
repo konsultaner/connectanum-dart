@@ -13,7 +13,7 @@ void main() {
   group('Socket protocol negotiation', () {
     test('Opening with max header', () async {
       List<Uint8List> handshakes = [null,null];
-      Serializer serializer = new Serializer();
+      Serializer serializer = Serializer();
       final server = await ServerSocket.bind("0.0.0.0", 9000);
       server.listen((socket) {
         socket.listen((message) {
@@ -29,7 +29,7 @@ void main() {
       });
       final transport = SocketTransport("127.0.0.1", 9000, serializer, SocketHelper.SERIALIZATION_JSON, messageLengthExponent: SocketHelper.MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT);
       await transport.open();
-      final handshakeCompleter = new Completer();
+      final handshakeCompleter = Completer();
       transport.onOpen.then((aVoid) {
         handshakeCompleter.complete();
       });
@@ -41,7 +41,7 @@ void main() {
     });
     test('Opening with server only allowing power of 20', () async {
       List<Uint8List> handshakes = [null,null];
-      Serializer serializer = new Serializer();
+      Serializer serializer = Serializer();
       final server = await ServerSocket.bind("0.0.0.0", 9001);
       server.listen((socket) {
         socket.listen((message) {
@@ -53,7 +53,7 @@ void main() {
       });
       final transport = SocketTransport("127.0.0.1", 9001, serializer, SocketHelper.SERIALIZATION_JSON, messageLengthExponent: SocketHelper.MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT);
       await transport.open();
-      final handshakeCompleter = new Completer();
+      final handshakeCompleter = Completer();
       transport.onOpen.then((aVoid) {
         handshakeCompleter.complete();
       });
@@ -65,7 +65,7 @@ void main() {
     });
     test('Opening with client max header of 20', () async {
       List<Uint8List> handshakes = [null,null];
-      Serializer serializer = new Serializer();
+      Serializer serializer = Serializer();
       final server = await ServerSocket.bind("0.0.0.0", 9002);
       server.listen((socket) {
         socket.listen((message) {
@@ -82,7 +82,7 @@ void main() {
       });
       final transport = SocketTransport("127.0.0.1", 9002, serializer, SocketHelper.SERIALIZATION_JSON, messageLengthExponent: 20);
       await transport.open();
-      final handshakeCompleter = new Completer();
+      final handshakeCompleter = Completer();
       transport.onOpen.then((aVoid) {
         handshakeCompleter.complete();
       });
@@ -114,7 +114,7 @@ void main() {
       // error 1
       SocketTransport transport = SocketTransport("127.0.0.1", 9003, new Serializer(), SocketHelper.SERIALIZATION_JSON, messageLengthExponent: 9);
       await transport.open();
-      Completer errorCompleter = new Completer();
+      Completer errorCompleter = Completer();
       transport.onOpen.then((aVoid) {}, onError: (error) => errorCompleter.complete(error));
       transport.receive().listen(
         (message) {},
@@ -130,7 +130,7 @@ void main() {
       // error 2
       transport = SocketTransport("127.0.0.1", 9003, new Serializer(), SocketHelper.SERIALIZATION_JSON, messageLengthExponent: 10);
       await transport.open();
-      errorCompleter = new Completer();
+      errorCompleter = Completer();
       transport.onOpen.then((aVoid) {}, onError: (error) => errorCompleter.complete(error));
       transport.receive().listen(
         (message) {},
@@ -147,7 +147,7 @@ void main() {
       // error 3
       transport = SocketTransport("127.0.0.1", 9003, new Serializer(), SocketHelper.SERIALIZATION_JSON, messageLengthExponent: 11);
       await transport.open();
-      errorCompleter = new Completer();
+      errorCompleter = Completer();
       transport.onOpen.then((aVoid) {}, onError: (error) => errorCompleter.complete(error));
       transport.receive().listen(
         (message) {},
@@ -163,7 +163,7 @@ void main() {
       // error 4
       transport = SocketTransport("127.0.0.1", 9003, new Serializer(), SocketHelper.SERIALIZATION_JSON, messageLengthExponent: 12);
       await transport.open();
-      errorCompleter = new Completer();
+      errorCompleter = Completer();
       transport.onOpen.then((aVoid) {}, onError: (error) => errorCompleter.complete(error));
       transport.receive().listen(
               (message) {},
@@ -177,8 +177,8 @@ void main() {
       expect(transport.isOpen, isFalse);
     });
     test('Ping Pong', () async {
-      Serializer serializer = new Serializer();
-      Completer pongCompleter = new Completer();
+      Serializer serializer = Serializer();
+      Completer pongCompleter = Completer();
       final server = await ServerSocket.bind("0.0.0.0", 9004);
       server.listen((socket) {
         socket.listen((message) {

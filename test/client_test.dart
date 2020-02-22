@@ -33,7 +33,7 @@ void main() {
   group('Client', () {
     test("session creation without authentication process", () async {
       final transport = _MockTransport();
-      final client = new Client(
+      final client = Client(
           realm: "test.realm",
           transport: transport
       );
@@ -62,7 +62,7 @@ void main() {
     });
     test("session creation router abort", () async {
       final transport = _MockTransport();
-      final client = new Client(realm: "test.realm", transport: transport);
+      final client = Client(realm: "test.realm", transport: transport);
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
           transport.receiveMessage(
@@ -70,7 +70,7 @@ void main() {
           );
         }
       });
-      Completer abortCompleter = new Completer<Abort>();
+      Completer abortCompleter = Completer<Abort>();
       client.connect().catchError((abort) => abortCompleter.complete(abort));
       Abort abort = await abortCompleter.future;
       expect(abort, isNotNull);
@@ -80,7 +80,7 @@ void main() {
     });
     test("session creation with cra authentication process", () async {
       final transport = _MockTransport();
-      final client = new Client(
+      final client = Client(
           realm: "test.realm",
           transport: transport,
           authId: "11111111",
@@ -124,7 +124,7 @@ void main() {
     });
     test("session creation with cra authentication process and router abort", () async {
       final transport = _MockTransport();
-      final client = new Client(
+      final client = Client(
           realm: "test.realm",
           transport: transport,
           authId: "11111111",
@@ -148,7 +148,7 @@ void main() {
           transport.receiveMessage(new Abort(Error.AUTHORIZATION_FAILED, message: "Wrong user credentials"));
         }
       });
-      Completer abortCompleter = new Completer<Abort>();
+      Completer abortCompleter = Completer<Abort>();
       client.connect().catchError((abort) => abortCompleter.complete(abort));
       Abort abort = await abortCompleter.future;
       expect(abort, isNotNull);
@@ -158,13 +158,13 @@ void main() {
     });
     test("procedure registration and invocation", () async {
       final transport = _MockTransport();
-      final client = new Client(realm: "test.realm", transport: transport);
+      final client = Client(realm: "test.realm", transport: transport);
 
-      final yieldCompleter = new Completer<Yield>();
-      final progressiveCallYieldCompleter = new Completer<Yield>();
-      final error1completer = new Completer<Error>();
-      final error2completer = new Completer<Error>();
-      final error3completer = new Completer<Error>();
+      final yieldCompleter = Completer<Yield>();
+      final progressiveCallYieldCompleter = Completer<Yield>();
+      final error1completer = Completer<Error>();
+      final error2completer = Completer<Error>();
+      final error3completer = Completer<Error>();
 
       // ALL ROUTER MOCK RESULTS
       transport.outbound.stream.listen((message) {
@@ -232,7 +232,7 @@ void main() {
       });
 
       final session = await client.connect();
-      final registrationErrorCompleter = new Completer<Error>();
+      final registrationErrorCompleter = Completer<Error>();
 
       // NOT WORKING REGISTRATION
 
@@ -273,7 +273,7 @@ void main() {
 
       // REGULAR RESULT
 
-      final argumentsKeywords = new HashMap<String, Object>();
+      final argumentsKeywords = HashMap<String, Object>();
       argumentsKeywords["value"] = 0;
       transport.receiveMessage(new Invocation(11001100, registered.registrationId, new InvocationDetails(null, null, false), arguments: ["did work"], argumentsKeywords: argumentsKeywords));
       final yieldMessage = await yieldCompleter.future;
@@ -283,7 +283,7 @@ void main() {
 
       // PROGRESSIVE CALL
 
-      final progressiveArgumentsKeywords = new HashMap<String, Object>();
+      final progressiveArgumentsKeywords = HashMap<String, Object>();
       progressiveArgumentsKeywords["value"] = 1;
       transport.receiveMessage(new Invocation(21001100, registered.registrationId, new InvocationDetails(null, null, true), arguments: ["did work?"], argumentsKeywords: progressiveArgumentsKeywords));
       transport.receiveMessage(new Invocation(21001101, registered.registrationId, new InvocationDetails(null, null, false), arguments: ["did work again"], argumentsKeywords: progressiveArgumentsKeywords));
@@ -295,9 +295,9 @@ void main() {
 
       // PROGRESSIVE RESULT
 
-      final progressiveCallArgumentsKeywords = new HashMap<String, Object>();
+      final progressiveCallArgumentsKeywords = HashMap<String, Object>();
       progressiveArgumentsKeywords["value"] = 2;
-      final callCompleter = new Completer<List<Result>>();
+      final callCompleter = Completer<List<Result>>();
       final List<Result> resultList = [];
       session.call("my.procedure", options: new CallOptions(receive_progress: true), arguments: ["called"] , argumentsKeywords: progressiveCallArgumentsKeywords).listen((result) {
         resultList.add(result);
@@ -310,7 +310,7 @@ void main() {
 
       // ERROR BY EXCEPTION
 
-      final argumentsKeywords2 = new HashMap<String, Object>();
+      final argumentsKeywords2 = HashMap<String, Object>();
       argumentsKeywords2["value"] = -1;
       transport.receiveMessage(new Invocation(11001101, registered.registrationId, new InvocationDetails(null, null, false), arguments: ["did work"], argumentsKeywords: argumentsKeywords2));
       final error1 = await error1completer.future;
@@ -322,7 +322,7 @@ void main() {
 
       // ERROR BY HANDLER
 
-      final argumentsKeywords3 = new HashMap<String, Object>();
+      final argumentsKeywords3 = HashMap<String, Object>();
       argumentsKeywords3["value"] = -2;
       transport.receiveMessage(new Invocation(11001102, registered.registrationId, new InvocationDetails(null, null, false), arguments: ["did work"], argumentsKeywords: argumentsKeywords3));
       final error2 = await error2completer.future;
@@ -335,9 +335,9 @@ void main() {
 
       // ERROR RESULT
 
-      final errorCallArgumentsKeywords = new HashMap<String, Object>();
+      final errorCallArgumentsKeywords = HashMap<String, Object>();
       errorCallArgumentsKeywords["value"] = -3;
-      final errorCallCompleter = new Completer<Error>();
+      final errorCallCompleter = Completer<Error>();
       session.call("my.procedure", options: new CallOptions(receive_progress: true), arguments: ["was an error"] , argumentsKeywords: errorCallArgumentsKeywords)
           .listen(
               (result) {},
@@ -351,10 +351,10 @@ void main() {
 
       // ERROR BY CANCELLATION
 
-      final errorCallCancellation = new HashMap<String, Object>();
+      final errorCallCancellation = HashMap<String, Object>();
       errorCallCancellation["value"] = -4;
-      final errorCallCancellationCompleter = new Completer<Error>();
-      final CancellationCompleter = new Completer<String>();
+      final errorCallCancellationCompleter = Completer<Error>();
+      final CancellationCompleter = Completer<String>();
       session.call("my.procedure", argumentsKeywords: errorCallCancellation, cancelCompleter: CancellationCompleter)
           .listen((result) {}, onError: (error) => errorCallCancellationCompleter.complete(error)
       );
@@ -368,7 +368,7 @@ void main() {
 
       await session.unregister(registered.registrationId);
 
-      final argumentsKeywordsRegular = new HashMap<String, Object>();
+      final argumentsKeywordsRegular = HashMap<String, Object>();
       argumentsKeywordsRegular["value"] = 0;
       transport.receiveMessage(new Invocation(11001199, registered.registrationId, new InvocationDetails(null, null, false), arguments: ["did not work"], argumentsKeywords: argumentsKeywordsRegular));
       final error3Message = await error3completer.future;
@@ -380,7 +380,7 @@ void main() {
 
       // UNREGISTER ERROR
 
-      final errorUnregisterCompleter = new Completer<Error>();
+      final errorUnregisterCompleter = Completer<Error>();
       session.unregister(-1).then((message) {}, onError: (error) => errorUnregisterCompleter.complete(error));
       Error unregisterError = await errorUnregisterCompleter.future;
       expect(unregisterError, isNotNull);
@@ -389,7 +389,7 @@ void main() {
     });
     test("event subscription and publish", () async {
       final transport = _MockTransport();
-      final client = new Client(realm: "test.realm", transport: transport);
+      final client = Client(realm: "test.realm", transport: transport);
 
       // ALL ROUTER MOCK RESULTS
       transport.outbound.stream.listen((message) {
@@ -424,7 +424,7 @@ void main() {
 
       // SUBSCRIBE ERROR
       
-      Completer<Error> subscribeErrorCompleter = new Completer<Error>();
+      Completer<Error> subscribeErrorCompleter = Completer<Error>();
       session.subscribe("topic.my.error").then((message) {}, onError: (error) => subscribeErrorCompleter.complete(error));
       Error subscribeError = await subscribeErrorCompleter.future;
       expect(subscribeError, isNotNull);
@@ -433,9 +433,9 @@ void main() {
 
       // EVENT
 
-      Completer<Event> eventCompleter = new Completer<Event>();
-      Completer<Event> eventCompleter2 = new Completer<Event>();
-      Completer<Event> eventCompleter3 = new Completer<Event>();
+      Completer<Event> eventCompleter = Completer<Event>();
+      Completer<Event> eventCompleter2 = Completer<Event>();
+      Completer<Event> eventCompleter3 = Completer<Event>();
       subscribed.eventStream.listen((event) {
         if (event.publicationId == 1122) {
           eventCompleter.complete(event);
@@ -488,10 +488,10 @@ void main() {
 }
 
 class _MockTransport extends AbstractTransport {
-  final StreamController<AbstractMessage> inbound = new StreamController();
+  final StreamController<AbstractMessage> inbound = StreamController();
 
   bool _open = false;
-  final StreamController<AbstractMessage> outbound = new StreamController();
+  final StreamController<AbstractMessage> outbound = StreamController();
 
   @override
   bool get isOpen {
