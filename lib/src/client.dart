@@ -35,11 +35,11 @@ class Client {
   /// ```
   Client(
       {this.reconnectTime,
-      AbstractTransport this.transport,
-      String this.authId,
-      String this.realm,
-      List<AbstractAuthentication> this.authenticationMethods,
-      int this.isolateCount: 1})
+      this.transport,
+      this.authId,
+      this.realm,
+      this.authenticationMethods,
+      this.isolateCount = 1})
       : assert(transport != null),
         assert(realm != null && UriPattern.match(realm)) {}
 

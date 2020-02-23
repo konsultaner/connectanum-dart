@@ -82,7 +82,7 @@ class Session {
     if (authId != null) {
       hello.details.authid = authId;
     }
-    if (authMethods != null && authMethods.length > 0) {
+    if (authMethods != null && authMethods.isNotEmpty) {
       hello.details.authmethods = authMethods
           .map<String>((authMethod) => authMethod.getName())
           .toList();
@@ -106,7 +106,7 @@ class Session {
               .then((authenticate) => session.authenticate(authenticate));
         } else {
           final goodbye = Goodbye(
-              new GoodbyeMessage("Authmethod ${foundAuthMethod} not supported"),
+              GoodbyeMessage("Authmethod ${foundAuthMethod} not supported"),
               Goodbye.REASON_GOODBYE_AND_OUT);
           session._transport.send(goodbye);
           throw goodbye;
@@ -225,8 +225,9 @@ class Session {
               message.subscriptionId == subscribed.subscriptionId)
           .cast();
       return subscribed;
-    } else
+    } else {
       throw subscribed as Error;
+    }
   }
 
   /// This unsubscribes the session from a subscription. Use the [Subscribed.subscriptionId]
@@ -301,7 +302,7 @@ class Session {
             message.onResponse((message) => this._transport.send(message));
             return true;
           } else {
-            this._transport.send(new Error(MessageTypes.CODE_INVOCATION,
+            this._transport.send(Error(MessageTypes.CODE_INVOCATION,
                 message.requestId, {}, Error.NO_SUCH_REGISTRATION));
             return false;
           }

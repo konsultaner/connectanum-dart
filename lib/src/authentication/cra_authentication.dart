@@ -50,16 +50,16 @@ class CraAuthentication extends AbstractAuthentication {
   }
 
   static Uint8List deriveKey(String secret, String salt,
-      {int iterations: 1000, int keylen: 32}) {
-    var derivator = PBKDF2KeyDerivator(new HMac(new SHA256Digest(), 64))
-      ..init(new Pbkdf2Parameters(
+      {int iterations = 1000, int keylen = 32}) {
+    var derivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64))
+      ..init(Pbkdf2Parameters(
           Uint8List.fromList(salt.codeUnits), iterations, keylen));
     return derivator.process(Uint8List.fromList(secret.codeUnits));
   }
 
   static String encodeHmac(Uint8List key, int keylen, Uint8List challenge) {
-    HMac mac = HMac(new SHA256Digest(), 64);
-    mac.init(new KeyParameter(key));
+    HMac mac = HMac(SHA256Digest(), 64);
+    mac.init(KeyParameter(key));
     mac.update(challenge, 0, challenge.length);
     Uint8List out = Uint8List(keylen);
     mac.doFinal(out, 0);
