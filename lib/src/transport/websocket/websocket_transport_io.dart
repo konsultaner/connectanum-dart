@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import "dart:io";
+import 'dart:io';
 
 import '../../message/abstract_message.dart';
 import '../../serializer/abstract_serializer.dart';
@@ -51,9 +51,9 @@ class WebSocketTransport extends AbstractTransport {
   Stream<AbstractMessage> receive() {
     return _socket.map((messageEvent) {
       if (_serializerType == SERIALIZATION_JSON) {
-        return _serializer.deserialize(utf8.encode(messageEvent.data));
+        return _serializer.deserialize(utf8.encode(messageEvent));
       } else {
-        return _serializer.deserialize(messageEvent.data);
+        return _serializer.deserialize(messageEvent);
       }
     });
   }

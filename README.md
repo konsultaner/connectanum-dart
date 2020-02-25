@@ -15,6 +15,7 @@ WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
 - better docs
 - msgpack serializer
 - unit test websocket transport
+    - currently fails in browser, works in VM
 - get the auth id that called a method
 - handle ping pong times
 - auto reconnect handling, but keep abstract socket interface
@@ -26,32 +27,32 @@ WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
 
 ### Authentication
 
-- [x] [WAMP-CRA](https://wamp-proto.org/_static/gen/wamp_latest.html#wampcra)
-- [x] [TICKET](https://wamp-proto.org/_static/gen/wamp_latest.html#ticketauth)
-- [ ] [WAMP-SCRAM](https://wamp-proto.org/_static/gen/wamp_latest.html#wamp-scram)
-    - [ ] Argon2
-    - [ ] PBKDF2
+- ☑ [WAMP-CRA](https://wamp-proto.org/_static/gen/wamp_latest.html#wampcra)
+- ☑ [TICKET](https://wamp-proto.org/_static/gen/wamp_latest.html#ticketauth)
+- ☐ [WAMP-SCRAM](https://wamp-proto.org/_static/gen/wamp_latest.html#wamp-scram)
+    - ☐ Argon2
+    - ☐ PBKDF2
 
 ### Advanced RPC features
 
-- [x] Progressive Call Results
-- [x] Progressive Calls
-- [ ] Call Timeouts
-- [x] Call Canceling
-- [x] Caller Identification
-- [ ] Call Trust Levels
-- [x] Shared Registration
-- [ ] Sharded Registration
+- ☑ Progressive Call Results
+- ☑ Progressive Calls
+- ☐ Call Timeouts
+- ☑ Call Canceling
+- ☑ Caller Identification
+- ☐ Call Trust Levels
+- ☑ Shared Registration
+- ☐ Sharded Registration
 
 ### Advanced PUB/SUB features
 
-- [x] Subscriber Black- and Whitelisting
-- [x] Publisher Exclusion
-- [x] Publisher Identification
-- [ ] Publication Trust Levels
-- [x] Pattern-based Subscriptions
-- [ ] Sharded Subscriptions
-- [ ] Subscription Revocation
+- ☑ Subscriber Black- and Whitelisting
+- ☑ Publisher Exclusion
+- ☑ Publisher Identification
+- ☐ Publication Trust Levels
+- ☑ Pattern-based Subscriptions
+- ☐ Sharded Subscriptions
+- ☐ Subscription Revocation
 
 ## Stream model
 
