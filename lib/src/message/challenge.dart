@@ -10,9 +10,7 @@ class Challenge extends AbstractMessage {
   }
 }
 
-/**
- * Challenge values to check the authentication validity
- */
+/// Challenge values to check the authentication validity
 class Extra {
   String challenge;
   String salt;

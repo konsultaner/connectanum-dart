@@ -2,15 +2,11 @@ import 'abstract_message_with_payload.dart';
 import 'message_types.dart';
 
 class Event extends AbstractMessageWithPayload {
-  /**
-   *  The ID for the subscription under which the Subscriber receives the event.
-   *  The ID for the subscription originally handed out by the Broker to the Subscriber.
-   */
+  /// The ID for the subscription under which the Subscriber receives the event.
+  /// The ID for the subscription originally handed out by the Broker to the Subscriber.
   int subscriptionId;
 
-  /**
-   * The ID of the publication of the published event.
-   */
+  /// The ID of the publication of the published event.
   int publicationId;
   EventDetails details;
 
@@ -19,9 +15,7 @@ class Event extends AbstractMessageWithPayload {
   }
 }
 
-/**
- * Options used influence the event behavior
- */
+/// Options used influence the event behavior
 class EventDetails {
   // publisher_identification == true
   int publisher;

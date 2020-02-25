@@ -14,10 +14,8 @@ class Registered extends AbstractMessage {
     _invocationStream = invocationStream;
   }
 
-  /**
-   * sets the invocation handler, if an error is thrown within the handler this
-   * method will result an error message to the transport or router respectively
-   */
+  /// sets the invocation handler, if an error is thrown within the handler this
+  /// method will result an error message to the transport or router respectively
   void onInvoke(void onInvoke(Invocation invocation)) {
     if (_invocationStream != null) {
       _invocationStream.listen((Invocation invocation) {

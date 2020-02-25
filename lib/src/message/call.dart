@@ -16,9 +16,7 @@ class Call extends AbstractMessageWithPayload {
   }
 }
 
-/**
- * Options used influence the call behavior
- */
+/// Options used influence the call behavior
 class CallOptions {
   // progressive_call_results == true
   bool receive_progress;

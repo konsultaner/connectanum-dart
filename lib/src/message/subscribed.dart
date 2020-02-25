@@ -10,9 +10,7 @@ class Subscribed extends AbstractMessage {
     this.id = MessageTypes.CODE_SUBSCRIBED;
   }
 
-  /**
-   * Is created by the protocol processor and will receive an event object
-   * when the transport receives one
-   */
+  /// Is created by the protocol processor and will receive an event object
+  /// when the transport receives one
   Stream<Event> eventStream;
 }

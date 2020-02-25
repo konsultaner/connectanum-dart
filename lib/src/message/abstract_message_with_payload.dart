@@ -2,9 +2,7 @@ import 'dart:typed_data';
 
 import 'abstract_message.dart';
 
-/**
- * CALL,EVENT,RESULT,ERROR,PUBLISH,INVOCATION,YIELD may have a transparent payload
- */
+/// CALL,EVENT,RESULT,ERROR,PUBLISH,INVOCATION,YIELD may have a transparent payload
 abstract class AbstractMessageWithPayload extends AbstractMessage {
   Uint8List transparentBinaryPayload;
   List<Object> arguments;
@@ -12,10 +10,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
 
   AbstractMessageWithPayload({this.arguments, this.argumentsKeywords});
 
-  /**
-   * Transfers the message payload to another message
-   * @param message An AbstractMessageWithPayload instance
-   */
+  /// Transfers the message payload to another message
   void copyPayloadTo(AbstractMessageWithPayload message) {
     message.arguments = this.argumentsKeywords != null && this.arguments == null
         ? []

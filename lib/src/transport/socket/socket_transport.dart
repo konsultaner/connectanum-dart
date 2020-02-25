@@ -20,9 +20,7 @@ class SocketTransport extends AbstractTransport {
   String _host;
   int _port;
   Socket _socket;
-  /**
-   * this will be negotiated during the handshake process
-   */
+  /// This will be negotiated during the handshake process.
   int _messageLength;
   int _messageLengthExponent;
   int _serializerType;
@@ -39,17 +37,15 @@ class SocketTransport extends AbstractTransport {
   /// 2^[messageLengthExponent]
   SocketTransport(
       this._host, this._port, this._serializer, this._serializerType,
-      {ssl: false,
-      messageLengthExponent: SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT})
+      {ssl = false,
+      messageLengthExponent = SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT})
       : assert(_serializerType == SocketHelper.SERIALIZATION_JSON ||
             _serializerType == SocketHelper.SERIALIZATION_MSGPACK) {
     _ssl = ssl;
     _messageLengthExponent = messageLengthExponent;
   }
 
-  /**
-   * Sends a handshake of the morphology
-   */
+  /// Sends a handshake of the morphology
   void _sendInitialHandshake() {
     _socket.add(SocketHelper.getInitialHandshake(
         _messageLengthExponent, _serializerType));
@@ -272,8 +268,9 @@ class SocketTransport extends AbstractTransport {
       _pingCompleter = Completer<Uint8List>();
       return _pingCompleter.future
           .timeout(timeout == null ? Duration(seconds: 5) : timeout);
-    } else
+    } else {
       throw Exception("Wait for the last ping to complete or to timeout");
+    }
   }
 
   @override

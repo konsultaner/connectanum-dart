@@ -17,25 +17,21 @@ class SocketHelper {
   static const int ERROR_USE_OF_RESERVED_BITS = 3;
   static const int ERROR_MAX_CONNECTION_COUNT_EXCEEDED = 4;
 
-  /**
-   * Default wamp clients can only receive up to 16M of message length (2^24 octets)
-   */
+
+  /// Default wamp clients can only receive up to 16M of message length (2^24 octets)
   static const int MAX_MESSAGE_LENGTH_EXPONENT = 24;
   static const int MAX_MESSAGE_LENGTH = 2 ^ MAX_MESSAGE_LENGTH_EXPONENT;
-  /**
-   * Compare to the regular wamp definition, connectanum is able to send and receive up to 2^30 octets per message
-   */
+  /// Compare to the regular wamp definition, connectanum is able to send and receive up to 2^30 octets per message
   static const int MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT = 30;
   static const int _MAX_MESSAGE_LENGTH_CONNECTANUM =
       2 ^ MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT;
 
-  /**
-   * Sends a handshake of the morphology
-   * 0111 1111 LLLL SSSS RRRR RRRR RRRR RRRR
-   * LLLL = 2^(9+0bLLLL), the accepted message length
-   * SSSS = 0b0001 = JSON, 0b0010 = MsgPack
-   * RRRR are reserved bytes
-   */
+
+  /// Sends a handshake of the morphology
+  /// 0111 1111 LLLL SSSS RRRR RRRR RRRR RRRR
+  /// LLLL = 2^(9+0bLLLL), the accepted message length
+  /// SSSS = 0b0001 = JSON, 0b0010 = MsgPack
+  /// RRRR are reserved bytes
   static List<int> getInitialHandshake(
       int messageLengthExponent, int serializerType) {
     Uint8List initialHandShake = Uint8List(4);
@@ -47,12 +43,11 @@ class SocketHelper {
     return initialHandShake.toList(growable: false);
   }
 
-  /**
-   * Sends an upgrade handshake of the morphology
-   * 0011 1111 0000 LLLL
-   * LLLL = 2^(25 + LLLL), the accepted max message length
-   * If a router does not accept, this upgrade it will respond with an error.
-   */
+
+  /// Sends an upgrade handshake of the morphology
+  /// 0011 1111 0000 LLLL
+  /// LLLL = 2^(25 + LLLL), the accepted max message length
+  /// If a router does not accept, this upgrade it will respond with an error.
   static List<int> getUpgradeHandshake(int messageLengthExponent) {
     Uint8List upgradeHandShake = Uint8List(2);
     upgradeHandShake[0] = SocketHelper._UPGRADE_HEADER;
@@ -122,7 +117,7 @@ class SocketHelper {
         messageType != MESSAGE_PONG;
   }
 
-  static int getMessageType(Uint8List message, {offset: 0}) {
+  static int getMessageType(Uint8List message, {offset = 0}) {
     return message[offset + 0];
   }
 

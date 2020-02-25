@@ -58,26 +58,18 @@ class Session {
       {String authId,
       List<AbstractAuthentication> authMethods,
       Duration reconnect}) async {
-    /**
-     * The realm object is mandatory and must mach the uri pattern
-     */
+    /// The realm object is mandatory and must mach the uri pattern
     assert(realm != null && UriPattern.match(realm));
-    /**
-     * The connection should have been established before initializing the
-     * session.
-     */
+    /// The connection should have been established before initializing the
+    /// session.
     assert(transport != null && transport.isOpen);
 
-    /**
-     * Initialize the session object with the realm it belongs to
-     */
+    /// Initialize the session object with the realm it belongs to
     final session = Session();
     session.realm = realm;
     session._transport = transport;
 
-    /**
-     * Initialize the sub protocol with a hello message
-     */
+    /// Initialize the sub protocol with a hello message
     final hello = Hello(realm, details_package.Details.forHello());
     if (authId != null) {
       hello.details.authid = authId;
@@ -89,9 +81,7 @@ class Session {
     }
     transport.send(hello);
 
-    /**
-     * Either return the welcome or execute a challenge before and eventually return the welcome after this
-     */
+    /// Either return the welcome or execute a challenge before and eventually return the welcome after this
     Completer<Session> welcomeCompleter = Completer<Session>();
     session._transportStreamSubscription = transport.receive().listen(
         (message) {
