@@ -9,7 +9,7 @@ void main() {
     test("message handling", () async {
       final authMethod = TicketAuthentication(secret);
       expect(authMethod.getName(), equals("ticket"));
-      final authenticate = await authMethod.challenge(new Extra());
+      final authenticate = await authMethod.challenge(Extra());
       expect(authenticate.signature, equals(secret));
     });
   });

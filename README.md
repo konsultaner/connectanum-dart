@@ -29,30 +29,30 @@ WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
 
 - ☑ [WAMP-CRA](https://wamp-proto.org/_static/gen/wamp_latest.html#wampcra)
 - ☑ [TICKET](https://wamp-proto.org/_static/gen/wamp_latest.html#ticketauth)
-- ☐ [WAMP-SCRAM](https://wamp-proto.org/_static/gen/wamp_latest.html#wamp-scram)
-    - ☐ Argon2
-    - ☐ PBKDF2
+- ⬜ [WAMP-SCRAM](https://wamp-proto.org/_static/gen/wamp_latest.html#wamp-scram)
+    - ⬜ Argon2
+    - ⬜ PBKDF2
 
 ### Advanced RPC features
 
 - ☑ Progressive Call Results
 - ☑ Progressive Calls
-- ☐ Call Timeouts
+- ⬜ Call Timeouts
 - ☑ Call Canceling
 - ☑ Caller Identification
-- ☐ Call Trust Levels
+- ⬜ Call Trust Levels
 - ☑ Shared Registration
-- ☐ Sharded Registration
+- ⬜ Sharded Registration
 
 ### Advanced PUB/SUB features
 
 - ☑ Subscriber Black- and Whitelisting
 - ☑ Publisher Exclusion
 - ☑ Publisher Identification
-- ☐ Publication Trust Levels
+- ⬜ Publication Trust Levels
 - ☑ Pattern-based Subscriptions
-- ☐ Sharded Subscriptions
-- ☐ Subscription Revocation
+- ⬜ Sharded Subscriptions
+- ⬜ Subscription Revocation
 
 ## Stream model
 
@@ -86,7 +86,7 @@ to work with RPCs you need to have an established session.
 
 ```dart
 final client = Client(
-  realm: "my.realm",new WebSocketTransport("wss://localhost:8443")
+  realm: "my.realm", WebSocketTransport("wss://localhost:8443")
 );
 final session = await client.connect();
 

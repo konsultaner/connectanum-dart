@@ -76,7 +76,7 @@ void main() {
           realm: "test.realm",
           transport: transport,
           authId: "11111111",
-          authenticationMethods: [new CraAuthentication("3614")]);
+          authenticationMethods: [CraAuthentication("3614")]);
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
           transport.receiveMessage(Challenge(
@@ -115,7 +115,7 @@ void main() {
           realm: "test.realm",
           transport: transport,
           authId: "11111111",
-          authenticationMethods: [new CraAuthentication("3614")]);
+          authenticationMethods: [CraAuthentication("3614")]);
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
           transport.receiveMessage(Challenge(
@@ -128,7 +128,7 @@ void main() {
                   salt: "gbnk5ji1b0dgoeavu31er567nb")));
         }
         if (message.id == MessageTypes.CODE_AUTHENTICATE) {
-          transport.receiveMessage(new Abort(Error.AUTHORIZATION_FAILED,
+          transport.receiveMessage(Abort(Error.AUTHORIZATION_FAILED,
               message: "Wrong user credentials"));
         }
       });
@@ -153,24 +153,24 @@ void main() {
       // ALL ROUTER MOCK RESULTS
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
-          transport.receiveMessage(new Welcome(42, Details.forWelcome()));
+          transport.receiveMessage(Welcome(42, Details.forWelcome()));
         }
         if (message.id == MessageTypes.CODE_REGISTER) {
           if ((message as Register).procedure == "my.procedure") {
             transport.receiveMessage(
-                new Registered((message as Register).requestId, 1010));
+                Registered((message as Register).requestId, 1010));
           }
           if ((message as Register).procedure == "my.error") {
-            transport.receiveMessage(new Error(MessageTypes.CODE_REGISTER,
+            transport.receiveMessage(Error(MessageTypes.CODE_REGISTER,
                 (message as Register).requestId, {}, Error.NOT_AUTHORIZED));
           }
         }
         if (message.id == MessageTypes.CODE_UNREGISTER) {
           if ((message as Unregister).registrationId > 0) {
             transport.receiveMessage(
-                new Unregistered((message as Unregister).requestId));
+                Unregistered((message as Unregister).requestId));
           } else {
-            transport.receiveMessage(new Error(
+            transport.receiveMessage(Error(
                 MessageTypes.CODE_UNREGISTER,
                 (message as Unregister).requestId,
                 {},
@@ -179,16 +179,16 @@ void main() {
         }
         if (message.id == MessageTypes.CODE_CALL &&
             (message as Call).argumentsKeywords["value"] != -3) {
-          transport.receiveMessage(new Result(
+          transport.receiveMessage(Result(
               (message as Call).requestId, ResultDetails(true),
               arguments: (message as Call).arguments));
-          transport.receiveMessage(new Result(
+          transport.receiveMessage(Result(
               (message as Call).requestId, ResultDetails(false),
               argumentsKeywords: (message as Call).argumentsKeywords));
         }
         if (message.id == MessageTypes.CODE_CALL &&
             (message as Call).argumentsKeywords["value"] == -3) {
-          transport.receiveMessage(new Error(
+          transport.receiveMessage(Error(
               MessageTypes.CODE_CALL,
               (message as Call).requestId,
               HashMap(),
@@ -201,7 +201,7 @@ void main() {
           // ignored because it will not complete before cancelation happens
         }
         if (message.id == MessageTypes.CODE_CANCEL) {
-          transport.receiveMessage(new Error(
+          transport.receiveMessage(Error(
               MessageTypes.CODE_CALL,
               (message as Cancel).requestId,
               HashMap(),
@@ -283,7 +283,7 @@ void main() {
 
       final argumentsKeywords = HashMap<String, Object>();
       argumentsKeywords["value"] = 0;
-      transport.receiveMessage(new Invocation(11001100,
+      transport.receiveMessage(Invocation(11001100,
           registered.registrationId, InvocationDetails(null, null, false),
           arguments: ["did work"], argumentsKeywords: argumentsKeywords));
       final yieldMessage = await yieldCompleter.future;
@@ -295,11 +295,11 @@ void main() {
 
       final progressiveArgumentsKeywords = HashMap<String, Object>();
       progressiveArgumentsKeywords["value"] = 1;
-      transport.receiveMessage(new Invocation(21001100,
+      transport.receiveMessage(Invocation(21001100,
           registered.registrationId, InvocationDetails(null, null, true),
           arguments: ["did work?"],
           argumentsKeywords: progressiveArgumentsKeywords));
-      transport.receiveMessage(new Invocation(21001101,
+      transport.receiveMessage(Invocation(21001101,
           registered.registrationId, InvocationDetails(null, null, false),
           arguments: ["did work again"],
           argumentsKeywords: progressiveArgumentsKeywords));
@@ -334,7 +334,7 @@ void main() {
 
       final argumentsKeywords2 = HashMap<String, Object>();
       argumentsKeywords2["value"] = -1;
-      transport.receiveMessage(new Invocation(11001101,
+      transport.receiveMessage(Invocation(11001101,
           registered.registrationId, InvocationDetails(null, null, false),
           arguments: ["did work"], argumentsKeywords: argumentsKeywords2));
       final error1 = await error1completer.future;
@@ -348,7 +348,7 @@ void main() {
 
       final argumentsKeywords3 = HashMap<String, Object>();
       argumentsKeywords3["value"] = -2;
-      transport.receiveMessage(new Invocation(11001102,
+      transport.receiveMessage(Invocation(11001102,
           registered.registrationId, InvocationDetails(null, null, false),
           arguments: ["did work"], argumentsKeywords: argumentsKeywords3));
       final error2 = await error2completer.future;
@@ -402,7 +402,7 @@ void main() {
 
       final argumentsKeywordsRegular = HashMap<String, Object>();
       argumentsKeywordsRegular["value"] = 0;
-      transport.receiveMessage(new Invocation(11001199,
+      transport.receiveMessage(Invocation(11001199,
           registered.registrationId, InvocationDetails(null, null, false),
           arguments: ["did not work"],
           argumentsKeywords: argumentsKeywordsRegular));
@@ -431,28 +431,28 @@ void main() {
       // ALL ROUTER MOCK RESULTS
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
-          transport.receiveMessage(new Welcome(42, Details.forWelcome()));
+          transport.receiveMessage(Welcome(42, Details.forWelcome()));
         }
         if (message.id == MessageTypes.CODE_SUBSCRIBE) {
           if ((message as Subscribe).topic == "topic.my.de") {
             transport.receiveMessage(
-                new Subscribed((message as Subscribe).requestId, 10));
+                Subscribed((message as Subscribe).requestId, 10));
           }
           if ((message as Subscribe).topic == "topic.my.error") {
-            transport.receiveMessage(new Error(MessageTypes.CODE_SUBSCRIBE,
+            transport.receiveMessage(Error(MessageTypes.CODE_SUBSCRIBE,
                 (message as Subscribe).requestId, {}, Error.NOT_AUTHORIZED));
           }
         }
         if (message.id == MessageTypes.CODE_UNSUBSCRIBE) {
           if ((message as Unsubscribe).subscriptionId == -1) {
-            transport.receiveMessage(new Error(
+            transport.receiveMessage(Error(
                 MessageTypes.CODE_UNSUBSCRIBE,
                 (message as Unsubscribe).requestId,
                 {},
                 Error.NO_SUCH_SUBSCRIPTION));
           } else {
             transport.receiveMessage(
-                new Unsubscribed((message as Unsubscribe).requestId));
+                Unsubscribed((message as Unsubscribe).requestId));
           }
         }
       });
@@ -493,13 +493,13 @@ void main() {
         }
       });
       transport.receiveMessage(
-          new Event(subscribed.subscriptionId, 1122, EventDetails()));
+          Event(subscribed.subscriptionId, 1122, EventDetails()));
       Event event = await eventCompleter.future;
       expect(event, isNotNull);
       expect(event.publicationId, equals(1122));
 
       transport.receiveMessage(
-          new Event(subscribed.subscriptionId, 1133, EventDetails()));
+          Event(subscribed.subscriptionId, 1133, EventDetails()));
       Event event2 = await eventCompleter2.future;
       expect(event2, isNotNull);
       expect(event2.publicationId, equals(1133));
@@ -526,10 +526,10 @@ void main() {
       // DO NOT RECEIVE EVENTS WHEN UNSUBSCRIBED
 
       transport.receiveMessage(
-          new Event(subscribed.subscriptionId, 1144, EventDetails()));
+          Event(subscribed.subscriptionId, 1144, EventDetails()));
       Event event3;
       eventCompleter3.future.then((event) => event3 = event);
-      await Future.delayed(new Duration(milliseconds: 3));
+      await Future.delayed(Duration(milliseconds: 3));
       expect(event3, isNull);
     });
   });
@@ -553,7 +553,7 @@ class _MockTransport extends AbstractTransport {
 
   void receiveMessage(AbstractMessage message) {
     Future.delayed(
-        new Duration(milliseconds: 1), () => this.inbound.add(message));
+        Duration(milliseconds: 1), () => this.inbound.add(message));
   }
 
   @override

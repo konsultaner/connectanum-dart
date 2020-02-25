@@ -155,7 +155,7 @@ class Serializer extends AbstractSerializer {
       }
       if (messageId == MessageTypes.CODE_INVOCATION) {
         return _addPayload(
-            new Invocation(
+            Invocation(
                 message[1],
                 message[2],
                 InvocationDetails(message[3]["caller"], message[3]["procedure"],
@@ -165,7 +165,7 @@ class Serializer extends AbstractSerializer {
       }
       if (messageId == MessageTypes.CODE_RESULT) {
         return _addPayload(
-            new Result(message[1], ResultDetails(message[2]["progress"])),
+            Result(message[1], ResultDetails(message[2]["progress"])),
             message,
             3);
       }
@@ -180,7 +180,7 @@ class Serializer extends AbstractSerializer {
       }
       if (messageId == MessageTypes.CODE_EVENT) {
         return _addPayload(
-            new Event(
+            Event(
                 message[1],
                 message[2],
                 EventDetails(

@@ -11,7 +11,7 @@ class TicketAuthentication extends AbstractAuthentication {
 
   @override
   Future<Authenticate> challenge(Extra extra) {
-    return Future.value(new Authenticate(signature: this.password));
+    return Future.value(Authenticate(signature: this.password));
   }
 
   @override

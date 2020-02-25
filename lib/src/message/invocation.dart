@@ -16,9 +16,9 @@ class Invocation extends AbstractMessageWithPayload {
   respondWith(
       {List<Object> arguments,
       Map<String, Object> argumentsKeywords,
-      bool isError: false,
+      bool isError = false,
       String errorUri,
-      bool progressive: false}) {
+      bool progressive = false}) {
     if (isError) {
       assert(progressive == false);
       assert(UriPattern.match(errorUri));

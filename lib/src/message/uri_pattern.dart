@@ -6,10 +6,10 @@ class UriPattern {
       RegExp(r"^(([^\s\.#]+\.)|\.)*([^\s\.#]+)?$");
 
   static match(String uri) {
-    return REGULAR_PATTERN.allMatches(uri).length > 0;
+    return REGULAR_PATTERN.allMatches(uri).isNotEmpty;
   }
 
   static matchWildcard(String uri) {
-    return WILDCARD_PATTERN.allMatches(uri).length > 0;
+    return WILDCARD_PATTERN.allMatches(uri).isNotEmpty;
   }
 }
