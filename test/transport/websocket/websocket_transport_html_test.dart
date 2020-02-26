@@ -1,7 +1,6 @@
 @TestOn('browser')
 
 import 'package:connectanum/src/message/details.dart';
-import 'dart:convert';
 import 'package:connectanum/src/message/abstract_message.dart';
 import 'package:connectanum/src/message/hello.dart';
 import 'package:connectanum/src/message/welcome.dart';
