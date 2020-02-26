@@ -16,10 +16,10 @@ void main() {
         'Opening a server connection and simple send receive scenario using a serializer',
         () async {
       var server = await HttpServer.bind('localhost', 9100);
-      var serializer = Serializer();
       server.listen((HttpRequest req) async {
         if (req.uri.path == '/wamp') {
           var socket = await WebSocketTransformer.upgrade(req);
+          print("Received protocol " + req.headers.value("sec-websocket-protocol"));
           socket.listen((message) {
             if (message is String &&
                 message.contains("[" + MessageTypes.CODE_HELLO.toString())) {
@@ -32,11 +32,11 @@ void main() {
 
       WebSocketTransport transport = WebSocketTransport(
           "ws://localhost:9100/wamp",
-          serializer,
+          Serializer(),
           WebSocketTransport.SERIALIZATION_JSON);
 
       await transport.open();
-      transport.send(Hello("my.realm", Details()));
+      transport.send(Hello("my.realm", Details.forHello()));
       Welcome welcome = await transport.receive().first;
       expect(welcome.sessionId, equals(1234));
     });

@@ -15,12 +15,12 @@ hybridMain(StreamChannel channel) async {
     print("receive open request");
     if (req.uri.path == '/wamp') {
       var socket = await WebSocketTransformer.upgrade(req);
-      print("Received protocol" + socket.protocol);
+      print("Received protocol " + req.headers.value("sec-websocket-protocol"));
       socket.listen((message) {
-        print("Received Message: " + message);
         if (message is String &&
             message.contains("[" + MessageTypes.CODE_HELLO.toString())) {
-          socket.add("[" + MessageTypes.CODE_WELCOME.toString() + ",1234,{}]");
+          socket.add(
+              "[" + MessageTypes.CODE_WELCOME.toString() + ",1234,{}]");
         }
       });
     }
