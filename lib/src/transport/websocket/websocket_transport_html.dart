@@ -19,7 +19,8 @@ class WebSocketTransport extends AbstractTransport {
     this._url,
     this._serializer,
     this._serializerType,
-  ) {}
+  ) : assert(_serializerType == SERIALIZATION_JSON ||
+            _serializerType == SERIALIZATION_MSGPACK) {}
 
   @override
   Future<void> close() {

@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:logging/logging.dart';
+
 import '../../../src/message/abstract_message.dart';
 import '../../../src/message/abstract_message_with_payload.dart';
 import '../../../src/message/authenticate.dart';
@@ -33,6 +35,8 @@ import '../abstract_serializer.dart';
 /// This is a seralizer for JSON messages. It is used to initialize an [AbstractTransport]
 /// object.
 class Serializer extends AbstractSerializer {
+  Logger _logger = Logger("Serializer");
+
   /// Converts a uint8 JSON message into a WAMP message object
   @override
   AbstractMessage deserialize(Uint8List jsonMessage) {
@@ -190,8 +194,13 @@ class Serializer extends AbstractSerializer {
             message,
             4);
       }
+      if (messageId == MessageTypes.CODE_ERROR) {
+        return _addPayload(
+            Error(message[1], message[2], message[3], message[4]), message, 5);
+      }
     }
-    throw Exception(""); // TODO think of something helpful here...
+    _logger.shout("Could not deserialize the message: " + jsonMessage);
+    // TODO respond with an error
   }
 
   AbstractMessageWithPayload _addPayload(AbstractMessageWithPayload message,
@@ -245,14 +254,16 @@ class Serializer extends AbstractSerializer {
       return '[${MessageTypes.CODE_SUBSCRIBE},${message.requestId},${_serializeSubscribeOptions(message.options)},"${message.topic}"]';
     }
     if (message is Unsubscribe) {
-      return "[${MessageTypes.CODE_UNSUBSCRIBE},${message.requestId},${message.subscriptionId}]";
+      return '[${MessageTypes.CODE_UNSUBSCRIBE},${message.requestId},${message.subscriptionId}]';
     }
     if (message is Error) {
-      return "[${MessageTypes.CODE_ERROR},${message.requestTypeId},${message.requestId},${json.encode(message.details)}${_serializePayload(message)}]";
+      return '[${MessageTypes.CODE_ERROR},${message.requestTypeId},${message.requestId},${json.encode(message.details)},"${message.error}"${_serializePayload(message)}]';
     }
     if (message is Goodbye) {
       return '[${MessageTypes.CODE_GOODBYE},${message.message != null ? '"{"message":"${message.message.message ?? ""}"' : "{}"},${message.reason}]';
     }
+
+    _logger.shout("Could not serialize the message of type: " + message.toString());
     throw Exception(""); // TODO think of something helpful here...
   }
 
@@ -323,7 +334,7 @@ class Serializer extends AbstractSerializer {
         rolesJson
             .add('"publisher":{"features":{${publisherFeatures.join(",")}}}');
       }
-      return "{${rolesJson.join(",")}}";
+      return '{"roles":{${rolesJson.join(",")}}}';
     } else {
       return "{}";
     }

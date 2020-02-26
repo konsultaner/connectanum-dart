@@ -20,6 +20,7 @@ class SocketTransport extends AbstractTransport {
   String _host;
   int _port;
   Socket _socket;
+
   /// This will be negotiated during the handshake process.
   int _messageLength;
   int _messageLengthExponent;

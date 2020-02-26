@@ -17,15 +17,14 @@ class SocketHelper {
   static const int ERROR_USE_OF_RESERVED_BITS = 3;
   static const int ERROR_MAX_CONNECTION_COUNT_EXCEEDED = 4;
 
-
   /// Default wamp clients can only receive up to 16M of message length (2^24 octets)
   static const int MAX_MESSAGE_LENGTH_EXPONENT = 24;
   static const int MAX_MESSAGE_LENGTH = 2 ^ MAX_MESSAGE_LENGTH_EXPONENT;
+
   /// Compare to the regular wamp definition, connectanum is able to send and receive up to 2^30 octets per message
   static const int MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT = 30;
   static const int _MAX_MESSAGE_LENGTH_CONNECTANUM =
       2 ^ MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT;
-
 
   /// Sends a handshake of the morphology
   /// 0111 1111 LLLL SSSS RRRR RRRR RRRR RRRR
@@ -42,7 +41,6 @@ class SocketHelper {
     initialHandShake[3] = 0;
     return initialHandShake.toList(growable: false);
   }
-
 
   /// Sends an upgrade handshake of the morphology
   /// 0011 1111 0000 LLLL

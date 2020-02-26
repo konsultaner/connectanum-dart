@@ -15,7 +15,8 @@ WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
 - better docs
 - msgpack serializer
 - unit test websocket transport
-    - currently fails in browser, works in VM
+    - currently fails in browser test, but works in reality, issue in WebSocket Server that does not accept protocols?
+    - works in VM
 - get the auth id that called a method
 - handle ping pong times
 - auto reconnect handling, but keep abstract socket interface

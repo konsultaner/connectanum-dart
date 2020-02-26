@@ -60,6 +60,7 @@ class Session {
       Duration reconnect}) async {
     /// The realm object is mandatory and must mach the uri pattern
     assert(realm != null && UriPattern.match(realm));
+
     /// The connection should have been established before initializing the
     /// session.
     assert(transport != null && transport.isOpen);
