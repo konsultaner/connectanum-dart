@@ -93,8 +93,16 @@ class Session {
             .first;
         if (foundAuthMethod != null) {
           foundAuthMethod
-              .challenge(message.extra)
-              .then((authenticate) => session.authenticate(authenticate));
+            .challenge(message.extra)
+            .then(
+              (authenticate) => session.authenticate(authenticate),
+              onError: (error) {
+                session._transport.send(
+                    Abort(Error.AUTHORIZATION_FAILED,message: error.toString())
+                );
+                session._transport.close();
+              }
+            );
         } else {
           final goodbye = Goodbye(
               GoodbyeMessage("Authmethod ${foundAuthMethod} not supported"),

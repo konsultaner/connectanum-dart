@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:connectanum/src/authentication/abstract_authentication.dart';
 import 'package:connectanum/src/authentication/cra_authentication.dart';
 import 'package:connectanum/src/client.dart';
 import 'package:connectanum/src/message/abort.dart';
@@ -138,6 +139,30 @@ void main() {
       expect(abort, isNotNull);
       expect(abort.reason, equals(Error.AUTHORIZATION_FAILED));
       expect(abort.message.message, equals("Wrong user credentials"));
+      expect(transport.isOpen, isFalse);
+    });
+    test("session creation with failing authentication challenge",
+        () async {
+      final transport = _MockTransport();
+      final client = Client(
+          realm: "test.realm",
+          transport: transport,
+          authId: "11111111",
+          authenticationMethods: [_MockChallengeFailAuthenticator()]);
+      Completer<Abort> receivedAbortCompleter = new Completer();
+      transport.outbound.stream.listen((message) {
+        if (message.id == MessageTypes.CODE_HELLO) {
+          transport.receiveMessage(Challenge((message as Hello).details.authmethods[0], Extra(challenge: "nothing")));
+        }
+        if (message.id == MessageTypes.CODE_ABORT) {
+          receivedAbortCompleter.complete(message as Abort);
+        }
+      });
+      client.connect();
+      Abort abort = await receivedAbortCompleter.future;
+      expect(abort, isNotNull);
+      expect(abort.reason, equals(Error.AUTHORIZATION_FAILED));
+      expect(abort.message.message, equals("Exception: Did not work"));
       expect(transport.isOpen, isFalse);
     });
     test("procedure registration and invocation", () async {
@@ -533,6 +558,23 @@ void main() {
       expect(event3, isNull);
     });
   });
+}
+
+class _MockChallengeFailAuthenticator extends AbstractAuthentication {
+  @override
+  Future<Authenticate> challenge(Extra extra) {
+    return Future.error(Exception('Did not work'));
+  }
+
+  @override
+  getName() {
+    return 'mock';
+  }
+
+  @override
+  Future<void> hello(String realm,Details details) {
+    return Future.value();
+  }
 }
 
 class _MockTransport extends AbstractTransport {

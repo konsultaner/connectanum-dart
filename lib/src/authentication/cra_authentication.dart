@@ -7,6 +7,7 @@ import 'package:pointycastle/key_derivators/pbkdf2.dart';
 import 'package:pointycastle/macs/hmac.dart';
 import 'package:pointycastle/pointycastle.dart';
 
+import '../message/details.dart';
 import '../message/challenge.dart';
 import '../authentication/abstract_authentication.dart';
 import '../message/authenticate.dart';
@@ -20,6 +21,11 @@ class CraAuthentication extends AbstractAuthentication {
   final String secret;
 
   CraAuthentication(this.secret);
+
+  @override
+  Future<void> hello(String realm,Details details) {
+    return Future.value();
+  }
 
   @override
   Future<Authenticate> challenge(Extra extra) {

@@ -5,6 +5,7 @@ class Details {
   String authrole;
   String authmethod;
   String authprovider;
+  Map<String, String> authextra;
   String nonce;
   String challenge;
   int iterations;

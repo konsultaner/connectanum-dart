@@ -57,9 +57,7 @@ class Serializer extends AbstractSerializer {
                 keylen: message[2]["keylen"],
                 iterations: message[2]["iterations"],
                 memory: message[2]["memory"],
-                parallel: message[2]["parallel"],
-                version_num: message[2]["version_num"],
-                version_str: message[2]["version_str"],
+                kdf: message[2]["kdf"],
                 nonce: message[2]["nonce"]));
       }
       if (messageId == MessageTypes.CODE_WELCOME) {

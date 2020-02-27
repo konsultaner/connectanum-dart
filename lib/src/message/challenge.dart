@@ -17,9 +17,7 @@ class Extra {
   int keylen;
   int iterations;
   int memory;
-  int parallel;
-  int version_num;
-  String version_str;
+  String kdf;
   String nonce;
 
   Extra(
@@ -28,8 +26,6 @@ class Extra {
       this.keylen,
       this.iterations,
       this.memory,
-      this.parallel,
-      this.version_num,
-      this.version_str,
+      this.kdf,
       this.nonce});
 }
