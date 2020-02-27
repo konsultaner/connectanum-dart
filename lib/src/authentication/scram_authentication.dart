@@ -13,7 +13,6 @@ import 'abstract_authentication.dart';
 import 'cra_authentication.dart';
 
 class ScramAuthentication extends AbstractAuthentication {
-
   static final String KDF_PBKDF2 = 'pbkdf2';
 
   String _secret;
@@ -50,7 +49,8 @@ class ScramAuthentication extends AbstractAuthentication {
 
   @override
   Future<Authenticate> challenge(Extra extra) {
-    if (extra.nonce == null || !_helloNonce.contains(extra.nonce.substring(0,12))){
+    if (extra.nonce == null ||
+        !_helloNonce.contains(extra.nonce.substring(0, 12))) {
       return Future.error(Exception("Wrong nonce"));
     }
     Authenticate authenticate = Authenticate();
@@ -60,34 +60,64 @@ class ScramAuthentication extends AbstractAuthentication {
     authenticate.extra["channel_binding"] = null;
     authenticate.extra["cbind_data"] = null;
     if (extra.kdf == KDF_PBKDF2) {
-      authenticate.signature = challengePBKDF2(_authid, _helloNonce, extra, authenticate.extra);
+      authenticate.signature =
+          challengePBKDF2(_authid, _helloNonce, extra, authenticate.extra);
     }
     if (authenticate.signature == null) {
-      throw Exception("not supported key derivation function used " + extra.kdf);
+      throw Exception(
+          "not supported key derivation function used " + extra.kdf);
     }
     return Future.value(authenticate);
   }
 
   /// Calculates the client proof according to the [WAMP-SCRAM specs](https://wamp-proto.org/_static/gen/wamp_latest.html#authmessage) where
   /// [authId] is the username that has already been saslpreped with [Saslprep.saslprep(input)] and [helloNonce] is a randomly generated nonce according
-  /// to the WAMP-SCRAM specs.
-  String challengePBKDF2(String authId, String helloNonce, Extra challengeExtra, HashMap<String, Object> authExtra) {
-    Uint8List saltedPassword = CraAuthentication.deriveKey(_secret, challengeExtra.salt == null ? CraAuthentication.DEFAULT_KEY_SALT : challengeExtra.salt, iterations: challengeExtra.iterations, keylen: challengeExtra.keylen);
-    Uint8List clientKey = CraAuthentication.encodeHmac(saltedPassword, challengeExtra.keylen, "Client Key".codeUnits).codeUnits;
-    Uint8List StoredKey = SHA256Digest().process(clientKey);
-    Uint8List clientSignature = CraAuthentication.encodeHmac(StoredKey, challengeExtra.keylen, _createAuthMessage(authId, helloNonce, authExtra, challengeExtra).codeUnits).codeUnits;
-    return base64.encode([for (int i = 0; i < clientKey.length; i++) clientKey[i]^clientSignature[i]]);
+  /// to the WAMP-SCRAM specs. The keylength is 32 according to the WAMP-SCRAM specs
+  String challengePBKDF2(String authId, String helloNonce, Extra challengeExtra,
+      HashMap<String, Object> authExtra) {
+    int keyLength = 32;
+    Uint8List saltedPassword = CraAuthentication.deriveKey(
+        _secret,
+        challengeExtra.salt == null
+            ? CraAuthentication.DEFAULT_KEY_SALT
+            : challengeExtra.salt,
+        iterations: challengeExtra.iterations,
+        keylen: keyLength);
+    Uint8List clientKey = CraAuthentication.encodeByteHmac(
+        saltedPassword, keyLength, "Client Key".codeUnits);
+    Uint8List StoredKey = SHA256Digest().process(Uint8List.fromList(clientKey));
+    Uint8List clientSignature = CraAuthentication.encodeByteHmac(
+        StoredKey,
+        keyLength,
+        _createAuthMessage(authId, helloNonce, authExtra, challengeExtra)
+            .codeUnits);
+    List<int> signature = [
+      for (int i = 0; i < clientKey.length; i++)
+        clientKey[i] ^ clientSignature[i]
+    ];
+    return base64.encode(signature);
   }
 
   /// This creates the SCRAM authmessage according to the [WAMP-SCRAM specs](https://wamp-proto.org/_static/gen/wamp_latest.html#authmessage)
-  String _createAuthMessage(String authId, String helloNonce, HashMap authExtra, Extra challengeExtra) {
-    String ClientFirstBare = "n=" + Saslprep.saslprep(authId) + "," + "r=" + helloNonce;
-    String ServerFirst = "r=" + challengeExtra.nonce + "," + "s=" + challengeExtra.salt + "," + "i=" + challengeExtra.iterations.toString();
+  String _createAuthMessage(String authId, String helloNonce, HashMap authExtra,
+      Extra challengeExtra) {
+    String ClientFirstBare =
+        "n=" + Saslprep.saslprep(authId) + "," + "r=" + helloNonce;
+    String ServerFirst = "r=" +
+        challengeExtra.nonce +
+        ",s=" +
+        challengeExtra.salt +
+        ",i=" +
+        challengeExtra.iterations.toString();
     String CBindName = authExtra['channel_binding'];
     String CBindData = authExtra['cbind_data'];
-    String CBindFlag = CBindName == null ?"n":"p=" + CBindName;
-    String CBindInput = CBindFlag + ",," + (CBindData == null ?"":base64.decode(CBindData));
-    String ClientFinalNoProof = "c=" + base64.encode(CBindInput.codeUnits) + "," + "r=" + authExtra['nonce'];
+    String CBindFlag = CBindName == null ? "n" : "p=" + CBindName;
+    String CBindInput =
+        CBindFlag + ",," + (CBindData == null ? "" : base64.decode(CBindData));
+    String ClientFinalNoProof = "c=" +
+        base64.encode(CBindInput.codeUnits) +
+        ",r=" +
+        authExtra['nonce'];
     return ClientFirstBare + "," + ServerFirst + "," + ClientFinalNoProof;
   }
 

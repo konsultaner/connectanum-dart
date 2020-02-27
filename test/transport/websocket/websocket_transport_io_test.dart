@@ -19,7 +19,8 @@ void main() {
       server.listen((HttpRequest req) async {
         if (req.uri.path == '/wamp') {
           var socket = await WebSocketTransformer.upgrade(req);
-          print("Received protocol " + req.headers.value("sec-websocket-protocol"));
+          print("Received protocol " +
+              req.headers.value("sec-websocket-protocol"));
           socket.listen((message) {
             if (message is String &&
                 message.contains("[" + MessageTypes.CODE_HELLO.toString())) {

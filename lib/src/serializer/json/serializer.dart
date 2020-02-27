@@ -261,7 +261,8 @@ class Serializer extends AbstractSerializer {
       return '[${MessageTypes.CODE_GOODBYE},${message.message != null ? '"{"message":"${message.message.message ?? ""}"' : "{}"},${message.reason}]';
     }
 
-    _logger.shout("Could not serialize the message of type: " + message.toString());
+    _logger.shout(
+        "Could not serialize the message of type: " + message.toString());
     throw Exception(""); // TODO think of something helpful here...
   }
 

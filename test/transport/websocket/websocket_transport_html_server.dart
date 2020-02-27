@@ -19,8 +19,7 @@ hybridMain(StreamChannel channel) async {
       socket.listen((message) {
         if (message is String &&
             message.contains("[" + MessageTypes.CODE_HELLO.toString())) {
-          socket.add(
-              "[" + MessageTypes.CODE_WELCOME.toString() + ",1234,{}]");
+          socket.add("[" + MessageTypes.CODE_WELCOME.toString() + ",1234,{}]");
         }
       });
     }

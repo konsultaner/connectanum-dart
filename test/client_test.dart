@@ -141,8 +141,7 @@ void main() {
       expect(abort.message.message, equals("Wrong user credentials"));
       expect(transport.isOpen, isFalse);
     });
-    test("session creation with failing authentication challenge",
-        () async {
+    test("session creation with failing authentication challenge", () async {
       final transport = _MockTransport();
       final client = Client(
           realm: "test.realm",
@@ -152,7 +151,9 @@ void main() {
       Completer<Abort> receivedAbortCompleter = new Completer();
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
-          transport.receiveMessage(Challenge((message as Hello).details.authmethods[0], Extra(challenge: "nothing")));
+          transport.receiveMessage(Challenge(
+              (message as Hello).details.authmethods[0],
+              Extra(challenge: "nothing")));
         }
         if (message.id == MessageTypes.CODE_ABORT) {
           receivedAbortCompleter.complete(message as Abort);
@@ -572,7 +573,7 @@ class _MockChallengeFailAuthenticator extends AbstractAuthentication {
   }
 
   @override
-  Future<void> hello(String realm,Details details) {
+  Future<void> hello(String realm, Details details) {
     return Future.value();
   }
 }

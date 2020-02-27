@@ -23,7 +23,7 @@ class CraAuthentication extends AbstractAuthentication {
   CraAuthentication(this.secret);
 
   @override
-  Future<void> hello(String realm,Details details) {
+  Future<void> hello(String realm, Details details) {
     return Future.value();
   }
 
@@ -56,20 +56,28 @@ class CraAuthentication extends AbstractAuthentication {
   }
 
   static Uint8List deriveKey(String secret, String salt,
-      {int iterations = 1000, int keylen = 32}) {
-    var derivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64))
+      {int iterations = 1000, int keylen = 32, hmacLength = 64}) {
+    var derivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), hmacLength))
       ..init(Pbkdf2Parameters(
           Uint8List.fromList(salt.codeUnits), iterations, keylen));
     return derivator.process(Uint8List.fromList(secret.codeUnits));
   }
 
-  static String encodeHmac(Uint8List key, int keylen, Uint8List challenge) {
-    HMac mac = HMac(SHA256Digest(), 64);
+  static String encodeHmac(Uint8List key, int keylen, List<int> challenge,
+      {hmacLength = 64}) {
+    return base64
+        .encode(encodeByteHmac(key, keylen, challenge, hmacLength: hmacLength));
+  }
+
+  static Uint8List encodeByteHmac(
+      Uint8List key, int keylen, List<int> challenge,
+      {hmacLength = 64}) {
+    HMac mac = HMac(SHA256Digest(), hmacLength);
     mac.init(KeyParameter(key));
-    mac.update(challenge, 0, challenge.length);
+    mac.update(Uint8List.fromList(challenge), 0, challenge.length);
     Uint8List out = Uint8List(keylen);
     mac.doFinal(out, 0);
-    return base64.encode(out);
+    return out;
   }
 
   @override

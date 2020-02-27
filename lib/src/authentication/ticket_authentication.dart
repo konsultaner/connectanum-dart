@@ -11,7 +11,7 @@ class TicketAuthentication extends AbstractAuthentication {
   TicketAuthentication(this.password);
 
   @override
-  Future<void> hello(String realm,Details details) {
+  Future<void> hello(String realm, Details details) {
     return Future.value();
   }
 
