@@ -30,9 +30,9 @@ WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
 
 - ☑ [WAMP-CRA](https://wamp-proto.org/_static/gen/wamp_latest.html#wampcra)
 - ☑ [TICKET](https://wamp-proto.org/_static/gen/wamp_latest.html#ticketauth)
-- ⬜ [WAMP-SCRAM](https://wamp-proto.org/_static/gen/wamp_latest.html#wamp-scram)
+- ☑ [WAMP-SCRAM](https://wamp-proto.org/_static/gen/wamp_latest.html#wamp-scram)
     - ⬜ Argon2
-    - ⬜ PBKDF2
+    - ☑ PBKDF2, not tested yet
 
 ### Advanced RPC features
 
