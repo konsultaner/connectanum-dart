@@ -1,10 +1,6 @@
 import 'dart:collection';
-import 'dart:convert';
-import 'dart:typed_data';
 
-import 'package:connectanum/src/authentication/cra_authentication.dart';
 import 'package:connectanum/src/authentication/scram_authentication.dart';
-import 'package:connectanum/src/message/authenticate.dart';
 import 'package:connectanum/src/message/challenge.dart';
 import 'package:test/test.dart';
 
