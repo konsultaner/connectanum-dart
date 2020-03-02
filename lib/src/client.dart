@@ -41,7 +41,7 @@ class Client {
       this.authenticationMethods,
       this.isolateCount = 1})
       : assert(transport != null),
-        assert(realm != null && UriPattern.match(realm)) {}
+        assert(realm != null && UriPattern.match(realm));
 
   /// Calling this method will start the authentication process and result into
   /// a [Session] object on success.

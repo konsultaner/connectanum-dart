@@ -32,7 +32,7 @@ class ScramAuthentication extends AbstractAuthentication {
   @override
   Future<void> hello(String realm, Details details) {
     var random = Random.secure();
-    List<int> noneBytes = [for (int i = 0; i < 16; i++) random.nextInt(256)];
+    List<int> nonceBytes = [for (int i = 0; i < 16; i++) random.nextInt(256)];
     if (details.authid != null) {
       details.authid = Saslprep.saslprep(details.authid);
       this._authid = details.authid;
@@ -40,7 +40,7 @@ class ScramAuthentication extends AbstractAuthentication {
     if (details.authextra == null) {
       details.authextra = HashMap();
     }
-    details.authextra['nonce'] = base64.encode(noneBytes);
+    details.authextra['nonce'] = base64.encode(nonceBytes);
     details.authextra['channel_binding'] = null;
     _helloNonce = details.authextra['nonce'];
     Future.delayed(_challengeTimeout, () => _helloNonce = null);
@@ -85,9 +85,9 @@ class ScramAuthentication extends AbstractAuthentication {
         keylen: keyLength);
     Uint8List clientKey = CraAuthentication.encodeByteHmac(
         saltedPassword, keyLength, "Client Key".codeUnits);
-    Uint8List StoredKey = SHA256Digest().process(Uint8List.fromList(clientKey));
+    Uint8List storedKey = SHA256Digest().process(Uint8List.fromList(clientKey));
     Uint8List clientSignature = CraAuthentication.encodeByteHmac(
-        StoredKey,
+        storedKey,
         keyLength,
         _createAuthMessage(authId, helloNonce, authExtra, challengeExtra)
             .codeUnits);
@@ -101,24 +101,24 @@ class ScramAuthentication extends AbstractAuthentication {
   /// This creates the SCRAM authmessage according to the [WAMP-SCRAM specs](https://wamp-proto.org/_static/gen/wamp_latest.html#authmessage)
   String _createAuthMessage(String authId, String helloNonce, HashMap authExtra,
       Extra challengeExtra) {
-    String ClientFirstBare =
+    String clientFirstBare =
         "n=" + Saslprep.saslprep(authId) + "," + "r=" + helloNonce;
-    String ServerFirst = "r=" +
+    String serverFirst = "r=" +
         challengeExtra.nonce +
         ",s=" +
         challengeExtra.salt +
         ",i=" +
         challengeExtra.iterations.toString();
-    String CBindName = authExtra['channel_binding'];
-    String CBindData = authExtra['cbind_data'];
-    String CBindFlag = CBindName == null ? "n" : "p=" + CBindName;
-    String CBindInput =
-        CBindFlag + ",," + (CBindData == null ? "" : base64.decode(CBindData));
-    String ClientFinalNoProof = "c=" +
-        base64.encode(CBindInput.codeUnits) +
+    String cBindName = authExtra['channel_binding'];
+    String cBindData = authExtra['cbind_data'];
+    String cBindFlag = cBindName == null ? "n" : "p=" + cBindName;
+    String cBindInput =
+        cBindFlag + ",," + (cBindData == null ? "" : base64.decode(cBindData));
+    String clientFinalNoProof = "c=" +
+        base64.encode(cBindInput.codeUnits) +
         ",r=" +
         authExtra['nonce'];
-    return ClientFirstBare + "," + ServerFirst + "," + ClientFinalNoProof;
+    return clientFirstBare + "," + serverFirst + "," + clientFinalNoProof;
   }
 
   @override
