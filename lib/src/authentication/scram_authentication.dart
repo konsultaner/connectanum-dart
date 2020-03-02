@@ -114,10 +114,8 @@ class ScramAuthentication extends AbstractAuthentication {
     String cBindFlag = cBindName == null ? "n" : "p=" + cBindName;
     String cBindInput =
         cBindFlag + ",," + (cBindData == null ? "" : base64.decode(cBindData));
-    String clientFinalNoProof = "c=" +
-        base64.encode(cBindInput.codeUnits) +
-        ",r=" +
-        authExtra['nonce'];
+    String clientFinalNoProof =
+        "c=" + base64.encode(cBindInput.codeUnits) + ",r=" + authExtra['nonce'];
     return clientFirstBare + "," + serverFirst + "," + clientFinalNoProof;
   }
 
