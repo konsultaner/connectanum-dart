@@ -18,7 +18,7 @@ void main() {
       var serializer = Serializer();
       var port = await server.stream.first;
       WebSocketTransport transport = WebSocketTransport(
-          "ws://localhost:$port/wamp",
+          "wss://www.connectanum.com/wamp",// TODO as soon as https://github.com/dart-lang/sdk/issues/40786 is fixed "ws://localhost:$port/wamp",
           serializer,
           WebSocketSerialization.SERIALIZATION_JSON);
 
