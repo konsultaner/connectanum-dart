@@ -76,7 +76,12 @@ be recovered if possible.
 
 ```dart
 final client = Client(
-  realm: "my.realm",transport: WebSocketTransport("wss://localhost:8443")
+  realm: "my.realm",
+  transport: WebSocketTransport(
+    "ws://localhost:8080/wamp",
+    new Serializer(),
+    WebSocketTransport.SERIALIZATION_JSON
+  )
 );
 final session = await client.connect();
 ```
@@ -87,7 +92,12 @@ to work with RPCs you need to have an established session.
 
 ```dart
 final client = Client(
-  realm: "my.realm", WebSocketTransport("wss://localhost:8443")
+  realm: "my.realm",
+  transport: WebSocketTransport(
+    "ws://localhost:8080/wamp",
+    new Serializer(),
+    WebSocketTransport.SERIALIZATION_JSON
+  )
 );
 final session = await client.connect();
 
