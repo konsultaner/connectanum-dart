@@ -2,7 +2,7 @@ import '../abstract_transport.dart';
 import '../../message/abstract_message.dart';
 
 class WebSocketTransport extends AbstractTransport {
-  WebSocketTransport() {}
+  WebSocketTransport(url, serializer, serializerType);
 
   @override
   Future<void> close() {

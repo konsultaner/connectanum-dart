@@ -2,14 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'websocket_transport_serialization.dart';
 import '../../message/abstract_message.dart';
 import '../../serializer/abstract_serializer.dart';
 import '../../transport/abstract_transport.dart';
 
 class WebSocketTransport extends AbstractTransport {
-  static const String SERIALIZATION_JSON = "wamp.2.json";
-  static const String SERIALIZATION_MSGPACK = "wamp.2.msgpack";
-
   String _url;
   AbstractSerializer _serializer;
   String _serializerType;
@@ -19,7 +17,8 @@ class WebSocketTransport extends AbstractTransport {
     this._url,
     this._serializer,
     this._serializerType,
-  ) {}
+  ) : assert(_serializerType == WebSocketSerialization.SERIALIZATION_JSON ||
+      _serializerType == WebSocketSerialization.SERIALIZATION_MSGPACK);
 
   @override
   Future<void> close() {
@@ -40,7 +39,7 @@ class WebSocketTransport extends AbstractTransport {
 
   @override
   void send(AbstractMessage message) {
-    if (_serializerType == SERIALIZATION_JSON) {
+    if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
       _socket.addUtf8Text(_serializer.serialize(message).cast());
     } else {
       _socket.add(_serializer.serialize(message).cast());
@@ -50,7 +49,7 @@ class WebSocketTransport extends AbstractTransport {
   @override
   Stream<AbstractMessage> receive() {
     return _socket.map((messageEvent) {
-      if (_serializerType == SERIALIZATION_JSON) {
+      if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
         return _serializer.deserialize(utf8.encode(messageEvent));
       } else {
         return _serializer.deserialize(messageEvent);

@@ -1,3 +1,7 @@
+### 1.0.0-dev.7
+
+- better stub import for WebSocket transport
+
 ### 1.0.0-dev.6
 
 - fixed hello.details serialization code

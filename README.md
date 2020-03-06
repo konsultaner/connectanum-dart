@@ -75,12 +75,15 @@ will try to authenticate an revalidate the session again. All subscriptions and 
 be recovered if possible.
 
 ```dart
+import 'package:connectanum/connectanum.dart';
+import 'package:connectanum/json.dart';
+
 final client = Client(
   realm: "my.realm",
   transport: WebSocketTransport(
     "ws://localhost:8080/wamp",
     new Serializer(),
-    WebSocketTransport.SERIALIZATION_JSON
+    WebSocketSerialization.SERIALIZATION_JSON
   )
 );
 final session = await client.connect();
@@ -91,12 +94,15 @@ final session = await client.connect();
 to work with RPCs you need to have an established session. 
 
 ```dart
+import 'package:connectanum/connectanum.dart';
+import 'package:connectanum/json.dart';
+
 final client = Client(
   realm: "my.realm",
   transport: WebSocketTransport(
     "ws://localhost:8080/wamp",
     new Serializer(),
-    WebSocketTransport.SERIALIZATION_JSON
+    WebSocketSerialization.SERIALIZATION_JSON
   )
 );
 final session = await client.connect();

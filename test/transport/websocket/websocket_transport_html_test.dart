@@ -6,6 +6,7 @@ import 'package:connectanum/src/message/hello.dart';
 import 'package:connectanum/src/message/welcome.dart';
 import 'package:connectanum/src/serializer/json/serializer.dart';
 import 'package:connectanum/src/transport/websocket/websocket_transport_html.dart';
+import 'package:connectanum/src/transport/websocket/websocket_transport_serialization.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -19,7 +20,7 @@ void main() {
       WebSocketTransport transport = WebSocketTransport(
           "ws://localhost:$port/wamp",
           serializer,
-          WebSocketTransport.SERIALIZATION_JSON);
+          WebSocketSerialization.SERIALIZATION_JSON);
 
       await transport.open();
       transport.send(Hello("my.realm", Details.forHello()));
