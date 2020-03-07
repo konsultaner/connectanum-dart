@@ -80,7 +80,7 @@ class ScramAuthentication extends AbstractAuthentication {
         _secret,
         challengeExtra.salt == null
             ? CraAuthentication.DEFAULT_KEY_SALT
-            : challengeExtra.salt,
+            : base64.decode(challengeExtra.salt),
         iterations: challengeExtra.iterations,
         keylen: keyLength);
     Uint8List clientKey = CraAuthentication.encodeByteHmac(

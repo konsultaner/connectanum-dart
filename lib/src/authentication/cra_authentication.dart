@@ -17,7 +17,7 @@ import '../message/error.dart';
 /// This is the WAMPCRA authentication implementation for this package.
 /// Use it with the [Client].
 class CraAuthentication extends AbstractAuthentication {
-  static final Uint8List DEFAULT_KEY_SALT = Uint8List(0);
+  static final List<int> DEFAULT_KEY_SALT = [];
   final String secret;
 
   CraAuthentication(this.secret);
@@ -41,11 +41,11 @@ class CraAuthentication extends AbstractAuthentication {
     Uint8List key;
     if (extra.iterations != null && extra.iterations > 0) {
       key = deriveKey(
-          secret, extra.salt == null ? DEFAULT_KEY_SALT : extra.salt,
+          secret, extra.salt == null ? DEFAULT_KEY_SALT : extra.salt.codeUnits,
           iterations: extra.iterations, keylen: extra.keylen);
     } else {
-      key =
-          deriveKey(secret, extra.salt == null ? DEFAULT_KEY_SALT : extra.salt);
+      key = deriveKey(
+          secret, extra.salt == null ? DEFAULT_KEY_SALT : extra.salt.codeUnits);
     }
 
     authenticate.signature = encodeHmac(
@@ -55,11 +55,10 @@ class CraAuthentication extends AbstractAuthentication {
     return Future.value(authenticate);
   }
 
-  static Uint8List deriveKey(String secret, String salt,
+  static Uint8List deriveKey(String secret, List<int> salt,
       {int iterations = 1000, int keylen = 32, hmacLength = 64}) {
     var derivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), hmacLength))
-      ..init(Pbkdf2Parameters(
-          Uint8List.fromList(salt.codeUnits), iterations, keylen));
+      ..init(Pbkdf2Parameters(Uint8List.fromList(salt), iterations, keylen));
     return derivator.process(Uint8List.fromList(secret.codeUnits));
   }
 

@@ -16,17 +16,143 @@ void main() {
     String hmac = "APO4Z6Z0sfpJ8DStwj+XgwJkHkeSw+eD9URKSHf+FKQ=";
 
     List PBKDF2_HMAC_SHA256_testVectors = [
-      ["3614","gbnk5ji1b0dgoeavu31er567nb",1000,32,base64.decode(keyValue)],
-      ["password","salt",1,20,[for (String i in ['12','0f','b6','cf','fc','f8','b3','2c','43','e7','22','52','56','c4','f8','37','a8','65','48','c9']) int.parse(i, radix: 16)]],
-      ["password","salt",2,20,[for (String i in ['ae','4d','0c','95','af','6b','46','d3','2d','0a','df','f9','28','f0','6d','d0','2a','30','3f','8e']) int.parse(i, radix: 16)]],
-      ["password","salt",4096,20,[for (String i in ['c5','e4','78','d5','92','88','c8','41','aa','53','0d','b6','84','5c','4c','8d','96','28','93','a0']) int.parse(i, radix: 16)]],
-      ["passwordPASSWORDpassword","saltSALTsaltSALTsaltSALTsaltSALTsalt",4096,25,[for (String i in ['34','8c','89','db','cb','d3','2b','2f','32','d8','14','b8','11','6e','84','cf','2b','17','34','7e','bc','18','00','18','1c']) int.parse(i, radix: 16)]],
+      ["3614", "gbnk5ji1b0dgoeavu31er567nb", 1000, 32, base64.decode(keyValue)],
+      [
+        "password",
+        "salt",
+        1,
+        20,
+        [
+          for (String i in [
+            '12',
+            '0f',
+            'b6',
+            'cf',
+            'fc',
+            'f8',
+            'b3',
+            '2c',
+            '43',
+            'e7',
+            '22',
+            '52',
+            '56',
+            'c4',
+            'f8',
+            '37',
+            'a8',
+            '65',
+            '48',
+            'c9'
+          ])
+            int.parse(i, radix: 16)
+        ]
+      ],
+      [
+        "password",
+        "salt",
+        2,
+        20,
+        [
+          for (String i in [
+            'ae',
+            '4d',
+            '0c',
+            '95',
+            'af',
+            '6b',
+            '46',
+            'd3',
+            '2d',
+            '0a',
+            'df',
+            'f9',
+            '28',
+            'f0',
+            '6d',
+            'd0',
+            '2a',
+            '30',
+            '3f',
+            '8e'
+          ])
+            int.parse(i, radix: 16)
+        ]
+      ],
+      [
+        "password",
+        "salt",
+        4096,
+        20,
+        [
+          for (String i in [
+            'c5',
+            'e4',
+            '78',
+            'd5',
+            '92',
+            '88',
+            'c8',
+            '41',
+            'aa',
+            '53',
+            '0d',
+            'b6',
+            '84',
+            '5c',
+            '4c',
+            '8d',
+            '96',
+            '28',
+            '93',
+            'a0'
+          ])
+            int.parse(i, radix: 16)
+        ]
+      ],
+      [
+        "passwordPASSWORDpassword",
+        "saltSALTsaltSALTsaltSALTsaltSALTsalt",
+        4096,
+        25,
+        [
+          for (String i in [
+            '34',
+            '8c',
+            '89',
+            'db',
+            'cb',
+            'd3',
+            '2b',
+            '2f',
+            '32',
+            'd8',
+            '14',
+            'b8',
+            '11',
+            '6e',
+            '84',
+            'cf',
+            '2b',
+            '17',
+            '34',
+            '7e',
+            'bc',
+            '18',
+            '00',
+            '18',
+            '1c'
+          ])
+            int.parse(i, radix: 16)
+        ]
+      ],
       // ["pass\0word","sa\0lt",4096,16,[for (String i in ['89','b6','9d','05','16','f8','29','89','3c','69','62','26','65','0a','86','87']) int.parse(i, radix: 16)]]
     ];
 
     test("derive key", () {
-      for(var vector in PBKDF2_HMAC_SHA256_testVectors) {
-        final key = CraAuthentication.deriveKey(vector[0], vector[1],
+      for (var vector in PBKDF2_HMAC_SHA256_testVectors) {
+        final key = CraAuthentication.deriveKey(
+            vector[0], (vector[1] as String).codeUnits,
             iterations: vector[2], keylen: vector[3]);
         expect(key, equals(vector[4]));
       }

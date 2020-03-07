@@ -14,9 +14,6 @@ WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
     - callee interrupt thread on incoming cancellations
 - better docs
 - msgpack serializer
-- unit test websocket transport
-    - currently fails in browser test, but works in reality, issue in WebSocket Server that does not accept protocols?
-    - works in VM
 - get the auth id that called a method
 - handle ping pong times
 - auto reconnect handling, but keep abstract socket interface
@@ -32,7 +29,7 @@ WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
 - ☑ [TICKET](https://wamp-proto.org/_static/gen/wamp_latest.html#ticketauth)
 - ☑ [WAMP-SCRAM](https://wamp-proto.org/_static/gen/wamp_latest.html#wamp-scram)
     - ⬜ Argon2
-    - ☑ PBKDF2, not tested yet
+    - ☑ PBKDF2
 
 ### Advanced RPC features
 

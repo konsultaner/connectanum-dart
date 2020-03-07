@@ -1,6 +1,7 @@
 ### 1.0.0-dev.7
 
 - better stub import for WebSocket transport
+- fixed SCRAM authentication
 
 ### 1.0.0-dev.6
 
