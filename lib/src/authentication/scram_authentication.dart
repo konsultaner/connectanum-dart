@@ -18,7 +18,7 @@ class ScramAuthentication extends AbstractAuthentication {
   String _secret;
   String _authid;
   String _helloNonce;
-  Duration _challengeTimeout = new Duration(seconds: 5);
+  Duration _challengeTimeout = Duration(seconds: 5);
 
   ScramAuthentication(String secret, {challengeTimeout}) {
     if (challengeTimeout != null) {

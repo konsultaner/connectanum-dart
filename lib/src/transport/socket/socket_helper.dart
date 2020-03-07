@@ -136,7 +136,7 @@ class SocketHelper {
   }
 
   static int getPayloadLength(Uint8List message, int headerLength,
-      {offset: 0}) {
+      {offset = 0}) {
     if (message.length >= headerLength) {
       if (headerLength == 5) {
         return (message[offset + 1] & 0xFF) << 24 |

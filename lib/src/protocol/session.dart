@@ -306,8 +306,9 @@ class Session {
         return false;
       }).cast();
       return registered;
-    } else
+    } else {
       throw registered as Error;
+    }
   }
 
   /// This unregisters a procedure by its [registrationId]. Use the [Registered.registrationId]

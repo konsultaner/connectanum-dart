@@ -277,7 +277,7 @@ class SocketTransport extends AbstractTransport {
   @override
   void send(AbstractMessage message) {
     if (!_handshakeCompleter.isCompleted) {
-      if (_outboundBuffer.length == 0) {
+      if (_outboundBuffer.isEmpty) {
         _handshakeCompleter.future.then((aVoid) {
           _socket.add(_outboundBuffer);
           _outboundBuffer = null;
