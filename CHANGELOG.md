@@ -1,3 +1,7 @@
+### 1.0.0-dev.8
+
+- added session close
+
 ### 1.0.0-dev.7
 
 - better stub import for WebSocket transport

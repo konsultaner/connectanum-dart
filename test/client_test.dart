@@ -13,6 +13,7 @@ import 'package:connectanum/src/message/challenge.dart';
 import 'package:connectanum/src/message/details.dart';
 import 'package:connectanum/src/message/error.dart';
 import 'package:connectanum/src/message/event.dart';
+import 'package:connectanum/src/message/goodbye.dart';
 import 'package:connectanum/src/message/hello.dart';
 import 'package:connectanum/src/message/message_types.dart';
 import 'package:connectanum/src/message/register.dart';
@@ -71,13 +72,14 @@ void main() {
       expect(abort.message.message, equals("The given realm is not valid"));
       expect(transport.isOpen, isFalse);
     });
-    test("session creation with cra authentication process", () async {
+    test("session creation with cra authentication process and regular close", () async {
       final transport = _MockTransport();
       final client = Client(
           realm: "test.realm",
           transport: transport,
           authId: "11111111",
           authenticationMethods: [CraAuthentication("3614")]);
+      final goodbyeCompleter = new Completer();
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
           transport.receiveMessage(Challenge(
@@ -100,6 +102,9 @@ void main() {
                   authProvider: "cra",
                   authRole: "client")));
         }
+        if (message.id == MessageTypes.CODE_GOODBYE) {
+          goodbyeCompleter.complete(message);
+        }
       });
       final session = await client.connect();
       expect(session.realm, equals("test.realm"));
@@ -108,6 +113,11 @@ void main() {
       expect(session.authRole, equals("client"));
       expect(session.authProvider, equals("cra"));
       expect(session.authMethod, equals("wampcra"));
+      expect(transport.isOpen, isTrue);
+      await session.close(message: "GBY",timeout: Duration(milliseconds: 1));
+      expect(transport.isOpen, isFalse);
+      Goodbye goodbye = await goodbyeCompleter.future;
+      expect(goodbye.message.message, equals("GBY"));
     });
     test("session creation with cra authentication process and router abort",
         () async {
