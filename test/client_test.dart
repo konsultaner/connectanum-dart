@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:connectanum/authentication.dart';
 import 'package:connectanum/src/authentication/abstract_authentication.dart';
 import 'package:connectanum/src/authentication/cra_authentication.dart';
 import 'package:connectanum/src/client.dart';
@@ -176,6 +177,37 @@ void main() {
       expect(abort.message.message, equals("Exception: Did not work"));
       expect(transport.isOpen, isFalse);
     });
+    test("session creation with ticket authentication process", () async {
+      final transport = _MockTransport();
+      final client = Client(
+        realm: "test.realm",
+        authId: "joe",
+        transport: transport,
+        authenticationMethods: [TicketAuthentication("secret!!!")]
+      );
+      transport.outbound.stream.listen((message) {
+        if (message.id == MessageTypes.CODE_HELLO) {
+          transport.receiveMessage(Challenge((message as Hello).details.authmethods[0], Extra()));
+        }
+        if (message.id == MessageTypes.CODE_AUTHENTICATE && (message as Authenticate).signature == "secret!!!") {
+          transport.receiveMessage(Welcome(
+              3251278072152162,
+              Details.forWelcome(
+                  authId: "joe",
+                  authMethod: "static",
+                  authProvider: "ticket",
+                  authRole: "user")));
+        }
+      });
+      final session = await client.connect();
+      expect(session.realm, equals("test.realm"));
+      expect(session.id, equals(3251278072152162));
+      expect(session.authId, equals("joe"));
+      expect(session.authRole, equals("user"));
+      expect(session.authProvider, equals("ticket"));
+      expect(session.authMethod, equals("static"));
+    });
+
     test("procedure registration and invocation", () async {
       final transport = _MockTransport();
       final client = Client(realm: "test.realm", transport: transport);
