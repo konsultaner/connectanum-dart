@@ -36,7 +36,7 @@ void main() {
               '[1,"my.realm",{"roles":{"caller":{"features":{"call_canceling":false,"call_timeout":false,"caller_identification":true,"payload_transparency":true,"progressive_call_results":true}},"callee":{"features":{"caller_identification":true,"call_trustlevels":false,"pattern_based_registration":false,"shared_registration":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":true,"payload_transparency":true}},"subscriber":{"features":{"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_transparency":true}},"publisher":{"features":{"publisher_identification":true,"subscriber_blackwhite_listing":true,"publisher_exclusion":true,"payload_transparency":true}}}}]'));
     });
     test('Hello with auth information', () {
-      Hello authHello =  Hello("my.realm", Details.forHello());
+      Hello authHello = Hello("my.realm", Details.forHello());
       authHello.details.authid = "Richard";
       authHello.details.authmethods = ["WAMP-CRA"];
       authHello.details.authextra = new HashMap();
@@ -282,10 +282,12 @@ void main() {
   });
   group('unserialize', () {
     test('Abort', () {
-      Abort abort = serializer.deserializeFromString('[${MessageTypes.CODE_ABORT},{"message":"Received HELLO message after session was established."},"wamp.error.protocol_violation"]');
+      Abort abort = serializer.deserializeFromString(
+          '[${MessageTypes.CODE_ABORT},{"message":"Received HELLO message after session was established."},"wamp.error.protocol_violation"]');
       expect(abort, isNotNull);
       expect(abort.id, equals(MessageTypes.CODE_ABORT));
-      expect(abort.message.message, equals("Received HELLO message after session was established."));
+      expect(abort.message.message,
+          equals("Received HELLO message after session was established."));
       expect(abort.reason, equals(Error.PROTOCOL_VIOLATION));
     });
     test('Challenge', () {

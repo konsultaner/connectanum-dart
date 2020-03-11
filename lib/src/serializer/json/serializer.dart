@@ -198,9 +198,8 @@ class Serializer extends AbstractSerializer {
             Error(message[1], message[2], message[3], message[4]), message, 5);
       }
       if (messageId == MessageTypes.CODE_ABORT) {
-        return Abort(
-            message[2], message: message[1] == null ? null : message[1]["message"]
-        );
+        return Abort(message[2],
+            message: message[1] == null ? null : message[1]["message"]);
       }
     }
     _logger.shout("Could not deserialize the message: " + jsonMessage);
@@ -340,13 +339,14 @@ class Serializer extends AbstractSerializer {
             .add('"publisher":{"features":{${publisherFeatures.join(",")}}}');
       }
       List<String> detailsParts = ['"roles":{${rolesJson.join(",")}}'];
-      if(details.authid != null) {
+      if (details.authid != null) {
         detailsParts.add('"authid":"${details.authid}"');
       }
-      if(details.authmethods != null && details.authmethods.length > 0) {
-        detailsParts.add('"authmethods":["${details.authmethods.join('","')}"]');
+      if (details.authmethods != null && details.authmethods.length > 0) {
+        detailsParts
+            .add('"authmethods":["${details.authmethods.join('","')}"]');
       }
-      if(details.authextra != null) {
+      if (details.authextra != null) {
         detailsParts.add('"authextra":${json.encode(details.authextra)}');
       }
       return '{${detailsParts.join(",")}}';

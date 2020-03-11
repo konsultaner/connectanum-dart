@@ -75,7 +75,8 @@ void main() {
       expect(abort.message.message, equals("The given realm is not valid"));
       expect(transport.isOpen, isFalse);
     });
-    test("session creation with cra authentication process and regular close", () async {
+    test("session creation with cra authentication process and regular close",
+        () async {
       final transport = _MockTransport();
       final client = Client(
           realm: "test.realm",
@@ -117,7 +118,7 @@ void main() {
       expect(session.authProvider, equals("cra"));
       expect(session.authMethod, equals("wampcra"));
       expect(transport.isOpen, isTrue);
-      await session.close(message: "GBY",timeout: Duration(milliseconds: 1));
+      await session.close(message: "GBY", timeout: Duration(milliseconds: 1));
       expect(transport.isOpen, isFalse);
       Goodbye goodbye = await goodbyeCompleter.future;
       expect(goodbye.message.message, equals("GBY"));
@@ -182,16 +183,17 @@ void main() {
     test("session creation with ticket authentication process", () async {
       final transport = _MockTransport();
       final client = Client(
-        realm: "test.realm",
-        authId: "joe",
-        transport: transport,
-        authenticationMethods: [TicketAuthentication("secret!!!")]
-      );
+          realm: "test.realm",
+          authId: "joe",
+          transport: transport,
+          authenticationMethods: [TicketAuthentication("secret!!!")]);
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
-          transport.receiveMessage(Challenge((message as Hello).details.authmethods[0], Extra()));
+          transport.receiveMessage(
+              Challenge((message as Hello).details.authmethods[0], Extra()));
         }
-        if (message.id == MessageTypes.CODE_AUTHENTICATE && (message as Authenticate).signature == "secret!!!") {
+        if (message.id == MessageTypes.CODE_AUTHENTICATE &&
+            (message as Authenticate).signature == "secret!!!") {
           transport.receiveMessage(Welcome(
               3251278072152162,
               Details.forWelcome(
@@ -504,7 +506,8 @@ void main() {
           transport.receiveMessage(Welcome(42, Details.forWelcome()));
         }
         if (message.id == MessageTypes.CODE_PUBLISH) {
-          transport.receiveMessage(Published((message as Publish).requestId,1));
+          transport
+              .receiveMessage(Published((message as Publish).requestId, 1));
         }
         if (message.id == MessageTypes.CODE_SUBSCRIBE) {
           if ((message as Subscribe).topic == "topic.my.de") {
@@ -551,7 +554,8 @@ void main() {
 
       // REGULAR PUBLISH
 
-      Published published = await session.publish("my.test.topic",arguments: ["some data"]);
+      Published published =
+          await session.publish("my.test.topic", arguments: ["some data"]);
       expect(published, isNotNull);
       expect(published.publishRequestId, isNotNull);
       expect(published.publicationId, equals(1));

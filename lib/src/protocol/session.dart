@@ -256,7 +256,8 @@ class Session {
         argumentsKeywords: argumentsKeywords,
         options: options);
     this._transport.send(publish);
-    Stream<Published> publishStream = this._openSessionStreamController.stream.where((message) {
+    Stream<Published> publishStream =
+        this._openSessionStreamController.stream.where((message) {
       if (message is Published &&
           message.publishRequestId == publish.requestId) {
         return true;
@@ -335,9 +336,8 @@ class Session {
   /// Sends a goodbye message and closes the transport after a given [timeout].
   /// If no timeout is set, the client waits for the server to close the transport forever.
   Future<void> close({String message = "Regular closing", Duration timeout}) {
-    final goodbye = Goodbye(
-        GoodbyeMessage(message),
-        Goodbye.REASON_GOODBYE_AND_OUT);
+    final goodbye =
+        Goodbye(GoodbyeMessage(message), Goodbye.REASON_GOODBYE_AND_OUT);
     this._transport.send(goodbye);
     if (timeout != null) {
       return Future.delayed(timeout, () => this._transport.close());
