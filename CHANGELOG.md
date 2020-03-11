@@ -1,6 +1,10 @@
 ### 1.0.0-dev.8
 
 - added session close
+- fixed serializer to handle incoming abort messages and serialize outgoing auth details
+- added example code
+- fixed publish
+- added some missing tests
 
 ### 1.0.0-dev.7
 

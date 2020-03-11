@@ -26,6 +26,7 @@ class Error extends AbstractMessageWithPayload {
   static final String NO_SUCH_ROLE = "wamp.error.no_such_role";
   static final String NO_SUCH_TOPIC = "wamp.error.no_such_topic";
   static final String NO_SUCH_SESSION = "wamp.error.no_such_session";
+  static final String PROTOCOL_VIOLATION = "wamp.error.protocol_violation";
 
   static final String HIDDEN_ERROR_MESSAGE = "unknown";
 

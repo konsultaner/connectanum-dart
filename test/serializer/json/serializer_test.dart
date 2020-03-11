@@ -1,5 +1,6 @@
 import 'dart:collection';
 
+import 'package:connectanum/src/message/abort.dart';
 import 'package:connectanum/src/message/authenticate.dart';
 import 'package:connectanum/src/message/call.dart';
 import 'package:connectanum/src/message/challenge.dart';
@@ -280,6 +281,13 @@ void main() {
     });
   });
   group('unserialize', () {
+    test('Abort', () {
+      Abort abort = serializer.deserializeFromString('[${MessageTypes.CODE_ABORT},{"message":"Received HELLO message after session was established."},"wamp.error.protocol_violation"]');
+      expect(abort, isNotNull);
+      expect(abort.id, equals(MessageTypes.CODE_ABORT));
+      expect(abort.message.message, equals("Received HELLO message after session was established."));
+      expect(abort.reason, equals(Error.PROTOCOL_VIOLATION));
+    });
     test('Challenge', () {
       Challenge challenge = serializer.deserializeFromString(
           '[${MessageTypes.CODE_CHALLENGE},"wampcra",{"challenge":"{\\"authid\\":\\"Richi\\",\\"authrole\\":\\"admin\\",\\"authmethod\\":\\"wampcra\\",\\"authprovider\\":\\"server\\",\\"nonce\\":\\"5636117568768122\\",\\"timestamp\\":\\"2018-03-16T07:29Z\\",\\"session\\":\\"5768501099130836\\"}","salt":"fhhi290fh7§)GQ)G)","keylen":35,"iterations":410}]');

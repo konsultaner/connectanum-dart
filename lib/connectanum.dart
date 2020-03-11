@@ -4,6 +4,7 @@ export 'src/client.dart';
 export 'src/message/challenge.dart';
 export 'src/message/details.dart';
 export 'src/message/event.dart';
+export 'src/message/abort.dart';
 export 'src/message/error.dart';
 export 'src/message/invocation.dart';
 export 'src/message/publish.dart';

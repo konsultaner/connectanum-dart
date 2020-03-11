@@ -256,7 +256,7 @@ class Session {
         argumentsKeywords: argumentsKeywords,
         options: options);
     this._transport.send(publish);
-    return this._openSessionStreamController.stream.where((message) {
+    Stream<Published> publishStream = this._openSessionStreamController.stream.where((message) {
       if (message is Published &&
           message.publishRequestId == publish.requestId) {
         return true;
@@ -267,7 +267,8 @@ class Session {
         throw message;
       }
       return false;
-    }).first;
+    }).cast();
+    return publishStream.first;
   }
 
   /// This registers a [procedure] with the given [options] that may be called

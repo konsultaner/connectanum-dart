@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:connectanum/authentication.dart';
+import 'package:connectanum/connectanum.dart';
 import 'package:connectanum/src/authentication/abstract_authentication.dart';
 import 'package:connectanum/src/authentication/cra_authentication.dart';
 import 'package:connectanum/src/client.dart';
@@ -17,6 +18,7 @@ import 'package:connectanum/src/message/event.dart';
 import 'package:connectanum/src/message/goodbye.dart';
 import 'package:connectanum/src/message/hello.dart';
 import 'package:connectanum/src/message/message_types.dart';
+import 'package:connectanum/src/message/published.dart';
 import 'package:connectanum/src/message/register.dart';
 import 'package:connectanum/src/message/registered.dart';
 import 'package:connectanum/src/message/invocation.dart';
@@ -501,6 +503,9 @@ void main() {
         if (message.id == MessageTypes.CODE_HELLO) {
           transport.receiveMessage(Welcome(42, Details.forWelcome()));
         }
+        if (message.id == MessageTypes.CODE_PUBLISH) {
+          transport.receiveMessage(Published((message as Publish).requestId,1));
+        }
         if (message.id == MessageTypes.CODE_SUBSCRIBE) {
           if ((message as Subscribe).topic == "topic.my.de") {
             transport.receiveMessage(
@@ -543,6 +548,13 @@ void main() {
       expect(subscribeError, isNotNull);
       expect(subscribeError.error, equals(Error.NOT_AUTHORIZED));
       expect(subscribeError.requestTypeId, equals(MessageTypes.CODE_SUBSCRIBE));
+
+      // REGULAR PUBLISH
+
+      Published published = await session.publish("my.test.topic",arguments: ["some data"]);
+      expect(published, isNotNull);
+      expect(published.publishRequestId, isNotNull);
+      expect(published.publicationId, equals(1));
 
       // EVENT
 
