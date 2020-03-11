@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:logging/logging.dart';
 
 import '../../../src/message/abstract_message.dart';
+import '../../../src/message/abort.dart';
 import '../../../src/message/abstract_message_with_payload.dart';
 import '../../../src/message/authenticate.dart';
 import '../../../src/message/call.dart';
@@ -196,6 +197,11 @@ class Serializer extends AbstractSerializer {
         return _addPayload(
             Error(message[1], message[2], message[3], message[4]), message, 5);
       }
+      if (messageId == MessageTypes.CODE_ABORT) {
+        return Abort(
+            message[2], message: message[1] == null ? null : message[1]["message"]
+        );
+      }
     }
     _logger.shout("Could not deserialize the message: " + jsonMessage);
     // TODO respond with an error
@@ -333,7 +339,17 @@ class Serializer extends AbstractSerializer {
         rolesJson
             .add('"publisher":{"features":{${publisherFeatures.join(",")}}}');
       }
-      return '{"roles":{${rolesJson.join(",")}}}';
+      List<String> detailsParts = ['"roles":{${rolesJson.join(",")}}'];
+      if(details.authid != null) {
+        detailsParts.add('"authid":"${details.authid}"');
+      }
+      if(details.authmethods != null && details.authmethods.length > 0) {
+        detailsParts.add('"authmethods":["${details.authmethods.join('","')}"]');
+      }
+      if(details.authextra != null) {
+        detailsParts.add('"authextra":${json.encode(details.authextra)}');
+      }
+      return '{${detailsParts.join(",")}}';
     } else {
       return "{}";
     }

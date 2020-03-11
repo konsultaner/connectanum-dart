@@ -34,6 +34,18 @@ void main() {
           equals(
               '[1,"my.realm",{"roles":{"caller":{"features":{"call_canceling":false,"call_timeout":false,"caller_identification":true,"payload_transparency":true,"progressive_call_results":true}},"callee":{"features":{"caller_identification":true,"call_trustlevels":false,"pattern_based_registration":false,"shared_registration":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":true,"payload_transparency":true}},"subscriber":{"features":{"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_transparency":true}},"publisher":{"features":{"publisher_identification":true,"subscriber_blackwhite_listing":true,"publisher_exclusion":true,"payload_transparency":true}}}}]'));
     });
+    test('Hello with auth information', () {
+      Hello authHello =  Hello("my.realm", Details.forHello());
+      authHello.details.authid = "Richard";
+      authHello.details.authmethods = ["WAMP-CRA"];
+      authHello.details.authextra = new HashMap();
+      authHello.details.authextra["nonce"] = "egVDf3DMJh0=";
+      authHello.details.authextra["channel_binding"] = null;
+      expect(
+          serializer.serializeToString(authHello),
+          equals(
+              '[1,"my.realm",{"roles":{"caller":{"features":{"call_canceling":false,"call_timeout":false,"caller_identification":true,"payload_transparency":true,"progressive_call_results":true}},"callee":{"features":{"caller_identification":true,"call_trustlevels":false,"pattern_based_registration":false,"shared_registration":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":true,"payload_transparency":true}},"subscriber":{"features":{"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_transparency":true}},"publisher":{"features":{"publisher_identification":true,"subscriber_blackwhite_listing":true,"publisher_exclusion":true,"payload_transparency":true}}},"authid":"Richard","authmethods":["WAMP-CRA"],"authextra":{"channel_binding":null,"nonce":"egVDf3DMJh0="}}]'));
+    });
     test('Authenticate', () {
       expect(serializer.serializeToString(Authenticate()),
           equals('[${MessageTypes.CODE_AUTHENTICATE},"",{}]'));
