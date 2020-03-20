@@ -2,16 +2,23 @@ import 'dart:async';
 import 'dart:convert';
 import "dart:html";
 
+import 'package:logging/logging.dart';
+
 import 'websocket_transport_serialization.dart';
 import '../../message/abstract_message.dart';
 import '../../serializer/abstract_serializer.dart';
 import '../../transport/abstract_transport.dart';
 
 class WebSocketTransport extends AbstractTransport {
+  static Logger _logger = Logger("WebSocketTransport");
+
   String _url;
   AbstractSerializer _serializer;
   String _serializerType;
   WebSocket _socket;
+  Completer _onConnectionLost;
+  Completer _onDisconnect;
+  Completer _onReady = new Completer();
 
   WebSocketTransport(
     this._url,
@@ -21,21 +28,36 @@ class WebSocketTransport extends AbstractTransport {
             _serializerType == WebSocketSerialization.SERIALIZATION_MSGPACK);
 
   @override
-  Future<void> close() {
+  Future<void> close({error}) {
     _socket.close();
+    complete(_onDisconnect,error);
     return Future.value();
   }
+
+  @override
+  Completer get onConnectionLost => _onConnectionLost;
+
+  @override
+  Completer get onDisconnect => _onDisconnect;
 
   @override
   bool get isOpen {
     return _socket.readyState == WebSocket.OPEN;
   }
 
+  bool get isReady => isOpen;
+  Future<void> get onReady => _onReady.future;
+
   @override
-  Future<void> open() async {
+  Future<void> open({Duration pingInterval}) async {
     _socket = WebSocket(_url, _serializerType);
-    onDisconnect = Completer();
+    if (pingInterval != null) {
+      _logger.info("The browsers WebSocket API does not support ping interval configuration.");
+    }
+    _onDisconnect = Completer();
+    _onConnectionLost = Completer();
     await _socket.onOpen.first;
+    _onReady.complete();
   }
 
   @override
@@ -49,6 +71,12 @@ class WebSocketTransport extends AbstractTransport {
 
   @override
   Stream<AbstractMessage> receive() {
+    _socket.onClose.listen((closeEvent) {
+      if (closeEvent.code > 1000) {
+        // a status code other then 1000 indicates that the server tried to quit
+        _onConnectionLost.complete();
+      }
+    });
     return _socket.onMessage.map((messageEvent) {
       if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
         return _serializer.deserialize(utf8.encode(messageEvent.data));

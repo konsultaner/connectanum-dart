@@ -15,7 +15,7 @@ void main() {
     test('Opening with max header', () async {
       List<Uint8List> handshakes = [null, null];
       Serializer serializer = Serializer();
-      final server = await ServerSocket.bind("0.0.0.0", 9000);
+      final server = await ServerSocket.bind("0.0.0.0", 8999);
       server.listen((socket) {
         socket.listen((message) {
           if (message.length == 4) {
@@ -32,12 +32,12 @@ void main() {
         });
       });
       final transport = SocketTransport(
-          "127.0.0.1", 9000, serializer, SocketHelper.SERIALIZATION_JSON,
+          "127.0.0.1", 8999, serializer, SocketHelper.SERIALIZATION_JSON,
           messageLengthExponent:
               SocketHelper.MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT);
       await transport.open();
       final handshakeCompleter = Completer();
-      transport.onOpen.then((aVoid) {
+      transport.onReady.then((aVoid) {
         handshakeCompleter.complete();
       });
       transport.receive().listen((message) {});
@@ -65,7 +65,7 @@ void main() {
               SocketHelper.MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT);
       await transport.open();
       final handshakeCompleter = Completer();
-      transport.onOpen.then((aVoid) {
+      transport.onReady.then((aVoid) {
         handshakeCompleter.complete();
       });
       transport.receive().listen((message) {});
@@ -99,7 +99,7 @@ void main() {
           messageLengthExponent: 20);
       await transport.open();
       final handshakeCompleter = Completer();
-      transport.onOpen.then((aVoid) {
+      transport.onReady.then((aVoid) {
         handshakeCompleter.complete();
       });
       transport.receive().listen((message) {});
@@ -137,7 +137,7 @@ void main() {
           messageLengthExponent: 9);
       await transport.open();
       Completer errorCompleter = Completer();
-      transport.onOpen
+      transport.onReady
           .then((aVoid) {}, onError: (error) => errorCompleter.complete(error));
       transport.receive().listen((message) {},
           onError: (error) => transport.onDisconnect.complete(error),
@@ -155,7 +155,7 @@ void main() {
           messageLengthExponent: 10);
       await transport.open();
       errorCompleter = Completer();
-      transport.onOpen
+      transport.onReady
           .then((aVoid) {}, onError: (error) => errorCompleter.complete(error));
       transport.receive().listen((message) {},
           onError: (error) => transport.onDisconnect.complete(error),
@@ -174,7 +174,7 @@ void main() {
           messageLengthExponent: 11);
       await transport.open();
       errorCompleter = Completer();
-      transport.onOpen
+      transport.onReady
           .then((aVoid) {}, onError: (error) => errorCompleter.complete(error));
       transport.receive().listen((message) {},
           onError: (error) => transport.onDisconnect.complete(error),
@@ -192,7 +192,7 @@ void main() {
           messageLengthExponent: 12);
       await transport.open();
       errorCompleter = Completer();
-      transport.onOpen
+      transport.onReady
           .then((aVoid) {}, onError: (error) => errorCompleter.complete(error));
       transport.receive().listen((message) {},
           onError: (error) => transport.onDisconnect.complete(error),

@@ -44,12 +44,50 @@ class Client {
         assert(realm != null && UriPattern.match(realm));
 
   /// Calling this method will start the authentication process and result into
-  /// a [Session] object on success.
-  Future<Session> connect() async {
-    await transport.open();
-    return Session.start(realm, transport,
-        authId: authId,
-        authMethods: authenticationMethods,
-        reconnect: reconnectTime);
+  /// a [Session] object on success. If a [pingInterval] is given and the underlying transport
+  /// supports sending of ping messages. the given duration is used by the transport
+  /// to send ping messages every [pingInterval]. [SocketTransport] and [WebSocketTransport] not
+  /// within the browser support ping messages. The browser API does not allow to control
+  /// ping messages. If [reconnectCount], [onReconnect] and the clients [reconnectTime] is set
+  /// the client will try to reestablish the session. Setting [reconnectCount] to -1 will infinite
+  /// times reconnect the client or until the stack overflows
+  Future<Session> connect(
+      {
+        Duration pingInterval,
+        int reconnectCount = 3,
+        onReconnecting(),
+        onReconnect(Session session)
+      }
+  ) async {
+    await transport.open(pingInterval: pingInterval);
+    if (transport.isOpen) {
+      if (onReconnect != null) {
+        transport.onConnectionLost.future.then((_) async {
+          await Future.delayed(this.reconnectTime);
+          onReconnect(await connect(pingInterval: pingInterval));
+        });
+      }
+      return Session.start(realm, transport,
+          authId: authId,
+          authMethods: authenticationMethods,
+          reconnect: reconnectTime);
+    } else {
+      if(
+        onReconnect != null &&
+        this.reconnectTime != null &&
+        transport.onConnectionLost.isCompleted
+      ) {
+        if (reconnectCount == 0) {
+          throw Exception("Could not connect to server. No more retries!");
+        } else {
+          await Future.delayed(this.reconnectTime);
+          return await connect(pingInterval: pingInterval,
+              onReconnect: onReconnect,
+              reconnectCount: reconnectCount == -1 ? reconnectCount : reconnectCount - 1);
+        }
+      } else {
+        throw Exception("Could not connect to server. Please configure reconnectTime to retry automatically.");
+      }
+    }
   }
 }

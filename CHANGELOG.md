@@ -1,3 +1,8 @@
+### 1.0.0-dev.9
+
+- added reconnect and server loss behavior
+- fixed message length calculation in socket helper
+
 ### 1.0.0-dev.8
 
 - added session close

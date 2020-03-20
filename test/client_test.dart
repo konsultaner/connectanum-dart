@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 
 import 'package:connectanum/authentication.dart';
 import 'package:connectanum/connectanum.dart';
+import 'package:connectanum/json.dart';
 import 'package:connectanum/src/authentication/abstract_authentication.dart';
 import 'package:connectanum/src/authentication/cra_authentication.dart';
 import 'package:connectanum/src/client.dart';
@@ -638,14 +640,26 @@ class _MockChallengeFailAuthenticator extends AbstractAuthentication {
 
 class _MockTransport extends AbstractTransport {
   final StreamController<AbstractMessage> inbound = StreamController();
+  Completer _onConnectionLost;
+  Completer _onDisconnect;
 
   bool _open = false;
   final StreamController<AbstractMessage> outbound = StreamController();
 
   @override
+  Completer get onConnectionLost => _onConnectionLost;
+
+  @override
+  Completer get onDisconnect => _onDisconnect;
+
+  @override
   bool get isOpen {
     return _open;
   }
+
+  @override
+  bool get isReady => isOpen;
+  Future<void> get onReady => Future.value();
 
   @override
   void send(AbstractMessage message) {
@@ -657,15 +671,18 @@ class _MockTransport extends AbstractTransport {
   }
 
   @override
-  Future<void> close() {
+  Future<void> close({error}) {
     this._open = false;
     this.inbound.close();
+    complete(_onDisconnect,error);
     return Future.value();
   }
 
   @override
-  Future<void> open() {
+  Future<void> open({Duration pingInterval}) {
     this._open = true;
+    _onDisconnect = Completer();
+    _onConnectionLost = Completer();
     return Future.value();
   }
 

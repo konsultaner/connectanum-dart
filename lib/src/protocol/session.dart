@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import '../message/abort.dart';
 import '../message/abstract_message.dart';
@@ -80,60 +81,64 @@ class Session {
           .map<String>((authMethod) => authMethod.getName())
           .toList();
     }
-    transport.send(hello);
 
     /// Either return the welcome or execute a challenge before and eventually return the welcome after this
     Completer<Session> welcomeCompleter = Completer<Session>();
     session._transportStreamSubscription = transport.receive().listen(
-        (message) {
-      if (message is Challenge) {
-        final AbstractAuthentication foundAuthMethod = authMethods
-            .where((authenticationMethod) =>
-                authenticationMethod.getName() == message.authMethod)
-            .first;
-        if (foundAuthMethod != null) {
-          foundAuthMethod
-              .challenge(message.extra)
-              .then((authenticate) => session.authenticate(authenticate),
-                  onError: (error) {
-            session._transport.send(
-                Abort(Error.AUTHORIZATION_FAILED, message: error.toString()));
-            session._transport.close();
+      (message) {
+        if (message is Challenge) {
+          final AbstractAuthentication foundAuthMethod = authMethods
+              .where((authenticationMethod) =>
+                  authenticationMethod.getName() == message.authMethod)
+              .first;
+          if (foundAuthMethod != null) {
+            foundAuthMethod
+                .challenge(message.extra)
+                .then((authenticate) => session.authenticate(authenticate),
+                    onError: (error) {
+              session._transport.send(
+                  Abort(Error.AUTHORIZATION_FAILED, message: error.toString()));
+              session._transport.close();
+            });
+          } else {
+            final goodbye = Goodbye(
+                GoodbyeMessage("Authmethod ${foundAuthMethod} not supported"),
+                Goodbye.REASON_GOODBYE_AND_OUT);
+            session._transport.send(goodbye);
+            throw goodbye;
+          }
+        } else if (message is Welcome) {
+          session.id = message.sessionId;
+          session.authId = message.details.authid;
+          session.authMethod = message.details.authmethod;
+          session.authProvider = message.details.authprovider;
+          session.authRole = message.details.authrole;
+          session._transportStreamSubscription.onData((message) {
+            session._openSessionStreamController.add(message);
           });
-        } else {
-          final goodbye = Goodbye(
-              GoodbyeMessage("Authmethod ${foundAuthMethod} not supported"),
-              Goodbye.REASON_GOODBYE_AND_OUT);
-          session._transport.send(goodbye);
-          throw goodbye;
+          session._transportStreamSubscription.onDone(() {
+            session._openSessionStreamController.close();
+          });
+          welcomeCompleter.complete(session);
+        } else if (message is Abort) {
+          try {
+            transport.close();
+          } catch (ignore) {/* my be already closed */}
+          welcomeCompleter.completeError(message);
+        } else if (message is Goodbye) {
+          try {
+            transport.close();
+          } catch (ignore) {/* my be already closed */}
         }
-      } else if (message is Welcome) {
-        session.id = message.sessionId;
-        session.authId = message.details.authid;
-        session.authMethod = message.details.authmethod;
-        session.authProvider = message.details.authprovider;
-        session.authRole = message.details.authrole;
-        session._transportStreamSubscription.onData((message) {
-          session._openSessionStreamController.add(message);
-        });
-        session._transportStreamSubscription.onDone(() {
-          session._openSessionStreamController.close();
-        });
-        welcomeCompleter.complete(session);
-      } else if (message is Abort) {
-        try {
-          transport.close();
-        } catch (ignore) {/* my be already closed */}
-        welcomeCompleter.completeError(message);
-      } else if (message is Goodbye) {
-        try {
-          transport.close();
-        } catch (ignore) {/* my be already closed */}
-      }
-    },
-        cancelOnError: true,
-        onError: (error) => transport.onDisconnect?.complete(error),
-        onDone: () => transport.onDisconnect?.complete());
+      },
+      cancelOnError: true,
+      onError: (error) => transport.close(error: error),
+      onDone: () => transport.close()
+    );
+    if (!transport.isReady) {
+      await transport.onReady;
+    }
+    transport.send(hello);
     return welcomeCompleter.future;
   }
 
@@ -141,7 +146,7 @@ class Session {
   /// been closed, this will return true.
   bool isConnected() {
     return this._transport != null &&
-        this._transport.isOpen &&
+        this._transport.isReady &&
         this._openSessionStreamController != null &&
         !this._openSessionStreamController.isClosed;
   }

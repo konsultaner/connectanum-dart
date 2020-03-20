@@ -12,6 +12,9 @@ class WebSocketTransport extends AbstractTransport {
   AbstractSerializer _serializer;
   String _serializerType;
   WebSocket _socket;
+  Completer _onConnectionLost;
+  Completer _onDisconnect;
+  Completer _onReady = new Completer();
 
   WebSocketTransport(
     this._url,
@@ -21,33 +24,58 @@ class WebSocketTransport extends AbstractTransport {
             _serializerType == WebSocketSerialization.SERIALIZATION_MSGPACK);
 
   @override
-  Future<void> close() {
+  Future<void> close({error}) {
     _socket.close();
+    complete(_onDisconnect,error);
     return Future.value();
   }
 
   @override
-  bool get isOpen {
-    return _socket.readyState == WebSocket.open;
-  }
+  Completer get onConnectionLost => _onConnectionLost;
 
   @override
-  Future<void> open() async {
-    _socket = await WebSocket.connect(_url, protocols: [_serializerType]);
-    onDisconnect = Completer();
+  Completer get onDisconnect => _onDisconnect;
+
+  @override
+  bool get isOpen {
+    return _socket != null && _socket.readyState == WebSocket.open;
+  }
+
+  bool get isReady => isOpen;
+  Future<void> get onReady => _onReady.future;
+
+  @override
+  Future<void> open({Duration pingInterval}) async {
+    _onDisconnect = Completer();
+    _onConnectionLost = Completer();
+    try {
+      _socket = await WebSocket.connect(_url, protocols: [_serializerType]);
+      _onReady.complete();
+      if (pingInterval != null) {
+        _socket.pingInterval = pingInterval;
+      }
+    } on SocketException catch (exception) {
+      _onConnectionLost.complete(exception);
+    }
   }
 
   @override
   void send(AbstractMessage message) {
+    List<int> byteMessage = _serializer.serialize(message).cast();
     if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
-      _socket.addUtf8Text(_serializer.serialize(message).cast());
+      _socket.addUtf8Text(byteMessage);
     } else {
-      _socket.add(_serializer.serialize(message).cast());
+      _socket.add(byteMessage);
     }
   }
 
   @override
   Stream<AbstractMessage> receive() {
+    _socket.done.then((done) => null, onError: (error) {
+      if (!_onDisconnect.isCompleted) {
+        _onConnectionLost.complete(error);
+      }
+    });
     return _socket.map((messageEvent) {
       if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
         return _serializer.deserialize(utf8.encode(messageEvent));

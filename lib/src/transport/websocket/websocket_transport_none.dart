@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../abstract_transport.dart';
 import '../../message/abstract_message.dart';
 
@@ -5,7 +7,13 @@ class WebSocketTransport extends AbstractTransport {
   WebSocketTransport(url, serializer, serializerType);
 
   @override
-  Future<void> close() {
+  Completer get onConnectionLost => null;
+
+  @override
+  Completer get onDisconnect => null;
+
+  @override
+  Future<void> close({error}) {
     return null;
   }
 
@@ -14,8 +22,12 @@ class WebSocketTransport extends AbstractTransport {
     return false;
   }
 
+  bool get isReady => isOpen;
+  Future<void> get onReady => Future.error(null);
+
+
   @override
-  Future<void> open() {
+  Future<void> open({Duration pingInterval}) {
     return null;
   }
 
