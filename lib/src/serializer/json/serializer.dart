@@ -36,7 +36,7 @@ import '../abstract_serializer.dart';
 /// This is a seralizer for JSON messages. It is used to initialize an [AbstractTransport]
 /// object.
 class Serializer extends AbstractSerializer {
-  Logger _logger = Logger("Serializer");
+  static Logger _logger = Logger("Serializer");
 
   /// Converts a uint8 JSON message into a WAMP message object
   @override
