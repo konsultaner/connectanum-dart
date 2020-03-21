@@ -1,10 +1,12 @@
+import '../src/message/abort.dart';
+import '../src/message/error.dart';
+
 import 'authentication/abstract_authentication.dart';
 import 'transport/abstract_transport.dart';
 import 'message/uri_pattern.dart';
 import 'protocol/session.dart';
 
 class Client {
-  Duration reconnectTime;
   AbstractTransport transport;
   String authId;
   String realm;
@@ -34,8 +36,7 @@ class Client {
   /// final Session session = await client.connect();
   /// ```
   Client(
-      {this.reconnectTime,
-      this.transport,
+      {this.transport,
       this.authId,
       this.realm,
       this.authenticationMethods,
@@ -48,12 +49,13 @@ class Client {
   /// supports sending of ping messages. the given duration is used by the transport
   /// to send ping messages every [pingInterval]. [SocketTransport] and [WebSocketTransport] not
   /// within the browser support ping messages. The browser API does not allow to control
-  /// ping messages. If [reconnectCount], [onReconnect] and the clients [reconnectTime] is set
+  /// ping messages. If [reconnectCount], [onReconnect] and the [reconnectTime] is set
   /// the client will try to reestablish the session. Setting [reconnectCount] to -1 will infinite
   /// times reconnect the client or until the stack overflows
   Future<Session> connect(
       {
         Duration pingInterval,
+        Duration reconnectTime,
         int reconnectCount = 3,
         onReconnecting(),
         onReconnect(Session session)
@@ -63,29 +65,49 @@ class Client {
     if (transport.isOpen) {
       if (onReconnect != null) {
         transport.onConnectionLost.future.then((_) async {
-          await Future.delayed(this.reconnectTime);
-          onReconnect(await connect(pingInterval: pingInterval));
+          await Future.delayed(reconnectTime);
+          onReconnect(await connect(
+              pingInterval: pingInterval,
+              onReconnect: onReconnect,
+              reconnectTime: reconnectTime,
+              reconnectCount: reconnectCount == -1 ? reconnectCount : reconnectCount - 1
+          ));
         });
       }
-      return Session.start(realm, transport,
-          authId: authId,
-          authMethods: authenticationMethods,
-          reconnect: reconnectTime);
+      try {
+        Session session = await Session.start(realm, transport,
+            authId: authId,
+            authMethods: authenticationMethods,
+            reconnect: reconnectTime);
+        return session;
+      } on Abort catch (abort) {
+        if (abort.reason != Error.NOT_AUTHORIZED) {
+          // if the router restarts we should wait until it has been initialized
+          await Future.delayed(Duration(seconds: 2));
+          return await Session.start(realm, transport,
+              authId: authId,
+              authMethods: authenticationMethods,
+              reconnect: reconnectTime);
+        }
+      }
     } else {
       if(
         onReconnect != null &&
-        this.reconnectTime != null &&
+        reconnectTime != null &&
         transport.onConnectionLost.isCompleted
       ) {
         if (reconnectCount == 0) {
           throw Exception("Could not connect to server. No more retries!");
         } else {
-          await Future.delayed(this.reconnectTime);
-          return await connect(pingInterval: pingInterval,
+          await Future.delayed(reconnectTime);
+          return await connect(
+              pingInterval: pingInterval,
               onReconnect: onReconnect,
+              reconnectTime: reconnectTime,
               reconnectCount: reconnectCount == -1 ? reconnectCount : reconnectCount - 1);
         }
       } else {
+        print("${transport.onConnectionLost.isCompleted} ${onReconnect != null} ${reconnectTime != null}");
         throw Exception("Could not connect to server. Please configure reconnectTime to retry automatically.");
       }
     }

@@ -33,7 +33,7 @@ class SocketTransport extends AbstractTransport {
   Completer _pingCompleter;
   Completer _onConnectionLost;
   Completer _onDisconnect;
-  bool _willClose;
+  bool _willClose = false;
 
   /// This creates a socket transport instance. The [messageLengthExponent] configures
   /// the max message length that will be excepted to be send and received. It is negotiated
@@ -302,12 +302,21 @@ class SocketTransport extends AbstractTransport {
   /// Send a ping message to keep the connection alive. The returning future will
   /// fail if no pong is received withing the given [timeout]. The default timeout
   /// is 5 seconds.
-  Future<Uint8List> sendPing({Duration timeout}) {
+  Future<Uint8List> sendPing({Duration timeout}) async {
     if (_pingCompleter == null || _pingCompleter.isCompleted) {
       _pingCompleter = Completer<Uint8List>();
       _send0(SocketHelper.getPing(isUpgradedProtocol));
-      return _pingCompleter.future
-          .timeout(timeout == null ? Duration(seconds: 5) : timeout);
+      try {
+        Uint8List pong = await _pingCompleter.future.timeout(
+            timeout == null ? Duration(seconds: 5) : timeout);
+        return pong;
+      } on TimeoutException catch(error) {
+        if(isOpen) {
+          throw error;
+        }
+        _pingCompleter.complete();
+        return null;
+      }
     } else {
       throw Exception("Wait for the last ping to complete or to timeout");
     }

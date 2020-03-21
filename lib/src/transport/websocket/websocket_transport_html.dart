@@ -18,7 +18,7 @@ class WebSocketTransport extends AbstractTransport {
   WebSocket _socket;
   Completer _onConnectionLost;
   Completer _onDisconnect;
-  Completer _onReady = new Completer();
+  Completer _onReady;
 
   WebSocketTransport(
     this._url,
@@ -50,14 +50,23 @@ class WebSocketTransport extends AbstractTransport {
 
   @override
   Future<void> open({Duration pingInterval}) async {
+    _onReady = Completer();
+    _onDisconnect = Completer();
+    _onConnectionLost = Completer();
+    Completer openCompleter = Completer();
     _socket = WebSocket(_url, _serializerType);
     if (pingInterval != null) {
       _logger.info("The browsers WebSocket API does not support ping interval configuration.");
     }
-    _onDisconnect = Completer();
-    _onConnectionLost = Completer();
-    await _socket.onOpen.first;
-    _onReady.complete();
+    _socket.onOpen.listen((open) => openCompleter.complete(open));
+    _socket.onError.listen((Event error) {
+      openCompleter.completeError(error);
+      _onConnectionLost.complete(error);
+    });
+    try {
+      await openCompleter.future;
+      _onReady.complete();
+    } on Event {}
   }
 
   @override
