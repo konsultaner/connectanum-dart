@@ -1,7 +1,13 @@
 ### 1.0.0-dev.9
 
 - added reconnect and server loss behavior
+- client has a close future that may be subscribed to. It's resolved when
+`transport.close()` is called
 - fixed message length calculation in socket helper
+
+*Breaking changes*
+
+- `client.connect()` now returns a stream instead of a future to support reconnect.
 
 ### 1.0.0-dev.8
 

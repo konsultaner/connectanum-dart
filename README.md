@@ -102,7 +102,7 @@ final client = Client(
     WebSocketSerialization.SERIALIZATION_JSON
   )
 );
-final session = await client.connect();
+final session = await client.connect().first;
 
 // Register a procedure
 final registered = await session.register("my.procedure");

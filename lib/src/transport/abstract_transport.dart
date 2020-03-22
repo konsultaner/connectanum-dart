@@ -14,7 +14,7 @@ abstract class AbstractTransport {
   bool get isReady;
   void send(AbstractMessage message);
 
-  void complete(_onDisconnect,error) {
+  void complete(Completer _onDisconnect,error) {
     if (_onDisconnect != null && !_onDisconnect.isCompleted){
       if (error != null) {
         _onDisconnect.complete();
