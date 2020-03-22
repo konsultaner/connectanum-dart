@@ -150,6 +150,8 @@ class Session {
     return welcomeCompleter.future;
   }
 
+  Future<dynamic> get onDisconnect => _transport.onDisconnect.future;
+
   /// If there is a transport object that is opened and the incoming stream has not
   /// been closed, this will return true.
   bool isConnected() {
