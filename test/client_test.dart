@@ -36,6 +36,33 @@ import 'package:test/test.dart';
 
 void main() {
   group('Client', () {
+    /* ----------> Used to test reconnect
+    test("test reconnect", () async {
+      final transport = new WebSocketTransport(
+          "ws://localhost:8081/wamp", Serializer(), WebSocketSerialization.SERIALIZATION_JSON
+      );
+      // final transport = new SocketTransport(
+      //   "localhost",8081,Serializer(),SocketHelper.SERIALIZATION_JSON
+      // );
+      final client = Client(
+          realm: "biz.dls",
+          authId: "authID",
+          authenticationMethods: [
+            CraAuthentication(
+              base64.encode(CraAuthentication.deriveKey("******", "authID".codeUnits, iterations: 1000, keylen: 32).toList())
+            )
+          ],
+          transport:transport
+      );
+      client.connect(
+          pingInterval: Duration(seconds: 1),
+          reconnectTime: Duration(seconds: 1),
+          reconnectCount: 100).listen((session) {
+            print("created session ${session.id}");
+      });
+      await Future.delayed(Duration(seconds: 30));
+      //transport.send(new Publish(12,"Some"));
+    });**/
     test("session creation without authentication process", () async {
       final transport = _MockTransport();
       final client = Client(realm: "test.realm", transport: transport);
@@ -68,7 +95,9 @@ void main() {
         }
       });
       Completer abortCompleter = Completer<Abort>();
-      client.connect().listen((_) {}, onError:((abort) => abortCompleter.complete(abort)));
+      client
+          .connect()
+          .listen((_) {}, onError: ((abort) => abortCompleter.complete(abort)));
       Abort abort = await abortCompleter.future;
       expect(abort, isNotNull);
       expect(abort.reason, equals(Error.NO_SUCH_REALM));
@@ -85,7 +114,9 @@ void main() {
         }
       });
       Completer abortCompleter = Completer<Abort>();
-      client.connect().listen((_) {}, onError:((abort) => abortCompleter.complete(abort)));
+      client
+          .connect()
+          .listen((_) {}, onError: ((abort) => abortCompleter.complete(abort)));
       Abort abort = await abortCompleter.future;
       expect(abort, isNotNull);
       expect(abort.reason, equals(Error.NOT_AUTHORIZED));
@@ -165,7 +196,10 @@ void main() {
         }
       });
       Completer abortCompleter = Completer<Abort>();
-      client.connect().first.catchError((abort) => abortCompleter.complete(abort));
+      client
+          .connect()
+          .first
+          .catchError((abort) => abortCompleter.complete(abort));
       Abort abort = await abortCompleter.future;
       expect(abort, isNotNull);
       expect(abort.reason, equals(Error.AUTHORIZATION_FAILED));
@@ -689,7 +723,7 @@ class _MockTransport extends AbstractTransport {
   Future<void> close({error}) {
     this._open = false;
     this.inbound.close();
-    complete(_onDisconnect,error);
+    complete(_onDisconnect, error);
     return Future.value();
   }
 

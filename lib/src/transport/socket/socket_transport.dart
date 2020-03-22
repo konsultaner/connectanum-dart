@@ -90,7 +90,9 @@ class SocketTransport extends AbstractTransport {
   bool get isOpen {
     // Dart does not provide a socket channel state
     // fix when this issue is solved: https://github.com/dart-lang/web_socket_channel/issues/16
-    return _socket != null && !onDisconnect.isCompleted && !_onConnectionLost.isCompleted;
+    return _socket != null &&
+        !onDisconnect.isCompleted &&
+        !_onConnectionLost.isCompleted;
   }
 
   bool get isReady => isOpen && _handshakeCompleter.isCompleted;
@@ -114,8 +116,12 @@ class SocketTransport extends AbstractTransport {
     if (_pingInterval != null) {
       await Future.delayed(_pingInterval);
       if (this.isReady) {
-        this.sendPing(timeout: Duration(milliseconds: (_pingInterval.inMilliseconds * 2 / 3).floor()))
-        .then((_) {}, onError: (timeout) {
+        this
+            .sendPing(
+                timeout: Duration(
+                    milliseconds:
+                        (_pingInterval.inMilliseconds * 2 / 3).floor()))
+            .then((_) {}, onError: (timeout) {
           if (!_onConnectionLost.isCompleted) {
             _onConnectionLost.complete(timeout);
           }
@@ -193,8 +199,7 @@ class SocketTransport extends AbstractTransport {
             this._messageLengthExponent >
                 SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT) {
           _logger.finer("Try to upgrade to 5 byte raw socket header");
-          _send0(
-              SocketHelper.getUpgradeHandshake(this._messageLengthExponent));
+          _send0(SocketHelper.getUpgradeHandshake(this._messageLengthExponent));
         } else {
           // AN UPGRADE WAS NOT WANTED SO SET THE MESSAGE LENGTH AND COMPLETE THE HANDSHAKE
           this._messageLength = pow(
@@ -316,11 +321,11 @@ class SocketTransport extends AbstractTransport {
       _pingCompleter = Completer<Uint8List>();
       _send0(SocketHelper.getPing(isUpgradedProtocol));
       try {
-        Uint8List pong = await _pingCompleter.future.timeout(
-            timeout == null ? Duration(seconds: 5) : timeout);
+        Uint8List pong = await _pingCompleter.future
+            .timeout(timeout == null ? Duration(seconds: 5) : timeout);
         return pong;
-      } on TimeoutException catch(error) {
-        if(isOpen) {
+      } on TimeoutException catch (error) {
+        if (isOpen) {
           throw error;
         }
         _pingCompleter.complete();

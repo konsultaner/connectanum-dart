@@ -31,7 +31,7 @@ class WebSocketTransport extends AbstractTransport {
   @override
   Future<void> close({error}) {
     _socket.close();
-    complete(_onDisconnect,error);
+    complete(_onDisconnect, error);
     return Future.value();
   }
 

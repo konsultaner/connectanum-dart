@@ -25,7 +25,6 @@ class WebSocketTransport extends AbstractTransport {
   bool get isReady => isOpen;
   Future<void> get onReady => Future.error(null);
 
-
   @override
   Future<void> open({Duration pingInterval}) {
     return null;

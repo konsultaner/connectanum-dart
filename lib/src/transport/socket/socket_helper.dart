@@ -23,7 +23,8 @@ class SocketHelper {
 
   /// Compare to the regular wamp definition, connectanum is able to send and receive up to 2^30 octets per message
   static const int MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT = 30;
-  static int get _MAX_MESSAGE_LENGTH_CONNECTANUM => pow(2, MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT);
+  static int get _MAX_MESSAGE_LENGTH_CONNECTANUM =>
+      pow(2, MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT);
 
   /// Sends a handshake of the morphology
   /// 0111 1111 LLLL SSSS RRRR RRRR RRRR RRRR

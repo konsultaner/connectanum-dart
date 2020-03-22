@@ -63,19 +63,22 @@ class Client {
   /// the client will try to reestablish the session. Setting [reconnectCount] to -1 will infinite
   /// times reconnect the client or until the stack overflows
   Stream<Session> connect(
-      {
-        Duration pingInterval,
-        Duration reconnectTime,
-        reconnectCount,
-        onReconnecting()
-      }
-  ) {
+      {Duration pingInterval,
+      Duration reconnectTime,
+      reconnectCount,
+      onReconnecting()}) {
     this._reconnectCount = reconnectCount;
-    _connect(pingInterval: pingInterval, reconnectTime: reconnectTime, reconnectCount: reconnectCount);
+    _connect(
+        pingInterval: pingInterval,
+        reconnectTime: reconnectTime,
+        reconnectCount: reconnectCount);
     return _controller.stream;
   }
 
-  void _connect({Duration pingInterval, Duration reconnectTime, int reconnectCount = 3}) async {
+  void _connect(
+      {Duration pingInterval,
+      Duration reconnectTime,
+      int reconnectCount = 3}) async {
     await transport.open(pingInterval: pingInterval);
     if (transport.isOpen) {
       transport.onConnectionLost.future.then((_) async {
@@ -83,8 +86,7 @@ class Client {
         _connect(
             pingInterval: pingInterval,
             reconnectTime: reconnectTime,
-            reconnectCount: this._reconnectCount
-        );
+            reconnectCount: this._reconnectCount);
       });
       try {
         Session session = await Session.start(realm, transport,
@@ -98,8 +100,7 @@ class Client {
           _connect(
               pingInterval: pingInterval,
               reconnectTime: Duration(seconds: 2),
-              reconnectCount: 0
-          );
+              reconnectCount: 0);
         } else {
           _controller.addError(abort);
         }
@@ -108,21 +109,23 @@ class Client {
         _controller.close();
       }
     } else {
-      if(
-          reconnectTime != null &&
-          transport.onConnectionLost.isCompleted
-      ) {
+      if (reconnectTime != null && transport.onConnectionLost.isCompleted) {
         if (reconnectCount == 0) {
-          _controller.addError(Abort(Error.AUTHORIZATION_FAILED,message:"Could not connect to server. Please configure reconnectTime to retry automatically."));
+          _controller.addError(Abort(Error.AUTHORIZATION_FAILED,
+              message:
+                  "Could not connect to server. Please configure reconnectTime to retry automatically."));
         } else {
           await Future.delayed(reconnectTime);
           _connect(
               pingInterval: pingInterval,
               reconnectTime: reconnectTime,
-              reconnectCount: reconnectCount == -1 ? reconnectCount : reconnectCount - 1);
+              reconnectCount:
+                  reconnectCount == -1 ? reconnectCount : reconnectCount - 1);
         }
       } else {
-        _controller.addError(Abort(Error.AUTHORIZATION_FAILED,message:"Could not connect to server. Please configure reconnectTime to retry automatically."));
+        _controller.addError(Abort(Error.AUTHORIZATION_FAILED,
+            message:
+                "Could not connect to server. Please configure reconnectTime to retry automatically."));
       }
     }
   }

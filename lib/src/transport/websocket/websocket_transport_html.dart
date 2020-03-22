@@ -30,7 +30,7 @@ class WebSocketTransport extends AbstractTransport {
   @override
   Future<void> close({error}) {
     _socket.close();
-    complete(_onDisconnect,error);
+    complete(_onDisconnect, error);
     return Future.value();
   }
 
@@ -56,7 +56,8 @@ class WebSocketTransport extends AbstractTransport {
     Completer openCompleter = Completer();
     _socket = WebSocket(_url, _serializerType);
     if (pingInterval != null) {
-      _logger.info("The browsers WebSocket API does not support ping interval configuration.");
+      _logger.info(
+          "The browsers WebSocket API does not support ping interval configuration.");
     }
     _socket.onOpen.listen((open) => openCompleter.complete(open));
     _socket.onError.listen((Event error) {
