@@ -324,9 +324,9 @@ class SocketTransport extends AbstractTransport {
         Uint8List pong = await _pingCompleter.future
             .timeout(timeout == null ? Duration(seconds: 5) : timeout);
         return pong;
-      } on TimeoutException catch (error) {
+      } on TimeoutException {
         if (isOpen) {
-          throw error;
+          rethrow;
         }
         _pingCompleter.complete();
         return null;

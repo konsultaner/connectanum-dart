@@ -83,7 +83,7 @@ final client = Client(
     WebSocketSerialization.SERIALIZATION_JSON
   )
 );
-final session = await client.connect();
+final session = await client.connect().first;
 ```
 
 ## RPC
