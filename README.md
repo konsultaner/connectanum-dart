@@ -115,3 +115,7 @@ await for (final result in session.call("my.procedure")) {
   // do something with the result
 }
 ```
+
+## known issues
+the dart vm has a poor support for WbSocket states. Therefore auto reconnect on WebSocket transport within the dart
+vm is not working until [this issue](https://github.com/dart-lang/web_socket_channel/issues/16) is closes. 

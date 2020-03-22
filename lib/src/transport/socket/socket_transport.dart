@@ -14,7 +14,7 @@ import '../abstract_transport.dart';
 /// capable of using connectanums own upgrade method to allow more then 16MB of
 /// payload.
 class SocketTransport extends AbstractTransport {
-  Logger _logger = Logger("SocketTransport");
+  static Logger _logger = Logger("SocketTransport");
 
   bool _ssl;
   String _host;
@@ -76,16 +76,20 @@ class SocketTransport extends AbstractTransport {
   @override
   Future<void> close({error}) {
     // found at https://stackoverflow.com/questions/28745138/how-to-handle-socket-disconnects-in-dart
-    return _socket.drain().then((_) {
-      _socket.destroy(); // closes in and out going socket
-      complete(_onDisconnect,error);
-    });
+    if (isOpen) {
+      return _socket.drain().then((_) {
+        _socket.destroy(); // closes in and out going socket
+        complete(_onDisconnect, error);
+      });
+    } else {
+      return Future.value();
+    }
   }
 
   @override
   bool get isOpen {
     // Dart does not provide a socket channel state
-    // TODO fix when this issue is solved: https://github.com/dart-lang/web_socket_channel/issues/16
+    // fix when this issue is solved: https://github.com/dart-lang/web_socket_channel/issues/16
     return _socket != null && !onDisconnect.isCompleted && !_onConnectionLost.isCompleted;
   }
 
@@ -110,7 +114,12 @@ class SocketTransport extends AbstractTransport {
     if (_pingInterval != null) {
       await Future.delayed(_pingInterval);
       if (this.isReady) {
-        this.sendPing(timeout: Duration(milliseconds: (_pingInterval.inMilliseconds * 2 / 3).floor()));
+        this.sendPing(timeout: Duration(milliseconds: (_pingInterval.inMilliseconds * 2 / 3).floor()))
+        .then((_) {}, onError: (timeout) {
+          if (!_onConnectionLost.isCompleted) {
+            _onConnectionLost.complete(timeout);
+          }
+        });
         _runPingInterval();
       }
     }

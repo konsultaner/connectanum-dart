@@ -15,7 +15,7 @@ void main() async {
   Session session1;
   try {
     // connect to the router and start the wamp layer
-    session1 = await client1.connect();
+    session1 = await client1.connect().first;
     // register a method that may be called by other clients
     final registered = await session1.register("demo.get.version");
     registered
@@ -37,7 +37,7 @@ void main() async {
         WebSocketSerialization.SERIALIZATION_JSON,
       ));
   try {
-    final session2 = await client2.connect();
+    final session2 = await client2.connect().first;
     // call session 1 registered method and print the result
     session2
         .call("demo.get.version")

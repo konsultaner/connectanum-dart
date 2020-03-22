@@ -7,6 +7,11 @@ import '../../message/abstract_message.dart';
 import '../../serializer/abstract_serializer.dart';
 import '../../transport/abstract_transport.dart';
 
+/// This transport type is used to connect via web sockets
+/// in a dart vm environment. A known issue is that this
+/// transport does not support auto reconnnect in the dart vm
+/// use [SocketTransport] instead! This may not work if your
+/// router does not raw socket transport
 class WebSocketTransport extends AbstractTransport {
   String _url;
   AbstractSerializer _serializer;

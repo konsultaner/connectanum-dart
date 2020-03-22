@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:convert';
 
 import 'package:connectanum/authentication.dart';
 import 'package:connectanum/connectanum.dart';
-import 'package:connectanum/json.dart';
 import 'package:connectanum/src/authentication/abstract_authentication.dart';
 import 'package:connectanum/src/authentication/cra_authentication.dart';
 import 'package:connectanum/src/client.dart';
@@ -52,7 +50,7 @@ void main() {
                   authRole: "client")));
         }
       });
-      final session = await client.connect();
+      final session = await client.connect().first;
       expect(session.realm, equals("test.realm"));
       expect(session.id, equals(42));
       expect(session.authId, equals("Richi"));
@@ -70,10 +68,27 @@ void main() {
         }
       });
       Completer abortCompleter = Completer<Abort>();
-      client.connect().catchError((abort) => abortCompleter.complete(abort));
+      client.connect().listen((_) {}, onError:((abort) => abortCompleter.complete(abort)));
       Abort abort = await abortCompleter.future;
       expect(abort, isNotNull);
       expect(abort.reason, equals(Error.NO_SUCH_REALM));
+      expect(abort.message.message, equals("The given realm is not valid"));
+      expect(transport.isOpen, isFalse);
+    });
+    test("session creation router abort not authorized", () async {
+      final transport = _MockTransport();
+      final client = Client(realm: "test.realm", transport: transport);
+      transport.outbound.stream.listen((message) {
+        if (message.id == MessageTypes.CODE_HELLO) {
+          transport.receiveMessage(Abort(Error.NOT_AUTHORIZED,
+              message: "The given realm is not valid"));
+        }
+      });
+      Completer abortCompleter = Completer<Abort>();
+      client.connect().listen((_) {}, onError:((abort) => abortCompleter.complete(abort)));
+      Abort abort = await abortCompleter.future;
+      expect(abort, isNotNull);
+      expect(abort.reason, equals(Error.NOT_AUTHORIZED));
       expect(abort.message.message, equals("The given realm is not valid"));
       expect(transport.isOpen, isFalse);
     });
@@ -112,7 +127,7 @@ void main() {
           goodbyeCompleter.complete(message);
         }
       });
-      final session = await client.connect();
+      final session = await client.connect().first;
       expect(session.realm, equals("test.realm"));
       expect(session.id, equals(586844620777222));
       expect(session.authId, equals("11111111"));
@@ -150,7 +165,7 @@ void main() {
         }
       });
       Completer abortCompleter = Completer<Abort>();
-      client.connect().catchError((abort) => abortCompleter.complete(abort));
+      client.connect().first.catchError((abort) => abortCompleter.complete(abort));
       Abort abort = await abortCompleter.future;
       expect(abort, isNotNull);
       expect(abort.reason, equals(Error.AUTHORIZATION_FAILED));
@@ -205,7 +220,7 @@ void main() {
                   authRole: "user")));
         }
       });
-      final session = await client.connect();
+      final session = await client.connect().first;
       expect(session.realm, equals("test.realm"));
       expect(session.id, equals(3251278072152162));
       expect(session.authId, equals("joe"));
@@ -304,7 +319,7 @@ void main() {
         }
       });
 
-      final session = await client.connect();
+      final session = await client.connect().first;
       final registrationErrorCompleter = Completer<Error>();
 
       // NOT WORKING REGISTRATION
@@ -534,7 +549,7 @@ void main() {
           }
         }
       });
-      final session = await client.connect();
+      final session = await client.connect().first;
 
       // REGULAR SUBSCRIBE
 
