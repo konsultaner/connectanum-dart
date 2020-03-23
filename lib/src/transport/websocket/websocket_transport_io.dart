@@ -19,7 +19,7 @@ class WebSocketTransport extends AbstractTransport {
   WebSocket _socket;
   Completer _onConnectionLost;
   Completer _onDisconnect;
-  Completer _onReady = new Completer();
+  Completer _onReady;
 
   WebSocketTransport(
     this._url,
@@ -51,13 +51,17 @@ class WebSocketTransport extends AbstractTransport {
 
   @override
   Future<void> open({Duration pingInterval}) async {
+    _onReady = Completer();
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
     try {
       _socket = await WebSocket.connect(_url, protocols: [_serializerType]);
       _onReady.complete();
       if (pingInterval != null) {
-        _socket.pingInterval = pingInterval;
+        Timer.periodic(
+            pingInterval,
+            (timer) => _socket.pingInterval = Duration(
+                milliseconds: (pingInterval.inMilliseconds * 2 / 3).floor()));
       }
     } on SocketException catch (exception) {
       _onConnectionLost.complete(exception);
@@ -76,7 +80,13 @@ class WebSocketTransport extends AbstractTransport {
 
   @override
   Stream<AbstractMessage> receive() {
-    _socket.done.then((done) => null, onError: (error) {
+    _socket.done.then((done) {
+      if (_socket.closeCode > 1000) {
+        _onConnectionLost.complete();
+      } else {
+        _onDisconnect.complete();
+      }
+    }, onError: (error) {
       if (!_onDisconnect.isCompleted) {
         _onConnectionLost.complete(error);
       }

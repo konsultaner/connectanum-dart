@@ -1,3 +1,7 @@
+### 1.0.0-dev.10
+
+- found a way to handle disconnects in regular io WebSocket transport
+
 ### 1.0.0-dev.9
 
 - added reconnect and server loss behavior

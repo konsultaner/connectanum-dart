@@ -16,10 +16,6 @@ WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
 - msgpack serializer
 - get the auth id that called a method
 - handle ping pong times
-- auto reconnect handling, but keep abstract socket interface
-    - difference between intentionally and unintentionally disconnect
-    - websocket has error and regular close event. 
-      use them if possible or use close with internal state from this package?
 
 ## Supported WAMP features
 
@@ -115,7 +111,3 @@ await for (final result in session.call("my.procedure")) {
   // do something with the result
 }
 ```
-
-## known issues
-the dart vm has a poor support for WbSocket states. Therefore auto reconnect on WebSocket transport within the dart
-vm is not working until [this issue](https://github.com/dart-lang/web_socket_channel/issues/16) is closes. 
