@@ -149,6 +149,7 @@ class Session {
   }
 
   Future<dynamic> get onDisconnect => _transport.onDisconnect.future;
+  Future<dynamic> get onConnectionLost => _transport.onConnectionLost.future;
 
   /// If there is a transport object that is opened and the incoming stream has not
   /// been closed, this will return true.
