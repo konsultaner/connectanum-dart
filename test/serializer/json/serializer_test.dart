@@ -7,6 +7,7 @@ import 'package:connectanum/src/message/challenge.dart';
 import 'package:connectanum/src/message/details.dart';
 import 'package:connectanum/src/message/event.dart';
 import 'package:connectanum/src/message/error.dart';
+import 'package:connectanum/src/message/goodbye.dart';
 import 'package:connectanum/src/message/hello.dart';
 import 'package:connectanum/src/message/message_types.dart';
 import 'package:connectanum/src/message/publish.dart';
@@ -281,6 +282,14 @@ void main() {
               })),
           equals(
               '[16,239714735,{"exclude_me":false},"com.myapp.mytopic1",["Hello, world!"],{"color":"orange","sizes":[23,42,7]}]'));
+    });
+    test('Goodbye', () {
+      expect(serializer.serializeToString(Goodbye(GoodbyeMessage("cya"),Goodbye.REASON_GOODBYE_AND_OUT)),
+          equals('[6,{"message":"cya"},"wamp.error.goodbye_and_out"]'));
+      expect(serializer.serializeToString(Goodbye(GoodbyeMessage(null),Goodbye.REASON_CLOSE_REALM)),
+          equals('[6,{"message":""},"wamp.error.close_realm"]'));
+      expect(serializer.serializeToString(Goodbye(null,Goodbye.REASON_SYSTEM_SHUTDOWN)),
+          equals('[6,{},"wamp.error.system_shutdown"]'));
     });
   });
   group('unserialize', () {

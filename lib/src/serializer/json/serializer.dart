@@ -263,7 +263,7 @@ class Serializer extends AbstractSerializer {
       return '[${MessageTypes.CODE_ERROR},${message.requestTypeId},${message.requestId},${json.encode(message.details)},"${message.error}"${_serializePayload(message)}]';
     }
     if (message is Goodbye) {
-      return '[${MessageTypes.CODE_GOODBYE},${message.message != null ? '"{"message":"${message.message.message ?? ""}"' : "{}"},${message.reason}]';
+      return '[${MessageTypes.CODE_GOODBYE},${message.message != null ? '{"message":"${message.message.message ?? ""}"}' : "{}"},"${message.reason}"]';
     }
 
     _logger.shout(
