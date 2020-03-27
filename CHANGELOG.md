@@ -1,3 +1,7 @@
+### 1.0.1-beta.1
+
+- update version to make this one the latest.
+
 ### 1.0.0-beta.1
 
 - fixed on connection lost and on disconnect events
