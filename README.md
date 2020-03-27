@@ -15,7 +15,6 @@ WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
 - better docs
 - msgpack serializer
 - get the auth id that called a method
-- handle ping pong times
 
 ## Supported WAMP features
 
