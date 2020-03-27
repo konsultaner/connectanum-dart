@@ -5,6 +5,7 @@ import "dart:html";
 import 'package:logging/logging.dart';
 
 import 'websocket_transport_serialization.dart';
+import '../../message/goodbye.dart';
 import '../../message/abstract_message.dart';
 import '../../serializer/abstract_serializer.dart';
 import '../../transport/abstract_transport.dart';
@@ -16,6 +17,8 @@ class WebSocketTransport extends AbstractTransport {
   AbstractSerializer _serializer;
   String _serializerType;
   WebSocket _socket;
+  bool _goodbyeSent = false;
+  bool _goodbyeReceived = false;
   Completer _onConnectionLost;
   Completer _onDisconnect;
   Completer _onReady;
@@ -72,6 +75,9 @@ class WebSocketTransport extends AbstractTransport {
 
   @override
   void send(AbstractMessage message) {
+    if (message is Goodbye) {
+      this._goodbyeSent = true;
+    }
     if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
       _socket.send(utf8.decode(_serializer.serialize(message).cast()));
     } else {
@@ -82,17 +88,24 @@ class WebSocketTransport extends AbstractTransport {
   @override
   Stream<AbstractMessage> receive() {
     _socket.onClose.listen((closeEvent) {
-      if (closeEvent.code > 1000) {
+      if (closeEvent.code > 1000 && !_goodbyeSent && !_goodbyeReceived) {
         // a status code other then 1000 indicates that the server tried to quit
         _onConnectionLost.complete();
+      } else {
+        _onDisconnect.complete();
       }
     });
     return _socket.onMessage.map((messageEvent) {
+      AbstractMessage message;
       if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
-        return _serializer.deserialize(utf8.encode(messageEvent.data));
+        message = _serializer.deserialize(utf8.encode(messageEvent.data));
       } else {
-        return _serializer.deserialize(messageEvent.data);
+        message = _serializer.deserialize(messageEvent.data);
       }
+      if (message is Goodbye) {
+        this._goodbyeReceived = true;
+      }
+      return message;
     });
   }
 }

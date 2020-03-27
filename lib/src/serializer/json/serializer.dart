@@ -201,6 +201,11 @@ class Serializer extends AbstractSerializer {
         return Abort(message[2],
             message: message[1] == null ? null : message[1]["message"]);
       }
+      if (messageId == MessageTypes.CODE_GOODBYE) {
+        return Goodbye(
+            message[1] == null ? null : GoodbyeMessage(message[1]["message"]),
+            message[2]);
+      }
     }
     _logger.shout("Could not deserialize the message: " + jsonMessage);
     // TODO respond with an error

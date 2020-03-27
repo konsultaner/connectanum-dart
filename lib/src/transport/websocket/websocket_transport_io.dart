@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:connectanum/src/message/goodbye.dart';
+
 import 'websocket_transport_serialization.dart';
 import '../../message/abstract_message.dart';
 import '../../serializer/abstract_serializer.dart';
@@ -16,6 +18,8 @@ class WebSocketTransport extends AbstractTransport {
   String _url;
   AbstractSerializer _serializer;
   String _serializerType;
+  bool _goodbyeSent = false;
+  bool _goodbyeReceived = false;
   WebSocket _socket;
   Completer _onConnectionLost;
   Completer _onDisconnect;
@@ -70,6 +74,9 @@ class WebSocketTransport extends AbstractTransport {
 
   @override
   void send(AbstractMessage message) {
+    if (message is Goodbye) {
+      this._goodbyeSent = true;
+    }
     List<int> byteMessage = _serializer.serialize(message).cast();
     if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
       _socket.addUtf8Text(byteMessage);
@@ -81,7 +88,7 @@ class WebSocketTransport extends AbstractTransport {
   @override
   Stream<AbstractMessage> receive() {
     _socket.done.then((done) {
-      if (_socket.closeCode > 1000) {
+      if (_socket.closeCode > 1000 && !_goodbyeSent && !_goodbyeReceived) {
         _onConnectionLost.complete();
       } else {
         _onDisconnect.complete();
@@ -92,11 +99,16 @@ class WebSocketTransport extends AbstractTransport {
       }
     });
     return _socket.map((messageEvent) {
+      AbstractMessage message;
       if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
-        return _serializer.deserialize(utf8.encode(messageEvent));
+        message = _serializer.deserialize(utf8.encode(messageEvent));
       } else {
-        return _serializer.deserialize(messageEvent);
+        message = _serializer.deserialize(messageEvent);
       }
+      if (message is Goodbye) {
+        this._goodbyeReceived = true;
+      }
+      return message;
     });
   }
 }

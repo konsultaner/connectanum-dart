@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 
 import 'package:connectanum/authentication.dart';
 import 'package:connectanum/connectanum.dart';
@@ -31,7 +32,10 @@ import 'package:connectanum/src/message/unsubscribe.dart';
 import 'package:connectanum/src/message/unsubscribed.dart';
 import 'package:connectanum/src/message/welcome.dart';
 import 'package:connectanum/src/message/yield.dart';
+import 'package:connectanum/src/serializer/json/serializer.dart';
 import 'package:connectanum/src/transport/abstract_transport.dart';
+import 'package:connectanum/src/transport/socket/socket_helper.dart';
+import 'package:connectanum/src/transport/socket/socket_transport.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -59,6 +63,9 @@ void main() {
           reconnectTime: Duration(seconds: 1),
           reconnectCount: 100).listen((session) {
             print("created session ${session.id}");
+            session.onConnectionLost.then((_) => print("ON CONNECTION LOST"));
+            session.onDisconnect.then((_) => print("ON DISCONNECT"));
+            session.close();
       });
       await Future.delayed(Duration(seconds: 30));
       //transport.send(new Publish(12,"Some"));

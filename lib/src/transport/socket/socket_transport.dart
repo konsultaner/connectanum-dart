@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:connectanum/src/message/goodbye.dart';
 import 'package:logging/logging.dart';
 
 import '../../message/abstract_message.dart';
@@ -33,7 +34,8 @@ class SocketTransport extends AbstractTransport {
   Completer _pingCompleter;
   Completer _onConnectionLost;
   Completer _onDisconnect;
-  bool _willClose = false;
+  bool _goodbyeSent = false;
+  bool _goodbyeReceived = false;
 
   /// This creates a socket transport instance. The [messageLengthExponent] configures
   /// the max message length that will be excepted to be send and received. It is negotiated
@@ -56,8 +58,8 @@ class SocketTransport extends AbstractTransport {
         _messageLengthExponent, _serializerType));
   }
 
-  void _sendError(int errorCode) {
-    _willClose = true;
+  void _sendProtocolError(int errorCode) {
+    _goodbyeSent = true;
     _send0(SocketHelper.getError(errorCode));
     close();
   }
@@ -122,8 +124,13 @@ class SocketTransport extends AbstractTransport {
                     milliseconds:
                         (_pingInterval.inMilliseconds * 2 / 3).floor()))
             .then((_) {}, onError: (timeout) {
-          if (!_onConnectionLost.isCompleted) {
+          if (!_goodbyeSent &&
+              !_goodbyeReceived &&
+              !_onDisconnect.isCompleted &&
+              !_onConnectionLost.isCompleted) {
             _onConnectionLost.complete(timeout);
+          } else if (!_onDisconnect.isCompleted) {
+            _onDisconnect.complete();
           }
         });
         _runPingInterval();
@@ -152,8 +159,14 @@ class SocketTransport extends AbstractTransport {
 
   @override
   Stream<AbstractMessage> receive() {
-    _socket.done.then((done) => null, onError: (error) {
-      if (!_willClose && !_onDisconnect.isCompleted) {
+    _socket.done.then((done) {
+      if (!_goodbyeSent && !_goodbyeReceived && !_onDisconnect.isCompleted) {
+        _onConnectionLost.complete();
+      } else {
+        _onDisconnect.complete();
+      }
+    }, onError: (error) {
+      if (!_goodbyeSent && !_goodbyeReceived && !_onDisconnect.isCompleted) {
         _onConnectionLost.complete(error);
       }
     });
@@ -173,7 +186,7 @@ class SocketTransport extends AbstractTransport {
             return false;
           }
           if (finalMessageLength > _messageLength) {
-            _sendError(SocketHelper.ERROR_MESSAGE_LENGTH_EXCEEDED);
+            _sendProtocolError(SocketHelper.ERROR_MESSAGE_LENGTH_EXCEEDED);
             _logger.fine(
                 "Closed raw socket channel because the message length exceeded the max value of " +
                     _messageLength.toString());
@@ -269,6 +282,9 @@ class SocketTransport extends AbstractTransport {
         if (messageType == SocketHelper.MESSAGE_WAMP) {
           AbstractMessage deserializedMessage =
               _serializer.deserialize(message);
+          if (deserializedMessage is Goodbye) {
+            _goodbyeReceived = true;
+          }
           _logger.finest(
               "Received message type " + deserializedMessage.id.toString());
           messages.add(deserializedMessage);
@@ -338,6 +354,9 @@ class SocketTransport extends AbstractTransport {
 
   @override
   void send(AbstractMessage message) {
+    if (message is Goodbye) {
+      _goodbyeSent = true;
+    }
     if (!_handshakeCompleter.isCompleted) {
       if (_outboundBuffer.isEmpty) {
         _handshakeCompleter.future.then((aVoid) {

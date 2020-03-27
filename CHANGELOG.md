@@ -1,3 +1,8 @@
+### 1.0.0-beta.1
+
+- fixed on connection lost and on disconnect events
+- fixed good bye message handling in serializer 
+
 ### 1.0.0-dev.10
 
 - found a way to handle disconnects in regular io WebSocket transport
