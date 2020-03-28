@@ -7,6 +7,6 @@ dart_task:
   - test: --platform chrome
 
 script:
-  - pub global activate dart_codecov_generator
-  - pub global run dart_codecov_generator --no-html --verbose
+  - pub global activate test_coverage
+  - pub global run test_coverage
   - bash <(curl -s https://codecov.io/bash)
