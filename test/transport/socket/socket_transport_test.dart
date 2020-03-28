@@ -219,8 +219,10 @@ void main() {
             }
           }
           if (message[0] == SocketHelper.MESSAGE_PING) {
-            socket.add(
-                SocketHelper.getPong(0, false) + SocketHelper.getPing(false));
+            Future.delayed(Duration(milliseconds: 1)).then((_) {
+              socket.add(
+                  SocketHelper.getPong(0, false) + SocketHelper.getPing(false));
+            });
             if (message.length > 4) {
               message = message.sublist(4);
             }
