@@ -214,10 +214,16 @@ void main() {
             socket.add(SocketHelper.getInitialHandshake(
                 SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT,
                 SocketHelper.SERIALIZATION_JSON));
+            if (message.length > 4) {
+              message = message.sublist(4);
+            }
           }
           if (message[0] == SocketHelper.MESSAGE_PING) {
             socket.add(
                 SocketHelper.getPong(0, false) + SocketHelper.getPing(false));
+            if (message.length > 4) {
+              message = message.sublist(4);
+            }
           }
           if (message[0] == SocketHelper.MESSAGE_PONG) {
             pongCompleter.complete();
