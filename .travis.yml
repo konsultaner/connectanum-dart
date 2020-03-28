@@ -5,9 +5,6 @@ jobs:
     - name: VM Tests
       dart: stable
       env: PLATFORM=vm
-    - name: Chrome Tests
-      dart: stable
-      env: PLATFORM=chrome
 
 script:
   - pub run test -p $PLATFORM --coverage="./coverage"
