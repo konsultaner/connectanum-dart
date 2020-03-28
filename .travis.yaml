@@ -1,0 +1,12 @@
+language: dart
+dart:
+  - stable
+
+dart_task:
+  - test: --platform vm
+  - test: --platform chrome
+
+script:
+  - pub global activate dart_codecov_generator
+  - pub global run dart_codecov_generator --no-html --verbose
+  - bash <(curl -s https://codecov.io/bash)
