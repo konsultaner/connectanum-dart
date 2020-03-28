@@ -1,12 +1,16 @@
 language: dart
-dart:
-  - stable
 
-dart_task:
-  - test: --platform vm
-  - test: --platform chrome
+jobs:
+  include:
+    - name: VM Tests
+      dart: stable
+      env: PLATFORM=vm
+    - name: Chrome Tests
+      dart: stable
+      env: PLATFORM=chrome
 
 script:
+  - pub run test -p $PLATFORM --coverage
   - pub global activate test_coverage
   - pub global run test_coverage
   - bash <(curl -s https://codecov.io/bash)
