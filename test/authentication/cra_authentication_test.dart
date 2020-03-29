@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:connectanum/src/authentication/cra_authentication.dart';
 import 'package:connectanum/src/message/challenge.dart';
+import 'package:connectanum/src/message/error.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -173,6 +174,11 @@ void main() {
           Extra(challenge: challenge, keylen: 32, iterations: 1000, salt: salt);
       final authenticate = await authMethod.challenge(extra);
       expect(authenticate.signature, equals(hmac));
+    });
+    test("challenge error", () async {
+      final authMethod = CraAuthentication(secret);
+      expect(authMethod.getName(), equals("wampcra"));
+      expect(() async => await authMethod.challenge(null), throwsA(isA<Error>()));
     });
   });
 }

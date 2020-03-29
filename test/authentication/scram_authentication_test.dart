@@ -24,6 +24,7 @@ void main() {
 
     test("hello init", () async {
       final authMethod = ScramAuthentication(secret, challengeTimeout: Duration(milliseconds: 20));
+      expect(authMethod.getName(), equals("wamp-scram"));
       authMethod.hello("com.realm", Details.forHello()..authid = user);
       expect(authMethod.authid, equals(user));
       expect(authMethod.secret, equals(secret));
@@ -52,16 +53,18 @@ void main() {
         ..hello("com.realm", Details.forHello()..authid = user);
       await Future.delayed(Duration(milliseconds: 2));
       expect(() async => await authMethod.challenge(challengeExtra), throwsA(isA<Exception>()));
+      expect(() async => await authMethod.challenge(challengeExtra), throwsA(predicate((exception) => exception.toString() == "Exception: Wrong nonce")));
     });
     test("challenge wrong kdf", () async {
+      final authMethod = ScramAuthentication(secret)
+        ..hello("com.realm", Details.forHello()..authid = user);
       Extra challengeExtra2 = Extra(
           iterations: 4096,
           salt: "W22ZaJ0SNY7soEsUEjb6gQ==",
-          nonce: 'rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF\$k0',
+          nonce: authMethod.helloNonce + 'TCAfuxFIlj)hNlF\$k0',
           kdf: "other kdf");
-      final authMethod = ScramAuthentication(secret)
-        ..hello("com.realm", Details.forHello()..authid = user);
       expect(() async => await authMethod.challenge(challengeExtra2), throwsA(isA<Exception>()));
+      expect(() async => await authMethod.challenge(challengeExtra2), throwsA(predicate((exception) => exception.toString() == "Exception: not supported key derivation function used other kdf")));
     });
     test("derive key pbkdf2", () async {
       final authenticateSignature = ScramAuthentication(secret)
