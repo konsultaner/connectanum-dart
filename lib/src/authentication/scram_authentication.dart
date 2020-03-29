@@ -20,6 +20,11 @@ class ScramAuthentication extends AbstractAuthentication {
   String _helloNonce;
   Duration _challengeTimeout = Duration(seconds: 5);
 
+  String get secret => _secret;
+  String get authid => _authid;
+  String get helloNonce => _helloNonce;
+  Duration get challengeTimeout => _challengeTimeout;
+
   ScramAuthentication(String secret, {challengeTimeout}) {
     if (challengeTimeout != null) {
       this._challengeTimeout = challengeTimeout;
@@ -49,7 +54,7 @@ class ScramAuthentication extends AbstractAuthentication {
 
   @override
   Future<Authenticate> challenge(Extra extra) {
-    if (extra.nonce == null ||
+    if (extra.nonce == null || _helloNonce == null ||
         !_helloNonce.contains(extra.nonce.substring(0, 12))) {
       return Future.error(Exception("Wrong nonce"));
     }
@@ -64,8 +69,8 @@ class ScramAuthentication extends AbstractAuthentication {
           challengePBKDF2(_authid, _helloNonce, extra, authenticate.extra);
     }
     if (authenticate.signature == null) {
-      throw Exception(
-          "not supported key derivation function used " + extra.kdf);
+      return Future.error(Exception(
+          "not supported key derivation function used " + extra.kdf));
     }
     return Future.value(authenticate);
   }

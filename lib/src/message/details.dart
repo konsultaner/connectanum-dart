@@ -17,7 +17,7 @@ class Details {
   int trustlevel;
   Roles roles;
 
-  static forHello() {
+  static Details forHello() {
     final details = Details();
     details.roles = Roles();
 
