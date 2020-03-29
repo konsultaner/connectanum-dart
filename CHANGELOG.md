@@ -1,3 +1,8 @@
+### 1.0.1-beta.2
+
+- added several unit tests
+- fixed scram authentication error when the nonce was null
+
 ### 1.0.1-beta.1
 
 - update version to make this one the latest.

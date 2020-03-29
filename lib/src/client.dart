@@ -17,6 +17,7 @@ class Client {
   String authId;
   String realm;
   int isolateCount;
+  StreamController<int> _reconnectStreamController = new StreamController<int>();
   AbstractTransport transport;
   List<AbstractAuthentication> authenticationMethods;
 
@@ -53,6 +54,13 @@ class Client {
       this.isolateCount = 1})
       : assert(transport != null),
         assert(realm != null && UriPattern.match(realm));
+
+  /// if listened to this stream you will be noticed about reconnect tries. The passed
+  /// integer will be the current retry counted down from where you started in the configured
+  /// [reconnectCount] passed to the [connect] method. Be aware a zero is passed just
+  /// before the [connect] streams [onError] will raise the abort message. So 0 means
+  /// that the reconnect failed.
+  Stream<int> get onNextTryToReconnect => _reconnectStreamController.stream;
 
   /// Calling this method will start the authentication process and result into
   /// a [Session] object on success. If a [pingInterval] is given and the underlying transport
@@ -110,6 +118,7 @@ class Client {
       }
     } else {
       if (reconnectTime != null && transport.onConnectionLost.isCompleted) {
+        _reconnectStreamController.add(reconnectCount);
         if (reconnectCount == 0) {
           _controller.addError(Abort(Error.AUTHORIZATION_FAILED,
               message:
