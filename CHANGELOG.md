@@ -1,5 +1,7 @@
 ### 1.0.1-beta.2
 
+- added travis builds
+- added code coverage report
 - added several unit tests
 - fixed scram authentication error when the nonce was null
 

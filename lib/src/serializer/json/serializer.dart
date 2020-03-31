@@ -209,6 +209,7 @@ class Serializer extends AbstractSerializer {
     }
     _logger.shout("Could not deserialize the message: " + jsonMessage);
     // TODO respond with an error
+    return null;
   }
 
   AbstractMessageWithPayload _addPayload(AbstractMessageWithPayload message,
