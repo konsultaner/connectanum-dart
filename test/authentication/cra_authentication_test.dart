@@ -178,7 +178,8 @@ void main() {
     test("challenge error", () async {
       final authMethod = CraAuthentication(secret);
       expect(authMethod.getName(), equals("wampcra"));
-      expect(() async => await authMethod.challenge(null), throwsA(isA<Error>()));
+      expect(
+          () async => await authMethod.challenge(null), throwsA(isA<Error>()));
     });
   });
 }

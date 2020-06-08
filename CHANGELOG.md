@@ -1,3 +1,8 @@
+### 1.0.2
+
+- library is out of beta state
+- added subscription revocation
+
 ### 1.0.1-beta.2
 
 - added travis builds

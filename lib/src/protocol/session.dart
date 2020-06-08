@@ -226,14 +226,18 @@ class Session {
         .first;
     if (subscribed is Subscribed) {
       subscriptions[subscribed.subscriptionId] = subscribed;
-      subscribed.eventStream = this
-          ._openSessionStreamController
-          .stream
-          .where((message) =>
-              message is Event &&
-              subscriptions[subscribed.subscriptionId] != null &&
-              message.subscriptionId == subscribed.subscriptionId)
-          .cast();
+      subscribed.eventStream =
+          this._openSessionStreamController.stream.where((message) {
+        if (message is Unsubscribed &&
+            message.details?.subscription == subscribed.subscriptionId) {
+          subscriptions.remove(subscribed.subscriptionId);
+          subscribed.revoke(message.details.reason);
+          return false;
+        }
+        return message is Event &&
+            subscriptions[subscribed.subscriptionId] != null &&
+            message.subscriptionId == subscribed.subscriptionId;
+      }).cast();
       return subscribed;
     } else {
       throw subscribed as Error;

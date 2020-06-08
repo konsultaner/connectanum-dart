@@ -54,7 +54,8 @@ class ScramAuthentication extends AbstractAuthentication {
 
   @override
   Future<Authenticate> challenge(Extra extra) {
-    if (extra.nonce == null || _helloNonce == null ||
+    if (extra.nonce == null ||
+        _helloNonce == null ||
         !_helloNonce.contains(extra.nonce.substring(0, 12))) {
       return Future.error(Exception("Wrong nonce"));
     }
@@ -69,8 +70,8 @@ class ScramAuthentication extends AbstractAuthentication {
           challengePBKDF2(_authid, _helloNonce, extra, authenticate.extra);
     }
     if (authenticate.signature == null) {
-      return Future.error(Exception(
-          "not supported key derivation function used " + extra.kdf));
+      return Future.error(
+          Exception("not supported key derivation function used " + extra.kdf));
     }
     return Future.value(authenticate);
   }

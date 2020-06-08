@@ -538,6 +538,12 @@ void main() {
             transport.receiveMessage(
                 Subscribed((message as Subscribe).requestId, 10));
           }
+          if ((message as Subscribe).topic == "topic.revoke") {
+            transport.receiveMessage(
+                Subscribed((message as Subscribe).requestId, 11));
+            transport.receiveMessage(
+                Unsubscribed(0, new UnsubscribedDetails(11, "error.500")));
+          }
           if ((message as Subscribe).topic == "topic.my.error") {
             transport.receiveMessage(Error(MessageTypes.CODE_SUBSCRIBE,
                 (message as Subscribe).requestId, {}, Error.NOT_AUTHORIZED));
@@ -552,15 +558,26 @@ void main() {
                 Error.NO_SUCH_SUBSCRIPTION));
           } else {
             transport.receiveMessage(
-                Unsubscribed((message as Unsubscribe).requestId));
+                Unsubscribed((message as Unsubscribe).requestId, null));
           }
         }
       });
       final session = await client.connect().first;
 
+      // SUBSCRIPTION REVOKATION
+
+      Subscribed subscribed = await session.subscribe("topic.revoke");
+      expect(subscribed, isNotNull);
+      expect(subscribed.eventStream, isNotNull);
+      expect(subscribed.subscribeRequestId, isNotNull);
+      expect(subscribed.subscriptionId, equals(11));
+      subscribed.eventStream.listen((_) {});
+      String reason = await subscribed.onRevoke;
+      expect(reason, equals("error.500"));
+
       // REGULAR SUBSCRIBE
 
-      Subscribed subscribed = await session.subscribe("topic.my.de");
+      subscribed = await session.subscribe("topic.my.de");
       expect(subscribed, isNotNull);
       expect(subscribed.eventStream, isNotNull);
       expect(subscribed.subscribeRequestId, isNotNull);

@@ -9,6 +9,11 @@ With this project I want return something to the great WAMP-Protocol community.
 
 WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
 
+## Other Projects
+
+- [Connectanum java router, web and WebSocket server](https://connectanum.com), MVC-like framework, based on WAMP-Protocol
+- [jsonOdm](https://github.com/konsultaner/jsonOdm), a JavaScript mongodb like in memory data(base) handler.  
+
 ## TODOs
 
 - Multithreading for callee invocations
@@ -46,7 +51,7 @@ WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
 - ⬜ Publication Trust Levels
 - ☑ Pattern-based Subscriptions
 - ⬜ Sharded Subscriptions
-- ⬜ Subscription Revocation
+- ☑ Subscription Revocation
 
 ## Stream model
 

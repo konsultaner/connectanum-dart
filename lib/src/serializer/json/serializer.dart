@@ -179,7 +179,12 @@ class Serializer extends AbstractSerializer {
         return Subscribed(message[1], message[2]);
       }
       if (messageId == MessageTypes.CODE_UNSUBSCRIBED) {
-        return Unsubscribed(message[1]);
+        return Unsubscribed(
+            message[1],
+            message.length == 2
+                ? null
+                : new UnsubscribedDetails(
+                    message[2]["subscription"], message[2]["reason"]));
       }
       if (messageId == MessageTypes.CODE_EVENT) {
         return _addPayload(
@@ -327,6 +332,8 @@ class Serializer extends AbstractSerializer {
             '"progressive_call_results":${details.roles.subscriber.features.progressive_call_results ? "true" : "false"}');
         subscriberFeatures.add(
             '"payload_transparency":${details.roles.subscriber.features.payload_transparency ? "true" : "false"}');
+        subscriberFeatures.add(
+            '"subscription_revocation":${details.roles.subscriber.features.subscription_revocation ? "true" : "false"}');
         rolesJson
             .add('"subscriber":{"features":{${subscriberFeatures.join(",")}}}');
       }

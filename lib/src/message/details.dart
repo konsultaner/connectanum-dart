@@ -106,6 +106,7 @@ class SubscriberFeatures {
   bool call_canceling = false;
   bool progressive_call_results = false;
   bool payload_transparency = true;
+  bool subscription_revocation = true;
 }
 
 class Dealer {

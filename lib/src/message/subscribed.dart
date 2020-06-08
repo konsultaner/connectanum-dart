@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'abstract_message.dart';
 import 'event.dart';
 import 'message_types.dart';
@@ -13,4 +15,13 @@ class Subscribed extends AbstractMessage {
   /// Is created by the protocol processor and will receive an event object
   /// when the transport receives one
   Stream<Event> eventStream;
+  Completer<String> _revokeCompleter = new Completer<String>();
+
+  Future<String> get onRevoke {
+    return _revokeCompleter.future;
+  }
+
+  void revoke(String reason) {
+    _revokeCompleter.complete(reason);
+  }
 }
