@@ -294,7 +294,7 @@ class SocketTransport extends AbstractTransport {
               "Responded to ping with pong and a payload length of " +
                   message.length.toString());
           _send0(SocketHelper.getPong(message.length, isUpgradedProtocol));
-          if (message.length > 0) {
+          if (message.isNotEmpty) {
             _send0(message);
           }
         } else {

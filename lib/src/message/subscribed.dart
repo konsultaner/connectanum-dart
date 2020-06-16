@@ -15,7 +15,7 @@ class Subscribed extends AbstractMessage {
   /// Is created by the protocol processor and will receive an event object
   /// when the transport receives one
   Stream<Event> eventStream;
-  Completer<String> _revokeCompleter = new Completer<String>();
+  Completer<String> _revokeCompleter = Completer<String>();
 
   Future<String> get onRevoke {
     return _revokeCompleter.future;

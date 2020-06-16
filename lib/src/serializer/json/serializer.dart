@@ -183,7 +183,7 @@ class Serializer extends AbstractSerializer {
             message[1],
             message.length == 2
                 ? null
-                : new UnsubscribedDetails(
+                : UnsubscribedDetails(
                     message[2]["subscription"], message[2]["reason"]));
       }
       if (messageId == MessageTypes.CODE_EVENT) {
@@ -355,7 +355,7 @@ class Serializer extends AbstractSerializer {
       if (details.authid != null) {
         detailsParts.add('"authid":"${details.authid}"');
       }
-      if (details.authmethods != null && details.authmethods.length > 0) {
+      if (details.authmethods != null && details.authmethods.isNotEmpty) {
         detailsParts
             .add('"authmethods":["${details.authmethods.join('","')}"]');
       }
