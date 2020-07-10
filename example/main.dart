@@ -42,8 +42,14 @@ void main() async {
     final session2 = await client2.connect().first;
     // call session 1 registered method and print the result
     session2
-        .call("demo.get.version")
-        .listen((result) => print(result.arguments[0]));
+      .call("demo.get.version")
+      .listen(
+        (result) => print(result.arguments[0]),
+        onError: (e) {
+          Error error = e as Error; // type cast necessary
+          print(error.error);
+        }
+      );
     // push a message to session 1
     await session2.publish("demo.push", arguments: ["This is a push message"]);
     // close both clients after everything is done

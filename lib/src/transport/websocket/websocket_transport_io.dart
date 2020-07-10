@@ -88,7 +88,7 @@ class WebSocketTransport extends AbstractTransport {
   @override
   Stream<AbstractMessage> receive() {
     _socket.done.then((done) {
-      if (_socket.closeCode > 1000 && !_goodbyeSent && !_goodbyeReceived) {
+      if ((_socket.closeCode == null || _socket.closeCode > 1000) && !_goodbyeSent && !_goodbyeReceived) {
         _onConnectionLost.complete();
       } else {
         _onDisconnect.complete();

@@ -1,3 +1,8 @@
+### 1.0.3
+
+- [#11](https://github.com/konsultaner/connectanum-dart/issues/11)  fixed a null pointer issue
+- added example for error handling
+
 ### 1.0.2
 
 - library is out of beta state
