@@ -10,7 +10,7 @@ class Call extends AbstractMessageWithPayload {
       {this.options,
       List<Object> arguments,
       Map<String, Object> argumentsKeywords}) {
-    this.id = MessageTypes.CODE_CALL;
+    id = MessageTypes.CODE_CALL;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;
   }

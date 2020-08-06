@@ -16,7 +16,7 @@ class Registered extends AbstractMessage {
 
   /// sets the invocation handler, if an error is thrown within the handler this
   /// method will result an error message to the transport or router respectively
-  void onInvoke(void onInvoke(Invocation invocation)) {
+  void onInvoke(void Function(Invocation invocation) onInvoke) {
     if (_invocationStream != null) {
       _invocationStream.listen((Invocation invocation) {
         try {
@@ -33,6 +33,6 @@ class Registered extends AbstractMessage {
   }
 
   Registered(this.registerRequestId, this.registrationId) {
-    this.id = MessageTypes.CODE_REGISTERED;
+    id = MessageTypes.CODE_REGISTERED;
   }
 }

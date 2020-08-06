@@ -28,22 +28,22 @@ import 'package:connectanum/src/serializer/json/serializer.dart';
 import 'package:test/test.dart';
 
 void main() {
-  Serializer serializer = Serializer();
+  var serializer = Serializer();
   group('serialize', () {
     test('Hello', () {
       expect(
-          serializer.serializeToString(Hello("my.realm", Details.forHello())),
+          serializer.serializeToString(Hello('my.realm', Details.forHello())),
           equals(
               '[1,"my.realm",{"roles":{"caller":{"features":{"call_canceling":false,"call_timeout":false,"caller_identification":true,"payload_transparency":true,"progressive_call_results":true}},"callee":{"features":{"caller_identification":true,"call_trustlevels":false,"pattern_based_registration":false,"shared_registration":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":true,"payload_transparency":true}},"subscriber":{"features":{"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_transparency":true,"subscription_revocation":true}},"publisher":{"features":{"publisher_identification":true,"subscriber_blackwhite_listing":true,"publisher_exclusion":true,"payload_transparency":true}}}}]'));
     });
     test('Hello with auth information', () {
-      Hello authHello = Hello("my.realm", Details.forHello());
-      authHello.details.authid = "Richard";
-      authHello.details.authmethods = ["WAMP-CRA"];
-      authHello.details.authextra = new HashMap();
-      authHello.details.authextra["nonce"] = "egVDf3DMJh0=";
-      authHello.details.authextra["channel_binding"] = null;
-      String message = serializer.serializeToString(authHello);
+      var authHello = Hello('my.realm', Details.forHello());
+      authHello.details.authid = 'Richard';
+      authHello.details.authmethods = ['WAMP-CRA'];
+      authHello.details.authextra = HashMap();
+      authHello.details.authextra['nonce'] = 'egVDf3DMJh0=';
+      authHello.details.authextra['channel_binding'] = null;
+      var message = serializer.serializeToString(authHello);
       expect(
           message,
           startsWith(
@@ -55,7 +55,7 @@ void main() {
       expect(serializer.serializeToString(Authenticate()),
           equals('[${MessageTypes.CODE_AUTHENTICATE},"",{}]'));
       expect(
-          serializer.serializeToString(Authenticate.signature("someSignature")),
+          serializer.serializeToString(Authenticate.signature('someSignature')),
           equals(
               '[${MessageTypes.CODE_AUTHENTICATE},"${"someSignature"}",{}]'));
     });
@@ -86,31 +86,31 @@ void main() {
           equals('[${MessageTypes.CODE_UNREGISTER},25349185,127981236]'));
     });
     test('Call', () {
-      expect(serializer.serializeToString(Call(7814135, "com.myapp.ping")),
+      expect(serializer.serializeToString(Call(7814135, 'com.myapp.ping')),
           equals('[${MessageTypes.CODE_CALL},7814135,{},"com.myapp.ping"]'));
       expect(
           serializer.serializeToString(
-              Call(7814135, "com.myapp.ping", options: CallOptions())),
+              Call(7814135, 'com.myapp.ping', options: CallOptions())),
           equals('[${MessageTypes.CODE_CALL},7814135,{},"com.myapp.ping"]'));
       expect(
-          serializer.serializeToString(Call(7814135, "com.myapp.ping",
+          serializer.serializeToString(Call(7814135, 'com.myapp.ping',
               options: CallOptions(
                   receive_progress: true, disclose_me: true, timeout: 12))),
           equals(
               '[${MessageTypes.CODE_CALL},7814135,{"receive_progress":true,"disclose_me":true,"timeout":12},"com.myapp.ping"]'));
       expect(
           serializer.serializeToString(
-              Call(7814135, "com.myapp.ping", arguments: ["hi", 2])),
+              Call(7814135, 'com.myapp.ping', arguments: ['hi', 2])),
           equals(
               '[${MessageTypes.CODE_CALL},7814135,{},"com.myapp.ping",["hi",2]]'));
       expect(
           serializer.serializeToString(
-              Call(7814135, "com.myapp.ping", argumentsKeywords: {"hi": 12})),
+              Call(7814135, 'com.myapp.ping', argumentsKeywords: {'hi': 12})),
           equals(
               '[${MessageTypes.CODE_CALL},7814135,{},"com.myapp.ping",[],{"hi":12}]'));
       expect(
-          serializer.serializeToString(Call(7814135, "com.myapp.ping",
-              arguments: ["hi", 2], argumentsKeywords: {"hi": 12})),
+          serializer.serializeToString(Call(7814135, 'com.myapp.ping',
+              arguments: ['hi', 2], argumentsKeywords: {'hi': 12})),
           equals(
               '[${MessageTypes.CODE_CALL},7814135,{},"com.myapp.ping",["hi",2],{"hi":12}]'));
     });
@@ -125,84 +125,84 @@ void main() {
           serializer
               .serializeToString(Yield(6131533, options: YieldOptions(true))),
           equals('[${MessageTypes.CODE_YIELD},6131533,{"progress":true}]'));
-      expect(serializer.serializeToString(Yield(6131533, arguments: ["hi", 2])),
+      expect(serializer.serializeToString(Yield(6131533, arguments: ['hi', 2])),
           equals('[${MessageTypes.CODE_YIELD},6131533,{},["hi",2]]'));
       expect(
           serializer
-              .serializeToString(Yield(6131533, argumentsKeywords: {"hi": 12})),
+              .serializeToString(Yield(6131533, argumentsKeywords: {'hi': 12})),
           equals('[${MessageTypes.CODE_YIELD},6131533,{},[],{"hi":12}]'));
       expect(
           serializer.serializeToString(Yield(6131533,
-              arguments: ["hi", 2], argumentsKeywords: {"hi": 12})),
+              arguments: ['hi', 2], argumentsKeywords: {'hi': 12})),
           equals('[${MessageTypes.CODE_YIELD},6131533,{},["hi",2],{"hi":12}]'));
     });
     test('Error', () {
       expect(
           serializer.serializeToString(Error(
-              MessageTypes.CODE_HELLO, 123422, HashMap(), "wamp.unknown")),
+              MessageTypes.CODE_HELLO, 123422, HashMap(), 'wamp.unknown')),
           equals(
               '[${MessageTypes.CODE_ERROR},${MessageTypes.CODE_HELLO},123422,{},"wamp.unknown"]'));
       expect(
           serializer.serializeToString(Error(MessageTypes.CODE_HELLO, 123422,
-              HashMap.from({"cause": "some"}), "wamp.unknown")),
+              HashMap.from({'cause': 'some'}), 'wamp.unknown')),
           equals(
               '[${MessageTypes.CODE_ERROR},${MessageTypes.CODE_HELLO},123422,{"cause":"some"},"wamp.unknown"]'));
       expect(
           serializer.serializeToString(Error(MessageTypes.CODE_HELLO, 123422,
-              HashMap.from({"cause": "some"}), "wamp.unknown",
-              arguments: ["hi", 2])),
+              HashMap.from({'cause': 'some'}), 'wamp.unknown',
+              arguments: ['hi', 2])),
           equals(
               '[${MessageTypes.CODE_ERROR},${MessageTypes.CODE_HELLO},123422,{"cause":"some"},"wamp.unknown",["hi",2]]'));
       expect(
           serializer.serializeToString(Error(MessageTypes.CODE_HELLO, 123422,
-              HashMap.from({"cause": "some"}), "wamp.unknown",
-              argumentsKeywords: {"hi": 12})),
+              HashMap.from({'cause': 'some'}), 'wamp.unknown',
+              argumentsKeywords: {'hi': 12})),
           equals(
               '[${MessageTypes.CODE_ERROR},${MessageTypes.CODE_HELLO},123422,{"cause":"some"},"wamp.unknown",[],{"hi":12}]'));
       expect(
           serializer.serializeToString(Error(MessageTypes.CODE_HELLO, 123422,
-              HashMap.from({"cause": "some"}), "wamp.unknown",
-              arguments: ["hi", 2], argumentsKeywords: {"hi": 12})),
+              HashMap.from({'cause': 'some'}), 'wamp.unknown',
+              arguments: ['hi', 2], argumentsKeywords: {'hi': 12})),
           equals(
               '[${MessageTypes.CODE_ERROR},${MessageTypes.CODE_HELLO},123422,{"cause":"some"},"wamp.unknown",["hi",2],{"hi":12}]'));
     });
     test('Subscribe', () {
       expect(
           serializer
-              .serializeToString(Subscribe(713845233, "com.myapp.mytopic1")),
+              .serializeToString(Subscribe(713845233, 'com.myapp.mytopic1')),
           equals('[32,713845233,{},"com.myapp.mytopic1"]'));
       expect(
           serializer.serializeToString(Subscribe(
-              713845233, "com.myapp.mytopic1",
+              713845233, 'com.myapp.mytopic1',
               options: SubscribeOptions())),
           equals('[32,713845233,{},"com.myapp.mytopic1"]'));
       expect(
           serializer.serializeToString(Subscribe(
-              713845233, "com.myapp.mytopic1",
+              713845233, 'com.myapp.mytopic1',
               options: SubscribeOptions(match: SubscribeOptions.MATCH_PLAIN))),
           equals('[32,713845233,{},"com.myapp.mytopic1"]'));
       expect(
           serializer.serializeToString(Subscribe(
-              713845233, "com.myapp.mytopic1",
+              713845233, 'com.myapp.mytopic1',
               options: SubscribeOptions(match: SubscribeOptions.MATCH_PREFIX))),
           equals('[32,713845233,{"match":"prefix"},"com.myapp.mytopic1"]'));
       expect(
           serializer.serializeToString(Subscribe(
-              713845233, "com.myapp.mytopic1",
+              713845233, 'com.myapp.mytopic1',
               options:
                   SubscribeOptions(match: SubscribeOptions.MATCH_WILDCARD))),
           equals('[32,713845233,{"match":"wildcard"},"com.myapp.mytopic1"]'));
       expect(
           serializer.serializeToString(Subscribe(
-              713845233, "com.myapp.mytopic1",
-              options: SubscribeOptions(meta_topic: "topic"))),
+              713845233, 'com.myapp.mytopic1',
+              options: SubscribeOptions(meta_topic: 'topic'))),
           equals('[32,713845233,{"meta_topic":"topic"},"com.myapp.mytopic1"]'));
       expect(
           serializer.serializeToString(Subscribe(
-              713845233, "com.myapp.mytopic1",
+              713845233, 'com.myapp.mytopic1',
               options: SubscribeOptions(
                   match: SubscribeOptions.MATCH_WILDCARD,
-                  meta_topic: "topic"))),
+                  meta_topic: 'topic'))),
           equals(
               '[32,713845233,{"match":"wildcard","meta_topic":"topic"},"com.myapp.mytopic1"]'));
     });
@@ -213,72 +213,72 @@ void main() {
     test('Publish', () {
       expect(
           serializer
-              .serializeToString(Publish(239714735, "com.myapp.mytopic1")),
+              .serializeToString(Publish(239714735, 'com.myapp.mytopic1')),
           equals('[16,239714735,{},"com.myapp.mytopic1"]'));
       expect(
-          serializer.serializeToString(Publish(239714735, "com.myapp.mytopic1",
+          serializer.serializeToString(Publish(239714735, 'com.myapp.mytopic1',
               options: PublishOptions())),
           equals('[16,239714735,{},"com.myapp.mytopic1"]'));
       expect(
-          serializer.serializeToString(Publish(239714735, "com.myapp.mytopic1",
+          serializer.serializeToString(Publish(239714735, 'com.myapp.mytopic1',
               options: PublishOptions(
                   disclose_me: true,
                   acknowledge: true,
                   exclude_me: true,
                   eligible: [1],
-                  eligible_authid: ["aaa"],
-                  eligible_authrole: ["role"],
+                  eligible_authid: ['aaa'],
+                  eligible_authrole: ['role'],
                   exclude: [2],
-                  exclude_authid: ["bbb"],
-                  exclude_authrole: ["admin"]))),
+                  exclude_authid: ['bbb'],
+                  exclude_authrole: ['admin']))),
           equals(
               '[16,239714735,{"disclose_me":true,"acknowledge":true,"exclude_me":true,"exclude":[2],"exclude_authid":["bbb"],"exclude_authrole":["admin"],"eligible":[1],"eligible_authid":["aaa"],"eligible_authrole":["role"]},"com.myapp.mytopic1"]'));
       expect(
-          serializer.serializeToString(Publish(239714735, "com.myapp.mytopic1",
-              arguments: ["Hello, world!"])),
+          serializer.serializeToString(Publish(239714735, 'com.myapp.mytopic1',
+              arguments: ['Hello, world!'])),
           equals('[16,239714735,{},"com.myapp.mytopic1",["Hello, world!"]]'));
       expect(
-          serializer.serializeToString(Publish(239714735, "com.myapp.mytopic1",
+          serializer.serializeToString(Publish(239714735, 'com.myapp.mytopic1',
               options: PublishOptions(exclude_me: false),
-              arguments: ["Hello, world!"])),
+              arguments: ['Hello, world!'])),
           equals(
               '[16,239714735,{"exclude_me":false},"com.myapp.mytopic1",["Hello, world!"]]'));
       expect(
           serializer.serializeToString(
-              Publish(239714735, "com.myapp.mytopic1", argumentsKeywords: {
-            "color": "orange",
-            "sizes": [23, 42, 7]
+              Publish(239714735, 'com.myapp.mytopic1', argumentsKeywords: {
+            'color': 'orange',
+            'sizes': [23, 42, 7]
           })),
           equals(
               '[16,239714735,{},"com.myapp.mytopic1",[],{"color":"orange","sizes":[23,42,7]}]'));
       expect(
-          serializer.serializeToString(Publish(239714735, "com.myapp.mytopic1",
+          serializer.serializeToString(Publish(239714735, 'com.myapp.mytopic1',
               options: PublishOptions(exclude_me: false),
               argumentsKeywords: {
-                "color": "orange",
-                "sizes": [23, 42, 7]
+                'color': 'orange',
+                'sizes': [23, 42, 7]
               })),
           equals(
               '[16,239714735,{"exclude_me":false},"com.myapp.mytopic1",[],{"color":"orange","sizes":[23,42,7]}]'));
       expect(
           serializer.serializeToString(
-              Publish(239714735, "com.myapp.mytopic1", arguments: [
-            "Hello, world!"
+              Publish(239714735, 'com.myapp.mytopic1', arguments: [
+            'Hello, world!'
           ], argumentsKeywords: {
-            "color": "orange",
-            "sizes": [23, 42, 7]
+            'color': 'orange',
+            'sizes': [23, 42, 7]
           })),
           equals(
               '[16,239714735,{},"com.myapp.mytopic1",["Hello, world!"],{"color":"orange","sizes":[23,42,7]}]'));
       expect(
-          serializer.serializeToString(Publish(239714735, "com.myapp.mytopic1",
+          serializer.serializeToString(Publish(239714735, 'com.myapp.mytopic1',
               options: PublishOptions(exclude_me: false),
               arguments: [
-                "Hello, world!"
+                'Hello, world!'
               ],
               argumentsKeywords: {
-                "color": "orange",
-                "sizes": [23, 42, 7]
+                'color': 'orange',
+                'sizes': [23, 42, 7]
               })),
           equals(
               '[16,239714735,{"exclude_me":false},"com.myapp.mytopic1",["Hello, world!"],{"color":"orange","sizes":[23,42,7]}]'));
@@ -286,7 +286,7 @@ void main() {
     test('Goodbye', () {
       expect(
           serializer.serializeToString(
-              Goodbye(GoodbyeMessage("cya"), Goodbye.REASON_GOODBYE_AND_OUT)),
+              Goodbye(GoodbyeMessage('cya'), Goodbye.REASON_GOODBYE_AND_OUT)),
           equals('[6,{"message":"cya"},"wamp.error.goodbye_and_out"]'));
       expect(
           serializer.serializeToString(
@@ -305,7 +305,7 @@ void main() {
       expect(abort, isNotNull);
       expect(abort.id, equals(MessageTypes.CODE_ABORT));
       expect(abort.message.message,
-          equals("Received HELLO message after session was established."));
+          equals('Received HELLO message after session was established.'));
       expect(abort.reason, equals(Error.PROTOCOL_VIOLATION));
     });
     test('Challenge', () {
@@ -313,12 +313,12 @@ void main() {
           '[${MessageTypes.CODE_CHALLENGE},"wampcra",{"challenge":"{\\"authid\\":\\"Richi\\",\\"authrole\\":\\"admin\\",\\"authmethod\\":\\"wampcra\\",\\"authprovider\\":\\"server\\",\\"nonce\\":\\"5636117568768122\\",\\"timestamp\\":\\"2018-03-16T07:29Z\\",\\"session\\":\\"5768501099130836\\"}","salt":"fhhi290fh7§)GQ)G)","keylen":35,"iterations":410}]');
       expect(challenge, isNotNull);
       expect(challenge.id, equals(MessageTypes.CODE_CHALLENGE));
-      expect(challenge.authMethod, equals("wampcra"));
+      expect(challenge.authMethod, equals('wampcra'));
       expect(
           challenge.extra.challenge,
           equals(
-              "{\"authid\":\"Richi\",\"authrole\":\"admin\",\"authmethod\":\"wampcra\",\"authprovider\":\"server\",\"nonce\":\"5636117568768122\",\"timestamp\":\"2018-03-16T07:29Z\",\"session\":\"5768501099130836\"}"));
-      expect(challenge.extra.salt, equals("fhhi290fh7§)GQ)G)"));
+              '{\"authid\":\"Richi\",\"authrole\":\"admin\",\"authmethod\":\"wampcra\",\"authprovider\":\"server\",\"nonce\":\"5636117568768122\",\"timestamp\":\"2018-03-16T07:29Z\",\"session\":\"5768501099130836\"}'));
+      expect(challenge.extra.salt, equals('fhhi290fh7§)GQ)G)'));
       expect(challenge.extra.keylen, equals(35));
       expect(challenge.extra.iterations, equals(410));
     });
@@ -328,10 +328,10 @@ void main() {
       expect(welcome, isNotNull);
       expect(welcome.id, equals(MessageTypes.CODE_WELCOME));
       expect(welcome.sessionId, equals(112233));
-      expect(welcome.details.authid, equals("Richi"));
-      expect(welcome.details.authrole, equals("admin"));
-      expect(welcome.details.authmethod, equals("wampcra"));
-      expect(welcome.details.authprovider, equals("database"));
+      expect(welcome.details.authid, equals('Richi'));
+      expect(welcome.details.authrole, equals('admin'));
+      expect(welcome.details.authmethod, equals('wampcra'));
+      expect(welcome.details.authprovider, equals('database'));
       expect(welcome.details.roles, isNotNull);
       expect(welcome.details.roles.broker, isNotNull);
       expect(welcome.details.roles.broker.features, isNotNull);
@@ -376,10 +376,10 @@ void main() {
       expect(welcome, isNotNull);
       expect(welcome.id, equals(MessageTypes.CODE_WELCOME));
       expect(welcome.sessionId, equals(112233));
-      expect(welcome.details.authid, equals("Richi"));
-      expect(welcome.details.authrole, equals("admin"));
-      expect(welcome.details.authmethod, equals("wampcra"));
-      expect(welcome.details.authprovider, equals("database"));
+      expect(welcome.details.authid, equals('Richi'));
+      expect(welcome.details.authrole, equals('admin'));
+      expect(welcome.details.authmethod, equals('wampcra'));
+      expect(welcome.details.authprovider, equals('database'));
       expect(welcome.details.roles, isNotNull);
       expect(welcome.details.roles.broker, isNotNull);
       expect(welcome.details.roles.broker.features, isNotNull);
@@ -419,7 +419,7 @@ void main() {
     });
     test('Registered', () {
       Registered registered =
-          serializer.deserializeFromString("[65, 25349185, 2103333224]");
+          serializer.deserializeFromString('[65, 25349185, 2103333224]');
       expect(registered, isNotNull);
       expect(registered.id, equals(MessageTypes.CODE_REGISTERED));
       expect(registered.registerRequestId, equals(25349185));
@@ -427,7 +427,7 @@ void main() {
     });
     test('Unregistered', () {
       Unregistered unregistered =
-          serializer.deserializeFromString("[67, 788923562]");
+          serializer.deserializeFromString('[67, 788923562]');
       expect(unregistered, isNotNull);
       expect(unregistered.id, equals(MessageTypes.CODE_UNREGISTERED));
       expect(unregistered.unregisterRequestId, equals(788923562));
@@ -456,7 +456,7 @@ void main() {
       expect(invocation.details.receive_progress, isNull);
       expect(invocation.details.caller, isNull);
       expect(invocation.details.procedure, isNull);
-      expect(invocation.arguments[0], equals("Hello, world!"));
+      expect(invocation.arguments[0], equals('Hello, world!'));
       expect(invocation.argumentsKeywords, isNull);
 
       invocation = serializer.deserializeFromString(
@@ -469,9 +469,9 @@ void main() {
       expect(invocation.details.receive_progress, isNull);
       expect(invocation.details.caller, isNull);
       expect(invocation.details.procedure, isNull);
-      expect(invocation.arguments[0], equals("johnny"));
-      expect(invocation.argumentsKeywords["firstname"], equals("John"));
-      expect(invocation.argumentsKeywords["surname"], equals("Doe"));
+      expect(invocation.arguments[0], equals('johnny'));
+      expect(invocation.argumentsKeywords['firstname'], equals('John'));
+      expect(invocation.argumentsKeywords['surname'], equals('Doe'));
 
       invocation = serializer.deserializeFromString(
           '[68, 6131533, 9823529, {"receive_progress": true, "caller": 13123, "procedure":"my.procedure.com"}, ["johnny"], {"firstname": "John","surname": "Doe"}]');
@@ -482,10 +482,10 @@ void main() {
       expect(invocation.details, isNotNull);
       expect(invocation.details.receive_progress, isTrue);
       expect(invocation.details.caller, equals(13123));
-      expect(invocation.details.procedure, equals("my.procedure.com"));
-      expect(invocation.arguments[0], equals("johnny"));
-      expect(invocation.argumentsKeywords["firstname"], equals("John"));
-      expect(invocation.argumentsKeywords["surname"], equals("Doe"));
+      expect(invocation.details.procedure, equals('my.procedure.com'));
+      expect(invocation.arguments[0], equals('johnny'));
+      expect(invocation.argumentsKeywords['firstname'], equals('John'));
+      expect(invocation.argumentsKeywords['surname'], equals('Doe'));
     });
     test('Result', () {
       Result result = serializer.deserializeFromString('[50, 7814135, {}]');
@@ -513,9 +513,9 @@ void main() {
       expect(result.callRequestId, equals(6131533));
       expect(result.details, isNotNull);
       expect(result.details.progress, isNull);
-      expect(result.arguments[0], equals("johnny"));
-      expect(result.argumentsKeywords["userid"], equals(123));
-      expect(result.argumentsKeywords["karma"], equals(10));
+      expect(result.arguments[0], equals('johnny'));
+      expect(result.argumentsKeywords['userid'], equals(123));
+      expect(result.argumentsKeywords['karma'], equals(10));
 
       result = serializer.deserializeFromString(
           '[50, 6131533, {"progress": true}, ["johnny"], {"firstname": "John","surname": "Doe"}]');
@@ -524,9 +524,9 @@ void main() {
       expect(result.callRequestId, equals(6131533));
       expect(result.details, isNotNull);
       expect(result.details.progress, isTrue);
-      expect(result.arguments[0], equals("johnny"));
-      expect(result.argumentsKeywords["firstname"], equals("John"));
-      expect(result.argumentsKeywords["surname"], equals("Doe"));
+      expect(result.arguments[0], equals('johnny'));
+      expect(result.argumentsKeywords['firstname'], equals('John'));
+      expect(result.argumentsKeywords['surname'], equals('Doe'));
     });
     // PUB / SUB
     test('Subscribed', () {
@@ -550,7 +550,7 @@ void main() {
       expect(unsubscribed, isNotNull);
       expect(unsubscribed.id, equals(MessageTypes.CODE_UNSUBSCRIBED));
       expect(unsubscribed.unsubscribeRequestId, equals(85346237));
-      expect(unsubscribed.details.reason, equals("wamp.authentication.lost"));
+      expect(unsubscribed.details.reason, equals('wamp.authentication.lost'));
       expect(unsubscribed.details.subscription, equals(123322));
     });
     test('Published', () {
@@ -598,9 +598,9 @@ void main() {
       expect(event.details.publisher, isNull);
       expect(event.details.topic, isNull);
       expect(event.details.trustlevel, isNull);
-      expect(event.arguments[0], equals("johnny"));
-      expect(event.argumentsKeywords["userid"], equals(123));
-      expect(event.argumentsKeywords["karma"], equals(10));
+      expect(event.arguments[0], equals('johnny'));
+      expect(event.argumentsKeywords['userid'], equals(123));
+      expect(event.argumentsKeywords['karma'], equals(10));
 
       event = serializer.deserializeFromString(
           '[36, 5512315355, 4429313566, {"publisher": 1231412}, ["johnny"], {"firstname": "John","surname": "Doe"}]');
@@ -612,9 +612,9 @@ void main() {
       expect(event.details.publisher, equals(1231412));
       expect(event.details.topic, isNull);
       expect(event.details.trustlevel, isNull);
-      expect(event.arguments[0], equals("johnny"));
-      expect(event.argumentsKeywords["firstname"], equals("John"));
-      expect(event.argumentsKeywords["surname"], equals("Doe"));
+      expect(event.arguments[0], equals('johnny'));
+      expect(event.argumentsKeywords['firstname'], equals('John'));
+      expect(event.argumentsKeywords['surname'], equals('Doe'));
 
       event = serializer.deserializeFromString(
           '[36, 5512315355, 4429313566, {"publisher": 1231412, "topic":"de.de.com", "trustlevel":1}, ["johnny"], {"firstname": "John","surname": "Doe"}]');
@@ -624,23 +624,23 @@ void main() {
       expect(event.publicationId, equals(4429313566));
       expect(event.details, isNotNull);
       expect(event.details.publisher, equals(1231412));
-      expect(event.details.topic, equals("de.de.com"));
+      expect(event.details.topic, equals('de.de.com'));
       expect(event.details.trustlevel, equals(1));
-      expect(event.arguments[0], equals("johnny"));
-      expect(event.argumentsKeywords["firstname"], equals("John"));
-      expect(event.argumentsKeywords["surname"], equals("Doe"));
+      expect(event.arguments[0], equals('johnny'));
+      expect(event.argumentsKeywords['firstname'], equals('John'));
+      expect(event.argumentsKeywords['surname'], equals('Doe'));
     });
   });
   group('string conversion', () {
     test('convert UTF-8', () {
-      Invocation invocation = Invocation(
-          10, 10, InvocationDetails(1, "", false), arguments: [
-        "𝄞 𝄢 Hello! Cześć! 你好! ご挨拶！Привет! ℌ𝔢𝔩𝔩𝔬! 🅗🅔🅛🅛🅞!"
+      var invocation = Invocation(
+          10, 10, InvocationDetails(1, '', false), arguments: [
+        '𝄞 𝄢 Hello! Cześć! 你好! ご挨拶！Привет! ℌ𝔢𝔩𝔩𝔬! 🅗🅔🅛🅛🅞!'
       ]);
       Invocation serializedInvocation =
           serializer.deserialize(serializer.serialize(invocation));
       expect(serializedInvocation.arguments[0],
-          equals("𝄞 𝄢 Hello! Cześć! 你好! ご挨拶！Привет! ℌ𝔢𝔩𝔩𝔬! 🅗🅔🅛🅛🅞!"));
+          equals('𝄞 𝄢 Hello! Cześć! 你好! ご挨拶！Привет! ℌ𝔢𝔩𝔩𝔬! 🅗🅔🅛🅛🅞!'));
     });
   });
 }

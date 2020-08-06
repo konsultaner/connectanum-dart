@@ -6,6 +6,6 @@ class Unsubscribe extends AbstractMessage {
   int subscriptionId;
 
   Unsubscribe(this.requestId, this.subscriptionId) {
-    this.id = MessageTypes.CODE_UNSUBSCRIBE;
+    id = MessageTypes.CODE_UNSUBSCRIBE;
   }
 }

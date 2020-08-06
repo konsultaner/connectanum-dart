@@ -13,7 +13,7 @@ class Invocation extends AbstractMessageWithPayload {
   InvocationDetails details;
   StreamController<AbstractMessageWithPayload> _responseStreamController;
 
-  respondWith(
+  void respondWith(
       {List<Object> arguments,
       Map<String, Object> argumentsKeywords,
       bool isError = false,
@@ -22,12 +22,12 @@ class Invocation extends AbstractMessageWithPayload {
     if (isError) {
       assert(progressive == false);
       assert(UriPattern.match(errorUri));
-      final Error error = Error(
+      final error = Error(
           MessageTypes.CODE_INVOCATION, requestId, HashMap(), errorUri,
           arguments: arguments, argumentsKeywords: argumentsKeywords);
       _responseStreamController.add(error);
     } else {
-      final Yield yield = Yield(this.requestId,
+      final yield = Yield(requestId,
           options: YieldOptions(progressive),
           arguments: arguments,
           argumentsKeywords: argumentsKeywords);
@@ -40,13 +40,13 @@ class Invocation extends AbstractMessageWithPayload {
 
   Invocation(this.requestId, this.registrationId, this.details,
       {List<Object> arguments, Map<String, Object> argumentsKeywords}) {
-    this.id = MessageTypes.CODE_INVOCATION;
+    id = MessageTypes.CODE_INVOCATION;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;
   }
 
   bool isProgressive() {
-    return this.details.receive_progress ?? false;
+    return details.receive_progress ?? false;
   }
 
   void onResponse(

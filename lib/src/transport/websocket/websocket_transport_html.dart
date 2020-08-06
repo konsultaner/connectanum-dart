@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import "dart:html";
+import 'dart:html';
 
 import 'package:logging/logging.dart';
 
@@ -11,11 +11,11 @@ import '../../serializer/abstract_serializer.dart';
 import '../../transport/abstract_transport.dart';
 
 class WebSocketTransport extends AbstractTransport {
-  static Logger _logger = Logger("WebSocketTransport");
+  static final Logger _logger = Logger('WebSocketTransport');
 
-  String _url;
-  AbstractSerializer _serializer;
-  String _serializerType;
+  final String _url;
+  final AbstractSerializer _serializer;
+  final String _serializerType;
   WebSocket _socket;
   bool _goodbyeSent = false;
   bool _goodbyeReceived = false;
@@ -48,7 +48,9 @@ class WebSocketTransport extends AbstractTransport {
     return _socket.readyState == WebSocket.OPEN;
   }
 
+  @override
   bool get isReady => isOpen;
+  @override
   Future<void> get onReady => _onReady.future;
 
   @override
@@ -56,11 +58,11 @@ class WebSocketTransport extends AbstractTransport {
     _onReady = Completer();
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
-    Completer openCompleter = Completer();
+    var openCompleter = Completer();
     _socket = WebSocket(_url, _serializerType);
     if (pingInterval != null) {
       _logger.info(
-          "The browsers WebSocket API does not support ping interval configuration.");
+          'The browsers WebSocket API does not support ping interval configuration.');
     }
     _socket.onOpen.listen((open) => openCompleter.complete(open));
     _socket.onError.listen((Event error) {
@@ -70,13 +72,15 @@ class WebSocketTransport extends AbstractTransport {
     try {
       await openCompleter.future;
       _onReady.complete();
-    } on Event {}
+    } on Event {
+      _logger.info('Error while opening the channel');
+    }
   }
 
   @override
   void send(AbstractMessage message) {
     if (message is Goodbye) {
-      this._goodbyeSent = true;
+      _goodbyeSent = true;
     }
     if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
       _socket.send(utf8.decode(_serializer.serialize(message).cast()));
@@ -105,7 +109,7 @@ class WebSocketTransport extends AbstractTransport {
         message = _serializer.deserialize(messageEvent.data);
       }
       if (message is Goodbye) {
-        this._goodbyeReceived = true;
+        _goodbyeReceived = true;
       }
       return message;
     });

@@ -6,7 +6,7 @@ class Challenge extends AbstractMessage {
   Extra extra;
 
   Challenge(this.authMethod, this.extra) {
-    this.id = MessageTypes.CODE_CHALLENGE;
+    id = MessageTypes.CODE_CHALLENGE;
   }
 }
 

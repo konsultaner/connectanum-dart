@@ -7,7 +7,7 @@ class Interrupt {
   InterruptOptions options;
 
   Interrupt(this.requestId, {this.options}) {
-    this.id = MessageTypes.CODE_INTERRUPT;
+    id = MessageTypes.CODE_INTERRUPT;
   }
 }
 

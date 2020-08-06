@@ -15,9 +15,9 @@ import '../../transport/abstract_transport.dart';
 /// use [SocketTransport] instead! This may not work if your
 /// router does not raw socket transport
 class WebSocketTransport extends AbstractTransport {
-  String _url;
-  AbstractSerializer _serializer;
-  String _serializerType;
+  final String _url;
+  final AbstractSerializer _serializer;
+  final String _serializerType;
   bool _goodbyeSent = false;
   bool _goodbyeReceived = false;
   WebSocket _socket;
@@ -50,7 +50,9 @@ class WebSocketTransport extends AbstractTransport {
     return _socket != null && _socket.readyState == WebSocket.open;
   }
 
+  @override
   bool get isReady => isOpen;
+  @override
   Future<void> get onReady => _onReady.future;
 
   @override
@@ -75,9 +77,9 @@ class WebSocketTransport extends AbstractTransport {
   @override
   void send(AbstractMessage message) {
     if (message is Goodbye) {
-      this._goodbyeSent = true;
+      _goodbyeSent = true;
     }
-    List<int> byteMessage = _serializer.serialize(message).cast();
+    var byteMessage = _serializer.serialize(message).cast<int>();
     if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
       _socket.addUtf8Text(byteMessage);
     } else {
@@ -108,7 +110,7 @@ class WebSocketTransport extends AbstractTransport {
         message = _serializer.deserialize(messageEvent);
       }
       if (message is Goodbye) {
-        this._goodbyeReceived = true;
+        _goodbyeReceived = true;
       }
       return message;
     });

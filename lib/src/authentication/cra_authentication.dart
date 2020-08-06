@@ -29,12 +29,12 @@ class CraAuthentication extends AbstractAuthentication {
 
   @override
   Future<Authenticate> challenge(Extra extra) {
-    Authenticate authenticate = Authenticate();
+    var authenticate = Authenticate();
     if (extra == null || extra.challenge == null || secret == null) {
       final error = Error(MessageTypes.CODE_CHALLENGE, -1,
           HashMap<String, Object>(), Error.AUTHORIZATION_FAILED);
-      error.details["reason"] =
-          "No challenge or secret given, wrong router response";
+      error.details['reason'] =
+          'No challenge or secret given, wrong router response';
       return Future.error(error);
     }
 
@@ -71,16 +71,16 @@ class CraAuthentication extends AbstractAuthentication {
   static Uint8List encodeByteHmac(
       Uint8List key, int keylen, List<int> challenge,
       {hmacLength = 64}) {
-    HMac mac = HMac(SHA256Digest(), hmacLength);
+    var mac = HMac(SHA256Digest(), hmacLength);
     mac.init(KeyParameter(key));
     mac.update(Uint8List.fromList(challenge), 0, challenge.length);
-    Uint8List out = Uint8List(keylen);
+    var out = Uint8List(keylen);
     mac.doFinal(out, 0);
     return out;
   }
 
   @override
-  getName() {
-    return "wampcra";
+  String getName() {
+    return 'wampcra';
   }
 }

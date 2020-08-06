@@ -11,7 +11,7 @@ class Event extends AbstractMessageWithPayload {
   EventDetails details;
 
   Event(this.subscriptionId, this.publicationId, this.details) {
-    this.id = MessageTypes.CODE_EVENT;
+    id = MessageTypes.CODE_EVENT;
   }
 }
 

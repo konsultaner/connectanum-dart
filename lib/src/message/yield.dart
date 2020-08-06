@@ -9,7 +9,7 @@ class Yield extends AbstractMessageWithPayload {
       {this.options,
       List<Object> arguments,
       Map<String, Object> argumentsKeywords}) {
-    this.id = MessageTypes.CODE_YIELD;
+    id = MessageTypes.CODE_YIELD;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;
   }

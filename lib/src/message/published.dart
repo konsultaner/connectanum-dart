@@ -8,6 +8,6 @@ class Published extends AbstractMessage {
   int publicationId;
 
   Published(this.publishRequestId, this.publicationId) {
-    this.id = MessageTypes.CODE_PUBLISHED;
+    id = MessageTypes.CODE_PUBLISHED;
   }
 }

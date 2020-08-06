@@ -20,25 +20,25 @@ void main() {
       server.listen((HttpRequest req) async {
         if (req.uri.path == '/wamp') {
           var socket = await WebSocketTransformer.upgrade(req);
-          print("Received protocol " +
-              req.headers.value("sec-websocket-protocol"));
+          print('Received protocol ' +
+              req.headers.value('sec-websocket-protocol'));
           socket.listen((message) {
             if (message is String &&
-                message.contains("[" + MessageTypes.CODE_HELLO.toString())) {
+                message.contains('[' + MessageTypes.CODE_HELLO.toString())) {
               socket.add(
-                  "[" + MessageTypes.CODE_WELCOME.toString() + ",1234,{}]");
+                  '[' + MessageTypes.CODE_WELCOME.toString() + ',1234,{}]');
             }
           });
         }
       });
 
-      WebSocketTransport transport = WebSocketTransport(
-          "ws://localhost:9100/wamp",
+      var transport = WebSocketTransport(
+          'ws://localhost:9100/wamp',
           Serializer(),
           WebSocketSerialization.SERIALIZATION_JSON);
 
       await transport.open();
-      transport.send(Hello("my.realm", Details.forHello()));
+      transport.send(Hello('my.realm', Details.forHello()));
       Welcome welcome = await transport.receive().first;
       expect(welcome.sessionId, equals(1234));
     });

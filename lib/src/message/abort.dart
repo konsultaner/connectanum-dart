@@ -6,7 +6,7 @@ class Abort extends AbstractMessage {
   String reason;
 
   Abort(this.reason, {String message}) {
-    this.id = MessageTypes.CODE_ABORT;
+    id = MessageTypes.CODE_ABORT;
     if (message != null) {
       this.message = Message(message);
     }

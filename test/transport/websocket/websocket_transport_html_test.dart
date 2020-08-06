@@ -17,14 +17,14 @@ void main() {
       var server = spawnHybridUri('websocket_transport_html_server.dart');
       var serializer = Serializer();
       var port = await server.stream.first;
-      WebSocketTransport transport = WebSocketTransport(
-          "wss://www.connectanum.com/wamp", // TODO as soon as https://github.com/dart-lang/sdk/issues/40786 is fixed "ws://localhost:$port/wamp",
+      var transport = WebSocketTransport(
+          'wss://www.connectanum.com/wamp', // TODO as soon as https://github.com/dart-lang/sdk/issues/40786 is fixed "ws://localhost:$port/wamp",
           serializer,
           WebSocketSerialization.SERIALIZATION_JSON);
 
       await transport.open();
-      transport.send(Hello("my.realm", Details.forHello()));
-      AbstractMessage welcome = await transport.receive().first;
+      transport.send(Hello('my.realm', Details.forHello()));
+      var welcome = await transport.receive().first;
       expect(welcome, isA<Welcome>());
     });
   });

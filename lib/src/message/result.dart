@@ -11,15 +11,15 @@ class Result extends AbstractMessageWithPayload {
 
   Result(this.callRequestId, this.details,
       {List<Object> arguments, Map<String, Object> argumentsKeywords}) {
-    this.id = MessageTypes.CODE_RESULT;
+    id = MessageTypes.CODE_RESULT;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;
   }
 
   bool isProgressive() {
-    return this.details != null &&
-        this.details.progress != null &&
-        this.details.progress;
+    return details != null &&
+        details.progress != null &&
+        details.progress;
   }
 }
 

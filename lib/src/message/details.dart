@@ -36,7 +36,7 @@ class Details {
     return details;
   }
 
-  static forWelcome({
+  static Details forWelcome({
     String authId,
     String authMethod,
     String authProvider,

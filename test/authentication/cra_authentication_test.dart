@@ -8,19 +8,19 @@ import 'package:test/test.dart';
 
 void main() {
   group('CRA', () {
-    String salt = "gbnk5ji1b0dgoeavu31er567nb";
-    String secret = "3614";
-    String keyValue = "pjyujtcFkRES8z9jUqvPjokWp2G6xBh7QhtB0tMV6YA=";
+    var salt = 'gbnk5ji1b0dgoeavu31er567nb';
+    var secret = '3614';
+    var keyValue = 'pjyujtcFkRES8z9jUqvPjokWp2G6xBh7QhtB0tMV6YA=';
 
-    String challenge =
-        "{\"authid\":\"11111111\",\"authrole\":\"client\",\"authmethod\":\"wampcra\",\"authprovider\":\"mssql\",\"nonce\":\"1280303478343404\",\"timestamp\":\"2015-10-27T14:28Z\",\"session\":586844620777222}";
-    String hmac = "APO4Z6Z0sfpJ8DStwj+XgwJkHkeSw+eD9URKSHf+FKQ=";
+    var challenge =
+        '{\"authid\":\"11111111\",\"authrole\":\"client\",\"authmethod\":\"wampcra\",\"authprovider\":\"mssql\",\"nonce\":\"1280303478343404\",\"timestamp\":\"2015-10-27T14:28Z\",\"session\":586844620777222}';
+    var hmac = 'APO4Z6Z0sfpJ8DStwj+XgwJkHkeSw+eD9URKSHf+FKQ=';
 
-    List PBKDF2_HMAC_SHA256_testVectors = [
-      ["3614", "gbnk5ji1b0dgoeavu31er567nb", 1000, 32, base64.decode(keyValue)],
+    var PBKDF2_HMAC_SHA256_testVectors = [
+      ['3614', 'gbnk5ji1b0dgoeavu31er567nb', 1000, 32, base64.decode(keyValue)],
       [
-        "password",
-        "salt",
+        'password',
+        'salt',
         1,
         20,
         [
@@ -50,8 +50,8 @@ void main() {
         ]
       ],
       [
-        "password",
-        "salt",
+        'password',
+        'salt',
         2,
         20,
         [
@@ -81,8 +81,8 @@ void main() {
         ]
       ],
       [
-        "password",
-        "salt",
+        'password',
+        'salt',
         4096,
         20,
         [
@@ -112,8 +112,8 @@ void main() {
         ]
       ],
       [
-        "passwordPASSWORDpassword",
-        "saltSALTsaltSALTsaltSALTsaltSALTsalt",
+        'passwordPASSWORDpassword',
+        'saltSALTsaltSALTsaltSALTsaltSALTsalt',
         4096,
         25,
         [
@@ -150,7 +150,7 @@ void main() {
       // ["pass\0word","sa\0lt",4096,16,[for (String i in ['89','b6','9d','05','16','f8','29','89','3c','69','62','26','65','0a','86','87']) int.parse(i, radix: 16)]]
     ];
 
-    test("derive key", () {
+    test('derive key', () {
       for (var vector in PBKDF2_HMAC_SHA256_testVectors) {
         final key = CraAuthentication.deriveKey(
             vector[0], (vector[1] as String).codeUnits,
@@ -159,7 +159,7 @@ void main() {
       }
     });
 
-    test("hmac encode", () {
+    test('hmac encode', () {
       final mac = CraAuthentication.encodeHmac(
           Uint8List.fromList(keyValue.codeUnits),
           32,
@@ -167,17 +167,17 @@ void main() {
       expect(mac, equals(hmac));
     });
 
-    test("message handling", () async {
+    test('message handling', () async {
       final authMethod = CraAuthentication(secret);
-      expect(authMethod.getName(), equals("wampcra"));
-      Extra extra =
+      expect(authMethod.getName(), equals('wampcra'));
+      var extra =
           Extra(challenge: challenge, keylen: 32, iterations: 1000, salt: salt);
       final authenticate = await authMethod.challenge(extra);
       expect(authenticate.signature, equals(hmac));
     });
-    test("challenge error", () async {
+    test('challenge error', () async {
       final authMethod = CraAuthentication(secret);
-      expect(authMethod.getName(), equals("wampcra"));
+      expect(authMethod.getName(), equals('wampcra'));
       expect(
           () async => await authMethod.challenge(null), throwsA(isA<Error>()));
     });

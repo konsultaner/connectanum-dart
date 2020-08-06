@@ -6,6 +6,6 @@ class Unregister extends AbstractMessage {
   int registrationId;
 
   Unregister(this.requestId, this.registrationId) {
-    this.id = MessageTypes.CODE_UNREGISTER;
+    id = MessageTypes.CODE_UNREGISTER;
   }
 }

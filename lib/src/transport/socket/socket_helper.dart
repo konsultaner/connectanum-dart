@@ -33,7 +33,7 @@ class SocketHelper {
   /// RRRR are reserved bytes
   static List<int> getInitialHandshake(
       int messageLengthExponent, int serializerType) {
-    Uint8List initialHandShake = Uint8List(4);
+    var initialHandShake = Uint8List(4);
     initialHandShake[0] = SocketHelper._META_HEADER;
     initialHandShake[1] =
         ((max(0, min(15, messageLengthExponent - 9)) << 4) | serializerType);
@@ -47,14 +47,14 @@ class SocketHelper {
   /// LLLL = 2^(25 + LLLL), the accepted max message length
   /// If a router does not accept, this upgrade it will respond with an error.
   static List<int> getUpgradeHandshake(int messageLengthExponent) {
-    Uint8List upgradeHandShake = Uint8List(2);
+    var upgradeHandShake = Uint8List(2);
     upgradeHandShake[0] = SocketHelper._UPGRADE_HEADER;
     upgradeHandShake[1] = (max(0, min(15, messageLengthExponent - 25)) << 4);
     return upgradeHandShake.toList(growable: false);
   }
 
   static List<int> getError(int errorCode) {
-    Uint8List errorHandShake = Uint8List(4);
+    var errorHandShake = Uint8List(4);
     errorHandShake[0] = SocketHelper._META_HEADER;
     errorHandShake[1] = (errorCode << 4);
     errorHandShake[2] = 0;
@@ -73,7 +73,7 @@ class SocketHelper {
   static int getErrorNumber(List<int> message) {
     if (message.length > 1) {
       if (message[0] == SocketHelper._UPGRADE_HEADER) return 0;
-      int error = message[1];
+      var error = message[1];
       if ((((error & 0xFF) << 4) & 0xFF) > 0) return 0;
       return (error & 0xFF) >> 4;
     }
@@ -84,10 +84,10 @@ class SocketHelper {
       int headerType, int messageLength, bool upgradedProtocol) {
     if (upgradedProtocol) {
       if (messageLength > _MAX_MESSAGE_LENGTH_CONNECTANUM) {
-        throw Exception("Their should be no message length larger then 2^" +
+        throw Exception('Their should be no message length larger then 2^' +
             MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT.toString());
       }
-      Uint8List messageHeader = Uint8List(5);
+      var messageHeader = Uint8List(5);
       messageHeader[0] = headerType;
       messageHeader[1] = ((messageLength >> 24) & 0xFF);
       messageHeader[2] = ((messageLength >> 16) & 0xFF);
@@ -96,10 +96,10 @@ class SocketHelper {
       return messageHeader.toList(growable: false);
     } else {
       if (messageLength > MAX_MESSAGE_LENGTH) {
-        throw Exception("Their should be no message length larger then 2^" +
+        throw Exception('Their should be no message length larger then 2^' +
             MAX_MESSAGE_LENGTH_EXPONENT.toString());
       }
-      Uint8List messageHeader = Uint8List(4);
+      var messageHeader = Uint8List(4);
       messageHeader[0] = headerType;
       messageHeader[1] = ((messageLength >> 16) & 0xFF);
       messageHeader[2] = ((messageLength >> 8) & 0xFF);
@@ -109,7 +109,7 @@ class SocketHelper {
   }
 
   static bool isValidMessage(Uint8List message) {
-    int messageType = message[0];
+    var messageType = message[0];
     return messageType != MESSAGE_WAMP ||
         messageType != MESSAGE_PING ||
         messageType != MESSAGE_PONG;

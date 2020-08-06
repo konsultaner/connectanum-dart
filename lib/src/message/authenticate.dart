@@ -6,7 +6,7 @@ class Authenticate extends AbstractMessage {
   Map<String, Object> extra;
 
   Authenticate({this.signature}) {
-    this.id = MessageTypes.CODE_AUTHENTICATE;
+    id = MessageTypes.CODE_AUTHENTICATE;
   }
 
   factory Authenticate.signature(String signature) {

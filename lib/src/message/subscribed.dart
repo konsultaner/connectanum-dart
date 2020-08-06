@@ -9,13 +9,13 @@ class Subscribed extends AbstractMessage {
   int subscriptionId;
 
   Subscribed(this.subscribeRequestId, this.subscriptionId) {
-    this.id = MessageTypes.CODE_SUBSCRIBED;
+    id = MessageTypes.CODE_SUBSCRIBED;
   }
 
   /// Is created by the protocol processor and will receive an event object
   /// when the transport receives one
   Stream<Event> eventStream;
-  Completer<String> _revokeCompleter = Completer<String>();
+  final _revokeCompleter = Completer<String>();
 
   Future<String> get onRevoke {
     return _revokeCompleter.future;

@@ -10,7 +10,7 @@ class Publish extends AbstractMessageWithPayload {
       {this.options,
       List<Object> arguments,
       Map<String, Object> argumentsKeywords}) {
-    this.id = MessageTypes.CODE_PUBLISH;
+    id = MessageTypes.CODE_PUBLISH;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;
   }

@@ -5,11 +5,11 @@ void main() async {
   // Start a client that connects without the usage of an authentication process
   final client1 = Client(
       // The realm to connect to
-      realm: "demo.connectanum.receive",
+      realm: 'demo.connectanum.receive',
       // We choose WebSocket transport
       transport: WebSocketTransport(
-        "wss://www.connectanum.com/wamp",
-        new Serializer(),
+        'wss://www.connectanum.com/wamp',
+        Serializer(),
         WebSocketSerialization.SERIALIZATION_JSON,
       ));
   Session session1;
@@ -17,14 +17,14 @@ void main() async {
     // connect to the router and start the wamp layer
     session1 = await client1.connect().first;
     // register a method that may be called by other clients
-    final registered = await session1.register("demo.get.version");
+    final registered = await session1.register('demo.get.version');
     registered
-        .onInvoke((invocation) => invocation.respondWith(arguments: ["1.1.0"]));
+        .onInvoke((invocation) => invocation.respondWith(arguments: ['1.1.0']));
     // subscribe to a topic that my be published by other clients
-    final subscription = await session1.subscribe("demo.push");
+    final subscription = await session1.subscribe('demo.push');
     subscription.eventStream.listen((event) => print(event.arguments[0]));
-    subscription.onRevoke.then((reason) =>
-        print("The server has killed my subscription due to: " + reason));
+    await subscription.onRevoke.then((reason) =>
+        print('The server has killed my subscription due to: ' + reason));
   } on Abort catch (abort) {
     // if the serve does not allow this client to receive a session
     // the server will cancel the initializing process with an abort
@@ -32,9 +32,9 @@ void main() async {
   }
 
   final client2 = Client(
-      realm: "demo.connectanum.receive",
+      realm: 'demo.connectanum.receive',
       transport: WebSocketTransport(
-        "wss://www.connectanum.com/wamp",
+        'wss://www.connectanum.com/wamp',
         new Serializer(),
         WebSocketSerialization.SERIALIZATION_JSON,
       ));
@@ -42,16 +42,16 @@ void main() async {
     final session2 = await client2.connect().first;
     // call session 1 registered method and print the result
     session2
-      .call("demo.get.version")
+      .call('demo.get.version')
       .listen(
         (result) => print(result.arguments[0]),
         onError: (e) {
-          Error error = e as Error; // type cast necessary
+          var error = e as Error; // type cast necessary
           print(error.error);
         }
       );
     // push a message to session 1
-    await session2.publish("demo.push", arguments: ["This is a push message"]);
+    await session2.publish('demo.push', arguments: ['This is a push message']);
     // close both clients after everything is done
     session1.close();
     session2.close();

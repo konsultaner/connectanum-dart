@@ -17,11 +17,11 @@ class TicketAuthentication extends AbstractAuthentication {
 
   @override
   Future<Authenticate> challenge(Extra extra) {
-    return Future.value(Authenticate(signature: this.password));
+    return Future.value(Authenticate(signature: password));
   }
 
   @override
-  getName() {
-    return "ticket";
+  String getName() {
+    return 'ticket';
   }
 }

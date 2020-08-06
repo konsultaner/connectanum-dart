@@ -7,14 +7,14 @@ class Subscribe extends AbstractMessage {
   String topic;
 
   Subscribe(this.requestId, this.topic, {this.options}) {
-    this.id = MessageTypes.CODE_SUBSCRIBE;
+    id = MessageTypes.CODE_SUBSCRIBE;
   }
 }
 
 class SubscribeOptions {
   static final String MATCH_PLAIN = null;
-  static final String MATCH_PREFIX = "prefix";
-  static final String MATCH_WILDCARD = "wildcard";
+  static final String MATCH_PREFIX = 'prefix';
+  static final String MATCH_WILDCARD = 'wildcard';
 
   String match;
   String meta_topic;

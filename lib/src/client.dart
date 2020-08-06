@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:connectanum/src/message/goodbye.dart';
 import 'package:logging/logging.dart';
+import 'package:pedantic/pedantic.dart';
+import 'package:meta/meta.dart';
 
 import '../src/message/abort.dart';
 import '../src/message/error.dart';
@@ -12,17 +14,17 @@ import 'message/uri_pattern.dart';
 import 'protocol/session.dart';
 
 class Client {
-  static Logger _logger = Logger("Client");
+  static final Logger _logger = Logger('Client');
 
   String authId;
   String realm;
   int isolateCount;
-  StreamController<int> _reconnectStreamController = StreamController<int>();
+  final StreamController<int> _reconnectStreamController = StreamController<int>();
   AbstractTransport transport;
   List<AbstractAuthentication> authenticationMethods;
 
   int _reconnectCount = 3;
-  StreamController<Session> _controller = StreamController<Session>();
+  final StreamController<Session> _controller = StreamController<Session>();
 
   /// The client connects to the wamp server by using the given [transport] and
   /// the given [authenticationMethods]. Passing more then one [AbstractAuthentication]
@@ -47,9 +49,9 @@ class Client {
   /// final Session session = await client.connect();
   /// ```
   Client(
-      {this.transport,
+      {@required this.transport,
       this.authId,
-      this.realm,
+      @required this.realm,
       this.authenticationMethods,
       this.isolateCount = 1})
       : assert(transport != null),
@@ -74,8 +76,8 @@ class Client {
       {Duration pingInterval,
       Duration reconnectTime,
       reconnectCount,
-      onReconnecting()}) {
-    this._reconnectCount = reconnectCount;
+      Function() onReconnecting}) {
+    _reconnectCount = reconnectCount;
     _connect(
         pingInterval: pingInterval,
         reconnectTime: reconnectTime,
@@ -89,15 +91,15 @@ class Client {
       int reconnectCount = 3}) async {
     await transport.open(pingInterval: pingInterval);
     if (transport.isOpen) {
-      transport.onConnectionLost.future.then((_) async {
+      unawaited(transport.onConnectionLost.future.then((_) async {
         await Future.delayed(reconnectTime);
         _connect(
             pingInterval: pingInterval,
             reconnectTime: reconnectTime,
-            reconnectCount: this._reconnectCount);
-      });
+            reconnectCount: _reconnectCount);
+      }));
       try {
-        Session session = await Session.start(realm, transport,
+        var session = await Session.start(realm, transport,
             authId: authId,
             authMethods: authenticationMethods,
             reconnect: reconnectTime);
@@ -114,7 +116,7 @@ class Client {
         }
       } on Goodbye catch (goodbye) {
         _logger.shout(goodbye.reason);
-        _controller.close();
+        unawaited(_controller.close());
       }
     } else {
       if (reconnectTime != null && transport.onConnectionLost.isCompleted) {
@@ -122,7 +124,7 @@ class Client {
         if (reconnectCount == 0) {
           _controller.addError(Abort(Error.AUTHORIZATION_FAILED,
               message:
-                  "Could not connect to server. Please configure reconnectTime to retry automatically."));
+                  'Could not connect to server. Please configure reconnectTime to retry automatically.'));
         } else {
           await Future.delayed(reconnectTime);
           _connect(
@@ -134,7 +136,7 @@ class Client {
       } else {
         _controller.addError(Abort(Error.AUTHORIZATION_FAILED,
             message:
-                "Could not connect to server. Please configure reconnectTime to retry automatically."));
+                'Could not connect to server. Please configure reconnectTime to retry automatically.'));
       }
     }
   }

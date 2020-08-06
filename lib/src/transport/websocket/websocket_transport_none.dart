@@ -22,7 +22,9 @@ class WebSocketTransport extends AbstractTransport {
     return false;
   }
 
+  @override
   bool get isReady => isOpen;
+  @override
   Future<void> get onReady => Future.error(null);
 
   @override
