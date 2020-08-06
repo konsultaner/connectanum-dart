@@ -17,9 +17,7 @@ class Result extends AbstractMessageWithPayload {
   }
 
   bool isProgressive() {
-    return details != null &&
-        details.progress != null &&
-        details.progress;
+    return details != null && details.progress != null && details.progress;
   }
 }
 

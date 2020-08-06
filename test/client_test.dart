@@ -332,7 +332,8 @@ void main() {
 
       // NOT WORKING REGISTRATION
 
-      unawaited(session.register('my.error').then((registered) {}, onError: (error) {
+      unawaited(
+          session.register('my.error').then((registered) {}, onError: (error) {
         registrationErrorCompleter.complete(error);
       }));
 

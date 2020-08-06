@@ -181,7 +181,7 @@ class Session {
         options: options);
     _transport.send(call);
     if (cancelCompleter != null) {
-      cancelCompleter.future.then((cancelMode) {
+      unawaited(cancelCompleter.future.then((cancelMode) {
         CancelOptions options;
         if (cancelMode != null &&
             (CancelOptions.MODE_KILL_NO_WAIT == cancelMode ||
@@ -192,11 +192,10 @@ class Session {
         }
         var cancel = Cancel(call.requestId, options: options);
         _transport.send(cancel);
-      });
+      }));
     }
-    await for (AbstractMessageWithPayload result in _openSessionStreamController
-        .stream
-        .where((message) =>
+    await for (AbstractMessageWithPayload result
+        in _openSessionStreamController.stream.where((message) =>
             (message is Result && message.callRequestId == call.requestId) ||
             (message is Error &&
                 message.requestTypeId == MessageTypes.CODE_CALL &&
@@ -215,8 +214,7 @@ class Session {
   Future<Subscribed> subscribe(String topic, {SubscribeOptions options}) async {
     var subscribe = Subscribe(nextSubscribeId++, topic, options: options);
     _transport.send(subscribe);
-    AbstractMessage subscribed = await _openSessionStreamController
-        .stream
+    AbstractMessage subscribed = await _openSessionStreamController.stream
         .where((message) =>
             (message is Subscribed &&
                 message.subscribeRequestId == subscribe.requestId) ||
@@ -274,8 +272,7 @@ class Session {
         argumentsKeywords: argumentsKeywords,
         options: options);
     _transport.send(publish);
-    var publishStream =
-        _openSessionStreamController.stream.where((message) {
+    var publishStream = _openSessionStreamController.stream.where((message) {
       if (message is Published &&
           message.publishRequestId == publish.requestId) {
         return true;
@@ -296,8 +293,7 @@ class Session {
       {RegisterOptions options}) async {
     var register = Register(nextRegisterId++, procedure, options: options);
     _transport.send(register);
-    AbstractMessage registered = await _openSessionStreamController
-        .stream
+    AbstractMessage registered = await _openSessionStreamController.stream
         .where((message) =>
             (message is Registered &&
                 message.registerRequestId == register.requestId) ||

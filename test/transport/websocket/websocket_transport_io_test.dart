@@ -32,10 +32,8 @@ void main() {
         }
       });
 
-      var transport = WebSocketTransport(
-          'ws://localhost:9100/wamp',
-          Serializer(),
-          WebSocketSerialization.SERIALIZATION_JSON);
+      var transport = WebSocketTransport('ws://localhost:9100/wamp',
+          Serializer(), WebSocketSerialization.SERIALIZATION_JSON);
 
       await transport.open();
       transport.send(Hello('my.realm', Details.forHello()));

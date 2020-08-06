@@ -1,7 +1,6 @@
 @TestOn('browser')
 
 import 'package:connectanum/src/message/details.dart';
-import 'package:connectanum/src/message/abstract_message.dart';
 import 'package:connectanum/src/message/hello.dart';
 import 'package:connectanum/src/message/welcome.dart';
 import 'package:connectanum/src/serializer/json/serializer.dart';
@@ -14,9 +13,9 @@ void main() {
     test(
         'Opening a server connection and simple send receive scenario using a serializer',
         () async {
-      var server = spawnHybridUri('websocket_transport_html_server.dart');
+      // var server = spawnHybridUri('websocket_transport_html_server.dart');
       var serializer = Serializer();
-      var port = await server.stream.first;
+      // var port = await server.stream.first;
       var transport = WebSocketTransport(
           'wss://www.connectanum.com/wamp', // TODO as soon as https://github.com/dart-lang/sdk/issues/40786 is fixed "ws://localhost:$port/wamp",
           serializer,

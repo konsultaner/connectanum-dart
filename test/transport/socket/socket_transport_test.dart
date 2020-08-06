@@ -138,8 +138,8 @@ void main() {
           messageLengthExponent: 9);
       await transport.open();
       var errorCompleter = Completer();
-      unawaited(transport.onReady
-          .then((aVoid) {}, onError: (error) => errorCompleter.complete(error)));
+      unawaited(transport.onReady.then((aVoid) {},
+          onError: (error) => errorCompleter.complete(error)));
       transport.receive().listen((message) {},
           onError: (error) => transport.onDisconnect.complete(error),
           onDone: () => transport.onDisconnect.complete());
@@ -156,8 +156,8 @@ void main() {
           messageLengthExponent: 10);
       await transport.open();
       errorCompleter = Completer();
-      unawaited(transport.onReady
-          .then((aVoid) {}, onError: (error) => errorCompleter.complete(error)));
+      unawaited(transport.onReady.then((aVoid) {},
+          onError: (error) => errorCompleter.complete(error)));
       transport.receive().listen((message) {},
           onError: (error) => transport.onDisconnect.complete(error),
           onDone: () => transport.onDisconnect.complete(),
@@ -175,8 +175,8 @@ void main() {
           messageLengthExponent: 11);
       await transport.open();
       errorCompleter = Completer();
-      unawaited(transport.onReady
-          .then((aVoid) {}, onError: (error) => errorCompleter.complete(error)));
+      unawaited(transport.onReady.then((aVoid) {},
+          onError: (error) => errorCompleter.complete(error)));
       transport.receive().listen((message) {},
           onError: (error) => transport.onDisconnect.complete(error),
           onDone: () => transport.onDisconnect.complete());
@@ -193,8 +193,8 @@ void main() {
           messageLengthExponent: 12);
       await transport.open();
       errorCompleter = Completer();
-      unawaited(transport.onReady
-          .then((aVoid) {}, onError: (error) => errorCompleter.complete(error)));
+      unawaited(transport.onReady.then((aVoid) {},
+          onError: (error) => errorCompleter.complete(error)));
       transport.receive().listen((message) {},
           onError: (error) => transport.onDisconnect.complete(error),
           onDone: () => transport.onDisconnect.complete());

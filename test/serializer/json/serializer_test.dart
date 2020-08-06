@@ -633,10 +633,10 @@ void main() {
   });
   group('string conversion', () {
     test('convert UTF-8', () {
-      var invocation = Invocation(
-          10, 10, InvocationDetails(1, '', false), arguments: [
-        '𝄞 𝄢 Hello! Cześć! 你好! ご挨拶！Привет! ℌ𝔢𝔩𝔩𝔬! 🅗🅔🅛🅛🅞!'
-      ]);
+      var invocation = Invocation(10, 10, InvocationDetails(1, '', false),
+          arguments: [
+            '𝄞 𝄢 Hello! Cześć! 你好! ご挨拶！Привет! ℌ𝔢𝔩𝔩𝔬! 🅗🅔🅛🅛🅞!'
+          ]);
       Invocation serializedInvocation =
           serializer.deserialize(serializer.serialize(invocation));
       expect(serializedInvocation.arguments[0],

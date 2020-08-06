@@ -19,7 +19,8 @@ class Client {
   String authId;
   String realm;
   int isolateCount;
-  final StreamController<int> _reconnectStreamController = StreamController<int>();
+  final StreamController<int> _reconnectStreamController =
+      StreamController<int>();
   AbstractTransport transport;
   List<AbstractAuthentication> authenticationMethods;
 

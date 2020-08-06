@@ -121,8 +121,7 @@ class SocketTransport extends AbstractTransport {
     if (_pingInterval != null) {
       await Future.delayed(_pingInterval);
       if (isReady) {
-        unawaited(
-            sendPing(
+        unawaited(sendPing(
                 timeout: Duration(
                     milliseconds:
                         (_pingInterval.inMilliseconds * 2 / 3).floor()))
@@ -212,8 +211,7 @@ class SocketTransport extends AbstractTransport {
         // TRY UPGRADE TO 5 BYTE HEADER, IF WANTED
         if (maxMessageSizeExponent ==
                 SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT &&
-            _messageLengthExponent >
-                SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT) {
+            _messageLengthExponent > SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT) {
           _logger.finer('Try to upgrade to 5 byte raw socket header');
           _send0(SocketHelper.getUpgradeHandshake(_messageLengthExponent));
         } else {
@@ -221,7 +219,7 @@ class SocketTransport extends AbstractTransport {
           _messageLength = pow(
               2,
               min(SocketHelper.getMaxMessageSizeExponent(message),
-              _messageLengthExponent));
+                  _messageLengthExponent));
           _handshakeCompleter.complete();
         }
       }
@@ -283,8 +281,7 @@ class SocketTransport extends AbstractTransport {
         var messageType = SocketHelper.getMessageType(message);
         message = message.sublist(headerLength);
         if (messageType == SocketHelper.MESSAGE_WAMP) {
-          var deserializedMessage =
-              _serializer.deserialize(message);
+          var deserializedMessage = _serializer.deserialize(message);
           if (deserializedMessage is Goodbye) {
             _goodbyeReceived = true;
           }

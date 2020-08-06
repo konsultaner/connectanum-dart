@@ -1,5 +1,6 @@
 import 'package:connectanum/connectanum.dart';
 import 'package:connectanum/json.dart';
+import 'package:pedantic/pedantic.dart';
 
 void main() async {
   // Start a client that connects without the usage of an authentication process
@@ -35,26 +36,23 @@ void main() async {
       realm: 'demo.connectanum.receive',
       transport: WebSocketTransport(
         'wss://www.connectanum.com/wamp',
-        new Serializer(),
+        Serializer(),
         WebSocketSerialization.SERIALIZATION_JSON,
       ));
   try {
     final session2 = await client2.connect().first;
     // call session 1 registered method and print the result
     session2
-      .call('demo.get.version')
-      .listen(
-        (result) => print(result.arguments[0]),
-        onError: (e) {
-          var error = e as Error; // type cast necessary
-          print(error.error);
-        }
-      );
+        .call('demo.get.version')
+        .listen((result) => print(result.arguments[0]), onError: (e) {
+      var error = e as Error; // type cast necessary
+      print(error.error);
+    });
     // push a message to session 1
     await session2.publish('demo.push', arguments: ['This is a push message']);
     // close both clients after everything is done
-    session1.close();
-    session2.close();
+    unawaited(session1.close());
+    unawaited(session2.close());
   } on Abort catch (abort) {
     print(abort.message.message);
   }
