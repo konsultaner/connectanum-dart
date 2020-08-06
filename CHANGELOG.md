@@ -1,5 +1,11 @@
 ### 1.0.3
 
+- added pedantic package
+- fixed linting issues
+- added public api docs
+
+### 1.0.3
+
 - [#11](https://github.com/konsultaner/connectanum-dart/issues/11)  fixed a null pointer issue
 - added example for error handling
 

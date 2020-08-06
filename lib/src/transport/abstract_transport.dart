@@ -14,6 +14,8 @@ abstract class AbstractTransport {
   bool get isReady;
   void send(AbstractMessage message);
 
+  /// for internal use only
+  /// is called to complete the private underlying [onDisconnect] with a void or an error
   void complete(Completer _onDisconnect, error) {
     if (_onDisconnect != null && !_onDisconnect.isCompleted) {
       if (error != null) {

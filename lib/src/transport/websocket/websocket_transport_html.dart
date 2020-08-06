@@ -30,6 +30,7 @@ class WebSocketTransport extends AbstractTransport {
   ) : assert(_serializerType == WebSocketSerialization.SERIALIZATION_JSON ||
             _serializerType == WebSocketSerialization.SERIALIZATION_MSGPACK);
 
+  /// Calling close will close the underlying socket connection
   @override
   Future<void> close({error}) {
     _socket.close();
@@ -37,22 +38,30 @@ class WebSocketTransport extends AbstractTransport {
     return Future.value();
   }
 
+  /// on connection lost will only complete if the other end closes unexpectedly
   @override
   Completer get onConnectionLost => _onConnectionLost;
 
+  /// on disconnect will complete whenever the socket connection closes down
   @override
   Completer get onDisconnect => _onDisconnect;
 
+  /// This method will return true if the underlying socket has a ready state of open
   @override
   bool get isOpen {
     return _socket.readyState == WebSocket.OPEN;
   }
 
+  /// for this transport this is equal to [isOpen]
   @override
   bool get isReady => isOpen;
+
   @override
   Future<void> get onReady => _onReady.future;
 
+  /// This method opens the underlying socket connection and prepares all state completers
+  /// As soon as the web socket connection is established, the returning future will complete
+  /// or fail respectively
   @override
   Future<void> open({Duration pingInterval}) async {
     _onReady = Completer();
@@ -77,6 +86,8 @@ class WebSocketTransport extends AbstractTransport {
     }
   }
 
+  /// This method takes a [message], serializes it to a JSON and passes it to
+  /// the underlying socket.
   @override
   void send(AbstractMessage message) {
     if (message is Goodbye) {
@@ -89,6 +100,8 @@ class WebSocketTransport extends AbstractTransport {
     }
   }
 
+  /// This method return a [Stream] that streams all incoming messages as unserialized
+  /// objects.
   @override
   Stream<AbstractMessage> receive() {
     _socket.onClose.listen((closeEvent) {

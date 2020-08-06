@@ -12,6 +12,7 @@ import '../message/details.dart';
 import 'abstract_authentication.dart';
 import 'cra_authentication.dart';
 
+/// This class enables SCRAM authentication process with PBKDF2 as key derivation function
 class ScramAuthentication extends AbstractAuthentication {
   static final String KDF_PBKDF2 = 'pbkdf2';
 
@@ -25,6 +26,9 @@ class ScramAuthentication extends AbstractAuthentication {
   String get helloNonce => _helloNonce;
   Duration get challengeTimeout => _challengeTimeout;
 
+  /// Initialized the instance with the [secret] and an optional [challengeTimeout]
+  /// which will cause the authentication process to fail if the server responce took
+  /// too long
   ScramAuthentication(String secret, {challengeTimeout}) {
     if (challengeTimeout != null) {
       _challengeTimeout = challengeTimeout;
@@ -50,6 +54,9 @@ class ScramAuthentication extends AbstractAuthentication {
     return Future.value();
   }
 
+  /// This method accepts the servers challenge and responds with the according
+  /// authentication method, that is to be sent to the server to authenticate the
+  /// session
   @override
   Future<Authenticate> challenge(Extra extra) {
     if (extra.nonce == null ||
@@ -123,6 +130,7 @@ class ScramAuthentication extends AbstractAuthentication {
     return clientFirstBare + ',' + serverFirst + ',' + clientFinalNoProof;
   }
 
+  /// The official name of the authentication method used in the opening handshake of wamp
   @override
   String getName() {
     return 'wamp-scram';
