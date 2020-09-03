@@ -1,3 +1,7 @@
+### 1.0.5
+
+- [#13](https://github.com/konsultaner/connectanum-dart/issues/13) changed meta dependency to match latest flutter dependencies 
+
 ### 1.0.4
 
 - added pedantic package
