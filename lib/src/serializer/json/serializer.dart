@@ -438,8 +438,7 @@ class Serializer extends AbstractSerializer {
     var jsonDetails = [];
     if (options != null) {
       if (options.retain != null) {
-        jsonDetails
-            .add('"retain":${options.retain ? "true" : "false"}');
+        jsonDetails.add('"retain":${options.retain ? "true" : "false"}');
       }
       if (options.disclose_me != null) {
         jsonDetails
