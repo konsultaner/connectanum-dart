@@ -201,10 +201,11 @@ void main() {
           serializer.serializeToString(Subscribe(
               713845233, 'com.myapp.mytopic1',
               options: SubscribeOptions(
+                  get_retained: true,
                   match: SubscribeOptions.MATCH_WILDCARD,
                   meta_topic: 'topic'))),
           equals(
-              '[32,713845233,{"match":"wildcard","meta_topic":"topic"},"com.myapp.mytopic1"]'));
+              '[32,713845233,{"get_retained":true,"match":"wildcard","meta_topic":"topic"},"com.myapp.mytopic1"]'));
     });
     test('Unsubscribe', () {
       expect(serializer.serializeToString(Unsubscribe(85346237, 5512315355)),
@@ -222,6 +223,7 @@ void main() {
       expect(
           serializer.serializeToString(Publish(239714735, 'com.myapp.mytopic1',
               options: PublishOptions(
+                  retain: true,
                   disclose_me: true,
                   acknowledge: true,
                   exclude_me: true,
@@ -232,7 +234,7 @@ void main() {
                   exclude_authid: ['bbb'],
                   exclude_authrole: ['admin']))),
           equals(
-              '[16,239714735,{"disclose_me":true,"acknowledge":true,"exclude_me":true,"exclude":[2],"exclude_authid":["bbb"],"exclude_authrole":["admin"],"eligible":[1],"eligible_authid":["aaa"],"eligible_authrole":["role"]},"com.myapp.mytopic1"]'));
+              '[16,239714735,{"retain":true,"disclose_me":true,"acknowledge":true,"exclude_me":true,"exclude":[2],"exclude_authid":["bbb"],"exclude_authrole":["admin"],"eligible":[1],"eligible_authid":["aaa"],"eligible_authrole":["role"]},"com.myapp.mytopic1"]'));
       expect(
           serializer.serializeToString(Publish(239714735, 'com.myapp.mytopic1',
               arguments: ['Hello, world!'])),

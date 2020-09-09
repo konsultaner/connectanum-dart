@@ -33,6 +33,9 @@ class PublishOptions {
   // publisher_identification == true
   bool disclose_me;
 
+  // event_retention == true
+  bool retain;
+
   PublishOptions(
       {this.acknowledge,
       this.exclude,
@@ -42,5 +45,6 @@ class PublishOptions {
       this.eligible_authid,
       this.eligible_authrole,
       this.exclude_me,
-      this.disclose_me});
+      this.disclose_me,
+      this.retain});
 }

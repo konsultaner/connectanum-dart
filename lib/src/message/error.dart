@@ -1,6 +1,7 @@
 import 'abstract_message_with_payload.dart';
 import 'message_types.dart';
 
+/// The WAMP Error massage
 class Error extends AbstractMessageWithPayload {
   static final String ERROR_INVOCATION_CANCELED =
       'wamp.error.invocation_canceled';

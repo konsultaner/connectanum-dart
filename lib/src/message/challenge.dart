@@ -1,10 +1,14 @@
 import 'abstract_message.dart';
 import 'message_types.dart';
 
+/// The WAMP Challenge massage
 class Challenge extends AbstractMessage {
   String authMethod;
   Extra extra;
 
+  /// Creates a WAMP Challenge message that is returned by the router to
+  /// challenge the client with a given [authMethod] and some [extra]
+  /// authentication data
   Challenge(this.authMethod, this.extra) {
     id = MessageTypes.CODE_CHALLENGE;
   }

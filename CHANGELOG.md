@@ -1,3 +1,8 @@
+### 1.0.6
+
+- [#14](https://github.com/konsultaner/connectanum-dart/issues/14) add support for event retention
+- added some more code comments
+ 
 ### 1.0.5
 
 - [#13](https://github.com/konsultaner/connectanum-dart/issues/13) changed meta dependency to match latest flutter dependencies 

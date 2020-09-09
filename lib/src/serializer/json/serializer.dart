@@ -372,6 +372,10 @@ class Serializer extends AbstractSerializer {
   String _serializeSubscribeOptions(SubscribeOptions options) {
     var jsonOptions = [];
     if (options != null) {
+      if (options.get_retained != null) {
+        jsonOptions
+            .add('"get_retained":${options.get_retained ? "true" : "false"}');
+      }
       if (options.match != null) {
         jsonOptions.add('"match":"${options.match}"');
       }
@@ -433,6 +437,10 @@ class Serializer extends AbstractSerializer {
   String _serializePublish(PublishOptions options) {
     var jsonDetails = [];
     if (options != null) {
+      if (options.retain != null) {
+        jsonDetails
+            .add('"retain":${options.retain ? "true" : "false"}');
+      }
       if (options.disclose_me != null) {
         jsonDetails
             .add('"disclose_me":${options.disclose_me ? "true" : "false"}');
