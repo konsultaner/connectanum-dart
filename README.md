@@ -52,6 +52,7 @@ WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
 - ☑ Pattern-based Subscriptions
 - ⬜ Sharded Subscriptions
 - ☑ Subscription Revocation
+- ☑ Event Retention
 
 ## Stream model
 
