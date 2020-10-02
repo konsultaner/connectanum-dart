@@ -1,3 +1,8 @@
+### 1.0.7
+
+- make it possible to allow self signed certificates with socket transport
+- update pointy castle dependency to latest version 
+
 ### 1.0.6
 
 - [#14](https://github.com/konsultaner/connectanum-dart/issues/14) add support for event retention

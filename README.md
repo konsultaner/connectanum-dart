@@ -18,7 +18,6 @@ WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
 
 - Multithreading for callee invocations
     - callee interrupt thread on incoming cancellations
-- better docs
 - msgpack serializer
 - get the auth id that called a method
 

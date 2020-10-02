@@ -19,6 +19,7 @@ class SocketTransport extends AbstractTransport {
   static final _logger = Logger('SocketTransport');
 
   bool _ssl;
+  bool _allowInsecureCertificates;
   final String _host;
   final int _port;
   Socket _socket;
@@ -46,10 +47,12 @@ class SocketTransport extends AbstractTransport {
   SocketTransport(
       this._host, this._port, this._serializer, this._serializerType,
       {ssl = false,
+      allowInsecureCertificates = false,
       messageLengthExponent = SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT})
       : assert(_serializerType == SocketHelper.SERIALIZATION_JSON ||
             _serializerType == SocketHelper.SERIALIZATION_MSGPACK) {
     _ssl = ssl;
+    _allowInsecureCertificates = allowInsecureCertificates;
     _messageLengthExponent = messageLengthExponent;
   }
 
@@ -147,7 +150,8 @@ class SocketTransport extends AbstractTransport {
     _handshakeCompleter = Completer();
     try {
       if (_ssl) {
-        _socket = await SecureSocket.connect(_host, _port);
+        _socket = await SecureSocket.connect(_host, _port,
+            onBadCertificate: (certificate) => _allowInsecureCertificates);
       } else {
         _socket = await Socket.connect(_host, _port);
       }
