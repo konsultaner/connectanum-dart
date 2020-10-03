@@ -303,14 +303,13 @@ void main() {
       expect(
           serializer.serializeToString(
               Abort(Error.AUTHORIZATION_FAILED, message: 'Some Error')),
-          equals('[3,{"message":"Some Error"},"${Error.AUTHORIZATION_FAILED}"]'));
+          equals(
+              '[3,{"message":"Some Error"},"${Error.AUTHORIZATION_FAILED}"]'));
       expect(
           serializer.serializeToString(
               Abort(Error.AUTHORIZATION_FAILED, message: '')),
           equals('[3,{"message":""},"${Error.AUTHORIZATION_FAILED}"]'));
-      expect(
-          serializer
-              .serializeToString(Abort(Error.AUTHORIZATION_FAILED)),
+      expect(serializer.serializeToString(Abort(Error.AUTHORIZATION_FAILED)),
           equals('[3,{},"${Error.AUTHORIZATION_FAILED}"]'));
     });
   });

@@ -244,8 +244,8 @@ void main() {
         'serverKey': 'T4DYBMMjNWlhFQc4A98cLTzoRBEVZPlkWI4hv8ug+Yg=',
         'storedKey': 'sni3TU4pWemjrglGNWdwRD5cRaJAaClIMO5DaElkQOM=',
         'username': 'admin',
-        'helloNonce':'',
-        'nonce':''
+        'helloNonce': '',
+        'nonce': ''
       };
       final transport = _MockTransport();
       final client = Client(
@@ -256,8 +256,9 @@ void main() {
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
           var hello = message as Hello;
-          user['helloNonce']  = hello.details.authextra['nonce'];
-          user['nonce']  = hello.details.authextra['nonce'] + 'KOyl+L29eqUe9cVKbVUUgQ==';
+          user['helloNonce'] = hello.details.authextra['nonce'];
+          user['nonce'] =
+              hello.details.authextra['nonce'] + 'KOyl+L29eqUe9cVKbVUUgQ==';
           var challengeExtra = Extra();
           challengeExtra.nonce = user['nonce'];
           challengeExtra.salt = user['salt'];
@@ -267,8 +268,8 @@ void main() {
           authExtra['channel_binding'] = null;
           authExtra['cbind_data'] = null;
           authExtra['nonce'] = user['nonce'];
-          transport.receiveMessage(
-              Challenge((message as Hello).details.authmethods[0], challengeExtra));
+          transport.receiveMessage(Challenge(
+              (message as Hello).details.authmethods[0], challengeExtra));
         }
         if (message.id == MessageTypes.CODE_AUTHENTICATE) {
           var authenticate = message as Authenticate;
@@ -276,20 +277,22 @@ void main() {
           challengeExtra.nonce = user['nonce'];
           challengeExtra.salt = user['salt'];
           challengeExtra.iterations = user['cost'];
-          var authMessage = ScramAuthentication.createAuthMessage(user['username'], user['helloNonce'], authenticate.extra as HashMap, challengeExtra);
-          if(ScramAuthentication.verifyClientProof(
+          var authMessage = ScramAuthentication.createAuthMessage(
+              user['username'],
+              user['helloNonce'],
+              authenticate.extra as HashMap,
+              challengeExtra);
+          if (ScramAuthentication.verifyClientProof(
               base64.decode(authenticate.signature),
               base64.decode(user['storedKey']),
-              authMessage
-            )
-          ) {
+              authMessage)) {
             transport.receiveMessage(Welcome(
-            3251278072152162,
-            Details.forWelcome(
-            authId: 'admin',
-            authMethod: 'wamp-scram',
-            authProvider: 'test',
-            authRole: 'admin')));
+                3251278072152162,
+                Details.forWelcome(
+                    authId: 'admin',
+                    authMethod: 'wamp-scram',
+                    authProvider: 'test',
+                    authRole: 'admin')));
           }
         }
       });

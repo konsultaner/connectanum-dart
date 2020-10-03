@@ -37,8 +37,10 @@ class ScramAuthentication extends AbstractAuthentication {
     _secret = Saslprep.saslprep(secret);
   }
 
-  /// This method generates the [authExtra] 'nonce' value and starts the timeout
-  /// to cancel the challenge if it took exceptionally long to receive
+  /// This method is called by the session to modify the hello [details] for
+  /// a given [realm]. This method generates the [authExtra] 'nonce' value and
+  /// starts the timeout to cancel the challenge if it took exceptionally long
+  /// to receive
   @override
   Future<void> hello(String realm, Details details) {
     var random = Random.secure();
@@ -110,8 +112,8 @@ class ScramAuthentication extends AbstractAuthentication {
   }
 
   /// This creates the SCRAM authmessage according to the [WAMP-SCRAM specs](https://wamp-proto.org/_static/gen/wamp_latest.html#authmessage)
-  static String createAuthMessage(String authId, String helloNonce, HashMap authExtra,
-      Extra challengeExtra) {
+  static String createAuthMessage(String authId, String helloNonce,
+      HashMap authExtra, Extra challengeExtra) {
     var clientFirstBare =
         'n=' + Saslprep.saslprep(authId) + ',' + 'r=' + helloNonce;
     var serverFirst = 'r=' +
@@ -133,13 +135,18 @@ class ScramAuthentication extends AbstractAuthentication {
   /// this is a scrum authentication verifier that will used to run the
   /// integration test for scrum authentication. This method is used on the
   /// router side to validate the challenge result.
-  static bool verifyClientProof(List<int> clientProof, Uint8List storedKey, String authMessage) {
-    var clientSignature = base64.decode(CraAuthentication.encodeHmac(storedKey, DEFAULT_KEY_LENGTH, authMessage.codeUnits)).toList();
+  static bool verifyClientProof(
+      List<int> clientProof, Uint8List storedKey, String authMessage) {
+    var clientSignature = base64
+        .decode(CraAuthentication.encodeHmac(
+            storedKey, DEFAULT_KEY_LENGTH, authMessage.codeUnits))
+        .toList();
     var recoveredClientKey = [
       for (var i = 0; i < DEFAULT_KEY_LENGTH; ++i)
         clientProof[i] ^ clientSignature[i]
     ];
-    var recoveredStoredKey = SHA256Digest().process(Uint8List.fromList(recoveredClientKey)).toList();
+    var recoveredStoredKey =
+        SHA256Digest().process(Uint8List.fromList(recoveredClientKey)).toList();
     for (var j = 0; j < storedKey.length; j++) {
       if (recoveredStoredKey[j] != storedKey[j]) {
         return false;

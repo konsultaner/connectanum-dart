@@ -20,13 +20,21 @@ class CraAuthentication extends AbstractAuthentication {
   static final List<int> DEFAULT_KEY_SALT = [];
   final String secret;
 
+  /// Initializes the authentication method with the [secret] aka password
   CraAuthentication(this.secret);
 
+  /// This method is called by the session to modify the hello [details] for
+  /// a given [realm]. Since CRA does not need to modify it. This method returns
+  /// a completed future
   @override
   Future<void> hello(String realm, Details details) {
     return Future.value();
   }
 
+  /// This method is called by the session if the router returns the challenge or
+  /// the challenges [extra] respectively. This method proceeds the cra
+  /// authentication process and creates an authentication message according to
+  /// the wamp specification
   @override
   Future<Authenticate> challenge(Extra extra) {
     var authenticate = Authenticate();
@@ -55,6 +63,8 @@ class CraAuthentication extends AbstractAuthentication {
     return Future.value(authenticate);
   }
 
+  /// Creates an derived key from a [secret], [salt], [iterations], [keylen] and
+  /// [hmacLength].
   static Uint8List deriveKey(String secret, List<int> salt,
       {int iterations = 1000, int keylen = 32, hmacLength = 64}) {
     var derivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), hmacLength))
@@ -62,12 +72,16 @@ class CraAuthentication extends AbstractAuthentication {
     return derivator.process(Uint8List.fromList(secret.codeUnits));
   }
 
+  /// Creates an base 64 encoded hmac from a [key] that usually is the derived
+  /// key, [keylen], [challenge] and [hmacLength].
   static String encodeHmac(Uint8List key, int keylen, List<int> challenge,
       {hmacLength = 64}) {
     return base64
         .encode(encodeByteHmac(key, keylen, challenge, hmacLength: hmacLength));
   }
 
+  /// Creates a hmac from a [key] that usually is the derived key, [keylen],
+  /// [challenge] and [hmacLength].
   static Uint8List encodeByteHmac(
       Uint8List key, int keylen, List<int> challenge,
       {hmacLength = 64}) {
@@ -79,6 +93,7 @@ class CraAuthentication extends AbstractAuthentication {
     return out;
   }
 
+  /// This method is called by the session to identify the authentication name.
   @override
   String getName() {
     return 'wampcra';

@@ -1,3 +1,10 @@
+### 1.0.8
+
+- fixed error when abort is to be sent by the authentication method
+- added integration test for wamp scram
+- fixed call `AbstractAuthentication.hello` before sending initial hello
+- inline docs for the authentication methods
+
 ### 1.0.7
 
 - make it possible to allow self signed certificates with socket transport

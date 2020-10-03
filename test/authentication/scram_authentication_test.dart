@@ -85,9 +85,11 @@ void main() {
     test('verify key', () {
       var signature = 'dHzbZapWIk4jUhN+Ute9ytag9zjfMHgsqmmiz7AndVQ=';
       var storedKey = 'WG5d8oPm3OtcPnkdi4Uo7BkeZkBFzpcXkuLmtbsT4qY=';
-      var authMessage = 'n=user,r=rOprNGfwEbeRWgbNEkqO,r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF\$k0,s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096,c=biws,r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF\$k0';
+      var authMessage =
+          'n=user,r=rOprNGfwEbeRWgbNEkqO,r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF\$k0,s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096,c=biws,r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF\$k0';
 
-      var isVerified = ScramAuthentication.verifyClientProof(base64.decode(signature), base64.decode(storedKey) , authMessage);
+      var isVerified = ScramAuthentication.verifyClientProof(
+          base64.decode(signature), base64.decode(storedKey), authMessage);
       expect(isVerified, equals(true));
     });
   });

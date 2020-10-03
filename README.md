@@ -22,6 +22,12 @@ WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
 - support auto switch auth methods for methods that need to define fields in the hello. At the moment this is only wamp scram.
 - get the auth id that called a method
 
+## Known Issues
+
+If multiple authentication methods are used and wamp scram is one of it, wamp scram
+needs to be the first one. If not wamp scram will not modify the hello as needed and will
+eventually fail.
+
 ## Supported WAMP features
 
 ### Authentication
