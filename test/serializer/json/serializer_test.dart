@@ -58,6 +58,13 @@ void main() {
           serializer.serializeToString(Authenticate.signature('someSignature')),
           equals(
               '[${MessageTypes.CODE_AUTHENTICATE},"${"someSignature"}",{}]'));
+      var authenticate = Authenticate.signature('someSignature');
+      authenticate.extra = HashMap<String, Object>();
+      authenticate.extra['nonce'] = 'abc';
+      expect(
+          serializer.serializeToString(authenticate),
+          equals(
+              '[${MessageTypes.CODE_AUTHENTICATE},"${"someSignature"}",{"nonce":"abc"}]'));
     });
     test('Register', () {
       expect(

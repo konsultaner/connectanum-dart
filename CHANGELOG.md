@@ -1,3 +1,7 @@
+### 1.0.9
+
+- fix authenticate serialization
+
 ### 1.0.8
 
 - fixed error when abort is to be sent by the authentication method
