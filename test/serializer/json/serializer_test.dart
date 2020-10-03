@@ -299,6 +299,20 @@ void main() {
               .serializeToString(Goodbye(null, Goodbye.REASON_SYSTEM_SHUTDOWN)),
           equals('[6,{},"wamp.error.system_shutdown"]'));
     });
+    test('Abort', () {
+      expect(
+          serializer.serializeToString(
+              Abort(Error.AUTHORIZATION_FAILED, message: 'Some Error')),
+          equals('[3,{"message":"Some Error"},"${Error.AUTHORIZATION_FAILED}"]'));
+      expect(
+          serializer.serializeToString(
+              Abort(Error.AUTHORIZATION_FAILED, message: '')),
+          equals('[3,{"message":""},"${Error.AUTHORIZATION_FAILED}"]'));
+      expect(
+          serializer
+              .serializeToString(Abort(Error.AUTHORIZATION_FAILED)),
+          equals('[3,{},"${Error.AUTHORIZATION_FAILED}"]'));
+    });
   });
   group('unserialize', () {
     test('Abort', () {
