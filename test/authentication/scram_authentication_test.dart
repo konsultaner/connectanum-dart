@@ -25,7 +25,7 @@ void main() {
       final authMethod = ScramAuthentication(secret,
           challengeTimeout: Duration(milliseconds: 20));
       expect(authMethod.getName(), equals('wamp-scram'));
-      authMethod.hello('com.realm', Details.forHello()..authid = user);
+      await authMethod.hello('com.realm', Details.forHello()..authid = user);
       expect(authMethod.authid, equals(user));
       expect(authMethod.secret, equals(secret));
       expect(authMethod.challengeTimeout.inMilliseconds, equals(20));
@@ -81,6 +81,14 @@ void main() {
       final authenticateSignature = ScramAuthentication(secret)
           .challengePBKDF2(user, helloNonce, challengeExtra, authExtra);
       expect(authenticateSignature, equals(signature));
+    });
+    test('verify key', () {
+      var signature = 'dHzbZapWIk4jUhN+Ute9ytag9zjfMHgsqmmiz7AndVQ=';
+      var storedKey = 'WG5d8oPm3OtcPnkdi4Uo7BkeZkBFzpcXkuLmtbsT4qY=';
+      var authMessage = 'n=user,r=rOprNGfwEbeRWgbNEkqO,r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF\$k0,s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096,c=biws,r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF\$k0';
+
+      var isVerified = ScramAuthentication.verifyClientProof(base64.decode(signature), base64.decode(storedKey) , authMessage);
+      expect(isVerified, equals(true));
     });
   });
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 
 import 'package:connectanum/authentication.dart';
 import 'package:connectanum/connectanum.dart';
@@ -235,6 +236,70 @@ void main() {
       expect(session.authRole, equals('user'));
       expect(session.authProvider, equals('ticket'));
       expect(session.authMethod, equals('static'));
+    });
+    test('session creation with scram authentication process', () async {
+      final user = {
+        'cost': 4096,
+        'salt': 'b7f4f8f864924168a91fa5bba5a3bdfe',
+        'serverKey': 'T4DYBMMjNWlhFQc4A98cLTzoRBEVZPlkWI4hv8ug+Yg=',
+        'storedKey': 'sni3TU4pWemjrglGNWdwRD5cRaJAaClIMO5DaElkQOM=',
+        'username': 'admin',
+        'helloNonce':'',
+        'nonce':''
+      };
+      final transport = _MockTransport();
+      final client = Client(
+          realm: 'test.realm',
+          authId: 'admin',
+          transport: transport,
+          authenticationMethods: [ScramAuthentication('admin')]);
+      transport.outbound.stream.listen((message) {
+        if (message.id == MessageTypes.CODE_HELLO) {
+          var hello = message as Hello;
+          user['helloNonce']  = hello.details.authextra['nonce'];
+          user['nonce']  = hello.details.authextra['nonce'] + 'KOyl+L29eqUe9cVKbVUUgQ==';
+          var challengeExtra = Extra();
+          challengeExtra.nonce = user['nonce'];
+          challengeExtra.salt = user['salt'];
+          challengeExtra.kdf = ScramAuthentication.KDF_PBKDF2;
+          challengeExtra.iterations = user['cost'];
+          var authExtra = HashMap<String, Object>();
+          authExtra['channel_binding'] = null;
+          authExtra['cbind_data'] = null;
+          authExtra['nonce'] = user['nonce'];
+          transport.receiveMessage(
+              Challenge((message as Hello).details.authmethods[0], challengeExtra));
+        }
+        if (message.id == MessageTypes.CODE_AUTHENTICATE) {
+          var authenticate = message as Authenticate;
+          var challengeExtra = Extra();
+          challengeExtra.nonce = user['nonce'];
+          challengeExtra.salt = user['salt'];
+          challengeExtra.iterations = user['cost'];
+          var authMessage = ScramAuthentication.createAuthMessage(user['username'], user['helloNonce'], authenticate.extra as HashMap, challengeExtra);
+          if(ScramAuthentication.verifyClientProof(
+              base64.decode(authenticate.signature),
+              base64.decode(user['storedKey']),
+              authMessage
+            )
+          ) {
+            transport.receiveMessage(Welcome(
+            3251278072152162,
+            Details.forWelcome(
+            authId: 'admin',
+            authMethod: 'wamp-scram',
+            authProvider: 'test',
+            authRole: 'admin')));
+          }
+        }
+      });
+      final session = await client.connect().first;
+      expect(session.realm, equals('test.realm'));
+      expect(session.id, equals(3251278072152162));
+      expect(session.authId, equals('admin'));
+      expect(session.authRole, equals('admin'));
+      expect(session.authProvider, equals('test'));
+      expect(session.authMethod, equals('wamp-scram'));
     });
 
     test('procedure registration and invocation', () async {

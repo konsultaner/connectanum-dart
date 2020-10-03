@@ -78,6 +78,7 @@ class Session {
       hello.details.authid = authId;
     }
     if (authMethods != null && authMethods.isNotEmpty) {
+      await authMethods[0].hello(realm, hello.details);
       hello.details.authmethods = authMethods
           .map<String>((authMethod) => authMethod.getName())
           .toList();
