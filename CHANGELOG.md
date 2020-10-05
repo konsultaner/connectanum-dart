@@ -1,3 +1,7 @@
+### 1.0.10
+
+- fix socket transport close throws exception
+
 ### 1.0.9
 
 - fix authenticate serialization

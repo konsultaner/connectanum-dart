@@ -12,6 +12,19 @@ import 'package:pedantic/pedantic.dart';
 import 'package:test/test.dart';
 
 void main() {
+  group('Socket open and close', () {
+    test('inital close', () async {
+      final server = await ServerSocket.bind('0.0.0.0', 8998);
+      server.listen((socket) {
+        socket.listen((message) {});
+      });
+      final transport = SocketTransport(
+          '127.0.0.1', 8998, Serializer(), SocketHelper.SERIALIZATION_JSON);
+      await transport.open();
+      transport.receive().listen((event) {});
+      await transport.close();
+    });
+  });
   group('Socket protocol negotiation', () {
     test('Opening with max header', () async {
       var handshakes = <Uint8List>[null, null];
@@ -141,8 +154,7 @@ void main() {
       unawaited(transport.onReady.then((aVoid) {},
           onError: (error) => errorCompleter.complete(error)));
       transport.receive().listen((message) {},
-          onError: (error) => transport.onDisconnect.complete(error),
-          onDone: () => transport.onDisconnect.complete());
+          onError: (error) => transport.onDisconnect.complete(error));
       var error = await errorCompleter.future;
       expect(error['error'], isNotNull);
       expect(error['errorNumber'],
@@ -160,7 +172,6 @@ void main() {
           onError: (error) => errorCompleter.complete(error)));
       transport.receive().listen((message) {},
           onError: (error) => transport.onDisconnect.complete(error),
-          onDone: () => transport.onDisconnect.complete(),
           cancelOnError: true);
       error = await errorCompleter.future;
       expect(error['error'], isNotNull);
@@ -178,8 +189,7 @@ void main() {
       unawaited(transport.onReady.then((aVoid) {},
           onError: (error) => errorCompleter.complete(error)));
       transport.receive().listen((message) {},
-          onError: (error) => transport.onDisconnect.complete(error),
-          onDone: () => transport.onDisconnect.complete());
+          onError: (error) => transport.onDisconnect.complete(error));
       error = await errorCompleter.future;
       expect(error['error'], isNotNull);
       expect(error['errorNumber'],
@@ -196,8 +206,7 @@ void main() {
       unawaited(transport.onReady.then((aVoid) {},
           onError: (error) => errorCompleter.complete(error)));
       transport.receive().listen((message) {},
-          onError: (error) => transport.onDisconnect.complete(error),
-          onDone: () => transport.onDisconnect.complete());
+          onError: (error) => transport.onDisconnect.complete(error));
       error = await errorCompleter.future;
       expect(error['error'], isNotNull);
       expect(error['errorNumber'],

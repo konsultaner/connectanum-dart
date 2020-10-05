@@ -83,13 +83,17 @@ class SocketTransport extends AbstractTransport {
   Future<void> close({error}) {
     // found at https://stackoverflow.com/questions/28745138/how-to-handle-socket-disconnects-in-dart
     if (isOpen) {
-      return _socket.drain().then((_) {
+      try {
+        return _socket.drain().then((_) {
+          _socket.destroy(); // closes in and out going socket
+          complete(_onDisconnect, error);
+        });
+      } catch (error) {
         _socket.destroy(); // closes in and out going socket
         complete(_onDisconnect, error);
-      });
-    } else {
-      return Future.value();
+      }
     }
+    return Future.value();
   }
 
   @override
@@ -168,7 +172,7 @@ class SocketTransport extends AbstractTransport {
     _socket.done.then((done) {
       if (!_goodbyeSent && !_goodbyeReceived && !_onDisconnect.isCompleted) {
         _onConnectionLost.complete();
-      } else {
+      } else if (!_onDisconnect.isCompleted) {
         _onDisconnect.complete();
       }
     }, onError: (error) {

@@ -285,8 +285,8 @@ void main() {
       expect(client.transport.isOpen, isFalse);
     });
 
-    test('test on multiple reconnects with web socket transport', () async {
-      final server = await ServerSocket.bind('0.0.0.0', 9012);
+    test('test on multiple reconnects with socket transport', () async {
+      final server = await ServerSocket.bind('0.0.0.0', 9021);
       Socket _socket;
       server.listen((socket) {
         _socket = socket;
@@ -317,7 +317,7 @@ void main() {
         });
       });
       final transport = SocketTransport(
-          'localhost', 9012, Serializer(), SocketHelper.SERIALIZATION_JSON,
+          'localhost', 9021, Serializer(), SocketHelper.SERIALIZATION_JSON,
           messageLengthExponent:
               SocketHelper.MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT);
       final client = Client(realm: 'com.connectanum', transport: transport);
@@ -344,8 +344,7 @@ void main() {
       expect(client.transport.isOpen, isTrue);
     });
 
-    test('test on connect web socket transport and no server available',
-        () async {
+    test('test on connect socket transport and no server available', () async {
       final transport = SocketTransport(
           'localhost', 9019, Serializer(), SocketHelper.SERIALIZATION_JSON,
           messageLengthExponent:
