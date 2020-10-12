@@ -20,6 +20,11 @@ void hybridMain(StreamChannel channel) async {
         if (message is String &&
             message.contains('[' + MessageTypes.CODE_HELLO.toString())) {
           socket.add('[' + MessageTypes.CODE_WELCOME.toString() + ',1234,{}]');
+        } else {
+          // received msgpack
+          if (message.contains(MessageTypes.CODE_HELLO)) {
+            socket.add([221, 0, 0, 0, 3, 2, 205, 4, 210, 223, 0, 0, 0, 0]);
+          }
         }
       });
     }
