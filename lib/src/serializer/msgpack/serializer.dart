@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:logging/logging.dart';
@@ -39,15 +38,22 @@ import '../abstract_serializer.dart';
 class Serializer extends AbstractSerializer {
   static final Logger _logger = Logger('Serializer');
 
+  static List<int> toIntList(dynamic toParse) => List<int>.from(toParse
+      .replaceAll(RegExp('\\['), '')
+      .replaceAll(RegExp('\]'), '')
+      .split(',')
+      .map((e) => int.tryParse(e)));
+
   /// Converts a uint8 JSON message into a WAMP message object
   @override
   AbstractMessage deserialize(Uint8List msgPack) {
-    return deserializeFromString(Utf8Decoder().convert(msgPack));
+    return deserializeFromString(msgPack.toString());
   }
 
   /// Converts a string JSON message into a WAMP message object
   AbstractMessage deserializeFromString(String msgPack) {
-    Object message = msgp.deserialize(Utf8Encoder().convert(msgPack));
+    var parsedMessage = Uint8List.fromList(toIntList(msgPack));
+    Object message = msgp.deserialize(parsedMessage);
     if (message is List) {
       int messageId = message[0];
       if (messageId == MessageTypes.CODE_CHALLENGE) {
@@ -225,100 +231,144 @@ class Serializer extends AbstractSerializer {
       message.arguments = messageData[argumentsOffset];
     }
     if (messageData.length >= argumentsOffset + 2) {
-      message.argumentsKeywords = messageData[argumentsOffset + 1];
+      message.argumentsKeywords =
+          Map.castFrom<dynamic, dynamic, String, Object>(
+              messageData[argumentsOffset + 1]);
     }
     return message;
   }
 
-  /// Converts a WAMP message object into a uint8 json message
+  /// Converts a WAMP message object into a uint8 msgpack message
   @override
   Uint8List serialize(AbstractMessage message) {
-    return msgp.serialize(serializeToString(message));
+    return Uint8List.fromList(toIntList(serializeToString(message)));
   }
 
   /// Converts a WAMP message object into a string json message
   String serializeToString(AbstractMessage message) {
     if (message is Hello) {
-      return msgp.serialize([
-        MessageTypes.CODE_HELLO,
-        message.realm,
-        _serializeDetails(message.details)
-      ]).toString();
+      return ([147] +
+              msgp.serialize(MessageTypes.CODE_HELLO) +
+              msgp.serialize(message.realm) +
+              _serializeDetails(message.details))
+          .toString();
     }
     if (message is Authenticate) {
-      return msgp.serialize([
-        MessageTypes.CODE_AUTHENTICATE,
-        message.signature ?? '',
-        message.extra ?? ''
-      ]).toString();
+      return ([147] +
+              msgp.serialize(MessageTypes.CODE_AUTHENTICATE) +
+              msgp.serialize(message.signature ?? '') +
+              msgp.serialize(message.extra ?? '{}'))
+          .toString();
     }
     if (message is Register) {
-      return msgp.serialize([
-        MessageTypes.CODE_REGISTER,
-        message.requestId,
-        _serializeRegisterOptions(message.options),
-        message.procedure
-      ]).toString();
+      return ([148] +
+              msgp.serialize(MessageTypes.CODE_REGISTER) +
+              msgp.serialize(message.requestId) +
+              _serializeRegisterOptions(message.options) +
+              msgp.serialize(message.procedure))
+          .toString();
     }
     if (message is Unregister) {
-      return msgp.serialize([
-        MessageTypes.CODE_UNREGISTER,
-        message.requestId,
-        message.registrationId
-      ]).toString();
+      return ([147] +
+              msgp.serialize(MessageTypes.CODE_UNREGISTER) +
+              msgp.serialize(message.requestId) +
+              msgp.serialize(message.registrationId))
+          .toString();
     }
     if (message is Call) {
-      return msgp.serialize([
-        MessageTypes.CODE_CALL,
-        message.requestId,
-        _serializeCallOptions(message.options),
-        '"${message.procedure}"${_serializePayload(message)}'
-      ]).toString();
+      return ([149] +
+              msgp.serialize(MessageTypes.CODE_CALL) +
+              msgp.serialize(message.requestId) +
+              _serializeCallOptions(message.options) +
+              msgp.serialize(message.procedure) +
+              _serializePayload(message))
+          .toString();
     }
     if (message is Yield) {
-      return msgp.serialize([
-        MessageTypes.CODE_YIELD,
-        message.invocationRequestId,
-        _serializeYieldOptions(message.options) + _serializePayload(message)
-      ]).toString();
+      return ([147] +
+              msgp.serialize(MessageTypes.CODE_YIELD) +
+              msgp.serialize(message.invocationRequestId) +
+              _serializeYieldOptions(message.options) +
+              _serializePayload(message))
+          .toString();
     }
     if (message is Invocation) {
       // for serializer unit test only
-      return msgp.serialize([
-        MessageTypes.CODE_INVOCATION,
-        message.requestId,
-        message.registrationId,
-        _serializePayload(message)
-      ]).toString();
+      return ([149] +
+              msgp.serialize(MessageTypes.CODE_INVOCATION) +
+              msgp.serialize(message.requestId) +
+              msgp.serialize(message.registrationId) +
+              msgp.serialize({}) +
+              _serializePayload(message))
+          .toString();
     }
     if (message is Publish) {
-      return '[${MessageTypes.CODE_PUBLISH},${message.requestId},${_serializePublish(message.options)},"${message.topic}"${_serializePayload(message)}]';
+      return ([148] +
+              msgp.serialize(MessageTypes.CODE_PUBLISH) +
+              msgp.serialize(message.requestId) +
+              _serializePublish(message.options) +
+              msgp.serialize(message.topic) +
+              _serializePayload(message))
+          .toString();
     }
     if (message is Event) {
-      return '[${MessageTypes.CODE_EVENT},${message.subscriptionId},${message.publicationId}${_serializePayload(message)}]';
+      return ([147] +
+              msgp.serialize(MessageTypes.CODE_EVENT) +
+              msgp.serialize(message.subscriptionId) +
+              msgp.serialize(message.publicationId) +
+              _serializePayload(message))
+          .toString();
     }
     if (message is Subscribe) {
-      return '[${MessageTypes.CODE_SUBSCRIBE},${message.requestId},${_serializeSubscribeOptions(message.options)},"${message.topic}"]';
+      return ([148] +
+              msgp.serialize(MessageTypes.CODE_SUBSCRIBE) +
+              msgp.serialize(message.requestId) +
+              _serializeSubscribeOptions(message.options) +
+              msgp.serialize(message.topic))
+          .toString();
     }
     if (message is Unsubscribe) {
-      return '[${MessageTypes.CODE_UNSUBSCRIBE},${message.requestId},${message.subscriptionId}]';
+      return ([147] +
+              msgp.serialize(MessageTypes.CODE_UNSUBSCRIBE) +
+              msgp.serialize(message.requestId) +
+              msgp.serialize(message.subscriptionId))
+          .toString();
     }
     if (message is Error) {
-      return '[${MessageTypes.CODE_ERROR},${message.requestTypeId},${message.requestId},${json.encode(message.details)},"${message.error}"${_serializePayload(message)}]';
+      return ([149] +
+              msgp.serialize(MessageTypes.CODE_ERROR) +
+              msgp.serialize(message.requestTypeId) +
+              msgp.serialize(message.requestId) +
+              msgp.serialize(message.details) +
+              msgp.serialize(message.error) +
+              _serializePayload(message))
+          .toString();
     }
     if (message is Abort) {
-      return '[${MessageTypes.CODE_ABORT},${message.message != null ? '{"message":"${message.message.message ?? ""}"}' : "{}"},"${message.reason}"]';
+      return ([147] +
+              msgp.serialize(MessageTypes.CODE_ABORT) +
+              msgp.serialize(message.message != null
+                  ? {'message': '${message.message.message ?? ""}'}
+                  : {}) +
+              msgp.serialize(message.reason))
+          .toString();
     }
     if (message is Goodbye) {
-      return '[${MessageTypes.CODE_GOODBYE},${message.message != null ? '{"message":"${message.message.message ?? ""}"}' : "{}"},"${message.reason}"]';
+      return ([147] +
+              msgp.serialize(MessageTypes.CODE_GOODBYE) +
+              msgp.serialize(message.message != null
+                  ? {'message': '${message.message.message ?? ""}'}
+                  : {}) +
+              msgp.serialize(message.reason))
+          .toString();
     }
 
     _logger.shout(
         'Could not serialize the message of type: ' + message.toString());
-    throw Exception(msgp.FormatError);
+    throw Exception('Message type not known!');
   }
 
-  dynamic _serializeDetails(Details details) {
+  Uint8List _serializeDetails(Details details) {
     if (details.roles != null) {
       var roles = {};
       if (details.roles.caller != null &&
@@ -401,25 +451,25 @@ class Serializer extends AbstractSerializer {
           MapEntry('publisher', {'features': publisherFeatures})
         ]);
       }
-      var detailsParts = [
-        {'roles': roles}
-      ];
+      // ignore: prefer_collection_literals
+      var detailsParts = List<Map<String, dynamic>>();
+      detailsParts.add({'roles': roles});
       if (details.authid != null) {
-        detailsParts.add({'authid': details.authid as dynamic});
+        detailsParts.add({'authid': details.authid});
       }
       if (details.authmethods != null && details.authmethods.isNotEmpty) {
-        detailsParts.add({'authmethods': details.authmethods as dynamic});
+        detailsParts.add({'authmethods': details.authmethods});
       }
       if (details.authextra != null) {
         detailsParts.add({'authextra': details.authextra});
       }
-      return detailsParts;
+      return msgp.serialize(detailsParts);
     } else {
       return null;
     }
   }
 
-  dynamic _serializeSubscribeOptions(SubscribeOptions options) {
+  Uint8List _serializeSubscribeOptions(SubscribeOptions options) {
     var subscriptionOptions = {};
     if (options != null) {
       if (options.get_retained != null) {
@@ -431,10 +481,10 @@ class Serializer extends AbstractSerializer {
       }
     }
 
-    return subscriptionOptions;
+    return msgp.serialize(subscriptionOptions);
   }
 
-  dynamic _serializeRegisterOptions(RegisterOptions options) {
+  Uint8List _serializeRegisterOptions(RegisterOptions options) {
     var registerOptions = {};
     if (options != null) {
       if (options.match != null) {
@@ -449,10 +499,10 @@ class Serializer extends AbstractSerializer {
       }
     }
 
-    return registerOptions;
+    return msgp.serialize(registerOptions);
   }
 
-  dynamic _serializeCallOptions(CallOptions options) {
+  Uint8List _serializeCallOptions(CallOptions options) {
     var callOptions = {};
     if (options != null) {
       if (options.receive_progress != null) {
@@ -467,20 +517,20 @@ class Serializer extends AbstractSerializer {
       }
     }
 
-    return callOptions;
+    return msgp.serialize(callOptions);
   }
 
-  dynamic _serializeYieldOptions(YieldOptions options) {
+  Uint8List _serializeYieldOptions(YieldOptions options) {
     var yieldOptions = {};
     if (options != null) {
       if (options.progress != null) {
         yieldOptions.addEntries([MapEntry('progress', options.progress)]);
       }
     }
-    return yieldOptions;
+    return msgp.serialize(yieldOptions);
   }
 
-  dynamic _serializePublish(PublishOptions options) {
+  Uint8List _serializePublish(PublishOptions options) {
     var publishDetails = {};
     if (options != null) {
       publishDetails.addEntries([
@@ -503,17 +553,18 @@ class Serializer extends AbstractSerializer {
           MapEntry('eligible_authid', options.eligible_authid)
       ]);
     }
-    return publishDetails;
+    return msgp.serialize(publishDetails);
   }
 
-  String _serializePayload(AbstractMessageWithPayload message) {
+  Uint8List _serializePayload(AbstractMessageWithPayload message) {
     if (message != null) {
       if (message.argumentsKeywords != null) {
-        return '${msgp.serialize(message.arguments ?? [])}${msgp.serialize(message.argumentsKeywords)}';
+        return msgp.serialize(
+            '${message.arguments ?? []}${message.argumentsKeywords}');
       } else if (message.arguments != null) {
-        return '${msgp.serialize(message.arguments)}';
+        return msgp.serialize(message.arguments);
       }
     }
-    return '';
+    return msgp.serialize('');
   }
 }
