@@ -1,3 +1,7 @@
+### 1.0.11
+
+- added msgpack serializer by [@liquidiert](https://github.com/liquidiert)
+
 ### 1.0.10
 
 - fix socket transport close throws exception
