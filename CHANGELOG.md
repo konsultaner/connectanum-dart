@@ -1,4 +1,4 @@
-### 1.0.10
+### 1.0.11
 
 - added msgpack serializer by [@liquidiert](https://github.com/liquidiert)
 
