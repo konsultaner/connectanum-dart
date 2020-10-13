@@ -1,15 +1,18 @@
 @TestOn('vm')
 
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:connectanum/src/message/details.dart';
 import 'package:connectanum/src/message/hello.dart';
 import 'package:connectanum/src/message/message_types.dart';
 import 'package:connectanum/src/message/welcome.dart';
 import 'package:connectanum/src/serializer/json/serializer.dart'
-    as json_serializer;
+    // ignore: library_prefixes
+    as jsonSerializer;
 import 'package:connectanum/src/serializer/msgpack/serializer.dart'
-    as msgpack_serializer;
+    // ignore: library_prefixes
+    as msgpackSerializer;
 import 'package:connectanum/src/transport/websocket/websocket_transport_io.dart';
 import 'package:connectanum/src/transport/websocket/websocket_transport_serialization.dart';
 import 'package:test/test.dart';
@@ -32,7 +35,8 @@ void main() {
             } else {
               // received msgpack
               if (message.contains(MessageTypes.CODE_HELLO)) {
-                socket.add([221, 0, 0, 0, 3, 2, 205, 4, 210, 223, 0, 0, 0, 0]);
+                socket.add(Uint8List.fromList(
+                    [221, 0, 0, 0, 3, 2, 205, 4, 210, 223, 0, 0, 0, 0]));
               }
             }
           });
@@ -41,12 +45,12 @@ void main() {
 
       var transportJSON = WebSocketTransport(
           'ws://localhost:9100/wamp',
-          json_serializer.Serializer(),
+          jsonSerializer.Serializer(),
           WebSocketSerialization.SERIALIZATION_JSON);
 
       var transportMsgpack = WebSocketTransport(
           'ws://localhost:9100/wamp',
-          msgpack_serializer.Serializer(),
+          msgpackSerializer.Serializer(),
           WebSocketSerialization.SERIALIZATION_MSGPACK);
 
       await transportJSON.open();
