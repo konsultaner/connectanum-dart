@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:logging/logging.dart';
-import 'package:msgpack_dart/msgpack_dart.dart' as msgp;
+import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
 
 import '../../../src/message/abstract_message.dart';
 import '../../../src/message/abort.dart';
@@ -41,7 +41,7 @@ class Serializer extends AbstractSerializer {
   /// Converts a uint8 msgpack message into a WAMP message object
   @override
   AbstractMessage deserialize(Uint8List msgPack) {
-    Object message = msgp.deserialize(msgPack);
+    Object message = msgpack_dart.deserialize(msgPack);
     if (message is List) {
       int messageId = message[0];
       if (messageId == MessageTypes.CODE_CHALLENGE) {
@@ -230,105 +230,105 @@ class Serializer extends AbstractSerializer {
   Uint8List serialize(AbstractMessage message) {
     if (message is Hello) {
       return Uint8List.fromList([147] +
-          msgp.serialize(MessageTypes.CODE_HELLO) +
-          msgp.serialize(message.realm) +
+          msgpack_dart.serialize(MessageTypes.CODE_HELLO) +
+          msgpack_dart.serialize(message.realm) +
           _serializeDetails(message.details));
     }
     if (message is Authenticate) {
       return Uint8List.fromList([147] +
-          msgp.serialize(MessageTypes.CODE_AUTHENTICATE) +
-          msgp.serialize(message.signature ?? '') +
-          msgp.serialize(message.extra ?? '{}'));
+          msgpack_dart.serialize(MessageTypes.CODE_AUTHENTICATE) +
+          msgpack_dart.serialize(message.signature ?? '') +
+          msgpack_dart.serialize(message.extra ?? '{}'));
     }
     if (message is Register) {
       return Uint8List.fromList([148] +
-          msgp.serialize(MessageTypes.CODE_REGISTER) +
-          msgp.serialize(message.requestId) +
+          msgpack_dart.serialize(MessageTypes.CODE_REGISTER) +
+          msgpack_dart.serialize(message.requestId) +
           _serializeRegisterOptions(message.options) +
-          msgp.serialize(message.procedure));
+          msgpack_dart.serialize(message.procedure));
     }
     if (message is Unregister) {
       return Uint8List.fromList([147] +
-          msgp.serialize(MessageTypes.CODE_UNREGISTER) +
-          msgp.serialize(message.requestId) +
-          msgp.serialize(message.registrationId));
+          msgpack_dart.serialize(MessageTypes.CODE_UNREGISTER) +
+          msgpack_dart.serialize(message.requestId) +
+          msgpack_dart.serialize(message.registrationId));
     }
     if (message is Call) {
       return Uint8List.fromList([149] +
-          msgp.serialize(MessageTypes.CODE_CALL) +
-          msgp.serialize(message.requestId) +
+          msgpack_dart.serialize(MessageTypes.CODE_CALL) +
+          msgpack_dart.serialize(message.requestId) +
           _serializeCallOptions(message.options) +
-          msgp.serialize(message.procedure) +
+          msgpack_dart.serialize(message.procedure) +
           _serializePayload(message));
     }
     if (message is Yield) {
       return Uint8List.fromList([147] +
-          msgp.serialize(MessageTypes.CODE_YIELD) +
-          msgp.serialize(message.invocationRequestId) +
+          msgpack_dart.serialize(MessageTypes.CODE_YIELD) +
+          msgpack_dart.serialize(message.invocationRequestId) +
           _serializeYieldOptions(message.options) +
           _serializePayload(message));
     }
     if (message is Invocation) {
       // for serializer unit test only
       return Uint8List.fromList([149] +
-          msgp.serialize(MessageTypes.CODE_INVOCATION) +
-          msgp.serialize(message.requestId) +
-          msgp.serialize(message.registrationId) +
-          msgp.serialize({}) +
+          msgpack_dart.serialize(MessageTypes.CODE_INVOCATION) +
+          msgpack_dart.serialize(message.requestId) +
+          msgpack_dart.serialize(message.registrationId) +
+          msgpack_dart.serialize({}) +
           _serializePayload(message));
     }
     if (message is Publish) {
       return Uint8List.fromList([148] +
-          msgp.serialize(MessageTypes.CODE_PUBLISH) +
-          msgp.serialize(message.requestId) +
+          msgpack_dart.serialize(MessageTypes.CODE_PUBLISH) +
+          msgpack_dart.serialize(message.requestId) +
           _serializePublish(message.options) +
-          msgp.serialize(message.topic) +
+          msgpack_dart.serialize(message.topic) +
           _serializePayload(message));
     }
     if (message is Event) {
       return Uint8List.fromList([147] +
-          msgp.serialize(MessageTypes.CODE_EVENT) +
-          msgp.serialize(message.subscriptionId) +
-          msgp.serialize(message.publicationId) +
+          msgpack_dart.serialize(MessageTypes.CODE_EVENT) +
+          msgpack_dart.serialize(message.subscriptionId) +
+          msgpack_dart.serialize(message.publicationId) +
           _serializePayload(message));
     }
     if (message is Subscribe) {
       return Uint8List.fromList([148] +
-          msgp.serialize(MessageTypes.CODE_SUBSCRIBE) +
-          msgp.serialize(message.requestId) +
+          msgpack_dart.serialize(MessageTypes.CODE_SUBSCRIBE) +
+          msgpack_dart.serialize(message.requestId) +
           _serializeSubscribeOptions(message.options) +
-          msgp.serialize(message.topic));
+          msgpack_dart.serialize(message.topic));
     }
     if (message is Unsubscribe) {
       return Uint8List.fromList([147] +
-          msgp.serialize(MessageTypes.CODE_UNSUBSCRIBE) +
-          msgp.serialize(message.requestId) +
-          msgp.serialize(message.subscriptionId));
+          msgpack_dart.serialize(MessageTypes.CODE_UNSUBSCRIBE) +
+          msgpack_dart.serialize(message.requestId) +
+          msgpack_dart.serialize(message.subscriptionId));
     }
     if (message is Error) {
       return Uint8List.fromList([149] +
-          msgp.serialize(MessageTypes.CODE_ERROR) +
-          msgp.serialize(message.requestTypeId) +
-          msgp.serialize(message.requestId) +
-          msgp.serialize(message.details) +
-          msgp.serialize(message.error) +
+          msgpack_dart.serialize(MessageTypes.CODE_ERROR) +
+          msgpack_dart.serialize(message.requestTypeId) +
+          msgpack_dart.serialize(message.requestId) +
+          msgpack_dart.serialize(message.details) +
+          msgpack_dart.serialize(message.error) +
           _serializePayload(message));
     }
     if (message is Abort) {
       return Uint8List.fromList([147] +
-          msgp.serialize(MessageTypes.CODE_ABORT) +
-          msgp.serialize(message.message != null
+          msgpack_dart.serialize(MessageTypes.CODE_ABORT) +
+          msgpack_dart.serialize(message.message != null
               ? {'message': '${message.message.message ?? ""}'}
               : {}) +
-          msgp.serialize(message.reason));
+          msgpack_dart.serialize(message.reason));
     }
     if (message is Goodbye) {
       return Uint8List.fromList([147] +
-          msgp.serialize(MessageTypes.CODE_GOODBYE) +
-          msgp.serialize(message.message != null
+          msgpack_dart.serialize(MessageTypes.CODE_GOODBYE) +
+          msgpack_dart.serialize(message.message != null
               ? {'message': '${message.message.message ?? ""}'}
               : {}) +
-          msgp.serialize(message.reason));
+          msgpack_dart.serialize(message.reason));
     }
 
     _logger.shout(
@@ -431,7 +431,7 @@ class Serializer extends AbstractSerializer {
       if (details.authextra != null) {
         detailsParts.add({'authextra': details.authextra});
       }
-      return msgp.serialize(detailsParts);
+      return msgpack_dart.serialize(detailsParts);
     } else {
       return null;
     }
@@ -449,7 +449,7 @@ class Serializer extends AbstractSerializer {
       }
     }
 
-    return msgp.serialize(subscriptionOptions);
+    return msgpack_dart.serialize(subscriptionOptions);
   }
 
   Uint8List _serializeRegisterOptions(RegisterOptions options) {
@@ -467,7 +467,7 @@ class Serializer extends AbstractSerializer {
       }
     }
 
-    return msgp.serialize(registerOptions);
+    return msgpack_dart.serialize(registerOptions);
   }
 
   Uint8List _serializeCallOptions(CallOptions options) {
@@ -485,7 +485,7 @@ class Serializer extends AbstractSerializer {
       }
     }
 
-    return msgp.serialize(callOptions);
+    return msgpack_dart.serialize(callOptions);
   }
 
   Uint8List _serializeYieldOptions(YieldOptions options) {
@@ -495,7 +495,7 @@ class Serializer extends AbstractSerializer {
         yieldOptions.addEntries([MapEntry('progress', options.progress)]);
       }
     }
-    return msgp.serialize(yieldOptions);
+    return msgpack_dart.serialize(yieldOptions);
   }
 
   Uint8List _serializePublish(PublishOptions options) {
@@ -521,18 +521,18 @@ class Serializer extends AbstractSerializer {
           MapEntry('eligible_authid', options.eligible_authid)
       ]);
     }
-    return msgp.serialize(publishDetails);
+    return msgpack_dart.serialize(publishDetails);
   }
 
   Uint8List _serializePayload(AbstractMessageWithPayload message) {
     if (message != null) {
       if (message.argumentsKeywords != null) {
-        return msgp.serialize(
+        return msgpack_dart.serialize(
             '${message.arguments ?? []}${message.argumentsKeywords}');
       } else if (message.arguments != null) {
-        return msgp.serialize(message.arguments);
+        return msgpack_dart.serialize(message.arguments);
       }
     }
-    return msgp.serialize('');
+    return msgpack_dart.serialize('');
   }
 }
