@@ -10,6 +10,8 @@ void main() async {
       // We choose WebSocket transport
       transport: WebSocketTransport(
         'wss://www.connectanum.com/wamp',
+        // if you want to use msgpack instead of JSON just import the serializer
+        // from package:connectanum/msgpack.dart and use WebSocketSerialization.SERIALIZATION_MSGPACK
         Serializer(),
         WebSocketSerialization.SERIALIZATION_JSON,
       ));

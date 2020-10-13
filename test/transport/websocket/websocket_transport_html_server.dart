@@ -1,6 +1,7 @@
 @TestOn('browser')
 
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:connectanum/src/message/message_types.dart';
 import 'package:stream_channel/stream_channel.dart';
@@ -20,6 +21,12 @@ void hybridMain(StreamChannel channel) async {
         if (message is String &&
             message.contains('[' + MessageTypes.CODE_HELLO.toString())) {
           socket.add('[' + MessageTypes.CODE_WELCOME.toString() + ',1234,{}]');
+        } else {
+          // received msgpack
+          if (message.contains(MessageTypes.CODE_HELLO)) {
+            socket.add(Uint8List.fromList(
+                [221, 0, 0, 0, 3, 2, 205, 4, 210, 223, 0, 0, 0, 0]));
+          }
         }
       });
     }
