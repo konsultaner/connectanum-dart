@@ -204,7 +204,7 @@ void main() {
       expect(
           serializer.serialize(Call(7814135, 'com.myapp.ping')),
           equals(Uint8List.fromList([
-            149, MessageTypes.CODE_CALL, 206, 0, 119, 59, 247, 128, 174, 99, //
+            148, MessageTypes.CODE_CALL, 206, 0, 119, 59, 247, 128, 174, 99, //
             111, 109, 46, 109, 121, 97, 112, 112, 46, 112, //
             105, 110, 103, 160
           ])));
@@ -212,7 +212,7 @@ void main() {
           serializer.serialize(
               Call(7814135, 'com.myapp.ping', options: CallOptions())),
           equals(Uint8List.fromList([
-            149, MessageTypes.CODE_CALL, 206, 0, 119, 59, 247, 128, 174, 99, //
+            148, MessageTypes.CODE_CALL, 206, 0, 119, 59, 247, 128, 174, 99, //
             111, 109, 46, 109, 121, 97, 112, 112, 46, 112, //
             105, 110, 103, 160
           ])));
@@ -221,7 +221,7 @@ void main() {
               options: CallOptions(
                   receive_progress: true, disclose_me: true, timeout: 12))),
           equals(Uint8List.fromList([
-            149, MessageTypes.CODE_CALL, 206, 0, 119, 59, 247, 131, 176, 114, //
+            148, MessageTypes.CODE_CALL, 206, 0, 119, 59, 247, 131, 176, 114, //
             101, 99, 101, 105, 118, 101, 95, 112, 114, 111, //
             103, 114, 101, 115, 115, 195, 171, 100, 105, 115, //
             99, 108, 111, 115, 101, 95, 109, 101, 195, 167, //
@@ -241,19 +241,18 @@ void main() {
           serializer.serialize(
               Call(7814135, 'com.myapp.ping', argumentsKeywords: {'hi': 12})),
           equals(Uint8List.fromList([
-            149, MessageTypes.CODE_CALL, 206, 0, 119, 59, 247, 128, 174, 99, //
-            111, 109, 46, 109, 121, 97, 112, 112, 46, 112, //
-            105, 110, 103, 170, 91, 93, 123, 104, 105, 58, //
-            32, 49, 50, 125
+            150, MessageTypes.CODE_CALL, 206, 0, 119, 59, 247, 128, 174, //
+            99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 112, 105, 110, //
+            103, 144, 129, 162, 104, 105, 12
           ])));
       expect(
           serializer.serialize(Call(7814135, 'com.myapp.ping',
               arguments: ['hi', 2], argumentsKeywords: {'hi': 12})),
           equals(Uint8List.fromList([
-            149, MessageTypes.CODE_CALL, 206, 0, 119, 59, 247, 128, 174, 99, //
-            111, 109, 46, 109, 121, 97, 112, 112, 46, 112, //
-            105, 110, 103, 175, 91, 104, 105, 44, 32, 50, //
-            93, 123, 104, 105, 58, 32, 49, 50, 125
+            150, MessageTypes.CODE_CALL, 206, 0, 119, 59, 247, 128, 174, 99,
+            111, 109, 46, 109, //
+            121, 97, 112, 112, 46, 112, 105, 110, 103, 146, 162, 104, 105, 2, //
+            129, 162, 104, 105, 12
           ])));
     });
     test('Yield', () {
@@ -276,22 +275,21 @@ void main() {
       expect(
           serializer.serialize(Yield(6131533, arguments: ['hi', 2])),
           equals(Uint8List.fromList([
-            147, MessageTypes.CODE_YIELD, 206, 0, 93, 143, 77, 128, 146, 162, //
+            148, MessageTypes.CODE_YIELD, 206, 0, 93, 143, 77, 128, 146, 162, //
             104, 105, 2
           ])));
       expect(
           serializer.serialize(Yield(6131533, argumentsKeywords: {'hi': 12})),
           equals(Uint8List.fromList([
-            147, MessageTypes.CODE_YIELD, 206, 0, 93, 143, 77, 128, 170, 91, //
-            93, 123, 104, 105, 58, 32, 49, 50, 125
+            149, MessageTypes.CODE_YIELD, 206, 0, 93, 143, 77, 128, 144, //
+            129, 162, 104, 105, 12
           ])));
       expect(
           serializer.serialize(Yield(6131533,
               arguments: ['hi', 2], argumentsKeywords: {'hi': 12})),
           equals(Uint8List.fromList([
-            147, MessageTypes.CODE_YIELD, 206, 0, 93, 143, 77, 128, 175, 91, //
-            104, 105, 44, 32, 50, 93, 123, 104, 105, 58, //
-            32, 49, 50, 125
+            149, MessageTypes.CODE_YIELD, 206, 0, 93, 143, 77, 128, 146, 162, //
+            104, 105, 2, 129, 162, 104, 105, 12
           ])));
     });
     test('Error', () {
@@ -319,7 +317,7 @@ void main() {
               HashMap.from({'cause': 'some'}), 'wamp.unknown',
               arguments: ['hi', 2])),
           equals(Uint8List.fromList([
-            149, MessageTypes.CODE_ERROR, MessageTypes.CODE_HELLO, 206, 0, 1,
+            150, MessageTypes.CODE_ERROR, MessageTypes.CODE_HELLO, 206, 0, 1,
             226, 30, 129, 165, //
             99, 97, 117, 115, 101, 164, 115, 111, 109, 101, //
             172, 119, 97, 109, 112, 46, 117, 110, 107, 110, //
@@ -330,24 +328,36 @@ void main() {
               HashMap.from({'cause': 'some'}), 'wamp.unknown',
               argumentsKeywords: {'hi': 12})),
           equals(Uint8List.fromList([
-            149, MessageTypes.CODE_ERROR, MessageTypes.CODE_HELLO, 206, 0, 1,
-            226, 30, 129, 165, //
-            99, 97, 117, 115, 101, 164, 115, 111, 109, 101, //
-            172, 119, 97, 109, 112, 46, 117, 110, 107, 110, //
-            111, 119, 110, 170, 91, 93, 123, 104, 105, 58, //
-            32, 49, 50, 125
+            151, MessageTypes.CODE_ERROR, MessageTypes.CODE_HELLO, 206, 0, //
+            1, 226, 30, 129, 165, 99, 97, 117, 115, 101, //
+            164, 115, 111, 109, 101, 172, 119, 97, 109, 112, 46, 117, 110, //
+            107, 110, 111, 119, 110, 144, 129, 162, 104, 105, 12
           ])));
       expect(
           serializer.serialize(Error(MessageTypes.CODE_HELLO, 123422,
               HashMap.from({'cause': 'some'}), 'wamp.unknown',
               arguments: ['hi', 2], argumentsKeywords: {'hi': 12})),
           equals(Uint8List.fromList([
-            149, MessageTypes.CODE_ERROR, MessageTypes.CODE_HELLO, 206, 0, 1,
-            226, 30, 129, 165, //
-            99, 97, 117, 115, 101, 164, 115, 111, 109, 101, //
-            172, 119, 97, 109, 112, 46, 117, 110, 107, 110, //
-            111, 119, 110, 175, 91, 104, 105, 44, 32, 50, //
-            93, 123, 104, 105, 58, 32, 49, 50, 125
+            151, MessageTypes.CODE_ERROR, MessageTypes.CODE_HELLO, 206, 0, 1, //
+            226, 30, 129, 165, 99, 97, 117, 115, 101, 164, 115, 111, 109, //
+            101, 172, 119, 97, 109, 112, 46, 117, 110, 107, 110, 111, 119, //
+            110, 146, 162, 104, 105, 2, 129, 162, 104, 105, 12
+          ])));
+    });
+    test('Event', () {
+      expect(
+          serializer.serialize(Event(
+              MessageTypes.CODE_EVENT,
+              5512315355,
+              EventDetails(
+                  publisher: 1231412, topic: 'de.de.com', trustlevel: 1),
+              arguments: ['johnny'],
+              argumentsKeywords: {'firstname': 'John', 'surname': 'Doe'})),
+          equals(Uint8List.fromList([
+            149, 36, 36, 207, 0, 0, 0, 1, 72, 143, 65, 219, 145, 166, 106, //
+            111, 104, 110, 110, 121, 130, 169, 102, 105, 114, 115, 116, 110, //
+            97, 109, 101, 164, 74, 111, 104, 110, 167, 115, 117, 114, 110, //
+            97, 109, 101, 163, 68, 111, 101
           ])));
     });
     test('Subscribe', () {
@@ -478,7 +488,7 @@ void main() {
           serializer.serialize(Publish(239714735, 'com.myapp.mytopic1',
               arguments: ['Hello, world!'])),
           equals(Uint8List.fromList([
-            148, 16, 206, 14, 73, 193, 175, 128, 178, 99, //
+            149, 16, 206, 14, 73, 193, 175, 128, 178, 99, //
             111, 109, 46, 109, 121, 97, 112, 112, 46, 109, //
             121, 116, 111, 112, 105, 99, 49, 145, 173, 72, //
             101, 108, 108, 111, 44, 32, 119, 111, 114, 108, //
@@ -489,7 +499,7 @@ void main() {
               options: PublishOptions(exclude_me: false),
               arguments: ['Hello, world!'])),
           equals(Uint8List.fromList([
-            148, 16, 206, 14, 73, 193, 175, 129, 170, 101, //
+            149, 16, 206, 14, 73, 193, 175, 129, 170, 101, //
             120, 99, 108, 117, 100, 101, 95, 109, 101, 194, //
             178, 99, 111, 109, 46, 109, 121, 97, 112, 112, //
             46, 109, 121, 116, 111, 112, 105, 99, 49, 145, //
@@ -503,13 +513,10 @@ void main() {
             'sizes': [23, 42, 7]
           })),
           equals(Uint8List.fromList([
-            148, 16, 206, 14, 73, 193, 175, 128, 178, 99, //
-            111, 109, 46, 109, 121, 97, 112, 112, 46, 109, //
-            121, 116, 111, 112, 105, 99, 49, 217, 37, 91, //
-            93, 123, 99, 111, 108, 111, 114, 58, 32, 111, //
-            114, 97, 110, 103, 101, 44, 32, 115, 105, 122, //
-            101, 115, 58, 32, 91, 50, 51, 44, 32, 52, //
-            50, 44, 32, 55, 93, 125
+            150, 16, 206, 14, 73, 193, 175, 128, 178, 99, 111, 109, 46, 109, //
+            121, 97, 112, 112, 46, 109, 121, 116, 111, 112, 105, 99, 49, 144, //
+            130, 165, 99, 111, 108, 111, 114, 166, 111, 114, 97, 110, 103, //
+            101, 165, 115, 105, 122, 101, 115, 147, 23, 42, 7
           ])));
       expect(
           serializer.serialize(Publish(239714735, 'com.myapp.mytopic1',
@@ -519,14 +526,11 @@ void main() {
                 'sizes': [23, 42, 7]
               })),
           equals(Uint8List.fromList([
-            148, 16, 206, 14, 73, 193, 175, 129, 170, 101, //
-            120, 99, 108, 117, 100, 101, 95, 109, 101, 194, //
-            178, 99, 111, 109, 46, 109, 121, 97, 112, 112, //
-            46, 109, 121, 116, 111, 112, 105, 99, 49, 217, //
-            37, 91, 93, 123, 99, 111, 108, 111, 114, 58, //
-            32, 111, 114, 97, 110, 103, 101, 44, 32, 115, //
-            105, 122, 101, 115, 58, 32, 91, 50, 51, 44, //
-            32, 52, 50, 44, 32, 55, 93, 125
+            150, 16, 206, 14, 73, 193, 175, 129, 170, 101, 120, 99, 108, 117, //
+            100, 101, 95, 109, 101, 194, 178, 99, 111, 109, 46, 109, 121, 97, //
+            112, 112, 46, 109, 121, 116, 111, 112, 105, 99, 49, 144, 130, //
+            165, 99, 111, 108, 111, 114, 166, 111, 114, 97, 110, 103, 101, //
+            165, 115, 105, 122, 101, 115, 147, 23, 42, 7
           ])));
       expect(
           serializer
@@ -537,14 +541,11 @@ void main() {
             'sizes': [23, 42, 7]
           })),
           equals(Uint8List.fromList([
-            148, 16, 206, 14, 73, 193, 175, 128, 178, 99, //
-            111, 109, 46, 109, 121, 97, 112, 112, 46, 109, //
-            121, 116, 111, 112, 105, 99, 49, 217, 50, 91, //
-            72, 101, 108, 108, 111, 44, 32, 119, 111, 114, //
-            108, 100, 33, 93, 123, 99, 111, 108, 111, 114, //
-            58, 32, 111, 114, 97, 110, 103, 101, 44, 32, //
-            115, 105, 122, 101, 115, 58, 32, 91, 50, 51, //
-            44, 32, 52, 50, 44, 32, 55, 93, 125
+            150, 16, 206, 14, 73, 193, 175, 128, 178, 99, 111, 109, 46, 109, //
+            121, 97, 112, 112, 46, 109, 121, 116, 111, 112, 105, 99, 49, 145, //
+            173, 72, 101, 108, 108, 111, 44, 32, 119, 111, 114, 108, 100, 33, //
+            130, 165, 99, 111, 108, 111, 114, 166, 111, 114, 97, 110, 103, //
+            101, 165, 115, 105, 122, 101, 115, 147, 23, 42, 7
           ])));
       expect(
           serializer.serialize(Publish(239714735, 'com.myapp.mytopic1',
@@ -557,16 +558,12 @@ void main() {
                 'sizes': [23, 42, 7]
               })),
           equals(Uint8List.fromList([
-            148, 16, 206, 14, 73, 193, 175, 129, 170, 101, //
-            120, 99, 108, 117, 100, 101, 95, 109, 101, 194, //
-            178, 99, 111, 109, 46, 109, 121, 97, 112, 112, //
-            46, 109, 121, 116, 111, 112, 105, 99, 49, 217, //
-            50, 91, 72, 101, 108, 108, 111, 44, 32, 119, //
-            111, 114, 108, 100, 33, 93, 123, 99, 111, 108, //
-            111, 114, 58, 32, 111, 114, 97, 110, 103, 101, //
-            44, 32, 115, 105, 122, 101, 115, 58, 32, 91, //
-            50, 51, 44, 32, 52, 50, 44, 32, 55, 93, //
-            125
+            150, 16, 206, 14, 73, 193, 175, 129, 170, 101, 120, 99, 108, 117, //
+            100, 101, 95, 109, 101, 194, 178, 99, 111, 109, 46, 109, 121, 97, //
+            112, 112, 46, 109, 121, 116, 111, 112, 105, 99, 49, 145, 173, 72, //
+            101, 108, 108, 111, 44, 32, 119, 111, 114, 108, 100, 33, 130, //
+            165, 99, 111, 108, 111, 114, 166, 111, 114, 97, 110, 103, 101, //
+            165, 115, 105, 122, 101, 115, 147, 23, 42, 7
           ])));
     });
     test('Goodbye', () {
@@ -628,7 +625,7 @@ void main() {
           ])));
     });
   });
-  group('unserialize', () {
+  group('deserialize', () {
     test('Abort', () {
       var toDeserialize = serializer.serialize(Abort(Error.PROTOCOL_VIOLATION,
           message: 'Received HELLO message after session was established.'));
@@ -638,6 +635,40 @@ void main() {
       expect(abort.message.message,
           equals('Received HELLO message after session was established.'));
       expect(abort.reason, equals(Error.PROTOCOL_VIOLATION));
+    });
+    test('Error', () {
+      var toDeserialize = serializer.serialize(Error(
+          MessageTypes.CODE_HELLO,
+          678887,
+          {
+            'detail1': [2, 4134]
+          },
+          Error.HIDDEN_ERROR_MESSAGE));
+      Error err = serializer.deserialize(toDeserialize);
+      expect(err, isNotNull);
+      expect(err.id, equals(MessageTypes.CODE_ERROR));
+      expect(err.details, isNotNull);
+
+      toDeserialize = serializer.serialize(Error(
+          MessageTypes.CODE_HELLO, 678887, {}, Error.INVALID_ARGUMENT,
+          arguments: ['invalidArg']));
+      err = serializer.deserialize(toDeserialize);
+      expect(err, isNotNull);
+      expect(err.id, equals(MessageTypes.CODE_ERROR));
+      expect(err.details, isNotNull);
+      expect(err.arguments, isNotNull);
+
+      toDeserialize = serializer.serialize(Error(
+          MessageTypes.CODE_HELLO, 678887, {}, Error.INVALID_ARGUMENT,
+          arguments: ['invalidArg', 'invalidArg2'],
+          argumentsKeywords: {'name': 'must be konsultaner'}));
+      err = serializer.deserialize(toDeserialize);
+      expect(err, isNotNull);
+      expect(err.id, equals(MessageTypes.CODE_ERROR));
+      expect(err.details, isNotNull);
+      expect(err.arguments, isNotNull);
+      expect(
+          err.argumentsKeywords, containsPair('name', 'must be konsultaner'));
     });
     test('Challenge', () {
       Challenge challenge = serializer.deserialize(Uint8List.fromList([
@@ -1188,6 +1219,16 @@ void main() {
       expect(event.arguments[0], equals('johnny'));
       expect(event.argumentsKeywords['firstname'], equals('John'));
       expect(event.argumentsKeywords['surname'], equals('Doe'));
+    });
+    test('Goodbye', () {
+      var toDeserialize = serializer.serialize(Goodbye(
+          GoodbyeMessage('bye bye ms american pie'),
+          Goodbye.REASON_GOODBYE_AND_OUT));
+      Goodbye goodbye = serializer.deserialize(toDeserialize);
+      expect(goodbye, isNotNull);
+      expect(goodbye.id, MessageTypes.CODE_GOODBYE);
+      expect(goodbye.message.message, equals('bye bye ms american pie'));
+      expect(goodbye.reason, equals(Goodbye.REASON_GOODBYE_AND_OUT));
     });
   });
   group('string conversion', () {

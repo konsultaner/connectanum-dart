@@ -33,6 +33,18 @@ import '../../../src/message/yield.dart';
 import '../../message/message_types.dart';
 import '../abstract_serializer.dart';
 
+// this is a little helper class for payload
+// serialization and type "safety"
+class Tuple<T1, T2> {
+  final T1 item1;
+  final T2 item2;
+
+  Tuple(
+    this.item1,
+    this.item2,
+  );
+}
+
 /// This is a seralizer for msgpack messages.
 /// It is used to initialize an [AbstractTransport] object.
 class Serializer extends AbstractSerializer {
@@ -195,7 +207,10 @@ class Serializer extends AbstractSerializer {
       }
       if (messageId == MessageTypes.CODE_ERROR) {
         return _addPayload(
-            Error(message[1], message[2], message[3], message[4]), message, 5);
+            Error(message[1], message[2], Map<String, Object>.from(message[3]),
+                message[4]),
+            message,
+            5);
       }
       if (messageId == MessageTypes.CODE_ABORT) {
         return Abort(message[2],
@@ -254,43 +269,58 @@ class Serializer extends AbstractSerializer {
           msgpack_dart.serialize(message.registrationId));
     }
     if (message is Call) {
-      return Uint8List.fromList([149] +
+      var res = [148] +
           msgpack_dart.serialize(MessageTypes.CODE_CALL) +
           msgpack_dart.serialize(message.requestId) +
           _serializeCallOptions(message.options) +
-          msgpack_dart.serialize(message.procedure) +
-          _serializePayload(message));
+          msgpack_dart.serialize(message.procedure);
+      var payload = _serializePayload(message);
+      res[0] += payload.item1;
+      res += payload.item2;
+      return Uint8List.fromList(res);
     }
     if (message is Yield) {
-      return Uint8List.fromList([147] +
+      var res = [147] +
           msgpack_dart.serialize(MessageTypes.CODE_YIELD) +
           msgpack_dart.serialize(message.invocationRequestId) +
-          _serializeYieldOptions(message.options) +
-          _serializePayload(message));
+          _serializeYieldOptions(message.options);
+      var payload = _serializePayload(message);
+      res[0] += payload.item1;
+      res += payload.item2;
+      return Uint8List.fromList(res);
     }
     if (message is Invocation) {
       // for serializer unit test only
-      return Uint8List.fromList([149] +
+      var res = [148] +
           msgpack_dart.serialize(MessageTypes.CODE_INVOCATION) +
           msgpack_dart.serialize(message.requestId) +
           msgpack_dart.serialize(message.registrationId) +
-          msgpack_dart.serialize({}) +
-          _serializePayload(message));
+          msgpack_dart.serialize({});
+      var payload = _serializePayload(message);
+      res[0] += payload.item1;
+      res += payload.item2;
+      return Uint8List.fromList(res);
     }
     if (message is Publish) {
-      return Uint8List.fromList([148] +
+      var res = [148] +
           msgpack_dart.serialize(MessageTypes.CODE_PUBLISH) +
           msgpack_dart.serialize(message.requestId) +
           _serializePublish(message.options) +
-          msgpack_dart.serialize(message.topic) +
-          _serializePayload(message));
+          msgpack_dart.serialize(message.topic);
+      var payload = _serializePayload(message);
+      res[0] += payload.item1;
+      res += payload.item2;
+      return Uint8List.fromList(res);
     }
     if (message is Event) {
-      return Uint8List.fromList([147] +
+      var res = [147] +
           msgpack_dart.serialize(MessageTypes.CODE_EVENT) +
           msgpack_dart.serialize(message.subscriptionId) +
-          msgpack_dart.serialize(message.publicationId) +
-          _serializePayload(message));
+          msgpack_dart.serialize(message.publicationId);
+      var payload = _serializePayload(message);
+      res[0] += payload.item1;
+      res += payload.item2;
+      return Uint8List.fromList(res);
     }
     if (message is Subscribe) {
       return Uint8List.fromList([148] +
@@ -306,13 +336,16 @@ class Serializer extends AbstractSerializer {
           msgpack_dart.serialize(message.subscriptionId));
     }
     if (message is Error) {
-      return Uint8List.fromList([149] +
+      var res = [149] +
           msgpack_dart.serialize(MessageTypes.CODE_ERROR) +
           msgpack_dart.serialize(message.requestTypeId) +
           msgpack_dart.serialize(message.requestId) +
           msgpack_dart.serialize(message.details) +
-          msgpack_dart.serialize(message.error) +
-          _serializePayload(message));
+          msgpack_dart.serialize(message.error);
+      var payload = _serializePayload(message);
+      res[0] += payload.item1;
+      res += payload.item2;
+      return Uint8List.fromList(res);
     }
     if (message is Abort) {
       return Uint8List.fromList([147] +
@@ -524,15 +557,18 @@ class Serializer extends AbstractSerializer {
     return msgpack_dart.serialize(publishDetails);
   }
 
-  Uint8List _serializePayload(AbstractMessageWithPayload message) {
+  // returns bytes to add to header and serialized payload bytes
+  Tuple<int, Uint8List> _serializePayload(AbstractMessageWithPayload message) {
     if (message != null) {
       if (message.argumentsKeywords != null) {
-        return msgpack_dart.serialize(
-            '${message.arguments ?? []}${message.argumentsKeywords}');
+        return Tuple(
+            2,
+            Uint8List.fromList(msgpack_dart.serialize(message.arguments ?? []) +
+                msgpack_dart.serialize(message.argumentsKeywords)));
       } else if (message.arguments != null) {
-        return msgpack_dart.serialize(message.arguments);
+        return Tuple(1, msgpack_dart.serialize(message.arguments));
       }
     }
-    return msgpack_dart.serialize('');
+    return Tuple(0, msgpack_dart.serialize(''));
   }
 }

@@ -10,8 +10,11 @@ class Event extends AbstractMessageWithPayload {
   int publicationId;
   EventDetails details;
 
-  Event(this.subscriptionId, this.publicationId, this.details) {
+  Event(this.subscriptionId, this.publicationId, this.details,
+      {List<Object> arguments, Map<String, Object> argumentsKeywords}) {
     id = MessageTypes.CODE_EVENT;
+    this.arguments = arguments;
+    this.argumentsKeywords = argumentsKeywords;
   }
 }
 
