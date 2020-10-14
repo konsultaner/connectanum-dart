@@ -33,18 +33,6 @@ import '../../../src/message/yield.dart';
 import '../../message/message_types.dart';
 import '../abstract_serializer.dart';
 
-// this is a little helper class for payload
-// serialization and type "safety"
-class Tuple<T1, T2> {
-  final T1 item1;
-  final T2 item2;
-
-  Tuple(
-    this.item1,
-    this.item2,
-  );
-}
-
 /// This is a seralizer for msgpack messages.
 /// It is used to initialize an [AbstractTransport] object.
 class Serializer extends AbstractSerializer {
@@ -275,8 +263,8 @@ class Serializer extends AbstractSerializer {
           _serializeCallOptions(message.options) +
           msgpack_dart.serialize(message.procedure);
       var payload = _serializePayload(message);
-      res[0] += payload.item1;
-      res += payload.item2;
+      res[0] += payload.payloadType;
+      res += payload.payload;
       return Uint8List.fromList(res);
     }
     if (message is Yield) {
@@ -285,8 +273,8 @@ class Serializer extends AbstractSerializer {
           msgpack_dart.serialize(message.invocationRequestId) +
           _serializeYieldOptions(message.options);
       var payload = _serializePayload(message);
-      res[0] += payload.item1;
-      res += payload.item2;
+      res[0] += payload.payloadType;
+      res += payload.payload;
       return Uint8List.fromList(res);
     }
     if (message is Invocation) {
@@ -297,8 +285,8 @@ class Serializer extends AbstractSerializer {
           msgpack_dart.serialize(message.registrationId) +
           msgpack_dart.serialize({});
       var payload = _serializePayload(message);
-      res[0] += payload.item1;
-      res += payload.item2;
+      res[0] += payload.payloadType;
+      res += payload.payload;
       return Uint8List.fromList(res);
     }
     if (message is Publish) {
@@ -308,8 +296,8 @@ class Serializer extends AbstractSerializer {
           _serializePublish(message.options) +
           msgpack_dart.serialize(message.topic);
       var payload = _serializePayload(message);
-      res[0] += payload.item1;
-      res += payload.item2;
+      res[0] += payload.payloadType;
+      res += payload.payload;
       return Uint8List.fromList(res);
     }
     if (message is Event) {
@@ -318,8 +306,8 @@ class Serializer extends AbstractSerializer {
           msgpack_dart.serialize(message.subscriptionId) +
           msgpack_dart.serialize(message.publicationId);
       var payload = _serializePayload(message);
-      res[0] += payload.item1;
-      res += payload.item2;
+      res[0] += payload.payloadType;
+      res += payload.payload;
       return Uint8List.fromList(res);
     }
     if (message is Subscribe) {
@@ -343,8 +331,8 @@ class Serializer extends AbstractSerializer {
           msgpack_dart.serialize(message.details) +
           msgpack_dart.serialize(message.error);
       var payload = _serializePayload(message);
-      res[0] += payload.item1;
-      res += payload.item2;
+      res[0] += payload.payloadType;
+      res += payload.payload;
       return Uint8List.fromList(res);
     }
     if (message is Abort) {
@@ -557,18 +545,30 @@ class Serializer extends AbstractSerializer {
     return msgpack_dart.serialize(publishDetails);
   }
 
-  // returns bytes to add to header and serialized payload bytes
-  Tuple<int, Uint8List> _serializePayload(AbstractMessageWithPayload message) {
+  /// returns bytes to add to header and serialized payload bytes
+  SerializedPayload<int, Uint8List> _serializePayload(AbstractMessageWithPayload message) {
     if (message != null) {
       if (message.argumentsKeywords != null) {
-        return Tuple(
+        return SerializedPayload(
             2,
             Uint8List.fromList(msgpack_dart.serialize(message.arguments ?? []) +
                 msgpack_dart.serialize(message.argumentsKeywords)));
       } else if (message.arguments != null) {
-        return Tuple(1, msgpack_dart.serialize(message.arguments));
+        return SerializedPayload(1, msgpack_dart.serialize(message.arguments));
       }
     }
-    return Tuple(0, msgpack_dart.serialize(''));
+    return SerializedPayload(0, msgpack_dart.serialize(''));
   }
+}
+
+/// this is a little helper class for payload
+/// serialization and type "safety"
+class SerializedPayload<int, Uint8List> {
+  final int payloadType;
+  final Uint8List payload;
+
+  SerializedPayload(
+      this.payloadType,
+      this.payload,
+      );
 }
