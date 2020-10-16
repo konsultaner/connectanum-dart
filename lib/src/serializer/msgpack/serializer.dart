@@ -546,7 +546,8 @@ class Serializer extends AbstractSerializer {
   }
 
   /// returns bytes to add to header and serialized payload bytes
-  SerializedPayload<int, Uint8List> _serializePayload(AbstractMessageWithPayload message) {
+  SerializedPayload<int, Uint8List> _serializePayload(
+      AbstractMessageWithPayload message) {
     if (message != null) {
       if (message.argumentsKeywords != null) {
         return SerializedPayload(
@@ -568,7 +569,7 @@ class SerializedPayload<int, Uint8List> {
   final Uint8List payload;
 
   SerializedPayload(
-      this.payloadType,
-      this.payload,
-      );
+    this.payloadType,
+    this.payload,
+  );
 }

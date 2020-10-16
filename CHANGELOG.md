@@ -1,3 +1,8 @@
+### 1.0.12
+
+- fixed an issue with the msgpack serializer
+- added more unit tests
+
 ### 1.0.11
 
 - added msgpack serializer by [@liquidiert](https://github.com/liquidiert)
