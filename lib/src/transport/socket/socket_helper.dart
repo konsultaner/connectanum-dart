@@ -62,14 +62,19 @@ class SocketHelper {
     return errorHandShake.toList(growable: false);
   }
 
+  /// Get a pong message with a given [pingLength]. If the [isUpgradedProtocol]
+  /// is true the header will have a size of 5 bytes otherwise 4.
   static List<int> getPong(int pingLength, isUpgradedProtocol) {
     return buildMessageHeader(MESSAGE_PONG, pingLength, isUpgradedProtocol);
   }
 
+  /// Get a ping message without a body. If the [isUpgradedProtocol]
+  /// is true the header will have a size of 5 bytes otherwise 4.
   static List<int> getPing(isUpgradedProtocol) {
     return buildMessageHeader(MESSAGE_PING, 0, isUpgradedProtocol);
   }
 
+  /// get the [message] error number if [message] is an error.
   static int getErrorNumber(List<int> message) {
     if (message.length > 1) {
       if (message[0] == SocketHelper._UPGRADE_HEADER) return 0;
@@ -80,6 +85,9 @@ class SocketHelper {
     return 0;
   }
 
+  /// Builds a message header according to a given [headerType], [messageLength],
+  /// an the information if it is an [upgradedProtocol]. If the [upgradedProtocol]
+  /// is true the header will have a size of 5 bytes otherwise 4.
   static List<int> buildMessageHeader(
       int headerType, int messageLength, bool upgradedProtocol) {
     if (upgradedProtocol) {
@@ -108,6 +116,7 @@ class SocketHelper {
     }
   }
 
+  /// Checks if the given [message] is a valid wamp message
   static bool isValidMessage(Uint8List message) {
     var messageType = message[0];
     return messageType != MESSAGE_WAMP ||
@@ -115,26 +124,33 @@ class SocketHelper {
         messageType != MESSAGE_PONG;
   }
 
+  /// Gets the message type for the given [message].
   static int getMessageType(Uint8List message, {offset = 0}) {
     return message[offset + 0];
   }
 
+  /// Checks if the passed [message] initializes the raw socket protocol
   static bool isRawSocket(Uint8List message) {
     return message[0] == _META_HEADER;
   }
 
+  /// Checks if the passed [message] upgrades the protocoll to connectanum specific
+  /// large size messages
   static bool isUpgrade(Uint8List message) {
     return message[0] == _UPGRADE_HEADER;
   }
 
+  /// gets the max message size exponent of the given [message]
   static int getMaxMessageSizeExponent(Uint8List message) {
     return ((message[1] & 0xFF) >> 4) + 9;
   }
 
+  /// gets the max upgrade message size exponent of the given [message]
   static int getMaxUpgradeMessageSizeExponent(Uint8List message) {
     return ((message[1] & 0xFF) >> 4) + 25;
   }
 
+  /// calculates the [message] payload length for a given [headerLength]
   static int getPayloadLength(Uint8List message, int headerLength,
       {offset = 0}) {
     if (message.length >= headerLength) {

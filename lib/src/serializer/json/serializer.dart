@@ -385,6 +385,11 @@ class Serializer extends AbstractSerializer {
       if (options.meta_topic != null) {
         jsonOptions.add('"meta_topic":"${options.meta_topic}"');
       }
+      options
+          .getCustomValues<String>(SubscribeOptions.CUSTOM_SERIALIZER_JSON)
+          .forEach((key, value) {
+        jsonOptions.add('"${key}":${value}');
+      });
     }
 
     return '{' + jsonOptions.join(',') + '}';

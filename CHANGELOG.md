@@ -1,3 +1,9 @@
+### 1.0.13
+
+- add custom subscribe options
+- fixed msgpack serialization issue
+- some more docs comments
+
 ### 1.0.12
 
 - fixed an issue with the msgpack serializer

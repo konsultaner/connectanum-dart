@@ -33,23 +33,48 @@ import '../transport/abstract_transport.dart';
 import '../authentication/abstract_authentication.dart';
 
 class Session {
+  /// The sessions [id]
   int id;
+
+  /// The sessions [realm]
   String realm;
+
+  /// The [authId] that has been authenticated with
   String authId;
+
+  /// The [authRole] given by the server
   String authRole;
+
+  /// The [authMethod] used to authenticate the session
   String authMethod;
+
+  /// the [authProvider] used to authenticate the session
   String authProvider;
 
   AbstractTransport _transport;
 
+  /// the next id used to generate request id for a call
   int nextCallId = 1;
+
+  /// the next id used to generate request id for a publish event
   int nextPublishId = 1;
+
+  /// the next id used to generate request id for a subscription
   int nextSubscribeId = 1;
+
+  /// the next id used to generate request id for an unsubscribe event
   int nextUnsubscribeId = 1;
+
+  /// the next id used to generate request id for a registration
   int nextRegisterId = 1;
+
+  /// the next id used to generate request id for an unregister even
   int nextUnregisterId = 1;
 
+  /// A map that stores all the active registrations
   final Map<int, Registered> registrations = {};
+
+  /// A map that stores all the active subscriptions
   final Map<int, Subscribed> subscriptions = {};
 
   StreamSubscription<AbstractMessage> _transportStreamSubscription;

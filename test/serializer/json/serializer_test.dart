@@ -213,6 +213,14 @@ void main() {
                   meta_topic: 'topic'))),
           equals(
               '[32,713845233,{"get_retained":true,"match":"wildcard","meta_topic":"topic"},"com.myapp.mytopic1"]'));
+      expect(
+          serializer.serializeToString(Subscribe(
+              713845233, 'com.myapp.mytopic1',
+              options: SubscribeOptions(match: SubscribeOptions.MATCH_WILDCARD)
+                ..addCustomValue('where', (_) => '12')
+                ..addCustomValue('some', (_) => '{"key":"value"}'))),
+          equals(
+              '[32,713845233,{"match":"wildcard","some":{"key":"value"},"where":12},"com.myapp.mytopic1"]'));
     });
     test('Unsubscribe', () {
       expect(serializer.serializeToString(Unsubscribe(85346237, 5512315355)),

@@ -462,12 +462,19 @@ class Serializer extends AbstractSerializer {
     var subscriptionOptions = {};
     if (options != null) {
       if (options.get_retained != null) {
-        subscriptionOptions.addEntries([
-          MapEntry('get_retained', options.get_retained),
-          MapEntry('match', options.match),
-          MapEntry('meta_topic', options.meta_topic)
-        ]);
+        subscriptionOptions['get_retained'] = options.get_retained;
       }
+      if (options.match != null) {
+        subscriptionOptions['match'] = options.match;
+      }
+      if (options.meta_topic != null) {
+        subscriptionOptions['meta_topic'] = options.meta_topic;
+      }
+      options
+          .getCustomValues<dynamic>(SubscribeOptions.CUSTOM_SERIALIZER_JSON)
+          .forEach((key, value) {
+        subscriptionOptions[key] = value;
+      });
     }
 
     return msgpack_dart.serialize(subscriptionOptions);
