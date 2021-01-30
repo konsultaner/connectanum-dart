@@ -441,7 +441,7 @@ class Serializer extends AbstractSerializer {
         ]);
       }
       // ignore: prefer_collection_literals
-      var detailsParts = List<Map<String, dynamic>>();
+      var detailsParts = <Map<String, dynamic>>[];
       detailsParts.add({'roles': roles});
       if (details.authid != null) {
         detailsParts.add({'authid': details.authid});
