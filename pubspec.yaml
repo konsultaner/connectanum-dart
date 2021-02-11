@@ -6,6 +6,7 @@ description: >-
 dependencies:
   saslprep: ^1.0.0
   pointycastle: ^2.0.0
+  pinenacl: ^0.1.5
   logging: ^0.11.4
   pedantic: ^1.9.2
   meta: ^1.1.8
