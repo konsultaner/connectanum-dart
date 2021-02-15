@@ -1,5 +1,7 @@
 import 'dart:collection';
 import 'dart:convert';
+import 'package:pinenacl/encoding.dart';
+
 import '../message/authenticate.dart';
 import '../message/challenge.dart';
 import '../message/details.dart';
@@ -9,6 +11,8 @@ import 'package:pinenacl/api.dart' show SigningKey;
 
 class CryptosignAuthentication extends AbstractAuthentication {
 
+  static final String CHANNEL_BINDUNG_TLS_UNIQUE = 'tls-unique';
+
   final SigningKey privateKey;
   final String channelBinding;
 
@@ -17,6 +21,13 @@ class CryptosignAuthentication extends AbstractAuthentication {
   factory CryptosignAuthentication.fromRawBase64(String base64PrivateKey) {
     return CryptosignAuthentication(
         SigningKey.fromSeed(base64.decode(base64PrivateKey).toList()),
+        null
+    );
+  }
+
+  factory CryptosignAuthentication.fromHex(String hexPrivateKey) {
+    return CryptosignAuthentication(
+        SigningKey.fromSeed(hexToBin(hexPrivateKey)),
         null
     );
   }
@@ -36,11 +47,20 @@ class CryptosignAuthentication extends AbstractAuthentication {
 
     authenticate.extra = HashMap<String, Object>();
     authenticate.extra['channel_binding'] = channelBinding;
-    var binaryChallenge = [
-      for (var i = 0; i < extra.challenge.length; i+=2)
-        int.parse(extra.challenge[i]+extra.challenge[i+1], radix: 16)
+    var binaryChallenge = hexToBin(extra.challenge);
+    authenticate.signature = privateKey.sign(binaryChallenge).encode(HexEncoder());
+    return Future.value(authenticate);
+  }
+
+  static List<int> hexToBin(String hexString) {
+    if (hexString == null || hexString.length % 2 != 0) {
+      throw Exception('odd hex string length');
+    }
+
+    return [
+      for (var i = 0; i < hexString.length; i+=2)
+        int.parse(hexString[i]+hexString[i+1], radix: 16)
     ];
-    authenticate.signature = privateKey.sign(binaryChallenge).encode();
   }
 
   /// This method is called by the session to modify the hello [details] for
