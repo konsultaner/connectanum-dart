@@ -1,12 +1,19 @@
 import 'dart:collection';
 import 'dart:convert';
-import 'package:pinenacl/encoding.dart';
+import 'dart:math';
+import 'dart:typed_data';
+
+import 'package:pointycastle/api.dart';
+import 'package:pointycastle/block/aes_fast.dart';
+import 'package:pointycastle/block/modes/cbc.dart';
 
 import '../message/authenticate.dart';
 import '../message/challenge.dart';
 import '../message/details.dart';
 import 'abstract_authentication.dart';
 
+import 'package:pinenacl/encoding.dart';
+import 'package:pointycastle/digests/sha1.dart';
 import 'package:pinenacl/api.dart' show SigningKey;
 
 class CryptosignAuthentication extends AbstractAuthentication {
@@ -16,9 +23,20 @@ class CryptosignAuthentication extends AbstractAuthentication {
   final SigningKey privateKey;
   final String channelBinding;
 
-  CryptosignAuthentication(this.privateKey, this.channelBinding): assert (privateKey != null);
+  CryptosignAuthentication(this.privateKey, this.channelBinding): assert (privateKey != null) {
+    if (channelBinding != null) {
+      throw UnimplementedError('Channel binding is not supported yet!');
+    }
+  }
 
-  factory CryptosignAuthentication.fromRawBase64(String base64PrivateKey) {
+  factory CryptosignAuthentication.fromPuttyPrivateKey(String ppkFileContent, {String password}) {
+    return CryptosignAuthentication(
+        SigningKey.fromSeed(extractPrivateKeyFromPpk(ppkFileContent, password: password)),
+        null
+    );
+  }
+
+  factory CryptosignAuthentication.fromBase64(String base64PrivateKey) {
     return CryptosignAuthentication(
         SigningKey.fromSeed(base64.decode(base64PrivateKey).toList()),
         null
@@ -78,5 +96,88 @@ class CryptosignAuthentication extends AbstractAuthentication {
   String getName() {
     return 'cryptosign';
   }
+  
+  /// This helper method takes a [ppkFileContent] and its [password] and 
+  /// extracts the private key into a list. 
+  static List<int> extractPrivateKeyFromPpk(String ppkFileContent, {String password}) {
+    if(ppkFileContent == null) {
+      throw Exception('There is no file content provided to load a private key from!');
+    }
+    
+    var encrypted = false;
+    var endOfHeader = false;
+    var privateKeyIndex = 0;
+    var privateKey = '';
+    List<int> privateMac;
+    ppkFileContent.split('\n').forEach((element) {
+      if (!endOfHeader) {
+        if (element.startsWith('PuTTY-User-Key-File-') && !element.contains('ssh-ed25519')) {
+          throw Exception('The putty key has the wrong encryption method, use ssh-ed25519!');
+        }
+        if (element.startsWith('Encryption')) {
+          if (element.contains('none')) {
+            return;
+          } else {
+            if (!element.contains('aes256-cbc')) {
+              throw Exception('Unknown or unsupported putty file encryption! Supported values are "none" and "aes256-cbc"');
+            }
+            encrypted = true;
+          }
+        }
+        if (element.startsWith('Public-Lines')) {
+          endOfHeader = true;
+          return;
+        }
+      } else if (element.startsWith('Private-Lines')) {
+        privateKeyIndex = int.parse(element.split(': ')[1].trimRight());
+      } else if (privateKeyIndex > 0) {
+        privateKey += element.trimRight();
+        privateKeyIndex--;
+      } else if (element.startsWith('Private-MAC')) {
+        privateMac = hexToBin(element.split(': ')[1].trimRight());
+      }
+    });
+    if (privateKey.isNotEmpty) {
+      Uint8List privateKeyDecrypted;
+      if (encrypted) {
+        if (password == null || password.isEmpty) {
+          throw Exception('No or empty password provided!');
+        }
+        privateKeyDecrypted = decodePpkPrivateKey(base64.decode(privateKey), password);
+      } else {
+        privateKeyDecrypted = base64.decode(privateKey);
+      }
+      macCheck(privateMac, privateKeyDecrypted);
+      return privateKeyDecrypted;
+    } else {
+      throw Exception('Wrong file format. Could not extract a private key');
+    }
+  }
 
+  static Uint8List decodePpkPrivateKey(List<int> encryptedPrivateKey, String password) {
+    var encryptedPrivateKeyList = Uint8List.fromList(encryptedPrivateKey);
+    var key = Uint8List(40);
+    SHA1Digest()
+      ..update(Uint8List(4), 0, 4)
+      ..update(Uint8List.fromList(password.codeUnits), 0, password.codeUnits.length)
+      ..doFinal(key, 0);
+    SHA1Digest()
+      ..update(Uint8List(4)..[3]=1, 0, 4)
+      ..update(Uint8List.fromList(password.codeUnits), 0, password.codeUnits.length)
+      ..doFinal(key, 20);
+
+    final cbcBlockCipher = CBCBlockCipher(AESFastEngine())
+      ..init(false, ParametersWithIV(KeyParameter(key.sublist(0,32)), Uint8List(16)));
+    final paddedPlainText = Uint8List(encryptedPrivateKeyList.length);
+    var offset = 0;
+    while (offset < encryptedPrivateKeyList.length) {
+      offset += cbcBlockCipher.processBlock(encryptedPrivateKeyList, offset, paddedPlainText, offset);
+    }
+    assert(offset == encryptedPrivateKeyList.length);
+    return paddedPlainText;
+  }
+
+  static void macCheck(List<int> privateMac, Uint8List privateKeyDecrypted) {
+    return; // TODO to be implemented
+  }
 }

@@ -1,4 +1,6 @@
 
+import 'dart:io';
+
 import 'package:connectanum/src/authentication/cryptosign_authentication.dart';
 import 'package:connectanum/src/message/challenge.dart';
 import 'package:test/test.dart';
@@ -31,6 +33,17 @@ void main() {
         final authenticate = await authMethod.challenge(extra);
         expect(authenticate.signature, equals(vactor['signature']));
       });
+    });
+
+    test('load putty private key file', () async {
+      var ppk = File('./test/authentication/ed25519.ppk');
+      var ppkEncrypted = File('./test/authentication/ed25519_password.ppk');
+      var ppkEncrypted2 = File('./test/authentication/ed25519_password2.ppk');
+      final unencryptedPpkKey = CryptosignAuthentication.extractPrivateKeyFromPpk(await ppk.readAsString());
+      final decryptedPpkKey = CryptosignAuthentication.extractPrivateKeyFromPpk(await ppkEncrypted.readAsString(), password: 'password');
+      final decryptedPpkKey2 = CryptosignAuthentication.extractPrivateKeyFromPpk(await ppkEncrypted2.readAsString(), password: 'password2');
+      expect(decryptedPpkKey.sublist(0,unencryptedPpkKey.length), equals(unencryptedPpkKey));
+      expect(decryptedPpkKey, decryptedPpkKey2);
     });
   });
 }
