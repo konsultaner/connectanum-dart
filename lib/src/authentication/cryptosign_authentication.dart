@@ -1,11 +1,11 @@
 import 'dart:collection';
 import 'dart:convert';
-import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:pointycastle/api.dart';
 import 'package:pointycastle/block/aes_fast.dart';
 import 'package:pointycastle/block/modes/cbc.dart';
+import 'package:pointycastle/macs/hmac.dart';
 
 import '../message/authenticate.dart';
 import '../message/challenge.dart';
@@ -106,30 +106,49 @@ class CryptosignAuthentication extends AbstractAuthentication {
     
     var encrypted = false;
     var endOfHeader = false;
+    var publicKeyIndex = 0;
     var privateKeyIndex = 0;
+    var publicKey = '';
     var privateKey = '';
     List<int> privateMac;
-    ppkFileContent.split('\n').forEach((element) {
+    var lines = ppkFileContent.split('\n');
+    var macData = '';
+    lines.forEach((element) {
       if (!endOfHeader) {
-        if (element.startsWith('PuTTY-User-Key-File-') && !element.contains('ssh-ed25519')) {
-          throw Exception('The putty key has the wrong encryption method, use ssh-ed25519!');
+        if (lines.indexOf(element) == 0 && !element.startsWith('PuTTY-User-Key-File-')) {
+          throw Exception('File is no valid putty ssh-2 key file!');
+        }
+        if (element.startsWith('PuTTY-User-Key-File-')) {
+          if (!element.startsWith('PuTTY-User-Key-File-')) {
+            throw Exception('Unsupported ssh-2 key file version!');
+          }
+          if (!element.contains('ssh-ed25519')) {
+            throw Exception('The putty key has the wrong encryption method, use ssh-ed25519!');
+          }
+          macData += 'ssh-ed25519';
         }
         if (element.startsWith('Encryption')) {
-          if (element.contains('none')) {
-            return;
-          } else {
+          if (!element.contains('none')) {
             if (!element.contains('aes256-cbc')) {
               throw Exception('Unknown or unsupported putty file encryption! Supported values are "none" and "aes256-cbc"');
             }
             encrypted = true;
           }
+          macData += element.split(': ')[1].trimRight();
+        }
+        if (element.startsWith('Comment')) {
+          macData += element.split(': ')[1].trimRight();
         }
         if (element.startsWith('Public-Lines')) {
           endOfHeader = true;
+          publicKeyIndex = int.parse(element.split(': ')[1].trimRight());
           return;
         }
       } else if (element.startsWith('Private-Lines')) {
         privateKeyIndex = int.parse(element.split(': ')[1].trimRight());
+      } else if (publicKeyIndex > 0) {
+        publicKey += element.trimRight();
+        publicKeyIndex--;
       } else if (privateKeyIndex > 0) {
         privateKey += element.trimRight();
         privateKeyIndex--;
@@ -137,6 +156,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
         privateMac = hexToBin(element.split(': ')[1].trimRight());
       }
     });
+    macData += publicKey + privateKey;
     if (privateKey.isNotEmpty) {
       Uint8List privateKeyDecrypted;
       if (encrypted) {
@@ -147,8 +167,8 @@ class CryptosignAuthentication extends AbstractAuthentication {
       } else {
         privateKeyDecrypted = base64.decode(privateKey);
       }
-      macCheck(privateMac, privateKeyDecrypted);
-      return privateKeyDecrypted;
+      //macCheck(privateMac, macData, password);
+      return privateKeyDecrypted.length > 32 ? privateKeyDecrypted.sublist(0,32) : privateKeyDecrypted;
     } else {
       throw Exception('Wrong file format. Could not extract a private key');
     }
@@ -177,7 +197,27 @@ class CryptosignAuthentication extends AbstractAuthentication {
     return paddedPlainText;
   }
 
-  static void macCheck(List<int> privateMac, Uint8List privateKeyDecrypted) {
-    return; // TODO to be implemented
+  static void macCheck(List<int> privateMac, String macData, String password) {
+    var sha1Hash = SHA1Digest()
+      ..update(Uint8List.fromList("putty-private-key-file-mac-key".codeUnits), 0, "putty-private-key-file-mac-key".codeUnits.length);
+    if (password != null) {
+      sha1Hash.update(Uint8List.fromList(password.codeUnits), 0, password.codeUnits.length);
+    }
+    var key = Uint8List(20);
+    sha1Hash.doFinal(key, 0);
+
+    var macResult = Uint8List(20);
+    var mac = HMac(SHA1Digest(), 64);
+    mac.init(KeyParameter(key));
+    mac.update(Uint8List.fromList(macData.codeUnits), 0, macData.codeUnits.length);
+    mac.doFinal(macResult, 0);
+
+    if (macResult.toList() != privateMac) {
+      if (password == null) {
+        throw Exception('Mac check failed, file is corrupt!');
+      } else {
+        throw Exception('Wrong password!');
+      }
+    }
   }
 }
