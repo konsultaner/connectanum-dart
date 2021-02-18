@@ -14,7 +14,7 @@ import 'abstract_authentication.dart';
 
 import 'package:pinenacl/encoding.dart';
 import 'package:pointycastle/digests/sha1.dart';
-import 'package:pinenacl/api.dart' show SigningKey;
+import 'package:pinenacl/api.dart' show ByteList, SigningKey;
 
 class CryptosignAuthentication extends AbstractAuthentication {
 
@@ -110,9 +110,9 @@ class CryptosignAuthentication extends AbstractAuthentication {
     var privateKeyIndex = 0;
     var publicKey = '';
     var privateKey = '';
-    List<int> privateMac;
+    String privateMac;
     var lines = ppkFileContent.split('\n');
-    var macData = '';
+    var macData = PpkMacData();
     lines.forEach((element) {
       if (!endOfHeader) {
         if (lines.indexOf(element) == 0 && !element.startsWith('PuTTY-User-Key-File-')) {
@@ -125,7 +125,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
           if (!element.contains('ssh-ed25519')) {
             throw Exception('The putty key has the wrong encryption method, use ssh-ed25519!');
           }
-          macData += 'ssh-ed25519';
+          macData.algorithm = 'ssh-ed25519';
         }
         if (element.startsWith('Encryption')) {
           if (!element.contains('none')) {
@@ -134,10 +134,10 @@ class CryptosignAuthentication extends AbstractAuthentication {
             }
             encrypted = true;
           }
-          macData += element.split(': ')[1].trimRight();
+          macData.encryption = element.split(': ')[1].trimRight();
         }
         if (element.startsWith('Comment')) {
-          macData += element.split(': ')[1].trimRight();
+          macData.comment = element.split(': ')[1].trimRight();
         }
         if (element.startsWith('Public-Lines')) {
           endOfHeader = true;
@@ -153,10 +153,10 @@ class CryptosignAuthentication extends AbstractAuthentication {
         privateKey += element.trimRight();
         privateKeyIndex--;
       } else if (element.startsWith('Private-MAC')) {
-        privateMac = hexToBin(element.split(': ')[1].trimRight());
+        privateMac = element.split(': ')[1].trimRight();
       }
     });
-    macData += publicKey + privateKey;
+    macData.publicKey = base64.decode(publicKey);
     if (privateKey.isNotEmpty) {
       Uint8List privateKeyDecrypted;
       if (encrypted) {
@@ -167,7 +167,8 @@ class CryptosignAuthentication extends AbstractAuthentication {
       } else {
         privateKeyDecrypted = base64.decode(privateKey);
       }
-      //macCheck(privateMac, macData, password);
+      macData.privateKey = privateKeyDecrypted;
+      macCheck(privateMac, macData, password);
       return privateKeyDecrypted.length > 32 ? privateKeyDecrypted.sublist(0,32) : privateKeyDecrypted;
     } else {
       throw Exception('Wrong file format. Could not extract a private key');
@@ -197,7 +198,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
     return paddedPlainText;
   }
 
-  static void macCheck(List<int> privateMac, String macData, String password) {
+  static void macCheck(String privateMac, PpkMacData macData, String password) {
     var sha1Hash = SHA1Digest()
       ..update(Uint8List.fromList("putty-private-key-file-mac-key".codeUnits), 0, "putty-private-key-file-mac-key".codeUnits.length);
     if (password != null) {
@@ -209,10 +210,18 @@ class CryptosignAuthentication extends AbstractAuthentication {
     var macResult = Uint8List(20);
     var mac = HMac(SHA1Digest(), 64);
     mac.init(KeyParameter(key));
-    mac.update(Uint8List.fromList(macData.codeUnits), 0, macData.codeUnits.length);
+    mac.update(Uint8List.fromList([0,0,0,macData.algorithm.codeUnits.length]), 0, 4);
+    mac.update(utf8.encode(macData.algorithm), 0, macData.algorithm.codeUnits.length);
+    mac.update(Uint8List.fromList([0,0,0,macData.encryption.codeUnits.length]), 0, 4);
+    mac.update(utf8.encode(macData.encryption), 0, macData.encryption.length);
+    mac.update(Uint8List.fromList([0,0,0,macData.comment.codeUnits.length]), 0, 4);
+    mac.update(utf8.encode(macData.comment), 0, macData.comment.length);
+    mac.update(Uint8List.fromList([0,0,0,macData.publicKey.length]), 0, 4);
+    mac.update(macData.publicKey, 0, macData.publicKey.length);
+    mac.update(Uint8List.fromList([0,0,0,macData.privateKey.length]), 0, 4);
+    mac.update(macData.privateKey, 0, macData.privateKey.length);
     mac.doFinal(macResult, 0);
-
-    if (macResult.toList() != privateMac) {
+    if (HexEncoder().encode(ByteList.fromList(macResult)) != privateMac) {
       if (password == null) {
         throw Exception('Mac check failed, file is corrupt!');
       } else {
@@ -220,4 +229,12 @@ class CryptosignAuthentication extends AbstractAuthentication {
       }
     }
   }
+}
+
+class PpkMacData {
+  String algorithm;
+  String encryption;
+  String comment;
+  Uint8List publicKey;
+  Uint8List privateKey;
 }
