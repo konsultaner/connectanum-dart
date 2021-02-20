@@ -17,37 +17,59 @@ import 'package:pointycastle/digests/sha1.dart';
 import 'package:pinenacl/api.dart' show ByteList, SigningKey;
 
 class CryptosignAuthentication extends AbstractAuthentication {
-
   static final String CHANNEL_BINDUNG_TLS_UNIQUE = 'tls-unique';
+  static final String OPEN_SSH_HEADER = '-----BEGIN OPENSSH PRIVATE KEY-----';
+  static final String OPEN_SSH_FOOTER = '-----END OPENSSH PRIVATE KEY-----';
 
   final SigningKey privateKey;
   final String channelBinding;
 
-  CryptosignAuthentication(this.privateKey, this.channelBinding): assert (privateKey != null) {
+  /// This is the default constructor that will take an already gathered [privateKey]
+  /// integer list to initialize the cryptosign authentication method.
+  CryptosignAuthentication(this.privateKey, this.channelBinding)
+      : assert(privateKey != null) {
     if (channelBinding != null) {
       throw UnimplementedError('Channel binding is not supported yet!');
     }
   }
 
-  factory CryptosignAuthentication.fromPuttyPrivateKey(String ppkFileContent, {String password}) {
+  /// This method takes a [ppkFileContent] and reads its private key to make
+  /// the authentication process possible with crypto sign. The [ppkFileContent]
+  /// must have a ed25519 key file. If the file was password protected, the
+  /// optional [password] will decrypt the private key.
+  factory CryptosignAuthentication.fromPuttyPrivateKey(String ppkFileContent,
+      {String password}) {
     return CryptosignAuthentication(
-        SigningKey.fromSeed(extractPrivateKeyFromPpk(ppkFileContent, password: password)),
-        null
-    );
+        SigningKey.fromSeed(
+            loadPrivateKeyFromPpk(ppkFileContent, password: password)),
+        null);
   }
 
+  /// This method takes a [openSshFileContent] and reads its private key to make
+  /// the authentication process possible with crypto sign. The [openSshFileContent]
+  /// must have a ed25519 key file. If the file was password protected, the
+  /// optional [password] will decrypt the private key.
+  factory CryptosignAuthentication.fromOpenSshPrivateKey(
+      String openSshFileContent,
+      {String password}) {
+    return CryptosignAuthentication(
+        SigningKey.fromSeed(loadPrivateKeyFromOpenSSHPem(openSshFileContent,
+            password: password)),
+        null);
+  }
+
+  /// This method takes a given [base64PrivateKey] to make crypto sign
+  /// possible. This key needs to generated to be used with the ed25519 algorithm
   factory CryptosignAuthentication.fromBase64(String base64PrivateKey) {
     return CryptosignAuthentication(
-        SigningKey.fromSeed(base64.decode(base64PrivateKey).toList()),
-        null
-    );
+        SigningKey.fromSeed(base64.decode(base64PrivateKey).toList()), null);
   }
 
+  /// This method takes a given [hexPrivateKey] to make crypto sign
+  /// possible. This key needs to generated to be used with the ed25519 algorithm
   factory CryptosignAuthentication.fromHex(String hexPrivateKey) {
     return CryptosignAuthentication(
-        SigningKey.fromSeed(hexToBin(hexPrivateKey)),
-        null
-    );
+        SigningKey.fromSeed(hexToBin(hexPrivateKey)), null);
   }
 
   /// This method is called by the session if the router returns the challenge or
@@ -66,18 +88,20 @@ class CryptosignAuthentication extends AbstractAuthentication {
     authenticate.extra = HashMap<String, Object>();
     authenticate.extra['channel_binding'] = channelBinding;
     var binaryChallenge = hexToBin(extra.challenge);
-    authenticate.signature = privateKey.sign(binaryChallenge).encode(HexEncoder());
+    authenticate.signature =
+        privateKey.sign(binaryChallenge).encode(HexEncoder());
     return Future.value(authenticate);
   }
 
+  /// This method converts a given [hexString] to its byte representation.
   static List<int> hexToBin(String hexString) {
     if (hexString == null || hexString.length % 2 != 0) {
       throw Exception('odd hex string length');
     }
 
     return [
-      for (var i = 0; i < hexString.length; i+=2)
-        int.parse(hexString[i]+hexString[i+1], radix: 16)
+      for (var i = 0; i < hexString.length; i += 2)
+        int.parse(hexString[i] + hexString[i + 1], radix: 16)
     ];
   }
 
@@ -96,14 +120,16 @@ class CryptosignAuthentication extends AbstractAuthentication {
   String getName() {
     return 'cryptosign';
   }
-  
-  /// This helper method takes a [ppkFileContent] and its [password] and 
-  /// extracts the private key into a list. 
-  static List<int> extractPrivateKeyFromPpk(String ppkFileContent, {String password}) {
-    if(ppkFileContent == null) {
-      throw Exception('There is no file content provided to load a private key from!');
+
+  /// This helper method takes a [ppkFileContent] and its [password] and
+  /// extracts the private key into a list.
+  static List<int> loadPrivateKeyFromPpk(String ppkFileContent,
+      {String password}) {
+    if (ppkFileContent == null) {
+      throw Exception(
+          'There is no file content provided to load a private key from!');
     }
-    
+
     var encrypted = false;
     var endOfHeader = false;
     var publicKeyIndex = 0;
@@ -115,22 +141,25 @@ class CryptosignAuthentication extends AbstractAuthentication {
     var macData = PpkMacData();
     lines.forEach((element) {
       if (!endOfHeader) {
-        if (lines.indexOf(element) == 0 && !element.startsWith('PuTTY-User-Key-File-')) {
+        if (lines.indexOf(element) == 0 &&
+            !element.startsWith('PuTTY-User-Key-File-')) {
           throw Exception('File is no valid putty ssh-2 key file!');
         }
         if (element.startsWith('PuTTY-User-Key-File-')) {
-          if (!element.startsWith('PuTTY-User-Key-File-')) {
+          if (!element.startsWith('PuTTY-User-Key-File-2')) {
             throw Exception('Unsupported ssh-2 key file version!');
           }
-          if (!element.contains('ssh-ed25519')) {
-            throw Exception('The putty key has the wrong encryption method, use ssh-ed25519!');
+          if (!element.trimRight().endsWith('ssh-ed25519')) {
+            throw Exception(
+                'The putty key has the wrong encryption method, use ssh-ed25519!');
           }
           macData.algorithm = 'ssh-ed25519';
         }
         if (element.startsWith('Encryption')) {
-          if (!element.contains('none')) {
-            if (!element.contains('aes256-cbc')) {
-              throw Exception('Unknown or unsupported putty file encryption! Supported values are "none" and "aes256-cbc"');
+          if (!element.trimRight().endsWith('none')) {
+            if (!element.trimRight().endsWith('aes256-cbc')) {
+              throw Exception(
+                  'Unknown or unsupported putty file encryption! Supported values are "none" and "aes256-cbc"');
             }
             encrypted = true;
           }
@@ -163,46 +192,61 @@ class CryptosignAuthentication extends AbstractAuthentication {
         if (password == null || password.isEmpty) {
           throw Exception('No or empty password provided!');
         }
-        privateKeyDecrypted = decodePpkPrivateKey(base64.decode(privateKey), password);
+        privateKeyDecrypted =
+            decodePpkPrivateKey(base64.decode(privateKey), password);
       } else {
         privateKeyDecrypted = base64.decode(privateKey);
       }
       macData.privateKey = privateKeyDecrypted;
-      macCheck(privateMac, macData, password);
-      return privateKeyDecrypted.length > 32 ? privateKeyDecrypted.sublist(0,32) : privateKeyDecrypted;
+      ppkMacCheck(privateMac, macData, password);
+      return privateKeyDecrypted.sublist(4, 36);
     } else {
       throw Exception('Wrong file format. Could not extract a private key');
     }
   }
 
-  static Uint8List decodePpkPrivateKey(List<int> encryptedPrivateKey, String password) {
+  /// This method takes a [encryptedPrivateKey] and decrypts it by useing the
+  /// provided [password].
+  static Uint8List decodePpkPrivateKey(
+      List<int> encryptedPrivateKey, String password) {
     var encryptedPrivateKeyList = Uint8List.fromList(encryptedPrivateKey);
     var key = Uint8List(40);
     SHA1Digest()
       ..update(Uint8List(4), 0, 4)
-      ..update(Uint8List.fromList(password.codeUnits), 0, password.codeUnits.length)
+      ..update(
+          Uint8List.fromList(password.codeUnits), 0, password.codeUnits.length)
       ..doFinal(key, 0);
     SHA1Digest()
-      ..update(Uint8List(4)..[3]=1, 0, 4)
-      ..update(Uint8List.fromList(password.codeUnits), 0, password.codeUnits.length)
+      ..update(Uint8List(4)..[3] = 1, 0, 4)
+      ..update(
+          Uint8List.fromList(password.codeUnits), 0, password.codeUnits.length)
       ..doFinal(key, 20);
 
     final cbcBlockCipher = CBCBlockCipher(AESFastEngine())
-      ..init(false, ParametersWithIV(KeyParameter(key.sublist(0,32)), Uint8List(16)));
-    final paddedPlainText = Uint8List(encryptedPrivateKeyList.length);
+      ..init(false,
+          ParametersWithIV(KeyParameter(key.sublist(0, 32)), Uint8List(16)));
+    final seed = Uint8List(encryptedPrivateKeyList.length);
     var offset = 0;
     while (offset < encryptedPrivateKeyList.length) {
-      offset += cbcBlockCipher.processBlock(encryptedPrivateKeyList, offset, paddedPlainText, offset);
+      offset += cbcBlockCipher.processBlock(
+          encryptedPrivateKeyList, offset, seed, offset);
     }
     assert(offset == encryptedPrivateKeyList.length);
-    return paddedPlainText;
+    return seed;
   }
 
-  static void macCheck(String privateMac, PpkMacData macData, String password) {
+  /// This method performs the mac check against the [privateMac] to validate
+  /// the files content. It is also capable of testing whether the [password]
+  /// war wrong or not. The [macData] is data used to compute the mac and to
+  /// compare it to the given [privateMac]
+  static void ppkMacCheck(
+      String privateMac, PpkMacData macData, String password) {
     var sha1Hash = SHA1Digest()
-      ..update(Uint8List.fromList("putty-private-key-file-mac-key".codeUnits), 0, "putty-private-key-file-mac-key".codeUnits.length);
+      ..update(Uint8List.fromList('putty-private-key-file-mac-key'.codeUnits),
+          0, 'putty-private-key-file-mac-key'.codeUnits.length);
     if (password != null) {
-      sha1Hash.update(Uint8List.fromList(password.codeUnits), 0, password.codeUnits.length);
+      sha1Hash.update(
+          Uint8List.fromList(password.codeUnits), 0, password.codeUnits.length);
     }
     var key = Uint8List(20);
     sha1Hash.doFinal(key, 0);
@@ -210,15 +254,23 @@ class CryptosignAuthentication extends AbstractAuthentication {
     var macResult = Uint8List(20);
     var mac = HMac(SHA1Digest(), 64);
     mac.init(KeyParameter(key));
-    mac.update(Uint8List.fromList([0,0,0,macData.algorithm.codeUnits.length]), 0, 4);
-    mac.update(utf8.encode(macData.algorithm), 0, macData.algorithm.codeUnits.length);
-    mac.update(Uint8List.fromList([0,0,0,macData.encryption.codeUnits.length]), 0, 4);
+    mac.update(
+        Uint8List.fromList([0, 0, 0, macData.algorithm.codeUnits.length]),
+        0,
+        4);
+    mac.update(
+        utf8.encode(macData.algorithm), 0, macData.algorithm.codeUnits.length);
+    mac.update(
+        Uint8List.fromList([0, 0, 0, macData.encryption.codeUnits.length]),
+        0,
+        4);
     mac.update(utf8.encode(macData.encryption), 0, macData.encryption.length);
-    mac.update(Uint8List.fromList([0,0,0,macData.comment.codeUnits.length]), 0, 4);
+    mac.update(
+        Uint8List.fromList([0, 0, 0, macData.comment.codeUnits.length]), 0, 4);
     mac.update(utf8.encode(macData.comment), 0, macData.comment.length);
-    mac.update(Uint8List.fromList([0,0,0,macData.publicKey.length]), 0, 4);
+    mac.update(Uint8List.fromList([0, 0, 0, macData.publicKey.length]), 0, 4);
     mac.update(macData.publicKey, 0, macData.publicKey.length);
-    mac.update(Uint8List.fromList([0,0,0,macData.privateKey.length]), 0, 4);
+    mac.update(Uint8List.fromList([0, 0, 0, macData.privateKey.length]), 0, 4);
     mac.update(macData.privateKey, 0, macData.privateKey.length);
     mac.doFinal(macResult, 0);
     if (HexEncoder().encode(ByteList.fromList(macResult)) != privateMac) {
@@ -228,6 +280,122 @@ class CryptosignAuthentication extends AbstractAuthentication {
         throw Exception('Wrong password!');
       }
     }
+  }
+
+  /// Loads a private key from a [pemFileContent] that has been encoded with the
+  /// open ssh file format:
+  ///
+  /// https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.key
+  ///
+  /// "openssh-key-v1"0x00    # NULL-terminated "Auth Magic" string
+  /// 32-bit length, "none"   # ciphername length and string
+  /// 32-bit length, "none"   # kdfname length and string
+  /// 32-bit length, nil      # kdf (0 length, no kdf)
+  /// 32-bit 0x01             # number of keys, hard-coded to 1 (no length)
+  /// 32-bit length, sshpub   # public key in ssh format
+  ///     32-bit length, keytype
+  ///     32-bit length, pub0
+  ///     32-bit length, pub1
+  /// 32-bit length for rnd+prv+comment+pad
+  ///     64-bit dummy checksum?  # a random 32-bit int, repeated
+  ///     32-bit length, keytype  # the private key (including public)
+  ///     32-bit length, pub0     # Public Key parts
+  ///     32-bit length, pub1
+  ///     32-bit length, prv0     # Private Key parts
+  ///     ...                     # (number varies by type)
+  ///     32-bit length, comment  # comment string
+  ///     padding bytes 0x010203  # pad to blocksize
+  static Uint8List loadPrivateKeyFromOpenSSHPem(String pemFileContent,
+      {String password}) {
+    if (password != null) {
+      throw UnimplementedError(
+          'loading password protected open ssh keys is not supported yet');
+    }
+    if (!pemFileContent.startsWith(OPEN_SSH_HEADER) ||
+        !pemFileContent.startsWith(OPEN_SSH_HEADER)) {
+      throw Exception('Wrong file format');
+    }
+
+    pemFileContent =
+        pemFileContent.substring(OPEN_SSH_HEADER.length).trimLeft();
+    pemFileContent = pemFileContent
+        .substring(0, pemFileContent.length - OPEN_SSH_FOOTER.length - 1)
+        .trimRight();
+
+    var binaryContent =
+        base64.decode(pemFileContent.replaceAll(RegExp(r'[\n\r]'), ''));
+    var header = binaryContent.sublist(0, binaryContent.indexOf(0));
+    if (String.fromCharCodes(header) == 'openssh-key-v1') {
+      var readerIndex = header.length + 1;
+      var cypherNameLength = _readOpenSshKeyUInt32(binaryContent, readerIndex);
+      readerIndex += 4;
+      var cypherName =
+          _readOpenSshKeyString(binaryContent, readerIndex, cypherNameLength);
+      readerIndex += cypherNameLength;
+      if (cypherName != 'none') {
+        throw Exception(
+            'Password protected open ssh keys are not supported yet');
+      }
+      var keyDerivationFunctionNameLength =
+          _readOpenSshKeyUInt32(binaryContent, readerIndex);
+      readerIndex += 4 + keyDerivationFunctionNameLength;
+      var keyDerivationFunctionLength =
+          _readOpenSshKeyUInt32(binaryContent, readerIndex);
+      readerIndex += 4 +
+          keyDerivationFunctionLength; //keyDerivationFunctionLength should be 0 for no kdf
+      // var keyCount = _readOpenSshKeyUInt32(binaryContent, readerIndex);
+      readerIndex += 4; //key count should always be 1
+      var publicKeyLength = _readOpenSshKeyUInt32(binaryContent, readerIndex);
+      readerIndex += 4 + publicKeyLength;
+      // var privateKeyLength = _readOpenSshKeyUInt32(binaryContent, readerIndex);
+      readerIndex += 4;
+      // var checkSum = _readOpenSshKeyUInt32(binaryContent, readerIndex);
+      readerIndex += 8; // repeated 32bit
+      var keyTypeLength = _readOpenSshKeyUInt32(binaryContent, readerIndex);
+      readerIndex += 4;
+      var keyType =
+          _readOpenSshKeyString(binaryContent, readerIndex, keyTypeLength);
+      readerIndex += keyTypeLength;
+      readerIndex += 4 + 32; // no need for the public key part
+      if (keyType != 'ssh-ed25519') {
+        throw Exception(
+            'Cryptobox needs a private key of type ssh-ed25519! Found ' +
+                keyType);
+      }
+      var privateKey =
+          binaryContent.sublist(readerIndex += 4, readerIndex += 64);
+      var seed = privateKey.sublist(0, 32);
+      var commentLength = _readOpenSshKeyUInt32(binaryContent, readerIndex);
+      readerIndex += 4;
+      // var comment = _readOpenSshKeyString(binaryContent, readerIndex, commentLength);
+      readerIndex += commentLength;
+      // var padding = binaryContent.sublist(readerIndex);
+      return seed;
+    } else {
+      throw Exception('This is not a valid open ssh key file format!');
+    }
+  }
+
+  static int _readOpenSshKeyUInt32(Uint8List bytes, int offset) {
+    return Uint8List.fromList(
+            bytes.sublist(offset, offset + 4).reversed.toList())
+        .buffer
+        .asUint32List()[0];
+  }
+
+  static String _readOpenSshKeyString(Uint8List bytes, int offset, length) {
+    return String.fromCharCodes(
+        bytes.sublist(offset, offset + length).toList());
+  }
+
+  static void loadPrivateKeyFromOpenPCKS1Pem(String pemFileContent) {
+    //pemFileContent.
+    //ASN1Parser([111,1,1,1]);
+  }
+
+  static void loadPrivateKeyFromOpenPCKS8Pem(String pemFileContent) {
+    //pemFileContent.
+    //ASN1Parser([111,1,1,1]);
   }
 }
 

@@ -33,6 +33,21 @@ eventually fail.
 
 - ☑ [WAMP-CRA](https://wamp-proto.org/_static/gen/wamp_latest.html#wampcra)
 - ☑ [TICKET](https://wamp-proto.org/_static/gen/wamp_latest.html#ticketauth)
+- ☑ CRYPTOSIGN
+    - ☑ Load putty files
+        - ☑ MAC validation
+        - ☑ password support
+    - ☑ Load open ssh files
+        - ⬜ file validation
+        - ⬜ password support
+    - ⬜ Load pkcs1 files
+        - ⬜ file validation
+        - ⬜ password support
+    - ⬜ Load pkcs8 files
+        - ⬜ file validation
+        - ⬜ password support
+    - ☑ Load base64 encoded ed25519 private key
+    - ☑ Load hex encoded ed25519 private key
 - ☑ [WAMP-SCRAM](https://wamp-proto.org/_static/gen/wamp_latest.html#wamp-scram)
     - ⬜ Argon2
     - ☑ PBKDF2

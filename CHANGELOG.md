@@ -1,3 +1,8 @@
+### 1.0.14
+
+- support wamp cryptosign
+- support several key loading mechanism
+
 ### 1.0.13
 
 - add custom subscribe options
