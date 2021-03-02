@@ -31,7 +31,7 @@ void main () {
         var plain = testVectors[i][0];
         var salt = testVectors[i][1];
         var expected = testVectors[i][2];
-        var hashed = BCrypt.hashpw(plain, salt);
+        var hashed = BCrypt.hashPassword(plain, salt);
         expect(hashed, equals(expected));
       }
     });
@@ -40,9 +40,9 @@ void main () {
       for (var i = 4; i <= 12; i++) {
         for (var j = 0; j < testVectors.length; j += 4) {
           var plain = testVectors[j][0];
-          var salt = BCrypt.gensalt(logRounds: i);
-          var hashed1 = BCrypt.hashpw(plain, salt);
-          var hashed2 = BCrypt.hashpw(plain, hashed1);
+          var salt = BCrypt.generateSalt(logRounds: i);
+          var hashed1 = BCrypt.hashPassword(plain, salt);
+          var hashed2 = BCrypt.hashPassword(plain, hashed1);
           expect(hashed1, equals(hashed2));
         }
       }
@@ -52,9 +52,9 @@ void main () {
       for (var i = 4; i <= 12; i++) {
         for (var j = 0; j < testVectors.length; j += 4) {
           var plain = testVectors[j][0];
-          var salt = BCrypt.gensalt();
-          var hashed1 = BCrypt.hashpw(plain, salt);
-          var hashed2 = BCrypt.hashpw(plain, hashed1);
+          var salt = BCrypt.generateSalt();
+          var hashed1 = BCrypt.hashPassword(plain, salt);
+          var hashed2 = BCrypt.hashPassword(plain, hashed1);
           expect(hashed1, equals(hashed2));
         }
       }
@@ -64,7 +64,7 @@ void main () {
       for (var i = 0; i < testVectors.length; i++) {
         var plain = testVectors[i][0];
         var expected = testVectors[i][2];
-        expect(BCrypt.checkpw(plain, expected), equals(true));
+        expect(BCrypt.checkPassword(plain, expected), equals(true));
       }
     });
 
@@ -73,7 +73,7 @@ void main () {
         var broken_index = (i + 4) % testVectors.length;
         var plain = testVectors[i][0];
         var expected = testVectors[broken_index][2];
-        expect(BCrypt.checkpw(plain, expected), equals(false));
+        expect(BCrypt.checkPassword(plain, expected), equals(false));
       }
     });
 
@@ -81,11 +81,11 @@ void main () {
       var pw1 = '\u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605';
       var pw2 = '????????';
 
-      var h1 = BCrypt.hashpw(pw1, BCrypt.gensalt());
-      expect(BCrypt.checkpw(pw2, h1), equals(false));
+      var h1 = BCrypt.hashPassword(pw1, BCrypt.generateSalt());
+      expect(BCrypt.checkPassword(pw2, h1), equals(false));
 
-      var h2 = BCrypt.hashpw(pw2, BCrypt.gensalt());
-      expect(BCrypt.checkpw(pw1, h2), equals(false));
+      var h2 = BCrypt.hashPassword(pw2, BCrypt.generateSalt());
+      expect(BCrypt.checkPassword(pw1, h2), equals(false));
     });
   });
 }

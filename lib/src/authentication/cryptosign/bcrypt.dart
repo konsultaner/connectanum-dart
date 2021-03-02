@@ -325,7 +325,9 @@ class BCrypt {
   List<int> P;
   List<int> S;
 
-  static String encode_base64(List<int> d, int len)
+  /// A base64 encoder that has a slightly different char set that a regular
+  /// base64 codec
+  static String _encode_base64(List<int> d, int len)
   {
     var off = 0;
     var rs = '';
@@ -358,7 +360,7 @@ class BCrypt {
     return rs;
   }
 
-  static int char64(int x)
+  static int _char64(int x)
   {
     if ((x < 0) || (x > index_64.length)) {
       return -1;
@@ -366,7 +368,9 @@ class BCrypt {
     return index_64[x];
   }
 
-  static List<int> decode_base64(String s, int maxolen)
+  /// A base64 decoder that has a slightly different char set that a regular
+  /// base64 codec
+  static List<int> _decode_base64(String s, int maxolen)
   {
     var rs = '';
     var off = 0;
@@ -382,8 +386,8 @@ class BCrypt {
       throw Exception('Invalid maxolen');
     }
     while ((off < (slen - 1)) && (olen < maxolen)) {
-      c1 = char64(s.codeUnitAt(off++));
-      c2 = char64(s.codeUnitAt(off++));
+      c1 = _char64(s.codeUnitAt(off++));
+      c2 = _char64(s.codeUnitAt(off++));
       if ((c1 == (-1)) || (c2 == (-1))) {
         break;
       }
@@ -393,7 +397,7 @@ class BCrypt {
       if (((++olen) >= maxolen) || (off >= slen)) {
         break;
       }
-      c3 = char64(s.codeUnitAt(off++));
+      c3 = _char64(s.codeUnitAt(off++));
       if (c3 == (-1)) {
         break;
       }
@@ -403,7 +407,7 @@ class BCrypt {
       if (((++olen) >= maxolen) || (off >= slen)) {
         break;
       }
-      c4 = char64(s.codeUnitAt(off++));
+      c4 = _char64(s.codeUnitAt(off++));
       o = ((c3 & 0x03) << 6);
       o |= c4;
       rs += String.fromCharCode(o);
@@ -417,15 +421,15 @@ class BCrypt {
   }
 
   /// Blowfish encipher a single 64-bit block encoded as
-  /// two 32-bit halves
-  /// @param lr	an array containing the two 32-bit half blocks
-  /// @param off	the position in the array of the blocks
-  void encipher(List<int> lr, int off)
+  /// two 32-bit halves with the [leftRight] array that contains the two
+  /// 32-bit half blocks and [arrayOffset] as the position in the array of
+  /// the blocks.
+  void encipher(List<int> leftRight, int arrayOffset)
   {
     int i;
     int n;
-    var l = lr[off];
-    var r = lr[off + 1];
+    var l = leftRight[arrayOffset];
+    var r = leftRight[arrayOffset + 1];
     l ^= P[0];
     for ((i = 0); i <= (BLOWFISH_NUM_ROUNDS - 2); ) {
       n = S[(l >> 24) & 0xff];
@@ -440,8 +444,8 @@ class BCrypt {
       n += S[0x300 | (r & 0xff)];
       l ^= n ^ P[++i];
     }
-    lr[off] = (r ^ P[BLOWFISH_NUM_ROUNDS + 1]);
-    lr[off + 1] = l;
+    leftRight[arrayOffset] = (r ^ P[BLOWFISH_NUM_ROUNDS + 1]);
+    leftRight[arrayOffset + 1] = l;
   }
 
   static int streamtoword(List<int> data, List<int> offp)
@@ -484,7 +488,7 @@ class BCrypt {
     }
   }
 
-  void ekskey(List<int> data, List<int> key)
+  void _ekskey(List<int> data, List<int> key)
   {
     int i;
     var koffp = <int>[0];
@@ -514,7 +518,7 @@ class BCrypt {
     }
   }
 
-  List<int> crypt_raw(List<int> password, List<int> salt, int log_rounds, List<int> cdata)
+  List<int> _crypt_raw(List<int> password, List<int> salt, int log_rounds, List<int> cdata)
   {
     int rounds;
     int i;
@@ -529,7 +533,7 @@ class BCrypt {
       throw Exception('Bad salt length');
     }
     init_key();
-    ekskey(salt, password);
+    _ekskey(salt, password);
     for ((i = 0); i != rounds; i++) {
       key(password);
       key(salt);
@@ -551,7 +555,9 @@ class BCrypt {
     return ret;
   }
 
-  static String hashpw(String password, String salt)
+  /// This method takes a [password] and returns a hash calculated with the
+  /// bcrypt algorithm. The [salt] is added to enlarge the hash base
+  static String hashPassword(String password, String salt)
   {
     BCrypt B;
     String real_salt;
@@ -582,9 +588,9 @@ class BCrypt {
 
     passwordb = (password + ((minor >= 'a'.codeUnitAt(0)) ? String.fromCharCode(0) : '')).codeUnits;
 
-    saltb = decode_base64(real_salt, BCRYPT_SALT_LEN);
+    saltb = _decode_base64(real_salt, BCRYPT_SALT_LEN);
     B = BCrypt();
-    hashed = B.crypt_raw(passwordb, saltb, rounds, [...bf_crypt_ciphertext]);
+    hashed = B._crypt_raw(passwordb, saltb, rounds, [...bf_crypt_ciphertext]);
     rs += '\$2';
     if (minor >= 'a'.codeUnitAt(0)) {
       rs += String.fromCharCode(minor);
@@ -598,12 +604,12 @@ class BCrypt {
     }
     rs += rounds.toString();
     rs += '\$';
-    rs += encode_base64(saltb, saltb.length);
-    rs += encode_base64(hashed, (bf_crypt_ciphertext.length * 4) - 1);
+    rs += _encode_base64(saltb, saltb.length);
+    rs += _encode_base64(hashed, (bf_crypt_ciphertext.length * 4) - 1);
     return rs;
   }
 
-  static String gensalt({int logRounds, Random random})
+  static String generateSalt({int logRounds, Random random})
   {
     logRounds = logRounds ?? GENSALT_DEFAULT_LOG2_ROUNDS;
     random = random ?? Random.secure();
@@ -618,15 +624,15 @@ class BCrypt {
     }
     rs += logRounds.toString();
     rs += '\$';
-    rs += encode_base64(rnd, rnd.length);
+    rs += _encode_base64(rnd, rnd.length);
     return rs;
   }
 
-  static bool checkpw(String plaintext, String hashed)
+  static bool checkPassword(String plaintext, String hashed)
   {
     List<int> hashed_bytes;
     List<int> try_bytes;
-    var try_pw = hashpw(plaintext, hashed);
+    var try_pw = hashPassword(plaintext, hashed);
 
     hashed_bytes = hashed.codeUnits;
     try_bytes = try_pw.codeUnits;
