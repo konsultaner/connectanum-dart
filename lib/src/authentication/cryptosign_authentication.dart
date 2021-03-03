@@ -2,9 +2,12 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:connectanum/src/authentication/cryptosign/pbkdf_bcrypt.dart';
+import 'package:pointycastle/adapters/stream_cipher_as_block_cipher.dart';
 import 'package:pointycastle/api.dart';
 import 'package:pointycastle/block/aes_fast.dart';
 import 'package:pointycastle/block/modes/cbc.dart';
+import 'package:pointycastle/block/modes/ctr.dart';
 import 'package:pointycastle/macs/hmac.dart';
 
 import '../message/authenticate.dart';
@@ -15,6 +18,8 @@ import 'abstract_authentication.dart';
 import 'package:pinenacl/encoding.dart';
 import 'package:pointycastle/digests/sha1.dart';
 import 'package:pinenacl/api.dart' show ByteList, SigningKey;
+
+import 'cryptosign/bcrypt.dart';
 
 class CryptosignAuthentication extends AbstractAuthentication {
   static final String CHANNEL_BINDUNG_TLS_UNIQUE = 'tls-unique';
@@ -307,10 +312,6 @@ class CryptosignAuthentication extends AbstractAuthentication {
   ///     padding bytes 0x010203  # pad to blocksize
   static Uint8List loadPrivateKeyFromOpenSSHPem(String pemFileContent,
       {String password}) {
-    if (password != null) {
-      throw UnimplementedError(
-          'loading password protected open ssh keys is not supported yet');
-    }
     if (!pemFileContent.startsWith(OPEN_SSH_HEADER) ||
         !pemFileContent.startsWith(OPEN_SSH_HEADER)) {
       throw Exception('Wrong file format');
@@ -332,22 +333,26 @@ class CryptosignAuthentication extends AbstractAuthentication {
       var cypherName =
           _readOpenSshKeyString(binaryContent, readerIndex, cypherNameLength);
       readerIndex += cypherNameLength;
-      if (cypherName != 'none') {
-        throw Exception(
-            'Password protected open ssh keys are not supported yet');
-      }
       var keyDerivationFunctionNameLength =
           _readOpenSshKeyUInt32(binaryContent, readerIndex);
-      readerIndex += 4 + keyDerivationFunctionNameLength;
-      var keyDerivationFunctionLength =
+      readerIndex += 4;
+      var keyDerivationFunctionName = _readOpenSshKeyString(binaryContent, readerIndex, keyDerivationFunctionNameLength);
+      readerIndex += keyDerivationFunctionNameLength;
+      var keyDerivationFunctionOptionsLength =
           _readOpenSshKeyUInt32(binaryContent, readerIndex);
-      readerIndex += 4 +
-          keyDerivationFunctionLength; //keyDerivationFunctionLength should be 0 for no kdf
-      // var keyCount = _readOpenSshKeyUInt32(binaryContent, readerIndex);
+      readerIndex += 4;
+      //keyDerivationFunctionLength should be 0 for no kdf
+      var keyDerivationFunctionOptions = binaryContent.sublist(readerIndex, readerIndex + keyDerivationFunctionOptionsLength);
+      readerIndex += keyDerivationFunctionOptionsLength;
+      var keyCount = _readOpenSshKeyUInt32(binaryContent, readerIndex);
+      if (keyCount != 1) {
+        throw Exception('Only single key files are supported for now!');
+      }
       readerIndex += 4; //key count should always be 1
       var publicKeyLength = _readOpenSshKeyUInt32(binaryContent, readerIndex);
       readerIndex += 4 + publicKeyLength;
-      // var privateKeyLength = _readOpenSshKeyUInt32(binaryContent, readerIndex);
+      var privateKeyLength = _readOpenSshKeyUInt32(binaryContent, readerIndex);
+      var privateKeyIndex = readerIndex;
       readerIndex += 4;
       // var checkSum = _readOpenSshKeyUInt32(binaryContent, readerIndex);
       readerIndex += 8; // repeated 32bit
@@ -370,7 +375,41 @@ class CryptosignAuthentication extends AbstractAuthentication {
       // var comment = _readOpenSshKeyString(binaryContent, readerIndex, commentLength);
       readerIndex += commentLength;
       // var padding = binaryContent.sublist(readerIndex);
-      return seed;
+      if (cypherName == 'none') {
+        return seed;
+      } else if (cypherName == 'bcrypt') {
+        if (password == null || password.isEmpty) {
+          throw Exception('No password supported for encrypted file');
+        }
+        var keyIv = <int>[];
+        PbkdfBcrypt.pbkdf(password.codeUnits, keyDerivationFunctionOptions, _readOpenSshKeyUInt32(keyDerivationFunctionOptions, 0), keyIv);
+        var key = keyIv.sublist(0,32);
+        var iv = keyIv.sublist(32,48);
+        BlockCipher cypher;
+        if (keyDerivationFunctionName == 'aes256-ctr') {
+          //cypher = CTRBlockCipher(32, )
+            //..init(false, ParametersWithIV(KeyParameter(key), iv));
+        } else if (keyDerivationFunctionName == 'aes256-cbc') {
+          cypher = CBCBlockCipher(AESFastEngine())
+            ..init(false, ParametersWithIV(KeyParameter(key), iv));
+        }
+
+        // Decrypt the cipherText block-by-block
+
+        final paddedPlainText = Uint8List(privateKeyLength); // allocate space
+        final cipherText = binaryContent.sublist(privateKeyIndex,privateKeyIndex + privateKeyLength);
+
+        var offset = 0;
+        while (offset < privateKeyLength) {
+          offset += cypher.processBlock(cipherText, offset, paddedPlainText, offset);
+        }
+        assert(offset == privateKeyLength);
+
+        return paddedPlainText;
+        //cipher.init(Cipher.Mode.Decrypt, key, iv);
+      } else {
+        throw Exception('The given cypherName ' + cypherName + ' is not supported!');
+      }
     } else {
       throw Exception('This is not a valid open ssh key file format!');
     }

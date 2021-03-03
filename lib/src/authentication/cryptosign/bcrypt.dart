@@ -1,6 +1,8 @@
 
 import 'dart:math';
 
+import 'dart:typed_data';
+
 /// BCrypt implements OpenBSD-style Blowfish password hashing using
 /// the scheme described in "A Future-Adaptable Password Scheme" by
 /// Niels Provos and David Mazieres.
@@ -315,19 +317,19 @@ class BCrypt {
     0x90d4f869, 0xa65cdea0, 0x3f09252d, 0xc208e69f,
     0xb74e6132, 0xce77e25b, 0x578fdfe3, 0x3ac372e6
   ];
-  static final List<int> bf_crypt_ciphertext = [
+  static final Uint32List bf_crypt_ciphertext = Uint32List(6)..setAll(0,[
     0x4f727068, 0x65616e42, 0x65686f6c,
     0x64657253, 0x63727944, 0x6f756274
-  ];
+  ]);
   static final List<String> base64_code = ['.', '/', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-  static final List<int> index_64 = [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 1, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 255, 255, 255, 255, 255, 255, 255, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 255, 255, 255, 255, 255, 255, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 255, 255, 255, 255, 255];
+  static final Uint8List index_64 = Uint8List.fromList([255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 1, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 255, 255, 255, 255, 255, 255, 255, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 255, 255, 255, 255, 255, 255, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 255, 255, 255, 255, 255]);
 
-  List<int> P;
-  List<int> S;
+  final Uint32List P = Uint32List(P_orig.length);
+  final Uint32List S = Uint32List(S_orig.length);
 
   /// A base64 encoder that has a slightly different char set that a regular
   /// base64 codec
-  static String _encode_base64(List<int> d, int len)
+  static String _encode_base64(Uint8List d, int len)
   {
     var off = 0;
     var rs = '';
@@ -370,13 +372,12 @@ class BCrypt {
 
   /// A base64 decoder that has a slightly different char set that a regular
   /// base64 codec
-  static List<int> _decode_base64(String s, int maxolen)
+  static Uint8List _decode_base64(String s, int maxolen)
   {
     var rs = '';
     var off = 0;
     var slen = s.length;
     var olen = 0;
-    List<int> ret;
     int c1;
     int c2;
     int c3;
@@ -413,7 +414,7 @@ class BCrypt {
       rs += String.fromCharCode(o);
       ++olen;
     }
-    ret = List<int>(olen);
+    var ret = Uint8List(olen);
     for ((off = 0); off < olen; off++) {
       ret[off] = rs.codeUnitAt(off);
     }
@@ -424,7 +425,7 @@ class BCrypt {
   /// two 32-bit halves with the [leftRight] array that contains the two
   /// 32-bit half blocks and [arrayOffset] as the position in the array of
   /// the blocks.
-  void encipher(List<int> leftRight, int arrayOffset)
+  void encipher(Uint32List leftRight, int arrayOffset)
   {
     int i;
     int n;
@@ -448,7 +449,7 @@ class BCrypt {
     leftRight[arrayOffset + 1] = l;
   }
 
-  static int streamtoword(List<int> data, List<int> offp)
+  static int streamtoword(Uint8List data, Uint8List offp)
   {
     int i;
     var word = 0;
@@ -462,15 +463,15 @@ class BCrypt {
   }
 
   void init_key() {
-    P = [...P_orig];
-    S = [...S_orig];
+    P.setAll(0, P_orig);
+    S.setAll(0, S_orig);
   }
 
-  void key(List<int> key)
+  void key(Uint8List key)
   {
     int i;
-    var koffp = <int>[0];
-    var lr = <int>[0, 0];
+    var koffp = Uint8List.fromList([0]);
+    var lr = Uint32List.fromList([0, 0]);
     var plen = P.length;
     var slen = S.length;
     for ((i = 0); i < plen; i++) {
@@ -488,12 +489,12 @@ class BCrypt {
     }
   }
 
-  void _ekskey(List<int> data, List<int> key)
+  void _ekskey(Uint8List data, Uint8List key)
   {
     int i;
-    var koffp = <int>[0];
-    var doffp = <int>[0];
-    var lr = <int>[0, 0];
+    var koffp = Uint8List.fromList([0]);
+    var doffp = Uint8List.fromList([0]);
+    var lr = Uint32List.fromList([0, 0]);
     var plen = P.length;
     var slen = S.length;
 
@@ -518,7 +519,7 @@ class BCrypt {
     }
   }
 
-  List<int> _crypt_raw(List<int> password, List<int> salt, int log_rounds, List<int> cdata)
+  Uint8List _crypt_raw(Uint8List password, Uint8List salt, int log_rounds, Uint32List cdata)
   {
     int rounds;
     int i;
@@ -543,7 +544,7 @@ class BCrypt {
         encipher(cdata, j << 1);
       }
     }
-    ret = List<int>((clen * 4));
+    ret = Uint8List(clen * 4);
     (i = 0);
     (j = 0);
     for (; i < clen; i++) {
@@ -561,9 +562,6 @@ class BCrypt {
   {
     BCrypt B;
     String real_salt;
-    List<int> passwordb;
-    List<int> saltb;
-    List<int> hashed;
     var minor = 0;
     int rounds;
     var off = 0;
@@ -586,11 +584,14 @@ class BCrypt {
     rounds = int.parse(salt.substring(off, off + 2));
     real_salt = salt.substring(off + 3, off + 25);
 
-    passwordb = (password + ((minor >= 'a'.codeUnitAt(0)) ? String.fromCharCode(0) : '')).codeUnits;
-
-    saltb = _decode_base64(real_salt, BCRYPT_SALT_LEN);
+    var saltb = _decode_base64(real_salt, BCRYPT_SALT_LEN);
     B = BCrypt();
-    hashed = B._crypt_raw(passwordb, saltb, rounds, [...bf_crypt_ciphertext]);
+    var hashed = B._crypt_raw(
+        Uint8List.fromList((password + ((minor >= 'a'.codeUnitAt(0)) ? String.fromCharCode(0) : '')).codeUnits),
+        saltb,
+        rounds,
+        Uint32List(bf_crypt_ciphertext.length)..setAll(0,bf_crypt_ciphertext)
+    );
     rs += '\$2';
     if (minor >= 'a'.codeUnitAt(0)) {
       rs += String.fromCharCode(minor);
@@ -614,7 +615,7 @@ class BCrypt {
     logRounds = logRounds ?? GENSALT_DEFAULT_LOG2_ROUNDS;
     random = random ?? Random.secure();
     var rs = '';
-    var rnd = List<int>.generate(BCRYPT_SALT_LEN, (i) => random.nextInt(256));
+    var rnd = Uint8List.fromList(List<int>.generate(BCRYPT_SALT_LEN, (i) => random.nextInt(256)));
     rs += '\$2a\$';
     if (logRounds < 10) {
       rs += '0';
@@ -630,12 +631,10 @@ class BCrypt {
 
   static bool checkPassword(String plaintext, String hashed)
   {
-    List<int> hashed_bytes;
-    List<int> try_bytes;
     var try_pw = hashPassword(plaintext, hashed);
 
-    hashed_bytes = hashed.codeUnits;
-    try_bytes = try_pw.codeUnits;
+    var hashed_bytes = Uint8List.fromList(hashed.codeUnits);
+    var try_bytes = Uint8List.fromList(try_pw.codeUnits);
 
     if (hashed_bytes.length != try_bytes.length) {
       return false;
