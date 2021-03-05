@@ -49,14 +49,12 @@ void main () {
     });
 
     test('generate salt', () async {
-      for (var i = 4; i <= 12; i++) {
-        for (var j = 0; j < testVectors.length; j += 4) {
-          var plain = testVectors[j][0];
-          var salt = BCrypt.generateSalt();
-          var hashed1 = BCrypt.hashPassword(plain, salt);
-          var hashed2 = BCrypt.hashPassword(plain, hashed1);
-          expect(hashed1, equals(hashed2));
-        }
+      for (var i = 0; i < testVectors.length; i += 4) {
+        var plain = testVectors[i][0];
+        var salt = BCrypt.generateSalt();
+        var hashed1 = BCrypt.hashPassword(plain, salt);
+        var hashed2 = BCrypt.hashPassword(plain, hashed1);
+        expect(hashed1, hashed2);
       }
     });
 
