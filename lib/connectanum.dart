@@ -21,6 +21,9 @@ export 'src/message/registered.dart';
 export 'src/message/unregister.dart';
 export 'src/message/unregistered.dart';
 export 'src/protocol/session.dart';
+export 'src/message/goodbye.dart';
+export 'src/message/abstract_message.dart';
+export 'src/serializer/abstract_serializer.dart';
 export 'src/transport/abstract_transport.dart';
 export 'src/transport/websocket/websocket_transport_serialization.dart';
 export 'src/transport/websocket/websocket_transport_none.dart'
