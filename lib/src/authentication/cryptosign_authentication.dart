@@ -2,12 +2,9 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:connectanum/src/authentication/cryptosign/pbkdf_bcrypt.dart';
-import 'package:pointycastle/adapters/stream_cipher_as_block_cipher.dart';
 import 'package:pointycastle/api.dart';
 import 'package:pointycastle/block/aes_fast.dart';
 import 'package:pointycastle/block/modes/cbc.dart';
-import 'package:pointycastle/block/modes/ctr.dart';
 import 'package:pointycastle/macs/hmac.dart';
 
 import '../message/authenticate.dart';
@@ -19,7 +16,7 @@ import 'package:pinenacl/encoding.dart';
 import 'package:pointycastle/digests/sha1.dart';
 import 'package:pinenacl/api.dart' show ByteList, SigningKey;
 
-import 'cryptosign/bcrypt.dart';
+import 'cryptosign/bcrypt_pbkdf.dart';
 
 class CryptosignAuthentication extends AbstractAuthentication {
   static final String CHANNEL_BINDUNG_TLS_UNIQUE = 'tls-unique';
@@ -382,8 +379,8 @@ class CryptosignAuthentication extends AbstractAuthentication {
         if (password == null || password.isEmpty) {
           throw Exception('No password supported for encrypted file');
         }
-        var keyIv = <int>[];
-        PbkdfBcrypt.pbkdf(password.codeUnits, keyDerivationFunctionOptions, _readOpenSshKeyUInt32(keyDerivationFunctionOptions, 0), keyIv);
+        var keyIv = Uint8List(48);
+        BcryptPbkdf.pbkdf(password, keyDerivationFunctionOptions, _readOpenSshKeyUInt32(keyDerivationFunctionOptions, 0), keyIv);
         var key = keyIv.sublist(0,32);
         var iv = keyIv.sublist(32,48);
         BlockCipher cypher;

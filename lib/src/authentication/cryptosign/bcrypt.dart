@@ -317,6 +317,10 @@ class BCrypt {
     0x90d4f869, 0xa65cdea0, 0x3f09252d, 0xc208e69f,
     0xb74e6132, 0xce77e25b, 0x578fdfe3, 0x3ac372e6
   ];
+  static final Uint32List openbsdInitialVector = Uint32List(8)..setAll(0,[
+  0x4f787963, 0x68726f6d, 0x61746963, 0x426c6f77,
+  0x66697368, 0x53776174, 0x44796e61, 0x6d697465,
+  ]);
   static final Uint32List bf_crypt_ciphertext = Uint32List(6)..setAll(0,[
     0x4f727068, 0x65616e42, 0x65686f6c,
     0x64657253, 0x63727944, 0x6f756274
@@ -519,13 +523,38 @@ class BCrypt {
     }
   }
 
-  Uint8List _crypt_raw(Uint8List password, Uint8List salt, int log_rounds, Uint32List cdata)
+  Uint8List hash(Uint8List hpass, Uint8List hsalt)
+  {
+    var output = Uint8List(openbsdInitialVector.length * 4);
+    init_key();
+    _ekskey(hsalt, hpass);
+    for (var i = 0; i < 64; i++) {
+      key(hsalt);
+      key(hpass);
+    }
+    var buf = Uint32List(openbsdInitialVector.length)..setAll(0, openbsdInitialVector);
+    for (var i = 0; i < 8; (i += 2)) {
+      for (var j = 0; j < 64; j++) {
+        encipher(buf, i);
+      }
+    }
+    var i = 0;
+    var j = 0;
+    for (; i < buf.length; i++) {
+      output[j++] = (buf[i] & 0xff);
+      output[j++] = ((buf[i] >> 8) & 0xff);
+      output[j++] = ((buf[i] >> 16) & 0xff);
+      output[j++] = ((buf[i] >> 24) & 0xff);
+    }
+    return output;
+  }
+
+  Uint8List encryptRaw(Uint8List password, Uint8List salt, int log_rounds, Uint32List cdata)
   {
     int rounds;
     int i;
     int j;
     var clen = cdata.length;
-    List<int> ret;
     if ((log_rounds < 4) || (log_rounds > 30)) {
       throw Exception('Bad number of rounds');
     }
@@ -544,7 +573,7 @@ class BCrypt {
         encipher(cdata, j << 1);
       }
     }
-    ret = Uint8List(clen * 4);
+    var ret = Uint8List(clen * 4);
     (i = 0);
     (j = 0);
     for (; i < clen; i++) {
@@ -560,7 +589,6 @@ class BCrypt {
   /// bcrypt algorithm. The [salt] is added to enlarge the hash base
   static String hashPassword(String password, String salt)
   {
-    BCrypt B;
     String real_salt;
     var minor = 0;
     int rounds;
@@ -585,8 +613,7 @@ class BCrypt {
     real_salt = salt.substring(off + 3, off + 25);
 
     var saltb = _decode_base64(real_salt, BCRYPT_SALT_LEN);
-    B = BCrypt();
-    var hashed = B._crypt_raw(
+    var hashed = BCrypt().encryptRaw(
         Uint8List.fromList((password + ((minor >= 'a'.codeUnitAt(0)) ? String.fromCharCode(0) : '')).codeUnits),
         saltb,
         rounds,
