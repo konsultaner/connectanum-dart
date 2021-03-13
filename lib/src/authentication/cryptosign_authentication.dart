@@ -317,10 +317,11 @@ class CryptosignAuthentication extends AbstractAuthentication {
       throw Exception('Wrong file format');
     }
 
+    pemFileContent = pemFileContent.replaceAll(RegExp(r'[\n\r]'), '');
     pemFileContent =
         pemFileContent.substring(OPEN_SSH_HEADER.length).trimLeft();
     pemFileContent = pemFileContent
-        .substring(0, pemFileContent.length - OPEN_SSH_FOOTER.length - 1)
+        .substring(0, pemFileContent.length - OPEN_SSH_FOOTER.length)
         .trimRight();
 
     var binaryContent =
