@@ -265,6 +265,12 @@ void main() {
           CryptosignAuthentication.loadPrivateKeyFromOpenSSHPem(
               await openSshPemFromPutty.readAsString());
       expect(unencryptedOpenSshKeyFromPutty, equals(puttySeed));
+
+      var openSshPemFromPuttyWithPassword = File('./test/authentication/ed25519_password.pem');
+      final unencryptedOpenSshKeyFromPuttyWithPassword =
+          CryptosignAuthentication.loadPrivateKeyFromOpenSSHPem(
+              await openSshPemFromPuttyWithPassword.readAsString(), password: 'password');
+      expect(unencryptedOpenSshKeyFromPuttyWithPassword, equals(puttySeed));
     });
   });
 }

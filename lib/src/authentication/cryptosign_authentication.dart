@@ -5,7 +5,9 @@ import 'dart:typed_data';
 import 'package:pointycastle/api.dart';
 import 'package:pointycastle/block/aes_fast.dart';
 import 'package:pointycastle/block/modes/cbc.dart';
+import 'package:pointycastle/block/modes/ctr.dart';
 import 'package:pointycastle/macs/hmac.dart';
+import 'package:pointycastle/stream/ctr.dart';
 
 import '../message/authenticate.dart';
 import '../message/challenge.dart';
@@ -350,32 +352,11 @@ class CryptosignAuthentication extends AbstractAuthentication {
       var publicKeyLength = _readOpenSshKeyUInt32(binaryContent, readerIndex);
       readerIndex += 4 + publicKeyLength;
       var privateKeyLength = _readOpenSshKeyUInt32(binaryContent, readerIndex);
+      readerIndex += 4;
       var privateKeyIndex = readerIndex;
-      readerIndex += 4;
-      // var checkSum = _readOpenSshKeyUInt32(binaryContent, readerIndex);
-      readerIndex += 8; // repeated 32bit
-      var keyTypeLength = _readOpenSshKeyUInt32(binaryContent, readerIndex);
-      readerIndex += 4;
-      var keyType =
-          _readOpenSshKeyString(binaryContent, readerIndex, keyTypeLength);
-      readerIndex += keyTypeLength;
-      readerIndex += 4 + 32; // no need for the public key part
-      if (keyType != 'ssh-ed25519') {
-        throw Exception(
-            'Cryptobox needs a private key of type ssh-ed25519! Found ' +
-                keyType);
-      }
-      var privateKey =
-          binaryContent.sublist(readerIndex += 4, readerIndex += 64);
-      var seed = privateKey.sublist(0, 32);
-      var commentLength = _readOpenSshKeyUInt32(binaryContent, readerIndex);
-      readerIndex += 4;
-      // var comment = _readOpenSshKeyString(binaryContent, readerIndex, commentLength);
-      readerIndex += commentLength;
-      // var padding = binaryContent.sublist(readerIndex);
-      if (cypherName == 'none') {
-        return seed;
-      } else if (cypherName == 'bcrypt') {
+      if (keyDerivationFunctionName == 'none') {
+        return _readOpenSshPrivateKeySeed(binaryContent, readerIndex);
+      } else if (keyDerivationFunctionName == 'bcrypt') {
         if (password == null || password.isEmpty) {
           throw Exception('No password supported for encrypted file');
         }
@@ -384,10 +365,10 @@ class CryptosignAuthentication extends AbstractAuthentication {
         var key = keyIv.sublist(0,32);
         var iv = keyIv.sublist(32,48);
         BlockCipher cypher;
-        if (keyDerivationFunctionName == 'aes256-ctr') {
-          //cypher = CTRBlockCipher(32, )
-            //..init(false, ParametersWithIV(KeyParameter(key), iv));
-        } else if (keyDerivationFunctionName == 'aes256-cbc') {
+        if (cypherName == 'aes256-ctr') {
+          cypher = CTRBlockCipher(32, CTRStreamCipher(AESFastEngine()))
+            ..init(false, ParametersWithIV(KeyParameter(key), iv));
+        } else if (cypherName == 'aes256-cbc') {
           cypher = CBCBlockCipher(AESFastEngine())
             ..init(false, ParametersWithIV(KeyParameter(key), iv));
         }
@@ -403,14 +384,38 @@ class CryptosignAuthentication extends AbstractAuthentication {
         }
         assert(offset == privateKeyLength);
 
-        return paddedPlainText;
-        //cipher.init(Cipher.Mode.Decrypt, key, iv);
+        return _readOpenSshPrivateKeySeed(paddedPlainText, 0);
       } else {
         throw Exception('The given cypherName ' + cypherName + ' is not supported!');
       }
     } else {
       throw Exception('This is not a valid open ssh key file format!');
     }
+  }
+
+  static Uint8List _readOpenSshPrivateKeySeed(Uint8List binaryContent, int readerIndex) {
+    // var checkSum = _readOpenSshKeyUInt32(binaryContent, readerIndex);
+    readerIndex += 8; // repeated 32bit
+    var keyTypeLength = _readOpenSshKeyUInt32(binaryContent, readerIndex);
+    readerIndex += 4;
+    var keyType =
+    _readOpenSshKeyString(binaryContent, readerIndex, keyTypeLength);
+    readerIndex += keyTypeLength;
+    readerIndex += 4 + 32; // no need for the public key part
+    if (keyType != 'ssh-ed25519') {
+      throw Exception(
+          'Cryptobox needs a private key of type ssh-ed25519! Found ' +
+              keyType);
+    }
+    var privateKey =
+    binaryContent.sublist(readerIndex += 4, readerIndex += 64);
+    var seed = privateKey.sublist(0, 32);
+    var commentLength = _readOpenSshKeyUInt32(binaryContent, readerIndex);
+    readerIndex += 4;
+    // var comment = _readOpenSshKeyString(binaryContent, readerIndex, commentLength);
+    readerIndex += commentLength;
+    // var padding = binaryContent.sublist(readerIndex);
+    return seed;
   }
 
   static int _readOpenSshKeyUInt32(Uint8List bytes, int offset) {
