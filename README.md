@@ -39,7 +39,7 @@ eventually fail.
         - ☑ password support
     - ☑ Load open ssh files
         - ⬜ file validation
-        - ⬜ password support
+        - ☑ password support
     - ⬜ Load pkcs1 files
         - ⬜ file validation
         - ⬜ password support

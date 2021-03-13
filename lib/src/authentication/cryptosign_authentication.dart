@@ -361,7 +361,13 @@ class CryptosignAuthentication extends AbstractAuthentication {
           throw Exception('No password supported for encrypted file');
         }
         var keyIv = Uint8List(48);
-        BcryptPbkdf.pbkdf(password, keyDerivationFunctionOptions, _readOpenSshKeyUInt32(keyDerivationFunctionOptions, 0), keyIv);
+        var pbkdfSaltLength = _readOpenSshKeyUInt32(keyDerivationFunctionOptions, 0);
+        BcryptPbkdf.pbkdf(
+          password,
+          keyDerivationFunctionOptions.sublist(4, 4 + pbkdfSaltLength),
+          _readOpenSshKeyUInt32(keyDerivationFunctionOptions, 4 + pbkdfSaltLength),
+          keyIv
+        );
         var key = keyIv.sublist(0,32);
         var iv = keyIv.sublist(32,48);
         BlockCipher cypher;
