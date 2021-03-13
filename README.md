@@ -1,6 +1,6 @@
 # connectanum-dart
 
-[![travis](https://api.travis-ci.org/konsultaner/connectanum-dart.svg)](https://travis-ci.org/github/konsultaner/connectanum-dart)
+[![travis](https://api.travis-ci.com/konsultaner/connectanum-dart.svg)](https://travis-ci.com/github/konsultaner/connectanum-dart)
 [![codecov](https://codecov.io/gh/konsultaner/connectanum-dart/branch/master/graph/badge.svg)](https://codecov.io/gh/konsultaner/connectanum-dart)
 
 This is a WAMP client implementation for the [dart language](https://dart.dev/) and [flutter](https://flutter.dev/) projects. 

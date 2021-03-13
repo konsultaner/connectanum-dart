@@ -2,6 +2,7 @@
 
 - support wamp cryptosign
 - support several key loading mechanism
+- added support for dynamic reconnect options (!client.connect has an api change)
 
 ### 1.0.13
 
