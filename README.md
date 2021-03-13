@@ -74,6 +74,16 @@ eventually fail.
 - ☑ Subscription Revocation
 - ☑ Event Retention
 
+### Transport
+
+- ☑ WebSockets
+- ☑ RawSockets
+- ☑ RawSockets with large data support (connectanum router only)
+
+
+- ☑ JSON
+- ☑ msgpack
+
 ## Stream model
 
 The transport contains an incoming stream that is usually a single subscribe stream. A session will internally
