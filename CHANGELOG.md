@@ -1,3 +1,8 @@
+### 1.1.2
+
+- realm may `null`
+- channel binding is just `null` not 'null'
+
 ### 1.1.1
 
 - fixed cryposign export
