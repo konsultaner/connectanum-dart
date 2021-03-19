@@ -2,6 +2,7 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:pinenacl/ed25519.dart';
 import 'package:pointycastle/api.dart';
 import 'package:pointycastle/block/aes_fast.dart';
 import 'package:pointycastle/block/modes/cbc.dart';
@@ -14,9 +15,8 @@ import '../message/challenge.dart';
 import '../message/details.dart';
 import 'abstract_authentication.dart';
 
-import 'package:pinenacl/encoding.dart';
 import 'package:pointycastle/digests/sha1.dart';
-import 'package:pinenacl/api.dart' show ByteList, SigningKey;
+import 'package:pinenacl/api.dart' show ByteList;
 
 import 'cryptosign/bcrypt_pbkdf.dart';
 
@@ -93,7 +93,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
     authenticate.extra['channel_binding'] = channelBinding;
     var binaryChallenge = hexToBin(extra.challenge);
     authenticate.signature =
-        privateKey.sign(binaryChallenge).encode(HexEncoder());
+        privateKey.sign(binaryChallenge).encode(HexCoder.instance);
     return Future.value(authenticate);
   }
 
@@ -278,7 +278,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
     mac.update(Uint8List.fromList([0, 0, 0, macData.privateKey.length]), 0, 4);
     mac.update(macData.privateKey, 0, macData.privateKey.length);
     mac.doFinal(macResult, 0);
-    if (HexEncoder().encode(ByteList.fromList(macResult)) != privateMac) {
+    if (HexCoder.instance.encode(ByteList.fromList(macResult)) != privateMac) {
       if (password == null) {
         throw Exception('Mac check failed, file is corrupt!');
       } else {

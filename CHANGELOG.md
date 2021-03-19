@@ -1,3 +1,8 @@
+### 1.1.1
+
+- fixed cryposign export
+- update pinacl deps
+
 ### 1.1.0
 
 - support wamp cryptosign

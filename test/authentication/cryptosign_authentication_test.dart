@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:connectanum/src/authentication/cryptosign_authentication.dart';
 import 'package:connectanum/src/message/challenge.dart';
 import 'package:connectanum/src/message/details.dart';
-import 'package:pinenacl/signing.dart';
+import 'package:pinenacl/ed25519.dart';
 import 'package:test/test.dart';
 
 void main() {
