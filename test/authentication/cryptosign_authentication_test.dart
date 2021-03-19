@@ -115,7 +115,7 @@ void main() {
 
         expect(details.authextra['pubkey'],
             equals(authMethod.privateKey.publicKey.encode()));
-        expect(details.authextra['channel_binding'], equals('null'));
+        expect(details.authextra['channel_binding'], equals(null));
 
         var extra =
             Extra(challenge: vector['challenge'], channel_binding: null);

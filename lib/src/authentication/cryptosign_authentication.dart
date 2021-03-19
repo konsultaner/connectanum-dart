@@ -116,7 +116,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
   Future<void> hello(String realm, Details details) {
     details.authextra ??= <String, String>{};
     details.authextra['pubkey'] = privateKey.publicKey.encode();
-    details.authextra['channel_binding'] = channelBinding ?? 'null';
+    details.authextra['channel_binding'] = channelBinding;
     return Future.value();
   }
 
