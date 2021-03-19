@@ -114,6 +114,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
   /// to the authextra
   @override
   Future<void> hello(String realm, Details details) {
+    details.authextra ??= <String, String>{};
     details.authextra['pubkey'] = privateKey.publicKey.encode();
     details.authextra['channel_binding'] = channelBinding ?? 'null';
     return Future.value();
@@ -336,13 +337,15 @@ class CryptosignAuthentication extends AbstractAuthentication {
       var keyDerivationFunctionNameLength =
           _readOpenSshKeyUInt32(binaryContent, readerIndex);
       readerIndex += 4;
-      var keyDerivationFunctionName = _readOpenSshKeyString(binaryContent, readerIndex, keyDerivationFunctionNameLength);
+      var keyDerivationFunctionName = _readOpenSshKeyString(
+          binaryContent, readerIndex, keyDerivationFunctionNameLength);
       readerIndex += keyDerivationFunctionNameLength;
       var keyDerivationFunctionOptionsLength =
           _readOpenSshKeyUInt32(binaryContent, readerIndex);
       readerIndex += 4;
       //keyDerivationFunctionLength should be 0 for no kdf
-      var keyDerivationFunctionOptions = binaryContent.sublist(readerIndex, readerIndex + keyDerivationFunctionOptionsLength);
+      var keyDerivationFunctionOptions = binaryContent.sublist(
+          readerIndex, readerIndex + keyDerivationFunctionOptionsLength);
       readerIndex += keyDerivationFunctionOptionsLength;
       var keyCount = _readOpenSshKeyUInt32(binaryContent, readerIndex);
       if (keyCount != 1) {
@@ -361,15 +364,16 @@ class CryptosignAuthentication extends AbstractAuthentication {
           throw Exception('No password supported for encrypted file');
         }
         var keyIv = Uint8List(48);
-        var pbkdfSaltLength = _readOpenSshKeyUInt32(keyDerivationFunctionOptions, 0);
+        var pbkdfSaltLength =
+            _readOpenSshKeyUInt32(keyDerivationFunctionOptions, 0);
         BcryptPbkdf.pbkdf(
-          password,
-          keyDerivationFunctionOptions.sublist(4, 4 + pbkdfSaltLength),
-          _readOpenSshKeyUInt32(keyDerivationFunctionOptions, 4 + pbkdfSaltLength),
-          keyIv
-        );
-        var key = keyIv.sublist(0,32);
-        var iv = keyIv.sublist(32,48);
+            password,
+            keyDerivationFunctionOptions.sublist(4, 4 + pbkdfSaltLength),
+            _readOpenSshKeyUInt32(
+                keyDerivationFunctionOptions, 4 + pbkdfSaltLength),
+            keyIv);
+        var key = keyIv.sublist(0, 32);
+        var iv = keyIv.sublist(32, 48);
         BlockCipher cypher;
         if (cypherName == 'aes256-ctr') {
           cypher = CTRBlockCipher(32, CTRStreamCipher(AESFastEngine()))
@@ -382,39 +386,44 @@ class CryptosignAuthentication extends AbstractAuthentication {
         // Decrypt the cipherText block-by-block
 
         final paddedPlainText = Uint8List(privateKeyLength); // allocate space
-        final cipherText = binaryContent.sublist(privateKeyIndex,privateKeyIndex + privateKeyLength);
+        final cipherText = binaryContent.sublist(
+            privateKeyIndex, privateKeyIndex + privateKeyLength);
 
         var offset = 0;
         while (offset < privateKeyLength) {
-          offset += cypher.processBlock(cipherText, offset, paddedPlainText, offset);
+          offset +=
+              cypher.processBlock(cipherText, offset, paddedPlainText, offset);
         }
         assert(offset == privateKeyLength);
 
         return _readOpenSshPrivateKeySeed(paddedPlainText, 0);
       } else {
-        throw Exception('The given cypherName ' + cypherName + ' is not supported!');
+        throw Exception(
+            'The given cypherName ' + cypherName + ' is not supported!');
       }
     } else {
       throw Exception('This is not a valid open ssh key file format!');
     }
   }
 
-  static Uint8List _readOpenSshPrivateKeySeed(Uint8List binaryContent, int readerIndex) {
+  /// reads the private key part as [binaryContent] of an open ssh key. The [readerIndex]
+  /// will tell the method where to start reading the key.
+  static Uint8List _readOpenSshPrivateKeySeed(
+      Uint8List binaryContent, int readerIndex) {
     // var checkSum = _readOpenSshKeyUInt32(binaryContent, readerIndex);
     readerIndex += 8; // repeated 32bit
     var keyTypeLength = _readOpenSshKeyUInt32(binaryContent, readerIndex);
     readerIndex += 4;
     var keyType =
-    _readOpenSshKeyString(binaryContent, readerIndex, keyTypeLength);
+        _readOpenSshKeyString(binaryContent, readerIndex, keyTypeLength);
     readerIndex += keyTypeLength;
     readerIndex += 4 + 32; // no need for the public key part
     if (keyType != 'ssh-ed25519') {
       throw Exception(
-          'Cryptobox needs a private key of type ssh-ed25519! Found ' +
+          'Cryptosign needs a private key of type ssh-ed25519! Found ' +
               keyType);
     }
-    var privateKey =
-    binaryContent.sublist(readerIndex += 4, readerIndex += 64);
+    var privateKey = binaryContent.sublist(readerIndex += 4, readerIndex += 64);
     var seed = privateKey.sublist(0, 32);
     var commentLength = _readOpenSshKeyUInt32(binaryContent, readerIndex);
     readerIndex += 4;
@@ -424,6 +433,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
     return seed;
   }
 
+  /// Extracts a Uint32 from a [bytes] list at a given [offset]
   static int _readOpenSshKeyUInt32(Uint8List bytes, int offset) {
     return Uint8List.fromList(
             bytes.sublist(offset, offset + 4).reversed.toList())
@@ -431,17 +441,20 @@ class CryptosignAuthentication extends AbstractAuthentication {
         .asUint32List()[0];
   }
 
+  /// Extracts a String from a [bytes] list at a given [offset] and [length]
   static String _readOpenSshKeyString(Uint8List bytes, int offset, length) {
     return String.fromCharCodes(
         bytes.sublist(offset, offset + length).toList());
   }
 
   static void loadPrivateKeyFromOpenPCKS1Pem(String pemFileContent) {
+    throw UnimplementedError('This is not implemented yet');
     //pemFileContent.
     //ASN1Parser([111,1,1,1]);
   }
 
   static void loadPrivateKeyFromOpenPCKS8Pem(String pemFileContent) {
+    throw UnimplementedError('This is not implemented yet');
     //pemFileContent.
     //ASN1Parser([111,1,1,1]);
   }

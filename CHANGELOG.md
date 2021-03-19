@@ -1,4 +1,4 @@
-### 1.0.14
+### 1.1.0
 
 - support wamp cryptosign
 - support several key loading mechanism

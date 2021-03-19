@@ -40,11 +40,11 @@ void main() {
       final client = Client(realm: 'com.connectanum', transport: transport);
       var closeCompleter = Completer();
       client
-          .connect(options: ClientConnectOptions(
-              pingInterval: Duration(seconds: 1),
-              reconnectTime: Duration(seconds: 1),
-              reconnectCount: 100
-          ))
+          .connect(
+              options: ClientConnectOptions(
+                  pingInterval: Duration(seconds: 1),
+                  reconnectTime: Duration(seconds: 1),
+                  reconnectCount: 100))
           .listen((session) {
         session.onDisconnect.then((_) => closeCompleter.complete());
         session.close();
@@ -80,10 +80,8 @@ void main() {
       var options = ClientConnectOptions(
           pingInterval: Duration(seconds: 1),
           reconnectTime: Duration(seconds: 1),
-          reconnectCount: 2
-      );
-      client.connect(options: options)
-          .listen((session) {
+          reconnectCount: 2);
+      client.connect(options: options).listen((session) {
         session.onConnectionLost.then((_) {
           hitConnectionLostEvent = true;
         });
@@ -129,10 +127,11 @@ void main() {
       var closeCompleter = Completer();
       var reconnects = 0;
       client
-          .connect(options: ClientConnectOptions(
-            pingInterval: Duration(seconds: 1),
-            reconnectTime: Duration(seconds: 1),
-            reconnectCount: 2))
+          .connect(
+              options: ClientConnectOptions(
+                  pingInterval: Duration(seconds: 1),
+                  reconnectTime: Duration(seconds: 1),
+                  reconnectCount: 2))
           .listen((session) {
         if (reconnects < 3) {
           reconnects++;
@@ -156,11 +155,11 @@ void main() {
       final client = Client(realm: 'com.connectanum', transport: transport);
       var closeCompleter = Completer();
       client
-          .connect(options: ClientConnectOptions(
-              pingInterval: Duration(seconds: 1),
-              reconnectTime: Duration(milliseconds: 20),
-              reconnectCount: 2
-          ))
+          .connect(
+              options: ClientConnectOptions(
+                  pingInterval: Duration(seconds: 1),
+                  reconnectTime: Duration(milliseconds: 20),
+                  reconnectCount: 2))
           .listen((_) {}, onError: (abort) {
         closeCompleter.complete(abort);
       });
@@ -212,11 +211,11 @@ void main() {
       final client = Client(realm: 'com.connectanum', transport: transport);
       var closeCompleter = Completer();
       client
-          .connect(options: ClientConnectOptions(
-              pingInterval: Duration(seconds: 1),
-              reconnectTime: Duration(seconds: 1),
-              reconnectCount: 100
-          ))
+          .connect(
+              options: ClientConnectOptions(
+                  pingInterval: Duration(seconds: 1),
+                  reconnectTime: Duration(seconds: 1),
+                  reconnectCount: 100))
           .listen((session) {
         session.onDisconnect.then((_) => closeCompleter.complete());
         session.close();
@@ -266,11 +265,11 @@ void main() {
       var hitConnectionLostEvent = false;
       Abort abort;
       client
-          .connect(options: ClientConnectOptions(
-              pingInterval: Duration(seconds: 1),
-              reconnectTime: Duration(seconds: 1),
-              reconnectCount: 2
-          ))
+          .connect(
+              options: ClientConnectOptions(
+                  pingInterval: Duration(seconds: 1),
+                  reconnectTime: Duration(seconds: 1),
+                  reconnectCount: 2))
           .listen((session) {
         session.onConnectionLost.then((_) {
           hitConnectionLostEvent = true;
@@ -331,11 +330,11 @@ void main() {
       var closeCompleter = Completer();
       var reconnects = 0;
       client
-          .connect(options: ClientConnectOptions(
-              pingInterval: Duration(seconds: 1),
-              reconnectTime: Duration(seconds: 1),
-              reconnectCount: 2
-          ))
+          .connect(
+              options: ClientConnectOptions(
+                  pingInterval: Duration(seconds: 1),
+                  reconnectTime: Duration(seconds: 1),
+                  reconnectCount: 2))
           .listen((session) {
         if (reconnects < 3) {
           reconnects++;
@@ -360,11 +359,11 @@ void main() {
       final client = Client(realm: 'com.connectanum', transport: transport);
       var closeCompleter = Completer();
       client
-          .connect(options: ClientConnectOptions(
-            pingInterval: Duration(seconds: 1),
-            reconnectTime: Duration(milliseconds: 20),
-            reconnectCount: 2
-        ))
+          .connect(
+              options: ClientConnectOptions(
+                  pingInterval: Duration(seconds: 1),
+                  reconnectTime: Duration(milliseconds: 20),
+                  reconnectCount: 2))
           .listen((_) {}, onError: (abort) {
         closeCompleter.complete(abort);
       });

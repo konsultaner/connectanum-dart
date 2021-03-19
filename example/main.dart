@@ -18,19 +18,20 @@ void main() async {
   Session session1;
   try {
     // connect to the router and start the wamp layer
-    session1 = await client1.connect(
-      options: ClientConnectOptions(
-        reconnectCount: 10, // Default is 3
-        reconnectTime: Duration(milliseconds: 200) // default is null, so immediately
-        // you may add ping pong options here as well
-      )
-    ).first;
+    session1 = await client1
+        .connect(
+            options: ClientConnectOptions(
+                reconnectCount: 10, // Default is 3
+                reconnectTime: Duration(
+                    milliseconds: 200) // default is null, so immediately
+                // you may add ping pong options here as well
+                ))
+        .first;
     // if you want to change the options after each reconnect, use this event
     client1.onNextTryToReconnect.listen((passedOptions) {
       // enlarge the time to wait after each reconnect by 500ms
       passedOptions.reconnectTime = Duration(
-        milliseconds: passedOptions.reconnectTime.inMilliseconds + 500
-      );
+          milliseconds: passedOptions.reconnectTime.inMilliseconds + 500);
     });
     // register a method that may be called by other clients
     final registered = await session1.register('demo.get.version');

@@ -63,7 +63,8 @@ class Client {
   /// [reconnectCount] passed to the [connect] method. Be aware a zero is passed just
   /// before the [connect] streams [onError] will raise the abort message. So 0 means
   /// that the reconnect failed.
-  Stream<ClientConnectOptions> get onNextTryToReconnect => _reconnectStreamController.stream;
+  Stream<ClientConnectOptions> get onNextTryToReconnect =>
+      _reconnectStreamController.stream;
 
   /// Calling this method will start the authentication process and result into
   /// a [Session] object on success. If a [pingInterval] is given and the underlying transport
@@ -74,8 +75,7 @@ class Client {
   /// the client will try to reestablish the session. Setting [reconnectCount] to -1 will infinite
   /// times reconnect the client or until the stack overflows
   Stream<Session> connect(
-      {ClientConnectOptions options,
-      Function() onReconnecting}) {
+      {ClientConnectOptions options, Function() onReconnecting}) {
     options ??= ClientConnectOptions();
     _reconnectCount = options.reconnectCount;
     _connect(options);
@@ -97,7 +97,8 @@ class Client {
             reconnect: options.reconnectTime);
         _controller.add(session);
       } on Abort catch (abort) {
-        if (abort.reason != Error.NOT_AUTHORIZED && options.reconnectTime != null) {
+        if (abort.reason != Error.NOT_AUTHORIZED &&
+            options.reconnectTime != null) {
           // if the router restarts we should wait until it has been initialized
           await Future.delayed(Duration(seconds: 2));
           options.reconnectCount = 0;
@@ -110,7 +111,8 @@ class Client {
         unawaited(_controller.close());
       }
     } else {
-      if (options.reconnectTime != null && transport.onConnectionLost.isCompleted) {
+      if (options.reconnectTime != null &&
+          transport.onConnectionLost.isCompleted) {
         _reconnectStreamController.add(options);
         if (options.reconnectCount == 0) {
           _controller.addError(Abort(Error.AUTHORIZATION_FAILED,
@@ -118,9 +120,9 @@ class Client {
                   'Could not connect to server. Please configure reconnectTime to retry automatically.'));
         } else {
           await Future.delayed(options.reconnectTime);
-          options.reconnectCount = options.reconnectCount == -1 ? -1 : options.reconnectCount - 1;
-          _connect(
-              options);
+          options.reconnectCount =
+              options.reconnectCount == -1 ? -1 : options.reconnectCount - 1;
+          _connect(options);
         }
       } else {
         _controller.addError(Abort(Error.AUTHORIZATION_FAILED,
@@ -136,9 +138,6 @@ class ClientConnectOptions {
   Duration reconnectTime;
   Duration pingInterval;
 
-  ClientConnectOptions({
-    this.reconnectCount = 3,
-    this.reconnectTime,
-    this.pingInterval
-  });
+  ClientConnectOptions(
+      {this.reconnectCount = 3, this.reconnectTime, this.pingInterval});
 }

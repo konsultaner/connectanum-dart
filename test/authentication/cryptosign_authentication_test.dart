@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:connectanum/src/authentication/cryptosign_authentication.dart';
 import 'package:connectanum/src/message/challenge.dart';
+import 'package:connectanum/src/message/details.dart';
+import 'package:pinenacl/signing.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -106,10 +109,39 @@ void main() {
         final authMethod =
             CryptosignAuthentication.fromHex(vector['privateKey']);
         expect(authMethod.getName(), equals('cryptosign'));
+
+        var details = Details();
+        await authMethod.hello('some.realm', details);
+
+        expect(details.authextra['pubkey'],
+            equals(authMethod.privateKey.publicKey.encode()));
+        expect(details.authextra['channel_binding'], equals('null'));
+
         var extra =
             Extra(challenge: vector['challenge'], channel_binding: null);
         final authenticate = await authMethod.challenge(extra);
         expect(authenticate.signature, equals(vector['signature']));
+
+        extra =
+            Extra(challenge: vector['challenge'], channel_binding: 'sadjakf');
+        expect(() => authMethod.challenge(extra), throwsA(isA<Exception>()));
+
+        try {
+          await authMethod.challenge(extra);
+        } on Exception catch (error) {
+          expect(error.toString(),
+              equals('Exception: Channel Binding does not match'));
+        }
+
+        extra = Extra(
+            challenge: vector['challenge'].substring(3), channel_binding: null);
+        expect(() => authMethod.challenge(extra), throwsA(isA<Exception>()));
+
+        try {
+          await authMethod.challenge(extra);
+        } on Exception catch (error) {
+          expect(error.toString(), equals('Exception: Wrong challenge length'));
+        }
       });
     });
 
@@ -177,6 +209,8 @@ void main() {
           throwsA(isA<Exception>()));
       expect(
           () => CryptosignAuthentication.loadPrivateKeyFromPpk(emptyPrivateKey),
+          throwsA(isA<Exception>()));
+      expect(() => CryptosignAuthentication.loadPrivateKeyFromPpk(null),
           throwsA(isA<Exception>()));
 
       try {
@@ -251,6 +285,15 @@ void main() {
             equals(
                 'Exception: Wrong file format. Could not extract a private key'));
       }
+
+      try {
+        CryptosignAuthentication.loadPrivateKeyFromPpk(null);
+      } on Exception catch (error) {
+        expect(
+            error.toString(),
+            equals(
+                'Exception: There is no file content provided to load a private key from!'));
+      }
     });
 
     test('load open ssh private key', () async {
@@ -266,11 +309,44 @@ void main() {
               await openSshPemFromPutty.readAsString());
       expect(unencryptedOpenSshKeyFromPutty, equals(puttySeed));
 
-      var openSshPemFromPuttyWithPassword = File('./test/authentication/ed25519_password.pem');
+      var openSshPemFromPuttyWithPassword =
+          File('./test/authentication/ed25519_password.pem');
       final unencryptedOpenSshKeyFromPuttyWithPassword =
           CryptosignAuthentication.loadPrivateKeyFromOpenSSHPem(
-              await openSshPemFromPuttyWithPassword.readAsString(), password: 'password');
+              await openSshPemFromPuttyWithPassword.readAsString(),
+              password: 'password');
       expect(unencryptedOpenSshKeyFromPuttyWithPassword, equals(puttySeed));
+    });
+
+    test('constructors', () async {
+      expect(() => CryptosignAuthentication(null, null),
+          throwsA(isA<AssertionError>()));
+      expect(
+          () => CryptosignAuthentication(
+              SigningKey.fromSeed([]), 'some other then null'),
+          throwsA(isA<Exception>()));
+
+      var ppkEncrypted = File('./test/authentication/ed25519_password.ppk');
+      var ppkKey = CryptosignAuthentication.fromPuttyPrivateKey(
+          await ppkEncrypted.readAsString(),
+          password: 'password');
+
+      expect(ppkKey.privateKey.sublist(0, 32).toString(),
+          equals(puttySeed.toString()));
+
+      var openSshPemFromPuttyWithPassword =
+          File('./test/authentication/ed25519_password.pem');
+      var opensshKey = CryptosignAuthentication.fromOpenSshPrivateKey(
+          await openSshPemFromPuttyWithPassword.readAsString(),
+          password: 'password');
+
+      expect(opensshKey.privateKey.sublist(0, 32).toString(),
+          equals(puttySeed.toString()));
+
+      var base64Key =
+          CryptosignAuthentication.fromBase64(base64.encode(puttySeed));
+      expect(base64Key.privateKey.sublist(0, 32).toString(),
+          equals(puttySeed.toString()));
     });
   });
 }

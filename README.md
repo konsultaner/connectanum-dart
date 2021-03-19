@@ -79,7 +79,9 @@ eventually fail.
 - ☑ WebSockets
 - ☑ RawSockets
 - ☑ RawSockets with large data support (connectanum router only)
+- ⬜ E2E encryption
 
+### Ttransport Encoding
 
 - ☑ JSON
 - ☑ msgpack
