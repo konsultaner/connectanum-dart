@@ -25,6 +25,7 @@ import 'package:connectanum/src/message/welcome.dart';
 import 'package:connectanum/src/message/invocation.dart';
 import 'package:connectanum/src/message/yield.dart';
 import 'package:connectanum/src/serializer/json/serializer.dart';
+import 'package:pinenacl/api.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -675,6 +676,28 @@ void main() {
           serializer.deserialize(serializer.serialize(invocation));
       expect(serializedInvocation.arguments[0],
           equals('𝄞 𝄢 Hello! Cześć! 你好! ご挨拶！Привет! ℌ𝔢𝔩𝔩𝔬! 🅗🅔🅛🅛🅞!'));
+    });
+    test('convert json binary string', () {
+      Result result = serializer.deserializeFromString('[50, 1, {}, [{"binary":"\\u0000EOP/kFMHXFJvX8BtT+N82w=="}],{"binary":{"content":["\\u0000EOP/kFMHXFJvX8BtT+N82w==","EOP/kFMHXFJvX8BtT+N82w=="]}}]');
+      expect((result.arguments[0] as Map)['binary'], isA<Uint8List>());
+      expect((result.arguments[0] as Map)['binary'].length, equals(16));
+      expect(((result.argumentsKeywords['binary'] as Map)['content'] as List)[0], isA<Uint8List>());
+      expect(((result.argumentsKeywords['binary'] as Map)['content'] as List)[0].length, equals(16));
+      expect(((result.argumentsKeywords['binary'] as Map)['content'] as List)[1], isA<String>());
+      result = serializer.deserializeFromString('[50, 1, {}, "\\u0000EOP/kFMHXFJvX8BtT+N82w=="]');
+      expect(result.transparentBinaryPayload, isA<Uint8List>());
+      expect(result.transparentBinaryPayload.length, equals(16));
+
+      var event = Event(
+          1,
+          2,
+          EventDetails(),
+          arguments: [{'binary': {'content':[result.transparentBinaryPayload, 'some']}}],
+          argumentsKeywords: {'binary': result.transparentBinaryPayload}
+        );
+      expect(serializer.serializeToString(event), equals('[36,1,2,[{\"binary\":{\"content\":[\"\\u0000EOP/kFMHXFJvX8BtT+N82w==\",\"some\"]}}],{\"binary\":\"\\u0000EOP/kFMHXFJvX8BtT+N82w==\"}]'));
+      event.transparentBinaryPayload = result.transparentBinaryPayload;
+      expect(serializer.serializeToString(event), equals('[36,1,2,\"\\u0000EOP/kFMHXFJvX8BtT+N82w==\"]'));
     });
   });
 }

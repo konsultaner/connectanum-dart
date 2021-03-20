@@ -73,6 +73,7 @@ eventually fail.
 - ⬜ Sharded Subscriptions
 - ☑ Subscription Revocation
 - ☑ Event Retention
+- ☑ Payload Transparency
 
 ### Transport
 

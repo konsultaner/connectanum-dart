@@ -36,6 +36,7 @@ import '../abstract_serializer.dart';
 /// This is a seralizer for JSON messages. It is used to initialize an [AbstractTransport]
 /// object.
 class Serializer extends AbstractSerializer {
+  static final RegExp _binaryPrefix = RegExp('\x00');
   static final Logger _logger = Logger('Serializer');
 
   /// Converts a uint8 JSON message into a WAMP message object
@@ -220,13 +221,62 @@ class Serializer extends AbstractSerializer {
 
   AbstractMessageWithPayload _addPayload(AbstractMessageWithPayload message,
       List<Object> messageData, argumentsOffset) {
-    if (messageData.length >= argumentsOffset + 1) {
-      message.arguments = messageData[argumentsOffset];
-    }
-    if (messageData.length >= argumentsOffset + 2) {
-      message.argumentsKeywords = messageData[argumentsOffset + 1];
+    if (messageData.length == argumentsOffset + 1 && messageData[argumentsOffset] is String) {
+      if ((messageData[argumentsOffset] as String).startsWith(_binaryPrefix)) {
+        message.transparentBinaryPayload = _convertStringToUint8List(messageData[argumentsOffset]);
+      }
+    } else {
+      if (messageData.length >= argumentsOffset + 1) {
+        message.arguments = messageData[argumentsOffset];
+      }
+      if (messageData.length >= argumentsOffset + 2) {
+        message.argumentsKeywords = messageData[argumentsOffset + 1];
+      }
+      _convertMessagePayloadBinaryJsonStringToUint8List(message);
     }
     return message;
+  }
+
+  void _convertMessagePayloadBinaryJsonStringToUint8List(AbstractMessageWithPayload message) {
+    if (message.arguments != null && message.arguments.isNotEmpty) {
+      _convertListEntriesBinaryJsonStringToUint8List(message.arguments);
+    }
+    
+    if (message.argumentsKeywords != null && message.argumentsKeywords.isNotEmpty) {
+      _convertMapEntriesBinaryJsonStringToUint8List(message.argumentsKeywords);
+    }
+  }
+  
+  void _convertMapEntriesBinaryJsonStringToUint8List(Map payload) {
+    for(var element in payload.entries) {
+      if (element.value is Map) {
+        _convertMapEntriesBinaryJsonStringToUint8List(element.value);
+      }
+      if (element.value is List) {
+        _convertListEntriesBinaryJsonStringToUint8List(element.value);
+      }
+      if (element.value is String && element.value.startsWith(_binaryPrefix)) {
+        payload[element.key] = _convertStringToUint8List(element.value);
+      }
+    }
+  }
+  
+  void _convertListEntriesBinaryJsonStringToUint8List(List payload) {
+    for (var i = 0; i < payload.length; i++) {
+      if (payload[i] is Map) {
+        _convertMapEntriesBinaryJsonStringToUint8List(payload[i]);
+      }
+      if (payload[i] is List) {
+        _convertListEntriesBinaryJsonStringToUint8List(payload[i]);
+      }
+      if (payload[i] is String && payload[i].startsWith(_binaryPrefix)) {
+        payload[i] = _convertStringToUint8List(payload[i]);
+      }
+    }
+  }
+
+  Uint8List _convertStringToUint8List(String binaryJsonString) {
+    return base64.decode(binaryJsonString.substring(1));
   }
 
   /// Converts a WAMP message object into a uint8 json message
@@ -488,12 +538,60 @@ class Serializer extends AbstractSerializer {
 
   String _serializePayload(AbstractMessageWithPayload message) {
     if (message != null) {
-      if (message.argumentsKeywords != null) {
-        return ',${json.encode(message.arguments ?? [])},${json.encode(message.argumentsKeywords)}';
-      } else if (message.arguments != null) {
-        return ',${json.encode(message.arguments)}';
+      _convertMessagePayloadUint8ListToBinaryJsonString(message);
+      if (message.transparentBinaryPayload != null) {
+        return ',${json.encode(_convertUint8ListToString(message.transparentBinaryPayload))}';
+      } else {
+        if (message.argumentsKeywords != null) {
+          return ',${json.encode(message.arguments ?? [])},${json.encode(
+              message.argumentsKeywords)}';
+        } else if (message.arguments != null) {
+          return ',${json.encode(message.arguments)}';
+        }
       }
     }
     return '';
+  }
+
+  void _convertMessagePayloadUint8ListToBinaryJsonString(AbstractMessageWithPayload message) {
+    if (message.arguments != null && message.arguments.isNotEmpty) {
+      _convertListEntriesUint8ListToBinaryJsonString(message.arguments);
+    }
+
+    if (message.argumentsKeywords != null && message.argumentsKeywords.isNotEmpty) {
+      _convertMapEntriesUint8ListToBinaryJsonString(message.argumentsKeywords);
+    }
+  }
+
+  void _convertMapEntriesUint8ListToBinaryJsonString(Map payload) {
+    for(var element in payload.entries) {
+      if (element.value is Map) {
+        _convertMapEntriesUint8ListToBinaryJsonString(element.value);
+      }
+      if (element.value is List) {
+        _convertListEntriesUint8ListToBinaryJsonString(element.value);
+      }
+      if (element.value is Uint8List) {
+        payload[element.key] = _convertUint8ListToString(element.value);
+      }
+    }
+  }
+
+  void _convertListEntriesUint8ListToBinaryJsonString(List payload) {
+    for (var i = 0; i < payload.length; i++) {
+      if (payload[i] is Map) {
+        _convertMapEntriesUint8ListToBinaryJsonString(payload[i]);
+      }
+      if (payload[i] is List) {
+        _convertListEntriesUint8ListToBinaryJsonString(payload[i]);
+      }
+      if (payload[i] is Uint8List) {
+        payload[i] = _convertUint8ListToString(payload[i]);
+      }
+    }
+  }
+
+  String _convertUint8ListToString(Uint8List binary) {
+    return '\x00' + base64.encode(binary);
   }
 }
