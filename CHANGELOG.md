@@ -1,3 +1,8 @@
+### 1.1.3
+
+- completed payload transparency
+- added json binary strings format, fix #25
+
 ### 1.1.2
 
 - realm may `null`
