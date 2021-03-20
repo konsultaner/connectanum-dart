@@ -221,9 +221,11 @@ class Serializer extends AbstractSerializer {
 
   AbstractMessageWithPayload _addPayload(AbstractMessageWithPayload message,
       List<Object> messageData, argumentsOffset) {
-    if (messageData.length == argumentsOffset + 1 && messageData[argumentsOffset] is String) {
+    if (messageData.length == argumentsOffset + 1 &&
+        messageData[argumentsOffset] is String) {
       if ((messageData[argumentsOffset] as String).startsWith(_binaryPrefix)) {
-        message.transparentBinaryPayload = _convertStringToUint8List(messageData[argumentsOffset]);
+        message.transparentBinaryPayload =
+            _convertStringToUint8List(messageData[argumentsOffset]);
       }
     } else {
       if (messageData.length >= argumentsOffset + 1) {
@@ -237,18 +239,20 @@ class Serializer extends AbstractSerializer {
     return message;
   }
 
-  void _convertMessagePayloadBinaryJsonStringToUint8List(AbstractMessageWithPayload message) {
+  void _convertMessagePayloadBinaryJsonStringToUint8List(
+      AbstractMessageWithPayload message) {
     if (message.arguments != null && message.arguments.isNotEmpty) {
       _convertListEntriesBinaryJsonStringToUint8List(message.arguments);
     }
-    
-    if (message.argumentsKeywords != null && message.argumentsKeywords.isNotEmpty) {
+
+    if (message.argumentsKeywords != null &&
+        message.argumentsKeywords.isNotEmpty) {
       _convertMapEntriesBinaryJsonStringToUint8List(message.argumentsKeywords);
     }
   }
-  
+
   void _convertMapEntriesBinaryJsonStringToUint8List(Map payload) {
-    for(var element in payload.entries) {
+    for (var element in payload.entries) {
       if (element.value is Map) {
         _convertMapEntriesBinaryJsonStringToUint8List(element.value);
       }
@@ -260,7 +264,7 @@ class Serializer extends AbstractSerializer {
       }
     }
   }
-  
+
   void _convertListEntriesBinaryJsonStringToUint8List(List payload) {
     for (var i = 0; i < payload.length; i++) {
       if (payload[i] is Map) {
@@ -543,8 +547,7 @@ class Serializer extends AbstractSerializer {
         return ',${json.encode(_convertUint8ListToString(message.transparentBinaryPayload))}';
       } else {
         if (message.argumentsKeywords != null) {
-          return ',${json.encode(message.arguments ?? [])},${json.encode(
-              message.argumentsKeywords)}';
+          return ',${json.encode(message.arguments ?? [])},${json.encode(message.argumentsKeywords)}';
         } else if (message.arguments != null) {
           return ',${json.encode(message.arguments)}';
         }
@@ -553,18 +556,20 @@ class Serializer extends AbstractSerializer {
     return '';
   }
 
-  void _convertMessagePayloadUint8ListToBinaryJsonString(AbstractMessageWithPayload message) {
+  void _convertMessagePayloadUint8ListToBinaryJsonString(
+      AbstractMessageWithPayload message) {
     if (message.arguments != null && message.arguments.isNotEmpty) {
       _convertListEntriesUint8ListToBinaryJsonString(message.arguments);
     }
 
-    if (message.argumentsKeywords != null && message.argumentsKeywords.isNotEmpty) {
+    if (message.argumentsKeywords != null &&
+        message.argumentsKeywords.isNotEmpty) {
       _convertMapEntriesUint8ListToBinaryJsonString(message.argumentsKeywords);
     }
   }
 
   void _convertMapEntriesUint8ListToBinaryJsonString(Map payload) {
-    for(var element in payload.entries) {
+    for (var element in payload.entries) {
       if (element.value is Map) {
         _convertMapEntriesUint8ListToBinaryJsonString(element.value);
       }
