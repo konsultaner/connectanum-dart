@@ -443,17 +443,16 @@ class Serializer extends AbstractSerializer {
           MapEntry('publisher', {'features': publisherFeatures})
         ]);
       }
-      // ignore: prefer_collection_literals
-      var detailsParts = <Map<String, dynamic>>[];
-      detailsParts.add({'roles': roles});
+      var detailsParts = new Map<String, dynamic> ();
+      detailsParts['roles'] = roles;
       if (details.authid != null) {
-        detailsParts.add({'authid': details.authid});
+        detailsParts['authid'] = details.authid;
       }
       if (details.authmethods != null && details.authmethods.isNotEmpty) {
-        detailsParts.add({'authmethods': details.authmethods});
+        detailsParts['authmethods'] = details.authmethods;
       }
       if (details.authextra != null) {
-        detailsParts.add({'authextra': details.authextra});
+        detailsParts['authextra'] = details.authextra;
       }
       return msgpack_dart.serialize(detailsParts);
     } else {
