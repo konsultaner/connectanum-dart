@@ -680,18 +680,13 @@ void main() {
     test('convert json binary string', () {
       Result result = serializer.deserializeFromString(
           '[50, 1, {}, [{"binary":"\\u0000EOP/kFMHXFJvX8BtT+N82w=="}],{"binary":{"content":["\\u0000EOP/kFMHXFJvX8BtT+N82w==","EOP/kFMHXFJvX8BtT+N82w=="]}}]');
-      expect((result.arguments[0] as Map)['binary'], isA<Uint8List>());
-      expect((result.arguments[0] as Map)['binary'].length, equals(16));
+      expect(result.arguments[0]['binary'], isA<Uint8List>());
+      expect(result.arguments[0]['binary'].length, equals(16));
       expect(
-          ((result.argumentsKeywords['binary'] as Map)['content'] as List)[0],
-          isA<Uint8List>());
+          result.argumentsKeywords['binary']['content'][0], isA<Uint8List>());
       expect(
-          ((result.argumentsKeywords['binary'] as Map)['content'] as List)[0]
-              .length,
-          equals(16));
-      expect(
-          ((result.argumentsKeywords['binary'] as Map)['content'] as List)[1],
-          isA<String>());
+          result.argumentsKeywords['binary']['content'][0].length, equals(16));
+      expect(result.argumentsKeywords['binary']['content'][1], isA<String>());
       result = serializer.deserializeFromString(
           '[50, 1, {}, "\\u0000EOP/kFMHXFJvX8BtT+N82w=="]');
       expect(result.transparentBinaryPayload, isA<Uint8List>());

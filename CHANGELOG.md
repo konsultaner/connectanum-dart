@@ -1,3 +1,7 @@
+### 1.1.4
+
+- changed arguments and argumentsKeyword signature to make subtype access easier.
+
 ### 1.1.3
 
 - completed payload transparency
