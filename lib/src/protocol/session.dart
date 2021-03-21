@@ -147,7 +147,11 @@ class Session {
         }
       } else if (message is Welcome) {
         session.id = message.sessionId;
-        session.realm = message.details.realm;
+
+        // FIXME: test/client_test.dart is wrong. The realm (effectively
+        // assigned/joined) MUST be returned by the router.
+        session.realm = message.details.realm ?? session.realm;
+
         session.authId = message.details.authid;
         session.authMethod = message.details.authmethod;
         session.authProvider = message.details.authprovider;
