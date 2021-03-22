@@ -64,10 +64,13 @@ class Serializer extends AbstractSerializer {
       }
       if (messageId == MessageTypes.CODE_WELCOME) {
         final details = Details();
+        details.realm = message[2]['realm'] ?? '';
         details.authid = message[2]['authid'] ?? '';
         details.authprovider = message[2]['authprovider'] ?? '';
         details.authmethod = message[2]['authmethod'] ?? '';
         details.authrole = message[2]['authrole'] ?? '';
+        // FIXME: figure out whatever syntax Dart wants for an empty map
+        // details.authextra = message[2]['authextra'] ?? <String, String>{};
         if (message[2]['roles'] != null) {
           details.roles = Roles();
           if (message[2]['roles']['dealer'] != null) {

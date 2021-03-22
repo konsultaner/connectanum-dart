@@ -51,6 +51,9 @@ class Session {
   /// the [authProvider] used to authenticate the session
   String authProvider;
 
+  /// the [authExtra] returned by the server
+  Map<String, String> authExtra;
+
   AbstractTransport _transport;
 
   /// the next id used to generate request id for a call
@@ -144,10 +147,16 @@ class Session {
         }
       } else if (message is Welcome) {
         session.id = message.sessionId;
+
+        // FIXME: test/client_test.dart is wrong. The realm (effectively
+        // assigned/joined) MUST be returned by the router.
+        session.realm = message.details.realm ?? session.realm;
+
         session.authId = message.details.authid;
         session.authMethod = message.details.authmethod;
         session.authProvider = message.details.authprovider;
         session.authRole = message.details.authrole;
+        session.authExtra = message.details.authextra;
         session._transportStreamSubscription.onData((message) {
           session._openSessionStreamController.add(message);
         });

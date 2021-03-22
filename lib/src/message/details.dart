@@ -1,5 +1,6 @@
 class Details {
   String agent;
+  String realm;
   List<String> authmethods;
   String authid;
   String authrole;
@@ -37,16 +38,21 @@ class Details {
   }
 
   static Details forWelcome({
+    String realm,
     String authId,
     String authMethod,
     String authProvider,
     String authRole,
+    Map<String, String> authExtra,
   }) {
     final details = Details();
+
+    details.realm = realm;
     details.authid = authId;
     details.authmethod = authMethod;
     details.authprovider = authProvider;
     details.authrole = authRole;
+    details.authextra = authExtra;
 
     details.roles = Roles();
 
