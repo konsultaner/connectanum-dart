@@ -56,7 +56,7 @@ class Client {
       this.authenticationMethods,
       this.isolateCount = 1})
       : assert(transport != null),
-        assert(realm != null && UriPattern.match(realm));
+        assert(realm == null || UriPattern.match(realm));
 
   /// if listened to this stream you will be noticed about reconnect tries. The passed
   /// integer will be the current retry counted down from where you started in the configured

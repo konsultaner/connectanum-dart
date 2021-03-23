@@ -33,6 +33,7 @@ import 'package:connectanum/src/message/unsubscribed.dart';
 import 'package:connectanum/src/message/welcome.dart';
 import 'package:connectanum/src/message/yield.dart';
 import 'package:connectanum/src/transport/abstract_transport.dart';
+import 'package:logging/logging.dart';
 import 'package:pedantic/pedantic.dart';
 import 'package:test/test.dart';
 
@@ -52,6 +53,10 @@ void main() {
                   authRole: 'client')));
         }
       });
+      LogRecord measuredRecord;
+      Logger.root.onRecord.listen((record) {
+        measuredRecord = record;
+      });
       final session = await client.connect().first;
       expect(session.realm, equals('test.realm'));
       expect(session.id, equals(42));
@@ -59,6 +64,50 @@ void main() {
       expect(session.authRole, equals('client'));
       expect(session.authProvider, equals('noProvider'));
       expect(session.authMethod, equals('none'));
+      expect(measuredRecord.message,
+          equals('Warning! No realm returned by the router'));
+    });
+    test('realm creation', () async {
+      final transport = _MockTransport();
+      final client = Client(transport: transport);
+      transport.outbound.stream.listen((message) {
+        if (message.id == MessageTypes.CODE_HELLO) {
+          transport.receiveMessage(Welcome(
+              42,
+              Details.forWelcome(
+                  authId: 'Richi',
+                  authMethod: 'none',
+                  authProvider: 'noProvider',
+                  authRole: 'client')));
+        }
+      });
+      Abort foundAbort;
+      try {
+        await client.connect().first;
+      } catch (abort) {
+        foundAbort = abort;
+      }
+      expect(
+          foundAbort.message.message,
+          equals(
+              'No realm specified! Neither by the client nor by the router'));
+
+      var transport2 = _MockTransport();
+      transport2.outbound.stream.listen((message) {
+        if (message.id == MessageTypes.CODE_HELLO) {
+          transport2.receiveMessage(Welcome(
+              42,
+              Details.forWelcome(
+                  authId: 'Richi',
+                  authMethod: 'none',
+                  authProvider: 'noProvider',
+                  realm: 'some.dynamic.realm',
+                  authRole: 'client')));
+        }
+      });
+      var session = await Client(transport: transport2).connect().first;
+      expect(session, isA<Session>());
+      expect(session.realm, equals('some.dynamic.realm'));
     });
     test('session creation router abort', () async {
       final transport = _MockTransport();
@@ -127,6 +176,7 @@ void main() {
                   authId: '11111111',
                   authMethod: 'wampcra',
                   authProvider: 'cra',
+                  realm: 'changed.realm',
                   authRole: 'client')));
         }
         if (message.id == MessageTypes.CODE_GOODBYE) {
@@ -134,7 +184,7 @@ void main() {
         }
       });
       final session = await client.connect().first;
-      expect(session.realm, equals('test.realm'));
+      expect(session.realm, equals('changed.realm'));
       expect(session.id, equals(586844620777222));
       expect(session.authId, equals('11111111'));
       expect(session.authRole, equals('client'));

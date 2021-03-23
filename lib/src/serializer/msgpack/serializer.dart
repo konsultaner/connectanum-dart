@@ -63,8 +63,7 @@ class Serializer extends AbstractSerializer {
         details.authprovider = message[2]['authprovider'] ?? '';
         details.authmethod = message[2]['authmethod'] ?? '';
         details.authrole = message[2]['authrole'] ?? '';
-        // FIXME: figure out whatever syntax Dart wants for an empty map
-        // details.authextra = message[2]['authextra'] ?? <String, String>{};
+        details.authextra = message[2]['authextra'] ?? <String, String>{};
         if (message[2]['roles'] != null) {
           details.roles = Roles();
           if (message[2]['roles']['dealer'] != null) {
@@ -443,7 +442,7 @@ class Serializer extends AbstractSerializer {
           MapEntry('publisher', {'features': publisherFeatures})
         ]);
       }
-      var detailsParts = new Map<String, dynamic> ();
+      var detailsParts = new Map<String, dynamic>();
       detailsParts['roles'] = roles;
       if (details.authid != null) {
         detailsParts['authid'] = details.authid;

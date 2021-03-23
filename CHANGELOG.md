@@ -1,3 +1,7 @@
+### 1.1.5
+
+- support dynamic realm and authextra creation
+
 ### 1.1.4
 
 - changed arguments and argumentsKeyword signature to make subtype access easier.

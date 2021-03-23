@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:logging/logging.dart';
 import 'package:pedantic/pedantic.dart';
 
 import '../message/abort.dart';
@@ -33,6 +34,8 @@ import '../transport/abstract_transport.dart';
 import '../authentication/abstract_authentication.dart';
 
 class Session {
+  static final Logger _logger = Logger('Session');
+
   /// The sessions [id]
   int id;
 
@@ -88,8 +91,9 @@ class Session {
       {String authId,
       List<AbstractAuthentication> authMethods,
       Duration reconnect}) async {
-    /// The realm object is mandatory and must mach the uri pattern
-    assert(realm != null && UriPattern.match(realm));
+    /// The realm object my be null bust must mach the uri pattern if it was
+    /// passed
+    assert(realm == null || UriPattern.match(realm));
 
     /// The connection should have been established before initializing the
     /// session.
@@ -140,7 +144,7 @@ class Session {
           }
         } else {
           final goodbye = Goodbye(
-              GoodbyeMessage('Authmethod ${foundAuthMethod} not supported'),
+              GoodbyeMessage('Authmethod $foundAuthMethod not supported'),
               Goodbye.REASON_GOODBYE_AND_OUT);
           session._transport.send(goodbye);
           welcomeCompleter.completeError(goodbye);
@@ -148,9 +152,19 @@ class Session {
       } else if (message is Welcome) {
         session.id = message.sessionId;
 
-        // FIXME: test/client_test.dart is wrong. The realm (effectively
-        // assigned/joined) MUST be returned by the router.
-        session.realm = message.details.realm ?? session.realm;
+        if ((session.realm ?? message.details.realm) == null) {
+          welcomeCompleter.completeError(Abort(Error.AUTHORIZATION_FAILED,
+              message:
+                  'No realm specified! Neither by the client nor by the router'));
+          return;
+        }
+        if (message.details.realm == null) {
+          if (_logger.level == Level.INFO) {
+            _logger.info('Warning! No realm returned by the router');
+          }
+        } else {
+          session.realm = message.details.realm;
+        }
 
         session.authId = message.details.authid;
         session.authMethod = message.details.authmethod;
