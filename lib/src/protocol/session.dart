@@ -159,7 +159,7 @@ class Session {
           return;
         }
         if (message.details.realm == null) {
-          if (_logger.level == Level.INFO) {
+          if (_logger.level <= Level.INFO) {
             _logger.info('Warning! No realm returned by the router');
           }
         } else {
