@@ -442,7 +442,7 @@ class Serializer extends AbstractSerializer {
           MapEntry('publisher', {'features': publisherFeatures})
         ]);
       }
-      var detailsParts = new Map<String, dynamic>();
+      var detailsParts = <String, dynamic>{};
       detailsParts['roles'] = roles;
       if (details.authid != null) {
         detailsParts['authid'] = details.authid;
