@@ -75,7 +75,7 @@ class Client {
   /// the client will try to reestablish the session. Setting [reconnectCount] to -1 will infinite
   /// times reconnect the client or until the stack overflows
   Stream<Session> connect(
-      {ClientConnectOptions options, Function() onReconnecting}) {
+      {ClientConnectOptions options}) {
     options ??= ClientConnectOptions();
     _reconnectCount = options.reconnectCount;
     _connect(options);
@@ -88,6 +88,7 @@ class Client {
       unawaited(transport.onConnectionLost.future.then((_) async {
         await Future.delayed(options.reconnectTime);
         options.reconnectCount = _reconnectCount;
+        _reconnectStreamController.add(options);
         _connect(options);
       }));
       try {
