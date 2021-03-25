@@ -6,7 +6,7 @@ class Details {
   String authrole;
   String authmethod;
   String authprovider;
-  Map<String, String> authextra;
+  Map<String, dynamic> authextra;
   String nonce;
   String challenge;
   int iterations;
@@ -43,7 +43,7 @@ class Details {
     String authMethod,
     String authProvider,
     String authRole,
-    Map<String, String> authExtra,
+    Map<String, dynamic> authExtra,
   }) {
     final details = Details();
 

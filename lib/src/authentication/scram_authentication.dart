@@ -49,7 +49,7 @@ class ScramAuthentication extends AbstractAuthentication {
       details.authid = Saslprep.saslprep(details.authid);
       _authid = details.authid;
     }
-    details.authextra ??= HashMap<String, String>();
+    details.authextra ??= <String, dynamic>{};
     details.authextra['nonce'] = base64.encode(nonceBytes);
     details.authextra['channel_binding'] = null;
     _helloNonce = details.authextra['nonce'];

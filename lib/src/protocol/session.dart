@@ -55,7 +55,7 @@ class Session {
   String authProvider;
 
   /// the [authExtra] returned by the server
-  Map<String, String> authExtra;
+  Map<String, dynamic> authExtra;
 
   AbstractTransport _transport;
 
@@ -190,7 +190,10 @@ class Session {
       }
     },
         cancelOnError: true,
-        onError: (error) => transport.close(error: error),
+        onError: (error) {
+          _logger.warning(error);
+          transport.close(error: error);
+        },
         onDone: () => transport.close());
     if (!transport.isReady) {
       await transport.onReady;
