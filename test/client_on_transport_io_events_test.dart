@@ -99,7 +99,7 @@ void main() {
       expect(abort, isA<Abort>());
       expect(abort.reason, equals(Error.AUTHORIZATION_FAILED));
       expect(hitConnectionLostEvent, isTrue);
-      expect(reconnects, equals(3));
+      expect(reconnects, equals(4));
       expect(client.transport.isOpen, isFalse);
       expect(options.reconnectTime.inMilliseconds, equals(800));
     });
@@ -287,7 +287,7 @@ void main() {
       expect(abort, isA<Abort>());
       expect(abort.reason, equals(Error.AUTHORIZATION_FAILED));
       expect(hitConnectionLostEvent, isTrue);
-      expect(reconnects, equals(3));
+      expect(reconnects, equals(4));
       expect(client.transport.isOpen, isFalse);
     });
 
