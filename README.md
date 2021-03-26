@@ -9,6 +9,8 @@ With this project I want return something to the great WAMP-Protocol community.
 
 WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
 
+Find install instructions on [pub.dev](https://pub.dev/packages/connectanum).
+
 ## Other Projects
 
 - [Connectanum java router, web and WebSocket server](https://connectanum.com), MVC-like framework, based on WAMP-Protocol

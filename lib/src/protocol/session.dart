@@ -120,75 +120,75 @@ class Session {
     var welcomeCompleter = Completer<Session>();
     session._transportStreamSubscription = transport.receive().listen(
         (message) {
-      if (message is Challenge) {
-        final foundAuthMethod = authMethods
-            .where((authenticationMethod) =>
-                authenticationMethod.getName() == message.authMethod)
-            .first;
-        if (foundAuthMethod != null) {
-          try {
-            foundAuthMethod
-                .challenge(message.extra)
-                .then((authenticate) => session.authenticate(authenticate),
-                    onError: (error) {
-              session._transport.send(
-                  Abort(Error.AUTHORIZATION_FAILED, message: error.toString()));
-              session._transport.close();
+          if (message is Challenge) {
+            final foundAuthMethod = authMethods
+                .where((authenticationMethod) =>
+                    authenticationMethod.getName() == message.authMethod)
+                .first;
+            if (foundAuthMethod != null) {
+              try {
+                foundAuthMethod
+                    .challenge(message.extra)
+                    .then((authenticate) => session.authenticate(authenticate),
+                        onError: (error) {
+                  session._transport.send(Abort(Error.AUTHORIZATION_FAILED,
+                      message: error.toString()));
+                  session._transport.close();
+                });
+              } catch (exception) {
+                try {
+                  transport.close();
+                } catch (ignore) {/* my be already closed */}
+                welcomeCompleter.completeError(Abort(Error.AUTHORIZATION_FAILED,
+                    message: exception.toString()));
+              }
+            } else {
+              final goodbye = Goodbye(
+                  GoodbyeMessage('Authmethod $foundAuthMethod not supported'),
+                  Goodbye.REASON_GOODBYE_AND_OUT);
+              session._transport.send(goodbye);
+              welcomeCompleter.completeError(goodbye);
+            }
+          } else if (message is Welcome) {
+            session.id = message.sessionId;
+
+            if ((session.realm ?? message.details.realm) == null) {
+              welcomeCompleter.completeError(Abort(Error.AUTHORIZATION_FAILED,
+                  message:
+                      'No realm specified! Neither by the client nor by the router'));
+              return;
+            }
+            if (message.details.realm == null) {
+              if (_logger.level <= Level.INFO) {
+                _logger.info('Warning! No realm returned by the router');
+              }
+            } else {
+              session.realm = message.details.realm;
+            }
+
+            session.authId = message.details.authid;
+            session.authMethod = message.details.authmethod;
+            session.authProvider = message.details.authprovider;
+            session.authRole = message.details.authrole;
+            session.authExtra = message.details.authextra;
+            session._transportStreamSubscription.onData((message) {
+              session._openSessionStreamController.add(message);
             });
-          } catch (exception) {
+            session._transportStreamSubscription.onDone(() {
+              session._openSessionStreamController.close();
+            });
+            welcomeCompleter.complete(session);
+          } else if (message is Abort) {
             try {
               transport.close();
             } catch (ignore) {/* my be already closed */}
-            welcomeCompleter.completeError(Abort(Error.AUTHORIZATION_FAILED,
-                message: exception.toString()));
+            welcomeCompleter.completeError(message);
+          } else if (message is Goodbye) {
+            try {
+              transport.close();
+            } catch (ignore) {/* my be already closed */}
           }
-        } else {
-          final goodbye = Goodbye(
-              GoodbyeMessage('Authmethod $foundAuthMethod not supported'),
-              Goodbye.REASON_GOODBYE_AND_OUT);
-          session._transport.send(goodbye);
-          welcomeCompleter.completeError(goodbye);
-        }
-      } else if (message is Welcome) {
-        session.id = message.sessionId;
-
-        if ((session.realm ?? message.details.realm) == null) {
-          welcomeCompleter.completeError(Abort(Error.AUTHORIZATION_FAILED,
-              message:
-                  'No realm specified! Neither by the client nor by the router'));
-          return;
-        }
-        if (message.details.realm == null) {
-          if (_logger.level <= Level.INFO) {
-            _logger.info('Warning! No realm returned by the router');
-          }
-        } else {
-          session.realm = message.details.realm;
-        }
-
-        session.authId = message.details.authid;
-        session.authMethod = message.details.authmethod;
-        session.authProvider = message.details.authprovider;
-        session.authRole = message.details.authrole;
-        session.authExtra = message.details.authextra;
-        session._transportStreamSubscription.onData((message) {
-          session._openSessionStreamController.add(message);
-        });
-        session._transportStreamSubscription.onDone(() {
-          session._openSessionStreamController.close();
-        });
-        welcomeCompleter.complete(session);
-      } else if (message is Abort) {
-        try {
-          transport.close();
-        } catch (ignore) {/* my be already closed */}
-        welcomeCompleter.completeError(message);
-      } else if (message is Goodbye) {
-        try {
-          transport.close();
-        } catch (ignore) {/* my be already closed */}
-      }
-    },
+        },
         cancelOnError: true,
         onError: (error) {
           _logger.warning(error);

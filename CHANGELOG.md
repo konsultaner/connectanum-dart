@@ -1,3 +1,8 @@
+### 1.1.6
+
+- fix auth extra type
+- fix fire reconnect event on unintended connection lost 
+
 ### 1.1.5
 
 - support dynamic realm and authextra creation

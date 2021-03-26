@@ -74,8 +74,7 @@ class Client {
   /// ping messages. If [reconnectCount] and the [reconnectTime] is set
   /// the client will try to reestablish the session. Setting [reconnectCount] to -1 will infinite
   /// times reconnect the client or until the stack overflows
-  Stream<Session> connect(
-      {ClientConnectOptions options}) {
+  Stream<Session> connect({ClientConnectOptions options}) {
     options ??= ClientConnectOptions();
     _reconnectCount = options.reconnectCount;
     _connect(options);
