@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:connectanum/src/message/goodbye.dart';
 
@@ -20,10 +21,10 @@ class WebSocketTransport extends AbstractTransport {
   final String _serializerType;
   bool _goodbyeSent = false;
   bool _goodbyeReceived = false;
-  WebSocket _socket;
-  Completer _onConnectionLost;
-  Completer _onDisconnect;
-  Completer _onReady;
+  late WebSocket _socket;
+  late Completer _onConnectionLost;
+  late Completer _onDisconnect;
+  late Completer _onReady;
 
   WebSocketTransport(
     this._url,
@@ -68,7 +69,7 @@ class WebSocketTransport extends AbstractTransport {
   /// As soon as the web socket connection is established, the returning future will complete
   /// or fail respectively
   @override
-  Future<void> open({Duration pingInterval}) async {
+  Future<void> open({Duration? pingInterval}) async {
     _onReady = Completer();
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
@@ -93,20 +94,23 @@ class WebSocketTransport extends AbstractTransport {
     if (message is Goodbye) {
       _goodbyeSent = true;
     }
-    var byteMessage = _serializer.serialize(message).cast<int>();
-    if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
-      _socket.addUtf8Text(byteMessage);
-    } else {
-      _socket.add(byteMessage);
+    var serializedList = _serializer.serialize(message);
+    if(serializedList != null) {
+      var byteMessage = serializedList.cast<int>();
+      if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
+        _socket.addUtf8Text(byteMessage);
+      } else {
+        _socket.add(byteMessage);
+      }
     }
   }
 
   /// This method return a [Stream] that streams all incoming messages as unserialized
   /// objects.
   @override
-  Stream<AbstractMessage> receive() {
+  Stream<AbstractMessage?> receive() {
     _socket.done.then((done) {
-      if ((_socket.closeCode == null || _socket.closeCode > 1000) &&
+      if ((_socket.closeCode == null || _socket.closeCode! > 1000) &&
           !_goodbyeSent &&
           !_goodbyeReceived) {
         _onConnectionLost.complete();
@@ -119,9 +123,9 @@ class WebSocketTransport extends AbstractTransport {
       }
     });
     return _socket.map((messageEvent) {
-      AbstractMessage message;
+      AbstractMessage? message;
       if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
-        message = _serializer.deserialize(utf8.encode(messageEvent));
+        message = _serializer.deserialize(Uint8List.fromList(utf8.encode(messageEvent)));
       } else {
         message = _serializer.deserialize(messageEvent);
       }

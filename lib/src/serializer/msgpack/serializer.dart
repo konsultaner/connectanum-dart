@@ -40,7 +40,7 @@ class Serializer extends AbstractSerializer {
 
   /// Converts a uint8 msgpack message into a WAMP message object
   @override
-  AbstractMessage deserialize(Uint8List msgPack) {
+  AbstractMessage? deserialize(Uint8List msgPack) {
     Object message = msgpack_dart.deserialize(msgPack);
     if (message is List) {
       int messageId = message[0];
@@ -66,85 +66,85 @@ class Serializer extends AbstractSerializer {
         if (message[2]['authextra'] != null) {
           (message[2]['authextra'] as Map).forEach((key, value) {
             details.authextra ??= <String, dynamic>{};
-            details.authextra[key] = value;
+            details.authextra?[key] = value;
           });
         }
         if (message[2]['roles'] != null) {
           details.roles = Roles();
           if (message[2]['roles']['dealer'] != null) {
-            details.roles.dealer = Dealer();
+            details.roles?.dealer = Dealer();
             if (message[2]['roles']['broker']['features'] != null) {
-              details.roles.dealer.features = DealerFeatures();
-              details.roles.dealer.features.caller_identification = message[2]
+              details.roles!.dealer!.features = DealerFeatures();
+              details.roles!.dealer!.features!.caller_identification = message[2]
                           ['roles']['dealer']['features']
                       ['caller_identification'] ??
                   false;
-              details.roles.dealer.features.call_trustlevels = message[2]
+              details.roles!.dealer!.features!.call_trustlevels = message[2]
                       ['roles']['dealer']['features']['call_trustlevels'] ??
                   false;
-              details.roles.dealer.features.pattern_based_registration =
+              details.roles!.dealer!.features!.pattern_based_registration =
                   message[2]['roles']['dealer']['features']
                           ['pattern_based_registration'] ??
                       false;
-              details.roles.dealer.features.registration_meta_api = message[2]
+              details.roles!.dealer!.features!.registration_meta_api = message[2]
                           ['roles']['dealer']['features']
                       ['registration_meta_api'] ??
                   false;
-              details.roles.dealer.features.shared_registration = message[2]
+              details.roles!.dealer!.features!.shared_registration = message[2]
                       ['roles']['dealer']['features']['shared_registration'] ??
                   false;
-              details.roles.dealer.features.session_meta_api = message[2]
+              details.roles!.dealer!.features!.session_meta_api = message[2]
                       ['roles']['dealer']['features']['session_meta_api'] ??
                   false;
-              details.roles.dealer.features.call_timeout = message[2]['roles']
+              details.roles!.dealer!.features!.call_timeout = message[2]['roles']
                       ['dealer']['features']['call_timeout'] ??
                   false;
-              details.roles.dealer.features.call_canceling = message[2]['roles']
+              details.roles!.dealer!.features!.call_canceling = message[2]['roles']
                       ['dealer']['features']['call_canceling'] ??
                   false;
-              details.roles.dealer.features.progressive_call_results =
+              details.roles!.dealer!.features!.progressive_call_results =
                   message[2]['roles']['dealer']['features']
                           ['progressive_call_results'] ??
                       false;
-              details.roles.dealer.features.payload_transparency = message[2]
+              details.roles!.dealer!.features!.payload_transparency = message[2]
                       ['roles']['dealer']['features']['payload_transparency'] ??
                   false;
             }
           }
           if (message[2]['roles']['broker'] != null) {
-            details.roles.broker = Broker();
+            details.roles!.broker = Broker();
             if (message[2]['roles']['broker']['features'] != null) {
-              details.roles.broker.features = BrokerFeatures();
-              details.roles.broker.features.publisher_identification =
+              details.roles!.broker!.features = BrokerFeatures();
+              details.roles!.broker!.features!.publisher_identification =
                   message[2]['roles']['broker']['features']
                           ['publisher_identification'] ??
                       false;
-              details.roles.broker.features.publication_trustlevels = message[2]
+              details.roles!.broker!.features!.publication_trustlevels = message[2]
                           ['roles']['broker']['features']
                       ['publication_trustlevels'] ??
                   false;
-              details.roles.broker.features.pattern_based_subscription =
+              details.roles!.broker!.features!.pattern_based_subscription =
                   message[2]['roles']['broker']['features']
                           ['pattern_based_subscription'] ??
                       false;
-              details.roles.broker.features.subscription_meta_api = message[2]
+              details.roles!.broker!.features!.subscription_meta_api = message[2]
                           ['roles']['broker']['features']
                       ['subscription_meta_api'] ??
                   false;
-              details.roles.broker.features.subscriber_blackwhite_listing =
+              details.roles!.broker!.features!.subscriber_blackwhite_listing =
                   message[2]['roles']['broker']['features']
                           ['subscriber_blackwhite_listing'] ??
                       false;
-              details.roles.broker.features.session_meta_api = message[2]
+              details.roles!.broker!.features!.session_meta_api = message[2]
                       ['roles']['broker']['features']['session_meta_api'] ??
                   false;
-              details.roles.broker.features.publisher_exclusion = message[2]
+              details.roles!.broker!.features!.publisher_exclusion = message[2]
                       ['roles']['broker']['features']['publisher_exclusion'] ??
                   false;
-              details.roles.broker.features.event_history = message[2]['roles']
+              details.roles!.broker!.features!.event_history = message[2]['roles']
                       ['broker']['features']['event_history'] ??
                   false;
-              details.roles.broker.features.payload_transparency = message[2]
+              details.roles!.broker!.features!.payload_transparency = message[2]
                       ['roles']['broker']['features']['payload_transparency'] ??
                   false;
             }
@@ -223,7 +223,7 @@ class Serializer extends AbstractSerializer {
   }
 
   AbstractMessageWithPayload _addPayload(AbstractMessageWithPayload message,
-      List<Object> messageData, argumentsOffset) {
+      List<dynamic> messageData, argumentsOffset) {
     if (messageData.length >= argumentsOffset + 1) {
       message.arguments = messageData[argumentsOffset];
     }
@@ -237,12 +237,14 @@ class Serializer extends AbstractSerializer {
 
   /// Converts a WAMP message object into a uint8 msgpack message
   @override
-  Uint8List serialize(AbstractMessage message) {
+  Uint8List? serialize(AbstractMessage message) {
     if (message is Hello) {
+      var serializeDetails = _serializeDetails(message.details);
+      if(serializeDetails == null) return null;
       return Uint8List.fromList([147] +
           msgpack_dart.serialize(MessageTypes.CODE_HELLO) +
           msgpack_dart.serialize(message.realm) +
-          _serializeDetails(message.details));
+          serializeDetails);
     }
     if (message is Authenticate) {
       return Uint8List.fromList([147] +
@@ -346,7 +348,7 @@ class Serializer extends AbstractSerializer {
       return Uint8List.fromList([147] +
           msgpack_dart.serialize(MessageTypes.CODE_ABORT) +
           msgpack_dart.serialize(message.message != null
-              ? {'message': '${message.message.message ?? ""}'}
+              ? {'message': '${message.message!.message ?? ""}'}
               : {}) +
           msgpack_dart.serialize(message.reason));
     }
@@ -354,7 +356,7 @@ class Serializer extends AbstractSerializer {
       return Uint8List.fromList([147] +
           msgpack_dart.serialize(MessageTypes.CODE_GOODBYE) +
           msgpack_dart.serialize(message.message != null
-              ? {'message': '${message.message.message ?? ""}'}
+              ? {'message': '${message.message!.message ?? ""}'}
               : {}) +
           msgpack_dart.serialize(message.reason));
     }
@@ -364,84 +366,84 @@ class Serializer extends AbstractSerializer {
     throw Exception('Message type not known!');
   }
 
-  Uint8List _serializeDetails(Details details) {
+  Uint8List? _serializeDetails(Details details) {
     if (details.roles != null) {
       var roles = {};
-      if (details.roles.caller != null &&
-          details.roles.caller.features != null) {
+      if (details.roles?.caller != null &&
+          details.roles?.caller?.features != null) {
         var callerFeatures = {};
         callerFeatures.addEntries([
           MapEntry(
-              'call_canceling', details.roles.caller.features.call_canceling),
-          MapEntry('call_timeout', details.roles.caller.features.call_timeout),
+              'call_canceling', details.roles!.caller!.features!.call_canceling),
+          MapEntry('call_timeout', details.roles!.caller!.features!.call_timeout),
           MapEntry('caller_identification',
-              details.roles.caller.features.caller_identification),
+              details.roles!.caller!.features!.caller_identification),
           MapEntry('payload_transparency',
-              details.roles.caller.features.payload_transparency),
+              details.roles!.caller!.features!.payload_transparency),
           MapEntry('progressive_call_results',
-              details.roles.caller.features.progressive_call_results)
+              details.roles!.caller!.features!.progressive_call_results)
         ]);
         roles.addEntries([
           MapEntry('caller', {'features': callerFeatures})
         ]);
       }
-      if (details.roles.callee != null &&
-          details.roles.callee.features != null) {
+      if (details.roles?.callee != null &&
+          details.roles?.callee?.features != null) {
         var calleeFeatures = {};
         calleeFeatures.addEntries([
           MapEntry('caller_identification',
-              details.roles.callee.features.caller_identification),
+              details.roles!.callee!.features!.caller_identification),
           MapEntry('call_trustlevel',
-              details.roles.callee.features.call_trustlevels),
+              details.roles!.callee!.features!.call_trustlevels),
           MapEntry('pattern_based_registration',
-              details.roles.callee.features.pattern_based_registration),
+              details.roles!.callee!.features!.pattern_based_registration),
           MapEntry('shared_registration',
-              details.roles.callee.features.shared_registration),
+              details.roles!.callee!.features!.shared_registration),
           MapEntry(
-              'call_canceling', details.roles.callee.features.call_canceling),
-          MapEntry('call_timeout', details.roles.callee.features.call_timeout),
+              'call_canceling', details.roles!.callee!.features!.call_canceling),
+          MapEntry('call_timeout', details.roles!.callee!.features!.call_timeout),
           MapEntry('caller_identification',
-              details.roles.callee.features.caller_identification),
+              details.roles!.callee!.features!.caller_identification),
           MapEntry('payload_transparency',
-              details.roles.callee.features.payload_transparency),
+              details.roles!.callee!.features!.payload_transparency),
           MapEntry('progressive_call_results',
-              details.roles.callee.features.progressive_call_results)
+              details.roles!.callee!.features!.progressive_call_results)
         ]);
         roles.addEntries([
           MapEntry('callee', {'features': calleeFeatures})
         ]);
       }
-      if (details.roles.subscriber != null &&
-          details.roles.subscriber.features != null) {
+      if (details.roles?.subscriber != null &&
+          details.roles?.subscriber?.features != null) {
         var subscriberFeatures = {};
         subscriberFeatures.addEntries([
           MapEntry('call_canceling',
-              details.roles.subscriber.features.call_canceling),
+              details.roles!.subscriber!.features!.call_canceling),
           MapEntry(
-              'call_timeout', details.roles.subscriber.features.call_timeout),
+              'call_timeout', details.roles!.subscriber!.features!.call_timeout),
           MapEntry('payload_transparency',
-              details.roles.subscriber.features.payload_transparency),
+              details.roles!.subscriber!.features!.payload_transparency),
           MapEntry('progressive_call_results',
-              details.roles.subscriber.features.progressive_call_results),
+              details.roles!.subscriber!.features!.progressive_call_results),
           MapEntry('subscription_revocation',
-              details.roles.subscriber.features.subscription_revocation)
+              details.roles!.subscriber!.features!.subscription_revocation)
         ]);
         roles.addEntries([
           MapEntry('subscriber', {'features': subscriberFeatures})
         ]);
       }
-      if (details.roles.publisher != null &&
-          details.roles.publisher.features != null) {
+      if (details.roles?.publisher != null &&
+          details.roles?.publisher?.features != null) {
         var publisherFeatures = {};
         publisherFeatures.addEntries([
           MapEntry('publisher_identification',
-              details.roles.publisher.features.publisher_identification),
+              details.roles!.publisher!.features!.publisher_identification),
           MapEntry('subscriber_blackwhite_listing',
-              details.roles.publisher.features.subscriber_blackwhite_listing),
+              details.roles!.publisher!.features!.subscriber_blackwhite_listing),
           MapEntry('publisher_exclusion',
-              details.roles.publisher.features.publisher_exclusion),
+              details.roles!.publisher!.features!.publisher_exclusion),
           MapEntry('payload_transparency',
-              details.roles.publisher.features.payload_transparency)
+              details.roles!.publisher!.features!.payload_transparency)
         ]);
         roles.addEntries([
           MapEntry('publisher', {'features': publisherFeatures})
@@ -452,7 +454,7 @@ class Serializer extends AbstractSerializer {
       if (details.authid != null) {
         detailsParts['authid'] = details.authid;
       }
-      if (details.authmethods != null && details.authmethods.isNotEmpty) {
+      if (details.authmethods != null && details.authmethods!.isNotEmpty) {
         detailsParts['authmethods'] = details.authmethods;
       }
       if (details.authextra != null) {
@@ -464,7 +466,7 @@ class Serializer extends AbstractSerializer {
     }
   }
 
-  Uint8List _serializeSubscribeOptions(SubscribeOptions options) {
+  Uint8List _serializeSubscribeOptions(SubscribeOptions? options) {
     var subscriptionOptions = {};
     if (options != null) {
       if (options.get_retained != null) {
@@ -486,7 +488,7 @@ class Serializer extends AbstractSerializer {
     return msgpack_dart.serialize(subscriptionOptions);
   }
 
-  Uint8List _serializeRegisterOptions(RegisterOptions options) {
+  Uint8List _serializeRegisterOptions(RegisterOptions? options) {
     var registerOptions = {};
     if (options != null) {
       if (options.match != null) {
@@ -504,7 +506,7 @@ class Serializer extends AbstractSerializer {
     return msgpack_dart.serialize(registerOptions);
   }
 
-  Uint8List _serializeCallOptions(CallOptions options) {
+  Uint8List _serializeCallOptions(CallOptions? options) {
     var callOptions = {};
     if (options != null) {
       if (options.receive_progress != null) {
@@ -522,7 +524,7 @@ class Serializer extends AbstractSerializer {
     return msgpack_dart.serialize(callOptions);
   }
 
-  Uint8List _serializeYieldOptions(YieldOptions options) {
+  Uint8List _serializeYieldOptions(YieldOptions? options) {
     var yieldOptions = {};
     if (options != null) {
       if (options.progress != null) {
@@ -532,7 +534,7 @@ class Serializer extends AbstractSerializer {
     return msgpack_dart.serialize(yieldOptions);
   }
 
-  Uint8List _serializePublish(PublishOptions options) {
+  Uint8List _serializePublish(PublishOptions? options) {
     var publishDetails = {};
     if (options != null) {
       publishDetails.addEntries([
@@ -560,7 +562,7 @@ class Serializer extends AbstractSerializer {
 
   /// returns bytes to add to header and serialized payload bytes
   SerializedPayload<int, Uint8List> _serializePayload(
-      AbstractMessageWithPayload message) {
+      AbstractMessageWithPayload? message) {
     if (message != null) {
       if (message.argumentsKeywords != null) {
         return SerializedPayload(

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:html';
+import 'dart:typed_data';
 
 import 'package:logging/logging.dart';
 
@@ -16,12 +17,12 @@ class WebSocketTransport extends AbstractTransport {
   final String _url;
   final AbstractSerializer _serializer;
   final String _serializerType;
-  WebSocket _socket;
+  late WebSocket _socket;
   bool _goodbyeSent = false;
   bool _goodbyeReceived = false;
-  Completer _onConnectionLost;
-  Completer _onDisconnect;
-  Completer _onReady;
+  late Completer _onConnectionLost;
+  late Completer _onDisconnect;
+  late Completer _onReady;
 
   WebSocketTransport(
     this._url,
@@ -63,7 +64,7 @@ class WebSocketTransport extends AbstractTransport {
   /// As soon as the web socket connection is established, the returning future will complete
   /// or fail respectively
   @override
-  Future<void> open({Duration pingInterval}) async {
+  Future<void> open({Duration? pingInterval}) async {
     _onReady = Completer();
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
@@ -93,19 +94,22 @@ class WebSocketTransport extends AbstractTransport {
     if (message is Goodbye) {
       _goodbyeSent = true;
     }
-    if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
-      _socket.send(utf8.decode(_serializer.serialize(message).cast()));
-    } else {
-      _socket.send(_serializer.serialize(message).cast());
+    var serializeList = _serializer.serialize(message);
+    if(serializeList != null) {
+      if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
+        _socket.send(utf8.decode(serializeList.cast()));
+      } else {
+        _socket.send(serializeList.cast());
+      }
     }
   }
 
   /// This method return a [Stream] that streams all incoming messages as unserialized
   /// objects.
   @override
-  Stream<AbstractMessage> receive() {
+  Stream<AbstractMessage?> receive() {
     _socket.onClose.listen((closeEvent) {
-      if ((closeEvent.code == null || closeEvent.code > 1000) &&
+      if ((closeEvent.code == null || closeEvent.code! > 1000) &&
           !_goodbyeSent &&
           !_goodbyeReceived) {
         // a status code other then 1000 indicates that the server tried to quit
@@ -115,9 +119,9 @@ class WebSocketTransport extends AbstractTransport {
       }
     });
     return _socket.onMessage.map((messageEvent) {
-      AbstractMessage message;
+      AbstractMessage? message;
       if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
-        message = _serializer.deserialize(utf8.encode(messageEvent.data));
+        message = _serializer.deserialize(Uint8List.fromList(utf8.encode(messageEvent.data)));
       } else {
         message = _serializer.deserialize(messageEvent.data);
       }

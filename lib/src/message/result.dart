@@ -7,17 +7,17 @@ class Result extends AbstractMessageWithPayload {
   int callRequestId;
 
   /// The ID of the publication of the published event.
-  ResultDetails details;
+  ResultDetails? details;
 
   Result(this.callRequestId, this.details,
-      {List<Object> arguments, Map<String, Object> argumentsKeywords}) {
+      {List<dynamic>? arguments, Map<String, dynamic>? argumentsKeywords}) {
     id = MessageTypes.CODE_RESULT;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;
   }
 
   bool isProgressive() {
-    return details != null && details.progress != null && details.progress;
+    return details != null && details?.progress != null && details?.progress == true;
   }
 }
 

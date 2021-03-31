@@ -14,7 +14,7 @@ class TicketAuthentication extends AbstractAuthentication {
   /// a given [realm]. Since Ticket does not need to modify it. This method returns
   /// a completed future
   @override
-  Future<void> hello(String realm, Details details) {
+  Future<void> hello(String? realm, Details details) {
     return Future.value();
   }
 

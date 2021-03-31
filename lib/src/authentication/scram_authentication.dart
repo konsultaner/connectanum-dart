@@ -17,14 +17,14 @@ class ScramAuthentication extends AbstractAuthentication {
   static final String KDF_PBKDF2 = 'pbkdf2';
   static final int DEFAULT_KEY_LENGTH = 32;
 
-  String _secret;
-  String _authid;
-  String _helloNonce;
+  late String _secret;
+  String? _authid;
+  String? _helloNonce;
   Duration _challengeTimeout = Duration(seconds: 5);
 
   String get secret => _secret;
-  String get authid => _authid;
-  String get helloNonce => _helloNonce;
+  String? get authid => _authid;
+  String? get helloNonce => _helloNonce;
   Duration get challengeTimeout => _challengeTimeout;
 
   /// Initialized the instance with the [secret] and an optional [challengeTimeout]
@@ -42,17 +42,17 @@ class ScramAuthentication extends AbstractAuthentication {
   /// starts the timeout to cancel the challenge if it took exceptionally long
   /// to receive
   @override
-  Future<void> hello(String realm, Details details) {
+  Future<void> hello(String? realm, Details details) {
     var random = Random.secure();
     var nonceBytes = [for (int i = 0; i < 16; i++) random.nextInt(256)];
     if (details.authid != null) {
-      details.authid = Saslprep.saslprep(details.authid);
+      details.authid = Saslprep.saslprep(details.authid!);
       _authid = details.authid;
     }
     details.authextra ??= <String, dynamic>{};
-    details.authextra['nonce'] = base64.encode(nonceBytes);
-    details.authextra['channel_binding'] = null;
-    _helloNonce = details.authextra['nonce'];
+    details.authextra?['nonce'] = base64.encode(nonceBytes);
+    details.authextra?['channel_binding'] = null;
+    _helloNonce = details.authextra?['nonce'];
     Future.delayed(_challengeTimeout, () => _helloNonce = null);
     return Future.value();
   }
@@ -64,22 +64,23 @@ class ScramAuthentication extends AbstractAuthentication {
   Future<Authenticate> challenge(Extra extra) {
     if (extra.nonce == null ||
         _helloNonce == null ||
-        !_helloNonce.contains(extra.nonce.substring(0, _helloNonce.length))) {
+        !(_helloNonce as String).contains(extra.nonce?.substring(0, _helloNonce?.length) as String)) {
       return Future.error(Exception('Wrong nonce'));
     }
     var authenticate = Authenticate();
 
     authenticate.extra = HashMap<String, Object>();
-    authenticate.extra['nonce'] = extra.nonce;
-    authenticate.extra['channel_binding'] = null;
-    authenticate.extra['cbind_data'] = null;
+    authenticate.extra?['nonce'] = extra.nonce;
+    authenticate.extra?['channel_binding'] = null;
+    authenticate.extra?['cbind_data'] = null;
     if (extra.kdf == KDF_PBKDF2) {
       authenticate.signature =
-          challengePBKDF2(_authid, _helloNonce, extra, authenticate.extra);
+          challengePBKDF2(_authid, _helloNonce, extra, authenticate.extra as HashMap<String, dynamic>?);
     }
     if (authenticate.signature == null) {
+      var errorKdfText = extra.kdf == null ? 'null' : extra.kdf as String;
       return Future.error(
-          Exception('not supported key derivation function used ' + extra.kdf));
+          Exception('not supported key derivation function used ' + errorKdfText));
     }
     return Future.value(authenticate);
   }
@@ -87,15 +88,15 @@ class ScramAuthentication extends AbstractAuthentication {
   /// Calculates the client proof according to the [WAMP-SCRAM specs](https://wamp-proto.org/_static/gen/wamp_latest.html#authmessage) where
   /// [authId] is the username that has already been saslpreped with [Saslprep.saslprep(input)] and [helloNonce] is a randomly generated nonce according
   /// to the WAMP-SCRAM specs. The keylength is 32 according to the WAMP-SCRAM specs
-  String challengePBKDF2(String authId, String helloNonce, Extra challengeExtra,
-      HashMap<String, Object> authExtra) {
+  String challengePBKDF2(String? authId, String? helloNonce, Extra challengeExtra,
+      HashMap<String, dynamic>? authExtra) {
     var saltedPassword = CraAuthentication.deriveKey(
         _secret,
         challengeExtra.salt == null
             ? CraAuthentication.DEFAULT_KEY_SALT
-            : base64.decode(challengeExtra.salt),
-        iterations: challengeExtra.iterations,
-        keylen: DEFAULT_KEY_LENGTH);
+            : base64.decode(challengeExtra.salt!),
+        iterations: challengeExtra.iterations != null ? challengeExtra.iterations as int : 1000,
+        keylen: DEFAULT_KEY_LENGTH) as Uint8List;
     var clientKey = CraAuthentication.encodeByteHmac(
         saltedPassword, DEFAULT_KEY_LENGTH, 'Client Key'.codeUnits);
     var storedKey = SHA256Digest().process(Uint8List.fromList(clientKey));
@@ -112,23 +113,25 @@ class ScramAuthentication extends AbstractAuthentication {
   }
 
   /// This creates the SCRAM authmessage according to the [WAMP-SCRAM specs](https://wamp-proto.org/_static/gen/wamp_latest.html#authmessage)
-  static String createAuthMessage(String authId, String helloNonce,
-      HashMap authExtra, Extra challengeExtra) {
+  static String createAuthMessage(String? authId, String? helloNonce,
+      HashMap? authExtra, Extra challengeExtra) {
+    authId ??= '';
+    helloNonce ??= '';
     var clientFirstBare =
         'n=' + Saslprep.saslprep(authId) + ',' + 'r=' + helloNonce;
     var serverFirst = 'r=' +
-        challengeExtra.nonce +
+        (challengeExtra.nonce != null ? challengeExtra.nonce as String : 'null') +
         ',s=' +
-        challengeExtra.salt +
+        (challengeExtra.salt != null ? challengeExtra.salt as String : 'null') +
         ',i=' +
         challengeExtra.iterations.toString();
-    String cBindName = authExtra['channel_binding'];
-    String cBindData = authExtra['cbind_data'];
+    String? cBindName = authExtra?['channel_binding'];
+    String? cBindData = authExtra?['cbind_data'];
     var cBindFlag = cBindName == null ? 'n' : 'p=' + cBindName;
     var cBindInput =
-        cBindFlag + ',,' + (cBindData == null ? '' : base64.decode(cBindData));
+        cBindFlag + ',,' + (cBindData == null ? '' : base64.decode(cBindData).toString());
     var clientFinalNoProof =
-        'c=' + base64.encode(cBindInput.codeUnits) + ',r=' + authExtra['nonce'];
+        'c=' + base64.encode(cBindInput.codeUnits) + ',r=' + authExtra?['nonce'];
     return clientFirstBare + ',' + serverFirst + ',' + clientFinalNoProof;
   }
 

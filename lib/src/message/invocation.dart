@@ -11,35 +11,37 @@ class Invocation extends AbstractMessageWithPayload {
   int requestId;
   int registrationId;
   InvocationDetails details;
-  StreamController<AbstractMessageWithPayload> _responseStreamController;
+  StreamController<AbstractMessageWithPayload>? _responseStreamController;
 
   void respondWith(
-      {List<Object> arguments,
-      Map<String, Object> argumentsKeywords,
+      {List<dynamic>? arguments,
+      Map<String, dynamic>? argumentsKeywords,
       bool isError = false,
-      String errorUri,
+      String? errorUri,
       bool progressive = false}) {
     if (isError) {
-      assert(progressive == false);
-      assert(UriPattern.match(errorUri));
-      final error = Error(
-          MessageTypes.CODE_INVOCATION, requestId, HashMap(), errorUri,
-          arguments: arguments, argumentsKeywords: argumentsKeywords);
-      _responseStreamController.add(error);
+      if(errorUri != null) {
+        assert(progressive == false);
+        assert(UriPattern.match(errorUri));
+        final error = Error(
+            MessageTypes.CODE_INVOCATION, requestId, HashMap(), errorUri,
+            arguments: arguments, argumentsKeywords: argumentsKeywords);
+        _responseStreamController?.add(error);
+      }
     } else {
       final yield = Yield(requestId,
           options: YieldOptions(progressive),
           arguments: arguments,
           argumentsKeywords: argumentsKeywords);
-      _responseStreamController.add(yield);
+      _responseStreamController?.add(yield);
     }
     if (!progressive) {
-      _responseStreamController.close();
+      _responseStreamController?.close();
     }
   }
 
   Invocation(this.requestId, this.registrationId, this.details,
-      {List<Object> arguments, Map<String, Object> argumentsKeywords}) {
+      {List<Object>? arguments, Map<String, Object>? argumentsKeywords}) {
     id = MessageTypes.CODE_INVOCATION;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;
@@ -53,16 +55,16 @@ class Invocation extends AbstractMessageWithPayload {
       void Function(AbstractMessageWithPayload invocationResultMessage)
           onData) {
     _responseStreamController = StreamController<AbstractMessageWithPayload>();
-    _responseStreamController.stream.listen(onData);
+    _responseStreamController?.stream.listen(onData);
   }
 }
 
 class InvocationDetails {
   // caller_identification == true
-  int caller;
+  int? caller;
 
   // pattern_based_registration == true
-  String procedure;
+  String? procedure;
 
   // pattern_based_registration == true
   bool receive_progress;

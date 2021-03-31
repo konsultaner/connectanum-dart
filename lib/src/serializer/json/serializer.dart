@@ -41,12 +41,12 @@ class Serializer extends AbstractSerializer {
 
   /// Converts a uint8 JSON message into a WAMP message object
   @override
-  AbstractMessage deserialize(Uint8List jsonMessage) {
+  AbstractMessage? deserialize(Uint8List jsonMessage) {
     return deserializeFromString(Utf8Decoder().convert(jsonMessage));
   }
 
   /// Converts a string JSON message into a WAMP message object
-  AbstractMessage deserializeFromString(String jsonMessage) {
+  AbstractMessage? deserializeFromString(String jsonMessage) {
     Object message = json.decode(jsonMessage);
     if (message is List) {
       int messageId = message[0];
@@ -72,86 +72,86 @@ class Serializer extends AbstractSerializer {
         if (message[2]['authextra'] != null) {
           (message[2]['authextra'] as Map).forEach((key, value) {
             details.authextra ??= <String, dynamic>{};
-            details.authextra[key] = value;
+            details.authextra?[key] = value;
           });
         }
         if (message[2]['roles'] != null) {
           details.roles = Roles();
           if (message[2]['roles']['dealer'] != null) {
-            details.roles.dealer = Dealer();
+            details.roles?.dealer = Dealer();
             if (message[2]['roles']['broker']['features'] != null) {
-              details.roles.dealer.features = DealerFeatures();
-              details.roles.dealer.features.caller_identification = message[2]
+              details.roles?.dealer?.features = DealerFeatures();
+              details.roles?.dealer?.features?.caller_identification = message[2]
                           ['roles']['dealer']['features']
                       ['caller_identification'] ??
                   false;
-              details.roles.dealer.features.call_trustlevels = message[2]
+              details.roles?.dealer?.features?.call_trustlevels = message[2]
                       ['roles']['dealer']['features']['call_trustlevels'] ??
                   false;
-              details.roles.dealer.features.pattern_based_registration =
+              details.roles?.dealer?.features?.pattern_based_registration =
                   message[2]['roles']['dealer']['features']
                           ['pattern_based_registration'] ??
                       false;
-              details.roles.dealer.features.registration_meta_api = message[2]
+              details.roles?.dealer?.features?.registration_meta_api = message[2]
                           ['roles']['dealer']['features']
                       ['registration_meta_api'] ??
                   false;
-              details.roles.dealer.features.shared_registration = message[2]
+              details.roles?.dealer?.features?.shared_registration = message[2]
                       ['roles']['dealer']['features']['shared_registration'] ??
                   false;
-              details.roles.dealer.features.session_meta_api = message[2]
+              details.roles?.dealer?.features?.session_meta_api = message[2]
                       ['roles']['dealer']['features']['session_meta_api'] ??
                   false;
-              details.roles.dealer.features.call_timeout = message[2]['roles']
+              details.roles?.dealer?.features?.call_timeout = message[2]['roles']
                       ['dealer']['features']['call_timeout'] ??
                   false;
-              details.roles.dealer.features.call_canceling = message[2]['roles']
+              details.roles?.dealer?.features?.call_canceling = message[2]['roles']
                       ['dealer']['features']['call_canceling'] ??
                   false;
-              details.roles.dealer.features.progressive_call_results =
+              details.roles?.dealer?.features?.progressive_call_results =
                   // ignore: prefer_single_quotes
                   message[2]['roles']['dealer']['features']
                           ['progressive_call_results'] ??
                       false;
-              details.roles.dealer.features.payload_transparency = message[2]
+              details.roles?.dealer?.features?.payload_transparency = message[2]
                       ['roles']['dealer']['features']['payload_transparency'] ??
                   false;
             }
           }
           if (message[2]['roles']['broker'] != null) {
-            details.roles.broker = Broker();
+            details.roles?.broker = Broker();
             if (message[2]['roles']['broker']['features'] != null) {
-              details.roles.broker.features = BrokerFeatures();
-              details.roles.broker.features.publisher_identification =
+              details.roles?.broker?.features = BrokerFeatures();
+              details.roles?.broker?.features?.publisher_identification =
                   message[2]['roles']['broker']['features']
                           ['publisher_identification'] ??
                       false;
-              details.roles.broker.features.publication_trustlevels = message[2]
+              details.roles?.broker?.features?.publication_trustlevels = message[2]
                           ['roles']['broker']['features']
                       ['publication_trustlevels'] ??
                   false;
-              details.roles.broker.features.pattern_based_subscription =
+              details.roles?.broker?.features?.pattern_based_subscription =
                   message[2]['roles']['broker']['features']
                           ['pattern_based_subscription'] ??
                       false;
-              details.roles.broker.features.subscription_meta_api = message[2]
+              details.roles?.broker?.features?.subscription_meta_api = message[2]
                           ['roles']['broker']['features']
                       ['subscription_meta_api'] ??
                   false;
-              details.roles.broker.features.subscriber_blackwhite_listing =
+              details.roles?.broker?.features?.subscriber_blackwhite_listing =
                   message[2]['roles']['broker']['features']
                           ['subscriber_blackwhite_listing'] ??
                       false;
-              details.roles.broker.features.session_meta_api = message[2]
+              details.roles?.broker?.features?.session_meta_api = message[2]
                       ['roles']['broker']['features']['session_meta_api'] ??
                   false;
-              details.roles.broker.features.publisher_exclusion = message[2]
+              details.roles?.broker?.features?.publisher_exclusion = message[2]
                       ['roles']['broker']['features']['publisher_exclusion'] ??
                   false;
-              details.roles.broker.features.event_history = message[2]['roles']
+              details.roles?.broker?.features?.event_history = message[2]['roles']
                       ['broker']['features']['event_history'] ??
                   false;
-              details.roles.broker.features.payload_transparency = message[2]
+              details.roles?.broker?.features?.payload_transparency = message[2]
                       ['roles']['broker']['features']['payload_transparency'] ??
                   false;
             }
@@ -227,7 +227,7 @@ class Serializer extends AbstractSerializer {
   }
 
   AbstractMessageWithPayload _addPayload(AbstractMessageWithPayload message,
-      List<Object> messageData, argumentsOffset) {
+      List<dynamic> messageData, argumentsOffset) {
     if (messageData.length == argumentsOffset + 1 &&
         messageData[argumentsOffset] is String) {
       if ((messageData[argumentsOffset] as String).startsWith(_binaryPrefix)) {
@@ -248,13 +248,13 @@ class Serializer extends AbstractSerializer {
 
   void _convertMessagePayloadBinaryJsonStringToUint8List(
       AbstractMessageWithPayload message) {
-    if (message.arguments != null && message.arguments.isNotEmpty) {
-      _convertListEntriesBinaryJsonStringToUint8List(message.arguments);
+    if (message.arguments != null && message.arguments?.isNotEmpty == true) {
+      _convertListEntriesBinaryJsonStringToUint8List(message.arguments as List);
     }
 
     if (message.argumentsKeywords != null &&
-        message.argumentsKeywords.isNotEmpty) {
-      _convertMapEntriesBinaryJsonStringToUint8List(message.argumentsKeywords);
+        message.argumentsKeywords?.isNotEmpty == true) {
+      _convertMapEntriesBinaryJsonStringToUint8List(message.argumentsKeywords as Map);
     }
   }
 
@@ -299,7 +299,7 @@ class Serializer extends AbstractSerializer {
   /// Converts a WAMP message object into a string json message
   String serializeToString(AbstractMessage message) {
     if (message is Hello) {
-      return '[${MessageTypes.CODE_HELLO},${message.realm == null ? 'null' : '"' + message.realm + '"'},${_serializeDetails(message.details)}]';
+      return '[${MessageTypes.CODE_HELLO},${message.realm == null ? 'null' : '"' + message.realm! + '"'},${_serializeDetails(message.details)}]';
     }
     if (message is Authenticate) {
       return '[${MessageTypes.CODE_AUTHENTICATE},"${message.signature ?? ""}",${message.extra == null ? '{}' : json.encode(message.extra)}]';
@@ -336,10 +336,10 @@ class Serializer extends AbstractSerializer {
       return '[${MessageTypes.CODE_ERROR},${message.requestTypeId},${message.requestId},${json.encode(message.details)},"${message.error}"${_serializePayload(message)}]';
     }
     if (message is Abort) {
-      return '[${MessageTypes.CODE_ABORT},${message.message != null ? '{"message":"${message.message.message ?? ""}"}' : "{}"},"${message.reason}"]';
+      return '[${MessageTypes.CODE_ABORT},${message.message != null ? '{"message":"${message.message?.message ?? ""}"}' : "{}"},"${message.reason}"]';
     }
     if (message is Goodbye) {
-      return '[${MessageTypes.CODE_GOODBYE},${message.message != null ? '{"message":"${message.message.message ?? ""}"}' : "{}"},"${message.reason}"]';
+      return '[${MessageTypes.CODE_GOODBYE},${message.message != null ? '{"message":"${message.message?.message ?? ""}"}' : "{}"},"${message.reason}"]';
     }
 
     _logger.shout(
@@ -350,69 +350,69 @@ class Serializer extends AbstractSerializer {
   String _serializeDetails(Details details) {
     if (details.roles != null) {
       var rolesJson = [];
-      if (details.roles.caller != null &&
-          details.roles.caller.features != null) {
+      if (details.roles?.caller != null &&
+          details.roles?.caller?.features != null) {
         var callerFeatures = [];
         callerFeatures.add(
-            '"call_canceling":${details.roles.caller.features.call_canceling ? "true" : "false"}');
+            '"call_canceling":${details.roles?.caller?.features?.call_canceling == true ? "true" : "false"}');
         callerFeatures.add(
-            '"call_timeout":${details.roles.caller.features.call_timeout ? "true" : "false"}');
+            '"call_timeout":${details.roles?.caller?.features?.call_timeout == true ? "true" : "false"}');
         callerFeatures.add(
-            '"caller_identification":${details.roles.caller.features.caller_identification ? "true" : "false"}');
+            '"caller_identification":${details.roles?.caller?.features?.caller_identification == true ? "true" : "false"}');
         callerFeatures.add(
-            '"payload_transparency":${details.roles.caller.features.payload_transparency ? "true" : "false"}');
+            '"payload_transparency":${details.roles?.caller?.features?.payload_transparency == true ? "true" : "false"}');
         callerFeatures.add(
-            '"progressive_call_results":${details.roles.caller.features.progressive_call_results ? "true" : "false"}');
+            '"progressive_call_results":${details.roles?.caller?.features?.progressive_call_results == true ? "true" : "false"}');
         rolesJson.add('"caller":{"features":{${callerFeatures.join(",")}}}');
       }
-      if (details.roles.callee != null &&
-          details.roles.callee.features != null) {
+      if (details.roles?.callee != null &&
+          details.roles?.callee?.features != null) {
         var calleeFeatures = [];
         calleeFeatures.add(
-            '"caller_identification":${details.roles.callee.features.caller_identification ? "true" : "false"}');
+            '"caller_identification":${details.roles?.callee?.features?.caller_identification == true ? "true" : "false"}');
         calleeFeatures.add(
-            '"call_trustlevels":${details.roles.callee.features.call_trustlevels ? "true" : "false"}');
+            '"call_trustlevels":${details.roles?.callee?.features?.call_trustlevels == true ? "true" : "false"}');
         calleeFeatures.add(
-            '"pattern_based_registration":${details.roles.callee.features.pattern_based_registration ? "true" : "false"}');
+            '"pattern_based_registration":${details.roles?.callee?.features?.pattern_based_registration == true ? "true" : "false"}');
         calleeFeatures.add(
-            '"shared_registration":${details.roles.callee.features.shared_registration ? "true" : "false"}');
+            '"shared_registration":${details.roles?.callee?.features?.shared_registration == true ? "true" : "false"}');
         calleeFeatures.add(
-            '"call_timeout":${details.roles.callee.features.call_timeout ? "true" : "false"}');
+            '"call_timeout":${details.roles?.callee?.features?.call_timeout == true ? "true" : "false"}');
         calleeFeatures.add(
-            '"call_canceling":${details.roles.callee.features.call_canceling ? "true" : "false"}');
+            '"call_canceling":${details.roles?.callee?.features?.call_canceling == true ? "true" : "false"}');
         calleeFeatures.add(
-            '"progressive_call_results":${details.roles.callee.features.progressive_call_results ? "true" : "false"}');
+            '"progressive_call_results":${details.roles?.callee?.features?.progressive_call_results == true ? "true" : "false"}');
         calleeFeatures.add(
-            '"payload_transparency":${details.roles.callee.features.payload_transparency ? "true" : "false"}');
+            '"payload_transparency":${details.roles?.callee?.features?.payload_transparency == true ? "true" : "false"}');
         rolesJson.add('"callee":{"features":{${calleeFeatures.join(",")}}}');
       }
-      if (details.roles.subscriber != null &&
-          details.roles.subscriber.features != null) {
+      if (details.roles?.subscriber != null &&
+          details.roles?.subscriber?.features != null) {
         var subscriberFeatures = [];
         subscriberFeatures.add(
-            '"call_timeout":${details.roles.subscriber.features.call_timeout ? "true" : "false"}');
+            '"call_timeout":${details.roles?.subscriber?.features?.call_timeout == true ? "true" : "false"}');
         subscriberFeatures.add(
-            '"call_canceling":${details.roles.subscriber.features.call_canceling ? "true" : "false"}');
+            '"call_canceling":${details.roles?.subscriber?.features?.call_canceling == true ? "true" : "false"}');
         subscriberFeatures.add(
-            '"progressive_call_results":${details.roles.subscriber.features.progressive_call_results ? "true" : "false"}');
+            '"progressive_call_results":${details.roles?.subscriber?.features?.progressive_call_results == true ? "true" : "false"}');
         subscriberFeatures.add(
-            '"payload_transparency":${details.roles.subscriber.features.payload_transparency ? "true" : "false"}');
+            '"payload_transparency":${details.roles?.subscriber?.features?.payload_transparency == true ? "true" : "false"}');
         subscriberFeatures.add(
-            '"subscription_revocation":${details.roles.subscriber.features.subscription_revocation ? "true" : "false"}');
+            '"subscription_revocation":${details.roles?.subscriber?.features?.subscription_revocation == true ? "true" : "false"}');
         rolesJson
             .add('"subscriber":{"features":{${subscriberFeatures.join(",")}}}');
       }
-      if (details.roles.publisher != null &&
-          details.roles.publisher.features != null) {
+      if (details.roles?.publisher != null &&
+          details.roles?.publisher?.features != null) {
         var publisherFeatures = [];
         publisherFeatures.add(
-            '"publisher_identification":${details.roles.publisher.features.publisher_identification ? "true" : "false"}');
+            '"publisher_identification":${details.roles?.publisher?.features?.publisher_identification == true ? "true" : "false"}');
         publisherFeatures.add(
-            '"subscriber_blackwhite_listing":${details.roles.publisher.features.subscriber_blackwhite_listing ? "true" : "false"}');
+            '"subscriber_blackwhite_listing":${details.roles?.publisher?.features?.subscriber_blackwhite_listing == true ? "true" : "false"}');
         publisherFeatures.add(
-            '"publisher_exclusion":${details.roles.publisher.features.publisher_exclusion ? "true" : "false"}');
+            '"publisher_exclusion":${details.roles?.publisher?.features?.publisher_exclusion == true ? "true" : "false"}');
         publisherFeatures.add(
-            '"payload_transparency":${details.roles.publisher.features.payload_transparency ? "true" : "false"}');
+            '"payload_transparency":${details.roles?.publisher?.features?.payload_transparency == true ? "true" : "false"}');
         rolesJson
             .add('"publisher":{"features":{${publisherFeatures.join(",")}}}');
       }
@@ -420,9 +420,9 @@ class Serializer extends AbstractSerializer {
       if (details.authid != null) {
         detailsParts.add('"authid":"${details.authid}"');
       }
-      if (details.authmethods != null && details.authmethods.isNotEmpty) {
+      if (details.authmethods != null && details.authmethods?.isNotEmpty == true) {
         detailsParts
-            .add('"authmethods":["${details.authmethods.join('","')}"]');
+            .add('"authmethods":["${details.authmethods?.join('","')}"]');
       }
       if (details.authextra != null) {
         detailsParts.add('"authextra":${json.encode(details.authextra)}');
@@ -433,12 +433,12 @@ class Serializer extends AbstractSerializer {
     }
   }
 
-  String _serializeSubscribeOptions(SubscribeOptions options) {
+  String _serializeSubscribeOptions(SubscribeOptions? options) {
     var jsonOptions = [];
     if (options != null) {
       if (options.get_retained != null) {
         jsonOptions
-            .add('"get_retained":${options.get_retained ? "true" : "false"}');
+            .add('"get_retained":${options.get_retained == true ? "true" : "false"}');
       }
       if (options.match != null) {
         jsonOptions.add('"match":"${options.match}"');
@@ -449,14 +449,14 @@ class Serializer extends AbstractSerializer {
       options
           .getCustomValues<String>(SubscribeOptions.CUSTOM_SERIALIZER_JSON)
           .forEach((key, value) {
-        jsonOptions.add('"${key}":${value}');
+        jsonOptions.add('"$key":$value');
       });
     }
 
     return '{' + jsonOptions.join(',') + '}';
   }
 
-  String _serializeRegisterOptions(RegisterOptions options) {
+  String _serializeRegisterOptions(RegisterOptions? options) {
     var jsonOptions = [];
     if (options != null) {
       if (options.match != null) {
@@ -464,7 +464,7 @@ class Serializer extends AbstractSerializer {
       }
       if (options.disclose_caller != null) {
         jsonOptions.add(
-            '"disclose_caller":${options.disclose_caller ? 'true' : 'false'}');
+            '"disclose_caller":${options.disclose_caller == true ? 'true' : 'false'}');
       }
       if (options.invoke != null) {
         jsonOptions.add('"invoke":"${options.invoke}"');
@@ -474,16 +474,16 @@ class Serializer extends AbstractSerializer {
     return '{' + jsonOptions.join(',') + '}';
   }
 
-  String _serializeCallOptions(CallOptions options) {
+  String _serializeCallOptions(CallOptions? options) {
     var jsonOptions = [];
     if (options != null) {
       if (options.receive_progress != null) {
         jsonOptions.add(
-            '"receive_progress":${options.receive_progress ? "true" : "false"}');
+            '"receive_progress":${options.receive_progress == true ? "true" : "false"}');
       }
       if (options.disclose_me != null) {
         jsonOptions
-            .add('"disclose_me":${options.disclose_me ? "true" : "false"}');
+            .add('"disclose_me":${options.disclose_me == true ? "true" : "false"}');
       }
       if (options.timeout != null) {
         jsonOptions.add('"timeout":${options.timeout}');
@@ -493,65 +493,65 @@ class Serializer extends AbstractSerializer {
     return '{' + jsonOptions.join(',') + '}';
   }
 
-  String _serializeYieldOptions(YieldOptions options) {
+  String _serializeYieldOptions(YieldOptions? options) {
     var jsonDetails = [];
     if (options != null) {
       if (options.progress != null) {
-        jsonDetails.add('"progress":${options.progress ? "true" : "false"}');
+        jsonDetails.add('"progress":${options.progress == true ? "true" : "false"}');
       }
     }
     return '{' + jsonDetails.join(',') + '}';
   }
 
-  String _serializePublish(PublishOptions options) {
+  String _serializePublish(PublishOptions? options) {
     var jsonDetails = [];
     if (options != null) {
       if (options.retain != null) {
-        jsonDetails.add('"retain":${options.retain ? "true" : "false"}');
+        jsonDetails.add('"retain":${options.retain == true ? "true" : "false"}');
       }
       if (options.disclose_me != null) {
         jsonDetails
-            .add('"disclose_me":${options.disclose_me ? "true" : "false"}');
+            .add('"disclose_me":${options.disclose_me == true ? "true" : "false"}');
       }
       if (options.acknowledge != null) {
         jsonDetails
-            .add('"acknowledge":${options.acknowledge ? "true" : "false"}');
+            .add('"acknowledge":${options.acknowledge == true ? "true" : "false"}');
       }
       if (options.exclude_me != null) {
         jsonDetails
-            .add('"exclude_me":${options.exclude_me ? "true" : "false"}');
+            .add('"exclude_me":${options.exclude_me == true ? "true" : "false"}');
       }
       if (options.exclude != null) {
-        jsonDetails.add('"exclude":[${options.exclude.join(",")}]');
+        jsonDetails.add('"exclude":[${options.exclude?.join(",")}]');
       }
       if (options.exclude_authid != null) {
         jsonDetails
-            .add('"exclude_authid":["${options.exclude_authid.join('","')}"]');
+            .add('"exclude_authid":["${options.exclude_authid?.join('","')}"]');
       }
       if (options.exclude_authrole != null) {
         jsonDetails.add(
-            '"exclude_authrole":["${options.exclude_authrole.join('","')}"]');
+            '"exclude_authrole":["${options.exclude_authrole?.join('","')}"]');
       }
       if (options.eligible != null) {
-        jsonDetails.add('"eligible":[${options.eligible.join(",")}]');
+        jsonDetails.add('"eligible":[${options.eligible?.join(",")}]');
       }
       if (options.eligible_authid != null) {
         jsonDetails.add(
-            '"eligible_authid":["${options.eligible_authid.join('","')}"]');
+            '"eligible_authid":["${options.eligible_authid?.join('","')}"]');
       }
       if (options.eligible_authrole != null) {
         jsonDetails.add(
-            '"eligible_authrole":["${options.eligible_authrole.join('","')}"]');
+            '"eligible_authrole":["${options.eligible_authrole?.join('","')}"]');
       }
     }
     return '{' + jsonDetails.join(',') + '}';
   }
 
-  String _serializePayload(AbstractMessageWithPayload message) {
+  String _serializePayload(AbstractMessageWithPayload? message) {
     if (message != null) {
       _convertMessagePayloadUint8ListToBinaryJsonString(message);
       if (message.transparentBinaryPayload != null) {
-        return ',${json.encode(_convertUint8ListToString(message.transparentBinaryPayload))}';
+        return ',${json.encode(_convertUint8ListToString(message.transparentBinaryPayload!))}';
       } else {
         if (message.argumentsKeywords != null) {
           return ',${json.encode(message.arguments ?? [])},${json.encode(message.argumentsKeywords)}';
@@ -565,13 +565,13 @@ class Serializer extends AbstractSerializer {
 
   void _convertMessagePayloadUint8ListToBinaryJsonString(
       AbstractMessageWithPayload message) {
-    if (message.arguments != null && message.arguments.isNotEmpty) {
-      _convertListEntriesUint8ListToBinaryJsonString(message.arguments);
+    if (message.arguments != null && message.arguments?.isNotEmpty == true) {
+      _convertListEntriesUint8ListToBinaryJsonString(message.arguments as List);
     }
 
     if (message.argumentsKeywords != null &&
-        message.argumentsKeywords.isNotEmpty) {
-      _convertMapEntriesUint8ListToBinaryJsonString(message.argumentsKeywords);
+        message.argumentsKeywords?.isNotEmpty == true) {
+      _convertMapEntriesUint8ListToBinaryJsonString(message.argumentsKeywords as Map);
     }
   }
 

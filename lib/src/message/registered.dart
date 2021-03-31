@@ -6,9 +6,9 @@ import 'invocation.dart';
 class Registered extends AbstractMessage {
   int registerRequestId;
   int registrationId;
-  String procedure;
+  String? procedure;
 
-  Stream<Invocation> _invocationStream;
+  Stream<Invocation>? _invocationStream;
 
   set invocationStream(Stream<Invocation> invocationStream) {
     _invocationStream = invocationStream;
@@ -18,7 +18,7 @@ class Registered extends AbstractMessage {
   /// method will result an error message to the transport or router respectively
   void onInvoke(void Function(Invocation invocation) onInvoke) {
     if (_invocationStream != null) {
-      _invocationStream.listen((Invocation invocation) {
+      _invocationStream?.listen((Invocation invocation) {
         try {
           onInvoke(invocation);
         } on Exception catch (e) {

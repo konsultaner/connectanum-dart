@@ -21,13 +21,13 @@ void main() {
       final transport = SocketTransport(
           '127.0.0.1', 8998, Serializer(), SocketHelper.SERIALIZATION_JSON);
       await transport.open();
-      transport.receive().listen((event) {});
+      transport.receive()!.listen((event) {});
       await transport.close();
     });
   });
   group('Socket protocol negotiation', () {
     test('Opening with max header', () async {
-      var handshakes = <Uint8List>[null, null];
+      var handshakes = <Uint8List?>[null, null];
       var serializer = Serializer();
       final server = await ServerSocket.bind('0.0.0.0', 8999);
       server.listen((socket) {
@@ -54,14 +54,14 @@ void main() {
       unawaited(transport.onReady.then((aVoid) {
         handshakeCompleter.complete();
       }));
-      transport.receive().listen((message) {});
+      transport.receive()!.listen((message) {});
       await handshakeCompleter.future;
-      expect(handshakes[0][0], equals(0x7F));
+      expect(handshakes[0]?[0], equals(0x7F));
       expect(transport.maxMessageLength, equals(pow(2, 30)));
-      expect(handshakes[1][0], equals(0x3F));
+      expect(handshakes[1]?[0], equals(0x3F));
     });
     test('Opening with server only allowing power of 20', () async {
-      var handshakes = <Uint8List>[null, null];
+      var handshakes = <Uint8List?>[null, null];
       var serializer = Serializer();
       final server = await ServerSocket.bind('0.0.0.0', 9001);
       server.listen((socket) {
@@ -82,14 +82,14 @@ void main() {
       unawaited(transport.onReady.then((aVoid) {
         handshakeCompleter.complete();
       }));
-      transport.receive().listen((message) {});
+      transport.receive()!.listen((message) {});
       await handshakeCompleter.future;
-      expect(handshakes[0][0], equals(0x7F));
+      expect(handshakes[0]?[0], equals(0x7F));
       expect(transport.maxMessageLength, equals(pow(2, 20)));
       expect(handshakes[1], equals(null));
     });
     test('Opening with client max header of 20', () async {
-      var handshakes = <Uint8List>[null, null];
+      var handshakes = <Uint8List?>[null, null];
       var serializer = Serializer();
       final server = await ServerSocket.bind('0.0.0.0', 9002);
       server.listen((socket) {
@@ -116,9 +116,9 @@ void main() {
       unawaited(transport.onReady.then((aVoid) {
         handshakeCompleter.complete();
       }));
-      transport.receive().listen((message) {});
+      transport.receive()!.listen((message) {});
       await handshakeCompleter.future;
-      expect(handshakes[0][0], equals(0x7F));
+      expect(handshakes[0]?[0], equals(0x7F));
       expect(transport.maxMessageLength, equals(pow(2, 20)));
       expect(handshakes[1], equals(null));
     });
@@ -153,7 +153,7 @@ void main() {
       var errorCompleter = Completer();
       unawaited(transport.onReady.then((aVoid) {},
           onError: (error) => errorCompleter.complete(error)));
-      transport.receive().listen((message) {},
+      transport.receive()!.listen((message) {},
           onError: (error) => transport.onDisconnect.complete(error));
       var error = await errorCompleter.future;
       expect(error['error'], isNotNull);
@@ -170,7 +170,7 @@ void main() {
       errorCompleter = Completer();
       unawaited(transport.onReady.then((aVoid) {},
           onError: (error) => errorCompleter.complete(error)));
-      transport.receive().listen((message) {},
+      transport.receive()!.listen((message) {},
           onError: (error) => transport.onDisconnect.complete(error),
           cancelOnError: true);
       error = await errorCompleter.future;
@@ -188,7 +188,7 @@ void main() {
       errorCompleter = Completer();
       unawaited(transport.onReady.then((aVoid) {},
           onError: (error) => errorCompleter.complete(error)));
-      transport.receive().listen((message) {},
+      transport.receive()!.listen((message) {},
           onError: (error) => transport.onDisconnect.complete(error));
       error = await errorCompleter.future;
       expect(error['error'], isNotNull);
@@ -205,7 +205,7 @@ void main() {
       errorCompleter = Completer();
       unawaited(transport.onReady.then((aVoid) {},
           onError: (error) => errorCompleter.complete(error)));
-      transport.receive().listen((message) {},
+      transport.receive()!.listen((message) {},
           onError: (error) => transport.onDisconnect.complete(error));
       error = await errorCompleter.future;
       expect(error['error'], isNotNull);
@@ -246,7 +246,7 @@ void main() {
           '127.0.0.1', 9004, serializer, SocketHelper.SERIALIZATION_JSON,
           messageLengthExponent: SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT);
       await transport.open();
-      transport.receive().listen((message) {});
+      transport.receive()!.listen((message) {});
       await transport.isOpen;
       var pong = await transport.sendPing();
       expect(pong, isNotNull);
