@@ -26,12 +26,11 @@ class CryptosignAuthentication extends AbstractAuthentication {
   static final String OPEN_SSH_FOOTER = '-----END OPENSSH PRIVATE KEY-----';
 
   final SigningKey privateKey;
-  final String channelBinding;
+  final String? channelBinding;
 
   /// This is the default constructor that will take an already gathered [privateKey]
   /// integer list to initialize the cryptosign authentication method.
-  CryptosignAuthentication(this.privateKey, this.channelBinding)
-      : assert(privateKey != null) {
+  CryptosignAuthentication(this.privateKey, this.channelBinding) {
     if (channelBinding != null) {
       throw UnimplementedError('Channel binding is not supported yet!');
     }
@@ -42,7 +41,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
   /// must have a ed25519 key file. If the file was password protected, the
   /// optional [password] will decrypt the private key.
   factory CryptosignAuthentication.fromPuttyPrivateKey(String ppkFileContent,
-      {String password}) {
+      {String? password}) {
     return CryptosignAuthentication(
         SigningKey.fromSeed(
             loadPrivateKeyFromPpk(ppkFileContent, password: password)),
@@ -55,7 +54,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
   /// optional [password] will decrypt the private key.
   factory CryptosignAuthentication.fromOpenSshPrivateKey(
       String openSshFileContent,
-      {String password}) {
+      {String? password}) {
     return CryptosignAuthentication(
         SigningKey.fromSeed(loadPrivateKeyFromOpenSSHPem(openSshFileContent,
             password: password)),
@@ -84,21 +83,21 @@ class CryptosignAuthentication extends AbstractAuthentication {
     if (extra.channel_binding != channelBinding) {
       return Future.error(Exception('Channel Binding does not match'));
     }
-    if (extra.challenge.length % 2 != 0) {
+    if (extra.challenge!.length % 2 != 0) {
       return Future.error(Exception('Wrong challenge length'));
     }
     var authenticate = Authenticate();
 
-    authenticate.extra = HashMap<String, Object>();
-    authenticate.extra['channel_binding'] = channelBinding;
-    var binaryChallenge = hexToBin(extra.challenge);
+    authenticate.extra = HashMap<String, dynamic>();
+    authenticate.extra!['channel_binding'] = channelBinding;
+    var binaryChallenge = hexToBin(extra.challenge!);
     authenticate.signature =
         privateKey.sign(binaryChallenge).encode(HexCoder.instance);
     return Future.value(authenticate);
   }
 
   /// This method converts a given [hexString] to its byte representation.
-  static List<int> hexToBin(String hexString) {
+  static List<int> hexToBin(String? hexString) {
     if (hexString == null || hexString.length % 2 != 0) {
       throw Exception('odd hex string length');
     }
@@ -115,9 +114,9 @@ class CryptosignAuthentication extends AbstractAuthentication {
   @override
   Future<void> hello(String realm, Details details) {
     details.authextra ??= <String, String>{};
-    details.authextra['pubkey'] =
+    details.authextra!['pubkey'] =
         privateKey.publicKey.encode(HexCoder.instance);
-    details.authextra['channel_binding'] = channelBinding;
+    details.authextra!['channel_binding'] = channelBinding;
     return Future.value();
   }
 
@@ -129,8 +128,8 @@ class CryptosignAuthentication extends AbstractAuthentication {
 
   /// This helper method takes a [ppkFileContent] and its [password] and
   /// extracts the private key into a list.
-  static List<int> loadPrivateKeyFromPpk(String ppkFileContent,
-      {String password}) {
+  static List<int> loadPrivateKeyFromPpk(String? ppkFileContent,
+      {String? password}) {
     if (ppkFileContent == null) {
       throw Exception(
           'There is no file content provided to load a private key from!');
@@ -142,7 +141,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
     var privateKeyIndex = 0;
     var publicKey = '';
     var privateKey = '';
-    String privateMac;
+    String? privateMac;
     var lines = ppkFileContent.split('\n');
     var macData = PpkMacData();
     lines.forEach((element) {
@@ -204,7 +203,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
         privateKeyDecrypted = base64.decode(privateKey);
       }
       macData.privateKey = privateKeyDecrypted;
-      ppkMacCheck(privateMac, macData, password);
+      ppkMacCheck(privateMac!, macData, password);
       return privateKeyDecrypted.sublist(4, 36);
     } else {
       throw Exception('Wrong file format. Could not extract a private key');
@@ -246,7 +245,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
   /// war wrong or not. The [macData] is data used to compute the mac and to
   /// compare it to the given [privateMac]
   static void ppkMacCheck(
-      String privateMac, PpkMacData macData, String password) {
+      String privateMac, PpkMacData macData, String? password) {
     var sha1Hash = SHA1Digest()
       ..update(Uint8List.fromList('putty-private-key-file-mac-key'.codeUnits),
           0, 'putty-private-key-file-mac-key'.codeUnits.length);
@@ -261,23 +260,23 @@ class CryptosignAuthentication extends AbstractAuthentication {
     var mac = HMac(SHA1Digest(), 64);
     mac.init(KeyParameter(key));
     mac.update(
-        Uint8List.fromList([0, 0, 0, macData.algorithm.codeUnits.length]),
+        Uint8List.fromList([0, 0, 0, macData.algorithm!.codeUnits.length]),
         0,
         4);
     mac.update(
-        utf8.encode(macData.algorithm), 0, macData.algorithm.codeUnits.length);
+        Uint8List.fromList(utf8.encode(macData.algorithm!)), 0, macData.algorithm!.codeUnits.length);
     mac.update(
-        Uint8List.fromList([0, 0, 0, macData.encryption.codeUnits.length]),
+        Uint8List.fromList([0, 0, 0, macData.encryption!.codeUnits.length]),
         0,
         4);
-    mac.update(utf8.encode(macData.encryption), 0, macData.encryption.length);
+    mac.update(Uint8List.fromList(utf8.encode(macData.encryption!)), 0, macData.encryption!.length);
     mac.update(
-        Uint8List.fromList([0, 0, 0, macData.comment.codeUnits.length]), 0, 4);
-    mac.update(utf8.encode(macData.comment), 0, macData.comment.length);
-    mac.update(Uint8List.fromList([0, 0, 0, macData.publicKey.length]), 0, 4);
-    mac.update(macData.publicKey, 0, macData.publicKey.length);
-    mac.update(Uint8List.fromList([0, 0, 0, macData.privateKey.length]), 0, 4);
-    mac.update(macData.privateKey, 0, macData.privateKey.length);
+        Uint8List.fromList([0, 0, 0, macData.comment!.codeUnits.length]), 0, 4);
+    mac.update(Uint8List.fromList(utf8.encode(macData.comment!)), 0, macData.comment!.length);
+    mac.update(Uint8List.fromList([0, 0, 0, macData.publicKey!.length]), 0, 4);
+    mac.update(macData.publicKey, 0, macData.publicKey!.length);
+    mac.update(Uint8List.fromList([0, 0, 0, macData.privateKey!.length]), 0, 4);
+    mac.update(macData.privateKey, 0, macData.privateKey!.length);
     mac.doFinal(macResult, 0);
     if (HexCoder.instance.encode(ByteList.fromList(macResult)) != privateMac) {
       if (password == null) {
@@ -312,7 +311,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
   ///     32-bit length, comment  # comment string
   ///     padding bytes 0x010203  # pad to blocksize
   static Uint8List loadPrivateKeyFromOpenSSHPem(String pemFileContent,
-      {String password}) {
+      {String? password}) {
     if (!pemFileContent.startsWith(OPEN_SSH_HEADER) ||
         !pemFileContent.startsWith(OPEN_SSH_HEADER)) {
       throw Exception('Wrong file format');
@@ -375,7 +374,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
             keyIv);
         var key = keyIv.sublist(0, 32);
         var iv = keyIv.sublist(32, 48);
-        BlockCipher cypher;
+        BlockCipher? cypher;
         if (cypherName == 'aes256-ctr') {
           cypher = CTRBlockCipher(32, CTRStreamCipher(AESFastEngine()))
             ..init(false, ParametersWithIV(KeyParameter(key), iv));
@@ -393,7 +392,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
         var offset = 0;
         while (offset < privateKeyLength) {
           offset +=
-              cypher.processBlock(cipherText, offset, paddedPlainText, offset);
+              cypher!.processBlock(cipherText, offset, paddedPlainText, offset);
         }
         assert(offset == privateKeyLength);
 
@@ -445,7 +444,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
   /// Extracts a String from a [bytes] list at a given [offset] and [length]
   static String _readOpenSshKeyString(Uint8List bytes, int offset, length) {
     return String.fromCharCodes(
-        bytes.sublist(offset, offset + length).toList());
+        bytes.sublist(offset, (offset + length).toInt()).toList());
   }
 
   static void loadPrivateKeyFromOpenPCKS1Pem(String pemFileContent) {
@@ -462,9 +461,9 @@ class CryptosignAuthentication extends AbstractAuthentication {
 }
 
 class PpkMacData {
-  String algorithm;
-  String encryption;
-  String comment;
-  Uint8List publicKey;
-  Uint8List privateKey;
+  String? algorithm;
+  String? encryption;
+  String? comment;
+  Uint8List? publicKey;
+  Uint8List? privateKey;
 }

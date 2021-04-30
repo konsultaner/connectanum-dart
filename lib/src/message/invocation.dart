@@ -11,13 +11,13 @@ class Invocation extends AbstractMessageWithPayload {
   int requestId;
   int registrationId;
   InvocationDetails details;
-  StreamController<AbstractMessageWithPayload> _responseStreamController;
+  StreamController<AbstractMessageWithPayload>? _responseStreamController;
 
   void respondWith(
-      {List<Object> arguments,
-      Map<String, Object> argumentsKeywords,
+      {List<Object>? arguments,
+      Map<String, Object>? argumentsKeywords,
       bool isError = false,
-      String errorUri,
+      String errorUri = '',
       bool progressive = false}) {
     if (isError) {
       assert(progressive == false);
@@ -25,21 +25,21 @@ class Invocation extends AbstractMessageWithPayload {
       final error = Error(
           MessageTypes.CODE_INVOCATION, requestId, HashMap(), errorUri,
           arguments: arguments, argumentsKeywords: argumentsKeywords);
-      _responseStreamController.add(error);
+      _responseStreamController?.add(error);
     } else {
       final yield = Yield(requestId,
           options: YieldOptions(progressive),
           arguments: arguments,
           argumentsKeywords: argumentsKeywords);
-      _responseStreamController.add(yield);
+      _responseStreamController?.add(yield);
     }
     if (!progressive) {
-      _responseStreamController.close();
+      _responseStreamController?.close();
     }
   }
 
   Invocation(this.requestId, this.registrationId, this.details,
-      {List<Object> arguments, Map<String, Object> argumentsKeywords}) {
+      {List<Object>? arguments, Map<String, Object>? argumentsKeywords}) {
     id = MessageTypes.CODE_INVOCATION;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;
@@ -53,7 +53,7 @@ class Invocation extends AbstractMessageWithPayload {
       void Function(AbstractMessageWithPayload invocationResultMessage)
           onData) {
     _responseStreamController = StreamController<AbstractMessageWithPayload>();
-    _responseStreamController.stream.listen(onData);
+    _responseStreamController!.stream.listen(onData);
   }
 }
 
@@ -65,7 +65,7 @@ class InvocationDetails {
   String procedure;
 
   // pattern_based_registration == true
-  bool receive_progress;
+  bool? receive_progress;
 
   InvocationDetails(this.caller, this.procedure, this.receive_progress);
 }

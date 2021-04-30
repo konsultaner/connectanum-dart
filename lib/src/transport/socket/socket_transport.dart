@@ -18,24 +18,24 @@ import '../abstract_transport.dart';
 class SocketTransport extends AbstractTransport {
   static final _logger = Logger('SocketTransport');
 
-  bool _ssl;
-  bool _allowInsecureCertificates;
+  bool _ssl = false;
+  bool _allowInsecureCertificates = false;
   final String _host;
   final int _port;
-  Socket _socket;
+  Socket? _socket;
 
   /// This will be negotiated during the handshake process.
-  int _messageLength;
-  int _messageLengthExponent;
+  int _messageLength = 0;
+  int _messageLengthExponent = SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT;
   final int _serializerType;
-  Duration _pingInterval;
+  Duration? _pingInterval;
   final AbstractSerializer _serializer;
   Uint8List _inboundBuffer = Uint8List(0);
   Uint8List _outboundBuffer = Uint8List(0);
-  Completer _handshakeCompleter;
-  Completer _pingCompleter;
-  Completer _onConnectionLost;
-  Completer _onDisconnect;
+  late Completer _handshakeCompleter;
+  Completer? _pingCompleter;
+  late Completer _onConnectionLost;
+  late Completer _onDisconnect;
   bool _goodbyeSent = false;
   bool _goodbyeReceived = false;
 
@@ -69,8 +69,7 @@ class SocketTransport extends AbstractTransport {
   }
 
   bool get isUpgradedProtocol {
-    return _messageLength != null &&
-        _messageLength > SocketHelper.MAX_MESSAGE_LENGTH;
+    return _messageLength > SocketHelper.MAX_MESSAGE_LENGTH;
   }
 
   int get headerLength {
@@ -84,12 +83,12 @@ class SocketTransport extends AbstractTransport {
     // found at https://stackoverflow.com/questions/28745138/how-to-handle-socket-disconnects-in-dart
     if (isOpen) {
       try {
-        return _socket.drain().then((_) {
-          _socket.destroy(); // closes in and out going socket
+        return _socket!.drain().then((_) {
+          _socket!.destroy(); // closes in and out going socket
           complete(_onDisconnect, error);
         });
       } catch (error) {
-        _socket.destroy(); // closes in and out going socket
+        _socket!.destroy(); // closes in and out going socket
         complete(_onDisconnect, error);
       }
     }
@@ -126,12 +125,12 @@ class SocketTransport extends AbstractTransport {
 
   Future<void> _runPingInterval() async {
     if (_pingInterval != null) {
-      await Future.delayed(_pingInterval);
+      await Future.delayed(_pingInterval!);
       if (isReady) {
         unawaited(sendPing(
                 timeout: Duration(
                     milliseconds:
-                        (_pingInterval.inMilliseconds * 2 / 3).floor()))
+                        (_pingInterval!.inMilliseconds * 2 / 3).floor()))
             .then((_) {}, onError: (timeout) {
           if (!_goodbyeSent &&
               !_goodbyeReceived &&
@@ -148,7 +147,7 @@ class SocketTransport extends AbstractTransport {
   }
 
   @override
-  Future<void> open({Duration pingInterval}) async {
+  Future<void> open({Duration? pingInterval}) async {
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
     _handshakeCompleter = Completer();
@@ -169,7 +168,7 @@ class SocketTransport extends AbstractTransport {
 
   @override
   Stream<AbstractMessage> receive() {
-    _socket.done.then((done) {
+    _socket!.done.then((done) {
       if (!_goodbyeSent && !_goodbyeReceived && !_onDisconnect.isCompleted) {
         _onConnectionLost.complete();
       } else if (!_onDisconnect.isCompleted) {
@@ -182,17 +181,17 @@ class SocketTransport extends AbstractTransport {
     });
     // TODO set keep alive to true
     //_socket.setOption(RawSocketOption.fromBool(??, SO_KEEPALIVE, true), true)
-    return _socket
+    return _socket!
         .where((List<int> message) {
-          message = Uint8List.fromList(_inboundBuffer + message);
-          if (_negotiateProtocol(message) || !_assertValidMessage(message)) {
+          var msg = Uint8List.fromList(_inboundBuffer + message);
+          if (_negotiateProtocol(msg) || !_assertValidMessage(msg)) {
             return false;
           }
-          final finalMessageLength = message.length - headerLength;
+          final finalMessageLength = msg.length - headerLength;
           final payloadLength =
-              SocketHelper.getPayloadLength(message, headerLength);
+              SocketHelper.getPayloadLength(msg, headerLength);
           if (finalMessageLength < payloadLength) {
-            _inboundBuffer = message;
+            _inboundBuffer = msg;
             return false;
           }
           if (finalMessageLength > _messageLength) {
@@ -227,7 +226,7 @@ class SocketTransport extends AbstractTransport {
           _messageLength = pow(
               2,
               min(SocketHelper.getMaxMessageSizeExponent(message),
-                  _messageLengthExponent));
+                  _messageLengthExponent)).toInt();
           _handshakeCompleter.complete();
         }
       }
@@ -236,7 +235,7 @@ class SocketTransport extends AbstractTransport {
         _messageLength = pow(
             2,
             min(SocketHelper.getMaxUpgradeMessageSizeExponent(message),
-                _messageLengthExponent));
+                _messageLengthExponent)).toInt();
         _handshakeCompleter.complete();
       }
       return true;
@@ -293,9 +292,11 @@ class SocketTransport extends AbstractTransport {
           if (deserializedMessage is Goodbye) {
             _goodbyeReceived = true;
           }
-          _logger.finest(
-              'Received message type ' + deserializedMessage.id.toString());
-          messages.add(deserializedMessage);
+          if(deserializedMessage != null) { // TODO: check if this is correct way to make it working
+            _logger.finest(
+                'Received message type ' + deserializedMessage.id.toString());
+            messages.add(deserializedMessage);
+          }
         } else if (messageType == SocketHelper.MESSAGE_PING) {
           // send pong
           _logger.finest(
@@ -307,7 +308,7 @@ class SocketTransport extends AbstractTransport {
           }
         } else {
           // received a pong
-          _pingCompleter.complete(message);
+          _pingCompleter?.complete(message);
           _logger.finest('Received a Pong with a payload length of ' +
               message.length.toString());
         }
@@ -342,20 +343,20 @@ class SocketTransport extends AbstractTransport {
   /// Send a ping message to keep the connection alive. The returning future will
   /// fail if no pong is received withing the given [timeout]. The default timeout
   /// is 5 seconds.
-  Future<Uint8List> sendPing({Duration timeout}) async {
-    if (_pingCompleter == null || _pingCompleter.isCompleted) {
+  Future<Uint8List> sendPing({Duration? timeout}) async {
+    if (_pingCompleter == null || _pingCompleter != null && _pingCompleter!.isCompleted) {
       _pingCompleter = Completer<Uint8List>();
       _send0(SocketHelper.getPing(isUpgradedProtocol));
       try {
-        Uint8List pong = await _pingCompleter.future
+        Uint8List pong = await _pingCompleter!.future
             .timeout(timeout ?? Duration(seconds: 5));
         return pong;
       } on TimeoutException {
         if (isOpen) {
           rethrow;
         }
-        _pingCompleter.complete();
-        return null;
+        _pingCompleter!.complete();
+        return Uint8List(0); // TODO: check if needs to return null
       }
     } else {
       throw Exception('Wait for the last ping to complete or to timeout');
@@ -371,15 +372,17 @@ class SocketTransport extends AbstractTransport {
       if (_outboundBuffer.isEmpty) {
         _handshakeCompleter.future.then((aVoid) {
           _send0(_outboundBuffer);
-          _outboundBuffer = null;
+          _outboundBuffer = Uint8List(0); // TODO: check if should be _outboundBuffer = null
         });
       }
       var serialalizedMessage = _serializer.serialize(message);
-      _outboundBuffer += SocketHelper.buildMessageHeader(
+      var outboundBuffer = <int>[];
+      outboundBuffer += SocketHelper.buildMessageHeader(
           SocketHelper.MESSAGE_WAMP,
           serialalizedMessage.length,
           isUpgradedProtocol);
-      _outboundBuffer += serialalizedMessage;
+      outboundBuffer += serialalizedMessage;
+      _outboundBuffer = Uint8List.fromList(outboundBuffer);
     } else {
       var serialalizedMessage = _serializer.serialize(message);
       _send0(SocketHelper.buildMessageHeader(SocketHelper.MESSAGE_WAMP,
@@ -389,6 +392,6 @@ class SocketTransport extends AbstractTransport {
   }
 
   void _send0(List<int> data) {
-    _socket.add(data);
+    _socket!.add(data);
   }
 }

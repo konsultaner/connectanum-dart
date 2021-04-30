@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:connectanum/src/message/goodbye.dart';
 
@@ -20,10 +21,10 @@ class WebSocketTransport extends AbstractTransport {
   final String _serializerType;
   bool _goodbyeSent = false;
   bool _goodbyeReceived = false;
-  WebSocket _socket;
-  Completer _onConnectionLost;
-  Completer _onDisconnect;
-  Completer _onReady;
+  late WebSocket _socket;
+  late Completer _onConnectionLost;
+  late Completer _onDisconnect;
+  late Completer _onReady;
 
   WebSocketTransport(
     this._url,
@@ -68,7 +69,7 @@ class WebSocketTransport extends AbstractTransport {
   /// As soon as the web socket connection is established, the returning future will complete
   /// or fail respectively
   @override
-  Future<void> open({Duration pingInterval}) async {
+  Future<void> open({Duration? pingInterval}) async {
     _onReady = Completer();
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
@@ -106,7 +107,7 @@ class WebSocketTransport extends AbstractTransport {
   @override
   Stream<AbstractMessage> receive() {
     _socket.done.then((done) {
-      if ((_socket.closeCode == null || _socket.closeCode > 1000) &&
+      if ((_socket.closeCode == null || _socket.closeCode != null && _socket.closeCode! > 1000) &&
           !_goodbyeSent &&
           !_goodbyeReceived) {
         _onConnectionLost.complete();
@@ -121,9 +122,9 @@ class WebSocketTransport extends AbstractTransport {
     return _socket.map((messageEvent) {
       AbstractMessage message;
       if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
-        message = _serializer.deserialize(utf8.encode(messageEvent));
+        message = _serializer.deserialize(Uint8List.fromList(utf8.encode(messageEvent))) as AbstractMessage;
       } else {
-        message = _serializer.deserialize(messageEvent);
+        message = _serializer.deserialize(messageEvent) as AbstractMessage;
       }
       if (message is Goodbye) {
         _goodbyeReceived = true;

@@ -8,7 +8,7 @@ class Hello extends AbstractMessage {
   Details details;
 
   Hello(this.realm, this.details)
-      : assert(realm == null || UriPattern.match(realm)) {
+      : assert(UriPattern.match(realm)) {
     id = MessageTypes.CODE_HELLO;
   }
 }

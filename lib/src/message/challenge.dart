@@ -16,19 +16,19 @@ class Challenge extends AbstractMessage {
 
 /// Challenge values to check the authentication validity
 class Extra {
-  String challenge;
-  String salt;
-  String channel_binding;
+  String? challenge;
+  String? salt;
+  String? channel_binding;
   int keylen;
-  int iterations;
-  int memory;
-  String kdf;
-  String nonce;
+  int? iterations;
+  int? memory;
+  String? kdf;
+  String? nonce;
 
   Extra(
       {this.challenge,
       this.salt,
-      this.keylen,
+      this.keylen = 0,
       this.channel_binding,
       this.iterations,
       this.memory,
