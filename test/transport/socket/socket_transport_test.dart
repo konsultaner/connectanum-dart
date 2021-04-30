@@ -21,7 +21,7 @@ void main() {
       final transport = SocketTransport(
           '127.0.0.1', 8998, Serializer(), SocketHelper.SERIALIZATION_JSON);
       await transport.open();
-      transport.receive().listen((event) {});
+      transport.receive()!.listen((event) {});
       await transport.close();
     });
   });
@@ -54,7 +54,7 @@ void main() {
       unawaited(transport.onReady.then((aVoid) {
         handshakeCompleter.complete();
       }));
-      transport.receive().listen((message) {});
+      transport.receive()!.listen((message) {});
       await handshakeCompleter.future;
       expect(handshakes[0][0], equals(0x7F));
       expect(transport.maxMessageLength, equals(pow(2, 30)));
@@ -82,7 +82,7 @@ void main() {
       unawaited(transport.onReady.then((aVoid) {
         handshakeCompleter.complete();
       }));
-      transport.receive().listen((message) {});
+      transport.receive()!.listen((message) {});
       await handshakeCompleter.future;
       expect(handshakes[0][0], equals(0x7F));
       expect(transport.maxMessageLength, equals(pow(2, 20)));
@@ -116,7 +116,7 @@ void main() {
       unawaited(transport.onReady.then((aVoid) {
         handshakeCompleter.complete();
       }));
-      transport.receive().listen((message) {});
+      transport.receive()!.listen((message) {});
       await handshakeCompleter.future;
       expect(handshakes[0][0], equals(0x7F));
       expect(transport.maxMessageLength, equals(pow(2, 20)));
@@ -153,7 +153,7 @@ void main() {
       var errorCompleter = Completer();
       unawaited(transport.onReady.then((aVoid) {},
           onError: (error) => errorCompleter.complete(error)));
-      transport.receive().listen((message) {},
+      transport.receive()!.listen((message) {},
           onError: (error) => transport.onDisconnect.complete(error));
       var error = await errorCompleter.future;
       expect(error['error'], isNotNull);
@@ -170,7 +170,7 @@ void main() {
       errorCompleter = Completer();
       unawaited(transport.onReady.then((aVoid) {},
           onError: (error) => errorCompleter.complete(error)));
-      transport.receive().listen((message) {},
+      transport.receive()!.listen((message) {},
           onError: (error) => transport.onDisconnect.complete(error),
           cancelOnError: true);
       error = await errorCompleter.future;
@@ -188,7 +188,7 @@ void main() {
       errorCompleter = Completer();
       unawaited(transport.onReady.then((aVoid) {},
           onError: (error) => errorCompleter.complete(error)));
-      transport.receive().listen((message) {},
+      transport.receive()!.listen((message) {},
           onError: (error) => transport.onDisconnect.complete(error));
       error = await errorCompleter.future;
       expect(error['error'], isNotNull);
@@ -205,7 +205,7 @@ void main() {
       errorCompleter = Completer();
       unawaited(transport.onReady.then((aVoid) {},
           onError: (error) => errorCompleter.complete(error)));
-      transport.receive().listen((message) {},
+      transport.receive()!.listen((message) {},
           onError: (error) => transport.onDisconnect.complete(error));
       error = await errorCompleter.future;
       expect(error['error'], isNotNull);
@@ -246,7 +246,7 @@ void main() {
           '127.0.0.1', 9004, serializer, SocketHelper.SERIALIZATION_JSON,
           messageLengthExponent: SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT);
       await transport.open();
-      transport.receive().listen((message) {});
+      transport.receive()!.listen((message) {});
       transport.isOpen;
       var pong = await transport.sendPing();
       expect(pong, isNotNull);

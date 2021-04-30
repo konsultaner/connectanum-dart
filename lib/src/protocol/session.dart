@@ -83,7 +83,7 @@ class Session {
   /// A map that stores all the active subscriptions
   final Map<int, Subscribed> subscriptions = {};
 
-  StreamSubscription<AbstractMessage>? _transportStreamSubscription;
+  StreamSubscription<AbstractMessage?>? _transportStreamSubscription;
   final _openSessionStreamController = StreamController.broadcast();
 
   /// Starting the session will also start the authentication process.

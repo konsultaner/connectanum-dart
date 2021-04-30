@@ -167,7 +167,7 @@ class SocketTransport extends AbstractTransport {
   }
 
   @override
-  Stream<AbstractMessage> receive() {
+  Stream<AbstractMessage?>? receive() {
     _socket!.done.then((done) {
       if (!_goodbyeSent && !_goodbyeReceived && !_onDisconnect.isCompleted) {
         _onConnectionLost.complete();
@@ -281,7 +281,7 @@ class SocketTransport extends AbstractTransport {
     return true;
   }
 
-  List<AbstractMessage> _handleMessage(Uint8List inboundData) {
+  List<AbstractMessage?> _handleMessage(Uint8List inboundData) {
     var messages = <AbstractMessage>[];
     try {
       for (var message in _splitMessages(inboundData)) {

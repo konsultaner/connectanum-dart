@@ -6,7 +6,7 @@ abstract class AbstractTransport {
   // make it possible to have a connection state in the transport
   Completer get onDisconnect;
   Completer get onConnectionLost;
-  Stream<AbstractMessage>? receive();
+  Stream<AbstractMessage?>? receive();
   Future<void> open({Duration? pingInterval});
   Future<void> close({error});
   Future<void> get onReady;
