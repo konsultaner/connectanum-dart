@@ -22,7 +22,7 @@ class Extra {
   int keylen;
   int? iterations;
   int? memory;
-  String? kdf;
+  String kdf;
   String? nonce;
 
   Extra(
@@ -32,6 +32,6 @@ class Extra {
       this.channel_binding,
       this.iterations,
       this.memory,
-      this.kdf,
+      this.kdf = '',
       this.nonce});
 }
