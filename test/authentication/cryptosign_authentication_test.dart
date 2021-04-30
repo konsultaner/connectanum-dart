@@ -116,13 +116,11 @@ void main() {
         expect(details.authextra!['pubkey'], equals(authMethod.privateKey?.publicKey.encode(HexCoder.instance)));
         expect(details.authextra!['channel_binding'], equals(null));
 
-        var extra =
-            Extra(challenge: vector['challenge'], channel_binding: null);
+        var extra = Extra(challenge: vector['challenge'] as String, channel_binding: null);
         final authenticate = await authMethod.challenge(extra);
         expect(authenticate.signature, equals(vector['signature']));
 
-        extra =
-            Extra(challenge: vector['challenge'], channel_binding: 'sadjakf');
+        extra = Extra(challenge: vector['challenge'] as String, channel_binding: 'sadjakf');
         expect(() => authMethod.challenge(extra), throwsA(isA<Exception>()));
 
         try {
