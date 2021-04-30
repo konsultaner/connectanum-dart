@@ -317,12 +317,8 @@ void main() {
     });
 
     test('constructors', () async {
-      expect(() => CryptosignAuthentication(null, null),
-          throwsA(isA<AssertionError>()));
-      expect(
-          () => CryptosignAuthentication(
-              SigningKey.fromSeed([]), 'some other then null'),
-          throwsA(isA<Exception>()));
+      expect(() => CryptosignAuthentication(null, null), throwsA(isA<AssertionError>()));
+      expect(() => CryptosignAuthentication(SigningKey.fromSeed([]), 'some other then null'), throwsA(isA<Error>()));
 
       var ppkEncrypted = File('./test/authentication/ed25519_password.ppk');
       var ppkKey = CryptosignAuthentication.fromPuttyPrivateKey(
