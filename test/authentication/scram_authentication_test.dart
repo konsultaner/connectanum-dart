@@ -29,7 +29,7 @@ void main() {
       expect(authMethod.authid, equals(user));
       expect(authMethod.secret, equals(secret));
       expect(authMethod.challengeTimeout.inMilliseconds, equals(20));
-      expect(base64.decode(authMethod.helloNonce!).length, equals(16));
+      expect(base64.decode(authMethod.helloNonce).length, equals(16));
       await Future.delayed(Duration(milliseconds: 30));
       expect(authMethod.helloNonce, isNull);
     });
@@ -41,11 +41,11 @@ void main() {
           kdf: ScramAuthentication.KDF_PBKDF2);
       final authMethod = ScramAuthentication(secret)
         ..hello('com.realm', Details.forHello()..authid = user);
-      challengeExtra2.nonce = authMethod.helloNonce! + 'nonce';
+      challengeExtra2.nonce = authMethod.helloNonce + 'nonce';
       var authenticate = await authMethod.challenge(challengeExtra2);
       expect(authenticate.signature, isNotNull);
       expect(authenticate.extra['nonce'],
-          equals(challengeExtra2.nonce = authMethod.helloNonce! + 'nonce'));
+          equals(challengeExtra2.nonce = authMethod.helloNonce + 'nonce'));
       expect(authenticate.extra['channel_binding'], isNull);
       expect(authenticate.extra['cbind_data'], isNull);
     });
@@ -67,7 +67,7 @@ void main() {
       var challengeExtra2 = Extra(
           iterations: 4096,
           salt: 'W22ZaJ0SNY7soEsUEjb6gQ==',
-          nonce: authMethod.helloNonce! + 'TCAfuxFIlj)hNlF\$k0',
+          nonce: authMethod.helloNonce + 'TCAfuxFIlj)hNlF\$k0',
           kdf: 'other kdf');
       expect(() async => await authMethod.challenge(challengeExtra2),
           throwsA(isA<Exception>()));
