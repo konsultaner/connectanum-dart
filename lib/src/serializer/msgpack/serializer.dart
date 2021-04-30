@@ -454,9 +454,7 @@ class Serializer extends AbstractSerializer {
       if (details.authmethods != null && details.authmethods!.isNotEmpty) {
         detailsParts['authmethods'] = details.authmethods;
       }
-      if (details.authextra != null) {
-        detailsParts['authextra'] = details.authextra;
-      }
+      detailsParts['authextra'] = details.authextra;
       return msgpack_dart.serialize(detailsParts);
     } else {
       return Uint8List(0); // TODO: check if need to return null

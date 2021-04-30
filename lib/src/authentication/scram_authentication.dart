@@ -19,7 +19,7 @@ class ScramAuthentication extends AbstractAuthentication {
 
   String _secret = '';
   String? _authid;
-  String _helloNonce = '';
+  String? _helloNonce;
   Duration _challengeTimeout = Duration(seconds: 5);
 
   String get secret => _secret;
@@ -52,7 +52,7 @@ class ScramAuthentication extends AbstractAuthentication {
     details.authextra['nonce'] = base64.encode(nonceBytes);
     details.authextra['channel_binding'] = null;
     _helloNonce = details.authextra['nonce'];
-    Future.delayed(_challengeTimeout, () => _helloNonce = '');
+    Future.delayed(_challengeTimeout, () => _helloNonce = null);
     return Future.value();
   }
 
@@ -62,8 +62,8 @@ class ScramAuthentication extends AbstractAuthentication {
   @override
   Future<Authenticate> challenge(Extra extra) {
     if (extra.nonce == null ||
-        _helloNonce.isEmpty ||
-        !_helloNonce.contains(extra.nonce!.substring(0, _helloNonce.length))) {
+        _helloNonce == null ||
+        _helloNonce != null && !_helloNonce!.contains(extra.nonce!.substring(0, _helloNonce!.length))) {
       return Future.error(Exception('Wrong nonce'));
     }
     var authenticate = Authenticate();
@@ -74,7 +74,7 @@ class ScramAuthentication extends AbstractAuthentication {
     authenticate.extra['cbind_data'] = null;
     if (extra.kdf == KDF_PBKDF2) {
       authenticate.signature =
-          challengePBKDF2(_authid!, _helloNonce, extra, HashMap<String, dynamic>.from(authenticate.extra));
+          challengePBKDF2(_authid!, _helloNonce!, extra, HashMap<String, dynamic>.from(authenticate.extra));
     }
     if (authenticate.signature == null) {
       return Future.error(

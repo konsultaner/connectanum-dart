@@ -38,7 +38,7 @@ class CraAuthentication extends AbstractAuthentication {
   @override
   Future<Authenticate> challenge(Extra? extra) {
     var authenticate = Authenticate();
-    if (extra == null || extra.challenge == null || secret == null) {
+    if (extra == null || extra.challenge.isEmpty || secret == null) {
       final error = Error(MessageTypes.CODE_CHALLENGE, -1,
           HashMap<String, Object>(), Error.AUTHORIZATION_FAILED);
       error.details['reason'] =

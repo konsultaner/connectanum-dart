@@ -301,7 +301,7 @@ class Serializer extends AbstractSerializer {
       return '[${MessageTypes.CODE_HELLO},${message.realm == null ? 'null' : '"' + message.realm! + '"'},${_serializeDetails(message.details)}]';
     }
     if (message is Authenticate) {
-      return '[${MessageTypes.CODE_AUTHENTICATE},"${message.signature ?? ""}",${message.extra == null ? '{}' : json.encode(message.extra)}]';
+      return '[${MessageTypes.CODE_AUTHENTICATE},"${message.signature ?? ""}",${json.encode(message.extra)}]';
     }
     if (message is Register) {
       return '[${MessageTypes.CODE_REGISTER},${message.requestId},${_serializeRegisterOptions(message.options)},"${message.procedure}"]';
@@ -423,9 +423,7 @@ class Serializer extends AbstractSerializer {
         detailsParts
             .add('"authmethods":["${details.authmethods!.join('","')}"]');
       }
-      if (details.authextra != null) {
-        detailsParts.add('"authextra":${json.encode(details.authextra)}');
-      }
+      detailsParts.add('"authextra":${json.encode(details.authextra)}');
       return '{${detailsParts.join(",")}}';
     } else {
       return '{}';
