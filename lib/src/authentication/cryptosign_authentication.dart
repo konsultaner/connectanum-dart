@@ -83,14 +83,14 @@ class CryptosignAuthentication extends AbstractAuthentication {
     if (extra.channel_binding != channelBinding) {
       return Future.error(Exception('Channel Binding does not match'));
     }
-    if (extra.challenge!.length % 2 != 0) {
+    if (extra.challenge.length % 2 != 0) {
       return Future.error(Exception('Wrong challenge length'));
     }
     var authenticate = Authenticate();
 
     authenticate.extra = HashMap<String, dynamic>();
     authenticate.extra!['channel_binding'] = channelBinding;
-    var binaryChallenge = hexToBin(extra.challenge!);
+    var binaryChallenge = hexToBin(extra.challenge);
     authenticate.signature =
         privateKey?.sign(binaryChallenge).encode(HexCoder.instance);
     return Future.value(authenticate);
