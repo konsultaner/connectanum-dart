@@ -6,7 +6,7 @@ class Details {
   String authrole = '';
   String authmethod = '';
   String authprovider = '';
-  Map<String, dynamic>? authextra;
+  Map<String, dynamic> authextra = {};
   String nonce = '';
   String challenge = '';
   int iterations = -1;

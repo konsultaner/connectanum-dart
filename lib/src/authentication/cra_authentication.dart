@@ -59,7 +59,7 @@ class CraAuthentication extends AbstractAuthentication {
     authenticate.signature = encodeHmac(
         Uint8List.fromList(base64.encode(key).codeUnits),
         extra.keylen,
-        Uint8List.fromList(extra.challenge!.codeUnits));
+        Uint8List.fromList(extra.challenge.codeUnits));
     return Future.value(authenticate);
   }
 

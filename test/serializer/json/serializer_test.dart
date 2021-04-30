@@ -46,8 +46,8 @@ void main() {
       authHello.details.authid = 'Richard';
       authHello.details.authmethods = ['WAMP-CRA'];
       authHello.details.authextra = HashMap();
-      authHello.details.authextra!['nonce'] = 'egVDf3DMJh0=';
-      authHello.details.authextra!['channel_binding'] = null;
+      authHello.details.authextra['nonce'] = 'egVDf3DMJh0=';
+      authHello.details.authextra['channel_binding'] = null;
       var message = serializer.serializeToString(authHello);
       expect(
           message,

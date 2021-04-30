@@ -113,10 +113,10 @@ void main() {
         var details = Details();
         await authMethod.hello('some.realm', details);
 
-        expect(details.authextra!['pubkey'], equals(authMethod.privateKey.publicKey.encode(HexCoder.instance)));
-        expect(details.authextra!['channel_binding'], equals(null));
+        expect(details.authextra['pubkey'], equals(authMethod.privateKey.publicKey.encode(HexCoder.instance)));
+        expect(details.authextra['channel_binding'], equals(null));
 
-        var extra = Extra(challenge: vector['challenge'] as String);
+        var extra = Extra(challenge: vector['challenge'] as String, channel_binding: null);
         final authenticate = await authMethod.challenge(extra);
         expect(authenticate.signature, equals(vector['signature']));
 
@@ -130,7 +130,7 @@ void main() {
               equals('Exception: Channel Binding does not match'));
         }
 
-        extra = Extra(challenge: vector['challenge']!.substring(3));
+        extra = Extra(challenge: vector['challenge']!.substring(3), channel_binding: null);
         expect(() => authMethod.challenge(extra), throwsA(isA<Exception>()));
 
         try {

@@ -65,8 +65,7 @@ class Serializer extends AbstractSerializer {
         details.authrole = message[2]['authrole'] ?? '';
         if (message[2]['authextra'] != null) {
           (message[2]['authextra'] as Map).forEach((key, value) {
-            details.authextra ??= <String, dynamic>{};
-            details.authextra![key] = value;
+            details.authextra[key] = value;
           });
         }
         if (message[2]['roles'] != null) {

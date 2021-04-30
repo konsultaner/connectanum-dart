@@ -49,10 +49,9 @@ class ScramAuthentication extends AbstractAuthentication {
       details.authid = Saslprep.saslprep(details.authid!);
       _authid = details.authid!;
     }
-    details.authextra ??= <String, dynamic>{};
-    details.authextra!['nonce'] = base64.encode(nonceBytes);
-    details.authextra!['channel_binding'] = null;
-    _helloNonce = details.authextra!['nonce'];
+    details.authextra['nonce'] = base64.encode(nonceBytes);
+    details.authextra['channel_binding'] = null;
+    _helloNonce = details.authextra['nonce'];
     Future.delayed(_challengeTimeout, () => _helloNonce = null);
     return Future.value();
   }

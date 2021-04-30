@@ -306,9 +306,9 @@ void main() {
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
           var hello = message as Hello;
-          user['helloNonce'] = hello.details.authextra!['nonce'];
+          user['helloNonce'] = hello.details.authextra['nonce'];
           user['nonce'] =
-              hello.details.authextra!['nonce'] + 'KOyl+L29eqUe9cVKbVUUgQ==';
+              hello.details.authextra['nonce'] + 'KOyl+L29eqUe9cVKbVUUgQ==';
           var challengeExtra = Extra();
           challengeExtra.nonce = user['nonce'] as String?;
           challengeExtra.salt = user['salt'] as String?;
