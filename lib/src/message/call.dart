@@ -12,8 +12,8 @@ class Call extends AbstractMessageWithPayload {
   /// before. The [options] field may be passed to configure the call
   Call(this.requestId, this.procedure,
       {this.options,
-      List<Object>? arguments,
-      Map<String, Object>? argumentsKeywords}) {
+      List<dynamic>? arguments,
+      Map<String, dynamic>? argumentsKeywords}) {
     id = MessageTypes.CODE_CALL;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;

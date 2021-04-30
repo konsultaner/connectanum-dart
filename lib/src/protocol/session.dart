@@ -225,8 +225,8 @@ class Session {
   /// with the given [options]. The WAMP router will either respond with one or
   /// more results or the caller may cancel the call by calling [cancelCompleter.complete()].
   Stream<Result> call(String procedure,
-      {List<Object>? arguments,
-      Map<String, Object>? argumentsKeywords,
+      {List<dynamic>? arguments,
+      Map<String, dynamic>? argumentsKeywords,
       CallOptions? options,
       Completer<String?>? cancelCompleter}) async* {
     var call = Call(nextCallId++, procedure,
