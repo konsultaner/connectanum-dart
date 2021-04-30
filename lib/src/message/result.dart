@@ -10,7 +10,7 @@ class Result extends AbstractMessageWithPayload {
   ResultDetails? details;
 
   Result(this.callRequestId, this.details,
-      {List<Object>? arguments, Map<String, Object>? argumentsKeywords}) {
+      {List<dynamic>? arguments, Map<String, dynamic>? argumentsKeywords}) {
     id = MessageTypes.CODE_RESULT;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;

@@ -14,8 +14,8 @@ class Invocation extends AbstractMessageWithPayload {
   StreamController<AbstractMessageWithPayload>? _responseStreamController;
 
   void respondWith(
-      {List<Object>? arguments,
-      Map<String, Object>? argumentsKeywords,
+      {List<dynamic>? arguments,
+      Map<String, dynamic>? argumentsKeywords,
       bool isError = false,
       String errorUri = '',
       bool progressive = false}) {
@@ -59,10 +59,10 @@ class Invocation extends AbstractMessageWithPayload {
 
 class InvocationDetails {
   // caller_identification == true
-  int caller;
+  int? caller;
 
   // pattern_based_registration == true
-  String procedure;
+  String? procedure;
 
   // pattern_based_registration == true
   bool? receive_progress;

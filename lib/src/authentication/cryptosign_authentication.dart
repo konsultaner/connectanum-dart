@@ -25,7 +25,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
   static final String OPEN_SSH_HEADER = '-----BEGIN OPENSSH PRIVATE KEY-----';
   static final String OPEN_SSH_FOOTER = '-----END OPENSSH PRIVATE KEY-----';
 
-  final SigningKey privateKey;
+  final SigningKey? privateKey;
   final String? channelBinding;
 
   /// This is the default constructor that will take an already gathered [privateKey]
@@ -92,7 +92,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
     authenticate.extra!['channel_binding'] = channelBinding;
     var binaryChallenge = hexToBin(extra.challenge!);
     authenticate.signature =
-        privateKey.sign(binaryChallenge).encode(HexCoder.instance);
+        privateKey?.sign(binaryChallenge).encode(HexCoder.instance);
     return Future.value(authenticate);
   }
 
@@ -115,7 +115,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
   Future<void> hello(String realm, Details details) {
     details.authextra ??= <String, String>{};
     details.authextra!['pubkey'] =
-        privateKey.publicKey.encode(HexCoder.instance);
+        privateKey?.publicKey.encode(HexCoder.instance);
     details.authextra!['channel_binding'] = channelBinding;
     return Future.value();
   }

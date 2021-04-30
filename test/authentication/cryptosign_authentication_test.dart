@@ -107,15 +107,14 @@ void main() {
     test('message handling', () async {
       testVectors.forEach((vector) async {
         final authMethod =
-            CryptosignAuthentication.fromHex(vector['privateKey']);
+            CryptosignAuthentication.fromHex(vector['privateKey'] as String);
         expect(authMethod.getName(), equals('cryptosign'));
 
         var details = Details();
         await authMethod.hello('some.realm', details);
 
-        expect(details.authextra['pubkey'],
-            equals(authMethod.privateKey.publicKey.encode(HexCoder.instance)));
-        expect(details.authextra['channel_binding'], equals(null));
+        expect(details.authextra!['pubkey'], equals(authMethod.privateKey?.publicKey.encode(HexCoder.instance)));
+        expect(details.authextra!['channel_binding'], equals(null));
 
         var extra =
             Extra(challenge: vector['challenge'], channel_binding: null);
@@ -133,8 +132,7 @@ void main() {
               equals('Exception: Channel Binding does not match'));
         }
 
-        extra = Extra(
-            challenge: vector['challenge'].substring(3), channel_binding: null);
+        extra = Extra(challenge: vector['challenge']!.substring(3), channel_binding: null);
         expect(() => authMethod.challenge(extra), throwsA(isA<Exception>()));
 
         try {
@@ -331,7 +329,7 @@ void main() {
           await ppkEncrypted.readAsString(),
           password: 'password');
 
-      expect(ppkKey.privateKey.sublist(0, 32).toString(),
+      expect(ppkKey.privateKey?.sublist(0, 32).toString(),
           equals(puttySeed.toString()));
 
       var openSshPemFromPuttyWithPassword =
@@ -340,12 +338,12 @@ void main() {
           await openSshPemFromPuttyWithPassword.readAsString(),
           password: 'password');
 
-      expect(opensshKey.privateKey.sublist(0, 32).toString(),
+      expect(opensshKey.privateKey?.sublist(0, 32).toString(),
           equals(puttySeed.toString()));
 
       var base64Key =
           CryptosignAuthentication.fromBase64(base64.encode(puttySeed));
-      expect(base64Key.privateKey.sublist(0, 32).toString(),
+      expect(base64Key.privateKey?.sublist(0, 32).toString(),
           equals(puttySeed.toString()));
     });
   });

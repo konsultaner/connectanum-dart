@@ -153,8 +153,8 @@ void main() {
     test('derive key', () {
       for (var vector in PBKDF2_HMAC_SHA256_testVectors) {
         final key = CraAuthentication.deriveKey(
-            vector[0], (vector[1] as String).codeUnits,
-            iterations: vector[2], keylen: vector[3]);
+            vector[0] as String, (vector[1] as String).codeUnits,
+            iterations: vector[2] as int?, keylen: vector[3] as int);
         expect(key, equals(vector[4]));
       }
     });

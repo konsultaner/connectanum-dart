@@ -27,7 +27,7 @@ void main() {
   });
   group('Socket protocol negotiation', () {
     test('Opening with max header', () async {
-      var handshakes = <Uint8List>[null, null];
+      var handshakes = <Uint8List>[];
       var serializer = Serializer();
       final server = await ServerSocket.bind('0.0.0.0', 8999);
       server.listen((socket) {
@@ -61,7 +61,7 @@ void main() {
       expect(handshakes[1][0], equals(0x3F));
     });
     test('Opening with server only allowing power of 20', () async {
-      var handshakes = <Uint8List>[null, null];
+      var handshakes = <Uint8List>[];
       var serializer = Serializer();
       final server = await ServerSocket.bind('0.0.0.0', 9001);
       server.listen((socket) {
@@ -89,7 +89,7 @@ void main() {
       expect(handshakes[1], equals(null));
     });
     test('Opening with client max header of 20', () async {
-      var handshakes = <Uint8List>[null, null];
+      var handshakes = <Uint8List>[];
       var serializer = Serializer();
       final server = await ServerSocket.bind('0.0.0.0', 9002);
       server.listen((socket) {
@@ -247,7 +247,7 @@ void main() {
           messageLengthExponent: SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT);
       await transport.open();
       transport.receive().listen((message) {});
-      await transport.isOpen;
+      transport.isOpen;
       var pong = await transport.sendPing();
       expect(pong, isNotNull);
       await pongCompleter.future;

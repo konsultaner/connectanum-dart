@@ -299,7 +299,7 @@ class Serializer extends AbstractSerializer {
   /// Converts a WAMP message object into a string json message
   String serializeToString(AbstractMessage message) {
     if (message is Hello) {
-      return '[${MessageTypes.CODE_HELLO},${'"' + message.realm + '"'},${_serializeDetails(message.details)}]';
+      return '[${MessageTypes.CODE_HELLO},${message.realm == null ? 'null' : '"' + message.realm! + '"'},${_serializeDetails(message.details)}]';
     }
     if (message is Authenticate) {
       return '[${MessageTypes.CODE_AUTHENTICATE},"${message.signature ?? ""}",${message.extra == null ? '{}' : json.encode(message.extra)}]';
