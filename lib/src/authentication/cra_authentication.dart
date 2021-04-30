@@ -68,7 +68,7 @@ class CraAuthentication extends AbstractAuthentication {
   static Uint8List deriveKey(String secret, List<int> salt,
       {int? iterations = 1000, int keylen = 32, hmacLength = 64}) {
     var derivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), hmacLength))
-      ..init(Pbkdf2Parameters(Uint8List.fromList(salt), iterations, keylen));
+      ..init(Pbkdf2Parameters(Uint8List.fromList(salt), iterations as int, keylen));
     return derivator.process(Uint8List.fromList(secret.codeUnits));
   }
 

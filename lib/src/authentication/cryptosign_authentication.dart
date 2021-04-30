@@ -274,9 +274,9 @@ class CryptosignAuthentication extends AbstractAuthentication {
         Uint8List.fromList([0, 0, 0, macData.comment!.codeUnits.length]), 0, 4);
     mac.update(Uint8List.fromList(utf8.encode(macData.comment!)), 0, macData.comment!.length);
     mac.update(Uint8List.fromList([0, 0, 0, macData.publicKey!.length]), 0, 4);
-    mac.update(macData.publicKey, 0, macData.publicKey!.length);
+    mac.update(macData.publicKey as Uint8List, 0, macData.publicKey!.length);
     mac.update(Uint8List.fromList([0, 0, 0, macData.privateKey!.length]), 0, 4);
-    mac.update(macData.privateKey, 0, macData.privateKey!.length);
+    mac.update(macData.privateKey as Uint8List, 0, macData.privateKey!.length);
     mac.doFinal(macResult, 0);
     if (HexCoder.instance.encode(ByteList.fromList(macResult)) != privateMac) {
       if (password == null) {
