@@ -320,18 +320,20 @@ void main() {
 
       var ppkEncrypted = File('./test/authentication/ed25519_password.ppk');
       var ppkKey = CryptosignAuthentication.fromPuttyPrivateKey(await ppkEncrypted.readAsString(), password: 'password');
+      var privateKey = ppkKey.privateKey as SigningKey;
 
-      expect(ppkKey.privateKey?.sublist(0, 32).toString(), equals(puttySeed.toString()));
+      expect(privateKey.sublist(0, 32).toString(), equals(puttySeed.toString()));
 
       var openSshPemFromPuttyWithPassword = File('./test/authentication/ed25519_password.pem');
       var opensshKey = CryptosignAuthentication.fromOpenSshPrivateKey(
           await openSshPemFromPuttyWithPassword.readAsString(),
           password: 'password');
-
-      expect(opensshKey.privateKey?.sublist(0, 32).toString(), equals(puttySeed.toString()));
+      var opensshPrivateKey = opensshKey.privateKey as SigningKey;
+      expect(opensshPrivateKey.sublist(0, 32).toString(), equals(puttySeed.toString()));
 
       var base64Key = CryptosignAuthentication.fromBase64(base64.encode(puttySeed));
-      expect(base64Key.privateKey?.sublist(0, 32).toString(), equals(puttySeed.toString()));
+      var base64PrivateKey = base64Key.privateKey as SigningKey;
+      expect(base64PrivateKey.sublist(0, 32).toString(), equals(puttySeed.toString()));
     });
   });
 }
