@@ -18,7 +18,7 @@ class Challenge extends AbstractMessage {
 class Extra {
   String challenge;
   String? salt;
-  String? channel_binding;
+  String channel_binding;
   int keylen;
   int? iterations;
   int? memory;
@@ -29,7 +29,7 @@ class Extra {
       {this.challenge = '',
       this.salt,
       this.keylen = 0,
-      this.channel_binding,
+      this.channel_binding = '',
       this.iterations,
       this.memory,
       this.kdf,
