@@ -64,8 +64,7 @@ void main() {
           equals(
               '[${MessageTypes.CODE_AUTHENTICATE},"${"someSignature"}",{}]'));
       var authenticate = Authenticate.signature('someSignature');
-      authenticate.extra = HashMap<String, Object>();
-      authenticate.extra!['nonce'] = 'abc';
+      authenticate.extra['nonce'] = 'abc';
       expect(
           serializer.serializeToString(authenticate),
           equals(

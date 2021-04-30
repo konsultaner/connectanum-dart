@@ -247,7 +247,7 @@ class Serializer extends AbstractSerializer {
       return Uint8List.fromList([147] +
           msgpack_dart.serialize(MessageTypes.CODE_AUTHENTICATE) +
           msgpack_dart.serialize(message.signature ?? '') +
-          msgpack_dart.serialize(message.extra ?? '{}'));
+          msgpack_dart.serialize(message.extra));
     }
     if (message is Register) {
       return Uint8List.fromList([148] +

@@ -69,12 +69,12 @@ class ScramAuthentication extends AbstractAuthentication {
     var authenticate = Authenticate();
 
     authenticate.extra = HashMap<String, Object>();
-    authenticate.extra!['nonce'] = extra.nonce;
-    authenticate.extra!['channel_binding'] = null;
-    authenticate.extra!['cbind_data'] = null;
+    authenticate.extra['nonce'] = extra.nonce;
+    authenticate.extra['channel_binding'] = null;
+    authenticate.extra['cbind_data'] = null;
     if (extra.kdf == KDF_PBKDF2) {
       authenticate.signature =
-          challengePBKDF2(_authid!, _helloNonce!, extra, HashMap<String, dynamic>.from(authenticate.extra!));
+          challengePBKDF2(_authid!, _helloNonce!, extra, HashMap<String, dynamic>.from(authenticate.extra));
     }
     if (authenticate.signature == null) {
       return Future.error(

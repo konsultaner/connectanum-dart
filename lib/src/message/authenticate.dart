@@ -4,7 +4,7 @@ import 'message_types.dart';
 /// The WAMP Authenticate massage
 class Authenticate extends AbstractMessage {
   String? signature;
-  Map<String, dynamic>? extra;
+  Map<String, dynamic> extra = {};
 
   /// Creates a WAMP Authentication message with a [signature] that was
   /// cryptographically created by an authentication method of this package

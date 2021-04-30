@@ -88,8 +88,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
     }
     var authenticate = Authenticate();
 
-    authenticate.extra = HashMap<String, dynamic>();
-    authenticate.extra!['channel_binding'] = channelBinding;
+    authenticate.extra['channel_binding'] = channelBinding;
     var binaryChallenge = hexToBin(extra.challenge);
     authenticate.signature =
         privateKey.sign(binaryChallenge).encode(HexCoder.instance);

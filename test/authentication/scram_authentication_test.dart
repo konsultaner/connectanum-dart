@@ -44,10 +44,10 @@ void main() {
       challengeExtra2.nonce = authMethod.helloNonce! + 'nonce';
       var authenticate = await authMethod.challenge(challengeExtra2);
       expect(authenticate.signature, isNotNull);
-      expect(authenticate.extra!['nonce'],
+      expect(authenticate.extra['nonce'],
           equals(challengeExtra2.nonce = authMethod.helloNonce! + 'nonce'));
-      expect(authenticate.extra!['channel_binding'], isNull);
-      expect(authenticate.extra!['cbind_data'], isNull);
+      expect(authenticate.extra['channel_binding'], isNull);
+      expect(authenticate.extra['cbind_data'], isNull);
     });
     test('timedout challenge', () async {
       final authMethod = ScramAuthentication(secret,

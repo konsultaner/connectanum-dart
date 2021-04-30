@@ -207,8 +207,7 @@ void main() {
             110, 97, 116, 117, 114, 101, 162, 123, 125
           ])));
       var authenticate = Authenticate.signature('someSignature');
-      authenticate.extra = HashMap<String, Object>();
-      authenticate.extra!['nonce'] = 'abc';
+      authenticate.extra['nonce'] = 'abc';
       expect(
           serializer.serialize(authenticate),
           equals(Uint8List.fromList([
