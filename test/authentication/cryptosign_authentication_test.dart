@@ -318,29 +318,22 @@ void main() {
 
     test('constructors', () async {
       expect(() => CryptosignAuthentication(null, null), throwsA(isA<AssertionError>()));
-      expect(() => CryptosignAuthentication(SigningKey.fromSeed([]), 'some other then null'), throwsA(isA<Error>()));
+      expect(() => CryptosignAuthentication(SigningKey.fromSeed([]), 'some other then null'), throwsA(isA<Exception>()));
 
       var ppkEncrypted = File('./test/authentication/ed25519_password.ppk');
-      var ppkKey = CryptosignAuthentication.fromPuttyPrivateKey(
-          await ppkEncrypted.readAsString(),
-          password: 'password');
+      var ppkKey = CryptosignAuthentication.fromPuttyPrivateKey(await ppkEncrypted.readAsString(), password: 'password');
 
-      expect(ppkKey.privateKey?.sublist(0, 32).toString(),
-          equals(puttySeed.toString()));
+      expect(ppkKey.privateKey?.sublist(0, 32).toString(), equals(puttySeed.toString()));
 
-      var openSshPemFromPuttyWithPassword =
-          File('./test/authentication/ed25519_password.pem');
+      var openSshPemFromPuttyWithPassword = File('./test/authentication/ed25519_password.pem');
       var opensshKey = CryptosignAuthentication.fromOpenSshPrivateKey(
           await openSshPemFromPuttyWithPassword.readAsString(),
           password: 'password');
 
-      expect(opensshKey.privateKey?.sublist(0, 32).toString(),
-          equals(puttySeed.toString()));
+      expect(opensshKey.privateKey?.sublist(0, 32).toString(), equals(puttySeed.toString()));
 
-      var base64Key =
-          CryptosignAuthentication.fromBase64(base64.encode(puttySeed));
-      expect(base64Key.privateKey?.sublist(0, 32).toString(),
-          equals(puttySeed.toString()));
+      var base64Key = CryptosignAuthentication.fromBase64(base64.encode(puttySeed));
+      expect(base64Key.privateKey?.sublist(0, 32).toString(), equals(puttySeed.toString()));
     });
   });
 }
