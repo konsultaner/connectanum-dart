@@ -346,7 +346,7 @@ void main() {
       var challenge = serializer.deserializeFromString(
           '[${MessageTypes.CODE_CHALLENGE},"wampcra",{"challenge":"{\\"authid\\":\\"Richi\\",\\"authrole\\":\\"admin\\",\\"authmethod\\":\\"wampcra\\",\\"authprovider\\":\\"server\\",\\"nonce\\":\\"5636117568768122\\",\\"timestamp\\":\\"2018-03-16T07:29Z\\",\\"session\\":\\"5768501099130836\\"}","salt":"fhhi290fh7§)GQ)G)","keylen":35,"iterations":410}]') as Challenge?;
       expect(challenge, isNotNull);
-      expect(challenge!.id, equals(MessageTypes.CODE_CHALLENGE));
+      expect(challenge!.id, equals(challenge.id = MessageTypes.CODE_CHALLENGE));
       expect(challenge.authMethod, equals('wampcra'));
       expect(challenge.extra.challenge,
           equals('{\"authid\":\"Richi\",\"authrole\":\"admin\",\"authmethod\":\"wampcra\",\"authprovider\":\"server\",\"nonce\":\"5636117568768122\",\"timestamp\":\"2018-03-16T07:29Z\",\"session\":\"5768501099130836\"}'));
