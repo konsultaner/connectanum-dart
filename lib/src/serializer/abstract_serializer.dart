@@ -8,5 +8,5 @@ abstract class AbstractSerializer {
   Uint8List serialize(AbstractMessage message);
 
   /// Deserialize a given message
-  AbstractMessage? deserialize(Uint8List message);
+  AbstractMessage deserialize(Uint8List message);
 }

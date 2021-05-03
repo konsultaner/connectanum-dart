@@ -40,7 +40,7 @@ class Serializer extends AbstractSerializer {
 
   /// Converts a uint8 msgpack message into a WAMP message object
   @override
-  AbstractMessage? deserialize(Uint8List msgPack) {
+  AbstractMessage deserialize(Uint8List msgPack) {
     Object message = msgpack_dart.deserialize(msgPack);
     if (message is List) {
       int messageId = message[0];
@@ -218,7 +218,7 @@ class Serializer extends AbstractSerializer {
     }
     _logger.shout('Could not deserialize the message: ' + msgPack.toString());
     // TODO respond with an error
-    return null;
+    return Error(-1, -1, {}, 'Could not deserialize the message: ' + msgPack.toString());
   }
 
   AbstractMessageWithPayload _addPayload(AbstractMessageWithPayload message,

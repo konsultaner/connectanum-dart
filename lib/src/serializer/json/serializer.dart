@@ -41,12 +41,12 @@ class Serializer extends AbstractSerializer {
 
   /// Converts a uint8 JSON message into a WAMP message object
   @override
-  AbstractMessage? deserialize(Uint8List jsonMessage) {
+  AbstractMessage deserialize(Uint8List jsonMessage) {
     return deserializeFromString(Utf8Decoder().convert(jsonMessage));
   }
 
   /// Converts a string JSON message into a WAMP message object
-  AbstractMessage? deserializeFromString(String jsonMessage) {
+  AbstractMessage deserializeFromString(String jsonMessage) {
     Object message = json.decode(jsonMessage);
     if (message is List) {
       int messageId = message[0];
@@ -222,7 +222,7 @@ class Serializer extends AbstractSerializer {
     }
     _logger.shout('Could not deserialize the message: ' + jsonMessage);
     // TODO respond with an error
-    return null;
+    return Error(-1, -1, {}, 'Could not deserialize the message: ' + jsonMessage);
   }
 
   AbstractMessageWithPayload _addPayload(AbstractMessageWithPayload message,
