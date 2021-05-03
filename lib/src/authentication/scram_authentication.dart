@@ -68,7 +68,6 @@ class ScramAuthentication extends AbstractAuthentication {
     }
     var authenticate = Authenticate();
 
-    authenticate.extra = HashMap<String, Object>();
     authenticate.extra['nonce'] = extra.nonce;
     authenticate.extra['channel_binding'] = null;
     authenticate.extra['cbind_data'] = null;
