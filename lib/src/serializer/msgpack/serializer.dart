@@ -217,7 +217,6 @@ class Serializer extends AbstractSerializer {
       }
     }
     _logger.shout('Could not deserialize the message: ' + msgPack.toString());
-    // TODO respond with an error
     return Error(-1, -1, {}, 'Could not deserialize the message: ' + msgPack.toString());
   }
 
