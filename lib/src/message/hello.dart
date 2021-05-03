@@ -4,7 +4,7 @@ import 'message_types.dart';
 import 'uri_pattern.dart';
 
 class Hello extends AbstractMessage {
-  String realm;
+  String? realm;
   Details details;
 
   Hello(this.realm, this.details)

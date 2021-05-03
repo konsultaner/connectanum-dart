@@ -15,7 +15,7 @@ void main() async {
         Serializer(),
         WebSocketSerialization.SERIALIZATION_JSON,
       ));
-  Session session1;
+  Session? session1;
   try {
     // connect to the router and start the wamp layer
     session1 = await client1
@@ -31,7 +31,7 @@ void main() async {
     client1.onNextTryToReconnect.listen((passedOptions) {
       // enlarge the time to wait after each reconnect by 500ms
       passedOptions.reconnectTime = Duration(
-          milliseconds: passedOptions.reconnectTime.inMilliseconds + 500);
+          milliseconds: passedOptions.reconnectTime!.inMilliseconds + 500);
     });
     // register a method that may be called by other clients
     final registered = await session1.register('demo.get.version');
@@ -39,13 +39,13 @@ void main() async {
         .onInvoke((invocation) => invocation.respondWith(arguments: ['1.1.0']));
     // subscribe to a topic that my be published by other clients
     final subscription = await session1.subscribe('demo.push');
-    subscription.eventStream.listen((event) => print(event.arguments[0]));
+    subscription.eventStream?.listen((event) => print(event.arguments![0]));
     await subscription.onRevoke.then((reason) =>
         print('The server has killed my subscription due to: ' + reason));
   } on Abort catch (abort) {
     // if the serve does not allow this client to receive a session
     // the server will cancel the initializing process with an abort
-    print(abort.message.message);
+    print(abort.message!.message);
   }
 
   final client2 = Client(
@@ -60,16 +60,16 @@ void main() async {
     // call session 1 registered method and print the result
     session2
         .call('demo.get.version')
-        .listen((result) => print(result.arguments[0]), onError: (e) {
+        .listen((result) => print(result.arguments![0]), onError: (e) {
       var error = e as Error; // type cast necessary
       print(error.error);
     });
     // push a message to session 1
     await session2.publish('demo.push', arguments: ['This is a push message']);
     // close both clients after everything is done
-    unawaited(session1.close());
+    unawaited(session1?.close());
     unawaited(session2.close());
   } on Abort catch (abort) {
-    print(abort.message.message);
+    print(abort.message!.message);
   }
 }

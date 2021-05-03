@@ -3,7 +3,7 @@ import 'message_types.dart';
 
 class Register extends AbstractMessage {
   int requestId;
-  RegisterOptions options;
+  RegisterOptions? options;
   String procedure;
 
   Register(this.requestId, this.procedure, {this.options}) {
@@ -12,7 +12,7 @@ class Register extends AbstractMessage {
 }
 
 class RegisterOptions {
-  static final String MATCH_EXACT = null;
+  static final String? MATCH_EXACT = null;
   static final String MATCH_PREFIX = 'prefix';
   static final String MATCH_WILDCARD = 'wildcard';
 
@@ -23,13 +23,13 @@ class RegisterOptions {
   static final String INVOCATION_POLICY_RANDOM = 'random';
 
   // caller_identification == true
-  bool disclose_caller;
+  bool? disclose_caller;
 
   // pattern_based_registration == true
-  String match;
+  String? match;
 
   // shared_registration
-  String invoke;
+  String? invoke;
 
   RegisterOptions({this.disclose_caller, this.match, this.invoke});
 }

@@ -2,9 +2,9 @@ import 'cancel.dart';
 import 'message_types.dart';
 
 class Interrupt {
-  int id;
+  int id = MessageTypes.CODE_INTERRUPT;
   int requestId;
-  InterruptOptions options;
+  InterruptOptions? options;
 
   Interrupt(this.requestId, {this.options}) {
     id = MessageTypes.CODE_INTERRUPT;

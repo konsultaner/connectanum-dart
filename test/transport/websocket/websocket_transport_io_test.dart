@@ -26,8 +26,7 @@ void main() {
       server.listen((HttpRequest req) async {
         if (req.uri.path == '/wamp') {
           var socket = await WebSocketTransformer.upgrade(req);
-          print('Received protocol ' +
-              req.headers.value('sec-websocket-protocol'));
+          print('Received protocol ' + (req.headers.value('sec-websocket-protocol') as String));
           socket.listen((message) {
             if (message is String &&
                 message.contains('[${MessageTypes.CODE_HELLO}')) {
@@ -55,12 +54,12 @@ void main() {
 
       await transportJSON.open();
       transportJSON.send(Hello('my.realm', Details.forHello()));
-      Welcome welcome = await transportJSON.receive().first;
+      var welcome = await transportJSON.receive().first as Welcome;
       expect(welcome.sessionId, equals(1234));
 
       await transportMsgpack.open();
       transportMsgpack.send(Hello('my.realm', Details.forHello()));
-      welcome = await transportMsgpack.receive().first;
+      welcome = await transportMsgpack.receive().first as Welcome;
       expect(welcome.sessionId, equals(1234));
     });
   });

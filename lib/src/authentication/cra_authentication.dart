@@ -18,7 +18,7 @@ import '../message/error.dart';
 /// Use it with the [Client].
 class CraAuthentication extends AbstractAuthentication {
   static final List<int> DEFAULT_KEY_SALT = [];
-  final String secret;
+  final String? secret;
 
   /// Initializes the authentication method with the [secret] aka password
   CraAuthentication(this.secret);
@@ -36,9 +36,9 @@ class CraAuthentication extends AbstractAuthentication {
   /// authentication process and creates an authentication message according to
   /// the wamp specification
   @override
-  Future<Authenticate> challenge(Extra extra) {
+  Future<Authenticate> challenge(Extra? extra) {
     var authenticate = Authenticate();
-    if (extra == null || extra.challenge == null || secret == null) {
+    if (extra == null || extra.challenge.isEmpty || secret == null) {
       final error = Error(MessageTypes.CODE_CHALLENGE, -1,
           HashMap<String, Object>(), Error.AUTHORIZATION_FAILED);
       error.details['reason'] =
@@ -47,13 +47,13 @@ class CraAuthentication extends AbstractAuthentication {
     }
 
     Uint8List key;
-    if (extra.iterations != null && extra.iterations > 0) {
+    if (extra.iterations != null && extra.iterations! > 0) {
       key = deriveKey(
-          secret, extra.salt == null ? DEFAULT_KEY_SALT : extra.salt.codeUnits,
-          iterations: extra.iterations, keylen: extra.keylen);
+          secret!, extra.salt == null ? DEFAULT_KEY_SALT : extra.salt!.codeUnits,
+          iterations: extra.iterations!, keylen: extra.keylen);
     } else {
       key = deriveKey(
-          secret, extra.salt == null ? DEFAULT_KEY_SALT : extra.salt.codeUnits);
+          secret!, extra.salt == null ? DEFAULT_KEY_SALT : extra.salt!.codeUnits);
     }
 
     authenticate.signature = encodeHmac(
@@ -66,9 +66,9 @@ class CraAuthentication extends AbstractAuthentication {
   /// Creates an derived key from a [secret], [salt], [iterations], [keylen] and
   /// [hmacLength].
   static Uint8List deriveKey(String secret, List<int> salt,
-      {int iterations = 1000, int keylen = 32, hmacLength = 64}) {
+      {int? iterations = 1000, int keylen = 32, hmacLength = 64}) {
     var derivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), hmacLength))
-      ..init(Pbkdf2Parameters(Uint8List.fromList(salt), iterations, keylen));
+      ..init(Pbkdf2Parameters(Uint8List.fromList(salt), iterations as int, keylen));
     return derivator.process(Uint8List.fromList(secret.codeUnits));
   }
 

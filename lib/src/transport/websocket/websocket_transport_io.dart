@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:connectanum/src/message/goodbye.dart';
 
@@ -20,10 +21,10 @@ class WebSocketTransport extends AbstractTransport {
   final String _serializerType;
   bool _goodbyeSent = false;
   bool _goodbyeReceived = false;
-  WebSocket _socket;
-  Completer _onConnectionLost;
-  Completer _onDisconnect;
-  Completer _onReady;
+  WebSocket? _socket;
+  late Completer _onConnectionLost;
+  late Completer _onDisconnect;
+  late Completer _onReady;
 
   WebSocketTransport(
     this._url,
@@ -35,7 +36,7 @@ class WebSocketTransport extends AbstractTransport {
   /// Calling close will close the underlying socket connection
   @override
   Future<void> close({error}) {
-    _socket.close();
+    _socket?.close();
     complete(_onDisconnect, error);
     return Future.value();
   }
@@ -51,7 +52,7 @@ class WebSocketTransport extends AbstractTransport {
   /// This method will return true if the underlying socket has a ready state of open
   @override
   bool get isOpen {
-    return _socket != null && _socket.readyState == WebSocket.open;
+    return _socket != null && _socket!.readyState == WebSocket.open;
   }
 
   /// for this transport this is equal to [isOpen]
@@ -68,7 +69,7 @@ class WebSocketTransport extends AbstractTransport {
   /// As soon as the web socket connection is established, the returning future will complete
   /// or fail respectively
   @override
-  Future<void> open({Duration pingInterval}) async {
+  Future<void> open({Duration? pingInterval}) async {
     _onReady = Completer();
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
@@ -78,7 +79,7 @@ class WebSocketTransport extends AbstractTransport {
       if (pingInterval != null) {
         Timer.periodic(
             pingInterval,
-            (timer) => _socket.pingInterval = Duration(
+            (timer) => _socket?.pingInterval = Duration(
                 milliseconds: (pingInterval.inMilliseconds * 2 / 3).floor()));
       }
     } on SocketException catch (exception) {
@@ -95,9 +96,9 @@ class WebSocketTransport extends AbstractTransport {
     }
     var byteMessage = _serializer.serialize(message).cast<int>();
     if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
-      _socket.addUtf8Text(byteMessage);
+      _socket?.addUtf8Text(byteMessage);
     } else {
-      _socket.add(byteMessage);
+      _socket?.add(byteMessage);
     }
   }
 
@@ -105,8 +106,8 @@ class WebSocketTransport extends AbstractTransport {
   /// objects.
   @override
   Stream<AbstractMessage> receive() {
-    _socket.done.then((done) {
-      if ((_socket.closeCode == null || _socket.closeCode > 1000) &&
+    _socket?.done.then((done) {
+      if ((_socket!.closeCode == null || _socket!.closeCode != null && _socket!.closeCode! > 1000) &&
           !_goodbyeSent &&
           !_goodbyeReceived) {
         _onConnectionLost.complete();
@@ -118,12 +119,12 @@ class WebSocketTransport extends AbstractTransport {
         _onConnectionLost.complete(error);
       }
     });
-    return _socket.map((messageEvent) {
+    return _socket!.map((messageEvent) {
       AbstractMessage message;
       if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
-        message = _serializer.deserialize(utf8.encode(messageEvent));
+        message = _serializer.deserialize(Uint8List.fromList(utf8.encode(messageEvent))) as AbstractMessage;
       } else {
-        message = _serializer.deserialize(messageEvent);
+        message = _serializer.deserialize(messageEvent) as AbstractMessage;
       }
       if (message is Goodbye) {
         _goodbyeReceived = true;

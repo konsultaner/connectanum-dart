@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:html';
+import 'dart:typed_data';
 
 import 'package:logging/logging.dart';
 
@@ -16,12 +17,12 @@ class WebSocketTransport extends AbstractTransport {
   final String _url;
   final AbstractSerializer _serializer;
   final String _serializerType;
-  WebSocket _socket;
+  late WebSocket _socket;
   bool _goodbyeSent = false;
   bool _goodbyeReceived = false;
-  Completer _onConnectionLost;
-  Completer _onDisconnect;
-  Completer _onReady;
+  late Completer _onConnectionLost;
+  late Completer _onDisconnect;
+  late Completer _onReady;
 
   WebSocketTransport(
     this._url,
@@ -63,7 +64,7 @@ class WebSocketTransport extends AbstractTransport {
   /// As soon as the web socket connection is established, the returning future will complete
   /// or fail respectively
   @override
-  Future<void> open({Duration pingInterval}) async {
+  Future<void> open({Duration? pingInterval}) async {
     _onReady = Completer();
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
@@ -105,7 +106,7 @@ class WebSocketTransport extends AbstractTransport {
   @override
   Stream<AbstractMessage> receive() {
     _socket.onClose.listen((closeEvent) {
-      if ((closeEvent.code == null || closeEvent.code > 1000) &&
+      if ((closeEvent.code == null || closeEvent.code != null && closeEvent.code! > 1000) &&
           !_goodbyeSent &&
           !_goodbyeReceived) {
         // a status code other then 1000 indicates that the server tried to quit
@@ -117,9 +118,9 @@ class WebSocketTransport extends AbstractTransport {
     return _socket.onMessage.map((messageEvent) {
       AbstractMessage message;
       if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
-        message = _serializer.deserialize(utf8.encode(messageEvent.data));
+        message = _serializer.deserialize(Uint8List.fromList(utf8.encode(messageEvent.data))) as AbstractMessage;
       } else {
-        message = _serializer.deserialize(messageEvent.data);
+        message = _serializer.deserialize(messageEvent.data) as AbstractMessage;
       }
       if (message is Goodbye) {
         _goodbyeReceived = true;

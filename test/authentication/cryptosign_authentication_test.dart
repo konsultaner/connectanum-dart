@@ -107,23 +107,20 @@ void main() {
     test('message handling', () async {
       testVectors.forEach((vector) async {
         final authMethod =
-            CryptosignAuthentication.fromHex(vector['privateKey']);
+            CryptosignAuthentication.fromHex(vector['privateKey'] as String);
         expect(authMethod.getName(), equals('cryptosign'));
 
         var details = Details();
         await authMethod.hello('some.realm', details);
 
-        expect(details.authextra['pubkey'],
-            equals(authMethod.privateKey.publicKey.encode(HexCoder.instance)));
+        expect(details.authextra['pubkey'], equals(authMethod.privateKey.publicKey.encode(HexCoder.instance)));
         expect(details.authextra['channel_binding'], equals(null));
 
-        var extra =
-            Extra(challenge: vector['challenge'], channel_binding: null);
+        var extra = Extra(challenge: vector['challenge'] as String, channel_binding: null);
         final authenticate = await authMethod.challenge(extra);
         expect(authenticate.signature, equals(vector['signature']));
 
-        extra =
-            Extra(challenge: vector['challenge'], channel_binding: 'sadjakf');
+        extra = Extra(challenge: vector['challenge'] as String, channel_binding: 'sadjakf');
         expect(() => authMethod.challenge(extra), throwsA(isA<Exception>()));
 
         try {
@@ -133,8 +130,7 @@ void main() {
               equals('Exception: Channel Binding does not match'));
         }
 
-        extra = Extra(
-            challenge: vector['challenge'].substring(3), channel_binding: null);
+        extra = Extra(challenge: vector['challenge']!.substring(3), channel_binding: null);
         expect(() => authMethod.challenge(extra), throwsA(isA<Exception>()));
 
         try {
@@ -319,34 +315,22 @@ void main() {
     });
 
     test('constructors', () async {
-      expect(() => CryptosignAuthentication(null, null),
-          throwsA(isA<AssertionError>()));
-      expect(
-          () => CryptosignAuthentication(
-              SigningKey.fromSeed([]), 'some other then null'),
-          throwsA(isA<Exception>()));
+      expect(() => CryptosignAuthentication(SigningKey.fromSeed([]), 'some other then null'), throwsA(isA<Exception>()));
 
       var ppkEncrypted = File('./test/authentication/ed25519_password.ppk');
-      var ppkKey = CryptosignAuthentication.fromPuttyPrivateKey(
-          await ppkEncrypted.readAsString(),
-          password: 'password');
+      var ppkKey = CryptosignAuthentication.fromPuttyPrivateKey(await ppkEncrypted.readAsString(), password: 'password');
 
-      expect(ppkKey.privateKey.sublist(0, 32).toString(),
-          equals(puttySeed.toString()));
+      expect(ppkKey.privateKey.sublist(0, 32).toString(), equals(puttySeed.toString()));
 
-      var openSshPemFromPuttyWithPassword =
-          File('./test/authentication/ed25519_password.pem');
+      var openSshPemFromPuttyWithPassword = File('./test/authentication/ed25519_password.pem');
       var opensshKey = CryptosignAuthentication.fromOpenSshPrivateKey(
           await openSshPemFromPuttyWithPassword.readAsString(),
           password: 'password');
 
-      expect(opensshKey.privateKey.sublist(0, 32).toString(),
-          equals(puttySeed.toString()));
+      expect(opensshKey.privateKey.sublist(0, 32).toString(), equals(puttySeed.toString()));
 
-      var base64Key =
-          CryptosignAuthentication.fromBase64(base64.encode(puttySeed));
-      expect(base64Key.privateKey.sublist(0, 32).toString(),
-          equals(puttySeed.toString()));
+      var base64Key = CryptosignAuthentication.fromBase64(base64.encode(puttySeed));
+      expect(base64Key.privateKey.sublist(0, 32).toString(), equals(puttySeed.toString()));
     });
   });
 }
