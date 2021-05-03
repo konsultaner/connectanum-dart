@@ -81,16 +81,12 @@ void main() {
                   authRole: 'client')));
         }
       });
-      Abort? foundAbort;
       try {
         await client.connect().first;
       } catch (abort) {
-        foundAbort = abort as Abort;
+        var foundAbort = abort as Abort;
+        expect(foundAbort.message!.message, equals('No realm specified! Neither by the client nor by the router'));
       }
-      expect(
-          foundAbort!.message!.message,
-          equals(
-              'No realm specified! Neither by the client nor by the router'));
 
       var transport2 = _MockTransport();
       transport2.outbound.stream.listen((message) {

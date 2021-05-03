@@ -155,13 +155,12 @@ class Session {
           } else if (message is Welcome) {
             session.id = message.sessionId;
 
-            if ((session.realm ?? message.details.realm) == null) {
+            if ((session.realm ?? message.details.realm).isEmpty) {
               welcomeCompleter.completeError(Abort(Error.AUTHORIZATION_FAILED,
-                  message:
-                      'No realm specified! Neither by the client nor by the router'));
+                  message: 'No realm specified! Neither by the client nor by the router'));
               return;
             }
-            if (message.details.realm == null) {
+            if (message.details.realm.isEmpty) {
               if (_logger.level <= Level.INFO) {
                 _logger.info('Warning! No realm returned by the router');
               }

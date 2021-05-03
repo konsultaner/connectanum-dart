@@ -1,6 +1,6 @@
 class Details {
   String agent = '';
-  String? realm;
+  String realm = '';
   List<String>? authmethods;
   String? authid;
   String authrole = '';
