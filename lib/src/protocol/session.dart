@@ -88,7 +88,8 @@ class Session {
 
   /// Starting the session will also start the authentication process.
   static Future<Session> start(String realm, AbstractTransport transport,
-      {String authId, String authRole,
+      {String authId,
+      String authRole,
       List<AbstractAuthentication> authMethods,
       Duration reconnect}) async {
     /// The realm object my be null bust must mach the uri pattern if it was
@@ -173,7 +174,6 @@ class Session {
             session.authRole = message.details.authrole;
             session.authMethod = message.details.authmethod;
             session.authProvider = message.details.authprovider;
-            session.authRole = message.details.authrole;
             session.authExtra = message.details.authextra;
             session._transportStreamSubscription.onData((message) {
               session._openSessionStreamController.add(message);
