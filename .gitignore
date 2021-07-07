@@ -1,5 +1,6 @@
 .dart_tool
 .idea
+.vscode
 connectanum-dart.iml
 .packages
 pubspec.lock
