@@ -17,6 +17,7 @@ class Client {
   static final Logger _logger = Logger('Client');
 
   String authId;
+  String authRole;
   String realm;
   int isolateCount;
   final StreamController<ClientConnectOptions> _reconnectStreamController =
@@ -52,6 +53,7 @@ class Client {
   Client(
       {@required this.transport,
       this.authId,
+      this.authRole,
       @required this.realm,
       this.authenticationMethods,
       this.isolateCount = 1})
@@ -93,6 +95,7 @@ class Client {
       try {
         var session = await Session.start(realm, transport,
             authId: authId,
+            authRole: authRole,
             authMethods: authenticationMethods,
             reconnect: options.reconnectTime);
         _controller.add(session);
