@@ -100,7 +100,14 @@ class Client {
             reconnect: options.reconnectTime);
         _controller.add(session);
       } on Abort catch (abort) {
-        if (abort.reason != Error.NOT_AUTHORIZED &&
+        if ([
+                  Error.NOT_AUTHORIZED,
+                  Error.NO_PRINCIPAL,
+                  Error.AUTHORIZATION_FAILED,
+                  Error.NO_SUCH_REALM,
+                  Error.PROTOCOL_VIOLATION
+                ].indexOf(abort.reason) ==
+                -1 &&
             options.reconnectTime != null) {
           // if the router restarts we should wait until it has been initialized
           await Future.delayed(Duration(seconds: 2));
