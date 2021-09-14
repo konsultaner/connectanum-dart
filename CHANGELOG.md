@@ -1,3 +1,7 @@
+### 1.1.7
+
+- added auth role to session on create 
+
 ### 1.1.6
 
 - fix auth extra type
