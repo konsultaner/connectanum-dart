@@ -42,8 +42,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
   factory CryptosignAuthentication.fromPuttyPrivateKey(String ppkFileContent,
       {String? password}) {
     return CryptosignAuthentication(
-        SigningKey.fromSeed(
-            loadPrivateKeyFromPpk(ppkFileContent, password: password)),
+        SigningKey.fromSeed(Uint8List.fromList(loadPrivateKeyFromPpk(ppkFileContent, password: password))),
         null);
   }
 
@@ -64,14 +63,14 @@ class CryptosignAuthentication extends AbstractAuthentication {
   /// possible. This key needs to generated to be used with the ed25519 algorithm
   factory CryptosignAuthentication.fromBase64(String base64PrivateKey) {
     return CryptosignAuthentication(
-        SigningKey.fromSeed(base64.decode(base64PrivateKey).toList()), null);
+        SigningKey.fromSeed(Uint8List.fromList(base64.decode(base64PrivateKey).toList())), null);
   }
 
   /// This method takes a given [hexPrivateKey] to make crypto sign
   /// possible. This key needs to generated to be used with the ed25519 algorithm
   factory CryptosignAuthentication.fromHex(String hexPrivateKey) {
     return CryptosignAuthentication(
-        SigningKey.fromSeed(hexToBin(hexPrivateKey)), null);
+        SigningKey.fromSeed(Uint8List.fromList(hexToBin(hexPrivateKey))), null);
   }
 
   /// This method is called by the session if the router returns the challenge or
@@ -90,7 +89,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
     authenticate.extra['channel_binding'] = channelBinding;
     var binaryChallenge = hexToBin(extra.challenge);
     authenticate.signature =
-        privateKey.sign(binaryChallenge).encode(HexCoder.instance);
+        privateKey.sign(Uint8List.fromList(binaryChallenge)).encode(HexCoder.instance);
     return Future.value(authenticate);
   }
 
