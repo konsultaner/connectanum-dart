@@ -111,7 +111,9 @@ class WebSocketTransport extends AbstractTransport {
           !_goodbyeReceived) {
         _onConnectionLost.complete();
       } else {
-        _onDisconnect.complete();
+        if (!_onDisconnect.isCompleted) {
+          _onDisconnect.complete();
+        }
       }
     }, onError: (error) {
       if (!_onDisconnect.isCompleted) {
