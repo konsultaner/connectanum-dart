@@ -98,7 +98,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
   }
 
   /// This method converts a given [hexString] to its byte representation.
-  static List<int> hexToBin(String hexString) {
+  static Uint8List hexToBin(String hexString) {
     if (hexString == null || hexString.length % 2 != 0) {
       throw Exception('odd hex string length');
     }
@@ -106,7 +106,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
     return [
       for (var i = 0; i < hexString.length; i += 2)
         int.parse(hexString[i] + hexString[i + 1], radix: 16)
-    ];
+    ].toUint8List();
   }
 
   /// This method is called by the session to modify the hello [details] for
