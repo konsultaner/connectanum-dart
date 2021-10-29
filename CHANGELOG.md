@@ -1,3 +1,7 @@
+### 1.1.8
+
+- fixed cra saltless authentication
+
 ### 1.1.7
 
 - added auth role to session on create 
