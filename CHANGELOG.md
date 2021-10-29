@@ -1,3 +1,7 @@
+### 1.1.9
+
+- fixes #3 fixed test vector
+
 ### 1.1.8
 
 - fixed cra saltless authentication
