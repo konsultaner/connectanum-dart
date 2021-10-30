@@ -85,7 +85,7 @@ class Client {
 
   void _connect(ClientConnectOptions options) async {
     await transport.open(pingInterval: options.pingInterval);
-    if (transport.isOpen) {
+    if (transport.isOpen && transport.onConnectionLost != null) {
       unawaited(transport.onConnectionLost.future.then((_) async {
         await Future.delayed(options.reconnectTime);
         options.reconnectCount = _reconnectCount;

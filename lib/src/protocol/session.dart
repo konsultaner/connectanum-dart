@@ -57,7 +57,7 @@ class Session {
   /// the [authExtra] returned by the server
   Map<String, dynamic> authExtra;
 
-  AbstractTransport _transport;
+  final AbstractTransport _transport;
 
   /// the next id used to generate request id for a call
   int nextCallId = 1;
@@ -86,24 +86,20 @@ class Session {
   StreamSubscription<AbstractMessage> _transportStreamSubscription;
   final _openSessionStreamController = StreamController.broadcast();
 
+  Session(this.realm, this._transport)
+  /// The realm object my be null bust must mach the uri pattern if it was
+  /// passed The connection should have been established before initializing the
+  /// session.
+  : assert(realm == null || UriPattern.match(realm), _transport != null && _transport.isOpen);
+
   /// Starting the session will also start the authentication process.
   static Future<Session> start(String realm, AbstractTransport transport,
       {String authId,
       String authRole,
       List<AbstractAuthentication> authMethods,
       Duration reconnect}) async {
-    /// The realm object my be null bust must mach the uri pattern if it was
-    /// passed
-    assert(realm == null || UriPattern.match(realm));
-
-    /// The connection should have been established before initializing the
-    /// session.
-    assert(transport != null && transport.isOpen);
-
     /// Initialize the session object with the realm it belongs to
-    final session = Session();
-    session.realm = realm;
-    session._transport = transport;
+    final session = Session(realm, transport);
 
     /// Initialize the sub protocol with a hello message
     final hello = Hello(realm, details_package.Details.forHello());
@@ -125,7 +121,7 @@ class Session {
     session._transportStreamSubscription = transport.receive().listen(
         (message) {
           if (message is Challenge) {
-            final foundAuthMethod = authMethods
+            final foundAuthMethod = authMethods == null ? null :authMethods
                 .where((authenticationMethod) =>
                     authenticationMethod.getName() == message.authMethod)
                 .first;
