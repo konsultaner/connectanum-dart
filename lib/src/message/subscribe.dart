@@ -6,7 +6,7 @@ import 'message_types.dart';
 /// Used to subscribe to a topic
 class Subscribe extends AbstractMessage {
   int requestId;
-  SubscribeOptions options;
+  SubscribeOptions? options;
   String topic;
 
   /// The [requestId] will identify the subscription server response. The [topic]
@@ -22,16 +22,16 @@ class Subscribe extends AbstractMessage {
 /// custom options need to be added with a custom serializer because flutter
 /// disables reflections.
 class SubscribeOptions {
-  static final String MATCH_PLAIN = null;
+  static final String? MATCH_PLAIN = null;
   static final String MATCH_PREFIX = 'prefix';
   static final String MATCH_WILDCARD = 'wildcard';
 
   static final String CUSTOM_SERIALIZER_JSON = 'json';
   static final String CUSTOM_SERIALIZER_MSGPACK = 'msgpack';
 
-  String match;
-  String meta_topic;
-  bool get_retained;
+  String? match;
+  String? meta_topic;
+  bool? get_retained;
 
   final HashMap<String, dynamic Function(String)> _customSerializedOptions =
       HashMap<String, dynamic Function(String)>();

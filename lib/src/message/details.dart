@@ -1,49 +1,55 @@
 class Details {
-  String agent;
-  String realm;
-  List<String> authmethods;
-  String authid;
-  String authrole;
-  String authmethod;
-  String authprovider;
-  Map<String, dynamic> authextra;
-  String nonce;
-  String challenge;
-  int iterations;
-  int keylen;
-  bool progress;
-  String salt;
-  Uri topic;
-  Uri procedure;
-  int trustlevel;
-  Roles roles;
+  String? agent;
+  String? realm;
+  List<String>? authmethods;
+  String? authid;
+  String? authrole;
+  String? authmethod;
+  String? authprovider;
+  Map<String, dynamic>? authextra;
+  String? nonce;
+  String? challenge;
+  int? iterations;
+  int? keylen;
+  bool? progress;
+  String? salt;
+  Uri? topic;
+  Uri? procedure;
+  int? trustlevel;
+  Roles? roles;
 
   static Details forHello() {
     final details = Details();
-    details.roles = Roles();
+    var roles = Roles();
+    var caller = Caller();
+    caller.features = CallerFeatures();
 
-    details.roles.caller = Caller();
-    details.roles.caller.features = CallerFeatures();
+    var callee = Callee();
+    callee.features = CalleeFeatures();
 
-    details.roles.callee = Callee();
-    details.roles.callee.features = CalleeFeatures();
+    var publisher = Publisher();
+    publisher.features = PublisherFeatures();
 
-    details.roles.publisher = Publisher();
-    details.roles.publisher.features = PublisherFeatures();
+    var subscriber = Subscriber();
+    subscriber.features = SubscriberFeatures();
 
-    details.roles.subscriber = Subscriber();
-    details.roles.subscriber.features = SubscriberFeatures();
+    roles.caller = caller;
+    roles.callee = callee;
+    roles.publisher = publisher;
+    roles.subscriber = subscriber;
+
+    details.roles = roles;
 
     return details;
   }
 
   static Details forWelcome({
-    String realm,
-    String authId,
-    String authMethod,
-    String authProvider,
-    String authRole,
-    Map<String, dynamic> authExtra,
+    String? realm,
+    String? authId,
+    String? authMethod,
+    String? authProvider,
+    String? authRole,
+    Map<String, dynamic>? authExtra,
   }) {
     final details = Details();
 
@@ -54,29 +60,34 @@ class Details {
     details.authrole = authRole;
     details.authextra = authExtra;
 
-    details.roles = Roles();
+    var roles = Roles();
 
-    details.roles.dealer = Dealer();
-    details.roles.dealer.features = DealerFeatures();
+    var dealer = Dealer();
+    dealer.features = DealerFeatures();
 
-    details.roles.broker = Broker();
-    details.roles.broker.features = BrokerFeatures();
+    var broker = Broker();
+    broker.features = BrokerFeatures();
+
+    roles.dealer = dealer;
+    roles.broker = broker;
+
+    details.roles = roles;
 
     return details;
   }
 }
 
 class Roles {
-  Publisher publisher;
-  Broker broker;
-  Subscriber subscriber;
-  Dealer dealer;
-  Callee callee;
-  Caller caller;
+  Publisher? publisher;
+  Broker? broker;
+  Subscriber? subscriber;
+  Dealer? dealer;
+  Callee? callee;
+  Caller? caller;
 }
 
 class Publisher {
-  PublisherFeatures features;
+  PublisherFeatures? features;
 }
 
 class PublisherFeatures {
@@ -87,8 +98,8 @@ class PublisherFeatures {
 }
 
 class Broker {
-  bool reflection;
-  BrokerFeatures features;
+  bool? reflection;
+  BrokerFeatures? features;
 }
 
 class BrokerFeatures {
@@ -104,7 +115,7 @@ class BrokerFeatures {
 }
 
 class Subscriber {
-  SubscriberFeatures features;
+  SubscriberFeatures? features;
 }
 
 class SubscriberFeatures {
@@ -116,8 +127,8 @@ class SubscriberFeatures {
 }
 
 class Dealer {
-  bool reflection;
-  DealerFeatures features;
+  bool? reflection;
+  DealerFeatures? features;
 }
 
 class DealerFeatures {
@@ -134,7 +145,7 @@ class DealerFeatures {
 }
 
 class Callee {
-  CalleeFeatures features;
+  CalleeFeatures? features;
 }
 
 class CalleeFeatures {
@@ -149,7 +160,7 @@ class CalleeFeatures {
 }
 
 class Caller {
-  CallerFeatures features;
+  CallerFeatures? features;
 }
 
 class CallerFeatures {

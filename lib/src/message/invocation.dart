@@ -11,17 +11,17 @@ class Invocation extends AbstractMessageWithPayload {
   int requestId;
   int registrationId;
   InvocationDetails details;
-  StreamController<AbstractMessageWithPayload> _responseStreamController;
+  late StreamController<AbstractMessageWithPayload> _responseStreamController;
 
   void respondWith(
-      {List<Object> arguments,
-      Map<String, Object> argumentsKeywords,
+      {List<Object?>? arguments,
+      Map<String, Object?>? argumentsKeywords,
       bool isError = false,
-      String errorUri,
+      String? errorUri,
       bool progressive = false}) {
     if (isError) {
       assert(progressive == false);
-      assert(UriPattern.match(errorUri));
+      assert(UriPattern.match(errorUri!));
       final error = Error(
           MessageTypes.CODE_INVOCATION, requestId, HashMap(), errorUri,
           arguments: arguments, argumentsKeywords: argumentsKeywords);
@@ -39,7 +39,7 @@ class Invocation extends AbstractMessageWithPayload {
   }
 
   Invocation(this.requestId, this.registrationId, this.details,
-      {List<Object> arguments, Map<String, Object> argumentsKeywords}) {
+      {List<Object>? arguments, Map<String, Object>? argumentsKeywords}) {
     id = MessageTypes.CODE_INVOCATION;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;
@@ -59,13 +59,13 @@ class Invocation extends AbstractMessageWithPayload {
 
 class InvocationDetails {
   // caller_identification == true
-  int caller;
+  int? caller;
 
   // pattern_based_registration == true
-  String procedure;
+  String? procedure;
 
   // pattern_based_registration == true
-  bool receive_progress;
+  bool? receive_progress;
 
   InvocationDetails(this.caller, this.procedure, this.receive_progress);
 }
