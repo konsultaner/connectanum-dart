@@ -29,7 +29,7 @@ class CraAuthentication extends AbstractAuthentication {
   /// a given [realm]. Since CRA does not need to modify it. This method returns
   /// a completed future
   @override
-  Future<void> hello(String realm, Details details) {
+  Future<void> hello(String? realm, Details details) {
     return Future.value();
   }
 
@@ -38,9 +38,9 @@ class CraAuthentication extends AbstractAuthentication {
   /// authentication process and creates an authentication message according to
   /// the wamp specification
   @override
-  Future<Authenticate> challenge(Extra extra) {
+  Future<Authenticate> challenge(Extra? extra) {
     var authenticate = Authenticate();
-    if (extra == null || extra.challenge == null || secret == null) {
+    if (extra == null || extra.challenge == null) {
       final error = Error(MessageTypes.CODE_CHALLENGE, -1,
           HashMap<String, Object>(), Error.AUTHORIZATION_FAILED);
       error.details['reason'] =
@@ -52,21 +52,21 @@ class CraAuthentication extends AbstractAuthentication {
     if (extra.salt == null) {
       key = Uint8List.fromList(secret.codeUnits);
     } else {
-      key = deriveKey(secret, extra.salt.codeUnits,
-          iterations: extra.iterations == null || extra.iterations <= 0
+      key = deriveKey(secret, extra.salt!.codeUnits,
+          iterations: extra.iterations == null || extra.iterations! <= 0
               ? DEFAULT_ITERATIONS
-              : extra.iterations,
-          keylen: extra.keylen == null || extra.keylen <= 0
+              : extra.iterations!,
+          keylen: extra.keylen == null || extra.keylen! <= 0
               ? DEFAULT_KEY_LENGTH
-              : extra.keylen);
+              : extra.keylen!);
     }
 
     authenticate.signature = encodeHmac(
         Uint8List.fromList(base64.encode(key).codeUnits),
-        extra.keylen == null || extra.keylen <= 0
+        extra.keylen == null || extra.keylen! <= 0
             ? DEFAULT_KEY_LENGTH
-            : extra.keylen,
-        Uint8List.fromList(extra.challenge.codeUnits));
+            : extra.keylen!,
+        Uint8List.fromList(extra.challenge!.codeUnits));
     return Future.value(authenticate);
   }
 
