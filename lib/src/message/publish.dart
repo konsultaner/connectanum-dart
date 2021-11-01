@@ -8,8 +8,8 @@ class Publish extends AbstractMessageWithPayload {
 
   Publish(this.requestId, this.topic,
       {this.options,
-      List<Object>? arguments,
-      Map<String, Object>? argumentsKeywords}) {
+      List<dynamic>? arguments,
+      Map<String, dynamic>? argumentsKeywords}) {
     id = MessageTypes.CODE_PUBLISH;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;

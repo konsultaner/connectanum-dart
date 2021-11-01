@@ -39,7 +39,7 @@ class Invocation extends AbstractMessageWithPayload {
   }
 
   Invocation(this.requestId, this.registrationId, this.details,
-      {List<Object>? arguments, Map<String, Object>? argumentsKeywords}) {
+      {List<dynamic>? arguments, Map<String, dynamic>? argumentsKeywords}) {
     id = MessageTypes.CODE_INVOCATION;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;

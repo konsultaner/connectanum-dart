@@ -53,7 +53,7 @@ void main() {
                   authRole: 'client')));
         }
       });
-      LogRecord measuredRecord;
+      late LogRecord measuredRecord;
       Logger.root.onRecord.listen((record) {
         measuredRecord = record;
       });
@@ -81,14 +81,14 @@ void main() {
                   authRole: 'client')));
         }
       });
-      Abort foundAbort;
+      late Abort foundAbort;
       try {
         await client.connect().first;
       } catch (abort) {
-        foundAbort = abort;
+        foundAbort = abort as Abort;
       }
       expect(
-          foundAbort.message.message,
+          foundAbort.message!.message,
           equals(
               'No realm specified! Neither by the client nor by the router'));
 
@@ -125,7 +125,7 @@ void main() {
       Abort abort = await abortCompleter.future;
       expect(abort, isNotNull);
       expect(abort.reason, equals(Error.NO_SUCH_REALM));
-      expect(abort.message.message, equals('The given realm is not valid'));
+      expect(abort.message!.message, equals('The given realm is not valid'));
       expect(transport.isOpen, isFalse);
     });
     test('session creation router abort not authorized', () async {
@@ -144,7 +144,7 @@ void main() {
       Abort abort = await abortCompleter.future;
       expect(abort, isNotNull);
       expect(abort.reason, equals(Error.NOT_AUTHORIZED));
-      expect(abort.message.message, equals('The given realm is not valid'));
+      expect(abort.message!.message, equals('The given realm is not valid'));
       expect(transport.isOpen, isFalse);
     });
     test('session creation with cra authentication process and regular close',
@@ -159,7 +159,7 @@ void main() {
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
           transport.receiveMessage(Challenge(
-              (message as Hello).details.authmethods[0],
+              (message as Hello).details.authmethods![0],
               Extra(
                   challenge:
                       '{\"authid\":\"11111111\",\"authrole\":\"client\",\"authmethod\":\"wampcra\",\"authprovider\":\"mssql\",\"nonce\":\"1280303478343404\",\"timestamp\":\"2015-10-27T14:28Z\",\"session\":586844620777222}',
@@ -194,7 +194,7 @@ void main() {
       await session.close(message: 'GBY', timeout: Duration(milliseconds: 1));
       expect(transport.isOpen, isFalse);
       Goodbye goodbye = await goodbyeCompleter.future;
-      expect(goodbye.message.message, equals('GBY'));
+      expect(goodbye.message!.message, equals('GBY'));
     });
     test('session creation with cra authentication process and router abort',
         () async {
@@ -207,7 +207,7 @@ void main() {
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
           transport.receiveMessage(Challenge(
-              (message as Hello).details.authmethods[0],
+              (message as Hello).details.authmethods![0],
               Extra(
                   challenge:
                       '{\"authid\":\"11111111\",\"authrole\":\"client\",\"authmethod\":\"wampcra\",\"authprovider\":\"mssql\",\"nonce\":\"1280303478343404\",\"timestamp\":\"2015-10-27T14:28Z\",\"session\":586844620777222}',
@@ -224,11 +224,14 @@ void main() {
       unawaited(client
           .connect()
           .first
-          .catchError((abort) => abortCompleter.complete(abort)));
+          .catchError((abort) {
+        abortCompleter.complete(abort);
+        return Future.value(Session(null, _MockTransport()));
+      }));
       Abort abort = await abortCompleter.future;
       expect(abort, isNotNull);
       expect(abort.reason, equals(Error.AUTHORIZATION_FAILED));
-      expect(abort.message.message, equals('Wrong user credentials'));
+      expect(abort.message!.message, equals('Wrong user credentials'));
       expect(transport.isOpen, isFalse);
     });
     test('session creation with failing authentication challenge', () async {
@@ -242,7 +245,7 @@ void main() {
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
           transport.receiveMessage(Challenge(
-              (message as Hello).details.authmethods[0],
+              (message as Hello).details.authmethods![0],
               Extra(challenge: 'nothing')));
         }
         if (message.id == MessageTypes.CODE_ABORT) {
@@ -253,7 +256,7 @@ void main() {
       var abort = await receivedAbortCompleter.future;
       expect(abort, isNotNull);
       expect(abort.reason, equals(Error.AUTHORIZATION_FAILED));
-      expect(abort.message.message, equals('Exception: Did not work'));
+      expect(abort.message!.message, equals('Exception: Did not work'));
       expect(transport.isOpen, isFalse);
     });
     test('session creation with ticket authentication process', () async {
@@ -266,7 +269,7 @@ void main() {
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
           transport.receiveMessage(
-              Challenge((message as Hello).details.authmethods[0], Extra()));
+              Challenge((message as Hello).details.authmethods![0], Extra()));
         }
         if (message.id == MessageTypes.CODE_AUTHENTICATE &&
             (message as Authenticate).signature == 'secret!!!') {
@@ -306,35 +309,35 @@ void main() {
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
           var hello = message as Hello;
-          user['helloNonce'] = hello.details.authextra['nonce'];
+          user['helloNonce'] = hello.details.authextra!['nonce'];
           user['nonce'] =
-              hello.details.authextra['nonce'] + 'KOyl+L29eqUe9cVKbVUUgQ==';
+              hello.details.authextra!['nonce'] + 'KOyl+L29eqUe9cVKbVUUgQ==';
           var challengeExtra = Extra();
-          challengeExtra.nonce = user['nonce'];
-          challengeExtra.salt = user['salt'];
+          challengeExtra.nonce = user['nonce'] as String?;
+          challengeExtra.salt = user['salt'] as String?;
           challengeExtra.kdf = ScramAuthentication.KDF_PBKDF2;
-          challengeExtra.iterations = user['cost'];
-          var authExtra = HashMap<String, Object>();
+          challengeExtra.iterations = user['cost'] as int?;
+          var authExtra = HashMap<String, Object?>();
           authExtra['channel_binding'] = null;
           authExtra['cbind_data'] = null;
           authExtra['nonce'] = user['nonce'];
           transport.receiveMessage(Challenge(
-              (message as Hello).details.authmethods[0], challengeExtra));
+              message.details.authmethods![0], challengeExtra));
         }
         if (message.id == MessageTypes.CODE_AUTHENTICATE) {
           var authenticate = message as Authenticate;
           var challengeExtra = Extra();
-          challengeExtra.nonce = user['nonce'];
-          challengeExtra.salt = user['salt'];
-          challengeExtra.iterations = user['cost'];
+          challengeExtra.nonce = user['nonce'] as String?;
+          challengeExtra.salt = user['salt'] as String?;
+          challengeExtra.iterations = user['cost'] as int?;
           var authMessage = ScramAuthentication.createAuthMessage(
-              user['username'],
-              user['helloNonce'],
+              user['username'] as String,
+              user['helloNonce'] as String,
               authenticate.extra as HashMap,
               challengeExtra);
           if (ScramAuthentication.verifyClientProof(
-              base64.decode(authenticate.signature),
-              base64.decode(user['storedKey']),
+              base64.decode(authenticate.signature!),
+              base64.decode(user['storedKey'] as String),
               authMessage)) {
             transport.receiveMessage(Welcome(
                 3251278072152162,
@@ -373,46 +376,46 @@ void main() {
         if (message.id == MessageTypes.CODE_REGISTER) {
           if ((message as Register).procedure == 'my.procedure') {
             transport.receiveMessage(
-                Registered((message as Register).requestId, 1010));
+                Registered(message.requestId, 1010));
           }
-          if ((message as Register).procedure == 'my.error') {
+          if (message.procedure == 'my.error') {
             transport.receiveMessage(Error(MessageTypes.CODE_REGISTER,
-                (message as Register).requestId, {}, Error.NOT_AUTHORIZED));
+                message.requestId, {}, Error.NOT_AUTHORIZED));
           }
         }
         if (message.id == MessageTypes.CODE_UNREGISTER) {
           if ((message as Unregister).registrationId > 0) {
             transport.receiveMessage(
-                Unregistered((message as Unregister).requestId));
+                Unregistered(message.requestId));
           } else {
             transport.receiveMessage(Error(
                 MessageTypes.CODE_UNREGISTER,
-                (message as Unregister).requestId,
+                message.requestId,
                 {},
                 Error.NO_SUCH_REGISTRATION));
           }
         }
         if (message.id == MessageTypes.CODE_CALL &&
-            (message as Call).argumentsKeywords['value'] != -3) {
+            (message as Call).argumentsKeywords!['value'] != -3) {
           transport.receiveMessage(Result(
-              (message as Call).requestId, ResultDetails(true),
-              arguments: (message as Call).arguments));
+              message.requestId, ResultDetails(true),
+              arguments: message.arguments));
           transport.receiveMessage(Result(
-              (message as Call).requestId, ResultDetails(false),
-              argumentsKeywords: (message as Call).argumentsKeywords));
+              message.requestId, ResultDetails(false),
+              argumentsKeywords: message.argumentsKeywords));
         }
         if (message.id == MessageTypes.CODE_CALL &&
-            (message as Call).argumentsKeywords['value'] == -3) {
+            (message as Call).argumentsKeywords!['value'] == -3) {
           transport.receiveMessage(Error(
               MessageTypes.CODE_CALL,
-              (message as Call).requestId,
+              message.requestId,
               HashMap(),
               Error.NO_SUCH_REGISTRATION,
-              arguments: (message as Call).arguments,
-              argumentsKeywords: (message as Call).argumentsKeywords));
+              arguments: message.arguments,
+              argumentsKeywords: message.argumentsKeywords));
         }
         if (message.id == MessageTypes.CODE_CALL &&
-            (message as Call).argumentsKeywords['value'] == -4) {
+            (message as Call).argumentsKeywords!['value'] == -4) {
           // ignored because it will not complete before cancelation happens
         }
         if (message.id == MessageTypes.CODE_CANCEL) {
@@ -421,27 +424,27 @@ void main() {
               (message as Cancel).requestId,
               HashMap(),
               Error.ERROR_INVOCATION_CANCELED,
-              arguments: [(message as Cancel).options.mode]));
+              arguments: [message.options!.mode]));
         }
         if (message.id == MessageTypes.CODE_YIELD &&
-            (message as Yield).argumentsKeywords['value'] == 0) {
-          yieldCompleter.complete(message as Yield);
+            (message as Yield).argumentsKeywords!['value'] == 0) {
+          yieldCompleter.complete(message);
         }
         if (message.id == MessageTypes.CODE_YIELD &&
-            (message as Yield).argumentsKeywords['progressiveCalls'] != null) {
-          progressiveCallYieldCompleter.complete(message as Yield);
+            (message as Yield).argumentsKeywords!['progressiveCalls'] != null) {
+          progressiveCallYieldCompleter.complete(message);
         }
         if (message.id == MessageTypes.CODE_ERROR &&
             (message as Error).error == Error.UNKNOWN) {
-          error1completer.complete(message as Error);
+          error1completer.complete(message);
         }
         if (message.id == MessageTypes.CODE_ERROR &&
             (message as Error).error == Error.NOT_AUTHORIZED) {
-          error2completer.complete(message as Error);
+          error2completer.complete(message);
         }
         if (message.id == MessageTypes.CODE_ERROR &&
             (message as Error).error == Error.NO_SUCH_REGISTRATION) {
-          error3completer.complete(message as Error);
+          error3completer.complete(message);
         }
       });
 
@@ -469,24 +472,24 @@ void main() {
 
       var progressiveCalls = 0;
       registered.onInvoke((invocation) {
-        if (invocation.argumentsKeywords['value'] == 0) {
+        if (invocation.argumentsKeywords!['value'] == 0) {
           invocation.respondWith(
               arguments: invocation.arguments,
               argumentsKeywords: invocation.argumentsKeywords);
         }
-        if (invocation.argumentsKeywords['value'] == 1) {
+        if (invocation.argumentsKeywords!['value'] == 1) {
           progressiveCalls++;
           if (!invocation.isProgressive()) {
-            invocation.argumentsKeywords['progressiveCalls'] = progressiveCalls;
+            invocation.argumentsKeywords!['progressiveCalls'] = progressiveCalls;
             invocation.respondWith(
                 arguments: invocation.arguments,
                 argumentsKeywords: invocation.argumentsKeywords);
           }
         }
-        if (invocation.argumentsKeywords['value'] == -1) {
+        if (invocation.argumentsKeywords!['value'] == -1) {
           throw Exception('Something went wrong');
         }
-        if (invocation.argumentsKeywords['value'] == -2) {
+        if (invocation.argumentsKeywords!['value'] == -2) {
           invocation.respondWith(
               isError: true,
               errorUri: Error.NOT_AUTHORIZED,
@@ -504,8 +507,8 @@ void main() {
           arguments: ['did work'], argumentsKeywords: argumentsKeywords));
       final yieldMessage = await yieldCompleter.future;
       expect(yieldMessage, isNotNull);
-      expect(yieldMessage.argumentsKeywords['value'], equals(0));
-      expect(yieldMessage.arguments[0], equals('did work'));
+      expect(yieldMessage.argumentsKeywords!['value'], equals(0));
+      expect(yieldMessage.arguments![0], equals('did work'));
 
       // PROGRESSIVE CALL
 
@@ -521,10 +524,10 @@ void main() {
           argumentsKeywords: progressiveArgumentsKeywords));
       final finalYieldMessage = await progressiveCallYieldCompleter.future;
       expect(finalYieldMessage, isNotNull);
-      expect(finalYieldMessage.argumentsKeywords['value'], equals(1));
+      expect(finalYieldMessage.argumentsKeywords!['value'], equals(1));
       expect(
-          finalYieldMessage.argumentsKeywords['progressiveCalls'], equals(2));
-      expect(finalYieldMessage.arguments[0], equals('did work again'));
+          finalYieldMessage.argumentsKeywords!['progressiveCalls'], equals(2));
+      expect(finalYieldMessage.arguments![0], equals('did work again'));
 
       // PROGRESSIVE RESULT
 
@@ -558,7 +561,7 @@ void main() {
       expect(error1.requestId, equals(11001101));
       expect(error1, isNotNull);
       expect(error1.error, equals(Error.UNKNOWN));
-      expect(error1.arguments[0], equals('Exception: Something went wrong'));
+      expect(error1.arguments![0], equals('Exception: Something went wrong'));
 
       // ERROR BY HANDLER
 
@@ -572,8 +575,8 @@ void main() {
       expect(error2.requestTypeId, equals(MessageTypes.CODE_INVOCATION));
       expect(error2.requestId, equals(11001102));
       expect(error2.error, equals(Error.NOT_AUTHORIZED));
-      expect(error2.arguments[0], equals('did work'));
-      expect(error2.argumentsKeywords['value'], equals(-2));
+      expect(error2.arguments![0], equals('did work'));
+      expect(error2.argumentsKeywords!['value'], equals(-2));
 
       // ERROR RESULT
 
@@ -590,8 +593,8 @@ void main() {
       var callError = await errorCallCompleter.future;
       expect(callError, isNotNull);
       expect(callError.requestTypeId, equals(MessageTypes.CODE_CALL));
-      expect(callError.arguments[0], equals('was an error'));
-      expect(callError.argumentsKeywords['value'], equals(-3));
+      expect(callError.arguments![0], equals('was an error'));
+      expect(callError.argumentsKeywords!['value'], equals(-3));
 
       // ERROR BY CANCELLATION
 
@@ -610,7 +613,7 @@ void main() {
       var cancelError = await errorCallCancellationCompleter.future;
       expect(cancelError, isNotNull);
       expect(cancelError.requestTypeId, equals(MessageTypes.CODE_CALL));
-      expect(cancelError.arguments[0], equals(CancelOptions.MODE_KILL_NO_WAIT));
+      expect(cancelError.arguments![0], equals(CancelOptions.MODE_KILL_NO_WAIT));
 
       // UNREGISTER
 
@@ -656,29 +659,29 @@ void main() {
         if (message.id == MessageTypes.CODE_SUBSCRIBE) {
           if ((message as Subscribe).topic == 'topic.my.de') {
             transport.receiveMessage(
-                Subscribed((message as Subscribe).requestId, 10));
+                Subscribed(message.requestId, 10));
           }
-          if ((message as Subscribe).topic == 'topic.revoke') {
+          if (message.topic == 'topic.revoke') {
             transport.receiveMessage(
-                Subscribed((message as Subscribe).requestId, 11));
+                Subscribed(message.requestId, 11));
             transport.receiveMessage(
                 Unsubscribed(0, UnsubscribedDetails(11, 'error.500')));
           }
-          if ((message as Subscribe).topic == 'topic.my.error') {
+          if (message.topic == 'topic.my.error') {
             transport.receiveMessage(Error(MessageTypes.CODE_SUBSCRIBE,
-                (message as Subscribe).requestId, {}, Error.NOT_AUTHORIZED));
+                message.requestId, {}, Error.NOT_AUTHORIZED));
           }
         }
         if (message.id == MessageTypes.CODE_UNSUBSCRIBE) {
           if ((message as Unsubscribe).subscriptionId == -1) {
             transport.receiveMessage(Error(
                 MessageTypes.CODE_UNSUBSCRIBE,
-                (message as Unsubscribe).requestId,
+                message.requestId,
                 {},
                 Error.NO_SUCH_SUBSCRIPTION));
           } else {
             transport.receiveMessage(
-                Unsubscribed((message as Unsubscribe).requestId, null));
+                Unsubscribed(message.requestId, null));
           }
         }
       });
@@ -691,7 +694,7 @@ void main() {
       expect(subscribed.eventStream, isNotNull);
       expect(subscribed.subscribeRequestId, isNotNull);
       expect(subscribed.subscriptionId, equals(11));
-      subscribed.eventStream.listen((_) {});
+      subscribed.eventStream!.listen((_) {});
       var reason = await subscribed.onRevoke;
       expect(reason, equals('error.500'));
 
@@ -726,7 +729,7 @@ void main() {
       var eventCompleter = Completer<Event>();
       var eventCompleter2 = Completer<Event>();
       var eventCompleter3 = Completer<Event>();
-      subscribed.eventStream.listen((event) {
+      subscribed.eventStream!.listen((event) {
         if (event.publicationId == 1122) {
           eventCompleter.complete(event);
         }
@@ -751,14 +754,14 @@ void main() {
 
       // UNSUBSCRIBE ERROR
 
-      Error unsubscribeError;
+      Error? unsubscribeError;
       try {
         await session.unsubscribe(-1);
       } on Error catch (error) {
         unsubscribeError = error;
       }
       expect(unsubscribeError, isNotNull);
-      expect(unsubscribeError.error, Error.NO_SUCH_SUBSCRIPTION);
+      expect(unsubscribeError!.error, Error.NO_SUCH_SUBSCRIPTION);
 
       unsubscribeError = null;
       try {
@@ -772,7 +775,7 @@ void main() {
 
       transport.receiveMessage(
           Event(subscribed.subscriptionId, 1144, EventDetails()));
-      Event event3;
+      Event? event3;
       unawaited(eventCompleter3.future.then((event) => event3 = event));
       await Future.delayed(Duration(milliseconds: 3));
       expect(event3, isNull);
@@ -792,24 +795,24 @@ class _MockChallengeFailAuthenticator extends AbstractAuthentication {
   }
 
   @override
-  Future<void> hello(String realm, Details details) {
+  Future<void> hello(String? realm, Details details) {
     return Future.value();
   }
 }
 
 class _MockTransport extends AbstractTransport {
   final StreamController<AbstractMessage> inbound = StreamController();
-  Completer _onConnectionLost;
-  Completer _onDisconnect;
+  Completer? _onConnectionLost;
+  Completer? _onDisconnect;
 
   bool _open = false;
   final StreamController<AbstractMessage> outbound = StreamController();
 
   @override
-  Completer get onConnectionLost => _onConnectionLost;
+  Completer? get onConnectionLost => _onConnectionLost;
 
   @override
-  Completer get onDisconnect => _onDisconnect;
+  Completer? get onDisconnect => _onDisconnect;
 
   @override
   bool get isOpen {
@@ -839,7 +842,7 @@ class _MockTransport extends AbstractTransport {
   }
 
   @override
-  Future<void> open({Duration pingInterval}) {
+  Future<void> open({Duration? pingInterval}) {
     _open = true;
     _onDisconnect = Completer();
     _onConnectionLost = Completer();

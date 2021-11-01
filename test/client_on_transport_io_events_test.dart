@@ -55,7 +55,7 @@ void main() {
 
     test('test on reconnect with web socket transport', () async {
       final server = await HttpServer.bind('localhost', 9201);
-      WebSocket _socket;
+      late WebSocket _socket;
       final serverListenHandler = (HttpRequest req) async {
         if (req.uri.path == '/wamp') {
           final socket = await WebSocketTransformer.upgrade(req);
@@ -76,7 +76,7 @@ void main() {
       var closeCompleter = Completer();
       var reconnects = 0;
       var hitConnectionLostEvent = false;
-      Abort abort;
+      Abort? abort;
       var options = ClientConnectOptions(
           pingInterval: Duration(seconds: 1),
           reconnectTime: Duration(seconds: 1),
@@ -97,16 +97,16 @@ void main() {
       await closeCompleter.future;
 
       expect(abort, isA<Abort>());
-      expect(abort.reason, equals(Error.AUTHORIZATION_FAILED));
+      expect(abort!.reason, equals(Error.AUTHORIZATION_FAILED));
       expect(hitConnectionLostEvent, isTrue);
       expect(reconnects, equals(4));
       expect(client.transport.isOpen, isFalse);
-      expect(options.reconnectTime.inMilliseconds, equals(800));
+      expect(options.reconnectTime!.inMilliseconds, equals(800));
     });
 
     test('test on multiple reconnects with web socket transport', () async {
       final server = await HttpServer.bind('localhost', 9202);
-      WebSocket _socket;
+      late WebSocket _socket;
       final serverListenHandler = (HttpRequest req) async {
         if (req.uri.path == '/wamp') {
           final socket = await WebSocketTransformer.upgrade(req);
@@ -165,7 +165,7 @@ void main() {
       });
       Abort abort = await closeCompleter.future;
       expect(abort.reason, equals(Error.AUTHORIZATION_FAILED));
-      expect(abort.message.message, startsWith('Could not connect to server'));
+      expect(abort.message!.message, startsWith('Could not connect to server'));
       expect(client.transport.isOpen, isFalse);
     });
 
@@ -226,7 +226,7 @@ void main() {
 
     test('test on reconnect with socket transport', () async {
       final server = await ServerSocket.bind('0.0.0.0', 9011);
-      Socket _socket;
+      late Socket _socket;
       server.listen((socket) {
         _socket = socket;
         socket.listen((message) {
@@ -263,7 +263,7 @@ void main() {
       var closeCompleter = Completer();
       var reconnects = 0;
       var hitConnectionLostEvent = false;
-      Abort abort;
+      Abort? abort;
       client
           .connect(
               options: ClientConnectOptions(
@@ -285,7 +285,7 @@ void main() {
       await closeCompleter.future;
 
       expect(abort, isA<Abort>());
-      expect(abort.reason, equals(Error.AUTHORIZATION_FAILED));
+      expect(abort!.reason, equals(Error.AUTHORIZATION_FAILED));
       expect(hitConnectionLostEvent, isTrue);
       expect(reconnects, equals(4));
       expect(client.transport.isOpen, isFalse);
@@ -293,7 +293,7 @@ void main() {
 
     test('test on multiple reconnects with socket transport', () async {
       final server = await ServerSocket.bind('0.0.0.0', 9021);
-      Socket _socket;
+      late Socket _socket;
       server.listen((socket) {
         _socket = socket;
         socket.listen((message) {
@@ -369,7 +369,7 @@ void main() {
       });
       Abort abort = await closeCompleter.future;
       expect(abort.reason, equals(Error.AUTHORIZATION_FAILED));
-      expect(abort.message.message, startsWith('Could not connect to server'));
+      expect(abort.message!.message, startsWith('Could not connect to server'));
       expect(client.transport.isOpen, isFalse);
     });
   });
