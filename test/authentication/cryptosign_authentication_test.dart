@@ -134,7 +134,8 @@ void main() {
         }
 
         extra = Extra(
-            challenge: vector['challenge']!.substring(3), channel_binding: null);
+            challenge: vector['challenge']!.substring(3),
+            channel_binding: null);
         expect(() => authMethod.challenge(extra), throwsA(isA<Exception>()));
 
         try {
@@ -321,7 +322,8 @@ void main() {
     test('constructors', () async {
       expect(
           () => CryptosignAuthentication(
-              SigningKey.fromSeed(Uint8List.fromList([])), 'some other then null'),
+              SigningKey.fromSeed(Uint8List.fromList([])),
+              'some other then null'),
           throwsA(isA<Exception>()));
 
       var ppkEncrypted = File('./test/authentication/ed25519_password.ppk');

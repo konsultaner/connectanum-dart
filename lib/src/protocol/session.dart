@@ -87,10 +87,11 @@ class Session {
   final _openSessionStreamController = StreamController.broadcast();
 
   Session(this.realm, this._transport)
-  /// The realm object my be null bust must mach the uri pattern if it was
-  /// passed The connection should have been established before initializing the
-  /// session.
-  : assert(realm == null || UriPattern.match(realm), _transport.isOpen);
+
+      /// The realm object my be null bust must mach the uri pattern if it was
+      /// passed The connection should have been established before initializing the
+      /// session.
+      : assert(realm == null || UriPattern.match(realm), _transport.isOpen);
 
   /// Starting the session will also start the authentication process.
   static Future<Session> start(String? realm, AbstractTransport transport,
@@ -121,10 +122,12 @@ class Session {
     session._transportStreamSubscription = transport.receive()!.listen(
         (message) {
           if (message is Challenge) {
-            final foundAuthMethod = authMethods == null ? null :authMethods
-                .where((authenticationMethod) =>
-                    authenticationMethod.getName() == message.authMethod)
-                .first;
+            final foundAuthMethod = authMethods == null
+                ? null
+                : authMethods
+                    .where((authenticationMethod) =>
+                        authenticationMethod.getName() == message.authMethod)
+                    .first;
             if (foundAuthMethod != null) {
               try {
                 foundAuthMethod
@@ -233,8 +236,8 @@ class Session {
       unawaited(cancelCompleter.future.then((cancelMode) {
         CancelOptions? options;
         if (CancelOptions.MODE_KILL_NO_WAIT == cancelMode ||
-                CancelOptions.MODE_KILL == cancelMode ||
-                CancelOptions.MODE_SKIP == cancelMode) {
+            CancelOptions.MODE_KILL == cancelMode ||
+            CancelOptions.MODE_SKIP == cancelMode) {
           options = CancelOptions();
           options.mode = cancelMode;
         }
@@ -259,7 +262,8 @@ class Session {
   /// This subscribes the session to a [topic]. The subscriber may pass [options]
   /// while subscribing. The resulting events are passed to the [Subscribed.eventStream].
   /// The subscriber should therefore subscribe to that stream to receive the events.
-  Future<Subscribed> subscribe(String topic, {SubscribeOptions? options}) async {
+  Future<Subscribed> subscribe(String topic,
+      {SubscribeOptions? options}) async {
     var subscribe = Subscribe(nextSubscribeId++, topic, options: options);
     _transport.send(subscribe);
     AbstractMessage subscribed = await _openSessionStreamController.stream

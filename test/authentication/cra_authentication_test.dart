@@ -147,7 +147,33 @@ void main() {
             int.parse(i, radix: 16)
         ]
       ],
-      ['pass' + String.fromCharCodes([0]) + 'word','sa' + String.fromCharCodes([0]) + 'lt',4096,16,[for (String i in ['89','b6','9d','05','16','f8','29','89','3c','69','62','26','65','0a','86','87']) int.parse(i, radix: 16)]]
+      [
+        'pass' + String.fromCharCodes([0]) + 'word',
+        'sa' + String.fromCharCodes([0]) + 'lt',
+        4096,
+        16,
+        [
+          for (String i in [
+            '89',
+            'b6',
+            '9d',
+            '05',
+            '16',
+            'f8',
+            '29',
+            '89',
+            '3c',
+            '69',
+            '62',
+            '26',
+            '65',
+            '0a',
+            '86',
+            '87'
+          ])
+            int.parse(i, radix: 16)
+        ]
+      ]
     ];
     test('derive key', () {
       for (var vector in PBKDF2_HMAC_SHA256_testVectors) {

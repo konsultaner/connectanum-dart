@@ -182,29 +182,28 @@ class SocketTransport extends AbstractTransport {
     });
     // TODO set keep alive to true
     //_socket.setOption(RawSocketOption.fromBool(??, SO_KEEPALIVE, true), true)
-    return _socket!
-        .where((List<int> message) {
-          message = Uint8List.fromList(_inboundBuffer + message);
-          if (_negotiateProtocol(message as Uint8List) || !_assertValidMessage(message)) {
-            return false;
-          }
-          final finalMessageLength = message.length - headerLength;
-          final payloadLength =
-              SocketHelper.getPayloadLength(message, headerLength);
-          if (finalMessageLength < payloadLength) {
-            _inboundBuffer = message;
-            return false;
-          }
-          if (finalMessageLength > _messageLength!) {
-            _sendProtocolError(SocketHelper.ERROR_MESSAGE_LENGTH_EXCEEDED);
-            _logger.fine(
-                'Closed raw socket channel because the message length exceeded the max value of ' +
-                    _messageLength.toString());
-            return false;
-          }
-          return true;
-        })
-        .expand((Uint8List message) => _handleMessage(message));
+    return _socket!.where((List<int> message) {
+      message = Uint8List.fromList(_inboundBuffer + message);
+      if (_negotiateProtocol(message as Uint8List) ||
+          !_assertValidMessage(message)) {
+        return false;
+      }
+      final finalMessageLength = message.length - headerLength;
+      final payloadLength =
+          SocketHelper.getPayloadLength(message, headerLength);
+      if (finalMessageLength < payloadLength) {
+        _inboundBuffer = message;
+        return false;
+      }
+      if (finalMessageLength > _messageLength!) {
+        _sendProtocolError(SocketHelper.ERROR_MESSAGE_LENGTH_EXCEEDED);
+        _logger.fine(
+            'Closed raw socket channel because the message length exceeded the max value of ' +
+                _messageLength.toString());
+        return false;
+      }
+      return true;
+    }).expand((Uint8List message) => _handleMessage(message));
   }
 
   bool _negotiateProtocol(Uint8List message) {
@@ -378,7 +377,7 @@ class SocketTransport extends AbstractTransport {
           SocketHelper.MESSAGE_WAMP,
           serialalizedMessage.length,
           isUpgradedProtocol));
-      _outboundBuffer!.addAll(serialalizedMessage) ;
+      _outboundBuffer!.addAll(serialalizedMessage);
     } else {
       var serialalizedMessage = _serializer.serialize(message);
       _send0(SocketHelper.buildMessageHeader(SocketHelper.MESSAGE_WAMP,

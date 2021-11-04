@@ -1,5 +1,7 @@
-### 1.1.9
+### 2.0.0
 
+- sound null safety support
+- update all dependencies to their latest version
 - fixes #3 fixed test vector
 
 ### 1.1.8

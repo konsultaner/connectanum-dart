@@ -1617,10 +1617,11 @@ class BCrypt {
     return rs;
   }
 
-  static String generateSalt({int logRounds = GENSALT_DEFAULT_LOG2_ROUNDS, Random? random}) {
+  static String generateSalt(
+      {int logRounds = GENSALT_DEFAULT_LOG2_ROUNDS, Random? random}) {
     var rs = '';
-    var rnd = Uint8List.fromList(
-        List<int>.generate(BCRYPT_SALT_LEN, (i) => (random ?? Random.secure()).nextInt(256)));
+    var rnd = Uint8List.fromList(List<int>.generate(
+        BCRYPT_SALT_LEN, (i) => (random ?? Random.secure()).nextInt(256)));
     rs += '\$2a\$';
     if (logRounds < 10) {
       rs += '0';

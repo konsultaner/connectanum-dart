@@ -118,7 +118,8 @@ class WebSocketTransport extends AbstractTransport {
     return _socket.onMessage.map((messageEvent) {
       AbstractMessage? message;
       if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
-        message = _serializer.deserialize(utf8.encode(messageEvent.data) as Uint8List?);
+        message = _serializer
+            .deserialize(utf8.encode(messageEvent.data) as Uint8List?);
       } else {
         message = _serializer.deserialize(messageEvent.data);
       }

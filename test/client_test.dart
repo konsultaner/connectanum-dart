@@ -221,10 +221,7 @@ void main() {
         }
       });
       Completer abortCompleter = Completer<Abort>();
-      unawaited(client
-          .connect()
-          .first
-          .catchError((abort) {
+      unawaited(client.connect().first.catchError((abort) {
         abortCompleter.complete(abort);
         return Future.value(Session(null, _MockTransport()));
       }));
@@ -321,8 +318,8 @@ void main() {
           authExtra['channel_binding'] = null;
           authExtra['cbind_data'] = null;
           authExtra['nonce'] = user['nonce'];
-          transport.receiveMessage(Challenge(
-              message.details.authmethods![0], challengeExtra));
+          transport.receiveMessage(
+              Challenge(message.details.authmethods![0], challengeExtra));
         }
         if (message.id == MessageTypes.CODE_AUTHENTICATE) {
           var authenticate = message as Authenticate;
@@ -375,8 +372,7 @@ void main() {
         }
         if (message.id == MessageTypes.CODE_REGISTER) {
           if ((message as Register).procedure == 'my.procedure') {
-            transport.receiveMessage(
-                Registered(message.requestId, 1010));
+            transport.receiveMessage(Registered(message.requestId, 1010));
           }
           if (message.procedure == 'my.error') {
             transport.receiveMessage(Error(MessageTypes.CODE_REGISTER,
@@ -385,14 +381,10 @@ void main() {
         }
         if (message.id == MessageTypes.CODE_UNREGISTER) {
           if ((message as Unregister).registrationId > 0) {
-            transport.receiveMessage(
-                Unregistered(message.requestId));
+            transport.receiveMessage(Unregistered(message.requestId));
           } else {
-            transport.receiveMessage(Error(
-                MessageTypes.CODE_UNREGISTER,
-                message.requestId,
-                {},
-                Error.NO_SUCH_REGISTRATION));
+            transport.receiveMessage(Error(MessageTypes.CODE_UNREGISTER,
+                message.requestId, {}, Error.NO_SUCH_REGISTRATION));
           }
         }
         if (message.id == MessageTypes.CODE_CALL &&
@@ -406,11 +398,8 @@ void main() {
         }
         if (message.id == MessageTypes.CODE_CALL &&
             (message as Call).argumentsKeywords!['value'] == -3) {
-          transport.receiveMessage(Error(
-              MessageTypes.CODE_CALL,
-              message.requestId,
-              HashMap(),
-              Error.NO_SUCH_REGISTRATION,
+          transport.receiveMessage(Error(MessageTypes.CODE_CALL,
+              message.requestId, HashMap(), Error.NO_SUCH_REGISTRATION,
               arguments: message.arguments,
               argumentsKeywords: message.argumentsKeywords));
         }
@@ -480,7 +469,8 @@ void main() {
         if (invocation.argumentsKeywords!['value'] == 1) {
           progressiveCalls++;
           if (!invocation.isProgressive()) {
-            invocation.argumentsKeywords!['progressiveCalls'] = progressiveCalls;
+            invocation.argumentsKeywords!['progressiveCalls'] =
+                progressiveCalls;
             invocation.respondWith(
                 arguments: invocation.arguments,
                 argumentsKeywords: invocation.argumentsKeywords);
@@ -613,7 +603,8 @@ void main() {
       var cancelError = await errorCallCancellationCompleter.future;
       expect(cancelError, isNotNull);
       expect(cancelError.requestTypeId, equals(MessageTypes.CODE_CALL));
-      expect(cancelError.arguments![0], equals(CancelOptions.MODE_KILL_NO_WAIT));
+      expect(
+          cancelError.arguments![0], equals(CancelOptions.MODE_KILL_NO_WAIT));
 
       // UNREGISTER
 
@@ -658,12 +649,10 @@ void main() {
         }
         if (message.id == MessageTypes.CODE_SUBSCRIBE) {
           if ((message as Subscribe).topic == 'topic.my.de') {
-            transport.receiveMessage(
-                Subscribed(message.requestId, 10));
+            transport.receiveMessage(Subscribed(message.requestId, 10));
           }
           if (message.topic == 'topic.revoke') {
-            transport.receiveMessage(
-                Subscribed(message.requestId, 11));
+            transport.receiveMessage(Subscribed(message.requestId, 11));
             transport.receiveMessage(
                 Unsubscribed(0, UnsubscribedDetails(11, 'error.500')));
           }
@@ -674,14 +663,10 @@ void main() {
         }
         if (message.id == MessageTypes.CODE_UNSUBSCRIBE) {
           if ((message as Unsubscribe).subscriptionId == -1) {
-            transport.receiveMessage(Error(
-                MessageTypes.CODE_UNSUBSCRIBE,
-                message.requestId,
-                {},
-                Error.NO_SUCH_SUBSCRIPTION));
+            transport.receiveMessage(Error(MessageTypes.CODE_UNSUBSCRIBE,
+                message.requestId, {}, Error.NO_SUCH_SUBSCRIPTION));
           } else {
-            transport.receiveMessage(
-                Unsubscribed(message.requestId, null));
+            transport.receiveMessage(Unsubscribed(message.requestId, null));
           }
         }
       });

@@ -64,7 +64,8 @@ class ScramAuthentication extends AbstractAuthentication {
   Future<Authenticate> challenge(Extra extra) {
     if (extra.nonce == null ||
         _helloNonce == null ||
-        !_helloNonce!.contains(extra.nonce!.substring(0, _helloNonce!.length))) {
+        !_helloNonce!
+            .contains(extra.nonce!.substring(0, _helloNonce!.length))) {
       return Future.error(Exception('Wrong nonce'));
     }
     var authenticate = Authenticate();
@@ -74,12 +75,12 @@ class ScramAuthentication extends AbstractAuthentication {
     authenticate.extra!['channel_binding'] = null;
     authenticate.extra!['cbind_data'] = null;
     if (extra.kdf == KDF_PBKDF2) {
-      authenticate.signature =
-          challengePBKDF2(_authid!, _helloNonce!, extra, authenticate.extra as HashMap<String, Object?>);
+      authenticate.signature = challengePBKDF2(_authid!, _helloNonce!, extra,
+          authenticate.extra as HashMap<String, Object?>);
     }
     if (authenticate.signature == null) {
-      return Future.error(
-          Exception('not supported key derivation function used ' + extra.kdf!));
+      return Future.error(Exception(
+          'not supported key derivation function used ' + extra.kdf!));
     }
     return Future.value(authenticate);
   }
@@ -125,8 +126,9 @@ class ScramAuthentication extends AbstractAuthentication {
     String? cBindName = authExtra['channel_binding'];
     String? cBindData = authExtra['cbind_data'];
     var cBindFlag = cBindName == null ? 'n' : 'p=' + cBindName;
-    var cBindInput =
-        cBindFlag + ',,' + (cBindData == null ? '' : base64.decode(cBindData) as String);
+    var cBindInput = cBindFlag +
+        ',,' +
+        (cBindData == null ? '' : base64.decode(cBindData) as String);
     var clientFinalNoProof =
         'c=' + base64.encode(cBindInput.codeUnits) + ',r=' + authExtra['nonce'];
     return clientFirstBare + ',' + serverFirst + ',' + clientFinalNoProof;

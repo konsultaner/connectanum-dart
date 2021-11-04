@@ -1029,41 +1029,47 @@ void main() {
       expect(welcome.details.roles, isNotNull);
       expect(welcome.details.roles!.broker, isNotNull);
       expect(welcome.details.roles!.broker!.features, isNotNull);
-      expect(
-          welcome.details.roles!.broker!.features!.payload_transparency, isFalse);
+      expect(welcome.details.roles!.broker!.features!.payload_transparency,
+          isFalse);
       expect(welcome.details.roles!.broker!.features!.event_history, isFalse);
-      expect(welcome.details.roles!.broker!.features!.pattern_based_subscription,
+      expect(
+          welcome.details.roles!.broker!.features!.pattern_based_subscription,
           isFalse);
       expect(welcome.details.roles!.broker!.features!.publication_trustlevels,
           isFalse);
-      expect(
-          welcome.details.roles!.broker!.features!.publisher_exclusion, isFalse);
+      expect(welcome.details.roles!.broker!.features!.publisher_exclusion,
+          isFalse);
       expect(welcome.details.roles!.broker!.features!.publisher_identification,
           isFalse);
-      expect(welcome.details.roles!.broker!.features!.session_meta_api, isFalse);
       expect(
-          welcome.details.roles!.broker!.features!.subscriber_blackwhite_listing,
+          welcome.details.roles!.broker!.features!.session_meta_api, isFalse);
+      expect(
+          welcome
+              .details.roles!.broker!.features!.subscriber_blackwhite_listing,
           isFalse);
-      expect(
-          welcome.details.roles!.broker!.features!.subscription_meta_api, isFalse);
+      expect(welcome.details.roles!.broker!.features!.subscription_meta_api,
+          isFalse);
       expect(welcome.details.roles!.dealer, isNotNull);
       expect(welcome.details.roles!.dealer!.features, isNotNull);
+      expect(welcome.details.roles!.dealer!.features!.payload_transparency,
+          isFalse);
       expect(
-          welcome.details.roles!.dealer!.features!.payload_transparency, isFalse);
-      expect(welcome.details.roles!.dealer!.features!.session_meta_api, isFalse);
+          welcome.details.roles!.dealer!.features!.session_meta_api, isFalse);
       expect(welcome.details.roles!.dealer!.features!.progressive_call_results,
           isFalse);
-      expect(
-          welcome.details.roles!.dealer!.features!.caller_identification, isFalse);
+      expect(welcome.details.roles!.dealer!.features!.caller_identification,
+          isFalse);
       expect(welcome.details.roles!.dealer!.features!.call_timeout, isFalse);
       expect(welcome.details.roles!.dealer!.features!.call_canceling, isFalse);
-      expect(welcome.details.roles!.dealer!.features!.call_trustlevels, isFalse);
-      expect(welcome.details.roles!.dealer!.features!.pattern_based_registration,
+      expect(
+          welcome.details.roles!.dealer!.features!.call_trustlevels, isFalse);
+      expect(
+          welcome.details.roles!.dealer!.features!.pattern_based_registration,
           isFalse);
-      expect(
-          welcome.details.roles!.dealer!.features!.registration_meta_api, isFalse);
-      expect(
-          welcome.details.roles!.dealer!.features!.shared_registration, isFalse);
+      expect(welcome.details.roles!.dealer!.features!.registration_meta_api,
+          isFalse);
+      expect(welcome.details.roles!.dealer!.features!.shared_registration,
+          isFalse);
 
       welcome = serializer.deserialize(Uint8List.fromList([
         221, 0, 0, 0, 3, 2, 206, 0, 1, 182, //
@@ -1132,39 +1138,44 @@ void main() {
       expect(welcome.details.roles, isNotNull);
       expect(welcome.details.roles!.broker, isNotNull);
       expect(welcome.details.roles!.broker!.features, isNotNull);
-      expect(
-          welcome.details.roles!.broker!.features!.payload_transparency, isTrue);
+      expect(welcome.details.roles!.broker!.features!.payload_transparency,
+          isTrue);
       expect(welcome.details.roles!.broker!.features!.event_history, isTrue);
-      expect(welcome.details.roles!.broker!.features!.pattern_based_subscription,
+      expect(
+          welcome.details.roles!.broker!.features!.pattern_based_subscription,
           isTrue);
       expect(welcome.details.roles!.broker!.features!.publication_trustlevels,
           isFalse); // not send
-      expect(welcome.details.roles!.broker!.features!.publisher_exclusion, isTrue);
+      expect(
+          welcome.details.roles!.broker!.features!.publisher_exclusion, isTrue);
       expect(welcome.details.roles!.broker!.features!.publisher_identification,
           isTrue);
       expect(welcome.details.roles!.broker!.features!.session_meta_api, isTrue);
       expect(
-          welcome.details.roles!.broker!.features!.subscriber_blackwhite_listing,
+          welcome
+              .details.roles!.broker!.features!.subscriber_blackwhite_listing,
           isTrue);
-      expect(
-          welcome.details.roles!.broker!.features!.subscription_meta_api, isTrue);
+      expect(welcome.details.roles!.broker!.features!.subscription_meta_api,
+          isTrue);
       expect(welcome.details.roles!.dealer, isNotNull);
       expect(welcome.details.roles!.dealer!.features, isNotNull);
-      expect(
-          welcome.details.roles!.dealer!.features!.payload_transparency, isTrue);
+      expect(welcome.details.roles!.dealer!.features!.payload_transparency,
+          isTrue);
       expect(welcome.details.roles!.dealer!.features!.session_meta_api, isTrue);
       expect(welcome.details.roles!.dealer!.features!.progressive_call_results,
           isTrue);
-      expect(
-          welcome.details.roles!.dealer!.features!.caller_identification, isTrue);
+      expect(welcome.details.roles!.dealer!.features!.caller_identification,
+          isTrue);
       expect(welcome.details.roles!.dealer!.features!.call_timeout, isTrue);
       expect(welcome.details.roles!.dealer!.features!.call_canceling, isTrue);
       expect(welcome.details.roles!.dealer!.features!.call_trustlevels, isTrue);
-      expect(welcome.details.roles!.dealer!.features!.pattern_based_registration,
+      expect(
+          welcome.details.roles!.dealer!.features!.pattern_based_registration,
+          isTrue);
+      expect(welcome.details.roles!.dealer!.features!.registration_meta_api,
           isTrue);
       expect(
-          welcome.details.roles!.dealer!.features!.registration_meta_api, isTrue);
-      expect(welcome.details.roles!.dealer!.features!.shared_registration, isTrue);
+          welcome.details.roles!.dealer!.features!.shared_registration, isTrue);
     });
     test('Registered', () {
       var registered = serializer.deserialize(Uint8List.fromList([
@@ -1178,7 +1189,8 @@ void main() {
     });
     test('Unregistered', () {
       var unregistered = serializer.deserialize(
-          Uint8List.fromList([221, 0, 0, 0, 2, 67, 206, 47, 6, 4, 170])) as Unregistered;
+              Uint8List.fromList([221, 0, 0, 0, 2, 67, 206, 47, 6, 4, 170]))
+          as Unregistered;
       expect(unregistered, isNotNull);
       expect(unregistered.id, equals(MessageTypes.CODE_UNREGISTERED));
       expect(unregistered.unregisterRequestId, equals(788923562));
@@ -1337,7 +1349,8 @@ void main() {
     });
     test('Unsubscribed', () {
       var unsubscribed = serializer.deserialize(
-          Uint8List.fromList([221, 0, 0, 0, 2, 35, 206, 5, 22, 71, 189])) as Unsubscribed;
+              Uint8List.fromList([221, 0, 0, 0, 2, 35, 206, 5, 22, 71, 189]))
+          as Unsubscribed;
       expect(unsubscribed, isNotNull);
       expect(unsubscribed.id, equals(MessageTypes.CODE_UNSUBSCRIBED));
       expect(unsubscribed.unsubscribeRequestId, equals(85346237));
@@ -1489,8 +1502,8 @@ void main() {
           arguments: [
             '𝄞 𝄢 Hello! Cześć! 你好! ご挨拶！Привет! ℌ𝔢𝔩𝔩𝔬! 🅗🅔🅛🅛🅞!'
           ]);
-      var deserializedInvocation =
-          serializer.deserialize(serializer.serialize(invocation)) as Invocation;
+      var deserializedInvocation = serializer
+          .deserialize(serializer.serialize(invocation)) as Invocation;
       expect(deserializedInvocation, equals(isNotNull));
       expect(deserializedInvocation.arguments![0],
           equals('𝄞 𝄢 Hello! Cześć! 你好! ご挨拶！Привет! ℌ𝔢𝔩𝔩𝔬! 🅗🅔🅛🅛🅞!'));

@@ -19,7 +19,8 @@ class SocketHelper {
 
   /// Default wamp clients can only receive up to 16M of message length (2^24 octets)
   static const int MAX_MESSAGE_LENGTH_EXPONENT = 24;
-  static int get MAX_MESSAGE_LENGTH => pow(2, MAX_MESSAGE_LENGTH_EXPONENT) as int;
+  static int get MAX_MESSAGE_LENGTH =>
+      pow(2, MAX_MESSAGE_LENGTH_EXPONENT) as int;
 
   /// Compare to the regular wamp definition, connectanum is able to send and receive up to 2^30 octets per message
   static const int MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT = 30;
