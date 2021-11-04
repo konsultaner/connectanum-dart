@@ -1,10 +1,11 @@
+import 'abstract_message.dart';
+
 import 'cancel.dart';
 import 'message_types.dart';
 
-class Interrupt {
-  int id;
+class Interrupt extends AbstractMessage{
   int requestId;
-  InterruptOptions options;
+  InterruptOptions? options;
 
   Interrupt(this.requestId, {this.options}) {
     id = MessageTypes.CODE_INTERRUPT;

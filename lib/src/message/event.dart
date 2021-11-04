@@ -11,7 +11,7 @@ class Event extends AbstractMessageWithPayload {
   EventDetails details;
 
   Event(this.subscriptionId, this.publicationId, this.details,
-      {List<Object> arguments, Map<String, Object> argumentsKeywords}) {
+      {List<Object>? arguments, Map<String, Object?>? argumentsKeywords}) {
     id = MessageTypes.CODE_EVENT;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;
@@ -21,13 +21,13 @@ class Event extends AbstractMessageWithPayload {
 /// Options used influence the event behavior
 class EventDetails {
   // publisher_identification == true
-  int publisher;
+  int? publisher;
 
   // publication_trustlevels == true
-  int trustlevel;
+  int? trustlevel;
 
   // for pattern-matching
-  String topic;
+  String? topic;
 
   EventDetails({this.publisher, this.trustlevel, this.topic});
 }

@@ -9,15 +9,15 @@ class WebSocketTransport extends AbstractTransport {
 
   /// on connection lost will only complete if the other end closes unexpectedly
   @override
-  Completer get onConnectionLost => null;
+  Completer? get onConnectionLost => null;
 
   /// on disconnect will complete whenever the socket connection closes down
   @override
-  Completer get onDisconnect => null;
+  Completer? get onDisconnect => null;
 
   /// Calling close will close the underlying socket connection
   @override
-  Future<void> close({error}) {
+  Future<void>? close({error}) {
     return null;
   }
 
@@ -33,11 +33,11 @@ class WebSocketTransport extends AbstractTransport {
 
   /// This future completes as soon as the connection is established and fully initialized
   @override
-  Future<void> get onReady => Future.error(null);
+  Future<void> get onReady => Future.error({});
 
   /// This method opens the underlying socket connection and prepares all state completers.
   @override
-  Future<void> open({Duration pingInterval}) {
+  Future<void>? open({Duration? pingInterval}) {
     return null;
   }
 
@@ -49,7 +49,7 @@ class WebSocketTransport extends AbstractTransport {
   /// This method return a [Stream] that streams all incoming messages as unserialized
   /// objects.
   @override
-  Stream<AbstractMessage> receive() {
+  Stream<AbstractMessage>? receive() {
     return null;
   }
 }

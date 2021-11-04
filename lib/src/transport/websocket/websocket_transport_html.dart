@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:html';
+import 'dart:typed_data';
 
 import 'package:logging/logging.dart';
 
@@ -16,12 +17,12 @@ class WebSocketTransport extends AbstractTransport {
   final String _url;
   final AbstractSerializer _serializer;
   final String _serializerType;
-  WebSocket _socket;
+  late WebSocket _socket;
   bool _goodbyeSent = false;
   bool _goodbyeReceived = false;
-  Completer _onConnectionLost;
-  Completer _onDisconnect;
-  Completer _onReady;
+  Completer? _onConnectionLost;
+  Completer? _onDisconnect;
+  late Completer _onReady;
 
   WebSocketTransport(
     this._url,
@@ -40,11 +41,11 @@ class WebSocketTransport extends AbstractTransport {
 
   /// on connection lost will only complete if the other end closes unexpectedly
   @override
-  Completer get onConnectionLost => _onConnectionLost;
+  Completer? get onConnectionLost => _onConnectionLost;
 
   /// on disconnect will complete whenever the socket connection closes down
   @override
-  Completer get onDisconnect => _onDisconnect;
+  Completer? get onDisconnect => _onDisconnect;
 
   /// This method will return true if the underlying socket has a ready state of open
   @override
@@ -63,7 +64,7 @@ class WebSocketTransport extends AbstractTransport {
   /// As soon as the web socket connection is established, the returning future will complete
   /// or fail respectively
   @override
-  Future<void> open({Duration pingInterval}) async {
+  Future<void> open({Duration? pingInterval}) async {
     _onReady = Completer();
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
@@ -76,7 +77,7 @@ class WebSocketTransport extends AbstractTransport {
     _socket.onOpen.listen((open) => openCompleter.complete(open));
     _socket.onError.listen((Event error) {
       openCompleter.completeError(error);
-      _onConnectionLost.complete(error);
+      _onConnectionLost!.complete(error);
     });
     try {
       await openCompleter.future;
@@ -103,21 +104,21 @@ class WebSocketTransport extends AbstractTransport {
   /// This method return a [Stream] that streams all incoming messages as unserialized
   /// objects.
   @override
-  Stream<AbstractMessage> receive() {
+  Stream<AbstractMessage?> receive() {
     _socket.onClose.listen((closeEvent) {
-      if ((closeEvent.code == null || closeEvent.code > 1000) &&
+      if ((closeEvent.code == null || closeEvent.code! > 1000) &&
           !_goodbyeSent &&
           !_goodbyeReceived) {
         // a status code other then 1000 indicates that the server tried to quit
-        _onConnectionLost.complete();
+        _onConnectionLost!.complete();
       } else {
-        _onDisconnect.complete();
+        _onDisconnect!.complete();
       }
     });
     return _socket.onMessage.map((messageEvent) {
-      AbstractMessage message;
+      AbstractMessage? message;
       if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
-        message = _serializer.deserialize(utf8.encode(messageEvent.data));
+        message = _serializer.deserialize(utf8.encode(messageEvent.data) as Uint8List?);
       } else {
         message = _serializer.deserialize(messageEvent.data);
       }

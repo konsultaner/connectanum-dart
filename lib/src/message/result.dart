@@ -10,20 +10,20 @@ class Result extends AbstractMessageWithPayload {
   ResultDetails details;
 
   Result(this.callRequestId, this.details,
-      {List<Object> arguments, Map<String, Object> argumentsKeywords}) {
+      {List<Object?>? arguments, Map<String, Object?>? argumentsKeywords}) {
     id = MessageTypes.CODE_RESULT;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;
   }
 
   bool isProgressive() {
-    return details != null && details.progress != null && details.progress;
+    return details.progress != null && details.progress!;
   }
 }
 
 class ResultDetails {
   // progressive_call_results == true
-  bool progress;
+  bool? progress;
 
   ResultDetails(this.progress);
 }

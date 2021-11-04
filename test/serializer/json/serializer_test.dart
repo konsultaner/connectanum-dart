@@ -46,8 +46,8 @@ void main() {
       authHello.details.authid = 'Richard';
       authHello.details.authmethods = ['WAMP-CRA'];
       authHello.details.authextra = HashMap();
-      authHello.details.authextra['nonce'] = 'egVDf3DMJh0=';
-      authHello.details.authextra['channel_binding'] = null;
+      authHello.details.authextra!['nonce'] = 'egVDf3DMJh0=';
+      authHello.details.authextra!['channel_binding'] = null;
       var message = serializer.serializeToString(authHello);
       expect(
           message,
@@ -64,8 +64,8 @@ void main() {
           equals(
               '[${MessageTypes.CODE_AUTHENTICATE},"${"someSignature"}",{}]'));
       var authenticate = Authenticate.signature('someSignature');
-      authenticate.extra = HashMap<String, Object>();
-      authenticate.extra['nonce'] = 'abc';
+      authenticate.extra = HashMap<String, Object?>();
+      authenticate.extra!['nonce'] = 'abc';
       expect(
           serializer.serializeToString(authenticate),
           equals(
@@ -335,17 +335,17 @@ void main() {
   });
   group('unserialize', () {
     test('Abort', () {
-      Abort abort = serializer.deserializeFromString(
-          '[${MessageTypes.CODE_ABORT},{"message":"Received HELLO message after session was established."},"wamp.error.protocol_violation"]');
+      var abort = serializer.deserializeFromString(
+          '[${MessageTypes.CODE_ABORT},{"message":"Received HELLO message after session was established."},"wamp.error.protocol_violation"]') as Abort;
       expect(abort, isNotNull);
       expect(abort.id, equals(MessageTypes.CODE_ABORT));
-      expect(abort.message.message,
+      expect(abort.message!.message,
           equals('Received HELLO message after session was established.'));
       expect(abort.reason, equals(Error.PROTOCOL_VIOLATION));
     });
     test('Challenge', () {
-      Challenge challenge = serializer.deserializeFromString(
-          '[${MessageTypes.CODE_CHALLENGE},"wampcra",{"challenge":"{\\"authid\\":\\"Richi\\",\\"authrole\\":\\"admin\\",\\"authmethod\\":\\"wampcra\\",\\"authprovider\\":\\"server\\",\\"nonce\\":\\"5636117568768122\\",\\"timestamp\\":\\"2018-03-16T07:29Z\\",\\"session\\":\\"5768501099130836\\"}","salt":"fhhi290fh7§)GQ)G)","keylen":35,"iterations":410}]');
+      var challenge = serializer.deserializeFromString(
+          '[${MessageTypes.CODE_CHALLENGE},"wampcra",{"challenge":"{\\"authid\\":\\"Richi\\",\\"authrole\\":\\"admin\\",\\"authmethod\\":\\"wampcra\\",\\"authprovider\\":\\"server\\",\\"nonce\\":\\"5636117568768122\\",\\"timestamp\\":\\"2018-03-16T07:29Z\\",\\"session\\":\\"5768501099130836\\"}","salt":"fhhi290fh7§)GQ)G)","keylen":35,"iterations":410}]') as Challenge;
       expect(challenge, isNotNull);
       expect(challenge.id, equals(MessageTypes.CODE_CHALLENGE));
       expect(challenge.authMethod, equals('wampcra'));
@@ -358,8 +358,8 @@ void main() {
       expect(challenge.extra.iterations, equals(410));
     });
     test('Welcome', () {
-      Welcome welcome = serializer.deserializeFromString(
-          '[${MessageTypes.CODE_WELCOME},112233,{"authid":"Richi","authrole":"admin","authmethod":"wampcra","authprovider":"database","roles":{"broker":{"features":{"publisher_identification":false,"pattern_based_subscription":false,"subscription_meta_api":false,"subscriber_blackwhite_listing":false,"session_meta_api":false,"publisher_exclusion":false,"event_history":false,"payload_transparency":false}},"dealer":{"features":{"caller_identification":false,"call_trustlevels":false,"pattern_based_registration":false,"registration_meta_api":false,"shared_registration":false,"session_meta_api":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_transparency":false}}}}]');
+      var welcome = serializer.deserializeFromString(
+          '[${MessageTypes.CODE_WELCOME},112233,{"authid":"Richi","authrole":"admin","authmethod":"wampcra","authprovider":"database","roles":{"broker":{"features":{"publisher_identification":false,"pattern_based_subscription":false,"subscription_meta_api":false,"subscriber_blackwhite_listing":false,"session_meta_api":false,"publisher_exclusion":false,"event_history":false,"payload_transparency":false}},"dealer":{"features":{"caller_identification":false,"call_trustlevels":false,"pattern_based_registration":false,"registration_meta_api":false,"shared_registration":false,"session_meta_api":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_transparency":false}}}}]') as Welcome;
       expect(welcome, isNotNull);
       expect(welcome.id, equals(MessageTypes.CODE_WELCOME));
       expect(welcome.sessionId, equals(112233));
@@ -368,46 +368,46 @@ void main() {
       expect(welcome.details.authmethod, equals('wampcra'));
       expect(welcome.details.authprovider, equals('database'));
       expect(welcome.details.roles, isNotNull);
-      expect(welcome.details.roles.broker, isNotNull);
-      expect(welcome.details.roles.broker.features, isNotNull);
+      expect(welcome.details.roles!.broker, isNotNull);
+      expect(welcome.details.roles!.broker!.features, isNotNull);
       expect(
-          welcome.details.roles.broker.features.payload_transparency, isFalse);
-      expect(welcome.details.roles.broker.features.event_history, isFalse);
-      expect(welcome.details.roles.broker.features.pattern_based_subscription,
+          welcome.details.roles!.broker!.features!.payload_transparency, isFalse);
+      expect(welcome.details.roles!.broker!.features!.event_history, isFalse);
+      expect(welcome.details.roles!.broker!.features!.pattern_based_subscription,
           isFalse);
-      expect(welcome.details.roles.broker.features.publication_trustlevels,
-          isFalse);
-      expect(
-          welcome.details.roles.broker.features.publisher_exclusion, isFalse);
-      expect(welcome.details.roles.broker.features.publisher_identification,
-          isFalse);
-      expect(welcome.details.roles.broker.features.session_meta_api, isFalse);
-      expect(
-          welcome.details.roles.broker.features.subscriber_blackwhite_listing,
+      expect(welcome.details.roles!.broker!.features!.publication_trustlevels,
           isFalse);
       expect(
-          welcome.details.roles.broker.features.subscription_meta_api, isFalse);
-      expect(welcome.details.roles.dealer, isNotNull);
-      expect(welcome.details.roles.dealer.features, isNotNull);
+          welcome.details.roles!.broker!.features!.publisher_exclusion, isFalse);
+      expect(welcome.details.roles!.broker!.features!.publisher_identification,
+          isFalse);
+      expect(welcome.details.roles!.broker!.features!.session_meta_api, isFalse);
       expect(
-          welcome.details.roles.dealer.features.payload_transparency, isFalse);
-      expect(welcome.details.roles.dealer.features.session_meta_api, isFalse);
-      expect(welcome.details.roles.dealer.features.progressive_call_results,
+          welcome.details.roles!.broker!.features!.subscriber_blackwhite_listing,
           isFalse);
       expect(
-          welcome.details.roles.dealer.features.caller_identification, isFalse);
-      expect(welcome.details.roles.dealer.features.call_timeout, isFalse);
-      expect(welcome.details.roles.dealer.features.call_canceling, isFalse);
-      expect(welcome.details.roles.dealer.features.call_trustlevels, isFalse);
-      expect(welcome.details.roles.dealer.features.pattern_based_registration,
+          welcome.details.roles!.broker!.features!.subscription_meta_api, isFalse);
+      expect(welcome.details.roles!.dealer, isNotNull);
+      expect(welcome.details.roles!.dealer!.features, isNotNull);
+      expect(
+          welcome.details.roles!.dealer!.features!.payload_transparency, isFalse);
+      expect(welcome.details.roles!.dealer!.features!.session_meta_api, isFalse);
+      expect(welcome.details.roles!.dealer!.features!.progressive_call_results,
           isFalse);
       expect(
-          welcome.details.roles.dealer.features.registration_meta_api, isFalse);
+          welcome.details.roles!.dealer!.features!.caller_identification, isFalse);
+      expect(welcome.details.roles!.dealer!.features!.call_timeout, isFalse);
+      expect(welcome.details.roles!.dealer!.features!.call_canceling, isFalse);
+      expect(welcome.details.roles!.dealer!.features!.call_trustlevels, isFalse);
+      expect(welcome.details.roles!.dealer!.features!.pattern_based_registration,
+          isFalse);
       expect(
-          welcome.details.roles.dealer.features.shared_registration, isFalse);
+          welcome.details.roles!.dealer!.features!.registration_meta_api, isFalse);
+      expect(
+          welcome.details.roles!.dealer!.features!.shared_registration, isFalse);
 
       welcome = serializer.deserializeFromString(
-          '[${MessageTypes.CODE_WELCOME},112233,{"authid":"Richi","authrole":"admin","authmethod":"wampcra","authprovider":"database","roles":{"broker":{"features":{"publisher_identification":true,"pattern_based_subscription":true,"subscription_meta_api":true,"subscriber_blackwhite_listing":true,"session_meta_api":true,"publisher_exclusion":true,"event_history":true,"payload_transparency":true}},"dealer":{"features":{"caller_identification":true,"call_trustlevels":true,"pattern_based_registration":true,"registration_meta_api":true,"shared_registration":true,"session_meta_api":true,"call_timeout":true,"call_canceling":true,"progressive_call_results":true,"payload_transparency":true}}}}]');
+          '[${MessageTypes.CODE_WELCOME},112233,{"authid":"Richi","authrole":"admin","authmethod":"wampcra","authprovider":"database","roles":{"broker":{"features":{"publisher_identification":true,"pattern_based_subscription":true,"subscription_meta_api":true,"subscriber_blackwhite_listing":true,"session_meta_api":true,"publisher_exclusion":true,"event_history":true,"payload_transparency":true}},"dealer":{"features":{"caller_identification":true,"call_trustlevels":true,"pattern_based_registration":true,"registration_meta_api":true,"shared_registration":true,"session_meta_api":true,"call_timeout":true,"call_canceling":true,"progressive_call_results":true,"payload_transparency":true}}}}]') as Welcome;
       expect(welcome, isNotNull);
       expect(welcome.id, equals(MessageTypes.CODE_WELCOME));
       expect(welcome.sessionId, equals(112233));
@@ -416,60 +416,60 @@ void main() {
       expect(welcome.details.authmethod, equals('wampcra'));
       expect(welcome.details.authprovider, equals('database'));
       expect(welcome.details.roles, isNotNull);
-      expect(welcome.details.roles.broker, isNotNull);
-      expect(welcome.details.roles.broker.features, isNotNull);
+      expect(welcome.details.roles!.broker, isNotNull);
+      expect(welcome.details.roles!.broker!.features, isNotNull);
       expect(
-          welcome.details.roles.broker.features.payload_transparency, isTrue);
-      expect(welcome.details.roles.broker.features.event_history, isTrue);
-      expect(welcome.details.roles.broker.features.pattern_based_subscription,
+          welcome.details.roles!.broker!.features!.payload_transparency, isTrue);
+      expect(welcome.details.roles!.broker!.features!.event_history, isTrue);
+      expect(welcome.details.roles!.broker!.features!.pattern_based_subscription,
           isTrue);
-      expect(welcome.details.roles.broker.features.publication_trustlevels,
+      expect(welcome.details.roles!.broker!.features!.publication_trustlevels,
           isFalse); // not send
-      expect(welcome.details.roles.broker.features.publisher_exclusion, isTrue);
-      expect(welcome.details.roles.broker.features.publisher_identification,
+      expect(welcome.details.roles!.broker!.features!.publisher_exclusion, isTrue);
+      expect(welcome.details.roles!.broker!.features!.publisher_identification,
           isTrue);
-      expect(welcome.details.roles.broker.features.session_meta_api, isTrue);
+      expect(welcome.details.roles!.broker!.features!.session_meta_api, isTrue);
       expect(
-          welcome.details.roles.broker.features.subscriber_blackwhite_listing,
-          isTrue);
-      expect(
-          welcome.details.roles.broker.features.subscription_meta_api, isTrue);
-      expect(welcome.details.roles.dealer, isNotNull);
-      expect(welcome.details.roles.dealer.features, isNotNull);
-      expect(
-          welcome.details.roles.dealer.features.payload_transparency, isTrue);
-      expect(welcome.details.roles.dealer.features.session_meta_api, isTrue);
-      expect(welcome.details.roles.dealer.features.progressive_call_results,
+          welcome.details.roles!.broker!.features!.subscriber_blackwhite_listing,
           isTrue);
       expect(
-          welcome.details.roles.dealer.features.caller_identification, isTrue);
-      expect(welcome.details.roles.dealer.features.call_timeout, isTrue);
-      expect(welcome.details.roles.dealer.features.call_canceling, isTrue);
-      expect(welcome.details.roles.dealer.features.call_trustlevels, isTrue);
-      expect(welcome.details.roles.dealer.features.pattern_based_registration,
+          welcome.details.roles!.broker!.features!.subscription_meta_api, isTrue);
+      expect(welcome.details.roles!.dealer, isNotNull);
+      expect(welcome.details.roles!.dealer!.features, isNotNull);
+      expect(
+          welcome.details.roles!.dealer!.features!.payload_transparency, isTrue);
+      expect(welcome.details.roles!.dealer!.features!.session_meta_api, isTrue);
+      expect(welcome.details.roles!.dealer!.features!.progressive_call_results,
           isTrue);
       expect(
-          welcome.details.roles.dealer.features.registration_meta_api, isTrue);
-      expect(welcome.details.roles.dealer.features.shared_registration, isTrue);
+          welcome.details.roles!.dealer!.features!.caller_identification, isTrue);
+      expect(welcome.details.roles!.dealer!.features!.call_timeout, isTrue);
+      expect(welcome.details.roles!.dealer!.features!.call_canceling, isTrue);
+      expect(welcome.details.roles!.dealer!.features!.call_trustlevels, isTrue);
+      expect(welcome.details.roles!.dealer!.features!.pattern_based_registration,
+          isTrue);
+      expect(
+          welcome.details.roles!.dealer!.features!.registration_meta_api, isTrue);
+      expect(welcome.details.roles!.dealer!.features!.shared_registration, isTrue);
     });
     test('Registered', () {
-      Registered registered =
-          serializer.deserializeFromString('[65, 25349185, 2103333224]');
+      var registered =
+          serializer.deserializeFromString('[65, 25349185, 2103333224]') as Registered;
       expect(registered, isNotNull);
       expect(registered.id, equals(MessageTypes.CODE_REGISTERED));
       expect(registered.registerRequestId, equals(25349185));
       expect(registered.registrationId, equals(2103333224));
     });
     test('Unregistered', () {
-      Unregistered unregistered =
-          serializer.deserializeFromString('[67, 788923562]');
+      var unregistered =
+          serializer.deserializeFromString('[67, 788923562]') as Unregistered;
       expect(unregistered, isNotNull);
       expect(unregistered.id, equals(MessageTypes.CODE_UNREGISTERED));
       expect(unregistered.unregisterRequestId, equals(788923562));
     });
     test('Invocation', () {
-      Invocation invocation =
-          serializer.deserializeFromString('[68, 6131533, 9823526, {}]');
+      var invocation =
+          serializer.deserializeFromString('[68, 6131533, 9823526, {}]') as Invocation;
       expect(invocation, isNotNull);
       expect(invocation.id, equals(MessageTypes.CODE_INVOCATION));
       expect(invocation.requestId, equals(6131533));
@@ -482,7 +482,7 @@ void main() {
       expect(invocation.argumentsKeywords, isNull);
 
       invocation = serializer.deserializeFromString(
-          '[68, 6131533, 9823527, {}, ["Hello, world!"]]');
+          '[68, 6131533, 9823527, {}, ["Hello, world!"]]') as Invocation;
       expect(invocation, isNotNull);
       expect(invocation.id, equals(MessageTypes.CODE_INVOCATION));
       expect(invocation.requestId, equals(6131533));
@@ -491,11 +491,11 @@ void main() {
       expect(invocation.details.receive_progress, isNull);
       expect(invocation.details.caller, isNull);
       expect(invocation.details.procedure, isNull);
-      expect(invocation.arguments[0], equals('Hello, world!'));
+      expect(invocation.arguments![0], equals('Hello, world!'));
       expect(invocation.argumentsKeywords, isNull);
 
       invocation = serializer.deserializeFromString(
-          '[68, 6131533, 9823529, {}, ["johnny"], {"firstname": "John","surname": "Doe"}]');
+          '[68, 6131533, 9823529, {}, ["johnny"], {"firstname": "John","surname": "Doe"}]') as Invocation;
       expect(invocation, isNotNull);
       expect(invocation.id, equals(MessageTypes.CODE_INVOCATION));
       expect(invocation.requestId, equals(6131533));
@@ -504,12 +504,12 @@ void main() {
       expect(invocation.details.receive_progress, isNull);
       expect(invocation.details.caller, isNull);
       expect(invocation.details.procedure, isNull);
-      expect(invocation.arguments[0], equals('johnny'));
-      expect(invocation.argumentsKeywords['firstname'], equals('John'));
-      expect(invocation.argumentsKeywords['surname'], equals('Doe'));
+      expect(invocation.arguments![0], equals('johnny'));
+      expect(invocation.argumentsKeywords!['firstname'], equals('John'));
+      expect(invocation.argumentsKeywords!['surname'], equals('Doe'));
 
       invocation = serializer.deserializeFromString(
-          '[68, 6131533, 9823529, {"receive_progress": true, "caller": 13123, "procedure":"my.procedure.com"}, ["johnny"], {"firstname": "John","surname": "Doe"}]');
+          '[68, 6131533, 9823529, {"receive_progress": true, "caller": 13123, "procedure":"my.procedure.com"}, ["johnny"], {"firstname": "John","surname": "Doe"}]') as Invocation;
       expect(invocation, isNotNull);
       expect(invocation.id, equals(MessageTypes.CODE_INVOCATION));
       expect(invocation.requestId, equals(6131533));
@@ -518,12 +518,12 @@ void main() {
       expect(invocation.details.receive_progress, isTrue);
       expect(invocation.details.caller, equals(13123));
       expect(invocation.details.procedure, equals('my.procedure.com'));
-      expect(invocation.arguments[0], equals('johnny'));
-      expect(invocation.argumentsKeywords['firstname'], equals('John'));
-      expect(invocation.argumentsKeywords['surname'], equals('Doe'));
+      expect(invocation.arguments![0], equals('johnny'));
+      expect(invocation.argumentsKeywords!['firstname'], equals('John'));
+      expect(invocation.argumentsKeywords!['surname'], equals('Doe'));
     });
     test('Result', () {
-      Result result = serializer.deserializeFromString('[50, 7814135, {}]');
+      var result = serializer.deserializeFromString('[50, 7814135, {}]') as Result;
       expect(result, isNotNull);
       expect(result.id, equals(MessageTypes.CODE_RESULT));
       expect(result.callRequestId, equals(7814135));
@@ -532,73 +532,73 @@ void main() {
       expect(result.arguments, isNull);
       expect(result.argumentsKeywords, isNull);
 
-      result = serializer.deserializeFromString('[50, 7814135, {}, [30]]');
+      result = serializer.deserializeFromString('[50, 7814135, {}, [30]]') as Result;
       expect(result, isNotNull);
       expect(result.id, equals(MessageTypes.CODE_RESULT));
       expect(result.callRequestId, equals(7814135));
       expect(result.details, isNotNull);
       expect(result.details.progress, isNull);
-      expect(result.arguments[0], equals(30));
+      expect(result.arguments![0], equals(30));
       expect(result.argumentsKeywords, isNull);
 
       result = serializer.deserializeFromString(
-          '[50, 6131533, {}, ["johnny"], {"userid": 123, "karma": 10}]');
+          '[50, 6131533, {}, ["johnny"], {"userid": 123, "karma": 10}]') as Result;
       expect(result, isNotNull);
       expect(result.id, equals(MessageTypes.CODE_RESULT));
       expect(result.callRequestId, equals(6131533));
       expect(result.details, isNotNull);
       expect(result.details.progress, isNull);
-      expect(result.arguments[0], equals('johnny'));
-      expect(result.argumentsKeywords['userid'], equals(123));
-      expect(result.argumentsKeywords['karma'], equals(10));
+      expect(result.arguments![0], equals('johnny'));
+      expect(result.argumentsKeywords!['userid'], equals(123));
+      expect(result.argumentsKeywords!['karma'], equals(10));
 
       result = serializer.deserializeFromString(
-          '[50, 6131533, {"progress": true}, ["johnny"], {"firstname": "John","surname": "Doe"}]');
+          '[50, 6131533, {"progress": true}, ["johnny"], {"firstname": "John","surname": "Doe"}]') as Result;
       expect(result, isNotNull);
       expect(result.id, equals(MessageTypes.CODE_RESULT));
       expect(result.callRequestId, equals(6131533));
       expect(result.details, isNotNull);
       expect(result.details.progress, isTrue);
-      expect(result.arguments[0], equals('johnny'));
-      expect(result.argumentsKeywords['firstname'], equals('John'));
-      expect(result.argumentsKeywords['surname'], equals('Doe'));
+      expect(result.arguments![0], equals('johnny'));
+      expect(result.argumentsKeywords!['firstname'], equals('John'));
+      expect(result.argumentsKeywords!['surname'], equals('Doe'));
     });
     // PUB / SUB
     test('Subscribed', () {
-      Subscribed subscribed =
-          serializer.deserializeFromString('[33, 713845233, 5512315355]');
+      var subscribed =
+          serializer.deserializeFromString('[33, 713845233, 5512315355]') as Subscribed;
       expect(subscribed, isNotNull);
       expect(subscribed.id, equals(MessageTypes.CODE_SUBSCRIBED));
       expect(subscribed.subscribeRequestId, equals(713845233));
       expect(subscribed.subscriptionId, equals(5512315355));
     });
     test('Unsubscribed', () {
-      Unsubscribed unsubscribed =
-          serializer.deserializeFromString('[35, 85346237]');
+      var unsubscribed =
+          serializer.deserializeFromString('[35, 85346237]') as Unsubscribed;
       expect(unsubscribed, isNotNull);
       expect(unsubscribed.id, equals(MessageTypes.CODE_UNSUBSCRIBED));
       expect(unsubscribed.unsubscribeRequestId, equals(85346237));
       expect(unsubscribed.details, isNull);
 
       unsubscribed = serializer.deserializeFromString(
-          '[35, 85346237, {"subscription": 123322, "reason": "wamp.authentication.lost"}]');
+          '[35, 85346237, {"subscription": 123322, "reason": "wamp.authentication.lost"}]') as Unsubscribed;
       expect(unsubscribed, isNotNull);
       expect(unsubscribed.id, equals(MessageTypes.CODE_UNSUBSCRIBED));
       expect(unsubscribed.unsubscribeRequestId, equals(85346237));
-      expect(unsubscribed.details.reason, equals('wamp.authentication.lost'));
-      expect(unsubscribed.details.subscription, equals(123322));
+      expect(unsubscribed.details!.reason, equals('wamp.authentication.lost'));
+      expect(unsubscribed.details!.subscription, equals(123322));
     });
     test('Published', () {
-      Published published =
-          serializer.deserializeFromString('[17, 239714735, 4429313566]');
+      var published =
+          serializer.deserializeFromString('[17, 239714735, 4429313566]') as Published;
       expect(published, isNotNull);
       expect(published.id, equals(MessageTypes.CODE_PUBLISHED));
       expect(published.publishRequestId, equals(239714735));
       expect(published.publicationId, equals(4429313566));
     });
     test('Event', () {
-      Event event =
-          serializer.deserializeFromString('[36, 5512315355, 4429313566, {}]');
+      var event =
+          serializer.deserializeFromString('[36, 5512315355, 4429313566, {}]') as Event;
       expect(event, isNotNull);
       expect(event.id, equals(MessageTypes.CODE_EVENT));
       expect(event.subscriptionId, equals(5512315355));
@@ -611,7 +611,7 @@ void main() {
       expect(event.argumentsKeywords, isNull);
 
       event = serializer
-          .deserializeFromString('[36, 5512315355, 4429313566, {}, [30]]');
+          .deserializeFromString('[36, 5512315355, 4429313566, {}, [30]]') as Event;
       expect(event, isNotNull);
       expect(event.id, equals(MessageTypes.CODE_EVENT));
       expect(event.subscriptionId, equals(5512315355));
@@ -620,11 +620,11 @@ void main() {
       expect(event.details.publisher, isNull);
       expect(event.details.topic, isNull);
       expect(event.details.trustlevel, isNull);
-      expect(event.arguments[0], equals(30));
+      expect(event.arguments![0], equals(30));
       expect(event.argumentsKeywords, isNull);
 
       event = serializer.deserializeFromString(
-          '[36, 5512315355, 4429313566, {}, ["johnny"], {"userid": 123, "karma": 10}]');
+          '[36, 5512315355, 4429313566, {}, ["johnny"], {"userid": 123, "karma": 10}]') as Event;
       expect(event, isNotNull);
       expect(event.id, equals(MessageTypes.CODE_EVENT));
       expect(event.subscriptionId, equals(5512315355));
@@ -633,12 +633,12 @@ void main() {
       expect(event.details.publisher, isNull);
       expect(event.details.topic, isNull);
       expect(event.details.trustlevel, isNull);
-      expect(event.arguments[0], equals('johnny'));
-      expect(event.argumentsKeywords['userid'], equals(123));
-      expect(event.argumentsKeywords['karma'], equals(10));
+      expect(event.arguments![0], equals('johnny'));
+      expect(event.argumentsKeywords!['userid'], equals(123));
+      expect(event.argumentsKeywords!['karma'], equals(10));
 
       event = serializer.deserializeFromString(
-          '[36, 5512315355, 4429313566, {"publisher": 1231412}, ["johnny"], {"firstname": "John","surname": "Doe"}]');
+          '[36, 5512315355, 4429313566, {"publisher": 1231412}, ["johnny"], {"firstname": "John","surname": "Doe"}]') as Event;
       expect(event, isNotNull);
       expect(event.id, equals(MessageTypes.CODE_EVENT));
       expect(event.subscriptionId, equals(5512315355));
@@ -647,12 +647,12 @@ void main() {
       expect(event.details.publisher, equals(1231412));
       expect(event.details.topic, isNull);
       expect(event.details.trustlevel, isNull);
-      expect(event.arguments[0], equals('johnny'));
-      expect(event.argumentsKeywords['firstname'], equals('John'));
-      expect(event.argumentsKeywords['surname'], equals('Doe'));
+      expect(event.arguments![0], equals('johnny'));
+      expect(event.argumentsKeywords!['firstname'], equals('John'));
+      expect(event.argumentsKeywords!['surname'], equals('Doe'));
 
       event = serializer.deserializeFromString(
-          '[36, 5512315355, 4429313566, {"publisher": 1231412, "topic":"de.de.com", "trustlevel":1}, ["johnny"], {"firstname": "John","surname": "Doe"}]');
+          '[36, 5512315355, 4429313566, {"publisher": 1231412, "topic":"de.de.com", "trustlevel":1}, ["johnny"], {"firstname": "John","surname": "Doe"}]') as Event;
       expect(event, isNotNull);
       expect(event.id, equals(MessageTypes.CODE_EVENT));
       expect(event.subscriptionId, equals(5512315355));
@@ -661,9 +661,9 @@ void main() {
       expect(event.details.publisher, equals(1231412));
       expect(event.details.topic, equals('de.de.com'));
       expect(event.details.trustlevel, equals(1));
-      expect(event.arguments[0], equals('johnny'));
-      expect(event.argumentsKeywords['firstname'], equals('John'));
-      expect(event.argumentsKeywords['surname'], equals('Doe'));
+      expect(event.arguments![0], equals('johnny'));
+      expect(event.argumentsKeywords!['firstname'], equals('John'));
+      expect(event.argumentsKeywords!['surname'], equals('Doe'));
     });
   });
   group('string conversion', () {
@@ -672,25 +672,25 @@ void main() {
           arguments: [
             '𝄞 𝄢 Hello! Cześć! 你好! ご挨拶！Привет! ℌ𝔢𝔩𝔩𝔬! 🅗🅔🅛🅛🅞!'
           ]);
-      Invocation serializedInvocation =
-          serializer.deserialize(serializer.serialize(invocation));
-      expect(serializedInvocation.arguments[0],
+      var serializedInvocation =
+          serializer.deserialize(serializer.serialize(invocation)) as Invocation;
+      expect(serializedInvocation.arguments![0],
           equals('𝄞 𝄢 Hello! Cześć! 你好! ご挨拶！Привет! ℌ𝔢𝔩𝔩𝔬! 🅗🅔🅛🅛🅞!'));
     });
     test('convert json binary string', () {
-      Result result = serializer.deserializeFromString(
-          '[50, 1, {}, [{"binary":"\\u0000EOP/kFMHXFJvX8BtT+N82w=="}],{"binary":{"content":["\\u0000EOP/kFMHXFJvX8BtT+N82w==","EOP/kFMHXFJvX8BtT+N82w=="]}}]');
-      expect(result.arguments[0]['binary'], isA<Uint8List>());
-      expect(result.arguments[0]['binary'].length, equals(16));
+      var result = serializer.deserializeFromString(
+          '[50, 1, {}, [{"binary":"\\u0000EOP/kFMHXFJvX8BtT+N82w=="}],{"binary":{"content":["\\u0000EOP/kFMHXFJvX8BtT+N82w==","EOP/kFMHXFJvX8BtT+N82w=="]}}]') as Result;
+      expect(result.arguments![0]['binary'], isA<Uint8List>());
+      expect(result.arguments![0]['binary'].length, equals(16));
       expect(
-          result.argumentsKeywords['binary']['content'][0], isA<Uint8List>());
+          result.argumentsKeywords!['binary']['content'][0], isA<Uint8List>());
       expect(
-          result.argumentsKeywords['binary']['content'][0].length, equals(16));
-      expect(result.argumentsKeywords['binary']['content'][1], isA<String>());
+          result.argumentsKeywords!['binary']['content'][0].length, equals(16));
+      expect(result.argumentsKeywords!['binary']['content'][1], isA<String>());
       result = serializer.deserializeFromString(
-          '[50, 1, {}, "\\u0000EOP/kFMHXFJvX8BtT+N82w=="]');
+          '[50, 1, {}, "\\u0000EOP/kFMHXFJvX8BtT+N82w=="]') as Result;
       expect(result.transparentBinaryPayload, isA<Uint8List>());
-      expect(result.transparentBinaryPayload.length, equals(16));
+      expect(result.transparentBinaryPayload!.length, equals(16));
 
       var event = Event(1, 2, EventDetails(), arguments: [
         {

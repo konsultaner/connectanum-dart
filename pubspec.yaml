@@ -5,14 +5,14 @@ description: >-
   This is a WAMP client (Web Application Messaging Protocol) implementation for the dart language and flutter projects.
 dependencies:
   saslprep: ^1.0.1
-  pointycastle: ^2.0.0
-  pinenacl: ^0.2.0
+  pointycastle: ^3.3.5
+  pinenacl: ^0.3.3
   logging: ^1.0.0
-  pedantic: ^1.9.2
+  pedantic: ^1.11.1
   meta: ^1.1.8
   msgpack_dart: ^1.0.0
 dev_dependencies:
   test: ^1.19.2
   stream_channel: 2.1.0
 environment:
-  sdk: ">=2.10.0 <3.0.0"
+  sdk: '>=2.12.0 <3.0.0'
