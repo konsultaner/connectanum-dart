@@ -1,5 +1,6 @@
 ### 2.0.0
 
+- do not reconnect if the server will loop with the same error
 - added argon2 support (#7)
 - sound null safety support
 - update all dependencies to their latest version
