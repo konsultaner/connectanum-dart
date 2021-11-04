@@ -51,7 +51,7 @@ eventually fail.
     - ☑ Load base64 encoded ed25519 private key
     - ☑ Load hex encoded ed25519 private key
 - ☑ [WAMP-SCRAM](https://wamp-proto.org/_static/gen/wamp_latest.html#wamp-scram)
-    - ⬜ Argon2
+    - ☑ Argon2
     - ☑ PBKDF2
 
 ### Advanced RPC features
@@ -84,7 +84,7 @@ eventually fail.
 - ☑ RawSockets with large data support (connectanum router only)
 - ⬜ E2E encryption
 
-### Ttransport Encoding
+### Transport Encoding
 
 - ☑ JSON
 - ☑ msgpack

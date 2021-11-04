@@ -1,5 +1,6 @@
 ### 2.0.0
 
+- added argon2 support (#7)
 - sound null safety support
 - update all dependencies to their latest version
 - fixes #3 fixed test vector

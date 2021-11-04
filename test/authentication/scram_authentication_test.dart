@@ -12,11 +12,18 @@ void main() {
     var secret = 'pencil';
     var helloNonce = 'rOprNGfwEbeRWgbNEkqO';
     var signature = 'dHzbZapWIk4jUhN+Ute9ytag9zjfMHgsqmmiz7AndVQ=';
+    var signatureArgon = 'b8qnNPK25OveSr9H7LVV1tcZqyICZe2DLammvNEDJwg=';
     var challengeExtra = Extra(
         iterations: 4096,
         salt: 'W22ZaJ0SNY7soEsUEjb6gQ==',
         nonce: 'rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF\$k0',
         kdf: ScramAuthentication.KDF_PBKDF2);
+    var challengeExtraArgon2 = Extra(
+        iterations: 4096,
+        memory: 100,
+        salt: 'W22ZaJ0SNY7soEsUEjb6gQ==',
+        nonce: 'rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF\$k0',
+        kdf: ScramAuthentication.KDF_ARGON);
     var authExtra = HashMap<String, Object?>();
     authExtra['nonce'] = challengeExtra.nonce;
     authExtra['channel_binding'] = null;
@@ -79,8 +86,13 @@ void main() {
     });
     test('derive key pbkdf2', () async {
       final authenticateSignature = ScramAuthentication(secret)
-          .challengePBKDF2(user, helloNonce, challengeExtra, authExtra);
+          .createSignature(user, helloNonce, challengeExtra, authExtra);
       expect(authenticateSignature, equals(signature));
+    });
+    test('derive key argon2id', () async {
+      final authenticateSignature = ScramAuthentication(secret)
+          .createSignature(user, helloNonce, challengeExtraArgon2, authExtra);
+      expect(authenticateSignature, equals(signatureArgon));
     });
     test('verify key', () {
       var signature = 'dHzbZapWIk4jUhN+Ute9ytag9zjfMHgsqmmiz7AndVQ=';
