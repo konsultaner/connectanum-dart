@@ -1,3 +1,7 @@
+### 2.0.1
+
+- fix args and kwargs typing 
+
 ### 2.0.0
 
 - do not reconnect if the server will loop with the same error

@@ -11,7 +11,7 @@ class Event extends AbstractMessageWithPayload {
   EventDetails details;
 
   Event(this.subscriptionId, this.publicationId, this.details,
-      {List<Object>? arguments, Map<String, Object?>? argumentsKeywords}) {
+      {List<dynamic>? arguments, Map<String, dynamic>? argumentsKeywords}) {
     id = MessageTypes.CODE_EVENT;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;

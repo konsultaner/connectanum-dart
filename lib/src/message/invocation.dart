@@ -14,8 +14,8 @@ class Invocation extends AbstractMessageWithPayload {
   late StreamController<AbstractMessageWithPayload> _responseStreamController;
 
   void respondWith(
-      {List<Object?>? arguments,
-      Map<String, Object?>? argumentsKeywords,
+      {List<dynamic>? arguments,
+      Map<String, dynamic>? argumentsKeywords,
       bool isError = false,
       String? errorUri,
       bool progressive = false}) {
