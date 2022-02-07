@@ -388,7 +388,8 @@ void main() {
           }
         }
         if (message.id == MessageTypes.CODE_CALL &&
-            (message as Call).argumentsKeywords!['value'] != -3) {
+            (message as Call).argumentsKeywords!['value'] != -3 &&
+            (message).argumentsKeywords!['value'] != -4) {
           transport.receiveMessage(Result(
               message.requestId, ResultDetails(true),
               arguments: message.arguments));
@@ -523,20 +524,14 @@ void main() {
 
       final progressiveCallArgumentsKeywords = HashMap<String, Object>();
       progressiveArgumentsKeywords['value'] = 2;
-      final callCompleter = Completer<List<Result>>();
       final resultList = <Result>[];
-      session
+      await for (final result in session
           .call('my.procedure',
               options: CallOptions(receive_progress: true),
               arguments: ['called'],
-              argumentsKeywords: progressiveCallArgumentsKeywords)
-          .listen((result) {
+              argumentsKeywords: progressiveCallArgumentsKeywords)) {
         resultList.add(result);
-        if (!result.isProgressive()) {
-          callCompleter.complete(resultList);
-        }
-      });
-      await callCompleter.future;
+      }
       expect(resultList.length, equals(2));
 
       // ERROR BY EXCEPTION

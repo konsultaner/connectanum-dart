@@ -253,6 +253,9 @@ class Session {
                 message.requestId == call.requestId))) {
       if (result is Result) {
         yield result;
+        if (!result.isProgressive()) {
+          break;
+        }
       } else if (result is Error) {
         throw result;
       }
