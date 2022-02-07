@@ -318,7 +318,7 @@ class Session {
   }
 
   /// This publishes an event to a [topic] with the given [arguments] and [argumentsKeywords].
-  Future<Published> publish(String topic,
+  Future<Published?> publish(String topic,
       {List<dynamic>? arguments,
       Map<String, dynamic>? argumentsKeywords,
       PublishOptions? options}) {
@@ -327,6 +327,9 @@ class Session {
         argumentsKeywords: argumentsKeywords,
         options: options);
     _transport.send(publish);
+    if (options?.acknowledge == null || options?.acknowledge == false) {
+      return Future.value(null);
+    }
     var publishStream = _openSessionStreamController.stream.where((message) {
       if (message is Published &&
           message.publishRequestId == publish.requestId) {

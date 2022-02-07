@@ -638,9 +638,11 @@ void main() {
         if (message.id == MessageTypes.CODE_HELLO) {
           transport.receiveMessage(Welcome(42, Details.forWelcome()));
         }
-        if (message.id == MessageTypes.CODE_PUBLISH) {
+        if (message.id == MessageTypes.CODE_PUBLISH &&
+            (message as Publish).options?.acknowledge != null &&
+            (message).options?.acknowledge == true) {
           transport
-              .receiveMessage(Published((message as Publish).requestId, 1));
+              .receiveMessage(Published((message).requestId, 1));
         }
         if (message.id == MessageTypes.CODE_SUBSCRIBE) {
           if ((message as Subscribe).topic == 'topic.my.de') {
@@ -699,10 +701,26 @@ void main() {
       // REGULAR PUBLISH
 
       var published =
-          await session.publish('my.test.topic', arguments: ['some data']);
+          await session.publish(
+              'my.test.topic',
+              arguments: ['some data'],
+              options: PublishOptions(acknowledge: true));
       expect(published, isNotNull);
-      expect(published.publishRequestId, isNotNull);
-      expect(published.publicationId, equals(1));
+      expect(published?.publishRequestId, isNotNull);
+      expect(published?.publicationId, equals(1));
+
+      published =
+          await session.publish(
+              'my.test.topic',
+              arguments: ['some data'],
+              options: PublishOptions(acknowledge: false));
+      expect(published, isNull);
+
+      published =
+          await session.publish(
+              'my.test.topic',
+              arguments: ['some data']);
+      expect(published, isNull);
 
       // EVENT
 
