@@ -35,7 +35,7 @@ eventually fail.
 
 - ☑ [WAMP-CRA](https://wamp-proto.org/_static/gen/wamp_latest.html#wampcra)
 - ☑ [TICKET](https://wamp-proto.org/_static/gen/wamp_latest.html#ticketauth)
-- ☑ CRYPTOSIGN
+- ☑ [CRYPTOSIGN](https://github.com/wamp-proto/wamp-proto/issues/230)
     - ☑ Load putty files
         - ☑ MAC validation
         - ☑ password support
