@@ -1,13 +1,10 @@
 import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart';
+import 'package:connectanum/connectanum.dart';
+import 'package:connectanum/src/message/message_types.dart';
+import 'package:connectanum/src/message/welcome.dart';
 import 'package:logging/logging.dart';
-
-import '../../message/message_types.dart';
-import '../../message/abstract_message.dart';
-import '../../message/challenge.dart';
-
-import '../abstract_serializer.dart';
 
 /// This is a seralizer for msgpack messages.
 /// It is used to initialize an [AbstractTransport] object.
@@ -22,7 +19,11 @@ class Serializer extends AbstractSerializer {
         final cborMessageId = decodedMessage[0];
         if (cborMessageId is CborInt) {
           final messageId = cborMessageId.toInt();
-          if (messageId == MessageTypes.CODE_CHALLENGE) {
+          if (messageId == MessageTypes.CODE_ABORT && decodedMessage.length == 3) {
+            return Abort((decodedMessage[2] as CborString).toString(),
+                message: decodedMessage[1] is CborMap && (decodedMessage[1] as CborMap)[CborString('message')] != null ? ((decodedMessage[1] as CborMap)[CborString('message')] as CborString).toString() : null);
+          }
+          if (messageId == MessageTypes.CODE_CHALLENGE && decodedMessage.length == 3) {
             return Challenge(
                 (decodedMessage[1] as CborString).toString(),
                 Extra(
@@ -33,6 +34,88 @@ class Serializer extends AbstractSerializer {
                     memory: (decodedMessage[2] as CborMap)[CborString('memory')] == null ? null : ((decodedMessage[2] as CborMap)[CborString('memory')] as CborInt).toInt(),
                     kdf: (decodedMessage[2] as CborMap)[CborString('kdf')] == null ? null :((decodedMessage[2] as CborMap)[CborString('kdf')] as CborString).toString(),
                     nonce: (decodedMessage[2] as CborMap)[CborString('nonce')] == null ? null :((decodedMessage[2] as CborMap)[CborString('nonce')] as CborString).toString()));
+          }
+          if (messageId == MessageTypes.CODE_WELCOME && decodedMessage.length == 3) {
+            final details = Details();
+            details.realm = (((decodedMessage[2] as CborMap)[CborString('realm')] ?? CborString('')) as CborString).toString();
+            details.authid = (((decodedMessage[2] as CborMap)[CborString('authid')] ?? CborString('')) as CborString).toString();
+            details.authprovider = (((decodedMessage[2] as CborMap)[CborString('authprovider')] ?? CborString('')) as CborString).toString();
+            details.authmethod = (((decodedMessage[2] as CborMap)[CborString('authmethod')] ?? CborString('')) as CborString).toString();
+            details.authrole = (((decodedMessage[2] as CborMap)[CborString('authrole')] ?? CborString('')) as CborString).toString();
+            if ((decodedMessage[2] as CborMap)[CborString('authextra')] != null) {
+              ((decodedMessage[2] as CborMap)[CborString('authextra')] as CborMap).forEach((key, value) {
+                details.authextra ??= <String, dynamic>{};
+                if (value is CborString) {
+                  details.authextra![(key as CborString).toString()] = value.toString();
+                }
+                if (value is CborInt) {
+                  details.authextra![(key as CborString).toString()] = value.toInt();
+                }
+                if (value is CborFloat) {
+                  details.authextra![(key as CborString).toString()] = value.value;
+                }
+                if (value is CborBool) {
+                  details.authextra![(key as CborString).toString()] = value.value;
+                }
+                if (value is CborBase64) {
+                  details.authextra![(key as CborString).toString()] = value.toString();
+                }
+              });
+            }
+            if ((decodedMessage[2] as CborMap)[CborString('roles')] != null) {
+              details.roles = Roles();
+              if (((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('dealer')] != null) {
+                details.roles!.dealer = Dealer();
+                if ((((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('dealer')] as CborMap)[CborString('features')] != null) {
+                  details.roles!.dealer!.features = DealerFeatures();
+                  details.roles!.dealer!.features!.caller_identification =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('dealer')] as CborMap)[CborString('features')] as CborMap)[CborString('caller_identification')] ?? CborBool(false)) as CborBool).value;
+                  details.roles!.dealer!.features!.call_trustlevels =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('dealer')] as CborMap)[CborString('features')] as CborMap)[CborString('call_trustlevels')] ?? CborBool(false)) as CborBool).value;
+                  details.roles!.dealer!.features!.pattern_based_registration =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('dealer')] as CborMap)[CborString('features')] as CborMap)[CborString('pattern_based_registration')] ?? CborBool(false)) as CborBool).value;
+                  details.roles!.dealer!.features!.registration_meta_api =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('dealer')] as CborMap)[CborString('features')] as CborMap)[CborString('registration_meta_api')] ?? CborBool(false)) as CborBool).value;
+                  details.roles!.dealer!.features!.shared_registration =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('dealer')] as CborMap)[CborString('features')] as CborMap)[CborString('shared_registration')] ?? CborBool(false)) as CborBool).value;
+                  details.roles!.dealer!.features!.session_meta_api =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('dealer')] as CborMap)[CborString('features')] as CborMap)[CborString('session_meta_api')] ?? CborBool(false)) as CborBool).value;
+                  details.roles!.dealer!.features!.call_timeout =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('dealer')] as CborMap)[CborString('features')] as CborMap)[CborString('call_timeout')] ?? CborBool(false)) as CborBool).value;
+                  details.roles!.dealer!.features!.call_canceling =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('dealer')] as CborMap)[CborString('features')] as CborMap)[CborString('call_canceling')] ?? CborBool(false)) as CborBool).value;
+                  details.roles!.dealer!.features!.progressive_call_results =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('dealer')] as CborMap)[CborString('features')] as CborMap)[CborString('progressive_call_results')] ?? CborBool(false)) as CborBool).value;
+                  details.roles!.dealer!.features!.payload_transparency =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('dealer')] as CborMap)[CborString('features')] as CborMap)[CborString('payload_transparency')] ?? CborBool(false)) as CborBool).value;
+                }
+              }
+              if (((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('broker')] != null) {
+                details.roles!.broker = Broker();
+                if ((((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('broker')] as CborMap)[CborString('features')] != null) {
+                  details.roles!.broker!.features = BrokerFeatures();
+                  details.roles!.broker!.features!.publisher_identification =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('broker')] as CborMap)[CborString('features')] as CborMap)[CborString('publisher_identification')] ?? CborBool(false)) as CborBool).value;
+                  details.roles!.broker!.features!.publication_trustlevels =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('broker')] as CborMap)[CborString('features')] as CborMap)[CborString('publication_trustlevels')] ?? CborBool(false)) as CborBool).value;
+                  details.roles!.broker!.features!.pattern_based_subscription =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('broker')] as CborMap)[CborString('features')] as CborMap)[CborString('pattern_based_subscription')] ?? CborBool(false)) as CborBool).value;
+                  details.roles!.broker!.features!.subscription_meta_api =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('broker')] as CborMap)[CborString('features')] as CborMap)[CborString('subscription_meta_api')] ?? CborBool(false)) as CborBool).value;
+                  details.roles!.broker!.features!.subscriber_blackwhite_listing =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('broker')] as CborMap)[CborString('features')] as CborMap)[CborString('subscriber_blackwhite_listing')] ?? CborBool(false)) as CborBool).value;
+                  details.roles!.broker!.features!.session_meta_api =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('broker')] as CborMap)[CborString('features')] as CborMap)[CborString('session_meta_api')] ?? CborBool(false)) as CborBool).value;
+                  details.roles!.broker!.features!.publisher_exclusion =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('broker')] as CborMap)[CborString('features')] as CborMap)[CborString('publisher_exclusion')] ?? CborBool(false)) as CborBool).value;
+                  details.roles!.broker!.features!.event_history =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('broker')] as CborMap)[CborString('features')] as CborMap)[CborString('event_history')] ?? CborBool(false)) as CborBool).value;
+                  details.roles!.broker!.features!.payload_transparency =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')] as CborMap)[CborString('broker')] as CborMap)[CborString('features')] as CborMap)[CborString('payload_transparency')] ?? CborBool(false)) as CborBool).value;
+                }
+              }
+            }
+            return Welcome((decodedMessage[1] as CborInt).toInt(), details);
           }
         }
       }
