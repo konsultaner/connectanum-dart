@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:cbor/cbor.dart';
 import 'package:connectanum/connectanum.dart';
 import 'package:connectanum/src/message/abstract_message_with_payload.dart';
+import 'package:connectanum/src/message/hello.dart';
 import 'package:connectanum/src/message/message_types.dart';
 import 'package:connectanum/src/message/welcome.dart';
 import 'package:logging/logging.dart';
@@ -220,7 +221,117 @@ class Serializer extends AbstractSerializer {
 
   @override
   Uint8List serialize(AbstractMessage message) {
+    if (message is Hello) {
+      return Uint8List.fromList(cbor.encode(CborValue([
+        MessageTypes.CODE_HELLO,
+        message.realm,
+        _serializeDetails(message.details)!
+      ])));
+    }
     return Uint8List(0);
   }
 
+  Map? _serializeDetails(Details details) {
+    if (details.roles != null) {
+      var roles = {};
+      if (details.roles!.caller != null &&
+          details.roles!.caller!.features != null) {
+        var callerFeatures = {};
+        callerFeatures.addEntries([
+          MapEntry('call_canceling',
+              details.roles!.caller!.features!.call_canceling),
+          MapEntry(
+              'call_timeout', details.roles!.caller!.features!.call_timeout),
+          MapEntry('caller_identification',
+              details.roles!.caller!.features!.caller_identification),
+          MapEntry('payload_transparency',
+              details.roles!.caller!.features!.payload_transparency),
+          MapEntry('progressive_call_results',
+              details.roles!.caller!.features!.progressive_call_results)
+        ]);
+        roles.addEntries([
+          MapEntry('caller', {'features': callerFeatures})
+        ]);
+      }
+      if (details.roles!.callee != null &&
+          details.roles!.callee!.features != null) {
+        var calleeFeatures = {};
+        calleeFeatures.addEntries([
+          MapEntry('caller_identification',
+              details.roles!.callee!.features!.caller_identification),
+          MapEntry('call_trustlevel',
+              details.roles!.callee!.features!.call_trustlevels),
+          MapEntry('pattern_based_registration',
+              details.roles!.callee!.features!.pattern_based_registration),
+          MapEntry('shared_registration',
+              details.roles!.callee!.features!.shared_registration),
+          MapEntry('call_canceling',
+              details.roles!.callee!.features!.call_canceling),
+          MapEntry(
+              'call_timeout', details.roles!.callee!.features!.call_timeout),
+          MapEntry('caller_identification',
+              details.roles!.callee!.features!.caller_identification),
+          MapEntry('payload_transparency',
+              details.roles!.callee!.features!.payload_transparency),
+          MapEntry('progressive_call_results',
+              details.roles!.callee!.features!.progressive_call_results)
+        ]);
+        roles.addEntries([
+          MapEntry('callee', {'features': calleeFeatures})
+        ]);
+      }
+      if (details.roles!.subscriber != null &&
+          details.roles!.subscriber!.features != null) {
+        var subscriberFeatures = {};
+        subscriberFeatures.addEntries([
+          MapEntry('call_canceling',
+              details.roles!.subscriber!.features!.call_canceling),
+          MapEntry('call_timeout',
+              details.roles!.subscriber!.features!.call_timeout),
+          MapEntry('payload_transparency',
+              details.roles!.subscriber!.features!.payload_transparency),
+          MapEntry('progressive_call_results',
+              details.roles!.subscriber!.features!.progressive_call_results),
+          MapEntry('subscription_revocation',
+              details.roles!.subscriber!.features!.subscription_revocation)
+        ]);
+        roles.addEntries([
+          MapEntry('subscriber', {'features': subscriberFeatures})
+        ]);
+      }
+      if (details.roles!.publisher != null &&
+          details.roles!.publisher!.features != null) {
+        var publisherFeatures = {};
+        publisherFeatures.addEntries([
+          MapEntry('publisher_identification',
+              details.roles!.publisher!.features!.publisher_identification),
+          MapEntry(
+              'subscriber_blackwhite_listing',
+              details
+                  .roles!.publisher!.features!.subscriber_blackwhite_listing),
+          MapEntry('publisher_exclusion',
+              details.roles!.publisher!.features!.publisher_exclusion),
+          MapEntry('payload_transparency',
+              details.roles!.publisher!.features!.payload_transparency)
+        ]);
+        roles.addEntries([
+          MapEntry('publisher', {'features': publisherFeatures})
+        ]);
+      }
+      var detailsParts = <String, dynamic>{};
+      detailsParts['roles'] = roles;
+      if (details.authid != null) {
+        detailsParts['authid'] = details.authid;
+      }
+      if (details.authmethods != null && details.authmethods!.isNotEmpty) {
+        detailsParts['authmethods'] = details.authmethods;
+      }
+      if (details.authextra != null) {
+        detailsParts['authextra'] = details.authextra;
+      }
+      return detailsParts;
+    } else {
+      return null;
+    }
+  }
 }
