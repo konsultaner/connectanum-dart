@@ -139,6 +139,60 @@ class Serializer extends AbstractSerializer {
                 4
             );
           }
+          if (messageId == MessageTypes.CODE_RESULT && decodedMessage.length > 2) {
+            return _addPayload(
+                Result(
+                    (decodedMessage[1] as CborInt).toInt(),
+                    ResultDetails(
+                        (decodedMessage[2] as CborMap)[CborString('progress')] == null ? null : ((decodedMessage[2] as CborMap)[CborString('progress')] as CborBool).value
+                    )
+                ),
+                decodedMessage,
+                3);
+          }
+          if (messageId == MessageTypes.CODE_PUBLISHED && decodedMessage.length == 3) {
+            return Published((decodedMessage[1] as CborInt).toInt(), (decodedMessage[2] as CborInt).toInt());
+          }
+          if (messageId == MessageTypes.CODE_SUBSCRIBED && decodedMessage.length == 3) {
+            return Subscribed((decodedMessage[1] as CborInt).toInt(), (decodedMessage[2] as CborInt).toInt());
+          }
+          if (messageId == MessageTypes.CODE_UNSUBSCRIBED && decodedMessage.length > 1) {
+            return Unsubscribed(
+                (decodedMessage[1] as CborInt).toInt(),
+                decodedMessage.length == 2 ? null : UnsubscribedDetails(
+                    (decodedMessage[2] as CborMap)[CborString('subscription')] == null ? null : ((decodedMessage[2] as CborMap)[CborString('subscription')] as CborInt).toInt(),
+                    (decodedMessage[2] as CborMap)[CborString('reason')] == null ? null : ((decodedMessage[2] as CborMap)[CborString('reason')] as CborString).toString()
+                )
+            );
+          }
+          if (messageId == MessageTypes.CODE_EVENT && decodedMessage.length > 3) {
+            return _addPayload(
+                Event(
+                    (decodedMessage[1] as CborInt).toInt(),
+                    (decodedMessage[2] as CborInt).toInt(),
+                    EventDetails(
+                        publisher: (decodedMessage[3] as CborMap)[CborString('publisher')] == null ? null : ((decodedMessage[3] as CborMap)[CborString('publisher')] as CborInt).toInt(),
+                        trustlevel: (decodedMessage[3] as CborMap)[CborString('trustlevel')] == null ? null : ((decodedMessage[3] as CborMap)[CborString('trustlevel')] as CborInt).toInt(),
+                        topic: (decodedMessage[3] as CborMap)[CborString('topic')] == null ? null : ((decodedMessage[3] as CborMap)[CborString('topic')] as CborString).toString())),
+                decodedMessage,
+                4);
+          }
+          if (messageId == MessageTypes.CODE_ERROR && decodedMessage.length > 4) {
+            return _addPayload(
+                Error(
+                    (decodedMessage[1] as CborInt).toInt(),
+                    (decodedMessage[2] as CborInt).toInt(),
+                    Map<String, Object>.from((decodedMessage[3] as CborMap).toObject() as Map),
+                    (decodedMessage[4] as CborString).toString()
+                ),
+                decodedMessage,
+                5);
+          }
+          if (messageId == MessageTypes.CODE_GOODBYE) {
+            return Goodbye(
+                decodedMessage.length == 1 ? null : GoodbyeMessage((decodedMessage[1] as CborMap)[CborString('message')] == null ? null : ((decodedMessage[1] as CborMap)[CborString('message')] as CborString).toString()),
+                (decodedMessage[2] as CborString).toString());
+          }
         }
       }
       return null;
