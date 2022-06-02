@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart';
 import 'package:connectanum/connectanum.dart';
+import 'package:connectanum/src/message/abstract_message_with_payload.dart';
 import 'package:connectanum/src/message/message_types.dart';
 import 'package:connectanum/src/message/welcome.dart';
 import 'package:logging/logging.dart';
@@ -117,6 +118,27 @@ class Serializer extends AbstractSerializer {
             }
             return Welcome((decodedMessage[1] as CborInt).toInt(), details);
           }
+          if (messageId == MessageTypes.CODE_REGISTERED && decodedMessage.length == 3) {
+            return Registered((decodedMessage[1] as CborInt).toInt(), (decodedMessage[2] as CborInt).toInt());
+          }
+          if (messageId == MessageTypes.CODE_UNREGISTERED && decodedMessage.length == 2) {
+            return Unregistered((decodedMessage[1] as CborInt).toInt());
+          }
+          if (messageId == MessageTypes.CODE_INVOCATION && decodedMessage.length > 3) {
+            return _addPayload(
+                Invocation(
+                    (decodedMessage[1] as CborInt).toInt(),
+                    (decodedMessage[2] as CborInt).toInt(),
+                    InvocationDetails(
+                        (decodedMessage[3] as CborMap)[CborString('caller')] == null ? null : ((decodedMessage[3] as CborMap)[CborString('caller')] as CborInt).toInt(),
+                        (decodedMessage[3] as CborMap)[CborString('procedure')] == null ? null : ((decodedMessage[3] as CborMap)[CborString('procedure')] as CborString).toString(),
+                        (decodedMessage[3] as CborMap)[CborString('receive_progress')] == null ? null : ((decodedMessage[3] as CborMap)[CborString('receive_progress')] as CborBool).value,
+                    )
+                ),
+                decodedMessage,
+                4
+            );
+          }
         }
       }
       return null;
@@ -124,6 +146,22 @@ class Serializer extends AbstractSerializer {
     _logger.shout('Could not deserialize the message: ' + message.toString());
     // TODO respond with an error
     return null;
+  }
+
+  AbstractMessageWithPayload _addPayload(AbstractMessageWithPayload message,
+      List<dynamic> messageData, argumentsOffset) {
+    if (messageData.length >= argumentsOffset + 1) {
+      if (messageData[argumentsOffset] is CborList) {
+        message.arguments = (messageData[argumentsOffset] as CborList).toObject() as List<dynamic>;
+      }
+    }
+    if (messageData.length >= argumentsOffset + 2) {
+      if (messageData[argumentsOffset + 1] is CborMap) {
+        message.argumentsKeywords = Map.castFrom<dynamic, dynamic, String, dynamic>(
+            (messageData[argumentsOffset + 1] as CborMap).toObject() as Map<dynamic, dynamic>);
+      }
+    }
+    return message;
   }
 
   @override

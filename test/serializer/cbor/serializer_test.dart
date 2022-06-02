@@ -1,8 +1,7 @@
 import 'dart:typed_data';
 
-import 'package:connectanum/src/message/abort.dart';
+import 'package:connectanum/connectanum.dart';
 import 'package:connectanum/src/message/error.dart';
-import 'package:connectanum/src/message/challenge.dart';
 import 'package:connectanum/src/message/message_types.dart';
 import 'package:connectanum/src/message/welcome.dart';
 import 'package:connectanum/src/serializer/cbor/serializer.dart';
@@ -142,6 +141,75 @@ void main() {
           isTrue);
       expect(
           welcome.details.roles!.dealer!.features!.shared_registration, isTrue);
+    });
+    test('Registered', () {
+      var registered = serializer
+          .deserialize(Uint8List.fromList([131, 24, 65, 26, 1, 130, 204, 65, 26, 125, 94, 81, 104])) as Registered;
+      expect(registered, isNotNull);
+      expect(registered.id, equals(MessageTypes.CODE_REGISTERED));
+      expect(registered.registerRequestId, equals(25349185));
+      expect(registered.registrationId, equals(2103333224));
+    });
+    test('Unregistered', () {
+      var unregistered =
+      serializer.deserialize(Uint8List.fromList([130, 24, 67, 26, 47, 6, 4, 170])) as Unregistered;
+      expect(unregistered, isNotNull);
+      expect(unregistered.id, equals(MessageTypes.CODE_UNREGISTERED));
+      expect(unregistered.unregisterRequestId, equals(788923562));
+    });
+    test('Invocation', () {
+      var invocation = serializer
+          .deserialize(Uint8List.fromList([132, 24, 68, 26, 0, 93, 143, 77, 26, 0, 149, 229, 38, 160])) as Invocation;
+      expect(invocation, isNotNull);
+      expect(invocation.id, equals(MessageTypes.CODE_INVOCATION));
+      expect(invocation.requestId, equals(6131533));
+      expect(invocation.registrationId, equals(9823526));
+      expect(invocation.details, isNotNull);
+      expect(invocation.details.receive_progress, isNull);
+      expect(invocation.details.caller, isNull);
+      expect(invocation.details.procedure, isNull);
+      expect(invocation.arguments, isNull);
+      expect(invocation.argumentsKeywords, isNull);
+
+      invocation = serializer.deserialize(Uint8List.fromList([133, 24, 68, 26, 0, 93, 143, 77, 26, 0, 149, 229, 39, 160, 129, 109, 72, 101, 108, 108, 111, 44, 32, 119, 111, 114, 108, 100, 33])) as Invocation;
+      expect(invocation, isNotNull);
+      expect(invocation.id, equals(MessageTypes.CODE_INVOCATION));
+      expect(invocation.requestId, equals(6131533));
+      expect(invocation.registrationId, equals(9823527));
+      expect(invocation.details, isNotNull);
+      expect(invocation.details.receive_progress, isNull);
+      expect(invocation.details.caller, isNull);
+      expect(invocation.details.procedure, isNull);
+      expect(invocation.arguments![0], equals('Hello, world!'));
+      expect(invocation.argumentsKeywords, isNull);
+
+      invocation = serializer.deserialize(Uint8List.fromList([134, 24, 68, 26, 0, 93, 143, 77, 26, 0, 149, 229, 41, 160, 129, 102, 106, 111, 104, 110, 110, 121, 162, 105, 102, 105, 114, 115, 116, 110, 97, 109, 101, 100, 74, 111, 104, 110, 103, 115, 117, 114, 110, 97, 109, 101, 99, 68, 111, 101]))
+      as Invocation;
+      expect(invocation, isNotNull);
+      expect(invocation.id, equals(MessageTypes.CODE_INVOCATION));
+      expect(invocation.requestId, equals(6131533));
+      expect(invocation.registrationId, equals(9823529));
+      expect(invocation.details, isNotNull);
+      expect(invocation.details.receive_progress, isNull);
+      expect(invocation.details.caller, isNull);
+      expect(invocation.details.procedure, isNull);
+      expect(invocation.arguments![0], equals('johnny'));
+      expect(invocation.argumentsKeywords!['firstname'], equals('John'));
+      expect(invocation.argumentsKeywords!['surname'], equals('Doe'));
+
+      invocation = serializer.deserialize(Uint8List.fromList([134, 24, 68, 26, 0, 93, 143, 77, 26, 0, 149, 229, 41, 163, 112, 114, 101, 99, 101, 105, 118, 101, 95, 112, 114, 111, 103, 114, 101, 115, 115, 245, 102, 99, 97, 108, 108, 101, 114, 25, 51, 67, 105, 112, 114, 111, 99, 101, 100, 117, 114, 101, 112, 109, 121, 46, 112, 114, 111, 99, 101, 100, 117, 114, 101, 46, 99, 111, 109, 129, 102, 106, 111, 104, 110, 110, 121, 162, 105, 102, 105, 114, 115, 116, 110, 97, 109, 101, 100, 74, 111, 104, 110, 103, 115, 117, 114, 110, 97, 109, 101, 99, 68, 111, 101]))
+      as Invocation;
+      expect(invocation, isNotNull);
+      expect(invocation.id, equals(MessageTypes.CODE_INVOCATION));
+      expect(invocation.requestId, equals(6131533));
+      expect(invocation.registrationId, equals(9823529));
+      expect(invocation.details, isNotNull);
+      expect(invocation.details.receive_progress, isTrue);
+      expect(invocation.details.caller, equals(13123));
+      expect(invocation.details.procedure, equals('my.procedure.com'));
+      expect(invocation.arguments![0], equals('johnny'));
+      expect(invocation.argumentsKeywords!['firstname'], equals('John'));
+      expect(invocation.argumentsKeywords!['surname'], equals('Doe'));
     });
   });
 }
