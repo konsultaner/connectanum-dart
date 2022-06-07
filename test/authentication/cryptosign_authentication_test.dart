@@ -113,9 +113,9 @@ void main() {
         var details = Details();
         await authMethod.hello('some.realm', details);
 
-        expect(details.authextra['pubkey'],
+        expect(details.authextra!['pubkey'],
             equals(authMethod.privateKey.publicKey.encode(HexCoder.instance)));
-        expect(details.authextra['channel_binding'], equals(null));
+        expect(details.authextra!['channel_binding'], equals(null));
 
         var extra =
             Extra(challenge: vector['challenge'], channel_binding: null);
@@ -134,7 +134,8 @@ void main() {
         }
 
         extra = Extra(
-            challenge: vector['challenge'].substring(3), channel_binding: null);
+            challenge: vector['challenge']!.substring(3),
+            channel_binding: null);
         expect(() => authMethod.challenge(extra), throwsA(isA<Exception>()));
 
         try {
@@ -319,11 +320,10 @@ void main() {
     });
 
     test('constructors', () async {
-      expect(() => CryptosignAuthentication(null, null),
-          throwsA(isA<AssertionError>()));
       expect(
           () => CryptosignAuthentication(
-              SigningKey.fromSeed([]), 'some other then null'),
+              SigningKey.fromSeed(Uint8List.fromList([])),
+              'some other then null'),
           throwsA(isA<Exception>()));
 
       var ppkEncrypted = File('./test/authentication/ed25519_password.ppk');

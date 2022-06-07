@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:connectanum/src/message/goodbye.dart';
 import 'package:logging/logging.dart';
 import 'package:pedantic/pedantic.dart';
-import 'package:meta/meta.dart';
 
 import '../src/message/abort.dart';
 import '../src/message/error.dart';
@@ -16,14 +15,14 @@ import 'protocol/session.dart';
 class Client {
   static final Logger _logger = Logger('Client');
 
-  String authId;
-  String authRole;
-  String realm;
+  String? authId;
+  String? authRole;
+  String? realm;
   int isolateCount;
   final StreamController<ClientConnectOptions> _reconnectStreamController =
       StreamController<ClientConnectOptions>();
   AbstractTransport transport;
-  List<AbstractAuthentication> authenticationMethods;
+  List<AbstractAuthentication>? authenticationMethods;
 
   int _reconnectCount = 3;
   final StreamController<Session> _controller = StreamController<Session>();
@@ -51,14 +50,13 @@ class Client {
   /// final Session session = await client.connect();
   /// ```
   Client(
-      {@required this.transport,
+      {required this.transport,
       this.authId,
       this.authRole,
-      @required this.realm,
+      this.realm,
       this.authenticationMethods,
       this.isolateCount = 1})
-      : assert(transport != null),
-        assert(realm == null || UriPattern.match(realm));
+      : assert(realm == null || UriPattern.match(realm));
 
   /// if listened to this stream you will be noticed about reconnect tries. The passed
   /// integer will be the current retry counted down from where you started in the configured
@@ -76,7 +74,7 @@ class Client {
   /// ping messages. If [reconnectCount] and the [reconnectTime] is set
   /// the client will try to reestablish the session. Setting [reconnectCount] to -1 will infinite
   /// times reconnect the client or until the stack overflows
-  Stream<Session> connect({ClientConnectOptions options}) {
+  Stream<Session> connect({ClientConnectOptions? options}) {
     options ??= ClientConnectOptions();
     _reconnectCount = options.reconnectCount;
     _connect(options);
@@ -85,9 +83,9 @@ class Client {
 
   void _connect(ClientConnectOptions options) async {
     await transport.open(pingInterval: options.pingInterval);
-    if (transport.isOpen) {
-      unawaited(transport.onConnectionLost.future.then((_) async {
-        await Future.delayed(options.reconnectTime);
+    if (transport.isOpen && transport.onConnectionLost != null) {
+      unawaited(transport.onConnectionLost!.future.then((_) async {
+        await Future.delayed(options.reconnectTime!);
         options.reconnectCount = _reconnectCount;
         _reconnectStreamController.add(options);
         _connect(options);
@@ -100,14 +98,13 @@ class Client {
             reconnect: options.reconnectTime);
         _controller.add(session);
       } on Abort catch (abort) {
-        if ([
-                  Error.NOT_AUTHORIZED,
-                  Error.NO_PRINCIPAL,
-                  Error.AUTHORIZATION_FAILED,
-                  Error.NO_SUCH_REALM,
-                  Error.PROTOCOL_VIOLATION
-                ].indexOf(abort.reason) ==
-                -1 &&
+        if (![
+              Error.NOT_AUTHORIZED,
+              Error.NO_PRINCIPAL,
+              Error.AUTHORIZATION_FAILED,
+              Error.NO_SUCH_REALM,
+              Error.PROTOCOL_VIOLATION
+            ].contains(abort.reason) &&
             options.reconnectTime != null) {
           // if the router restarts we should wait until it has been initialized
           await Future.delayed(Duration(seconds: 2));
@@ -122,14 +119,14 @@ class Client {
       }
     } else {
       if (options.reconnectTime != null &&
-          transport.onConnectionLost.isCompleted) {
+          transport.onConnectionLost!.isCompleted) {
         _reconnectStreamController.add(options);
         if (options.reconnectCount == 0) {
           _controller.addError(Abort(Error.AUTHORIZATION_FAILED,
               message:
                   'Could not connect to server. Please configure reconnectTime to retry automatically.'));
         } else {
-          await Future.delayed(options.reconnectTime);
+          await Future.delayed(options.reconnectTime!);
           options.reconnectCount =
               options.reconnectCount == -1 ? -1 : options.reconnectCount - 1;
           _connect(options);
@@ -145,8 +142,8 @@ class Client {
 
 class ClientConnectOptions {
   int reconnectCount;
-  Duration reconnectTime;
-  Duration pingInterval;
+  Duration? reconnectTime;
+  Duration? pingInterval;
 
   ClientConnectOptions(
       {this.reconnectCount = 3, this.reconnectTime, this.pingInterval});

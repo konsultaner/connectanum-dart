@@ -3,12 +3,12 @@ import 'abstract_message_with_payload.dart';
 
 class Yield extends AbstractMessageWithPayload {
   int invocationRequestId;
-  YieldOptions options;
+  YieldOptions? options;
 
   Yield(this.invocationRequestId,
       {this.options,
-      List<Object> arguments,
-      Map<String, Object> argumentsKeywords}) {
+      List<dynamic>? arguments,
+      Map<String, dynamic>? argumentsKeywords}) {
     id = MessageTypes.CODE_YIELD;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;

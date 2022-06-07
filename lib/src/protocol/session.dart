@@ -37,27 +37,27 @@ class Session {
   static final Logger _logger = Logger('Session');
 
   /// The sessions [id]
-  int id;
+  int? id;
 
   /// The sessions [realm]
-  String realm;
+  String? realm;
 
   /// The [authId] that has been authenticated with
-  String authId;
+  String? authId;
 
   /// The [authRole] given by the server
-  String authRole;
+  String? authRole;
 
   /// The [authMethod] used to authenticate the session
-  String authMethod;
+  String? authMethod;
 
   /// the [authProvider] used to authenticate the session
-  String authProvider;
+  String? authProvider;
 
   /// the [authExtra] returned by the server
-  Map<String, dynamic> authExtra;
+  Map<String, dynamic>? authExtra;
 
-  AbstractTransport _transport;
+  final AbstractTransport _transport;
 
   /// the next id used to generate request id for a call
   int nextCallId = 1;
@@ -83,27 +83,24 @@ class Session {
   /// A map that stores all the active subscriptions
   final Map<int, Subscribed> subscriptions = {};
 
-  StreamSubscription<AbstractMessage> _transportStreamSubscription;
+  late StreamSubscription<AbstractMessage?> _transportStreamSubscription;
   final _openSessionStreamController = StreamController.broadcast();
 
+  Session(this.realm, this._transport)
+
+      /// The realm object my be null bust must mach the uri pattern if it was
+      /// passed The connection should have been established before initializing the
+      /// session.
+      : assert(realm == null || UriPattern.match(realm), _transport.isOpen);
+
   /// Starting the session will also start the authentication process.
-  static Future<Session> start(String realm, AbstractTransport transport,
-      {String authId,
-      String authRole,
-      List<AbstractAuthentication> authMethods,
-      Duration reconnect}) async {
-    /// The realm object my be null bust must mach the uri pattern if it was
-    /// passed
-    assert(realm == null || UriPattern.match(realm));
-
-    /// The connection should have been established before initializing the
-    /// session.
-    assert(transport != null && transport.isOpen);
-
+  static Future<Session> start(String? realm, AbstractTransport transport,
+      {String? authId,
+      String? authRole,
+      List<AbstractAuthentication>? authMethods,
+      Duration? reconnect}) async {
     /// Initialize the session object with the realm it belongs to
-    final session = Session();
-    session.realm = realm;
-    session._transport = transport;
+    final session = Session(realm, transport);
 
     /// Initialize the sub protocol with a hello message
     final hello = Hello(realm, details_package.Details.forHello());
@@ -122,13 +119,15 @@ class Session {
 
     /// Either return the welcome or execute a challenge before and eventually return the welcome after this
     var welcomeCompleter = Completer<Session>();
-    session._transportStreamSubscription = transport.receive().listen(
+    session._transportStreamSubscription = transport.receive()!.listen(
         (message) {
           if (message is Challenge) {
-            final foundAuthMethod = authMethods
-                .where((authenticationMethod) =>
-                    authenticationMethod.getName() == message.authMethod)
-                .first;
+            final foundAuthMethod = authMethods == null
+                ? null
+                : authMethods
+                    .where((authenticationMethod) =>
+                        authenticationMethod.getName() == message.authMethod)
+                    .first;
             if (foundAuthMethod != null) {
               try {
                 foundAuthMethod
@@ -206,16 +205,13 @@ class Session {
     return welcomeCompleter.future;
   }
 
-  Future<dynamic> get onDisconnect => _transport.onDisconnect.future;
-  Future<dynamic> get onConnectionLost => _transport.onConnectionLost.future;
+  Future<dynamic> get onDisconnect => _transport.onDisconnect!.future;
+  Future<dynamic> get onConnectionLost => _transport.onConnectionLost!.future;
 
   /// If there is a transport object that is opened and the incoming stream has not
   /// been closed, this will return true.
   bool isConnected() {
-    return _transport != null &&
-        _transport.isReady &&
-        _openSessionStreamController != null &&
-        !_openSessionStreamController.isClosed;
+    return _transport.isReady && !_openSessionStreamController.isClosed;
   }
 
   /// This sends the [authenticate] message to the transport outgoing stream.
@@ -227,10 +223,10 @@ class Session {
   /// with the given [options]. The WAMP router will either respond with one or
   /// more results or the caller may cancel the call by calling [cancelCompleter.complete()].
   Stream<Result> call(String procedure,
-      {List<Object> arguments,
-      Map<String, Object> argumentsKeywords,
-      CallOptions options,
-      Completer<String> cancelCompleter}) async* {
+      {List<dynamic>? arguments,
+      Map<String, dynamic>? argumentsKeywords,
+      CallOptions? options,
+      Completer<String>? cancelCompleter}) async* {
     var call = Call(nextCallId++, procedure,
         arguments: arguments,
         argumentsKeywords: argumentsKeywords,
@@ -238,11 +234,10 @@ class Session {
     _transport.send(call);
     if (cancelCompleter != null) {
       unawaited(cancelCompleter.future.then((cancelMode) {
-        CancelOptions options;
-        if (cancelMode != null &&
-            (CancelOptions.MODE_KILL_NO_WAIT == cancelMode ||
-                CancelOptions.MODE_KILL == cancelMode ||
-                CancelOptions.MODE_SKIP == cancelMode)) {
+        CancelOptions? options;
+        if (CancelOptions.MODE_KILL_NO_WAIT == cancelMode ||
+            CancelOptions.MODE_KILL == cancelMode ||
+            CancelOptions.MODE_SKIP == cancelMode) {
           options = CancelOptions();
           options.mode = cancelMode;
         }
@@ -258,6 +253,9 @@ class Session {
                 message.requestId == call.requestId))) {
       if (result is Result) {
         yield result;
+        if (!result.isProgressive()) {
+          break;
+        }
       } else if (result is Error) {
         throw result;
       }
@@ -267,7 +265,8 @@ class Session {
   /// This subscribes the session to a [topic]. The subscriber may pass [options]
   /// while subscribing. The resulting events are passed to the [Subscribed.eventStream].
   /// The subscriber should therefore subscribe to that stream to receive the events.
-  Future<Subscribed> subscribe(String topic, {SubscribeOptions options}) async {
+  Future<Subscribed> subscribe(String topic,
+      {SubscribeOptions? options}) async {
     var subscribe = Subscribe(nextSubscribeId++, topic, options: options);
     _transport.send(subscribe);
     AbstractMessage subscribed = await _openSessionStreamController.stream
@@ -285,7 +284,7 @@ class Session {
         if (message is Unsubscribed &&
             message.details?.subscription == subscribed.subscriptionId) {
           subscriptions.remove(subscribed.subscriptionId);
-          subscribed.revoke(message.details.reason);
+          subscribed.revoke(message.details!.reason);
           return false;
         }
         return message is Event &&
@@ -294,7 +293,7 @@ class Session {
       }).cast();
       return subscribed;
     } else {
-      throw subscribed as Error;
+      throw subscribed;
     }
   }
 
@@ -319,15 +318,18 @@ class Session {
   }
 
   /// This publishes an event to a [topic] with the given [arguments] and [argumentsKeywords].
-  Future<Published> publish(String topic,
-      {List<Object> arguments,
-      Map<String, Object> argumentsKeywords,
-      PublishOptions options}) {
+  Future<Published?> publish(String topic,
+      {List<dynamic>? arguments,
+      Map<String, dynamic>? argumentsKeywords,
+      PublishOptions? options}) {
     var publish = Publish(nextPublishId++, topic,
         arguments: arguments,
         argumentsKeywords: argumentsKeywords,
         options: options);
     _transport.send(publish);
+    if (options?.acknowledge == null || options?.acknowledge == false) {
+      return Future.value(null);
+    }
     var publishStream = _openSessionStreamController.stream.where((message) {
       if (message is Published &&
           message.publishRequestId == publish.requestId) {
@@ -346,7 +348,7 @@ class Session {
   /// This registers a [procedure] with the given [options] that may be called
   /// by other sessions.
   Future<Registered> register(String procedure,
-      {RegisterOptions options}) async {
+      {RegisterOptions? options}) async {
     var register = Register(nextRegisterId++, procedure, options: options);
     _transport.send(register);
     AbstractMessage registered = await _openSessionStreamController.stream
@@ -378,7 +380,7 @@ class Session {
       }).cast();
       return registered;
     } else {
-      throw registered as Error;
+      throw (registered as Error?)!;
     }
   }
 
@@ -404,7 +406,7 @@ class Session {
 
   /// Sends a goodbye message and closes the transport after a given [timeout].
   /// If no timeout is set, the client waits for the server to close the transport forever.
-  Future<void> close({String message = 'Regular closing', Duration timeout}) {
+  Future<void> close({String message = 'Regular closing', Duration? timeout}) {
     final goodbye =
         Goodbye(GoodbyeMessage(message), Goodbye.REASON_GOODBYE_AND_OUT);
     _transport.send(goodbye);

@@ -1,3 +1,19 @@
+### 2.0.1
+
+- fix args and kwargs typing 
+
+### 2.0.0
+
+- do not reconnect if the server will loop with the same error
+- added argon2 support (#7)
+- sound null safety support
+- update all dependencies to their latest version
+- fixes #3 fixed test vector
+
+### 1.1.8
+
+- fixed cra saltless authentication
+
 ### 1.1.7
 
 - added auth role to session on create 

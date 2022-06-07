@@ -147,18 +147,42 @@ void main() {
             int.parse(i, radix: 16)
         ]
       ],
-      // ["pass\0word","sa\0lt",4096,16,[for (String i in ['89','b6','9d','05','16','f8','29','89','3c','69','62','26','65','0a','86','87']) int.parse(i, radix: 16)]]
+      [
+        'pass' + String.fromCharCodes([0]) + 'word',
+        'sa' + String.fromCharCodes([0]) + 'lt',
+        4096,
+        16,
+        [
+          for (String i in [
+            '89',
+            'b6',
+            '9d',
+            '05',
+            '16',
+            'f8',
+            '29',
+            '89',
+            '3c',
+            '69',
+            '62',
+            '26',
+            '65',
+            '0a',
+            '86',
+            '87'
+          ])
+            int.parse(i, radix: 16)
+        ]
+      ]
     ];
-
     test('derive key', () {
       for (var vector in PBKDF2_HMAC_SHA256_testVectors) {
         final key = CraAuthentication.deriveKey(
-            vector[0], (vector[1] as String).codeUnits,
-            iterations: vector[2], keylen: vector[3]);
+            vector[0] as String, (vector[1] as String).codeUnits,
+            iterations: vector[2] as int, keylen: vector[3] as int);
         expect(key, equals(vector[4]));
       }
     });
-
     test('hmac encode', () {
       final mac = CraAuthentication.encodeHmac(
           Uint8List.fromList(keyValue.codeUnits),
@@ -166,7 +190,6 @@ void main() {
           Uint8List.fromList(challenge.codeUnits));
       expect(mac, equals(hmac));
     });
-
     test('message handling', () async {
       final authMethod = CraAuthentication(secret);
       expect(authMethod.getName(), equals('wampcra'));
@@ -180,6 +203,19 @@ void main() {
       expect(authMethod.getName(), equals('wampcra'));
       expect(
           () async => await authMethod.challenge(null), throwsA(isA<Error>()));
+    });
+  });
+  group('CRA-Unsalted', () {
+    var secret = '3614';
+    var challenge =
+        '{\"authid\":\"11111111\",\"authrole\":\"client\",\"authmethod\":\"wampcra\",\"authprovider\":\"mssql\",\"nonce\":\"1280303478343404\",\"timestamp\":\"2015-10-27T14:28Z\",\"session\":586844620777222}';
+    var hmac = 'IDDGUdKPgQMUKsYQUPjA5OMHixNrVz5pygaTDh51a0I=';
+    test('message handling', () async {
+      final authMethod = CraAuthentication(secret);
+      expect(authMethod.getName(), equals('wampcra'));
+      final extra = Extra(challenge: challenge);
+      final authenticate = await authMethod.challenge(extra);
+      expect(authenticate.signature, equals(hmac));
     });
   });
 }

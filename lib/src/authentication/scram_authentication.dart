@@ -4,6 +4,8 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:pointycastle/digests/sha256.dart';
+import 'package:pointycastle/export.dart';
+import 'package:pointycastle/key_derivators/argon2.dart';
 import 'package:saslprep/saslprep.dart';
 
 import '../message/authenticate.dart';
@@ -15,16 +17,17 @@ import 'cra_authentication.dart';
 /// This class enables SCRAM authentication process with PBKDF2 as key derivation function
 class ScramAuthentication extends AbstractAuthentication {
   static final String KDF_PBKDF2 = 'pbkdf2';
+  static final String KDF_ARGON = 'argon2id13';
   static final int DEFAULT_KEY_LENGTH = 32;
 
-  String _secret;
-  String _authid;
-  String _helloNonce;
+  String? _secret;
+  String? _authid;
+  String? _helloNonce;
   Duration _challengeTimeout = Duration(seconds: 5);
 
-  String get secret => _secret;
-  String get authid => _authid;
-  String get helloNonce => _helloNonce;
+  String? get secret => _secret;
+  String? get authid => _authid;
+  String? get helloNonce => _helloNonce;
   Duration get challengeTimeout => _challengeTimeout;
 
   /// Initialized the instance with the [secret] and an optional [challengeTimeout]
@@ -42,68 +45,87 @@ class ScramAuthentication extends AbstractAuthentication {
   /// starts the timeout to cancel the challenge if it took exceptionally long
   /// to receive
   @override
-  Future<void> hello(String realm, Details details) {
+  Future<void> hello(String? realm, Details details) {
     var random = Random.secure();
     var nonceBytes = [for (int i = 0; i < 16; i++) random.nextInt(256)];
     if (details.authid != null) {
-      details.authid = Saslprep.saslprep(details.authid);
+      details.authid = Saslprep.saslprep(details.authid!);
       _authid = details.authid;
     }
     details.authextra ??= <String, dynamic>{};
-    details.authextra['nonce'] = base64.encode(nonceBytes);
-    details.authextra['channel_binding'] = null;
-    _helloNonce = details.authextra['nonce'];
+    details.authextra!['nonce'] = base64.encode(nonceBytes);
+    details.authextra!['channel_binding'] = null;
+    _helloNonce = details.authextra!['nonce'];
     Future.delayed(_challengeTimeout, () => _helloNonce = null);
     return Future.value();
   }
 
   /// This method accepts the servers challenge and responds with the according
   /// authentication method, that is to be sent to the server to authenticate the
-  /// session
+  /// session.
+  /// It calculates the client proof according to the [WAMP-SCRAM specs](https://wamp-proto.org/_static/gen/wamp_latest.html#authmessage) where
+  /// [authId] is the username that has already been saslpreped with [Saslprep.saslprep(input)] and [helloNonce] is a randomly generated nonce according
+  /// to the WAMP-SCRAM specs. The keylength is 32 according to the WAMP-SCRAM specs
   @override
   Future<Authenticate> challenge(Extra extra) {
     if (extra.nonce == null ||
         _helloNonce == null ||
-        !_helloNonce.contains(extra.nonce.substring(0, _helloNonce.length))) {
+        !_helloNonce!
+            .contains(extra.nonce!.substring(0, _helloNonce!.length))) {
       return Future.error(Exception('Wrong nonce'));
     }
+
+    if (extra.kdf != KDF_ARGON && extra.kdf != KDF_PBKDF2) {
+      return Future.error(Exception(
+          'not supported key derivation function used ' + extra.kdf!));
+    }
+
     var authenticate = Authenticate();
 
-    authenticate.extra = HashMap<String, Object>();
-    authenticate.extra['nonce'] = extra.nonce;
-    authenticate.extra['channel_binding'] = null;
-    authenticate.extra['cbind_data'] = null;
-    if (extra.kdf == KDF_PBKDF2) {
-      authenticate.signature =
-          challengePBKDF2(_authid, _helloNonce, extra, authenticate.extra);
-    }
-    if (authenticate.signature == null) {
-      return Future.error(
-          Exception('not supported key derivation function used ' + extra.kdf));
-    }
+    authenticate.extra = HashMap<String, Object?>();
+    authenticate.extra!['nonce'] = extra.nonce;
+    authenticate.extra!['channel_binding'] = null;
+    authenticate.extra!['cbind_data'] = null;
+
+    authenticate.signature = createSignature(_authid!, _helloNonce!, extra,
+        authenticate.extra as HashMap<String, Object?>);
     return Future.value(authenticate);
   }
 
   /// Calculates the client proof according to the [WAMP-SCRAM specs](https://wamp-proto.org/_static/gen/wamp_latest.html#authmessage) where
   /// [authId] is the username that has already been saslpreped with [Saslprep.saslprep(input)] and [helloNonce] is a randomly generated nonce according
   /// to the WAMP-SCRAM specs. The keylength is 32 according to the WAMP-SCRAM specs
-  String challengePBKDF2(String authId, String helloNonce, Extra challengeExtra,
-      HashMap<String, Object> authExtra) {
-    var saltedPassword = CraAuthentication.deriveKey(
-        _secret,
-        challengeExtra.salt == null
-            ? CraAuthentication.DEFAULT_KEY_SALT
-            : base64.decode(challengeExtra.salt),
-        iterations: challengeExtra.iterations,
-        keylen: DEFAULT_KEY_LENGTH);
+  String createSignature(String authId, String helloNonce, Extra extra,
+      HashMap<String, Object?> authExtra) {
+    late Uint8List saltedPassword;
+    if (extra.kdf == KDF_PBKDF2) {
+      saltedPassword = CraAuthentication.deriveKey(
+          _secret!,
+          extra.salt == null
+              ? CraAuthentication.DEFAULT_KEY_SALT
+              : base64.decode(extra.salt!),
+          iterations: extra.iterations!,
+          keylen: DEFAULT_KEY_LENGTH);
+    } else if (extra.kdf == KDF_ARGON) {
+      saltedPassword = Uint8List(32);
+      Argon2BytesGenerator()
+        ..init(Argon2Parameters(Argon2Parameters.ARGON2_id,
+            Uint8List.fromList(base64.decode(extra.salt!)),
+            desiredKeyLength: DEFAULT_KEY_LENGTH,
+            iterations: extra.iterations ?? 1000,
+            memory: extra.memory ?? 100,
+            version: Argon2Parameters.ARGON2_VERSION_13))
+        ..deriveKey(
+            Uint8List.fromList(_secret!.codeUnits), 0, saltedPassword, 0);
+    }
+
     var clientKey = CraAuthentication.encodeByteHmac(
         saltedPassword, DEFAULT_KEY_LENGTH, 'Client Key'.codeUnits);
     var storedKey = SHA256Digest().process(Uint8List.fromList(clientKey));
     var clientSignature = CraAuthentication.encodeByteHmac(
         storedKey,
         DEFAULT_KEY_LENGTH,
-        createAuthMessage(authId, helloNonce, authExtra, challengeExtra)
-            .codeUnits);
+        createAuthMessage(authId, helloNonce, authExtra, extra).codeUnits);
     var signature = [
       for (int i = 0; i < clientKey.length; i++)
         clientKey[i] ^ clientSignature[i]
@@ -117,16 +139,17 @@ class ScramAuthentication extends AbstractAuthentication {
     var clientFirstBare =
         'n=' + Saslprep.saslprep(authId) + ',' + 'r=' + helloNonce;
     var serverFirst = 'r=' +
-        challengeExtra.nonce +
+        challengeExtra.nonce! +
         ',s=' +
-        challengeExtra.salt +
+        challengeExtra.salt! +
         ',i=' +
         challengeExtra.iterations.toString();
-    String cBindName = authExtra['channel_binding'];
-    String cBindData = authExtra['cbind_data'];
+    String? cBindName = authExtra['channel_binding'];
+    String? cBindData = authExtra['cbind_data'];
     var cBindFlag = cBindName == null ? 'n' : 'p=' + cBindName;
-    var cBindInput =
-        cBindFlag + ',,' + (cBindData == null ? '' : base64.decode(cBindData));
+    var cBindInput = cBindFlag +
+        ',,' +
+        (cBindData == null ? '' : base64.decode(cBindData) as String);
     var clientFinalNoProof =
         'c=' + base64.encode(cBindInput.codeUnits) + ',r=' + authExtra['nonce'];
     return clientFirstBare + ',' + serverFirst + ',' + clientFinalNoProof;

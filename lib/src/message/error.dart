@@ -35,10 +35,10 @@ class Error extends AbstractMessageWithPayload {
   int requestTypeId;
   int requestId;
   Map<String, Object> details;
-  String error;
+  String? error;
 
   Error(this.requestTypeId, this.requestId, this.details, this.error,
-      {List<Object> arguments, Map<String, Object> argumentsKeywords}) {
+      {List<dynamic>? arguments, Map<String, dynamic>? argumentsKeywords}) {
     id = MessageTypes.CODE_ERROR;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;

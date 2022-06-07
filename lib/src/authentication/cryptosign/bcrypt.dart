@@ -45,7 +45,7 @@ import 'dart:typed_data';
 /// @version 0.2
 class BCrypt {
   // BCrypt parameters
-  static final int GENSALT_DEFAULT_LOG2_ROUNDS = 10;
+  static const int GENSALT_DEFAULT_LOG2_ROUNDS = 10;
   static final int BCRYPT_SALT_LEN = 16;
 
   // Blowfish parameters
@@ -1617,12 +1617,11 @@ class BCrypt {
     return rs;
   }
 
-  static String generateSalt({int logRounds, Random random}) {
-    logRounds = logRounds ?? GENSALT_DEFAULT_LOG2_ROUNDS;
-    random = random ?? Random.secure();
+  static String generateSalt(
+      {int logRounds = GENSALT_DEFAULT_LOG2_ROUNDS, Random? random}) {
     var rs = '';
-    var rnd = Uint8List.fromList(
-        List<int>.generate(BCRYPT_SALT_LEN, (i) => random.nextInt(256)));
+    var rnd = Uint8List.fromList(List<int>.generate(
+        BCRYPT_SALT_LEN, (i) => (random ?? Random.secure()).nextInt(256)));
     rs += '\$2a\$';
     if (logRounds < 10) {
       rs += '0';
