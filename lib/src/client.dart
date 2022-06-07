@@ -112,6 +112,7 @@ class Client {
           _connect(options);
         } else {
           _controller.addError(abort);
+          transport.onConnectionLost!.completeError('Closing');
         }
       } on Goodbye catch (goodbye) {
         _logger.shout(goodbye.reason);

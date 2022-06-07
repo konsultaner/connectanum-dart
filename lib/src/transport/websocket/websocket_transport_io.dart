@@ -110,12 +110,14 @@ class WebSocketTransport extends AbstractTransport {
       if ((_socket!.closeCode == null || _socket!.closeCode! > 1000) &&
           !_goodbyeSent &&
           !_goodbyeReceived) {
-        _onConnectionLost!.complete();
+        if (!_onConnectionLost!.isCompleted) {
+          _onConnectionLost!.complete();
+        }
       } else {
         _onDisconnect!.complete();
       }
     }, onError: (error) {
-      if (!_onDisconnect!.isCompleted) {
+      if (!_onDisconnect!.isCompleted && !_onConnectionLost!.isCompleted) {
         _onConnectionLost!.complete(error);
       }
     });
