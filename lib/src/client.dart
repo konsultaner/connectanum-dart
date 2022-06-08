@@ -102,6 +102,7 @@ class Client {
               Error.NOT_AUTHORIZED,
               Error.NO_PRINCIPAL,
               Error.AUTHORIZATION_FAILED,
+              Error.AUTHENTICATION_FAILED,
               Error.NO_SUCH_REALM,
               Error.PROTOCOL_VIOLATION
             ].contains(abort.reason) &&

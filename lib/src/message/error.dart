@@ -24,6 +24,8 @@ class Error extends AbstractMessageWithPayload {
   static final String NOT_AUTHORIZED = 'wamp.error.not_authorized';
   static final String NO_PRINCIPAL = 'wamp.error.no_such_principal';
   static final String AUTHORIZATION_FAILED = 'wamp.error.authorization_failed';
+  static final String AUTHENTICATION_FAILED =
+      'wamp.error.authentication_failed';
   static final String NO_SUCH_REALM = 'wamp.error.no_such_realm';
   static final String NO_SUCH_ROLE = 'wamp.error.no_such_role';
   static final String NO_SUCH_TOPIC = 'wamp.error.no_such_topic';
