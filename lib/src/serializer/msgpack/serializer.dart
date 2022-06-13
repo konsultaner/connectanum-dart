@@ -392,7 +392,7 @@ class Serializer extends AbstractSerializer {
         calleeFeatures.addEntries([
           MapEntry('caller_identification',
               details.roles!.callee!.features!.caller_identification),
-          MapEntry('call_trustlevel',
+          MapEntry('call_trustlevels',
               details.roles!.callee!.features!.call_trustlevels),
           MapEntry('pattern_based_registration',
               details.roles!.callee!.features!.pattern_based_registration),

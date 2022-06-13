@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:cbor/cbor.dart';
 import 'package:connectanum/connectanum.dart';
 import 'package:connectanum/src/message/abstract_message_with_payload.dart';
+import 'package:connectanum/src/message/authenticate.dart';
 import 'package:connectanum/src/message/hello.dart';
 import 'package:connectanum/src/message/message_types.dart';
 import 'package:connectanum/src/message/welcome.dart';
@@ -228,6 +229,28 @@ class Serializer extends AbstractSerializer {
         _serializeDetails(message.details)!
       ])));
     }
+    if (message is Authenticate) {
+      return Uint8List.fromList(cbor.encode(CborValue([
+        MessageTypes.CODE_AUTHENTICATE,
+        message.signature ?? '',
+        message.extra ?? {}
+      ])));
+    }
+    if (message is Register) {
+      return Uint8List.fromList(cbor.encode(CborValue([
+        MessageTypes.CODE_REGISTER,
+        message.requestId,
+        _serializeRegisterOptions(message.options),
+        message.procedure
+      ])));
+    }
+    if (message is Unregister) {
+      return Uint8List.fromList(cbor.encode(CborValue([
+        MessageTypes.CODE_UNREGISTER,
+        message.requestId,
+        message.registrationId
+      ])));
+    }
     return Uint8List(0);
   }
 
@@ -238,16 +261,11 @@ class Serializer extends AbstractSerializer {
           details.roles!.caller!.features != null) {
         var callerFeatures = {};
         callerFeatures.addEntries([
-          MapEntry('call_canceling',
-              details.roles!.caller!.features!.call_canceling),
-          MapEntry(
-              'call_timeout', details.roles!.caller!.features!.call_timeout),
-          MapEntry('caller_identification',
-              details.roles!.caller!.features!.caller_identification),
-          MapEntry('payload_transparency',
-              details.roles!.caller!.features!.payload_transparency),
-          MapEntry('progressive_call_results',
-              details.roles!.caller!.features!.progressive_call_results)
+          MapEntry('call_canceling', details.roles!.caller!.features!.call_canceling),
+          MapEntry('call_timeout', details.roles!.caller!.features!.call_timeout),
+          MapEntry('caller_identification', details.roles!.caller!.features!.caller_identification),
+          MapEntry('payload_transparency', details.roles!.caller!.features!.payload_transparency),
+          MapEntry('progressive_call_results', details.roles!.caller!.features!.progressive_call_results)
         ]);
         roles.addEntries([
           MapEntry('caller', {'features': callerFeatures})
@@ -257,24 +275,14 @@ class Serializer extends AbstractSerializer {
           details.roles!.callee!.features != null) {
         var calleeFeatures = {};
         calleeFeatures.addEntries([
-          MapEntry('caller_identification',
-              details.roles!.callee!.features!.caller_identification),
-          MapEntry('call_trustlevel',
-              details.roles!.callee!.features!.call_trustlevels),
-          MapEntry('pattern_based_registration',
-              details.roles!.callee!.features!.pattern_based_registration),
-          MapEntry('shared_registration',
-              details.roles!.callee!.features!.shared_registration),
-          MapEntry('call_canceling',
-              details.roles!.callee!.features!.call_canceling),
-          MapEntry(
-              'call_timeout', details.roles!.callee!.features!.call_timeout),
-          MapEntry('caller_identification',
-              details.roles!.callee!.features!.caller_identification),
-          MapEntry('payload_transparency',
-              details.roles!.callee!.features!.payload_transparency),
-          MapEntry('progressive_call_results',
-              details.roles!.callee!.features!.progressive_call_results)
+          MapEntry('caller_identification', details.roles!.callee!.features!.caller_identification),
+          MapEntry('call_trustlevels', details.roles!.callee!.features!.call_trustlevels),
+          MapEntry('pattern_based_registration', details.roles!.callee!.features!.pattern_based_registration),
+          MapEntry('shared_registration', details.roles!.callee!.features!.shared_registration),
+          MapEntry('call_timeout', details.roles!.callee!.features!.call_timeout),
+          MapEntry('call_canceling', details.roles!.callee!.features!.call_canceling),
+          MapEntry('progressive_call_results', details.roles!.callee!.features!.progressive_call_results),
+          MapEntry('payload_transparency', details.roles!.callee!.features!.payload_transparency),
         ]);
         roles.addEntries([
           MapEntry('callee', {'features': calleeFeatures})
@@ -284,16 +292,11 @@ class Serializer extends AbstractSerializer {
           details.roles!.subscriber!.features != null) {
         var subscriberFeatures = {};
         subscriberFeatures.addEntries([
-          MapEntry('call_canceling',
-              details.roles!.subscriber!.features!.call_canceling),
-          MapEntry('call_timeout',
-              details.roles!.subscriber!.features!.call_timeout),
-          MapEntry('payload_transparency',
-              details.roles!.subscriber!.features!.payload_transparency),
-          MapEntry('progressive_call_results',
-              details.roles!.subscriber!.features!.progressive_call_results),
-          MapEntry('subscription_revocation',
-              details.roles!.subscriber!.features!.subscription_revocation)
+          MapEntry('call_timeout', details.roles!.subscriber!.features!.call_timeout),
+          MapEntry('call_canceling', details.roles!.subscriber!.features!.call_canceling),
+          MapEntry('progressive_call_results', details.roles!.subscriber!.features!.progressive_call_results),
+          MapEntry('payload_transparency', details.roles!.subscriber!.features!.payload_transparency),
+          MapEntry('subscription_revocation', details.roles!.subscriber!.features!.subscription_revocation)
         ]);
         roles.addEntries([
           MapEntry('subscriber', {'features': subscriberFeatures})
@@ -303,16 +306,10 @@ class Serializer extends AbstractSerializer {
           details.roles!.publisher!.features != null) {
         var publisherFeatures = {};
         publisherFeatures.addEntries([
-          MapEntry('publisher_identification',
-              details.roles!.publisher!.features!.publisher_identification),
-          MapEntry(
-              'subscriber_blackwhite_listing',
-              details
-                  .roles!.publisher!.features!.subscriber_blackwhite_listing),
-          MapEntry('publisher_exclusion',
-              details.roles!.publisher!.features!.publisher_exclusion),
-          MapEntry('payload_transparency',
-              details.roles!.publisher!.features!.payload_transparency)
+          MapEntry('publisher_identification', details.roles!.publisher!.features!.publisher_identification),
+          MapEntry('subscriber_blackwhite_listing', details.roles!.publisher!.features!.subscriber_blackwhite_listing),
+          MapEntry('publisher_exclusion', details.roles!.publisher!.features!.publisher_exclusion),
+          MapEntry('payload_transparency', details.roles!.publisher!.features!.payload_transparency)
         ]);
         roles.addEntries([
           MapEntry('publisher', {'features': publisherFeatures})
@@ -333,5 +330,23 @@ class Serializer extends AbstractSerializer {
     } else {
       return null;
     }
+  }
+
+  Map _serializeRegisterOptions(RegisterOptions? options) {
+    var registerOptions = {};
+    if (options != null) {
+      if (options.match != null) {
+        registerOptions.addEntries([MapEntry('match', options.match)]);
+      }
+      if (options.disclose_caller != null) {
+        registerOptions
+            .addEntries([MapEntry('disclose_caller', options.disclose_caller)]);
+      }
+      if (options.invoke != null) {
+        registerOptions.addEntries([MapEntry('invoke', options.invoke)]);
+      }
+    }
+
+    return registerOptions;
   }
 }
