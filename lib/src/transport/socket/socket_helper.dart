@@ -7,6 +7,9 @@ class SocketHelper {
 
   static const int SERIALIZATION_JSON = 1;
   static const int SERIALIZATION_MSGPACK = 2;
+  static const int SERIALIZATION_CBOR = 3;
+  static const int SERIALIZATION_UB_JSON = 4;
+  static const int SERIALIZATION_FLAT_BUFFERS = 5;
 
   static const int MESSAGE_WAMP = 0;
   static const int MESSAGE_PING = 1;
