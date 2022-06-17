@@ -70,7 +70,7 @@ class WebSocketTransport extends AbstractTransport {
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
     var openCompleter = Completer();
-    _socket = WebSocket(_url, _serializerType);
+    _socket = WebSocket(_url, [_serializerType]);
     if (pingInterval != null) {
       _logger.info(
           'The browsers WebSocket API does not support ping interval configuration.');
