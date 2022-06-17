@@ -7,6 +7,7 @@ import 'package:connectanum/src/message/error.dart';
 import 'package:connectanum/src/message/hello.dart';
 import 'package:connectanum/src/message/message_types.dart';
 import 'package:connectanum/src/message/welcome.dart';
+import 'package:connectanum/src/message/yield.dart';
 import 'package:connectanum/src/serializer/cbor/serializer.dart';
 import 'package:test/test.dart';
 
@@ -76,6 +77,195 @@ void main() {
       expect(
           serializer.serialize(Unregister(25349185, 127981236)),
           equals(Uint8List.fromList([131, 24, 66, 26, 1, 130, 204, 65, 26, 7, 160, 214, 180]))
+      );
+    });
+    test('Call', () {
+      expect(
+          serializer.serialize(Call(7814135, 'com.myapp.ping')),
+          equals(Uint8List.fromList([132, 24, 48, 26, 0, 119, 59, 247, 160, 110, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 112, 105, 110, 103]))
+      );
+      expect(
+          serializer.serialize(
+              Call(7814135, 'com.myapp.ping', options: CallOptions())),
+          equals(Uint8List.fromList([132, 24, 48, 26, 0, 119, 59, 247, 160, 110, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 112, 105, 110, 103]))
+      );
+      expect(
+          serializer.serialize(Call(7814135, 'com.myapp.ping',
+              options: CallOptions(
+                  receive_progress: true, disclose_me: true, timeout: 12))),
+          equals(Uint8List.fromList([132, 24, 48, 26, 0, 119, 59, 247, 163, 112, 114, 101, 99, 101, 105, 118, 101, 95, 112, 114, 111, 103, 114, 101, 115, 115, 245, 107, 100, 105, 115, 99, 108, 111, 115, 101, 95, 109, 101, 245, 103, 116, 105, 109, 101, 111, 117, 116, 12, 110, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 112, 105, 110, 103]))
+      );
+      expect(
+          serializer.serialize(
+              Call(7814135, 'com.myapp.ping', arguments: ['hi', 2])),
+          equals(Uint8List.fromList([133, 24, 48, 26, 0, 119, 59, 247, 160, 110, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 112, 105, 110, 103, 130, 98, 104, 105, 2]))
+      );
+      expect(
+          serializer.serialize(
+              Call(7814135, 'com.myapp.ping', argumentsKeywords: {'hi': 12})),
+          equals(Uint8List.fromList([134, 24, 48, 26, 0, 119, 59, 247, 160, 110, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 112, 105, 110, 103, 128, 161, 98, 104, 105, 12]))
+      );
+      expect(
+          serializer.serialize(Call(7814135, 'com.myapp.ping',
+              arguments: ['hi', 2], argumentsKeywords: {'hi': 12})),
+          equals(Uint8List.fromList([134, 24, 48, 26, 0, 119, 59, 247, 160, 110, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 112, 105, 110, 103, 130, 98, 104, 105, 2, 161, 98, 104, 105, 12]))
+      );
+    });
+    test('Yield', () {
+      expect(
+          serializer.serialize(Yield(6131533)),
+          equals(Uint8List.fromList([131, 24, 70, 26, 0, 93, 143, 77, 160]))
+      );
+      expect(
+          serializer
+              .serialize(Yield(6131533, options: YieldOptions(false))),
+          equals(Uint8List.fromList([131, 24, 70, 26, 0, 93, 143, 77, 161, 104, 112, 114, 111, 103, 114, 101, 115, 115, 244]))
+      );
+      expect(
+          serializer.serialize(Yield(6131533, options: YieldOptions(true))),
+          equals(Uint8List.fromList([131, 24, 70, 26, 0, 93, 143, 77, 161, 104, 112, 114, 111, 103, 114, 101, 115, 115, 245]))
+      );
+      expect(serializer.serialize(Yield(6131533, arguments: ['hi', 2])),
+          equals(Uint8List.fromList([132, 24, 70, 26, 0, 93, 143, 77, 160, 130, 98, 104, 105, 2]))
+      );
+      expect(
+          serializer.serialize(Yield(6131533, argumentsKeywords: {'hi': 12})),
+          equals(Uint8List.fromList([133, 24, 70, 26, 0, 93, 143, 77, 160, 128, 161, 98, 104, 105, 12]))
+      );
+      expect(
+          serializer.serialize(Yield(6131533, arguments: ['hi', 2], argumentsKeywords: {'hi': 12})),
+          equals(Uint8List.fromList([133, 24, 70, 26, 0, 93, 143, 77, 160, 130, 98, 104, 105, 2, 161, 98, 104, 105, 12]))
+      );
+    });
+    test('Error', () {
+      expect(
+          serializer.serialize(Error(MessageTypes.CODE_HELLO, 123422, HashMap(), 'wamp.unknown')),
+          equals(Uint8List.fromList([133, 8, 1, 26, 0, 1, 226, 30, 160, 108, 119, 97, 109, 112, 46, 117, 110, 107, 110, 111, 119, 110]))
+      );
+      expect(
+          serializer.serialize(Error(MessageTypes.CODE_HELLO, 123422, HashMap.from({'cause': 'some'}), 'wamp.unknown')),
+          equals(Uint8List.fromList([133, 8, 1, 26, 0, 1, 226, 30, 161, 101, 99, 97, 117, 115, 101, 100, 115, 111, 109, 101, 108, 119, 97, 109, 112, 46, 117, 110, 107, 110, 111, 119, 110]))
+      );
+      expect(
+          serializer.serialize(Error(MessageTypes.CODE_HELLO, 123422, HashMap.from({'cause': 'some'}), 'wamp.unknown', arguments: ['hi', 2])),
+          equals(Uint8List.fromList([134, 8, 1, 26, 0, 1, 226, 30, 161, 101, 99, 97, 117, 115, 101, 100, 115, 111, 109, 101, 108, 119, 97, 109, 112, 46, 117, 110, 107, 110, 111, 119, 110, 130, 98, 104, 105, 2]))
+      );
+      expect(
+          serializer.serialize(Error(MessageTypes.CODE_HELLO, 123422, HashMap.from({'cause': 'some'}), 'wamp.unknown', argumentsKeywords: {'hi': 12})),
+          equals(Uint8List.fromList([135, 8, 1, 26, 0, 1, 226, 30, 161, 101, 99, 97, 117, 115, 101, 100, 115, 111, 109, 101, 108, 119, 97, 109, 112, 46, 117, 110, 107, 110, 111, 119, 110, 128, 161, 98, 104, 105, 12]))
+      );
+      expect(
+          serializer.serialize(Error(MessageTypes.CODE_HELLO, 123422, HashMap.from({'cause': 'some'}), 'wamp.unknown', arguments: ['hi', 2], argumentsKeywords: {'hi': 12})),
+          equals(Uint8List.fromList([135, 8, 1, 26, 0, 1, 226, 30, 161, 101, 99, 97, 117, 115, 101, 100, 115, 111, 109, 101, 108, 119, 97, 109, 112, 46, 117, 110, 107, 110, 111, 119, 110, 130, 98, 104, 105, 2, 161, 98, 104, 105, 12]))
+      );
+    });
+    test('Subscribe', () {
+      expect(
+          serializer.serialize(Subscribe(713845233, 'com.myapp.mytopic1')),
+          equals(Uint8List.fromList([132, 24, 32, 26, 42, 140, 105, 241, 160, 114, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 109, 121, 116, 111, 112, 105, 99, 49]))
+      );
+      expect(
+          serializer.serialize(Subscribe(713845233, 'com.myapp.mytopic1', options: SubscribeOptions())),
+          equals(Uint8List.fromList([132, 24, 32, 26, 42, 140, 105, 241, 160, 114, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 109, 121, 116, 111, 112, 105, 99, 49]))
+      );
+      expect(
+          serializer.serialize(Subscribe(713845233, 'com.myapp.mytopic1', options: SubscribeOptions(match: SubscribeOptions.MATCH_PLAIN))),
+          equals(Uint8List.fromList([132, 24, 32, 26, 42, 140, 105, 241, 160, 114, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 109, 121, 116, 111, 112, 105, 99, 49]))
+      );
+      expect(
+          serializer.serialize(Subscribe(713845233, 'com.myapp.mytopic1', options: SubscribeOptions(match: SubscribeOptions.MATCH_PREFIX))),
+          equals(Uint8List.fromList([132, 24, 32, 26, 42, 140, 105, 241, 161, 101, 109, 97, 116, 99, 104, 102, 112, 114, 101, 102, 105, 120, 114, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 109, 121, 116, 111, 112, 105, 99, 49]))
+      );
+      expect(
+          serializer.serialize(Subscribe(713845233, 'com.myapp.mytopic1', options: SubscribeOptions(match: SubscribeOptions.MATCH_WILDCARD))),
+          equals(Uint8List.fromList([132, 24, 32, 26, 42, 140, 105, 241, 161, 101, 109, 97, 116, 99, 104, 104, 119, 105, 108, 100, 99, 97, 114, 100, 114, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 109, 121, 116, 111, 112, 105, 99, 49]))
+      );
+      expect(
+          serializer.serialize(Subscribe(713845233, 'com.myapp.mytopic1', options: SubscribeOptions(meta_topic: 'topic'))),
+          equals(Uint8List.fromList([132, 24, 32, 26, 42, 140, 105, 241, 161, 106, 109, 101, 116, 97, 95, 116, 111, 112, 105, 99, 101, 116, 111, 112, 105, 99, 114, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 109, 121, 116, 111, 112, 105, 99, 49]))
+      );
+      expect(
+          serializer.serialize(Subscribe(713845233, 'com.myapp.mytopic1', options: SubscribeOptions(get_retained: true, match: SubscribeOptions.MATCH_WILDCARD, meta_topic: 'topic'))),
+          equals(Uint8List.fromList([132, 24, 32, 26, 42, 140, 105, 241, 163, 108, 103, 101, 116, 95, 114, 101, 116, 97, 105, 110, 101, 100, 245, 101, 109, 97, 116, 99, 104, 104, 119, 105, 108, 100, 99, 97, 114, 100, 106, 109, 101, 116, 97, 95, 116, 111, 112, 105, 99, 101, 116, 111, 112, 105, 99, 114, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 109, 121, 116, 111, 112, 105, 99, 49]))
+      );
+      expect(
+          serializer.serialize(Subscribe(713845233, 'com.myapp.mytopic1',
+              options: SubscribeOptions(match: SubscribeOptions.MATCH_WILDCARD)
+                ..addCustomValue('where', (_) => 12)
+                ..addCustomValue('some', (_) => {'key':'value'}))),
+          equals(Uint8List.fromList([132, 24, 32, 26, 42, 140, 105, 241, 163, 101, 109, 97, 116, 99, 104, 104, 119, 105, 108, 100, 99, 97, 114, 100, 100, 115, 111, 109, 101, 161, 99, 107, 101, 121, 101, 118, 97, 108, 117, 101, 101, 119, 104, 101, 114, 101, 12, 114, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 109, 121, 116, 111, 112, 105, 99, 49]))
+      );
+    });
+    test('Unsubscribe', () {
+      expect(
+          serializer.serialize(Unsubscribe(85346237, 5512315355)),
+          equals(Uint8List.fromList([131, 24, 34, 26, 5, 22, 71, 189, 27, 0, 0, 0, 1, 72, 143, 65, 219]))
+      );
+    });
+    test('Publish', () {
+      expect(
+          serializer.serialize(Publish(239714735, 'com.myapp.mytopic1')),
+          equals(Uint8List.fromList([132, 16, 26, 14, 73, 193, 175, 160, 114, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 109, 121, 116, 111, 112, 105, 99, 49]))
+      );
+      expect(
+          serializer.serialize(Publish(239714735, 'com.myapp.mytopic1', options: PublishOptions())),
+          equals(Uint8List.fromList([132, 16, 26, 14, 73, 193, 175, 160, 114, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 109, 121, 116, 111, 112, 105, 99, 49]))
+      );
+      expect(
+          serializer.serialize(Publish(239714735, 'com.myapp.mytopic1', options: PublishOptions(retain: true, disclose_me: true, acknowledge: true, exclude_me: true, eligible: [1], eligible_authid: ['aaa'], eligible_authrole: ['role'], exclude: [2], exclude_authid: ['bbb'], exclude_authrole: ['admin']))),
+          equals(Uint8List.fromList([132, 16, 26, 14, 73, 193, 175, 169, 102, 114, 101, 116, 97, 105, 110, 245, 107, 97, 99, 107, 110, 111, 119, 108, 101, 100, 103, 101, 245, 106, 101, 120, 99, 108, 117, 100, 101, 95, 109, 101, 245, 103, 101, 120, 99, 108, 117, 100, 101, 129, 2, 110, 101, 120, 99, 108, 117, 100, 101, 95, 97, 117, 116, 104, 105, 100, 129, 99, 98, 98, 98, 112, 101, 120, 99, 108, 117, 100, 101, 95, 97, 117, 116, 104, 114, 111, 108, 101, 129, 101, 97, 100, 109, 105, 110, 104, 101, 108, 105, 103, 105, 98, 108, 101, 129, 1, 111, 101, 108, 105, 103, 105, 98, 108, 101, 95, 97, 117, 116, 104, 105, 100, 129, 99, 97, 97, 97, 113, 101, 108, 105, 103, 105, 98, 108, 101, 95, 97, 117, 116, 104, 114, 111, 108, 101, 129, 100, 114, 111, 108, 101, 114, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 109, 121, 116, 111, 112, 105, 99, 49]))
+      );
+      expect(
+          serializer.serialize(Publish(239714735, 'com.myapp.mytopic1', arguments: ['Hello, world!'])),
+          equals(Uint8List.fromList([133, 16, 26, 14, 73, 193, 175, 160, 114, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 109, 121, 116, 111, 112, 105, 99, 49, 129, 109, 72, 101, 108, 108, 111, 44, 32, 119, 111, 114, 108, 100, 33]))
+      );
+      expect(
+          serializer.serialize(Publish(239714735, 'com.myapp.mytopic1', options: PublishOptions(exclude_me: false), arguments: ['Hello, world!'])),
+          equals(Uint8List.fromList([133, 16, 26, 14, 73, 193, 175, 161, 106, 101, 120, 99, 108, 117, 100, 101, 95, 109, 101, 244, 114, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 109, 121, 116, 111, 112, 105, 99, 49, 129, 109, 72, 101, 108, 108, 111, 44, 32, 119, 111, 114, 108, 100, 33]))
+      );
+      expect(
+          serializer.serialize(Publish(239714735, 'com.myapp.mytopic1', argumentsKeywords: {'color': 'orange', 'sizes': [23, 42, 7]})),
+          equals(Uint8List.fromList([134, 16, 26, 14, 73, 193, 175, 160, 114, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 109, 121, 116, 111, 112, 105, 99, 49, 128, 162, 101, 99, 111, 108, 111, 114, 102, 111, 114, 97, 110, 103, 101, 101, 115, 105, 122, 101, 115, 131, 23, 24, 42, 7]))
+      );
+      expect(
+          serializer.serialize(Publish(239714735, 'com.myapp.mytopic1', options: PublishOptions(exclude_me: false), argumentsKeywords: {'color': 'orange', 'sizes': [23, 42, 7]})),
+          equals(Uint8List.fromList([134, 16, 26, 14, 73, 193, 175, 161, 106, 101, 120, 99, 108, 117, 100, 101, 95, 109, 101, 244, 114, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 109, 121, 116, 111, 112, 105, 99, 49, 128, 162, 101, 99, 111, 108, 111, 114, 102, 111, 114, 97, 110, 103, 101, 101, 115, 105, 122, 101, 115, 131, 23, 24, 42, 7]))
+      );
+      expect(
+          serializer.serialize(Publish(239714735, 'com.myapp.mytopic1', arguments: ['Hello, world!'], argumentsKeywords: {'color': 'orange', 'sizes': [23, 42, 7]})),
+          equals(Uint8List.fromList([134, 16, 26, 14, 73, 193, 175, 160, 114, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 109, 121, 116, 111, 112, 105, 99, 49, 129, 109, 72, 101, 108, 108, 111, 44, 32, 119, 111, 114, 108, 100, 33, 162, 101, 99, 111, 108, 111, 114, 102, 111, 114, 97, 110, 103, 101, 101, 115, 105, 122, 101, 115, 131, 23, 24, 42, 7]))
+      );
+      expect(
+          serializer.serialize(Publish(239714735, 'com.myapp.mytopic1', options: PublishOptions(exclude_me: false), arguments: ['Hello, world!'], argumentsKeywords: {'color': 'orange', 'sizes': [23, 42, 7]})),
+          equals(Uint8List.fromList([134, 16, 26, 14, 73, 193, 175, 161, 106, 101, 120, 99, 108, 117, 100, 101, 95, 109, 101, 244, 114, 99, 111, 109, 46, 109, 121, 97, 112, 112, 46, 109, 121, 116, 111, 112, 105, 99, 49, 129, 109, 72, 101, 108, 108, 111, 44, 32, 119, 111, 114, 108, 100, 33, 162, 101, 99, 111, 108, 111, 114, 102, 111, 114, 97, 110, 103, 101, 101, 115, 105, 122, 101, 115, 131, 23, 24, 42, 7]))
+      );
+    });
+    test('Goodbye', () {
+      expect(
+          serializer.serialize(Goodbye(GoodbyeMessage('cya'), Goodbye.REASON_GOODBYE_AND_OUT)),
+          equals(Uint8List.fromList([131, 6, 161, 103, 109, 101, 115, 115, 97, 103, 101, 99, 99, 121, 97, 120, 26, 119, 97, 109, 112, 46, 101, 114, 114, 111, 114, 46, 103, 111, 111, 100, 98, 121, 101, 95, 97, 110, 100, 95, 111, 117, 116]))
+      );
+      expect(
+          serializer.serialize(Goodbye(GoodbyeMessage(null), Goodbye.REASON_CLOSE_REALM)),
+          equals(Uint8List.fromList([131, 6, 161, 103, 109, 101, 115, 115, 97, 103, 101, 96, 118, 119, 97, 109, 112, 46, 101, 114, 114, 111, 114, 46, 99, 108, 111, 115, 101, 95, 114, 101, 97, 108, 109]))
+      );
+      expect(
+          serializer.serialize(Goodbye(null, Goodbye.REASON_SYSTEM_SHUTDOWN)),
+          equals(Uint8List.fromList([131, 6, 160, 120, 26, 119, 97, 109, 112, 46, 101, 114, 114, 111, 114, 46, 115, 121, 115, 116, 101, 109, 95, 115, 104, 117, 116, 100, 111, 119, 110]))
+      );
+    });
+    test('Abort', () {
+      expect(
+          serializer.serialize(Abort(Error.AUTHORIZATION_FAILED, message: 'Some Error')),
+          equals(Uint8List.fromList([131, 3, 161, 103, 109, 101, 115, 115, 97, 103, 101, 106, 83, 111, 109, 101, 32, 69, 114, 114, 111, 114, 120, 31, 119, 97, 109, 112, 46, 101, 114, 114, 111, 114, 46, 97, 117, 116, 104, 111, 114, 105, 122, 97, 116, 105, 111, 110, 95, 102, 97, 105, 108, 101, 100]))
+      );
+      expect(
+          serializer.serialize(Abort(Error.AUTHORIZATION_FAILED, message: '')),
+          equals(Uint8List.fromList([131, 3, 161, 103, 109, 101, 115, 115, 97, 103, 101, 96, 120, 31, 119, 97, 109, 112, 46, 101, 114, 114, 111, 114, 46, 97, 117, 116, 104, 111, 114, 105, 122, 97, 116, 105, 111, 110, 95, 102, 97, 105, 108, 101, 100]))
+      );
+      expect(
+          serializer.serialize(Abort(Error.AUTHORIZATION_FAILED)),
+          equals(Uint8List.fromList([131, 3, 160, 120, 31, 119, 97, 109, 112, 46, 101, 114, 114, 111, 114, 46, 97, 117, 116, 104, 111, 114, 105, 122, 97, 116, 105, 111, 110, 95, 102, 97, 105, 108, 101, 100]))
       );
     });
   });

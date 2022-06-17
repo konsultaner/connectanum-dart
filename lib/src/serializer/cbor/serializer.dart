@@ -7,6 +7,7 @@ import 'package:connectanum/src/message/authenticate.dart';
 import 'package:connectanum/src/message/hello.dart';
 import 'package:connectanum/src/message/message_types.dart';
 import 'package:connectanum/src/message/welcome.dart';
+import 'package:connectanum/src/message/yield.dart';
 import 'package:logging/logging.dart';
 
 /// This is a seralizer for msgpack messages.
@@ -251,7 +252,125 @@ class Serializer extends AbstractSerializer {
         message.registrationId
       ])));
     }
-    return Uint8List(0);
+    if (message is Call) {
+      var structuredMessage = [
+        MessageTypes.CODE_CALL,
+        message.requestId,
+        _serializeCallOptions(message.options),
+        message.procedure,
+      ];
+      _appendPayloadToList(structuredMessage, message);
+      return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
+    }
+    if (message is Yield) {
+      var structuredMessage = [
+        MessageTypes.CODE_YIELD,
+        message.invocationRequestId,
+        _serializeYieldOptions(message.options)
+      ];
+      _appendPayloadToList(structuredMessage, message);
+      return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
+    }
+    if (message is Invocation) {
+      // for serializer unit test only
+      var structuredMessage = [
+        MessageTypes.CODE_INVOCATION,
+        message.requestId,
+        message.registrationId,
+        {}
+      ];
+      _appendPayloadToList(structuredMessage, message);
+      return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
+    }
+    if (message is Publish) {
+      var structuredMessage = [
+        MessageTypes.CODE_PUBLISH,
+        message.requestId,
+        _serializePublish(message.options),
+        message.topic
+      ];
+      _appendPayloadToList(structuredMessage, message);
+      return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
+    }
+    if (message is Event) {
+      var structuredMessage = [
+        MessageTypes.CODE_EVENT,
+        message.subscriptionId,
+        message.publicationId
+      ];
+      _appendPayloadToList(structuredMessage, message);
+      return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
+    }
+    if (message is Subscribe) {
+      var structuredMessage = [
+        MessageTypes.CODE_SUBSCRIBE,
+        message.requestId,
+        _serializeSubscribeOptions(message.options),
+        message.topic
+      ];
+      return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
+    }
+    if (message is Unsubscribe) {
+      var structuredMessage = [
+        MessageTypes.CODE_UNSUBSCRIBE,
+        message.requestId,
+        message.subscriptionId
+      ];
+      return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
+    }
+    if (message is Error) {
+      var structuredMessage = [
+        MessageTypes.CODE_ERROR,
+        message.requestTypeId,
+        message.requestId,
+        message.details,
+        message.error
+      ];
+      _appendPayloadToList(structuredMessage, message);
+      return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
+    }
+    if (message is Abort) {
+      var structuredMessage = [
+        MessageTypes.CODE_ABORT,
+        message.message != null ? {'message':message.message!.message} : {},
+        message.reason
+      ];
+      return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
+    }
+    if (message is Goodbye) {
+      var structuredMessage = [
+        MessageTypes.CODE_GOODBYE,
+        message.message != null ? {'message':message.message!.message ?? ''} : {},
+        message.reason
+      ];
+      return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
+    }
+
+    _logger.shout(
+        'Could not serialize the message of type: ' + message.toString());
+    throw Exception(''); // TODO think of something helpful here...
+  }
+
+  dynamic _firstPayload(AbstractMessageWithPayload message) {
+    return message.transparentBinaryPayload ?? message.arguments ?? (message.argumentsKeywords != null ? [] : null);
+  }
+
+  dynamic _secondPayload(AbstractMessageWithPayload message) {
+    if (message.transparentBinaryPayload == null && message.argumentsKeywords != null) {
+      return message.argumentsKeywords;
+    }
+    return null;
+  }
+
+  void _appendPayloadToList(List structuredMessage, AbstractMessageWithPayload message){
+    var firstPayload = _firstPayload(message);
+    if (firstPayload != null) {
+      structuredMessage.add(firstPayload);
+      var secondPayload = _secondPayload(message);
+      if (secondPayload != null) {
+        structuredMessage.add(secondPayload);
+      }
+    }
   }
 
   Map? _serializeDetails(Details details) {
@@ -333,20 +452,103 @@ class Serializer extends AbstractSerializer {
   }
 
   Map _serializeRegisterOptions(RegisterOptions? options) {
-    var registerOptions = {};
+    var optionMap = {};
     if (options != null) {
       if (options.match != null) {
-        registerOptions.addEntries([MapEntry('match', options.match)]);
+        optionMap.addEntries([MapEntry('match', options.match)]);
       }
       if (options.disclose_caller != null) {
-        registerOptions
+        optionMap
             .addEntries([MapEntry('disclose_caller', options.disclose_caller)]);
       }
       if (options.invoke != null) {
-        registerOptions.addEntries([MapEntry('invoke', options.invoke)]);
+        optionMap.addEntries([MapEntry('invoke', options.invoke)]);
       }
     }
 
-    return registerOptions;
+    return optionMap;
+  }
+
+  Map _serializeCallOptions(CallOptions? options) {
+    var optionMap = {};
+    if (options != null) {
+      if (options.receive_progress != null) {
+        optionMap.addEntries([MapEntry('receive_progress', options.receive_progress!)]);
+      }
+      if (options.disclose_me != null) {
+        optionMap.addEntries([MapEntry('disclose_me', options.disclose_me!)]);
+      }
+      if (options.timeout != null) {
+        optionMap.addEntries([MapEntry('timeout', options.timeout!)]);
+      }
+    }
+    return optionMap;
+  }
+
+  Map _serializeYieldOptions(YieldOptions? options) {
+    var optionsMap = {};
+    if (options != null) {
+      optionsMap.addEntries([MapEntry('progress', options.progress)]);
+    }
+    return optionsMap;
+  }
+
+  Map _serializePublish(PublishOptions? options) {
+    var optionMap = {};
+    if (options != null) {
+      if (options.retain != null) {
+        optionMap.addEntries([MapEntry('retain', options.retain)]);
+      }
+      if (options.disclose_me != null) {
+        optionMap.addEntries([MapEntry('retain', options.disclose_me)]);
+      }
+      if (options.acknowledge != null) {
+        optionMap.addEntries([MapEntry('acknowledge', options.acknowledge)]);
+      }
+      if (options.exclude_me != null) {
+        optionMap.addEntries([MapEntry('exclude_me', options.exclude_me)]);
+      }
+      if (options.exclude != null) {
+        optionMap.addEntries([MapEntry('exclude', options.exclude)]);
+      }
+      if (options.exclude_authid != null) {
+        optionMap.addEntries([MapEntry('exclude_authid', options.exclude_authid)]);
+      }
+      if (options.exclude_authrole != null) {
+        optionMap.addEntries([MapEntry('exclude_authrole', options.exclude_authrole)]);
+      }
+      if (options.eligible != null) {
+        optionMap.addEntries([MapEntry('eligible', options.eligible)]);
+      }
+      if (options.eligible_authid != null) {
+        optionMap.addEntries([MapEntry('eligible_authid', options.eligible_authid)]);
+      }
+      if (options.eligible_authrole != null) {
+        optionMap.addEntries([MapEntry('eligible_authrole', options.eligible_authrole)]);
+      }
+    }
+    return optionMap;
+  }
+
+  Map _serializeSubscribeOptions(SubscribeOptions? options) {
+    var jsonOptions = {};
+    if (options != null) {
+      if (options.get_retained != null) {
+        jsonOptions.addEntries([MapEntry('get_retained', options.get_retained)]);
+      }
+      if (options.match != null) {
+        jsonOptions.addEntries([MapEntry('match', options.match)]);
+      }
+      if (options.meta_topic != null) {
+        jsonOptions.addEntries([MapEntry('meta_topic', options.meta_topic)]);
+      }
+      options
+          .getCustomValues<dynamic>(SubscribeOptions.CUSTOM_SERIALIZER_CBOR)
+          .forEach((key, value) {
+        jsonOptions.addEntries([MapEntry(key,value)]);
+      });
+    }
+
+    return jsonOptions;
   }
 }
