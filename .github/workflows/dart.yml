@@ -43,6 +43,6 @@ jobs:
       - name: Activate coverage 
         run: dart pub global activate coverage
       - name: Format coverage
-        run: format_coverage -l -i ./ -o lcov.info --packages=.packages --report-on=lib
+        run: format_coverage -l -i ./ -o lcov.info --packages=.dart_tool/package_config.json --report-on=lib
       - name: Upload coverage
         run: bash <(curl -s https://codecov.io/bash)

@@ -9,5 +9,5 @@ jobs:
 script:
   - dart pub run test -p $PLATFORM --coverage="./coverage"
   - dart pub global activate coverage
-  - format_coverage -l -i ./ -o lcov.info --packages=.packages --report-on=lib
+  - format_coverage -l -i ./ -o lcov.info --packages=.dart_tool/package_config.json --report-on=lib
   - bash <(curl -s https://codecov.io/bash)
