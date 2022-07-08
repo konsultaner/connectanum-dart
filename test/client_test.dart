@@ -525,11 +525,10 @@ void main() {
       final progressiveCallArgumentsKeywords = HashMap<String, Object>();
       progressiveArgumentsKeywords['value'] = 2;
       final resultList = <Result>[];
-      await for (final result in session
-          .call('my.procedure',
-              options: CallOptions(receive_progress: true),
-              arguments: ['called'],
-              argumentsKeywords: progressiveCallArgumentsKeywords)) {
+      await for (final result in session.call('my.procedure',
+          options: CallOptions(receive_progress: true),
+          arguments: ['called'],
+          argumentsKeywords: progressiveCallArgumentsKeywords)) {
         resultList.add(result);
       }
       expect(resultList.length, equals(2));
@@ -641,8 +640,7 @@ void main() {
         if (message.id == MessageTypes.CODE_PUBLISH &&
             (message as Publish).options?.acknowledge != null &&
             (message).options?.acknowledge == true) {
-          transport
-              .receiveMessage(Published((message).requestId, 1));
+          transport.receiveMessage(Published((message).requestId, 1));
         }
         if (message.id == MessageTypes.CODE_SUBSCRIBE) {
           if ((message as Subscribe).topic == 'topic.my.de') {
@@ -700,26 +698,19 @@ void main() {
 
       // REGULAR PUBLISH
 
-      var published =
-          await session.publish(
-              'my.test.topic',
-              arguments: ['some data'],
-              options: PublishOptions(acknowledge: true));
+      var published = await session.publish('my.test.topic',
+          arguments: ['some data'], options: PublishOptions(acknowledge: true));
       expect(published, isNotNull);
       expect(published?.publishRequestId, isNotNull);
       expect(published?.publicationId, equals(1));
 
-      published =
-          await session.publish(
-              'my.test.topic',
-              arguments: ['some data'],
-              options: PublishOptions(acknowledge: false));
+      published = await session.publish('my.test.topic',
+          arguments: ['some data'],
+          options: PublishOptions(acknowledge: false));
       expect(published, isNull);
 
       published =
-          await session.publish(
-              'my.test.topic',
-              arguments: ['some data']);
+          await session.publish('my.test.topic', arguments: ['some data']);
       expect(published, isNull);
 
       // EVENT
