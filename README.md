@@ -88,6 +88,9 @@ eventually fail.
 
 - ☑ JSON
 - ☑ msgpack
+- ☑ CBOR
+- ⬜ UBJSON
+- ⬜ FlatBuffer
 
 ## Stream model
 

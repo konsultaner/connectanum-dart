@@ -1,3 +1,7 @@
+### 2.0.2
+
+- added CBOR serializer
+
 ### 2.0.1
 
 - fix args and kwargs typing 
