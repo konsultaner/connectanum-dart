@@ -1,6 +1,6 @@
-import 'dart:async';
 @TestOn('vm')
 import 'dart:io';
+import 'dart:async';
 
 import 'package:connectanum/src/client.dart';
 import 'package:connectanum/src/message/abort.dart';
@@ -18,25 +18,25 @@ void main() {
     // WebSocket transport
     test('test disconnect with web socket transport', () async {
       final server = await HttpServer.bind('localhost', 9200);
-      final serverListenHandler = (HttpRequest req) async {
+      serverListenHandler(HttpRequest req) async {
         if (req.uri.path == '/wamp') {
           var socket = await WebSocketTransformer.upgrade(req);
           socket.listen((message) {
             if (message is String &&
-                message.contains('[' + MessageTypes.CODE_HELLO.toString())) {
+                message.contains('[${MessageTypes.codeHello}')) {
               socket.add(
-                  '[' + MessageTypes.CODE_WELCOME.toString() + ',1234,{}]');
+                  '[${MessageTypes.codeWelcome},1234,{}]');
             }
             if (message is String &&
-                message.contains('[' + MessageTypes.CODE_GOODBYE.toString())) {
+                message.contains('[${MessageTypes.codeGoodbye}')) {
               socket.close();
             }
           });
         }
-      };
+      }
       server.listen(serverListenHandler);
       final transport = WebSocketTransport('ws://localhost:9200/wamp',
-          Serializer(), WebSocketSerialization.SERIALIZATION_JSON);
+          Serializer(), WebSocketSerialization.serializationJson);
       final client = Client(realm: 'com.connectanum', transport: transport);
       var closeCompleter = Completer();
       client
@@ -55,23 +55,23 @@ void main() {
 
     test('test on reconnect with web socket transport', () async {
       final server = await HttpServer.bind('localhost', 9201);
-      late WebSocket _socket;
-      final serverListenHandler = (HttpRequest req) async {
+      late WebSocket testSocket;
+      serverListenHandler(HttpRequest req) async {
         if (req.uri.path == '/wamp') {
           final socket = await WebSocketTransformer.upgrade(req);
           socket.listen((message) {
-            _socket = socket;
+            testSocket = socket;
             if (message is String &&
-                message.contains('[' + MessageTypes.CODE_HELLO.toString())) {
+                message.contains('[${MessageTypes.codeHello}')) {
               socket.add(
-                  '[' + MessageTypes.CODE_WELCOME.toString() + ',1234,{}]');
+                  '[${MessageTypes.codeWelcome},1234,{}]');
             }
           });
         }
-      };
+      }
       server.listen(serverListenHandler);
       final transport = WebSocketTransport('ws://localhost:9201/wamp',
-          Serializer(), WebSocketSerialization.SERIALIZATION_JSON);
+          Serializer(), WebSocketSerialization.serializationJson);
       final client = Client(realm: 'com.connectanum', transport: transport);
       var closeCompleter = Completer();
       var reconnects = 0;
@@ -85,9 +85,9 @@ void main() {
         session.onConnectionLost.then((_) {
           hitConnectionLostEvent = true;
         });
-        server.close(force: true).then((_) => _socket.close());
-      }, onError: (_abort) {
-        abort = _abort;
+        server.close(force: true).then((_) => testSocket.close());
+      }, onError: (receivedAbort) {
+        abort = receivedAbort;
         closeCompleter.complete();
       });
       client.onNextTryToReconnect.listen((passedOptions) {
@@ -97,7 +97,7 @@ void main() {
       await closeCompleter.future;
 
       expect(abort, isA<Abort>());
-      expect(abort!.reason, equals(Error.AUTHORIZATION_FAILED));
+      expect(abort!.reason, equals(Error.authorizationFailed));
       expect(hitConnectionLostEvent, isTrue);
       expect(reconnects, equals(4));
       expect(client.transport.isOpen, isFalse);
@@ -106,23 +106,23 @@ void main() {
 
     test('test on multiple reconnects with web socket transport', () async {
       final server = await HttpServer.bind('localhost', 9202);
-      late WebSocket _socket;
-      final serverListenHandler = (HttpRequest req) async {
+      late WebSocket testSocket;
+      serverListenHandler(HttpRequest req) async {
         if (req.uri.path == '/wamp') {
           final socket = await WebSocketTransformer.upgrade(req);
           socket.listen((message) {
-            _socket = socket;
+            testSocket = socket;
             if (message is String &&
-                message.contains('[' + MessageTypes.CODE_HELLO.toString())) {
+                message.contains('[${MessageTypes.codeHello}')) {
               socket.add(
-                  '[' + MessageTypes.CODE_WELCOME.toString() + ',1234,{}]');
+                  '[${MessageTypes.codeWelcome},1234,{}]');
             }
           });
         }
-      };
+      }
       server.listen(serverListenHandler);
       final transport = WebSocketTransport('ws://localhost:9202/wamp',
-          Serializer(), WebSocketSerialization.SERIALIZATION_JSON);
+          Serializer(), WebSocketSerialization.serializationJson);
       final client = Client(realm: 'com.connectanum', transport: transport);
       var closeCompleter = Completer();
       var reconnects = 0;
@@ -135,10 +135,10 @@ void main() {
           .listen((session) {
         if (reconnects < 3) {
           reconnects++;
-          _socket.close();
+          testSocket.close();
         } else {
           server.close(force: true).then((_) {
-            _socket.close().then((__) => closeCompleter.complete());
+            testSocket.close().then((__) => closeCompleter.complete());
           });
         }
       }, onError: (_) {});
@@ -151,7 +151,7 @@ void main() {
     test('test on connect web socket transport and no server available',
         () async {
       final transport = WebSocketTransport('ws://localhost:9203/wamp',
-          Serializer(), WebSocketSerialization.SERIALIZATION_JSON);
+          Serializer(), WebSocketSerialization.serializationJson);
       final client = Client(realm: 'com.connectanum', transport: transport);
       var closeCompleter = Completer();
       client
@@ -164,7 +164,7 @@ void main() {
         closeCompleter.complete(abort);
       });
       Abort abort = await closeCompleter.future;
-      expect(abort.reason, equals(Error.AUTHORIZATION_FAILED));
+      expect(abort.reason, equals(Error.authorizationFailed));
       expect(abort.message!.message, startsWith('Could not connect to server'));
       expect(client.transport.isOpen, isFalse);
     });
@@ -176,38 +176,38 @@ void main() {
         socket.listen((message) {
           if (message.length == 4) {
             socket.add(SocketHelper.getInitialHandshake(
-                SocketHelper.MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT,
-                SocketHelper.SERIALIZATION_JSON));
+                SocketHelper.maxMessageLengthConnectanumExponent,
+                SocketHelper.serializationJson));
             return;
           }
           if (message.length == 2) {
             socket.add(SocketHelper.getUpgradeHandshake(
-                SocketHelper.MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT));
+                SocketHelper.maxMessageLengthConnectanumExponent));
             return;
           }
           if (message.length > 4 &&
               String.fromCharCodes(message.toList())
-                  .contains('[' + MessageTypes.CODE_HELLO.toString())) {
+                  .contains('[${MessageTypes.codeHello}')) {
             var resultMessage =
-                ('[' + MessageTypes.CODE_WELCOME.toString() + ',1234,{}]')
+                ('[${MessageTypes.codeWelcome},1234,{}]')
                     .codeUnits;
             var messageLength = resultMessage.length;
             socket.add(SocketHelper.buildMessageHeader(
-                    SocketHelper.MESSAGE_WAMP, messageLength, true) +
+                    SocketHelper.messageWamp, messageLength, true) +
                 resultMessage);
             return;
           }
           if (message.length > 4 &&
               String.fromCharCodes(message.toList())
-                  .contains('[' + MessageTypes.CODE_GOODBYE.toString())) {
+                  .contains('[${MessageTypes.codeGoodbye}')) {
             socket.close();
           }
         });
       });
       final transport = SocketTransport(
-          'localhost', 9010, Serializer(), SocketHelper.SERIALIZATION_JSON,
+          'localhost', 9010, Serializer(), SocketHelper.serializationJson,
           messageLengthExponent:
-              SocketHelper.MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT);
+              SocketHelper.maxMessageLengthConnectanumExponent);
       final client = Client(realm: 'com.connectanum', transport: transport);
       var closeCompleter = Completer();
       client
@@ -226,39 +226,39 @@ void main() {
 
     test('test on reconnect with socket transport', () async {
       final server = await ServerSocket.bind('0.0.0.0', 9011);
-      late Socket _socket;
+      late Socket testSocket;
       server.listen((socket) {
-        _socket = socket;
+        testSocket = socket;
         socket.listen((message) {
           if (message.length == 4) {
             socket.add(SocketHelper.getInitialHandshake(
-                SocketHelper.MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT,
-                SocketHelper.SERIALIZATION_JSON));
+                SocketHelper.maxMessageLengthConnectanumExponent,
+                SocketHelper.serializationJson));
             return;
           }
           if (message.length == 2) {
             socket.add(SocketHelper.getUpgradeHandshake(
-                SocketHelper.MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT));
+                SocketHelper.maxMessageLengthConnectanumExponent));
             return;
           }
           if (message.length > 4 &&
               String.fromCharCodes(message.toList())
-                  .contains('[' + MessageTypes.CODE_HELLO.toString())) {
+                  .contains('[${MessageTypes.codeHello}')) {
             var resultMessage =
-                ('[' + MessageTypes.CODE_WELCOME.toString() + ',1234,{}]')
+                ('[${MessageTypes.codeWelcome},1234,{}]')
                     .codeUnits;
             var messageLength = resultMessage.length;
             socket.add(SocketHelper.buildMessageHeader(
-                    SocketHelper.MESSAGE_WAMP, messageLength, true) +
+                    SocketHelper.messageWamp, messageLength, true) +
                 resultMessage);
             return;
           }
         });
       });
       final transport = SocketTransport(
-          'localhost', 9011, Serializer(), SocketHelper.SERIALIZATION_JSON,
+          'localhost', 9011, Serializer(), SocketHelper.serializationJson,
           messageLengthExponent:
-              SocketHelper.MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT);
+              SocketHelper.maxMessageLengthConnectanumExponent);
       final client = Client(realm: 'com.connectanum', transport: transport);
       var closeCompleter = Completer();
       var reconnects = 0;
@@ -274,9 +274,9 @@ void main() {
         session.onConnectionLost.then((_) {
           hitConnectionLostEvent = true;
         });
-        server.close().then((_) => _socket.close());
-      }, onError: (_abort) {
-        abort = _abort;
+        server.close().then((_) => testSocket.close());
+      }, onError: (receivedAbort) {
+        abort = receivedAbort;
         closeCompleter.complete();
       });
       client.onNextTryToReconnect.listen((_) {
@@ -285,7 +285,7 @@ void main() {
       await closeCompleter.future;
 
       expect(abort, isA<Abort>());
-      expect(abort!.reason, equals(Error.AUTHORIZATION_FAILED));
+      expect(abort!.reason, equals(Error.authorizationFailed));
       expect(hitConnectionLostEvent, isTrue);
       expect(reconnects, equals(4));
       expect(client.transport.isOpen, isFalse);
@@ -293,39 +293,39 @@ void main() {
 
     test('test on multiple reconnects with socket transport', () async {
       final server = await ServerSocket.bind('0.0.0.0', 9021);
-      late Socket _socket;
+      late Socket testSocket;
       server.listen((socket) {
-        _socket = socket;
+        testSocket = socket;
         socket.listen((message) {
           if (message.length == 4) {
             socket.add(SocketHelper.getInitialHandshake(
-                SocketHelper.MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT,
-                SocketHelper.SERIALIZATION_JSON));
+                SocketHelper.maxMessageLengthConnectanumExponent,
+                SocketHelper.serializationJson));
             return;
           }
           if (message.length == 2) {
             socket.add(SocketHelper.getUpgradeHandshake(
-                SocketHelper.MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT));
+                SocketHelper.maxMessageLengthConnectanumExponent));
             return;
           }
           if (message.length > 4 &&
               String.fromCharCodes(message.toList())
-                  .contains('[' + MessageTypes.CODE_HELLO.toString())) {
+                  .contains('[${MessageTypes.codeHello}')) {
             var resultMessage =
-                ('[' + MessageTypes.CODE_WELCOME.toString() + ',1234,{}]')
+                ('[${MessageTypes.codeWelcome},1234,{}]')
                     .codeUnits;
             var messageLength = resultMessage.length;
             socket.add(SocketHelper.buildMessageHeader(
-                    SocketHelper.MESSAGE_WAMP, messageLength, true) +
+                    SocketHelper.messageWamp, messageLength, true) +
                 resultMessage);
             return;
           }
         });
       });
       final transport = SocketTransport(
-          'localhost', 9021, Serializer(), SocketHelper.SERIALIZATION_JSON,
+          'localhost', 9021, Serializer(), SocketHelper.serializationJson,
           messageLengthExponent:
-              SocketHelper.MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT);
+              SocketHelper.maxMessageLengthConnectanumExponent);
       final client = Client(realm: 'com.connectanum', transport: transport);
       var closeCompleter = Completer();
       var reconnects = 0;
@@ -338,10 +338,10 @@ void main() {
           .listen((session) {
         if (reconnects < 3) {
           reconnects++;
-          _socket.close();
+          testSocket.close();
         } else {
           server.close().then((_) {
-            _socket.close().then((__) => closeCompleter.complete());
+            testSocket.close().then((__) => closeCompleter.complete());
           });
         }
       }, onError: (_) {});
@@ -353,9 +353,9 @@ void main() {
 
     test('test on connect socket transport and no server available', () async {
       final transport = SocketTransport(
-          'localhost', 9019, Serializer(), SocketHelper.SERIALIZATION_JSON,
+          'localhost', 9019, Serializer(), SocketHelper.serializationJson,
           messageLengthExponent:
-              SocketHelper.MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT);
+              SocketHelper.maxMessageLengthConnectanumExponent);
       final client = Client(realm: 'com.connectanum', transport: transport);
       var closeCompleter = Completer();
       client
@@ -368,7 +368,7 @@ void main() {
         closeCompleter.complete(abort);
       });
       Abort abort = await closeCompleter.future;
-      expect(abort.reason, equals(Error.AUTHORIZATION_FAILED));
+      expect(abort.reason, equals(Error.authorizationFailed));
       expect(abort.message!.message, startsWith('Could not connect to server'));
       expect(client.transport.isOpen, isFalse);
     });

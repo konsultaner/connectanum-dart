@@ -13,6 +13,9 @@ import 'package:connectanum/src/serializer/json/serializer.dart'
 import 'package:connectanum/src/serializer/msgpack/serializer.dart'
     // ignore: library_prefixes
     as msgpackSerializer;
+import 'package:connectanum/src/serializer/cbor/serializer.dart'
+    // ignore: library_prefixes
+    as cborSerializer;
 import 'package:connectanum/src/transport/websocket/websocket_transport_io.dart';
 import 'package:connectanum/src/transport/websocket/websocket_transport_serialization.dart';
 import 'package:test/test.dart';
@@ -26,15 +29,14 @@ void main() {
       server.listen((HttpRequest req) async {
         if (req.uri.path == '/wamp') {
           var socket = await WebSocketTransformer.upgrade(req);
-          print('Received protocol ' +
-              req.headers.value('sec-websocket-protocol')!);
+          print('Received protocol ${req.headers.value('sec-websocket-protocol')!}');
           socket.listen((message) {
             if (message is String &&
-                message.contains('[${MessageTypes.CODE_HELLO}')) {
-              socket.add('[${MessageTypes.CODE_WELCOME},1234,{}]');
+                message.contains('[${MessageTypes.codeHello}')) {
+              socket.add('[${MessageTypes.codeWelcome},1234,{}]');
             } else {
               // received msgpack
-              if (message.contains(MessageTypes.CODE_HELLO)) {
+              if (message.contains(MessageTypes.codeHello)) {
                 socket.add(Uint8List.fromList(
                     [221, 0, 0, 0, 3, 2, 205, 4, 210, 223, 0, 0, 0, 0]));
               }
@@ -46,12 +48,17 @@ void main() {
       var transportJSON = WebSocketTransport(
           'ws://localhost:9100/wamp',
           jsonSerializer.Serializer(),
-          WebSocketSerialization.SERIALIZATION_JSON);
+          WebSocketSerialization.serializationJson);
 
       var transportMsgpack = WebSocketTransport(
           'ws://localhost:9100/wamp',
           msgpackSerializer.Serializer(),
-          WebSocketSerialization.SERIALIZATION_MSGPACK);
+          WebSocketSerialization.serializationMsgpack);
+
+      var transportCbor = WebSocketTransport(
+          'ws://localhost:9100/wamp',
+          cborSerializer.Serializer(),
+          WebSocketSerialization.serializationCbor);
 
       await transportJSON.open();
       transportJSON.send(Hello('my.realm', Details.forHello()));
@@ -61,6 +68,11 @@ void main() {
       await transportMsgpack.open();
       transportMsgpack.send(Hello('my.realm', Details.forHello()));
       welcome = (await transportMsgpack.receive().first) as Welcome;
+      expect(welcome.sessionId, equals(1234));
+
+      await transportCbor.open();
+      transportCbor.send(Hello('my.realm', Details.forHello()));
+      welcome = (await transportCbor.receive().first) as Welcome;
       expect(welcome.sessionId, equals(1234));
     });
   });

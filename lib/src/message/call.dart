@@ -14,7 +14,7 @@ class Call extends AbstractMessageWithPayload {
       {this.options,
       List<dynamic>? arguments,
       Map<String, dynamic>? argumentsKeywords}) {
-    id = MessageTypes.CODE_CALL;
+    id = MessageTypes.codeCall;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;
   }
@@ -23,13 +23,13 @@ class Call extends AbstractMessageWithPayload {
 /// Options used influence the call behavior
 class CallOptions {
   // progressive_call_results == true
-  bool? receive_progress;
+  bool? receiveProgress;
 
   // call_timeout == true
   int? timeout;
 
   // caller_identification == true
-  bool? disclose_me;
+  bool? discloseMe;
 
-  CallOptions({this.receive_progress, this.timeout, this.disclose_me});
+  CallOptions({this.receiveProgress, this.timeout, this.discloseMe});
 }

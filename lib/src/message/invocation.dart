@@ -23,7 +23,7 @@ class Invocation extends AbstractMessageWithPayload {
       assert(progressive == false);
       assert(UriPattern.match(errorUri!));
       final error = Error(
-          MessageTypes.CODE_INVOCATION, requestId, HashMap(), errorUri,
+          MessageTypes.codeInvocation, requestId, HashMap(), errorUri,
           arguments: arguments, argumentsKeywords: argumentsKeywords);
       _responseStreamController.add(error);
     } else {
@@ -40,13 +40,13 @@ class Invocation extends AbstractMessageWithPayload {
 
   Invocation(this.requestId, this.registrationId, this.details,
       {List<dynamic>? arguments, Map<String, dynamic>? argumentsKeywords}) {
-    id = MessageTypes.CODE_INVOCATION;
+    id = MessageTypes.codeInvocation;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;
   }
 
   bool isProgressive() {
-    return details.receive_progress ?? false;
+    return details.receiveProgress ?? false;
   }
 
   void onResponse(
@@ -65,7 +65,7 @@ class InvocationDetails {
   String? procedure;
 
   // pattern_based_registration == true
-  bool? receive_progress;
+  bool? receiveProgress;
 
-  InvocationDetails(this.caller, this.procedure, this.receive_progress);
+  InvocationDetails(this.caller, this.procedure, this.receiveProgress);
 }

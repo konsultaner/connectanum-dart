@@ -150,9 +150,9 @@ void main() {
 
     test('check password failed', () async {
       for (var i = 0; i < testVectors.length; i++) {
-        var broken_index = (i + 4) % testVectors.length;
+        var brokenIndex = (i + 4) % testVectors.length;
         var plain = testVectors[i][0];
-        var expected = testVectors[broken_index][2];
+        var expected = testVectors[brokenIndex][2];
         expect(BCrypt.checkPassword(plain, expected), equals(false));
       }
     });

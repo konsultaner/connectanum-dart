@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:logging/logging.dart';
-import 'package:pedantic/pedantic.dart';
 
 import '../message/abort.dart';
 import '../message/abstract_message.dart';
@@ -122,10 +121,7 @@ class Session {
     session._transportStreamSubscription = transport.receive()!.listen(
         (message) {
           if (message is Challenge) {
-            final foundAuthMethod = authMethods == null
-                ? null
-                : authMethods
-                    .where((authenticationMethod) =>
+            final foundAuthMethod = authMethods?.where((authenticationMethod) =>
                         authenticationMethod.getName() == message.authMethod)
                     .first;
             if (foundAuthMethod != null) {
@@ -134,7 +130,7 @@ class Session {
                     .challenge(message.extra)
                     .then((authenticate) => session.authenticate(authenticate),
                         onError: (error) {
-                  session._transport.send(Abort(Error.AUTHORIZATION_FAILED,
+                  session._transport.send(Abort(Error.authorizationFailed,
                       message: error.toString()));
                   session._transport.close();
                 });
@@ -142,13 +138,13 @@ class Session {
                 try {
                   transport.close();
                 } catch (ignore) {/* my be already closed */}
-                welcomeCompleter.completeError(Abort(Error.AUTHORIZATION_FAILED,
+                welcomeCompleter.completeError(Abort(Error.authorizationFailed,
                     message: exception.toString()));
               }
             } else {
               final goodbye = Goodbye(
                   GoodbyeMessage('Authmethod $foundAuthMethod not supported'),
-                  Goodbye.REASON_GOODBYE_AND_OUT);
+                  Goodbye.reasonGoodbyeAndOut);
               session._transport.send(goodbye);
               welcomeCompleter.completeError(goodbye);
             }
@@ -156,7 +152,7 @@ class Session {
             session.id = message.sessionId;
 
             if ((session.realm ?? message.details.realm) == null) {
-              welcomeCompleter.completeError(Abort(Error.AUTHORIZATION_FAILED,
+              welcomeCompleter.completeError(Abort(Error.authorizationFailed,
                   message:
                       'No realm specified! Neither by the client nor by the router'));
               return;
@@ -235,9 +231,9 @@ class Session {
     if (cancelCompleter != null) {
       unawaited(cancelCompleter.future.then((cancelMode) {
         CancelOptions? options;
-        if (CancelOptions.MODE_KILL_NO_WAIT == cancelMode ||
-            CancelOptions.MODE_KILL == cancelMode ||
-            CancelOptions.MODE_SKIP == cancelMode) {
+        if (CancelOptions.modeKillNoWait == cancelMode ||
+            CancelOptions.modeKill == cancelMode ||
+            CancelOptions.modeSkip == cancelMode) {
           options = CancelOptions();
           options.mode = cancelMode;
         }
@@ -249,7 +245,7 @@ class Session {
         in _openSessionStreamController.stream.where((message) =>
             (message is Result && message.callRequestId == call.requestId) ||
             (message is Error &&
-                message.requestTypeId == MessageTypes.CODE_CALL &&
+                message.requestTypeId == MessageTypes.codeCall &&
                 message.requestId == call.requestId))) {
       if (result is Result) {
         yield result;
@@ -274,7 +270,7 @@ class Session {
             (message is Subscribed &&
                 message.subscribeRequestId == subscribe.requestId) ||
             (message is Error &&
-                message.requestTypeId == MessageTypes.CODE_SUBSCRIBE &&
+                message.requestTypeId == MessageTypes.codeSubscribe &&
                 message.requestId == subscribe.requestId))
         .first;
     if (subscribed is Subscribed) {
@@ -308,7 +304,7 @@ class Session {
         return true;
       }
       if (message is Error &&
-          message.requestTypeId == MessageTypes.CODE_UNSUBSCRIBE &&
+          message.requestTypeId == MessageTypes.codeUnsubscribe &&
           message.requestId == unsubscribe.requestId) {
         throw message;
       }
@@ -336,7 +332,7 @@ class Session {
         return true;
       }
       if (message is Error &&
-          message.requestTypeId == MessageTypes.CODE_PUBLISH &&
+          message.requestTypeId == MessageTypes.codePublish &&
           message.requestId == publish.requestId) {
         throw message;
       }
@@ -356,7 +352,7 @@ class Session {
             (message is Registered &&
                 message.registerRequestId == register.requestId) ||
             (message is Error &&
-                message.requestTypeId == MessageTypes.CODE_REGISTER &&
+                message.requestTypeId == MessageTypes.codeRegister &&
                 message.requestId == register.requestId))
         .first;
     if (registered is Registered) {
@@ -371,8 +367,8 @@ class Session {
             message.onResponse((message) => _transport.send(message));
             return true;
           } else {
-            _transport.send(Error(MessageTypes.CODE_INVOCATION,
-                message.requestId, {}, Error.NO_SUCH_REGISTRATION));
+            _transport.send(Error(MessageTypes.codeInvocation,
+                message.requestId, {}, Error.noSuchRegistration));
             return false;
           }
         }
@@ -395,7 +391,7 @@ class Session {
         return true;
       }
       if (message is Error &&
-          message.requestTypeId == MessageTypes.CODE_UNREGISTER &&
+          message.requestTypeId == MessageTypes.codeUnregister &&
           message.requestId == unregister.requestId) {
         throw message;
       }
@@ -408,7 +404,7 @@ class Session {
   /// If no timeout is set, the client waits for the server to close the transport forever.
   Future<void> close({String message = 'Regular closing', Duration? timeout}) {
     final goodbye =
-        Goodbye(GoodbyeMessage(message), Goodbye.REASON_GOODBYE_AND_OUT);
+        Goodbye(GoodbyeMessage(message), Goodbye.reasonGoodbyeAndOut);
     _transport.send(goodbye);
     if (timeout != null) {
       return Future.delayed(timeout, () => _transport.close());

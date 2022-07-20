@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:connectanum/connectanum.dart';
 import 'package:connectanum/src/authentication/scram_authentication.dart';
-import 'package:connectanum/src/message/challenge.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -17,13 +16,13 @@ void main() {
         iterations: 4096,
         salt: 'W22ZaJ0SNY7soEsUEjb6gQ==',
         nonce: 'rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF\$k0',
-        kdf: ScramAuthentication.KDF_PBKDF2);
+        kdf: ScramAuthentication.kdfPbkdf2);
     var challengeExtraArgon2 = Extra(
         iterations: 4096,
         memory: 100,
         salt: 'W22ZaJ0SNY7soEsUEjb6gQ==',
         nonce: 'rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF\$k0',
-        kdf: ScramAuthentication.KDF_ARGON);
+        kdf: ScramAuthentication.kdfArgon);
     var authExtra = HashMap<String, Object?>();
     authExtra['nonce'] = challengeExtra.nonce;
     authExtra['channel_binding'] = null;
@@ -45,14 +44,14 @@ void main() {
           iterations: 4096,
           salt: 'W22ZaJ0SNY7soEsUEjb6gQ==',
           nonce: 'rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF\$k0',
-          kdf: ScramAuthentication.KDF_PBKDF2);
+          kdf: ScramAuthentication.kdfPbkdf2);
       final authMethod = ScramAuthentication(secret)
         ..hello('com.realm', Details.forHello()..authid = user);
-      challengeExtra2.nonce = authMethod.helloNonce! + 'nonce';
+      challengeExtra2.nonce = '${authMethod.helloNonce!}nonce';
       var authenticate = await authMethod.challenge(challengeExtra2);
       expect(authenticate.signature, isNotNull);
       expect(authenticate.extra!['nonce'],
-          equals(challengeExtra2.nonce = authMethod.helloNonce! + 'nonce'));
+          equals(challengeExtra2.nonce = '${authMethod.helloNonce!}nonce'));
       expect(authenticate.extra!['channel_binding'], isNull);
       expect(authenticate.extra!['cbind_data'], isNull);
     });
@@ -74,7 +73,7 @@ void main() {
       var challengeExtra2 = Extra(
           iterations: 4096,
           salt: 'W22ZaJ0SNY7soEsUEjb6gQ==',
-          nonce: authMethod.helloNonce! + 'TCAfuxFIlj)hNlF\$k0',
+          nonce: '${authMethod.helloNonce!}TCAfuxFIlj)hNlF\$k0',
           kdf: 'other kdf');
       expect(() async => await authMethod.challenge(challengeExtra2),
           throwsA(isA<Exception>()));

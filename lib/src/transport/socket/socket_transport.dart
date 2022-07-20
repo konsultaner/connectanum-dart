@@ -5,7 +5,6 @@ import 'dart:typed_data';
 
 import 'package:connectanum/src/message/goodbye.dart';
 import 'package:logging/logging.dart';
-import 'package:pedantic/pedantic.dart';
 
 import '../../message/abstract_message.dart';
 import '../../serializer/abstract_serializer.dart';
@@ -48,10 +47,10 @@ class SocketTransport extends AbstractTransport {
       this._host, this._port, this._serializer, this._serializerType,
       {ssl = false,
       allowInsecureCertificates = false,
-      messageLengthExponent = SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT})
-      : assert(_serializerType == SocketHelper.SERIALIZATION_JSON ||
-            _serializerType == SocketHelper.SERIALIZATION_MSGPACK ||
-            _serializerType == SocketHelper.SERIALIZATION_CBOR) {
+      messageLengthExponent = SocketHelper.maxMessageLengthExponent})
+      : assert(_serializerType == SocketHelper.serializationJson ||
+            _serializerType == SocketHelper.serializationMsgpack ||
+            _serializerType == SocketHelper.serializationCbor) {
     _ssl = ssl;
     _allowInsecureCertificates = allowInsecureCertificates;
     _messageLengthExponent = messageLengthExponent;
@@ -71,7 +70,7 @@ class SocketTransport extends AbstractTransport {
 
   bool get isUpgradedProtocol {
     return _messageLength != null &&
-        _messageLength! > SocketHelper.MAX_MESSAGE_LENGTH;
+        _messageLength! > SocketHelper.maxMessageLength;
   }
 
   int get headerLength {
@@ -197,10 +196,9 @@ class SocketTransport extends AbstractTransport {
         return false;
       }
       if (finalMessageLength > _messageLength!) {
-        _sendProtocolError(SocketHelper.ERROR_MESSAGE_LENGTH_EXCEEDED);
+        _sendProtocolError(SocketHelper.errorMessageLengthExceeded);
         _logger.fine(
-            'Closed raw socket channel because the message length exceeded the max value of ' +
-                _messageLength.toString());
+            'Closed raw socket channel because the message length exceeded the max value of $_messageLength');
         return false;
       }
       return true;
@@ -217,8 +215,8 @@ class SocketTransport extends AbstractTransport {
             SocketHelper.getMaxMessageSizeExponent(message);
         // TRY UPGRADE TO 5 BYTE HEADER, IF WANTED
         if (maxMessageSizeExponent ==
-                SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT &&
-            _messageLengthExponent > SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT) {
+                SocketHelper.maxMessageLengthExponent &&
+            _messageLengthExponent > SocketHelper.maxMessageLengthExponent) {
           _logger.finer('Try to upgrade to 5 byte raw socket header');
           _send0(SocketHelper.getUpgradeHandshake(_messageLengthExponent));
         } else {
@@ -247,23 +245,23 @@ class SocketTransport extends AbstractTransport {
 
   void _handleError(int errorNumber) {
     String error;
-    if (errorNumber == SocketHelper.ERROR_SERIALIZER_NOT_SUPPORTED) {
+    if (errorNumber == SocketHelper.errorSerializerNotSupported) {
       error = 'Router responded with an error: ERROR_SERIALIZER_UNSUPPORTED';
-    } else if (errorNumber == SocketHelper.ERROR_USE_OF_RESERVED_BITS) {
+    } else if (errorNumber == SocketHelper.errorUseOfReservedBits) {
       // if another router other then connectanum has been connected with an upgrade header
       error = 'Router responded with an error: ERROR_USE_OF_RESERVED_BITS';
     } else if (errorNumber ==
-        SocketHelper.ERROR_MAX_CONNECTION_COUNT_EXCEEDED) {
+        SocketHelper.errorMaxConnectionCountExceeded) {
       error =
           'Router responded with an error: ERROR_MAX_CONNECTION_COUNT_EXCEEDED';
-    } else if (errorNumber == SocketHelper.ERROR_MESSAGE_LENGTH_EXCEEDED) {
+    } else if (errorNumber == SocketHelper.errorMessageLengthExceeded) {
       // if connectanum is configured with a lower message length
       error = 'Router responded with an error: ERROR_MESSAGE_LENGTH_EXCEEDED';
     } else {
       error =
-          'Router responded with an error: UNKNOWN ' + errorNumber.toString();
+          'Router responded with an error: UNKNOWN $errorNumber';
     }
-    _logger.shout(errorNumber.toString() + ': ' + error);
+    _logger.shout('$errorNumber: $error');
     _handshakeCompleter
         .completeError({'error': error, 'errorNumber': errorNumber});
     close();
@@ -271,11 +269,9 @@ class SocketTransport extends AbstractTransport {
 
   bool _assertValidMessage(Uint8List message) {
     if (!SocketHelper.isValidMessage(message)) {
-      _send0(SocketHelper.getError(SocketHelper.ERROR_USE_OF_RESERVED_BITS));
+      _send0(SocketHelper.getError(SocketHelper.errorUseOfReservedBits));
       _logger.shout(
-          'Closed raw socket channel because the received message type ' +
-              SocketHelper.getMessageType(message).toString() +
-              ' is unknown.');
+          'Closed raw socket channel because the received message type ${SocketHelper.getMessageType(message)} is unknown.');
       return false;
     }
     return true;
@@ -287,19 +283,18 @@ class SocketTransport extends AbstractTransport {
       for (var message in _splitMessages(inboundData)) {
         var messageType = SocketHelper.getMessageType(message);
         message = message.sublist(headerLength);
-        if (messageType == SocketHelper.MESSAGE_WAMP) {
+        if (messageType == SocketHelper.messageWamp) {
           var deserializedMessage = _serializer.deserialize(message)!;
           if (deserializedMessage is Goodbye) {
             _goodbyeReceived = true;
           }
           _logger.finest(
-              'Received message type ' + deserializedMessage.id.toString());
+              'Received message type ${deserializedMessage.id}');
           messages.add(deserializedMessage);
-        } else if (messageType == SocketHelper.MESSAGE_PING) {
+        } else if (messageType == SocketHelper.messagePing) {
           // send pong
           _logger.finest(
-              'Responded to ping with pong and a payload length of ' +
-                  message.length.toString());
+              'Responded to ping with pong and a payload length of ${message.length}');
           _send0(SocketHelper.getPong(message.length, isUpgradedProtocol));
           if (message.isNotEmpty) {
             _send0(message);
@@ -307,13 +302,12 @@ class SocketTransport extends AbstractTransport {
         } else {
           // received a pong
           _pingCompleter!.complete(message);
-          _logger.finest('Received a Pong with a payload length of ' +
-              message.length.toString());
+          _logger.finest('Received a Pong with a payload length of ${message.length}');
         }
       }
     } on Exception catch (error) {
       // TODO handle serialization error
-      _logger.fine('Error while handling incoming message ' + error.toString());
+      _logger.fine('Error while handling incoming message $error');
     }
     return messages;
   }
@@ -375,13 +369,13 @@ class SocketTransport extends AbstractTransport {
       }
       var serialalizedMessage = _serializer.serialize(message);
       _outboundBuffer!.addAll(SocketHelper.buildMessageHeader(
-          SocketHelper.MESSAGE_WAMP,
+          SocketHelper.messageWamp,
           serialalizedMessage.length,
           isUpgradedProtocol));
       _outboundBuffer!.addAll(serialalizedMessage);
     } else {
       var serialalizedMessage = _serializer.serialize(message);
-      _send0(SocketHelper.buildMessageHeader(SocketHelper.MESSAGE_WAMP,
+      _send0(SocketHelper.buildMessageHeader(SocketHelper.messageWamp,
           serialalizedMessage.length, isUpgradedProtocol));
       _send0(serialalizedMessage);
     }

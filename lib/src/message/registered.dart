@@ -24,15 +24,14 @@ class Registered extends AbstractMessage {
         } on Exception catch (e) {
           invocation.respondWith(
               isError: true,
-              errorUri: Error.UNKNOWN,
+              errorUri: Error.unknown,
               arguments: [e.toString()]);
         }
       });
     }
-    return null;
   }
 
   Registered(this.registerRequestId, this.registrationId) {
-    id = MessageTypes.CODE_REGISTERED;
+    id = MessageTypes.codeRegistered;
   }
 }

@@ -1,3 +1,12 @@
+### 2.0.3
+
+- fix lint
+- fixed unit tests in chrome
+
+**BREAKING**
+
+- Changed constants and static finals from UPPER_SNAKE_CASE to lowerCamelCase
+
 ### 2.0.2
 
 - added CBOR serializer

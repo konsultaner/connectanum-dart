@@ -3,9 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:pointycastle/digests/sha256.dart';
 import 'package:pointycastle/export.dart';
-import 'package:pointycastle/key_derivators/argon2.dart';
 import 'package:saslprep/saslprep.dart';
 
 import '../message/authenticate.dart';
@@ -16,9 +14,9 @@ import 'cra_authentication.dart';
 
 /// This class enables SCRAM authentication process with PBKDF2 as key derivation function
 class ScramAuthentication extends AbstractAuthentication {
-  static final String KDF_PBKDF2 = 'pbkdf2';
-  static final String KDF_ARGON = 'argon2id13';
-  static final int DEFAULT_KEY_LENGTH = 32;
+  static final String kdfPbkdf2 = 'pbkdf2';
+  static final String kdfArgon = 'argon2id13';
+  static final int defaultKeyLength = 32;
 
   String? _secret;
   String? _authid;
@@ -75,9 +73,9 @@ class ScramAuthentication extends AbstractAuthentication {
       return Future.error(Exception('Wrong nonce'));
     }
 
-    if (extra.kdf != KDF_ARGON && extra.kdf != KDF_PBKDF2) {
+    if (extra.kdf != kdfArgon && extra.kdf != kdfPbkdf2) {
       return Future.error(Exception(
-          'not supported key derivation function used ' + extra.kdf!));
+          'not supported key derivation function used ${extra.kdf!}'));
     }
 
     var authenticate = Authenticate();
@@ -98,20 +96,20 @@ class ScramAuthentication extends AbstractAuthentication {
   String createSignature(String authId, String helloNonce, Extra extra,
       HashMap<String, Object?> authExtra) {
     late Uint8List saltedPassword;
-    if (extra.kdf == KDF_PBKDF2) {
+    if (extra.kdf == kdfPbkdf2) {
       saltedPassword = CraAuthentication.deriveKey(
           _secret!,
           extra.salt == null
-              ? CraAuthentication.DEFAULT_KEY_SALT
+              ? CraAuthentication.defaultKeySalt
               : base64.decode(extra.salt!),
           iterations: extra.iterations!,
-          keylen: DEFAULT_KEY_LENGTH);
-    } else if (extra.kdf == KDF_ARGON) {
+          keylen: defaultKeyLength);
+    } else if (extra.kdf == kdfArgon) {
       saltedPassword = Uint8List(32);
       Argon2BytesGenerator()
         ..init(Argon2Parameters(Argon2Parameters.ARGON2_id,
             Uint8List.fromList(base64.decode(extra.salt!)),
-            desiredKeyLength: DEFAULT_KEY_LENGTH,
+            desiredKeyLength: defaultKeyLength,
             iterations: extra.iterations ?? 1000,
             memory: extra.memory ?? 100,
             version: Argon2Parameters.ARGON2_VERSION_13))
@@ -120,11 +118,11 @@ class ScramAuthentication extends AbstractAuthentication {
     }
 
     var clientKey = CraAuthentication.encodeByteHmac(
-        saltedPassword, DEFAULT_KEY_LENGTH, 'Client Key'.codeUnits);
+        saltedPassword, defaultKeyLength, 'Client Key'.codeUnits);
     var storedKey = SHA256Digest().process(Uint8List.fromList(clientKey));
     var clientSignature = CraAuthentication.encodeByteHmac(
         storedKey,
-        DEFAULT_KEY_LENGTH,
+        defaultKeyLength,
         createAuthMessage(authId, helloNonce, authExtra, extra).codeUnits);
     var signature = [
       for (int i = 0; i < clientKey.length; i++)
@@ -137,22 +135,15 @@ class ScramAuthentication extends AbstractAuthentication {
   static String createAuthMessage(String authId, String helloNonce,
       HashMap authExtra, Extra challengeExtra) {
     var clientFirstBare =
-        'n=' + Saslprep.saslprep(authId) + ',' + 'r=' + helloNonce;
-    var serverFirst = 'r=' +
-        challengeExtra.nonce! +
-        ',s=' +
-        challengeExtra.salt! +
-        ',i=' +
-        challengeExtra.iterations.toString();
+        'n=${Saslprep.saslprep(authId)},r=$helloNonce';
+    var serverFirst = 'r=${challengeExtra.nonce!},s=${challengeExtra.salt!},i=${challengeExtra.iterations}';
     String? cBindName = authExtra['channel_binding'];
     String? cBindData = authExtra['cbind_data'];
-    var cBindFlag = cBindName == null ? 'n' : 'p=' + cBindName;
-    var cBindInput = cBindFlag +
-        ',,' +
-        (cBindData == null ? '' : base64.decode(cBindData) as String);
+    var cBindFlag = cBindName == null ? 'n' : 'p=$cBindName';
+    var cBindInput = '$cBindFlag,,${cBindData == null ? '' : base64.decode(cBindData) as String}';
     var clientFinalNoProof =
-        'c=' + base64.encode(cBindInput.codeUnits) + ',r=' + authExtra['nonce'];
-    return clientFirstBare + ',' + serverFirst + ',' + clientFinalNoProof;
+        'c=${base64.encode(cBindInput.codeUnits)},r=${authExtra['nonce']}';
+    return '$clientFirstBare,$serverFirst,$clientFinalNoProof';
   }
 
   /// this is a scrum authentication verifier that will used to run the
@@ -162,10 +153,10 @@ class ScramAuthentication extends AbstractAuthentication {
       List<int> clientProof, Uint8List storedKey, String authMessage) {
     var clientSignature = base64
         .decode(CraAuthentication.encodeHmac(
-            storedKey, DEFAULT_KEY_LENGTH, authMessage.codeUnits))
+            storedKey, defaultKeyLength, authMessage.codeUnits))
         .toList();
     var recoveredClientKey = [
-      for (var i = 0; i < DEFAULT_KEY_LENGTH; ++i)
+      for (var i = 0; i < defaultKeyLength; ++i)
         clientProof[i] ^ clientSignature[i]
     ];
     var recoveredStoredKey =

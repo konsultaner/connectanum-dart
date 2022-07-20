@@ -9,7 +9,7 @@ class Authenticate extends AbstractMessage {
   /// Creates a WAMP Authentication message with a [signature] that was
   /// cryptographically created by an authentication method of this package
   Authenticate({this.signature}) {
-    id = MessageTypes.CODE_AUTHENTICATE;
+    id = MessageTypes.codeAuthenticate;
   }
 
   /// A factory that creates an instance of a WAMP Authenticate massage by

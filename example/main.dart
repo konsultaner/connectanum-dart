@@ -1,6 +1,7 @@
+import 'dart:async';
+
 import 'package:connectanum/connectanum.dart';
 import 'package:connectanum/json.dart';
-import 'package:pedantic/pedantic.dart';
 
 void main() async {
   // Start a client that connects without the usage of an authentication process
@@ -13,7 +14,7 @@ void main() async {
         // if you want to use msgpack instead of JSON just import the serializer
         // from package:connectanum/msgpack.dart and use WebSocketSerialization.SERIALIZATION_MSGPACK
         Serializer(),
-        WebSocketSerialization.SERIALIZATION_JSON,
+        WebSocketSerialization.serializationJson,
       ));
   late Session session1;
   try {
@@ -41,7 +42,7 @@ void main() async {
     final subscription = await session1.subscribe('demo.push');
     subscription.eventStream!.listen((event) => print(event.arguments![0]));
     await subscription.onRevoke.then((reason) =>
-        print('The server has killed my subscription due to: ' + reason));
+        print('The server has killed my subscription due to: $reason'));
   } on Abort catch (abort) {
     // if the serve does not allow this client to receive a session
     // the server will cancel the initializing process with an abort
@@ -53,7 +54,7 @@ void main() async {
       transport: WebSocketTransport(
         'wss://www.connectanum.com/wamp',
         Serializer(),
-        WebSocketSerialization.SERIALIZATION_JSON,
+        WebSocketSerialization.serializationJson,
       ));
   try {
     final session2 = await client2.connect().first;

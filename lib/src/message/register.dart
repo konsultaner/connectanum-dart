@@ -7,23 +7,23 @@ class Register extends AbstractMessage {
   String procedure;
 
   Register(this.requestId, this.procedure, {this.options}) {
-    id = MessageTypes.CODE_REGISTER;
+    id = MessageTypes.codeRegister;
   }
 }
 
 class RegisterOptions {
-  static final String? MATCH_EXACT = null;
-  static final String MATCH_PREFIX = 'prefix';
-  static final String MATCH_WILDCARD = 'wildcard';
+  static final String? matchExact = null;
+  static final String matchPrefix = 'prefix';
+  static final String matchWildcard = 'wildcard';
 
-  static final String INVOCATION_POLICY_SINGLE = 'single';
-  static final String INVOCATION_POLICY_FIRST = 'first';
-  static final String INVOCATION_POLICY_LAST = 'last';
-  static final String INVOCATION_POLICY_ROUND_ROBIN = 'roundrobin';
-  static final String INVOCATION_POLICY_RANDOM = 'random';
+  static final String invocationPolicySingle = 'single';
+  static final String invocationPolicyFirst = 'first';
+  static final String invocationPolicyLast = 'last';
+  static final String invocationPolicyRoundRobin = 'roundrobin';
+  static final String invocationPolicyRandom = 'random';
 
   // caller_identification == true
-  bool? disclose_caller;
+  bool? discloseCaller;
 
   // pattern_based_registration == true
   String? match;
@@ -31,5 +31,5 @@ class RegisterOptions {
   // shared_registration
   String? invoke;
 
-  RegisterOptions({this.disclose_caller, this.match, this.invoke});
+  RegisterOptions({this.discloseCaller, this.match, this.invoke});
 }

@@ -13,7 +13,7 @@ class Subscribe extends AbstractMessage {
   /// is the actual topic to subscribe to or a prefix or wildcard topic as
   /// defined in the [options].
   Subscribe(this.requestId, this.topic, {this.options}) {
-    id = MessageTypes.CODE_SUBSCRIBE;
+    id = MessageTypes.codeSubscribe;
   }
 }
 
@@ -22,23 +22,23 @@ class Subscribe extends AbstractMessage {
 /// custom options need to be added with a custom serializer because flutter
 /// disables reflections.
 class SubscribeOptions {
-  static final String? MATCH_PLAIN = null;
-  static final String MATCH_PREFIX = 'prefix';
-  static final String MATCH_WILDCARD = 'wildcard';
+  static final String? matchPlain = null;
+  static final String matchPrefix = 'prefix';
+  static final String matchWildcard = 'wildcard';
 
-  static final String CUSTOM_SERIALIZER_JSON = 'json';
-  static final String CUSTOM_SERIALIZER_MSGPACK = 'msgpack';
-  static final String CUSTOM_SERIALIZER_CBOR = 'cbor';
+  static final String customSerializerJson = 'json';
+  static final String customSerializerMsgpack = 'msgpack';
+  static final String customSerializerCbor = 'cbor';
 
   String? match;
-  String? meta_topic;
-  bool? get_retained;
+  String? metaTopic;
+  bool? getRetained;
 
   final HashMap<String, dynamic Function(String)> _customSerializedOptions =
       HashMap<String, dynamic Function(String)>();
 
   /// the constructor
-  SubscribeOptions({this.match, this.meta_topic, this.get_retained});
+  SubscribeOptions({this.match, this.metaTopic, this.getRetained});
 
   /// add a custom [valueSerializer] to a given option [key]. The [valueSerializer]
   /// is passed a serializerr type. According to that type the serializer should

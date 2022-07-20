@@ -1,6 +1,5 @@
 import 'dart:collection';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:pinenacl/ed25519.dart';
 import 'package:pointycastle/api.dart';
@@ -16,14 +15,13 @@ import '../message/details.dart';
 import 'abstract_authentication.dart';
 
 import 'package:pointycastle/digests/sha1.dart';
-import 'package:pinenacl/api.dart' show ByteList;
 
 import 'cryptosign/bcrypt_pbkdf.dart';
 
 class CryptosignAuthentication extends AbstractAuthentication {
-  static final String CHANNEL_BINDUNG_TLS_UNIQUE = 'tls-unique';
-  static final String OPEN_SSH_HEADER = '-----BEGIN OPENSSH PRIVATE KEY-----';
-  static final String OPEN_SSH_FOOTER = '-----END OPENSSH PRIVATE KEY-----';
+  static final String channelBindingTlsUnique = 'tls-unique';
+  static final String openSshHeader = '-----BEGIN OPENSSH PRIVATE KEY-----';
+  static final String openSshFooter = '-----END OPENSSH PRIVATE KEY-----';
 
   final SigningKey privateKey;
   final String? channelBinding;
@@ -80,7 +78,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
   /// encoded challenge and signs it with the given private key
   @override
   Future<Authenticate> challenge(Extra extra) {
-    if (extra.channel_binding != channelBinding) {
+    if (extra.channelBinding != channelBinding) {
       return Future.error(Exception('Channel Binding does not match'));
     }
     if (extra.challenge!.length % 2 != 0) {
@@ -144,7 +142,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
     String? privateMac;
     var lines = ppkFileContent.split('\n');
     var macData = PpkMacData();
-    lines.forEach((element) {
+    for (var element in lines) {
       if (!endOfHeader) {
         if (lines.indexOf(element) == 0 &&
             !element.startsWith('PuTTY-User-Key-File-')) {
@@ -176,7 +174,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
         if (element.startsWith('Public-Lines')) {
           endOfHeader = true;
           publicKeyIndex = int.parse(element.split(': ')[1].trimRight());
-          return;
+          continue;
         }
       } else if (element.startsWith('Private-Lines')) {
         privateKeyIndex = int.parse(element.split(': ')[1].trimRight());
@@ -189,7 +187,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
       } else if (element.startsWith('Private-MAC')) {
         privateMac = element.split(': ')[1].trimRight();
       }
-    });
+    }
     macData.publicKey = base64.decode(publicKey);
     if (privateKey.isNotEmpty) {
       Uint8List privateKeyDecrypted;
@@ -314,16 +312,16 @@ class CryptosignAuthentication extends AbstractAuthentication {
   ///     padding bytes 0x010203  # pad to blocksize
   static Uint8List loadPrivateKeyFromOpenSSHPem(String pemFileContent,
       {String? password}) {
-    if (!pemFileContent.startsWith(OPEN_SSH_HEADER) ||
-        !pemFileContent.startsWith(OPEN_SSH_HEADER)) {
+    if (!pemFileContent.startsWith(openSshHeader) ||
+        !pemFileContent.startsWith(openSshHeader)) {
       throw Exception('Wrong file format');
     }
 
     pemFileContent = pemFileContent.replaceAll(RegExp(r'[\n\r]'), '');
     pemFileContent =
-        pemFileContent.substring(OPEN_SSH_HEADER.length).trimLeft();
+        pemFileContent.substring(openSshHeader.length).trimLeft();
     pemFileContent = pemFileContent
-        .substring(0, pemFileContent.length - OPEN_SSH_FOOTER.length)
+        .substring(0, pemFileContent.length - openSshFooter.length)
         .trimRight();
 
     var binaryContent =
@@ -401,7 +399,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
         return _readOpenSshPrivateKeySeed(paddedPlainText, 0);
       } else {
         throw Exception(
-            'The given cypherName ' + cypherName + ' is not supported!');
+            'The given cypherName $cypherName is not supported!');
       }
     } else {
       throw Exception('This is not a valid open ssh key file format!');
@@ -422,8 +420,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
     readerIndex += 4 + 32; // no need for the public key part
     if (keyType != 'ssh-ed25519') {
       throw Exception(
-          'Cryptosign needs a private key of type ssh-ed25519! Found ' +
-              keyType);
+          'Cryptosign needs a private key of type ssh-ed25519! Found $keyType');
     }
     var privateKey = binaryContent.sublist(readerIndex += 4, readerIndex += 64);
     var seed = privateKey.sublist(0, 32);

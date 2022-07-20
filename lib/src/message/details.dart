@@ -91,10 +91,10 @@ class Publisher {
 }
 
 class PublisherFeatures {
-  bool publisher_identification = true;
-  bool subscriber_blackwhite_listing = true;
-  bool publisher_exclusion = true;
-  bool payload_transparency = true;
+  bool publisherIdentification = true;
+  bool subscriberBlackWhiteListing = true;
+  bool publisherExclusion = true;
+  bool payloadTransparency = true;
 }
 
 class Broker {
@@ -103,15 +103,15 @@ class Broker {
 }
 
 class BrokerFeatures {
-  bool publisher_identification = false;
-  bool publication_trustlevels = false;
-  bool pattern_based_subscription = false;
-  bool subscription_meta_api = false;
-  bool subscriber_blackwhite_listing = false;
-  bool session_meta_api = false;
-  bool publisher_exclusion = false;
-  bool event_history = false;
-  bool payload_transparency = false;
+  bool publisherIdentification = false;
+  bool publicationTrustLevels = false;
+  bool patternBasedSubscription = false;
+  bool subscriptionMetaApi = false;
+  bool subscriberBlackWhiteListing = false;
+  bool sessionMetaApi = false;
+  bool publisherExclusion = false;
+  bool eventHistory = false;
+  bool payloadTransparency = false;
 }
 
 class Subscriber {
@@ -119,11 +119,11 @@ class Subscriber {
 }
 
 class SubscriberFeatures {
-  bool call_timeout = false;
-  bool call_canceling = false;
-  bool progressive_call_results = false;
-  bool payload_transparency = true;
-  bool subscription_revocation = true;
+  bool callTimeout = false;
+  bool callCanceling = false;
+  bool progressiveCallResults = false;
+  bool payloadTransparency = true;
+  bool subscriptionRevocation = true;
 }
 
 class Dealer {
@@ -132,16 +132,16 @@ class Dealer {
 }
 
 class DealerFeatures {
-  bool caller_identification = false;
-  bool call_trustlevels = false;
-  bool pattern_based_registration = false;
-  bool registration_meta_api = false;
-  bool shared_registration = false;
-  bool session_meta_api = false;
-  bool call_timeout = false;
-  bool call_canceling = false;
-  bool progressive_call_results = false;
-  bool payload_transparency = false;
+  bool callerIdentification = false;
+  bool callTrustLevels = false;
+  bool patternBasedRegistration = false;
+  bool registrationMetaApi = false;
+  bool sharedRegistration = false;
+  bool sessionMetaApi = false;
+  bool callTimeout = false;
+  bool callCanceling = false;
+  bool progressiveCallResults = false;
+  bool payloadTransparency = false;
 }
 
 class Callee {
@@ -149,14 +149,14 @@ class Callee {
 }
 
 class CalleeFeatures {
-  bool caller_identification = true;
-  bool call_trustlevels = false;
-  bool pattern_based_registration = false;
-  bool shared_registration = false;
-  bool call_timeout = false;
-  bool call_canceling = false;
-  bool progressive_call_results = true;
-  bool payload_transparency = true;
+  bool callerIdentification = true;
+  bool callTrustlevels = false;
+  bool patternBasedRegistration = false;
+  bool sharedRegistration = false;
+  bool callTimeout = false;
+  bool callCanceling = false;
+  bool progressiveCallResults = true;
+  bool payloadTransparency = true;
 }
 
 class Caller {
@@ -164,9 +164,9 @@ class Caller {
 }
 
 class CallerFeatures {
-  bool caller_identification = true;
-  bool call_timeout = false;
-  bool call_canceling = false;
-  bool progressive_call_results = true;
-  bool payload_transparency = true;
+  bool callerIdentification = true;
+  bool callTimeout = false;
+  bool callCanceling = false;
+  bool progressiveCallResults = true;
+  bool payloadTransparency = true;
 }

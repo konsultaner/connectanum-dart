@@ -16,12 +16,12 @@ abstract class AbstractTransport {
 
   /// for internal use only
   /// is called to complete the private underlying [onDisconnect] with a void or an error
-  void complete(Completer? _onDisconnect, error) {
-    if (_onDisconnect != null && !_onDisconnect.isCompleted) {
+  void complete(Completer? onDisconnect, error) {
+    if (onDisconnect != null && !onDisconnect.isCompleted) {
       if (error != null) {
-        _onDisconnect.complete();
+        onDisconnect.complete();
       } else {
-        _onDisconnect.complete(error);
+        onDisconnect.complete(error);
       }
     }
   }

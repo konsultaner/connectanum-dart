@@ -10,6 +10,6 @@ class Welcome extends AbstractMessage {
 
   /// the constructor with a server generated [sessionId] and other [details]
   Welcome(this.sessionId, this.details) {
-    id = MessageTypes.CODE_WELCOME;
+    id = MessageTypes.codeWelcome;
   }
 }

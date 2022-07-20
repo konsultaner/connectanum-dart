@@ -10,7 +10,7 @@ class Publish extends AbstractMessageWithPayload {
       {this.options,
       List<dynamic>? arguments,
       Map<String, dynamic>? argumentsKeywords}) {
-    id = MessageTypes.CODE_PUBLISH;
+    id = MessageTypes.codePublish;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;
   }
@@ -21,17 +21,17 @@ class PublishOptions {
 
   // subscriber_blackwhite_listing == true
   List<int>? exclude;
-  List<String>? exclude_authid;
-  List<String>? exclude_authrole;
+  List<String>? excludeAuthId;
+  List<String>? excludeAuthRole;
   List<int>? eligible;
-  List<String>? eligible_authid;
-  List<String>? eligible_authrole;
+  List<String>? eligibleAuthId;
+  List<String>? eligibleAuthRole;
 
   // publisher_exclusion == true
-  bool? exclude_me;
+  bool? excludeMe;
 
   // publisher_identification == true
-  bool? disclose_me;
+  bool? discloseMe;
 
   // event_retention == true
   bool? retain;
@@ -39,12 +39,12 @@ class PublishOptions {
   PublishOptions(
       {this.acknowledge,
       this.exclude,
-      this.exclude_authid,
-      this.exclude_authrole,
+      this.excludeAuthId,
+      this.excludeAuthRole,
       this.eligible,
-      this.eligible_authid,
-      this.eligible_authrole,
-      this.exclude_me,
-      this.disclose_me,
+      this.eligibleAuthId,
+      this.eligibleAuthRole,
+      this.excludeMe,
+      this.discloseMe,
       this.retain});
 }

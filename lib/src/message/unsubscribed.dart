@@ -6,7 +6,7 @@ class Unsubscribed extends AbstractMessage {
   UnsubscribedDetails? details;
 
   Unsubscribed(this.unsubscribeRequestId, this.details) {
-    id = MessageTypes.CODE_UNSUBSCRIBED;
+    id = MessageTypes.codeUnsubscribed;
   }
 }
 

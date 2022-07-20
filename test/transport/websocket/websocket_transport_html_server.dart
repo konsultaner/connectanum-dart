@@ -17,14 +17,14 @@ void hybridMain(StreamChannel channel) async {
     if (req.uri.path == '/wamp') {
       var socket = await WebSocketTransformer.upgrade(req);
       print(
-          'Received protocol ' + req.headers.value('sec-websocket-protocol')!);
+          'Received protocol ${req.headers.value('sec-websocket-protocol')!}');
       socket.listen((message) {
         if (message is String &&
-            message.contains('[' + MessageTypes.CODE_HELLO.toString())) {
-          socket.add('[' + MessageTypes.CODE_WELCOME.toString() + ',1234,{}]');
+            message.contains('[${MessageTypes.codeHello}')) {
+          socket.add('[${MessageTypes.codeWelcome},1234,{}]');
         } else {
           // received msgpack
-          if (message.contains(MessageTypes.CODE_HELLO)) {
+          if (message.contains(MessageTypes.codeHello)) {
             socket.add(Uint8List.fromList(
                 [221, 0, 0, 0, 3, 2, 205, 4, 210, 223, 0, 0, 0, 0]));
           }
@@ -32,5 +32,4 @@ void hybridMain(StreamChannel channel) async {
       });
     }
   });
-  channel.sink.add(server.port);
 }

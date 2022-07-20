@@ -8,7 +8,7 @@ class Interrupt extends AbstractMessage {
   InterruptOptions? options;
 
   Interrupt(this.requestId, {this.options}) {
-    id = MessageTypes.CODE_INTERRUPT;
+    id = MessageTypes.codeInterrupt;
   }
 }
 
