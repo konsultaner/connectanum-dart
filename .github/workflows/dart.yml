@@ -39,8 +39,8 @@ jobs:
       # package:test for this step to succeed. Note that Flutter projects will
       # want to change this to 'flutter test'.
       - name: Run tests
-        run:  pub run test -p vm --coverage="./coverage"
-      - name: Activate coverage 
+        run:  dart run test -p vm --coverage="./coverage"
+      - name: Activate coverage
         run: pub global activate coverage
       - name: Format coverage
         run: format_coverage -l -i ./ -o lcov.info --packages=.packages --report-on=lib
