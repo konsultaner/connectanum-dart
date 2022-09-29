@@ -50,7 +50,8 @@ class SocketTransport extends AbstractTransport {
       allowInsecureCertificates = false,
       messageLengthExponent = SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT})
       : assert(_serializerType == SocketHelper.SERIALIZATION_JSON ||
-            _serializerType == SocketHelper.SERIALIZATION_MSGPACK) {
+            _serializerType == SocketHelper.SERIALIZATION_MSGPACK ||
+            _serializerType == SocketHelper.SERIALIZATION_CBOR) {
     _ssl = ssl;
     _allowInsecureCertificates = allowInsecureCertificates;
     _messageLengthExponent = messageLengthExponent;

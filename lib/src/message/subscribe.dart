@@ -28,6 +28,7 @@ class SubscribeOptions {
 
   static final String CUSTOM_SERIALIZER_JSON = 'json';
   static final String CUSTOM_SERIALIZER_MSGPACK = 'msgpack';
+  static final String CUSTOM_SERIALIZER_CBOR = 'cbor';
 
   String? match;
   String? meta_topic;

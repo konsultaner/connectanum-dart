@@ -73,7 +73,7 @@ class Serializer extends AbstractSerializer {
           details.roles = Roles();
           if (message[2]['roles']['dealer'] != null) {
             details.roles!.dealer = Dealer();
-            if (message[2]['roles']['broker']['features'] != null) {
+            if (message[2]['roles']['dealer']['features'] != null) {
               details.roles!.dealer!.features = DealerFeatures();
               details.roles!.dealer!.features!.caller_identification =
                   message[2]['roles']['dealer']['features']
@@ -392,7 +392,7 @@ class Serializer extends AbstractSerializer {
         calleeFeatures.addEntries([
           MapEntry('caller_identification',
               details.roles!.callee!.features!.caller_identification),
-          MapEntry('call_trustlevel',
+          MapEntry('call_trustlevels',
               details.roles!.callee!.features!.call_trustlevels),
           MapEntry('pattern_based_registration',
               details.roles!.callee!.features!.pattern_based_registration),

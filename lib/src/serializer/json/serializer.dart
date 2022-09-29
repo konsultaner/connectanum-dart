@@ -79,7 +79,7 @@ class Serializer extends AbstractSerializer {
           details.roles = Roles();
           if (message[2]['roles']['dealer'] != null) {
             details.roles!.dealer = Dealer();
-            if (message[2]['roles']['broker']['features'] != null) {
+            if (message[2]['roles']['dealer']['features'] != null) {
               details.roles!.dealer!.features = DealerFeatures();
               details.roles!.dealer!.features!.caller_identification =
                   message[2]['roles']['dealer']['features']
