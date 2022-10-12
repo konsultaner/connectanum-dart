@@ -84,11 +84,14 @@ class Client {
   void _connect(ClientConnectOptions options) async {
     await transport.open(pingInterval: options.pingInterval);
     if (transport.isOpen && transport.onConnectionLost != null) {
-      unawaited(transport.onConnectionLost!.future.then((_) async {
-        await Future.delayed(options.reconnectTime!);
-        options.reconnectCount = _reconnectCount;
-        _reconnectStreamController.add(options);
-        _connect(options);
+      unawaited(transport.onConnectionLost!.future.then((error) async {
+        // If no error's been reported, then don't reconnect
+        if (error != null) {
+          await Future.delayed(options.reconnectTime!);
+          options.reconnectCount = _reconnectCount;
+          _reconnectStreamController.add(options);
+          _connect(options);
+        }
       }));
       try {
         var session = await Session.start(realm, transport,
@@ -113,7 +116,7 @@ class Client {
           _connect(options);
         } else {
           _controller.addError(abort);
-          transport.onConnectionLost!.completeError('Closing');
+          // transport.onConnectionLost!.completeError('Closing');
         }
       } on Goodbye catch (goodbye) {
         _logger.shout(goodbye.reason);
