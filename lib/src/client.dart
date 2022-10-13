@@ -84,12 +84,6 @@ class Client {
   void _connect(ClientConnectOptions options) async {
     await transport.open(pingInterval: options.pingInterval);
     if (transport.isOpen && transport.onConnectionLost != null) {
-      unawaited(transport.onConnectionLost!.future.then((_) async {
-        await Future.delayed(options.reconnectTime!);
-        options.reconnectCount = _reconnectCount;
-        _reconnectStreamController.add(options);
-        _connect(options);
-      }));
       try {
         var session = await Session.start(realm, transport,
             authId: authId,
@@ -97,6 +91,17 @@ class Client {
             authMethods: authenticationMethods,
             reconnect: options.reconnectTime);
         _controller.add(session);
+
+        unawaited(transport.onConnectionLost!.future.then((_) async {
+            // Trying to reconnect only if we were connected and there is
+            // initiated session
+            if (session.id != null) {
+                await Future.delayed(options.reconnectTime!);
+                options.reconnectCount = _reconnectCount;
+                _reconnectStreamController.add(options);
+                _connect(options);
+            }
+        }));
       } on Abort catch (abort) {
         if (![
               Error.NOT_AUTHORIZED,
@@ -113,7 +118,6 @@ class Client {
           _connect(options);
         } else {
           _controller.addError(abort);
-          transport.onConnectionLost!.completeError('Closing');
         }
       } on Goodbye catch (goodbye) {
         _logger.shout(goodbye.reason);
