@@ -29,5 +29,18 @@ class EventDetails {
   // for pattern-matching
   String? topic;
 
-  EventDetails({this.publisher, this.trustlevel, this.topic});
+  // Payload Passthru mode options
+  String? ppt_scheme;
+  String? ppt_serializer;
+  String? ppt_cipher;
+  String? ppt_keyid;
+
+  EventDetails(
+      {this.publisher,
+      this.trustlevel,
+      this.topic,
+      this.ppt_scheme,
+      this.ppt_serializer,
+      this.ppt_cipher,
+      this.ppt_keyid});
 }

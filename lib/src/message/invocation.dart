@@ -67,5 +67,18 @@ class InvocationDetails {
   // pattern_based_registration == true
   bool? receive_progress;
 
-  InvocationDetails(this.caller, this.procedure, this.receive_progress);
+  // Payload Passthru mode options
+  String? ppt_scheme;
+  String? ppt_serializer;
+  String? ppt_cipher;
+  String? ppt_keyid;
+
+  InvocationDetails(
+      this.caller,
+      this.procedure,
+      this.receive_progress,
+      [this.ppt_scheme,
+      this.ppt_serializer,
+      this.ppt_cipher,
+      this.ppt_keyid]);
 }
