@@ -35,11 +35,11 @@ void main() {
       expect(
           serializer.serializeToString(Hello('my.realm', Details.forHello())),
           equals(
-              '[1,"my.realm",{"roles":{"caller":{"features":{"call_canceling":false,"call_timeout":false,"caller_identification":true,"payload_transparency":true,"progressive_call_results":true}},"callee":{"features":{"caller_identification":true,"call_trustlevels":false,"pattern_based_registration":false,"shared_registration":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":true,"payload_transparency":true}},"subscriber":{"features":{"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_transparency":true,"subscription_revocation":true}},"publisher":{"features":{"publisher_identification":true,"subscriber_blackwhite_listing":true,"publisher_exclusion":true,"payload_transparency":true}}}}]'));
+              '[1,"my.realm",{"roles":{"caller":{"features":{"call_canceling":false,"call_timeout":false,"caller_identification":true,"payload_passthru_mode":true,"progressive_call_results":true}},"callee":{"features":{"caller_identification":true,"call_trustlevels":false,"pattern_based_registration":false,"shared_registration":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":true,"payload_passthru_mode":true}},"subscriber":{"features":{"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_passthru_mode":true,"subscription_revocation":true}},"publisher":{"features":{"publisher_identification":true,"subscriber_blackwhite_listing":true,"publisher_exclusion":true,"payload_passthru_mode":true}}}}]'));
       expect(
           serializer.serializeToString(Hello(null, Details.forHello())),
           equals(
-              '[1,null,{"roles":{"caller":{"features":{"call_canceling":false,"call_timeout":false,"caller_identification":true,"payload_transparency":true,"progressive_call_results":true}},"callee":{"features":{"caller_identification":true,"call_trustlevels":false,"pattern_based_registration":false,"shared_registration":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":true,"payload_transparency":true}},"subscriber":{"features":{"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_transparency":true,"subscription_revocation":true}},"publisher":{"features":{"publisher_identification":true,"subscriber_blackwhite_listing":true,"publisher_exclusion":true,"payload_transparency":true}}}}]'));
+              '[1,null,{"roles":{"caller":{"features":{"call_canceling":false,"call_timeout":false,"caller_identification":true,"payload_passthru_mode":true,"progressive_call_results":true}},"callee":{"features":{"caller_identification":true,"call_trustlevels":false,"pattern_based_registration":false,"shared_registration":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":true,"payload_passthru_mode":true}},"subscriber":{"features":{"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_passthru_mode":true,"subscription_revocation":true}},"publisher":{"features":{"publisher_identification":true,"subscriber_blackwhite_listing":true,"publisher_exclusion":true,"payload_passthru_mode":true}}}}]'));
     });
     test('Hello with auth information', () {
       var authHello = Hello('my.realm', Details.forHello());
@@ -52,7 +52,7 @@ void main() {
       expect(
           message,
           startsWith(
-              '[1,"my.realm",{"roles":{"caller":{"features":{"call_canceling":false,"call_timeout":false,"caller_identification":true,"payload_transparency":true,"progressive_call_results":true}},"callee":{"features":{"caller_identification":true,"call_trustlevels":false,"pattern_based_registration":false,"shared_registration":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":true,"payload_transparency":true}},"subscriber":{"features":{"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_transparency":true,"subscription_revocation":true}},"publisher":{"features":{"publisher_identification":true,"subscriber_blackwhite_listing":true,"publisher_exclusion":true,"payload_transparency":true}}},"authid":"Richard","authmethods":["WAMP-CRA"],"authextra":'));
+              '[1,"my.realm",{"roles":{"caller":{"features":{"call_canceling":false,"call_timeout":false,"caller_identification":true,"payload_passthru_mode":true,"progressive_call_results":true}},"callee":{"features":{"caller_identification":true,"call_trustlevels":false,"pattern_based_registration":false,"shared_registration":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":true,"payload_passthru_mode":true}},"subscriber":{"features":{"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_passthru_mode":true,"subscription_revocation":true}},"publisher":{"features":{"publisher_identification":true,"subscriber_blackwhite_listing":true,"publisher_exclusion":true,"payload_passthru_mode":true}}},"authid":"Richard","authmethods":["WAMP-CRA"],"authextra":'));
       expect(message, contains('"channel_binding":null'));
       expect(message, contains('"nonce":"egVDf3DMJh0="'));
     });
@@ -361,7 +361,7 @@ void main() {
     });
     test('Welcome', () {
       var welcome = serializer.deserializeFromString(
-              '[${MessageTypes.CODE_WELCOME},112233,{"authid":"Richi","authrole":"admin","authmethod":"wampcra","authprovider":"database","roles":{"broker":{"features":{"publisher_identification":false,"pattern_based_subscription":false,"subscription_meta_api":false,"subscriber_blackwhite_listing":false,"session_meta_api":false,"publisher_exclusion":false,"event_history":false,"payload_transparency":false}},"dealer":{"features":{"caller_identification":false,"call_trustlevels":false,"pattern_based_registration":false,"registration_meta_api":false,"shared_registration":false,"session_meta_api":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_transparency":false}}}}]')
+              '[${MessageTypes.CODE_WELCOME},112233,{"authid":"Richi","authrole":"admin","authmethod":"wampcra","authprovider":"database","roles":{"broker":{"features":{"publisher_identification":false,"pattern_based_subscription":false,"subscription_meta_api":false,"subscriber_blackwhite_listing":false,"session_meta_api":false,"publisher_exclusion":false,"event_history":false,"payload_passthru_mode":false}},"dealer":{"features":{"caller_identification":false,"call_trustlevels":false,"pattern_based_registration":false,"registration_meta_api":false,"shared_registration":false,"session_meta_api":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_passthru_mode":false}}}}]')
           as Welcome;
       expect(welcome, isNotNull);
       expect(welcome.id, equals(MessageTypes.CODE_WELCOME));
@@ -373,7 +373,7 @@ void main() {
       expect(welcome.details.roles, isNotNull);
       expect(welcome.details.roles!.broker, isNotNull);
       expect(welcome.details.roles!.broker!.features, isNotNull);
-      expect(welcome.details.roles!.broker!.features!.payload_transparency,
+      expect(welcome.details.roles!.broker!.features!.payload_passthru_mode,
           isFalse);
       expect(welcome.details.roles!.broker!.features!.event_history, isFalse);
       expect(
@@ -395,7 +395,7 @@ void main() {
           isFalse);
       expect(welcome.details.roles!.dealer, isNotNull);
       expect(welcome.details.roles!.dealer!.features, isNotNull);
-      expect(welcome.details.roles!.dealer!.features!.payload_transparency,
+      expect(welcome.details.roles!.dealer!.features!.payload_passthru_mode,
           isFalse);
       expect(
           welcome.details.roles!.dealer!.features!.session_meta_api, isFalse);
@@ -416,7 +416,7 @@ void main() {
           isFalse);
 
       welcome = serializer.deserializeFromString(
-              '[${MessageTypes.CODE_WELCOME},112233,{"authid":"Richi","authrole":"admin","authmethod":"wampcra","authprovider":"database","roles":{"broker":{"features":{"publisher_identification":true,"pattern_based_subscription":true,"subscription_meta_api":true,"subscriber_blackwhite_listing":true,"session_meta_api":true,"publisher_exclusion":true,"event_history":true,"payload_transparency":true}},"dealer":{"features":{"caller_identification":true,"call_trustlevels":true,"pattern_based_registration":true,"registration_meta_api":true,"shared_registration":true,"session_meta_api":true,"call_timeout":true,"call_canceling":true,"progressive_call_results":true,"payload_transparency":true}}}}]')
+              '[${MessageTypes.CODE_WELCOME},112233,{"authid":"Richi","authrole":"admin","authmethod":"wampcra","authprovider":"database","roles":{"broker":{"features":{"publisher_identification":true,"pattern_based_subscription":true,"subscription_meta_api":true,"subscriber_blackwhite_listing":true,"session_meta_api":true,"publisher_exclusion":true,"event_history":true,"payload_passthru_mode":true}},"dealer":{"features":{"caller_identification":true,"call_trustlevels":true,"pattern_based_registration":true,"registration_meta_api":true,"shared_registration":true,"session_meta_api":true,"call_timeout":true,"call_canceling":true,"progressive_call_results":true,"payload_passthru_mode":true}}}}]')
           as Welcome;
       expect(welcome, isNotNull);
       expect(welcome.id, equals(MessageTypes.CODE_WELCOME));
@@ -428,7 +428,7 @@ void main() {
       expect(welcome.details.roles, isNotNull);
       expect(welcome.details.roles!.broker, isNotNull);
       expect(welcome.details.roles!.broker!.features, isNotNull);
-      expect(welcome.details.roles!.broker!.features!.payload_transparency,
+      expect(welcome.details.roles!.broker!.features!.payload_passthru_mode,
           isTrue);
       expect(welcome.details.roles!.broker!.features!.event_history, isTrue);
       expect(
@@ -449,7 +449,7 @@ void main() {
           isTrue);
       expect(welcome.details.roles!.dealer, isNotNull);
       expect(welcome.details.roles!.dealer!.features, isNotNull);
-      expect(welcome.details.roles!.dealer!.features!.payload_transparency,
+      expect(welcome.details.roles!.dealer!.features!.payload_passthru_mode,
           isTrue);
       expect(welcome.details.roles!.dealer!.features!.session_meta_api, isTrue);
       expect(welcome.details.roles!.dealer!.features!.progressive_call_results,

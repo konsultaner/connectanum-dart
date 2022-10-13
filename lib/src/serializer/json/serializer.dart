@@ -113,8 +113,8 @@ class Serializer extends AbstractSerializer {
                   message[2]['roles']['dealer']['features']
                           ['progressive_call_results'] ??
                       false;
-              details.roles!.dealer!.features!.payload_transparency = message[2]
-                      ['roles']['dealer']['features']['payload_transparency'] ??
+              details.roles!.dealer!.features!.payload_passthru_mode = message[2]
+                      ['roles']['dealer']['features']['payload_passthru_mode'] ??
                   false;
             }
           }
@@ -151,8 +151,8 @@ class Serializer extends AbstractSerializer {
               details.roles!.broker!.features!.event_history = message[2]
                       ['roles']['broker']['features']['event_history'] ??
                   false;
-              details.roles!.broker!.features!.payload_transparency = message[2]
-                      ['roles']['broker']['features']['payload_transparency'] ??
+              details.roles!.broker!.features!.payload_passthru_mode = message[2]
+                      ['roles']['broker']['features']['payload_passthru_mode'] ??
                   false;
             }
           }
@@ -360,7 +360,7 @@ class Serializer extends AbstractSerializer {
         callerFeatures.add(
             '"caller_identification":${details.roles!.caller!.features!.caller_identification ? "true" : "false"}');
         callerFeatures.add(
-            '"payload_transparency":${details.roles!.caller!.features!.payload_transparency ? "true" : "false"}');
+            '"payload_passthru_mode":${details.roles!.caller!.features!.payload_passthru_mode ? "true" : "false"}');
         callerFeatures.add(
             '"progressive_call_results":${details.roles!.caller!.features!.progressive_call_results ? "true" : "false"}');
         rolesJson.add('"caller":{"features":{${callerFeatures.join(",")}}}');
@@ -382,7 +382,7 @@ class Serializer extends AbstractSerializer {
         calleeFeatures.add(
             '"progressive_call_results":${details.roles!.callee!.features!.progressive_call_results ? "true" : "false"}');
         calleeFeatures.add(
-            '"payload_transparency":${details.roles!.callee!.features!.payload_transparency ? "true" : "false"}');
+            '"payload_passthru_mode":${details.roles!.callee!.features!.payload_passthru_mode ? "true" : "false"}');
         rolesJson.add('"callee":{"features":{${calleeFeatures.join(",")}}}');
       }
       if (details.roles?.subscriber?.features != null) {
@@ -394,7 +394,7 @@ class Serializer extends AbstractSerializer {
         subscriberFeatures.add(
             '"progressive_call_results":${details.roles!.subscriber!.features!.progressive_call_results ? "true" : "false"}');
         subscriberFeatures.add(
-            '"payload_transparency":${details.roles!.subscriber!.features!.payload_transparency ? "true" : "false"}');
+            '"payload_passthru_mode":${details.roles!.subscriber!.features!.payload_passthru_mode ? "true" : "false"}');
         subscriberFeatures.add(
             '"subscription_revocation":${details.roles!.subscriber!.features!.subscription_revocation ? "true" : "false"}');
         rolesJson
@@ -409,7 +409,7 @@ class Serializer extends AbstractSerializer {
         publisherFeatures.add(
             '"publisher_exclusion":${details.roles!.publisher!.features!.publisher_exclusion ? "true" : "false"}');
         publisherFeatures.add(
-            '"payload_transparency":${details.roles!.publisher!.features!.payload_transparency ? "true" : "false"}');
+            '"payload_passthru_mode":${details.roles!.publisher!.features!.payload_passthru_mode ? "true" : "false"}');
         rolesJson
             .add('"publisher":{"features":{${publisherFeatures.join(",")}}}');
       }

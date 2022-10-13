@@ -106,8 +106,8 @@ class Serializer extends AbstractSerializer {
                   message[2]['roles']['dealer']['features']
                           ['progressive_call_results'] ??
                       false;
-              details.roles!.dealer!.features!.payload_transparency = message[2]
-                      ['roles']['dealer']['features']['payload_transparency'] ??
+              details.roles!.dealer!.features!.payload_passthru_mode = message[2]
+                      ['roles']['dealer']['features']['payload_passthru_mode'] ??
                   false;
             }
           }
@@ -144,8 +144,8 @@ class Serializer extends AbstractSerializer {
               details.roles!.broker!.features!.event_history = message[2]
                       ['roles']['broker']['features']['event_history'] ??
                   false;
-              details.roles!.broker!.features!.payload_transparency = message[2]
-                      ['roles']['broker']['features']['payload_transparency'] ??
+              details.roles!.broker!.features!.payload_passthru_mode = message[2]
+                      ['roles']['broker']['features']['payload_passthru_mode'] ??
                   false;
             }
           }
@@ -377,8 +377,8 @@ class Serializer extends AbstractSerializer {
               'call_timeout', details.roles!.caller!.features!.call_timeout),
           MapEntry('caller_identification',
               details.roles!.caller!.features!.caller_identification),
-          MapEntry('payload_transparency',
-              details.roles!.caller!.features!.payload_transparency),
+          MapEntry('payload_passthru_mode',
+              details.roles!.caller!.features!.payload_passthru_mode),
           MapEntry('progressive_call_results',
               details.roles!.caller!.features!.progressive_call_results)
         ]);
@@ -404,8 +404,8 @@ class Serializer extends AbstractSerializer {
               'call_timeout', details.roles!.callee!.features!.call_timeout),
           MapEntry('caller_identification',
               details.roles!.callee!.features!.caller_identification),
-          MapEntry('payload_transparency',
-              details.roles!.callee!.features!.payload_transparency),
+          MapEntry('payload_passthru_mode',
+              details.roles!.callee!.features!.payload_passthru_mode),
           MapEntry('progressive_call_results',
               details.roles!.callee!.features!.progressive_call_results)
         ]);
@@ -421,8 +421,8 @@ class Serializer extends AbstractSerializer {
               details.roles!.subscriber!.features!.call_canceling),
           MapEntry('call_timeout',
               details.roles!.subscriber!.features!.call_timeout),
-          MapEntry('payload_transparency',
-              details.roles!.subscriber!.features!.payload_transparency),
+          MapEntry('payload_passthru_mode',
+              details.roles!.subscriber!.features!.payload_passthru_mode),
           MapEntry('progressive_call_results',
               details.roles!.subscriber!.features!.progressive_call_results),
           MapEntry('subscription_revocation',
@@ -444,8 +444,8 @@ class Serializer extends AbstractSerializer {
                   .roles!.publisher!.features!.subscriber_blackwhite_listing),
           MapEntry('publisher_exclusion',
               details.roles!.publisher!.features!.publisher_exclusion),
-          MapEntry('payload_transparency',
-              details.roles!.publisher!.features!.payload_transparency)
+          MapEntry('payload_passthru_mode',
+              details.roles!.publisher!.features!.payload_passthru_mode)
         ]);
         roles.addEntries([
           MapEntry('publisher', {'features': publisherFeatures})

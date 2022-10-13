@@ -36,6 +36,12 @@ class PublishOptions {
   // event_retention == true
   bool? retain;
 
+  // Payload Passthru mode options
+  String? ppt_scheme;
+  String? ppt_serializer;
+  String? ppt_cipher;
+  String? ppt_keyid;
+
   PublishOptions(
       {this.acknowledge,
       this.exclude,
@@ -46,5 +52,9 @@ class PublishOptions {
       this.eligible_authrole,
       this.exclude_me,
       this.disclose_me,
-      this.retain});
+      this.retain,
+      this.ppt_scheme,
+      this.ppt_serializer,
+      this.ppt_cipher,
+      this.ppt_keyid});
 }

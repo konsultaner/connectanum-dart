@@ -64,6 +64,7 @@ eventually fail.
 - ⬜ Call Trust Levels
 - ☑ Shared Registration
 - ⬜ Sharded Registration
+- ☑ Payload PassThru Mode
 
 ### Advanced PUB/SUB features
 
@@ -75,7 +76,7 @@ eventually fail.
 - ⬜ Sharded Subscriptions
 - ☑ Subscription Revocation
 - ☑ Event Retention
-- ☑ Payload Transparency
+- ☑ Payload PassThru Mode
 
 ### Transport
 

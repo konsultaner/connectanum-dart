@@ -31,5 +31,18 @@ class CallOptions {
   // caller_identification == true
   bool? disclose_me;
 
-  CallOptions({this.receive_progress, this.timeout, this.disclose_me});
+  // Payload Passthru mode options
+  String? ppt_scheme;
+  String? ppt_serializer;
+  String? ppt_cipher;
+  String? ppt_keyid;
+
+  CallOptions(
+      {this.receive_progress,
+      this.timeout,
+      this.disclose_me,
+      this.ppt_scheme,
+      this.ppt_serializer,
+      this.ppt_cipher,
+      this.ppt_keyid});
 }
