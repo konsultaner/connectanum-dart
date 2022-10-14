@@ -271,13 +271,13 @@ void main() {
           equals(Uint8List.fromList(
               [147, MessageTypes.CODE_YIELD, 206, 0, 93, 143, 77, 128, 160])));
       expect(
-          serializer.serialize(Yield(6131533, options: YieldOptions(false))),
+          serializer.serialize(Yield(6131533, options: YieldOptions(progress: false))),
           equals(Uint8List.fromList([
             147, MessageTypes.CODE_YIELD, 206, 0, 93, 143, 77, 129, 168, 112, //
             114, 111, 103, 114, 101, 115, 115, 194, 160
           ])));
       expect(
-          serializer.serialize(Yield(6131533, options: YieldOptions(true))),
+          serializer.serialize(Yield(6131533, options: YieldOptions(progress: true))),
           equals(Uint8List.fromList([
             147, MessageTypes.CODE_YIELD, 206, 0, 93, 143, 77, 129, 168, 112, //
             114, 111, 103, 114, 101, 115, 115, 195, 160

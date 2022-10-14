@@ -658,7 +658,7 @@ void main() {
       expect(serializer.serialize(Yield(6131533)),
           equals(Uint8List.fromList([131, 24, 70, 26, 0, 93, 143, 77, 160])));
       expect(
-          serializer.serialize(Yield(6131533, options: YieldOptions(false))),
+          serializer.serialize(Yield(6131533, options: YieldOptions(progress: false))),
           equals(Uint8List.fromList([
             131,
             24,
@@ -681,7 +681,7 @@ void main() {
             244
           ])));
       expect(
-          serializer.serialize(Yield(6131533, options: YieldOptions(true))),
+          serializer.serialize(Yield(6131533, options: YieldOptions(progress: true))),
           equals(Uint8List.fromList([
             131,
             24,

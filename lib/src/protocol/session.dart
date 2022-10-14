@@ -88,9 +88,9 @@ class Session {
 
   Session(this.realm, this._transport)
 
-      /// The realm object my be null bust must mach the uri pattern if it was
-      /// passed The connection should have been established before initializing the
-      /// session.
+      /// The realm object my be null but must mach the uri pattern if it was
+      /// passed The connection should have been established before initializing
+      /// the session.
       : assert(realm == null || UriPattern.match(realm), _transport.isOpen);
 
   /// Starting the session will also start the authentication process.

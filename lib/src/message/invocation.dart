@@ -28,7 +28,7 @@ class Invocation extends AbstractMessageWithPayload {
       _responseStreamController.add(error);
     } else {
       final yield = Yield(requestId,
-          options: YieldOptions(progressive),
+          options: YieldOptions(progress: progressive),
           arguments: arguments,
           argumentsKeywords: argumentsKeywords);
       _responseStreamController.add(yield);

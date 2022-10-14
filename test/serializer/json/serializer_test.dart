@@ -131,11 +131,11 @@ void main() {
           equals('[${MessageTypes.CODE_YIELD},6131533,{}]'));
       expect(
           serializer
-              .serializeToString(Yield(6131533, options: YieldOptions(false))),
+              .serializeToString(Yield(6131533, options: YieldOptions(progress: false))),
           equals('[${MessageTypes.CODE_YIELD},6131533,{"progress":false}]'));
       expect(
           serializer
-              .serializeToString(Yield(6131533, options: YieldOptions(true))),
+              .serializeToString(Yield(6131533, options: YieldOptions(progress: true))),
           equals('[${MessageTypes.CODE_YIELD},6131533,{"progress":true}]'));
       expect(serializer.serializeToString(Yield(6131533, arguments: ['hi', 2])),
           equals('[${MessageTypes.CODE_YIELD},6131533,{},["hi",2]]'));
