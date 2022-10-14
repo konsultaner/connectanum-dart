@@ -40,14 +40,14 @@ eventually fail.
         - ☑ MAC validation
         - ☑ password support
     - ☑ Load open ssh files
-        - ⬜ file validation
+        - ☐ file validation
         - ☑ password support
-    - ⬜ Load pkcs1 files
-        - ⬜ file validation
-        - ⬜ password support
-    - ⬜ Load pkcs8 files
-        - ⬜ file validation
-        - ⬜ password support
+    - ☐ Load pkcs1 files
+        - ☐ file validation
+        - ☐ password support
+    - ☐ Load pkcs8 files
+        - ☐ file validation
+        - ☐ password support
     - ☑ Load base64 encoded ed25519 private key
     - ☑ Load hex encoded ed25519 private key
 - ☑ [WAMP-SCRAM](https://wamp-proto.org/_static/gen/wamp_latest.html#wamp-scram)
@@ -58,12 +58,12 @@ eventually fail.
 
 - ☑ Progressive Call Results
 - ☑ Progressive Calls
-- ⬜ Call Timeouts
+- ☐ Call Timeouts
 - ☑ Call Canceling
 - ☑ Caller Identification
-- ⬜ Call Trust Levels
+- ☐ Call Trust Levels
 - ☑ Shared Registration
-- ⬜ Sharded Registration
+- ☐ Sharded Registration
 - ☑ Payload PassThru Mode
 
 ### Advanced PUB/SUB features
@@ -71,9 +71,9 @@ eventually fail.
 - ☑ Subscriber Black- and Whitelisting
 - ☑ Publisher Exclusion
 - ☑ Publisher Identification
-- ⬜ Publication Trust Levels
+- ☐ Publication Trust Levels
 - ☑ Pattern-based Subscriptions
-- ⬜ Sharded Subscriptions
+- ☐ Sharded Subscriptions
 - ☑ Subscription Revocation
 - ☑ Event Retention
 - ☑ Payload PassThru Mode
@@ -83,15 +83,15 @@ eventually fail.
 - ☑ WebSockets
 - ☑ RawSockets
 - ☑ RawSockets with large data support (connectanum router only)
-- ⬜ E2E encryption
+- ☐ E2E encryption
 
 ### Transport Encoding
 
 - ☑ JSON
 - ☑ msgpack
 - ☑ CBOR
-- ⬜ UBJSON
-- ⬜ FlatBuffer
+- ☐ UBJSON
+- ☐ FlatBuffer
 
 ## Stream model
 
