@@ -31,7 +31,15 @@ void main() {
           socket.listen((message) {
             if (message is String &&
                 message.contains('[${MessageTypes.CODE_HELLO}')) {
-              socket.add('[${MessageTypes.CODE_WELCOME},1234,{}]');
+
+              if (message.contains('headers.realm') &&
+                  req.headers['X_Custom_Header'] != null &&
+                  req.headers.value('X_Custom_Header') == 'custom_value'
+              ) {
+                  socket.add('[${MessageTypes.CODE_WELCOME},5555,{}]');
+              } else {
+                socket.add('[${MessageTypes.CODE_WELCOME},1234,{}]');
+              }
             } else {
               // received msgpack
               if (message.contains(MessageTypes.CODE_HELLO)) {
@@ -53,6 +61,12 @@ void main() {
           msgpackSerializer.Serializer(),
           WebSocketSerialization.SERIALIZATION_MSGPACK);
 
+      var transportWithHeaders = WebSocketTransport(
+          'ws://localhost:9100/wamp',
+          jsonSerializer.Serializer(),
+          WebSocketSerialization.SERIALIZATION_JSON,
+          { 'X_Custom_Header': 'custom_value' });
+
       await transportJSON.open();
       transportJSON.send(Hello('my.realm', Details.forHello()));
       Welcome? welcome = (await transportJSON.receive().first) as Welcome;
@@ -62,6 +76,12 @@ void main() {
       transportMsgpack.send(Hello('my.realm', Details.forHello()));
       welcome = (await transportMsgpack.receive().first) as Welcome;
       expect(welcome.sessionId, equals(1234));
-    });
+
+      await transportWithHeaders.open();
+      transportWithHeaders.send(Hello('headers.realm', Details.forHello()));
+      welcome = (await transportWithHeaders.receive().first) as Welcome;
+      expect(welcome.sessionId, equals(5555));
+
+        });
   });
 }

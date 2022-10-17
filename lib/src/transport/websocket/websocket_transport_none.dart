@@ -5,7 +5,7 @@ import '../../message/abstract_message.dart';
 
 /// This is a mock class to provide a unified interface for js and native usage of this package
 class WebSocketTransport extends AbstractTransport {
-  WebSocketTransport(url, serializer, serializerType);
+  WebSocketTransport(url, serializer, serializerType, [additionalHeaders]);
 
   /// on connection lost will only complete if the other end closes unexpectedly
   @override
