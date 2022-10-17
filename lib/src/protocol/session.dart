@@ -32,6 +32,9 @@ import '../message/unsubscribe.dart';
 import '../message/error.dart';
 import '../transport/abstract_transport.dart';
 import '../authentication/abstract_authentication.dart';
+import '../serializer/cbor/serializer.dart' as cbor_serializer;
+import '../serializer/json/serializer.dart' as json_serializer;
+import '../serializer/msgpack/serializer.dart' as msgpack_serializer;
 
 class Session {
   static final Logger _logger = Logger('Session');
