@@ -31,9 +31,10 @@ import '../../../src/message/yield.dart';
 
 import 'dart:convert';
 
+import '../../protocol/ppt_payload.dart';
 import '../abstract_serializer.dart';
 
-/// This is a seralizer for JSON messages. It is used to initialize an [AbstractTransport]
+/// This is a serializer for JSON messages. It is used to initialize an [AbstractTransport]
 /// object.
 class Serializer extends AbstractSerializer {
   static final RegExp _binaryPrefix = RegExp('\x00');
@@ -598,5 +599,30 @@ class Serializer extends AbstractSerializer {
 
   String _convertUint8ListToString(Uint8List binary) {
     return '\x00' + base64.encode(binary);
+  }
+
+  /// Converts a uint8 JSON message into a PPT Payload Object
+  @override
+  PPTPayload? deserializePPT(Uint8List binPayload) {
+      var messageStr = Utf8Decoder().convert(binPayload);
+      Object? decodedObject = json.decode(messageStr);
+
+      if (decodedObject is Map) {
+          return PPTPayload(
+              arguments: decodedObject['args'],
+              argumentsKeywords: decodedObject['kwargs']);
+      }
+
+      _logger.shout('Could not deserialize the message: ' + messageStr);
+      // TODO respond with an error
+      return null;
+  }
+
+  /// Converts a PPT Payload Object into a uint8 array
+  @override
+  Uint8List serializePPT(PPTPayload pptPayload) {
+      _convertMapEntriesUint8ListToBinaryJsonString(pptPayload as Map);
+      var str = '{"args": ${pptPayload.arguments}, "kwargs": ${pptPayload.argumentsKeywords}}';
+      return Utf8Encoder().convert(str);
   }
 }

@@ -31,6 +31,7 @@ import '../../../src/message/welcome.dart';
 import '../../../src/message/yield.dart';
 
 import '../../message/message_types.dart';
+import '../../protocol/ppt_payload.dart';
 import '../abstract_serializer.dart';
 
 /// This is a seralizer for msgpack messages.
@@ -572,6 +573,42 @@ class Serializer extends AbstractSerializer {
       return SerializedPayload(1, msgpack_dart.serialize(message.arguments));
     }
     return SerializedPayload(0, msgpack_dart.serialize(''));
+  }
+
+  /// Converts a uint8 data into a PPT Payload Object
+  @override
+  PPTPayload? deserializePPT(Uint8List binPayload) {
+      List<dynamic>? arguments;
+      Map<String, dynamic>? argumentsKeywords;
+
+      Object? decodedObject = msgpack_dart.deserialize(binPayload);
+
+      if (decodedObject is Map) {
+          if (decodedObject['args'] != null &&
+              decodedObject['args'] is List) {
+              arguments = decodedObject['args'] as List<dynamic>?;
+          }
+
+          if (decodedObject['kwargs'] != null &&
+              decodedObject['kwargs'] is Map) {
+              argumentsKeywords = Map.castFrom<dynamic, dynamic, String, Object>(
+                  decodedObject['kwargs'] as Map<String, dynamic>);
+          }
+
+          return PPTPayload(
+              arguments: arguments,
+              argumentsKeywords: argumentsKeywords);
+      }
+
+      _logger.shout('Could not deserialize the message: ' + binPayload.toString());
+      // TODO respond with an error
+      return null;
+  }
+
+  /// Converts a PPT Payload Object into a uint8 array
+  @override
+  Uint8List serializePPT(PPTPayload pptPayload) {
+      return msgpack_dart.serialize(pptPayload);
   }
 }
 

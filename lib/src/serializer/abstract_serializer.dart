@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../message/abstract_message.dart';
+import '../protocol/ppt_payload.dart';
 
 /// The custom serializer interface
 abstract class AbstractSerializer {
@@ -9,4 +10,10 @@ abstract class AbstractSerializer {
 
   /// Deserialize a given message
   AbstractMessage? deserialize(Uint8List? message);
+
+  /// Serializer Payload for PPT Mode
+  Uint8List serializePPT(PPTPayload pptPayload);
+
+  /// Deserialize and prepare payload from PPT Mode
+  PPTPayload? deserializePPT(Uint8List binPayload);
 }

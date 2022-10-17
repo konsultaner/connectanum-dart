@@ -10,6 +10,8 @@ import 'package:connectanum/src/message/welcome.dart';
 import 'package:connectanum/src/message/yield.dart';
 import 'package:logging/logging.dart';
 
+import '../../protocol/ppt_payload.dart';
+
 /// This is a seralizer for msgpack messages.
 /// It is used to initialize an [AbstractTransport] object.
 class Serializer extends AbstractSerializer {
@@ -825,5 +827,39 @@ class Serializer extends AbstractSerializer {
     }
 
     return jsonOptions;
+  }
+
+  /// Converts a uint8 data into a PPT Payload Object
+  @override
+  PPTPayload? deserializePPT(Uint8List binPayload) {
+      List<dynamic>? arguments;
+      Map<String, dynamic>? argumentsKeywords;
+
+      final decodedMessage = cbor.decode(binPayload);
+      if (decodedMessage is CborMap) {
+          if (decodedMessage[CborString('args')] != null &&
+              decodedMessage[CborString('args')] is CborList) {
+              arguments = (decodedMessage[CborString('args')] as CborList)
+                  .toObject() as List<dynamic>;
+          }
+
+          if (decodedMessage[CborString('kwargs')] != null &&
+              decodedMessage[CborString('kwargs')] is CborMap) {
+              argumentsKeywords = Map.castFrom<dynamic, dynamic, String, dynamic>(
+                  (decodedMessage[CborString('kwargs')] as CborMap).toObject()
+                  as Map<String, dynamic>);
+          }
+
+          return PPTPayload(
+              arguments: arguments,
+              argumentsKeywords: argumentsKeywords);
+      }
+      return null;
+  }
+
+  /// Converts a PPT Payload Object into a uint8 array
+  @override
+  Uint8List serializePPT(PPTPayload pptPayload) {
+      return Uint8List.fromList(cbor.encode(CborValue(pptPayload)));
   }
 }

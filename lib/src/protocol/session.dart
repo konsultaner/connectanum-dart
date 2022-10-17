@@ -32,9 +32,8 @@ import '../message/unsubscribe.dart';
 import '../message/error.dart';
 import '../transport/abstract_transport.dart';
 import '../authentication/abstract_authentication.dart';
-import '../serializer/cbor/serializer.dart' as cbor_serializer;
-import '../serializer/json/serializer.dart' as json_serializer;
-import '../serializer/msgpack/serializer.dart' as msgpack_serializer;
+import 'e2ee_payload.dart';
+import 'ppt_payload.dart';
 
 class Session {
   static final Logger _logger = Logger('Session');
@@ -230,9 +229,19 @@ class Session {
       Map<String, dynamic>? argumentsKeywords,
       CallOptions? options,
       Completer<String>? cancelCompleter}) async* {
+
+    var callArguments = arguments;
+    var callArgumentsKeywords = argumentsKeywords;
+
+    if (options?.ppt_scheme == 'wamp') {    // It's E2EE payload
+        callArguments = E2EEPayload.packE2EEPayload(arguments, argumentsKeywords, options!);
+    } else if (options?.ppt_scheme != null) {   // It's some variation of PPT
+        callArguments = PPTPayload.packPPTPayload(arguments, argumentsKeywords, options!);
+    }
+
     var call = Call(nextCallId++, procedure,
-        arguments: arguments,
-        argumentsKeywords: argumentsKeywords,
+        arguments: callArguments,
+        argumentsKeywords: callArgumentsKeywords,
         options: options);
     _transport.send(call);
     if (cancelCompleter != null) {
