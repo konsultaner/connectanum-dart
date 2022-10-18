@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'abstract_message_with_payload.dart';
+import 'abstract_ppt_options.dart';
 import 'message_types.dart';
 import 'uri_pattern.dart';
 import 'error.dart';
@@ -57,7 +58,7 @@ class Invocation extends AbstractMessageWithPayload {
   }
 }
 
-class InvocationDetails {
+class InvocationDetails extends PPTOptions {
   // caller_identification == true
   int? caller;
 
@@ -67,18 +68,22 @@ class InvocationDetails {
   // pattern_based_registration == true
   bool? receive_progress;
 
-  // Payload Passthru mode options
-  String? ppt_scheme;
-  String? ppt_serializer;
-  String? ppt_cipher;
-  String? ppt_keyid;
-
   InvocationDetails(
       this.caller,
       this.procedure,
       this.receive_progress,
-      [this.ppt_scheme,
-      this.ppt_serializer,
-      this.ppt_cipher,
-      this.ppt_keyid]);
+      [String? ppt_scheme,
+      String? ppt_serializer,
+      String? ppt_cipher,
+      String? ppt_keyid]) {
+      this.ppt_scheme = ppt_scheme;
+      this.ppt_serializer = ppt_serializer;
+      this.ppt_cipher = ppt_cipher;
+      this.ppt_keyid = ppt_keyid;
+  }
+
+  @override
+  bool Verify() {
+      return VerifyPPT();
+  }
 }

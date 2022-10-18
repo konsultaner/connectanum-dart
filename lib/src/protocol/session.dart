@@ -337,16 +337,16 @@ class Session {
       Map<String, dynamic>? argumentsKeywords,
       PublishOptions? options}) {
 
-      var pubArguments = arguments;
-      var pubArgumentsKeywords = argumentsKeywords;
+    var pubArguments = arguments;
+    var pubArgumentsKeywords = argumentsKeywords;
 
-      if (options?.ppt_scheme == 'wamp') {    // It's E2EE payload
-          pubArguments = E2EEPayload.packE2EEPayload(arguments, argumentsKeywords, options!);
-          pubArgumentsKeywords = null;
-      } else if (options?.ppt_scheme != null) {   // It's some variation of PPT
-          pubArguments = PPTPayload.packPPTPayload(arguments, argumentsKeywords, options!);
-          pubArgumentsKeywords = null;
-      }
+    if (options?.ppt_scheme == 'wamp') {    // It's E2EE payload
+      pubArguments = E2EEPayload.packE2EEPayload(arguments, argumentsKeywords, options!);
+      pubArgumentsKeywords = null;
+    } else if (options?.ppt_scheme != null) {   // It's some variation of PPT
+      pubArguments = PPTPayload.packPPTPayload(arguments, argumentsKeywords, options!);
+      pubArgumentsKeywords = null;
+    }
 
     var publish = Publish(nextPublishId++, topic,
         arguments: pubArguments,

@@ -49,7 +49,7 @@ class PPTPayload {
         }
     }
 
-    static PPTPayload? unpackPPTPayload(List<dynamic> arguments,
+    static PPTPayload? unpackPPTPayload(List<dynamic>? arguments,
         PPTOptions details) {
 
         if (details.ppt_serializer != null && details.ppt_serializer != 'native') {
@@ -70,12 +70,12 @@ class PPTPayload {
                     return null;
             }
 
-            return serializer.deserializePPT(arguments[0]);
+            return serializer.deserializePPT(arguments?[0]);
 
         } else {
             return PPTPayload(
-                arguments: arguments[0]['args'],
-                argumentsKeywords: arguments[0]['kwargs']);
+                arguments: arguments?[0]['args'],
+                argumentsKeywords: arguments?[0]['kwargs']);
         }
     }
 

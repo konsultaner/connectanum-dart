@@ -62,5 +62,4 @@ class PublishOptions extends PPTOptions {
   bool Verify() {
       return VerifyPPT();
   }
-
 }
