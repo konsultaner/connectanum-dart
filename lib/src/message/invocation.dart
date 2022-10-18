@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:collection';
 
+import '../protocol/e2ee_payload.dart';
+import '../protocol/ppt_payload.dart';
 import 'abstract_message_with_payload.dart';
 import 'abstract_ppt_options.dart';
 import 'message_types.dart';
@@ -19,22 +21,35 @@ class Invocation extends AbstractMessageWithPayload {
       Map<String, dynamic>? argumentsKeywords,
       bool isError = false,
       String? errorUri,
-      bool progressive = false}) {
+      YieldOptions? options}) {
     if (isError) {
-      assert(progressive == false);
+      if (options != null) {
+        assert(options.progress == false);
+      }
       assert(UriPattern.match(errorUri!));
       final error = Error(
           MessageTypes.CODE_INVOCATION, requestId, HashMap(), errorUri,
           arguments: arguments, argumentsKeywords: argumentsKeywords);
       _responseStreamController.add(error);
     } else {
+        var invokeArguments = arguments;
+        var invokeArgumentsKeywords = argumentsKeywords;
+
+        if (options?.ppt_scheme == 'wamp') {    // It's E2EE payload
+            invokeArguments = E2EEPayload.packE2EEPayload(arguments, argumentsKeywords, options!);
+            invokeArgumentsKeywords = null;
+        } else if (options?.ppt_scheme != null) {   // It's some variation of PPT
+            invokeArguments = PPTPayload.packPPTPayload(arguments, argumentsKeywords, options!);
+            invokeArgumentsKeywords = null;
+        }
+
       final yield = Yield(requestId,
-          options: YieldOptions(progress: progressive),
-          arguments: arguments,
-          argumentsKeywords: argumentsKeywords);
+          options: options,
+          arguments: invokeArguments,
+          argumentsKeywords: invokeArgumentsKeywords);
       _responseStreamController.add(yield);
     }
-    if (!progressive) {
+    if (options != null && !options.progress) {
       _responseStreamController.close();
     }
   }
