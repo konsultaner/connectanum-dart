@@ -235,8 +235,10 @@ class Session {
 
     if (options?.ppt_scheme == 'wamp') {    // It's E2EE payload
         callArguments = E2EEPayload.packE2EEPayload(arguments, argumentsKeywords, options!);
+        callArgumentsKeywords = null;
     } else if (options?.ppt_scheme != null) {   // It's some variation of PPT
         callArguments = PPTPayload.packPPTPayload(arguments, argumentsKeywords, options!);
+        callArgumentsKeywords = null;
     }
 
     var call = Call(nextCallId++, procedure,
@@ -334,9 +336,21 @@ class Session {
       {List<dynamic>? arguments,
       Map<String, dynamic>? argumentsKeywords,
       PublishOptions? options}) {
+
+      var pubArguments = arguments;
+      var pubArgumentsKeywords = argumentsKeywords;
+
+      if (options?.ppt_scheme == 'wamp') {    // It's E2EE payload
+          pubArguments = E2EEPayload.packE2EEPayload(arguments, argumentsKeywords, options!);
+          pubArgumentsKeywords = null;
+      } else if (options?.ppt_scheme != null) {   // It's some variation of PPT
+          pubArguments = PPTPayload.packPPTPayload(arguments, argumentsKeywords, options!);
+          pubArgumentsKeywords = null;
+      }
+
     var publish = Publish(nextPublishId++, topic,
-        arguments: arguments,
-        argumentsKeywords: argumentsKeywords,
+        arguments: pubArguments,
+        argumentsKeywords: pubArgumentsKeywords,
         options: options);
     _transport.send(publish);
     if (options?.acknowledge == null || options?.acknowledge == false) {
