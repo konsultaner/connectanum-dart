@@ -1,4 +1,5 @@
 import 'abstract_message_with_payload.dart';
+import 'abstract_ppt_options.dart';
 import 'message_types.dart';
 
 class Event extends AbstractMessageWithPayload {
@@ -19,7 +20,7 @@ class Event extends AbstractMessageWithPayload {
 }
 
 /// Options used influence the event behavior
-class EventDetails {
+class EventDetails extends PPTOptions {
   // publisher_identification == true
   int? publisher;
 
@@ -29,18 +30,22 @@ class EventDetails {
   // for pattern-matching
   String? topic;
 
-  // Payload Passthru mode options
-  String? ppt_scheme;
-  String? ppt_serializer;
-  String? ppt_cipher;
-  String? ppt_keyid;
-
   EventDetails(
       {this.publisher,
       this.trustlevel,
       this.topic,
-      this.ppt_scheme,
-      this.ppt_serializer,
-      this.ppt_cipher,
-      this.ppt_keyid});
+      String? ppt_scheme,
+      String? ppt_serializer,
+      String? ppt_cipher,
+      String? ppt_keyid}) {
+      this.ppt_scheme = ppt_scheme;
+      this.ppt_serializer = ppt_serializer;
+      this.ppt_cipher = ppt_cipher;
+      this.ppt_keyid = ppt_keyid;
+  }
+
+  @override
+  bool Verify() {
+      return VerifyPPT();
+  }
 }

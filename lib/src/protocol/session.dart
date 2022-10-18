@@ -304,7 +304,25 @@ class Session {
         return message is Event &&
             subscriptions[subscribed.subscriptionId] != null &&
             message.subscriptionId == subscribed.subscriptionId;
-      }).cast();
+      }).map((event) {
+              var eventUpdated = event;
+
+              if (event.details.ppt_scheme == 'wamp') {    // It's E2EE payload
+                  var e2eePayload = E2EEPayload.unpackE2EEPayload(
+                      event.arguments, event.details);
+
+                  event.arguments = e2eePayload?.arguments;
+                  event.argumentsKeywords = e2eePayload?.argumentsKeywords;
+
+              } else if (event.details.ppt_scheme != null) {   // It's some variation of PPT
+                  var pptPayload = PPTPayload.unpackPPTPayload(
+                      event.arguments, event.details);
+
+                  event.arguments = pptPayload?.arguments;
+                  event.argumentsKeywords = pptPayload?.argumentsKeywords;
+              }
+              return eventUpdated;
+          }).cast();
       return subscribed;
     } else {
       throw subscribed;
