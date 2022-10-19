@@ -847,7 +847,7 @@ class Serializer extends AbstractSerializer {
               decodedMessage[CborString('kwargs')] is CborMap) {
               argumentsKeywords = Map.castFrom<dynamic, dynamic, String, dynamic>(
                   (decodedMessage[CborString('kwargs')] as CborMap).toObject()
-                  as Map<String, dynamic>);
+                  as Map<dynamic, dynamic>);
           }
 
           return PPTPayload(
@@ -860,6 +860,10 @@ class Serializer extends AbstractSerializer {
   /// Converts a PPT Payload Object into a uint8 array
   @override
   Uint8List serializePPT(PPTPayload pptPayload) {
-      return Uint8List.fromList(cbor.encode(CborValue(pptPayload)));
+      var pptMap = {
+          'args': pptPayload.arguments,
+          'kwargs': pptPayload.argumentsKeywords
+      };
+      return Uint8List.fromList(cbor.encode(CborValue(pptMap)));
   }
 }
