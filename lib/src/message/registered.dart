@@ -28,15 +28,15 @@ class Registered extends AbstractMessage {
                 var e2eePayload = E2EEPayload.unpackE2EEPayload(
                     invocation.arguments, invocation.details);
 
-                invocationUpdated.arguments = e2eePayload?.arguments;
-                invocationUpdated.argumentsKeywords = e2eePayload?.argumentsKeywords;
+                invocationUpdated.arguments = e2eePayload.arguments;
+                invocationUpdated.argumentsKeywords = e2eePayload.argumentsKeywords;
 
             } else if (invocation.details.ppt_scheme != null) {   // It's some variation of PPT
                 var pptPayload = PPTPayload.unpackPPTPayload(
                     invocation.arguments, invocation.details);
 
-                invocationUpdated.arguments = pptPayload?.arguments;
-                invocationUpdated.argumentsKeywords = pptPayload?.argumentsKeywords;
+                invocationUpdated.arguments = pptPayload.arguments;
+                invocationUpdated.argumentsKeywords = pptPayload.argumentsKeywords;
             }
 
           onInvoke(invocationUpdated);

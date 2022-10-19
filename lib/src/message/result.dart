@@ -1,3 +1,4 @@
+import 'abstract_ppt_options.dart';
 import 'message_types.dart';
 import 'abstract_message_with_payload.dart';
 
@@ -21,9 +22,24 @@ class Result extends AbstractMessageWithPayload {
   }
 }
 
-class ResultDetails {
+class ResultDetails extends PPTOptions {
   // progressive_call_results == true
   bool? progress;
 
-  ResultDetails(this.progress);
+  ResultDetails({bool? progress,
+      String? ppt_scheme,
+      String? ppt_serializer,
+      String? ppt_cipher,
+      String? ppt_keyid}) {
+      this.progress = progress ?? false;
+      this.ppt_scheme = ppt_scheme;
+      this.ppt_serializer = ppt_serializer;
+      this.ppt_cipher = ppt_cipher;
+      this.ppt_keyid = ppt_keyid;
+  }
+
+  @override
+  bool Verify() {
+      return VerifyPPT();
+  }
 }

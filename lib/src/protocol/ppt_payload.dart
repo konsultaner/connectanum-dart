@@ -1,5 +1,3 @@
-import 'package:logging/logging.dart';
-
 import '../message/abstract_ppt_options.dart';
 import '../serializer/abstract_serializer.dart';
 import '../serializer/cbor/serializer.dart' as cbor_serializer;
@@ -13,6 +11,7 @@ class PPTPayload {
 
     PPTPayload({this.arguments, this.argumentsKeywords});
 
+    /// Packs PPT Payload and returns 1-item array for WAMP message arguments
     static List<dynamic> packPPTPayload(List<dynamic>? arguments,
         Map<String, dynamic>? argumentsKeywords,
         PPTOptions options) {
@@ -49,8 +48,12 @@ class PPTPayload {
         }
     }
 
-    static PPTPayload? unpackPPTPayload(List<dynamic>? arguments,
+    static PPTPayload unpackPPTPayload(List<dynamic>? arguments,
         PPTOptions details) {
+
+        if (arguments == null) {
+            return PPTPayload();
+        }
 
         if (details.ppt_serializer != null && details.ppt_serializer != 'native') {
             AbstractSerializer serializer;
@@ -67,15 +70,15 @@ class PPTPayload {
                     break;
                 default:
                     //TODO Throw error/handle invalid serializer
-                    return null;
+                    return PPTPayload();
             }
 
-            return serializer.deserializePPT(arguments?[0]);
+            return serializer.deserializePPT(arguments[0]) ?? PPTPayload();
 
         } else {
             return PPTPayload(
-                arguments: arguments?[0]['args'],
-                argumentsKeywords: arguments?[0]['kwargs']);
+                arguments: arguments[0]['args'],
+                argumentsKeywords: arguments[0]['kwargs']);
         }
     }
 

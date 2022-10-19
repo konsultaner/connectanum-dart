@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:connectanum/authentication.dart';
 import 'package:connectanum/connectanum.dart';
@@ -360,6 +361,7 @@ void main() {
       final client = Client(realm: 'test.realm', transport: transport);
 
       final yieldCompleter = Completer<Yield>();
+      final yieldCompleter2 = Completer<Yield>();
       final progressiveCallYieldCompleter = Completer<Yield>();
       final error1completer = Completer<Error>();
       final error2completer = Completer<Error>();
@@ -369,8 +371,7 @@ void main() {
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.CODE_HELLO) {
           transport.receiveMessage(Welcome(42, Details.forWelcome()));
-        }
-        if (message.id == MessageTypes.CODE_REGISTER) {
+        } else if (message.id == MessageTypes.CODE_REGISTER) {
           if ((message as Register).procedure == 'my.procedure') {
             transport.receiveMessage(Registered(message.requestId, 1010));
           }
@@ -378,61 +379,66 @@ void main() {
             transport.receiveMessage(Error(MessageTypes.CODE_REGISTER,
                 message.requestId, {}, Error.NOT_AUTHORIZED));
           }
-        }
-        if (message.id == MessageTypes.CODE_UNREGISTER) {
+        } else if (message.id == MessageTypes.CODE_UNREGISTER) {
           if ((message as Unregister).registrationId > 0) {
             transport.receiveMessage(Unregistered(message.requestId));
           } else {
             transport.receiveMessage(Error(MessageTypes.CODE_UNREGISTER,
                 message.requestId, {}, Error.NO_SUCH_REGISTRATION));
           }
-        }
-        if (message.id == MessageTypes.CODE_CALL &&
+        } else if (message.id == MessageTypes.CODE_CALL &&
+            (message as Call).options?.ppt_scheme == 'x_custom_scheme') {
+            transport.receiveMessage(Invocation(message.requestId, 1010,
+                InvocationDetails(null, null, false, 'x_custom_scheme', 'cbor'),
+                arguments: [Uint8List.fromList(   // Data below is the same as in cbor serializer deserializePPT test
+                    [162, 100, 97, 114, 103, 115, 131, 24,
+                        100, 99, 116, 119, 111, 245, 102, 107, 119, 97, 114, 103, 115,
+                        163, 100, 107, 101, 121, 49, 24, 100, 100, 107, 101, 121, 50,
+                        99, 116, 119, 111, 100, 107, 101, 121, 51, 245])]));
+        } else if (message.id == MessageTypes.CODE_CALL &&
             (message as Call).argumentsKeywords!['value'] != -3 &&
             (message).argumentsKeywords!['value'] != -4) {
           transport.receiveMessage(Result(
-              message.requestId, ResultDetails(true),
+              message.requestId, ResultDetails(progress: true),
               arguments: message.arguments));
           transport.receiveMessage(Result(
-              message.requestId, ResultDetails(false),
+              message.requestId, ResultDetails(progress: false),
               argumentsKeywords: message.argumentsKeywords));
-        }
-        if (message.id == MessageTypes.CODE_CALL &&
+        } else if (message.id == MessageTypes.CODE_CALL &&
             (message as Call).argumentsKeywords!['value'] == -3) {
           transport.receiveMessage(Error(MessageTypes.CODE_CALL,
               message.requestId, HashMap(), Error.NO_SUCH_REGISTRATION,
               arguments: message.arguments,
               argumentsKeywords: message.argumentsKeywords));
-        }
-        if (message.id == MessageTypes.CODE_CALL &&
+        } else if (message.id == MessageTypes.CODE_CALL &&
             (message as Call).argumentsKeywords!['value'] == -4) {
           // ignored because it will not complete before cancelation happens
-        }
-        if (message.id == MessageTypes.CODE_CANCEL) {
+        } else if (message.id == MessageTypes.CODE_CANCEL) {
           transport.receiveMessage(Error(
               MessageTypes.CODE_CALL,
               (message as Cancel).requestId,
               HashMap(),
               Error.ERROR_INVOCATION_CANCELED,
               arguments: [message.options!.mode]));
-        }
-        if (message.id == MessageTypes.CODE_YIELD &&
+        } else if (message.id == MessageTypes.CODE_YIELD &&
+            (message as Yield).invocationRequestId == 55001100) {
+            yieldCompleter2.complete(message);
+        } else if (message.id == MessageTypes.CODE_YIELD &&
+            (message as Yield).options?.ppt_scheme == 'x_custom_scheme') {
+            transport.receiveMessage(message);
+        } else if (message.id == MessageTypes.CODE_YIELD &&
             (message as Yield).argumentsKeywords!['value'] == 0) {
           yieldCompleter.complete(message);
-        }
-        if (message.id == MessageTypes.CODE_YIELD &&
+        } else if (message.id == MessageTypes.CODE_YIELD &&
             (message as Yield).argumentsKeywords!['progressiveCalls'] != null) {
           progressiveCallYieldCompleter.complete(message);
-        }
-        if (message.id == MessageTypes.CODE_ERROR &&
+        } else if (message.id == MessageTypes.CODE_ERROR &&
             (message as Error).error == Error.UNKNOWN) {
           error1completer.complete(message);
-        }
-        if (message.id == MessageTypes.CODE_ERROR &&
+        } else if (message.id == MessageTypes.CODE_ERROR &&
             (message as Error).error == Error.NOT_AUTHORIZED) {
           error2completer.complete(message);
-        }
-        if (message.id == MessageTypes.CODE_ERROR &&
+        } else if (message.id == MessageTypes.CODE_ERROR &&
             (message as Error).error == Error.NO_SUCH_REGISTRATION) {
           error3completer.complete(message);
         }
@@ -480,6 +486,16 @@ void main() {
         if (invocation.argumentsKeywords!['value'] == -1) {
           throw Exception('Something went wrong');
         }
+        // PPT Payload received
+        if (invocation.details.ppt_scheme != null) {
+            expect(invocation.details.ppt_scheme, equals('x_custom_scheme'));
+            expect(invocation.details.ppt_serializer, equals('cbor'));
+            invocation.respondWith(
+                arguments: invocation.arguments,
+                argumentsKeywords: invocation.argumentsKeywords,
+                options: YieldOptions(ppt_scheme: 'x_custom_scheme', ppt_serializer: 'cbor')
+            );
+        }
         if (invocation.argumentsKeywords!['value'] == -2) {
           invocation.respondWith(
               isError: true,
@@ -489,7 +505,7 @@ void main() {
         }
       });
 
-      // REGULAR RESULT
+      // REGULAR YIELD
 
       final argumentsKeywords = HashMap<String, Object>();
       argumentsKeywords['value'] = 0;
@@ -500,6 +516,35 @@ void main() {
       expect(yieldMessage, isNotNull);
       expect(yieldMessage.argumentsKeywords!['value'], equals(0));
       expect(yieldMessage.arguments![0], equals('did work'));
+
+      // PPT YIELD
+
+      transport.receiveMessage(Invocation(55001100, registered.registrationId,
+          InvocationDetails(null, null, false, 'x_custom_scheme', 'cbor'),
+          arguments: [Uint8List.fromList(   // Data below is the same as in cbor serializer deserializePPT test
+              [162, 100, 97, 114, 103, 115, 131, 24,
+                  100, 99, 116, 119, 111, 245, 102, 107, 119, 97, 114, 103, 115,
+                  163, 100, 107, 101, 121, 49, 24, 100, 100, 107, 101, 121, 50,
+                  99, 116, 119, 111, 100, 107, 101, 121, 51, 245])]));
+      final pptYieldMessage = await yieldCompleter2.future;
+      expect(pptYieldMessage, isNotNull);
+
+      // PPT RESULT
+      final result = session.call('my.procedure',
+          arguments: <dynamic>[100, 'two', true],
+          argumentsKeywords: { 'key1': 100, 'key2': 'two', 'key3': true },
+          options: CallOptions(ppt_scheme: 'x_custom_scheme', ppt_serializer: 'cbor'))
+          .listen((result) => () {
+              expect(result, isNotNull);
+              expect(result.details.ppt_scheme, equals('x_custom_scheme'));
+              expect(result.details.ppt_serializer, equals('cbor'));
+              expect(result.argumentsKeywords!['key1'], equals(100));
+              expect(result.argumentsKeywords!['key2'], equals('two'));
+              expect(result.argumentsKeywords!['key3'], equals(true));
+              expect(result.arguments![0], equals(100));
+              expect(result.arguments![1], equals('two'));
+              expect(result.arguments![2], equals(true));
+            });
 
       // PROGRESSIVE CALL
 
@@ -667,7 +712,7 @@ void main() {
       });
       final session = await client.connect().first;
 
-      // SUBSCRIPTION REVOKATION
+      // SUBSCRIPTION REVOCATION
 
       var subscribed = await session.subscribe('topic.revoke');
       expect(subscribed, isNotNull);
@@ -710,6 +755,14 @@ void main() {
       expect(published, isNull);
 
       published =
+          await session.publish('my.test.topic',
+              arguments: <dynamic>[100, 'two', true],
+              argumentsKeywords: { 'key1': 100, 'key2': 'two', 'key3': true },
+              options: PublishOptions(ppt_scheme: 'x_custom_scheme', ppt_serializer: 'cbor')
+        );
+      expect(published, isNull);
+
+      published =
           await session.publish('my.test.topic', arguments: ['some data']);
       expect(published, isNull);
 
@@ -718,15 +771,16 @@ void main() {
       var eventCompleter = Completer<Event>();
       var eventCompleter2 = Completer<Event>();
       var eventCompleter3 = Completer<Event>();
+      var eventCompleter4 = Completer<Event>();
       subscribed.eventStream!.listen((event) {
         if (event.publicationId == 1122) {
           eventCompleter.complete(event);
-        }
-        if (event.publicationId == 1133) {
+        } else if (event.publicationId == 1133) {
           eventCompleter2.complete(event);
-        }
-        if (event.publicationId == 1144) {
+        } else if (event.publicationId == 1144) {
           eventCompleter3.complete(event);
+        } else if (event.publicationId == 1155) {
+          eventCompleter4.complete(event);
         }
       });
       transport.receiveMessage(
@@ -740,6 +794,13 @@ void main() {
       var event2 = await eventCompleter2.future;
       expect(event2, isNotNull);
       expect(event2.publicationId, equals(1133));
+
+      transport.receiveMessage(
+          Event(subscribed.subscriptionId, 1155,
+              EventDetails(ppt_scheme: 'x_custom_scheme', ppt_serializer: 'cbor')));
+      var event4 = await eventCompleter4.future;
+      expect(event4, isNotNull);
+      expect(event4.publicationId, equals(1155));
 
       // UNSUBSCRIBE ERROR
 

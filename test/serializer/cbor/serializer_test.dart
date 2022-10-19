@@ -3135,7 +3135,7 @@ void main() {
       expect(result.id, equals(MessageTypes.CODE_RESULT));
       expect(result.callRequestId, equals(7814135));
       expect(result.details, isNotNull);
-      expect(result.details.progress, isNull);
+      expect(result.details.progress, false);
       expect(result.arguments, isNull);
       expect(result.argumentsKeywords, isNull);
 
@@ -3145,7 +3145,7 @@ void main() {
       expect(result.id, equals(MessageTypes.CODE_RESULT));
       expect(result.callRequestId, equals(7814135));
       expect(result.details, isNotNull);
-      expect(result.details.progress, isNull);
+      expect(result.details.progress, false);
       expect(result.arguments![0], equals(30));
       expect(result.argumentsKeywords, isNull);
 
@@ -3189,7 +3189,7 @@ void main() {
       expect(result.id, equals(MessageTypes.CODE_RESULT));
       expect(result.callRequestId, equals(6131533));
       expect(result.details, isNotNull);
-      expect(result.details.progress, isNull);
+      expect(result.details.progress, false);
       expect(result.arguments![0], equals('johnny'));
       expect(result.argumentsKeywords!['userid'], equals(123));
       expect(result.argumentsKeywords!['karma'], equals(10));

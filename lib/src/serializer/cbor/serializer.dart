@@ -336,13 +336,18 @@ class Serializer extends AbstractSerializer {
             return _addPayload(
                 Result(
                     (decodedMessage[1] as CborInt).toInt(),
-                    ResultDetails((decodedMessage[2]
-                                as CborMap)[CborString('progress')] ==
-                            null
-                        ? null
-                        : ((decodedMessage[2]
-                                as CborMap)[CborString('progress')] as CborBool)
-                            .value)),
+                    ResultDetails(
+                        progress: (decodedMessage[2] as CborMap)[CborString('progress')] == null
+                            ? null : ((decodedMessage[2] as CborMap)[CborString('progress')] as CborBool).value,
+                        ppt_scheme: (decodedMessage[2] as CborMap)[CborString('ppt_scheme')] == null
+                            ? null : (decodedMessage[2] as CborMap)[CborString('ppt_scheme')] as String,
+                        ppt_serializer: (decodedMessage[2] as CborMap)[CborString('ppt_serializer')] == null
+                            ? null : (decodedMessage[2] as CborMap)[CborString('ppt_serializer')] as String,
+                        ppt_cipher: (decodedMessage[2] as CborMap)[CborString('ppt_cipher')] == null
+                            ? null : (decodedMessage[2] as CborMap)[CborString('ppt_cipher')] as String,
+                        ppt_keyid: (decodedMessage[2] as CborMap)[CborString('ppt_keyid')] == null
+                            ? null : (decodedMessage[2] as CborMap)[CborString('ppt_keyid')] as String,
+                    )),
                 decodedMessage,
                 3);
           }

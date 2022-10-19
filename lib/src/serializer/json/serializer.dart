@@ -178,7 +178,12 @@ class Serializer extends AbstractSerializer {
       }
       if (messageId == MessageTypes.CODE_RESULT) {
         return _addPayload(
-            Result(message[1], ResultDetails(message[2]['progress'])),
+            Result(message[1], ResultDetails(
+                progress: message[2]['progress'],
+                ppt_scheme: message[2]['ppt_scheme'],
+                ppt_serializer: message[2]['ppt_serializer'],
+                ppt_cipher: message[2]['ppt_cipher'],
+                ppt_keyid: message[2]['ppt_keyid'])),
             message,
             3);
       }
