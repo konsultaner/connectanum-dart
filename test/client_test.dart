@@ -388,7 +388,7 @@ void main() {
               argumentsKeywords: message.argumentsKeywords));
         } else if (message.id == MessageTypes.CODE_CALL &&
             (message as Call).argumentsKeywords!['value'] == -4) {
-          // ignored because it will not complete before cancelation happens
+          // ignored because it will not complete before cancellation happens
         } else if (message.id == MessageTypes.CODE_CANCEL) {
           transport.receiveMessage(Error(
               MessageTypes.CODE_CALL,
