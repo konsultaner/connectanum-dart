@@ -1,7 +1,6 @@
 import 'package:connectanum/connectanum.dart';
 
 import '../message/authenticate.dart';
-import '../message/challenge.dart';
 
 abstract class AbstractAuthentication {
   /// This method is called by the session to modify the hello [details] for

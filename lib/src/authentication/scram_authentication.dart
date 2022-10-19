@@ -3,9 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:pointycastle/digests/sha256.dart';
 import 'package:pointycastle/export.dart';
-import 'package:pointycastle/key_derivators/argon2.dart';
 import 'package:saslprep/saslprep.dart';
 
 import '../message/authenticate.dart';

@@ -3,7 +3,6 @@ import 'dart:typed_data';
 
 import 'package:connectanum/connectanum.dart';
 import 'package:connectanum/src/message/authenticate.dart';
-import 'package:connectanum/src/message/error.dart';
 import 'package:connectanum/src/message/hello.dart';
 import 'package:connectanum/src/message/message_types.dart';
 import 'package:connectanum/src/message/welcome.dart';

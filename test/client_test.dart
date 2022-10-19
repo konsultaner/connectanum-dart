@@ -5,35 +5,11 @@ import 'dart:typed_data';
 
 import 'package:connectanum/authentication.dart';
 import 'package:connectanum/connectanum.dart';
-import 'package:connectanum/src/authentication/abstract_authentication.dart';
-import 'package:connectanum/src/authentication/cra_authentication.dart';
-import 'package:connectanum/src/client.dart';
-import 'package:connectanum/src/message/abort.dart';
-import 'package:connectanum/src/message/abstract_message.dart';
 import 'package:connectanum/src/message/authenticate.dart';
-import 'package:connectanum/src/message/call.dart';
-import 'package:connectanum/src/message/cancel.dart';
-import 'package:connectanum/src/message/challenge.dart';
-import 'package:connectanum/src/message/details.dart';
-import 'package:connectanum/src/message/error.dart';
-import 'package:connectanum/src/message/event.dart';
-import 'package:connectanum/src/message/goodbye.dart';
 import 'package:connectanum/src/message/hello.dart';
 import 'package:connectanum/src/message/message_types.dart';
-import 'package:connectanum/src/message/published.dart';
-import 'package:connectanum/src/message/register.dart';
-import 'package:connectanum/src/message/registered.dart';
-import 'package:connectanum/src/message/invocation.dart';
-import 'package:connectanum/src/message/result.dart';
-import 'package:connectanum/src/message/subscribe.dart';
-import 'package:connectanum/src/message/subscribed.dart';
-import 'package:connectanum/src/message/unregister.dart';
-import 'package:connectanum/src/message/unregistered.dart';
-import 'package:connectanum/src/message/unsubscribe.dart';
-import 'package:connectanum/src/message/unsubscribed.dart';
 import 'package:connectanum/src/message/welcome.dart';
 import 'package:connectanum/src/message/yield.dart';
-import 'package:connectanum/src/transport/abstract_transport.dart';
 import 'package:logging/logging.dart';
 import 'package:pedantic/pedantic.dart';
 import 'package:test/test.dart';
@@ -530,7 +506,7 @@ void main() {
       expect(pptYieldMessage, isNotNull);
 
       // PPT RESULT
-      final result = session.call('my.procedure',
+      session.call('my.procedure',
           arguments: <dynamic>[100, 'two', true],
           argumentsKeywords: { 'key1': 100, 'key2': 'two', 'key3': true },
           options: CallOptions(ppt_scheme: 'x_custom_scheme', ppt_serializer: 'cbor'))
