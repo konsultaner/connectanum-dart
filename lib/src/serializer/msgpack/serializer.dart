@@ -592,7 +592,7 @@ class Serializer extends AbstractSerializer {
           if (decodedObject['kwargs'] != null &&
               decodedObject['kwargs'] is Map) {
               argumentsKeywords = Map.castFrom<dynamic, dynamic, String, Object>(
-                  decodedObject['kwargs'] as Map<String, dynamic>);
+                  decodedObject['kwargs'] as Map<dynamic, dynamic>);
           }
 
           return PPTPayload(
@@ -608,7 +608,11 @@ class Serializer extends AbstractSerializer {
   /// Converts a PPT Payload Object into a uint8 array
   @override
   Uint8List serializePPT(PPTPayload pptPayload) {
-      return msgpack_dart.serialize(pptPayload);
+      var pptMap = {
+          'args': pptPayload.arguments,
+          'kwargs': pptPayload.argumentsKeywords
+      };
+      return msgpack_dart.serialize(pptMap);
   }
 }
 
