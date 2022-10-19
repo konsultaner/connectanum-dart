@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:convert';
 
 import 'package:connectanum/src/message/abort.dart';
 import 'package:connectanum/src/message/authenticate.dart';
@@ -24,6 +25,7 @@ import 'package:connectanum/src/message/unsubscribed.dart';
 import 'package:connectanum/src/message/welcome.dart';
 import 'package:connectanum/src/message/invocation.dart';
 import 'package:connectanum/src/message/yield.dart';
+import 'package:connectanum/src/protocol/ppt_payload.dart';
 import 'package:connectanum/src/serializer/json/serializer.dart';
 import 'package:pinenacl/api.dart';
 import 'package:test/test.dart';
@@ -331,6 +333,16 @@ void main() {
           equals('[3,{"message":""},"${Error.AUTHORIZATION_FAILED}"]'));
       expect(serializer.serializeToString(Abort(Error.AUTHORIZATION_FAILED)),
           equals('[3,{},"${Error.AUTHORIZATION_FAILED}"]'));
+    });
+    test('serializePPT', () {
+        var arguments = <dynamic>[100, 'two', true];
+        var argumentsKeywords = { 'key1': 100, 'key2': 'two', 'key3': true };
+        var pptPayload = PPTPayload(arguments: arguments, argumentsKeywords: argumentsKeywords);
+        var binData = serializer.serializePPT(pptPayload);
+        expect(
+            Utf8Decoder().convert(binData),
+            equals('{"args": [100,"two",true], "kwargs": {"key1":100,"key2":"two","key3":true}}')
+        );
     });
   });
   group('unserialize', () {
@@ -689,6 +701,23 @@ void main() {
       expect(event.arguments![0], equals('johnny'));
       expect(event.argumentsKeywords!['firstname'], equals('John'));
       expect(event.argumentsKeywords!['surname'], equals('Doe'));
+    });
+    test('deserializePPT', () {
+        var binData = Utf8Encoder().convert('{"args": [100, "two", true], "kwargs": {"key1": 100, "key2": "two", "key3": true}}');
+        var pptPayload = serializer.deserializePPT(binData);
+
+        expect(pptPayload, isNotNull);
+        expect(pptPayload?.arguments, isNotNull);
+        expect(pptPayload?.argumentsKeywords, isNotNull);
+        expect(pptPayload!.arguments, isA<List>());
+        expect(pptPayload.arguments!.length, equals(3));
+        expect(pptPayload.arguments![0], equals(100));
+        expect(pptPayload.arguments![1], equals('two'));
+        expect(pptPayload.arguments![2], equals(true));
+        expect(pptPayload.argumentsKeywords, isA<Map>());
+        expect(pptPayload.argumentsKeywords!['key1'], equals(100));
+        expect(pptPayload.argumentsKeywords!['key2'], equals('two'));
+        expect(pptPayload.argumentsKeywords!['key3'], equals(true));
     });
   });
   group('string conversion', () {

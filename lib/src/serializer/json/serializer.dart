@@ -621,8 +621,12 @@ class Serializer extends AbstractSerializer {
   /// Converts a PPT Payload Object into a uint8 array
   @override
   Uint8List serializePPT(PPTPayload pptPayload) {
-      _convertMapEntriesUint8ListToBinaryJsonString(pptPayload as Map);
-      var str = '{"args": ${pptPayload.arguments}, "kwargs": ${pptPayload.argumentsKeywords}}';
+      var pptMap = {
+          'arguments': pptPayload.arguments,
+          'argumentsKeywords': pptPayload.argumentsKeywords
+      };
+      _convertMapEntriesUint8ListToBinaryJsonString(pptMap);
+      var str = '{"args": ${json.encode(pptMap['arguments'])}, "kwargs": ${json.encode(pptMap['argumentsKeywords'])}}';
       return Utf8Encoder().convert(str);
   }
 }
