@@ -40,7 +40,7 @@ jobs:
       # want to change this to 'flutter test'.
       - name: Run tests
         run: dart pub run test -p vm --coverage="./coverage"
-      - name: Activate coverage 
+      - name: Activate coverage
         run: dart pub global activate coverage
       - name: Format coverage
         run: format_coverage -l -i ./ -o lcov.info --packages=.dart_tool/package_config.json --report-on=lib

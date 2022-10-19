@@ -19,6 +19,9 @@ class WebSocketTransport extends AbstractTransport {
   final String _url;
   final AbstractSerializer _serializer;
   final String _serializerType;
+  /// The keys of the map are the header
+  /// fields and the values are either String or List<String>
+  final Map<String, dynamic>? _headers;
   bool _goodbyeSent = false;
   bool _goodbyeReceived = false;
   WebSocket? _socket;
@@ -30,6 +33,7 @@ class WebSocketTransport extends AbstractTransport {
     this._url,
     this._serializer,
     this._serializerType,
+    [this._headers]
   ) : assert(_serializerType == WebSocketSerialization.serializationJson ||
             _serializerType == WebSocketSerialization.serializationMsgpack ||
             _serializerType == WebSocketSerialization.serializationCbor);
@@ -75,7 +79,7 @@ class WebSocketTransport extends AbstractTransport {
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
     try {
-      _socket = await WebSocket.connect(_url, protocols: [_serializerType]);
+      _socket = await WebSocket.connect(_url, protocols: [_serializerType], headers: _headers);
       _onReady.complete();
       if (pingInterval != null) {
         Timer.periodic(
