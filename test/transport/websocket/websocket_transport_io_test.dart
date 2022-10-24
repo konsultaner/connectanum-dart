@@ -45,8 +45,13 @@ void main() {
             } else {
               // received msgpack
               if (message.contains(MessageTypes.codeHello)) {
-                socket.add(Uint8List.fromList(
-                    [221, 0, 0, 0, 3, 2, 205, 4, 210, 223, 0, 0, 0, 0]));
+                if (req.headers.value('sec-websocket-protocol') == WebSocketSerialization.serializationMsgpack) {
+                  socket.add(Uint8List.fromList(
+                      [221, 0, 0, 0, 3, 2, 205, 4, 210, 223, 0, 0, 0, 0]));
+                } else {
+                  socket.add(Uint8List.fromList(
+                      [131, 2, 25, 4, 210, 160]));
+                }
               }
             }
           });
