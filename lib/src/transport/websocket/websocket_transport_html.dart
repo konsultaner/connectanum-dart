@@ -17,6 +17,9 @@ class WebSocketTransport extends AbstractTransport {
   final String _url;
   final AbstractSerializer _serializer;
   final String _serializerType;
+  /// The keys of the map are the header
+  /// fields and the values are either String or List<String>
+  final Map<String, dynamic>? _headers;
   late WebSocket _socket;
   bool _goodbyeSent = false;
   bool _goodbyeReceived = false;
@@ -28,9 +31,14 @@ class WebSocketTransport extends AbstractTransport {
     this._url,
     this._serializer,
     this._serializerType,
+    [this._headers]
   ) : assert(_serializerType == WebSocketSerialization.serializationJson ||
             _serializerType == WebSocketSerialization.serializationMsgpack ||
-            _serializerType == WebSocketSerialization.serializationCbor);
+            _serializerType == WebSocketSerialization.serializationCbor) {
+    if (_headers != null && _headers!.isNotEmpty) {
+      _logger.shout('The W3C WebSocket API does not support additional headers yet!');
+    }
+  }
 
   /// Calling close will close the underlying socket connection
   @override
