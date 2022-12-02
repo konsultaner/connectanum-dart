@@ -102,6 +102,9 @@ class Client {
               Error.noPrincipal,
               Error.authorizationFailed,
               Error.noSuchRealm,
+              Error.noSuchRole,
+              Error.noSuchTopic,
+              Error.noSuchSession,
               Error.protocolViolation
             ].contains(abort.reason) &&
             options.reconnectTime != null) {
