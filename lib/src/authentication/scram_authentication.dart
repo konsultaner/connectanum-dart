@@ -134,13 +134,14 @@ class ScramAuthentication extends AbstractAuthentication {
   /// This creates the SCRAM authmessage according to the [WAMP-SCRAM specs](https://wamp-proto.org/_static/gen/wamp_latest.html#authmessage)
   static String createAuthMessage(String authId, String helloNonce,
       HashMap authExtra, Extra challengeExtra) {
-    var clientFirstBare =
-        'n=${Saslprep.saslprep(authId)},r=$helloNonce';
-    var serverFirst = 'r=${challengeExtra.nonce!},s=${challengeExtra.salt!},i=${challengeExtra.iterations}';
+    var clientFirstBare = 'n=${Saslprep.saslprep(authId)},r=$helloNonce';
+    var serverFirst =
+        'r=${challengeExtra.nonce!},s=${challengeExtra.salt!},i=${challengeExtra.iterations}';
     String? cBindName = authExtra['channel_binding'];
     String? cBindData = authExtra['cbind_data'];
     var cBindFlag = cBindName == null ? 'n' : 'p=$cBindName';
-    var cBindInput = '$cBindFlag,,${cBindData == null ? '' : base64.decode(cBindData) as String}';
+    var cBindInput =
+        '$cBindFlag,,${cBindData == null ? '' : base64.decode(cBindData) as String}';
     var clientFinalNoProof =
         'c=${base64.encode(cBindInput.codeUnits)},r=${authExtra['nonce']}';
     return '$clientFirstBare,$serverFirst,$clientFinalNoProof';

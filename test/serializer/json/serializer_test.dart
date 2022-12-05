@@ -63,8 +63,7 @@ void main() {
           equals('[${MessageTypes.codeAuthenticate},"",{}]'));
       expect(
           serializer.serializeToString(Authenticate.signature('someSignature')),
-          equals(
-              '[${MessageTypes.codeAuthenticate},"${"someSignature"}",{}]'));
+          equals('[${MessageTypes.codeAuthenticate},"${"someSignature"}",{}]'));
       var authenticate = Authenticate.signature('someSignature');
       authenticate.extra = HashMap<String, Object?>();
       authenticate.extra!['nonce'] = 'abc';
@@ -152,8 +151,8 @@ void main() {
     });
     test('Error', () {
       expect(
-          serializer.serializeToString(Error(
-              MessageTypes.codeHello, 123422, HashMap(), 'wamp.unknown')),
+          serializer.serializeToString(
+              Error(MessageTypes.codeHello, 123422, HashMap(), 'wamp.unknown')),
           equals(
               '[${MessageTypes.codeError},${MessageTypes.codeHello},123422,{},"wamp.unknown"]'));
       expect(
@@ -328,8 +327,8 @@ void main() {
           equals(
               '[3,{"message":"Some Error"},"${Error.authorizationFailed}"]'));
       expect(
-          serializer.serializeToString(
-              Abort(Error.authorizationFailed, message: '')),
+          serializer
+              .serializeToString(Abort(Error.authorizationFailed, message: '')),
           equals('[3,{"message":""},"${Error.authorizationFailed}"]'));
       expect(serializer.serializeToString(Abort(Error.authorizationFailed)),
           equals('[3,{},"${Error.authorizationFailed}"]'));
@@ -389,20 +388,17 @@ void main() {
       expect(welcome.details.roles!.broker!.features!.payloadPassThruMode,
           isFalse);
       expect(welcome.details.roles!.broker!.features!.eventHistory, isFalse);
-      expect(
-          welcome.details.roles!.broker!.features!.patternBasedSubscription,
+      expect(welcome.details.roles!.broker!.features!.patternBasedSubscription,
           isFalse);
       expect(welcome.details.roles!.broker!.features!.publicationTrustLevels,
           isFalse);
-      expect(welcome.details.roles!.broker!.features!.publisherExclusion,
-          isFalse);
+      expect(
+          welcome.details.roles!.broker!.features!.publisherExclusion, isFalse);
       expect(welcome.details.roles!.broker!.features!.publisherIdentification,
           isFalse);
+      expect(welcome.details.roles!.broker!.features!.sessionMetaApi, isFalse);
       expect(
-          welcome.details.roles!.broker!.features!.sessionMetaApi, isFalse);
-      expect(
-          welcome
-              .details.roles!.broker!.features!.subscriberBlackWhiteListing,
+          welcome.details.roles!.broker!.features!.subscriberBlackWhiteListing,
           isFalse);
       expect(welcome.details.roles!.broker!.features!.subscriptionMetaApi,
           isFalse);
@@ -410,23 +406,20 @@ void main() {
       expect(welcome.details.roles!.dealer!.features, isNotNull);
       expect(welcome.details.roles!.dealer!.features!.payloadPassThruMode,
           isFalse);
-      expect(
-          welcome.details.roles!.dealer!.features!.sessionMetaApi, isFalse);
+      expect(welcome.details.roles!.dealer!.features!.sessionMetaApi, isFalse);
       expect(welcome.details.roles!.dealer!.features!.progressiveCallResults,
           isFalse);
       expect(welcome.details.roles!.dealer!.features!.callerIdentification,
           isFalse);
       expect(welcome.details.roles!.dealer!.features!.callTimeout, isFalse);
       expect(welcome.details.roles!.dealer!.features!.callCanceling, isFalse);
-      expect(
-          welcome.details.roles!.dealer!.features!.callTrustLevels, isFalse);
-      expect(
-          welcome.details.roles!.dealer!.features!.patternBasedRegistration,
+      expect(welcome.details.roles!.dealer!.features!.callTrustLevels, isFalse);
+      expect(welcome.details.roles!.dealer!.features!.patternBasedRegistration,
           isFalse);
       expect(welcome.details.roles!.dealer!.features!.registrationMetaApi,
           isFalse);
-      expect(welcome.details.roles!.dealer!.features!.sharedRegistration,
-          isFalse);
+      expect(
+          welcome.details.roles!.dealer!.features!.sharedRegistration, isFalse);
 
       welcome = serializer.deserializeFromString(
               '[${MessageTypes.codeWelcome},112233,{"authid":"Richi","authrole":"admin","authmethod":"wampcra","authprovider":"database","roles":{"broker":{"features":{"publisher_identification":true,"pattern_based_subscription":true,"subscription_meta_api":true,"subscriber_blackwhite_listing":true,"session_meta_api":true,"publisher_exclusion":true,"event_history":true,"payload_passthru_mode":true}},"dealer":{"features":{"caller_identification":true,"call_trustlevels":true,"pattern_based_registration":true,"registration_meta_api":true,"shared_registration":true,"session_meta_api":true,"call_timeout":true,"call_canceling":true,"progressive_call_results":true,"payload_passthru_mode":true}}}}]')
@@ -441,11 +434,10 @@ void main() {
       expect(welcome.details.roles, isNotNull);
       expect(welcome.details.roles!.broker, isNotNull);
       expect(welcome.details.roles!.broker!.features, isNotNull);
-      expect(welcome.details.roles!.broker!.features!.payloadPassThruMode,
-          isTrue);
-      expect(welcome.details.roles!.broker!.features!.eventHistory, isTrue);
       expect(
-          welcome.details.roles!.broker!.features!.patternBasedSubscription,
+          welcome.details.roles!.broker!.features!.payloadPassThruMode, isTrue);
+      expect(welcome.details.roles!.broker!.features!.eventHistory, isTrue);
+      expect(welcome.details.roles!.broker!.features!.patternBasedSubscription,
           isTrue);
       expect(welcome.details.roles!.broker!.features!.publicationTrustLevels,
           isFalse); // not send
@@ -455,15 +447,14 @@ void main() {
           isTrue);
       expect(welcome.details.roles!.broker!.features!.sessionMetaApi, isTrue);
       expect(
-          welcome
-              .details.roles!.broker!.features!.subscriberBlackWhiteListing,
+          welcome.details.roles!.broker!.features!.subscriberBlackWhiteListing,
           isTrue);
-      expect(welcome.details.roles!.broker!.features!.subscriptionMetaApi,
-          isTrue);
+      expect(
+          welcome.details.roles!.broker!.features!.subscriptionMetaApi, isTrue);
       expect(welcome.details.roles!.dealer, isNotNull);
       expect(welcome.details.roles!.dealer!.features, isNotNull);
-      expect(welcome.details.roles!.dealer!.features!.payloadPassThruMode,
-          isTrue);
+      expect(
+          welcome.details.roles!.dealer!.features!.payloadPassThruMode, isTrue);
       expect(welcome.details.roles!.dealer!.features!.sessionMetaApi, isTrue);
       expect(welcome.details.roles!.dealer!.features!.progressiveCallResults,
           isTrue);
@@ -472,11 +463,10 @@ void main() {
       expect(welcome.details.roles!.dealer!.features!.callTimeout, isTrue);
       expect(welcome.details.roles!.dealer!.features!.callCanceling, isTrue);
       expect(welcome.details.roles!.dealer!.features!.callTrustLevels, isTrue);
+      expect(welcome.details.roles!.dealer!.features!.patternBasedRegistration,
+          isTrue);
       expect(
-          welcome.details.roles!.dealer!.features!.patternBasedRegistration,
-          isTrue);
-      expect(welcome.details.roles!.dealer!.features!.registrationMetaApi,
-          isTrue);
+          welcome.details.roles!.dealer!.features!.registrationMetaApi, isTrue);
       expect(
           welcome.details.roles!.dealer!.features!.sharedRegistration, isTrue);
     });

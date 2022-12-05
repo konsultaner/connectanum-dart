@@ -19,7 +19,7 @@ import 'package:pointycastle/digests/sha1.dart';
 import 'cryptosign/bcrypt_pbkdf.dart';
 
 class CryptosignAuthentication extends AbstractAuthentication {
-  static final String channelBindungTlsUnique = 'tls-unique';
+  static final String channelBindingTlsUnique = 'tls-unique';
   static final String openSshHeader = '-----BEGIN OPENSSH PRIVATE KEY-----';
   static final String openSshFooter = '-----END OPENSSH PRIVATE KEY-----';
 
@@ -318,8 +318,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
     }
 
     pemFileContent = pemFileContent.replaceAll(RegExp(r'[\n\r]'), '');
-    pemFileContent =
-        pemFileContent.substring(openSshHeader.length).trimLeft();
+    pemFileContent = pemFileContent.substring(openSshHeader.length).trimLeft();
     pemFileContent = pemFileContent
         .substring(0, pemFileContent.length - openSshFooter.length)
         .trimRight();
@@ -398,8 +397,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
 
         return _readOpenSshPrivateKeySeed(paddedPlainText, 0);
       } else {
-        throw Exception(
-            'The given cypherName $cypherName is not supported!');
+        throw Exception('The given cypherName $cypherName is not supported!');
       }
     } else {
       throw Exception('This is not a valid open ssh key file format!');

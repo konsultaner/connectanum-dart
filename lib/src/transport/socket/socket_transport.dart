@@ -214,8 +214,7 @@ class SocketTransport extends AbstractTransport {
         var maxMessageSizeExponent =
             SocketHelper.getMaxMessageSizeExponent(message);
         // TRY UPGRADE TO 5 BYTE HEADER, IF WANTED
-        if (maxMessageSizeExponent ==
-                SocketHelper.maxMessageLengthExponent &&
+        if (maxMessageSizeExponent == SocketHelper.maxMessageLengthExponent &&
             _messageLengthExponent > SocketHelper.maxMessageLengthExponent) {
           _logger.finer('Try to upgrade to 5 byte raw socket header');
           _send0(SocketHelper.getUpgradeHandshake(_messageLengthExponent));
@@ -250,16 +249,14 @@ class SocketTransport extends AbstractTransport {
     } else if (errorNumber == SocketHelper.errorUseOfReservedBits) {
       // if another router other then connectanum has been connected with an upgrade header
       error = 'Router responded with an error: ERROR_USE_OF_RESERVED_BITS';
-    } else if (errorNumber ==
-        SocketHelper.errorMaxConnectionCountExceeded) {
+    } else if (errorNumber == SocketHelper.errorMaxConnectionCountExceeded) {
       error =
           'Router responded with an error: ERROR_MAX_CONNECTION_COUNT_EXCEEDED';
     } else if (errorNumber == SocketHelper.errorMessageLengthExceeded) {
       // if connectanum is configured with a lower message length
       error = 'Router responded with an error: ERROR_MESSAGE_LENGTH_EXCEEDED';
     } else {
-      error =
-          'Router responded with an error: UNKNOWN $errorNumber';
+      error = 'Router responded with an error: UNKNOWN $errorNumber';
     }
     _logger.shout('$errorNumber: $error');
     _handshakeCompleter
@@ -288,8 +285,7 @@ class SocketTransport extends AbstractTransport {
           if (deserializedMessage is Goodbye) {
             _goodbyeReceived = true;
           }
-          _logger.finest(
-              'Received message type ${deserializedMessage.id}');
+          _logger.finest('Received message type ${deserializedMessage.id}');
           messages.add(deserializedMessage);
         } else if (messageType == SocketHelper.messagePing) {
           // send pong
@@ -302,7 +298,8 @@ class SocketTransport extends AbstractTransport {
         } else {
           // received a pong
           _pingCompleter!.complete(message);
-          _logger.finest('Received a Pong with a payload length of ${message.length}');
+          _logger.finest(
+              'Received a Pong with a payload length of ${message.length}');
         }
       }
     } on Exception catch (error) {

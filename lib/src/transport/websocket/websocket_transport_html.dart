@@ -117,8 +117,7 @@ class WebSocketTransport extends AbstractTransport {
       } else {
         _onDisconnect!.complete();
       }
-      _logger.info(
-          'The connection has been closed with ${closeEvent.code}');
+      _logger.info('The connection has been closed with ${closeEvent.code}');
     });
     return _socket.onMessage.map((messageEvent) {
       AbstractMessage? message;

@@ -5,9 +5,12 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:connectanum/src/serializer/json/serializer.dart' as json_serializer;
-import 'package:connectanum/src/serializer/msgpack/serializer.dart' as msgpack_serializer;
-import 'package:connectanum/src/serializer/cbor/serializer.dart' as cbor_serializer;
+import 'package:connectanum/src/serializer/json/serializer.dart'
+    as json_serializer;
+import 'package:connectanum/src/serializer/msgpack/serializer.dart'
+    as msgpack_serializer;
+import 'package:connectanum/src/serializer/cbor/serializer.dart'
+    as cbor_serializer;
 import 'package:connectanum/src/transport/socket/socket_helper.dart';
 import 'package:connectanum/src/transport/socket/socket_transport.dart';
 import 'package:test/test.dart';
@@ -19,20 +22,20 @@ void main() {
       server.listen((socket) {
         socket.listen((message) {});
       });
-      final transportJson = SocketTransport(
-          '127.0.0.1', 8998, json_serializer.Serializer(), SocketHelper.serializationJson);
+      final transportJson = SocketTransport('127.0.0.1', 8998,
+          json_serializer.Serializer(), SocketHelper.serializationJson);
       await transportJson.open();
       transportJson.receive().listen((event) {});
       await transportJson.close();
 
-      final transportMsgpack = SocketTransport(
-          '127.0.0.1', 8998, msgpack_serializer.Serializer(), SocketHelper.serializationMsgpack);
+      final transportMsgpack = SocketTransport('127.0.0.1', 8998,
+          msgpack_serializer.Serializer(), SocketHelper.serializationMsgpack);
       await transportMsgpack.open();
       transportMsgpack.receive().listen((event) {});
       await transportMsgpack.close();
 
-      final transportCbor = SocketTransport(
-          '127.0.0.1', 8998, cbor_serializer.Serializer(), SocketHelper.serializationCbor);
+      final transportCbor = SocketTransport('127.0.0.1', 8998,
+          cbor_serializer.Serializer(), SocketHelper.serializationCbor);
       await transportCbor.open();
       transportCbor.receive().listen((event) {});
       await transportCbor.close();
@@ -148,8 +151,8 @@ void main() {
                 SocketHelper.getError(SocketHelper.errorUseOfReservedBits));
           }
           if (SocketHelper.getMaxMessageSizeExponent(message) == 11) {
-            socket.add(SocketHelper.getError(
-                SocketHelper.errorMessageLengthExceeded));
+            socket.add(
+                SocketHelper.getError(SocketHelper.errorMessageLengthExceeded));
           }
           if (SocketHelper.getMaxMessageSizeExponent(message) == 12) {
             socket.add(SocketHelper.getError(
@@ -159,8 +162,8 @@ void main() {
       });
 
       // error 1
-      var transport = SocketTransport(
-          '127.0.0.1', 9006, Serializer(), SocketHelper.serializationJson,
+      var transport = SocketTransport('127.0.0.1', 9006,
+          json_serializer.Serializer(), SocketHelper.serializationJson,
           messageLengthExponent: 9);
       await transport.open();
       var errorCompleter = Completer();
@@ -176,8 +179,8 @@ void main() {
       expect(transport.isOpen, isFalse);
 
       // error 2
-      transport = SocketTransport(
-          '127.0.0.1', 9006, Serializer(), SocketHelper.serializationJson,
+      transport = SocketTransport('127.0.0.1', 9006,
+          json_serializer.Serializer(), SocketHelper.serializationJson,
           messageLengthExponent: 10);
       await transport.open();
       errorCompleter = Completer();
@@ -188,14 +191,13 @@ void main() {
           cancelOnError: true);
       error = await errorCompleter.future;
       expect(error['error'], isNotNull);
-      expect(error['errorNumber'],
-          equals(SocketHelper.errorUseOfReservedBits));
+      expect(error['errorNumber'], equals(SocketHelper.errorUseOfReservedBits));
       await transport.onDisconnect!.future;
       expect(transport.isOpen, isFalse);
 
       // error 3
-      transport = SocketTransport(
-          '127.0.0.1', 9006, Serializer(), SocketHelper.serializationJson,
+      transport = SocketTransport('127.0.0.1', 9006,
+          json_serializer.Serializer(), SocketHelper.serializationJson,
           messageLengthExponent: 11);
       await transport.open();
       errorCompleter = Completer();
@@ -211,8 +213,8 @@ void main() {
       expect(transport.isOpen, isFalse);
 
       // error 4
-      transport = SocketTransport(
-          '127.0.0.1', 9006, Serializer(), SocketHelper.serializationJson,
+      transport = SocketTransport('127.0.0.1', 9006,
+          json_serializer.Serializer(), SocketHelper.serializationJson,
           messageLengthExponent: 12);
       await transport.open();
       errorCompleter = Completer();

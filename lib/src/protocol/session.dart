@@ -123,9 +123,10 @@ class Session {
     session._transportStreamSubscription = transport.receive()!.listen(
         (message) {
           if (message is Challenge) {
-            final foundAuthMethod = authMethods?.where((authenticationMethod) =>
-                        authenticationMethod.getName() == message.authMethod)
-                    .first);
+            final foundAuthMethod = authMethods
+                ?.where((authenticationMethod) =>
+                    authenticationMethod.getName() == message.authMethod)
+                .first;
             if (foundAuthMethod != null) {
               try {
                 foundAuthMethod

@@ -22,8 +22,7 @@ class SocketHelper {
 
   /// Default wamp clients can only receive up to 16M of message length (2^24 octets)
   static const int maxMessageLengthExponent = 24;
-  static int get maxMessageLength =>
-      pow(2, maxMessageLengthExponent) as int;
+  static int get maxMessageLength => pow(2, maxMessageLengthExponent) as int;
 
   /// Compare to the regular wamp definition, connectanum is able to send and receive up to 2^30 octets per message
   static const int maxMessageLengthConnectanumExponent = 30;
@@ -96,7 +95,8 @@ class SocketHelper {
       int headerType, int messageLength, bool upgradedProtocol) {
     if (upgradedProtocol) {
       if (messageLength > _maxMessageLengthConnectanum) {
-        throw Exception('Their should be no message length larger then 2^$maxMessageLengthConnectanumExponent');
+        throw Exception(
+            'Their should be no message length larger then 2^$maxMessageLengthConnectanumExponent');
       }
       var messageHeader = Uint8List(5);
       messageHeader[0] = headerType;
@@ -107,7 +107,8 @@ class SocketHelper {
       return messageHeader.toList(growable: false);
     } else {
       if (messageLength > maxMessageLength) {
-        throw Exception('Their should be no message length larger then 2^$maxMessageLengthExponent');
+        throw Exception(
+            'Their should be no message length larger then 2^$maxMessageLengthExponent');
       }
       var messageHeader = Uint8List(4);
       messageHeader[0] = headerType;

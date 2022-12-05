@@ -30,12 +30,9 @@ class WebSocketTransport extends AbstractTransport {
   Completer? _onDisconnect;
   late Completer _onReady;
 
-  WebSocketTransport(
-    this._url,
-    this._serializer,
-    this._serializerType,
-    [this._headers]
-  ) : assert(_serializerType == WebSocketSerialization.serializationJson ||
+  WebSocketTransport(this._url, this._serializer, this._serializerType,
+      [this._headers])
+      : assert(_serializerType == WebSocketSerialization.serializationJson ||
             _serializerType == WebSocketSerialization.serializationMsgpack ||
             _serializerType == WebSocketSerialization.serializationCbor);
 

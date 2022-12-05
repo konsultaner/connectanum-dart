@@ -119,8 +119,7 @@ void main() {
                 .encode(Base16Encoder.instance)));
         expect(details.authextra!['channel_binding'], equals(null));
 
-        var extra =
-            Extra(challenge: vector['challenge'], channelBinding: null);
+        var extra = Extra(challenge: vector['challenge'], channelBinding: null);
         final authenticate = await authMethod.challenge(extra);
         expect(authenticate.signature, equals(vector['signature']));
 
@@ -136,8 +135,7 @@ void main() {
         }
 
         extra = Extra(
-            challenge: vector['challenge']!.substring(3),
-            channelBinding: null);
+            challenge: vector['challenge']!.substring(3), channelBinding: null);
         expect(() => authMethod.challenge(extra), throwsA(isA<Exception>()));
 
         try {

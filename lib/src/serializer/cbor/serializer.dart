@@ -617,8 +617,7 @@ class Serializer extends AbstractSerializer {
       return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
     }
 
-    _logger.shout(
-        'Could not serialize the message of type: $message');
+    _logger.shout('Could not serialize the message of type: $message');
     throw Exception(''); // TODO think of something helpful here...
   }
 
@@ -655,8 +654,8 @@ class Serializer extends AbstractSerializer {
           details.roles!.caller!.features != null) {
         var callerFeatures = {};
         callerFeatures.addEntries([
-          MapEntry('call_canceling',
-              details.roles!.caller!.features!.callCanceling),
+          MapEntry(
+              'call_canceling', details.roles!.caller!.features!.callCanceling),
           MapEntry(
               'call_timeout', details.roles!.caller!.features!.callTimeout),
           MapEntry('caller_identification',
@@ -684,8 +683,8 @@ class Serializer extends AbstractSerializer {
               details.roles!.callee!.features!.sharedRegistration),
           MapEntry(
               'call_timeout', details.roles!.callee!.features!.callTimeout),
-          MapEntry('call_canceling',
-              details.roles!.callee!.features!.callCanceling),
+          MapEntry(
+              'call_canceling', details.roles!.callee!.features!.callCanceling),
           MapEntry('progressive_call_results',
               details.roles!.callee!.features!.progressiveCallResults),
           MapEntry('payload_passthru_mode',
@@ -699,8 +698,8 @@ class Serializer extends AbstractSerializer {
           details.roles!.subscriber!.features != null) {
         var subscriberFeatures = {};
         subscriberFeatures.addEntries([
-          MapEntry('call_timeout',
-              details.roles!.subscriber!.features!.callTimeout),
+          MapEntry(
+              'call_timeout', details.roles!.subscriber!.features!.callTimeout),
           MapEntry('call_canceling',
               details.roles!.subscriber!.features!.callCanceling),
           MapEntry('progressive_call_results',
@@ -720,10 +719,8 @@ class Serializer extends AbstractSerializer {
         publisherFeatures.addEntries([
           MapEntry('publisher_identification',
               details.roles!.publisher!.features!.publisherIdentification),
-          MapEntry(
-              'subscriber_blackwhite_listing',
-              details
-                  .roles!.publisher!.features!.subscriberBlackWhiteListing),
+          MapEntry('subscriber_blackwhite_listing',
+              details.roles!.publisher!.features!.subscriberBlackWhiteListing),
           MapEntry('publisher_exclusion',
               details.roles!.publisher!.features!.publisherExclusion),
           MapEntry('payload_passthru_mode',
@@ -838,8 +835,7 @@ class Serializer extends AbstractSerializer {
     var jsonOptions = {};
     if (options != null) {
       if (options.getRetained != null) {
-        jsonOptions
-            .addEntries([MapEntry('get_retained', options.getRetained)]);
+        jsonOptions.addEntries([MapEntry('get_retained', options.getRetained)]);
       }
       if (options.match != null) {
         jsonOptions.addEntries([MapEntry('match', options.match)]);

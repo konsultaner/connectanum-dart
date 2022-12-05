@@ -24,8 +24,7 @@ void main() {
           socket.listen((message) {
             if (message is String &&
                 message.contains('[${MessageTypes.codeHello}')) {
-              socket.add(
-                  '[${MessageTypes.codeWelcome},1234,{}]');
+              socket.add('[${MessageTypes.codeWelcome},1234,{}]');
             }
             if (message is String &&
                 message.contains('[${MessageTypes.codeGoodbye}')) {
@@ -34,6 +33,7 @@ void main() {
           });
         }
       }
+
       server.listen(serverListenHandler);
       final transport = WebSocketTransport('ws://localhost:9200/wamp',
           Serializer(), WebSocketSerialization.serializationJson);
@@ -63,12 +63,12 @@ void main() {
             currentSocket = socket;
             if (message is String &&
                 message.contains('[${MessageTypes.codeHello}')) {
-              socket.add(
-                  '[${MessageTypes.codeWelcome},1234,{}]');
+              socket.add('[${MessageTypes.codeWelcome},1234,{}]');
             }
           });
         }
       }
+
       server.listen(serverListenHandler);
       final transport = WebSocketTransport('ws://localhost:9201/wamp',
           Serializer(), WebSocketSerialization.serializationJson);
@@ -114,12 +114,12 @@ void main() {
             currentSocket = socket;
             if (message is String &&
                 message.contains('[${MessageTypes.codeHello}')) {
-              socket.add(
-                  '[${MessageTypes.codeWelcome},1234,{}]');
+              socket.add('[${MessageTypes.codeWelcome},1234,{}]');
             }
           });
         }
       }
+
       server.listen(serverListenHandler);
       final transport = WebSocketTransport('ws://localhost:9202/wamp',
           Serializer(), WebSocketSerialization.serializationJson);
@@ -189,8 +189,7 @@ void main() {
               String.fromCharCodes(message.toList())
                   .contains('[${MessageTypes.codeHello}')) {
             var resultMessage =
-                ('[${MessageTypes.codeWelcome},1234,{}]')
-                    .codeUnits;
+                ('[${MessageTypes.codeWelcome},1234,{}]').codeUnits;
             var messageLength = resultMessage.length;
             socket.add(SocketHelper.buildMessageHeader(
                     SocketHelper.messageWamp, messageLength, true) +
@@ -245,8 +244,7 @@ void main() {
               String.fromCharCodes(message.toList())
                   .contains('[${MessageTypes.codeHello}')) {
             var resultMessage =
-                ('[${MessageTypes.codeWelcome},1234,{}]')
-                    .codeUnits;
+                ('[${MessageTypes.codeWelcome},1234,{}]').codeUnits;
             var messageLength = resultMessage.length;
             socket.add(SocketHelper.buildMessageHeader(
                     SocketHelper.messageWamp, messageLength, true) +
@@ -312,8 +310,7 @@ void main() {
               String.fromCharCodes(message.toList())
                   .contains('[${MessageTypes.codeHello}')) {
             var resultMessage =
-                ('[${MessageTypes.codeWelcome},1234,{}]')
-                    .codeUnits;
+                ('[${MessageTypes.codeWelcome},1234,{}]').codeUnits;
             var messageLength = resultMessage.length;
             socket.add(SocketHelper.buildMessageHeader(
                     SocketHelper.messageWamp, messageLength, true) +

@@ -709,8 +709,7 @@ void main() {
       var cancelError = await errorCallCancellationCompleter.future;
       expect(cancelError, isNotNull);
       expect(cancelError.requestTypeId, equals(MessageTypes.codeCall));
-      expect(
-          cancelError.arguments![0], equals(CancelOptions.modeKillNoWait));
+      expect(cancelError.arguments![0], equals(CancelOptions.modeKillNoWait));
 
       // UNREGISTER
 

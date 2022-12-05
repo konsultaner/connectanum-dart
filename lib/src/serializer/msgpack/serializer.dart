@@ -75,10 +75,10 @@ class Serializer extends AbstractSerializer {
             details.roles!.dealer = Dealer();
             if (message[2]['roles']['dealer']['features'] != null) {
               details.roles!.dealer!.features = DealerFeatures();
-              details.roles!.dealer!.features!.callerIdentification =
-                  message[2]['roles']['dealer']['features']
-                          ['caller_identification'] ??
-                      false;
+              details.roles!.dealer!.features!.callerIdentification = message[2]
+                          ['roles']['dealer']['features']
+                      ['caller_identification'] ??
+                  false;
               details.roles!.dealer!.features!.callTrustLevels = message[2]
                       ['roles']['dealer']['features']['call_trustlevels'] ??
                   false;
@@ -86,18 +86,18 @@ class Serializer extends AbstractSerializer {
                   message[2]['roles']['dealer']['features']
                           ['pattern_based_registration'] ??
                       false;
-              details.roles!.dealer!.features!.registrationMetaApi =
-                  message[2]['roles']['dealer']['features']
-                          ['registration_meta_api'] ??
-                      false;
+              details.roles!.dealer!.features!.registrationMetaApi = message[2]
+                          ['roles']['dealer']['features']
+                      ['registration_meta_api'] ??
+                  false;
               details.roles!.dealer!.features!.sharedRegistration = message[2]
                       ['roles']['dealer']['features']['shared_registration'] ??
                   false;
               details.roles!.dealer!.features!.sessionMetaApi = message[2]
                       ['roles']['dealer']['features']['session_meta_api'] ??
                   false;
-              details.roles!.dealer!.features!.callTimeout = message[2]
-                      ['roles']['dealer']['features']['call_timeout'] ??
+              details.roles!.dealer!.features!.callTimeout = message[2]['roles']
+                      ['dealer']['features']['call_timeout'] ??
                   false;
               details.roles!.dealer!.features!.callCanceling = message[2]
                       ['roles']['dealer']['features']['call_canceling'] ??
@@ -106,10 +106,10 @@ class Serializer extends AbstractSerializer {
                   message[2]['roles']['dealer']['features']
                           ['progressive_call_results'] ??
                       false;
-              details.roles!.dealer!.features!.payloadPassThruMode =
-                  message[2]['roles']['dealer']['features']
-                          ['payload_passthru_mode'] ??
-                      false;
+              details.roles!.dealer!.features!.payloadPassThruMode = message[2]
+                          ['roles']['dealer']['features']
+                      ['payload_passthru_mode'] ??
+                  false;
             }
           }
           if (message[2]['roles']['broker'] != null) {
@@ -128,10 +128,10 @@ class Serializer extends AbstractSerializer {
                   message[2]['roles']['broker']['features']
                           ['pattern_based_subscription'] ??
                       false;
-              details.roles!.broker!.features!.subscriptionMetaApi =
-                  message[2]['roles']['broker']['features']
-                          ['subscription_meta_api'] ??
-                      false;
+              details.roles!.broker!.features!.subscriptionMetaApi = message[2]
+                          ['roles']['broker']['features']
+                      ['subscription_meta_api'] ??
+                  false;
               details.roles!.broker!.features!.subscriberBlackWhiteListing =
                   message[2]['roles']['broker']['features']
                           ['subscriber_blackwhite_listing'] ??
@@ -145,10 +145,10 @@ class Serializer extends AbstractSerializer {
               details.roles!.broker!.features!.eventHistory = message[2]
                       ['roles']['broker']['features']['event_history'] ??
                   false;
-              details.roles!.broker!.features!.payloadPassThruMode =
-                  message[2]['roles']['broker']['features']
-                          ['payload_passthru_mode'] ??
-                      false;
+              details.roles!.broker!.features!.payloadPassThruMode = message[2]
+                          ['roles']['broker']['features']
+                      ['payload_passthru_mode'] ??
+                  false;
             }
           }
         }
@@ -368,8 +368,7 @@ class Serializer extends AbstractSerializer {
           msgpack_dart.serialize(message.reason));
     }
 
-    _logger.shout(
-        'Could not serialize the message of type: $message');
+    _logger.shout('Could not serialize the message of type: $message');
     throw Exception('Message type not known!');
   }
 
@@ -380,8 +379,8 @@ class Serializer extends AbstractSerializer {
           details.roles!.caller!.features != null) {
         var callerFeatures = {};
         callerFeatures.addEntries([
-          MapEntry('call_canceling',
-              details.roles!.caller!.features!.callCanceling),
+          MapEntry(
+              'call_canceling', details.roles!.caller!.features!.callCanceling),
           MapEntry(
               'call_timeout', details.roles!.caller!.features!.callTimeout),
           MapEntry('caller_identification',
@@ -407,8 +406,8 @@ class Serializer extends AbstractSerializer {
               details.roles!.callee!.features!.patternBasedRegistration),
           MapEntry('shared_registration',
               details.roles!.callee!.features!.sharedRegistration),
-          MapEntry('call_canceling',
-              details.roles!.callee!.features!.callCanceling),
+          MapEntry(
+              'call_canceling', details.roles!.callee!.features!.callCanceling),
           MapEntry(
               'call_timeout', details.roles!.callee!.features!.callTimeout),
           MapEntry('caller_identification',
@@ -428,8 +427,8 @@ class Serializer extends AbstractSerializer {
         subscriberFeatures.addEntries([
           MapEntry('call_canceling',
               details.roles!.subscriber!.features!.callCanceling),
-          MapEntry('call_timeout',
-              details.roles!.subscriber!.features!.callTimeout),
+          MapEntry(
+              'call_timeout', details.roles!.subscriber!.features!.callTimeout),
           MapEntry('payload_passthru_mode',
               details.roles!.subscriber!.features!.payloadPassThruMode),
           MapEntry('progressive_call_results',
@@ -447,10 +446,8 @@ class Serializer extends AbstractSerializer {
         publisherFeatures.addEntries([
           MapEntry('publisher_identification',
               details.roles!.publisher!.features!.publisherIdentification),
-          MapEntry(
-              'subscriber_blackwhite_listing',
-              details
-                  .roles!.publisher!.features!.subscriberBlackWhiteListing),
+          MapEntry('subscriber_blackwhite_listing',
+              details.roles!.publisher!.features!.subscriberBlackWhiteListing),
           MapEntry('publisher_exclusion',
               details.roles!.publisher!.features!.publisherExclusion),
           MapEntry('payload_passthru_mode',
@@ -605,8 +602,7 @@ class Serializer extends AbstractSerializer {
           arguments: arguments, argumentsKeywords: argumentsKeywords);
     }
 
-    _logger
-        .shout('Could not deserialize the message: $binPayload');
+    _logger.shout('Could not deserialize the message: $binPayload');
     // TODO respond with an error
     return null;
   }
