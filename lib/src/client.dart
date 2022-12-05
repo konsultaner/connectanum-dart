@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:connectanum/src/message/goodbye.dart';
 import 'package:logging/logging.dart';
-import 'package:pedantic/pedantic.dart';
 
 import '../src/message/abort.dart';
 import '../src/message/error.dart';
@@ -99,11 +98,11 @@ class Client {
         _controller.add(session);
       } on Abort catch (abort) {
         if (![
-              Error.NOT_AUTHORIZED,
-              Error.NO_PRINCIPAL,
-              Error.AUTHORIZATION_FAILED,
-              Error.NO_SUCH_REALM,
-              Error.PROTOCOL_VIOLATION
+              Error.notAuthorized,
+              Error.noPrincipal,
+              Error.authorizationFailed,
+              Error.noSuchRealm,
+              Error.protocolViolation
             ].contains(abort.reason) &&
             options.reconnectTime != null) {
           // if the router restarts we should wait until it has been initialized
@@ -122,7 +121,7 @@ class Client {
           transport.onConnectionLost!.isCompleted) {
         _reconnectStreamController.add(options);
         if (options.reconnectCount == 0) {
-          _controller.addError(Abort(Error.AUTHORIZATION_FAILED,
+          _controller.addError(Abort(Error.authorizationFailed,
               message:
                   'Could not connect to server. Please configure reconnectTime to retry automatically.'));
         } else {
@@ -132,7 +131,7 @@ class Client {
           _connect(options);
         }
       } else {
-        _controller.addError(Abort(Error.AUTHORIZATION_FAILED,
+        _controller.addError(Abort(Error.authorizationFailed,
             message:
                 'Could not connect to server. Please configure reconnectTime to retry automatically.'));
       }

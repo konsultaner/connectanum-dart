@@ -8,7 +8,6 @@ import 'dart:typed_data';
 import 'package:connectanum/src/serializer/json/serializer.dart';
 import 'package:connectanum/src/transport/socket/socket_helper.dart';
 import 'package:connectanum/src/transport/socket/socket_transport.dart';
-import 'package:pedantic/pedantic.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -19,7 +18,7 @@ void main() {
         socket.listen((message) {});
       });
       final transport = SocketTransport(
-          '127.0.0.1', 8998, Serializer(), SocketHelper.SERIALIZATION_JSON);
+          '127.0.0.1', 8998, Serializer(), SocketHelper.serializationJson);
       await transport.open();
       transport.receive().listen((event) {});
       await transport.close();
@@ -35,20 +34,20 @@ void main() {
           if (message.length == 4) {
             handshakes[0] = message;
             socket.add(SocketHelper.getInitialHandshake(
-                SocketHelper.MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT,
-                SocketHelper.SERIALIZATION_JSON));
+                SocketHelper.maxMessageLengthConnectanumExponent,
+                SocketHelper.serializationJson));
           }
           if (message.length == 2) {
             handshakes[1] = message;
             socket.add(SocketHelper.getUpgradeHandshake(
-                SocketHelper.MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT));
+                SocketHelper.maxMessageLengthConnectanumExponent));
           }
         });
       });
       final transport = SocketTransport(
-          '127.0.0.1', 8999, serializer, SocketHelper.SERIALIZATION_JSON,
+          '127.0.0.1', 8999, serializer, SocketHelper.serializationJson,
           messageLengthExponent:
-              SocketHelper.MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT);
+              SocketHelper.maxMessageLengthConnectanumExponent);
       await transport.open();
       final handshakeCompleter = Completer();
       unawaited(transport.onReady.then((aVoid) {
@@ -69,14 +68,14 @@ void main() {
           if (message.length == 4) {
             handshakes[0] = message;
             socket.add(SocketHelper.getInitialHandshake(
-                20, SocketHelper.SERIALIZATION_JSON));
+                20, SocketHelper.serializationJson));
           }
         });
       });
       final transport = SocketTransport(
-          '127.0.0.1', 9007, serializer, SocketHelper.SERIALIZATION_JSON,
+          '127.0.0.1', 9007, serializer, SocketHelper.serializationJson,
           messageLengthExponent:
-              SocketHelper.MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT);
+              SocketHelper.maxMessageLengthConnectanumExponent);
       await transport.open();
       final handshakeCompleter = Completer();
       unawaited(transport.onReady.then((aVoid) {
@@ -97,19 +96,19 @@ void main() {
           if (message.length == 4) {
             handshakes[0] = message;
             socket.add(SocketHelper.getInitialHandshake(
-                SocketHelper.MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT,
-                SocketHelper.SERIALIZATION_JSON));
+                SocketHelper.maxMessageLengthConnectanumExponent,
+                SocketHelper.serializationJson));
           }
           if (message.length == 2) {
             // Server could response with 30 but doesn't
             handshakes[1] = message;
             socket.add(SocketHelper.getUpgradeHandshake(
-                SocketHelper.MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT));
+                SocketHelper.maxMessageLengthConnectanumExponent));
           }
         });
       });
       final transport = SocketTransport(
-          '127.0.0.1', 9008, serializer, SocketHelper.SERIALIZATION_JSON,
+          '127.0.0.1', 9008, serializer, SocketHelper.serializationJson,
           messageLengthExponent: 20);
       await transport.open();
       final handshakeCompleter = Completer();
@@ -128,26 +127,26 @@ void main() {
         socket.listen((message) {
           if (SocketHelper.getMaxMessageSizeExponent(message) == 9) {
             socket.add(SocketHelper.getError(
-                SocketHelper.ERROR_MAX_CONNECTION_COUNT_EXCEEDED));
+                SocketHelper.errorMaxConnectionCountExceeded));
           }
           if (SocketHelper.getMaxMessageSizeExponent(message) == 10) {
             socket.add(
-                SocketHelper.getError(SocketHelper.ERROR_USE_OF_RESERVED_BITS));
+                SocketHelper.getError(SocketHelper.errorUseOfReservedBits));
           }
           if (SocketHelper.getMaxMessageSizeExponent(message) == 11) {
             socket.add(SocketHelper.getError(
-                SocketHelper.ERROR_MESSAGE_LENGTH_EXCEEDED));
+                SocketHelper.errorMessageLengthExceeded));
           }
           if (SocketHelper.getMaxMessageSizeExponent(message) == 12) {
             socket.add(SocketHelper.getError(
-                SocketHelper.ERROR_SERIALIZER_NOT_SUPPORTED));
+                SocketHelper.errorSerializerNotSupported));
           }
         });
       });
 
       // error 1
       var transport = SocketTransport(
-          '127.0.0.1', 9006, Serializer(), SocketHelper.SERIALIZATION_JSON,
+          '127.0.0.1', 9006, Serializer(), SocketHelper.serializationJson,
           messageLengthExponent: 9);
       await transport.open();
       var errorCompleter = Completer();
@@ -158,13 +157,13 @@ void main() {
       var error = await errorCompleter.future;
       expect(error['error'], isNotNull);
       expect(error['errorNumber'],
-          equals(SocketHelper.ERROR_MAX_CONNECTION_COUNT_EXCEEDED));
+          equals(SocketHelper.errorMaxConnectionCountExceeded));
       await transport.onDisconnect!.future;
       expect(transport.isOpen, isFalse);
 
       // error 2
       transport = SocketTransport(
-          '127.0.0.1', 9006, Serializer(), SocketHelper.SERIALIZATION_JSON,
+          '127.0.0.1', 9006, Serializer(), SocketHelper.serializationJson,
           messageLengthExponent: 10);
       await transport.open();
       errorCompleter = Completer();
@@ -176,13 +175,13 @@ void main() {
       error = await errorCompleter.future;
       expect(error['error'], isNotNull);
       expect(error['errorNumber'],
-          equals(SocketHelper.ERROR_USE_OF_RESERVED_BITS));
+          equals(SocketHelper.errorUseOfReservedBits));
       await transport.onDisconnect!.future;
       expect(transport.isOpen, isFalse);
 
       // error 3
       transport = SocketTransport(
-          '127.0.0.1', 9006, Serializer(), SocketHelper.SERIALIZATION_JSON,
+          '127.0.0.1', 9006, Serializer(), SocketHelper.serializationJson,
           messageLengthExponent: 11);
       await transport.open();
       errorCompleter = Completer();
@@ -193,13 +192,13 @@ void main() {
       error = await errorCompleter.future;
       expect(error['error'], isNotNull);
       expect(error['errorNumber'],
-          equals(SocketHelper.ERROR_MESSAGE_LENGTH_EXCEEDED));
+          equals(SocketHelper.errorMessageLengthExceeded));
       await transport.onDisconnect!.future;
       expect(transport.isOpen, isFalse);
 
       // error 4
       transport = SocketTransport(
-          '127.0.0.1', 9006, Serializer(), SocketHelper.SERIALIZATION_JSON,
+          '127.0.0.1', 9006, Serializer(), SocketHelper.serializationJson,
           messageLengthExponent: 12);
       await transport.open();
       errorCompleter = Completer();
@@ -210,7 +209,7 @@ void main() {
       error = await errorCompleter.future;
       expect(error['error'], isNotNull);
       expect(error['errorNumber'],
-          equals(SocketHelper.ERROR_SERIALIZER_NOT_SUPPORTED));
+          equals(SocketHelper.errorSerializerNotSupported));
       await transport.onDisconnect!.future;
       expect(transport.isOpen, isFalse);
     });
@@ -222,13 +221,13 @@ void main() {
         socket.listen((message) {
           if (message[0] == 0x7F) {
             socket.add(SocketHelper.getInitialHandshake(
-                SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT,
-                SocketHelper.SERIALIZATION_JSON));
+                SocketHelper.maxMessageLengthExponent,
+                SocketHelper.serializationJson));
             if (message.length > 4) {
               message = message.sublist(4);
             }
           }
-          if (message[0] == SocketHelper.MESSAGE_PING) {
+          if (message[0] == SocketHelper.messagePing) {
             Future.delayed(Duration(milliseconds: 1)).then((_) {
               socket.add(
                   SocketHelper.getPong(0, false) + SocketHelper.getPing(false));
@@ -237,14 +236,14 @@ void main() {
               message = message.sublist(4);
             }
           }
-          if (message[0] == SocketHelper.MESSAGE_PONG) {
+          if (message[0] == SocketHelper.messagePong) {
             pongCompleter.complete();
           }
         });
       });
       final transport = SocketTransport(
-          '127.0.0.1', 9004, serializer, SocketHelper.SERIALIZATION_JSON,
-          messageLengthExponent: SocketHelper.MAX_MESSAGE_LENGTH_EXPONENT);
+          '127.0.0.1', 9004, serializer, SocketHelper.serializationJson,
+          messageLengthExponent: SocketHelper.maxMessageLengthExponent);
       await transport.open();
       transport.receive().listen((message) {});
       var pong = await transport.sendPing();

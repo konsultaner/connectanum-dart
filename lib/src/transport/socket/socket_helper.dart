@@ -2,33 +2,33 @@ import 'dart:typed_data';
 import 'dart:math';
 
 class SocketHelper {
-  static const int _META_HEADER = 0x7F;
-  static const int _UPGRADE_HEADER = 0x3F;
+  static const int _metaHeader = 0x7F;
+  static const int _upgradeHeader = 0x3F;
 
-  static const int SERIALIZATION_JSON = 1;
-  static const int SERIALIZATION_MSGPACK = 2;
-  static const int SERIALIZATION_CBOR = 3;
-  static const int SERIALIZATION_UB_JSON = 4;
-  static const int SERIALIZATION_FLAT_BUFFERS = 5;
+  static const int serializationJson = 1;
+  static const int serializationMsgpack = 2;
+  static const int serializationCbor = 3;
+  static const int serializationUbJson = 4;
+  static const int serializationFlatBuffers = 5;
 
-  static const int MESSAGE_WAMP = 0;
-  static const int MESSAGE_PING = 1;
-  static const int MESSAGE_PONG = 2;
+  static const int messageWamp = 0;
+  static const int messagePing = 1;
+  static const int messagePong = 2;
 
-  static const int ERROR_SERIALIZER_NOT_SUPPORTED = 1;
-  static const int ERROR_MESSAGE_LENGTH_EXCEEDED = 2;
-  static const int ERROR_USE_OF_RESERVED_BITS = 3;
-  static const int ERROR_MAX_CONNECTION_COUNT_EXCEEDED = 4;
+  static const int errorSerializerNotSupported = 1;
+  static const int errorMessageLengthExceeded = 2;
+  static const int errorUseOfReservedBits = 3;
+  static const int errorMaxConnectionCountExceeded = 4;
 
   /// Default wamp clients can only receive up to 16M of message length (2^24 octets)
-  static const int MAX_MESSAGE_LENGTH_EXPONENT = 24;
-  static int get MAX_MESSAGE_LENGTH =>
-      pow(2, MAX_MESSAGE_LENGTH_EXPONENT) as int;
+  static const int maxMessageLengthExponent = 24;
+  static int get maxMessageLength =>
+      pow(2, maxMessageLengthExponent) as int;
 
   /// Compare to the regular wamp definition, connectanum is able to send and receive up to 2^30 octets per message
-  static const int MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT = 30;
-  static int get _MAX_MESSAGE_LENGTH_CONNECTANUM =>
-      pow(2, MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT) as int;
+  static const int maxMessageLengthConnectanumExponent = 30;
+  static int get _maxMessageLengthConnectanum =>
+      pow(2, maxMessageLengthConnectanumExponent) as int;
 
   /// Sends a handshake of the morphology
   /// 0111 1111 LLLL SSSS RRRR RRRR RRRR RRRR
@@ -38,7 +38,7 @@ class SocketHelper {
   static List<int> getInitialHandshake(
       int messageLengthExponent, int serializerType) {
     var initialHandShake = Uint8List(4);
-    initialHandShake[0] = SocketHelper._META_HEADER;
+    initialHandShake[0] = SocketHelper._metaHeader;
     initialHandShake[1] =
         ((max(0, min(15, messageLengthExponent - 9)) << 4) | serializerType);
     initialHandShake[2] = 0;
@@ -52,14 +52,14 @@ class SocketHelper {
   /// If a router does not accept, this upgrade it will respond with an error.
   static List<int> getUpgradeHandshake(int messageLengthExponent) {
     var upgradeHandShake = Uint8List(2);
-    upgradeHandShake[0] = SocketHelper._UPGRADE_HEADER;
+    upgradeHandShake[0] = SocketHelper._upgradeHeader;
     upgradeHandShake[1] = (max(0, min(15, messageLengthExponent - 25)) << 4);
     return upgradeHandShake.toList(growable: false);
   }
 
   static List<int> getError(int errorCode) {
     var errorHandShake = Uint8List(4);
-    errorHandShake[0] = SocketHelper._META_HEADER;
+    errorHandShake[0] = SocketHelper._metaHeader;
     errorHandShake[1] = (errorCode << 4);
     errorHandShake[2] = 0;
     errorHandShake[3] = 0;
@@ -69,19 +69,19 @@ class SocketHelper {
   /// Get a pong message with a given [pingLength]. If the [isUpgradedProtocol]
   /// is true the header will have a size of 5 bytes otherwise 4.
   static List<int> getPong(int pingLength, isUpgradedProtocol) {
-    return buildMessageHeader(MESSAGE_PONG, pingLength, isUpgradedProtocol);
+    return buildMessageHeader(messagePong, pingLength, isUpgradedProtocol);
   }
 
   /// Get a ping message without a body. If the [isUpgradedProtocol]
   /// is true the header will have a size of 5 bytes otherwise 4.
   static List<int> getPing(isUpgradedProtocol) {
-    return buildMessageHeader(MESSAGE_PING, 0, isUpgradedProtocol);
+    return buildMessageHeader(messagePing, 0, isUpgradedProtocol);
   }
 
   /// get the [message] error number if [message] is an error.
   static int getErrorNumber(List<int> message) {
     if (message.length > 1) {
-      if (message[0] == SocketHelper._UPGRADE_HEADER) return 0;
+      if (message[0] == SocketHelper._upgradeHeader) return 0;
       var error = message[1];
       if ((((error & 0xFF) << 4) & 0xFF) > 0) return 0;
       return (error & 0xFF) >> 4;
@@ -95,9 +95,8 @@ class SocketHelper {
   static List<int> buildMessageHeader(
       int headerType, int messageLength, bool upgradedProtocol) {
     if (upgradedProtocol) {
-      if (messageLength > _MAX_MESSAGE_LENGTH_CONNECTANUM) {
-        throw Exception('Their should be no message length larger then 2^' +
-            MAX_MESSAGE_LENGTH_CONNECTANUM_EXPONENT.toString());
+      if (messageLength > _maxMessageLengthConnectanum) {
+        throw Exception('Their should be no message length larger then 2^$maxMessageLengthConnectanumExponent');
       }
       var messageHeader = Uint8List(5);
       messageHeader[0] = headerType;
@@ -107,9 +106,8 @@ class SocketHelper {
       messageHeader[4] = (messageLength & 0xFF);
       return messageHeader.toList(growable: false);
     } else {
-      if (messageLength > MAX_MESSAGE_LENGTH) {
-        throw Exception('Their should be no message length larger then 2^' +
-            MAX_MESSAGE_LENGTH_EXPONENT.toString());
+      if (messageLength > maxMessageLength) {
+        throw Exception('Their should be no message length larger then 2^$maxMessageLengthExponent');
       }
       var messageHeader = Uint8List(4);
       messageHeader[0] = headerType;
@@ -123,9 +121,9 @@ class SocketHelper {
   /// Checks if the given [message] is a valid wamp message
   static bool isValidMessage(Uint8List message) {
     var messageType = message[0];
-    return messageType != MESSAGE_WAMP ||
-        messageType != MESSAGE_PING ||
-        messageType != MESSAGE_PONG;
+    return messageType != messageWamp ||
+        messageType != messagePing ||
+        messageType != messagePong;
   }
 
   /// Gets the message type for the given [message].
@@ -135,13 +133,13 @@ class SocketHelper {
 
   /// Checks if the passed [message] initializes the raw socket protocol
   static bool isRawSocket(Uint8List message) {
-    return message[0] == _META_HEADER;
+    return message[0] == _metaHeader;
   }
 
   /// Checks if the passed [message] upgrades the protocoll to connectanum specific
   /// large size messages
   static bool isUpgrade(Uint8List message) {
-    return message[0] == _UPGRADE_HEADER;
+    return message[0] == _upgradeHeader;
   }
 
   /// gets the max message size exponent of the given [message]

@@ -1,19 +1,19 @@
 name: connectanum
 homepage: https://github.com/konsultaner/connectanum-dart
-version: 2.0.2
+version: 2.0.3
 description: >-
   This is a WAMP client (Web Application Messaging Protocol) implementation for the dart language and flutter projects.
 dependencies:
   saslprep: ^1.0.1
   pointycastle: ^3.3.5
-  pinenacl: ^0.3.3
+  pinenacl: ^0.5.1
   logging: ^1.0.0
-  pedantic: ^1.11.1
+  lints: ^2.0.1
   meta: ^1.1.8
   msgpack_dart: ^1.0.0
   cbor: ^5.0.1
 dev_dependencies:
   test: ^1.19.2
-  stream_channel: 2.1.0
+  stream_channel: 2.1.1
 environment:
   sdk: '>=2.12.0 <3.0.0'

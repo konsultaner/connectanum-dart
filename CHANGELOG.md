@@ -1,3 +1,9 @@
+### 2.0.3
+
+- @KSDaemon added [ppt-mode](https://wamp-proto.org/wamp_latest_ietf.html#name-payload-passthru-mode) in favor of transparent payload
+- prepared connectanum dart for EE2E
+- new linter
+
 ### 2.0.2
 
 - added CBOR serializer

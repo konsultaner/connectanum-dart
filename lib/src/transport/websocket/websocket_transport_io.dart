@@ -19,6 +19,7 @@ class WebSocketTransport extends AbstractTransport {
   final String _url;
   final AbstractSerializer _serializer;
   final String _serializerType;
+
   /// The keys of the map are the header
   /// fields and the values are either String or List<String>
   final Map<String, dynamic>? _headers;
@@ -29,14 +30,11 @@ class WebSocketTransport extends AbstractTransport {
   Completer? _onDisconnect;
   late Completer _onReady;
 
-  WebSocketTransport(
-    this._url,
-    this._serializer,
-    this._serializerType,
-    [this._headers]
-  ) : assert(_serializerType == WebSocketSerialization.SERIALIZATION_JSON ||
-            _serializerType == WebSocketSerialization.SERIALIZATION_MSGPACK ||
-            _serializerType == WebSocketSerialization.SERIALIZATION_CBOR);
+  WebSocketTransport(this._url, this._serializer, this._serializerType,
+      [this._headers])
+      : assert(_serializerType == WebSocketSerialization.serializationJson ||
+            _serializerType == WebSocketSerialization.serializationMsgpack ||
+            _serializerType == WebSocketSerialization.serializationCbor);
 
   /// Calling close will close the underlying socket connection
   @override
@@ -79,7 +77,8 @@ class WebSocketTransport extends AbstractTransport {
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
     try {
-      _socket = await WebSocket.connect(_url, protocols: [_serializerType], headers: _headers);
+      _socket = await WebSocket.connect(_url,
+          protocols: [_serializerType], headers: _headers);
       _onReady.complete();
       if (pingInterval != null) {
         Timer.periodic(
@@ -100,7 +99,7 @@ class WebSocketTransport extends AbstractTransport {
       _goodbyeSent = true;
     }
     var byteMessage = _serializer.serialize(message).cast<int>();
-    if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
+    if (_serializerType == WebSocketSerialization.serializationJson) {
       _socket!.addUtf8Text(byteMessage);
     } else {
       _socket!.add(byteMessage);
@@ -126,7 +125,7 @@ class WebSocketTransport extends AbstractTransport {
     });
     return _socket!.map((messageEvent) {
       AbstractMessage? message;
-      if (_serializerType == WebSocketSerialization.SERIALIZATION_JSON) {
+      if (_serializerType == WebSocketSerialization.serializationJson) {
         message =
             _serializer.deserialize(utf8.encode(messageEvent) as Uint8List?);
       } else {

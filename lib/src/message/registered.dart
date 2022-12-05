@@ -22,36 +22,36 @@ class Registered extends AbstractMessage {
     if (_invocationStream != null) {
       _invocationStream!.listen((Invocation invocation) {
         try {
-            var invocationUpdated = invocation;
+          var invocationUpdated = invocation;
 
-            if (invocation.details.ppt_scheme == 'wamp') {    // It's E2EE payload
-                var e2eePayload = E2EEPayload.unpackE2EEPayload(
-                    invocation.arguments, invocation.details);
+          if (invocation.details.pptScheme == 'wamp') {
+            // It's E2EE payload
+            var e2eePayload = E2EEPayload.unpackE2EEPayload(
+                invocation.arguments, invocation.details);
 
-                invocationUpdated.arguments = e2eePayload.arguments;
-                invocationUpdated.argumentsKeywords = e2eePayload.argumentsKeywords;
+            invocationUpdated.arguments = e2eePayload.arguments;
+            invocationUpdated.argumentsKeywords = e2eePayload.argumentsKeywords;
+          } else if (invocation.details.pptScheme != null) {
+            // It's some variation of PPT
+            var pptPayload = PPTPayload.unpackPPTPayload(
+                invocation.arguments, invocation.details);
 
-            } else if (invocation.details.ppt_scheme != null) {   // It's some variation of PPT
-                var pptPayload = PPTPayload.unpackPPTPayload(
-                    invocation.arguments, invocation.details);
-
-                invocationUpdated.arguments = pptPayload.arguments;
-                invocationUpdated.argumentsKeywords = pptPayload.argumentsKeywords;
-            }
+            invocationUpdated.arguments = pptPayload.arguments;
+            invocationUpdated.argumentsKeywords = pptPayload.argumentsKeywords;
+          }
 
           onInvoke(invocationUpdated);
         } on Exception catch (e) {
           invocation.respondWith(
               isError: true,
-              errorUri: Error.UNKNOWN,
+              errorUri: Error.unknown,
               arguments: [e.toString()]);
         }
       });
     }
-    return null;
   }
 
   Registered(this.registerRequestId, this.registrationId) {
-    id = MessageTypes.CODE_REGISTERED;
+    id = MessageTypes.codeRegistered;
   }
 }

@@ -9,14 +9,14 @@ class Cancel extends AbstractMessage {
   /// Creates a WAMP Cancel message with the canceled calls [requestId] and
   /// some optional [options] to configure the cancel behavior
   Cancel(this.requestId, {this.options}) {
-    id = MessageTypes.CODE_CANCEL;
+    id = MessageTypes.codeCancel;
   }
 }
 
 class CancelOptions {
-  static final String MODE_SKIP = 'skip';
-  static final String MODE_KILL = 'kill';
-  static final String MODE_KILL_NO_WAIT = 'killnowait';
+  static final String modeSkip = 'skip';
+  static final String modeKill = 'kill';
+  static final String modeKillNoWait = 'killnowait';
 
   String? mode;
 }

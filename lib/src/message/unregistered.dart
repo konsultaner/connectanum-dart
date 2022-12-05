@@ -5,6 +5,6 @@ class Unregistered extends AbstractMessage {
   int unregisterRequestId;
 
   Unregistered(this.unregisterRequestId) {
-    id = MessageTypes.CODE_UNREGISTERED;
+    id = MessageTypes.codeUnregistered;
   }
 }

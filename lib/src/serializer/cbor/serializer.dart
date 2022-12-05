@@ -25,7 +25,7 @@ class Serializer extends AbstractSerializer {
         final cborMessageId = decodedMessage[0];
         if (cborMessageId is CborInt) {
           final messageId = cborMessageId.toInt();
-          if (messageId == MessageTypes.CODE_ABORT &&
+          if (messageId == MessageTypes.codeAbort &&
               decodedMessage.length == 3) {
             return Abort((decodedMessage[2] as CborString).toString(),
                 message: decodedMessage[1] is CborMap &&
@@ -36,7 +36,7 @@ class Serializer extends AbstractSerializer {
                         .toString()
                     : null);
           }
-          if (messageId == MessageTypes.CODE_CHALLENGE &&
+          if (messageId == MessageTypes.codeChallenge &&
               decodedMessage.length == 3) {
             return Challenge(
                 (decodedMessage[1] as CborString).toString(),
@@ -49,7 +49,7 @@ class Serializer extends AbstractSerializer {
                         ? null
                         : ((decodedMessage[2] as CborMap)[CborString('salt')] as CborString)
                             .toString(),
-                    keylen: (decodedMessage[2] as CborMap)[CborString('keylen')] == null
+                    keyLen: (decodedMessage[2] as CborMap)[CborString('keylen')] == null
                         ? null
                         : ((decodedMessage[2] as CborMap)[CborString('keylen')] as CborInt)
                             .toInt(),
@@ -66,7 +66,7 @@ class Serializer extends AbstractSerializer {
                         : ((decodedMessage[2] as CborMap)[CborString('kdf')] as CborString).toString(),
                     nonce: (decodedMessage[2] as CborMap)[CborString('nonce')] == null ? null : ((decodedMessage[2] as CborMap)[CborString('nonce')] as CborString).toString()));
           }
-          if (messageId == MessageTypes.CODE_WELCOME &&
+          if (messageId == MessageTypes.codeWelcome &&
               decodedMessage.length == 3) {
             final details = Details();
             details.realm =
@@ -128,7 +128,7 @@ class Serializer extends AbstractSerializer {
                         as CborMap)[CborString('features')] !=
                     null) {
                   details.roles!.dealer!.features = DealerFeatures();
-                  details.roles!.dealer!.features!.caller_identification =
+                  details.roles!.dealer!.features!.callerIdentification =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                               as CborMap)[CborString('dealer')]
                                           as CborMap)[CborString('features')]
@@ -136,14 +136,14 @@ class Serializer extends AbstractSerializer {
                                   CborString('caller_identification')] ??
                               CborBool(false)) as CborBool)
                           .value;
-                  details.roles!.dealer!.features!.call_trustlevels =
+                  details.roles!.dealer!.features!.callTrustLevels =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                           as CborMap)[CborString('dealer')]
                                       as CborMap)[CborString('features')]
                                   as CborMap)[CborString('call_trustlevels')] ??
                               CborBool(false)) as CborBool)
                           .value;
-                  details.roles!.dealer!.features!.pattern_based_registration =
+                  details.roles!.dealer!.features!.patternBasedRegistration =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                               as CborMap)[CborString('dealer')]
                                           as CborMap)[CborString('features')]
@@ -151,7 +151,7 @@ class Serializer extends AbstractSerializer {
                                   CborString('pattern_based_registration')] ??
                               CborBool(false)) as CborBool)
                           .value;
-                  details.roles!.dealer!.features!.registration_meta_api =
+                  details.roles!.dealer!.features!.registrationMetaApi =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                               as CborMap)[CborString('dealer')]
                                           as CborMap)[CborString('features')]
@@ -160,35 +160,35 @@ class Serializer extends AbstractSerializer {
                               CborBool(false)) as CborBool)
                           .value;
                   details.roles!.dealer!.features!
-                      .shared_registration = ((((((decodedMessage[2]
+                      .sharedRegistration = ((((((decodedMessage[2]
                                           as CborMap)[CborString('roles')]
                                       as CborMap)[CborString('dealer')]
                                   as CborMap)[CborString('features')]
                               as CborMap)[CborString('shared_registration')] ??
                           CborBool(false)) as CborBool)
                       .value;
-                  details.roles!.dealer!.features!.session_meta_api =
+                  details.roles!.dealer!.features!.sessionMetaApi =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                           as CborMap)[CborString('dealer')]
                                       as CborMap)[CborString('features')]
                                   as CborMap)[CborString('session_meta_api')] ??
                               CborBool(false)) as CborBool)
                           .value;
-                  details.roles!.dealer!.features!.call_timeout =
+                  details.roles!.dealer!.features!.callTimeout =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                           as CborMap)[CborString('dealer')]
                                       as CborMap)[CborString('features')]
                                   as CborMap)[CborString('call_timeout')] ??
                               CborBool(false)) as CborBool)
                           .value;
-                  details.roles!.dealer!.features!.call_canceling =
+                  details.roles!.dealer!.features!.callCanceling =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                           as CborMap)[CborString('dealer')]
                                       as CborMap)[CborString('features')]
                                   as CborMap)[CborString('call_canceling')] ??
                               CborBool(false)) as CborBool)
                           .value;
-                  details.roles!.dealer!.features!.progressive_call_results =
+                  details.roles!.dealer!.features!.progressiveCallResults =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                               as CborMap)[CborString('dealer')]
                                           as CborMap)[CborString('features')]
@@ -196,14 +196,14 @@ class Serializer extends AbstractSerializer {
                                   CborString('progressive_call_results')] ??
                               CborBool(false)) as CborBool)
                           .value;
-                  details.roles!.dealer!.features!
-                      .payload_passthru_mode = ((((((decodedMessage[2]
-                                          as CborMap)[CborString('roles')]
-                                      as CborMap)[CborString('dealer')]
-                                  as CborMap)[CborString('features')]
-                              as CborMap)[CborString('payload_passthru_mode')] ??
-                          CborBool(false)) as CborBool)
-                      .value;
+                  details.roles!.dealer!.features!.payloadPassThruMode =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')]
+                                              as CborMap)[CborString('dealer')]
+                                          as CborMap)[CborString('features')]
+                                      as CborMap)[
+                                  CborString('payload_passthru_mode')] ??
+                              CborBool(false)) as CborBool)
+                          .value;
                 }
               }
               if (((decodedMessage[2] as CborMap)[CborString('roles')]
@@ -215,7 +215,7 @@ class Serializer extends AbstractSerializer {
                         as CborMap)[CborString('features')] !=
                     null) {
                   details.roles!.broker!.features = BrokerFeatures();
-                  details.roles!.broker!.features!.publisher_identification =
+                  details.roles!.broker!.features!.publisherIdentification =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                               as CborMap)[CborString('broker')]
                                           as CborMap)[CborString('features')]
@@ -223,7 +223,7 @@ class Serializer extends AbstractSerializer {
                                   CborString('publisher_identification')] ??
                               CborBool(false)) as CborBool)
                           .value;
-                  details.roles!.broker!.features!.publication_trustlevels =
+                  details.roles!.broker!.features!.publicationTrustLevels =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                               as CborMap)[CborString('broker')]
                                           as CborMap)[CborString('features')]
@@ -231,7 +231,7 @@ class Serializer extends AbstractSerializer {
                                   CborString('publication_trustlevels')] ??
                               CborBool(false)) as CborBool)
                           .value;
-                  details.roles!.broker!.features!.pattern_based_subscription =
+                  details.roles!.broker!.features!.patternBasedSubscription =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                               as CborMap)[CborString('broker')]
                                           as CborMap)[CborString('features')]
@@ -239,7 +239,7 @@ class Serializer extends AbstractSerializer {
                                   CborString('pattern_based_subscription')] ??
                               CborBool(false)) as CborBool)
                           .value;
-                  details.roles!.broker!.features!.subscription_meta_api =
+                  details.roles!.broker!.features!.subscriptionMetaApi =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                               as CborMap)[CborString('broker')]
                                           as CborMap)[CborString('features')]
@@ -248,7 +248,7 @@ class Serializer extends AbstractSerializer {
                               CborBool(false)) as CborBool)
                           .value;
                   details.roles!.broker!.features!
-                      .subscriber_blackwhite_listing = ((((((decodedMessage[2]
+                      .subscriberBlackWhiteListing = ((((((decodedMessage[2]
                                               as CborMap)[CborString('roles')]
                                           as CborMap)[CborString('broker')]
                                       as CborMap)[CborString('features')]
@@ -256,7 +256,7 @@ class Serializer extends AbstractSerializer {
                               CborString('subscriber_blackwhite_listing')] ??
                           CborBool(false)) as CborBool)
                       .value;
-                  details.roles!.broker!.features!.session_meta_api =
+                  details.roles!.broker!.features!.sessionMetaApi =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                           as CborMap)[CborString('broker')]
                                       as CborMap)[CborString('features')]
@@ -264,43 +264,43 @@ class Serializer extends AbstractSerializer {
                               CborBool(false)) as CborBool)
                           .value;
                   details.roles!.broker!.features!
-                      .publisher_exclusion = ((((((decodedMessage[2]
+                      .publisherExclusion = ((((((decodedMessage[2]
                                           as CborMap)[CborString('roles')]
                                       as CborMap)[CborString('broker')]
                                   as CborMap)[CborString('features')]
                               as CborMap)[CborString('publisher_exclusion')] ??
                           CborBool(false)) as CborBool)
                       .value;
-                  details.roles!.broker!.features!.event_history =
+                  details.roles!.broker!.features!.eventHistory =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                           as CborMap)[CborString('broker')]
                                       as CborMap)[CborString('features')]
                                   as CborMap)[CborString('event_history')] ??
                               CborBool(false)) as CborBool)
                           .value;
-                  details.roles!.broker!.features!
-                      .payload_passthru_mode = ((((((decodedMessage[2]
-                                          as CborMap)[CborString('roles')]
-                                      as CborMap)[CborString('broker')]
-                                  as CborMap)[CborString('features')]
-                              as CborMap)[CborString('payload_passthru_mode')] ??
-                          CborBool(false)) as CborBool)
-                      .value;
+                  details.roles!.broker!.features!.payloadPassThruMode =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')]
+                                              as CborMap)[CborString('broker')]
+                                          as CborMap)[CborString('features')]
+                                      as CborMap)[
+                                  CborString('payload_passthru_mode')] ??
+                              CborBool(false)) as CborBool)
+                          .value;
                 }
               }
             }
             return Welcome((decodedMessage[1] as CborInt).toInt(), details);
           }
-          if (messageId == MessageTypes.CODE_REGISTERED &&
+          if (messageId == MessageTypes.codeRegistered &&
               decodedMessage.length == 3) {
             return Registered((decodedMessage[1] as CborInt).toInt(),
                 (decodedMessage[2] as CborInt).toInt());
           }
-          if (messageId == MessageTypes.CODE_UNREGISTERED &&
+          if (messageId == MessageTypes.codeUnregistered &&
               decodedMessage.length == 2) {
             return Unregistered((decodedMessage[1] as CborInt).toInt());
           }
-          if (messageId == MessageTypes.CODE_INVOCATION &&
+          if (messageId == MessageTypes.codeInvocation &&
               decodedMessage.length > 3) {
             return _addPayload(
                 Invocation(
@@ -331,37 +331,60 @@ class Serializer extends AbstractSerializer {
                 decodedMessage,
                 4);
           }
-          if (messageId == MessageTypes.CODE_RESULT &&
+          if (messageId == MessageTypes.codeResult &&
               decodedMessage.length > 2) {
             return _addPayload(
                 Result(
                     (decodedMessage[1] as CborInt).toInt(),
                     ResultDetails(
-                        progress: (decodedMessage[2] as CborMap)[CborString('progress')] == null
-                            ? null : ((decodedMessage[2] as CborMap)[CborString('progress')] as CborBool).value,
-                        ppt_scheme: (decodedMessage[2] as CborMap)[CborString('ppt_scheme')] == null
-                            ? null : (decodedMessage[2] as CborMap)[CborString('ppt_scheme')] as String,
-                        ppt_serializer: (decodedMessage[2] as CborMap)[CborString('ppt_serializer')] == null
-                            ? null : (decodedMessage[2] as CborMap)[CborString('ppt_serializer')] as String,
-                        ppt_cipher: (decodedMessage[2] as CborMap)[CborString('ppt_cipher')] == null
-                            ? null : (decodedMessage[2] as CborMap)[CborString('ppt_cipher')] as String,
-                        ppt_keyid: (decodedMessage[2] as CborMap)[CborString('ppt_keyid')] == null
-                            ? null : (decodedMessage[2] as CborMap)[CborString('ppt_keyid')] as String,
+                      progress: (decodedMessage[2]
+                                  as CborMap)[CborString('progress')] ==
+                              null
+                          ? null
+                          : ((decodedMessage[2]
+                                      as CborMap)[CborString('progress')]
+                                  as CborBool)
+                              .value,
+                      pptScheme: (decodedMessage[2]
+                                  as CborMap)[CborString('ppt_scheme')] ==
+                              null
+                          ? null
+                          : (decodedMessage[2]
+                              as CborMap)[CborString('ppt_scheme')] as String,
+                      pptSerializer: (decodedMessage[2]
+                                  as CborMap)[CborString('ppt_serializer')] ==
+                              null
+                          ? null
+                          : (decodedMessage[2]
+                                  as CborMap)[CborString('ppt_serializer')]
+                              as String,
+                      pptCipher: (decodedMessage[2]
+                                  as CborMap)[CborString('ppt_cipher')] ==
+                              null
+                          ? null
+                          : (decodedMessage[2]
+                              as CborMap)[CborString('ppt_cipher')] as String,
+                      pptKeyId: (decodedMessage[2]
+                                  as CborMap)[CborString('ppt_keyid')] ==
+                              null
+                          ? null
+                          : (decodedMessage[2]
+                              as CborMap)[CborString('ppt_keyid')] as String,
                     )),
                 decodedMessage,
                 3);
           }
-          if (messageId == MessageTypes.CODE_PUBLISHED &&
+          if (messageId == MessageTypes.codePublished &&
               decodedMessage.length == 3) {
             return Published((decodedMessage[1] as CborInt).toInt(),
                 (decodedMessage[2] as CborInt).toInt());
           }
-          if (messageId == MessageTypes.CODE_SUBSCRIBED &&
+          if (messageId == MessageTypes.codeSubscribed &&
               decodedMessage.length == 3) {
             return Subscribed((decodedMessage[1] as CborInt).toInt(),
                 (decodedMessage[2] as CborInt).toInt());
           }
-          if (messageId == MessageTypes.CODE_UNSUBSCRIBED &&
+          if (messageId == MessageTypes.codeUnsubscribed &&
               decodedMessage.length > 1) {
             return Unsubscribed(
                 (decodedMessage[1] as CborInt).toInt(),
@@ -384,7 +407,7 @@ class Serializer extends AbstractSerializer {
                                     as CborString)
                                 .toString()));
           }
-          if (messageId == MessageTypes.CODE_EVENT &&
+          if (messageId == MessageTypes.codeEvent &&
               decodedMessage.length > 3) {
             return _addPayload(
                 Event(
@@ -414,7 +437,7 @@ class Serializer extends AbstractSerializer {
                 decodedMessage,
                 4);
           }
-          if (messageId == MessageTypes.CODE_ERROR &&
+          if (messageId == MessageTypes.codeError &&
               decodedMessage.length > 4) {
             return _addPayload(
                 Error(
@@ -426,7 +449,7 @@ class Serializer extends AbstractSerializer {
                 decodedMessage,
                 5);
           }
-          if (messageId == MessageTypes.CODE_GOODBYE) {
+          if (messageId == MessageTypes.codeGoodbye) {
             return Goodbye(
                 decodedMessage.length == 1
                     ? null
@@ -443,7 +466,7 @@ class Serializer extends AbstractSerializer {
       }
       return null;
     }
-    _logger.shout('Could not deserialize the message: ' + message.toString());
+    _logger.shout('Could not deserialize the message: $message');
     // TODO respond with an error
     return null;
   }
@@ -471,21 +494,21 @@ class Serializer extends AbstractSerializer {
   Uint8List serialize(AbstractMessage message) {
     if (message is Hello) {
       return Uint8List.fromList(cbor.encode(CborValue([
-        MessageTypes.CODE_HELLO,
+        MessageTypes.codeHello,
         message.realm,
         _serializeDetails(message.details)!
       ])));
     }
     if (message is Authenticate) {
       return Uint8List.fromList(cbor.encode(CborValue([
-        MessageTypes.CODE_AUTHENTICATE,
+        MessageTypes.codeAuthenticate,
         message.signature ?? '',
         message.extra ?? {}
       ])));
     }
     if (message is Register) {
       return Uint8List.fromList(cbor.encode(CborValue([
-        MessageTypes.CODE_REGISTER,
+        MessageTypes.codeRegister,
         message.requestId,
         _serializeRegisterOptions(message.options),
         message.procedure
@@ -493,14 +516,14 @@ class Serializer extends AbstractSerializer {
     }
     if (message is Unregister) {
       return Uint8List.fromList(cbor.encode(CborValue([
-        MessageTypes.CODE_UNREGISTER,
+        MessageTypes.codeUnregister,
         message.requestId,
         message.registrationId
       ])));
     }
     if (message is Call) {
       var structuredMessage = [
-        MessageTypes.CODE_CALL,
+        MessageTypes.codeCall,
         message.requestId,
         _serializeCallOptions(message.options),
         message.procedure,
@@ -510,7 +533,7 @@ class Serializer extends AbstractSerializer {
     }
     if (message is Yield) {
       var structuredMessage = [
-        MessageTypes.CODE_YIELD,
+        MessageTypes.codeYield,
         message.invocationRequestId,
         _serializeYieldOptions(message.options)
       ];
@@ -520,7 +543,7 @@ class Serializer extends AbstractSerializer {
     if (message is Invocation) {
       // for serializer unit test only
       var structuredMessage = [
-        MessageTypes.CODE_INVOCATION,
+        MessageTypes.codeInvocation,
         message.requestId,
         message.registrationId,
         {}
@@ -530,7 +553,7 @@ class Serializer extends AbstractSerializer {
     }
     if (message is Publish) {
       var structuredMessage = [
-        MessageTypes.CODE_PUBLISH,
+        MessageTypes.codePublish,
         message.requestId,
         _serializePublish(message.options),
         message.topic
@@ -540,7 +563,7 @@ class Serializer extends AbstractSerializer {
     }
     if (message is Event) {
       var structuredMessage = [
-        MessageTypes.CODE_EVENT,
+        MessageTypes.codeEvent,
         message.subscriptionId,
         message.publicationId
       ];
@@ -549,7 +572,7 @@ class Serializer extends AbstractSerializer {
     }
     if (message is Subscribe) {
       var structuredMessage = [
-        MessageTypes.CODE_SUBSCRIBE,
+        MessageTypes.codeSubscribe,
         message.requestId,
         _serializeSubscribeOptions(message.options),
         message.topic
@@ -558,7 +581,7 @@ class Serializer extends AbstractSerializer {
     }
     if (message is Unsubscribe) {
       var structuredMessage = [
-        MessageTypes.CODE_UNSUBSCRIBE,
+        MessageTypes.codeUnsubscribe,
         message.requestId,
         message.subscriptionId
       ];
@@ -566,7 +589,7 @@ class Serializer extends AbstractSerializer {
     }
     if (message is Error) {
       var structuredMessage = [
-        MessageTypes.CODE_ERROR,
+        MessageTypes.codeError,
         message.requestTypeId,
         message.requestId,
         message.details,
@@ -577,7 +600,7 @@ class Serializer extends AbstractSerializer {
     }
     if (message is Abort) {
       var structuredMessage = [
-        MessageTypes.CODE_ABORT,
+        MessageTypes.codeAbort,
         message.message != null ? {'message': message.message!.message} : {},
         message.reason
       ];
@@ -585,7 +608,7 @@ class Serializer extends AbstractSerializer {
     }
     if (message is Goodbye) {
       var structuredMessage = [
-        MessageTypes.CODE_GOODBYE,
+        MessageTypes.codeGoodbye,
         message.message != null
             ? {'message': message.message!.message ?? ''}
             : {},
@@ -595,7 +618,7 @@ class Serializer extends AbstractSerializer {
     }
 
     _logger.shout(
-        'Could not serialize the message of type: ' + message.toString());
+        'Could not serialize the message of type: $message');
     throw Exception(''); // TODO think of something helpful here...
   }
 
@@ -633,15 +656,15 @@ class Serializer extends AbstractSerializer {
         var callerFeatures = {};
         callerFeatures.addEntries([
           MapEntry('call_canceling',
-              details.roles!.caller!.features!.call_canceling),
+              details.roles!.caller!.features!.callCanceling),
           MapEntry(
-              'call_timeout', details.roles!.caller!.features!.call_timeout),
+              'call_timeout', details.roles!.caller!.features!.callTimeout),
           MapEntry('caller_identification',
-              details.roles!.caller!.features!.caller_identification),
+              details.roles!.caller!.features!.callerIdentification),
           MapEntry('payload_passthru_mode',
-              details.roles!.caller!.features!.payload_passthru_mode),
+              details.roles!.caller!.features!.payloadPassThruMode),
           MapEntry('progressive_call_results',
-              details.roles!.caller!.features!.progressive_call_results)
+              details.roles!.caller!.features!.progressiveCallResults)
         ]);
         roles.addEntries([
           MapEntry('caller', {'features': callerFeatures})
@@ -652,21 +675,21 @@ class Serializer extends AbstractSerializer {
         var calleeFeatures = {};
         calleeFeatures.addEntries([
           MapEntry('caller_identification',
-              details.roles!.callee!.features!.caller_identification),
+              details.roles!.callee!.features!.callerIdentification),
           MapEntry('call_trustlevels',
-              details.roles!.callee!.features!.call_trustlevels),
+              details.roles!.callee!.features!.callTrustlevels),
           MapEntry('pattern_based_registration',
-              details.roles!.callee!.features!.pattern_based_registration),
+              details.roles!.callee!.features!.patternBasedRegistration),
           MapEntry('shared_registration',
-              details.roles!.callee!.features!.shared_registration),
+              details.roles!.callee!.features!.sharedRegistration),
           MapEntry(
-              'call_timeout', details.roles!.callee!.features!.call_timeout),
+              'call_timeout', details.roles!.callee!.features!.callTimeout),
           MapEntry('call_canceling',
-              details.roles!.callee!.features!.call_canceling),
+              details.roles!.callee!.features!.callCanceling),
           MapEntry('progressive_call_results',
-              details.roles!.callee!.features!.progressive_call_results),
+              details.roles!.callee!.features!.progressiveCallResults),
           MapEntry('payload_passthru_mode',
-              details.roles!.callee!.features!.payload_passthru_mode),
+              details.roles!.callee!.features!.payloadPassThruMode),
         ]);
         roles.addEntries([
           MapEntry('callee', {'features': calleeFeatures})
@@ -677,15 +700,15 @@ class Serializer extends AbstractSerializer {
         var subscriberFeatures = {};
         subscriberFeatures.addEntries([
           MapEntry('call_timeout',
-              details.roles!.subscriber!.features!.call_timeout),
+              details.roles!.subscriber!.features!.callTimeout),
           MapEntry('call_canceling',
-              details.roles!.subscriber!.features!.call_canceling),
+              details.roles!.subscriber!.features!.callCanceling),
           MapEntry('progressive_call_results',
-              details.roles!.subscriber!.features!.progressive_call_results),
+              details.roles!.subscriber!.features!.progressiveCallResults),
           MapEntry('payload_passthru_mode',
-              details.roles!.subscriber!.features!.payload_passthru_mode),
+              details.roles!.subscriber!.features!.payloadPassThruMode),
           MapEntry('subscription_revocation',
-              details.roles!.subscriber!.features!.subscription_revocation)
+              details.roles!.subscriber!.features!.subscriptionRevocation)
         ]);
         roles.addEntries([
           MapEntry('subscriber', {'features': subscriberFeatures})
@@ -696,15 +719,15 @@ class Serializer extends AbstractSerializer {
         var publisherFeatures = {};
         publisherFeatures.addEntries([
           MapEntry('publisher_identification',
-              details.roles!.publisher!.features!.publisher_identification),
+              details.roles!.publisher!.features!.publisherIdentification),
           MapEntry(
               'subscriber_blackwhite_listing',
               details
-                  .roles!.publisher!.features!.subscriber_blackwhite_listing),
+                  .roles!.publisher!.features!.subscriberBlackWhiteListing),
           MapEntry('publisher_exclusion',
-              details.roles!.publisher!.features!.publisher_exclusion),
+              details.roles!.publisher!.features!.publisherExclusion),
           MapEntry('payload_passthru_mode',
-              details.roles!.publisher!.features!.payload_passthru_mode)
+              details.roles!.publisher!.features!.payloadPassThruMode)
         ]);
         roles.addEntries([
           MapEntry('publisher', {'features': publisherFeatures})
@@ -733,9 +756,9 @@ class Serializer extends AbstractSerializer {
       if (options.match != null) {
         optionMap.addEntries([MapEntry('match', options.match)]);
       }
-      if (options.disclose_caller != null) {
+      if (options.discloseCaller != null) {
         optionMap
-            .addEntries([MapEntry('disclose_caller', options.disclose_caller)]);
+            .addEntries([MapEntry('disclose_caller', options.discloseCaller)]);
       }
       if (options.invoke != null) {
         optionMap.addEntries([MapEntry('invoke', options.invoke)]);
@@ -748,12 +771,12 @@ class Serializer extends AbstractSerializer {
   Map _serializeCallOptions(CallOptions? options) {
     var optionMap = {};
     if (options != null) {
-      if (options.receive_progress != null) {
+      if (options.receiveProgress != null) {
         optionMap.addEntries(
-            [MapEntry('receive_progress', options.receive_progress!)]);
+            [MapEntry('receive_progress', options.receiveProgress!)]);
       }
-      if (options.disclose_me != null) {
-        optionMap.addEntries([MapEntry('disclose_me', options.disclose_me!)]);
+      if (options.discloseMe != null) {
+        optionMap.addEntries([MapEntry('disclose_me', options.discloseMe!)]);
       }
       if (options.timeout != null) {
         optionMap.addEntries([MapEntry('timeout', options.timeout!)]);
@@ -776,36 +799,36 @@ class Serializer extends AbstractSerializer {
       if (options.retain != null) {
         optionMap.addEntries([MapEntry('retain', options.retain)]);
       }
-      if (options.disclose_me != null) {
-        optionMap.addEntries([MapEntry('retain', options.disclose_me)]);
+      if (options.discloseMe != null) {
+        optionMap.addEntries([MapEntry('retain', options.discloseMe)]);
       }
       if (options.acknowledge != null) {
         optionMap.addEntries([MapEntry('acknowledge', options.acknowledge)]);
       }
-      if (options.exclude_me != null) {
-        optionMap.addEntries([MapEntry('exclude_me', options.exclude_me)]);
+      if (options.excludeMe != null) {
+        optionMap.addEntries([MapEntry('exclude_me', options.excludeMe)]);
       }
       if (options.exclude != null) {
         optionMap.addEntries([MapEntry('exclude', options.exclude)]);
       }
-      if (options.exclude_authid != null) {
+      if (options.excludeAuthId != null) {
         optionMap
-            .addEntries([MapEntry('exclude_authid', options.exclude_authid)]);
+            .addEntries([MapEntry('exclude_authid', options.excludeAuthId)]);
       }
-      if (options.exclude_authrole != null) {
+      if (options.excludeAuthRole != null) {
         optionMap.addEntries(
-            [MapEntry('exclude_authrole', options.exclude_authrole)]);
+            [MapEntry('exclude_authrole', options.excludeAuthRole)]);
       }
       if (options.eligible != null) {
         optionMap.addEntries([MapEntry('eligible', options.eligible)]);
       }
-      if (options.eligible_authid != null) {
+      if (options.eligibleAuthId != null) {
         optionMap
-            .addEntries([MapEntry('eligible_authid', options.eligible_authid)]);
+            .addEntries([MapEntry('eligible_authid', options.eligibleAuthId)]);
       }
-      if (options.eligible_authrole != null) {
+      if (options.eligibleAuthRole != null) {
         optionMap.addEntries(
-            [MapEntry('eligible_authrole', options.eligible_authrole)]);
+            [MapEntry('eligible_authrole', options.eligibleAuthRole)]);
       }
     }
     return optionMap;
@@ -814,18 +837,18 @@ class Serializer extends AbstractSerializer {
   Map _serializeSubscribeOptions(SubscribeOptions? options) {
     var jsonOptions = {};
     if (options != null) {
-      if (options.get_retained != null) {
+      if (options.getRetained != null) {
         jsonOptions
-            .addEntries([MapEntry('get_retained', options.get_retained)]);
+            .addEntries([MapEntry('get_retained', options.getRetained)]);
       }
       if (options.match != null) {
         jsonOptions.addEntries([MapEntry('match', options.match)]);
       }
-      if (options.meta_topic != null) {
-        jsonOptions.addEntries([MapEntry('meta_topic', options.meta_topic)]);
+      if (options.metaTopic != null) {
+        jsonOptions.addEntries([MapEntry('meta_topic', options.metaTopic)]);
       }
       options
-          .getCustomValues<dynamic>(SubscribeOptions.CUSTOM_SERIALIZER_CBOR)
+          .getCustomValues<dynamic>(SubscribeOptions.customSerializerCbor)
           .forEach((key, value) {
         jsonOptions.addEntries([MapEntry(key, value)]);
       });
@@ -837,38 +860,37 @@ class Serializer extends AbstractSerializer {
   /// Converts a uint8 data into a PPT Payload Object
   @override
   PPTPayload? deserializePPT(Uint8List binPayload) {
-      List<dynamic>? arguments;
-      Map<String, dynamic>? argumentsKeywords;
+    List<dynamic>? arguments;
+    Map<String, dynamic>? argumentsKeywords;
 
-      final decodedMessage = cbor.decode(binPayload);
-      if (decodedMessage is CborMap) {
-          if (decodedMessage[CborString('args')] != null &&
-              decodedMessage[CborString('args')] is CborList) {
-              arguments = (decodedMessage[CborString('args')] as CborList)
-                  .toObject() as List<dynamic>;
-          }
-
-          if (decodedMessage[CborString('kwargs')] != null &&
-              decodedMessage[CborString('kwargs')] is CborMap) {
-              argumentsKeywords = Map.castFrom<dynamic, dynamic, String, dynamic>(
-                  (decodedMessage[CborString('kwargs')] as CborMap).toObject()
-                  as Map<dynamic, dynamic>);
-          }
-
-          return PPTPayload(
-              arguments: arguments,
-              argumentsKeywords: argumentsKeywords);
+    final decodedMessage = cbor.decode(binPayload);
+    if (decodedMessage is CborMap) {
+      if (decodedMessage[CborString('args')] != null &&
+          decodedMessage[CborString('args')] is CborList) {
+        arguments = (decodedMessage[CborString('args')] as CborList).toObject()
+            as List<dynamic>;
       }
-      return null;
+
+      if (decodedMessage[CborString('kwargs')] != null &&
+          decodedMessage[CborString('kwargs')] is CborMap) {
+        argumentsKeywords = Map.castFrom<dynamic, dynamic, String, dynamic>(
+            (decodedMessage[CborString('kwargs')] as CborMap).toObject()
+                as Map<dynamic, dynamic>);
+      }
+
+      return PPTPayload(
+          arguments: arguments, argumentsKeywords: argumentsKeywords);
+    }
+    return null;
   }
 
   /// Converts a PPT Payload Object into a uint8 array
   @override
   Uint8List serializePPT(PPTPayload pptPayload) {
-      var pptMap = {
-          'args': pptPayload.arguments,
-          'kwargs': pptPayload.argumentsKeywords
-      };
-      return Uint8List.fromList(cbor.encode(CborValue(pptMap)));
+    var pptMap = {
+      'args': pptPayload.arguments,
+      'kwargs': pptPayload.argumentsKeywords
+    };
+    return Uint8List.fromList(cbor.encode(CborValue(pptMap)));
   }
 }

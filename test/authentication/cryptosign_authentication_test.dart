@@ -105,7 +105,7 @@ void main() {
     ];
 
     test('message handling', () async {
-      testVectors.forEach((vector) async {
+      for (var vector in testVectors) {
         final authMethod =
             CryptosignAuthentication.fromHex(vector['privateKey']);
         expect(authMethod.getName(), equals('cryptosign'));
@@ -113,17 +113,19 @@ void main() {
         var details = Details();
         await authMethod.hello('some.realm', details);
 
-        expect(details.authextra!['pubkey'],
-            equals(authMethod.privateKey.publicKey.encode(HexCoder.instance)));
+        expect(
+            details.authextra!['pubkey'],
+            equals(authMethod.privateKey.publicKey
+                .encode(Base16Encoder.instance)));
         expect(details.authextra!['channel_binding'], equals(null));
 
         var extra =
-            Extra(challenge: vector['challenge'], channel_binding: null);
+            Extra(challenge: vector['challenge'], channelBinding: null);
         final authenticate = await authMethod.challenge(extra);
         expect(authenticate.signature, equals(vector['signature']));
 
         extra =
-            Extra(challenge: vector['challenge'], channel_binding: 'sadjakf');
+            Extra(challenge: vector['challenge'], channelBinding: 'sadjakf');
         expect(() => authMethod.challenge(extra), throwsA(isA<Exception>()));
 
         try {
@@ -135,7 +137,7 @@ void main() {
 
         extra = Extra(
             challenge: vector['challenge']!.substring(3),
-            channel_binding: null);
+            channelBinding: null);
         expect(() => authMethod.challenge(extra), throwsA(isA<Exception>()));
 
         try {
@@ -143,7 +145,7 @@ void main() {
         } on Exception catch (error) {
           expect(error.toString(), equals('Exception: Wrong challenge length'));
         }
-      });
+      }
     });
 
     test('load putty private key file', () async {

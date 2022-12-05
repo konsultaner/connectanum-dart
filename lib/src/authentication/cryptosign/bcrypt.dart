@@ -45,12 +45,12 @@ import 'dart:typed_data';
 /// @version 0.2
 class BCrypt {
   // BCrypt parameters
-  static const int GENSALT_DEFAULT_LOG2_ROUNDS = 10;
-  static final int BCRYPT_SALT_LEN = 16;
+  static const int gensaltDefaultLog2Rounds = 10;
+  static final int bcryptSaltLen = 16;
 
   // Blowfish parameters
-  static final int BLOWFISH_NUM_ROUNDS = 16;
-  static final List<int> P_orig = [
+  static final int blowfishNumRounds = 16;
+  static final List<int> pOrig = [
     0x243f6a88,
     0x85a308d3,
     0x13198a2e,
@@ -70,7 +70,7 @@ class BCrypt {
     0x9216d5d9,
     0x8979fb1b
   ];
-  static final List<int> S_orig = [
+  static final List<int> sOrig = [
     0xd1310ba6,
     0x98dfb5ac,
     0x2ffd72db,
@@ -1107,7 +1107,7 @@ class BCrypt {
       0x44796e61,
       0x6d697465,
     ]);
-  static final Uint32List bf_crypt_ciphertext = Uint32List(6)
+  static final Uint32List bfCryptCiphertext = Uint32List(6)
     ..setAll(0, [
       0x4f727068,
       0x65616e42,
@@ -1116,7 +1116,7 @@ class BCrypt {
       0x63727944,
       0x6f756274
     ]);
-  static final List<String> base64_code = [
+  static final List<String> base64Code = [
     '.',
     '/',
     'A',
@@ -1182,7 +1182,7 @@ class BCrypt {
     '8',
     '9'
   ];
-  static final Uint8List index_64 = Uint8List.fromList([
+  static final Uint8List index64 = Uint8List.fromList([
     255,
     255,
     255,
@@ -1313,12 +1313,12 @@ class BCrypt {
     255
   ]);
 
-  final Uint32List P = Uint32List(P_orig.length);
-  final Uint32List S = Uint32List(S_orig.length);
+  final Uint32List P = Uint32List(pOrig.length);
+  final Uint32List S = Uint32List(sOrig.length);
 
   /// A base64 encoder that has a slightly different char set that a regular
   /// base64 codec
-  static String _encode_base64(Uint8List d, int len) {
+  static String _encodeBase64(Uint8List d, int len) {
     var off = 0;
     var rs = '';
     int c1;
@@ -1328,38 +1328,38 @@ class BCrypt {
     }
     while (off < len) {
       c1 = (d[off++] & 0xff);
-      rs += base64_code[(c1 >> 2) & 0x3f];
+      rs += base64Code[(c1 >> 2) & 0x3f];
       c1 = ((c1 & 3) << 4);
       if (off >= len) {
-        rs += base64_code[c1 & 0x3f];
+        rs += base64Code[c1 & 0x3f];
         break;
       }
       c2 = (d[off++] & 0xff);
       c1 |= ((c2 >> 4) & 0x0f);
-      rs += base64_code[c1 & 0x3f];
+      rs += base64Code[c1 & 0x3f];
       c1 = ((c2 & 0x0f) << 2);
       if (off >= len) {
-        rs += base64_code[c1 & 0x3f];
+        rs += base64Code[c1 & 0x3f];
         break;
       }
       c2 = (d[off++] & 0xff);
       c1 |= ((c2 >> 6) & 0x3f);
-      rs += base64_code[c1 & 0x3f];
-      rs += base64_code[c2 & 0x3f];
+      rs += base64Code[c1 & 0x3f];
+      rs += base64Code[c2 & 0x3f];
     }
     return rs;
   }
 
   static int _char64(int x) {
-    if ((x < 0) || (x > index_64.length)) {
+    if ((x < 0) || (x > index64.length)) {
       return -1;
     }
-    return index_64[x];
+    return index64[x];
   }
 
   /// A base64 decoder that has a slightly different char set that a regular
   /// base64 codec
-  static Uint8List _decode_base64(String s, int maxolen) {
+  static Uint8List _decodeBase64(String s, int maxolen) {
     var rs = '';
     var off = 0;
     var slen = s.length;
@@ -1417,7 +1417,7 @@ class BCrypt {
     var l = leftRight[arrayOffset];
     var r = leftRight[arrayOffset + 1];
     l ^= P[0];
-    for ((i = 0); i <= (BLOWFISH_NUM_ROUNDS - 2);) {
+    for ((i = 0); i <= (blowfishNumRounds - 2);) {
       n = S[(l >> 24) & 0xff];
       n += S[0x100 | ((l >> 16) & 0xff)];
       n ^= S[0x200 | ((l >> 8) & 0xff)];
@@ -1430,7 +1430,7 @@ class BCrypt {
       n += S[0x300 | (r & 0xff)];
       l ^= n ^ P[++i];
     }
-    leftRight[arrayOffset] = (r ^ P[BLOWFISH_NUM_ROUNDS + 1]);
+    leftRight[arrayOffset] = (r ^ P[blowfishNumRounds + 1]);
     leftRight[arrayOffset + 1] = l;
   }
 
@@ -1446,9 +1446,9 @@ class BCrypt {
     return word;
   }
 
-  void init_key() {
-    P.setAll(0, P_orig);
-    S.setAll(0, S_orig);
+  void initKey() {
+    P.setAll(0, pOrig);
+    S.setAll(0, sOrig);
   }
 
   void key(Uint8List key) {
@@ -1503,7 +1503,7 @@ class BCrypt {
 
   Uint8List hash(Uint8List hpass, Uint8List hsalt) {
     var output = Uint8List(openbsdInitialVector.length * 4);
-    init_key();
+    initKey();
     _ekskey(hsalt, hpass);
     for (var i = 0; i < 64; i++) {
       key(hsalt);
@@ -1528,19 +1528,19 @@ class BCrypt {
   }
 
   Uint8List encryptRaw(
-      Uint8List password, Uint8List salt, int log_rounds, Uint32List cdata) {
+      Uint8List password, Uint8List salt, int logRounds, Uint32List cdata) {
     int rounds;
     int i;
     int j;
     var clen = cdata.length;
-    if ((log_rounds < 4) || (log_rounds > 30)) {
+    if ((logRounds < 4) || (logRounds > 30)) {
       throw Exception('Bad number of rounds');
     }
-    rounds = (1 << log_rounds);
-    if (salt.length != BCRYPT_SALT_LEN) {
+    rounds = (1 << logRounds);
+    if (salt.length != bcryptSaltLen) {
       throw Exception('Bad salt length');
     }
-    init_key();
+    initKey();
     _ekskey(salt, password);
     for ((i = 0); i != rounds; i++) {
       key(password);
@@ -1566,7 +1566,7 @@ class BCrypt {
   /// This method takes a [password] and returns a hash calculated with the
   /// bcrypt algorithm. The [salt] is added to enlarge the hash base
   static String hashPassword(String password, String salt) {
-    String real_salt;
+    String realSalt;
     var minor = 0;
     int rounds;
     var off = 0;
@@ -1589,16 +1589,16 @@ class BCrypt {
       throw Exception('Missing salt rounds');
     }
     rounds = int.parse(salt.substring(off, off + 2));
-    real_salt = salt.substring(off + 3, off + 25);
+    realSalt = salt.substring(off + 3, off + 25);
 
-    var saltb = _decode_base64(real_salt, BCRYPT_SALT_LEN);
+    var saltb = _decodeBase64(realSalt, bcryptSaltLen);
     var hashed = BCrypt().encryptRaw(
         Uint8List.fromList((password +
                 ((minor >= 'a'.codeUnitAt(0)) ? String.fromCharCode(0) : ''))
             .codeUnits),
         saltb,
         rounds,
-        Uint32List(bf_crypt_ciphertext.length)..setAll(0, bf_crypt_ciphertext));
+        Uint32List(bfCryptCiphertext.length)..setAll(0, bfCryptCiphertext));
     rs += '\$2';
     if (minor >= 'a'.codeUnitAt(0)) {
       rs += String.fromCharCode(minor);
@@ -1612,16 +1612,16 @@ class BCrypt {
     }
     rs += rounds.toString();
     rs += '\$';
-    rs += _encode_base64(saltb, saltb.length);
-    rs += _encode_base64(hashed, (bf_crypt_ciphertext.length * 4) - 1);
+    rs += _encodeBase64(saltb, saltb.length);
+    rs += _encodeBase64(hashed, (bfCryptCiphertext.length * 4) - 1);
     return rs;
   }
 
   static String generateSalt(
-      {int logRounds = GENSALT_DEFAULT_LOG2_ROUNDS, Random? random}) {
+      {int logRounds = gensaltDefaultLog2Rounds, Random? random}) {
     var rs = '';
     var rnd = Uint8List.fromList(List<int>.generate(
-        BCRYPT_SALT_LEN, (i) => (random ?? Random.secure()).nextInt(256)));
+        bcryptSaltLen, (i) => (random ?? Random.secure()).nextInt(256)));
     rs += '\$2a\$';
     if (logRounds < 10) {
       rs += '0';
@@ -1631,23 +1631,23 @@ class BCrypt {
     }
     rs += logRounds.toString();
     rs += '\$';
-    rs += _encode_base64(rnd, rnd.length);
+    rs += _encodeBase64(rnd, rnd.length);
     return rs;
   }
 
   static bool checkPassword(String plaintext, String hashed) {
-    var try_pw = hashPassword(plaintext, hashed);
+    var tryPw = hashPassword(plaintext, hashed);
 
-    var hashed_bytes = Uint8List.fromList(hashed.codeUnits);
-    var try_bytes = Uint8List.fromList(try_pw.codeUnits);
+    var hashedBytes = Uint8List.fromList(hashed.codeUnits);
+    var tryBytes = Uint8List.fromList(tryPw.codeUnits);
 
-    if (hashed_bytes.length != try_bytes.length) {
+    if (hashedBytes.length != tryBytes.length) {
       return false;
     }
 
     var ret = 0;
-    for (var i = 0; i < try_bytes.length; i++) {
-      ret |= (hashed_bytes[i] ^ try_bytes[i]);
+    for (var i = 0; i < tryBytes.length; i++) {
+      ret |= (hashedBytes[i] ^ tryBytes[i]);
     }
     return ret == 0;
   }

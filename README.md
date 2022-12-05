@@ -1,10 +1,11 @@
 # connectanum-dart
 
+[![pub](https://img.shields.io/pub/v/connectanum.svg)](https://pub.dev/packages/connectanum)
 [![travis](https://api.travis-ci.com/konsultaner/connectanum-dart.svg)](https://travis-ci.com/github/konsultaner/connectanum-dart)
 [![codecov](https://codecov.io/gh/konsultaner/connectanum-dart/branch/master/graph/badge.svg)](https://codecov.io/gh/konsultaner/connectanum-dart)
 
-This is a WAMP client implementation for the [dart language](https://dart.dev/) and [flutter](https://flutter.dev/) projects. 
-The projects aims to provide a simple and extensible structure that is easy to use.
+This is a WAMP client implementation for the [dart language](https://dart.dev/) and [flutter](https://flutter.dev/) projects.
+The project aims to provide a simple and extensible structure that is easy to use.
 With this project I want return something to the great WAMP-Protocol community.
 
 WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
@@ -97,8 +98,8 @@ eventually fail.
 
 The transport contains an incoming stream that is usually a single subscribe stream. A session will internally
 open a new broadcast stream as soon as the authentication process is successful. The transport stream subscription
-passes all incoming messages to the broad cast stream. If the transport stream is done, the broadcast stream will close
-as well. The broad cast stream is used to handle all session methods. The user will never touch the transport stream
+passes all incoming messages to the broadcast stream. If the transport stream is done, the broadcast stream will close
+as well. The broadcast stream is used to handle all session methods. The user will never touch the transport stream
 directly.
 
 ## Start the client
@@ -108,7 +109,7 @@ When the connection has been established you can start to negotiate a client ses
 the `client.connect()` method from the client instance. On success the client will return a
 session object.
 
-If your transport disconnects the session will invalidate. If a reconnect is configured, the session
+If your transport disconnects the session will invalidate. If reconnect is configured, the session
 will try to authenticate an revalidate the session again. All subscriptions and registrations will
 be recovered if possible.
 

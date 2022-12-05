@@ -26,23 +26,20 @@ void main() {
       server.listen((HttpRequest req) async {
         if (req.uri.path == '/wamp') {
           var socket = await WebSocketTransformer.upgrade(req);
-          print('Received protocol ' +
-              req.headers.value('sec-websocket-protocol')!);
+          print('Received protocol ${req.headers.value('sec-websocket-protocol')!}');
           socket.listen((message) {
             if (message is String &&
-                message.contains('[${MessageTypes.CODE_HELLO}')) {
-
+                message.contains('[${MessageTypes.codeHello}')) {
               if (message.contains('headers.realm') &&
                   req.headers['X_Custom_Header'] != null &&
-                  req.headers.value('X_Custom_Header') == 'custom_value'
-              ) {
-                  socket.add('[${MessageTypes.CODE_WELCOME},5555,{}]');
+                  req.headers.value('X_Custom_Header') == 'custom_value') {
+                socket.add('[${MessageTypes.codeWelcome},5555,{}]');
               } else {
-                socket.add('[${MessageTypes.CODE_WELCOME},1234,{}]');
+                socket.add('[${MessageTypes.codeWelcome},1234,{}]');
               }
             } else {
               // received msgpack
-              if (message.contains(MessageTypes.CODE_HELLO)) {
+              if (message.contains(MessageTypes.codeHello)) {
                 socket.add(Uint8List.fromList(
                     [221, 0, 0, 0, 3, 2, 205, 4, 210, 223, 0, 0, 0, 0]));
               }
@@ -54,18 +51,18 @@ void main() {
       var transportJSON = WebSocketTransport(
           'ws://localhost:9100/wamp',
           jsonSerializer.Serializer(),
-          WebSocketSerialization.SERIALIZATION_JSON);
+          WebSocketSerialization.serializationJson);
 
       var transportMsgpack = WebSocketTransport(
           'ws://localhost:9100/wamp',
           msgpackSerializer.Serializer(),
-          WebSocketSerialization.SERIALIZATION_MSGPACK);
+          WebSocketSerialization.serializationMsgpack);
 
       var transportWithHeaders = WebSocketTransport(
           'ws://localhost:9100/wamp',
           jsonSerializer.Serializer(),
-          WebSocketSerialization.SERIALIZATION_JSON,
-          { 'X_Custom_Header': 'custom_value' });
+          WebSocketSerialization.serializationJson,
+          {'X_Custom_Header': 'custom_value'});
 
       await transportJSON.open();
       transportJSON.send(Hello('my.realm', Details.forHello()));
@@ -81,7 +78,6 @@ void main() {
       transportWithHeaders.send(Hello('headers.realm', Details.forHello()));
       welcome = (await transportWithHeaders.receive().first) as Welcome;
       expect(welcome.sessionId, equals(5555));
-
-        });
+    });
   });
 }

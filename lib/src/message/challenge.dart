@@ -10,7 +10,7 @@ class Challenge extends AbstractMessage {
   /// challenge the client with a given [authMethod] and some [extra]
   /// authentication data
   Challenge(this.authMethod, this.extra) {
-    id = MessageTypes.CODE_CHALLENGE;
+    id = MessageTypes.codeChallenge;
   }
 }
 
@@ -18,8 +18,8 @@ class Challenge extends AbstractMessage {
 class Extra {
   String? challenge;
   String? salt;
-  String? channel_binding;
-  int? keylen;
+  String? channelBinding;
+  int? keyLen;
   int? iterations;
   int? memory;
   String? kdf;
@@ -28,8 +28,8 @@ class Extra {
   Extra(
       {this.challenge,
       this.salt,
-      this.keylen,
-      this.channel_binding,
+      this.keyLen,
+      this.channelBinding,
       this.iterations,
       this.memory,
       this.kdf,

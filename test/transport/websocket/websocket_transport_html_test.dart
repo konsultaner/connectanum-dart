@@ -21,12 +21,12 @@ void main() {
       var transportJSON = WebSocketTransport(
           'wss://www.connectanum.com/wamp', // TODO as soon as https://github.com/dart-lang/sdk/issues/40786 is fixed "ws://localhost:$port/wamp",
           json_serializer.Serializer(),
-          WebSocketSerialization.SERIALIZATION_JSON);
+          WebSocketSerialization.serializationJson);
 
       var transportMsgpack = WebSocketTransport(
           'wss://www.connectanum.com/wamp', // TODO as soon as https://github.com/dart-lang/sdk/issues/40786 is fixed "ws://localhost:$port/wamp",
           msgpack_serializer.Serializer(),
-          WebSocketSerialization.SERIALIZATION_MSGPACK);
+          WebSocketSerialization.serializationMsgpack);
 
       await transportJSON.open();
       transportJSON.send(Hello('my.realm', Details.forHello()));

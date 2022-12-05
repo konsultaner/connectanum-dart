@@ -10,7 +10,7 @@ class Yield extends AbstractMessageWithPayload {
       {this.options,
       List<dynamic>? arguments,
       Map<String, dynamic>? argumentsKeywords}) {
-    id = MessageTypes.CODE_YIELD;
+    id = MessageTypes.codeYield;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;
   }
@@ -21,19 +21,19 @@ class YieldOptions extends PPTOptions {
 
   YieldOptions(
       {bool? progress,
-      String? ppt_scheme,
-      String? ppt_serializer,
-      String? ppt_cipher,
-      String? ppt_keyid}) {
-      this.progress = progress ?? false;
-      this.ppt_scheme = ppt_scheme;
-      this.ppt_serializer = ppt_serializer;
-      this.ppt_cipher = ppt_cipher;
-      this.ppt_keyid = ppt_keyid;
+      String? pptScheme,
+      String? pptSerializer,
+      String? pptCipher,
+      String? pptKeyId}) {
+    this.progress = progress ?? false;
+    this.pptScheme = pptScheme;
+    this.pptSerializer = pptSerializer;
+    this.pptCipher = pptCipher;
+    this.pptKeyId = pptKeyId;
   }
 
   @override
-  bool Verify() {
-      return VerifyPPT();
+  bool verify() {
+    return verifyPPT();
   }
 }

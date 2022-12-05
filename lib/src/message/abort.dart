@@ -9,7 +9,7 @@ class Abort extends AbstractMessage {
   /// Creates a WAMP Abort message with a [reason] why something was aborted and an
   /// optional [message] to describe the issue
   Abort(this.reason, {String? message}) {
-    id = MessageTypes.CODE_ABORT;
+    id = MessageTypes.codeAbort;
     if (message != null) {
       this.message = Message(message);
     }

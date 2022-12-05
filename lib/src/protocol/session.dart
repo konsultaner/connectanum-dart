@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:logging/logging.dart';
-import 'package:pedantic/pedantic.dart';
 
 import '../message/abort.dart';
 import '../message/abstract_message.dart';
@@ -126,17 +125,17 @@ class Session {
           if (message is Challenge) {
             final foundAuthMethod = authMethods == null
                 ? null
-                : authMethods
+                : (authMethods
                     .where((authenticationMethod) =>
                         authenticationMethod.getName() == message.authMethod)
-                    .first;
+                    .first);
             if (foundAuthMethod != null) {
               try {
                 foundAuthMethod
                     .challenge(message.extra)
                     .then((authenticate) => session.authenticate(authenticate),
                         onError: (error) {
-                  session._transport.send(Abort(Error.AUTHORIZATION_FAILED,
+                  session._transport.send(Abort(Error.authorizationFailed,
                       message: error.toString()));
                   session._transport.close();
                 });
@@ -144,13 +143,13 @@ class Session {
                 try {
                   transport.close();
                 } catch (ignore) {/* my be already closed */}
-                welcomeCompleter.completeError(Abort(Error.AUTHORIZATION_FAILED,
+                welcomeCompleter.completeError(Abort(Error.authorizationFailed,
                     message: exception.toString()));
               }
             } else {
               final goodbye = Goodbye(
                   GoodbyeMessage('Authmethod $foundAuthMethod not supported'),
-                  Goodbye.REASON_GOODBYE_AND_OUT);
+                  Goodbye.reasonGoodbyeAndOut);
               session._transport.send(goodbye);
               welcomeCompleter.completeError(goodbye);
             }
@@ -158,7 +157,7 @@ class Session {
             session.id = message.sessionId;
 
             if ((session.realm ?? message.details.realm) == null) {
-              welcomeCompleter.completeError(Abort(Error.AUTHORIZATION_FAILED,
+              welcomeCompleter.completeError(Abort(Error.authorizationFailed,
                   message:
                       'No realm specified! Neither by the client nor by the router'));
               return;
@@ -229,16 +228,19 @@ class Session {
       Map<String, dynamic>? argumentsKeywords,
       CallOptions? options,
       Completer<String>? cancelCompleter}) async* {
-
     var callArguments = arguments;
     var callArgumentsKeywords = argumentsKeywords;
 
-    if (options?.ppt_scheme == 'wamp') {    // It's E2EE payload
-        callArguments = E2EEPayload.packE2EEPayload(arguments, argumentsKeywords, options!);
-        callArgumentsKeywords = null;
-    } else if (options?.ppt_scheme != null) {   // It's some variation of PPT
-        callArguments = PPTPayload.packPPTPayload(arguments, argumentsKeywords, options!);
-        callArgumentsKeywords = null;
+    if (options?.pptScheme == 'wamp') {
+      // It's E2EE payload
+      callArguments =
+          E2EEPayload.packE2EEPayload(arguments, argumentsKeywords, options!);
+      callArgumentsKeywords = null;
+    } else if (options?.pptScheme != null) {
+      // It's some variation of PPT
+      callArguments =
+          PPTPayload.packPPTPayload(arguments, argumentsKeywords, options!);
+      callArgumentsKeywords = null;
     }
 
     var call = Call(nextCallId++, procedure,
@@ -249,9 +251,9 @@ class Session {
     if (cancelCompleter != null) {
       unawaited(cancelCompleter.future.then((cancelMode) {
         CancelOptions? options;
-        if (CancelOptions.MODE_KILL_NO_WAIT == cancelMode ||
-            CancelOptions.MODE_KILL == cancelMode ||
-            CancelOptions.MODE_SKIP == cancelMode) {
+        if (CancelOptions.modeKillNoWait == cancelMode ||
+            CancelOptions.modeKill == cancelMode ||
+            CancelOptions.modeSkip == cancelMode) {
           options = CancelOptions();
           options.mode = cancelMode;
         }
@@ -263,7 +265,7 @@ class Session {
         in _openSessionStreamController.stream.where((message) =>
             (message is Result && message.callRequestId == call.requestId) ||
             (message is Error &&
-                message.requestTypeId == MessageTypes.CODE_CALL &&
+                message.requestTypeId == MessageTypes.codeCall &&
                 message.requestId == call.requestId))) {
       if (result is Result) {
         yield result;
@@ -288,7 +290,7 @@ class Session {
             (message is Subscribed &&
                 message.subscribeRequestId == subscribe.requestId) ||
             (message is Error &&
-                message.requestTypeId == MessageTypes.CODE_SUBSCRIBE &&
+                message.requestTypeId == MessageTypes.codeSubscribe &&
                 message.requestId == subscribe.requestId))
         .first;
     if (subscribed is Subscribed) {
@@ -305,24 +307,25 @@ class Session {
             subscriptions[subscribed.subscriptionId] != null &&
             message.subscriptionId == subscribed.subscriptionId;
       }).map((event) {
-              var eventUpdated = event;
+        var eventUpdated = event;
 
-              if (event.details.ppt_scheme == 'wamp') {    // It's E2EE payload
-                  var e2eePayload = E2EEPayload.unpackE2EEPayload(
-                      event.arguments, event.details);
+        if (event.details.pptScheme == 'wamp') {
+          // It's E2EE payload
+          var e2eePayload =
+              E2EEPayload.unpackE2EEPayload(event.arguments, event.details);
 
-                  event.arguments = e2eePayload.arguments;
-                  event.argumentsKeywords = e2eePayload.argumentsKeywords;
+          event.arguments = e2eePayload.arguments;
+          event.argumentsKeywords = e2eePayload.argumentsKeywords;
+        } else if (event.details.pptScheme != null) {
+          // It's some variation of PPT
+          var pptPayload =
+              PPTPayload.unpackPPTPayload(event.arguments, event.details);
 
-              } else if (event.details.ppt_scheme != null) {   // It's some variation of PPT
-                  var pptPayload = PPTPayload.unpackPPTPayload(
-                      event.arguments, event.details);
-
-                  event.arguments = pptPayload.arguments;
-                  event.argumentsKeywords = pptPayload.argumentsKeywords;
-              }
-              return eventUpdated;
-          }).cast();
+          event.arguments = pptPayload.arguments;
+          event.argumentsKeywords = pptPayload.argumentsKeywords;
+        }
+        return eventUpdated;
+      }).cast();
       return subscribed;
     } else {
       throw subscribed;
@@ -340,7 +343,7 @@ class Session {
         return true;
       }
       if (message is Error &&
-          message.requestTypeId == MessageTypes.CODE_UNSUBSCRIBE &&
+          message.requestTypeId == MessageTypes.codeUnsubscribe &&
           message.requestId == unsubscribe.requestId) {
         throw message;
       }
@@ -354,15 +357,18 @@ class Session {
       {List<dynamic>? arguments,
       Map<String, dynamic>? argumentsKeywords,
       PublishOptions? options}) {
-
     var pubArguments = arguments;
     var pubArgumentsKeywords = argumentsKeywords;
 
-    if (options?.ppt_scheme == 'wamp') {    // It's E2EE payload
-      pubArguments = E2EEPayload.packE2EEPayload(arguments, argumentsKeywords, options!);
+    if (options?.pptScheme == 'wamp') {
+      // It's E2EE payload
+      pubArguments =
+          E2EEPayload.packE2EEPayload(arguments, argumentsKeywords, options!);
       pubArgumentsKeywords = null;
-    } else if (options?.ppt_scheme != null) {   // It's some variation of PPT
-      pubArguments = PPTPayload.packPPTPayload(arguments, argumentsKeywords, options!);
+    } else if (options?.pptScheme != null) {
+      // It's some variation of PPT
+      pubArguments =
+          PPTPayload.packPPTPayload(arguments, argumentsKeywords, options!);
       pubArgumentsKeywords = null;
     }
 
@@ -380,7 +386,7 @@ class Session {
         return true;
       }
       if (message is Error &&
-          message.requestTypeId == MessageTypes.CODE_PUBLISH &&
+          message.requestTypeId == MessageTypes.codePublish &&
           message.requestId == publish.requestId) {
         throw message;
       }
@@ -400,7 +406,7 @@ class Session {
             (message is Registered &&
                 message.registerRequestId == register.requestId) ||
             (message is Error &&
-                message.requestTypeId == MessageTypes.CODE_REGISTER &&
+                message.requestTypeId == MessageTypes.codeRegister &&
                 message.requestId == register.requestId))
         .first;
     if (registered is Registered) {
@@ -415,8 +421,8 @@ class Session {
             message.onResponse((message) => _transport.send(message));
             return true;
           } else {
-            _transport.send(Error(MessageTypes.CODE_INVOCATION,
-                message.requestId, {}, Error.NO_SUCH_REGISTRATION));
+            _transport.send(Error(MessageTypes.codeInvocation,
+                message.requestId, {}, Error.noSuchRegistration));
             return false;
           }
         }
@@ -439,7 +445,7 @@ class Session {
         return true;
       }
       if (message is Error &&
-          message.requestTypeId == MessageTypes.CODE_UNREGISTER &&
+          message.requestTypeId == MessageTypes.codeUnregister &&
           message.requestId == unregister.requestId) {
         throw message;
       }
@@ -452,7 +458,7 @@ class Session {
   /// If no timeout is set, the client waits for the server to close the transport forever.
   Future<void> close({String message = 'Regular closing', Duration? timeout}) {
     final goodbye =
-        Goodbye(GoodbyeMessage(message), Goodbye.REASON_GOODBYE_AND_OUT);
+        Goodbye(GoodbyeMessage(message), Goodbye.reasonGoodbyeAndOut);
     _transport.send(goodbye);
     if (timeout != null) {
       return Future.delayed(timeout, () => _transport.close());

@@ -13,7 +13,7 @@ class Event extends AbstractMessageWithPayload {
 
   Event(this.subscriptionId, this.publicationId, this.details,
       {List<dynamic>? arguments, Map<String, dynamic>? argumentsKeywords}) {
-    id = MessageTypes.CODE_EVENT;
+    id = MessageTypes.codeEvent;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;
   }
@@ -34,18 +34,18 @@ class EventDetails extends PPTOptions {
       {this.publisher,
       this.trustlevel,
       this.topic,
-      String? ppt_scheme,
-      String? ppt_serializer,
-      String? ppt_cipher,
-      String? ppt_keyid}) {
-      this.ppt_scheme = ppt_scheme;
-      this.ppt_serializer = ppt_serializer;
-      this.ppt_cipher = ppt_cipher;
-      this.ppt_keyid = ppt_keyid;
+      String? pptScheme,
+      String? pptSerializer,
+      String? pptCipher,
+      String? pptKeyid}) {
+    pptScheme = pptScheme;
+    pptSerializer = pptSerializer;
+    pptCipher = pptCipher;
+    pptKeyId = pptKeyid;
   }
 
   @override
-  bool Verify() {
-      return VerifyPPT();
+  bool verify() {
+    return verifyPPT();
   }
 }

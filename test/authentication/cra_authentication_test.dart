@@ -13,10 +13,10 @@ void main() {
     var keyValue = 'pjyujtcFkRES8z9jUqvPjokWp2G6xBh7QhtB0tMV6YA=';
 
     var challenge =
-        '{\"authid\":\"11111111\",\"authrole\":\"client\",\"authmethod\":\"wampcra\",\"authprovider\":\"mssql\",\"nonce\":\"1280303478343404\",\"timestamp\":\"2015-10-27T14:28Z\",\"session\":586844620777222}';
+        '{"authid":"11111111","authrole":"client","authmethod":"wampcra","authprovider":"mssql","nonce":"1280303478343404","timestamp":"2015-10-27T14:28Z","session":586844620777222}';
     var hmac = 'APO4Z6Z0sfpJ8DStwj+XgwJkHkeSw+eD9URKSHf+FKQ=';
 
-    var PBKDF2_HMAC_SHA256_testVectors = [
+    var pbkdf2HmacSha256TestVectors = [
       ['3614', 'gbnk5ji1b0dgoeavu31er567nb', 1000, 32, base64.decode(keyValue)],
       [
         'password',
@@ -148,8 +148,8 @@ void main() {
         ]
       ],
       [
-        'pass' + String.fromCharCodes([0]) + 'word',
-        'sa' + String.fromCharCodes([0]) + 'lt',
+        'pass${String.fromCharCodes([0])}word',
+        'sa${String.fromCharCodes([0])}lt',
         4096,
         16,
         [
@@ -176,7 +176,7 @@ void main() {
       ]
     ];
     test('derive key', () {
-      for (var vector in PBKDF2_HMAC_SHA256_testVectors) {
+      for (var vector in pbkdf2HmacSha256TestVectors) {
         final key = CraAuthentication.deriveKey(
             vector[0] as String, (vector[1] as String).codeUnits,
             iterations: vector[2] as int, keylen: vector[3] as int);
@@ -194,7 +194,7 @@ void main() {
       final authMethod = CraAuthentication(secret);
       expect(authMethod.getName(), equals('wampcra'));
       var extra =
-          Extra(challenge: challenge, keylen: 32, iterations: 1000, salt: salt);
+          Extra(challenge: challenge, keyLen: 32, iterations: 1000, salt: salt);
       final authenticate = await authMethod.challenge(extra);
       expect(authenticate.signature, equals(hmac));
     });
@@ -208,7 +208,7 @@ void main() {
   group('CRA-Unsalted', () {
     var secret = '3614';
     var challenge =
-        '{\"authid\":\"11111111\",\"authrole\":\"client\",\"authmethod\":\"wampcra\",\"authprovider\":\"mssql\",\"nonce\":\"1280303478343404\",\"timestamp\":\"2015-10-27T14:28Z\",\"session\":586844620777222}';
+        '{"authid":"11111111","authrole":"client","authmethod":"wampcra","authprovider":"mssql","nonce":"1280303478343404","timestamp":"2015-10-27T14:28Z","session":586844620777222}';
     var hmac = 'IDDGUdKPgQMUKsYQUPjA5OMHixNrVz5pygaTDh51a0I=';
     test('message handling', () async {
       final authMethod = CraAuthentication(secret);

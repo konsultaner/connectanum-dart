@@ -28,20 +28,24 @@ class Invocation extends AbstractMessageWithPayload {
       }
       assert(UriPattern.match(errorUri!));
       final error = Error(
-          MessageTypes.CODE_INVOCATION, requestId, HashMap(), errorUri,
+          MessageTypes.codeInvocation, requestId, HashMap(), errorUri,
           arguments: arguments, argumentsKeywords: argumentsKeywords);
       _responseStreamController.add(error);
     } else {
-        var invokeArguments = arguments;
-        var invokeArgumentsKeywords = argumentsKeywords;
+      var invokeArguments = arguments;
+      var invokeArgumentsKeywords = argumentsKeywords;
 
-        if (options?.ppt_scheme == 'wamp') {    // It's E2EE payload
-            invokeArguments = E2EEPayload.packE2EEPayload(arguments, argumentsKeywords, options!);
-            invokeArgumentsKeywords = null;
-        } else if (options?.ppt_scheme != null) {   // It's some variation of PPT
-            invokeArguments = PPTPayload.packPPTPayload(arguments, argumentsKeywords, options!);
-            invokeArgumentsKeywords = null;
-        }
+      if (options?.pptScheme == 'wamp') {
+        // It's E2EE payload
+        invokeArguments =
+            E2EEPayload.packE2EEPayload(arguments, argumentsKeywords, options!);
+        invokeArgumentsKeywords = null;
+      } else if (options?.pptScheme != null) {
+        // It's some variation of PPT
+        invokeArguments =
+            PPTPayload.packPPTPayload(arguments, argumentsKeywords, options!);
+        invokeArgumentsKeywords = null;
+      }
 
       final yield = Yield(requestId,
           options: options,
@@ -56,13 +60,13 @@ class Invocation extends AbstractMessageWithPayload {
 
   Invocation(this.requestId, this.registrationId, this.details,
       {List<dynamic>? arguments, Map<String, dynamic>? argumentsKeywords}) {
-    id = MessageTypes.CODE_INVOCATION;
+    id = MessageTypes.codeInvocation;
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;
   }
 
   bool isProgressive() {
-    return details.receive_progress ?? false;
+    return details.receiveProgress ?? false;
   }
 
   void onResponse(
@@ -81,24 +85,21 @@ class InvocationDetails extends PPTOptions {
   String? procedure;
 
   // pattern_based_registration == true
-  bool? receive_progress;
+  bool? receiveProgress;
 
-  InvocationDetails(
-      this.caller,
-      this.procedure,
-      this.receive_progress,
-      [String? ppt_scheme,
-      String? ppt_serializer,
-      String? ppt_cipher,
-      String? ppt_keyid]) {
-      this.ppt_scheme = ppt_scheme;
-      this.ppt_serializer = ppt_serializer;
-      this.ppt_cipher = ppt_cipher;
-      this.ppt_keyid = ppt_keyid;
+  InvocationDetails(this.caller, this.procedure, this.receiveProgress,
+      [String? pptScheme,
+      String? pptSerializer,
+      String? pptCipher,
+      String? pptKeyId]) {
+    this.pptScheme = pptScheme;
+    this.pptSerializer = pptSerializer;
+    this.pptCipher = pptCipher;
+    this.pptKeyId = pptKeyId;
   }
 
   @override
-  bool Verify() {
-      return VerifyPPT();
+  bool verify() {
+    return verifyPPT();
   }
 }

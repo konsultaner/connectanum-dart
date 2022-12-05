@@ -1,10 +1,9 @@
 import 'dart:collection';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:pinenacl/ed25519.dart';
 import 'package:pointycastle/api.dart';
-import 'package:pointycastle/block/aes_fast.dart';
+import 'package:pointycastle/block/aes.dart';
 import 'package:pointycastle/block/modes/cbc.dart';
 import 'package:pointycastle/block/modes/ctr.dart';
 import 'package:pointycastle/macs/hmac.dart';
@@ -16,14 +15,13 @@ import '../message/details.dart';
 import 'abstract_authentication.dart';
 
 import 'package:pointycastle/digests/sha1.dart';
-import 'package:pinenacl/api.dart' show ByteList;
 
 import 'cryptosign/bcrypt_pbkdf.dart';
 
 class CryptosignAuthentication extends AbstractAuthentication {
-  static final String CHANNEL_BINDUNG_TLS_UNIQUE = 'tls-unique';
-  static final String OPEN_SSH_HEADER = '-----BEGIN OPENSSH PRIVATE KEY-----';
-  static final String OPEN_SSH_FOOTER = '-----END OPENSSH PRIVATE KEY-----';
+  static final String channelBindungTlsUnique = 'tls-unique';
+  static final String openSshHeader = '-----BEGIN OPENSSH PRIVATE KEY-----';
+  static final String openSshFooter = '-----END OPENSSH PRIVATE KEY-----';
 
   final SigningKey privateKey;
   final String? channelBinding;
@@ -80,7 +78,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
   /// encoded challenge and signs it with the given private key
   @override
   Future<Authenticate> challenge(Extra extra) {
-    if (extra.channel_binding != channelBinding) {
+    if (extra.channelBinding != channelBinding) {
       return Future.error(Exception('Channel Binding does not match'));
     }
     if (extra.challenge!.length % 2 != 0) {
@@ -92,7 +90,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
     authenticate.extra!['channel_binding'] = channelBinding;
     var binaryChallenge = hexToBin(extra.challenge);
     authenticate.signature =
-        privateKey.sign(binaryChallenge).encode(HexCoder.instance);
+        privateKey.sign(binaryChallenge).encode(Base16Encoder.instance);
     return Future.value(authenticate);
   }
 
@@ -115,7 +113,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
   Future<void> hello(String? realm, Details details) {
     details.authextra ??= <String, String?>{};
     details.authextra!['pubkey'] =
-        privateKey.publicKey.encode(HexCoder.instance);
+        privateKey.publicKey.encode(Base16Encoder.instance);
     details.authextra!['channel_binding'] = channelBinding;
     return Future.value();
   }
@@ -144,52 +142,52 @@ class CryptosignAuthentication extends AbstractAuthentication {
     String? privateMac;
     var lines = ppkFileContent.split('\n');
     var macData = PpkMacData();
-    lines.forEach((element) {
+    for (var line in lines) {
       if (!endOfHeader) {
-        if (lines.indexOf(element) == 0 &&
-            !element.startsWith('PuTTY-User-Key-File-')) {
+        if (lines.indexOf(line) == 0 &&
+            !line.startsWith('PuTTY-User-Key-File-')) {
           throw Exception('File is no valid putty ssh-2 key file!');
         }
-        if (element.startsWith('PuTTY-User-Key-File-')) {
-          if (!element.startsWith('PuTTY-User-Key-File-2')) {
+        if (line.startsWith('PuTTY-User-Key-File-')) {
+          if (!line.startsWith('PuTTY-User-Key-File-2')) {
             throw Exception('Unsupported ssh-2 key file version!');
           }
-          if (!element.trimRight().endsWith('ssh-ed25519')) {
+          if (!line.trimRight().endsWith('ssh-ed25519')) {
             throw Exception(
                 'The putty key has the wrong encryption method, use ssh-ed25519!');
           }
           macData.algorithm = 'ssh-ed25519';
         }
-        if (element.startsWith('Encryption')) {
-          if (!element.trimRight().endsWith('none')) {
-            if (!element.trimRight().endsWith('aes256-cbc')) {
+        if (line.startsWith('Encryption')) {
+          if (!line.trimRight().endsWith('none')) {
+            if (!line.trimRight().endsWith('aes256-cbc')) {
               throw Exception(
                   'Unknown or unsupported putty file encryption! Supported values are "none" and "aes256-cbc"');
             }
             encrypted = true;
           }
-          macData.encryption = element.split(': ')[1].trimRight();
+          macData.encryption = line.split(': ')[1].trimRight();
         }
-        if (element.startsWith('Comment')) {
-          macData.comment = element.split(': ')[1].trimRight();
+        if (line.startsWith('Comment')) {
+          macData.comment = line.split(': ')[1].trimRight();
         }
-        if (element.startsWith('Public-Lines')) {
+        if (line.startsWith('Public-Lines')) {
           endOfHeader = true;
-          publicKeyIndex = int.parse(element.split(': ')[1].trimRight());
-          return;
+          publicKeyIndex = int.parse(line.split(': ')[1].trimRight());
+          continue;
         }
-      } else if (element.startsWith('Private-Lines')) {
-        privateKeyIndex = int.parse(element.split(': ')[1].trimRight());
+      } else if (line.startsWith('Private-Lines')) {
+        privateKeyIndex = int.parse(line.split(': ')[1].trimRight());
       } else if (publicKeyIndex > 0) {
-        publicKey += element.trimRight();
+        publicKey += line.trimRight();
         publicKeyIndex--;
       } else if (privateKeyIndex > 0) {
-        privateKey += element.trimRight();
+        privateKey += line.trimRight();
         privateKeyIndex--;
-      } else if (element.startsWith('Private-MAC')) {
-        privateMac = element.split(': ')[1].trimRight();
+      } else if (line.startsWith('Private-MAC')) {
+        privateMac = line.split(': ')[1].trimRight();
       }
-    });
+    }
     macData.publicKey = base64.decode(publicKey);
     if (privateKey.isNotEmpty) {
       Uint8List privateKeyDecrypted;
@@ -227,7 +225,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
           Uint8List.fromList(password.codeUnits), 0, password.codeUnits.length)
       ..doFinal(key, 20);
 
-    final cbcBlockCipher = CBCBlockCipher(AESFastEngine())
+    final cbcBlockCipher = CBCBlockCipher(AESEngine())
       ..init(false,
           ParametersWithIV(KeyParameter(key.sublist(0, 32)), Uint8List(16)));
     final seed = Uint8List(encryptedPrivateKeyList.length);
@@ -280,7 +278,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
     mac.update(Uint8List.fromList([0, 0, 0, macData.privateKey.length]), 0, 4);
     mac.update(macData.privateKey, 0, macData.privateKey.length);
     mac.doFinal(macResult, 0);
-    if (HexCoder.instance.encode(ByteList.fromList(macResult)) != privateMac) {
+    if (Base16Encoder.instance.encode(ByteList(macResult)) != privateMac) {
       if (password == null) {
         throw Exception('Mac check failed, file is corrupt!');
       } else {
@@ -314,16 +312,16 @@ class CryptosignAuthentication extends AbstractAuthentication {
   ///     padding bytes 0x010203  # pad to blocksize
   static Uint8List loadPrivateKeyFromOpenSSHPem(String pemFileContent,
       {String? password}) {
-    if (!pemFileContent.startsWith(OPEN_SSH_HEADER) ||
-        !pemFileContent.startsWith(OPEN_SSH_HEADER)) {
+    if (!pemFileContent.startsWith(openSshHeader) ||
+        !pemFileContent.startsWith(openSshHeader)) {
       throw Exception('Wrong file format');
     }
 
     pemFileContent = pemFileContent.replaceAll(RegExp(r'[\n\r]'), '');
     pemFileContent =
-        pemFileContent.substring(OPEN_SSH_HEADER.length).trimLeft();
+        pemFileContent.substring(openSshHeader.length).trimLeft();
     pemFileContent = pemFileContent
-        .substring(0, pemFileContent.length - OPEN_SSH_FOOTER.length)
+        .substring(0, pemFileContent.length - openSshFooter.length)
         .trimRight();
 
     var binaryContent =
@@ -378,10 +376,10 @@ class CryptosignAuthentication extends AbstractAuthentication {
         var iv = keyIv.sublist(32, 48);
         late BlockCipher cypher;
         if (cypherName == 'aes256-ctr') {
-          cypher = CTRBlockCipher(32, CTRStreamCipher(AESFastEngine()))
+          cypher = CTRBlockCipher(32, CTRStreamCipher(AESEngine()))
             ..init(false, ParametersWithIV(KeyParameter(key), iv));
         } else if (cypherName == 'aes256-cbc') {
-          cypher = CBCBlockCipher(AESFastEngine())
+          cypher = CBCBlockCipher(AESEngine())
             ..init(false, ParametersWithIV(KeyParameter(key), iv));
         }
 
@@ -401,7 +399,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
         return _readOpenSshPrivateKeySeed(paddedPlainText, 0);
       } else {
         throw Exception(
-            'The given cypherName ' + cypherName + ' is not supported!');
+            'The given cypherName $cypherName is not supported!');
       }
     } else {
       throw Exception('This is not a valid open ssh key file format!');
@@ -422,8 +420,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
     readerIndex += 4 + 32; // no need for the public key part
     if (keyType != 'ssh-ed25519') {
       throw Exception(
-          'Cryptosign needs a private key of type ssh-ed25519! Found ' +
-              keyType);
+          'Cryptosign needs a private key of type ssh-ed25519! Found $keyType');
     }
     var privateKey = binaryContent.sublist(readerIndex += 4, readerIndex += 64);
     var seed = privateKey.sublist(0, 32);
