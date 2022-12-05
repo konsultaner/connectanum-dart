@@ -32,8 +32,8 @@ import '../message/unsubscribe.dart';
 import '../message/error.dart';
 import '../transport/abstract_transport.dart';
 import '../authentication/abstract_authentication.dart';
-import 'e2ee_payload.dart';
-import 'ppt_payload.dart';
+import '../message/e2ee_payload.dart';
+import '../message/ppt_payload.dart';
 
 class Session {
   static final Logger _logger = Logger('Session');

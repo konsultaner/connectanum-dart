@@ -1,5 +1,5 @@
-import '../protocol/e2ee_payload.dart';
-import '../protocol/ppt_payload.dart';
+import 'e2ee_payload.dart';
+import 'ppt_payload.dart';
 import 'error.dart';
 import 'message_types.dart';
 import 'abstract_message.dart';

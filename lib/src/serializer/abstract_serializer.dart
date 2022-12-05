@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import '../message/abstract_message.dart';
-import '../protocol/ppt_payload.dart';
+import '../message/ppt_payload.dart';
 
 /// The custom serializer interface
 abstract class AbstractSerializer {

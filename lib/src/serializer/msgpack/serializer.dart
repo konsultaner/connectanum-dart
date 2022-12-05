@@ -30,7 +30,7 @@ import '../../../src/message/unsubscribed.dart';
 import '../../../src/message/welcome.dart';
 import '../../../src/message/yield.dart';
 
-import '../../protocol/ppt_payload.dart';
+import '../../message/ppt_payload.dart';
 import '../abstract_serializer.dart';
 
 /// This is a seralizer for msgpack messages.

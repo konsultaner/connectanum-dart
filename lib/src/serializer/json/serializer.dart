@@ -31,7 +31,7 @@ import '../../../src/message/yield.dart';
 
 import 'dart:convert';
 
-import '../../protocol/ppt_payload.dart';
+import '../../message/ppt_payload.dart';
 import '../abstract_serializer.dart';
 
 /// This is a serializer for JSON messages. It is used to initialize an [AbstractTransport]

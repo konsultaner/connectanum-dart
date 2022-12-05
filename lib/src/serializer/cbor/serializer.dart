@@ -10,7 +10,7 @@ import 'package:connectanum/src/message/welcome.dart';
 import 'package:connectanum/src/message/yield.dart';
 import 'package:logging/logging.dart';
 
-import '../../protocol/ppt_payload.dart';
+import '../../message/ppt_payload.dart';
 
 /// This is a seralizer for msgpack messages.
 /// It is used to initialize an [AbstractTransport] object.

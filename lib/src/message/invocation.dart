@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:collection';
 
-import '../protocol/e2ee_payload.dart';
-import '../protocol/ppt_payload.dart';
+import 'e2ee_payload.dart';
+import 'ppt_payload.dart';
 import 'abstract_message_with_payload.dart';
 import 'abstract_ppt_options.dart';
 import 'message_types.dart';

@@ -25,8 +25,8 @@ import 'package:connectanum/src/message/unsubscribed.dart';
 import 'package:connectanum/src/message/welcome.dart';
 import 'package:connectanum/src/message/invocation.dart';
 import 'package:connectanum/src/message/yield.dart';
+import 'package:connectanum/src/message/ppt_payload.dart';
 import 'package:connectanum/msgpack.dart';
-import 'package:connectanum/src/protocol/ppt_payload.dart';
 import 'package:test/test.dart';
 
 void main() {

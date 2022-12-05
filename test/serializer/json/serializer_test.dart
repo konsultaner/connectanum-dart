@@ -25,7 +25,7 @@ import 'package:connectanum/src/message/unsubscribed.dart';
 import 'package:connectanum/src/message/welcome.dart';
 import 'package:connectanum/src/message/invocation.dart';
 import 'package:connectanum/src/message/yield.dart';
-import 'package:connectanum/src/protocol/ppt_payload.dart';
+import 'package:connectanum/src/message/ppt_payload.dart';
 import 'package:connectanum/src/serializer/json/serializer.dart';
 import 'package:pinenacl/api.dart';
 import 'package:test/test.dart';

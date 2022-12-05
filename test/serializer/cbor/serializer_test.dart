@@ -7,7 +7,7 @@ import 'package:connectanum/src/message/hello.dart';
 import 'package:connectanum/src/message/message_types.dart';
 import 'package:connectanum/src/message/welcome.dart';
 import 'package:connectanum/src/message/yield.dart';
-import 'package:connectanum/src/protocol/ppt_payload.dart';
+import 'package:connectanum/src/message/ppt_payload.dart';
 import 'package:connectanum/src/serializer/cbor/serializer.dart';
 import 'package:test/test.dart';
 
