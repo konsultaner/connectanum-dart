@@ -45,12 +45,12 @@ import 'dart:typed_data';
 /// @version 0.2
 class BCrypt {
   // BCrypt parameters
-  static const int generateSaltDefaultLog2Rounds = 10;
-  static final int bcryptSaltLength = 16;
+  static const int gensaltDefaultLog2Rounds = 10;
+  static final int bcryptSaltLen = 16;
 
   // Blowfish parameters
   static final int blowfishNumRounds = 16;
-  static final List<int> pOriginal = [
+  static final List<int> pOrig = [
     0x243f6a88,
     0x85a308d3,
     0x13198a2e,
@@ -70,7 +70,7 @@ class BCrypt {
     0x9216d5d9,
     0x8979fb1b
   ];
-  static final List<int> sOriginal = [
+  static final List<int> sOrig = [
     0xd1310ba6,
     0x98dfb5ac,
     0x2ffd72db,
@@ -1313,8 +1313,8 @@ class BCrypt {
     255
   ]);
 
-  final Uint32List P = Uint32List(pOriginal.length);
-  final Uint32List S = Uint32List(sOriginal.length);
+  final Uint32List P = Uint32List(pOrig.length);
+  final Uint32List S = Uint32List(sOrig.length);
 
   /// A base64 encoder that has a slightly different char set that a regular
   /// base64 codec
@@ -1447,8 +1447,8 @@ class BCrypt {
   }
 
   void initKey() {
-    P.setAll(0, pOriginal);
-    S.setAll(0, sOriginal);
+    P.setAll(0, pOrig);
+    S.setAll(0, sOrig);
   }
 
   void key(Uint8List key) {
@@ -1537,7 +1537,7 @@ class BCrypt {
       throw Exception('Bad number of rounds');
     }
     rounds = (1 << logRounds);
-    if (salt.length != bcryptSaltLength) {
+    if (salt.length != bcryptSaltLen) {
       throw Exception('Bad salt length');
     }
     initKey();
@@ -1591,7 +1591,7 @@ class BCrypt {
     rounds = int.parse(salt.substring(off, off + 2));
     realSalt = salt.substring(off + 3, off + 25);
 
-    var saltb = _decodeBase64(realSalt, bcryptSaltLength);
+    var saltb = _decodeBase64(realSalt, bcryptSaltLen);
     var hashed = BCrypt().encryptRaw(
         Uint8List.fromList((password +
                 ((minor >= 'a'.codeUnitAt(0)) ? String.fromCharCode(0) : ''))
@@ -1618,10 +1618,10 @@ class BCrypt {
   }
 
   static String generateSalt(
-      {int logRounds = generateSaltDefaultLog2Rounds, Random? random}) {
+      {int logRounds = gensaltDefaultLog2Rounds, Random? random}) {
     var rs = '';
     var rnd = Uint8List.fromList(List<int>.generate(
-        bcryptSaltLength, (i) => (random ?? Random.secure()).nextInt(256)));
+        bcryptSaltLen, (i) => (random ?? Random.secure()).nextInt(256)));
     rs += '\$2a\$';
     if (logRounds < 10) {
       rs += '0';
@@ -1636,10 +1636,10 @@ class BCrypt {
   }
 
   static bool checkPassword(String plaintext, String hashed) {
-    var tryPassword = hashPassword(plaintext, hashed);
+    var tryPw = hashPassword(plaintext, hashed);
 
     var hashedBytes = Uint8List.fromList(hashed.codeUnits);
-    var tryBytes = Uint8List.fromList(tryPassword.codeUnits);
+    var tryBytes = Uint8List.fromList(tryPw.codeUnits);
 
     if (hashedBytes.length != tryBytes.length) {
       return false;

@@ -94,7 +94,7 @@ class PublisherFeatures {
   bool publisherIdentification = true;
   bool subscriberBlackWhiteListing = true;
   bool publisherExclusion = true;
-  bool payloadTransparency = true;
+  bool payloadPassThruMode = true;
 }
 
 class Broker {
@@ -111,7 +111,7 @@ class BrokerFeatures {
   bool sessionMetaApi = false;
   bool publisherExclusion = false;
   bool eventHistory = false;
-  bool payloadTransparency = false;
+  bool payloadPassThruMode = false;
 }
 
 class Subscriber {
@@ -122,8 +122,8 @@ class SubscriberFeatures {
   bool callTimeout = false;
   bool callCanceling = false;
   bool progressiveCallResults = false;
-  bool payloadTransparency = true;
   bool subscriptionRevocation = true;
+  bool payloadPassThruMode = true;
 }
 
 class Dealer {
@@ -141,7 +141,7 @@ class DealerFeatures {
   bool callTimeout = false;
   bool callCanceling = false;
   bool progressiveCallResults = false;
-  bool payloadTransparency = false;
+  bool payloadPassThruMode = false;
 }
 
 class Callee {
@@ -156,7 +156,7 @@ class CalleeFeatures {
   bool callTimeout = false;
   bool callCanceling = false;
   bool progressiveCallResults = true;
-  bool payloadTransparency = true;
+  bool payloadPassThruMode = true;
 }
 
 class Caller {
@@ -168,5 +168,5 @@ class CallerFeatures {
   bool callTimeout = false;
   bool callCanceling = false;
   bool progressiveCallResults = true;
-  bool payloadTransparency = true;
+  bool payloadPassThruMode = true;
 }

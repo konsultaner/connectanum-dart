@@ -19,6 +19,7 @@ class WebSocketTransport extends AbstractTransport {
   final String _url;
   final AbstractSerializer _serializer;
   final String _serializerType;
+
   /// The keys of the map are the header
   /// fields and the values are either String or List<String>
   final Map<String, dynamic>? _headers;
@@ -79,7 +80,8 @@ class WebSocketTransport extends AbstractTransport {
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
     try {
-      _socket = await WebSocket.connect(_url, protocols: [_serializerType], headers: _headers);
+      _socket = await WebSocket.connect(_url,
+          protocols: [_serializerType], headers: _headers);
       _onReady.complete();
       if (pingInterval != null) {
         Timer.periodic(

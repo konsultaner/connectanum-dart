@@ -76,7 +76,7 @@ void main() {
     test('Opening with server only allowing power of 20', () async {
       var handshakes = <Uint8List?>[null, null];
       var serializer = json_serializer.Serializer();
-      final server = await ServerSocket.bind('0.0.0.0', 9001);
+      final server = await ServerSocket.bind('0.0.0.0', 9007);
       server.listen((socket) {
         socket.listen((message) {
           if (message.length == 4) {
@@ -87,7 +87,7 @@ void main() {
         });
       });
       final transport = SocketTransport(
-          '127.0.0.1', 9001, serializer, SocketHelper.serializationJson,
+          '127.0.0.1', 9007, serializer, SocketHelper.serializationJson,
           messageLengthExponent:
               SocketHelper.maxMessageLengthConnectanumExponent);
       await transport.open();
@@ -104,7 +104,7 @@ void main() {
     test('Opening with client max header of 20', () async {
       var handshakes = <Uint8List?>[null, null];
       var serializer = json_serializer.Serializer();
-      final server = await ServerSocket.bind('0.0.0.0', 9002);
+      final server = await ServerSocket.bind('0.0.0.0', 9008);
       server.listen((socket) {
         socket.listen((message) {
           if (message.length == 4) {
@@ -122,7 +122,7 @@ void main() {
         });
       });
       final transport = SocketTransport(
-          '127.0.0.1', 9002, serializer, SocketHelper.serializationJson,
+          '127.0.0.1', 9008, serializer, SocketHelper.serializationJson,
           messageLengthExponent: 20);
       await transport.open();
       final handshakeCompleter = Completer();
@@ -136,7 +136,7 @@ void main() {
       expect(handshakes[1], equals(null));
     });
     test('Opening with server error', () async {
-      final server = await ServerSocket.bind('0.0.0.0', 9003);
+      final server = await ServerSocket.bind('0.0.0.0', 9006);
       server.listen((socket) {
         socket.listen((message) {
           if (SocketHelper.getMaxMessageSizeExponent(message) == 9) {
@@ -160,7 +160,7 @@ void main() {
 
       // error 1
       var transport = SocketTransport(
-          '127.0.0.1', 9003, json_serializer.Serializer(), SocketHelper.serializationJson,
+          '127.0.0.1', 9006, Serializer(), SocketHelper.serializationJson,
           messageLengthExponent: 9);
       await transport.open();
       var errorCompleter = Completer();
@@ -177,7 +177,7 @@ void main() {
 
       // error 2
       transport = SocketTransport(
-          '127.0.0.1', 9003, json_serializer.Serializer(), SocketHelper.serializationJson,
+          '127.0.0.1', 9006, Serializer(), SocketHelper.serializationJson,
           messageLengthExponent: 10);
       await transport.open();
       errorCompleter = Completer();
@@ -195,7 +195,7 @@ void main() {
 
       // error 3
       transport = SocketTransport(
-          '127.0.0.1', 9003, json_serializer.Serializer(), SocketHelper.serializationJson,
+          '127.0.0.1', 9006, Serializer(), SocketHelper.serializationJson,
           messageLengthExponent: 11);
       await transport.open();
       errorCompleter = Completer();
@@ -212,7 +212,7 @@ void main() {
 
       // error 4
       transport = SocketTransport(
-          '127.0.0.1', 9003, json_serializer.Serializer(), SocketHelper.serializationJson,
+          '127.0.0.1', 9006, Serializer(), SocketHelper.serializationJson,
           messageLengthExponent: 12);
       await transport.open();
       errorCompleter = Completer();

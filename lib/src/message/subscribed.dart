@@ -25,7 +25,7 @@ class Subscribed extends AbstractMessage {
     return _revokeCompleter.future;
   }
 
-  /// Is called by the session when the revokation happens
+  /// Is called by the session when the revocation happens
   void revoke(String? reason) {
     _revokeCompleter.complete(reason);
   }

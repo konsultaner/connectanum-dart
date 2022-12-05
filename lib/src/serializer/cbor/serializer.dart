@@ -10,6 +10,8 @@ import 'package:connectanum/src/message/welcome.dart';
 import 'package:connectanum/src/message/yield.dart';
 import 'package:logging/logging.dart';
 
+import '../../message/ppt_payload.dart';
+
 /// This is a seralizer for msgpack messages.
 /// It is used to initialize an [AbstractTransport] object.
 class Serializer extends AbstractSerializer {
@@ -47,7 +49,7 @@ class Serializer extends AbstractSerializer {
                         ? null
                         : ((decodedMessage[2] as CborMap)[CborString('salt')] as CborString)
                             .toString(),
-                    keylen: (decodedMessage[2] as CborMap)[CborString('keylen')] == null
+                    keyLen: (decodedMessage[2] as CborMap)[CborString('keylen')] == null
                         ? null
                         : ((decodedMessage[2] as CborMap)[CborString('keylen')] as CborInt)
                             .toInt(),
@@ -194,14 +196,14 @@ class Serializer extends AbstractSerializer {
                                   CborString('progressive_call_results')] ??
                               CborBool(false)) as CborBool)
                           .value;
-                  details.roles!.dealer!.features!
-                      .payloadTransparency = ((((((decodedMessage[2]
-                                          as CborMap)[CborString('roles')]
-                                      as CborMap)[CborString('dealer')]
-                                  as CborMap)[CborString('features')]
-                              as CborMap)[CborString('payload_transparency')] ??
-                          CborBool(false)) as CborBool)
-                      .value;
+                  details.roles!.dealer!.features!.payloadPassThruMode =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')]
+                                              as CborMap)[CborString('dealer')]
+                                          as CborMap)[CborString('features')]
+                                      as CborMap)[
+                                  CborString('payload_passthru_mode')] ??
+                              CborBool(false)) as CborBool)
+                          .value;
                 }
               }
               if (((decodedMessage[2] as CborMap)[CborString('roles')]
@@ -276,14 +278,14 @@ class Serializer extends AbstractSerializer {
                                   as CborMap)[CborString('event_history')] ??
                               CborBool(false)) as CborBool)
                           .value;
-                  details.roles!.broker!.features!
-                      .payloadTransparency = ((((((decodedMessage[2]
-                                          as CborMap)[CborString('roles')]
-                                      as CborMap)[CborString('broker')]
-                                  as CborMap)[CborString('features')]
-                              as CborMap)[CborString('payload_transparency')] ??
-                          CborBool(false)) as CborBool)
-                      .value;
+                  details.roles!.broker!.features!.payloadPassThruMode =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')]
+                                              as CborMap)[CborString('broker')]
+                                          as CborMap)[CborString('features')]
+                                      as CborMap)[
+                                  CborString('payload_passthru_mode')] ??
+                              CborBool(false)) as CborBool)
+                          .value;
                 }
               }
             }
@@ -334,13 +336,41 @@ class Serializer extends AbstractSerializer {
             return _addPayload(
                 Result(
                     (decodedMessage[1] as CborInt).toInt(),
-                    ResultDetails((decodedMessage[2]
-                                as CborMap)[CborString('progress')] ==
-                            null
-                        ? null
-                        : ((decodedMessage[2]
-                                as CborMap)[CborString('progress')] as CborBool)
-                            .value)),
+                    ResultDetails(
+                      progress: (decodedMessage[2]
+                                  as CborMap)[CborString('progress')] ==
+                              null
+                          ? null
+                          : ((decodedMessage[2]
+                                      as CborMap)[CborString('progress')]
+                                  as CborBool)
+                              .value,
+                      pptScheme: (decodedMessage[2]
+                                  as CborMap)[CborString('ppt_scheme')] ==
+                              null
+                          ? null
+                          : (decodedMessage[2]
+                              as CborMap)[CborString('ppt_scheme')] as String,
+                      pptSerializer: (decodedMessage[2]
+                                  as CborMap)[CborString('ppt_serializer')] ==
+                              null
+                          ? null
+                          : (decodedMessage[2]
+                                  as CborMap)[CborString('ppt_serializer')]
+                              as String,
+                      pptCipher: (decodedMessage[2]
+                                  as CborMap)[CborString('ppt_cipher')] ==
+                              null
+                          ? null
+                          : (decodedMessage[2]
+                              as CborMap)[CborString('ppt_cipher')] as String,
+                      pptKeyId: (decodedMessage[2]
+                                  as CborMap)[CborString('ppt_keyid')] ==
+                              null
+                          ? null
+                          : (decodedMessage[2]
+                              as CborMap)[CborString('ppt_keyid')] as String,
+                    )),
                 decodedMessage,
                 3);
           }
@@ -631,8 +661,8 @@ class Serializer extends AbstractSerializer {
               'call_timeout', details.roles!.caller!.features!.callTimeout),
           MapEntry('caller_identification',
               details.roles!.caller!.features!.callerIdentification),
-          MapEntry('payload_transparency',
-              details.roles!.caller!.features!.payloadTransparency),
+          MapEntry('payload_passthru_mode',
+              details.roles!.caller!.features!.payloadPassThruMode),
           MapEntry('progressive_call_results',
               details.roles!.caller!.features!.progressiveCallResults)
         ]);
@@ -658,8 +688,8 @@ class Serializer extends AbstractSerializer {
               details.roles!.callee!.features!.callCanceling),
           MapEntry('progressive_call_results',
               details.roles!.callee!.features!.progressiveCallResults),
-          MapEntry('payload_transparency',
-              details.roles!.callee!.features!.payloadTransparency),
+          MapEntry('payload_passthru_mode',
+              details.roles!.callee!.features!.payloadPassThruMode),
         ]);
         roles.addEntries([
           MapEntry('callee', {'features': calleeFeatures})
@@ -675,8 +705,8 @@ class Serializer extends AbstractSerializer {
               details.roles!.subscriber!.features!.callCanceling),
           MapEntry('progressive_call_results',
               details.roles!.subscriber!.features!.progressiveCallResults),
-          MapEntry('payload_transparency',
-              details.roles!.subscriber!.features!.payloadTransparency),
+          MapEntry('payload_passthru_mode',
+              details.roles!.subscriber!.features!.payloadPassThruMode),
           MapEntry('subscription_revocation',
               details.roles!.subscriber!.features!.subscriptionRevocation)
         ]);
@@ -696,8 +726,8 @@ class Serializer extends AbstractSerializer {
                   .roles!.publisher!.features!.subscriberBlackWhiteListing),
           MapEntry('publisher_exclusion',
               details.roles!.publisher!.features!.publisherExclusion),
-          MapEntry('payload_transparency',
-              details.roles!.publisher!.features!.payloadTransparency)
+          MapEntry('payload_passthru_mode',
+              details.roles!.publisher!.features!.payloadPassThruMode)
         ]);
         roles.addEntries([
           MapEntry('publisher', {'features': publisherFeatures})
@@ -825,5 +855,42 @@ class Serializer extends AbstractSerializer {
     }
 
     return jsonOptions;
+  }
+
+  /// Converts a uint8 data into a PPT Payload Object
+  @override
+  PPTPayload? deserializePPT(Uint8List binPayload) {
+    List<dynamic>? arguments;
+    Map<String, dynamic>? argumentsKeywords;
+
+    final decodedMessage = cbor.decode(binPayload);
+    if (decodedMessage is CborMap) {
+      if (decodedMessage[CborString('args')] != null &&
+          decodedMessage[CborString('args')] is CborList) {
+        arguments = (decodedMessage[CborString('args')] as CborList).toObject()
+            as List<dynamic>;
+      }
+
+      if (decodedMessage[CborString('kwargs')] != null &&
+          decodedMessage[CborString('kwargs')] is CborMap) {
+        argumentsKeywords = Map.castFrom<dynamic, dynamic, String, dynamic>(
+            (decodedMessage[CborString('kwargs')] as CborMap).toObject()
+                as Map<dynamic, dynamic>);
+      }
+
+      return PPTPayload(
+          arguments: arguments, argumentsKeywords: argumentsKeywords);
+    }
+    return null;
+  }
+
+  /// Converts a PPT Payload Object into a uint8 array
+  @override
+  Uint8List serializePPT(PPTPayload pptPayload) {
+    var pptMap = {
+      'args': pptPayload.arguments,
+      'kwargs': pptPayload.argumentsKeywords
+    };
+    return Uint8List.fromList(cbor.encode(CborValue(pptMap)));
   }
 }

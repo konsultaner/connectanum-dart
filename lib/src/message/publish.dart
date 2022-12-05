@@ -1,4 +1,5 @@
 import 'abstract_message_with_payload.dart';
+import 'abstract_ppt_options.dart';
 import 'message_types.dart';
 
 class Publish extends AbstractMessageWithPayload {
@@ -16,7 +17,7 @@ class Publish extends AbstractMessageWithPayload {
   }
 }
 
-class PublishOptions {
+class PublishOptions extends PPTOptions {
   bool? acknowledge;
 
   // subscriber_blackwhite_listing == true
@@ -46,5 +47,19 @@ class PublishOptions {
       this.eligibleAuthRole,
       this.excludeMe,
       this.discloseMe,
-      this.retain});
+      this.retain,
+      String? pptScheme,
+      String? pptSerializer,
+      String? pptCipher,
+      String? pptKeyId}) {
+    this.pptScheme = pptScheme;
+    this.pptSerializer = pptSerializer;
+    this.pptCipher = pptCipher;
+    this.pptKeyId = pptKeyId;
+  }
+
+  @override
+  bool verify() {
+    return verifyPPT();
+  }
 }

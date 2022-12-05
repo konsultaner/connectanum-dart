@@ -8,7 +8,7 @@ class SocketHelper {
   static const int serializationJson = 1;
   static const int serializationMsgpack = 2;
   static const int serializationCbor = 3;
-  static const int serializationUbjson = 4;
+  static const int serializationUbJson = 4;
   static const int serializationFlatBuffers = 5;
 
   static const int messageWamp = 0;

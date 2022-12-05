@@ -31,6 +31,8 @@ import '../message/unsubscribe.dart';
 import '../message/error.dart';
 import '../transport/abstract_transport.dart';
 import '../authentication/abstract_authentication.dart';
+import '../message/e2ee_payload.dart';
+import '../message/ppt_payload.dart';
 
 class Session {
   static final Logger _logger = Logger('Session');
@@ -87,9 +89,9 @@ class Session {
 
   Session(this.realm, this._transport)
 
-      /// The realm object my be null bust must mach the uri pattern if it was
-      /// passed The connection should have been established before initializing the
-      /// session.
+      /// The realm object my be null but must mach the uri pattern if it was
+      /// passed The connection should have been established before initializing
+      /// the session.
       : assert(realm == null || UriPattern.match(realm), _transport.isOpen);
 
   /// Starting the session will also start the authentication process.
@@ -123,7 +125,7 @@ class Session {
           if (message is Challenge) {
             final foundAuthMethod = authMethods?.where((authenticationMethod) =>
                         authenticationMethod.getName() == message.authMethod)
-                    .first;
+                    .first);
             if (foundAuthMethod != null) {
               try {
                 foundAuthMethod
@@ -223,9 +225,24 @@ class Session {
       Map<String, dynamic>? argumentsKeywords,
       CallOptions? options,
       Completer<String>? cancelCompleter}) async* {
+    var callArguments = arguments;
+    var callArgumentsKeywords = argumentsKeywords;
+
+    if (options?.pptScheme == 'wamp') {
+      // It's E2EE payload
+      callArguments =
+          E2EEPayload.packE2EEPayload(arguments, argumentsKeywords, options!);
+      callArgumentsKeywords = null;
+    } else if (options?.pptScheme != null) {
+      // It's some variation of PPT
+      callArguments =
+          PPTPayload.packPPTPayload(arguments, argumentsKeywords, options!);
+      callArgumentsKeywords = null;
+    }
+
     var call = Call(nextCallId++, procedure,
-        arguments: arguments,
-        argumentsKeywords: argumentsKeywords,
+        arguments: callArguments,
+        argumentsKeywords: callArgumentsKeywords,
         options: options);
     _transport.send(call);
     if (cancelCompleter != null) {
@@ -286,6 +303,25 @@ class Session {
         return message is Event &&
             subscriptions[subscribed.subscriptionId] != null &&
             message.subscriptionId == subscribed.subscriptionId;
+      }).map((event) {
+        var eventUpdated = event;
+
+        if (event.details.pptScheme == 'wamp') {
+          // It's E2EE payload
+          var e2eePayload =
+              E2EEPayload.unpackE2EEPayload(event.arguments, event.details);
+
+          event.arguments = e2eePayload.arguments;
+          event.argumentsKeywords = e2eePayload.argumentsKeywords;
+        } else if (event.details.pptScheme != null) {
+          // It's some variation of PPT
+          var pptPayload =
+              PPTPayload.unpackPPTPayload(event.arguments, event.details);
+
+          event.arguments = pptPayload.arguments;
+          event.argumentsKeywords = pptPayload.argumentsKeywords;
+        }
+        return eventUpdated;
       }).cast();
       return subscribed;
     } else {
@@ -318,9 +354,24 @@ class Session {
       {List<dynamic>? arguments,
       Map<String, dynamic>? argumentsKeywords,
       PublishOptions? options}) {
+    var pubArguments = arguments;
+    var pubArgumentsKeywords = argumentsKeywords;
+
+    if (options?.pptScheme == 'wamp') {
+      // It's E2EE payload
+      pubArguments =
+          E2EEPayload.packE2EEPayload(arguments, argumentsKeywords, options!);
+      pubArgumentsKeywords = null;
+    } else if (options?.pptScheme != null) {
+      // It's some variation of PPT
+      pubArguments =
+          PPTPayload.packPPTPayload(arguments, argumentsKeywords, options!);
+      pubArgumentsKeywords = null;
+    }
+
     var publish = Publish(nextPublishId++, topic,
-        arguments: arguments,
-        argumentsKeywords: argumentsKeywords,
+        arguments: pubArguments,
+        argumentsKeywords: pubArgumentsKeywords,
         options: options);
     _transport.send(publish);
     if (options?.acknowledge == null || options?.acknowledge == false) {

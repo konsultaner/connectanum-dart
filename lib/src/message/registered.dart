@@ -1,3 +1,5 @@
+import 'e2ee_payload.dart';
+import 'ppt_payload.dart';
 import 'error.dart';
 import 'message_types.dart';
 import 'abstract_message.dart';
@@ -20,7 +22,25 @@ class Registered extends AbstractMessage {
     if (_invocationStream != null) {
       _invocationStream!.listen((Invocation invocation) {
         try {
-          onInvoke(invocation);
+          var invocationUpdated = invocation;
+
+          if (invocation.details.pptScheme == 'wamp') {
+            // It's E2EE payload
+            var e2eePayload = E2EEPayload.unpackE2EEPayload(
+                invocation.arguments, invocation.details);
+
+            invocationUpdated.arguments = e2eePayload.arguments;
+            invocationUpdated.argumentsKeywords = e2eePayload.argumentsKeywords;
+          } else if (invocation.details.pptScheme != null) {
+            // It's some variation of PPT
+            var pptPayload = PPTPayload.unpackPPTPayload(
+                invocation.arguments, invocation.details);
+
+            invocationUpdated.arguments = pptPayload.arguments;
+            invocationUpdated.argumentsKeywords = pptPayload.argumentsKeywords;
+          }
+
+          onInvoke(invocationUpdated);
         } on Exception catch (e) {
           invocation.respondWith(
               isError: true,

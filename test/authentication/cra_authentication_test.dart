@@ -194,7 +194,7 @@ void main() {
       final authMethod = CraAuthentication(secret);
       expect(authMethod.getName(), equals('wampcra'));
       var extra =
-          Extra(challenge: challenge, keylen: 32, iterations: 1000, salt: salt);
+          Extra(challenge: challenge, keyLen: 32, iterations: 1000, salt: salt);
       final authenticate = await authMethod.challenge(extra);
       expect(authenticate.signature, equals(hmac));
     });

@@ -30,7 +30,7 @@ import '../../../src/message/unsubscribed.dart';
 import '../../../src/message/welcome.dart';
 import '../../../src/message/yield.dart';
 
-import '../../message/message_types.dart';
+import '../../message/ppt_payload.dart';
 import '../abstract_serializer.dart';
 
 /// This is a seralizer for msgpack messages.
@@ -50,7 +50,7 @@ class Serializer extends AbstractSerializer {
             Extra(
                 challenge: message[2]['challenge'],
                 salt: message[2]['salt'],
-                keylen: message[2]['keylen'],
+                keyLen: message[2]['keylen'],
                 iterations: message[2]['iterations'],
                 memory: message[2]['memory'],
                 kdf: message[2]['kdf'],
@@ -106,9 +106,10 @@ class Serializer extends AbstractSerializer {
                   message[2]['roles']['dealer']['features']
                           ['progressive_call_results'] ??
                       false;
-              details.roles!.dealer!.features!.payloadTransparency = message[2]
-                      ['roles']['dealer']['features']['payload_transparency'] ??
-                  false;
+              details.roles!.dealer!.features!.payloadPassThruMode =
+                  message[2]['roles']['dealer']['features']
+                          ['payload_passthru_mode'] ??
+                      false;
             }
           }
           if (message[2]['roles']['broker'] != null) {
@@ -144,9 +145,10 @@ class Serializer extends AbstractSerializer {
               details.roles!.broker!.features!.eventHistory = message[2]
                       ['roles']['broker']['features']['event_history'] ??
                   false;
-              details.roles!.broker!.features!.payloadTransparency = message[2]
-                      ['roles']['broker']['features']['payload_transparency'] ??
-                  false;
+              details.roles!.broker!.features!.payloadPassThruMode =
+                  message[2]['roles']['broker']['features']
+                          ['payload_passthru_mode'] ??
+                      false;
             }
           }
         }
@@ -170,7 +172,14 @@ class Serializer extends AbstractSerializer {
       }
       if (messageId == MessageTypes.codeResult) {
         return _addPayload(
-            Result(message[1], ResultDetails(message[2]['progress'])),
+            Result(
+                message[1],
+                ResultDetails(
+                    progress: message[2]['progress'],
+                    pptScheme: message[2]['ppt_scheme'],
+                    pptSerializer: message[2]['ppt_serializer'],
+                    pptCipher: message[2]['ppt_cipher'],
+                    pptKeyId: message[2]['ppt_keyid'])),
             message,
             3);
       }
@@ -377,8 +386,8 @@ class Serializer extends AbstractSerializer {
               'call_timeout', details.roles!.caller!.features!.callTimeout),
           MapEntry('caller_identification',
               details.roles!.caller!.features!.callerIdentification),
-          MapEntry('payload_transparency',
-              details.roles!.caller!.features!.payloadTransparency),
+          MapEntry('payload_passthru_mode',
+              details.roles!.caller!.features!.payloadPassThruMode),
           MapEntry('progressive_call_results',
               details.roles!.caller!.features!.progressiveCallResults)
         ]);
@@ -404,8 +413,8 @@ class Serializer extends AbstractSerializer {
               'call_timeout', details.roles!.callee!.features!.callTimeout),
           MapEntry('caller_identification',
               details.roles!.callee!.features!.callerIdentification),
-          MapEntry('payload_transparency',
-              details.roles!.callee!.features!.payloadTransparency),
+          MapEntry('payload_passthru_mode',
+              details.roles!.callee!.features!.payloadPassThruMode),
           MapEntry('progressive_call_results',
               details.roles!.callee!.features!.progressiveCallResults)
         ]);
@@ -421,8 +430,8 @@ class Serializer extends AbstractSerializer {
               details.roles!.subscriber!.features!.callCanceling),
           MapEntry('call_timeout',
               details.roles!.subscriber!.features!.callTimeout),
-          MapEntry('payload_transparency',
-              details.roles!.subscriber!.features!.payloadTransparency),
+          MapEntry('payload_passthru_mode',
+              details.roles!.subscriber!.features!.payloadPassThruMode),
           MapEntry('progressive_call_results',
               details.roles!.subscriber!.features!.progressiveCallResults),
           MapEntry('subscription_revocation',
@@ -444,8 +453,8 @@ class Serializer extends AbstractSerializer {
                   .roles!.publisher!.features!.subscriberBlackWhiteListing),
           MapEntry('publisher_exclusion',
               details.roles!.publisher!.features!.publisherExclusion),
-          MapEntry('payload_transparency',
-              details.roles!.publisher!.features!.payloadTransparency)
+          MapEntry('payload_passthru_mode',
+              details.roles!.publisher!.features!.payloadPassThruMode)
         ]);
         roles.addEntries([
           MapEntry('publisher', {'features': publisherFeatures})
@@ -572,6 +581,44 @@ class Serializer extends AbstractSerializer {
       return SerializedPayload(1, msgpack_dart.serialize(message.arguments));
     }
     return SerializedPayload(0, msgpack_dart.serialize(''));
+  }
+
+  /// Converts a uint8 data into a PPT Payload Object
+  @override
+  PPTPayload? deserializePPT(Uint8List binPayload) {
+    List<dynamic>? arguments;
+    Map<String, dynamic>? argumentsKeywords;
+
+    Object? decodedObject = msgpack_dart.deserialize(binPayload);
+
+    if (decodedObject is Map) {
+      if (decodedObject['args'] != null && decodedObject['args'] is List) {
+        arguments = decodedObject['args'] as List<dynamic>?;
+      }
+
+      if (decodedObject['kwargs'] != null && decodedObject['kwargs'] is Map) {
+        argumentsKeywords = Map.castFrom<dynamic, dynamic, String, Object>(
+            decodedObject['kwargs'] as Map<dynamic, dynamic>);
+      }
+
+      return PPTPayload(
+          arguments: arguments, argumentsKeywords: argumentsKeywords);
+    }
+
+    _logger
+        .shout('Could not deserialize the message: $binPayload');
+    // TODO respond with an error
+    return null;
+  }
+
+  /// Converts a PPT Payload Object into a uint8 array
+  @override
+  Uint8List serializePPT(PPTPayload pptPayload) {
+    var pptMap = {
+      'args': pptPayload.arguments,
+      'kwargs': pptPayload.argumentsKeywords
+    };
+    return msgpack_dart.serialize(pptMap);
   }
 }
 

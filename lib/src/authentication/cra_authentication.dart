@@ -56,16 +56,16 @@ class CraAuthentication extends AbstractAuthentication {
           iterations: extra.iterations == null || extra.iterations! <= 0
               ? defaultIterations
               : extra.iterations!,
-          keylen: extra.keylen == null || extra.keylen! <= 0
+          keylen: extra.keyLen == null || extra.keyLen! <= 0
               ? defaultKeyLength
-              : extra.keylen!);
+              : extra.keyLen!);
     }
 
     authenticate.signature = encodeHmac(
         Uint8List.fromList(base64.encode(key).codeUnits),
-        extra.keylen == null || extra.keylen! <= 0
+        extra.keyLen == null || extra.keyLen! <= 0
             ? defaultKeyLength
-            : extra.keylen!,
+            : extra.keyLen!,
         Uint8List.fromList(extra.challenge!.codeUnits));
     return Future.value(authenticate);
   }

@@ -31,9 +31,10 @@ import '../../../src/message/yield.dart';
 
 import 'dart:convert';
 
+import '../../message/ppt_payload.dart';
 import '../abstract_serializer.dart';
 
-/// This is a seralizer for JSON messages. It is used to initialize an [AbstractTransport]
+/// This is a serializer for JSON messages. It is used to initialize an [AbstractTransport]
 /// object.
 class Serializer extends AbstractSerializer {
   static final RegExp _binaryPrefix = RegExp('\x00');
@@ -56,7 +57,7 @@ class Serializer extends AbstractSerializer {
             Extra(
                 challenge: message[2]['challenge'],
                 salt: message[2]['salt'],
-                keylen: message[2]['keylen'],
+                keyLen: message[2]['keylen'],
                 iterations: message[2]['iterations'],
                 memory: message[2]['memory'],
                 kdf: message[2]['kdf'],
@@ -113,9 +114,10 @@ class Serializer extends AbstractSerializer {
                   message[2]['roles']['dealer']['features']
                           ['progressive_call_results'] ??
                       false;
-              details.roles!.dealer!.features!.payloadTransparency = message[2]
-                      ['roles']['dealer']['features']['payload_transparency'] ??
-                  false;
+              details.roles!.dealer!.features!.payloadPassThruMode =
+                  message[2]['roles']['dealer']['features']
+                          ['payload_passthru_mode'] ??
+                      false;
             }
           }
           if (message[2]['roles']['broker'] != null) {
@@ -151,9 +153,10 @@ class Serializer extends AbstractSerializer {
               details.roles!.broker!.features!.eventHistory = message[2]
                       ['roles']['broker']['features']['event_history'] ??
                   false;
-              details.roles!.broker!.features!.payloadTransparency = message[2]
-                      ['roles']['broker']['features']['payload_transparency'] ??
-                  false;
+              details.roles!.broker!.features!.payloadPassThruMode =
+                  message[2]['roles']['broker']['features']
+                          ['payload_passthru_mode'] ??
+                      false;
             }
           }
         }
@@ -177,7 +180,14 @@ class Serializer extends AbstractSerializer {
       }
       if (messageId == MessageTypes.codeResult) {
         return _addPayload(
-            Result(message[1], ResultDetails(message[2]['progress'])),
+            Result(
+                message[1],
+                ResultDetails(
+                    progress: message[2]['progress'],
+                    pptScheme: message[2]['ppt_scheme'],
+                    pptSerializer: message[2]['ppt_serializer'],
+                    pptCipher: message[2]['ppt_cipher'],
+                    pptKeyId: message[2]['ppt_keyid'])),
             message,
             3);
       }
@@ -360,7 +370,7 @@ class Serializer extends AbstractSerializer {
         callerFeatures.add(
             '"caller_identification":${details.roles!.caller!.features!.callerIdentification ? "true" : "false"}');
         callerFeatures.add(
-            '"payload_transparency":${details.roles!.caller!.features!.payloadTransparency ? "true" : "false"}');
+            '"payload_passthru_mode":${details.roles!.caller!.features!.payloadPassThruMode ? "true" : "false"}');
         callerFeatures.add(
             '"progressive_call_results":${details.roles!.caller!.features!.progressiveCallResults ? "true" : "false"}');
         rolesJson.add('"caller":{"features":{${callerFeatures.join(",")}}}');
@@ -382,7 +392,7 @@ class Serializer extends AbstractSerializer {
         calleeFeatures.add(
             '"progressive_call_results":${details.roles!.callee!.features!.progressiveCallResults ? "true" : "false"}');
         calleeFeatures.add(
-            '"payload_transparency":${details.roles!.callee!.features!.payloadTransparency ? "true" : "false"}');
+            '"payload_passthru_mode":${details.roles!.callee!.features!.payloadPassThruMode ? "true" : "false"}');
         rolesJson.add('"callee":{"features":{${calleeFeatures.join(",")}}}');
       }
       if (details.roles?.subscriber?.features != null) {
@@ -394,7 +404,7 @@ class Serializer extends AbstractSerializer {
         subscriberFeatures.add(
             '"progressive_call_results":${details.roles!.subscriber!.features!.progressiveCallResults ? "true" : "false"}');
         subscriberFeatures.add(
-            '"payload_transparency":${details.roles!.subscriber!.features!.payloadTransparency ? "true" : "false"}');
+            '"payload_passthru_mode":${details.roles!.subscriber!.features!.payloadPassThruMode ? "true" : "false"}');
         subscriberFeatures.add(
             '"subscription_revocation":${details.roles!.subscriber!.features!.subscriptionRevocation ? "true" : "false"}');
         rolesJson
@@ -409,7 +419,7 @@ class Serializer extends AbstractSerializer {
         publisherFeatures.add(
             '"publisher_exclusion":${details.roles!.publisher!.features!.publisherExclusion ? "true" : "false"}');
         publisherFeatures.add(
-            '"payload_transparency":${details.roles!.publisher!.features!.payloadTransparency ? "true" : "false"}');
+            '"payload_passthru_mode":${details.roles!.publisher!.features!.payloadPassThruMode ? "true" : "false"}');
         rolesJson
             .add('"publisher":{"features":{${publisherFeatures.join(",")}}}');
       }
@@ -598,5 +608,35 @@ class Serializer extends AbstractSerializer {
 
   String _convertUint8ListToString(Uint8List binary) {
     return '\x00${base64.encode(binary)}';
+  }
+
+  /// Converts a uint8 JSON message into a PPT Payload Object
+  @override
+  PPTPayload? deserializePPT(Uint8List binPayload) {
+    var messageStr = Utf8Decoder().convert(binPayload);
+    Object? decodedObject = json.decode(messageStr);
+
+    if (decodedObject is Map) {
+      return PPTPayload(
+          arguments: decodedObject['args'],
+          argumentsKeywords: decodedObject['kwargs']);
+    }
+
+    _logger.shout('Could not deserialize the message: $messageStr');
+    // TODO respond with an error
+    return null;
+  }
+
+  /// Converts a PPT Payload Object into a uint8 array
+  @override
+  Uint8List serializePPT(PPTPayload pptPayload) {
+    var pptMap = {
+      'arguments': pptPayload.arguments,
+      'argumentsKeywords': pptPayload.argumentsKeywords
+    };
+    _convertMapEntriesUint8ListToBinaryJsonString(pptMap);
+    var str =
+        '{"args": ${json.encode(pptMap['arguments'])}, "kwargs": ${json.encode(pptMap['argumentsKeywords'])}}';
+    return Utf8Encoder().convert(str);
   }
 }

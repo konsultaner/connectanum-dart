@@ -55,12 +55,12 @@ void main() {
 
     test('test on reconnect with web socket transport', () async {
       final server = await HttpServer.bind('localhost', 9201);
-      late WebSocket testSocket;
+      late WebSocket currentSocket;
       serverListenHandler(HttpRequest req) async {
         if (req.uri.path == '/wamp') {
           final socket = await WebSocketTransformer.upgrade(req);
           socket.listen((message) {
-            testSocket = socket;
+            currentSocket = socket;
             if (message is String &&
                 message.contains('[${MessageTypes.codeHello}')) {
               socket.add(
@@ -85,7 +85,7 @@ void main() {
         session.onConnectionLost.then((_) {
           hitConnectionLostEvent = true;
         });
-        server.close(force: true).then((_) => testSocket.close());
+        server.close(force: true).then((_) => currentSocket.close());
       }, onError: (receivedAbort) {
         abort = receivedAbort;
         closeCompleter.complete();
@@ -106,12 +106,12 @@ void main() {
 
     test('test on multiple reconnects with web socket transport', () async {
       final server = await HttpServer.bind('localhost', 9202);
-      late WebSocket testSocket;
+      late WebSocket currentSocket;
       serverListenHandler(HttpRequest req) async {
         if (req.uri.path == '/wamp') {
           final socket = await WebSocketTransformer.upgrade(req);
           socket.listen((message) {
-            testSocket = socket;
+            currentSocket = socket;
             if (message is String &&
                 message.contains('[${MessageTypes.codeHello}')) {
               socket.add(
@@ -135,10 +135,10 @@ void main() {
           .listen((session) {
         if (reconnects < 3) {
           reconnects++;
-          testSocket.close();
+          currentSocket.close();
         } else {
           server.close(force: true).then((_) {
-            testSocket.close().then((__) => closeCompleter.complete());
+            currentSocket.close().then((__) => closeCompleter.complete());
           });
         }
       }, onError: (_) {});
@@ -226,9 +226,9 @@ void main() {
 
     test('test on reconnect with socket transport', () async {
       final server = await ServerSocket.bind('0.0.0.0', 9011);
-      late Socket testSocket;
+      late Socket currentSocket;
       server.listen((socket) {
-        testSocket = socket;
+        currentSocket = socket;
         socket.listen((message) {
           if (message.length == 4) {
             socket.add(SocketHelper.getInitialHandshake(
@@ -274,7 +274,7 @@ void main() {
         session.onConnectionLost.then((_) {
           hitConnectionLostEvent = true;
         });
-        server.close().then((_) => testSocket.close());
+        server.close().then((_) => currentSocket.close());
       }, onError: (receivedAbort) {
         abort = receivedAbort;
         closeCompleter.complete();
@@ -293,9 +293,9 @@ void main() {
 
     test('test on multiple reconnects with socket transport', () async {
       final server = await ServerSocket.bind('0.0.0.0', 9021);
-      late Socket testSocket;
+      late Socket currentSocket;
       server.listen((socket) {
-        testSocket = socket;
+        currentSocket = socket;
         socket.listen((message) {
           if (message.length == 4) {
             socket.add(SocketHelper.getInitialHandshake(
@@ -338,10 +338,10 @@ void main() {
           .listen((session) {
         if (reconnects < 3) {
           reconnects++;
-          testSocket.close();
+          currentSocket.close();
         } else {
           server.close().then((_) {
-            testSocket.close().then((__) => closeCompleter.complete());
+            currentSocket.close().then((__) => closeCompleter.complete());
           });
         }
       }, onError: (_) {});

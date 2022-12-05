@@ -19,7 +19,7 @@ class Extra {
   String? challenge;
   String? salt;
   String? channelBinding;
-  int? keylen;
+  int? keyLen;
   int? iterations;
   int? memory;
   String? kdf;
@@ -28,7 +28,7 @@ class Extra {
   Extra(
       {this.challenge,
       this.salt,
-      this.keylen,
+      this.keyLen,
       this.channelBinding,
       this.iterations,
       this.memory,

@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:convert';
 
 import 'package:connectanum/src/message/abort.dart';
 import 'package:connectanum/src/message/authenticate.dart';
@@ -24,6 +25,7 @@ import 'package:connectanum/src/message/unsubscribed.dart';
 import 'package:connectanum/src/message/welcome.dart';
 import 'package:connectanum/src/message/invocation.dart';
 import 'package:connectanum/src/message/yield.dart';
+import 'package:connectanum/src/message/ppt_payload.dart';
 import 'package:connectanum/src/serializer/json/serializer.dart';
 import 'package:pinenacl/api.dart';
 import 'package:test/test.dart';
@@ -35,11 +37,11 @@ void main() {
       expect(
           serializer.serializeToString(Hello('my.realm', Details.forHello())),
           equals(
-              '[1,"my.realm",{"roles":{"caller":{"features":{"call_canceling":false,"call_timeout":false,"caller_identification":true,"payload_transparency":true,"progressive_call_results":true}},"callee":{"features":{"caller_identification":true,"call_trustlevels":false,"pattern_based_registration":false,"shared_registration":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":true,"payload_transparency":true}},"subscriber":{"features":{"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_transparency":true,"subscription_revocation":true}},"publisher":{"features":{"publisher_identification":true,"subscriber_blackwhite_listing":true,"publisher_exclusion":true,"payload_transparency":true}}}}]'));
+              '[1,"my.realm",{"roles":{"caller":{"features":{"call_canceling":false,"call_timeout":false,"caller_identification":true,"payload_passthru_mode":true,"progressive_call_results":true}},"callee":{"features":{"caller_identification":true,"call_trustlevels":false,"pattern_based_registration":false,"shared_registration":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":true,"payload_passthru_mode":true}},"subscriber":{"features":{"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_passthru_mode":true,"subscription_revocation":true}},"publisher":{"features":{"publisher_identification":true,"subscriber_blackwhite_listing":true,"publisher_exclusion":true,"payload_passthru_mode":true}}}}]'));
       expect(
           serializer.serializeToString(Hello(null, Details.forHello())),
           equals(
-              '[1,null,{"roles":{"caller":{"features":{"call_canceling":false,"call_timeout":false,"caller_identification":true,"payload_transparency":true,"progressive_call_results":true}},"callee":{"features":{"caller_identification":true,"call_trustlevels":false,"pattern_based_registration":false,"shared_registration":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":true,"payload_transparency":true}},"subscriber":{"features":{"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_transparency":true,"subscription_revocation":true}},"publisher":{"features":{"publisher_identification":true,"subscriber_blackwhite_listing":true,"publisher_exclusion":true,"payload_transparency":true}}}}]'));
+              '[1,null,{"roles":{"caller":{"features":{"call_canceling":false,"call_timeout":false,"caller_identification":true,"payload_passthru_mode":true,"progressive_call_results":true}},"callee":{"features":{"caller_identification":true,"call_trustlevels":false,"pattern_based_registration":false,"shared_registration":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":true,"payload_passthru_mode":true}},"subscriber":{"features":{"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_passthru_mode":true,"subscription_revocation":true}},"publisher":{"features":{"publisher_identification":true,"subscriber_blackwhite_listing":true,"publisher_exclusion":true,"payload_passthru_mode":true}}}}]'));
     });
     test('Hello with auth information', () {
       var authHello = Hello('my.realm', Details.forHello());
@@ -52,7 +54,7 @@ void main() {
       expect(
           message,
           startsWith(
-              '[1,"my.realm",{"roles":{"caller":{"features":{"call_canceling":false,"call_timeout":false,"caller_identification":true,"payload_transparency":true,"progressive_call_results":true}},"callee":{"features":{"caller_identification":true,"call_trustlevels":false,"pattern_based_registration":false,"shared_registration":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":true,"payload_transparency":true}},"subscriber":{"features":{"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_transparency":true,"subscription_revocation":true}},"publisher":{"features":{"publisher_identification":true,"subscriber_blackwhite_listing":true,"publisher_exclusion":true,"payload_transparency":true}}},"authid":"Richard","authmethods":["WAMP-CRA"],"authextra":'));
+              '[1,"my.realm",{"roles":{"caller":{"features":{"call_canceling":false,"call_timeout":false,"caller_identification":true,"payload_passthru_mode":true,"progressive_call_results":true}},"callee":{"features":{"caller_identification":true,"call_trustlevels":false,"pattern_based_registration":false,"shared_registration":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":true,"payload_passthru_mode":true}},"subscriber":{"features":{"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_passthru_mode":true,"subscription_revocation":true}},"publisher":{"features":{"publisher_identification":true,"subscriber_blackwhite_listing":true,"publisher_exclusion":true,"payload_passthru_mode":true}}},"authid":"Richard","authmethods":["WAMP-CRA"],"authextra":'));
       expect(message, contains('"channel_binding":null'));
       expect(message, contains('"nonce":"egVDf3DMJh0="'));
     });
@@ -130,12 +132,12 @@ void main() {
       expect(serializer.serializeToString(Yield(6131533)),
           equals('[${MessageTypes.codeYield},6131533,{}]'));
       expect(
-          serializer
-              .serializeToString(Yield(6131533, options: YieldOptions(false))),
+          serializer.serializeToString(
+              Yield(6131533, options: YieldOptions(progress: false))),
           equals('[${MessageTypes.codeYield},6131533,{"progress":false}]'));
       expect(
-          serializer
-              .serializeToString(Yield(6131533, options: YieldOptions(true))),
+          serializer.serializeToString(
+              Yield(6131533, options: YieldOptions(progress: true))),
           equals('[${MessageTypes.codeYield},6131533,{"progress":true}]'));
       expect(serializer.serializeToString(Yield(6131533, arguments: ['hi', 2])),
           equals('[${MessageTypes.codeYield},6131533,{},["hi",2]]'));
@@ -332,6 +334,17 @@ void main() {
       expect(serializer.serializeToString(Abort(Error.authorizationFailed)),
           equals('[3,{},"${Error.authorizationFailed}"]'));
     });
+    test('serializePPT', () {
+      var arguments = <dynamic>[100, 'two', true];
+      var argumentsKeywords = {'key1': 100, 'key2': 'two', 'key3': true};
+      var pptPayload = PPTPayload(
+          arguments: arguments, argumentsKeywords: argumentsKeywords);
+      var binData = serializer.serializePPT(pptPayload);
+      expect(
+          Utf8Decoder().convert(binData),
+          equals(
+              '{"args": [100,"two",true], "kwargs": {"key1":100,"key2":"two","key3":true}}'));
+    });
   });
   group('unserialize', () {
     test('Abort', () {
@@ -356,12 +369,12 @@ void main() {
           equals(
               '{"authid":"Richi","authrole":"admin","authmethod":"wampcra","authprovider":"server","nonce":"5636117568768122","timestamp":"2018-03-16T07:29Z","session":"5768501099130836"}'));
       expect(challenge.extra.salt, equals('fhhi290fh7§)GQ)G)'));
-      expect(challenge.extra.keylen, equals(35));
+      expect(challenge.extra.keyLen, equals(35));
       expect(challenge.extra.iterations, equals(410));
     });
     test('Welcome', () {
       var welcome = serializer.deserializeFromString(
-              '[${MessageTypes.codeWelcome},112233,{"authid":"Richi","authrole":"admin","authmethod":"wampcra","authprovider":"database","roles":{"broker":{"features":{"publisher_identification":false,"pattern_based_subscription":false,"subscription_meta_api":false,"subscriber_blackwhite_listing":false,"session_meta_api":false,"publisher_exclusion":false,"event_history":false,"payload_transparency":false}},"dealer":{"features":{"caller_identification":false,"call_trustlevels":false,"pattern_based_registration":false,"registration_meta_api":false,"shared_registration":false,"session_meta_api":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_transparency":false}}}}]')
+              '[${MessageTypes.codeWelcome},112233,{"authid":"Richi","authrole":"admin","authmethod":"wampcra","authprovider":"database","roles":{"broker":{"features":{"publisher_identification":false,"pattern_based_subscription":false,"subscription_meta_api":false,"subscriber_blackwhite_listing":false,"session_meta_api":false,"publisher_exclusion":false,"event_history":false,"payload_passthru_mode":false}},"dealer":{"features":{"caller_identification":false,"call_trustlevels":false,"pattern_based_registration":false,"registration_meta_api":false,"shared_registration":false,"session_meta_api":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_passthru_mode":false}}}}]')
           as Welcome;
       expect(welcome, isNotNull);
       expect(welcome.id, equals(MessageTypes.codeWelcome));
@@ -373,7 +386,7 @@ void main() {
       expect(welcome.details.roles, isNotNull);
       expect(welcome.details.roles!.broker, isNotNull);
       expect(welcome.details.roles!.broker!.features, isNotNull);
-      expect(welcome.details.roles!.broker!.features!.payloadTransparency,
+      expect(welcome.details.roles!.broker!.features!.payloadPassThruMode,
           isFalse);
       expect(welcome.details.roles!.broker!.features!.eventHistory, isFalse);
       expect(
@@ -395,7 +408,7 @@ void main() {
           isFalse);
       expect(welcome.details.roles!.dealer, isNotNull);
       expect(welcome.details.roles!.dealer!.features, isNotNull);
-      expect(welcome.details.roles!.dealer!.features!.payloadTransparency,
+      expect(welcome.details.roles!.dealer!.features!.payloadPassThruMode,
           isFalse);
       expect(
           welcome.details.roles!.dealer!.features!.sessionMetaApi, isFalse);
@@ -416,7 +429,7 @@ void main() {
           isFalse);
 
       welcome = serializer.deserializeFromString(
-              '[${MessageTypes.codeWelcome},112233,{"authid":"Richi","authrole":"admin","authmethod":"wampcra","authprovider":"database","roles":{"broker":{"features":{"publisher_identification":true,"pattern_based_subscription":true,"subscription_meta_api":true,"subscriber_blackwhite_listing":true,"session_meta_api":true,"publisher_exclusion":true,"event_history":true,"payload_transparency":true}},"dealer":{"features":{"caller_identification":true,"call_trustlevels":true,"pattern_based_registration":true,"registration_meta_api":true,"shared_registration":true,"session_meta_api":true,"call_timeout":true,"call_canceling":true,"progressive_call_results":true,"payload_transparency":true}}}}]')
+              '[${MessageTypes.codeWelcome},112233,{"authid":"Richi","authrole":"admin","authmethod":"wampcra","authprovider":"database","roles":{"broker":{"features":{"publisher_identification":true,"pattern_based_subscription":true,"subscription_meta_api":true,"subscriber_blackwhite_listing":true,"session_meta_api":true,"publisher_exclusion":true,"event_history":true,"payload_passthru_mode":true}},"dealer":{"features":{"caller_identification":true,"call_trustlevels":true,"pattern_based_registration":true,"registration_meta_api":true,"shared_registration":true,"session_meta_api":true,"call_timeout":true,"call_canceling":true,"progressive_call_results":true,"payload_passthru_mode":true}}}}]')
           as Welcome;
       expect(welcome, isNotNull);
       expect(welcome.id, equals(MessageTypes.codeWelcome));
@@ -428,7 +441,7 @@ void main() {
       expect(welcome.details.roles, isNotNull);
       expect(welcome.details.roles!.broker, isNotNull);
       expect(welcome.details.roles!.broker!.features, isNotNull);
-      expect(welcome.details.roles!.broker!.features!.payloadTransparency,
+      expect(welcome.details.roles!.broker!.features!.payloadPassThruMode,
           isTrue);
       expect(welcome.details.roles!.broker!.features!.eventHistory, isTrue);
       expect(
@@ -449,7 +462,7 @@ void main() {
           isTrue);
       expect(welcome.details.roles!.dealer, isNotNull);
       expect(welcome.details.roles!.dealer!.features, isNotNull);
-      expect(welcome.details.roles!.dealer!.features!.payloadTransparency,
+      expect(welcome.details.roles!.dealer!.features!.payloadPassThruMode,
           isTrue);
       expect(welcome.details.roles!.dealer!.features!.sessionMetaApi, isTrue);
       expect(welcome.details.roles!.dealer!.features!.progressiveCallResults,
@@ -546,7 +559,7 @@ void main() {
       expect(result.id, equals(MessageTypes.codeResult));
       expect(result.callRequestId, equals(7814135));
       expect(result.details, isNotNull);
-      expect(result.details.progress, isNull);
+      expect(result.details.progress, false);
       expect(result.arguments, isNull);
       expect(result.argumentsKeywords, isNull);
 
@@ -556,7 +569,7 @@ void main() {
       expect(result.id, equals(MessageTypes.codeResult));
       expect(result.callRequestId, equals(7814135));
       expect(result.details, isNotNull);
-      expect(result.details.progress, isNull);
+      expect(result.details.progress, false);
       expect(result.arguments![0], equals(30));
       expect(result.argumentsKeywords, isNull);
 
@@ -567,7 +580,7 @@ void main() {
       expect(result.id, equals(MessageTypes.codeResult));
       expect(result.callRequestId, equals(6131533));
       expect(result.details, isNotNull);
-      expect(result.details.progress, isNull);
+      expect(result.details.progress, false);
       expect(result.arguments![0], equals('johnny'));
       expect(result.argumentsKeywords!['userid'], equals(123));
       expect(result.argumentsKeywords!['karma'], equals(10));
@@ -689,6 +702,24 @@ void main() {
       expect(event.arguments![0], equals('johnny'));
       expect(event.argumentsKeywords!['firstname'], equals('John'));
       expect(event.argumentsKeywords!['surname'], equals('Doe'));
+    });
+    test('deserializePPT', () {
+      var binData = Utf8Encoder().convert(
+          '{"args": [100, "two", true], "kwargs": {"key1": 100, "key2": "two", "key3": true}}');
+      var pptPayload = serializer.deserializePPT(binData);
+
+      expect(pptPayload, isNotNull);
+      expect(pptPayload?.arguments, isNotNull);
+      expect(pptPayload?.argumentsKeywords, isNotNull);
+      expect(pptPayload!.arguments, isA<List>());
+      expect(pptPayload.arguments!.length, equals(3));
+      expect(pptPayload.arguments![0], equals(100));
+      expect(pptPayload.arguments![1], equals('two'));
+      expect(pptPayload.arguments![2], equals(true));
+      expect(pptPayload.argumentsKeywords, isA<Map>());
+      expect(pptPayload.argumentsKeywords!['key1'], equals(100));
+      expect(pptPayload.argumentsKeywords!['key2'], equals('two'));
+      expect(pptPayload.argumentsKeywords!['key3'], equals(true));
     });
   });
   group('string conversion', () {

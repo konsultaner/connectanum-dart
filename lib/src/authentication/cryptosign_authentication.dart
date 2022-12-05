@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:pinenacl/ed25519.dart';
 import 'package:pointycastle/api.dart';
-import 'package:pointycastle/block/aes_fast.dart';
+import 'package:pointycastle/block/aes.dart';
 import 'package:pointycastle/block/modes/cbc.dart';
 import 'package:pointycastle/block/modes/ctr.dart';
 import 'package:pointycastle/macs/hmac.dart';
@@ -19,7 +19,7 @@ import 'package:pointycastle/digests/sha1.dart';
 import 'cryptosign/bcrypt_pbkdf.dart';
 
 class CryptosignAuthentication extends AbstractAuthentication {
-  static final String channelBindingTlsUnique = 'tls-unique';
+  static final String channelBindungTlsUnique = 'tls-unique';
   static final String openSshHeader = '-----BEGIN OPENSSH PRIVATE KEY-----';
   static final String openSshFooter = '-----END OPENSSH PRIVATE KEY-----';
 
@@ -90,7 +90,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
     authenticate.extra!['channel_binding'] = channelBinding;
     var binaryChallenge = hexToBin(extra.challenge);
     authenticate.signature =
-        privateKey.sign(binaryChallenge).encode(HexCoder.instance);
+        privateKey.sign(binaryChallenge).encode(Base16Encoder.instance);
     return Future.value(authenticate);
   }
 
@@ -113,7 +113,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
   Future<void> hello(String? realm, Details details) {
     details.authextra ??= <String, String?>{};
     details.authextra!['pubkey'] =
-        privateKey.publicKey.encode(HexCoder.instance);
+        privateKey.publicKey.encode(Base16Encoder.instance);
     details.authextra!['channel_binding'] = channelBinding;
     return Future.value();
   }
@@ -142,50 +142,50 @@ class CryptosignAuthentication extends AbstractAuthentication {
     String? privateMac;
     var lines = ppkFileContent.split('\n');
     var macData = PpkMacData();
-    for (var element in lines) {
+    for (var line in lines) {
       if (!endOfHeader) {
-        if (lines.indexOf(element) == 0 &&
-            !element.startsWith('PuTTY-User-Key-File-')) {
+        if (lines.indexOf(line) == 0 &&
+            !line.startsWith('PuTTY-User-Key-File-')) {
           throw Exception('File is no valid putty ssh-2 key file!');
         }
-        if (element.startsWith('PuTTY-User-Key-File-')) {
-          if (!element.startsWith('PuTTY-User-Key-File-2')) {
+        if (line.startsWith('PuTTY-User-Key-File-')) {
+          if (!line.startsWith('PuTTY-User-Key-File-2')) {
             throw Exception('Unsupported ssh-2 key file version!');
           }
-          if (!element.trimRight().endsWith('ssh-ed25519')) {
+          if (!line.trimRight().endsWith('ssh-ed25519')) {
             throw Exception(
                 'The putty key has the wrong encryption method, use ssh-ed25519!');
           }
           macData.algorithm = 'ssh-ed25519';
         }
-        if (element.startsWith('Encryption')) {
-          if (!element.trimRight().endsWith('none')) {
-            if (!element.trimRight().endsWith('aes256-cbc')) {
+        if (line.startsWith('Encryption')) {
+          if (!line.trimRight().endsWith('none')) {
+            if (!line.trimRight().endsWith('aes256-cbc')) {
               throw Exception(
                   'Unknown or unsupported putty file encryption! Supported values are "none" and "aes256-cbc"');
             }
             encrypted = true;
           }
-          macData.encryption = element.split(': ')[1].trimRight();
+          macData.encryption = line.split(': ')[1].trimRight();
         }
-        if (element.startsWith('Comment')) {
-          macData.comment = element.split(': ')[1].trimRight();
+        if (line.startsWith('Comment')) {
+          macData.comment = line.split(': ')[1].trimRight();
         }
-        if (element.startsWith('Public-Lines')) {
+        if (line.startsWith('Public-Lines')) {
           endOfHeader = true;
-          publicKeyIndex = int.parse(element.split(': ')[1].trimRight());
+          publicKeyIndex = int.parse(line.split(': ')[1].trimRight());
           continue;
         }
-      } else if (element.startsWith('Private-Lines')) {
-        privateKeyIndex = int.parse(element.split(': ')[1].trimRight());
+      } else if (line.startsWith('Private-Lines')) {
+        privateKeyIndex = int.parse(line.split(': ')[1].trimRight());
       } else if (publicKeyIndex > 0) {
-        publicKey += element.trimRight();
+        publicKey += line.trimRight();
         publicKeyIndex--;
       } else if (privateKeyIndex > 0) {
-        privateKey += element.trimRight();
+        privateKey += line.trimRight();
         privateKeyIndex--;
-      } else if (element.startsWith('Private-MAC')) {
-        privateMac = element.split(': ')[1].trimRight();
+      } else if (line.startsWith('Private-MAC')) {
+        privateMac = line.split(': ')[1].trimRight();
       }
     }
     macData.publicKey = base64.decode(publicKey);
@@ -225,7 +225,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
           Uint8List.fromList(password.codeUnits), 0, password.codeUnits.length)
       ..doFinal(key, 20);
 
-    final cbcBlockCipher = CBCBlockCipher(AESFastEngine())
+    final cbcBlockCipher = CBCBlockCipher(AESEngine())
       ..init(false,
           ParametersWithIV(KeyParameter(key.sublist(0, 32)), Uint8List(16)));
     final seed = Uint8List(encryptedPrivateKeyList.length);
@@ -278,7 +278,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
     mac.update(Uint8List.fromList([0, 0, 0, macData.privateKey.length]), 0, 4);
     mac.update(macData.privateKey, 0, macData.privateKey.length);
     mac.doFinal(macResult, 0);
-    if (HexCoder.instance.encode(ByteList.fromList(macResult)) != privateMac) {
+    if (Base16Encoder.instance.encode(ByteList(macResult)) != privateMac) {
       if (password == null) {
         throw Exception('Mac check failed, file is corrupt!');
       } else {
@@ -376,10 +376,10 @@ class CryptosignAuthentication extends AbstractAuthentication {
         var iv = keyIv.sublist(32, 48);
         late BlockCipher cypher;
         if (cypherName == 'aes256-ctr') {
-          cypher = CTRBlockCipher(32, CTRStreamCipher(AESFastEngine()))
+          cypher = CTRBlockCipher(32, CTRStreamCipher(AESEngine()))
             ..init(false, ParametersWithIV(KeyParameter(key), iv));
         } else if (cypherName == 'aes256-cbc') {
-          cypher = CBCBlockCipher(AESFastEngine())
+          cypher = CBCBlockCipher(AESEngine())
             ..init(false, ParametersWithIV(KeyParameter(key), iv));
         }
 

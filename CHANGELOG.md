@@ -1,6 +1,8 @@
 ### 2.0.3
 
-- fix lint
+- @KSDaemon added [ppt-mode](https://wamp-proto.org/wamp_latest_ietf.html#name-payload-passthru-mode) in favor of transparent payload
+- prepared connectanum dart for EE2E
+- new linter
 - fixed unit tests in chrome
 
 **BREAKING**

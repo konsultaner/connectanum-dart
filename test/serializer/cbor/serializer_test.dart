@@ -7,6 +7,7 @@ import 'package:connectanum/src/message/hello.dart';
 import 'package:connectanum/src/message/message_types.dart';
 import 'package:connectanum/src/message/welcome.dart';
 import 'package:connectanum/src/message/yield.dart';
+import 'package:connectanum/src/message/ppt_payload.dart';
 import 'package:connectanum/src/serializer/cbor/serializer.dart';
 import 'package:test/test.dart';
 
@@ -107,7 +108,7 @@ void main() {
             111,
             110,
             245,
-            116,
+            117,
             112,
             97,
             121,
@@ -116,18 +117,19 @@ void main() {
             97,
             100,
             95,
-            116,
-            114,
-            97,
-            110,
-            115,
             112,
             97,
+            115,
+            115,
+            116,
+            104,
             114,
+            117,
+            95,
+            109,
+            111,
+            100,
             101,
-            110,
-            99,
-            121,
             245,
             120,
             24,
@@ -322,7 +324,7 @@ void main() {
             116,
             115,
             245,
-            116,
+            117,
             112,
             97,
             121,
@@ -331,18 +333,19 @@ void main() {
             97,
             100,
             95,
-            116,
-            114,
-            97,
-            110,
-            115,
             112,
             97,
+            115,
+            115,
+            116,
+            104,
             114,
+            117,
+            95,
+            109,
+            111,
+            100,
             101,
-            110,
-            99,
-            121,
             245,
             106,
             115,
@@ -423,7 +426,7 @@ void main() {
             116,
             115,
             244,
-            116,
+            117,
             112,
             97,
             121,
@@ -432,18 +435,19 @@ void main() {
             97,
             100,
             95,
-            116,
-            114,
-            97,
-            110,
-            115,
             112,
             97,
+            115,
+            115,
+            116,
+            104,
             114,
+            117,
+            95,
+            109,
+            111,
+            100,
             101,
-            110,
-            99,
-            121,
             245,
             119,
             115,
@@ -571,7 +575,7 @@ void main() {
             111,
             110,
             245,
-            116,
+            117,
             112,
             97,
             121,
@@ -580,18 +584,19 @@ void main() {
             97,
             100,
             95,
-            116,
-            114,
-            97,
-            110,
-            115,
             112,
             97,
+            115,
+            115,
+            116,
+            104,
             114,
+            117,
+            95,
+            109,
+            111,
+            100,
             101,
-            110,
-            99,
-            121,
             245
           ])));
       expect(
@@ -679,7 +684,7 @@ void main() {
             111,
             110,
             245,
-            116,
+            117,
             112,
             97,
             121,
@@ -688,18 +693,19 @@ void main() {
             97,
             100,
             95,
-            116,
-            114,
-            97,
-            110,
-            115,
             112,
             97,
+            115,
+            115,
+            116,
+            104,
             114,
+            117,
+            95,
+            109,
+            111,
+            100,
             101,
-            110,
-            99,
-            121,
             245,
             120,
             24,
@@ -894,7 +900,7 @@ void main() {
             116,
             115,
             245,
-            116,
+            117,
             112,
             97,
             121,
@@ -903,18 +909,19 @@ void main() {
             97,
             100,
             95,
-            116,
-            114,
-            97,
-            110,
-            115,
             112,
             97,
+            115,
+            115,
+            116,
+            104,
             114,
+            117,
+            95,
+            109,
+            111,
+            100,
             101,
-            110,
-            99,
-            121,
             245,
             106,
             115,
@@ -995,7 +1002,7 @@ void main() {
             116,
             115,
             244,
-            116,
+            117,
             112,
             97,
             121,
@@ -1004,18 +1011,19 @@ void main() {
             97,
             100,
             95,
-            116,
-            114,
-            97,
-            110,
-            115,
             112,
             97,
+            115,
+            115,
+            116,
+            104,
             114,
+            117,
+            95,
+            109,
+            111,
+            100,
             101,
-            110,
-            99,
-            121,
             245,
             119,
             115,
@@ -1143,7 +1151,7 @@ void main() {
             111,
             110,
             245,
-            116,
+            117,
             112,
             97,
             121,
@@ -1152,18 +1160,19 @@ void main() {
             97,
             100,
             95,
-            116,
-            114,
-            97,
-            110,
-            115,
             112,
             97,
+            115,
+            115,
+            116,
+            104,
             114,
+            117,
+            95,
+            109,
+            111,
+            100,
             101,
-            110,
-            99,
-            121,
             245
           ])));
     });
@@ -1267,7 +1276,7 @@ void main() {
             111,
             110,
             245,
-            116,
+            117,
             112,
             97,
             121,
@@ -1276,18 +1285,19 @@ void main() {
             97,
             100,
             95,
-            116,
-            114,
-            97,
-            110,
-            115,
             112,
             97,
+            115,
+            115,
+            116,
+            104,
             114,
+            117,
+            95,
+            109,
+            111,
+            100,
             101,
-            110,
-            99,
-            121,
             245,
             120,
             24,
@@ -1482,7 +1492,7 @@ void main() {
             116,
             115,
             245,
-            116,
+            117,
             112,
             97,
             121,
@@ -1491,18 +1501,19 @@ void main() {
             97,
             100,
             95,
-            116,
-            114,
-            97,
-            110,
-            115,
             112,
             97,
+            115,
+            115,
+            116,
+            104,
             114,
+            117,
+            95,
+            109,
+            111,
+            100,
             101,
-            110,
-            99,
-            121,
             245,
             106,
             115,
@@ -1583,7 +1594,7 @@ void main() {
             116,
             115,
             244,
-            116,
+            117,
             112,
             97,
             121,
@@ -1592,18 +1603,19 @@ void main() {
             97,
             100,
             95,
-            116,
-            114,
-            97,
-            110,
-            115,
             112,
             97,
+            115,
+            115,
+            116,
+            104,
             114,
+            117,
+            95,
+            109,
+            111,
+            100,
             101,
-            110,
-            99,
-            121,
             245,
             119,
             115,
@@ -1731,7 +1743,7 @@ void main() {
             111,
             110,
             245,
-            116,
+            117,
             112,
             97,
             121,
@@ -1740,18 +1752,19 @@ void main() {
             97,
             100,
             95,
-            116,
-            114,
-            97,
-            110,
-            115,
             112,
             97,
+            115,
+            115,
+            116,
+            104,
             114,
+            117,
+            95,
+            109,
+            111,
+            100,
             101,
-            110,
-            99,
-            121,
             245,
             102,
             97,
@@ -2321,7 +2334,8 @@ void main() {
       expect(serializer.serialize(Yield(6131533)),
           equals(Uint8List.fromList([131, 24, 70, 26, 0, 93, 143, 77, 160])));
       expect(
-          serializer.serialize(Yield(6131533, options: YieldOptions(false))),
+          serializer.serialize(
+              Yield(6131533, options: YieldOptions(progress: false))),
           equals(Uint8List.fromList([
             131,
             24,
@@ -2344,7 +2358,8 @@ void main() {
             244
           ])));
       expect(
-          serializer.serialize(Yield(6131533, options: YieldOptions(true))),
+          serializer
+              .serialize(Yield(6131533, options: YieldOptions(progress: true))),
           equals(Uint8List.fromList([
             131,
             24,
@@ -3978,6 +3993,60 @@ void main() {
             100
           ])));
     });
+    test('serializePPT', () {
+      var arguments = <dynamic>[100, 'two', true];
+      var argumentsKeywords = {'key1': 100, 'key2': 'two', 'key3': true};
+      var pptPayload = PPTPayload(
+          arguments: arguments, argumentsKeywords: argumentsKeywords);
+      expect(
+          serializer.serializePPT(pptPayload),
+          equals(Uint8List.fromList([
+            162,
+            100,
+            97,
+            114,
+            103,
+            115,
+            131,
+            24,
+            100,
+            99,
+            116,
+            119,
+            111,
+            245,
+            102,
+            107,
+            119,
+            97,
+            114,
+            103,
+            115,
+            163,
+            100,
+            107,
+            101,
+            121,
+            49,
+            24,
+            100,
+            100,
+            107,
+            101,
+            121,
+            50,
+            99,
+            116,
+            119,
+            111,
+            100,
+            107,
+            101,
+            121,
+            51,
+            245
+          ])));
+    });
   });
   group('deserialize', () {
     test('Abort', () {
@@ -4339,7 +4408,7 @@ void main() {
           equals(
               '{"authid":"Richi","authrole":"admin","authmethod":"wampcra","authprovider":"server","nonce":"5636117568768122","timestamp":"2018-03-16T07:29Z","session":"5768501099130836"}'));
       expect(challenge.extra.salt, equals('fhhi290fh7§)GQ)G)'));
-      expect(challenge.extra.keylen, equals(35));
+      expect(challenge.extra.keyLen, equals(35));
       expect(challenge.extra.iterations, equals(410));
     });
     test('Welcome', () {
@@ -4611,7 +4680,7 @@ void main() {
         114,
         121,
         244,
-        116,
+        117,
         112,
         97,
         121,
@@ -4620,18 +4689,19 @@ void main() {
         97,
         100,
         95,
-        116,
-        114,
-        97,
-        110,
-        115,
         112,
         97,
+        115,
+        115,
+        116,
+        104,
         114,
+        117,
+        95,
+        109,
+        111,
+        100,
         101,
-        110,
-        99,
-        121,
         244,
         102,
         100,
@@ -4840,7 +4910,7 @@ void main() {
         116,
         115,
         244,
-        116,
+        117,
         112,
         97,
         121,
@@ -4849,18 +4919,19 @@ void main() {
         97,
         100,
         95,
-        116,
-        114,
-        97,
-        110,
-        115,
         112,
         97,
+        115,
+        115,
+        116,
+        104,
         114,
+        117,
+        95,
+        109,
+        111,
+        100,
         101,
-        110,
-        99,
-        121,
         244
       ])) as Welcome;
       expect(welcome, isNotNull);
@@ -4873,7 +4944,7 @@ void main() {
       expect(welcome.details.roles, isNotNull);
       expect(welcome.details.roles!.broker, isNotNull);
       expect(welcome.details.roles!.broker!.features, isNotNull);
-      expect(welcome.details.roles!.broker!.features!.payloadTransparency,
+      expect(welcome.details.roles!.broker!.features!.payloadPassThruMode,
           isFalse);
       expect(welcome.details.roles!.broker!.features!.eventHistory, isFalse);
       expect(
@@ -4895,7 +4966,7 @@ void main() {
           isFalse);
       expect(welcome.details.roles!.dealer, isNotNull);
       expect(welcome.details.roles!.dealer!.features, isNotNull);
-      expect(welcome.details.roles!.dealer!.features!.payloadTransparency,
+      expect(welcome.details.roles!.dealer!.features!.payloadPassThruMode,
           isFalse);
       expect(
           welcome.details.roles!.dealer!.features!.sessionMetaApi, isFalse);
@@ -5183,7 +5254,7 @@ void main() {
         114,
         121,
         245,
-        116,
+        117,
         112,
         97,
         121,
@@ -5192,18 +5263,19 @@ void main() {
         97,
         100,
         95,
-        116,
-        114,
-        97,
-        110,
-        115,
         112,
         97,
+        115,
+        115,
+        116,
+        104,
         114,
+        117,
+        95,
+        109,
+        111,
+        100,
         101,
-        110,
-        99,
-        121,
         245,
         102,
         100,
@@ -5412,7 +5484,7 @@ void main() {
         116,
         115,
         245,
-        116,
+        117,
         112,
         97,
         121,
@@ -5421,18 +5493,19 @@ void main() {
         97,
         100,
         95,
-        116,
-        114,
-        97,
-        110,
-        115,
         112,
         97,
+        115,
+        115,
+        116,
+        104,
         114,
+        117,
+        95,
+        109,
+        111,
+        100,
         101,
-        110,
-        99,
-        121,
         245
       ])) as Welcome;
       expect(welcome, isNotNull);
@@ -5445,7 +5518,7 @@ void main() {
       expect(welcome.details.roles, isNotNull);
       expect(welcome.details.roles!.broker, isNotNull);
       expect(welcome.details.roles!.broker!.features, isNotNull);
-      expect(welcome.details.roles!.broker!.features!.payloadTransparency,
+      expect(welcome.details.roles!.broker!.features!.payloadPassThruMode,
           isTrue);
       expect(welcome.details.roles!.broker!.features!.eventHistory, isTrue);
       expect(
@@ -5466,7 +5539,7 @@ void main() {
           isTrue);
       expect(welcome.details.roles!.dealer, isNotNull);
       expect(welcome.details.roles!.dealer!.features, isNotNull);
-      expect(welcome.details.roles!.dealer!.features!.payloadTransparency,
+      expect(welcome.details.roles!.dealer!.features!.payloadPassThruMode,
           isTrue);
       expect(welcome.details.roles!.dealer!.features!.sessionMetaApi, isTrue);
       expect(welcome.details.roles!.dealer!.features!.progressiveCallResults,
@@ -5748,7 +5821,7 @@ void main() {
       expect(result.id, equals(MessageTypes.codeResult));
       expect(result.callRequestId, equals(7814135));
       expect(result.details, isNotNull);
-      expect(result.details.progress, isNull);
+      expect(result.details.progress, false);
       expect(result.arguments, isNull);
       expect(result.argumentsKeywords, isNull);
 
@@ -5758,7 +5831,7 @@ void main() {
       expect(result.id, equals(MessageTypes.codeResult));
       expect(result.callRequestId, equals(7814135));
       expect(result.details, isNotNull);
-      expect(result.details.progress, isNull);
+      expect(result.details.progress, false);
       expect(result.arguments![0], equals(30));
       expect(result.argumentsKeywords, isNull);
 
@@ -5802,7 +5875,7 @@ void main() {
       expect(result.id, equals(MessageTypes.codeResult));
       expect(result.callRequestId, equals(6131533));
       expect(result.details, isNotNull);
-      expect(result.details.progress, isNull);
+      expect(result.details.progress, false);
       expect(result.arguments![0], equals('johnny'));
       expect(result.argumentsKeywords!['userid'], equals(123));
       expect(result.argumentsKeywords!['karma'], equals(10));
@@ -6321,6 +6394,67 @@ void main() {
       expect(event.arguments![0], equals('johnny'));
       expect(event.argumentsKeywords!['firstname'], equals('John'));
       expect(event.argumentsKeywords!['surname'], equals('Doe'));
+    });
+    test('deserializePPT', () {
+      var pptPayload = serializer.deserializePPT(Uint8List.fromList([
+        162,
+        100,
+        97,
+        114,
+        103,
+        115,
+        131,
+        24,
+        100,
+        99,
+        116,
+        119,
+        111,
+        245,
+        102,
+        107,
+        119,
+        97,
+        114,
+        103,
+        115,
+        163,
+        100,
+        107,
+        101,
+        121,
+        49,
+        24,
+        100,
+        100,
+        107,
+        101,
+        121,
+        50,
+        99,
+        116,
+        119,
+        111,
+        100,
+        107,
+        101,
+        121,
+        51,
+        245
+      ]));
+
+      expect(pptPayload, isNotNull);
+      expect(pptPayload?.arguments, isNotNull);
+      expect(pptPayload?.argumentsKeywords, isNotNull);
+      expect(pptPayload!.arguments, isA<List>());
+      expect(pptPayload.arguments!.length, equals(3));
+      expect(pptPayload.arguments![0], equals(100));
+      expect(pptPayload.arguments![1], equals('two'));
+      expect(pptPayload.arguments![2], equals(true));
+      expect(pptPayload.argumentsKeywords, isA<Map>());
+      expect(pptPayload.argumentsKeywords!['key1'], equals(100));
+      expect(pptPayload.argumentsKeywords!['key2'], equals('two'));
+      expect(pptPayload.argumentsKeywords!['key3'], equals(true));
     });
   });
 }

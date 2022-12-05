@@ -113,8 +113,10 @@ void main() {
         var details = Details();
         await authMethod.hello('some.realm', details);
 
-        expect(details.authextra!['pubkey'],
-            equals(authMethod.privateKey.publicKey.encode(HexCoder.instance)));
+        expect(
+            details.authextra!['pubkey'],
+            equals(authMethod.privateKey.publicKey
+                .encode(Base16Encoder.instance)));
         expect(details.authextra!['channel_binding'], equals(null));
 
         var extra =
