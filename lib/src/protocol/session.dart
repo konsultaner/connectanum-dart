@@ -98,6 +98,7 @@ class Session {
   static Future<Session> start(String? realm, AbstractTransport transport,
       {String? authId,
       String? authRole,
+      Map<String, dynamic>? authExtra,
       List<AbstractAuthentication>? authMethods,
       Duration? reconnect}) async {
     /// Initialize the session object with the realm it belongs to
@@ -111,6 +112,10 @@ class Session {
     if (authRole != null) {
       hello.details.authrole = authRole;
     }
+    if (authExtra != null) {
+      hello.details.authextra = authExtra;
+    }
+
     if (authMethods != null && authMethods.isNotEmpty) {
       await authMethods[0].hello(realm, hello.details);
       hello.details.authmethods = authMethods
