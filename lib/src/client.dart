@@ -17,6 +17,7 @@ class Client {
   String? authId;
   String? authRole;
   String? realm;
+  Map<String, dynamic>? authExtra;
   int isolateCount;
   final StreamController<ClientConnectOptions> _reconnectStreamController =
       StreamController<ClientConnectOptions>();
@@ -54,6 +55,7 @@ class Client {
       this.authRole,
       this.realm,
       this.authenticationMethods,
+      this.authExtra,
       this.isolateCount = 1})
       : assert(realm == null || UriPattern.match(realm));
 
@@ -94,6 +96,7 @@ class Client {
             authId: authId,
             authRole: authRole,
             authMethods: authenticationMethods,
+            authExtra: authExtra,
             reconnect: options.reconnectTime);
         _controller.add(session);
       } on Abort catch (abort) {
