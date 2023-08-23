@@ -894,6 +894,36 @@ void main() {
       await Future.delayed(Duration(milliseconds: 3));
       expect(event3, isNull);
     });
+    test('session creation with authextra', () async {
+      final transport = _MockTransport();
+      final client = Client(realm: 'test.realm', transport: transport, authExtra: { 'test': true });
+      transport.outbound.stream.listen((message) {
+        if (message.id == MessageTypes.codeHello) {
+          transport.receiveMessage(Welcome(
+              42,
+              Details.forWelcome(
+                  authId: 'Richi',
+                  authMethod: 'none',
+                  authProvider: 'noProvider',
+                  authRole: 'client',
+                  authExtra: {'test': true})));
+        }
+      });
+      late LogRecord measuredRecord;
+      Logger.root.onRecord.listen((record) {
+        measuredRecord = record;
+      });
+      final session = await client.connect().first;
+      expect(session.realm, equals('test.realm'));
+      expect(session.id, equals(42));
+      expect(session.authId, equals('Richi'));
+      expect(session.authRole, equals('client'));
+      expect(session.authProvider, equals('noProvider'));
+      expect(session.authMethod, equals('none'));
+      expect(session.authExtra, equals({'test': true}));
+      expect(measuredRecord.message,
+          equals('Warning! No realm returned by the router'));
+    });
   });
 }
 
