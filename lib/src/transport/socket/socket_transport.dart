@@ -15,7 +15,7 @@ import '../abstract_transport.dart';
 /// capable of using connectanums own upgrade method to allow more then 16MB of
 /// payload.
 class SocketTransport extends AbstractTransport {
-  static final _logger = Logger('SocketTransport');
+  static final _logger = Logger('Connectanum.SocketTransport');
 
   late bool _ssl;
   late bool _allowInsecureCertificates;

@@ -38,7 +38,7 @@ import '../abstract_serializer.dart';
 /// object.
 class Serializer extends AbstractSerializer {
   static final RegExp _binaryPrefix = RegExp('\x00');
-  static final Logger _logger = Logger('Serializer');
+  static final Logger _logger = Logger('Connectanum.Serializer');
 
   /// Converts a uint8 JSON message into a WAMP message object
   @override

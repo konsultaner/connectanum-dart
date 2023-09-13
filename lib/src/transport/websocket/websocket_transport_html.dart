@@ -12,7 +12,7 @@ import '../../serializer/abstract_serializer.dart';
 import '../../transport/abstract_transport.dart';
 
 class WebSocketTransport extends AbstractTransport {
-  static final Logger _logger = Logger('WebSocketTransport');
+  static final Logger _logger = Logger('Connectanum.WebSocketTransport');
 
   final String _url;
   final AbstractSerializer _serializer;

@@ -12,7 +12,7 @@ import 'message/uri_pattern.dart';
 import 'protocol/session.dart';
 
 class Client {
-  static final Logger _logger = Logger('Client');
+  static final Logger _logger = Logger('Connectanum.Client');
 
   String? authId;
   String? authRole;
