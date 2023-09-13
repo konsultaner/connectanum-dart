@@ -1,5 +1,4 @@
 @TestOn('vm')
-
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -7,15 +6,6 @@ import 'package:connectanum/src/message/details.dart';
 import 'package:connectanum/src/message/hello.dart';
 import 'package:connectanum/src/message/message_types.dart';
 import 'package:connectanum/src/message/welcome.dart';
-import 'package:connectanum/src/serializer/json/serializer.dart'
-    // ignore: library_prefixes
-    as jsonSerializer;
-import 'package:connectanum/src/serializer/msgpack/serializer.dart'
-    // ignore: library_prefixes
-    as msgpackSerializer;
-import 'package:connectanum/src/serializer/cbor/serializer.dart'
-    // ignore: library_prefixes
-    as cborSerializer;
 import 'package:connectanum/src/transport/websocket/websocket_transport_io.dart';
 import 'package:connectanum/src/transport/websocket/websocket_transport_serialization.dart';
 import 'package:test/test.dart';
@@ -57,26 +47,19 @@ void main() {
         }
       });
 
-      var transportJSON = WebSocketTransport(
-          'ws://localhost:9100/wamp',
-          jsonSerializer.Serializer(),
-          WebSocketSerialization.serializationJson);
+      var transportJSON =
+          WebSocketTransport.withJsonSerializer('ws://localhost:9100/wamp');
 
-      var transportMsgpack = WebSocketTransport(
-          'ws://localhost:9100/wamp',
-          msgpackSerializer.Serializer(),
-          WebSocketSerialization.serializationMsgpack);
+      var transportMsgpack =
+          WebSocketTransport.withMsgpackSerializer('ws://localhost:9100/wamp');
 
-      var transportCbor = WebSocketTransport(
-          'ws://localhost:9100/wamp',
-          cborSerializer.Serializer(),
-          WebSocketSerialization.serializationCbor);
+      var transportCbor =
+          WebSocketTransport.withCborSerializer('ws://localhost:9100/wamp');
 
-      var transportWithHeaders = WebSocketTransport(
-          'ws://localhost:9100/wamp',
-          jsonSerializer.Serializer(),
-          WebSocketSerialization.serializationJson,
-          {'X_Custom_Header': 'custom_value'});
+      var transportWithHeaders = WebSocketTransport.withJsonSerializer(
+        'ws://localhost:9100/wamp',
+        {'X_Custom_Header': 'custom_value'},
+      );
 
       await transportJSON.open();
       transportJSON.send(Hello('my.realm', Details.forHello()));
