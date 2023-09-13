@@ -896,7 +896,8 @@ void main() {
     });
     test('session creation with authextra', () async {
       final transport = _MockTransport();
-      final client = Client(realm: 'test.realm', transport: transport, authExtra: { 'test': true });
+      final client = Client(
+          realm: 'test.realm', transport: transport, authExtra: {'test': true});
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.codeHello) {
           transport.receiveMessage(Welcome(
