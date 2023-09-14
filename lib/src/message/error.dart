@@ -21,16 +21,17 @@ class Error extends AbstractMessageWithPayload {
   static final String unknown = 'wamp.error.unknown';
 
   // AUTHORIZATION ERRORS
-  static final String notAuthorized = 'wamp.error.not_authorized';
-  static final String noPrincipal = 'wamp.error.no_such_principal';
-  static final String authorizationFailed = 'wamp.error.authorization_failed';
-  static final String noSuchRealm = 'wamp.error.no_such_realm';
-  static final String noSuchRole = 'wamp.error.no_such_role';
-  static final String noSuchTopic = 'wamp.error.no_such_topic';
-  static final String noSuchSession = 'wamp.error.no_such_session';
-  static final String protocolViolation = 'wamp.error.protocol_violation';
+  static const String notAuthorized = 'wamp.error.not_authorized';
+  static const String noPrincipal = 'wamp.error.no_such_principal';
+  static const String authorizationFailed = 'wamp.error.authorization_failed';
+  static const String noSuchRealm = 'wamp.error.no_such_realm';
+  static const String noSuchRole = 'wamp.error.no_such_role';
+  static const String noSuchTopic = 'wamp.error.no_such_topic';
+  static const String noSuchSession = 'wamp.error.no_such_session';
+  static const String protocolViolation = 'wamp.error.protocol_violation';
+  static const String authenticationFailed = 'wamp.error.authentication_failed';
 
-  static final String hiddenErrorMessage = 'unknown';
+  static const String hiddenErrorMessage = 'unknown';
 
   int requestTypeId;
   int requestId;

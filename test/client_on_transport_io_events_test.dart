@@ -1,9 +1,11 @@
 @TestOn('vm')
+import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
 
 import 'package:connectanum/src/client.dart';
 import 'package:connectanum/src/message/abort.dart';
+import 'package:connectanum/src/message/abstract_message.dart';
 import 'package:connectanum/src/message/error.dart';
 import 'package:connectanum/src/message/message_types.dart';
 import 'package:connectanum/src/serializer/json/serializer.dart';
@@ -11,6 +13,7 @@ import 'package:connectanum/src/transport/socket/socket_helper.dart';
 import 'package:connectanum/src/transport/socket/socket_transport.dart';
 import 'package:connectanum/src/transport/websocket/websocket_transport_io.dart';
 import 'package:connectanum/src/transport/websocket/websocket_transport_serialization.dart';
+import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -78,9 +81,10 @@ void main() {
       var hitConnectionLostEvent = false;
       Abort? abort;
       var options = ClientConnectOptions(
-          pingInterval: Duration(seconds: 1),
-          reconnectTime: Duration(seconds: 1),
-          reconnectCount: 2);
+        pingInterval: Duration(seconds: 1),
+        reconnectTime: Duration(seconds: 1),
+        reconnectCount: 2,
+      );
       client.connect(options: options).listen((session) {
         session.onConnectionLost.then((_) {
           hitConnectionLostEvent = true;
@@ -99,7 +103,7 @@ void main() {
       expect(abort, isA<Abort>());
       expect(abort!.reason, equals(Error.authorizationFailed));
       expect(hitConnectionLostEvent, isTrue);
-      expect(reconnects, equals(4));
+      expect(reconnects, equals(2));
       expect(client.transport.isOpen, isFalse);
       expect(options.reconnectTime!.inMilliseconds, equals(800));
     });
@@ -129,9 +133,10 @@ void main() {
       client
           .connect(
               options: ClientConnectOptions(
-                  pingInterval: Duration(seconds: 1),
-                  reconnectTime: Duration(seconds: 1),
-                  reconnectCount: 2))
+        pingInterval: Duration(seconds: 1),
+        reconnectTime: Duration(seconds: 1),
+        reconnectCount: 3,
+      ))
           .listen((session) {
         if (reconnects < 3) {
           reconnects++;
@@ -285,7 +290,7 @@ void main() {
       expect(abort, isA<Abort>());
       expect(abort!.reason, equals(Error.authorizationFailed));
       expect(hitConnectionLostEvent, isTrue);
-      expect(reconnects, equals(4));
+      expect(reconnects, equals(2));
       expect(client.transport.isOpen, isFalse);
     });
 
@@ -331,7 +336,7 @@ void main() {
               options: ClientConnectOptions(
                   pingInterval: Duration(seconds: 1),
                   reconnectTime: Duration(seconds: 1),
-                  reconnectCount: 2))
+                  reconnectCount: 3))
           .listen((session) {
         if (reconnects < 3) {
           reconnects++;
@@ -370,4 +375,115 @@ void main() {
       expect(client.transport.isOpen, isFalse);
     });
   });
+
+  group('Reconnection testing', () {
+    test('WebSocket - stop on authorization error', () async {
+      final suite = WebSocketTestSuite((msgType) {
+        if (msgType == MessageTypes.codeHello) {
+          return Abort(
+            Error.notAuthorized,
+            message: 'The given realm is not valid',
+          );
+        }
+
+        return null;
+      });
+      await suite.open();
+
+      final options = ClientConnectOptions(
+        pingInterval: Duration(seconds: 1),
+        reconnectTime: Duration(seconds: 1),
+        reconnectCount: 2,
+      );
+
+      var closeCompleter = Completer();
+      var errors = 0;
+      suite.client.connect(options: options).listen(
+            (_) {},
+            onError: (_) => errors++,
+            onDone: () => closeCompleter.complete(),
+          );
+      await closeCompleter.future;
+
+      expect(errors, equals(1));
+      expect(suite.client.transport.isOpen, isTrue);
+    }, timeout: const Timeout(Duration(seconds: 5)));
+
+    test('WebSocket - retry on invalid argument error', () async {
+      final suite = WebSocketTestSuite((msgType) {
+        if (msgType == MessageTypes.codeHello) {
+          return Abort(
+            Error.invalidArgument,
+            message: 'Invalid argument',
+          );
+        }
+
+        return null;
+      });
+      await suite.open();
+
+      final options = ClientConnectOptions(
+        pingInterval: Duration(seconds: 1),
+        reconnectTime: Duration(seconds: 1),
+        reconnectCount: 2,
+      );
+
+      var closeCompleter = Completer();
+      var errors = 0;
+      suite.client.connect(options: options).listen(
+            (_) {},
+            onError: (_) => errors++,
+            onDone: () => closeCompleter.complete(),
+          );
+      await closeCompleter.future;
+
+      expect(errors, equals(3));
+      expect(suite.client.transport.isOpen, isTrue);
+    }, timeout: const Timeout(Duration(seconds: 15)));
+  });
+}
+
+int webSocketTestSuitePort = 9300;
+
+class WebSocketTestSuite {
+  late WebSocket socket;
+  late HttpServer server;
+  late Client client;
+  final port = webSocketTestSuitePort++;
+
+  final AbstractMessage? Function(int msgType) onServerMessage;
+
+  WebSocketTestSuite(this.onServerMessage);
+
+  Future<void> open() async {
+    await openServer();
+    openTransport();
+  }
+
+  openServer() async {
+    server = await HttpServer.bind('localhost', port);
+
+    serverListenHandler(HttpRequest req) async {
+      if (req.uri.path == '/wamp') {
+        socket = await WebSocketTransformer.upgrade(req);
+        socket.listen((message) {
+          final msg = jsonDecode(message);
+          final msgType = msg[0];
+
+          final response = onServerMessage(msgType);
+          if (response != null) {
+            socket.add(Serializer().serializeToString(response));
+          }
+        });
+      }
+    }
+
+    server.listen(serverListenHandler);
+  }
+
+  openTransport() async {
+    final transport = WebSocketTransport('ws://localhost:$port/wamp',
+        Serializer(), WebSocketSerialization.serializationJson);
+    client = Client(realm: 'com.connectanum', transport: transport);
+  }
 }

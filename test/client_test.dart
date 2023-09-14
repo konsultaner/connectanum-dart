@@ -29,10 +29,6 @@ void main() {
                   authRole: 'client')));
         }
       });
-      late LogRecord measuredRecord;
-      Logger.root.onRecord.listen((record) {
-        measuredRecord = record;
-      });
       final session = await client.connect().first;
       expect(session.realm, equals('test.realm'));
       expect(session.id, equals(42));
@@ -40,8 +36,6 @@ void main() {
       expect(session.authRole, equals('client'));
       expect(session.authProvider, equals('noProvider'));
       expect(session.authMethod, equals('none'));
-      expect(measuredRecord.message,
-          equals('Warning! No realm returned by the router'));
     });
     test('realm creation', () async {
       final transport = _MockTransport();
@@ -896,7 +890,8 @@ void main() {
     });
     test('session creation with authextra', () async {
       final transport = _MockTransport();
-      final client = Client(realm: 'test.realm', transport: transport, authExtra: { 'test': true });
+      final client = Client(
+          realm: 'test.realm', transport: transport, authExtra: {'test': true});
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.codeHello) {
           transport.receiveMessage(Welcome(
@@ -909,9 +904,9 @@ void main() {
                   authExtra: {'test': true})));
         }
       });
-      late LogRecord measuredRecord;
+      List<LogRecord> logRecords = [];
       Logger.root.onRecord.listen((record) {
-        measuredRecord = record;
+        logRecords.add(record);
       });
       final session = await client.connect().first;
       expect(session.realm, equals('test.realm'));
@@ -921,8 +916,76 @@ void main() {
       expect(session.authProvider, equals('noProvider'));
       expect(session.authMethod, equals('none'));
       expect(session.authExtra, equals({'test': true}));
-      expect(measuredRecord.message,
+      expect(logRecords[2].message,
           equals('Warning! No realm returned by the router'));
+    });
+    test('session creation transport open fail', () async {
+      final transport = _MockTransport();
+      transport.failToOpen = true;
+
+      final client = Client(realm: 'test.realm', transport: transport);
+      final connection = client.connect();
+      connection.listen(null, onError: expectAsync1((abort) {
+        expect(
+          abort,
+          isA<Abort>()
+              .having(
+                  (a) => a.reason, 'reason', equals(Error.authorizationFailed))
+              .having(
+                  (a) => a.message?.message,
+                  'message',
+                  equals('Could not connect to server. '
+                      'Please configure reconnectTime to retry automatically.')),
+        );
+      }));
+    });
+    test('session disconnect on goodbye', () async {
+      final transport = _MockTransport();
+      final client = Client(
+          realm: 'test.realm',
+          transport: transport,
+          authId: '11111111',
+          authenticationMethods: null);
+      final goodbyeSentCompleter = Completer();
+
+      transport.outbound.stream.listen((message) {
+        if (message.id == MessageTypes.codeHello) {
+          transport.receiveMessage(Challenge(
+              'this is not a valid auth method', Extra(challenge: 'nothing')));
+        }
+        if (message.id == MessageTypes.codeGoodbye) {
+          goodbyeSentCompleter.complete(message);
+        }
+      });
+      final connection = client.connect();
+
+      final message = await goodbyeSentCompleter.future;
+      expect(
+          message,
+          isA<Goodbye>()
+              .having((g) => g.reason, 'reason', Goodbye.reasonGoodbyeAndOut));
+      expect(connection.drain(), completes);
+    });
+    test('client disconnect closes transport and session', () async {
+      final transport = _MockTransport();
+      final client = Client(realm: 'test.realm', transport: transport);
+      transport.outbound.stream.listen((message) {
+        if (message.id == MessageTypes.codeHello) {
+          transport.receiveMessage(Welcome(
+              42,
+              Details.forWelcome(
+                  authId: 'Richi',
+                  authMethod: 'none',
+                  authProvider: 'noProvider',
+                  authRole: 'client')));
+        }
+      });
+      final session = await client.connect().first;
+      await client.disconnect();
+
+      expect(transport.isOpen, isFalse);
+      expect(session.isConnected(), isFalse);
+      expect(session.onDisconnect, completes);
     });
   });
 }
@@ -945,6 +1008,7 @@ class _MockChallengeFailAuthenticator extends AbstractAuthentication {
 }
 
 class _MockTransport extends AbstractTransport {
+  bool failToOpen = false;
   final StreamController<AbstractMessage> inbound = StreamController();
   Completer? _onConnectionLost;
   Completer? _onDisconnect;
@@ -965,6 +1029,7 @@ class _MockTransport extends AbstractTransport {
 
   @override
   bool get isReady => isOpen;
+
   @override
   Future<void> get onReady => Future.value();
 
@@ -987,6 +1052,7 @@ class _MockTransport extends AbstractTransport {
 
   @override
   Future<void> open({Duration? pingInterval}) {
+    if (failToOpen) return Future.value();
     _open = true;
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
