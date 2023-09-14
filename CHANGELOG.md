@@ -1,3 +1,7 @@
+### 2.0.5
+
+- @yurii-prykhodko-solid added shorthand websocket transport factories with serializers
+
 ### 2.0.4
 
 - @cydrickn fixed (#59) that error details should have a `dynamic` type instead of a type `object`
