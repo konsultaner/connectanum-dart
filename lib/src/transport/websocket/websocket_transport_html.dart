@@ -10,6 +10,9 @@ import '../../message/goodbye.dart';
 import '../../message/abstract_message.dart';
 import '../../serializer/abstract_serializer.dart';
 import '../../transport/abstract_transport.dart';
+import '../../serializer/json/serializer.dart' as serializer_json;
+import '../../serializer/msgpack/serializer.dart' as serializer_msgpack;
+import '../../serializer/cbor/serializer.dart' as serializer_cbor;
 
 class WebSocketTransport extends AbstractTransport {
   static final Logger _logger = Logger('WebSocketTransport');
@@ -31,6 +34,18 @@ class WebSocketTransport extends AbstractTransport {
   ) : assert(_serializerType == WebSocketSerialization.serializationJson ||
             _serializerType == WebSocketSerialization.serializationMsgpack ||
             _serializerType == WebSocketSerialization.serializationCbor);
+
+  factory WebSocketTransport.withJsonSerializer(String url) =>
+      WebSocketTransport(url, serializer_json.Serializer(),
+          WebSocketSerialization.serializationJson);
+
+  factory WebSocketTransport.withMsgpackSerializer(String url) =>
+      WebSocketTransport(url, serializer_msgpack.Serializer(),
+          WebSocketSerialization.serializationMsgpack);
+
+  factory WebSocketTransport.withCborSerializer(String url) =>
+      WebSocketTransport(url, serializer_cbor.Serializer(),
+          WebSocketSerialization.serializationCbor);
 
   /// Calling close will close the underlying socket connection
   @override
