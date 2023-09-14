@@ -13,7 +13,6 @@ import 'package:connectanum/src/transport/socket/socket_helper.dart';
 import 'package:connectanum/src/transport/socket/socket_transport.dart';
 import 'package:connectanum/src/transport/websocket/websocket_transport_io.dart';
 import 'package:connectanum/src/transport/websocket/websocket_transport_serialization.dart';
-import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 
 void main() {
