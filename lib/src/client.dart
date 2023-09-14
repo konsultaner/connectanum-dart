@@ -14,7 +14,7 @@ import 'protocol/session.dart';
 export 'package:logging/logging.dart' show Level;
 
 enum _ClientState {
-  /// Client is idle and not connected / connecting
+  /// Client is idle and not connected
   none,
 
   /// Client is connecting and waiting for a session
