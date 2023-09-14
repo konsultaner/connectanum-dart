@@ -43,7 +43,9 @@ class Client {
   String? realm;
   Map<String, dynamic>? authExtra;
   int isolateCount;
-  int _reconnectCount = 0;
+  
+  /// Used to prevent overlapping reconnect attempts.
+  int _reconnectWatcher = 0;
   _ClientState _state = _ClientState.none;
 
   final StreamController<ClientConnectOptions> _connectStreamController =
@@ -141,11 +143,12 @@ class Client {
       );
       return await disconnect();
     }
-    _reconnectCount++;
+    _reconnectWatcher++;
 
-    // localReconnectCount is used to avoid race condition between simultaneous reconnects requested by different parties (transport, session)
-    final localReconnectCount = _reconnectCount;
-    _logger.info('Internal reconnect count: $_reconnectCount');
+    // localReconnectWatcher is used to avoid race conditions between
+    // simultaneous reconnects triggered by different parties (transport, session)
+    final localReconnectWatcher = _reconnectWatcher;
+    _logger.info('Internal reconnect count: $_reconnectWatcher');
 
     _changeState(_ClientState.waiting);
 
@@ -156,7 +159,7 @@ class Client {
       _logger.info('Waiting for ${options.reconnectTime!} before reconnecting');
       await Future.delayed(options.reconnectTime!);
     }
-    if (localReconnectCount != _reconnectCount) {
+    if (localReconnectWatcher != _reconnectWatcher) {
       return _logger.warning(
         'Cancelling reconnect becase a newer one was requested while waiting',
       );
