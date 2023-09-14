@@ -15,7 +15,7 @@ import '../../serializer/msgpack/serializer.dart' as serializer_msgpack;
 import '../../serializer/cbor/serializer.dart' as serializer_cbor;
 
 class WebSocketTransport extends AbstractTransport {
-  static final Logger _logger = Logger('WebSocketTransport');
+  static final Logger _logger = Logger('Connectanum.WebSocketTransport');
 
   final String _url;
   final AbstractSerializer _serializer;
