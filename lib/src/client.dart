@@ -153,7 +153,7 @@ class Client {
     _changeState(_ClientState.waiting);
 
     if (duration != null) {
-      _logger.info('Waiting for (overriden) $duration before reconnecting');
+      _logger.info('Waiting for (overridden) $duration before reconnecting');
       await Future.delayed(duration);
     } else {
       _logger.info('Waiting for ${options.reconnectTime!} before reconnecting');
@@ -161,7 +161,7 @@ class Client {
     }
     if (localReconnectWatcher != _reconnectWatcher) {
       return _logger.warning(
-        'Cancelling reconnect becase a newer one was requested while waiting',
+        'Cancelling reconnect because a newer one was requested while waiting',
       );
     }
     return _connectStreamController.add(options);
