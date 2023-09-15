@@ -990,30 +990,6 @@ void main() {
       expect(session.isConnected(), isFalse);
       expect(session.onDisconnect, completes);
     });
-    test('client reconnect race condition', () {
-      expect(
-          rootLogger.onRecord,
-          emitsThrough(isA<LogRecord>().having(
-              (r) => r.message,
-              'message',
-              contains(
-                  'Cancelling reconnect because a newer one was requested'))));
-
-      final transport = _MockTransport();
-      final client = Client(realm: 'test.realm', transport: transport);
-      transport.outbound.stream.listen((message) {
-        if (message.id == MessageTypes.codeHello) {
-          transport.receiveMessage(Abort('no good reason'));
-          transport.onConnectionLost?.complete();
-        }
-      });
-      client
-          .connect(
-              options: ClientConnectOptions(
-                  reconnectTime: const Duration(milliseconds: 100)))
-          .drain()
-          .ignore();
-    });
   });
 }
 
@@ -1036,7 +1012,7 @@ class _MockChallengeFailAuthenticator extends AbstractAuthentication {
 
 class _MockTransport extends AbstractTransport {
   bool failToOpen = false;
-  final StreamController<AbstractMessage> inbound = StreamController();
+  final StreamController<AbstractMessage> inbound = StreamController.broadcast();
   Completer? _onConnectionLost;
   Completer? _onDisconnect;
 

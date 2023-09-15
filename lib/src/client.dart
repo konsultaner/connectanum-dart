@@ -42,8 +42,6 @@ class Client {
   Map<String, dynamic>? authExtra;
   int isolateCount;
 
-  /// Used to prevent overlapping reconnect attempts.
-  int _reconnectWatcher = 0;
   _ClientState _state = _ClientState.none;
 
   final StreamController<ClientConnectOptions> _connectStreamController =
@@ -136,12 +134,6 @@ class Client {
     if (options.reconnectCount == 0) {
       return await _onNoReconnectsLeft('Ran out of reconnect attempts');
     }
-    _reconnectWatcher++;
-
-    // localReconnectWatcher is used to avoid race conditions between
-    // simultaneous reconnects triggered by different parties (transport, session)
-    final localReconnectWatcher = _reconnectWatcher;
-    _logger.info('Internal reconnect count: $_reconnectWatcher');
 
     _changeState(_ClientState.waiting);
 
@@ -152,11 +144,9 @@ class Client {
       _logger.info('Waiting for ${options.reconnectTime!} before reconnecting');
       await Future.delayed(options.reconnectTime!);
     }
-    if (localReconnectWatcher != _reconnectWatcher) {
-      return _logger.warning(
-        'Cancelling reconnect because a newer one was requested while waiting',
-      );
-    }
+
+    // Check in case the client has been closed while we were waiting;
+    if (_state == _ClientState.done) return;
     return _connectStreamController.add(options);
   }
 
@@ -185,12 +175,11 @@ class Client {
     }
 
     /// Listen to on connection lost
-    transport.onConnectionLost!.future.then((_) async {
+    transport.onConnectionLost!.future.then((_) {
+      if (_state == _ClientState.done) return;
       _logger.info('Transport connection lost, client state is: $_state');
 
-      if (_state != _ClientState.done) {
-        await _reconnect(options.minusReconnectRetry());
-      }
+      _reconnect(options.minusReconnectRetry());
     });
 
     try {
