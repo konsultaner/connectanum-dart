@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:connectanum/authentication.dart';
 import 'package:connectanum/connectanum.dart';
+import 'package:connectanum/logging.dart';
 import 'package:connectanum/src/message/authenticate.dart';
 import 'package:connectanum/src/message/hello.dart';
 import 'package:connectanum/src/message/message_types.dart';
@@ -29,7 +30,7 @@ void main() {
                   authRole: 'client')));
         }
       });
-      
+
       final session = await client.connect().first;
       expect(session.realm, equals('test.realm'));
       expect(session.id, equals(42));
@@ -905,12 +906,12 @@ void main() {
                   authExtra: {'test': true})));
         }
       });
-      
+
       List<LogRecord> logRecords = [];
       Logger.root.onRecord.listen((record) {
         logRecords.add(record);
       });
-      
+
       final session = await client.connect().first;
       expect(session.realm, equals('test.realm'));
       expect(session.id, equals(42));
@@ -932,8 +933,7 @@ void main() {
         expect(
           abort,
           isA<Abort>()
-              .having(
-                  (a) => a.reason, 'reason', equals(Error.couldNotConnect))
+              .having((a) => a.reason, 'reason', equals(Error.couldNotConnect))
               .having(
                   (a) => a.message?.message,
                   'message',
@@ -990,6 +990,34 @@ void main() {
       expect(session.isConnected(), isFalse);
       expect(session.onDisconnect, completes);
     });
+    test('client reconnect race condition', () async {
+      expect(
+          rootLogger.onRecord,
+          emitsThrough(isA<LogRecord>().having(
+              (r) => r.message,
+              'message',
+              contains(
+                  'Cancelling reconnect because a newer one was requested'))));
+
+      final transport = _MockTransport();
+      final transportConnectionLost = Completer();
+      transport.customOnConnectionLost = transportConnectionLost;
+
+      final client = Client(realm: 'test.realm', transport: transport);
+      transport.outbound.stream.listen((message) {
+        if (message.id == MessageTypes.codeHello) {
+          transport.receiveMessage(Abort('no good reason'));
+          transportConnectionLost.complete();
+        }
+      });
+      client
+          .connect(
+              options: ClientConnectOptions(
+                  reconnectTime: const Duration(milliseconds: 100)))
+          .drain()
+          .ignore();
+      // await msgCompleter.future;
+    });
   });
 }
 
@@ -1012,6 +1040,7 @@ class _MockChallengeFailAuthenticator extends AbstractAuthentication {
 
 class _MockTransport extends AbstractTransport {
   bool failToOpen = false;
+  Completer<void>? customOnConnectionLost;
   final StreamController<AbstractMessage> inbound = StreamController();
   Completer? _onConnectionLost;
   Completer? _onDisconnect;
@@ -1054,11 +1083,11 @@ class _MockTransport extends AbstractTransport {
   }
 
   @override
-  Future<void> open({Duration? pingInterval}) {
+  Future<void> open({Duration? pingInterval}) async {
     if (failToOpen) return Future.value();
     _open = true;
     _onDisconnect = Completer();
-    _onConnectionLost = Completer();
+    _onConnectionLost = customOnConnectionLost ?? Completer();
     return Future.value();
   }
 
