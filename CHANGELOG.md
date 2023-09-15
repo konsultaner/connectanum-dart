@@ -1,3 +1,7 @@
+### 2.0.6
+
+- @yurii-prykhodko-solid reworked connection recovery with streams, added Client().disconnect()
+
 ### 2.0.5
 
 - @yurii-prykhodko-solid enhanced external logging
