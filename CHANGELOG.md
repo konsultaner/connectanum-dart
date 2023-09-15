@@ -1,5 +1,6 @@
 ### 2.0.5
 
+- @yurii-prykhodko-solid enhanced external logging
 - @yurii-prykhodko-solid added shorthand websocket transport factories with serializers
 
 ### 2.0.4
