@@ -1003,8 +1003,6 @@ void main() {
       final client = Client(realm: 'test.realm', transport: transport);
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.codeHello) {
-          // Fire two connection closure notifications at once;
-          // This should trigger the race condition.
           transport.receiveMessage(Abort('no good reason'));
           transport.onConnectionLost?.complete();
         }
@@ -1012,12 +1010,10 @@ void main() {
       client
           .connect(
               options: ClientConnectOptions(
-                  reconnectTime: const Duration(milliseconds: 200)))
+                  reconnectTime: const Duration(milliseconds: 100)))
           .drain()
           .ignore();
-      // The test relies on the behavior of an unawaited future within the
-      // implementation of Client, which can behave non-deterministically.
-      }, retry: 3, timeout: Timeout(const Duration(seconds: 5)));
+    });
   });
 }
 
