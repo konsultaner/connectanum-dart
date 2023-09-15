@@ -70,6 +70,8 @@ void main() async {
     // close both clients after everything is done
     unawaited(session1.close());
     unawaited(session2.close());
+    unawaited(client1.disconnect());
+    unawaited(client2.disconnect());
   } on Abort catch (abort) {
     print(abort.message!.message);
   }
