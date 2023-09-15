@@ -1000,14 +1000,11 @@ void main() {
                   'Cancelling reconnect because a newer one was requested'))));
 
       final transport = _MockTransport();
-      final transportConnectionLost = Completer();
-      transport.customOnConnectionLost = transportConnectionLost;
-
       final client = Client(realm: 'test.realm', transport: transport);
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.codeHello) {
           transport.receiveMessage(Abort('no good reason'));
-          transportConnectionLost.complete();
+          transport.onConnectionLost?.complete();
         }
       });
       client
@@ -1016,7 +1013,6 @@ void main() {
                   reconnectTime: const Duration(milliseconds: 100)))
           .drain()
           .ignore();
-      // await msgCompleter.future;
     });
   });
 }
@@ -1040,7 +1036,6 @@ class _MockChallengeFailAuthenticator extends AbstractAuthentication {
 
 class _MockTransport extends AbstractTransport {
   bool failToOpen = false;
-  Completer<void>? customOnConnectionLost;
   final StreamController<AbstractMessage> inbound = StreamController();
   Completer? _onConnectionLost;
   Completer? _onDisconnect;
@@ -1087,7 +1082,7 @@ class _MockTransport extends AbstractTransport {
     if (failToOpen) return Future.value();
     _open = true;
     _onDisconnect = Completer();
-    _onConnectionLost = customOnConnectionLost ?? Completer();
+    _onConnectionLost = Completer();
     return Future.value();
   }
 
