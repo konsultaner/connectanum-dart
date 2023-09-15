@@ -36,7 +36,7 @@ class Client {
     Error.protocolViolation,
   ];
 
-  static final Logger _logger = Logger('Client');
+  static final Logger _logger = Logger('Connectanum.Client');
 
   String? authId;
   String? authRole;

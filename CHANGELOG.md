@@ -1,3 +1,13 @@
+### 2.0.5
+
+- @yurii-prykhodko-solid enhanced external logging
+- @yurii-prykhodko-solid added shorthand websocket transport factories with serializers
+
+### 2.0.4
+
+- @cydrickn fixed (#59) that error details should have a `dynamic` type instead of a type `object`
+- @cydrickn added the field `authextra` to authentication process
+
 ### 2.0.3
 
 - @KSDaemon added [ppt-mode](https://wamp-proto.org/wamp_latest_ietf.html#name-payload-passthru-mode) in favor of transparent payload

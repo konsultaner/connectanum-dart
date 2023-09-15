@@ -9,6 +9,9 @@ import 'websocket_transport_serialization.dart';
 import '../../message/abstract_message.dart';
 import '../../serializer/abstract_serializer.dart';
 import '../../transport/abstract_transport.dart';
+import '../../serializer/json/serializer.dart' as serializer_json;
+import '../../serializer/msgpack/serializer.dart' as serializer_msgpack;
+import '../../serializer/cbor/serializer.dart' as serializer_cbor;
 
 /// This transport type is used to connect via web sockets
 /// in a dart vm environment. A known issue is that this
@@ -35,6 +38,21 @@ class WebSocketTransport extends AbstractTransport {
       : assert(_serializerType == WebSocketSerialization.serializationJson ||
             _serializerType == WebSocketSerialization.serializationMsgpack ||
             _serializerType == WebSocketSerialization.serializationCbor);
+
+  factory WebSocketTransport.withJsonSerializer(String url,
+          [Map<String, dynamic>? headers]) =>
+      WebSocketTransport(url, serializer_json.Serializer(),
+          WebSocketSerialization.serializationJson, headers);
+
+  factory WebSocketTransport.withMsgpackSerializer(String url,
+          [Map<String, dynamic>? headers]) =>
+      WebSocketTransport(url, serializer_msgpack.Serializer(),
+          WebSocketSerialization.serializationMsgpack, headers);
+
+  factory WebSocketTransport.withCborSerializer(String url,
+          [Map<String, dynamic>? headers]) =>
+      WebSocketTransport(url, serializer_cbor.Serializer(),
+          WebSocketSerialization.serializationCbor, headers);
 
   /// Calling close will close the underlying socket connection
   @override

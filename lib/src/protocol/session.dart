@@ -35,7 +35,7 @@ import '../message/e2ee_payload.dart';
 import '../message/ppt_payload.dart';
 
 class Session {
-  static final Logger _logger = Logger('Session');
+  static final Logger _logger = Logger('Connectanum.Session');
 
   /// The sessions [id]
   int? id;

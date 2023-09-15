@@ -35,7 +35,7 @@ class Error extends AbstractMessageWithPayload {
 
   int requestTypeId;
   int requestId;
-  Map<String, Object> details;
+  Map<String, dynamic> details;
   String? error;
 
   Error(this.requestTypeId, this.requestId, this.details, this.error,

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:connectanum/authentication.dart';
 import 'package:connectanum/connectanum.dart';
+import 'package:connectanum/src/logging.dart';
 import 'package:connectanum/src/message/authenticate.dart';
 import 'package:connectanum/src/message/hello.dart';
 import 'package:connectanum/src/message/message_types.dart';
@@ -29,6 +30,7 @@ void main() {
                   authRole: 'client')));
         }
       });
+      
       final session = await client.connect().first;
       expect(session.realm, equals('test.realm'));
       expect(session.id, equals(42));
@@ -904,10 +906,12 @@ void main() {
                   authExtra: {'test': true})));
         }
       });
+      
       List<LogRecord> logRecords = [];
       Logger.root.onRecord.listen((record) {
         logRecords.add(record);
       });
+      
       final session = await client.connect().first;
       expect(session.realm, equals('test.realm'));
       expect(session.id, equals(42));

@@ -36,7 +36,7 @@ import '../abstract_serializer.dart';
 /// This is a seralizer for msgpack messages.
 /// It is used to initialize an [AbstractTransport] object.
 class Serializer extends AbstractSerializer {
-  static final Logger _logger = Logger('Serializer');
+  static final Logger _logger = Logger('Connectanum.Serializer');
 
   /// Converts a uint8 msgpack message into a WAMP message object
   @override

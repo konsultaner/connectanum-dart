@@ -12,7 +12,6 @@ import 'package:connectanum/src/serializer/json/serializer.dart';
 import 'package:connectanum/src/transport/socket/socket_helper.dart';
 import 'package:connectanum/src/transport/socket/socket_transport.dart';
 import 'package:connectanum/src/transport/websocket/websocket_transport_io.dart';
-import 'package:connectanum/src/transport/websocket/websocket_transport_serialization.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -37,8 +36,8 @@ void main() {
       }
 
       server.listen(serverListenHandler);
-      final transport = WebSocketTransport('ws://localhost:9200/wamp',
-          Serializer(), WebSocketSerialization.serializationJson);
+      final transport =
+          WebSocketTransport.withJsonSerializer('ws://localhost:9200/wamp');
       final client = Client(realm: 'com.connectanum', transport: transport);
       var closeCompleter = Completer();
       client
@@ -72,8 +71,8 @@ void main() {
       }
 
       server.listen(serverListenHandler);
-      final transport = WebSocketTransport('ws://localhost:9201/wamp',
-          Serializer(), WebSocketSerialization.serializationJson);
+      final transport =
+          WebSocketTransport.withJsonSerializer('ws://localhost:9201/wamp');
       final client = Client(realm: 'com.connectanum', transport: transport);
       var closeCompleter = Completer();
       var reconnects = 0;
@@ -124,8 +123,8 @@ void main() {
       }
 
       server.listen(serverListenHandler);
-      final transport = WebSocketTransport('ws://localhost:9202/wamp',
-          Serializer(), WebSocketSerialization.serializationJson);
+      final transport =
+          WebSocketTransport.withJsonSerializer('ws://localhost:9202/wamp');
       final client = Client(realm: 'com.connectanum', transport: transport);
       var closeCompleter = Completer();
       var reconnects = 0;
@@ -154,8 +153,8 @@ void main() {
 
     test('test on connect web socket transport and no server available',
         () async {
-      final transport = WebSocketTransport('ws://localhost:9203/wamp',
-          Serializer(), WebSocketSerialization.serializationJson);
+      final transport =
+          WebSocketTransport.withJsonSerializer('ws://localhost:9203/wamp');
       final client = Client(realm: 'com.connectanum', transport: transport);
       var closeCompleter = Completer();
       client
