@@ -11,8 +11,6 @@ import 'transport/abstract_transport.dart';
 import 'message/uri_pattern.dart';
 import 'protocol/session.dart';
 
-export 'package:logging/logging.dart' show Level;
-
 enum _ClientState {
   /// Client is idle and not connected
   none,
