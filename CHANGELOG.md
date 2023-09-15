@@ -1,4 +1,4 @@
-### 2.0.6
+### 2.1.0
 
 - @yurii-prykhodko-solid reworked connection recovery with streams, added Client().disconnect()
 
