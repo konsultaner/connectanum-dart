@@ -990,7 +990,7 @@ void main() {
       expect(session.isConnected(), isFalse);
       expect(session.onDisconnect, completes);
     });
-    test('client reconnect race condition', () async {
+    test('client reconnect race condition', () {
       expect(
           rootLogger.onRecord,
           emitsThrough(isA<LogRecord>().having(
@@ -1078,7 +1078,7 @@ class _MockTransport extends AbstractTransport {
   }
 
   @override
-  Future<void> open({Duration? pingInterval}) async {
+  Future<void> open({Duration? pingInterval}) {
     if (failToOpen) return Future.value();
     _open = true;
     _onDisconnect = Completer();
