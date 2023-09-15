@@ -99,7 +99,7 @@ void main() {
       await closeCompleter.future;
 
       expect(abort, isA<Abort>());
-      expect(abort!.reason, equals(Error.authorizationFailed));
+      expect(abort!.reason, equals(Error.couldNotConnect));
       expect(hitConnectionLostEvent, isTrue);
       expect(reconnects, equals(2));
       expect(client.transport.isOpen, isFalse);
@@ -167,7 +167,7 @@ void main() {
         closeCompleter.complete(abort);
       });
       Abort abort = await closeCompleter.future;
-      expect(abort.reason, equals(Error.authorizationFailed));
+      expect(abort.reason, equals(Error.couldNotConnect));
       expect(abort.message!.message, startsWith('Could not connect to server'));
       expect(client.transport.isOpen, isFalse);
     });
@@ -286,7 +286,7 @@ void main() {
       await closeCompleter.future;
 
       expect(abort, isA<Abort>());
-      expect(abort!.reason, equals(Error.authorizationFailed));
+      expect(abort!.reason, equals(Error.couldNotConnect));
       expect(hitConnectionLostEvent, isTrue);
       expect(reconnects, equals(2));
       expect(client.transport.isOpen, isFalse);
@@ -368,7 +368,7 @@ void main() {
         closeCompleter.complete(abort);
       });
       Abort abort = await closeCompleter.future;
-      expect(abort.reason, equals(Error.authorizationFailed));
+      expect(abort.reason, equals(Error.couldNotConnect));
       expect(abort.message!.message, startsWith('Could not connect to server'));
       expect(client.transport.isOpen, isFalse);
     });

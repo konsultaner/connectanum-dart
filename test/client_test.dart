@@ -933,7 +933,7 @@ void main() {
           abort,
           isA<Abort>()
               .having(
-                  (a) => a.reason, 'reason', equals(Error.authorizationFailed))
+                  (a) => a.reason, 'reason', equals(Error.couldNotConnect))
               .having(
                   (a) => a.message?.message,
                   'message',

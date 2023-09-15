@@ -43,7 +43,7 @@ class Client {
   String? realm;
   Map<String, dynamic>? authExtra;
   int isolateCount;
-  
+
   /// Used to prevent overlapping reconnect attempts.
   int _reconnectWatcher = 0;
   _ClientState _state = _ClientState.none;
@@ -133,15 +133,10 @@ class Client {
     await transport.close();
   }
 
-  void _reconnect(ClientConnectOptions options, {Duration? duration}) async {
+  Future<void> _reconnect(ClientConnectOptions options,
+      {Duration? duration}) async {
     if (options.reconnectCount == 0) {
-      _controller.addError(
-        Abort(
-          Error.authorizationFailed,
-          message: 'Could not connect to server. Ran out of reconnect attempts',
-        ),
-      );
-      return await disconnect();
+      return await _onNoReconnectsLeft('Ran out of reconnect attempts');
     }
     _reconnectWatcher++;
 
@@ -174,7 +169,7 @@ class Client {
     _state = newState;
   }
 
-  void _connect(ClientConnectOptions options) async {
+  Future<void> _connect(ClientConnectOptions options) async {
     _logger.info('Connecting, attempts remaining: ${options.reconnectCount}');
     await transport.open(pingInterval: options.pingInterval);
 
@@ -184,14 +179,8 @@ class Client {
         _logger.shout(
           'Unable to reconnect - reconnectTime is null or reconnectCount is 0',
         );
-        _controller.addError(
-          Abort(
-            Error.authorizationFailed,
-            message:
-                'Could not connect to server. Please configure reconnectTime to retry automatically.',
-          ),
-        );
-        return await disconnect();
+        return await _onNoReconnectsLeft(
+            'Please configure reconnectTime to retry automatically');
       }
 
       return _reconnect(options.minusReconnectRetry());
@@ -202,7 +191,7 @@ class Client {
       _logger.info('Transport connection lost, client state is: $_state');
 
       if (_state != _ClientState.done) {
-        _reconnect(options.minusReconnectRetry());
+        await _reconnect(options.minusReconnectRetry());
       }
     });
 
@@ -224,7 +213,27 @@ class Client {
     }
   }
 
-  void _onSessionAbort(Abort abort, ClientConnectOptions options) async {
+  Future<void> _onNoReconnectsLeft(String reason) async {
+    String errorMessage = 'Could not connect to server. $reason.';
+
+    // Check if we can propagate an error from transport
+    final connectionErrorFuture = transport.onConnectionLost;
+    if (connectionErrorFuture != null && connectionErrorFuture.isCompleted) {
+      final error = await connectionErrorFuture.future;
+      errorMessage += ' Underlying error: $error';
+    }
+
+    _controller.addError(
+      Abort(
+        Error.couldNotConnect,
+        message: errorMessage,
+      ),
+    );
+    return await disconnect();
+  }
+
+  Future<void> _onSessionAbort(
+      Abort abort, ClientConnectOptions options) async {
     _logger.shout('Abort reason: ${abort.reason}');
     _controller.addError(abort);
 
@@ -237,7 +246,7 @@ class Client {
     _reconnect(options.minusReconnectRetry(), duration: Duration(seconds: 2));
   }
 
-  void _onSessionGoodbye(Goodbye goodbye) async {
+  Future<void> _onSessionGoodbye(Goodbye goodbye) async {
     _logger.shout('Goodbye reason: ${goodbye.reason}');
     await disconnect();
   }

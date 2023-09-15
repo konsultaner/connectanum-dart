@@ -3,22 +3,23 @@ import 'message_types.dart';
 
 /// The WAMP Error massage
 class Error extends AbstractMessageWithPayload {
-  static final String errorInvocationCanceled =
+  static const String errorInvocationCanceled =
       'wamp.error.invocation_canceled';
 
   // INTERACTION ERRORS
-  static final String errorInvalidUri = 'wamp.error.invalid_uri';
-  static final String invalidMessageId = 'wamp.error.invalid_message_id';
-  static final String wrongMessageStructure =
+  static const String errorInvalidUri = 'wamp.error.invalid_uri';
+  static const String invalidMessageId = 'wamp.error.invalid_message_id';
+  static const String wrongMessageStructure =
       'wamp.error.wrong_message_structure';
-  static final String noSuchProcedure = 'wamp.error.no_such_procedure';
-  static final String procedureAlreadyExists =
+  static const String noSuchProcedure = 'wamp.error.no_such_procedure';
+  static const String procedureAlreadyExists =
       'wamp.error.procedure_already_exists';
-  static final String noSuchRegistration = 'wamp.error.no_such_registration';
-  static final String noSuchSubscription = 'wamp.error.no_such_subscription';
-  static final String invalidArgument = 'wamp.error.invalid_argument';
-  static final String notConnected = 'wamp.error.not_connected';
-  static final String unknown = 'wamp.error.unknown';
+  static const String noSuchRegistration = 'wamp.error.no_such_registration';
+  static const String noSuchSubscription = 'wamp.error.no_such_subscription';
+  static const String invalidArgument = 'wamp.error.invalid_argument';
+  static const String notConnected = 'wamp.error.not_connected';
+  static const String couldNotConnect = 'wamp.error.could_not_connect';
+  static const String unknown = 'wamp.error.unknown';
 
   // AUTHORIZATION ERRORS
   static const String notAuthorized = 'wamp.error.not_authorized';
