@@ -480,8 +480,8 @@ class WebSocketTestSuite {
   }
 
   openTransport() async {
-    final transport = WebSocketTransport('ws://localhost:$port/wamp',
-        Serializer(), WebSocketSerialization.serializationJson);
+    final transport =
+        WebSocketTransport.withJsonSerializer('ws://localhost:$port/wamp');
     client = Client(realm: 'com.connectanum', transport: transport);
   }
 }
