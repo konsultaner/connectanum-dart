@@ -57,7 +57,7 @@ class WebSocketTransport extends AbstractTransport {
   /// Calling close will close the underlying socket connection
   @override
   Future<void> close({error}) {
-    _socket!.close();
+    _socket?.close();
     complete(_onDisconnect, error);
     return Future.value();
   }
