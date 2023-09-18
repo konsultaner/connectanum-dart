@@ -124,9 +124,15 @@ class Client {
     _logger.shout('Disconnecting');
     _changeState(_ClientState.done);
     await _connectStreamSubscription?.cancel();
-    await _connectStreamController.close();
-    await _controller.close();
-    await transport.close();
+    if (!_connectStreamController.isClosed) {
+      await _connectStreamController.close();
+    }
+    if (!_controller.isClosed) {
+      await _controller.close();
+    }
+    if (transport.isOpen) {
+      await transport.close();
+    }
   }
 
   Future<void> _reconnect(ClientConnectOptions options,

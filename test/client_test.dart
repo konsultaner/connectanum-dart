@@ -1011,7 +1011,8 @@ class _MockChallengeFailAuthenticator extends AbstractAuthentication {
 
 class _MockTransport extends AbstractTransport {
   bool failToOpen = false;
-  final StreamController<AbstractMessage> inbound = StreamController.broadcast();
+  final StreamController<AbstractMessage> inbound =
+      StreamController.broadcast();
   Completer? _onConnectionLost;
   Completer? _onDisconnect;
 
