@@ -15,7 +15,7 @@ void main() {
     test(
         'Opening a server connection and simple send receive scenario using a serializer',
         () async {
-      var server = await HttpServer.bind('localhost', 9100);
+      var server = await HttpServer.bind('localhost', 9911);
       server.listen((HttpRequest req) async {
         if (req.uri.path == '/wamp') {
           var socket = await WebSocketTransformer.upgrade(req);
@@ -48,16 +48,16 @@ void main() {
       });
 
       var transportJSON =
-          WebSocketTransport.withJsonSerializer('ws://localhost:9100/wamp');
+          WebSocketTransport.withJsonSerializer('ws://localhost:9911/wamp');
 
       var transportMsgpack =
-          WebSocketTransport.withMsgpackSerializer('ws://localhost:9100/wamp');
+          WebSocketTransport.withMsgpackSerializer('ws://localhost:9911/wamp');
 
       var transportCbor =
-          WebSocketTransport.withCborSerializer('ws://localhost:9100/wamp');
+          WebSocketTransport.withCborSerializer('ws://localhost:9911/wamp');
 
       var transportWithHeaders = WebSocketTransport.withJsonSerializer(
-        'ws://localhost:9100/wamp',
+        'ws://localhost:9911/wamp',
         {'X_Custom_Header': 'custom_value'},
       );
 

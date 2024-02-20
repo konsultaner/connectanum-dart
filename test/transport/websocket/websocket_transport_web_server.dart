@@ -30,6 +30,12 @@ void hybridMain(StreamChannel channel) async {
           }
         }
       });
+      channel.sink.add(socket.protocol);
     }
+  }, onError: (error) {
+    print(error);
+  }, onDone: () {
+    print('Closed Test Server');
   });
+  channel.sink.add(server.port);
 }
