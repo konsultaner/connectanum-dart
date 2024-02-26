@@ -49,20 +49,19 @@ void main() {
         }
       });
 
-      print('Start opening json server transport');
+      print('#### JSON transport');
       await jsonCompleter.future;
-      print('Start send HELLO opened');
       transportJSON.send(Hello('my.realm', Details.forHello()));
-      print('Waiting for WELCOME opened');
       var welcome = await transportJSON.receive().first;
-      print('WELCOME received');
       expect(welcome, isA<Welcome>());
 
+      print('#### MSGPACK transport');
       await msgpackCompleter.future;
       transportMsgpack.send(Hello('my.realm', Details.forHello()));
       welcome = await transportMsgpack.receive().first;
       expect(welcome, isA<Welcome>());
 
+      print('#### CBOR transport');
       await cborCompleter.future;
       transportCbor.send(Hello('my.realm', Details.forHello()));
       welcome = await transportCbor.receive().first;

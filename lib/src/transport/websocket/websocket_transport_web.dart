@@ -112,9 +112,9 @@ class WebSocketTransport extends AbstractTransport {
       _goodbyeSent = true;
     }
     if (_serializerType == WebSocketSerialization.serializationJson) {
-      _socket.send(utf8.decode(_serializer.serialize(message).cast()) as JSAny);
+      _socket.send(utf8.decode(_serializer.serialize(message).cast()).toJS);
     } else {
-      _socket.send(_serializer.serialize(message).cast() as JSAny);
+      _socket.send(_serializer.serialize(message).toJS);
     }
   }
 
@@ -141,7 +141,8 @@ class WebSocketTransport extends AbstractTransport {
         message = _serializer
             .deserialize(utf8.encode(messageEvent.data as String) as Uint8List?);
       } else {
-        message = _serializer.deserialize(messageEvent.data as Uint8List);
+        print(messageEvent.data.dartify());
+        message = _serializer.deserialize(messageEvent.data.dartify() as dynamic);
       }
       if (message is Goodbye) {
         _goodbyeReceived = true;

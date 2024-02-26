@@ -2,6 +2,8 @@
 
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:shelf/shelf_io.dart' as io;
+import 'package:shelf_web_socket/shelf_web_socket.dart';
 
 import 'package:connectanum/src/message/message_types.dart';
 import 'package:stream_channel/stream_channel.dart';
@@ -11,26 +13,29 @@ import 'package:test/test.dart';
 // hybridMain() with a StreamChannel that's connected to the channel
 // returned spawnHybridCode().
 void hybridMain(StreamChannel channel) async {
-  var server = await HttpServer.bind('localhost', 9101);
+  var server = await HttpServer.bind('localhost', 9110);
   server.listen((HttpRequest req) async {
     print('receive open request');
     if (req.uri.path == '/wamp') {
-      var socket = await WebSocketTransformer.upgrade(req);
-      print(
-          'Received protocol ${req.headers.value('sec-websocket-protocol')!}');
-      socket.listen((message) {
-        if (message is String &&
-            message.contains('[${MessageTypes.codeHello}')) {
-          socket.add('[${MessageTypes.codeWelcome},1234,{}]');
-        } else {
-          // received msgpack
-          if (message.contains(MessageTypes.codeHello)) {
-            socket.add(Uint8List.fromList(
-                [221, 0, 0, 0, 3, 2, 205, 4, 210, 223, 0, 0, 0, 0]));
+      WebSocket socket = await WebSocketTransformer.upgrade(req, protocolSelector: (protocols) => protocols[0]);
+      print('Received protocol ${socket.protocol}');
+      channel.sink.add(socket.protocol);
+      await for (var message in socket) {
+        if (socket.protocol == 'wamp.2.json') {
+          print('received json message: $message');
+          socket.add('[${MessageTypes.codeWelcome},1,{}]');
+        } else if (socket.protocol == 'wamp.2.msgpack') {
+          print('received msgpack message: $message');
+          if (message[1] == MessageTypes.codeHello) {
+            socket.add([147, MessageTypes.codeWelcome, 1, 128]);
+          }
+        } else if (socket.protocol == 'wamp.2.cbor') {
+          print('received cbor message: $message');
+          if (message[1] == MessageTypes.codeHello) {
+            socket.add([131, MessageTypes.codeWelcome, 1, 160]);
           }
         }
-      });
-      channel.sink.add(socket.protocol);
+      }
     }
   }, onError: (error) {
     print(error);
