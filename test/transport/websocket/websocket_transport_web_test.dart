@@ -25,7 +25,6 @@ void main() {
         channelValues.add(event);
         if (channelValues.length == 1) {
           port = event;
-          print('Get port value of $port');
           transportJSON = WebSocketTransport.withJsonSerializer('ws://localhost:$port/wamp');
           transportMsgpack = WebSocketTransport.withMsgpackSerializer('ws://localhost:$port/wamp');
           transportCbor = WebSocketTransport.withCborSerializer('ws://localhost:$port/wamp');

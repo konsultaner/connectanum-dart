@@ -135,14 +135,14 @@ class WebSocketTransport extends AbstractTransport {
       }
       _logger.info('The connection has been closed with ${closeEvent.code}');
     });
-    return _socket.onMessage.map((messageEvent) {
+    return _socket.onMessage.asyncMap((messageEvent) async {
       AbstractMessage? message;
       if (_serializerType == WebSocketSerialization.serializationJson) {
         message = _serializer
             .deserialize(utf8.encode(messageEvent.data as String) as Uint8List?);
       } else {
-        print(messageEvent.data.dartify());
-        message = _serializer.deserialize(messageEvent.data.dartify() as dynamic);
+        var arraybuffer = await (messageEvent.data as Blob).arrayBuffer().toDart;
+        message = _serializer.deserialize(arraybuffer.toDart.asUint8List(0));
       }
       if (message is Goodbye) {
         _goodbyeReceived = true;
