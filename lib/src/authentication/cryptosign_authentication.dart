@@ -261,18 +261,18 @@ class CryptosignAuthentication extends AbstractAuthentication {
         Uint8List.fromList([0, 0, 0, macData.algorithm.codeUnits.length]),
         0,
         4);
-    mac.update(utf8.encode(macData.algorithm) as Uint8List, 0,
+    mac.update(utf8.encode(macData.algorithm), 0,
         macData.algorithm.codeUnits.length);
     mac.update(
         Uint8List.fromList([0, 0, 0, macData.encryption.codeUnits.length]),
         0,
         4);
-    mac.update(utf8.encode(macData.encryption) as Uint8List, 0,
+    mac.update(utf8.encode(macData.encryption), 0,
         macData.encryption.length);
     mac.update(
         Uint8List.fromList([0, 0, 0, macData.comment.codeUnits.length]), 0, 4);
     mac.update(
-        utf8.encode(macData.comment) as Uint8List, 0, macData.comment.length);
+        utf8.encode(macData.comment), 0, macData.comment.length);
     mac.update(Uint8List.fromList([0, 0, 0, macData.publicKey.length]), 0, 4);
     mac.update(macData.publicKey, 0, macData.publicKey.length);
     mac.update(Uint8List.fromList([0, 0, 0, macData.privateKey.length]), 0, 4);
