@@ -86,7 +86,7 @@ class WebSocketTransport extends AbstractTransport {
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
     var openCompleter = Completer();
-    _socket = WebSocket(_url, [_serializerType] as JSAny);
+    _socket = WebSocket(_url, [_serializerType.toJS].toJS);
     if (pingInterval != null) {
       _logger.info(
           'The browsers WebSocket API does not support ping interval configuration.');
@@ -139,7 +139,7 @@ class WebSocketTransport extends AbstractTransport {
       AbstractMessage? message;
       if (_serializerType == WebSocketSerialization.serializationJson) {
         message = _serializer
-            .deserialize(utf8.encode(messageEvent.data as String) as Uint8List?);
+            .deserialize(utf8.encode(messageEvent.data.toString()) as Uint8List?);
       } else {
         var arraybuffer = await (messageEvent.data as Blob).arrayBuffer().toDart;
         message = _serializer.deserialize(arraybuffer.toDart.asUint8List(0));

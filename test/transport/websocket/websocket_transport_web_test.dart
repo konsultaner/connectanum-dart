@@ -13,7 +13,7 @@ void main() {
         'Opening a server connection and simple send receive scenario using a serializer',
         () async {
       var channel = spawnHybridUri('websocket_transport_web_server.dart');
-      late int port;
+      late String port;
       late WebSocketTransport transportJSON;
       late WebSocketTransport transportMsgpack;
       late WebSocketTransport transportCbor;

@@ -10,7 +10,8 @@ import 'package:test/test.dart';
 // hybridMain() with a StreamChannel that's connected to the channel
 // returned spawnHybridCode().
 void hybridMain(StreamChannel channel) async {
-  var server = await HttpServer.bind('localhost', 9110);
+  var port = 9110;
+  var server = await HttpServer.bind('localhost', port);
   server.listen((HttpRequest req) async {
     if (req.uri.path == '/wamp') {
       WebSocket socket = await WebSocketTransformer.upgrade(req, protocolSelector: (protocols) => protocols[0]);
@@ -30,5 +31,5 @@ void hybridMain(StreamChannel channel) async {
       }
     }
   });
-  channel.sink.add(server.port);
+  channel.sink.add("$port");
 }
