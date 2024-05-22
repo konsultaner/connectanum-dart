@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer';
 import 'package:web/web.dart';
 import 'dart:typed_data';
 import 'dart:js_interop';
@@ -111,7 +112,9 @@ class WebSocketTransport extends AbstractTransport {
     if (message is Goodbye) {
       _goodbyeSent = true;
     }
-    _socket.send(_serializer.serialize(message).toJS);
+    var serializedMessage = _serializer.serialize(message);
+    // toJS only works on casted objects
+    _socket.send(serializedMessage is String ? serializedMessage.toJS : (serializedMessage as Uint8List).toJS);
   }
 
   /// This method return a [Stream] that streams all incoming messages as unserialized
