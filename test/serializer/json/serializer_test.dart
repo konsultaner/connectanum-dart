@@ -718,8 +718,8 @@ void main() {
           arguments: [
             '𝄞 𝄢 Hello! Cześć! 你好! ご挨拶！Привет! ℌ𝔢𝔩𝔩𝔬! 🅗🅔🅛🅛🅞!'
           ]);
-      var serializedInvocation = serializer
-          .deserialize(utf8.encoder.convert(serializer.serialize(invocation))) as Invocation;
+      var serializedInvocation = serializer.deserialize(
+          utf8.encoder.convert(serializer.serialize(invocation))) as Invocation;
       expect(serializedInvocation.arguments![0],
           equals('𝄞 𝄢 Hello! Cześć! 你好! ご挨拶！Привет! ℌ𝔢𝔩𝔩𝔬! 🅗🅔🅛🅛🅞!'));
     });

@@ -1,4 +1,5 @@
 @TestOn('browser')
+library;
 
 import 'dart:io';
 
@@ -14,7 +15,8 @@ void hybridMain(StreamChannel channel) async {
   var server = await HttpServer.bind('localhost', port);
   server.listen((HttpRequest req) async {
     if (req.uri.path == '/wamp') {
-      WebSocket socket = await WebSocketTransformer.upgrade(req, protocolSelector: (protocols) => protocols[0]);
+      WebSocket socket = await WebSocketTransformer.upgrade(req,
+          protocolSelector: (protocols) => protocols[0]);
       channel.sink.add(socket.protocol);
       await for (var message in socket) {
         if (socket.protocol == 'wamp.2.json') {

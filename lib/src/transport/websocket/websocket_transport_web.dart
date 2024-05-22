@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:developer';
 import 'package:web/web.dart';
 import 'dart:typed_data';
 import 'dart:js_interop';
@@ -114,7 +113,9 @@ class WebSocketTransport extends AbstractTransport {
     }
     var serializedMessage = _serializer.serialize(message);
     // toJS only works on casted objects
-    _socket.send(serializedMessage is String ? serializedMessage.toJS : (serializedMessage as Uint8List).toJS);
+    _socket.send(serializedMessage is String
+        ? serializedMessage.toJS
+        : (serializedMessage as Uint8List).toJS);
   }
 
   /// This method return a [Stream] that streams all incoming messages as unserialized
@@ -122,9 +123,7 @@ class WebSocketTransport extends AbstractTransport {
   @override
   Stream<AbstractMessage?> receive() {
     _socket.onClose.listen((closeEvent) {
-      if (closeEvent.code > 1000 &&
-          !_goodbyeSent &&
-          !_goodbyeReceived) {
+      if (closeEvent.code > 1000 && !_goodbyeSent && !_goodbyeReceived) {
         // a status code other then 1000 indicates that the server tried to quit
         if (!_onConnectionLost!.isCompleted) {
           _onConnectionLost!.complete();
@@ -137,10 +136,11 @@ class WebSocketTransport extends AbstractTransport {
     return _socket.onMessage.asyncMap((messageEvent) async {
       AbstractMessage? message;
       if (_serializerType == WebSocketSerialization.serializationJson) {
-        message = _serializer
-            .deserialize(utf8.encode(messageEvent.data.toString()) as Uint8List?);
+        message = _serializer.deserialize(
+            utf8.encode(messageEvent.data.toString()) as Uint8List?);
       } else {
-        var arraybuffer = await (messageEvent.data as Blob).arrayBuffer().toDart;
+        var arraybuffer =
+            await (messageEvent.data as Blob).arrayBuffer().toDart;
         message = _serializer.deserialize(arraybuffer.toDart.asUint8List(0));
       }
       if (message is Goodbye) {

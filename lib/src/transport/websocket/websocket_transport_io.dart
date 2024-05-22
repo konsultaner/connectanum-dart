@@ -117,7 +117,8 @@ class WebSocketTransport extends AbstractTransport {
       _goodbyeSent = true;
     }
     if (_serializerType == WebSocketSerialization.serializationJson) {
-      _socket!.addUtf8Text(utf8.encoder.convert(_serializer.serialize(message)));
+      _socket!
+          .addUtf8Text(utf8.encoder.convert(_serializer.serialize(message)));
     } else {
       _socket!.add(_serializer.serialize(message));
     }

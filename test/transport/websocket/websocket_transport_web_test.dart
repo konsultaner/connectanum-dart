@@ -1,4 +1,6 @@
 @TestOn('browser')
+library;
+
 import 'dart:async';
 
 import 'package:connectanum/src/message/details.dart';
@@ -25,9 +27,12 @@ void main() {
         channelValues.add(event);
         if (channelValues.length == 1) {
           port = event;
-          transportJSON = WebSocketTransport.withJsonSerializer('ws://localhost:$port/wamp');
-          transportMsgpack = WebSocketTransport.withMsgpackSerializer('ws://localhost:$port/wamp');
-          transportCbor = WebSocketTransport.withCborSerializer('ws://localhost:$port/wamp');
+          transportJSON = WebSocketTransport.withJsonSerializer(
+              'ws://localhost:$port/wamp');
+          transportMsgpack = WebSocketTransport.withMsgpackSerializer(
+              'ws://localhost:$port/wamp');
+          transportCbor = WebSocketTransport.withCborSerializer(
+              'ws://localhost:$port/wamp');
         }
         if (channelValues.length == 1) {
           print('Connect to ws://localhost:$port/wamp via json');
