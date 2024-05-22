@@ -5,8 +5,10 @@ import '../message/ppt_payload.dart';
 
 /// The custom serializer interface
 abstract class AbstractSerializer {
-  /// Serialize a given message
-  Uint8List serialize(AbstractMessage message);
+  /// Serialize a given message, should return a String or a UInt8List. The
+  /// return type is dynamic, because the socket class takes a dynamic type to
+  /// send either a string or a binary message.
+  dynamic serialize(AbstractMessage message);
 
   /// Deserialize a given message
   AbstractMessage? deserialize(Uint8List? message);

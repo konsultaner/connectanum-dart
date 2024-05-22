@@ -111,11 +111,7 @@ class WebSocketTransport extends AbstractTransport {
     if (message is Goodbye) {
       _goodbyeSent = true;
     }
-    if (_serializerType == WebSocketSerialization.serializationJson) {
-      _socket.send(utf8.decode(_serializer.serialize(message).cast()).toJS);
-    } else {
-      _socket.send(_serializer.serialize(message).toJS);
-    }
+    _socket.send(_serializer.serialize(message).toJS);
   }
 
   /// This method return a [Stream] that streams all incoming messages as unserialized
