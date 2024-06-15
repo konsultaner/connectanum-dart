@@ -116,11 +116,11 @@ class WebSocketTransport extends AbstractTransport {
     if (message is Goodbye) {
       _goodbyeSent = true;
     }
-    var byteMessage = _serializer.serialize(message).cast<int>();
     if (_serializerType == WebSocketSerialization.serializationJson) {
-      _socket!.addUtf8Text(byteMessage);
+      _socket!
+          .addUtf8Text(utf8.encoder.convert(_serializer.serialize(message)));
     } else {
-      _socket!.add(byteMessage);
+      _socket!.add(_serializer.serialize(message));
     }
   }
 

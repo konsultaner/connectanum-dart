@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -365,6 +366,9 @@ class SocketTransport extends AbstractTransport {
         });
       }
       var serialalizedMessage = _serializer.serialize(message);
+      if (serialalizedMessage is String) {
+        serialalizedMessage = utf8.encoder.convert(serialalizedMessage);
+      }
       _outboundBuffer!.addAll(SocketHelper.buildMessageHeader(
           SocketHelper.messageWamp,
           serialalizedMessage.length,
@@ -372,6 +376,9 @@ class SocketTransport extends AbstractTransport {
       _outboundBuffer!.addAll(serialalizedMessage);
     } else {
       var serialalizedMessage = _serializer.serialize(message);
+      if (serialalizedMessage is String) {
+        serialalizedMessage = utf8.encoder.convert(serialalizedMessage);
+      }
       _send0(SocketHelper.buildMessageHeader(SocketHelper.messageWamp,
           serialalizedMessage.length, isUpgradedProtocol));
       _send0(serialalizedMessage);

@@ -1,3 +1,10 @@
+### 2.2.0
+
+- updated min sdk version to 3.4.0
+- replaced html by web package
+  - support for wasm compilation
+  - all features can be used in the browser now. No more `Unsupported operation: Uint64 accessor not supported by dart2js.`
+
 ### 2.1.0
 
 - @yurii-prykhodko-solid reworked connection recovery with streams, added Client().disconnect()

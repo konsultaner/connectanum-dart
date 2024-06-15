@@ -303,8 +303,8 @@ class Serializer extends AbstractSerializer {
 
   /// Converts a WAMP message object into a uint8 json message
   @override
-  Uint8List serialize(AbstractMessage message) {
-    return Utf8Encoder().convert(serializeToString(message));
+  String serialize(AbstractMessage message) {
+    return serializeToString(message);
   }
 
   /// Converts a WAMP message object into a string json message
