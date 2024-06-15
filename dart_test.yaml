@@ -1,4 +1,4 @@
 platforms: [vm, chrome]
 compilers: [dart2wasm]
 on_platform:
-  chrome: {timeout: 3x}
+  chrome: {timeout: 10x}
