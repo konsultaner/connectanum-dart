@@ -188,24 +188,22 @@ class Client {
       _reconnect(options.minusReconnectRetry());
     });
 
-    Session.start(
-      realm,
-      transport,
-      authId: authId,
-      authRole: authRole,
-      authMethods: authenticationMethods,
-      reconnect: options.reconnectTime,
-    ).then((session) {
+    try {
+      final session = await Session.start(
+        realm,
+        transport,
+        authId: authId,
+        authRole: authRole,
+        authMethods: authenticationMethods,
+        reconnect: options.reconnectTime,
+      );
       _controller.add(session);
       _changeState(_ClientState.active);
-    }, onError: (error) {
-      if (error is Abort) {
-        _onSessionAbort(error, options);
-      }
-      if (error is Goodbye) {
-        _onSessionGoodbye(error);
-      }
-    });
+    } on Abort catch (abort) {
+      _onSessionAbort(abort, options);
+    } on Goodbye catch (goodbye) {
+      _onSessionGoodbye(goodbye);
+    }
   }
 
   Future<void> _onNoReconnectsLeft(String reason) async {
