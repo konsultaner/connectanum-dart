@@ -9,21 +9,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    outputs:
-      cache-key: ${{ steps.cache-deps.outputs.cache-hit }}
 
     steps:
       - uses: actions/checkout@v4
       - uses: dart-lang/setup-dart@v1
-
-      - name: Cache dependencies
-        id: cache-deps
-        uses: actions/cache@v3
-        with:
-          path: ~/.pub-cache
-          key: ${{ runner.os }}-dart-${{ hashFiles('**/pubspec.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-dart-
 
       - name: Install dependencies
         run: dart pub get
@@ -37,17 +26,19 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: dart-lang/setup-dart@v1
 
-      - name: Restore dependencies from cache
-        uses: actions/cache@v3
-        with:
-          path: ~/.pub-cache
-          key: ${{ needs.build.outputs.cache-key }}
+      - name: Install dependencies
+        run: dart pub get
 
-      - name: Run tests on VM
-        run: dart run test -p vm
+      - name: Run tests on VM with coverage
+        run: dart run test -p vm --coverage="coverage_vm"
+
+      - name: Upload VM coverage
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage_vm
+          path: coverage_vm
 
   test_chrome:
     runs-on: ubuntu-latest
@@ -57,14 +48,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dart-lang/setup-dart@v1
 
-      - name: Restore dependencies from cache
-        uses: actions/cache@v3
-        with:
-          path: ~/.pub-cache
-          key: ${{ needs.build.outputs.cache-key }}
+      - name: Install dependencies
+        run: dart pub get
 
-      - name: Run tests on Chrome
-        run: dart run test -p chrome
+      - name: Run tests on Chrome with coverage
+        run: dart run test -p chrome --coverage="coverage_chrome"
+
+      - name: Upload Chrome coverage
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage_chrome
+          path: coverage_chrome
 
   coverage:
     runs-on: ubuntu-latest
@@ -72,23 +66,32 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: dart-lang/setup-dart@v1
 
-      - name: Restore dependencies from cache
-        uses: actions/cache@v3
+      - name: Install dependencies
+        run: dart pub get
+
+      - name: Download VM coverage
+        uses: actions/download-artifact@v3
         with:
-          path: ~/.pub-cache
-          key: ${{ needs.build.outputs.cache-key }}
+          name: coverage_vm
 
-      - name: Run tests with coverage
-        run: dart run test --coverage="./coverage"
+      - name: Download Chrome coverage
+        uses: actions/download-artifact@v3
+        with:
+          name: coverage_chrome
 
-      - name: Activate coverage
+      - name: Activate coverage tool
         run: dart pub global activate coverage
 
-      - name: Format coverage
-        run: format_coverage -l -i ./ -o lcov.info --packages=.dart_tool/package_config.json --report-on=lib
+      - name: Format VM coverage
+        run: format_coverage -l -i coverage_vm -o lcov_vm.info --packages=.dart_tool/package_config.json --report-on=lib
 
-      - name: Upload coverage
+      - name: Format Chrome coverage
+        run: format_coverage -l -i coverage_chrome -o lcov_chrome.info --packages=.dart_tool/package_config.json --report-on=lib
+
+      - name: Merge coverage reports
+        run: lcov --add-tracefile lcov_vm.info --add-tracefile lcov_chrome.info --output-file lcov.info
+
+      - name: Upload merged coverage
         run: bash <(curl -s https://codecov.io/bash)
