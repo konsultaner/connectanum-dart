@@ -77,10 +77,11 @@ jobs:
         with:
           name: coverage_vm
 
-      - name: Download Chrome coverage
-        uses: actions/download-artifact@v3
-        with:
-          name: coverage_chrome
+      #- name: Download Chrome coverage
+      #  uses: actions/download-artifact@v3
+      #  with:
+      #    name: coverage_chrome
+      #
       - name: Check current directory
         run: pwd
 
