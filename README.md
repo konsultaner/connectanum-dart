@@ -54,6 +54,7 @@ eventually fail.
 - ☑ [WAMP-SCRAM](https://wamp-proto.org/_static/gen/wamp_latest.html#wamp-scram)
     - ☑ Argon2
     - ☑ PBKDF2
+    - ☑ reuse client key to save computation time
 
 ### Advanced RPC features
 

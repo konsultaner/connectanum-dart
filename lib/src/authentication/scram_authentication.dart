@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:math';
@@ -18,9 +19,13 @@ class ScramAuthentication extends AbstractAuthentication {
   static final String kdfArgon = 'argon2id13';
   static final int defaultKeyLength = 32;
 
+  final Completer<Uint8List> _firstClientKeyCompleter = Completer<Uint8List>();
+  late final bool _reuseClientKey;
+
   String? _secret;
   String? _authid;
   String? _helloNonce;
+  Uint8List? _clientKey;
   Duration _challengeTimeout = Duration(seconds: 5);
 
   String? get secret => _secret;
@@ -28,14 +33,34 @@ class ScramAuthentication extends AbstractAuthentication {
   String? get helloNonce => _helloNonce;
   Duration get challengeTimeout => _challengeTimeout;
 
+  Future<Uint8List> get clientKey {
+    if (_clientKey != null) {
+      return Future<Uint8List>.sync(() => _clientKey!,);
+    } else {
+      return _firstClientKeyCompleter.future;
+    }
+  }
+
   /// Initialized the instance with the [secret] and an optional [challengeTimeout]
   /// which will cause the authentication process to fail if the server responce took
   /// too long
-  ScramAuthentication(String secret, {challengeTimeout}) {
+  ScramAuthentication(String secret,
+      {Duration? challengeTimeout, bool reuseClientKey = false}) {
     if (challengeTimeout != null) {
       _challengeTimeout = challengeTimeout;
     }
+    _reuseClientKey = reuseClientKey;
     _secret = Saslprep.saslprep(secret);
+  }
+
+  ScramAuthentication.fromClientKey(Uint8List clientKey,
+      {Duration? challengeTimeout}) {
+    if (challengeTimeout != null) {
+      _challengeTimeout = challengeTimeout;
+    }
+    _reuseClientKey = true;
+    _clientKey = clientKey;
+    _firstClientKeyCompleter.complete(_clientKey);
   }
 
   /// This method is called by the session to modify the hello [details] for
@@ -95,38 +120,43 @@ class ScramAuthentication extends AbstractAuthentication {
   /// to the WAMP-SCRAM specs. The keylength is 32 according to the WAMP-SCRAM specs
   String createSignature(String authId, String helloNonce, Extra extra,
       HashMap<String, Object?> authExtra) {
-    late Uint8List saltedPassword;
-    if (extra.kdf == kdfPbkdf2) {
-      saltedPassword = CraAuthentication.deriveKey(
-          _secret!,
-          extra.salt == null
-              ? CraAuthentication.defaultKeySalt
-              : base64.decode(extra.salt!),
-          iterations: extra.iterations!,
-          keylen: defaultKeyLength);
-    } else if (extra.kdf == kdfArgon) {
-      saltedPassword = Uint8List(32);
-      Argon2BytesGenerator()
-        ..init(Argon2Parameters(Argon2Parameters.ARGON2_id,
-            Uint8List.fromList(base64.decode(extra.salt!)),
-            desiredKeyLength: defaultKeyLength,
-            iterations: extra.iterations ?? 1000,
-            memory: extra.memory ?? 100,
-            version: Argon2Parameters.ARGON2_VERSION_13))
-        ..deriveKey(
-            Uint8List.fromList(_secret!.codeUnits), 0, saltedPassword, 0);
+    if (!_reuseClientKey || _clientKey == null) {
+      late Uint8List saltedPassword;
+      if (extra.kdf == kdfPbkdf2) {
+        saltedPassword = CraAuthentication.deriveKey(
+            _secret!,
+            extra.salt == null
+                ? CraAuthentication.defaultKeySalt
+                : base64.decode(extra.salt!),
+            iterations: extra.iterations!,
+            keylen: defaultKeyLength);
+      } else if (extra.kdf == kdfArgon) {
+        saltedPassword = Uint8List(32);
+        Argon2BytesGenerator()
+          ..init(Argon2Parameters(Argon2Parameters.ARGON2_id,
+              Uint8List.fromList(base64.decode(extra.salt!)),
+              desiredKeyLength: defaultKeyLength,
+              iterations: extra.iterations ?? 1000,
+              memory: extra.memory ?? 100,
+              version: Argon2Parameters.ARGON2_VERSION_13))
+          ..deriveKey(
+              Uint8List.fromList(_secret!.codeUnits), 0, saltedPassword, 0);
+      }
+      _clientKey = CraAuthentication.encodeByteHmac(
+          saltedPassword, defaultKeyLength, 'Client Key'.codeUnits);
+      if (!_firstClientKeyCompleter.isCompleted) {
+        _firstClientKeyCompleter.complete(_clientKey);
+      }
     }
 
-    var clientKey = CraAuthentication.encodeByteHmac(
-        saltedPassword, defaultKeyLength, 'Client Key'.codeUnits);
-    var storedKey = SHA256Digest().process(Uint8List.fromList(clientKey));
+    var storedKey = SHA256Digest().process(Uint8List.fromList(_clientKey!));
     var clientSignature = CraAuthentication.encodeByteHmac(
         storedKey,
         defaultKeyLength,
         createAuthMessage(authId, helloNonce, authExtra, extra).codeUnits);
     var signature = [
-      for (int i = 0; i < clientKey.length; i++)
-        clientKey[i] ^ clientSignature[i]
+      for (int i = 0; i < _clientKey!.length; i++)
+        _clientKey![i] ^ clientSignature[i]
     ];
     return base64.encode(signature);
   }

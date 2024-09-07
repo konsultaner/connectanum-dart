@@ -93,6 +93,15 @@ void main() {
           .createSignature(user, helloNonce, challengeExtraArgon2, authExtra);
       expect(authenticateSignature, equals(signatureArgon));
     });
+    test('reuse client key for authentication', () async {
+      final authMethod = ScramAuthentication(secret);
+      var authenticateSignature = authMethod
+          .createSignature(user, helloNonce, challengeExtraArgon2, authExtra);
+      var clientKey = await authMethod.clientKey;
+      authenticateSignature = ScramAuthentication.fromClientKey(clientKey)
+          .createSignature(user, helloNonce, challengeExtraArgon2, authExtra);
+      expect(authenticateSignature, equals(signatureArgon));
+    });
     test('verify key', () {
       var signature = 'dHzbZapWIk4jUhN+Ute9ytag9zjfMHgsqmmiz7AndVQ=';
       var storedKey = 'WG5d8oPm3OtcPnkdi4Uo7BkeZkBFzpcXkuLmtbsT4qY=';
