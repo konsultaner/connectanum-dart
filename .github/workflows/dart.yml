@@ -83,15 +83,6 @@ jobs:
           name: coverage_chrome
           path: ./coverage_chrome
 
-      - name: Check current directory
-        run: pwd
-
-      - name: List files after download
-        run: ls -R
-
-      - name: List contents of coverage_vm
-        run: ls -R ./coverage_vm
-
       - name: Activate coverage tool
         run: dart pub global activate coverage
 
