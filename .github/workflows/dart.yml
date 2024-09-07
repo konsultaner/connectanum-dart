@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
+  analyze:
     runs-on: ubuntu-latest
 
     steps:
@@ -22,7 +22,7 @@ jobs:
 
   test_vm:
     runs-on: ubuntu-latest
-    needs: build
+    needs: analyze
 
     steps:
       - uses: actions/checkout@v4
@@ -42,7 +42,7 @@ jobs:
 
   test_chrome:
     runs-on: ubuntu-latest
-    needs: build
+    needs: analyze
 
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +52,7 @@ jobs:
         run: dart pub get
 
       - name: Run tests on Chrome with coverage
-        run: dart run test -p chrome --coverage="coverage_chrome"
+        run: dart run test -p chrome --coverage="coverage_chrome" --timeout=5m --concurrency=1
 
       - name: Upload Chrome coverage
         uses: actions/upload-artifact@v3
