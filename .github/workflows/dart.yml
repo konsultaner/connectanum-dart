@@ -32,13 +32,13 @@ jobs:
         run: dart pub get
 
       - name: Run tests on VM with coverage
-        run: dart run test -p vm --coverage="coverage_vm"
+        run: dart run test -p vm --coverage=./coverage
 
       - name: Upload VM coverage
         uses: actions/upload-artifact@v4
         with:
           name: coverage_vm
-          path: coverage_vm
+          path: ./coverage
 
 #  test_chrome:
 #    runs-on: ubuntu-latest
@@ -76,6 +76,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: coverage_vm
+          path: ./coverage_vm
 
       #- name: Download Chrome coverage
       #  uses: actions/download-artifact@v4
