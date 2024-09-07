@@ -35,7 +35,7 @@ jobs:
         run: dart run test -p vm --coverage="coverage_vm"
 
       - name: Upload VM coverage
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: coverage_vm
           path: coverage_vm
@@ -55,7 +55,7 @@ jobs:
 #        run: dart run test -p chrome --coverage="coverage_chrome" --timeout=5m --concurrency=1
 #
 #      - name: Upload Chrome coverage
-#        uses: actions/upload-artifact@v3
+#        uses: actions/upload-artifact@v4
 #        with:
 #          name: coverage_chrome
 #          path: coverage_chrome
@@ -73,12 +73,12 @@ jobs:
         run: dart pub get
 
       - name: Download VM coverage
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: coverage_vm
 
       #- name: Download Chrome coverage
-      #  uses: actions/download-artifact@v3
+      #  uses: actions/download-artifact@v4
       #  with:
       #    name: coverage_chrome
       #
@@ -86,7 +86,7 @@ jobs:
         run: pwd
 
       - name: List files after download
-        run: ls -la
+        run: ls -R
 
       - name: List contents of coverage_vm
         run: ls -R ./coverage_vm
