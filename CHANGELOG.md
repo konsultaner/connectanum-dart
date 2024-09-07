@@ -1,3 +1,8 @@
+### 2.2.1
+
+- added `ScamAuthentication#clientKey`, `ScamAuthentication.fromClientKey` and a `_reuseClientKey` option to the 
+  constructors to reuse the client key for authentication to save computation time.
+
 ### 2.2.0
 
 - updated min sdk version to 3.4.0

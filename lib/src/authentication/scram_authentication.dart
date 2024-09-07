@@ -42,8 +42,9 @@ class ScramAuthentication extends AbstractAuthentication {
   }
 
   /// Initialized the instance with the [secret] and an optional [challengeTimeout]
-  /// which will cause the authentication process to fail if the server responce took
-  /// too long
+  /// which will cause the authentication process to fail if the server response took
+  /// too long. The [reuseClientKey] option will compute the client key only for
+  /// the first time. The second time stored client key is used
   ScramAuthentication(String secret,
       {Duration? challengeTimeout, bool reuseClientKey = false}) {
     if (challengeTimeout != null) {
@@ -53,6 +54,10 @@ class ScramAuthentication extends AbstractAuthentication {
     _secret = Saslprep.saslprep(secret);
   }
 
+  /// If the client key was stored, use this named constructor with the stored
+  /// [clientKey] instead. This will save computation time.
+  /// The optional [challengeTimeout] will cause the authentication process to
+  /// fail if the server response took too long.
   ScramAuthentication.fromClientKey(Uint8List clientKey,
       {Duration? challengeTimeout}) {
     if (challengeTimeout != null) {
