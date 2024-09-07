@@ -1,8 +1,3 @@
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-
 name: Dart
 
 on:
@@ -14,20 +9,86 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      cache-key: ${{ steps.cache-deps.outputs.cache-hit }}
 
     steps:
       - uses: actions/checkout@v4
       - uses: dart-lang/setup-dart@v1
 
+      - name: Cache dependencies
+        id: cache-deps
+        uses: actions/cache@v3
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-dart-${{ hashFiles('**/pubspec.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-dart-
+
       - name: Install dependencies
         run: dart pub get
+
       - name: Analyze project source
         run: dart analyze
-      - name: Run tests
+
+  test_vm:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dart-lang/setup-dart@v1
+
+      - name: Restore dependencies from cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.pub-cache
+          key: ${{ needs.build.outputs.cache-key }}
+
+      - name: Run tests on VM
+        run: dart run test -p vm
+
+  test_chrome:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+
+      - name: Restore dependencies from cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.pub-cache
+          key: ${{ needs.build.outputs.cache-key }}
+
+      - name: Run tests on Chrome
+        run: dart run test -p chrome
+
+  coverage:
+    runs-on: ubuntu-latest
+    needs: [test_vm, test_chrome]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dart-lang/setup-dart@v1
+
+      - name: Restore dependencies from cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.pub-cache
+          key: ${{ needs.build.outputs.cache-key }}
+
+      - name: Run tests with coverage
         run: dart run test --coverage="./coverage"
+
       - name: Activate coverage
         run: dart pub global activate coverage
+
       - name: Format coverage
         run: format_coverage -l -i ./ -o lcov.info --packages=.dart_tool/package_config.json --report-on=lib
+
       - name: Upload coverage
         run: bash <(curl -s https://codecov.io/bash)
