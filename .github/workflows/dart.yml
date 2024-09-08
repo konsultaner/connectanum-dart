@@ -92,6 +92,9 @@ jobs:
       - name: Format Chrome coverage
         run: format_coverage -l -i ./coverage_chrome -o lcov_chrome.info --packages=.dart_tool/package_config.json --report-on=lib
 
+      - name: Install lcov
+        run: sudo apt-get update && sudo apt-get install -y lcov
+
       - name: Merge coverage reports
         run: lcov --add-tracefile lcov_vm.info --add-tracefile lcov_chrome.info --output-file lcov.info
 
