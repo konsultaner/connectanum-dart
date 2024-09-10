@@ -87,7 +87,10 @@ jobs:
         run: dart pub global activate coverage
 
       - name: Format VM coverage
-        run: format_coverage -l -i ./coverage_vm -o lcov_vm.info --packages=.dart_tool/package_config.json --report-on=lib
+        run: format_coverage -l -v -i ./coverage_chrome -o lcov_chrome.info --packages=.dart_tool/package_config.json --report-on=lib
+
+      - name: Show content of a sample coverage file
+        run: cat ./coverage_chrome/test/authentication/cryptosign/bcrypt_pbkdf_test.dart.chrome.json
 
       - name: Format Chrome coverage
         run: format_coverage -l -i ./coverage_chrome -o lcov_chrome.info --packages=.dart_tool/package_config.json --report-on=lib
