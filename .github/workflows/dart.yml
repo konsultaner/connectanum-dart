@@ -87,28 +87,21 @@ jobs:
         run: dart pub global activate coverage
 
       - name: Format VM coverage
-        run: format_coverage -l -v -i ./coverage_chrome -o lcov_chrome.info --packages=.dart_tool/package_config.json --report-on=lib
+        run: format_coverage -l -v -i ./coverage_vm -o lcov_vm.info --packages=.dart_tool/package_config.json --report-on=lib
 
-      - name: Show content of a sample coverage file
-        run: cat ./coverage_chrome/test/authentication/cryptosign/bcrypt_pbkdf_test.dart.chrome.json
-
-      - name: Format Chrome coverage
-        run: format_coverage -l -i ./coverage_chrome -o lcov_chrome.info --packages=.dart_tool/package_config.json --report-on=lib
-
-      - name: List all files
-        run: ls -laR
-
-      - name: Show content of lcov_vm.info
-        run: cat lcov_vm.info
-
-      - name: Show content of lcov_chrome.info
-        run: cat lcov_chrome.info
+      # We'll have to wait for
+      #  https://issues.chromium.org/issues/354020953#comment4
+      #  https://github.com/dart-lang/test/issues/2278
+      #  For now, wasm has no coverage support
+      #- name: Format Chrome coverage
+      #  run: format_coverage -l -i ./coverage_chrome -o lcov_chrome.info --packages=.dart_tool/package_config.json --report-on=lib
 
       - name: Install lcov
         run: sudo apt-get update && sudo apt-get install -y lcov
 
       - name: Merge coverage reports
-        run: lcov --add-tracefile lcov_vm.info --add-tracefile lcov_chrome.info --output-file lcov.info
+        run: lcov --add-tracefile lcov_vm.info --output-file lcov.info
+      #  run: lcov --add-tracefile lcov_vm.info --add-tracefile lcov_chrome.info --output-file lcov.info
 
       - name: Upload merged coverage
         run: bash <(curl -s https://codecov.io/bash)
