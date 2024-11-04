@@ -52,13 +52,14 @@ jobs:
         run: dart pub get
 
       - name: Run tests on Chrome with coverage
-        run: dart run test -p chrome --coverage=./coverage --timeout=5m --concurrency=1
+        run: dart run test -p chrome --timeout=5m --concurrency=1
+        # run: dart run test -p chrome --coverage=./coverage --timeout=5m --concurrency=1
 
-      - name: Upload Chrome coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage_chrome
-          path: ./coverage
+      # - name: Upload Chrome coverage
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: coverage_chrome
+      #     path: ./coverage
 
   coverage:
     runs-on: ubuntu-latest
@@ -77,11 +78,11 @@ jobs:
           name: coverage_vm
           path: ./coverage_vm
 
-      - name: Download Chrome coverage
-        uses: actions/download-artifact@v4
-        with:
-          name: coverage_chrome
-          path: ./coverage_chrome
+      # - name: Download Chrome coverage
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: coverage_chrome
+      #     path: ./coverage_chrome
 
       - name: Activate coverage tool
         run: dart pub global activate coverage
