@@ -95,8 +95,8 @@ void main() {
     });
     test('reuse client key for authentication', () async {
       final authMethod = ScramAuthentication(secret);
-      var authenticateSignature = authMethod
-          .createSignature(user, helloNonce, challengeExtraArgon2, authExtra);
+      var authenticateSignature = authMethod.createSignature(
+          user, helloNonce, challengeExtraArgon2, authExtra);
       var clientKey = await authMethod.clientKey;
       authenticateSignature = ScramAuthentication.fromClientKey(clientKey)
           .createSignature(user, helloNonce, challengeExtraArgon2, authExtra);

@@ -35,7 +35,9 @@ class ScramAuthentication extends AbstractAuthentication {
 
   Future<Uint8List> get clientKey {
     if (_clientKey != null) {
-      return Future<Uint8List>.sync(() => _clientKey!,);
+      return Future<Uint8List>.sync(
+        () => _clientKey!,
+      );
     } else {
       return _firstClientKeyCompleter.future;
     }
