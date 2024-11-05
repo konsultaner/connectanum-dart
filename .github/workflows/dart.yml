@@ -1,8 +1,3 @@
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-
 name: Dart
 
 on:
@@ -12,7 +7,7 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
+  analyze:
     runs-on: ubuntu-latest
 
     steps:
@@ -21,13 +16,93 @@ jobs:
 
       - name: Install dependencies
         run: dart pub get
+
       - name: Analyze project source
         run: dart analyze
-      - name: Run tests
-        run: dart run test --coverage="./coverage"
-      - name: Activate coverage
+
+  test_vm:
+    runs-on: ubuntu-latest
+    needs: analyze
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+
+      - name: Install dependencies
+        run: dart pub get
+
+      - name: Run tests on VM with coverage
+        run: dart run test -p vm --coverage=./coverage
+
+      - name: Upload VM coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage_vm
+          path: ./coverage
+
+  test_chrome:
+    runs-on: ubuntu-latest
+    needs: analyze
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+
+      - name: Install dependencies
+        run: dart pub get
+
+      - name: Run tests on Chrome with coverage
+        run: dart run test -p chrome --timeout=5m --concurrency=1
+        # run: dart run test -p chrome --coverage=./coverage --timeout=5m --concurrency=1
+
+      # - name: Upload Chrome coverage
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: coverage_chrome
+      #     path: ./coverage
+
+  coverage:
+    runs-on: ubuntu-latest
+    needs: [test_vm, test_chrome]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+
+      - name: Install dependencies
+        run: dart pub get
+
+      - name: Download VM coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage_vm
+          path: ./coverage_vm
+
+      # - name: Download Chrome coverage
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: coverage_chrome
+      #     path: ./coverage_chrome
+
+      - name: Activate coverage tool
         run: dart pub global activate coverage
-      - name: Format coverage
-        run: format_coverage -l -i ./ -o lcov.info --packages=.dart_tool/package_config.json --report-on=lib
-      - name: Upload coverage
+
+      - name: Format VM coverage
+        run: format_coverage -l -v -i ./coverage_vm -o lcov_vm.info --packages=.dart_tool/package_config.json --report-on=lib
+
+      # We'll have to wait for
+      #  https://issues.chromium.org/issues/354020953#comment4
+      #  https://github.com/dart-lang/test/issues/2278
+      #  For now, wasm has no coverage support
+      #- name: Format Chrome coverage
+      #  run: format_coverage -l -i ./coverage_chrome -o lcov_chrome.info --packages=.dart_tool/package_config.json --report-on=lib
+
+      - name: Install lcov
+        run: sudo apt-get update && sudo apt-get install -y lcov
+
+      - name: Merge coverage reports
+        run: lcov --add-tracefile lcov_vm.info --output-file lcov.info
+      #  run: lcov --add-tracefile lcov_vm.info --add-tracefile lcov_chrome.info --output-file lcov.info
+
+      - name: Upload merged coverage
         run: bash <(curl -s https://codecov.io/bash)
