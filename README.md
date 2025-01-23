@@ -43,11 +43,10 @@ eventually fail.
     - ☑ Load open ssh files
         - ☐ file validation
         - ☑ password support
-    - ☐ Load pkcs1 files
-        - ☐ file validation
+    - ☑ Create pkcs8 file from Seed
+    - ☑ Load pkcs8 files
         - ☐ password support
-    - ☐ Load pkcs8 files
-        - ☐ file validation
+    - ☐ Load PGP files
         - ☐ password support
     - ☑ Load base64 encoded ed25519 private key
     - ☑ Load hex encoded ed25519 private key

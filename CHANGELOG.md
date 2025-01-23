@@ -1,3 +1,7 @@
+### 2.2.2
+
+- added support for PKCS#8 files
+
 ### 2.2.1
 
 - added `ScamAuthentication#clientKey`, `ScamAuthentication.fromClientKey` and a `_reuseClientKey` option to the 

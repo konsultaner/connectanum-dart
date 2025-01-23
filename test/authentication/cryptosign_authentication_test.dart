@@ -1,5 +1,8 @@
 import 'dart:convert';
 
+import 'package:connectanum/src/authentication/cryptosign/pem.dart';
+import 'package:connectanum/src/authentication/cryptosign/pkcs8.dart';
+import 'package:connectanum/src/authentication/cryptosign/ppk.dart';
 import 'package:connectanum/src/authentication/cryptosign_authentication.dart';
 import 'package:connectanum/src/message/challenge.dart';
 import 'package:connectanum/src/message/details.dart';
@@ -106,6 +109,9 @@ void main() {
     ];
 
     test('message handling', () async {
+      final pkcs8Pem = Pkcs8.fromEd25519Seed(Uint8List.fromList(openSshSeed));
+      print(pkcs8Pem);
+
       for (var vector in testVectors) {
         final authMethod =
             CryptosignAuthentication.fromHex(vector['privateKey']);
@@ -148,12 +154,12 @@ void main() {
     });
 
     test('load putty private key file', () async {
-      final unencryptedPpkKey = CryptosignAuthentication.loadPrivateKeyFromPpk(
-          MockKeys.ed25519Ppk.value);
-      final decryptedPpkKey = CryptosignAuthentication.loadPrivateKeyFromPpk(
+      final unencryptedPpkKey =
+          Ppk.loadPrivateKeyFromPpk(MockKeys.ed25519Ppk.value);
+      final decryptedPpkKey = Ppk.loadPrivateKeyFromPpk(
           MockKeys.ed25519PasswordPpk.value,
           password: 'password');
-      final decryptedPpkKey2 = CryptosignAuthentication.loadPrivateKeyFromPpk(
+      final decryptedPpkKey2 = Ppk.loadPrivateKeyFromPpk(
           MockKeys.ed25519Password2Ppk.value,
           password: 'password2');
       expect(unencryptedPpkKey, equals(puttySeed));
@@ -161,8 +167,7 @@ void main() {
       expect(decryptedPpkKey2, equals(puttySeed));
 
       final unencryptedOpenSshPpkKey =
-          CryptosignAuthentication.loadPrivateKeyFromPpk(
-              MockKeys.ed25519OpensshPpk.value);
+          Ppk.loadPrivateKeyFromPpk(MockKeys.ed25519OpensshPpk.value);
       expect(unencryptedOpenSshPpkKey, equals(openSshSeed));
     });
 
@@ -171,61 +176,48 @@ void main() {
       var encryptedPuttyContent = MockKeys.ed25519PasswordPpk.value;
       var emptyPrivateKey =
           'PuTTY-User-Key-File-2: ssh-ed25519\r\nEncryption: none\r\nComment: ed25519-key-20210211\r\nPublic-Lines: 0\r\nPrivate-Lines: 0';
-      expect(() => CryptosignAuthentication.loadPrivateKeyFromPpk(''),
+      expect(() => Ppk.loadPrivateKeyFromPpk(''), throwsA(isA<Exception>()));
+      expect(() => Ppk.loadPrivateKeyFromPpk('PuTTY-User-Key-File-3'),
+          throwsA(isA<Exception>()));
+      expect(() => Ppk.loadPrivateKeyFromPpk('PuTTY-User-Key-File-2: ssh-key'),
           throwsA(isA<Exception>()));
       expect(
-          () => CryptosignAuthentication.loadPrivateKeyFromPpk(
-              'PuTTY-User-Key-File-3'),
-          throwsA(isA<Exception>()));
-      expect(
-          () => CryptosignAuthentication.loadPrivateKeyFromPpk(
-              'PuTTY-User-Key-File-2: ssh-key'),
-          throwsA(isA<Exception>()));
-      expect(
-          () => CryptosignAuthentication.loadPrivateKeyFromPpk(
+          () => Ppk.loadPrivateKeyFromPpk(
               'PuTTY-User-Key-File-2: ssh-ed25519\r\nEncryption: ssh-ed25519-2'),
           throwsA(isA<Exception>()));
-      expect(
-          () => CryptosignAuthentication.loadPrivateKeyFromPpk(
-              encryptedPuttyContent),
+      expect(() => Ppk.loadPrivateKeyFromPpk(encryptedPuttyContent),
           throwsA(isA<Exception>()));
       expect(
-          () => CryptosignAuthentication.loadPrivateKeyFromPpk(
-              encryptedPuttyContent,
-              password: ''),
+          () => Ppk.loadPrivateKeyFromPpk(encryptedPuttyContent, password: ''),
           throwsA(isA<Exception>()));
       expect(
-          () => CryptosignAuthentication.loadPrivateKeyFromPpk(
-              encryptedPuttyContent,
+          () => Ppk.loadPrivateKeyFromPpk(encryptedPuttyContent,
               password: 'wrongPassword'),
           throwsA(isA<Exception>()));
       expect(
-          () => CryptosignAuthentication.loadPrivateKeyFromPpk(
+          () => Ppk.loadPrivateKeyFromPpk(
               puttyContent.replaceAll(RegExp(r'20210211'), '')),
           throwsA(isA<Exception>()));
-      expect(
-          () => CryptosignAuthentication.loadPrivateKeyFromPpk(emptyPrivateKey),
+      expect(() => Ppk.loadPrivateKeyFromPpk(emptyPrivateKey),
           throwsA(isA<Exception>()));
-      expect(() => CryptosignAuthentication.loadPrivateKeyFromPpk(null),
-          throwsA(isA<Exception>()));
+      expect(() => Ppk.loadPrivateKeyFromPpk(null), throwsA(isA<Exception>()));
 
       try {
-        CryptosignAuthentication.loadPrivateKeyFromPpk('');
+        Ppk.loadPrivateKeyFromPpk('');
       } on Exception catch (error) {
         expect(error.toString(),
             equals('Exception: File is no valid putty ssh-2 key file!'));
       }
 
       try {
-        CryptosignAuthentication.loadPrivateKeyFromPpk('PuTTY-User-Key-File-3');
+        Ppk.loadPrivateKeyFromPpk('PuTTY-User-Key-File-3');
       } on Exception catch (error) {
         expect(error.toString(),
             equals('Exception: Unsupported ssh-2 key file version!'));
       }
 
       try {
-        CryptosignAuthentication.loadPrivateKeyFromPpk(
-            'PuTTY-User-Key-File-2: ssh-key');
+        Ppk.loadPrivateKeyFromPpk('PuTTY-User-Key-File-2: ssh-key');
       } on Exception catch (error) {
         expect(
             error.toString(),
@@ -234,7 +226,7 @@ void main() {
       }
 
       try {
-        CryptosignAuthentication.loadPrivateKeyFromPpk(
+        Ppk.loadPrivateKeyFromPpk(
             'PuTTY-User-Key-File-2: ssh-ed25519\r\nEncryption: ssh-ed25519-2');
       } on Exception catch (error) {
         expect(
@@ -244,29 +236,28 @@ void main() {
       }
 
       try {
-        CryptosignAuthentication.loadPrivateKeyFromPpk(encryptedPuttyContent);
+        Ppk.loadPrivateKeyFromPpk(encryptedPuttyContent);
       } on Exception catch (error) {
         expect(error.toString(),
             equals('Exception: No or empty password provided!'));
       }
 
       try {
-        CryptosignAuthentication.loadPrivateKeyFromPpk(encryptedPuttyContent,
-            password: '');
+        Ppk.loadPrivateKeyFromPpk(encryptedPuttyContent, password: '');
       } on Exception catch (error) {
         expect(error.toString(),
             equals('Exception: No or empty password provided!'));
       }
 
       try {
-        CryptosignAuthentication.loadPrivateKeyFromPpk(encryptedPuttyContent,
+        Ppk.loadPrivateKeyFromPpk(encryptedPuttyContent,
             password: 'wrongPassword');
       } on Exception catch (error) {
         expect(error.toString(), equals('Exception: Wrong password!'));
       }
 
       try {
-        CryptosignAuthentication.loadPrivateKeyFromPpk(
+        Ppk.loadPrivateKeyFromPpk(
             puttyContent.replaceAll(RegExp(r'20210211'), ''));
       } on Exception catch (error) {
         expect(error.toString(),
@@ -274,7 +265,7 @@ void main() {
       }
 
       try {
-        CryptosignAuthentication.loadPrivateKeyFromPpk(emptyPrivateKey);
+        Ppk.loadPrivateKeyFromPpk(emptyPrivateKey);
       } on Exception catch (error) {
         expect(
             error.toString(),
@@ -283,7 +274,7 @@ void main() {
       }
 
       try {
-        CryptosignAuthentication.loadPrivateKeyFromPpk(null);
+        Ppk.loadPrivateKeyFromPpk(null);
       } on Exception catch (error) {
         expect(
             error.toString(),
@@ -294,20 +285,28 @@ void main() {
 
     test('load open ssh private key', () async {
       final unencryptedOpenSshKey =
-          CryptosignAuthentication.loadPrivateKeyFromOpenSSHPem(
-              MockKeys.ed25519Key.value);
+          Pem.loadPrivateKeyFromOpenSSHPem(MockKeys.ed25519Key.value);
       expect(unencryptedOpenSshKey, equals(openSshSeed));
 
       final unencryptedOpenSshKeyFromPutty =
-          CryptosignAuthentication.loadPrivateKeyFromOpenSSHPem(
-              MockKeys.ed25519Pem.value);
+          Pem.loadPrivateKeyFromOpenSSHPem(MockKeys.ed25519Pem.value);
       expect(unencryptedOpenSshKeyFromPutty, equals(puttySeed));
 
       final unencryptedOpenSshKeyFromPuttyWithPassword =
-          CryptosignAuthentication.loadPrivateKeyFromOpenSSHPem(
-              MockKeys.ed25519PasswordPem.value,
+          Pem.loadPrivateKeyFromOpenSSHPem(MockKeys.ed25519PasswordPem.value,
               password: 'password');
       expect(unencryptedOpenSshKeyFromPuttyWithPassword, equals(puttySeed));
+    });
+
+    test('create pkcs#8 pem', () {
+      final pkcs8Key = Pkcs8.fromEd25519Seed(Uint8List.fromList(openSshSeed));
+      expect(pkcs8Key, equals(MockKeys.ed25519OpensshPkcs8.value));
+    });
+
+    test('load open ssh private key', () {
+      final unencryptedOpenSshKey = Pkcs8.loadPrivateKeyFromPKCS8Ed25519(
+          MockKeys.ed25519OpensshPkcs8.value);
+      expect(unencryptedOpenSshKey, equals(openSshSeed));
     });
 
     test('constructors', () async {
