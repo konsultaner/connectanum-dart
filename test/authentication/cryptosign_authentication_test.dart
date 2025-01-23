@@ -303,7 +303,7 @@ void main() {
       expect(pkcs8Key, equals(MockKeys.ed25519OpensshPkcs8.value));
     });
 
-    test('load open ssh private key', () {
+    test('load pkcs#8 pem', () {
       final unencryptedOpenSshKey = Pkcs8.loadPrivateKeyFromPKCS8Ed25519(
           MockKeys.ed25519OpensshPkcs8.value);
       expect(unencryptedOpenSshKey, equals(openSshSeed));
