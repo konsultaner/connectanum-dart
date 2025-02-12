@@ -2,6 +2,7 @@ enum MockKeys {
   ed25519Key,
   ed25519Pem,
   ed25519Ppk,
+  ed25519OpensshPkcs8,
   ed25519OpensshPpk,
   ed25519PasswordPem,
   ed25519PasswordPpk,
@@ -17,6 +18,8 @@ extension MockKeysValues on MockKeys {
         return '-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtz\nc2gtZWQyNTUxOQAAACBzrHeC0mZW98aJCo8m7eatQsS94B5qoTZmjmgjTF+N5wAA\nAKBpeZFdaXmRXQAAAAtzc2gtZWQyNTUxOQAAACBzrHeC0mZW98aJCo8m7eatQsS9\n4B5qoTZmjmgjTF+N5wAAAECNSXZ3hyF6ArXwEsyro1EhoIqrsDJJagPLDtuXCiM8\n1HOsd4LSZlb3xokKjybt5q1CxL3gHmqhNmaOaCNMX43nAAAAFGVkMjU1MTkta2V5\nLTIwMjEwMjExAQIDBAUGBwgJ\n-----END OPENSSH PRIVATE KEY-----';
       case MockKeys.ed25519Ppk:
         return 'PuTTY-User-Key-File-2: ssh-ed25519\nEncryption: none\nComment: ed25519-key-20210211\nPublic-Lines: 2\nAAAAC3NzaC1lZDI1NTE5AAAAIHOsd4LSZlb3xokKjybt5q1CxL3gHmqhNmaOaCNM\nX43n\nPrivate-Lines: 1\nAAAAII1JdneHIXoCtfASzKujUSGgiquwMklqA8sO25cKIzzU\nPrivate-MAC: 4df82f0595dc6ed97d00a0982452fdb99964d1b5';
+      case MockKeys.ed25519OpensshPkcs8:
+        return '-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIBXng+uQ365Dz2a39tHU///nK9LbY87TPqvcEOE+4/7d\n-----END PRIVATE KEY-----';
       case MockKeys.ed25519OpensshPpk:
         return 'PuTTY-User-Key-File-2: ssh-ed25519\nEncryption: none\nComment: burkhardt@konsultaner.de\nPublic-Lines: 2\nAAAAC3NzaC1lZDI1NTE5AAAAIDSQInyziIq1YfB+SauCb6H3eNnVidTOzEeiEyuf\nlKuH\nPrivate-Lines: 1\nAAAAIBXng+uQ365Dz2a39tHU///nK9LbY87TPqvcEOE+4/7d\nPrivate-MAC: cf8c8521fe0bca4a1d873e8bcea1b586325ada1a';
       case MockKeys.ed25519PasswordPem:
@@ -25,8 +28,6 @@ extension MockKeysValues on MockKeys {
         return 'PuTTY-User-Key-File-2: ssh-ed25519\nEncryption: aes256-cbc\nComment: ed25519-key-20210211\nPublic-Lines: 2\nAAAAC3NzaC1lZDI1NTE5AAAAIHOsd4LSZlb3xokKjybt5q1CxL3gHmqhNmaOaCNM\nX43n\nPrivate-Lines: 1\nb6LQNEHpLzACUyQLVAsbRUnKlKUVCfFEZGq5DcrAgOd8cm4EVPrdOoGrAeeJs8Av\nPrivate-MAC: 7ee3b96fa12f4f9bb12df5c3ccccc0a4eddfd8b3';
       case MockKeys.ed25519Password2Ppk:
         return 'PuTTY-User-Key-File-2: ssh-ed25519\nEncryption: aes256-cbc\nComment: ed25519-key-20210211\nPublic-Lines: 2\nAAAAC3NzaC1lZDI1NTE5AAAAIHOsd4LSZlb3xokKjybt5q1CxL3gHmqhNmaOaCNM\nX43n\nPrivate-Lines: 1\nSmcDeGVKsVnfGmkmHz4fdv57aoqfK9fYOpSWjN3hfqv748ZQ8WaKeEO9/L4B7k48\nPrivate-MAC: 6124e12f194d71a685904294d3c6dcc745480239';
-      default:
-        return '';
-    }
+      }
   }
 }
