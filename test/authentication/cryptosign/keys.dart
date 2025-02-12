@@ -21,7 +21,7 @@ extension MockKeysValues on MockKeys {
       case MockKeys.ed25519OpensshPkcs8:
         return '-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIBXng+uQ365Dz2a39tHU///nK9LbY87TPqvcEOE+4/7d\n-----END PRIVATE KEY-----';
       case MockKeys.ed25519OpensshPpk:
-        return "PuTTY-User-Key-File-2: ssh-ed25519\nEncryption: none\nComment: burkhardt@konsultaner.de\nPublic-Lines: 2\nAAAAC3NzaC1lZDI1NTE5AAAAIDSQInyziIq1YfB+SauCb6H3eNnVidTOzEeiEyuf\nlKuH\nPrivate-Lines: 1\nAAAAIBXng+uQ365Dz2a39tHU///nK9LbY87TPqvcEOE+4/7d\nPrivate-MAC: cf8c8521fe0bca4a1d873e8bcea1b586325ada1a";
+        return 'PuTTY-User-Key-File-2: ssh-ed25519\nEncryption: none\nComment: burkhardt@konsultaner.de\nPublic-Lines: 2\nAAAAC3NzaC1lZDI1NTE5AAAAIDSQInyziIq1YfB+SauCb6H3eNnVidTOzEeiEyuf\nlKuH\nPrivate-Lines: 1\nAAAAIBXng+uQ365Dz2a39tHU///nK9LbY87TPqvcEOE+4/7d\nPrivate-MAC: cf8c8521fe0bca4a1d873e8bcea1b586325ada1a';
       case MockKeys.ed25519PasswordPem:
         return '-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABAa\neYyfuq/hx8YkvZknpEWFAAAAEAAAAAEAAAAzAAAAC3NzaC1lZDI1NTE5AAAAIHOs\nd4LSZlb3xokKjybt5q1CxL3gHmqhNmaOaCNMX43nAAAAoHtXp2O3U6bDvhP1tYZC\nOOGt8PCFRs8tGxEJZNJwW7foVqSMzpgX39n/GYgNfhhJQXunZk7HUoR13LGT2apP\nMy78QhW3ev2BPxWK164752SOcUhFI7RvFw7dvC+zRdL9AEDI81K56xm4k1XgTbmJ\nKo5fmLg7L1gLnmgHFVoHXyblzZs5/CIGfTl8SEk6JKqv5PBsQDw7Rg2b2XFAdgFc\nbGM=\n-----END OPENSSH PRIVATE KEY-----';
       case MockKeys.ed25519PasswordPpk:
