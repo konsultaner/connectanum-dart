@@ -15,12 +15,12 @@ Find install instructions on [pub.dev](https://pub.dev/packages/connectanum).
 ## Other Projects
 
 - [Connectanum java router, web and WebSocket server](https://connectanum.com), MVC-like framework, based on WAMP-Protocol
-- [jsonOdm](https://github.com/konsultaner/jsonOdm), a JavaScript mongodb like in memory data(base) handler.  
+- [jsonOdm](https://github.com/konsultaner/jsonOdm), a JavaScript mongodb like in memory data(base) handler.
 
 ## TODOs
 
 - Multithreading for callee invocations
-    - callee interrupt thread on incoming cancellations
+  - callee interrupt thread on incoming cancellations
 - support auto switch auth methods for methods that need to define fields in the hello. At the moment this is only wamp scram.
 - get the auth id that called a method
 
@@ -37,23 +37,23 @@ eventually fail.
 - ☑ [WAMP-CRA](https://wamp-proto.org/_static/gen/wamp_latest.html#wampcra)
 - ☑ [TICKET](https://wamp-proto.org/_static/gen/wamp_latest.html#ticketauth)
 - ☑ [CRYPTOSIGN](https://github.com/wamp-proto/wamp-proto/issues/230)
-    - ☑ Load putty files
-        - ☑ MAC validation
-        - ☑ password support
-    - ☑ Load open ssh files
-        - ☐ file validation
-        - ☑ password support
-    - ☑ Create pkcs8 file from Seed
-    - ☑ Load pkcs8 files
-        - ☐ password support
-    - ☐ Load PGP files
-        - ☐ password support
-    - ☑ Load base64 encoded ed25519 private key
-    - ☑ Load hex encoded ed25519 private key
+  - ☑ Load putty files
+    - ☑ MAC validation
+    - ☑ password support
+  - ☑ Load open ssh files
+    - ☐ file validation
+    - ☑ password support
+  - ☑ Create pkcs8 file from Seed
+  - ☑ Load pkcs8 files
+    - ☐ password support
+  - ☐ Load PGP files
+    - ☐ password support
+  - ☑ Load base64 encoded ed25519 private key
+  - ☑ Load hex encoded ed25519 private key
 - ☑ [WAMP-SCRAM](https://wamp-proto.org/_static/gen/wamp_latest.html#wamp-scram)
-    - ☑ Argon2
-    - ☑ PBKDF2
-    - ☑ reuse client key to save computation time
+  - ☑ Argon2
+  - ☑ PBKDF2
+  - ☑ reuse client key to save computation time
 
 ### Advanced RPC features
 
@@ -122,7 +122,7 @@ final client = Client(
   transport: WebSocketTransport(
     "ws://localhost:8080/wamp",
     new Serializer(),
-    WebSocketSerialization.SERIALIZATION_JSON
+    WebSocketSerialization.serializationJson
   )
 );
 final session = await client.connect().first;
@@ -130,7 +130,7 @@ final session = await client.connect().first;
 
 ## RPC
 
-to work with RPCs you need to have an established session. 
+to work with RPCs you need to have an established session.
 
 ```dart
 import 'package:connectanum/connectanum.dart';
@@ -141,7 +141,7 @@ final client = Client(
   transport: WebSocketTransport(
     "ws://localhost:8080/wamp",
     new Serializer(),
-    WebSocketSerialization.SERIALIZATION_JSON
+    WebSocketSerialization.serializationJson
   )
 );
 final session = await client.connect().first;
