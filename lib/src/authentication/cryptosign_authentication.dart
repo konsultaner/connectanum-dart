@@ -9,7 +9,6 @@ import '../message/challenge.dart';
 import '../message/details.dart';
 import 'abstract_authentication.dart';
 
-
 import 'cryptosign/pem.dart';
 import 'cryptosign/ppk.dart';
 

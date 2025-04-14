@@ -28,6 +28,6 @@ extension MockKeysValues on MockKeys {
         return 'PuTTY-User-Key-File-2: ssh-ed25519\nEncryption: aes256-cbc\nComment: ed25519-key-20210211\nPublic-Lines: 2\nAAAAC3NzaC1lZDI1NTE5AAAAIHOsd4LSZlb3xokKjybt5q1CxL3gHmqhNmaOaCNM\nX43n\nPrivate-Lines: 1\nb6LQNEHpLzACUyQLVAsbRUnKlKUVCfFEZGq5DcrAgOd8cm4EVPrdOoGrAeeJs8Av\nPrivate-MAC: 7ee3b96fa12f4f9bb12df5c3ccccc0a4eddfd8b3';
       case MockKeys.ed25519Password2Ppk:
         return 'PuTTY-User-Key-File-2: ssh-ed25519\nEncryption: aes256-cbc\nComment: ed25519-key-20210211\nPublic-Lines: 2\nAAAAC3NzaC1lZDI1NTE5AAAAIHOsd4LSZlb3xokKjybt5q1CxL3gHmqhNmaOaCNM\nX43n\nPrivate-Lines: 1\nSmcDeGVKsVnfGmkmHz4fdv57aoqfK9fYOpSWjN3hfqv748ZQ8WaKeEO9/L4B7k48\nPrivate-MAC: 6124e12f194d71a685904294d3c6dcc745480239';
-      }
+    }
   }
 }
