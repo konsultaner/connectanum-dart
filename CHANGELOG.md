@@ -1,5 +1,6 @@
 ### 2.2.2
 
+- fix web transport conditional import to make it wasm for web compatible 
 - added support for PKCS#8 files
 
 ### 2.2.1

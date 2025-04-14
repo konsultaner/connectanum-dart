@@ -46,7 +46,7 @@ class Client {
 
   final StreamController<ClientConnectOptions> _connectStreamController =
       StreamController<ClientConnectOptions>.broadcast();
-  AbstractTransport transport;
+  final AbstractTransport transport;
   List<AbstractAuthentication>? authenticationMethods;
 
   final StreamController<Session> _controller = StreamController<Session>();
