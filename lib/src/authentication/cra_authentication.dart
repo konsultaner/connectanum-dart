@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -17,13 +18,20 @@ import '../message/error.dart';
 /// This is the WAMPCRA authentication implementation for this package.
 /// Use it with the [Client].
 class CraAuthentication extends AbstractAuthentication {
+  final StreamController<Extra> _challengeStreamController = StreamController.broadcast();
+
   static const List<int> defaultKeySalt = [];
   static const int defaultIterations = 1000;
   static const int defaultKeyLength = 32;
-  final String secret;
+  String secret;
 
   /// Initializes the authentication method with the [secret] aka password
   CraAuthentication(this.secret);
+
+  /// When the challenge starts the stream will provide the current [Extra] in
+  /// case the client needs some additional information to challenge the server.
+  @override
+  Stream<Extra> get onChallenge => _challengeStreamController.stream;
 
   /// This method is called by the session to modify the hello [details] for
   /// a given [realm]. Since CRA does not need to modify it. This method returns
@@ -38,9 +46,11 @@ class CraAuthentication extends AbstractAuthentication {
   /// authentication process and creates an authentication message according to
   /// the wamp specification
   @override
-  Future<Authenticate> challenge(Extra? extra) {
+  Future<Authenticate> challenge(Extra extra) async {
+    await AbstractAuthentication.streamAddAwaited<Extra>(_challengeStreamController,extra);
+
     var authenticate = Authenticate();
-    if (extra == null || extra.challenge == null) {
+    if (extra.challenge == null) {
       final error = Error(MessageTypes.codeChallenge, -1,
           HashMap<String, Object>(), Error.authorizationFailed);
       error.details['reason'] =
@@ -67,7 +77,7 @@ class CraAuthentication extends AbstractAuthentication {
             ? defaultKeyLength
             : extra.keyLen!,
         Uint8List.fromList(extra.challenge!.codeUnits));
-    return Future.value(authenticate);
+    return authenticate;
   }
 
   /// Creates an derived key from a [secret], [salt], [iterations], [keylen] and

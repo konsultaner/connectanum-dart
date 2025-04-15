@@ -994,6 +994,9 @@ void main() {
 
 class _MockChallengeFailAuthenticator extends AbstractAuthentication {
   @override
+  Stream<Extra> get onChallenge => Stream.empty();
+
+  @override
   Future<Authenticate> challenge(Extra extra) {
     return Future.error(Exception('Did not work'));
   }

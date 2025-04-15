@@ -1,6 +1,7 @@
 library connectanum;
 
 export 'src/client.dart';
+export 'src/message/authenticate.dart';
 export 'src/message/challenge.dart';
 export 'src/message/details.dart';
 export 'src/message/event.dart';
@@ -24,6 +25,7 @@ export 'src/protocol/session.dart';
 export 'src/message/goodbye.dart';
 export 'src/message/abstract_message.dart';
 export 'src/serializer/abstract_serializer.dart';
+export 'src/transport/local_transport.dart';
 export 'src/transport/abstract_transport.dart';
 export 'src/transport/websocket/websocket_transport_serialization.dart';
 export 'src/transport/websocket/websocket_transport_none.dart'

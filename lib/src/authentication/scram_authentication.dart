@@ -20,6 +20,7 @@ class ScramAuthentication extends AbstractAuthentication {
   static final int defaultKeyLength = 32;
 
   final Completer<Uint8List> _firstClientKeyCompleter = Completer<Uint8List>();
+  final StreamController<Extra> _challengeStreamController = StreamController.broadcast();
   late final bool _reuseClientKey;
 
   String? _secret;
@@ -32,6 +33,11 @@ class ScramAuthentication extends AbstractAuthentication {
   String? get authid => _authid;
   String? get helloNonce => _helloNonce;
   Duration get challengeTimeout => _challengeTimeout;
+
+  /// When the challenge starts the stream will provide the current [Extra] in
+  /// case the client needs some additional information to challenge the server.
+  @override
+  Stream<Extra> get onChallenge => _challengeStreamController.stream;
 
   Future<Uint8List> get clientKey {
     if (_clientKey != null) {
@@ -97,7 +103,9 @@ class ScramAuthentication extends AbstractAuthentication {
   /// [authId] is the username that has already been saslpreped with [Saslprep.saslprep(input)] and [helloNonce] is a randomly generated nonce according
   /// to the WAMP-SCRAM specs. The keylength is 32 according to the WAMP-SCRAM specs
   @override
-  Future<Authenticate> challenge(Extra extra) {
+  Future<Authenticate> challenge(Extra extra) async {
+    await AbstractAuthentication.streamAddAwaited<Extra>(_challengeStreamController,extra);
+
     if (extra.nonce == null ||
         _helloNonce == null ||
         !_helloNonce!
@@ -119,7 +127,7 @@ class ScramAuthentication extends AbstractAuthentication {
 
     authenticate.signature = createSignature(_authid!, _helloNonce!, extra,
         authenticate.extra as HashMap<String, Object?>);
-    return Future.value(authenticate);
+    return authenticate;
   }
 
   /// Calculates the client proof according to the [WAMP-SCRAM specs](https://wamp-proto.org/_static/gen/wamp_latest.html#authmessage) where

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 
@@ -111,6 +112,24 @@ void main() {
       var isVerified = ScramAuthentication.verifyClientProof(
           base64.decode(signature), base64.decode(storedKey), authMessage);
       expect(isVerified, equals(true));
+    });
+    test('on challenge event', () async {
+      var challengeExtra2 = Extra(
+          iterations: 4096,
+          salt: 'W22ZaJ0SNY7soEsUEjb6gQ==',
+          nonce: 'rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF\$k0',
+          kdf: ScramAuthentication.kdfPbkdf2);
+      final authMethod = ScramAuthentication(secret)
+        ..hello('com.realm', Details.forHello()..authid = user);
+      challengeExtra2.nonce = '${authMethod.helloNonce!}nonce';
+      final completer = Completer<Extra>();
+      authMethod.onChallenge.listen((event) {
+        completer.complete(event);
+      },);
+      authMethod.challenge(challengeExtra2);
+      var receivedExtra = await completer.future;
+      expect(receivedExtra, isNotNull);
+      expect(receivedExtra.nonce, equals(challengeExtra2.nonce));
     });
   });
 }

@@ -1,3 +1,8 @@
+### 2.2.3
+
+- export Authentication message to be able to write custom authentication methods
+- add onChallenge event in auth methods to be able to modify the secret during the challenge
+
 ### 2.2.2
 
 - fix web transport conditional import to make it wasm for web compatible 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 
@@ -14,6 +15,7 @@ import 'cryptosign/ppk.dart';
 
 class CryptosignAuthentication extends AbstractAuthentication {
   static final String channelBindingTlsUnique = 'tls-unique';
+  final StreamController<Extra> _challengeStreamController = StreamController.broadcast();
 
   final SigningKey privateKey;
   final String? channelBinding;
@@ -25,6 +27,11 @@ class CryptosignAuthentication extends AbstractAuthentication {
       throw UnimplementedError('Channel binding is not supported yet!');
     }
   }
+
+  /// When the challenge starts the stream will provide the current [Extra] in
+  /// case the client needs some additional information to challenge the server.
+  @override
+  Stream<Extra> get onChallenge => _challengeStreamController.stream;
 
   /// This method takes a [ppkFileContent] and reads its private key to make
   /// the authentication process possible with crypto sign. The [ppkFileContent]
@@ -82,7 +89,9 @@ class CryptosignAuthentication extends AbstractAuthentication {
   /// the challenges [extra] respectively. This method uses the passed hex
   /// encoded challenge and signs it with the given private key
   @override
-  Future<Authenticate> challenge(Extra extra) {
+  Future<Authenticate> challenge(Extra extra) async {
+    await AbstractAuthentication.streamAddAwaited<Extra>(_challengeStreamController,extra);
+
     if (extra.channelBinding != channelBinding) {
       return Future.error(Exception('Channel Binding does not match'));
     }
@@ -96,7 +105,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
     var binaryChallenge = hexToBin(extra.challenge);
     authenticate.signature =
         privateKey.sign(binaryChallenge).encode(Base16Encoder.instance);
-    return Future.value(authenticate);
+    return authenticate;
   }
 
   /// This method converts a given [hexString] to its byte representation.

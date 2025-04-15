@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:connectanum/src/authentication/cryptosign/pem.dart';
@@ -334,6 +335,18 @@ void main() {
           CryptosignAuthentication.fromBase64(base64.encode(puttySeed));
       expect(base64Key.privateKey.sublist(0, 32).toString(),
           equals(puttySeed.toString()));
+    });
+    test('on challenge event', () async {
+      final authMethod = CryptosignAuthentication.fromBase64(base64.encode(puttySeed));
+      final completer = Completer<Extra>();
+      authMethod.onChallenge.listen((event) {
+        completer.complete(event);
+      },);
+      var extra = Extra(challenge: testVectors[0]['challenge'], channelBinding: null);
+      authMethod.challenge(extra);
+      var receivedExtra = await completer.future;
+      expect(receivedExtra, isNotNull);
+      expect(receivedExtra.challenge, equals(testVectors[0]['challenge']));
     });
   });
 }

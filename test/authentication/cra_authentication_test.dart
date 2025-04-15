@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -202,7 +203,20 @@ void main() {
       final authMethod = CraAuthentication(secret);
       expect(authMethod.getName(), equals('wampcra'));
       expect(
-          () async => await authMethod.challenge(null), throwsA(isA<Error>()));
+          () async => await authMethod.challenge(Extra()), throwsA(isA<Error>()));
+    });
+    test('on challenge event', () async {
+      final authMethod = CraAuthentication(secret);
+      final completer = Completer<Extra>();
+      authMethod.onChallenge.listen((event) {
+        completer.complete(event);
+      },);
+      var extra =
+        Extra(challenge: challenge, keyLen: 32, iterations: 1000, salt: salt);
+      authMethod.challenge(extra);
+      var receivedExtra = await completer.future;
+      expect(receivedExtra, isNotNull);
+      expect(receivedExtra.salt, equals(salt));
     });
   });
   group('CRA-Unsalted', () {
