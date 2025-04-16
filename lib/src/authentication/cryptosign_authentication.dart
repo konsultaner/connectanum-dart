@@ -15,7 +15,8 @@ import 'cryptosign/ppk.dart';
 
 class CryptosignAuthentication extends AbstractAuthentication {
   static final String channelBindingTlsUnique = 'tls-unique';
-  final StreamController<Extra> _challengeStreamController = StreamController.broadcast();
+  final StreamController<Extra> _challengeStreamController =
+      StreamController.broadcast();
 
   final SigningKey privateKey;
   final String? channelBinding;
@@ -90,7 +91,8 @@ class CryptosignAuthentication extends AbstractAuthentication {
   /// encoded challenge and signs it with the given private key
   @override
   Future<Authenticate> challenge(Extra extra) async {
-    await AbstractAuthentication.streamAddAwaited<Extra>(_challengeStreamController,extra);
+    await AbstractAuthentication.streamAddAwaited<Extra>(
+        _challengeStreamController, extra);
 
     if (extra.channelBinding != channelBinding) {
       return Future.error(Exception('Channel Binding does not match'));

@@ -8,7 +8,8 @@ import '../message/details.dart';
 /// This is the ticket based authentication implementation for this package.
 /// Use it with the [Client].
 class TicketAuthentication extends AbstractAuthentication {
-  final StreamController<Extra> _challengeStreamController = StreamController.broadcast();
+  final StreamController<Extra> _challengeStreamController =
+      StreamController.broadcast();
   String password;
 
   TicketAuthentication(this.password);
@@ -31,7 +32,8 @@ class TicketAuthentication extends AbstractAuthentication {
   /// password as a signature.
   @override
   Future<Authenticate> challenge(Extra extra) async {
-    await AbstractAuthentication.streamAddAwaited<Extra>(_challengeStreamController,extra);
+    await AbstractAuthentication.streamAddAwaited<Extra>(
+        _challengeStreamController, extra);
     return Authenticate(signature: password);
   }
 

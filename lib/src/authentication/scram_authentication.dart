@@ -20,7 +20,8 @@ class ScramAuthentication extends AbstractAuthentication {
   static final int defaultKeyLength = 32;
 
   final Completer<Uint8List> _firstClientKeyCompleter = Completer<Uint8List>();
-  final StreamController<Extra> _challengeStreamController = StreamController.broadcast();
+  final StreamController<Extra> _challengeStreamController =
+      StreamController.broadcast();
   late final bool _reuseClientKey;
 
   String? _secret;
@@ -104,7 +105,8 @@ class ScramAuthentication extends AbstractAuthentication {
   /// to the WAMP-SCRAM specs. The keylength is 32 according to the WAMP-SCRAM specs
   @override
   Future<Authenticate> challenge(Extra extra) async {
-    await AbstractAuthentication.streamAddAwaited<Extra>(_challengeStreamController,extra);
+    await AbstractAuthentication.streamAddAwaited<Extra>(
+        _challengeStreamController, extra);
 
     if (extra.nonce == null ||
         _helloNonce == null ||

@@ -18,7 +18,8 @@ import '../message/error.dart';
 /// This is the WAMPCRA authentication implementation for this package.
 /// Use it with the [Client].
 class CraAuthentication extends AbstractAuthentication {
-  final StreamController<Extra> _challengeStreamController = StreamController.broadcast();
+  final StreamController<Extra> _challengeStreamController =
+      StreamController.broadcast();
 
   static const List<int> defaultKeySalt = [];
   static const int defaultIterations = 1000;
@@ -47,7 +48,8 @@ class CraAuthentication extends AbstractAuthentication {
   /// the wamp specification
   @override
   Future<Authenticate> challenge(Extra extra) async {
-    await AbstractAuthentication.streamAddAwaited<Extra>(_challengeStreamController,extra);
+    await AbstractAuthentication.streamAddAwaited<Extra>(
+        _challengeStreamController, extra);
 
     var authenticate = Authenticate();
     if (extra.challenge == null) {

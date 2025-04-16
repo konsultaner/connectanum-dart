@@ -123,9 +123,11 @@ void main() {
         ..hello('com.realm', Details.forHello()..authid = user);
       challengeExtra2.nonce = '${authMethod.helloNonce!}nonce';
       final completer = Completer<Extra>();
-      authMethod.onChallenge.listen((event) {
-        completer.complete(event);
-      },);
+      authMethod.onChallenge.listen(
+        (event) {
+          completer.complete(event);
+        },
+      );
       authMethod.challenge(challengeExtra2);
       var receivedExtra = await completer.future;
       expect(receivedExtra, isNotNull);

@@ -17,9 +17,11 @@ void main() {
     test('on challenge event', () async {
       final authMethod = TicketAuthentication("test");
       final completer = Completer<Extra>();
-      authMethod.onChallenge.listen((event) {
-        completer.complete(event);
-      },);
+      authMethod.onChallenge.listen(
+        (event) {
+          completer.complete(event);
+        },
+      );
       var extra = Extra(challenge: "challenge", channelBinding: null);
       authMethod.challenge(extra);
       var receivedExtra = await completer.future;

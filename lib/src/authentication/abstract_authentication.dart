@@ -21,15 +21,18 @@ abstract class AbstractAuthentication {
   String getName();
 
   static Future<T> streamAddAwaited<T>(
-      StreamController<T> streamController,
-      T value,
-      {bool Function(T event)? predicate, Duration? timeout,}) {
+    StreamController<T> streamController,
+    T value, {
+    bool Function(T event)? predicate,
+    Duration? timeout,
+  }) {
     final completer = Completer<T>();
     late StreamSubscription<T> sub;
 
-    sub = streamController.stream.listen((event) {
+    sub = streamController.stream.listen(
+      (event) {
         if (predicate != null) {
-          if(predicate(event)) {
+          if (predicate(event)) {
             completer.complete(event);
             sub.cancel();
           }
@@ -57,5 +60,4 @@ abstract class AbstractAuthentication {
 
     return completer.future;
   }
-
 }

@@ -337,12 +337,16 @@ void main() {
           equals(puttySeed.toString()));
     });
     test('on challenge event', () async {
-      final authMethod = CryptosignAuthentication.fromBase64(base64.encode(puttySeed));
+      final authMethod =
+          CryptosignAuthentication.fromBase64(base64.encode(puttySeed));
       final completer = Completer<Extra>();
-      authMethod.onChallenge.listen((event) {
-        completer.complete(event);
-      },);
-      var extra = Extra(challenge: testVectors[0]['challenge'], channelBinding: null);
+      authMethod.onChallenge.listen(
+        (event) {
+          completer.complete(event);
+        },
+      );
+      var extra =
+          Extra(challenge: testVectors[0]['challenge'], channelBinding: null);
       authMethod.challenge(extra);
       var receivedExtra = await completer.future;
       expect(receivedExtra, isNotNull);
