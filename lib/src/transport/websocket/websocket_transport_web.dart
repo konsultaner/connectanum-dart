@@ -94,7 +94,7 @@ class WebSocketTransport extends AbstractTransport {
     _socket.onOpen.listen((open) => openCompleter.complete(open));
     _socket.onError.listen((Event error) {
       openCompleter.completeError(error);
-      _onConnectionLost!.complete(error);
+      complete(_onConnectionLost, error);
     });
     try {
       await openCompleter.future;
@@ -125,11 +125,9 @@ class WebSocketTransport extends AbstractTransport {
     _socket.onClose.listen((closeEvent) {
       if (closeEvent.code > 1000 && !_goodbyeSent && !_goodbyeReceived) {
         // a status code other then 1000 indicates that the server tried to quit
-        if (!_onConnectionLost!.isCompleted) {
-          _onConnectionLost!.complete();
-        }
+        complete(_onConnectionLost, null);
       } else {
-        _onDisconnect!.complete();
+        complete(_onDisconnect, null);
       }
       _logger.info('The connection has been closed with ${closeEvent.code}');
     });

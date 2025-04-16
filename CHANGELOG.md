@@ -2,6 +2,7 @@
 
 - export Authentication message to be able to write custom authentication methods
 - add onChallenge event in auth methods to be able to modify the secret during the challenge
+- fix bug where websocket transport for web trying to complete a future twice
 
 ### 2.2.2
 
