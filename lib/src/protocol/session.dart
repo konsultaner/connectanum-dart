@@ -123,7 +123,8 @@ class Session {
           .toList();
     }
 
-    /// Either return the welcome or execute a challenge before and eventually return the welcome after this
+    /// Either return the welcome or execute a challenge before and eventually
+    /// return the welcome after this
     var welcomeCompleter = Completer<Session>();
     session._transportStreamSubscription = transport.receive()!.listen(
         (message) {

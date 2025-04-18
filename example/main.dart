@@ -75,4 +75,15 @@ void main() async {
   } on Abort catch (abort) {
     print(abort.message!.message);
   }
+
+  // Unit test client that may have an authentication method
+  var unitTestClient = Client(
+      realm: "com.connectanum",
+      authId: "username",
+      transport: LocalTransport(/*possible to set a password here*/)
+  );
+  var session3 = await unitTestClient
+      .connect()
+      .first;
+  unawaited(session3.close());
 }

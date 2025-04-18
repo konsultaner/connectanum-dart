@@ -137,7 +137,7 @@ class Client {
 
   Future<void> _reconnect(ClientConnectOptions options,
       {Duration? duration}) async {
-    if (options.reconnectCount == 0) {
+    if (options.reconnectCount == 0 || options.reconnectTime == null) {
       return await _onNoReconnectsLeft('Ran out of reconnect attempts');
     }
 

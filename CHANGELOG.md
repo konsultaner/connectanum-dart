@@ -1,3 +1,10 @@
+### 2.2.4
+
+- added `LocalTransport` to make unit testing easier in flutter.
+  - fake authentication if no method is passed 
+  - fake CRA authentication
+  - fake SCRAM authentication
+
 ### 2.2.3
 
 - export Authentication message to be able to write custom authentication methods
