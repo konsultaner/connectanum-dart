@@ -84,6 +84,7 @@ eventually fail.
 - ☑ WebSockets
 - ☑ RawSockets
 - ☑ RawSockets with large data support (connectanum router only)
+- ☐ LocalTransport for unit testing
 - ☐ E2E encryption
 
 ### Transport Encoding

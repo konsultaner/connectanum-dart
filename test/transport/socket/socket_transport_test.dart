@@ -18,7 +18,7 @@ import 'package:test/test.dart';
 
 void main() {
   group('Socket open and close', () {
-    test('inital close', () async {
+    test('initial close', () async {
       final server = await ServerSocket.bind('0.0.0.0', 8998);
       server.listen((socket) {
         socket.listen((message) {});
