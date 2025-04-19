@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:cbor/cbor.dart';
 import 'package:connectanum/connectanum.dart';
 import 'package:connectanum/src/message/abstract_message_with_payload.dart';
-import 'package:connectanum/src/message/authenticate.dart';
 import 'package:connectanum/src/message/hello.dart';
 import 'package:connectanum/src/message/message_types.dart';
 import 'package:connectanum/src/message/welcome.dart';
@@ -12,7 +11,7 @@ import 'package:logging/logging.dart';
 
 import '../../message/ppt_payload.dart';
 
-/// This is a seralizer for msgpack messages.
+/// This is a serializer for msgpack messages.
 /// It is used to initialize an [AbstractTransport] object.
 class Serializer extends AbstractSerializer {
   static final Logger _logger = Logger('Connectanum.Serializer');

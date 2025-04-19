@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import '../../message/abstract_message.dart';
-import '../../serializer/abstract_serializer.dart';
 import '../../transport/socket/socket_helper.dart';
 import '../abstract_transport.dart';
 
@@ -10,14 +9,6 @@ import '../abstract_transport.dart';
 /// capable of using connectanums own upgrade method to allow more then 16MB of
 /// payload.
 class SocketTransport extends AbstractTransport {
-  late bool _ssl;
-  late bool _allowInsecureCertificates;
-  final String _host;
-  final int _port;
-
-  /// This will be negotiated during the handshake process.
-  final int _serializerType;
-  final AbstractSerializer _serializer;
   Completer? _onConnectionLost;
   Completer? _onDisconnect;
 
@@ -27,7 +18,7 @@ class SocketTransport extends AbstractTransport {
   /// the router only supports shorter messages. The message length is calculated by
   /// 2^[messageLengthExponent]
   SocketTransport(
-      this._host, this._port, this._serializer, this._serializerType,
+      host, port, serializer, serializerType,
       {ssl = false,
       allowInsecureCertificates = false,
       messageLengthExponent = SocketHelper.maxMessageLengthExponent});

@@ -2,8 +2,6 @@ import 'dart:async';
 
 import 'package:connectanum/connectanum.dart';
 
-import '../message/authenticate.dart';
-
 abstract class AbstractAuthentication {
   /// When the challenge starts the stream will provide the current [Extra] in
   /// case the client needs some additional information to challenge the server.

@@ -1,6 +1,5 @@
 import 'package:connectanum/authentication.dart';
 import 'package:connectanum/connectanum.dart';
-import 'package:connectanum/src/authentication/cryptosign/pkcs8.dart';
 import 'package:test/test.dart';
 
 import '../../authentication/cryptosign/keys.dart';
