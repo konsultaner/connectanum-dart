@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-
 import '../../message/abstract_message.dart';
 import '../../serializer/abstract_serializer.dart';
 import '../../transport/socket/socket_helper.dart';
@@ -30,8 +29,8 @@ class SocketTransport extends AbstractTransport {
   SocketTransport(
       this._host, this._port, this._serializer, this._serializerType,
       {ssl = false,
-        allowInsecureCertificates = false,
-        messageLengthExponent = SocketHelper.maxMessageLengthExponent});
+      allowInsecureCertificates = false,
+      messageLengthExponent = SocketHelper.maxMessageLengthExponent});
 
   bool get isUpgradedProtocol => true;
 
@@ -40,7 +39,7 @@ class SocketTransport extends AbstractTransport {
   int? get maxMessageLength => null;
 
   @override
-  Future<void> close({error})  => Future.value();
+  Future<void> close({error}) => Future.value();
 
   @override
   bool get isOpen {
@@ -51,7 +50,7 @@ class SocketTransport extends AbstractTransport {
   bool get isReady => true;
 
   @override
-  Future<void> get onReady  => Future.value();
+  Future<void> get onReady => Future.value();
 
   set pingInterval(Duration pingInterval) {}
 
