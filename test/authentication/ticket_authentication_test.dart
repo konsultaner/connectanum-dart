@@ -15,7 +15,7 @@ void main() {
       expect(authenticate.signature, equals(secret));
     });
     test('on challenge event', () async {
-      final authMethod = TicketAuthentication("test");
+      final authMethod = TicketAuthentication(secret);
       final completer = Completer<Extra>();
       authMethod.onChallenge.listen(
         (event) {

@@ -2,8 +2,10 @@
 
 - added `LocalTransport` to make unit testing easier in flutter.
   - fake authentication if no method is passed 
+  - fake ticket authentication
   - fake CRA authentication
   - fake SCRAM authentication
+  - fake cryptosign authentication
 
 ### 2.2.3
 

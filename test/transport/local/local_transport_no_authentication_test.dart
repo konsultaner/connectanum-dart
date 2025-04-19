@@ -7,11 +7,8 @@ void main() {
       var client = Client(
           realm: "com.connectanum",
           authId: "Burkhardt",
-          transport: LocalTransport()
-      );
-      var session = await client
-          .connect()
-          .first;
+          transport: LocalTransport());
+      var session = await client.connect().first;
       expect(session, isNotNull);
     });
   });

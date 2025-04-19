@@ -7,7 +7,7 @@ void main() {
     test('success', () async {
       var client = Client(
           realm: "com.connectanum",
-          authenticationMethods: [CraAuthentication("Richard")],
+          authenticationMethods: [TicketAuthentication("Richard")],
           authId: "Burkhardt",
           transport: LocalTransport(authenticationPassword: "Richard"));
       var session = await client.connect().first;
@@ -16,7 +16,7 @@ void main() {
     test('fail', () async {
       var client = Client(
           realm: "com.connectanum",
-          authenticationMethods: [CraAuthentication("Richard")],
+          authenticationMethods: [TicketAuthentication("Richard")],
           authId: "Burkhardt",
           transport: LocalTransport());
       AbstractMessage? errorMessage;

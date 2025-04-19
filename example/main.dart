@@ -80,10 +80,7 @@ void main() async {
   var unitTestClient = Client(
       realm: "com.connectanum",
       authId: "username",
-      transport: LocalTransport(/*possible to set a password here*/)
-  );
-  var session3 = await unitTestClient
-      .connect()
-      .first;
+      transport: LocalTransport(/*possible to set a password here*/));
+  var session3 = await unitTestClient.connect().first;
   unawaited(session3.close());
 }

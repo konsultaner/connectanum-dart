@@ -9,11 +9,8 @@ void main() {
           realm: "com.connectanum",
           authenticationMethods: [ScramAuthentication("Richard")],
           authId: "Burkhardt",
-          transport: LocalTransport(authenticationPassword: "Richard")
-      );
-      var session = await client
-          .connect()
-          .first;
+          transport: LocalTransport(authenticationPassword: "Richard"));
+      var session = await client.connect().first;
       expect(session, isNotNull);
     });
     test('fail', () async {
@@ -21,14 +18,11 @@ void main() {
           realm: "com.connectanum",
           authenticationMethods: [ScramAuthentication("Richard")],
           authId: "Burkhardt",
-          transport: LocalTransport()
-      );
+          transport: LocalTransport());
       AbstractMessage? errorMessage;
       Session? session;
       try {
-        session = await client
-            .connect()
-            .first;
+        session = await client.connect().first;
       } catch (error) {
         errorMessage = error as AbstractMessage;
       }

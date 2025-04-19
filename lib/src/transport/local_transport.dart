@@ -5,6 +5,7 @@ import 'package:connectanum/authentication.dart';
 import 'package:connectanum/connectanum.dart';
 import 'package:connectanum/src/message/hello.dart';
 import 'package:connectanum/src/message/welcome.dart';
+import 'package:pinenacl/ed25519.dart';
 
 class LocalTransport extends AbstractTransport {
   final _receiveController = StreamController<AbstractMessage?>.broadcast();
@@ -15,12 +16,19 @@ class LocalTransport extends AbstractTransport {
   final Completer _onConnectionLost = Completer<void>();
 
   String authenticationPassword;
+  late SigningKey authenticationKey;
   Hello? _hello;
   AbstractAuthentication? _authentication;
   String? _signature;
   bool _isOpen = false;
 
-  LocalTransport({this.authenticationPassword = "password"});
+  LocalTransport(
+      {this.authenticationPassword = "password",
+      SigningKey? authenticationKey}) {
+    this.authenticationKey = authenticationKey ??
+        SigningKey.fromSeed(
+            Uint8List.fromList("PasswordPasswordPasswordPassword".codeUnits));
+  }
 
   /// Allow tests to listen to what was sent via the transport
   Stream<AbstractMessage> get sentMessages => _sentMessagesController.stream;
@@ -68,22 +76,40 @@ class LocalTransport extends AbstractTransport {
   @override
   void send(AbstractMessage message) {
     if (message is Hello) {
+      var ticketAuthentication = TicketAuthentication(authenticationPassword);
       var craAuthentication = CraAuthentication(authenticationPassword);
       var scramAuthentication = ScramAuthentication(authenticationPassword);
-      if (message.details.authmethods?.contains(craAuthentication.getName()) ?? false) {
+      var cryptosignAuthentication =
+          CryptosignAuthentication(authenticationKey, null);
+      if (message.details.authmethods
+              ?.contains(ticketAuthentication.getName()) ??
+          false) {
+        var extra = Extra();
+        ticketAuthentication.challenge(extra).then((authenticate) {
+          _hello = message;
+          _signature = authenticate.signature;
+          _authentication = ticketAuthentication;
+          _receiveController
+              .add(Challenge(ticketAuthentication.getName(), extra));
+        });
+      } else if (message.details.authmethods
+              ?.contains(craAuthentication.getName()) ??
+          false) {
         var extra = Extra(
             salt: message.details.salt ?? 'salt',
             keyLen: 32,
             iterations: 1000,
-            challenge: '{"authid":"${message.details.authid}","authrole":"client","authmethod":"${craAuthentication.getName()}","authprovider":"local","nonce":"local","timestamp":"1970-01-01T12:00Z","session":1}'
-        );
+            challenge:
+                '{"authid":"${message.details.authid}","authrole":"client","authmethod":"${craAuthentication.getName()}","authprovider":"local","nonce":"local","timestamp":"1970-01-01T12:00Z","session":1}');
         craAuthentication.challenge(extra).then((authenticate) {
           _hello = message;
           _signature = authenticate.signature;
           _authentication = craAuthentication;
           _receiveController.add(Challenge(craAuthentication.getName(), extra));
         });
-      } else if (message.details.authmethods?.contains(scramAuthentication.getName()) ?? false) {
+      } else if (message.details.authmethods
+              ?.contains(scramAuthentication.getName()) ??
+          false) {
         var extra = Extra(
             iterations: 1,
             memory: 100,
@@ -102,33 +128,50 @@ class LocalTransport extends AbstractTransport {
             extra,
             authExtra);
         _receiveController.add(Challenge(scramAuthentication.getName(), extra));
+      } else if (message.details.authmethods
+              ?.contains(cryptosignAuthentication.getName()) ??
+          false) {
+        var extra = Extra();
+        extra.challenge = "11";
+        cryptosignAuthentication.challenge(extra).then((authenticate) {
+          _hello = message;
+          _signature = authenticate.signature;
+          _authentication = cryptosignAuthentication;
+          _receiveController
+              .add(Challenge(cryptosignAuthentication.getName(), extra));
+        });
       } else {
-        _receiveController.add(Welcome(1, Details.forWelcome(
-          authId: _hello?.details.authid,
-          authMethod: _authentication?.getName(),
-          authProvider: 'local',
-          authRole: 'client',
-          realm: _hello?.realm,
-        )));
+        _receiveController.add(Welcome(
+            1,
+            Details.forWelcome(
+              authId: _hello?.details.authid,
+              authMethod: _authentication?.getName(),
+              authProvider: 'local',
+              authRole: 'client',
+              realm: _hello?.realm,
+            )));
       }
     } else if (message is Authenticate) {
       bool success = false;
-      if (_authentication is CraAuthentication) {
-        success = message.signature == _signature;
-      }
-      if (_authentication is ScramAuthentication) {
+      if (_authentication is TicketAuthentication ||
+          _authentication is CraAuthentication ||
+          _authentication is ScramAuthentication ||
+          _authentication is CryptosignAuthentication) {
         success = message.signature == _signature;
       }
       if (success) {
-        _receiveController.add(Welcome(1, Details.forWelcome(
-          authId: _hello?.details.authid,
-          authMethod: _authentication?.getName(),
-          authProvider: 'local',
-          authRole: 'client',
-          realm: _hello?.realm,
-        )));
+        _receiveController.add(Welcome(
+            1,
+            Details.forWelcome(
+              authId: _hello?.details.authid,
+              authMethod: _authentication?.getName(),
+              authProvider: 'local',
+              authRole: 'client',
+              realm: _hello?.realm,
+            )));
       } else {
-        _receiveController.add(Abort("Wrong password", message: "Authentication process failed!"));
+        _receiveController.add(
+            Abort("Wrong password", message: "Authentication process failed!"));
       }
     }
     _sentMessagesController.add(message);
