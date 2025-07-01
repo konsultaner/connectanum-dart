@@ -37,7 +37,7 @@ import '../abstract_serializer.dart';
 /// This is a serializer for JSON messages. It is used to initialize an [AbstractTransport]
 /// object.
 class Serializer extends AbstractSerializer {
-  static final RegExp _binaryPrefix = RegExp('\x00');
+  static final String _binaryPrefix = '\\u0000';
   static final Logger _logger = Logger('Connectanum.Serializer');
 
   /// Converts a uint8 JSON message into a WAMP message object
@@ -242,7 +242,7 @@ class Serializer extends AbstractSerializer {
         messageData[argumentsOffset] is String) {
       if ((messageData[argumentsOffset] as String).startsWith(_binaryPrefix)) {
         message.transparentBinaryPayload =
-            _convertStringToUint8List(messageData[argumentsOffset] as String);
+            _convertStringToUint8List((messageData[argumentsOffset] as String).substring(_binaryPrefix.length - 1));
       }
     } else {
       if (messageData.length >= argumentsOffset + 1) {
@@ -278,7 +278,7 @@ class Serializer extends AbstractSerializer {
         _convertListEntriesBinaryJsonStringToUint8List(element.value);
       }
       if (element.value is String && element.value.startsWith(_binaryPrefix)) {
-        payload[element.key] = _convertStringToUint8List(element.value);
+        payload[element.key] = _convertStringToUint8List((element.value as String).substring(_binaryPrefix.length - 1));
       }
     }
   }
@@ -292,7 +292,7 @@ class Serializer extends AbstractSerializer {
         _convertListEntriesBinaryJsonStringToUint8List(payload[i]);
       }
       if (payload[i] is String && payload[i].startsWith(_binaryPrefix)) {
-        payload[i] = _convertStringToUint8List(payload[i]);
+        payload[i] = _convertStringToUint8List((payload[i] as String).substring(_binaryPrefix.length - 1));
       }
     }
   }
@@ -606,7 +606,7 @@ class Serializer extends AbstractSerializer {
   }
 
   String _convertUint8ListToString(Uint8List binary) {
-    return '\x00${base64.encode(binary)}';
+    return '\\u0000${base64.encode(binary)}';
   }
 
   /// Converts a uint8 JSON message into a PPT Payload Object

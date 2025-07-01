@@ -725,7 +725,7 @@ void main() {
     });
     test('convert json binary string', () {
       var result = serializer.deserializeFromString(
-              '[50, 1, {}, [{"binary":"\\u0000EOP/kFMHXFJvX8BtT+N82w=="}],{"binary":{"content":["\\u0000EOP/kFMHXFJvX8BtT+N82w==","EOP/kFMHXFJvX8BtT+N82w=="]}}]')
+              '[50, 1, {}, [{"binary":"\\\\u0000EOP/kFMHXFJvX8BtT+N82w=="}],{"binary":{"content":["\\\\u0000EOP/kFMHXFJvX8BtT+N82w==","EOP/kFMHXFJvX8BtT+N82w=="]}}]')
           as Result;
       expect(result.arguments![0]['binary'], isA<Uint8List>());
       expect(result.arguments![0]['binary'].length, equals(16));
@@ -735,7 +735,7 @@ void main() {
           result.argumentsKeywords!['binary']['content'][0].length, equals(16));
       expect(result.argumentsKeywords!['binary']['content'][1], isA<String>());
       result = serializer.deserializeFromString(
-          '[50, 1, {}, "\\u0000EOP/kFMHXFJvX8BtT+N82w=="]') as Result;
+          '[50, 1, {}, "\\\\u0000EOP/kFMHXFJvX8BtT+N82w=="]') as Result;
       expect(result.transparentBinaryPayload, isA<Uint8List>());
       expect(result.transparentBinaryPayload!.length, equals(16));
 
@@ -751,10 +751,10 @@ void main() {
       expect(
           serializer.serializeToString(event),
           equals(
-              '[36,1,2,[{"binary":{"content":["\\u0000EOP/kFMHXFJvX8BtT+N82w==","some"]}}],{"binary":"\\u0000EOP/kFMHXFJvX8BtT+N82w=="}]'));
+              '[36,1,2,[{"binary":{"content":["\\\\u0000EOP/kFMHXFJvX8BtT+N82w==","some"]}}],{"binary":"\\\\u0000EOP/kFMHXFJvX8BtT+N82w=="}]'));
       event.transparentBinaryPayload = result.transparentBinaryPayload;
       expect(serializer.serializeToString(event),
-          equals('[36,1,2,"\\u0000EOP/kFMHXFJvX8BtT+N82w=="]'));
+          equals('[36,1,2,"\\\\u0000EOP/kFMHXFJvX8BtT+N82w=="]'));
     });
   });
 }
