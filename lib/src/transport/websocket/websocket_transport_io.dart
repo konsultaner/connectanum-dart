@@ -24,7 +24,7 @@ class WebSocketTransport extends AbstractTransport {
   final String _serializerType;
 
   /// The keys of the map are the header
-  /// fields and the values are either String or List<String>
+  /// fields and the values are either String or List of String
   final Map<String, dynamic>? _headers;
   bool _goodbyeSent = false;
   bool _goodbyeReceived = false;

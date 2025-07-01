@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../abstract_transport.dart';
 import '../../message/abstract_message.dart';
+import '../../serializer/abstract_serializer.dart';
 import '../../serializer/json/serializer.dart' as serializer_json;
 import '../../serializer/msgpack/serializer.dart' as serializer_msgpack;
 import '../../serializer/cbor/serializer.dart' as serializer_cbor;
@@ -9,7 +10,9 @@ import 'websocket_transport_serialization.dart';
 
 /// This is a mock class to provide a unified interface for js and native usage of this package
 class WebSocketTransport extends AbstractTransport {
-  WebSocketTransport(url, serializer, serializerType, [additionalHeaders]);
+  WebSocketTransport(
+      String url, AbstractSerializer serializer, String serializerType,
+      [Map<String, dynamic>? additionalHeaders]);
 
   factory WebSocketTransport.withJsonSerializer(String url,
           [Map<String, dynamic>? additionalHeaders]) =>

@@ -8,7 +8,7 @@ abstract class AbstractTransport {
   Completer? get onConnectionLost;
   Stream<AbstractMessage?>? receive();
   Future<void>? open({Duration? pingInterval});
-  Future<void>? close({error});
+  Future<void>? close({dynamic error});
   Future<void> get onReady;
   bool get isOpen;
   bool get isReady;

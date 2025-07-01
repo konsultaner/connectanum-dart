@@ -241,8 +241,9 @@ class Serializer extends AbstractSerializer {
     if (messageData.length == argumentsOffset + 1 &&
         messageData[argumentsOffset] is String) {
       if ((messageData[argumentsOffset] as String).startsWith(_binaryPrefix)) {
-        message.transparentBinaryPayload =
-            _convertStringToUint8List((messageData[argumentsOffset] as String).substring(_binaryPrefix.length - 1));
+        message.transparentBinaryPayload = _convertStringToUint8List(
+            (messageData[argumentsOffset] as String)
+                .substring(_binaryPrefix.length - 1));
       }
     } else {
       if (messageData.length >= argumentsOffset + 1) {
@@ -278,7 +279,8 @@ class Serializer extends AbstractSerializer {
         _convertListEntriesBinaryJsonStringToUint8List(element.value);
       }
       if (element.value is String && element.value.startsWith(_binaryPrefix)) {
-        payload[element.key] = _convertStringToUint8List((element.value as String).substring(_binaryPrefix.length - 1));
+        payload[element.key] = _convertStringToUint8List(
+            (element.value as String).substring(_binaryPrefix.length - 1));
       }
     }
   }
@@ -292,7 +294,8 @@ class Serializer extends AbstractSerializer {
         _convertListEntriesBinaryJsonStringToUint8List(payload[i]);
       }
       if (payload[i] is String && payload[i].startsWith(_binaryPrefix)) {
-        payload[i] = _convertStringToUint8List((payload[i] as String).substring(_binaryPrefix.length - 1));
+        payload[i] = _convertStringToUint8List(
+            (payload[i] as String).substring(_binaryPrefix.length - 1));
       }
     }
   }

@@ -90,20 +90,23 @@ class Client {
 
   /// if listened to this stream you will be noticed about reconnect tries. The passed
   /// integer will be the current retry counted down from where you started in the configured
-  /// [reconnectCount] passed to the [connect] method. Be aware a zero is passed just
+  /// [ClientConnectOptions.reconnectCount] passed to the [connect] method. Be aware a zero is passed just
   /// before the [connect] streams [onError] will raise the abort message. So 0 means
   /// that the reconnect failed.
   Stream<ClientConnectOptions> get onNextTryToReconnect =>
       _connectStreamController.stream;
 
   /// Calling this method will start the authentication process and result into
-  /// a [Session] object on success. If a [pingInterval] is given and the underlying transport
-  /// supports sending of ping messages. the given duration is used by the transport
-  /// to send ping messages every [pingInterval]. [SocketTransport] and [WebSocketTransport] not
-  /// within the browser support ping messages. The browser API does not allow to control
-  /// ping messages. If [reconnectCount] and the [reconnectTime] is set
-  /// the client will try to reestablish the session. Setting [reconnectCount] to -1 will infinite
-  /// times reconnect the client or until the stack overflows
+  /// a [Session] object on success. If a [ClientConnectOptions.pingInterval] is
+  /// given and the underlying transport supports sending of ping messages. the
+  /// given duration is used by the transport to send ping messages every
+  /// [ClientConnectOptions.pingInterval]. [SocketTransport] and
+  /// [WebSocketTransport] not within the browser support ping messages. The
+  /// browser API does not allow to control ping messages. If
+  /// [ClientConnectOptions.reconnectCount] and the
+  /// [ClientConnectOptions.reconnectTime] is set the client will try to
+  /// reestablish the session. Setting [ClientConnectOptions.reconnectCount] to
+  /// -1 will infinite times reconnect the client or until the stack overflows
   Stream<Session> connect({ClientConnectOptions? options}) {
     options ??= ClientConnectOptions();
 

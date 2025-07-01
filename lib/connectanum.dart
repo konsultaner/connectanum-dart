@@ -1,4 +1,4 @@
-library connectanum;
+library;
 
 export 'src/client.dart';
 export 'src/message/authenticate.dart';

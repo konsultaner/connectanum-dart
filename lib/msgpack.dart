@@ -1,3 +1,3 @@
-library msgpack;
+library;
 
 export 'src/serializer/msgpack/serializer.dart';

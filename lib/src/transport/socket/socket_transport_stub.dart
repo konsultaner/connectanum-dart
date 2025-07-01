@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import '../../serializer/abstract_serializer.dart';
 import '../../message/abstract_message.dart';
 import '../../transport/socket/socket_helper.dart';
 import '../abstract_transport.dart';
@@ -17,8 +18,8 @@ class SocketTransport extends AbstractTransport {
   /// with the router and may lead into a lower value that [messageLengthExponent] if
   /// the router only supports shorter messages. The message length is calculated by
   /// 2^[messageLengthExponent]
-  SocketTransport(
-      host, port, serializer, serializerType,
+  SocketTransport(String host, int port, AbstractSerializer serializer,
+      String serializerType,
       {ssl = false,
       allowInsecureCertificates = false,
       messageLengthExponent = SocketHelper.maxMessageLengthExponent});

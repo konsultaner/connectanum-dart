@@ -460,7 +460,7 @@ class WebSocketTestSuite {
     openTransport();
   }
 
-  openServer() async {
+  Future<void> openServer() async {
     server = await HttpServer.bind('localhost', port);
 
     serverListenHandler(HttpRequest req) async {
@@ -481,7 +481,7 @@ class WebSocketTestSuite {
     server.listen(serverListenHandler);
   }
 
-  openTransport() async {
+  Future<void> openTransport() async {
     final transport =
         WebSocketTransport.withJsonSerializer('ws://localhost:$port/wamp');
     client = Client(realm: 'com.connectanum', transport: transport);

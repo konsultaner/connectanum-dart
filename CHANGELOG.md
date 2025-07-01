@@ -1,3 +1,9 @@
+### 2.2.5
+
+- fixed json binary payload serialization and deserialization according to https://wamp-proto.org/wamp_latest_ietf.html#name-binary-support-in-json
+- updated dependencies to latest versions
+- fix some static analysis issues
+
 ### 2.2.4
 
 - added `LocalTransport` to make unit testing easier in flutter.
@@ -145,7 +151,7 @@
 
 ### 1.0.7
 
-- make it possible to allow self signed certificates with socket transport
+- make it possible to allow self-signed certificates with socket transport
 - update pointy castle dependency to latest version 
 
 ### 1.0.6
@@ -187,7 +193,7 @@
 ### 1.0.0-beta.1
 
 - fixed on connection lost and on disconnect events
-- fixed good bye message handling in serializer 
+- fixed goodbye message handling in serializer 
 
 ### 1.0.0-dev.10
 

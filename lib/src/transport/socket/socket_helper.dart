@@ -73,7 +73,7 @@ class SocketHelper {
 
   /// Get a ping message without a body. If the [isUpgradedProtocol]
   /// is true the header will have a size of 5 bytes otherwise 4.
-  static List<int> getPing(isUpgradedProtocol) {
+  static List<int> getPing(bool isUpgradedProtocol) {
     return buildMessageHeader(messagePing, 0, isUpgradedProtocol);
   }
 
