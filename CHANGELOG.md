@@ -1,3 +1,8 @@
+### 2.2.6
+
+ - fixed abort reason to match a value of the listed `_abortReasons` in the client for local transport
+ - reduce `meta` package version meet the flutter stable channel version
+
 ### 2.2.5
 
 - fixed json binary payload serialization and deserialization according to https://wamp-proto.org/wamp_latest_ietf.html#name-binary-support-in-json

@@ -171,7 +171,7 @@ class LocalTransport extends AbstractTransport {
             )));
       } else {
         _receiveController.add(
-            Abort("Wrong password", message: "Authentication process failed!"));
+            Abort(Error.authorizationFailed, message: "Authentication process failed!"));
       }
     }
     _sentMessagesController.add(message);
