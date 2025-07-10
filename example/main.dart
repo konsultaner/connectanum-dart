@@ -38,13 +38,13 @@ void main() async {
     final registered = await session1.register('demo.get.version');
     registered
         .onInvoke((invocation) => invocation.respondWith(arguments: ['1.1.0']));
-    // subscribe to a topic that my be published by other clients
+    // subscribe to a topic that may be published by other clients
     final subscription = await session1.subscribe('demo.push');
     subscription.eventStream!.listen((event) => print(event.arguments![0]));
     await subscription.onRevoke.then((reason) =>
         print('The server has killed my subscription due to: $reason'));
   } on Abort catch (abort) {
-    // if the serve does not allow this client to receive a session
+    // if the server does not allow this client to receive a session
     // the server will cancel the initializing process with an abort
     print(abort.message!.message);
   }
