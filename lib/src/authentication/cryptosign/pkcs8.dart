@@ -14,7 +14,7 @@ class Pkcs8 {
   ///       algorithm               OBJECT IDENTIFIER (1.3.101.112),
   ///       parameters              (ABSENT oder NULL)
   ///   },
-  ///   privateKey                OCTET STRING  -- th eseed
+  ///   privateKey                OCTET STRING  -- the seed
   /// }
   static String fromEd25519Seed(Uint8List seed) {
     if (seed.length != 32) {
@@ -67,7 +67,7 @@ class Pkcs8 {
   ///       algorithm               OBJECT IDENTIFIER (1.3.101.112),
   ///       parameters              (ABSENT oder NULL)
   ///   },
-  ///   privateKey                OCTET STRING  -- th eseed
+  ///   privateKey                OCTET STRING  -- the seed
   /// }
   static Uint8List loadPrivateKeyFromPKCS8Ed25519(String pem) {
     const header = '-----BEGIN PRIVATE KEY-----';
