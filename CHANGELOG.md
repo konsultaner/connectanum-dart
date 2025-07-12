@@ -1,3 +1,8 @@
+### 2.2.7
+
+- added cross-platform internet connectivity utilities
+- allow waiting for connectivity before reconnect
+
 ### 2.2.6
 
  - fixed abort reason to match a value of the listed `_abortReasons` in the client for local transport

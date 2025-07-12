@@ -5,6 +5,7 @@ import 'package:logging/logging.dart';
 
 import '../src/message/abort.dart';
 import '../src/message/error.dart';
+import '../internet.dart';
 
 import 'authentication/abstract_authentication.dart';
 import 'transport/abstract_transport.dart';
@@ -156,6 +157,20 @@ class Client {
 
     // Check in case the client has been closed while we were waiting;
     if (_state == _ClientState.done) return;
+
+    if (options.waitForInternetConnectivity) {
+      final connected = await waitForInternetConnection(
+        interval: options.internetCheckInterval,
+        maxTries: options.maxConnectivityChecks,
+        abortCheck: () => _state == _ClientState.done,
+        lookupAddress: options.internetCheckAddress,
+        checkInternet: options.checkInternet,
+      );
+      if (!connected) {
+        return await _onNoReconnectsLeft('No internet connection');
+      }
+    }
+
     return _connectStreamController.add(options);
   }
 
@@ -252,11 +267,21 @@ class ClientConnectOptions {
   int reconnectCount;
   Duration? reconnectTime;
   Duration? pingInterval;
+  bool waitForInternetConnectivity;
+  Duration internetCheckInterval;
+  int maxConnectivityChecks;
+  String internetCheckAddress;
+  Future<bool> Function({Duration timeout, String lookupAddress}) checkInternet;
 
   ClientConnectOptions({
     this.reconnectCount = 3,
     this.reconnectTime,
     this.pingInterval,
+    this.waitForInternetConnectivity = true,
+    this.internetCheckInterval = const Duration(seconds: 5),
+    this.maxConnectivityChecks = -1,
+    this.internetCheckAddress = 'example.com',
+    this.checkInternet = hasInternet,
   });
 
   ClientConnectOptions minusReconnectRetry() {

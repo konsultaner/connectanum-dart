@@ -114,6 +114,10 @@ If your transport disconnects the session will invalidate. If reconnect is confi
 will try to authenticate an revalidate the session again. All subscriptions and registrations will
 be recovered if possible.
 
+The client can optionally wait for internet connectivity before attempting to reconnect. Use the
+`ClientConnectOptions` to customize the interval, maximum retries or the host that is used for the
+connectivity check.
+
 ```dart
 import 'package:connectanum/connectanum.dart';
 import 'package:connectanum/json.dart';
@@ -158,3 +162,18 @@ await for (final result in session.call("my.procedure")) {
   // do something with the result
 }
 ```
+
+## Running tests
+
+The unit tests require a Chrome executable. Install Chrome or Chromium and set
+the `CHROME_EXECUTABLE` environment variable to its path. When executing tests as
+`root` or inside a container, disable sandboxing via a wrapper script:
+
+```bash
+#!/bin/bash
+google-chrome --no-sandbox "$@"
+```
+
+Set `CHROME_EXECUTABLE` to the script and run `dart test`.
+
+

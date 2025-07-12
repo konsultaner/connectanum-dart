@@ -33,3 +33,4 @@ export 'src/transport/websocket/websocket_transport_none.dart'
     if (dart.library.js_interop) 'src/transport/websocket/websocket_transport_web.dart'; // package:web/web.dart implementation
 export 'src/transport/socket/socket_transport_stub.dart'
     if (dart.library.io) 'src/transport/socket/socket_transport.dart';
+export 'internet.dart';
