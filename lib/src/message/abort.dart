@@ -1,7 +1,7 @@
 import 'message_types.dart';
 import 'abstract_message.dart';
 
-/// The WAMP Abort massage
+/// The WAMP Abort message.
 class Abort extends AbstractMessage {
   Message? message;
   String reason;

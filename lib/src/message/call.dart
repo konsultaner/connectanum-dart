@@ -47,6 +47,7 @@ class CallOptions extends PPTOptions {
   }
 
   @override
+  /// Validate that all option values are within allowed ranges.
   bool verify() {
     if (timeout! < 0) {
       throw RangeError.value(timeout!, 'timeoutError', 'timeout must be >= 0');
