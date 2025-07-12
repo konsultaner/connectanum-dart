@@ -2,10 +2,15 @@ import 'abstract_ppt_options.dart';
 import 'message_types.dart';
 import 'abstract_message_with_payload.dart';
 
+/// Reply from the callee with the result of an invocation.
 class Yield extends AbstractMessageWithPayload {
+  /// The invocation request this yield answers to.
   int invocationRequestId;
+
+  /// Additional return options.
   YieldOptions? options;
 
+  /// Create a [Yield] message with an optional result payload.
   Yield(this.invocationRequestId,
       {this.options,
       List<dynamic>? arguments,
@@ -16,9 +21,12 @@ class Yield extends AbstractMessageWithPayload {
   }
 }
 
+/// Options influencing how invocation results are transmitted.
 class YieldOptions extends PPTOptions {
+  /// Whether more results will follow.
   bool progress = false;
 
+  /// Create a set of yield options.
   YieldOptions(
       {bool? progress,
       String? pptScheme,
@@ -33,6 +41,7 @@ class YieldOptions extends PPTOptions {
   }
 
   @override
+  /// Validate the PPT options associated with this yield message.
   bool verify() {
     return verifyPPT();
   }

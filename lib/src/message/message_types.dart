@@ -1,3 +1,4 @@
+/// Numeric codes used for the various WAMP messages.
 class MessageTypes {
   static final int codeHello = 1;
   static final int codeWelcome = 2;
