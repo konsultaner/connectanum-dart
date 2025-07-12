@@ -9,7 +9,12 @@ After running the script, run:
 ```
 dart pub get
 dart analyze
-dart test
 ```
 
-The CI pipeline already sets up Dart on GitHub Actions, so the script should **not** be called from CI workflows.
+For running tests locally, Chrome needs to be installed.
+
+- Set the environment variable `CHROME_EXECUTABLE` to the Chrome binary path.
+- If running as root or in containers, you may need to pass `--no-sandbox` to Chrome. One approach is to create a wrapper script exposing this flag and set `CHROME_EXECUTABLE` to that script.
+- Execute `dart test` to run all unit tests.
+
+The CI pipeline already sets up Dart on GitHub Actions, so the scripts should **not** be called from CI workflows.
