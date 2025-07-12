@@ -11,7 +11,6 @@ After running the script, run:
 
 ```
 dart pub get
-dart analyze
 ```
 
 ## Before creating pull requests

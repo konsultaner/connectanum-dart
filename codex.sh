@@ -42,9 +42,9 @@ echo "✅  Dart setup completed for $(basename "$PROJECT_DIR")"
 
 # 5. build temporary chromium script
 cat <<'EOF' >/tmp/chrome-wrapper.sh
-> #!/bin/sh
-> exec google-chrome --no-sandbox "$@"
-> EOF
+#!/bin/sh
+exec google-chrome --no-sandbox "$@"
+EOF
 
 # 6. set the script as executable for chromium
 chmod +x /tmp/chrome-wrapper.sh
