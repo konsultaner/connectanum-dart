@@ -39,3 +39,13 @@ if grep -R --include='*.dart' -e 'part .*\.g\.dart' lib >/dev/null 2>&1; then
 fi
 
 echo "✅  Dart setup completed for $(basename "$PROJECT_DIR")"
+
+# 5. build temporary chromium script
+cat <<'EOF' >/tmp/chrome-wrapper.sh
+> #!/bin/sh
+> exec google-chrome --no-sandbox "$@"
+> EOF
+
+# 6. set the script as executable for chromium
+chmod +x /tmp/chrome-wrapper.sh
+export CHROME_EXECUTABLE=/tmp/chrome-wrapper.sh
