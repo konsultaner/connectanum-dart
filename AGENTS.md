@@ -18,3 +18,8 @@ For running tests locally, Chrome needs to be installed.
 - Execute `dart test` to run all unit tests.
 
 The CI pipeline already sets up Dart on GitHub Actions, so the scripts should **not** be called from CI workflows.
+
+All codes should be tested on chromium and dart-vm. Only code that has a full coverage my get added to potential PRs.
+
+Since this is a pub.dev package, all code and commits must apply the publishing needs such as formatting change log 
+entries and all other possible criteria.
