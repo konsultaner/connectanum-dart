@@ -10,6 +10,9 @@ import 'authentication/abstract_authentication.dart';
 import 'transport/abstract_transport.dart';
 import 'message/uri_pattern.dart';
 import 'protocol/session.dart';
+import 'network/network_connectivity_stub.dart'
+    if (dart.library.io) 'network/network_connectivity_io.dart'
+    if (dart.library.js_interop) 'network/network_connectivity_web.dart' as connectivity;
 
 enum _ClientState {
   /// Client is idle and not connected
@@ -146,6 +149,24 @@ class Client {
 
     _changeState(_ClientState.waiting);
 
+    // Optionally wait for network to be online before attempting reconnect
+    if (options.waitForNetwork) {
+      try {
+        final online = await connectivity.NetworkConnectivity.instance
+            .isOnline(testAddress: options.connectivityTestAddress);
+        if (!online) {
+          _logger.info('Network offline detected. Waiting until online...');
+          await connectivity.NetworkConnectivity.instance.waitUntilOnline(
+            pollInterval: options.networkCheckInterval,
+            timeout: options.networkWaitTimeout,
+            testAddress: options.connectivityTestAddress,
+          );
+        }
+      } catch (e) {
+        _logger.fine('Connectivity check failed: $e');
+      }
+    }
+
     if (duration != null) {
       _logger.info('Waiting for (overridden) $duration before reconnecting');
       await Future.delayed(duration);
@@ -253,10 +274,22 @@ class ClientConnectOptions {
   Duration? reconnectTime;
   Duration? pingInterval;
 
+  // New options for network-aware reconnect
+  bool waitForNetwork;
+  Duration networkCheckInterval;
+  Duration? networkWaitTimeout;
+  /// Host:port to probe when checking connectivity on IO (e.g., 'example.com:80').
+  /// If null, a reasonable default will be used by the platform implementation.
+  String? connectivityTestAddress;
+
   ClientConnectOptions({
     this.reconnectCount = 3,
     this.reconnectTime,
     this.pingInterval,
+    this.waitForNetwork = false,
+    this.networkCheckInterval = const Duration(seconds: 2),
+    this.networkWaitTimeout,
+    this.connectivityTestAddress,
   });
 
   ClientConnectOptions minusReconnectRetry() {

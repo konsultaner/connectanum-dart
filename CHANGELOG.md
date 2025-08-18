@@ -1,3 +1,17 @@
+## 2.3.0
+- Feature: Optional network-aware reconnect across all platforms.
+  - Added cross-platform connectivity detection service:
+    - Web: uses browser online/offline events via `package:web` and `Navigator.onLine`.
+    - IO: probes TCP connectivity (host:port) with periodic polling and timeout.
+    - Stub: defaults to online for unsupported platforms.
+  - New ClientConnectOptions:
+    - waitForNetwork (default: false) to enable waiting for connectivity before reconnect.
+    - networkCheckInterval (default: 2s) polling interval (IO).
+    - networkWaitTimeout (optional) max time to wait for network to return.
+    - connectivityTestAddress (optional, e.g. "example.com:80") probe target on IO.
+  - Client will, when enabled, wait until the network is back before applying the configured reconnect delay.
+- Bump SDK constraints unchanged; package version bumped to 2.3.0.
+
 ### 2.2.6
 
  - fixed abort reason to match a value of the listed `_abortReasons` in the client for local transport
