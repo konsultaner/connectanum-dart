@@ -29,6 +29,43 @@ class NetworkConnectivity {
     }
   }
 
+  /// Returns a stream of online state. Emits immediately, then polls at [interval].
+  Stream<bool> watch({
+    Duration interval = const Duration(seconds: 2),
+    String? testAddress,
+  }) {
+    final controller = StreamController<bool>.broadcast();
+    Timer? timer;
+    bool closed = false;
+
+    Future<void> emit() async {
+      try {
+        final online = await isOnline(testAddress: testAddress);
+        if (!controller.isClosed) controller.add(online);
+      } catch (_) {
+        if (!controller.isClosed) controller.add(false);
+      }
+    }
+
+    controller.onListen = () {
+      // immediate emission
+      emit();
+      // periodic polling
+      timer = Timer.periodic(interval, (_) => emit());
+    };
+    controller.onCancel = () {
+      if (controller.hasListener && !closed) {
+        // another listener still active; keep timer
+        return;
+      }
+      timer?.cancel();
+      timer = null;
+      closed = true;
+    };
+
+    return controller.stream;
+  }
+
   Future<void> waitUntilOnline({
     Duration pollInterval = const Duration(seconds: 2),
     Duration? timeout,

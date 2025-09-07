@@ -1,4 +1,6 @@
 @TestOn('chrome')
+library;
+
 import 'dart:async';
 
 import 'package:test/test.dart';

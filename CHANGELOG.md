@@ -1,3 +1,13 @@
+## 2.3.1
+- Feature: Client exposes onOnlineState stream (broadcast Stream<bool>) to observe connectivity while waiting to reconnect.
+  - Emits immediately and then periodically at ClientConnectOptions.networkCheckInterval during waiting phases.
+  - Works across platforms leveraging the previously added NetworkConnectivity service.
+  - Properly cleaned up on disconnect or when leaving waiting state.
+- Refactor: Client now subscribes to NetworkConnectivity.watch (per-platform) instead of maintaining its own polling Timer; simplifies behavior and relies on connectivity internals like waitUntilOnline.
+- Tests: Added VM tests validating periodic emissions and online transition.
+- Tests: Added Web test for onOnlineState using browser online/offline events.
+- Docs: README includes example usage of network-aware reconnect, onOnlineState, and IO guidance for connectivityTestAddress.
+
 ## 2.3.0
 - Feature: Optional network-aware reconnect across all platforms.
   - Added cross-platform connectivity detection service:
