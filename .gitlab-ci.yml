@@ -1,5 +1,4 @@
 variables:
-  HOME: "$CI_PROJECT_DIR"
   PUB_CACHE: "$CI_PROJECT_DIR/.pub-cache"
 
 cache:
@@ -10,11 +9,11 @@ cache:
 
 default:
   image:
-    name: konsultaner/flutter-ci-base:android-35.0.0-flutter-3.35.2
+    name: konsultaner/flutter-ci-base:android-35.0.0-flutter-3.35.3
     entrypoint: [""]
   before_script:
     - git config --global --add safe.directory /flutter || true
-    - mkdir -p "$HOME" "$PUB_CACHE"
+    - mkdir -p "$PUB_CACHE"
     - export PATH="$PUB_CACHE/bin:$PATH"
     - dart --version
 
@@ -53,3 +52,12 @@ test:vm:
     paths:
       - coverage/
   coverage: '/\s*lines\.*:\s*([\d\.]+%)/'
+
+test:chrome:
+  stage: test
+  needs: ["analyze"]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  script:
+    - dart pub get
+    - dart run test -p chrome --timeout=5m --concurrency=1
