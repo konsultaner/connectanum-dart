@@ -1,0 +1,2 @@
+[alias]
+llvm-cov = "llvm-cov --workspace --fail-under-lines 100"

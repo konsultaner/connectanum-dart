@@ -27,6 +27,8 @@ runtime.
    cd native/transport
    cargo test
    cargo build -p ct_ffi --release
+   # coverage (requires cargo-llvm-cov)
+   cargo llvm-cov
    ```
 
 For additional package level documentation see

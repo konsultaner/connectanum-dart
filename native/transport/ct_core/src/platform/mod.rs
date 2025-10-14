@@ -8,7 +8,10 @@ pub struct UnsupportedPlatform;
 
 impl fmt::Display for UnsupportedPlatform {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "native transport runtime not implemented for this platform")
+        write!(
+            f,
+            "native transport runtime not implemented for this platform"
+        )
     }
 }
 

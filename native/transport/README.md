@@ -14,6 +14,8 @@ platforms.
 ```bash
 cargo test
 cargo build -p ct_ffi --release
+# Coverage (requires cargo-llvm-cov installed in PATH)
+cargo llvm-cov
 ```
 
 The `ct_core::Runtime::new()` constructor returns an `UnsupportedPlatform`
