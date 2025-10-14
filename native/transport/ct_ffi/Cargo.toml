@@ -1,0 +1,10 @@
+[package]
+name = "ct_ffi"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ct_core = { path = "../ct_core" }
+
+[lib]
+crate-type = ["cdylib", "rlib"]

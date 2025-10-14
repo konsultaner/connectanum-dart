@@ -30,12 +30,24 @@ dart --version
 
 # 3. Project dependencies
 PROJECT_DIR="${PROJECT_DIR:-$(pwd)}"
-cd "$PROJECT_DIR"
-dart pub get
+if [[ -f "$PROJECT_DIR/pubspec.yaml" ]]; then
+  cd "$PROJECT_DIR"
+  dart pub get
 
-# 4. build_runner if generated files are required
-if grep -R --include='*.dart' -e 'part .*\.g\.dart' lib >/dev/null 2>&1; then
-  dart run build_runner build --delete-conflicting-outputs --build-filter="lib/**"
+  # 4. build_runner if generated files are required
+  if grep -R --include='*.dart' -e 'part .*\\.g\\.dart' lib >/dev/null 2>&1; then
+    dart run build_runner build --delete-conflicting-outputs --build-filter="lib/**"
+  fi
+elif [[ -f "$PROJECT_DIR/packages/connectanum_dart/pubspec.yaml" ]]; then
+  cd "$PROJECT_DIR/packages/connectanum_dart"
+  dart pub get
+
+  if grep -R --include='*.dart' -e 'part .*\\.g\\.dart' lib >/dev/null 2>&1; then
+    dart run build_runner build --delete-conflicting-outputs --build-filter="lib/**"
+  fi
+else
+  echo "No pubspec.yaml found in $PROJECT_DIR or its connectanum_dart package" >&2
+  exit 1
 fi
 
 echo "✅  Dart setup completed for $(basename "$PROJECT_DIR")"

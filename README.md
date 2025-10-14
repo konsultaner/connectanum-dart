@@ -1,160 +1,33 @@
-# connectanum-dart
+# connectanum-dart Monorepo
 
-[![pub](https://img.shields.io/pub/v/connectanum.svg)](https://pub.dev/packages/connectanum)
-[![travis](https://api.travis-ci.com/konsultaner/connectanum-dart.svg)](https://travis-ci.com/github/konsultaner/connectanum-dart)
-[![codecov](https://codecov.io/gh/konsultaner/connectanum-dart/branch/master/graph/badge.svg)](https://codecov.io/gh/konsultaner/connectanum-dart)
+This repository hosts the next generation of the connectanum WAMP stack. It is
+split into a Dart workspace that keeps the client and upcoming router code
+side-by-side, and a Rust workspace that will provide the native transport
+runtime.
 
-This is a WAMP client implementation for the [dart language](https://dart.dev/) and [flutter](https://flutter.dev/) projects.
-The project aims to provide a simple and extensible structure that is easy to use.
-With this project I want return something to the great WAMP-Protocol community.
+- `packages/connectanum_dart` – Dart package containing the existing WAMP
+  client and the new router modules (work in progress).
+- `native/transport` – Rust workspace for the native networking runtime
+  (currently a skeleton).
 
-WAMP is trademark of [Crossbar.io Technologies GmbH](https://crossbario.com/).
+## Getting Started
 
-Find install instructions on [pub.dev](https://pub.dev/packages/connectanum).
+1. Install the Dart SDK locally (or run `./codex.sh`).
+2. Fetch dependencies and run tests from the Dart package:
 
-## Other Projects
+   ```bash
+   cd packages/connectanum_dart
+   dart pub get
+   dart test
+   ```
 
-- [Connectanum java router, web and WebSocket server](https://connectanum.com), MVC-like framework, based on WAMP-Protocol
-- [jsonOdm](https://github.com/konsultaner/jsonOdm), a JavaScript mongodb like in memory data(base) handler.
+3. Build or test the native workspace (Linux support is implemented first):
 
-## TODOs
+   ```bash
+   cd native/transport
+   cargo test
+   cargo build -p ct_ffi --release
+   ```
 
-- Multithreading for callee invocations
-  - callee interrupt thread on incoming cancellations
-- support auto switch auth methods for methods that need to define fields in the hello. At the moment this is only wamp scram.
-- get the auth id that called a method
-
-## Known Issues
-
-If multiple authentication methods are used and wamp scram is one of it, wamp scram
-needs to be the first one. If not wamp scram will not modify the hello as needed and will
-eventually fail.
-
-## Supported WAMP features
-
-### Authentication
-
-- ☑ [WAMP-CRA](https://wamp-proto.org/_static/gen/wamp_latest.html#wampcra)
-- ☑ [TICKET](https://wamp-proto.org/_static/gen/wamp_latest.html#ticketauth)
-- ☑ [CRYPTOSIGN](https://github.com/wamp-proto/wamp-proto/issues/230)
-  - ☑ Load putty files
-    - ☑ MAC validation
-    - ☑ password support
-  - ☑ Load open ssh files
-    - ☐ file validation
-    - ☑ password support
-  - ☑ Create pkcs8 file from Seed
-  - ☑ Load pkcs8 files
-    - ☐ password support
-  - ☐ Load PGP files
-    - ☐ password support
-  - ☑ Load base64 encoded ed25519 private key
-  - ☑ Load hex encoded ed25519 private key
-- ☑ [WAMP-SCRAM](https://wamp-proto.org/_static/gen/wamp_latest.html#wamp-scram)
-  - ☑ Argon2
-  - ☑ PBKDF2
-  - ☑ reuse client key to save computation time
-
-### Advanced RPC features
-
-- ☑ Progressive Call Results
-- ☑ Progressive Calls
-- ☐ Call Timeouts
-- ☑ Call Canceling
-- ☑ Caller Identification
-- ☐ Call Trust Levels
-- ☑ Shared Registration
-- ☐ Sharded Registration
-- ☑ Payload PassThru Mode
-
-### Advanced PUB/SUB features
-
-- ☑ Subscriber Black- and Whitelisting
-- ☑ Publisher Exclusion
-- ☑ Publisher Identification
-- ☐ Publication Trust Levels
-- ☑ Pattern-based Subscriptions
-- ☐ Sharded Subscriptions
-- ☑ Subscription Revocation
-- ☑ Event Retention
-- ☑ Payload PassThru Mode
-
-### Transport
-
-- ☑ WebSockets
-- ☑ RawSockets
-- ☑ RawSockets with large data support (connectanum router only)
-- ☑ LocalTransport for unit testing
-- ☐ E2E encryption
-
-### Transport Encoding
-
-- ☑ JSON
-- ☑ msgpack
-- ☑ CBOR
-- ☐ UBJSON
-- ☐ FlatBuffer
-
-## Stream model
-
-The transport contains an incoming stream that is usually a single subscribe stream. A session will internally
-open a new broadcast stream as soon as the authentication process is successful. The transport stream subscription
-passes all incoming messages to the broadcast stream. If the transport stream is done, the broadcast stream will close
-as well. The broadcast stream is used to handle all session methods. The user will never touch the transport stream
-directly.
-
-## Start the client
-
-To start a client you need to choose a transport module and connect it to the desired endpoint.
-When the connection has been established you can start to negotiate a client session by calling
-the `client.connect()` method from the client instance. On success the client will return a
-session object.
-
-If your transport disconnects the session will invalidate. If reconnect is configured, the session
-will try to authenticate an revalidate the session again. All subscriptions and registrations will
-be recovered if possible.
-
-```dart
-import 'package:connectanum/connectanum.dart';
-import 'package:connectanum/json.dart';
-
-final client = Client(
-  realm: "my.realm",
-  transport: WebSocketTransport(
-    "ws://localhost:8080/wamp",
-    new Serializer(),
-    WebSocketSerialization.serializationJson
-  )
-);
-final session = await client.connect().first;
-```
-
-## RPC
-
-to work with RPCs you need to have an established session.
-
-```dart
-import 'package:connectanum/connectanum.dart';
-import 'package:connectanum/json.dart';
-
-final client = Client(
-  realm: "my.realm",
-  transport: WebSocketTransport(
-    "ws://localhost:8080/wamp",
-    new Serializer(),
-    WebSocketSerialization.serializationJson
-  )
-);
-final session = await client.connect().first;
-
-// Register a procedure
-final registered = await session.register("my.procedure");
-registered.onInvoke((invocation) {
-  // to something with the invocation
-})
-
-// Call a procedure
-await for (final result in session.call("my.procedure")) {
-  // do something with the result
-}
-```
+For additional package level documentation see
+`packages/connectanum_dart/README.md`.

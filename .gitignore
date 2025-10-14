@@ -3,5 +3,8 @@
 .vscode
 connectanum-dart.iml
 .packages
+.pub-cache
 pubspec.lock
 coverage
+/native/transport/target/
+Cargo.lock

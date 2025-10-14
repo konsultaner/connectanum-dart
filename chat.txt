@@ -1,0 +1,1606 @@
+Gespräch melden
+Du:
+Ich habe eine sehr komplexe frage an dich. Bitte denke zunächst genau drübernach, mache dir einen plan und beende deine ausführungen erst, wenn du wirklich alles zusammen hast. Versuche nicht zu halluzinieren, sonder sag, wenn du was nicht weißt und wenn du mehr informationen von mir haben möchtest gib bescheid oder stelle zwischenfragen.
+
+Ich habe das paket connectanum-dart gebaut und möchte es gern um einen router erweitern. Hierzu denke ich, wird es sicher nicht möglich sein auf das standard io packet von dart zu setzen, da dort zero-copy mechanismen nicht funktionieren. Also direct memory allocation im netzwerkstack. Die idee ist es jetzt für jede plattform also zunächst linux, android und ios, später windows und web (ohne direct memory oder wasm?) einen native tcp stack zur verfügung zu stellen und als erstes raw socket transport zu unterstützen. Wie genau würde die architektur aussehen. was könnte man nutzen. vielleicht am beispiel linux/android. was wäre hier eine geeignete basis um das umzusetzen. also welches framework oder micro tcp framework würde da gehen. gibt es vielleicht schon jemand der in dart einen high performance tcp stack umgesetzt hat? arbeite ich da auch mit channels oder gibt es dafür eine art ffi interface oder so was mir den direct buffer zur verfügung stellt?
+ChatGPT:
+Anfrage an GPT-5 Pro
+Reasoned for 8m 32s
+
+Super Frage – und ja, das Thema ist komplex. Ich gebe dir zuerst einen Realitäts‑Check zu Zero‑Copy & Dart, dann eine konkrete Architektur (mit Bausteinen, Schnittstellen und Speicher-/Threading‑Strategie), danach plattform­spezifische Wege für Linux/Android und iOS (inkl. was heute tatsächlich geht), schließlich Windows & Web sowie ein möglicher Minimal‑Pfad für einen lauffähigen Prototyp. Zum Schluss beantworte ich direkt deine Detailfragen (TCP‑Stack in Dart? FFI? Channels?).
+
+1) Kurz einordnen: WAMP, connectanum & “RawSocket”
+
+connectanum-dart ist ein WAMP‑Client für Dart/Flutter. Du willst nun einen Router (also WAMP‑Server) bauen und als Transport zunächst WAMP‑over‑RawSocket unterstützen (Längen‑prefixte binäre Frames, z. B. CBOR/MessagePack), nicht WebSocket. Das passt zur Spezifikation: WAMP-over-RawSocket ist ein alternativer, binärer, length‑prefixed Transport ohne HTTP/WebSocket‑Overhead.
+Dart packages
++1
+
+Konsequenz: Du brauchst keinen IPPROTO_RAW o. ä. – “RawSocket” meint hier den WAMP‑RawSocket‑Transport über TCP, nicht “raw IP packets”.
+
+2) Realitäts‑Check zu Zero‑Copy in diesem Kontext
+
+Zwei Kopiergrenzen gibt es immer:
+
+Kernel ↔ Userspace: “echtes” Zero‑Copy Senden/Empfangen erfordert OS‑Features wie MSG_ZEROCOPY (Linux), sendfile/splice, AF_XDP oder Spezial‑APIs (RIO auf Windows). Empfangs‑Zero‑Copy ist viel seltener/präkerer als Sende‑Zero‑Copy.
+Kernel.org
++2
+LWN.net
++2
+
+Native ↔ Dart‑Heap: In Dart gelingt “Zero‑Copy‑ish” per ExternalTypedData/FFI‑Backed Buffers und TransferableTypedData zwischen Isolates (keine Kopie der Bytes beim Transfer). Tools wie flutter_rust_bridge wrappen Vec<u8> zu DartNativeExternalTypedData ohne Kopie.
+Docs.rs
++1
+
+Wichtige Einschränkungen (Android/iOS):
+
+Android: Google blockiert io_uring für Apps (seccomp‑Filter), und hat es z. T. in ChromeOS/Servern deaktiviert – d. h. “io_uring everywhere” ist als App nicht realistisch; Fallback: klassisches non‑blocking + epoll.
+SecLists
+
+iOS: Du nutzt reguläre TCP‑Sockets/Network.framework. “Zero‑Copy” innerhalb des User‑Stacks nutzt dispatch_data_t (immutables, segmentiertes Byte‑Objekt), aber der Kernel→Userspace‑Kopie entkommt man üblicherweise nicht.
+Apple Developer
++2
+Arch Manual Pages
++2
+
+3) Zielarchitektur (plattformübergreifend)
+3.1 Schichten
+
+Router‑Core (Dart, plattformneutral):
+
+WAMP‑Sessions, Realms, Broker/Dealer, AuthZ/AuthN, Routing‑Logik.
+
+Serialisierungen: JSON/MessagePack/CBOR (du nutzt bereits msgpack_dart/cbor).
+
+Schnittstelle: Transport‑Abstraktion (siehe unten).
+
+Transport‑Abstraktion (Dart‑Interface):
+
+abstract class Transport {
+  Stream<ReadSlice> receive();            // liefert Slices (ExternalTypedData)
+  Future<void> send(List<WriteSlice>);    // Scatter/Gather
+  Future<void> close([int? code]);
+  TransportCaps get caps;                 // {zerocopySend, batchSend, tlsOffload, ...}
+}
+class ReadSlice { final Uint8List view; final int off,len; /* no copy view */ }
+class WriteSlice { final Uint8List view; final int off,len; }
+
+
+Kontrakt: ReadSlice.view darf ExternalTypedData sein (FFI‑Backed Pointer), damit keine Kopie in den Dart‑Heap nötig ist.
+
+Backpressure: caps + per‑connection Wassertandsignale (z. B. “Bytes im Sendepuffer” → TIOCOUTQ/TCP_NOTSENT_LOWAT auf Linux).
+Arch Manual Pages
++2
+man7.org
++2
+
+Native I/O Adapter (plattform­spezifische Shared Libs via FFI)
+
+Linux/Android: C/C++ oder Rust‑Lib.
+
+iOS: Obj‑C/Swift‑Wrapper auf Network.framework + C‑ABI.
+
+Windows (später): C++/C über Winsock RIO für registrierte Buffers.
+Microsoft Learn
++1
+
+Datenpfad‑Prinzip: Native↔Dart nur Steuerung + Pointer/Views (ExternalTypedData). Kopieren vermeiden, Parser/Codec kann im Dart‑Core laufen (bei Bedarf später native).
+
+3.2 FFI‑Brücke (Dart ↔ Native)
+
+Dart → Native: dart:ffi Native/DynamicLibrary oder neue Native Assets (einfacheres Bundling).
+Flutter API Docs
++2
+GitHub
++2
+
+Native → Dart (Callbacks/Eventing): Dart_InitializeApiDL + Dart_NativeApi_PostCObject[_DL] mit kExternalTypedData (Zero‑Copy in den Dart‑Heap). flutter_rust_bridge macht genau das (ZeroCopyBuffer → ExternalTypedData).
+Code Browser
++2
+dart.googlesource.com
++2
+
+Zwischen Isolates: große Byteblöcke als TransferableTypedData verschicken (konstantzeit Transfer ohne Kopie).
+Flutter API Docs
+
+3.3 Speicher & Puffer
+
+Native Buffer Pools (Tx/Rx): page‑aligned, fix registriert (Linux: “registered buffers”/io_uring/sendmsg iovec).
+
+Slices als ExternalTypedData in Dart exposen (Pointer<Uint8>.asTypedList(length) → view auf native Speicher). Parser liest view ohne Kopie. (Zero‑Copy garantiert für Dart‑Seite; Kernel‑Kopie siehe Plattform).
+Docs.rs
+
+Backpressure: On Linux TIOCOUTQ/TCP_NOTSENT_LOWAT, auf iOS NWConnection‑Ready‑Handler, auf Windows RIO Completion Queues.
+Arch Manual Pages
++2
+man7.org
++2
+
+3.4 Concurrency‑Modell
+
+N Isolates (Reactor‑Pattern): 1 Accept‑Isolate, k I/O‑Isolates (jede betreut Shard von Verbindungen).
+
+Native‑Seite: eigener I/O‑Thread/Runtime (epoll/io_uring/kqueue/RIO).
+
+Übergabe von Bytes: ExternalTypedData vom Native‑Thread in den zuständigen Dart‑Isolate (kein Kopieren), intern weiterverarbeiten, ggf. TransferableTypedData zwischen Isolates.
+Flutter API Docs
+
+4) Plattformpfade im Detail
+4.1 Linux (Server, Desktop)
+
+a) “Sinnvolle Zero‑Copy‑ish” Basis ohne Root:
+
+Empfang: epoll + recvmmsg() in registrierte native Buffers (keine Kernel→User Zero‑Copy, aber minimiert Syscalls & Kopien); io_uring mit registered buffers ist besser, aber nur wenn erlaubt.
+
+Senden:
+
+Für große Payloads: MSG_ZEROCOPY (setzt SO_ZEROCOPY, Abschluss via Error Queue) → echte Copy‑Avoidance ab ~10 KB‑Writes. Fallback: sendmsg mit iovecs (Scatter/Gather).
+Kernel.org
+
+Alternativ sendfile/splice falls man Files streamt.
+man7.org
+
+b) High‑end Optionen (nur special cases):
+
+AF_XDP: Zero‑Copy Pfad direkt vom NIC in Userspace (umgeht TCP‑Stack; erfordert XDP/eBPF & passenden Treiber). Für einen WAMP‑Router, der TCP will, praktisch nicht geeignet.
+Linux Kernel Documentation
++1
+
+Empfehlung Linux: C/Rust + epoll + iovec + (optional) MSG_ZEROCOPY. io_uring ist super, aber nicht überall nutzbar; bringe es als Feature‑Probe.
+
+4.2 Android (App‑Kontext)
+
+io_uring ist für Apps blockiert (seccomp; SELinux limitiert weitere Pfade) → setze auf non‑blocking TCP + epoll (NDK) und die oben skizzierten Buffers.
+SecLists
+
+Sende‑Zero‑Copy (MSG_ZEROCOPY) ist Kernel‑Feature; in App‑Kontext i. d. R. nicht praktikabel (fehlende Komplettier‑Pfad‑Integration/Permissions je nach Gerät). → konservativ sendmsg/Batching.
+
+JNI/Channels vermeiden für große Blöcke (Kopien); FFI + ExternalTypedData bevorzugen.
+
+4.3 iOS
+
+setze auf Network.framework (NWListener/NWConnection), Bytes als dispatch_data_t (immutable) – das ist kopierarm im User‑Stack; der Kernel→User‑Copy bleibt.
+Apple Developer
++2
+Arch Manual Pages
++2
+
+FFI‑Brücke: schmaler C‑ABI‑Layer, der dispatch_data_apply nutzt und Slices als ExternalTypedData in Dart bereitstellt.
+
+Raw IP geht nicht für normale Apps; TCP okay. (Raw Sockets benötigen besondere Privilegien/Entitlements und sind praktisch nicht für App‑Store‑Apps gedacht.)
+Stack Overflow
+
+4.4 Windows (später)
+
+Winsock RIO (Registered I/O): registrierte Buffers, Completion Queues, hohe Message‑Raten und geringe Jitter. Ideal für einen performanten TCP‑Server.
+Microsoft Learn
++1
+
+4.5 Web (später)
+
+TCP geht nicht. Transport via WebSocket oder WebTransport/QUIC. Zero‑Copy ist hier Browser‑dominiert; du kannst BYOB‑Reader/Transferable ArrayBuffers nutzen, aber kein “direct NIC”. (Auf WebAssembly könntest du nur den Parser/Codec beschleunigen, nicht die Netzwerkschicht.)
+
+5) Konkrete Bausteine & Vorschlag für Linux/Android‑Start (Rust‑Variante)
+
+Warum Rust? Gutes Ökosystem für epoll/io_uring, solide FFI‑Story, kein GC – passt für Pufferpools & Slices.
+
+Native‑C‑ABI (Beispiel):
+
+// C-ABI, damit Dart FFI es direkt laden kann
+typedef void (*on_event_cb)(int conn_id, const uint8_t* ptr, size_t len, int flags);
+
+int  router_listen(const char* host, uint16_t port);          // returns listener_id
+int  router_poll(int timeout_ms);                              // drives epoll/io_uring
+int  router_accept(int listener_id);                           // returns conn_id
+ssize_t router_sendv(int conn_id, const iovec* vecs, int n);   // scatter/gather
+void router_set_callback(on_event_cb cb);                      // delivers ExternalTypedData
+int  router_close(int conn_id);
+
+
+Rust‑Innereien:
+
+Event‑Loop: epoll (stabil) – optional Feature‑Gate für tokio-uring/io_uring (Kernel ≥5.10). Beachte, dass tokio-uring nicht hyper‑aktiv gepflegt ist → nur als optionaler Pfad.
+Docs.rs
++1
+
+Rx‑Puffer: Vec<u8> aus Pool, page‑aligned; Füllen per recv/recvmmsg.
+
+Tx‑Pfad: sendmsg mit iovec‑Batches; optional SO_ZEROCOPY+MSG_ZEROCOPY für große Frames.
+Kernel.org
+
+Callback: on_event_cb(conn, ptr, len, flags) → Dart erstellt ExternalTypedData ohne Kopie (flutter_rust_bridge zeigt dieses Muster).
+Docs.rs
+
+Backpressure: zyklisch TIOCOUTQ/TCP_NOTSENT_LOWAT; kein weiteres Write, bis unter Schwellwert.
+Arch Manual Pages
++1
+
+Dart‑Seite (vereinfacht):
+
+final _lib = DynamicLibrary.open('libconnectanum_transport.so');
+
+typedef OnEventNative = Void Function(Int32, Pointer<Uint8>, IntPtr, Int32);
+typedef OnEventDart   = void Function(int, Pointer<Uint8>, int, int);
+
+late final _onEvent = Pointer.fromFunction<OnEventNative>(_handleEvent);
+
+void _handleEvent(int cid, Pointer<Uint8> p, int len, int flags) {
+  // Achtung: p zeigt auf native Speicher aus dem Pufferpool
+  final view = p.asTypedList(len); // ExternalTypedData-View, keine Kopie
+  _incomingController.add(ReadSlice(view, 0, len));
+}
+
+
+(Der Parser liest direkt auf der View, danach gibst du den puffer via Native‑API frei.)
+
+6) Gibt es schon „High‑Performance TCP Stack in Dart“?
+
+Einen TCP‑Stack in Dart (User‑Space) gibt es m. W. nicht – sinnvoll wäre das nur mit Rohpaket‑Zugriff (root/Entitlements) und lohnt sich für Mobile/Apps nicht.
+
+WAMP‑Router in Dart: Es gibt ein junges Projekt xconn-dart (Client und Router in Dart). Wenn du einen nativen Router bauen willst, lohnt ein Blick als Referenz/Kompatibilitätstests – aber es ist kein “native TCP‑Stack”, sondern Router‑Logik in Dart.
+GitHub
+
+7) FFI vs. Platform‑Channels vs. “Channels”
+
+Platform Channels (Method/EventChannel) serialisieren ByteData → in der Praxis Kopien & VM‑Codec‑Overhead; für große Bytepfade ungeeignet.
+
+FFI ist der richtige Weg:
+
+Eingehende Bytes als ExternalTypedData (keine Kopie nach Dart).
+
+Zwischen Isolates TransferableTypedData (konstantzeit).
+Flutter API Docs
+
+Für Packaging/Distribution: Native Assets Tooling.
+GitHub
++1
+
+8) Sicherheit, TLS & Observability
+
+TLS: Auf Linux/Android kannst du kTLS/sendfile‑ähnliche Pfade evaluieren, aber praktisch simpler: TLS im User‑Space (BoringSSL/Rustls) in der Native‑Lib (vor dem Dart‑Core) – Bytepfad bleibt native → Dart sieht bereits entschlüsselte Frames.
+
+Metriken: pro Connection bytes_rx/tx, tiocoutq, “zerocopy_hits”, latenz der Error‑Queue (bei MSG_ZEROCOPY), Codec‑Zeit.
+
+Load‑Sharding: Listener‑Sharding (SO_REUSEPORT) über mehrere Worker‑Prozesse/Isolates auf Linux.
+Medium
+
+9) Minimaler Umsetzungs‑Pfad (empfohlen)
+
+Dart‑Router‑Core (pure Dart): Sessions/Realms + Serialisierungen + WAMP‑RawSocket‑Framing. (Spez befolgen; length‑prefix, Initial‑Handshake, etc.).
+wamp-proto.org
+
+Linux Native‑Adapter (NDK für Android später recyceln):
+
+C/Rust mit epoll, Pufferpool, recvmmsg/sendmsg (noch ohne MSG_ZEROCOPY).
+
+FFI‑Events als ExternalTypedData.
+
+iOS Adapter: einfacher TCP über Network.framework, Bytes als dispatch_data_t → ExternalTypedData‑Views.
+Apple Developer
+
+Optional: Feature‑Probes
+
+Linux: SO_ZEROCOPY aktivieren ab Payload ≥ 16 KB; Metrik vergleichen.
+Kernel.org
+
+Android: prüfen, ob Geräte/ROM MSG_ZEROCOPY praktikabel zulassen (realistisch meist nein → ausgeschaltet lassen).
+SecLists
+
+Damit hast du schnell einen sehr performanten Router, ohne dich im ersten Schritt in io_uring/AF_XDP zu verheddern – und bleibst konform zur WAMP‑RawSocket‑Spec.
+
+10) Antworten auf deine konkreten Fragen
+
+“Standard dart:io vermeiden wegen fehlendem Zero‑Copy?”
+Für richtig hohen Durchsatz ja – dart:io kapselt Sockets gut, aber exponiert keine OS‑Zero‑Copy‑Primitiven (MSG_ZEROCOPY, sendfile, Error‑Queue, registered buffers). Geh über FFI.
+
+“Pro Plattform nativen TCP‑Stack bereitstellen?”
+Du nutzt den Kernel‑TCP‑Stack (das ist gut). Einen User‑Space‑TCP‑Stack (lwIP/mTCP/F‑Stack…) würde ich nur in Spezialumgebungen mit direktem NIC‑Zugriff erwägen (AF_XDP/DPDK), nicht für Mobile/Apps.
+Linux Kernel Documentation
+
+“Gibt es in Dart einen High‑Performance TCP‑Stack?”
+Nein (mir ist keiner bekannt). Es gibt einen WAMP‑Router in Dart (xconn-dart), aber keine native TCP‑Stack‑Implementierung.
+GitHub
+
+“Channels oder FFI / Direct Buffer?”
+FFI. Verwende ExternalTypedData für eingehende Buffers, TransferableTypedData zwischen Isolates. Tools wie flutter_rust_bridge bieten ZeroCopyBuffer schon out‑of‑the‑box.
+Docs.rs
++1
+
+“Linux/Android Basis & Micro‑Frameworks?”
+epoll + sendmsg/recvmmsg (C oder Rust) ist die robuste Basis. Optional MSG_ZEROCOPY für große Sends. io_uring ist toll, aber auf Android für Apps blockiert – nutze es höchstens auf Linux‑Servern als Feature‑Gate.
+Kernel.org
++1
+
+11) Referenzen (Auswahl)
+
+WAMP & RawSocket Spezifikation.
+wamp-proto.org
+
+connectanum als WAMP‑Client.
+Dart packages
+
+Zero‑Copy Send in Linux: MSG_ZEROCOPY.
+Kernel.org
+
+Android blockiert io_uring für Apps.
+SecLists
+
+iOS dispatch_data_t / Network.framework (immutables, kopierarm).
+Apple Developer
++1
+
+Winsock Registered I/O (RIO).
+Microsoft Learn
++1
+
+Dart Zero‑Copy Wege: ExternalTypedData/FFI, TransferableTypedData; flutter_rust_bridge ZeroCopyBuffer.
+Docs.rs
++1
+
+12) Nächste sinnvolle Schritte (konkret)
+
+Transport‑Interface (Dart) definieren (wie oben).
+
+Linux‑Adapter: kleiner Echo‑Server in Rust/C mit epoll, Pufferpool, FFI‑Callback → ExternalTypedData; Parser testet mit WAMP RawSocket‑Frames (MessagePack/CBOR).
+
+Android‑Build (NDK) und iOS‑Adapter (Network.framework) anbinden.
+
+Performance messen (Bytes/s, CPU, Latenz) mit/ohne MSG_ZEROCOPY.
+
+Wenn du willst, skizziere ich dir als nächsten Schritt die C‑ABI‑Header und eine Minimal‑FFI‑Brücke in Dart/Rust (inkl. Puffer‑Freigabeprotokoll).
+
+Quellen
+Du:
+Der springende Punkt ist, dass ich aus dem netzwerkstack nur den head der nachricht serialisieren muss um die routerlogik zu implementieren. Ich kann den payload eigentlich komplett liegen lassen und nur dann serialisieren, wenn ich den payload im router brauche, wie etwa für einen local client, der direkt im router läuft. d.h. ich benötige eigentlich nur die fähigkeit eine next message von rust(währe jetzt meine wahl) nach dart in einen stream zu übergeben. die Message muss dann die methode, "serializePayload" haben. zudem muss ich payloads übertragen können zB von einem call zu einer invocation und ein yield zum result. oder aus einem publish zu mehreren events. Der native rust part muss also den transport und den serializer bereitstellen, wobei die restliche logik von dart kommt. konzentrieren wir uns auf den rust teil. wie müsste der aussehen?
+ChatGPT:
+Anfrage an GPT-5 Pro
+Reasoned for 7m 32s
+
+Got it – dein Kerngedanke ist Head-only verarbeiten, Payload liegen lassen und erst on‑demand materialisieren bzw. 1:1 weiterreichen (CALL→INVOCATION, YIELD→RESULT, PUBLISH→EVENTS). Unten skizziere ich dir den Rust‑Teil allein: Datenpfad, Speicher/Lifetime, “shallow parsing” für Offsets, FFI‑API nach Dart (inkl. serializePayload()), sowie Sende‑APIs zum Weiterreichen der unveränderten Payload. Ich beziehe mich auf WAMP‑RawSocket/Advanced‑Profile‑Details, v. a. Payload Passthru Mode (genau das, was du willst).
+IETF Datatracker
++1
+
+0) Annahme klären (Terminologie)
+
+Du schreibst „nur den Head der Nachricht serialisieren“. Auf dem Draht ist alles schon serialisiert. Gemeint ist (so lese ich dich): nur den Head deserialisieren/rekonstruieren, Payload unangetastet lassen. Falls du tatsächlich „Head neu serialisieren“ meintest: Das kann Rust ebenso – ist im Entwurf vorgesehen.
+
+1) Zielbild des Rust‑Moduls
+
+Aufgabe Rust:
+
+Transport (WAMP‑RawSocket über TCP): Handshake, framing (4‑Byte Prefix), Read/Write.
+
+Serializer/Scanner: Shallow parse der Top‑Level‑Message, um Head‑Felder zu extrahieren und Payload‑Slices (args/kwargs) als Offsets in der ursprünglichen Bytefolge zu markieren – ohne zu dekodieren.
+
+FFI‑API nach Dart:
+
+Rx: „Da ist die nächste Message“ → liefert Meta (Typ/IDs/… + Handle auf den Payload) und einen Head‑Blob (klein), während Payload als Slices „geparkt“ bleibt.
+
+On‑Demand: serializePayload() → gibt ExternalTypedData (keine Kopie) auf die relevanten Bytes.
+
+Tx: forward_*() baut neue Nachrichtenköpfe (in Rust) und hängt dieselben Payload‑Slices an (ohne umzucodieren), u. a. für CALL→INVOCATION, YIELD→RESULT, PUBLISH→N×EVENT.
+
+Warum passt das zu WAMP? Das Advanced‑Profile kennt Payload Passthru Mode: Router darf Payload „roh“ durchreichen; die dazu nötigen ppt_*‑Attribute in Options/Details müssen mitgeführt werden.
+wamp-proto.org
+
+2) Draht‑Ebene: RawSocket + Framing
+
+Handshake: 4 Oktette, 0x7F (Magic), dann 4 Bit LENGTH‑Code + 4 Bit SERIALIZER; Router und Client handeln Serializer & max Message‑Länge aus. Big‑Endian.
+wamp-proto.org
+
+Framing pro Nachricht: 4‑Byte Prefix RRRR RTTT LLLLLLLLLLLLLLLLLLLLLLL (5 reserved Bits 0, 3 Bits Typ: 0=WAMP, 1=PING, 2=PONG; danach 24‑Bit Payload‑Länge), dann genau so viele Bytes Nachricht. Big‑Endian.
+IETF Datatracker
+
+Rust‑Seite baut darauf einen Reactor (epoll o. ä.), liest Prefix→Payload, schiebt das komplette Bytesegment in einen refcounted Buffer und triggert das Dart‑Callback mit Meta + Handles.
+
+3) Serializer/Scanner (Head‑only + Payload‑Offsets)
+
+Serializer‑Arten: msgpack, cbor (optional json).
+
+MsgPack: Crate rmp (Low‑Level), optional rmp-value / rmp-serde wenn nötig.
+Docs.rs
++2
+Crates.io
++2
+
+CBOR: Crate minicbor (no_std‑tauglich, zero‑copy‑freundlich).
+Crates.io
++1
+
+Shallow‑Parsing‑Strategie:
+
+WAMP‑Nachrichten sind top‑level Arrays [Type, …]. Wir „laufen“ nur so weit, bis wir die Argument‑Teile erreicht haben:
+
+z. B. CALL: [CALL(48), Request|id, Options|dict, Procedure|uri, Arguments?|list, ArgumentsKw?|dict]
+
+INVOCATION / RESULT / EVENT analog.
+
+Dabei dekodieren wir primär kleine Headerfelder (IDs, URIs), nicht Arguments/ArgumentsKw. Für diese bestimmen wir Byte‑Offsets und Längen im Ursprungsbuffer.
+
+Optional erzeugen wir einen Head‑Blob (mit demselben Serializer), der alle Felder bis vor Arguments/ArgumentsKw enthält. Dieser ist klein (IDs/Options/URIs) und kommt via FFI direkt als Uint8List rüber.
+
+Ergebnis:
+
+MsgMeta { msg_type, serializer, request_id, ... }
+HeadBlob { ptr,len }             // klein
+PayloadDesc { handle, args(off,len), kwargs(off,len) }
+
+
+Damit kann Dart sofort routen (per msg_type, request_id, URI …) und hat ein Handle auf die Payload ohne Kopie.
+
+4) Speicher- & Lifetime‑Modell (ohne Kopieren bis Dart)
+
+Jeder eingehende Frame liegt in einem Arc‑gepufferten Block (z. B. Bytes/Vec<u8>).
+
+Für Dart erzeugen wir ExternalTypedData‑Views via Pointer<Uint8>.asTypedList(len) → kein Copy, du musst Lifetimes sichern. Seit Dart 3.1 können wir dabei direkt einen Finalizer registrieren.
+Dart API Docs
+
+Auf Dart‑Seite kannst du Payloads zwischen Isolates mit TransferableTypedData ohne weitere Kopie verschieben.
+Flutter API Docs
++1
+
+Refcounting: Rust vergibt pro Frame einen opaque payload_handle (u64). Dart hält den nur als int. Jede serializePayload() erzeugt einen View + registriert einen Finalizer, der zurück nach Rust payload_release(handle) ruft. (Initial payload_retain passiert beim Eintreffen der Message.)
+
+5) FFI‑Formate & Funktionen (C‑ABI)
+5.1 Typen (C‑kompatibel)
+// Serializer
+typedef enum {
+  SER_MSGPACK = 1,
+  SER_CBOR    = 2,
+  SER_JSON    = 3
+} ser_t;
+
+// WAMP transport msg types we care about for routing
+typedef enum {
+  WMSG_HELLO=1, WMSG_WELCOME=2, WMSG_ABORT=3, WMSG_CHALLENGE=4, WMSG_AUTHENTICATE=5,
+  WMSG_GOODBYE=6, WMSG_ERROR=8,
+  WMSG_PUBLISH=16, WMSG_PUBLISHED=17, WMSG_EVENT=36,
+  WMSG_CALL=48, WMSG_RESULT=50,
+  WMSG_REGISTER=64, WMSG_REGISTERED=65, WMSG_INVOCATION=68, WMSG_YIELD=70,
+  /* ... */
+} wmsg_t;
+
+// Handle auf den Native-Buffer (Arc-verwaltet)
+typedef uint64_t payload_handle_t;
+
+// Offsets für Arguments / ArgumentsKw (können 0 sein, wenn nicht vorhanden)
+typedef struct { uint32_t off; uint32_t len; } slice_t;
+
+typedef struct {
+  int32_t         conn_id;
+  ser_t           serializer;
+  wmsg_t          msg_type;
+  uint64_t        request_id;        // falls vorhanden, sonst 0
+  uint64_t        aux_id;            // z.B. registration|subscription id, sonst 0
+  const uint8_t*  head_ptr;
+  uint32_t        head_len;
+  payload_handle_t payload;          // 0 wenn keine Payload (z.B. WELCOME)
+  slice_t         args;              // {0,0} wenn nicht vorhanden
+  slice_t         kwargs;            // {0,0} wenn nicht vorhanden
+  uint32_t        flags;             // z.B. passthru bits, is_error, ...
+} native_msg_t;
+
+5.2 Callback in Dart registrieren
+typedef void (*on_message_cb_t)(const native_msg_t* m);
+void router_set_on_message(on_message_cb_t);
+
+
+Rust ruft dieses Callback pro kompletter WAMP‑Message auf.
+
+5.3 Payload‑Materialisierung (für serializePayload())
+// Liefert Pointer/Len auf args oder kwargs als ExternalTypedData-View (keine Kopie)
+int payload_get_view(payload_handle_t h, int which/*0=args,1=kwargs*/,
+                     const uint8_t** out_ptr, uint32_t* out_len);
+
+// Referenzen verwalten (Finalizer auf Dart-Seite ruft release)
+void payload_retain(payload_handle_t h);
+void payload_release(payload_handle_t h);
+
+5.4 Senden – Head in Rust bauen & Payload wiederverwenden
+
+Variante A (einfach, robust): Head-Felder als JSON‑Mini‑Doc übergeben; Rust serialisiert korrekt in msgpack/cbor.
+Variante B (enger): feldspezifische C‑Structs pro Nachrichtentyp.
+
+Variante A:
+
+// broadcast an N Verbindungen, re-use Payload-Slices unverändert.
+int send_forward_many(const int32_t* conns, size_t n_conns,
+                      ser_t serializer, wmsg_t msg_type,
+                      const uint8_t* head_fields_json, uint32_t head_fields_len,
+                      payload_handle_t payload, /* welche Teile anhängen:*/ uint32_t parts_mask/*bit0=args,bit1=kwargs*/);
+
+
+Rust nimmt head_fields_json (klein, control‑plane), baut korrekten WAMP‑Head (inkl. Options/Details & ggf. ppt_* nach Advanced‑Profile) in gewähltem Serializer und hängt args/kwargs bytes ohne Änderung an. Danach WAMP‑RawSocket‑Framing und send().
+
+Warum JSON für die Head‑Felder? Minimale FFI‑Reibung, keine aufwändigen Variants im C‑ABI – und der Overhead ist vernachlässigbar klein; die dicken Daten bleiben roh. Wenn du die Serialisierung komplett nativ halten willst, kann man später pro Nachrichtentyp build_*_head(...)‑Funktionen bereitstellen.
+
+6) Interner Rust‑Aufbau
+6.1 Module
+
+net::rawsocket: Handshake (0x7F, LENGTH/SER), Prefix‑Decode, Ping/Pong; Framing für jedes Outbound‑Paket.
+wamp-proto.org
++1
+
+buf: Pufferpool (Arc<Buffer>), Handle‑Tabelle (u64→Arc), Slices.
+
+scan::msgpack, scan::cbor: Shallow Parser
+
+parst Top‑Level Array → extrahiert msg_type, IDs, Option/Detail‑Minimalfelder (sofern gebraucht), findet Start/Ende von Arguments/ArgumentsKw.
+
+für Head‑Blob: neu serialisieren der Head‑Teile in denselben Serializer (klein).
+
+Crates: rmp für MsgPack, minicbor für CBOR.
+Docs.rs
++2
+Crates.io
++2
+
+ffi: C‑ABI, Callback, Finalizer‑Pfad (payload_retain/release).
+
+tx: Head‑Builder (aus JSON‑Mini‑Doc → serde_json → Serializer), Attach Payload‑Slices, Frame schreiben.
+
+6.2 Beispiel: „CALL empfangen → INVOCATION senden“
+
+net liefert Bytes → scan::<ser>:
+
+msg_type = CALL, request_id, procedure|uri, Slices für args/kwargs.
+
+baut HeadBlob (bis vor args/kwargs).
+
+ffi ruft Dart‑Callback mit native_msg_t.
+
+Dart routet; findet 1..k Callees.
+
+Dart ruft in Rust:
+
+send_forward_many(conns, k, same_serializer, WMSG_INVOCATION,
+                  head_fields_json_for_invocation, /*ppt forward*/ ...,
+                  payload_handle, /*parts=*/0b11);
+
+
+Rust baut [INVOCATION, req_id, registration, details, <args?>, <kwargs?>] (Head) im gleichen Serializer, hängt exakt dieselben Payload‑Slices an, framed, sendet.
+
+Für Passthru Mode unbedingt die ppt_*‑Attribute gemäß Advanced‑Profile in CALL.Options → INVOCATION.Details durchreichen – Rust kann das beim Head‑Build übernehmen, wenn Dart sie im JSON‑Mini‑Doc mitliefert.
+wamp-proto.org
+
+7) Beispiel‑Signaturen & Mini‑Implementierung (Rust)
+
+stark gekürzt; Fokus: Handles, Slices, FFI‑Shape.
+
+// Cargo: bytes, anyhow, serde, serde_json, rmp, minicbor, libc
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct Slice { pub off: u32, pub len: u32 }
+
+#[repr(C)]
+pub struct NativeMsg {
+    pub conn_id: i32,
+    pub serializer: u32, // ser_t
+    pub msg_type: u32,   // wmsg_t
+    pub request_id: u64,
+    pub aux_id: u64,
+    pub head_ptr: *const u8,
+    pub head_len: u32,
+    pub payload: u64, // payload_handle_t
+    pub args: Slice,
+    pub kwargs: Slice,
+    pub flags: u32,
+}
+
+type OnMsg = extern "C" fn(*const NativeMsg);
+
+static mut ON_MSG: Option<OnMsg> = None;
+
+#[no_mangle]
+pub extern "C" fn router_set_on_message(cb: OnMsg) {
+    unsafe { ON_MSG = Some(cb); }
+}
+
+// --- Payload handle table ---
+use std::{sync::{Arc, Mutex}, collections::HashMap};
+struct FrameBuf { bytes: Arc<Vec<u8>> }
+struct PayloadEntry { buf: Arc<Vec<u8>>, rc: u32 } // simple rc; in prod: atomic
+
+lazy_static::lazy_static! {
+    static ref PAYLOADS: Mutex<HashMap<u64, PayloadEntry>> = Mutex::new(HashMap::new());
+}
+
+fn payload_new_id(buf: Arc<Vec<u8>>) -> u64 { /* monotonic id */ }
+#[no_mangle]
+pub extern "C" fn payload_retain(h: u64) { /* ++rc */ }
+#[no_mangle]
+pub extern "C" fn payload_release(h: u64) { /* --rc, drop if 0 */ }
+
+#[no_mangle]
+pub extern "C" fn payload_get_view(h: u64, which: i32,
+    out_ptr: *mut *const u8, out_len: *mut u32) -> i32
+{
+    let tbl = PAYLOADS.lock().unwrap();
+    let e = tbl.get(&h).ok_or(()) .map_err(|_| return -1).unwrap();
+    let (off,len) = match which { 0 => /* args */, 1 => /* kwargs */, _ => (0,0) };
+    unsafe {
+        *out_ptr = e.buf.as_ptr().add(off as usize);
+        *out_len = len;
+    }
+    0
+}
+
+
+Scanner‑Skizze (MsgPack):
+
+mod scan_msgpack {
+  use rmp::Marker;
+  pub struct Parsed {
+    pub msg_type: u32,
+    pub head_blob: Vec<u8>,
+    pub args: Option<(usize,usize)>, // off,len
+    pub kwargs: Option<(usize,usize)>,
+    pub request_id: u64,
+    pub aux_id: u64,
+  }
+
+  pub fn parse(buf: &[u8]) -> anyhow::Result<Parsed> {
+    // 1) verify top-level array header, read element count
+    // 2) read first few fields -> msg_type, request_id, uri/ids
+    // 3) for the position, advance decoder but do KEIN deep-decode,
+    //    nur Länge/Offsets per Marker/len berechnen
+    // 4) head_blob: gleiche Felder bis vor args/kwargs neu encoden mit rmp::encode
+    Ok(Parsed { /* … */ })
+  }
+}
+
+
+Senden (Forward):
+
+#[no_mangle]
+pub extern "C" fn send_forward_many(
+  conns: *const i32, n: usize,
+  serializer: u32, msg_type: u32,
+  head_json_ptr: *const u8, head_json_len: u32,
+  payload: u64, parts_mask: u32
+) -> i32 {
+   // 1) parse JSON (serde_json::Value) -> baue Head mit rmp/minicbor
+   // 2) schreibe Framing (RawSocket 4B Prefix) + Head + ggf. args/kwargs Slices
+   // 3) writev/sendmsg auf jede Verbindung
+   0
+}
+
+8) Dart‑Seite kurz (damit serializePayload() klar ist)
+
+Du erzeugst ein NativeMessage aus native_msg_t:
+
+class NativeMessage {
+  final int connId, msgType, serializer;
+  final int requestId, auxId;
+  final Uint8List head;              // klein
+  final int payloadHandle;
+  final _Slice args, kwargs;
+
+  Uint8List? serializePayload({bool kwargs=false}) {
+    final which = kwargs ? 1 : 0;
+    final ptrLen = _ffi.payload_get_view(payloadHandle, which);
+    if (ptrLen.isEmpty) return null;
+    final list = ptrLen.ptr.asTypedList(ptrLen.len,
+        finalizer: _ffi.finalizerPtr, token: _ffi.token);
+    // => ExternalTypedData, keine Kopie; Finalizer ruft payload_release(handle)
+    return list;
+  }
+}
+
+
+asTypedList liefert einen View auf native Speicher; die Lifetime sicherst du via Finalizer.
+Dart API Docs
+
+Wenn du dieselbe Payload an mehrere Isolates gibst: packe sie in TransferableTypedData (konstantzeit Transfer).
+Flutter API Docs
+
+9) Sonderfall „local client im Router“
+
+Wenn ein „Local Client“ im selben Prozess antwortet (z. B. du willst die Payload doch inspizieren), kannst du aus serializePayload() die Bytes holen und normal decodieren. Für Hot‑Paths bleibt die Fast‑Lane ohne Dekodierung (Forward‑APIs).
+
+10) Warum das Standard‑konform ist
+
+RawSocket framing/Endianess → wie spezifiziert.
+IETF Datatracker
+
+Payload Passthru Mode → Advanced‑Profile: ppt_* in CALL/PUBLISH/YIELD und Weiterreichen über INVOCATION/EVENT/RESULT/ERROR. Dein Router muss diese Attribute unverändert durchreichen; das tut er, wenn Dart sie im head_fields_json mit an Rust übergibt.
+wamp-proto.org
+
+11) Praktische Hinweise
+
+Crate‑Wahl: rmp (Low‑Level, gut für Offsets/Marker) und minicbor (kompakt, zero‑copy‑freundlich).
+Docs.rs
++1
+
+Zero‑Copy in den Dart‑Heap: Über ExternalTypedData / asTypedList, ggf. in asynchronen Streams – gängiges Pattern u. a. in flutter_rust_bridge (ZeroCopyBuffer) dokumentiert.
+fzyzcjy.github.io
++1
+
+Batched Fan‑Out: Für PUBLISH→EVENTS nützlich: send_forward_many() nimmt conns[]; der Payload‑Handle bleibt derselbe (ein Buffer, mehrere Views).
+
+Backpressure: Du kannst später noch OS‑seitige Signale ergänzen; für den hier gefragten Rust‑Baustein reicht ein bounded write‑queue pro Verbindung.
+
+12) Mini‑Ablaufdiagramm
+TCP -> RawSocket Prefix -> [Frame Bytes] --Arc--> scan::<ser>
+   -> NativeMsg (head_blob + payload_handle + args/kwargs slices)
+       -> Dart Stream<NativeMessage>
+           -> route ...
+           -> send_forward_many(..., payload_handle, parts=ARGS|KWARGS)
+                -> RawSocket Prefix + head(new) + [same payload slices] -> TCP
+
+13) Was du sofort bauen kannst (MVP‑Plan)
+
+RawSocket‑Reactor (ein Thread): Prefix + Payload lesen, Frames in Arc<Vec<u8>>.
+
+MsgPack‑Scanner für CALL/INVOCATION/RESULT/PUBLISH/EVENT/YIELD: nur Top‑Level und Offsets; Head‑Blob neu mit rmp schreiben.
+Docs.rs
+
+FFI: router_set_on_message(), payload_get_view(), send_forward_many(), payload_release().
+
+Dart: Wrapper‑Klasse NativeMessage mit serializePayload(); Routinglogik baut head_fields_json (inkl. ppt_*, falls verwendet) und ruft send_forward_many().
+
+Damit hast du genau das, was du beschreibst: Head in Rust, Payload lazy, Pass‑through zwischen Messages, on‑demand Materialisierung für lokale Konsumenten – alles ohne unnötige Kopien.
+
+Quellen
+
+WAMP‑RawSocket: Handshake (0x7F, LENGTH/SERIALIZER), Big‑Endian; Framing pro Nachricht (TTT/24‑bit Länge).
+wamp-proto.org
++1
+
+Payload Passthru Mode (Advanced Profile): ppt_*‑Attribute, Weitergabe CALL→INVOCATION / PUBLISH→EVENT / YIELD→RESULT.
+wamp-proto.org
+
+Dart FFI: Pointer<Uint8>.asTypedList erzeugt view auf native Speicher; Finalizer‑Support. TransferableTypedData für Isolates.
+Dart API Docs
++1
+
+Crates: rmp (MessagePack, low‑level), minicbor (CBOR, no_std, zero‑copy‑freundlich).
+Crates.io
++2
+Docs.rs
++2
+
+Zero‑Copy Brückenmuster in Flutter/Rust.
+fzyzcjy.github.io
++1
+
+Wenn du willst, schreibe ich dir im nächsten Schritt gern die konkreten JSON‑Schemas für head_fields_json (z. B. für INVOCATION/RESULT/EVENT) und eine kompakte MsgPack‑Scannerfunktion für CALL/RESULT – so hast du sofort testbare Bausteine.
+
+Quellen
+Du:
+du hast jetzt viel c code verwendet. da ich ja verschiedene plattformen adressiere muss es da ja weichen geben konkret ist hier der zugriff auf den netzwerkstack der jeweiligen plattform zu achenten. vielleicht fangen wir hier mal an. wie starte ich den netzwerkstack sodass ich per rust auf Android, Linux, Windows, MacOS, iOS crosscompilen kann? wie ist die projekt struktur. Ich bin ja der entwickler des connectanum-dart packages. wie erweitere ich die struktur wo kommt dann was hin, wie baue ich das projekt? bitte überlege genau und antworte erst, wenn du einen konkreten plan hast wie das projekt erweitert werden kann, so dass ich als nächstes einen listen port habe der auf allen genannten plattformen funktioniert
+ChatGPT:
+Anfrage an GPT-5 Pro
+Reasoned for 6m 40s
+
+Super – wir machen das konkret und mit einem Ziel: Am Ende hast du einen listen()‑Port, der auf Linux, Android, Windows, macOS und iOS läuft, über eine saubere Rust‑Schicht und eine stabile Dart‑FFI‑Anbindung. Ich gebe dir:
+
+Architektur-Entscheidung (einheitlicher Net‑Loop)
+
+Repo‑/Projektstruktur (Monorepo)
+
+Rust‑Crates & Public FFI (nur Rust, kein C nötig)
+
+Build‑Pfade pro Plattform inkl. Cross‑Compile‑Kommandos
+
+Dart‑Seite: Einbindung (Native Assets oder klassischer FFI‑Plugin‑Pfad)
+
+MVP‑Tasks in Reihenfolge – damit du sofort einen Listener bekommst
+
+Ich verweise bei heiklen, versionsabhängigen Punkten auf Quellen (Tokio‑Support, „Native Assets“, cargo‑ndk, iOS Linking).
+
+1) Architektur-Entscheidung
+
+Für einen einheitlichen, portablen Netzwerk‑Loop verwenden wir Tokio (nicht mio direkt), denn Tokio garantiert Support für Linux, Windows, Android, macOS, iOS (unter der Haube: epoll/kqueue/IOCP). Damit hast du über alle Plattformen denselben Codepfad für TcpListener/TcpStream.
+Docs.rs
++1
+
+Spezialpfade (MSG_ZEROCOPY, kqueue‑Tricks, RIO) können wir später über cfg(target_os) ergänzen. Für „erst mal überall lauschen“ ist Tokio ideal.
+
+2) Monorepo / Projektstruktur
+
+Ich würde connectanum zu einem Monorepo erweitern:
+
+connectanum/
+  packages/
+    connectanum_dart/               # (bestehend) WAMP-Client
+    connectanum_router/             # (neu) reine Dart-Router-Logik, Transport-Interface
+    connectanum_native/             # (neu) Dart-FFI-Hülle -> ruft Rust (FFI)
+      lib/
+        src/
+          native.dart               # @Native() oder FFI-DynamicLibrary-Bindings
+          dynamic_library.dart      # Fallback für klassisches dlopen
+          shared.dart               # gemeinsam genutzte FFI-Typen (ffigen)
+      hook/
+        build.dart                  # (für Native Assets) baut Rust lib je Plattform
+      native_assets.yaml            # (für Native Assets) – Asset-IDs/Targets
+      pubspec.yaml
+  native/
+    transport/                      # Rust-Workspace (Tokio + FFI)
+      Cargo.toml
+      crates/
+        core/                       # framing, rawsocket, parser/offsets (plattformneutral)
+        os/                         # evtl. optionale OS-specials (später)
+        ffi/                        # FFI-boundary (exportiert C-ABI-Symbole, aber in Rust!)
+          Cargo.toml
+          src/lib.rs
+      scripts/
+        build-all.sh
+        build-android.sh
+        build-ios.sh
+        build-windows.ps1
+        build-macos.sh
+        build-linux.sh
+
+
+Warum diese Aufteilung?
+
+packages/connectanum_router bleibt in Dart: Session‑/Realm‑Logik, Routing, deine Domäne.
+
+native/transport/crates/ffi liefert nur Transport + minimale Parser‑Offests über FFI nach Dart (dein Head‑only‑Ansatz).
+
+packages/connectanum_native ist die Dart‑Bridge – entweder via Native Assets (moderner, einheitlich) oder klassisch als Flutter‑FFI‑Plugin.
+
+Native Assets ermöglichen es, native Libs paketiert und plattformübergreifend mit Dart/Flutter zu bündeln (Hook/Build), statt selbst mit dlopen‑Pfaden zu hantieren. (Status/Details siehe unten).
+simonbinder.eu
+
+3) Rust‑Crates & öffentliche FFI‑API
+3.1 native/transport/crates/core
+
+Tokio‑Runtime‑Host (eigener Thread).
+
+TcpListener + Accept‑Loop.
+
+Rohes RawSocket‑Framing (Handshake+Prefix kommt später; für einen Listener reicht erst mal Plain TCP zum Starten).
+
+Event‑Queues (crossbeam) für on_listen_started, on_accept, on_error.
+
+Später: deine Head‑only‑Scanner für MsgPack/CBOR und Payload‑Handles.
+
+3.2 native/transport/crates/ffi (cdylib/staticlib)
+
+Exportiert nur C‑ABI‑Funktionen (aber in Rust geschrieben, kein C‑Source nötig).
+
+Minimaler Satz, um jetzt eine Listening‑Socket auf allen Plattformen zu öffnen:
+
+// Alle Funktionen #[no_mangle] extern "C"
+int32_t ct_start_runtime();                         // startet Tokio auf dediziertem Thread, liefert instance_id (z.B. 1)
+int32_t ct_listen(const char* addr, uint16_t port,  // startet TcpListener, liefert listener_id
+                  int32_t backlog);
+void    ct_set_on_listener_started(void(*cb)(int32_t listener_id, int32_t rc));
+void    ct_set_on_connection(void(*cb)(int32_t listener_id, int32_t conn_id));
+int32_t ct_shutdown();                              // stoppt runtime sauber
+
+
+Konzept: ct_start_runtime() spinnt eine tokio::runtime::Runtime in einem Hintergrund‑Thread auf.
+
+ct_listen("0.0.0.0", 8080, 128) bindet/lauscht und triggert on_listener_started(listener_id, rc==0?).
+
+Bei neuen Verbindungen triggert Rust on_connection(listener_id, conn_id).
+
+Keine C‑Datei nötig. Dart bindet direkt an diese Symbole via FFI.
+
+(Die „richtige“ WAMP‑RawSocket‑Schicht kommt danach. Für „erst mal überall lauschen“ reicht das exakt aus.)
+
+4) Build & Cross‑Compile je Plattform
+4.1 Gemeinsames: Tokio & Targets
+
+Tokio ist offiziell für Linux, Windows, Android, macOS, iOS unterstützt.
+Docs.rs
+
+4.2 Linux/macOS/Windows (lokal)
+
+Crate‑Typ: cdylib → erzeugt libconnectanum_transport.so (Linux), libconnectanum_transport.dylib (macOS) bzw. connectanum_transport.dll (Windows).
+
+Targets:
+
+Linux: x86_64-unknown-linux-gnu (ggf. zusätzlich aarch64-unknown-linux-gnu)
+
+macOS: aarch64-apple-darwin (+ optional x86_64-apple-darwin oder Universal)
+
+Windows: x86_64-pc-windows-msvc
+
+4.3 Android
+
+Benutze cargo-ndk – richtet Toolchains & ABIs korrekt ein, erzeugt .so unter jniLibs/<abi>/.
+GitHub
++1
+
+Typische Kommandos:
+
+rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+cargo ndk -o ./android/jniLibs -t arm64-v8a -t armeabi-v7a -t x86_64 \
+    build --release -p ffi
+
+
+Das passt nahtlos zu Flutter/Gradle oder zu Native Assets (der Hook kann cargo-ndk aufrufen).
+
+4.4 iOS
+
+iOS kann statisch oder dynamisch – für dart:ffi ist der empfohlene Weg: statisch linken und Symbole mit DynamicLibrary.process()/executable() laden (weil iOS zur Laufzeit keine externen, unsignierten .dylibs nachlädt).
+Flutter Docs
+
+Targets:
+
+rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+cargo build --release --target aarch64-apple-ios     -p ffi   # Gerät
+cargo build --release --target aarch64-apple-ios-sim -p ffi   # Simulator (arm64)
+
+
+Paketierung:
+
+a) XCFramework aus beiden libffi.a bauen und per CocoaPods/SwiftPM einbinden.
+DEV Community
+
+b) Im Flutter‑Plugin‑Pfad: podspec mit vendored_libraries auf dein .xcframework.
+
+Wichtig: Damit Dart die Symbole findet, Link die statische Lib in die App, dann DynamicLibrary.process() in Dart benutzen (oder @Native() ohne DynamicLibrary.open).
+Flutter Docs
+
+5) Dart‑Seite: Einbindung & Laden
+
+Du hast zwei robuste Wege. Ich empfehle (A) – moderner, gleicher Flow für Flutter & reines Dart:
+
+(A) Dart Native Assets (empfohlen)
+
+Lege in packages/connectanum_native/ einen Hook hook/build.dart an, der per cargo/cargo-ndk/xcodebuild die passenden Artefakte für die laufende Zielplattform erzeugt/ablegt.
+
+In deinen Bindings nutzt du @Native() statt manuellem DynamicLibrary.open.
+
+Quellen/Beispiel wie das in der Praxis aussieht (inkl. Hook und Migrationsmuster): Simon Binder’s Blog & das offizielle dart-lang/native Repo.
+simonbinder.eu
++1
+
+flutter_rust_bridge dokumentiert ebenfalls die Integration über Native Assets (in 2025 i. d. R. ohne Experiment‑Flag – checke deine Dart/Flutter‑Version).
+fzyzcjy.github.io
++1
+
+Vorteile:
+
+Einheitliches Packaging für Dart und Flutter.
+
+Kein manuelles „dylib suchen/öffnen“.
+
+Tree‑shaking möglich (nur tatsächlich genutzte Symbole werden eingebunden).
+
+(B) Klassischer FFI‑Plugin‑Pfad (falls du kein Native‑Assets verwenden möchtest)
+
+Erzeuge ein Flutter‑Plugin --template=plugin_ffi, lege .so/.dll/.dylib in die Plattformordner (Android jniLibs, iOS via .xcframework im Podspec, macOS/Windows via CMake).
+matejknopp.com
+
+In Dart bindest du über DynamicLibrary.open() (bzw. iOS/macOS: DynamicLibrary.process() für statisch gelinkte Symbole).
+Flutter Docs
+
+6) Konkrete Commands & Minimal-MVP (Listener auf allen Plattformen)
+6.1 Rust vorbereiten
+
+native/transport/Cargo.toml (Workspace) – wichtige Flags im ffi‑Crate:
+
+[lib]
+crate-type = ["cdylib", "staticlib"]      # cdylib für Linux/Win/macOS/Android, staticlib für iOS
+
+[dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "net", "signal"] }
+socket2 = "0.5"                           # später für feine Socket-Optionen
+once_cell = "1"
+
+
+native/transport/crates/ffi/src/lib.rs (nur Kern – stark gekürzt):
+
+#[no_mangle] pub extern "C" fn ct_start_runtime() -> i32 { /* spawn tokio runtime */ 1 }
+#[no_mangle] pub extern "C" fn ct_listen(addr:*const c_char, port:u16, backlog:i32)->i32 {
+    // spawn a tokio task: TcpListener::bind((addr, port)).await?;
+    // accept-loop → ruft on_connection(...)
+    // on success: on_listener_started(listener_id, 0)
+    // on error:   on_listener_started(listener_id, errno)
+    // return listener_id
+}
+#[no_mangle] pub extern "C" fn ct_set_on_listener_started(cb: extern "C" fn(i32,i32)) { /* store */ }
+#[no_mangle] pub extern "C" fn ct_set_on_connection(cb: extern "C" fn(i32,i32)) { /* store */ }
+#[no_mangle] pub extern "C" fn ct_shutdown() -> i32 { /* graceful stop */ 0 }
+
+
+Alles rein in Rust – keine .c/.mm‑Datei nötig. Dart ruft diese Symbole direkt.
+
+6.2 Linux/macOS/Windows lokal bauen
+cargo build -p ffi --release                      # Host-Build
+# Artefakt findet sich in target/<target>/release/...
+
+6.3 Android
+rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+cargo install cargo-ndk
+cargo ndk -o ./packages/connectanum_native/android/jniLibs \
+  -t arm64-v8a -t armeabi-v7a -t x86_64 \
+  build --release -p ffi
+
+
+GitHub
++1
+
+6.4 iOS
+rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+cargo build --release --target aarch64-apple-ios     -p ffi   # libffi.a (device)
+cargo build --release --target aarch64-apple-ios-sim -p ffi   # libffi.a (sim)
+# (optional) XCFramework erzeugen und im iOS-Plattformordner referenzieren
+
+
+Dann per CocoaPods/SwiftPM ins iOS‑App‑Binary linken und in Dart via DynamicLibrary.process() oder @Native() referenzieren.
+DEV Community
++1
+
+6.5 Dart‑Wrapper – minimal
+
+In packages/connectanum_native/lib/src/native.dart (wenn Native Assets):
+
+// Beispiel mit @Native – Bibliothek wird durch native assets bereitgestellt
+import 'dart:ffi';
+
+@Native<Int32 Function()>(symbol: 'ct_start_runtime')
+external int ctStartRuntime();
+
+@Native<Int32 Function(Pointer<Int8>, Uint16, Int32)>(symbol: 'ct_listen')
+external int ctListen(Pointer<Int8> addr, int port, int backlog);
+
+
+Hook: packages/connectanum_native/hook/build.dart baut je Plattform die richtige Lib (siehe Simon Binder, dart-lang/native).
+simonbinder.eu
++1
+
+Wenn ohne Native Assets, dann klassisch:
+
+final dylib = () {
+  if (Platform.isLinux)   return DynamicLibrary.open('libconnectanum_transport.so');
+  if (Platform.isMacOS)   return DynamicLibrary.open('libconnectanum_transport.dylib');
+  if (Platform.isWindows) return DynamicLibrary.open('connectanum_transport.dll');
+  if (Platform.isIOS)     return DynamicLibrary.process(); // statisch gelinkt
+  if (Platform.isAndroid) return DynamicLibrary.open('libconnectanum_transport.so'); // im jniLibs
+  throw UnsupportedError('OS');
+}();
+
+
+(macOS/iOS‑Hinweis zu DynamicLibrary.process/executable: offizielle Flutter‑Doku).
+Flutter Docs
+
+7) Wie du dein connectanum‑dart sauber erweiterst
+
+In packages/connectanum_router definierst du dein Transport‑Interface (Dart) und initial nur eine Implementierung NativeTransport, die die oben genannten FFI‑Calls benutzt (zunächst nur listen() + Accept‑Events).
+
+Später hängst du dort receive() (Frames), send() (Scatter/Gather), serializePayload() (über FFI‑View) an.
+
+connectanum_dart (Client) bleibt unberührt; du kannst es im Monorepo lassen oder als Abhängigkeit testen.
+
+8) Stolpersteine & Entscheidungen (jetzt schon bedacht)
+
+iOS Laden der Symbole: Nicht via DynamicLibrary.open(path), sondern statisch linken und DynamicLibrary.process()/@Native() nutzen (Symbols im Prozess).
+Flutter Docs
+
+Android Ablage der .so: Mit cargo-ndk direkt nach android/jniLibs/<abi>/ oder via Native Assets Hook in ein von Dart/Flutter verwaltetes Ziel.
+Docs.rs
+
+Tokio auf allen Zielplattformen: offiziell unterstützt (Linux/Win/Android/macOS/iOS).
+Docs.rs
+
+Native Assets: Stand heute weit verbreitet; Gestaltung über hook/build.dart (siehe Beitrag & dart-lang/native Repo). Falls deine Toolchain es (noch) nicht hergibt, nimm vorerst den Plugin‑Pfad.
+simonbinder.eu
++1
+
+9) Nächste Schritte (konkrete To‑dos)
+
+Workspace anlegen (native/transport + packages/connectanum_native + packages/connectanum_router).
+
+Rust‑FFI‑MVP implementieren (ct_start_runtime, ct_listen, Callbacks).
+
+Dart‑Bridge (Native Assets oder klassisch) – zwei Funktionen binden: startRuntime(), listen(host, port).
+
+Smoke‑Test:
+
+Linux/macOS/Windows: dart run → listen("0.0.0.0", 8080) → von nc verbinden.
+
+Android: App mit jniLibs‑.so/Native‑Assets – Log zeigt on_listener_started und on_connection.
+
+iOS: XCFramework einbinden, App starten, DynamicLibrary.process()/@Native() → gleiches Verhalten.
+
+Danach: RawSocket‑Handshake + Framing, Head‑Scanner, Payload‑Handles ins FFI (wie im vorigen Post skizziert).
+
+Wenn du willst, liefere ich dir im nächsten Schritt direkt:
+
+ein minimales ct_listen in Rust mit Tokio (kompiliert auf allen Plattformen),
+
+das Podspec‑Snippet für iOS (XCFramework verlinken),
+
+sowie ein Hook‑Skeleton für Native Assets (build.dart), damit dart run die Lib selbst baut.
+
+Quellen
+
+Tokio – unterstützte Plattformen (Linux/Windows/Android/macOS/iOS).
+Docs.rs
+
+Tokio nutzt OS‑Primitive (epoll/kqueue/IOCP) – Hintergrund.
+Medium
+
+Dart Native Assets – Konzept & Hook (How‑to + Beispiel).
+simonbinder.eu
+
+dart:ffi iOS/macOS – statisch gelinkte Libs via DynamicLibrary.process/executable.
+Flutter Docs
+
+Android: cargo-ndk / Targets / jniLibs.
+GitHub
++1
+
+iOS: XCFramework‑Erstellung / Targets (arm64 + sim).
+DEV Community
+
+Kurz gesagt:
+
+Einheitlicher Tokio‑Loop → ein Codepfad für das Listening auf allen OS.
+
+Rust‑FFI‑Crate exportiert ct_start_runtime(), ct_listen().
+
+Dart‑Paket connectanum_native bindet die Funktionen (Native Assets empfohlen).
+
+Damit bekommst du heute einen lauffähigen Listener auf Linux, Android, Windows, macOS, iOS – und hast die Basis, um anschließend RawSocket/WAMP & dein Head‑only‑Payload‑Design daraufzusetzen.
+
+Quellen
+Du:
+gibt es schon ein ähnliches projekt?
+ChatGPT:
+Anfrage an GPT-5 Pro
+Reasoned for 4m 41s
+
+Kurz: Ja – es gibt mehrere „ähnliche“ Projekte, allerdings keines, das genau deine Kombination „Dart‑Router mit Rust‑Transport via FFI & Head‑only/Zero‑Copy‑Passthrough“ schon fertig anbietet. Hier ist der relevante Marktüberblick – geordnet nach Nähe zu deinem Vorhaben:
+
+Am nächsten dran (WAMP‑Router in Rust / gute Basis zum Andocken per FFI)
+
+wampire (Rust) – asynchroner WAMP v2 Router & Client in Rust. Dient als Referenz oder als Basis, wenn du statt der reinen Transport‑Schicht doch mehr Logik nativ abbilden willst.
+GitHub
+
+battler‑wamp / battler‑wamprat (Rust) – neuere Rust‑Bibliotheken, die explizit Router und Peers (Server & Clients) implementieren, auf tokio basierend. Gute Kandidaten, wenn du bestehende Parser/Serialisierungen wiederverwenden möchtest und nur deine FFI‑Schicht ergänzen willst.
+Crates
++1
+
+Diese beiden sind die besten Startpunkte, falls du in Rust nicht nur Sockets/Framing, sondern auch (teilweise) Protokollteile nutzen willst – du kannst trotzdem deinen “Head‑only + Payload‑Handle”‑Pfad darüberlegen.
+
+Reife, produktionsnahe Router (andere Sprachen) – gut als Referenz für Features & Interop
+
+Nexus (Go) – vollwertiger WAMP v2 Router & Client, unterstützt RawSocket (TCP & Unix), JSON/MsgPack/CBOR und Payload‑Passthru‑Mode (genau dein Use‑Case: Head routen, Payload roh durchreichen). Auch In‑Process‑Transport wird unterstützt (nützlich als Architektur‑Inspiration).
+GitHub
+
+Crossbar.io (Python/Twisted) – Platzhirsch & Referenz; RawSocket ist offiziell unterstützt (Autobahn‑Modul). Crossbar/Autobahn dokumentiert auch „Payload Transparency“ (Passthrough), was deinem Design entspricht.
+autobahn.readthedocs.io
++1
+
+Bondy (Erlang/OTP) – verteilter WAMP‑Router mit Fokus auf Always‑On/Cluster; Payload pass‑through wird explizit genannt. Gut als Referenz für Router‑Features & Operations.
+developer.bondy.io
+
+WampSharp (.NET) – .NET‑Implementierung mit Router und RawSocket‑Transport – hilfreich, wenn du RawSocket‑Details querverifizieren willst.
+wampsharp.net
+
+Thruway (PHP) – Router/Client (auf ReactPHP), inkl. RawSocket‑Transport; ebenfalls nützlich als Referenz.
+GitHub
++1
+
+Dart‑bezogen
+
+xconn‑dart – WAMP v2 Client und Router in Dart. Das kommt deiner Router‑Zielsetzung nahe, ist aber kein Rust‑unterstützter Zero‑Copy‑Transport. Als Gegencheck für Router‑Semantik in Dart trotzdem interessant.
+GitHub
+
+connectanum‑dart – dein bestehender WAMP‑Client; auf der offiziellen WAMP‑Seite gelistet. Für deinen Router‑Plan dient es primär als Kompatibilitäts‑Referenz.
+wamp-proto.org
++1
+
+Fazit für deine Frage
+
+„Gibt es das schon?“ – Einen Dart‑Router mit Rust‑Transport‑Layer über FFI plus Head‑only‑Parsing & Payload‑Passthrough habe ich öffentlich nicht gefunden. Die Bausteine existieren aber:
+
+Router/Clients in Rust (wampire, battler‑wamp),
+
+ausgereifte Router mit RawSocket & Payload‑Passthru (Nexus, Crossbar, Bondy) als Feature‑Referenz,
+
+ein reiner Dart‑Router (xconn‑dart) als Semantik‑Referenz.
+GitHub
++6
+GitHub
++6
+Crates
++6
+
+Pragmatischer Weg: Nimm Rust für Transport + Framing + (optional) flache Parser und Dart für Router‑Logik, wie von dir geplant. Wenn du Zeit sparen willst, reuse aus wampire/battler‑wamp (Parser/Message‑Typen) und kapsle nur die von dir benötigten Teile via FFI – dein Passthrough‑Modus ist konzeptuell durch WAMPs Payload Transparency bereits abgedeckt.
+autobahn.readthedocs.io
+
+Wenn du möchtest, stelle ich dir im nächsten Schritt eine kleine Matrix zusammen („Welche Teile kann ich aus welchem Projekt adaptieren?“) inkl. Links zu den konkreten Stellen im Code (RawSocket‑Framing, Payload‑Passthru, In‑Process‑Transport).
+
+Quellen
+Du:
+ok, ich werde das projekt als monorepo anlegen, aber connectanum-dart wird client und router beinhalten, da auch der client von den freatures vom zero-copy profitieren kann, zB wenn im Payload eine datei liegt, die gespeichert werden soll. dann braucht es keine copy in den dart space.
+
+Ich brauche nun ein paar detaillierte handlungsanweisungen. Das projekt soll ausschließlich durch codex programmiert werden. Das ist quasi eine machbarkeits studie wie gut codex ist. hierfür möchte ich die abläufe allerdings unterteilen. Schreibe mit alle Prompts inklusive prompt optimierungen wie "Überlege erst und dann..." oder "Halluziniere nicht" oder "mache solange bis es stimmt". Alle abläufe, sofern möglich sollen immer 100% unit test coverage haben. also die bestätigung durch die tests scenarios soll dann der punkt sein, andem codex seine aufgabe erfüllt hat. wir fangen natürlich zuerst an die architektur auf ein monorepo umzubauen, dann soll codex eine router implementierung in Dart beginnen, die die configuration für das rust backend erstellt. Hierfür soll der router eine Liste von Endpoints definieren. ich habe das in java schon mal programmiert:
+
+
+java
+public static class Endpoint{
+
+        private final String host;
+        private final int port;
+        private final boolean enableSsl;
+        private final boolean enableNativeSsl;
+        private final Long idleTimeout;
+        private final TimeUnit idleTimeoutUnit;
+        private final boolean allowHttp2;
+        public Integer maxHttpContentLength;
+        private final int maxRawSocketSizeExponent;
+        public String webSocketPath;
+        private final String privateKey;
+        private final String certificateChain;
+        public final ControllerStore controllerStore;
+        private final Map<String, IAuthenticationExecutor[]> realmAuthenticationExecutors;
+        private final Map<String, IMessageSecurityEnvironment> realmMessageSecurityEnvironment;
+        private final IAuthenticationExecutor[] defaultAuthenticationExecutors;
+        private final IMessageSecurityEnvironment defaultMessageSecurityEnvironment;
+        private final Map<ChannelOption<?>, Object> channelOptions;
+        private final Map<ChannelOption<?>, Object> parentChannelOptions;
+        private final Map<String, Builder.CertificateFilePair> hostnameCertificates;
+
+        public Endpoint(
+            String host,
+            int port,
+            boolean enableSsl,
+            boolean enableNativeSsl,
+            Long idleTimeout,
+            TimeUnit idleTimeoutUnit,
+            boolean allowHttp2,
+            int maxRawSocketSizeExponent,
+            String webSocketPath,
+            Integer maxHttpContentLength,
+            Map<String, Builder.CertificateFilePair> hostnameCertificates,
+            String privateKey,
+            String certificateChain,
+            ControllerStore controllerStore,
+            Map<String, IAuthenticationExecutor[]> realmAuthenticationExecutors,
+            Map<String, IMessageSecurityEnvironment> realmMessageSecurityEnvironment,
+            IAuthenticationExecutor[] defaultAuthenticationExecutors,
+            IMessageSecurityEnvironment defaultMessageSecurityEnvironment,
+            Map<ChannelOption<?>, Object> channelOptions,
+            Map<ChannelOption<?>, Object> parentChannelOptions
+        ) {
+            this.host = host;
+            this.port = port;
+            this.enableSsl = enableSsl;
+            this.maxRawSocketSizeExponent = maxRawSocketSizeExponent;
+            this.webSocketPath = webSocketPath;
+            this.enableNativeSsl = enableNativeSsl;
+            this.idleTimeout = idleTimeout;
+            this.idleTimeoutUnit = idleTimeoutUnit;
+            this.allowHttp2 = allowHttp2;
+            this.maxHttpContentLength = maxHttpContentLength;
+            this.hostnameCertificates = hostnameCertificates;
+            this.privateKey = privateKey;
+            this.certificateChain = certificateChain;
+            this.realmAuthenticationExecutors = realmAuthenticationExecutors;
+            this.realmMessageSecurityEnvironment = realmMessageSecurityEnvironment;
+            this.defaultAuthenticationExecutors = defaultAuthenticationExecutors;
+            this.defaultMessageSecurityEnvironment = defaultMessageSecurityEnvironment;
+            this.channelOptions = channelOptions;
+            this.parentChannelOptions = parentChannelOptions;
+            this.controllerStore = controllerStore;
+        }
+
+das soll der dart so ähnlich auch alles definieren. vielleicht gibt es einen sinnvolleren weg die zertifikate zu definieren, da hier ohne SNI gearbeitet wurde. das soll in dart per SNI gelößt werden. nicht alles geht nach rust,
+
+this.realmAuthenticationExecutors = realmAuthenticationExecutors;
+            this.realmMessageSecurityEnvironment = realmMessageSecurityEnvironment;
+            this.defaultAuthenticationExecutors = defaultAuthenticationExecutors;
+            this.defaultMessageSecurityEnvironment = defaultMessageSecurityEnvironment;
+
+
+wird von der dart logik verarbeitet.
+
+maxRawSocketSizeExponent ist connectanum speziefisch und soll die maximale rawsocket länge erweitern.
+
+dannach soll codex den rust teil implemeniteren und solange testen bis es für wenigstens linux compiliert und alle unit tests laufen. auf linux, da wir uns im linux befinden und dort entwickelt wird. Dannach soll die ffi gebaut werden. denke nochmal nach, welche zwischenschritte noch sillvoll wären, damit codex einen guten abgeschlossenen ablauf hat je schritt.
+ChatGPT:
+Anfrage an GPT-5 Pro
+Reasoned for 4m 42s
+
+Mega – wir machen daraus ein schlüsselfertiges Prompt‑Playbook für Codex.
+Ziel: Monorepo, Router‑Start in Dart (inkl. Endpoint‑Konfiguration → Rust‑Backend), dann Rust‑Transport (Linux build & Tests), danach FFI.
+Alle Schritte sind in kleine, abgeschlossene Abläufe zerlegt, jeweils mit starken Prompts, Abnahme‑Kriterien (100 % Unit‑Test‑Coverage pro Schritt/Teilpaket) und konkreten Artefakten.
+
+Hinweise zur Nutzung:
+• Verwende die Prompts schrittweise (nicht alle auf einmal).
+• Jeder Prompt ist so formuliert, dass Codex erst denkt und dann Dateien generiert.
+• Pro Schritt fordern wir 100 % Test‑Coverage innerhalb des jeweiligen Teilpakets.
+• Wo Builds/Tools erforderlich sind, geben wir Kommandos an (Linux).
+• Wir setzen auf Tokio im Rust‑Teil (läuft auf Linux/Android/Windows/macOS/iOS), aber bauen & testen zunächst nur auf Linux.
+
+Gemeinsamer Meta‑Prompt (einmalig vor dem ersten Schritt verwenden)
+
+Prompt 0 – Globaler Arbeitsmodus für Codex
+„Überlege zuerst gründlich und schreibe dir intern einen klaren Plan, bevor du Code erzeugst. Schreibe erst dann die Dateien. Halluziniere nicht; wenn dir Informationen fehlen, trenne klar TODOs ab. Erzeuge nur die in der Aufgabe geforderten Dateien/Änderungen. Jede Änderung kommt mit passenden Unit‑Tests und 100 % Test‑Coverage (Linien‑Coverage) pro betroffenem Paket/Crate. Verwende sauberes, idiomatisches Dart/Rust. Nutze dart test für Dart‑Tests und cargo test für Rust‑Tests. Für Rust‑Coverage verwende cargo-llvm-cov und setze --fail-under-lines 100. Struktur: gib zuerst eine Repo‑Baumübersicht aus, danach pro Datei einen Block der Form BEGIN_FILE: <pfad> … END_FILE. Keine Platzhalter. Keine irrelevanten Dateien. Baue kleine, nachvollziehbare Schritte.“
+
+PHASE A – Monorepo aufsetzen (Dart‑Client+Router in einem Paket, Rust‑Workspace separat)
+Ziel
+
+Monorepo‑Struktur erstellen.
+
+Dart‑Paket connectanum_dart enthält Client & Router‑Modul (nur Grundgerüst + Tests).
+
+Rust‑Workspace native/transport angelegt (noch ohne Logik).
+
+100 % Coverage: Im Dart‑Paket mit trivialen Tests für Grundklassen; Rust hat in diesem Schritt nur Workspace‑Skeleton (ohne Coverage‑Zwang).
+
+Prompt A1 – Monorepo & Basisdateien erzeugen
+
+„Überlege zuerst die Verzeichnis‑ und Paketstruktur. Erzeuge dann folgende Struktur und Dateien. Anforderungen:
+• Monorepo‐Wurzel mit README.md, LICENSE (MIT), .gitignore.
+• Dart‑Paket packages/connectanum_dart (Client+Router; SDK≥3.4, package:test), mit lib/connectanum.dart (Barrel), lib/router/ (leer mit Placeholder‑Klassen), test/ (Smoke‑Tests).
+• Rust‑Workspace unter native/transport mit Cargo.toml (workspace) und leeren Crates ct_core und ct_ffi (nur Cargo.toml + leere src/lib.rs).
+• CI/Skripte nicht nötig.
+• Tests: Im Dart‑Paket einfache Tests, die das Paket importieren (100 % Coverage dort).
+Gib Repo‑Baum & Dateien in Blöcken BEGIN_FILE … END_FILE aus.“*
+
+Abnahme (lokal, Linux):
+
+dart --version
+cd packages/connectanum_dart && dart pub get && dart test --coverage=coverage
+# Coverage-Bericht aus den .vm.json Dateien generierbar (optional)
+
+PHASE B – Router‑Konfiguration in Dart (Endpoints & SNI), JSON‑Konfiguration für Rust
+Ziel
+
+Endpoint‑Modell in Dart nach deinem Java‑Vorbild (angepasst).
+
+SNI‑Zertifikate pro Hostname (PEM‑basierte Definition).
+
+Felder, die in Dart verbleiben:
+realmAuthenticationExecutors, realmMessageSecurityEnvironment, defaultAuthenticationExecutors, defaultMessageSecurityEnvironment, controllerStore, channelOptions, parentChannelOptions.
+
+Felder, die an Rust gehen (für den Transport):
+host, port, enableSsl, enableNativeSsl, idleTimeout, allowHttp2, maxHttpContentLength, maxRawSocketSizeExponent, webSocketPath, sniCertificates.
+
+Builder: RouterConfig erzeugt valide, versionierte JSON für Rust.
+
+100 % Coverage im Dart‑Paket: Tests für Validierung, SNI‑Mapping, JSON‑Form.
+
+Datenmodell‑Vorschlag (Dart)
+
+Endpoint (immutable)
+
+TlsMode (disabled, tlsInDart, tlsInNative) → ersetzt enableSsl/enableNativeSsl klarer
+
+SniCertificate { hostname, certificateChainPem, privateKeyPem }
+
+RouterConfig { endpoints: List<Endpoint>, toNativeJson() }
+
+Validierungen (z. B. maxRawSocketSizeExponent ≥ 9 … 24; webSocketPath beginnt mit / oder null; SNI‐Namen sind FQDN; PEM‑Format grob geprüft).
+
+Prompt B1 – Endpoint, SNI & RouterConfig + Tests
+
+*„Denke sorgfältig über die Domain‑Modelle nach (Endpoint, TlsMode, SniCertificate, RouterConfig). Implementiere sie in packages/connectanum_dart/lib/router/….
+Anforderungen:
+
+Endpoint enthält:
+
+host (String), port (int),
+
+tlsMode (enum; ersetzt enableSsl/enableNativeSsl),
+
+idleTimeout (Duration?), allowHttp2 (bool),
+
+maxHttpContentLength (int?; Bytes),
+
+maxRawSocketSizeExponent (int; connectanum‑spezifisch),
+
+webSocketPath (String?),
+
+sniCertificates (List<SniCertificate>),
+
+Dart‑only: controllerStore, realmAuthenticationExecutors (Map<String,List<…>>), realmMessageSecurityEnvironment (Map<String, …>), defaultAuthenticationExecutors (List<…>), defaultMessageSecurityEnvironment (…‐Typ), channelOptions/parentChannelOptions (Map<String,Object>).
+
+Alle Dart‑only Felder klar markiert (Doc‑Comments).
+
+RouterConfig sammelt eine Liste von Endpoint und bietet Map<String,dynamic> toNativeJson() → nur Rust‑relevante Felder, inkl. version und schema‐Kennung.
+
+SNI: SniCertificate validiert hostname (rudimentär), PEM‑Header, und verbietet widersprüchliche Hostnamen in einem Endpoint.
+
+Unit‑Tests (100 % Coverage):
+
+Konstruktion/Validation (inkl. Fehlerszenarien),
+
+toNativeJson() enthält korrekte Felder & Werte,
+
+SNI‑Zuschnitt, maxRawSocketSizeExponent wird übertragen,
+
+webSocketPath optional & validiert,
+
+Enums seriell zuverlässig (z. B. tls_mode: "native"|"dart"|"disabled").
+
+Code ist null‑safety, public API mit Doku, equals/hashCode für Value‑Typen.
+Gib nur geänderte/neue Dateien in BEGIN_FILE … END_FILE Blöcken aus.“*
+
+Abnahme:
+
+cd packages/connectanum_dart
+dart pub get
+dart test --coverage=coverage
+
+PHASE C – Rust: Core‑Runtime & Listener (nur Linux builden/testen)
+Ziel
+
+ct_core: Tokio‑Runtime‑Host + Listener‑Registry.
+
+API (intern, noch ohne FFI):
+
+start_runtime(), shutdown(),
+
+listen(addr: &str, port: u16, backlog: i32) -> ListenerId,
+
+local_addr(listener_id) -> SocketAddr,
+
+on_accept(listener_id) -> mpsc::Receiver<ConnectionId>.
+
+Tests (100 % Coverage in ct_core): Start, Listen auf Port 0, Ermitteln des realen Ports, Connect mit std::net::TcpStream, Empfang eines ConnectionId.
+
+Prompt C1 – ct_core implementieren + Tests
+
+*„Überlege den Architekturentwurf: Tokio Multi‑Thread‑Runtime in einem OnceCell, Listener‑Registry (HashMap<ListenerId, TcpListener/Addr/accept_task>), ListenerId/ConnectionId sind neue Typen (u32).
+Implementiere in native/transport/crates/ct_core/src/lib.rs folgende API:
+start_runtime(), shutdown(), listen(addr, port, backlog), local_addr(listener_id), accept_channel(listener_id) -> Receiver<ConnectionId>.
+Start von listen() spawnt einen Tokio‑Task, der TcpListener::accept() looped und ConnectionId in einen mpsc‑Sender push’t.
+Schreibe Unit‑Tests (100 % Lines‑Coverage) mit #[tokio::test(flavor="multi_thread")]:
+
+Runtime startet nur einmal.
+
+Listen auf Port 0, local_addr() liefert realen Port.
+
+Ein TcpStream::connect() führt zu genau einem ConnectionId.
+
+Shutdown stoppt Tasks sauber.
+Nutze cargo-llvm-cov Konfiguration (.cargo/config.toml + Makefile/scripts) und dokumentiere im Repo‑Root, wie cargo llvm-cov aufgerufen wird.
+Gib geänderte Dateien aus.“*
+
+Abnahme:
+
+cd native/transport
+cargo test -p ct_core
+cargo install cargo-llvm-cov
+cargo llvm-cov --workspace --fail-under-lines 100
+
+PHASE D – Rust: FFI‑Schicht (C‑ABI in Rust) über ct_core (Linux builden/testen)
+Ziel
+
+ct_ffi: C‑ABI, das Dart später aufruft.
+
+Minimal‑API (für „listen‑Port verfügbar“):
+
+ct_start_runtime() -> int32_t
+
+ct_listen(const char* addr, uint16_t port, int32_t backlog) -> int32_t /*listener_id*/
+
+ct_get_local_port(int32_t listener_id) -> uint16_t
+
+Callbacks registrieren:
+
+ct_set_on_listener_started(void(*cb)(int32_t listener_id, int32_t rc))
+
+ct_set_on_connection(void(*cb)(int32_t listener_id, int32_t conn_id))
+
+ct_shutdown() -> int32_t
+
+Intern bridged ct_core‑Funktionen; listen() löst sofort on_listener_started() aus (rc=0; bei Fehler rc=errno).
+
+Tests (100 % Coverage in ct_ffi):
+
+Rufe die extern "C"‑Funktionen direkt aus Rust‑Tests auf (sie sind im selben Crate verlinkt).
+
+Starte Runtime, rufe ct_listen("127.0.0.1", 0, 128), prüfe ct_get_local_port>0.
+
+Simuliere Verbindung (std::net::TcpStream::connect), verifiziere, dass on_connection‐Callback genau einmal triggert (setze test‑lokal funktions‐statische Atomic*/Mutex zum Sammeln der Aufrufe).
+
+ct_shutdown() beendet ohne Panics.
+
+Prompt D1 – ct_ffi implementieren + Tests
+
+„Denke an Thread‑Safety und unsafe‑Grenzen. Implementiere in native/transport/crates/ct_ffi/src/lib.rs die FFI‑Funktionen (#[no_mangle] extern "C"). Halte globale Callback‑Funktionszeiger in OnceCell<AtomicPtr<…>> oder Mutex<Option<…>>.
+In ct_listen rufe ct_core::listen und nach Erfolg on_listener_started(listener_id, 0).
+Implementiere Unit‑Tests (100 % Lines‑Coverage) innerhalb von ct_ffi: rufe FFI‑Funktionen wie normale Rust‑Funktionen auf, registriere Test‑Callbacks, führe Connect/Accept aus.
+Achte darauf, Tests deterministisch und portfrei (Port 0) zu halten.
+Gib geänderte Dateien aus.“
+
+Abnahme:
+
+cd native/transport
+cargo test -p ct_ffi
+cargo llvm-cov --workspace --fail-under-lines 100
+
+PHASE E – Dart: FFI‑Bindings (nur Linux; lädt die lokal gebaute .so) & Router‑Bootstrap
+Ziel
+
+In connectanum_dart FFI‑Bindings hinzufügen, die die ct_ffi‑Funktionen aufrufen.
+
+Nur Linux: DynamicLibrary.open('libct_ffi.so' | 'libconnectanum_transport.so') – passe Name an, den du in Cargo.toml [lib] crate-type/name festlegst.
+
+NativeTransportRuntime (Dart) kapselt Start/Listen; Router nutzt RouterConfig.toNativeJson() noch nicht – hier nur „Listen‑Port steht“.
+
+Tests (100 % Coverage im Dart‑Paket):
+
+Verwende package:ffi & dart:ffi.
+
+Markiere E2E‑Test skip: Platform.isLinux ? false : true (aber die Coverage muss auf Linux 100 % sein).
+
+Der Test lädt die .so aus einem bekannten Pfad (z. B. ../build/linux/release/ct_ffi/libct_ffi.so – diesen Pfad in README dokumentieren) und ruft startRuntime(), listen("127.0.0.1", 0), getLocalPort().
+
+Prüfe, dass getLocalPort()>0. (Das on_connection‑Callback verdrahten wir im nächsten Schritt.)
+
+Prompt E1 – Dart‑FFI‑Bindings & Bootstrap‑Test
+
+„Überlege sauberes API‑Design für NativeTransportRuntime (start, listen, getLocalPort, shutdown). Implementiere in packages/connectanum_dart/lib/native/ffi_bindings.dart die FFI‑Signaturen zu ct_ffi. Implementiere packages/connectanum_dart/lib/native/runtime.dart mit einer dünnen OO‑Hülle.
+Schreibe Unit‑/E2E‑Tests (100 % Coverage auf Linux) in packages/connectanum_dart/test/native_runtime_test.dart:
+• Lade die .so über DynamicLibrary.open (Pfad als Konstante oben definieren, mit skip‑Logik für Nicht‑Linux).
+• Starte Runtime, listen("127.0.0.1", 0), hole getLocalPort().
+• Erwarte >0, rufe am Ende shutdown().
+Doku in README.md: wie Rust‑Lib bauen und wo die .so für die Tests erwartet wird.
+Gib nur neue/geänderte Dateien aus.“
+
+Abnahme:
+
+# Rust bauen (Release, .so an den im Test erwarteten Ort kopieren)
+cd native/transport && cargo build -p ct_ffi --release
+# .so nach packages/connectanum_dart/<…>/put/path.so kopieren (wie im Test erwartet)
+cd ../../packages/connectanum_dart && dart test --coverage=coverage
+
+PHASE F – (Optional als Zusatz-Zwischenschritt) Router‑→‑Rust JSON‑Wire up
+Ziel
+
+Router konsumiert RouterConfig.toNativeJson() noch nicht über FFI (kommt später), aber erzeugt korrekte JSON und hat Validator‑Tests.
+
+Dieser Zwischenschritt gibt Codex einen abgeschlossenen, testbaren Meilenstein.
+
+Prompt F1 – Router JSON‑Kabeltest (rein Dart)
+
+„Erweitere packages/connectanum_dart/lib/router/router.dart um eine Klasse Router mit RouterConfig im Konstruktor und einer Methode buildNativeConfigJson() (liefert Uint8List UTF‑8 JSON), die exakt das von RouterConfig.toNativeJson() erzeugt – plus schemaVersion‐Feld.
+Schreibe Tests (100 % Coverage) für Kantenfälle (ohne Endpoints → Fehler, doppelter Hostname im SNI → Fehler, unterschiedliche TlsMode).
+Dokumentiere in Doc‑Comments, welche Felder an Rust gehen und welche im Dart bleiben.“
+
+Zusätzliche Hinweise/Design‑Entscheidungen (schon berücksichtigt)
+
+SNI Handling in Dart:
+Wir definieren SniCertificate(hostname, certificateChainPem, privateKeyPem). Später kann die TLS‑Terminierung wahlweise „in native“ erfolgen (wenn tlsMode == TlsMode.native, übergibst du die PEMs an Rust für künftige kTLS/native TLS). Für den Listener‑MVP brauchen wir nur die Struktur & Tests.
+
+maxRawSocketSizeExponent:
+In RouterConfig.toNativeJson() enthalten; Validierung: mind. Spez‑Default (z. B. 16) und eine Obergrenze, Tests inklusive.
+
+Abgrenzung Dart vs. Rust:
+Auth/Message‑Security/Controller/Realm‑Maps bleiben komplett in Dart. Das Rust‑Backend bekommt nur, was es für den Transport und das spätere RawSocket‑Framing benötigt.
+
+Build‑Kommandos (Linux) – für dich zur Orientierung
+# Rust
+cd native/transport
+cargo test -p ct_core
+cargo test -p ct_ffi
+cargo build -p ct_ffi --release
+cargo install cargo-llvm-cov
+cargo llvm-cov --workspace --fail-under-lines 100
+
+# Dart
+cd ../../packages/connectanum_dart
+dart pub get
+dart test --coverage=coverage
+
+Bonus: Spätere Phasen (nur Ausblick – noch keine Prompts ausführen)
+
+RawSocket‑Handshake & Framing in ct_core + ct_ffi (WAMP‑RawSocket), inkl. maxRawSocketSizeExponent.
+
+Head‑only Scanner (MsgPack/CBOR) + Payload‑Handles.
+
+Dart‑API serializePayload() (ExternalTypedData/FFI‑View).
+
+on_connection Callback → Dart‑Stream, dann Router verbindet Konfig & Runtime.
+
+Wenn du willst, liefere ich dir im nächsten Schritt gern die exakten Prompt‑Texte für:
+• RawSocket‑Handshake/Framing (Rust + Tests),
+• Head‑Scanner (MsgPack, Offsets) + Tests,
+• Dart‑FFI‑Callbacks (Streams) + Tests,
+• Build‑Hooks für Native Assets (optional).
+
+ChatGPT kann Fehler machen. Überprüfe wichtige Informationen. Siehe Cookie-Voreinstellungen.
