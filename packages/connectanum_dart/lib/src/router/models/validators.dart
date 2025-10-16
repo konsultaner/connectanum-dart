@@ -5,15 +5,20 @@ String normalizeHostname(String host) {
     throw ArgumentError.value(host, 'host', 'Host must not be empty');
   }
   final hostnamePattern = RegExp(
-      r'^[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?)*$');
+    r'^[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?)*$',
+  );
   final ipv6Pattern = RegExp(r'^\[[0-9A-Fa-f:]+\]$');
   final ipv4Pattern = RegExp(
-      r'^(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)(?:\.(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)){3}$');
+    r'^(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)(?:\.(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)){3}$',
+  );
   if (!(hostnamePattern.hasMatch(trimmed) ||
       ipv4Pattern.hasMatch(trimmed) ||
       ipv6Pattern.hasMatch(trimmed))) {
     throw ArgumentError.value(
-        host, 'host', 'Host is not a valid hostname or IP');
+      host,
+      'host',
+      'Host is not a valid hostname or IP',
+    );
   }
   return trimmed;
 }
@@ -24,10 +29,14 @@ String normalizePem(String pem, String fieldName) {
   if (trimmed.isEmpty) {
     throw ArgumentError.value(pem, fieldName, 'PEM value must not be empty');
   }
-  final beginMatch = RegExp(r'^-----BEGIN ([A-Z0-9 ]+)-----', multiLine: true)
-      .firstMatch(trimmed);
-  final endMatch = RegExp(r'-----END ([A-Z0-9 ]+)-----$', multiLine: true)
-      .firstMatch(trimmed);
+  final beginMatch = RegExp(
+    r'^-----BEGIN ([A-Z0-9 ]+)-----',
+    multiLine: true,
+  ).firstMatch(trimmed);
+  final endMatch = RegExp(
+    r'-----END ([A-Z0-9 ]+)-----$',
+    multiLine: true,
+  ).firstMatch(trimmed);
   if (beginMatch == null || endMatch == null) {
     throw ArgumentError.value(
       pem,

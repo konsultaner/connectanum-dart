@@ -21,16 +21,19 @@ class Endpoint {
     final normalizedHost = normalizeHostname(host);
     final normalizedPort = normalizePort(port);
     final normalizedIdleTimeout = normalizeIdleTimeout(idleTimeout);
-    final normalizedMaxContentLength =
-        normalizeMaxHttpContentLength(maxHttpContentLength);
-    final normalizedSocketSize =
-        normalizeRawSocketSizeExponent(maxRawSocketSizeExponent);
+    final normalizedMaxContentLength = normalizeMaxHttpContentLength(
+      maxHttpContentLength,
+    );
+    final normalizedSocketSize = normalizeRawSocketSizeExponent(
+      maxRawSocketSizeExponent,
+    );
     final normalizedWebSocketPath = normalizeWebSocketPath(webSocketPath);
 
     final certs = List<SniCertificate>.unmodifiable(sniCertificates);
     final names = <String>{};
     for (final cert in certs) {
-      if (!names.add(cert.hostname)) {
+      final key = cert.hostname.toLowerCase();
+      if (!names.add(key)) {
         throw ArgumentError.value(
           sniCertificates,
           'sniCertificates',
@@ -104,23 +107,24 @@ class Endpoint {
       map['websocket_path'] = webSocketPath;
     }
     if (sniCertificates.isNotEmpty) {
-      map['sni_certificates'] =
-          sniCertificates.map((cert) => cert.toNativeJson()).toList();
+      map['sni_certificates'] = sniCertificates
+          .map((cert) => cert.toNativeJson())
+          .toList();
     }
     return map;
   }
 
   @override
   int get hashCode => Object.hash(
-        host,
-        port,
-        tlsMode,
-        idleTimeout?.inMilliseconds,
-        maxHttpContentLength,
-        maxRawSocketSizeExponent,
-        webSocketPath,
-        const DeepCollectionEquality().hash(sniCertificates),
-      );
+    host,
+    port,
+    tlsMode,
+    idleTimeout?.inMilliseconds,
+    maxHttpContentLength,
+    maxRawSocketSizeExponent,
+    webSocketPath,
+    const DeepCollectionEquality().hash(sniCertificates),
+  );
 
   @override
   bool operator ==(Object other) {

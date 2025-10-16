@@ -11,8 +11,10 @@ class SniCertificate {
     required String privateKeyPem,
   }) {
     final normalizedHostname = normalizeHostname(hostname);
-    final normalizedChain =
-        normalizePem(certificateChainPem, 'certificateChainPem');
+    final normalizedChain = normalizePem(
+      certificateChainPem,
+      'certificateChainPem',
+    );
     final normalizedKey = normalizePem(privateKeyPem, 'privateKeyPem');
     return SniCertificate._(
       hostname: normalizedHostname,
@@ -37,17 +39,13 @@ class SniCertificate {
   final String privateKeyPem;
 
   Map<String, Object?> toNativeJson() => {
-        'hostname': hostname,
-        'certificate_chain_pem': certificateChainPem,
-        'private_key_pem': privateKeyPem,
-      };
+    'hostname': hostname,
+    'certificate_chain_pem': certificateChainPem,
+    'private_key_pem': privateKeyPem,
+  };
 
   @override
-  int get hashCode => Object.hash(
-        hostname,
-        certificateChainPem,
-        privateKeyPem,
-      );
+  int get hashCode => Object.hash(hostname, certificateChainPem, privateKeyPem);
 
   @override
   bool operator ==(Object other) {

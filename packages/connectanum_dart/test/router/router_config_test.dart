@@ -250,7 +250,9 @@ void main() {
       expect(json['schema'], 'custom.schema');
       expect(json['version'], 3);
       expect(
-          json['endpoints'], isA<List>().having((l) => l.length, 'length', 1));
+        json['endpoints'],
+        isA<List>().having((l) => l.length, 'length', 1),
+      );
     });
 
     test('equality compares schema, version and endpoints', () {

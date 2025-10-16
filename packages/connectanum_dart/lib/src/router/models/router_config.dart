@@ -14,13 +14,6 @@ class RouterConfig {
     String schema = defaultSchema,
     int version = defaultVersion,
   }) {
-    if (endpoints.isEmpty) {
-      throw ArgumentError.value(
-        endpoints,
-        'endpoints',
-        'At least one endpoint must be configured',
-      );
-    }
     return RouterConfig._(
       endpoints: List<Endpoint>.unmodifiable(endpoints),
       schema: schema,
@@ -45,18 +38,17 @@ class RouterConfig {
 
   /// Serialises the configuration into a map consumable by the native runtime.
   Map<String, Object?> toNativeJson() => {
-        'schema': schema,
-        'version': version,
-        'endpoints':
-            endpoints.map((endpoint) => endpoint.toNativeJson()).toList(),
-      };
+    'schema': schema,
+    'version': version,
+    'endpoints': endpoints.map((endpoint) => endpoint.toNativeJson()).toList(),
+  };
 
   @override
   int get hashCode => Object.hash(
-        schema,
-        version,
-        const ListEquality<Endpoint>().hash(endpoints),
-      );
+    schema,
+    version,
+    const ListEquality<Endpoint>().hash(endpoints),
+  );
 
   @override
   bool operator ==(Object other) {
