@@ -1,9 +1,19 @@
 import 'dart:ffi' as ffi;
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 
 import 'ffi_bindings.dart';
+
+abstract class NativeRuntime {
+  void start();
+  void shutdown();
+  int listen(String host, int port, {int backlog = 128});
+  int getLocalPort(int listenerId);
+  int pollConnection(int listenerId);
+  void applyRouterConfig(Uint8List config);
+}
 
 /// Error codes exposed by the native layer.
 abstract final class NativeTransportErrorCode {
@@ -30,7 +40,7 @@ class NativeTransportException implements Exception {
 }
 
 /// Thin wrapper around the native runtime exposed through ct_ffi.
-class NativeTransportRuntime {
+class NativeTransportRuntime implements NativeRuntime {
   factory NativeTransportRuntime({String? libraryPath}) {
     if (_instance != null) {
       throw StateError('NativeTransportRuntime already initialised');
@@ -46,7 +56,7 @@ class NativeTransportRuntime {
   NativeTransportRuntime._(this._library, this._bindings);
 
   final ffi.DynamicLibrary
-      _library; // Keep library alive for the runtime life cycle.
+  _library; // Keep library alive for the runtime life cycle.
   final CtFfiBindings _bindings;
 
   static NativeTransportRuntime? _instance;
@@ -55,10 +65,11 @@ class NativeTransportRuntime {
   void Function(int listenerId, int connectionId)? _onConnection;
 
   static final ffi.Pointer<ffi.NativeFunction<ListenerCallbackNative>>
-      _listenerTrampolinePointer =
-      ffi.Pointer.fromFunction<ListenerCallbackNative>(_listenerTrampoline);
+  _listenerTrampolinePointer = ffi.Pointer.fromFunction<ListenerCallbackNative>(
+    _listenerTrampoline,
+  );
   static final ffi.Pointer<ffi.NativeFunction<ConnectionCallbackNative>>
-      _connectionTrampolinePointer =
+  _connectionTrampolinePointer =
       ffi.Pointer.fromFunction<ConnectionCallbackNative>(_connectionTrampoline);
 
   static ffi.DynamicLibrary _openLibrary(String? overridePath) {
@@ -103,12 +114,15 @@ class NativeTransportRuntime {
     _onConnection = onConnection;
   }
 
+  @override
   void start() =>
       _checkZero(_bindings.ctStartRuntime(), 'Failed to start runtime');
 
+  @override
   void shutdown() =>
       _checkZero(_bindings.ctShutdown(), 'Failed to shutdown runtime');
 
+  @override
   int listen(String host, int port, {int backlog = 128}) {
     if (backlog <= 0) {
       throw ArgumentError.value(backlog, 'backlog', 'Must be positive');
@@ -123,6 +137,7 @@ class NativeTransportRuntime {
     });
   }
 
+  @override
   int getLocalPort(int listenerId) {
     final result = _bindings.ctGetLocalPort(listenerId);
     if (result < 0) {
@@ -131,13 +146,11 @@ class NativeTransportRuntime {
     return result;
   }
 
+  @override
   int pollConnection(int listenerId) {
     final result = _bindings.ctPollConnection(listenerId);
     if (result == NativeTransportErrorCode.listenerNotFound) {
-      throw NativeTransportException(
-        result,
-        'Listener $listenerId not found',
-      );
+      throw NativeTransportException(result, 'Listener $listenerId not found');
     }
     if (result < 0) {
       _throwForError(result, 'Polling connections failed');
@@ -169,6 +182,13 @@ class NativeTransportRuntime {
       _ => '$context: error code $code',
     };
     throw NativeTransportException(code, message);
+  }
+
+  @override
+  void applyRouterConfig(Uint8List config) {
+    throw UnsupportedError(
+      'Native runtime configuration wiring not implemented yet',
+    );
   }
 
   static void _listenerTrampoline(int listenerId, int status) {

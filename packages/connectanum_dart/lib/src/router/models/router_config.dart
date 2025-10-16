@@ -14,6 +14,13 @@ class RouterConfig {
     String schema = defaultSchema,
     int version = defaultVersion,
   }) {
+    if (endpoints.isEmpty) {
+      throw ArgumentError.value(
+        endpoints,
+        'endpoints',
+        'At least one endpoint must be configured',
+      );
+    }
     return RouterConfig._(
       endpoints: List<Endpoint>.unmodifiable(endpoints),
       schema: schema,
