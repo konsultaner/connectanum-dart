@@ -8,3 +8,4 @@ pubspec.lock
 coverage
 /native/transport/target/
 Cargo.lock
+/native/transport/tmp/
