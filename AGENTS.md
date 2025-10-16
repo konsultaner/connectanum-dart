@@ -24,12 +24,8 @@ dart pub get
 
 ## Running Rust tests locally
 
-The Codex sandbox blocks socket operations, so run Rust tests on your machine with repo-local `TMPDIR` and `CARGO_TARGET_DIR`:
-
 ```
 cd native/transport
-export TMPDIR=$(pwd)/tmp
-export CARGO_TARGET_DIR=$(pwd)/target
 cargo test -p ct_core
 cargo test -p ct_ffi
 ```
@@ -45,5 +41,7 @@ cd packages/connectanum_dart
 export CONNECTANUM_NATIVE_LIB=/absolute/path/to/native/transport/target/release/libct_ffi.so
 dart test test/router/router_json_test.dart test/router/router_runtime_test.dart
 ```
+
+`CONNECTANUM_NATIVE_LIB` defaults to `libct_ffi.so` in the current directory. so usually you can just run `dart test`.
 
 If the sandbox cannot resolve `dart` commands; run them locally or execute `./codex.sh` to install the SDK when needed.
