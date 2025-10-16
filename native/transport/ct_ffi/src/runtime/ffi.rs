@@ -2,7 +2,8 @@ use std::ffi::CStr;
 use std::os::raw::{c_char, c_int, c_uint};
 
 use ct_core::{
-    accept_channel, listen, local_addr, shutdown, start_runtime, Error as CoreError, ListenerId,
+    accept_channel, apply_router_config, listen, local_addr, shutdown, start_runtime,
+    Error as CoreError, ListenerId,
 };
 
 use crate::callbacks::{
@@ -22,6 +23,7 @@ fn map_error(err: CoreError) -> c_int {
         CoreError::AcceptChannelAlreadyTaken(_) => ERR_CHANNEL_ALREADY_TAKEN,
         CoreError::AddressResolution(_, _) => ERR_INVALID_ARGUMENT,
         CoreError::UnsupportedPlatform => ERR_UNSUPPORTED,
+        CoreError::RouterConfigInvalid(_) => ERR_ROUTER_CONFIG_INVALID,
         CoreError::Io(_) => ERR_IO,
     }
 }
@@ -41,6 +43,18 @@ pub extern "C" fn ct_shutdown() -> c_int {
             clear_channels();
             SUCCESS
         }
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_apply_router_config(data: *const u8, len: c_int) -> c_int {
+    if data.is_null() || len < 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let bytes = unsafe { std::slice::from_raw_parts(data, len as usize) };
+    match apply_router_config(bytes) {
+        Ok(()) => SUCCESS,
         Err(err) => map_error(err),
     }
 }

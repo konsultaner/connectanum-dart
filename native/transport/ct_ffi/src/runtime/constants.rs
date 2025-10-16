@@ -6,3 +6,4 @@ pub const ERR_INVALID_ARGUMENT: i32 = -4;
 pub const ERR_LISTENER_NOT_FOUND: i32 = -5;
 pub const ERR_CHANNEL_ALREADY_TAKEN: i32 = -6;
 pub const ERR_IO: i32 = -7;
+pub const ERR_ROUTER_CONFIG_INVALID: i32 = -8;

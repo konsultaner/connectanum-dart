@@ -13,6 +13,7 @@ use std::{
 use thiserror::Error;
 use tokio::{runtime::Runtime, sync::mpsc, task::JoinHandle};
 
+mod config;
 mod platform;
 
 pub use platform::{Runtime as PlatformRuntime, UnsupportedPlatform};
@@ -51,6 +52,9 @@ pub enum Error {
     /// Socket address resolution failed.
     #[error("failed to resolve address {0}:{1}")]
     AddressResolution(String, u16),
+    /// Router configuration could not be parsed or applied.
+    #[error("router configuration invalid: {0}")]
+    RouterConfigInvalid(String),
     /// Wrapper around I/O errors.
     #[error(transparent)]
     Io(#[from] std::io::Error),
@@ -209,6 +213,11 @@ pub fn start_runtime() -> Result<(), Error> {
     Ok(())
 }
 
+/// Applies the router configuration JSON produced on the Dart side.
+pub fn apply_router_config(bytes: &[u8]) -> Result<(), Error> {
+    config::apply_router_config_bytes(bytes)
+}
+
 /// Gracefully shuts down the runtime and aborts all listener tasks.
 pub fn shutdown() -> Result<(), Error> {
     let manager = RuntimeManager::global();
@@ -329,6 +338,17 @@ mod tests {
     fn test_guard() -> std::sync::MutexGuard<'static, ()> {
         static GUARD: OnceLock<Mutex<()>> = OnceLock::new();
         GUARD.get_or_init(|| Mutex::new(())).lock().unwrap()
+    }
+
+    #[test]
+    fn apply_router_config_stores_config() {
+        shutdown().ok();
+        super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"native"}]}"#)
+            .expect("config applies");
+        let cfg = crate::config::current_config().expect("config stored");
+        assert_eq!(cfg.endpoints.len(), 1);
+        let endpoint = crate::config::find_endpoint("127.0.0.1", 8080).expect("endpoint");
+        assert_eq!(endpoint.host, "127.0.0.1");
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

@@ -23,6 +23,9 @@ typedef CtGetLocalPortDart = int Function(int);
 typedef CtPollConnectionNative = ffi.Int32 Function(ffi.Int32);
 typedef CtPollConnectionDart = int Function(int);
 
+typedef CtApplyRouterConfigNative = ffi.Int32 Function(ffi.Pointer<ffi.Uint8>, ffi.Int32);
+typedef CtApplyRouterConfigDart = int Function(ffi.Pointer<ffi.Uint8>, int);
+
 typedef ListenerCallbackNative = ffi.Void Function(ffi.Int32, ffi.Int32);
 typedef ConnectionCallbackNative = ffi.Void Function(ffi.Int32, ffi.Int32);
 
@@ -61,6 +64,10 @@ class CtFfiBindings {
             .lookupFunction<CtPollConnectionNative, CtPollConnectionDart>(
           'ct_poll_connection',
         ),
+        ctApplyRouterConfig = library.lookupFunction<
+            CtApplyRouterConfigNative, CtApplyRouterConfigDart>(
+          'ct_apply_router_config',
+        ),
         ctSetOnListenerStarted = library.lookupFunction<
             CtSetOnListenerStartedNative, CtSetOnListenerStartedDart>(
           'ct_set_on_listener_started',
@@ -75,6 +82,7 @@ class CtFfiBindings {
   final CtListenDart ctListen;
   final CtGetLocalPortDart ctGetLocalPort;
   final CtPollConnectionDart ctPollConnection;
+  final CtApplyRouterConfigDart ctApplyRouterConfig;
   final CtSetOnListenerStartedDart ctSetOnListenerStarted;
   final CtSetOnConnectionDart ctSetOnConnection;
 }

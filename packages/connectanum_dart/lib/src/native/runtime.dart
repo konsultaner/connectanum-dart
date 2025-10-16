@@ -25,6 +25,7 @@ abstract final class NativeTransportErrorCode {
   static const listenerNotFound = -5;
   static const channelAlreadyTaken = -6;
   static const io = -7;
+  static const routerConfigInvalid = -8;
 }
 
 /// Exception thrown when the native runtime reports an error.
@@ -176,6 +177,8 @@ class NativeTransportRuntime implements NativeRuntime {
         '$context: invalid argument to native runtime',
       NativeTransportErrorCode.listenerNotFound =>
         '$context: listener not found',
+      NativeTransportErrorCode.routerConfigInvalid =>
+        '$context: router configuration invalid',
       NativeTransportErrorCode.channelAlreadyTaken =>
         '$context: accept channel already taken',
       NativeTransportErrorCode.io => '$context: native I/O failure',
@@ -186,9 +189,17 @@ class NativeTransportRuntime implements NativeRuntime {
 
   @override
   void applyRouterConfig(Uint8List config) {
-    throw UnsupportedError(
-      'Native runtime configuration wiring not implemented yet',
-    );
+    if (config.isEmpty) {
+      return;
+    }
+    final ptr = calloc<ffi.Uint8>(config.length);
+    try {
+      ptr.asTypedList(config.length).setAll(0, config);
+      final result = _bindings.ctApplyRouterConfig(ptr, config.length);
+      _checkZero(result, 'Failed to apply router configuration');
+    } finally {
+      calloc.free(ptr);
+    }
   }
 
   static void _listenerTrampoline(int listenerId, int status) {

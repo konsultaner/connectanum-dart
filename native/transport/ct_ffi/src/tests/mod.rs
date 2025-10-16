@@ -6,13 +6,14 @@ fn guard() -> &'static Mutex<()> {
 }
 
 pub(crate) fn test_guard() -> std::sync::MutexGuard<'static, ()> {
-    guard().lock().unwrap()
+    guard().lock().unwrap_or_else(|poison| poison.into_inner())
 }
 
 #[cfg(target_os = "linux")]
 mod error_cases;
 #[cfg(target_os = "linux")]
 mod listen_flow;
+mod router_config;
 #[cfg(target_os = "linux")]
 mod runtime_lifecycle;
 
