@@ -52,6 +52,9 @@ pub enum Error {
     /// Socket address resolution failed.
     #[error("failed to resolve address {0}:{1}")]
     AddressResolution(String, u16),
+    /// Listener requested for a host/port not present in the applied config.
+    #[error("endpoint {0}:{1} is not configured")]
+    EndpointNotConfigured(String, u16),
     /// Router configuration could not be parsed or applied.
     #[error("router configuration invalid: {0}")]
     RouterConfigInvalid(String),
@@ -87,6 +90,7 @@ struct ListenerEntry {
     receiver: Mutex<Option<mpsc::Receiver<ConnectionId>>>,
     _sender: mpsc::Sender<ConnectionId>,
     task: JoinHandle<()>,
+    endpoint_config: Arc<config::EndpointConfig>,
 }
 
 impl RuntimeManager {
@@ -240,6 +244,8 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
     manager
         .with_state(|view| {
             let socket_addr = resolve_socket_addr(addr, port)?;
+            let endpoint_config = config::find_endpoint(addr, port)
+                .ok_or_else(|| Error::EndpointNotConfigured(addr.to_string(), port))?;
             let std_listener = create_listener(socket_addr, backlog as u32)?;
             let local_addr = std_listener.local_addr()?;
 
@@ -269,6 +275,7 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                 receiver: Mutex::new(Some(receiver)),
                 _sender: sender,
                 task,
+                endpoint_config,
             };
             view.registry.insert(listener_id, entry);
 
@@ -365,6 +372,10 @@ mod tests {
     async fn listen_accept_and_shutdown() {
         let _guard = test_guard();
         shutdown().ok();
+        super::apply_router_config(
+            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native"}]}"#,
+        )
+        .unwrap();
         start_runtime().unwrap();
         let listener_id = listen("127.0.0.1", 0, 128).unwrap();
         let addr = local_addr(listener_id).unwrap();
@@ -388,6 +399,10 @@ mod tests {
     async fn accept_channel_only_once() {
         let _guard = test_guard();
         shutdown().ok();
+        super::apply_router_config(
+            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native"}]}"#,
+        )
+        .unwrap();
         start_runtime().unwrap();
         let listener_id = listen("127.0.0.1", 0, 128).unwrap();
         let _receiver = accept_channel(listener_id).unwrap();
@@ -411,6 +426,10 @@ mod tests {
     fn invalid_backlog_is_rejected() {
         let _guard = test_guard();
         shutdown().ok();
+        super::apply_router_config(
+            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native"}]}"#,
+        )
+        .unwrap();
         start_runtime().unwrap();
         let err = listen("127.0.0.1", 0, 0).expect_err("invalid backlog");
         assert!(matches!(err, Error::InvalidBacklog));

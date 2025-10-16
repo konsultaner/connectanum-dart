@@ -1604,3 +1604,17 @@ Wenn du willst, liefere ich dir im nächsten Schritt gern die exakten Prompt‑T
 • Build‑Hooks für Native Assets (optional).
 
 ChatGPT kann Fehler machen. Überprüfe wichtige Informationen. Siehe Cookie-Voreinstellungen.
+
+
+///////////// CHAT ENDE
+
+Session summary:
+- Implemented serde-powered router config parsing (native/transport/ct_core/src/config.rs) and connected it to ct_core::apply_router_config.
+- ct_core::listen() now resolves endpoints from the applied config and returns EndpointNotConfigured when host/port is missing; listener entries retain Arc<EndpointConfig> for future use.
+- Added tests ensuring router config is applied before spinning up listeners and verified errors/events via ct_ffi tests.
+- ct_ffi exposes ct_apply_router_config, maps new error codes (ERR_ROUTER_CONFIG_INVALID, ERR_ENDPOINT_NOT_CONFIGURED), and tests load configs before listen.
+- Dart NativeTransportRuntime understands endpointNotConfigured errors, Router.start applies config and opens listeners.
+- AGENTS.md documents local test commands using TMPDIR/CARGO_TARGET_DIR/RUSTC_TMPDIR and how to run Dart tests with CONNECTANUM_NATIVE_LIB.
+Next steps:
+- Consume stored endpoint_config fields in the runtime (TLS, idle timeout, raw socket exponent, etc.) when building actual listener behavior.
+- Sandbox still cannot run cargo test (cross-device link) or socket-bound tests; rely on local environment for full test suite.

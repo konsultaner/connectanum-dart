@@ -26,6 +26,7 @@ abstract final class NativeTransportErrorCode {
   static const channelAlreadyTaken = -6;
   static const io = -7;
   static const routerConfigInvalid = -8;
+  static const endpointNotConfigured = -9;
 }
 
 /// Exception thrown when the native runtime reports an error.
@@ -179,6 +180,8 @@ class NativeTransportRuntime implements NativeRuntime {
         '$context: listener not found',
       NativeTransportErrorCode.routerConfigInvalid =>
         '$context: router configuration invalid',
+      NativeTransportErrorCode.endpointNotConfigured =>
+        '$context: endpoint not configured in native runtime',
       NativeTransportErrorCode.channelAlreadyTaken =>
         '$context: accept channel already taken',
       NativeTransportErrorCode.io => '$context: native I/O failure',

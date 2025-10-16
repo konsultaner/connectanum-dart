@@ -4,9 +4,9 @@ use std::time::Duration;
 
 use tokio::runtime::Runtime as TokioRuntime;
 
-use crate::runtime::constants::{ERR_LISTENER_NOT_FOUND, SUCCESS};
+use crate::runtime::constants::{ERR_ENDPOINT_NOT_CONFIGURED, ERR_LISTENER_NOT_FOUND, SUCCESS};
 use crate::runtime::ffi::{
-    ct_get_local_port, ct_listen, ct_poll_connection, ct_set_on_connection,
+    ct_apply_router_config, ct_get_local_port, ct_listen, ct_poll_connection, ct_set_on_connection,
     ct_set_on_listener_started, ct_shutdown, ct_start_runtime,
 };
 
@@ -20,6 +20,15 @@ thread_local! {
 #[test]
 fn listener_callbacks_fire_and_connections_are_reported() {
     let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native"}]}"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
     assert_eq!(ct_start_runtime(), SUCCESS);
 
     extern "C" fn on_listener_started(id: i32, status: i32) {
@@ -40,6 +49,12 @@ fn listener_callbacks_fire_and_connections_are_reported() {
     let addr = CString::new("127.0.0.1").unwrap();
     let listener_id = ct_listen(addr.as_ptr(), 0, 128);
     assert!(listener_id > 0);
+
+    let other = CString::new("0.0.0.0").unwrap();
+    assert_eq!(
+        ct_listen(other.as_ptr(), 0, 128),
+        ERR_ENDPOINT_NOT_CONFIGURED
+    );
 
     LISTENER_EVENTS.with(|events| {
         assert_eq!(events.lock().unwrap().as_slice(), &[(listener_id, SUCCESS)]);

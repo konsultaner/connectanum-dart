@@ -24,6 +24,7 @@ fn map_error(err: CoreError) -> c_int {
         CoreError::AddressResolution(_, _) => ERR_INVALID_ARGUMENT,
         CoreError::UnsupportedPlatform => ERR_UNSUPPORTED,
         CoreError::RouterConfigInvalid(_) => ERR_ROUTER_CONFIG_INVALID,
+        CoreError::EndpointNotConfigured(_, _) => ERR_ENDPOINT_NOT_CONFIGURED,
         CoreError::Io(_) => ERR_IO,
     }
 }

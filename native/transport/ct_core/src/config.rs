@@ -39,21 +39,22 @@ pub struct SniCertificate {
 }
 
 pub fn apply_router_config_bytes(bytes: &[u8]) -> Result<(), Error> {
-    let config: RouterConfig =
+    let parsed: RouterConfig =
         serde_json::from_slice(bytes).map_err(|err| Error::RouterConfigInvalid(err.to_string()))?;
     let mut guard = config_lock()
         .write()
         .map_err(|_| Error::RouterConfigInvalid("lock poisoned".into()))?;
-    *guard = Some(Arc::new(config));
+    *guard = Some(Arc::new(parsed));
     Ok(())
 }
 
+#[allow(dead_code)]
 pub fn current_config() -> Option<Arc<RouterConfig>> {
     config_lock().read().ok().and_then(|guard| guard.clone())
 }
 
 pub fn find_endpoint(host: &str, port: u16) -> Option<Arc<EndpointConfig>> {
-    let cfg = current_config()?;
+    let cfg = config_lock().read().ok()?.clone()?;
     cfg.endpoints
         .iter()
         .find(|endpoint| endpoint.host.eq_ignore_ascii_case(host) && endpoint.port == port)
