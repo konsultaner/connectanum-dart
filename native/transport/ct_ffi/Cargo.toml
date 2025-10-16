@@ -5,6 +5,8 @@ edition = "2021"
 
 [dependencies]
 ct_core = { path = "../ct_core" }
+dashmap = "5.5"
+tokio = { version = "1.40.0", features = ["rt", "rt-multi-thread", "macros", "time", "net"] }
 
 [lib]
 crate-type = ["cdylib", "rlib"]

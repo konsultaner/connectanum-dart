@@ -163,3 +163,23 @@ await for (final result in session.call("my.procedure")) {
   // do something with the result
 }
 ```
+
+## Native runtime
+
+To run the native integration tests or exercise the router runtime you need to
+build the Rust workspace first:
+
+```bash
+cd native/transport
+cargo build -p ct_ffi --release
+```
+
+Point the Dart bindings to the produced shared library by setting the
+`CONNECTANUM_NATIVE_LIB` environment variable or by placing the build output in
+`native/transport/target/debug` (the default lookup path during development).
+
+The published Dart package does not ship prebuilt binaries; consumers are
+expected to compile the native library for their platform following the steps
+above. Tests that depend on the shared library (e.g.
+`test/native/native_runtime_test.dart`) automatically skip when the library is
+missing or when the platform is not Linux.

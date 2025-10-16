@@ -1,0 +1,8 @@
+pub const SUCCESS: i32 = 0;
+pub const ERR_UNSUPPORTED: i32 = -1;
+pub const ERR_ALREADY_STARTED: i32 = -2;
+pub const ERR_RUNTIME_NOT_STARTED: i32 = -3;
+pub const ERR_INVALID_ARGUMENT: i32 = -4;
+pub const ERR_LISTENER_NOT_FOUND: i32 = -5;
+pub const ERR_CHANNEL_ALREADY_TAKEN: i32 = -6;
+pub const ERR_IO: i32 = -7;

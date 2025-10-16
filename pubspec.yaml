@@ -1,0 +1,5 @@
+name: connectanum_workspace
+environment:
+  sdk: '^3.9.2'
+workspace:
+  - packages/connectanum_dart

@@ -11,12 +11,7 @@ use std::{
 };
 
 use thiserror::Error;
-use tokio::{
-    net::{TcpListener, TcpSocket},
-    runtime::Runtime,
-    sync::mpsc,
-    task::JoinHandle,
-};
+use tokio::{runtime::Runtime, sync::mpsc, task::JoinHandle};
 
 mod platform;
 
@@ -26,11 +21,11 @@ static RUNTIME_MANAGER: OnceLock<RuntimeManager> = OnceLock::new();
 
 /// Unique identifier for a registered listener.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct ListenerId(u32);
+pub struct ListenerId(pub u32);
 
 /// Unique identifier for an accepted connection.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct ConnectionId(u32);
+pub struct ConnectionId(pub u32);
 
 /// Errors that can occur when interacting with the runtime.
 #[derive(Debug, Error)]
@@ -236,21 +231,22 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
     manager
         .with_state(|view| {
             let socket_addr = resolve_socket_addr(addr, port)?;
-            let listener = create_listener(socket_addr, backlog as u32)?;
-            let local_addr = listener.local_addr()?;
+            let std_listener = create_listener(socket_addr, backlog as u32)?;
+            let local_addr = std_listener.local_addr()?;
 
             let (sender, receiver) = mpsc::channel(1024);
             let listener_id = view.registry.next_listener_id();
-            let accept_sender = sender.clone();
             let accept_registry = Arc::clone(&view.registry);
-
-            let handle = view.handle.spawn(async move {
-                let listener = listener;
+            let async_sender = sender.clone();
+            let task = view.handle.spawn(async move {
+                let listener = tokio::net::TcpListener::from_std(std_listener)
+                    .expect("failed to convert listener to tokio");
+                let tx = async_sender;
                 loop {
                     match listener.accept().await {
                         Ok((_stream, _addr)) => {
                             let connection_id = accept_registry.next_connection_id();
-                            if accept_sender.send(connection_id).await.is_err() {
+                            if tx.send(connection_id).await.is_err() {
                                 break;
                             }
                         }
@@ -263,7 +259,7 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                 addr: local_addr,
                 receiver: Mutex::new(Some(receiver)),
                 _sender: sender,
-                task: handle,
+                task,
             };
             view.registry.insert(listener_id, entry);
 
@@ -306,19 +302,23 @@ fn resolve_socket_addr(addr: &str, port: u16) -> Result<SocketAddr, Error> {
         .ok_or_else(|| Error::AddressResolution(addr.to_string(), port))
 }
 
-fn create_listener(addr: SocketAddr, backlog: u32) -> Result<TcpListener, std::io::Error> {
-    let socket = if addr.is_ipv4() {
-        TcpSocket::new_v4()?
+fn create_listener(
+    addr: SocketAddr,
+    backlog: u32,
+) -> Result<std::net::TcpListener, std::io::Error> {
+    use socket2::{Domain, Socket, Type};
+
+    let domain = if addr.is_ipv4() {
+        Domain::IPV4
     } else {
-        TcpSocket::new_v6()?
+        Domain::IPV6
     };
-    socket.set_reuseaddr(true)?;
-    #[cfg(target_family = "unix")]
-    {
-        let _ = socket.set_reuseport(true);
-    }
-    socket.bind(addr)?;
-    socket.listen(backlog)
+    let socket = Socket::new(domain, Type::STREAM, None)?;
+    socket.set_reuse_address(true)?;
+    socket.bind(&addr.into())?;
+    socket.listen(backlog as i32)?;
+    socket.set_nonblocking(true)?;
+    Ok(socket.into())
 }
 
 #[cfg(test)]
