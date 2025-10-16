@@ -90,6 +90,7 @@ struct ListenerEntry {
     receiver: Mutex<Option<mpsc::Receiver<ConnectionId>>>,
     _sender: mpsc::Sender<ConnectionId>,
     task: JoinHandle<()>,
+    #[allow(dead_code)]
     endpoint_config: Arc<config::EndpointConfig>,
 }
 

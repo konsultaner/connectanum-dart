@@ -1,5 +1,7 @@
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
+use std::collections::HashSet;
 use std::sync::{Arc, OnceLock, RwLock};
+use std::time::Duration;
 
 use crate::Error;
 
@@ -22,12 +24,18 @@ pub struct RouterConfig {
 pub struct EndpointConfig {
     pub host: String,
     pub port: u16,
-    pub tls_mode: String,
-    pub idle_timeout_ms: Option<u64>,
+    pub tls_mode: TlsMode,
+    #[serde(
+        rename = "idle_timeout_ms",
+        default,
+        deserialize_with = "deserialize_duration_opt"
+    )]
+    pub idle_timeout: Option<Duration>,
     pub max_http_content_length: Option<u64>,
     pub max_rawsocket_size_exponent: Option<u32>,
     pub websocket_path: Option<String>,
-    pub sni_certificates: Option<Vec<SniCertificate>>,
+    #[serde(default)]
+    pub sni_certificates: Vec<SniCertificate>,
 }
 
 #[allow(dead_code)]
@@ -41,6 +49,15 @@ pub struct SniCertificate {
 pub fn apply_router_config_bytes(bytes: &[u8]) -> Result<(), Error> {
     let parsed: RouterConfig =
         serde_json::from_slice(bytes).map_err(|err| Error::RouterConfigInvalid(err.to_string()))?;
+    let mut sanctioned_ports: HashSet<(String, u16)> = HashSet::new();
+    for endpoint in &parsed.endpoints {
+        if !sanctioned_ports.insert((endpoint.host.to_lowercase(), endpoint.port)) {
+            return Err(Error::RouterConfigInvalid(format!(
+                "duplicate endpoint {}:{}",
+                endpoint.host, endpoint.port
+            )));
+        }
+    }
     let mut guard = config_lock()
         .write()
         .map_err(|_| Error::RouterConfigInvalid("lock poisoned".into()))?;
@@ -54,10 +71,31 @@ pub fn current_config() -> Option<Arc<RouterConfig>> {
 }
 
 pub fn find_endpoint(host: &str, port: u16) -> Option<Arc<EndpointConfig>> {
-    let cfg = config_lock().read().ok()?.clone()?;
-    cfg.endpoints
-        .iter()
-        .find(|endpoint| endpoint.host.eq_ignore_ascii_case(host) && endpoint.port == port)
-        .cloned()
-        .map(Arc::new)
+    config_lock()
+        .read()
+        .ok()
+        .and_then(|guard| guard.clone())
+        .and_then(|cfg| {
+            cfg.endpoints
+                .iter()
+                .find(|endpoint| endpoint.host.eq_ignore_ascii_case(host) && endpoint.port == port)
+                .cloned()
+                .map(Arc::new)
+        })
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum TlsMode {
+    Disabled,
+    Native,
+    Dart,
+}
+
+fn deserialize_duration_opt<'de, D>(deserializer: D) -> Result<Option<Duration>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let millis = Option::<u64>::deserialize(deserializer)?;
+    Ok(millis.map(Duration::from_millis))
 }
