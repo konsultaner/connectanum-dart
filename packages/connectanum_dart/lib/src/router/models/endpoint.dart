@@ -13,6 +13,7 @@ class Endpoint {
     required int port,
     required TlsMode tlsMode,
     Duration? idleTimeout,
+    Duration? handshakeTimeout,
     int? maxHttpContentLength,
     required int maxRawSocketSizeExponent,
     String? webSocketPath,
@@ -21,6 +22,8 @@ class Endpoint {
     final normalizedHost = normalizeHostname(host);
     final normalizedPort = normalizePort(port);
     final normalizedIdleTimeout = normalizeIdleTimeout(idleTimeout);
+    final normalizedHandshakeTimeout =
+        normalizeHandshakeTimeout(handshakeTimeout);
     final normalizedMaxContentLength = normalizeMaxHttpContentLength(
       maxHttpContentLength,
     );
@@ -47,6 +50,7 @@ class Endpoint {
       port: normalizedPort,
       tlsMode: tlsMode,
       idleTimeout: normalizedIdleTimeout,
+      handshakeTimeout: normalizedHandshakeTimeout,
       maxHttpContentLength: normalizedMaxContentLength,
       maxRawSocketSizeExponent: normalizedSocketSize,
       webSocketPath: normalizedWebSocketPath,
@@ -59,6 +63,7 @@ class Endpoint {
     required this.port,
     required this.tlsMode,
     required this.idleTimeout,
+    required this.handshakeTimeout,
     required this.maxHttpContentLength,
     required this.maxRawSocketSizeExponent,
     required this.webSocketPath,
@@ -76,6 +81,9 @@ class Endpoint {
 
   /// Optional idle timeout after which connections will be dropped (Dart-only).
   final Duration? idleTimeout;
+
+  /// Optional handshake timeout for the initial RawSocket negotiation.
+  final Duration? handshakeTimeout;
 
   /// Optional HTTP content length limit in bytes.
   final int? maxHttpContentLength;
@@ -100,6 +108,9 @@ class Endpoint {
     if (idleTimeout != null) {
       map['idle_timeout_ms'] = idleTimeout!.inMilliseconds;
     }
+    if (handshakeTimeout != null) {
+      map['handshake_timeout_ms'] = handshakeTimeout!.inMilliseconds;
+    }
     if (maxHttpContentLength != null) {
       map['max_http_content_length'] = maxHttpContentLength;
     }
@@ -120,6 +131,7 @@ class Endpoint {
     port,
     tlsMode,
     idleTimeout?.inMilliseconds,
+    handshakeTimeout?.inMilliseconds,
     maxHttpContentLength,
     maxRawSocketSizeExponent,
     webSocketPath,
@@ -139,6 +151,7 @@ class Endpoint {
         other.port == port &&
         other.tlsMode == tlsMode &&
         other.idleTimeout == idleTimeout &&
+        other.handshakeTimeout == handshakeTimeout &&
         other.maxHttpContentLength == maxHttpContentLength &&
         other.maxRawSocketSizeExponent == maxRawSocketSizeExponent &&
         other.webSocketPath == webSocketPath &&

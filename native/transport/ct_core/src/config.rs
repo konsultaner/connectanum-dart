@@ -11,6 +11,8 @@ pub const MIN_RAWSOCKET_SIZE_EXPONENT: u32 = 9;
 pub const DEFAULT_RAWSOCKET_SIZE_EXPONENT: u32 = 16;
 /// Connectanum allows larger payloads than the base specification.
 pub const CONNECTANUM_MAX_RAWSOCKET_SIZE_EXPONENT: u32 = 30;
+/// Default timeout for completing the RawSocket handshake.
+pub const DEFAULT_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 
 static ROUTER_CONFIG: OnceLock<RwLock<Option<Arc<RouterConfig>>>> = OnceLock::new();
 
@@ -38,6 +40,12 @@ pub struct EndpointConfig {
         deserialize_with = "deserialize_duration_opt"
     )]
     pub idle_timeout: Option<Duration>,
+    #[serde(
+        rename = "handshake_timeout_ms",
+        default,
+        deserialize_with = "deserialize_duration_opt"
+    )]
+    pub handshake_timeout: Option<Duration>,
     pub max_http_content_length: Option<u64>,
     pub max_rawsocket_size_exponent: Option<u32>,
     pub websocket_path: Option<String>,
@@ -115,9 +123,11 @@ pub struct EndpointRuntimeConfig {
     pub port: u16,
     pub tls_mode: TlsMode,
     pub idle_timeout: Option<Duration>,
+    pub handshake_timeout: Duration,
     pub max_http_content_length: Option<u64>,
     pub max_rawsocket_size_exponent: u32,
     pub max_rawsocket_size: u64,
+    pub max_upgrade_exponent: Option<u32>,
     pub websocket_path: Option<String>,
     pub sni_certificates: Vec<SniCertificate>,
 }
@@ -143,6 +153,14 @@ impl EndpointRuntimeConfig {
                 )));
             }
         }
+        if let Some(timeout) = endpoint.handshake_timeout {
+            if timeout.is_zero() {
+                return Err(Error::RouterConfigInvalid(format!(
+                    "endpoint {}:{} handshake_timeout_ms must be positive",
+                    endpoint.host, endpoint.port
+                )));
+            }
+        }
         if let Some(limit) = endpoint.max_http_content_length {
             if limit == 0 {
                 return Err(Error::RouterConfigInvalid(format!(
@@ -156,9 +174,13 @@ impl EndpointRuntimeConfig {
             port: endpoint.port,
             tls_mode: endpoint.tls_mode.clone(),
             idle_timeout: endpoint.idle_timeout,
+            handshake_timeout: endpoint
+                .handshake_timeout
+                .unwrap_or(DEFAULT_HANDSHAKE_TIMEOUT),
             max_http_content_length: endpoint.max_http_content_length,
             max_rawsocket_size_exponent: exponent,
             max_rawsocket_size: 1u64 << exponent,
+            max_upgrade_exponent: endpoint.max_rawsocket_size_exponent,
             websocket_path: endpoint.websocket_path.clone(),
             sni_certificates: endpoint.sni_certificates.clone(),
         })

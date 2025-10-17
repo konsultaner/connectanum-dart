@@ -15,6 +15,7 @@ use tokio::{net::TcpStream as TokioTcpStream, runtime::Runtime, sync::mpsc, task
 
 mod config;
 mod platform;
+mod rawsocket;
 
 pub use config::EndpointRuntimeConfig;
 pub use platform::{Runtime as PlatformRuntime, UnsupportedPlatform};
@@ -105,6 +106,9 @@ struct ConnectionEntry {
     #[allow(dead_code)]
     peer_addr: SocketAddr,
     endpoint_config: Arc<config::EndpointRuntimeConfig>,
+    #[allow(dead_code)]
+    serializer: rawsocket::Serializer,
+    max_exponent: u32,
     stream: Mutex<Option<TokioTcpStream>>,
 }
 
@@ -211,7 +215,7 @@ impl ListenerRegistry {
         listener_id: ListenerId,
         connection_id: ConnectionId,
         endpoint_config: Arc<config::EndpointRuntimeConfig>,
-        stream: TokioTcpStream,
+        negotiated: rawsocket::NegotiatedSession,
         peer_addr: SocketAddr,
     ) {
         self.connections
@@ -223,7 +227,9 @@ impl ListenerRegistry {
                     listener_id,
                     peer_addr,
                     endpoint_config,
-                    stream: Mutex::new(Some(stream)),
+                    serializer: negotiated.serializer,
+                    max_exponent: negotiated.max_message_size_exponent,
+                    stream: Mutex::new(Some(negotiated.stream)),
                 },
             );
     }
@@ -237,6 +243,15 @@ impl ListenerRegistry {
             .unwrap_or_else(|poison| poison.into_inner())
             .get(&connection_id)
             .map(|entry| Arc::clone(&entry.endpoint_config))
+            .ok_or(Error::ConnectionNotFound(connection_id))
+    }
+
+    fn connection_exponent(&self, connection_id: ConnectionId) -> Result<u32, Error> {
+        self.connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .get(&connection_id)
+            .map(|entry| entry.max_exponent)
             .ok_or(Error::ConnectionNotFound(connection_id))
     }
 
@@ -329,17 +344,35 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                 loop {
                     match listener.accept().await {
                         Ok((stream, addr)) => {
-                            let connection_id = accept_registry.next_connection_id();
-                            let _ = stream.set_nodelay(true);
-                            accept_registry.register_connection(
-                                listener_id,
-                                connection_id,
-                                Arc::clone(&runtime_config_for_task),
-                                stream,
-                                addr,
-                            );
-                            if tx.send(connection_id).await.is_err() {
-                                break;
+                            match rawsocket::negotiate(stream, &runtime_config_for_task).await {
+                                Ok(negotiated) => {
+                                    let connection_id = accept_registry.next_connection_id();
+                                    accept_registry.register_connection(
+                                        listener_id,
+                                        connection_id,
+                                        Arc::clone(&runtime_config_for_task),
+                                        negotiated,
+                                        addr,
+                                    );
+                                    if tx.send(connection_id).await.is_err() {
+                                        break;
+                                    }
+                                }
+                                Err(rawsocket::HandshakeError::HttpProbe) => {
+                                    // HTTP probe handled; ignore connection.
+                                }
+                                Err(rawsocket::HandshakeError::Protocol(msg)) => {
+                                    eprintln!(
+                                        "rawsocket handshake failed for listener {:?}: {}",
+                                        listener_id, msg
+                                    );
+                                }
+                                Err(rawsocket::HandshakeError::Io(err)) => {
+                                    eprintln!(
+                                        "rawsocket handshake IO error for listener {:?}: {}",
+                                        listener_id, err
+                                    );
+                                }
                             }
                         }
                         Err(_) => break,
@@ -396,7 +429,8 @@ pub fn connection_runtime_config(
 
 /// Convenience helper exposing the RawSocket max message size exponent for a connection.
 pub fn connection_rawsocket_max_exponent(connection_id: ConnectionId) -> Result<u32, Error> {
-    connection_runtime_config(connection_id).map(|config| config.max_rawsocket_size_exponent)
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| state.registry.connection_exponent(connection_id))
 }
 
 /// Takes ownership of the accepted TCP stream for the given connection.
@@ -436,6 +470,7 @@ fn create_listener(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::sync::mpsc::error::TryRecvError;
 
     fn test_guard() -> std::sync::MutexGuard<'static, ()> {
@@ -490,7 +525,8 @@ mod tests {
         assert!(addr.port() > 0);
 
         let mut receiver = accept_channel(listener_id).unwrap();
-        let stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        perform_handshake(&mut stream, 16, None).await;
         drop(stream);
 
         let connection_id = receiver.recv().await.expect("receive connection");
@@ -516,13 +552,15 @@ mod tests {
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
-        let stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        perform_handshake(&mut stream, 24, Some(30)).await;
         drop(stream);
 
         let connection_id = receiver.recv().await.expect("connection delivered");
         let config = connection_runtime_config(connection_id).expect("config available");
         assert_eq!(config.max_rawsocket_size_exponent, 30);
         assert_eq!(config.max_rawsocket_size, 1u64 << 30);
+        assert_eq!(config.handshake_timeout, config::DEFAULT_HANDSHAKE_TIMEOUT);
         assert_eq!(
             connection_rawsocket_max_exponent(connection_id).unwrap(),
             30
@@ -542,7 +580,7 @@ mod tests {
         let _guard = test_guard();
         shutdown().ok();
         super::apply_router_config(
-            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","idle_timeout_ms":1000,"max_rawsocket_size_exponent":16}]}"#,
+            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","idle_timeout_ms":1000,"handshake_timeout_ms":1000,"max_rawsocket_size_exponent":16}]}"#,
         )
         .unwrap();
         start_runtime().unwrap();
@@ -550,7 +588,8 @@ mod tests {
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
-        let client = tokio::net::TcpStream::connect(addr).await.unwrap();
+        let mut client = tokio::net::TcpStream::connect(addr).await.unwrap();
+        perform_handshake(&mut client, 16, None).await;
 
         let connection_id = receiver.recv().await.expect("connection delivered");
         let stream = take_connection_stream(connection_id).expect("stream available");
@@ -564,6 +603,60 @@ mod tests {
         assert!(matches!(err, Error::ConnectionNotFound(ConnectionId(_))));
 
         shutdown().unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn handshake_timeout_rejects_idle_clients() {
+        let _guard = test_guard();
+        shutdown().ok();
+        super::apply_router_config(
+            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","handshake_timeout_ms":100,"max_rawsocket_size_exponent":16}]}"#,
+        )
+        .unwrap();
+        start_runtime().unwrap();
+        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let addr = local_addr(listener_id).unwrap();
+        let mut receiver = accept_channel(listener_id).unwrap();
+
+        let stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        // Intentionally do not send handshake bytes.
+        tokio::time::sleep(Duration::from_millis(150)).await;
+        drop(stream);
+
+        assert!(matches!(receiver.try_recv(), Err(TryRecvError::Empty)));
+        shutdown().unwrap();
+    }
+
+    async fn perform_handshake(
+        stream: &mut tokio::net::TcpStream,
+        exponent: u32,
+        upgrade: Option<u32>,
+    ) {
+        let clamped = exponent.clamp(9, 24);
+        let handshake_byte = ((clamped - 9) as u8).min(15) << 4 | 0x01;
+        stream
+            .write_all(&[0x7F, handshake_byte, 0x00, 0x00])
+            .await
+            .expect("handshake write");
+        let mut response = [0u8; 4];
+        stream
+            .read_exact(&mut response)
+            .await
+            .expect("handshake response");
+        assert_eq!(response[0], 0x7F);
+        if let Some(upgrade_exponent) = upgrade {
+            let nibble = (upgrade_exponent.saturating_sub(25)).min(15) as u8;
+            stream
+                .write_all(&[0x3F, nibble])
+                .await
+                .expect("upgrade request");
+            let mut upgrade_response = [0u8; 2];
+            stream
+                .read_exact(&mut upgrade_response)
+                .await
+                .expect("upgrade response");
+            assert_eq!(upgrade_response[0], 0x3F);
+        }
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

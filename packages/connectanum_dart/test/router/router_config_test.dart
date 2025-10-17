@@ -105,6 +105,7 @@ void main() {
         port: 0,
         tlsMode: TlsMode.native,
         idleTimeout: const Duration(seconds: 30),
+        handshakeTimeout: const Duration(seconds: 5),
         maxHttpContentLength: 1024,
         maxRawSocketSizeExponent: 16,
         webSocketPath: ' /wamp ',
@@ -116,6 +117,7 @@ void main() {
       expect(json['port'], 0);
       expect(json['tls_mode'], 'native');
       expect(json['idle_timeout_ms'], 30000);
+      expect(json['handshake_timeout_ms'], 5000);
       expect(json['max_http_content_length'], 1024);
       expect(json['max_rawsocket_size_exponent'], 16);
       expect(json['websocket_path'], '/wamp');
@@ -226,6 +228,19 @@ void main() {
           tlsMode: TlsMode.disabled,
           maxRawSocketSizeExponent: 16,
           idleTimeout: Duration.zero,
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('throws on invalid handshake timeout', () {
+      expect(
+        () => Endpoint(
+          host: 'localhost',
+          port: 8080,
+          tlsMode: TlsMode.disabled,
+          maxRawSocketSizeExponent: 16,
+          handshakeTimeout: Duration.zero,
         ),
         throwsArgumentError,
       );

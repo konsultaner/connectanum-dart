@@ -109,6 +109,21 @@ Duration? normalizeIdleTimeout(Duration? timeout) {
   return timeout;
 }
 
+/// Validates the optional handshake timeout.
+Duration? normalizeHandshakeTimeout(Duration? timeout) {
+  if (timeout == null) {
+    return null;
+  }
+  if (timeout.isNegative || timeout.inMilliseconds == 0) {
+    throw ArgumentError.value(
+      timeout,
+      'handshakeTimeout',
+      'handshakeTimeout must be positive',
+    );
+  }
+  return timeout;
+}
+
 /// Validates the optional websocket path.
 String? normalizeWebSocketPath(String? path) {
   if (path == null) {

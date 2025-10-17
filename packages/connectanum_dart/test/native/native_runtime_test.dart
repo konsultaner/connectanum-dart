@@ -1,4 +1,5 @@
 @TestOn('vm')
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -44,12 +45,13 @@ void main() {
       expect(port, greaterThan(0));
 
       final socket = await Socket.connect('127.0.0.1', port);
+      await _performHandshake(socket);
       await socket.close();
       await Future<void>.delayed(const Duration(milliseconds: 50));
 
       final polledId = runtime.pollConnection(listenerId);
       expect(polledId, greaterThan(0));
-      expect(runtime.connectionMaxRawSocketExponent(polledId), 30);
+      expect(runtime.connectionMaxRawSocketExponent(polledId), 16);
       expect(connectionEvents, contains((listenerId, polledId)));
 
       expect(
@@ -81,4 +83,41 @@ String? _resolveLibraryPath() {
     }
   }
   return null;
+}
+
+Future<void> _performHandshake(Socket socket) async {
+  const serializerJson = 0x01;
+  const exponent = 16;
+  final handshakeByte = ((exponent - 9) << 4) | serializerJson;
+  socket.add([0x7F, handshakeByte, 0x00, 0x00]);
+  await socket.flush();
+  final response = await _readExact(socket, 4);
+  expect(response[0], 0x7F);
+}
+
+Future<List<int>> _readExact(Socket socket, int length) {
+  final completer = Completer<List<int>>();
+  final buffer = <int>[];
+  late StreamSubscription<List<int>> sub;
+  sub = socket.listen(
+    (data) {
+      buffer.addAll(data);
+      if (buffer.length >= length && !completer.isCompleted) {
+        sub.cancel();
+        completer.complete(buffer.sublist(0, length));
+      }
+    },
+    onError: (Object error, StackTrace stackTrace) {
+      if (!completer.isCompleted) {
+        completer.completeError(error, stackTrace);
+      }
+    },
+    onDone: () {
+      if (!completer.isCompleted) {
+        completer.complete(buffer);
+      }
+    },
+    cancelOnError: true,
+  );
+  return completer.future;
 }
