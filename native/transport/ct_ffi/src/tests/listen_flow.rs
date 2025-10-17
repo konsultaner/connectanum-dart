@@ -4,10 +4,13 @@ use std::time::Duration;
 
 use tokio::runtime::Runtime as TokioRuntime;
 
-use crate::runtime::constants::{ERR_ENDPOINT_NOT_CONFIGURED, ERR_LISTENER_NOT_FOUND, SUCCESS};
+use crate::runtime::constants::{
+    ERR_CONNECTION_NOT_FOUND, ERR_ENDPOINT_NOT_CONFIGURED, ERR_LISTENER_NOT_FOUND, SUCCESS,
+};
 use crate::runtime::ffi::{
-    ct_apply_router_config, ct_get_local_port, ct_listen, ct_poll_connection, ct_set_on_connection,
-    ct_set_on_listener_started, ct_shutdown, ct_start_runtime,
+    ct_apply_router_config, ct_connection_max_rawsocket_exponent, ct_get_local_port, ct_listen,
+    ct_poll_connection, ct_set_on_connection, ct_set_on_listener_started, ct_shutdown,
+    ct_start_runtime,
 };
 
 thread_local! {
@@ -21,7 +24,7 @@ thread_local! {
 fn listener_callbacks_fire_and_connections_are_reported() {
     let _guard = super::test_guard();
     let config = CString::new(
-        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native"}]}"#,
+        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","max_rawsocket_size_exponent":30}]}"#,
     )
     .unwrap();
     let bytes = config.as_bytes();
@@ -73,6 +76,11 @@ fn listener_callbacks_fire_and_connections_are_reported() {
 
     let poll_result = ct_poll_connection(listener_id);
     assert!(poll_result > 0);
+    assert_eq!(
+        ct_connection_max_rawsocket_exponent(poll_result),
+        30,
+        "raw socket exponent expected from runtime config"
+    );
     CONNECTION_EVENTS.with(|events| {
         assert_eq!(
             events.lock().unwrap().as_slice(),
@@ -82,6 +90,10 @@ fn listener_callbacks_fire_and_connections_are_reported() {
 
     assert_eq!(ct_poll_connection(listener_id), 0);
     assert_eq!(ct_poll_connection(9999), ERR_LISTENER_NOT_FOUND);
+    assert_eq!(
+        ct_connection_max_rawsocket_exponent(9999),
+        ERR_CONNECTION_NOT_FOUND
+    );
     assert_eq!(ct_shutdown(), SUCCESS);
 
     LISTENER_EVENTS.with(|events| events.lock().unwrap().clear());

@@ -12,6 +12,7 @@ abstract class NativeRuntime {
   int listen(String host, int port, {int backlog = 128});
   int getLocalPort(int listenerId);
   int pollConnection(int listenerId);
+  int connectionMaxRawSocketExponent(int connectionId);
   void applyRouterConfig(Uint8List config);
 }
 
@@ -27,6 +28,7 @@ abstract final class NativeTransportErrorCode {
   static const io = -7;
   static const routerConfigInvalid = -8;
   static const endpointNotConfigured = -9;
+  static const connectionNotFound = -10;
 }
 
 /// Exception thrown when the native runtime reports an error.
@@ -160,6 +162,15 @@ class NativeTransportRuntime implements NativeRuntime {
     return result;
   }
 
+  @override
+  int connectionMaxRawSocketExponent(int connectionId) {
+    final result = _bindings.ctConnectionMaxRawsocketExponent(connectionId);
+    if (result < 0) {
+      _throwForError(result, 'Failed to query raw socket exponent');
+    }
+    return result;
+  }
+
   void _checkZero(int code, String context) {
     if (code != NativeTransportErrorCode.success) {
       _throwForError(code, context);
@@ -178,6 +189,8 @@ class NativeTransportRuntime implements NativeRuntime {
         '$context: invalid argument to native runtime',
       NativeTransportErrorCode.listenerNotFound =>
         '$context: listener not found',
+      NativeTransportErrorCode.connectionNotFound =>
+        '$context: connection not found',
       NativeTransportErrorCode.routerConfigInvalid =>
         '$context: router configuration invalid',
       NativeTransportErrorCode.endpointNotConfigured =>

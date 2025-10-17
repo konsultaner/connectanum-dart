@@ -1,3 +1,6 @@
+const int _minRawSocketSizeExponent = 9;
+const int _maxRawSocketSizeExponent = 30;
+
 /// Validates and normalises a hostname.
 String normalizeHostname(String host) {
   final trimmed = host.trim();
@@ -62,13 +65,15 @@ int normalizePort(int port) {
   return port;
 }
 
-/// Validates raw socket size exponent boundaries (9..24, inclusive).
+/// Validates raw socket size exponent boundaries (9..30, inclusive).
 int normalizeRawSocketSizeExponent(int exponent) {
-  if (exponent < 9 || exponent > 24) {
+  if (exponent < _minRawSocketSizeExponent ||
+      exponent > _maxRawSocketSizeExponent) {
     throw ArgumentError.value(
       exponent,
       'maxRawSocketSizeExponent',
-      'maxRawSocketSizeExponent must be between 9 and 24',
+      'maxRawSocketSizeExponent must be between '
+          '$_minRawSocketSizeExponent and $_maxRawSocketSizeExponent',
     );
   }
   return exponent;

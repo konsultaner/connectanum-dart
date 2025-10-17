@@ -2,8 +2,8 @@ use std::ffi::CStr;
 use std::os::raw::{c_char, c_int, c_uint};
 
 use ct_core::{
-    accept_channel, apply_router_config, listen, local_addr, shutdown, start_runtime,
-    Error as CoreError, ListenerId,
+    accept_channel, apply_router_config, connection_rawsocket_max_exponent, listen, local_addr,
+    shutdown, start_runtime, ConnectionId, Error as CoreError, ListenerId,
 };
 
 use crate::callbacks::{
@@ -25,6 +25,7 @@ fn map_error(err: CoreError) -> c_int {
         CoreError::UnsupportedPlatform => ERR_UNSUPPORTED,
         CoreError::RouterConfigInvalid(_) => ERR_ROUTER_CONFIG_INVALID,
         CoreError::EndpointNotConfigured(_, _) => ERR_ENDPOINT_NOT_CONFIGURED,
+        CoreError::ConnectionNotFound(_) => ERR_CONNECTION_NOT_FOUND,
         CoreError::Io(_) => ERR_IO,
     }
 }
@@ -106,6 +107,15 @@ pub extern "C" fn ct_poll_connection(listener_id: c_int) -> c_int {
             Ok(_) => 0,
             Err(err) => map_error(err),
         },
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_connection_max_rawsocket_exponent(connection_id: c_int) -> c_int {
+    let connection_id = ConnectionId(connection_id as u32);
+    match connection_rawsocket_max_exponent(connection_id) {
+        Ok(exponent) => exponent as c_int,
+        Err(err) => map_error(err),
     }
 }
 

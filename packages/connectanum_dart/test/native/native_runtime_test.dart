@@ -1,4 +1,7 @@
+@TestOn('vm')
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:connectanum_dart/src/native/runtime.dart';
 import 'package:test/test.dart';
@@ -8,8 +11,8 @@ void main() {
   final skipReason = !Platform.isLinux
       ? 'Native runtime test only runs on Linux'
       : libraryPath == null
-          ? 'Native ct_ffi library not found'
-          : null;
+      ? 'Native ct_ffi library not found'
+      : null;
 
   group('NativeTransportRuntime', () {
     test('start, listen, poll and shutdown', () async {
@@ -25,6 +28,10 @@ void main() {
 
       runtime.start();
       addTearDown(runtime.shutdown);
+
+      const configJson =
+          '{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","max_rawsocket_size_exponent":30}]}';
+      runtime.applyRouterConfig(Uint8List.fromList(utf8.encode(configJson)));
 
       final listenerId = runtime.listen('127.0.0.1', 0);
       expect(listenerId, greaterThan(0));
@@ -42,10 +49,15 @@ void main() {
 
       final polledId = runtime.pollConnection(listenerId);
       expect(polledId, greaterThan(0));
+      expect(runtime.connectionMaxRawSocketExponent(polledId), 30);
       expect(connectionEvents, contains((listenerId, polledId)));
 
       expect(
         () => runtime.pollConnection(9999),
+        throwsA(isA<NativeTransportException>()),
+      );
+      expect(
+        () => runtime.connectionMaxRawSocketExponent(9999),
         throwsA(isA<NativeTransportException>()),
       );
     }, skip: skipReason);

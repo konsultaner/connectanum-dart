@@ -1,3 +1,4 @@
+@TestOn('vm')
 import 'dart:typed_data';
 
 import 'package:connectanum_dart/src/native/runtime.dart';
@@ -31,6 +32,9 @@ class _FakeRuntime implements NativeRuntime {
 
   @override
   int pollConnection(int listenerId) => 0;
+
+  @override
+  int connectionMaxRawSocketExponent(int connectionId) => 16;
 
   @override
   void shutdown() {}

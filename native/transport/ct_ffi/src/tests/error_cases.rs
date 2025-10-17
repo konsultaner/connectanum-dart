@@ -2,7 +2,7 @@ use super::test_guard;
 use crate::runtime::{
     ct_apply_router_config, ct_get_local_port, ct_listen, ct_poll_connection, ct_shutdown,
     ct_start_runtime, ERR_ENDPOINT_NOT_CONFIGURED, ERR_INVALID_ARGUMENT, ERR_LISTENER_NOT_FOUND,
-    ERR_RUNTIME_NOT_STARTED, SUCCESS,
+    SUCCESS,
 };
 use std::ffi::CString;
 

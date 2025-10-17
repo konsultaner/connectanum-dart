@@ -122,6 +122,20 @@ void main() {
       expect(json['sni_certificates'], hasLength(1));
     });
 
+    test('supports connectanum extended raw socket exponent', () {
+      final endpoint = Endpoint(
+        host: '0.0.0.0',
+        port: 0,
+        tlsMode: TlsMode.native,
+        maxRawSocketSizeExponent: 30,
+      );
+      expect(endpoint.maxRawSocketSizeExponent, 30);
+      expect(
+        endpoint.toNativeJson(),
+        containsPair('max_rawsocket_size_exponent', 30),
+      );
+    });
+
     test('allows IPv6 literal hosts', () {
       final endpoint = Endpoint(
         host: '[::1]',
@@ -152,6 +166,15 @@ void main() {
           port: 8080,
           tlsMode: TlsMode.disabled,
           maxRawSocketSizeExponent: 8,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => Endpoint(
+          host: 'localhost',
+          port: 8080,
+          tlsMode: TlsMode.disabled,
+          maxRawSocketSizeExponent: 31,
         ),
         throwsArgumentError,
       );

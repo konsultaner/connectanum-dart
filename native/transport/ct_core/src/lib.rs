@@ -11,11 +11,12 @@ use std::{
 };
 
 use thiserror::Error;
-use tokio::{runtime::Runtime, sync::mpsc, task::JoinHandle};
+use tokio::{net::TcpStream as TokioTcpStream, runtime::Runtime, sync::mpsc, task::JoinHandle};
 
 mod config;
 mod platform;
 
+pub use config::EndpointRuntimeConfig;
 pub use platform::{Runtime as PlatformRuntime, UnsupportedPlatform};
 
 static RUNTIME_MANAGER: OnceLock<RuntimeManager> = OnceLock::new();
@@ -58,6 +59,9 @@ pub enum Error {
     /// Router configuration could not be parsed or applied.
     #[error("router configuration invalid: {0}")]
     RouterConfigInvalid(String),
+    /// Connection for the provided identifier was not registered.
+    #[error("connection {0:?} not found")]
+    ConnectionNotFound(ConnectionId),
     /// Wrapper around I/O errors.
     #[error(transparent)]
     Io(#[from] std::io::Error),
@@ -81,6 +85,7 @@ struct RuntimeView {
 #[derive(Default)]
 struct ListenerRegistry {
     listeners: Mutex<HashMap<ListenerId, ListenerEntry>>,
+    connections: Mutex<HashMap<ConnectionId, ConnectionEntry>>,
     next_listener_id: AtomicU32,
     next_connection_id: AtomicU32,
 }
@@ -91,7 +96,16 @@ struct ListenerEntry {
     _sender: mpsc::Sender<ConnectionId>,
     task: JoinHandle<()>,
     #[allow(dead_code)]
-    endpoint_config: Arc<config::EndpointConfig>,
+    endpoint_config: Arc<config::EndpointRuntimeConfig>,
+}
+
+struct ConnectionEntry {
+    #[allow(dead_code)]
+    listener_id: ListenerId,
+    #[allow(dead_code)]
+    peer_addr: SocketAddr,
+    endpoint_config: Arc<config::EndpointRuntimeConfig>,
+    stream: Mutex<Option<TokioTcpStream>>,
 }
 
 impl RuntimeManager {
@@ -186,6 +200,56 @@ impl ListenerRegistry {
         for entry in entries {
             entry.task.abort();
         }
+        self.connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .clear();
+    }
+
+    fn register_connection(
+        &self,
+        listener_id: ListenerId,
+        connection_id: ConnectionId,
+        endpoint_config: Arc<config::EndpointRuntimeConfig>,
+        stream: TokioTcpStream,
+        peer_addr: SocketAddr,
+    ) {
+        self.connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .insert(
+                connection_id,
+                ConnectionEntry {
+                    listener_id,
+                    peer_addr,
+                    endpoint_config,
+                    stream: Mutex::new(Some(stream)),
+                },
+            );
+    }
+
+    fn connection_config(
+        &self,
+        connection_id: ConnectionId,
+    ) -> Result<Arc<config::EndpointRuntimeConfig>, Error> {
+        self.connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .get(&connection_id)
+            .map(|entry| Arc::clone(&entry.endpoint_config))
+            .ok_or(Error::ConnectionNotFound(connection_id))
+    }
+
+    fn take_stream(&self, connection_id: ConnectionId) -> Result<TokioTcpStream, Error> {
+        let connections = self
+            .connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let entry = connections
+            .get(&connection_id)
+            .ok_or(Error::ConnectionNotFound(connection_id))?;
+        let mut guard = entry.stream.lock().unwrap();
+        guard.take().ok_or(Error::ConnectionNotFound(connection_id))
     }
 }
 
@@ -247,6 +311,9 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
             let socket_addr = resolve_socket_addr(addr, port)?;
             let endpoint_config = config::find_endpoint(addr, port)
                 .ok_or_else(|| Error::EndpointNotConfigured(addr.to_string(), port))?;
+            let runtime_config = Arc::new(config::EndpointRuntimeConfig::try_from_endpoint(
+                &endpoint_config,
+            )?);
             let std_listener = create_listener(socket_addr, backlog as u32)?;
             let local_addr = std_listener.local_addr()?;
 
@@ -254,14 +321,23 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
             let listener_id = view.registry.next_listener_id();
             let accept_registry = Arc::clone(&view.registry);
             let async_sender = sender.clone();
+            let runtime_config_for_task = Arc::clone(&runtime_config);
             let task = view.handle.spawn(async move {
                 let listener = tokio::net::TcpListener::from_std(std_listener)
                     .expect("failed to convert listener to tokio");
                 let tx = async_sender;
                 loop {
                     match listener.accept().await {
-                        Ok((_stream, _addr)) => {
+                        Ok((stream, addr)) => {
                             let connection_id = accept_registry.next_connection_id();
+                            let _ = stream.set_nodelay(true);
+                            accept_registry.register_connection(
+                                listener_id,
+                                connection_id,
+                                Arc::clone(&runtime_config_for_task),
+                                stream,
+                                addr,
+                            );
                             if tx.send(connection_id).await.is_err() {
                                 break;
                             }
@@ -276,7 +352,7 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                 receiver: Mutex::new(Some(receiver)),
                 _sender: sender,
                 task,
-                endpoint_config,
+                endpoint_config: runtime_config,
             };
             view.registry.insert(listener_id, entry);
 
@@ -308,6 +384,25 @@ pub fn accept_channel(listener_id: ListenerId) -> Result<mpsc::Receiver<Connecti
             Error::RuntimeNotStarted => err,
             other => other,
         })
+}
+
+/// Returns the runtime-ready endpoint configuration associated with a connection.
+pub fn connection_runtime_config(
+    connection_id: ConnectionId,
+) -> Result<Arc<config::EndpointRuntimeConfig>, Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| state.registry.connection_config(connection_id))
+}
+
+/// Convenience helper exposing the RawSocket max message size exponent for a connection.
+pub fn connection_rawsocket_max_exponent(connection_id: ConnectionId) -> Result<u32, Error> {
+    connection_runtime_config(connection_id).map(|config| config.max_rawsocket_size_exponent)
+}
+
+/// Takes ownership of the accepted TCP stream for the given connection.
+pub fn take_connection_stream(connection_id: ConnectionId) -> Result<TokioTcpStream, Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| state.registry.take_stream(connection_id))
 }
 
 fn resolve_socket_addr(addr: &str, port: u16) -> Result<SocketAddr, Error> {
@@ -359,6 +454,18 @@ mod tests {
         assert_eq!(endpoint.host, "127.0.0.1");
     }
 
+    #[test]
+    fn apply_router_config_rejects_invalid_rawsocket_exponent() {
+        shutdown().ok();
+        let err = super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"native","max_rawsocket_size_exponent":8}]}"#)
+            .expect_err("exponent below minimum rejected");
+        assert!(matches!(err, Error::RouterConfigInvalid(_)));
+
+        let err = super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"native","max_rawsocket_size_exponent":31}]}"#)
+            .expect_err("exponent above maximum rejected");
+        assert!(matches!(err, Error::RouterConfigInvalid(_)));
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn runtime_starts_only_once() {
         let _guard = test_guard();
@@ -393,6 +500,69 @@ mod tests {
         shutdown().unwrap();
         // Runtime can be started again after shutdown.
         start_runtime().unwrap();
+        shutdown().unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn connection_runtime_config_exposes_rawsocket_settings() {
+        let _guard = test_guard();
+        shutdown().ok();
+        super::apply_router_config(
+            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","max_rawsocket_size_exponent":30}]}"#,
+        )
+        .unwrap();
+        start_runtime().unwrap();
+        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let addr = local_addr(listener_id).unwrap();
+        let mut receiver = accept_channel(listener_id).unwrap();
+
+        let stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        drop(stream);
+
+        let connection_id = receiver.recv().await.expect("connection delivered");
+        let config = connection_runtime_config(connection_id).expect("config available");
+        assert_eq!(config.max_rawsocket_size_exponent, 30);
+        assert_eq!(config.max_rawsocket_size, 1u64 << 30);
+        assert_eq!(
+            connection_rawsocket_max_exponent(connection_id).unwrap(),
+            30
+        );
+
+        let missing_err =
+            connection_runtime_config(ConnectionId(9999)).expect_err("missing connection handled");
+        assert!(matches!(
+            missing_err,
+            Error::ConnectionNotFound(ConnectionId(_))
+        ));
+        shutdown().unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn connection_stream_can_be_taken_once() {
+        let _guard = test_guard();
+        shutdown().ok();
+        super::apply_router_config(
+            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","idle_timeout_ms":1000,"max_rawsocket_size_exponent":16}]}"#,
+        )
+        .unwrap();
+        start_runtime().unwrap();
+        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let addr = local_addr(listener_id).unwrap();
+        let mut receiver = accept_channel(listener_id).unwrap();
+
+        let client = tokio::net::TcpStream::connect(addr).await.unwrap();
+
+        let connection_id = receiver.recv().await.expect("connection delivered");
+        let stream = take_connection_stream(connection_id).expect("stream available");
+        let peer = stream.peer_addr().unwrap();
+        assert_eq!(peer, client.local_addr().unwrap());
+
+        drop(stream);
+        drop(client);
+
+        let err = take_connection_stream(connection_id).expect_err("second take fails");
+        assert!(matches!(err, Error::ConnectionNotFound(ConnectionId(_))));
+
         shutdown().unwrap();
     }
 
