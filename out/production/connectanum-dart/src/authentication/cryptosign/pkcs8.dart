@@ -31,8 +31,9 @@ class Pkcs8 {
     final algIdAsn = ASN1Sequence();
     final oidEd25519 = ASN1ObjectIdentifier.fromIdentifierString('1.3.101.112');
     algIdAsn.add(oidEd25519);
-    final privateKeyAsn =
-        ASN1OctetString(octets: Uint8List.fromList(offsetSeed.toList()));
+    final privateKeyAsn = ASN1OctetString(
+      octets: Uint8List.fromList(offsetSeed.toList()),
+    );
 
     final topLevel = ASN1Sequence();
     topLevel.add(versionAsn);
@@ -46,11 +47,14 @@ class Pkcs8 {
     const lineLength = 64;
     final buffer = StringBuffer('-----BEGIN PRIVATE KEY-----\n');
     for (var i = 0; i < base64Text.length; i += lineLength) {
-      buffer.writeln(base64Text.substring(
+      buffer.writeln(
+        base64Text.substring(
           i,
           (i + lineLength < base64Text.length)
               ? i + lineLength
-              : base64Text.length));
+              : base64Text.length,
+        ),
+      );
     }
     buffer.write('-----END PRIVATE KEY-----');
 
@@ -75,7 +79,8 @@ class Pkcs8 {
 
     if (!pem.contains(header) || !pem.contains(footer)) {
       throw ArgumentError(
-          'Not a valid PKCS#8 PEM (BEGIN/END PRIVATE KEY missing).');
+        'Not a valid PKCS#8 PEM (BEGIN/END PRIVATE KEY missing).',
+      );
     }
 
     final body = pem
@@ -104,7 +109,8 @@ class Pkcs8 {
         .objectIdentifierAsString;
     if ("1.3.101.112" != objectIdentifier) {
       throw ArgumentError(
-          'The key is not a Ed25519-Key (OID=$objectIdentifier)!');
+        'The key is not a Ed25519-Key (OID=$objectIdentifier)!',
+      );
     }
 
     final privateKeyOctetStr = topLevelSeq.elements![2] as ASN1OctetString;
@@ -128,7 +134,8 @@ class Pkcs8 {
         ed25519Seed = privateKeyBytes?.sublist(0, 32);
       } else {
         throw StateError(
-            'PrivateKey has no valid length (32 or 64); found length: ${privateKeyBytes?.length}');
+          'PrivateKey has no valid length (32 or 64); found length: ${privateKeyBytes?.length}',
+        );
       }
     }
 

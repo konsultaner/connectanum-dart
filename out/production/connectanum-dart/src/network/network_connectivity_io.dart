@@ -74,8 +74,9 @@ class NetworkConnectivity {
     if (await isOnline(testAddress: testAddress)) return;
 
     final Completer<void> completer = Completer<void>();
-    final DateTime? deadline =
-        timeout != null ? DateTime.now().add(timeout) : null;
+    final DateTime? deadline = timeout != null
+        ? DateTime.now().add(timeout)
+        : null;
 
     Timer? ticker;
 

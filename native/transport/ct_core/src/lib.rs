@@ -2,6 +2,7 @@
 
 use std::{
     collections::HashMap,
+    io,
     net::{SocketAddr, ToSocketAddrs},
     sync::{
         atomic::{AtomicU32, Ordering},
@@ -10,17 +11,32 @@ use std::{
     time::Duration,
 };
 
+use bytes::{Bytes, BytesMut};
 use thiserror::Error;
-use tokio::{net::TcpStream as TokioTcpStream, runtime::Runtime, sync::mpsc, task::JoinHandle};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::TcpStream as TokioTcpStream,
+    runtime::Runtime,
+    sync::mpsc::{self, error::TryRecvError},
+    task::JoinHandle,
+    time,
+};
 
 mod config;
 mod platform;
 mod rawsocket;
+mod wamp;
 
 pub use config::EndpointRuntimeConfig;
 pub use platform::{Runtime as PlatformRuntime, UnsupportedPlatform};
+pub use rawsocket::Serializer as RawSocketSerializer;
+pub use wamp::{
+    parse_message, ParseError as WampParseError, ParsedMessage, Payload as WampPayload, WampMessage,
+};
 
 static RUNTIME_MANAGER: OnceLock<RuntimeManager> = OnceLock::new();
+
+const MAX_FRAME_LEN: u64 = 1 << 24;
 
 /// Unique identifier for a registered listener.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -109,7 +125,8 @@ struct ConnectionEntry {
     #[allow(dead_code)]
     serializer: rawsocket::Serializer,
     max_exponent: u32,
-    stream: Mutex<Option<TokioTcpStream>>,
+    frames: Mutex<mpsc::Receiver<wamp::ParsedMessage>>,
+    reader_task: JoinHandle<()>,
 }
 
 impl RuntimeManager {
@@ -194,20 +211,27 @@ impl ListenerRegistry {
     }
 
     fn shutdown(&self) {
-        let entries: Vec<ListenerEntry> = self
+        let listener_entries: Vec<ListenerEntry> = self
             .listeners
             .lock()
             .unwrap_or_else(|poison| poison.into_inner())
             .drain()
             .map(|(_, entry)| entry)
             .collect();
-        for entry in entries {
+        for entry in listener_entries {
             entry.task.abort();
         }
-        self.connections
+
+        let connection_entries: Vec<ConnectionEntry> = self
+            .connections
             .lock()
             .unwrap_or_else(|poison| poison.into_inner())
-            .clear();
+            .drain()
+            .map(|(_, entry)| entry)
+            .collect();
+        for entry in connection_entries {
+            entry.reader_task.abort();
+        }
     }
 
     fn register_connection(
@@ -218,6 +242,16 @@ impl ListenerRegistry {
         negotiated: rawsocket::NegotiatedSession,
         peer_addr: SocketAddr,
     ) {
+        let (frame_tx, frame_rx) = mpsc::channel(1024);
+        let serializer = negotiated.serializer;
+        let max_exponent = negotiated.max_message_size_exponent;
+        let reader_task = spawn_connection_reader(
+            connection_id,
+            Arc::clone(&endpoint_config),
+            negotiated,
+            frame_tx,
+        );
+
         self.connections
             .lock()
             .unwrap_or_else(|poison| poison.into_inner())
@@ -227,9 +261,10 @@ impl ListenerRegistry {
                     listener_id,
                     peer_addr,
                     endpoint_config,
-                    serializer: negotiated.serializer,
-                    max_exponent: negotiated.max_message_size_exponent,
-                    stream: Mutex::new(Some(negotiated.stream)),
+                    serializer,
+                    max_exponent,
+                    frames: Mutex::new(frame_rx),
+                    reader_task,
                 },
             );
     }
@@ -255,7 +290,10 @@ impl ListenerRegistry {
             .ok_or(Error::ConnectionNotFound(connection_id))
     }
 
-    fn take_stream(&self, connection_id: ConnectionId) -> Result<TokioTcpStream, Error> {
+    fn poll_message(
+        &self,
+        connection_id: ConnectionId,
+    ) -> Result<Option<wamp::ParsedMessage>, Error> {
         let connections = self
             .connections
             .lock()
@@ -263,9 +301,227 @@ impl ListenerRegistry {
         let entry = connections
             .get(&connection_id)
             .ok_or(Error::ConnectionNotFound(connection_id))?;
-        let mut guard = entry.stream.lock().unwrap();
-        guard.take().ok_or(Error::ConnectionNotFound(connection_id))
+        let mut receiver = entry.frames.lock().unwrap();
+        match receiver.try_recv() {
+            Ok(message) => Ok(Some(message)),
+            Err(TryRecvError::Empty) => Ok(None),
+            Err(TryRecvError::Disconnected) => Ok(None),
+        }
     }
+}
+
+#[derive(Debug)]
+enum FrameReadError {
+    Io(io::Error),
+    Protocol(String),
+}
+
+impl From<io::Error> for FrameReadError {
+    fn from(value: io::Error) -> Self {
+        FrameReadError::Io(value)
+    }
+}
+
+impl std::fmt::Display for FrameReadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FrameReadError::Io(err) => write!(f, "io error: {}", err),
+            FrameReadError::Protocol(msg) => write!(f, "protocol error: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for FrameReadError {}
+
+enum InboundFrame {
+    Message(Bytes),
+    Ping(Bytes),
+    Pong,
+}
+
+fn spawn_connection_reader(
+    connection_id: ConnectionId,
+    endpoint_config: Arc<config::EndpointRuntimeConfig>,
+    negotiated: rawsocket::NegotiatedSession,
+    frame_tx: mpsc::Sender<wamp::ParsedMessage>,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        let rawsocket::NegotiatedSession {
+            mut stream,
+            serializer,
+            max_message_size_exponent,
+            ..
+        } = negotiated;
+
+        let max_payload = 1u64 << max_message_size_exponent;
+        let idle_timeout = endpoint_config.idle_timeout;
+
+        loop {
+            let read_future = read_inbound_frame(&mut stream, max_payload);
+            let frame = if let Some(timeout) = idle_timeout {
+                match time::timeout(timeout, read_future).await {
+                    Ok(result) => result,
+                    Err(_) => {
+                        eprintln!(
+                            "connection {:?} idle for {:?}, closing",
+                            connection_id, timeout
+                        );
+                        break;
+                    }
+                }
+            } else {
+                read_future.await
+            };
+
+            let frame = match frame {
+                Ok(frame) => frame,
+                Err(FrameReadError::Io(err)) => {
+                    if err.kind() != io::ErrorKind::UnexpectedEof {
+                        eprintln!("connection {:?} io error: {}", connection_id, err);
+                    }
+                    break;
+                }
+                Err(FrameReadError::Protocol(reason)) => {
+                    eprintln!(
+                        "connection {:?} protocol violation: {}",
+                        connection_id, reason
+                    );
+                    break;
+                }
+            };
+
+            match frame {
+                InboundFrame::Message(payload) => match wamp::parse_message(serializer, payload) {
+                    Ok(parsed) => {
+                        if frame_tx.send(parsed).await.is_err() {
+                            break;
+                        }
+                    }
+                    Err(err) => {
+                        eprintln!(
+                            "connection {:?} failed to parse WAMP message: {:?}",
+                            connection_id, err
+                        );
+                        break;
+                    }
+                },
+                InboundFrame::Ping(payload) => {
+                    if let Err(err) = send_control_frame(&mut stream, 0x02, &payload).await {
+                        eprintln!(
+                            "connection {:?} failed to respond to ping: {}",
+                            connection_id, err
+                        );
+                        break;
+                    }
+                }
+                InboundFrame::Pong => {
+                    // No-op; router currently does not track round-trip times.
+                }
+            }
+        }
+    })
+}
+
+async fn read_inbound_frame(
+    stream: &mut TokioTcpStream,
+    max_payload: u64,
+) -> Result<InboundFrame, FrameReadError> {
+    let mut header = [0u8; 4];
+    stream.read_exact(&mut header).await?;
+
+    let reserved = header[0] >> 4;
+    if reserved != 0 {
+        return Err(FrameReadError::Protocol(
+            "reserved bits must be zero".into(),
+        ));
+    }
+
+    let length_hi = (header[0] >> 3) & 0x01;
+    let frame_type = header[0] & 0x07;
+
+    let mut length = ((header[1] as u32) << 16) | ((header[2] as u32) << 8) | header[3] as u32;
+    if length_hi == 1 {
+        if length != 0 {
+            return Err(FrameReadError::Protocol(
+                "extended length bit set with non-zero length bytes".into(),
+            ));
+        }
+        length = 1 << 24;
+    }
+
+    let length_u64 = length as u64;
+    if length_u64 > max_payload {
+        return Err(FrameReadError::Protocol(format!(
+            "frame length {} exceeds negotiated maximum {}",
+            length_u64, max_payload
+        )));
+    }
+    if length_u64 > MAX_FRAME_LEN {
+        return Err(FrameReadError::Protocol(format!(
+            "frame length {} exceeds supported maximum {}",
+            length_u64, MAX_FRAME_LEN
+        )));
+    }
+
+    let payload = if length == 0 {
+        Bytes::new()
+    } else {
+        let mut buf = BytesMut::with_capacity(length as usize);
+        buf.resize(length as usize, 0);
+        stream.read_exact(&mut buf).await?;
+        buf.freeze()
+    };
+
+    match frame_type {
+        0 => Ok(InboundFrame::Message(payload)),
+        1 => Ok(InboundFrame::Ping(payload)),
+        2 => Ok(InboundFrame::Pong),
+        _ => Err(FrameReadError::Protocol(format!(
+            "unsupported frame type {}",
+            frame_type
+        ))),
+    }
+}
+
+async fn send_control_frame(
+    stream: &mut TokioTcpStream,
+    frame_type: u8,
+    payload: &Bytes,
+) -> io::Result<()> {
+    let header = encode_frame_header(frame_type, payload.len())
+        .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
+    stream.write_all(&header).await?;
+    if !payload.is_empty() {
+        stream.write_all(payload).await?;
+    }
+    Ok(())
+}
+
+fn encode_frame_header(frame_type: u8, payload_len: usize) -> Result<[u8; 4], FrameReadError> {
+    if frame_type > 0x07 {
+        return Err(FrameReadError::Protocol(format!(
+            "invalid frame type {}",
+            frame_type
+        )));
+    }
+    if payload_len > MAX_FRAME_LEN as usize {
+        return Err(FrameReadError::Protocol(format!(
+            "payload length {} exceeds supported maximum {}",
+            payload_len, MAX_FRAME_LEN as usize
+        )));
+    }
+
+    let mut header = [0u8; 4];
+    let mut first = frame_type & 0x07;
+    if payload_len == (MAX_FRAME_LEN as usize) {
+        first |= 0x08;
+    } else {
+        header[1] = ((payload_len >> 16) & 0xFF) as u8;
+        header[2] = ((payload_len >> 8) & 0xFF) as u8;
+        header[3] = (payload_len & 0xFF) as u8;
+    }
+    header[0] = first;
+    Ok(header)
 }
 
 /// Initialises the multi-threaded tokio runtime if it has not been started yet.
@@ -433,10 +689,12 @@ pub fn connection_rawsocket_max_exponent(connection_id: ConnectionId) -> Result<
     manager.with_state(|state| state.registry.connection_exponent(connection_id))
 }
 
-/// Takes ownership of the accepted TCP stream for the given connection.
-pub fn take_connection_stream(connection_id: ConnectionId) -> Result<TokioTcpStream, Error> {
+/// Attempts to retrieve the next parsed WAMP message for a connection.
+pub fn poll_connection_message(
+    connection_id: ConnectionId,
+) -> Result<Option<wamp::ParsedMessage>, Error> {
     let manager = RuntimeManager::global();
-    manager.with_state(|state| state.registry.take_stream(connection_id))
+    manager.with_state(|state| state.registry.poll_message(connection_id))
 }
 
 fn resolve_socket_addr(addr: &str, port: u16) -> Result<SocketAddr, Error> {
@@ -470,6 +728,7 @@ fn create_listener(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::sync::mpsc::error::TryRecvError;
 
@@ -480,6 +739,7 @@ mod tests {
 
     #[test]
     fn apply_router_config_stores_config() {
+        let _guard = test_guard();
         shutdown().ok();
         super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"native"}]}"#)
             .expect("config applies");
@@ -491,6 +751,7 @@ mod tests {
 
     #[test]
     fn apply_router_config_rejects_invalid_rawsocket_exponent() {
+        let _guard = test_guard();
         shutdown().ok();
         let err = super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"native","max_rawsocket_size_exponent":8}]}"#)
             .expect_err("exponent below minimum rejected");
@@ -576,11 +837,11 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn connection_stream_can_be_taken_once() {
+    async fn connection_messages_can_be_polled() {
         let _guard = test_guard();
         shutdown().ok();
         super::apply_router_config(
-            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","idle_timeout_ms":1000,"handshake_timeout_ms":1000,"max_rawsocket_size_exponent":16}]}"#,
+            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","max_rawsocket_size_exponent":16}]}"#,
         )
         .unwrap();
         start_runtime().unwrap();
@@ -590,17 +851,28 @@ mod tests {
 
         let mut client = tokio::net::TcpStream::connect(addr).await.unwrap();
         perform_handshake(&mut client, 16, None).await;
+        let hello = json!([1, "realm", {"roles": {"dealer": {}}}]);
+        let payload = serde_json::to_vec(&hello).unwrap();
+        send_json_frame(&mut client, &payload).await;
 
         let connection_id = receiver.recv().await.expect("connection delivered");
-        let stream = take_connection_stream(connection_id).expect("stream available");
-        let peer = stream.peer_addr().unwrap();
-        assert_eq!(peer, client.local_addr().unwrap());
 
-        drop(stream);
-        drop(client);
+        let mut attempts = 0;
+        let parsed = loop {
+            if let Some(msg) = poll_connection_message(connection_id).expect("poll succeeds") {
+                break msg;
+            }
+            attempts += 1;
+            if attempts > 20 {
+                panic!("message not delivered in time");
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        };
 
-        let err = take_connection_stream(connection_id).expect_err("second take fails");
-        assert!(matches!(err, Error::ConnectionNotFound(ConnectionId(_))));
+        match parsed.message {
+            WampMessage::Hello { realm, .. } => assert_eq!(realm, "realm"),
+            other => panic!("unexpected message: {:?}", other),
+        }
 
         shutdown().unwrap();
     }
@@ -656,6 +928,23 @@ mod tests {
                 .await
                 .expect("upgrade response");
             assert_eq!(upgrade_response[0], 0x3F);
+        }
+    }
+
+    async fn send_json_frame(stream: &mut tokio::net::TcpStream, payload: &[u8]) {
+        assert!(payload.len() <= super::MAX_FRAME_LEN as usize);
+        let mut header = [0u8; 4];
+        if payload.len() == super::MAX_FRAME_LEN as usize {
+            header[0] = 0x08;
+        } else {
+            header[0] = 0x00;
+            header[1] = ((payload.len() >> 16) & 0xFF) as u8;
+            header[2] = ((payload.len() >> 8) & 0xFF) as u8;
+            header[3] = (payload.len() & 0xFF) as u8;
+        }
+        stream.write_all(&header).await.unwrap();
+        if !payload.is_empty() {
+            stream.write_all(payload).await.unwrap();
         }
     }
 

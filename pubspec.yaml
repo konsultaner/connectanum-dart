@@ -2,4 +2,6 @@ name: connectanum_workspace
 environment:
   sdk: '^3.9.2'
 workspace:
-  - packages/connectanum_dart
+  - packages/connectanum_core
+  - packages/connectanum_client
+  - packages/connectanum_router

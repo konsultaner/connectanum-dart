@@ -12,7 +12,8 @@ import 'message/uri_pattern.dart';
 import 'protocol/session.dart';
 import 'network/network_connectivity_stub.dart'
     if (dart.library.io) 'network/network_connectivity_io.dart'
-    if (dart.library.js_interop) 'network/network_connectivity_web.dart' as connectivity;
+    if (dart.library.js_interop) 'network/network_connectivity_web.dart'
+    as connectivity;
 
 enum _ClientState {
   /// Client is idle and not connected
@@ -83,17 +84,18 @@ class Client {
   ///
   /// final Session session = await client.connect();
   /// ```
-  Client(
-      {required this.transport,
-      this.authId,
-      this.authRole,
-      this.realm,
-      this.authenticationMethods,
-      this.authExtra,
-      this.isolateCount = 1})
-      : assert(realm == null || UriPattern.match(realm)) {
-    _connectStreamSubscription =
-        _connectStreamController.stream.listen(_connect);
+  Client({
+    required this.transport,
+    this.authId,
+    this.authRole,
+    this.realm,
+    this.authenticationMethods,
+    this.authExtra,
+    this.isolateCount = 1,
+  }) : assert(realm == null || UriPattern.match(realm)) {
+    _connectStreamSubscription = _connectStreamController.stream.listen(
+      _connect,
+    );
   }
 
   /// if listened to this stream you will be noticed about reconnect tries. The passed
@@ -125,8 +127,9 @@ class Client {
     _changeState(_ClientState.waiting);
 
     /// Increment reconnectCount by 1 because we use one for initial connect
-    options.reconnectCount =
-        options.reconnectCount == -1 ? -1 : options.reconnectCount + 1;
+    options.reconnectCount = options.reconnectCount == -1
+        ? -1
+        : options.reconnectCount + 1;
     _connectStreamController.add(options);
 
     return _controller.stream;
@@ -154,8 +157,10 @@ class Client {
     }
   }
 
-  Future<void> _reconnect(ClientConnectOptions options,
-      {Duration? duration}) async {
+  Future<void> _reconnect(
+    ClientConnectOptions options, {
+    Duration? duration,
+  }) async {
     if (options.reconnectCount == 0 || options.reconnectTime == null) {
       return await _onNoReconnectsLeft('Ran out of reconnect attempts');
     }
@@ -163,7 +168,10 @@ class Client {
     _changeState(_ClientState.waiting);
 
     // Start online-state ticker during waiting
-    _startOnlineTicker(options.networkCheckInterval, options.connectivityTestAddress);
+    _startOnlineTicker(
+      options.networkCheckInterval,
+      options.connectivityTestAddress,
+    );
 
     try {
       // Optionally wait for network to be online before attempting reconnect
@@ -188,7 +196,9 @@ class Client {
         _logger.info('Waiting for (overridden) $duration before reconnecting');
         await Future.delayed(duration);
       } else {
-        _logger.info('Waiting for ${options.reconnectTime!} before reconnecting');
+        _logger.info(
+          'Waiting for ${options.reconnectTime!} before reconnecting',
+        );
         await Future.delayed(options.reconnectTime!);
       }
 
@@ -212,15 +222,18 @@ class Client {
     _stopOnlineTicker();
     _onlineStreamSub = connectivity.NetworkConnectivity.instance
         .watch(interval: interval, testAddress: testAddress)
-        .listen((online) {
-      if (!_onlineStateController.isClosed) {
-        _onlineStateController.add(online);
-      }
-    }, onError: (_) {
-      if (!_onlineStateController.isClosed) {
-        _onlineStateController.add(false);
-      }
-    });
+        .listen(
+          (online) {
+            if (!_onlineStateController.isClosed) {
+              _onlineStateController.add(online);
+            }
+          },
+          onError: (_) {
+            if (!_onlineStateController.isClosed) {
+              _onlineStateController.add(false);
+            }
+          },
+        );
   }
 
   void _stopOnlineTicker() {
@@ -239,7 +252,8 @@ class Client {
           'Unable to reconnect - reconnectTime is null or reconnectCount is 0',
         );
         return await _onNoReconnectsLeft(
-            'Please configure reconnectTime to retry automatically');
+          'Please configure reconnectTime to retry automatically',
+        );
       }
 
       return _reconnect(options.minusReconnectRetry());
@@ -281,17 +295,14 @@ class Client {
       errorMessage += ' Underlying error: $error';
     }
 
-    _controller.addError(
-      Abort(
-        Error.couldNotConnect,
-        message: errorMessage,
-      ),
-    );
+    _controller.addError(Abort(Error.couldNotConnect, message: errorMessage));
     return await disconnect();
   }
 
   Future<void> _onSessionAbort(
-      Abort abort, ClientConnectOptions options) async {
+    Abort abort,
+    ClientConnectOptions options,
+  ) async {
     _logger.shout('Abort reason: ${abort.reason}');
     _controller.addError(abort);
 
@@ -319,6 +330,7 @@ class ClientConnectOptions {
   bool waitForNetwork;
   Duration networkCheckInterval;
   Duration? networkWaitTimeout;
+
   /// Host:port to probe when checking connectivity on IO (e.g., 'example.com:80').
   /// If null, a reasonable default will be used by the platform implementation.
   String? connectivityTestAddress;

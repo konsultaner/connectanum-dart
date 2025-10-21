@@ -27,12 +27,16 @@ class NetworkConnectivity {
 
     void addListeners() {
       if (onlineListener != null) return;
-      onlineListener = (((Event _) {
-        if (!controller.isClosed) controller.add(true);
-      }).toJS) as EventListener;
-      offlineListener = (((Event _) {
-        if (!controller.isClosed) controller.add(false);
-      }).toJS) as EventListener;
+      onlineListener =
+          (((Event _) {
+                if (!controller.isClosed) controller.add(true);
+              }).toJS)
+              as EventListener;
+      offlineListener =
+          (((Event _) {
+                if (!controller.isClosed) controller.add(false);
+              }).toJS)
+              as EventListener;
       window.addEventListener('online', onlineListener);
       window.addEventListener('offline', offlineListener);
     }
@@ -84,15 +88,19 @@ class NetworkConnectivity {
     EventListener? onlineListener;
     EventListener? offlineListener;
 
-    onlineListener = (((Event _) {
-      if (!completer.isCompleted) completer.complete();
-      window.removeEventListener('online', onlineListener);
-      window.removeEventListener('offline', offlineListener);
-    }).toJS) as EventListener;
+    onlineListener =
+        (((Event _) {
+              if (!completer.isCompleted) completer.complete();
+              window.removeEventListener('online', onlineListener);
+              window.removeEventListener('offline', offlineListener);
+            }).toJS)
+            as EventListener;
 
-    offlineListener = (((Event _) {
-      // no-op, but keep symmetry and potential future logging
-    }).toJS) as EventListener;
+    offlineListener =
+        (((Event _) {
+              // no-op, but keep symmetry and potential future logging
+            }).toJS)
+            as EventListener;
 
     window.addEventListener('online', onlineListener);
     window.addEventListener('offline', offlineListener);

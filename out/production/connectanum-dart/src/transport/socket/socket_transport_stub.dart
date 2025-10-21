@@ -18,11 +18,15 @@ class SocketTransport extends AbstractTransport {
   /// with the router and may lead into a lower value that [messageLengthExponent] if
   /// the router only supports shorter messages. The message length is calculated by
   /// 2^[messageLengthExponent]
-  SocketTransport(String host, int port, AbstractSerializer serializer,
-      String serializerType,
-      {ssl = false,
-      allowInsecureCertificates = false,
-      messageLengthExponent = SocketHelper.maxMessageLengthExponent});
+  SocketTransport(
+    String host,
+    int port,
+    AbstractSerializer serializer,
+    String serializerType, {
+    ssl = false,
+    allowInsecureCertificates = false,
+    messageLengthExponent = SocketHelper.maxMessageLengthExponent,
+  });
 
   bool get isUpgradedProtocol => true;
 

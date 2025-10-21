@@ -33,26 +33,46 @@ class WebSocketTransport extends AbstractTransport {
   Completer? _onDisconnect;
   late Completer _onReady;
 
-  WebSocketTransport(this._url, this._serializer, this._serializerType,
-      [this._headers])
-      : assert(_serializerType == WebSocketSerialization.serializationJson ||
-            _serializerType == WebSocketSerialization.serializationMsgpack ||
-            _serializerType == WebSocketSerialization.serializationCbor);
+  WebSocketTransport(
+    this._url,
+    this._serializer,
+    this._serializerType, [
+    this._headers,
+  ]) : assert(
+         _serializerType == WebSocketSerialization.serializationJson ||
+             _serializerType == WebSocketSerialization.serializationMsgpack ||
+             _serializerType == WebSocketSerialization.serializationCbor,
+       );
 
-  factory WebSocketTransport.withJsonSerializer(String url,
-          [Map<String, dynamic>? headers]) =>
-      WebSocketTransport(url, serializer_json.Serializer(),
-          WebSocketSerialization.serializationJson, headers);
+  factory WebSocketTransport.withJsonSerializer(
+    String url, [
+    Map<String, dynamic>? headers,
+  ]) => WebSocketTransport(
+    url,
+    serializer_json.Serializer(),
+    WebSocketSerialization.serializationJson,
+    headers,
+  );
 
-  factory WebSocketTransport.withMsgpackSerializer(String url,
-          [Map<String, dynamic>? headers]) =>
-      WebSocketTransport(url, serializer_msgpack.Serializer(),
-          WebSocketSerialization.serializationMsgpack, headers);
+  factory WebSocketTransport.withMsgpackSerializer(
+    String url, [
+    Map<String, dynamic>? headers,
+  ]) => WebSocketTransport(
+    url,
+    serializer_msgpack.Serializer(),
+    WebSocketSerialization.serializationMsgpack,
+    headers,
+  );
 
-  factory WebSocketTransport.withCborSerializer(String url,
-          [Map<String, dynamic>? headers]) =>
-      WebSocketTransport(url, serializer_cbor.Serializer(),
-          WebSocketSerialization.serializationCbor, headers);
+  factory WebSocketTransport.withCborSerializer(
+    String url, [
+    Map<String, dynamic>? headers,
+  ]) => WebSocketTransport(
+    url,
+    serializer_cbor.Serializer(),
+    WebSocketSerialization.serializationCbor,
+    headers,
+  );
 
   /// Calling close will close the underlying socket connection
   @override
@@ -95,14 +115,19 @@ class WebSocketTransport extends AbstractTransport {
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
     try {
-      _socket = await WebSocket.connect(_url,
-          protocols: [_serializerType], headers: _headers);
+      _socket = await WebSocket.connect(
+        _url,
+        protocols: [_serializerType],
+        headers: _headers,
+      );
       _onReady.complete();
       if (pingInterval != null) {
         Timer.periodic(
-            pingInterval,
-            (timer) => _socket!.pingInterval = Duration(
-                milliseconds: (pingInterval.inMilliseconds * 2 / 3).floor()));
+          pingInterval,
+          (timer) => _socket!.pingInterval = Duration(
+            milliseconds: (pingInterval.inMilliseconds * 2 / 3).floor(),
+          ),
+        );
       }
     } on SocketException catch (exception) {
       _onConnectionLost!.complete(exception);
@@ -117,8 +142,9 @@ class WebSocketTransport extends AbstractTransport {
       _goodbyeSent = true;
     }
     if (_serializerType == WebSocketSerialization.serializationJson) {
-      _socket!
-          .addUtf8Text(utf8.encoder.convert(_serializer.serialize(message)));
+      _socket!.addUtf8Text(
+        utf8.encoder.convert(_serializer.serialize(message)),
+      );
     } else {
       _socket!.add(_serializer.serialize(message));
     }
@@ -128,24 +154,28 @@ class WebSocketTransport extends AbstractTransport {
   /// objects.
   @override
   Stream<AbstractMessage?> receive() {
-    _socket!.done.then((done) {
-      if ((_socket!.closeCode == null || _socket!.closeCode! > 1000) &&
-          !_goodbyeSent &&
-          !_goodbyeReceived) {
-        _onConnectionLost!.complete();
-      } else {
-        _onDisconnect!.complete();
-      }
-    }, onError: (error) {
-      if (!_onDisconnect!.isCompleted) {
-        _onConnectionLost!.complete(error);
-      }
-    });
+    _socket!.done.then(
+      (done) {
+        if ((_socket!.closeCode == null || _socket!.closeCode! > 1000) &&
+            !_goodbyeSent &&
+            !_goodbyeReceived) {
+          _onConnectionLost!.complete();
+        } else {
+          _onDisconnect!.complete();
+        }
+      },
+      onError: (error) {
+        if (!_onDisconnect!.isCompleted) {
+          _onConnectionLost!.complete(error);
+        }
+      },
+    );
     return _socket!.map((messageEvent) {
       AbstractMessage? message;
       if (_serializerType == WebSocketSerialization.serializationJson) {
-        message =
-            _serializer.deserialize(utf8.encode(messageEvent) as Uint8List?);
+        message = _serializer.deserialize(
+          utf8.encode(messageEvent) as Uint8List?,
+        );
       } else {
         message = _serializer.deserialize(messageEvent);
       }

@@ -26,95 +26,123 @@ class Serializer extends AbstractSerializer {
           final messageId = cborMessageId.toInt();
           if (messageId == MessageTypes.codeAbort &&
               decodedMessage.length == 3) {
-            return Abort((decodedMessage[2] as CborString).toString(),
-                message: decodedMessage[1] is CborMap &&
-                        (decodedMessage[1] as CborMap)[CborString('message')] !=
-                            null
-                    ? ((decodedMessage[1] as CborMap)[CborString('message')]
+            return Abort(
+              (decodedMessage[2] as CborString).toString(),
+              message:
+                  decodedMessage[1] is CborMap &&
+                      (decodedMessage[1] as CborMap)[CborString('message')] !=
+                          null
+                  ? ((decodedMessage[1] as CborMap)[CborString('message')]
                             as CborString)
                         .toString()
-                    : null);
+                  : null,
+            );
           }
           if (messageId == MessageTypes.codeChallenge &&
               decodedMessage.length == 3) {
             return Challenge(
-                (decodedMessage[1] as CborString).toString(),
-                Extra(
-                    challenge: (decodedMessage[2] as CborMap)[CborString('challenge')] == null
-                        ? null
-                        : ((decodedMessage[2] as CborMap)[CborString('challenge')] as CborString)
-                            .toString(),
-                    salt: (decodedMessage[2] as CborMap)[CborString('salt')] == null
-                        ? null
-                        : ((decodedMessage[2] as CborMap)[CborString('salt')] as CborString)
-                            .toString(),
-                    keyLen: (decodedMessage[2] as CborMap)[CborString('keylen')] == null
-                        ? null
-                        : ((decodedMessage[2] as CborMap)[CborString('keylen')] as CborInt)
-                            .toInt(),
-                    iterations: (decodedMessage[2] as CborMap)[CborString('iterations')] == null
-                        ? null
-                        : ((decodedMessage[2] as CborMap)[CborString('iterations')] as CborInt)
-                            .toInt(),
-                    memory: (decodedMessage[2] as CborMap)[CborString('memory')] == null
-                        ? null
-                        : ((decodedMessage[2] as CborMap)[CborString('memory')] as CborInt)
-                            .toInt(),
-                    kdf: (decodedMessage[2] as CborMap)[CborString('kdf')] == null
-                        ? null
-                        : ((decodedMessage[2] as CborMap)[CborString('kdf')] as CborString).toString(),
-                    nonce: (decodedMessage[2] as CborMap)[CborString('nonce')] == null ? null : ((decodedMessage[2] as CborMap)[CborString('nonce')] as CborString).toString()));
+              (decodedMessage[1] as CborString).toString(),
+              Extra(
+                challenge:
+                    (decodedMessage[2] as CborMap)[CborString('challenge')] ==
+                        null
+                    ? null
+                    : ((decodedMessage[2] as CborMap)[CborString('challenge')]
+                              as CborString)
+                          .toString(),
+                salt: (decodedMessage[2] as CborMap)[CborString('salt')] == null
+                    ? null
+                    : ((decodedMessage[2] as CborMap)[CborString('salt')]
+                              as CborString)
+                          .toString(),
+                keyLen:
+                    (decodedMessage[2] as CborMap)[CborString('keylen')] == null
+                    ? null
+                    : ((decodedMessage[2] as CborMap)[CborString('keylen')]
+                              as CborInt)
+                          .toInt(),
+                iterations:
+                    (decodedMessage[2] as CborMap)[CborString('iterations')] ==
+                        null
+                    ? null
+                    : ((decodedMessage[2] as CborMap)[CborString('iterations')]
+                              as CborInt)
+                          .toInt(),
+                memory:
+                    (decodedMessage[2] as CborMap)[CborString('memory')] == null
+                    ? null
+                    : ((decodedMessage[2] as CborMap)[CborString('memory')]
+                              as CborInt)
+                          .toInt(),
+                kdf: (decodedMessage[2] as CborMap)[CborString('kdf')] == null
+                    ? null
+                    : ((decodedMessage[2] as CborMap)[CborString('kdf')]
+                              as CborString)
+                          .toString(),
+                nonce:
+                    (decodedMessage[2] as CborMap)[CborString('nonce')] == null
+                    ? null
+                    : ((decodedMessage[2] as CborMap)[CborString('nonce')]
+                              as CborString)
+                          .toString(),
+              ),
+            );
           }
           if (messageId == MessageTypes.codeWelcome &&
               decodedMessage.length == 3) {
             final details = Details();
             details.realm =
                 (((decodedMessage[2] as CborMap)[CborString('realm')] ??
-                        CborString('')) as CborString)
+                            CborString(''))
+                        as CborString)
                     .toString();
             details.authid =
                 (((decodedMessage[2] as CborMap)[CborString('authid')] ??
-                        CborString('')) as CborString)
+                            CborString(''))
+                        as CborString)
                     .toString();
             details.authprovider =
                 (((decodedMessage[2] as CborMap)[CborString('authprovider')] ??
-                        CborString('')) as CborString)
+                            CborString(''))
+                        as CborString)
                     .toString();
             details.authmethod =
                 (((decodedMessage[2] as CborMap)[CborString('authmethod')] ??
-                        CborString('')) as CborString)
+                            CborString(''))
+                        as CborString)
                     .toString();
             details.authrole =
                 (((decodedMessage[2] as CborMap)[CborString('authrole')] ??
-                        CborString('')) as CborString)
+                            CborString(''))
+                        as CborString)
                     .toString();
             if ((decodedMessage[2] as CborMap)[CborString('authextra')] !=
                 null) {
               ((decodedMessage[2] as CborMap)[CborString('authextra')]
                       as CborMap)
                   .forEach((key, value) {
-                details.authextra ??= <String, dynamic>{};
-                if (value is CborString) {
-                  details.authextra![(key as CborString).toString()] =
-                      value.toString();
-                }
-                if (value is CborInt) {
-                  details.authextra![(key as CborString).toString()] =
-                      value.toInt();
-                }
-                if (value is CborFloat) {
-                  details.authextra![(key as CborString).toString()] =
-                      value.value;
-                }
-                if (value is CborBool) {
-                  details.authextra![(key as CborString).toString()] =
-                      value.value;
-                }
-                if (value is CborBase64) {
-                  details.authextra![(key as CborString).toString()] =
-                      value.toString();
-                }
-              });
+                    details.authextra ??= <String, dynamic>{};
+                    if (value is CborString) {
+                      details.authextra![(key as CborString).toString()] = value
+                          .toString();
+                    }
+                    if (value is CborInt) {
+                      details.authextra![(key as CborString).toString()] = value
+                          .toInt();
+                    }
+                    if (value is CborFloat) {
+                      details.authextra![(key as CborString).toString()] =
+                          value.value;
+                    }
+                    if (value is CborBool) {
+                      details.authextra![(key as CborString).toString()] =
+                          value.value;
+                    }
+                    if (value is CborBase64) {
+                      details.authextra![(key as CborString).toString()] = value
+                          .toString();
+                    }
+                  });
             }
             if ((decodedMessage[2] as CborMap)[CborString('roles')] != null) {
               details.roles = Roles();
@@ -131,77 +159,99 @@ class Serializer extends AbstractSerializer {
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                               as CborMap)[CborString('dealer')]
                                           as CborMap)[CborString('features')]
-                                      as CborMap)[
-                                  CborString('caller_identification')] ??
-                              CborBool(false)) as CborBool)
+                                      as CborMap)[CborString(
+                                    'caller_identification',
+                                  )] ??
+                                  CborBool(false))
+                              as CborBool)
                           .value;
                   details.roles!.dealer!.features!.callTrustLevels =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                          as CborMap)[CborString('dealer')]
-                                      as CborMap)[CborString('features')]
-                                  as CborMap)[CborString('call_trustlevels')] ??
-                              CborBool(false)) as CborBool)
+                                              as CborMap)[CborString('dealer')]
+                                          as CborMap)[CborString('features')]
+                                      as CborMap)[CborString(
+                                    'call_trustlevels',
+                                  )] ??
+                                  CborBool(false))
+                              as CborBool)
                           .value;
                   details.roles!.dealer!.features!.patternBasedRegistration =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                               as CborMap)[CborString('dealer')]
                                           as CborMap)[CborString('features')]
-                                      as CborMap)[
-                                  CborString('pattern_based_registration')] ??
-                              CborBool(false)) as CborBool)
+                                      as CborMap)[CborString(
+                                    'pattern_based_registration',
+                                  )] ??
+                                  CborBool(false))
+                              as CborBool)
                           .value;
                   details.roles!.dealer!.features!.registrationMetaApi =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                               as CborMap)[CborString('dealer')]
                                           as CborMap)[CborString('features')]
-                                      as CborMap)[
-                                  CborString('registration_meta_api')] ??
-                              CborBool(false)) as CborBool)
+                                      as CborMap)[CborString(
+                                    'registration_meta_api',
+                                  )] ??
+                                  CborBool(false))
+                              as CborBool)
                           .value;
-                  details.roles!.dealer!.features!
-                      .sharedRegistration = ((((((decodedMessage[2]
-                                          as CborMap)[CborString('roles')]
-                                      as CborMap)[CborString('dealer')]
-                                  as CborMap)[CborString('features')]
-                              as CborMap)[CborString('shared_registration')] ??
-                          CborBool(false)) as CborBool)
-                      .value;
+                  details.roles!.dealer!.features!.sharedRegistration =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')]
+                                              as CborMap)[CborString('dealer')]
+                                          as CborMap)[CborString('features')]
+                                      as CborMap)[CborString(
+                                    'shared_registration',
+                                  )] ??
+                                  CborBool(false))
+                              as CborBool)
+                          .value;
                   details.roles!.dealer!.features!.sessionMetaApi =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                          as CborMap)[CborString('dealer')]
-                                      as CborMap)[CborString('features')]
-                                  as CborMap)[CborString('session_meta_api')] ??
-                              CborBool(false)) as CborBool)
+                                              as CborMap)[CborString('dealer')]
+                                          as CborMap)[CborString('features')]
+                                      as CborMap)[CborString(
+                                    'session_meta_api',
+                                  )] ??
+                                  CborBool(false))
+                              as CborBool)
                           .value;
                   details.roles!.dealer!.features!.callTimeout =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                          as CborMap)[CborString('dealer')]
-                                      as CborMap)[CborString('features')]
-                                  as CborMap)[CborString('call_timeout')] ??
-                              CborBool(false)) as CborBool)
+                                              as CborMap)[CborString('dealer')]
+                                          as CborMap)[CborString('features')]
+                                      as CborMap)[CborString('call_timeout')] ??
+                                  CborBool(false))
+                              as CborBool)
                           .value;
                   details.roles!.dealer!.features!.callCanceling =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                          as CborMap)[CborString('dealer')]
-                                      as CborMap)[CborString('features')]
-                                  as CborMap)[CborString('call_canceling')] ??
-                              CborBool(false)) as CborBool)
+                                              as CborMap)[CborString('dealer')]
+                                          as CborMap)[CborString('features')]
+                                      as CborMap)[CborString(
+                                    'call_canceling',
+                                  )] ??
+                                  CborBool(false))
+                              as CborBool)
                           .value;
                   details.roles!.dealer!.features!.progressiveCallResults =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                               as CborMap)[CborString('dealer')]
                                           as CborMap)[CborString('features')]
-                                      as CborMap)[
-                                  CborString('progressive_call_results')] ??
-                              CborBool(false)) as CborBool)
+                                      as CborMap)[CborString(
+                                    'progressive_call_results',
+                                  )] ??
+                                  CborBool(false))
+                              as CborBool)
                           .value;
                   details.roles!.dealer!.features!.payloadPassThruMode =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                               as CborMap)[CborString('dealer')]
                                           as CborMap)[CborString('features')]
-                                      as CborMap)[
-                                  CborString('payload_passthru_mode')] ??
-                              CborBool(false)) as CborBool)
+                                      as CborMap)[CborString(
+                                    'payload_passthru_mode',
+                                  )] ??
+                                  CborBool(false))
+                              as CborBool)
                           .value;
                 }
               }
@@ -218,72 +268,91 @@ class Serializer extends AbstractSerializer {
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                               as CborMap)[CborString('broker')]
                                           as CborMap)[CborString('features')]
-                                      as CborMap)[
-                                  CborString('publisher_identification')] ??
-                              CborBool(false)) as CborBool)
+                                      as CborMap)[CborString(
+                                    'publisher_identification',
+                                  )] ??
+                                  CborBool(false))
+                              as CborBool)
                           .value;
                   details.roles!.broker!.features!.publicationTrustLevels =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                               as CborMap)[CborString('broker')]
                                           as CborMap)[CborString('features')]
-                                      as CborMap)[
-                                  CborString('publication_trustlevels')] ??
-                              CborBool(false)) as CborBool)
+                                      as CborMap)[CborString(
+                                    'publication_trustlevels',
+                                  )] ??
+                                  CborBool(false))
+                              as CborBool)
                           .value;
                   details.roles!.broker!.features!.patternBasedSubscription =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                               as CborMap)[CborString('broker')]
                                           as CborMap)[CborString('features')]
-                                      as CborMap)[
-                                  CborString('pattern_based_subscription')] ??
-                              CborBool(false)) as CborBool)
+                                      as CborMap)[CborString(
+                                    'pattern_based_subscription',
+                                  )] ??
+                                  CborBool(false))
+                              as CborBool)
                           .value;
                   details.roles!.broker!.features!.subscriptionMetaApi =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                               as CborMap)[CborString('broker')]
                                           as CborMap)[CborString('features')]
-                                      as CborMap)[
-                                  CborString('subscription_meta_api')] ??
-                              CborBool(false)) as CborBool)
+                                      as CborMap)[CborString(
+                                    'subscription_meta_api',
+                                  )] ??
+                                  CborBool(false))
+                              as CborBool)
                           .value;
-                  details.roles!.broker!.features!
-                      .subscriberBlackWhiteListing = ((((((decodedMessage[2]
-                                              as CborMap)[CborString('roles')]
-                                          as CborMap)[CborString('broker')]
-                                      as CborMap)[CborString('features')]
-                                  as CborMap)[
-                              CborString('subscriber_blackwhite_listing')] ??
-                          CborBool(false)) as CborBool)
-                      .value;
+                  details.roles!.broker!.features!.subscriberBlackWhiteListing =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')]
+                                              as CborMap)[CborString('broker')]
+                                          as CborMap)[CborString('features')]
+                                      as CborMap)[CborString(
+                                    'subscriber_blackwhite_listing',
+                                  )] ??
+                                  CborBool(false))
+                              as CborBool)
+                          .value;
                   details.roles!.broker!.features!.sessionMetaApi =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                          as CborMap)[CborString('broker')]
-                                      as CborMap)[CborString('features')]
-                                  as CborMap)[CborString('session_meta_api')] ??
-                              CborBool(false)) as CborBool)
+                                              as CborMap)[CborString('broker')]
+                                          as CborMap)[CborString('features')]
+                                      as CborMap)[CborString(
+                                    'session_meta_api',
+                                  )] ??
+                                  CborBool(false))
+                              as CborBool)
                           .value;
-                  details.roles!.broker!.features!
-                      .publisherExclusion = ((((((decodedMessage[2]
-                                          as CborMap)[CborString('roles')]
-                                      as CborMap)[CborString('broker')]
-                                  as CborMap)[CborString('features')]
-                              as CborMap)[CborString('publisher_exclusion')] ??
-                          CborBool(false)) as CborBool)
-                      .value;
+                  details.roles!.broker!.features!.publisherExclusion =
+                      ((((((decodedMessage[2] as CborMap)[CborString('roles')]
+                                              as CborMap)[CborString('broker')]
+                                          as CborMap)[CborString('features')]
+                                      as CborMap)[CborString(
+                                    'publisher_exclusion',
+                                  )] ??
+                                  CborBool(false))
+                              as CborBool)
+                          .value;
                   details.roles!.broker!.features!.eventHistory =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                          as CborMap)[CborString('broker')]
-                                      as CborMap)[CborString('features')]
-                                  as CborMap)[CborString('event_history')] ??
-                              CborBool(false)) as CborBool)
+                                              as CborMap)[CborString('broker')]
+                                          as CborMap)[CborString('features')]
+                                      as CborMap)[CborString(
+                                    'event_history',
+                                  )] ??
+                                  CborBool(false))
+                              as CborBool)
                           .value;
                   details.roles!.broker!.features!.payloadPassThruMode =
                       ((((((decodedMessage[2] as CborMap)[CborString('roles')]
                                               as CborMap)[CborString('broker')]
                                           as CborMap)[CborString('features')]
-                                      as CborMap)[
-                                  CborString('payload_passthru_mode')] ??
-                              CborBool(false)) as CborBool)
+                                      as CborMap)[CborString(
+                                    'payload_passthru_mode',
+                                  )] ??
+                                  CborBool(false))
+                              as CborBool)
                           .value;
                 }
               }
@@ -292,8 +361,10 @@ class Serializer extends AbstractSerializer {
           }
           if (messageId == MessageTypes.codeRegistered &&
               decodedMessage.length == 3) {
-            return Registered((decodedMessage[1] as CborInt).toInt(),
-                (decodedMessage[2] as CborInt).toInt());
+            return Registered(
+              (decodedMessage[1] as CborInt).toInt(),
+              (decodedMessage[2] as CborInt).toInt(),
+            );
           }
           if (messageId == MessageTypes.codeUnregistered &&
               decodedMessage.length == 2) {
@@ -302,164 +373,199 @@ class Serializer extends AbstractSerializer {
           if (messageId == MessageTypes.codeInvocation &&
               decodedMessage.length > 3) {
             return _addPayload(
-                Invocation(
-                    (decodedMessage[1] as CborInt).toInt(),
-                    (decodedMessage[2] as CborInt).toInt(),
-                    InvocationDetails(
-                      (decodedMessage[3] as CborMap)[CborString('caller')] ==
-                              null
-                          ? null
-                          : ((decodedMessage[3]
-                                  as CborMap)[CborString('caller')] as CborInt)
-                              .toInt(),
-                      (decodedMessage[3] as CborMap)[CborString('procedure')] ==
-                              null
-                          ? null
-                          : ((decodedMessage[3]
-                                      as CborMap)[CborString('procedure')]
-                                  as CborString)
-                              .toString(),
-                      (decodedMessage[3]
-                                  as CborMap)[CborString('receive_progress')] ==
-                              null
-                          ? null
-                          : ((decodedMessage[3] as CborMap)[
-                                  CborString('receive_progress')] as CborBool)
-                              .value,
-                    )),
-                decodedMessage,
-                4);
+              Invocation(
+                (decodedMessage[1] as CborInt).toInt(),
+                (decodedMessage[2] as CborInt).toInt(),
+                InvocationDetails(
+                  (decodedMessage[3] as CborMap)[CborString('caller')] == null
+                      ? null
+                      : ((decodedMessage[3] as CborMap)[CborString('caller')]
+                                as CborInt)
+                            .toInt(),
+                  (decodedMessage[3] as CborMap)[CborString('procedure')] ==
+                          null
+                      ? null
+                      : ((decodedMessage[3] as CborMap)[CborString('procedure')]
+                                as CborString)
+                            .toString(),
+                  (decodedMessage[3] as CborMap)[CborString(
+                            'receive_progress',
+                          )] ==
+                          null
+                      ? null
+                      : ((decodedMessage[3] as CborMap)[CborString(
+                                  'receive_progress',
+                                )]
+                                as CborBool)
+                            .value,
+                ),
+              ),
+              decodedMessage,
+              4,
+            );
           }
           if (messageId == MessageTypes.codeResult &&
               decodedMessage.length > 2) {
             return _addPayload(
-                Result(
-                    (decodedMessage[1] as CborInt).toInt(),
-                    ResultDetails(
-                      progress: (decodedMessage[2]
-                                  as CborMap)[CborString('progress')] ==
-                              null
-                          ? null
-                          : ((decodedMessage[2]
-                                      as CborMap)[CborString('progress')]
-                                  as CborBool)
-                              .value,
-                      pptScheme: (decodedMessage[2]
-                                  as CborMap)[CborString('ppt_scheme')] ==
-                              null
-                          ? null
-                          : (decodedMessage[2]
-                              as CborMap)[CborString('ppt_scheme')] as String,
-                      pptSerializer: (decodedMessage[2]
-                                  as CborMap)[CborString('ppt_serializer')] ==
-                              null
-                          ? null
-                          : (decodedMessage[2]
-                                  as CborMap)[CborString('ppt_serializer')]
-                              as String,
-                      pptCipher: (decodedMessage[2]
-                                  as CborMap)[CborString('ppt_cipher')] ==
-                              null
-                          ? null
-                          : (decodedMessage[2]
-                              as CborMap)[CborString('ppt_cipher')] as String,
-                      pptKeyId: (decodedMessage[2]
-                                  as CborMap)[CborString('ppt_keyid')] ==
-                              null
-                          ? null
-                          : (decodedMessage[2]
-                              as CborMap)[CborString('ppt_keyid')] as String,
-                    )),
-                decodedMessage,
-                3);
+              Result(
+                (decodedMessage[1] as CborInt).toInt(),
+                ResultDetails(
+                  progress:
+                      (decodedMessage[2] as CborMap)[CborString('progress')] ==
+                          null
+                      ? null
+                      : ((decodedMessage[2] as CborMap)[CborString('progress')]
+                                as CborBool)
+                            .value,
+                  pptScheme:
+                      (decodedMessage[2] as CborMap)[CborString(
+                            'ppt_scheme',
+                          )] ==
+                          null
+                      ? null
+                      : (decodedMessage[2] as CborMap)[CborString('ppt_scheme')]
+                            as String,
+                  pptSerializer:
+                      (decodedMessage[2] as CborMap)[CborString(
+                            'ppt_serializer',
+                          )] ==
+                          null
+                      ? null
+                      : (decodedMessage[2] as CborMap)[CborString(
+                              'ppt_serializer',
+                            )]
+                            as String,
+                  pptCipher:
+                      (decodedMessage[2] as CborMap)[CborString(
+                            'ppt_cipher',
+                          )] ==
+                          null
+                      ? null
+                      : (decodedMessage[2] as CborMap)[CborString('ppt_cipher')]
+                            as String,
+                  pptKeyId:
+                      (decodedMessage[2] as CborMap)[CborString('ppt_keyid')] ==
+                          null
+                      ? null
+                      : (decodedMessage[2] as CborMap)[CborString('ppt_keyid')]
+                            as String,
+                ),
+              ),
+              decodedMessage,
+              3,
+            );
           }
           if (messageId == MessageTypes.codePublished &&
               decodedMessage.length == 3) {
-            return Published((decodedMessage[1] as CborInt).toInt(),
-                (decodedMessage[2] as CborInt).toInt());
+            return Published(
+              (decodedMessage[1] as CborInt).toInt(),
+              (decodedMessage[2] as CborInt).toInt(),
+            );
           }
           if (messageId == MessageTypes.codeSubscribed &&
               decodedMessage.length == 3) {
-            return Subscribed((decodedMessage[1] as CborInt).toInt(),
-                (decodedMessage[2] as CborInt).toInt());
+            return Subscribed(
+              (decodedMessage[1] as CborInt).toInt(),
+              (decodedMessage[2] as CborInt).toInt(),
+            );
           }
           if (messageId == MessageTypes.codeUnsubscribed &&
               decodedMessage.length > 1) {
             return Unsubscribed(
-                (decodedMessage[1] as CborInt).toInt(),
-                decodedMessage.length == 2
-                    ? null
-                    : UnsubscribedDetails(
-                        (decodedMessage[2]
-                                    as CborMap)[CborString('subscription')] ==
-                                null
-                            ? null
-                            : ((decodedMessage[2]
-                                        as CborMap)[CborString('subscription')]
+              (decodedMessage[1] as CborInt).toInt(),
+              decodedMessage.length == 2
+                  ? null
+                  : UnsubscribedDetails(
+                      (decodedMessage[2] as CborMap)[CborString(
+                                'subscription',
+                              )] ==
+                              null
+                          ? null
+                          : ((decodedMessage[2] as CborMap)[CborString(
+                                      'subscription',
+                                    )]
                                     as CborInt)
                                 .toInt(),
-                        (decodedMessage[2] as CborMap)[CborString('reason')] ==
-                                null
-                            ? null
-                            : ((decodedMessage[2]
-                                        as CborMap)[CborString('reason')]
+                      (decodedMessage[2] as CborMap)[CborString('reason')] ==
+                              null
+                          ? null
+                          : ((decodedMessage[2] as CborMap)[CborString(
+                                      'reason',
+                                    )]
                                     as CborString)
-                                .toString()));
+                                .toString(),
+                    ),
+            );
           }
           if (messageId == MessageTypes.codeEvent &&
               decodedMessage.length > 3) {
             return _addPayload(
-                Event(
-                    (decodedMessage[1] as CborInt).toInt(),
-                    (decodedMessage[2] as CborInt).toInt(),
-                    EventDetails(
-                        publisher:
-                            (decodedMessage[3] as CborMap)[CborString('publisher')] == null
-                                ? null
-                                : ((decodedMessage[3]
-                                            as CborMap)[CborString('publisher')]
-                                        as CborInt)
-                                    .toInt(),
-                        trustlevel: (decodedMessage[3]
-                                    as CborMap)[CborString('trustlevel')] ==
-                                null
-                            ? null
-                            : ((decodedMessage[3]
-                                        as CborMap)[CborString('trustlevel')]
-                                    as CborInt)
-                                .toInt(),
-                        topic: (decodedMessage[3] as CborMap)[CborString('topic')] == null
-                            ? null
-                            : ((decodedMessage[3] as CborMap)[CborString('topic')]
-                                    as CborString)
-                                .toString())),
-                decodedMessage,
-                4);
+              Event(
+                (decodedMessage[1] as CborInt).toInt(),
+                (decodedMessage[2] as CborInt).toInt(),
+                EventDetails(
+                  publisher:
+                      (decodedMessage[3] as CborMap)[CborString('publisher')] ==
+                          null
+                      ? null
+                      : ((decodedMessage[3] as CborMap)[CborString('publisher')]
+                                as CborInt)
+                            .toInt(),
+                  trustlevel:
+                      (decodedMessage[3] as CborMap)[CborString(
+                            'trustlevel',
+                          )] ==
+                          null
+                      ? null
+                      : ((decodedMessage[3] as CborMap)[CborString(
+                                  'trustlevel',
+                                )]
+                                as CborInt)
+                            .toInt(),
+                  topic:
+                      (decodedMessage[3] as CborMap)[CborString('topic')] ==
+                          null
+                      ? null
+                      : ((decodedMessage[3] as CborMap)[CborString('topic')]
+                                as CborString)
+                            .toString(),
+                ),
+              ),
+              decodedMessage,
+              4,
+            );
           }
           if (messageId == MessageTypes.codeError &&
               decodedMessage.length > 4) {
             return _addPayload(
-                Error(
-                    (decodedMessage[1] as CborInt).toInt(),
-                    (decodedMessage[2] as CborInt).toInt(),
-                    Map<String, Object>.from(
-                        (decodedMessage[3] as CborMap).toObject() as Map),
-                    (decodedMessage[4] as CborString).toString()),
-                decodedMessage,
-                5);
+              Error(
+                (decodedMessage[1] as CborInt).toInt(),
+                (decodedMessage[2] as CborInt).toInt(),
+                Map<String, Object>.from(
+                  (decodedMessage[3] as CborMap).toObject() as Map,
+                ),
+                (decodedMessage[4] as CborString).toString(),
+              ),
+              decodedMessage,
+              5,
+            );
           }
           if (messageId == MessageTypes.codeGoodbye) {
             return Goodbye(
-                decodedMessage.length == 1
-                    ? null
-                    : GoodbyeMessage((decodedMessage[1]
-                                as CborMap)[CborString('message')] ==
-                            null
-                        ? null
-                        : ((decodedMessage[1] as CborMap)[CborString('message')]
-                                as CborString)
-                            .toString()),
-                (decodedMessage[2] as CborString).toString());
+              decodedMessage.length == 1
+                  ? null
+                  : GoodbyeMessage(
+                      (decodedMessage[1] as CborMap)[CborString('message')] ==
+                              null
+                          ? null
+                          : ((decodedMessage[1] as CborMap)[CborString(
+                                      'message',
+                                    )]
+                                    as CborString)
+                                .toString(),
+                    ),
+              (decodedMessage[2] as CborString).toString(),
+            );
           }
         }
       }
@@ -470,20 +576,25 @@ class Serializer extends AbstractSerializer {
     return null;
   }
 
-  AbstractMessageWithPayload _addPayload(AbstractMessageWithPayload message,
-      List<dynamic> messageData, argumentsOffset) {
+  AbstractMessageWithPayload _addPayload(
+    AbstractMessageWithPayload message,
+    List<dynamic> messageData,
+    argumentsOffset,
+  ) {
     if (messageData.length >= argumentsOffset + 1) {
       if (messageData[argumentsOffset] is CborList) {
-        message.arguments = (messageData[argumentsOffset] as CborList)
-            .toObject() as List<dynamic>;
+        message.arguments =
+            (messageData[argumentsOffset] as CborList).toObject()
+                as List<dynamic>;
       }
     }
     if (messageData.length >= argumentsOffset + 2) {
       if (messageData[argumentsOffset + 1] is CborMap) {
         message.argumentsKeywords =
             Map.castFrom<dynamic, dynamic, String, dynamic>(
-                (messageData[argumentsOffset + 1] as CborMap).toObject()
-                    as Map<dynamic, dynamic>);
+              (messageData[argumentsOffset + 1] as CborMap).toObject()
+                  as Map<dynamic, dynamic>,
+            );
       }
     }
     return message;
@@ -492,33 +603,49 @@ class Serializer extends AbstractSerializer {
   @override
   Uint8List serialize(AbstractMessage message) {
     if (message is Hello) {
-      return Uint8List.fromList(cbor.encode(CborValue([
-        MessageTypes.codeHello,
-        message.realm,
-        _serializeDetails(message.details)!
-      ])));
+      return Uint8List.fromList(
+        cbor.encode(
+          CborValue([
+            MessageTypes.codeHello,
+            message.realm,
+            _serializeDetails(message.details)!,
+          ]),
+        ),
+      );
     }
     if (message is Authenticate) {
-      return Uint8List.fromList(cbor.encode(CborValue([
-        MessageTypes.codeAuthenticate,
-        message.signature ?? '',
-        message.extra ?? {}
-      ])));
+      return Uint8List.fromList(
+        cbor.encode(
+          CborValue([
+            MessageTypes.codeAuthenticate,
+            message.signature ?? '',
+            message.extra ?? {},
+          ]),
+        ),
+      );
     }
     if (message is Register) {
-      return Uint8List.fromList(cbor.encode(CborValue([
-        MessageTypes.codeRegister,
-        message.requestId,
-        _serializeRegisterOptions(message.options),
-        message.procedure
-      ])));
+      return Uint8List.fromList(
+        cbor.encode(
+          CborValue([
+            MessageTypes.codeRegister,
+            message.requestId,
+            _serializeRegisterOptions(message.options),
+            message.procedure,
+          ]),
+        ),
+      );
     }
     if (message is Unregister) {
-      return Uint8List.fromList(cbor.encode(CborValue([
-        MessageTypes.codeUnregister,
-        message.requestId,
-        message.registrationId
-      ])));
+      return Uint8List.fromList(
+        cbor.encode(
+          CborValue([
+            MessageTypes.codeUnregister,
+            message.requestId,
+            message.registrationId,
+          ]),
+        ),
+      );
     }
     if (message is Call) {
       var structuredMessage = [
@@ -534,7 +661,7 @@ class Serializer extends AbstractSerializer {
       var structuredMessage = [
         MessageTypes.codeYield,
         message.invocationRequestId,
-        _serializeYieldOptions(message.options)
+        _serializeYieldOptions(message.options),
       ];
       _appendPayloadToList(structuredMessage, message);
       return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
@@ -545,7 +672,7 @@ class Serializer extends AbstractSerializer {
         MessageTypes.codeInvocation,
         message.requestId,
         message.registrationId,
-        {}
+        {},
       ];
       _appendPayloadToList(structuredMessage, message);
       return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
@@ -555,7 +682,7 @@ class Serializer extends AbstractSerializer {
         MessageTypes.codePublish,
         message.requestId,
         _serializePublish(message.options),
-        message.topic
+        message.topic,
       ];
       _appendPayloadToList(structuredMessage, message);
       return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
@@ -564,7 +691,7 @@ class Serializer extends AbstractSerializer {
       var structuredMessage = [
         MessageTypes.codeEvent,
         message.subscriptionId,
-        message.publicationId
+        message.publicationId,
       ];
       _appendPayloadToList(structuredMessage, message);
       return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
@@ -574,7 +701,7 @@ class Serializer extends AbstractSerializer {
         MessageTypes.codeSubscribe,
         message.requestId,
         _serializeSubscribeOptions(message.options),
-        message.topic
+        message.topic,
       ];
       return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
     }
@@ -582,7 +709,7 @@ class Serializer extends AbstractSerializer {
       var structuredMessage = [
         MessageTypes.codeUnsubscribe,
         message.requestId,
-        message.subscriptionId
+        message.subscriptionId,
       ];
       return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
     }
@@ -592,7 +719,7 @@ class Serializer extends AbstractSerializer {
         message.requestTypeId,
         message.requestId,
         message.details,
-        message.error
+        message.error,
       ];
       _appendPayloadToList(structuredMessage, message);
       return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
@@ -601,7 +728,7 @@ class Serializer extends AbstractSerializer {
       var structuredMessage = [
         MessageTypes.codeAbort,
         message.message != null ? {'message': message.message!.message} : {},
-        message.reason
+        message.reason,
       ];
       return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
     }
@@ -611,7 +738,7 @@ class Serializer extends AbstractSerializer {
         message.message != null
             ? {'message': message.message!.message ?? ''}
             : {},
-        message.reason
+        message.reason,
       ];
       return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
     }
@@ -635,7 +762,9 @@ class Serializer extends AbstractSerializer {
   }
 
   void _appendPayloadToList(
-      List structuredMessage, AbstractMessageWithPayload message) {
+    List structuredMessage,
+    AbstractMessageWithPayload message,
+  ) {
     var firstPayload = _firstPayload(message);
     if (firstPayload != null) {
       structuredMessage.add(firstPayload);
@@ -654,43 +783,69 @@ class Serializer extends AbstractSerializer {
         var callerFeatures = {};
         callerFeatures.addEntries([
           MapEntry(
-              'call_canceling', details.roles!.caller!.features!.callCanceling),
+            'call_canceling',
+            details.roles!.caller!.features!.callCanceling,
+          ),
           MapEntry(
-              'call_timeout', details.roles!.caller!.features!.callTimeout),
-          MapEntry('caller_identification',
-              details.roles!.caller!.features!.callerIdentification),
-          MapEntry('payload_passthru_mode',
-              details.roles!.caller!.features!.payloadPassThruMode),
-          MapEntry('progressive_call_results',
-              details.roles!.caller!.features!.progressiveCallResults)
+            'call_timeout',
+            details.roles!.caller!.features!.callTimeout,
+          ),
+          MapEntry(
+            'caller_identification',
+            details.roles!.caller!.features!.callerIdentification,
+          ),
+          MapEntry(
+            'payload_passthru_mode',
+            details.roles!.caller!.features!.payloadPassThruMode,
+          ),
+          MapEntry(
+            'progressive_call_results',
+            details.roles!.caller!.features!.progressiveCallResults,
+          ),
         ]);
         roles.addEntries([
-          MapEntry('caller', {'features': callerFeatures})
+          MapEntry('caller', {'features': callerFeatures}),
         ]);
       }
       if (details.roles!.callee != null &&
           details.roles!.callee!.features != null) {
         var calleeFeatures = {};
         calleeFeatures.addEntries([
-          MapEntry('caller_identification',
-              details.roles!.callee!.features!.callerIdentification),
-          MapEntry('call_trustlevels',
-              details.roles!.callee!.features!.callTrustlevels),
-          MapEntry('pattern_based_registration',
-              details.roles!.callee!.features!.patternBasedRegistration),
-          MapEntry('shared_registration',
-              details.roles!.callee!.features!.sharedRegistration),
           MapEntry(
-              'call_timeout', details.roles!.callee!.features!.callTimeout),
+            'caller_identification',
+            details.roles!.callee!.features!.callerIdentification,
+          ),
           MapEntry(
-              'call_canceling', details.roles!.callee!.features!.callCanceling),
-          MapEntry('progressive_call_results',
-              details.roles!.callee!.features!.progressiveCallResults),
-          MapEntry('payload_passthru_mode',
-              details.roles!.callee!.features!.payloadPassThruMode),
+            'call_trustlevels',
+            details.roles!.callee!.features!.callTrustlevels,
+          ),
+          MapEntry(
+            'pattern_based_registration',
+            details.roles!.callee!.features!.patternBasedRegistration,
+          ),
+          MapEntry(
+            'shared_registration',
+            details.roles!.callee!.features!.sharedRegistration,
+          ),
+          MapEntry(
+            'call_timeout',
+            details.roles!.callee!.features!.callTimeout,
+          ),
+          MapEntry(
+            'call_canceling',
+            details.roles!.callee!.features!.callCanceling,
+          ),
+          MapEntry(
+            'progressive_call_results',
+            details.roles!.callee!.features!.progressiveCallResults,
+          ),
+          MapEntry(
+            'payload_passthru_mode',
+            details.roles!.callee!.features!.payloadPassThruMode,
+          ),
         ]);
         roles.addEntries([
-          MapEntry('callee', {'features': calleeFeatures})
+          MapEntry('callee', {'features': calleeFeatures}),
         ]);
       }
       if (details.roles!.subscriber != null &&
@@ -698,35 +853,53 @@ class Serializer extends AbstractSerializer {
         var subscriberFeatures = {};
         subscriberFeatures.addEntries([
           MapEntry(
-              'call_timeout', details.roles!.subscriber!.features!.callTimeout),
-          MapEntry('call_canceling',
-              details.roles!.subscriber!.features!.callCanceling),
-          MapEntry('progressive_call_results',
-              details.roles!.subscriber!.features!.progressiveCallResults),
-          MapEntry('payload_passthru_mode',
-              details.roles!.subscriber!.features!.payloadPassThruMode),
-          MapEntry('subscription_revocation',
-              details.roles!.subscriber!.features!.subscriptionRevocation)
+            'call_timeout',
+            details.roles!.subscriber!.features!.callTimeout,
+          ),
+          MapEntry(
+            'call_canceling',
+            details.roles!.subscriber!.features!.callCanceling,
+          ),
+          MapEntry(
+            'progressive_call_results',
+            details.roles!.subscriber!.features!.progressiveCallResults,
+          ),
+          MapEntry(
+            'payload_passthru_mode',
+            details.roles!.subscriber!.features!.payloadPassThruMode,
+          ),
+          MapEntry(
+            'subscription_revocation',
+            details.roles!.subscriber!.features!.subscriptionRevocation,
+          ),
         ]);
         roles.addEntries([
-          MapEntry('subscriber', {'features': subscriberFeatures})
+          MapEntry('subscriber', {'features': subscriberFeatures}),
         ]);
       }
       if (details.roles!.publisher != null &&
           details.roles!.publisher!.features != null) {
         var publisherFeatures = {};
         publisherFeatures.addEntries([
-          MapEntry('publisher_identification',
-              details.roles!.publisher!.features!.publisherIdentification),
-          MapEntry('subscriber_blackwhite_listing',
-              details.roles!.publisher!.features!.subscriberBlackWhiteListing),
-          MapEntry('publisher_exclusion',
-              details.roles!.publisher!.features!.publisherExclusion),
-          MapEntry('payload_passthru_mode',
-              details.roles!.publisher!.features!.payloadPassThruMode)
+          MapEntry(
+            'publisher_identification',
+            details.roles!.publisher!.features!.publisherIdentification,
+          ),
+          MapEntry(
+            'subscriber_blackwhite_listing',
+            details.roles!.publisher!.features!.subscriberBlackWhiteListing,
+          ),
+          MapEntry(
+            'publisher_exclusion',
+            details.roles!.publisher!.features!.publisherExclusion,
+          ),
+          MapEntry(
+            'payload_passthru_mode',
+            details.roles!.publisher!.features!.payloadPassThruMode,
+          ),
         ]);
         roles.addEntries([
-          MapEntry('publisher', {'features': publisherFeatures})
+          MapEntry('publisher', {'features': publisherFeatures}),
         ]);
       }
       var detailsParts = <String, dynamic>{};
@@ -753,8 +926,9 @@ class Serializer extends AbstractSerializer {
         optionMap.addEntries([MapEntry('match', options.match)]);
       }
       if (options.discloseCaller != null) {
-        optionMap
-            .addEntries([MapEntry('disclose_caller', options.discloseCaller)]);
+        optionMap.addEntries([
+          MapEntry('disclose_caller', options.discloseCaller),
+        ]);
       }
       if (options.invoke != null) {
         optionMap.addEntries([MapEntry('invoke', options.invoke)]);
@@ -768,8 +942,9 @@ class Serializer extends AbstractSerializer {
     var optionMap = {};
     if (options != null) {
       if (options.receiveProgress != null) {
-        optionMap.addEntries(
-            [MapEntry('receive_progress', options.receiveProgress!)]);
+        optionMap.addEntries([
+          MapEntry('receive_progress', options.receiveProgress!),
+        ]);
       }
       if (options.discloseMe != null) {
         optionMap.addEntries([MapEntry('disclose_me', options.discloseMe!)]);
@@ -808,23 +983,27 @@ class Serializer extends AbstractSerializer {
         optionMap.addEntries([MapEntry('exclude', options.exclude)]);
       }
       if (options.excludeAuthId != null) {
-        optionMap
-            .addEntries([MapEntry('exclude_authid', options.excludeAuthId)]);
+        optionMap.addEntries([
+          MapEntry('exclude_authid', options.excludeAuthId),
+        ]);
       }
       if (options.excludeAuthRole != null) {
-        optionMap.addEntries(
-            [MapEntry('exclude_authrole', options.excludeAuthRole)]);
+        optionMap.addEntries([
+          MapEntry('exclude_authrole', options.excludeAuthRole),
+        ]);
       }
       if (options.eligible != null) {
         optionMap.addEntries([MapEntry('eligible', options.eligible)]);
       }
       if (options.eligibleAuthId != null) {
-        optionMap
-            .addEntries([MapEntry('eligible_authid', options.eligibleAuthId)]);
+        optionMap.addEntries([
+          MapEntry('eligible_authid', options.eligibleAuthId),
+        ]);
       }
       if (options.eligibleAuthRole != null) {
-        optionMap.addEntries(
-            [MapEntry('eligible_authrole', options.eligibleAuthRole)]);
+        optionMap.addEntries([
+          MapEntry('eligible_authrole', options.eligibleAuthRole),
+        ]);
       }
     }
     return optionMap;
@@ -845,8 +1024,8 @@ class Serializer extends AbstractSerializer {
       options
           .getCustomValues<dynamic>(SubscribeOptions.customSerializerCbor)
           .forEach((key, value) {
-        jsonOptions.addEntries([MapEntry(key, value)]);
-      });
+            jsonOptions.addEntries([MapEntry(key, value)]);
+          });
     }
 
     return jsonOptions;
@@ -862,19 +1041,23 @@ class Serializer extends AbstractSerializer {
     if (decodedMessage is CborMap) {
       if (decodedMessage[CborString('args')] != null &&
           decodedMessage[CborString('args')] is CborList) {
-        arguments = (decodedMessage[CborString('args')] as CborList).toObject()
-            as List<dynamic>;
+        arguments =
+            (decodedMessage[CborString('args')] as CborList).toObject()
+                as List<dynamic>;
       }
 
       if (decodedMessage[CborString('kwargs')] != null &&
           decodedMessage[CborString('kwargs')] is CborMap) {
         argumentsKeywords = Map.castFrom<dynamic, dynamic, String, dynamic>(
-            (decodedMessage[CborString('kwargs')] as CborMap).toObject()
-                as Map<dynamic, dynamic>);
+          (decodedMessage[CborString('kwargs')] as CborMap).toObject()
+              as Map<dynamic, dynamic>,
+        );
       }
 
       return PPTPayload(
-          arguments: arguments, argumentsKeywords: argumentsKeywords);
+        arguments: arguments,
+        argumentsKeywords: argumentsKeywords,
+      );
     }
     return null;
   }
@@ -884,7 +1067,7 @@ class Serializer extends AbstractSerializer {
   Uint8List serializePPT(PPTPayload pptPayload) {
     var pptMap = {
       'args': pptPayload.arguments,
-      'kwargs': pptPayload.argumentsKeywords
+      'kwargs': pptPayload.argumentsKeywords,
     };
     return Uint8List.fromList(cbor.encode(CborValue(pptMap)));
   }

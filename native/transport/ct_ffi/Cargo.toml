@@ -7,6 +7,8 @@ edition = "2021"
 ct_core = { path = "../ct_core" }
 dashmap = "5.5"
 tokio = { version = "1.40.0", features = ["rt", "rt-multi-thread", "macros", "time", "net"] }
+bytes = "1.7"
+serde_json = "1.0"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

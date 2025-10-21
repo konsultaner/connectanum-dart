@@ -50,10 +50,13 @@ abstract class AbstractAuthentication {
     streamController.add(value);
 
     if (timeout != null) {
-      return completer.future.timeout(timeout, onTimeout: () {
-        sub.cancel();
-        throw TimeoutException('Timeout while waiting for stream event');
-      });
+      return completer.future.timeout(
+        timeout,
+        onTimeout: () {
+          sub.cancel();
+          throw TimeoutException('Timeout while waiting for stream event');
+        },
+      );
     }
 
     return completer.future;

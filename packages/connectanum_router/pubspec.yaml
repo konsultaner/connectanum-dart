@@ -1,0 +1,19 @@
+name: connectanum_router
+description: Connectanum WAMP router implementation using the native transport runtime.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: '^3.9.2'
+dependencies:
+  logging: ^1.0.0
+  meta: ^1.16.0
+  collection: ^1.18.0
+  msgpack_dart: ^1.0.0
+  cbor: ^6.3.7
+  ffi: ^2.1.0
+  connectanum_core:
+    path: ../connectanum_core
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.26.2
+resolution: workspace

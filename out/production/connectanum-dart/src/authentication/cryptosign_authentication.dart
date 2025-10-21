@@ -38,12 +38,16 @@ class CryptosignAuthentication extends AbstractAuthentication {
   /// the authentication process possible with crypto sign. The [ppkFileContent]
   /// must have a ed25519 key file. If the file was password protected, the
   /// optional [password] will decrypt the private key.
-  factory CryptosignAuthentication.fromPuttyPrivateKey(String ppkFileContent,
-      {String? password}) {
+  factory CryptosignAuthentication.fromPuttyPrivateKey(
+    String ppkFileContent, {
+    String? password,
+  }) {
     return CryptosignAuthentication(
-        SigningKey.fromSeed(
-            Ppk.loadPrivateKeyFromPpk(ppkFileContent, password: password)),
-        null);
+      SigningKey.fromSeed(
+        Ppk.loadPrivateKeyFromPpk(ppkFileContent, password: password),
+      ),
+      null,
+    );
   }
 
   /// This method takes a [openSshFileContent] and reads its private key to make
@@ -51,12 +55,18 @@ class CryptosignAuthentication extends AbstractAuthentication {
   /// must have a ed25519 key file. If the file was password protected, the
   /// optional [password] will decrypt the private key.
   factory CryptosignAuthentication.fromOpenSshPrivateKey(
-      String openSshFileContent,
-      {String? password}) {
+    String openSshFileContent, {
+    String? password,
+  }) {
     return CryptosignAuthentication(
-        SigningKey.fromSeed(Pem.loadPrivateKeyFromOpenSSHPem(openSshFileContent,
-            password: password)),
-        null);
+      SigningKey.fromSeed(
+        Pem.loadPrivateKeyFromOpenSSHPem(
+          openSshFileContent,
+          password: password,
+        ),
+      ),
+      null,
+    );
   }
 
   /// This method takes a [pkcs8FileContent] and reads its private key to make
@@ -65,25 +75,32 @@ class CryptosignAuthentication extends AbstractAuthentication {
   /// protected, you may convert it into a unprotected file first. Password
   /// protection is not supported yet.
   factory CryptosignAuthentication.fromPkcs8PrivateKey(
-      String pkcs8FileContent) {
+    String pkcs8FileContent,
+  ) {
     return CryptosignAuthentication(
-        SigningKey.fromSeed(
-            Pkcs8.loadPrivateKeyFromPKCS8Ed25519(pkcs8FileContent)),
-        null);
+      SigningKey.fromSeed(
+        Pkcs8.loadPrivateKeyFromPKCS8Ed25519(pkcs8FileContent),
+      ),
+      null,
+    );
   }
 
   /// This method takes a given [base64PrivateKey] to make crypto sign
   /// possible. This key needs to generated to be used with the ed25519 algorithm
   factory CryptosignAuthentication.fromBase64(String base64PrivateKey) {
     return CryptosignAuthentication(
-        SigningKey.fromSeed(base64.decode(base64PrivateKey)), null);
+      SigningKey.fromSeed(base64.decode(base64PrivateKey)),
+      null,
+    );
   }
 
   /// This method takes a given [hexPrivateKey] to make crypto sign
   /// possible. This key needs to generated to be used with the ed25519 algorithm
   factory CryptosignAuthentication.fromHex(String? hexPrivateKey) {
     return CryptosignAuthentication(
-        SigningKey.fromSeed(hexToBin(hexPrivateKey)), null);
+      SigningKey.fromSeed(hexToBin(hexPrivateKey)),
+      null,
+    );
   }
 
   /// This method is called by the session if the router returns the challenge or
@@ -92,7 +109,9 @@ class CryptosignAuthentication extends AbstractAuthentication {
   @override
   Future<Authenticate> challenge(Extra extra) async {
     await AbstractAuthentication.streamAddAwaited<Extra>(
-        _challengeStreamController, extra);
+      _challengeStreamController,
+      extra,
+    );
 
     if (extra.channelBinding != channelBinding) {
       return Future.error(Exception('Channel Binding does not match'));
@@ -105,8 +124,9 @@ class CryptosignAuthentication extends AbstractAuthentication {
     authenticate.extra = HashMap<String, Object?>();
     authenticate.extra!['channel_binding'] = channelBinding;
     var binaryChallenge = hexToBin(extra.challenge);
-    authenticate.signature =
-        privateKey.sign(binaryChallenge).encode(Base16Encoder.instance);
+    authenticate.signature = privateKey
+        .sign(binaryChallenge)
+        .encode(Base16Encoder.instance);
     return authenticate;
   }
 
@@ -118,7 +138,7 @@ class CryptosignAuthentication extends AbstractAuthentication {
 
     return Uint8List.fromList([
       for (var i = 0; i < hexString.length; i += 2)
-        int.parse(hexString[i] + hexString[i + 1], radix: 16)
+        int.parse(hexString[i] + hexString[i + 1], radix: 16),
     ]);
   }
 
@@ -128,8 +148,9 @@ class CryptosignAuthentication extends AbstractAuthentication {
   @override
   Future<void> hello(String? realm, Details details) {
     details.authextra ??= <String, String?>{};
-    details.authextra!['pubkey'] =
-        privateKey.publicKey.encode(Base16Encoder.instance);
+    details.authextra!['pubkey'] = privateKey.publicKey.encode(
+      Base16Encoder.instance,
+    );
     details.authextra!['channel_binding'] = channelBinding;
     return Future.value();
   }

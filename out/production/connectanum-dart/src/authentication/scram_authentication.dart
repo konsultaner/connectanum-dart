@@ -42,9 +42,7 @@ class ScramAuthentication extends AbstractAuthentication {
 
   Future<Uint8List> get clientKey {
     if (_clientKey != null) {
-      return Future<Uint8List>.sync(
-        () => _clientKey!,
-      );
+      return Future<Uint8List>.sync(() => _clientKey!);
     } else {
       return _firstClientKeyCompleter.future;
     }
@@ -54,8 +52,11 @@ class ScramAuthentication extends AbstractAuthentication {
   /// which will cause the authentication process to fail if the server response took
   /// too long. The [reuseClientKey] option will compute the client key only for
   /// the first time. The second time stored client key is used
-  ScramAuthentication(String secret,
-      {Duration? challengeTimeout, bool reuseClientKey = false}) {
+  ScramAuthentication(
+    String secret, {
+    Duration? challengeTimeout,
+    bool reuseClientKey = false,
+  }) {
     if (challengeTimeout != null) {
       _challengeTimeout = challengeTimeout;
     }
@@ -67,8 +68,10 @@ class ScramAuthentication extends AbstractAuthentication {
   /// [clientKey] instead. This will save computation time.
   /// The optional [challengeTimeout] will cause the authentication process to
   /// fail if the server response took too long.
-  ScramAuthentication.fromClientKey(Uint8List clientKey,
-      {Duration? challengeTimeout}) {
+  ScramAuthentication.fromClientKey(
+    Uint8List clientKey, {
+    Duration? challengeTimeout,
+  }) {
     if (challengeTimeout != null) {
       _challengeTimeout = challengeTimeout;
     }
@@ -106,18 +109,22 @@ class ScramAuthentication extends AbstractAuthentication {
   @override
   Future<Authenticate> challenge(Extra extra) async {
     await AbstractAuthentication.streamAddAwaited<Extra>(
-        _challengeStreamController, extra);
+      _challengeStreamController,
+      extra,
+    );
 
     if (extra.nonce == null ||
         _helloNonce == null ||
-        !_helloNonce!
-            .contains(extra.nonce!.substring(0, _helloNonce!.length))) {
+        !_helloNonce!.contains(
+          extra.nonce!.substring(0, _helloNonce!.length),
+        )) {
       return Future.error(Exception('Wrong nonce'));
     }
 
     if (extra.kdf != kdfArgon && extra.kdf != kdfPbkdf2) {
-      return Future.error(Exception(
-          'not supported key derivation function used ${extra.kdf!}'));
+      return Future.error(
+        Exception('not supported key derivation function used ${extra.kdf!}'),
+      );
     }
 
     var authenticate = Authenticate();
@@ -127,40 +134,60 @@ class ScramAuthentication extends AbstractAuthentication {
     authenticate.extra!['channel_binding'] = null;
     authenticate.extra!['cbind_data'] = null;
 
-    authenticate.signature = createSignature(_authid!, _helloNonce!, extra,
-        authenticate.extra as HashMap<String, Object?>);
+    authenticate.signature = createSignature(
+      _authid!,
+      _helloNonce!,
+      extra,
+      authenticate.extra as HashMap<String, Object?>,
+    );
     return authenticate;
   }
 
   /// Calculates the client proof according to the [WAMP-SCRAM specs](https://wamp-proto.org/_static/gen/wamp_latest.html#authmessage) where
   /// [authId] is the username that has already been saslpreped with [Saslprep.saslprep(input)] and [helloNonce] is a randomly generated nonce according
   /// to the WAMP-SCRAM specs. The keylength is 32 according to the WAMP-SCRAM specs
-  String createSignature(String authId, String helloNonce, Extra extra,
-      HashMap<String, Object?> authExtra) {
+  String createSignature(
+    String authId,
+    String helloNonce,
+    Extra extra,
+    HashMap<String, Object?> authExtra,
+  ) {
     if (!_reuseClientKey || _clientKey == null) {
       late Uint8List saltedPassword;
       if (extra.kdf == kdfPbkdf2) {
         saltedPassword = CraAuthentication.deriveKey(
-            _secret!,
-            extra.salt == null
-                ? CraAuthentication.defaultKeySalt
-                : base64.decode(extra.salt!),
-            iterations: extra.iterations!,
-            keylen: defaultKeyLength);
+          _secret!,
+          extra.salt == null
+              ? CraAuthentication.defaultKeySalt
+              : base64.decode(extra.salt!),
+          iterations: extra.iterations!,
+          keylen: defaultKeyLength,
+        );
       } else if (extra.kdf == kdfArgon) {
         saltedPassword = Uint8List(32);
         Argon2BytesGenerator()
-          ..init(Argon2Parameters(Argon2Parameters.ARGON2_id,
+          ..init(
+            Argon2Parameters(
+              Argon2Parameters.ARGON2_id,
               Uint8List.fromList(base64.decode(extra.salt!)),
               desiredKeyLength: defaultKeyLength,
               iterations: extra.iterations ?? 1000,
               memory: extra.memory ?? 100,
-              version: Argon2Parameters.ARGON2_VERSION_13))
+              version: Argon2Parameters.ARGON2_VERSION_13,
+            ),
+          )
           ..deriveKey(
-              Uint8List.fromList(_secret!.codeUnits), 0, saltedPassword, 0);
+            Uint8List.fromList(_secret!.codeUnits),
+            0,
+            saltedPassword,
+            0,
+          );
       }
       _clientKey = CraAuthentication.encodeByteHmac(
-          saltedPassword, defaultKeyLength, 'Client Key'.codeUnits);
+        saltedPassword,
+        defaultKeyLength,
+        'Client Key'.codeUnits,
+      );
       if (!_firstClientKeyCompleter.isCompleted) {
         _firstClientKeyCompleter.complete(_clientKey);
       }
@@ -168,19 +195,24 @@ class ScramAuthentication extends AbstractAuthentication {
 
     var storedKey = SHA256Digest().process(Uint8List.fromList(_clientKey!));
     var clientSignature = CraAuthentication.encodeByteHmac(
-        storedKey,
-        defaultKeyLength,
-        createAuthMessage(authId, helloNonce, authExtra, extra).codeUnits);
+      storedKey,
+      defaultKeyLength,
+      createAuthMessage(authId, helloNonce, authExtra, extra).codeUnits,
+    );
     var signature = [
       for (int i = 0; i < _clientKey!.length; i++)
-        _clientKey![i] ^ clientSignature[i]
+        _clientKey![i] ^ clientSignature[i],
     ];
     return base64.encode(signature);
   }
 
   /// This creates the SCRAM authmessage according to the [WAMP-SCRAM specs](https://wamp-proto.org/_static/gen/wamp_latest.html#authmessage)
-  static String createAuthMessage(String authId, String helloNonce,
-      HashMap authExtra, Extra challengeExtra) {
+  static String createAuthMessage(
+    String authId,
+    String helloNonce,
+    HashMap authExtra,
+    Extra challengeExtra,
+  ) {
     var clientFirstBare = 'n=${Saslprep.saslprep(authId)},r=$helloNonce';
     var serverFirst =
         'r=${challengeExtra.nonce!},s=${challengeExtra.salt!},i=${challengeExtra.iterations}';
@@ -198,17 +230,26 @@ class ScramAuthentication extends AbstractAuthentication {
   /// integration test for scrum authentication. This method is used on the
   /// router side to validate the challenge result.
   static bool verifyClientProof(
-      List<int> clientProof, Uint8List storedKey, String authMessage) {
+    List<int> clientProof,
+    Uint8List storedKey,
+    String authMessage,
+  ) {
     var clientSignature = base64
-        .decode(CraAuthentication.encodeHmac(
-            storedKey, defaultKeyLength, authMessage.codeUnits))
+        .decode(
+          CraAuthentication.encodeHmac(
+            storedKey,
+            defaultKeyLength,
+            authMessage.codeUnits,
+          ),
+        )
         .toList();
     var recoveredClientKey = [
       for (var i = 0; i < defaultKeyLength; ++i)
-        clientProof[i] ^ clientSignature[i]
+        clientProof[i] ^ clientSignature[i],
     ];
-    var recoveredStoredKey =
-        SHA256Digest().process(Uint8List.fromList(recoveredClientKey)).toList();
+    var recoveredStoredKey = SHA256Digest()
+        .process(Uint8List.fromList(recoveredClientKey))
+        .toList();
     for (var j = 0; j < storedKey.length; j++) {
       if (recoveredStoredKey[j] != storedKey[j]) {
         return false;

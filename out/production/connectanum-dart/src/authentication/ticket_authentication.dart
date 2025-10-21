@@ -33,7 +33,9 @@ class TicketAuthentication extends AbstractAuthentication {
   @override
   Future<Authenticate> challenge(Extra extra) async {
     await AbstractAuthentication.streamAddAwaited<Extra>(
-        _challengeStreamController, extra);
+      _challengeStreamController,
+      extra,
+    );
     return Authenticate(signature: password);
   }
 

@@ -12,8 +12,9 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
 
   /// Transfers the message payload to another message
   void copyPayloadTo(AbstractMessageWithPayload message) {
-    message.arguments =
-        argumentsKeywords != null && arguments == null ? [] : arguments;
+    message.arguments = argumentsKeywords != null && arguments == null
+        ? []
+        : arguments;
     message.argumentsKeywords = argumentsKeywords;
     message.transparentBinaryPayload = transparentBinaryPayload;
   }

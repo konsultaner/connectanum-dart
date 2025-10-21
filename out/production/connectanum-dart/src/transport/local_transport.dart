@@ -22,12 +22,15 @@ class LocalTransport extends AbstractTransport {
   String? _signature;
   bool _isOpen = false;
 
-  LocalTransport(
-      {this.authenticationPassword = "password",
-      SigningKey? authenticationKey}) {
-    this.authenticationKey = authenticationKey ??
+  LocalTransport({
+    this.authenticationPassword = "password",
+    SigningKey? authenticationKey,
+  }) {
+    this.authenticationKey =
+        authenticationKey ??
         SigningKey.fromSeed(
-            Uint8List.fromList("PasswordPasswordPasswordPassword".codeUnits));
+          Uint8List.fromList("PasswordPasswordPasswordPassword".codeUnits),
+        );
   }
 
   /// Allow tests to listen to what was sent via the transport
@@ -79,43 +82,51 @@ class LocalTransport extends AbstractTransport {
       var ticketAuthentication = TicketAuthentication(authenticationPassword);
       var craAuthentication = CraAuthentication(authenticationPassword);
       var scramAuthentication = ScramAuthentication(authenticationPassword);
-      var cryptosignAuthentication =
-          CryptosignAuthentication(authenticationKey, null);
-      if (message.details.authmethods
-              ?.contains(ticketAuthentication.getName()) ??
+      var cryptosignAuthentication = CryptosignAuthentication(
+        authenticationKey,
+        null,
+      );
+      if (message.details.authmethods?.contains(
+            ticketAuthentication.getName(),
+          ) ??
           false) {
         var extra = Extra();
         ticketAuthentication.challenge(extra).then((authenticate) {
           _hello = message;
           _signature = authenticate.signature;
           _authentication = ticketAuthentication;
-          _receiveController
-              .add(Challenge(ticketAuthentication.getName(), extra));
+          _receiveController.add(
+            Challenge(ticketAuthentication.getName(), extra),
+          );
         });
-      } else if (message.details.authmethods
-              ?.contains(craAuthentication.getName()) ??
+      } else if (message.details.authmethods?.contains(
+            craAuthentication.getName(),
+          ) ??
           false) {
         var extra = Extra(
-            salt: message.details.salt ?? 'salt',
-            keyLen: 32,
-            iterations: 1000,
-            challenge:
-                '{"authid":"${message.details.authid}","authrole":"client","authmethod":"${craAuthentication.getName()}","authprovider":"local","nonce":"local","timestamp":"1970-01-01T12:00Z","session":1}');
+          salt: message.details.salt ?? 'salt',
+          keyLen: 32,
+          iterations: 1000,
+          challenge:
+              '{"authid":"${message.details.authid}","authrole":"client","authmethod":"${craAuthentication.getName()}","authprovider":"local","nonce":"local","timestamp":"1970-01-01T12:00Z","session":1}',
+        );
         craAuthentication.challenge(extra).then((authenticate) {
           _hello = message;
           _signature = authenticate.signature;
           _authentication = craAuthentication;
           _receiveController.add(Challenge(craAuthentication.getName(), extra));
         });
-      } else if (message.details.authmethods
-              ?.contains(scramAuthentication.getName()) ??
+      } else if (message.details.authmethods?.contains(
+            scramAuthentication.getName(),
+          ) ??
           false) {
         var extra = Extra(
-            iterations: 1,
-            memory: 100,
-            salt: 'AQ==',
-            nonce: '${message.details.authextra?['nonce']}AQ==',
-            kdf: ScramAuthentication.kdfArgon);
+          iterations: 1,
+          memory: 100,
+          salt: 'AQ==',
+          nonce: '${message.details.authextra?['nonce']}AQ==',
+          kdf: ScramAuthentication.kdfArgon,
+        );
         var authExtra = HashMap<String, Object?>();
         authExtra['nonce'] = extra.nonce;
         authExtra['channel_binding'] = null;
@@ -123,13 +134,15 @@ class LocalTransport extends AbstractTransport {
         _hello = message;
         _authentication = scramAuthentication;
         _signature = scramAuthentication.createSignature(
-            message.details.authid ?? '',
-            message.details.authextra?['nonce'],
-            extra,
-            authExtra);
+          message.details.authid ?? '',
+          message.details.authextra?['nonce'],
+          extra,
+          authExtra,
+        );
         _receiveController.add(Challenge(scramAuthentication.getName(), extra));
-      } else if (message.details.authmethods
-              ?.contains(cryptosignAuthentication.getName()) ??
+      } else if (message.details.authmethods?.contains(
+            cryptosignAuthentication.getName(),
+          ) ??
           false) {
         var extra = Extra();
         extra.challenge = "11";
@@ -137,11 +150,13 @@ class LocalTransport extends AbstractTransport {
           _hello = message;
           _signature = authenticate.signature;
           _authentication = cryptosignAuthentication;
-          _receiveController
-              .add(Challenge(cryptosignAuthentication.getName(), extra));
+          _receiveController.add(
+            Challenge(cryptosignAuthentication.getName(), extra),
+          );
         });
       } else {
-        _receiveController.add(Welcome(
+        _receiveController.add(
+          Welcome(
             1,
             Details.forWelcome(
               authId: _hello?.details.authid,
@@ -149,7 +164,9 @@ class LocalTransport extends AbstractTransport {
               authProvider: 'local',
               authRole: 'client',
               realm: _hello?.realm,
-            )));
+            ),
+          ),
+        );
       }
     } else if (message is Authenticate) {
       bool success = false;
@@ -160,7 +177,8 @@ class LocalTransport extends AbstractTransport {
         success = message.signature == _signature;
       }
       if (success) {
-        _receiveController.add(Welcome(
+        _receiveController.add(
+          Welcome(
             1,
             Details.forWelcome(
               authId: _hello?.details.authid,
@@ -168,10 +186,16 @@ class LocalTransport extends AbstractTransport {
               authProvider: 'local',
               authRole: 'client',
               realm: _hello?.realm,
-            )));
+            ),
+          ),
+        );
       } else {
         _receiveController.add(
-            Abort(Error.authorizationFailed, message: "Authentication process failed!"));
+          Abort(
+            Error.authorizationFailed,
+            message: "Authentication process failed!",
+          ),
+        );
       }
     }
     _sentMessagesController.add(message);

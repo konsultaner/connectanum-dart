@@ -49,12 +49,18 @@ class CraAuthentication extends AbstractAuthentication {
   @override
   Future<Authenticate> challenge(Extra extra) async {
     await AbstractAuthentication.streamAddAwaited<Extra>(
-        _challengeStreamController, extra);
+      _challengeStreamController,
+      extra,
+    );
 
     var authenticate = Authenticate();
     if (extra.challenge == null) {
-      final error = Error(MessageTypes.codeChallenge, -1,
-          HashMap<String, Object>(), Error.authorizationFailed);
+      final error = Error(
+        MessageTypes.codeChallenge,
+        -1,
+        HashMap<String, Object>(),
+        Error.authorizationFailed,
+      );
       error.details['reason'] =
           'No challenge or secret given, wrong router response';
       return Future.error(error);
@@ -64,30 +70,37 @@ class CraAuthentication extends AbstractAuthentication {
     if (extra.salt == null) {
       key = Uint8List.fromList(secret.codeUnits);
     } else {
-      key = deriveKey(secret, extra.salt!.codeUnits,
-          iterations: extra.iterations == null || extra.iterations! <= 0
-              ? defaultIterations
-              : extra.iterations!,
-          keylen: extra.keyLen == null || extra.keyLen! <= 0
-              ? defaultKeyLength
-              : extra.keyLen!);
+      key = deriveKey(
+        secret,
+        extra.salt!.codeUnits,
+        iterations: extra.iterations == null || extra.iterations! <= 0
+            ? defaultIterations
+            : extra.iterations!,
+        keylen: extra.keyLen == null || extra.keyLen! <= 0
+            ? defaultKeyLength
+            : extra.keyLen!,
+      );
     }
 
     authenticate.signature = encodeHmac(
-        Uint8List.fromList(base64.encode(key).codeUnits),
-        extra.keyLen == null || extra.keyLen! <= 0
-            ? defaultKeyLength
-            : extra.keyLen!,
-        Uint8List.fromList(extra.challenge!.codeUnits));
+      Uint8List.fromList(base64.encode(key).codeUnits),
+      extra.keyLen == null || extra.keyLen! <= 0
+          ? defaultKeyLength
+          : extra.keyLen!,
+      Uint8List.fromList(extra.challenge!.codeUnits),
+    );
     return authenticate;
   }
 
   /// Creates an derived key from a [secret], [salt], [iterations], [keylen] and
   /// [hmacLength].
-  static Uint8List deriveKey(String secret, List<int> salt,
-      {int iterations = defaultIterations,
-      int keylen = defaultKeyLength,
-      hmacLength = 64}) {
+  static Uint8List deriveKey(
+    String secret,
+    List<int> salt, {
+    int iterations = defaultIterations,
+    int keylen = defaultKeyLength,
+    hmacLength = 64,
+  }) {
     var derivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), hmacLength))
       ..init(Pbkdf2Parameters(Uint8List.fromList(salt), iterations, keylen));
     return derivator.process(Uint8List.fromList(secret.codeUnits));
@@ -95,17 +108,25 @@ class CraAuthentication extends AbstractAuthentication {
 
   /// Creates an base 64 encoded hmac from a [key] that usually is the derived
   /// key, [keylen], [challenge] and [hmacLength].
-  static String encodeHmac(Uint8List key, int keylen, List<int> challenge,
-      {hmacLength = 64}) {
-    return base64
-        .encode(encodeByteHmac(key, keylen, challenge, hmacLength: hmacLength));
+  static String encodeHmac(
+    Uint8List key,
+    int keylen,
+    List<int> challenge, {
+    hmacLength = 64,
+  }) {
+    return base64.encode(
+      encodeByteHmac(key, keylen, challenge, hmacLength: hmacLength),
+    );
   }
 
   /// Creates a hmac from a [key] that usually is the derived key, [keylen],
   /// [challenge] and [hmacLength].
   static Uint8List encodeByteHmac(
-      Uint8List key, int keylen, List<int> challenge,
-      {hmacLength = 64}) {
+    Uint8List key,
+    int keylen,
+    List<int> challenge, {
+    hmacLength = 64,
+  }) {
     var mac = HMac(SHA256Digest(), hmacLength);
     mac.init(KeyParameter(key));
     mac.update(Uint8List.fromList(challenge), 0, challenge.length);

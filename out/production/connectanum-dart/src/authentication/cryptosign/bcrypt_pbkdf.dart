@@ -6,7 +6,11 @@ import 'package:pointycastle/digests/sha512.dart';
 
 class BcryptPbkdf {
   static void pbkdf(
-      String password, Uint8List salt, int rounds, Uint8List output) {
+    String password,
+    Uint8List salt,
+    int rounds,
+    Uint8List output,
+  ) {
     var sha512 = SHA512Digest();
     var nblocks = ((output.length + 31) / 32).truncate();
     var hpass = sha512.process(Uint8List.fromList(password.codeUnits));

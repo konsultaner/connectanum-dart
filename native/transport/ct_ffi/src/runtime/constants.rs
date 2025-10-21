@@ -9,3 +9,4 @@ pub const ERR_IO: i32 = -7;
 pub const ERR_ROUTER_CONFIG_INVALID: i32 = -8;
 pub const ERR_ENDPOINT_NOT_CONFIGURED: i32 = -9;
 pub const ERR_CONNECTION_NOT_FOUND: i32 = -10;
+pub const ERR_UNSUPPORTED_SERIALIZER: i32 = -11;

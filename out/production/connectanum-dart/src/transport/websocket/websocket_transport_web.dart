@@ -28,25 +28,33 @@ class WebSocketTransport extends AbstractTransport {
   Completer? _onDisconnect;
   late Completer _onReady;
 
-  WebSocketTransport(
-    this._url,
-    this._serializer,
-    this._serializerType,
-  ) : assert(_serializerType == WebSocketSerialization.serializationJson ||
+  WebSocketTransport(this._url, this._serializer, this._serializerType)
+    : assert(
+        _serializerType == WebSocketSerialization.serializationJson ||
             _serializerType == WebSocketSerialization.serializationMsgpack ||
-            _serializerType == WebSocketSerialization.serializationCbor);
+            _serializerType == WebSocketSerialization.serializationCbor,
+      );
 
   factory WebSocketTransport.withJsonSerializer(String url) =>
-      WebSocketTransport(url, serializer_json.Serializer(),
-          WebSocketSerialization.serializationJson);
+      WebSocketTransport(
+        url,
+        serializer_json.Serializer(),
+        WebSocketSerialization.serializationJson,
+      );
 
   factory WebSocketTransport.withMsgpackSerializer(String url) =>
-      WebSocketTransport(url, serializer_msgpack.Serializer(),
-          WebSocketSerialization.serializationMsgpack);
+      WebSocketTransport(
+        url,
+        serializer_msgpack.Serializer(),
+        WebSocketSerialization.serializationMsgpack,
+      );
 
   factory WebSocketTransport.withCborSerializer(String url) =>
-      WebSocketTransport(url, serializer_cbor.Serializer(),
-          WebSocketSerialization.serializationCbor);
+      WebSocketTransport(
+        url,
+        serializer_cbor.Serializer(),
+        WebSocketSerialization.serializationCbor,
+      );
 
   /// Calling close will close the underlying socket connection
   @override
@@ -89,7 +97,8 @@ class WebSocketTransport extends AbstractTransport {
     _socket = WebSocket(_url, [_serializerType.toJS].toJS);
     if (pingInterval != null) {
       _logger.info(
-          'The browsers WebSocket API does not support ping interval configuration.');
+        'The browsers WebSocket API does not support ping interval configuration.',
+      );
     }
     _socket.onOpen.listen((open) => openCompleter.complete(open));
     _socket.onError.listen((Event error) {
@@ -113,9 +122,11 @@ class WebSocketTransport extends AbstractTransport {
     }
     var serializedMessage = _serializer.serialize(message);
     // toJS only works on casted objects
-    _socket.send(serializedMessage is String
-        ? serializedMessage.toJS
-        : (serializedMessage as Uint8List).toJS);
+    _socket.send(
+      serializedMessage is String
+          ? serializedMessage.toJS
+          : (serializedMessage as Uint8List).toJS,
+    );
   }
 
   /// This method return a [Stream] that streams all incoming messages as unserialized
@@ -135,10 +146,12 @@ class WebSocketTransport extends AbstractTransport {
       AbstractMessage? message;
       if (_serializerType == WebSocketSerialization.serializationJson) {
         message = _serializer.deserialize(
-            utf8.encode(messageEvent.data.toString()) as Uint8List?);
+          utf8.encode(messageEvent.data.toString()) as Uint8List?,
+        );
       } else {
-        var arraybuffer =
-            await (messageEvent.data as Blob).arrayBuffer().toDart;
+        var arraybuffer = await (messageEvent.data as Blob)
+            .arrayBuffer()
+            .toDart;
         message = _serializer.deserialize(arraybuffer.toDart.asUint8List(0));
       }
       if (message is Goodbye) {

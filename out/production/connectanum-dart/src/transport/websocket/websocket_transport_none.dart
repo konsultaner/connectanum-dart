@@ -11,23 +11,41 @@ import 'websocket_transport_serialization.dart';
 /// This is a mock class to provide a unified interface for js and native usage of this package
 class WebSocketTransport extends AbstractTransport {
   WebSocketTransport(
-      String url, AbstractSerializer serializer, String serializerType,
-      [Map<String, dynamic>? additionalHeaders]);
+    String url,
+    AbstractSerializer serializer,
+    String serializerType, [
+    Map<String, dynamic>? additionalHeaders,
+  ]);
 
-  factory WebSocketTransport.withJsonSerializer(String url,
-          [Map<String, dynamic>? additionalHeaders]) =>
-      WebSocketTransport(url, serializer_json.Serializer(),
-          WebSocketSerialization.serializationJson, additionalHeaders);
+  factory WebSocketTransport.withJsonSerializer(
+    String url, [
+    Map<String, dynamic>? additionalHeaders,
+  ]) => WebSocketTransport(
+    url,
+    serializer_json.Serializer(),
+    WebSocketSerialization.serializationJson,
+    additionalHeaders,
+  );
 
-  factory WebSocketTransport.withMsgpackSerializer(String url,
-          [Map<String, dynamic>? additionalHeaders]) =>
-      WebSocketTransport(url, serializer_msgpack.Serializer(),
-          WebSocketSerialization.serializationMsgpack, additionalHeaders);
+  factory WebSocketTransport.withMsgpackSerializer(
+    String url, [
+    Map<String, dynamic>? additionalHeaders,
+  ]) => WebSocketTransport(
+    url,
+    serializer_msgpack.Serializer(),
+    WebSocketSerialization.serializationMsgpack,
+    additionalHeaders,
+  );
 
-  factory WebSocketTransport.withCborSerializer(String url,
-          [Map<String, dynamic>? additionalHeaders]) =>
-      WebSocketTransport(url, serializer_cbor.Serializer(),
-          WebSocketSerialization.serializationCbor, additionalHeaders);
+  factory WebSocketTransport.withCborSerializer(
+    String url, [
+    Map<String, dynamic>? additionalHeaders,
+  ]) => WebSocketTransport(
+    url,
+    serializer_cbor.Serializer(),
+    WebSocketSerialization.serializationCbor,
+    additionalHeaders,
+  );
 
   /// on connection lost will only complete if the other end closes unexpectedly
   @override

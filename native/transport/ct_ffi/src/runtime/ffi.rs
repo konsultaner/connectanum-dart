@@ -1,9 +1,13 @@
 use std::ffi::CStr;
 use std::os::raw::{c_char, c_int, c_uint};
 
+use bytes::Bytes;
+use std::ptr;
+
 use ct_core::{
     accept_channel, apply_router_config, connection_rawsocket_max_exponent, listen, local_addr,
-    shutdown, start_runtime, ConnectionId, Error as CoreError, ListenerId,
+    poll_connection_message, shutdown, start_runtime, ConnectionId, Error as CoreError, ListenerId,
+    WampMessage,
 };
 
 use crate::callbacks::{
@@ -12,7 +16,10 @@ use crate::callbacks::{
 };
 
 use super::constants::*;
-use super::state::{clear_channels, store_channel, with_channel};
+use super::state::{
+    clear_channels, remove_message, store_channel, store_message, with_channel, with_message,
+    StoredMessage,
+};
 
 fn map_error(err: CoreError) -> c_int {
     match err {
@@ -27,6 +34,28 @@ fn map_error(err: CoreError) -> c_int {
         CoreError::EndpointNotConfigured(_, _) => ERR_ENDPOINT_NOT_CONFIGURED,
         CoreError::ConnectionNotFound(_) => ERR_CONNECTION_NOT_FOUND,
         CoreError::Io(_) => ERR_IO,
+    }
+}
+
+fn extract_payload_slices(message: &WampMessage) -> (Option<Bytes>, Option<Bytes>) {
+    match message {
+        WampMessage::Publish { payload, .. }
+        | WampMessage::Event { payload, .. }
+        | WampMessage::Call { payload, .. }
+        | WampMessage::Result { payload, .. }
+        | WampMessage::Invocation { payload, .. }
+        | WampMessage::Yield { payload, .. }
+        | WampMessage::Error { payload, .. }
+        | WampMessage::Abort { payload, .. }
+        | WampMessage::Goodbye { payload, .. } => (payload.args.clone(), payload.kwargs.clone()),
+        _ => (None, None),
+    }
+}
+
+fn option_bytes_ptr(bytes: &Option<Bytes>) -> (*const u8, usize) {
+    match bytes {
+        Some(data) => (data.as_ptr(), data.len()),
+        None => (ptr::null(), 0),
     }
 }
 
@@ -117,6 +146,88 @@ pub extern "C" fn ct_connection_max_rawsocket_exponent(connection_id: c_int) -> 
         Ok(exponent) => exponent as c_int,
         Err(err) => map_error(err),
     }
+}
+
+#[repr(C)]
+#[derive(Default)]
+pub struct CtMessageInfo {
+    pub serializer: u8,
+    pub message_code: u64,
+    pub frame_ptr: *const u8,
+    pub frame_len: usize,
+    pub args_ptr: *const u8,
+    pub args_len: usize,
+    pub kwargs_ptr: *const u8,
+    pub kwargs_len: usize,
+}
+
+fn serializer_id(serializer: ct_core::RawSocketSerializer) -> u8 {
+    match serializer {
+        ct_core::RawSocketSerializer::Json => 1,
+        ct_core::RawSocketSerializer::MessagePack => 2,
+        ct_core::RawSocketSerializer::Cbor => 3,
+        ct_core::RawSocketSerializer::Ubjson => 4,
+        ct_core::RawSocketSerializer::Flatbuffers => 5,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_poll_connection_message(connection_id: c_int) -> c_int {
+    let connection_id = ConnectionId(connection_id as u32);
+    match poll_connection_message(connection_id) {
+        Ok(Some(parsed)) => {
+            let (args, kwargs) = extract_payload_slices(&parsed.message);
+            let info = StoredMessage {
+                serializer: parsed.serializer,
+                code: parsed.message.code(),
+                raw: parsed.raw,
+                args,
+                kwargs,
+            };
+            store_message(info) as c_int
+        }
+        Ok(None) => 0,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_message_get(handle: c_int, out_info: *mut CtMessageInfo) -> c_int {
+    if out_info.is_null() || handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let handle_u32 = handle as u32;
+    match with_message(handle_u32, |msg| {
+        let (args_ptr, args_len) = option_bytes_ptr(&msg.args);
+        let (kwargs_ptr, kwargs_len) = option_bytes_ptr(&msg.kwargs);
+        CtMessageInfo {
+            serializer: serializer_id(msg.serializer),
+            message_code: msg.code,
+            frame_ptr: msg.raw.as_ptr(),
+            frame_len: msg.raw.len(),
+            args_ptr,
+            args_len,
+            kwargs_ptr,
+            kwargs_len,
+        }
+    }) {
+        Some(info) => {
+            unsafe {
+                out_info.write(info);
+            }
+            SUCCESS
+        }
+        None => ERR_INVALID_ARGUMENT,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_message_release(handle: c_int) {
+    if handle <= 0 {
+        return;
+    }
+    let handle_u32 = handle as u32;
+    remove_message(handle_u32);
 }
 
 #[no_mangle]

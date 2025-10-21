@@ -1,0 +1,14 @@
+name: connectanum_core
+description: Shared core models and primitives for Connectanum WAMP client and router.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: '^3.9.2'
+dependencies:
+  meta: ^1.16.0
+  collection: ^1.18.0
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.26.2
+  pinenacl: ^0.6.0
+resolution: workspace
