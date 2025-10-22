@@ -19,6 +19,13 @@ abstract class NativeRuntime {
   NativeIncomingMessage? pollMessage(int connectionId);
 }
 
+/// Runtime extension that exposes raw message handles so other isolates can
+/// materialise messages without crossing isolate boundaries.
+abstract class NativeRuntimeWithHandles implements NativeRuntime {
+  int pollMessageHandle(int connectionId);
+  String? get libraryPathHint;
+}
+
 /// Error codes exposed by the native layer.
 abstract final class NativeTransportErrorCode {
   static const success = 0;
@@ -80,6 +87,28 @@ class NativeIncomingMessage {
     this.argumentsKeywordsBytes,
   });
 
+  factory NativeIncomingMessage.synthetic({
+    required NativeMessageSerializer serializer,
+    required AbstractMessage message,
+    Uint8List? bytes,
+    Uint8List? argumentsBytes,
+    Uint8List? argumentsKeywordsBytes,
+  }) {
+    final frameBytes = bytes ?? Uint8List(0);
+    final instance = NativeIncomingMessage._(
+      serializer: serializer,
+      message: message,
+      bytes: frameBytes,
+      frameAddress: frameBytes.isEmpty ? 0 : 1,
+      argumentsAddress: argumentsBytes == null ? 0 : 1,
+      argumentsKeywordsAddress: argumentsKeywordsBytes == null ? 0 : 1,
+      argumentsBytes: argumentsBytes,
+      argumentsKeywordsBytes: argumentsKeywordsBytes,
+    );
+    instance._setReleaser(() {});
+    return instance;
+  }
+
   final NativeMessageSerializer serializer;
   final AbstractMessage message;
   final Uint8List bytes;
@@ -114,39 +143,198 @@ class NativeIncomingMessage {
 }
 
 class _MessageFinalizerToken {
-  const _MessageFinalizerToken(this.runtime, this.handle);
+  const _MessageFinalizerToken(this._bindings, this.handle);
 
-  final NativeTransportRuntime runtime;
+  final CtFfiBindings _bindings;
   final int handle;
 }
 
 void _finalizeNativeMessage(_MessageFinalizerToken token) {
-  token.runtime._bindings.ctMessageRelease(token.handle);
+  token._bindings.ctMessageRelease(token.handle);
+}
+
+class _MessageBindings {
+  _MessageBindings(this._bindings)
+    : _messageFinalizer = Finalizer<_MessageFinalizerToken>(
+        _finalizeNativeMessage,
+      );
+
+  final CtFfiBindings _bindings;
+  final Finalizer<_MessageFinalizerToken> _messageFinalizer;
+
+  NativeIncomingMessage materialize(int handle) {
+    final infoPtr = calloc<CtMessageInfo>();
+    try {
+      final result = _bindings.ctMessageGet(handle, infoPtr);
+      if (result != NativeTransportErrorCode.success) {
+        _bindings.ctMessageRelease(handle);
+        throw NativeTransportException(
+          result,
+          _buildNativeErrorMessage(result, 'Failed to read connection message'),
+        );
+      }
+
+      final info = infoPtr.ref;
+      final serializer = NativeMessageSerializer.fromId(info.serializer);
+      final frameAddress = info.framePtr.address;
+      final argsAddress = info.argsLen == 0 ? 0 : info.argsPtr.address;
+      final kwargsAddress = info.kwargsLen == 0 ? 0 : info.kwargsPtr.address;
+      final frame = info.frameLen == 0
+          ? Uint8List(0)
+          : info.framePtr.asTypedList(info.frameLen);
+      final args = info.argsLen == 0
+          ? null
+          : info.argsPtr.asTypedList(info.argsLen);
+      final kwargs = info.kwargsLen == 0
+          ? null
+          : info.kwargsPtr.asTypedList(info.kwargsLen);
+
+      try {
+        final message = bindMessage(
+          serializer,
+          frame,
+          argsBytes: args,
+          kwargsBytes: kwargs,
+        );
+        final nativeMessage = NativeIncomingMessage._(
+          serializer: serializer,
+          message: message,
+          bytes: frame,
+          frameAddress: frameAddress,
+          argumentsAddress: argsAddress,
+          argumentsKeywordsAddress: kwargsAddress,
+          argumentsBytes: args,
+          argumentsKeywordsBytes: kwargs,
+        );
+        final token = _MessageFinalizerToken(_bindings, handle);
+        _messageFinalizer.attach(nativeMessage, token, detach: nativeMessage);
+        nativeMessage._setReleaser(() {
+          if (nativeMessage._tryMarkReleased()) {
+            _messageFinalizer.detach(nativeMessage);
+            _bindings.ctMessageRelease(handle);
+          }
+        });
+        return nativeMessage;
+      } on UnsupportedError catch (err) {
+        _bindings.ctMessageRelease(handle);
+        throw NativeTransportException(
+          NativeTransportErrorCode.unsupportedSerializer,
+          err.message ??
+              'Deserializer for serializer ${serializer.name} is unsupported',
+        );
+      } on ArgumentError catch (err) {
+        _bindings.ctMessageRelease(handle);
+        throw NativeTransportException(
+          NativeTransportErrorCode.invalidArgument,
+          err.message ?? 'Invalid message payload',
+        );
+      }
+    } catch (error) {
+      _bindings.ctMessageRelease(handle);
+      rethrow;
+    } finally {
+      calloc.free(infoPtr);
+    }
+  }
+}
+
+String _buildNativeErrorMessage(int code, String context) {
+  return switch (code) {
+    NativeTransportErrorCode.unsupported =>
+      '$context: native runtime unsupported on this platform',
+    NativeTransportErrorCode.alreadyStarted =>
+      '$context: runtime already started',
+    NativeTransportErrorCode.runtimeNotStarted =>
+      '$context: runtime not started',
+    NativeTransportErrorCode.invalidArgument =>
+      '$context: invalid argument to native runtime',
+    NativeTransportErrorCode.listenerNotFound => '$context: listener not found',
+    NativeTransportErrorCode.connectionNotFound =>
+      '$context: connection not found',
+    NativeTransportErrorCode.unsupportedSerializer =>
+      '$context: serializer not supported by native runtime',
+    NativeTransportErrorCode.routerConfigInvalid =>
+      '$context: router configuration invalid',
+    NativeTransportErrorCode.endpointNotConfigured =>
+      '$context: endpoint not configured in native runtime',
+    NativeTransportErrorCode.channelAlreadyTaken =>
+      '$context: accept channel already taken',
+    NativeTransportErrorCode.io => '$context: native I/O failure',
+    _ => '$context: error code $code',
+  };
+}
+
+class NativeMessageHandleDecoder {
+  factory NativeMessageHandleDecoder({String? libraryPath}) {
+    final resolvedPath = NativeLibraryLoader.resolvePath(libraryPath);
+    final library = ffi.DynamicLibrary.open(resolvedPath);
+    final bindings = CtFfiBindings(library);
+    return NativeMessageHandleDecoder._(resolvedPath, library, bindings);
+  }
+
+  NativeMessageHandleDecoder._(this.libraryPath, this._library, this._bindings)
+    : _messageBindings = _MessageBindings(_bindings);
+
+  final String libraryPath;
+  final ffi.DynamicLibrary _library;
+  final CtFfiBindings _bindings;
+  final _MessageBindings _messageBindings;
+
+  NativeIncomingMessage materialize(int handle) =>
+      _messageBindings.materialize(handle);
+
+  void release(int handle) => _bindings.ctMessageRelease(handle);
+}
+
+abstract final class NativeLibraryLoader {
+  static String resolvePath(String? overridePath) {
+    if (overridePath != null && overridePath.isNotEmpty) {
+      return overridePath;
+    }
+    final envOverride = Platform.environment['CONNECTANUM_NATIVE_LIB'];
+    if (envOverride != null && envOverride.isNotEmpty) {
+      return envOverride;
+    }
+    const candidates = [
+      '../native/transport/target/debug/libct_ffi.so',
+      '../native/transport/target/release/libct_ffi.so',
+    ];
+    for (final candidate in candidates) {
+      if (File(candidate).existsSync()) {
+        return candidate;
+      }
+    }
+    return candidates.first;
+  }
 }
 
 /// Thin wrapper around the native runtime exposed through ct_ffi.
-class NativeTransportRuntime implements NativeRuntime {
+class NativeTransportRuntime implements NativeRuntimeWithHandles {
   factory NativeTransportRuntime({String? libraryPath}) {
     if (_instance != null) {
       throw StateError('NativeTransportRuntime already initialised');
     }
-    final library = _openLibrary(libraryPath);
-    final runtime = NativeTransportRuntime._(library, CtFfiBindings(library));
+    final resolvedPath = NativeLibraryLoader.resolvePath(libraryPath);
+    final library = ffi.DynamicLibrary.open(resolvedPath);
+    final runtime = NativeTransportRuntime._(
+      resolvedPath,
+      library,
+      CtFfiBindings(library),
+    );
     _instance = runtime;
     runtime._bindings.ctSetOnListenerStarted(_listenerTrampolinePointer);
     runtime._bindings.ctSetOnConnection(_connectionTrampolinePointer);
     return runtime;
   }
 
-  NativeTransportRuntime._(this._library, this._bindings)
-    : _messageFinalizer = Finalizer<_MessageFinalizerToken>(
-        _finalizeNativeMessage,
-      );
+  NativeTransportRuntime._(this._libraryPath, this._library, this._bindings)
+    : _messageBindings = _MessageBindings(_bindings);
 
+  final String _libraryPath;
   final ffi.DynamicLibrary
   _library; // Keep library alive for the runtime life cycle.
   final CtFfiBindings _bindings;
-  final Finalizer<_MessageFinalizerToken> _messageFinalizer;
+  final _MessageBindings _messageBindings;
 
   static NativeTransportRuntime? _instance;
 
@@ -160,32 +348,6 @@ class NativeTransportRuntime implements NativeRuntime {
   static final ffi.Pointer<ffi.NativeFunction<ConnectionCallbackNative>>
   _connectionTrampolinePointer =
       ffi.Pointer.fromFunction<ConnectionCallbackNative>(_connectionTrampoline);
-
-  static ffi.DynamicLibrary _openLibrary(String? overridePath) {
-    final path = overridePath ?? _defaultLibraryPath();
-    if (!File(path).existsSync()) {
-      throw ArgumentError('ct_ffi dynamic library not found at $path');
-    }
-    return ffi.DynamicLibrary.open(path);
-  }
-
-  static String _defaultLibraryPath() {
-    final envOverride = Platform.environment['CONNECTANUM_NATIVE_LIB'];
-    if (envOverride != null && envOverride.isNotEmpty) {
-      return envOverride;
-    }
-    // Default to debug or release builds relative to the repo root.
-    const candidates = [
-      '../native/transport/target/debug/libct_ffi.so',
-      '../native/transport/target/release/libct_ffi.so',
-    ];
-    for (final candidate in candidates) {
-      if (File(candidate).existsSync()) {
-        return candidate;
-      }
-    }
-    return candidates.first;
-  }
 
   void dispose() {
     if (_instance == this) {
@@ -263,30 +425,7 @@ class NativeTransportRuntime implements NativeRuntime {
   }
 
   void _throwForError(int code, String context) {
-    final message = switch (code) {
-      NativeTransportErrorCode.unsupported =>
-        '$context: native runtime unsupported on this platform',
-      NativeTransportErrorCode.alreadyStarted =>
-        '$context: runtime already started',
-      NativeTransportErrorCode.runtimeNotStarted =>
-        '$context: runtime not started',
-      NativeTransportErrorCode.invalidArgument =>
-        '$context: invalid argument to native runtime',
-      NativeTransportErrorCode.listenerNotFound =>
-        '$context: listener not found',
-      NativeTransportErrorCode.connectionNotFound =>
-        '$context: connection not found',
-      NativeTransportErrorCode.unsupportedSerializer =>
-        '$context: serializer not supported by native runtime',
-      NativeTransportErrorCode.routerConfigInvalid =>
-        '$context: router configuration invalid',
-      NativeTransportErrorCode.endpointNotConfigured =>
-        '$context: endpoint not configured in native runtime',
-      NativeTransportErrorCode.channelAlreadyTaken =>
-        '$context: accept channel already taken',
-      NativeTransportErrorCode.io => '$context: native I/O failure',
-      _ => '$context: error code $code',
-    };
+    final message = _buildNativeErrorMessage(code, context);
     throw NativeTransportException(code, message);
   }
 
@@ -315,81 +454,27 @@ class NativeTransportRuntime implements NativeRuntime {
 
   @override
   NativeIncomingMessage? pollMessage(int connectionId) {
-    final handle = _bindings.ctPollConnectionMessage(connectionId);
+    final handle = pollMessageHandle(connectionId);
     if (handle == 0) {
       return null;
+    }
+    return _messageBindings.materialize(handle);
+  }
+
+  @override
+  int pollMessageHandle(int connectionId) {
+    final handle = _bindings.ctPollConnectionMessage(connectionId);
+    if (handle == 0) {
+      return 0;
     }
     if (handle < 0) {
       _throwForError(handle, 'Polling connection message failed');
     }
-
-    final infoPtr = calloc<CtMessageInfo>();
-    try {
-      final result = _bindings.ctMessageGet(handle, infoPtr);
-      if (result != NativeTransportErrorCode.success) {
-        _throwForError(result, 'Failed to read connection message');
-      }
-
-      final info = infoPtr.ref;
-      final serializer = NativeMessageSerializer.fromId(info.serializer);
-      final frameAddress = info.framePtr.address;
-      final argsAddress = info.argsLen == 0 ? 0 : info.argsPtr.address;
-      final kwargsAddress = info.kwargsLen == 0 ? 0 : info.kwargsPtr.address;
-      final frame = info.frameLen == 0
-          ? Uint8List(0)
-          : info.framePtr.asTypedList(info.frameLen);
-      final args = info.argsLen == 0
-          ? null
-          : info.argsPtr.asTypedList(info.argsLen);
-      final kwargs = info.kwargsLen == 0
-          ? null
-          : info.kwargsPtr.asTypedList(info.kwargsLen);
-
-      try {
-        final message = bindMessage(
-          serializer,
-          frame,
-          argsBytes: args,
-          kwargsBytes: kwargs,
-        );
-        final nativeMessage = NativeIncomingMessage._(
-          serializer: serializer,
-          message: message,
-          bytes: frame,
-          frameAddress: frameAddress,
-          argumentsAddress: argsAddress,
-          argumentsKeywordsAddress: kwargsAddress,
-          argumentsBytes: args,
-          argumentsKeywordsBytes: kwargs,
-        );
-        final token = _MessageFinalizerToken(this, handle);
-        _messageFinalizer.attach(nativeMessage, token, detach: nativeMessage);
-        nativeMessage._setReleaser(() {
-          if (nativeMessage._tryMarkReleased()) {
-            _messageFinalizer.detach(nativeMessage);
-            _bindings.ctMessageRelease(handle);
-          }
-        });
-        return nativeMessage;
-      } on UnsupportedError catch (err) {
-        _bindings.ctMessageRelease(handle);
-        throw NativeTransportException(
-          NativeTransportErrorCode.unsupportedSerializer,
-          err.message ??
-              'Deserializer for serializer ${serializer.name} is unsupported',
-        );
-      } on ArgumentError catch (err) {
-        _bindings.ctMessageRelease(handle);
-        throw NativeTransportException(
-          NativeTransportErrorCode.invalidArgument,
-          err.message ?? 'Invalid message payload',
-        );
-      }
-    } catch (error) {
-      _bindings.ctMessageRelease(handle);
-      rethrow;
-    } finally {
-      calloc.free(infoPtr);
-    }
+    return handle;
   }
+
+  String get libraryPath => _libraryPath;
+
+  @override
+  String? get libraryPathHint => _libraryPath;
 }

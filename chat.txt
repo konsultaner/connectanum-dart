@@ -1603,8 +1603,6 @@ Wenn du willst, liefere ich dir im nächsten Schritt gern die exakten Prompt‑T
 • Dart‑FFI‑Callbacks (Streams) + Tests,
 • Build‑Hooks für Native Assets (optional).
 
-ChatGPT kann Fehler machen. Überprüfe wichtige Informationen. Siehe Cookie-Voreinstellungen.
-
 
 ///////////// CHAT ENDE
 
@@ -1615,51 +1613,6 @@ Session summary:
 - ct_ffi exposes ct_apply_router_config, maps new error codes (ERR_ROUTER_CONFIG_INVALID, ERR_ENDPOINT_NOT_CONFIGURED), and tests load configs before listen.
 - Dart NativeTransportRuntime understands endpointNotConfigured errors, Router.start applies config and opens listeners.
 - AGENTS.md documents local test commands using TMPDIR/CARGO_TARGET_DIR/RUSTC_TMPDIR and how to run Dart tests with CONNECTANUM_NATIVE_LIB.
-Next steps:
-- Consume stored endpoint_config fields in the runtime (TLS, idle timeout, raw socket exponent, etc.) when building actual listener behavior.
-- Sandbox still cannot run cargo test (cross-device link) or socket-bound tests; rely on local environment for full test suite.
-
-• Summary for next session:
-
-  Workspace split & Dart packages
-
-  - Created connectanum_core containing all shared WAMP message models and serializer implementations. Added workspace resolution and exports via connectanum_core/lib/connectanum_core.dart.
-  - Renamed the original package to connectanum_client, updated all imports/tests/examples to point to core models (package:connectanum_core/...), removed the duplicate message/serializer code, and slimmed
-    barrel exports accordingly.
-  - Introduced a dedicated connectanum_router package (native runtime + router facade/tests). Updated tests to reference the new package and ensured they pass.
-  - Updated the root pubspec.yaml workspace entries and codex.sh so pub get runs across connectanum_core, connectanum_client, and connectanum_router.
-
-  Rust native runtime
-
-  - Enhanced rawsocket.rs: negotiation now validates serializer nibble, supports the Connectanum upgrade handshake up to exponent 30, handles HTTP probes with a 400 Bad Request, and stores negotiated metadata
-    per connection.
-  - Added comprehensive handshake tests (success, clamping, timeout, HTTP probe, serializer matrix).
-  - Began WAMP message parsing in wamp.rs: added dependencies (serde-value, rmp-serde, serde_cbor, serde_bytes, serde_ubjson, bytes) and drafted parser returning structured WampMessage instances with payload
-    handles (JSON/MsgPack/CBOR paths implemented; UBJSON currently unsupported). Tests exercise basic messages for JSON/MsgPack.
-  - (Work-in-progress) need to finalize UBJSON support or leave unsupported intentionally, remove references to non-existent serializer variants (Native, Dart), and integrate the parser with the runtime/
-    FFI pipeline.
-
-  Current test status
-
-  - cargo test -p ct_core / ct_ffi: succeed after rawsocket changes (before WAMP work); presently failing due to WAMP module compile errors (see below).
-  - dart test in packages/connectanum_router: passes.
-  - dart test in packages/connectanum_client: VM tests run; browser suites still hit the longstanding Chrome bcrypt failures/timeouts.
-  - dart test in packages/connectanum_core: no tests yet.
-  - native/transport/ct_core/src/wamp.rs is new and currently fails to compile because:
-      - ValueMap alias still annotated with #[derive].
-      - Serializer::Native and Serializer::Dart variants referenced but not defined.
-      - UBJSON branch attempts to use a nonexistent Deserializer.
-      - Need to import serde::Deserialize.
-      - clone_map should convert BTreeMap to our alias.
-
-  Next steps
-
-  1. Fix the WAMP parser build errors (remove unused serializer variants, clean up imports, finalize clone_map etc.).
-  2. Tie the parser into connection processing: frame reader → parse_message → channel down to router → FFI surface (planned ct_poll_connection_frame/payload handles).
-  3. Update router Dart code/tests to consume NativeMessage objects once the FFI layer is ready.
-  4. Optional cleanup: handle .out/production/... files (Git diff shows they changed but probably should be ignored/removed).
-
-  That should give the new session enough context to continue.
 
 [assistant-progress] MessagePack zero-copy parser refactored; CBOR still TODO.
 
@@ -1667,3 +1620,14 @@ Next steps:
 - Refactored `native/transport/ct_core/src/wamp.rs` so JSON transport now maps control fields without deserialising payloads and stores args/kwargs as `Bytes::slice` views into the original RawSocket frame. Tests decode only in assertions to confirm zero-copy behaviour.
 - Added a zero-copy MessagePack path using manual cursor helpers to locate element ranges, preserving payload slices and decoding only headers. All ct_core tests (`cargo test -p ct_core`) pass after these changes.
 - CBOR still uses the old serde-value parser and therefore duplicates payload bytes; the next session should reuse the range-based approach to keep CBOR payloads opaque. No CBOR-specific code has been touched yet, so behaviour is unchanged for now.
+
+[assistant-progress 2025-10-21]
+- End-to-end zero-copy: FFI now returns RawSocket frame/args/kwargs pointers, Dart maps them via `NativeIncomingMessage` with finalizers, and message-binding keeps payloads lazy.
+- Added integration tests confirming pointer offsets remain within the original frame and lazy decoding materialises payloads only on demand.
+- Extended `RouterBinding` with a native polling loop so accepted connections and incoming `NativeIncomingMessage`s feed directly into the router.
+
+[assistant-progress 2025-10-21B]
+- Investigated isolate strategy for message processing: boss isolate owns native runtime, workers process messages.
+- Proposed design: boss polls, sends `TransferableTypedData` envelopes to worker isolate pool, receives completion signal, releases native handle.
+- Workers rebuild lazy payloads, bind to `connectanum_core` models, execute router logic concurrently.
+- Maintains zero-copy via `TransferableTypedData`; fallback to single-isolate timer loop when isolates unsupported.

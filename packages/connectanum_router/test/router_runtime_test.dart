@@ -1,6 +1,11 @@
 @TestOn('vm')
+import 'dart:async';
+import 'dart:collection';
+import 'dart:isolate';
 import 'dart:typed_data';
 
+import 'package:connectanum_core/connectanum_core.dart'
+    show MessageTypes, Publish;
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
 import 'package:connectanum_router/src/router/models/router_config.dart';
@@ -13,6 +18,8 @@ class _FakeRuntime implements NativeRuntime {
   Uint8List? appliedConfig;
   final Map<int, int> _ports = {};
   int _nextId = 1;
+  final Map<int, Queue<int>> _pendingConnections = {};
+  final Map<int, Queue<NativeIncomingMessage>> _pendingMessages = {};
 
   @override
   void applyRouterConfig(Uint8List config) {
@@ -31,19 +38,40 @@ class _FakeRuntime implements NativeRuntime {
   }
 
   @override
-  int pollConnection(int listenerId) => 0;
+  int pollConnection(int listenerId) {
+    final queue = _pendingConnections[listenerId];
+    if (queue == null || queue.isEmpty) {
+      return 0;
+    }
+    return queue.removeFirst();
+  }
 
   @override
   int connectionMaxRawSocketExponent(int connectionId) => 16;
 
   @override
-  NativeIncomingMessage? pollMessage(int connectionId) => null;
+  NativeIncomingMessage? pollMessage(int connectionId) {
+    final queue = _pendingMessages[connectionId];
+    if (queue == null || queue.isEmpty) {
+      return null;
+    }
+    return queue.removeFirst();
+  }
 
   @override
   void shutdown() {}
 
   @override
   void start() {}
+
+  void enqueueMessage(
+    int listenerId,
+    int connectionId,
+    NativeIncomingMessage message,
+  ) {
+    _pendingConnections.putIfAbsent(listenerId, Queue.new).add(connectionId);
+    _pendingMessages.putIfAbsent(connectionId, Queue.new).add(message);
+  }
 }
 
 class _UnsupportedConfigRuntime extends _FakeRuntime {
@@ -51,6 +79,153 @@ class _UnsupportedConfigRuntime extends _FakeRuntime {
   void applyRouterConfig(Uint8List config) {
     throw UnsupportedError('no-op');
   }
+}
+
+class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
+  final Map<int, Queue<int>> _pendingHandles = {};
+  int _nextHandle = 1;
+  NativeTransportException? _scheduledError;
+
+  @override
+  int pollMessageHandle(int connectionId) {
+    final error = _scheduledError;
+    if (error != null) {
+      _scheduledError = null;
+      throw error;
+    }
+    final queue = _pendingHandles[connectionId];
+    if (queue == null || queue.isEmpty) {
+      return 0;
+    }
+    return queue.removeFirst();
+  }
+
+  @override
+  String? get libraryPathHint => null;
+
+  int enqueueHandle(int listenerId, int connectionId) {
+    final handle = _nextHandle++;
+    _pendingConnections.putIfAbsent(listenerId, Queue.new).add(connectionId);
+    _pendingHandles.putIfAbsent(connectionId, Queue.new).add(handle);
+    return handle;
+  }
+
+  void scheduleErrorOnce(int code, String message) {
+    _scheduledError = NativeTransportException(code, message);
+  }
+}
+
+const int kWorkerCmdProcess = 1;
+const int kWorkerCmdShutdown = 2;
+const int kWorkerEventRegister = 1;
+const int kWorkerEventReady = 2;
+const int kWorkerEventError = 3;
+const int kWorkerEventShutdown = 4;
+
+Future<void> _waitUntil(
+  bool Function() condition, {
+  Duration timeout = const Duration(milliseconds: 500),
+  Duration pollInterval = const Duration(milliseconds: 5),
+}) async {
+  final deadline = DateTime.now().add(timeout);
+  while (!condition()) {
+    if (DateTime.now().isAfter(deadline)) {
+      fail('Condition not met within $timeout');
+    }
+    await Future<void>.delayed(pollInterval);
+  }
+}
+
+void _testWorkerEntryPoint(Map<String, Object?> init) {
+  final bossPort = init['bossPort'] as SendPort;
+  final connectionId = init['connectionId'] as int;
+  final listenerId = init['listenerId'] as int;
+  final commandPort = ReceivePort();
+
+  bossPort.send({
+    'type': kWorkerEventRegister,
+    'connectionId': connectionId,
+    'listenerId': listenerId,
+    'commandPort': commandPort.sendPort,
+  });
+  bossPort.send({'type': kWorkerEventReady, 'connectionId': connectionId});
+
+  commandPort.listen((dynamic raw) {
+    if (raw is! List || raw.isEmpty) {
+      return;
+    }
+    final command = raw[0];
+    if (command == kWorkerCmdProcess) {
+      final handle = raw[1] as int;
+      bossPort.send({
+        'type': 'test_processed',
+        'connectionId': connectionId,
+        'handle': handle,
+      });
+      bossPort.send({'type': kWorkerEventReady, 'connectionId': connectionId});
+    } else if (command == kWorkerCmdShutdown) {
+      commandPort.close();
+      bossPort.send({
+        'type': kWorkerEventShutdown,
+        'connectionId': connectionId,
+      });
+    }
+  });
+}
+
+void _erroringWorkerEntryPoint(Map<String, Object?> init) {
+  final bossPort = init['bossPort'] as SendPort;
+  final connectionId = init['connectionId'] as int;
+  final listenerId = init['listenerId'] as int;
+  final commandPort = ReceivePort();
+
+  bossPort.send({
+    'type': kWorkerEventRegister,
+    'connectionId': connectionId,
+    'listenerId': listenerId,
+    'commandPort': commandPort.sendPort,
+  });
+  bossPort.send({'type': kWorkerEventReady, 'connectionId': connectionId});
+
+  var emittedError = false;
+  commandPort.listen((dynamic raw) {
+    if (raw is! List || raw.isEmpty) {
+      return;
+    }
+    final command = raw[0];
+    if (command == kWorkerCmdProcess) {
+      final handle = raw[1] as int;
+      if (!emittedError) {
+        emittedError = true;
+        bossPort.send({
+          'type': kWorkerEventError,
+          'connectionId': connectionId,
+          'error': 'synthetic-error',
+          'stackTrace': 'trace',
+        });
+        bossPort.send({
+          'type': kWorkerEventReady,
+          'connectionId': connectionId,
+        });
+      } else {
+        bossPort.send({
+          'type': 'test_processed',
+          'connectionId': connectionId,
+          'handle': handle,
+        });
+        bossPort.send({
+          'type': kWorkerEventReady,
+          'connectionId': connectionId,
+        });
+      }
+    } else if (command == kWorkerCmdShutdown) {
+      commandPort.close();
+      bossPort.send({
+        'type': kWorkerEventShutdown,
+        'connectionId': connectionId,
+      });
+    }
+  });
 }
 
 void main() {
@@ -71,6 +246,7 @@ void main() {
       );
 
       final binding = router.start(runtime);
+      addTearDown(binding.dispose);
       expect(runtime.appliedConfig, isNotNull);
       expect(runtime.listenCalls, ['127.0.0.1:0:128']);
       expect(binding.listeners, hasLength(1));
@@ -95,8 +271,301 @@ void main() {
       );
 
       final binding = router.start(runtime);
+      addTearDown(binding.dispose);
       expect(binding.listeners, hasLength(1));
       expect(runtime.listenCalls, ['0.0.0.0:8080:128']);
+    });
+
+    test('pollNativeMessages drains pending connections and messages', () {
+      final runtime = _FakeRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+            ),
+          ],
+        ),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+      final listener = binding.listeners.single;
+
+      final publish = Publish(1, 'com.example.topic')..arguments = ['payload'];
+      runtime.enqueueMessage(
+        listener.listenerId,
+        42,
+        NativeIncomingMessage.synthetic(
+          serializer: NativeMessageSerializer.json,
+          message: publish,
+          bytes: Uint8List.fromList([MessageTypes.codePublish]),
+        ),
+      );
+
+      final messages = binding.pollNativeMessages();
+      expect(messages, hasLength(1));
+      final routerMessage = messages.single;
+      expect(routerMessage.listener, same(listener));
+      expect(routerMessage.connectionId, 42);
+      expect(routerMessage.message.message, same(publish));
+      routerMessage.message.dispose();
+    });
+
+    test('watchNativeMessages streams messages', () async {
+      final runtime = _FakeRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+            ),
+          ],
+        ),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+      final listener = binding.listeners.single;
+
+      final publish = Publish(7, 'com.example.topic');
+      runtime.enqueueMessage(
+        listener.listenerId,
+        84,
+        NativeIncomingMessage.synthetic(
+          serializer: NativeMessageSerializer.json,
+          message: publish,
+          bytes: Uint8List.fromList([MessageTypes.codePublish]),
+        ),
+      );
+
+      final collected = <RouterMessage>[];
+      final subscription = binding
+          .watchNativeMessages(
+            pollInterval: Duration.zero,
+            maxMessagesPerTick: 16,
+          )
+          .listen((routerMessage) {
+            collected.add(routerMessage);
+            routerMessage.message.dispose();
+          });
+
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      await subscription.cancel();
+
+      expect(collected, hasLength(1));
+      final message = collected.single;
+      expect(message.listener, same(listener));
+      expect(message.connectionId, 84);
+      expect(message.message.message, same(publish));
+    });
+  });
+
+  group('Router boss/worker', () {
+    test('dispatches handles sequentially to a worker isolate', () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+            ),
+          ],
+        ),
+      );
+
+      final events = <Object>[];
+      final binding = router.start(
+        runtime,
+        workerEntryPoint: _testWorkerEntryPoint,
+        workerEventCallback: events.add,
+        workerPollInterval: const Duration(milliseconds: 1),
+      );
+      addTearDown(binding.dispose);
+      final listener = binding.listeners.single;
+      final firstHandle = runtime.enqueueHandle(listener.listenerId, 9001);
+
+      await _waitUntil(() {
+        return events.any((event) {
+          return event is Map &&
+              event['type'] == 'worker_unknown_event' &&
+              event['payload'] is Map &&
+              (event['payload'] as Map)['type'] == 'test_processed';
+        });
+      });
+
+      final processedEvent =
+          events.firstWhere((event) {
+                return event is Map &&
+                    event['type'] == 'worker_unknown_event' &&
+                    event['payload'] is Map &&
+                    (event['payload'] as Map)['type'] == 'test_processed';
+              })
+              as Map;
+      final payload = processedEvent['payload'] as Map;
+      expect(payload['handle'], firstHandle);
+      expect(payload['connectionId'], 9001);
+
+      final firstProcessedIndex = events.indexOf(processedEvent);
+      final readyAfterFirst = events.indexWhere(
+        (event) =>
+            event is Map &&
+            event['type'] == 'worker_ready' &&
+            event['connectionId'] == 9001,
+        firstProcessedIndex + 1,
+      );
+      expect(readyAfterFirst, greaterThan(firstProcessedIndex));
+
+      final secondHandle = runtime.enqueueHandle(listener.listenerId, 9001);
+      await _waitUntil(() {
+        final processed = events.whereType<Map>().where((event) {
+          return event['type'] == 'worker_unknown_event' &&
+              event['payload'] is Map &&
+              (event['payload'] as Map)['type'] == 'test_processed' &&
+              (event['payload'] as Map)['handle'] == secondHandle;
+        });
+        return processed.isNotEmpty;
+      });
+
+      final processedEvents = events
+          .whereType<Map>()
+          .where(
+            (event) =>
+                event['type'] == 'worker_unknown_event' &&
+                event['payload'] is Map &&
+                (event['payload'] as Map)['type'] == 'test_processed',
+          )
+          .toList();
+      final processedHandles = processedEvents
+          .map((event) => (event['payload'] as Map)['handle'])
+          .toList();
+      expect(processedHandles, [firstHandle, secondHandle]);
+      final secondProcessedIndex = events.indexOf(processedEvents.last);
+      expect(readyAfterFirst, lessThan(secondProcessedIndex));
+    });
+
+    test('shuts down worker when runtime reports missing connection', () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+            ),
+          ],
+        ),
+      );
+
+      final events = <Object>[];
+      final binding = router.start(
+        runtime,
+        workerEntryPoint: _testWorkerEntryPoint,
+        workerEventCallback: events.add,
+        workerPollInterval: const Duration(milliseconds: 1),
+      );
+      addTearDown(binding.dispose);
+      final listener = binding.listeners.single;
+      runtime.enqueueHandle(listener.listenerId, 4001);
+
+      await _waitUntil(() {
+        return events.any(
+          (event) => event is Map && event['type'] == 'worker_unknown_event',
+        );
+      });
+
+      runtime.scheduleErrorOnce(
+        NativeTransportErrorCode.connectionNotFound,
+        'connection gone',
+      );
+
+      await _waitUntil(() {
+        final errors = events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'boss_error' &&
+              event['connectionId'] == 4001 &&
+              (event['error'] as String).contains('connection gone'),
+        );
+        final shutdown = events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_shutdown' &&
+              event['connectionId'] == 4001,
+        );
+        return errors && shutdown;
+      }, timeout: const Duration(seconds: 2));
+    });
+
+    test('continues dispatching after worker error', () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+            ),
+          ],
+        ),
+      );
+
+      final events = <Object>[];
+      final binding = router.start(
+        runtime,
+        workerEntryPoint: _erroringWorkerEntryPoint,
+        workerEventCallback: events.add,
+        workerPollInterval: const Duration(milliseconds: 1),
+      );
+      addTearDown(binding.dispose);
+      final listener = binding.listeners.single;
+
+      final firstHandle = runtime.enqueueHandle(listener.listenerId, 5001);
+      await _waitUntil(() {
+        final errorEvent = events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_error' && event['connectionId'] == 5001,
+        );
+        final readyEvent = events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_ready' && event['connectionId'] == 5001,
+        );
+        return errorEvent && readyEvent;
+      });
+
+      final secondHandle = runtime.enqueueHandle(listener.listenerId, 5001);
+      await _waitUntil(() {
+        return events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_unknown_event' &&
+              event['payload'] is Map &&
+              (event['payload'] as Map)['handle'] == secondHandle,
+        );
+      });
+
+      final processedHandles = events
+          .whereType<Map>()
+          .where(
+            (event) =>
+                event['type'] == 'worker_unknown_event' &&
+                event['payload'] is Map &&
+                (event['payload'] as Map)['type'] == 'test_processed',
+          )
+          .map((event) => (event['payload'] as Map)['handle'])
+          .toList();
+      expect(processedHandles, contains(secondHandle));
+      expect(processedHandles, isNot(contains(firstHandle)));
     });
   });
 }
