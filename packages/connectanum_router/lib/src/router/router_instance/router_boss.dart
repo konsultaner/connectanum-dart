@@ -8,7 +8,7 @@ class _RouterBoss {
     required this.pollInterval,
     required this.entryPoint,
     required this.libraryPathHint,
-    this.debugEventCallback,
+    this.onEvent,
   }) : _eventPort = ReceivePort(),
        _stateStore = RouterStateStore() {
     for (final listener in listeners) {
@@ -24,7 +24,7 @@ class _RouterBoss {
   final Duration pollInterval;
   final RouterWorkerEntryPoint entryPoint;
   final String? libraryPathHint;
-  final void Function(Object event)? debugEventCallback;
+  final void Function(Object event)? onEvent;
 
   final ReceivePort _eventPort;
   late final StreamSubscription<dynamic> _eventSubscription;
@@ -87,7 +87,8 @@ class _RouterBoss {
       try {
         connectionId = runtime.pollConnection(listener.listenerId);
       } on NativeTransportException catch (error) {
-        debugEventCallback?.call({
+        onEvent?.call({
+          'source': 'boss',
           'type': 'boss_error',
           'listenerId': listener.listenerId,
           'error': error.toString(),
@@ -152,7 +153,8 @@ class _RouterBoss {
         try {
           handle = runtime.pollMessageHandle(connectionId);
         } on NativeTransportException catch (error) {
-          debugEventCallback?.call({
+          onEvent?.call({
+            'source': 'boss',
             'type': 'boss_error',
             'connectionId': connectionId,
             'error': error.toString(),
@@ -204,65 +206,72 @@ class _RouterBoss {
   }
 
   void _handleEvent(dynamic message) {
-    Object? debugPayload;
     if (message is! Map) {
-      debugPayload = {'type': 'worker_unknown_event', 'payload': message};
-    } else {
-      final type = message['type'];
-      if (type == _workerEventRegister) {
-        _handleWorkerRegister(message);
-        debugPayload = {
-          'type': 'worker_registered',
-          'connectionId': message['connectionId'],
-          'listenerId': message['listenerId'],
-        };
-      } else if (type == _workerEventConnectionAdded) {
-        debugPayload = {
-          'type': 'worker_connection_added',
-          'connectionId': message['connectionId'],
-          'listenerId': message['listenerId'],
-        };
-      } else if (type == _workerEventConnectionRemoved) {
-        debugPayload = {
-          'type': 'worker_connection_removed',
-          'connectionId': message['connectionId'],
-        };
-      } else if (type == _workerEventReady) {
-        final connectionId = message['connectionId'] as int;
+      onEvent?.call({
+        'source': 'worker',
+        'type': 'worker_unknown_event',
+        'payload': message,
+      });
+      return;
+    }
+
+    final type = message['type'];
+    final Map<String, Object?> payload = {'source': 'worker'};
+
+    if (type == _workerEventRegister) {
+      _handleWorkerRegister(message);
+      payload
+        ..['type'] = 'worker_registered'
+        ..['connectionId'] = message['connectionId']
+        ..['listenerId'] = message['listenerId'];
+    } else if (type == _workerEventConnectionAdded) {
+      payload
+        ..['type'] = 'worker_connection_added'
+        ..['connectionId'] = message['connectionId']
+        ..['listenerId'] = message['listenerId'];
+    } else if (type == _workerEventConnectionRemoved) {
+      payload
+        ..['type'] = 'worker_connection_removed'
+        ..['connectionId'] = message['connectionId'];
+    } else if (type == _workerEventReady) {
+      final connectionId = message['connectionId'] as int;
+      final worker = _connectionOwners[connectionId];
+      worker?.busy = false;
+      payload
+        ..['type'] = 'worker_ready'
+        ..['connectionId'] = connectionId;
+    } else if (type == _workerEventShutdown) {
+      final connectionId = message['connectionId'] as int;
+      final worker = _connectionOwners[connectionId];
+      if (worker != null) {
+        _shutdownWorker(worker, terminateIsolate: false);
+      }
+      payload
+        ..['type'] = 'worker_shutdown'
+        ..['connectionId'] = connectionId;
+    } else if (type == _workerEventError) {
+      final connectionId = message['connectionId'] as int?;
+      if (connectionId != null) {
         final worker = _connectionOwners[connectionId];
         worker?.busy = false;
-        debugPayload = {'type': 'worker_ready', 'connectionId': connectionId};
-      } else if (type == _workerEventShutdown) {
-        final connectionId = message['connectionId'] as int;
-        final worker = _connectionOwners[connectionId];
-        if (worker != null) {
-          _shutdownWorker(worker, terminateIsolate: false);
-        }
-        debugPayload = {
-          'type': 'worker_shutdown',
-          'connectionId': connectionId,
-        };
-      } else if (type == _workerEventError) {
-        final connectionId = message['connectionId'] as int?;
-        if (connectionId != null) {
-          final worker = _connectionOwners[connectionId];
-          worker?.busy = false;
-        }
-        debugPayload = {
-          'type': 'worker_error',
-          'connectionId': connectionId,
-          'error': message['error'],
-          'stackTrace': message['stackTrace'],
-        };
-      } else {
-        debugPayload = {'type': 'worker_unknown_event', 'payload': message};
       }
+      payload
+        ..['type'] = 'worker_error'
+        ..['connectionId'] = connectionId
+        ..['error'] = message['error']
+        ..['stackTrace'] = message['stackTrace'];
+    } else {
+      payload
+        ..['type'] = 'worker_unknown_event'
+        ..['payload'] = message;
     }
-    debugEventCallback?.call(debugPayload);
+
+    onEvent?.call(payload);
   }
 
   void _handleStateEvent(StateChangedEvent event) {
-    debugEventCallback?.call({
+    onEvent?.call({
+      'source': 'state',
       'type': 'state_changed',
       'realmUri': event.realmUri,
       'version': event.version,

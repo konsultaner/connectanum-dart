@@ -27,6 +27,10 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
   final decoder = NativeMessageHandleDecoder(libraryPath: libraryPath);
   final commandPort = ReceivePort();
   final Map<int, int> connections = {connectionId: listenerId};
+  // ignore: unused_local_variable
+  final RealmContextCache? realmContexts = statePort != null
+      ? RealmContextCache(statePort: statePort)
+      : null;
 
   bossPort.send({
     'type': _workerEventRegister,

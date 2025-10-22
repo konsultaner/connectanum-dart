@@ -435,7 +435,7 @@ void main() {
       final binding = router.start(
         runtime,
         workerEntryPoint: _testWorkerEntryPoint,
-        workerEventCallback: events.add,
+        onEvent: events.add,
         workerPollInterval: const Duration(milliseconds: 1),
       );
       addTearDown(binding.dispose);
@@ -527,7 +527,7 @@ void main() {
       final binding = router.start(
         runtime,
         workerEntryPoint: _testWorkerEntryPoint,
-        workerEventCallback: events.add,
+        onEvent: events.add,
         workerPollInterval: const Duration(milliseconds: 1),
       );
       addTearDown(binding.dispose);
@@ -580,7 +580,7 @@ void main() {
       final binding = router.start(
         runtime,
         workerEntryPoint: _erroringWorkerEntryPoint,
-        workerEventCallback: events.add,
+        onEvent: events.add,
         workerPollInterval: const Duration(milliseconds: 1),
       );
       addTearDown(binding.dispose);

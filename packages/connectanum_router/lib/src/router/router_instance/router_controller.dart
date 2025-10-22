@@ -19,7 +19,7 @@ class Router {
     NativeRuntime runtime, {
     RouterWorkerEntryPoint? workerEntryPoint,
     Duration workerPollInterval = const Duration(milliseconds: 1),
-    void Function(Object event)? workerEventCallback,
+    void Function(Object event)? onEvent,
     bool activateListeners = true,
   }) {
     final configBytes = buildNativeConfigJson();
@@ -34,7 +34,7 @@ class Router {
       configJson: configBytes,
       workerEntryPoint: workerEntryPoint ?? _routerWorkerEntryPoint,
       workerPollInterval: workerPollInterval,
-      workerEventCallback: workerEventCallback,
+      onEvent: onEvent,
     );
     if (activateListeners) {
       binding.activateListeners();

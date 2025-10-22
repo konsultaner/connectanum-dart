@@ -13,14 +13,14 @@ class RouterBinding {
     required this.configJson,
     this.workerEntryPoint = _routerWorkerEntryPoint,
     this.workerPollInterval = const Duration(milliseconds: 1),
-    this.workerEventCallback,
+    this.onEvent,
   }) : _pendingEndpoints = List<Endpoint>.unmodifiable(endpoints);
 
   final NativeRuntime runtime;
   final Uint8List configJson;
   final RouterWorkerEntryPoint workerEntryPoint;
   final Duration workerPollInterval;
-  final void Function(Object event)? workerEventCallback;
+  final void Function(Object event)? onEvent;
 
   final List<Endpoint> _pendingEndpoints;
   final List<RouterListener> _listeners = [];
@@ -57,7 +57,7 @@ class RouterBinding {
         pollInterval: workerPollInterval,
         entryPoint: workerEntryPoint,
         libraryPathHint: handlesRuntime.libraryPathHint,
-        debugEventCallback: workerEventCallback,
+        onEvent: onEvent,
       )..start();
     }
     _ready = true;
