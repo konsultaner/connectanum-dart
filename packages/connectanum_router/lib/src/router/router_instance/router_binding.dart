@@ -9,44 +9,70 @@ part of '../router_instance.dart';
 class RouterBinding {
   RouterBinding({
     required this.runtime,
-    required List<RouterListener> listeners,
+    required List<Endpoint> endpoints,
     required this.configJson,
     this.workerEntryPoint = _routerWorkerEntryPoint,
     this.workerPollInterval = const Duration(milliseconds: 1),
     this.workerEventCallback,
-  }) : listeners = List.unmodifiable(listeners) {
-    _listenerById.addEntries(
-      this.listeners.map((listener) => MapEntry(listener.listenerId, listener)),
-    );
+  }) : _pendingEndpoints = List<Endpoint>.unmodifiable(endpoints);
+
+  final NativeRuntime runtime;
+  final Uint8List configJson;
+  final RouterWorkerEntryPoint workerEntryPoint;
+  final Duration workerPollInterval;
+  final void Function(Object event)? workerEventCallback;
+
+  final List<Endpoint> _pendingEndpoints;
+  final List<RouterListener> _listeners = [];
+  final Map<int, RouterListener> _listenerById = {};
+  final Map<int, _ConnectionState> _connections = {};
+  _RouterBoss? _boss;
+  bool _ready = false;
+
+  List<RouterListener> get listeners =>
+      List<RouterListener>.unmodifiable(_listeners);
+
+  bool get isReady => _ready;
+
+  void activateListeners() {
+    if (_ready) {
+      return;
+    }
+    for (final endpoint in _pendingEndpoints) {
+      final listenerId = runtime.listen(endpoint.host, endpoint.port);
+      final boundPort = runtime.getLocalPort(listenerId);
+      final listener = RouterListener(
+        listenerId: listenerId,
+        endpoint: endpoint,
+        port: boundPort,
+      );
+      _listeners.add(listener);
+      _listenerById[listener.listenerId] = listener;
+    }
     if (supportsNativeIsolates && runtime is NativeRuntimeWithHandles) {
       final handlesRuntime = runtime as NativeRuntimeWithHandles;
       _boss = _RouterBoss(
         runtime: handlesRuntime,
-        listeners: this.listeners,
+        listeners: _listeners,
         pollInterval: workerPollInterval,
         entryPoint: workerEntryPoint,
         libraryPathHint: handlesRuntime.libraryPathHint,
         debugEventCallback: workerEventCallback,
       )..start();
     }
+    _ready = true;
   }
-
-  final NativeRuntime runtime;
-  final List<RouterListener> listeners;
-  final Uint8List configJson;
-  final RouterWorkerEntryPoint workerEntryPoint;
-  final Duration workerPollInterval;
-  final void Function(Object event)? workerEventCallback;
-
-  final Map<int, RouterListener> _listenerById = {};
-  final Map<int, _ConnectionState> _connections = {};
-  _RouterBoss? _boss;
 
   /// Polls the native runtime for pending messages and returns them eagerly.
   ///
   /// This is primarily used in single-isolate environments (e.g. web) where we
   /// fall back to timer-based polling instead of worker isolates.
   List<RouterMessage> pollNativeMessages({int maxMessages = 256}) {
+    if (!_ready) {
+      throw StateError(
+        'Router listeners are not active yet. Call activateListeners() first.',
+      );
+    }
     if (_boss != null) {
       return const [];
     }
@@ -92,6 +118,11 @@ class RouterBinding {
     Duration pollInterval = const Duration(milliseconds: 10),
     int maxMessagesPerTick = 256,
   }) {
+    if (!_ready) {
+      throw StateError(
+        'Router listeners are not active yet. Call activateListeners() first.',
+      );
+    }
     if (_boss != null) {
       return const Stream<RouterMessage>.empty();
     }

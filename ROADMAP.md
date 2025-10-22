@@ -13,6 +13,7 @@
 - [ ] HTTP/1.1, HTTP/2, HTTP/3 transport layer (long-polling, streaming WAMP)
 - [ ] HTTP RPC bridge (forward HTTP requests into WAMP RPCs and return responses)
 - [ ] HTTP forwarding hooks for custom routing/handling in RPC implementations
+- [ ] Graceful shutdown (drain sessions, send GOODBYE/HTTP responses, stop listeners)
 
 ## Router State & Infrastructure
 

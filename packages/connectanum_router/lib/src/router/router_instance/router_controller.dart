@@ -20,6 +20,7 @@ class Router {
     RouterWorkerEntryPoint? workerEntryPoint,
     Duration workerPollInterval = const Duration(milliseconds: 1),
     void Function(Object event)? workerEventCallback,
+    bool activateListeners = true,
   }) {
     final configBytes = buildNativeConfigJson();
     try {
@@ -27,26 +28,18 @@ class Router {
     } on UnsupportedError {
       // Ignore runtimes that do not yet support configuration wiring.
     }
-    final listeners = <RouterListener>[];
-    for (final endpoint in config.endpoints) {
-      final listenerId = runtime.listen(endpoint.host, endpoint.port);
-      final boundPort = runtime.getLocalPort(listenerId);
-      listeners.add(
-        RouterListener(
-          listenerId: listenerId,
-          endpoint: endpoint,
-          port: boundPort,
-        ),
-      );
-    }
-    return RouterBinding(
+    final binding = RouterBinding(
       runtime: runtime,
-      listeners: listeners,
+      endpoints: config.endpoints,
       configJson: configBytes,
       workerEntryPoint: workerEntryPoint ?? _routerWorkerEntryPoint,
       workerPollInterval: workerPollInterval,
       workerEventCallback: workerEventCallback,
     );
+    if (activateListeners) {
+      binding.activateListeners();
+    }
+    return binding;
   }
 
   Map<String, Object?> _buildNativeMap() => {
