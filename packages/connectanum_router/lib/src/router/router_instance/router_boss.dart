@@ -9,11 +9,14 @@ class _RouterBoss {
     required this.entryPoint,
     required this.libraryPathHint,
     this.debugEventCallback,
-  }) : _eventPort = ReceivePort() {
+  }) : _eventPort = ReceivePort(),
+       _stateStore = RouterStateStore() {
     for (final listener in listeners) {
       _listenerById[listener.listenerId] = listener;
     }
     _eventSubscription = _eventPort.listen(_handleEvent);
+    _stateStore.events.listen(_handleStateEvent);
+    _stateStore.start();
   }
 
   final NativeRuntimeWithHandles runtime;
@@ -29,6 +32,7 @@ class _RouterBoss {
   final List<_WorkerHandle> _workers = [];
   final Map<int, _WorkerHandle> _connectionOwners = {};
   final Map<int, Isolate> _pendingIsolates = {};
+  final RouterStateStore _stateStore;
   bool _running = false;
   bool _stopping = false;
   Future<void>? _loopFuture;
@@ -55,6 +59,7 @@ class _RouterBoss {
     }
     await _eventSubscription.cancel();
     _eventPort.close();
+    _stateStore.dispose();
     for (final worker in _workers.toList()) {
       _shutdownWorker(worker, terminateIsolate: true);
     }
@@ -188,6 +193,7 @@ class _RouterBoss {
       'connectionId': connectionId,
       'listenerId': listener.listenerId,
       'libraryPath': libraryPathHint,
+      'statePort': _stateStore.commandPort,
     };
     final isolate = await Isolate.spawn<Map<String, Object?>>(
       entryPoint,
@@ -252,15 +258,22 @@ class _RouterBoss {
         debugPayload = {'type': 'worker_unknown_event', 'payload': message};
       }
     }
-    if (debugPayload != null) {
-      debugEventCallback?.call(debugPayload);
-    }
+    debugEventCallback?.call(debugPayload);
+  }
+
+  void _handleStateEvent(StateChangedEvent event) {
+    debugEventCallback?.call({
+      'type': 'state_changed',
+      'realmUri': event.realmUri,
+      'version': event.version,
+    });
   }
 
   void _handleWorkerRegister(Map<dynamic, dynamic> message) {
     final connectionId = message['connectionId'] as int;
     final listenerId = message['listenerId'] as int;
     final commandPort = message['commandPort'] as SendPort;
+    final SendPort? statePort = message['statePort'] as SendPort?;
     final isolate = _pendingIsolates.remove(connectionId);
     final listener = _listenerById[listenerId];
     if (isolate == null || listener == null) {
@@ -272,6 +285,7 @@ class _RouterBoss {
       id: _nextWorkerId++,
       isolate: isolate,
       commandPort: commandPort,
+      statePort: statePort ?? _stateStore.commandPort,
     )..connections.add(connectionId);
     _workers.add(worker);
     _connectionOwners[connectionId] = worker;
@@ -314,11 +328,13 @@ class _WorkerHandle {
     required this.id,
     required this.isolate,
     required this.commandPort,
+    required this.statePort,
   });
 
   final int id;
   final Isolate isolate;
   final SendPort commandPort;
+  final SendPort statePort;
   final List<int> connections = [];
   int connectionCursor = 0;
   bool busy = false;

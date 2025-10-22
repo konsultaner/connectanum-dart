@@ -23,6 +23,7 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
   final connectionId = init['connectionId'] as int;
   final listenerId = init['listenerId'] as int;
   final libraryPath = init['libraryPath'] as String?;
+  final SendPort? statePort = init['statePort'] as SendPort?;
   final decoder = NativeMessageHandleDecoder(libraryPath: libraryPath);
   final commandPort = ReceivePort();
   final Map<int, int> connections = {connectionId: listenerId};
@@ -32,6 +33,7 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
     'connectionId': connectionId,
     'listenerId': listenerId,
     'commandPort': commandPort.sendPort,
+    'statePort': statePort,
   });
   bossPort.send({'type': _workerEventReady, 'connectionId': connectionId});
 
