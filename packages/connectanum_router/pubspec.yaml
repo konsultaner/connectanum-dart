@@ -11,6 +11,7 @@ dependencies:
   msgpack_dart: ^1.0.0
   cbor: ^6.3.7
   ffi: ^2.1.0
+  yaml: ^3.1.2
   connectanum_core:
     path: ../connectanum_core
 dev_dependencies:

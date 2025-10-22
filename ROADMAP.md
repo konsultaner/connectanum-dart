@@ -79,6 +79,7 @@
   - [ ] SCRAM (salted challenge/response)
   - [ ] WAMP-cryptosign / ED25519
   - [ ] Remote authentication executor (delegate auth decisions to external service)
+  - [ ] Interoperability with `connectanum-authentication` remote executor (Java auth server)
   - [ ] Survey community extensions (GitHub/routers) for additional mechanisms
 - [ ] Realm-level authorizers (permission checks before SUBSCRIBE/PUBLISH/etc.)
 - [ ] Static TLS cert/SNI configuration pipeline to native runtime
@@ -96,6 +97,7 @@
 - [x] Router example CLI for local testing
 - [ ] Developer docs for native runtime build pipeline
 - [ ] Configuration reference (realm JSON schema, TLS modes, worker tuning)
+- [ ] Crossbar-compatible configuration schema + validation tooling
 - [ ] End-to-end smoke tests (native runtime ↔ router ↔ client)
 - [ ] Benchmarks (throughput/latency per worker configuration)
 - [ ] MCP (Model Context Protocol) server implementation for agentic AI integrations
