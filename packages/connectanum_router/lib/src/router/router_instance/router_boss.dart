@@ -8,9 +8,10 @@ class _RouterBoss {
     required this.pollInterval,
     required this.entryPoint,
     required this.libraryPathHint,
+    required this.settings,
     this.onEvent,
   }) : _eventPort = ReceivePort(),
-       _stateStore = RouterStateStore() {
+       _stateStore = RouterStateStore(settings: settings) {
     for (final listener in listeners) {
       _listenerById[listener.listenerId] = listener;
     }
@@ -24,6 +25,7 @@ class _RouterBoss {
   final Duration pollInterval;
   final RouterWorkerEntryPoint entryPoint;
   final String? libraryPathHint;
+  final RouterSettings settings;
   final void Function(Object event)? onEvent;
 
   final ReceivePort _eventPort;

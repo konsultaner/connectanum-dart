@@ -34,9 +34,102 @@ runtime.
 For additional package level documentation see
 `packages/connectanum_dart/README.md`.
 
+## Router Data Flow
+
+The router uses a multi-layered architecture combining the native transport
+runtime, a boss/worker isolate model, and a central state store. The following
+Mermaid diagram illustrates the main components and message flow in detail:
+
+```mermaid
+flowchart TD
+    subgraph "Native Runtime (ct_ffi)"
+        A[Listener Accept Loop]
+        B[RawSocket Frame Parser]
+        C[ct_message_get / pointers]
+    end
+
+    subgraph "Dart Boss Isolate"
+        D[RouterBinding]
+        E[_RouterBoss]
+        F[RouterStateStore]
+        G[RouterSettings / Realm Config]
+        H[Authenticator Registry]
+    end
+
+    subgraph "Worker Isolates"
+        I[_routerWorkerEntryPoint]
+        J[RealmContext Cache]
+        K[Authenticators]
+        L[Message Handlers]
+    end
+
+    subgraph "Router Core"
+        M[Router Config Builder]
+        N[Router.start]
+    end
+
+    %% Native -> Boss
+    A -->|accepts| B
+    B -->|HELLO / CALL / SUBSCRIBE frames| C
+    C -->|ct_poll_connection_message| D
+
+    %% Boss flow
+    N -->|listener activation| D
+    N -->|pass settings| E
+    D -->|spawn boss| E
+    D -->|start workers| I
+    E -->|state cmds| F
+    E -->|realm configs| G
+    G -->|auth policies| H
+
+    %% Boss -> Workers
+    E -->|assign connection| I
+    E -->|send statePort| J
+
+    %% Workers handshake/auth
+    I -->|materialise message| L
+    L -->|HELLO| K
+    K -->|onHello| H
+    H -->|factory->authenticator| K
+    K -->|challenge/result| L
+    L -->|AUTHENTICATE| K
+    K -->|AuthResult.success| L
+    L -->|SessionOpenCommand| F
+    F -->|RealmSnapshot| J
+
+    %% Publish/Call flow
+    L -->|SUBSCRIBE/CALL| J
+    J -->|addSubscription / registerProcedure| F
+    F -->|StateChangedEvent| E
+    E -->|invalidate| J
+    F -->|InvocationDispatch| L
+    L -->|RESULT/EVENT| C
+
+    %% Shutdown
+    D -->|dispose| E
+    E -->|stop| F
+    F -->|close| E
+```
+
+Key points:
+
+- The native runtime accepts TCP connections, parses WAMP RawSocket frames, and
+  exposes them via FFI callbacks.
+- `Router.start` builds a router binding, passes in `RouterSettings`, and spawns
+  `_RouterBoss` plus worker isolates.
+- `_RouterBoss` owns the central `RouterStateStore`, manages connection
+  assignment, and holds realm configuration plus the authenticator registry.
+- Worker isolates materialize native messages, drive authentication using
+  pluggable authenticators, and call into `RealmContext` to interact with the
+  store (subscriptions, registrations, snapshots, etc.).
+- All state mutations flow through `RouterStateStore`, which enforces realm
+  limits, tracks sessions, subscriptions, procedures, and dispatches events back
+  to the boss/metrics layer.
+
 ## Design Notes
 
 - Advanced-profile call cancellation modes (`kill`, `killnowait`, `killall`) will
   be implemented so that cancellers can wait for the callee to perform any
   required cleanup. This guarantees that subsequent processing shuts down
   gracefully instead of leaving background work dangling.
+```

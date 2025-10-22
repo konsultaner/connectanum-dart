@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:isolate';
 
+import '../config/router_settings.dart';
 import 'commands.dart';
 import 'ids.dart';
 import 'procedure.dart';
@@ -11,14 +12,20 @@ import 'subscription.dart';
 
 /// Maintains all WAMP realm/session/subscription/registration state.
 class RouterStateStore {
-  RouterStateStore()
+  RouterStateStore({required this.settings})
     : _commandPort = ReceivePort(),
-      _eventController = StreamController<StateChangedEvent>.broadcast();
+      _eventController = StreamController<StateChangedEvent>.broadcast(),
+      _realmConfigs = Map.fromEntries(
+        settings.realms.map((realm) => MapEntry(realm.name, realm)),
+      );
+
+  final RouterSettings settings;
 
   final ReceivePort _commandPort;
   final StreamController<StateChangedEvent> _eventController;
   final WampIdAllocatorRegistry ids = WampIdAllocatorRegistry();
   final Map<String, RealmRecord> _realms = {};
+  final Map<String, RealmSettings> _realmConfigs;
 
   Stream<StateChangedEvent> get events => _eventController.stream;
   SendPort get commandPort => _commandPort.sendPort;
@@ -48,7 +55,7 @@ class RouterStateStore {
   void _dispatchCommand(RouterStateCommand command, {SendPort? replyPort}) {
     switch (command) {
       case RealmEnsureCommand():
-        _ensureRealm(command.realmUri, command.options);
+        _getOrCreateRealm(command.realmUri);
       case RealmSnapshotCommand():
         final snapshot = _getSnapshot(
           command.realmUri,
@@ -102,27 +109,22 @@ class RouterStateStore {
     }
   }
 
-  void _ensureRealm(String realmUri, Map<String, Object?> options) {
-    _realms.putIfAbsent(
-      realmUri,
-      () => RealmRecord(realmUri: realmUri, options: options),
-    );
+  RealmRecord _getOrCreateRealm(String realmUri) {
+    final existing = _realms[realmUri];
+    if (existing != null) {
+      return existing;
+    }
+    final config = _realmConfigs[realmUri];
+    if (config == null) {
+      throw StateError('Realm $realmUri is not configured');
+    }
+    final record = RealmRecord(realmUri: realmUri, settings: config);
+    _realms[realmUri] = record;
+    return record;
   }
 
   RealmSnapshotResponse _getSnapshot(String realmUri, {int? knownVersion}) {
-    final realm = _realms[realmUri];
-    if (realm == null) {
-      return RealmSnapshotResponse(
-        snapshot: RealmSnapshot(
-          realmUri: realmUri,
-          version: 0,
-          sessions: const [],
-          subscriptions: const [],
-          registrations: const [],
-        ),
-        isNew: false,
-      );
-    }
+    final realm = _getOrCreateRealm(realmUri);
     if (knownVersion != null && knownVersion == realm.version) {
       return RealmSnapshotResponse(
         snapshot: realm.lastSnapshot ?? realm.buildSnapshot(),
@@ -135,16 +137,12 @@ class RouterStateStore {
   }
 
   void _openSession(String realmUri, SessionRecord session) {
-    final realm = _realms.putIfAbsent(
-      realmUri,
-      () => RealmRecord(realmUri: realmUri, options: const {}),
-    );
+    final realm = _getOrCreateRealm(realmUri);
     realm.sessions[session.id] = session;
     realm.bumpVersion();
-    _eventController.add(StateChangedEvent(
-      realmUri: realmUri,
-      version: realm.version,
-    ));
+    _eventController.add(
+      StateChangedEvent(realmUri: realmUri, version: realm.version),
+    );
   }
 
   void _closeSession(String realmUri, int sessionId) {
@@ -163,10 +161,9 @@ class RouterStateStore {
       _unregisterProcedure(realmUri, sessionId, regId);
     }
     realm.bumpVersion();
-    _eventController.add(StateChangedEvent(
-      realmUri: realmUri,
-      version: realm.version,
-    ));
+    _eventController.add(
+      StateChangedEvent(realmUri: realmUri, version: realm.version),
+    );
   }
 
   int _addSubscription(
@@ -176,9 +173,9 @@ class RouterStateStore {
     TopicMatchPolicy matchPolicy,
     Map<String, Object?> details,
   ) {
-    final realm = _realms[realmUri] ??
-        (throw StateError('Realm $realmUri not found'));
-    final session = realm.sessions[sessionId] ??
+    final realm = _getOrCreateRealm(realmUri);
+    final session =
+        realm.sessions[sessionId] ??
         (throw StateError('Session $sessionId not found in realm $realmUri'));
     final id = ids.subscription.next();
     final entry = realm.findOrCreateSubscription(topic, matchPolicy, id);
@@ -189,10 +186,9 @@ class RouterStateStore {
     );
     session.subscriptionIds.add(entry.id);
     realm.bumpVersion();
-    _eventController.add(StateChangedEvent(
-      realmUri: realmUri,
-      version: realm.version,
-    ));
+    _eventController.add(
+      StateChangedEvent(realmUri: realmUri, version: realm.version),
+    );
     return entry.id;
   }
 
@@ -212,10 +208,9 @@ class RouterStateStore {
       realm.removeSubscription(entry);
     }
     realm.bumpVersion();
-    _eventController.add(StateChangedEvent(
-      realmUri: realmUri,
-      version: realm.version,
-    ));
+    _eventController.add(
+      StateChangedEvent(realmUri: realmUri, version: realm.version),
+    );
   }
 
   int _registerProcedure(
@@ -224,15 +219,12 @@ class RouterStateStore {
     String procedure,
     Map<String, Object?> details,
   ) {
-    final realm = _realms[realmUri] ??
-        (throw StateError('Realm $realmUri not found'));
-    final session = realm.sessions[sessionId] ??
+    final realm = _getOrCreateRealm(realmUri);
+    final session =
+        realm.sessions[sessionId] ??
         (throw StateError('Session $sessionId not found in realm $realmUri'));
     final registrationId = ids.registration.next();
-    final entry = realm.findOrCreateProcedure(
-      procedure,
-      registrationId,
-    );
+    final entry = realm.findOrCreateProcedure(procedure, registrationId);
     entry.callees[registrationId] = RegistrationRecord(
       registrationId: registrationId,
       procedure: procedure,
@@ -242,10 +234,9 @@ class RouterStateStore {
     );
     session.registrationIds.add(registrationId);
     realm.bumpVersion();
-    _eventController.add(StateChangedEvent(
-      realmUri: realmUri,
-      version: realm.version,
-    ));
+    _eventController.add(
+      StateChangedEvent(realmUri: realmUri, version: realm.version),
+    );
     return registrationId;
   }
 
@@ -269,10 +260,9 @@ class RouterStateStore {
       realm.removeProcedure(entry);
     }
     realm.bumpVersion();
-    _eventController.add(StateChangedEvent(
-      realmUri: realmUri,
-      version: realm.version,
-    ));
+    _eventController.add(
+      StateChangedEvent(realmUri: realmUri, version: realm.version),
+    );
   }
 
   InvocationDispatchResult _dispatchInvocation(
@@ -282,8 +272,7 @@ class RouterStateStore {
     String procedure,
     Map<String, Object?> options,
   ) {
-    final realm = _realms[realmUri] ??
-        (throw StateError('Realm $realmUri not found'));
+    final realm = _getOrCreateRealm(realmUri);
     final bucket = realm.procedureAtlas[procedure];
     if (bucket == null || bucket.callees.isEmpty) {
       throw StateError('No registration for procedure $procedure');
@@ -318,13 +307,10 @@ class RouterStateStore {
 
 /// Holds all mutable state for a single realm.
 class RealmRecord {
-  RealmRecord({
-    required this.realmUri,
-    required this.options,
-  });
+  RealmRecord({required this.realmUri, required this.settings});
 
   final String realmUri;
-  final Map<String, Object?> options;
+  final RealmSettings settings;
 
   int version = 0;
   RealmSnapshot? lastSnapshot;
@@ -397,16 +383,11 @@ class RealmRecord {
     }
   }
 
-  ProcedureEntry findOrCreateProcedure(
-    String procedure,
-    int registrationId,
-  ) {
+  ProcedureEntry findOrCreateProcedure(String procedure, int registrationId) {
     final entry = procedureAtlas.putIfAbsent(
       procedure,
-      () => ProcedureEntry(
-        registrationId: registrationId,
-        procedure: procedure,
-      ),
+      () =>
+          ProcedureEntry(registrationId: registrationId, procedure: procedure),
     );
     proceduresById[entry.registrationId] = entry;
     return entry;

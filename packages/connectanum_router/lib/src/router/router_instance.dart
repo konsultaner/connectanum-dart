@@ -17,9 +17,14 @@ import 'state/commands.dart';
 import 'state/store.dart';
 import 'state/subscription.dart';
 import 'state/snapshot.dart';
+import 'config/router_settings.dart';
+import 'config/router_settings_builder.dart';
 
 export 'models/router_listener.dart';
 export 'models/router_message.dart';
+export 'config/router_settings.dart';
+export 'config/router_settings_builder.dart';
+export 'config/router_config_loader.dart';
 
 part 'router_instance/router_binding.dart';
 part 'router_instance/router_boss.dart';
