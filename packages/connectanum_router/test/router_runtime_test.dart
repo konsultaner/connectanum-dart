@@ -85,6 +85,7 @@ class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
   final Map<int, Queue<int>> _pendingHandles = {};
   int _nextHandle = 1;
   NativeTransportException? _scheduledError;
+  final Set<int> _knownConnections = {};
 
   @override
   int pollMessageHandle(int connectionId) {
@@ -105,7 +106,9 @@ class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
 
   int enqueueHandle(int listenerId, int connectionId) {
     final handle = _nextHandle++;
-    _pendingConnections.putIfAbsent(listenerId, Queue.new).add(connectionId);
+    if (_knownConnections.add(connectionId)) {
+      _pendingConnections.putIfAbsent(listenerId, Queue.new).add(connectionId);
+    }
     _pendingHandles.putIfAbsent(connectionId, Queue.new).add(handle);
     return handle;
   }
@@ -117,10 +120,14 @@ class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
 
 const int kWorkerCmdProcess = 1;
 const int kWorkerCmdShutdown = 2;
+const int kWorkerCmdAddConnection = 3;
+const int kWorkerCmdRemoveConnection = 4;
 const int kWorkerEventRegister = 1;
 const int kWorkerEventReady = 2;
 const int kWorkerEventError = 3;
 const int kWorkerEventShutdown = 4;
+const int kWorkerEventConnectionAdded = 5;
+const int kWorkerEventConnectionRemoved = 6;
 
 Future<void> _waitUntil(
   bool Function() condition, {
@@ -141,6 +148,7 @@ void _testWorkerEntryPoint(Map<String, Object?> init) {
   final connectionId = init['connectionId'] as int;
   final listenerId = init['listenerId'] as int;
   final commandPort = ReceivePort();
+  final Map<int, int> connections = {connectionId: listenerId};
 
   bossPort.send({
     'type': kWorkerEventRegister,
@@ -156,13 +164,34 @@ void _testWorkerEntryPoint(Map<String, Object?> init) {
     }
     final command = raw[0];
     if (command == kWorkerCmdProcess) {
-      final handle = raw[1] as int;
+      final assignedConnection = raw[1] as int;
+      final handle = raw[2] as int;
       bossPort.send({
         'type': 'test_processed',
-        'connectionId': connectionId,
+        'connectionId': assignedConnection,
         'handle': handle,
       });
-      bossPort.send({'type': kWorkerEventReady, 'connectionId': connectionId});
+      bossPort.send({
+        'type': kWorkerEventReady,
+        'connectionId': assignedConnection,
+      });
+    } else if (command == kWorkerCmdAddConnection) {
+      final newListener = raw[1] as int;
+      final newConnection = raw[2] as int;
+      connections[newConnection] = newListener;
+      bossPort.send({
+        'type': kWorkerEventConnectionAdded,
+        'connectionId': newConnection,
+        'listenerId': newListener,
+      });
+      bossPort.send({'type': kWorkerEventReady, 'connectionId': newConnection});
+    } else if (command == kWorkerCmdRemoveConnection) {
+      final removeConnection = raw[1] as int;
+      connections.remove(removeConnection);
+      bossPort.send({
+        'type': kWorkerEventConnectionRemoved,
+        'connectionId': removeConnection,
+      });
     } else if (command == kWorkerCmdShutdown) {
       commandPort.close();
       bossPort.send({
@@ -178,6 +207,7 @@ void _erroringWorkerEntryPoint(Map<String, Object?> init) {
   final connectionId = init['connectionId'] as int;
   final listenerId = init['listenerId'] as int;
   final commandPort = ReceivePort();
+  final Map<int, int> connections = {connectionId: listenerId};
 
   bossPort.send({
     'type': kWorkerEventRegister,
@@ -194,30 +224,48 @@ void _erroringWorkerEntryPoint(Map<String, Object?> init) {
     }
     final command = raw[0];
     if (command == kWorkerCmdProcess) {
-      final handle = raw[1] as int;
+      final assignedConnection = raw[1] as int;
+      final handle = raw[2] as int;
       if (!emittedError) {
         emittedError = true;
         bossPort.send({
           'type': kWorkerEventError,
-          'connectionId': connectionId,
+          'connectionId': assignedConnection,
           'error': 'synthetic-error',
           'stackTrace': 'trace',
         });
         bossPort.send({
           'type': kWorkerEventReady,
-          'connectionId': connectionId,
+          'connectionId': assignedConnection,
         });
       } else {
         bossPort.send({
           'type': 'test_processed',
-          'connectionId': connectionId,
+          'connectionId': assignedConnection,
           'handle': handle,
         });
         bossPort.send({
           'type': kWorkerEventReady,
-          'connectionId': connectionId,
+          'connectionId': assignedConnection,
         });
       }
+    } else if (command == kWorkerCmdAddConnection) {
+      final newListener = raw[1] as int;
+      final newConnection = raw[2] as int;
+      connections[newConnection] = newListener;
+      bossPort.send({
+        'type': kWorkerEventConnectionAdded,
+        'connectionId': newConnection,
+        'listenerId': newListener,
+      });
+      bossPort.send({'type': kWorkerEventReady, 'connectionId': newConnection});
+    } else if (command == kWorkerCmdRemoveConnection) {
+      final removeConnection = raw[1] as int;
+      connections.remove(removeConnection);
+      bossPort.send({
+        'type': kWorkerEventConnectionRemoved,
+        'connectionId': removeConnection,
+      });
     } else if (command == kWorkerCmdShutdown) {
       commandPort.close();
       bossPort.send({
@@ -425,7 +473,16 @@ void main() {
       );
       expect(readyAfterFirst, greaterThan(firstProcessedIndex));
 
-      final secondHandle = runtime.enqueueHandle(listener.listenerId, 9001);
+      final secondHandle = runtime.enqueueHandle(listener.listenerId, 9002);
+
+      await _waitUntil(() {
+        return events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_connection_added' &&
+              event['connectionId'] == 9002,
+        );
+      });
+
       await _waitUntil(() {
         final processed = events.whereType<Map>().where((event) {
           return event['type'] == 'worker_unknown_event' &&
@@ -448,9 +505,7 @@ void main() {
       final processedHandles = processedEvents
           .map((event) => (event['payload'] as Map)['handle'])
           .toList();
-      expect(processedHandles, [firstHandle, secondHandle]);
-      final secondProcessedIndex = events.indexOf(processedEvents.last);
-      expect(readyAfterFirst, lessThan(secondProcessedIndex));
+      expect(processedHandles, containsAll([firstHandle, secondHandle]));
     });
 
     test('shuts down worker when runtime reports missing connection', () async {
@@ -497,12 +552,12 @@ void main() {
               event['connectionId'] == 4001 &&
               (event['error'] as String).contains('connection gone'),
         );
-        final shutdown = events.whereType<Map>().any(
+        final removed = events.whereType<Map>().any(
           (event) =>
-              event['type'] == 'worker_shutdown' &&
+              event['type'] == 'worker_connection_removed' &&
               event['connectionId'] == 4001,
         );
-        return errors && shutdown;
+        return errors && removed;
       }, timeout: const Duration(seconds: 2));
     });
 

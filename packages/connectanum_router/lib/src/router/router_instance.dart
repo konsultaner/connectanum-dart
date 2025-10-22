@@ -1,5 +1,5 @@
 /// Building blocks for Connectanum router bindings and isolate orchestration.
-library;
+library connectanum_router_instance;
 
 import 'dart:async';
 import 'dart:convert';

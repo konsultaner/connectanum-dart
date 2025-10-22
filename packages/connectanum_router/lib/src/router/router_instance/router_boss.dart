@@ -1,8 +1,6 @@
 part of '../router_instance.dart';
 
-/// Coordinates worker isolates and keeps track of which connection each worker
-/// owns. The boss lives in the main isolate so all FFI calls remain in a single
-/// thread, while workers materialise messages out-of-band.
+/// Coordinates worker isolates and round-robins connections across them.
 class _RouterBoss {
   _RouterBoss({
     required this.runtime,
@@ -28,11 +26,14 @@ class _RouterBoss {
   final ReceivePort _eventPort;
   late final StreamSubscription<dynamic> _eventSubscription;
   final Map<int, RouterListener> _listenerById = {};
-  final Map<int, _WorkerHandle> _workers = {};
+  final List<_WorkerHandle> _workers = [];
+  final Map<int, _WorkerHandle> _connectionOwners = {};
   final Map<int, Isolate> _pendingIsolates = {};
   bool _running = false;
   bool _stopping = false;
   Future<void>? _loopFuture;
+  int _nextWorkerIndex = 0;
+  int _nextWorkerId = 1;
 
   void start() {
     if (_running) {
@@ -54,14 +55,15 @@ class _RouterBoss {
     }
     await _eventSubscription.cancel();
     _eventPort.close();
-    for (final worker in _workers.values.toList()) {
-      _shutdownWorker(worker.connectionId, terminateIsolate: true);
+    for (final worker in _workers.toList()) {
+      _shutdownWorker(worker, terminateIsolate: true);
     }
     for (final isolate in _pendingIsolates.values) {
       isolate.kill(priority: Isolate.immediate);
     }
     _workers.clear();
     _pendingIsolates.clear();
+    _connectionOwners.clear();
   }
 
   Future<void> _loop() async {
@@ -90,39 +92,93 @@ class _RouterBoss {
       if (connectionId == 0) {
         break;
       }
-      if (_workers.containsKey(connectionId) ||
-          _pendingIsolates.containsKey(connectionId)) {
-        continue;
-      }
-      await _spawnWorker(listener, connectionId);
+      await _assignConnection(listener, connectionId);
     }
   }
 
+  Future<void> _assignConnection(
+    RouterListener listener,
+    int connectionId,
+  ) async {
+    final worker = _chooseWorker();
+    if (worker == null) {
+      await _spawnWorker(listener, connectionId);
+      return;
+    }
+    worker.connections.add(connectionId);
+    _connectionOwners[connectionId] = worker;
+    worker.commandPort.send(<Object?>[
+      _workerCmdAddConnection,
+      listener.listenerId,
+      connectionId,
+    ]);
+  }
+
+  _WorkerHandle? _chooseWorker() {
+    if (_workers.isEmpty) {
+      return null;
+    }
+    if (_nextWorkerIndex >= _workers.length) {
+      _nextWorkerIndex %= _workers.length;
+    }
+    final worker = _workers[_nextWorkerIndex];
+    _nextWorkerIndex = (_nextWorkerIndex + 1) % _workers.length;
+    return worker;
+  }
+
   void _dispatchMessages() {
-    final workersSnapshot = List<_WorkerHandle>.from(_workers.values);
+    final workersSnapshot = List<_WorkerHandle>.from(_workers);
     for (final worker in workersSnapshot) {
-      if (worker.busy) {
+      if (worker.busy || worker.connections.isEmpty) {
         continue;
       }
-      int handle;
-      try {
-        handle = runtime.pollMessageHandle(worker.connectionId);
-      } on NativeTransportException catch (error) {
-        debugEventCallback?.call({
-          'type': 'boss_error',
-          'connectionId': worker.connectionId,
-          'error': error.toString(),
-        });
-        if (error.code == NativeTransportErrorCode.connectionNotFound) {
-          _shutdownWorker(worker.connectionId);
+      final connections = worker.connections;
+      if (connections.isEmpty) {
+        continue;
+      }
+      if (worker.connectionCursor >= connections.length) {
+        worker.connectionCursor %= connections.length;
+      }
+      int? chosenConnection;
+      int handle = 0;
+      for (var i = 0; i < connections.length; i++) {
+        final index = (worker.connectionCursor + i) % connections.length;
+        final connectionId = connections[index];
+        try {
+          handle = runtime.pollMessageHandle(connectionId);
+        } on NativeTransportException catch (error) {
+          debugEventCallback?.call({
+            'type': 'boss_error',
+            'connectionId': connectionId,
+            'error': error.toString(),
+          });
+          if (error.code == NativeTransportErrorCode.connectionNotFound) {
+            _detachConnection(connectionId, notifyWorker: true);
+          }
+          continue;
+        }
+        if (handle == 0) {
+          continue;
+        }
+        chosenConnection = connectionId;
+        worker.connectionCursor = (index + 1) % connections.length;
+        break;
+      }
+      if (chosenConnection == null || handle == 0) {
+        if (connections.isNotEmpty) {
+          worker.connectionCursor =
+              (worker.connectionCursor + 1) % connections.length;
+        } else {
+          worker.connectionCursor = 0;
         }
         continue;
       }
-      if (handle == 0) {
-        continue;
-      }
       worker.busy = true;
-      worker.commandPort.send(<Object?>[_workerCmdProcess, handle]);
+      worker.commandPort.send(<Object?>[
+        _workerCmdProcess,
+        chosenConnection,
+        handle,
+      ]);
     }
   }
 
@@ -148,42 +204,34 @@ class _RouterBoss {
     } else {
       final type = message['type'];
       if (type == _workerEventRegister) {
-        final connectionId = message['connectionId'] as int;
-        final listenerId = message['listenerId'] as int;
-        final commandPort = message['commandPort'] as SendPort;
-        final isolate = _pendingIsolates.remove(connectionId);
-        final listener = _listenerById[listenerId];
-        if (isolate == null || listener == null) {
-          commandPort.send(<Object?>[_workerCmdShutdown]);
-          isolate?.kill(priority: Isolate.immediate);
-          debugPayload = {
-            'type': 'worker_register_failed',
-            'connectionId': connectionId,
-            'listenerId': listenerId,
-          };
-        } else {
-          _workers[connectionId] = _WorkerHandle(
-            connectionId: connectionId,
-            listener: listener,
-            isolate: isolate,
-            commandPort: commandPort,
-          );
-          debugPayload = {
-            'type': 'worker_registered',
-            'connectionId': connectionId,
-            'listenerId': listenerId,
-          };
-        }
+        _handleWorkerRegister(message);
+        debugPayload = {
+          'type': 'worker_registered',
+          'connectionId': message['connectionId'],
+          'listenerId': message['listenerId'],
+        };
+      } else if (type == _workerEventConnectionAdded) {
+        debugPayload = {
+          'type': 'worker_connection_added',
+          'connectionId': message['connectionId'],
+          'listenerId': message['listenerId'],
+        };
+      } else if (type == _workerEventConnectionRemoved) {
+        debugPayload = {
+          'type': 'worker_connection_removed',
+          'connectionId': message['connectionId'],
+        };
       } else if (type == _workerEventReady) {
         final connectionId = message['connectionId'] as int;
-        final worker = _workers[connectionId];
-        if (worker != null) {
-          worker.busy = false;
-        }
+        final worker = _connectionOwners[connectionId];
+        worker?.busy = false;
         debugPayload = {'type': 'worker_ready', 'connectionId': connectionId};
       } else if (type == _workerEventShutdown) {
         final connectionId = message['connectionId'] as int;
-        _shutdownWorker(connectionId, terminateIsolate: false);
+        final worker = _connectionOwners[connectionId];
+        if (worker != null) {
+          _shutdownWorker(worker, terminateIsolate: false);
+        }
         debugPayload = {
           'type': 'worker_shutdown',
           'connectionId': connectionId,
@@ -191,7 +239,7 @@ class _RouterBoss {
       } else if (type == _workerEventError) {
         final connectionId = message['connectionId'] as int?;
         if (connectionId != null) {
-          final worker = _workers[connectionId];
+          final worker = _connectionOwners[connectionId];
           worker?.busy = false;
         }
         debugPayload = {
@@ -209,31 +257,69 @@ class _RouterBoss {
     }
   }
 
-  void _shutdownWorker(int connectionId, {bool terminateIsolate = false}) {
-    final worker = _workers.remove(connectionId);
-    if (worker != null) {
-      worker.commandPort.send(<Object?>[_workerCmdShutdown]);
-      if (terminateIsolate) {
-        worker.isolate.kill(priority: Isolate.immediate);
-      }
-    } else {
-      final isolate = _pendingIsolates.remove(connectionId);
+  void _handleWorkerRegister(Map<dynamic, dynamic> message) {
+    final connectionId = message['connectionId'] as int;
+    final listenerId = message['listenerId'] as int;
+    final commandPort = message['commandPort'] as SendPort;
+    final isolate = _pendingIsolates.remove(connectionId);
+    final listener = _listenerById[listenerId];
+    if (isolate == null || listener == null) {
+      commandPort.send(<Object?>[_workerCmdShutdown]);
       isolate?.kill(priority: Isolate.immediate);
+      return;
+    }
+    final worker = _WorkerHandle(
+      id: _nextWorkerId++,
+      isolate: isolate,
+      commandPort: commandPort,
+    )..connections.add(connectionId);
+    _workers.add(worker);
+    _connectionOwners[connectionId] = worker;
+  }
+
+  void _shutdownWorker(_WorkerHandle worker, {bool terminateIsolate = false}) {
+    for (final connectionId in worker.connections.toList()) {
+      _connectionOwners.remove(connectionId);
+      worker.commandPort.send(<Object?>[
+        _workerCmdRemoveConnection,
+        connectionId,
+      ]);
+    }
+    worker.commandPort.send(<Object?>[_workerCmdShutdown]);
+    if (terminateIsolate) {
+      worker.isolate.kill(priority: Isolate.immediate);
+    }
+    _workers.remove(worker);
+  }
+
+  void _detachConnection(int connectionId, {bool notifyWorker = false}) {
+    final worker = _connectionOwners.remove(connectionId);
+    if (worker == null) {
+      final pending = _pendingIsolates.remove(connectionId);
+      pending?.kill(priority: Isolate.immediate);
+      return;
+    }
+    worker.connections.remove(connectionId);
+    if (notifyWorker) {
+      worker.commandPort.send(<Object?>[
+        _workerCmdRemoveConnection,
+        connectionId,
+      ]);
     }
   }
 }
 
 class _WorkerHandle {
   _WorkerHandle({
-    required this.connectionId,
-    required this.listener,
+    required this.id,
     required this.isolate,
     required this.commandPort,
   });
 
-  final int connectionId;
-  final RouterListener listener;
+  final int id;
   final Isolate isolate;
   final SendPort commandPort;
+  final List<int> connections = [];
+  int connectionCursor = 0;
   bool busy = false;
 }
