@@ -9,3 +9,4 @@ coverage
 /native/transport/target/
 Cargo.lock
 /native/transport/tmp/
+*.g.dart

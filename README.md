@@ -33,3 +33,10 @@ runtime.
 
 For additional package level documentation see
 `packages/connectanum_dart/README.md`.
+
+## Design Notes
+
+- Advanced-profile call cancellation modes (`kill`, `killnowait`, `killall`) will
+  be implemented so that cancellers can wait for the callee to perform any
+  required cleanup. This guarantees that subsequent processing shuts down
+  gracefully instead of leaving background work dangling.
