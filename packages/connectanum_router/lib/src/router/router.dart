@@ -1,5 +1,7 @@
 export 'models/endpoint.dart';
 export 'models/router_config.dart';
+export 'models/router_listener.dart';
+export 'models/router_message.dart';
 export 'models/sni_certificate.dart';
 export 'models/tls_mode.dart';
 export 'router_instance.dart';

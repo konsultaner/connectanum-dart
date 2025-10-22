@@ -205,3 +205,10 @@ class RouterBinding {
     }
   }
 }
+
+/// Tracks additional per-connection bookkeeping for the binding.
+class _ConnectionState {
+  _ConnectionState(this.listener);
+
+  final RouterListener listener;
+}
