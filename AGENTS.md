@@ -1,5 +1,8 @@
 # Instructions for Codex agents
 
+Read the README.md and README_NEXT.md. Understand it, read the relevant code and wamp-proto.org specs or relevant GitHub
+discussions on certain topics or implementation specs. Then tell me what's next to be done.
+
 ## Before creating pull requests
 
 - write unit tests for new code lines
