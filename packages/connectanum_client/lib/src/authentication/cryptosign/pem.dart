@@ -1,1 +1,1 @@
-export 'package:connectanum_core/src/authentication/cryptosign/pem.dart';
+export 'package:connectanum_core/authentication.dart' show Pem;

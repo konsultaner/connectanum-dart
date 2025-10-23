@@ -11,8 +11,8 @@ dependencies:
   web: ^1.1.1
   ffi: ^2.1.0
   collection: ^1.18.0
-  connectanum_core:
-    path: ../connectanum_core
+  pinenacl: ^0.6.0
+  connectanum_core: ^0.1.0
 dev_dependencies:
   test: ^1.26.2
   stream_channel: ^2.1.4

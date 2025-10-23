@@ -1,14 +1,10 @@
 import 'dart:async';
 
 import '../abstract_transport.dart';
-import 'package:connectanum_core/src/message/abstract_message.dart';
-import 'package:connectanum_core/src/serializer/abstract_serializer.dart';
-import 'package:connectanum_core/src/serializer/json/serializer.dart'
-    as serializer_json;
-import 'package:connectanum_core/src/serializer/msgpack/serializer.dart'
-    as serializer_msgpack;
-import 'package:connectanum_core/src/serializer/cbor/serializer.dart'
-    as serializer_cbor;
+import 'package:connectanum_core/connectanum_core.dart';
+import 'package:connectanum_core/json_serializer.dart' as serializer_json;
+import 'package:connectanum_core/msgpack_serializer.dart' as serializer_msgpack;
+import 'package:connectanum_core/cbor_serializer.dart' as serializer_cbor;
 import 'websocket_transport_serialization.dart';
 
 /// This is a mock class to provide a unified interface for js and native usage of this package

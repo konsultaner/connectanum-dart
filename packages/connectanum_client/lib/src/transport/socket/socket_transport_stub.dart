@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:connectanum_core/src/serializer/abstract_serializer.dart';
-import 'package:connectanum_core/src/message/abstract_message.dart';
+import 'package:connectanum_core/connectanum_core.dart';
 import '../../transport/socket/socket_helper.dart';
 import '../abstract_transport.dart';
 

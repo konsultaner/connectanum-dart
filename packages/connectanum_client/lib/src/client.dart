@@ -1,14 +1,9 @@
 import 'dart:async';
 
-import 'package:connectanum_core/src/message/goodbye.dart';
+import 'package:connectanum_core/connectanum_core.dart';
 import 'package:logging/logging.dart';
 
-import 'package:connectanum_core/src/message/abort.dart';
-import 'package:connectanum_core/src/message/error.dart';
-
-import 'authentication/abstract_authentication.dart';
 import 'transport/abstract_transport.dart';
-import 'package:connectanum_core/src/message/uri_pattern.dart';
 import 'protocol/session.dart';
 
 enum _ClientState {

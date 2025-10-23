@@ -1,14 +1,13 @@
-import 'package:connectanum_client/authentication.dart';
 import 'package:connectanum_client/connectanum.dart';
 import 'package:test/test.dart';
 
-import '../../authentication/cryptosign/keys.dart';
+import '../../fixtures/cryptosign_keys.dart';
 
 void main() {
   group('Local transport authentication test', () {
     test('success', () async {
       var authentication = CryptosignAuthentication.fromPuttyPrivateKey(
-        MockKeys.ed25519Ppk.value,
+        MockCryptosignKey.ed25519Ppk.value,
       );
       var client = Client(
         realm: "com.connectanum",
@@ -24,7 +23,7 @@ void main() {
         realm: "com.connectanum",
         authenticationMethods: [
           CryptosignAuthentication.fromPuttyPrivateKey(
-            MockKeys.ed25519Ppk.value,
+            MockCryptosignKey.ed25519Ppk.value,
           ),
         ],
         authId: "Burkhardt",

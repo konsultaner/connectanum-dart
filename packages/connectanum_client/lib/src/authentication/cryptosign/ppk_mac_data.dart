@@ -1,1 +1,1 @@
-export 'package:connectanum_core/src/authentication/cryptosign/ppk_mac_data.dart';
+export 'package:connectanum_core/authentication.dart' show PpkMacData;

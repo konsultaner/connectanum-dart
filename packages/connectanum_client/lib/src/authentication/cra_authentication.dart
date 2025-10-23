@@ -1,1 +1,1 @@
-export 'package:connectanum_core/src/authentication/cra_authentication.dart';
+export 'package:connectanum_core/authentication.dart' show CraAuthentication;

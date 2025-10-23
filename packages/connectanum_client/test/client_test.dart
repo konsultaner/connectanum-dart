@@ -3,12 +3,7 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:connectanum_client/authentication.dart';
 import 'package:connectanum_client/connectanum.dart';
-import 'package:connectanum_core/src/message/hello.dart';
-import 'package:connectanum_core/src/message/message_types.dart';
-import 'package:connectanum_core/src/message/welcome.dart';
-import 'package:connectanum_core/src/message/yield.dart';
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 

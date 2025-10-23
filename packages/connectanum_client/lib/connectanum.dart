@@ -2,7 +2,6 @@ library;
 
 export 'src/client.dart';
 export 'src/protocol/session.dart';
-export 'package:connectanum_core/src/serializer/abstract_serializer.dart';
 export 'src/transport/local_transport.dart';
 export 'src/transport/abstract_transport.dart';
 export 'src/transport/websocket/websocket_transport_serialization.dart';

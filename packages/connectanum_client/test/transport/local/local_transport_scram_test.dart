@@ -1,4 +1,3 @@
-import 'package:connectanum_client/authentication.dart';
 import 'package:connectanum_client/connectanum.dart';
 import 'package:test/test.dart';
 

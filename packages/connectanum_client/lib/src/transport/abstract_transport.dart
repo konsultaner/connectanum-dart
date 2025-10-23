@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:connectanum_core/src/message/abstract_message.dart';
+import 'package:connectanum_core/connectanum_core.dart';
 
 abstract class AbstractTransport {
   // make it possible to have a connection state in the transport

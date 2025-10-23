@@ -1,1 +1,1 @@
-export 'package:connectanum_core/src/authentication/cryptosign/pkcs8.dart';
+export 'package:connectanum_core/authentication.dart' show Pkcs8;

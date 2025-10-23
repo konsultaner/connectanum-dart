@@ -1,11 +1,10 @@
 import 'dart:async';
 import 'dart:collection';
 
-import 'package:connectanum_client/authentication.dart';
-import 'package:connectanum_client/connectanum.dart';
-import 'package:connectanum_core/src/message/hello.dart';
-import 'package:connectanum_core/src/message/welcome.dart';
+import 'package:connectanum_core/connectanum_core.dart';
 import 'package:pinenacl/ed25519.dart';
+
+import 'abstract_transport.dart';
 
 class LocalTransport extends AbstractTransport {
   final _receiveController = StreamController<AbstractMessage?>.broadcast();

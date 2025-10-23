@@ -516,16 +516,6 @@ Map<String, dynamic>? _asStringKeyMap(Object? value) {
   throw ArgumentError('Expected map but received $value');
 }
 
-List<dynamic>? _asList(Object? value) {
-  if (value == null) {
-    return null;
-  }
-  if (value is List) {
-    return List<dynamic>.from(value);
-  }
-  throw ArgumentError('Expected list but received $value');
-}
-
 int? _asInt(Object? value) {
   if (value == null) {
     return null;

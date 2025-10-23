@@ -1,1 +1,2 @@
-export 'package:connectanum_core/src/authentication/cryptosign_authentication.dart';
+export 'package:connectanum_core/authentication.dart'
+    show CryptosignAuthentication;

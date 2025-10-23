@@ -277,6 +277,7 @@ class NativeMessageHandleDecoder {
     : _messageBindings = _MessageBindings(_bindings);
 
   final String libraryPath;
+  // ignore: unused_field
   final ffi.DynamicLibrary _library;
   final CtFfiBindings _bindings;
   final _MessageBindings _messageBindings;
@@ -332,8 +333,8 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
     : _messageBindings = _MessageBindings(_bindings);
 
   final String _libraryPath;
-  final ffi.DynamicLibrary
-  _library; // Keep library alive for the runtime life cycle.
+  // ignore: unused_field
+  final ffi.DynamicLibrary _library; // Keep library alive for the runtime life cycle.
   final CtFfiBindings _bindings;
   final _MessageBindings _messageBindings;
 

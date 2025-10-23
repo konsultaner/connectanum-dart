@@ -1,1 +1,1 @@
-export 'package:connectanum_core/src/authentication/cryptosign/bcrypt_pbkdf.dart';
+export 'package:connectanum_core/authentication.dart' show BcryptPbkdf;

@@ -1,38 +1,9 @@
 import 'dart:async';
 
+import 'package:connectanum_core/connectanum_core.dart';
 import 'package:logging/logging.dart';
 
-import 'package:connectanum_core/src/message/abort.dart';
-import 'package:connectanum_core/src/message/abstract_message.dart';
-import 'package:connectanum_core/src/message/abstract_message_with_payload.dart';
-import 'package:connectanum_core/src/message/authenticate.dart';
-import 'package:connectanum_core/src/message/cancel.dart';
-import 'package:connectanum_core/src/message/challenge.dart';
-import 'package:connectanum_core/src/message/goodbye.dart';
-import 'package:connectanum_core/src/message/message_types.dart';
-import 'package:connectanum_core/src/message/unsubscribed.dart';
-import 'package:connectanum_core/src/message/welcome.dart';
-import 'package:connectanum_core/src/message/uri_pattern.dart';
-import 'package:connectanum_core/src/message/details.dart' as details_package;
-import 'package:connectanum_core/src/message/call.dart';
-import 'package:connectanum_core/src/message/event.dart';
-import 'package:connectanum_core/src/message/hello.dart';
-import 'package:connectanum_core/src/message/invocation.dart';
-import 'package:connectanum_core/src/message/publish.dart';
-import 'package:connectanum_core/src/message/published.dart';
-import 'package:connectanum_core/src/message/register.dart';
-import 'package:connectanum_core/src/message/registered.dart';
-import 'package:connectanum_core/src/message/result.dart';
-import 'package:connectanum_core/src/message/subscribe.dart';
-import 'package:connectanum_core/src/message/subscribed.dart';
-import 'package:connectanum_core/src/message/unregister.dart';
-import 'package:connectanum_core/src/message/unregistered.dart';
-import 'package:connectanum_core/src/message/unsubscribe.dart';
-import 'package:connectanum_core/src/message/error.dart';
 import '../transport/abstract_transport.dart';
-import 'package:connectanum_core/src/authentication/abstract_authentication.dart';
-import 'package:connectanum_core/src/message/e2ee_payload.dart';
-import 'package:connectanum_core/src/message/ppt_payload.dart';
 
 class Session {
   static final Logger _logger = Logger('Connectanum.Session');
@@ -107,7 +78,7 @@ class Session {
     final session = Session(realm, transport);
 
     /// Initialize the sub protocol with a hello message
-    final hello = Hello(realm, details_package.Details.forHello());
+    final hello = Hello(realm, Details.forHello());
     if (authId != null) {
       hello.details.authid = authId;
     }

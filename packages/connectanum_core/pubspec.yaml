@@ -10,6 +10,9 @@ dependencies:
   saslprep: ^1.0.1
   pointycastle: ^4.0.0
   pinenacl: ^0.6.0
+  logging: ^1.0.0
+  msgpack_dart: ^1.0.0
+  cbor: ^6.3.7
 dev_dependencies:
   lints: ^6.0.0
   test: ^1.26.2

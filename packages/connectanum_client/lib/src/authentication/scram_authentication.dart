@@ -1,1 +1,1 @@
-export 'package:connectanum_core/src/authentication/scram_authentication.dart';
+export 'package:connectanum_core/authentication.dart' show ScramAuthentication;
