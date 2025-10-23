@@ -64,6 +64,8 @@ class RouterStateStore {
         command.replyPort.send(snapshot);
       case SessionOpenCommand():
         _openSession(command.realmUri, command.session);
+      case SessionAllocateIdCommand():
+        command.replyPort.send(ids.session.next());
       case SessionCloseCommand():
         _closeSession(command.realmUri, command.sessionId);
       case SubscriptionAddCommand():

@@ -3,7 +3,7 @@ import 'dart:collection';
 import 'dart:convert';
 
 import 'package:connectanum_client/connectanum.dart';
-import 'package:connectanum_client/src/authentication/scram_authentication.dart';
+import 'package:connectanum_core/src/authentication/scram_authentication.dart';
 import 'package:test/test.dart';
 
 void main() {

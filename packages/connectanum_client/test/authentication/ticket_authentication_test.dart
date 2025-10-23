@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:connectanum_client/src/authentication/ticket_authentication.dart';
+import 'package:connectanum_core/src/authentication/ticket_authentication.dart';
 import 'package:connectanum_core/src/message/challenge.dart';
 import 'package:test/test.dart';
 

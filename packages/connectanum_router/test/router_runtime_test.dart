@@ -20,6 +20,7 @@ class _FakeRuntime implements NativeRuntime {
   int _nextId = 1;
   final Map<int, Queue<int>> _pendingConnections = {};
   final Map<int, Queue<NativeIncomingMessage>> _pendingMessages = {};
+  final Map<int, List<Uint8List>> sentMessages = {};
 
   @override
   void applyRouterConfig(Uint8List config) {
@@ -48,6 +49,11 @@ class _FakeRuntime implements NativeRuntime {
 
   @override
   int connectionMaxRawSocketExponent(int connectionId) => 16;
+
+  @override
+  void sendMessage(int connectionId, Uint8List payload) {
+    sentMessages.putIfAbsent(connectionId, () => []).add(payload);
+  }
 
   @override
   NativeIncomingMessage? pollMessage(int connectionId) {

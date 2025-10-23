@@ -2108,8 +2108,7 @@ mod tests {
                 );
                 let args_offset = args.as_ptr() as usize - parsed.raw.as_ptr() as usize;
                 assert!(args_offset < parsed.raw.len());
-                let kwargs_offset =
-                    kwargs.as_ptr() as usize - parsed.raw.as_ptr() as usize;
+                let kwargs_offset = kwargs.as_ptr() as usize - parsed.raw.as_ptr() as usize;
                 assert!(kwargs_offset < parsed.raw.len());
             }
             other => panic!("unexpected message: {:?}", other),
@@ -2148,8 +2147,7 @@ mod tests {
                 );
                 let args_offset = args.as_ptr() as usize - parsed.raw.as_ptr() as usize;
                 assert!(args_offset < parsed.raw.len());
-                let kwargs_offset =
-                    kwargs.as_ptr() as usize - parsed.raw.as_ptr() as usize;
+                let kwargs_offset = kwargs.as_ptr() as usize - parsed.raw.as_ptr() as usize;
                 assert!(kwargs_offset < parsed.raw.len());
             }
             other => panic!("unexpected message: {:?}", other),

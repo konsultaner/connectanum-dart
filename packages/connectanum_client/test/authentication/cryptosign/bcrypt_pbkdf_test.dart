@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:connectanum_client/src/authentication/cryptosign/bcrypt_pbkdf.dart';
+import 'package:connectanum_core/src/authentication/cryptosign/bcrypt_pbkdf.dart';
 import 'package:test/test.dart';
 
 void main() {

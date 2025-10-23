@@ -30,7 +30,7 @@ import 'package:connectanum_core/src/message/unregistered.dart';
 import 'package:connectanum_core/src/message/unsubscribe.dart';
 import 'package:connectanum_core/src/message/error.dart';
 import '../transport/abstract_transport.dart';
-import '../authentication/abstract_authentication.dart';
+import 'package:connectanum_core/src/authentication/abstract_authentication.dart';
 import 'package:connectanum_core/src/message/e2ee_payload.dart';
 import 'package:connectanum_core/src/message/ppt_payload.dart';
 

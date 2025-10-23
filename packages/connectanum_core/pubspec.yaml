@@ -7,8 +7,10 @@ environment:
 dependencies:
   meta: ^1.16.0
   collection: ^1.18.0
+  saslprep: ^1.0.1
+  pointycastle: ^4.0.0
+  pinenacl: ^0.6.0
 dev_dependencies:
   lints: ^6.0.0
   test: ^1.26.2
-  pinenacl: ^0.6.0
 resolution: workspace

@@ -334,8 +334,14 @@ class Serializer extends AbstractSerializer {
     if (message is Hello) {
       return '[${MessageTypes.codeHello},${message.realm == null ? 'null' : '"${message.realm!}"'},${_serializeDetails(message.details)}]';
     }
+    if (message is Challenge) {
+      return '[${MessageTypes.codeChallenge},"${message.authMethod}",${json.encode(_challengeExtraToMap(message.extra))}]';
+    }
     if (message is Authenticate) {
       return '[${MessageTypes.codeAuthenticate},"${message.signature ?? ""}",${message.extra == null ? '{}' : json.encode(message.extra)}]';
+    }
+    if (message is Welcome) {
+      return '[${MessageTypes.codeWelcome},${message.sessionId},${_serializeDetails(message.details)}]';
     }
     if (message is Register) {
       return '[${MessageTypes.codeRegister},${message.requestId},${_serializeRegisterOptions(message.options)},"${message.procedure}"]';
@@ -697,5 +703,34 @@ class Serializer extends AbstractSerializer {
     var str =
         '{"args": ${json.encode(pptMap['arguments'])}, "kwargs": ${json.encode(pptMap['argumentsKeywords'])}}';
     return Utf8Encoder().convert(str);
+  }
+
+  Map<String, Object?> _challengeExtraToMap(Extra extra) {
+    final map = <String, Object?>{};
+    if (extra.challenge != null) {
+      map['challenge'] = extra.challenge;
+    }
+    if (extra.salt != null) {
+      map['salt'] = extra.salt;
+    }
+    if (extra.keyLen != null) {
+      map['keylen'] = extra.keyLen;
+    }
+    if (extra.iterations != null) {
+      map['iterations'] = extra.iterations;
+    }
+    if (extra.memory != null) {
+      map['memory'] = extra.memory;
+    }
+    if (extra.kdf != null) {
+      map['kdf'] = extra.kdf;
+    }
+    if (extra.channelBinding != null) {
+      map['channel_binding'] = extra.channelBinding;
+    }
+    if (extra.nonce != null) {
+      map['nonce'] = extra.nonce;
+    }
+    return map;
   }
 }

@@ -15,6 +15,7 @@ abstract class NativeRuntime {
   int getLocalPort(int listenerId);
   int pollConnection(int listenerId);
   int connectionMaxRawSocketExponent(int connectionId);
+  void sendMessage(int connectionId, Uint8List payload);
   void applyRouterConfig(Uint8List config);
   NativeIncomingMessage? pollMessage(int connectionId);
 }
@@ -416,6 +417,35 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
       _throwForError(result, 'Failed to query raw socket exponent');
     }
     return result;
+  }
+
+  @override
+  void sendMessage(int connectionId, Uint8List payload) {
+    if (payload.isEmpty) {
+      final result = _bindings.ctSendMessage(
+        connectionId,
+        ffi.nullptr.cast(),
+        0,
+      );
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'Failed to send message');
+      }
+      return;
+    }
+    final ptr = calloc<ffi.Uint8>(payload.length);
+    try {
+      ptr.asTypedList(payload.length).setAll(0, payload);
+      final result = _bindings.ctSendMessage(
+        connectionId,
+        ptr,
+        payload.length,
+      );
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'Failed to send message');
+      }
+    } finally {
+      calloc.free(ptr);
+    }
   }
 
   void _checkZero(int code, String context) {

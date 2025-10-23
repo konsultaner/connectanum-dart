@@ -198,6 +198,19 @@ class _RouterBoss {
       'listenerId': listener.listenerId,
       'libraryPath': libraryPathHint,
       'statePort': _stateStore.commandPort,
+      'settings': RouterSettingsCodec.toMap(settings),
+      'listener': {
+        'listenerId': listener.listenerId,
+        'port': listener.port,
+        'endpoint': RouterSettingsCodec.endpointToMap(listener.endpoint),
+      },
+      'listeners': listeners
+          .map((entry) => {
+                'listenerId': entry.listenerId,
+                'port': entry.port,
+                'endpoint': RouterSettingsCodec.endpointToMap(entry.endpoint),
+              })
+          .toList(growable: false),
     };
     final isolate = await Isolate.spawn<Map<String, Object?>>(
       entryPoint,
@@ -226,6 +239,25 @@ class _RouterBoss {
         ..['type'] = 'worker_registered'
         ..['connectionId'] = message['connectionId']
         ..['listenerId'] = message['listenerId'];
+    } else if (type == 'worker_send') {
+      final connectionId = message['connectionId'] as int;
+      final Uint8List payloadBytes = message['payload'] as Uint8List;
+      try {
+        runtime.sendMessage(connectionId, payloadBytes);
+        payload
+          ..['type'] = 'worker_send'
+          ..['connectionId'] = connectionId;
+      } on NativeTransportException catch (error) {
+        payload
+          ..['type'] = 'worker_send_error'
+          ..['connectionId'] = connectionId
+          ..['error'] = error.toString();
+      } on UnsupportedError catch (error) {
+        payload
+          ..['type'] = 'worker_send_unsupported'
+          ..['connectionId'] = connectionId
+          ..['error'] = error.toString();
+      }
     } else if (type == _workerEventConnectionAdded) {
       payload
         ..['type'] = 'worker_connection_added'

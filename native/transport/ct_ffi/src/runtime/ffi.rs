@@ -6,8 +6,8 @@ use std::ptr;
 
 use ct_core::{
     accept_channel, apply_router_config, connection_rawsocket_max_exponent, listen, local_addr,
-    poll_connection_message, shutdown, start_runtime, ConnectionId, Error as CoreError, ListenerId,
-    WampMessage,
+    poll_connection_message, send_wamp_message, shutdown, start_runtime, ConnectionId,
+    Error as CoreError, ListenerId, WampMessage,
 };
 
 use crate::callbacks::{
@@ -187,6 +187,31 @@ pub extern "C" fn ct_poll_connection_message(connection_id: c_int) -> c_int {
             store_message(info) as c_int
         }
         Ok(None) => 0,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_send_message(
+    connection_id: c_int,
+    payload_ptr: *const u8,
+    payload_len: c_int,
+) -> c_int {
+    if payload_len < 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let connection_id = ConnectionId(connection_id as u32);
+    let payload = if payload_len == 0 {
+        Bytes::new()
+    } else {
+        if payload_ptr.is_null() {
+            return ERR_INVALID_ARGUMENT;
+        }
+        let slice = unsafe { std::slice::from_raw_parts(payload_ptr, payload_len as usize) };
+        Bytes::copy_from_slice(slice)
+    };
+    match send_wamp_message(connection_id, payload) {
+        Ok(()) => SUCCESS,
         Err(err) => map_error(err),
     }
 }

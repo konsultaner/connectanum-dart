@@ -14,13 +14,14 @@
 - [ ] HTTP RPC bridge (forward HTTP requests into WAMP RPCs and return responses)
 - [ ] HTTP forwarding hooks for custom routing/handling in RPC implementations
 - [ ] Graceful shutdown (drain sessions, send GOODBYE/HTTP responses, stop listeners)
+- [x] Outbound frame bridge (`ct_send`/FFI) for CHALLENGE/WELCOME/EVENT delivery
 
 ## Router State & Infrastructure
 
-- [ ] Central `RouterStateStore` (realms, sessions, subscriptions, registrations)
-- [ ] Realm snapshots & invalidation events for workers
-- [ ] Command API (async mutation/query from workers)
-- [ ] Persistent ID allocators (session/subscription/registration/publication/ invocation/request)
+- [x] Central `RouterStateStore` (realms, sessions, subscriptions, registrations)
+- [x] Realm snapshots & invalidation events for workers
+- [x] Command API (async mutation/query from workers)
+- [x] Persistent ID allocators (session/subscription/registration/publication/ invocation/request)
 - [ ] Meta event dispatch plumbing (session/subscription/registration meta)
 - [ ] Metrics counters / observability hooks
 
@@ -29,7 +30,7 @@
 ### Session & Realm Management
 
 - [x] HELLO frame parsing in native layer
-- [ ] HELLO → WELCOME handshake & role negotiation
+- [ ] HELLO → WELCOME handshake & role negotiation (basic anonymous path in place)
 - [ ] ABORT handling (capability or auth failure)
 - [ ] GOODBYE reception & realm cleanup
 - [ ] Heartbeat / ping-pong / session timeout support
@@ -50,7 +51,7 @@
 - [ ] Registration tracking per realm/session
 - [ ] Invocation dispatch + RESULT/ERROR forwarding
 - [ ] ERROR handling for REGISTER/UNREGISTER/CALL
-- [ ] CALL cancelation (basic profile – CANCEL)
+- [ ] CALL cancellation (basic profile – CANCEL)
 
 ## Advanced Profile
 
@@ -73,7 +74,8 @@
 ### Authentication & Authorization
 
 - [ ] Challenge/response (`CHALLENGE`/`AUTHENTICATE`) flow
-- [ ] Pluggable authenticators:
+- [x] Anonymous/no-auth handshake (immediate WELCOME)
+- [ ] Pluggable authenticators (shared client/router implementations):
   - [ ] Static ticket
   - [ ] WAMP-CRA (HMAC challenge/response)
   - [ ] SCRAM (salted challenge/response)
@@ -97,7 +99,7 @@
 - [x] Router example CLI for local testing
 - [ ] Developer docs for native runtime build pipeline
 - [ ] Configuration reference (realm JSON schema, TLS modes, worker tuning)
-- [ ] Crossbar-compatible configuration schema + validation tooling
+- [x] Crossbar-compatible configuration schema + validation tooling
 - [ ] End-to-end smoke tests (native runtime ↔ router ↔ client)
 - [ ] Benchmarks (throughput/latency per worker configuration)
 - [ ] MCP (Model Context Protocol) server implementation for agentic AI integrations

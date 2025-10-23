@@ -272,12 +272,28 @@ class Serializer extends AbstractSerializer {
             _serializeDetails(message.details)!,
       );
     }
+    if (message is Challenge) {
+      return Uint8List.fromList(
+        [147] +
+            msgpack_dart.serialize(MessageTypes.codeChallenge) +
+            msgpack_dart.serialize(message.authMethod) +
+            msgpack_dart.serialize(_challengeExtraToMap(message.extra)),
+      );
+    }
     if (message is Authenticate) {
       return Uint8List.fromList(
         [147] +
             msgpack_dart.serialize(MessageTypes.codeAuthenticate) +
             msgpack_dart.serialize(message.signature ?? '') +
             msgpack_dart.serialize(message.extra ?? '{}'),
+      );
+    }
+    if (message is Welcome) {
+      return Uint8List.fromList(
+        [147] +
+            msgpack_dart.serialize(MessageTypes.codeWelcome) +
+            msgpack_dart.serialize(message.sessionId) +
+            _serializeDetails(message.details)!,
       );
     }
     if (message is Register) {
@@ -713,6 +729,35 @@ class Serializer extends AbstractSerializer {
       'kwargs': pptPayload.argumentsKeywords,
     };
     return msgpack_dart.serialize(pptMap);
+  }
+
+  Map<String, Object?> _challengeExtraToMap(Extra extra) {
+    final map = <String, Object?>{};
+    if (extra.challenge != null) {
+      map['challenge'] = extra.challenge;
+    }
+    if (extra.salt != null) {
+      map['salt'] = extra.salt;
+    }
+    if (extra.keyLen != null) {
+      map['keylen'] = extra.keyLen;
+    }
+    if (extra.iterations != null) {
+      map['iterations'] = extra.iterations;
+    }
+    if (extra.memory != null) {
+      map['memory'] = extra.memory;
+    }
+    if (extra.kdf != null) {
+      map['kdf'] = extra.kdf;
+    }
+    if (extra.channelBinding != null) {
+      map['channel_binding'] = extra.channelBinding;
+    }
+    if (extra.nonce != null) {
+      map['nonce'] = extra.nonce;
+    }
+    return map;
   }
 }
 

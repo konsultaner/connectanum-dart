@@ -2,6 +2,7 @@ use std::io;
 use std::time::Duration;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpStream;
 use tokio::time;
 
@@ -34,7 +35,8 @@ pub enum Serializer {
 
 #[derive(Debug)]
 pub struct NegotiatedSession {
-    pub stream: TcpStream,
+    pub reader: OwnedReadHalf,
+    pub writer: OwnedWriteHalf,
     pub serializer: Serializer,
     pub max_message_size_exponent: u32,
     #[allow(dead_code)]
@@ -150,8 +152,11 @@ pub async fn negotiate(
         }
     }
 
+    let (reader, writer) = stream.into_split();
+
     Ok(NegotiatedSession {
-        stream,
+        reader,
+        writer,
         serializer,
         max_message_size_exponent: final_exponent,
         upgraded,

@@ -1,5 +1,6 @@
 library;
 
+export 'authentication.dart';
 export 'src/message/abstract_message.dart';
 export 'src/message/abstract_message_with_payload.dart';
 export 'src/message/abstract_ppt_options.dart';

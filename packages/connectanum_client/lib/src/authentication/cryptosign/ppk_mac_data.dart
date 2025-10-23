@@ -1,9 +1,1 @@
-import 'dart:typed_data';
-
-class PpkMacData {
-  late String algorithm;
-  late String encryption;
-  late String comment;
-  late Uint8List publicKey;
-  late Uint8List privateKey;
-}
+export 'package:connectanum_core/src/authentication/cryptosign/ppk_mac_data.dart';

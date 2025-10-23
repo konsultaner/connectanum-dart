@@ -15,9 +15,9 @@ use bytes::{Bytes, BytesMut};
 use thiserror::Error;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
-    net::TcpStream as TokioTcpStream,
+    net::tcp::{OwnedReadHalf, OwnedWriteHalf},
     runtime::Runtime,
-    sync::mpsc::{self, error::TryRecvError},
+    sync::mpsc::{self, error::TryRecvError, UnboundedReceiver, UnboundedSender},
     task::JoinHandle,
     time,
 };
@@ -127,6 +127,8 @@ struct ConnectionEntry {
     max_exponent: u32,
     frames: Mutex<mpsc::Receiver<wamp::ParsedMessage>>,
     reader_task: JoinHandle<()>,
+    writer_task: JoinHandle<()>,
+    send_tx: UnboundedSender<OutboundFrame>,
 }
 
 impl RuntimeManager {
@@ -231,6 +233,7 @@ impl ListenerRegistry {
             .collect();
         for entry in connection_entries {
             entry.reader_task.abort();
+            entry.writer_task.abort();
         }
     }
 
@@ -243,14 +246,19 @@ impl ListenerRegistry {
         peer_addr: SocketAddr,
     ) {
         let (frame_tx, frame_rx) = mpsc::channel(1024);
+        let (send_tx, send_rx) = mpsc::unbounded_channel();
         let serializer = negotiated.serializer;
         let max_exponent = negotiated.max_message_size_exponent;
         let reader_task = spawn_connection_reader(
             connection_id,
             Arc::clone(&endpoint_config),
-            negotiated,
+            negotiated.reader,
+            serializer,
+            max_exponent,
             frame_tx,
+            send_tx.clone(),
         );
+        let writer_task = spawn_connection_writer(connection_id, negotiated.writer, send_rx);
 
         self.connections
             .lock()
@@ -265,6 +273,8 @@ impl ListenerRegistry {
                     max_exponent,
                     frames: Mutex::new(frame_rx),
                     reader_task,
+                    writer_task,
+                    send_tx,
                 },
             );
     }
@@ -308,6 +318,24 @@ impl ListenerRegistry {
             Err(TryRecvError::Disconnected) => Ok(None),
         }
     }
+
+    fn enqueue_frame(
+        &self,
+        connection_id: ConnectionId,
+        frame: OutboundFrame,
+    ) -> Result<(), Error> {
+        let connections = self
+            .connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let entry = connections
+            .get(&connection_id)
+            .ok_or(Error::ConnectionNotFound(connection_id))?;
+        entry
+            .send_tx
+            .send(frame)
+            .map_err(|_| Error::ConnectionNotFound(connection_id))
+    }
 }
 
 #[derive(Debug)]
@@ -339,25 +367,43 @@ enum InboundFrame {
     Pong,
 }
 
+#[derive(Debug, Clone)]
+struct OutboundFrame {
+    frame_type: u8,
+    payload: Bytes,
+}
+
+impl OutboundFrame {
+    fn message(payload: Bytes) -> Self {
+        Self {
+            frame_type: 0,
+            payload,
+        }
+    }
+
+    fn control(frame_type: u8, payload: Bytes) -> Self {
+        Self {
+            frame_type,
+            payload,
+        }
+    }
+}
+
 fn spawn_connection_reader(
     connection_id: ConnectionId,
     endpoint_config: Arc<config::EndpointRuntimeConfig>,
-    negotiated: rawsocket::NegotiatedSession,
+    mut reader: OwnedReadHalf,
+    serializer: rawsocket::Serializer,
+    max_message_size_exponent: u32,
     frame_tx: mpsc::Sender<wamp::ParsedMessage>,
+    send_tx: UnboundedSender<OutboundFrame>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
-        let rawsocket::NegotiatedSession {
-            mut stream,
-            serializer,
-            max_message_size_exponent,
-            ..
-        } = negotiated;
-
         let max_payload = 1u64 << max_message_size_exponent;
         let idle_timeout = endpoint_config.idle_timeout;
 
         loop {
-            let read_future = read_inbound_frame(&mut stream, max_payload);
+            let read_future = read_inbound_frame(&mut reader, max_payload);
             let frame = if let Some(timeout) = idle_timeout {
                 match time::timeout(timeout, read_future).await {
                     Ok(result) => result,
@@ -406,11 +452,7 @@ fn spawn_connection_reader(
                     }
                 },
                 InboundFrame::Ping(payload) => {
-                    if let Err(err) = send_control_frame(&mut stream, 0x02, &payload).await {
-                        eprintln!(
-                            "connection {:?} failed to respond to ping: {}",
-                            connection_id, err
-                        );
+                    if send_tx.send(OutboundFrame::control(0x02, payload)).is_err() {
                         break;
                     }
                 }
@@ -422,8 +464,51 @@ fn spawn_connection_reader(
     })
 }
 
+fn spawn_connection_writer(
+    connection_id: ConnectionId,
+    mut writer: OwnedWriteHalf,
+    mut rx: UnboundedReceiver<OutboundFrame>,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        while let Some(frame) = rx.recv().await {
+            let header = match encode_frame_header(frame.frame_type, frame.payload.len()) {
+                Ok(header) => header,
+                Err(err) => {
+                    eprintln!(
+                        "connection {:?} failed to encode outbound frame header: {}",
+                        connection_id, err
+                    );
+                    continue;
+                }
+            };
+
+            if let Err(err) = writer.write_all(&header).await {
+                if err.kind() != io::ErrorKind::BrokenPipe {
+                    eprintln!(
+                        "connection {:?} failed to write frame header: {}",
+                        connection_id, err
+                    );
+                }
+                break;
+            }
+
+            if !frame.payload.is_empty() {
+                if let Err(err) = writer.write_all(&frame.payload).await {
+                    if err.kind() != io::ErrorKind::BrokenPipe {
+                        eprintln!(
+                            "connection {:?} failed to write frame payload: {}",
+                            connection_id, err
+                        );
+                    }
+                    break;
+                }
+            }
+        }
+    })
+}
+
 async fn read_inbound_frame(
-    stream: &mut TokioTcpStream,
+    stream: &mut OwnedReadHalf,
     max_payload: u64,
 ) -> Result<InboundFrame, FrameReadError> {
     let mut header = [0u8; 4];
@@ -481,20 +566,6 @@ async fn read_inbound_frame(
             frame_type
         ))),
     }
-}
-
-async fn send_control_frame(
-    stream: &mut TokioTcpStream,
-    frame_type: u8,
-    payload: &Bytes,
-) -> io::Result<()> {
-    let header = encode_frame_header(frame_type, payload.len())
-        .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
-    stream.write_all(&header).await?;
-    if !payload.is_empty() {
-        stream.write_all(payload).await?;
-    }
-    Ok(())
 }
 
 fn encode_frame_header(frame_type: u8, payload_len: usize) -> Result<[u8; 4], FrameReadError> {
@@ -695,6 +766,16 @@ pub fn poll_connection_message(
 ) -> Result<Option<wamp::ParsedMessage>, Error> {
     let manager = RuntimeManager::global();
     manager.with_state(|state| state.registry.poll_message(connection_id))
+}
+
+/// Enqueues a WAMP message to be sent to the connection.
+pub fn send_wamp_message(connection_id: ConnectionId, payload: Bytes) -> Result<(), Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| {
+        state
+            .registry
+            .enqueue_frame(connection_id, OutboundFrame::message(payload))
+    })
 }
 
 fn resolve_socket_addr(addr: &str, port: u16) -> Result<SocketAddr, Error> {

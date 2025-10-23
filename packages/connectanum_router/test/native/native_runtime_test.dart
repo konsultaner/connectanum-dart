@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:async/async.dart';
 import 'package:connectanum_core/connectanum_core.dart'
     show Hello, MessageTypes, Publish;
 import 'package:connectanum_router/src/native/runtime.dart';
@@ -50,7 +51,6 @@ void main() {
       await _performHandshake(socket);
       await _sendHelloFrame(socket);
       await _sendPublishFrame(socket);
-      await socket.close();
       await Future<void>.delayed(const Duration(milliseconds: 50));
 
       final polledId = runtime.pollConnection(listenerId);
@@ -119,6 +119,21 @@ void main() {
 
       expect(runtime.pollMessage(polledId), isNull);
 
+      final welcomePayload = utf8.encode(
+        jsonEncode([
+          MessageTypes.codeWelcome,
+          9129137332,
+          {
+            'roles': {
+              'broker': {},
+            },
+          },
+        ]),
+      );
+      runtime.sendMessage(polledId, Uint8List.fromList(welcomePayload));
+      final framePayload = await _readFrame(socket);
+      expect(framePayload, welcomePayload);
+
       expect(
         () => runtime.pollConnection(9999),
         throwsA(isA<NativeTransportException>()),
@@ -132,6 +147,7 @@ void main() {
         throwsA(isA<NativeTransportException>()),
       );
       incoming.dispose();
+      await socket.close();
     }, skip: skipReason);
   });
 }
@@ -198,6 +214,21 @@ Future<void> _sendPublishFrame(Socket socket) async {
   await socket.flush();
 }
 
+Future<List<int>> _readFrame(Socket socket) async {
+  final header = await _readExact(socket, 4);
+  final type = header[0] & 0x07;
+  expect(type, 0);
+  final lengthHi = (header[0] >> 3) & 0x01;
+  var length = (header[1] << 16) | (header[2] << 8) | header[3];
+  if (lengthHi == 1) {
+    length = 1 << 24;
+  }
+  if (length == 0) {
+    return const [];
+  }
+  return _readExact(socket, length);
+}
+
 List<int> _encodeFrameHeader(int length) {
   if (length >= 1 << 24) {
     throw ArgumentError.value(length, 'length', 'Frame too large');
@@ -205,29 +236,48 @@ List<int> _encodeFrameHeader(int length) {
   return [0x00, (length >> 16) & 0xFF, (length >> 8) & 0xFF, length & 0xFF];
 }
 
-Future<List<int>> _readExact(Socket socket, int length) {
-  final completer = Completer<List<int>>();
-  final buffer = <int>[];
-  late StreamSubscription<List<int>> sub;
-  sub = socket.listen(
-    (data) {
-      buffer.addAll(data);
-      if (buffer.length >= length && !completer.isCompleted) {
-        sub.cancel();
-        completer.complete(buffer.sublist(0, length));
-      }
-    },
-    onError: (Object error, StackTrace stackTrace) {
-      if (!completer.isCompleted) {
-        completer.completeError(error, stackTrace);
-      }
-    },
-    onDone: () {
-      if (!completer.isCompleted) {
-        completer.complete(buffer);
-      }
-    },
-    cancelOnError: true,
+final Map<Socket, StreamQueue<List<int>>> _socketQueues = {};
+final Map<Socket, List<int>> _socketLeftovers = {};
+
+Future<List<int>> _readExact(Socket socket, int length) async {
+  final queue = _socketQueues.putIfAbsent(
+    socket,
+    () => StreamQueue(socket.asBroadcastStream()),
   );
-  return completer.future;
+  final leftovers = _socketLeftovers.putIfAbsent(socket, () => <int>[]);
+  final buffer = <int>[];
+
+  void drainLeftovers() {
+    if (leftovers.isEmpty || buffer.length >= length) {
+      return;
+    }
+    final remaining = length - buffer.length;
+    if (leftovers.length <= remaining) {
+      buffer.addAll(leftovers);
+      leftovers.clear();
+    } else {
+      buffer.addAll(leftovers.sublist(0, remaining));
+      leftovers.removeRange(0, remaining);
+    }
+  }
+
+  drainLeftovers();
+
+  while (buffer.length < length) {
+    if (!await queue.hasNext) {
+      break;
+    }
+    final chunk = await queue.next;
+    final remaining = length - buffer.length;
+    if (chunk.length <= remaining) {
+      buffer.addAll(chunk);
+    } else {
+      buffer.addAll(chunk.sublist(0, remaining));
+      leftovers
+        ..clear()
+        ..addAll(chunk.sublist(remaining));
+    }
+  }
+
+  return buffer;
 }

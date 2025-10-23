@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:connectanum_client/src/authentication/cryptosign/pem.dart';
-import 'package:connectanum_client/src/authentication/cryptosign/pkcs8.dart';
-import 'package:connectanum_client/src/authentication/cryptosign/ppk.dart';
-import 'package:connectanum_client/src/authentication/cryptosign_authentication.dart';
+import 'package:connectanum_core/src/authentication/cryptosign/pem.dart';
+import 'package:connectanum_core/src/authentication/cryptosign/pkcs8.dart';
+import 'package:connectanum_core/src/authentication/cryptosign/ppk.dart';
+import 'package:connectanum_core/src/authentication/cryptosign_authentication.dart';
 import 'package:connectanum_core/src/message/challenge.dart';
 import 'package:connectanum_core/src/message/details.dart';
 import 'package:pinenacl/ed25519.dart';

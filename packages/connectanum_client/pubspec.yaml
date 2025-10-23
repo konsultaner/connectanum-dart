@@ -4,9 +4,6 @@ version: 2.2.6
 description: >-
   Connectanum WAMP client implementation for Dart and Flutter.
 dependencies:
-  saslprep: ^1.0.1
-  pointycastle: ^4.0.0
-  pinenacl: ^0.6.0
   logging: ^1.0.0
   meta: ^1.16.0
   msgpack_dart: ^1.0.0

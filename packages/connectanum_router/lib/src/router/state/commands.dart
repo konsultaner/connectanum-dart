@@ -32,6 +32,12 @@ class SessionOpenCommand extends RouterStateCommand {
   final SessionRecord session;
 }
 
+class SessionAllocateIdCommand extends RouterStateCommand {
+  SessionAllocateIdCommand({required this.replyPort});
+
+  final SendPort replyPort;
+}
+
 class SessionCloseCommand extends RouterStateCommand {
   SessionCloseCommand({required this.realmUri, required this.sessionId});
 

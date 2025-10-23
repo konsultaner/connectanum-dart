@@ -26,6 +26,13 @@ typedef CtMessageGetDart = int Function(int, ffi.Pointer<CtMessageInfo>);
 typedef CtMessageReleaseNative = ffi.Void Function(ffi.Int32);
 typedef CtMessageReleaseDart = void Function(int);
 
+typedef CtSendMessageNative = ffi.Int32 Function(
+  ffi.Int32,
+  ffi.Pointer<ffi.Uint8>,
+  ffi.Int32,
+);
+typedef CtSendMessageDart = int Function(int, ffi.Pointer<ffi.Uint8>, int);
+
 typedef CtApplyRouterConfigNative =
     ffi.Int32 Function(ffi.Pointer<ffi.Uint8>, ffi.Int32);
 typedef CtApplyRouterConfigDart = int Function(ffi.Pointer<ffi.Uint8>, int);
@@ -105,6 +112,7 @@ class CtFfiBindings {
           .lookupFunction<CtMessageReleaseNative, CtMessageReleaseDart>(
             'ct_message_release',
           ),
+      ctSendMessage = _lookupSendMessage(library),
       ctApplyRouterConfig = library
           .lookupFunction<CtApplyRouterConfigNative, CtApplyRouterConfigDart>(
             'ct_apply_router_config',
@@ -132,8 +140,21 @@ class CtFfiBindings {
   final CtPollConnectionMessageDart ctPollConnectionMessage;
   final CtMessageGetDart ctMessageGet;
   final CtMessageReleaseDart ctMessageRelease;
+  final CtSendMessageDart ctSendMessage;
   final CtApplyRouterConfigDart ctApplyRouterConfig;
   final CtConnectionMaxRawsocketExponentDart ctConnectionMaxRawsocketExponent;
   final CtSetOnListenerStartedDart ctSetOnListenerStarted;
   final CtSetOnConnectionDart ctSetOnConnection;
+}
+
+CtSendMessageDart _lookupSendMessage(ffi.DynamicLibrary library) {
+  try {
+    return library.lookupFunction<CtSendMessageNative, CtSendMessageDart>(
+      'ct_send_message',
+    );
+  } on ArgumentError {
+    throw UnsupportedError(
+      'ct_send_message symbol not found in native runtime. Please rebuild native/transport.',
+    );
+  }
 }

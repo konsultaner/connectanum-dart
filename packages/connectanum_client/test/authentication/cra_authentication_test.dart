@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:connectanum_client/src/authentication/cra_authentication.dart';
+import 'package:connectanum_core/src/authentication/cra_authentication.dart';
 import 'package:connectanum_core/src/message/challenge.dart';
 import 'package:connectanum_core/src/message/error.dart';
 import 'package:test/test.dart';

@@ -136,7 +136,8 @@ fn poll_connection_message_returns_payload() {
             "com.example.topic",
             [1, 2, 3],
             {"flag": true}
-        ])).unwrap();
+        ]))
+        .unwrap();
         send_json_frame(&mut stream, &message).await;
         tokio::time::sleep(Duration::from_millis(50)).await;
     });
