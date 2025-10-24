@@ -3,17 +3,32 @@ import 'abstract_message.dart';
 
 /// The WAMP Abort massage
 class Abort extends AbstractMessage {
-  Message? message;
-  String reason;
-
-  /// Creates a WAMP Abort message with a [reason] why something was aborted and an
-  /// optional [message] to describe the issue
-  Abort(this.reason, {String? message}) {
+  Abort(
+    this.reason, {
+    Map<String, Object?>? details,
+    String? message,
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+  }) : details = Map<String, Object?>.from(details ?? const {}),
+       arguments = arguments == null ? null : List<dynamic>.from(arguments),
+       argumentsKeywords = argumentsKeywords == null
+           ? null
+           : Map<String, Object?>.from(argumentsKeywords) {
     id = MessageTypes.codeAbort;
     if (message != null) {
       this.message = Message(message);
+      this.details['message'] = message;
+    } else if (this.details.containsKey('message') &&
+        this.details['message'] is String) {
+      this.message = Message(this.details['message'] as String);
     }
   }
+
+  final Map<String, Object?> details;
+  final List<dynamic>? arguments;
+  final Map<String, Object?>? argumentsKeywords;
+  Message? message;
+  String reason;
 }
 
 /// The message structure defined by the WAMP-Protocol

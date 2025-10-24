@@ -230,9 +230,27 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeAbort) {
+        final details = message.length > 1 && message[1] != null
+            ? Map<String, Object?>.from(message[1] as Map<String, dynamic>)
+            : <String, Object?>{};
+        final reason = message.length > 2 ? message[2] as String : '';
+        List<dynamic>? arguments;
+        Map<String, Object?>? argumentsKeywords;
+        if (message.length > 3 && message[3] != null) {
+          arguments = List<dynamic>.from(message[3] as List);
+        }
+        if (message.length > 4 && message[4] != null) {
+          argumentsKeywords = Map<String, Object?>.from(
+            message[4] as Map<String, dynamic>,
+          );
+        }
+        final messageText = details['message'] as String?;
         return Abort(
-          message[2],
-          message: message[1] == null ? null : message[1]['message'],
+          reason,
+          details: details,
+          message: messageText,
+          arguments: arguments,
+          argumentsKeywords: argumentsKeywords,
         );
       }
       if (messageId == MessageTypes.codeGoodbye) {
@@ -375,7 +393,21 @@ class Serializer extends AbstractSerializer {
       return '[${MessageTypes.codeError},${message.requestTypeId},${message.requestId},${json.encode(message.details)},"${message.error}"${_serializePayload(message)}]';
     }
     if (message is Abort) {
-      return '[${MessageTypes.codeAbort},${message.message != null ? '{"message":"${message.message!.message}"}' : "{}"},"${message.reason}"]';
+      final data = <dynamic>[
+        MessageTypes.codeAbort,
+        message.details,
+        message.reason,
+      ];
+      if (message.arguments != null) {
+        data.add(message.arguments);
+        if (message.argumentsKeywords != null) {
+          data.add(message.argumentsKeywords);
+        }
+      } else if (message.argumentsKeywords != null) {
+        data.add(const []);
+        data.add(message.argumentsKeywords);
+      }
+      return json.encode(data);
     }
     if (message is Goodbye) {
       return '[${MessageTypes.codeGoodbye},${message.message != null ? '{"message":"${message.message!.message ?? ""}"}' : "{}"},"${message.reason}"]';
@@ -477,6 +509,18 @@ class Serializer extends AbstractSerializer {
       var detailsParts = ['"roles":{${rolesJson.join(",")}}'];
       if (details.authid != null) {
         detailsParts.add('"authid":"${details.authid}"');
+      }
+      if (details.realm != null) {
+        detailsParts.add('"realm":"${details.realm}"');
+      }
+      if (details.authrole != null && details.authrole!.isNotEmpty) {
+        detailsParts.add('"authrole":"${details.authrole}"');
+      }
+      if (details.authmethod != null && details.authmethod!.isNotEmpty) {
+        detailsParts.add('"authmethod":"${details.authmethod}"');
+      }
+      if (details.authprovider != null && details.authprovider!.isNotEmpty) {
+        detailsParts.add('"authprovider":"${details.authprovider}"');
       }
       if (details.authmethods != null && details.authmethods!.isNotEmpty) {
         detailsParts.add(

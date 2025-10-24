@@ -16,30 +16,14 @@ const int _workerEventShutdown = 4;
 const int _workerEventConnectionAdded = 5;
 const int _workerEventConnectionRemoved = 6;
 
-enum _HandshakePhase { awaitingHello, awaitingAuthenticate, open, aborted }
-
-final json_serializer.Serializer _jsonSerializer =
-    json_serializer.Serializer();
+final json_serializer.Serializer _jsonSerializer = json_serializer.Serializer();
 final msgpack_serializer.Serializer _msgpackSerializer =
     msgpack_serializer.Serializer();
 
-class _WorkerConnectionState {
-  _WorkerConnectionState({required this.listener, required this.listenerSettings});
-
-  final RouterListener listener;
-  final ListenerSettings listenerSettings;
-  _HandshakePhase phase = _HandshakePhase.awaitingHello;
-  NativeMessageSerializer? serializer;
-  RealmSettings? realmSettings;
-  String? realmUri;
-  int? sessionId;
-  Details? welcomeDetails;
-  String? authMethod;
-}
-
-RouterListener _decodeListener(Map<String, Object?> data) {
+RouterListener decodeListener(Map<String, Object?> data) {
   final endpointMap = data['endpoint'] as Map<String, Object?>;
-  final sni = (endpointMap['sni_certificates'] as List<dynamic>?)
+  final sni =
+      (endpointMap['sni_certificates'] as List<dynamic>?)
           ?.map((entry) {
             final cert = entry as Map<String, Object?>;
             return SniCertificate(
@@ -60,10 +44,8 @@ RouterListener _decodeListener(Map<String, Object?> data) {
     handshakeTimeout: endpointMap['handshake_timeout_ms'] != null
         ? Duration(milliseconds: endpointMap['handshake_timeout_ms'] as int)
         : null,
-    maxHttpContentLength:
-        endpointMap['max_http_content_length'] as int?,
-    maxRawSocketSizeExponent:
-        endpointMap['max_rawsocket_size_exponent'] as int,
+    maxHttpContentLength: endpointMap['max_http_content_length'] as int?,
+    maxRawSocketSizeExponent: endpointMap['max_rawsocket_size_exponent'] as int,
     webSocketPath: endpointMap['websocket_path'] as String?,
     sniCertificates: sni,
   );
@@ -74,7 +56,7 @@ RouterListener _decodeListener(Map<String, Object?> data) {
   );
 }
 
-ListenerSettings _lookupListenerSettings(
+ListenerSettings lookupListenerSettings(
   RouterSettings settings,
   RouterListener listener,
 ) {
@@ -87,7 +69,7 @@ ListenerSettings _lookupListenerSettings(
   );
 }
 
-RouterListener _resolveListener(
+RouterListener resolveListener(
   Map<int, RouterListener> registry,
   RouterSettings settings,
   int listenerId,
@@ -107,7 +89,8 @@ RouterListener _resolveListener(
   final idleTimeout = template?.endpoint.idleTimeout;
   final handshakeTimeout = template?.endpoint.handshakeTimeout;
   final maxHttp = template?.endpoint.maxHttpContentLength;
-  final sniCertificates = template?.endpoint.sniCertificates ?? const <SniCertificate>[];
+  final sniCertificates =
+      template?.endpoint.sniCertificates ?? const <SniCertificate>[];
   int exponent = template?.endpoint.maxRawSocketSizeExponent ?? 16;
   final websocketPath = template?.endpoint.webSocketPath;
 
@@ -143,186 +126,38 @@ RouterListener _resolveListener(
   return resolved;
 }
 
-bool _allowsAnonymous(List<String> methods) =>
-    methods.isEmpty || methods.contains('anonymous');
-
-bool _clientAllowsAnonymous(List<String>? methods) =>
-    methods == null || methods.isEmpty || methods.contains('anonymous');
-
-Future<void> _handleHello(
+Future<void> sendAbort(
   SendPort bossPort,
-  SendPort? statePort,
-  RouterSettings settings,
-  _WorkerConnectionState state,
-  Hello hello,
+  WorkerConnectionState state,
   int connectionId,
-  RealmContextCache? realmContexts,
-  int workerId,
-) async {
-  if (state.phase != _HandshakePhase.awaitingHello) {
-    await _sendAbort(
-      bossPort,
-      state,
-      connectionId,
-      'wamp.error.protocol_violation',
-      message: 'HELLO received in unexpected state',
-    );
-    state.phase = _HandshakePhase.aborted;
-    return;
-  }
-
-  final realmUri = hello.realm;
-  if (realmUri == null || realmUri.isEmpty) {
-    await _sendAbort(
-      bossPort,
-      state,
-      connectionId,
-      'wamp.error.invalid_uri',
-      message: 'Missing realm in HELLO',
-    );
-    state.phase = _HandshakePhase.aborted;
-    return;
-  }
-
-  RealmSettings? realmSettings;
-  for (final realm in settings.realms) {
-    if (realm.name == realmUri) {
-      realmSettings = realm;
-      break;
-    }
-  }
-  if (realmSettings == null) {
-    await _sendAbort(
-      bossPort,
-      state,
-      connectionId,
-      'wamp.error.no_such_realm',
-      message: 'Realm $realmUri is not configured',
-    );
-    state.phase = _HandshakePhase.aborted;
-    return;
-  }
-  state.realmSettings = realmSettings;
-  state.realmUri = realmUri;
-
-  final realmAllowsAnonymous = _allowsAnonymous(realmSettings.auth.methods);
-  final listenerAllowsAnonymous =
-      _allowsAnonymous(state.listenerSettings.authmethods);
-  final clientAllowsAnonymous =
-      _clientAllowsAnonymous(hello.details.authmethods);
-
-  if (!(realmAllowsAnonymous && listenerAllowsAnonymous && clientAllowsAnonymous)) {
-    await _sendAbort(
-      bossPort,
-      state,
-      connectionId,
-      'wamp.error.not_authorized',
-      message: 'Anonymous authentication is not permitted for realm $realmUri',
-    );
-    state.phase = _HandshakePhase.aborted;
-    return;
-  }
-
-  statePort?.send(
-    RealmEnsureCommand(
-      realmUri: realmUri,
-      options: const <String, Object?>{},
-    ),
-  );
-  realmContexts?.invalidate(realmUri);
-
-  final authId = hello.details.authid ?? 'anonymous';
-  final welcomeDetails = Details.forWelcome(
-    realm: realmUri,
-    authId: authId,
-    authMethod: 'anonymous',
-    authProvider: 'static',
-    authRole: 'anonymous',
-  );
-  state.welcomeDetails = welcomeDetails;
-  state.authMethod = 'anonymous';
-
-  final sessionId = await _allocateSessionId(statePort);
-  state.sessionId = sessionId;
-
+  String reason, {
+  String? message,
+  Map<String, Object?>? details,
+  List<dynamic>? arguments,
+  Map<String, Object?>? argumentsKeywords,
+}) async {
   final serializer = state.serializer ?? NativeMessageSerializer.json;
-  await _sendMessage(
-    bossPort,
-    connectionId,
-    serializer,
-    Welcome(sessionId, welcomeDetails),
-  );
-
-  state.phase = _HandshakePhase.open;
-
-  if (statePort != null) {
-    final session = SessionRecord(
-      id: sessionId,
-      authId: authId,
-      authRole: welcomeDetails.authrole,
-      roles: _extractRolesMap(welcomeDetails),
-      workerId: workerId,
-      connectionId: connectionId,
-      lastActivity: DateTime.now(),
-      listener: state.listener,
-    );
-    statePort.send(
-      SessionOpenCommand(realmUri: realmUri, session: session),
-    );
+  final abortDetails = <String, Object?>{};
+  if (details != null && details.isNotEmpty) {
+    abortDetails.addAll(details);
   }
-}
-
-Future<void> _handleAuthenticate(
-  SendPort bossPort,
-  _WorkerConnectionState state,
-  authenticate_msg.Authenticate authenticate,
-  int connectionId,
-) async {
-  if (state.phase != _HandshakePhase.awaitingAuthenticate) {
-    await _sendAbort(
-      bossPort,
-      state,
-      connectionId,
-      'wamp.error.protocol_violation',
-      message: 'AUTHENTICATE unexpected',
-    );
-    state.phase = _HandshakePhase.aborted;
-    return;
-  }
-
-  await _sendAbort(
-    bossPort,
-    state,
-    connectionId,
-    'wamp.error.not_authorized',
-    message: 'Authentication methods are not yet implemented',
+  final abort = abort_msg.Abort(
+    reason,
+    details: abortDetails.isEmpty ? null : abortDetails,
+    message: message,
+    arguments: arguments,
+    argumentsKeywords: argumentsKeywords,
   );
-  state.phase = _HandshakePhase.aborted;
+  await sendMessage(bossPort, connectionId, serializer, abort);
 }
 
-Future<void> _sendAbort(
-  SendPort bossPort,
-  _WorkerConnectionState state,
-  int connectionId,
-  String reason,
-  {String? message}
-) async {
-  final serializer = state.serializer ?? NativeMessageSerializer.json;
-  await _sendMessage(
-    bossPort,
-    connectionId,
-    serializer,
-    abort_msg.Abort(reason, message: message),
-  );
-}
-
-Future<void> _sendMessage(
+Future<void> sendMessage(
   SendPort bossPort,
   int connectionId,
   NativeMessageSerializer serializer,
   AbstractMessage message,
 ) async {
-  final payload = _encodeMessage(serializer, message);
+  final payload = encodeMessage(serializer, message);
   bossPort.send({
     'type': 'worker_send',
     'connectionId': connectionId,
@@ -330,7 +165,7 @@ Future<void> _sendMessage(
   });
 }
 
-Uint8List _encodeMessage(
+Uint8List encodeMessage(
   NativeMessageSerializer serializer,
   AbstractMessage message,
 ) {
@@ -346,29 +181,15 @@ Uint8List _encodeMessage(
   }
 }
 
-Future<int> _allocateSessionId(SendPort? statePort) async {
+Future<int> allocateSessionId(SendPort? statePort) async {
   if (statePort == null) {
     return DateTime.now().microsecondsSinceEpoch;
   }
   final replyPort = ReceivePort();
-  statePort.send(
-    SessionAllocateIdCommand(replyPort: replyPort.sendPort),
-  );
+  statePort.send(SessionAllocateIdCommand(replyPort: replyPort.sendPort));
   final id = await replyPort.first as int;
   replyPort.close();
   return id;
-}
-
-Map<String, Object?> _extractRolesMap(Details details) {
-  final welcome = Welcome(0, details);
-  final encoded = _jsonSerializer.serializeToString(welcome);
-  final decoded = jsonDecode(encoded) as List<dynamic>;
-  final detailsMap = decoded[2] as Map<String, dynamic>;
-  final roles = detailsMap['roles'];
-  if (roles is Map<String, dynamic>) {
-    return Map<String, Object?>.from(roles);
-  }
-  return <String, Object?>{};
 }
 
 /// Default worker entry point that materialises native message handles in an
@@ -399,24 +220,24 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
   final rawListeners = init['listeners'] as List<dynamic>?;
   if (rawListeners != null) {
     for (final raw in rawListeners) {
-      final listener = _decodeListener(raw as Map<String, Object?>);
+      final listener = decodeListener(raw as Map<String, Object?>);
       listeners[listener.listenerId] = listener;
     }
   }
   if (rawListener != null) {
-    final listener = _decodeListener(rawListener);
+    final listener = decodeListener(rawListener);
     listeners[listener.listenerId] = listener;
   }
 
-  final connectionStates = <int, _WorkerConnectionState>{};
-  final initialListener = _resolveListener(
+  final connectionStates = <int, WorkerConnectionState>{};
+  final initialListener = resolveListener(
     listeners,
     settings,
     initialListenerId,
   );
-  connectionStates[initialConnectionId] = _WorkerConnectionState(
+  connectionStates[initialConnectionId] = WorkerConnectionState(
     listener: initialListener,
-    listenerSettings: _lookupListenerSettings(settings, initialListener),
+    listenerSettings: lookupListenerSettings(settings, initialListener),
   );
 
   bossPort.send({
@@ -426,17 +247,24 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
     'commandPort': commandPort.sendPort,
     'statePort': statePort,
   });
-  bossPort.send({'type': _workerEventReady, 'connectionId': initialConnectionId});
+  bossPort.send({
+    'type': _workerEventReady,
+    'connectionId': initialConnectionId,
+  });
 
   final workerId = Isolate.current.hashCode;
   bool shuttingDown = false;
 
-  Future<void> processMessage(int connectionId, int listenerId, int handle) async {
+  Future<void> processMessage(
+    int connectionId,
+    int listenerId,
+    int handle,
+  ) async {
     final state = connectionStates.putIfAbsent(connectionId, () {
-      final listener = _resolveListener(listeners, settings, listenerId);
-      return _WorkerConnectionState(
+      final listener = resolveListener(listeners, settings, listenerId);
+      return WorkerConnectionState(
         listener: listener,
-        listenerSettings: _lookupListenerSettings(settings, listener),
+        listenerSettings: lookupListenerSettings(settings, listener),
       );
     });
 
@@ -459,9 +287,12 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
         } else if (message is authenticate_msg.Authenticate) {
           await _handleAuthenticate(
             bossPort,
+            statePort,
+            realmContexts,
             state,
             message,
             connectionId,
+            workerId,
           );
         } else {
           // TODO: Forward to session handling once implemented.
@@ -504,10 +335,10 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
       final listenerId = raw[1] as int;
       final newConnectionId = raw[2] as int;
       connections[newConnectionId] = listenerId;
-      final listener = _resolveListener(listeners, settings, listenerId);
-      connectionStates[newConnectionId] = _WorkerConnectionState(
+      final listener = resolveListener(listeners, settings, listenerId);
+      connectionStates[newConnectionId] = WorkerConnectionState(
         listener: listener,
-        listenerSettings: _lookupListenerSettings(settings, listener),
+        listenerSettings: lookupListenerSettings(settings, listener),
       );
       bossPort.send({
         'type': _workerEventConnectionAdded,

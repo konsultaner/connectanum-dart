@@ -7,7 +7,7 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart'
-    show AbstractMessage, Details, Hello, Welcome;
+    show AbstractMessage, Challenge, Details, Extra, Hello, Welcome;
 import 'package:connectanum_core/src/message/abort.dart' as abort_msg;
 import 'package:connectanum_core/src/message/authenticate.dart'
     as authenticate_msg;
@@ -15,6 +15,11 @@ import 'package:connectanum_core/src/serializer/json/serializer.dart'
     as json_serializer;
 import 'package:connectanum_core/src/serializer/msgpack/serializer.dart'
     as msgpack_serializer;
+import 'package:connectanum_core/connectanum_core.dart' as wamp_core show Error;
+import 'package:meta/meta.dart';
+
+import 'config/authenticator.dart';
+import 'config/auth_registry.dart';
 
 import '../native/runtime.dart';
 import 'isolate_support.dart';
@@ -43,5 +48,8 @@ export 'config/router_config_loader.dart';
 part 'router_instance/router_binding.dart';
 part 'router_instance/router_boss.dart';
 part 'router_instance/realm_context.dart';
+part 'state/worker_connection_state.dart';
+part 'state/authenticator_selection.dart';
+part 'router_instance/router_worker_handshake.dart';
 part 'router_instance/router_worker.dart';
 part 'router_instance/router_controller.dart';

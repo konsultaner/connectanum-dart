@@ -1,3 +1,4 @@
+import 'package:connectanum_core/connectanum_core.dart' as wamp_core show Error;
 import '../config/auth_registry.dart';
 import '../config/authenticator.dart';
 import '../config/router_settings.dart';
@@ -7,7 +8,11 @@ bool _defaultsRegistered = false;
 /// Registers the built-in authenticator factories. This should be invoked in
 /// every isolate that intends to use [AuthenticatorRegistry].
 void registerDefaultAuthenticators() {
-  if (_defaultsRegistered) {
+  if (_defaultsRegistered &&
+      AuthenticatorRegistry.factoryFor(
+            const _AnonymousAuthenticatorFactory().method,
+          ) !=
+          null) {
     return;
   }
   AuthenticatorRegistry.registerFactory(const _AnonymousAuthenticatorFactory());
@@ -39,7 +44,8 @@ class _AnonymousAuthenticator extends Authenticator {
 
   @override
   Future<AuthResult> onHello(AuthenticatorContext context) async {
-    final authId = _options['authid'] as String? ??
+    final authId =
+        _options['authid'] as String? ??
         context.helloDetails['authid'] as String? ??
         'anonymous';
     final authRole = _options['authrole'] as String? ?? 'anonymous';
@@ -61,7 +67,7 @@ class _AnonymousAuthenticator extends Authenticator {
   ) async {
     return AuthResult.failure(
       const AuthFailure(
-        reason: 'wamp.error.protocol_violation',
+        reason: wamp_core.Error.protocolViolation,
         message: 'AUTHENTICATE is not expected for anonymous sessions',
       ),
     );

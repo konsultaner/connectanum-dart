@@ -30,8 +30,8 @@
 ### Session & Realm Management
 
 - [x] HELLO frame parsing in native layer
-- [ ] HELLO → WELCOME handshake & role negotiation (basic anonymous path in place)
-- [ ] ABORT handling (capability or auth failure)
+- [x] HELLO → WELCOME handshake & role negotiation (anonymous + challenge/response paths)
+- [x] ABORT handling (capability or auth failure)
 - [ ] GOODBYE reception & realm cleanup
 - [ ] Heartbeat / ping-pong / session timeout support
 
@@ -73,7 +73,8 @@
 
 ### Authentication & Authorization
 
-- [ ] Challenge/response (`CHALLENGE`/`AUTHENTICATE`) flow
+- [x] Challenge/response (`CHALLENGE`/`AUTHENTICATE`) flow
+- [x] Router worker integrates authenticator registry with per-session state/tests
 - [x] Anonymous/no-auth handshake (immediate WELCOME)
 - [ ] Pluggable authenticators (shared client/router implementations):
   - [ ] Static ticket

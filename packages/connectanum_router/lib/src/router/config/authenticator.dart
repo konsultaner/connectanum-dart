@@ -124,9 +124,13 @@ class AuthFailure {
     required this.reason,
     this.message,
     this.details = const {},
+    this.arguments,
+    this.argumentsKeywords,
   });
 
   final String reason;
   final String? message;
   final Map<String, Object?> details;
+  final List<dynamic>? arguments;
+  final Map<String, Object?>? argumentsKeywords;
 }
