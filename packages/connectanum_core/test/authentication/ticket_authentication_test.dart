@@ -26,5 +26,22 @@ void main() {
       expect(receivedExtra, isNotNull);
       expect(receivedExtra.challenge, equals("challenge"));
     });
+
+    test('verifies ticket signatures', () {
+      expect(
+        TicketAuthentication.verify(
+          expectedTicket: secret,
+          providedSignature: secret,
+        ),
+        isTrue,
+      );
+      expect(
+        TicketAuthentication.verify(
+          expectedTicket: secret,
+          providedSignature: 'wrong',
+        ),
+        isFalse,
+      );
+    });
   });
 }

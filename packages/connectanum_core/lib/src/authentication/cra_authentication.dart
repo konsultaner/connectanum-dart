@@ -118,4 +118,45 @@ class CraAuthentication extends AbstractAuthentication {
 
   @override
   String getName() => 'wampcra';
+
+  static String signChallenge({
+    required String secret,
+    required Extra challenge,
+  }) {
+    if (challenge.challenge == null) {
+      throw ArgumentError('challenge.challenge is required');
+    }
+
+    Uint8List key;
+    if (challenge.salt == null) {
+      key = Uint8List.fromList(secret.codeUnits);
+    } else {
+      key = deriveKey(
+        secret,
+        challenge.salt!.codeUnits,
+        iterations: challenge.iterations == null || challenge.iterations! <= 0
+            ? defaultIterations
+            : challenge.iterations!,
+        keylen: challenge.keyLen == null || challenge.keyLen! <= 0
+            ? defaultKeyLength
+            : challenge.keyLen!,
+      );
+    }
+
+    final keyLen = challenge.keyLen == null || challenge.keyLen! <= 0
+        ? defaultKeyLength
+        : challenge.keyLen!;
+
+    return encodeHmac(
+      Uint8List.fromList(base64.encode(key).codeUnits),
+      keyLen,
+      Uint8List.fromList(challenge.challenge!.codeUnits),
+    );
+  }
+
+  static bool verifySignature({
+    required String secret,
+    required Extra challenge,
+    required String signature,
+  }) => signChallenge(secret: secret, challenge: challenge) == signature;
 }

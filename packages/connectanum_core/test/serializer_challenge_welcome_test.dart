@@ -62,8 +62,8 @@ void main() {
       final serializer = msgpack_serializer.Serializer();
       final challenge = Challenge('ticket', Extra(challenge: 'abc'));
       final encoded = serializer.serialize(challenge);
-      final decoded = msgpack_serializer.Serializer().deserialize(encoded)
-          as Challenge;
+      final decoded =
+          msgpack_serializer.Serializer().deserialize(encoded) as Challenge;
       expect(decoded.authMethod, 'ticket');
       expect(decoded.extra.challenge, 'abc');
     });
@@ -79,8 +79,8 @@ void main() {
       );
       final welcome = Welcome(67890, details);
       final encoded = serializer.serialize(welcome);
-      final decoded = msgpack_serializer.Serializer().deserialize(encoded)
-          as Welcome;
+      final decoded =
+          msgpack_serializer.Serializer().deserialize(encoded) as Welcome;
       expect(decoded.sessionId, 67890);
       expect(decoded.details.authid, 'user');
     });

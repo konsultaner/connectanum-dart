@@ -63,6 +63,31 @@ Future<void> _handleHello(
     realmSettings: realmSettings,
     hello: hello,
   );
+  final pendingAuthId = hello.details.authid;
+  state.pendingAuthId = pendingAuthId;
+  if (pendingAuthId != null &&
+      AuthSecurityTracker.isLocked(
+        realmUri,
+        pendingAuthId,
+        realmSettings.limits,
+      )) {
+    await sendAbort(
+      bossPort,
+      state,
+      connectionId,
+      wamp_core.Error.notAuthorized,
+      message: 'Too many failed authentication attempts',
+    );
+    AuthAuditLogger.failure(
+      realmUri: realmUri,
+      method: 'unknown',
+      authId: pendingAuthId,
+      message: 'locked out',
+    );
+    state.pendingAuthId = null;
+    state.phase = HandshakePhase.aborted;
+    return;
+  }
   if (selection == null) {
     await sendAbort(
       bossPort,
@@ -71,6 +96,19 @@ Future<void> _handleHello(
       wamp_core.Error.notAuthorized,
       message: 'No acceptable authentication method',
     );
+    if (pendingAuthId != null) {
+      AuthSecurityTracker.recordFailure(
+        realmUri,
+        pendingAuthId,
+        realmSettings.limits,
+      );
+      AuthAuditLogger.failure(
+        realmUri: realmUri,
+        method: 'unknown',
+        authId: pendingAuthId,
+        message: 'no acceptable method',
+      );
+    }
     state.phase = HandshakePhase.aborted;
     return;
   }
@@ -116,6 +154,7 @@ Future<void> _handleHello(
     state.authContext = context;
 
     final result = await authenticator.onHello(context);
+    state.challengeIssuedAt = DateTime.now();
     await _applyAuthResult(
       bossPort: bossPort,
       statePort: statePort,
@@ -187,6 +226,41 @@ Future<void> _handleAuthenticate(
     signature: signature,
     extra: authenticate.extra ?? const {},
   );
+
+  final limits = state.realmSettings?.limits;
+  if (limits != null &&
+      limits.authTimeoutMs > 0 &&
+      state.challengeIssuedAt != null) {
+    final deadline = state.challengeIssuedAt!.add(
+      Duration(milliseconds: limits.authTimeoutMs),
+    );
+    if (DateTime.now().isAfter(deadline)) {
+      await sendAbort(
+        bossPort,
+        state,
+        connectionId,
+        wamp_core.Error.authenticationFailed,
+        message: 'Authentication timed out',
+      );
+      final authId = state.pendingAuthId;
+      final realmUri = state.realmUri;
+      if (realmUri != null && authId != null) {
+        AuthSecurityTracker.recordFailure(realmUri, authId, limits);
+        AuthAuditLogger.failure(
+          realmUri: realmUri,
+          method: state.authMethod ?? 'unknown',
+          authId: authId,
+          message: 'challenge timeout',
+        );
+      }
+      state.phase = HandshakePhase.aborted;
+      state.authenticator = null;
+      state.authContext = null;
+      state.pendingAuthId = null;
+      state.challengeIssuedAt = null;
+      return;
+    }
+  }
 
   try {
     final result = await state.authenticator!.onAuthenticate(
@@ -269,6 +343,14 @@ Future<void> _openAnonymousSession({
       SessionOpenCommand(realmUri: state.realmUri!, session: session),
     );
   }
+
+  AuthAuditLogger.success(
+    realmUri: state.realmUri ?? 'unknown',
+    method: 'anonymous',
+    authId: authId,
+  );
+  state.pendingAuthId = null;
+  state.challengeIssuedAt = null;
 }
 
 Future<void> _applyAuthResult({
@@ -285,6 +367,7 @@ Future<void> _applyAuthResult({
   if (result.isChallenge && result.challenge != null) {
     state.pendingChallengeExtra = result.challenge!.extra;
     state.phase = HandshakePhase.awaitingAuthenticate;
+    state.challengeIssuedAt = DateTime.now();
     await sendChallenge(
       bossPort,
       state,
@@ -306,6 +389,8 @@ Future<void> _applyAuthResult({
       connectionId: connectionId,
       workerId: workerId,
     );
+    state.pendingAuthId = null;
+    state.challengeIssuedAt = null;
     return;
   }
 
@@ -420,6 +505,18 @@ Future<void> completeAuthenticatedSession({
   if (realmContexts != null && state.realmUri != null) {
     realmContexts.invalidate(state.realmUri!);
   }
+
+  final realmUri = state.realmUri;
+  if (realmUri != null) {
+    AuthSecurityTracker.recordSuccess(realmUri, success.authId);
+    AuthAuditLogger.success(
+      realmUri: realmUri,
+      method: method,
+      authId: success.authId,
+    );
+  }
+  state.pendingAuthId = null;
+  state.challengeIssuedAt = null;
 }
 
 Future<void> handleAuthFailure(
@@ -438,10 +535,26 @@ Future<void> handleAuthFailure(
     arguments: failure.arguments,
     argumentsKeywords: failure.argumentsKeywords,
   );
+  final realmUri = state.realmUri;
+  final authId = state.pendingAuthId;
+  final limits = state.realmSettings?.limits;
+  if (realmUri != null && authId != null && limits != null) {
+    AuthSecurityTracker.recordFailure(realmUri, authId, limits);
+  }
+  if (realmUri != null) {
+    AuthAuditLogger.failure(
+      realmUri: realmUri,
+      method: state.authMethod ?? 'unknown',
+      authId: authId,
+      message: failure.message,
+    );
+  }
   state.phase = HandshakePhase.aborted;
   state.authenticator = null;
   state.authContext = null;
   state.pendingChallengeExtra = null;
+  state.pendingAuthId = null;
+  state.challengeIssuedAt = null;
 }
 
 int? asInt(Object? value) {

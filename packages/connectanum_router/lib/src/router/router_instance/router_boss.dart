@@ -205,11 +205,13 @@ class _RouterBoss {
         'endpoint': RouterSettingsCodec.endpointToMap(listener.endpoint),
       },
       'listeners': listeners
-          .map((entry) => {
-                'listenerId': entry.listenerId,
-                'port': entry.port,
-                'endpoint': RouterSettingsCodec.endpointToMap(entry.endpoint),
-              })
+          .map(
+            (entry) => {
+              'listenerId': entry.listenerId,
+              'port': entry.port,
+              'endpoint': RouterSettingsCodec.endpointToMap(entry.endpoint),
+            },
+          )
           .toList(growable: false),
     };
     final isolate = await Isolate.spawn<Map<String, Object?>>(
@@ -258,6 +260,19 @@ class _RouterBoss {
           ..['connectionId'] = connectionId
           ..['error'] = error.toString();
       }
+    } else if (type == 'worker_forward_message') {
+      final connectionId = message['connectionId'] as int;
+      final target = _connectionOwners[connectionId];
+      if (target != null) {
+        target.commandPort.send([
+          _workerCmdSendMessage,
+          connectionId,
+          message['message'],
+        ]);
+      }
+      payload
+        ..['type'] = 'worker_forward_message'
+        ..['connectionId'] = connectionId;
     } else if (type == _workerEventConnectionAdded) {
       payload
         ..['type'] = 'worker_connection_added'

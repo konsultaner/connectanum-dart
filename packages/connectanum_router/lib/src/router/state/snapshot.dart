@@ -21,10 +21,7 @@ class RealmSnapshot {
 
 /// Response wrapper returned by the state store when serving snapshot queries.
 class RealmSnapshotResponse {
-  RealmSnapshotResponse({
-    required this.snapshot,
-    required this.isNew,
-  });
+  RealmSnapshotResponse({required this.snapshot, required this.isNew});
 
   final RealmSnapshot snapshot;
   final bool isNew;

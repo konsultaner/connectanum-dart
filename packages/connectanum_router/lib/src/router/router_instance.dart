@@ -7,10 +7,39 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart'
-    show AbstractMessage, Challenge, Details, Extra, Hello, Welcome;
+    show
+        AbstractMessage,
+        Challenge,
+        Details,
+        Extra,
+        Hello,
+        MessageTypes,
+        Welcome;
 import 'package:connectanum_core/src/message/abort.dart' as abort_msg;
 import 'package:connectanum_core/src/message/authenticate.dart'
     as authenticate_msg;
+import 'package:connectanum_core/src/message/call.dart' as call_msg;
+import 'package:connectanum_core/src/message/cancel.dart' as cancel_msg;
+import 'package:connectanum_core/src/message/error.dart' as error_msg;
+import 'package:connectanum_core/src/message/goodbye.dart' as goodbye_msg;
+import 'package:connectanum_core/src/message/event.dart' as event_msg;
+import 'package:connectanum_core/src/message/interrupt.dart' as interrupt_msg;
+import 'package:connectanum_core/src/message/publish.dart' as publish_msg;
+import 'package:connectanum_core/src/message/register.dart' as register_msg;
+import 'package:connectanum_core/src/message/registered.dart' as registered_msg;
+import 'package:connectanum_core/src/message/subscribe.dart' as subscribe_msg;
+import 'package:connectanum_core/src/message/subscribed.dart' as subscribed_msg;
+import 'package:connectanum_core/src/message/invocation.dart' as invocation_msg;
+import 'package:connectanum_core/src/message/published.dart' as published_msg;
+import 'package:connectanum_core/src/message/result.dart' as result_msg;
+import 'package:connectanum_core/src/message/unregister.dart' as unregister_msg;
+import 'package:connectanum_core/src/message/unregistered.dart'
+    as unregistered_msg;
+import 'package:connectanum_core/src/message/unsubscribe.dart'
+    as unsubscribe_msg;
+import 'package:connectanum_core/src/message/unsubscribed.dart'
+    as unsubscribed_msg;
+import 'package:connectanum_core/src/message/yield.dart' as yield_msg;
 import 'package:connectanum_core/src/serializer/json/serializer.dart'
     as json_serializer;
 import 'package:connectanum_core/src/serializer/msgpack/serializer.dart'
@@ -38,6 +67,7 @@ import 'config/router_settings.dart';
 import 'config/router_settings_builder.dart';
 import 'config/router_settings_codec.dart';
 import 'auth/default_authenticators.dart';
+import 'auth/security.dart';
 
 export 'models/router_listener.dart';
 export 'models/router_message.dart';
@@ -51,5 +81,6 @@ part 'router_instance/realm_context.dart';
 part 'state/worker_connection_state.dart';
 part 'state/authenticator_selection.dart';
 part 'router_instance/router_worker_handshake.dart';
+part 'router_instance/router_worker_session.dart';
 part 'router_instance/router_worker.dart';
 part 'router_instance/router_controller.dart';

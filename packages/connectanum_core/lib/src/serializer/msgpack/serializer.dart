@@ -361,6 +361,14 @@ class Serializer extends AbstractSerializer {
       res += payload.payload;
       return Uint8List.fromList(res);
     }
+    if (message is Published) {
+      return Uint8List.fromList(
+        [147] +
+            msgpack_dart.serialize(MessageTypes.codePublished) +
+            msgpack_dart.serialize(message.publishRequestId) +
+            msgpack_dart.serialize(message.publicationId),
+      );
+    }
     if (message is Event) {
       var res =
           [147] +
@@ -381,12 +389,45 @@ class Serializer extends AbstractSerializer {
             msgpack_dart.serialize(message.topic),
       );
     }
+    if (message is Subscribed) {
+      return Uint8List.fromList(
+        [147] +
+            msgpack_dart.serialize(MessageTypes.codeSubscribed) +
+            msgpack_dart.serialize(message.subscribeRequestId) +
+            msgpack_dart.serialize(message.subscriptionId),
+      );
+    }
     if (message is Unsubscribe) {
       return Uint8List.fromList(
         [147] +
             msgpack_dart.serialize(MessageTypes.codeUnsubscribe) +
             msgpack_dart.serialize(message.requestId) +
             msgpack_dart.serialize(message.subscriptionId),
+      );
+    }
+    if (message is Unsubscribed) {
+      final details = message.details;
+      if (details != null) {
+        final map = <String, Object?>{};
+        if (details.subscription != null) {
+          map['subscription'] = details.subscription;
+        }
+        if (details.reason != null) {
+          map['reason'] = details.reason;
+        }
+        if (map.isNotEmpty) {
+          return Uint8List.fromList(
+            [147] +
+                msgpack_dart.serialize(MessageTypes.codeUnsubscribed) +
+                msgpack_dart.serialize(message.unsubscribeRequestId) +
+                msgpack_dart.serialize(map),
+          );
+        }
+      }
+      return Uint8List.fromList(
+        [146] +
+            msgpack_dart.serialize(MessageTypes.codeUnsubscribed) +
+            msgpack_dart.serialize(message.unsubscribeRequestId),
       );
     }
     if (message is Error) {
@@ -424,6 +465,21 @@ class Serializer extends AbstractSerializer {
                   : {},
             ) +
             msgpack_dart.serialize(message.reason),
+      );
+    }
+    if (message is Registered) {
+      return Uint8List.fromList(
+        [147] +
+            msgpack_dart.serialize(MessageTypes.codeRegistered) +
+            msgpack_dart.serialize(message.registerRequestId) +
+            msgpack_dart.serialize(message.registrationId),
+      );
+    }
+    if (message is Unregistered) {
+      return Uint8List.fromList(
+        [146] +
+            msgpack_dart.serialize(MessageTypes.codeUnregistered) +
+            msgpack_dart.serialize(message.unregisterRequestId),
       );
     }
 
@@ -763,9 +819,9 @@ class Serializer extends AbstractSerializer {
 
 /// this is a little helper class for payload
 /// serialization and type "safety"
-class SerializedPayload<int, Uint8List> {
-  final int payloadType;
-  final Uint8List payload;
+class SerializedPayload<TTag, TPayload> {
+  final TTag payloadType;
+  final TPayload payload;
 
   SerializedPayload(this.payloadType, this.payload);
 }

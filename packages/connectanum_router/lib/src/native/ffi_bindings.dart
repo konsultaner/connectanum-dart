@@ -26,11 +26,8 @@ typedef CtMessageGetDart = int Function(int, ffi.Pointer<CtMessageInfo>);
 typedef CtMessageReleaseNative = ffi.Void Function(ffi.Int32);
 typedef CtMessageReleaseDart = void Function(int);
 
-typedef CtSendMessageNative = ffi.Int32 Function(
-  ffi.Int32,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Int32,
-);
+typedef CtSendMessageNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32);
 typedef CtSendMessageDart = int Function(int, ffi.Pointer<ffi.Uint8>, int);
 
 typedef CtApplyRouterConfigNative =

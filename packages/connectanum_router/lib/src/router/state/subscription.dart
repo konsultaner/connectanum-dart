@@ -24,9 +24,8 @@ class SubscriptionEntry {
     required this.matchPolicy,
     Map<int, SubscriberRecord>? subscribers,
     Map<String, Object?>? options,
-  })  : subscribers =
-            subscribers ?? SplayTreeMap<int, SubscriberRecord>(),
-        options = options ?? {};
+  }) : subscribers = subscribers ?? SplayTreeMap<int, SubscriberRecord>(),
+       options = options ?? {};
 
   final int id;
   final String topic;
@@ -52,6 +51,33 @@ class SubscriptionSnapshot {
   final TopicMatchPolicy matchPolicy;
   final List<SubscriberRecord> subscribers;
   final Map<String, Object?> options;
+}
+
+/// Matched subscriber returned by routing logic when dispatching EVENTs.
+class SubscriptionMatch {
+  SubscriptionMatch({
+    required this.subscriptionId,
+    required this.sessionId,
+    required this.connectionId,
+    required this.details,
+    this.authRole,
+  });
+
+  final int subscriptionId;
+  final int sessionId;
+  final int connectionId;
+  final Map<String, Object?> details;
+  final String? authRole;
+}
+
+class PublicationRouting {
+  PublicationRouting({
+    required this.publicationId,
+    required this.matches,
+  });
+
+  final int publicationId;
+  final List<SubscriptionMatch> matches;
 }
 
 /// Topic→subscription index supporting exact/prefix/wildcard matching.

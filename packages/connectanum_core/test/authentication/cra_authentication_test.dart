@@ -206,6 +206,22 @@ void main() {
       );
       final authenticate = await authMethod.challenge(extra);
       expect(authenticate.signature, equals(hmac));
+      expect(
+        CraAuthentication.verifySignature(
+          secret: secret,
+          challenge: extra,
+          signature: authenticate.signature!,
+        ),
+        isTrue,
+      );
+      expect(
+        CraAuthentication.verifySignature(
+          secret: secret,
+          challenge: extra,
+          signature: '${authenticate.signature}-tampered',
+        ),
+        isFalse,
+      );
     });
     test('challenge error', () async {
       final authMethod = CraAuthentication(secret);
@@ -244,6 +260,22 @@ void main() {
       final extra = Extra(challenge: challenge);
       final authenticate = await authMethod.challenge(extra);
       expect(authenticate.signature, equals(hmac));
+      expect(
+        CraAuthentication.verifySignature(
+          secret: secret,
+          challenge: extra,
+          signature: authenticate.signature!,
+        ),
+        isTrue,
+      );
+      expect(
+        CraAuthentication.verifySignature(
+          secret: secret,
+          challenge: extra,
+          signature: 'invalid-signature',
+        ),
+        isFalse,
+      );
     });
   });
 }

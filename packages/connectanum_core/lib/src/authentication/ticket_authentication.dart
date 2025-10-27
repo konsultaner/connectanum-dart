@@ -31,4 +31,9 @@ class TicketAuthentication extends AbstractAuthentication {
 
   @override
   String getName() => 'ticket';
+
+  static bool verify({
+    required String expectedTicket,
+    required String providedSignature,
+  }) => expectedTicket == providedSignature;
 }

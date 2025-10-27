@@ -2,23 +2,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart';
-import 'package:connectanum_core/src/message/abstract_message_with_payload.dart';
-import 'package:connectanum_core/src/message/abort.dart' as abort_msg;
-import 'package:connectanum_core/src/message/authenticate.dart'
-    as authenticate_msg;
-import 'package:connectanum_core/src/message/call.dart' as call_msg;
-import 'package:connectanum_core/src/message/cancel.dart' as cancel_msg;
-import 'package:connectanum_core/src/message/goodbye.dart' as goodbye_msg;
-import 'package:connectanum_core/src/message/publish.dart' as publish_msg;
-import 'package:connectanum_core/src/message/register.dart' as register_msg;
-import 'package:connectanum_core/src/message/subscribe.dart' as subscribe_msg;
-import 'package:connectanum_core/src/message/yield.dart' as yield_msg;
-import 'package:connectanum_core/src/message/unregister.dart' as unregister_msg;
-import 'package:connectanum_core/src/message/unsubscribe.dart'
-    as unsubscribe_msg;
-import 'package:connectanum_core/src/message/error.dart' as error_msg;
-import 'package:connectanum_core/src/message/details.dart';
-import 'package:connectanum_core/src/message/message_types.dart';
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 
 import 'runtime.dart';
@@ -67,7 +50,7 @@ AbstractMessage _bindDecoded(List<dynamic> message) {
     return Hello(realm, details);
   }
   if (code == MessageTypes.codeAuthenticate) {
-    final authenticate = authenticate_msg.Authenticate(
+    final authenticate = Authenticate(
       signature: message.length > 1 ? message[1] as String? : null,
     );
     authenticate.extra = _asStringKeyMap(
@@ -77,18 +60,13 @@ AbstractMessage _bindDecoded(List<dynamic> message) {
   }
   if (code == MessageTypes.codeAbort) {
     final reason = message.length > 2 ? message[2] as String : '';
-    return abort_msg.Abort(
-      reason,
-      message: _readOptionalMessageText(message, 1),
-    );
+    return Abort(reason, message: _readOptionalMessageText(message, 1));
   }
   if (code == MessageTypes.codeGoodbye) {
     final details = _asStringKeyMap(message.length > 1 ? message[1] : null);
     final reason = message.length > 2 ? message[2] as String : '';
-    return goodbye_msg.Goodbye(
-      details != null
-          ? goodbye_msg.GoodbyeMessage(details['message'] as String?)
-          : null,
+    return Goodbye(
+      details != null ? GoodbyeMessage(details['message'] as String?) : null,
       reason,
     );
   }
@@ -99,7 +77,7 @@ AbstractMessage _bindDecoded(List<dynamic> message) {
     return _bindSubscribe(message);
   }
   if (code == MessageTypes.codeUnsubscribe) {
-    return unsubscribe_msg.Unsubscribe(message[1] as int, message[2] as int);
+    return Unsubscribe(message[1] as int, message[2] as int);
   }
   if (code == MessageTypes.codeCall) {
     return _bindCall(message);
@@ -111,7 +89,7 @@ AbstractMessage _bindDecoded(List<dynamic> message) {
     return _bindRegister(message);
   }
   if (code == MessageTypes.codeUnregister) {
-    return unregister_msg.Unregister(message[1] as int, message[2] as int);
+    return Unregister(message[1] as int, message[2] as int);
   }
   if (code == MessageTypes.codeYield) {
     return _bindYield(message);
@@ -122,56 +100,56 @@ AbstractMessage _bindDecoded(List<dynamic> message) {
   throw UnsupportedError('WAMP message code $code is not supported');
 }
 
-publish_msg.Publish _bindPublish(List<dynamic> message) {
+Publish _bindPublish(List<dynamic> message) {
   final requestId = message[1] as int;
   final options = _mapPublishOptions(_asStringKeyMap(message[2]));
   final topic = message[3] as String;
-  return publish_msg.Publish(requestId, topic, options: options);
+  return Publish(requestId, topic, options: options);
 }
 
-subscribe_msg.Subscribe _bindSubscribe(List<dynamic> message) {
+Subscribe _bindSubscribe(List<dynamic> message) {
   final requestId = message[1] as int;
   final options = _mapSubscribeOptions(_asStringKeyMap(message[2]));
   final topic = message[3] as String;
-  return subscribe_msg.Subscribe(requestId, topic, options: options);
+  return Subscribe(requestId, topic, options: options);
 }
 
-call_msg.Call _bindCall(List<dynamic> message) {
+Call _bindCall(List<dynamic> message) {
   final requestId = message[1] as int;
   final options = _mapCallOptions(_asStringKeyMap(message[2]));
   final procedure = message[3] as String;
-  return call_msg.Call(requestId, procedure, options: options);
+  return Call(requestId, procedure, options: options);
 }
 
-cancel_msg.Cancel _bindCancel(List<dynamic> message) {
+Cancel _bindCancel(List<dynamic> message) {
   final requestId = message[1] as int;
   final options = _mapCancelOptions(
     _asStringKeyMap(message.length > 2 ? message[2] : null),
   );
-  return cancel_msg.Cancel(requestId, options: options);
+  return Cancel(requestId, options: options);
 }
 
-register_msg.Register _bindRegister(List<dynamic> message) {
+Register _bindRegister(List<dynamic> message) {
   final requestId = message[1] as int;
   final options = _mapRegisterOptions(_asStringKeyMap(message[2]));
   final procedure = message[3] as String;
-  return register_msg.Register(requestId, procedure, options: options);
+  return Register(requestId, procedure, options: options);
 }
 
-yield_msg.Yield _bindYield(List<dynamic> message) {
+Yield _bindYield(List<dynamic> message) {
   final requestId = message[1] as int;
   final options = _mapYieldOptions(
     _asStringKeyMap(message.length > 2 ? message[2] : null),
   );
-  return yield_msg.Yield(requestId, options: options);
+  return Yield(requestId, options: options);
 }
 
-error_msg.Error _bindError(List<dynamic> message) {
+Error _bindError(List<dynamic> message) {
   final requestTypeId = message[1] as int;
   final requestId = message[2] as int;
   final details = _asStringKeyMap(message[3]) ?? <String, dynamic>{};
   final error = message.length > 4 ? message[4] as String? : null;
-  return error_msg.Error(requestTypeId, requestId, details, error);
+  return Error(requestTypeId, requestId, details, error);
 }
 
 void _applyLazyPayload(
@@ -427,9 +405,9 @@ CallerFeatures? _mapCallerFeatures(Map<String, dynamic>? map) {
   return features;
 }
 
-publish_msg.PublishOptions? _mapPublishOptions(Map<String, dynamic>? map) {
+PublishOptions? _mapPublishOptions(Map<String, dynamic>? map) {
   if (map == null) return null;
-  return publish_msg.PublishOptions(
+  return PublishOptions(
     acknowledge: map['acknowledge'] as bool?,
     exclude: _asIntList(map['exclude']),
     excludeAuthId: _asStringList(map['exclude_authid']),
@@ -447,20 +425,18 @@ publish_msg.PublishOptions? _mapPublishOptions(Map<String, dynamic>? map) {
   );
 }
 
-subscribe_msg.SubscribeOptions? _mapSubscribeOptions(
-  Map<String, dynamic>? map,
-) {
+SubscribeOptions? _mapSubscribeOptions(Map<String, dynamic>? map) {
   if (map == null) return null;
-  return subscribe_msg.SubscribeOptions(
+  return SubscribeOptions(
     match: map['match'] as String?,
     metaTopic: map['meta_topic'] as String?,
     getRetained: map['get_retained'] as bool?,
   );
 }
 
-call_msg.CallOptions? _mapCallOptions(Map<String, dynamic>? map) {
+CallOptions? _mapCallOptions(Map<String, dynamic>? map) {
   if (map == null) return null;
-  return call_msg.CallOptions(
+  return CallOptions(
     receiveProgress: map['receive_progress'] as bool?,
     timeout: _asInt(map['timeout']),
     discloseMe: map['disclose_me'] as bool?,
@@ -471,25 +447,25 @@ call_msg.CallOptions? _mapCallOptions(Map<String, dynamic>? map) {
   );
 }
 
-cancel_msg.CancelOptions? _mapCancelOptions(Map<String, dynamic>? map) {
+CancelOptions? _mapCancelOptions(Map<String, dynamic>? map) {
   if (map == null) return null;
-  final options = cancel_msg.CancelOptions();
+  final options = CancelOptions();
   options.mode = map['mode'] as String?;
   return options;
 }
 
-register_msg.RegisterOptions? _mapRegisterOptions(Map<String, dynamic>? map) {
+RegisterOptions? _mapRegisterOptions(Map<String, dynamic>? map) {
   if (map == null) return null;
-  return register_msg.RegisterOptions(
+  return RegisterOptions(
     discloseCaller: map['disclose_caller'] as bool?,
     match: map['match'] as String?,
     invoke: map['invoke'] as String?,
   );
 }
 
-yield_msg.YieldOptions? _mapYieldOptions(Map<String, dynamic>? map) {
+YieldOptions? _mapYieldOptions(Map<String, dynamic>? map) {
   if (map == null) return null;
-  return yield_msg.YieldOptions(
+  return YieldOptions(
     progress: map['progress'] as bool?,
     pptScheme: map['ppt_scheme'] as String?,
     pptSerializer: map['ppt_serializer'] as String?,

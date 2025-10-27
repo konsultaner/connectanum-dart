@@ -17,12 +17,13 @@ import 'package:connectanum_core/src/message/publish.dart';
 import 'package:connectanum_core/src/message/published.dart';
 import 'package:connectanum_core/src/message/register.dart';
 import 'package:connectanum_core/src/message/invocation.dart';
-import 'package:connectanum_core/src/message/registered.dart';
+import 'package:connectanum_core/src/message/registered.dart' as registered_msg;
 import 'package:connectanum_core/src/message/result.dart';
 import 'package:connectanum_core/src/message/subscribe.dart';
 import 'package:connectanum_core/src/message/subscribed.dart';
 import 'package:connectanum_core/src/message/unregister.dart';
-import 'package:connectanum_core/src/message/unregistered.dart';
+import 'package:connectanum_core/src/message/unregistered.dart'
+    as unregistered_msg;
 import 'package:connectanum_core/src/message/unsubscribe.dart';
 import 'package:connectanum_core/src/message/details.dart';
 import 'package:connectanum_core/src/message/unsubscribed.dart';
@@ -154,10 +155,10 @@ class Serializer extends AbstractSerializer {
         return Welcome(message[1], details);
       }
       if (messageId == MessageTypes.codeRegistered) {
-        return Registered(message[1], message[2]);
+        return registered_msg.Registered(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeUnregistered) {
-        return Unregistered(message[1]);
+        return unregistered_msg.Unregistered(message[1]);
       }
       if (messageId == MessageTypes.codeInvocation) {
         return _addPayload(
@@ -380,14 +381,36 @@ class Serializer extends AbstractSerializer {
     if (message is Publish) {
       return '[${MessageTypes.codePublish},${message.requestId},${_serializePublish(message.options)},"${message.topic}"${_serializePayload(message)}]';
     }
+    if (message is Published) {
+      return '[${MessageTypes.codePublished},${message.publishRequestId},${message.publicationId}]';
+    }
     if (message is Event) {
       return '[${MessageTypes.codeEvent},${message.subscriptionId},${message.publicationId}${_serializePayload(message)}]';
     }
     if (message is Subscribe) {
       return '[${MessageTypes.codeSubscribe},${message.requestId},${_serializeSubscribeOptions(message.options)},"${message.topic}"]';
     }
+    if (message is Subscribed) {
+      return '[${MessageTypes.codeSubscribed},${message.subscribeRequestId},${message.subscriptionId}]';
+    }
     if (message is Unsubscribe) {
       return '[${MessageTypes.codeUnsubscribe},${message.requestId},${message.subscriptionId}]';
+    }
+    if (message is Unsubscribed) {
+      final details = message.details;
+      if (details != null) {
+        final map = <String, Object?>{};
+        if (details.subscription != null) {
+          map['subscription'] = details.subscription;
+        }
+        if (details.reason != null) {
+          map['reason'] = details.reason;
+        }
+        if (map.isNotEmpty) {
+          return '[${MessageTypes.codeUnsubscribed},${message.unsubscribeRequestId},${json.encode(map)}]';
+        }
+      }
+      return '[${MessageTypes.codeUnsubscribed},${message.unsubscribeRequestId}]';
     }
     if (message is Error) {
       return '[${MessageTypes.codeError},${message.requestTypeId},${message.requestId},${json.encode(message.details)},"${message.error}"${_serializePayload(message)}]';
@@ -411,6 +434,12 @@ class Serializer extends AbstractSerializer {
     }
     if (message is Goodbye) {
       return '[${MessageTypes.codeGoodbye},${message.message != null ? '{"message":"${message.message!.message ?? ""}"}' : "{}"},"${message.reason}"]';
+    }
+    if (message is registered_msg.Registered) {
+      return '[${MessageTypes.codeRegistered},${message.registerRequestId},${message.registrationId}]';
+    }
+    if (message is unregistered_msg.Unregistered) {
+      return '[${MessageTypes.codeUnregistered},${message.unregisterRequestId}]';
     }
 
     _logger.shout('Could not serialize the message of type: $message');

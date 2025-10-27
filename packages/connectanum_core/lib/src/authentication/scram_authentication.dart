@@ -14,8 +14,8 @@ import 'package:saslprep/saslprep.dart';
 
 /// This class enables SCRAM authentication process with PBKDF2 as key derivation function
 class ScramAuthentication extends AbstractAuthentication {
-  static final String kdfPbkdf2 = 'pbkdf2';
-  static final String kdfArgon = 'argon2id13';
+  static const String kdfPbkdf2 = 'pbkdf2';
+  static const String kdfArgon = 'argon2id13';
   static final int defaultKeyLength = 32;
 
   final Completer<Uint8List> _firstClientKeyCompleter = Completer<Uint8List>();
@@ -232,4 +232,134 @@ class ScramAuthentication extends AbstractAuthentication {
 
   @override
   String getName() => 'wamp-scram';
+
+  static Uint8List deriveSaltedPassword({
+    required String secret,
+    required String salt,
+    required String kdf,
+    required int iterations,
+    int? memory,
+  }) {
+    final secretBytes = Uint8List.fromList(secret.codeUnits);
+    final saltBytes = Uint8List.fromList(base64.decode(salt));
+    if (kdf == kdfArgon) {
+      final generator = Argon2BytesGenerator()
+        ..init(
+          Argon2Parameters(
+            Argon2Parameters.ARGON2_id,
+            saltBytes,
+            desiredKeyLength: defaultKeyLength,
+            iterations: iterations,
+            memory: memory ?? 100,
+            version: Argon2Parameters.ARGON2_VERSION_13,
+          ),
+        );
+      final output = Uint8List(defaultKeyLength);
+      generator.deriveKey(secretBytes, 0, output, 0);
+      return output;
+    }
+
+    final derivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64))
+      ..init(Pbkdf2Parameters(saltBytes, iterations, defaultKeyLength));
+    return derivator.process(secretBytes);
+  }
+
+  static String generateProof({
+    required String secret,
+    required String authId,
+    required String clientNonce,
+    required Map<String, Object?> authExtra,
+    required Extra challenge,
+  }) {
+    if (challenge.salt == null) {
+      throw ArgumentError('challenge.salt is required');
+    }
+    final saltedPassword = deriveSaltedPassword(
+      secret: secret,
+      salt: challenge.salt!,
+      kdf: challenge.kdf ?? kdfPbkdf2,
+      iterations: challenge.iterations ?? CraAuthentication.defaultIterations,
+      memory: challenge.memory,
+    );
+    final clientKey = CraAuthentication.encodeByteHmac(
+      saltedPassword,
+      defaultKeyLength,
+      'Client Key'.codeUnits,
+    );
+    final storedKey = SHA256Digest().process(Uint8List.fromList(clientKey));
+    final authMessage = createAuthMessage(
+      authId,
+      clientNonce,
+      HashMap<String, Object?>.from(authExtra),
+      challenge,
+    );
+    final clientSignature = CraAuthentication.encodeByteHmac(
+      storedKey,
+      defaultKeyLength,
+      authMessage.codeUnits,
+    );
+    final proof = List<int>.generate(
+      clientKey.length,
+      (i) => clientKey[i] ^ clientSignature[i],
+    );
+    return base64.encode(proof);
+  }
+
+  static ScramServerSecrets deriveServerSecrets({
+    required String secret,
+    required String salt,
+    String kdf = kdfPbkdf2,
+    int iterations = CraAuthentication.defaultIterations,
+    int? memory,
+  }) {
+    final saltedPassword = deriveSaltedPassword(
+      secret: secret,
+      salt: salt,
+      kdf: kdf,
+      iterations: iterations,
+      memory: memory,
+    );
+    final clientKey = CraAuthentication.encodeByteHmac(
+      saltedPassword,
+      defaultKeyLength,
+      'Client Key'.codeUnits,
+    );
+    final storedKeyBytes = SHA256Digest().process(
+      Uint8List.fromList(clientKey),
+    );
+    final serverKeyBytes = CraAuthentication.encodeByteHmac(
+      saltedPassword,
+      defaultKeyLength,
+      'Server Key'.codeUnits,
+    );
+    return ScramServerSecrets(
+      storedKey: base64.encode(storedKeyBytes),
+      serverKey: base64.encode(serverKeyBytes),
+    );
+  }
+
+  static bool verifySignature({
+    required String secret,
+    required String authId,
+    required String clientNonce,
+    required Map<String, Object?> authExtra,
+    required Extra challenge,
+    required String clientSignature,
+  }) {
+    final expected = generateProof(
+      secret: secret,
+      authId: authId,
+      clientNonce: clientNonce,
+      authExtra: authExtra,
+      challenge: challenge,
+    );
+    return expected == clientSignature;
+  }
+}
+
+class ScramServerSecrets {
+  const ScramServerSecrets({required this.storedKey, required this.serverKey});
+
+  final String storedKey;
+  final String serverKey;
 }

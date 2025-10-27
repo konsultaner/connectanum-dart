@@ -8,6 +8,7 @@ const int _workerCmdProcess = 1;
 const int _workerCmdShutdown = 2;
 const int _workerCmdAddConnection = 3;
 const int _workerCmdRemoveConnection = 4;
+const int _workerCmdSendMessage = 5;
 
 const int _workerEventRegister = 1;
 const int _workerEventReady = 2;
@@ -295,7 +296,14 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
             workerId,
           );
         } else {
-          // TODO: Forward to session handling once implemented.
+          await _handleSessionMessage(
+            bossPort: bossPort,
+            statePort: statePort,
+            realmContexts: realmContexts,
+            state: state,
+            message: message,
+            connectionId: connectionId,
+          );
         }
       } finally {
         incoming.dispose();
@@ -318,7 +326,7 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
   }
 
   late final StreamSubscription<dynamic> subscription;
-  subscription = commandPort.listen((dynamic raw) {
+  subscription = commandPort.listen((dynamic raw) async {
     if (raw is! List || raw.isEmpty) {
       return;
     }
@@ -353,6 +361,15 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
         'type': _workerEventConnectionRemoved,
         'connectionId': removeId,
       });
+    } else if (command == _workerCmdSendMessage) {
+      final connectionId = raw[1] as int;
+      final AbstractMessage message = raw[2] as AbstractMessage;
+      final state = connectionStates[connectionId];
+      if (state == null) {
+        return;
+      }
+      final serializer = state.serializer ?? NativeMessageSerializer.json;
+      await sendMessage(bossPort, connectionId, serializer, message);
     } else if (command == _workerCmdShutdown) {
       if (shuttingDown) {
         return;

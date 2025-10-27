@@ -1,24 +1,28 @@
 # Next Session Overview
 
-We now have:
-- RouterSettings loader/builder wired through to the worker isolates (Crossbar-style configs parsed once, serialized for isolate init).
-- RouterStateStore integrated with session allocation; workers open sessions via commands when anonymous HELLO completes.
-- Outbound FFI bridge (`ct_send_message`) in place so Dart can emit CHALLENGE/WELCOME/EVENT frames.
-- Anonymous/no-auth handshake path implemented (HELLO → WELCOME, state store update, outbound send).
-- Pluggable authenticator framework in the worker (challenge/response, detailed ABORT metadata, focused unit tests).
+Fresh state:
+- PUB/SUB routing runs end-to-end: worker dispatches EVENTs, respects `exclude_me`, `exclude`, `eligible`, and topic disclosure rules, and acknowledges when requested.
+- RPC path supports full invocation lifecycle; progressive YIELDs are delivered, and `CANCEL` now interrupts the callee and returns `wamp.error.invocation_canceled` to the caller.
+- RouterStateStore exposes `findInvocationByCaller`, enabling proper cancellation cleanup.
+- Worker test suite documents the roadmap: new skipped cases mark meta events, pattern subscriptions, shared registrations, authrole filtering, and router-initiated GOODBYE gaps.
 
 Focus for the next session:
-1. Harden the session lifecycle:
-   - Handle GOODBYE reception/cleanup and heartbeat/timeout scaffolding.
-   - Add tests covering multiple sequential messages over the same socket (reuse the StreamQueue helpers).
-2. Start subscription/registration plumbing:
-   - Use RealmContext/StateStore to track SUBSCRIBE/REGISTER commands.
-   - Sketch outbound EVENT/RESULT dispatching once auth succeeds.
-3. Document the handshake/authenticator architecture and new configuration knobs for contributors.
-4. Knock down analyzer warnings (message_binding imports, native runtime tester annotations).
+1. **Meta Events & GOODBYE**
+   - Emit subscription/registration meta events from the state store and un-skip the new tests.
+   - Add router-initiated GOODBYE/cleanup flow (boss originates GOODBYE + session drain) and cover it in tests.
+2. **Pattern Routing & Shared Registrations**
+   - Implement wildcard/prefix ordering + priority and satisfy the advanced placeholder test.
+   - Introduce shared registration policies (start with round-robin) and wire worker dispatch to use them.
+3. **Authrole Filters & Analyzer Hygiene**
+   - Enforce authrole include/exclude lists when broadcasting EVENTs.
+   - Clear outstanding `dart analyze` issues (notably `packages/connectanum_auth_server`) and document missing dependencies.
+4. **Documentation & Examples**
+   - Update router/auth docs to describe cancellation semantics, new filters, and remaining roadmap checkpoints.
+   - Add a focused example (or expand the router example) showcasing progressive results + cancellation.
 
-Regression suite to run after changes:
-`dart test packages/connectanum_core`
-`dart test packages/connectanum_client`
-`dart test packages/connectanum_router`
-`dart test packages/connectanum_router/test/router_worker_auth_test.dart`
+Regression / validation to run after changes:
+- `dart test packages/connectanum_router/test/router_worker_session_test.dart --chain-stack-traces`
+- `dart test packages/connectanum_router/test/router_worker_auth_test.dart`
+- `dart test packages/connectanum_router`
+- `dart test packages/connectanum_core/test/serializer/json/serializer_test.dart`
+- `dart analyze`

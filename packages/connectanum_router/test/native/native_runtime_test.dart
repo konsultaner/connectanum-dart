@@ -124,9 +124,7 @@ void main() {
           MessageTypes.codeWelcome,
           9129137332,
           {
-            'roles': {
-              'broker': {},
-            },
+            'roles': {'broker': {}},
           },
         ]),
       );

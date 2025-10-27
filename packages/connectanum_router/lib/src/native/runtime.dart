@@ -334,7 +334,7 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
 
   final String _libraryPath;
   // ignore: unused_field
-  final ffi.DynamicLibrary _library; // Keep library alive for the runtime life cycle.
+  final ffi.DynamicLibrary _library; // Retain library for runtime lifetime.
   final CtFfiBindings _bindings;
   final _MessageBindings _messageBindings;
 
@@ -436,11 +436,7 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
     final ptr = calloc<ffi.Uint8>(payload.length);
     try {
       ptr.asTypedList(payload.length).setAll(0, payload);
-      final result = _bindings.ctSendMessage(
-        connectionId,
-        ptr,
-        payload.length,
-      );
+      final result = _bindings.ctSendMessage(connectionId, ptr, payload.length);
       if (result != NativeTransportErrorCode.success) {
         _throwForError(result, 'Failed to send message');
       }

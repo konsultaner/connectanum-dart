@@ -44,9 +44,9 @@ class ProcedureEntry {
     this.policy = InvocationPolicy.single,
     Iterable<RegistrationRecord>? callees,
   }) : callees = SplayTreeMap<int, RegistrationRecord>.fromIterable(
-          callees ?? const <RegistrationRecord>[],
-          key: (record) => record.registrationId,
-        );
+         callees ?? const <RegistrationRecord>[],
+         key: (record) => record.registrationId,
+       );
 
   final int registrationId;
   final String procedure;
@@ -74,9 +74,7 @@ class ProcedureEntry {
       case InvocationPolicy.last:
         return values.last;
       case InvocationPolicy.load:
-        values.sort(
-          (a, b) => a.lastInvocation.compareTo(b.lastInvocation),
-        );
+        values.sort((a, b) => a.lastInvocation.compareTo(b.lastInvocation));
         return values.first;
     }
   }

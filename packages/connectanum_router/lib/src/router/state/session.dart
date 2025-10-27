@@ -65,6 +65,7 @@ class PendingInvocation {
     required this.callerRequestId,
     required this.calleeSessionId,
     required this.allowProgress,
+    required this.callerSessionId,
   });
 
   final int invocationId;
@@ -72,4 +73,5 @@ class PendingInvocation {
   final int callerRequestId;
   final int calleeSessionId;
   final bool allowProgress;
+  final int callerSessionId;
 }

@@ -133,6 +133,26 @@ void main() {
         var extra = Extra(challenge: vector['challenge'], channelBinding: null);
         final authenticate = await authMethod.challenge(extra);
         expect(authenticate.signature, equals(vector['signature']));
+        expect(
+          CryptosignAuthentication.verifySignature(
+            publicKeyHex: authMethod.privateKey.publicKey.encode(
+              Base16Encoder.instance,
+            ),
+            signatureHex: authenticate.signature!,
+            challengeHex: vector['challenge']!,
+          ),
+          isTrue,
+        );
+        expect(
+          CryptosignAuthentication.verifySignature(
+            publicKeyHex: authMethod.privateKey.publicKey.encode(
+              Base16Encoder.instance,
+            ),
+            signatureHex: 'ff${authenticate.signature!.substring(2)}',
+            challengeHex: vector['challenge']!,
+          ),
+          isFalse,
+        );
 
         extra = Extra(
           challenge: vector['challenge'],

@@ -83,6 +83,14 @@ class RouterStateStore {
           command.sessionId,
           command.subscriptionId,
         );
+      case SubscriptionMatchCommand():
+        final routing = _matchSubscriptions(
+          command.realmUri,
+          command.topic,
+          publisherSessionId: command.publisherSessionId,
+          options: command.options,
+        );
+        command.replyPort.send(routing);
       case ProcedureRegisterCommand():
         final registrationId = _registerProcedure(
           command.realmUri,
@@ -106,8 +114,22 @@ class RouterStateStore {
           command.options,
         );
         command.replyPort.send(dispatch);
+      case InvocationFindByCallerCommand():
+        final record = _findInvocationByCaller(
+          command.realmUri,
+          command.callerSessionId,
+          command.requestId,
+        );
+        command.replyPort.send(record);
+      case InvocationGetCommand():
+        final record = _getInvocation(command.realmUri, command.invocationId);
+        command.replyPort.send(record);
       case InvocationCompleteCommand():
-        _completeInvocation(command.realmUri, command.invocationId);
+        final record = _completeInvocation(
+          command.realmUri,
+          command.invocationId,
+        );
+        command.replyPort?.send(record);
     }
   }
 
@@ -284,12 +306,16 @@ class RouterStateStore {
       throw StateError('No available callee for procedure $procedure');
     }
     final invocationId = ids.invocation.next();
+    if (!realm.sessions.containsKey(callerSessionId)) {
+      throw StateError('Caller session $callerSessionId not found');
+    }
     final record = PendingInvocation(
       invocationId: invocationId,
       registrationId: bucket.registrationId,
       callerRequestId: requestId,
       calleeSessionId: callee.sessionId,
       allowProgress: options['receive_progress'] == true,
+      callerSessionId: callerSessionId,
     );
     realm.invocations[invocationId] = record;
     callee.lastInvocation = DateTime.now();
@@ -298,12 +324,105 @@ class RouterStateStore {
       invocationId: invocationId,
       registrationId: bucket.registrationId,
       calleeSessionId: callee.sessionId,
+      calleeConnectionId: _connectionIdForSession(realm, callee.sessionId),
     );
   }
 
-  void _completeInvocation(String realmUri, int invocationId) {
+  PendingInvocation? _completeInvocation(String realmUri, int invocationId) {
     final realm = _realms[realmUri];
-    realm?.invocations.remove(invocationId);
+    return realm?.invocations.remove(invocationId);
+  }
+
+  PendingInvocation? _getInvocation(String realmUri, int invocationId) {
+    final realm = _realms[realmUri];
+    return realm?.invocations[invocationId];
+  }
+
+  PendingInvocation? _findInvocationByCaller(
+    String realmUri,
+    int callerSessionId,
+    int requestId,
+  ) {
+    final realm = _realms[realmUri];
+    if (realm == null) {
+      return null;
+    }
+    for (final record in realm.invocations.values) {
+      if (record.callerSessionId == callerSessionId &&
+          record.callerRequestId == requestId) {
+        return record;
+      }
+    }
+    return null;
+  }
+
+  PublicationRouting _matchSubscriptions(
+    String realmUri,
+    String topic, {
+    required int publisherSessionId,
+    required Map<String, Object?> options,
+  }) {
+    final realm = _getOrCreateRealm(realmUri);
+    final matches = <SubscriptionMatch>[];
+    final publicationId = ids.publication.next();
+    final excludeMe = options['exclude_me'] == true;
+    final excludeIds = _decodeIdSet(options['exclude']);
+    final eligibleIds = _decodeIdSet(options['eligible']);
+    final entries = realm.subscriptionAtlas.match(topic);
+    for (final entry in entries) {
+      entry.subscribers.forEach((sessionId, record) {
+        if (excludeMe && sessionId == publisherSessionId) {
+          return;
+        }
+        if (excludeIds != null && excludeIds.contains(sessionId)) {
+          return;
+        }
+        if (eligibleIds != null && !eligibleIds.contains(sessionId)) {
+          return;
+        }
+        final session = realm.sessions[sessionId];
+        if (session == null) {
+          return;
+        }
+        matches.add(
+          SubscriptionMatch(
+            subscriptionId: entry.id,
+            sessionId: sessionId,
+            connectionId: session.connectionId,
+            authRole: record.authRole,
+            details: Map<String, Object?>.from(record.details),
+          ),
+        );
+      });
+    }
+    return PublicationRouting(publicationId: publicationId, matches: matches);
+  }
+
+  int _connectionIdForSession(RealmRecord realm, int sessionId) {
+    final session = realm.sessions[sessionId];
+    if (session == null) {
+      throw StateError(
+        'Session $sessionId not found in realm ${realm.realmUri}',
+      );
+    }
+    return session.connectionId;
+  }
+
+  Set<int>? _decodeIdSet(Object? value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is Iterable) {
+      final set = <int>{};
+      for (final element in value) {
+        final id = element is int ? element : int.tryParse('$element');
+        if (id != null) {
+          set.add(id);
+        }
+      }
+      return set;
+    }
+    return null;
   }
 }
 
@@ -448,9 +567,11 @@ class InvocationDispatchResult {
     required this.invocationId,
     required this.registrationId,
     required this.calleeSessionId,
+    required this.calleeConnectionId,
   });
 
   final int invocationId;
   final int registrationId;
   final int calleeSessionId;
+  final int calleeConnectionId;
 }

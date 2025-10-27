@@ -20,4 +20,6 @@ class WorkerConnectionState {
   Authenticator? authenticator;
   AuthenticatorContext? authContext;
   Map<String, Object?>? pendingChallengeExtra;
+  String? pendingAuthId;
+  DateTime? challengeIssuedAt;
 }

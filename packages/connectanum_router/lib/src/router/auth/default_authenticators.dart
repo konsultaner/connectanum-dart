@@ -2,6 +2,13 @@ import 'package:connectanum_core/connectanum_core.dart' as wamp_core show Error;
 import '../config/auth_registry.dart';
 import '../config/authenticator.dart';
 import '../config/router_settings.dart';
+import 'ticket_authenticator.dart';
+import 'cra_authenticator.dart';
+import 'scram_authenticator.dart';
+import 'cryptosign_authenticator.dart';
+import 'remote_authenticator.dart';
+
+export 'credentials.dart';
 
 bool _defaultsRegistered = false;
 
@@ -16,6 +23,11 @@ void registerDefaultAuthenticators() {
     return;
   }
   AuthenticatorRegistry.registerFactory(const _AnonymousAuthenticatorFactory());
+  AuthenticatorRegistry.registerFactory(const TicketAuthenticatorFactory());
+  AuthenticatorRegistry.registerFactory(const CraAuthenticatorFactory());
+  AuthenticatorRegistry.registerFactory(const ScramAuthenticatorFactory());
+  AuthenticatorRegistry.registerFactory(const CryptosignAuthenticatorFactory());
+  AuthenticatorRegistry.registerFactory(const RemoteAuthenticatorFactory());
   _defaultsRegistered = true;
 }
 

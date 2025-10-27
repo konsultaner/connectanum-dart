@@ -75,6 +75,22 @@ class SubscriptionRemoveCommand extends RouterStateCommand {
   final int subscriptionId;
 }
 
+class SubscriptionMatchCommand extends RouterStateCommand {
+  SubscriptionMatchCommand({
+    required this.realmUri,
+    required this.topic,
+    required this.publisherSessionId,
+    required this.options,
+    required this.replyPort,
+  });
+
+  final String realmUri;
+  final String topic;
+  final int publisherSessionId;
+  final Map<String, Object?> options;
+  final SendPort replyPort;
+}
+
 class ProcedureRegisterCommand extends RouterStateCommand {
   ProcedureRegisterCommand({
     required this.realmUri,
@@ -121,14 +137,42 @@ class InvocationDispatchCommand extends RouterStateCommand {
   final SendPort replyPort;
 }
 
-class InvocationCompleteCommand extends RouterStateCommand {
-  InvocationCompleteCommand({
+class InvocationGetCommand extends RouterStateCommand {
+  InvocationGetCommand({
     required this.realmUri,
     required this.invocationId,
+    required this.replyPort,
   });
 
   final String realmUri;
   final int invocationId;
+  final SendPort replyPort;
+}
+
+class InvocationFindByCallerCommand extends RouterStateCommand {
+  InvocationFindByCallerCommand({
+    required this.realmUri,
+    required this.callerSessionId,
+    required this.requestId,
+    required this.replyPort,
+  });
+
+  final String realmUri;
+  final int callerSessionId;
+  final int requestId;
+  final SendPort replyPort;
+}
+
+class InvocationCompleteCommand extends RouterStateCommand {
+  InvocationCompleteCommand({
+    required this.realmUri,
+    required this.invocationId,
+    this.replyPort,
+  });
+
+  final String realmUri;
+  final int invocationId;
+  final SendPort? replyPort;
 }
 
 class StateChangedEvent {

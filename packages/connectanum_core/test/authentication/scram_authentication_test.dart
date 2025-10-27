@@ -146,6 +146,36 @@ void main() {
       );
       expect(isVerified, equals(true));
     });
+    test('generate proof helper matches client signature', () {
+      final proof = ScramAuthentication.generateProof(
+        secret: secret,
+        authId: user,
+        clientNonce: helloNonce,
+        authExtra: authExtra,
+        challenge: challengeExtra,
+      );
+      expect(proof, equals(signature));
+    });
+    test('verify helper detects invalid proof', () {
+      final isValid = ScramAuthentication.verifySignature(
+        secret: secret,
+        authId: user,
+        clientNonce: helloNonce,
+        authExtra: authExtra,
+        challenge: challengeExtra,
+        clientSignature: signature,
+      );
+      expect(isValid, isTrue);
+      final invalid = ScramAuthentication.verifySignature(
+        secret: secret,
+        authId: user,
+        clientNonce: helloNonce,
+        authExtra: authExtra,
+        challenge: challengeExtra,
+        clientSignature: '${signature}invalid',
+      );
+      expect(invalid, isFalse);
+    });
     test('on challenge event', () async {
       var challengeExtra2 = Extra(
         iterations: 4096,

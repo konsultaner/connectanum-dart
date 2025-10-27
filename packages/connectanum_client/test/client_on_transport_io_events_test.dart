@@ -154,7 +154,7 @@ void main() {
               currentSocket.close();
             } else {
               server.close(force: true).then((_) {
-                currentSocket.close().then((__) => closeCompleter.complete());
+                currentSocket.close().then((_) => closeCompleter.complete());
               });
             }
           }, onError: (_) {});
@@ -420,7 +420,7 @@ void main() {
               currentSocket.close();
             } else {
               server.close().then((_) {
-                currentSocket.close().then((__) => closeCompleter.complete());
+                currentSocket.close().then((_) => closeCompleter.complete());
               });
             }
           }, onError: (_) {});

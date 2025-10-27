@@ -127,4 +127,30 @@ class CryptosignAuthentication extends AbstractAuthentication {
 
   @override
   String getName() => 'cryptosign';
+
+  static bool verifySignature({
+    required String publicKeyHex,
+    required String signatureHex,
+    required String challengeHex,
+  }) {
+    final signedBytes = hexToBin(signatureHex);
+    if (signedBytes.length < Signature.signatureLength) {
+      return false;
+    }
+    final signatureBytes = Uint8List.fromList(
+      signedBytes.sublist(0, Signature.signatureLength),
+    );
+    final challengeBytes = Uint8List.fromList(hexToBin(challengeHex));
+    final verifyKey = VerifyKey(hexToBin(publicKeyHex));
+
+    try {
+      verifyKey.verify(
+        signature: Signature(signatureBytes),
+        message: challengeBytes,
+      );
+      return true;
+    } on Exception {
+      return false;
+    }
+  }
 }

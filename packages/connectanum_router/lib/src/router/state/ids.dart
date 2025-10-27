@@ -35,12 +35,12 @@ class WampIdAllocatorRegistry {
     WampIdGenerator? invocationIds,
     WampIdGenerator? publicationIds,
     WampIdGenerator? requestIds,
-  })  : session = sessionIds ?? WampIdGenerator(),
-        subscription = subscriptionIds ?? WampIdGenerator(),
-        registration = registrationIds ?? WampIdGenerator(),
-        invocation = invocationIds ?? WampIdGenerator(),
-        publication = publicationIds ?? WampIdGenerator(),
-        request = requestIds ?? WampIdGenerator();
+  }) : session = sessionIds ?? WampIdGenerator(),
+       subscription = subscriptionIds ?? WampIdGenerator(),
+       registration = registrationIds ?? WampIdGenerator(),
+       invocation = invocationIds ?? WampIdGenerator(),
+       publication = publicationIds ?? WampIdGenerator(),
+       request = requestIds ?? WampIdGenerator();
 
   final WampIdGenerator session;
   final WampIdGenerator subscription;

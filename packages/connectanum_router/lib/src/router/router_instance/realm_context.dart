@@ -104,6 +104,109 @@ class RealmContext {
     await ensureSnapshot(forceRefresh: true);
   }
 
+  Future<PublicationRouting> matchSubscriptions({
+    required int publisherSessionId,
+    required String topic,
+    Map<String, Object?> options = const {},
+  }) async {
+    final completer = Completer<PublicationRouting>();
+    final replyPort = ReceivePort();
+    replyPort.listen((dynamic message) {
+      replyPort.close();
+      completer.complete(message as PublicationRouting);
+    });
+    statePort.send(
+      SubscriptionMatchCommand(
+        realmUri: realmUri,
+        topic: topic,
+        publisherSessionId: publisherSessionId,
+        options: options,
+        replyPort: replyPort.sendPort,
+      ),
+    );
+    return completer.future;
+  }
+
+  Future<InvocationDispatchResult> dispatchInvocation({
+    required int callerSessionId,
+    required int requestId,
+    required String procedure,
+    Map<String, Object?> options = const {},
+  }) async {
+    final completer = Completer<InvocationDispatchResult>();
+    final replyPort = ReceivePort();
+    replyPort.listen((dynamic message) {
+      replyPort.close();
+      completer.complete(message as InvocationDispatchResult);
+    });
+    statePort.send(
+      InvocationDispatchCommand(
+        realmUri: realmUri,
+        callerSessionId: callerSessionId,
+        requestId: requestId,
+        procedure: procedure,
+        options: options,
+        replyPort: replyPort.sendPort,
+      ),
+    );
+    return completer.future;
+  }
+
+  Future<PendingInvocation?> getInvocation(int invocationId) async {
+    final completer = Completer<PendingInvocation?>();
+    final replyPort = ReceivePort();
+    replyPort.listen((dynamic message) {
+      replyPort.close();
+      completer.complete(message as PendingInvocation?);
+    });
+    statePort.send(
+      InvocationGetCommand(
+        realmUri: realmUri,
+        invocationId: invocationId,
+        replyPort: replyPort.sendPort,
+      ),
+    );
+    return completer.future;
+  }
+
+  Future<PendingInvocation?> findInvocationByCaller({
+    required int callerSessionId,
+    required int requestId,
+  }) async {
+    final completer = Completer<PendingInvocation?>();
+    final replyPort = ReceivePort();
+    replyPort.listen((dynamic message) {
+      replyPort.close();
+      completer.complete(message as PendingInvocation?);
+    });
+    statePort.send(
+      InvocationFindByCallerCommand(
+        realmUri: realmUri,
+        callerSessionId: callerSessionId,
+        requestId: requestId,
+        replyPort: replyPort.sendPort,
+      ),
+    );
+    return completer.future;
+  }
+
+  Future<PendingInvocation?> completeInvocation(int invocationId) async {
+    final completer = Completer<PendingInvocation?>();
+    final replyPort = ReceivePort();
+    replyPort.listen((dynamic message) {
+      replyPort.close();
+      completer.complete(message as PendingInvocation?);
+    });
+    statePort.send(
+      InvocationCompleteCommand(
+        realmUri: realmUri,
+        invocationId: invocationId,
+        replyPort: replyPort.sendPort,
+      ),
+    );
+    return completer.future;
+  }
+
   Future<RealmSnapshotResponse> _requestSnapshot({int? knownVersion}) async {
     final completer = Completer<RealmSnapshotResponse>();
     final replyPort = ReceivePort();
