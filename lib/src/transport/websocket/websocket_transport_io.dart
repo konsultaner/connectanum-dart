@@ -105,7 +105,7 @@ class WebSocketTransport extends AbstractTransport {
                 milliseconds: (pingInterval.inMilliseconds * 2 / 3).floor()));
       }
     } on SocketException catch (exception) {
-      _onConnectionLost!.complete(exception);
+      complete(_onConnectionLost, exception);
     }
   }
 
@@ -132,13 +132,13 @@ class WebSocketTransport extends AbstractTransport {
       if ((_socket!.closeCode == null || _socket!.closeCode! > 1000) &&
           !_goodbyeSent &&
           !_goodbyeReceived) {
-        _onConnectionLost!.complete();
+        complete(_onConnectionLost, null);
       } else {
-        _onDisconnect!.complete();
+        complete(_onDisconnect, null);
       }
     }, onError: (error) {
       if (!_onDisconnect!.isCompleted) {
-        _onConnectionLost!.complete(error);
+        complete(_onConnectionLost, error);
       }
     });
     return _socket!.map((messageEvent) {
