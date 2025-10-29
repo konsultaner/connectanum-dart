@@ -34,7 +34,15 @@ class RealmContext {
     final replyPort = ReceivePort();
     replyPort.listen((dynamic message) {
       replyPort.close();
-      completer.complete(message as int);
+      if (message is int) {
+        completer.complete(message);
+      } else if (message is StoreErrorResponse) {
+        completer.completeError(StateError(message.message));
+      } else {
+        completer.completeError(
+          StateError('Unexpected subscription response: $message'),
+        );
+      }
     });
     statePort.send(
       SubscriptionAddCommand(
@@ -125,7 +133,15 @@ class RealmContext {
     final replyPort = ReceivePort();
     replyPort.listen((dynamic message) {
       replyPort.close();
-      completer.complete(message as PublicationRouting);
+      if (message is PublicationRouting) {
+        completer.complete(message);
+      } else if (message is StoreErrorResponse) {
+        completer.completeError(StateError(message.message));
+      } else {
+        completer.completeError(
+          StateError('Unexpected subscription match response: $message'),
+        );
+      }
     });
     statePort.send(
       SubscriptionMatchCommand(
@@ -179,7 +195,11 @@ class RealmContext {
     final replyPort = ReceivePort();
     replyPort.listen((dynamic message) {
       replyPort.close();
-      completer.complete(message as PendingInvocation?);
+      if (message is StoreErrorResponse) {
+        completer.completeError(StateError(message.message));
+      } else {
+        completer.complete(message as PendingInvocation?);
+      }
     });
     statePort.send(
       InvocationGetCommand(
@@ -199,7 +219,11 @@ class RealmContext {
     final replyPort = ReceivePort();
     replyPort.listen((dynamic message) {
       replyPort.close();
-      completer.complete(message as PendingInvocation?);
+      if (message is StoreErrorResponse) {
+        completer.completeError(StateError(message.message));
+      } else {
+        completer.complete(message as PendingInvocation?);
+      }
     });
     statePort.send(
       InvocationFindByCallerCommand(
@@ -221,7 +245,15 @@ class RealmContext {
     final replyPort = ReceivePort();
     replyPort.listen((dynamic message) {
       replyPort.close();
-      completer.complete(message as bool);
+      if (message is bool) {
+        completer.complete(message);
+      } else if (message is StoreErrorResponse) {
+        completer.completeError(StateError(message.message));
+      } else {
+        completer.completeError(
+          StateError('Unexpected cancel response: $message'),
+        );
+      }
     });
     statePort.send(
       InvocationCancelCommand(
@@ -240,7 +272,11 @@ class RealmContext {
     final replyPort = ReceivePort();
     replyPort.listen((dynamic message) {
       replyPort.close();
-      completer.complete(message as PendingInvocation?);
+      if (message is StoreErrorResponse) {
+        completer.completeError(StateError(message.message));
+      } else {
+        completer.complete(message as PendingInvocation?);
+      }
     });
     statePort.send(
       InvocationCompleteCommand(
@@ -257,7 +293,15 @@ class RealmContext {
     final replyPort = ReceivePort();
     replyPort.listen((dynamic message) {
       replyPort.close();
-      completer.complete(message as RealmSnapshotResponse);
+      if (message is RealmSnapshotResponse) {
+        completer.complete(message);
+      } else if (message is StoreErrorResponse) {
+        completer.completeError(StateError(message.message));
+      } else {
+        completer.completeError(
+          StateError('Unexpected snapshot response: $message'),
+        );
+      }
     });
     statePort.send(
       RealmSnapshotCommand(

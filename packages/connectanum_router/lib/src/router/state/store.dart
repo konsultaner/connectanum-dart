@@ -80,26 +80,36 @@ class RouterStateStore {
       case RealmEnsureCommand():
         _getOrCreateRealm(command.realmUri);
       case RealmSnapshotCommand():
-        final snapshot = _getSnapshot(
-          command.realmUri,
-          knownVersion: command.knownVersion,
+        _sendGuardedReply(
+          command: command,
+          replyPort: command.replyPort,
+          action: () => _getSnapshot(
+            command.realmUri,
+            knownVersion: command.knownVersion,
+          ),
         );
-        command.replyPort.send(snapshot);
       case SessionOpenCommand():
         _openSession(command.realmUri, command.session);
       case SessionAllocateIdCommand():
-        command.replyPort.send(ids.session.next());
+        _sendGuardedReply(
+          command: command,
+          replyPort: command.replyPort,
+          action: ids.session.next,
+        );
       case SessionCloseCommand():
         _closeSession(command.realmUri, command.sessionId);
       case SubscriptionAddCommand():
-        final subscriptionId = _addSubscription(
-          command.realmUri,
-          command.sessionId,
-          command.topic,
-          command.matchPolicy,
-          command.details,
+        _sendGuardedReply(
+          command: command,
+          replyPort: command.replyPort,
+          action: () => _addSubscription(
+            command.realmUri,
+            command.sessionId,
+            command.topic,
+            command.matchPolicy,
+            command.details,
+          ),
         );
-        command.replyPort.send(subscriptionId);
       case SubscriptionRemoveCommand():
         _removeSubscription(
           command.realmUri,
@@ -107,13 +117,16 @@ class RouterStateStore {
           command.subscriptionId,
         );
       case SubscriptionMatchCommand():
-        final routing = _matchSubscriptions(
-          command.realmUri,
-          command.topic,
-          publisherSessionId: command.publisherSessionId,
-          options: command.options,
+        _sendGuardedReply(
+          command: command,
+          replyPort: command.replyPort,
+          action: () => _matchSubscriptions(
+            command.realmUri,
+            command.topic,
+            publisherSessionId: command.publisherSessionId,
+            options: command.options,
+          ),
         );
-        command.replyPort.send(routing);
       case ProcedureRegisterCommand():
         try {
           final registrationId = _registerProcedure(
@@ -146,29 +159,66 @@ class RouterStateStore {
           command.replyPort.send(StoreErrorResponse(error.toString()));
         }
       case InvocationFindByCallerCommand():
-        final record = _findInvocationByCaller(
-          command.realmUri,
-          command.callerSessionId,
-          command.requestId,
+        _sendGuardedReply(
+          command: command,
+          replyPort: command.replyPort,
+          action: () => _findInvocationByCaller(
+            command.realmUri,
+            command.callerSessionId,
+            command.requestId,
+          ),
         );
-        command.replyPort.send(record);
       case InvocationCancelCommand():
-        final success = _cancelInvocation(
-          command.realmUri,
-          command.invocationId,
-          command.mode,
-          command.waitForAck,
+        _sendGuardedReply(
+          command: command,
+          replyPort: command.replyPort,
+          action: () => _cancelInvocation(
+            command.realmUri,
+            command.invocationId,
+            command.mode,
+            command.waitForAck,
+          ),
         );
-        command.replyPort.send(success);
       case InvocationGetCommand():
-        final record = _getInvocation(command.realmUri, command.invocationId);
-        command.replyPort.send(record);
-      case InvocationCompleteCommand():
-        final record = _completeInvocation(
-          command.realmUri,
-          command.invocationId,
+        _sendGuardedReply(
+          command: command,
+          replyPort: command.replyPort,
+          action: () => _getInvocation(command.realmUri, command.invocationId),
         );
-        command.replyPort?.send(record);
+      case InvocationCompleteCommand():
+        final result = _guardedAction(
+          command: command,
+          action: () =>
+              _completeInvocation(command.realmUri, command.invocationId),
+        );
+        if (command.replyPort != null) {
+          command.replyPort!.send(result);
+        }
+    }
+  }
+
+  void _sendGuardedReply({
+    required RouterStateCommand command,
+    required SendPort replyPort,
+    required Object? Function() action,
+  }) {
+    try {
+      replyPort.send(action());
+    } catch (error, stackTrace) {
+      replyPort.send(StoreErrorResponse(error.toString()));
+      _reportStoreError(error, stackTrace, command: command);
+    }
+  }
+
+  Object? _guardedAction({
+    required RouterStateCommand command,
+    required Object? Function() action,
+  }) {
+    try {
+      return action();
+    } catch (error, stackTrace) {
+      _reportStoreError(error, stackTrace, command: command);
+      return StoreErrorResponse(error.toString());
     }
   }
 

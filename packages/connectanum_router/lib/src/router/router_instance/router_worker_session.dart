@@ -546,10 +546,20 @@ Future<void> _handlePublish({
           messageHandle.releaseRetainedHandle(command['handle'] as int);
         }
       } else {
-        for (final command in pending) {
-          bossPort.send(command);
+        var sentCount = 0;
+        try {
+          for (final command in pending) {
+            bossPort.send(command);
+            sentCount += 1;
+          }
+          usedZeroCopy = true;
+        } catch (error) {
+          for (var i = sentCount; i < pending.length; i += 1) {
+            final command = pending[i];
+            messageHandle.releaseRetainedHandle(command['handle'] as int);
+          }
+          rethrow;
         }
-        usedZeroCopy = true;
       }
     }
 
@@ -666,8 +676,13 @@ Future<void> _handleCall({
         if (receiveProgress != null) {
           command['receiveProgress'] = receiveProgress;
         }
-        bossPort.send(command);
-        usedZeroCopy = true;
+        try {
+          bossPort.send(command);
+          usedZeroCopy = true;
+        } catch (error) {
+          messageHandle.releaseRetainedHandle(retainedHandle);
+          rethrow;
+        }
       }
     }
 
@@ -838,6 +853,16 @@ Future<void> _handleCancel({
         requestId: message.requestId,
       );
     }
+  } on StateError catch (error) {
+    await _sendSessionError(
+      bossPort: bossPort,
+      state: state,
+      connectionId: connectionId,
+      requestType: MessageTypes.codeCancel,
+      requestId: message.requestId,
+      reason: _wampErrorNoSuchInvocation,
+      detailsMessage: error.message,
+    );
   } catch (error) {
     await _sendSessionError(
       bossPort: bossPort,
@@ -986,14 +1011,20 @@ Future<void> _handleYield({
     if (incomingMessage?.hasNativeHandle == true) {
       final retainedHandle = incomingMessage!.retainHandle();
       if (retainedHandle > 0) {
-        bossPort.send({
+        final command = {
           'type': 'worker_forward_native_result',
           'connectionId': callerConnectionId,
           'handle': retainedHandle,
           'requestId': invocation.callerRequestId,
           'progress': isProgress,
-        });
-        usedZeroCopy = true;
+        };
+        try {
+          bossPort.send(command);
+          usedZeroCopy = true;
+        } catch (error) {
+          incomingMessage.releaseRetainedHandle(retainedHandle);
+          rethrow;
+        }
       }
     }
 
@@ -1010,6 +1041,15 @@ Future<void> _handleYield({
         message: result,
       );
     }
+  } on StateError catch (error) {
+    await _sendInvocationErrorToCallee(
+      bossPort: bossPort,
+      state: state,
+      connectionId: connectionId,
+      invocationId: invocationId,
+      reason: _wampErrorNoSuchInvocation,
+      detailsMessage: error.message,
+    );
   } catch (error) {
     await _sendInvocationErrorToCallee(
       bossPort: bossPort,
@@ -1092,14 +1132,20 @@ Future<void> _handleInvocationError({
     if (incomingMessage?.hasNativeHandle == true) {
       final retainedHandle = incomingMessage!.retainHandle();
       if (retainedHandle > 0) {
-        bossPort.send({
+        final command = {
           'type': 'worker_forward_native_error',
           'connectionId': callerConnectionId,
           'handle': retainedHandle,
           'requestType': MessageTypes.codeCall,
           'requestId': invocation.callerRequestId,
-        });
-        usedZeroCopy = true;
+        };
+        try {
+          bossPort.send(command);
+          usedZeroCopy = true;
+        } catch (error) {
+          incomingMessage.releaseRetainedHandle(retainedHandle);
+          rethrow;
+        }
       }
     }
 
@@ -1118,6 +1164,15 @@ Future<void> _handleInvocationError({
         message: forwardedError,
       );
     }
+  } on StateError catch (error) {
+    await _sendInvocationErrorToCallee(
+      bossPort: bossPort,
+      state: state,
+      connectionId: connectionId,
+      invocationId: invocationId,
+      reason: _wampErrorNoSuchInvocation,
+      detailsMessage: error.message,
+    );
   } catch (error) {
     await _sendInvocationErrorToCallee(
       bossPort: bossPort,
