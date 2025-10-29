@@ -4,13 +4,17 @@ import '../serializer/cbor/serializer.dart' as cbor_serializer;
 import '../serializer/json/serializer.dart' as json_serializer;
 import '../serializer/msgpack/serializer.dart' as msgpack_serializer;
 
+/// Container for payloads transmitted using Payload PassThru (PPT).
 class PPTPayload {
+  /// Positional arguments contained in the payload.
   List<dynamic>? arguments;
+  /// Keyword arguments contained in the payload.
   Map<String, dynamic>? argumentsKeywords;
 
+  /// Create a PPT payload with optional [arguments] and [argumentsKeywords].
   PPTPayload({this.arguments, this.argumentsKeywords});
 
-  /// Packs PPT Payload and returns 1-item array for WAMP message arguments
+  /// Serialize this payload as a single item according to the PPT options.
   static List<dynamic> packPPTPayload(List<dynamic>? arguments,
       Map<String, dynamic>? argumentsKeywords, PPTOptions options) {
     if (options.pptSerializer != null && options.pptSerializer != 'native') {
@@ -42,6 +46,7 @@ class PPTPayload {
     }
   }
 
+  /// Deserialize a PPT payload from WAMP message arguments.
   static PPTPayload unpackPPTPayload(
       List<dynamic>? arguments, PPTOptions details) {
     if (arguments == null) {

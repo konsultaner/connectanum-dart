@@ -1,3 +1,4 @@
+/// Container for additional details sent with WAMP messages.
 class Details {
   String? agent;
   String? realm;
@@ -18,6 +19,8 @@ class Details {
   int? trustlevel;
   Roles? roles;
 
+  /// Create a [Details] object prefilled for HELLO messages with all default
+  /// role information present.
   static Details forHello() {
     final details = Details();
     var roles = Roles();
@@ -43,6 +46,9 @@ class Details {
     return details;
   }
 
+  /// Create a [Details] object prefilled for WELCOME messages.
+  /// Various authentication information may be supplied via the optional
+  /// parameters.
   static Details forWelcome({
     String? realm,
     String? authId,
@@ -77,6 +83,7 @@ class Details {
   }
 }
 
+/// Holds feature descriptions for the various WAMP roles.
 class Roles {
   Publisher? publisher;
   Broker? broker;
@@ -86,10 +93,12 @@ class Roles {
   Caller? caller;
 }
 
+/// Features supported by the publisher role.
 class Publisher {
   PublisherFeatures? features;
 }
 
+/// Capabilities a router advertises for its publisher role.
 class PublisherFeatures {
   bool publisherIdentification = true;
   bool subscriberBlackWhiteListing = true;
@@ -97,11 +106,13 @@ class PublisherFeatures {
   bool payloadPassThruMode = true;
 }
 
+/// Features supported by the broker role.
 class Broker {
   bool? reflection;
   BrokerFeatures? features;
 }
 
+/// Capabilities a router advertises for its broker role.
 class BrokerFeatures {
   bool publisherIdentification = false;
   bool publicationTrustLevels = false;
@@ -114,10 +125,12 @@ class BrokerFeatures {
   bool payloadPassThruMode = false;
 }
 
+/// Features supported by the subscriber role.
 class Subscriber {
   SubscriberFeatures? features;
 }
 
+/// Capabilities a router advertises for its subscriber role.
 class SubscriberFeatures {
   bool callTimeout = false;
   bool callCanceling = false;
@@ -126,11 +139,13 @@ class SubscriberFeatures {
   bool payloadPassThruMode = true;
 }
 
+/// Features supported by the dealer role.
 class Dealer {
   bool? reflection;
   DealerFeatures? features;
 }
 
+/// Capabilities a router advertises for its dealer role.
 class DealerFeatures {
   bool callerIdentification = false;
   bool callTrustLevels = false;
@@ -144,10 +159,12 @@ class DealerFeatures {
   bool payloadPassThruMode = false;
 }
 
+/// Features supported by the callee role.
 class Callee {
   CalleeFeatures? features;
 }
 
+/// Capabilities a router advertises for its callee role.
 class CalleeFeatures {
   bool callerIdentification = true;
   bool callTrustlevels = false;
@@ -159,10 +176,12 @@ class CalleeFeatures {
   bool payloadPassThruMode = true;
 }
 
+/// Features supported by the caller role.
 class Caller {
   CallerFeatures? features;
 }
 
+/// Capabilities a router advertises for its caller role.
 class CallerFeatures {
   bool callerIdentification = true;
   bool callTimeout = false;

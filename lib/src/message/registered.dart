@@ -5,19 +5,27 @@ import 'message_types.dart';
 import 'abstract_message.dart';
 import 'invocation.dart';
 
+/// Sent by the router to acknowledge a [Register] request.
 class Registered extends AbstractMessage {
+  /// The request ID that initiated the registration.
   int registerRequestId;
+
+  /// The router assigned registration ID.
   int registrationId;
+
+  /// The procedure URI that was registered.
   String? procedure;
 
   Stream<Invocation>? _invocationStream;
 
+  /// Set the stream that delivers invocation requests from the router.
   set invocationStream(Stream<Invocation> invocationStream) {
     _invocationStream = invocationStream;
   }
 
-  /// sets the invocation handler, if an error is thrown within the handler this
-  /// method will result an error message to the transport or router respectively
+  /// Register a callback that is executed whenever this procedure is invoked.
+  /// If the callback throws an error the invocation is answered with an
+  /// [Error] message.
   void onInvoke(void Function(Invocation invocation) onInvoke) {
     if (_invocationStream != null) {
       _invocationStream!.listen((Invocation invocation) {
@@ -51,6 +59,7 @@ class Registered extends AbstractMessage {
     }
   }
 
+  /// Create a [Registered] message for the given request and registration IDs.
   Registered(this.registerRequestId, this.registrationId) {
     id = MessageTypes.codeRegistered;
   }

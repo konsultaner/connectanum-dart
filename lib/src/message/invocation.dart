@@ -10,12 +10,20 @@ import 'uri_pattern.dart';
 import 'error.dart';
 import 'yield.dart';
 
+/// Represents an invocation of a registered procedure.
 class Invocation extends AbstractMessageWithPayload {
+  /// The ID used to match requests and responses.
   int requestId;
+
+  /// The registration ID of the invoked procedure.
   int registrationId;
+
+  /// Additional invocation details provided by the router.
   InvocationDetails details;
+
   late StreamController<AbstractMessageWithPayload> _responseStreamController;
 
+  /// Respond to this invocation either with a [Yield] or [Error] message.
   void respondWith(
       {List<dynamic>? arguments,
       Map<String, dynamic>? argumentsKeywords,
@@ -58,6 +66,7 @@ class Invocation extends AbstractMessageWithPayload {
     }
   }
 
+  /// Create an [Invocation] referencing a [requestId] and [registrationId].
   Invocation(this.requestId, this.registrationId, this.details,
       {List<dynamic>? arguments, Map<String, dynamic>? argumentsKeywords}) {
     id = MessageTypes.codeInvocation;
@@ -65,10 +74,12 @@ class Invocation extends AbstractMessageWithPayload {
     this.argumentsKeywords = argumentsKeywords;
   }
 
+  /// True if the caller requested progressive results.
   bool isProgressive() {
     return details.receiveProgress ?? false;
   }
 
+  /// Listen for responses (either [Yield] or [Error]) for this invocation.
   void onResponse(
       void Function(AbstractMessageWithPayload invocationResultMessage)
           onData) {
@@ -99,6 +110,7 @@ class InvocationDetails extends PPTOptions {
   }
 
   @override
+  /// Validates PPT parameters provided with this invocation.
   bool verify() {
     return verifyPPT();
   }
