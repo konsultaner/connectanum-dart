@@ -121,10 +121,14 @@ class SocketHelper {
 
   /// Checks if the given [message] is a valid wamp message
   static bool isValidMessage(Uint8List message) {
-    var messageType = message[0];
-    return messageType != messageWamp ||
-        messageType != messagePing ||
-        messageType != messagePong;
+    switch (message[0]) {
+      case messageWamp:
+      case messagePing:
+      case messagePong:
+        return true;
+      default:
+        return false;
+    }
   }
 
   /// Gets the message type for the given [message].
