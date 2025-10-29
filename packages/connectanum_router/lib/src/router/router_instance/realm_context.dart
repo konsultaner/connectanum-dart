@@ -74,7 +74,17 @@ class RealmContext {
     final replyPort = ReceivePort();
     replyPort.listen((dynamic message) {
       replyPort.close();
-      completer.complete(message as int);
+      if (message is int) {
+        completer.complete(message);
+      } else if (message is Exception) {
+        completer.completeError(message);
+      } else if (message is Error) {
+        completer.completeError(message);
+      } else {
+        completer.completeError(
+          StateError('Unexpected register response: $message'),
+        );
+      }
     });
     statePort.send(
       ProcedureRegisterCommand(
@@ -190,6 +200,29 @@ class RealmContext {
     return completer.future;
   }
 
+  Future<bool> cancelInvocation({
+    required int invocationId,
+    required String mode,
+    required bool waitForAck,
+  }) async {
+    final completer = Completer<bool>();
+    final replyPort = ReceivePort();
+    replyPort.listen((dynamic message) {
+      replyPort.close();
+      completer.complete(message as bool);
+    });
+    statePort.send(
+      InvocationCancelCommand(
+        realmUri: realmUri,
+        invocationId: invocationId,
+        mode: mode,
+        waitForAck: waitForAck,
+        replyPort: replyPort.sendPort,
+      ),
+    );
+    return completer.future;
+  }
+
   Future<PendingInvocation?> completeInvocation(int invocationId) async {
     final completer = Completer<PendingInvocation?>();
     final replyPort = ReceivePort();
@@ -243,5 +276,9 @@ class RealmContextCache {
 
   void invalidate(String realmUri) {
     _contexts[realmUri]?.invalidate();
+  }
+
+  void dispose() {
+    _contexts.clear();
   }
 }

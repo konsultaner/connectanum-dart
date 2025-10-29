@@ -6,6 +6,7 @@ class RouterSettingsBuilder {
   final List<ListenerSettings> _listeners = [];
   final Map<String, AuthenticatorDefinition> _authenticators = {};
   MetricsSettings? _metrics;
+  WorkerPoolSettings _workerPool = const WorkerPoolSettings();
 
   RouterSettingsBuilder addRealm(RealmSettings realm) {
     _realms.add(realm);
@@ -42,11 +43,17 @@ class RouterSettingsBuilder {
     return this;
   }
 
+  RouterSettingsBuilder setWorkerPool(WorkerPoolSettings workerPool) {
+    _workerPool = workerPool;
+    return this;
+  }
+
   RouterSettings build() => RouterSettings(
     realms: List.unmodifiable(_realms),
     listeners: List.unmodifiable(_listeners),
     metrics: _metrics,
     authenticators: Map.unmodifiable(_authenticators),
+    workerPool: _workerPool,
   );
 }
 

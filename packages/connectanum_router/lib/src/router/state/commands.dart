@@ -2,6 +2,51 @@ import 'dart:isolate';
 
 import 'session.dart';
 import 'subscription.dart';
+import 'procedure.dart';
+
+enum SubscriptionMetaEventType { created, deleted, subscribed, unsubscribed }
+
+class SubscriptionMetaEvent {
+  SubscriptionMetaEvent({
+    required this.realmUri,
+    required this.type,
+    required this.subscriptionId,
+    required this.topic,
+    required this.matchPolicy,
+    required this.details,
+    this.sessionId,
+  });
+
+  final String realmUri;
+  final SubscriptionMetaEventType type;
+  final int subscriptionId;
+  final String topic;
+  final TopicMatchPolicy matchPolicy;
+  final Map<String, Object?> details;
+  final int? sessionId;
+}
+
+enum RegistrationMetaEventType { created, deleted, registered, unregistered }
+
+class RegistrationMetaEvent {
+  RegistrationMetaEvent({
+    required this.realmUri,
+    required this.type,
+    required this.registrationId,
+    required this.procedure,
+    required this.policy,
+    required this.details,
+    this.sessionId,
+  });
+
+  final String realmUri;
+  final RegistrationMetaEventType type;
+  final int registrationId;
+  final String procedure;
+  final InvocationPolicy policy;
+  final Map<String, Object?> details;
+  final int? sessionId;
+}
 
 /// Base type for all commands handled by [RouterStateStore].
 abstract class RouterStateCommand {}
@@ -160,6 +205,22 @@ class InvocationFindByCallerCommand extends RouterStateCommand {
   final String realmUri;
   final int callerSessionId;
   final int requestId;
+  final SendPort replyPort;
+}
+
+class InvocationCancelCommand extends RouterStateCommand {
+  InvocationCancelCommand({
+    required this.realmUri,
+    required this.invocationId,
+    required this.mode,
+    required this.waitForAck,
+    required this.replyPort,
+  });
+
+  final String realmUri;
+  final int invocationId;
+  final String mode;
+  final bool waitForAck;
   final SendPort replyPort;
 }
 

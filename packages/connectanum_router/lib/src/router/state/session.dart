@@ -66,6 +66,9 @@ class PendingInvocation {
     required this.calleeSessionId,
     required this.allowProgress,
     required this.callerSessionId,
+    this.cancelRequested = false,
+    this.cancelMode,
+    this.waitForCancelAck = false,
   });
 
   final int invocationId;
@@ -74,4 +77,7 @@ class PendingInvocation {
   final int calleeSessionId;
   final bool allowProgress;
   final int callerSessionId;
+  bool cancelRequested;
+  String? cancelMode;
+  bool waitForCancelAck;
 }

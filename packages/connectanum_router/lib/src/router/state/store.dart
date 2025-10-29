@@ -15,6 +15,10 @@ class RouterStateStore {
   RouterStateStore({required this.settings})
     : _commandPort = ReceivePort(),
       _eventController = StreamController<StateChangedEvent>.broadcast(),
+      _subscriptionMetaController =
+          StreamController<SubscriptionMetaEvent>.broadcast(),
+      _registrationMetaController =
+          StreamController<RegistrationMetaEvent>.broadcast(),
       _realmConfigs = Map.fromEntries(
         settings.realms.map((realm) => MapEntry(realm.name, realm)),
       );
@@ -23,11 +27,17 @@ class RouterStateStore {
 
   final ReceivePort _commandPort;
   final StreamController<StateChangedEvent> _eventController;
+  final StreamController<SubscriptionMetaEvent> _subscriptionMetaController;
+  final StreamController<RegistrationMetaEvent> _registrationMetaController;
   final WampIdAllocatorRegistry ids = WampIdAllocatorRegistry();
   final Map<String, RealmRecord> _realms = {};
   final Map<String, RealmSettings> _realmConfigs;
 
   Stream<StateChangedEvent> get events => _eventController.stream;
+  Stream<SubscriptionMetaEvent> get subscriptionMetaEvents =>
+      _subscriptionMetaController.stream;
+  Stream<RegistrationMetaEvent> get registrationMetaEvents =>
+      _registrationMetaController.stream;
   SendPort get commandPort => _commandPort.sendPort;
 
   void start() {
@@ -37,6 +47,8 @@ class RouterStateStore {
   void dispose() {
     _commandPort.close();
     _eventController.close();
+    _subscriptionMetaController.close();
+    _registrationMetaController.close();
     _realms.clear();
   }
 
@@ -92,13 +104,17 @@ class RouterStateStore {
         );
         command.replyPort.send(routing);
       case ProcedureRegisterCommand():
-        final registrationId = _registerProcedure(
-          command.realmUri,
-          command.sessionId,
-          command.procedure,
-          command.details,
-        );
-        command.replyPort.send(registrationId);
+        try {
+          final registrationId = _registerProcedure(
+            command.realmUri,
+            command.sessionId,
+            command.procedure,
+            command.details,
+          );
+          command.replyPort.send(registrationId);
+        } catch (error) {
+          command.replyPort.send(error);
+        }
       case ProcedureUnregisterCommand():
         _unregisterProcedure(
           command.realmUri,
@@ -121,6 +137,14 @@ class RouterStateStore {
           command.requestId,
         );
         command.replyPort.send(record);
+      case InvocationCancelCommand():
+        final success = _cancelInvocation(
+          command.realmUri,
+          command.invocationId,
+          command.mode,
+          command.waitForAck,
+        );
+        command.replyPort.send(success);
       case InvocationGetCommand():
         final record = _getInvocation(command.realmUri, command.invocationId);
         command.replyPort.send(record);
@@ -203,6 +227,7 @@ class RouterStateStore {
         (throw StateError('Session $sessionId not found in realm $realmUri'));
     final id = ids.subscription.next();
     final entry = realm.findOrCreateSubscription(topic, matchPolicy, id);
+    final wasEmpty = entry.subscribers.isEmpty;
     entry.subscribers[sessionId] = SubscriberRecord(
       sessionId: sessionId,
       authRole: session.authRole,
@@ -212,6 +237,30 @@ class RouterStateStore {
     realm.bumpVersion();
     _eventController.add(
       StateChangedEvent(realmUri: realmUri, version: realm.version),
+    );
+    if (wasEmpty) {
+      _subscriptionMetaController.add(
+        SubscriptionMetaEvent(
+          realmUri: realmUri,
+          type: SubscriptionMetaEventType.created,
+          subscriptionId: entry.id,
+          topic: entry.topic,
+          matchPolicy: entry.matchPolicy,
+          details: Map<String, Object?>.from(entry.options),
+          sessionId: sessionId,
+        ),
+      );
+    }
+    _subscriptionMetaController.add(
+      SubscriptionMetaEvent(
+        realmUri: realmUri,
+        type: SubscriptionMetaEventType.subscribed,
+        subscriptionId: entry.id,
+        topic: entry.topic,
+        matchPolicy: entry.matchPolicy,
+        details: Map<String, Object?>.from(entry.options),
+        sessionId: sessionId,
+      ),
     );
     return entry.id;
   }
@@ -225,10 +274,34 @@ class RouterStateStore {
     if (entry == null) {
       return;
     }
-    entry.subscribers.remove(sessionId);
+    final removed = entry.subscribers.remove(sessionId);
     final session = realm.sessions[sessionId];
     session?.subscriptionIds.remove(subscriptionId);
+    if (removed != null) {
+      _subscriptionMetaController.add(
+        SubscriptionMetaEvent(
+          realmUri: realmUri,
+          type: SubscriptionMetaEventType.unsubscribed,
+          subscriptionId: entry.id,
+          topic: entry.topic,
+          matchPolicy: entry.matchPolicy,
+          details: Map<String, Object?>.from(entry.options),
+          sessionId: sessionId,
+        ),
+      );
+    }
     if (entry.subscribers.isEmpty) {
+      _subscriptionMetaController.add(
+        SubscriptionMetaEvent(
+          realmUri: realmUri,
+          type: SubscriptionMetaEventType.deleted,
+          subscriptionId: entry.id,
+          topic: entry.topic,
+          matchPolicy: entry.matchPolicy,
+          details: Map<String, Object?>.from(entry.options),
+          sessionId: sessionId,
+        ),
+      );
       realm.removeSubscription(entry);
     }
     realm.bumpVersion();
@@ -247,19 +320,64 @@ class RouterStateStore {
     final session =
         realm.sessions[sessionId] ??
         (throw StateError('Session $sessionId not found in realm $realmUri'));
+    final policy = _policyFromDetails(details);
     final registrationId = ids.registration.next();
-    final entry = realm.findOrCreateProcedure(procedure, registrationId);
-    entry.callees[registrationId] = RegistrationRecord(
+    final entry = realm.findOrCreateProcedure(
+      procedure,
+      registrationId,
+      policy,
+    );
+    final wasEmpty = entry.callees.isEmpty;
+    if (!wasEmpty) {
+      if (entry.policy == InvocationPolicy.single) {
+        throw StateError('Procedure $procedure already registered');
+      }
+      if (policy != entry.policy &&
+          details.containsKey('invoke') &&
+          entry.policy != InvocationPolicy.single) {
+        throw StateError(
+          'Procedure $procedure already registered with policy '
+          '${entry.policy.name}',
+        );
+      }
+    }
+    final record = RegistrationRecord(
       registrationId: registrationId,
       procedure: procedure,
       sessionId: sessionId,
       authRole: session.authRole,
       details: details,
     );
+    entry.callees[registrationId] = record;
+    realm.proceduresById[registrationId] = entry;
     session.registrationIds.add(registrationId);
     realm.bumpVersion();
     _eventController.add(
       StateChangedEvent(realmUri: realmUri, version: realm.version),
+    );
+    if (wasEmpty) {
+      _registrationMetaController.add(
+        RegistrationMetaEvent(
+          realmUri: realmUri,
+          type: RegistrationMetaEventType.created,
+          registrationId: entry.registrationId,
+          procedure: entry.procedure,
+          policy: entry.policy,
+          details: Map<String, Object?>.from(record.details),
+          sessionId: sessionId,
+        ),
+      );
+    }
+    _registrationMetaController.add(
+      RegistrationMetaEvent(
+        realmUri: realmUri,
+        type: RegistrationMetaEventType.registered,
+        registrationId: entry.registrationId,
+        procedure: entry.procedure,
+        policy: entry.policy,
+        details: Map<String, Object?>.from(record.details),
+        sessionId: sessionId,
+      ),
     );
     return registrationId;
   }
@@ -277,10 +395,37 @@ class RouterStateStore {
     if (entry == null) {
       return;
     }
-    entry.callees.remove(registrationId);
+    final removed = entry.callees.remove(registrationId);
     final session = realm.sessions[sessionId];
     session?.registrationIds.remove(registrationId);
+    realm.proceduresById.remove(registrationId);
+    if (removed != null) {
+      _registrationMetaController.add(
+        RegistrationMetaEvent(
+          realmUri: realmUri,
+          type: RegistrationMetaEventType.unregistered,
+          registrationId: entry.registrationId,
+          procedure: entry.procedure,
+          policy: entry.policy,
+          details: Map<String, Object?>.from(removed.details),
+          sessionId: sessionId,
+        ),
+      );
+    }
     if (entry.callees.isEmpty) {
+      _registrationMetaController.add(
+        RegistrationMetaEvent(
+          realmUri: realmUri,
+          type: RegistrationMetaEventType.deleted,
+          registrationId: entry.registrationId,
+          procedure: entry.procedure,
+          policy: entry.policy,
+          details: removed != null
+              ? Map<String, Object?>.from(removed.details)
+              : const {},
+          sessionId: sessionId,
+        ),
+      );
       realm.removeProcedure(entry);
     }
     realm.bumpVersion();
@@ -356,6 +501,57 @@ class RouterStateStore {
     return null;
   }
 
+  bool _cancelInvocation(
+    String realmUri,
+    int invocationId,
+    String mode,
+    bool waitForAck,
+  ) {
+    final realm = _realms[realmUri];
+    if (realm == null) {
+      return false;
+    }
+    final invocation = realm.invocations[invocationId];
+    if (invocation == null) {
+      return false;
+    }
+    invocation.cancelRequested = true;
+    invocation.cancelMode = mode;
+    invocation.waitForCancelAck = waitForAck;
+    if (!waitForAck) {
+      realm.invocations.remove(invocationId);
+    }
+    return true;
+  }
+
+  InvocationPolicy _policyFromDetails(Map<String, Object?> details) {
+    final invoke = details['invoke'];
+    if (invoke == null) {
+      return InvocationPolicy.single;
+    }
+    if (invoke is! String) {
+      throw ArgumentError.value(invoke, 'invoke', 'must be a String');
+    }
+    switch (invoke) {
+      case 'single':
+        return InvocationPolicy.single;
+      case 'first':
+        return InvocationPolicy.first;
+      case 'last':
+        return InvocationPolicy.last;
+      case 'roundrobin':
+        return InvocationPolicy.roundRobin;
+      case 'random':
+        return InvocationPolicy.random;
+      default:
+        throw ArgumentError.value(
+          invoke,
+          'invoke',
+          'Unsupported invocation policy',
+        );
+    }
+  }
+
   PublicationRouting _matchSubscriptions(
     String realmUri,
     String topic, {
@@ -368,6 +564,8 @@ class RouterStateStore {
     final excludeMe = options['exclude_me'] == true;
     final excludeIds = _decodeIdSet(options['exclude']);
     final eligibleIds = _decodeIdSet(options['eligible']);
+    final excludeAuthRoles = _decodeStringSet(options['exclude_authroles']);
+    final eligibleAuthRoles = _decodeStringSet(options['eligible_authroles']);
     final entries = realm.subscriptionAtlas.match(topic);
     for (final entry in entries) {
       entry.subscribers.forEach((sessionId, record) {
@@ -378,6 +576,17 @@ class RouterStateStore {
           return;
         }
         if (eligibleIds != null && !eligibleIds.contains(sessionId)) {
+          return;
+        }
+        final recordAuthRole = record.authRole;
+        if (excludeAuthRoles != null &&
+            recordAuthRole != null &&
+            excludeAuthRoles.contains(recordAuthRole)) {
+          return;
+        }
+        if (eligibleAuthRoles != null &&
+            (recordAuthRole == null ||
+                !eligibleAuthRoles.contains(recordAuthRole))) {
           return;
         }
         final session = realm.sessions[sessionId];
@@ -418,6 +627,26 @@ class RouterStateStore {
         final id = element is int ? element : int.tryParse('$element');
         if (id != null) {
           set.add(id);
+        }
+      }
+      return set;
+    }
+    return null;
+  }
+
+  Set<String>? _decodeStringSet(Object? value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is Iterable) {
+      final set = <String>{};
+      for (final element in value) {
+        if (element == null) {
+          continue;
+        }
+        final str = element.toString();
+        if (str.isNotEmpty) {
+          set.add(str);
         }
       }
       return set;
@@ -504,11 +733,18 @@ class RealmRecord {
     }
   }
 
-  ProcedureEntry findOrCreateProcedure(String procedure, int registrationId) {
+  ProcedureEntry findOrCreateProcedure(
+    String procedure,
+    int registrationId,
+    InvocationPolicy policy,
+  ) {
     final entry = procedureAtlas.putIfAbsent(
       procedure,
-      () =>
-          ProcedureEntry(registrationId: registrationId, procedure: procedure),
+      () => ProcedureEntry(
+        registrationId: registrationId,
+        procedure: procedure,
+        policy: policy,
+      ),
     );
     proceduresById[entry.registrationId] = entry;
     return entry;
@@ -518,6 +754,9 @@ class RealmRecord {
       proceduresById[registrationId];
 
   void removeProcedure(ProcedureEntry entry) {
+    for (final registrationId in entry.callees.keys.toList()) {
+      proceduresById.remove(registrationId);
+    }
     proceduresById.remove(entry.registrationId);
     procedureAtlas.remove(entry.procedure);
   }

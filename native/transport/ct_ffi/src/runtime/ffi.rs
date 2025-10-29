@@ -2,12 +2,12 @@ use std::ffi::CStr;
 use std::os::raw::{c_char, c_int, c_uint};
 
 use bytes::Bytes;
-use std::ptr;
+use std::{ptr, slice, str};
 
 use ct_core::{
     accept_channel, apply_router_config, connection_rawsocket_max_exponent, listen, local_addr,
-    poll_connection_message, send_wamp_message, shutdown, start_runtime, ConnectionId,
-    Error as CoreError, ListenerId, WampMessage,
+    poll_connection_message, send_wamp_message, send_wamp_segments, shutdown, start_runtime,
+    ConnectionId, Error as CoreError, ListenerId, RawSocketSerializer, WampMessage,
 };
 
 use crate::callbacks::{
@@ -17,9 +17,12 @@ use crate::callbacks::{
 
 use super::constants::*;
 use super::state::{
-    clear_channels, remove_message, store_channel, store_message, with_channel, with_message,
-    StoredMessage,
+    clear_channels, clone_message, remove_message, store_channel, store_message, with_channel,
+    with_message, StoredMessage,
 };
+use rmp::encode::{write_array_len, write_u64};
+use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
+use serde_value::Value as SerdeValue;
 
 fn map_error(err: CoreError) -> c_int {
     match err {
@@ -59,11 +62,526 @@ fn option_bytes_ptr(bytes: &Option<Bytes>) -> (*const u8, usize) {
     }
 }
 
+const JSON_COMMA: &[u8] = b",";
+const JSON_CLOSE: &[u8] = b"]";
+const EMPTY_JSON_ARRAY: &[u8] = b"[]";
+const EMPTY_MSGPACK_ARRAY: &[u8] = &[0x90];
+
 #[no_mangle]
 pub extern "C" fn ct_start_runtime() -> c_int {
     match start_runtime() {
         Ok(()) => SUCCESS,
         Err(err) => map_error(err),
+    }
+}
+
+fn read_optional_str(ptr: *const c_char, len: c_int) -> Result<Option<String>, c_int> {
+    if ptr.is_null() || len <= 0 {
+        return Ok(None);
+    }
+    let len = len as usize;
+    let bytes = unsafe { slice::from_raw_parts(ptr as *const u8, len) };
+    let value = str::from_utf8(bytes).map_err(|_| ERR_INVALID_ARGUMENT)?;
+    Ok(Some(value.to_string()))
+}
+
+fn encode_event_segments_json(
+    payload: &ct_core::WampPayload,
+    subscription_id: u64,
+    publication_id: u64,
+    publisher: Option<u64>,
+    topic: Option<&str>,
+) -> Result<Vec<Bytes>, c_int> {
+    let mut details = JsonMap::new();
+    if let Some(publisher_id) = publisher {
+        details.insert(
+            "publisher".into(),
+            JsonValue::Number(JsonNumber::from(publisher_id)),
+        );
+    }
+    if let Some(topic_value) = topic {
+        details.insert("topic".into(), JsonValue::String(topic_value.to_string()));
+    }
+    let details_value = JsonValue::Object(details);
+    let details_json = serde_json::to_string(&details_value).map_err(|_| ERR_INVALID_ARGUMENT)?;
+    let details_bytes = Bytes::from(details_json.clone().into_bytes());
+    let has_kwargs = payload.kwargs.is_some();
+    let has_args = payload.args.is_some() || has_kwargs;
+    let mut segments = Vec::new();
+    if has_args {
+        let prefix =
+            Bytes::from(format!("[36,{},{},", subscription_id, publication_id).into_bytes());
+        segments.push(prefix);
+        segments.push(details_bytes);
+        segments.push(Bytes::from_static(JSON_COMMA));
+        let args_bytes = if let Some(args) = payload.args.clone() {
+            args
+        } else {
+            Bytes::from_static(EMPTY_JSON_ARRAY)
+        };
+        segments.push(args_bytes);
+        if let Some(kwargs) = payload.kwargs.clone() {
+            segments.push(Bytes::from_static(JSON_COMMA));
+            segments.push(kwargs);
+        }
+        segments.push(Bytes::from_static(JSON_CLOSE));
+    } else {
+        let frame = Bytes::from(
+            format!(
+                "[36,{},{},{}]",
+                subscription_id, publication_id, details_json
+            )
+            .into_bytes(),
+        );
+        segments.push(frame);
+    }
+    Ok(segments)
+}
+
+fn encode_event_segments_msgpack(
+    payload: &ct_core::WampPayload,
+    subscription_id: u64,
+    publication_id: u64,
+    publisher: Option<u64>,
+    topic: Option<&str>,
+) -> Result<Vec<Bytes>, c_int> {
+    let mut details = JsonMap::new();
+    if let Some(publisher_id) = publisher {
+        details.insert(
+            "publisher".into(),
+            JsonValue::Number(JsonNumber::from(publisher_id)),
+        );
+    }
+    if let Some(topic_value) = topic {
+        details.insert("topic".into(), JsonValue::String(topic_value.to_string()));
+    }
+    let details_value = JsonValue::Object(details);
+    let details_msgpack = rmp_serde::to_vec(&details_value).map_err(|_| ERR_INVALID_ARGUMENT)?;
+
+    let has_kwargs = payload.kwargs.is_some();
+    let has_args = payload.args.is_some() || has_kwargs;
+    let mut element_count = 4; // code, subscription_id, publication_id, details
+    if has_args {
+        element_count += 1;
+    }
+    if has_kwargs {
+        element_count += 1;
+    }
+
+    let mut prefix = Vec::new();
+    write_array_len(&mut prefix, element_count as u32).map_err(|_| ERR_INVALID_ARGUMENT)?;
+    write_u64(&mut prefix, 36).map_err(|_| ERR_INVALID_ARGUMENT)?;
+    write_u64(&mut prefix, subscription_id).map_err(|_| ERR_INVALID_ARGUMENT)?;
+    write_u64(&mut prefix, publication_id).map_err(|_| ERR_INVALID_ARGUMENT)?;
+    prefix.extend_from_slice(&details_msgpack);
+
+    let mut segments = Vec::new();
+    segments.push(Bytes::from(prefix));
+    if has_args {
+        let args_bytes = if let Some(args) = payload.args.clone() {
+            args
+        } else {
+            Bytes::from_static(EMPTY_MSGPACK_ARRAY)
+        };
+        segments.push(args_bytes);
+    }
+    if let Some(kwargs) = payload.kwargs.clone() {
+        segments.push(kwargs);
+    }
+    Ok(segments)
+}
+
+fn encode_event_segments(
+    message: &StoredMessage,
+    subscription_id: u64,
+    publication_id: u64,
+    publisher: Option<u64>,
+    topic: Option<&str>,
+) -> Result<Vec<Bytes>, c_int> {
+    let payload = match &message.message {
+        WampMessage::Publish { payload, .. } => payload,
+        _ => return Err(ERR_INVALID_ARGUMENT),
+    };
+    match message.serializer {
+        RawSocketSerializer::Json => {
+            encode_event_segments_json(payload, subscription_id, publication_id, publisher, topic)
+        }
+        RawSocketSerializer::MessagePack => encode_event_segments_msgpack(
+            payload,
+            subscription_id,
+            publication_id,
+            publisher,
+            topic,
+        ),
+        _ => Err(ERR_UNSUPPORTED),
+    }
+}
+
+fn encode_invocation_segments_json(
+    payload: &ct_core::WampPayload,
+    invocation_id: u64,
+    registration_id: u64,
+    caller: Option<u64>,
+    procedure: Option<&str>,
+    receive_progress: Option<bool>,
+) -> Result<Vec<Bytes>, c_int> {
+    let mut details = JsonMap::new();
+    if let Some(caller_id) = caller {
+        details.insert(
+            "caller".into(),
+            JsonValue::Number(JsonNumber::from(caller_id)),
+        );
+    }
+    if let Some(proc_name) = procedure {
+        details.insert("procedure".into(), JsonValue::String(proc_name.to_string()));
+    }
+    if let Some(progress) = receive_progress {
+        details.insert("receive_progress".into(), JsonValue::Bool(progress));
+    }
+    let details_value = JsonValue::Object(details);
+    let details_json = serde_json::to_string(&details_value).map_err(|_| ERR_INVALID_ARGUMENT)?;
+    let details_bytes = Bytes::from(details_json.clone().into_bytes());
+    let has_kwargs = payload.kwargs.is_some();
+    let has_args = payload.args.is_some() || has_kwargs;
+    let mut segments = Vec::new();
+    if has_args {
+        let prefix =
+            Bytes::from(format!("[68,{},{},", invocation_id, registration_id).into_bytes());
+        segments.push(prefix);
+        segments.push(details_bytes);
+        segments.push(Bytes::from_static(JSON_COMMA));
+        let args_bytes = if let Some(args) = payload.args.clone() {
+            args
+        } else {
+            Bytes::from_static(EMPTY_JSON_ARRAY)
+        };
+        segments.push(args_bytes);
+        if let Some(kwargs) = payload.kwargs.clone() {
+            segments.push(Bytes::from_static(JSON_COMMA));
+            segments.push(kwargs);
+        }
+        segments.push(Bytes::from_static(JSON_CLOSE));
+    } else {
+        let frame = Bytes::from(
+            format!(
+                "[68,{},{},{}]",
+                invocation_id, registration_id, details_json
+            )
+            .into_bytes(),
+        );
+        segments.push(frame);
+    }
+    Ok(segments)
+}
+
+fn encode_invocation_segments_msgpack(
+    payload: &ct_core::WampPayload,
+    invocation_id: u64,
+    registration_id: u64,
+    caller: Option<u64>,
+    procedure: Option<&str>,
+    receive_progress: Option<bool>,
+) -> Result<Vec<Bytes>, c_int> {
+    let mut details = JsonMap::new();
+    if let Some(caller_id) = caller {
+        details.insert(
+            "caller".into(),
+            JsonValue::Number(JsonNumber::from(caller_id)),
+        );
+    }
+    if let Some(proc_name) = procedure {
+        details.insert("procedure".into(), JsonValue::String(proc_name.to_string()));
+    }
+    if let Some(progress) = receive_progress {
+        details.insert("receive_progress".into(), JsonValue::Bool(progress));
+    }
+    let details_value = JsonValue::Object(details);
+    let details_msgpack = rmp_serde::to_vec(&details_value).map_err(|_| ERR_INVALID_ARGUMENT)?;
+
+    let has_kwargs = payload.kwargs.is_some();
+    let has_args = payload.args.is_some() || has_kwargs;
+    let mut element_count = 4; // code, invocation_id, registration_id, details
+    if has_args {
+        element_count += 1;
+    }
+    if has_kwargs {
+        element_count += 1;
+    }
+
+    let mut prefix = Vec::new();
+    write_array_len(&mut prefix, element_count as u32).map_err(|_| ERR_INVALID_ARGUMENT)?;
+    write_u64(&mut prefix, 68).map_err(|_| ERR_INVALID_ARGUMENT)?;
+    write_u64(&mut prefix, invocation_id).map_err(|_| ERR_INVALID_ARGUMENT)?;
+    write_u64(&mut prefix, registration_id).map_err(|_| ERR_INVALID_ARGUMENT)?;
+    prefix.extend_from_slice(&details_msgpack);
+
+    let mut segments = Vec::new();
+    segments.push(Bytes::from(prefix));
+    if has_args {
+        let args_bytes = if let Some(args) = payload.args.clone() {
+            args
+        } else {
+            Bytes::from_static(EMPTY_MSGPACK_ARRAY)
+        };
+        segments.push(args_bytes);
+    }
+    if let Some(kwargs) = payload.kwargs.clone() {
+        segments.push(kwargs);
+    }
+    Ok(segments)
+}
+
+fn encode_invocation_segments(
+    message: &StoredMessage,
+    invocation_id: u64,
+    registration_id: u64,
+    caller: Option<u64>,
+    procedure: Option<&str>,
+    receive_progress: Option<bool>,
+) -> Result<Vec<Bytes>, c_int> {
+    let payload = match &message.message {
+        WampMessage::Call { payload, .. } => payload,
+        _ => return Err(ERR_INVALID_ARGUMENT),
+    };
+    match message.serializer {
+        RawSocketSerializer::Json => encode_invocation_segments_json(
+            payload,
+            invocation_id,
+            registration_id,
+            caller,
+            procedure,
+            receive_progress,
+        ),
+        RawSocketSerializer::MessagePack => encode_invocation_segments_msgpack(
+            payload,
+            invocation_id,
+            registration_id,
+            caller,
+            procedure,
+            receive_progress,
+        ),
+        _ => Err(ERR_UNSUPPORTED),
+    }
+}
+
+fn build_result_segments_json(
+    payload: &ct_core::WampPayload,
+    request_id: u64,
+    details_bytes: Bytes,
+) -> Vec<Bytes> {
+    let has_kwargs = payload.kwargs.is_some();
+    let has_args = payload.args.is_some() || has_kwargs;
+    let mut segments = Vec::new();
+    segments.push(Bytes::from(format!("[50,{},", request_id).into_bytes()));
+    segments.push(details_bytes);
+    if has_args {
+        segments.push(Bytes::from_static(JSON_COMMA));
+        let args_bytes = if let Some(args) = payload.args.clone() {
+            args
+        } else {
+            Bytes::from_static(EMPTY_JSON_ARRAY)
+        };
+        segments.push(args_bytes);
+        if let Some(kwargs) = payload.kwargs.clone() {
+            segments.push(Bytes::from_static(JSON_COMMA));
+            segments.push(kwargs);
+        }
+    }
+    segments.push(Bytes::from_static(JSON_CLOSE));
+    segments
+}
+
+fn build_result_segments_msgpack(
+    payload: &ct_core::WampPayload,
+    request_id: u64,
+    details_msgpack: Vec<u8>,
+) -> Result<Vec<Bytes>, c_int> {
+    let has_kwargs = payload.kwargs.is_some();
+    let has_args = payload.args.is_some() || has_kwargs;
+    let mut element_count = 3; // code, request_id, details
+    if has_args {
+        element_count += 1;
+    }
+    if has_kwargs {
+        element_count += 1;
+    }
+
+    let mut prefix = Vec::new();
+    write_array_len(&mut prefix, element_count as u32).map_err(|_| ERR_INVALID_ARGUMENT)?;
+    write_u64(&mut prefix, 50).map_err(|_| ERR_INVALID_ARGUMENT)?;
+    write_u64(&mut prefix, request_id).map_err(|_| ERR_INVALID_ARGUMENT)?;
+    let mut segments = Vec::new();
+    segments.push(Bytes::from(prefix));
+    segments.push(Bytes::from(details_msgpack));
+    if has_args {
+        let args_bytes = if let Some(args) = payload.args.clone() {
+            args
+        } else {
+            Bytes::from_static(EMPTY_MSGPACK_ARRAY)
+        };
+        segments.push(args_bytes);
+    }
+    if let Some(kwargs) = payload.kwargs.clone() {
+        segments.push(kwargs);
+    }
+    Ok(segments)
+}
+
+fn encode_result_segments(
+    message: &StoredMessage,
+    request_id: u64,
+    progress: bool,
+) -> Result<Vec<Bytes>, c_int> {
+    match &message.message {
+        WampMessage::Yield {
+            options, payload, ..
+        } => match message.serializer {
+            RawSocketSerializer::Json => {
+                let mut details_map = options.clone();
+                if progress {
+                    details_map.insert(
+                        SerdeValue::String("progress".into()),
+                        SerdeValue::Bool(true),
+                    );
+                }
+                let details_json =
+                    serde_json::to_vec(&details_map).map_err(|_| ERR_INVALID_ARGUMENT)?;
+                Ok(build_result_segments_json(
+                    payload,
+                    request_id,
+                    Bytes::from(details_json),
+                ))
+            }
+            RawSocketSerializer::MessagePack => {
+                let mut details_map = options.clone();
+                if progress {
+                    details_map.insert(
+                        SerdeValue::String("progress".into()),
+                        SerdeValue::Bool(true),
+                    );
+                }
+                let details_msgpack =
+                    rmp_serde::to_vec(&details_map).map_err(|_| ERR_INVALID_ARGUMENT)?;
+                build_result_segments_msgpack(payload, request_id, details_msgpack)
+            }
+            _ => Err(ERR_UNSUPPORTED),
+        },
+        _ => Err(ERR_INVALID_ARGUMENT),
+    }
+}
+
+fn build_error_segments_json(
+    payload: &ct_core::WampPayload,
+    request_type: u64,
+    request_id: u64,
+    details_bytes: Bytes,
+    error_bytes: Bytes,
+) -> Vec<Bytes> {
+    let has_kwargs = payload.kwargs.is_some();
+    let has_args = payload.args.is_some() || has_kwargs;
+    let mut segments = Vec::new();
+    segments.push(Bytes::from(
+        format!("[8,{},{},", request_type, request_id).into_bytes(),
+    ));
+    segments.push(details_bytes);
+    segments.push(Bytes::from_static(JSON_COMMA));
+    segments.push(error_bytes);
+    if has_args {
+        segments.push(Bytes::from_static(JSON_COMMA));
+        let args_bytes = if let Some(args) = payload.args.clone() {
+            args
+        } else {
+            Bytes::from_static(EMPTY_JSON_ARRAY)
+        };
+        segments.push(args_bytes);
+        if let Some(kwargs) = payload.kwargs.clone() {
+            segments.push(Bytes::from_static(JSON_COMMA));
+            segments.push(kwargs);
+        }
+    }
+    segments.push(Bytes::from_static(JSON_CLOSE));
+    segments
+}
+
+fn build_error_segments_msgpack(
+    payload: &ct_core::WampPayload,
+    request_type: u64,
+    request_id: u64,
+    details_msgpack: Vec<u8>,
+    error_msgpack: Vec<u8>,
+) -> Result<Vec<Bytes>, c_int> {
+    let has_kwargs = payload.kwargs.is_some();
+    let has_args = payload.args.is_some() || has_kwargs;
+    let mut element_count = 5; // code, request_type, request_id, details, error
+    if has_args {
+        element_count += 1;
+    }
+    if has_kwargs {
+        element_count += 1;
+    }
+
+    let mut prefix = Vec::new();
+    write_array_len(&mut prefix, element_count as u32).map_err(|_| ERR_INVALID_ARGUMENT)?;
+    write_u64(&mut prefix, 8).map_err(|_| ERR_INVALID_ARGUMENT)?;
+    write_u64(&mut prefix, request_type).map_err(|_| ERR_INVALID_ARGUMENT)?;
+    write_u64(&mut prefix, request_id).map_err(|_| ERR_INVALID_ARGUMENT)?;
+    prefix.extend_from_slice(&details_msgpack);
+    prefix.extend_from_slice(&error_msgpack);
+
+    let mut segments = Vec::new();
+    segments.push(Bytes::from(prefix));
+    if has_args {
+        let args_bytes = if let Some(args) = payload.args.clone() {
+            args
+        } else {
+            Bytes::from_static(EMPTY_MSGPACK_ARRAY)
+        };
+        segments.push(args_bytes);
+    }
+    if let Some(kwargs) = payload.kwargs.clone() {
+        segments.push(kwargs);
+    }
+    Ok(segments)
+}
+
+fn encode_error_segments(
+    message: &StoredMessage,
+    request_type: u64,
+    request_id: u64,
+) -> Result<Vec<Bytes>, c_int> {
+    match &message.message {
+        WampMessage::Error {
+            details,
+            error,
+            payload,
+            ..
+        } => match message.serializer {
+            RawSocketSerializer::Json => {
+                let details_json = serde_json::to_vec(details).map_err(|_| ERR_INVALID_ARGUMENT)?;
+                let error_json = serde_json::to_string(error).map_err(|_| ERR_INVALID_ARGUMENT)?;
+                Ok(build_error_segments_json(
+                    payload,
+                    request_type,
+                    request_id,
+                    Bytes::from(details_json),
+                    Bytes::from(error_json.into_bytes()),
+                ))
+            }
+            RawSocketSerializer::MessagePack => {
+                let details_msgpack =
+                    rmp_serde::to_vec(details).map_err(|_| ERR_INVALID_ARGUMENT)?;
+                let error_msgpack = rmp_serde::to_vec(error).map_err(|_| ERR_INVALID_ARGUMENT)?;
+                build_error_segments_msgpack(
+                    payload,
+                    request_type,
+                    request_id,
+                    details_msgpack,
+                    error_msgpack,
+                )
+            }
+            _ => Err(ERR_UNSUPPORTED),
+        },
+        _ => Err(ERR_INVALID_ARGUMENT),
     }
 }
 
@@ -176,11 +694,17 @@ pub extern "C" fn ct_poll_connection_message(connection_id: c_int) -> c_int {
     let connection_id = ConnectionId(connection_id as u32);
     match poll_connection_message(connection_id) {
         Ok(Some(parsed)) => {
-            let (args, kwargs) = extract_payload_slices(&parsed.message);
+            let ct_core::ParsedMessage {
+                message,
+                raw,
+                serializer,
+            } = parsed;
+            let (args, kwargs) = extract_payload_slices(&message);
             let info = StoredMessage {
-                serializer: parsed.serializer,
-                code: parsed.message.code(),
-                raw: parsed.raw,
+                serializer,
+                code: message.code(),
+                raw,
+                message,
                 args,
                 kwargs,
             };
@@ -253,6 +777,164 @@ pub extern "C" fn ct_message_release(handle: c_int) {
     }
     let handle_u32 = handle as u32;
     remove_message(handle_u32);
+}
+
+#[no_mangle]
+pub extern "C" fn ct_message_retain(handle: c_int) -> c_int {
+    if handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let handle_u32 = handle as u32;
+    match clone_message(handle_u32) {
+        Some(new_handle) => new_handle as c_int,
+        None => ERR_INVALID_ARGUMENT,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_forward_publish_event(
+    handle: c_int,
+    connection_id: c_int,
+    subscription_id: u64,
+    publication_id: u64,
+    publisher_present: c_int,
+    publisher_session: u64,
+    topic_ptr: *const c_char,
+    topic_len: c_int,
+) -> c_int {
+    if handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let topic = match read_optional_str(topic_ptr, topic_len) {
+        Ok(topic) => topic,
+        Err(code) => return code,
+    };
+    let publisher = if publisher_present != 0 {
+        Some(publisher_session)
+    } else {
+        None
+    };
+    let handle_u32 = handle as u32;
+    let segments = match with_message(handle_u32, |msg| {
+        encode_event_segments(
+            msg,
+            subscription_id,
+            publication_id,
+            publisher,
+            topic.as_deref(),
+        )
+    }) {
+        Some(Ok(parts)) => parts,
+        Some(Err(code)) => return code,
+        None => return ERR_INVALID_ARGUMENT,
+    };
+    let connection_id = ConnectionId(connection_id as u32);
+    match send_wamp_segments(connection_id, segments) {
+        Ok(()) => SUCCESS,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_forward_call_invocation(
+    handle: c_int,
+    connection_id: c_int,
+    invocation_id: u64,
+    registration_id: u64,
+    caller_present: c_int,
+    caller_session: u64,
+    procedure_ptr: *const c_char,
+    procedure_len: c_int,
+    receive_progress_flag: c_int,
+) -> c_int {
+    if handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let procedure = match read_optional_str(procedure_ptr, procedure_len) {
+        Ok(proc) => proc,
+        Err(code) => return code,
+    };
+    let caller = if caller_present != 0 {
+        Some(caller_session)
+    } else {
+        None
+    };
+    let receive_progress = match receive_progress_flag {
+        -1 => None,
+        0 => Some(false),
+        _ => Some(true),
+    };
+    let handle_u32 = handle as u32;
+    let segments = match with_message(handle_u32, |msg| {
+        encode_invocation_segments(
+            msg,
+            invocation_id,
+            registration_id,
+            caller,
+            procedure.as_deref(),
+            receive_progress,
+        )
+    }) {
+        Some(Ok(parts)) => parts,
+        Some(Err(code)) => return code,
+        None => return ERR_INVALID_ARGUMENT,
+    };
+    let connection_id = ConnectionId(connection_id as u32);
+    match send_wamp_segments(connection_id, segments) {
+        Ok(()) => SUCCESS,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_forward_result_from_yield(
+    handle: c_int,
+    connection_id: c_int,
+    request_id: u64,
+    progress_flag: c_int,
+) -> c_int {
+    if handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let handle_u32 = handle as u32;
+    let progress = progress_flag != 0;
+    let segments = match with_message(handle_u32, |msg| {
+        encode_result_segments(msg, request_id, progress)
+    }) {
+        Some(Ok(parts)) => parts,
+        Some(Err(code)) => return code,
+        None => return ERR_INVALID_ARGUMENT,
+    };
+    let connection_id = ConnectionId(connection_id as u32);
+    match send_wamp_segments(connection_id, segments) {
+        Ok(()) => SUCCESS,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_forward_error_from_error(
+    handle: c_int,
+    connection_id: c_int,
+    request_type: u64,
+    request_id: u64,
+) -> c_int {
+    if handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let handle_u32 = handle as u32;
+    let segments = match with_message(handle_u32, |msg| {
+        encode_error_segments(msg, request_type, request_id)
+    }) {
+        Some(Ok(parts)) => parts,
+        Some(Err(code)) => return code,
+        None => return ERR_INVALID_ARGUMENT,
+    };
+    let connection_id = ConnectionId(connection_id as u32);
+    match send_wamp_segments(connection_id, segments) {
+        Ok(()) => SUCCESS,
+        Err(err) => map_error(err),
+    }
 }
 
 #[no_mangle]

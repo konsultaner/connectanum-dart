@@ -128,6 +128,7 @@ class Router {
       authenticators: const {
         'anonymous': AuthenticatorDefinition(type: 'anonymous'),
       },
+      workerPool: const WorkerPoolSettings(),
     );
   }
 }

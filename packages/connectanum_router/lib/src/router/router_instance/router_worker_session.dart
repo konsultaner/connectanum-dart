@@ -9,6 +9,7 @@ Future<void> _handleSessionMessage({
   required WorkerConnectionState state,
   required AbstractMessage message,
   required int connectionId,
+  NativeIncomingMessage? incomingMessage,
 }) async {
   if (message is goodbye_msg.Goodbye) {
     await _handleGoodbye(
@@ -90,6 +91,7 @@ Future<void> _handleSessionMessage({
       state: state,
       connectionId: connectionId,
       message: message,
+      incomingMessage: incomingMessage,
     );
     return;
   }
@@ -102,6 +104,7 @@ Future<void> _handleSessionMessage({
       state: state,
       connectionId: connectionId,
       message: message,
+      incomingMessage: incomingMessage,
     );
     return;
   }
@@ -126,6 +129,7 @@ Future<void> _handleSessionMessage({
       state: state,
       connectionId: connectionId,
       message: message,
+      incomingMessage: incomingMessage,
     );
     return;
   }
@@ -139,6 +143,7 @@ Future<void> _handleSessionMessage({
       state: state,
       connectionId: connectionId,
       message: message,
+      incomingMessage: incomingMessage,
     );
     return;
   }
@@ -161,6 +166,7 @@ Future<void> _handleGoodbye({
   required RealmContextCache? realmContexts,
   required WorkerConnectionState state,
   required int connectionId,
+  String reason = 'wamp.close.goodbye_and_out',
 }) async {
   if (state.phase == HandshakePhase.open) {
     final serializer = state.serializer ?? NativeMessageSerializer.json;
@@ -168,7 +174,7 @@ Future<void> _handleGoodbye({
       bossPort,
       connectionId,
       serializer,
-      goodbye_msg.Goodbye(null, 'wamp.close.goodbye_and_out'),
+      goodbye_msg.Goodbye(null, reason),
     );
   }
   await _closeSession(
@@ -367,13 +373,14 @@ Future<void> _handleRegister({
       detailsMessage: error.message,
     );
   } on StateError catch (error) {
+    final reason = _reasonForRegisterStateError(error.message);
     await _sendSessionError(
       bossPort: bossPort,
       state: state,
       connectionId: connectionId,
       requestType: MessageTypes.codeRegister,
       requestId: message.requestId,
-      reason: wamp_core.Error.noSuchSession,
+      reason: reason,
       detailsMessage: error.message,
     );
   } catch (error, _) {
@@ -470,6 +477,7 @@ Future<void> _handlePublish({
   required WorkerConnectionState state,
   required int connectionId,
   required publish_msg.Publish message,
+  NativeIncomingMessage? incomingMessage,
 }) async {
   if (statePort == null || realmContexts == null || state.realmUri == null) {
     await _sendSessionError(
@@ -492,23 +500,67 @@ Future<void> _handlePublish({
       options: _publishOptionsToMap(message.options),
     );
     final discloseMe = message.options?.discloseMe == true;
-    for (final match in routing.matches) {
-      final eventDetails = event_msg.EventDetails(
-        publisher: discloseMe ? state.sessionId : null,
-        topic: _eventTopicForMatch(match.details, message.topic),
-      );
-      final event = event_msg.Event(
-        match.subscriptionId,
-        routing.publicationId,
-        eventDetails,
-        arguments: message.arguments,
-        argumentsKeywords: message.argumentsKeywords,
-      );
-      _forwardToConnection(
-        bossPort: bossPort,
-        connectionId: match.connectionId,
-        message: event,
-      );
+    final matches = routing.matches;
+    var usedZeroCopy = false;
+    final nativeMessage = incomingMessage;
+    if (nativeMessage?.hasNativeHandle == true && matches.isNotEmpty) {
+      final messageHandle = nativeMessage!;
+      final pending = <Map<String, Object?>>[];
+      var failed = false;
+      for (final match in matches) {
+        final retainedHandle = messageHandle.retainHandle();
+        if (retainedHandle <= 0) {
+          failed = true;
+          break;
+        }
+        final command = <String, Object?>{
+          'type': 'worker_forward_native_event',
+          'connectionId': match.connectionId,
+          'handle': retainedHandle,
+          'subscriptionId': match.subscriptionId,
+          'publicationId': routing.publicationId,
+        };
+        final publisherSessionId = discloseMe ? state.sessionId : null;
+        if (publisherSessionId != null) {
+          command['publisherSessionId'] = publisherSessionId;
+        }
+        final topic = _eventTopicForMatch(match.details, message.topic);
+        if (topic != null) {
+          command['topic'] = topic;
+        }
+        pending.add(command);
+      }
+      if (failed) {
+        for (final command in pending) {
+          messageHandle.releaseRetainedHandle(command['handle'] as int);
+        }
+      } else {
+        for (final command in pending) {
+          bossPort.send(command);
+        }
+        usedZeroCopy = true;
+      }
+    }
+
+    if (!usedZeroCopy) {
+      for (final match in matches) {
+        final eventDetails = event_msg.EventDetails(
+          publisher: discloseMe ? state.sessionId : null,
+          topic: _eventTopicForMatch(match.details, message.topic),
+        );
+        final event = event_msg.Event(
+          match.subscriptionId,
+          routing.publicationId,
+          eventDetails,
+          arguments: message.arguments,
+          argumentsKeywords: message.argumentsKeywords,
+        );
+        _forwardToConnection(
+          bossPort: bossPort,
+          connectionId: match.connectionId,
+          message: event,
+        );
+      }
     }
     if (message.options?.acknowledge == true) {
       await sendMessage(
@@ -558,6 +610,7 @@ Future<void> _handleCall({
   required WorkerConnectionState state,
   required int connectionId,
   required call_msg.Call message,
+  NativeIncomingMessage? incomingMessage,
 }) async {
   if (statePort == null || realmContexts == null || state.realmUri == null) {
     await _sendSessionError(
@@ -581,23 +634,51 @@ Future<void> _handleCall({
       options: _callOptionsToMap(message.options),
     );
     final discloseCaller = message.options?.discloseMe == true;
-    final invocationDetails = invocation_msg.InvocationDetails(
-      discloseCaller ? state.sessionId : null,
-      message.procedure,
-      message.options?.receiveProgress,
-    );
-    final invocation = invocation_msg.Invocation(
-      dispatch.invocationId,
-      dispatch.registrationId,
-      invocationDetails,
-      arguments: message.arguments,
-      argumentsKeywords: message.argumentsKeywords,
-    );
-    _forwardToConnection(
-      bossPort: bossPort,
-      connectionId: dispatch.calleeConnectionId,
-      message: invocation,
-    );
+    final nativeMessage = incomingMessage;
+    var usedZeroCopy = false;
+    if (nativeMessage?.hasNativeHandle == true) {
+      final messageHandle = nativeMessage!;
+      final retainedHandle = messageHandle.retainHandle();
+      if (retainedHandle > 0) {
+        final command = <String, Object?>{
+          'type': 'worker_forward_native_invocation',
+          'connectionId': dispatch.calleeConnectionId,
+          'handle': retainedHandle,
+          'invocationId': dispatch.invocationId,
+          'registrationId': dispatch.registrationId,
+          'procedure': message.procedure,
+        };
+        if (discloseCaller) {
+          command['callerSessionId'] = state.sessionId;
+        }
+        final receiveProgress = message.options?.receiveProgress;
+        if (receiveProgress != null) {
+          command['receiveProgress'] = receiveProgress;
+        }
+        bossPort.send(command);
+        usedZeroCopy = true;
+      }
+    }
+
+    if (!usedZeroCopy) {
+      final invocationDetails = invocation_msg.InvocationDetails(
+        discloseCaller ? state.sessionId : null,
+        message.procedure,
+        message.options?.receiveProgress,
+      );
+      final invocation = invocation_msg.Invocation(
+        dispatch.invocationId,
+        dispatch.registrationId,
+        invocationDetails,
+        arguments: message.arguments,
+        argumentsKeywords: message.argumentsKeywords,
+      );
+      _forwardToConnection(
+        bossPort: bossPort,
+        connectionId: dispatch.calleeConnectionId,
+        message: invocation,
+      );
+    }
   } on ArgumentError catch (error) {
     await _sendSessionError(
       bossPort: bossPort,
@@ -672,42 +753,80 @@ Future<void> _handleCancel({
       return;
     }
 
-    interrupt_msg.InterruptOptions? interruptOptions;
-    final mode = message.options?.mode;
-    if (mode != null) {
-      interruptOptions = interrupt_msg.InterruptOptions()..mode = mode;
-    }
-
-    final calleeConnectionId = await _findConnectionIdForSession(
-      context: context,
-      sessionId: invocation.calleeSessionId,
-      forceRefresh: true,
-    );
-    if (calleeConnectionId != null) {
-      final interrupt = interrupt_msg.Interrupt(
-        invocation.invocationId,
-        options: interruptOptions,
-      );
-      _forwardToConnection(
+    final mode = _normalizeCancelMode(message.options?.mode);
+    if (mode == null) {
+      await _sendSessionError(
         bossPort: bossPort,
-        connectionId: calleeConnectionId,
-        message: interrupt,
+        state: state,
+        connectionId: connectionId,
+        requestType: MessageTypes.codeCancel,
+        requestId: message.requestId,
+        reason: wamp_core.Error.invalidArgument,
+        detailsMessage: 'Unsupported cancel mode: ${message.options?.mode}',
       );
+      return;
     }
 
-    await context.completeInvocation(invocation.invocationId);
+    if (mode == cancel_msg.CancelOptions.modeSkip) {
+      await context.completeInvocation(invocation.invocationId);
+      await _sendCancelAck(
+        bossPort: bossPort,
+        state: state,
+        connectionId: connectionId,
+        requestId: message.requestId,
+      );
+      return;
+    }
 
-    await sendMessage(
-      bossPort,
-      connectionId,
-      state.serializer ?? NativeMessageSerializer.json,
-      error_msg.Error(
-        MessageTypes.codeCall,
-        message.requestId,
-        const {},
-        error_msg.Error.errorInvocationCanceled,
-      ),
-    );
+    final waitForAck = mode == cancel_msg.CancelOptions.modeKill;
+    if (!await context.cancelInvocation(
+      invocationId: invocation.invocationId,
+      mode: mode,
+      waitForAck: waitForAck,
+    )) {
+      await _sendSessionError(
+        bossPort: bossPort,
+        state: state,
+        connectionId: connectionId,
+        requestType: MessageTypes.codeCancel,
+        requestId: message.requestId,
+        reason: _wampErrorNoSuchInvocation,
+        detailsMessage: 'No active invocation for request ${message.requestId}',
+      );
+      return;
+    }
+
+    final shouldInterrupt =
+        mode == cancel_msg.CancelOptions.modeKill ||
+        mode == cancel_msg.CancelOptions.modeKillNoWait;
+    if (shouldInterrupt) {
+      final calleeConnectionId = await _findConnectionIdForSession(
+        context: context,
+        sessionId: invocation.calleeSessionId,
+        forceRefresh: true,
+      );
+      if (calleeConnectionId != null) {
+        final interruptOptions = interrupt_msg.InterruptOptions()..mode = mode;
+        final interrupt = interrupt_msg.Interrupt(
+          invocation.invocationId,
+          options: interruptOptions,
+        );
+        _forwardToConnection(
+          bossPort: bossPort,
+          connectionId: calleeConnectionId,
+          message: interrupt,
+        );
+      }
+    }
+
+    if (!waitForAck) {
+      await _sendCancelAck(
+        bossPort: bossPort,
+        state: state,
+        connectionId: connectionId,
+        requestId: message.requestId,
+      );
+    }
   } catch (error) {
     await _sendSessionError(
       bossPort: bossPort,
@@ -721,6 +840,41 @@ Future<void> _handleCancel({
   }
 }
 
+String? _normalizeCancelMode(String? rawMode) {
+  if (rawMode == null) {
+    return cancel_msg.CancelOptions.modeSkip;
+  }
+  switch (rawMode) {
+    case 'skip':
+      return cancel_msg.CancelOptions.modeSkip;
+    case 'kill':
+      return cancel_msg.CancelOptions.modeKill;
+    case 'killnowait':
+      return cancel_msg.CancelOptions.modeKillNoWait;
+    default:
+      return null;
+  }
+}
+
+Future<void> _sendCancelAck({
+  required SendPort bossPort,
+  required WorkerConnectionState state,
+  required int connectionId,
+  required int requestId,
+}) async {
+  await sendMessage(
+    bossPort,
+    connectionId,
+    state.serializer ?? NativeMessageSerializer.json,
+    error_msg.Error(
+      MessageTypes.codeCall,
+      requestId,
+      const {},
+      error_msg.Error.errorInvocationCanceled,
+    ),
+  );
+}
+
 Future<void> _handleYield({
   required SendPort bossPort,
   required SendPort? statePort,
@@ -728,6 +882,7 @@ Future<void> _handleYield({
   required WorkerConnectionState state,
   required int connectionId,
   required yield_msg.Yield message,
+  NativeIncomingMessage? incomingMessage,
 }) async {
   if (statePort == null || realmContexts == null || state.realmUri == null) {
     await _sendInvocationErrorToCallee(
@@ -764,6 +919,18 @@ Future<void> _handleYield({
         reason: wamp_core.Error.notAuthorized,
       );
       await context.completeInvocation(invocationId);
+      return;
+    }
+
+    if (invocation.cancelRequested) {
+      await _sendInvocationErrorToCallee(
+        bossPort: bossPort,
+        state: state,
+        connectionId: connectionId,
+        invocationId: invocationId,
+        reason: error_msg.Error.errorInvocationCanceled,
+        detailsMessage: 'Invocation $invocationId was cancelled',
+      );
       return;
     }
 
@@ -804,17 +971,34 @@ Future<void> _handleYield({
       return;
     }
 
-    final result = result_msg.Result(
-      invocation.callerRequestId,
-      result_msg.ResultDetails(progress: isProgress),
-      arguments: message.arguments,
-      argumentsKeywords: message.argumentsKeywords,
-    );
-    _forwardToConnection(
-      bossPort: bossPort,
-      connectionId: callerConnectionId,
-      message: result,
-    );
+    var usedZeroCopy = false;
+    if (incomingMessage?.hasNativeHandle == true) {
+      final retainedHandle = incomingMessage!.retainHandle();
+      if (retainedHandle > 0) {
+        bossPort.send({
+          'type': 'worker_forward_native_result',
+          'connectionId': callerConnectionId,
+          'handle': retainedHandle,
+          'requestId': invocation.callerRequestId,
+          'progress': isProgress,
+        });
+        usedZeroCopy = true;
+      }
+    }
+
+    if (!usedZeroCopy) {
+      final result = result_msg.Result(
+        invocation.callerRequestId,
+        result_msg.ResultDetails(progress: isProgress),
+        arguments: message.arguments,
+        argumentsKeywords: message.argumentsKeywords,
+      );
+      _forwardToConnection(
+        bossPort: bossPort,
+        connectionId: callerConnectionId,
+        message: result,
+      );
+    }
   } catch (error) {
     await _sendInvocationErrorToCallee(
       bossPort: bossPort,
@@ -834,6 +1018,7 @@ Future<void> _handleInvocationError({
   required WorkerConnectionState state,
   required int connectionId,
   required error_msg.Error message,
+  NativeIncomingMessage? incomingMessage,
 }) async {
   if (statePort == null || realmContexts == null || state.realmUri == null) {
     await _sendInvocationErrorToCallee(
@@ -892,19 +1077,36 @@ Future<void> _handleInvocationError({
       return;
     }
 
-    final forwardedError = error_msg.Error(
-      MessageTypes.codeCall,
-      invocation.callerRequestId,
-      Map<String, dynamic>.from(message.details),
-      message.error,
-      arguments: message.arguments,
-      argumentsKeywords: message.argumentsKeywords,
-    );
-    _forwardToConnection(
-      bossPort: bossPort,
-      connectionId: callerConnectionId,
-      message: forwardedError,
-    );
+    var usedZeroCopy = false;
+    if (incomingMessage?.hasNativeHandle == true) {
+      final retainedHandle = incomingMessage!.retainHandle();
+      if (retainedHandle > 0) {
+        bossPort.send({
+          'type': 'worker_forward_native_error',
+          'connectionId': callerConnectionId,
+          'handle': retainedHandle,
+          'requestType': MessageTypes.codeCall,
+          'requestId': invocation.callerRequestId,
+        });
+        usedZeroCopy = true;
+      }
+    }
+
+    if (!usedZeroCopy) {
+      final forwardedError = error_msg.Error(
+        MessageTypes.codeCall,
+        invocation.callerRequestId,
+        Map<String, dynamic>.from(message.details),
+        message.error,
+        arguments: message.arguments,
+        argumentsKeywords: message.argumentsKeywords,
+      );
+      _forwardToConnection(
+        bossPort: bossPort,
+        connectionId: callerConnectionId,
+        message: forwardedError,
+      );
+    }
   } catch (error) {
     await _sendInvocationErrorToCallee(
       bossPort: bossPort,
@@ -981,6 +1183,12 @@ Map<String, Object?> _publishOptionsToMap(publish_msg.PublishOptions? options) {
   }
   if (options.eligible != null) {
     map['eligible'] = List<int>.from(options.eligible!);
+  }
+  if (options.excludeAuthRole != null) {
+    map['exclude_authroles'] = List<String>.from(options.excludeAuthRole!);
+  }
+  if (options.eligibleAuthRole != null) {
+    map['eligible_authroles'] = List<String>.from(options.eligibleAuthRole!);
   }
   if (options.excludeMe != null) {
     map['exclude_me'] = options.excludeMe;
@@ -1080,6 +1288,19 @@ String _reasonForInvocationDispatchError(String? message) {
   return wamp_core.Error.unknown;
 }
 
+String _reasonForRegisterStateError(String? message) {
+  if (message == null) {
+    return wamp_core.Error.unknown;
+  }
+  if (message.contains('already registered')) {
+    return wamp_core.Error.procedureAlreadyExists;
+  }
+  if (message.contains('Session')) {
+    return wamp_core.Error.noSuchSession;
+  }
+  return wamp_core.Error.unknown;
+}
+
 Future<void> _sendSessionError({
   required SendPort bossPort,
   required WorkerConnectionState state,
@@ -1172,6 +1393,7 @@ Future<void> handleSessionMessageForTest({
   required WorkerConnectionState state,
   required AbstractMessage message,
   required int connectionId,
+  NativeIncomingMessage? incomingMessage,
 }) => _handleSessionMessage(
   bossPort: bossPort,
   statePort: statePort,
@@ -1179,4 +1401,22 @@ Future<void> handleSessionMessageForTest({
   state: state,
   message: message,
   connectionId: connectionId,
+  incomingMessage: incomingMessage,
+);
+
+@visibleForTesting
+Future<void> initiateServerGoodbyeForTest({
+  required SendPort bossPort,
+  required SendPort? statePort,
+  required RealmContextCache? realmContexts,
+  required WorkerConnectionState state,
+  required int connectionId,
+  String reason = 'wamp.close.system_shutdown',
+}) => _handleGoodbye(
+  bossPort: bossPort,
+  statePort: statePort,
+  realmContexts: realmContexts,
+  state: state,
+  connectionId: connectionId,
+  reason: reason,
 );

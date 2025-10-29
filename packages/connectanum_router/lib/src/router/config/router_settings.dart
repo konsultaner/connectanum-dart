@@ -27,24 +27,28 @@ class RouterSettings {
     required this.listeners,
     this.metrics,
     this.authenticators = const {},
+    this.workerPool = const WorkerPoolSettings(),
   });
 
   final List<RealmSettings> realms;
   final List<ListenerSettings> listeners;
   final MetricsSettings? metrics;
   final Map<String, AuthenticatorDefinition> authenticators;
+  final WorkerPoolSettings workerPool;
 
   RouterSettings copyWith({
     List<RealmSettings>? realms,
     List<ListenerSettings>? listeners,
     MetricsSettings? metrics,
     Map<String, AuthenticatorDefinition>? authenticators,
+    WorkerPoolSettings? workerPool,
   }) {
     return RouterSettings(
       realms: realms ?? this.realms,
       listeners: listeners ?? this.listeners,
       metrics: metrics ?? this.metrics,
       authenticators: authenticators ?? this.authenticators,
+      workerPool: workerPool ?? this.workerPool,
     );
   }
 }
@@ -188,6 +192,17 @@ class MetricsSettings {
   const MetricsSettings({this.prometheus});
 
   final PrometheusMetricsSettings? prometheus;
+}
+
+@immutable
+class WorkerPoolSettings {
+  const WorkerPoolSettings({this.minWorkers = 1})
+      : assert(minWorkers >= 0, 'minWorkers must be >= 0');
+
+  final int minWorkers;
+
+  WorkerPoolSettings copyWith({int? minWorkers}) =>
+      WorkerPoolSettings(minWorkers: minWorkers ?? this.minWorkers);
 }
 
 @immutable

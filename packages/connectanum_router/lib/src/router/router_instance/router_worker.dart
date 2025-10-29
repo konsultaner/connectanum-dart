@@ -9,6 +9,7 @@ const int _workerCmdShutdown = 2;
 const int _workerCmdAddConnection = 3;
 const int _workerCmdRemoveConnection = 4;
 const int _workerCmdSendMessage = 5;
+const int _workerCmdDrainConnections = 6;
 
 const int _workerEventRegister = 1;
 const int _workerEventReady = 2;
@@ -16,6 +17,7 @@ const int _workerEventError = 3;
 const int _workerEventShutdown = 4;
 const int _workerEventConnectionAdded = 5;
 const int _workerEventConnectionRemoved = 6;
+const int _workerEventDrained = 7;
 
 final json_serializer.Serializer _jsonSerializer = json_serializer.Serializer();
 final msgpack_serializer.Serializer _msgpackSerializer =
@@ -241,19 +243,21 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
     listenerSettings: lookupListenerSettings(settings, initialListener),
   );
 
+  final workerId = Isolate.current.hashCode;
+
   bossPort.send({
     'type': _workerEventRegister,
     'connectionId': initialConnectionId,
     'listenerId': initialListenerId,
     'commandPort': commandPort.sendPort,
     'statePort': statePort,
+    'workerHash': workerId,
   });
   bossPort.send({
     'type': _workerEventReady,
     'connectionId': initialConnectionId,
   });
 
-  final workerId = Isolate.current.hashCode;
   bool shuttingDown = false;
 
   Future<void> processMessage(
@@ -303,6 +307,7 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
             state: state,
             message: message,
             connectionId: connectionId,
+            incomingMessage: incoming,
           );
         }
       } finally {
@@ -370,6 +375,32 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
       }
       final serializer = state.serializer ?? NativeMessageSerializer.json;
       await sendMessage(bossPort, connectionId, serializer, message);
+    } else if (command == _workerCmdDrainConnections) {
+      final reason = raw.length > 1 && raw[1] is String
+          ? raw[1] as String
+          : 'wamp.close.system_shutdown';
+      final connectionIds = connectionStates.keys.toList(growable: false);
+      for (final targetConnectionId in connectionIds) {
+        final targetState = connectionStates[targetConnectionId];
+        if (targetState == null) {
+          continue;
+        }
+        connections.remove(targetConnectionId);
+        await _handleGoodbye(
+          bossPort: bossPort,
+          statePort: statePort,
+          realmContexts: realmContexts,
+          state: targetState,
+          connectionId: targetConnectionId,
+          reason: reason,
+        );
+        connectionStates.remove(targetConnectionId);
+        bossPort.send({
+          'type': _workerEventConnectionRemoved,
+          'connectionId': targetConnectionId,
+        });
+      }
+      bossPort.send({'type': _workerEventDrained, 'workerHash': workerId});
     } else if (command == _workerCmdShutdown) {
       if (shuttingDown) {
         return;

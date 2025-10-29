@@ -22,6 +22,12 @@
 - [x] Realm snapshots & invalidation events for workers
 - [x] Command API (async mutation/query from workers)
 - [x] Persistent ID allocators (session/subscription/registration/publication/ invocation/request)
+- [ ] Worker pool autoscaling
+  - [ ] Collect per-worker load metrics (connection counts, pending handle depth, queue latency, host stats)
+  - [ ] Implement hysteresis-based scale-up/scale-down policy with configurable thresholds
+  - [ ] Reassign connections gracefully during scale-down using drain flow
+  - [ ] Integrate load-aware connection assignment (least-busy/weighted policies)
+  - [ ] Verify cross-worker parallelism with high-contention integration tests (parallel call/publish workloads)
 - [ ] Meta event dispatch plumbing (session/subscription/registration meta)
 - [ ] Metrics counters / observability hooks
 
@@ -33,6 +39,7 @@
 - [x] HELLO → WELCOME handshake & role negotiation (anonymous + challenge/response paths)
 - [x] ABORT handling (capability or auth failure)
 - [ ] GOODBYE reception & realm cleanup
+- [ ] Router-initiated GOODBYE / graceful shutdown (drain sessions and propagate to clients)
 - [ ] Heartbeat / ping-pong / session timeout support
 
 ### Publish & Subscribe
@@ -45,6 +52,10 @@
   - [ ] Unit tests: publish with ack on/off, exclude/eligible filters, wildcard/prefix routing
 - [ ] Publication IDs / ACK handling
 - [ ] ERROR routing for SUBSCRIBE/UNSUBSCRIBE/PUBLISH
+- [x] End-to-end zero-copy PUB/SUB dispatch (reuse native frame buffers across subscribers)
+  - [x] FFI support for cloning publish frames with patched headers only
+  - [x] Worker routing uses native handles instead of Dart re-serialization
+  - [x] Tests ensure EVENT payload buffers are reused across recipients
 
 ### Remote Procedure Calls
 
@@ -56,6 +67,10 @@
   - [ ] Unit tests: call→invocation→result, failing callee, timeouts, progressive results placeholder
 - [ ] ERROR handling for REGISTER/UNREGISTER/CALL
 - [ ] CALL cancellation (basic profile – CANCEL)
+- [x] End-to-end zero-copy RPC dispatch (reuse native call payload buffers)
+  - [x] FFI helper for cloning invocation frames without copying arguments
+  - [x] Worker invocation forwarding uses cloned native handles
+  - [x] Tests ensure YIELD/ERROR paths dispose clones correctly
 
 ## Advanced Profile
 
@@ -65,14 +80,17 @@
 - [ ] Subscription meta events (created, deleted, on/off subscribe)
 - [ ] Publisher options (exclude_me, eligible/exclude authid/authrole lists)
 - [ ] Payload persist / retained events
+- [ ] Throttle/debounce hooks driven by client-provided hashes in publish pipeline
 
 ### RPC Enhancements
 
   - [ ] Shared registrations with invocation policies (round-robin, random, load)
   - [ ] Shared registration meta events
+- [ ] Load-aware invocation balancing (collect CPU/RAM/remote metrics and select least-loaded callee)
 - [ ] Progressive call results (`progress=true`)
 - [ ] Call cancellation modes (`kill`, `killnowait`, `killall`) — ensure cancellers can wait for cleanup so subsequent processing shuts down gracefully
 - [ ] Caller disclosure (`caller`, `caller_authid`, `caller_authrole`)
+- [ ] Throttle/debounce hooks driven by client-provided hashes in call pipeline
 - [ ] Sharded registrations / invocation trust level (`trustlevel`)
 
 ### Authentication & Authorization

@@ -38,12 +38,14 @@ class RouterConfigLoader {
     final listeners = _parseListeners(routerNode['listeners']);
     final metrics = _parseMetrics(routerNode['metrics']);
     final authenticators = _parseAuthenticators(routerNode['authenticators']);
+    final workerPool = _parseWorkerPool(routerNode['worker_pool']);
 
     return RouterSettings(
       realms: realms,
       listeners: listeners,
       metrics: metrics,
       authenticators: authenticators,
+      workerPool: workerPool,
     );
   }
 
@@ -275,6 +277,20 @@ class RouterConfigLoader {
       );
     }
     return Map.unmodifiable(entries);
+  }
+
+  static WorkerPoolSettings _parseWorkerPool(dynamic node) {
+    if (node == null) {
+      return const WorkerPoolSettings();
+    }
+    if (node is! Map<String, Object?>) {
+      throw FormatException('Router "worker_pool" must be a map');
+    }
+    final minWorkers = _asInt(node['min_workers'], defaultValue: 1);
+    if (minWorkers < 0) {
+      throw FormatException('worker_pool.min_workers must be >= 0');
+    }
+    return WorkerPoolSettings(minWorkers: minWorkers);
   }
 
   static String _expectString(dynamic value, String path) {

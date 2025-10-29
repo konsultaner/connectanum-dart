@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:typed_data';
@@ -25,6 +26,37 @@ abstract class NativeRuntime {
 abstract class NativeRuntimeWithHandles implements NativeRuntime {
   int pollMessageHandle(int connectionId);
   String? get libraryPathHint;
+  int retainMessageHandle(int handle);
+  void releaseMessageHandle(int handle);
+  void forwardPublishEvent({
+    required int handle,
+    required int connectionId,
+    required int subscriptionId,
+    required int publicationId,
+    int? publisherSessionId,
+    String? topic,
+  });
+  void forwardCallInvocation({
+    required int handle,
+    required int connectionId,
+    required int invocationId,
+    required int registrationId,
+    int? callerSessionId,
+    String? procedure,
+    bool? receiveProgress,
+  });
+  void forwardResultFromYield({
+    required int handle,
+    required int connectionId,
+    required int requestId,
+    required bool progress,
+  });
+  void forwardInvocationError({
+    required int handle,
+    required int connectionId,
+    required int requestType,
+    required int requestId,
+  });
 }
 
 /// Error codes exposed by the native layer.
@@ -84,9 +116,15 @@ class NativeIncomingMessage {
     required this.frameAddress,
     required this.argumentsAddress,
     required this.argumentsKeywordsAddress,
+    required this.handle,
+    required CtFfiBindings? bindings,
     this.argumentsBytes,
     this.argumentsKeywordsBytes,
-  });
+    int Function(int handle)? retainOverride,
+    void Function(int handle)? releaseOverride,
+  }) : _bindings = bindings,
+       _retainOverride = retainOverride,
+       _releaseOverride = releaseOverride;
 
   factory NativeIncomingMessage.synthetic({
     required NativeMessageSerializer serializer,
@@ -103,8 +141,41 @@ class NativeIncomingMessage {
       frameAddress: frameBytes.isEmpty ? 0 : 1,
       argumentsAddress: argumentsBytes == null ? 0 : 1,
       argumentsKeywordsAddress: argumentsKeywordsBytes == null ? 0 : 1,
+      handle: -1,
+      bindings: null,
       argumentsBytes: argumentsBytes,
       argumentsKeywordsBytes: argumentsKeywordsBytes,
+      retainOverride: null,
+      releaseOverride: null,
+    );
+    instance._setReleaser(() {});
+    return instance;
+  }
+
+  factory NativeIncomingMessage.test({
+    required NativeMessageSerializer serializer,
+    required AbstractMessage message,
+    required int handle,
+    Uint8List? bytes,
+    Uint8List? argumentsBytes,
+    Uint8List? argumentsKeywordsBytes,
+    int Function(int handle)? onRetain,
+    void Function(int handle)? onRelease,
+  }) {
+    final frameBytes = bytes ?? Uint8List(0);
+    final instance = NativeIncomingMessage._(
+      serializer: serializer,
+      message: message,
+      bytes: frameBytes,
+      frameAddress: frameBytes.isEmpty ? 0 : 1,
+      argumentsAddress: argumentsBytes == null ? 0 : 1,
+      argumentsKeywordsAddress: argumentsKeywordsBytes == null ? 0 : 1,
+      handle: handle,
+      bindings: null,
+      argumentsBytes: argumentsBytes,
+      argumentsKeywordsBytes: argumentsKeywordsBytes,
+      retainOverride: onRetain,
+      releaseOverride: onRelease,
     );
     instance._setReleaser(() {});
     return instance;
@@ -116,8 +187,37 @@ class NativeIncomingMessage {
   final int frameAddress;
   final int argumentsAddress;
   final int argumentsKeywordsAddress;
+  final int handle;
   final Uint8List? argumentsBytes;
   final Uint8List? argumentsKeywordsBytes;
+  final CtFfiBindings? _bindings;
+  final int Function(int handle)? _retainOverride;
+  final void Function(int handle)? _releaseOverride;
+
+  bool get hasNativeHandle => handle > 0;
+
+  int retainHandle() {
+    if (_retainOverride != null) {
+      return _retainOverride(handle);
+    }
+    final bindings = _bindings;
+    if (bindings == null || handle <= 0) {
+      return 0;
+    }
+    return bindings.ctMessageRetain(handle);
+  }
+
+  void releaseRetainedHandle(int retainedHandle) {
+    if (_releaseOverride != null) {
+      _releaseOverride(retainedHandle);
+      return;
+    }
+    final bindings = _bindings;
+    if (bindings == null || retainedHandle <= 0) {
+      return;
+    }
+    bindings.ctMessageRelease(retainedHandle);
+  }
 
   bool _released = false;
   void Function()? _releaseHandle;
@@ -204,8 +304,12 @@ class _MessageBindings {
           frameAddress: frameAddress,
           argumentsAddress: argsAddress,
           argumentsKeywordsAddress: kwargsAddress,
+          handle: handle,
+          bindings: _bindings,
           argumentsBytes: args,
           argumentsKeywordsBytes: kwargs,
+          retainOverride: null,
+          releaseOverride: null,
         );
         final token = _MessageFinalizerToken(_bindings, handle);
         _messageFinalizer.attach(nativeMessage, token, detach: nativeMessage);
@@ -500,8 +604,147 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
     return handle;
   }
 
+  @override
+  int retainMessageHandle(int handle) {
+    final result = _bindings.ctMessageRetain(handle);
+    if (result < 0) {
+      _throwForError(result, 'Failed to retain message handle');
+    }
+    return result;
+  }
+
+  @override
+  void releaseMessageHandle(int handle) {
+    if (handle <= 0) {
+      return;
+    }
+    _bindings.ctMessageRelease(handle);
+  }
+
+  @override
+  void forwardPublishEvent({
+    required int handle,
+    required int connectionId,
+    required int subscriptionId,
+    required int publicationId,
+    int? publisherSessionId,
+    String? topic,
+  }) {
+    final topicBuffer = _toNativeString(topic);
+    try {
+      final result = _bindings.ctForwardPublishEvent(
+        handle,
+        connectionId,
+        subscriptionId,
+        publicationId,
+        publisherSessionId != null ? 1 : 0,
+        publisherSessionId ?? 0,
+        topicBuffer.charPtr,
+        topicBuffer.length,
+      );
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'Failed to forward publish event');
+      }
+    } finally {
+      topicBuffer.dispose();
+    }
+  }
+
+  @override
+  void forwardCallInvocation({
+    required int handle,
+    required int connectionId,
+    required int invocationId,
+    required int registrationId,
+    int? callerSessionId,
+    String? procedure,
+    bool? receiveProgress,
+  }) {
+    final procedureBuffer = _toNativeString(procedure);
+    try {
+      final result = _bindings.ctForwardCallInvocation(
+        handle,
+        connectionId,
+        invocationId,
+        registrationId,
+        callerSessionId != null ? 1 : 0,
+        callerSessionId ?? 0,
+        procedureBuffer.charPtr,
+        procedureBuffer.length,
+        receiveProgress == null ? -1 : (receiveProgress ? 1 : 0),
+      );
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'Failed to forward call invocation');
+      }
+    } finally {
+      procedureBuffer.dispose();
+    }
+  }
+
+  @override
+  void forwardResultFromYield({
+    required int handle,
+    required int connectionId,
+    required int requestId,
+    required bool progress,
+  }) {
+    final result = _bindings.ctForwardResultFromYield(
+      handle,
+      connectionId,
+      requestId,
+      progress ? 1 : 0,
+    );
+    if (result != NativeTransportErrorCode.success) {
+      _throwForError(result, 'Failed to forward result message');
+    }
+  }
+
+  @override
+  void forwardInvocationError({
+    required int handle,
+    required int connectionId,
+    required int requestType,
+    required int requestId,
+  }) {
+    final result = _bindings.ctForwardErrorFromError(
+      handle,
+      connectionId,
+      requestType,
+      requestId,
+    );
+    if (result != NativeTransportErrorCode.success) {
+      _throwForError(result, 'Failed to forward invocation error');
+    }
+  }
+
+  _NativeString _toNativeString(String? value) {
+    if (value == null || value.isEmpty) {
+      return _NativeString(ffi.Pointer<ffi.Char>.fromAddress(0), null, 0);
+    }
+    final bytes = utf8.encode(value);
+    final ptr = calloc<ffi.Uint8>(bytes.length);
+    final buffer = ptr.asTypedList(bytes.length);
+    buffer.setAll(0, bytes);
+    return _NativeString(ptr.cast<ffi.Char>(), ptr, bytes.length);
+  }
+
   String get libraryPath => _libraryPath;
 
   @override
   String? get libraryPathHint => _libraryPath;
+}
+
+class _NativeString {
+  _NativeString(this.charPtr, this.bytePtr, this.length);
+
+  final ffi.Pointer<ffi.Char> charPtr;
+  final ffi.Pointer<ffi.Uint8>? bytePtr;
+  final int length;
+
+  void dispose() {
+    final ptr = bytePtr;
+    if (ptr != null) {
+      calloc.free(ptr);
+    }
+  }
 }

@@ -7,6 +7,8 @@ import 'dart:typed_data';
 import 'package:connectanum_core/connectanum_core.dart'
     show MessageTypes, Publish;
 import 'package:connectanum_router/src/native/runtime.dart';
+import 'package:connectanum_router/src/router/config/router_settings.dart';
+import 'package:connectanum_router/src/router/config/router_settings_builder.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
 import 'package:connectanum_router/src/router/models/router_config.dart';
 import 'package:connectanum_router/src/router/models/tls_mode.dart';
@@ -92,6 +94,10 @@ class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
   int _nextHandle = 1;
   NativeTransportException? _scheduledError;
   final Set<int> _knownConnections = {};
+  final List<Map<String, Object?>> forwardedEvents = [];
+  final List<Map<String, Object?>> forwardedInvocations = [];
+  final List<Map<String, Object?>> forwardedResults = [];
+  final List<Map<String, Object?>> forwardedErrors = [];
 
   @override
   int pollMessageHandle(int connectionId) {
@@ -109,6 +115,82 @@ class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
 
   @override
   String? get libraryPathHint => null;
+
+  @override
+  int retainMessageHandle(int handle) => handle;
+
+  @override
+  void releaseMessageHandle(int handle) {}
+
+  @override
+  void forwardPublishEvent({
+    required int handle,
+    required int connectionId,
+    required int subscriptionId,
+    required int publicationId,
+    int? publisherSessionId,
+    String? topic,
+  }) {
+    forwardedEvents.add({
+      'handle': handle,
+      'connectionId': connectionId,
+      'subscriptionId': subscriptionId,
+      'publicationId': publicationId,
+      'publisherSessionId': publisherSessionId,
+      'topic': topic,
+    });
+  }
+
+  @override
+  void forwardCallInvocation({
+    required int handle,
+    required int connectionId,
+    required int invocationId,
+    required int registrationId,
+    int? callerSessionId,
+    String? procedure,
+    bool? receiveProgress,
+  }) {
+    forwardedInvocations.add({
+      'handle': handle,
+      'connectionId': connectionId,
+      'invocationId': invocationId,
+      'registrationId': registrationId,
+      'callerSessionId': callerSessionId,
+      'procedure': procedure,
+      'receiveProgress': receiveProgress,
+    });
+  }
+
+  @override
+  void forwardResultFromYield({
+    required int handle,
+    required int connectionId,
+    required int requestId,
+    required bool progress,
+  }) {
+    forwardedResults.add({
+      'handle': handle,
+      'connectionId': connectionId,
+      'requestId': requestId,
+      'progress': progress,
+    });
+  }
+
+  @override
+  void forwardInvocationError({
+    required int handle,
+    required int connectionId,
+    required int requestType,
+    required int requestId,
+  }) {
+    forwardedErrors.add({
+      'handle': handle,
+      'connectionId': connectionId,
+      'requestType': requestType,
+      'requestId': requestId,
+    });
+  }
 
   int enqueueHandle(int listenerId, int connectionId) {
     final handle = _nextHandle++;
@@ -134,6 +216,8 @@ const int kWorkerEventError = 3;
 const int kWorkerEventShutdown = 4;
 const int kWorkerEventConnectionAdded = 5;
 const int kWorkerEventConnectionRemoved = 6;
+const int kWorkerEventDrained = 7;
+const int _workerCmdDrainConnections = 6;
 
 Future<void> _waitUntil(
   bool Function() condition, {
@@ -155,12 +239,14 @@ void _testWorkerEntryPoint(Map<String, Object?> init) {
   final listenerId = init['listenerId'] as int;
   final commandPort = ReceivePort();
   final Map<int, int> connections = {connectionId: listenerId};
+  final workerHash = Isolate.current.hashCode;
 
   bossPort.send({
     'type': kWorkerEventRegister,
     'connectionId': connectionId,
     'listenerId': listenerId,
     'commandPort': commandPort.sendPort,
+    'workerHash': workerHash,
   });
   bossPort.send({'type': kWorkerEventReady, 'connectionId': connectionId});
 
@@ -204,6 +290,121 @@ void _testWorkerEntryPoint(Map<String, Object?> init) {
         'type': kWorkerEventShutdown,
         'connectionId': connectionId,
       });
+    } else if (command == _workerCmdDrainConnections) {
+      final reason = raw.length > 1 && raw[1] is String
+          ? raw[1] as String
+          : 'wamp.close.system_shutdown';
+      bossPort.send({
+        'type': 'test_drain',
+        'reason': reason,
+      });
+      for (final entry in connections.entries.toList()) {
+        bossPort.send({
+          'type': kWorkerEventConnectionRemoved,
+          'connectionId': entry.key,
+        });
+        connections.remove(entry.key);
+      }
+      bossPort.send({
+        'type': kWorkerEventDrained,
+        'workerHash': workerHash,
+      });
+    }
+  });
+}
+
+void _parallelWorkerEntryPoint(Map<String, Object?> init) {
+  final bossPort = init['bossPort'] as SendPort;
+  final connectionId = init['connectionId'] as int;
+  final listenerId = init['listenerId'] as int;
+  final commandPort = ReceivePort();
+  final Map<int, int> connections = {connectionId: listenerId};
+  final workerHash = Isolate.current.hashCode;
+  final processedDelayed = <int>{};
+
+  bossPort.send({
+    'type': kWorkerEventRegister,
+    'connectionId': connectionId,
+    'listenerId': listenerId,
+    'commandPort': commandPort.sendPort,
+    'workerHash': workerHash,
+  });
+  bossPort.send({'type': kWorkerEventReady, 'connectionId': connectionId});
+
+  commandPort.listen((dynamic raw) {
+    if (raw is! List || raw.isEmpty) {
+      return;
+    }
+    final command = raw[0];
+    if (command == kWorkerCmdProcess) {
+      final assignedConnection = raw[1] as int;
+      final handle = raw[2] as int;
+
+      void emitProcessed() {
+        bossPort.send({
+          'type': 'test_processed',
+          'connectionId': assignedConnection,
+          'handle': handle,
+          'processedAt': DateTime.now().microsecondsSinceEpoch,
+        });
+        bossPort.send({
+          'type': kWorkerEventReady,
+          'connectionId': assignedConnection,
+        });
+      }
+
+      final shouldDelay =
+          assignedConnection % 10 == 1 &&
+          !processedDelayed.contains(assignedConnection);
+      if (shouldDelay) {
+        processedDelayed.add(assignedConnection);
+        Future<void>.delayed(const Duration(milliseconds: 200))
+            .then((_) => emitProcessed());
+      } else {
+        emitProcessed();
+      }
+    } else if (command == kWorkerCmdAddConnection) {
+      final newListener = raw[1] as int;
+      final newConnection = raw[2] as int;
+      connections[newConnection] = newListener;
+      bossPort.send({
+        'type': kWorkerEventConnectionAdded,
+        'connectionId': newConnection,
+        'listenerId': newListener,
+      });
+      bossPort.send({'type': kWorkerEventReady, 'connectionId': newConnection});
+    } else if (command == kWorkerCmdRemoveConnection) {
+      final removeConnection = raw[1] as int;
+      connections.remove(removeConnection);
+      bossPort.send({
+        'type': kWorkerEventConnectionRemoved,
+        'connectionId': removeConnection,
+      });
+    } else if (command == kWorkerCmdShutdown) {
+      commandPort.close();
+      bossPort.send({
+        'type': kWorkerEventShutdown,
+        'connectionId': connectionId,
+      });
+    } else if (command == _workerCmdDrainConnections) {
+      final reason = raw.length > 1 && raw[1] is String
+          ? raw[1] as String
+          : 'wamp.close.system_shutdown';
+      bossPort.send({
+        'type': 'test_drain',
+        'reason': reason,
+      });
+      for (final entry in connections.entries.toList()) {
+        bossPort.send({
+          'type': kWorkerEventConnectionRemoved,
+          'connectionId': entry.key,
+        });
+        connections.remove(entry.key);
+      }
+      bossPort.send({
+        'type': kWorkerEventDrained,
+        'workerHash': workerHash,
+      });
     }
   });
 }
@@ -214,12 +415,14 @@ void _erroringWorkerEntryPoint(Map<String, Object?> init) {
   final listenerId = init['listenerId'] as int;
   final commandPort = ReceivePort();
   final Map<int, int> connections = {connectionId: listenerId};
+  final workerHash = Isolate.current.hashCode;
 
   bossPort.send({
     'type': kWorkerEventRegister,
     'connectionId': connectionId,
     'listenerId': listenerId,
     'commandPort': commandPort.sendPort,
+    'workerHash': workerHash,
   });
   bossPort.send({'type': kWorkerEventReady, 'connectionId': connectionId});
 
@@ -278,8 +481,63 @@ void _erroringWorkerEntryPoint(Map<String, Object?> init) {
         'type': kWorkerEventShutdown,
         'connectionId': connectionId,
       });
+    } else if (command == _workerCmdDrainConnections) {
+      final reason = raw.length > 1 && raw[1] is String
+          ? raw[1] as String
+          : 'wamp.close.system_shutdown';
+      bossPort.send({
+        'type': 'test_drain',
+        'reason': reason,
+      });
+      for (final entry in connections.entries.toList()) {
+        bossPort.send({
+          'type': kWorkerEventConnectionRemoved,
+          'connectionId': entry.key,
+        });
+        connections.remove(entry.key);
+      }
+      bossPort.send({
+        'type': kWorkerEventDrained,
+        'workerHash': workerHash,
+      });
     }
   });
+}
+
+RouterSettings _buildRouterSettingsWithMinWorkers(int minWorkers) {
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('realm1')
+        ..addAuthMethod('anonymous')
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('anonymous')
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder('')
+                ..setMatchPolicy(PermissionMatchPolicy.prefix)
+                ..allowOperations(const [
+                  'subscribe',
+                  'publish',
+                  'call',
+                  'register',
+                  'unregister',
+                ]),
+            ),
+        )
+        ..setLimits(const RealmLimitSettings()),
+    )
+    ..addListenerFromBuilder(
+      ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+        ..addAuthMethod('anonymous')
+        ..setOptions(const {
+          'max_rawsocket_size_exponent': 16,
+        }),
+    )
+    ..addAuthenticator(
+      'anonymous',
+      const AuthenticatorDefinition(type: 'anonymous'),
+    )
+    ..setWorkerPool(WorkerPoolSettings(minWorkers: minWorkers));
+  return builder.build();
 }
 
 void main() {
@@ -514,6 +772,139 @@ void main() {
       expect(processedHandles, containsAll([firstHandle, secondHandle]));
     });
 
+    test(
+      'spawns additional workers until minimum worker count is satisfied',
+      () async {
+        final runtime = _HandleRuntime();
+        final router = Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                tlsMode: TlsMode.native,
+                maxRawSocketSizeExponent: 16,
+              ),
+            ],
+          ),
+          settings: _buildRouterSettingsWithMinWorkers(2),
+        );
+
+        final events = <Object>[];
+        final binding = router.start(
+          runtime,
+          workerEntryPoint: _testWorkerEntryPoint,
+          onEvent: events.add,
+          workerPollInterval: const Duration(milliseconds: 1),
+        );
+        addTearDown(binding.dispose);
+        final listener = binding.listeners.single;
+
+        runtime.enqueueHandle(listener.listenerId, 6101);
+        runtime.enqueueHandle(listener.listenerId, 6102);
+
+        await _waitUntil(
+          () =>
+              events
+                  .whereType<Map>()
+                  .where((event) => event['type'] == 'worker_registered')
+                  .length >=
+              2,
+        );
+
+        final registeredConnections = events
+            .whereType<Map>()
+            .where((event) => event['type'] == 'worker_registered')
+            .map((event) => event['connectionId'] as int)
+            .toSet();
+        expect(registeredConnections, containsAll({6101, 6102}));
+
+        final workerCounts = events
+            .whereType<Map>()
+            .where((event) => event['type'] == 'worker_registered')
+            .length;
+        expect(workerCounts, equals(2));
+      },
+    );
+
+    test(
+      'processes connections on different workers without blocking each other',
+      () async {
+        final runtime = _HandleRuntime();
+        final router = Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                tlsMode: TlsMode.native,
+                maxRawSocketSizeExponent: 16,
+              ),
+            ],
+          ),
+          settings: _buildRouterSettingsWithMinWorkers(2),
+        );
+
+        final events = <Object>[];
+        final binding = router.start(
+          runtime,
+          workerEntryPoint: _parallelWorkerEntryPoint,
+          onEvent: events.add,
+          workerPollInterval: const Duration(milliseconds: 1),
+        );
+        addTearDown(binding.dispose);
+        final listener = binding.listeners.single;
+
+        runtime.enqueueHandle(listener.listenerId, 7101);
+        runtime.enqueueHandle(listener.listenerId, 7102);
+
+        await _waitUntil(
+          () =>
+              events
+                  .whereType<Map>()
+                  .where((event) => event['type'] == 'worker_registered')
+                  .length >=
+              2,
+        );
+
+        await _waitUntil(() {
+          final processed = events.whereType<Map>().where((event) {
+            if (event['type'] != 'worker_unknown_event') {
+              return false;
+            }
+            final payload = event['payload'];
+            return payload is Map && payload['type'] == 'test_processed';
+          }).length;
+          return processed >= 2;
+        });
+
+        final processedEvents = events.whereType<Map>().where((event) {
+          if (event['type'] != 'worker_unknown_event') {
+            return false;
+          }
+          final payload = event['payload'];
+          return payload is Map && payload['type'] == 'test_processed';
+        }).map((event) => event['payload'] as Map<String, Object?>).toList();
+
+        expect(processedEvents, hasLength(greaterThanOrEqualTo(2)));
+
+        final fastEvent = processedEvents.firstWhere(
+          (event) => event['connectionId'] == 7102,
+        );
+        final slowEvent = processedEvents.firstWhere(
+          (event) => event['connectionId'] == 7101,
+        );
+        final fastTime = fastEvent['processedAt'] as int?;
+        final slowTime = slowEvent['processedAt'] as int?;
+        expect(fastTime, isNotNull);
+        expect(slowTime, isNotNull);
+        final fastProcessed = fastTime!;
+        final slowProcessed = slowTime!;
+        expect(fastProcessed, lessThan(slowProcessed));
+        expect(slowProcessed - fastProcessed, greaterThanOrEqualTo(100000));
+      },
+    );
+
     test('shuts down worker when runtime reports missing connection', () async {
       final runtime = _HandleRuntime();
       final router = Router(
@@ -627,6 +1018,66 @@ void main() {
           .toList();
       expect(processedHandles, contains(secondHandle));
       expect(processedHandles, isNot(contains(firstHandle)));
+    });
+
+    test('stop drains workers with system shutdown reason', () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+            ),
+          ],
+        ),
+      );
+
+      final events = <Object>[];
+      final binding = router.start(
+        runtime,
+        workerEntryPoint: _testWorkerEntryPoint,
+        onEvent: events.add,
+        workerPollInterval: const Duration(milliseconds: 1),
+      );
+      addTearDown(binding.dispose);
+      final listener = binding.listeners.single;
+      runtime.enqueueHandle(listener.listenerId, 6001);
+
+      await _waitUntil(() {
+        return events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_ready' &&
+              event['connectionId'] == 6001,
+        );
+      });
+
+      await binding.dispose();
+
+      await _waitUntil(() {
+        return events.whereType<Map>().any(
+          (event) => event['type'] == 'worker_drained',
+        );
+      });
+
+      final drainEvents = events.whereType<Map>().where((event) {
+        if (event['type'] != 'worker_unknown_event') {
+          return false;
+        }
+        final payload = event['payload'];
+        return payload is Map && payload['type'] == 'test_drain';
+      }).toList();
+
+      expect(drainEvents, hasLength(1));
+      final drainPayload = drainEvents.single['payload'] as Map;
+      expect(drainPayload['reason'], equals('wamp.close.system_shutdown'));
+
+      final workerDrained = events.whereType<Map>().where(
+        (event) => event['type'] == 'worker_drained',
+      );
+      expect(workerDrained.length, equals(1));
     });
   });
 }

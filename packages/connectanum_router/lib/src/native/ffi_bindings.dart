@@ -26,9 +26,49 @@ typedef CtMessageGetDart = int Function(int, ffi.Pointer<CtMessageInfo>);
 typedef CtMessageReleaseNative = ffi.Void Function(ffi.Int32);
 typedef CtMessageReleaseDart = void Function(int);
 
+typedef CtMessageRetainNative = ffi.Int32 Function(ffi.Int32);
+typedef CtMessageRetainDart = int Function(int);
+
 typedef CtSendMessageNative =
     ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32);
 typedef CtSendMessageDart = int Function(int, ffi.Pointer<ffi.Uint8>, int);
+
+typedef CtForwardPublishEventNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Uint64,
+      ffi.Uint64,
+      ffi.Int32,
+      ffi.Uint64,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+    );
+typedef CtForwardPublishEventDart =
+    int Function(int, int, int, int, int, int, ffi.Pointer<ffi.Char>, int);
+
+typedef CtForwardCallInvocationNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Uint64,
+      ffi.Uint64,
+      ffi.Int32,
+      ffi.Uint64,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Int32,
+    );
+typedef CtForwardCallInvocationDart =
+    int Function(int, int, int, int, int, int, ffi.Pointer<ffi.Char>, int, int);
+
+typedef CtForwardResultFromYieldNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Int32, ffi.Uint64, ffi.Int32);
+typedef CtForwardResultFromYieldDart = int Function(int, int, int, int);
+
+typedef CtForwardErrorFromErrorNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Int32, ffi.Uint64, ffi.Uint64);
+typedef CtForwardErrorFromErrorDart = int Function(int, int, int, int);
 
 typedef CtApplyRouterConfigNative =
     ffi.Int32 Function(ffi.Pointer<ffi.Uint8>, ffi.Int32);
@@ -109,6 +149,30 @@ class CtFfiBindings {
           .lookupFunction<CtMessageReleaseNative, CtMessageReleaseDart>(
             'ct_message_release',
           ),
+      ctMessageRetain = library
+          .lookupFunction<CtMessageRetainNative, CtMessageRetainDart>(
+            'ct_message_retain',
+          ),
+      ctForwardPublishEvent = library
+          .lookupFunction<
+            CtForwardPublishEventNative,
+            CtForwardPublishEventDart
+          >('ct_forward_publish_event'),
+      ctForwardCallInvocation = library
+          .lookupFunction<
+            CtForwardCallInvocationNative,
+            CtForwardCallInvocationDart
+          >('ct_forward_call_invocation'),
+      ctForwardResultFromYield = library
+          .lookupFunction<
+            CtForwardResultFromYieldNative,
+            CtForwardResultFromYieldDart
+          >('ct_forward_result_from_yield'),
+      ctForwardErrorFromError = library
+          .lookupFunction<
+            CtForwardErrorFromErrorNative,
+            CtForwardErrorFromErrorDart
+          >('ct_forward_error_from_error'),
       ctSendMessage = _lookupSendMessage(library),
       ctApplyRouterConfig = library
           .lookupFunction<CtApplyRouterConfigNative, CtApplyRouterConfigDart>(
@@ -137,6 +201,11 @@ class CtFfiBindings {
   final CtPollConnectionMessageDart ctPollConnectionMessage;
   final CtMessageGetDart ctMessageGet;
   final CtMessageReleaseDart ctMessageRelease;
+  final CtMessageRetainDart ctMessageRetain;
+  final CtForwardPublishEventDart ctForwardPublishEvent;
+  final CtForwardCallInvocationDart ctForwardCallInvocation;
+  final CtForwardResultFromYieldDart ctForwardResultFromYield;
+  final CtForwardErrorFromErrorDart ctForwardErrorFromError;
   final CtSendMessageDart ctSendMessage;
   final CtApplyRouterConfigDart ctApplyRouterConfig;
   final CtConnectionMaxRawsocketExponentDart ctConnectionMaxRawsocketExponent;

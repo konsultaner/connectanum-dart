@@ -370,21 +370,35 @@ enum InboundFrame {
 #[derive(Debug, Clone)]
 struct OutboundFrame {
     frame_type: u8,
-    payload: Bytes,
+    payload_len: usize,
+    segments: Vec<Bytes>,
 }
 
 impl OutboundFrame {
     fn message(payload: Bytes) -> Self {
+        let len = payload.len();
         Self {
             frame_type: 0,
-            payload,
+            payload_len: len,
+            segments: vec![payload],
+        }
+    }
+
+    fn message_segments(segments: Vec<Bytes>) -> Self {
+        let payload_len = segments.iter().map(|segment| segment.len()).sum();
+        Self {
+            frame_type: 0,
+            payload_len,
+            segments,
         }
     }
 
     fn control(frame_type: u8, payload: Bytes) -> Self {
+        let len = payload.len();
         Self {
             frame_type,
-            payload,
+            payload_len: len,
+            segments: vec![payload],
         }
     }
 }
@@ -471,7 +485,7 @@ fn spawn_connection_writer(
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         while let Some(frame) = rx.recv().await {
-            let header = match encode_frame_header(frame.frame_type, frame.payload.len()) {
+            let header = match encode_frame_header(frame.frame_type, frame.payload_len) {
                 Ok(header) => header,
                 Err(err) => {
                     eprintln!(
@@ -492,8 +506,11 @@ fn spawn_connection_writer(
                 break;
             }
 
-            if !frame.payload.is_empty() {
-                if let Err(err) = writer.write_all(&frame.payload).await {
+            for segment in frame.segments {
+                if segment.is_empty() {
+                    continue;
+                }
+                if let Err(err) = writer.write_all(&segment).await {
                     if err.kind() != io::ErrorKind::BrokenPipe {
                         eprintln!(
                             "connection {:?} failed to write frame payload: {}",
@@ -775,6 +792,16 @@ pub fn send_wamp_message(connection_id: ConnectionId, payload: Bytes) -> Result<
         state
             .registry
             .enqueue_frame(connection_id, OutboundFrame::message(payload))
+    })
+}
+
+/// Enqueues a WAMP message composed of multiple payload segments.
+pub fn send_wamp_segments(connection_id: ConnectionId, segments: Vec<Bytes>) -> Result<(), Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| {
+        state
+            .registry
+            .enqueue_frame(connection_id, OutboundFrame::message_segments(segments))
     })
 }
 

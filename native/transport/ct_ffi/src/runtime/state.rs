@@ -1,10 +1,10 @@
 use std::sync::{
     atomic::{AtomicU32, Ordering},
-    Mutex, OnceLock,
+    Arc, Mutex, OnceLock,
 };
 
 use bytes::Bytes;
-use ct_core::{ConnectionId, ListenerId, RawSocketSerializer};
+use ct_core::{ConnectionId, ListenerId, RawSocketSerializer, WampMessage};
 use dashmap::DashMap;
 use tokio::sync::mpsc::Receiver;
 
@@ -42,17 +42,19 @@ pub fn clear_channels() {
     clear_messages();
 }
 
+#[derive(Clone)]
 pub struct StoredMessage {
     pub serializer: RawSocketSerializer,
     pub code: u64,
     pub raw: Bytes,
+    pub message: WampMessage,
     pub args: Option<Bytes>,
     pub kwargs: Option<Bytes>,
 }
 
 struct MessageStore {
     next_id: AtomicU32,
-    messages: DashMap<u32, StoredMessage>,
+    messages: DashMap<u32, Arc<StoredMessage>>,
 }
 
 impl Default for MessageStore {
@@ -73,7 +75,7 @@ fn message_store() -> &'static MessageStore {
 pub fn store_message(message: StoredMessage) -> u32 {
     let store = message_store();
     let id = store.next_id.fetch_add(1, Ordering::SeqCst);
-    store.messages.insert(id, message);
+    store.messages.insert(id, Arc::new(message));
     id
 }
 
@@ -81,13 +83,13 @@ pub fn with_message<F, T>(id: u32, f: F) -> Option<T>
 where
     F: FnOnce(&StoredMessage) -> T,
 {
-    message_store()
-        .messages
-        .get(&id)
-        .map(|entry| f(entry.value()))
+    message_store().messages.get(&id).map(|entry| {
+        let message = Arc::clone(entry.value());
+        f(message.as_ref())
+    })
 }
 
-pub fn remove_message(id: u32) -> Option<StoredMessage> {
+pub fn remove_message(id: u32) -> Option<Arc<StoredMessage>> {
     message_store().messages.remove(&id).map(|(_, msg)| msg)
 }
 
@@ -95,4 +97,13 @@ pub fn clear_messages() {
     if let Some(store) = MESSAGE_STORE.get() {
         store.messages.clear();
     }
+}
+
+pub fn clone_message(id: u32) -> Option<u32> {
+    let store = message_store();
+    let message = store.messages.get(&id)?;
+    let cloned = Arc::clone(message.value());
+    let new_id = store.next_id.fetch_add(1, Ordering::SeqCst);
+    store.messages.insert(new_id, cloned);
+    Some(new_id)
 }

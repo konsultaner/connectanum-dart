@@ -54,8 +54,22 @@ class _RouterBoss {
       return;
     }
     _stopping = true;
+
+    final drainFutures = <Future<void>>[];
+    for (final worker in _workers) {
+      worker.drainCompleter ??= Completer<void>();
+      drainFutures.add(worker.drainCompleter!.future);
+      worker.commandPort.send(<Object?>[
+        _workerCmdDrainConnections,
+        'wamp.close.system_shutdown',
+      ]);
+    }
+
     _running = false;
     final loop = _loopFuture;
+    if (drainFutures.isNotEmpty) {
+      await Future.wait(drainFutures);
+    }
     if (loop != null) {
       await loop;
     }
@@ -108,6 +122,12 @@ class _RouterBoss {
     RouterListener listener,
     int connectionId,
   ) async {
+    final minWorkers = settings.workerPool.minWorkers;
+    if (_workers.length < minWorkers) {
+      await _spawnWorker(listener, connectionId);
+      return;
+    }
+
     final worker = _chooseWorker();
     if (worker == null) {
       await _spawnWorker(listener, connectionId);
@@ -273,15 +293,145 @@ class _RouterBoss {
       payload
         ..['type'] = 'worker_forward_message'
         ..['connectionId'] = connectionId;
+    } else if (type == 'worker_forward_native_event') {
+      final connectionId = message['connectionId'] as int;
+      final handle = message['handle'] as int;
+      final subscriptionId = message['subscriptionId'] as int;
+      final publicationId = message['publicationId'] as int;
+      final publisherSessionId = message['publisherSessionId'] as int?;
+      final topic = message['topic'] as String?;
+      try {
+        runtime.forwardPublishEvent(
+          handle: handle,
+          connectionId: connectionId,
+          subscriptionId: subscriptionId,
+          publicationId: publicationId,
+          publisherSessionId: publisherSessionId,
+          topic: topic,
+        );
+        payload
+          ..['type'] = 'worker_forward_native_event'
+          ..['connectionId'] = connectionId
+          ..['subscriptionId'] = subscriptionId
+          ..['publicationId'] = publicationId;
+      } on NativeTransportException catch (error) {
+        payload
+          ..['type'] = 'worker_forward_native_event_error'
+          ..['connectionId'] = connectionId
+          ..['error'] = error.toString();
+      } finally {
+        runtime.releaseMessageHandle(handle);
+      }
+    } else if (type == 'worker_forward_native_invocation') {
+      final connectionId = message['connectionId'] as int;
+      final handle = message['handle'] as int;
+      final invocationId = message['invocationId'] as int;
+      final registrationId = message['registrationId'] as int;
+      final callerSessionId = message['callerSessionId'] as int?;
+      final procedure = message['procedure'] as String?;
+      final receiveProgress = message['receiveProgress'] as bool?;
+      try {
+        runtime.forwardCallInvocation(
+          handle: handle,
+          connectionId: connectionId,
+          invocationId: invocationId,
+          registrationId: registrationId,
+          callerSessionId: callerSessionId,
+          procedure: procedure,
+          receiveProgress: receiveProgress,
+        );
+        payload
+          ..['type'] = 'worker_forward_native_invocation'
+          ..['connectionId'] = connectionId
+          ..['invocationId'] = invocationId
+          ..['registrationId'] = registrationId;
+      } on NativeTransportException catch (error) {
+        payload
+          ..['type'] = 'worker_forward_native_invocation_error'
+          ..['connectionId'] = connectionId
+          ..['error'] = error.toString();
+      } finally {
+        runtime.releaseMessageHandle(handle);
+      }
+    } else if (type == 'worker_forward_native_result') {
+      final connectionId = message['connectionId'] as int;
+      final handle = message['handle'] as int;
+      final requestId = message['requestId'] as int;
+      final progress = message['progress'] as bool? ?? false;
+      try {
+        runtime.forwardResultFromYield(
+          handle: handle,
+          connectionId: connectionId,
+          requestId: requestId,
+          progress: progress,
+        );
+        payload
+          ..['type'] = 'worker_forward_native_result'
+          ..['connectionId'] = connectionId
+          ..['requestId'] = requestId
+          ..['progress'] = progress;
+      } on NativeTransportException catch (error) {
+        payload
+          ..['type'] = 'worker_forward_native_result_error'
+          ..['connectionId'] = connectionId
+          ..['error'] = error.toString();
+      } finally {
+        runtime.releaseMessageHandle(handle);
+      }
+    } else if (type == 'worker_forward_native_error') {
+      final connectionId = message['connectionId'] as int;
+      final handle = message['handle'] as int;
+      final requestType = message['requestType'] as int;
+      final requestId = message['requestId'] as int;
+      try {
+        runtime.forwardInvocationError(
+          handle: handle,
+          connectionId: connectionId,
+          requestType: requestType,
+          requestId: requestId,
+        );
+        payload
+          ..['type'] = 'worker_forward_native_error'
+          ..['connectionId'] = connectionId
+          ..['requestId'] = requestId;
+      } on NativeTransportException catch (error) {
+        payload
+          ..['type'] = 'worker_forward_native_error_error'
+          ..['connectionId'] = connectionId
+          ..['error'] = error.toString();
+      } finally {
+        runtime.releaseMessageHandle(handle);
+      }
     } else if (type == _workerEventConnectionAdded) {
       payload
         ..['type'] = 'worker_connection_added'
         ..['connectionId'] = message['connectionId']
         ..['listenerId'] = message['listenerId'];
     } else if (type == _workerEventConnectionRemoved) {
+      final connectionId = message['connectionId'] as int;
+      final worker = _connectionOwners.remove(connectionId);
+      worker?.connections.remove(connectionId);
       payload
         ..['type'] = 'worker_connection_removed'
-        ..['connectionId'] = message['connectionId'];
+        ..['connectionId'] = connectionId;
+    } else if (type == _workerEventDrained) {
+      final workerHash = message['workerHash'] as int?;
+      _WorkerHandle? drainedWorker;
+      if (workerHash != null) {
+        for (final candidate in _workers) {
+          if (candidate.isolateHash == workerHash) {
+            drainedWorker = candidate;
+            break;
+          }
+        }
+      }
+      final completer = drainedWorker?.drainCompleter;
+      if (completer != null && !completer.isCompleted) {
+        completer.complete();
+      }
+      payload
+        ..['type'] = 'worker_drained'
+        ..['workerHash'] = workerHash;
     } else if (type == _workerEventReady) {
       final connectionId = message['connectionId'] as int;
       final worker = _connectionOwners[connectionId];
@@ -344,6 +494,7 @@ class _RouterBoss {
       isolate: isolate,
       commandPort: commandPort,
       statePort: statePort ?? _stateStore.commandPort,
+      isolateHash: message['workerHash'] as int? ?? isolate.hashCode,
     )..connections.add(connectionId);
     _workers.add(worker);
     _connectionOwners[connectionId] = worker;
@@ -387,13 +538,16 @@ class _WorkerHandle {
     required this.isolate,
     required this.commandPort,
     required this.statePort,
+    required this.isolateHash,
   });
 
   final int id;
   final Isolate isolate;
   final SendPort commandPort;
   final SendPort statePort;
+  final int isolateHash;
   final List<int> connections = [];
   int connectionCursor = 0;
   bool busy = false;
+  Completer<void>? drainCompleter;
 }

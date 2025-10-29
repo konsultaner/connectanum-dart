@@ -71,10 +71,7 @@ class SubscriptionMatch {
 }
 
 class PublicationRouting {
-  PublicationRouting({
-    required this.publicationId,
-    required this.matches,
-  });
+  PublicationRouting({required this.publicationId, required this.matches});
 
   final int publicationId;
   final List<SubscriptionMatch> matches;
@@ -86,21 +83,47 @@ class SubscriptionAtlas {
   final Map<String, SubscriptionEntry> prefixes = {};
   final Map<String, SubscriptionEntry> wildcards = {};
 
-  Iterable<SubscriptionEntry> match(String topic) sync* {
+  Iterable<SubscriptionEntry> match(String topic) {
+    final candidates = <_MatchCandidate>[];
     final exactMatch = exact[topic];
     if (exactMatch != null) {
-      yield exactMatch;
+      candidates.add(
+        _MatchCandidate(
+          entry: exactMatch,
+          priority: 0,
+          specificity: exactMatch.topic.length,
+          secondarySpecificity: exactMatch.topic.length,
+        ),
+      );
     }
     for (final entry in prefixes.entries) {
       if (topic.startsWith(entry.key)) {
-        yield entry.value;
+        candidates.add(
+          _MatchCandidate(
+            entry: entry.value,
+            priority: 1,
+            specificity: entry.key.length,
+            secondarySpecificity: -entry.value.id,
+          ),
+        );
       }
     }
     for (final entry in wildcards.entries) {
       if (_wildcardMatches(entry.key, topic)) {
-        yield entry.value;
+        final parts = entry.key.split('.');
+        final literalSegments = parts.where((segment) => segment != '*').length;
+        candidates.add(
+          _MatchCandidate(
+            entry: entry.value,
+            priority: 2,
+            specificity: literalSegments,
+            secondarySpecificity: parts.length,
+          ),
+        );
       }
     }
+    candidates.sort(_matchComparator);
+    return candidates.map((candidate) => candidate.entry);
   }
 
   static bool _wildcardMatches(String pattern, String topic) {
@@ -120,4 +143,36 @@ class SubscriptionAtlas {
     }
     return true;
   }
+}
+
+class _MatchCandidate {
+  _MatchCandidate({
+    required this.entry,
+    required this.priority,
+    required this.specificity,
+    required this.secondarySpecificity,
+  });
+
+  final SubscriptionEntry entry;
+  final int priority;
+  final int specificity;
+  final int secondarySpecificity;
+}
+
+int _matchComparator(_MatchCandidate a, _MatchCandidate b) {
+  final priorityComparison = a.priority.compareTo(b.priority);
+  if (priorityComparison != 0) {
+    return priorityComparison;
+  }
+  final specificityComparison = b.specificity.compareTo(a.specificity);
+  if (specificityComparison != 0) {
+    return specificityComparison;
+  }
+  final secondaryComparison = b.secondarySpecificity.compareTo(
+    a.secondarySpecificity,
+  );
+  if (secondaryComparison != 0) {
+    return secondaryComparison;
+  }
+  return a.entry.id.compareTo(b.entry.id);
 }

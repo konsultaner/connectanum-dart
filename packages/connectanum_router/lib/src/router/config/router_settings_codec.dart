@@ -13,6 +13,7 @@ abstract final class RouterSettingsCodec {
       'realms': settings.realms.map(_realmToMap).toList(),
       'listeners': settings.listeners.map(_listenerToMap).toList(),
       if (settings.metrics != null) 'metrics': _metricsToMap(settings.metrics!),
+      'worker_pool': _workerPoolToMap(settings.workerPool),
       'authenticators': settings.authenticators.map((key, value) {
         return MapEntry(key, _authenticatorToMap(value));
       }),
@@ -106,6 +107,10 @@ abstract final class RouterSettingsCodec {
         if (prometheus.listen != null) 'listen': prometheus.listen,
       },
     };
+  }
+
+  static Map<String, Object?> _workerPoolToMap(WorkerPoolSettings workerPool) {
+    return <String, Object?>{'min_workers': workerPool.minWorkers};
   }
 
   static Map<String, Object?> _authenticatorToMap(
