@@ -242,3 +242,9 @@ class StateChangedEvent {
   final String realmUri;
   final int version;
 }
+
+class StoreErrorResponse {
+  StoreErrorResponse(this.message);
+
+  final String message;
+}

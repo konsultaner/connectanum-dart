@@ -40,6 +40,8 @@ import 'package:connectanum_core/src/message/unsubscribe.dart'
 import 'package:connectanum_core/src/message/unsubscribed.dart'
     as unsubscribed_msg;
 import 'package:connectanum_core/src/message/yield.dart' as yield_msg;
+import 'package:connectanum_core/src/message/uri_pattern.dart'
+    as uri_pattern;
 import 'package:connectanum_core/src/serializer/json/serializer.dart'
     as json_serializer;
 import 'package:connectanum_core/src/serializer/msgpack/serializer.dart'

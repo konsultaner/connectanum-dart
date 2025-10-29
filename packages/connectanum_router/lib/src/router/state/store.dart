@@ -54,12 +54,23 @@ class RouterStateStore {
 
   void _handleMessage(dynamic message) {
     if (message is RouterStateCommand) {
-      _dispatchCommand(message);
+      try {
+        _dispatchCommand(message);
+      } catch (error, stackTrace) {
+        _reportStoreError(error, stackTrace, command: message);
+      }
     } else if (message is List && message.length == 2) {
       final command = message[0];
       final reply = message[1] as SendPort?;
       if (command is RouterStateCommand) {
-        _dispatchCommand(command, replyPort: reply);
+        try {
+          _dispatchCommand(command, replyPort: reply);
+        } catch (error, stackTrace) {
+          if (reply != null) {
+            reply.send(StoreErrorResponse(error.toString()));
+          }
+          _reportStoreError(error, stackTrace, command: command);
+        }
       }
     }
   }
@@ -122,14 +133,18 @@ class RouterStateStore {
           command.registrationId,
         );
       case InvocationDispatchCommand():
-        final dispatch = _dispatchInvocation(
-          command.realmUri,
-          command.callerSessionId,
-          command.requestId,
-          command.procedure,
-          command.options,
-        );
-        command.replyPort.send(dispatch);
+        try {
+          final dispatch = _dispatchInvocation(
+            command.realmUri,
+            command.callerSessionId,
+            command.requestId,
+            command.procedure,
+            command.options,
+          );
+          command.replyPort.send(dispatch);
+        } catch (error) {
+          command.replyPort.send(StoreErrorResponse(error.toString()));
+        }
       case InvocationFindByCallerCommand():
         final record = _findInvocationByCaller(
           command.realmUri,
@@ -155,6 +170,21 @@ class RouterStateStore {
         );
         command.replyPort?.send(record);
     }
+  }
+
+  void _reportStoreError(
+    Object error,
+    StackTrace stackTrace, {
+    RouterStateCommand? command,
+  }) {
+    // For now, surface errors to stdout so tests and embedding code can see
+    // unexpected failures without silently killing the isolate.
+    // In the future we can plug this into a proper logger.
+    // ignore: avoid_print
+    print(
+      'RouterStateStore error handling command $command: $error\n'
+      '$stackTrace',
+    );
   }
 
   RealmRecord _getOrCreateRealm(String realmUri) {

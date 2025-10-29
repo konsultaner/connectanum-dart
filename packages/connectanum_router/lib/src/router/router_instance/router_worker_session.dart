@@ -207,10 +207,12 @@ Future<void> _handleSubscribe({
 
   try {
     final context = realmContexts.contextFor(state.realmUri!);
+    final matchPolicy = _matchPolicyFromSubscribe(message.options);
+    _validateTopicUri(message.topic, matchPolicy);
     final subscriptionId = await context.addSubscription(
       sessionId: state.sessionId!,
       topic: message.topic,
-      matchPolicy: _matchPolicyFromSubscribe(message.options),
+      matchPolicy: matchPolicy,
       details: _subscriptionDetailsFromOptions(message.options),
     );
     await sendMessage(
@@ -220,14 +222,18 @@ Future<void> _handleSubscribe({
       subscribed_msg.Subscribed(message.requestId, subscriptionId),
     );
   } on ArgumentError catch (error) {
+    final errorMessage = error.toString();
+    final reason = errorMessage.contains('invalid_uri')
+        ? wamp_core.Error.errorInvalidUri
+        : wamp_core.Error.invalidArgument;
     await _sendSessionError(
       bossPort: bossPort,
       state: state,
       connectionId: connectionId,
       requestType: MessageTypes.codeSubscribe,
       requestId: message.requestId,
-      reason: wamp_core.Error.invalidArgument,
-      detailsMessage: error.message,
+      reason: reason,
+      detailsMessage: errorMessage,
     );
   } on StateError catch (error) {
     await _sendSessionError(
@@ -351,6 +357,7 @@ Future<void> _handleRegister({
 
   try {
     final context = realmContexts.contextFor(state.realmUri!);
+    _validateProcedureUri(message.procedure);
     final registrationId = await context.registerProcedure(
       sessionId: state.sessionId!,
       procedure: message.procedure,
@@ -363,14 +370,18 @@ Future<void> _handleRegister({
       registered_msg.Registered(message.requestId, registrationId),
     );
   } on ArgumentError catch (error) {
+    final errorMessage = error.toString();
+    final isInvalidUri = errorMessage.contains('invalid_uri');
     await _sendSessionError(
       bossPort: bossPort,
       state: state,
       connectionId: connectionId,
       requestType: MessageTypes.codeRegister,
       requestId: message.requestId,
-      reason: wamp_core.Error.invalidArgument,
-      detailsMessage: error.message,
+      reason: isInvalidUri
+          ? wamp_core.Error.errorInvalidUri
+          : wamp_core.Error.invalidArgument,
+      detailsMessage: errorMessage,
     );
   } on StateError catch (error) {
     final reason = _reasonForRegisterStateError(error.message);
@@ -1168,6 +1179,23 @@ Map<String, Object?> _registrationDetailsFromOptions(
     details['invoke'] = options.invoke;
   }
   return details;
+}
+
+void _validateTopicUri(String topic, TopicMatchPolicy policy) {
+  final isValid = switch (policy) {
+    TopicMatchPolicy.exact => uri_pattern.UriPattern.match(topic),
+    TopicMatchPolicy.prefix => uri_pattern.UriPattern.match(topic),
+    TopicMatchPolicy.wildcard => uri_pattern.UriPattern.matchWildcard(topic),
+  };
+  if (!isValid) {
+    throw ArgumentError('invalid_uri: $topic');
+  }
+}
+
+void _validateProcedureUri(String procedure) {
+  if (!uri_pattern.UriPattern.match(procedure)) {
+    throw ArgumentError('invalid_uri: $procedure');
+  }
 }
 
 Map<String, Object?> _publishOptionsToMap(publish_msg.PublishOptions? options) {

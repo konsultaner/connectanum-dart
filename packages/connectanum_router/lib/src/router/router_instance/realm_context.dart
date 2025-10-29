@@ -76,6 +76,8 @@ class RealmContext {
       replyPort.close();
       if (message is int) {
         completer.complete(message);
+      } else if (message is StoreErrorResponse) {
+        completer.completeError(StateError(message.message));
       } else if (message is Exception) {
         completer.completeError(message);
       } else if (message is Error) {
@@ -147,7 +149,17 @@ class RealmContext {
     final replyPort = ReceivePort();
     replyPort.listen((dynamic message) {
       replyPort.close();
-      completer.complete(message as InvocationDispatchResult);
+      if (message is InvocationDispatchResult) {
+        completer.complete(message);
+      } else if (message is StoreErrorResponse) {
+        completer.completeError(StateError(message.message));
+      } else if (message is Error) {
+        completer.completeError(message);
+      } else {
+        completer.completeError(
+          StateError('Unexpected invocation response: $message'),
+        );
+      }
     });
     statePort.send(
       InvocationDispatchCommand(

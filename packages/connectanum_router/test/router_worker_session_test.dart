@@ -1007,6 +1007,57 @@ void main() {
       expect(snapshot.subscriptions.single.id, equals(subscriptionId));
     });
 
+    test('returns error when SUBSCRIBE uses invalid URI', () async {
+      final bossMessages = <Map<String, Object?>>[];
+      final bossPort = ReceivePort()
+        ..listen((dynamic message) {
+          if (message is Map<String, Object?>) {
+            bossMessages.add(message);
+          }
+        });
+      addTearDown(bossPort.close);
+
+      final listener = _buildListener();
+      final workerState =
+          createWorkerStateForTest(
+                listener: listener,
+                listenerSettings: routerSettings.listeners.first,
+              )
+              as WorkerConnectionState;
+      workerState
+        ..serializer = NativeMessageSerializer.json
+        ..phase = HandshakePhase.open
+        ..realmUri = 'realm1'
+        ..realmSettings = routerSettings.realms.first
+        ..sessionId = 311;
+
+      _openSession(stateStore, sessionId: 311, listener: listener);
+      await Future<void>.delayed(Duration.zero);
+
+      final realmContexts = RealmContextCache(
+        statePort: stateStore.commandPort,
+      );
+      final subscribe = subscribe_msg.Subscribe(4101, 'invalid uri spaces');
+
+      await handleSessionMessageForTest(
+        bossPort: bossPort.sendPort,
+        statePort: stateStore.commandPort,
+        realmContexts: realmContexts,
+        state: workerState,
+        message: subscribe,
+        connectionId: 44,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final workerSend = _extractWorkerSend(bossMessages);
+      final payload = workerSend['payload'] as Uint8List;
+      final frame = jsonDecode(utf8.decode(payload)) as List<dynamic>;
+      expect(frame.first, equals(MessageTypes.codeError));
+      expect(frame[1], equals(MessageTypes.codeSubscribe));
+      expect(frame[2], equals(4101));
+      expect(frame[4], equals(wamp_core.Error.errorInvalidUri));
+    });
+
     test('handles REGISTER by registering procedure', () async {
       final bossMessages = <Map<String, Object?>>[];
       final bossPort = ReceivePort()
@@ -1067,6 +1118,110 @@ void main() {
         snapshot.registrations.single.registrationId,
         equals(registrationId),
       );
+    });
+
+    test('returns error when REGISTER uses invalid URI', () async {
+      final bossMessages = <Map<String, Object?>>[];
+      final bossPort = ReceivePort()
+        ..listen((dynamic message) {
+          if (message is Map<String, Object?>) {
+            bossMessages.add(message);
+          }
+        });
+      addTearDown(bossPort.close);
+
+      final listener = _buildListener();
+      final workerState =
+          createWorkerStateForTest(
+                listener: listener,
+                listenerSettings: routerSettings.listeners.first,
+              )
+              as WorkerConnectionState;
+      workerState
+        ..serializer = NativeMessageSerializer.json
+        ..phase = HandshakePhase.open
+        ..realmUri = 'realm1'
+        ..realmSettings = routerSettings.realms.first
+        ..sessionId = 207;
+
+      _openSession(stateStore, sessionId: 207, listener: listener);
+      await Future<void>.delayed(Duration.zero);
+
+      final realmContexts = RealmContextCache(
+        statePort: stateStore.commandPort,
+      );
+
+      final register = register_msg.Register(2201, 'invalid procedure uri');
+
+      await handleSessionMessageForTest(
+        bossPort: bossPort.sendPort,
+        statePort: stateStore.commandPort,
+        realmContexts: realmContexts,
+        state: workerState,
+        message: register,
+        connectionId: 26,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final workerSend = _extractWorkerSend(bossMessages);
+      final payload = workerSend['payload'] as Uint8List;
+      final frame = jsonDecode(utf8.decode(payload)) as List<dynamic>;
+      expect(frame.first, equals(MessageTypes.codeError));
+      expect(frame[1], equals(MessageTypes.codeRegister));
+      expect(frame[2], equals(2201));
+      expect(frame[4], equals(wamp_core.Error.errorInvalidUri));
+    });
+
+    test('returns error when CALL targets missing procedure', () async {
+      final bossMessages = <Map<String, Object?>>[];
+      final bossPort = ReceivePort()
+        ..listen((dynamic message) {
+          if (message is Map<String, Object?>) {
+            bossMessages.add(message);
+          }
+        });
+      addTearDown(bossPort.close);
+
+      final listener = _buildListener();
+      final callerState =
+          createWorkerStateForTest(
+                listener: listener,
+                listenerSettings: routerSettings.listeners.first,
+              )
+              as WorkerConnectionState;
+      callerState
+        ..serializer = NativeMessageSerializer.json
+        ..phase = HandshakePhase.open
+        ..realmUri = 'realm1'
+        ..realmSettings = routerSettings.realms.first
+        ..sessionId = 701;
+
+      _openSession(stateStore, sessionId: 701, listener: listener);
+      await Future<void>.delayed(Duration.zero);
+
+      final realmContexts = RealmContextCache(
+        statePort: stateStore.commandPort,
+      );
+
+      final call = call_msg.Call(4102, 'com.missing.proc');
+
+      await handleSessionMessageForTest(
+        bossPort: bossPort.sendPort,
+        statePort: stateStore.commandPort,
+        realmContexts: realmContexts,
+        state: callerState,
+        message: call,
+        connectionId: 45,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final workerSend = _extractWorkerSend(bossMessages);
+      final payload = workerSend['payload'] as Uint8List;
+      final frame = jsonDecode(utf8.decode(payload)) as List<dynamic>;
+      expect(frame.first, equals(MessageTypes.codeError));
+      expect(frame[1], equals(MessageTypes.codeCall));
+      expect(frame[2], equals(4102));
+      expect(frame[4], equals(wamp_core.Error.noSuchProcedure));
     });
 
     test('rejects second REGISTER for non-shared procedure', () async {
