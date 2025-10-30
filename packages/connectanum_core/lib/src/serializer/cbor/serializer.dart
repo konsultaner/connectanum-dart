@@ -350,6 +350,31 @@ class Serializer extends AbstractSerializer {
                 }
               }
             }
+            final authMethodsValue =
+                (decodedMessage[2] as CborMap)[CborString('authmethods')];
+            if (authMethodsValue is CborList) {
+              final authMethods = authMethodsValue.toObject();
+              if (authMethods is List) {
+                details.authmethods = authMethods.cast<String>();
+              }
+            }
+            final remainingDetails = _cborMapToStringMap(
+              decodedMessage[2] as CborMap,
+            );
+            remainingDetails
+              ..remove('roles')
+              ..remove('realm')
+              ..remove('authid')
+              ..remove('authprovider')
+              ..remove('authmethod')
+              ..remove('authrole')
+              ..remove('authextra');
+            if (details.authmethods != null) {
+              remainingDetails.remove('authmethods');
+            }
+            if (remainingDetails.isNotEmpty) {
+              details.custom.addAll(remainingDetails);
+            }
             return Welcome((decodedMessage[1] as CborInt).toInt(), details);
           }
           if (messageId == MessageTypes.codeRegistered &&
@@ -365,32 +390,38 @@ class Serializer extends AbstractSerializer {
           }
           if (messageId == MessageTypes.codeInvocation &&
               decodedMessage.length > 3) {
+            final detailsMap = _cborMapToStringMap(
+              decodedMessage[3] as CborMap,
+            );
+            final callerValue = detailsMap.remove('caller');
+            final int? caller = callerValue is num ? callerValue.toInt() : null;
+            final procedureValue = detailsMap.remove('procedure');
+            final String? procedure = procedureValue as String?;
+            final receiveProgressValue = detailsMap.remove('receive_progress');
+            final bool? receiveProgress = receiveProgressValue is bool
+                ? receiveProgressValue
+                : null;
+            final pptSchemeValue = detailsMap.remove('ppt_scheme');
+            final String? pptScheme = pptSchemeValue as String?;
+            final pptSerializerValue = detailsMap.remove('ppt_serializer');
+            final String? pptSerializer = pptSerializerValue as String?;
+            final pptCipherValue = detailsMap.remove('ppt_cipher');
+            final String? pptCipher = pptCipherValue as String?;
+            final pptKeyIdValue = detailsMap.remove('ppt_keyid');
+            final String? pptKeyId = pptKeyIdValue as String?;
             return _addPayload(
               Invocation(
                 (decodedMessage[1] as CborInt).toInt(),
                 (decodedMessage[2] as CborInt).toInt(),
                 InvocationDetails(
-                  (decodedMessage[3] as CborMap)[CborString('caller')] == null
-                      ? null
-                      : ((decodedMessage[3] as CborMap)[CborString('caller')]
-                                as CborInt)
-                            .toInt(),
-                  (decodedMessage[3] as CborMap)[CborString('procedure')] ==
-                          null
-                      ? null
-                      : ((decodedMessage[3] as CborMap)[CborString('procedure')]
-                                as CborString)
-                            .toString(),
-                  (decodedMessage[3] as CborMap)[CborString(
-                            'receive_progress',
-                          )] ==
-                          null
-                      ? null
-                      : ((decodedMessage[3] as CborMap)[CborString(
-                                  'receive_progress',
-                                )]
-                                as CborBool)
-                            .value,
+                  caller,
+                  procedure,
+                  receiveProgress,
+                  pptScheme,
+                  pptSerializer,
+                  pptCipher,
+                  pptKeyId,
+                  detailsMap,
                 ),
               ),
               decodedMessage,
@@ -399,49 +430,29 @@ class Serializer extends AbstractSerializer {
           }
           if (messageId == MessageTypes.codeResult &&
               decodedMessage.length > 2) {
+            final detailsMap = _cborMapToStringMap(
+              decodedMessage[2] as CborMap,
+            );
+            final progressValue = detailsMap.remove('progress');
+            final bool? progress = progressValue is bool ? progressValue : null;
+            final pptSchemeValue = detailsMap.remove('ppt_scheme');
+            final String? pptScheme = pptSchemeValue as String?;
+            final pptSerializerValue = detailsMap.remove('ppt_serializer');
+            final String? pptSerializer = pptSerializerValue as String?;
+            final pptCipherValue = detailsMap.remove('ppt_cipher');
+            final String? pptCipher = pptCipherValue as String?;
+            final pptKeyIdValue = detailsMap.remove('ppt_keyid');
+            final String? pptKeyId = pptKeyIdValue as String?;
             return _addPayload(
               Result(
                 (decodedMessage[1] as CborInt).toInt(),
                 ResultDetails(
-                  progress:
-                      (decodedMessage[2] as CborMap)[CborString('progress')] ==
-                          null
-                      ? null
-                      : ((decodedMessage[2] as CborMap)[CborString('progress')]
-                                as CborBool)
-                            .value,
-                  pptScheme:
-                      (decodedMessage[2] as CborMap)[CborString(
-                            'ppt_scheme',
-                          )] ==
-                          null
-                      ? null
-                      : (decodedMessage[2] as CborMap)[CborString('ppt_scheme')]
-                            as String,
-                  pptSerializer:
-                      (decodedMessage[2] as CborMap)[CborString(
-                            'ppt_serializer',
-                          )] ==
-                          null
-                      ? null
-                      : (decodedMessage[2] as CborMap)[CborString(
-                              'ppt_serializer',
-                            )]
-                            as String,
-                  pptCipher:
-                      (decodedMessage[2] as CborMap)[CborString(
-                            'ppt_cipher',
-                          )] ==
-                          null
-                      ? null
-                      : (decodedMessage[2] as CborMap)[CborString('ppt_cipher')]
-                            as String,
-                  pptKeyId:
-                      (decodedMessage[2] as CborMap)[CborString('ppt_keyid')] ==
-                          null
-                      ? null
-                      : (decodedMessage[2] as CborMap)[CborString('ppt_keyid')]
-                            as String,
+                  progress: progress,
+                  pptScheme: pptScheme,
+                  pptSerializer: pptSerializer,
+                  pptCipher: pptCipher,
+                  pptKeyId: pptKeyId,
+                  custom: detailsMap,
                 ),
               ),
               decodedMessage,
@@ -492,36 +503,40 @@ class Serializer extends AbstractSerializer {
           }
           if (messageId == MessageTypes.codeEvent &&
               decodedMessage.length > 3) {
+            final detailsMap = _cborMapToStringMap(
+              decodedMessage[3] as CborMap,
+            );
+            final publisherValue = detailsMap.remove('publisher');
+            final int? publisher = publisherValue is num
+                ? publisherValue.toInt()
+                : null;
+            final trustLevelValue = detailsMap.remove('trustlevel');
+            final int? trustLevel = trustLevelValue is num
+                ? trustLevelValue.toInt()
+                : null;
+            final topicValue = detailsMap.remove('topic');
+            final String? topic = topicValue as String?;
+            final pptSchemeValue = detailsMap.remove('ppt_scheme');
+            final String? pptScheme = pptSchemeValue as String?;
+            final pptSerializerValue = detailsMap.remove('ppt_serializer');
+            final String? pptSerializer = pptSerializerValue as String?;
+            final pptCipherValue = detailsMap.remove('ppt_cipher');
+            final String? pptCipher = pptCipherValue as String?;
+            final pptKeyIdValue = detailsMap.remove('ppt_keyid');
+            final String? pptKeyId = pptKeyIdValue as String?;
             return _addPayload(
               Event(
                 (decodedMessage[1] as CborInt).toInt(),
                 (decodedMessage[2] as CborInt).toInt(),
                 EventDetails(
-                  publisher:
-                      (decodedMessage[3] as CborMap)[CborString('publisher')] ==
-                          null
-                      ? null
-                      : ((decodedMessage[3] as CborMap)[CborString('publisher')]
-                                as CborInt)
-                            .toInt(),
-                  trustlevel:
-                      (decodedMessage[3] as CborMap)[CborString(
-                            'trustlevel',
-                          )] ==
-                          null
-                      ? null
-                      : ((decodedMessage[3] as CborMap)[CborString(
-                                  'trustlevel',
-                                )]
-                                as CborInt)
-                            .toInt(),
-                  topic:
-                      (decodedMessage[3] as CborMap)[CborString('topic')] ==
-                          null
-                      ? null
-                      : ((decodedMessage[3] as CborMap)[CborString('topic')]
-                                as CborString)
-                            .toString(),
+                  publisher: publisher,
+                  trustlevel: trustLevel,
+                  topic: topic,
+                  pptScheme: pptScheme,
+                  pptSerializer: pptSerializer,
+                  pptCipher: pptCipher,
+                  pptKeyid: pptKeyId,
+                  custom: detailsMap,
                 ),
               ),
               decodedMessage,
@@ -685,6 +700,7 @@ class Serializer extends AbstractSerializer {
         MessageTypes.codeEvent,
         message.subscriptionId,
         message.publicationId,
+        _serializeEventDetails(message.details),
       ];
       _appendPayloadToList(structuredMessage, message);
       return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
@@ -766,6 +782,18 @@ class Serializer extends AbstractSerializer {
         structuredMessage.add(secondPayload);
       }
     }
+  }
+
+  Map<String, dynamic> _cborMapToStringMap(CborMap? map) {
+    final result = <String, dynamic>{};
+    if (map == null) {
+      return result;
+    }
+    map.forEach((key, value) {
+      final resolvedKey = key.toObject().toString();
+      result[resolvedKey] = value.toObject();
+    });
+    return result;
   }
 
   Map? _serializeDetails(Details details) {
@@ -906,6 +934,11 @@ class Serializer extends AbstractSerializer {
       if (details.authextra != null) {
         detailsParts['authextra'] = details.authextra;
       }
+      if (details.custom.isNotEmpty) {
+        details.custom.forEach((key, value) {
+          detailsParts.putIfAbsent(key, () => value);
+        });
+      }
       return detailsParts;
     } else {
       return null;
@@ -926,6 +959,9 @@ class Serializer extends AbstractSerializer {
       if (options.invoke != null) {
         optionMap.addEntries([MapEntry('invoke', options.invoke)]);
       }
+      if (options.custom.isNotEmpty) {
+        optionMap.addAll(options.custom);
+      }
     }
 
     return optionMap;
@@ -945,6 +981,9 @@ class Serializer extends AbstractSerializer {
       if (options.timeout != null) {
         optionMap.addEntries([MapEntry('timeout', options.timeout!)]);
       }
+      if (options.custom.isNotEmpty) {
+        optionMap.addAll(options.custom);
+      }
     }
     return optionMap;
   }
@@ -953,6 +992,9 @@ class Serializer extends AbstractSerializer {
     var optionsMap = {};
     if (options != null) {
       optionsMap.addEntries([MapEntry('progress', options.progress)]);
+      if (options.custom.isNotEmpty) {
+        optionsMap.addAll(options.custom);
+      }
     }
     return optionsMap;
   }
@@ -998,8 +1040,40 @@ class Serializer extends AbstractSerializer {
           MapEntry('eligible_authrole', options.eligibleAuthRole),
         ]);
       }
+      if (options.custom.isNotEmpty) {
+        optionMap.addAll(options.custom);
+      }
     }
     return optionMap;
+  }
+
+  Map<String, dynamic> _serializeEventDetails(EventDetails details) {
+    final map = <String, dynamic>{};
+    if (details.publisher != null) {
+      map['publisher'] = details.publisher;
+    }
+    if (details.topic != null) {
+      map['topic'] = details.topic;
+    }
+    if (details.trustlevel != null) {
+      map['trustlevel'] = details.trustlevel;
+    }
+    if (details.pptScheme != null) {
+      map['ppt_scheme'] = details.pptScheme;
+    }
+    if (details.pptSerializer != null) {
+      map['ppt_serializer'] = details.pptSerializer;
+    }
+    if (details.pptCipher != null) {
+      map['ppt_cipher'] = details.pptCipher;
+    }
+    if (details.pptKeyId != null) {
+      map['ppt_keyid'] = details.pptKeyId;
+    }
+    if (details.custom.isNotEmpty) {
+      map.addAll(details.custom);
+    }
+    return map;
   }
 
   Map _serializeSubscribeOptions(SubscribeOptions? options) {
@@ -1013,6 +1087,9 @@ class Serializer extends AbstractSerializer {
       }
       if (options.metaTopic != null) {
         jsonOptions.addEntries([MapEntry('meta_topic', options.metaTopic)]);
+      }
+      if (options.custom.isNotEmpty) {
+        jsonOptions.addAll(options.custom);
       }
       options
           .getCustomValues<dynamic>(SubscribeOptions.customSerializerCbor)

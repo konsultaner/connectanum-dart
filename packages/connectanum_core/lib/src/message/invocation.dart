@@ -5,6 +5,7 @@ import 'e2ee_payload.dart';
 import 'ppt_payload.dart';
 import 'abstract_message_with_payload.dart';
 import 'abstract_ppt_options.dart';
+import 'custom_fields.dart';
 import 'message_types.dart';
 import 'uri_pattern.dart';
 import 'error.dart';
@@ -96,7 +97,7 @@ class Invocation extends AbstractMessageWithPayload {
   }
 }
 
-class InvocationDetails extends PPTOptions {
+class InvocationDetails extends PPTOptions with CustomFieldContainer {
   // caller_identification == true
   int? caller;
 
@@ -114,11 +115,15 @@ class InvocationDetails extends PPTOptions {
     String? pptSerializer,
     String? pptCipher,
     String? pptKeyId,
+    Map<String, dynamic>? custom,
   ]) {
     this.pptScheme = pptScheme;
     this.pptSerializer = pptSerializer;
     this.pptCipher = pptCipher;
     this.pptKeyId = pptKeyId;
+    if (custom != null) {
+      this.custom.addAll(custom);
+    }
   }
 
   @override

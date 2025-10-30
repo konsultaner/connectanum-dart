@@ -1,5 +1,6 @@
 import 'abstract_message_with_payload.dart';
 import 'abstract_ppt_options.dart';
+import 'custom_fields.dart';
 import 'message_types.dart';
 
 class Event extends AbstractMessageWithPayload {
@@ -25,7 +26,7 @@ class Event extends AbstractMessageWithPayload {
 }
 
 /// Options used influence the event behavior
-class EventDetails extends PPTOptions {
+class EventDetails extends PPTOptions with CustomFieldContainer {
   // publisher_identification == true
   int? publisher;
 
@@ -43,11 +44,15 @@ class EventDetails extends PPTOptions {
     String? pptSerializer,
     String? pptCipher,
     String? pptKeyid,
+    Map<String, dynamic>? custom,
   }) {
-    pptScheme = pptScheme;
-    pptSerializer = pptSerializer;
-    pptCipher = pptCipher;
-    pptKeyId = pptKeyid;
+    this.pptScheme = pptScheme;
+    this.pptSerializer = pptSerializer;
+    this.pptCipher = pptCipher;
+    this.pptKeyId = pptKeyid;
+    if (custom != null) {
+      this.custom.addAll(custom);
+    }
   }
 
   @override

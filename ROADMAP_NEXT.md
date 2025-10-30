@@ -1,24 +1,30 @@
 # Next Session Overview
 
 Fresh state:
-- PUB/SUB routing runs end-to-end: worker dispatches EVENTs, respects `exclude_me`, `exclude`, `eligible`, and topic disclosure rules, and acknowledges when requested.
-- RPC path supports full invocation lifecycle; progressive YIELDs are delivered, and `CANCEL` now interrupts the callee and returns `wamp.error.invocation_canceled` to the caller.
-- RouterStateStore exposes `findInvocationByCaller`, enabling proper cancellation cleanup.
-- Worker test suite documents the roadmap: new skipped cases mark meta events, pattern subscriptions, shared registrations, authrole filtering, and router-initiated GOODBYE gaps.
+- PUB/SUB routing runs end-to-end (filters + ACK logic) and now has regression coverage for zero-copy failure paths (handles released when native forwarding fails).
+- RPC flow supports full invocation lifecycle, including `CANCEL` modes and zero-copy RESULT/ERROR forwarding with buffer-release tests.
+- Router boss→worker drain pipeline is validated: stop() sends server-initiated GOODBYE frames, drains sessions, and workers signal completion.
+- Analyzer still reports info-level issues isolated to `packages/connectanum_auth_server`; production packages are clean.
+- JSON/MessagePack/CBOR serializers now preserve custom option/detail fields, keeping throttle/debounce metadata available across the stack.
 
 Focus for the next session:
-1. **Meta Events & GOODBYE**
-   - Emit subscription/registration meta events from the state store and un-skip the new tests.
-   - Add router-initiated GOODBYE/cleanup flow (boss originates GOODBYE + session drain) and cover it in tests.
-2. **Pattern Routing & Shared Registrations**
-   - Implement wildcard/prefix ordering + priority and satisfy the advanced placeholder test.
-   - Introduce shared registration policies (start with round-robin) and wire worker dispatch to use them.
-3. **Authrole Filters & Analyzer Hygiene**
-   - Enforce authrole include/exclude lists when broadcasting EVENTs.
-   - Clear outstanding `dart analyze` issues (notably `packages/connectanum_auth_server`) and document missing dependencies.
+1. **Pattern Routing & Shared Registrations**
+   - Implement wildcard/prefix ordering + priority handling and un-skip the advanced-profile placeholder test.
+   - Introduce shared registration policies (round-robin/first/last) and wire invocation dispatch to respect them.
+2. **Authrole Filters & Analyzer Hygiene**
+   - Enforce authrole include/exclude lists when broadcasting EVENTs and extend tests accordingly.
+   - Resolve remaining analyzer warnings by fixing `packages/connectanum_auth_server` dependencies/imports or documenting follow-up tasks.
+3. **Benchmark Readiness**
+   - Draft the benchmarking plan (release build workflow, load generator scaffold, metrics hooks, automation scripts) and land the initial harness pieces.
 4. **Documentation & Examples**
-   - Update router/auth docs to describe cancellation semantics, new filters, and remaining roadmap checkpoints.
-   - Add a focused example (or expand the router example) showcasing progressive results + cancellation.
+   - Update router/auth docs to capture cancellation semantics, drain behaviour, and zero-copy guarantees.
+   - Expand the example gallery (progressive results + cancellation walkthrough) to help integrators.
+5. **Serializer Interop Bridge**
+   - Add translation pipelines so mixed clients (JSON ↔ MessagePack ↔ CBOR) can exchange EVENT/RESULT/ERROR frames seamlessly, with fallbacks that keep zero-copy semantics where possible.
+   - Extend serializer/router tests to cover cross-encoding publish/call scenarios.
+6. **E2EE Research Spike**
+   - Outline options for end-to-end payload encryption without incurring Dart 64-bit object overhead (e.g. offloading to Rust FFI or dedicated binary isolates).
+   - Identify handshake/key-management changes required in HELLO/CHALLENGE and how they interact with zero-copy routing.
 
 Regression / validation to run after changes:
 - `dart test packages/connectanum_router/test/router_worker_session_test.dart --chain-stack-traces`

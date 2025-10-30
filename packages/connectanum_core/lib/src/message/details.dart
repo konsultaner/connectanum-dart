@@ -1,4 +1,5 @@
 class Details {
+  final Map<String, dynamic> custom = <String, dynamic>{};
   String? agent;
   String? realm;
   List<String>? authmethods;

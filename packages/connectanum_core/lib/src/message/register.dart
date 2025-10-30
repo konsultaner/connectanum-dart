@@ -1,4 +1,5 @@
 import 'abstract_message.dart';
+import 'custom_fields.dart';
 import 'message_types.dart';
 
 class Register extends AbstractMessage {
@@ -11,7 +12,7 @@ class Register extends AbstractMessage {
   }
 }
 
-class RegisterOptions {
+class RegisterOptions with CustomFieldContainer {
   static final String? matchExact = null;
   static final String matchPrefix = 'prefix';
   static final String matchWildcard = 'wildcard';
@@ -31,5 +32,14 @@ class RegisterOptions {
   // shared_registration
   String? invoke;
 
-  RegisterOptions({this.discloseCaller, this.match, this.invoke});
+  RegisterOptions({
+    this.discloseCaller,
+    this.match,
+    this.invoke,
+    Map<String, dynamic>? custom,
+  }) {
+    if (custom != null) {
+      this.custom.addAll(custom);
+    }
+  }
 }

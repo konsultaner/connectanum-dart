@@ -143,7 +143,22 @@ class Serializer extends AbstractSerializer {
             }
           }
         }
-        return Welcome(message[1], details);
+        final welcome = Welcome(message[1], details);
+        final remainingDetails = Map<String, dynamic>.from(
+          message[2] as Map<dynamic, dynamic>,
+        );
+        remainingDetails.remove('roles');
+        remainingDetails.remove('realm');
+        remainingDetails.remove('authid');
+        remainingDetails.remove('authprovider');
+        remainingDetails.remove('authmethod');
+        remainingDetails.remove('authrole');
+        remainingDetails.remove('authextra');
+        remainingDetails.remove('authmethods');
+        if (remainingDetails.isNotEmpty) {
+          details.custom.addAll(remainingDetails);
+        }
+        return welcome;
       }
       if (messageId == MessageTypes.codeRegistered) {
         return Registered(message[1], message[2]);
@@ -152,14 +167,29 @@ class Serializer extends AbstractSerializer {
         return Unregistered(message[1]);
       }
       if (messageId == MessageTypes.codeInvocation) {
+        final detailsMap = Map<String, dynamic>.from(
+          message[3] as Map<dynamic, dynamic>,
+        );
+        final caller = detailsMap.remove('caller');
+        final procedure = detailsMap.remove('procedure');
+        final receiveProgress = detailsMap.remove('receive_progress');
+        final pptScheme = detailsMap.remove('ppt_scheme');
+        final pptSerializer = detailsMap.remove('ppt_serializer');
+        final pptCipher = detailsMap.remove('ppt_cipher');
+        final pptKeyId = detailsMap.remove('ppt_keyid');
         return _addPayload(
           Invocation(
             message[1],
             message[2],
             InvocationDetails(
-              message[3]['caller'],
-              message[3]['procedure'],
-              message[3]['receive_progress'],
+              caller,
+              procedure,
+              receiveProgress,
+              pptScheme,
+              pptSerializer,
+              pptCipher,
+              pptKeyId,
+              detailsMap,
             ),
           ),
           message,
@@ -167,15 +197,24 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeResult) {
+        final detailsMap = Map<String, dynamic>.from(
+          message[2] as Map<dynamic, dynamic>,
+        );
+        final progress = detailsMap.remove('progress');
+        final pptScheme = detailsMap.remove('ppt_scheme');
+        final pptSerializer = detailsMap.remove('ppt_serializer');
+        final pptCipher = detailsMap.remove('ppt_cipher');
+        final pptKeyId = detailsMap.remove('ppt_keyid');
         return _addPayload(
           Result(
             message[1],
             ResultDetails(
-              progress: message[2]['progress'],
-              pptScheme: message[2]['ppt_scheme'],
-              pptSerializer: message[2]['ppt_serializer'],
-              pptCipher: message[2]['ppt_cipher'],
-              pptKeyId: message[2]['ppt_keyid'],
+              progress: progress,
+              pptScheme: pptScheme,
+              pptSerializer: pptSerializer,
+              pptCipher: pptCipher,
+              pptKeyId: pptKeyId,
+              custom: detailsMap,
             ),
           ),
           message,
@@ -200,14 +239,29 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeEvent) {
+        final detailsMap = Map<String, dynamic>.from(
+          message[3] as Map<dynamic, dynamic>,
+        );
+        final publisher = detailsMap.remove('publisher');
+        final trustlevel = detailsMap.remove('trustlevel');
+        final topic = detailsMap.remove('topic');
+        final pptScheme = detailsMap.remove('ppt_scheme');
+        final pptSerializer = detailsMap.remove('ppt_serializer');
+        final pptCipher = detailsMap.remove('ppt_cipher');
+        final pptKeyId = detailsMap.remove('ppt_keyid');
         return _addPayload(
           Event(
             message[1],
             message[2],
             EventDetails(
-              publisher: message[3]['publisher'],
-              trustlevel: message[3]['trustlevel'],
-              topic: message[3]['topic'],
+              publisher: publisher,
+              trustlevel: trustlevel,
+              topic: topic,
+              pptScheme: pptScheme,
+              pptSerializer: pptSerializer,
+              pptCipher: pptCipher,
+              pptKeyid: pptKeyId,
+              custom: detailsMap,
             ),
           ),
           message,
@@ -370,11 +424,13 @@ class Serializer extends AbstractSerializer {
       );
     }
     if (message is Event) {
+      final detailsBytes = _serializeEventDetails(message.details);
       var res =
-          [147] +
+          [148] +
           msgpack_dart.serialize(MessageTypes.codeEvent) +
           msgpack_dart.serialize(message.subscriptionId) +
-          msgpack_dart.serialize(message.publicationId);
+          msgpack_dart.serialize(message.publicationId) +
+          detailsBytes.toList();
       var payload = _serializePayload(message);
       res[0] += payload.payloadType;
       res += payload.payload;
@@ -629,6 +685,11 @@ class Serializer extends AbstractSerializer {
       if (details.authextra != null) {
         detailsParts['authextra'] = details.authextra;
       }
+      if (details.custom.isNotEmpty) {
+        details.custom.forEach((key, value) {
+          detailsParts.putIfAbsent(key, () => value);
+        });
+      }
       return msgpack_dart.serialize(detailsParts);
     } else {
       return null;
@@ -636,7 +697,7 @@ class Serializer extends AbstractSerializer {
   }
 
   Uint8List _serializeSubscribeOptions(SubscribeOptions? options) {
-    var subscriptionOptions = {};
+    final subscriptionOptions = <String, dynamic>{};
     if (options != null) {
       if (options.getRetained != null) {
         subscriptionOptions['get_retained'] = options.getRetained;
@@ -647,10 +708,13 @@ class Serializer extends AbstractSerializer {
       if (options.metaTopic != null) {
         subscriptionOptions['meta_topic'] = options.metaTopic;
       }
+      if (options.custom.isNotEmpty) {
+        subscriptionOptions.addAll(options.custom);
+      }
       options
-          .getCustomValues<dynamic>(SubscribeOptions.customSerializerJson)
+          .getCustomValues<dynamic>(SubscribeOptions.customSerializerMsgpack)
           .forEach((key, value) {
-            subscriptionOptions[key] = value;
+            subscriptionOptions.putIfAbsent(key, () => value);
           });
     }
 
@@ -658,18 +722,19 @@ class Serializer extends AbstractSerializer {
   }
 
   Uint8List _serializeRegisterOptions(RegisterOptions? options) {
-    var registerOptions = {};
+    final registerOptions = <String, dynamic>{};
     if (options != null) {
       if (options.match != null) {
-        registerOptions.addEntries([MapEntry('match', options.match)]);
+        registerOptions['match'] = options.match;
       }
       if (options.discloseCaller != null) {
-        registerOptions.addEntries([
-          MapEntry('disclose_caller', options.discloseCaller),
-        ]);
+        registerOptions['disclose_caller'] = options.discloseCaller;
       }
       if (options.invoke != null) {
-        registerOptions.addEntries([MapEntry('invoke', options.invoke)]);
+        registerOptions['invoke'] = options.invoke;
+      }
+      if (options.custom.isNotEmpty) {
+        registerOptions.addAll(options.custom);
       }
     }
 
@@ -677,18 +742,31 @@ class Serializer extends AbstractSerializer {
   }
 
   Uint8List _serializeCallOptions(CallOptions? options) {
-    var callOptions = {};
+    final callOptions = <String, dynamic>{};
     if (options != null) {
       if (options.receiveProgress != null) {
-        callOptions.addEntries([
-          MapEntry('receive_progress', options.receiveProgress),
-        ]);
+        callOptions['receive_progress'] = options.receiveProgress;
       }
       if (options.discloseMe != null) {
-        callOptions.addEntries([MapEntry('disclose_me', options.discloseMe)]);
+        callOptions['disclose_me'] = options.discloseMe;
       }
       if (options.timeout != null) {
-        callOptions.addEntries([MapEntry('timeout', options.timeout)]);
+        callOptions['timeout'] = options.timeout;
+      }
+      if (options.pptScheme != null) {
+        callOptions['ppt_scheme'] = options.pptScheme;
+      }
+      if (options.pptSerializer != null) {
+        callOptions['ppt_serializer'] = options.pptSerializer;
+      }
+      if (options.pptCipher != null) {
+        callOptions['ppt_cipher'] = options.pptCipher;
+      }
+      if (options.pptKeyId != null) {
+        callOptions['ppt_keyid'] = options.pptKeyId;
+      }
+      if (options.custom.isNotEmpty) {
+        callOptions.addAll(options.custom);
       }
     }
 
@@ -696,37 +774,86 @@ class Serializer extends AbstractSerializer {
   }
 
   Uint8List _serializeYieldOptions(YieldOptions? options) {
-    var yieldOptions = {};
+    final yieldOptions = <String, dynamic>{};
     if (options != null) {
-      yieldOptions.addEntries([MapEntry('progress', options.progress)]);
+      yieldOptions['progress'] = options.progress;
+      if (options.pptScheme != null) {
+        yieldOptions['ppt_scheme'] = options.pptScheme;
+      }
+      if (options.pptSerializer != null) {
+        yieldOptions['ppt_serializer'] = options.pptSerializer;
+      }
+      if (options.pptCipher != null) {
+        yieldOptions['ppt_cipher'] = options.pptCipher;
+      }
+      if (options.pptKeyId != null) {
+        yieldOptions['ppt_keyid'] = options.pptKeyId;
+      }
+      if (options.custom.isNotEmpty) {
+        yieldOptions.addAll(options.custom);
+      }
     }
     return msgpack_dart.serialize(yieldOptions);
   }
 
   Uint8List _serializePublish(PublishOptions? options) {
-    var publishDetails = {};
+    final publishDetails = <String, dynamic>{};
     if (options != null) {
-      publishDetails.addEntries([
-        if (options.retain != null) MapEntry('retain', options.retain),
-        if (options.discloseMe != null)
-          MapEntry('disclose_me', options.discloseMe),
-        if (options.acknowledge != null)
-          MapEntry('acknowledge', options.acknowledge),
-        if (options.excludeMe != null)
-          MapEntry('exclude_me', options.excludeMe),
-        if (options.exclude != null) MapEntry('exclude', options.exclude),
+      publishDetails.addAll({
+        if (options.retain != null) 'retain': options.retain,
+        if (options.discloseMe != null) 'disclose_me': options.discloseMe,
+        if (options.acknowledge != null) 'acknowledge': options.acknowledge,
+        if (options.excludeMe != null) 'exclude_me': options.excludeMe,
+        if (options.exclude != null) 'exclude': options.exclude,
         if (options.excludeAuthId != null)
-          MapEntry('exclude_authid', options.excludeAuthId),
+          'exclude_authid': options.excludeAuthId,
         if (options.excludeAuthRole != null)
-          MapEntry('exclude_auth_role', options.excludeAuthRole),
-        if (options.eligible != null) MapEntry('eligible', options.eligible),
+          'exclude_auth_role': options.excludeAuthRole,
+        if (options.eligible != null) 'eligible': options.eligible,
         if (options.eligibleAuthRole != null)
-          MapEntry('eligible_authrole', options.eligibleAuthRole),
+          'eligible_authrole': options.eligibleAuthRole,
         if (options.eligibleAuthId != null)
-          MapEntry('eligible_authid', options.eligibleAuthId),
-      ]);
+          'eligible_authid': options.eligibleAuthId,
+        if (options.pptScheme != null) 'ppt_scheme': options.pptScheme,
+        if (options.pptSerializer != null)
+          'ppt_serializer': options.pptSerializer,
+        if (options.pptCipher != null) 'ppt_cipher': options.pptCipher,
+        if (options.pptKeyId != null) 'ppt_keyid': options.pptKeyId,
+      });
+      if (options.custom.isNotEmpty) {
+        publishDetails.addAll(options.custom);
+      }
     }
     return msgpack_dart.serialize(publishDetails);
+  }
+
+  Uint8List _serializeEventDetails(EventDetails details) {
+    final map = <String, dynamic>{};
+    if (details.publisher != null) {
+      map['publisher'] = details.publisher;
+    }
+    if (details.topic != null) {
+      map['topic'] = details.topic;
+    }
+    if (details.trustlevel != null) {
+      map['trustlevel'] = details.trustlevel;
+    }
+    if (details.pptScheme != null) {
+      map['ppt_scheme'] = details.pptScheme;
+    }
+    if (details.pptSerializer != null) {
+      map['ppt_serializer'] = details.pptSerializer;
+    }
+    if (details.pptCipher != null) {
+      map['ppt_cipher'] = details.pptCipher;
+    }
+    if (details.pptKeyId != null) {
+      map['ppt_keyid'] = details.pptKeyId;
+    }
+    if (details.custom.isNotEmpty) {
+      map.addAll(details.custom);
+    }
+    return msgpack_dart.serialize(map);
   }
 
   /// returns bytes to add to header and serialized payload bytes
@@ -744,7 +871,7 @@ class Serializer extends AbstractSerializer {
     } else if (message.arguments != null) {
       return SerializedPayload(1, msgpack_dart.serialize(message.arguments));
     }
-    return SerializedPayload(0, msgpack_dart.serialize(''));
+    return SerializedPayload(0, Uint8List(0));
   }
 
   /// Converts a uint8 data into a PPT Payload Object

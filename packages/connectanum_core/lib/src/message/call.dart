@@ -1,6 +1,7 @@
 import 'abstract_message_with_payload.dart';
 import 'message_types.dart';
 import 'abstract_ppt_options.dart';
+import 'custom_fields.dart';
 
 /// The WAMP Call massage
 class Call extends AbstractMessageWithPayload {
@@ -25,7 +26,7 @@ class Call extends AbstractMessageWithPayload {
 }
 
 /// Options used influence the call behavior
-class CallOptions extends PPTOptions {
+class CallOptions extends PPTOptions with CustomFieldContainer {
   // progressive_call_results == true
   bool? receiveProgress;
 
@@ -43,16 +44,20 @@ class CallOptions extends PPTOptions {
     String? pptSerializer,
     String? pptCipher,
     String? pptKeyId,
+    Map<String, dynamic>? custom,
   }) {
     this.pptScheme = pptScheme;
     this.pptSerializer = pptSerializer;
     this.pptCipher = pptCipher;
     this.pptKeyId = pptKeyId;
+    if (custom != null) {
+      this.custom.addAll(custom);
+    }
   }
 
   @override
   bool verify() {
-    if (timeout! < 0) {
+    if (timeout != null && timeout! < 0) {
       throw RangeError.value(timeout!, 'timeoutError', 'timeout must be >= 0');
     }
 

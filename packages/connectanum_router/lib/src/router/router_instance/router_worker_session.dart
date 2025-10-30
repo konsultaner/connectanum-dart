@@ -357,7 +357,8 @@ Future<void> _handleRegister({
 
   try {
     final context = realmContexts.contextFor(state.realmUri!);
-    _validateProcedureUri(message.procedure);
+    final matchPolicy = _matchPolicyFromRegisterOptions(message.options);
+    _validateProcedureUri(message.procedure, matchPolicy);
     final registrationId = await context.registerProcedure(
       sessionId: state.sessionId!,
       procedure: message.procedure,
@@ -1236,19 +1237,67 @@ Map<String, Object?> _registrationDetailsFromOptions(
   return details;
 }
 
+ProcedureMatchPolicy _matchPolicyFromRegisterOptions(
+  register_msg.RegisterOptions? options,
+) {
+  final match = options?.match;
+  if (match == register_msg.RegisterOptions.matchPrefix) {
+    return ProcedureMatchPolicy.prefix;
+  }
+  if (match == register_msg.RegisterOptions.matchWildcard) {
+    return ProcedureMatchPolicy.wildcard;
+  }
+  return ProcedureMatchPolicy.exact;
+}
+
 void _validateTopicUri(String topic, TopicMatchPolicy policy) {
+  if (policy == TopicMatchPolicy.prefix && topic.endsWith('.')) {
+    final trimmed = topic.substring(0, topic.length - 1);
+    if (trimmed.isEmpty || trimmed.endsWith('.')) {
+      throw ArgumentError('invalid_uri: $topic');
+    }
+    if (!uri_pattern.UriPattern.match(trimmed)) {
+      throw ArgumentError('invalid_uri: $topic');
+    }
+    return;
+  }
+
   final isValid = switch (policy) {
     TopicMatchPolicy.exact => uri_pattern.UriPattern.match(topic),
     TopicMatchPolicy.prefix => uri_pattern.UriPattern.match(topic),
     TopicMatchPolicy.wildcard => uri_pattern.UriPattern.matchWildcard(topic),
   };
+  if (policy == TopicMatchPolicy.wildcard && topic.contains('*')) {
+    throw ArgumentError('invalid_uri: $topic');
+  }
   if (!isValid) {
     throw ArgumentError('invalid_uri: $topic');
   }
 }
 
-void _validateProcedureUri(String procedure) {
-  if (!uri_pattern.UriPattern.match(procedure)) {
+void _validateProcedureUri(String procedure, ProcedureMatchPolicy matchPolicy) {
+  if (matchPolicy == ProcedureMatchPolicy.prefix && procedure.endsWith('.')) {
+    final trimmed = procedure.substring(0, procedure.length - 1);
+    if (trimmed.isEmpty || trimmed.endsWith('.')) {
+      throw ArgumentError('invalid_uri: $procedure');
+    }
+    if (!uri_pattern.UriPattern.match(trimmed)) {
+      throw ArgumentError('invalid_uri: $procedure');
+    }
+    return;
+  }
+
+  final isValid = switch (matchPolicy) {
+    ProcedureMatchPolicy.exact => uri_pattern.UriPattern.match(procedure),
+    ProcedureMatchPolicy.prefix => uri_pattern.UriPattern.match(procedure),
+    ProcedureMatchPolicy.wildcard => uri_pattern.UriPattern.matchWildcard(
+      procedure,
+    ),
+  };
+  if (matchPolicy == ProcedureMatchPolicy.wildcard && procedure.contains('*')) {
+    throw ArgumentError('invalid_uri: $procedure');
+  }
+  if (!isValid) {
     throw ArgumentError('invalid_uri: $procedure');
   }
 }

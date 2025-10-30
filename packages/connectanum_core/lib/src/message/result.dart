@@ -1,4 +1,5 @@
 import 'abstract_ppt_options.dart';
+import 'custom_fields.dart';
 import 'message_types.dart';
 import 'abstract_message_with_payload.dart';
 
@@ -26,7 +27,7 @@ class Result extends AbstractMessageWithPayload {
   }
 }
 
-class ResultDetails extends PPTOptions {
+class ResultDetails extends PPTOptions with CustomFieldContainer {
   // progressive_call_results == true
   bool? progress;
 
@@ -36,12 +37,16 @@ class ResultDetails extends PPTOptions {
     String? pptSerializer,
     String? pptCipher,
     String? pptKeyId,
+    Map<String, dynamic>? custom,
   }) {
     this.progress = progress ?? false;
     this.pptScheme = pptScheme;
     this.pptSerializer = pptSerializer;
     this.pptCipher = pptCipher;
     this.pptKeyId = pptKeyId;
+    if (custom != null) {
+      this.custom.addAll(custom);
+    }
   }
 
   @override

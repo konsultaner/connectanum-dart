@@ -1,6 +1,7 @@
 import 'dart:collection';
 
 import 'abstract_message.dart';
+import 'custom_fields.dart';
 import 'message_types.dart';
 
 /// Used to subscribe to a topic
@@ -21,7 +22,7 @@ class Subscribe extends AbstractMessage {
 /// matching or subsciption retention. One may also add custom options, Those
 /// custom options need to be added with a custom serializer because flutter
 /// disables reflections.
-class SubscribeOptions {
+class SubscribeOptions with CustomFieldContainer {
   static final String? matchPlain = null;
   static final String matchPrefix = 'prefix';
   static final String matchWildcard = 'wildcard';
@@ -38,7 +39,16 @@ class SubscribeOptions {
       HashMap<String, dynamic Function(String)>();
 
   /// the constructor
-  SubscribeOptions({this.match, this.metaTopic, this.getRetained});
+  SubscribeOptions({
+    this.match,
+    this.metaTopic,
+    this.getRetained,
+    Map<String, dynamic>? custom,
+  }) {
+    if (custom != null) {
+      this.custom.addAll(custom);
+    }
+  }
 
   /// add a custom [valueSerializer] to a given option [key]. The [valueSerializer]
   /// is passed a serializerr type. According to that type the serializer should
@@ -66,6 +76,13 @@ class SubscribeOptions {
   /// ```
   void addCustomValue(String key, dynamic Function(String) valueSerializer) {
     _customSerializedOptions[key] = valueSerializer;
+  }
+
+  /// Sets a custom option that will be serialized using [json.encode] for the
+  /// JSON serializer and passed through unchanged for binary serializers.
+  @override
+  void setCustomField(String key, dynamic value) {
+    custom[key] = value;
   }
 
   /// Some server need custom values to be added to the options. Since flutter

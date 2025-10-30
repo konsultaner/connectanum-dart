@@ -9,12 +9,18 @@
 - [ ] Native TLS offload & kTLS integration
 - [ ] WebSocket transport (WAMP over WebSocket)
 - [ ] Serializer matrix (JSON, MessagePack, CBOR, UBJSON, FlatBuffers)
+  - [ ] Cross-serializer translation so mixed clients (e.g. JSON ↔ MessagePack/CBOR) can publish/call across encodings without data loss; include regression tests for EVENT, RESULT, and ERROR bridging and document zero-copy fallbacks.
 - [ ] Backpressure / flow control between workers and native layer
 - [ ] HTTP/1.1, HTTP/2, HTTP/3 transport layer (long-polling, streaming WAMP)
 - [ ] HTTP RPC bridge (forward HTTP requests into WAMP RPCs and return responses)
 - [ ] HTTP forwarding hooks for custom routing/handling in RPC implementations
 - [ ] Graceful shutdown (drain sessions, send GOODBYE/HTTP responses, stop listeners)
 - [x] Outbound frame bridge (`ct_send`/FFI) for CHALLENGE/WELCOME/EVENT delivery
+- [ ] End-to-end payload encryption (E2EE) strategy
+  - [ ] Evaluate keeping encryption off the Dart hot-path (Dart’s 64-bit object model vs native/Rust or dedicated isolates with binary messaging).
+  - [ ] Prototype native encryption/decryption pipeline that preserves zero-copy semantics and works across serializers.
+  - [ ] Define key-management interfaces and handshake flow (HELLO/CHALLENGE payload negotiation).
+  - [ ] Add regression tests ensuring encrypted PUB/SUB and RPC payloads interoperate with unencrypted peers where allowed.
 
 ## Router State & Infrastructure
 
@@ -38,8 +44,8 @@
 - [x] HELLO frame parsing in native layer
 - [x] HELLO → WELCOME handshake & role negotiation (anonymous + challenge/response paths)
 - [x] ABORT handling (capability or auth failure)
-- [ ] GOODBYE reception & realm cleanup
-- [ ] Router-initiated GOODBYE / graceful shutdown (drain sessions and propagate to clients)
+- [x] GOODBYE reception & realm cleanup
+- [x] Router-initiated GOODBYE / graceful shutdown (drain sessions and propagate to clients)
 - [ ] Heartbeat / ping-pong / session timeout support
 
 ### Publish & Subscribe
@@ -81,6 +87,8 @@
 - [ ] Publisher options (exclude_me, eligible/exclude authid/authrole lists)
 - [ ] Payload persist / retained events
 - [ ] Throttle/debounce hooks driven by client-provided hashes in publish pipeline
+  - Reference: [WAMP issue #391 comment](https://github.com/wamp-proto/wamp-proto/issues/391#issuecomment-998577967) for debounce/throttle semantics and hashing strategy.
+  - Ensure serializers accept implementation-specific option/detail keys (spec allows `_foo` style; tolerate legacy non-underscore keys to interop with existing routers like Crossbar).
 
 ### RPC Enhancements
 
@@ -91,6 +99,8 @@
 - [ ] Call cancellation modes (`kill`, `killnowait`, `killall`) — ensure cancellers can wait for cleanup so subsequent processing shuts down gracefully
 - [ ] Caller disclosure (`caller`, `caller_authid`, `caller_authrole`)
 - [ ] Throttle/debounce hooks driven by client-provided hashes in call pipeline
+  - Align behaviour with [WAMP issue #391 comment](https://github.com/wamp-proto/wamp-proto/issues/391#issuecomment-998577967) to allow routers to honour client-provided throttling keys.
+  - Client/server serializers must preserve custom fields (prefer `_custom` naming per spec, but remain lenient to match existing implementations).
 - [ ] Sharded registrations / invocation trust level (`trustlevel`)
 
 ### Authentication & Authorization
@@ -161,5 +171,9 @@
   - [ ] Migrate existing delegate tests/examples to the internal transport once available
 - [ ] End-to-end smoke tests (native runtime ↔ router ↔ client)
 - [ ] Benchmarks (throughput/latency per worker configuration)
+  - [ ] Provide release-build workflow for `ct_ffi` (and document `CONNECTANUM_NATIVE_LIB` usage) dedicated to performance runs.
+  - [ ] Implement a reusable load generator (multi-session HELLO/PUB/SUB/RPC workloads) to stress the router.
+  - [ ] Expose lightweight instrumentation (per-worker queue depth, handle retention counts, throughput/latency timers) for benchmark reporting.
+  - [ ] Add automation scripts that run warm-up + steady-state cycles and emit latency/throughput summaries.
 - [ ] MCP (Model Context Protocol) server implementation for agentic AI integrations
 - [ ] Metrics & logging integration (Prometheus metrics, structured logs, CPU/RAM/throughput gauges)

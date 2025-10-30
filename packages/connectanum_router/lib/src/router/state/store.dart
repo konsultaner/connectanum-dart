@@ -401,16 +401,24 @@ class RouterStateStore {
         realm.sessions[sessionId] ??
         (throw StateError('Session $sessionId not found in realm $realmUri'));
     final policy = _policyFromDetails(details);
+    final matchPolicy = _matchPolicyFromDetails(details);
     final registrationId = ids.registration.next();
     final entry = realm.findOrCreateProcedure(
       procedure,
       registrationId,
       policy,
+      matchPolicy,
     );
     final wasEmpty = entry.callees.isEmpty;
     if (!wasEmpty) {
       if (entry.policy == InvocationPolicy.single) {
         throw StateError('Procedure $procedure already registered');
+      }
+      if (entry.matchPolicy != matchPolicy) {
+        throw StateError(
+          'Procedure $procedure already registered with match policy '
+          '${entry.matchPolicy.name}',
+        );
       }
       if (policy != entry.policy &&
           details.containsKey('invoke') &&
@@ -427,8 +435,10 @@ class RouterStateStore {
       sessionId: sessionId,
       authRole: session.authRole,
       details: details,
+      matchPolicy: matchPolicy,
     );
-    entry.callees[registrationId] = record;
+    entry.addCallee(record);
+    realm.procedureAtlas.indexRegistration(registrationId, entry);
     realm.proceduresById[registrationId] = entry;
     session.registrationIds.add(registrationId);
     realm.bumpVersion();
@@ -475,10 +485,11 @@ class RouterStateStore {
     if (entry == null) {
       return;
     }
-    final removed = entry.callees.remove(registrationId);
+    final removed = entry.removeCallee(registrationId);
     final session = realm.sessions[sessionId];
     session?.registrationIds.remove(registrationId);
     realm.proceduresById.remove(registrationId);
+    realm.procedureAtlas.removeRegistration(registrationId);
     if (removed != null) {
       _registrationMetaController.add(
         RegistrationMetaEvent(
@@ -522,11 +533,11 @@ class RouterStateStore {
     Map<String, Object?> options,
   ) {
     final realm = _getOrCreateRealm(realmUri);
-    final bucket = realm.procedureAtlas[procedure];
-    if (bucket == null || bucket.callees.isEmpty) {
+    final entry = realm.procedureAtlas.match(procedure);
+    if (entry == null || entry.callees.isEmpty) {
       throw StateError('No registration for procedure $procedure');
     }
-    final callee = bucket.nextCallee();
+    final callee = entry.nextCallee();
     if (callee == null) {
       throw StateError('No available callee for procedure $procedure');
     }
@@ -536,7 +547,7 @@ class RouterStateStore {
     }
     final record = PendingInvocation(
       invocationId: invocationId,
-      registrationId: bucket.registrationId,
+      registrationId: callee.registrationId,
       callerRequestId: requestId,
       calleeSessionId: callee.sessionId,
       allowProgress: options['receive_progress'] == true,
@@ -547,7 +558,7 @@ class RouterStateStore {
     realm.bumpVersion();
     return InvocationDispatchResult(
       invocationId: invocationId,
-      registrationId: bucket.registrationId,
+      registrationId: callee.registrationId,
       calleeSessionId: callee.sessionId,
       calleeConnectionId: _connectionIdForSession(realm, callee.sessionId),
     );
@@ -629,6 +640,29 @@ class RouterStateStore {
           'invoke',
           'Unsupported invocation policy',
         );
+    }
+  }
+
+  ProcedureMatchPolicy _matchPolicyFromDetails(
+    Map<String, Object?> details,
+  ) {
+    final raw = details['match'];
+    if (raw == null) {
+      return ProcedureMatchPolicy.exact;
+    }
+    if (raw is! String) {
+      throw ArgumentError.value(raw, 'match', 'must be a String');
+    }
+    switch (raw) {
+      case 'prefix':
+        return ProcedureMatchPolicy.prefix;
+      case 'wildcard':
+        return ProcedureMatchPolicy.wildcard;
+      case 'exact':
+      case 'exactly':
+        return ProcedureMatchPolicy.exact;
+      default:
+        throw ArgumentError.value(raw, 'match', 'unsupported match policy');
     }
   }
 
@@ -746,7 +780,7 @@ class RealmRecord {
   RealmSnapshot? lastSnapshot;
   final Map<int, SessionRecord> sessions = SplayTreeMap<int, SessionRecord>();
   final SubscriptionAtlas subscriptionAtlas = SubscriptionAtlas();
-  final Map<String, ProcedureEntry> procedureAtlas = {};
+  final ProcedureAtlas procedureAtlas = ProcedureAtlas();
   final Map<int, SubscriptionEntry> subscriptionsById = {};
   final Map<int, ProcedureEntry> proceduresById = {};
   final Map<int, PendingInvocation> invocations = {};
@@ -817,28 +851,25 @@ class RealmRecord {
     String procedure,
     int registrationId,
     InvocationPolicy policy,
-  ) {
-    final entry = procedureAtlas.putIfAbsent(
-      procedure,
-      () => ProcedureEntry(
-        registrationId: registrationId,
+    ProcedureMatchPolicy matchPolicy,
+  ) =>
+      procedureAtlas.findOrCreate(
         procedure: procedure,
-        policy: policy,
-      ),
-    );
-    proceduresById[entry.registrationId] = entry;
-    return entry;
-  }
+        matchPolicy: matchPolicy,
+        registrationId: registrationId,
+        invocationPolicy: policy,
+      );
 
   ProcedureEntry? findProcedureByRegistrationId(int registrationId) =>
-      proceduresById[registrationId];
+      procedureAtlas.findByRegistrationId(registrationId);
 
   void removeProcedure(ProcedureEntry entry) {
     for (final registrationId in entry.callees.keys.toList()) {
       proceduresById.remove(registrationId);
+      procedureAtlas.removeRegistration(registrationId);
     }
     proceduresById.remove(entry.registrationId);
-    procedureAtlas.remove(entry.procedure);
+    procedureAtlas.removeRegistration(entry.registrationId);
   }
 
   RealmSnapshot buildSnapshot() {
@@ -867,6 +898,7 @@ class RealmRecord {
         registrationId: entry.registrationId,
         procedure: entry.procedure,
         policy: entry.policy,
+        matchPolicy: entry.matchPolicy,
         callees: entry.callees.values.toList(growable: false),
       );
     }).toList();

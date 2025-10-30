@@ -154,6 +154,14 @@ void main() {
           '[${MessageTypes.codeCall},7814135,{"receive_progress":true,"disclose_me":true,"timeout":12},"com.myapp.ping"]',
         ),
       );
+      final callWithCustom = Call(
+        7814136,
+        'com.myapp.ping',
+        options: CallOptions(custom: {'_throttle_key': 'abc'}),
+      );
+      final encoded = serializer.serializeToString(callWithCustom);
+      final decoded = json.decode(encoded) as List;
+      expect((decoded[2] as Map<String, dynamic>)['_throttle_key'], 'abc');
       expect(
         serializer.serializeToString(
           Call(7814135, 'com.myapp.ping', arguments: ['hi', 2]),
@@ -217,6 +225,11 @@ void main() {
         ),
         equals('[${MessageTypes.codeYield},6131533,{},["hi",2],{"hi":12}]'),
       );
+      final yieldCustom = serializer.serializeToString(
+        Yield(6131534, options: YieldOptions(custom: {'_extra': 'value'})),
+      );
+      final yieldDecoded = json.decode(yieldCustom) as List;
+      expect((yieldDecoded[2] as Map<String, dynamic>)['_extra'], 'value');
     });
     test('Error', () {
       expect(
@@ -371,6 +384,15 @@ void main() {
           '[32,713845233,{"match":"wildcard","some":{"key":"value"},"where":12},"com.myapp.mytopic1"]',
         ),
       );
+      final subscribeCustom = Subscribe(
+        713845234,
+        'com.myapp.mytopic1',
+        options: SubscribeOptions(match: SubscribeOptions.matchPrefix)
+          ..setCustomField('_debounce', 42),
+      );
+      final subEncoded = serializer.serializeToString(subscribeCustom);
+      final subDecoded = json.decode(subEncoded) as List;
+      expect((subDecoded[2] as Map<String, dynamic>)['_debounce'], 42);
     });
     test('Unsubscribe', () {
       expect(
@@ -411,6 +433,17 @@ void main() {
         equals(
           '[16,239714735,{"retain":true,"disclose_me":true,"acknowledge":true,"exclude_me":true,"exclude":[2],"exclude_authid":["bbb"],"exclude_authrole":["admin"],"eligible":[1],"eligible_authid":["aaa"],"eligible_authrole":["role"]},"com.myapp.mytopic1"]',
         ),
+      );
+      final publishCustom = Publish(
+        239714736,
+        'com.myapp.mytopic1',
+        options: PublishOptions(custom: {'_debounce_key': 'payload'}),
+      );
+      final publishEncoded = serializer.serializeToString(publishCustom);
+      final publishDecoded = json.decode(publishEncoded) as List;
+      expect(
+        (publishDecoded[2] as Map<String, dynamic>)['_debounce_key'],
+        'payload',
       );
       expect(
         serializer.serializeToString(
@@ -821,6 +854,13 @@ void main() {
       expect(invocation.arguments![0], equals('johnny'));
       expect(invocation.argumentsKeywords!['firstname'], equals('John'));
       expect(invocation.argumentsKeywords!['surname'], equals('Doe'));
+
+      invocation =
+          serializer.deserializeFromString(
+                '[68, 6131533, 9823529, {"_extra": 5}, []]',
+              )
+              as Invocation;
+      expect(invocation.details.custom['_extra'], equals(5));
     });
     test('Result', () {
       var result =
@@ -870,6 +910,11 @@ void main() {
       expect(result.arguments![0], equals('johnny'));
       expect(result.argumentsKeywords!['firstname'], equals('John'));
       expect(result.argumentsKeywords!['surname'], equals('Doe'));
+
+      result =
+          serializer.deserializeFromString('[50, 6131533, {"_extra": "value"}]')
+              as Result;
+      expect(result.details.custom['_extra'], equals('value'));
     });
     // PUB / SUB
     test('Subscribed', () {
@@ -996,6 +1041,13 @@ void main() {
       expect(event.arguments![0], equals('johnny'));
       expect(event.argumentsKeywords!['firstname'], equals('John'));
       expect(event.argumentsKeywords!['surname'], equals('Doe'));
+
+      event =
+          serializer.deserializeFromString(
+                '[36, 5512315355, 4429313566, {"publisher":1,"_debounce":true}]',
+              )
+              as Event;
+      expect(event.details.custom['_debounce'], isTrue);
     });
     test('deserializePPT', () {
       var binData = Utf8Encoder().convert(

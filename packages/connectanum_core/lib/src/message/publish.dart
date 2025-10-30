@@ -1,5 +1,6 @@
 import 'abstract_message_with_payload.dart';
 import 'abstract_ppt_options.dart';
+import 'custom_fields.dart';
 import 'message_types.dart';
 
 class Publish extends AbstractMessageWithPayload {
@@ -20,7 +21,7 @@ class Publish extends AbstractMessageWithPayload {
   }
 }
 
-class PublishOptions extends PPTOptions {
+class PublishOptions extends PPTOptions with CustomFieldContainer {
   bool? acknowledge;
 
   // subscriber_blackwhite_listing == true
@@ -55,11 +56,15 @@ class PublishOptions extends PPTOptions {
     String? pptSerializer,
     String? pptCipher,
     String? pptKeyId,
+    Map<String, dynamic>? custom,
   }) {
     this.pptScheme = pptScheme;
     this.pptSerializer = pptSerializer;
     this.pptCipher = pptCipher;
     this.pptKeyId = pptKeyId;
+    if (custom != null) {
+      this.custom.addAll(custom);
+    }
   }
 
   @override

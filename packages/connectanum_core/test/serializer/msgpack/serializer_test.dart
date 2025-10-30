@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/src/serializer/msgpack/serializer.dart';
+import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
 import 'package:test/test.dart';
 
 void main() {
@@ -1941,7 +1942,7 @@ void main() {
           Uint8List.fromList([
             148, MessageTypes.codeCall, 206, 0, 119, 59, 247, 128, 174, 99, //
             111, 109, 46, 109, 121, 97, 112, 112, 46, 112, //
-            105, 110, 103, 160,
+            105, 110, 103,
           ]),
         ),
       );
@@ -1953,7 +1954,7 @@ void main() {
           Uint8List.fromList([
             148, MessageTypes.codeCall, 206, 0, 119, 59, 247, 128, 174, 99, //
             111, 109, 46, 109, 121, 97, 112, 112, 46, 112, //
-            105, 110, 103, 160,
+            105, 110, 103,
           ]),
         ),
       );
@@ -1977,7 +1978,7 @@ void main() {
             99, 108, 111, 115, 101, 95, 109, 101, 195, 167, //
             116, 105, 109, 101, 111, 117, 116, 12, 174, 99, //
             111, 109, 46, 109, 121, 97, 112, 112, 46, 112, //
-            105, 110, 103, 160,
+            105, 110, 103,
           ]),
         ),
       );
@@ -2023,6 +2024,20 @@ void main() {
           ]),
         ),
       );
+
+      final customCallBytes = serializer.serialize(
+        Call(
+          7814136,
+          'com.myapp.custom',
+          options: CallOptions(custom: {'_throttle_key': 'abc'}),
+        ),
+      );
+      final customCallDecoded =
+          msgpack_dart.deserialize(customCallBytes) as List<dynamic>;
+      expect(
+        (customCallDecoded[2] as Map<dynamic, dynamic>)['_throttle_key'],
+        equals('abc'),
+      );
     });
     test('Yield', () {
       expect(
@@ -2037,7 +2052,6 @@ void main() {
             143,
             77,
             128,
-            160,
           ]),
         ),
       );
@@ -2048,7 +2062,7 @@ void main() {
         equals(
           Uint8List.fromList([
             147, MessageTypes.codeYield, 206, 0, 93, 143, 77, 129, 168, 112, //
-            114, 111, 103, 114, 101, 115, 115, 194, 160,
+            114, 111, 103, 114, 101, 115, 115, 194,
           ]),
         ),
       );
@@ -2059,7 +2073,7 @@ void main() {
         equals(
           Uint8List.fromList([
             147, MessageTypes.codeYield, 206, 0, 93, 143, 77, 129, 168, 112, //
-            114, 111, 103, 114, 101, 115, 115, 195, 160,
+            114, 111, 103, 114, 101, 115, 115, 195,
           ]),
         ),
       );
@@ -2092,6 +2106,16 @@ void main() {
           ]),
         ),
       );
+
+      final customYieldBytes = serializer.serialize(
+        Yield(6131534, options: YieldOptions(custom: {'_extra': 'value'})),
+      );
+      final customYieldDecoded =
+          msgpack_dart.deserialize(customYieldBytes) as List<dynamic>;
+      expect(
+        (customYieldDecoded[2] as Map<dynamic, dynamic>)['_extra'],
+        equals('value'),
+      );
     });
     test('Error', () {
       expect(
@@ -2103,7 +2127,7 @@ void main() {
             149, MessageTypes.codeError, MessageTypes.codeHello, 206, 0, 1,
             226, 30, 128, 172, //
             119, 97, 109, 112, 46, 117, 110, 107, 110, 111, //
-            119, 110, 160,
+            119, 110,
           ]),
         ),
       );
@@ -2122,7 +2146,7 @@ void main() {
             226, 30, 129, 165, //
             99, 97, 117, 115, 101, 164, 115, 111, 109, 101, //
             172, 119, 97, 109, 112, 46, 117, 110, 107, 110, //
-            111, 119, 110, 160,
+            111, 119, 110,
           ]),
         ),
       );
@@ -2198,11 +2222,13 @@ void main() {
           ),
         ),
         equals(
-          Uint8List.fromList([
-            149, 36, 36, 207, 0, 0, 0, 1, 72, 143, 65, 219, 145, 166, 106, //
-            111, 104, 110, 110, 121, 130, 169, 102, 105, 114, 115, 116, 110, //
-            97, 109, 101, 164, 74, 111, 104, 110, 167, 115, 117, 114, 110, //
-            97, 109, 101, 163, 68, 111, 101,
+          msgpack_dart.serialize([
+            MessageTypes.codeEvent,
+            MessageTypes.codeEvent,
+            5512315355,
+            {'publisher': 1231412, 'topic': 'de.de.com', 'trustlevel': 1},
+            ['johnny'],
+            {'firstname': 'John', 'surname': 'Doe'},
           ]),
         ),
       );
@@ -2539,7 +2565,7 @@ void main() {
           Uint8List.fromList([
             148, 16, 206, 14, 73, 193, 175, 128, 178, 99, //
             111, 109, 46, 109, 121, 97, 112, 112, 46, 109, //
-            121, 116, 111, 112, 105, 99, 49, 160,
+            121, 116, 111, 112, 105, 99, 49,
           ]),
         ),
       );
@@ -2551,7 +2577,7 @@ void main() {
           Uint8List.fromList([
             148, 16, 206, 14, 73, 193, 175, 128, 178, 99, //
             111, 109, 46, 109, 121, 97, 112, 112, 46, 109, //
-            121, 116, 111, 112, 105, 99, 49, 160,
+            121, 116, 111, 112, 105, 99, 49,
           ]),
         ),
       );
@@ -2594,7 +2620,7 @@ void main() {
             98, 108, 101, 95, 97, 117, 116, 104, 105, 100, //
             145, 163, 97, 97, 97, 178, 99, 111, 109, 46, //
             109, 121, 97, 112, 112, 46, 109, 121, 116, 111, //
-            112, 105, 99, 49, 160,
+            112, 105, 99, 49,
           ]),
         ),
       );
@@ -2723,6 +2749,20 @@ void main() {
             165, 115, 105, 122, 101, 115, 147, 23, 42, 7,
           ]),
         ),
+      );
+
+      final customPublishBytes = serializer.serialize(
+        Publish(
+          239714736,
+          'com.myapp.mytopic1',
+          options: PublishOptions(custom: {'_debounce_key': 'payload'}),
+        ),
+      );
+      final customPublishDecoded =
+          msgpack_dart.deserialize(customPublishBytes) as List<dynamic>;
+      expect(
+        (customPublishDecoded[2] as Map<dynamic, dynamic>)['_debounce_key'],
+        equals('payload'),
       );
     });
     test('Goodbye', () {
@@ -4351,6 +4391,19 @@ void main() {
       expect(result.arguments![0], equals('johnny'));
       expect(result.argumentsKeywords!['firstname'], equals('John'));
       expect(result.argumentsKeywords!['surname'], equals('Doe'));
+
+      result =
+          serializer.deserialize(
+                Uint8List.fromList(
+                  msgpack_dart.serialize([
+                    MessageTypes.codeResult,
+                    999,
+                    {'_extra': 'value'},
+                  ]),
+                ),
+              )
+              as Result;
+      expect(result.details.custom['_extra'], equals('value'));
     });
     // PUB / SUB
     test('Subscribed', () {
@@ -4534,6 +4587,20 @@ void main() {
       expect(event.arguments![0], equals('johnny'));
       expect(event.argumentsKeywords!['firstname'], equals('John'));
       expect(event.argumentsKeywords!['surname'], equals('Doe'));
+
+      event =
+          serializer.deserialize(
+                Uint8List.fromList(
+                  msgpack_dart.serialize([
+                    MessageTypes.codeEvent,
+                    10,
+                    11,
+                    {'_debounce': true},
+                  ]),
+                ),
+              )
+              as Event;
+      expect(event.details.custom['_debounce'], isTrue);
     });
     test('Goodbye', () {
       var toDeserialize = serializer.serialize(

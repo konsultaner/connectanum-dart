@@ -2,6 +2,7 @@ import 'dart:collection';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart';
+import 'package:cbor/cbor.dart';
 import 'package:connectanum_core/src/serializer/cbor/serializer.dart';
 import 'package:test/test.dart';
 
@@ -4353,6 +4354,34 @@ void main() {
         ),
       );
     });
+    test('Call serializes custom options', () {
+      final encoded = serializer.serialize(
+        Call(
+          6131534,
+          'com.myapp.custom',
+          options: CallOptions(custom: {'_throttle_key': 'abc'}),
+        ),
+      );
+      final decoded = cbor.decode(encoded.toList());
+      expect(decoded, isA<CborList>());
+      final list = (decoded as CborList).toObject() as List<dynamic>;
+      final options = list[2] as Map<dynamic, dynamic>;
+      expect(options['_throttle_key'], equals('abc'));
+    });
+    test('Publish serializes custom options', () {
+      final encoded = serializer.serialize(
+        Publish(
+          88991,
+          'com.example.topic',
+          options: PublishOptions(custom: {'_debounce_key': 'payload'}),
+        ),
+      );
+      final decoded = cbor.decode(encoded.toList());
+      expect(decoded, isA<CborList>());
+      final list = (decoded as CborList).toObject() as List<dynamic>;
+      final publishOptions = list[2] as Map<dynamic, dynamic>;
+      expect(publishOptions['_debounce_key'], equals('payload'));
+    });
   });
   group('deserialize', () {
     test('Abort', () {
@@ -6528,6 +6557,47 @@ void main() {
       expect(published.publishRequestId, equals(239714735));
       expect(published.publicationId, equals(4429313566));
     });
+    test('Invocation retains custom detail fields', () {
+      final encoded = Uint8List.fromList(
+        cbor.encode(
+          CborValue([
+            MessageTypes.codeInvocation,
+            22,
+            77,
+            {
+              'caller': 12,
+              'procedure': 'com.examples.proc',
+              'receive_progress': true,
+              'ppt_scheme': 'wamp',
+              '_token': 'abc123',
+            },
+            ['payload'],
+          ]),
+        ),
+      );
+      final invocation = serializer.deserialize(encoded) as Invocation;
+      expect(invocation.details.caller, equals(12));
+      expect(invocation.details.procedure, equals('com.examples.proc'));
+      expect(invocation.details.receiveProgress, isTrue);
+      expect(invocation.details.pptScheme, equals('wamp'));
+      expect(invocation.details.custom['_token'], equals('abc123'));
+    });
+    test('Result retains custom detail fields', () {
+      final encoded = Uint8List.fromList(
+        cbor.encode(
+          CborValue([
+            MessageTypes.codeResult,
+            42,
+            {'progress': true, 'ppt_scheme': 'wamp', '_extra': 'value'},
+            ['payload'],
+          ]),
+        ),
+      );
+      final result = serializer.deserialize(encoded) as Result;
+      expect(result.details.progress, isTrue);
+      expect(result.details.pptScheme, equals('wamp'));
+      expect(result.details.custom['_extra'], equals('value'));
+    });
     test('Event', () {
       var event =
           serializer.deserialize(
@@ -6884,6 +6954,29 @@ void main() {
       expect(event.arguments![0], equals('johnny'));
       expect(event.argumentsKeywords!['firstname'], equals('John'));
       expect(event.argumentsKeywords!['surname'], equals('Doe'));
+    });
+    test('Event retains custom detail fields', () {
+      final encoded = Uint8List.fromList(
+        cbor.encode(
+          CborValue([
+            MessageTypes.codeEvent,
+            123,
+            456,
+            {
+              'publisher': 7,
+              'trustlevel': 2,
+              'topic': 'com.example.topic',
+              '_debounce': true,
+            },
+            ['payload'],
+          ]),
+        ),
+      );
+      final event = serializer.deserialize(encoded) as Event;
+      expect(event.details.publisher, equals(7));
+      expect(event.details.trustlevel, equals(2));
+      expect(event.details.topic, equals('com.example.topic'));
+      expect(event.details.custom['_debounce'], isTrue);
     });
     test('deserializePPT', () {
       var pptPayload = serializer.deserializePPT(

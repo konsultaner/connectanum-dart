@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:isolate';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart'
@@ -300,6 +301,13 @@ void _testWorkerEntryPoint(Map<String, Object?> init) {
       });
       for (final entry in connections.entries.toList()) {
         bossPort.send({
+          'type': 'worker_send',
+          'connectionId': entry.key,
+          'payload': Uint8List.fromList(
+            utf8.encode(jsonEncode([MessageTypes.codeGoodbye, {}, reason])),
+          ),
+        });
+        bossPort.send({
           'type': kWorkerEventConnectionRemoved,
           'connectionId': entry.key,
         });
@@ -395,6 +403,13 @@ void _parallelWorkerEntryPoint(Map<String, Object?> init) {
         'reason': reason,
       });
       for (final entry in connections.entries.toList()) {
+        bossPort.send({
+          'type': 'worker_send',
+          'connectionId': entry.key,
+          'payload': Uint8List.fromList(
+            utf8.encode(jsonEncode([MessageTypes.codeGoodbye, {}, reason])),
+          ),
+        });
         bossPort.send({
           'type': kWorkerEventConnectionRemoved,
           'connectionId': entry.key,
@@ -1073,6 +1088,19 @@ void main() {
       expect(drainEvents, hasLength(1));
       final drainPayload = drainEvents.single['payload'] as Map;
       expect(drainPayload['reason'], equals('wamp.close.system_shutdown'));
+
+      final sentFrames = runtime.sentMessages[6001];
+      expect(sentFrames, isNotNull);
+      final decodedGoodbyes = sentFrames!
+          .map(
+            (payload) => jsonDecode(utf8.decode(payload)) as List<dynamic>,
+          )
+          .toList();
+      expect(decodedGoodbyes, isNotEmpty);
+      final goodbyeFrame = decodedGoodbyes.last;
+      expect(goodbyeFrame.first, equals(MessageTypes.codeGoodbye));
+      expect(goodbyeFrame.last, equals('wamp.close.system_shutdown'));
+      expect(goodbyeFrame[1], isA<Map>());
 
       final workerDrained = events.whereType<Map>().where(
         (event) => event['type'] == 'worker_drained',

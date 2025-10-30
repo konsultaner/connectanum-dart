@@ -152,6 +152,23 @@ class Serializer extends AbstractSerializer {
             }
           }
         }
+        final remainingDetails = Map<String, dynamic>.from(
+          message[2] as Map<dynamic, dynamic>,
+        );
+        remainingDetails
+          ..remove('roles')
+          ..remove('realm')
+          ..remove('authid')
+          ..remove('authprovider')
+          ..remove('authmethod')
+          ..remove('authrole')
+          ..remove('authextra');
+        if (details.authmethods != null) {
+          remainingDetails.remove('authmethods');
+        }
+        if (remainingDetails.isNotEmpty) {
+          details.custom.addAll(remainingDetails);
+        }
         return Welcome(message[1], details);
       }
       if (messageId == MessageTypes.codeRegistered) {
@@ -161,14 +178,29 @@ class Serializer extends AbstractSerializer {
         return unregistered_msg.Unregistered(message[1]);
       }
       if (messageId == MessageTypes.codeInvocation) {
+        final detailsMap = Map<String, dynamic>.from(
+          message[3] as Map<dynamic, dynamic>,
+        );
+        final caller = detailsMap.remove('caller');
+        final procedure = detailsMap.remove('procedure');
+        final receiveProgress = detailsMap.remove('receive_progress');
+        final pptScheme = detailsMap.remove('ppt_scheme');
+        final pptSerializer = detailsMap.remove('ppt_serializer');
+        final pptCipher = detailsMap.remove('ppt_cipher');
+        final pptKeyId = detailsMap.remove('ppt_keyid');
         return _addPayload(
           Invocation(
             message[1],
             message[2],
             InvocationDetails(
-              message[3]['caller'],
-              message[3]['procedure'],
-              message[3]['receive_progress'],
+              caller,
+              procedure,
+              receiveProgress,
+              pptScheme,
+              pptSerializer,
+              pptCipher,
+              pptKeyId,
+              detailsMap,
             ),
           ),
           message,
@@ -176,15 +208,24 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeResult) {
+        final detailsMap = Map<String, dynamic>.from(
+          message[2] as Map<dynamic, dynamic>,
+        );
+        final progress = detailsMap.remove('progress');
+        final pptScheme = detailsMap.remove('ppt_scheme');
+        final pptSerializer = detailsMap.remove('ppt_serializer');
+        final pptCipher = detailsMap.remove('ppt_cipher');
+        final pptKeyId = detailsMap.remove('ppt_keyid');
         return _addPayload(
           Result(
             message[1],
             ResultDetails(
-              progress: message[2]['progress'],
-              pptScheme: message[2]['ppt_scheme'],
-              pptSerializer: message[2]['ppt_serializer'],
-              pptCipher: message[2]['ppt_cipher'],
-              pptKeyId: message[2]['ppt_keyid'],
+              progress: progress,
+              pptScheme: pptScheme,
+              pptSerializer: pptSerializer,
+              pptCipher: pptCipher,
+              pptKeyId: pptKeyId,
+              custom: detailsMap,
             ),
           ),
           message,
@@ -209,14 +250,29 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeEvent) {
+        final detailsMap = Map<String, dynamic>.from(
+          message[3] as Map<dynamic, dynamic>,
+        );
+        final publisher = detailsMap.remove('publisher');
+        final trustlevel = detailsMap.remove('trustlevel');
+        final topic = detailsMap.remove('topic');
+        final pptScheme = detailsMap.remove('ppt_scheme');
+        final pptSerializer = detailsMap.remove('ppt_serializer');
+        final pptCipher = detailsMap.remove('ppt_cipher');
+        final pptKeyId = detailsMap.remove('ppt_keyid');
         return _addPayload(
           Event(
             message[1],
             message[2],
             EventDetails(
-              publisher: message[3]['publisher'],
-              trustlevel: message[3]['trustlevel'],
-              topic: message[3]['topic'],
+              publisher: publisher,
+              trustlevel: trustlevel,
+              topic: topic,
+              pptScheme: pptScheme,
+              pptSerializer: pptSerializer,
+              pptCipher: pptCipher,
+              pptKeyid: pptKeyId,
+              custom: detailsMap,
             ),
           ),
           message,
@@ -559,6 +615,11 @@ class Serializer extends AbstractSerializer {
       if (details.authextra != null) {
         detailsParts.add('"authextra":${json.encode(details.authextra)}');
       }
+      if (details.custom.isNotEmpty) {
+        details.custom.forEach((key, value) {
+          detailsParts.add('"$key":${json.encode(value)}');
+        });
+      }
       return '{${detailsParts.join(",")}}';
     } else {
       return '{}';
@@ -566,126 +627,160 @@ class Serializer extends AbstractSerializer {
   }
 
   String _serializeSubscribeOptions(SubscribeOptions? options) {
-    var jsonOptions = [];
-    if (options != null) {
-      if (options.getRetained != null) {
-        jsonOptions.add(
-          '"get_retained":${options.getRetained! ? "true" : "false"}',
-        );
-      }
-      if (options.match != null) {
-        jsonOptions.add('"match":"${options.match}"');
-      }
-      if (options.metaTopic != null) {
-        jsonOptions.add('"meta_topic":"${options.metaTopic}"');
-      }
-      options
-          .getCustomValues<String>(SubscribeOptions.customSerializerJson)
-          .forEach((key, value) {
-            jsonOptions.add('"$key":$value');
-          });
+    if (options == null) {
+      return '{}';
     }
-
-    return '{${jsonOptions.join(',')}}';
+    final map = <String, dynamic>{};
+    if (options.getRetained != null) {
+      map['get_retained'] = options.getRetained;
+    }
+    if (options.match != null) {
+      map['match'] = options.match;
+    }
+    if (options.metaTopic != null) {
+      map['meta_topic'] = options.metaTopic;
+    }
+    if (options.custom.isNotEmpty) {
+      map.addAll(options.custom);
+    }
+    final legacyCustomEntries =
+        options
+            .getCustomValues<String>(SubscribeOptions.customSerializerJson)
+            .entries
+            .toList()
+          ..sort((a, b) => a.key.compareTo(b.key));
+    for (final entry in legacyCustomEntries) {
+      map.putIfAbsent(entry.key, () => _decodeCustomJsonValue(entry.value));
+    }
+    return json.encode(map);
   }
 
   String _serializeRegisterOptions(RegisterOptions? options) {
-    var jsonOptions = [];
-    if (options != null) {
-      if (options.match != null) {
-        jsonOptions.add('"match":"${options.match}"');
-      }
-      if (options.discloseCaller != null) {
-        jsonOptions.add(
-          '"disclose_caller":${options.discloseCaller! ? 'true' : 'false'}',
-        );
-      }
-      if (options.invoke != null) {
-        jsonOptions.add('"invoke":"${options.invoke}"');
-      }
+    if (options == null) {
+      return '{}';
     }
-
-    return '{${jsonOptions.join(',')}}';
+    final map = <String, dynamic>{};
+    if (options.match != null) {
+      map['match'] = options.match;
+    }
+    if (options.discloseCaller != null) {
+      map['disclose_caller'] = options.discloseCaller;
+    }
+    if (options.invoke != null) {
+      map['invoke'] = options.invoke;
+    }
+    if (options.custom.isNotEmpty) {
+      map.addAll(options.custom);
+    }
+    return json.encode(map);
   }
 
   String _serializeCallOptions(CallOptions? options) {
-    var jsonOptions = [];
-    if (options != null) {
-      if (options.receiveProgress != null) {
-        jsonOptions.add(
-          '"receive_progress":${options.receiveProgress! ? "true" : "false"}',
-        );
-      }
-      if (options.discloseMe != null) {
-        jsonOptions.add(
-          '"disclose_me":${options.discloseMe! ? "true" : "false"}',
-        );
-      }
-      if (options.timeout != null) {
-        jsonOptions.add('"timeout":${options.timeout}');
-      }
+    if (options == null) {
+      return '{}';
     }
-
-    return '{${jsonOptions.join(',')}}';
+    final map = <String, dynamic>{};
+    if (options.receiveProgress != null) {
+      map['receive_progress'] = options.receiveProgress;
+    }
+    if (options.discloseMe != null) {
+      map['disclose_me'] = options.discloseMe;
+    }
+    if (options.timeout != null) {
+      map['timeout'] = options.timeout;
+    }
+    if (options.custom.isNotEmpty) {
+      map.addAll(options.custom);
+    }
+    if (options.pptScheme != null) {
+      map['ppt_scheme'] = options.pptScheme;
+    }
+    if (options.pptSerializer != null) {
+      map['ppt_serializer'] = options.pptSerializer;
+    }
+    if (options.pptCipher != null) {
+      map['ppt_cipher'] = options.pptCipher;
+    }
+    if (options.pptKeyId != null) {
+      map['ppt_keyid'] = options.pptKeyId;
+    }
+    return json.encode(map);
   }
 
   String _serializeYieldOptions(YieldOptions? options) {
-    var jsonDetails = [];
-    if (options != null) {
-      jsonDetails.add('"progress":${options.progress ? "true" : "false"}');
+    if (options == null) {
+      return '{}';
     }
-    return '{${jsonDetails.join(',')}}';
+    final map = <String, dynamic>{'progress': options.progress};
+    if (options.custom.isNotEmpty) {
+      map.addAll(options.custom);
+    }
+    if (options.pptScheme != null) {
+      map['ppt_scheme'] = options.pptScheme;
+    }
+    if (options.pptSerializer != null) {
+      map['ppt_serializer'] = options.pptSerializer;
+    }
+    if (options.pptCipher != null) {
+      map['ppt_cipher'] = options.pptCipher;
+    }
+    if (options.pptKeyId != null) {
+      map['ppt_keyid'] = options.pptKeyId;
+    }
+    return json.encode(map);
   }
 
   String _serializePublish(PublishOptions? options) {
-    var jsonDetails = [];
-    if (options != null) {
-      if (options.retain != null) {
-        jsonDetails.add('"retain":${options.retain! ? "true" : "false"}');
-      }
-      if (options.discloseMe != null) {
-        jsonDetails.add(
-          '"disclose_me":${options.discloseMe! ? "true" : "false"}',
-        );
-      }
-      if (options.acknowledge != null) {
-        jsonDetails.add(
-          '"acknowledge":${options.acknowledge! ? "true" : "false"}',
-        );
-      }
-      if (options.excludeMe != null) {
-        jsonDetails.add(
-          '"exclude_me":${options.excludeMe! ? "true" : "false"}',
-        );
-      }
-      if (options.exclude != null) {
-        jsonDetails.add('"exclude":[${options.exclude!.join(",")}]');
-      }
-      if (options.excludeAuthId != null) {
-        jsonDetails.add(
-          '"exclude_authid":["${options.excludeAuthId!.join('","')}"]',
-        );
-      }
-      if (options.excludeAuthRole != null) {
-        jsonDetails.add(
-          '"exclude_authrole":["${options.excludeAuthRole!.join('","')}"]',
-        );
-      }
-      if (options.eligible != null) {
-        jsonDetails.add('"eligible":[${options.eligible!.join(",")}]');
-      }
-      if (options.eligibleAuthId != null) {
-        jsonDetails.add(
-          '"eligible_authid":["${options.eligibleAuthId!.join('","')}"]',
-        );
-      }
-      if (options.eligibleAuthRole != null) {
-        jsonDetails.add(
-          '"eligible_authrole":["${options.eligibleAuthRole!.join('","')}"]',
-        );
-      }
+    if (options == null) {
+      return '{}';
     }
-    return '{${jsonDetails.join(',')}}';
+    final map = <String, dynamic>{};
+    if (options.retain != null) {
+      map['retain'] = options.retain;
+    }
+    if (options.discloseMe != null) {
+      map['disclose_me'] = options.discloseMe;
+    }
+    if (options.acknowledge != null) {
+      map['acknowledge'] = options.acknowledge;
+    }
+    if (options.excludeMe != null) {
+      map['exclude_me'] = options.excludeMe;
+    }
+    if (options.exclude != null) {
+      map['exclude'] = options.exclude;
+    }
+    if (options.excludeAuthId != null) {
+      map['exclude_authid'] = options.excludeAuthId;
+    }
+    if (options.excludeAuthRole != null) {
+      map['exclude_authrole'] = options.excludeAuthRole;
+    }
+    if (options.eligible != null) {
+      map['eligible'] = options.eligible;
+    }
+    if (options.eligibleAuthId != null) {
+      map['eligible_authid'] = options.eligibleAuthId;
+    }
+    if (options.eligibleAuthRole != null) {
+      map['eligible_authrole'] = options.eligibleAuthRole;
+    }
+    if (options.custom.isNotEmpty) {
+      map.addAll(options.custom);
+    }
+    if (options.pptScheme != null) {
+      map['ppt_scheme'] = options.pptScheme;
+    }
+    if (options.pptSerializer != null) {
+      map['ppt_serializer'] = options.pptSerializer;
+    }
+    if (options.pptCipher != null) {
+      map['ppt_cipher'] = options.pptCipher;
+    }
+    if (options.pptKeyId != null) {
+      map['ppt_keyid'] = options.pptKeyId;
+    }
+    return json.encode(map);
   }
 
   String _serializePayload(AbstractMessageWithPayload message) {
@@ -726,6 +821,14 @@ class Serializer extends AbstractSerializer {
       if (element.value is Uint8List) {
         payload[element.key] = _convertUint8ListToString(element.value);
       }
+    }
+  }
+
+  dynamic _decodeCustomJsonValue(String value) {
+    try {
+      return json.decode(value);
+    } catch (_) {
+      return value;
     }
   }
 
