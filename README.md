@@ -158,3 +158,84 @@ await for (final result in session.call("my.procedure")) {
   // do something with the result
 }
 ```
+
+
+## Network‑aware reconnect (example)
+
+Enable optional network‑aware reconnect and observe connectivity while the client waits to reconnect. On IO platforms, set a probe target via `connectivityTestAddress` to avoid false negatives.
+
+```dart
+import 'package:connectanum/src/client.dart';
+import 'package:connectanum/src/transport/websocket/websocket_transport_io.dart';
+
+final transport =
+    WebSocketTransport.withJsonSerializer('ws://wamp.example.com:8080/ws');
+final client = Client(realm: 'com.my.realm', transport: transport);
+
+final options = ClientConnectOptions(
+  reconnectTime: const Duration(seconds: 2),
+  reconnectCount: -1, // infinite retries
+  waitForNetwork: true, // wait until network is back before retrying
+  networkCheckInterval: const Duration(seconds: 1),
+  networkWaitTimeout: const Duration(seconds: 30),
+  // IO only: probe target for connectivity checks (host:port)
+  connectivityTestAddress: 'wamp.example.com:8080',
+);
+
+// Observe online/offline while the client is waiting to reconnect
+client.onOnlineState.listen((online) {
+  print('Network online: $online');
+});
+
+client.connect(options: options).listen(
+  (session) {
+    // connected
+  },
+  onError: (e) {
+    // out of retries or unrecoverable error
+  },
+);
+```
+
+### IO defaults and `connectivityTestAddress`
+
+- On IO platforms, the connectivity check performs a TCP connect to a target (host:port).
+- If you don’t specify `connectivityTestAddress`, a generic host is used, which can be blocked or unreliable on some networks.
+- Recommended:
+  - Set `connectivityTestAddress` to your WAMP server’s host:port for the most relevant signal.
+  - If that’s not possible, choose a highly available TCP endpoint (e.g., an HTTPS port on a reliable host in your environment).
+  - Keep the `networkCheckInterval` modest (e.g., 1–2s) to balance responsiveness and network load.
+- Note: The current implementation accepts a single probe target. If you need higher resilience, prefer using your own backend endpoint or handle multi‑target probing at the application layer.
+
+## Running tests (VM and Web)
+
+This project ships tests for both the Dart VM and the browser (Chrome).
+
+- Run the full suite on VM and Chrome (Chrome will be launched headlessly by the test runner):
+  - dart test
+
+- Run only Chrome tests:
+  - dart test -p chrome
+
+If Chrome is not detected automatically, set the CHROME_EXECUTABLE environment variable to the absolute path of your Chrome/Chromium binary.
+
+Typical paths:
+- macOS: /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+- Linux (Debian/Ubuntu): /usr/bin/google-chrome or /usr/bin/chromium
+- Windows (PowerShell): C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe
+
+Examples:
+- macOS/Linux (bash/zsh):
+  - export CHROME_EXECUTABLE="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+  - dart test -p chrome test/network/network_connectivity_web_test.dart
+- Linux (Chromium):
+  - export CHROME_EXECUTABLE=/usr/bin/chromium
+  - dart test -p chrome
+- Windows (PowerShell):
+  - $env:CHROME_EXECUTABLE = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+  - dart test -p chrome
+
+Notes:
+- The test runner is configured for Chrome in dart_test.yaml (platforms: [vm, chrome]).
+- Browser tests compile with the dart2wasm compiler by default; ensure you’re on Dart >= 3.4.
+- If tests appear flaky due to network status, try re-running them or ensuring your system is online.

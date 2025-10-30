@@ -1,0 +1,63 @@
+variables:
+  PUB_CACHE: "$CI_PROJECT_DIR/.pub-cache"
+
+cache:
+  key: "pub-${CI_COMMIT_REF_SLUG}"
+  paths:
+    - .pub-cache/
+    - .dart_tool/
+
+default:
+  image:
+    name: konsultaner/flutter-ci-base:android-35.0.0-flutter-3.35.3
+    entrypoint: [""]
+  before_script:
+    - git config --global --add safe.directory /flutter || true
+    - mkdir -p "$PUB_CACHE"
+    - export PATH="$PUB_CACHE/bin:$PATH"
+    - dart --version
+
+stages:
+  - analyze
+  - test
+
+analyze:
+  stage: analyze
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  script:
+    - dart pub get
+    - dart analyze
+
+test:vm:
+  stage: test
+  needs: ["analyze"]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  script:
+    - dart pub get
+    - dart run test -p vm --coverage=coverage/raw
+    - dart pub global activate coverage
+    - format_coverage -l -v -i coverage/raw -o coverage/lcov.info --packages=.dart_tool/package_config.json --report-on=lib
+    - dart pub global activate cobertura
+    - cobertura convert -i coverage/lcov.info -o coverage/cobertura.xml -p pubspec.yaml
+  artifacts:
+    when: always
+    name: 'coverage'
+    expire_in: 1 day
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura.xml
+    paths:
+      - coverage/
+  coverage: '/\s*lines\.*:\s*([\d\.]+%)/'
+
+test:chrome:
+  stage: test
+  needs: ["analyze"]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  script:
+    - dart pub get
+    - dart run test -p chrome --timeout=5m --concurrency=1

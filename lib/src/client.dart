@@ -10,6 +10,9 @@ import 'authentication/abstract_authentication.dart';
 import 'transport/abstract_transport.dart';
 import 'message/uri_pattern.dart';
 import 'protocol/session.dart';
+import 'network/network_connectivity_stub.dart'
+    if (dart.library.io) 'network/network_connectivity_io.dart'
+    if (dart.library.js_interop) 'network/network_connectivity_web.dart' as connectivity;
 
 enum _ClientState {
   /// Client is idle and not connected
@@ -50,6 +53,11 @@ class Client {
   List<AbstractAuthentication>? authenticationMethods;
 
   final StreamController<Session> _controller = StreamController<Session>();
+
+  // Broadcast stream emitting current online state during waiting periods
+  final StreamController<bool> _onlineStateController =
+      StreamController<bool>.broadcast();
+  StreamSubscription<bool>? _onlineStreamSub;
 
   StreamSubscription<ClientConnectOptions>? _connectStreamSubscription;
 
@@ -96,6 +104,10 @@ class Client {
   Stream<ClientConnectOptions> get onNextTryToReconnect =>
       _connectStreamController.stream;
 
+  /// Broadcast stream emitting current online state while the client is waiting
+  /// to reconnect (e.g., during network wait or reconnect delay).
+  Stream<bool> get onOnlineState => _onlineStateController.stream;
+
   /// Calling this method will start the authentication process and result into
   /// a [Session] object on success. If a [ClientConnectOptions.pingInterval] is
   /// given and the underlying transport supports sending of ping messages. the
@@ -126,12 +138,16 @@ class Client {
   Future<void> disconnect() async {
     _logger.shout('Disconnecting');
     _changeState(_ClientState.done);
+    _stopOnlineTicker();
     await _connectStreamSubscription?.cancel();
     if (!_connectStreamController.isClosed) {
       await _connectStreamController.close();
     }
     if (!_controller.isClosed) {
       await _controller.close();
+    }
+    if (!_onlineStateController.isClosed) {
+      await _onlineStateController.close();
     }
     if (transport.isOpen) {
       await transport.close();
@@ -146,17 +162,43 @@ class Client {
 
     _changeState(_ClientState.waiting);
 
-    if (duration != null) {
-      _logger.info('Waiting for (overridden) $duration before reconnecting');
-      await Future.delayed(duration);
-    } else {
-      _logger.info('Waiting for ${options.reconnectTime!} before reconnecting');
-      await Future.delayed(options.reconnectTime!);
-    }
+    // Start online-state ticker during waiting
+    _startOnlineTicker(options.networkCheckInterval, options.connectivityTestAddress);
 
-    // Check in case the client has been closed while we were waiting;
-    if (_state == _ClientState.done) return;
-    return _connectStreamController.add(options);
+    try {
+      // Optionally wait for network to be online before attempting reconnect
+      if (options.waitForNetwork) {
+        try {
+          final online = await connectivity.NetworkConnectivity.instance
+              .isOnline(testAddress: options.connectivityTestAddress);
+          if (!online) {
+            _logger.info('Network offline detected. Waiting until online...');
+            await connectivity.NetworkConnectivity.instance.waitUntilOnline(
+              pollInterval: options.networkCheckInterval,
+              timeout: options.networkWaitTimeout,
+              testAddress: options.connectivityTestAddress,
+            );
+          }
+        } catch (e) {
+          _logger.fine('Connectivity check failed: $e');
+        }
+      }
+
+      if (duration != null) {
+        _logger.info('Waiting for (overridden) $duration before reconnecting');
+        await Future.delayed(duration);
+      } else {
+        _logger.info('Waiting for ${options.reconnectTime!} before reconnecting');
+        await Future.delayed(options.reconnectTime!);
+      }
+
+      // Check in case the client has been closed while we were waiting;
+      if (_state == _ClientState.done) return;
+      return _connectStreamController.add(options);
+    } finally {
+      // Stop ticker when leaving waiting phase
+      _stopOnlineTicker();
+    }
   }
 
   void _changeState(_ClientState newState) {
@@ -164,6 +206,26 @@ class Client {
       _logger.info('Changed state: $_state -> $newState');
     }
     _state = newState;
+  }
+
+  void _startOnlineTicker(Duration interval, String? testAddress) {
+    _stopOnlineTicker();
+    _onlineStreamSub = connectivity.NetworkConnectivity.instance
+        .watch(interval: interval, testAddress: testAddress)
+        .listen((online) {
+      if (!_onlineStateController.isClosed) {
+        _onlineStateController.add(online);
+      }
+    }, onError: (_) {
+      if (!_onlineStateController.isClosed) {
+        _onlineStateController.add(false);
+      }
+    });
+  }
+
+  void _stopOnlineTicker() {
+    _onlineStreamSub?.cancel();
+    _onlineStreamSub = null;
   }
 
   Future<void> _connect(ClientConnectOptions options) async {
@@ -253,10 +315,22 @@ class ClientConnectOptions {
   Duration? reconnectTime;
   Duration? pingInterval;
 
+  // New options for network-aware reconnect
+  bool waitForNetwork;
+  Duration networkCheckInterval;
+  Duration? networkWaitTimeout;
+  /// Host:port to probe when checking connectivity on IO (e.g., 'example.com:80').
+  /// If null, a reasonable default will be used by the platform implementation.
+  String? connectivityTestAddress;
+
   ClientConnectOptions({
     this.reconnectCount = 3,
     this.reconnectTime,
     this.pingInterval,
+    this.waitForNetwork = false,
+    this.networkCheckInterval = const Duration(seconds: 2),
+    this.networkWaitTimeout,
+    this.connectivityTestAddress,
   });
 
   ClientConnectOptions minusReconnectRetry() {
