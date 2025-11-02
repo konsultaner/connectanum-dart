@@ -1,4 +1,7 @@
 @TestOn('vm')
+// ignore_for_file: unnecessary_library_name
+library router_runtime_test;
+
 import 'dart:async';
 import 'dart:collection';
 import 'dart:isolate';
@@ -8,8 +11,6 @@ import 'dart:typed_data';
 import 'package:connectanum_core/connectanum_core.dart'
     show MessageTypes, Publish;
 import 'package:connectanum_router/src/native/runtime.dart';
-import 'package:connectanum_router/src/router/config/router_settings.dart';
-import 'package:connectanum_router/src/router/config/router_settings_builder.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
 import 'package:connectanum_router/src/router/models/router_config.dart';
 import 'package:connectanum_router/src/router/models/tls_mode.dart';

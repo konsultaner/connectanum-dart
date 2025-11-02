@@ -103,10 +103,7 @@ class CryptosignAuthenticator extends Authenticator {
       );
     }
 
-    final Map<String, Object?>? extra = message.extra;
-    final channelBinding = extra == null
-        ? null
-        : extra['channel_binding'] as String?;
+    final channelBinding = message.extra['channel_binding'] as String?;
     if (pending.principal.channelBinding != channelBinding) {
       return AuthResult.failure(
         const AuthFailure(

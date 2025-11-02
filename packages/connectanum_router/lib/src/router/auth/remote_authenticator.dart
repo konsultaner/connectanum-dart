@@ -572,23 +572,21 @@ class RemoteHelloRequest {
 enum RemoteHelloStatus { success, failure, challenge }
 
 class RemoteHelloResponse {
-  RemoteHelloResponse.success(AuthSuccess success)
-    : status = RemoteHelloStatus.success,
-      success = success,
-      failure = null,
-      challenge = null;
+  const RemoteHelloResponse._({
+    required this.status,
+    this.success,
+    this.failure,
+    this.challenge,
+  });
 
-  RemoteHelloResponse.failure(AuthFailure failure)
-    : status = RemoteHelloStatus.failure,
-      failure = failure,
-      success = null,
-      challenge = null;
+  const RemoteHelloResponse.success(AuthSuccess success)
+    : this._(status: RemoteHelloStatus.success, success: success);
 
-  RemoteHelloResponse.challenge(RemoteChallenge challenge)
-    : status = RemoteHelloStatus.challenge,
-      challenge = challenge,
-      success = null,
-      failure = null;
+  const RemoteHelloResponse.failure(AuthFailure failure)
+    : this._(status: RemoteHelloStatus.failure, failure: failure);
+
+  const RemoteHelloResponse.challenge(RemoteChallenge challenge)
+    : this._(status: RemoteHelloStatus.challenge, challenge: challenge);
 
   final RemoteHelloStatus status;
   final AuthSuccess? success;
@@ -629,15 +627,17 @@ class RemoteAuthenticateRequest {
 enum RemoteAuthenticateStatus { success, failure }
 
 class RemoteAuthenticateResponse {
-  RemoteAuthenticateResponse.success(AuthSuccess success)
-    : status = RemoteAuthenticateStatus.success,
-      success = success,
-      failure = null;
+  const RemoteAuthenticateResponse._({
+    required this.status,
+    this.success,
+    this.failure,
+  });
 
-  RemoteAuthenticateResponse.failure(AuthFailure failure)
-    : status = RemoteAuthenticateStatus.failure,
-      failure = failure,
-      success = null;
+  const RemoteAuthenticateResponse.success(AuthSuccess success)
+    : this._(status: RemoteAuthenticateStatus.success, success: success);
+
+  const RemoteAuthenticateResponse.failure(AuthFailure failure)
+    : this._(status: RemoteAuthenticateStatus.failure, failure: failure);
 
   final RemoteAuthenticateStatus status;
   final AuthSuccess? success;

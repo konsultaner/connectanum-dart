@@ -46,9 +46,13 @@ class EventDetails extends PPTOptions with CustomFieldContainer {
     String? pptKeyid,
     Map<String, dynamic>? custom,
   }) {
+    // ignore: unnecessary_this
     this.pptScheme = pptScheme;
+    // ignore: unnecessary_this
     this.pptSerializer = pptSerializer;
+    // ignore: unnecessary_this
     this.pptCipher = pptCipher;
+    // ignore: unnecessary_this
     this.pptKeyId = pptKeyid;
     if (custom != null) {
       this.custom.addAll(custom);

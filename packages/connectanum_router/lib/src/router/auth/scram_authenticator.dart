@@ -5,7 +5,6 @@ import 'dart:typed_data';
 
 import 'package:connectanum_core/authentication.dart' show ScramAuthentication;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
-import 'package:connectanum_core/src/message/challenge.dart' show Extra;
 
 import '../config/authenticator.dart';
 import '../config/router_settings.dart';
@@ -98,7 +97,7 @@ class ScramAuthenticator extends Authenticator {
     final serverNonce = _randomNonce();
     final combinedNonce = '$clientNonce$serverNonce';
 
-    final challengeExtra = Extra(
+    final challengeExtra = wamp_core.Extra(
       nonce: combinedNonce,
       salt: principal.salt,
       iterations: principal.iterations,
@@ -374,7 +373,7 @@ class ScramPrincipal {
     required String clientSignature,
     required String clientNonce,
     required Map<String, Object?> authExtra,
-    required Extra challenge,
+    required wamp_core.Extra challenge,
   }) {
     if (storedKey != null) {
       final proofBytes = base64.decode(clientSignature);
@@ -419,7 +418,7 @@ class _ScramPendingSession {
   final ScramPrincipal principal;
   final String clientNonce;
   final String combinedNonce;
-  final Extra challenge;
+  final wamp_core.Extra challenge;
   final int sessionId;
 }
 

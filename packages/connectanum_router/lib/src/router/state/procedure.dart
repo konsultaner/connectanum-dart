@@ -85,15 +85,13 @@ class ProcedureEntry {
     required this.procedure,
     required this.matchPolicy,
     required this.policy,
-    required Map<int, RegistrationRecord> callees,
+    required this.callees,
     required List<String>? wildcardSegments,
     required this.wildcardSegmentCount,
-    required List<int> wildcardLiteralBlocks,
+    required this.wildcardLiteralBlocks,
     required this.prefixLength,
     required int cacheVersion,
-  }) : callees = callees,
-       _wildcardSegments = wildcardSegments,
-       wildcardLiteralBlocks = wildcardLiteralBlocks,
+  }) : _wildcardSegments = wildcardSegments,
        _cacheVersion = cacheVersion;
 
   final int registrationId;

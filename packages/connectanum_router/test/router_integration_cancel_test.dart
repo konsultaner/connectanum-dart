@@ -1,4 +1,7 @@
 @TestOn('vm')
+// ignore_for_file: unnecessary_library_name
+library router_integration_cancel_test;
+
 import 'dart:async';
 import 'dart:collection';
 import 'dart:isolate';
@@ -9,8 +12,6 @@ import 'package:async/async.dart';
 import 'package:connectanum_core/src/message/cancel.dart' as cancel_msg;
 import 'package:connectanum_core/src/message/error.dart' as error_msg;
 import 'package:connectanum_router/src/native/runtime.dart';
-import 'package:connectanum_router/src/router/config/router_settings.dart';
-import 'package:connectanum_router/src/router/config/router_settings_builder.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
 import 'package:connectanum_router/src/router/models/router_config.dart';
 import 'package:connectanum_router/src/router/models/tls_mode.dart';

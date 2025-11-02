@@ -433,16 +433,19 @@ Future<void> _handleUnregister({
     final context = realmContexts.contextFor(state.realmUri!);
     final snapshot = await context.ensureSnapshot(forceRefresh: true);
     final sessionId = state.sessionId!;
-    var registration;
+    RegistrationRecord? registrationRecord;
     for (final candidate in snapshot.registrations) {
-      if (candidate.registrationId == message.registrationId) {
-        registration = candidate;
+      for (final callee in candidate.callees) {
+        if (callee.registrationId == message.registrationId) {
+          registrationRecord = callee;
+          break;
+        }
+      }
+      if (registrationRecord != null) {
         break;
       }
     }
-    final ownsRegistration =
-        registration?.callees.any((callee) => callee.sessionId == sessionId) ??
-        false;
+    final ownsRegistration = registrationRecord?.sessionId == sessionId;
     if (!ownsRegistration) {
       throw StateError(
         'Registration ${message.registrationId} not found for session '

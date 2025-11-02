@@ -69,8 +69,9 @@
 - [x] CALL / RESULT / ERROR decoding
 - [ ] Registration tracking per realm/session
   - [ ] Unit tests: register/unregister success, duplicate/ownership enforcement, session cleanup
-- [ ] Invocation dispatch + RESULT/ERROR forwarding
-  - [ ] Unit tests: call→invocation→result, failing callee, timeouts, progressive results placeholder
+  - [ ] Invocation dispatch + RESULT/ERROR forwarding
+    - [x] Synthetic RawSocket integration harness (ffi-test mode) covering HELLO→CALL→progressive/final RESULT forwarding
+    - [ ] Unit tests: call→invocation→result, failing callee, timeouts, progressive results placeholder
 - [ ] ERROR handling for REGISTER/UNREGISTER/CALL
 - [ ] CALL cancellation (basic profile – CANCEL)
 - [x] End-to-end zero-copy RPC dispatch (reuse native call payload buffers)
@@ -145,6 +146,7 @@
 - [ ] Caller tracing & diagnostic events
 - [ ] Administrative control interface (pause/resume realm, drain connections)
 - [ ] Replay/testing hooks (record & replay message streams)
+- [x] FFI “test mode” harness for synthetic RawSocket integration tests (HELLO/CALL/YIELD flows)
 
 ## Tooling & Documentation
 

@@ -1,4 +1,7 @@
 @TestOn('vm')
+// ignore_for_file: unnecessary_library_name
+library native_ffi_test_mode_test;
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';

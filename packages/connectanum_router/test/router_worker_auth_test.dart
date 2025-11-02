@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
-import 'dart:typed_data';
 
-import 'package:connectanum_core/authentication.dart';
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core show Error;
 import 'package:connectanum_core/json_serializer.dart' as json_serializer;
@@ -574,7 +572,7 @@ void main() {
         authenticators: const {
           'remote-basic': AuthenticatorDefinition(
             type: 'remote',
-            options: const {'method': 'remote'},
+            options: {'method': 'remote'},
           ),
         },
       );
@@ -630,7 +628,7 @@ void main() {
         authenticators: const {
           'remote-basic': AuthenticatorDefinition(
             type: 'remote',
-            options: const {'method': 'remote'},
+            options: {'method': 'remote'},
           ),
         },
       );
@@ -886,15 +884,15 @@ void main() {
         limits: const RealmLimitSettings(maxFailedAuth: 2, lockoutMs: 5000),
       );
 
-      Future<void> _attempt(String signature) async {
+      Future<void> attempt(String signature) async {
         final context = _HandshakeHarness(routerSettings, serializer);
         await context.performHello(authMethod: 'ticket', authId: 'user-1');
         await context.performAuthenticate(Authenticate(signature: signature));
         expect(context.lastAbort, isNotNull);
       }
 
-      await _attempt('wrong');
-      await _attempt('wrong');
+      await attempt('wrong');
+      await attempt('wrong');
 
       final context = _HandshakeHarness(routerSettings, serializer);
       await context.performHello(authMethod: 'ticket', authId: 'user-1');

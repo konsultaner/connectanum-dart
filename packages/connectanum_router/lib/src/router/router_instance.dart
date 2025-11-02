@@ -1,5 +1,6 @@
-/// Building blocks for Connectanum router bindings and isolate orchestration.
-library connectanum_router_instance;
+// ignore_for_file: implementation_imports
+
+// Building blocks for Connectanum router bindings and isolate orchestration.
 
 import 'dart:async';
 import 'dart:convert';

@@ -249,7 +249,7 @@ class AuthCredentialRegistry {
         hit: false,
         rejection: rejection,
       );
-      throw rejection;
+      rethrow;
     }
   }
 
@@ -278,7 +278,7 @@ class AuthCredentialRegistry {
         hit: false,
         rejection: rejection,
       );
-      throw rejection;
+      rethrow;
     }
   }
 
@@ -310,7 +310,7 @@ class AuthCredentialRegistry {
         hit: false,
         rejection: rejection,
       );
-      throw rejection;
+      rethrow;
     }
   }
 
@@ -342,7 +342,7 @@ class AuthCredentialRegistry {
         hit: false,
         rejection: rejection,
       );
-      throw rejection;
+      rethrow;
     }
   }
 

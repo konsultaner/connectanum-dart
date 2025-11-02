@@ -450,7 +450,7 @@ class RouterStateStore {
         RegistrationMetaEvent(
           realmUri: realmUri,
           type: RegistrationMetaEventType.created,
-          registrationId: entry.registrationId,
+          registrationId: record.registrationId,
           procedure: entry.procedure,
           policy: entry.policy,
           details: Map<String, Object?>.from(record.details),
@@ -462,7 +462,7 @@ class RouterStateStore {
       RegistrationMetaEvent(
         realmUri: realmUri,
         type: RegistrationMetaEventType.registered,
-        registrationId: entry.registrationId,
+        registrationId: record.registrationId,
         procedure: entry.procedure,
         policy: entry.policy,
         details: Map<String, Object?>.from(record.details),
@@ -495,7 +495,7 @@ class RouterStateStore {
         RegistrationMetaEvent(
           realmUri: realmUri,
           type: RegistrationMetaEventType.unregistered,
-          registrationId: entry.registrationId,
+          registrationId: removed.registrationId,
           procedure: entry.procedure,
           policy: entry.policy,
           details: Map<String, Object?>.from(removed.details),
@@ -508,7 +508,7 @@ class RouterStateStore {
         RegistrationMetaEvent(
           realmUri: realmUri,
           type: RegistrationMetaEventType.deleted,
-          registrationId: entry.registrationId,
+          registrationId: removed?.registrationId ?? registrationId,
           procedure: entry.procedure,
           policy: entry.policy,
           details: removed != null

@@ -313,7 +313,8 @@ class _RouterBoss {
           ..['type'] = 'worker_forward_native_event'
           ..['connectionId'] = connectionId
           ..['subscriptionId'] = subscriptionId
-          ..['publicationId'] = publicationId;
+          ..['publicationId'] = publicationId
+          ..['handle'] = handle;
       } on NativeTransportException catch (error) {
         payload
           ..['type'] = 'worker_forward_native_event_error'

@@ -1,4 +1,7 @@
 @TestOn('vm')
+// ignore_for_file: unnecessary_library_name
+library router_worker_session_test;
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
@@ -22,9 +25,7 @@ import 'package:connectanum_core/src/message/unregister.dart' as unregister_msg;
 import 'package:connectanum_core/src/message/unsubscribe.dart'
     as unsubscribe_msg;
 import 'package:connectanum_router/src/native/runtime.dart';
-import 'package:connectanum_router/src/router/config/router_settings.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
-import 'package:connectanum_router/src/router/models/router_listener.dart';
 import 'package:connectanum_router/src/router/models/tls_mode.dart';
 import 'package:connectanum_router/src/router/router_instance.dart';
 import 'package:connectanum_router/src/router/state/commands.dart';
@@ -3488,6 +3489,11 @@ void main() {
           connectionId: connectionId,
         );
         await Future<void>.delayed(Duration.zero);
+        final workerSend = _extractWorkerSend(bossMessages);
+        final payload = workerSend['payload'] as Uint8List;
+        final frame = jsonDecode(utf8.decode(payload)) as List<dynamic>;
+        expect(frame.first, equals(MessageTypes.codeSubscribed));
+        expect(frame[1], equals(requestId));
         bossMessages.clear();
       }
 
@@ -4346,6 +4352,67 @@ void main() {
       },
     );
 
+    test(
+      'returns no_such_procedure when CALL targets missing registration',
+      () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
+
+        final listener = _buildListener();
+        final callerState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        callerState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 603;
+
+        _openSession(
+          stateStore,
+          sessionId: 603,
+          listener: listener,
+          connectionId: 33,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+        addTearDown(realmContexts.dispose);
+
+        final call = call_msg.Call(9051, 'com.missing.proc');
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: callerState,
+          message: call,
+          connectionId: 33,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final workerSend = _extractWorkerSend(bossMessages);
+        final payload = workerSend['payload'] as Uint8List;
+        final frame = jsonDecode(utf8.decode(payload)) as List<dynamic>;
+        expect(frame.first, equals(MessageTypes.codeError));
+        expect(frame[1], equals(MessageTypes.codeCall));
+        expect(frame[2], equals(9051));
+        expect(frame[4], equals(wamp_core.Error.noSuchProcedure));
+      },
+    );
+
     test('forwards invocation ERROR back to caller', () async {
       final bossMessages = <Map<String, Object?>>[];
       final bossPort = ReceivePort()
@@ -5100,6 +5167,180 @@ void main() {
       expect(registrationEvents.first.registrationId, equals(registrationId));
       expect(registrationEvents.first.sessionId, equals(902));
     });
+
+    test(
+      'emits registration meta events for shared registrations with distinct ids',
+      () async {
+        final registrationEvents = <RegistrationMetaEvent>[];
+        final sub = stateStore.registrationMetaEvents.listen(
+          registrationEvents.add,
+        );
+        addTearDown(sub.cancel);
+
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
+
+        final listener = _buildListener();
+        final calleeA =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        calleeA
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 903;
+
+        final calleeB =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        calleeB
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 904;
+
+        _openSession(stateStore, sessionId: 903, listener: listener);
+        _openSession(stateStore, sessionId: 904, listener: listener);
+        await Future<void>.delayed(Duration.zero);
+
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+        addTearDown(realmContexts.dispose);
+
+        Future<int> register({
+          required WorkerConnectionState callee,
+          required int connectionId,
+          required int requestId,
+        }) async {
+          await handleSessionMessageForTest(
+            bossPort: bossPort.sendPort,
+            statePort: stateStore.commandPort,
+            realmContexts: realmContexts,
+            state: callee,
+            message: register_msg.Register(
+              requestId,
+              'com.shared.proc',
+              options: register_msg.RegisterOptions(
+                invoke: register_msg.RegisterOptions.invocationPolicyRoundRobin,
+              ),
+            ),
+            connectionId: connectionId,
+          );
+          await Future<void>.delayed(Duration.zero);
+          final registeredFrame =
+              jsonDecode(
+                    utf8.decode(
+                      _extractWorkerSend(bossMessages)['payload'] as Uint8List,
+                    ),
+                  )
+                  as List<dynamic>;
+          bossMessages.clear();
+          expect(registeredFrame.first, equals(MessageTypes.codeRegistered));
+          return registeredFrame[2] as int;
+        }
+
+        Future<void> unregister({
+          required WorkerConnectionState callee,
+          required int connectionId,
+          required int requestId,
+          required int registrationId,
+        }) async {
+          await handleSessionMessageForTest(
+            bossPort: bossPort.sendPort,
+            statePort: stateStore.commandPort,
+            realmContexts: realmContexts,
+            state: callee,
+            message: unregister_msg.Unregister(requestId, registrationId),
+            connectionId: connectionId,
+          );
+          await Future<void>.delayed(Duration.zero);
+          final frame =
+              jsonDecode(
+                    utf8.decode(
+                      _extractWorkerSend(bossMessages)['payload'] as Uint8List,
+                    ),
+                  )
+                  as List<dynamic>;
+          bossMessages.clear();
+          expect(frame.first, equals(MessageTypes.codeUnregistered));
+          expect(frame[1], equals(requestId));
+        }
+
+        final registrationIdA = await register(
+          callee: calleeA,
+          connectionId: 71,
+          requestId: 5201,
+        );
+        final registrationIdB = await register(
+          callee: calleeB,
+          connectionId: 72,
+          requestId: 5202,
+        );
+
+        await unregister(
+          callee: calleeB,
+          connectionId: 72,
+          requestId: 5203,
+          registrationId: registrationIdB,
+        );
+        await unregister(
+          callee: calleeA,
+          connectionId: 71,
+          requestId: 5204,
+          registrationId: registrationIdA,
+        );
+
+        expect(registrationEvents, hasLength(6));
+        expect(
+          registrationEvents.map((event) => event.type),
+          orderedEquals([
+            RegistrationMetaEventType.created,
+            RegistrationMetaEventType.registered,
+            RegistrationMetaEventType.registered,
+            RegistrationMetaEventType.unregistered,
+            RegistrationMetaEventType.unregistered,
+            RegistrationMetaEventType.deleted,
+          ]),
+        );
+        expect(
+          registrationEvents.map((event) => event.registrationId),
+          orderedEquals([
+            registrationIdA,
+            registrationIdA,
+            registrationIdB,
+            registrationIdB,
+            registrationIdA,
+            registrationIdA,
+          ]),
+        );
+        expect(
+          registrationEvents.map((event) => event.sessionId),
+          orderedEquals([
+            903,
+            903,
+            904,
+            904,
+            903,
+            903,
+          ]),
+        );
+      },
+    );
   });
 
   group('Advanced profile placeholders', () {
@@ -6096,6 +6337,183 @@ void main() {
         expect(adminSubscription, isNotNull);
       },
     );
+
+    test(
+      'eligible authroles skip subscribers without a role',
+      () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
+
+        final listener = _buildListener();
+        final publisherState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        publisherState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 9310;
+
+        final memberState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        memberState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 9311;
+
+        final guestState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        guestState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 9312;
+
+        final anonymousState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        anonymousState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 9313;
+
+        _openSession(
+          stateStore,
+          sessionId: 9310,
+          listener: listener,
+          connectionId: 160,
+          authRole: 'publisher',
+        );
+        _openSession(
+          stateStore,
+          sessionId: 9311,
+          listener: listener,
+          connectionId: 161,
+          authRole: 'member',
+        );
+        _openSession(
+          stateStore,
+          sessionId: 9312,
+          listener: listener,
+          connectionId: 162,
+          authRole: 'guest',
+        );
+        _openSession(
+          stateStore,
+          sessionId: 9313,
+          listener: listener,
+          connectionId: 163,
+          authRole: null,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+        addTearDown(realmContexts.dispose);
+
+        Future<int> subscribe({
+          required WorkerConnectionState state,
+          required int connectionId,
+          required int requestId,
+        }) async {
+          await handleSessionMessageForTest(
+            bossPort: bossPort.sendPort,
+            statePort: stateStore.commandPort,
+            realmContexts: realmContexts,
+            state: state,
+            message: subscribe_msg.Subscribe(requestId, 'com.filters.topic2'),
+            connectionId: connectionId,
+          );
+          await Future<void>.delayed(Duration.zero);
+          final frame =
+              jsonDecode(
+                    utf8.decode(
+                      _extractWorkerSend(bossMessages)['payload'] as Uint8List,
+                    ),
+                  )
+                  as List<dynamic>;
+          bossMessages.clear();
+          return frame[2] as int;
+        }
+
+        final memberSubscription = await subscribe(
+          state: memberState,
+          connectionId: 161,
+          requestId: 9811,
+        );
+        final guestSubscription = await subscribe(
+          state: guestState,
+          connectionId: 162,
+          requestId: 9812,
+        );
+        final anonymousSubscription = await subscribe(
+          state: anonymousState,
+          connectionId: 163,
+          requestId: 9813,
+        );
+
+        final publish =
+            publish_msg.Publish(
+                99011,
+                'com.filters.topic2',
+                arguments: const ['payload'],
+              )
+              ..options = publish_msg.PublishOptions(
+                eligibleAuthRole: ['member'],
+              );
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: publisherState,
+          message: publish,
+          connectionId: 160,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final forwards = _extractForwardMessages(bossMessages);
+        expect(forwards, hasLength(1));
+        final forward = forwards.single;
+        expect(forward['connectionId'], equals(161));
+        final event = forward['message'] as event_msg.Event;
+        expect(event.subscriptionId, equals(memberSubscription));
+        expect(event.arguments, equals(['payload']));
+
+        final workerSends = _collectWorkerSends(bossMessages);
+        expect(workerSends, isEmpty);
+
+        expect(guestSubscription, isNotNull);
+        expect(anonymousSubscription, isNotNull);
+      },
+    );
   });
 }
 
@@ -6104,8 +6522,8 @@ void _openSession(
   required int sessionId,
   required RouterListener listener,
   int connectionId = 99,
-  String authRole = 'member',
-  String authId = 'tester',
+  String? authRole = 'member',
+  String? authId = 'tester',
 }) {
   final session = SessionRecord(
     id: sessionId,
@@ -6225,6 +6643,7 @@ class _ThrowingRealmContextCache extends RealmContextCache {
     _overrides.remove(realmUri);
   }
 
+  @override
   void dispose() {
     _dummyPort.close();
   }
@@ -6269,10 +6688,9 @@ class _ThrowingRealmContext extends RealmContext {
 
 class _StaticRealmContextCache extends RealmContextCache {
   _StaticRealmContextCache({
-    required SendPort statePort,
+    required super.statePort,
     required Map<String, RealmContext> overrides,
-  }) : _overrides = Map<String, RealmContext>.from(overrides),
-       super(statePort: statePort);
+  }) : _overrides = Map<String, RealmContext>.from(overrides);
 
   final Map<String, RealmContext> _overrides;
 

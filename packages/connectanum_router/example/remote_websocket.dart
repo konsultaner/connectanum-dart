@@ -5,14 +5,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:connectanum_auth_server/connectanum_auth_server.dart';
-import 'package:connectanum_core/authentication.dart';
+import 'package:connectanum_router/auth.dart';
 import 'package:connectanum_router/connectanum_router.dart';
-import 'package:connectanum_router/src/router/auth/credentials.dart';
-import 'package:connectanum_router/src/router/auth/default_authenticators.dart';
-import 'package:connectanum_router/src/router/auth/remote_authenticator.dart';
-import 'package:connectanum_router/src/router/auth/security.dart';
-import 'package:connectanum_router/src/router/config/router_settings.dart';
-import 'package:connectanum_router/src/router/config/router_settings_builder.dart';
 
 Future<void> main(List<String> args) async {
   // Ensure built-in authenticators are available.

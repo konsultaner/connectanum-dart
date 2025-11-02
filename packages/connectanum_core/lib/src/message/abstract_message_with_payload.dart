@@ -2,8 +2,8 @@ import 'dart:typed_data';
 
 import 'abstract_message.dart';
 
-typedef _ListDecoder = List<dynamic> Function(Uint8List bytes);
-typedef _MapDecoder = Map<String, dynamic> Function(Uint8List bytes);
+typedef PayloadListDecoder = List<dynamic> Function(Uint8List bytes);
+typedef PayloadMapDecoder = Map<String, dynamic> Function(Uint8List bytes);
 
 /// CALL,EVENT,RESULT,ERROR,PUBLISH,INVOCATION,YIELD may have a transparent payload
 abstract class AbstractMessageWithPayload extends AbstractMessage {
@@ -14,8 +14,8 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
 
   Uint8List? _encodedArguments;
   Uint8List? _encodedArgumentsKeywords;
-  _ListDecoder? _argumentsDecoder;
-  _MapDecoder? _argumentsKeywordsDecoder;
+  PayloadListDecoder? _argumentsDecoder;
+  PayloadMapDecoder? _argumentsKeywordsDecoder;
 
   AbstractMessageWithPayload({
     List<dynamic>? arguments,
@@ -73,9 +73,9 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
   /// Sets encoded payload slices that can be lazily decoded on demand.
   void setLazyPayload({
     Uint8List? argumentsBytes,
-    _ListDecoder? argumentsDecoder,
+    PayloadListDecoder? argumentsDecoder,
     Uint8List? argumentsKeywordsBytes,
-    _MapDecoder? argumentsKeywordsDecoder,
+    PayloadMapDecoder? argumentsKeywordsDecoder,
   }) {
     if (argumentsBytes != null && argumentsDecoder != null) {
       _encodedArguments = argumentsBytes;

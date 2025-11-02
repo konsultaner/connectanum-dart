@@ -51,7 +51,7 @@ void main() {
   });
 
   group('SubscriptionAtlas', () {
-    SubscriptionEntry _subscription(
+    SubscriptionEntry makeSubscription(
       int id,
       String topic,
       TopicMatchPolicy policy,
@@ -61,27 +61,27 @@ void main() {
       'orders matches exact → prefix specificity → wildcard specificity',
       () {
         final atlas = SubscriptionAtlas();
-        atlas.exact['com.advanced.topic'] = _subscription(
+        atlas.exact['com.advanced.topic'] = makeSubscription(
           1,
           'com.advanced.topic',
           TopicMatchPolicy.exact,
         );
-        atlas.prefixes['com.advanced.'] = _subscription(
+        atlas.prefixes['com.advanced.'] = makeSubscription(
           2,
           'com.advanced.',
           TopicMatchPolicy.prefix,
         );
-        atlas.prefixes['com.'] = _subscription(
+        atlas.prefixes['com.'] = makeSubscription(
           3,
           'com.',
           TopicMatchPolicy.prefix,
         );
-        atlas.wildcards['com.advanced.'] = _subscription(
+        atlas.wildcards['com.advanced.'] = makeSubscription(
           4,
           'com.advanced.',
           TopicMatchPolicy.wildcard,
         );
-        atlas.wildcards['com..topic'] = _subscription(
+        atlas.wildcards['com..topic'] = makeSubscription(
           5,
           'com..topic',
           TopicMatchPolicy.wildcard,
@@ -94,12 +94,12 @@ void main() {
 
     test('prefers wildcard with longer literal blocks', () {
       final atlas = SubscriptionAtlas();
-      atlas.wildcards['a1.b2..d4.e5'] = _subscription(
+      atlas.wildcards['a1.b2..d4.e5'] = makeSubscription(
         10,
         'a1.b2..d4.e5',
         TopicMatchPolicy.wildcard,
       );
-      atlas.wildcards['a1...d4.e5'] = _subscription(
+      atlas.wildcards['a1...d4.e5'] = makeSubscription(
         11,
         'a1...d4.e5',
         TopicMatchPolicy.wildcard,
@@ -111,12 +111,12 @@ void main() {
 
     test('uses id as final tiebreaker when literal stats equal', () {
       final atlas = SubscriptionAtlas();
-      atlas.wildcards['a1.b2..d4.e5'] = _subscription(
+      atlas.wildcards['a1.b2..d4.e5'] = makeSubscription(
         30,
         'a1.b2..d4.e5',
         TopicMatchPolicy.wildcard,
       );
-      atlas.wildcards['a1.b2.c3..e5'] = _subscription(
+      atlas.wildcards['a1.b2.c3..e5'] = makeSubscription(
         31,
         'a1.b2.c3..e5',
         TopicMatchPolicy.wildcard,
@@ -128,7 +128,7 @@ void main() {
   });
 
   group('ProcedureEntry', () {
-    ProcedureEntry _entry(
+    ProcedureEntry makeEntry(
       String uri, {
       ProcedureMatchPolicy match = ProcedureMatchPolicy.exact,
     }) {
@@ -140,7 +140,7 @@ void main() {
     }
 
     test('prefix matching respects URI component boundaries (spec)', () {
-      final prefix = _entry('a1.b2.c3', match: ProcedureMatchPolicy.prefix);
+      final prefix = makeEntry('a1.b2.c3', match: ProcedureMatchPolicy.prefix);
 
       expect(prefix.matchesProcedure('a1.b2.c3'), isTrue);
       expect(prefix.matchesProcedure('a1.b2.c3.d4'), isTrue);
@@ -151,11 +151,11 @@ void main() {
     });
 
     test('wildcard matching follows advanced profile ordering example', () {
-      final wildcardSpecific = _entry(
+      final wildcardSpecific = makeEntry(
         'a1.b2..d4.e5',
         match: ProcedureMatchPolicy.wildcard,
       );
-      final wildcardGeneric = _entry(
+      final wildcardGeneric = makeEntry(
         'a1.b2..d4.e5..g7',
         match: ProcedureMatchPolicy.wildcard,
       );
@@ -171,7 +171,7 @@ void main() {
     });
 
     test('accepts prefix registrations that end with a dot', () {
-      final prefix = _entry('service.', match: ProcedureMatchPolicy.prefix);
+      final prefix = makeEntry('service.', match: ProcedureMatchPolicy.prefix);
 
       expect(prefix.matchesProcedure('service.health'), isTrue);
       expect(prefix.matchesProcedure('service.'), isTrue);
@@ -180,7 +180,7 @@ void main() {
   });
 
   group('ProcedureAtlas', () {
-    ProcedureEntry _register(
+    ProcedureEntry registerProcedure(
       ProcedureAtlas atlas,
       int id,
       String procedure,
@@ -197,13 +197,13 @@ void main() {
 
     test('selects best registration following advanced profile spec', () {
       final atlas = ProcedureAtlas();
-      _register(atlas, 1, 'a1.b2.c3.d4.e55', ProcedureMatchPolicy.exact);
-      _register(atlas, 2, 'a1.b2.c3', ProcedureMatchPolicy.prefix);
-      _register(atlas, 3, 'a1.b2.c3.d4', ProcedureMatchPolicy.prefix);
-      _register(atlas, 4, 'a1.b2..d4.e5', ProcedureMatchPolicy.wildcard);
-      _register(atlas, 5, 'a1.b2.c33..e5', ProcedureMatchPolicy.wildcard);
-      _register(atlas, 6, 'a1.b2..d4.e5..g7', ProcedureMatchPolicy.wildcard);
-      _register(atlas, 7, 'a1.b2..d4..f6.g7', ProcedureMatchPolicy.wildcard);
+      registerProcedure(atlas, 1, 'a1.b2.c3.d4.e55', ProcedureMatchPolicy.exact);
+      registerProcedure(atlas, 2, 'a1.b2.c3', ProcedureMatchPolicy.prefix);
+      registerProcedure(atlas, 3, 'a1.b2.c3.d4', ProcedureMatchPolicy.prefix);
+      registerProcedure(atlas, 4, 'a1.b2..d4.e5', ProcedureMatchPolicy.wildcard);
+      registerProcedure(atlas, 5, 'a1.b2.c33..e5', ProcedureMatchPolicy.wildcard);
+      registerProcedure(atlas, 6, 'a1.b2..d4.e5..g7', ProcedureMatchPolicy.wildcard);
+      registerProcedure(atlas, 7, 'a1.b2..d4..f6.g7', ProcedureMatchPolicy.wildcard);
 
       expect(atlas.match('a1.b2.c3.d4.e55')?.registrationId, equals(1));
       expect(atlas.match('a1.b2.c3.d98.e74')?.registrationId, equals(2));
@@ -216,8 +216,8 @@ void main() {
 
     test('prefers wildcard with longer leading literal blocks', () {
       final atlas = ProcedureAtlas();
-      _register(atlas, 40, 'a1.b2..d4.e5', ProcedureMatchPolicy.wildcard);
-      _register(atlas, 41, 'a1.b2.c3..e5', ProcedureMatchPolicy.wildcard);
+      registerProcedure(atlas, 40, 'a1.b2..d4.e5', ProcedureMatchPolicy.wildcard);
+      registerProcedure(atlas, 41, 'a1.b2.c3..e5', ProcedureMatchPolicy.wildcard);
 
       expect(atlas.match('a1.b2.c3.d4.e5')?.registrationId, equals(41));
       expect(atlas.match('a1.b2.x3.d4.e5')?.registrationId, equals(40));

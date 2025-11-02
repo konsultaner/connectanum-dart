@@ -1,4 +1,7 @@
 @TestOn('vm')
+// ignore_for_file: unnecessary_library_name
+library native_runtime_test;
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';

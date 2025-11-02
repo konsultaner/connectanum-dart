@@ -4,15 +4,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:connectanum_core/authentication.dart'
-    show CraAuthentication, ScramAuthentication;
+import 'package:connectanum_router/auth.dart';
 import 'package:connectanum_router/connectanum_router.dart';
-import 'package:connectanum_router/src/router/auth/credentials.dart';
-import 'package:connectanum_router/src/router/auth/default_authenticators.dart';
-import 'package:connectanum_router/src/router/auth/remote_authenticator.dart';
-import 'package:connectanum_router/src/router/auth/security.dart';
-import 'package:connectanum_router/src/router/config/authenticator.dart';
-import 'package:connectanum_router/src/router/config/router_settings_builder.dart';
 
 const String _realm = 'demo.realm';
 
