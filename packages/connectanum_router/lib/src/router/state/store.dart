@@ -545,13 +545,18 @@ class RouterStateStore {
     if (!realm.sessions.containsKey(callerSessionId)) {
       throw StateError('Caller session $callerSessionId not found');
     }
+    final callerSession = realm.sessions[callerSessionId];
+    final calleeSession = realm.sessions[callee.sessionId];
     final record = PendingInvocation(
       invocationId: invocationId,
       registrationId: callee.registrationId,
       callerRequestId: requestId,
       calleeSessionId: callee.sessionId,
+      calleeConnectionId: _connectionIdForSession(realm, callee.sessionId),
       allowProgress: options['receive_progress'] == true,
       callerSessionId: callerSessionId,
+      calleeInternalSendPort: calleeSession?.internalSendPort,
+      callerInternalSendPort: callerSession?.internalSendPort,
     );
     realm.invocations[invocationId] = record;
     callee.lastInvocation = DateTime.now();
@@ -561,6 +566,8 @@ class RouterStateStore {
       registrationId: callee.registrationId,
       calleeSessionId: callee.sessionId,
       calleeConnectionId: _connectionIdForSession(realm, callee.sessionId),
+      calleeInternalSendPort: calleeSession?.internalSendPort,
+      callerInternalSendPort: callerSession?.internalSendPort,
     );
   }
 
@@ -643,9 +650,7 @@ class RouterStateStore {
     }
   }
 
-  ProcedureMatchPolicy _matchPolicyFromDetails(
-    Map<String, Object?> details,
-  ) {
+  ProcedureMatchPolicy _matchPolicyFromDetails(Map<String, Object?> details) {
     final raw = details['match'];
     if (raw == null) {
       return ProcedureMatchPolicy.exact;
@@ -712,6 +717,7 @@ class RouterStateStore {
             subscriptionId: entry.id,
             sessionId: sessionId,
             connectionId: session.connectionId,
+            internalSendPort: session.internalSendPort,
             authRole: record.authRole,
             details: Map<String, Object?>.from(record.details),
           ),
@@ -852,13 +858,12 @@ class RealmRecord {
     int registrationId,
     InvocationPolicy policy,
     ProcedureMatchPolicy matchPolicy,
-  ) =>
-      procedureAtlas.findOrCreate(
-        procedure: procedure,
-        matchPolicy: matchPolicy,
-        registrationId: registrationId,
-        invocationPolicy: policy,
-      );
+  ) => procedureAtlas.findOrCreate(
+    procedure: procedure,
+    matchPolicy: matchPolicy,
+    registrationId: registrationId,
+    invocationPolicy: policy,
+  );
 
   ProcedureEntry? findProcedureByRegistrationId(int registrationId) =>
       procedureAtlas.findByRegistrationId(registrationId);
@@ -919,10 +924,14 @@ class InvocationDispatchResult {
     required this.registrationId,
     required this.calleeSessionId,
     required this.calleeConnectionId,
+    this.calleeInternalSendPort,
+    this.callerInternalSendPort,
   });
 
   final int invocationId;
   final int registrationId;
   final int calleeSessionId;
   final int calleeConnectionId;
+  final SendPort? calleeInternalSendPort;
+  final SendPort? callerInternalSendPort;
 }

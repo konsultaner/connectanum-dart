@@ -16,9 +16,12 @@ class Error extends AbstractMessageWithPayload {
       'wamp.error.procedure_already_exists';
   static const String noSuchRegistration = 'wamp.error.no_such_registration';
   static const String noSuchSubscription = 'wamp.error.no_such_subscription';
+  static const String noSuchInvocation = 'wamp.error.no_such_invocation';
   static const String invalidArgument = 'wamp.error.invalid_argument';
   static const String notConnected = 'wamp.error.not_connected';
+  static const String notSupported = 'wamp.error.not_supported';
   static const String couldNotConnect = 'wamp.error.could_not_connect';
+  static const String runtimeError = 'wamp.error.runtime_error';
   static const String unknown = 'wamp.error.unknown';
 
   // AUTHORIZATION ERRORS

@@ -48,6 +48,82 @@ void main() {
   });
 
   group('Router worker session handling', () {
+    test('connection removal closes session and cleans state', () async {
+      final listener = _buildListener();
+      final workerState =
+          createWorkerStateForTest(
+                listener: listener,
+                listenerSettings: routerSettings.listeners.first,
+              )
+              as WorkerConnectionState;
+      workerState
+        ..serializer = NativeMessageSerializer.json
+        ..phase = HandshakePhase.open
+        ..realmUri = 'realm1'
+        ..realmSettings = routerSettings.realms.first
+        ..sessionId = 512;
+
+      _openSession(
+        stateStore,
+        sessionId: 512,
+        listener: listener,
+        connectionId: 901,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final realmContexts = RealmContextCache(
+        statePort: stateStore.commandPort,
+      );
+      final context = realmContexts.contextFor('realm1');
+
+      final subscriptionId = await context.addSubscription(
+        sessionId: 512,
+        topic: 'com.example.topic',
+        matchPolicy: TopicMatchPolicy.prefix,
+        details: const {},
+      );
+      final registrationId = await context.registerProcedure(
+        sessionId: 512,
+        procedure: 'com.example.proc',
+        details: const {},
+      );
+
+      await Future<void>.delayed(Duration.zero);
+      var snapshot = await _fetchSnapshot(stateStore.commandPort);
+      expect(snapshot.sessions, hasLength(1));
+      expect(
+        snapshot.subscriptions.map((entry) => entry.id),
+        contains(subscriptionId),
+      );
+      expect(
+        snapshot.registrations.map((entry) => entry.registrationId),
+        contains(registrationId),
+      );
+
+      final connections = <int, int>{901: listener.listenerId};
+      final connectionStates = <int, WorkerConnectionState>{901: workerState};
+
+      await handleRemoveConnectionForTest(
+        connectionId: 901,
+        connections: connections,
+        connectionStates: connectionStates,
+        statePort: stateStore.commandPort,
+        realmContexts: realmContexts,
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      snapshot = await _fetchSnapshot(stateStore.commandPort);
+      expect(snapshot.sessions, isEmpty);
+      expect(snapshot.subscriptions, isEmpty);
+      expect(snapshot.registrations, isEmpty);
+
+      expect(workerState.sessionId, isNull);
+      expect(workerState.phase, equals(HandshakePhase.aborted));
+      expect(connections, isEmpty);
+      expect(connectionStates, isEmpty);
+    });
+
     test('responds to GOODBYE and closes session', () async {
       final bossMessages = <Map<String, Object?>>[];
       final bossPort = ReceivePort()
@@ -311,7 +387,7 @@ void main() {
         expect(calleeFrame.first, equals(MessageTypes.codeError));
         expect(calleeFrame[1], equals(MessageTypes.codeInvocation));
         expect(calleeFrame[2], equals(invocationId));
-        expect(calleeFrame[4], equals('wamp.error.no_such_invocation'));
+        expect(calleeFrame[4], equals(wamp_core.Error.noSuchInvocation));
       },
     );
 
@@ -743,6 +819,7 @@ void main() {
         callerRequestId: 7101,
         callerSessionId: 8801,
         calleeSessionId: 8802,
+        calleeConnectionId: 302,
         allowProgress: false,
         cancelThrows: true,
         cancelFailureMessage: 'cancel failure',
@@ -772,7 +849,7 @@ void main() {
       expect(frame.first, equals(MessageTypes.codeError));
       expect(frame[1], equals(MessageTypes.codeCancel));
       expect(frame[2], equals(7101));
-      expect(frame[4], equals('wamp.error.no_such_invocation'));
+      expect(frame[4], equals(wamp_core.Error.noSuchInvocation));
       final details = frame[3] as Map<String, Object?>;
       expect(details['message'], contains('cancel failure'));
     });
@@ -998,7 +1075,7 @@ void main() {
           MessageTypes.codeInvocation,
           invocationMessage.requestId,
           const {'detail': 'oops'},
-          'wamp.error.runtime_error',
+          wamp_core.Error.runtimeError,
           arguments: ['fail'],
         );
         final retainedHandles = <int>[];
@@ -1610,6 +1687,7 @@ void main() {
         callerRequestId: 12002,
         callerSessionId: 9302,
         calleeSessionId: 9301,
+        calleeConnectionId: 411,
         allowProgress: false,
         completeThrows: true,
         completeFailureMessage: 'completion failure',
@@ -1638,7 +1716,7 @@ void main() {
       expect(frame.first, equals(MessageTypes.codeError));
       expect(frame[1], equals(MessageTypes.codeInvocation));
       expect(frame[2], equals(12001));
-      expect(frame[4], equals('wamp.error.no_such_invocation'));
+      expect(frame[4], equals(wamp_core.Error.noSuchInvocation));
       final details = frame[3] as Map<String, Object?>;
       expect(details['message'], contains('completion failure'));
     });
@@ -1704,6 +1782,7 @@ void main() {
           callerRequestId: 13002,
           callerSessionId: 9402,
           calleeSessionId: 9401,
+          calleeConnectionId: 421,
           allowProgress: false,
           completeThrows: true,
           completeFailureMessage: 'error completion failure',
@@ -1737,7 +1816,7 @@ void main() {
         expect(frame.first, equals(MessageTypes.codeError));
         expect(frame[1], equals(MessageTypes.codeInvocation));
         expect(frame[2], equals(13001));
-        expect(frame[4], equals('wamp.error.no_such_invocation'));
+        expect(frame[4], equals(wamp_core.Error.noSuchInvocation));
         final details = frame[3] as Map<String, Object?>;
         expect(details['message'], contains('error completion failure'));
       },
@@ -4357,7 +4436,7 @@ void main() {
         MessageTypes.codeInvocation,
         invocationId,
         {},
-        'wamp.error.runtime_error',
+        wamp_core.Error.runtimeError,
         arguments: ['boom'],
       );
 
@@ -4378,7 +4457,7 @@ void main() {
       final error = forwarded['message'] as error_msg.Error;
       expect(error.requestTypeId, equals(MessageTypes.codeCall));
       expect(error.requestId, equals(8001));
-      expect(error.error, equals('wamp.error.runtime_error'));
+      expect(error.error, equals(wamp_core.Error.runtimeError));
       expect(error.arguments, equals(['boom']));
     });
 
@@ -6228,6 +6307,7 @@ class _StateErrorRealmContext extends RealmContext {
     required this.callerRequestId,
     required this.callerSessionId,
     required this.calleeSessionId,
+    required this.calleeConnectionId,
     required this.allowProgress,
     this.cancelThrows = false,
     this.cancelFailureMessage = 'cancel failure',
@@ -6241,6 +6321,7 @@ class _StateErrorRealmContext extends RealmContext {
   final int callerRequestId;
   final int callerSessionId;
   final int calleeSessionId;
+  final int calleeConnectionId;
   final bool allowProgress;
   final bool cancelThrows;
   final String cancelFailureMessage;
@@ -6252,6 +6333,7 @@ class _StateErrorRealmContext extends RealmContext {
     registrationId: registrationId,
     callerRequestId: callerRequestId,
     calleeSessionId: calleeSessionId,
+    calleeConnectionId: calleeConnectionId,
     allowProgress: allowProgress,
     callerSessionId: callerSessionId,
   );

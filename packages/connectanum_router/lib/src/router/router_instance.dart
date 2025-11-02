@@ -86,3 +86,4 @@ part 'router_instance/router_worker_handshake.dart';
 part 'router_instance/router_worker_session.dart';
 part 'router_instance/router_worker.dart';
 part 'router_instance/router_controller.dart';
+part 'router_instance/router_internal_session.dart';

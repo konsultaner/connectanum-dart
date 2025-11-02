@@ -3,6 +3,10 @@ name = "ct_ffi"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+ffi-test = []
+
 [dependencies]
 ct_core = { path = "../ct_core" }
 dashmap = "5.5"

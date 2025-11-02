@@ -4,12 +4,14 @@ import 'dart:convert';
 import 'package:connectanum_core/src/message/abort.dart';
 import 'package:connectanum_core/src/message/authenticate.dart';
 import 'package:connectanum_core/src/message/call.dart';
+import 'package:connectanum_core/src/message/cancel.dart';
 import 'package:connectanum_core/src/message/challenge.dart';
 import 'package:connectanum_core/src/message/details.dart';
 import 'package:connectanum_core/src/message/event.dart';
 import 'package:connectanum_core/src/message/error.dart';
 import 'package:connectanum_core/src/message/goodbye.dart';
 import 'package:connectanum_core/src/message/hello.dart';
+import 'package:connectanum_core/src/message/interrupt.dart' as interrupt_msg;
 import 'package:connectanum_core/src/message/message_types.dart';
 import 'package:connectanum_core/src/message/publish.dart';
 import 'package:connectanum_core/src/message/published.dart';
@@ -230,6 +232,21 @@ void main() {
       );
       final yieldDecoded = json.decode(yieldCustom) as List;
       expect((yieldDecoded[2] as Map<String, dynamic>)['_extra'], 'value');
+    });
+    test('Interrupt', () {
+      expect(
+        serializer.serializeToString(interrupt_msg.Interrupt(99)),
+        equals('[${MessageTypes.codeInterrupt},99,{}]'),
+      );
+      final interrupt = interrupt_msg.Interrupt(
+        101,
+        options: interrupt_msg.InterruptOptions()
+          ..mode = CancelOptions.modeKill,
+      );
+      expect(
+        serializer.serializeToString(interrupt),
+        equals('[${MessageTypes.codeInterrupt},101,{"mode":"kill"}]'),
+      );
     });
     test('Error', () {
       expect(

@@ -1,3 +1,5 @@
+import 'dart:isolate';
+
 import '../models/router_listener.dart';
 
 /// Lightweight summary of a connected WAMP session.
@@ -32,14 +34,18 @@ class SessionRecord extends SessionInfo {
     required super.connectionId,
     required super.lastActivity,
     required this.listener,
+    this.internalSendPort,
   });
 
   final RouterListener listener;
+  final SendPort? internalSendPort;
 
   final Set<int> subscriptionIds = <int>{};
   final Set<int> registrationIds = <int>{};
   final Map<int, PendingCall> pendingCalls = {};
   final Map<int, PendingInvocation> pendingInvocations = {};
+
+  bool get isInternal => internalSendPort != null;
 }
 
 /// Tracks an outstanding CALL request awaiting invocation dispatch.
@@ -64,8 +70,11 @@ class PendingInvocation {
     required this.registrationId,
     required this.callerRequestId,
     required this.calleeSessionId,
+    required this.calleeConnectionId,
     required this.allowProgress,
     required this.callerSessionId,
+    this.calleeInternalSendPort,
+    this.callerInternalSendPort,
     this.cancelRequested = false,
     this.cancelMode,
     this.waitForCancelAck = false,
@@ -75,8 +84,11 @@ class PendingInvocation {
   final int registrationId;
   final int callerRequestId;
   final int calleeSessionId;
+  final int? calleeConnectionId;
   final bool allowProgress;
   final int callerSessionId;
+  final SendPort? calleeInternalSendPort;
+  final SendPort? callerInternalSendPort;
   bool cancelRequested;
   String? cancelMode;
   bool waitForCancelAck;

@@ -549,6 +549,46 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
     }
   }
 
+  bool get supportsTestHooks => _bindings.ctTestMessageEnqueue != null;
+
+  int enqueueTestMessage({
+    required int connectionId,
+    required NativeMessageSerializer serializer,
+    required Uint8List frame,
+  }) {
+    final hook = _bindings.ctTestMessageEnqueue;
+    if (hook == null) {
+      throw StateError(
+        'Native runtime was built without ffi-test support; rebuild with --features ffi-test.',
+      );
+    }
+    if (frame.isEmpty) {
+      throw ArgumentError.value(frame.length, 'frame', 'must not be empty');
+    }
+    final ptr = calloc<ffi.Uint8>(frame.length);
+    try {
+      ptr.asTypedList(frame.length).setAll(0, frame);
+      final result = hook(connectionId, serializer.id, ptr, frame.length);
+      if (result < 0) {
+        _throwForError(result, 'Failed to enqueue test message');
+      }
+      return result;
+    } finally {
+      calloc.free(ptr);
+    }
+  }
+
+  void clearTestMessages() {
+    final hook = _bindings.ctTestClearMessages;
+    if (hook == null) {
+      return;
+    }
+    final result = hook();
+    if (result != NativeTransportErrorCode.success) {
+      _throwForError(result, 'Failed to clear test messages');
+    }
+  }
+
   void _checkZero(int code, String context) {
     if (code != NativeTransportErrorCode.success) {
       _throwForError(code, context);

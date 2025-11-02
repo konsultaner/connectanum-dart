@@ -477,6 +477,21 @@ class _RouterBoss {
     });
   }
 
+  void forwardMessageToConnection(
+    int connectionId,
+    AbstractMessage message,
+  ) {
+    final worker = _connectionOwners[connectionId];
+    if (worker == null) {
+      throw StateError('Connection $connectionId not registered on router');
+    }
+    worker.commandPort.send(<Object?>[
+      _workerCmdSendMessage,
+      connectionId,
+      message,
+    ]);
+  }
+
   void _handleWorkerRegister(Map<dynamic, dynamic> message) {
     final connectionId = message['connectionId'] as int;
     final listenerId = message['listenerId'] as int;

@@ -360,8 +360,13 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
       });
     } else if (command == _workerCmdRemoveConnection) {
       final removeId = raw[1] as int;
-      connections.remove(removeId);
-      connectionStates.remove(removeId);
+      await _handleConnectionRemoval(
+        connectionId: removeId,
+        connections: connections,
+        connectionStates: connectionStates,
+        statePort: statePort,
+        realmContexts: realmContexts,
+      );
       bossPort.send({
         'type': _workerEventConnectionRemoved,
         'connectionId': removeId,
@@ -414,4 +419,39 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
       });
     }
   });
+}
+
+@visibleForTesting
+Future<void> handleRemoveConnectionForTest({
+  required int connectionId,
+  required Map<int, int> connections,
+  required Map<int, WorkerConnectionState> connectionStates,
+  required SendPort? statePort,
+  required RealmContextCache? realmContexts,
+}) async {
+  await _handleConnectionRemoval(
+    connectionId: connectionId,
+    connections: connections,
+    connectionStates: connectionStates,
+    statePort: statePort,
+    realmContexts: realmContexts,
+  );
+}
+
+Future<void> _handleConnectionRemoval({
+  required int connectionId,
+  required Map<int, int> connections,
+  required Map<int, WorkerConnectionState> connectionStates,
+  required SendPort? statePort,
+  required RealmContextCache? realmContexts,
+}) async {
+  connections.remove(connectionId);
+  final state = connectionStates.remove(connectionId);
+  if (state != null) {
+    await _closeSession(
+      statePort: statePort,
+      realmContexts: realmContexts,
+      state: state,
+    );
+  }
 }

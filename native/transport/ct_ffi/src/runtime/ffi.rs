@@ -4,11 +4,20 @@ use std::os::raw::{c_char, c_int, c_uint};
 use bytes::Bytes;
 use std::{ptr, slice, str};
 
+#[cfg(feature = "ffi-test")]
+use dashmap::DashMap;
+#[cfg(feature = "ffi-test")]
+use std::collections::VecDeque;
+#[cfg(feature = "ffi-test")]
+use std::sync::{Mutex, OnceLock};
+
 use ct_core::{
     accept_channel, apply_router_config, connection_rawsocket_max_exponent, listen, local_addr,
     poll_connection_message, send_wamp_message, send_wamp_segments, shutdown, start_runtime,
     ConnectionId, Error as CoreError, ListenerId, RawSocketSerializer, WampMessage,
 };
+#[cfg(feature = "ffi-test")]
+use ct_core::parse_message;
 
 use crate::callbacks::{
     invoke_connection_callback, invoke_listener_callback, register_connection_callback,
@@ -66,6 +75,49 @@ const JSON_COMMA: &[u8] = b",";
 const JSON_CLOSE: &[u8] = b"]";
 const EMPTY_JSON_ARRAY: &[u8] = b"[]";
 const EMPTY_MSGPACK_ARRAY: &[u8] = &[0x90];
+
+#[cfg(feature = "ffi-test")]
+type TestMessageQueues = DashMap<ConnectionId, Mutex<VecDeque<u32>>>;
+
+#[cfg(feature = "ffi-test")]
+static TEST_MESSAGES: OnceLock<TestMessageQueues> = OnceLock::new();
+
+#[cfg(feature = "ffi-test")]
+fn test_messages() -> &'static TestMessageQueues {
+    TEST_MESSAGES.get_or_init(DashMap::new)
+}
+
+#[cfg(feature = "ffi-test")]
+fn enqueue_test_handle(connection_id: ConnectionId, handle: u32) {
+    let queue = test_messages()
+        .entry(connection_id)
+        .or_insert_with(|| Mutex::new(VecDeque::new()));
+    let mut guard = queue.lock().unwrap();
+    guard.push_back(handle);
+}
+
+#[cfg(feature = "ffi-test")]
+fn pop_test_handle(connection_id: ConnectionId) -> Option<u32> {
+    test_messages().get(&connection_id).and_then(|entry| {
+        let mut guard = entry.value().lock().unwrap();
+        guard.pop_front()
+    })
+}
+
+#[cfg(feature = "ffi-test")]
+fn clear_test_messages() {
+    if let Some(map) = TEST_MESSAGES.get() {
+        let keys: Vec<ConnectionId> = map.iter().map(|entry| *entry.key()).collect();
+        for key in keys {
+            if let Some((_, queue_mutex)) = map.remove(&key) {
+                let mut queue = queue_mutex.lock().unwrap();
+                while let Some(handle) = queue.pop_front() {
+                    drop(remove_message(handle));
+                }
+            }
+        }
+    }
+}
 
 #[no_mangle]
 pub extern "C" fn ct_start_runtime() -> c_int {
@@ -590,6 +642,10 @@ pub extern "C" fn ct_shutdown() -> c_int {
     match shutdown() {
         Ok(()) => {
             clear_channels();
+            #[cfg(feature = "ffi-test")]
+            {
+                clear_test_messages();
+            }
             SUCCESS
         }
         Err(err) => map_error(err),
@@ -689,9 +745,25 @@ fn serializer_id(serializer: ct_core::RawSocketSerializer) -> u8 {
     }
 }
 
+#[cfg(feature = "ffi-test")]
+fn serializer_from_id(value: c_int) -> Result<RawSocketSerializer, c_int> {
+    match value {
+        1 => Ok(RawSocketSerializer::Json),
+        2 => Ok(RawSocketSerializer::MessagePack),
+        3 => Ok(RawSocketSerializer::Cbor),
+        4 => Ok(RawSocketSerializer::Ubjson),
+        5 => Ok(RawSocketSerializer::Flatbuffers),
+        _ => Err(ERR_INVALID_ARGUMENT),
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn ct_poll_connection_message(connection_id: c_int) -> c_int {
     let connection_id = ConnectionId(connection_id as u32);
+    #[cfg(feature = "ffi-test")]
+    if let Some(handle) = pop_test_handle(connection_id) {
+        return handle as c_int;
+    }
     match poll_connection_message(connection_id) {
         Ok(Some(parsed)) => {
             let ct_core::ParsedMessage {
@@ -713,6 +785,52 @@ pub extern "C" fn ct_poll_connection_message(connection_id: c_int) -> c_int {
         Ok(None) => 0,
         Err(err) => map_error(err),
     }
+}
+
+#[cfg(feature = "ffi-test")]
+#[no_mangle]
+pub extern "C" fn ct_test_message_enqueue(
+    connection_id: c_int,
+    serializer_id: c_int,
+    frame_ptr: *const u8,
+    frame_len: c_int,
+) -> c_int {
+    if frame_len <= 0 || frame_ptr.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let serializer = match serializer_from_id(serializer_id) {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    let bytes = unsafe { slice::from_raw_parts(frame_ptr, frame_len as usize) };
+    let payload = Bytes::copy_from_slice(bytes);
+    match parse_message(serializer, payload) {
+        Ok(ct_core::ParsedMessage {
+            message,
+            raw,
+            serializer: _,
+        }) => {
+            let (args, kwargs) = extract_payload_slices(&message);
+            let handle = store_message(StoredMessage {
+                serializer,
+                code: message.code(),
+                raw,
+                message,
+                args,
+                kwargs,
+            });
+            enqueue_test_handle(ConnectionId(connection_id as u32), handle);
+            handle as c_int
+        }
+        Err(_) => ERR_INVALID_ARGUMENT,
+    }
+}
+
+#[cfg(feature = "ffi-test")]
+#[no_mangle]
+pub extern "C" fn ct_test_clear_messages() -> c_int {
+    clear_test_messages();
+    SUCCESS
 }
 
 #[no_mangle]

@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:isolate';
 
 /// Subscription matching policies supported by WAMP.
 enum TopicMatchPolicy { exact, prefix, wildcard }
@@ -136,6 +137,7 @@ class SubscriptionMatch {
     required this.sessionId,
     required this.connectionId,
     required this.details,
+    this.internalSendPort,
     this.authRole,
   });
 
@@ -143,6 +145,7 @@ class SubscriptionMatch {
   final int sessionId;
   final int connectionId;
   final Map<String, Object?> details;
+  final SendPort? internalSendPort;
   final String? authRole;
 }
 

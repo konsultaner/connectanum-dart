@@ -28,6 +28,7 @@ class RouterBinding {
   final List<RouterListener> _listeners = [];
   final Map<int, RouterListener> _listenerById = {};
   final Map<int, _ConnectionState> _connections = {};
+  final Set<RouterSession> _internalSessions = {};
   _RouterBoss? _boss;
   bool _ready = false;
 
@@ -64,6 +65,98 @@ class RouterBinding {
       )..start();
     }
     _ready = true;
+  }
+
+  Future<int> _allocateSessionId(SendPort statePort) async {
+    final replyPort = ReceivePort();
+    statePort.send(SessionAllocateIdCommand(replyPort: replyPort.sendPort));
+    final id = await replyPort.first as int;
+    replyPort.close();
+    return id;
+  }
+
+  Future<RouterSession> createInternalSession({
+    required String realmUri,
+    String? authId,
+    String? authRole,
+    Map<String, Object?> roles = const {},
+  }) async {
+    if (!_ready) {
+      activateListeners();
+    }
+    final boss = _boss;
+    if (boss == null) {
+      throw StateError(
+        'Embedded sessions require native isolate support on this platform.',
+      );
+    }
+    final statePort = boss._stateStore.commandPort;
+    final sessionId = await _allocateSessionId(statePort);
+    final controlPort = ReceivePort();
+    final handshakePort = ReceivePort();
+    final isolate = await Isolate.spawn<_InternalSessionBootstrap>(
+      _routerInternalSessionIsolate,
+      _InternalSessionBootstrap(
+        sessionId: sessionId,
+        realmUri: realmUri,
+        authId: authId,
+        authRole: authRole,
+        roles: roles,
+        statePort: statePort,
+        controlPort: controlPort.sendPort,
+        handshakePort: handshakePort.sendPort,
+      ),
+      debugName: 'router-internal-session-$sessionId',
+    );
+    final handshake = await handshakePort.first;
+    handshakePort.close();
+    if (handshake is! Map ||
+        handshake['commandPort'] is! SendPort ||
+        handshake['invocationPort'] is! SendPort) {
+      isolate.kill(priority: Isolate.immediate);
+      throw StateError('Failed to initialize internal session isolate');
+    }
+    final requestPort = handshake['commandPort'] as SendPort;
+    final internalPort = handshake['invocationPort'] as SendPort;
+    final listener = RouterListener(
+      listenerId: -sessionId,
+      endpoint: Endpoint(
+        host: 'internal',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      ),
+      port: 0,
+    );
+    final responsePort = ReceivePort();
+    final session = RouterSession._(
+      binding: this,
+      sessionId: sessionId,
+      realmUri: realmUri,
+      authId: authId,
+      authRole: authRole,
+      roles: roles,
+      commandPort: requestPort,
+      controlPort: controlPort,
+      controlSubscription: null,
+      responsePort: responsePort,
+      isolate: isolate,
+    );
+    session._attachControlListener();
+    final record = SessionRecord(
+      id: sessionId,
+      authId: authId,
+      authRole: authRole,
+      roles: roles,
+      workerId: 0,
+      connectionId: -sessionId,
+      lastActivity: DateTime.now(),
+      listener: listener,
+      internalSendPort: internalPort,
+    );
+    statePort.send(SessionOpenCommand(realmUri: realmUri, session: record));
+    _internalSessions.add(session);
+    return session;
   }
 
   /// Polls the native runtime for pending messages and returns them eagerly.
@@ -233,10 +326,32 @@ class RouterBinding {
 
   /// Stops the background boss isolate (if running) and releases resources.
   Future<void> dispose() async {
+    for (final session in _internalSessions.toList()) {
+      await session.close();
+    }
+    _internalSessions.clear();
     final boss = _boss;
     if (boss != null) {
       await boss.stop();
     }
+  }
+
+  void _removeInternalSession(RouterSession session) {
+    _internalSessions.remove(session);
+  }
+
+  @visibleForTesting
+  SendPort? get debugStatePort => _boss?._stateStore.commandPort;
+
+  void forwardMessageToConnection(
+    int connectionId,
+    AbstractMessage message,
+  ) {
+    final boss = _boss;
+    if (boss == null) {
+      throw StateError('Router boss not running');
+    }
+    boss.forwardMessageToConnection(connectionId, message);
   }
 }
 

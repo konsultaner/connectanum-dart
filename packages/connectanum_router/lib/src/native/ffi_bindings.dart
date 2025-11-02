@@ -70,6 +70,11 @@ typedef CtForwardErrorFromErrorNative =
     ffi.Int32 Function(ffi.Int32, ffi.Int32, ffi.Uint64, ffi.Uint64);
 typedef CtForwardErrorFromErrorDart = int Function(int, int, int, int);
 
+typedef CtTestMessageEnqueueNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32);
+typedef CtTestMessageEnqueueDart =
+    int Function(int, int, ffi.Pointer<ffi.Uint8>, int);
+
 typedef CtApplyRouterConfigNative =
     ffi.Int32 Function(ffi.Pointer<ffi.Uint8>, ffi.Int32);
 typedef CtApplyRouterConfigDart = int Function(ffi.Pointer<ffi.Uint8>, int);
@@ -91,6 +96,9 @@ typedef CtSetOnConnectionNative =
     );
 typedef CtSetOnConnectionDart =
     void Function(ffi.Pointer<ffi.NativeFunction<ConnectionCallbackNative>>);
+
+typedef CtTestClearMessagesNative = ffi.Int32 Function();
+typedef CtTestClearMessagesDart = int Function();
 
 final class CtMessageInfo extends ffi.Struct {
   @ffi.Uint8()
@@ -191,7 +199,20 @@ class CtFfiBindings {
       ctSetOnConnection = library
           .lookupFunction<CtSetOnConnectionNative, CtSetOnConnectionDart>(
             'ct_set_on_connection',
-          );
+          ),
+      ctTestMessageEnqueue = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtTestMessageEnqueueNative,
+              CtTestMessageEnqueueDart
+            >('ct_test_message_enqueue'),
+      ),
+      ctTestClearMessages = _tryLookup(
+        () => library
+            .lookupFunction<CtTestClearMessagesNative, CtTestClearMessagesDart>(
+              'ct_test_clear_messages',
+            ),
+      );
 
   final CtStartRuntimeDart ctStartRuntime;
   final CtShutdownDart ctShutdown;
@@ -211,6 +232,8 @@ class CtFfiBindings {
   final CtConnectionMaxRawsocketExponentDart ctConnectionMaxRawsocketExponent;
   final CtSetOnListenerStartedDart ctSetOnListenerStarted;
   final CtSetOnConnectionDart ctSetOnConnection;
+  final CtTestMessageEnqueueDart? ctTestMessageEnqueue;
+  final CtTestClearMessagesDart? ctTestClearMessages;
 }
 
 CtSendMessageDart _lookupSendMessage(ffi.DynamicLibrary library) {
@@ -222,5 +245,13 @@ CtSendMessageDart _lookupSendMessage(ffi.DynamicLibrary library) {
     throw UnsupportedError(
       'ct_send_message symbol not found in native runtime. Please rebuild native/transport.',
     );
+  }
+}
+
+T? _tryLookup<T>(T Function() lookup) {
+  try {
+    return lookup();
+  } on ArgumentError {
+    return null;
   }
 }

@@ -12,6 +12,7 @@ import 'package:connectanum_core/src/message/error.dart';
 import 'package:connectanum_core/src/message/event.dart';
 import 'package:connectanum_core/src/message/goodbye.dart';
 import 'package:connectanum_core/src/message/hello.dart';
+import 'package:connectanum_core/src/message/interrupt.dart' as interrupt_msg;
 import 'package:connectanum_core/src/message/message_types.dart';
 import 'package:connectanum_core/src/message/publish.dart';
 import 'package:connectanum_core/src/message/published.dart';
@@ -429,6 +430,15 @@ class Serializer extends AbstractSerializer {
     }
     if (message is Yield) {
       return '[${MessageTypes.codeYield},${message.invocationRequestId},${_serializeYieldOptions(message.options)}${_serializePayload(message)}]';
+    }
+    if (message is interrupt_msg.Interrupt) {
+      final options = message.options;
+      final details = <String, Object?>{};
+      if (options?.mode != null) {
+        details['mode'] = options!.mode;
+      }
+      final detailsJson = details.isEmpty ? '{}' : json.encode(details);
+      return '[${MessageTypes.codeInterrupt},${message.requestId},$detailsJson]';
     }
     if (message is Invocation) {
       // for serializer unit test only
