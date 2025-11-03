@@ -15,6 +15,8 @@
 - [ ] HTTP RPC bridge (forward HTTP requests into WAMP RPCs and return responses)
 - [ ] HTTP forwarding hooks for custom routing/handling in RPC implementations
 - [ ] Graceful shutdown (drain sessions, send GOODBYE/HTTP responses, stop listeners)
+  - [ ] Provide unified HTTP bridge that can surface Prometheus/Grafana exporters alongside REST→WAMP translation.
+  - [ ] Support structured metrics endpoints over HTTP/2 and HTTP/3 so observability stack can scrape without extra proxies.
 - [x] Outbound frame bridge (`ct_send`/FFI) for CHALLENGE/WELCOME/EVENT delivery
 - [ ] End-to-end payload encryption (E2EE) strategy
   - [ ] Evaluate keeping encryption off the Dart hot-path (Dart’s 64-bit object model vs native/Rust or dedicated isolates with binary messaging).
@@ -153,6 +155,8 @@
 - [x] Router example CLI for local testing
 - [ ] Developer docs for native runtime build pipeline
 - [ ] Configuration reference (realm JSON schema, TLS modes, worker tuning)
+  - [ ] Document feature toggles in crossbar-compatible config (meta events, benchmark exporters, zero-copy assertions)
+  - [ ] Allow per-listener/realm flags to disable optional subsystems without code changes
 - [x] Crossbar-compatible configuration schema + validation tooling
 - [ ] Example gallery for router features
   - [x] CLI demo covering hashed credentials, `CredentialRejection`, and remote delegates (`packages/connectanum_router/example`)
@@ -177,5 +181,10 @@
   - [ ] Implement a reusable load generator (multi-session HELLO/PUB/SUB/RPC workloads) to stress the router.
   - [ ] Expose lightweight instrumentation (per-worker queue depth, handle retention counts, throughput/latency timers) for benchmark reporting.
   - [ ] Add automation scripts that run warm-up + steady-state cycles and emit latency/throughput summaries.
+  - [ ] Ship Prometheus exporters and Grafana dashboards for benchmark metrics visualisation.
+  - [ ] Provide docs/scripts to bootstrap a local Grafana/Prometheus stack alongside benchmarks.
 - [ ] MCP (Model Context Protocol) server implementation for agentic AI integrations
 - [ ] Metrics & logging integration (Prometheus metrics, structured logs, CPU/RAM/throughput gauges)
+  - [ ] Always-on low-cost counters (native/Dart) exposed via on-demand snapshots for benchmark harnesses.
+  - [ ] Configurable metrics exporter isolate (Prometheus) gated by crossbar-compatible config flags to avoid production overhead.
+  - [ ] Sampling windows for high-cost histograms (latency, zero-copy reuse) triggered only during benchmarks.

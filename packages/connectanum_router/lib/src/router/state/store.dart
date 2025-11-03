@@ -32,6 +32,8 @@ class RouterStateStore {
   final WampIdAllocatorRegistry ids = WampIdAllocatorRegistry();
   final Map<String, RealmRecord> _realms = {};
   final Map<String, RealmSettings> _realmConfigs;
+  int _totalInvocationsDispatched = 0;
+  int _totalPublicationsRouted = 0;
 
   Stream<StateChangedEvent> get events => _eventController.stream;
   Stream<SubscriptionMetaEvent> get subscriptionMetaEvents =>
@@ -194,6 +196,12 @@ class RouterStateStore {
         if (command.replyPort != null) {
           command.replyPort!.send(result);
         }
+      case MetricsSnapshotCommand():
+        _sendGuardedReply(
+          command: command,
+          replyPort: command.replyPort,
+          action: _collectMetrics,
+        );
     }
   }
 
@@ -234,6 +242,28 @@ class RouterStateStore {
     print(
       'RouterStateStore error handling command $command: $error\n'
       '$stackTrace',
+    );
+  }
+
+  RouterStateMetrics _collectMetrics() {
+    var sessionCount = 0;
+    var subscriptionCount = 0;
+    var registrationCount = 0;
+    var pendingInvocationCount = 0;
+    for (final realm in _realms.values) {
+      sessionCount += realm.sessions.length;
+      subscriptionCount += realm.subscriptionsById.length;
+      registrationCount += realm.proceduresById.length;
+      pendingInvocationCount += realm.invocations.length;
+    }
+    return RouterStateMetrics(
+      realmCount: _realms.length,
+      sessionCount: sessionCount,
+      subscriptionCount: subscriptionCount,
+      registrationCount: registrationCount,
+      pendingInvocationCount: pendingInvocationCount,
+      totalInvocationsDispatched: _totalInvocationsDispatched,
+      totalPublicationsRouted: _totalPublicationsRouted,
     );
   }
 
@@ -560,6 +590,7 @@ class RouterStateStore {
     );
     realm.invocations[invocationId] = record;
     callee.lastInvocation = DateTime.now();
+    _totalInvocationsDispatched += 1;
     realm.bumpVersion();
     return InvocationDispatchResult(
       invocationId: invocationId,
@@ -677,6 +708,7 @@ class RouterStateStore {
     required int publisherSessionId,
     required Map<String, Object?> options,
   }) {
+    _totalPublicationsRouted += 1;
     final realm = _getOrCreateRealm(realmUri);
     final matches = <SubscriptionMatch>[];
     final publicationId = ids.publication.next();

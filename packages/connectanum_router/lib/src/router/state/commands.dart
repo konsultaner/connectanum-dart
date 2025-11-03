@@ -236,6 +236,32 @@ class InvocationCompleteCommand extends RouterStateCommand {
   final SendPort? replyPort;
 }
 
+class MetricsSnapshotCommand extends RouterStateCommand {
+  MetricsSnapshotCommand({required this.replyPort});
+
+  final SendPort replyPort;
+}
+
+class RouterStateMetrics {
+  const RouterStateMetrics({
+    required this.realmCount,
+    required this.sessionCount,
+    required this.subscriptionCount,
+    required this.registrationCount,
+    required this.pendingInvocationCount,
+    required this.totalInvocationsDispatched,
+    required this.totalPublicationsRouted,
+  });
+
+  final int realmCount;
+  final int sessionCount;
+  final int subscriptionCount;
+  final int registrationCount;
+  final int pendingInvocationCount;
+  final int totalInvocationsDispatched;
+  final int totalPublicationsRouted;
+}
+
 class StateChangedEvent {
   StateChangedEvent({required this.realmUri, required this.version});
 

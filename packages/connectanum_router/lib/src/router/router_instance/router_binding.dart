@@ -196,6 +196,16 @@ class RouterBinding {
     return result;
   }
 
+  Future<RouterMetricsSnapshot> collectMetrics() async {
+    final boss = _boss;
+    if (boss == null) {
+      throw StateError(
+        'Metrics collection requires worker isolates and the native runtime.',
+      );
+    }
+    return boss.collectMetricsSnapshot();
+  }
+
   void _acceptConnections(RouterListener listener) {
     while (true) {
       final connectionId = runtime.pollConnection(listener.listenerId);

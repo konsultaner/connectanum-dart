@@ -211,6 +211,38 @@ class _RouterBoss {
     }
   }
 
+  Future<RouterMetricsSnapshot> collectMetricsSnapshot() async {
+    final stateMetrics = await _fetchStateMetrics();
+    return RouterMetricsSnapshot(
+      timestamp: DateTime.now().toUtc(),
+      realmCount: stateMetrics.realmCount,
+      sessionCount: stateMetrics.sessionCount,
+      subscriptionCount: stateMetrics.subscriptionCount,
+      registrationCount: stateMetrics.registrationCount,
+      pendingInvocationCount: stateMetrics.pendingInvocationCount,
+      totalInvocationsDispatched: stateMetrics.totalInvocationsDispatched,
+      totalPublicationsRouted: stateMetrics.totalPublicationsRouted,
+      activeConnections: _connectionOwners.length,
+      workerCount: _workers.length,
+    );
+  }
+
+  Future<RouterStateMetrics> _fetchStateMetrics() async {
+    final reply = ReceivePort();
+    _stateStore.commandPort.send(
+      MetricsSnapshotCommand(replyPort: reply.sendPort),
+    );
+    final response = await reply.first;
+    reply.close();
+    if (response is RouterStateMetrics) {
+      return response;
+    }
+    if (response is StoreErrorResponse) {
+      throw StateError('Failed to gather metrics: ${response.message}');
+    }
+    throw StateError('Unexpected metrics response: $response');
+  }
+
   Future<void> _spawnWorker(RouterListener listener, int connectionId) async {
     final args = <String, Object?>{
       'bossPort': _eventPort.sendPort,

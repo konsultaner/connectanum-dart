@@ -6,3 +6,4 @@ workspace:
   - packages/connectanum_client
   - packages/connectanum_router
   - packages/connectanum_auth_server
+  - packages/connectanum_bench

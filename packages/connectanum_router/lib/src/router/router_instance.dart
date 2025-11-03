@@ -58,6 +58,7 @@ import 'models/endpoint.dart';
 import 'models/router_config.dart';
 import 'models/router_listener.dart';
 import 'models/router_message.dart';
+import 'models/router_metrics.dart';
 import 'models/sni_certificate.dart';
 import 'models/tls_mode.dart';
 import 'state/commands.dart';
