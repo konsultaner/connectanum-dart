@@ -188,3 +188,11 @@
   - [ ] Always-on low-cost counters (native/Dart) exposed via on-demand snapshots for benchmark harnesses.
   - [ ] Configurable metrics exporter isolate (Prometheus) gated by crossbar-compatible config flags to avoid production overhead.
   - [ ] Sampling windows for high-cost histograms (latency, zero-copy reuse) triggered only during benchmarks.
+  - [ ] Metrics realm configuration: expose internal realms via config (enable/disable, rename) and spin up embedded sessions automatically to serve metrics RPCs.
+  - [ ] Metrics exporter produces OpenMetrics-compatible output over a dedicated HTTP listener; bridge requests snapshot RPCs on demand (no background polling).
+  - [ ] Include process/VM stats (RSS, heap, CPU deltas) and native runtime counters in the snapshot so scraped data reflects full router health.
+  - [ ] Support zero-copy payload handling in all bridge interactions (lazy decode, file proxying, file-backed responses).
+
+- [ ] HTTP/1.1, HTTP/2, HTTP/3 transport layer (long-polling, streaming WAMP)
+  - [ ] HTTP bridge defined via listener configuration; translate REST ↔ WAMP using long-poll transport semantics while preserving zero-copy handles.
+  - [ ] Provide authentication hooks for bridge (static tokens, mTLS, pluggable validators) and document OAuth proxy strategy for external scrapers.
