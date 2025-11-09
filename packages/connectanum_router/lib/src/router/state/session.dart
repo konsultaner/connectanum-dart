@@ -1,6 +1,7 @@
 import 'dart:isolate';
 
 import '../models/router_listener.dart';
+import '../config/router_settings.dart';
 
 /// Lightweight summary of a connected WAMP session.
 class SessionInfo {
@@ -12,6 +13,7 @@ class SessionInfo {
     required this.workerId,
     required this.connectionId,
     required this.lastActivity,
+    this.protocol,
   });
 
   final int id;
@@ -21,6 +23,7 @@ class SessionInfo {
   final int workerId;
   final int connectionId;
   final DateTime lastActivity;
+  final ListenerProtocol? protocol;
 }
 
 /// Internal record stored in [RealmRecord.sessions].
@@ -34,6 +37,7 @@ class SessionRecord extends SessionInfo {
     required super.connectionId,
     required super.lastActivity,
     required this.listener,
+    super.protocol,
     this.internalSendPort,
   });
 

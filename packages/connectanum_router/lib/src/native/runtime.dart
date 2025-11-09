@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart' show AbstractMessage;
@@ -14,8 +15,27 @@ abstract class NativeRuntime {
   void shutdown();
   int listen(String host, int port, {int backlog = 128});
   int getLocalPort(int listenerId);
+  int getHttp3Port(int listenerId);
   int pollConnection(int listenerId);
   int connectionMaxRawSocketExponent(int connectionId);
+  NativeConnectionProtocol connectionProtocol(int connectionId);
+  NativeHttpHandshake? takeHttpHandshake(int connectionId);
+  void releaseHttpHandshake(int handle);
+  NativeHttp2Handshake? takeHttp2Handshake(int connectionId);
+  void releaseHttp2Handshake(int handle);
+  NativeHttp3Handshake? takeHttp3Handshake(int connectionId);
+  void releaseHttp3Handshake(int handle);
+  NativeHttp3Connection? takeHttp3Connection(int connectionId);
+  NativeHttp3Stream? pollHttp3Stream(int connectionId);
+  NativeHttpHandshake? pollHttp3Request(int connectionId);
+  void sendHttpResponse({
+    required int handshakeHandle,
+    int? connectionId,
+    required NativeHttpResponse response,
+  }) {
+    throw UnsupportedError('HTTP responses not supported by runtime');
+  }
+
   void sendMessage(int connectionId, Uint8List payload);
   void applyRouterConfig(Uint8List config);
   NativeIncomingMessage? pollMessage(int connectionId);
@@ -28,6 +48,10 @@ abstract class NativeRuntimeWithHandles implements NativeRuntime {
   String? get libraryPathHint;
   int retainMessageHandle(int handle);
   void releaseMessageHandle(int handle);
+
+  /// TODO(protocol-negotiation): replace RawSocket-only forwarding with
+  /// protocol-aware APIs once the native runtime negotiates between RawSocket,
+  /// WebSocket, and HTTP. The current bridge assumes RawSocket frames only.
   void forwardPublishEvent({
     required int handle,
     required int connectionId,
@@ -57,6 +81,10 @@ abstract class NativeRuntimeWithHandles implements NativeRuntime {
     required int requestType,
     required int requestId,
   });
+
+  /// TODO(protocol-negotiation): expose negotiated protocol metadata and HTTP/
+  /// WebSocket frame streaming APIs (e.g., header handles, continuation events)
+  /// once the native transport supports them.
 }
 
 /// Error codes exposed by the native layer.
@@ -73,6 +101,9 @@ abstract final class NativeTransportErrorCode {
   static const endpointNotConfigured = -9;
   static const connectionNotFound = -10;
   static const unsupportedSerializer = -11;
+  static const unsupportedProtocol = -12;
+  static const handshakeConsumed = -13;
+  static const handleUnavailable = -14;
 }
 
 /// Exception thrown when the native runtime reports an error.
@@ -85,6 +116,428 @@ class NativeTransportException implements Exception {
   @override
   String toString() =>
       'NativeTransportException(code: $code, message: $message)';
+}
+
+enum NativeConnectionProtocol {
+  rawsocket(1),
+  websocket(2),
+  http(3),
+  http2(4),
+  http3(5);
+
+  const NativeConnectionProtocol(this.id);
+
+  final int id;
+
+  static NativeConnectionProtocol fromId(int id) {
+    for (final value in NativeConnectionProtocol.values) {
+      if (value.id == id) {
+        return value;
+      }
+    }
+    throw StateError('Unsupported connection protocol id $id');
+  }
+}
+
+class NativeHttpHandshake {
+  NativeHttpHandshake._({
+    required this.handle,
+    required this.method,
+    required this.target,
+    required this.path,
+    required this.protocol,
+    required this.version,
+    required this.headers,
+    required this.body,
+    required void Function() release,
+    this.query,
+    this.realm,
+    this.procedure,
+  }) : _release = release;
+
+  factory NativeHttpHandshake.synthetic({
+    int handle = -1,
+    required String method,
+    required String target,
+    required String path,
+    String? query,
+    String protocol = 'http/1.1',
+    int version = 1,
+    Map<String, String>? headers,
+    Uint8List? body,
+    NativeHttpRequestBody? bodyHandle,
+    String? realm,
+    String? procedure,
+  }) {
+    final resolvedHeaders = headers == null
+        ? const <String, String>{}
+        : Map<String, String>.unmodifiable(Map<String, String>.from(headers));
+    final resolvedBody =
+        bodyHandle ??
+        NativeHttpRequestBody.synthetic(
+          body == null ? Uint8List(0) : Uint8List.fromList(body),
+        );
+    return NativeHttpHandshake._(
+      handle: handle,
+      method: method,
+      target: target,
+      path: path,
+      query: query,
+      protocol: protocol,
+      version: version,
+      headers: resolvedHeaders,
+      body: resolvedBody,
+      realm: realm,
+      procedure: procedure,
+      release: () {},
+    );
+  }
+
+  final int handle;
+  final String method;
+  final String target;
+  final String path;
+  final String protocol;
+  final int version;
+  final Map<String, String> headers;
+  final NativeHttpRequestBody body;
+  final String? query;
+  final String? realm;
+  final String? procedure;
+
+  bool _released = false;
+  final void Function() _release;
+
+  void release() {
+    if (_released) {
+      return;
+    }
+    body._releaseHandle();
+    _release();
+    _released = true;
+  }
+}
+
+class NativeHttp2Handshake {
+  NativeHttp2Handshake._({
+    required this.handle,
+    required this.protocol,
+    required this.alpn,
+    required List<String> listenerProtocols,
+    required void Function() release,
+  }) : listenerProtocols = List.unmodifiable(listenerProtocols),
+       _release = release;
+
+  factory NativeHttp2Handshake.synthetic({
+    int handle = -1,
+    String protocol = 'http/2',
+    String? alpn,
+    List<String> listenerProtocols = const <String>[],
+    void Function()? onRelease,
+  }) {
+    return NativeHttp2Handshake._(
+      handle: handle,
+      protocol: protocol,
+      alpn: alpn,
+      listenerProtocols: listenerProtocols,
+      release: onRelease ?? () {},
+    );
+  }
+
+  final int handle;
+  final String protocol;
+  final String? alpn;
+  final List<String> listenerProtocols;
+  final void Function() _release;
+
+  void release() => _release();
+}
+
+class NativeHttp3Handshake {
+  NativeHttp3Handshake._({
+    required this.handle,
+    required this.protocol,
+    required this.alpn,
+    required List<String> listenerProtocols,
+    required void Function() release,
+  }) : listenerProtocols = List.unmodifiable(listenerProtocols),
+       _release = release;
+
+  factory NativeHttp3Handshake.synthetic({
+    int handle = -1,
+    String protocol = 'http/3',
+    String? alpn,
+    List<String> listenerProtocols = const <String>[],
+    void Function()? onRelease,
+  }) {
+    return NativeHttp3Handshake._(
+      handle: handle,
+      protocol: protocol,
+      alpn: alpn,
+      listenerProtocols: listenerProtocols,
+      release: onRelease ?? () {},
+    );
+  }
+
+  final int handle;
+  final String protocol;
+  final String? alpn;
+  final List<String> listenerProtocols;
+  final void Function() _release;
+
+  void release() => _release();
+}
+
+class NativeHttp3Connection {
+  const NativeHttp3Connection({
+    required this.handle,
+    required void Function() release,
+  }) : _release = release;
+
+  final int handle;
+  final void Function() _release;
+
+  void release() => _release();
+}
+
+class NativeHttp3Stream {
+  NativeHttp3Stream._({
+    required this.handle,
+    required this.streamId,
+    required void Function() release,
+  }) : _release = release;
+
+  factory NativeHttp3Stream.synthetic({
+    int handle = -1,
+    int streamId = 0,
+    void Function()? onRelease,
+  }) {
+    return NativeHttp3Stream._(
+      handle: handle,
+      streamId: streamId,
+      release: onRelease ?? () {},
+    );
+  }
+
+  final int handle;
+  final int streamId;
+  final void Function() _release;
+
+  void release() => _release();
+}
+
+enum NativeHttpResponseBodyKind { bytes, text, json, file }
+
+abstract class NativeHttpResponseBody {
+  const NativeHttpResponseBody(this.kind);
+
+  final NativeHttpResponseBodyKind kind;
+}
+
+class NativeHttpResponseBytes extends NativeHttpResponseBody {
+  NativeHttpResponseBytes(this.bytes) : super(NativeHttpResponseBodyKind.bytes);
+
+  final Uint8List bytes;
+}
+
+class NativeHttpResponseText extends NativeHttpResponseBody {
+  NativeHttpResponseText(this.text, {this.encoding = 'utf8'})
+    : super(NativeHttpResponseBodyKind.text);
+
+  final String text;
+  final String encoding;
+}
+
+class NativeHttpResponseJson extends NativeHttpResponseBody {
+  NativeHttpResponseJson(this.value) : super(NativeHttpResponseBodyKind.json);
+
+  final Object? value;
+}
+
+class NativeHttpResponseFile extends NativeHttpResponseBody {
+  NativeHttpResponseFile(this.path) : super(NativeHttpResponseBodyKind.file);
+
+  final String path;
+}
+
+class NativeHttpResponse {
+  NativeHttpResponse({
+    required this.status,
+    Map<String, String>? headers,
+    required this.body,
+  }) : headers = Map.unmodifiable(headers ?? const {});
+
+  final int status;
+  final Map<String, String> headers;
+  final NativeHttpResponseBody body;
+}
+
+class NativeHttpRequestBody {
+  NativeHttpRequestBody._internal(
+    Uint8List view, {
+    CtFfiBindings? bindings,
+    int? handle,
+    required int length,
+  }) : _view = view,
+       _bindings = bindings,
+       _handle = handle,
+       _length = length;
+
+  factory NativeHttpRequestBody.synthetic(Uint8List bytes) =>
+      NativeHttpRequestBody._internal(
+        bytes.isEmpty ? Uint8List(0) : bytes,
+        length: bytes.length,
+      );
+
+  factory NativeHttpRequestBody._fromNative({
+    required Uint8List view,
+    required CtFfiBindings bindings,
+    required int handle,
+    required int length,
+  }) => NativeHttpRequestBody._internal(
+    view.isEmpty ? Uint8List(0) : view,
+    bindings: bindings,
+    handle: handle,
+    length: length,
+  );
+
+  Uint8List _view;
+  final CtFfiBindings? _bindings;
+  final int? _handle;
+  final int _length;
+  bool _released = false;
+
+  static const int _defaultChunkSize = 64 * 1024;
+
+  int get length => _length;
+
+  /// View backed by the native buffer (callers must not mutate).
+  Uint8List get view {
+    if (_view.isEmpty && _handle != null && !_released && _length > 0) {
+      _view = _readAll();
+    }
+    return _view;
+  }
+
+  /// Copies the body into Dart-managed memory (safe to send across isolates).
+  Uint8List copy() => Uint8List.fromList(view);
+
+  /// Convenience helper to expose the body as a single-chunk stream.
+  Stream<List<int>> openRead({int chunkSize = _defaultChunkSize}) async* {
+    if (_handle == null || _bindings == null || _released) {
+      if (_view.isNotEmpty) {
+        yield _view;
+      }
+      return;
+    }
+    if (_length == 0) {
+      return;
+    }
+    var offset = 0;
+    final effectiveChunk = math.max(1, chunkSize);
+    while (offset < _length) {
+      final remaining = _length - offset;
+      final toRead = math.min(remaining, effectiveChunk);
+      final chunk = _readSlice(offset, toRead);
+      if (chunk.isEmpty) {
+        break;
+      }
+      yield chunk;
+      offset += chunk.length;
+    }
+  }
+
+  void _releaseHandle() {
+    if (_released || _handle == null) {
+      return;
+    }
+    if (_bindings != null) {
+      if (_view.isNotEmpty) {
+        _view = Uint8List.fromList(_view);
+      } else if (_length > 0) {
+        _view = _readAll();
+      } else {
+        _view = Uint8List(0);
+      }
+      final result = _bindings!.ctHttpBodyRelease(_handle!);
+      if (result != NativeTransportErrorCode.success) {
+        // Swallow release failures to avoid crashing during shutdown.
+      }
+    }
+    _released = true;
+  }
+
+  Uint8List _readSlice(int offset, int count) {
+    final bindings = _bindings;
+    final handle = _handle;
+    if (bindings == null || handle == null || count == 0) {
+      return Uint8List(0);
+    }
+    final viewPtr = calloc<CtHttpBodyView>();
+    try {
+      final result = bindings.ctHttpBodyRead(handle, offset, count, viewPtr);
+      if (result != NativeTransportErrorCode.success) {
+        throw NativeTransportException(
+          result,
+          'Failed to read HTTP body slice',
+        );
+      }
+      final view = viewPtr.ref;
+      if (view.dataPtr == ffi.nullptr || view.dataLen == 0) {
+        return Uint8List(0);
+      }
+      return view.dataPtr.asTypedList(view.dataLen);
+    } finally {
+      calloc.free(viewPtr);
+    }
+  }
+
+  Uint8List _readAll() {
+    if (_length == 0) {
+      return Uint8List(0);
+    }
+    final buffer = Uint8List(_length);
+    var offset = 0;
+    while (offset < _length) {
+      final remaining = _length - offset;
+      final toRead = math.min(remaining, _defaultChunkSize);
+      final chunk = _readSlice(offset, toRead);
+      if (chunk.isEmpty) {
+        break;
+      }
+      buffer.setRange(offset, offset + chunk.length, chunk);
+      offset += chunk.length;
+    }
+    return buffer;
+  }
+}
+
+class _HttpHandshakeFields {
+  _HttpHandshakeFields({
+    required this.method,
+    required this.target,
+    required this.path,
+    required this.query,
+    required this.protocol,
+    required this.version,
+    required this.headers,
+    required this.body,
+    required this.realm,
+    required this.procedure,
+    required this.bodyLength,
+  });
+
+  final String method;
+  final String target;
+  final String path;
+  final String? query;
+  final String protocol;
+  final int version;
+  final Map<String, String> headers;
+  final Uint8List body;
+  final String? realm;
+  final String? procedure;
+  final int bodyLength;
 }
 
 enum NativeMessageSerializer {
@@ -365,6 +818,10 @@ String _buildNativeErrorMessage(int code, String context) {
     NativeTransportErrorCode.channelAlreadyTaken =>
       '$context: accept channel already taken',
     NativeTransportErrorCode.io => '$context: native I/O failure',
+    NativeTransportErrorCode.unsupportedProtocol =>
+      '$context: connection protocol not supported for this operation',
+    NativeTransportErrorCode.handshakeConsumed =>
+      '$context: connection handshake already consumed',
     _ => '$context: error code $code',
   };
 }
@@ -504,6 +961,15 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
   }
 
   @override
+  int getHttp3Port(int listenerId) {
+    final result = _bindings.ctListenerHttp3Port(listenerId);
+    if (result < 0) {
+      _throwForError(result, 'Failed to query HTTP/3 port');
+    }
+    return result;
+  }
+
+  @override
   int pollConnection(int listenerId) {
     final result = _bindings.ctPollConnection(listenerId);
     if (result == NativeTransportErrorCode.listenerNotFound) {
@@ -522,6 +988,477 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
       _throwForError(result, 'Failed to query raw socket exponent');
     }
     return result;
+  }
+
+  @override
+  NativeConnectionProtocol connectionProtocol(int connectionId) {
+    final result = _bindings.ctConnectionProtocol(connectionId);
+    if (result < 0) {
+      _throwForError(result, 'Failed to query connection protocol');
+    }
+    return NativeConnectionProtocol.fromId(result);
+  }
+
+  @override
+  NativeHttpHandshake? takeHttpHandshake(int connectionId) {
+    final handle = _bindings.ctConnectionTakeHttpHandshake(connectionId);
+    if (handle == 0) {
+      return null;
+    }
+    if (handle < 0) {
+      _throwForError(handle, 'Failed to take HTTP handshake');
+    }
+    final infoPtr = calloc<CtHttpHandshakeInfo>();
+    try {
+      final result = _bindings.ctHttpHandshakeGet(handle, infoPtr);
+      if (result != NativeTransportErrorCode.success) {
+        _bindings.ctHttpHandshakeRelease(handle);
+        _throwForError(result, 'Failed to read HTTP handshake');
+      }
+      final info = infoPtr.ref;
+      final data = _readHttpHandshakeData(handle, info);
+      int? retainedBodyHandle;
+      try {
+        final bodyHandle = _bindings.ctHttpHandshakeBodyRetain(handle);
+        if (bodyHandle < 0) {
+          _bindings.ctHttpHandshakeRelease(handle);
+          _throwForError(bodyHandle, 'Failed to retain HTTP body handle');
+        }
+        NativeHttpRequestBody body;
+        if (bodyHandle > 0) {
+          retainedBodyHandle = bodyHandle;
+          final view = _borrowBodyHandle(bodyHandle);
+          body = NativeHttpRequestBody._fromNative(
+            view: view,
+            bindings: _bindings,
+            handle: bodyHandle,
+            length: data.bodyLength,
+          );
+          retainedBodyHandle = null;
+        } else {
+          body = NativeHttpRequestBody.synthetic(data.body);
+        }
+        return NativeHttpHandshake._(
+          handle: handle,
+          method: data.method,
+          target: data.target,
+          path: data.path,
+          query: data.query,
+          protocol: data.protocol,
+          version: data.version,
+          headers: data.headers,
+          body: body,
+          realm: data.realm,
+          procedure: data.procedure,
+          release: () {
+            _bindings.ctHttpHandshakeRelease(handle);
+          },
+        );
+      } catch (error) {
+        if (retainedBodyHandle != null) {
+          _bindings.ctHttpBodyRelease(retainedBodyHandle);
+        }
+        _bindings.ctHttpHandshakeRelease(handle);
+        rethrow;
+      }
+    } finally {
+      calloc.free(infoPtr);
+    }
+  }
+
+  @override
+  void releaseHttpHandshake(int handle) {
+    if (handle <= 0) {
+      return;
+    }
+    _bindings.ctHttpHandshakeRelease(handle);
+  }
+
+  @override
+  NativeHttp2Handshake? takeHttp2Handshake(int connectionId) {
+    final handle = _bindings.ctConnectionTakeHttp2Handshake(connectionId);
+    if (handle == 0) {
+      return null;
+    }
+    if (handle < 0) {
+      _throwForError(handle, 'Failed to take HTTP/2 handshake');
+    }
+    final infoPtr = calloc<CtHttp2HandshakeInfo>();
+    try {
+      final result = _bindings.ctHttp2HandshakeGet(handle, infoPtr);
+      if (result != NativeTransportErrorCode.success) {
+        _bindings.ctHttp2HandshakeRelease(handle);
+        _throwForError(result, 'Failed to read HTTP/2 handshake');
+      }
+      final info = infoPtr.ref;
+      final protocol = _decodeUtf8(info.protocolPtr, info.protocolLen);
+      final alpn = _decodeUtf8Nullable(info.alpnPtr, info.alpnLen);
+      final listenerProtocols = <String>[];
+      if (info.listenerProtocolsLen > 0) {
+        final viewPtr = calloc<CtStringView>();
+        try {
+          for (var index = 0; index < info.listenerProtocolsLen; index++) {
+            final listenerResult = _bindings.ctHttp2HandshakeListenerProtocol(
+              handle,
+              index,
+              viewPtr,
+            );
+            if (listenerResult != NativeTransportErrorCode.success) {
+              _bindings.ctHttp2HandshakeRelease(handle);
+              _throwForError(
+                listenerResult,
+                'Failed to read HTTP/2 listener protocol',
+              );
+            }
+            final view = viewPtr.ref;
+            listenerProtocols.add(_decodeUtf8(view.ptr, view.len));
+          }
+        } finally {
+          calloc.free(viewPtr);
+        }
+      }
+      return NativeHttp2Handshake._(
+        handle: handle,
+        protocol: protocol,
+        alpn: alpn,
+        listenerProtocols: listenerProtocols,
+        release: () {
+          _bindings.ctHttp2HandshakeRelease(handle);
+        },
+      );
+    } finally {
+      calloc.free(infoPtr);
+    }
+  }
+
+  @override
+  void releaseHttp2Handshake(int handle) {
+    if (handle <= 0) {
+      return;
+    }
+    _bindings.ctHttp2HandshakeRelease(handle);
+  }
+
+  @override
+  NativeHttp3Handshake? takeHttp3Handshake(int connectionId) {
+    final handle = _bindings.ctConnectionTakeHttp3Handshake(connectionId);
+    if (handle == 0) {
+      return null;
+    }
+    if (handle < 0) {
+      _throwForError(handle, 'Failed to take HTTP/3 handshake');
+    }
+    final infoPtr = calloc<CtHttp3HandshakeInfo>();
+    try {
+      final result = _bindings.ctHttp3HandshakeGet(handle, infoPtr);
+      if (result != NativeTransportErrorCode.success) {
+        _bindings.ctHttp3HandshakeRelease(handle);
+        _throwForError(result, 'Failed to read HTTP/3 handshake');
+      }
+      final info = infoPtr.ref;
+      final protocol = _decodeUtf8(info.protocolPtr, info.protocolLen);
+      final alpn = _decodeUtf8Nullable(info.alpnPtr, info.alpnLen);
+      final listenerProtocols = <String>[];
+      if (info.listenerProtocolsLen > 0) {
+        final viewPtr = calloc<CtStringView>();
+        try {
+          for (var index = 0; index < info.listenerProtocolsLen; index++) {
+            final listenerResult = _bindings.ctHttp3HandshakeListenerProtocol(
+              handle,
+              index,
+              viewPtr,
+            );
+            if (listenerResult != NativeTransportErrorCode.success) {
+              _bindings.ctHttp3HandshakeRelease(handle);
+              _throwForError(
+                listenerResult,
+                'Failed to read HTTP/3 listener protocol',
+              );
+            }
+            final view = viewPtr.ref;
+            listenerProtocols.add(_decodeUtf8(view.ptr, view.len));
+          }
+        } finally {
+          calloc.free(viewPtr);
+        }
+      }
+      return NativeHttp3Handshake._(
+        handle: handle,
+        protocol: protocol,
+        alpn: alpn,
+        listenerProtocols: listenerProtocols,
+        release: () {
+          _bindings.ctHttp3HandshakeRelease(handle);
+        },
+      );
+    } finally {
+      calloc.free(infoPtr);
+    }
+  }
+
+  @override
+  void releaseHttp3Handshake(int handle) {
+    if (handle <= 0) {
+      return;
+    }
+    _bindings.ctHttp3HandshakeRelease(handle);
+  }
+
+  @override
+  NativeHttp3Connection? takeHttp3Connection(int connectionId) {
+    final handle = _bindings.ctConnectionGetHttp3Connection(connectionId);
+    if (handle == 0) {
+      return null;
+    }
+    if (handle < 0) {
+      _throwForError(handle, 'Failed to take HTTP/3 connection');
+    }
+    return NativeHttp3Connection(
+      handle: handle,
+      release: () {
+        final result = _bindings.ctHttp3ConnectionRelease(handle);
+        if (result != NativeTransportErrorCode.success) {
+          _throwForError(result, 'Failed to release HTTP/3 connection');
+        }
+      },
+    );
+  }
+
+  @override
+  NativeHttp3Stream? pollHttp3Stream(int connectionId) {
+    final handle = _bindings.ctHttp3ConnectionPollStream(connectionId);
+    if (handle == 0) {
+      return null;
+    }
+    if (handle < 0) {
+      _throwForError(handle, 'Failed to poll HTTP/3 stream');
+    }
+    final infoPtr = calloc<CtHttp3StreamInfo>();
+    try {
+      final result = _bindings.ctHttp3StreamGet(handle, infoPtr);
+      if (result != NativeTransportErrorCode.success) {
+        _bindings.ctHttp3StreamRelease(handle);
+        _throwForError(result, 'Failed to query HTTP/3 stream');
+      }
+      final info = infoPtr.ref;
+      return NativeHttp3Stream._(
+        handle: handle,
+        streamId: info.streamId,
+        release: () {
+          final releaseResult = _bindings.ctHttp3StreamRelease(handle);
+          if (releaseResult != NativeTransportErrorCode.success) {
+            _throwForError(releaseResult, 'Failed to release HTTP/3 stream');
+          }
+        },
+      );
+    } finally {
+      calloc.free(infoPtr);
+    }
+  }
+
+  @override
+  NativeHttpHandshake? pollHttp3Request(int connectionId) {
+    final handle = _bindings.ctHttp3ConnectionPollRequest(connectionId);
+    if (handle == 0) {
+      return null;
+    }
+    if (handle < 0) {
+      _throwForError(handle, 'Failed to poll HTTP/3 request');
+    }
+    final infoPtr = calloc<CtHttpHandshakeInfo>();
+    var claimedHandle = false;
+    try {
+      final result = _bindings.ctHttpHandshakeGet(handle, infoPtr);
+      if (result != NativeTransportErrorCode.success) {
+        _bindings.ctHttpHandshakeRelease(handle);
+        _throwForError(result, 'Failed to read HTTP/3 request');
+      }
+      final info = infoPtr.ref;
+      final data = _readHttpHandshakeData(handle, info);
+      final bodyHandle = _bindings.ctHttpHandshakeBodyRetain(handle);
+      if (bodyHandle < 0) {
+        _bindings.ctHttpHandshakeRelease(handle);
+        _throwForError(bodyHandle, 'Failed to retain HTTP/3 body handle');
+      }
+      late final NativeHttpRequestBody body;
+      try {
+        if (bodyHandle > 0) {
+          final view = _borrowBodyHandle(bodyHandle);
+          body = NativeHttpRequestBody._fromNative(
+            view: view,
+            bindings: _bindings,
+            handle: bodyHandle,
+            length: data.bodyLength,
+          );
+        } else {
+          body = NativeHttpRequestBody.synthetic(data.body);
+        }
+      } catch (error) {
+        if (bodyHandle > 0) {
+          _bindings.ctHttpBodyRelease(bodyHandle);
+        }
+        rethrow;
+      }
+      claimedHandle = true;
+      return NativeHttpHandshake._(
+        handle: handle,
+        method: data.method,
+        target: data.target,
+        path: data.path,
+        query: data.query,
+        protocol: data.protocol,
+        version: data.version,
+        headers: data.headers,
+        body: body,
+        realm: data.realm,
+        procedure: data.procedure,
+        release: () {
+          final releaseResult = _bindings.ctHttpHandshakeRelease(handle);
+          if (releaseResult != NativeTransportErrorCode.success) {
+            _throwForError(releaseResult, 'Failed to release HTTP/3 request');
+          }
+        },
+      );
+    } finally {
+      calloc.free(infoPtr);
+      if (!claimedHandle) {
+        _bindings.ctHttpHandshakeRelease(handle);
+      }
+    }
+  }
+
+  @override
+  void sendHttpResponse({
+    required int handshakeHandle,
+    int? connectionId,
+    required NativeHttpResponse response,
+  }) {
+    if (handshakeHandle <= 0) {
+      throw UnsupportedError(
+        'HTTP responses require a native handshake handle.',
+      );
+    }
+    final headersList = response.headers.entries.toList(growable: false);
+    final headerCount = headersList.length;
+    final headerPtr = headerCount == 0
+        ? ffi.Pointer<CtHttpHeader>.fromAddress(0)
+        : calloc<CtHttpHeader>(headerCount);
+    final headerNameStrings = <_NativeString>[];
+    final headerValueStrings = <_NativeString>[];
+    ffi.Pointer<ffi.Uint8>? bodyPtr;
+    try {
+      for (var i = 0; i < headerCount; i++) {
+        final entry = headersList[i];
+        final nameNative = _toNativeString(entry.key);
+        final valueNative = _toNativeString(entry.value);
+        headerNameStrings.add(nameNative);
+        headerValueStrings.add(valueNative);
+        final headerStruct = (headerPtr + i).ref;
+        headerStruct.namePtr = nameNative.charPtr.cast<ffi.Uint8>();
+        headerStruct.nameLen = nameNative.length;
+        headerStruct.valuePtr = valueNative.charPtr.cast<ffi.Uint8>();
+        headerStruct.valueLen = valueNative.length;
+      }
+
+      final bodyBytes = _encodeHttpResponseBody(response.body);
+      if (bodyBytes.isEmpty) {
+        bodyPtr = ffi.Pointer.fromAddress(0);
+      } else {
+        bodyPtr = calloc<ffi.Uint8>(bodyBytes.length);
+        bodyPtr.asTypedList(bodyBytes.length).setAll(0, bodyBytes);
+      }
+
+      final result = _bindings.ctHttpResponseSend(
+        handshakeHandle,
+        response.status,
+        headerPtr,
+        headerCount,
+        bodyPtr,
+        bodyBytes.length,
+      );
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'Failed to send HTTP response');
+      }
+    } finally {
+      for (final name in headerNameStrings) {
+        name.dispose();
+      }
+      for (final value in headerValueStrings) {
+        value.dispose();
+      }
+      if (headerCount > 0) {
+        calloc.free(headerPtr);
+      }
+      final ptr = bodyPtr;
+      if (ptr != null && ptr.address != 0) {
+        calloc.free(ptr);
+      }
+    }
+  }
+
+  Uint8List _encodeHttpResponseBody(NativeHttpResponseBody body) {
+    switch (body.kind) {
+      case NativeHttpResponseBodyKind.bytes:
+        final source = (body as NativeHttpResponseBytes).bytes;
+        return Uint8List.fromList(source);
+      case NativeHttpResponseBodyKind.text:
+        final textBody = body as NativeHttpResponseText;
+        final encoding = Encoding.getByName(textBody.encoding) ?? utf8;
+        return Uint8List.fromList(encoding.encode(textBody.text));
+      case NativeHttpResponseBodyKind.json:
+        final jsonBody = body as NativeHttpResponseJson;
+        return Uint8List.fromList(utf8.encode(jsonEncode(jsonBody.value)));
+      case NativeHttpResponseBodyKind.file:
+        throw UnsupportedError('File responses not supported yet');
+    }
+  }
+
+  _HttpHandshakeFields _readHttpHandshakeData(
+    int handle,
+    CtHttpHandshakeInfo info,
+  ) {
+    final method = _decodeUtf8(info.methodPtr, info.methodLen);
+    final target = _decodeUtf8(info.targetPtr, info.targetLen);
+    final path = _decodeUtf8(info.pathPtr, info.pathLen);
+    final query = _decodeUtf8Nullable(info.queryPtr, info.queryLen);
+    final protocol = _decodeUtf8(info.protocolPtr, info.protocolLen);
+    final headers = <String, String>{};
+    for (var i = 0; i < info.headersLen; i++) {
+      final headerPtr = calloc<CtHttpHeader>();
+      try {
+        final headerResult = _bindings.ctHttpHandshakeHeader(
+          handle,
+          i,
+          headerPtr,
+        );
+        if (headerResult != NativeTransportErrorCode.success) {
+          _bindings.ctHttpHandshakeRelease(handle);
+          _throwForError(headerResult, 'Failed to read HTTP header');
+        }
+        final header = headerPtr.ref;
+        final name = _decodeUtf8(header.namePtr, header.nameLen);
+        final value = _decodeUtf8(header.valuePtr, header.valueLen);
+        headers[name] = value;
+      } finally {
+        calloc.free(headerPtr);
+      }
+    }
+    final body = _borrowBytes(info.bodyPtr, info.bodyLen);
+    final realm = _decodeUtf8Nullable(info.realmPtr, info.realmLen);
+    final procedure = _decodeUtf8Nullable(info.procedurePtr, info.procedureLen);
+    return _HttpHandshakeFields(
+      method: method,
+      target: target,
+      path: path,
+      query: query,
+      protocol: protocol,
+      version: info.version,
+      headers: headers,
+      body: body,
+      realm: realm,
+      procedure: procedure,
+      bodyLength: info.bodyLen,
+    );
   }
 
   @override
@@ -754,6 +1691,47 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
     );
     if (result != NativeTransportErrorCode.success) {
       _throwForError(result, 'Failed to forward invocation error');
+    }
+  }
+
+  String _decodeUtf8(ffi.Pointer<ffi.Uint8> ptr, int length) {
+    if (ptr == ffi.nullptr || length == 0) {
+      return '';
+    }
+    return utf8.decode(ptr.asTypedList(length));
+  }
+
+  String? _decodeUtf8Nullable(ffi.Pointer<ffi.Uint8> ptr, int length) {
+    if (ptr == ffi.nullptr || length == 0) {
+      return null;
+    }
+    return utf8.decode(ptr.asTypedList(length));
+  }
+
+  static final Uint8List _emptyBytes = Uint8List(0);
+
+  Uint8List _borrowBytes(ffi.Pointer<ffi.Uint8> ptr, int length) {
+    if (ptr == ffi.nullptr || length == 0) {
+      return _emptyBytes;
+    }
+    return ptr.asTypedList(length);
+  }
+
+  Uint8List _borrowBodyHandle(int handle) {
+    final viewPtr = calloc<CtHttpBodyView>();
+    try {
+      final result = _bindings.ctHttpBodyGet(handle, viewPtr);
+      if (result != NativeTransportErrorCode.success) {
+        _bindings.ctHttpBodyRelease(handle);
+        _throwForError(result, 'Failed to read HTTP body view');
+      }
+      final view = viewPtr.ref;
+      if (view.dataPtr == ffi.nullptr || view.dataLen == 0) {
+        return _emptyBytes;
+      }
+      return view.dataPtr.asTypedList(view.dataLen);
+    } finally {
+      calloc.free(viewPtr);
     }
   }
 

@@ -1235,6 +1235,7 @@ RouterListener _buildListener() => RouterListener(
     maxRawSocketSizeExponent: 16,
   ),
   port: 7000,
+  http3Port: 0,
 );
 
 class _UnavailableRemoteDelegate implements RemoteAuthenticatorDelegate {

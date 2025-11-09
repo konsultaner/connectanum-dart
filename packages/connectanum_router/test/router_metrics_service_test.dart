@@ -1,0 +1,277 @@
+@TestOn('vm')
+// ignore_for_file: unnecessary_library_name
+library router_metrics_service_test;
+
+import 'dart:typed_data';
+
+import 'package:connectanum_router/src/native/runtime.dart';
+import 'package:connectanum_router/src/router/models/endpoint.dart';
+import 'package:connectanum_router/src/router/models/router_config.dart';
+import 'package:connectanum_router/src/router/models/tls_mode.dart';
+import 'package:connectanum_router/src/router/router_instance.dart';
+import 'package:test/test.dart';
+
+class _FakeRuntime implements NativeRuntime {
+  final List<String> listenCalls = [];
+  Uint8List? appliedConfig;
+  final Map<int, int> _ports = {};
+  int _nextId = 1;
+
+  @override
+  void applyRouterConfig(Uint8List config) {
+    appliedConfig = config;
+  }
+
+  @override
+  int getLocalPort(int listenerId) => _ports[listenerId] ?? listenerId;
+
+  @override
+  int getHttp3Port(int listenerId) => 0;
+
+  @override
+  int listen(String host, int port, {int backlog = 128}) {
+    final id = _nextId++;
+    listenCalls.add('$host:$port:$backlog');
+    _ports[id] = port == 0 ? 5000 + id : port;
+    return id;
+  }
+
+  @override
+  int pollConnection(int listenerId) => 0;
+
+  @override
+  int connectionMaxRawSocketExponent(int connectionId) => 16;
+
+  @override
+  NativeConnectionProtocol connectionProtocol(int connectionId) =>
+      NativeConnectionProtocol.rawsocket;
+
+  @override
+  NativeHttpHandshake? takeHttpHandshake(int connectionId) => null;
+
+  @override
+  void releaseHttpHandshake(int handle) {}
+
+  @override
+  NativeHttp2Handshake? takeHttp2Handshake(int connectionId) => null;
+
+  @override
+  void releaseHttp2Handshake(int handle) {}
+
+  @override
+  NativeHttp3Handshake? takeHttp3Handshake(int connectionId) => null;
+
+  @override
+  void releaseHttp3Handshake(int handle) {}
+
+  @override
+  NativeHttp3Connection? takeHttp3Connection(int connectionId) => null;
+
+  @override
+  NativeHttp3Stream? pollHttp3Stream(int connectionId) => null;
+
+  @override
+  NativeHttpHandshake? pollHttp3Request(int connectionId) => null;
+
+  @override
+  void sendHttpResponse({
+    required int handshakeHandle,
+    int? connectionId,
+    required NativeHttpResponse response,
+  }) {
+    throw UnsupportedError('HTTP responses not supported');
+  }
+
+  @override
+  void sendMessage(int connectionId, Uint8List payload) {}
+
+  @override
+  NativeIncomingMessage? pollMessage(int connectionId) => null;
+
+  @override
+  void shutdown() {}
+
+  @override
+  void start() {}
+}
+
+class _NoopHandleRuntime extends _FakeRuntime
+    implements NativeRuntimeWithHandles {
+  @override
+  int pollMessageHandle(int connectionId) => 0;
+
+  @override
+  int retainMessageHandle(int handle) => handle;
+
+  @override
+  void releaseMessageHandle(int handle) {}
+
+  @override
+  void forwardPublishEvent({
+    required int handle,
+    required int connectionId,
+    required int subscriptionId,
+    required int publicationId,
+    int? publisherSessionId,
+    String? topic,
+  }) {}
+
+  @override
+  void forwardCallInvocation({
+    required int handle,
+    required int connectionId,
+    required int invocationId,
+    required int registrationId,
+    int? callerSessionId,
+    String? procedure,
+    bool? receiveProgress,
+  }) {}
+
+  @override
+  void forwardResultFromYield({
+    required int handle,
+    required int connectionId,
+    required int requestId,
+    required bool progress,
+  }) {}
+
+  @override
+  void forwardInvocationError({
+    required int handle,
+    required int connectionId,
+    required int requestType,
+    required int requestId,
+  }) {}
+
+  @override
+  String? get libraryPathHint => null;
+}
+
+void main() {
+  test('metrics exporter collects snapshot and OpenMetrics payload', () async {
+    final runtime = _NoopHandleRuntime();
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+          ),
+        ],
+      ),
+      settings: _buildSettings(),
+    );
+
+    final binding = router.start(runtime);
+    addTearDown(binding.dispose);
+
+    await binding.ensureInternalServicesReady();
+    final realmSession = await binding.createInternalSession(
+      realmUri: 'realm1',
+      authId: 'client',
+      authRole: 'member',
+    );
+    addTearDown(realmSession.close);
+
+    await realmSession.subscribe('com.example.topic');
+    await realmSession.register('com.example.proc');
+
+    final metricsClient = await binding.createInternalSession(
+      realmUri: 'connectanum.metrics',
+      authId: 'observer',
+      authRole: 'metrics',
+    );
+    addTearDown(metricsClient.close);
+
+    final snapshotResult = await metricsClient
+        .call('connectanum.metrics.snapshot')
+        .first;
+    final snapshotPayload =
+        snapshotResult.arguments?.first as Map<String, Object?>;
+
+    expect(snapshotPayload['router'], isA<Map<String, Object?>>());
+    final realms = snapshotPayload['realms'] as List<dynamic>;
+    final realmMetrics = realms.cast<Map<String, Object?>>().firstWhere(
+      (realm) => realm['realm'] == 'realm1',
+    );
+    expect(realmMetrics['topics'], greaterThanOrEqualTo(1));
+    expect(realmMetrics['registered_procedures'], greaterThanOrEqualTo(1));
+
+    final exporterInfo = snapshotPayload['exporter'] as Map<String, Object?>?;
+    expect(exporterInfo, isNotNull);
+    expect(exporterInfo!['realm'], 'connectanum.metrics');
+    expect(exporterInfo['path'], '/metrics');
+
+    final openMetricsResult = await metricsClient
+        .call('connectanum.metrics.openmetrics')
+        .first;
+    final openMetricsText = openMetricsResult.arguments?.first as String;
+    expect(openMetricsText, contains('connectanum_router_realms'));
+    expect(openMetricsText, contains('realm="realm1"'));
+  });
+}
+
+RouterSettings _buildSettings() {
+  final realmBuilder = RealmSettingsBuilder('realm1')
+    ..addAuthMethod('anonymous')
+    ..addRoleFromBuilder(
+      RoleSettingsBuilder('member')..addPermissionFromBuilder(
+        PermissionSettingsBuilder('')
+          ..setMatchPolicy(PermissionMatchPolicy.prefix)
+          ..allowOperations(const [
+            'subscribe',
+            'publish',
+            'call',
+            'register',
+            'unregister',
+          ]),
+      ),
+    );
+
+  final metricsRealmBuilder = RealmSettingsBuilder('connectanum.metrics')
+    ..addAuthMethod('anonymous')
+    ..addRoleFromBuilder(
+      RoleSettingsBuilder('metrics')..addPermissionFromBuilder(
+        PermissionSettingsBuilder('')
+          ..setMatchPolicy(PermissionMatchPolicy.prefix)
+          ..allowOperations(const [
+            'register',
+            'unregister',
+            'call',
+            'subscribe',
+            'publish',
+          ]),
+      ),
+    );
+
+  final listenerBuilder = ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+    ..addAuthMethod('anonymous')
+    ..setOptions(const {'max_rawsocket_size_exponent': 16});
+
+  final internalMetricsRealm = InternalRealmSettings(
+    name: 'connectanum.metrics',
+    authId: 'metrics-daemon',
+    authRole: 'metrics',
+    services: {'metrics'},
+  );
+
+  return RouterSettings(
+    realms: [realmBuilder.build(), metricsRealmBuilder.build()],
+    listeners: [listenerBuilder.build()],
+    internalRealms: [internalMetricsRealm],
+    metrics: const MetricsSettings(
+      openMetrics: OpenMetricsSettings(
+        enabled: true,
+        listen: '127.0.0.1:9100',
+        path: '/metrics',
+        realm: 'connectanum.metrics',
+      ),
+    ),
+    authenticators: const {
+      'anonymous': AuthenticatorDefinition(type: 'anonymous'),
+    },
+    workerPool: const WorkerPoolSettings(minWorkers: 1),
+  );
+}

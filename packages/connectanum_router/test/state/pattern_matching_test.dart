@@ -197,13 +197,38 @@ void main() {
 
     test('selects best registration following advanced profile spec', () {
       final atlas = ProcedureAtlas();
-      registerProcedure(atlas, 1, 'a1.b2.c3.d4.e55', ProcedureMatchPolicy.exact);
+      registerProcedure(
+        atlas,
+        1,
+        'a1.b2.c3.d4.e55',
+        ProcedureMatchPolicy.exact,
+      );
       registerProcedure(atlas, 2, 'a1.b2.c3', ProcedureMatchPolicy.prefix);
       registerProcedure(atlas, 3, 'a1.b2.c3.d4', ProcedureMatchPolicy.prefix);
-      registerProcedure(atlas, 4, 'a1.b2..d4.e5', ProcedureMatchPolicy.wildcard);
-      registerProcedure(atlas, 5, 'a1.b2.c33..e5', ProcedureMatchPolicy.wildcard);
-      registerProcedure(atlas, 6, 'a1.b2..d4.e5..g7', ProcedureMatchPolicy.wildcard);
-      registerProcedure(atlas, 7, 'a1.b2..d4..f6.g7', ProcedureMatchPolicy.wildcard);
+      registerProcedure(
+        atlas,
+        4,
+        'a1.b2..d4.e5',
+        ProcedureMatchPolicy.wildcard,
+      );
+      registerProcedure(
+        atlas,
+        5,
+        'a1.b2.c33..e5',
+        ProcedureMatchPolicy.wildcard,
+      );
+      registerProcedure(
+        atlas,
+        6,
+        'a1.b2..d4.e5..g7',
+        ProcedureMatchPolicy.wildcard,
+      );
+      registerProcedure(
+        atlas,
+        7,
+        'a1.b2..d4..f6.g7',
+        ProcedureMatchPolicy.wildcard,
+      );
 
       expect(atlas.match('a1.b2.c3.d4.e55')?.registrationId, equals(1));
       expect(atlas.match('a1.b2.c3.d98.e74')?.registrationId, equals(2));
@@ -216,8 +241,18 @@ void main() {
 
     test('prefers wildcard with longer leading literal blocks', () {
       final atlas = ProcedureAtlas();
-      registerProcedure(atlas, 40, 'a1.b2..d4.e5', ProcedureMatchPolicy.wildcard);
-      registerProcedure(atlas, 41, 'a1.b2.c3..e5', ProcedureMatchPolicy.wildcard);
+      registerProcedure(
+        atlas,
+        40,
+        'a1.b2..d4.e5',
+        ProcedureMatchPolicy.wildcard,
+      );
+      registerProcedure(
+        atlas,
+        41,
+        'a1.b2.c3..e5',
+        ProcedureMatchPolicy.wildcard,
+      );
 
       expect(atlas.match('a1.b2.c3.d4.e5')?.registrationId, equals(41));
       expect(atlas.match('a1.b2.x3.d4.e5')?.registrationId, equals(40));

@@ -5,6 +5,7 @@ class RouterSettingsBuilder {
   final List<RealmSettings> _realms = [];
   final List<ListenerSettings> _listeners = [];
   final Map<String, AuthenticatorDefinition> _authenticators = {};
+  final List<InternalRealmSettings> _internalRealms = [];
   MetricsSettings? _metrics;
   WorkerPoolSettings _workerPool = const WorkerPoolSettings();
 
@@ -30,6 +31,18 @@ class RouterSettingsBuilder {
     return this;
   }
 
+  RouterSettingsBuilder addInternalRealm(InternalRealmSettings internalRealm) {
+    _internalRealms.add(internalRealm);
+    return this;
+  }
+
+  RouterSettingsBuilder addInternalRealmFromBuilder(
+    InternalRealmSettingsBuilder builder,
+  ) {
+    _internalRealms.add(builder.build());
+    return this;
+  }
+
   RouterSettingsBuilder addAuthenticator(
     String name,
     AuthenticatorDefinition definition,
@@ -51,6 +64,7 @@ class RouterSettingsBuilder {
   RouterSettings build() => RouterSettings(
     realms: List.unmodifiable(_realms),
     listeners: List.unmodifiable(_listeners),
+    internalRealms: List.unmodifiable(_internalRealms),
     metrics: _metrics,
     authenticators: Map.unmodifiable(_authenticators),
     workerPool: _workerPool,
@@ -180,6 +194,10 @@ class ListenerSettingsBuilder {
   String? path;
   Map<String, Object?>? tls;
   Map<String, Object?> options = const {};
+  final List<ListenerProtocol> _protocols = [];
+  RawSocketListenerSettings? _rawsocket;
+  WebSocketListenerSettings? _websocket;
+  HttpListenerSettings? _http;
 
   ListenerSettingsBuilder addAuthMethod(String method) {
     if (!authmethods.contains(method)) {
@@ -203,6 +221,36 @@ class ListenerSettingsBuilder {
     return this;
   }
 
+  ListenerSettingsBuilder addProtocol(ListenerProtocol protocol) {
+    if (!_protocols.contains(protocol)) {
+      _protocols.add(protocol);
+    }
+    return this;
+  }
+
+  ListenerSettingsBuilder addProtocolFromString(String protocol) {
+    return addProtocol(listenerProtocolFromString(protocol));
+  }
+
+  ListenerSettingsBuilder setRawSocketOptions(
+    RawSocketListenerSettings settings,
+  ) {
+    _rawsocket = settings;
+    return this;
+  }
+
+  ListenerSettingsBuilder setWebSocketOptions(
+    WebSocketListenerSettings settings,
+  ) {
+    _websocket = settings;
+    return this;
+  }
+
+  ListenerSettingsBuilder setHttpOptions(HttpListenerSettings settings) {
+    _http = settings;
+    return this;
+  }
+
   ListenerSettings build() => ListenerSettings(
     type: type,
     endpoint: endpoint,
@@ -210,5 +258,63 @@ class ListenerSettingsBuilder {
     path: path,
     tls: tls,
     options: options,
+    protocols: _protocols.isNotEmpty
+        ? List.unmodifiable(_protocols)
+        : <ListenerProtocol>[listenerProtocolFromString(type)],
+    rawsocket: _rawsocket,
+    websocket: _websocket,
+    http: _http,
+  );
+}
+
+class InternalRealmSettingsBuilder {
+  InternalRealmSettingsBuilder(this.name);
+
+  final String name;
+  String? authId;
+  String? authRole;
+  final Map<String, Object?> _roles = {};
+  final Set<String> _services = <String>{};
+
+  InternalRealmSettingsBuilder setAuthId(String? value) {
+    authId = value;
+    return this;
+  }
+
+  InternalRealmSettingsBuilder setAuthRole(String? value) {
+    authRole = value;
+    return this;
+  }
+
+  InternalRealmSettingsBuilder setRoles(Map<String, Object?> roles) {
+    _roles
+      ..clear()
+      ..addAll(roles);
+    return this;
+  }
+
+  InternalRealmSettingsBuilder putRole(String role, Object? definition) {
+    _roles[role] = definition;
+    return this;
+  }
+
+  InternalRealmSettingsBuilder setServices(Iterable<String> services) {
+    _services
+      ..clear()
+      ..addAll(services);
+    return this;
+  }
+
+  InternalRealmSettingsBuilder addService(String service) {
+    _services.add(service);
+    return this;
+  }
+
+  InternalRealmSettings build() => InternalRealmSettings(
+    name: name,
+    authId: authId,
+    authRole: authRole,
+    roles: Map.unmodifiable(_roles),
+    services: _services.isEmpty ? null : Set<String>.from(_services),
   );
 }

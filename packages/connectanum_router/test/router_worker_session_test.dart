@@ -5330,14 +5330,7 @@ void main() {
         );
         expect(
           registrationEvents.map((event) => event.sessionId),
-          orderedEquals([
-            903,
-            903,
-            904,
-            904,
-            903,
-            903,
-          ]),
+          orderedEquals([903, 903, 904, 904, 903, 903]),
         );
       },
     );
@@ -6338,182 +6331,175 @@ void main() {
       },
     );
 
-    test(
-      'eligible authroles skip subscribers without a role',
-      () async {
-        final bossMessages = <Map<String, Object?>>[];
-        final bossPort = ReceivePort()
-          ..listen((dynamic message) {
-            if (message is Map<String, Object?>) {
-              bossMessages.add(message);
-            }
-          });
-        addTearDown(bossPort.close);
+    test('eligible authroles skip subscribers without a role', () async {
+      final bossMessages = <Map<String, Object?>>[];
+      final bossPort = ReceivePort()
+        ..listen((dynamic message) {
+          if (message is Map<String, Object?>) {
+            bossMessages.add(message);
+          }
+        });
+      addTearDown(bossPort.close);
 
-        final listener = _buildListener();
-        final publisherState =
-            createWorkerStateForTest(
-                  listener: listener,
-                  listenerSettings: routerSettings.listeners.first,
-                )
-                as WorkerConnectionState;
-        publisherState
-          ..serializer = NativeMessageSerializer.json
-          ..phase = HandshakePhase.open
-          ..realmUri = 'realm1'
-          ..realmSettings = routerSettings.realms.first
-          ..sessionId = 9310;
-
-        final memberState =
-            createWorkerStateForTest(
-                  listener: listener,
-                  listenerSettings: routerSettings.listeners.first,
-                )
-                as WorkerConnectionState;
-        memberState
-          ..serializer = NativeMessageSerializer.json
-          ..phase = HandshakePhase.open
-          ..realmUri = 'realm1'
-          ..realmSettings = routerSettings.realms.first
-          ..sessionId = 9311;
-
-        final guestState =
-            createWorkerStateForTest(
-                  listener: listener,
-                  listenerSettings: routerSettings.listeners.first,
-                )
-                as WorkerConnectionState;
-        guestState
-          ..serializer = NativeMessageSerializer.json
-          ..phase = HandshakePhase.open
-          ..realmUri = 'realm1'
-          ..realmSettings = routerSettings.realms.first
-          ..sessionId = 9312;
-
-        final anonymousState =
-            createWorkerStateForTest(
-                  listener: listener,
-                  listenerSettings: routerSettings.listeners.first,
-                )
-                as WorkerConnectionState;
-        anonymousState
-          ..serializer = NativeMessageSerializer.json
-          ..phase = HandshakePhase.open
-          ..realmUri = 'realm1'
-          ..realmSettings = routerSettings.realms.first
-          ..sessionId = 9313;
-
-        _openSession(
-          stateStore,
-          sessionId: 9310,
-          listener: listener,
-          connectionId: 160,
-          authRole: 'publisher',
-        );
-        _openSession(
-          stateStore,
-          sessionId: 9311,
-          listener: listener,
-          connectionId: 161,
-          authRole: 'member',
-        );
-        _openSession(
-          stateStore,
-          sessionId: 9312,
-          listener: listener,
-          connectionId: 162,
-          authRole: 'guest',
-        );
-        _openSession(
-          stateStore,
-          sessionId: 9313,
-          listener: listener,
-          connectionId: 163,
-          authRole: null,
-        );
-        await Future<void>.delayed(Duration.zero);
-
-        final realmContexts = RealmContextCache(
-          statePort: stateStore.commandPort,
-        );
-        addTearDown(realmContexts.dispose);
-
-        Future<int> subscribe({
-          required WorkerConnectionState state,
-          required int connectionId,
-          required int requestId,
-        }) async {
-          await handleSessionMessageForTest(
-            bossPort: bossPort.sendPort,
-            statePort: stateStore.commandPort,
-            realmContexts: realmContexts,
-            state: state,
-            message: subscribe_msg.Subscribe(requestId, 'com.filters.topic2'),
-            connectionId: connectionId,
-          );
-          await Future<void>.delayed(Duration.zero);
-          final frame =
-              jsonDecode(
-                    utf8.decode(
-                      _extractWorkerSend(bossMessages)['payload'] as Uint8List,
-                    ),
-                  )
-                  as List<dynamic>;
-          bossMessages.clear();
-          return frame[2] as int;
-        }
-
-        final memberSubscription = await subscribe(
-          state: memberState,
-          connectionId: 161,
-          requestId: 9811,
-        );
-        final guestSubscription = await subscribe(
-          state: guestState,
-          connectionId: 162,
-          requestId: 9812,
-        );
-        final anonymousSubscription = await subscribe(
-          state: anonymousState,
-          connectionId: 163,
-          requestId: 9813,
-        );
-
-        final publish =
-            publish_msg.Publish(
-                99011,
-                'com.filters.topic2',
-                arguments: const ['payload'],
+      final listener = _buildListener();
+      final publisherState =
+          createWorkerStateForTest(
+                listener: listener,
+                listenerSettings: routerSettings.listeners.first,
               )
-              ..options = publish_msg.PublishOptions(
-                eligibleAuthRole: ['member'],
-              );
+              as WorkerConnectionState;
+      publisherState
+        ..serializer = NativeMessageSerializer.json
+        ..phase = HandshakePhase.open
+        ..realmUri = 'realm1'
+        ..realmSettings = routerSettings.realms.first
+        ..sessionId = 9310;
 
+      final memberState =
+          createWorkerStateForTest(
+                listener: listener,
+                listenerSettings: routerSettings.listeners.first,
+              )
+              as WorkerConnectionState;
+      memberState
+        ..serializer = NativeMessageSerializer.json
+        ..phase = HandshakePhase.open
+        ..realmUri = 'realm1'
+        ..realmSettings = routerSettings.realms.first
+        ..sessionId = 9311;
+
+      final guestState =
+          createWorkerStateForTest(
+                listener: listener,
+                listenerSettings: routerSettings.listeners.first,
+              )
+              as WorkerConnectionState;
+      guestState
+        ..serializer = NativeMessageSerializer.json
+        ..phase = HandshakePhase.open
+        ..realmUri = 'realm1'
+        ..realmSettings = routerSettings.realms.first
+        ..sessionId = 9312;
+
+      final anonymousState =
+          createWorkerStateForTest(
+                listener: listener,
+                listenerSettings: routerSettings.listeners.first,
+              )
+              as WorkerConnectionState;
+      anonymousState
+        ..serializer = NativeMessageSerializer.json
+        ..phase = HandshakePhase.open
+        ..realmUri = 'realm1'
+        ..realmSettings = routerSettings.realms.first
+        ..sessionId = 9313;
+
+      _openSession(
+        stateStore,
+        sessionId: 9310,
+        listener: listener,
+        connectionId: 160,
+        authRole: 'publisher',
+      );
+      _openSession(
+        stateStore,
+        sessionId: 9311,
+        listener: listener,
+        connectionId: 161,
+        authRole: 'member',
+      );
+      _openSession(
+        stateStore,
+        sessionId: 9312,
+        listener: listener,
+        connectionId: 162,
+        authRole: 'guest',
+      );
+      _openSession(
+        stateStore,
+        sessionId: 9313,
+        listener: listener,
+        connectionId: 163,
+        authRole: null,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final realmContexts = RealmContextCache(
+        statePort: stateStore.commandPort,
+      );
+      addTearDown(realmContexts.dispose);
+
+      Future<int> subscribe({
+        required WorkerConnectionState state,
+        required int connectionId,
+        required int requestId,
+      }) async {
         await handleSessionMessageForTest(
           bossPort: bossPort.sendPort,
           statePort: stateStore.commandPort,
           realmContexts: realmContexts,
-          state: publisherState,
-          message: publish,
-          connectionId: 160,
+          state: state,
+          message: subscribe_msg.Subscribe(requestId, 'com.filters.topic2'),
+          connectionId: connectionId,
         );
         await Future<void>.delayed(Duration.zero);
+        final frame =
+            jsonDecode(
+                  utf8.decode(
+                    _extractWorkerSend(bossMessages)['payload'] as Uint8List,
+                  ),
+                )
+                as List<dynamic>;
+        bossMessages.clear();
+        return frame[2] as int;
+      }
 
-        final forwards = _extractForwardMessages(bossMessages);
-        expect(forwards, hasLength(1));
-        final forward = forwards.single;
-        expect(forward['connectionId'], equals(161));
-        final event = forward['message'] as event_msg.Event;
-        expect(event.subscriptionId, equals(memberSubscription));
-        expect(event.arguments, equals(['payload']));
+      final memberSubscription = await subscribe(
+        state: memberState,
+        connectionId: 161,
+        requestId: 9811,
+      );
+      final guestSubscription = await subscribe(
+        state: guestState,
+        connectionId: 162,
+        requestId: 9812,
+      );
+      final anonymousSubscription = await subscribe(
+        state: anonymousState,
+        connectionId: 163,
+        requestId: 9813,
+      );
 
-        final workerSends = _collectWorkerSends(bossMessages);
-        expect(workerSends, isEmpty);
+      final publish = publish_msg.Publish(
+        99011,
+        'com.filters.topic2',
+        arguments: const ['payload'],
+      )..options = publish_msg.PublishOptions(eligibleAuthRole: ['member']);
 
-        expect(guestSubscription, isNotNull);
-        expect(anonymousSubscription, isNotNull);
-      },
-    );
+      await handleSessionMessageForTest(
+        bossPort: bossPort.sendPort,
+        statePort: stateStore.commandPort,
+        realmContexts: realmContexts,
+        state: publisherState,
+        message: publish,
+        connectionId: 160,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final forwards = _extractForwardMessages(bossMessages);
+      expect(forwards, hasLength(1));
+      final forward = forwards.single;
+      expect(forward['connectionId'], equals(161));
+      final event = forward['message'] as event_msg.Event;
+      expect(event.subscriptionId, equals(memberSubscription));
+      expect(event.arguments, equals(['payload']));
+
+      final workerSends = _collectWorkerSends(bossMessages);
+      expect(workerSends, isEmpty);
+
+      expect(guestSubscription, isNotNull);
+      expect(anonymousSubscription, isNotNull);
+    });
   });
 }
 
@@ -6609,6 +6595,7 @@ RouterListener _buildListener() => RouterListener(
     maxRawSocketSizeExponent: 16,
   ),
   port: 8000,
+  http3Port: 0,
 );
 
 enum _ThrowMode { subscribe, register }

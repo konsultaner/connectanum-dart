@@ -1,19 +1,48 @@
 use std::ffi::CString;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
+use bytes::{Buf, Bytes};
+use futures_util::future;
+use h3::client;
+use h3_quinn::Connection as H3QuinnConnection;
+use http::Request;
+use quinn::{
+    ClientConfig as QuinnClientConfig, Endpoint as QuinnEndpoint, TransportConfig, VarInt,
+};
+use rcgen::generate_simple_self_signed;
+use rustls::pki_types::CertificateDer;
+use rustls::RootCertStore;
 use serde_json::json;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::runtime::Runtime as TokioRuntime;
 
+const HTTP2_PREFACE: &[u8] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
+
 use crate::runtime::constants::{
-    ERR_CONNECTION_NOT_FOUND, ERR_ENDPOINT_NOT_CONFIGURED, ERR_LISTENER_NOT_FOUND, SUCCESS,
+    ERR_CONNECTION_NOT_FOUND, ERR_ENDPOINT_NOT_CONFIGURED, ERR_INVALID_ARGUMENT,
+    ERR_LISTENER_NOT_FOUND, PROTOCOL_HTTP, PROTOCOL_HTTP2, PROTOCOL_HTTP3, PROTOCOL_RAWSOCKET,
+    PROTOCOL_WEBSOCKET, SUCCESS,
 };
 use crate::runtime::ffi::{
-    ct_apply_router_config, ct_connection_max_rawsocket_exponent, ct_get_local_port, ct_listen,
+    ct_apply_router_config, ct_connection_get_http3_connection,
+    ct_connection_max_rawsocket_exponent, ct_connection_protocol,
+    ct_connection_take_http2_handshake, ct_connection_take_http3_handshake,
+    ct_connection_take_http_handshake, ct_connection_take_websocket_handshake, ct_get_local_port,
+    ct_http2_handshake_get, ct_http2_handshake_listener_protocol, ct_http2_handshake_release,
+    ct_http3_connection_poll_request, ct_http3_connection_poll_stream, ct_http3_connection_release,
+    ct_http3_handshake_get, ct_http3_handshake_listener_protocol, ct_http3_handshake_release,
+    ct_http_body_get, ct_http_body_release, ct_http_handshake_body_retain, ct_http_handshake_get,
+    ct_http_handshake_header, ct_http_handshake_release, ct_http_response_send, ct_listen,
     ct_message_get, ct_message_release, ct_poll_connection, ct_poll_connection_message,
-    ct_set_on_connection, ct_set_on_listener_started, ct_shutdown, ct_start_runtime, CtMessageInfo,
+    ct_set_on_connection, ct_set_on_listener_started, ct_shutdown, ct_start_runtime,
+    ct_websocket_handshake_extension, ct_websocket_handshake_get, ct_websocket_handshake_protocol,
+    ct_websocket_handshake_release, CtHttp2HandshakeInfo, CtHttp3HandshakeInfo, CtHttpBodyView,
+    CtHttpHandshakeInfo, CtHttpHeader, CtMessageInfo, CtStringView, CtWebSocketHandshakeInfo,
 };
+
+#[cfg(feature = "ffi-test")]
+use crate::runtime::ffi::{ct_test_register_http3_connection, ct_test_register_http3_request};
 
 thread_local! {
     static LISTENER_EVENTS: Arc<Mutex<Vec<(i32, i32)>>> =
@@ -26,7 +55,18 @@ thread_local! {
 fn listener_callbacks_fire_and_connections_are_reported() {
     let _guard = super::test_guard();
     let config = CString::new(
-        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","max_rawsocket_size_exponent":30}]}"#,
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"native",
+                    "max_rawsocket_size_exponent":30
+                }
+            ]
+        }"#,
     )
     .unwrap();
     let bytes = config.as_bytes();
@@ -79,6 +119,7 @@ fn listener_callbacks_fire_and_connections_are_reported() {
 
     let poll_result = ct_poll_connection(listener_id);
     assert!(poll_result > 0);
+    assert_eq!(ct_connection_protocol(poll_result), PROTOCOL_RAWSOCKET);
     assert_eq!(
         ct_connection_max_rawsocket_exponent(poll_result),
         30,
@@ -97,6 +138,7 @@ fn listener_callbacks_fire_and_connections_are_reported() {
         ct_connection_max_rawsocket_exponent(9999),
         ERR_CONNECTION_NOT_FOUND
     );
+    assert_eq!(ct_connection_protocol(9999), ERR_CONNECTION_NOT_FOUND);
     assert_eq!(ct_shutdown(), SUCCESS);
 
     LISTENER_EVENTS.with(|events| events.lock().unwrap().clear());
@@ -107,7 +149,30 @@ fn listener_callbacks_fire_and_connections_are_reported() {
 fn poll_connection_message_returns_payload() {
     let _guard = super::test_guard();
     let config = CString::new(
-        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","max_rawsocket_size_exponent":16}]}"#,
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"native",
+                    "protocols":["rawsocket","http"],
+                    "http":{
+                        "alpn":["http/1.1"]
+                    },
+                    "http_routes":[
+                        {
+                            "path":"/health",
+                            "match_kind":"prefix",
+                            "methods":{
+                                "GET":{"type":"reserved_realm","append_method_suffix":true}
+                            }
+                        }
+                    ]
+                }
+            ]
+        }"#,
     )
     .unwrap();
     let bytes = config.as_bytes();
@@ -144,6 +209,7 @@ fn poll_connection_message_returns_payload() {
 
     let connection_id = ct_poll_connection(listener_id);
     assert!(connection_id > 0);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_RAWSOCKET);
 
     let handle = ct_poll_connection_message(connection_id);
     assert!(handle > 0);
@@ -176,6 +242,926 @@ fn poll_connection_message_returns_payload() {
     // Releasing twice should be a no-op.
     ct_message_release(handle);
 
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn http_handshake_surfaced_via_ffi() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","protocols":["rawsocket","http"],"http":{"alpn":["http/1.1"]},"http_routes":[{"path":"/health","match_kind":"prefix","methods":{"GET":{"type":"reserved_realm","append_method_suffix":true}}}]}]}"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let rt = TokioRuntime::new().unwrap();
+    rt.block_on(async move {
+        let addr = format!("127.0.0.1:{}", port);
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        stream
+            .write_all(b"GET /health?check=true HTTP/1.1\r\nHost: localhost\r\nX-Test: ffi\r\n\r\n")
+            .await
+            .unwrap();
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    });
+
+    let connection_id = ct_poll_connection(listener_id);
+    assert!(connection_id > 0);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP);
+
+    let handle = ct_connection_take_http_handshake(connection_id);
+    assert!(handle > 0);
+
+    // No additional requests should be pending yet.
+    assert_eq!(ct_connection_take_http_handshake(connection_id), 0);
+
+    let mut info = CtHttpHandshakeInfo::default();
+    assert_eq!(
+        ct_http_handshake_get(handle, &mut info as *mut CtHttpHandshakeInfo),
+        SUCCESS
+    );
+
+    unsafe {
+        let method =
+            std::str::from_utf8(std::slice::from_raw_parts(info.method_ptr, info.method_len))
+                .expect("method utf8");
+        assert_eq!(method, "GET");
+
+        let target =
+            std::str::from_utf8(std::slice::from_raw_parts(info.target_ptr, info.target_len))
+                .expect("target utf8");
+        assert_eq!(target, "/health?check=true");
+
+        let path = std::str::from_utf8(std::slice::from_raw_parts(info.path_ptr, info.path_len))
+            .expect("path utf8");
+        assert_eq!(path, "/health");
+
+        assert!(!info.query_ptr.is_null());
+        let query = std::str::from_utf8(std::slice::from_raw_parts(info.query_ptr, info.query_len))
+            .expect("query utf8");
+        assert_eq!(query, "check=true");
+
+        let protocol = std::str::from_utf8(std::slice::from_raw_parts(
+            info.protocol_ptr,
+            info.protocol_len,
+        ))
+        .expect("protocol utf8");
+        assert_eq!(protocol, "http/1.1");
+
+        assert!(!info.realm_ptr.is_null());
+        let realm = std::str::from_utf8(std::slice::from_raw_parts(info.realm_ptr, info.realm_len))
+            .expect("realm utf8");
+        assert_eq!(realm, "router.http");
+
+        assert!(!info.procedure_ptr.is_null());
+        let procedure = std::str::from_utf8(std::slice::from_raw_parts(
+            info.procedure_ptr,
+            info.procedure_len,
+        ))
+        .expect("procedure utf8");
+        assert_eq!(procedure, "health.get");
+
+        assert_eq!(info.version, 1);
+        assert_eq!(info.headers_len, 2);
+
+        let body = std::slice::from_raw_parts(info.body_ptr, info.body_len);
+        assert!(body.is_empty());
+    }
+
+    let mut header = CtHttpHeader::default();
+    assert_eq!(
+        ct_http_handshake_header(handle, 0, &mut header as *mut CtHttpHeader),
+        SUCCESS
+    );
+    unsafe {
+        let name =
+            std::str::from_utf8(std::slice::from_raw_parts(header.name_ptr, header.name_len))
+                .unwrap();
+        let value = std::str::from_utf8(std::slice::from_raw_parts(
+            header.value_ptr,
+            header.value_len,
+        ))
+        .unwrap();
+        assert_eq!(name.to_lowercase(), "host");
+        assert_eq!(value, "localhost");
+    }
+
+    assert_eq!(
+        ct_http_handshake_header(handle, 1, &mut header as *mut CtHttpHeader),
+        SUCCESS
+    );
+    unsafe {
+        let name =
+            std::str::from_utf8(std::slice::from_raw_parts(header.name_ptr, header.name_len))
+                .unwrap();
+        let value = std::str::from_utf8(std::slice::from_raw_parts(
+            header.value_ptr,
+            header.value_len,
+        ))
+        .unwrap();
+        assert_eq!(name.to_lowercase(), "x-test");
+        assert_eq!(value, "ffi");
+    }
+
+    assert_eq!(
+        ct_http_handshake_header(handle, 10, &mut header as *mut CtHttpHeader),
+        ERR_INVALID_ARGUMENT
+    );
+
+    let body_handle = ct_http_handshake_body_retain(handle);
+    assert!(
+        body_handle > 0,
+        "HTTP body handle should be available for retained requests"
+    );
+    let mut body_view = CtHttpBodyView::default();
+    assert_eq!(
+        ct_http_body_get(body_handle, &mut body_view as *mut CtHttpBodyView),
+        SUCCESS
+    );
+    assert_eq!(body_view.data_len, 0);
+    assert_eq!(ct_http_body_release(body_handle), SUCCESS);
+
+    assert_eq!(ct_http_handshake_release(handle), SUCCESS);
+    assert_eq!(
+        ct_http_handshake_release(handle),
+        SUCCESS,
+        "idempotent release"
+    );
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn http2_handshake_surfaced_via_ffi() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"native",
+                    "protocols":["rawsocket","http"],
+                    "http":{
+                        "alpn":["h2","http/1.1"]
+                    }
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let rt = TokioRuntime::new().unwrap();
+    rt.block_on(async move {
+        let addr = format!("127.0.0.1:{}", port);
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        stream
+            .write_all(HTTP2_PREFACE)
+            .await
+            .expect("preface write");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    });
+
+    let connection_id = ct_poll_connection(listener_id);
+    assert!(connection_id > 0);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP2);
+
+    let handle = ct_connection_take_http2_handshake(connection_id);
+    assert!(handle > 0);
+
+    let mut info = CtHttp2HandshakeInfo::default();
+    assert_eq!(
+        ct_http2_handshake_get(handle, &mut info as *mut CtHttp2HandshakeInfo),
+        SUCCESS
+    );
+    unsafe {
+        let protocol = std::str::from_utf8(std::slice::from_raw_parts(
+            info.protocol_ptr,
+            info.protocol_len,
+        ))
+        .unwrap();
+        assert_eq!(protocol, "http/2");
+        if info.alpn_len > 0 {
+            let alpn =
+                std::str::from_utf8(std::slice::from_raw_parts(info.alpn_ptr, info.alpn_len))
+                    .unwrap();
+            assert_eq!(alpn, "h2");
+        } else {
+            panic!("expected negotiated ALPN token");
+        }
+    }
+    assert_eq!(info.listener_protocols_len, 3);
+
+    let mut view = CtStringView::default();
+    assert_eq!(
+        ct_http2_handshake_listener_protocol(handle, 0, &mut view as *mut CtStringView),
+        SUCCESS
+    );
+    unsafe {
+        let value = std::str::from_utf8(std::slice::from_raw_parts(view.ptr, view.len)).unwrap();
+        assert_eq!(value, "rawsocket");
+    }
+    assert_eq!(
+        ct_http2_handshake_listener_protocol(handle, 1, &mut view as *mut CtStringView),
+        SUCCESS
+    );
+    unsafe {
+        let value = std::str::from_utf8(std::slice::from_raw_parts(view.ptr, view.len)).unwrap();
+        assert_eq!(value, "http");
+    }
+    assert_eq!(
+        ct_http2_handshake_listener_protocol(handle, 2, &mut view as *mut CtStringView),
+        SUCCESS
+    );
+    unsafe {
+        let value = std::str::from_utf8(std::slice::from_raw_parts(view.ptr, view.len)).unwrap();
+        assert_eq!(value, "http2");
+    }
+    assert_eq!(
+        ct_http2_handshake_listener_protocol(
+            handle,
+            info.listener_protocols_len,
+            &mut view as *mut CtStringView
+        ),
+        ERR_INVALID_ARGUMENT
+    );
+
+    assert_eq!(ct_http2_handshake_release(handle), SUCCESS);
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn http3_handshake_surfaced_via_ffi() {
+    let _guard = super::test_guard();
+    let certified =
+        generate_simple_self_signed(vec!["localhost".into(), "127.0.0.1".into()]).unwrap();
+    let cert_pem = certified.cert.pem();
+    let key_pem = certified.key_pair.serialize_pem();
+    let cert_der = certified.cert.der().to_vec();
+
+    let config_json = json!({
+        "schema":"connectanum.router",
+        "version":1,
+        "endpoints":[
+            {
+                "host":"127.0.0.1",
+                "port":0,
+                "tls_mode":"native",
+                "protocols":["rawsocket","http","http2","http3"],
+                "sni_certificates":[
+                    {
+                        "hostname":"localhost",
+                        "certificate_chain_pem":cert_pem,
+                        "private_key_pem":key_pem
+                    }
+                ],
+                "http":{
+                    "alpn":["http/1.1","h2","h3"],
+                    "http3":{"enabled":true}
+                },
+                "http_routes":[
+                    {
+                        "path":"/metrics",
+                        "methods":{
+                            "POST":{
+                                "type":"translation",
+                                "realm":"realm.metrics",
+                                "procedure":"connectanum.metrics.openmetrics"
+                            }
+                        }
+                    }
+                ]
+            }
+        ]
+    });
+    let config_string = config_json.to_string();
+    let config = CString::new(config_string).unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let rt = TokioRuntime::new().unwrap();
+    rt.block_on(async move {
+        let addr = format!("127.0.0.1:{}", port);
+        let server_addr = addr.parse().unwrap();
+
+        let mut roots = RootCertStore::empty();
+        roots
+            .add(CertificateDer::from(cert_der.clone()))
+            .expect("add root cert");
+        let mut client_config = QuinnClientConfig::with_root_certificates(Arc::new(roots)).unwrap();
+        client_config.transport_config(Arc::new(TransportConfig::default()));
+
+        let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+        endpoint.set_default_client_config(client_config);
+        let connection = endpoint
+            .connect(server_addr, "localhost")
+            .expect("connect http3");
+        let connection = connection.await.expect("http3 handshake");
+        connection.close(VarInt::from_u32(0), b"test");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    });
+
+    let connection_id = ct_poll_connection(listener_id);
+    assert!(connection_id > 0);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP3);
+
+    let handle = ct_connection_take_http3_handshake(connection_id);
+    assert!(handle > 0);
+
+    let mut info = CtHttp3HandshakeInfo::default();
+    assert_eq!(
+        ct_http3_handshake_get(handle, &mut info as *mut CtHttp3HandshakeInfo),
+        SUCCESS
+    );
+    unsafe {
+        let protocol = std::str::from_utf8(std::slice::from_raw_parts(
+            info.protocol_ptr,
+            info.protocol_len,
+        ))
+        .unwrap();
+        assert_eq!(protocol, "http/3");
+        if info.alpn_len > 0 {
+            let alpn =
+                std::str::from_utf8(std::slice::from_raw_parts(info.alpn_ptr, info.alpn_len))
+                    .unwrap();
+            assert_eq!(alpn, "h3");
+        }
+    }
+    assert_eq!(info.listener_protocols_len, 4);
+
+    let mut view = CtStringView::default();
+    for index in 0..info.listener_protocols_len {
+        assert_eq!(
+            ct_http3_handshake_listener_protocol(handle, index, &mut view as *mut CtStringView),
+            SUCCESS
+        );
+        unsafe {
+            let value =
+                std::str::from_utf8(std::slice::from_raw_parts(view.ptr, view.len)).unwrap();
+            assert!(!value.is_empty());
+        }
+    }
+    assert_eq!(
+        ct_http3_handshake_listener_protocol(
+            handle,
+            info.listener_protocols_len,
+            &mut view as *mut CtStringView,
+        ),
+        ERR_INVALID_ARGUMENT
+    );
+
+    let connection_handle = ct_connection_get_http3_connection(connection_id);
+    assert!(connection_handle > 0);
+    assert_eq!(ct_http3_connection_release(connection_handle), SUCCESS);
+
+    assert_eq!(ct_http3_handshake_release(handle), SUCCESS);
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn http3_stream_poll_returns_handle() {
+    let _guard = super::test_guard();
+    let certified =
+        generate_simple_self_signed(vec!["localhost".into(), "127.0.0.1".into()]).unwrap();
+    let cert_pem = certified.cert.pem();
+    let key_pem = certified.key_pair.serialize_pem();
+    let cert_der = certified.cert.der().to_vec();
+
+    let config_json = json!({
+        "schema":"connectanum.router",
+        "version":1,
+        "endpoints":[
+            {
+                "host":"127.0.0.1",
+                "port":0,
+                "tls_mode":"native",
+                "protocols":["rawsocket","http","http2","http3"],
+                "sni_certificates":[
+                    {
+                        "hostname":"localhost",
+                        "certificate_chain_pem":cert_pem,
+                        "private_key_pem":key_pem
+                    }
+                ],
+                "http":{
+                    "alpn":["http/1.1","h2","h3"],
+                    "http3":{"enabled":true},
+                    "routes":[
+                        {
+                            "match":{"path":"/metrics"},
+                            "default":{
+                                "type":"translation",
+                                "realm":"realm.metrics",
+                                "procedure":"connectanum.metrics.openmetrics"
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    });
+    let config_string = config_json.to_string();
+    let config = CString::new(config_string).unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let rt = TokioRuntime::new().unwrap();
+    rt.block_on(async move {
+        let addr = format!("127.0.0.1:{}", port);
+        let server_addr = addr.parse().unwrap();
+
+        let mut roots = RootCertStore::empty();
+        roots
+            .add(CertificateDer::from(cert_der.clone()))
+            .expect("add root cert");
+        let mut client_config = QuinnClientConfig::with_root_certificates(Arc::new(roots)).unwrap();
+        client_config.transport_config(Arc::new(TransportConfig::default()));
+
+        let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+        endpoint.set_default_client_config(client_config);
+        let connection = endpoint
+            .connect(server_addr, "localhost")
+            .expect("connect http3");
+        let connection = connection.await.expect("http3 handshake");
+        let (mut send, _recv) = connection.open_bi().await.expect("open bidi stream");
+        send.write_all(b"ping").await.expect("send ping");
+        send.finish().expect("finish stream");
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    });
+
+    let connection_id = ct_poll_connection(listener_id);
+    assert!(connection_id > 0);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP3);
+
+    let connection_handle = ct_connection_get_http3_connection(connection_id);
+    assert!(connection_handle > 0);
+    assert_eq!(ct_http3_connection_release(connection_handle), SUCCESS);
+
+    // Streams are no longer surfaced directly; poll should return 0.
+    let stream_handle = ct_http3_connection_poll_stream(connection_id);
+    assert_eq!(stream_handle, 0);
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[cfg(feature = "ffi-test")]
+#[test]
+fn http3_request_poll_returns_metadata() {
+    let _guard = super::test_guard();
+    let certified =
+        generate_simple_self_signed(vec!["localhost".into(), "127.0.0.1".into()]).unwrap();
+    let cert_pem = certified.cert.pem();
+    let key_pem = certified.key_pair.serialize_pem();
+
+    let config_json = json!({
+        "schema":"connectanum.router",
+        "version":1,
+        "endpoints":[
+            {
+                "host":"127.0.0.1",
+                "port":0,
+                "tls_mode":"native",
+                "protocols":["rawsocket","http","http2","http3"],
+                "sni_certificates":[
+                    {
+                        "hostname":"localhost",
+                        "certificate_chain_pem":cert_pem,
+                        "private_key_pem":key_pem
+                    }
+                ],
+                "http":{
+                    "alpn":["http/1.1","h2","h3"],
+                    "http3":{"enabled":true}
+                },
+                "http_routes":[
+                    {
+                        "path":"/metrics",
+                        "methods":{
+                            "POST":{
+                                "type":"translation",
+                                "realm":"realm.metrics",
+                                "procedure":"connectanum.metrics.openmetrics"
+                            }
+                        }
+                    }
+                ]
+            }
+        ]
+    });
+    let config_string = config_json.to_string();
+    let config = CString::new(config_string).unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let connection_id = 1234;
+    let protocol = CString::new("http/3").unwrap();
+    let alpn = CString::new("h3").unwrap();
+    let protocols = CString::new("rawsocket,http,http2,http3").unwrap();
+    assert_eq!(
+        ct_test_register_http3_connection(
+            listener_id,
+            connection_id,
+            protocol.as_ptr(),
+            alpn.as_ptr(),
+            protocols.as_ptr(),
+        ),
+        SUCCESS
+    );
+
+    let method = CString::new("GET").unwrap();
+    let target = CString::new("/metrics").unwrap();
+    let header_name = CString::new("accept").unwrap();
+    let header_value = CString::new("text/plain").unwrap();
+    let ct_header = CtHttpHeader {
+        name_ptr: header_name.as_ptr() as *const u8,
+        name_len: header_name.as_bytes().len(),
+        value_ptr: header_value.as_ptr() as *const u8,
+        value_len: header_value.as_bytes().len(),
+    };
+    let realm = CString::new("realm.metrics").unwrap();
+    let procedure = CString::new("connectanum.metrics.openmetrics").unwrap();
+    assert_eq!(
+        ct_test_register_http3_request(
+            listener_id,
+            connection_id,
+            method.as_ptr(),
+            target.as_ptr(),
+            protocol.as_ptr(),
+            &ct_header as *const CtHttpHeader,
+            1,
+            std::ptr::null(),
+            0,
+            realm.as_ptr(),
+            procedure.as_ptr(),
+        ),
+        SUCCESS
+    );
+
+    let handle = ct_http3_connection_poll_request(connection_id);
+    assert!(handle > 0);
+
+    let mut info = CtHttpHandshakeInfo::default();
+    assert_eq!(
+        ct_http_handshake_get(handle, &mut info as *mut CtHttpHandshakeInfo),
+        SUCCESS
+    );
+    unsafe {
+        let method_slice = std::slice::from_raw_parts(info.method_ptr, info.method_len);
+        assert_eq!(std::str::from_utf8(method_slice).unwrap(), "GET");
+        let path_slice = std::slice::from_raw_parts(info.path_ptr, info.path_len);
+        assert_eq!(std::str::from_utf8(path_slice).unwrap(), "/metrics");
+        let protocol_slice = std::slice::from_raw_parts(info.protocol_ptr, info.protocol_len);
+        assert_eq!(std::str::from_utf8(protocol_slice).unwrap(), "http/3");
+        let realm_slice = std::slice::from_raw_parts(info.realm_ptr, info.realm_len);
+        assert_eq!(std::str::from_utf8(realm_slice).unwrap(), "realm.metrics");
+    }
+    assert_eq!(ct_http_handshake_release(handle), SUCCESS);
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn http3_request_round_trip_over_network() {
+    let _guard = super::test_guard();
+    let certified =
+        generate_simple_self_signed(vec!["localhost".into(), "127.0.0.1".into()]).unwrap();
+    let cert_pem = certified.cert.pem();
+    let key_pem = certified.key_pair.serialize_pem();
+    let cert_der = certified.cert.der().to_vec();
+
+    let config_json = json!({
+        "schema":"connectanum.router",
+        "version":1,
+        "endpoints":[
+            {
+                "host":"127.0.0.1",
+                "port":0,
+                "tls_mode":"native",
+                "protocols":["rawsocket","http","http2","http3"],
+                "sni_certificates":[
+                    {
+                        "hostname":"localhost",
+                        "certificate_chain_pem":cert_pem,
+                        "private_key_pem":key_pem
+                    }
+                ],
+                "http":{
+                    "alpn":["http/1.1","h2","h3"],
+                    "http3":{"enabled":true}
+                },
+                "http_routes":[
+                    {
+                        "path":"/metrics",
+                        "methods":{
+                            "POST":{
+                                "type":"translation",
+                                "realm":"realm.metrics",
+                                "procedure":"connectanum.metrics.openmetrics"
+                            }
+                        }
+                    }
+                ]
+            }
+        ]
+    });
+    let config_string = config_json.to_string();
+    let config = CString::new(config_string).unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let (ready_tx, ready_rx) = std::sync::mpsc::channel();
+    let client_handle = std::thread::spawn(move || {
+        let rt = TokioRuntime::new().unwrap();
+        rt.block_on(async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let server_addr = addr.parse().unwrap();
+
+            let mut roots = RootCertStore::empty();
+            roots
+                .add(CertificateDer::from(cert_der.clone()))
+                .expect("add root cert");
+            let mut client_config =
+                QuinnClientConfig::with_root_certificates(Arc::new(roots)).unwrap();
+            client_config.transport_config(Arc::new(TransportConfig::default()));
+
+            let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+            endpoint.set_default_client_config(client_config);
+            let connecting = endpoint
+                .connect(server_addr, "localhost")
+                .expect("connect http3");
+            let connection = connecting.await.expect("http3 handshake");
+
+            let (mut driver, mut send_request) = client::builder()
+                .build::<_, _, Bytes>(H3QuinnConnection::new(connection))
+                .await
+                .expect("build h3 client");
+            tokio::spawn(async move {
+                let _ = future::poll_fn(|cx| driver.poll_close(cx)).await;
+            });
+
+            let request = Request::post("https://localhost/metrics").body(()).unwrap();
+            ready_tx.send(()).unwrap();
+            let mut stream = send_request
+                .send_request(request)
+                .await
+                .expect("send request");
+            stream.finish().await.expect("finish request");
+            let response = stream.recv_response().await.expect("recv response");
+            let mut body = Vec::new();
+            while let Some(chunk) = stream.recv_data().await.expect("recv body chunk") {
+                let data = chunk.chunk();
+                body.extend_from_slice(data);
+            }
+            (response.status().as_u16(), body)
+        })
+    });
+
+    ready_rx.recv().expect("client ready");
+
+    let connection_id = {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            let id = ct_poll_connection(listener_id);
+            if id > 0 {
+                break id;
+            }
+            if Instant::now() > deadline {
+                panic!("timed out waiting for HTTP/3 connection");
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    };
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP3);
+
+    let request_handle = {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            let handle = ct_http3_connection_poll_request(connection_id);
+            if handle > 0 {
+                break handle;
+            }
+            if Instant::now() > deadline {
+                panic!("timed out waiting for HTTP/3 request");
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    };
+    assert!(request_handle > 0);
+
+    let mut info = CtHttpHandshakeInfo::default();
+    assert_eq!(
+        ct_http_handshake_get(request_handle, &mut info as *mut CtHttpHandshakeInfo),
+        SUCCESS
+    );
+    unsafe {
+        let path = std::slice::from_raw_parts(info.path_ptr, info.path_len);
+        assert_eq!(std::str::from_utf8(path).unwrap(), "/metrics");
+        let protocol = std::slice::from_raw_parts(info.protocol_ptr, info.protocol_len);
+        assert_eq!(std::str::from_utf8(protocol).unwrap(), "http/3");
+    }
+
+    let body = b"{\"status\":\"ok\"}";
+    assert_eq!(
+        ct_http_response_send(
+            request_handle,
+            201,
+            std::ptr::null(),
+            0,
+            body.as_ptr(),
+            body.len(),
+        ),
+        SUCCESS
+    );
+
+    let (status, response_body) = client_handle.join().expect("client result");
+    assert_eq!(status, 201);
+    assert_eq!(response_body, body);
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn websocket_handshake_surfaced_via_ffi() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"native",
+                    "protocols":["rawsocket","websocket","http"],
+                    "http":{
+                        "alpn":["http/1.1"]
+                    }
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let rt = TokioRuntime::new().unwrap();
+    rt.block_on(async move {
+        let addr = format!("127.0.0.1:{}", port);
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        stream
+            .write_all(
+                b"GET /ws/chat HTTP/1.1\r\n\
+Host: localhost\r\n\
+Upgrade: websocket\r\n\
+Connection: Upgrade\r\n\
+Sec-WebSocket-Key: SGVsbG9OZkZJ\r\n\
+Sec-WebSocket-Version: 13\r\n\
+Sec-WebSocket-Protocol: wamp.2.json, wamp.2.cbor\r\n\
+Sec-WebSocket-Extensions: permessage-deflate\r\n\r\n",
+            )
+            .await
+            .unwrap();
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    });
+
+    let connection_id = ct_poll_connection(listener_id);
+    assert!(connection_id > 0);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_WEBSOCKET);
+
+    let handle = ct_connection_take_websocket_handshake(connection_id);
+    assert!(handle > 0);
+
+    let mut info = CtWebSocketHandshakeInfo::default();
+    assert_eq!(
+        ct_websocket_handshake_get(handle, &mut info as *mut CtWebSocketHandshakeInfo),
+        SUCCESS
+    );
+
+    unsafe {
+        let key =
+            std::str::from_utf8(std::slice::from_raw_parts(info.key_ptr, info.key_len)).unwrap();
+        assert_eq!(key, "SGVsbG9OZkZJ");
+
+        let method = std::str::from_utf8(std::slice::from_raw_parts(
+            info.http_info.method_ptr,
+            info.http_info.method_len,
+        ))
+        .unwrap();
+        assert_eq!(method, "GET");
+
+        let target = std::str::from_utf8(std::slice::from_raw_parts(
+            info.http_info.target_ptr,
+            info.http_info.target_len,
+        ))
+        .unwrap();
+        assert_eq!(target, "/ws/chat");
+    }
+    assert_eq!(info.protocols_len, 2);
+    assert_eq!(info.extensions_len, 1);
+
+    let mut view = CtStringView::default();
+    assert_eq!(
+        ct_websocket_handshake_protocol(handle, 0, &mut view as *mut CtStringView),
+        SUCCESS
+    );
+    unsafe {
+        let value = std::str::from_utf8(std::slice::from_raw_parts(view.ptr, view.len)).unwrap();
+        assert_eq!(value, "wamp.2.json");
+    }
+
+    assert_eq!(
+        ct_websocket_handshake_extension(handle, 0, &mut view as *mut CtStringView),
+        SUCCESS
+    );
+    unsafe {
+        let value = std::str::from_utf8(std::slice::from_raw_parts(view.ptr, view.len)).unwrap();
+        assert_eq!(value, "permessage-deflate");
+    }
+
+    assert_eq!(
+        ct_websocket_handshake_protocol(handle, 5, &mut view as *mut CtStringView),
+        ERR_INVALID_ARGUMENT
+    );
+
+    assert_eq!(ct_websocket_handshake_release(handle), SUCCESS);
     assert_eq!(ct_shutdown(), SUCCESS);
 }
 

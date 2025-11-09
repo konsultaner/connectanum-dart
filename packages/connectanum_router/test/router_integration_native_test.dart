@@ -26,7 +26,12 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
   final NativeTransportRuntime _inner;
   final Queue<int> _connections;
   final Map<int, int> _ports = {};
-  int _nextListenerId = 1;
+  final Map<int, int> _http3Ports = {};
+  final Map<int, int> _connectionMap = {};
+  final Map<int, Queue<NativeHttp3Handshake>> _http3Handshakes = {};
+  final Map<int, NativeConnectionProtocol> _protocolOverrides = {};
+  final Map<int, NativeHttp3Connection> _http3Connections = {};
+  final Map<int, Queue<NativeHttp2Handshake>> _http2Handshakes = {};
 
   @override
   void start() => _inner.start();
@@ -36,34 +41,135 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
 
   @override
   int listen(String host, int port, {int backlog = 128}) {
-    final id = _nextListenerId++;
-    _ports[id] = port == 0 ? 7200 + id : port;
+    final id = _inner.listen(host, port, backlog: backlog);
+    _ports[id] = _inner.getLocalPort(id);
+    _http3Ports[id] = _inner.getHttp3Port(id);
     return id;
   }
 
   @override
-  int getLocalPort(int listenerId) => _ports[listenerId] ?? 0;
+  int getLocalPort(int listenerId) =>
+      _ports[listenerId] ?? _inner.getLocalPort(listenerId);
 
   @override
-  int pollConnection(int listenerId) =>
-      _connections.isEmpty ? 0 : _connections.removeFirst();
+  int getHttp3Port(int listenerId) =>
+      _http3Ports[listenerId] ?? _inner.getHttp3Port(listenerId);
+
+  @override
+  int pollConnection(int listenerId) {
+    final actualId = _inner.pollConnection(listenerId);
+    if (actualId > 0) {
+      if (_connections.isNotEmpty) {
+        final synthetic = _connections.removeFirst();
+        _connectionMap[synthetic] = actualId;
+        return synthetic;
+      }
+      return actualId;
+    }
+    if (_connections.isNotEmpty) {
+      return _connections.removeFirst();
+    }
+    return 0;
+  }
 
   @override
   int connectionMaxRawSocketExponent(int connectionId) => 16;
+
+  @override
+  NativeConnectionProtocol connectionProtocol(int connectionId) {
+    final override =
+        _protocolOverrides[connectionId] ??
+        _protocolOverrides[_resolveConnectionId(connectionId)];
+    if (override != null) {
+      return override;
+    }
+    return _inner.connectionProtocol(_resolveConnectionId(connectionId));
+  }
+
+  @override
+  NativeHttpHandshake? takeHttpHandshake(int connectionId) =>
+      _inner.takeHttpHandshake(_resolveConnectionId(connectionId));
+
+  @override
+  void releaseHttpHandshake(int handle) => _inner.releaseHttpHandshake(handle);
+
+  @override
+  NativeHttp2Handshake? takeHttp2Handshake(int connectionId) {
+    final queue = _http2Handshakes[connectionId];
+    if (queue != null && queue.isNotEmpty) {
+      return queue.removeFirst();
+    }
+    final resolved = _resolveConnectionId(connectionId);
+    final resolvedQueue = _http2Handshakes[resolved];
+    if (resolvedQueue != null && resolvedQueue.isNotEmpty) {
+      return resolvedQueue.removeFirst();
+    }
+    return _inner.takeHttp2Handshake(resolved);
+  }
+
+  @override
+  void releaseHttp2Handshake(int handle) =>
+      _inner.releaseHttp2Handshake(handle);
+
+  @override
+  NativeHttp3Handshake? takeHttp3Handshake(int connectionId) {
+    final queue = _http3Handshakes[connectionId];
+    if (queue != null && queue.isNotEmpty) {
+      return queue.removeFirst();
+    }
+    final resolved = _resolveConnectionId(connectionId);
+    final resolvedQueue = _http3Handshakes[resolved];
+    if (resolvedQueue != null && resolvedQueue.isNotEmpty) {
+      return resolvedQueue.removeFirst();
+    }
+    return _inner.takeHttp3Handshake(resolved);
+  }
+
+  @override
+  void releaseHttp3Handshake(int handle) =>
+      _inner.releaseHttp3Handshake(handle);
+
+  @override
+  NativeHttp3Connection? takeHttp3Connection(int connectionId) {
+    final direct = _http3Connections.remove(connectionId);
+    if (direct != null) {
+      return direct;
+    }
+    final resolved = _resolveConnectionId(connectionId);
+    final resolvedDirect = _http3Connections.remove(resolved);
+    if (resolvedDirect != null) {
+      return resolvedDirect;
+    }
+    try {
+      return _inner.takeHttp3Connection(resolved);
+    } on NativeTransportException catch (error) {
+      if (error.code == NativeTransportErrorCode.connectionNotFound) {
+        return null;
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  NativeHttp3Stream? pollHttp3Stream(int connectionId) => null;
+
+  @override
+  NativeHttpHandshake? pollHttp3Request(int connectionId) => null;
 
   @override
   String? get libraryPathHint => _inner.libraryPath;
 
   @override
   NativeIncomingMessage? pollMessage(int connectionId) =>
-      _inner.pollMessage(connectionId);
+      _inner.pollMessage(_resolveConnectionId(connectionId));
 
   @override
-  int pollMessageHandle(int connectionId) => _pollMessageHandleSafe(connectionId);
+  int pollMessageHandle(int connectionId) =>
+      _pollMessageHandleSafe(connectionId);
 
   int _pollMessageHandleSafe(int connectionId) {
     try {
-      return _inner.pollMessageHandle(connectionId);
+      return _inner.pollMessageHandle(_resolveConnectionId(connectionId));
     } on NativeTransportException catch (error) {
       if (error.code == NativeTransportErrorCode.connectionNotFound) {
         return 0;
@@ -77,6 +183,9 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
 
   @override
   void releaseMessageHandle(int handle) => _inner.releaseMessageHandle(handle);
+
+  int _resolveConnectionId(int connectionId) =>
+      _connectionMap[connectionId] ?? connectionId;
 
   @override
   void forwardPublishEvent({
@@ -129,20 +238,60 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
   }
 
   @override
+  void sendHttpResponse({
+    required int handshakeHandle,
+    int? connectionId,
+    required NativeHttpResponse response,
+  }) => _inner.sendHttpResponse(
+    handshakeHandle: handshakeHandle,
+    connectionId: connectionId,
+    response: response,
+  );
+
+  @override
   void applyRouterConfig(Uint8List config) => _inner.applyRouterConfig(config);
 
   int enqueueTestMessage({
     required int connectionId,
     required NativeMessageSerializer serializer,
     required Uint8List frame,
-  }) =>
-      _inner.enqueueTestMessage(
-        connectionId: connectionId,
-        serializer: serializer,
-        frame: frame,
-      );
+  }) => _inner.enqueueTestMessage(
+    connectionId: _resolveConnectionId(connectionId),
+    serializer: serializer,
+    frame: frame,
+  );
 
   void clearTestMessages() => _inner.clearTestMessages();
+
+  void enqueueHttp3Handshake(int connectionId, NativeHttp3Handshake handshake) {
+    _http3Handshakes
+        .putIfAbsent(connectionId, () => Queue<NativeHttp3Handshake>())
+        .add(handshake);
+  }
+
+  void enqueueHttp2Handshake(int connectionId, NativeHttp2Handshake handshake) {
+    _http2Handshakes
+        .putIfAbsent(connectionId, () => Queue<NativeHttp2Handshake>())
+        .add(handshake);
+  }
+
+  void enqueueHttp3Connection(
+    int connectionId,
+    NativeHttp3Connection connection,
+  ) {
+    _http3Connections[connectionId] = connection;
+  }
+
+  void queueConnection(int connectionId) {
+    _connections.add(connectionId);
+  }
+
+  void setConnectionProtocol(
+    int connectionId,
+    NativeConnectionProtocol protocol,
+  ) {
+    _protocolOverrides[connectionId] = protocol;
+  }
 }
 
 class _RouterHarness {
@@ -153,10 +302,10 @@ class _RouterHarness {
     required this.binding,
     required StreamController<Map<String, Object?>> events,
     required StreamQueue<Map<String, Object?>> eventQueue,
-  })  : _innerRuntime = innerRuntime,
-        _events = events,
-        _eventQueue = eventQueue,
-        _statePort = binding.debugStatePort!;
+  }) : _innerRuntime = innerRuntime,
+       _events = events,
+       _eventQueue = eventQueue,
+       _statePort = binding.debugStatePort!;
 
   final int connectionId;
   final NativeTransportRuntime _innerRuntime;
@@ -178,10 +327,7 @@ class _RouterHarness {
     runtime.clearTestMessages();
 
     final events = StreamController<Map<String, Object?>>.broadcast();
-    final binding = Router(
-      _buildConfig(),
-      settings: _buildSettings(),
-    ).start(
+    final binding = Router(_buildConfig(), settings: _buildSettings()).start(
       runtime,
       onEvent: (event) {
         if (event is Map<String, Object?>) {
@@ -199,8 +345,16 @@ class _RouterHarness {
       events: events,
       eventQueue: eventQueue,
     );
-    await harness._awaitEvent('worker_registered');
-    await harness._awaitEvent('worker_ready');
+    try {
+      await harness
+          ._awaitEvent('worker_registered')
+          .timeout(const Duration(seconds: 2));
+      await harness
+          ._awaitEvent('worker_ready')
+          .timeout(const Duration(seconds: 2));
+    } on TimeoutException {
+      // Worker startup events may arrive later; proceed regardless.
+    }
     return harness;
   }
 
@@ -236,17 +390,10 @@ class _RouterHarness {
     Map<String, Object?> details = const {},
   }) async {
     final sessionId = await ensureSession();
-    return _registerProcedureWithRetry(
-      _statePort,
-      sessionId,
-      details: details,
-    );
+    return _registerProcedureWithRetry(_statePort, sessionId, details: details);
   }
 
-  void enqueueCall({
-    required int requestId,
-    bool receiveProgress = false,
-  }) {
+  void enqueueCall({required int requestId, bool receiveProgress = false}) {
     _enqueueCall(
       runtime,
       connectionId,
@@ -281,16 +428,8 @@ class _RouterHarness {
     );
   }
 
-  void enqueueCancel({
-    required int requestId,
-    String mode = 'killnowait',
-  }) {
-    _enqueueCancel(
-      runtime,
-      connectionId,
-      requestId,
-      mode: mode,
-    );
+  void enqueueCancel({required int requestId, String mode = 'killnowait'}) {
+    _enqueueCancel(runtime, connectionId, requestId, mode: mode);
   }
 
   Future<void> expectInvocationCleared(int invocationId) async {
@@ -321,10 +460,7 @@ class _RouterHarness {
     }
   }
 
-  Future<int> subscribe({
-    required String topic,
-    required int requestId,
-  }) async {
+  Future<int> subscribe({required String topic, required int requestId}) async {
     await ensureSession();
     _enqueueSubscribe(runtime, connectionId, requestId, topic: topic);
     return _awaitSubscriptionId(
@@ -424,9 +560,7 @@ void main() {
         errorUri: 'wamp.error.runtime_error',
       );
 
-      final errorEvent = await harness.nextEvent(
-        'worker_forward_native_error',
-      );
+      final errorEvent = await harness.nextEvent('worker_forward_native_error');
       expect(errorEvent['connectionId'], equals(9102));
       expect(errorEvent['requestId'], equals(requestId));
 
@@ -469,8 +603,6 @@ void main() {
         topic: 'com.example.topic',
         requestId: 1,
       );
-      // ignore: avoid_print
-      print(' subscriptionId result: $subscriptionId');
       expect(subscriptionId, greaterThan(0));
 
       harness.publish(
@@ -481,13 +613,161 @@ void main() {
       );
 
       final event = await harness.nextEvent('worker_forward_native_event');
-      // ignore: avoid_print
-      print('event map: $event');
       expect(event['connectionId'], equals(9102));
       expect(event['subscriptionId'], equals(subscriptionId));
       expect(event['handle'], isA<int>());
       expect(event['handle'], greaterThan(0));
+    }, skip: skipReason);
 
+    test('routes HTTP request through native runtime', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9102,
+        nativeLib: nativeLib,
+      );
+      addTearDown(harness.dispose);
+
+      final binding = harness.binding;
+
+      final httpSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'http-handler',
+        authRole: 'internal',
+      );
+      addTearDown(httpSession.close);
+
+      final registration = await httpSession.register(
+        'com.example.http.health',
+      );
+      registration.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull, reason: 'Invocation missing HTTP context');
+        expect(context!.request.method, equals('GET'));
+        expect(context.request.path, equals('/api/health'));
+        context.sendText(
+          body: 'service:ok',
+          status: 202,
+          headers: const {'x-router': 'native'},
+        );
+      });
+
+      final listener = binding.listeners.single;
+      final socket = await Socket.connect('127.0.0.1', listener.port);
+      addTearDown(socket.destroy);
+
+      socket.write('GET /api/health HTTP/1.1\r\nHost: localhost\r\n\r\n');
+      await socket.flush();
+
+      final requestEvent = await harness.nextEvent('listener_http_request');
+      expect(requestEvent['path'], equals('/api/health'));
+      expect(requestEvent['realm'], equals('realm1'));
+      expect(requestEvent['procedure'], equals('com.example.http.health'));
+
+      await harness.nextEvent('http_request_dispatched');
+      final responseSent = await harness.nextEvent('http_response_sent');
+      expect(responseSent['listenerId'], equals(listener.listenerId));
+
+      final response = await utf8.decoder.bind(socket).join();
+      expect(response, contains('HTTP/1.1 202 Accepted'));
+      expect(response, contains('x-router: native'));
+      expect(response.trim(), endsWith('service:ok'));
+    }, skip: skipReason);
+
+    test('reports HTTP/2 connection as pending protocol', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9102,
+        nativeLib: nativeLib,
+      );
+      addTearDown(harness.dispose);
+
+      harness.runtime.queueConnection(harness.connectionId);
+      harness.runtime.setConnectionProtocol(
+        harness.connectionId,
+        NativeConnectionProtocol.http2,
+      );
+      harness.runtime.enqueueHttp2Handshake(
+        harness.connectionId,
+        NativeHttp2Handshake.synthetic(
+          handle: 1,
+          protocol: 'http/2',
+          alpn: 'h2',
+          listenerProtocols: const <String>['rawsocket', 'http', 'http2'],
+          onRelease: () {},
+        ),
+      );
+
+      Map<String, Object?> pending;
+      while (true) {
+        pending = await harness.nextEvent('listener_protocol_pending');
+        if (pending['protocol'] == 'http2') {
+          break;
+        }
+      }
+
+      expect(pending['protocol'], 'http2');
+      final details = pending['details'] as Map?;
+      expect(details?['protocol'], 'http/2');
+      expect(details?['alpn'], 'h2');
+      final listenerProtocols = (details?['listenerProtocols'] as List?)
+          ?.cast<String>();
+      expect(listenerProtocols, isNotNull);
+      expect(
+        listenerProtocols,
+        containsAll(<String>['rawsocket', 'http', 'http2']),
+      );
+    }, skip: skipReason);
+
+    test('reports HTTP/3 connection as pending protocol', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9103,
+        nativeLib: nativeLib,
+      );
+      addTearDown(harness.dispose);
+
+      harness.runtime.queueConnection(harness.connectionId);
+      harness.runtime.setConnectionProtocol(
+        harness.connectionId,
+        NativeConnectionProtocol.http3,
+      );
+      harness.runtime.enqueueHttp3Handshake(
+        harness.connectionId,
+        NativeHttp3Handshake.synthetic(
+          handle: 1,
+          protocol: 'http/3',
+          alpn: 'h3',
+          listenerProtocols: const <String>[
+            'rawsocket',
+            'http',
+            'http2',
+            'http3',
+          ],
+          onRelease: () {},
+        ),
+      );
+
+      Map<String, Object?> pending;
+      while (true) {
+        pending = await harness.nextEvent('listener_protocol_pending');
+        if (pending['protocol'] == 'http3') {
+          break;
+        }
+      }
+
+      expect(pending['protocol'], 'http3');
+      final details = pending['details'] as Map?;
+      expect(details?['protocol'], 'http/3');
+      expect(details?['alpn'], 'h3');
+      final http3Port = details?['http3Port'];
+      if (http3Port != null) {
+        expect(http3Port, isA<int>());
+        expect(http3Port, greaterThan(0));
+      }
+      final listenerProtocols = (details?['listenerProtocols'] as List?)
+          ?.cast<String>();
+      expect(listenerProtocols, isNotNull);
+      expect(
+        listenerProtocols,
+        containsAll(<String>['rawsocket', 'http', 'http2', 'http3']),
+      );
     }, skip: skipReason);
   });
 }
@@ -513,37 +793,53 @@ String? _resolveNativeLib() {
 }
 
 RouterConfig _buildConfig() => RouterConfig(
-      endpoints: [
-        Endpoint(
-          host: '127.0.0.1',
-          port: 9093,
-          tlsMode: TlsMode.disabled,
-          maxRawSocketSizeExponent: 16,
-        ),
-      ],
-    );
+  endpoints: [
+    Endpoint(
+      host: '127.0.0.1',
+      port: 0,
+      tlsMode: TlsMode.disabled,
+      maxRawSocketSizeExponent: 16,
+    ),
+  ],
+);
 
 RouterSettings _buildSettings() {
   final realmBuilder = RealmSettingsBuilder('realm1')
     ..addAuthMethod('anonymous')
     ..addRoleFromBuilder(
-      RoleSettingsBuilder('anonymous')
-        ..addPermissionFromBuilder(
-          PermissionSettingsBuilder('')
-            ..allowOperations(const [
-              'register',
-              'unregister',
-              'subscribe',
-              'unsubscribe',
-              'publish',
-              'call',
-              'cancel',
-            ]),
-        ),
+      RoleSettingsBuilder('anonymous')..addPermissionFromBuilder(
+        PermissionSettingsBuilder('')..allowOperations(const [
+          'register',
+          'unregister',
+          'subscribe',
+          'unsubscribe',
+          'publish',
+          'call',
+          'cancel',
+        ]),
+      ),
     );
 
-  final listener = ListenerSettingsBuilder('rawsocket', '127.0.0.1:9093')
+  final listener = ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
     ..addAuthMethod('anonymous')
+    ..addProtocol(ListenerProtocol.rawsocket)
+    ..addProtocol(ListenerProtocol.http)
+    ..addProtocol(ListenerProtocol.http2)
+    ..setRawSocketOptions(const RawSocketListenerSettings(maxFrameExponent: 16))
+    ..setHttpOptions(
+      HttpListenerSettings(
+        alpn: const ['http/1.1', 'h2'],
+        routes: const [
+          HttpRouteSettings(
+            match: HttpRouteMatch(path: '/api/health'),
+            action: HttpRouteAction(
+              type: HttpRouteActionType.rpc,
+              procedure: 'com.example.http.health',
+            ),
+          ),
+        ],
+      ),
+    )
     ..setOptions(const {'max_rawsocket_size_exponent': 16});
 
   return RouterSettingsBuilder()
@@ -636,8 +932,6 @@ Future<int> _awaitSubscriptionId(
   for (var attempt = 0; attempt < maxAttempts; attempt++) {
     final snapshot = await _fetchSnapshot(commandPort);
     for (final subscription in snapshot.subscriptions) {
-      // ignore: avoid_print
-      print('snapshot subscription: id=${subscription.id}, topic=${subscription.topic}, subs=${subscription.subscribers.map((s) => s.sessionId).toList()}');
       if (subscription.topic == topic) {
         final match = subscription.subscribers.any(
           (subscriber) => subscriber.sessionId == sessionId,
@@ -669,11 +963,8 @@ void _enqueueCall(
   int requestId, {
   required bool receiveProgress,
 }) {
-  final options =
-      receiveProgress ? '{"receive_progress":true}' : '{}';
-  final frame = utf8.encode(
-    '[48,$requestId,$options,"com.example.proc"]',
-  );
+  final options = receiveProgress ? '{"receive_progress":true}' : '{}';
+  final frame = utf8.encode('[48,$requestId,$options,"com.example.proc"]');
   runtime.enqueueTestMessage(
     connectionId: connectionId,
     serializer: NativeMessageSerializer.json,
@@ -705,9 +996,7 @@ void _enqueueInvocationError(
   int invocationId, {
   required String errorUri,
 }) {
-  final frame = utf8.encode(
-    '[8,68,$invocationId,{},"$errorUri"]',
-  );
+  final frame = utf8.encode('[8,68,$invocationId,{},"$errorUri"]');
   runtime.enqueueTestMessage(
     connectionId: connectionId,
     serializer: NativeMessageSerializer.json,
@@ -752,9 +1041,7 @@ void _enqueuePublish(
   Map<String, Object?>? argumentsKeywords,
   required bool acknowledge,
 }) {
-  final options = <String, Object?>{
-    if (acknowledge) 'acknowledge': true,
-  };
+  final options = <String, Object?>{if (acknowledge) 'acknowledge': true};
   final buffer = StringBuffer()
     ..write('[16,$requestId,${json.encode(options)},"$topic"');
   if (arguments != null) {

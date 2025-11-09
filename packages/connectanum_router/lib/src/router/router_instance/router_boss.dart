@@ -10,11 +10,13 @@ class _RouterBoss {
     required this.libraryPathHint,
     required this.settings,
     this.onEvent,
+    this.onHttpRequest,
   }) : _eventPort = ReceivePort(),
        _stateStore = RouterStateStore(settings: settings) {
     for (final listener in listeners) {
       _listenerById[listener.listenerId] = listener;
     }
+    _emitProtocolAnnouncements();
     _eventSubscription = _eventPort.listen(_handleEvent);
     _stateStore.events.listen(_handleStateEvent);
     _stateStore.start();
@@ -27,6 +29,11 @@ class _RouterBoss {
   final String? libraryPathHint;
   final RouterSettings settings;
   final void Function(Object event)? onEvent;
+  final Future<void> Function(
+    RouterHttpRequest request,
+    NativeHttpHandshake? handshake,
+  )?
+  onHttpRequest;
 
   final ReceivePort _eventPort;
   late final StreamSubscription<dynamic> _eventSubscription;
@@ -34,12 +41,39 @@ class _RouterBoss {
   final List<_WorkerHandle> _workers = [];
   final Map<int, _WorkerHandle> _connectionOwners = {};
   final Map<int, Isolate> _pendingIsolates = {};
+  final Map<int, NativeHttp3Connection> _http3Connections = {};
+  final Map<int, RouterListener> _http3ConnectionListeners = {};
   final RouterStateStore _stateStore;
   bool _running = false;
   bool _stopping = false;
   Future<void>? _loopFuture;
   int _nextWorkerIndex = 0;
   int _nextWorkerId = 1;
+
+  SendPort get stateCommandPort => _stateStore.commandPort;
+
+  void _emitProtocolAnnouncements() {
+    for (final listener in listeners) {
+      final settings = listener.settings;
+      if (settings == null) {
+        continue;
+      }
+      final unsupported = settings.protocols
+          .where((protocol) => protocol != ListenerProtocol.rawsocket)
+          .map(listenerProtocolToString)
+          .toList(growable: false);
+      if (unsupported.isEmpty) {
+        continue;
+      }
+      onEvent?.call({
+        'source': 'boss',
+        'type': 'listener_protocol_pending',
+        'listenerId': listener.listenerId,
+        'endpoint': '${listener.endpoint.host}:${listener.endpoint.port}',
+        'protocols': unsupported,
+      });
+    }
+  }
 
   void start() {
     if (_running) {
@@ -85,6 +119,13 @@ class _RouterBoss {
     _workers.clear();
     _pendingIsolates.clear();
     _connectionOwners.clear();
+    if (_http3Connections.isNotEmpty) {
+      final connections = _http3Connections.values.toList(growable: false);
+      _http3Connections.clear();
+      for (final connection in connections) {
+        connection.release();
+      }
+    }
   }
 
   Future<void> _loop() async {
@@ -93,6 +134,7 @@ class _RouterBoss {
         await _acceptConnections(listener);
       }
       _dispatchMessages();
+      _drainHttp3Requests();
       await Future<void>.delayed(pollInterval);
     }
   }
@@ -100,6 +142,7 @@ class _RouterBoss {
   Future<void> _acceptConnections(RouterListener listener) async {
     while (_running) {
       int connectionId;
+      NativeConnectionProtocol protocol;
       try {
         connectionId = runtime.pollConnection(listener.listenerId);
       } on NativeTransportException catch (error) {
@@ -113,6 +156,100 @@ class _RouterBoss {
       }
       if (connectionId == 0) {
         break;
+      }
+      try {
+        protocol = runtime.connectionProtocol(connectionId);
+      } on NativeTransportException catch (error) {
+        onEvent?.call({
+          'source': 'boss',
+          'type': 'boss_error',
+          'listenerId': listener.listenerId,
+          'connectionId': connectionId,
+          'error': error.toString(),
+        });
+        protocol = NativeConnectionProtocol.rawsocket;
+      }
+
+      if (protocol != NativeConnectionProtocol.rawsocket) {
+        if (protocol == NativeConnectionProtocol.http) {
+          final handshake = runtime.takeHttpHandshake(connectionId);
+          if (handshake != null) {
+            _processHttpHandshake(listener, connectionId, protocol, handshake);
+          } else {
+            onEvent?.call({
+              'source': 'boss',
+              'type': 'listener_http_request_missing',
+              'listenerId': listener.listenerId,
+              'connectionId': connectionId,
+            });
+          }
+        } else if (protocol == NativeConnectionProtocol.http2) {
+          final handshake = runtime.takeHttp2Handshake(connectionId);
+          final details = <String, Object?>{
+            'protocol': handshake?.protocol ?? 'http/2',
+          };
+          if (handshake != null) {
+            final alpn = handshake.alpn;
+            if (alpn != null && alpn.isNotEmpty) {
+              details['alpn'] = alpn;
+            }
+            if (handshake.listenerProtocols.isNotEmpty) {
+              details['listenerProtocols'] = handshake.listenerProtocols;
+            }
+            handshake.release();
+          }
+          onEvent?.call({
+            'source': 'binding',
+            'type': 'listener_protocol_pending',
+            'listenerId': listener.listenerId,
+            'endpoint': '${listener.endpoint.host}:${listener.endpoint.port}',
+            'connectionId': connectionId,
+            'protocol': _protocolName(protocol),
+            'details': details,
+          });
+        } else if (protocol == NativeConnectionProtocol.http3) {
+          final handshake = runtime.takeHttp3Handshake(connectionId);
+          final details = <String, Object?>{
+            'protocol': handshake?.protocol ?? 'http/3',
+          };
+          if (listener.http3Port > 0) {
+            details['http3Port'] = listener.http3Port;
+          }
+          final connectionHandle = runtime.takeHttp3Connection(connectionId);
+          if (connectionHandle != null) {
+            _replaceHttp3Connection(connectionId, connectionHandle);
+          }
+          _http3ConnectionListeners[connectionId] = listener;
+          if (handshake != null) {
+            final alpn = handshake.alpn;
+            if (alpn != null && alpn.isNotEmpty) {
+              details['alpn'] = alpn;
+            }
+            if (handshake.listenerProtocols.isNotEmpty) {
+              details['listenerProtocols'] = handshake.listenerProtocols;
+            }
+            handshake.release();
+          }
+          onEvent?.call({
+            'source': 'binding',
+            'type': 'listener_protocol_pending',
+            'listenerId': listener.listenerId,
+            'endpoint': '${listener.endpoint.host}:${listener.endpoint.port}',
+            'connectionId': connectionId,
+            'protocol': _protocolName(protocol),
+            'details': details,
+          });
+        } else {
+          onEvent?.call({
+            'source': 'binding',
+            'type': 'listener_protocol_pending',
+            'listenerId': listener.listenerId,
+            'endpoint': '${listener.endpoint.host}:${listener.endpoint.port}',
+            'connectionId': connectionId,
+            'protocol': _protocolName(protocol),
+          });
+        }
+        continue;
       }
       await _assignConnection(listener, connectionId);
     }
@@ -140,6 +277,21 @@ class _RouterBoss {
       listener.listenerId,
       connectionId,
     ]);
+  }
+
+  String _protocolName(NativeConnectionProtocol protocol) {
+    switch (protocol) {
+      case NativeConnectionProtocol.rawsocket:
+        return 'rawsocket';
+      case NativeConnectionProtocol.websocket:
+        return 'websocket';
+      case NativeConnectionProtocol.http:
+        return 'http';
+      case NativeConnectionProtocol.http2:
+        return 'http2';
+      case NativeConnectionProtocol.http3:
+        return 'http3';
+    }
   }
 
   _WorkerHandle? _chooseWorker() {
@@ -211,6 +363,118 @@ class _RouterBoss {
     }
   }
 
+  void _drainHttp3Requests() {
+    if (_http3ConnectionListeners.isEmpty) {
+      return;
+    }
+    final connectionIds = List<int>.from(_http3ConnectionListeners.keys);
+    for (final connectionId in connectionIds) {
+      while (true) {
+        NativeHttpHandshake? handshake;
+        try {
+          handshake = runtime.pollHttp3Request(connectionId);
+        } on NativeTransportException catch (error) {
+          onEvent?.call({
+            'source': 'boss',
+            'type': 'boss_error',
+            'connectionId': connectionId,
+            'error': error.toString(),
+          });
+          if (error.code == NativeTransportErrorCode.connectionNotFound) {
+            _releaseHttp3Connection(connectionId);
+          }
+          break;
+        }
+        if (handshake == null) {
+          break;
+        }
+        final listener = _http3ConnectionListeners[connectionId];
+        if (listener == null) {
+          handshake.release();
+          continue;
+        }
+        _processHttpHandshake(
+          listener,
+          connectionId,
+          NativeConnectionProtocol.http3,
+          handshake,
+        );
+      }
+    }
+  }
+
+  void _processHttpHandshake(
+    RouterListener listener,
+    int connectionId,
+    NativeConnectionProtocol protocol,
+    NativeHttpHandshake handshake,
+  ) {
+    final request = RouterHttpRequest(
+      listener: listener,
+      connectionId: connectionId,
+      method: handshake.method,
+      target: handshake.target,
+      path: handshake.path,
+      query: handshake.query,
+      protocol: handshake.protocol,
+      version: handshake.version,
+      headers: handshake.headers,
+      body: handshake.body,
+      handshakeHandle: handshake.handle,
+      realm: handshake.realm,
+      procedure: handshake.procedure,
+    );
+    final event = <String, Object?>{
+      'source': 'boss',
+      'type': 'listener_http_request',
+      'listenerId': listener.listenerId,
+      'connectionId': connectionId,
+      'endpoint': '${listener.endpoint.host}:${listener.endpoint.port}',
+      'method': request.method,
+      'target': request.target,
+      'path': request.path,
+      'query': request.query,
+      'protocol': request.protocol,
+      'version': request.version,
+      'realm': request.realm,
+      'procedure': request.procedure,
+      'headers': request.headers,
+      'body': request.body.isEmpty
+          ? Uint8List(0)
+          : Uint8List.fromList(request.body),
+    };
+    onEvent?.call(event);
+    final handler = onHttpRequest;
+    if (handler != null) {
+      unawaited(() async {
+        try {
+          await handler(request, handshake);
+        } catch (error, stackTrace) {
+          onEvent?.call({
+            'source': 'boss',
+            'type': 'http_request_handler_error',
+            'listenerId': listener.listenerId,
+            'connectionId': connectionId,
+            'error': error.toString(),
+            'stackTrace': stackTrace.toString(),
+          });
+        }
+      }());
+    } else {
+      handshake.release();
+    }
+    if (protocol == NativeConnectionProtocol.http) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'listener_protocol_pending',
+        'listenerId': listener.listenerId,
+        'endpoint': '${listener.endpoint.host}:${listener.endpoint.port}',
+        'connectionId': connectionId,
+        'protocol': _protocolName(protocol),
+      });
+    }
+  }
+
   Future<RouterMetricsSnapshot> collectMetricsSnapshot() async {
     final stateMetrics = await _fetchStateMetrics();
     return RouterMetricsSnapshot(
@@ -225,6 +489,28 @@ class _RouterBoss {
       activeConnections: _connectionOwners.length,
       workerCount: _workers.length,
     );
+  }
+
+  Future<RealmSnapshot> fetchRealmSnapshot(String realmUri) async {
+    final reply = ReceivePort();
+    _stateStore.commandPort.send(
+      RealmSnapshotCommand(
+        realmUri: realmUri,
+        knownVersion: null,
+        replyPort: reply.sendPort,
+      ),
+    );
+    final response = await reply.first;
+    reply.close();
+    if (response is RealmSnapshotResponse) {
+      return response.snapshot;
+    }
+    if (response is StoreErrorResponse) {
+      throw StateError(
+        'Failed to fetch snapshot for $realmUri: ${response.message}',
+      );
+    }
+    throw StateError('Unexpected snapshot response: $response');
   }
 
   Future<RouterStateMetrics> _fetchStateMetrics() async {
@@ -444,6 +730,7 @@ class _RouterBoss {
       final connectionId = message['connectionId'] as int;
       final worker = _connectionOwners.remove(connectionId);
       worker?.connections.remove(connectionId);
+      _releaseHttp3Connection(connectionId);
       payload
         ..['type'] = 'worker_connection_removed'
         ..['connectionId'] = connectionId;
@@ -510,10 +797,7 @@ class _RouterBoss {
     });
   }
 
-  void forwardMessageToConnection(
-    int connectionId,
-    AbstractMessage message,
-  ) {
+  void forwardMessageToConnection(int connectionId, AbstractMessage message) {
     final worker = _connectionOwners[connectionId];
     if (worker == null) {
       throw StateError('Connection $connectionId not registered on router');
@@ -555,6 +839,7 @@ class _RouterBoss {
         _workerCmdRemoveConnection,
         connectionId,
       ]);
+      _releaseHttp3Connection(connectionId);
     }
     worker.commandPort.send(<Object?>[_workerCmdShutdown]);
     if (terminateIsolate) {
@@ -568,6 +853,7 @@ class _RouterBoss {
     if (worker == null) {
       final pending = _pendingIsolates.remove(connectionId);
       pending?.kill(priority: Isolate.immediate);
+      _releaseHttp3Connection(connectionId);
       return;
     }
     worker.connections.remove(connectionId);
@@ -577,6 +863,22 @@ class _RouterBoss {
         connectionId,
       ]);
     }
+    _releaseHttp3Connection(connectionId);
+  }
+
+  void _replaceHttp3Connection(
+    int connectionId,
+    NativeHttp3Connection connection,
+  ) {
+    final previous = _http3Connections.remove(connectionId);
+    previous?.release();
+    _http3Connections[connectionId] = connection;
+  }
+
+  void _releaseHttp3Connection(int connectionId) {
+    final connection = _http3Connections.remove(connectionId);
+    connection?.release();
+    _http3ConnectionListeners.remove(connectionId);
   }
 }
 

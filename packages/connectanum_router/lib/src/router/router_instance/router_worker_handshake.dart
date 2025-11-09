@@ -338,6 +338,10 @@ Future<void> _openAnonymousSession({
       connectionId: connectionId,
       lastActivity: DateTime.now(),
       listener: state.listener,
+      protocol:
+          state.protocol ??
+          state.listener.settings?.primaryProtocol ??
+          ListenerProtocol.rawsocket,
     );
     statePort.send(
       SessionOpenCommand(realmUri: state.realmUri!, session: session),
@@ -496,6 +500,10 @@ Future<void> completeAuthenticatedSession({
       connectionId: connectionId,
       lastActivity: DateTime.now(),
       listener: state.listener,
+      protocol:
+          state.protocol ??
+          state.listener.settings?.primaryProtocol ??
+          ListenerProtocol.rawsocket,
     );
     statePort.send(
       SessionOpenCommand(realmUri: state.realmUri!, session: session),

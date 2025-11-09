@@ -5,7 +5,7 @@ edition = "2021"
 
 [features]
 default = []
-ffi-test = []
+ffi-test = ["ct_core/ffi-test"]
 
 [dependencies]
 ct_core = { path = "../ct_core" }
@@ -16,6 +16,15 @@ serde_json = "1.0"
 rmp = "0.8"
 rmp-serde = "1.3"
 serde-value = "0.7"
+quinn = { version = "0.11", default-features = false, features = ["rustls", "runtime-tokio"] }
+
+[dev-dependencies]
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+rcgen = "0.13"
+rustls = { version = "0.23", default-features = false, features = ["std", "logging"] }
+h3 = { version = "0.0.8", default-features = false }
+h3-quinn = { version = "0.0.10", default-features = false }
+http = "1.3"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

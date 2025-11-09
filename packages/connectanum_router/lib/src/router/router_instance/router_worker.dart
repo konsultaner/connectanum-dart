@@ -56,6 +56,7 @@ RouterListener decodeListener(Map<String, Object?> data) {
     listenerId: data['listenerId'] as int,
     endpoint: endpoint,
     port: data['port'] as int,
+    http3Port: (data['http3Port'] as int?) ?? 0,
   );
 }
 
@@ -124,6 +125,7 @@ RouterListener resolveListener(
       sniCertificates: sniCertificates,
     ),
     port: port,
+    http3Port: template?.http3Port ?? 0,
   );
   registry[listenerId] = resolved;
   return resolved;
@@ -238,10 +240,13 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
     settings,
     initialListenerId,
   );
-  connectionStates[initialConnectionId] = WorkerConnectionState(
+  final initialState = WorkerConnectionState(
     listener: initialListener,
     listenerSettings: lookupListenerSettings(settings, initialListener),
   );
+  initialState.protocol =
+      initialListener.settings?.primaryProtocol ?? ListenerProtocol.rawsocket;
+  connectionStates[initialConnectionId] = initialState;
 
   final workerId = Isolate.current.hashCode;
 
@@ -272,6 +277,8 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
         listenerSettings: lookupListenerSettings(settings, listener),
       );
     });
+    state.protocol ??=
+        state.listener.settings?.primaryProtocol ?? ListenerProtocol.rawsocket;
 
     try {
       final incoming = decoder.materialize(handle);

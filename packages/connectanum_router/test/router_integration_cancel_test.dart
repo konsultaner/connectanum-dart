@@ -37,10 +37,44 @@ class _QueueRuntime implements NativeRuntimeWithHandles {
   int connectionMaxRawSocketExponent(int connectionId) => 16;
 
   @override
+  NativeConnectionProtocol connectionProtocol(int connectionId) =>
+      NativeConnectionProtocol.rawsocket;
+
+  @override
+  NativeHttpHandshake? takeHttpHandshake(int connectionId) => null;
+
+  @override
+  void releaseHttpHandshake(int handle) {}
+
+  @override
+  NativeHttp2Handshake? takeHttp2Handshake(int connectionId) => null;
+
+  @override
+  void releaseHttp2Handshake(int handle) {}
+
+  @override
+  NativeHttp3Handshake? takeHttp3Handshake(int connectionId) => null;
+
+  @override
+  void releaseHttp3Handshake(int handle) {}
+
+  @override
+  NativeHttp3Connection? takeHttp3Connection(int connectionId) => null;
+
+  @override
+  NativeHttp3Stream? pollHttp3Stream(int connectionId) => null;
+
+  @override
+  NativeHttpHandshake? pollHttp3Request(int connectionId) => null;
+
+  @override
   String? get libraryPathHint => _libraryPathHint;
 
   @override
   int getLocalPort(int listenerId) => _ports[listenerId] ?? 0;
+
+  @override
+  int getHttp3Port(int listenerId) => 0;
 
   @override
   int listen(String host, int port, {int backlog = 128}) {
@@ -104,6 +138,15 @@ class _QueueRuntime implements NativeRuntimeWithHandles {
 
   @override
   void sendMessage(int connectionId, Uint8List payload) {}
+
+  @override
+  void sendHttpResponse({
+    required int handshakeHandle,
+    int? connectionId,
+    required NativeHttpResponse response,
+  }) {
+    throw UnsupportedError('HTTP responses not supported in queue runtime');
+  }
 
   @override
   void shutdown() {}

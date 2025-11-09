@@ -17,6 +17,229 @@ class RouterConfigLoader {
     return fromMap(decoded);
   }
 
+  static List<ListenerProtocol> _parseListenerProtocols(dynamic node) {
+    if (node == null) {
+      return const [];
+    }
+    if (node is! List) {
+      throw FormatException('listener.protocols must be a list');
+    }
+    final result = <ListenerProtocol>[];
+    for (final entry in node) {
+      if (entry is! String) {
+        throw FormatException('listener.protocols entries must be strings');
+      }
+      result.add(listenerProtocolFromString(entry));
+    }
+    return List.unmodifiable(result);
+  }
+
+  static RawSocketListenerSettings? _parseRawSocketListener(dynamic node) {
+    if (node == null) {
+      return null;
+    }
+    if (node is! Map<String, Object?>) {
+      throw FormatException('listener.rawsocket must be a map');
+    }
+    final maxExponent = _asNullableInt(node['max_rawsocket_size_exponent']);
+    final options = _asMap(node['options'], allowNull: true) ?? const {};
+    return RawSocketListenerSettings(
+      maxFrameExponent: maxExponent,
+      options: options,
+    );
+  }
+
+  static WebSocketListenerSettings? _parseWebSocketListener(
+    dynamic node,
+    String? legacyPath,
+  ) {
+    if (node == null) {
+      return null;
+    }
+    if (node is! Map<String, Object?>) {
+      throw FormatException('listener.websocket must be a map');
+    }
+    final path = _asNullableString(node['path']) ?? legacyPath;
+    final subprotocols = _stringList(node['subprotocols']);
+    final serializerFallback = _asNullableString(node['serializer_fallback']);
+    final options = _asMap(node['options'], allowNull: true) ?? const {};
+    return WebSocketListenerSettings(
+      path: path,
+      subprotocols: subprotocols,
+      serializerFallback: serializerFallback,
+      options: options,
+    );
+  }
+
+  static HttpListenerSettings? _parseHttpListener(dynamic node) {
+    if (node == null) {
+      return null;
+    }
+    if (node is! Map<String, Object?>) {
+      throw FormatException('listener.http must be a map');
+    }
+    final alpn = _stringList(node['alpn']);
+    final http3Node = node['http3'];
+    Http3Settings? http3;
+    if (http3Node != null) {
+      if (http3Node is! Map<String, Object?>) {
+        throw FormatException('listener.http.http3 must be a map');
+      }
+      final enabled = _asBool(http3Node['enabled'], defaultValue: true);
+      final port = _asNullableInt(http3Node['port']);
+      http3 = Http3Settings(enabled: enabled, port: port);
+    }
+    final routes = _parseHttpRoutes(node['routes']);
+    final options = _asMap(node['options'], allowNull: true) ?? const {};
+    return HttpListenerSettings(
+      alpn: List.unmodifiable(alpn),
+      http3: http3,
+      routes: List.unmodifiable(routes),
+      options: options,
+    );
+  }
+
+  static List<HttpRouteSettings> _parseHttpRoutes(dynamic node) {
+    if (node == null) {
+      return const [];
+    }
+    if (node is! List) {
+      throw FormatException('listener.http.routes must be a list');
+    }
+    return node
+        .map((route) {
+          if (route is! Map<String, Object?>) {
+            throw FormatException('listener.http.routes entries must be maps');
+          }
+          final match = _parseHttpRouteMatch(route['match']);
+          final action = _parseHttpRouteAction(route['action']);
+          return HttpRouteSettings(match: match, action: action);
+        })
+        .toList(growable: false);
+  }
+
+  static HttpRouteMatch _parseHttpRouteMatch(dynamic node) {
+    if (node == null) {
+      return const HttpRouteMatch();
+    }
+    if (node is! Map<String, Object?>) {
+      throw FormatException('listener.http.routes.match must be a map');
+    }
+    final matchMap = Map<String, Object?>.from(node);
+    final path = _asNullableString(matchMap.remove('path'));
+    final prefix = _asNullableString(matchMap.remove('prefix'));
+    final host = _asNullableString(matchMap.remove('host'));
+    final methods = _stringList(matchMap.remove('methods'));
+    final method = _asNullableString(matchMap.remove('method'));
+    final combinedMethods = <String>[...methods, if (method != null) method];
+    final headers = _stringStringMap(matchMap.remove('headers'));
+    return HttpRouteMatch(
+      path: path,
+      prefix: prefix,
+      host: host,
+      methods: List.unmodifiable(combinedMethods),
+      headers: headers,
+      extra: Map<String, Object?>.unmodifiable(matchMap),
+    );
+  }
+
+  static HttpRouteAction _parseHttpRouteAction(dynamic node) {
+    if (node is! Map<String, Object?>) {
+      throw FormatException('listener.http.routes.action must be a map');
+    }
+    final map = Map<String, Object?>.from(node);
+    final type = httpRouteActionTypeFromString(
+      _expectString(map.remove('type'), 'listener.http.routes.action.type'),
+    );
+    final procedure = _asNullableString(map.remove('procedure'));
+    final realm = _asNullableString(map.remove('realm'));
+    final namespace = _asNullableString(map.remove('namespace'));
+    final appendMethodSuffix = _asNullableBool(map.remove('append_method_suffix'));
+    final topic = _asNullableString(map.remove('topic'));
+    final serializer = _asNullableString(map.remove('serializer'));
+    final contentType = _asNullableString(map.remove('content_type'));
+    final directory = _asNullableString(map.remove('directory'));
+    final cacheControl = _asNullableString(map.remove('cache_control'));
+    final delegate = _asNullableString(map.remove('delegate'));
+    final actionOptions =
+        _asMap(map.remove('options'), allowNull: true) ?? const {};
+    final extras = Map<String, Object?>.unmodifiable(map);
+    final mergedOptions = actionOptions.isEmpty && extras.isEmpty
+        ? const <String, Object?>{}
+        : Map<String, Object?>.unmodifiable(<String, Object?>{
+            ...actionOptions,
+            ...extras,
+          });
+    return HttpRouteAction(
+      type: type,
+      procedure: procedure,
+      realm: realm,
+      namespace: namespace,
+      appendMethodSuffix: appendMethodSuffix,
+      topic: topic,
+      serializer: serializer,
+      contentType: contentType,
+      directory: directory,
+      cacheControl: cacheControl,
+      delegate: delegate,
+      options: mergedOptions,
+    );
+  }
+
+  static RawSocketListenerSettings? _deriveLegacyRawSocketSettings(
+    List<ListenerProtocol> protocols,
+    String? type,
+    Map<String, Object?> options,
+  ) {
+    if (!protocols.contains(ListenerProtocol.rawsocket) &&
+        type != 'rawsocket') {
+      return null;
+    }
+    final legacyMax = _asNullableInt(options['max_rawsocket_size_exponent']);
+    if (legacyMax == null) {
+      return null;
+    }
+    return RawSocketListenerSettings(maxFrameExponent: legacyMax);
+  }
+
+  static WebSocketListenerSettings? _deriveLegacyWebSocketSettings(
+    List<ListenerProtocol> protocols,
+    String? type,
+    String? path,
+    Map<String, Object?> options,
+  ) {
+    if (!protocols.contains(ListenerProtocol.websocket) &&
+        type != 'websocket') {
+      return null;
+    }
+    final serializerFallback = _asNullableString(
+      options['serializer_fallback'],
+    );
+    final subprotocols = _stringList(options['subprotocols']);
+    if (path == null && serializerFallback == null && subprotocols.isEmpty) {
+      return null;
+    }
+    return WebSocketListenerSettings(
+      path: path,
+      serializerFallback: serializerFallback,
+      subprotocols: List.unmodifiable(subprotocols),
+    );
+  }
+
+  static HttpListenerSettings? _deriveLegacyHttpSettings(
+    List<ListenerProtocol> protocols,
+    Map<String, Object?> options,
+  ) {
+    if (!protocols.any((protocol) => protocol.isHttp)) {
+      return null;
+    }
+    return HttpListenerSettings(
+      options: options.isEmpty
+          ? const {}
+          : Map<String, Object?>.unmodifiable(options),
+    );
+  }
+
   /// Parses a YAML document containing the router configuration.
   static RouterSettings fromYamlString(String source) {
     final yaml = loadYaml(source);
@@ -36,6 +259,7 @@ class RouterConfigLoader {
 
     final realms = _parseRealms(routerNode['realms']);
     final listeners = _parseListeners(routerNode['listeners']);
+    final internalRealms = _parseInternalRealms(routerNode['internal_realms']);
     final metrics = _parseMetrics(routerNode['metrics']);
     final authenticators = _parseAuthenticators(routerNode['authenticators']);
     final workerPool = _parseWorkerPool(routerNode['worker_pool']);
@@ -43,6 +267,7 @@ class RouterConfigLoader {
     return RouterSettings(
       realms: realms,
       listeners: listeners,
+      internalRealms: internalRealms,
       metrics: metrics,
       authenticators: authenticators,
       workerPool: workerPool,
@@ -211,7 +436,7 @@ class RouterConfigLoader {
           if (listener is! Map<String, Object?>) {
             throw FormatException('Listener entries must be maps');
           }
-          final type = _expectString(listener['type'], 'listener.type');
+          final type = _asNullableString(listener['type']);
           final endpoint = _expectString(
             listener['endpoint'],
             'listener.endpoint',
@@ -221,6 +446,36 @@ class RouterConfigLoader {
           final tls = _asMap(listener['tls'], allowNull: true);
           final options =
               _asMap(listener['options'], allowNull: true) ?? const {};
+          final protocols = _parseListenerProtocols(listener['protocols']);
+          final rawsocket = _parseRawSocketListener(listener['rawsocket']);
+          final websocket = _parseWebSocketListener(
+            listener['websocket'],
+            path,
+          );
+          final http = _parseHttpListener(listener['http']);
+
+          final resolvedProtocols = List<ListenerProtocol>.unmodifiable(
+            protocols.isNotEmpty
+                ? protocols
+                : (type != null
+                      ? <ListenerProtocol>[listenerProtocolFromString(type)]
+                      : <ListenerProtocol>[ListenerProtocol.rawsocket]),
+          );
+
+          final normalizedRawsocket =
+              rawsocket ??
+              _deriveLegacyRawSocketSettings(resolvedProtocols, type, options);
+          final normalizedWebsocket =
+              websocket ??
+              _deriveLegacyWebSocketSettings(
+                resolvedProtocols,
+                type,
+                path,
+                options,
+              );
+          final normalizedHttp =
+              http ?? _deriveLegacyHttpSettings(resolvedProtocols, options);
+
           return ListenerSettings(
             type: type,
             endpoint: endpoint,
@@ -228,6 +483,41 @@ class RouterConfigLoader {
             authmethods: authmethods,
             tls: tls,
             options: options,
+            protocols: resolvedProtocols,
+            rawsocket: normalizedRawsocket,
+            websocket: normalizedWebsocket,
+            http: normalizedHttp,
+          );
+        })
+        .toList(growable: false);
+  }
+
+  static List<InternalRealmSettings> _parseInternalRealms(dynamic node) {
+    if (node == null) {
+      return const [];
+    }
+    if (node is! List) {
+      throw FormatException('Router "internal_realms" must be a list');
+    }
+    return node
+        .map((entry) {
+          if (entry is! Map<String, Object?>) {
+            throw FormatException('internal_realms entries must be maps');
+          }
+          final name = _expectString(entry['name'], 'internal_realms.name');
+          final authId = _asNullableString(entry['auth_id']);
+          final authRole = _asNullableString(entry['auth_role']);
+          final roles = _asMap(entry['roles'], allowNull: true) ?? const {};
+          final servicesList = _stringList(entry['services']);
+          final Set<String>? services = servicesList.isEmpty
+              ? null
+              : Set<String>.from(servicesList);
+          return InternalRealmSettings(
+            name: name,
+            authId: authId,
+            authRole: authRole,
+            roles: roles,
+            services: services,
           );
         })
         .toList(growable: false);
@@ -240,17 +530,30 @@ class RouterConfigLoader {
     if (node is! Map<String, Object?>) {
       throw FormatException('Router "metrics" must be a map');
     }
-    final prometheusNode = node['prometheus'];
-    PrometheusMetricsSettings? prometheus;
-    if (prometheusNode != null) {
-      if (prometheusNode is! Map<String, Object?>) {
-        throw FormatException('metrics.prometheus must be a map');
-      }
-      final enabled = _asBool(prometheusNode['enabled'], defaultValue: true);
-      final listen = _asString(prometheusNode['listen']);
-      prometheus = PrometheusMetricsSettings(enabled: enabled, listen: listen);
+    final openMetricsNode = node['open_metrics'] ?? node['prometheus'];
+    if (openMetricsNode == null) {
+      return const MetricsSettings();
     }
-    return MetricsSettings(prometheus: prometheus);
+    if (openMetricsNode is! Map<String, Object?>) {
+      throw FormatException('metrics.open_metrics must be a map');
+    }
+    final enabled = _asBool(openMetricsNode['enabled'], defaultValue: true);
+    final listen = _asNullableString(openMetricsNode['listen']);
+    final path = _asString(openMetricsNode['path'], defaultValue: '/metrics');
+    final authToken = _asNullableString(openMetricsNode['auth_token']);
+    final realm = _asString(
+      openMetricsNode['realm'],
+      defaultValue: 'connectanum.metrics',
+    );
+    return MetricsSettings(
+      openMetrics: OpenMetricsSettings(
+        enabled: enabled,
+        listen: listen,
+        path: path,
+        authToken: authToken,
+        realm: realm,
+      ),
+    );
   }
 
   static Map<String, AuthenticatorDefinition> _parseAuthenticators(
@@ -323,6 +626,16 @@ class RouterConfigLoader {
     throw FormatException('Expected string value');
   }
 
+  static bool? _asNullableBool(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is bool) {
+      return value;
+    }
+    throw FormatException('Expected boolean value');
+  }
+
   static bool _asBool(dynamic value, {required bool defaultValue}) {
     if (value == null) {
       return defaultValue;
@@ -336,6 +649,19 @@ class RouterConfigLoader {
   static int _asInt(dynamic value, {required int defaultValue}) {
     if (value == null) {
       return defaultValue;
+    }
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    throw FormatException('Expected integer value');
+  }
+
+  static int? _asNullableInt(dynamic value) {
+    if (value == null) {
+      return null;
     }
     if (value is int) {
       return value;
@@ -374,6 +700,29 @@ class RouterConfigLoader {
       return Map.unmodifiable(value);
     }
     throw FormatException('Expected map value');
+  }
+
+  static Map<String, String> _stringStringMap(dynamic value) {
+    if (value == null) {
+      return const {};
+    }
+    if (value is! Map) {
+      throw FormatException('Expected map value');
+    }
+    final result = <String, String>{};
+    value.forEach((key, dynamic entryValue) {
+      if (key is! String) {
+        throw FormatException('Header keys must be strings');
+      }
+      if (entryValue == null) {
+        return;
+      }
+      if (entryValue is! String) {
+        throw FormatException('Header values must be strings');
+      }
+      result[key] = entryValue;
+    });
+    return Map.unmodifiable(result);
   }
 
   static dynamic _convertYamlNode(dynamic node) {

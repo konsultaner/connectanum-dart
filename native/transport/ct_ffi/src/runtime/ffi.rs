@@ -1,7 +1,9 @@
 use std::ffi::CStr;
+use std::net::SocketAddr;
 use std::os::raw::{c_char, c_int, c_uint};
 
 use bytes::Bytes;
+use std::sync::Arc;
 use std::{ptr, slice, str};
 
 #[cfg(feature = "ffi-test")]
@@ -11,13 +13,18 @@ use std::collections::VecDeque;
 #[cfg(feature = "ffi-test")]
 use std::sync::{Mutex, OnceLock};
 
-use ct_core::{
-    accept_channel, apply_router_config, connection_rawsocket_max_exponent, listen, local_addr,
-    poll_connection_message, send_wamp_message, send_wamp_segments, shutdown, start_runtime,
-    ConnectionId, Error as CoreError, ListenerId, RawSocketSerializer, WampMessage,
-};
 #[cfg(feature = "ffi-test")]
 use ct_core::parse_message;
+use ct_core::{
+    accept_channel, apply_router_config, connection_http3_connection,
+    connection_http3_poll_request, connection_http3_poll_stream, connection_http_poll_request,
+    connection_protocol, connection_rawsocket_max_exponent, connection_take_http2_handshake,
+    connection_take_http3_handshake, connection_take_websocket_handshake, listen,
+    listener_http3_port, local_addr, poll_connection_message, register_http3_pending,
+    send_wamp_message, send_wamp_segments, shutdown, start_runtime, ConnectionId,
+    ConnectionProtocol, Error as CoreError, Http3Handshake, HttpBodyHandle, HttpResponseDispatch,
+    HttpRouteResolution, ListenerId, RawSocketSerializer, WampMessage,
+};
 
 use crate::callbacks::{
     invoke_connection_callback, invoke_listener_callback, register_connection_callback,
@@ -26,12 +33,102 @@ use crate::callbacks::{
 
 use super::constants::*;
 use super::state::{
-    clear_channels, clone_message, remove_message, store_channel, store_message, with_channel,
-    with_message, StoredMessage,
+    clear_channels, clone_message, remove_http2_handshake, remove_http3_connection,
+    remove_http3_handshake, remove_http3_stream, remove_http_body, remove_http_handshake,
+    remove_message, remove_websocket_handshake, store_channel, store_http2_handshake,
+    store_http3_connection, store_http3_handshake, store_http3_stream, store_http_body,
+    store_http_request_metadata, store_message, store_websocket_handshake, with_channel,
+    with_http2_handshake, with_http3_handshake, with_http3_stream, with_http_body,
+    with_http_handshake, with_message, with_websocket_handshake, HttpMetadata,
+    StoredHttpHandshakePayload, StoredMessage,
 };
 use rmp::encode::{write_array_len, write_u64};
 use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
 use serde_value::Value as SerdeValue;
+
+#[repr(C)]
+#[derive(Default)]
+pub struct CtHttpHandshakeInfo {
+    pub method_ptr: *const u8,
+    pub method_len: usize,
+    pub target_ptr: *const u8,
+    pub target_len: usize,
+    pub path_ptr: *const u8,
+    pub path_len: usize,
+    pub query_ptr: *const u8,
+    pub query_len: usize,
+    pub protocol_ptr: *const u8,
+    pub protocol_len: usize,
+    pub version: u8,
+    pub headers_len: usize,
+    pub body_ptr: *const u8,
+    pub body_len: usize,
+    pub realm_ptr: *const u8,
+    pub realm_len: usize,
+    pub procedure_ptr: *const u8,
+    pub procedure_len: usize,
+}
+
+#[repr(C)]
+#[derive(Default)]
+pub struct CtHttpBodyView {
+    pub data_ptr: *const u8,
+    pub data_len: usize,
+}
+
+#[repr(C)]
+#[derive(Default)]
+pub struct CtHttp2HandshakeInfo {
+    pub protocol_ptr: *const u8,
+    pub protocol_len: usize,
+    pub alpn_ptr: *const u8,
+    pub alpn_len: usize,
+    pub listener_protocols_len: usize,
+}
+
+#[repr(C)]
+#[derive(Default)]
+pub struct CtHttp3HandshakeInfo {
+    pub protocol_ptr: *const u8,
+    pub protocol_len: usize,
+    pub alpn_ptr: *const u8,
+    pub alpn_len: usize,
+    pub listener_protocols_len: usize,
+}
+
+#[repr(C)]
+#[derive(Default)]
+pub struct CtHttp3StreamInfo {
+    pub stream_id: u64,
+}
+
+#[repr(C)]
+#[derive(Default)]
+pub struct CtHttpHeader {
+    pub name_ptr: *const u8,
+    pub name_len: usize,
+    pub value_ptr: *const u8,
+    pub value_len: usize,
+}
+
+#[repr(C)]
+#[derive(Default)]
+pub struct CtStringView {
+    pub ptr: *const u8,
+    pub len: usize,
+}
+
+#[repr(C)]
+#[derive(Default)]
+pub struct CtWebSocketHandshakeInfo {
+    pub key_ptr: *const u8,
+    pub key_len: usize,
+    pub protocols_len: usize,
+    pub extensions_len: usize,
+    pub version_ptr: *const u8,
+    pub version_len: usize,
+    pub http_info: CtHttpHandshakeInfo,
+}
 
 fn map_error(err: CoreError) -> c_int {
     match err {
@@ -45,6 +142,10 @@ fn map_error(err: CoreError) -> c_int {
         CoreError::RouterConfigInvalid(_) => ERR_ROUTER_CONFIG_INVALID,
         CoreError::EndpointNotConfigured(_, _) => ERR_ENDPOINT_NOT_CONFIGURED,
         CoreError::ConnectionNotFound(_) => ERR_CONNECTION_NOT_FOUND,
+        CoreError::UnsupportedProtocol(_, _) => ERR_UNSUPPORTED_PROTOCOL,
+        CoreError::HandshakeAlreadyTaken(_) => ERR_HANDSHAKE_CONSUMED,
+        CoreError::ConnectionHandleUnavailable(_) => ERR_HANDLE_UNAVAILABLE,
+        CoreError::Http3ResponseSend(_) => ERR_IO,
         CoreError::Io(_) => ERR_IO,
     }
 }
@@ -68,6 +169,65 @@ fn option_bytes_ptr(bytes: &Option<Bytes>) -> (*const u8, usize) {
     match bytes {
         Some(data) => (data.as_ptr(), data.len()),
         None => (ptr::null(), 0),
+    }
+}
+
+fn http_metadata_view(metadata: &HttpMetadata) -> CtHttpHandshakeInfo {
+    let (body_ptr, body_len) = metadata
+        .body
+        .inline_bytes()
+        .map(|bytes| (bytes.as_ptr(), bytes.len()))
+        .unwrap_or((ptr::null(), 0));
+    CtHttpHandshakeInfo {
+        method_ptr: metadata.method.as_ptr(),
+        method_len: metadata.method.len(),
+        target_ptr: metadata.target.as_ptr(),
+        target_len: metadata.target.len(),
+        path_ptr: metadata.path.as_ptr(),
+        path_len: metadata.path.len(),
+        query_ptr: metadata
+            .query
+            .as_ref()
+            .map(|value| value.as_ptr())
+            .unwrap_or(ptr::null()),
+        query_len: metadata
+            .query
+            .as_ref()
+            .map(|value| value.len())
+            .unwrap_or(0),
+        protocol_ptr: metadata.protocol.as_ptr(),
+        protocol_len: metadata.protocol.len(),
+        version: metadata.version,
+        headers_len: metadata.headers.len(),
+        body_ptr,
+        body_len,
+        realm_ptr: metadata
+            .realm
+            .as_ref()
+            .map(|value| value.as_ptr())
+            .unwrap_or(ptr::null()),
+        realm_len: metadata
+            .realm
+            .as_ref()
+            .map(|value| value.len())
+            .unwrap_or(0),
+        procedure_ptr: metadata
+            .procedure
+            .as_ref()
+            .map(|value| value.as_ptr())
+            .unwrap_or(ptr::null()),
+        procedure_len: metadata
+            .procedure
+            .as_ref()
+            .map(|value| value.len())
+            .unwrap_or(0),
+    }
+}
+
+fn string_view(value: &Arc<[u8]>) -> CtStringView {
+    CtStringView {
+        ptr: value.as_ptr(),
+        len: value.len(),
     }
 }
 
@@ -698,6 +858,16 @@ pub extern "C" fn ct_get_local_port(listener_id: c_int) -> c_int {
 }
 
 #[no_mangle]
+pub extern "C" fn ct_listener_http3_port(listener_id: c_int) -> c_int {
+    let listener_id = ListenerId(listener_id as u32);
+    match listener_http3_port(listener_id) {
+        Ok(Some(port)) => port as c_int,
+        Ok(None) => 0,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn ct_poll_connection(listener_id: c_int) -> c_int {
     let listener_id = ListenerId(listener_id as u32);
     match with_channel(listener_id, |receiver| receiver.try_recv()) {
@@ -718,6 +888,317 @@ pub extern "C" fn ct_connection_max_rawsocket_exponent(connection_id: c_int) -> 
     let connection_id = ConnectionId(connection_id as u32);
     match connection_rawsocket_max_exponent(connection_id) {
         Ok(exponent) => exponent as c_int,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_connection_protocol(connection_id: c_int) -> c_int {
+    let connection_id = ConnectionId(connection_id as u32);
+    match connection_protocol(connection_id) {
+        Ok(ConnectionProtocol::RawSocket) => PROTOCOL_RAWSOCKET,
+        Ok(ConnectionProtocol::WebSocket) => PROTOCOL_WEBSOCKET,
+        Ok(ConnectionProtocol::Http) => PROTOCOL_HTTP,
+        Ok(ConnectionProtocol::Http2) => PROTOCOL_HTTP2,
+        Ok(ConnectionProtocol::Http3) => PROTOCOL_HTTP3,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_connection_take_http_handshake(connection_id: c_int) -> c_int {
+    if connection_id <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let connection_id = ConnectionId(connection_id as u32);
+    match connection_http_poll_request(connection_id) {
+        Ok(Some((summary, response))) => {
+            let metadata = HttpMetadata::from_summary(&summary);
+            store_http_request_metadata(metadata, response) as c_int
+        }
+        Ok(None) => 0,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_connection_take_http2_handshake(connection_id: c_int) -> c_int {
+    if connection_id <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let connection_id = ConnectionId(connection_id as u32);
+    match connection_take_http2_handshake(connection_id) {
+        Ok(handshake) => store_http2_handshake(handshake) as c_int,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_http2_handshake_get(handle: c_int, info: *mut CtHttp2HandshakeInfo) -> c_int {
+    if handle <= 0 || info.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match with_http2_handshake(handle as u32, |stored| {
+        let metadata = &stored.metadata;
+        let info_ref = unsafe { info.as_mut().unwrap() };
+        info_ref.protocol_ptr = metadata.protocol.as_ptr();
+        info_ref.protocol_len = metadata.protocol.len();
+        if let Some(alpn) = &metadata.alpn {
+            info_ref.alpn_ptr = alpn.as_ptr();
+            info_ref.alpn_len = alpn.len();
+        } else {
+            info_ref.alpn_ptr = ptr::null();
+            info_ref.alpn_len = 0;
+        }
+        info_ref.listener_protocols_len = metadata.listener_protocols.len();
+    }) {
+        Some(()) => SUCCESS,
+        None => ERR_HANDSHAKE_CONSUMED,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_http2_handshake_listener_protocol(
+    handle: c_int,
+    index: usize,
+    view: *mut CtStringView,
+) -> c_int {
+    if handle <= 0 || view.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match with_http2_handshake(handle as u32, |stored| {
+        stored.metadata.listener_protocol(index).map(|bytes| {
+            let view_ref = unsafe { view.as_mut().unwrap() };
+            view_ref.ptr = bytes.as_ptr();
+            view_ref.len = bytes.len();
+        })
+    }) {
+        Some(Some(())) => SUCCESS,
+        Some(None) => ERR_INVALID_ARGUMENT,
+        None => ERR_HANDSHAKE_CONSUMED,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_http2_handshake_release(handle: c_int) -> c_int {
+    if handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    remove_http2_handshake(handle as u32);
+    SUCCESS
+}
+
+#[no_mangle]
+pub extern "C" fn ct_connection_take_http3_handshake(connection_id: c_int) -> c_int {
+    if connection_id <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let connection_id = ConnectionId(connection_id as u32);
+    match connection_take_http3_handshake(connection_id) {
+        Ok(handshake) => store_http3_handshake(handshake) as c_int,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_http3_handshake_get(handle: c_int, info: *mut CtHttp3HandshakeInfo) -> c_int {
+    if handle <= 0 || info.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match with_http3_handshake(handle as u32, |stored| {
+        let metadata = &stored.metadata;
+        let info_ref = unsafe { info.as_mut().unwrap() };
+        info_ref.protocol_ptr = metadata.protocol.as_ptr();
+        info_ref.protocol_len = metadata.protocol.len();
+        if let Some(alpn) = &metadata.alpn {
+            info_ref.alpn_ptr = alpn.as_ptr();
+            info_ref.alpn_len = alpn.len();
+        } else {
+            info_ref.alpn_ptr = ptr::null();
+            info_ref.alpn_len = 0;
+        }
+        info_ref.listener_protocols_len = metadata.listener_protocols.len();
+    }) {
+        Some(()) => SUCCESS,
+        None => ERR_HANDSHAKE_CONSUMED,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_http3_handshake_listener_protocol(
+    handle: c_int,
+    index: usize,
+    view: *mut CtStringView,
+) -> c_int {
+    if handle <= 0 || view.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match with_http3_handshake(handle as u32, |stored| {
+        stored.metadata.listener_protocol(index).map(|bytes| {
+            let view_ref = unsafe { view.as_mut().unwrap() };
+            view_ref.ptr = bytes.as_ptr();
+            view_ref.len = bytes.len();
+        })
+    }) {
+        Some(Some(())) => SUCCESS,
+        Some(None) => ERR_INVALID_ARGUMENT,
+        None => ERR_HANDSHAKE_CONSUMED,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_http3_handshake_release(handle: c_int) -> c_int {
+    if handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    remove_http3_handshake(handle as u32);
+    SUCCESS
+}
+
+#[no_mangle]
+pub extern "C" fn ct_connection_get_http3_connection(connection_id: c_int) -> c_int {
+    if connection_id <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let connection_id = ConnectionId(connection_id as u32);
+    match connection_http3_connection(connection_id) {
+        Ok(connection) => store_http3_connection(connection) as c_int,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_http3_connection_release(handle: c_int) -> c_int {
+    if handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    remove_http3_connection(handle as u32);
+    SUCCESS
+}
+
+#[no_mangle]
+pub extern "C" fn ct_http3_connection_poll_stream(connection_id: c_int) -> c_int {
+    if connection_id <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let connection_id = ConnectionId(connection_id as u32);
+    match connection_http3_poll_stream(connection_id) {
+        Ok(Some(stream)) => store_http3_stream(stream) as c_int,
+        Ok(None) => 0,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_http3_connection_poll_request(connection_id: c_int) -> c_int {
+    if connection_id <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let connection_id = ConnectionId(connection_id as u32);
+    match connection_http3_poll_request(connection_id) {
+        Ok(Some((summary, response_handle))) => {
+            let metadata = HttpMetadata::from_summary(&summary);
+            store_http_request_metadata(metadata, response_handle) as c_int
+        }
+        Ok(None) => 0,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_http3_stream_get(handle: c_int, info: *mut CtHttp3StreamInfo) -> c_int {
+    if handle <= 0 || info.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match with_http3_stream(handle as u32, |stored| stored.stream_id) {
+        Some(stream_id) => {
+            unsafe {
+                info.write(CtHttp3StreamInfo { stream_id });
+            }
+            SUCCESS
+        }
+        None => ERR_INVALID_ARGUMENT,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_http3_stream_release(handle: c_int) -> c_int {
+    if handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    remove_http3_stream(handle as u32);
+    SUCCESS
+}
+
+#[no_mangle]
+pub extern "C" fn ct_http_response_send(
+    handshake_handle: c_int,
+    status: c_int,
+    headers: *const CtHttpHeader,
+    headers_len: usize,
+    body_ptr: *const u8,
+    body_len: usize,
+) -> c_int {
+    if handshake_handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    if status < 100 || status > 599 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    if headers.is_null() && headers_len > 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let mut header_vec: Vec<(String, String)> = Vec::with_capacity(headers_len);
+    for index in 0..headers_len {
+        let header = unsafe { headers.add(index).as_ref() };
+        let Some(header) = header else {
+            return ERR_INVALID_ARGUMENT;
+        };
+        let name_slice = unsafe { std::slice::from_raw_parts(header.name_ptr, header.name_len) };
+        let value_slice = unsafe { std::slice::from_raw_parts(header.value_ptr, header.value_len) };
+        let name = match std::str::from_utf8(name_slice) {
+            Ok(value) => value.to_string(),
+            Err(_) => return ERR_INVALID_ARGUMENT,
+        };
+        let value = match std::str::from_utf8(value_slice) {
+            Ok(value) => value.to_string(),
+            Err(_) => return ERR_INVALID_ARGUMENT,
+        };
+        header_vec.push((name, value));
+    }
+    let body_vec = if body_ptr.is_null() || body_len == 0 {
+        Vec::new()
+    } else {
+        unsafe { std::slice::from_raw_parts(body_ptr, body_len) }.to_vec()
+    };
+
+    let Some(stored) = remove_http_handshake(handshake_handle as u32) else {
+        return ERR_HANDSHAKE_CONSUMED;
+    };
+    let Some(payload) = stored.take_payload() else {
+        return ERR_HANDSHAKE_CONSUMED;
+    };
+    let dispatch = HttpResponseDispatch {
+        status,
+        headers: header_vec,
+        body: body_vec,
+    };
+    match payload {
+        StoredHttpHandshakePayload::Response(handle) => match handle.respond(dispatch) {
+            Ok(()) => SUCCESS,
+            Err(err) => map_error(err),
+        },
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_connection_take_websocket_handshake(connection_id: c_int) -> c_int {
+    if connection_id <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let connection_id = ConnectionId(connection_id as u32);
+    match connection_take_websocket_handshake(connection_id) {
+        Ok(handshake) => store_websocket_handshake(handshake) as c_int,
         Err(err) => map_error(err),
     }
 }
@@ -828,6 +1309,174 @@ pub extern "C" fn ct_test_message_enqueue(
 
 #[cfg(feature = "ffi-test")]
 #[no_mangle]
+pub extern "C" fn ct_test_register_http3_connection(
+    listener_id: c_int,
+    connection_id: c_int,
+    protocol_ptr: *const c_char,
+    alpn_ptr: *const c_char,
+    protocols_ptr: *const c_char,
+) -> c_int {
+    if listener_id <= 0 || connection_id <= 0 || protocol_ptr.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let protocol = match unsafe { CStr::from_ptr(protocol_ptr) }.to_str() {
+        Ok(value) => value.to_string(),
+        Err(_) => return ERR_INVALID_ARGUMENT,
+    };
+    let alpn = if alpn_ptr.is_null() {
+        None
+    } else {
+        match unsafe { CStr::from_ptr(alpn_ptr) }.to_str() {
+            Ok(value) if value.is_empty() => None,
+            Ok(value) => Some(value.to_string()),
+            Err(_) => return ERR_INVALID_ARGUMENT,
+        }
+    };
+    let listener_protocols = if protocols_ptr.is_null() {
+        Vec::<String>::new()
+    } else {
+        match unsafe { CStr::from_ptr(protocols_ptr) }.to_str() {
+            Ok(value) => value
+                .split(',')
+                .map(|token| token.trim())
+                .filter(|token| !token.is_empty())
+                .map(|token| token.to_string())
+                .collect::<Vec<String>>(),
+            Err(_) => return ERR_INVALID_ARGUMENT,
+        }
+    };
+    let handshake = Http3Handshake {
+        protocol,
+        alpn,
+        listener_protocols,
+    };
+    let listener_id = ListenerId(listener_id as u32);
+    let connection_id = ConnectionId(connection_id as u32);
+    let peer_addr = SocketAddr::from(([127, 0, 0, 1], 0));
+    match register_http3_pending(listener_id, connection_id, handshake, peer_addr) {
+        Ok(()) => SUCCESS,
+        Err(err) => map_error(err),
+    }
+}
+
+#[cfg(feature = "ffi-test")]
+#[no_mangle]
+pub extern "C" fn ct_test_register_http3_request(
+    listener_id: c_int,
+    connection_id: c_int,
+    method_ptr: *const c_char,
+    target_ptr: *const c_char,
+    protocol_ptr: *const c_char,
+    headers_ptr: *const CtHttpHeader,
+    headers_len: usize,
+    body_ptr: *const u8,
+    body_len: usize,
+    realm_ptr: *const c_char,
+    procedure_ptr: *const c_char,
+) -> c_int {
+    if listener_id <= 0 || connection_id <= 0 || method_ptr.is_null() || target_ptr.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let method = match unsafe { CStr::from_ptr(method_ptr) }.to_str() {
+        Ok(value) => value.to_string(),
+        Err(_) => return ERR_INVALID_ARGUMENT,
+    };
+    let target = match unsafe { CStr::from_ptr(target_ptr) }.to_str() {
+        Ok(value) => value.to_string(),
+        Err(_) => return ERR_INVALID_ARGUMENT,
+    };
+    let protocol = if protocol_ptr.is_null() {
+        "http/3".to_string()
+    } else {
+        match unsafe { CStr::from_ptr(protocol_ptr) }.to_str() {
+            Ok(value) => value.to_string(),
+            Err(_) => return ERR_INVALID_ARGUMENT,
+        }
+    };
+    let (path, query) = match target.split_once('?') {
+        Some((p, rest)) => (p.to_string(), Some(rest.to_string())),
+        None => (target.clone(), None),
+    };
+    let headers = if headers_len == 0 || headers_ptr.is_null() {
+        Vec::new()
+    } else {
+        let mut list = Vec::with_capacity(headers_len);
+        for index in 0..headers_len {
+            let header = unsafe { headers_ptr.add(index).as_ref() };
+            let Some(header) = header else {
+                return ERR_INVALID_ARGUMENT;
+            };
+            let name = unsafe { std::slice::from_raw_parts(header.name_ptr, header.name_len) };
+            let value = unsafe { std::slice::from_raw_parts(header.value_ptr, header.value_len) };
+            let name = match std::str::from_utf8(name) {
+                Ok(value) => value.to_string(),
+                Err(_) => return ERR_INVALID_ARGUMENT,
+            };
+            let value = match std::str::from_utf8(value) {
+                Ok(value) => value.to_string(),
+                Err(_) => return ERR_INVALID_ARGUMENT,
+            };
+            list.push((name, value));
+        }
+        list
+    };
+    let body_handle = if body_len == 0 || body_ptr.is_null() {
+        HttpBodyHandle::empty()
+    } else {
+        let bytes = unsafe { std::slice::from_raw_parts(body_ptr, body_len) }.to_vec();
+        HttpBodyHandle::from_bytes(bytes)
+    };
+    let realm = if realm_ptr.is_null() {
+        None
+    } else {
+        match unsafe { CStr::from_ptr(realm_ptr) }.to_str() {
+            Ok(value) if value.is_empty() => None,
+            Ok(value) => Some(value.to_string()),
+            Err(_) => return ERR_INVALID_ARGUMENT,
+        }
+    };
+    let procedure = if procedure_ptr.is_null() {
+        None
+    } else {
+        match unsafe { CStr::from_ptr(procedure_ptr) }.to_str() {
+            Ok(value) if value.is_empty() => None,
+            Ok(value) => Some(value.to_string()),
+            Err(_) => return ERR_INVALID_ARGUMENT,
+        }
+    };
+    let route = match (realm.clone(), procedure.clone()) {
+        (Some(realm), Some(procedure)) => Some(HttpRouteResolution {
+            realm,
+            procedure,
+            method: method.clone(),
+            protocol: protocol.clone(),
+            path: path.clone(),
+            query: query.clone(),
+        }),
+        _ => None,
+    };
+    let summary = ct_core::HttpRequestSummary::new(
+        method,
+        target,
+        path,
+        query,
+        protocol,
+        3,
+        headers,
+        body_handle,
+        realm,
+        procedure,
+        route,
+    );
+    let connection_id = ConnectionId(connection_id as u32);
+    match ct_core::register_http_request(connection_id, summary) {
+        Ok(()) => SUCCESS,
+        Err(err) => map_error(err),
+    }
+}
+
+#[cfg(feature = "ffi-test")]
+#[no_mangle]
 pub extern "C" fn ct_test_clear_messages() -> c_int {
     clear_test_messages();
     SUCCESS
@@ -907,6 +1556,228 @@ pub extern "C" fn ct_message_retain(handle: c_int) -> c_int {
         Some(new_handle) => new_handle as c_int,
         None => ERR_INVALID_ARGUMENT,
     }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_http_handshake_get(
+    handle: c_int,
+    out_info: *mut CtHttpHandshakeInfo,
+) -> c_int {
+    if handle <= 0 || out_info.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match with_http_handshake(handle as u32, |stored| http_metadata_view(&stored.metadata)) {
+        Some(info) => {
+            unsafe {
+                out_info.write(info);
+            }
+            SUCCESS
+        }
+        None => ERR_INVALID_ARGUMENT,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_http_handshake_header(
+    handle: c_int,
+    index: usize,
+    out_header: *mut CtHttpHeader,
+) -> c_int {
+    if handle <= 0 || out_header.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match with_http_handshake(handle as u32, |stored| {
+        stored
+            .metadata
+            .headers
+            .get(index)
+            .map(|(name, value)| CtHttpHeader {
+                name_ptr: name.as_ptr(),
+                name_len: name.len(),
+                value_ptr: value.as_ptr(),
+                value_len: value.len(),
+            })
+    }) {
+        Some(Some(header)) => {
+            unsafe {
+                out_header.write(header);
+            }
+            SUCCESS
+        }
+        Some(None) => ERR_INVALID_ARGUMENT,
+        None => ERR_INVALID_ARGUMENT,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_http_handshake_release(handle: c_int) -> c_int {
+    if handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    remove_http_handshake(handle as u32);
+    SUCCESS
+}
+
+#[no_mangle]
+pub extern "C" fn ct_http_handshake_body_retain(handle: c_int) -> c_int {
+    if handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match with_http_handshake(handle as u32, |stored| stored.metadata.body.clone()) {
+        Some(body) => store_http_body(body) as c_int,
+        None => ERR_HANDSHAKE_CONSUMED,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_http_body_get(handle: c_int, view: *mut CtHttpBodyView) -> c_int {
+    if handle <= 0 || view.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match with_http_body(handle as u32, |body| body.slice(0, body.len())) {
+        Some(Some(slice)) => {
+            unsafe {
+                view.write(CtHttpBodyView {
+                    data_ptr: slice.ptr,
+                    data_len: slice.len,
+                });
+            }
+            SUCCESS
+        }
+        Some(None) => ERR_UNSUPPORTED,
+        None => ERR_HANDSHAKE_CONSUMED,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_http_body_read(
+    handle: c_int,
+    offset: usize,
+    len: usize,
+    view: *mut CtHttpBodyView,
+) -> c_int {
+    if handle <= 0 || view.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match with_http_body(handle as u32, |body| {
+        if offset > body.len() {
+            None
+        } else {
+            let request_len = len.min(body.len().saturating_sub(offset));
+            body.slice(offset, request_len)
+        }
+    }) {
+        Some(Some(slice)) => {
+            unsafe {
+                view.write(CtHttpBodyView {
+                    data_ptr: slice.ptr,
+                    data_len: slice.len,
+                });
+            }
+            SUCCESS
+        }
+        Some(None) => ERR_INVALID_ARGUMENT,
+        None => ERR_HANDSHAKE_CONSUMED,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_http_body_release(handle: c_int) -> c_int {
+    if handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    remove_http_body(handle as u32);
+    SUCCESS
+}
+
+#[no_mangle]
+pub extern "C" fn ct_websocket_handshake_get(
+    handle: c_int,
+    out_info: *mut CtWebSocketHandshakeInfo,
+) -> c_int {
+    if handle <= 0 || out_info.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match with_websocket_handshake(handle as u32, |stored| CtWebSocketHandshakeInfo {
+        key_ptr: stored.key.as_ptr(),
+        key_len: stored.key.len(),
+        protocols_len: stored.protocols.len(),
+        extensions_len: stored.extensions.len(),
+        version_ptr: stored
+            .version
+            .as_ref()
+            .map(|value| value.as_ptr())
+            .unwrap_or(ptr::null()),
+        version_len: stored
+            .version
+            .as_ref()
+            .map(|value| value.len())
+            .unwrap_or(0),
+        http_info: http_metadata_view(&stored.metadata),
+    }) {
+        Some(info) => {
+            unsafe {
+                out_info.write(info);
+            }
+            SUCCESS
+        }
+        None => ERR_INVALID_ARGUMENT,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_websocket_handshake_protocol(
+    handle: c_int,
+    index: usize,
+    out_view: *mut CtStringView,
+) -> c_int {
+    if handle <= 0 || out_view.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match with_websocket_handshake(handle as u32, |stored| {
+        stored.protocols.get(index).map(|value| string_view(value))
+    }) {
+        Some(Some(view)) => {
+            unsafe {
+                out_view.write(view);
+            }
+            SUCCESS
+        }
+        Some(None) => ERR_INVALID_ARGUMENT,
+        None => ERR_INVALID_ARGUMENT,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_websocket_handshake_extension(
+    handle: c_int,
+    index: usize,
+    out_view: *mut CtStringView,
+) -> c_int {
+    if handle <= 0 || out_view.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match with_websocket_handshake(handle as u32, |stored| {
+        stored.extensions.get(index).map(|value| string_view(value))
+    }) {
+        Some(Some(view)) => {
+            unsafe {
+                out_view.write(view);
+            }
+            SUCCESS
+        }
+        Some(None) => ERR_INVALID_ARGUMENT,
+        None => ERR_INVALID_ARGUMENT,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_websocket_handshake_release(handle: c_int) -> c_int {
+    if handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    remove_websocket_handshake(handle as u32);
+    SUCCESS
 }
 
 #[no_mangle]

@@ -8,7 +8,7 @@ use tokio::time;
 
 use crate::config::EndpointRuntimeConfig;
 
-const RAWSOCKET_MAGIC: u8 = 0x7F;
+pub(crate) const RAWSOCKET_MAGIC: u8 = 0x7F;
 const RAWSOCKET_UPGRADE_MAGIC: u8 = 0x3F;
 
 const SERIALIZER_JSON: u8 = 0x01;
@@ -20,9 +20,6 @@ const SERIALIZER_FLATBUFFERS: u8 = 0x05;
 const ERROR_SERIALIZER_UNSUPPORTED: u8 = 1;
 const ERROR_MESSAGE_LENGTH_EXCEEDED: u8 = 2;
 const ERROR_RESERVED_BITS: u8 = 3;
-
-const HTTP_PROBE_RESPONSE: &[u8] =
-    b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Serializer {
@@ -45,7 +42,6 @@ pub struct NegotiatedSession {
 
 #[derive(Debug)]
 pub enum HandshakeError {
-    HttpProbe,
     Protocol(&'static str),
     Io(io::Error),
 }
@@ -62,11 +58,6 @@ pub async fn negotiate(
 ) -> Result<NegotiatedSession, HandshakeError> {
     let mut buf = [0u8; 4];
     read_with_timeout(&mut stream, &mut buf, endpoint.handshake_timeout).await?;
-
-    if looks_like_http(&buf) {
-        respond_http_probe(&mut stream).await?;
-        return Err(HandshakeError::HttpProbe);
-    }
 
     if buf[0] != RAWSOCKET_MAGIC {
         send_error(&mut stream, ERROR_RESERVED_BITS).await?;
@@ -174,12 +165,6 @@ async fn read_with_timeout(
     Ok(())
 }
 
-async fn respond_http_probe(stream: &mut TcpStream) -> io::Result<()> {
-    stream.write_all(HTTP_PROBE_RESPONSE).await?;
-    let _ = stream.shutdown().await;
-    Ok(())
-}
-
 async fn send_error(stream: &mut TcpStream, code: u8) -> io::Result<()> {
     let frame = [RAWSOCKET_MAGIC, code << 4, 0, 0];
     stream.write_all(&frame).await?;
@@ -187,17 +172,14 @@ async fn send_error(stream: &mut TcpStream, code: u8) -> io::Result<()> {
     Ok(())
 }
 
-fn looks_like_http(buf: &[u8; 4]) -> bool {
-    matches!(
-        buf,
-        b"GET " | b"POST" | b"HEAD" | b"PUT " | b"DELE" | b"OPTI" | b"PATC" | b"HTTP" | b"PRI "
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{EndpointConfig, EndpointRuntimeConfig, TlsMode};
+    use crate::config::{
+        EndpointConfig, EndpointRuntimeConfig, HttpEndpointConfig, TlsMode, TransportProtocol,
+    };
+    use serde_json::Value as JsonValue;
+    use std::collections::HashMap;
     use tokio::{net::TcpListener, sync::oneshot};
 
     fn runtime_config(
@@ -214,6 +196,17 @@ mod tests {
             max_rawsocket_size_exponent: Some(rawsocket_exponent),
             websocket_path: None,
             sni_certificates: Vec::new(),
+            http_routes: Vec::new(),
+            protocols: vec![
+                TransportProtocol::Rawsocket,
+                TransportProtocol::Http,
+                TransportProtocol::Websocket,
+            ],
+            http: Some(HttpEndpointConfig {
+                alpn: vec![],
+                http3: None,
+                options: HashMap::<String, JsonValue>::new(),
+            }),
         };
         EndpointRuntimeConfig::try_from_endpoint(&endpoint).expect("config valid")
     }
@@ -505,31 +498,6 @@ mod tests {
                 }
             }
         }
-    }
-
-    #[tokio::test]
-    async fn negotiate_detects_http_probe() {
-        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
-        let addr = listener.local_addr().unwrap();
-        let config = runtime_config(Some(Duration::from_secs(1)), 16);
-        let (tx, rx) = oneshot::channel();
-
-        tokio::spawn(async move {
-            let (stream, _) = listener.accept().await.unwrap();
-            let result = negotiate(stream, &config).await;
-            tx.send(result).ok();
-        });
-
-        let mut client = TcpStream::connect(addr).await.unwrap();
-        client.write_all(b"GET / HTTP/1.1").await.unwrap();
-        let mut buf = Vec::new();
-        client.read_to_end(&mut buf).await.unwrap();
-        assert!(std::str::from_utf8(&buf)
-            .unwrap()
-            .starts_with("HTTP/1.1 400"));
-
-        let err = rx.await.unwrap().expect_err("http probe");
-        assert!(matches!(err, HandshakeError::HttpProbe));
     }
 
     #[tokio::test]

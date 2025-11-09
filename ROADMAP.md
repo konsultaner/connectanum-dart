@@ -11,12 +11,61 @@
 - [ ] Serializer matrix (JSON, MessagePack, CBOR, UBJSON, FlatBuffers)
   - [ ] Cross-serializer translation so mixed clients (e.g. JSON ↔ MessagePack/CBOR) can publish/call across encodings without data loss; include regression tests for EVENT, RESULT, and ERROR bridging and document zero-copy fallbacks.
 - [ ] Backpressure / flow control between workers and native layer
-- [ ] HTTP/1.1, HTTP/2, HTTP/3 transport layer (long-polling, streaming WAMP)
-- [ ] HTTP RPC bridge (forward HTTP requests into WAMP RPCs and return responses)
+- [ ] Multi-protocol listener stack (RawSocket/WebSocket/HTTP/1.1/HTTP/2/HTTP/3)
+  - [ ] Implement a unified accept loop in the native runtime with ALPN + HTTP Upgrade negotiation so a single endpoint can downgrade/upgrade between RawSocket, WebSocket, and HTTP transports.
+  - [ ] Maintain zero-copy buffers across all negotiated protocols (frame handles for RawSocket/WebSocket continuation frames, shared body handles for HTTP).
+  - [ ] Handle HTTP/2 CONTINUATION frames and HTTP/3 header block fragments without copying (keep partial headers in native memory until complete).
+  - [ ] Integrate TLS/SNI/ALPN config so listeners advertise all supported protocols and fall back in a configurable order.
+  - [ ] Finish HTTP/3 implementation: surface stream handles for request/response bodies, manage connection lifecycle, and document operational limits.
+  - [ ] Evaluate and implement WAMP-over-HTTP/3/WebTransport (RFC 9220) so browser clients can tunnel WAMP traffic over QUIC with datagram/bidi stream support.
+  - [ ] Provide protocol-level metrics and backpressure hooks to the boss/worker pipeline.
+  - [ ] Expose negotiated protocol identifiers via FFI so Dart workers can route WebSocket/HTTP sessions.
+  - [ ] Add WebSocket frame streaming support (continuation aggregation, mask handling) with zero-copy forwarding.
+  - [ ] Add HTTP request/response streaming (header/state machines for HTTP/1.1, HTTP/2, HTTP/3) and surface body handles to Dart.
+  - [ ] Stage native HTTP pipeline implementation:
+    - [x] Bring up the HTTP/3 QUIC accept loop in `ct_core`: keep connections alive, parse requests via `h3`, match routes, queue `HttpRequestSummary` + response handles, and flush responses back along the same stream.
+    - [ ] Introduce shared streaming body/response handles in `ct_core` + `ct_ffi` (retain/release/read APIs) so large HTTP payloads stay in native buffers end-to-end.
+    - [ ] Rework HTTP/1.1 ingress to use those handles (no eager Vec copies), implement chunked/keep-alive writers, and surface status-only fast paths for early errors.
+    - [ ] Bring up the dedicated HTTP/2 server (tokio + `h2`) with multi-stream routing, backpressure, and response writers backed by the shared handle abstraction.
+    - [ ] Align HTTP/3 request/response code with the new streaming primitives so QUIC uploads/downloads never copy into temporary Vecs, and expose stream IDs for diagnostics.
+    - [ ] Implement the WebSocket upgrade pipeline (accept handshake, negotiate serializers, forward frames with continuation/mask handling, and downgrade to RawSocket when possible) plus boss/worker instrumentation.
+    - [ ] Update `NativeHttpRequestBody`/`HttpInvocationContext`/`HttpResponseUtil` in Dart to default to streaming reads/writes while preserving snapshot/copy fallbacks for legacy handlers.
+    - [ ] Add end-to-end tests (Rust ffi `listen_flow`, Dart router_runtime/integration) that exercise HTTP/1.1, HTTP/2, HTTP/3, and WebSocket flows (multi-MB uploads/downloads, pointer comparisons, frame forwarding) and clean up temp files during teardown.
+- [ ] HTTP bridge (general-purpose request handling)
+  - [ ] Expose bridge configuration via listener protocols with pluggable pipelines (REST→RPC proxy, static asset serving, metrics scraping, custom handlers).
+  - [ ] Support translation tables that map HTTP path/method/protocol combinations to explicit WAMP realms and procedures, including per-method overrides and catch-all wildcards.
+  - [ ] Provide reserved realm/namespace shorthand so routes can auto-map into a router-managed HTTP realm with deterministic URI derivation (e.g. `/` → `router.http.index`).
+  - [ ] Allow namespace-based auto-mapping (path segments → URI prefixes) for teams already organising registrations by namespace.
+  - [ ] Enforce method/protocol whitelists from the configuration; return 405/426 at the native layer before touching Dart.
+  - [ ] Keep HTTP payloads zero-copy by exposing request/response body handles over FFI and streaming through Rust.
+  - [ ] Surface structured responses (status, headers, trailers) back to the native runtime without materialising entire payloads in Dart.
+  - [ ] Offer middleware hooks (logging, rate limiting, throttling) that run inside worker isolates while heavy I/O remains in Rust.
+  - [ ] Land `HttpRequestContext`/`HttpResponseUtil` in Dart so HTTP routes can read bodies lazily, pipe uploads directly to disk, and send structured responses (status/headers/body) back through the boss without copies.
+  - [ ] Extend FFI to accept structured HTTP responses (status, headers, zero-copy body descriptors, streaming handles) and flush them to the native runtime.
+  - [ ] Provide zero-copy response helpers: in-memory slices, file-backed payloads, and streaming writers with back-pressure.
+  - [ ] Implement initial HTTP response FFI plumbing (status/headers/bytes) in `ct_core`/`ct_ffi` and patch Dart runtime to call it.
+  - [ ] Add metrics endpoint handler using the new response pipeline and cover with integration tests.
+  - [ ] Add an end-to-end zero-copy HTTP regression test (large request/response) to ensure no stray serialization occurs in Dart.
+  - [ ] Introduce adapter pipeline support (static file handler, PHP-FPM/FastCGI bridge, reverse proxy stubs) configurable per route; document adapter contracts and lifecycle.
+  - [ ] Add tests/doc coverage for the new HTTP call contract (Dart unit tests, router integration test asserting response round-trip, native tests validating file/stream paths).
+- [ ] HTTP authentication & session tokens
+  - [ ] Reuse endpoint authenticators (CRA, SCRAM, remote delegates) to issue short-lived access tokens for HTTP clients; tokens include target realm information from a header or query parameter.
+  - [ ] Provide a configurable auth/refresh route (defaults to `/auth`) reserved inside the HTTP namespace so clients can obtain and refresh tokens.
+  - [ ] Enforce endpoint-level transport auth (TLS/mTLS/ALPN) before route-level checks; reject unauthorised requests in the native layer.
+  - [ ] Implement refresh token handling (configurable TTL, dedicated handler in reserved realm) with support for issuing new access tokens without replaying the full handshake.
+  - [ ] Propagate auth context (`_authid`, `_authrole`, `_authmethod`) into the WAMP invocation details so downstream procedures honour existing router policies.
+- [ ] HTTP bridge (general-purpose request handling)
+  - [ ] Expose bridge configuration via listener protocols with pluggable pipelines (REST→RPC proxy, static asset serving, metrics scraping, custom handlers).
+- [ ] HTTP bridge (general-purpose request handling)
+  - [ ] Map incoming REST requests to internal router sessions through an in-memory transport so PHP/FCM or other external services can act as lightweight proxies.
+  - [ ] Provide policy-driven routing (path → WAMP procedure/topic, file proxy, custom isolate handler) with per-route auth hooks aligned with realm permissions.
+  - [ ] Support request/response streaming and file-backed payloads to preserve zero-copy semantics for large bodies.
+  - [ ] Surface structured responses (status, headers, trailers) back to the native runtime without materialising entire payloads in Dart.
+  - [ ] Offer middleware hooks (logging, rate limiting, throttling) that run inside worker isolates while heavy I/O remains in Rust.
 - [ ] HTTP forwarding hooks for custom routing/handling in RPC implementations
-- [ ] Graceful shutdown (drain sessions, send GOODBYE/HTTP responses, stop listeners)
-  - [ ] Provide unified HTTP bridge that can surface Prometheus/Grafana exporters alongside REST→WAMP translation.
-  - [ ] Support structured metrics endpoints over HTTP/2 and HTTP/3 so observability stack can scrape without extra proxies.
+  - [ ] Graceful shutdown (drain sessions, send GOODBYE/HTTP responses, stop listeners)
+    - [ ] Provide unified HTTP bridge that can surface Prometheus/Grafana exporters alongside REST→WAMP translation.
+    - [ ] Support structured metrics endpoints over HTTP/2 and HTTP/3 so observability stack can scrape without extra proxies.
 - [x] Outbound frame bridge (`ct_send`/FFI) for CHALLENGE/WELCOME/EVENT delivery
 - [ ] End-to-end payload encryption (E2EE) strategy
   - [ ] Evaluate keeping encryption off the Dart hot-path (Dart’s 64-bit object model vs native/Rust or dedicated isolates with binary messaging).

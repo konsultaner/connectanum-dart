@@ -919,6 +919,7 @@ class RealmRecord {
         workerId: session.workerId,
         connectionId: session.connectionId,
         lastActivity: session.lastActivity,
+        protocol: session.protocol,
       );
     }).toList();
     final subscriptionSnapshots = subscriptionsById.values.map((entry) {

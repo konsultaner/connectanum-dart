@@ -12,6 +12,10 @@ abstract final class RouterSettingsCodec {
     return <String, Object?>{
       'realms': settings.realms.map(_realmToMap).toList(),
       'listeners': settings.listeners.map(_listenerToMap).toList(),
+      if (settings.internalRealms.isNotEmpty)
+        'internal_realms': settings.internalRealms
+            .map(_internalRealmToMap)
+            .toList(),
       if (settings.metrics != null) 'metrics': _metricsToMap(settings.metrics!),
       'worker_pool': _workerPoolToMap(settings.workerPool),
       'authenticators': settings.authenticators.map((key, value) {
@@ -82,30 +86,194 @@ abstract final class RouterSettingsCodec {
 
   static Map<String, Object?> _listenerToMap(ListenerSettings listener) {
     final map = <String, Object?>{
-      'type': listener.type,
       'endpoint': listener.endpoint,
       'authmethods': List<String>.from(listener.authmethods),
-      'options': listener.options,
     };
+    if (listener.type != null) {
+      map['type'] = listener.type;
+    }
+    if (listener.protocols.isNotEmpty) {
+      map['protocols'] = listener.protocols
+          .map(listenerProtocolToString)
+          .toList(growable: false);
+    }
     if (listener.path != null) {
       map['path'] = listener.path;
     }
     if (listener.tls != null) {
       map['tls'] = listener.tls;
     }
+    if (listener.options.isNotEmpty) {
+      map['options'] = listener.options;
+    }
+    if (listener.rawsocket != null) {
+      final rawsocketMap = _rawSocketToMap(listener.rawsocket!);
+      if (rawsocketMap.isNotEmpty) {
+        map['rawsocket'] = rawsocketMap;
+      }
+    }
+    if (listener.websocket != null) {
+      final websocketMap = _webSocketToMap(listener.websocket!);
+      if (websocketMap.isNotEmpty) {
+        map['websocket'] = websocketMap;
+      }
+    }
+    if (listener.http != null) {
+      final httpMap = _httpToMap(listener.http!);
+      if (httpMap.isNotEmpty) {
+        map['http'] = httpMap;
+      }
+    }
+    return map;
+  }
+
+  static Map<String, Object?> _rawSocketToMap(
+    RawSocketListenerSettings settings,
+  ) {
+    final map = <String, Object?>{};
+    if (settings.maxFrameExponent != null) {
+      map['max_rawsocket_size_exponent'] = settings.maxFrameExponent;
+    }
+    if (settings.options.isNotEmpty) {
+      map['options'] = settings.options;
+    }
+    return map;
+  }
+
+  static Map<String, Object?> _webSocketToMap(
+    WebSocketListenerSettings settings,
+  ) {
+    final map = <String, Object?>{};
+    if (settings.path != null) {
+      map['path'] = settings.path;
+    }
+    if (settings.subprotocols.isNotEmpty) {
+      map['subprotocols'] = List<String>.from(settings.subprotocols);
+    }
+    if (settings.serializerFallback != null) {
+      map['serializer_fallback'] = settings.serializerFallback;
+    }
+    if (settings.options.isNotEmpty) {
+      map['options'] = settings.options;
+    }
+    return map;
+  }
+
+  static Map<String, Object?> _httpToMap(HttpListenerSettings settings) {
+    final map = <String, Object?>{};
+    if (settings.alpn.isNotEmpty) {
+      map['alpn'] = List<String>.from(settings.alpn);
+    }
+    if (settings.http3 != null) {
+      map['http3'] = _http3ToMap(settings.http3!);
+    }
+    if (settings.routes.isNotEmpty) {
+      map['routes'] = settings.routes
+          .map(_httpRouteToMap)
+          .toList(growable: false);
+    }
+    if (settings.options.isNotEmpty) {
+      map['options'] = settings.options;
+    }
+    return map;
+  }
+
+  static Map<String, Object?> _http3ToMap(Http3Settings settings) {
+    final map = <String, Object?>{'enabled': settings.enabled};
+    if (settings.port != null) {
+      map['port'] = settings.port;
+    }
+    return map;
+  }
+
+  static Map<String, Object?> _httpRouteToMap(HttpRouteSettings route) {
+    return <String, Object?>{
+      'match': _httpRouteMatchToMap(route.match),
+      'action': _httpRouteActionToMap(route.action),
+    };
+  }
+
+  static Map<String, Object?> _httpRouteMatchToMap(HttpRouteMatch match) {
+    final map = <String, Object?>{};
+    if (match.path != null) {
+      map['path'] = match.path;
+    }
+    if (match.prefix != null) {
+      map['prefix'] = match.prefix;
+    }
+    if (match.host != null) {
+      map['host'] = match.host;
+    }
+    if (match.methods.isNotEmpty) {
+      map['methods'] = List<String>.from(match.methods);
+    }
+    if (match.headers.isNotEmpty) {
+      map['headers'] = Map<String, String>.from(match.headers);
+    }
+    if (match.extra.isNotEmpty) {
+      map.addAll(match.extra);
+    }
+    return map;
+  }
+
+  static Map<String, Object?> _httpRouteActionToMap(HttpRouteAction action) {
+    final map = <String, Object?>{
+      'type': httpRouteActionTypeToString(action.type),
+    };
+    if (action.procedure != null) {
+      map['procedure'] = action.procedure;
+    }
+    if (action.topic != null) {
+      map['topic'] = action.topic;
+    }
+    if (action.serializer != null) {
+      map['serializer'] = action.serializer;
+    }
+    if (action.contentType != null) {
+      map['content_type'] = action.contentType;
+    }
+    if (action.directory != null) {
+      map['directory'] = action.directory;
+    }
+    if (action.cacheControl != null) {
+      map['cache_control'] = action.cacheControl;
+    }
+    if (action.delegate != null) {
+      map['delegate'] = action.delegate;
+    }
+    if (action.options.isNotEmpty) {
+      map['options'] = action.options;
+    }
     return map;
   }
 
   static Map<String, Object?> _metricsToMap(MetricsSettings metrics) {
-    if (metrics.prometheus == null) {
+    final openMetrics = metrics.openMetrics;
+    if (openMetrics == null) {
       return const <String, Object?>{};
     }
-    final prometheus = metrics.prometheus!;
     return <String, Object?>{
-      'prometheus': <String, Object?>{
-        'enabled': prometheus.enabled,
-        if (prometheus.listen != null) 'listen': prometheus.listen,
+      'open_metrics': <String, Object?>{
+        'enabled': openMetrics.enabled,
+        if (openMetrics.listen != null) 'listen': openMetrics.listen,
+        if (openMetrics.path != '/metrics') 'path': openMetrics.path,
+        if (openMetrics.authToken != null) 'auth_token': openMetrics.authToken,
+        if (openMetrics.realm != 'connectanum.metrics')
+          'realm': openMetrics.realm,
       },
+    };
+  }
+
+  static Map<String, Object?> _internalRealmToMap(
+    InternalRealmSettings internalRealm,
+  ) {
+    return <String, Object?>{
+      'name': internalRealm.name,
+      if (internalRealm.authId != null) 'auth_id': internalRealm.authId,
+      if (internalRealm.authRole != null) 'auth_role': internalRealm.authRole,
+      if (internalRealm.roles.isNotEmpty) 'roles': internalRealm.roles,
+      if (internalRealm.services.isNotEmpty)
+        'services': List<String>.from(internalRealm.services),
     };
   }
 

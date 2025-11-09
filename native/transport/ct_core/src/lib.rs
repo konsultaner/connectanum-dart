@@ -1,9 +1,10 @@
 //! Tokio based runtime that backs the connectanum native transport.
 
 use std::{
-    collections::HashMap,
-    io,
+    collections::{HashMap, VecDeque},
+    io::{self, Cursor},
     net::{SocketAddr, ToSocketAddrs},
+    ops::Deref,
     sync::{
         atomic::{AtomicU32, Ordering},
         Arc, Mutex, OnceLock,
@@ -11,24 +12,43 @@ use std::{
     time::Duration,
 };
 
-use bytes::{Bytes, BytesMut};
+use bytes::{Buf, Bytes, BytesMut};
+use h3::server::RequestStream as H3RequestStream;
+use h3_quinn::Connection as H3QuinnConnection;
+use http::{
+    header::{HeaderName, HeaderValue, CONTENT_LENGTH},
+    Request as HttpRequest, Response as HttpResponse, StatusCode,
+};
 use thiserror::Error;
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
+    io::{AsyncReadExt, AsyncWriteExt, BufReader},
     net::tcp::{OwnedReadHalf, OwnedWriteHalf},
     runtime::Runtime,
-    sync::mpsc::{self, error::TryRecvError, UnboundedReceiver, UnboundedSender},
+    sync::{
+        mpsc::{self, error::TryRecvError, UnboundedReceiver, UnboundedSender},
+        oneshot,
+    },
     task::JoinHandle,
     time,
 };
 
 mod config;
 mod platform;
+mod protocol;
 mod rawsocket;
 mod wamp;
 
-pub use config::EndpointRuntimeConfig;
+use config::{HttpRouteMatch, TransportProtocol};
+use quinn::{
+    Connection as QuinnConnection, Endpoint as QuinnEndpoint, ServerConfig as QuinnServerConfig,
+    VarInt,
+};
+use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use rustls_pemfile::{certs as load_certs, pkcs8_private_keys, rsa_private_keys};
+
+pub use config::{EndpointRuntimeConfig, HttpRouteResolution};
 pub use platform::{Runtime as PlatformRuntime, UnsupportedPlatform};
+pub use protocol::{Http2Handshake, Http3Handshake, HttpHandshake, WebSocketHandshake};
 pub use rawsocket::Serializer as RawSocketSerializer;
 pub use wamp::{
     parse_message, ParseError as WampParseError, ParsedMessage, Payload as WampPayload, WampMessage,
@@ -37,6 +57,7 @@ pub use wamp::{
 static RUNTIME_MANAGER: OnceLock<RuntimeManager> = OnceLock::new();
 
 const MAX_FRAME_LEN: u64 = 1 << 24;
+const HTTP3_DEFAULT_BODY_LIMIT: u64 = 4 * 1024 * 1024;
 
 /// Unique identifier for a registered listener.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -45,6 +66,194 @@ pub struct ListenerId(pub u32);
 /// Unique identifier for an accepted connection.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ConnectionId(pub u32);
+
+/// Transport protocol negotiated for a connection.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum ConnectionProtocol {
+    RawSocket,
+    WebSocket,
+    Http,
+    Http2,
+    Http3,
+}
+
+#[derive(Debug, Clone)]
+pub struct HttpBodyHandle {
+    payload: Arc<HttpBodyPayload>,
+}
+
+#[derive(Debug)]
+enum HttpBodyPayload {
+    Inline(Arc<[u8]>),
+}
+
+#[derive(Debug)]
+pub struct HttpBodySlice {
+    pub ptr: *const u8,
+    pub len: usize,
+}
+
+impl HttpBodyHandle {
+    pub fn empty() -> Self {
+        Self {
+            payload: Arc::new(HttpBodyPayload::Inline(Arc::<[u8]>::from(&[][..]))),
+        }
+    }
+
+    pub fn from_bytes(bytes: Vec<u8>) -> Self {
+        if bytes.is_empty() {
+            return Self::empty();
+        }
+        Self {
+            payload: Arc::new(HttpBodyPayload::Inline(bytes.into_boxed_slice().into())),
+        }
+    }
+
+    pub fn from_arc(bytes: Arc<[u8]>) -> Self {
+        if bytes.is_empty() {
+            return Self::empty();
+        }
+        Self {
+            payload: Arc::new(HttpBodyPayload::Inline(bytes)),
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        match self.payload.as_ref() {
+            HttpBodyPayload::Inline(bytes) => bytes.len(),
+        }
+    }
+
+    pub fn as_arc(&self) -> Arc<[u8]> {
+        match self.payload.as_ref() {
+            HttpBodyPayload::Inline(bytes) => Arc::clone(bytes),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn inline_bytes(&self) -> Option<&Arc<[u8]>> {
+        match self.payload.as_ref() {
+            HttpBodyPayload::Inline(bytes) => Some(bytes),
+        }
+    }
+
+    pub fn slice(&self, offset: usize, length: usize) -> Option<HttpBodySlice> {
+        let total = self.len();
+        if offset > total {
+            return None;
+        }
+        let end = total.min(offset.saturating_add(length));
+        let slice_len = end.saturating_sub(offset);
+        match self.payload.as_ref() {
+            HttpBodyPayload::Inline(bytes) => {
+                let ptr = unsafe { bytes.as_ptr().add(offset) };
+                Some(HttpBodySlice {
+                    ptr,
+                    len: slice_len,
+                })
+            }
+        }
+    }
+}
+
+pub struct HttpRequestSummary {
+    pub method: String,
+    pub target: String,
+    pub path: String,
+    pub query: Option<String>,
+    pub protocol: String,
+    pub version: u8,
+    pub headers: Vec<(String, String)>,
+    pub body: HttpBodyHandle,
+    pub realm: Option<String>,
+    pub procedure: Option<String>,
+    pub route: Option<HttpRouteResolution>,
+}
+
+impl HttpRequestSummary {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        method: String,
+        target: String,
+        path: String,
+        query: Option<String>,
+        protocol: String,
+        version: u8,
+        headers: Vec<(String, String)>,
+        body: HttpBodyHandle,
+        realm: Option<String>,
+        procedure: Option<String>,
+        route: Option<HttpRouteResolution>,
+    ) -> Self {
+        Self {
+            method,
+            target,
+            path,
+            query,
+            protocol,
+            version,
+            headers,
+            body,
+            realm,
+            procedure,
+            route,
+        }
+    }
+}
+
+pub struct HttpResponseHandle {
+    connection_id: ConnectionId,
+    sender: oneshot::Sender<HttpResponseDispatch>,
+}
+
+impl HttpResponseHandle {
+    fn new(connection_id: ConnectionId, sender: oneshot::Sender<HttpResponseDispatch>) -> Self {
+        Self {
+            connection_id,
+            sender,
+        }
+    }
+
+    pub fn respond(self, response: HttpResponseDispatch) -> Result<(), Error> {
+        self.sender
+            .send(response)
+            .map_err(|_| Error::Http3ResponseSend(self.connection_id))
+    }
+}
+
+#[derive(Debug)]
+pub struct HttpResponseDispatch {
+    pub status: i32,
+    pub headers: Vec<(String, String)>,
+    pub body: Vec<u8>,
+}
+
+/// Handle representing an accepted HTTP/3 bidirectional stream.
+pub struct Http3BidiStream {
+    id: u64,
+    send: quinn::SendStream,
+    recv: quinn::RecvStream,
+}
+
+impl Http3BidiStream {
+    fn new(send: quinn::SendStream, recv: quinn::RecvStream) -> Self {
+        let id = recv.id().index();
+        Self { id, send, recv }
+    }
+
+    /// Returns the QUIC stream identifier.
+    pub fn id(&self) -> u64 {
+        self.id
+    }
+
+    /// Splits the stream into its send/receive halves.
+    pub fn into_parts(self) -> (quinn::SendStream, quinn::RecvStream) {
+        (self.send, self.recv)
+    }
+}
 
 /// Errors that can occur when interacting with the runtime.
 #[derive(Debug, Error)]
@@ -79,6 +288,18 @@ pub enum Error {
     /// Connection for the provided identifier was not registered.
     #[error("connection {0:?} not found")]
     ConnectionNotFound(ConnectionId),
+    /// Operation not supported for negotiated protocol.
+    #[error("connection {0:?} protocol {1:?} does not support this operation")]
+    UnsupportedProtocol(ConnectionId, ConnectionProtocol),
+    /// Connection handshake already consumed.
+    #[error("connection {0:?} handshake already consumed")]
+    HandshakeAlreadyTaken(ConnectionId),
+    /// HTTP/3 connection handle is unavailable.
+    #[error("connection {0:?} handle unavailable")]
+    ConnectionHandleUnavailable(ConnectionId),
+    /// HTTP/3 response channel closed or failed.
+    #[error("failed to send http/3 response for connection {0:?}")]
+    Http3ResponseSend(ConnectionId),
     /// Wrapper around I/O errors.
     #[error(transparent)]
     Io(#[from] std::io::Error),
@@ -111,7 +332,10 @@ struct ListenerEntry {
     addr: SocketAddr,
     receiver: Mutex<Option<mpsc::Receiver<ConnectionId>>>,
     _sender: mpsc::Sender<ConnectionId>,
-    task: JoinHandle<()>,
+    tasks: Vec<JoinHandle<()>>,
+    #[allow(dead_code)]
+    http3_addr: Option<SocketAddr>,
+    http3_endpoint: Option<QuinnEndpoint>,
     #[allow(dead_code)]
     endpoint_config: Arc<config::EndpointRuntimeConfig>,
 }
@@ -121,14 +345,60 @@ struct ConnectionEntry {
     listener_id: ListenerId,
     #[allow(dead_code)]
     peer_addr: SocketAddr,
+    protocol: ConnectionProtocol,
     endpoint_config: Arc<config::EndpointRuntimeConfig>,
-    #[allow(dead_code)]
-    serializer: rawsocket::Serializer,
-    max_exponent: u32,
-    frames: Mutex<mpsc::Receiver<wamp::ParsedMessage>>,
-    reader_task: JoinHandle<()>,
-    writer_task: JoinHandle<()>,
-    send_tx: UnboundedSender<OutboundFrame>,
+    record: ConnectionRecord,
+}
+
+enum ConnectionRecord {
+    RawSocket {
+        serializer: rawsocket::Serializer,
+        max_exponent: u32,
+        frames: Mutex<mpsc::Receiver<wamp::ParsedMessage>>,
+        reader_task: JoinHandle<()>,
+        writer_task: JoinHandle<()>,
+        send_tx: UnboundedSender<OutboundFrame>,
+    },
+    WebSocketPending {
+        handshake: Mutex<Option<protocol::WebSocketHandshake>>,
+    },
+    HttpPending {
+        pending_requests: Mutex<VecDeque<QueuedHttpRequest>>,
+    },
+    Http2Pending {
+        handshake: Mutex<Option<protocol::Http2Handshake>>,
+    },
+    Http3Pending {
+        handshake: Mutex<Option<protocol::Http3Handshake>>,
+        connection: Mutex<Option<Arc<quinn::Connection>>>,
+        streams: Arc<Http3StreamChannels>,
+        pending_requests: Mutex<VecDeque<QueuedHttpRequest>>,
+    },
+}
+
+struct Http3StreamChannels {
+    streams: Mutex<VecDeque<Http3BidiStream>>,
+}
+
+impl Http3StreamChannels {
+    fn new() -> Self {
+        Self {
+            streams: Mutex::new(VecDeque::new()),
+        }
+    }
+
+    fn push(&self, stream: Http3BidiStream) {
+        self.streams.lock().unwrap().push_back(stream);
+    }
+
+    fn try_recv(&self) -> Option<Http3BidiStream> {
+        self.streams.lock().unwrap().pop_front()
+    }
+}
+
+struct QueuedHttpRequest {
+    summary: HttpRequestSummary,
+    response: HttpResponseHandle,
 }
 
 impl RuntimeManager {
@@ -202,6 +472,15 @@ impl ListenerRegistry {
             .ok_or(Error::ListenerNotFound(id))
     }
 
+    fn http3_addr(&self, id: ListenerId) -> Result<Option<SocketAddr>, Error> {
+        self.listeners
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .get(&id)
+            .map(|entry| entry.http3_addr)
+            .ok_or(Error::ListenerNotFound(id))
+    }
+
     fn take_receiver(&self, id: ListenerId) -> Result<mpsc::Receiver<ConnectionId>, Error> {
         let listeners = self
             .listeners
@@ -220,8 +499,13 @@ impl ListenerRegistry {
             .drain()
             .map(|(_, entry)| entry)
             .collect();
-        for entry in listener_entries {
-            entry.task.abort();
+        for mut entry in listener_entries {
+            for task in entry.tasks {
+                task.abort();
+            }
+            if let Some(endpoint) = entry.http3_endpoint.take() {
+                endpoint.close(VarInt::from_u32(0), b"shutdown");
+            }
         }
 
         let connection_entries: Vec<ConnectionEntry> = self
@@ -232,12 +516,24 @@ impl ListenerRegistry {
             .map(|(_, entry)| entry)
             .collect();
         for entry in connection_entries {
-            entry.reader_task.abort();
-            entry.writer_task.abort();
+            match entry.record {
+                ConnectionRecord::RawSocket {
+                    reader_task,
+                    writer_task,
+                    ..
+                } => {
+                    reader_task.abort();
+                    writer_task.abort();
+                }
+                ConnectionRecord::WebSocketPending { .. }
+                | ConnectionRecord::HttpPending { .. }
+                | ConnectionRecord::Http2Pending { .. }
+                | ConnectionRecord::Http3Pending { .. } => {}
+            }
         }
     }
 
-    fn register_connection(
+    fn register_rawsocket_connection(
         &self,
         listener_id: ListenerId,
         connection_id: ConnectionId,
@@ -268,15 +564,123 @@ impl ListenerRegistry {
                 ConnectionEntry {
                     listener_id,
                     peer_addr,
+                    protocol: ConnectionProtocol::RawSocket,
                     endpoint_config,
-                    serializer,
-                    max_exponent,
-                    frames: Mutex::new(frame_rx),
-                    reader_task,
-                    writer_task,
-                    send_tx,
+                    record: ConnectionRecord::RawSocket {
+                        serializer,
+                        max_exponent,
+                        frames: Mutex::new(frame_rx),
+                        reader_task,
+                        writer_task,
+                        send_tx,
+                    },
                 },
             );
+    }
+
+    fn register_websocket_connection(
+        &self,
+        listener_id: ListenerId,
+        connection_id: ConnectionId,
+        endpoint_config: Arc<config::EndpointRuntimeConfig>,
+        handshake: protocol::WebSocketHandshake,
+        peer_addr: SocketAddr,
+    ) {
+        self.connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .insert(
+                connection_id,
+                ConnectionEntry {
+                    listener_id,
+                    peer_addr,
+                    protocol: ConnectionProtocol::WebSocket,
+                    endpoint_config,
+                    record: ConnectionRecord::WebSocketPending {
+                        handshake: Mutex::new(Some(handshake)),
+                    },
+                },
+            );
+    }
+
+    fn register_http_connection(
+        &self,
+        listener_id: ListenerId,
+        connection_id: ConnectionId,
+        endpoint_config: Arc<config::EndpointRuntimeConfig>,
+        peer_addr: SocketAddr,
+    ) {
+        self.connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .insert(
+                connection_id,
+                ConnectionEntry {
+                    listener_id,
+                    peer_addr,
+                    protocol: ConnectionProtocol::Http,
+                    endpoint_config,
+                    record: ConnectionRecord::HttpPending {
+                        pending_requests: Mutex::new(VecDeque::new()),
+                    },
+                },
+            );
+    }
+
+    fn register_http2_connection(
+        &self,
+        listener_id: ListenerId,
+        connection_id: ConnectionId,
+        endpoint_config: Arc<config::EndpointRuntimeConfig>,
+        handshake: protocol::Http2Handshake,
+        peer_addr: SocketAddr,
+    ) {
+        self.connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .insert(
+                connection_id,
+                ConnectionEntry {
+                    listener_id,
+                    peer_addr,
+                    protocol: ConnectionProtocol::Http2,
+                    endpoint_config,
+                    record: ConnectionRecord::Http2Pending {
+                        handshake: Mutex::new(Some(handshake)),
+                    },
+                },
+            );
+    }
+
+    fn register_http3_connection(
+        &self,
+        listener_id: ListenerId,
+        connection_id: ConnectionId,
+        endpoint_config: Arc<config::EndpointRuntimeConfig>,
+        handshake: protocol::Http3Handshake,
+        connection: Option<Arc<QuinnConnection>>,
+        peer_addr: SocketAddr,
+    ) -> Arc<Http3StreamChannels> {
+        let streams = Arc::new(Http3StreamChannels::new());
+        self.connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .insert(
+                connection_id,
+                ConnectionEntry {
+                    listener_id,
+                    peer_addr,
+                    protocol: ConnectionProtocol::Http3,
+                    endpoint_config,
+                    record: ConnectionRecord::Http3Pending {
+                        handshake: Mutex::new(Some(handshake)),
+                        connection: Mutex::new(connection),
+                        streams: Arc::clone(&streams),
+                        pending_requests: Mutex::new(VecDeque::new()),
+                    },
+                },
+            );
+        streams
     }
 
     fn connection_config(
@@ -291,12 +695,41 @@ impl ListenerRegistry {
             .ok_or(Error::ConnectionNotFound(connection_id))
     }
 
+    fn listener_config(
+        &self,
+        listener_id: ListenerId,
+    ) -> Result<Arc<config::EndpointRuntimeConfig>, Error> {
+        self.listeners
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .get(&listener_id)
+            .map(|entry| Arc::clone(&entry.endpoint_config))
+            .ok_or(Error::ListenerNotFound(listener_id))
+    }
+
     fn connection_exponent(&self, connection_id: ConnectionId) -> Result<u32, Error> {
+        let connections = self
+            .connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let entry = connections
+            .get(&connection_id)
+            .ok_or(Error::ConnectionNotFound(connection_id))?;
+        match &entry.record {
+            ConnectionRecord::RawSocket { max_exponent, .. } => Ok(*max_exponent),
+            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
+        }
+    }
+
+    fn connection_protocol(
+        &self,
+        connection_id: ConnectionId,
+    ) -> Result<ConnectionProtocol, Error> {
         self.connections
             .lock()
             .unwrap_or_else(|poison| poison.into_inner())
             .get(&connection_id)
-            .map(|entry| entry.max_exponent)
+            .map(|entry| entry.protocol)
             .ok_or(Error::ConnectionNotFound(connection_id))
     }
 
@@ -311,11 +744,16 @@ impl ListenerRegistry {
         let entry = connections
             .get(&connection_id)
             .ok_or(Error::ConnectionNotFound(connection_id))?;
-        let mut receiver = entry.frames.lock().unwrap();
-        match receiver.try_recv() {
-            Ok(message) => Ok(Some(message)),
-            Err(TryRecvError::Empty) => Ok(None),
-            Err(TryRecvError::Disconnected) => Ok(None),
+        match &entry.record {
+            ConnectionRecord::RawSocket { frames, .. } => {
+                let mut receiver = frames.lock().unwrap();
+                match receiver.try_recv() {
+                    Ok(message) => Ok(Some(message)),
+                    Err(TryRecvError::Empty) => Ok(None),
+                    Err(TryRecvError::Disconnected) => Ok(None),
+                }
+            }
+            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
         }
     }
 
@@ -331,11 +769,306 @@ impl ListenerRegistry {
         let entry = connections
             .get(&connection_id)
             .ok_or(Error::ConnectionNotFound(connection_id))?;
-        entry
-            .send_tx
-            .send(frame)
-            .map_err(|_| Error::ConnectionNotFound(connection_id))
+        match &entry.record {
+            ConnectionRecord::RawSocket { send_tx, .. } => send_tx
+                .send(frame)
+                .map_err(|_| Error::ConnectionNotFound(connection_id)),
+            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
+        }
     }
+
+    fn take_websocket_handshake(
+        &self,
+        connection_id: ConnectionId,
+    ) -> Result<protocol::WebSocketHandshake, Error> {
+        let connections = self
+            .connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let entry = connections
+            .get(&connection_id)
+            .ok_or(Error::ConnectionNotFound(connection_id))?;
+        match &entry.record {
+            ConnectionRecord::WebSocketPending { handshake } => {
+                let mut guard = handshake.lock().unwrap();
+                guard
+                    .take()
+                    .ok_or(Error::HandshakeAlreadyTaken(connection_id))
+            }
+            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
+        }
+    }
+
+    fn take_http2_handshake(
+        &self,
+        connection_id: ConnectionId,
+    ) -> Result<protocol::Http2Handshake, Error> {
+        let connections = self
+            .connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let entry = connections
+            .get(&connection_id)
+            .ok_or(Error::ConnectionNotFound(connection_id))?;
+        match &entry.record {
+            ConnectionRecord::Http2Pending { handshake } => {
+                let mut guard = handshake.lock().unwrap();
+                guard
+                    .take()
+                    .ok_or(Error::HandshakeAlreadyTaken(connection_id))
+            }
+            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
+        }
+    }
+
+    fn take_http3_handshake(
+        &self,
+        connection_id: ConnectionId,
+    ) -> Result<protocol::Http3Handshake, Error> {
+        let connections = self
+            .connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let entry = connections
+            .get(&connection_id)
+            .ok_or(Error::ConnectionNotFound(connection_id))?;
+        match &entry.record {
+            ConnectionRecord::Http3Pending { handshake, .. } => {
+                let mut guard = handshake.lock().unwrap();
+                guard
+                    .take()
+                    .ok_or(Error::HandshakeAlreadyTaken(connection_id))
+            }
+            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
+        }
+    }
+
+    fn http3_connection(&self, connection_id: ConnectionId) -> Result<Arc<QuinnConnection>, Error> {
+        let connections = self
+            .connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let entry = connections
+            .get(&connection_id)
+            .ok_or(Error::ConnectionNotFound(connection_id))?;
+        match &entry.record {
+            ConnectionRecord::Http3Pending { connection, .. } => {
+                let guard = connection.lock().unwrap();
+                guard
+                    .as_ref()
+                    .cloned()
+                    .ok_or(Error::ConnectionHandleUnavailable(connection_id))
+            }
+            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
+        }
+    }
+
+    fn poll_http3_stream(
+        &self,
+        connection_id: ConnectionId,
+    ) -> Result<Option<Http3BidiStream>, Error> {
+        let connections = self
+            .connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let entry = connections
+            .get(&connection_id)
+            .ok_or(Error::ConnectionNotFound(connection_id))?;
+        match &entry.record {
+            ConnectionRecord::Http3Pending { streams, .. } => Ok(streams.try_recv()),
+            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
+        }
+    }
+
+    fn enqueue_http_request(
+        &self,
+        connection_id: ConnectionId,
+        request: QueuedHttpRequest,
+    ) -> Result<(), Error> {
+        let connections = self
+            .connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let entry = connections
+            .get(&connection_id)
+            .ok_or(Error::ConnectionNotFound(connection_id))?;
+        match &entry.record {
+            ConnectionRecord::HttpPending { pending_requests }
+            | ConnectionRecord::Http3Pending {
+                pending_requests, ..
+            } => {
+                pending_requests.lock().unwrap().push_back(request);
+                Ok(())
+            }
+            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
+        }
+    }
+
+    fn poll_http_request(
+        &self,
+        connection_id: ConnectionId,
+    ) -> Result<Option<(HttpRequestSummary, HttpResponseHandle)>, Error> {
+        let connections = self
+            .connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let entry = connections
+            .get(&connection_id)
+            .ok_or(Error::ConnectionNotFound(connection_id))?;
+        match &entry.record {
+            ConnectionRecord::HttpPending { pending_requests }
+            | ConnectionRecord::Http3Pending {
+                pending_requests, ..
+            } => Ok(pending_requests
+                .lock()
+                .unwrap()
+                .pop_front()
+                .map(|entry| (entry.summary, entry.response))),
+            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
+        }
+    }
+}
+
+fn start_http3_listener(
+    listener_id: ListenerId,
+    addr: SocketAddr,
+    runtime_config: Arc<config::EndpointRuntimeConfig>,
+    registry: Arc<ListenerRegistry>,
+    sender: mpsc::Sender<ConnectionId>,
+    handle: tokio::runtime::Handle,
+) -> Result<(QuinnEndpoint, JoinHandle<()>, SocketAddr), Error> {
+    let server_config = build_http3_server_config(&runtime_config)?;
+    let endpoint = handle
+        .block_on(async move { QuinnEndpoint::server(server_config, addr) })
+        .map_err(Error::Io)?;
+    let local_addr = endpoint.local_addr().map_err(Error::Io)?;
+
+    let registry_for_task = Arc::clone(&registry);
+    let runtime_for_task = Arc::clone(&runtime_config);
+    let sender_for_task = sender.clone();
+    let endpoint_for_task = endpoint.clone();
+    let listener = handle.spawn(async move {
+        loop {
+            match endpoint_for_task.accept().await {
+                Some(connecting) => match connecting.await {
+                    Ok(connection) => {
+                        let peer_addr = connection.remote_address();
+                        let handshake = Http3Handshake::from_endpoint(&runtime_for_task);
+                        let connection_id = registry_for_task.next_connection_id();
+                        let connection = Arc::new(connection);
+                        let streams = registry_for_task.register_http3_connection(
+                            listener_id,
+                            connection_id,
+                            Arc::clone(&runtime_for_task),
+                            handshake,
+                            Some(Arc::clone(&connection)),
+                            peer_addr,
+                        );
+                        let registry_for_connection = Arc::clone(&registry_for_task);
+                        let endpoint_for_connection = Arc::clone(&runtime_for_task);
+                        tokio::spawn(async move {
+                            serve_http3_requests(
+                                listener_id,
+                                connection_id,
+                                endpoint_for_connection,
+                                registry_for_connection,
+                                connection,
+                                streams,
+                            )
+                            .await;
+                        });
+                        if sender_for_task.send(connection_id).await.is_err() {
+                            break;
+                        }
+                    }
+                    Err(err) => {
+                        eprintln!(
+                            "http3 connection failed for listener {:?}: {}",
+                            listener_id, err
+                        );
+                    }
+                },
+                None => break,
+            }
+        }
+    });
+
+    Ok((endpoint, listener, local_addr))
+}
+
+fn build_http3_server_config(
+    endpoint: &config::EndpointRuntimeConfig,
+) -> Result<QuinnServerConfig, Error> {
+    let (certs, key) = load_http3_identity(endpoint)?;
+    QuinnServerConfig::with_single_cert(certs, key).map_err(|err| {
+        Error::RouterConfigInvalid(format!(
+            "endpoint {}:{} http3 certificate invalid: {}",
+            endpoint.host, endpoint.port, err
+        ))
+    })
+}
+
+fn load_http3_identity(
+    endpoint: &config::EndpointRuntimeConfig,
+) -> Result<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>), Error> {
+    let cert_entry = endpoint.sni_certificates.first().ok_or_else(|| {
+        Error::RouterConfigInvalid(format!(
+            "endpoint {}:{} requires SNI certificate for http3",
+            endpoint.host, endpoint.port
+        ))
+    })?;
+    let mut cert_reader = Cursor::new(cert_entry.certificate_chain_pem.as_bytes());
+    let certs = load_certs(&mut cert_reader)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|err| {
+            Error::RouterConfigInvalid(format!(
+                "endpoint {}:{} failed to parse http3 certificate: {}",
+                endpoint.host, endpoint.port, err
+            ))
+        })?;
+    if certs.is_empty() {
+        return Err(Error::RouterConfigInvalid(format!(
+            "endpoint {}:{} http3 certificate chain empty",
+            endpoint.host, endpoint.port
+        )));
+    }
+
+    let private_key = {
+        let mut key_reader = Cursor::new(cert_entry.private_key_pem.as_bytes());
+        let mut keys = pkcs8_private_keys(&mut key_reader)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|err| {
+                Error::RouterConfigInvalid(format!(
+                    "endpoint {}:{} failed to parse pkcs8 key for http3: {}",
+                    endpoint.host, endpoint.port, err
+                ))
+            })?
+            .into_iter()
+            .map(|der| der.into())
+            .collect::<Vec<_>>();
+        if keys.is_empty() {
+            let mut rsa_reader = Cursor::new(cert_entry.private_key_pem.as_bytes());
+            keys = rsa_private_keys(&mut rsa_reader)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|err| {
+                    Error::RouterConfigInvalid(format!(
+                        "endpoint {}:{} failed to parse rsa key for http3: {}",
+                        endpoint.host, endpoint.port, err
+                    ))
+                })?
+                .into_iter()
+                .map(|der| der.into())
+                .collect();
+        }
+        keys.into_iter().next().ok_or_else(|| {
+            Error::RouterConfigInvalid(format!(
+                "endpoint {}:{} http3 private key missing",
+                endpoint.host, endpoint.port
+            ))
+        })?
+    };
+
+    Ok((certs, private_key))
 }
 
 #[derive(Debug)]
@@ -681,17 +1414,20 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
             let accept_registry = Arc::clone(&view.registry);
             let async_sender = sender.clone();
             let runtime_config_for_task = Arc::clone(&runtime_config);
-            let task = view.handle.spawn(async move {
+            let runtime_handle = view.handle.clone();
+            let task = runtime_handle.clone().spawn(async move {
                 let listener = tokio::net::TcpListener::from_std(std_listener)
                     .expect("failed to convert listener to tokio");
                 let tx = async_sender;
                 loop {
                     match listener.accept().await {
                         Ok((stream, addr)) => {
-                            match rawsocket::negotiate(stream, &runtime_config_for_task).await {
-                                Ok(negotiated) => {
+                            match protocol::negotiate_connection(stream, &runtime_config_for_task)
+                                .await
+                            {
+                                Ok(protocol::NegotiatedConnection::RawSocket(negotiated)) => {
                                     let connection_id = accept_registry.next_connection_id();
-                                    accept_registry.register_connection(
+                                    accept_registry.register_rawsocket_connection(
                                         listener_id,
                                         connection_id,
                                         Arc::clone(&runtime_config_for_task),
@@ -702,19 +1438,88 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                                         break;
                                     }
                                 }
-                                Err(rawsocket::HandshakeError::HttpProbe) => {
-                                    // HTTP probe handled; ignore connection.
+                                Ok(protocol::NegotiatedConnection::WebSocket(handshake)) => {
+                                    let connection_id = accept_registry.next_connection_id();
+                                    accept_registry.register_websocket_connection(
+                                        listener_id,
+                                        connection_id,
+                                        Arc::clone(&runtime_config_for_task),
+                                        handshake,
+                                        addr,
+                                    );
+                                    if tx.send(connection_id).await.is_err() {
+                                        break;
+                                    }
                                 }
-                                Err(rawsocket::HandshakeError::Protocol(msg)) => {
+                                Ok(protocol::NegotiatedConnection::Http2(handshake)) => {
+                                    let connection_id = accept_registry.next_connection_id();
+                                    accept_registry.register_http2_connection(
+                                        listener_id,
+                                        connection_id,
+                                        Arc::clone(&runtime_config_for_task),
+                                        handshake,
+                                        addr,
+                                    );
+                                    if tx.send(connection_id).await.is_err() {
+                                        break;
+                                    }
+                                }
+                                Ok(protocol::NegotiatedConnection::Http3(handshake)) => {
+                                    let connection_id = accept_registry.next_connection_id();
+                                    accept_registry.register_http3_connection(
+                                        listener_id,
+                                        connection_id,
+                                        Arc::clone(&runtime_config_for_task),
+                                        handshake,
+                                        None,
+                                        addr,
+                                    );
+                                    if tx.send(connection_id).await.is_err() {
+                                        break;
+                                    }
+                                }
+                                Ok(protocol::NegotiatedConnection::Http(handshake)) => {
+                                    let connection_id = accept_registry.next_connection_id();
+                                    accept_registry.register_http_connection(
+                                        listener_id,
+                                        connection_id,
+                                        Arc::clone(&runtime_config_for_task),
+                                        addr,
+                                    );
+                                    let registry_for_connection = Arc::clone(&accept_registry);
+                                    let endpoint_for_connection =
+                                        Arc::clone(&runtime_config_for_task);
+                                    let http_handle = runtime_handle.clone();
+                                    http_handle.spawn(async move {
+                                        serve_http_connection(
+                                            listener_id,
+                                            connection_id,
+                                            handshake,
+                                            endpoint_for_connection,
+                                            registry_for_connection,
+                                        )
+                                        .await;
+                                    });
+                                    if tx.send(connection_id).await.is_err() {
+                                        break;
+                                    }
+                                }
+                                Err(protocol::NegotiationError::Timeout) => {
                                     eprintln!(
-                                        "rawsocket handshake failed for listener {:?}: {}",
-                                        listener_id, msg
+                                        "protocol negotiation timed out for connection from {}",
+                                        addr
                                     );
                                 }
-                                Err(rawsocket::HandshakeError::Io(err)) => {
+                                Err(protocol::NegotiationError::Protocol(msg)) => {
                                     eprintln!(
-                                        "rawsocket handshake IO error for listener {:?}: {}",
-                                        listener_id, err
+                                        "protocol negotiation failed for connection from {}: {}",
+                                        addr, msg
+                                    );
+                                }
+                                Err(protocol::NegotiationError::Io(err)) => {
+                                    eprintln!(
+                                        "protocol negotiation IO error for connection from {}: {}",
+                                        addr, err
                                     );
                                 }
                             }
@@ -724,11 +1529,47 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                 }
             });
 
+            let mut listener_tasks = vec![task];
+            let mut http3_addr = None;
+            let mut http3_endpoint = None;
+            if runtime_config.supports_protocol(TransportProtocol::Http3) {
+                let mut desired_addr = local_addr;
+                if let Some(http_settings) = runtime_config.http_settings() {
+                    if let Some(http3_settings) = &http_settings.http3 {
+                        if let Some(port) = http3_settings.port {
+                            desired_addr.set_port(port);
+                        }
+                    }
+                }
+                match start_http3_listener(
+                    listener_id,
+                    desired_addr,
+                    Arc::clone(&runtime_config),
+                    Arc::clone(&view.registry),
+                    sender.clone(),
+                    view.handle.clone(),
+                ) {
+                    Ok((endpoint, task, bound_addr)) => {
+                        http3_addr = Some(bound_addr);
+                        http3_endpoint = Some(endpoint);
+                        listener_tasks.push(task);
+                    }
+                    Err(err) => {
+                        eprintln!(
+                            "failed to start http3 listener on {}: {}",
+                            desired_addr, err
+                        );
+                    }
+                }
+            }
+
             let entry = ListenerEntry {
                 addr: local_addr,
                 receiver: Mutex::new(Some(receiver)),
                 _sender: sender,
-                task,
+                tasks: listener_tasks,
+                http3_addr,
+                http3_endpoint,
                 endpoint_config: runtime_config,
             };
             view.registry.insert(listener_id, entry);
@@ -746,6 +1587,18 @@ pub fn local_addr(listener_id: ListenerId) -> Result<SocketAddr, Error> {
     let manager = RuntimeManager::global();
     manager
         .with_state(|state| state.registry.local_addr(listener_id))
+        .map_err(|err| match err {
+            Error::RuntimeNotStarted => err,
+            other => other,
+        })
+}
+
+/// Returns the bound HTTP/3 port for the given listener, if available.
+pub fn listener_http3_port(listener_id: ListenerId) -> Result<Option<u16>, Error> {
+    let manager = RuntimeManager::global();
+    manager
+        .with_state(|state| state.registry.http3_addr(listener_id))
+        .map(|addr| addr.map(|socket| socket.port()))
         .map_err(|err| match err {
             Error::RuntimeNotStarted => err,
             other => other,
@@ -777,6 +1630,109 @@ pub fn connection_rawsocket_max_exponent(connection_id: ConnectionId) -> Result<
     manager.with_state(|state| state.registry.connection_exponent(connection_id))
 }
 
+/// Returns the negotiated transport protocol for a connection.
+pub fn connection_protocol(connection_id: ConnectionId) -> Result<ConnectionProtocol, Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| state.registry.connection_protocol(connection_id))
+}
+
+/// Retrieves and consumes a pending WebSocket handshake for a connection.
+pub fn connection_take_websocket_handshake(
+    connection_id: ConnectionId,
+) -> Result<protocol::WebSocketHandshake, Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| state.registry.take_websocket_handshake(connection_id))
+}
+
+/// Retrieves and consumes a pending HTTP/2 handshake for a connection.
+pub fn connection_take_http2_handshake(
+    connection_id: ConnectionId,
+) -> Result<protocol::Http2Handshake, Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| state.registry.take_http2_handshake(connection_id))
+}
+
+/// Retrieves and consumes a pending HTTP/3 handshake for a connection.
+pub fn connection_take_http3_handshake(
+    connection_id: ConnectionId,
+) -> Result<protocol::Http3Handshake, Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| state.registry.take_http3_handshake(connection_id))
+}
+
+/// Registers a pending HTTP/3 handshake for testing and diagnostics.
+pub fn register_http3_pending(
+    listener_id: ListenerId,
+    connection_id: ConnectionId,
+    handshake: protocol::Http3Handshake,
+    peer_addr: SocketAddr,
+) -> Result<(), Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| {
+        let endpoint_config = state.registry.listener_config(listener_id)?;
+        state.registry.register_http3_connection(
+            listener_id,
+            connection_id,
+            endpoint_config,
+            handshake,
+            None,
+            peer_addr,
+        );
+        Ok(())
+    })
+}
+
+/// Provides a shared handle to the HTTP/3 connection for a given connection id.
+pub fn connection_http3_connection(
+    connection_id: ConnectionId,
+) -> Result<Arc<QuinnConnection>, Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| state.registry.http3_connection(connection_id))
+}
+
+/// Attempts to retrieve the next pending HTTP/3 bidirectional stream.
+pub fn connection_http3_poll_stream(
+    connection_id: ConnectionId,
+) -> Result<Option<Http3BidiStream>, Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| state.registry.poll_http3_stream(connection_id))
+}
+
+/// Attempts to retrieve the next pending HTTP request metadata.
+pub fn connection_http_poll_request(
+    connection_id: ConnectionId,
+) -> Result<Option<(HttpRequestSummary, HttpResponseHandle)>, Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| state.registry.poll_http_request(connection_id))
+}
+
+/// Attempts to retrieve the next pending HTTP/3 request metadata.
+pub fn connection_http3_poll_request(
+    connection_id: ConnectionId,
+) -> Result<Option<(HttpRequestSummary, HttpResponseHandle)>, Error> {
+    connection_http_poll_request(connection_id)
+}
+
+#[cfg(feature = "ffi-test")]
+pub fn register_http_request(
+    connection_id: ConnectionId,
+    request: HttpRequestSummary,
+) -> Result<(), Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| {
+        let (tx, rx) = oneshot::channel::<HttpResponseDispatch>();
+        let handle = state.handle.clone();
+        handle.spawn(async move {
+            let _ = rx.await;
+        });
+        let queued = QueuedHttpRequest {
+            summary: request,
+            response: HttpResponseHandle::new(connection_id, tx),
+        };
+        state.registry.enqueue_http_request(connection_id, queued)
+    })
+}
+
 /// Attempts to retrieve the next parsed WAMP message for a connection.
 pub fn poll_connection_message(
     connection_id: ConnectionId,
@@ -795,6 +1751,20 @@ pub fn send_wamp_message(connection_id: ConnectionId, payload: Bytes) -> Result<
     })
 }
 
+/// Sends an HTTP response to the client. Currently unsupported.
+pub fn send_http_response(
+    connection_id: ConnectionId,
+    status: i32,
+    headers: &[(String, String)],
+    body: &[u8],
+) -> Result<(), Error> {
+    let _ = (status, headers, body);
+    Err(Error::UnsupportedProtocol(
+        connection_id,
+        ConnectionProtocol::Http,
+    ))
+}
+
 /// Enqueues a WAMP message composed of multiple payload segments.
 pub fn send_wamp_segments(connection_id: ConnectionId, segments: Vec<Bytes>) -> Result<(), Error> {
     let manager = RuntimeManager::global();
@@ -803,6 +1773,545 @@ pub fn send_wamp_segments(connection_id: ConnectionId, segments: Vec<Bytes>) -> 
             .registry
             .enqueue_frame(connection_id, OutboundFrame::message_segments(segments))
     })
+}
+
+pub fn spawn_http_response(
+    handshake: protocol::HttpHandshake,
+    status: i32,
+    headers: Vec<(String, String)>,
+    body: Vec<u8>,
+) -> Result<(), Error> {
+    let manager = RuntimeManager::global();
+    let version = handshake.version();
+    manager.with_state(|state| {
+        let handle = state.handle.clone();
+        handle.spawn(async move {
+            let stream = handshake.into_stream();
+            if let Err(err) =
+                protocol::write_http_response(stream, version, status, headers, body).await
+            {
+                eprintln!("failed to send http response: {}", err);
+            }
+        });
+        Ok(())
+    })
+}
+
+async fn serve_http_connection(
+    listener_id: ListenerId,
+    connection_id: ConnectionId,
+    handshake: protocol::HttpHandshake,
+    endpoint_config: Arc<config::EndpointRuntimeConfig>,
+    registry: Arc<ListenerRegistry>,
+) {
+    let (stream, request, body) = handshake.into_parts();
+    let mut reader = BufReader::new(stream);
+    let mut pending = Some((request, body));
+
+    loop {
+        let (request, body) = match pending.take() {
+            Some(value) => value,
+            None => match protocol::read_http_request(&mut reader, &endpoint_config).await {
+                Ok(Some(value)) => value,
+                Ok(None) => break,
+                Err(err) => {
+                    eprintln!(
+                        "http/1 connection read error for listener {:?}: {:?}",
+                        listener_id, err
+                    );
+                    break;
+                }
+            },
+        };
+
+        let protocol::HttpRequest {
+            method,
+            target,
+            version,
+            headers,
+        } = request;
+        let normalized_method = method.to_uppercase();
+        let (path, query) = protocol::split_http_target(&target);
+        let normalized_path = if path.is_empty() { "/" } else { path };
+        let normalized_path_string = normalized_path.to_string();
+        let query_owned = query.map(|value| value.to_string());
+        let keep_alive = should_keep_alive(version, &headers);
+        let protocol_label = format!("http/1.{}", version);
+
+        match endpoint_config.match_http_route(
+            &normalized_path_string,
+            query,
+            &normalized_method,
+            &protocol_label,
+        ) {
+            HttpRouteMatch::Resolved(resolution) => {
+                let (tx, rx) = oneshot::channel::<HttpResponseDispatch>();
+                let body_handle = HttpBodyHandle::from_bytes(body);
+                let summary = HttpRequestSummary::new(
+                    method,
+                    target,
+                    normalized_path_string.clone(),
+                    query_owned,
+                    protocol_label.clone(),
+                    version,
+                    headers,
+                    body_handle,
+                    Some(resolution.realm.clone()),
+                    Some(resolution.procedure.clone()),
+                    Some(resolution),
+                );
+                let queued = QueuedHttpRequest {
+                    summary,
+                    response: HttpResponseHandle::new(connection_id, tx),
+                };
+                if let Err(err) = registry.enqueue_http_request(connection_id, queued) {
+                    eprintln!(
+                        "failed to enqueue http request for listener {:?}: {}",
+                        listener_id, err
+                    );
+                    break;
+                }
+                match rx.await {
+                    Ok(mut dispatch) => {
+                        if let Err(err) =
+                            send_http_dispatch(&mut reader, version, keep_alive, &mut dispatch)
+                                .await
+                        {
+                            eprintln!(
+                                "failed to send http response for listener {:?}: {}",
+                                listener_id, err
+                            );
+                            break;
+                        }
+                    }
+                    Err(_) => {
+                        let _ = send_http_simple_response(
+                            &mut reader,
+                            version,
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            keep_alive,
+                            b"http request cancelled",
+                            &[],
+                        )
+                        .await;
+                        break;
+                    }
+                }
+            }
+            HttpRouteMatch::MethodNotAllowed { allowed_methods } => {
+                let allow_value = allowed_methods.join(", ");
+                if let Err(err) = send_http_simple_response(
+                    &mut reader,
+                    version,
+                    StatusCode::METHOD_NOT_ALLOWED,
+                    keep_alive,
+                    b"method not allowed",
+                    &[("Allow", allow_value.as_str())],
+                )
+                .await
+                {
+                    eprintln!(
+                        "failed to send 405 response for listener {:?}: {}",
+                        listener_id, err
+                    );
+                    break;
+                }
+            }
+            HttpRouteMatch::NotFound => {
+                if let Err(err) = send_http_simple_response(
+                    &mut reader,
+                    version,
+                    StatusCode::NOT_FOUND,
+                    keep_alive,
+                    b"route not found",
+                    &[],
+                )
+                .await
+                {
+                    eprintln!(
+                        "failed to send 404 response for listener {:?}: {}",
+                        listener_id, err
+                    );
+                    break;
+                }
+            }
+        }
+
+        if !keep_alive {
+            break;
+        }
+    }
+}
+
+async fn send_http_dispatch(
+    reader: &mut BufReader<tokio::net::TcpStream>,
+    version: u8,
+    keep_alive: bool,
+    dispatch: &mut HttpResponseDispatch,
+) -> Result<(), String> {
+    ensure_connection_header(&mut dispatch.headers, keep_alive, version);
+    protocol::write_http_response_shared(
+        reader.get_mut(),
+        version,
+        dispatch.status,
+        &dispatch.headers,
+        &dispatch.body,
+    )
+    .await
+    .map_err(|err| err.to_string())
+}
+
+async fn send_http_simple_response(
+    reader: &mut BufReader<tokio::net::TcpStream>,
+    version: u8,
+    status: StatusCode,
+    keep_alive: bool,
+    body: &[u8],
+    extra_headers: &[(&str, &str)],
+) -> Result<(), String> {
+    let mut headers: Vec<(String, String)> = extra_headers
+        .iter()
+        .map(|(name, value)| (name.to_string(), value.to_string()))
+        .collect();
+    ensure_connection_header(&mut headers, keep_alive, version);
+    protocol::write_http_response_shared(
+        reader.get_mut(),
+        version,
+        status.as_u16() as i32,
+        &headers,
+        body,
+    )
+    .await
+    .map_err(|err| err.to_string())
+}
+
+fn ensure_connection_header(headers: &mut Vec<(String, String)>, keep_alive: bool, version: u8) {
+    if headers
+        .iter()
+        .any(|(name, _)| name.eq_ignore_ascii_case("connection"))
+    {
+        return;
+    }
+    if keep_alive && version >= 1 {
+        headers.push(("Connection".into(), "keep-alive".into()));
+    } else {
+        headers.push(("Connection".into(), "close".into()));
+    }
+}
+
+fn should_keep_alive(version: u8, headers: &[(String, String)]) -> bool {
+    let directive = headers
+        .iter()
+        .find(|(name, _)| name.eq_ignore_ascii_case("connection"))
+        .map(|(_, value)| value.as_str());
+    match version {
+        0 => directive
+            .map(|value| header_has_token(value, "keep-alive"))
+            .unwrap_or(false),
+        _ => directive
+            .map(|value| !header_has_token(value, "close"))
+            .unwrap_or(true),
+    }
+}
+
+fn header_has_token(value: &str, needle: &str) -> bool {
+    value
+        .split(',')
+        .map(|token| token.trim())
+        .any(|token| token.eq_ignore_ascii_case(needle))
+}
+
+async fn serve_http3_requests(
+    listener_id: ListenerId,
+    connection_id: ConnectionId,
+    endpoint_config: Arc<config::EndpointRuntimeConfig>,
+    registry: Arc<ListenerRegistry>,
+    connection: Arc<QuinnConnection>,
+    streams: Arc<Http3StreamChannels>,
+) {
+    let mut h3_conn = match h3::server::builder()
+        .build(H3QuinnConnection::new(connection.deref().clone()))
+        .await
+    {
+        Ok(conn) => conn,
+        Err(err) => {
+            eprintln!(
+                "http3 handshake failed for listener {:?}: {}",
+                listener_id, err
+            );
+            return;
+        }
+    };
+
+    loop {
+        match h3_conn.accept().await {
+            Ok(Some(resolver)) => match resolver.resolve_request().await {
+                Ok((request, stream)) => {
+                    if let Err(err) = process_http3_request(
+                        connection_id,
+                        request,
+                        stream,
+                        Arc::clone(&endpoint_config),
+                        Arc::clone(&registry),
+                    )
+                    .await
+                    {
+                        eprintln!(
+                            "http3 request error for listener {:?}: {}",
+                            listener_id, err
+                        );
+                    }
+                }
+                Err(err) => {
+                    eprintln!(
+                        "http3 request resolve error for listener {:?}: {}",
+                        listener_id, err
+                    );
+                }
+            },
+            Ok(None) => break,
+            Err(err) => {
+                eprintln!(
+                    "http3 accept loop stopped for listener {:?}: {}",
+                    listener_id, err
+                );
+                break;
+            }
+        }
+    }
+
+    drop(streams);
+}
+
+async fn process_http3_request(
+    connection_id: ConnectionId,
+    request: HttpRequest<()>,
+    mut stream: H3RequestStream<h3_quinn::BidiStream<Bytes>, Bytes>,
+    endpoint_config: Arc<config::EndpointRuntimeConfig>,
+    registry: Arc<ListenerRegistry>,
+) -> Result<(), String> {
+    let method = request.method().as_str().to_string();
+    let normalized_method = method.to_uppercase();
+    let target = request
+        .uri()
+        .path_and_query()
+        .map(|pq| pq.as_str().to_string())
+        .unwrap_or_else(|| request.uri().path().to_string());
+    let (path, query) = split_target_components(&target);
+    let headers = flatten_headers(request.headers());
+
+    let max_body = endpoint_config
+        .max_http_content_length
+        .unwrap_or(HTTP3_DEFAULT_BODY_LIMIT);
+    let mut body = Vec::new();
+    while let Some(mut chunk) = stream
+        .recv_data()
+        .await
+        .map_err(|err| format!("failed to read http3 body: {}", err))?
+    {
+        while chunk.has_remaining() {
+            let slice = chunk.chunk();
+            let new_len = body.len() as u64 + slice.len() as u64;
+            if new_len > max_body {
+                send_plain_response(
+                    &mut stream,
+                    StatusCode::PAYLOAD_TOO_LARGE,
+                    b"payload too large",
+                    &[],
+                )
+                .await?;
+                return Ok(());
+            }
+            body.extend_from_slice(slice);
+            let advance = slice.len();
+            chunk.advance(advance);
+        }
+    }
+
+    match endpoint_config.match_http_route(&path, query.as_deref(), &normalized_method, "http3") {
+        HttpRouteMatch::Resolved(resolution) => {
+            let (tx, rx) = oneshot::channel::<HttpResponseDispatch>();
+            let body_handle = HttpBodyHandle::from_bytes(body);
+            let summary = HttpRequestSummary::new(
+                normalized_method,
+                target,
+                path,
+                query,
+                "http/3".to_string(),
+                3,
+                headers,
+                body_handle,
+                Some(resolution.realm.clone()),
+                Some(resolution.procedure.clone()),
+                Some(resolution),
+            );
+            let queued = QueuedHttpRequest {
+                summary,
+                response: HttpResponseHandle::new(connection_id, tx),
+            };
+            registry
+                .enqueue_http_request(connection_id, queued)
+                .map_err(|err| err.to_string())?;
+            tokio::spawn(async move {
+                let mut response_stream = stream;
+                match rx.await {
+                    Ok(dispatch) => {
+                        if let Err(err) =
+                            send_http3_response_from_dispatch(&mut response_stream, dispatch).await
+                        {
+                            eprintln!(
+                                "failed to send http3 response for connection {:?}: {}",
+                                connection_id, err
+                            );
+                        }
+                    }
+                    Err(_) => {
+                        let _ = send_plain_response(
+                            &mut response_stream,
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            b"http/3 request cancelled",
+                            &[],
+                        )
+                        .await;
+                    }
+                }
+            });
+            Ok(())
+        }
+        HttpRouteMatch::MethodNotAllowed { allowed_methods } => {
+            let allow_value = allowed_methods.join(", ");
+            send_plain_response(
+                &mut stream,
+                StatusCode::METHOD_NOT_ALLOWED,
+                b"method not allowed",
+                &[("allow", allow_value.as_str())],
+            )
+            .await
+        }
+        HttpRouteMatch::NotFound => {
+            send_plain_response(&mut stream, StatusCode::NOT_FOUND, b"route not found", &[]).await
+        }
+    }
+}
+
+fn flatten_headers(headers: &http::HeaderMap) -> Vec<(String, String)> {
+    headers
+        .iter()
+        .map(|(name, value)| {
+            let header_value = value
+                .to_str()
+                .map(|s| s.to_string())
+                .unwrap_or_else(|_| String::new());
+            (name.as_str().to_string(), header_value)
+        })
+        .collect()
+}
+
+fn split_target_components(target: &str) -> (String, Option<String>) {
+    match target.split_once('?') {
+        Some((path, query)) => (path.to_string(), Some(query.to_string())),
+        None => (target.to_string(), None),
+    }
+}
+
+#[allow(dead_code)]
+fn http_summary_from_handshake(
+    handshake: &protocol::HttpHandshake,
+    route: &config::HttpRouteResolution,
+) -> HttpRequestSummary {
+    let (path, query) = protocol::split_http_target(&handshake.request.target);
+    let normalized_path = if path.is_empty() { "/" } else { path };
+    let body_handle = HttpBodyHandle::from_bytes(handshake.body.clone());
+    HttpRequestSummary::new(
+        handshake.request.method.clone(),
+        handshake.request.target.clone(),
+        normalized_path.to_string(),
+        query.map(|value| value.to_string()),
+        format!("http/1.{}", handshake.request.version),
+        handshake.request.version,
+        handshake
+            .request
+            .headers
+            .iter()
+            .map(|(name, value)| (name.clone(), value.clone()))
+            .collect(),
+        body_handle,
+        Some(route.realm.clone()),
+        Some(route.procedure.clone()),
+        Some(route.clone()),
+    )
+}
+
+async fn send_plain_response(
+    stream: &mut H3RequestStream<h3_quinn::BidiStream<Bytes>, Bytes>,
+    status: StatusCode,
+    body: &[u8],
+    headers: &[(&str, &str)],
+) -> Result<(), String> {
+    let mut builder = HttpResponse::builder().status(status);
+    {
+        let header_map = builder.headers_mut().expect("headers available");
+        for (name, value) in headers {
+            if let (Ok(name), Ok(value)) = (
+                HeaderName::from_bytes(name.as_bytes()),
+                HeaderValue::from_str(value),
+            ) {
+                header_map.insert(name, value);
+            }
+        }
+        if let Ok(len_value) = HeaderValue::from_str(&body.len().to_string()) {
+            header_map.insert(CONTENT_LENGTH, len_value);
+        }
+    }
+    let response = builder.body(()).map_err(|err| err.to_string())?;
+    stream
+        .send_response(response)
+        .await
+        .map_err(|err| err.to_string())?;
+    if !body.is_empty() {
+        stream
+            .send_data(Bytes::copy_from_slice(body))
+            .await
+            .map_err(|err| err.to_string())?;
+    }
+    stream.finish().await.map_err(|err| err.to_string())?;
+    Ok(())
+}
+
+async fn send_http3_response_from_dispatch(
+    stream: &mut H3RequestStream<h3_quinn::BidiStream<Bytes>, Bytes>,
+    dispatch: HttpResponseDispatch,
+) -> Result<(), String> {
+    let clamped = dispatch.status.clamp(100, 599) as u16;
+    let status_code = StatusCode::from_u16(clamped).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    let mut builder = HttpResponse::builder().status(status_code);
+    {
+        let header_map = builder.headers_mut().expect("headers available");
+        for (name, value) in &dispatch.headers {
+            if let (Ok(name), Ok(value)) = (
+                HeaderName::from_bytes(name.as_bytes()),
+                HeaderValue::from_str(value),
+            ) {
+                header_map.insert(name, value);
+            }
+        }
+        if let Ok(len_value) = HeaderValue::from_str(&dispatch.body.len().to_string()) {
+            header_map.insert(CONTENT_LENGTH, len_value);
+        }
+    }
+    let response = builder.body(()).map_err(|err| err.to_string())?;
+    stream
+        .send_response(response)
+        .await
+        .map_err(|err| err.to_string())?;
+    if !dispatch.body.is_empty() {
+        stream
+            .send_data(Bytes::from(dispatch.body))
+            .await
+            .map_err(|err| err.to_string())?;
+    }
+    stream.finish().await.map_err(|err| err.to_string())?;
+    Ok(())
 }
 
 fn resolve_socket_addr(addr: &str, port: u16) -> Result<SocketAddr, Error> {

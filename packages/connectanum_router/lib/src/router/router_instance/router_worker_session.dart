@@ -170,6 +170,8 @@ Future<void> _handleGoodbye({
 }) async {
   if (state.phase == HandshakePhase.open) {
     final serializer = state.serializer ?? NativeMessageSerializer.json;
+    // TODO(protocol-negotiation): forward the negotiated protocol once the
+    // native runtime reports real negotiation outcomes.
     await sendMessage(
       bossPort,
       connectionId,
@@ -731,6 +733,12 @@ Future<void> _handleCall({
         message.procedure,
         message.options?.receiveProgress,
       );
+      final customOptions = message.options?.custom;
+      if (customOptions != null && customOptions.isNotEmpty) {
+        invocationDetails.custom.addAll(
+          customOptions.map((key, value) => MapEntry(key, value)),
+        );
+      }
       final invocation = invocation_msg.Invocation(
         dispatch.invocationId,
         dispatch.registrationId,
@@ -879,8 +887,8 @@ Future<void> _handleCancel({
           forceRefresh: true,
         );
         if (calleeConnectionId != null) {
-          final interruptOptions =
-              interrupt_msg.InterruptOptions()..mode = mode;
+          final interruptOptions = interrupt_msg.InterruptOptions()
+            ..mode = mode;
           final interrupt = interrupt_msg.Interrupt(
             invocation.invocationId,
             options: interruptOptions,

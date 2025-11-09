@@ -12,6 +12,10 @@ class WorkerConnectionState {
   final ListenerSettings listenerSettings;
   HandshakePhase phase = HandshakePhase.awaitingHello;
   NativeMessageSerializer? serializer;
+
+  /// Negotiated transport protocol for this connection. Currently assumed to
+  /// be RawSocket until the native runtime reports negotiation results.
+  ListenerProtocol? protocol;
   RealmSettings? realmSettings;
   String? realmUri;
   int? sessionId;

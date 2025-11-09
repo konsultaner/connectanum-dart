@@ -38,6 +38,8 @@ import 'package:connectanum_core/src/message/unregistered.dart'
     as unregistered_msg;
 import 'package:connectanum_core/src/message/unsubscribe.dart'
     as unsubscribe_msg;
+
+import 'http/http_context.dart';
 import 'package:connectanum_core/src/message/unsubscribed.dart'
     as unsubscribed_msg;
 import 'package:connectanum_core/src/message/yield.dart' as yield_msg;
@@ -78,6 +80,7 @@ export 'models/router_message.dart';
 export 'config/router_settings.dart';
 export 'config/router_settings_builder.dart';
 export 'config/router_config_loader.dart';
+export 'http/http_context.dart';
 
 part 'router_instance/router_binding.dart';
 part 'router_instance/router_boss.dart';
