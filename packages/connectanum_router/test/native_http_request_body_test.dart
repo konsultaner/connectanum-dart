@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
-import 'package:connectanum_router/src/router/models/router_listener.dart';
 import 'package:connectanum_router/src/router/models/tls_mode.dart';
 import 'package:connectanum_router/src/router/router_instance.dart';
 import 'package:test/test.dart';
@@ -48,6 +47,35 @@ void main() {
         isTrue,
         reason: 'stream chunk should be the shared view',
       );
+    });
+
+    test('openRead drains streaming handles and calls finish', () async {
+      final queue = <Uint8List>[
+        Uint8List.fromList([1, 2]),
+        Uint8List.fromList([3, 4]),
+      ];
+      var finishCalls = 0;
+      final body = NativeHttpRequestBody.testStreaming(
+        length: 4,
+        onRead: (_) => queue.isNotEmpty ? queue.removeAt(0) : Uint8List(0),
+        onFinish: () => finishCalls++,
+      );
+      final chunks = await body.openRead(chunkSize: 2).toList();
+      expect(chunks, hasLength(2));
+      expect(chunks[0], equals(Uint8List.fromList([1, 2])));
+      expect(chunks[1], equals(Uint8List.fromList([3, 4])));
+      expect(finishCalls, 1);
+    });
+
+    test('finish allows discarding streaming bodies without reading', () {
+      var finishCalls = 0;
+      final body = NativeHttpRequestBody.testStreaming(
+        length: 0,
+        onRead: (_) => Uint8List(0),
+        onFinish: () => finishCalls++,
+      );
+      body.finish();
+      expect(finishCalls, 1);
     });
   });
 

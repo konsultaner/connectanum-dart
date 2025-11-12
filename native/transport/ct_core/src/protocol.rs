@@ -1,5 +1,6 @@
 use std::io::{self, Write};
 
+use bytes::BytesMut;
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
     net::TcpStream,
@@ -8,7 +9,9 @@ use tokio::{
 
 use crate::{
     config::{EndpointRuntimeConfig, HttpRouteMatch, TransportProtocol},
+    http1_stream::{self, HttpBodyPhase},
     rawsocket::{self, NegotiatedSession, RAWSOCKET_MAGIC},
+    HTTP1_INLINE_BODY_LIMIT,
 };
 
 const MAX_HTTP_HEADER_BYTES: usize = 64 * 1024;
@@ -49,7 +52,7 @@ impl From<io::Error> for NegotiationError {
 pub struct HttpHandshake {
     stream: TcpStream,
     pub request: HttpRequest,
-    pub body: Vec<u8>,
+    pub body: HttpBodyPhase,
 }
 
 impl HttpHandshake {
@@ -58,13 +61,24 @@ impl HttpHandshake {
         self.stream
     }
 
-    pub fn into_parts(self) -> (TcpStream, HttpRequest, Vec<u8>) {
+    pub fn into_parts(self) -> (TcpStream, HttpRequest, HttpBodyPhase) {
         (self.stream, self.request, self.body)
     }
 
     /// Returns the HTTP version captured during negotiation.
     pub fn version(&self) -> u8 {
         self.request.version
+    }
+
+    pub fn body_len(&self) -> usize {
+        match &self.body {
+            HttpBodyPhase::Buffered(bytes) => bytes.len(),
+            HttpBodyPhase::Finished => 0,
+            HttpBodyPhase::NeedsStreaming {
+                prefix,
+                remaining_len,
+            } => prefix.len() + remaining_len,
+        }
     }
 
     fn try_into_websocket(self) -> Result<WebSocketHandshake, HttpHandshake> {
@@ -84,7 +98,7 @@ impl HttpHandshake {
         else {
             return Err(self);
         };
-        if !self.body.is_empty() {
+        if self.body_len() > 0 {
             return Err(self);
         }
 
@@ -144,15 +158,31 @@ pub struct HttpRequest {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct Http2Handshake {
-    stream: TcpStream,
+    stream: Option<TcpStream>,
     protocol: String,
     alpn: Option<String>,
     listener_protocols: Vec<String>,
 }
 
 impl Http2Handshake {
-    pub fn into_stream(self) -> TcpStream {
-        self.stream
+    pub fn into_stream(mut self) -> Option<TcpStream> {
+        self.stream.take()
+    }
+
+    pub fn split(self) -> (TcpStream, Http2Handshake) {
+        let Http2Handshake {
+            stream,
+            protocol,
+            alpn,
+            listener_protocols,
+        } = self;
+        let metadata = Http2Handshake {
+            stream: None,
+            protocol,
+            alpn,
+            listener_protocols,
+        };
+        (stream.expect("http2 stream already taken"), metadata)
     }
 
     pub fn protocol(&self) -> &str {
@@ -233,7 +263,6 @@ pub async fn negotiate_connection(
                     "http2 protocol disabled for listener".into(),
                 ));
             }
-            let stream = read_http2_preface(stream, endpoint.handshake_timeout).await?;
             let protocol = "http/2".to_string();
             let alpn = endpoint
                 .http_settings()
@@ -244,7 +273,7 @@ pub async fn negotiate_connection(
                 .map(|protocol| protocol.identifier().to_string())
                 .collect();
             return Ok(NegotiatedConnection::Http2(Http2Handshake {
-                stream,
+                stream: Some(stream),
                 protocol,
                 alpn,
                 listener_protocols,
@@ -318,21 +347,6 @@ async fn send_http_response(mut stream: TcpStream, payload: &[u8]) -> io::Result
     Ok(())
 }
 
-async fn read_http2_preface(
-    mut stream: TcpStream,
-    timeout: Duration,
-) -> Result<TcpStream, NegotiationError> {
-    let mut buf = [0u8; HTTP2_PREFACE.len()];
-    time::timeout(timeout, stream.read_exact(&mut buf))
-        .await
-        .map_err(|_| NegotiationError::Timeout)?
-        .map_err(NegotiationError::Io)?;
-    if buf != *HTTP2_PREFACE {
-        return Err(NegotiationError::Protocol("http2 preface mismatch".into()));
-    }
-    Ok(stream)
-}
-
 async fn peek_handshake(
     stream: &TcpStream,
     timeout: Duration,
@@ -400,13 +414,16 @@ pub async fn write_http_response(
     Ok(())
 }
 
-pub async fn write_http_response_shared(
-    stream: &mut TcpStream,
+pub async fn write_http_response_shared<W>(
+    stream: &mut W,
     version: u8,
     status: i32,
     headers: &[(String, String)],
     body: &[u8],
-) -> io::Result<()> {
+) -> io::Result<()>
+where
+    W: AsyncWrite + Unpin,
+{
     write_http_response_inner(stream, version, status, headers, body).await
 }
 
@@ -517,21 +534,29 @@ async fn parse_http_handshake(
 
     time::timeout(timeout, async move {
         let mut reader = BufReader::new(stream);
-        let (request, body) =
-            match read_http_request_with_options(&mut reader, endpoint, false).await? {
-                Some(parts) => parts,
-                None => {
-                    return Err(NegotiationError::Protocol(
-                        "connection closed before HTTP headers completed".into(),
-                    ))
-                }
-            };
-        if body.len() as u64 > max_body {
-            return Err(NegotiationError::Protocol(format!(
-                "http body length {} exceeds configured limit {}",
-                body.len(),
-                max_body
-            )));
+        let (request, body_phase) = match read_http_request_with_options(
+            &mut reader,
+            endpoint,
+            false,
+            HTTP1_INLINE_BODY_LIMIT,
+        )
+        .await?
+        {
+            Some(parts) => parts,
+            None => {
+                return Err(NegotiationError::Protocol(
+                    "connection closed before HTTP headers completed".into(),
+                ))
+            }
+        };
+        if let HttpBodyPhase::Buffered(bytes) = &body_phase {
+            if bytes.len() as u64 > max_body {
+                return Err(NegotiationError::Protocol(format!(
+                    "http body length {} exceeds configured limit {}",
+                    bytes.len(),
+                    max_body
+                )));
+            }
         }
         if header_equals(&request, "Transfer-Encoding", "chunked") {
             return Err(NegotiationError::Protocol(
@@ -542,40 +567,46 @@ async fn parse_http_handshake(
         Ok(HttpHandshake {
             stream,
             request,
-            body,
+            body: body_phase,
         })
     })
     .await
     .map_err(|_| NegotiationError::Timeout)?
 }
 
-pub async fn read_http_request(
-    reader: &mut BufReader<TcpStream>,
+pub async fn read_http_request<R>(
+    reader: &mut BufReader<R>,
     endpoint: &EndpointRuntimeConfig,
-) -> Result<Option<(HttpRequest, Vec<u8>)>, NegotiationError> {
-    read_http_request_with_options(reader, endpoint, true).await
+) -> Result<Option<(HttpRequest, HttpBodyPhase)>, NegotiationError>
+where
+    R: AsyncRead + Unpin,
+{
+    read_http_request_with_options(reader, endpoint, true, HTTP1_INLINE_BODY_LIMIT).await
 }
 
 async fn read_http_request_with_options<R>(
     reader: &mut BufReader<R>,
     endpoint: &EndpointRuntimeConfig,
     allow_eof: bool,
-) -> Result<Option<(HttpRequest, Vec<u8>)>, NegotiationError>
+    inline_limit: usize,
+) -> Result<Option<(HttpRequest, HttpBodyPhase)>, NegotiationError>
 where
     R: AsyncRead + Unpin,
 {
     let mut buffer = Vec::with_capacity(1024);
-    let header_len = match read_until_header_terminator(reader, &mut buffer, allow_eof).await? {
-        Some(len) => len,
-        None => return Ok(None),
-    };
+    let read_timeout = endpoint.idle_timeout.unwrap_or(endpoint.handshake_timeout);
+    let header_len =
+        match read_until_header_terminator(reader, &mut buffer, read_timeout, allow_eof).await? {
+            Some(len) => len,
+            None => return Ok(None),
+        };
 
-    let (request, content_length) = parse_http_request(&buffer[..header_len])?;
+    let (request, content_length_u64) = parse_http_request(&buffer[..header_len])?;
 
     let max_body = endpoint
         .max_http_content_length
         .unwrap_or(DEFAULT_HTTP_BODY_LIMIT);
-    if let Some(len) = content_length {
+    if let Some(len) = content_length_u64 {
         if len > max_body {
             return Err(NegotiationError::Protocol(format!(
                 "http body length {} exceeds configured limit {}",
@@ -584,27 +615,12 @@ where
         }
     }
 
-    let mut body = Vec::new();
-    body.extend_from_slice(&buffer[header_len..]);
-
-    if let Some(len) = content_length {
-        if len < body.len() as u64 {
-            body.truncate(len as usize);
-        } else {
-            let mut remaining = len as usize - body.len();
-            while remaining > 0 {
-                let mut chunk = vec![0u8; remaining.min(4096)];
-                let read = reader.read(&mut chunk).await?;
-                if read == 0 {
-                    return Err(NegotiationError::Protocol(
-                        "connection closed before receiving declared HTTP body".into(),
-                    ));
-                }
-                body.extend_from_slice(&chunk[..read]);
-                remaining -= read;
-            }
-        }
-    }
+    let content_length = match content_length_u64 {
+        Some(len) => Some(usize::try_from(len).map_err(|_| {
+            NegotiationError::Protocol("http body length exceeds platform addressable range".into())
+        })?),
+        None => None,
+    };
 
     if header_equals(&request, "Transfer-Encoding", "chunked") {
         return Err(NegotiationError::Protocol(
@@ -612,12 +628,63 @@ where
         ));
     }
 
-    Ok(Some((request, body)))
+    let mut body = buffer.split_off(header_len);
+    if let Some(len) = content_length {
+        if len < body.len() {
+            body.truncate(len);
+        }
+    }
+    let mut body_bytes = BytesMut::from(&body[..]);
+
+    if let Some(len) = content_length {
+        if len <= inline_limit {
+            let mut remaining = len.saturating_sub(body_bytes.len());
+            let timeout = endpoint.idle_timeout.unwrap_or(endpoint.handshake_timeout);
+            while remaining > 0 {
+                let mut chunk = vec![0u8; remaining.min(4096)];
+                let read = read_with_timeout(reader, &mut chunk, timeout).await?;
+                if read == 0 {
+                    return Err(NegotiationError::Protocol(
+                        "connection closed before receiving declared HTTP body".into(),
+                    ));
+                }
+                body_bytes.extend_from_slice(&chunk[..read]);
+                remaining -= read;
+            }
+            return Ok(Some((
+                request,
+                HttpBodyPhase::Buffered(body_bytes.freeze()),
+            )));
+        } else {
+            let mut remaining = len.saturating_sub(body_bytes.len());
+            let timeout = endpoint.idle_timeout.unwrap_or(endpoint.handshake_timeout);
+            while remaining > 0 && body_bytes.len() < inline_limit {
+                let mut chunk = vec![0u8; (inline_limit - body_bytes.len()).min(4096)];
+                let read = read_with_timeout(reader, &mut chunk, timeout).await?;
+                if read == 0 {
+                    return Err(NegotiationError::Protocol(
+                        "connection closed before receiving declared HTTP body".into(),
+                    ));
+                }
+                body_bytes.extend_from_slice(&chunk[..read]);
+                remaining = remaining.saturating_sub(read);
+            }
+            let prefix = body_bytes.freeze();
+            let phase = http1_stream::classify_http_body(prefix, Some(len));
+            return Ok(Some((request, phase)));
+        }
+    }
+
+    Ok(Some((
+        request,
+        HttpBodyPhase::Buffered(body_bytes.freeze()),
+    )))
 }
 
 async fn read_until_header_terminator<R>(
     reader: &mut BufReader<R>,
     buffer: &mut Vec<u8>,
+    timeout: Duration,
     allow_eof: bool,
 ) -> Result<Option<usize>, NegotiationError>
 where
@@ -628,7 +695,7 @@ where
             return Ok(Some(index + 4));
         }
         let mut chunk = [0u8; 1024];
-        let read = reader.read(&mut chunk).await?;
+        let read = read_with_timeout(reader, &mut chunk, timeout).await?;
         if read == 0 {
             if allow_eof && buffer.is_empty() {
                 return Ok(None);
@@ -652,6 +719,20 @@ fn find_header_terminator(buffer: &[u8]) -> Option<usize> {
         .windows(4)
         .position(|window| window == b"\r\n\r\n")
         .map(|index| index)
+}
+
+async fn read_with_timeout<R>(
+    reader: &mut BufReader<R>,
+    buf: &mut [u8],
+    timeout: Duration,
+) -> Result<usize, NegotiationError>
+where
+    R: AsyncRead + Unpin,
+{
+    match time::timeout(timeout, reader.read(buf)).await {
+        Ok(result) => result.map_err(NegotiationError::Io),
+        Err(_) => Err(NegotiationError::Timeout),
+    }
 }
 
 fn parse_http_request(bytes: &[u8]) -> Result<(HttpRequest, Option<u64>), NegotiationError> {
@@ -790,6 +871,56 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn read_http_request_times_out_when_headers_stall() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let config = runtime_config(Some(Duration::from_millis(10)), 16);
+        let (tx, rx) = oneshot::channel();
+
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut reader = BufReader::new(stream);
+            let result = read_http_request(&mut reader, &config).await;
+            tx.send(result).ok();
+        });
+
+        let _client = TcpStream::connect(addr).await.unwrap();
+        match rx.await.unwrap() {
+            Err(NegotiationError::Timeout) => {}
+            other => panic!("expected timeout, got {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn read_http_request_times_out_when_body_stalls() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let mut config = runtime_config(Some(Duration::from_secs(1)), 16);
+        config.idle_timeout = Some(Duration::from_millis(10));
+        let (tx, rx) = oneshot::channel();
+
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut reader = BufReader::new(stream);
+            let result = read_http_request(&mut reader, &config).await;
+            tx.send(result).ok();
+        });
+
+        let mut client = TcpStream::connect(addr).await.unwrap();
+        client
+            .write_all(
+                b"POST /ingest HTTP/1.1\r\nHost: localhost\r\nContent-Length: 16\r\n\r\nbody",
+            )
+            .await
+            .unwrap();
+
+        match rx.await.unwrap() {
+            Err(NegotiationError::Timeout) => {}
+            other => panic!("expected timeout, got {:?}", other),
+        }
+    }
+
+    #[tokio::test]
     async fn negotiate_detects_rawsocket() {
         let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
         let addr = listener.local_addr().unwrap();
@@ -925,9 +1056,9 @@ Sec-WebSocket-Protocol: wamp.2.json, wamp.2.cbor\r\n\r\n";
 
         match rx.await.unwrap().expect("negotiation succeeds") {
             NegotiatedConnection::Http2(handshake) => {
-                let mut stream = handshake.into_stream();
-                // For now we simply close the connection
-                let _ = stream.shutdown().await;
+                if let Some(mut stream) = handshake.into_stream() {
+                    let _ = stream.shutdown().await;
+                }
             }
             other => panic!("unexpected negotiation outcome: {:?}", other),
         }

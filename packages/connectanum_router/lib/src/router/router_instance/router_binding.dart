@@ -613,6 +613,16 @@ class RouterBinding {
           );
           if (responsePayload != null) {
             final pending = _pendingHttpCalls[responsePayload.requestId];
+            if (pending == null) {
+              onEvent?.call({
+                'source': 'binding',
+                'type': 'http_response_missing_request',
+                'httpRequestId': responsePayload.requestId,
+                'listenerId': request.listenerId,
+                'connectionId': request.connectionId,
+              });
+              return;
+            }
             onEvent?.call({
               'source': 'binding',
               'type': 'http_response_ready',
@@ -621,18 +631,22 @@ class RouterBinding {
               'connectionId': request.connectionId,
               'response': responsePayload.toEventPayload(),
             });
-            if (responsePayload.progress) {
-              onEvent?.call({
-                'source': 'binding',
-                'type': 'http_response_progress_unsupported',
-                'httpRequestId': responsePayload.requestId,
-                'listenerId': request.listenerId,
-                'connectionId': request.connectionId,
-              });
+            if (responsePayload.progress || pending.responseStream != null) {
+              final sent = _forwardStreamingResponseChunk(
+                pending,
+                responsePayload,
+              );
+              if (!sent) {
+                _completeHttpRequest(responsePayload.requestId);
+                return;
+              }
+              if (!responsePayload.progress) {
+                _finishStreamingResponse(pending);
+              }
               return;
             }
             try {
-              final handshakeHandle = pending?.handshake?.handle ?? -1;
+              final handshakeHandle = pending.handshake?.handle ?? -1;
               if (handshakeHandle > 0) {
                 runtime.sendHttpResponse(
                   handshakeHandle: handshakeHandle,
@@ -777,8 +791,125 @@ class RouterBinding {
     }
   }
 
+  bool _forwardStreamingResponseChunk(
+    _PendingHttpCall pending,
+    HttpResponsePayload payload,
+  ) {
+    final stream = _ensureStreamingResponse(pending, payload);
+    if (stream == null) {
+      return false;
+    }
+    final chunk = payload.encodeBodyBytes();
+    if (chunk == null) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_response_stream_unsupported_body',
+        'httpRequestId': pending.id,
+        'listenerId': pending.request.listenerId,
+        'connectionId': pending.request.connectionId,
+        'bodyKind': payload.bodyKind.name,
+      });
+      return false;
+    }
+    if (chunk.isEmpty) {
+      return true;
+    }
+    try {
+      stream.add(chunk);
+      return true;
+    } catch (error, stackTrace) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_response_stream_error',
+        'httpRequestId': pending.id,
+        'listenerId': pending.request.listenerId,
+        'connectionId': pending.request.connectionId,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+      pending.responseStream = null;
+      return false;
+    }
+  }
+
+  NativeHttpResponseStream? _ensureStreamingResponse(
+    _PendingHttpCall pending,
+    HttpResponsePayload payload,
+  ) {
+    final existing = pending.responseStream;
+    if (existing != null) {
+      return existing;
+    }
+    final handshake = pending.handshake;
+    if (handshake == null) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_response_stream_missing_handshake',
+        'httpRequestId': pending.id,
+        'listenerId': pending.request.listenerId,
+        'connectionId': pending.request.connectionId,
+      });
+      return null;
+    }
+    try {
+      final stream = runtime.openHttpResponseStream(
+        handshakeHandle: handshake.handle,
+        status: payload.status,
+        headers: payload.headers,
+      );
+      pending.responseStream = stream;
+      return stream;
+    } on NativeTransportException catch (error, stackTrace) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_response_stream_open_error',
+        'httpRequestId': pending.id,
+        'listenerId': pending.request.listenerId,
+        'connectionId': pending.request.connectionId,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+      return null;
+    }
+  }
+
+  void _finishStreamingResponse(_PendingHttpCall pending) {
+    final stream = pending.responseStream;
+    pending.responseStream = null;
+    if (stream != null && !stream.isClosed) {
+      try {
+        stream.close();
+      } catch (error, stackTrace) {
+        onEvent?.call({
+          'source': 'binding',
+          'type': 'http_response_stream_finish_error',
+          'httpRequestId': pending.id,
+          'listenerId': pending.request.listenerId,
+          'connectionId': pending.request.connectionId,
+          'error': error.toString(),
+          'stackTrace': stackTrace.toString(),
+        });
+      }
+    }
+    _completeHttpRequest(pending.id);
+  }
+
   void _completeHttpRequest(int httpRequestId) {
     final pending = _pendingHttpCalls.remove(httpRequestId);
+    final stream = pending?.responseStream;
+    if (stream != null && !stream.isClosed) {
+      try {
+        stream.close();
+      } catch (error, stackTrace) {
+        onEvent?.call({
+          'source': 'binding',
+          'type': 'http_response_stream_finish_error',
+          'httpRequestId': httpRequestId,
+          'error': error.toString(),
+          'stackTrace': stackTrace.toString(),
+        });
+      }
+    }
     pending?.subscription.cancel();
     pending?.handshake?.release();
   }
@@ -937,6 +1068,7 @@ class _PendingHttpCall {
   final RouterSession session;
   final StreamSubscription<result_msg.Result> subscription;
   NativeHttpHandshake? handshake;
+  NativeHttpResponseStream? responseStream;
 }
 
 class _MetricsService {

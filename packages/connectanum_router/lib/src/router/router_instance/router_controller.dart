@@ -198,11 +198,7 @@ class Router {
             'HTTP namespace routes require a namespace; set action.namespace or action.options.namespace.',
           );
         }
-        final realm = _resolveRouteRealm(
-          action,
-          listener,
-          settings,
-        );
+        final realm = _resolveRouteRealm(action, listener, settings);
         if (realm == null || realm.isEmpty) {
           throw StateError(
             'HTTP namespace routes require a realm; specify action.realm, action.options.realm, or configure a listener/default realm.',

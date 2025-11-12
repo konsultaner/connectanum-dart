@@ -1,5 +1,6 @@
 // ignore_for_file: implementation_imports
 
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/src/message/invocation.dart' as invocation_msg;
@@ -177,6 +178,29 @@ class HttpResponsePayload {
       if (filePath != null) 'filePath': filePath,
       'progress': progress,
     };
+  }
+
+  Uint8List? encodeBodyBytes() {
+    switch (bodyKind) {
+      case HttpResponseBodyKind.bytes:
+        final bytes = bodyBytes;
+        if (bytes == null) {
+          return Uint8List(0);
+        }
+        return Uint8List.fromList(bytes);
+      case HttpResponseBodyKind.text:
+        final text = bodyText;
+        if (text == null) {
+          return Uint8List(0);
+        }
+        final encodingName = bodyEncoding ?? 'utf8';
+        final encoding = Encoding.getByName(encodingName) ?? utf8;
+        return Uint8List.fromList(encoding.encode(text));
+      case HttpResponseBodyKind.json:
+        return Uint8List.fromList(utf8.encode(jsonEncode(bodyJson)));
+      case HttpResponseBodyKind.file:
+        return null;
+    }
   }
 
   static HttpResponsePayload? fromKeywordArguments(
@@ -443,5 +467,75 @@ class HttpInvocationContext {
         path: path,
       ),
     );
+  }
+
+  HttpResponseStream streamResponse({
+    int status = 200,
+    Map<String, String>? headers,
+  }) {
+    return HttpResponseStream._(
+      invocation: invocation,
+      requestId: requestId,
+      status: status,
+      headers: headers ?? const {},
+    );
+  }
+}
+
+class HttpResponseStream {
+  HttpResponseStream._({
+    required this.invocation,
+    required this.requestId,
+    required this.status,
+    required Map<String, String> headers,
+  }) : headers = Map.unmodifiable(headers);
+
+  final invocation_msg.Invocation invocation;
+  final int requestId;
+  final int status;
+  final Map<String, String> headers;
+  bool _closed = false;
+
+  bool get isClosed => _closed;
+
+  void add(List<int> chunk) {
+    if (_closed) {
+      throw StateError('HTTP response stream already closed');
+    }
+    if (chunk.isEmpty) {
+      return;
+    }
+    final bytes = chunk is Uint8List ? chunk : Uint8List.fromList(chunk);
+    final payload = HttpResponsePayload._(
+      requestId: requestId,
+      status: status,
+      headers: headers,
+      bodyKind: HttpResponseBodyKind.bytes,
+      bodyBytes: bytes,
+      progress: true,
+    );
+    HttpResponseUtil.respond(invocation, payload, progress: true);
+  }
+
+  void close([List<int>? finalChunk]) {
+    if (_closed) {
+      return;
+    }
+    Uint8List? finalBytes;
+    if (finalChunk != null && finalChunk.isNotEmpty) {
+      finalBytes = finalChunk is Uint8List
+          ? finalChunk
+          : Uint8List.fromList(finalChunk);
+    }
+    final payload = HttpResponsePayload._(
+      requestId: requestId,
+      status: status,
+      headers: headers,
+      bodyKind: HttpResponseBodyKind.bytes,
+      bodyBytes: finalBytes,
+      progress: false,
+    );
+    HttpResponseUtil.respond(invocation, payload);
+    _closed = true;
   }
 }

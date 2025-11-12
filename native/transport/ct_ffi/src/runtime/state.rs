@@ -5,9 +5,10 @@ use std::sync::{
 
 use bytes::Bytes;
 use ct_core::{
-    ConnectionId, Http2Handshake, Http3BidiStream, Http3Handshake, HttpBodyHandle, HttpHandshake,
+    ConnectionId, ConnectionProtocol, Http2Handshake, Http3BidiStream, Http3Handshake,
+    HttpBodyHandle, HttpBodyPhase, HttpConnectionCloseReason, HttpConnectionEvent, HttpHandshake,
     HttpRequestSummary, HttpResponseHandle, HttpRouteResolution, ListenerId, RawSocketSerializer,
-    WampMessage, WebSocketHandshake,
+    ResponseStreamWriter, WampMessage, WebSocketHandshake,
 };
 use dashmap::DashMap;
 use quinn::Connection as QuinnConnection;
@@ -51,6 +52,7 @@ pub fn clear_channels() {
     clear_http3_handshakes();
     clear_http3_connections();
     clear_http3_streams();
+    clear_http_connection_events();
 }
 
 #[derive(Clone)]
@@ -145,7 +147,11 @@ impl HttpMetadata {
                 )
             })
             .collect();
-        let body = HttpBodyHandle::from_bytes(handshake.body.clone());
+        let body = match &handshake.body {
+            HttpBodyPhase::Buffered(bytes) => HttpBodyHandle::from_bytes(bytes.to_vec()),
+            HttpBodyPhase::Finished => HttpBodyHandle::empty(),
+            HttpBodyPhase::NeedsStreaming { .. } => HttpBodyHandle::empty(),
+        };
         Self {
             method,
             target,
@@ -428,8 +434,129 @@ where
         .map(|entry| f(entry.value()))
 }
 
-pub fn remove_http_body(id: u32) {
-    http_body_store().bodies.remove(&id);
+pub fn remove_http_body(id: u32) -> Option<HttpBodyHandle> {
+    http_body_store()
+        .bodies
+        .remove(&id)
+        .map(|(_, handle)| handle)
+}
+
+#[derive(Clone)]
+pub struct StoredHttpConnectionEvent {
+    pub connection_id: ConnectionId,
+    pub protocol: ConnectionProtocol,
+    pub reason: HttpConnectionCloseReason,
+    pub request_count: u32,
+    pub idle_timeouts: u32,
+    pub body_timeouts: u32,
+    pub detail: Option<Arc<[u8]>>,
+}
+
+struct HttpConnectionEventStore {
+    next_id: AtomicU32,
+    events: DashMap<u32, StoredHttpConnectionEvent>,
+}
+
+impl Default for HttpConnectionEventStore {
+    fn default() -> Self {
+        Self {
+            next_id: AtomicU32::new(1),
+            events: DashMap::new(),
+        }
+    }
+}
+
+static HTTP_CONNECTION_EVENTS: OnceLock<HttpConnectionEventStore> = OnceLock::new();
+
+fn http_connection_event_store() -> &'static HttpConnectionEventStore {
+    HTTP_CONNECTION_EVENTS.get_or_init(HttpConnectionEventStore::default)
+}
+
+pub fn store_http_connection_event(event: HttpConnectionEvent) -> u32 {
+    let detail = event
+        .detail
+        .map(|detail| Arc::<[u8]>::from(detail.into_bytes()));
+    let stored = StoredHttpConnectionEvent {
+        connection_id: event.connection_id,
+        protocol: event.protocol,
+        reason: event.reason,
+        request_count: event.request_count,
+        idle_timeouts: event.idle_timeouts,
+        body_timeouts: event.body_timeouts,
+        detail,
+    };
+    let store = http_connection_event_store();
+    let id = store.next_id.fetch_add(1, Ordering::SeqCst);
+    store.events.insert(id, stored);
+    id
+}
+
+pub fn with_http_connection_event<F, T>(id: u32, f: F) -> Option<T>
+where
+    F: FnOnce(&StoredHttpConnectionEvent) -> T,
+{
+    http_connection_event_store()
+        .events
+        .get(&id)
+        .map(|entry| f(entry.value()))
+}
+
+pub fn remove_http_connection_event(id: u32) -> Option<StoredHttpConnectionEvent> {
+    http_connection_event_store()
+        .events
+        .remove(&id)
+        .map(|(_, event)| event)
+}
+
+fn clear_http_connection_events() {
+    if let Some(store) = HTTP_CONNECTION_EVENTS.get() {
+        store.events.clear();
+        store.next_id.store(1, Ordering::SeqCst);
+    }
+}
+
+struct HttpResponseStreamStore {
+    next_id: AtomicU32,
+    streams: DashMap<u32, ResponseStreamWriter>,
+}
+
+impl Default for HttpResponseStreamStore {
+    fn default() -> Self {
+        Self {
+            next_id: AtomicU32::new(1),
+            streams: DashMap::new(),
+        }
+    }
+}
+
+static HTTP_RESPONSE_STREAMS: OnceLock<HttpResponseStreamStore> = OnceLock::new();
+
+fn http_response_stream_store() -> &'static HttpResponseStreamStore {
+    HTTP_RESPONSE_STREAMS.get_or_init(HttpResponseStreamStore::default)
+}
+
+pub fn store_http_response_stream(stream: ResponseStreamWriter) -> u32 {
+    let store = http_response_stream_store();
+    let id = store.next_id.fetch_add(1, Ordering::SeqCst);
+    store.streams.insert(id, stream);
+    id
+}
+
+pub fn with_http_response_stream<F, T>(id: u32, f: F) -> Option<T>
+where
+    F: FnOnce(&ResponseStreamWriter) -> T,
+{
+    http_response_stream_store()
+        .streams
+        .get(&id)
+        .map(|entry| f(entry.value()))
+}
+
+pub fn remove_http_response_stream(id: u32) -> Option<ResponseStreamWriter> {
+    http_response_stream_store()
+        .streams
+        .remove(&id)
+        .map(|(_, stream)| stream)
 }
 
 struct Http2HandshakeStore {

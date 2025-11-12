@@ -94,6 +94,40 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
   void releaseHttpHandshake(int handle) => _inner.releaseHttpHandshake(handle);
 
   @override
+  NativeWebSocketHandshake? takeWebSocketHandshake(int connectionId) =>
+      _inner.takeWebSocketHandshake(_resolveConnectionId(connectionId));
+
+  @override
+  void acceptWebSocket({
+    required int connectionId,
+    required int handshakeHandle,
+    required NativeMessageSerializer serializer,
+    required String protocol,
+  }) {
+    _inner.acceptWebSocket(
+      connectionId: _resolveConnectionId(connectionId),
+      handshakeHandle: handshakeHandle,
+      serializer: serializer,
+      protocol: protocol,
+    );
+  }
+
+  @override
+  void rejectWebSocket({
+    required int connectionId,
+    required int handshakeHandle,
+    int status = 400,
+    String reason = '',
+  }) {
+    _inner.rejectWebSocket(
+      connectionId: _resolveConnectionId(connectionId),
+      handshakeHandle: handshakeHandle,
+      status: status,
+      reason: reason,
+    );
+  }
+
+  @override
   NativeHttp2Handshake? takeHttp2Handshake(int connectionId) {
     final queue = _http2Handshakes[connectionId];
     if (queue != null && queue.isNotEmpty) {
@@ -246,6 +280,17 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
     handshakeHandle: handshakeHandle,
     connectionId: connectionId,
     response: response,
+  );
+
+  @override
+  NativeHttpResponseStream openHttpResponseStream({
+    required int handshakeHandle,
+    required int status,
+    required Map<String, String> headers,
+  }) => _inner.openHttpResponseStream(
+    handshakeHandle: handshakeHandle,
+    status: status,
+    headers: headers,
   );
 
   @override
@@ -666,7 +711,7 @@ void main() {
       final responseSent = await harness.nextEvent('http_response_sent');
       expect(responseSent['listenerId'], equals(listener.listenerId));
 
-      final response = await utf8.decoder.bind(socket).join();
+      final response = await _readHttpResponse(socket);
       expect(response, contains('HTTP/1.1 202 Accepted'));
       expect(response, contains('x-router: native'));
       expect(response.trim(), endsWith('service:ok'));
@@ -877,6 +922,79 @@ Future<RealmSnapshot> _fetchSnapshot(SendPort commandPort) async {
   final response = await replyPort.first as RealmSnapshotResponse;
   replyPort.close();
   return response.snapshot;
+}
+
+Future<String> _readHttpResponse(Socket socket) async {
+  final iterator = StreamIterator<List<int>>(socket);
+  final collected = <int>[];
+  const terminator = [13, 10, 13, 10];
+  var headerEnd = -1;
+
+  while (headerEnd == -1) {
+    if (!await iterator.moveNext()) {
+      break;
+    }
+    collected.addAll(iterator.current);
+    headerEnd = _indexOfSequence(collected, terminator);
+  }
+  if (headerEnd == -1) {
+    await iterator.cancel();
+    throw StateError('HTTP response headers incomplete');
+  }
+  final headerText = utf8.decode(collected.sublist(0, headerEnd));
+  final contentLength = _parseContentLength(headerText);
+  final bodyStart = headerEnd + terminator.length;
+  final expectedLength = bodyStart + contentLength;
+
+  while (collected.length < expectedLength) {
+    if (!await iterator.moveNext()) {
+      await iterator.cancel();
+      throw StateError('HTTP response body incomplete');
+    }
+    collected.addAll(iterator.current);
+  }
+  await iterator.cancel();
+  return utf8.decode(collected);
+}
+
+int _parseContentLength(String headers) {
+  for (final line in headers.split('\r\n')) {
+    final separator = line.indexOf(':');
+    if (separator == -1) {
+      continue;
+    }
+    final name = line.substring(0, separator).trim().toLowerCase();
+    if (name != 'content-length') {
+      continue;
+    }
+    final value = line.substring(separator + 1).trim();
+    final parsed = int.tryParse(value);
+    if (parsed == null) {
+      throw StateError('Invalid Content-Length header: $value');
+    }
+    return parsed;
+  }
+  throw StateError('Content-Length header missing');
+}
+
+int _indexOfSequence(List<int> source, List<int> needle) {
+  if (needle.isEmpty || source.length < needle.length) {
+    return -1;
+  }
+  final end = source.length - needle.length;
+  for (var i = 0; i <= end; i++) {
+    var matched = true;
+    for (var j = 0; j < needle.length; j++) {
+      if (source[i + j] != needle[j]) {
+        matched = false;
+        break;
+      }
+    }
+    if (matched) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 Future<int> _registerProcedureWithRetry(

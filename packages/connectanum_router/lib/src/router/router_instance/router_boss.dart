@@ -42,6 +42,7 @@ class _RouterBoss {
   final Map<int, _WorkerHandle> _connectionOwners = {};
   final Map<int, Isolate> _pendingIsolates = {};
   final Map<int, NativeHttp3Connection> _http3Connections = {};
+  final Map<int, RouterListener> _http2ConnectionListeners = {};
   final Map<int, RouterListener> _http3ConnectionListeners = {};
   final RouterStateStore _stateStore;
   bool _running = false;
@@ -119,6 +120,7 @@ class _RouterBoss {
     _workers.clear();
     _pendingIsolates.clear();
     _connectionOwners.clear();
+    _http2ConnectionListeners.clear();
     if (_http3Connections.isNotEmpty) {
       final connections = _http3Connections.values.toList(growable: false);
       _http3Connections.clear();
@@ -134,6 +136,7 @@ class _RouterBoss {
         await _acceptConnections(listener);
       }
       _dispatchMessages();
+      _drainHttp2Requests();
       _drainHttp3Requests();
       await Future<void>.delayed(pollInterval);
     }
@@ -171,7 +174,11 @@ class _RouterBoss {
       }
 
       if (protocol != NativeConnectionProtocol.rawsocket) {
-        if (protocol == NativeConnectionProtocol.http) {
+        if (protocol == NativeConnectionProtocol.http ||
+            protocol == NativeConnectionProtocol.http2) {
+          if (protocol == NativeConnectionProtocol.http2) {
+            _registerHttp2Connection(listener, connectionId);
+          }
           final handshake = runtime.takeHttpHandshake(connectionId);
           if (handshake != null) {
             _processHttpHandshake(listener, connectionId, protocol, handshake);
@@ -183,30 +190,49 @@ class _RouterBoss {
               'connectionId': connectionId,
             });
           }
-        } else if (protocol == NativeConnectionProtocol.http2) {
-          final handshake = runtime.takeHttp2Handshake(connectionId);
-          final details = <String, Object?>{
-            'protocol': handshake?.protocol ?? 'http/2',
-          };
-          if (handshake != null) {
-            final alpn = handshake.alpn;
-            if (alpn != null && alpn.isNotEmpty) {
-              details['alpn'] = alpn;
-            }
-            if (handshake.listenerProtocols.isNotEmpty) {
-              details['listenerProtocols'] = handshake.listenerProtocols;
-            }
-            handshake.release();
+        } else if (protocol == NativeConnectionProtocol.websocket) {
+          final handshake = runtime.takeWebSocketHandshake(connectionId);
+          if (handshake == null) {
+            onEvent?.call({
+              'source': 'binding',
+              'type': 'listener_websocket_handshake_missing',
+              'listenerId': listener.listenerId,
+              'connectionId': connectionId,
+            });
+            continue;
           }
-          onEvent?.call({
-            'source': 'binding',
-            'type': 'listener_protocol_pending',
-            'listenerId': listener.listenerId,
-            'endpoint': '${listener.endpoint.host}:${listener.endpoint.port}',
-            'connectionId': connectionId,
-            'protocol': _protocolName(protocol),
-            'details': details,
-          });
+          final selection = _selectWebSocketProtocol(handshake.protocols);
+          if (selection == null) {
+            runtime.rejectWebSocket(
+              connectionId: connectionId,
+              handshakeHandle: handshake.handle,
+              status: 426,
+              reason: 'unsupported subprotocol',
+            );
+            handshake.release();
+            continue;
+          }
+          try {
+            runtime.acceptWebSocket(
+              connectionId: connectionId,
+              handshakeHandle: handshake.handle,
+              serializer: selection.serializer,
+              protocol: selection.protocol,
+            );
+            handshake.consume();
+          } on NativeTransportException catch (error) {
+            handshake.release();
+            onEvent?.call({
+              'source': 'boss',
+              'type': 'listener_websocket_accept_error',
+              'listenerId': listener.listenerId,
+              'connectionId': connectionId,
+              'error': error.toString(),
+            });
+            continue;
+          }
+          await _assignConnection(listener, connectionId);
+          continue;
         } else if (protocol == NativeConnectionProtocol.http3) {
           final handshake = runtime.takeHttp3Handshake(connectionId);
           final details = <String, Object?>{
@@ -292,6 +318,16 @@ class _RouterBoss {
       case NativeConnectionProtocol.http3:
         return 'http3';
     }
+  }
+
+  _WebSocketSelection? _selectWebSocketProtocol(List<String> proposals) {
+    for (final proposal in proposals) {
+      final serializer = _webSocketProtocols[proposal.toLowerCase()];
+      if (serializer != null) {
+        return _WebSocketSelection(proposal, serializer);
+      }
+    }
+    return null;
   }
 
   _WorkerHandle? _chooseWorker() {
@@ -400,6 +436,103 @@ class _RouterBoss {
           handshake,
         );
       }
+    }
+  }
+
+  void _drainHttp2Requests() {
+    if (_http2ConnectionListeners.isEmpty) {
+      return;
+    }
+    final connectionIds = List<int>.from(
+      _http2ConnectionListeners.keys,
+      growable: false,
+    );
+    for (final connectionId in connectionIds) {
+      while (true) {
+        NativeHttpHandshake? handshake;
+        try {
+          handshake = runtime.takeHttpHandshake(connectionId);
+        } on NativeTransportException catch (error) {
+          onEvent?.call({
+            'source': 'boss',
+            'type': 'boss_error',
+            'connectionId': connectionId,
+            'error': error.toString(),
+          });
+          if (error.code == NativeTransportErrorCode.connectionNotFound) {
+            _http2ConnectionListeners.remove(connectionId);
+          }
+          break;
+        }
+        if (handshake == null) {
+          break;
+        }
+        final listener = _http2ConnectionListeners[connectionId];
+        if (listener == null) {
+          handshake.release();
+          break;
+        }
+        _processHttpHandshake(
+          listener,
+          connectionId,
+          NativeConnectionProtocol.http2,
+          handshake,
+        );
+      }
+    }
+  }
+
+  void _registerHttp2Connection(RouterListener listener, int connectionId) {
+    final alreadyTracked = _http2ConnectionListeners.containsKey(connectionId);
+    _http2ConnectionListeners[connectionId] = listener;
+    if (alreadyTracked) {
+      return;
+    }
+    final details = _collectHttp2HandshakeDetails(connectionId);
+    final event = <String, Object?>{
+      'source': 'binding',
+      'type': 'listener_protocol_pending',
+      'listenerId': listener.listenerId,
+      'endpoint': '${listener.endpoint.host}:${listener.endpoint.port}',
+      'connectionId': connectionId,
+      'protocol': _protocolName(NativeConnectionProtocol.http2),
+    };
+    if (details != null && details.isNotEmpty) {
+      event['details'] = details;
+    }
+    onEvent?.call(event);
+  }
+
+  Map<String, Object?>? _collectHttp2HandshakeDetails(int connectionId) {
+    NativeHttp2Handshake? handshake;
+    try {
+      handshake = runtime.takeHttp2Handshake(connectionId);
+    } on NativeTransportException catch (error) {
+      onEvent?.call({
+        'source': 'boss',
+        'type': 'boss_error',
+        'connectionId': connectionId,
+        'error': error.toString(),
+      });
+      return null;
+    }
+    if (handshake == null) {
+      return const {'protocol': 'http/2'};
+    }
+    try {
+      final details = <String, Object?>{
+        'protocol': handshake.protocol.isEmpty ? 'http/2' : handshake.protocol,
+      };
+      final alpn = handshake.alpn;
+      if (alpn != null && alpn.isNotEmpty) {
+        details['alpn'] = alpn;
+      }
+      if (handshake.listenerProtocols.isNotEmpty) {
+        details['listenerProtocols'] = handshake.listenerProtocols;
+      }
+      return details;
+    } finally {
+      handshake.release();
     }
   }
 
@@ -881,6 +1014,21 @@ class _RouterBoss {
     _http3ConnectionListeners.remove(connectionId);
   }
 }
+
+class _WebSocketSelection {
+  _WebSocketSelection(this.protocol, this.serializer);
+
+  final String protocol;
+  final NativeMessageSerializer serializer;
+}
+
+const Map<String, NativeMessageSerializer> _webSocketProtocols = {
+  'wamp.2.json': NativeMessageSerializer.json,
+  'wamp.2.msgpack': NativeMessageSerializer.messagePack,
+  'wamp.2.cbor': NativeMessageSerializer.cbor,
+  'wamp.2.ubjson': NativeMessageSerializer.ubjson,
+  'wamp.2.flatbuffers': NativeMessageSerializer.flatbuffers,
+};
 
 class _WorkerHandle {
   _WorkerHandle({

@@ -34,11 +34,9 @@ class BenchmarkConfig {
   factory BenchmarkConfig.single(BenchmarkScenario scenario) =>
       BenchmarkConfig(scenarios: [scenario]);
 
-  String toPrettyJson() => const JsonEncoder.withIndent('  ').convert(
-        {
-          'benchmarks': scenarios.map((s) => s.toJson()).toList(),
-        },
-      );
+  String toPrettyJson() => const JsonEncoder.withIndent(
+    '  ',
+  ).convert({'benchmarks': scenarios.map((s) => s.toJson()).toList()});
 }
 
 class BenchmarkScenario {
@@ -84,14 +82,14 @@ class BenchmarkScenario {
   }
 
   Map<String, Object?> toJson() => {
-        'name': name,
-        'type': type,
-        'duration': _formatDuration(duration),
-        if (warmup > Duration.zero) 'warmup': _formatDuration(warmup),
-        'concurrency': concurrency,
-        if (targetRatePerSecond != null) 'rate': targetRatePerSecond,
-        if (extra.isNotEmpty) 'extra': extra,
-      };
+    'name': name,
+    'type': type,
+    'duration': _formatDuration(duration),
+    if (warmup > Duration.zero) 'warmup': _formatDuration(warmup),
+    'concurrency': concurrency,
+    if (targetRatePerSecond != null) 'rate': targetRatePerSecond,
+    if (extra.isNotEmpty) 'extra': extra,
+  };
 }
 
 Duration _parseDuration(String value) {
@@ -165,10 +163,7 @@ Object? _convertYaml(Object? node) {
   if (node is YamlMap) {
     return Map<String, Object?>.fromEntries(
       node.nodes.entries.map(
-        (entry) => MapEntry(
-          entry.key.toString(),
-          _convertYaml(entry.value),
-        ),
+        (entry) => MapEntry(entry.key.toString(), _convertYaml(entry.value)),
       ),
     );
   }

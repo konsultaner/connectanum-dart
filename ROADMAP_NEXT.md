@@ -6,16 +6,19 @@ Fresh state:
 - Router boss→worker drain pipeline is validated: stop() sends server-initiated GOODBYE frames, drains sessions, and workers signal completion.
 - Analyzer still reports info-level issues isolated to `packages/connectanum_auth_server`; production packages are clean.
 - JSON/MessagePack/CBOR serializers now preserve custom option/detail fields, keeping throttle/debounce metadata available across the stack.
+- HTTP/2 and HTTP/3 responses can now stream directly from Rust into Dart (`context.streamResponse`), and the router binding turns progressive results into native DATA frames without buffering multi-MB payloads.
 
 Focus for the next session:
-1. **Native Transport Multi-Protocol Refactor**
-   - Build the shared streaming primitives first: `HttpBodyHandle` upgrades (slice/retain/release) plus matching `ct_ffi` APIs so Dart can read/write without copying.
-   - Rework HTTP/1.1 ingress to consume those handles (no eager buffers), add chunked response writers, and wire early-response helpers (405/426/413) directly in Rust.
-   - Stand up the HTTP/2 server (tokio + `h2`) with multi-stream routing, request queue integration, and response handles that respect flow control/backpressure.
-   - Port HTTP/3 request/response handling onto the same primitives so QUIC uploads/downloads stay zero-copy and stream IDs are surfaced for diagnostics.
-   - Implement WebSocket upgrade plumbing: accept/deny from Dart, negotiate serializers, forward frames with continuation + mask handling, and downgrade to RawSocket when possible.
-   - Once the native pieces exist, extend `ct_ffi`/Dart (`NativeHttpRequestBody`, `HttpInvocationContext`, `HttpResponseUtil`) to default to streaming semantics and expose structured response sinks/file handles.
-   - Add multi-megabyte regression suites (Rust `listen_flow`, Dart router_runtime/integration) that cover HTTP/1.1, HTTP/2, HTTP/3, and WebSocket flows, including pointer checks and temp-file cleanup.
+1. **HTTP/2 + HTTP/3 Lifecycle & Backpressure**
+   - Emit HTTP/2/HTTP/3 connection events (GOAWAY, idle/body timeouts, protocol errors) from `ct_core`, drive them through `ct_ffi`, and let `_RouterBoss` drain `_http2ConnectionListeners`/`_http3ConnectionListeners` deterministically while logging per-connection stats.
+   - Enforce idle + total body/read deadlines for HTTP/2/3 streams in Rust, reset offenders, and write regression coverage in `listen_flow.rs` plus Dart router tests that simulate stalled clients, back-to-back requests, and GOAWAY delivery.
+   - Plumb the new stats/events into boss/worker metrics so we can observe request counts, timeout rates, and native backpressure without tapping log spam; expose a polling API for future benchmarks/telemetry.
+   - Make sure the Dart streaming plumbing keeps up: `_RouterBoss` should react to connection events, stop double polling, and emit structured lifecycle diagnostics so integrators understand why links close.
+
+2. **WebSocket Transport Completion**
+   - Finish native WebSocket processing: accept/deny is in place, but we still need frame read/write loops that translate WebSocket frames into RawSocket WAMP messages (continuation aggregation, mask handling, ping/pong, close). Surface selected serializer/subprotocol back over FFI.
+   - Wire up Dart boss/runtime: expose `takeWebSocketHandshake`, implement subprotocol selection and `acceptWebSocket`/`rejectWebSocket`, then route accepted connections to workers as standard WAMP transports. Add router runtime/integration tests that cover successful upgrades, unsupported subprotocols, and connection shutdown.
+   - Add Rust + Dart regression suites to ensure WebSocket clients can publish/call via WAMP end-to-end, including large payloads and continuation frames.
 2. **Pattern Routing & Shared Registrations**
    - Implement wildcard/prefix ordering + priority handling and un-skip the advanced-profile placeholder test.
    - Introduce shared registration policies (round-robin/first/last) and wire invocation dispatch to respect them.

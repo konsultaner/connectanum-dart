@@ -136,10 +136,9 @@ class BenchmarkRunner {
     );
     final idleTimeout = _asDuration(options['idle_timeout_ms']);
     final handshakeTimeout = _asDuration(options['handshake_timeout_ms']);
-    final maxHttpContentLength =
-        options['max_http_content_length'] is int
-            ? options['max_http_content_length'] as int
-            : null;
+    final maxHttpContentLength = options['max_http_content_length'] is int
+        ? options['max_http_content_length'] as int
+        : null;
     final tlsMode = _resolveTlsMode(settings.tls);
     final webSocketPath = settings.path;
     return Endpoint(

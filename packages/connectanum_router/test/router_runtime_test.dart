@@ -31,6 +31,10 @@ class _FakeRuntime implements NativeRuntime {
   final Map<int, Queue<NativeHttp2Handshake>> _http2Handshakes = {};
   final Map<int, Queue<NativeHttp3Handshake>> _http3Handshakes = {};
   final Map<int, Queue<NativeHttpHandshake>> _http3Requests = {};
+  final Map<int, List<Uint8List>> responseStreamChunks = {};
+  final Set<int> closedResponseStreams = {};
+  final List<_FakeStreamOpen> responseStreamOpens = [];
+  int _nextStreamHandle = 1;
 
   @override
   void applyRouterConfig(Uint8List config) {
@@ -94,6 +98,25 @@ class _FakeRuntime implements NativeRuntime {
   void releaseHttp2Handshake(int handle) {}
 
   @override
+  NativeWebSocketHandshake? takeWebSocketHandshake(int connectionId) => null;
+
+  @override
+  void acceptWebSocket({
+    required int connectionId,
+    required int handshakeHandle,
+    required NativeMessageSerializer serializer,
+    required String protocol,
+  }) {}
+
+  @override
+  void rejectWebSocket({
+    required int connectionId,
+    required int handshakeHandle,
+    int status = 400,
+    String reason = '',
+  }) {}
+
+  @override
   NativeHttp3Handshake? takeHttp3Handshake(int connectionId) {
     final queue = _http3Handshakes[connectionId];
     if (queue == null || queue.isEmpty) {
@@ -127,6 +150,34 @@ class _FakeRuntime implements NativeRuntime {
     required NativeHttpResponse response,
   }) {
     throw UnsupportedError('HTTP responses not supported');
+  }
+
+  @override
+  NativeHttpResponseStream openHttpResponseStream({
+    required int handshakeHandle,
+    required int status,
+    required Map<String, String> headers,
+  }) {
+    final handle = _nextStreamHandle++;
+    responseStreamOpens.add(
+      _FakeStreamOpen(
+        streamHandle: handle,
+        handshakeHandle: handshakeHandle,
+        status: status,
+        headers: Map.unmodifiable(headers),
+      ),
+    );
+    return _FakeHttpResponseStream(
+      handle: handle,
+      onChunk: (chunk) {
+        responseStreamChunks
+            .putIfAbsent(handle, () => [])
+            .add(Uint8List.fromList(chunk));
+      },
+      onClose: () {
+        closedResponseStreams.add(handle);
+      },
+    );
   }
 
   @override
@@ -184,6 +235,70 @@ class _FakeRuntime implements NativeRuntime {
   ) {
     _pendingConnections.putIfAbsent(listenerId, Queue.new).add(connectionId);
     _httpHandshakes.putIfAbsent(connectionId, Queue.new).add(handshake);
+  }
+
+  void queueHttpRequestForConnection(
+    int connectionId,
+    NativeHttpHandshake handshake,
+  ) {
+    _httpHandshakes.putIfAbsent(connectionId, Queue.new).add(handshake);
+  }
+}
+
+class _FakeStreamOpen {
+  _FakeStreamOpen({
+    required this.streamHandle,
+    required this.handshakeHandle,
+    required this.status,
+    required this.headers,
+  });
+
+  final int streamHandle;
+  final int handshakeHandle;
+  final int status;
+  final Map<String, String> headers;
+}
+
+class _FakeHttpResponseStream implements NativeHttpResponseStream {
+  _FakeHttpResponseStream({
+    required this.handle,
+    required void Function(Uint8List chunk) onChunk,
+    required void Function() onClose,
+  }) : _onChunk = onChunk,
+       _onClose = onClose;
+
+  final int handle;
+  final void Function(Uint8List chunk) _onChunk;
+  final void Function() _onClose;
+  bool _closed = false;
+
+  @override
+  bool get isClosed => _closed;
+
+  @override
+  void add(Uint8List chunk) {
+    if (_closed) {
+      throw StateError('HTTP response stream already closed');
+    }
+    if (chunk.isEmpty) {
+      return;
+    }
+    _onChunk(Uint8List.fromList(chunk));
+  }
+
+  @override
+  void close([Uint8List? finalChunk]) {
+    if (_closed) {
+      return;
+    }
+    if (finalChunk != null && finalChunk.isNotEmpty) {
+      add(finalChunk);
+      if (_closed) {
+        return;
+      }
+    }
+    _closed = true;
+    _onClose();
   }
 }
 
@@ -771,35 +886,35 @@ void main() {
         )
         ..addListenerFromBuilder(
           (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
-                ..addAuthMethod('anonymous')
-                ..addProtocol(ListenerProtocol.rawsocket)
-                ..addProtocol(ListenerProtocol.http)
-                ..setOptions(const {'max_rawsocket_size_exponent': 16})
-                ..setHttpOptions(
-                  const HttpListenerSettings(
-                    routes: [
-                      HttpRouteSettings(
-                        match: HttpRouteMatch(path: '/metrics'),
-                        action: HttpRouteAction(
-                          type: HttpRouteActionType.reservedRealm,
-                          namespace: 'metrics',
-                          appendMethodSuffix: false,
-                        ),
+              ..addAuthMethod('anonymous')
+              ..addProtocol(ListenerProtocol.rawsocket)
+              ..addProtocol(ListenerProtocol.http)
+              ..setOptions(const {'max_rawsocket_size_exponent': 16})
+              ..setHttpOptions(
+                const HttpListenerSettings(
+                  routes: [
+                    HttpRouteSettings(
+                      match: HttpRouteMatch(path: '/metrics'),
+                      action: HttpRouteAction(
+                        type: HttpRouteActionType.reservedRealm,
+                        namespace: 'metrics',
+                        appendMethodSuffix: false,
                       ),
-                      HttpRouteSettings(
-                        match: HttpRouteMatch(prefix: '/api/'),
-                        action: HttpRouteAction(
-                          type: HttpRouteActionType.namespace,
-                          realm: 'realm1',
-                          namespace: 'api',
-                        ),
+                    ),
+                    HttpRouteSettings(
+                      match: HttpRouteMatch(prefix: '/api/'),
+                      action: HttpRouteAction(
+                        type: HttpRouteActionType.namespace,
+                        realm: 'realm1',
+                        namespace: 'api',
                       ),
-                    ],
-                  ),
-                ))
-              ..setRawSocketOptions(
-                const RawSocketListenerSettings(maxFrameExponent: 16),
-              ),
+                    ),
+                  ],
+                ),
+              ))
+            ..setRawSocketOptions(
+              const RawSocketListenerSettings(maxFrameExponent: 16),
+            ),
         )
         ..addAuthenticator(
           'anonymous',
@@ -829,17 +944,22 @@ void main() {
       final routes = first['http_routes'] as List<dynamic>;
       expect(routes, hasLength(2));
 
-      final reservedRoute = routes.firstWhere(
-        (entry) => (entry as Map<String, Object?>)['path'] == '/metrics',
-      ) as Map<String, Object?>;
+      final reservedRoute =
+          routes.firstWhere(
+                (entry) =>
+                    (entry as Map<String, Object?>)['path'] == '/metrics',
+              )
+              as Map<String, Object?>;
       final reserved = reservedRoute['default'] as Map<String, Object?>;
       expect(reserved['type'], 'reserved_realm');
       expect(reserved['namespace'], 'metrics');
       expect(reserved['append_method_suffix'], isFalse);
 
-      final namespaceRoute = routes.firstWhere(
-        (entry) => (entry as Map<String, Object?>)['path'] == '/api/',
-      ) as Map<String, Object?>;
+      final namespaceRoute =
+          routes.firstWhere(
+                (entry) => (entry as Map<String, Object?>)['path'] == '/api/',
+              )
+              as Map<String, Object?>;
       final namespace = namespaceRoute['default'] as Map<String, Object?>;
       expect(namespace['type'], 'namespace');
       expect(namespace['realm'], 'realm1');
@@ -1532,6 +1652,97 @@ void main() {
     expect((body as NativeHttpResponseText).text, 'OK');
   });
 
+  test(
+    'streams HTTP response chunks when progressive results emitted',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithPendingProtocols(),
+      );
+
+      final events = <Map<String, Object?>>[];
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      const connectionId = 43;
+
+      final internalSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+      );
+      final registered = await internalSession.register(
+        'com.example.api.stream',
+      );
+      registered.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull);
+        final stream = context!.streamResponse(
+          status: 206,
+          headers: const {'x-stream': 'true'},
+        );
+        stream.add(utf8.encode('part-a'));
+        stream.add(utf8.encode('part-b'));
+        stream.close(utf8.encode('final'));
+      });
+
+      runtime.setConnectionProtocol(
+        connectionId,
+        NativeConnectionProtocol.http,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 2,
+          method: 'GET',
+          target: '/api/stream',
+          path: '/api/stream',
+          protocol: 'http/1.1',
+          headers: const {'x-test': 'stream'},
+          body: Uint8List.fromList(utf8.encode('{}')),
+          realm: 'realm1',
+          procedure: 'com.example.api.stream',
+        ),
+      );
+
+      await _waitUntil(
+        () => runtime.responseStreamOpens.isNotEmpty,
+        timeout: const Duration(seconds: 2),
+      );
+
+      final open = runtime.responseStreamOpens.single;
+      expect(open.handshakeHandle, 2);
+      expect(open.status, 206);
+      expect(open.headers['x-stream'], 'true');
+      final handle = open.streamHandle;
+      final chunks = runtime.responseStreamChunks[handle];
+      expect(chunks, isNotNull);
+      expect(chunks, hasLength(3));
+      expect(utf8.decode(chunks![0]), 'part-a');
+      expect(utf8.decode(chunks[1]), 'part-b');
+      expect(utf8.decode(chunks[2]), 'final');
+      expect(runtime.closedResponseStreams.contains(handle), isTrue);
+    },
+  );
+
   test('dispatches HTTP/3 request when stream queued', () async {
     final runtime = _HandleRuntime();
     final router = Router(
@@ -1796,5 +2007,103 @@ void main() {
       (details?['listenerProtocols'] as List?)?.cast<String>(),
       equals(<String>['rawsocket', 'http', 'http2', 'http3']),
     );
+  });
+
+  test('http2 connections are drained for additional requests', () async {
+    final runtime = _HandleRuntime();
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+          ),
+        ],
+      ),
+      settings: _buildRouterSettingsWithPendingProtocols(),
+    );
+
+    final events = <Map<String, Object?>>[];
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    const connectionId = 99;
+
+    runtime.setConnectionProtocol(connectionId, NativeConnectionProtocol.http2);
+    runtime.enqueueHttp2Handshake(
+      connectionId,
+      NativeHttp2Handshake.synthetic(
+        handle: 700,
+        protocol: 'http/2',
+        alpn: 'h2',
+        listenerProtocols: const <String>['rawsocket', 'http', 'http2'],
+      ),
+    );
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      connectionId,
+      NativeHttpHandshake.synthetic(
+        handle: 701,
+        method: 'POST',
+        target: '/alpha',
+        path: '/alpha',
+        protocol: 'http/2',
+        headers: const {},
+        body: Uint8List(0),
+      ),
+    );
+    runtime.enqueueHandle(listenerId, connectionId);
+
+    await _waitUntil(
+      () => events.any(
+        (event) =>
+            event['type'] == 'listener_http_request' &&
+            event['connectionId'] == connectionId &&
+            event['path'] == '/alpha',
+      ),
+      timeout: const Duration(seconds: 2),
+    );
+
+    runtime.queueHttpRequestForConnection(
+      connectionId,
+      NativeHttpHandshake.synthetic(
+        handle: 702,
+        method: 'POST',
+        target: '/beta',
+        path: '/beta',
+        protocol: 'http/2',
+        headers: const {},
+        body: Uint8List(0),
+      ),
+    );
+
+    await _waitUntil(
+      () => events.any(
+        (event) =>
+            event['type'] == 'listener_http_request' &&
+            event['connectionId'] == connectionId &&
+            event['path'] == '/beta',
+      ),
+      timeout: const Duration(seconds: 2),
+    );
+
+    final betaEvents = events.where(
+      (event) =>
+          event['type'] == 'listener_http_request' &&
+          event['connectionId'] == connectionId &&
+          event['path'] == '/beta',
+    );
+    expect(betaEvents, isNotEmpty);
   });
 }

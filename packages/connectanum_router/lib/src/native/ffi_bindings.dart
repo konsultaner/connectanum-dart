@@ -139,8 +139,14 @@ typedef CtHttpBodyReadNative =
     );
 typedef CtHttpBodyReadDart =
     int Function(int, int, int, ffi.Pointer<CtHttpBodyView>);
+typedef CtHttpBodyStreamReadNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Size, ffi.Pointer<CtHttpBodyView>);
+typedef CtHttpBodyStreamReadDart =
+    int Function(int, int, ffi.Pointer<CtHttpBodyView>);
 typedef CtHttpBodyReleaseNative = ffi.Int32 Function(ffi.Int32);
 typedef CtHttpBodyReleaseDart = int Function(int);
+typedef CtHttpBodyFinishNative = ffi.Int32 Function(ffi.Int32);
+typedef CtHttpBodyFinishDart = int Function(int);
 
 typedef CtHttpHandshakeReleaseNative = ffi.Int32 Function(ffi.Int32);
 typedef CtHttpHandshakeReleaseDart = int Function(int);
@@ -193,9 +199,73 @@ typedef CtHttpResponseSendDart =
       int,
     );
 
+typedef CtConnectionPollHttpEventNative = ffi.Int32 Function(ffi.Int32);
+typedef CtConnectionPollHttpEventDart = int Function(int);
+
+typedef CtHttpConnectionEventGetNative = ffi.Int32 Function(
+  ffi.Int32,
+  ffi.Pointer<CtHttpConnectionEventInfo>,
+);
+typedef CtHttpConnectionEventGetDart = int Function(
+  int,
+  ffi.Pointer<CtHttpConnectionEventInfo>,
+);
+
+typedef CtHttpConnectionEventReleaseNative = ffi.Int32 Function(ffi.Int32);
+typedef CtHttpConnectionEventReleaseDart = int Function(int);
+
+typedef CtHttpResponseStreamOpenNative = ffi.Int32 Function(
+  ffi.Int32,
+  ffi.Int32,
+  ffi.Pointer<CtHttpHeader>,
+  ffi.Size,
+);
+typedef CtHttpResponseStreamOpenDart = int Function(
+  int,
+  int,
+  ffi.Pointer<CtHttpHeader>,
+  int,
+);
+
+typedef CtHttpResponseStreamWriteNative = ffi.Int32 Function(
+  ffi.Int32,
+  ffi.Pointer<ffi.Uint8>,
+  ffi.Size,
+);
+typedef CtHttpResponseStreamWriteDart = int Function(
+  int,
+  ffi.Pointer<ffi.Uint8>,
+  int,
+);
+
+typedef CtHttpResponseStreamFinishNative = ffi.Int32 Function(ffi.Int32);
+typedef CtHttpResponseStreamFinishDart = int Function(int);
+
 typedef CtConnectionTakeWebsocketHandshakeNative =
     ffi.Int32 Function(ffi.Int32);
 typedef CtConnectionTakeWebsocketHandshakeDart = int Function(int);
+
+typedef CtConnectionAcceptWebsocketNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Int32,
+    );
+typedef CtConnectionAcceptWebsocketDart =
+    int Function(int, int, int, ffi.Pointer<ffi.Uint8>, int);
+
+typedef CtConnectionRejectWebsocketNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Int32,
+    );
+typedef CtConnectionRejectWebsocketDart =
+    int Function(int, int, int, ffi.Pointer<ffi.Uint8>, int);
 
 typedef CtWebSocketHandshakeGetNative =
     ffi.Int32 Function(ffi.Int32, ffi.Pointer<CtWebSocketHandshakeInfo>);
@@ -321,6 +391,31 @@ final class CtHttp3HandshakeInfo extends ffi.Struct {
 final class CtHttp3StreamInfo extends ffi.Struct {
   @ffi.Uint64()
   external int streamId;
+}
+
+final class CtHttpConnectionEventInfo extends ffi.Struct {
+  @ffi.Int32()
+  external int connectionId;
+
+  @ffi.Int32()
+  external int protocol;
+
+  @ffi.Int32()
+  external int reason;
+
+  @ffi.Uint32()
+  external int requestCount;
+
+  @ffi.Uint32()
+  external int idleTimeouts;
+
+  @ffi.Uint32()
+  external int bodyTimeouts;
+
+  external ffi.Pointer<ffi.Uint8> detailPtr;
+
+  @ffi.Size()
+  external int detailLen;
 }
 
 final class CtHttpHeader extends ffi.Struct {
@@ -485,9 +580,17 @@ class CtFfiBindings {
           .lookupFunction<CtHttpBodyReadNative, CtHttpBodyReadDart>(
             'ct_http_body_read',
           ),
+      ctHttpBodyStreamRead = library
+          .lookupFunction<CtHttpBodyStreamReadNative, CtHttpBodyStreamReadDart>(
+            'ct_http_body_stream_read',
+          ),
       ctHttpBodyRelease = library
           .lookupFunction<CtHttpBodyReleaseNative, CtHttpBodyReleaseDart>(
             'ct_http_body_release',
+          ),
+      ctHttpBodyFinish = library
+          .lookupFunction<CtHttpBodyFinishNative, CtHttpBodyFinishDart>(
+            'ct_http_body_finish',
           ),
       ctHttpHandshakeRelease = library
           .lookupFunction<
@@ -544,11 +647,51 @@ class CtFfiBindings {
           .lookupFunction<CtHttpResponseSendNative, CtHttpResponseSendDart>(
             'ct_http_response_send',
           ),
+      ctConnectionPollHttpEvent = library
+          .lookupFunction<
+            CtConnectionPollHttpEventNative,
+            CtConnectionPollHttpEventDart
+          >('ct_connection_poll_http_event'),
+      ctHttpConnectionEventGet = library
+          .lookupFunction<
+            CtHttpConnectionEventGetNative,
+            CtHttpConnectionEventGetDart
+          >('ct_http_connection_event_get'),
+      ctHttpConnectionEventRelease = library
+          .lookupFunction<
+            CtHttpConnectionEventReleaseNative,
+            CtHttpConnectionEventReleaseDart
+          >('ct_http_connection_event_release'),
+      ctHttpResponseStreamOpen = library
+          .lookupFunction<
+            CtHttpResponseStreamOpenNative,
+            CtHttpResponseStreamOpenDart
+          >('ct_http_response_stream_open'),
+      ctHttpResponseStreamWrite = library
+          .lookupFunction<
+            CtHttpResponseStreamWriteNative,
+            CtHttpResponseStreamWriteDart
+          >('ct_http_response_stream_write'),
+      ctHttpResponseStreamFinish = library
+          .lookupFunction<
+            CtHttpResponseStreamFinishNative,
+            CtHttpResponseStreamFinishDart
+          >('ct_http_response_stream_finish'),
       ctConnectionTakeWebsocketHandshake = library
           .lookupFunction<
             CtConnectionTakeWebsocketHandshakeNative,
             CtConnectionTakeWebsocketHandshakeDart
           >('ct_connection_take_websocket_handshake'),
+      ctConnectionAcceptWebsocket = library
+          .lookupFunction<
+            CtConnectionAcceptWebsocketNative,
+            CtConnectionAcceptWebsocketDart
+          >('ct_connection_accept_websocket'),
+      ctConnectionRejectWebsocket = library
+          .lookupFunction<
+            CtConnectionRejectWebsocketNative,
+            CtConnectionRejectWebsocketDart
+          >('ct_connection_reject_websocket'),
       ctWebSocketHandshakeGet = library
           .lookupFunction<
             CtWebSocketHandshakeGetNative,
@@ -620,7 +763,9 @@ class CtFfiBindings {
   final CtHttpHandshakeBodyRetainDart ctHttpHandshakeBodyRetain;
   final CtHttpBodyGetDart ctHttpBodyGet;
   final CtHttpBodyReadDart ctHttpBodyRead;
+  final CtHttpBodyStreamReadDart ctHttpBodyStreamRead;
   final CtHttpBodyReleaseDart ctHttpBodyRelease;
+  final CtHttpBodyFinishDart ctHttpBodyFinish;
   final CtHttpHandshakeReleaseDart ctHttpHandshakeRelease;
   final CtHttp2HandshakeGetDart ctHttp2HandshakeGet;
   final CtHttp2HandshakeListenerProtocolDart ctHttp2HandshakeListenerProtocol;
@@ -633,8 +778,16 @@ class CtFfiBindings {
   final CtHttp3StreamGetDart ctHttp3StreamGet;
   final CtHttp3StreamReleaseDart ctHttp3StreamRelease;
   final CtHttpResponseSendDart ctHttpResponseSend;
+  final CtConnectionPollHttpEventDart ctConnectionPollHttpEvent;
+  final CtHttpConnectionEventGetDart ctHttpConnectionEventGet;
+  final CtHttpConnectionEventReleaseDart ctHttpConnectionEventRelease;
+  final CtHttpResponseStreamOpenDart ctHttpResponseStreamOpen;
+  final CtHttpResponseStreamWriteDart ctHttpResponseStreamWrite;
+  final CtHttpResponseStreamFinishDart ctHttpResponseStreamFinish;
   final CtConnectionTakeWebsocketHandshakeDart
-  ctConnectionTakeWebsocketHandshake;
+      ctConnectionTakeWebsocketHandshake;
+  final CtConnectionAcceptWebsocketDart ctConnectionAcceptWebsocket;
+  final CtConnectionRejectWebsocketDart ctConnectionRejectWebsocket;
   final CtWebSocketHandshakeGetDart ctWebSocketHandshakeGet;
   final CtWebSocketHandshakeValueDart ctWebSocketHandshakeProtocol;
   final CtWebSocketHandshakeValueDart ctWebSocketHandshakeExtension;

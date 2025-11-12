@@ -154,7 +154,9 @@ class RouterConfigLoader {
     final procedure = _asNullableString(map.remove('procedure'));
     final realm = _asNullableString(map.remove('realm'));
     final namespace = _asNullableString(map.remove('namespace'));
-    final appendMethodSuffix = _asNullableBool(map.remove('append_method_suffix'));
+    final appendMethodSuffix = _asNullableBool(
+      map.remove('append_method_suffix'),
+    );
     final topic = _asNullableString(map.remove('topic'));
     final serializer = _asNullableString(map.remove('serializer'));
     final contentType = _asNullableString(map.remove('content_type'));

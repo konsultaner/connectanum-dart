@@ -2,27 +2,44 @@
 
 use std::{
     collections::{HashMap, VecDeque},
-    io::{self, Cursor},
+    io::{self, Cursor, Write},
     net::{SocketAddr, ToSocketAddrs},
     ops::Deref,
     sync::{
         atomic::{AtomicU32, Ordering},
         Arc, Mutex, OnceLock,
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 
+use base64::{engine::general_purpose::STANDARD as Base64Engine, Engine as _};
 use bytes::{Buf, Bytes, BytesMut};
-use h3::server::RequestStream as H3RequestStream;
+use h2::{
+    server::{self as h2_server, SendResponse as H2SendResponse},
+    Reason as H2Reason,
+    RecvStream as H2RecvStream,
+};
+use h3::{
+    error::Code as H3ErrorCode, quic::BidiStream as H3BidiStreamTrait,
+    server::RequestStream as H3RequestStream,
+};
 use h3_quinn::Connection as H3QuinnConnection;
 use http::{
     header::{HeaderName, HeaderValue, CONTENT_LENGTH},
     Request as HttpRequest, Response as HttpResponse, StatusCode,
 };
+use http02::{
+    header::{HeaderName as Http2HeaderName, HeaderValue as Http2HeaderValue},
+    Request as Http2Request, Response as Http2Response, StatusCode as Http2StatusCode,
+};
+use sha1::{Digest, Sha1};
 use thiserror::Error;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufReader},
-    net::tcp::{OwnedReadHalf, OwnedWriteHalf},
+    net::{
+        tcp::{OwnedReadHalf, OwnedWriteHalf},
+        TcpStream as TokioTcpStream,
+    },
     runtime::Runtime,
     sync::{
         mpsc::{self, error::TryRecvError, UnboundedReceiver, UnboundedSender},
@@ -32,7 +49,12 @@ use tokio::{
     time,
 };
 
+use crate::http_body::{spawn_http1_streaming_body, Http1BodyReclaim, StreamingError};
+
 mod config;
+mod http1_stream;
+mod http_body;
+mod http_stream;
 mod platform;
 mod protocol;
 mod rawsocket;
@@ -46,7 +68,120 @@ use quinn::{
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls_pemfile::{certs as load_certs, pkcs8_private_keys, rsa_private_keys};
 
+type H3QuicBidiStream = h3_quinn::BidiStream<Bytes>;
+type H3ServerStream<S> = H3RequestStream<S, Bytes>;
+type H3ServerBidiStream = H3ServerStream<H3QuicBidiStream>;
+type H3ServerSendStream =
+    H3ServerStream<<H3QuicBidiStream as H3BidiStreamTrait<Bytes>>::SendStream>;
+type H3ServerRecvStream =
+    H3ServerStream<<H3QuicBidiStream as H3BidiStreamTrait<Bytes>>::RecvStream>;
+
+const HTTP_STREAM_IDLE_FALLBACK: Duration = Duration::from_secs(10);
+const HTTP_STREAM_TOTAL_FALLBACK: Duration = Duration::from_secs(40);
+const HTTP_STREAM_TOTAL_MULTIPLIER: u32 = 4;
+
+fn http_stream_timeouts(config: &config::EndpointRuntimeConfig) -> (Duration, Duration) {
+    let idle = config.idle_timeout.unwrap_or(HTTP_STREAM_IDLE_FALLBACK);
+    let total = idle
+        .checked_mul(HTTP_STREAM_TOTAL_MULTIPLIER)
+        .unwrap_or(HTTP_STREAM_TOTAL_FALLBACK);
+    let total = if total.is_zero() {
+        HTTP_STREAM_TOTAL_FALLBACK
+    } else {
+        total
+    };
+    (idle, total)
+}
+
 pub use config::{EndpointRuntimeConfig, HttpRouteResolution};
+pub use http1_stream::HttpBodyPhase;
+pub use http_body::StreamingBodyState;
+pub use http_stream::{
+    response_stream_channel, ResponseStreamError, ResponseStreamFrame, ResponseStreamReader,
+    ResponseStreamWriter, RESPONSE_STREAM_BUFFER,
+};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HttpConnectionCloseReason {
+    Graceful,
+    GoAway,
+    IdleTimeout,
+    BodyTimeout,
+    ProtocolError,
+    Internal,
+}
+
+#[derive(Debug, Clone)]
+pub struct HttpConnectionEvent {
+    pub connection_id: ConnectionId,
+    pub protocol: ConnectionProtocol,
+    pub reason: HttpConnectionCloseReason,
+    pub request_count: u32,
+    pub idle_timeouts: u32,
+    pub body_timeouts: u32,
+    pub detail: Option<String>,
+}
+
+#[derive(Debug)]
+struct HttpConnectionStats {
+    protocol: ConnectionProtocol,
+    requests: AtomicU32,
+    idle_timeouts: AtomicU32,
+    body_timeouts: AtomicU32,
+    close_reason: Mutex<Option<(HttpConnectionCloseReason, Option<String>)>>,
+}
+
+impl HttpConnectionStats {
+    fn new(protocol: ConnectionProtocol) -> Arc<Self> {
+        Arc::new(Self {
+            protocol,
+            requests: AtomicU32::new(0),
+            idle_timeouts: AtomicU32::new(0),
+            body_timeouts: AtomicU32::new(0),
+            close_reason: Mutex::new(None),
+        })
+    }
+
+    fn record_request(&self) {
+        self.requests.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn record_idle_timeout(&self, detail: Option<String>) {
+        self.idle_timeouts.fetch_add(1, Ordering::SeqCst);
+        self.set_close_reason(HttpConnectionCloseReason::IdleTimeout, detail);
+    }
+
+    fn record_body_timeout(&self, detail: Option<String>) {
+        self.body_timeouts.fetch_add(1, Ordering::SeqCst);
+        self.set_close_reason(HttpConnectionCloseReason::BodyTimeout, detail);
+    }
+
+    fn set_close_reason(&self, reason: HttpConnectionCloseReason, detail: Option<String>) {
+        let mut guard = self.close_reason.lock().unwrap();
+        if guard.is_none() {
+            *guard = Some((reason, detail));
+        }
+    }
+
+    fn finalize(
+        &self,
+        connection_id: ConnectionId,
+        fallback_reason: HttpConnectionCloseReason,
+        fallback_detail: Option<String>,
+    ) -> HttpConnectionEvent {
+        let stored = self.close_reason.lock().unwrap().take();
+        let (reason, detail) = stored.unwrap_or((fallback_reason, fallback_detail));
+        HttpConnectionEvent {
+            connection_id,
+            protocol: self.protocol,
+            reason,
+            request_count: self.requests.load(Ordering::SeqCst),
+            idle_timeouts: self.idle_timeouts.load(Ordering::SeqCst),
+            body_timeouts: self.body_timeouts.load(Ordering::SeqCst),
+            detail,
+        }
+    }
+}
 pub use platform::{Runtime as PlatformRuntime, UnsupportedPlatform};
 pub use protocol::{Http2Handshake, Http3Handshake, HttpHandshake, WebSocketHandshake};
 pub use rawsocket::Serializer as RawSocketSerializer;
@@ -58,6 +193,9 @@ static RUNTIME_MANAGER: OnceLock<RuntimeManager> = OnceLock::new();
 
 const MAX_FRAME_LEN: u64 = 1 << 24;
 const HTTP3_DEFAULT_BODY_LIMIT: u64 = 4 * 1024 * 1024;
+const WEBSOCKET_GUID: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+const MAX_WEBSOCKET_MESSAGE_LEN: usize = 1 << 24;
+const HTTP1_INLINE_BODY_LIMIT: usize = 64 * 1024;
 
 /// Unique identifier for a registered listener.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -80,11 +218,18 @@ pub enum ConnectionProtocol {
 #[derive(Debug, Clone)]
 pub struct HttpBodyHandle {
     payload: Arc<HttpBodyPayload>,
+    len: usize,
 }
 
 #[derive(Debug)]
 enum HttpBodyPayload {
     Inline(Arc<[u8]>),
+    Streaming(StreamingPayload),
+}
+
+#[derive(Debug)]
+struct StreamingPayload {
+    state: Arc<StreamingBodyState>,
 }
 
 #[derive(Debug)]
@@ -97,6 +242,7 @@ impl HttpBodyHandle {
     pub fn empty() -> Self {
         Self {
             payload: Arc::new(HttpBodyPayload::Inline(Arc::<[u8]>::from(&[][..]))),
+            len: 0,
         }
     }
 
@@ -104,8 +250,10 @@ impl HttpBodyHandle {
         if bytes.is_empty() {
             return Self::empty();
         }
+        let len = bytes.len();
         Self {
             payload: Arc::new(HttpBodyPayload::Inline(bytes.into_boxed_slice().into())),
+            len,
         }
     }
 
@@ -113,20 +261,31 @@ impl HttpBodyHandle {
         if bytes.is_empty() {
             return Self::empty();
         }
+        let len = bytes.len();
         Self {
             payload: Arc::new(HttpBodyPayload::Inline(bytes)),
+            len,
+        }
+    }
+
+    pub fn streaming(state: Arc<StreamingBodyState>) -> Self {
+        Self {
+            payload: Arc::new(HttpBodyPayload::Streaming(StreamingPayload { state })),
+            len: 0,
         }
     }
 
     pub fn len(&self) -> usize {
         match self.payload.as_ref() {
-            HttpBodyPayload::Inline(bytes) => bytes.len(),
+            HttpBodyPayload::Inline(_) => self.len,
+            HttpBodyPayload::Streaming(payload) => payload.state.total_len(),
         }
     }
 
     pub fn as_arc(&self) -> Arc<[u8]> {
         match self.payload.as_ref() {
             HttpBodyPayload::Inline(bytes) => Arc::clone(bytes),
+            HttpBodyPayload::Streaming(_) => Arc::<[u8]>::from(&[][..]),
         }
     }
 
@@ -137,6 +296,7 @@ impl HttpBodyHandle {
     pub fn inline_bytes(&self) -> Option<&Arc<[u8]>> {
         match self.payload.as_ref() {
             HttpBodyPayload::Inline(bytes) => Some(bytes),
+            HttpBodyPayload::Streaming(_) => None,
         }
     }
 
@@ -155,7 +315,25 @@ impl HttpBodyHandle {
                     len: slice_len,
                 })
             }
+            HttpBodyPayload::Streaming(_) => None,
         }
+    }
+
+    pub fn stream_read(&self, len: usize) -> Result<Option<HttpBodySlice>, StreamingError> {
+        match self.payload.as_ref() {
+            HttpBodyPayload::Streaming(payload) => payload.state.take_slice(len),
+            _ => Ok(None),
+        }
+    }
+
+    pub fn request_finish(&self) {
+        if let HttpBodyPayload::Streaming(payload) = self.payload.as_ref() {
+            payload.state.request_finish();
+        }
+    }
+
+    pub fn is_streaming(&self) -> bool {
+        matches!(self.payload.as_ref(), HttpBodyPayload::Streaming(_))
     }
 }
 
@@ -228,7 +406,12 @@ impl HttpResponseHandle {
 pub struct HttpResponseDispatch {
     pub status: i32,
     pub headers: Vec<(String, String)>,
-    pub body: Vec<u8>,
+    pub body: HttpResponseBody,
+}
+
+pub enum HttpResponseBody {
+    Buffered(Vec<u8>),
+    Streaming(ResponseStreamReader),
 }
 
 /// Handle representing an accepted HTTP/3 bidirectional stream.
@@ -324,8 +507,21 @@ struct RuntimeView {
 struct ListenerRegistry {
     listeners: Mutex<HashMap<ListenerId, ListenerEntry>>,
     connections: Mutex<HashMap<ConnectionId, ConnectionEntry>>,
+    connection_events: Mutex<HashMap<ConnectionId, VecDeque<HttpConnectionEvent>>>,
     next_listener_id: AtomicU32,
     next_connection_id: AtomicU32,
+}
+
+impl Default for ListenerRegistry {
+    fn default() -> Self {
+        Self {
+            listeners: Mutex::new(HashMap::new()),
+            connections: Mutex::new(HashMap::new()),
+            connection_events: Mutex::new(HashMap::new()),
+            next_listener_id: AtomicU32::new(0),
+            next_connection_id: AtomicU32::new(0),
+        }
+    }
 }
 
 struct ListenerEntry {
@@ -347,6 +543,7 @@ struct ConnectionEntry {
     peer_addr: SocketAddr,
     protocol: ConnectionProtocol,
     endpoint_config: Arc<config::EndpointRuntimeConfig>,
+    stats: Option<Arc<HttpConnectionStats>>,
     record: ConnectionRecord,
 }
 
@@ -362,11 +559,19 @@ enum ConnectionRecord {
     WebSocketPending {
         handshake: Mutex<Option<protocol::WebSocketHandshake>>,
     },
+    WebSocket {
+        serializer: rawsocket::Serializer,
+        frames: Mutex<mpsc::Receiver<wamp::ParsedMessage>>,
+        reader_task: JoinHandle<()>,
+        writer_task: JoinHandle<()>,
+        send_tx: UnboundedSender<OutboundFrame>,
+    },
     HttpPending {
         pending_requests: Mutex<VecDeque<QueuedHttpRequest>>,
     },
     Http2Pending {
         handshake: Mutex<Option<protocol::Http2Handshake>>,
+        pending_requests: Mutex<VecDeque<QueuedHttpRequest>>,
     },
     Http3Pending {
         handshake: Mutex<Option<protocol::Http3Handshake>>,
@@ -525,6 +730,14 @@ impl ListenerRegistry {
                     reader_task.abort();
                     writer_task.abort();
                 }
+                ConnectionRecord::WebSocket {
+                    reader_task,
+                    writer_task,
+                    ..
+                } => {
+                    reader_task.abort();
+                    writer_task.abort();
+                }
                 ConnectionRecord::WebSocketPending { .. }
                 | ConnectionRecord::HttpPending { .. }
                 | ConnectionRecord::Http2Pending { .. }
@@ -566,6 +779,7 @@ impl ListenerRegistry {
                     peer_addr,
                     protocol: ConnectionProtocol::RawSocket,
                     endpoint_config,
+                    stats: None,
                     record: ConnectionRecord::RawSocket {
                         serializer,
                         max_exponent,
@@ -596,11 +810,141 @@ impl ListenerRegistry {
                     peer_addr,
                     protocol: ConnectionProtocol::WebSocket,
                     endpoint_config,
+                    stats: None,
                     record: ConnectionRecord::WebSocketPending {
                         handshake: Mutex::new(Some(handshake)),
                     },
                 },
             );
+    }
+
+    fn accept_websocket_connection(
+        &self,
+        connection_id: ConnectionId,
+        handshake: protocol::WebSocketHandshake,
+        serializer: rawsocket::Serializer,
+        protocol: Option<&str>,
+    ) -> Result<(), Error> {
+        let accept_value = websocket_accept_value(&handshake.sec_websocket_key);
+        let mut std_stream = handshake.into_stream().into_std().map_err(Error::Io)?;
+        write_websocket_handshake_response(&mut std_stream, &accept_value, protocol)
+            .map_err(Error::Io)?;
+        std_stream.set_nonblocking(true).map_err(Error::Io)?;
+        let stream = TokioTcpStream::from_std(std_stream).map_err(Error::Io)?;
+        stream.set_nodelay(true).map_err(Error::Io)?;
+        let (reader, writer) = stream.into_split();
+
+        let (frame_tx, frame_rx) = mpsc::channel(1024);
+        let (send_tx, send_rx) = mpsc::unbounded_channel();
+
+        let endpoint_config = {
+            let connections = self
+                .connections
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner());
+            let entry = connections
+                .get(&connection_id)
+                .ok_or(Error::ConnectionNotFound(connection_id))?;
+            Arc::clone(&entry.endpoint_config)
+        };
+
+        let reader_task = spawn_websocket_reader(
+            connection_id,
+            serializer,
+            endpoint_config,
+            reader,
+            frame_tx,
+            send_tx.clone(),
+        );
+        let writer_task = spawn_websocket_writer(connection_id, serializer, writer, send_rx);
+
+        let mut connections = self
+            .connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        if let Some(entry) = connections.get_mut(&connection_id) {
+            entry.record = ConnectionRecord::WebSocket {
+                serializer,
+                frames: Mutex::new(frame_rx),
+                reader_task,
+                writer_task,
+                send_tx,
+            };
+        }
+        Ok(())
+    }
+
+    fn reject_websocket_connection(
+        &self,
+        connection_id: ConnectionId,
+        handshake: protocol::WebSocketHandshake,
+        status: StatusCode,
+        reason: Option<&str>,
+    ) -> Result<(), Error> {
+        let mut stream = handshake.into_stream().into_std().map_err(Error::Io)?;
+        let body = reason.unwrap_or("websocket upgrade rejected");
+        let response = format!(
+            "HTTP/1.1 {} {}\r\nConnection: close\r\nContent-Length: {}\r\n\r\n{}",
+            status.as_u16(),
+            status.canonical_reason().unwrap_or(""),
+            body.len(),
+            body
+        );
+        stream
+            .write_all(response.as_bytes())
+            .and_then(|_| stream.flush())
+            .map_err(Error::Io)?;
+        self.connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .remove(&connection_id);
+        Ok(())
+    }
+
+    fn finish_http_connection(
+        &self,
+        connection_id: ConnectionId,
+        reason: HttpConnectionCloseReason,
+        detail: Option<String>,
+    ) {
+        let entry = self
+            .connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .remove(&connection_id);
+        if let Some(entry) = entry {
+            if let Some(stats) = entry.stats {
+                let event = stats.finalize(connection_id, reason, detail);
+                self.push_connection_event(event);
+            }
+        }
+    }
+
+    fn push_connection_event(&self, event: HttpConnectionEvent) {
+        let mut events = self
+            .connection_events
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        events
+            .entry(event.connection_id)
+            .or_insert_with(VecDeque::new)
+            .push_back(event);
+    }
+
+    fn poll_http_connection_event(
+        &self,
+        connection_id: ConnectionId,
+    ) -> Option<HttpConnectionEvent> {
+        let mut events = self
+            .connection_events
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let queue = events.get_mut(&connection_id)?;
+        let event = queue.pop_front();
+        if queue.is_empty() {
+            events.remove(&connection_id);
+        }
+        event
     }
 
     fn register_http_connection(
@@ -620,6 +964,7 @@ impl ListenerRegistry {
                     peer_addr,
                     protocol: ConnectionProtocol::Http,
                     endpoint_config,
+                    stats: None,
                     record: ConnectionRecord::HttpPending {
                         pending_requests: Mutex::new(VecDeque::new()),
                     },
@@ -635,6 +980,7 @@ impl ListenerRegistry {
         handshake: protocol::Http2Handshake,
         peer_addr: SocketAddr,
     ) {
+        let stats = HttpConnectionStats::new(ConnectionProtocol::Http2);
         self.connections
             .lock()
             .unwrap_or_else(|poison| poison.into_inner())
@@ -645,8 +991,10 @@ impl ListenerRegistry {
                     peer_addr,
                     protocol: ConnectionProtocol::Http2,
                     endpoint_config,
+                    stats: Some(Arc::clone(&stats)),
                     record: ConnectionRecord::Http2Pending {
                         handshake: Mutex::new(Some(handshake)),
+                        pending_requests: Mutex::new(VecDeque::new()),
                     },
                 },
             );
@@ -661,6 +1009,7 @@ impl ListenerRegistry {
         connection: Option<Arc<QuinnConnection>>,
         peer_addr: SocketAddr,
     ) -> Arc<Http3StreamChannels> {
+        let stats = HttpConnectionStats::new(ConnectionProtocol::Http3);
         let streams = Arc::new(Http3StreamChannels::new());
         self.connections
             .lock()
@@ -672,6 +1021,7 @@ impl ListenerRegistry {
                     peer_addr,
                     protocol: ConnectionProtocol::Http3,
                     endpoint_config,
+                    stats: Some(Arc::clone(&stats)),
                     record: ConnectionRecord::Http3Pending {
                         handshake: Mutex::new(Some(handshake)),
                         connection: Mutex::new(connection),
@@ -692,6 +1042,18 @@ impl ListenerRegistry {
             .unwrap_or_else(|poison| poison.into_inner())
             .get(&connection_id)
             .map(|entry| Arc::clone(&entry.endpoint_config))
+            .ok_or(Error::ConnectionNotFound(connection_id))
+    }
+
+    fn connection_stats(
+        &self,
+        connection_id: ConnectionId,
+    ) -> Result<Option<Arc<HttpConnectionStats>>, Error> {
+        self.connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .get(&connection_id)
+            .map(|entry| entry.stats.clone())
             .ok_or(Error::ConnectionNotFound(connection_id))
     }
 
@@ -745,7 +1107,8 @@ impl ListenerRegistry {
             .get(&connection_id)
             .ok_or(Error::ConnectionNotFound(connection_id))?;
         match &entry.record {
-            ConnectionRecord::RawSocket { frames, .. } => {
+            ConnectionRecord::RawSocket { frames, .. }
+            | ConnectionRecord::WebSocket { frames, .. } => {
                 let mut receiver = frames.lock().unwrap();
                 match receiver.try_recv() {
                     Ok(message) => Ok(Some(message)),
@@ -770,7 +1133,8 @@ impl ListenerRegistry {
             .get(&connection_id)
             .ok_or(Error::ConnectionNotFound(connection_id))?;
         match &entry.record {
-            ConnectionRecord::RawSocket { send_tx, .. } => send_tx
+            ConnectionRecord::RawSocket { send_tx, .. }
+            | ConnectionRecord::WebSocket { send_tx, .. } => send_tx
                 .send(frame)
                 .map_err(|_| Error::ConnectionNotFound(connection_id)),
             _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
@@ -811,7 +1175,7 @@ impl ListenerRegistry {
             .get(&connection_id)
             .ok_or(Error::ConnectionNotFound(connection_id))?;
         match &entry.record {
-            ConnectionRecord::Http2Pending { handshake } => {
+            ConnectionRecord::Http2Pending { handshake, .. } => {
                 let mut guard = handshake.lock().unwrap();
                 guard
                     .take()
@@ -894,6 +1258,9 @@ impl ListenerRegistry {
             .ok_or(Error::ConnectionNotFound(connection_id))?;
         match &entry.record {
             ConnectionRecord::HttpPending { pending_requests }
+            | ConnectionRecord::Http2Pending {
+                pending_requests, ..
+            }
             | ConnectionRecord::Http3Pending {
                 pending_requests, ..
             } => {
@@ -917,6 +1284,9 @@ impl ListenerRegistry {
             .ok_or(Error::ConnectionNotFound(connection_id))?;
         match &entry.record {
             ConnectionRecord::HttpPending { pending_requests }
+            | ConnectionRecord::Http2Pending {
+                pending_requests, ..
+            }
             | ConnectionRecord::Http3Pending {
                 pending_requests, ..
             } => Ok(pending_requests
@@ -1257,6 +1627,117 @@ fn spawn_connection_writer(
     })
 }
 
+fn spawn_websocket_reader(
+    connection_id: ConnectionId,
+    serializer: rawsocket::Serializer,
+    endpoint_config: Arc<config::EndpointRuntimeConfig>,
+    mut reader: OwnedReadHalf,
+    frame_tx: mpsc::Sender<wamp::ParsedMessage>,
+    send_tx: UnboundedSender<OutboundFrame>,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        let idle_timeout = endpoint_config.idle_timeout;
+        let mut accumulator = WebSocketMessageAccumulator::new();
+        loop {
+            let read_future = read_websocket_frame(&mut reader);
+            let frame = if let Some(timeout) = idle_timeout {
+                match time::timeout(timeout, read_future).await {
+                    Ok(result) => result,
+                    Err(_) => {
+                        eprintln!(
+                            "connection {:?} idle for {:?}, closing",
+                            connection_id, timeout
+                        );
+                        break;
+                    }
+                }
+            } else {
+                read_future.await
+            };
+
+            let frame = match frame {
+                Ok(frame) => frame,
+                Err(err) => {
+                    eprintln!("connection {:?} websocket error: {}", connection_id, err);
+                    break;
+                }
+            };
+
+            match frame {
+                WebSocketFrame::Data {
+                    opcode,
+                    fin,
+                    payload,
+                } => {
+                    if let Err(err) = accumulator.push(opcode, fin, payload) {
+                        eprintln!(
+                            "connection {:?} websocket framing error: {}",
+                            connection_id, err
+                        );
+                        break;
+                    }
+                    if let Some(message) = accumulator.take_complete() {
+                        if let Err(err) =
+                            handle_websocket_message(serializer, message, &frame_tx).await
+                        {
+                            eprintln!(
+                                "connection {:?} failed to parse WAMP message: {}",
+                                connection_id, err
+                            );
+                            break;
+                        }
+                    }
+                }
+                WebSocketFrame::Ping(payload) => {
+                    let _ = send_tx.send(OutboundFrame::control(0x02, Bytes::from(payload)));
+                }
+                WebSocketFrame::Pong => {
+                    // No-op.
+                }
+                WebSocketFrame::Close(code, reason) => {
+                    let mut payload = Vec::new();
+                    payload.extend_from_slice(&code.to_be_bytes());
+                    payload.extend_from_slice(reason.as_bytes());
+                    let _ = send_tx.send(OutboundFrame::control(0x02, Bytes::from(payload)));
+                    break;
+                }
+            }
+        }
+    })
+}
+
+fn spawn_websocket_writer(
+    connection_id: ConnectionId,
+    serializer: rawsocket::Serializer,
+    mut writer: OwnedWriteHalf,
+    mut rx: UnboundedReceiver<OutboundFrame>,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        while let Some(frame) = rx.recv().await {
+            let mut payload = BytesMut::with_capacity(frame.payload_len);
+            for segment in frame.segments {
+                payload.extend_from_slice(&segment);
+            }
+            let opcode = match frame.frame_type {
+                0 => match serializer {
+                    rawsocket::Serializer::Json => 0x1,
+                    _ => 0x2,
+                },
+                1 => 0x9,
+                2 => 0xA,
+                _ => continue,
+            };
+            if let Err(err) = write_websocket_frame(&mut writer, opcode, &payload).await {
+                eprintln!(
+                    "connection {:?} failed to write websocket frame: {}",
+                    connection_id, err
+                );
+                break;
+            }
+        }
+    })
+}
+
 async fn read_inbound_frame(
     stream: &mut OwnedReadHalf,
     max_payload: u64,
@@ -1315,6 +1796,211 @@ async fn read_inbound_frame(
             "unsupported frame type {}",
             frame_type
         ))),
+    }
+}
+
+enum WebSocketFrame {
+    Data {
+        opcode: u8,
+        fin: bool,
+        payload: Vec<u8>,
+    },
+    Ping(Vec<u8>),
+    Pong,
+    Close(u16, String),
+}
+
+#[derive(Debug)]
+struct WebSocketFrameError(String);
+
+impl std::fmt::Display for WebSocketFrameError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::error::Error for WebSocketFrameError {}
+
+struct WebSocketMessageAccumulator {
+    opcode: Option<u8>,
+    buffer: Vec<u8>,
+    complete: bool,
+}
+
+impl WebSocketMessageAccumulator {
+    fn new() -> Self {
+        Self {
+            opcode: None,
+            buffer: Vec::new(),
+            complete: false,
+        }
+    }
+
+    fn push(&mut self, opcode: u8, fin: bool, payload: Vec<u8>) -> Result<(), WebSocketFrameError> {
+        if opcode == 0x0 {
+            if self.opcode.is_none() {
+                return Err(WebSocketFrameError(
+                    "received continuation frame without initial opcode".into(),
+                ));
+            }
+        } else if opcode == 0x1 || opcode == 0x2 {
+            if self.opcode.is_some() {
+                return Err(WebSocketFrameError(
+                    "received new data frame before finishing continuation".into(),
+                ));
+            }
+            self.opcode = Some(opcode);
+        } else {
+            return Err(WebSocketFrameError("unsupported data opcode".into()));
+        }
+
+        if self.buffer.len() + payload.len() > MAX_WEBSOCKET_MESSAGE_LEN {
+            return Err(WebSocketFrameError(
+                "websocket message exceeds supported length".into(),
+            ));
+        }
+
+        self.buffer.extend_from_slice(&payload);
+        if fin {
+            self.complete = true;
+        }
+        Ok(())
+    }
+
+    fn take_complete(&mut self) -> Option<Vec<u8>> {
+        if self.complete {
+            let mut data = Vec::new();
+            std::mem::swap(&mut data, &mut self.buffer);
+            self.opcode = None;
+            self.complete = false;
+            Some(data)
+        } else {
+            None
+        }
+    }
+}
+
+async fn read_websocket_frame(
+    reader: &mut OwnedReadHalf,
+) -> Result<WebSocketFrame, WebSocketFrameError> {
+    let mut header = [0u8; 2];
+    reader
+        .read_exact(&mut header)
+        .await
+        .map_err(|err| WebSocketFrameError(err.to_string()))?;
+    let fin = header[0] & 0x80 != 0;
+    let opcode = header[0] & 0x0F;
+    let masked = header[1] & 0x80 != 0;
+    let mut len = (header[1] & 0x7F) as u64;
+    if len == 126 {
+        let mut extended = [0u8; 2];
+        reader
+            .read_exact(&mut extended)
+            .await
+            .map_err(|err| WebSocketFrameError(err.to_string()))?;
+        len = u16::from_be_bytes(extended) as u64;
+    } else if len == 127 {
+        let mut extended = [0u8; 8];
+        reader
+            .read_exact(&mut extended)
+            .await
+            .map_err(|err| WebSocketFrameError(err.to_string()))?;
+        len = u64::from_be_bytes(extended);
+    }
+    if len as usize > MAX_WEBSOCKET_MESSAGE_LEN {
+        return Err(WebSocketFrameError(
+            "websocket frame exceeds supported length".into(),
+        ));
+    }
+    let mut mask = [0u8; 4];
+    if masked {
+        reader
+            .read_exact(&mut mask)
+            .await
+            .map_err(|err| WebSocketFrameError(err.to_string()))?;
+    } else {
+        return Err(WebSocketFrameError(
+            "websocket frames must be masked".into(),
+        ));
+    }
+    let mut payload = vec![0u8; len as usize];
+    if len > 0 {
+        reader
+            .read_exact(&mut payload)
+            .await
+            .map_err(|err| WebSocketFrameError(err.to_string()))?;
+        for (index, byte) in payload.iter_mut().enumerate() {
+            *byte ^= mask[index % 4];
+        }
+    }
+    match opcode {
+        0x0 | 0x1 | 0x2 => Ok(WebSocketFrame::Data {
+            opcode,
+            fin,
+            payload,
+        }),
+        0x8 => {
+            let code = if payload.len() >= 2 {
+                u16::from_be_bytes([payload[0], payload[1]])
+            } else {
+                1005
+            };
+            let reason = if payload.len() > 2 {
+                String::from_utf8_lossy(&payload[2..]).to_string()
+            } else {
+                String::new()
+            };
+            Ok(WebSocketFrame::Close(code, reason))
+        }
+        0x9 => Ok(WebSocketFrame::Ping(payload)),
+        0xA => Ok(WebSocketFrame::Pong),
+        _ => Err(WebSocketFrameError("unsupported websocket opcode".into())),
+    }
+}
+
+async fn write_websocket_frame(
+    writer: &mut OwnedWriteHalf,
+    opcode: u8,
+    payload: &[u8],
+) -> io::Result<()> {
+    let mut header = Vec::with_capacity(2);
+    header.push(0x80 | (opcode & 0x0F));
+    if payload.len() < 126 {
+        header.push(payload.len() as u8);
+    } else if payload.len() <= 0xFFFF {
+        header.push(126);
+        header.extend_from_slice(&(payload.len() as u16).to_be_bytes());
+    } else {
+        header.push(127);
+        header.extend_from_slice(&(payload.len() as u64).to_be_bytes());
+    }
+    writer.write_all(&header).await?;
+    if !payload.is_empty() {
+        writer.write_all(payload).await?;
+    }
+    Ok(())
+}
+
+async fn handle_websocket_message(
+    serializer: rawsocket::Serializer,
+    data: Vec<u8>,
+    frame_tx: &mpsc::Sender<wamp::ParsedMessage>,
+) -> Result<(), String> {
+    let payload = match serializer {
+        rawsocket::Serializer::Json => {
+            if std::str::from_utf8(&data).is_err() {
+                return Err("websocket text frame payload is not valid UTF-8".into());
+            }
+            Bytes::from(data)
+        }
+        _ => Bytes::from(data),
+    };
+    match wamp::parse_message(serializer, payload) {
+        Ok(parsed) => frame_tx
+            .send(parsed)
+            .await
+            .map_err(|_| "failed to enqueue websocket message".into()),
+        Err(err) => Err(format!("failed to parse WAMP message: {:?}", err)),
     }
 }
 
@@ -1452,14 +2138,29 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                                     }
                                 }
                                 Ok(protocol::NegotiatedConnection::Http2(handshake)) => {
+                                    let (stream, metadata) = handshake.split();
                                     let connection_id = accept_registry.next_connection_id();
                                     accept_registry.register_http2_connection(
                                         listener_id,
                                         connection_id,
                                         Arc::clone(&runtime_config_for_task),
-                                        handshake,
+                                        metadata,
                                         addr,
                                     );
+                                    let registry_for_connection = Arc::clone(&accept_registry);
+                                    let endpoint_for_connection =
+                                        Arc::clone(&runtime_config_for_task);
+                                    let http_handle = runtime_handle.clone();
+                                    http_handle.spawn(async move {
+                                        serve_http2_connection(
+                                            listener_id,
+                                            connection_id,
+                                            stream,
+                                            endpoint_for_connection,
+                                            registry_for_connection,
+                                        )
+                                        .await;
+                                    });
                                     if tx.send(connection_id).await.is_err() {
                                         break;
                                     }
@@ -1644,6 +2345,34 @@ pub fn connection_take_websocket_handshake(
     manager.with_state(|state| state.registry.take_websocket_handshake(connection_id))
 }
 
+pub fn connection_accept_websocket(
+    connection_id: ConnectionId,
+    handshake: protocol::WebSocketHandshake,
+    serializer: rawsocket::Serializer,
+    protocol: Option<&str>,
+) -> Result<(), Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| {
+        state
+            .registry
+            .accept_websocket_connection(connection_id, handshake, serializer, protocol)
+    })
+}
+
+pub fn connection_reject_websocket(
+    connection_id: ConnectionId,
+    handshake: protocol::WebSocketHandshake,
+    status: StatusCode,
+    reason: Option<&str>,
+) -> Result<(), Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| {
+        state
+            .registry
+            .reject_websocket_connection(connection_id, handshake, status, reason)
+    })
+}
+
 /// Retrieves and consumes a pending HTTP/2 handshake for a connection.
 pub fn connection_take_http2_handshake(
     connection_id: ConnectionId,
@@ -1711,6 +2440,14 @@ pub fn connection_http3_poll_request(
     connection_id: ConnectionId,
 ) -> Result<Option<(HttpRequestSummary, HttpResponseHandle)>, Error> {
     connection_http_poll_request(connection_id)
+}
+
+/// Attempts to retrieve connection lifecycle events for HTTP/2 and HTTP/3.
+pub fn connection_poll_http_event(
+    connection_id: ConnectionId,
+) -> Result<Option<HttpConnectionEvent>, Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| Ok(state.registry.poll_http_connection_event(connection_id)))
 }
 
 #[cfg(feature = "ffi-test")]
@@ -1804,25 +2541,72 @@ async fn serve_http_connection(
     endpoint_config: Arc<config::EndpointRuntimeConfig>,
     registry: Arc<ListenerRegistry>,
 ) {
-    let (stream, request, body) = handshake.into_parts();
-    let mut reader = BufReader::new(stream);
-    let mut pending = Some((request, body));
+    let (stream, request, body_phase) = handshake.into_parts();
+    let _ = stream.set_nodelay(true);
+    let (read_half, mut write_half) = stream.into_split();
+    let mut reader = Some(BufReader::new(read_half));
+    let mut pending = Some((request, body_phase));
+    let mut pending_reclaim: Option<Http1BodyReclaim> = None;
+    let read_timeout = endpoint_config
+        .idle_timeout
+        .unwrap_or(endpoint_config.handshake_timeout);
 
     loop {
-        let (request, body) = match pending.take() {
+        let (request, body_phase) = match pending.take() {
             Some(value) => value,
-            None => match protocol::read_http_request(&mut reader, &endpoint_config).await {
-                Ok(Some(value)) => value,
-                Ok(None) => break,
-                Err(err) => {
-                    eprintln!(
-                        "http/1 connection read error for listener {:?}: {:?}",
-                        listener_id, err
-                    );
-                    break;
+            None => {
+                if reader.is_none() {
+                    if let Some(reclaim) = pending_reclaim.take() {
+                        match reclaim.wait().await {
+                            Ok(read_half) => {
+                                reader = Some(BufReader::new(read_half));
+                            }
+                            Err(_) => break,
+                        }
+                    } else {
+                        break;
+                    }
                 }
-            },
+                match protocol::read_http_request(reader.as_mut().unwrap(), &endpoint_config).await
+                {
+                    Ok(Some(value)) => value,
+                    Ok(None) => break,
+                    Err(err) => {
+                        eprintln!(
+                            "http/1 connection read error for listener {:?}: {:?}",
+                            listener_id, err
+                        );
+                        break;
+                    }
+                }
+            }
         };
+
+        let (body_handle, new_reclaim) = match body_phase {
+            HttpBodyPhase::Buffered(bytes) => (HttpBodyHandle::from_bytes(bytes.to_vec()), None),
+            HttpBodyPhase::Finished => (HttpBodyHandle::empty(), None),
+            HttpBodyPhase::NeedsStreaming {
+                prefix,
+                remaining_len,
+            } => {
+                let reader_half = match reader.take() {
+                    Some(buf) => buf.into_inner(),
+                    None => {
+                        eprintln!(
+                            "http/1 streaming requested without active reader for listener {:?}",
+                            listener_id
+                        );
+                        break;
+                    }
+                };
+                let (state, reclaim) =
+                    spawn_http1_streaming_body(prefix, reader_half, remaining_len, read_timeout);
+                (HttpBodyHandle::streaming(state), Some(reclaim))
+            }
+        };
+        if let Some(reclaim) = new_reclaim {
+            pending_reclaim = Some(reclaim);
+        }
 
         let protocol::HttpRequest {
             method,
@@ -1846,7 +2630,6 @@ async fn serve_http_connection(
         ) {
             HttpRouteMatch::Resolved(resolution) => {
                 let (tx, rx) = oneshot::channel::<HttpResponseDispatch>();
-                let body_handle = HttpBodyHandle::from_bytes(body);
                 let summary = HttpRequestSummary::new(
                     method,
                     target,
@@ -1874,7 +2657,7 @@ async fn serve_http_connection(
                 match rx.await {
                     Ok(mut dispatch) => {
                         if let Err(err) =
-                            send_http_dispatch(&mut reader, version, keep_alive, &mut dispatch)
+                            send_http_dispatch(&mut write_half, version, keep_alive, &mut dispatch)
                                 .await
                         {
                             eprintln!(
@@ -1886,7 +2669,7 @@ async fn serve_http_connection(
                     }
                     Err(_) => {
                         let _ = send_http_simple_response(
-                            &mut reader,
+                            &mut write_half,
                             version,
                             StatusCode::INTERNAL_SERVER_ERROR,
                             keep_alive,
@@ -1901,7 +2684,7 @@ async fn serve_http_connection(
             HttpRouteMatch::MethodNotAllowed { allowed_methods } => {
                 let allow_value = allowed_methods.join(", ");
                 if let Err(err) = send_http_simple_response(
-                    &mut reader,
+                    &mut write_half,
                     version,
                     StatusCode::METHOD_NOT_ALLOWED,
                     keep_alive,
@@ -1919,7 +2702,7 @@ async fn serve_http_connection(
             }
             HttpRouteMatch::NotFound => {
                 if let Err(err) = send_http_simple_response(
-                    &mut reader,
+                    &mut write_half,
                     version,
                     StatusCode::NOT_FOUND,
                     keep_alive,
@@ -1937,6 +2720,19 @@ async fn serve_http_connection(
             }
         }
 
+        if reader.is_none() {
+            if let Some(reclaim) = pending_reclaim.take() {
+                match reclaim.wait().await {
+                    Ok(read_half) => {
+                        reader = Some(BufReader::new(read_half));
+                    }
+                    Err(_) => break,
+                }
+            } else {
+                break;
+            }
+        }
+
         if !keep_alive {
             break;
         }
@@ -1944,25 +2740,30 @@ async fn serve_http_connection(
 }
 
 async fn send_http_dispatch(
-    reader: &mut BufReader<tokio::net::TcpStream>,
+    writer: &mut OwnedWriteHalf,
     version: u8,
     keep_alive: bool,
     dispatch: &mut HttpResponseDispatch,
 ) -> Result<(), String> {
     ensure_connection_header(&mut dispatch.headers, keep_alive, version);
-    protocol::write_http_response_shared(
-        reader.get_mut(),
-        version,
-        dispatch.status,
-        &dispatch.headers,
-        &dispatch.body,
-    )
-    .await
-    .map_err(|err| err.to_string())
+    match &dispatch.body {
+        HttpResponseBody::Buffered(body) => protocol::write_http_response_shared(
+            writer,
+            version,
+            dispatch.status,
+            &dispatch.headers,
+            body,
+        )
+        .await
+        .map_err(|err| err.to_string()),
+        HttpResponseBody::Streaming(_) => {
+            Err("streaming HTTP/1.x responses are not supported".to_string())
+        }
+    }
 }
 
 async fn send_http_simple_response(
-    reader: &mut BufReader<tokio::net::TcpStream>,
+    writer: &mut OwnedWriteHalf,
     version: u8,
     status: StatusCode,
     keep_alive: bool,
@@ -1974,15 +2775,9 @@ async fn send_http_simple_response(
         .map(|(name, value)| (name.to_string(), value.to_string()))
         .collect();
     ensure_connection_header(&mut headers, keep_alive, version);
-    protocol::write_http_response_shared(
-        reader.get_mut(),
-        version,
-        status.as_u16() as i32,
-        &headers,
-        body,
-    )
-    .await
-    .map_err(|err| err.to_string())
+    protocol::write_http_response_shared(writer, version, status.as_u16() as i32, &headers, body)
+        .await
+        .map_err(|err| err.to_string())
 }
 
 fn ensure_connection_header(headers: &mut Vec<(String, String)>, keep_alive: bool, version: u8) {
@@ -1997,6 +2792,35 @@ fn ensure_connection_header(headers: &mut Vec<(String, String)>, keep_alive: boo
     } else {
         headers.push(("Connection".into(), "close".into()));
     }
+}
+
+fn strip_content_length(headers: &mut Vec<(String, String)>) {
+    headers.retain(|(name, _)| !name.eq_ignore_ascii_case("content-length"));
+}
+
+fn websocket_accept_value(key: &str) -> String {
+    let mut sha1 = Sha1::new();
+    sha1.update(key.as_bytes());
+    sha1.update(WEBSOCKET_GUID.as_bytes());
+    Base64Engine.encode(sha1.finalize())
+}
+
+fn write_websocket_handshake_response(
+    stream: &mut std::net::TcpStream,
+    accept_value: &str,
+    protocol: Option<&str>,
+) -> io::Result<()> {
+    let mut response = format!(
+        "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {}\r\n",
+        accept_value
+    );
+    if let Some(protocol) = protocol {
+        response.push_str(&format!("Sec-WebSocket-Protocol: {}\r\n", protocol));
+    }
+    response.push_str("\r\n");
+    stream.write_all(response.as_bytes())?;
+    stream.flush()?;
+    Ok(())
 }
 
 fn should_keep_alive(version: u8, headers: &[(String, String)]) -> bool {
@@ -2039,9 +2863,20 @@ async fn serve_http3_requests(
                 "http3 handshake failed for listener {:?}: {}",
                 listener_id, err
             );
+            registry.finish_http_connection(
+                connection_id,
+                HttpConnectionCloseReason::ProtocolError,
+                Some(err.to_string()),
+            );
             return;
         }
     };
+
+    let connection_stats = registry
+        .connection_stats(connection_id)
+        .ok()
+        .and_then(|stats| stats);
+    let mut closed = false;
 
     loop {
         match h3_conn.accept().await {
@@ -2075,18 +2910,461 @@ async fn serve_http3_requests(
                     "http3 accept loop stopped for listener {:?}: {}",
                     listener_id, err
                 );
+                if let Some(stats) = connection_stats.as_ref() {
+                    stats.set_close_reason(
+                        HttpConnectionCloseReason::ProtocolError,
+                        Some(err.to_string()),
+                    );
+                }
+                registry.finish_http_connection(
+                    connection_id,
+                    HttpConnectionCloseReason::ProtocolError,
+                    Some(err.to_string()),
+                );
+                closed = true;
                 break;
             }
         }
     }
 
     drop(streams);
+    if !closed {
+        registry.finish_http_connection(
+            connection_id,
+            HttpConnectionCloseReason::Graceful,
+            None,
+        );
+    }
+}
+
+async fn serve_http2_connection(
+    listener_id: ListenerId,
+    connection_id: ConnectionId,
+    stream: TokioTcpStream,
+    endpoint_config: Arc<config::EndpointRuntimeConfig>,
+    registry: Arc<ListenerRegistry>,
+) {
+    let mut connection = match h2_server::handshake(stream).await {
+        Ok(connection) => connection,
+        Err(err) => {
+            eprintln!(
+                "http/2 handshake failed for listener {:?}: {}",
+                listener_id, err
+            );
+            registry.finish_http_connection(
+                connection_id,
+                HttpConnectionCloseReason::ProtocolError,
+                Some(err.to_string()),
+            );
+            return;
+        }
+    };
+
+    let connection_stats = registry
+        .connection_stats(connection_id)
+        .ok()
+        .and_then(|stats| stats);
+    let mut closed = false;
+
+    while let Some(result) = connection.accept().await {
+        match result {
+            Ok((request, respond)) => {
+                if let Err(err) = handle_http2_request(
+                    connection_id,
+                    request,
+                    respond,
+                    Arc::clone(&endpoint_config),
+                    Arc::clone(&registry),
+                )
+                .await
+                {
+                    eprintln!(
+                        "http/2 request error for listener {:?}: {}",
+                        listener_id, err
+                    );
+                }
+            }
+            Err(err) => {
+                eprintln!(
+                    "http/2 accept error for listener {:?}: {}",
+                    listener_id, err
+                );
+                if let Some(stats) = connection_stats.as_ref() {
+                    if err.is_go_away() {
+                        stats.set_close_reason(
+                            HttpConnectionCloseReason::GoAway,
+                            Some(err.to_string()),
+                        );
+                    } else {
+                        stats.set_close_reason(
+                            HttpConnectionCloseReason::ProtocolError,
+                            Some(err.to_string()),
+                        );
+                    }
+                }
+                registry.finish_http_connection(
+                    connection_id,
+                    if err.is_go_away() {
+                        HttpConnectionCloseReason::GoAway
+                    } else {
+                        HttpConnectionCloseReason::ProtocolError
+                    },
+                    Some(err.to_string()),
+                );
+                closed = true;
+                break;
+            }
+        }
+    }
+
+    if !closed {
+        registry.finish_http_connection(
+            connection_id,
+            HttpConnectionCloseReason::Graceful,
+            None,
+        );
+    }
+}
+
+async fn handle_http2_request(
+    connection_id: ConnectionId,
+    request: Http2Request<H2RecvStream>,
+    respond: H2SendResponse<Bytes>,
+    endpoint_config: Arc<config::EndpointRuntimeConfig>,
+    registry: Arc<ListenerRegistry>,
+) -> Result<(), String> {
+    let (parts, body_stream) = request.into_parts();
+    let method = parts.method.as_str().to_string();
+    let normalized_method = method.to_uppercase();
+    let target = parts
+        .uri
+        .path_and_query()
+        .map(|pq| pq.as_str().to_string())
+        .unwrap_or_else(|| parts.uri.path().to_string());
+    let (path, query) = split_target_components(&target);
+    let headers = flatten_http2_headers(&parts.headers);
+    let content_length = parse_content_length(&headers);
+    let max_body = endpoint_config
+        .max_http_content_length
+        .unwrap_or(HTTP3_DEFAULT_BODY_LIMIT);
+
+    let stats = registry
+        .connection_stats(connection_id)
+        .map_err(|err| err.to_string())?;
+    if let Some(ref stats_arc) = stats {
+        stats_arc.record_request();
+    }
+    let state = StreamingBodyState::new(content_length.map(|len| len as usize).unwrap_or(0));
+    let (idle_timeout, total_timeout) = http_stream_timeouts(&endpoint_config);
+    spawn_http2_stream_reader(
+        stats.clone(),
+        Arc::clone(&state),
+        body_stream,
+        max_body,
+        content_length,
+        idle_timeout,
+        total_timeout,
+    );
+    let body_handle = HttpBodyHandle::streaming(state);
+    let query_owned = query.clone();
+
+    match endpoint_config.match_http_route(&path, query.as_deref(), &normalized_method, "http2") {
+        HttpRouteMatch::Resolved(resolution) => {
+            let (tx, rx) = oneshot::channel::<HttpResponseDispatch>();
+            let summary = HttpRequestSummary::new(
+                normalized_method,
+                target,
+                path,
+                query_owned,
+                "http/2".to_string(),
+                2,
+                headers,
+                body_handle,
+                Some(resolution.realm.clone()),
+                Some(resolution.procedure.clone()),
+                Some(resolution),
+            );
+            let queued = QueuedHttpRequest {
+                summary,
+                response: HttpResponseHandle::new(connection_id, tx),
+            };
+            registry
+                .enqueue_http_request(connection_id, queued)
+                .map_err(|err| err.to_string())?;
+            tokio::spawn(async move {
+                match rx.await {
+                    Ok(dispatch) => {
+                        if let Err(err) = send_http2_response_from_dispatch(respond, dispatch).await
+                        {
+                            eprintln!(
+                                "failed to send http/2 response for connection {:?}: {}",
+                                connection_id, err
+                            );
+                        }
+                    }
+                    Err(_) => {
+                        let _ = send_http2_plain_response(
+                            respond,
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            b"http/2 request cancelled",
+                            &[],
+                        )
+                        .await;
+                    }
+                }
+            });
+            Ok(())
+        }
+        HttpRouteMatch::MethodNotAllowed { allowed_methods } => {
+            let allow_value = allowed_methods.join(", ");
+            send_http2_plain_response(
+                respond,
+                StatusCode::METHOD_NOT_ALLOWED,
+                b"method not allowed",
+                &[("allow", allow_value.as_str())],
+            )
+            .await
+        }
+        HttpRouteMatch::NotFound => {
+            send_http2_plain_response(respond, StatusCode::NOT_FOUND, b"route not found", &[]).await
+        }
+    }
+}
+
+fn spawn_http2_stream_reader(
+    stats: Option<Arc<HttpConnectionStats>>,
+    state: Arc<StreamingBodyState>,
+    stream: H2RecvStream,
+    max_body: u64,
+    content_length: Option<u64>,
+    idle_timeout: Duration,
+    total_timeout: Duration,
+) {
+    tokio::spawn(async move {
+        if let Err(err) = run_http2_stream_reader(
+            stats,
+            state,
+            stream,
+            max_body,
+            content_length,
+            idle_timeout,
+            total_timeout,
+        )
+        .await
+        {
+            eprintln!("http/2 body reader error: {}", err);
+        }
+    });
+}
+
+async fn run_http2_stream_reader(
+    stats: Option<Arc<HttpConnectionStats>>,
+    state: Arc<StreamingBodyState>,
+    mut stream: H2RecvStream,
+    max_body: u64,
+    content_length: Option<u64>,
+    idle_timeout: Duration,
+    total_timeout: Duration,
+) -> Result<(), String> {
+    let mut bytes_read: u64 = 0;
+    let total_deadline = Instant::now() + total_timeout;
+    loop {
+        if state.finish_requested() {
+            state.mark_finished();
+            return Ok(());
+        }
+
+        if Instant::now() >= total_deadline {
+            if let Some(stats_ref) = stats.as_ref() {
+                stats_ref.record_body_timeout(Some("http/2 body total timeout".into()));
+            }
+            state.mark_error("http/2 body total timeout exceeded".into());
+            let _ = stream.reset(H2Reason::CANCEL);
+            return Err("http/2 body total timeout".into());
+        }
+
+        let data_future = stream.data();
+        let chunk = match time::timeout(idle_timeout, data_future).await {
+            Ok(value) => value,
+            Err(_) => {
+                if let Some(stats_ref) = stats.as_ref() {
+                    stats_ref.record_idle_timeout(Some("http/2 body idle timeout".into()));
+                }
+                state.mark_error("http/2 body idle timeout".into());
+                let _ = stream.reset(H2Reason::CANCEL);
+                return Err("http/2 body idle timeout".into());
+            }
+        };
+
+        match chunk {
+            Some(Ok(bytes)) => {
+                bytes_read += bytes.len() as u64;
+                if bytes_read > max_body
+                    || content_length
+                        .map(|limit| bytes_read > limit)
+                        .unwrap_or(false)
+                {
+                    state.mark_error("http/2 body exceeded configured limit".into());
+                    return Ok(());
+                }
+                if content_length.is_none() {
+                    state.extend_total_len(bytes.len());
+                }
+                if !state.finish_requested() {
+                    state.enqueue_vec(bytes.to_vec());
+                }
+                if let Err(err) = stream.flow_control().release_capacity(bytes.len()) {
+                    state.mark_error(format!("http/2 flow control error: {}", err));
+                    return Err(err.to_string());
+                }
+            }
+            Some(Err(err)) => {
+                if let Some(stats_ref) = stats.as_ref() {
+                    stats_ref.set_close_reason(
+                        HttpConnectionCloseReason::ProtocolError,
+                        Some(format!("http/2 body read failed: {}", err)),
+                    );
+                }
+                state.mark_error(format!("http/2 body read failed: {}", err));
+                return Err(err.to_string());
+            }
+            None => {
+                if let Some(expected) = content_length {
+                    if bytes_read != expected {
+                        state.mark_error("http/2 body ended before declared Content-Length".into());
+                        return Ok(());
+                    }
+                }
+                state.mark_finished();
+                return Ok(());
+            }
+        }
+    }
+}
+
+async fn send_http2_plain_response(
+    mut respond: H2SendResponse<Bytes>,
+    status: StatusCode,
+    body: &[u8],
+    extra_headers: &[(&str, &str)],
+) -> Result<(), String> {
+    let http2_status = Http2StatusCode::from_u16(status.as_u16())
+        .unwrap_or(Http2StatusCode::INTERNAL_SERVER_ERROR);
+    let mut builder = Http2Response::builder().status(http2_status);
+    {
+        let header_map = builder.headers_mut().expect("headers available");
+        if let Ok(value) = Http2HeaderValue::from_str(&body.len().to_string()) {
+            header_map.insert(Http2HeaderName::from_static("content-length"), value);
+        }
+        for (name, value) in extra_headers {
+            if let (Ok(name), Ok(val)) = (
+                Http2HeaderName::from_bytes(name.as_bytes()),
+                Http2HeaderValue::from_str(value),
+            ) {
+                header_map.insert(name, val);
+            }
+        }
+    }
+    let response = builder.body(()).map_err(|err| err.to_string())?;
+    let end_of_stream = body.is_empty();
+    let mut send_stream = respond
+        .send_response(response, end_of_stream)
+        .map_err(|err| err.to_string())?;
+    if !body.is_empty() {
+        send_stream
+            .send_data(Bytes::copy_from_slice(body), true)
+            .map_err(|err| err.to_string())?;
+    }
+    Ok(())
+}
+
+async fn send_http2_response_from_dispatch(
+    mut respond: H2SendResponse<Bytes>,
+    dispatch: HttpResponseDispatch,
+) -> Result<(), String> {
+    let HttpResponseDispatch {
+        status,
+        mut headers,
+        body,
+    } = dispatch;
+    let clamped = status.clamp(100, 599) as u16;
+    let status_code = StatusCode::from_u16(clamped).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    let http2_status = Http2StatusCode::from_u16(status_code.as_u16())
+        .unwrap_or(Http2StatusCode::INTERNAL_SERVER_ERROR);
+    let mut builder = Http2Response::builder().status(http2_status);
+    match body {
+        HttpResponseBody::Buffered(body_bytes) => {
+            {
+                let header_map = builder.headers_mut().expect("headers available");
+                for (name, value) in &headers {
+                    if let (Ok(name), Ok(value)) = (
+                        Http2HeaderName::from_bytes(name.as_bytes()),
+                        Http2HeaderValue::from_str(value),
+                    ) {
+                        header_map.insert(name, value);
+                    }
+                }
+                if let Ok(len_value) = Http2HeaderValue::from_str(&body_bytes.len().to_string()) {
+                    header_map.insert(Http2HeaderName::from_static("content-length"), len_value);
+                }
+            }
+            let response = builder.body(()).map_err(|err| err.to_string())?;
+            let end_of_stream = body_bytes.is_empty();
+            let mut send_stream = respond
+                .send_response(response, end_of_stream)
+                .map_err(|err| err.to_string())?;
+            if !body_bytes.is_empty() {
+                send_stream
+                    .send_data(Bytes::from(body_bytes), true)
+                    .map_err(|err| err.to_string())?;
+            }
+            Ok(())
+        }
+        HttpResponseBody::Streaming(mut reader) => {
+            strip_content_length(&mut headers);
+            {
+                let header_map = builder.headers_mut().expect("headers available");
+                for (name, value) in &headers {
+                    if let (Ok(name), Ok(value)) = (
+                        Http2HeaderName::from_bytes(name.as_bytes()),
+                        Http2HeaderValue::from_str(value),
+                    ) {
+                        header_map.insert(name, value);
+                    }
+                }
+            }
+            let response = builder.body(()).map_err(|err| err.to_string())?;
+            let mut send_stream = respond
+                .send_response(response, false)
+                .map_err(|err| err.to_string())?;
+            loop {
+                match reader.next().await {
+                    Ok(ResponseStreamFrame::Chunk(bytes)) => {
+                        if let Err(err) = send_stream.send_data(bytes, false) {
+                            reader.close();
+                            return Err(err.to_string());
+                        }
+                    }
+                    Ok(ResponseStreamFrame::Finished) => {
+                        if let Err(err) = send_stream.send_data(Bytes::new(), true) {
+                            return Err(err.to_string());
+                        }
+                        return Ok(());
+                    }
+                    Err(err) => {
+                        reader.close();
+                        return Err(format!("http/2 streaming response failed: {}", err));
+                    }
+                }
+            }
+        }
+    }
 }
 
 async fn process_http3_request(
     connection_id: ConnectionId,
     request: HttpRequest<()>,
-    mut stream: H3RequestStream<h3_quinn::BidiStream<Bytes>, Bytes>,
+    stream: H3ServerBidiStream,
     endpoint_config: Arc<config::EndpointRuntimeConfig>,
     registry: Arc<ListenerRegistry>,
 ) -> Result<(), String> {
@@ -2103,35 +3381,31 @@ async fn process_http3_request(
     let max_body = endpoint_config
         .max_http_content_length
         .unwrap_or(HTTP3_DEFAULT_BODY_LIMIT);
-    let mut body = Vec::new();
-    while let Some(mut chunk) = stream
-        .recv_data()
-        .await
-        .map_err(|err| format!("failed to read http3 body: {}", err))?
-    {
-        while chunk.has_remaining() {
-            let slice = chunk.chunk();
-            let new_len = body.len() as u64 + slice.len() as u64;
-            if new_len > max_body {
-                send_plain_response(
-                    &mut stream,
-                    StatusCode::PAYLOAD_TOO_LARGE,
-                    b"payload too large",
-                    &[],
-                )
-                .await?;
-                return Ok(());
-            }
-            body.extend_from_slice(slice);
-            let advance = slice.len();
-            chunk.advance(advance);
-        }
+    let content_length = parse_content_length(&headers);
+    let stats = registry
+        .connection_stats(connection_id)
+        .map_err(|err| err.to_string())?;
+    if let Some(ref stats_arc) = stats {
+        stats_arc.record_request();
     }
+    let (mut send_stream, recv_stream) = stream.split();
+    let body_state = StreamingBodyState::new(content_length.map(|len| len as usize).unwrap_or(0));
+    let (idle_timeout, total_timeout) = http_stream_timeouts(&endpoint_config);
+    spawn_http3_stream_reader(
+        stats.clone(),
+        Arc::clone(&body_state),
+        recv_stream,
+        max_body,
+        0,
+        content_length,
+        idle_timeout,
+        total_timeout,
+    );
+    let body_handle = HttpBodyHandle::streaming(body_state);
 
     match endpoint_config.match_http_route(&path, query.as_deref(), &normalized_method, "http3") {
         HttpRouteMatch::Resolved(resolution) => {
             let (tx, rx) = oneshot::channel::<HttpResponseDispatch>();
-            let body_handle = HttpBodyHandle::from_bytes(body);
             let summary = HttpRequestSummary::new(
                 normalized_method,
                 target,
@@ -2153,11 +3427,10 @@ async fn process_http3_request(
                 .enqueue_http_request(connection_id, queued)
                 .map_err(|err| err.to_string())?;
             tokio::spawn(async move {
-                let mut response_stream = stream;
                 match rx.await {
                     Ok(dispatch) => {
                         if let Err(err) =
-                            send_http3_response_from_dispatch(&mut response_stream, dispatch).await
+                            send_http3_response_from_dispatch(&mut send_stream, dispatch).await
                         {
                             eprintln!(
                                 "failed to send http3 response for connection {:?}: {}",
@@ -2166,8 +3439,8 @@ async fn process_http3_request(
                         }
                     }
                     Err(_) => {
-                        let _ = send_plain_response(
-                            &mut response_stream,
+                        let _ = send_http3_plain_response(
+                            &mut send_stream,
                             StatusCode::INTERNAL_SERVER_ERROR,
                             b"http/3 request cancelled",
                             &[],
@@ -2180,8 +3453,8 @@ async fn process_http3_request(
         }
         HttpRouteMatch::MethodNotAllowed { allowed_methods } => {
             let allow_value = allowed_methods.join(", ");
-            send_plain_response(
-                &mut stream,
+            send_http3_plain_response(
+                &mut send_stream,
                 StatusCode::METHOD_NOT_ALLOWED,
                 b"method not allowed",
                 &[("allow", allow_value.as_str())],
@@ -2189,12 +3462,31 @@ async fn process_http3_request(
             .await
         }
         HttpRouteMatch::NotFound => {
-            send_plain_response(&mut stream, StatusCode::NOT_FOUND, b"route not found", &[]).await
+            send_http3_plain_response(
+                &mut send_stream,
+                StatusCode::NOT_FOUND,
+                b"route not found",
+                &[],
+            )
+            .await
         }
     }
 }
 
 fn flatten_headers(headers: &http::HeaderMap) -> Vec<(String, String)> {
+    headers
+        .iter()
+        .map(|(name, value)| {
+            let header_value = value
+                .to_str()
+                .map(|s| s.to_string())
+                .unwrap_or_else(|_| String::new());
+            (name.as_str().to_string(), header_value)
+        })
+        .collect()
+}
+
+fn flatten_http2_headers(headers: &http02::HeaderMap) -> Vec<(String, String)> {
     headers
         .iter()
         .map(|(name, value)| {
@@ -2214,6 +3506,168 @@ fn split_target_components(target: &str) -> (String, Option<String>) {
     }
 }
 
+fn parse_content_length(headers: &[(String, String)]) -> Option<u64> {
+    headers
+        .iter()
+        .find(|(name, _)| name.eq_ignore_ascii_case(CONTENT_LENGTH.as_str()))
+        .and_then(|(_, value)| value.trim().parse::<u64>().ok())
+}
+
+fn spawn_http3_stream_reader(
+    stats: Option<Arc<HttpConnectionStats>>,
+    state: Arc<StreamingBodyState>,
+    stream: H3ServerRecvStream,
+    max_body: u64,
+    bytes_read: u64,
+    content_length: Option<u64>,
+    idle_timeout: Duration,
+    total_timeout: Duration,
+) {
+    tokio::spawn(async move {
+        if let Err(err) = run_http3_stream_reader(
+            stats,
+            state,
+            stream,
+            max_body,
+            bytes_read,
+            content_length,
+            idle_timeout,
+            total_timeout,
+        )
+        .await
+        {
+            eprintln!("http/3 body reader failed: {}", err);
+        }
+    });
+}
+
+async fn run_http3_stream_reader(
+    stats: Option<Arc<HttpConnectionStats>>,
+    state: Arc<StreamingBodyState>,
+    mut stream: H3ServerRecvStream,
+    max_body: u64,
+    mut bytes_read: u64,
+    content_length: Option<u64>,
+    idle_timeout: Duration,
+    total_timeout: Duration,
+) -> Result<(), String> {
+    let mut total_deadline = Instant::now() + total_timeout;
+    loop {
+        if state.finish_requested() {
+            stream.stop_sending(H3ErrorCode::H3_NO_ERROR);
+            state.mark_finished();
+            return Ok(());
+        }
+        if Instant::now() >= total_deadline {
+            if let Some(stats_ref) = stats.as_ref() {
+                stats_ref.record_body_timeout(Some("http/3 body total timeout".into()));
+            }
+            state.mark_error("http/3 body total timeout exceeded".into());
+            stream.stop_sending(H3ErrorCode::H3_REQUEST_CANCELLED);
+            return Err("http/3 body total timeout".into());
+        }
+        let recv_future = stream.recv_data();
+        let chunk = match time::timeout(idle_timeout, recv_future).await {
+            Ok(value) => value,
+            Err(_) => {
+                if let Some(stats_ref) = stats.as_ref() {
+                    stats_ref.record_idle_timeout(Some("http/3 body idle timeout".into()));
+                }
+                state.mark_error("http/3 body idle timeout".into());
+                stream.stop_sending(H3ErrorCode::H3_REQUEST_CANCELLED);
+                return Err("http/3 body idle timeout".into());
+            }
+        };
+        match chunk {
+            Ok(Some(mut chunk)) => {
+                while chunk.has_remaining() {
+                    let len = chunk.remaining();
+                    let bytes = chunk.copy_to_bytes(len);
+                    bytes_read += len as u64;
+                    if bytes_read > max_body
+                        || content_length
+                            .map(|limit| bytes_read > limit)
+                            .unwrap_or(false)
+                    {
+                        state.mark_error("http/3 body exceeded configured limit".into());
+                        stream.stop_sending(H3ErrorCode::H3_REQUEST_CANCELLED);
+                        return Ok(());
+                    }
+                    if content_length.is_none() {
+                        state.extend_total_len(len);
+                    }
+                    if !state.finish_requested() {
+                        state.enqueue_vec(bytes.to_vec());
+                    }
+                }
+                total_deadline = Instant::now() + total_timeout;
+            }
+            Ok(None) => {
+                if let Some(expected) = content_length {
+                    if bytes_read != expected {
+                        state
+                            .mark_error("http/3 body ended before declared Content-Length".into());
+                        return Ok(());
+                    }
+                }
+                state.mark_finished();
+                stream.stop_sending(H3ErrorCode::H3_NO_ERROR);
+                return Ok(());
+            }
+            Err(err) => {
+                if let Some(stats_ref) = stats.as_ref() {
+                    stats_ref.set_close_reason(
+                        HttpConnectionCloseReason::ProtocolError,
+                        Some(format!("http/3 body read failed: {}", err)),
+                    );
+                }
+                state.mark_error(format!("http/3 body read failed: {}", err));
+                stream.stop_sending(H3ErrorCode::H3_REQUEST_CANCELLED);
+                return Err(err.to_string());
+            }
+        }
+    }
+}
+            Ok(Some(mut chunk)) => {
+                while chunk.has_remaining() {
+                    let len = chunk.remaining();
+                    let bytes = chunk.copy_to_bytes(len);
+                    bytes_read += len as u64;
+                    if bytes_read > max_body
+                        || content_length
+                            .map(|limit| bytes_read > limit)
+                            .unwrap_or(false)
+                    {
+                        state.mark_error("http/3 body exceeded configured limit".into());
+                        stream.stop_sending(H3ErrorCode::H3_REQUEST_CANCELLED);
+                        return Ok(());
+                    }
+                    if content_length.is_none() {
+                        state.extend_total_len(len);
+                    }
+                    if !state.finish_requested() {
+                        state.enqueue_vec(bytes.to_vec());
+                    }
+                }
+            }
+            Ok(None) => {
+                if let Some(expected) = content_length {
+                    if bytes_read != expected {
+                        state.mark_error("http/3 body ended before declared Content-Length".into());
+                        return Ok(());
+                    }
+                }
+                state.mark_finished();
+                return Ok(());
+            }
+            Err(err) => {
+                state.mark_error(format!("http/3 body read failed: {}", err));
+                return Err(err.to_string());
+            }
+        }
+    }
+}
+
 #[allow(dead_code)]
 fn http_summary_from_handshake(
     handshake: &protocol::HttpHandshake,
@@ -2221,7 +3675,11 @@ fn http_summary_from_handshake(
 ) -> HttpRequestSummary {
     let (path, query) = protocol::split_http_target(&handshake.request.target);
     let normalized_path = if path.is_empty() { "/" } else { path };
-    let body_handle = HttpBodyHandle::from_bytes(handshake.body.clone());
+    let body_handle = match &handshake.body {
+        HttpBodyPhase::Buffered(bytes) => HttpBodyHandle::from_bytes(bytes.to_vec()),
+        HttpBodyPhase::Finished => HttpBodyHandle::empty(),
+        HttpBodyPhase::NeedsStreaming { .. } => HttpBodyHandle::empty(),
+    };
     HttpRequestSummary::new(
         handshake.request.method.clone(),
         handshake.request.target.clone(),
@@ -2242,8 +3700,8 @@ fn http_summary_from_handshake(
     )
 }
 
-async fn send_plain_response(
-    stream: &mut H3RequestStream<h3_quinn::BidiStream<Bytes>, Bytes>,
+async fn send_http3_plain_response(
+    stream: &mut H3ServerSendStream,
     status: StatusCode,
     body: &[u8],
     headers: &[(&str, &str)],
@@ -2279,39 +3737,85 @@ async fn send_plain_response(
 }
 
 async fn send_http3_response_from_dispatch(
-    stream: &mut H3RequestStream<h3_quinn::BidiStream<Bytes>, Bytes>,
+    stream: &mut H3ServerSendStream,
     dispatch: HttpResponseDispatch,
 ) -> Result<(), String> {
-    let clamped = dispatch.status.clamp(100, 599) as u16;
+    let HttpResponseDispatch {
+        status,
+        mut headers,
+        body,
+    } = dispatch;
+    let clamped = status.clamp(100, 599) as u16;
     let status_code = StatusCode::from_u16(clamped).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
-    let mut builder = HttpResponse::builder().status(status_code);
-    {
-        let header_map = builder.headers_mut().expect("headers available");
-        for (name, value) in &dispatch.headers {
-            if let (Ok(name), Ok(value)) = (
-                HeaderName::from_bytes(name.as_bytes()),
-                HeaderValue::from_str(value),
-            ) {
-                header_map.insert(name, value);
+    match body {
+        HttpResponseBody::Buffered(body_bytes) => {
+            let mut builder = HttpResponse::builder().status(status_code);
+            {
+                let header_map = builder.headers_mut().expect("headers available");
+                for (name, value) in &headers {
+                    if let (Ok(name), Ok(value)) = (
+                        HeaderName::from_bytes(name.as_bytes()),
+                        HeaderValue::from_str(value),
+                    ) {
+                        header_map.insert(name, value);
+                    }
+                }
+                if let Ok(len_value) = HeaderValue::from_str(&body_bytes.len().to_string()) {
+                    header_map.insert(CONTENT_LENGTH, len_value);
+                }
+            }
+            let response = builder.body(()).map_err(|err| err.to_string())?;
+            stream
+                .send_response(response)
+                .await
+                .map_err(|err| err.to_string())?;
+            if !body_bytes.is_empty() {
+                stream
+                    .send_data(Bytes::from(body_bytes))
+                    .await
+                    .map_err(|err| err.to_string())?;
+            }
+            stream.finish().await.map_err(|err| err.to_string())
+        }
+        HttpResponseBody::Streaming(mut reader) => {
+            strip_content_length(&mut headers);
+            let mut builder = HttpResponse::builder().status(status_code);
+            {
+                let header_map = builder.headers_mut().expect("headers available");
+                for (name, value) in &headers {
+                    if let (Ok(name), Ok(value)) = (
+                        HeaderName::from_bytes(name.as_bytes()),
+                        HeaderValue::from_str(value),
+                    ) {
+                        header_map.insert(name, value);
+                    }
+                }
+            }
+            let response = builder.body(()).map_err(|err| err.to_string())?;
+            stream
+                .send_response(response)
+                .await
+                .map_err(|err| err.to_string())?;
+            loop {
+                match reader.next().await {
+                    Ok(ResponseStreamFrame::Chunk(bytes)) => {
+                        stream
+                            .send_data(bytes)
+                            .await
+                            .map_err(|err| err.to_string())?;
+                    }
+                    Ok(ResponseStreamFrame::Finished) => {
+                        reader.close();
+                        return stream.finish().await.map_err(|err| err.to_string());
+                    }
+                    Err(err) => {
+                        reader.close();
+                        return Err(format!("http/3 streaming response failed: {}", err));
+                    }
+                }
             }
         }
-        if let Ok(len_value) = HeaderValue::from_str(&dispatch.body.len().to_string()) {
-            header_map.insert(CONTENT_LENGTH, len_value);
-        }
     }
-    let response = builder.body(()).map_err(|err| err.to_string())?;
-    stream
-        .send_response(response)
-        .await
-        .map_err(|err| err.to_string())?;
-    if !dispatch.body.is_empty() {
-        stream
-            .send_data(Bytes::from(dispatch.body))
-            .await
-            .map_err(|err| err.to_string())?;
-    }
-    stream.finish().await.map_err(|err| err.to_string())?;
-    Ok(())
 }
 
 fn resolve_socket_addr(addr: &str, port: u16) -> Result<SocketAddr, Error> {

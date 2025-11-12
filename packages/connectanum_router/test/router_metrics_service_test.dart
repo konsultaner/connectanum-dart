@@ -59,6 +59,25 @@ class _FakeRuntime implements NativeRuntime {
   void releaseHttp2Handshake(int handle) {}
 
   @override
+  NativeWebSocketHandshake? takeWebSocketHandshake(int connectionId) => null;
+
+  @override
+  void acceptWebSocket({
+    required int connectionId,
+    required int handshakeHandle,
+    required NativeMessageSerializer serializer,
+    required String protocol,
+  }) {}
+
+  @override
+  void rejectWebSocket({
+    required int connectionId,
+    required int handshakeHandle,
+    int status = 400,
+    String reason = '',
+  }) {}
+
+  @override
   NativeHttp3Handshake? takeHttp3Handshake(int connectionId) => null;
 
   @override
@@ -80,6 +99,15 @@ class _FakeRuntime implements NativeRuntime {
     required NativeHttpResponse response,
   }) {
     throw UnsupportedError('HTTP responses not supported');
+  }
+
+  @override
+  NativeHttpResponseStream openHttpResponseStream({
+    required int handshakeHandle,
+    required int status,
+    required Map<String, String> headers,
+  }) {
+    throw UnsupportedError('HTTP response streaming not supported');
   }
 
   @override

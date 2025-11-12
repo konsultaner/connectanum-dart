@@ -3,10 +3,13 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use bytes::{Buf, Bytes};
+use ct_core::{HttpBodyHandle, StreamingBodyState};
 use futures_util::future;
-use h3::client;
+use h2::client;
+use h3::client as h3_client;
 use h3_quinn::Connection as H3QuinnConnection;
 use http::Request;
+use http02::{Request as Http2TestRequest, StatusCode as Http2StatusCode};
 use quinn::{
     ClientConfig as QuinnClientConfig, Endpoint as QuinnEndpoint, TransportConfig, VarInt,
 };
@@ -21,8 +24,8 @@ const HTTP2_PREFACE: &[u8] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
 
 use crate::runtime::constants::{
     ERR_CONNECTION_NOT_FOUND, ERR_ENDPOINT_NOT_CONFIGURED, ERR_INVALID_ARGUMENT,
-    ERR_LISTENER_NOT_FOUND, PROTOCOL_HTTP, PROTOCOL_HTTP2, PROTOCOL_HTTP3, PROTOCOL_RAWSOCKET,
-    PROTOCOL_WEBSOCKET, SUCCESS,
+    ERR_LISTENER_NOT_FOUND, ERR_UNSUPPORTED, PROTOCOL_HTTP, PROTOCOL_HTTP2, PROTOCOL_HTTP3,
+    PROTOCOL_RAWSOCKET, PROTOCOL_WEBSOCKET, SUCCESS,
 };
 use crate::runtime::ffi::{
     ct_apply_router_config, ct_connection_get_http3_connection,
@@ -32,14 +35,16 @@ use crate::runtime::ffi::{
     ct_http2_handshake_get, ct_http2_handshake_listener_protocol, ct_http2_handshake_release,
     ct_http3_connection_poll_request, ct_http3_connection_poll_stream, ct_http3_connection_release,
     ct_http3_handshake_get, ct_http3_handshake_listener_protocol, ct_http3_handshake_release,
-    ct_http_body_get, ct_http_body_release, ct_http_handshake_body_retain, ct_http_handshake_get,
-    ct_http_handshake_header, ct_http_handshake_release, ct_http_response_send, ct_listen,
-    ct_message_get, ct_message_release, ct_poll_connection, ct_poll_connection_message,
-    ct_set_on_connection, ct_set_on_listener_started, ct_shutdown, ct_start_runtime,
-    ct_websocket_handshake_extension, ct_websocket_handshake_get, ct_websocket_handshake_protocol,
-    ct_websocket_handshake_release, CtHttp2HandshakeInfo, CtHttp3HandshakeInfo, CtHttpBodyView,
-    CtHttpHandshakeInfo, CtHttpHeader, CtMessageInfo, CtStringView, CtWebSocketHandshakeInfo,
+    ct_http_body_finish, ct_http_body_get, ct_http_body_release, ct_http_body_stream_read,
+    ct_http_handshake_body_retain, ct_http_handshake_get, ct_http_handshake_header,
+    ct_http_handshake_release, ct_http_response_send, ct_listen, ct_message_get,
+    ct_message_release, ct_poll_connection, ct_poll_connection_message, ct_set_on_connection,
+    ct_set_on_listener_started, ct_shutdown, ct_start_runtime, ct_websocket_handshake_extension,
+    ct_websocket_handshake_get, ct_websocket_handshake_protocol, ct_websocket_handshake_release,
+    CtHttp2HandshakeInfo, CtHttp3HandshakeInfo, CtHttpBodyView, CtHttpHandshakeInfo, CtHttpHeader,
+    CtMessageInfo, CtStringView, CtWebSocketHandshakeInfo,
 };
+use crate::runtime::store_http_body;
 
 #[cfg(feature = "ffi-test")]
 use crate::runtime::ffi::{ct_test_register_http3_connection, ct_test_register_http3_request};
@@ -281,8 +286,13 @@ fn http_handshake_surfaced_via_ffi() {
     assert!(connection_id > 0);
     assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP);
 
-    let handle = ct_connection_take_http_handshake(connection_id);
-    assert!(handle > 0);
+    let handle = loop {
+        let handle = ct_connection_take_http_handshake(connection_id);
+        if handle > 0 {
+            break handle;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    };
 
     // No additional requests should be pending yet.
     assert_eq!(ct_connection_take_http_handshake(connection_id), 0);
@@ -401,6 +411,176 @@ fn http_handshake_surfaced_via_ffi() {
     );
 
     assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn http_handshake_streaming_body_round_trip() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","protocols":["rawsocket","http"],"http":{"alpn":["http/1.1"]},"http_routes":[{"path":"/stream","match_kind":"prefix","methods":{"POST":{"type":"reserved_realm","append_method_suffix":true}}}]}]}"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let payload_len = 70_000;
+    let client_handle = std::thread::spawn(move || {
+        let rt = TokioRuntime::new().unwrap();
+        rt.block_on(async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+            let request = format!(
+                "POST /stream HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
+                payload_len
+            );
+            stream.write_all(request.as_bytes()).await.unwrap();
+            let payload = vec![b'x'; payload_len];
+            let initial = 32 * 1024;
+            stream.write_all(&payload[..initial.min(payload.len())])
+                .await
+                .unwrap();
+            stream.flush().await.unwrap();
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            if initial < payload.len() {
+                stream.write_all(&payload[initial..]).await.unwrap();
+                stream.flush().await.unwrap();
+            }
+            let mut response = Vec::new();
+            stream.read_to_end(&mut response).await.unwrap();
+            response
+        })
+    });
+
+    let connection_id = loop {
+        let id = ct_poll_connection(listener_id);
+        if id > 0 {
+            break id;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP);
+
+    let handle = loop {
+        let handle = ct_connection_take_http_handshake(connection_id);
+        if handle > 0 {
+            break handle;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    };
+
+    let mut info = CtHttpHandshakeInfo::default();
+    assert_eq!(
+        ct_http_handshake_get(handle, &mut info as *mut CtHttpHandshakeInfo),
+        SUCCESS
+    );
+    assert_eq!(info.body_len, payload_len);
+
+    let body_handle = ct_http_handshake_body_retain(handle);
+    assert!(body_handle > 0, "streaming body handle expected");
+
+    let mut view = CtHttpBodyView::default();
+    assert_eq!(
+        ct_http_body_get(body_handle, &mut view as *mut CtHttpBodyView),
+        ERR_UNSUPPORTED
+    );
+
+    let mut collected = Vec::new();
+    loop {
+        assert_eq!(
+            ct_http_body_stream_read(body_handle, 8192, &mut view as *mut CtHttpBodyView),
+            SUCCESS
+        );
+        if view.data_len == 0 {
+            break;
+        }
+        unsafe {
+            let slice = std::slice::from_raw_parts(view.data_ptr, view.data_len);
+            collected.extend_from_slice(slice);
+        }
+    }
+    assert_eq!(collected.len(), payload_len);
+    assert!(collected.iter().all(|byte| *byte == b'x'));
+
+    assert_eq!(ct_http_body_finish(body_handle), SUCCESS);
+    assert_eq!(ct_http_body_release(body_handle), SUCCESS);
+
+    let body = b"stream-ok";
+    assert_eq!(
+        ct_http_response_send(
+            handle,
+            204,
+            std::ptr::null(),
+            0,
+            body.as_ptr(),
+            body.len(),
+        ),
+        SUCCESS
+    );
+    assert_eq!(ct_http_handshake_release(handle), SUCCESS);
+
+    let response_bytes = client_handle.join().expect("client result");
+    let response_text = String::from_utf8_lossy(&response_bytes);
+    assert!(
+        response_text.starts_with("HTTP/1.1 204"),
+        "unexpected response: {}",
+        response_text
+    );
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn http_body_streaming_can_be_read_via_ffi() {
+    let state = StreamingBodyState::new(6);
+    state.enqueue_vec(vec![1, 2, 3]);
+    state.enqueue_vec(vec![4, 5, 6]);
+    state.mark_finished();
+    let handle = HttpBodyHandle::streaming(state.clone());
+    let body_id = store_http_body(handle);
+
+    let mut view = CtHttpBodyView::default();
+    assert_eq!(
+        ct_http_body_stream_read(body_id as i32, 3, &mut view as *mut CtHttpBodyView),
+        SUCCESS
+    );
+    unsafe {
+        assert_eq!(
+            std::slice::from_raw_parts(view.data_ptr, view.data_len),
+            &[1, 2, 3]
+        );
+    }
+
+    assert_eq!(
+        ct_http_body_stream_read(body_id as i32, 3, &mut view as *mut CtHttpBodyView),
+        SUCCESS
+    );
+    unsafe {
+        assert_eq!(
+            std::slice::from_raw_parts(view.data_ptr, view.data_len),
+            &[4, 5, 6]
+        );
+    }
+
+    assert_eq!(
+        ct_http_body_stream_read(body_id as i32, 3, &mut view as *mut CtHttpBodyView),
+        SUCCESS
+    );
+    assert_eq!(view.data_len, 0);
+
+    assert_eq!(ct_http_body_finish(body_id as i32), SUCCESS);
+    assert!(state.finish_requested());
+    assert_eq!(ct_http_body_release(body_id as i32), SUCCESS);
 }
 
 #[test]
@@ -958,7 +1138,7 @@ fn http3_request_round_trip_over_network() {
                 .expect("connect http3");
             let connection = connecting.await.expect("http3 handshake");
 
-            let (mut driver, mut send_request) = client::builder()
+            let (mut driver, mut send_request) = h3_client::builder()
                 .build::<_, _, Bytes>(H3QuinnConnection::new(connection))
                 .await
                 .expect("build h3 client");
@@ -1043,6 +1223,329 @@ fn http3_request_round_trip_over_network() {
     let (status, response_body) = client_handle.join().expect("client result");
     assert_eq!(status, 201);
     assert_eq!(response_body, body);
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn http2_request_round_trip_over_network() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"native",
+                    "protocols":["rawsocket","http","http2"],
+                    "http":{
+                        "alpn":["h2","http/1.1"]
+                    },
+                    "http_routes":[
+                        {
+                            "path":"/h2",
+                            "match_kind":"prefix",
+                            "methods":{
+                                "POST":{
+                                    "type":"reserved_realm",
+                                    "append_method_suffix":true
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let (client_tx, client_rx) = std::sync::mpsc::channel();
+    let body_handle = std::thread::spawn(move || {
+        let rt = TokioRuntime::new().unwrap();
+        rt.block_on(async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let tcp = tokio::net::TcpStream::connect(&addr).await.unwrap();
+            let (mut client, connection) = client::handshake(tcp).await.unwrap();
+            tokio::spawn(async move {
+                if let Err(err) = connection.await {
+                    panic!("h2 connection error: {}", err);
+                }
+            });
+            let request = Http2TestRequest::builder()
+                .method("POST")
+                .uri("/h2")
+                .header("content-length", "4")
+                .body(())
+                .unwrap();
+            let (response, mut send_stream) = client.send_request(request, false).unwrap();
+            send_stream
+                .send_data(Bytes::from_static(b"ping"), true)
+                .unwrap();
+            client_tx.send(()).unwrap();
+            let response = response.await.unwrap();
+            assert_eq!(response.status(), Http2StatusCode::OK);
+            let mut body = response.into_body();
+            let mut collected = Vec::new();
+            while let Some(chunk) = body.data().await {
+                let chunk = chunk.unwrap();
+                collected.extend_from_slice(&chunk);
+            }
+            collected
+        })
+    });
+
+    client_rx.recv().unwrap();
+
+    let connection_id = ct_poll_connection(listener_id);
+    assert!(connection_id > 0);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP2);
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let handle = loop {
+        let handle = ct_connection_take_http_handshake(connection_id);
+        if handle > 0 {
+            break handle;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "timed out waiting for HTTP/2 handshake"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    };
+
+    let mut info = CtHttpHandshakeInfo::default();
+    assert_eq!(
+        ct_http_handshake_get(handle, &mut info as *mut CtHttpHandshakeInfo),
+        SUCCESS
+    );
+    unsafe {
+        let method =
+            std::str::from_utf8(std::slice::from_raw_parts(info.method_ptr, info.method_len))
+                .expect("method utf8");
+        assert_eq!(method, "POST");
+        let path = std::str::from_utf8(std::slice::from_raw_parts(info.path_ptr, info.path_len))
+            .expect("path utf8");
+        assert_eq!(path, "/h2");
+        let protocol = std::str::from_utf8(std::slice::from_raw_parts(
+            info.protocol_ptr,
+            info.protocol_len,
+        ))
+        .expect("protocol utf8");
+        assert_eq!(protocol, "http/2");
+    }
+
+    let body = b"pong";
+    assert_eq!(
+        ct_http_response_send(handle, 200, std::ptr::null(), 0, body.as_ptr(), body.len(),),
+        SUCCESS,
+    );
+    assert_eq!(ct_http_handshake_release(handle), SUCCESS);
+
+    let response_body = body_handle.join().unwrap();
+    assert_eq!(response_body, b"pong");
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn http2_streaming_body_round_trip() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"native",
+                    "protocols":["rawsocket","http","http2"],
+                    "http":{
+                        "alpn":["h2","http/1.1"]
+                    },
+                    "http_routes":[
+                        {
+                            "path":"/h2stream",
+                            "match_kind":"prefix",
+                            "methods":{
+                                "POST":{
+                                    "type":"reserved_realm",
+                                    "append_method_suffix":true
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let payload_len = 70_000;
+    let (client_tx, client_rx) = std::sync::mpsc::channel();
+    let client_handle = std::thread::spawn(move || {
+        let rt = TokioRuntime::new().unwrap();
+        rt.block_on(async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let tcp = tokio::net::TcpStream::connect(&addr).await.unwrap();
+            let (mut client, connection) = client::handshake(tcp).await.unwrap();
+            tokio::spawn(async move {
+                if let Err(err) = connection.await {
+                    panic!("h2 connection error: {}", err);
+                }
+            });
+            let request = Http2TestRequest::builder()
+                .method("POST")
+                .uri("/h2stream")
+                .header("content-length", payload_len.to_string())
+                .body(())
+                .unwrap();
+            let (response, mut send_stream) = client.send_request(request, false).unwrap();
+            let payload = vec![b'y'; payload_len];
+            let first = 32 * 1024;
+            send_stream
+                .send_data(Bytes::copy_from_slice(&payload[..first.min(payload.len())]), false)
+                .unwrap();
+            send_stream.reserve_capacity(payload_len - first.min(payload_len));
+            client_tx.send(()).unwrap();
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            if first < payload_len {
+                send_stream
+                    .send_data(
+                        Bytes::copy_from_slice(&payload[first..]),
+                        true,
+                    )
+                    .unwrap();
+            } else {
+                send_stream.send_data(Bytes::new(), true).unwrap();
+            }
+            let response = response.await.unwrap();
+            assert_eq!(response.status(), Http2StatusCode::ACCEPTED);
+            let mut body = response.into_body();
+            let mut collected = Vec::new();
+            while let Some(chunk) = body.data().await {
+                let chunk = chunk.unwrap();
+                collected.extend_from_slice(&chunk);
+            }
+            collected
+        })
+    });
+
+    client_rx.recv().unwrap();
+
+    let connection_id = loop {
+        let connection_id = ct_poll_connection(listener_id);
+        if connection_id > 0 {
+            break connection_id;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP2);
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let handle = loop {
+        let handle = ct_connection_take_http_handshake(connection_id);
+        if handle > 0 {
+            break handle;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "timed out waiting for HTTP/2 streaming request"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    };
+
+    let mut info = CtHttpHandshakeInfo::default();
+    assert_eq!(
+        ct_http_handshake_get(handle, &mut info as *mut CtHttpHandshakeInfo),
+        SUCCESS
+    );
+    unsafe {
+        let protocol = std::str::from_utf8(std::slice::from_raw_parts(
+            info.protocol_ptr,
+            info.protocol_len,
+        ))
+        .expect("protocol utf8");
+        assert_eq!(protocol, "http/2");
+        let path = std::str::from_utf8(std::slice::from_raw_parts(info.path_ptr, info.path_len))
+            .expect("path utf8");
+        assert_eq!(path, "/h2stream");
+        assert_eq!(info.body_len, payload_len);
+    }
+
+    let body_handle = ct_http_handshake_body_retain(handle);
+    assert!(body_handle > 0);
+
+    let mut view = CtHttpBodyView::default();
+    assert_eq!(
+        ct_http_body_get(body_handle, &mut view as *mut CtHttpBodyView),
+        ERR_UNSUPPORTED
+    );
+
+    let mut collected = Vec::new();
+    loop {
+        assert_eq!(
+            ct_http_body_stream_read(body_handle, 16 * 1024, &mut view as *mut CtHttpBodyView),
+            SUCCESS
+        );
+        if view.data_len == 0 {
+            break;
+        }
+        unsafe {
+            let slice = std::slice::from_raw_parts(view.data_ptr, view.data_len);
+            collected.extend_from_slice(slice);
+        }
+    }
+    assert_eq!(collected.len(), payload_len);
+    assert!(collected.iter().all(|byte| *byte == b'y'));
+
+    assert_eq!(ct_http_body_finish(body_handle), SUCCESS);
+    assert_eq!(ct_http_body_release(body_handle), SUCCESS);
+
+    let response_body = b"h2-stream-ok";
+    assert_eq!(
+        ct_http_response_send(
+            handle,
+            202,
+            std::ptr::null(),
+            0,
+            response_body.as_ptr(),
+            response_body.len(),
+        ),
+        SUCCESS
+    );
+    assert_eq!(ct_http_handshake_release(handle), SUCCESS);
+
+    let body = client_handle.join().unwrap();
+    assert_eq!(body, response_body);
 
     assert_eq!(ct_shutdown(), SUCCESS);
 }

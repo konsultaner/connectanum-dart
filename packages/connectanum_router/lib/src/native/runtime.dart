@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart' show AbstractMessage;
 import 'package:ffi/ffi.dart';
+import 'package:meta/meta.dart';
 
 import 'ffi_bindings.dart';
 import 'message_binding.dart';
@@ -21,6 +22,19 @@ abstract class NativeRuntime {
   NativeConnectionProtocol connectionProtocol(int connectionId);
   NativeHttpHandshake? takeHttpHandshake(int connectionId);
   void releaseHttpHandshake(int handle);
+  NativeWebSocketHandshake? takeWebSocketHandshake(int connectionId);
+  void acceptWebSocket({
+    required int connectionId,
+    required int handshakeHandle,
+    required NativeMessageSerializer serializer,
+    required String protocol,
+  });
+  void rejectWebSocket({
+    required int connectionId,
+    required int handshakeHandle,
+    int status,
+    String reason,
+  });
   NativeHttp2Handshake? takeHttp2Handshake(int connectionId);
   void releaseHttp2Handshake(int handle);
   NativeHttp3Handshake? takeHttp3Handshake(int connectionId);
@@ -35,6 +49,16 @@ abstract class NativeRuntime {
   }) {
     throw UnsupportedError('HTTP responses not supported by runtime');
   }
+
+  NativeHttpResponseStream openHttpResponseStream({
+    required int handshakeHandle,
+    required int status,
+    required Map<String, String> headers,
+  }) {
+    throw UnsupportedError('HTTP response streaming not supported by runtime');
+  }
+
+  NativeHttpConnectionEvent? pollHttpConnectionEvent(int connectionId);
 
   void sendMessage(int connectionId, Uint8List payload);
   void applyRouterConfig(Uint8List config);
@@ -104,6 +128,16 @@ abstract final class NativeTransportErrorCode {
   static const unsupportedProtocol = -12;
   static const handshakeConsumed = -13;
   static const handleUnavailable = -14;
+  static const streamClosed = -15;
+}
+
+abstract final class NativeHttpConnectionEventReason {
+  static const graceful = 1;
+  static const goAway = 2;
+  static const idleTimeout = 3;
+  static const bodyTimeout = 4;
+  static const protocolError = 5;
+  static const internal = 6;
 }
 
 /// Exception thrown when the native runtime reports an error.
@@ -372,16 +406,56 @@ class NativeHttpResponse {
   final NativeHttpResponseBody body;
 }
 
+abstract class NativeHttpResponseStream {
+  bool get isClosed;
+  void add(Uint8List chunk);
+  void close([Uint8List? finalChunk]);
+}
+
+class NativeWebSocketHandshake {
+  NativeWebSocketHandshake._({
+    required this.handle,
+    required this.key,
+    required this.protocols,
+    required this.extensions,
+    required void Function() release,
+  }) : _release = release;
+
+  final int handle;
+  final String key;
+  final List<String> protocols;
+  final List<String> extensions;
+
+  bool _released = false;
+  final void Function() _release;
+
+  void release() {
+    if (_released) {
+      return;
+    }
+    _release();
+    _released = true;
+  }
+
+  void consume() => _released = true;
+}
+
 class NativeHttpRequestBody {
   NativeHttpRequestBody._internal(
     Uint8List view, {
     CtFfiBindings? bindings,
     int? handle,
     required int length,
+    bool streaming = false,
+    Uint8List Function(int length)? streamReadOverride,
+    void Function()? streamFinishOverride,
   }) : _view = view,
        _bindings = bindings,
        _handle = handle,
-       _length = length;
+       _length = length,
+       _streaming = streaming,
+       _streamReadOverride = streamReadOverride,
+       _streamFinishOverride = streamFinishOverride;
 
   factory NativeHttpRequestBody.synthetic(Uint8List bytes) =>
       NativeHttpRequestBody._internal(
@@ -394,11 +468,26 @@ class NativeHttpRequestBody {
     required CtFfiBindings bindings,
     required int handle,
     required int length,
+    required bool streaming,
   }) => NativeHttpRequestBody._internal(
     view.isEmpty ? Uint8List(0) : view,
     bindings: bindings,
     handle: handle,
     length: length,
+    streaming: streaming,
+  );
+
+  @visibleForTesting
+  factory NativeHttpRequestBody.testStreaming({
+    required int length,
+    required Uint8List Function(int length) onRead,
+    void Function()? onFinish,
+  }) => NativeHttpRequestBody._internal(
+    Uint8List(0),
+    length: length,
+    streaming: true,
+    streamReadOverride: onRead,
+    streamFinishOverride: onFinish,
   );
 
   Uint8List _view;
@@ -406,6 +495,10 @@ class NativeHttpRequestBody {
   final int? _handle;
   final int _length;
   bool _released = false;
+  final bool _streaming;
+  final Uint8List Function(int length)? _streamReadOverride;
+  final void Function()? _streamFinishOverride;
+  bool _streamFinished = false;
 
   static const int _defaultChunkSize = 64 * 1024;
 
@@ -422,15 +515,32 @@ class NativeHttpRequestBody {
   /// Copies the body into Dart-managed memory (safe to send across isolates).
   Uint8List copy() => Uint8List.fromList(view);
 
+  /// Signals that no more streaming data is required and the native reader can reclaim the socket.
+  void finish() {
+    _finishStreaming(ignoreErrors: false);
+  }
+
   /// Convenience helper to expose the body as a single-chunk stream.
   Stream<List<int>> openRead({int chunkSize = _defaultChunkSize}) async* {
-    if (_handle == null || _bindings == null || _released) {
+    if (_view.isNotEmpty && (!_streaming || _streamFinished)) {
+      yield _view;
+      return;
+    }
+    final hasNativeHandle = _handle != null && _bindings != null && !_released;
+    final hasStreamOverride = _streamReadOverride != null;
+    if (!_streaming && !hasNativeHandle) {
       if (_view.isNotEmpty) {
         yield _view;
       }
       return;
     }
-    if (_length == 0) {
+    if (_streaming && !hasNativeHandle && !hasStreamOverride) {
+      if (_view.isNotEmpty) {
+        yield _view;
+      }
+      return;
+    }
+    if (_length == 0 && !_streaming) {
       return;
     }
     var offset = 0;
@@ -438,28 +548,42 @@ class NativeHttpRequestBody {
     while (offset < _length) {
       final remaining = _length - offset;
       final toRead = math.min(remaining, effectiveChunk);
-      final chunk = _readSlice(offset, toRead);
+      final chunk = _streaming
+          ? _readStreamingChunk(toRead)
+          : _readSlice(offset, toRead);
       if (chunk.isEmpty) {
         break;
       }
       yield chunk;
       offset += chunk.length;
     }
+    if (_streaming) {
+      _finishStreaming(ignoreErrors: false);
+    }
   }
 
   void _releaseHandle() {
-    if (_released || _handle == null) {
+    if (_released) {
       return;
     }
-    if (_bindings != null) {
-      if (_view.isNotEmpty) {
+    final handle = _handle;
+    if (handle == null) {
+      _released = true;
+      return;
+    }
+    final bindings = _bindings;
+    if (bindings != null) {
+      if (_streaming) {
+        _finishStreaming(ignoreErrors: true);
+        _view = _view.isNotEmpty ? Uint8List.fromList(_view) : Uint8List(0);
+      } else if (_view.isNotEmpty) {
         _view = Uint8List.fromList(_view);
       } else if (_length > 0) {
         _view = _readAll();
       } else {
         _view = Uint8List(0);
       }
-      final result = _bindings!.ctHttpBodyRelease(_handle!);
+      final result = bindings.ctHttpBodyRelease(handle);
       if (result != NativeTransportErrorCode.success) {
         // Swallow release failures to avoid crashing during shutdown.
       }
@@ -468,6 +592,9 @@ class NativeHttpRequestBody {
   }
 
   Uint8List _readSlice(int offset, int count) {
+    if (_streaming) {
+      return _readStreamingChunk(count);
+    }
     final bindings = _bindings;
     final handle = _handle;
     if (bindings == null || handle == null || count == 0) {
@@ -492,8 +619,44 @@ class NativeHttpRequestBody {
     }
   }
 
+  Uint8List _readStreamingChunk(int count) {
+    if (count == 0) {
+      return Uint8List(0);
+    }
+    final override = _streamReadOverride;
+    if (override != null) {
+      return override(count);
+    }
+    final bindings = _bindings;
+    final handle = _handle;
+    if (bindings == null || handle == null) {
+      return Uint8List(0);
+    }
+    final viewPtr = calloc<CtHttpBodyView>();
+    try {
+      final result = bindings.ctHttpBodyStreamRead(handle, count, viewPtr);
+      if (result != NativeTransportErrorCode.success) {
+        throw NativeTransportException(
+          result,
+          'Failed to read streaming HTTP body chunk',
+        );
+      }
+      final view = viewPtr.ref;
+      if (view.dataPtr == ffi.nullptr || view.dataLen == 0) {
+        return Uint8List(0);
+      }
+      final borrowed = view.dataPtr.asTypedList(view.dataLen);
+      return Uint8List.fromList(borrowed);
+    } finally {
+      calloc.free(viewPtr);
+    }
+  }
+
   Uint8List _readAll() {
     if (_length == 0) {
+      if (_streaming) {
+        _finishStreaming(ignoreErrors: false);
+      }
       return Uint8List(0);
     }
     final buffer = Uint8List(_length);
@@ -501,14 +664,48 @@ class NativeHttpRequestBody {
     while (offset < _length) {
       final remaining = _length - offset;
       final toRead = math.min(remaining, _defaultChunkSize);
-      final chunk = _readSlice(offset, toRead);
+      final chunk = _streaming
+          ? _readStreamingChunk(toRead)
+          : _readSlice(offset, toRead);
       if (chunk.isEmpty) {
         break;
       }
       buffer.setRange(offset, offset + chunk.length, chunk);
       offset += chunk.length;
     }
-    return buffer;
+    if (_streaming) {
+      _finishStreaming(ignoreErrors: false);
+    }
+    if (offset == _length) {
+      return buffer;
+    }
+    return buffer.sublist(0, offset);
+  }
+
+  void _finishStreaming({required bool ignoreErrors}) {
+    if (!_streaming || _streamFinished) {
+      return;
+    }
+    final override = _streamFinishOverride;
+    if (override != null) {
+      override();
+      _streamFinished = true;
+      return;
+    }
+    final bindings = _bindings;
+    final handle = _handle;
+    if (bindings == null || handle == null) {
+      _streamFinished = true;
+      return;
+    }
+    final result = bindings.ctHttpBodyFinish(handle);
+    if (result != NativeTransportErrorCode.success && !ignoreErrors) {
+      throw NativeTransportException(
+        result,
+        'Failed to finish HTTP body stream',
+      );
+    }
+    _streamFinished = true;
   }
 }
 
@@ -822,8 +1019,29 @@ String _buildNativeErrorMessage(int code, String context) {
       '$context: connection protocol not supported for this operation',
     NativeTransportErrorCode.handshakeConsumed =>
       '$context: connection handshake already consumed',
+    NativeTransportErrorCode.handleUnavailable =>
+      '$context: native handle unavailable',
+    NativeTransportErrorCode.streamClosed =>
+      '$context: native HTTP response stream closed',
     _ => '$context: error code $code',
   };
+}
+
+NativeHttpConnectionCloseReason _connectionReasonFromCode(int code) {
+  switch (code) {
+    case NativeHttpConnectionEventReason.graceful:
+      return NativeHttpConnectionCloseReason.graceful;
+    case NativeHttpConnectionEventReason.goAway:
+      return NativeHttpConnectionCloseReason.goAway;
+    case NativeHttpConnectionEventReason.idleTimeout:
+      return NativeHttpConnectionCloseReason.idleTimeout;
+    case NativeHttpConnectionEventReason.bodyTimeout:
+      return NativeHttpConnectionCloseReason.bodyTimeout;
+    case NativeHttpConnectionEventReason.protocolError:
+      return NativeHttpConnectionCloseReason.protocolError;
+    default:
+      return NativeHttpConnectionCloseReason.internal;
+  }
 }
 
 class NativeMessageHandleDecoder {
@@ -1027,12 +1245,13 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
         NativeHttpRequestBody body;
         if (bodyHandle > 0) {
           retainedBodyHandle = bodyHandle;
-          final view = _borrowBodyHandle(bodyHandle);
+          final borrowed = _borrowBodyHandle(bodyHandle);
           body = NativeHttpRequestBody._fromNative(
-            view: view,
+            view: borrowed.bytes,
             bindings: _bindings,
             handle: bodyHandle,
             length: data.bodyLength,
+            streaming: borrowed.streaming,
           );
           retainedBodyHandle = null;
         } else {
@@ -1072,6 +1291,128 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
       return;
     }
     _bindings.ctHttpHandshakeRelease(handle);
+  }
+
+  @override
+  NativeWebSocketHandshake? takeWebSocketHandshake(int connectionId) {
+    final handle = _bindings.ctConnectionTakeWebsocketHandshake(connectionId);
+    if (handle == 0) {
+      return null;
+    }
+    if (handle < 0) {
+      _throwForError(handle, 'Failed to take WebSocket handshake');
+    }
+    final infoPtr = calloc<CtWebSocketHandshakeInfo>();
+    try {
+      final result = _bindings.ctWebSocketHandshakeGet(handle, infoPtr);
+      if (result != NativeTransportErrorCode.success) {
+        _bindings.ctWebSocketHandshakeRelease(handle);
+        _throwForError(result, 'Failed to read WebSocket handshake');
+      }
+      final info = infoPtr.ref;
+      final key = _decodeUtf8(info.keyPtr, info.keyLen);
+      final protocols = <String>[];
+      for (var i = 0; i < info.protocolsLen; i++) {
+        final viewPtr = calloc<CtStringView>();
+        try {
+          final protocolResult = _bindings.ctWebSocketHandshakeProtocol(
+            handle,
+            i,
+            viewPtr,
+          );
+          if (protocolResult != NativeTransportErrorCode.success) {
+            _bindings.ctWebSocketHandshakeRelease(handle);
+            _throwForError(protocolResult, 'Failed to read WebSocket protocol');
+          }
+          protocols.add(_decodeUtf8(viewPtr.ref.ptr, viewPtr.ref.len));
+        } finally {
+          calloc.free(viewPtr);
+        }
+      }
+      final extensions = <String>[];
+      for (var i = 0; i < info.extensionsLen; i++) {
+        final viewPtr = calloc<CtStringView>();
+        try {
+          final extResult = _bindings.ctWebSocketHandshakeExtension(
+            handle,
+            i,
+            viewPtr,
+          );
+          if (extResult != NativeTransportErrorCode.success) {
+            _bindings.ctWebSocketHandshakeRelease(handle);
+            _throwForError(extResult, 'Failed to read WebSocket extension');
+          }
+          extensions.add(_decodeUtf8(viewPtr.ref.ptr, viewPtr.ref.len));
+        } finally {
+          calloc.free(viewPtr);
+        }
+      }
+      return NativeWebSocketHandshake._(
+        handle: handle,
+        key: key,
+        protocols: protocols,
+        extensions: extensions,
+        release: () {
+          _bindings.ctWebSocketHandshakeRelease(handle);
+        },
+      );
+    } finally {
+      calloc.free(infoPtr);
+    }
+  }
+
+  @override
+  void acceptWebSocket({
+    required int connectionId,
+    required int handshakeHandle,
+    required NativeMessageSerializer serializer,
+    required String protocol,
+  }) {
+    final protocolBytes = utf8.encode(protocol);
+    final protocolPtr = calloc<ffi.Uint8>(protocolBytes.length);
+    final buffer = protocolPtr.asTypedList(protocolBytes.length);
+    buffer.setAll(0, protocolBytes);
+    try {
+      final result = _bindings.ctConnectionAcceptWebsocket(
+        connectionId,
+        handshakeHandle,
+        serializer.id,
+        protocolPtr,
+        protocolBytes.length,
+      );
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'Failed to accept WebSocket handshake');
+      }
+    } finally {
+      calloc.free(protocolPtr);
+    }
+  }
+
+  @override
+  void rejectWebSocket({
+    required int connectionId,
+    required int handshakeHandle,
+    int status = 400,
+    String reason = '',
+  }) {
+    final reasonBytes = utf8.encode(reason);
+    final reasonPtr = calloc<ffi.Uint8>(reasonBytes.length);
+    final buffer = reasonPtr.asTypedList(reasonBytes.length);
+    buffer.setAll(0, reasonBytes);
+    try {
+      final result = _bindings.ctConnectionRejectWebsocket(
+        connectionId,
+        handshakeHandle,
+        status,
+        reasonPtr,
+        reasonBytes.length,
+      );
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'Failed to reject WebSocket handshake');
+      }
+    } finally {
+      calloc.free(reasonPtr);
+    }
   }
 
   @override
@@ -1283,12 +1624,13 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
       late final NativeHttpRequestBody body;
       try {
         if (bodyHandle > 0) {
-          final view = _borrowBodyHandle(bodyHandle);
+          final borrowed = _borrowBodyHandle(bodyHandle);
           body = NativeHttpRequestBody._fromNative(
-            view: view,
+            view: borrowed.bytes,
             bindings: _bindings,
             handle: bodyHandle,
             length: data.bodyLength,
+            streaming: borrowed.streaming,
           );
         } else {
           body = NativeHttpRequestBody.synthetic(data.body);
@@ -1393,6 +1735,98 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
       if (ptr != null && ptr.address != 0) {
         calloc.free(ptr);
       }
+    }
+  }
+
+  @override
+  NativeHttpResponseStream openHttpResponseStream({
+    required int handshakeHandle,
+    required int status,
+    required Map<String, String> headers,
+  }) {
+    if (handshakeHandle <= 0) {
+      throw UnsupportedError(
+        'HTTP response streaming requires a native handshake handle.',
+      );
+    }
+    final entries = headers.entries.toList(growable: false);
+    final headerCount = entries.length;
+    final headerPtr = headerCount == 0
+        ? ffi.Pointer<CtHttpHeader>.fromAddress(0)
+        : calloc<CtHttpHeader>(headerCount);
+    final headerNameStrings = <_NativeString>[];
+    final headerValueStrings = <_NativeString>[];
+    try {
+      for (var i = 0; i < headerCount; i++) {
+        final entry = entries[i];
+        final nameNative = _toNativeString(entry.key);
+        final valueNative = _toNativeString(entry.value);
+        headerNameStrings.add(nameNative);
+        headerValueStrings.add(valueNative);
+        final headerStruct = (headerPtr + i).ref;
+        headerStruct.namePtr = nameNative.charPtr.cast<ffi.Uint8>();
+        headerStruct.nameLen = nameNative.length;
+        headerStruct.valuePtr = valueNative.charPtr.cast<ffi.Uint8>();
+        headerStruct.valueLen = valueNative.length;
+      }
+      final result = _bindings.ctHttpResponseStreamOpen(
+        handshakeHandle,
+        status,
+        headerPtr,
+        headerCount,
+      );
+      if (result <= 0) {
+        _throwForError(result, 'Failed to open HTTP response stream');
+      }
+      return _FfiHttpResponseStream(
+        bindings: _bindings,
+        handle: result,
+        onError: _throwForError,
+      );
+    } finally {
+      for (final name in headerNameStrings) {
+        name.dispose();
+      }
+      for (final value in headerValueStrings) {
+        value.dispose();
+      }
+      if (headerCount > 0) {
+        calloc.free(headerPtr);
+      }
+    }
+  }
+
+  @override
+  NativeHttpConnectionEvent? pollHttpConnectionEvent(int connectionId) {
+    final handle = _bindings.ctConnectionPollHttpEvent(connectionId);
+    if (handle == 0) {
+      return null;
+    }
+    if (handle < 0) {
+      _throwForError(handle, 'Failed to poll HTTP connection event');
+    }
+    final infoPtr = calloc<CtHttpConnectionEventInfo>();
+    try {
+      final result = _bindings.ctHttpConnectionEventGet(handle, infoPtr);
+      if (result != NativeTransportErrorCode.success) {
+        _bindings.ctHttpConnectionEventRelease(handle);
+        _throwForError(result, 'Failed to read HTTP connection event');
+      }
+      final info = infoPtr.ref;
+      final detail = _decodeUtf8Nullable(info.detailPtr, info.detailLen);
+      final event = NativeHttpConnectionEvent(
+        connectionId: info.connectionId,
+        protocol: NativeConnectionProtocol.fromId(info.protocol),
+        reason: _connectionReasonFromCode(info.reason),
+        requestCount: info.requestCount,
+        idleTimeouts: info.idleTimeouts,
+        bodyTimeouts: info.bodyTimeouts,
+        detail: detail,
+      );
+      _bindings.ctHttpConnectionEventRelease(handle);
+      return event;
+    } finally {
+      calloc.free(infoPtr);
     }
   }
 
@@ -1717,19 +2151,25 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
     return ptr.asTypedList(length);
   }
 
-  Uint8List _borrowBodyHandle(int handle) {
+  _BorrowedBodyHandleView _borrowBodyHandle(int handle) {
     final viewPtr = calloc<CtHttpBodyView>();
     try {
       final result = _bindings.ctHttpBodyGet(handle, viewPtr);
+      if (result == NativeTransportErrorCode.unsupported) {
+        return _BorrowedBodyHandleView(_emptyBytes, streaming: true);
+      }
       if (result != NativeTransportErrorCode.success) {
         _bindings.ctHttpBodyRelease(handle);
         _throwForError(result, 'Failed to read HTTP body view');
       }
       final view = viewPtr.ref;
       if (view.dataPtr == ffi.nullptr || view.dataLen == 0) {
-        return _emptyBytes;
+        return _BorrowedBodyHandleView(_emptyBytes, streaming: false);
       }
-      return view.dataPtr.asTypedList(view.dataLen);
+      return _BorrowedBodyHandleView(
+        view.dataPtr.asTypedList(view.dataLen),
+        streaming: false,
+      );
     } finally {
       calloc.free(viewPtr);
     }
@@ -1765,4 +2205,103 @@ class _NativeString {
       calloc.free(ptr);
     }
   }
+}
+
+class _FfiHttpResponseStream implements NativeHttpResponseStream {
+  _FfiHttpResponseStream({
+    required CtFfiBindings bindings,
+    required int handle,
+    required void Function(int code, String context) onError,
+  }) : _bindings = bindings,
+       _handle = handle,
+       _onError = onError;
+
+  final CtFfiBindings _bindings;
+  final int _handle;
+  final void Function(int code, String context) _onError;
+  bool _closed = false;
+
+  @override
+  bool get isClosed => _closed;
+
+  @override
+  void add(Uint8List chunk) {
+    if (_closed) {
+      throw StateError('HTTP response stream already closed');
+    }
+    if (chunk.isEmpty) {
+      return;
+    }
+    final ptr = calloc<ffi.Uint8>(chunk.length);
+    try {
+      ptr.asTypedList(chunk.length).setAll(0, chunk);
+      final result = _bindings.ctHttpResponseStreamWrite(
+        _handle,
+        ptr,
+        chunk.length,
+      );
+      if (result != NativeTransportErrorCode.success) {
+        _closed = true;
+        _onError(result, 'Failed to write HTTP response chunk');
+      }
+    } finally {
+      calloc.free(ptr);
+    }
+  }
+
+  @override
+  void close([Uint8List? finalChunk]) {
+    if (_closed) {
+      return;
+    }
+    if (finalChunk != null && finalChunk.isNotEmpty) {
+      add(finalChunk);
+      if (_closed) {
+        return;
+      }
+    }
+    final result = _bindings.ctHttpResponseStreamFinish(_handle);
+    _closed = true;
+    if (result != NativeTransportErrorCode.success) {
+      _onError(result, 'Failed to finish HTTP response stream');
+    }
+  }
+}
+
+enum NativeHttpConnectionCloseReason {
+  graceful,
+  goAway,
+  idleTimeout,
+  bodyTimeout,
+  protocolError,
+  internal,
+}
+
+class NativeHttpConnectionEvent {
+  NativeHttpConnectionEvent({
+    required this.connectionId,
+    required this.protocol,
+    required this.reason,
+    required this.requestCount,
+    required this.idleTimeouts,
+    required this.bodyTimeouts,
+    this.detail,
+  });
+
+  final int connectionId;
+  final NativeConnectionProtocol protocol;
+  final NativeHttpConnectionCloseReason reason;
+  final int requestCount;
+  final int idleTimeouts;
+  final int bodyTimeouts;
+  final String? detail;
+
+  bool get isClosed => true;
+}
+
+class _BorrowedBodyHandleView {
+  const _BorrowedBodyHandleView(this.bytes, {required this.streaming});
+
+  final Uint8List bytes;
+  final bool streaming;
 }
