@@ -58,11 +58,11 @@ impl ResponseStreamWriter {
 
     pub fn abort(&self) {
         self.closed.store(true, Ordering::SeqCst);
-        self.tx.close_channel();
     }
 }
 
 /// Reader owned by the native HTTP/2+HTTP/3 send tasks.
+#[derive(Debug)]
 pub struct ResponseStreamReader {
     rx: mpsc::Receiver<ResponseStreamFrame>,
 }

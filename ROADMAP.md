@@ -19,7 +19,7 @@
   - [ ] Finish HTTP/3 implementation: surface stream handles for request/response bodies, manage connection lifecycle, and document operational limits.
   - [ ] Evaluate and implement WAMP-over-HTTP/3/WebTransport (RFC 9220) so browser clients can tunnel WAMP traffic over QUIC with datagram/bidi stream support.
   - [ ] Provide protocol-level metrics and backpressure hooks to the boss/worker pipeline.
-  - [ ] Surface HTTP/2 and HTTP/3 connection lifecycle events (GOAWAY, idle/body timeouts, backpressure) over FFI so Dart can drain connections deterministically and emit diagnostics.
+  - [x] Surface HTTP/2 and HTTP/3 connection lifecycle events (GOAWAY, idle/body timeouts, backpressure) over FFI so Dart can drain connections deterministically and emit diagnostics.
   - [ ] Expose negotiated protocol identifiers via FFI so Dart workers can route WebSocket/HTTP sessions.
   - [ ] Add WebSocket frame streaming support (continuation aggregation, mask handling) with zero-copy forwarding.
   - [ ] Add HTTP request/response streaming (header/state machines for HTTP/1.1, HTTP/2, HTTP/3) and surface body handles to Dart.
@@ -31,7 +31,8 @@
     - [x] Align HTTP/3 request/response code with the new streaming primitives so QUIC uploads/downloads never copy into temporary Vecs, and expose stream IDs for diagnostics.
     - [ ] Implement the WebSocket upgrade pipeline (accept handshake, negotiate serializers, forward frames with continuation/mask handling, and downgrade to RawSocket when possible) plus boss/worker instrumentation.
     - [x] Update `NativeHttpRequestBody`/`HttpInvocationContext`/`HttpResponseUtil` in Dart to default to streaming reads/writes while preserving snapshot/copy fallbacks for legacy handlers.
-    - [ ] Add end-to-end tests (Rust ffi `listen_flow`, Dart router_runtime/integration) that exercise HTTP/1.1, HTTP/2, HTTP/3, and WebSocket flows (multi-MB uploads/downloads, pointer comparisons, frame forwarding, streaming timeouts) and clean up temp files during teardown.
+  - [ ] Add end-to-end tests (Rust ffi `listen_flow`, Dart router_runtime/integration) that exercise HTTP/1.1, HTTP/2, HTTP/3, and WebSocket flows (multi-MB uploads/downloads, pointer comparisons, frame forwarding, streaming timeouts) and clean up temp files during teardown.
+    - [x] New Rust `listen_flow` coverage for HTTP/2 body timeouts and HTTP/3 idle lifecycle events (synthetic helper under `ffi-test`).
 - [ ] HTTP bridge (general-purpose request handling)
   - [ ] Expose bridge configuration via listener protocols with pluggable pipelines (REST→RPC proxy, static asset serving, metrics scraping, custom handlers).
   - [ ] Support translation tables that map HTTP path/method/protocol combinations to explicit WAMP realms and procedures, including per-method overrides and catch-all wildcards.

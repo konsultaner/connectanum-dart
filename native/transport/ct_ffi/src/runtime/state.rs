@@ -449,6 +449,9 @@ pub struct StoredHttpConnectionEvent {
     pub request_count: u32,
     pub idle_timeouts: u32,
     pub body_timeouts: u32,
+    pub backpressure_events: u32,
+    pub max_backpressure_depth: u32,
+    pub goaway_events: u32,
     pub detail: Option<Arc<[u8]>>,
 }
 
@@ -483,6 +486,9 @@ pub fn store_http_connection_event(event: HttpConnectionEvent) -> u32 {
         request_count: event.request_count,
         idle_timeouts: event.idle_timeouts,
         body_timeouts: event.body_timeouts,
+        backpressure_events: event.backpressure_events,
+        max_backpressure_depth: event.max_backpressure_depth,
+        goaway_events: event.goaway_events,
         detail,
     };
     let store = http_connection_event_store();

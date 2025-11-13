@@ -272,6 +272,10 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
   }
 
   @override
+  NativeHttpConnectionEvent? pollHttpConnectionEvent() =>
+      _inner.pollHttpConnectionEvent();
+
+  @override
   void sendHttpResponse({
     required int handshakeHandle,
     int? connectionId,

@@ -31,6 +31,10 @@ class _FakeRuntime implements NativeRuntime {
   final Map<int, Queue<NativeHttp2Handshake>> _http2Handshakes = {};
   final Map<int, Queue<NativeHttp3Handshake>> _http3Handshakes = {};
   final Map<int, Queue<NativeHttpHandshake>> _http3Requests = {};
+  final Queue<NativeHttpConnectionEvent> _httpConnectionEvents =
+      Queue<NativeHttpConnectionEvent>();
+  final Queue<NativeRouterMetrics> _routerMetricsQueue =
+      Queue<NativeRouterMetrics>();
   final Map<int, List<Uint8List>> responseStreamChunks = {};
   final Set<int> closedResponseStreams = {};
   final List<_FakeStreamOpen> responseStreamOpens = [];
@@ -242,6 +246,30 @@ class _FakeRuntime implements NativeRuntime {
     NativeHttpHandshake handshake,
   ) {
     _httpHandshakes.putIfAbsent(connectionId, Queue.new).add(handshake);
+  }
+
+  @override
+  NativeHttpConnectionEvent? pollHttpConnectionEvent() {
+    if (_httpConnectionEvents.isEmpty) {
+      return null;
+    }
+    return _httpConnectionEvents.removeFirst();
+  }
+
+  @override
+  NativeRouterMetrics? pollRouterMetrics() {
+    if (_routerMetricsQueue.isEmpty) {
+      return null;
+    }
+    return _routerMetricsQueue.removeFirst();
+  }
+
+  void enqueueHttpConnectionEvent(NativeHttpConnectionEvent event) {
+    _httpConnectionEvents.add(event);
+  }
+
+  void enqueueRouterMetrics(NativeRouterMetrics metrics) {
+    _routerMetricsQueue.add(metrics);
   }
 }
 
@@ -1740,6 +1768,108 @@ void main() {
       expect(utf8.decode(chunks[1]), 'part-b');
       expect(utf8.decode(chunks[2]), 'final');
       expect(runtime.closedResponseStreams.contains(handle), isTrue);
+    },
+  );
+
+  test(
+    'emits http_connection_event when runtime reports lifecycle event',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithPendingProtocols(),
+      );
+
+      final events = <Map<String, Object?>>[];
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      const connectionId = 73;
+
+      final internalSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+      );
+      final registered = await internalSession.register('com.example.http2');
+      registered.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull);
+        context!.sendText(body: 'OK');
+      });
+
+      runtime.setConnectionProtocol(
+        connectionId,
+        NativeConnectionProtocol.http2,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 9,
+          method: 'GET',
+          target: '/metrics',
+          path: '/metrics',
+          protocol: 'http/2',
+          headers: const {'x-test': 'lifecycle'},
+          body: Uint8List.fromList(utf8.encode('{}')),
+          realm: 'realm1',
+          procedure: 'com.example.http2',
+        ),
+      );
+
+      await _waitUntil(
+        () => events.any((event) => event['type'] == 'listener_http_request'),
+        timeout: const Duration(seconds: 2),
+      );
+
+      runtime.enqueueHttpConnectionEvent(
+        NativeHttpConnectionEvent(
+          connectionId: connectionId,
+          protocol: NativeConnectionProtocol.http2,
+          reason: NativeHttpConnectionCloseReason.idleTimeout,
+          requestCount: 2,
+          idleTimeouts: 1,
+          bodyTimeouts: 0,
+          backpressureEvents: 0,
+          maxBackpressureDepth: 0,
+          goAwayEvents: 0,
+          detail: 'idle timeout triggered',
+        ),
+      );
+
+      await _waitUntil(
+        () => events.any((event) => event['type'] == 'http_connection_event'),
+        timeout: const Duration(seconds: 2),
+      );
+
+      final lifecycle = events.firstWhere(
+        (event) => event['type'] == 'http_connection_event',
+      );
+      expect(lifecycle['connectionId'], connectionId);
+      expect(lifecycle['protocol'], 'http2');
+      expect(lifecycle['reason'], 'idle_timeout');
+      expect(lifecycle['requestCount'], 2);
+      expect(lifecycle['backpressureEvents'], 0);
+      expect(lifecycle['maxBackpressureDepth'], 0);
+      expect(lifecycle['goAwayEvents'], 0);
+      expect(lifecycle['detail'], 'idle timeout triggered');
     },
   );
 

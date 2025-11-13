@@ -168,6 +168,9 @@ class _QueueRuntime implements NativeRuntimeWithHandles {
   }
 
   @override
+  NativeHttpConnectionEvent? pollHttpConnectionEvent() => null;
+
+  @override
   NativeHttpResponseStream openHttpResponseStream({
     required int handshakeHandle,
     required int status,

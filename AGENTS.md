@@ -3,11 +3,12 @@
 Read the ROADMAP.md and ROADMAP_NEXT.md. Understand it, read the relevant code and wamp-proto.org specs or relevant GitHub
 discussions on certain topics or implementation specs. Then tell me what's next to be done.
 
-## Before creating pull requests
+## Before creating pull requests / after finishing a task
 
-- write unit tests for new code lines
+- update ROADMAP.md, ROADMAP_NEXT.md, STRUCTURE.md
+- check if you wrote unit tests for new code lines
 - test all code on chromium and dart-vm
-- have 100% coverage on new code line
+- have 100% coverage on the new code lines
 - run `dart format .` to format all files
 - run `dart analyze` again
 - check `dart outdated`

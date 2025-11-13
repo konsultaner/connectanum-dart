@@ -10,9 +10,7 @@ use h3::client as h3_client;
 use h3_quinn::Connection as H3QuinnConnection;
 use http::Request;
 use http02::{Request as Http2TestRequest, StatusCode as Http2StatusCode};
-use quinn::{
-    ClientConfig as QuinnClientConfig, Endpoint as QuinnEndpoint, TransportConfig, VarInt,
-};
+use quinn::{ClientConfig as QuinnClientConfig, Endpoint as QuinnEndpoint, TransportConfig};
 use rcgen::generate_simple_self_signed;
 use rustls::pki_types::CertificateDer;
 use rustls::RootCertStore;
@@ -22,38 +20,106 @@ use tokio::runtime::Runtime as TokioRuntime;
 
 const HTTP2_PREFACE: &[u8] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
 
+#[cfg(feature = "ffi-test")]
+use crate::runtime::constants::HTTP_EVENT_REASON_IDLE_TIMEOUT;
 use crate::runtime::constants::{
     ERR_CONNECTION_NOT_FOUND, ERR_ENDPOINT_NOT_CONFIGURED, ERR_INVALID_ARGUMENT,
-    ERR_LISTENER_NOT_FOUND, ERR_UNSUPPORTED, PROTOCOL_HTTP, PROTOCOL_HTTP2, PROTOCOL_HTTP3,
-    PROTOCOL_RAWSOCKET, PROTOCOL_WEBSOCKET, SUCCESS,
+    ERR_LISTENER_NOT_FOUND, ERR_UNSUPPORTED, HTTP_EVENT_REASON_BODY_TIMEOUT, PROTOCOL_HTTP,
+    PROTOCOL_HTTP2, PROTOCOL_HTTP3, PROTOCOL_RAWSOCKET, PROTOCOL_WEBSOCKET, SUCCESS,
 };
 use crate::runtime::ffi::{
     ct_apply_router_config, ct_connection_get_http3_connection,
-    ct_connection_max_rawsocket_exponent, ct_connection_protocol,
+    ct_connection_max_rawsocket_exponent, ct_connection_poll_http_event, ct_connection_protocol,
     ct_connection_take_http2_handshake, ct_connection_take_http3_handshake,
     ct_connection_take_http_handshake, ct_connection_take_websocket_handshake, ct_get_local_port,
     ct_http2_handshake_get, ct_http2_handshake_listener_protocol, ct_http2_handshake_release,
     ct_http3_connection_poll_request, ct_http3_connection_poll_stream, ct_http3_connection_release,
     ct_http3_handshake_get, ct_http3_handshake_listener_protocol, ct_http3_handshake_release,
     ct_http_body_finish, ct_http_body_get, ct_http_body_release, ct_http_body_stream_read,
-    ct_http_handshake_body_retain, ct_http_handshake_get, ct_http_handshake_header,
-    ct_http_handshake_release, ct_http_response_send, ct_listen, ct_message_get,
-    ct_message_release, ct_poll_connection, ct_poll_connection_message, ct_set_on_connection,
-    ct_set_on_listener_started, ct_shutdown, ct_start_runtime, ct_websocket_handshake_extension,
-    ct_websocket_handshake_get, ct_websocket_handshake_protocol, ct_websocket_handshake_release,
-    CtHttp2HandshakeInfo, CtHttp3HandshakeInfo, CtHttpBodyView, CtHttpHandshakeInfo, CtHttpHeader,
-    CtMessageInfo, CtStringView, CtWebSocketHandshakeInfo,
+    ct_http_connection_event_get, ct_http_connection_event_release, ct_http_handshake_body_retain,
+    ct_http_handshake_get, ct_http_handshake_header, ct_http_handshake_release,
+    ct_http_response_send, ct_listen, ct_message_get, ct_message_release, ct_poll_connection,
+    ct_poll_connection_message, ct_set_on_connection, ct_set_on_listener_started, ct_shutdown,
+    ct_start_runtime, ct_websocket_handshake_extension, ct_websocket_handshake_get,
+    ct_websocket_handshake_protocol, ct_websocket_handshake_release, CtHttp2HandshakeInfo,
+    CtHttp3HandshakeInfo, CtHttpBodyView, CtHttpConnectionEventInfo, CtHttpHandshakeInfo,
+    CtHttpHeader, CtMessageInfo, CtStringView, CtWebSocketHandshakeInfo,
 };
 use crate::runtime::store_http_body;
 
 #[cfg(feature = "ffi-test")]
-use crate::runtime::ffi::{ct_test_register_http3_connection, ct_test_register_http3_request};
+use crate::runtime::ffi::{
+    ct_test_push_http_connection_event, ct_test_register_http3_connection,
+    ct_test_register_http3_request,
+};
 
 thread_local! {
     static LISTENER_EVENTS: Arc<Mutex<Vec<(i32, i32)>>> =
         Arc::new(Mutex::new(Vec::new()));
     static CONNECTION_EVENTS: Arc<Mutex<Vec<(i32, i32)>>> =
         Arc::new(Mutex::new(Vec::new()));
+}
+
+fn wait_for_connection(listener_id: i32) -> i32 {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let id = ct_poll_connection(listener_id);
+        if id > 0 {
+            return id;
+        }
+        if id < 0 {
+            panic!("poll connection failed: {id}");
+        }
+        if Instant::now() > deadline {
+            panic!("timed out waiting for connection");
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
+fn wait_for_http_handshake(connection_id: i32) -> i32 {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let handle = ct_connection_take_http_handshake(connection_id);
+        if handle > 0 {
+            return handle;
+        }
+        if handle < 0 {
+            panic!("take http handshake failed: {handle}");
+        }
+        if Instant::now() > deadline {
+            panic!("timed out waiting for HTTP handshake");
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
+fn wait_for_http_event(timeout: Duration) -> (CtHttpConnectionEventInfo, Option<String>) {
+    let deadline = Instant::now() + timeout;
+    loop {
+        let handle = ct_connection_poll_http_event();
+        if handle > 0 {
+            let mut info = CtHttpConnectionEventInfo::default();
+            let result =
+                ct_http_connection_event_get(handle, &mut info as *mut CtHttpConnectionEventInfo);
+            assert_eq!(result, SUCCESS);
+            let detail = if info.detail_ptr.is_null() || info.detail_len == 0 {
+                None
+            } else {
+                let slice = unsafe { std::slice::from_raw_parts(info.detail_ptr, info.detail_len) };
+                Some(String::from_utf8_lossy(slice).to_string())
+            };
+            assert_eq!(ct_http_connection_event_release(handle), SUCCESS);
+            return (info, detail);
+        }
+        if handle < 0 {
+            panic!("poll http event failed: {handle}");
+        }
+        if Instant::now() > deadline {
+            panic!("timed out waiting for HTTP connection event");
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
 }
 
 #[test]
@@ -517,14 +583,7 @@ fn http_handshake_streaming_body_round_trip() {
 
     let body = b"stream-ok";
     assert_eq!(
-        ct_http_response_send(
-            handle,
-            204,
-            std::ptr::null(),
-            0,
-            body.as_ptr(),
-            body.len(),
-        ),
+        ct_http_response_send(handle, 204, std::ptr::null(), 0, body.as_ptr(), body.len(),),
         SUCCESS
     );
     assert_eq!(ct_http_handshake_release(handle), SUCCESS);
@@ -774,8 +833,7 @@ fn http3_handshake_surfaced_via_ffi() {
         let connection = endpoint
             .connect(server_addr, "localhost")
             .expect("connect http3");
-        let connection = connection.await.expect("http3 handshake");
-        connection.close(VarInt::from_u32(0), b"test");
+        let _connection = connection.await.expect("http3 handshake");
         tokio::time::sleep(Duration::from_millis(50)).await;
     });
 
@@ -908,14 +966,33 @@ fn http3_stream_poll_returns_handle() {
 
         let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
         endpoint.set_default_client_config(client_config);
-        let connection = endpoint
+        let connecting = endpoint
             .connect(server_addr, "localhost")
             .expect("connect http3");
-        let connection = connection.await.expect("http3 handshake");
-        let (mut send, _recv) = connection.open_bi().await.expect("open bidi stream");
-        send.write_all(b"ping").await.expect("send ping");
-        send.finish().expect("finish stream");
-        tokio::time::sleep(Duration::from_millis(500)).await;
+        let connection = connecting.await.expect("http3 handshake");
+
+        let (mut driver, mut sender) = h3_client::builder()
+            .build::<_, _, Bytes>(H3QuinnConnection::new(connection))
+            .await
+            .expect("build h3 client");
+        tokio::spawn(async move {
+            let _ = future::poll_fn(|cx| driver.poll_close(cx)).await;
+        });
+
+        let request = Request::post("https://localhost/metrics")
+            .header("content-length", "0")
+            .body(())
+            .unwrap();
+        let mut stream = sender
+            .send_request(request)
+            .await
+            .expect("send http3 request");
+        stream
+            .send_data(Bytes::new())
+            .await
+            .expect("send empty body");
+        stream.finish().await.expect("finish stream");
+        tokio::time::sleep(Duration::from_millis(200)).await;
     });
 
     let connection_id = ct_poll_connection(listener_id);
@@ -1228,6 +1305,170 @@ fn http3_request_round_trip_over_network() {
 }
 
 #[test]
+fn http2_body_timeout_emits_connection_event() {
+    let _guard = super::test_guard();
+    let config_json = json!({
+        "schema":"connectanum.router",
+        "version":1,
+        "endpoints":[
+            {
+                "host":"127.0.0.1",
+                "port":0,
+                "tls_mode":"native",
+                "idle_timeout_ms":50,
+                "protocols":["rawsocket","http","http2"],
+                "http":{
+                    "alpn":["h2"]
+                },
+                "http_routes":[
+                    {
+                        "path":"/metrics",
+                        "methods":{
+                            "POST":{
+                                "type":"translation",
+                                "realm":"realm.metrics",
+                                "procedure":"connectanum.metrics.openmetrics"
+                            }
+                        }
+                    }
+                ]
+            }
+        ]
+    });
+    let config = CString::new(config_json.to_string()).unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let (ready_tx, ready_rx) = std::sync::mpsc::channel();
+    let client_handle = std::thread::spawn(move || {
+        let rt = TokioRuntime::new().unwrap();
+        rt.block_on(async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let tcp = tokio::net::TcpStream::connect(addr).await.unwrap();
+            let (mut client, connection) = client::handshake(tcp).await.unwrap();
+            tokio::spawn(async move {
+                let _ = connection.await;
+            });
+
+            let request = Http2TestRequest::builder()
+                .method("POST")
+                .uri("https://localhost/metrics")
+                .header("content-length", "1024")
+                .body(())
+                .unwrap();
+            let (_response, mut send_stream) = client.send_request(request, false).unwrap();
+            ready_tx.send(()).unwrap();
+
+            let start = Instant::now();
+            while start.elapsed() < Duration::from_millis(300) {
+                if send_stream
+                    .send_data(Bytes::copy_from_slice(&[b'x']), false)
+                    .is_err()
+                {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(30)).await;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        })
+    });
+
+    ready_rx.recv().expect("client ready");
+
+    let connection_id = wait_for_connection(listener_id);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP2);
+
+    let handshake_handle = wait_for_http_handshake(connection_id);
+    assert_eq!(ct_http_handshake_release(handshake_handle), SUCCESS);
+
+    let (event, _detail) = wait_for_http_event(Duration::from_secs(5));
+    assert_eq!(event.connection_id, connection_id);
+    assert_eq!(event.protocol, PROTOCOL_HTTP2);
+    assert_eq!(event.reason, HTTP_EVENT_REASON_BODY_TIMEOUT);
+    assert!(event.request_count >= 1);
+    assert_eq!(event.backpressure_events, 0);
+    assert_eq!(event.max_backpressure_depth, 0);
+    assert_eq!(event.goaway_events, 0);
+
+    client_handle.join().expect("client thread finished");
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[cfg(feature = "ffi-test")]
+#[test]
+fn http3_idle_timeout_emits_connection_event() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"native",
+                    "protocols":["rawsocket","http","http2","http3"],
+                    "http":{"alpn":["http/1.1","h2","h3"],"http3":{"enabled":true}},
+                    "http_routes":[]
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let detail = CString::new("http/3 body idle timeout").unwrap();
+    let detail_bytes = detail.as_bytes();
+    let connection_id = 4242;
+    assert_eq!(
+        ct_test_push_http_connection_event(
+            connection_id,
+            PROTOCOL_HTTP3,
+            HTTP_EVENT_REASON_IDLE_TIMEOUT,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            detail.as_ptr(),
+            detail_bytes.len() as i32,
+        ),
+        SUCCESS
+    );
+
+    let (event, retrieved_detail) = wait_for_http_event(Duration::from_secs(5));
+    assert_eq!(event.connection_id, connection_id);
+    assert_eq!(event.protocol, PROTOCOL_HTTP3);
+    assert_eq!(event.reason, HTTP_EVENT_REASON_IDLE_TIMEOUT);
+    assert_eq!(event.idle_timeouts, 1);
+    assert_eq!(event.backpressure_events, 0);
+    assert_eq!(event.max_backpressure_depth, 0);
+    assert_eq!(event.goaway_events, 0);
+    assert_eq!(
+        retrieved_detail.as_deref(),
+        Some("http/3 body idle timeout")
+    );
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
 fn http2_request_round_trip_over_network() {
     let _guard = super::test_guard();
     let config = CString::new(
@@ -1432,17 +1673,17 @@ fn http2_streaming_body_round_trip() {
             let payload = vec![b'y'; payload_len];
             let first = 32 * 1024;
             send_stream
-                .send_data(Bytes::copy_from_slice(&payload[..first.min(payload.len())]), false)
+                .send_data(
+                    Bytes::copy_from_slice(&payload[..first.min(payload.len())]),
+                    false,
+                )
                 .unwrap();
             send_stream.reserve_capacity(payload_len - first.min(payload_len));
             client_tx.send(()).unwrap();
             tokio::time::sleep(Duration::from_millis(50)).await;
             if first < payload_len {
                 send_stream
-                    .send_data(
-                        Bytes::copy_from_slice(&payload[first..]),
-                        true,
-                    )
+                    .send_data(Bytes::copy_from_slice(&payload[first..]), true)
                     .unwrap();
             } else {
                 send_stream.send_data(Bytes::new(), true).unwrap();

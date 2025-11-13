@@ -10,10 +10,9 @@ Fresh state:
 
 Focus for the next session:
 1. **HTTP/2 + HTTP/3 Lifecycle & Backpressure**
-   - Emit HTTP/2/HTTP/3 connection events (GOAWAY, idle/body timeouts, protocol errors) from `ct_core`, drive them through `ct_ffi`, and let `_RouterBoss` drain `_http2ConnectionListeners`/`_http3ConnectionListeners` deterministically while logging per-connection stats.
-   - Enforce idle + total body/read deadlines for HTTP/2/3 streams in Rust, reset offenders, and write regression coverage in `listen_flow.rs` plus Dart router tests that simulate stalled clients, back-to-back requests, and GOAWAY delivery.
-   - Plumb the new stats/events into boss/worker metrics so we can observe request counts, timeout rates, and native backpressure without tapping log spam; expose a polling API for future benchmarks/telemetry.
-   - Make sure the Dart streaming plumbing keeps up: `_RouterBoss` should react to connection events, stop double polling, and emit structured lifecycle diagnostics so integrators understand why links close.
+   - ✅ HTTP/2/HTTP/3 connection lifecycle events (idle/body timeouts, protocol errors, GOAWAY/backpressure counters) now bubble from `ct_core` → `ct_ffi`, `_RouterBoss` consumes them, and `listen_flow.rs` + router runtime tests exercise the new telemetry.
+   - Next up: expose a polling API for the boss/worker metrics stream, wire the new counters into router metrics reporting, and tighten the Dart plumbing so `_RouterBoss` stops double polling and emits structured diagnostics when links close.
+   - Enforce the remaining idle/total body deadlines for HTTP/2/3 streams (stalled-client coverage, GOAWAY delivery) and add Dart router tests that mirror the new Rust cases.
 
 2. **WebSocket Transport Completion**
    - Finish native WebSocket processing: accept/deny is in place, but we still need frame read/write loops that translate WebSocket frames into RawSocket WAMP messages (continuation aggregation, mask handling, ping/pong, close). Surface selected serializer/subprotocol back over FFI.
@@ -50,3 +49,4 @@ Regression / validation to run after changes:
 - `dart test packages/connectanum_router`
 - `dart test packages/connectanum_core/test/serializer/json/serializer_test.dart`
 - `dart analyze`
+- `cargo test -p ct_ffi listen_flow`

@@ -114,6 +114,9 @@ class _FakeRuntime implements NativeRuntime {
   void sendMessage(int connectionId, Uint8List payload) {}
 
   @override
+  NativeHttpConnectionEvent? pollHttpConnectionEvent() => null;
+
+  @override
   NativeIncomingMessage? pollMessage(int connectionId) => null;
 
   @override

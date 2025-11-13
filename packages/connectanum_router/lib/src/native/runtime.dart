@@ -58,7 +58,9 @@ abstract class NativeRuntime {
     throw UnsupportedError('HTTP response streaming not supported by runtime');
   }
 
-  NativeHttpConnectionEvent? pollHttpConnectionEvent(int connectionId);
+  NativeHttpConnectionEvent? pollHttpConnectionEvent();
+
+  NativeRouterMetrics? pollRouterMetrics() => null;
 
   void sendMessage(int connectionId, Uint8List payload);
   void applyRouterConfig(Uint8List config);
@@ -129,15 +131,6 @@ abstract final class NativeTransportErrorCode {
   static const handshakeConsumed = -13;
   static const handleUnavailable = -14;
   static const streamClosed = -15;
-}
-
-abstract final class NativeHttpConnectionEventReason {
-  static const graceful = 1;
-  static const goAway = 2;
-  static const idleTimeout = 3;
-  static const bodyTimeout = 4;
-  static const protocolError = 5;
-  static const internal = 6;
 }
 
 /// Exception thrown when the native runtime reports an error.
@@ -410,6 +403,88 @@ abstract class NativeHttpResponseStream {
   bool get isClosed;
   void add(Uint8List chunk);
   void close([Uint8List? finalChunk]);
+}
+
+abstract final class NativeHttpConnectionEventReason {
+  static const graceful = 1;
+  static const goAway = 2;
+  static const idleTimeout = 3;
+  static const bodyTimeout = 4;
+  static const protocolError = 5;
+  static const internal = 6;
+}
+
+enum NativeHttpConnectionCloseReason {
+  graceful,
+  goAway,
+  idleTimeout,
+  bodyTimeout,
+  protocolError,
+  internal,
+}
+
+class NativeHttpConnectionEvent {
+  NativeHttpConnectionEvent({
+    required this.connectionId,
+    required this.protocol,
+    required this.reason,
+    required this.requestCount,
+    required this.idleTimeouts,
+    required this.bodyTimeouts,
+    required this.backpressureEvents,
+    required this.maxBackpressureDepth,
+    required this.goAwayEvents,
+    this.detail,
+  });
+
+  final int connectionId;
+  final NativeConnectionProtocol protocol;
+  final NativeHttpConnectionCloseReason reason;
+  final int requestCount;
+  final int idleTimeouts;
+  final int bodyTimeouts;
+  final int backpressureEvents;
+  final int maxBackpressureDepth;
+  final int goAwayEvents;
+  final String? detail;
+
+  bool get isClosed => true;
+}
+
+class NativeRouterMetrics {
+  const NativeRouterMetrics({
+    required this.totalEvents,
+    required this.gracefulEvents,
+    required this.goAwayEvents,
+    required this.idleTimeoutEvents,
+    required this.bodyTimeoutEvents,
+    required this.protocolErrorEvents,
+    required this.internalErrorEvents,
+    required this.backpressureEvents,
+    required this.maxBackpressureDepth,
+  });
+
+  final int totalEvents;
+  final int gracefulEvents;
+  final int goAwayEvents;
+  final int idleTimeoutEvents;
+  final int bodyTimeoutEvents;
+  final int protocolErrorEvents;
+  final int internalErrorEvents;
+  final int backpressureEvents;
+  final int maxBackpressureDepth;
+
+  bool sameValues(NativeRouterMetrics other) {
+    return totalEvents == other.totalEvents &&
+        gracefulEvents == other.gracefulEvents &&
+        goAwayEvents == other.goAwayEvents &&
+        idleTimeoutEvents == other.idleTimeoutEvents &&
+        bodyTimeoutEvents == other.bodyTimeoutEvents &&
+        protocolErrorEvents == other.protocolErrorEvents &&
+        internalErrorEvents == other.internalErrorEvents &&
+        backpressureEvents == other.backpressureEvents &&
+        maxBackpressureDepth == other.maxBackpressureDepth;
+  }
 }
 
 class NativeWebSocketHandshake {
@@ -1797,8 +1872,8 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
   }
 
   @override
-  NativeHttpConnectionEvent? pollHttpConnectionEvent(int connectionId) {
-    final handle = _bindings.ctConnectionPollHttpEvent(connectionId);
+  NativeHttpConnectionEvent? pollHttpConnectionEvent() {
+    final handle = _bindings.ctConnectionPollHttpEvent();
     if (handle == 0) {
       return null;
     }
@@ -1821,10 +1896,38 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
         requestCount: info.requestCount,
         idleTimeouts: info.idleTimeouts,
         bodyTimeouts: info.bodyTimeouts,
+        backpressureEvents: info.backpressureEvents,
+        maxBackpressureDepth: info.maxBackpressureDepth,
+        goAwayEvents: info.goAwayEvents,
         detail: detail,
       );
       _bindings.ctHttpConnectionEventRelease(handle);
       return event;
+    } finally {
+      calloc.free(infoPtr);
+    }
+  }
+
+  @override
+  NativeRouterMetrics? pollRouterMetrics() {
+    final infoPtr = calloc<CtRouterMetricsInfo>();
+    try {
+      final result = _bindings.ctRouterMetricsSnapshot(infoPtr);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'Failed to read router metrics');
+      }
+      final info = infoPtr.ref;
+      return NativeRouterMetrics(
+        totalEvents: info.totalEvents,
+        gracefulEvents: info.gracefulEvents,
+        goAwayEvents: info.goAwayEvents,
+        idleTimeoutEvents: info.idleTimeoutEvents,
+        bodyTimeoutEvents: info.bodyTimeoutEvents,
+        protocolErrorEvents: info.protocolErrorEvents,
+        internalErrorEvents: info.internalErrorEvents,
+        backpressureEvents: info.backpressureEvents,
+        maxBackpressureDepth: info.maxBackpressureDepth,
+      );
     } finally {
       calloc.free(infoPtr);
     }
@@ -2266,37 +2369,6 @@ class _FfiHttpResponseStream implements NativeHttpResponseStream {
       _onError(result, 'Failed to finish HTTP response stream');
     }
   }
-}
-
-enum NativeHttpConnectionCloseReason {
-  graceful,
-  goAway,
-  idleTimeout,
-  bodyTimeout,
-  protocolError,
-  internal,
-}
-
-class NativeHttpConnectionEvent {
-  NativeHttpConnectionEvent({
-    required this.connectionId,
-    required this.protocol,
-    required this.reason,
-    required this.requestCount,
-    required this.idleTimeouts,
-    required this.bodyTimeouts,
-    this.detail,
-  });
-
-  final int connectionId;
-  final NativeConnectionProtocol protocol;
-  final NativeHttpConnectionCloseReason reason;
-  final int requestCount;
-  final int idleTimeouts;
-  final int bodyTimeouts;
-  final String? detail;
-
-  bool get isClosed => true;
 }
 
 class _BorrowedBodyHandleView {

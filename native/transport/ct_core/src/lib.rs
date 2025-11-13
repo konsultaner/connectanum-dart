@@ -6,7 +6,7 @@ use std::{
     net::{SocketAddr, ToSocketAddrs},
     ops::Deref,
     sync::{
-        atomic::{AtomicU32, Ordering},
+        atomic::{AtomicU32, AtomicU64, Ordering},
         Arc, Mutex, OnceLock,
     },
     time::{Duration, Instant},
@@ -16,7 +16,6 @@ use base64::{engine::general_purpose::STANDARD as Base64Engine, Engine as _};
 use bytes::{Buf, Bytes, BytesMut};
 use h2::{
     server::{self as h2_server, SendResponse as H2SendResponse},
-    Reason as H2Reason,
     RecvStream as H2RecvStream,
 };
 use h3::{
@@ -101,6 +100,7 @@ pub use http_stream::{
     ResponseStreamWriter, RESPONSE_STREAM_BUFFER,
 };
 
+/// Reasons describing why an HTTP/2 or HTTP/3 connection closed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HttpConnectionCloseReason {
     Graceful,
@@ -111,6 +111,7 @@ pub enum HttpConnectionCloseReason {
     Internal,
 }
 
+/// Lifecycle event emitted whenever an HTTP/2 or HTTP/3 connection terminates.
 #[derive(Debug, Clone)]
 pub struct HttpConnectionEvent {
     pub connection_id: ConnectionId,
@@ -119,6 +120,9 @@ pub struct HttpConnectionEvent {
     pub request_count: u32,
     pub idle_timeouts: u32,
     pub body_timeouts: u32,
+    pub backpressure_events: u32,
+    pub max_backpressure_depth: u32,
+    pub goaway_events: u32,
     pub detail: Option<String>,
 }
 
@@ -128,6 +132,9 @@ struct HttpConnectionStats {
     requests: AtomicU32,
     idle_timeouts: AtomicU32,
     body_timeouts: AtomicU32,
+    backpressure_events: AtomicU32,
+    max_backpressure_depth: AtomicU32,
+    goaway_events: AtomicU32,
     close_reason: Mutex<Option<(HttpConnectionCloseReason, Option<String>)>>,
 }
 
@@ -138,6 +145,9 @@ impl HttpConnectionStats {
             requests: AtomicU32::new(0),
             idle_timeouts: AtomicU32::new(0),
             body_timeouts: AtomicU32::new(0),
+            backpressure_events: AtomicU32::new(0),
+            max_backpressure_depth: AtomicU32::new(0),
+            goaway_events: AtomicU32::new(0),
             close_reason: Mutex::new(None),
         })
     }
@@ -154,6 +164,27 @@ impl HttpConnectionStats {
     fn record_body_timeout(&self, detail: Option<String>) {
         self.body_timeouts.fetch_add(1, Ordering::SeqCst);
         self.set_close_reason(HttpConnectionCloseReason::BodyTimeout, detail);
+    }
+
+    fn record_backpressure(&self, depth: usize) {
+        self.backpressure_events.fetch_add(1, Ordering::SeqCst);
+        let depth_u32 = depth.min(u32::MAX as usize) as u32;
+        let _ = self.max_backpressure_depth.fetch_update(
+            Ordering::SeqCst,
+            Ordering::SeqCst,
+            |current| {
+                if depth_u32 > current {
+                    Some(depth_u32)
+                } else {
+                    None
+                }
+            },
+        );
+    }
+
+    fn record_goaway(&self, detail: Option<String>) {
+        self.goaway_events.fetch_add(1, Ordering::SeqCst);
+        self.set_close_reason(HttpConnectionCloseReason::GoAway, detail);
     }
 
     fn set_close_reason(&self, reason: HttpConnectionCloseReason, detail: Option<String>) {
@@ -178,10 +209,110 @@ impl HttpConnectionStats {
             request_count: self.requests.load(Ordering::SeqCst),
             idle_timeouts: self.idle_timeouts.load(Ordering::SeqCst),
             body_timeouts: self.body_timeouts.load(Ordering::SeqCst),
+            backpressure_events: self.backpressure_events.load(Ordering::SeqCst),
+            max_backpressure_depth: self.max_backpressure_depth.load(Ordering::SeqCst),
+            goaway_events: self.goaway_events.load(Ordering::SeqCst),
             detail,
         }
     }
 }
+
+#[derive(Default)]
+struct HttpMetrics {
+    total_events: AtomicU64,
+    graceful: AtomicU64,
+    goaway: AtomicU64,
+    idle_timeouts: AtomicU64,
+    body_timeouts: AtomicU64,
+    protocol_errors: AtomicU64,
+    internal_errors: AtomicU64,
+    backpressure_events: AtomicU64,
+    max_backpressure_depth: AtomicU32,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct HttpMetricsSnapshot {
+    pub total_events: u64,
+    pub graceful_events: u64,
+    pub goaway_events: u64,
+    pub idle_timeout_events: u64,
+    pub body_timeout_events: u64,
+    pub protocol_error_events: u64,
+    pub internal_error_events: u64,
+    pub backpressure_events: u64,
+    pub max_backpressure_depth: u32,
+}
+
+impl HttpMetrics {
+    fn record(&self, event: &HttpConnectionEvent) {
+        self.total_events.fetch_add(1, Ordering::SeqCst);
+        self.backpressure_events
+            .fetch_add(event.backpressure_events as u64, Ordering::SeqCst);
+        let depth = event.max_backpressure_depth;
+        if depth > 0 {
+            let _ = self.max_backpressure_depth.fetch_update(
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+                |current| {
+                    if depth > current {
+                        Some(depth)
+                    } else {
+                        None
+                    }
+                },
+            );
+        }
+        match event.reason {
+            HttpConnectionCloseReason::Graceful => {
+                self.graceful.fetch_add(1, Ordering::SeqCst);
+            }
+            HttpConnectionCloseReason::GoAway => {
+                self.goaway.fetch_add(1, Ordering::SeqCst);
+            }
+            HttpConnectionCloseReason::IdleTimeout => {
+                self.idle_timeouts.fetch_add(1, Ordering::SeqCst);
+            }
+            HttpConnectionCloseReason::BodyTimeout => {
+                self.body_timeouts.fetch_add(1, Ordering::SeqCst);
+            }
+            HttpConnectionCloseReason::ProtocolError => {
+                self.protocol_errors.fetch_add(1, Ordering::SeqCst);
+            }
+            HttpConnectionCloseReason::Internal => {
+                self.internal_errors.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+    }
+
+    fn snapshot(&self) -> HttpMetricsSnapshot {
+        HttpMetricsSnapshot {
+            total_events: self.total_events.load(Ordering::SeqCst),
+            graceful_events: self.graceful.load(Ordering::SeqCst),
+            goaway_events: self.goaway.load(Ordering::SeqCst),
+            idle_timeout_events: self.idle_timeouts.load(Ordering::SeqCst),
+            body_timeout_events: self.body_timeouts.load(Ordering::SeqCst),
+            protocol_error_events: self.protocol_errors.load(Ordering::SeqCst),
+            internal_error_events: self.internal_errors.load(Ordering::SeqCst),
+            backpressure_events: self.backpressure_events.load(Ordering::SeqCst),
+            max_backpressure_depth: self.max_backpressure_depth.load(Ordering::SeqCst),
+        }
+    }
+}
+
+static HTTP_METRICS: OnceLock<HttpMetrics> = OnceLock::new();
+
+fn http_metrics() -> &'static HttpMetrics {
+    HTTP_METRICS.get_or_init(HttpMetrics::default)
+}
+
+pub fn http_metrics_snapshot() -> HttpMetricsSnapshot {
+    http_metrics().snapshot()
+}
+
+fn record_http_metrics(event: &HttpConnectionEvent) {
+    http_metrics().record(event);
+}
+
 pub use platform::{Runtime as PlatformRuntime, UnsupportedPlatform};
 pub use protocol::{Http2Handshake, Http3Handshake, HttpHandshake, WebSocketHandshake};
 pub use rawsocket::Serializer as RawSocketSerializer;
@@ -409,6 +540,7 @@ pub struct HttpResponseDispatch {
     pub body: HttpResponseBody,
 }
 
+#[derive(Debug)]
 pub enum HttpResponseBody {
     Buffered(Vec<u8>),
     Streaming(ResponseStreamReader),
@@ -503,11 +635,10 @@ struct RuntimeView {
     registry: Arc<ListenerRegistry>,
 }
 
-#[derive(Default)]
 struct ListenerRegistry {
     listeners: Mutex<HashMap<ListenerId, ListenerEntry>>,
     connections: Mutex<HashMap<ConnectionId, ConnectionEntry>>,
-    connection_events: Mutex<HashMap<ConnectionId, VecDeque<HttpConnectionEvent>>>,
+    connection_events: Mutex<VecDeque<HttpConnectionEvent>>,
     next_listener_id: AtomicU32,
     next_connection_id: AtomicU32,
 }
@@ -517,7 +648,7 @@ impl Default for ListenerRegistry {
         Self {
             listeners: Mutex::new(HashMap::new()),
             connections: Mutex::new(HashMap::new()),
-            connection_events: Mutex::new(HashMap::new()),
+            connection_events: Mutex::new(VecDeque::new()),
             next_listener_id: AtomicU32::new(0),
             next_connection_id: AtomicU32::new(0),
         }
@@ -921,30 +1052,18 @@ impl ListenerRegistry {
     }
 
     fn push_connection_event(&self, event: HttpConnectionEvent) {
-        let mut events = self
-            .connection_events
+        record_http_metrics(&event);
+        self.connection_events
             .lock()
-            .unwrap_or_else(|poison| poison.into_inner());
-        events
-            .entry(event.connection_id)
-            .or_insert_with(VecDeque::new)
+            .unwrap_or_else(|poison| poison.into_inner())
             .push_back(event);
     }
 
-    fn poll_http_connection_event(
-        &self,
-        connection_id: ConnectionId,
-    ) -> Option<HttpConnectionEvent> {
-        let mut events = self
-            .connection_events
+    fn poll_http_connection_event(&self) -> Option<HttpConnectionEvent> {
+        self.connection_events
             .lock()
-            .unwrap_or_else(|poison| poison.into_inner());
-        let queue = events.get_mut(&connection_id)?;
-        let event = queue.pop_front();
-        if queue.is_empty() {
-            events.remove(&connection_id);
-        }
-        event
+            .unwrap_or_else(|poison| poison.into_inner())
+            .pop_front()
     }
 
     fn register_http_connection(
@@ -1264,7 +1383,15 @@ impl ListenerRegistry {
             | ConnectionRecord::Http3Pending {
                 pending_requests, ..
             } => {
-                pending_requests.lock().unwrap().push_back(request);
+                let stats = entry.stats.clone();
+                let mut guard = pending_requests.lock().unwrap();
+                let depth_before = guard.len();
+                guard.push_back(request);
+                if depth_before > 0 {
+                    if let Some(stats) = stats.as_ref() {
+                        stats.record_backpressure(depth_before + 1);
+                    }
+                }
                 Ok(())
             }
             _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
@@ -2443,11 +2570,12 @@ pub fn connection_http3_poll_request(
 }
 
 /// Attempts to retrieve connection lifecycle events for HTTP/2 and HTTP/3.
-pub fn connection_poll_http_event(
-    connection_id: ConnectionId,
-) -> Result<Option<HttpConnectionEvent>, Error> {
+pub fn connection_poll_http_event() -> Option<HttpConnectionEvent> {
     let manager = RuntimeManager::global();
-    manager.with_state(|state| Ok(state.registry.poll_http_connection_event(connection_id)))
+    manager
+        .with_state(|state| Ok(state.registry.poll_http_connection_event()))
+        .ok()
+        .flatten()
 }
 
 #[cfg(feature = "ffi-test")]
@@ -2468,6 +2596,15 @@ pub fn register_http_request(
         };
         state.registry.enqueue_http_request(connection_id, queued)
     })
+}
+
+#[cfg(feature = "ffi-test")]
+pub fn push_http_connection_event(event: HttpConnectionEvent) {
+    let manager = RuntimeManager::global();
+    let _ = manager.with_state(|state| {
+        state.registry.push_connection_event(event);
+        Ok(())
+    });
 }
 
 /// Attempts to retrieve the next parsed WAMP message for a connection.
@@ -2532,6 +2669,46 @@ pub fn spawn_http_response(
         });
         Ok(())
     })
+}
+
+#[cfg(test)]
+mod stats_tests {
+    use super::*;
+
+    #[test]
+    fn http_connection_stats_capture_idle_timeout() {
+        let stats = HttpConnectionStats::new(ConnectionProtocol::Http2);
+        stats.record_request();
+        stats.record_idle_timeout(Some("idle timeout".into()));
+        let event = stats.finalize(ConnectionId(42), HttpConnectionCloseReason::Graceful, None);
+        assert_eq!(event.connection_id, ConnectionId(42));
+        assert_eq!(event.protocol, ConnectionProtocol::Http2);
+        assert_eq!(event.request_count, 1);
+        assert_eq!(event.idle_timeouts, 1);
+        assert_eq!(event.reason, HttpConnectionCloseReason::IdleTimeout);
+        assert_eq!(event.backpressure_events, 0);
+        assert_eq!(event.max_backpressure_depth, 0);
+        assert_eq!(event.goaway_events, 0);
+        assert_eq!(event.detail.as_deref(), Some("idle timeout"));
+    }
+
+    #[test]
+    fn http_connection_stats_capture_backpressure_and_goaway() {
+        let stats = HttpConnectionStats::new(ConnectionProtocol::Http2);
+        stats.record_request();
+        stats.record_backpressure(3);
+        stats.record_backpressure(7);
+        stats.record_goaway(Some("remote goaway".into()));
+        let event = stats.finalize(ConnectionId(7), HttpConnectionCloseReason::Graceful, None);
+        assert_eq!(event.connection_id, ConnectionId(7));
+        assert_eq!(event.protocol, ConnectionProtocol::Http2);
+        assert_eq!(event.request_count, 1);
+        assert_eq!(event.backpressure_events, 2);
+        assert_eq!(event.max_backpressure_depth, 7);
+        assert_eq!(event.goaway_events, 1);
+        assert_eq!(event.reason, HttpConnectionCloseReason::GoAway);
+        assert_eq!(event.detail.as_deref(), Some("remote goaway"));
+    }
 }
 
 async fn serve_http_connection(
@@ -2929,11 +3106,7 @@ async fn serve_http3_requests(
 
     drop(streams);
     if !closed {
-        registry.finish_http_connection(
-            connection_id,
-            HttpConnectionCloseReason::Graceful,
-            None,
-        );
+        registry.finish_http_connection(connection_id, HttpConnectionCloseReason::Graceful, None);
     }
 }
 
@@ -2991,10 +3164,7 @@ async fn serve_http2_connection(
                 );
                 if let Some(stats) = connection_stats.as_ref() {
                     if err.is_go_away() {
-                        stats.set_close_reason(
-                            HttpConnectionCloseReason::GoAway,
-                            Some(err.to_string()),
-                        );
+                        stats.record_goaway(Some(err.to_string()));
                     } else {
                         stats.set_close_reason(
                             HttpConnectionCloseReason::ProtocolError,
@@ -3018,11 +3188,7 @@ async fn serve_http2_connection(
     }
 
     if !closed {
-        registry.finish_http_connection(
-            connection_id,
-            HttpConnectionCloseReason::Graceful,
-            None,
-        );
+        registry.finish_http_connection(connection_id, HttpConnectionCloseReason::Graceful, None);
     }
 }
 
@@ -3179,7 +3345,6 @@ async fn run_http2_stream_reader(
                 stats_ref.record_body_timeout(Some("http/2 body total timeout".into()));
             }
             state.mark_error("http/2 body total timeout exceeded".into());
-            let _ = stream.reset(H2Reason::CANCEL);
             return Err("http/2 body total timeout".into());
         }
 
@@ -3191,7 +3356,6 @@ async fn run_http2_stream_reader(
                     stats_ref.record_idle_timeout(Some("http/2 body idle timeout".into()));
                 }
                 state.mark_error("http/2 body idle timeout".into());
-                let _ = stream.reset(H2Reason::CANCEL);
                 return Err("http/2 body idle timeout".into());
             }
         };
@@ -3605,8 +3769,7 @@ async fn run_http3_stream_reader(
             Ok(None) => {
                 if let Some(expected) = content_length {
                     if bytes_read != expected {
-                        state
-                            .mark_error("http/3 body ended before declared Content-Length".into());
+                        state.mark_error("http/3 body ended before declared Content-Length".into());
                         return Ok(());
                     }
                 }
@@ -3628,46 +3791,6 @@ async fn run_http3_stream_reader(
         }
     }
 }
-            Ok(Some(mut chunk)) => {
-                while chunk.has_remaining() {
-                    let len = chunk.remaining();
-                    let bytes = chunk.copy_to_bytes(len);
-                    bytes_read += len as u64;
-                    if bytes_read > max_body
-                        || content_length
-                            .map(|limit| bytes_read > limit)
-                            .unwrap_or(false)
-                    {
-                        state.mark_error("http/3 body exceeded configured limit".into());
-                        stream.stop_sending(H3ErrorCode::H3_REQUEST_CANCELLED);
-                        return Ok(());
-                    }
-                    if content_length.is_none() {
-                        state.extend_total_len(len);
-                    }
-                    if !state.finish_requested() {
-                        state.enqueue_vec(bytes.to_vec());
-                    }
-                }
-            }
-            Ok(None) => {
-                if let Some(expected) = content_length {
-                    if bytes_read != expected {
-                        state.mark_error("http/3 body ended before declared Content-Length".into());
-                        return Ok(());
-                    }
-                }
-                state.mark_finished();
-                return Ok(());
-            }
-            Err(err) => {
-                state.mark_error(format!("http/3 body read failed: {}", err));
-                return Err(err.to_string());
-            }
-        }
-    }
-}
-
 #[allow(dead_code)]
 fn http_summary_from_handshake(
     handshake: &protocol::HttpHandshake,

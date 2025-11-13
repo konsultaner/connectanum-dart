@@ -45,6 +45,7 @@ class _RouterBoss {
   final Map<int, RouterListener> _http2ConnectionListeners = {};
   final Map<int, RouterListener> _http3ConnectionListeners = {};
   final RouterStateStore _stateStore;
+  NativeRouterMetrics? _lastRouterMetrics;
   bool _running = false;
   bool _stopping = false;
   Future<void>? _loopFuture;
@@ -138,6 +139,8 @@ class _RouterBoss {
       _dispatchMessages();
       _drainHttp2Requests();
       _drainHttp3Requests();
+      _drainHttpConnectionEvents();
+      _emitRouterMetrics();
       await Future<void>.delayed(pollInterval);
     }
   }
@@ -320,6 +323,72 @@ class _RouterBoss {
     }
   }
 
+  void _handleHttpConnectionEvent(NativeHttpConnectionEvent event) {
+    final data = <String, Object?>{
+      'connectionId': event.connectionId,
+      'protocol': _protocolName(event.protocol),
+      'reason': _httpConnectionReason(event.reason),
+      'requestCount': event.requestCount,
+      'idleTimeouts': event.idleTimeouts,
+      'bodyTimeouts': event.bodyTimeouts,
+      'backpressureEvents': event.backpressureEvents,
+      'maxBackpressureDepth': event.maxBackpressureDepth,
+      'goAwayEvents': event.goAwayEvents,
+      if (event.detail != null) 'detail': event.detail,
+    };
+    onEvent?.call({'source': 'boss', 'type': 'http_connection_event', ...data});
+    if (event.protocol == NativeConnectionProtocol.http2) {
+      _http2ConnectionListeners.remove(event.connectionId);
+    } else if (event.protocol == NativeConnectionProtocol.http3) {
+      _http3ConnectionListeners.remove(event.connectionId);
+      _releaseHttp3Connection(event.connectionId);
+    }
+  }
+
+  void _emitRouterMetrics() {
+    final metrics = runtime.pollRouterMetrics();
+    if (metrics == null) {
+      return;
+    }
+    final last = _lastRouterMetrics;
+    if (last != null && last.sameValues(metrics)) {
+      return;
+    }
+    _lastRouterMetrics = metrics;
+    onEvent?.call({
+      'source': 'boss',
+      'type': 'router_metrics',
+      'http': {
+        'totalEvents': metrics.totalEvents,
+        'gracefulEvents': metrics.gracefulEvents,
+        'goAwayEvents': metrics.goAwayEvents,
+        'idleTimeoutEvents': metrics.idleTimeoutEvents,
+        'bodyTimeoutEvents': metrics.bodyTimeoutEvents,
+        'protocolErrorEvents': metrics.protocolErrorEvents,
+        'internalErrorEvents': metrics.internalErrorEvents,
+        'backpressureEvents': metrics.backpressureEvents,
+        'maxBackpressureDepth': metrics.maxBackpressureDepth,
+      },
+    });
+  }
+
+  String _httpConnectionReason(NativeHttpConnectionCloseReason reason) {
+    switch (reason) {
+      case NativeHttpConnectionCloseReason.graceful:
+        return 'graceful';
+      case NativeHttpConnectionCloseReason.goAway:
+        return 'goaway';
+      case NativeHttpConnectionCloseReason.idleTimeout:
+        return 'idle_timeout';
+      case NativeHttpConnectionCloseReason.bodyTimeout:
+        return 'body_timeout';
+      case NativeHttpConnectionCloseReason.protocolError:
+        return 'protocol_error';
+      case NativeHttpConnectionCloseReason.internal:
+        return 'internal';
+    }
+  }
+
   _WebSocketSelection? _selectWebSocketProtocol(List<String> proposals) {
     for (final proposal in proposals) {
       final serializer = _webSocketProtocols[proposal.toLowerCase()];
@@ -436,6 +505,26 @@ class _RouterBoss {
           handshake,
         );
       }
+    }
+  }
+
+  void _drainHttpConnectionEvents() {
+    while (true) {
+      NativeHttpConnectionEvent? event;
+      try {
+        event = runtime.pollHttpConnectionEvent();
+      } on NativeTransportException catch (error) {
+        onEvent?.call({
+          'source': 'boss',
+          'type': 'boss_error',
+          'error': error.toString(),
+        });
+        break;
+      }
+      if (event == null) {
+        break;
+      }
+      _handleHttpConnectionEvent(event);
     }
   }
 

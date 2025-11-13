@@ -199,44 +199,36 @@ typedef CtHttpResponseSendDart =
       int,
     );
 
-typedef CtConnectionPollHttpEventNative = ffi.Int32 Function(ffi.Int32);
-typedef CtConnectionPollHttpEventDart = int Function(int);
+typedef CtConnectionPollHttpEventNative = ffi.Int32 Function();
+typedef CtConnectionPollHttpEventDart = int Function();
 
-typedef CtHttpConnectionEventGetNative = ffi.Int32 Function(
-  ffi.Int32,
-  ffi.Pointer<CtHttpConnectionEventInfo>,
-);
-typedef CtHttpConnectionEventGetDart = int Function(
-  int,
-  ffi.Pointer<CtHttpConnectionEventInfo>,
-);
+typedef CtHttpConnectionEventGetNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Pointer<CtHttpConnectionEventInfo>);
+typedef CtHttpConnectionEventGetDart =
+    int Function(int, ffi.Pointer<CtHttpConnectionEventInfo>);
 
 typedef CtHttpConnectionEventReleaseNative = ffi.Int32 Function(ffi.Int32);
 typedef CtHttpConnectionEventReleaseDart = int Function(int);
 
-typedef CtHttpResponseStreamOpenNative = ffi.Int32 Function(
-  ffi.Int32,
-  ffi.Int32,
-  ffi.Pointer<CtHttpHeader>,
-  ffi.Size,
-);
-typedef CtHttpResponseStreamOpenDart = int Function(
-  int,
-  int,
-  ffi.Pointer<CtHttpHeader>,
-  int,
-);
+typedef CtRouterMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<CtRouterMetricsInfo>);
+typedef CtRouterMetricsSnapshotDart =
+    int Function(ffi.Pointer<CtRouterMetricsInfo>);
 
-typedef CtHttpResponseStreamWriteNative = ffi.Int32 Function(
-  ffi.Int32,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef CtHttpResponseStreamWriteDart = int Function(
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
+typedef CtHttpResponseStreamOpenNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Pointer<CtHttpHeader>,
+      ffi.Size,
+    );
+typedef CtHttpResponseStreamOpenDart =
+    int Function(int, int, ffi.Pointer<CtHttpHeader>, int);
+
+typedef CtHttpResponseStreamWriteNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef CtHttpResponseStreamWriteDart =
+    int Function(int, ffi.Pointer<ffi.Uint8>, int);
 
 typedef CtHttpResponseStreamFinishNative = ffi.Int32 Function(ffi.Int32);
 typedef CtHttpResponseStreamFinishDart = int Function(int);
@@ -412,10 +404,48 @@ final class CtHttpConnectionEventInfo extends ffi.Struct {
   @ffi.Uint32()
   external int bodyTimeouts;
 
+  @ffi.Uint32()
+  external int backpressureEvents;
+
+  @ffi.Uint32()
+  external int maxBackpressureDepth;
+
+  @ffi.Uint32()
+  external int goAwayEvents;
+
   external ffi.Pointer<ffi.Uint8> detailPtr;
 
   @ffi.Size()
   external int detailLen;
+}
+
+final class CtRouterMetricsInfo extends ffi.Struct {
+  @ffi.Uint64()
+  external int totalEvents;
+
+  @ffi.Uint64()
+  external int gracefulEvents;
+
+  @ffi.Uint64()
+  external int goAwayEvents;
+
+  @ffi.Uint64()
+  external int idleTimeoutEvents;
+
+  @ffi.Uint64()
+  external int bodyTimeoutEvents;
+
+  @ffi.Uint64()
+  external int protocolErrorEvents;
+
+  @ffi.Uint64()
+  external int internalErrorEvents;
+
+  @ffi.Uint64()
+  external int backpressureEvents;
+
+  @ffi.Uint32()
+  external int maxBackpressureDepth;
 }
 
 final class CtHttpHeader extends ffi.Struct {
@@ -662,6 +692,11 @@ class CtFfiBindings {
             CtHttpConnectionEventReleaseNative,
             CtHttpConnectionEventReleaseDart
           >('ct_http_connection_event_release'),
+      ctRouterMetricsSnapshot = library
+          .lookupFunction<
+            CtRouterMetricsSnapshotNative,
+            CtRouterMetricsSnapshotDart
+          >('ct_router_metrics_snapshot'),
       ctHttpResponseStreamOpen = library
           .lookupFunction<
             CtHttpResponseStreamOpenNative,
@@ -781,11 +816,12 @@ class CtFfiBindings {
   final CtConnectionPollHttpEventDart ctConnectionPollHttpEvent;
   final CtHttpConnectionEventGetDart ctHttpConnectionEventGet;
   final CtHttpConnectionEventReleaseDart ctHttpConnectionEventRelease;
+  final CtRouterMetricsSnapshotDart ctRouterMetricsSnapshot;
   final CtHttpResponseStreamOpenDart ctHttpResponseStreamOpen;
   final CtHttpResponseStreamWriteDart ctHttpResponseStreamWrite;
   final CtHttpResponseStreamFinishDart ctHttpResponseStreamFinish;
   final CtConnectionTakeWebsocketHandshakeDart
-      ctConnectionTakeWebsocketHandshake;
+  ctConnectionTakeWebsocketHandshake;
   final CtConnectionAcceptWebsocketDart ctConnectionAcceptWebsocket;
   final CtConnectionRejectWebsocketDart ctConnectionRejectWebsocket;
   final CtWebSocketHandshakeGetDart ctWebSocketHandshakeGet;
