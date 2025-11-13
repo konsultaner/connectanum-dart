@@ -182,6 +182,9 @@ class _QueueRuntime implements NativeRuntimeWithHandles {
   }
 
   @override
+  NativeRouterMetrics? pollRouterMetrics() => null;
+
+  @override
   void shutdown() {}
 
   @override

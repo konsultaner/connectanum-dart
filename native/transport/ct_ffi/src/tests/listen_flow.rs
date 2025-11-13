@@ -38,9 +38,10 @@ use crate::runtime::ffi::{
     ct_http_body_finish, ct_http_body_get, ct_http_body_release, ct_http_body_stream_read,
     ct_http_connection_event_get, ct_http_connection_event_release, ct_http_handshake_body_retain,
     ct_http_handshake_get, ct_http_handshake_header, ct_http_handshake_release,
-    ct_http_response_send, ct_listen, ct_message_get, ct_message_release, ct_poll_connection,
-    ct_poll_connection_message, ct_set_on_connection, ct_set_on_listener_started, ct_shutdown,
-    ct_start_runtime, ct_websocket_handshake_extension, ct_websocket_handshake_get,
+    ct_http_response_send, ct_http_response_stream_finish, ct_http_response_stream_open,
+    ct_http_response_stream_write, ct_listen, ct_message_get, ct_message_release,
+    ct_poll_connection, ct_poll_connection_message, ct_set_on_connection, ct_set_on_listener_started,
+    ct_shutdown, ct_start_runtime, ct_websocket_handshake_extension, ct_websocket_handshake_get,
     ct_websocket_handshake_protocol, ct_websocket_handshake_release, CtHttp2HandshakeInfo,
     CtHttp3HandshakeInfo, CtHttpBodyView, CtHttpConnectionEventInfo, CtHttpHandshakeInfo,
     CtHttpHeader, CtMessageInfo, CtStringView, CtWebSocketHandshakeInfo,
@@ -595,6 +596,188 @@ fn http_handshake_streaming_body_round_trip() {
         "unexpected response: {}",
         response_text
     );
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn http_response_streaming_round_trip() {
+    fn decode_chunked_body(body: &[u8]) -> Vec<u8> {
+        let mut cursor = 0usize;
+        let mut decoded = Vec::new();
+        while cursor < body.len() {
+            let line_end = body[cursor..]
+                .windows(2)
+                .position(|window| window == b"\r\n")
+                .map(|pos| cursor + pos)
+                .expect("chunk size line");
+            let len_str = std::str::from_utf8(&body[cursor..line_end])
+                .expect("chunk size utf8");
+            let chunk_len =
+                usize::from_str_radix(len_str.trim(), 16).expect("chunk size hex");
+            cursor = line_end + 2;
+            if chunk_len == 0 {
+                break;
+            }
+            let end = cursor
+                .checked_add(chunk_len)
+                .expect("chunk length overflow");
+            assert!(
+                end + 2 <= body.len(),
+                "chunk overruns body buffer (len={}, remaining={})",
+                chunk_len,
+                body.len() - cursor
+            );
+            decoded.extend_from_slice(&body[cursor..end]);
+            cursor = end + 2;
+        }
+        decoded
+    }
+
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"native",
+                    "protocols":["rawsocket","http"],
+                    "http":{
+                        "alpn":["http/1.1"]
+                    },
+                    "http_routes":[
+                        {
+                            "path":"/h1stream",
+                            "match_kind":"prefix",
+                            "methods":{
+                                "GET":{
+                                    "type":"reserved_realm",
+                                    "append_method_suffix":true
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let (client_tx, client_rx) = std::sync::mpsc::channel();
+    let chunk = vec![b'q'; 16 * 1024];
+    let chunk_count = 4;
+    let trailer = b"h1-stream-finished";
+    let client_handle = std::thread::spawn(move || {
+        let rt = TokioRuntime::new().unwrap();
+        rt.block_on(async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+            let request = b"GET /h1stream HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
+            stream.write_all(request).await.unwrap();
+            stream.flush().await.unwrap();
+            client_tx.send(()).unwrap();
+            let mut response = Vec::new();
+            stream.read_to_end(&mut response).await.unwrap();
+            response
+        })
+    });
+
+    client_rx.recv().unwrap();
+
+    let connection_id = wait_for_connection(listener_id);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP);
+
+    let handle = wait_for_http_handshake(connection_id);
+    let mut info = CtHttpHandshakeInfo::default();
+    assert_eq!(
+        ct_http_handshake_get(handle, &mut info as *mut CtHttpHandshakeInfo),
+        SUCCESS
+    );
+    unsafe {
+        let method =
+            std::str::from_utf8(std::slice::from_raw_parts(info.method_ptr, info.method_len))
+                .expect("method utf8");
+        assert_eq!(method, "GET");
+        let path = std::str::from_utf8(std::slice::from_raw_parts(info.path_ptr, info.path_len))
+            .expect("path utf8");
+        assert_eq!(path, "/h1stream");
+    }
+
+    let header_name = CString::new("content-type").unwrap();
+    let header_value = CString::new("application/octet-stream").unwrap();
+    let headers = [CtHttpHeader {
+        name_ptr: header_name.as_ptr() as *const u8,
+        name_len: header_name.as_bytes().len(),
+        value_ptr: header_value.as_ptr() as *const u8,
+        value_len: header_value.as_bytes().len(),
+    }];
+
+    let stream_handle = ct_http_response_stream_open(
+        handle,
+        206,
+        headers.as_ptr(),
+        headers.len(),
+    );
+    assert!(stream_handle > 0);
+
+    for _ in 0..chunk_count {
+        assert_eq!(
+            ct_http_response_stream_write(stream_handle, chunk.as_ptr(), chunk.len()),
+            SUCCESS
+        );
+    }
+    assert_eq!(
+        ct_http_response_stream_write(
+            stream_handle,
+            trailer.as_ptr(),
+            trailer.len()
+        ),
+        SUCCESS
+    );
+    assert_eq!(ct_http_response_stream_finish(stream_handle), SUCCESS);
+    assert_eq!(ct_http_handshake_release(handle), SUCCESS);
+
+    let response_bytes = client_handle.join().unwrap();
+    let header_split = response_bytes
+        .windows(4)
+        .position(|window| window == b"\r\n\r\n")
+        .expect("header terminator");
+    let header_bytes = &response_bytes[..header_split];
+    let header_text = String::from_utf8_lossy(header_bytes);
+    assert!(
+        header_text.starts_with("HTTP/1.1 206"),
+        "unexpected status line: {}",
+        header_text
+    );
+    assert!(
+        header_text
+            .to_ascii_lowercase()
+            .contains("transfer-encoding: chunked"),
+        "missing chunked header: {}",
+        header_text
+    );
+    let body_bytes = &response_bytes[header_split + 4..];
+    let decoded = decode_chunked_body(body_bytes);
+    let expected_len = chunk.len() * chunk_count + trailer.len();
+    assert_eq!(decoded.len(), expected_len);
+    assert!(decoded[..chunk.len()].iter().all(|byte| *byte == b'q'));
+    assert!(decoded.ends_with(trailer));
 
     assert_eq!(ct_shutdown(), SUCCESS);
 }
@@ -1787,6 +1970,160 @@ fn http2_streaming_body_round_trip() {
 
     let body = client_handle.join().unwrap();
     assert_eq!(body, response_body);
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn http2_response_streaming_round_trip() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"native",
+                    "protocols":["rawsocket","http","http2"],
+                    "http":{
+                        "alpn":["h2","http/1.1"]
+                    },
+                    "http_routes":[
+                        {
+                            "path":"/h2stream",
+                            "match_kind":"prefix",
+                            "methods":{
+                                "GET":{
+                                    "type":"reserved_realm",
+                                    "append_method_suffix":true
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let (client_tx, client_rx) = std::sync::mpsc::channel();
+    let client_handle = std::thread::spawn(move || {
+        let rt = TokioRuntime::new().unwrap();
+        rt.block_on(async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let tcp = tokio::net::TcpStream::connect(&addr).await.unwrap();
+            let (mut client, connection) = client::handshake(tcp).await.unwrap();
+            tokio::spawn(async move {
+                if let Err(err) = connection.await {
+                    panic!("h2 connection error: {}", err);
+                }
+            });
+            let request = Http2TestRequest::builder()
+                .method("GET")
+                .uri("/h2stream")
+                .body(())
+                .unwrap();
+            let (response, _send_stream) = client.send_request(request, true).unwrap();
+            client_tx.send(()).unwrap();
+            let response = response.await.unwrap();
+            assert_eq!(response.status(), Http2StatusCode::PARTIAL_CONTENT);
+            let mut body = response.into_body();
+            let mut collected = Vec::new();
+            while let Some(chunk) = body.data().await {
+                let chunk = chunk.unwrap();
+                body.flow_control()
+                    .release_capacity(chunk.len())
+                    .expect("release capacity");
+                collected.extend_from_slice(&chunk);
+            }
+            collected
+        })
+    });
+
+    client_rx.recv().unwrap();
+
+    let connection_id = wait_for_connection(listener_id);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP2);
+
+    let handle = wait_for_http_handshake(connection_id);
+    let mut info = CtHttpHandshakeInfo::default();
+    assert_eq!(
+        ct_http_handshake_get(handle, &mut info as *mut CtHttpHandshakeInfo),
+        SUCCESS
+    );
+    unsafe {
+        let method =
+            std::str::from_utf8(std::slice::from_raw_parts(info.method_ptr, info.method_len))
+                .expect("method utf8");
+        assert_eq!(method, "GET");
+        let path = std::str::from_utf8(std::slice::from_raw_parts(info.path_ptr, info.path_len))
+            .expect("path utf8");
+        assert_eq!(path, "/h2stream");
+        let protocol = std::str::from_utf8(std::slice::from_raw_parts(
+            info.protocol_ptr,
+            info.protocol_len,
+        ))
+        .expect("protocol utf8");
+        assert_eq!(protocol, "http/2");
+    }
+
+    let header_name = CString::new("content-type").unwrap();
+    let header_value = CString::new("application/octet-stream").unwrap();
+    let headers = [CtHttpHeader {
+        name_ptr: header_name.as_ptr() as *const u8,
+        name_len: header_name.as_bytes().len(),
+        value_ptr: header_value.as_ptr() as *const u8,
+        value_len: header_value.as_bytes().len(),
+    }];
+
+    let stream_handle = ct_http_response_stream_open(
+        handle,
+        206,
+        headers.as_ptr(),
+        headers.len(),
+    );
+    assert!(stream_handle > 0);
+
+    let chunk = vec![b'z'; 16 * 1024];
+    let chunk_count = 5;
+    for _ in 0..chunk_count {
+        assert_eq!(
+            ct_http_response_stream_write(stream_handle, chunk.as_ptr(), chunk.len()),
+            SUCCESS
+        );
+    }
+    let trailer = b"h2-stream-finished";
+    assert_eq!(
+        ct_http_response_stream_write(
+            stream_handle,
+            trailer.as_ptr(),
+            trailer.len()
+        ),
+        SUCCESS
+    );
+    assert_eq!(ct_http_response_stream_finish(stream_handle), SUCCESS);
+    assert_eq!(ct_http_handshake_release(handle), SUCCESS);
+
+    let response_body = client_handle.join().unwrap();
+    let expected_len = chunk.len() * chunk_count + trailer.len();
+    assert_eq!(response_body.len(), expected_len);
+    assert!(response_body.iter().take(chunk.len()).all(|byte| *byte == b'z'));
+    assert!(response_body.ends_with(trailer));
 
     assert_eq!(ct_shutdown(), SUCCESS);
 }

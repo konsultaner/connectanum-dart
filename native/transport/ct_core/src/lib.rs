@@ -2923,7 +2923,7 @@ async fn send_http_dispatch(
     dispatch: &mut HttpResponseDispatch,
 ) -> Result<(), String> {
     ensure_connection_header(&mut dispatch.headers, keep_alive, version);
-    match &dispatch.body {
+    match &mut dispatch.body {
         HttpResponseBody::Buffered(body) => protocol::write_http_response_shared(
             writer,
             version,
@@ -2933,8 +2933,17 @@ async fn send_http_dispatch(
         )
         .await
         .map_err(|err| err.to_string()),
-        HttpResponseBody::Streaming(_) => {
-            Err("streaming HTTP/1.x responses are not supported".to_string())
+        HttpResponseBody::Streaming(reader) => {
+            strip_content_length(&mut dispatch.headers);
+            ensure_chunked_transfer_encoding(&mut dispatch.headers);
+            write_http1_chunked_response(
+                writer,
+                version,
+                dispatch.status,
+                &dispatch.headers,
+                reader,
+            )
+            .await
         }
     }
 }
@@ -2971,8 +2980,77 @@ fn ensure_connection_header(headers: &mut Vec<(String, String)>, keep_alive: boo
     }
 }
 
+fn ensure_chunked_transfer_encoding(headers: &mut Vec<(String, String)>) {
+    headers.retain(|(name, _)| !name.eq_ignore_ascii_case("transfer-encoding"));
+    headers.push(("Transfer-Encoding".into(), "chunked".into()));
+}
+
 fn strip_content_length(headers: &mut Vec<(String, String)>) {
     headers.retain(|(name, _)| !name.eq_ignore_ascii_case("content-length"));
+}
+
+async fn write_http1_chunked_response(
+    writer: &mut OwnedWriteHalf,
+    version: u8,
+    status: i32,
+    headers: &[(String, String)],
+    reader: &mut ResponseStreamReader,
+) -> Result<(), String> {
+    let clamped = status.clamp(100, 599) as u16;
+    let status_code =
+        StatusCode::from_u16(clamped).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    let reason = status_code.canonical_reason().unwrap_or("");
+    let mut response = Vec::with_capacity(128 + headers.len() * 32);
+    write!(
+        &mut response,
+        "HTTP/1.{} {} {}\r\n",
+        version,
+        status_code.as_u16(),
+        reason
+    )
+    .map_err(|err| err.to_string())?;
+    for (name, value) in headers {
+        write!(&mut response, "{}: {}\r\n", name, value).map_err(|err| err.to_string())?;
+    }
+    response.extend_from_slice(b"\r\n");
+    if let Err(err) = writer.write_all(&response).await {
+        reader.close();
+        return Err(err.to_string());
+    }
+
+    loop {
+        match reader.next().await {
+            Ok(ResponseStreamFrame::Chunk(bytes)) => {
+                if bytes.is_empty() {
+                    continue;
+                }
+                let header = format!("{:X}\r\n", bytes.len());
+                if let Err(err) = writer.write_all(header.as_bytes()).await {
+                    reader.close();
+                    return Err(err.to_string());
+                }
+                if let Err(err) = writer.write_all(&bytes).await {
+                    reader.close();
+                    return Err(err.to_string());
+                }
+                if let Err(err) = writer.write_all(b"\r\n").await {
+                    reader.close();
+                    return Err(err.to_string());
+                }
+            }
+            Ok(ResponseStreamFrame::Finished) => {
+                if let Err(err) = writer.write_all(b"0\r\n\r\n").await {
+                    reader.close();
+                    return Err(err.to_string());
+                }
+                return Ok(());
+            }
+            Err(err) => {
+                reader.close();
+                return Err(format!("http/1.x streaming response failed: {}", err));
+            }
+        }
+    }
 }
 
 fn websocket_accept_value(key: &str) -> String {

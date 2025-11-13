@@ -14,6 +14,7 @@ class RouterMetricsSnapshot {
     required this.totalPublicationsRouted,
     required this.activeConnections,
     required this.workerCount,
+    this.transport,
   });
 
   /// Time when the snapshot was collected.
@@ -46,6 +47,9 @@ class RouterMetricsSnapshot {
   /// Number of worker isolates currently running.
   final int workerCount;
 
+  /// Aggregated transport-level metrics emitted by the native runtime.
+  final RouterTransportMetrics? transport;
+
   Map<String, Object?> toJson() => {
     'timestamp': timestamp.toIso8601String(),
     'realm_count': realmCount,
@@ -57,5 +61,68 @@ class RouterMetricsSnapshot {
     'total_publications_routed': totalPublicationsRouted,
     'active_connections': activeConnections,
     'worker_count': workerCount,
+    if (transport != null) 'transport': transport!.toJson(),
+  };
+}
+
+/// Aggregated telemetry emitted by the native transport.
+@immutable
+class RouterTransportMetrics {
+  const RouterTransportMetrics({
+    required this.totalEvents,
+    required this.gracefulEvents,
+    required this.goAwayEvents,
+    required this.idleTimeoutEvents,
+    required this.bodyTimeoutEvents,
+    required this.protocolErrorEvents,
+    required this.internalErrorEvents,
+    required this.backpressureEvents,
+    required this.maxBackpressureDepth,
+  });
+
+  final int totalEvents;
+  final int gracefulEvents;
+  final int goAwayEvents;
+  final int idleTimeoutEvents;
+  final int bodyTimeoutEvents;
+  final int protocolErrorEvents;
+  final int internalErrorEvents;
+  final int backpressureEvents;
+  final int maxBackpressureDepth;
+
+  RouterTransportMetrics copyWith({
+    int? totalEvents,
+    int? gracefulEvents,
+    int? goAwayEvents,
+    int? idleTimeoutEvents,
+    int? bodyTimeoutEvents,
+    int? protocolErrorEvents,
+    int? internalErrorEvents,
+    int? backpressureEvents,
+    int? maxBackpressureDepth,
+  }) {
+    return RouterTransportMetrics(
+      totalEvents: totalEvents ?? this.totalEvents,
+      gracefulEvents: gracefulEvents ?? this.gracefulEvents,
+      goAwayEvents: goAwayEvents ?? this.goAwayEvents,
+      idleTimeoutEvents: idleTimeoutEvents ?? this.idleTimeoutEvents,
+      bodyTimeoutEvents: bodyTimeoutEvents ?? this.bodyTimeoutEvents,
+      protocolErrorEvents: protocolErrorEvents ?? this.protocolErrorEvents,
+      internalErrorEvents: internalErrorEvents ?? this.internalErrorEvents,
+      backpressureEvents: backpressureEvents ?? this.backpressureEvents,
+      maxBackpressureDepth: maxBackpressureDepth ?? this.maxBackpressureDepth,
+    );
+  }
+
+  Map<String, Object?> toJson() => {
+    'total_events': totalEvents,
+    'graceful_events': gracefulEvents,
+    'goaway_events': goAwayEvents,
+    'idle_timeout_events': idleTimeoutEvents,
+    'body_timeout_events': bodyTimeoutEvents,
+    'protocol_error_events': protocolErrorEvents,
+    'internal_error_events': internalErrorEvents,
+    'backpressure_events': backpressureEvents,
+    'max_backpressure_depth': maxBackpressureDepth,
   };
 }

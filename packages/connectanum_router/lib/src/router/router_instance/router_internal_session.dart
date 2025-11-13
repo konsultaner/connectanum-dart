@@ -61,15 +61,15 @@ class RouterSession {
     _controlPort.close();
     _responsePort.close();
     _pendingCommands.clear();
-    for (final controller in _invocationControllers.values) {
+    for (final controller in _invocationControllers.values.toList()) {
       await controller.close();
     }
     _invocationControllers.clear();
-    for (final controller in _eventControllers.values) {
+    for (final controller in _eventControllers.values.toList()) {
       await controller.close();
     }
     _eventControllers.clear();
-    for (final controller in _callControllers.values) {
+    for (final controller in _callControllers.values.toList()) {
       await controller.close();
     }
     _callControllers.clear();

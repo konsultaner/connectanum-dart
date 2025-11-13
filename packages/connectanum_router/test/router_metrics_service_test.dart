@@ -117,6 +117,9 @@ class _FakeRuntime implements NativeRuntime {
   NativeHttpConnectionEvent? pollHttpConnectionEvent() => null;
 
   @override
+  NativeRouterMetrics? pollRouterMetrics() => null;
+
+  @override
   NativeIncomingMessage? pollMessage(int connectionId) => null;
 
   @override
@@ -176,6 +179,19 @@ class _NoopHandleRuntime extends _FakeRuntime
 
   @override
   String? get libraryPathHint => null;
+
+  @override
+  NativeRouterMetrics? pollRouterMetrics() => const NativeRouterMetrics(
+    totalEvents: 12,
+    gracefulEvents: 8,
+    goAwayEvents: 1,
+    idleTimeoutEvents: 2,
+    bodyTimeoutEvents: 1,
+    protocolErrorEvents: 0,
+    internalErrorEvents: 0,
+    backpressureEvents: 3,
+    maxBackpressureDepth: 4,
+  );
 }
 
 void main() {
@@ -223,6 +239,8 @@ void main() {
         snapshotResult.arguments?.first as Map<String, Object?>;
 
     expect(snapshotPayload['router'], isA<Map<String, Object?>>());
+    final routerMetrics = snapshotPayload['router'] as Map<String, Object?>;
+    expect(routerMetrics['transport'], isNotNull);
     final realms = snapshotPayload['realms'] as List<dynamic>;
     final realmMetrics = realms.cast<Map<String, Object?>>().firstWhere(
       (realm) => realm['realm'] == 'realm1',
@@ -241,6 +259,7 @@ void main() {
     final openMetricsText = openMetricsResult.arguments?.first as String;
     expect(openMetricsText, contains('connectanum_router_realms'));
     expect(openMetricsText, contains('realm="realm1"'));
+    expect(openMetricsText, contains('connectanum_router_http_events_total'));
   });
 }
 

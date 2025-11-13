@@ -2096,7 +2096,10 @@ pub extern "C" fn ct_http_body_stream_read(
             }
             SUCCESS
         }
-        Some(Err(_)) => ERR_IO,
+        Some(Err(err)) => {
+            eprintln!("http body stream read failed: {:?}", err);
+            ERR_IO
+        }
         None => ERR_HANDLE_UNAVAILABLE,
     }
 }

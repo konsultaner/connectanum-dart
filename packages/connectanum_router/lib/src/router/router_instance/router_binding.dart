@@ -313,7 +313,17 @@ class RouterBinding {
         'Metrics collection requires worker isolates and the native runtime.',
       );
     }
-    return boss.collectMetricsSnapshot();
+    final reply = ReceivePort();
+    boss.bossCommandPort.send(_BossGetMetricsCommand(reply.sendPort));
+    final response = await reply.first;
+    reply.close();
+    if (response is RouterMetricsSnapshot) {
+      return response;
+    }
+    if (response is StoreErrorResponse) {
+      throw StateError('Failed to collect metrics: ${response.message}');
+    }
+    throw StateError('Unexpected metrics response: $response');
   }
 
   void _acceptConnections(RouterListener listener) {
@@ -1351,6 +1361,73 @@ class _MetricsService {
       buffer.writeln(
         'connectanum_router_topics_subscribed${_formatLabels({'realm': realm.realm})} ${realm.topicSubscribers}',
       );
+    }
+
+    final transport = routerSnapshot.transport;
+    if (transport != null) {
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_http_events_total Total HTTP connection lifecycle events observed by the runtime',
+        )
+        ..writeln('# TYPE connectanum_router_http_events_total counter')
+        ..writeln(
+          'connectanum_router_http_events_total ${transport.totalEvents}',
+        )
+        ..writeln(
+          '# HELP connectanum_router_http_goaway_total HTTP connections closed via GOAWAY',
+        )
+        ..writeln('# TYPE connectanum_router_http_goaway_total counter')
+        ..writeln(
+          'connectanum_router_http_goaway_total ${transport.goAwayEvents}',
+        )
+        ..writeln(
+          '# HELP connectanum_router_http_idle_timeouts_total HTTP connections closed due to idle timeouts',
+        )
+        ..writeln('# TYPE connectanum_router_http_idle_timeouts_total counter')
+        ..writeln(
+          'connectanum_router_http_idle_timeouts_total ${transport.idleTimeoutEvents}',
+        )
+        ..writeln(
+          '# HELP connectanum_router_http_body_timeouts_total HTTP connections closed due to body timeouts',
+        )
+        ..writeln('# TYPE connectanum_router_http_body_timeouts_total counter')
+        ..writeln(
+          'connectanum_router_http_body_timeouts_total ${transport.bodyTimeoutEvents}',
+        )
+        ..writeln(
+          '# HELP connectanum_router_http_protocol_errors_total HTTP connections closed due to protocol errors',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_http_protocol_errors_total counter',
+        )
+        ..writeln(
+          'connectanum_router_http_protocol_errors_total ${transport.protocolErrorEvents}',
+        )
+        ..writeln(
+          '# HELP connectanum_router_http_internal_errors_total HTTP connections closed due to internal errors',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_http_internal_errors_total counter',
+        )
+        ..writeln(
+          'connectanum_router_http_internal_errors_total ${transport.internalErrorEvents}',
+        )
+        ..writeln(
+          '# HELP connectanum_router_http_backpressure_events_total Count of backpressure incidents observed on HTTP request queues',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_http_backpressure_events_total counter',
+        )
+        ..writeln(
+          'connectanum_router_http_backpressure_events_total ${transport.backpressureEvents}',
+        )
+        ..writeln(
+          '# HELP connectanum_router_http_max_backpressure_depth Maximum pending HTTP request queue depth observed',
+        )
+        ..writeln('# TYPE connectanum_router_http_max_backpressure_depth gauge')
+        ..writeln(
+          'connectanum_router_http_max_backpressure_depth ${transport.maxBackpressureDepth}',
+        );
     }
 
     buffer

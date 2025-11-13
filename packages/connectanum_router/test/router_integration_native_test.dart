@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'dart:isolate';
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:math' as math;
 
 import 'package:async/async.dart';
 import 'package:connectanum_router/src/native/runtime.dart';
@@ -32,6 +33,7 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
   final Map<int, NativeConnectionProtocol> _protocolOverrides = {};
   final Map<int, NativeHttp3Connection> _http3Connections = {};
   final Map<int, Queue<NativeHttp2Handshake>> _http2Handshakes = {};
+  final Set<int> _syntheticConnections = <int>{};
 
   @override
   void start() => _inner.start();
@@ -61,6 +63,7 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
     if (actualId > 0) {
       if (_connections.isNotEmpty) {
         final synthetic = _connections.removeFirst();
+        _syntheticConnections.remove(synthetic);
         _connectionMap[synthetic] = actualId;
         return synthetic;
       }
@@ -87,8 +90,12 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
   }
 
   @override
-  NativeHttpHandshake? takeHttpHandshake(int connectionId) =>
-      _inner.takeHttpHandshake(_resolveConnectionId(connectionId));
+  NativeHttpHandshake? takeHttpHandshake(int connectionId) {
+    if (_syntheticConnections.contains(connectionId)) {
+      return null;
+    }
+    return _inner.takeHttpHandshake(_resolveConnectionId(connectionId));
+  }
 
   @override
   void releaseHttpHandshake(int handle) => _inner.releaseHttpHandshake(handle);
@@ -298,6 +305,9 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
   );
 
   @override
+  NativeRouterMetrics? pollRouterMetrics() => _inner.pollRouterMetrics();
+
+  @override
   void applyRouterConfig(Uint8List config) => _inner.applyRouterConfig(config);
 
   int enqueueTestMessage({
@@ -333,6 +343,7 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
 
   void queueConnection(int connectionId) {
     _connections.add(connectionId);
+    _syntheticConnections.add(connectionId);
   }
 
   void setConnectionProtocol(
@@ -721,6 +732,103 @@ void main() {
       expect(response.trim(), endsWith('service:ok'));
     }, skip: skipReason);
 
+    test(
+      'streams HTTP request and response payloads end-to-end',
+      () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9104,
+        nativeLib: nativeLib,
+      );
+      addTearDown(harness.dispose);
+
+      final binding = harness.binding;
+      final httpSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'http-stream',
+        authRole: 'internal',
+      );
+      addTearDown(httpSession.close);
+
+      final payloadLength = 60000;
+      final requestPayload = Uint8List.fromList(
+        List<int>.generate(payloadLength, (index) => (index % 26) + 65),
+      );
+      final responseChunk = Uint8List.fromList(
+        List<int>.filled(64 * 1024, 0x5A),
+      );
+      final finalChunk = Uint8List.fromList('stream-complete'.codeUnits);
+      const chunkCount = 3;
+
+      final registration = await httpSession.register(
+        'com.example.http.stream',
+      );
+      registration.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull, reason: 'Invocation missing HTTP context');
+        final body = context!.request.body;
+        expect(body, isNotNull);
+        expect(body!.length, equals(requestPayload.length));
+        expect(body, orderedEquals(requestPayload));
+
+        final stream = context.streamResponse(
+          status: 201,
+          headers: const {
+            'content-type': 'application/octet-stream',
+            'x-router': 'native-stream',
+          },
+        );
+        for (var i = 0; i < chunkCount; i++) {
+          stream.add(responseChunk);
+        }
+        stream.close(finalChunk);
+      });
+
+      final listener = binding.listeners.single;
+      final client = HttpClient();
+      addTearDown(() => client.close(force: true));
+      final request = await client.post(
+        '127.0.0.1',
+        listener.port,
+        '/api/stream',
+      );
+      request.contentLength = requestPayload.length;
+      const chunkSize = 32768;
+      await request.addStream(() async* {
+        var offset = 0;
+        while (offset < requestPayload.length) {
+          final end = math.min(offset + chunkSize, requestPayload.length);
+          yield requestPayload.sublist(offset, end);
+          offset = end;
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+      }());
+
+      final response = await request.close();
+      expect(response.statusCode, equals(201));
+      expect(
+        response.headers.value('x-router'),
+        equals('native-stream'),
+      );
+
+      final builder = BytesBuilder(copy: false);
+      await response.forEach(builder.add);
+      final responseBody = builder.takeBytes();
+      final expectedLength =
+          responseChunk.length * chunkCount + finalChunk.length;
+      expect(responseBody.length, equals(expectedLength));
+      expect(
+        responseBody.sublist(0, responseChunk.length),
+        orderedEquals(responseChunk),
+      );
+      expect(
+        responseBody.sublist(
+          responseBody.length - finalChunk.length,
+          responseBody.length,
+        ),
+        orderedEquals(finalChunk),
+      );
+    }, skip: skipReason);
+
     test('reports HTTP/2 connection as pending protocol', () async {
       final harness = await _RouterHarness.start(
         connectionId: 9102,
@@ -847,6 +955,7 @@ RouterConfig _buildConfig() => RouterConfig(
       host: '127.0.0.1',
       port: 0,
       tlsMode: TlsMode.disabled,
+      idleTimeout: const Duration(seconds: 30),
       maxRawSocketSizeExponent: 16,
     ),
   ],
@@ -884,6 +993,13 @@ RouterSettings _buildSettings() {
             action: HttpRouteAction(
               type: HttpRouteActionType.rpc,
               procedure: 'com.example.http.health',
+            ),
+          ),
+          HttpRouteSettings(
+            match: HttpRouteMatch(path: '/api/stream'),
+            action: HttpRouteAction(
+              type: HttpRouteActionType.rpc,
+              procedure: 'com.example.http.stream',
             ),
           ),
         ],

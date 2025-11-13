@@ -12,12 +12,14 @@ class _RouterBoss {
     this.onEvent,
     this.onHttpRequest,
   }) : _eventPort = ReceivePort(),
+       _commandPort = ReceivePort(),
        _stateStore = RouterStateStore(settings: settings) {
     for (final listener in listeners) {
       _listenerById[listener.listenerId] = listener;
     }
     _emitProtocolAnnouncements();
     _eventSubscription = _eventPort.listen(_handleEvent);
+    _commandPort.listen(_handleCommand);
     _stateStore.events.listen(_handleStateEvent);
     _stateStore.start();
   }
@@ -36,6 +38,7 @@ class _RouterBoss {
   onHttpRequest;
 
   final ReceivePort _eventPort;
+  final ReceivePort _commandPort;
   late final StreamSubscription<dynamic> _eventSubscription;
   final Map<int, RouterListener> _listenerById = {};
   final List<_WorkerHandle> _workers = [];
@@ -46,6 +49,7 @@ class _RouterBoss {
   final Map<int, RouterListener> _http3ConnectionListeners = {};
   final RouterStateStore _stateStore;
   NativeRouterMetrics? _lastRouterMetrics;
+  RouterTransportMetrics? _cachedTransportMetrics;
   bool _running = false;
   bool _stopping = false;
   Future<void>? _loopFuture;
@@ -53,6 +57,7 @@ class _RouterBoss {
   int _nextWorkerId = 1;
 
   SendPort get stateCommandPort => _stateStore.commandPort;
+  SendPort get bossCommandPort => _commandPort.sendPort;
 
   void _emitProtocolAnnouncements() {
     for (final listener in listeners) {
@@ -111,6 +116,7 @@ class _RouterBoss {
     }
     await _eventSubscription.cancel();
     _eventPort.close();
+    _commandPort.close();
     _stateStore.dispose();
     for (final worker in _workers.toList()) {
       _shutdownWorker(worker, terminateIsolate: true);
@@ -346,30 +352,65 @@ class _RouterBoss {
   }
 
   void _emitRouterMetrics() {
-    final metrics = runtime.pollRouterMetrics();
-    if (metrics == null) {
+    final nativeMetrics = runtime.pollRouterMetrics();
+    if (nativeMetrics == null) {
+      _lastRouterMetrics = null;
+      _cachedTransportMetrics = null;
       return;
     }
     final last = _lastRouterMetrics;
-    if (last != null && last.sameValues(metrics)) {
+    if (last != null && last.sameValues(nativeMetrics)) {
       return;
     }
-    _lastRouterMetrics = metrics;
+    _lastRouterMetrics = nativeMetrics;
+    final converted = _convertTransportMetrics(nativeMetrics);
+    _cachedTransportMetrics = converted;
     onEvent?.call({
       'source': 'boss',
       'type': 'router_metrics',
       'http': {
-        'totalEvents': metrics.totalEvents,
-        'gracefulEvents': metrics.gracefulEvents,
-        'goAwayEvents': metrics.goAwayEvents,
-        'idleTimeoutEvents': metrics.idleTimeoutEvents,
-        'bodyTimeoutEvents': metrics.bodyTimeoutEvents,
-        'protocolErrorEvents': metrics.protocolErrorEvents,
-        'internalErrorEvents': metrics.internalErrorEvents,
-        'backpressureEvents': metrics.backpressureEvents,
-        'maxBackpressureDepth': metrics.maxBackpressureDepth,
+        'totalEvents': converted.totalEvents,
+        'gracefulEvents': converted.gracefulEvents,
+        'goAwayEvents': converted.goAwayEvents,
+        'idleTimeoutEvents': converted.idleTimeoutEvents,
+        'bodyTimeoutEvents': converted.bodyTimeoutEvents,
+        'protocolErrorEvents': converted.protocolErrorEvents,
+        'internalErrorEvents': converted.internalErrorEvents,
+        'backpressureEvents': converted.backpressureEvents,
+        'maxBackpressureDepth': converted.maxBackpressureDepth,
       },
     });
+  }
+
+  RouterTransportMetrics? _ensureTransportMetrics() {
+    final cached = _cachedTransportMetrics;
+    if (cached != null) {
+      return cached;
+    }
+    final nativeMetrics = runtime.pollRouterMetrics();
+    if (nativeMetrics == null) {
+      _lastRouterMetrics = null;
+      _cachedTransportMetrics = null;
+      return null;
+    }
+    _lastRouterMetrics = nativeMetrics;
+    final converted = _convertTransportMetrics(nativeMetrics);
+    _cachedTransportMetrics = converted;
+    return converted;
+  }
+
+  RouterTransportMetrics _convertTransportMetrics(NativeRouterMetrics metrics) {
+    return RouterTransportMetrics(
+      totalEvents: metrics.totalEvents,
+      gracefulEvents: metrics.gracefulEvents,
+      goAwayEvents: metrics.goAwayEvents,
+      idleTimeoutEvents: metrics.idleTimeoutEvents,
+      bodyTimeoutEvents: metrics.bodyTimeoutEvents,
+      protocolErrorEvents: metrics.protocolErrorEvents,
+      internalErrorEvents: metrics.internalErrorEvents,
+      backpressureEvents: metrics.backpressureEvents,
+      maxBackpressureDepth: metrics.maxBackpressureDepth,
+    );
   }
 
   String _httpConnectionReason(NativeHttpConnectionCloseReason reason) {
@@ -699,6 +740,7 @@ class _RouterBoss {
 
   Future<RouterMetricsSnapshot> collectMetricsSnapshot() async {
     final stateMetrics = await _fetchStateMetrics();
+    final transportMetrics = _ensureTransportMetrics();
     return RouterMetricsSnapshot(
       timestamp: DateTime.now().toUtc(),
       realmCount: stateMetrics.realmCount,
@@ -710,6 +752,7 @@ class _RouterBoss {
       totalPublicationsRouted: stateMetrics.totalPublicationsRouted,
       activeConnections: _connectionOwners.length,
       workerCount: _workers.length,
+      transport: transportMetrics,
     );
   }
 
@@ -1010,6 +1053,33 @@ class _RouterBoss {
     onEvent?.call(payload);
   }
 
+  void _handleCommand(dynamic message) {
+    if (message is _BossGetMetricsCommand) {
+      _respondWithMetricsSnapshot(message.replyPort);
+    }
+  }
+
+  void _respondWithMetricsSnapshot(SendPort replyPort) {
+    unawaited(() async {
+      try {
+        final snapshot = await collectMetricsSnapshot();
+        replyPort.send(snapshot);
+      } catch (error, stackTrace) {
+        replyPort.send(StoreErrorResponse(error.toString()));
+        _reportBossError('metrics_snapshot_error', error, stackTrace);
+      }
+    }());
+  }
+
+  void _reportBossError(String type, Object error, StackTrace stackTrace) {
+    onEvent?.call({
+      'source': 'boss',
+      'type': type,
+      'error': error.toString(),
+      'stackTrace': stackTrace.toString(),
+    });
+  }
+
   void _handleStateEvent(StateChangedEvent event) {
     onEvent?.call({
       'source': 'state',
@@ -1109,6 +1179,16 @@ class _WebSocketSelection {
 
   final String protocol;
   final NativeMessageSerializer serializer;
+}
+
+sealed class _BossCommand {
+  const _BossCommand();
+}
+
+class _BossGetMetricsCommand extends _BossCommand {
+  const _BossGetMetricsCommand(this.replyPort) : super();
+
+  final SendPort replyPort;
 }
 
 const Map<String, NativeMessageSerializer> _webSocketProtocols = {

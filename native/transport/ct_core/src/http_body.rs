@@ -199,6 +199,7 @@ async fn run_http1_stream_reader(
         let request = remaining.min(buffer.len());
         match time::timeout(read_timeout, reader.read(&mut buffer[..request])).await {
             Ok(Ok(0)) => {
+                eprintln!("http/1 body reader: connection closed before body drained");
                 state.mark_error("connection closed before body drained".into());
                 break;
             }
@@ -209,10 +210,12 @@ async fn run_http1_stream_reader(
                 }
             }
             Ok(Err(err)) => {
+                eprintln!("http/1 body reader: read failed: {}", err);
                 state.mark_error(format!("http/1 body read failed: {}", err));
                 break;
             }
             Err(_) => {
+                eprintln!("http/1 body reader: idle timeout");
                 state.mark_error("http/1 body read timed out".into());
                 break;
             }

@@ -1761,6 +1761,10 @@ void main() {
       expect(open.status, 206);
       expect(open.headers['x-stream'], 'true');
       final handle = open.streamHandle;
+      await _waitUntil(
+        () => runtime.closedResponseStreams.contains(handle),
+        timeout: const Duration(seconds: 2),
+      );
       final chunks = runtime.responseStreamChunks[handle];
       expect(chunks, isNotNull);
       expect(chunks, hasLength(3));

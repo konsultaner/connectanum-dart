@@ -11,6 +11,7 @@ discussions on certain topics or implementation specs. Then tell me what's next 
 - have 100% coverage on the new code lines
 - run `dart format .` to format all files
 - run `dart analyze` again
+- run all tests in all packages and native code again to find broken code.
 - check `dart outdated`
 
 ## Running Rust tests locally

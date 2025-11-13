@@ -19,6 +19,8 @@
   - [ ] Finish HTTP/3 implementation: surface stream handles for request/response bodies, manage connection lifecycle, and document operational limits.
   - [ ] Evaluate and implement WAMP-over-HTTP/3/WebTransport (RFC 9220) so browser clients can tunnel WAMP traffic over QUIC with datagram/bidi stream support.
   - [ ] Provide protocol-level metrics and backpressure hooks to the boss/worker pipeline.
+    - [x] Track GOAWAY/backpressure/timeout stats per HTTP/2 and HTTP/3 connection inside `ct_core`, expose aggregated counters via `ct_router_metrics_snapshot`, and have `_RouterBoss` surface them through the metrics stream/OpenMetrics exporter.
+    - [ ] Split counters by listener/protocol and wire boss-side throttling hooks + Prometheus alerting once the exporter can authenticate per-router session.
   - [x] Surface HTTP/2 and HTTP/3 connection lifecycle events (GOAWAY, idle/body timeouts, backpressure) over FFI so Dart can drain connections deterministically and emit diagnostics.
   - [ ] Expose negotiated protocol identifiers via FFI so Dart workers can route WebSocket/HTTP sessions.
   - [ ] Add WebSocket frame streaming support (continuation aggregation, mask handling) with zero-copy forwarding.
@@ -33,23 +35,27 @@
     - [x] Update `NativeHttpRequestBody`/`HttpInvocationContext`/`HttpResponseUtil` in Dart to default to streaming reads/writes while preserving snapshot/copy fallbacks for legacy handlers.
   - [ ] Add end-to-end tests (Rust ffi `listen_flow`, Dart router_runtime/integration) that exercise HTTP/1.1, HTTP/2, HTTP/3, and WebSocket flows (multi-MB uploads/downloads, pointer comparisons, frame forwarding, streaming timeouts) and clean up temp files during teardown.
     - [x] New Rust `listen_flow` coverage for HTTP/2 body timeouts and HTTP/3 idle lifecycle events (synthetic helper under `ffi-test`).
+    - [x] Rust `listen_flow` coverage for HTTP/2 streaming responses (multi-chunk DATA frames flushed via `ct_http_response_stream_*` APIs).
+    - [x] Rust `listen_flow` coverage for HTTP/1.1 streaming responses (chunked writer backed by `ct_http_response_stream_*` APIs).
+    - [x] Router/Dart integration test for HTTP/1.1 streaming uploads/downloads (re-enabled “streams HTTP request and response payloads end-to-end” suite).
+    - [ ] Router/Dart integration tests for HTTP/2 + HTTP/3 streaming uploads/downloads (zero-copy regression harness powering benchmark validation).
 - [ ] HTTP bridge (general-purpose request handling)
   - [ ] Expose bridge configuration via listener protocols with pluggable pipelines (REST→RPC proxy, static asset serving, metrics scraping, custom handlers).
   - [ ] Support translation tables that map HTTP path/method/protocol combinations to explicit WAMP realms and procedures, including per-method overrides and catch-all wildcards.
   - [ ] Provide reserved realm/namespace shorthand so routes can auto-map into a router-managed HTTP realm with deterministic URI derivation (e.g. `/` → `router.http.index`).
   - [ ] Allow namespace-based auto-mapping (path segments → URI prefixes) for teams already organising registrations by namespace.
   - [ ] Enforce method/protocol whitelists from the configuration; return 405/426 at the native layer before touching Dart.
-  - [ ] Keep HTTP payloads zero-copy by exposing request/response body handles over FFI and streaming through Rust.
-  - [ ] Surface structured responses (status, headers, trailers) back to the native runtime without materialising entire payloads in Dart.
+  - [x] Keep HTTP payloads zero-copy by exposing request/response body handles over FFI and streaming through Rust.
+  - [x] Surface structured responses (status, headers, trailers) back to the native runtime without materialising entire payloads in Dart.
   - [ ] Offer middleware hooks (logging, rate limiting, throttling) that run inside worker isolates while heavy I/O remains in Rust.
-  - [ ] Land `HttpRequestContext`/`HttpResponseUtil` in Dart so HTTP routes can read bodies lazily, pipe uploads directly to disk, and send structured responses (status/headers/body) back through the boss without copies.
-  - [ ] Extend FFI to accept structured HTTP responses (status, headers, zero-copy body descriptors, streaming handles) and flush them to the native runtime.
-  - [ ] Provide zero-copy response helpers: in-memory slices, file-backed payloads, and streaming writers with back-pressure.
-  - [ ] Implement initial HTTP response FFI plumbing (status/headers/bytes) in `ct_core`/`ct_ffi` and patch Dart runtime to call it.
+  - [x] Land `HttpRequestContext`/`HttpResponseUtil` in Dart so HTTP routes can read bodies lazily, pipe uploads directly to disk, and send structured responses (status/headers/body) back through the boss without copies.
+  - [x] Extend FFI to accept structured HTTP responses (status, headers, zero-copy body descriptors, streaming handles) and flush them to the native runtime.
+  - [x] Provide zero-copy response helpers: in-memory slices, file-backed payloads, and streaming writers with back-pressure.
+  - [x] Implement initial HTTP response FFI plumbing (status/headers/bytes) in `ct_core`/`ct_ffi` and patch Dart runtime to call it.
   - [ ] Add metrics endpoint handler using the new response pipeline and cover with integration tests.
   - [ ] Add an end-to-end zero-copy HTTP regression test (large request/response) to ensure no stray serialization occurs in Dart.
   - [ ] Introduce adapter pipeline support (static file handler, PHP-FPM/FastCGI bridge, reverse proxy stubs) configurable per route; document adapter contracts and lifecycle.
-  - [ ] Add tests/doc coverage for the new HTTP call contract (Dart unit tests, router integration test asserting response round-trip, native tests validating file/stream paths).
+  - [ ] `Add tests/doc coverage for the new HTTP call contract` (Dart unit tests, router integration test asserting response round-trip, native tests validating file/stream paths).
 - [ ] HTTP authentication & session tokens
   - [ ] Reuse endpoint authenticators (CRA, SCRAM, remote delegates) to issue short-lived access tokens for HTTP clients; tokens include target realm information from a header or query parameter.
   - [ ] Provide a configurable auth/refresh route (defaults to `/auth`) reserved inside the HTTP namespace so clients can obtain and refresh tokens.
@@ -61,8 +67,8 @@
 - [ ] HTTP bridge (general-purpose request handling)
   - [ ] Map incoming REST requests to internal router sessions through an in-memory transport so PHP/FCM or other external services can act as lightweight proxies.
   - [ ] Provide policy-driven routing (path → WAMP procedure/topic, file proxy, custom isolate handler) with per-route auth hooks aligned with realm permissions.
-  - [ ] Support request/response streaming and file-backed payloads to preserve zero-copy semantics for large bodies.
-  - [ ] Surface structured responses (status, headers, trailers) back to the native runtime without materialising entire payloads in Dart.
+  - [x] Support request/response streaming and file-backed payloads to preserve zero-copy semantics for large bodies.
+  - [x] Surface structured responses (status, headers, trailers) back to the native runtime without materialising entire payloads in Dart.
   - [ ] Offer middleware hooks (logging, rate limiting, throttling) that run inside worker isolates while heavy I/O remains in Rust.
 - [ ] HTTP forwarding hooks for custom routing/handling in RPC implementations
   - [ ] Graceful shutdown (drain sessions, send GOODBYE/HTTP responses, stop listeners)
@@ -87,7 +93,7 @@
   - [ ] Reassign connections gracefully during scale-down using drain flow
   - [ ] Integrate load-aware connection assignment (least-busy/weighted policies)
   - [ ] Verify cross-worker parallelism with high-contention integration tests (parallel call/publish workloads)
-- [ ] Meta event dispatch plumbing (session/subscription/registration meta)
+- [x] Meta event dispatch plumbing (session/subscription/registration meta)
 - [ ] Metrics counters / observability hooks
 
 ## Basic Profile (WAMP v2)
@@ -105,12 +111,12 @@
 
 - [x] SUBSCRIBE frame decoding
 - [x] UNSUBSCRIBE frame decoding
-- [ ] Subscription tracking per session/realm
-  - [ ] Unit tests: subscribe/unsubscribe success, invalid/topic errors, session teardown cleanup
-- [ ] Topic publication routing (EVENT)
-  - [ ] Unit tests: publish with ack on/off, exclude/eligible filters, wildcard/prefix routing
-- [ ] Publication IDs / ACK handling
-- [ ] ERROR routing for SUBSCRIBE/UNSUBSCRIBE/PUBLISH
+- [x] Subscription tracking per session/realm
+  - [x] Unit tests: subscribe/unsubscribe success, invalid/topic errors, session teardown cleanup
+- [x] Topic publication routing (EVENT)
+  - [x] Unit tests: publish with ack on/off, exclude/eligible filters, wildcard/prefix routing
+- [x] Publication IDs / ACK handling
+- [x] ERROR routing for SUBSCRIBE/UNSUBSCRIBE/PUBLISH
 - [x] End-to-end zero-copy PUB/SUB dispatch (reuse native frame buffers across subscribers)
   - [x] FFI support for cloning publish frames with patched headers only
   - [x] Worker routing uses native handles instead of Dart re-serialization
@@ -120,13 +126,13 @@
 
 - [x] REGISTER / UNREGISTER decoding
 - [x] CALL / RESULT / ERROR decoding
-- [ ] Registration tracking per realm/session
-  - [ ] Unit tests: register/unregister success, duplicate/ownership enforcement, session cleanup
-  - [ ] Invocation dispatch + RESULT/ERROR forwarding
+- [x] Registration tracking per realm/session
+  - [x] Unit tests: register/unregister success, duplicate/ownership enforcement, session cleanup
+  - [x] Invocation dispatch + RESULT/ERROR forwarding
     - [x] Synthetic RawSocket integration harness (ffi-test mode) covering HELLO→CALL→progressive/final RESULT forwarding
-    - [ ] Unit tests: call→invocation→result, failing callee, timeouts, progressive results placeholder
-- [ ] ERROR handling for REGISTER/UNREGISTER/CALL
-- [ ] CALL cancellation (basic profile – CANCEL)
+    - [x] Unit tests: call→invocation→result, failing callee, timeouts, progressive results placeholder
+- [x] ERROR handling for REGISTER/UNREGISTER/CALL
+- [x] CALL cancellation (basic profile – CANCEL)
 - [x] End-to-end zero-copy RPC dispatch (reuse native call payload buffers)
   - [x] FFI helper for cloning invocation frames without copying arguments
   - [x] Worker invocation forwarding uses cloned native handles
@@ -136,9 +142,9 @@
 
 ### Pub/Sub Enhancements
 
-- [ ] Pattern-based subscriptions (prefix / wildcard with order/priority)
-- [ ] Subscription meta events (created, deleted, on/off subscribe)
-- [ ] Publisher options (exclude_me, eligible/exclude authid/authrole lists)
+- [x] Pattern-based subscriptions (prefix / wildcard with order/priority)
+- [x] Subscription meta events (created, deleted, on/off subscribe)
+- [x] Publisher options (exclude_me, eligible/exclude authid/authrole lists)
 - [ ] Payload persist / retained events
 - [ ] Throttle/debounce hooks driven by client-provided hashes in publish pipeline
   - Reference: [WAMP issue #391 comment](https://github.com/wamp-proto/wamp-proto/issues/391#issuecomment-998577967) for debounce/throttle semantics and hashing strategy.
@@ -146,11 +152,14 @@
 
 ### RPC Enhancements
 
-  - [ ] Shared registrations with invocation policies (round-robin, random, load)
-  - [ ] Shared registration meta events
+  - [x] Shared registrations with invocation policies (round-robin, random, load)
+  - [x] Shared registration meta events
 - [ ] Load-aware invocation balancing (collect CPU/RAM/remote metrics and select least-loaded callee)
-- [ ] Progressive call results (`progress=true`)
+- [x] Progressive call results (`progress=true`)
 - [ ] Call cancellation modes (`kill`, `killnowait`, `killall`) — ensure cancellers can wait for cleanup so subsequent processing shuts down gracefully
+  - [x] `killnowait`
+  - [x] `kill`
+  - [ ] `killall`
 - [ ] Caller disclosure (`caller`, `caller_authid`, `caller_authrole`)
 - [ ] Throttle/debounce hooks driven by client-provided hashes in call pipeline
   - Align behaviour with [WAMP issue #391 comment](https://github.com/wamp-proto/wamp-proto/issues/391#issuecomment-998577967) to allow routers to honour client-provided throttling keys.
@@ -163,10 +172,10 @@
 - [x] Router worker integrates authenticator registry with per-session state/tests
 - [x] Anonymous/no-auth handshake (immediate WELCOME)
 - [ ] Pluggable authenticators (shared client/router implementations):
-  - [ ] Static ticket
-  - [ ] WAMP-CRA (HMAC challenge/response)
-  - [ ] SCRAM (salted challenge/response)
-  - [ ] WAMP-cryptosign / ED25519
+  - [x] Static ticket
+  - [x] WAMP-CRA (HMAC challenge/response)
+  - [x] SCRAM (salted challenge/response)
+  - [x] WAMP-cryptosign / ED25519
   - [x] Remote authentication executor (delegate auth decisions to external service)
     - [x] Document Java interoperability contract (realm `connectanum.authenticate`, procedures `authenticate.hello` / `authenticate.authenticate` / `authenticate.abort`), including expected payload shape and error semantics. See `docs/remote_auth_interop.md`.
     - [x] Implement router-side transaction nonce generator (cryptographically strong, per-session) with bounded TTL and automatic cleanup on client disconnect.
@@ -211,9 +220,9 @@
 - [x] Crossbar-compatible configuration schema + validation tooling
 - [ ] Example gallery for router features
   - [x] CLI demo covering hashed credentials, `CredentialRejection`, and remote delegates (`packages/connectanum_router/example`)
-  - [ ] WebSocket transport demo (router + remote auth server)
+  - [ ] WebSocket transport demo (router and remote auth server)
   - [ ] Stub remote service integration (fake challenge parity)
-- [ ] Comprehensive WAMP feature test suites (basic + advanced)
+- [ ] Comprehensive WAMP feature test suites (basic and advanced)
   - [ ] Basic profile: HELLO/WELCOME, PUB/SUB, RPC, error flows
   - [ ] Advanced profile: pattern subscriptions, shared registrations, cancellation, progressive results
 - [x] Auth server scaffolding (`packages/connectanum_auth_server`) providing the same authenticator API for remote deployments
@@ -222,7 +231,7 @@
 - [ ] Fake challenge parity & stub remote service integration tests
 - [ ] Internal transport support for embedded router↔client flows
   - [ ] Define in-process transport abstraction (frame routing with backpressure)
-  - [ ] Embed internal client inside edge router to speak RemoteAuthenticatorDelegate over the new transport
+  - [ ] Embed internal session inside edge router to speak RemoteAuthenticatorDelegate over the new transport
   - [ ] Auth server runs router instance + internal client that talks to credential providers
   - [ ] Wire configuration knobs for selecting internal vs TCP transports
   - [ ] Migrate existing delegate tests/examples to the internal transport once available
@@ -232,15 +241,16 @@
   - [ ] Implement a reusable load generator (multi-session HELLO/PUB/SUB/RPC workloads) to stress the router.
   - [ ] Expose lightweight instrumentation (per-worker queue depth, handle retention counts, throughput/latency timers) for benchmark reporting.
   - [ ] Add automation scripts that run warm-up + steady-state cycles and emit latency/throughput summaries.
-  - [ ] Ship Prometheus exporters and Grafana dashboards for benchmark metrics visualisation.
+  - [ ] Ship Prometheus exporters and Grafana dashboards for benchmark metrics visualization.
   - [ ] Provide docs/scripts to bootstrap a local Grafana/Prometheus stack alongside benchmarks.
 - [ ] MCP (Model Context Protocol) server implementation for agentic AI integrations
 - [ ] Metrics & logging integration (Prometheus metrics, structured logs, CPU/RAM/throughput gauges)
-  - [ ] Always-on low-cost counters (native/Dart) exposed via on-demand snapshots for benchmark harnesses.
-  - [ ] Configurable metrics exporter isolate (Prometheus) gated by crossbar-compatible config flags to avoid production overhead.
+  - [x] Always-on low-cost counters (native/Dart) exposed via on-demand snapshots for benchmark harnesses. `ct_router_metrics_snapshot` feeds `_RouterBoss` + `_MetricsService`, so the OpenMetrics payload now carries GOAWAY/backpressure/timeout totals.
+  - [ ] Configurable metrics exporter isolates (Prometheus) gated by crossbar-compatible config flags to avoid production overhead.
   - [ ] Sampling windows for high-cost histograms (latency, zero-copy reuse) triggered only during benchmarks.
   - [ ] Metrics realm configuration: expose internal realms via config (enable/disable, rename) and spin up embedded sessions automatically to serve metrics RPCs.
-  - [ ] Metrics exporter produces OpenMetrics-compatible output over a dedicated HTTP listener; bridge requests snapshot RPCs on demand (no background polling).
+  - [ ] Metrics exporter produces OpenMetrics-compatible output over a dedicated HTTP listener; bridge requests snapshot RPCs on demand (no background polling). (Current exporter returns OpenMetrics via WAMP; needs HTTP ingress + auth.)
+  - [ ] Bind the metrics realm to a configurable HTTP endpoint so Prometheus scrapers can poll without a WAMP client (per-router session auth + optional tokens).
   - [ ] Include process/VM stats (RSS, heap, CPU deltas) and native runtime counters in the snapshot so scraped data reflects full router health.
   - [ ] Support zero-copy payload handling in all bridge interactions (lazy decode, file proxying, file-backed responses).
 
