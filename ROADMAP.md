@@ -37,7 +37,9 @@
     - [x] New Rust `listen_flow` coverage for HTTP/2 body timeouts and HTTP/3 idle lifecycle events (synthetic helper under `ffi-test`).
     - [x] Rust `listen_flow` coverage for HTTP/2 streaming responses (multi-chunk DATA frames flushed via `ct_http_response_stream_*` APIs).
     - [x] Rust `listen_flow` coverage for HTTP/1.1 streaming responses (chunked writer backed by `ct_http_response_stream_*` APIs).
+    - [x] Rust `listen_flow` coverage for HTTP/3 streaming responses (QUIC writer exercising `ct_http_response_stream_*` pipelines).
     - [x] Router/Dart integration test for HTTP/1.1 streaming uploads/downloads (re-enabled “streams HTTP request and response payloads end-to-end” suite).
+    - [x] Router runtime tests verifying `_HttpResponseStream` plumbing for HTTP/2 and HTTP/3 handshakes (synthetic boss harness).
     - [ ] Router/Dart integration tests for HTTP/2 + HTTP/3 streaming uploads/downloads (zero-copy regression harness powering benchmark validation).
 - [ ] HTTP bridge (general-purpose request handling)
   - [ ] Expose bridge configuration via listener protocols with pluggable pipelines (REST→RPC proxy, static asset serving, metrics scraping, custom handlers).
@@ -241,6 +243,8 @@
   - [ ] Implement a reusable load generator (multi-session HELLO/PUB/SUB/RPC workloads) to stress the router.
   - [ ] Expose lightweight instrumentation (per-worker queue depth, handle retention counts, throughput/latency timers) for benchmark reporting.
   - [ ] Add automation scripts that run warm-up + steady-state cycles and emit latency/throughput summaries.
+  - [x] Ship the HTTP/2 streaming benchmark harness (`packages/connectanum_router/tool/http_stream_bench.dart`) that drives real uploads/downloads and reports router transport metric deltas via `binding.collectMetrics()`.
+  - [ ] Extend the harness for HTTP/3/TLS runs, persist OpenMetrics snapshots after each run, and integrate the results with Prometheus dashboards.
   - [ ] Ship Prometheus exporters and Grafana dashboards for benchmark metrics visualization.
   - [ ] Provide docs/scripts to bootstrap a local Grafana/Prometheus stack alongside benchmarks.
 - [ ] MCP (Model Context Protocol) server implementation for agentic AI integrations

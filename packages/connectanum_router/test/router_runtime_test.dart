@@ -248,6 +248,10 @@ class _FakeRuntime implements NativeRuntime {
     _httpHandshakes.putIfAbsent(connectionId, Queue.new).add(handshake);
   }
 
+  void enqueueConnection(int listenerId, int connectionId) {
+    _pendingConnections.putIfAbsent(listenerId, Queue.new).add(connectionId);
+  }
+
   @override
   NativeHttpConnectionEvent? pollHttpConnectionEvent() {
     if (_httpConnectionEvents.isEmpty) {
@@ -1772,6 +1776,184 @@ void main() {
       expect(utf8.decode(chunks[1]), 'part-b');
       expect(utf8.decode(chunks[2]), 'final');
       expect(runtime.closedResponseStreams.contains(handle), isTrue);
+    },
+  );
+
+  test(
+    'streams HTTP/2 response chunks using native streams',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithPendingProtocols(),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      const connectionId = 44;
+
+      final internalSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+      );
+      final registered = await internalSession.register(
+        'com.example.api.stream',
+      );
+      registered.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull);
+        final stream = context!.streamResponse(
+          status: 207,
+          headers: const {'x-http2': 'true'},
+        );
+        stream.add(utf8.encode('h2-a'));
+        stream.add(utf8.encode('h2-b'));
+        stream.close(utf8.encode('done'));
+      });
+
+      runtime.setConnectionProtocol(
+        connectionId,
+        NativeConnectionProtocol.http2,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 11,
+          method: 'GET',
+          target: '/api/stream',
+          path: '/api/stream',
+          protocol: 'http/2',
+          headers: const {'x-test': 'h2'},
+          body: Uint8List(0),
+          realm: 'realm1',
+          procedure: 'com.example.api.stream',
+        ),
+      );
+
+      await _waitUntil(
+        () => runtime.responseStreamOpens.isNotEmpty,
+        timeout: const Duration(seconds: 2),
+      );
+
+      final open = runtime.responseStreamOpens.single;
+      expect(open.handshakeHandle, 11);
+      expect(open.status, 207);
+      expect(open.headers['x-http2'], 'true');
+      final handle = open.streamHandle;
+      await _waitUntil(
+        () => runtime.closedResponseStreams.contains(handle),
+        timeout: const Duration(seconds: 2),
+      );
+      final chunks = runtime.responseStreamChunks[handle];
+      expect(chunks, isNotNull);
+      expect(chunks, hasLength(3));
+      expect(utf8.decode(chunks![0]), 'h2-a');
+      expect(utf8.decode(chunks[1]), 'h2-b');
+      expect(utf8.decode(chunks[2]), 'done');
+    },
+  );
+
+  test(
+    'streams HTTP/3 response chunks using native streams',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithPendingProtocols(),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      const connectionId = 45;
+
+      final internalSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+      );
+      final registered = await internalSession.register(
+        'com.example.api.stream',
+      );
+      registered.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull);
+        final stream = context!.streamResponse(
+          status: 208,
+          headers: const {'x-http3': 'true'},
+        );
+        stream.add(utf8.encode('h3-a'));
+        stream.close(utf8.encode('final-h3'));
+      });
+
+      runtime.enqueueConnection(listenerId, connectionId);
+      runtime.setConnectionProtocol(
+        connectionId,
+        NativeConnectionProtocol.http3,
+      );
+      runtime.enqueueHttp3Handshake(
+        connectionId,
+        NativeHttp3Handshake.synthetic(
+          handle: 21,
+          protocol: 'http/3',
+          listenerProtocols: const ['rawsocket', 'http', 'http2', 'http3'],
+        ),
+      );
+      runtime.enqueueHttp3Request(
+        connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 22,
+          method: 'GET',
+          target: '/api/stream',
+          path: '/api/stream',
+          protocol: 'http/3',
+          headers: const {'x-test': 'h3'},
+          body: Uint8List(0),
+          realm: 'realm1',
+          procedure: 'com.example.api.stream',
+        ),
+      );
+
+      await _waitUntil(
+        () => runtime.responseStreamOpens.isNotEmpty,
+        timeout: const Duration(seconds: 2),
+      );
+
+      final open = runtime.responseStreamOpens.single;
+      expect(open.handshakeHandle, 22);
+      expect(open.status, 208);
+      expect(open.headers['x-http3'], 'true');
+      final handle = open.streamHandle;
+      await _waitUntil(
+        () => runtime.closedResponseStreams.contains(handle),
+        timeout: const Duration(seconds: 2),
+      );
+      final chunks = runtime.responseStreamChunks[handle];
+      expect(chunks, isNotNull);
+      expect(chunks, hasLength(2));
+      expect(utf8.decode(chunks![0]), 'h3-a');
+      expect(utf8.decode(chunks[1]), 'final-h3');
     },
   );
 

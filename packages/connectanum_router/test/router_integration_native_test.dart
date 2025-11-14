@@ -19,6 +19,7 @@ import 'package:connectanum_router/src/router/router_instance.dart';
 import 'package:connectanum_router/src/router/state/commands.dart';
 import 'package:connectanum_router/src/router/state/snapshot.dart';
 import 'package:test/test.dart';
+import 'package:http2/transport.dart' as http2;
 
 class _HybridRuntime implements NativeRuntimeWithHandles {
   _HybridRuntime(this._inner, List<int> connectionSequence)
@@ -732,9 +733,7 @@ void main() {
       expect(response.trim(), endsWith('service:ok'));
     }, skip: skipReason);
 
-    test(
-      'streams HTTP request and response payloads end-to-end',
-      () async {
+    test('streams HTTP request and response payloads end-to-end', () async {
       final harness = await _RouterHarness.start(
         connectionId: 9104,
         nativeLib: nativeLib,
@@ -805,10 +804,7 @@ void main() {
 
       final response = await request.close();
       expect(response.statusCode, equals(201));
-      expect(
-        response.headers.value('x-router'),
-        equals('native-stream'),
-      );
+      expect(response.headers.value('x-router'), equals('native-stream'));
 
       final builder = BytesBuilder(copy: false);
       await response.forEach(builder.add);
@@ -826,6 +822,114 @@ void main() {
           responseBody.length,
         ),
         orderedEquals(finalChunk),
+      );
+    }, skip: skipReason);
+
+    test('streams HTTP/2 request and response payloads end-to-end', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9105,
+        nativeLib: nativeLib,
+      );
+      addTearDown(harness.dispose);
+
+      final binding = harness.binding;
+      final httpSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'http2-stream',
+        authRole: 'internal',
+      );
+      addTearDown(httpSession.close);
+
+      final payloadLength = 60000;
+      final requestPayload = Uint8List.fromList(
+        List<int>.generate(payloadLength, (index) => index % 251),
+      );
+      final responseChunk = Uint8List.fromList(
+        List<int>.filled(24 * 1024, 0x41),
+      );
+      const chunkCount = 4;
+
+      final registration = await httpSession.register(
+        'com.example.http.stream',
+      );
+      registration.onInvoke((invocation) async {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull, reason: 'Invocation missing HTTP context');
+        final body = context!.request.body;
+        expect(body, isNotNull);
+        expect(body!.length, equals(requestPayload.length));
+        expect(body, orderedEquals(requestPayload));
+
+        final stream = context.streamResponse(
+          status: 207,
+          headers: const {'x-router': 'native-h2'},
+        );
+        for (var i = 0; i < chunkCount; i++) {
+          stream.add(responseChunk);
+        }
+        stream.close();
+      });
+
+      final listener = binding.listeners.single;
+      final socket = await Socket.connect('127.0.0.1', listener.port);
+      addTearDown(() => socket.destroy());
+      final connection = http2.ClientTransportConnection.viaSocket(socket);
+      addTearDown(() async {
+        await connection.finish();
+      });
+
+      final headers = <http2.Header>[
+        http2.Header.ascii(':method', 'POST'),
+        http2.Header.ascii(':scheme', 'http'),
+        http2.Header.ascii(':path', '/api/stream'),
+        http2.Header.ascii(':authority', '127.0.0.1:${listener.port}'),
+        http2.Header.ascii('content-type', 'application/octet-stream'),
+        http2.Header.ascii('content-length', payloadLength.toString()),
+      ];
+      final stream = connection.makeRequest(headers, endStream: false);
+      const chunkSize = 32768;
+      var offset = 0;
+      while (offset < requestPayload.length) {
+        final end = math.min(offset + chunkSize, requestPayload.length);
+        stream.outgoingMessages.add(
+          http2.DataStreamMessage(
+            Uint8List.sublistView(requestPayload, offset, end),
+          ),
+        );
+        offset = end;
+      }
+      await stream.outgoingMessages.close();
+
+      var statusCode = 0;
+      final buffer = BytesBuilder(copy: false);
+      await for (final message in stream.incomingMessages) {
+        if (message is http2.HeadersStreamMessage) {
+          for (final header in message.headers) {
+            final name = utf8.decode(header.name);
+            if (name == ':status') {
+              statusCode =
+                  int.tryParse(utf8.decode(header.value)) ?? statusCode;
+            }
+          }
+        } else if (message is http2.DataStreamMessage) {
+          buffer.add(message.bytes);
+        }
+      }
+
+      expect(statusCode, equals(207));
+      final responseBody = buffer.takeBytes();
+      final expectedLength = responseChunk.length * chunkCount;
+      expect(responseBody.length, equals(expectedLength));
+      expect(
+        responseBody.sublist(0, responseChunk.length),
+        orderedEquals(responseChunk),
+      );
+      expect(
+        responseBody.sublist(
+          responseBody.length - responseChunk.length,
+          responseBody.length,
+        ),
+        orderedEquals(responseChunk),
       );
     }, skip: skipReason);
 

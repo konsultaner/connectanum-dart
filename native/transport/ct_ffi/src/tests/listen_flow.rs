@@ -1488,6 +1488,207 @@ fn http3_request_round_trip_over_network() {
 }
 
 #[test]
+fn http3_response_streaming_round_trip() {
+    let _guard = super::test_guard();
+    let certified =
+        generate_simple_self_signed(vec!["localhost".into(), "127.0.0.1".into()]).unwrap();
+    let cert_pem = certified.cert.pem();
+    let key_pem = certified.key_pair.serialize_pem();
+    let cert_der = certified.cert.der().to_vec();
+
+    let config_json = json!({
+        "schema":"connectanum.router",
+        "version":1,
+        "endpoints":[
+            {
+                "host":"127.0.0.1",
+                "port":0,
+                "tls_mode":"native",
+                "protocols":["rawsocket","http","http2","http3"],
+                "sni_certificates":[
+                    {
+                        "hostname":"localhost",
+                        "certificate_chain_pem":cert_pem,
+                        "private_key_pem":key_pem
+                    }
+                ],
+                "http":{
+                    "alpn":["http/1.1","h2","h3"],
+                    "http3":{"enabled":true}
+                },
+                "http_routes":[
+                    {
+                        "path":"/h3stream",
+                        "match_kind":"prefix",
+                        "methods":{
+                            "GET":{
+                                "type":"reserved_realm",
+                                "append_method_suffix":true
+                            }
+                        }
+                    }
+                ]
+            }
+        ]
+    });
+    let config_string = config_json.to_string();
+    let config = CString::new(config_string).unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let (ready_tx, ready_rx) = std::sync::mpsc::channel();
+    let chunk = vec![b'r'; 24 * 1024];
+    let chunk_count = 3;
+    let trailer = b"h3-stream-finished";
+    let client_handle = std::thread::spawn(move || {
+        let rt = TokioRuntime::new().unwrap();
+        rt.block_on(async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let server_addr = addr.parse().unwrap();
+
+            let mut roots = RootCertStore::empty();
+            roots
+                .add(CertificateDer::from(cert_der.clone()))
+                .expect("add root cert");
+            let mut client_config =
+                QuinnClientConfig::with_root_certificates(Arc::new(roots)).unwrap();
+            client_config.transport_config(Arc::new(TransportConfig::default()));
+
+            let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+            endpoint.set_default_client_config(client_config);
+            let connecting = endpoint
+                .connect(server_addr, "localhost")
+                .expect("connect http3");
+            let connection = connecting.await.expect("http3 handshake");
+
+            let (mut driver, mut send_request) = h3_client::builder()
+                .build::<_, _, Bytes>(H3QuinnConnection::new(connection))
+                .await
+                .expect("build h3 client");
+            tokio::spawn(async move {
+                let _ = future::poll_fn(|cx| driver.poll_close(cx)).await;
+            });
+
+            let request = Request::get("https://localhost/h3stream").body(()).unwrap();
+            ready_tx.send(()).unwrap();
+            let mut stream = send_request
+                .send_request(request)
+                .await
+                .expect("send request");
+            stream
+                .finish()
+                .await
+                .expect("finish sending request body");
+            let response = stream.recv_response().await.expect("recv response");
+            let mut body = Vec::new();
+            while let Some(chunk) = stream.recv_data().await.expect("recv data") {
+                let data = chunk.chunk();
+                body.extend_from_slice(data);
+            }
+            (response.status().as_u16(), body)
+        })
+    });
+
+    ready_rx.recv().expect("client ready");
+
+    let connection_id = {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            let id = ct_poll_connection(listener_id);
+            if id > 0 {
+                break id;
+            }
+            if Instant::now() > deadline {
+                panic!("timed out waiting for HTTP/3 connection");
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    };
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP3);
+
+    let request_handle = {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            let handle = ct_http3_connection_poll_request(connection_id);
+            if handle > 0 {
+                break handle;
+            }
+            if Instant::now() > deadline {
+                panic!("timed out waiting for HTTP/3 request");
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    };
+    assert!(request_handle > 0);
+
+    let mut info = CtHttpHandshakeInfo::default();
+    assert_eq!(
+        ct_http_handshake_get(request_handle, &mut info as *mut CtHttpHandshakeInfo),
+        SUCCESS
+    );
+    unsafe {
+        let path = std::slice::from_raw_parts(info.path_ptr, info.path_len);
+        assert_eq!(std::str::from_utf8(path).unwrap(), "/h3stream");
+        let protocol = std::slice::from_raw_parts(info.protocol_ptr, info.protocol_len);
+        assert_eq!(std::str::from_utf8(protocol).unwrap(), "http/3");
+    }
+
+    let header_name = CString::new("content-type").unwrap();
+    let header_value = CString::new("application/octet-stream").unwrap();
+    let headers = [CtHttpHeader {
+        name_ptr: header_name.as_ptr() as *const u8,
+        name_len: header_name.as_bytes().len(),
+        value_ptr: header_value.as_ptr() as *const u8,
+        value_len: header_value.as_bytes().len(),
+    }];
+
+    let stream_handle = ct_http_response_stream_open(
+        request_handle,
+        206,
+        headers.as_ptr(),
+        headers.len(),
+    );
+    assert!(stream_handle > 0);
+
+    for _ in 0..chunk_count {
+        assert_eq!(
+            ct_http_response_stream_write(stream_handle, chunk.as_ptr(), chunk.len()),
+            SUCCESS
+        );
+    }
+    assert_eq!(
+        ct_http_response_stream_write(
+            stream_handle,
+            trailer.as_ptr(),
+            trailer.len()
+        ),
+        SUCCESS
+    );
+    assert_eq!(ct_http_response_stream_finish(stream_handle), SUCCESS);
+    assert_eq!(ct_http_handshake_release(request_handle), SUCCESS);
+
+    let (status, response_body) = client_handle.join().expect("client result");
+    assert_eq!(status, 206);
+    let expected_len = chunk.len() * chunk_count + trailer.len();
+    assert_eq!(response_body.len(), expected_len);
+    assert!(response_body[..chunk.len()].iter().all(|byte| *byte == b'r'));
+    assert!(response_body.ends_with(trailer));
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
 fn http2_body_timeout_emits_connection_event() {
     let _guard = super::test_guard();
     let config_json = json!({

@@ -19,8 +19,8 @@ Focus for the next session:
    - Mirror those scenarios in Dart (`router_runtime_test.dart`, worker/boss suites) so regressions get caught before Prometheus/benchmark runs.
 
 3. **HTTP Streaming Regression Coverage**
-   - ✅ HTTP/1.1 chunked writers + `_HttpResponseStream` plumbing are live: `listen_flow::http_response_streaming_round_trip` covers the native writer and the router integration test now streams 60 KB uploads/downloads without tripping idle timeouts.
-   - Next: mirror the same coverage for HTTP/2/HTTP/3 on the Dart side (bridge `_HttpResponseStream` into the h2 dispatcher, then expose QUIC streaming handles) and grow the payload sizes toward the benchmark targets.
+   - ✅ HTTP/1.1 chunked writers + `_HttpResponseStream` plumbing are live, `listen_flow::http_response_streaming_round_trip` covers the native writer, router integration tests stream 60 KB uploads/downloads, `listen_flow::http3_response_streaming_round_trip` exercises the QUIC path, boss/runtime tests cover HTTP/2+HTTP/3 streaming, and the new `tool/http_stream_bench.dart` CLI drives real HTTP/2 transfers while reporting router transport metric deltas.
+   - Next: extend the harness to cover HTTP/3/TLS + multi-worker runs, persist the metrics snapshots (or expose them over the Prometheus endpoint), and wire the tool into the benchmark workflow so regressions show up before release.
    - Add the dedicated zero-copy HTTP regression harness the user requested (Rust listen_flow + Dart router/integration) so Prometheus exporters and perf scripts can rely on multi-MB streaming tests before each run.
 
 4. **WebSocket Transport Completion**
