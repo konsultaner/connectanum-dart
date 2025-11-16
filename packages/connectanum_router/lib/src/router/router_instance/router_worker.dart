@@ -18,6 +18,12 @@ const int _workerEventShutdown = 4;
 const int _workerEventConnectionAdded = 5;
 const int _workerEventConnectionRemoved = 6;
 const int _workerEventDrained = 7;
+const int _workerEventCallReceived = 8;
+const int _workerEventCallDispatched = 9;
+const int _workerEventCallDispatchComplete = 10;
+const int _workerEventCallDispatchError = 11;
+const int _workerEventPublishRouted = 12;
+const int _workerEventWorkerShutdown = 13;
 
 final json_serializer.Serializer _jsonSerializer = json_serializer.Serializer();
 final msgpack_serializer.Serializer _msgpackSerializer =

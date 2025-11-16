@@ -1,0 +1,39 @@
+name = "h2_smoke"
+description = "Minimal HTTP/2 streaming echo workload used for harness bring-up."
+
+[[workloads]]
+name = "warmup"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 2
+concurrency = 1
+request_bytes = 65536
+response_bytes = 65536
+request_chunk_bytes = 32768
+response_chunk_bytes = 32768
+warmup_ms = 500
+
+[[workloads]]
+name = "load"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 4
+concurrency = 2
+request_bytes = 262144
+response_bytes = 262144
+request_chunk_bytes = 65536
+response_chunk_bytes = 65536
+
+[[workloads]]
+name = "h3_probe"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 2
+concurrency = 1
+request_bytes = 131072
+response_bytes = 131072
+request_chunk_bytes = 32768
+response_chunk_bytes = 32768

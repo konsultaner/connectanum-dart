@@ -1,0 +1,12 @@
+# Prometheus scrape configuration for the bench harness.
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: connectanum-bench
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          # Docker resolves host.docker.internal on macOS/Windows automatically.
+          # For Linux this compose stack adds an extra host entry pointing to host-gateway.
+          - host.docker.internal:8080

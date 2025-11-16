@@ -1,12 +1,11 @@
 # Next Session Overview
 
 Fresh state:
-- PUB/SUB routing runs end-to-end (filters + ACK logic) and now has regression coverage for zero-copy failure paths (handles released when native forwarding fails).
+- PUB/SUB has non-blocking ACK handling with `worker_publish_routed` tracing; the standalone rawsocket publish+ACK test now passes (`publish_ack_test.dart` against `libct_ffi.so`).
+- WAMP bench/pubsub hangs fixed: EVENT serialization now includes details/kwargs and guards malformed kwargs, so `wamp_smoke` completes cleanly (pubsub + rpc) with 4 publishers/subscribers.
 - RPC flow supports full invocation lifecycle, including `CANCEL` modes and zero-copy RESULT/ERROR forwarding with buffer-release tests.
-- Router boss→worker drain pipeline is validated: stop() sends server-initiated GOODBYE frames, drains sessions, and workers signal completion.
 - Analyzer still reports info-level issues isolated to `packages/connectanum_auth_server`; production packages are clean.
-- JSON/MessagePack/CBOR serializers now preserve custom option/detail fields, keeping throttle/debounce metadata available across the stack.
-- HTTP/2 and HTTP/3 responses can now stream directly from Rust into Dart (`context.streamResponse`), and the router binding turns progressive results into native DATA frames without buffering multi-MB payloads.
+- JSON/MessagePack/CBOR serializers preserve custom option/detail fields; HTTP/2 and HTTP/3 responses stream directly from Rust into Dart (`context.streamResponse`) without buffering multi-MB payloads.
 
 Focus for the next session:
 1. **Boss Telemetry Stream & Prometheus Exporter**
@@ -19,8 +18,8 @@ Focus for the next session:
    - Mirror those scenarios in Dart (`router_runtime_test.dart`, worker/boss suites) so regressions get caught before Prometheus/benchmark runs.
 
 3. **HTTP Streaming Regression Coverage**
-   - ✅ HTTP/1.1 chunked writers + `_HttpResponseStream` plumbing are live, `listen_flow::http_response_streaming_round_trip` covers the native writer, router integration tests stream 60 KB uploads/downloads, `listen_flow::http3_response_streaming_round_trip` exercises the QUIC path, boss/runtime tests cover HTTP/2+HTTP/3 streaming, and the new `tool/http_stream_bench.dart` CLI drives real HTTP/2 transfers while reporting router transport metric deltas.
-   - Next: extend the harness to cover HTTP/3/TLS + multi-worker runs, persist the metrics snapshots (or expose them over the Prometheus endpoint), and wire the tool into the benchmark workflow so regressions show up before release.
+  - ✅ HTTP/1.1 chunked writers + `_HttpResponseStream` plumbing are live, `listen_flow::http_response_streaming_round_trip` covers the native writer, router integration tests stream 60 KB uploads/downloads, `listen_flow::http3_response_streaming_round_trip` exercises the QUIC path, boss/runtime tests cover HTTP/2+HTTP/3 streaming, the new `tool/http_stream_bench.dart` CLI drives real HTTP/2 transfers while reporting router transport metric deltas, the bench runner exposes `/bench/*` HTTP control routes, and the Rust orchestrator now loads TOML scenarios (`h2_smoke`, `full_stack`) to drive HTTP/2 workloads via `hyper` and HTTP/3 workloads via `quinn`/`h3`, recording router metrics snapshots + JSONL summaries before stopping the Dart runner. Per-workload timeouts ensure hung regressions self-abort, the Dart bench process now always exits cleanly after `/bench/stop`, and every `/bench/metrics` call returns the OpenMetrics payload which is stored as `open_metrics_before`/`open_metrics_after` in `bench_results.jsonl`.
+   - Next: publish the captured OpenMetrics blobs to a Prometheus/Grafana stack (either by scraping the embedded exporter or transforming the JSONL output), then wire the harness into CI so regressions surface before release.
    - Add the dedicated zero-copy HTTP regression harness the user requested (Rust listen_flow + Dart router/integration) so Prometheus exporters and perf scripts can rely on multi-MB streaming tests before each run.
 
 4. **WebSocket Transport Completion**

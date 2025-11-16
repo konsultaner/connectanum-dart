@@ -10,3 +10,5 @@ coverage
 Cargo.lock
 /native/transport/tmp/
 *.g.dart
+/native/bench/target/
+bench_results.jsonl

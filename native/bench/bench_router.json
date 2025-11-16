@@ -1,0 +1,171 @@
+{
+  "router": {
+    "realms": [
+      {
+        "name": "bench.control",
+        "auth": {
+          "authmethods": ["anonymous"]
+        },
+        "roles": [
+          {
+            "name": "bench",
+            "permissions": [
+              {
+                "uri": "",
+                "match": "prefix",
+                "allow": [
+                  "register",
+                  "unregister",
+                  "subscribe",
+                  "unsubscribe",
+                  "publish",
+                  "call"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "connectanum.metrics",
+        "auth": {
+          "authmethods": ["anonymous"]
+        },
+        "roles": [
+          {
+            "name": "metrics",
+            "permissions": [
+              {
+                "uri": "",
+                "match": "prefix",
+                "allow": [
+                  "register",
+                  "unregister",
+                  "subscribe",
+                  "unsubscribe",
+                  "publish",
+                  "call"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "listeners": [
+      {
+        "endpoint": "127.0.0.1:8080",
+        "authmethods": ["anonymous"],
+        "protocols": ["rawsocket", "http", "http2", "http3"],
+        "tls": {
+          "mode": "native",
+          "sni_certificates": [
+            {
+              "hostname": "localhost",
+              "certificate_chain_file": "native/bench/bench_tls.crt",
+              "private_key_file": "native/bench/bench_tls.key"
+            }
+          ]
+        },
+        "rawsocket": {
+          "max_rawsocket_size_exponent": 18
+        },
+        "http": {
+          "alpn": ["h3", "h2", "http/1.1"],
+          "http3": {
+            "enabled": true,
+            "port": 8443
+          },
+          "routes": [
+            {
+              "match": {
+                "path": "/bench/healthz",
+                "methods": ["GET"]
+              },
+              "action": {
+                "type": "rpc",
+                "realm": "bench.control",
+                "procedure": "bench.http.healthz"
+              }
+            },
+            {
+              "match": {
+                "path": "/bench/metrics",
+                "methods": ["GET"]
+              },
+              "action": {
+                "type": "rpc",
+                "realm": "bench.control",
+                "procedure": "bench.http.metrics"
+              }
+            },
+            {
+              "match": {
+                "path": "/bench/stop",
+                "methods": ["POST"]
+              },
+              "action": {
+                "type": "rpc",
+                "realm": "bench.control",
+                "procedure": "bench.http.stop"
+              }
+            },
+            {
+              "match": {
+                "path": "/bench/stream",
+                "methods": ["POST"]
+              },
+              "action": {
+                "type": "rpc",
+                "realm": "bench.control",
+                "procedure": "bench.http.stream"
+              }
+            },
+            {
+              "match": {
+                "path": "/bench/wamp",
+                "methods": ["POST"]
+              },
+              "action": {
+                "type": "rpc",
+                "realm": "bench.control",
+                "procedure": "bench.http.wamp"
+              }
+            },
+            {
+              "match": {
+                "path": "/metrics",
+                "methods": ["GET"]
+              },
+              "action": {
+                "type": "rpc",
+                "realm": "connectanum.metrics",
+                "procedure": "connectanum.metrics.openmetrics"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "internal_realms": [
+      {
+        "name": "connectanum.metrics",
+        "auth_id": "bench-metrics",
+        "auth_role": "metrics",
+        "services": ["metrics"]
+      }
+    ],
+    "metrics": {
+      "open_metrics": {
+        "enabled": true,
+        "path": "/metrics",
+        "realm": "connectanum.metrics"
+      }
+    },
+    "authenticators": {
+      "anonymous": {
+        "type": "anonymous"
+      }
+    }
+  }
+}

@@ -90,7 +90,9 @@ class _RouterBoss {
     _loopFuture = _loop();
   }
 
-  Future<void> stop() async {
+  Future<void> stop({
+    Duration drainTimeout = const Duration(seconds: 15),
+  }) async {
     if (_stopping) {
       return;
     }
@@ -109,7 +111,20 @@ class _RouterBoss {
     _running = false;
     final loop = _loopFuture;
     if (drainFutures.isNotEmpty) {
-      await Future.wait(drainFutures);
+      try {
+        await Future.wait(drainFutures).timeout(drainTimeout);
+      } on TimeoutException {
+        // Kill any workers that failed to drain in time.
+        for (final worker in _workers.toList()) {
+          _shutdownWorker(worker, terminateIsolate: true);
+        }
+        _workers.clear();
+        onEvent?.call({
+          'source': 'boss',
+          'type': 'worker_drain_timeout',
+          'timeout_ms': drainTimeout.inMilliseconds,
+        });
+      }
     }
     if (loop != null) {
       await loop;
@@ -1033,6 +1048,34 @@ class _RouterBoss {
       payload
         ..['type'] = 'worker_shutdown'
         ..['connectionId'] = connectionId;
+    } else if (type == _workerEventCallReceived) {
+      payload
+        ..['type'] = 'worker_call_received'
+        ..addAll(message.cast<String, Object?>());
+    } else if (type == _workerEventCallDispatched) {
+      payload
+        ..['type'] = 'worker_call_dispatched'
+        ..addAll(message.cast<String, Object?>());
+    } else if (type == _workerEventCallDispatchComplete) {
+      payload
+        ..['type'] = 'worker_call_dispatch_complete'
+        ..addAll(message.cast<String, Object?>());
+    } else if (type == _workerEventCallDispatchError) {
+      payload
+        ..['type'] = 'worker_call_dispatch_error'
+        ..addAll(message.cast<String, Object?>());
+    } else if (type == _workerEventPublishRouted) {
+      payload
+        ..['type'] = 'worker_publish_routed'
+        ..addAll(message.cast<String, Object?>());
+    } else if (type == _workerEventWorkerShutdown) {
+      payload
+        ..['type'] = 'worker_shutdown_event'
+        ..addAll(message.cast<String, Object?>());
+    } else if (type == _workerEventWorkerShutdown) {
+      payload
+        ..['type'] = 'worker_shutdown_event'
+        ..addAll(message.cast<String, Object?>());
     } else if (type == _workerEventError) {
       final connectionId = message['connectionId'] as int?;
       if (connectionId != null) {

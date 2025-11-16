@@ -342,8 +342,20 @@ class Serializer extends AbstractSerializer {
         message.arguments = messageData[argumentsOffset] as List<dynamic>?;
       }
       if (messageData.length >= argumentsOffset + 2) {
-        message.argumentsKeywords =
-            messageData[argumentsOffset + 1] as Map<String, dynamic>?;
+        final rawKwargs = messageData[argumentsOffset + 1];
+        if (rawKwargs is Map) {
+          // Defensive copy to avoid downstream mutation surprises.
+          message.argumentsKeywords = Map<String, Object?>.from(
+            rawKwargs as Map<Object?, Object?>,
+          );
+        } else {
+          // Some routers may send kwargs as an unexpected type (e.g. a list).
+          // Skip them to keep deserialization resilient.
+          _logger.warning(
+            'Unexpected kwargs type (${rawKwargs.runtimeType}), dropping payload',
+          );
+          message.argumentsKeywords = null;
+        }
       }
       _convertMessagePayloadBinaryJsonStringToUint8List(message);
     }
@@ -451,7 +463,8 @@ class Serializer extends AbstractSerializer {
       return '[${MessageTypes.codePublished},${message.publishRequestId},${message.publicationId}]';
     }
     if (message is Event) {
-      return '[${MessageTypes.codeEvent},${message.subscriptionId},${message.publicationId}${_serializePayload(message)}]';
+      final detailsJson = _serializeEventDetails(message.details);
+      return '[${MessageTypes.codeEvent},${message.subscriptionId},${message.publicationId},$detailsJson${_serializePayload(message)}]';
     }
     if (message is Subscribe) {
       return '[${MessageTypes.codeSubscribe},${message.requestId},${_serializeSubscribeOptions(message.options)},"${message.topic}"]';
@@ -477,6 +490,30 @@ class Serializer extends AbstractSerializer {
         }
       }
       return '[${MessageTypes.codeUnsubscribed},${message.unsubscribeRequestId}]';
+    }
+    if (message is Result) {
+      final details = <String, Object?>{};
+      final resultDetails = message.details;
+      if (resultDetails.progress != null) {
+        details['progress'] = resultDetails.progress;
+      }
+      if (resultDetails.pptScheme != null) {
+        details['ppt_scheme'] = resultDetails.pptScheme;
+      }
+      if (resultDetails.pptSerializer != null) {
+        details['ppt_serializer'] = resultDetails.pptSerializer;
+      }
+      if (resultDetails.pptCipher != null) {
+        details['ppt_cipher'] = resultDetails.pptCipher;
+      }
+      if (resultDetails.pptKeyId != null) {
+        details['ppt_keyid'] = resultDetails.pptKeyId;
+      }
+      if (resultDetails.custom.isNotEmpty) {
+        details.addAll(resultDetails.custom);
+      }
+      final encodedDetails = json.encode(details);
+      return '[${MessageTypes.codeResult},${message.callRequestId},$encodedDetails${_serializePayload(message)}]';
     }
     if (message is Error) {
       return '[${MessageTypes.codeError},${message.requestTypeId},${message.requestId},${json.encode(message.details)},"${message.error}"${_serializePayload(message)}]';
@@ -858,6 +895,35 @@ class Serializer extends AbstractSerializer {
 
   String _convertUint8ListToString(Uint8List binary) {
     return '\\u0000${base64.encode(binary)}';
+  }
+
+  String _serializeEventDetails(EventDetails details) {
+    final map = <String, Object?>{};
+    if (details.publisher != null) {
+      map['publisher'] = details.publisher;
+    }
+    if (details.trustlevel != null) {
+      map['trustlevel'] = details.trustlevel;
+    }
+    if (details.topic != null) {
+      map['topic'] = details.topic;
+    }
+    if (details.pptScheme != null) {
+      map['ppt_scheme'] = details.pptScheme;
+    }
+    if (details.pptSerializer != null) {
+      map['ppt_serializer'] = details.pptSerializer;
+    }
+    if (details.pptCipher != null) {
+      map['ppt_cipher'] = details.pptCipher;
+    }
+    if (details.pptKeyId != null) {
+      map['ppt_keyid'] = details.pptKeyId;
+    }
+    if (details.custom.isNotEmpty) {
+      map.addAll(details.custom);
+    }
+    return map.isEmpty ? '{}' : json.encode(map);
   }
 
   /// Converts a uint8 JSON message into a PPT Payload Object

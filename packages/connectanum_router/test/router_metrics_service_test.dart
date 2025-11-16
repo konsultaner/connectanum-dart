@@ -314,7 +314,7 @@ RouterSettings _buildSettings() {
     metrics: const MetricsSettings(
       openMetrics: OpenMetricsSettings(
         enabled: true,
-        listen: '127.0.0.1:9100',
+        listen: '127.0.0.1:0',
         path: '/metrics',
         realm: 'connectanum.metrics',
       ),

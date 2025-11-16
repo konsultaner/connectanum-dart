@@ -40,11 +40,11 @@ use crate::runtime::ffi::{
     ct_http_handshake_get, ct_http_handshake_header, ct_http_handshake_release,
     ct_http_response_send, ct_http_response_stream_finish, ct_http_response_stream_open,
     ct_http_response_stream_write, ct_listen, ct_message_get, ct_message_release,
-    ct_poll_connection, ct_poll_connection_message, ct_set_on_connection, ct_set_on_listener_started,
-    ct_shutdown, ct_start_runtime, ct_websocket_handshake_extension, ct_websocket_handshake_get,
-    ct_websocket_handshake_protocol, ct_websocket_handshake_release, CtHttp2HandshakeInfo,
-    CtHttp3HandshakeInfo, CtHttpBodyView, CtHttpConnectionEventInfo, CtHttpHandshakeInfo,
-    CtHttpHeader, CtMessageInfo, CtStringView, CtWebSocketHandshakeInfo,
+    ct_poll_connection, ct_poll_connection_message, ct_set_on_connection,
+    ct_set_on_listener_started, ct_shutdown, ct_start_runtime, ct_websocket_handshake_extension,
+    ct_websocket_handshake_get, ct_websocket_handshake_protocol, ct_websocket_handshake_release,
+    CtHttp2HandshakeInfo, CtHttp3HandshakeInfo, CtHttpBodyView, CtHttpConnectionEventInfo,
+    CtHttpHandshakeInfo, CtHttpHeader, CtMessageInfo, CtStringView, CtWebSocketHandshakeInfo,
 };
 use crate::runtime::store_http_body;
 
@@ -611,10 +611,8 @@ fn http_response_streaming_round_trip() {
                 .position(|window| window == b"\r\n")
                 .map(|pos| cursor + pos)
                 .expect("chunk size line");
-            let len_str = std::str::from_utf8(&body[cursor..line_end])
-                .expect("chunk size utf8");
-            let chunk_len =
-                usize::from_str_radix(len_str.trim(), 16).expect("chunk size hex");
+            let len_str = std::str::from_utf8(&body[cursor..line_end]).expect("chunk size utf8");
+            let chunk_len = usize::from_str_radix(len_str.trim(), 16).expect("chunk size hex");
             cursor = line_end + 2;
             if chunk_len == 0 {
                 break;
@@ -728,12 +726,7 @@ fn http_response_streaming_round_trip() {
         value_len: header_value.as_bytes().len(),
     }];
 
-    let stream_handle = ct_http_response_stream_open(
-        handle,
-        206,
-        headers.as_ptr(),
-        headers.len(),
-    );
+    let stream_handle = ct_http_response_stream_open(handle, 206, headers.as_ptr(), headers.len());
     assert!(stream_handle > 0);
 
     for _ in 0..chunk_count {
@@ -743,11 +736,7 @@ fn http_response_streaming_round_trip() {
         );
     }
     assert_eq!(
-        ct_http_response_stream_write(
-            stream_handle,
-            trailer.as_ptr(),
-            trailer.len()
-        ),
+        ct_http_response_stream_write(stream_handle, trailer.as_ptr(), trailer.len()),
         SUCCESS
     );
     assert_eq!(ct_http_response_stream_finish(stream_handle), SUCCESS);
@@ -1074,6 +1063,90 @@ fn http3_handshake_surfaced_via_ffi() {
     assert_eq!(ct_http3_connection_release(connection_handle), SUCCESS);
 
     assert_eq!(ct_http3_handshake_release(handle), SUCCESS);
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn http3_multiple_connections_handshake() {
+    let _guard = super::test_guard();
+    let certified =
+        generate_simple_self_signed(vec!["localhost".into(), "127.0.0.1".into()]).unwrap();
+    let cert_pem = certified.cert.pem();
+    let key_pem = certified.key_pair.serialize_pem();
+    let cert_der = certified.cert.der().to_vec();
+
+    let config_json = json!({
+        "schema":"connectanum.router",
+        "version":1,
+        "endpoints":[
+            {
+                "host":"127.0.0.1",
+                "port":0,
+                "tls_mode":"native",
+                "protocols":["rawsocket","http","http2","http3"],
+                "sni_certificates":[
+                    {
+                        "hostname":"localhost",
+                        "certificate_chain_pem":cert_pem,
+                        "private_key_pem":key_pem
+                    }
+                ],
+                "http":{
+                    "alpn":["h3","h2","http/1.1"],
+                    "http3":{"enabled":true}
+                }
+            }
+        ]
+    });
+    let config_string = config_json.to_string();
+    let config = CString::new(config_string).unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let connections = 5usize;
+    let rt = TokioRuntime::new().unwrap();
+    rt.block_on(async move {
+        let addr = format!("127.0.0.1:{}", port);
+        let server_addr = addr.parse().unwrap();
+
+        let mut roots = RootCertStore::empty();
+        roots
+            .add(CertificateDer::from(cert_der.clone()))
+            .expect("add root cert");
+        let mut client_config = QuinnClientConfig::with_root_certificates(Arc::new(roots)).unwrap();
+        client_config.transport_config(Arc::new(TransportConfig::default()));
+
+        let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+        endpoint.set_default_client_config(client_config);
+        for _ in 0..connections {
+            let connection = endpoint
+                .connect(server_addr, "localhost")
+                .expect("connect http3");
+            let _ = connection.await.expect("http3 handshake");
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    });
+
+    for _ in 0..connections {
+        let connection_id = ct_poll_connection(listener_id);
+        assert!(connection_id > 0);
+        assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP3);
+        let handle = ct_connection_take_http3_handshake(connection_id);
+        assert!(handle > 0);
+        assert_eq!(ct_http3_handshake_release(handle), SUCCESS);
+    }
+
     assert_eq!(ct_shutdown(), SUCCESS);
 }
 
@@ -1586,10 +1659,7 @@ fn http3_response_streaming_round_trip() {
                 .send_request(request)
                 .await
                 .expect("send request");
-            stream
-                .finish()
-                .await
-                .expect("finish sending request body");
+            stream.finish().await.expect("finish sending request body");
             let response = stream.recv_response().await.expect("recv response");
             let mut body = Vec::new();
             while let Some(chunk) = stream.recv_data().await.expect("recv data") {
@@ -1653,12 +1723,8 @@ fn http3_response_streaming_round_trip() {
         value_len: header_value.as_bytes().len(),
     }];
 
-    let stream_handle = ct_http_response_stream_open(
-        request_handle,
-        206,
-        headers.as_ptr(),
-        headers.len(),
-    );
+    let stream_handle =
+        ct_http_response_stream_open(request_handle, 206, headers.as_ptr(), headers.len());
     assert!(stream_handle > 0);
 
     for _ in 0..chunk_count {
@@ -1668,11 +1734,7 @@ fn http3_response_streaming_round_trip() {
         );
     }
     assert_eq!(
-        ct_http_response_stream_write(
-            stream_handle,
-            trailer.as_ptr(),
-            trailer.len()
-        ),
+        ct_http_response_stream_write(stream_handle, trailer.as_ptr(), trailer.len()),
         SUCCESS
     );
     assert_eq!(ct_http_response_stream_finish(stream_handle), SUCCESS);
@@ -1682,7 +1744,9 @@ fn http3_response_streaming_round_trip() {
     assert_eq!(status, 206);
     let expected_len = chunk.len() * chunk_count + trailer.len();
     assert_eq!(response_body.len(), expected_len);
-    assert!(response_body[..chunk.len()].iter().all(|byte| *byte == b'r'));
+    assert!(response_body[..chunk.len()]
+        .iter()
+        .all(|byte| *byte == b'r'));
     assert!(response_body.ends_with(trailer));
 
     assert_eq!(ct_shutdown(), SUCCESS);
@@ -2292,12 +2356,7 @@ fn http2_response_streaming_round_trip() {
         value_len: header_value.as_bytes().len(),
     }];
 
-    let stream_handle = ct_http_response_stream_open(
-        handle,
-        206,
-        headers.as_ptr(),
-        headers.len(),
-    );
+    let stream_handle = ct_http_response_stream_open(handle, 206, headers.as_ptr(), headers.len());
     assert!(stream_handle > 0);
 
     let chunk = vec![b'z'; 16 * 1024];
@@ -2310,11 +2369,7 @@ fn http2_response_streaming_round_trip() {
     }
     let trailer = b"h2-stream-finished";
     assert_eq!(
-        ct_http_response_stream_write(
-            stream_handle,
-            trailer.as_ptr(),
-            trailer.len()
-        ),
+        ct_http_response_stream_write(stream_handle, trailer.as_ptr(), trailer.len()),
         SUCCESS
     );
     assert_eq!(ct_http_response_stream_finish(stream_handle), SUCCESS);
@@ -2323,7 +2378,10 @@ fn http2_response_streaming_round_trip() {
     let response_body = client_handle.join().unwrap();
     let expected_len = chunk.len() * chunk_count + trailer.len();
     assert_eq!(response_body.len(), expected_len);
-    assert!(response_body.iter().take(chunk.len()).all(|byte| *byte == b'z'));
+    assert!(response_body
+        .iter()
+        .take(chunk.len())
+        .all(|byte| *byte == b'z'));
     assert!(response_body.ends_with(trailer));
 
     assert_eq!(ct_shutdown(), SUCCESS);

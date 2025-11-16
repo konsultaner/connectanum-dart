@@ -326,6 +326,16 @@ class RouterBinding {
     throw StateError('Unexpected metrics response: $response');
   }
 
+  Future<String?> collectOpenMetricsText([
+    RouterMetricsSnapshot? snapshot,
+  ]) async {
+    final service = _metricsService;
+    if (service == null) {
+      return null;
+    }
+    return service.buildOpenMetricsPayload(snapshot: snapshot);
+  }
+
   void _acceptConnections(RouterListener listener) {
     while (true) {
       final connectionId = runtime.pollConnection(listener.listenerId);
@@ -1152,9 +1162,18 @@ class _MetricsService {
     invocation_msg.Invocation invocation,
   ) async {
     try {
-      final routerSnapshot = await binding.collectMetrics();
-      final realmReports = await _collectRealmReports();
-      final text = _buildOpenMetricsText(routerSnapshot, realmReports);
+      final text = await buildOpenMetricsPayload();
+      final httpContext = HttpInvocationContext.maybeFromInvocation(invocation);
+      if (httpContext != null) {
+        httpContext.sendText(
+          body: text,
+          headers: const {
+            'content-type': 'text/plain; version=0.0.4; charset=utf-8',
+            'cache-control': 'no-store',
+          },
+        );
+        return;
+      }
       invocation.respondWith(arguments: [text]);
     } catch (error, stackTrace) {
       binding.onEvent?.call({
@@ -1209,6 +1228,14 @@ class _MetricsService {
       }
     }
     return reports;
+  }
+
+  Future<String> buildOpenMetricsPayload({
+    RouterMetricsSnapshot? snapshot,
+  }) async {
+    final routerSnapshot = snapshot ?? await binding.collectMetrics();
+    final realmReports = await _collectRealmReports();
+    return _buildOpenMetricsText(routerSnapshot, realmReports);
   }
 
   _RealmMetricsReport _buildRealmReport(RealmSnapshot snapshot) {

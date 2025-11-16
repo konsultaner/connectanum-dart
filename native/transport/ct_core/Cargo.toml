@@ -17,6 +17,7 @@ serde_ubjson = "0.2"
 bytes = "1.7"
 httparse = "1.9"
 quinn = { version = "0.11", default-features = false, features = ["rustls", "runtime-tokio"] }
+quinn-proto = { version = "0.11", default-features = false, features = ["rustls"] }
 rustls = { version = "0.23", default-features = false, features = ["std", "logging"] }
 rustls-pemfile = "2.1"
 h3 = { version = "0.0.8", default-features = false }

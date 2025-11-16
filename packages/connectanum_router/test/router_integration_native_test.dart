@@ -438,6 +438,8 @@ class _RouterHarness {
   Future<Map<String, Object?>> nextEvent(String type) =>
       _nextEvent(_eventQueue, type);
 
+  Stream<Map<String, Object?>> get events => _events.stream;
+
   Future<int> ensureSession() async {
     if (_sessionId != null) {
       return _sessionId!;
@@ -557,6 +559,11 @@ void main() {
       : null;
 
   group('Router + FFI test mode', () {
+    group('publish ack path', () {
+      // Skipped: rawsocket publish ACK is covered by publish_ack_test.dart.
+      test('publish acked for each routed event', () async {}, skip: true);
+    });
+
     test('forwards progressive and final results', () async {
       final harness = await _RouterHarness.start(
         connectionId: 9102,
@@ -1082,6 +1089,22 @@ RouterSettings _buildSettings() {
       ),
     );
 
+  final benchRealm = RealmSettingsBuilder('bench.control')
+    ..addAuthMethod('anonymous')
+    ..addRoleFromBuilder(
+      RoleSettingsBuilder('bench')..addPermissionFromBuilder(
+        PermissionSettingsBuilder('')..allowOperations(const [
+          'register',
+          'unregister',
+          'subscribe',
+          'unsubscribe',
+          'publish',
+          'call',
+          'cancel',
+        ]),
+      ),
+    );
+
   final listener = ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
     ..addAuthMethod('anonymous')
     ..addProtocol(ListenerProtocol.rawsocket)
@@ -1097,6 +1120,7 @@ RouterSettings _buildSettings() {
             action: HttpRouteAction(
               type: HttpRouteActionType.rpc,
               procedure: 'com.example.http.health',
+              realm: 'realm1',
             ),
           ),
           HttpRouteSettings(
@@ -1104,6 +1128,7 @@ RouterSettings _buildSettings() {
             action: HttpRouteAction(
               type: HttpRouteActionType.rpc,
               procedure: 'com.example.http.stream',
+              realm: 'realm1',
             ),
           ),
         ],
@@ -1113,6 +1138,7 @@ RouterSettings _buildSettings() {
 
   return RouterSettingsBuilder()
       .addRealmFromBuilder(realmBuilder)
+      .addRealmFromBuilder(benchRealm)
       .addListenerFromBuilder(listener)
       .addAuthenticator(
         'anonymous',

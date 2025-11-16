@@ -159,6 +159,11 @@ class RouterStateStore {
           command.replyPort.send(dispatch);
         } catch (error) {
           command.replyPort.send(StoreErrorResponse(error.toString()));
+          _reportStoreError(
+            error,
+            StackTrace.current,
+            command: command,
+          );
         }
       case InvocationFindByCallerCommand():
         _sendGuardedReply(

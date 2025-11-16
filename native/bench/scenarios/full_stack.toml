@@ -1,0 +1,126 @@
+name = "full_stack"
+description = "Extended benchmark covering HTTP/2 and HTTP/3 bulk, latency, and soak workloads."
+
+[[workloads]]
+name = "h2_small_warmup"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 4
+concurrency = 2
+request_bytes = 65536
+response_bytes = 65536
+request_chunk_bytes = 32768
+response_chunk_bytes = 32768
+warmup_ms = 500
+
+[[workloads]]
+name = "h2_bulk_upload"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 12
+concurrency = 4
+request_bytes = 1048576        # 1 MiB upload
+response_bytes = 131072
+request_chunk_bytes = 262144
+response_chunk_bytes = 65536
+
+[[workloads]]
+name = "h2_bulk_download"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 8
+concurrency = 6
+request_bytes = 65536
+response_bytes = 2097152       # 2 MiB download
+request_chunk_bytes = 32768
+response_chunk_bytes = 262144
+
+[[workloads]]
+name = "h2_latency_spike"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 48
+concurrency = 24
+request_bytes = 4096
+response_bytes = 4096
+request_chunk_bytes = 4096
+response_chunk_bytes = 4096
+
+[[workloads]]
+name = "h3_small_warmup"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 4
+concurrency = 2
+request_bytes = 65536
+response_bytes = 65536
+request_chunk_bytes = 32768
+response_chunk_bytes = 32768
+warmup_ms = 500
+
+[[workloads]]
+name = "h3_balanced_transfer"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 10
+concurrency = 6
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+
+[[workloads]]
+name = "h3_bulk_download"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 6
+concurrency = 4
+request_bytes = 32768
+response_bytes = 4194304
+request_chunk_bytes = 32768
+response_chunk_bytes = 131072
+
+[[workloads]]
+name = "h3_latency_spike"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 64
+concurrency = 20
+request_bytes = 2048
+response_bytes = 2048
+request_chunk_bytes = 2048
+response_chunk_bytes = 2048
+
+[[workloads]]
+name = "h2_idle_soak"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 12
+concurrency = 3
+request_bytes = 524288
+response_bytes = 524288
+request_chunk_bytes = 131072
+response_chunk_bytes = 131072
+warmup_ms = 1000
+
+[[workloads]]
+name = "h3_idle_soak"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 12
+concurrency = 3
+request_bytes = 524288
+response_bytes = 524288
+request_chunk_bytes = 131072
+response_chunk_bytes = 131072
+warmup_ms = 1000

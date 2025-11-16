@@ -97,6 +97,12 @@ Future<void> _handleSessionMessage({
   }
 
   if (message is call_msg.Call) {
+    bossPort.send({
+      'type': _workerEventCallReceived,
+      'connectionId': connectionId,
+      'callRequestId': message.requestId,
+      'procedure': message.procedure,
+    });
     await _handleCall(
       bossPort: bossPort,
       statePort: statePort,
@@ -496,6 +502,36 @@ Future<void> _handlePublish({
   required publish_msg.Publish message,
   NativeIncomingMessage? incomingMessage,
 }) async {
+  // Zero-copy forwarding of publish payloads is disabled by default to avoid
+  // the bench/pubsub hang observed under higher concurrency. Flip the compile-
+  // time flag to re-enable once the native path is proven stable end-to-end.
+  const forwardNativePublishEvents = bool.fromEnvironment(
+    'CONNECTANUM_FORWARD_NATIVE_PUBLISH',
+    defaultValue: false,
+  );
+  Map<String, Object?>? normalizedArgumentsKeywords;
+  final Object? rawArgumentsKeywords = message.argumentsKeywords;
+  if (rawArgumentsKeywords != null) {
+    if (rawArgumentsKeywords is Map<String, Object?>) {
+      normalizedArgumentsKeywords = Map<String, Object?>.from(
+        rawArgumentsKeywords,
+      );
+    } else {
+      // Protect downstream serializers from bad shapes (e.g. lists sneaking
+      // into kwargs) by dropping invalid kwargs and surfacing a worker event
+      // for observability.
+      bossPort.send({
+        'type': _workerEventPublishRouted,
+        'connectionId': connectionId,
+        'requestId': message.requestId,
+        'publicationId': null,
+        'matchCount': 0,
+        'topic': message.topic,
+        'stage': 'invalid_kwargs',
+        'kwargs_type': rawArgumentsKeywords.runtimeType.toString(),
+      });
+    }
+  }
   if (statePort == null || realmContexts == null || state.realmUri == null) {
     await _sendSessionError(
       bossPort: bossPort,
@@ -516,6 +552,15 @@ Future<void> _handlePublish({
       topic: message.topic,
       options: _publishOptionsToMap(message.options),
     );
+    bossPort.send({
+      'type': _workerEventPublishRouted,
+      'connectionId': connectionId,
+      'requestId': message.requestId,
+      'publicationId': routing.publicationId,
+      'matchCount': routing.matches.length,
+      'topic': message.topic,
+      'stage': 'routed',
+    });
     final discloseMe = message.options?.discloseMe == true;
     final matches = routing.matches;
     final internalMatches = <SubscriptionMatch>[];
@@ -529,7 +574,9 @@ Future<void> _handlePublish({
     }
     var usedZeroCopy = false;
     final nativeMessage = incomingMessage;
-    if (nativeMessage?.hasNativeHandle == true && externalMatches.isNotEmpty) {
+    if (forwardNativePublishEvents &&
+        nativeMessage?.hasNativeHandle == true &&
+        externalMatches.isNotEmpty) {
       final messageHandle = nativeMessage!;
       final pending = <Map<String, Object?>>[];
       var failed = false;
@@ -586,7 +633,7 @@ Future<void> _handlePublish({
         'publicationId': routing.publicationId,
         'topic': topic,
         'arguments': message.arguments,
-        'argumentsKeywords': message.argumentsKeywords,
+        'argumentsKeywords': normalizedArgumentsKeywords,
         'publisherSessionId': discloseMe ? state.sessionId : null,
         'details': Map<String, Object?>.from(match.details),
       });
@@ -603,7 +650,7 @@ Future<void> _handlePublish({
           routing.publicationId,
           eventDetails,
           arguments: message.arguments,
-          argumentsKeywords: message.argumentsKeywords,
+          argumentsKeywords: normalizedArgumentsKeywords,
         );
         _forwardToConnection(
           bossPort: bossPort,
@@ -613,14 +660,93 @@ Future<void> _handlePublish({
       }
     }
     if (message.options?.acknowledge == true) {
-      await sendMessage(
-        bossPort,
-        connectionId,
-        state.serializer ?? NativeMessageSerializer.json,
-        published_msg.Published(message.requestId, routing.publicationId),
-      );
+      try {
+        bossPort.send({
+          'type': _workerEventPublishRouted,
+          'connectionId': connectionId,
+          'requestId': message.requestId,
+          'publicationId': routing.publicationId,
+          'matchCount': matches.length,
+          'topic': message.topic,
+          'stage': 'ack_sending',
+        });
+        // Fire-and-forget ACK to avoid blocking the publish path; surface any
+        // error back to the bossPort for observability.
+        unawaited(
+          sendMessage(
+                bossPort,
+                connectionId,
+                state.serializer ?? NativeMessageSerializer.json,
+                published_msg.Published(
+                  message.requestId,
+                  routing.publicationId,
+                ),
+              )
+              .then((_) {
+                bossPort.send({
+                  'type': _workerEventPublishRouted,
+                  'connectionId': connectionId,
+                  'requestId': message.requestId,
+                  'publicationId': routing.publicationId,
+                  'matchCount': matches.length,
+                  'topic': message.topic,
+                  'stage': 'acked',
+                });
+              })
+              .onError((error, stackTrace) {
+                bossPort.send({
+                  'type': _workerEventPublishRouted,
+                  'connectionId': connectionId,
+                  'requestId': message.requestId,
+                  'publicationId': routing.publicationId,
+                  'matchCount': matches.length,
+                  'topic': message.topic,
+                  'stage': 'ack_error_async',
+                  'error': error.toString(),
+                  'stackTrace': stackTrace.toString(),
+                });
+              })
+              .timeout(
+                const Duration(seconds: 5),
+                onTimeout: () {
+                  bossPort.send({
+                    'type': _workerEventPublishRouted,
+                    'connectionId': connectionId,
+                    'requestId': message.requestId,
+                    'publicationId': routing.publicationId,
+                    'matchCount': matches.length,
+                    'topic': message.topic,
+                    'stage': 'ack_error_timeout',
+                  });
+                },
+              ),
+        );
+      } catch (error, stackTrace) {
+        bossPort.send({
+          'type': _workerEventPublishRouted,
+          'connectionId': connectionId,
+          'requestId': message.requestId,
+          'publicationId': routing.publicationId,
+          'matchCount': matches.length,
+          'topic': message.topic,
+          'stage': 'ack_error',
+          'error': error.toString(),
+          'stackTrace': stackTrace.toString(),
+        });
+        rethrow;
+      }
     }
   } on ArgumentError catch (error) {
+    bossPort.send({
+      'type': _workerEventPublishRouted,
+      'connectionId': connectionId,
+      'requestId': message.requestId,
+      'publicationId': null,
+      'matchCount': 0,
+      'topic': message.topic,
+      'stage': 'error',
+      'error': error.message,
+    });
     await _sendSessionError(
       bossPort: bossPort,
       state: state,
@@ -631,6 +757,16 @@ Future<void> _handlePublish({
       detailsMessage: error.message,
     );
   } on StateError catch (error) {
+    bossPort.send({
+      'type': _workerEventPublishRouted,
+      'connectionId': connectionId,
+      'requestId': message.requestId,
+      'publicationId': null,
+      'matchCount': 0,
+      'topic': message.topic,
+      'stage': 'error',
+      'error': error.message,
+    });
     await _sendSessionError(
       bossPort: bossPort,
       state: state,
@@ -641,6 +777,16 @@ Future<void> _handlePublish({
       detailsMessage: error.message,
     );
   } catch (error) {
+    bossPort.send({
+      'type': _workerEventPublishRouted,
+      'connectionId': connectionId,
+      'requestId': message.requestId,
+      'publicationId': null,
+      'matchCount': 0,
+      'topic': message.topic,
+      'stage': 'error',
+      'error': error.toString(),
+    });
     await _sendSessionError(
       bossPort: bossPort,
       state: state,
@@ -662,6 +808,13 @@ Future<void> _handleCall({
   required call_msg.Call message,
   NativeIncomingMessage? incomingMessage,
 }) async {
+  bossPort.send({
+    'type': 'worker_call_dispatch_start',
+    'connectionId': connectionId,
+    'requestId': message.requestId,
+    'procedure': message.procedure,
+    'realm': state.realmUri,
+  });
   if (statePort == null || realmContexts == null || state.realmUri == null) {
     await _sendSessionError(
       bossPort: bossPort,
@@ -677,12 +830,34 @@ Future<void> _handleCall({
 
   try {
     final context = realmContexts.contextFor(state.realmUri!);
-    final dispatch = await context.dispatchInvocation(
-      callerSessionId: state.sessionId!,
-      requestId: message.requestId,
-      procedure: message.procedure,
-      options: _callOptionsToMap(message.options),
-    );
+    InvocationDispatchResult dispatch;
+    try {
+      dispatch = await context.dispatchInvocation(
+        callerSessionId: state.sessionId!,
+        requestId: message.requestId,
+        procedure: message.procedure,
+        options: _callOptionsToMap(message.options),
+      );
+    } catch (error, stackTrace) {
+      bossPort.send({
+        'type': _workerEventCallDispatched,
+        'connectionId': connectionId,
+        'requestId': message.requestId,
+        'procedure': message.procedure,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+      rethrow;
+    }
+    bossPort.send({
+      'type': _workerEventCallDispatched,
+      'connectionId': connectionId,
+      'requestId': message.requestId,
+      'procedure': message.procedure,
+      'calleeConnectionId': dispatch.calleeConnectionId,
+      'registrationId': dispatch.registrationId,
+      'invocationId': dispatch.invocationId,
+    });
     final discloseCaller = message.options?.discloseMe == true;
     final nativeMessage = incomingMessage;
     var usedZeroCopy = false;
@@ -931,6 +1106,11 @@ Future<void> _handleCancel({
       detailsMessage: error.toString(),
     );
   }
+  bossPort.send({
+    'type': _workerEventCallDispatchComplete,
+    'connectionId': connectionId,
+    'requestId': message.requestId,
+  });
 }
 
 String? _normalizeCancelMode(String? rawMode) {

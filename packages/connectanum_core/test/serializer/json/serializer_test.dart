@@ -233,6 +233,46 @@ void main() {
       final yieldDecoded = json.decode(yieldCustom) as List;
       expect((yieldDecoded[2] as Map<String, dynamic>)['_extra'], 'value');
     });
+    test('Result', () {
+      expect(
+        serializer.serializeToString(
+          Result(734572, ResultDetails(progress: false)),
+        ),
+        equals('[${MessageTypes.codeResult},734572,{"progress":false}]'),
+      );
+      final detailed = serializer.serializeToString(
+        Result(
+          734573,
+          ResultDetails(
+            progress: true,
+            pptScheme: 'aes',
+            pptSerializer: 'json',
+            pptCipher: 'gcm',
+            pptKeyId: 'k1',
+            custom: {'custom': 1},
+          ),
+          arguments: ['ok'],
+          argumentsKeywords: {'answer': 42},
+        ),
+      );
+      expect(
+        json.decode(detailed),
+        equals([
+          MessageTypes.codeResult,
+          734573,
+          {
+            'progress': true,
+            'ppt_scheme': 'aes',
+            'ppt_serializer': 'json',
+            'ppt_cipher': 'gcm',
+            'ppt_keyid': 'k1',
+            'custom': 1,
+          },
+          ['ok'],
+          {'answer': 42},
+        ]),
+      );
+    });
     test('Interrupt', () {
       expect(
         serializer.serializeToString(interrupt_msg.Interrupt(99)),

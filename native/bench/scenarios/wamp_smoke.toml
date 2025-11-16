@@ -1,0 +1,18 @@
+name = "wamp_smoke"
+description = "Simple WAMP PUB/SUB and RPC workloads exercising the routing pipeline."
+
+[[workloads]]
+name = "pubsub_small"
+protocol = "wamp_pubsub"
+path = "bench.wamp.topic"
+iterations = 50
+concurrency = 4
+request_bytes = 256
+
+[[workloads]]
+name = "rpc_echo"
+protocol = "wamp_rpc"
+path = "bench.rpc.echo"
+iterations = 100
+concurrency = 8
+request_bytes = 256

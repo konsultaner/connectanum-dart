@@ -243,8 +243,15 @@
   - [ ] Implement a reusable load generator (multi-session HELLO/PUB/SUB/RPC workloads) to stress the router.
   - [ ] Expose lightweight instrumentation (per-worker queue depth, handle retention counts, throughput/latency timers) for benchmark reporting.
   - [ ] Add automation scripts that run warm-up + steady-state cycles and emit latency/throughput summaries.
+  - [x] Added rawsocket publish+ACK regression test (`publish_ack_test.dart`) covering `bench.control` realm with `libct_ffi.so`.
   - [x] Ship the HTTP/2 streaming benchmark harness (`packages/connectanum_router/tool/http_stream_bench.dart`) that drives real uploads/downloads and reports router transport metric deltas via `binding.collectMetrics()`.
-  - [ ] Extend the harness for HTTP/3/TLS runs, persist OpenMetrics snapshots after each run, and integrate the results with Prometheus dashboards.
+  - [x] Land the native bench orchestrator (Rust client + Dart router runner) outlined in `native/bench/README.md` so scenarios/scripts can be shared across CI and local perf runs.
+    - [x] Bench runner exposes `/bench/*` HTTP control routes backed by internal RPC handlers (`bench_router.json`), and the Rust scaffold now pings `/bench/healthz`, `/bench/metrics`, and `/bench/stop` before shutting down.
+    - [x] Orchestrator loads TOML scenarios (`native/bench/scenarios/h2_smoke.toml`, `full_stack.toml`), drives HTTP/2 workloads via `hyper` with prior knowledge, captures router metrics snapshots before/after each workload, emits JSONL summaries (`bench_results.jsonl`), and enforces per-workload timeouts so hung runs fail fast instead of wedging CI.
+  - [x] WAMP pub/sub benchmark stability: `wamp_smoke` now passes after fixing EVENT serialization (details/kwargs) and guarding malformed kwargs; bench runs no longer hang during pubsub.
+  - [ ] Extend the harness for HTTP/3/TLS runs, persist OpenMetrics snapshots after each scenario, and integrate the results with Prometheus dashboards.
+    - [x] HTTP/3/TLS support landed in the orchestration CLI (QUIC prior-knowledge via `quinn`+`h3`, shared-port overrides, h3-only scenarios) so benchmarks can exercise both transports while capturing metrics deltas.
+    - [x] `/bench/metrics` now returns both the router snapshot and the OpenMetrics payload, and the orchestrator serializes `open_metrics_before`/`open_metrics_after` fields per workload (`bench_results.jsonl` + docs updated).
   - [ ] Ship Prometheus exporters and Grafana dashboards for benchmark metrics visualization.
   - [ ] Provide docs/scripts to bootstrap a local Grafana/Prometheus stack alongside benchmarks.
 - [ ] MCP (Model Context Protocol) server implementation for agentic AI integrations

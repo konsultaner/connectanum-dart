@@ -1,7 +1,14 @@
 # Instructions for Codex agents
 
 Read the ROADMAP.md and ROADMAP_NEXT.md. Understand it, read the relevant code and wamp-proto.org specs or relevant GitHub
-discussions on certain topics or implementation specs. Then tell me what's next to be done.
+discussions on certain topics or implementation specs. Then tell me what's next to be done, once a task is finished. 
+If you started working on a blocking issue, try to fix it without asking for next steps and next steps summaries.
+
+## Blocking issues
+
+- try to reproduce it with a unit test or a reproducible example
+- work out a solution and don't tell me next steps until you are done with investigating and fixing it
+- fix it and tell me next steps
 
 ## Before creating pull requests / after finishing a task
 

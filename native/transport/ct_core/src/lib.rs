@@ -64,7 +64,11 @@ use quinn::{
     Connection as QuinnConnection, Endpoint as QuinnEndpoint, ServerConfig as QuinnServerConfig,
     VarInt,
 };
-use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use quinn_proto::crypto::rustls::QuicServerConfig as QuinnRustlsServerConfig;
+use rustls::{
+    pki_types::{CertificateDer, PrivateKeyDer},
+    ServerConfig as RustlsServerConfig,
+};
 use rustls_pemfile::{certs as load_certs, pkcs8_private_keys, rsa_private_keys};
 
 type H3QuicBidiStream = h3_quinn::BidiStream<Bytes>;
@@ -1497,12 +1501,39 @@ fn build_http3_server_config(
     endpoint: &config::EndpointRuntimeConfig,
 ) -> Result<QuinnServerConfig, Error> {
     let (certs, key) = load_http3_identity(endpoint)?;
-    QuinnServerConfig::with_single_cert(certs, key).map_err(|err| {
-        Error::RouterConfigInvalid(format!(
-            "endpoint {}:{} http3 certificate invalid: {}",
-            endpoint.host, endpoint.port, err
-        ))
-    })
+    let mut crypto = RustlsServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(certs, key)
+        .map_err(|err| {
+            Error::RouterConfigInvalid(format!(
+                "endpoint {}:{} http3 certificate invalid: {}",
+                endpoint.host, endpoint.port, err
+            ))
+        })?;
+    let mut alpn = endpoint
+        .http_settings()
+        .map(|settings| {
+            settings
+                .alpn
+                .iter()
+                .filter(|token| token.eq_ignore_ascii_case("h3") || token.starts_with("h3-"))
+                .map(|token| token.as_bytes().to_vec())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if alpn.is_empty() {
+        alpn.push(b"h3".to_vec());
+    }
+    crypto.alpn_protocols = alpn;
+    let server = QuinnServerConfig::with_crypto(Arc::new(
+        QuinnRustlsServerConfig::try_from(crypto).map_err(|err| {
+            Error::RouterConfigInvalid(format!(
+                "endpoint {}:{} http3 rustls config invalid: {}",
+                endpoint.host, endpoint.port, err
+            ))
+        })?,
+    ));
+    Ok(server)
 }
 
 fn load_http3_identity(
@@ -2997,8 +3028,7 @@ async fn write_http1_chunked_response(
     reader: &mut ResponseStreamReader,
 ) -> Result<(), String> {
     let clamped = status.clamp(100, 599) as u16;
-    let status_code =
-        StatusCode::from_u16(clamped).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    let status_code = StatusCode::from_u16(clamped).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
     let reason = status_code.canonical_reason().unwrap_or("");
     let mut response = Vec::with_capacity(128 + headers.len() * 32);
     write!(
@@ -3161,21 +3191,38 @@ async fn serve_http3_requests(
             },
             Ok(None) => break,
             Err(err) => {
-                eprintln!(
-                    "http3 accept loop stopped for listener {:?}: {}",
-                    listener_id, err
-                );
-                if let Some(stats) = connection_stats.as_ref() {
-                    stats.set_close_reason(
-                        HttpConnectionCloseReason::ProtocolError,
-                        Some(err.to_string()),
-                    );
+                let h3_no_error = err.is_h3_no_error();
+                let err_description = err.to_string();
+                let mut graceful_close = h3_no_error;
+                if !graceful_close {
+                    if let Some(code_segment) = err_description.rsplit(':').next() {
+                        if code_segment.trim().eq_ignore_ascii_case("0x0") {
+                            graceful_close = true;
+                        }
+                    }
                 }
-                registry.finish_http_connection(
-                    connection_id,
-                    HttpConnectionCloseReason::ProtocolError,
-                    Some(err.to_string()),
-                );
+                let error_message = if graceful_close {
+                    None
+                } else {
+                    Some(err_description)
+                };
+                if !graceful_close {
+                    if let Some(message) = error_message.as_ref() {
+                        eprintln!(
+                            "http3 accept loop stopped for listener {:?}: {}",
+                            listener_id, message
+                        );
+                    }
+                }
+                let reason = if graceful_close {
+                    HttpConnectionCloseReason::Graceful
+                } else {
+                    HttpConnectionCloseReason::ProtocolError
+                };
+                if let Some(stats) = connection_stats.as_ref() {
+                    stats.set_close_reason(reason, error_message.clone());
+                }
+                registry.finish_http_connection(connection_id, reason, error_message);
                 closed = true;
                 break;
             }

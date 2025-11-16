@@ -31,7 +31,7 @@ class BenchmarkRunner {
       routerConfigPath,
     );
     final endpoints = routerSettings.listeners
-        .map((listener) => _endpointFromListener(listener))
+        .map(Endpoint.fromListenerSettings)
         .toList(growable: false);
     final routerConfig = RouterConfig(endpoints: endpoints);
     if (dryRun) {
@@ -126,101 +126,6 @@ class BenchmarkRunner {
     _logger.info(' Total invocations dispatched: $deltaInvocations');
     _logger.info(' Total publications routed: $deltaPublications');
   }
-
-  Endpoint _endpointFromListener(ListenerSettings settings) {
-    final parsed = _parseEndpoint(settings.endpoint);
-    final options = settings.options;
-    final maxExponent = _asInt(
-      options['max_rawsocket_size_exponent'],
-      defaultValue: 16,
-    );
-    final idleTimeout = _asDuration(options['idle_timeout_ms']);
-    final handshakeTimeout = _asDuration(options['handshake_timeout_ms']);
-    final maxHttpContentLength = options['max_http_content_length'] is int
-        ? options['max_http_content_length'] as int
-        : null;
-    final tlsMode = _resolveTlsMode(settings.tls);
-    final webSocketPath = settings.path;
-    return Endpoint(
-      host: parsed.host,
-      port: parsed.port,
-      tlsMode: tlsMode,
-      idleTimeout: idleTimeout,
-      handshakeTimeout: handshakeTimeout,
-      maxHttpContentLength: maxHttpContentLength,
-      maxRawSocketSizeExponent: maxExponent,
-      webSocketPath: webSocketPath,
-    );
-  }
-
-  _ParsedEndpoint _parseEndpoint(String value) {
-    Uri? uri;
-    if (value.contains('://')) {
-      uri = Uri.tryParse(value);
-    }
-    if (uri != null && uri.host.isNotEmpty) {
-      final port = uri.hasPort ? uri.port : 0;
-      return _ParsedEndpoint(host: uri.host, port: port);
-    }
-    final lastColon = value.lastIndexOf(':');
-    if (lastColon == -1) {
-      throw FormatException('Endpoint "$value" missing port separator');
-    }
-    final host = value.substring(0, lastColon);
-    final portPart = value.substring(lastColon + 1);
-    final port = int.parse(portPart);
-    return _ParsedEndpoint(host: host, port: port);
-  }
-
-  TlsMode _resolveTlsMode(Map<String, Object?>? tls) {
-    if (tls == null) {
-      return TlsMode.disabled;
-    }
-    final mode = tls['mode'];
-    if (mode is String) {
-      switch (mode.toLowerCase()) {
-        case 'native':
-          return TlsMode.native;
-        case 'disabled':
-        case 'none':
-          return TlsMode.disabled;
-      }
-    }
-    return TlsMode.native;
-  }
-
-  Duration? _asDuration(Object? value) {
-    if (value == null) {
-      return null;
-    }
-    if (value is int) {
-      return Duration(milliseconds: value);
-    }
-    if (value is String) {
-      return Duration(milliseconds: int.parse(value));
-    }
-    throw FormatException('Expected duration value in milliseconds');
-  }
-
-  int _asInt(Object? value, {required int defaultValue}) {
-    if (value == null) {
-      return defaultValue;
-    }
-    if (value is int) {
-      return value;
-    }
-    if (value is String) {
-      return int.parse(value);
-    }
-    throw FormatException('Expected integer value');
-  }
-}
-
-class _ParsedEndpoint {
-  const _ParsedEndpoint({required this.host, required this.port});
-
-  final String host;
-  final int port;
 }
 
 ArgParser buildArgParser() {
