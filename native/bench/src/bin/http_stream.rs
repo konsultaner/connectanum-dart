@@ -76,6 +76,10 @@ struct Args {
     /// Timeout per workload in milliseconds (guards against hung tests).
     #[arg(long, default_value = "300000")]
     workload_timeout_ms: u64,
+
+    /// Skip collecting /bench/metrics before/after each workload to reduce overhead.
+    #[arg(long, default_value_t = false)]
+    skip_metrics: bool,
 }
 
 fn main() -> Result<()> {
@@ -145,17 +149,25 @@ fn main() -> Result<()> {
         Ok(())
     });
 
+    let scenarios = load_scenarios(&args.scenario)?;
+    println!("Loaded {} scenario(s)", scenarios.len());
+
+    let requires_h3 = scenarios.iter().any(|(scenario, _)| {
+        scenario
+            .workloads
+            .iter()
+            .any(|w| matches!(w.protocol.to_lowercase().as_str(), "h3" | "http3"))
+    });
+    let inferred_h3_port = if requires_h3 {
+        args.h3_port
+            .or_else(|| infer_h3_port(&args.router_config))
+            .or(Some(8443))
+    } else {
+        args.h3_port
+    };
+
     let http_control = BenchHttpClient::new(&args.control_base)?;
-    let endpoint = HttpEndpoint::from_control_base(&args.control_base, args.h3_port)?;
-    let scenario = load_scenario(&args.scenario)?;
-    println!(
-        "Loaded scenario \"{}\" with {} workload(s)",
-        scenario.name,
-        scenario.workloads.len()
-    );
-    if let Some(description) = scenario.description.as_deref() {
-        println!("Scenario description: {description}");
-    }
+    let endpoint = HttpEndpoint::from_control_base(&args.control_base, inferred_h3_port)?;
 
     let health = http_control
         .healthz()
@@ -174,50 +186,98 @@ fn main() -> Result<()> {
     let workload_timeout = Duration::from_millis(args.workload_timeout_ms);
 
     let workloads_result: Result<()> = (|| {
-        for workload in &scenario.workloads {
+        for (scenario, scenario_path) in scenarios {
             println!(
-                "\n=== Workload \"{}\" (protocol {}, {} iters x {} concurrency) ===",
-                workload.name, workload.protocol, workload.iterations, workload.concurrency
+                "\n=== Scenario \"{}\" (path: {}) with {} workload(s) ===",
+                scenario.name,
+                scenario_path,
+                scenario.workloads.len()
             );
-            let prepared = PreparedWorkload::from_config(workload)?;
-            if let Some(ms) = workload.warmup_ms {
-                println!("  Warm-up: {ms} ms");
-                std::thread::sleep(Duration::from_millis(ms));
+            if let Some(description) = scenario.description.as_deref() {
+                println!("Description: {description}");
             }
-            let metrics_before_raw = http_control.metrics()?;
-            let (metrics_before, open_metrics_before) = split_metrics_payload(metrics_before_raw);
-            let started_at = now_millis();
-            let samples = if prepared.is_wamp() {
-                run_wamp_workload(&http_control, &prepared)
-                    .with_context(|| format!("workload \"{}\" failed", workload.name))?
-            } else {
-                runtime
-                    .block_on(execute_workload(
-                        endpoint.clone(),
-                        prepared.clone(),
-                        workload_timeout,
-                    ))
-                    .with_context(|| format!("workload \"{}\" failed", workload.name))?
-            };
-            let completed_at = now_millis();
-            let metrics_after_raw = http_control.metrics()?;
-            let (metrics_after, open_metrics_after) = split_metrics_payload(metrics_after_raw);
-            let report = WorkloadReport {
-                scenario: scenario.name.clone(),
-                workload: workload.name.clone(),
-                protocol: workload.protocol.clone(),
-                iterations: workload.iterations,
-                concurrency: workload.concurrency,
-                started_at_ms: started_at,
-                completed_at_ms: completed_at,
-                metrics_before: metrics_before.clone(),
-                metrics_after: metrics_after.clone(),
-                open_metrics_before,
-                open_metrics_after,
-                samples,
-            };
-            print_workload_summary(&report, &prepared);
-            results_writer.write(&report)?;
+
+                let (scenario_metrics_before, scenario_open_metrics_before) = if args.skip_metrics {
+                    (Value::Object(Default::default()), None)
+                } else {
+                    let raw = http_control.metrics().unwrap_or_else(|err| {
+                        eprintln!(
+                            "Warning: failed to fetch metrics before scenario {}: {err}",
+                            scenario.name
+                        );
+                        Value::Object(Default::default())
+                    });
+                    split_metrics_payload(raw)
+                };
+
+            let mut scenario_metrics_after = scenario_metrics_before.clone();
+            let mut scenario_open_metrics_after = scenario_open_metrics_before.clone();
+
+            for workload in &scenario.workloads {
+                println!(
+                    "\n=== Workload \"{}\" (protocol {}, {} iters x {} concurrency) ===",
+                    workload.name, workload.protocol, workload.iterations, workload.concurrency
+                );
+                let prepared = PreparedWorkload::from_config(workload)?;
+                if let Some(ms) = workload.warmup_ms {
+                    println!("  Warm-up: {ms} ms");
+                    std::thread::sleep(Duration::from_millis(ms));
+                }
+                let (metrics_before, open_metrics_before) = if args.skip_metrics {
+                    (Value::Object(Default::default()), None)
+                } else {
+                    let raw = http_control.metrics().unwrap_or_else(|err| {
+                        eprintln!(
+                            "Warning: failed to fetch metrics before workload {}: {err}",
+                            workload.name
+                        );
+                        Value::Object(Default::default())
+                    });
+                    split_metrics_payload(raw)
+                };
+                let started_at = now_millis();
+                let samples = if prepared.is_wamp() {
+                    run_wamp_workload(&http_control, &prepared)
+                        .with_context(|| format!("workload \"{}\" failed", workload.name))?
+                } else {
+                    runtime
+                        .block_on(execute_workload(
+                            endpoint.clone(),
+                            prepared.clone(),
+                            workload_timeout,
+                        ))
+                        .with_context(|| format!("workload \"{}\" failed", workload.name))?
+                };
+                let completed_at = now_millis();
+                if !args.skip_metrics {
+                    let raw = http_control.metrics().unwrap_or_else(|err| {
+                        eprintln!(
+                            "Warning: failed to fetch metrics after workload {}: {err}",
+                            workload.name
+                        );
+                        Value::Object(Default::default())
+                    });
+                    let (m_after, om_after) = split_metrics_payload(raw);
+                    scenario_metrics_after = m_after.clone();
+                    scenario_open_metrics_after = om_after.clone();
+                }
+                let report = WorkloadReport {
+                    scenario: scenario.name.clone(),
+                    workload: workload.name.clone(),
+                    protocol: workload.protocol.clone(),
+                    iterations: workload.iterations,
+                    concurrency: workload.concurrency,
+                    started_at_ms: started_at,
+                    completed_at_ms: completed_at,
+                    metrics_before: scenario_metrics_before.clone(),
+                    metrics_after: scenario_metrics_after.clone(),
+                    open_metrics_before: scenario_open_metrics_before.clone(),
+                    open_metrics_after: scenario_open_metrics_after.clone(),
+                    samples,
+                };
+                print_workload_summary(&report, &prepared);
+                results_writer.write(&report)?;
+            }
         }
         Ok(())
     })();
@@ -369,6 +429,55 @@ fn load_scenario(path: &str) -> Result<ScenarioFile> {
         bail!("Scenario {} does not define any workloads", scenario.name);
     }
     Ok(scenario)
+}
+
+fn load_scenarios(path: &str) -> Result<Vec<(ScenarioFile, String)>> {
+    let metadata =
+        std::fs::metadata(path).with_context(|| format!("failed to stat scenario path {path}"))?;
+    if metadata.is_dir() {
+        let mut files = Vec::new();
+        for entry in std::fs::read_dir(path)? {
+            let entry = entry?;
+            if entry.file_type()?.is_file() {
+                let path_buf = entry.path();
+                if path_buf
+                    .extension()
+                    .and_then(|ext| ext.to_str())
+                    .map(|ext| ext.eq_ignore_ascii_case("toml"))
+                    .unwrap_or(false)
+                {
+                    files.push(path_buf);
+                }
+            }
+        }
+        if files.is_empty() {
+            bail!("No *.toml scenarios found in directory {path}");
+        }
+        files.sort();
+        let mut scenarios = Vec::with_capacity(files.len());
+        for path_buf in files {
+            let path_str = path_buf.to_string_lossy().into_owned();
+            scenarios.push((load_scenario(&path_str)?, path_str));
+        }
+        Ok(scenarios)
+    } else {
+        Ok(vec![(load_scenario(path)?, path.to_string())])
+    }
+}
+
+fn infer_h3_port(router_config_path: &str) -> Option<u16> {
+    let contents = std::fs::read_to_string(router_config_path).ok()?;
+    let value: Value = serde_json::from_str(&contents).ok()?;
+    value
+        .get("router")?
+        .get("listeners")?
+        .as_array()?
+        .get(0)?
+        .get("http")?
+        .get("http3")?
+        .get("port")?
+        .as_u64()
+        .and_then(|v| u16::try_from(v).ok())
 }
 
 #[derive(Clone)]

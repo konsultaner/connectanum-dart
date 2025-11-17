@@ -171,6 +171,9 @@ response sizes/chunking regardless of the inbound payload.
   idle soak phases, and both HTTP/2 and HTTP/3 transfers with higher concurrency.
 - `wamp_smoke.toml` – lightweight PUB/SUB and RPC workloads powered by RawSocket clients
   to exercise the router’s WAMP routing path.
+- `real_world_smoke.toml` – higher-connection smoke that mixes WAMP pubsub/RPC with HTTP/2
+  and HTTP/3 fanout; roughly 2k WAMP RawSocket connections (1000 pub/sub workers) plus
+  high-concurrency HTTP fanout/asset echoes to probe backpressure.
 
 ### TLS Setup & Running the Orchestrator
 

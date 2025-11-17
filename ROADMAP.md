@@ -178,16 +178,17 @@
   - [x] WAMP-CRA (HMAC challenge/response)
   - [x] SCRAM (salted challenge/response)
   - [x] WAMP-cryptosign / ED25519
-  - [x] Remote authentication executor (delegate auth decisions to external service)
-    - [x] Document Java interoperability contract (realm `connectanum.authenticate`, procedures `authenticate.hello` / `authenticate.authenticate` / `authenticate.abort`), including expected payload shape and error semantics. See `docs/remote_auth_interop.md`.
-    - [x] Implement router-side transaction nonce generator (cryptographically strong, per-session) with bounded TTL and automatic cleanup on client disconnect.
-    - [x] Add realm-configurable policy to whitelabel permitted authroles/authproviders returned by delegate; abort if response violates policy.
-    - [x] Support multiple remote authenticators per realm/listener with failover strategy and connection-state monitoring.
-    - [x] Enforce rate limiting/backoff for remote auth RPC calls and integrate failures with `AuthSecurityTracker`.
-    - [ ] Introduce authenticated transport to the remote service (mutual TLS and/or signed tokens) and automatic credential rotation hooks.
-    - [ ] Restrict serialized payload to the minimal required auth fields; validate schema on both request and response before issuing `CHALLENGE`/`WELCOME`.
-    - [ ] Preserve “fake challenge” behavior on remote rejection while logging audit details for operators.
-    - [ ] Add integration tests spinning up a stub remote service to verify success, rejection, timeout, and abort flows end-to-end.
+    - [x] Remote authentication executor (delegate auth decisions to external service)
+      - [x] Document Java interoperability contract (realm `connectanum.authenticate`, procedures `authenticate.hello` / `authenticate.authenticate` / `authenticate.abort`), including expected payload shape and error semantics. See `docs/remote_auth_interop.md`.
+      - [x] Implement router-side transaction nonce generator (cryptographically strong, per-session) with bounded TTL and automatic cleanup on client disconnect.
+      - [x] Add realm-configurable policy to whitelabel permitted authroles/authproviders returned by delegate; abort if response violates policy.
+      - [x] Support multiple remote authenticators per realm/listener with failover strategy and connection-state monitoring.
+      - [x] Enforce rate limiting/backoff for remote auth RPC calls and integrate failures with `AuthSecurityTracker`.
+      - [ ] Introduce authenticated transport to the remote service (mutual TLS and/or signed tokens) and automatic credential rotation hooks.
+      - [ ] Restrict serialized payload to the minimal required auth fields; validate schema on both request and response before issuing `CHALLENGE`/`WELCOME`.
+      - [ ] Preserve “fake challenge” behavior on remote rejection while logging audit details for operators.
+      - [ ] Add integration tests spinning up a stub remote service to verify success, rejection, timeout, and abort flows end-to-end.
+      - [ ] Build a constrained remote-auth client stub in the bench orchestrator to fuzz HELLO/CHALLENGE/AUTHENTICATE flows without full WAMP clients (rawsocket frame pusher), and instrument latency/backpressure on remote auth RPCs.
     - [ ] Add internal transport support for router ↔ auth server chaining:
       - [ ] Design in-process frame transport (shared ring buffer / isolate message channel) with backpressure.
       - [ ] Embed an internal WAMP client inside the router to proxy authentication requests over the internal transport.

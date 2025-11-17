@@ -35,12 +35,13 @@ Focus for the next session:
    - Enforce authrole include/exclude lists when broadcasting EVENTs and extend tests accordingly.
    - Resolve remaining analyzer warnings by fixing `packages/connectanum_auth_server` dependencies/imports or documenting follow-up tasks.
 
-7. **HTTP Routing & Auth Pipeline**
-   - Design the HTTP route translation table (path/method/protocol → realm/procedure) plus the reserved realm/namespace shortcuts.
-   - Implement the reserved auth/refresh route (default `/auth`) with configurable overrides and build the CRA/SCRAM-to-token bridge.
-   - Enforce endpoint-level auth defaults for HTTP, including realm selection via header/query parameter and short-lived access tokens.
-   - Deliver HTTP response utilities (status/headers/body helpers) and metrics endpoint plumbing atop the new FFI path; include `HttpResponseUtil`/`HttpRequestContext` helpers for router sessions so handlers can choose between inline bodies and zero-copy file/stream adapters.
-   - Capture adapter extensibility in the plan (static assets, PHP-FPM/FastCGI, reverse proxies) so the translation table can bind routes to pluggable responders once the zero-copy primitives land.
+7. **Remote Authentication Hardening & HTTP Auth Bridge**
+   - Wire authenticated transport to the remote auth service (mTLS or signed tokens) with rotation hooks.
+   - Validate remote auth request/response schema strictly; keep payload minimal before issuing `CHALLENGE`/`WELCOME`.
+   - Preserve “fake challenge” behaviour on remote rejection; add integration tests with a stub remote service (success/rejection/timeout/abort) for WAMP HELLO/CHALLENGE/AUTHENTICATE.
+   - Add a constrained rawsocket frame pusher in the bench orchestrator to fuzz remote auth without full WAMP clients and collect latency/backpressure metrics.
+   - Design the HTTP auth bridge: reserved `/auth` route to delegate CRA/SCRAM-to-token, realm selection via header/query, endpoint-level auth defaults for HTTP.
+   - Deliver HTTP response helpers and keep metrics plumbing ready for the auth bridge.
 
 8. **Benchmark Readiness**
    - Draft the benchmarking plan (release build workflow, load generator scaffold, metrics hooks, automation scripts) and land the initial harness pieces.

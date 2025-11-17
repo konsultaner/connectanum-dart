@@ -202,6 +202,7 @@ class _BenchRouterService {
       return;
     }
     _logger.info('Shutdown requested via $reason');
+    _controlRegistry?.markStopping();
     _forceExitTimer ??= Timer(const Duration(seconds: 30), () {
       _logger.severe('Shutdown deadline exceeded, forcing process exit');
       exit(1);
@@ -235,7 +236,11 @@ class _BenchRouterService {
             'total_invocations=${metrics.totalInvocationsDispatched}',
           );
         } catch (error, stackTrace) {
-          _logger.warning('Failed to collect metrics pre-dispose', error, stackTrace);
+          _logger.warning(
+            'Failed to collect metrics pre-dispose',
+            error,
+            stackTrace,
+          );
         }
         await _binding!.dispose().timeout(const Duration(seconds: 20));
       } on TimeoutException {
@@ -257,7 +262,11 @@ class _BenchRouterService {
             'total_invocations=${metrics.totalInvocationsDispatched}',
           );
         } catch (error, stackTrace) {
-          _logger.severe('Failed to collect metrics on timeout', error, stackTrace);
+          _logger.severe(
+            'Failed to collect metrics on timeout',
+            error,
+            stackTrace,
+          );
         }
       }
     }
@@ -299,7 +308,12 @@ class _BenchControlRegistry {
 
   final _logger = Logger('BenchControlRegistry');
   final List<registered_msg.Registered> _registrations = [];
+  bool _stopping = false;
   late final WampWorkloadRunner _wampRunner;
+
+  void markStopping() {
+    _stopping = true;
+  }
 
   Future<void> initialize() async {
     await _register('bench.control.metrics', _handleMetricsInvoke);
@@ -386,6 +400,7 @@ class _BenchControlRegistry {
   }
 
   Future<void> _handleStopInvoke(invocation_msg.Invocation invocation) async {
+    _stopping = true;
     final context = HttpInvocationContext.maybeFromInvocation(invocation);
     if (context != null) {
       context.sendJson(status: 202, body: {'status': 'stopping'});
@@ -436,6 +451,20 @@ class _BenchControlRegistry {
   }
 
   Future<void> _handleWampInvoke(invocation_msg.Invocation invocation) async {
+    if (_stopping) {
+      final context = HttpInvocationContext.maybeFromInvocation(invocation);
+      if (context != null) {
+        context.sendJson(status: 503, body: {'error': 'stopping'});
+      } else {
+        invocation.respondWith(
+          isError: true,
+          errorUri: wamp_core.Error.runtimeError,
+          arguments: ['router_stopping'],
+          argumentsKeywords: {'reason': 'bench control stopping'},
+        );
+      }
+      return;
+    }
     final context = HttpInvocationContext.maybeFromInvocation(invocation);
     if (context == null) {
       invocation.respondWith(
