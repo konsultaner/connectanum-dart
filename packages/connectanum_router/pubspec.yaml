@@ -23,4 +23,6 @@ dev_dependencies:
   http2: ^2.0.2
   connectanum_auth_server:
     path: ../connectanum_auth_server
+  connectanum_client:
+    path: ../connectanum_client
 resolution: workspace

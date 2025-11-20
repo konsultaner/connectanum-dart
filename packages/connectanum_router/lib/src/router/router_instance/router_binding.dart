@@ -100,6 +100,7 @@ class RouterBinding {
   Object? _internalBootstrapError;
   StackTrace? _internalBootstrapStack;
   _MetricsService? _metricsService;
+  NativeMessageHandleDecoder? _handleDecoder;
   _RouterBoss? _boss;
   bool _ready = false;
   int _nextHttpRequestId = 1;
@@ -279,15 +280,42 @@ class RouterBinding {
       _acceptConnections(listener);
     }
     final result = <RouterMessage>[];
+    final handlesRuntime = runtime is NativeRuntimeWithHandles
+        ? runtime as NativeRuntimeWithHandles
+        : null;
+    if (_boss == null && handlesRuntime != null && _handleDecoder == null) {
+      _handleDecoder = NativeMessageHandleDecoder(
+        libraryPath: handlesRuntime.libraryPathHint,
+      );
+    }
     for (final entry in _connections.entries) {
       final connectionId = entry.key;
       final state = entry.value;
       while (result.length < maxMessages) {
-        final message = runtime.pollMessage(connectionId);
-        if (message == null) {
-          break;
+        if (handlesRuntime != null && _boss == null) {
+          var handle = handlesRuntime.pollMessageHandle(connectionId);
+          if (handle == 0) {
+            handle = handlesRuntime.pollWebSocketMessageHandle(connectionId);
+          }
+          if (handle == 0) {
+            break;
+          }
+          final decoder = _handleDecoder!;
+          try {
+            final message = decoder.materialize(handle);
+            result.add(RouterMessage(state.listener, connectionId, message));
+          } catch (_) {
+            decoder.release(handle);
+            rethrow;
+          }
+          continue;
+        } else {
+          final message = runtime.pollMessage(connectionId);
+          if (message == null) {
+            break;
+          }
+          result.add(RouterMessage(state.listener, connectionId, message));
         }
-        result.add(RouterMessage(state.listener, connectionId, message));
       }
       if (result.length >= maxMessages) {
         break;
@@ -352,6 +380,49 @@ class RouterBinding {
         connectionId,
         () => _ConnectionState(listener),
       );
+      if (protocol == NativeConnectionProtocol.websocket) {
+        final handshake = runtime.takeWebSocketHandshake(connectionId);
+        if (handshake == null) {
+          onEvent?.call({
+            'source': 'binding',
+            'type': 'listener_websocket_handshake_missing',
+            'listenerId': listener.listenerId,
+            'connectionId': connectionId,
+          });
+          continue;
+        }
+        final selection = _selectWebSocketProtocol(handshake.protocols);
+        if (selection == null) {
+          runtime.rejectWebSocket(
+            connectionId: connectionId,
+            handshakeHandle: handshake.handle,
+            status: 426,
+            reason: 'unsupported subprotocol',
+          );
+          handshake.release();
+          continue;
+        }
+        try {
+          runtime.acceptWebSocket(
+            connectionId: connectionId,
+            handshakeHandle: handshake.handle,
+            serializer: selection.serializer,
+            protocol: selection.protocol,
+          );
+          handshake.consume();
+        } on NativeTransportException catch (error) {
+          handshake.release();
+          onEvent?.call({
+            'source': 'binding',
+            'type': 'listener_websocket_accept_error',
+            'listenerId': listener.listenerId,
+            'connectionId': connectionId,
+            'error': error.toString(),
+          });
+          continue;
+        }
+        continue;
+      }
       if (protocol == NativeConnectionProtocol.http3) {
         final connectionHandle = runtime.takeHttp3Connection(connectionId);
         state.setHttp3Connection(connectionHandle);

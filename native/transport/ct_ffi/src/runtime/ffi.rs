@@ -1574,6 +1574,17 @@ pub extern "C" fn ct_poll_connection_message(connection_id: c_int) -> c_int {
     }
 }
 
+/// Alias that only succeeds for WebSocket connections; returns ERR_UNSUPPORTED otherwise.
+#[no_mangle]
+pub extern "C" fn ct_poll_websocket_message(connection_id: c_int) -> c_int {
+    let connection_id = ConnectionId(connection_id as u32);
+    match connection_protocol(connection_id) {
+        Ok(ConnectionProtocol::WebSocket) => ct_poll_connection_message(connection_id.0 as c_int),
+        Ok(_) => ERR_UNSUPPORTED,
+        Err(err) => map_error(err),
+    }
+}
+
 #[cfg(feature = "ffi-test")]
 #[no_mangle]
 pub extern "C" fn ct_test_message_enqueue(

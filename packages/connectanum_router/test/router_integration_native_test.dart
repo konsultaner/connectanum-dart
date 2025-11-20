@@ -209,6 +209,10 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
   int pollMessageHandle(int connectionId) =>
       _pollMessageHandleSafe(connectionId);
 
+  @override
+  int pollWebSocketMessageHandle(int connectionId) =>
+      _pollMessageHandleSafe(connectionId);
+
   int _pollMessageHandleSafe(int connectionId) {
     try {
       return _inner.pollMessageHandle(_resolveConnectionId(connectionId));
@@ -552,6 +556,14 @@ class _RouterHarness {
   }
 }
 
+const bool _forwardNativePublishEventsEnabled = bool.fromEnvironment(
+  'CONNECTANUM_FORWARD_NATIVE_PUBLISH',
+  defaultValue: false,
+);
+const String? _nativePublishSkipReason = _forwardNativePublishEventsEnabled
+    ? null
+    : 'CONNECTANUM_FORWARD_NATIVE_PUBLISH not enabled (zero-copy publish forwarding disabled).';
+
 void main() {
   final nativeLib = _resolveNativeLib();
   final skipReason = nativeLib == null
@@ -659,33 +671,37 @@ void main() {
       await harness.expectInvocationCleared(invocationId);
     }, skip: skipReason);
 
-    test('forwards native events to subscribers', () async {
-      final harness = await _RouterHarness.start(
-        connectionId: 9102,
-        nativeLib: nativeLib,
-      );
-      addTearDown(harness.dispose);
+    test(
+      'forwards native events to subscribers',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9102,
+          nativeLib: nativeLib,
+        );
+        addTearDown(harness.dispose);
 
-      await harness.ensureSession();
-      final subscriptionId = await harness.subscribe(
-        topic: 'com.example.topic',
-        requestId: 1,
-      );
-      expect(subscriptionId, greaterThan(0));
+        await harness.ensureSession();
+        final subscriptionId = await harness.subscribe(
+          topic: 'com.example.topic',
+          requestId: 1,
+        );
+        expect(subscriptionId, greaterThan(0));
 
-      harness.publish(
-        requestId: 2,
-        topic: 'com.example.topic',
-        arguments: const ['payload'],
-        acknowledge: true,
-      );
+        harness.publish(
+          requestId: 2,
+          topic: 'com.example.topic',
+          arguments: const ['payload'],
+          acknowledge: true,
+        );
 
-      final event = await harness.nextEvent('worker_forward_native_event');
-      expect(event['connectionId'], equals(9102));
-      expect(event['subscriptionId'], equals(subscriptionId));
-      expect(event['handle'], isA<int>());
-      expect(event['handle'], greaterThan(0));
-    }, skip: skipReason);
+        final event = await harness.nextEvent('worker_forward_native_event');
+        expect(event['connectionId'], equals(9102));
+        expect(event['subscriptionId'], equals(subscriptionId));
+        expect(event['handle'], isA<int>());
+        expect(event['handle'], greaterThan(0));
+      },
+      skip: skipReason ?? _nativePublishSkipReason,
+    );
 
     test('routes HTTP request through native runtime', () async {
       final harness = await _RouterHarness.start(

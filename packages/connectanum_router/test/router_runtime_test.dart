@@ -35,6 +35,9 @@ class _FakeRuntime implements NativeRuntime {
       Queue<NativeHttpConnectionEvent>();
   final Queue<NativeRouterMetrics> _routerMetricsQueue =
       Queue<NativeRouterMetrics>();
+  final Map<int, Queue<NativeWebSocketHandshake>> _webSocketHandshakes = {};
+  final List<Map<String, Object?>> acceptedWebSockets = [];
+  final List<Map<String, Object?>> rejectedWebSockets = [];
   final Map<int, List<Uint8List>> responseStreamChunks = {};
   final Set<int> closedResponseStreams = {};
   final List<_FakeStreamOpen> responseStreamOpens = [];
@@ -102,7 +105,13 @@ class _FakeRuntime implements NativeRuntime {
   void releaseHttp2Handshake(int handle) {}
 
   @override
-  NativeWebSocketHandshake? takeWebSocketHandshake(int connectionId) => null;
+  NativeWebSocketHandshake? takeWebSocketHandshake(int connectionId) {
+    final queue = _webSocketHandshakes[connectionId];
+    if (queue == null || queue.isEmpty) {
+      return null;
+    }
+    return queue.removeFirst();
+  }
 
   @override
   void acceptWebSocket({
@@ -110,7 +119,14 @@ class _FakeRuntime implements NativeRuntime {
     required int handshakeHandle,
     required NativeMessageSerializer serializer,
     required String protocol,
-  }) {}
+  }) {
+    acceptedWebSockets.add({
+      'connectionId': connectionId,
+      'handshakeHandle': handshakeHandle,
+      'serializer': serializer,
+      'protocol': protocol,
+    });
+  }
 
   @override
   void rejectWebSocket({
@@ -118,7 +134,14 @@ class _FakeRuntime implements NativeRuntime {
     required int handshakeHandle,
     int status = 400,
     String reason = '',
-  }) {}
+  }) {
+    rejectedWebSockets.add({
+      'connectionId': connectionId,
+      'handshakeHandle': handshakeHandle,
+      'status': status,
+      'reason': reason,
+    });
+  }
 
   @override
   NativeHttp3Handshake? takeHttp3Handshake(int connectionId) {
@@ -230,6 +253,15 @@ class _FakeRuntime implements NativeRuntime {
 
   void enqueueHttp3Request(int connectionId, NativeHttpHandshake handshake) {
     _http3Requests.putIfAbsent(connectionId, Queue.new).add(handshake);
+  }
+
+  void enqueueWebSocketHandshake(
+    int listenerId,
+    int connectionId,
+    NativeWebSocketHandshake handshake,
+  ) {
+    _pendingConnections.putIfAbsent(listenerId, Queue.new).add(connectionId);
+    _webSocketHandshakes.putIfAbsent(connectionId, Queue.new).add(handshake);
   }
 
   void enqueueHttpHandshake(
@@ -368,6 +400,10 @@ class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
 
   @override
   String? get libraryPathHint => null;
+
+  @override
+  int pollWebSocketMessageHandle(int connectionId) =>
+      pollMessageHandle(connectionId);
 
   @override
   int retainMessageHandle(int handle) => handle;
@@ -852,7 +888,7 @@ RouterSettings _buildRouterSettingsWithPendingProtocols() {
 void main() {
   group('Router start', () {
     test('binds endpoints to runtime and applies config', () {
-      final runtime = _HandleRuntime();
+      final runtime = _FakeRuntime();
       final router = Router(
         RouterConfig(
           endpoints: [
@@ -1145,6 +1181,124 @@ void main() {
   });
 
   group('Router boss/worker', () {
+    test('accepts WebSocket handshakes with supported subprotocols', () async {
+      final runtime = _FakeRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              webSocketPath: '/ws',
+            ),
+          ],
+        ),
+      );
+
+      final events = <Object>[];
+      final binding = router.start(
+        runtime,
+        workerEntryPoint: _testWorkerEntryPoint,
+        onEvent: events.add,
+        workerPollInterval: const Duration(milliseconds: 1),
+      );
+      addTearDown(binding.dispose);
+
+      final listener = binding.listeners.single;
+      runtime.setConnectionProtocol(9101, NativeConnectionProtocol.websocket);
+      runtime.enqueueWebSocketHandshake(
+        listener.listenerId,
+        9101,
+        NativeWebSocketHandshake.synthetic(
+          handle: 77,
+          key: 'dGVzdEtleQ==',
+          protocols: const ['wamp.2.msgpack', 'wamp.2.json'],
+          extensions: const ['permessage-deflate'],
+        ),
+      );
+
+      var attempts = 0;
+      while (runtime.acceptedWebSockets.isEmpty && attempts < 600) {
+        binding.pollNativeMessages();
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        attempts++;
+      }
+      expect(
+        runtime.acceptedWebSockets,
+        isNotEmpty,
+        reason: 'websocket was not accepted; events=$events',
+      );
+      final accepted = runtime.acceptedWebSockets.single;
+      expect(accepted['connectionId'], 9101);
+      // `wamp.2.msgpack` is the first supported subprotocol in the proposals.
+      expect(accepted['serializer'], NativeMessageSerializer.messagePack);
+      expect(accepted['protocol'], 'wamp.2.msgpack');
+    });
+
+    test(
+      'rejects WebSocket handshakes without supported subprotocols',
+      () async {
+        final runtime = _FakeRuntime();
+        final router = Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                tlsMode: TlsMode.native,
+                maxRawSocketSizeExponent: 16,
+                webSocketPath: '/ws',
+              ),
+            ],
+          ),
+        );
+
+        final events = <Object>[];
+        final binding = router.start(
+          runtime,
+          workerEntryPoint: _testWorkerEntryPoint,
+          onEvent: events.add,
+          workerPollInterval: const Duration(milliseconds: 1),
+        );
+        addTearDown(binding.dispose);
+
+        final listener = binding.listeners.single;
+        runtime.setConnectionProtocol(9102, NativeConnectionProtocol.websocket);
+        runtime.enqueueWebSocketHandshake(
+          listener.listenerId,
+          9102,
+          NativeWebSocketHandshake.synthetic(
+            handle: 78,
+            key: 'dGVzdEtleTI=',
+            protocols: const ['unsup'],
+          ),
+        );
+
+        var attempts = 0;
+        while (runtime.rejectedWebSockets.isEmpty && attempts < 600) {
+          binding.pollNativeMessages();
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+          attempts++;
+        }
+        expect(
+          runtime.rejectedWebSockets,
+          isNotEmpty,
+          reason: 'websocket was not rejected; events=$events',
+        );
+        final rejected = runtime.rejectedWebSockets.single;
+        expect(rejected['connectionId'], 9102);
+        expect(rejected['status'], 426);
+        expect((rejected['reason'] as String?)?.isNotEmpty, isTrue);
+
+        final errors = events.whereType<Map>().where(
+          (event) => event['type'] == 'listener_websocket_handshake_missing',
+        );
+        expect(errors, isEmpty);
+      },
+    );
+
     test('dispatches handles sequentially to a worker isolate', () async {
       final runtime = _HandleRuntime();
       final router = Router(
@@ -1779,183 +1933,167 @@ void main() {
     },
   );
 
-  test(
-    'streams HTTP/2 response chunks using native streams',
-    () async {
-      final runtime = _HandleRuntime();
-      final router = Router(
-        RouterConfig(
-          endpoints: [
-            Endpoint(
-              host: '127.0.0.1',
-              port: 0,
-              tlsMode: TlsMode.native,
-              maxRawSocketSizeExponent: 16,
-            ),
-          ],
-        ),
-        settings: _buildRouterSettingsWithPendingProtocols(),
-      );
+  test('streams HTTP/2 response chunks using native streams', () async {
+    final runtime = _HandleRuntime();
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+          ),
+        ],
+      ),
+      settings: _buildRouterSettingsWithPendingProtocols(),
+    );
 
-      final binding = router.start(runtime);
-      addTearDown(binding.dispose);
+    final binding = router.start(runtime);
+    addTearDown(binding.dispose);
 
-      await Future<void>.delayed(Duration.zero);
-      final listenerId = binding.listeners.single.listenerId;
-      const connectionId = 44;
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    const connectionId = 44;
 
-      final internalSession = await binding.createInternalSession(
-        realmUri: 'realm1',
+    final internalSession = await binding.createInternalSession(
+      realmUri: 'realm1',
+    );
+    final registered = await internalSession.register('com.example.api.stream');
+    registered.onInvoke((invocation) {
+      final context = HttpInvocationContext.maybeFromInvocation(invocation);
+      expect(context, isNotNull);
+      final stream = context!.streamResponse(
+        status: 207,
+        headers: const {'x-http2': 'true'},
       );
-      final registered = await internalSession.register(
-        'com.example.api.stream',
-      );
-      registered.onInvoke((invocation) {
-        final context = HttpInvocationContext.maybeFromInvocation(invocation);
-        expect(context, isNotNull);
-        final stream = context!.streamResponse(
-          status: 207,
-          headers: const {'x-http2': 'true'},
-        );
-        stream.add(utf8.encode('h2-a'));
-        stream.add(utf8.encode('h2-b'));
-        stream.close(utf8.encode('done'));
-      });
+      stream.add(utf8.encode('h2-a'));
+      stream.add(utf8.encode('h2-b'));
+      stream.close(utf8.encode('done'));
+    });
 
-      runtime.setConnectionProtocol(
-        connectionId,
-        NativeConnectionProtocol.http2,
-      );
-      runtime.enqueueHttpHandshake(
-        listenerId,
-        connectionId,
-        NativeHttpHandshake.synthetic(
-          handle: 11,
-          method: 'GET',
-          target: '/api/stream',
-          path: '/api/stream',
-          protocol: 'http/2',
-          headers: const {'x-test': 'h2'},
-          body: Uint8List(0),
-          realm: 'realm1',
-          procedure: 'com.example.api.stream',
-        ),
-      );
+    runtime.setConnectionProtocol(connectionId, NativeConnectionProtocol.http2);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      connectionId,
+      NativeHttpHandshake.synthetic(
+        handle: 11,
+        method: 'GET',
+        target: '/api/stream',
+        path: '/api/stream',
+        protocol: 'http/2',
+        headers: const {'x-test': 'h2'},
+        body: Uint8List(0),
+        realm: 'realm1',
+        procedure: 'com.example.api.stream',
+      ),
+    );
 
-      await _waitUntil(
-        () => runtime.responseStreamOpens.isNotEmpty,
-        timeout: const Duration(seconds: 2),
-      );
+    await _waitUntil(
+      () => runtime.responseStreamOpens.isNotEmpty,
+      timeout: const Duration(seconds: 2),
+    );
 
-      final open = runtime.responseStreamOpens.single;
-      expect(open.handshakeHandle, 11);
-      expect(open.status, 207);
-      expect(open.headers['x-http2'], 'true');
-      final handle = open.streamHandle;
-      await _waitUntil(
-        () => runtime.closedResponseStreams.contains(handle),
-        timeout: const Duration(seconds: 2),
-      );
-      final chunks = runtime.responseStreamChunks[handle];
-      expect(chunks, isNotNull);
-      expect(chunks, hasLength(3));
-      expect(utf8.decode(chunks![0]), 'h2-a');
-      expect(utf8.decode(chunks[1]), 'h2-b');
-      expect(utf8.decode(chunks[2]), 'done');
-    },
-  );
+    final open = runtime.responseStreamOpens.single;
+    expect(open.handshakeHandle, 11);
+    expect(open.status, 207);
+    expect(open.headers['x-http2'], 'true');
+    final handle = open.streamHandle;
+    await _waitUntil(
+      () => runtime.closedResponseStreams.contains(handle),
+      timeout: const Duration(seconds: 2),
+    );
+    final chunks = runtime.responseStreamChunks[handle];
+    expect(chunks, isNotNull);
+    expect(chunks, hasLength(3));
+    expect(utf8.decode(chunks![0]), 'h2-a');
+    expect(utf8.decode(chunks[1]), 'h2-b');
+    expect(utf8.decode(chunks[2]), 'done');
+  });
 
-  test(
-    'streams HTTP/3 response chunks using native streams',
-    () async {
-      final runtime = _HandleRuntime();
-      final router = Router(
-        RouterConfig(
-          endpoints: [
-            Endpoint(
-              host: '127.0.0.1',
-              port: 0,
-              tlsMode: TlsMode.native,
-              maxRawSocketSizeExponent: 16,
-            ),
-          ],
-        ),
-        settings: _buildRouterSettingsWithPendingProtocols(),
-      );
+  test('streams HTTP/3 response chunks using native streams', () async {
+    final runtime = _HandleRuntime();
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+          ),
+        ],
+      ),
+      settings: _buildRouterSettingsWithPendingProtocols(),
+    );
 
-      final binding = router.start(runtime);
-      addTearDown(binding.dispose);
+    final binding = router.start(runtime);
+    addTearDown(binding.dispose);
 
-      await Future<void>.delayed(Duration.zero);
-      final listenerId = binding.listeners.single.listenerId;
-      const connectionId = 45;
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    const connectionId = 45;
 
-      final internalSession = await binding.createInternalSession(
-        realmUri: 'realm1',
+    final internalSession = await binding.createInternalSession(
+      realmUri: 'realm1',
+    );
+    final registered = await internalSession.register('com.example.api.stream');
+    registered.onInvoke((invocation) {
+      final context = HttpInvocationContext.maybeFromInvocation(invocation);
+      expect(context, isNotNull);
+      final stream = context!.streamResponse(
+        status: 208,
+        headers: const {'x-http3': 'true'},
       );
-      final registered = await internalSession.register(
-        'com.example.api.stream',
-      );
-      registered.onInvoke((invocation) {
-        final context = HttpInvocationContext.maybeFromInvocation(invocation);
-        expect(context, isNotNull);
-        final stream = context!.streamResponse(
-          status: 208,
-          headers: const {'x-http3': 'true'},
-        );
-        stream.add(utf8.encode('h3-a'));
-        stream.close(utf8.encode('final-h3'));
-      });
+      stream.add(utf8.encode('h3-a'));
+      stream.close(utf8.encode('final-h3'));
+    });
 
-      runtime.enqueueConnection(listenerId, connectionId);
-      runtime.setConnectionProtocol(
-        connectionId,
-        NativeConnectionProtocol.http3,
-      );
-      runtime.enqueueHttp3Handshake(
-        connectionId,
-        NativeHttp3Handshake.synthetic(
-          handle: 21,
-          protocol: 'http/3',
-          listenerProtocols: const ['rawsocket', 'http', 'http2', 'http3'],
-        ),
-      );
-      runtime.enqueueHttp3Request(
-        connectionId,
-        NativeHttpHandshake.synthetic(
-          handle: 22,
-          method: 'GET',
-          target: '/api/stream',
-          path: '/api/stream',
-          protocol: 'http/3',
-          headers: const {'x-test': 'h3'},
-          body: Uint8List(0),
-          realm: 'realm1',
-          procedure: 'com.example.api.stream',
-        ),
-      );
+    runtime.enqueueConnection(listenerId, connectionId);
+    runtime.setConnectionProtocol(connectionId, NativeConnectionProtocol.http3);
+    runtime.enqueueHttp3Handshake(
+      connectionId,
+      NativeHttp3Handshake.synthetic(
+        handle: 21,
+        protocol: 'http/3',
+        listenerProtocols: const ['rawsocket', 'http', 'http2', 'http3'],
+      ),
+    );
+    runtime.enqueueHttp3Request(
+      connectionId,
+      NativeHttpHandshake.synthetic(
+        handle: 22,
+        method: 'GET',
+        target: '/api/stream',
+        path: '/api/stream',
+        protocol: 'http/3',
+        headers: const {'x-test': 'h3'},
+        body: Uint8List(0),
+        realm: 'realm1',
+        procedure: 'com.example.api.stream',
+      ),
+    );
 
-      await _waitUntil(
-        () => runtime.responseStreamOpens.isNotEmpty,
-        timeout: const Duration(seconds: 2),
-      );
+    await _waitUntil(
+      () => runtime.responseStreamOpens.isNotEmpty,
+      timeout: const Duration(seconds: 2),
+    );
 
-      final open = runtime.responseStreamOpens.single;
-      expect(open.handshakeHandle, 22);
-      expect(open.status, 208);
-      expect(open.headers['x-http3'], 'true');
-      final handle = open.streamHandle;
-      await _waitUntil(
-        () => runtime.closedResponseStreams.contains(handle),
-        timeout: const Duration(seconds: 2),
-      );
-      final chunks = runtime.responseStreamChunks[handle];
-      expect(chunks, isNotNull);
-      expect(chunks, hasLength(2));
-      expect(utf8.decode(chunks![0]), 'h3-a');
-      expect(utf8.decode(chunks[1]), 'final-h3');
-    },
-  );
+    final open = runtime.responseStreamOpens.single;
+    expect(open.handshakeHandle, 22);
+    expect(open.status, 208);
+    expect(open.headers['x-http3'], 'true');
+    final handle = open.streamHandle;
+    await _waitUntil(
+      () => runtime.closedResponseStreams.contains(handle),
+      timeout: const Duration(seconds: 2),
+    );
+    final chunks = runtime.responseStreamChunks[handle];
+    expect(chunks, isNotNull);
+    expect(chunks, hasLength(2));
+    expect(utf8.decode(chunks![0]), 'h3-a');
+    expect(utf8.decode(chunks[1]), 'final-h3');
+  });
 
   test(
     'emits http_connection_event when runtime reports lifecycle event',

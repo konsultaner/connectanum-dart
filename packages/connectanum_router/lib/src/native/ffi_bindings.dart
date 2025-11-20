@@ -24,6 +24,8 @@ typedef CtPollConnectionDart = int Function(int);
 
 typedef CtPollConnectionMessageNative = ffi.Int32 Function(ffi.Int32);
 typedef CtPollConnectionMessageDart = int Function(int);
+typedef CtPollWebSocketMessageNative = ffi.Int32 Function(ffi.Int32);
+typedef CtPollWebSocketMessageDart = int Function(int);
 
 typedef CtMessageGetNative =
     ffi.Int32 Function(ffi.Int32, ffi.Pointer<CtMessageInfo>);
@@ -527,6 +529,13 @@ class CtFfiBindings {
             CtPollConnectionMessageNative,
             CtPollConnectionMessageDart
           >('ct_poll_connection_message'),
+      ctPollWebSocketMessageHandle = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtPollWebSocketMessageNative,
+              CtPollWebSocketMessageDart
+            >('ct_poll_websocket_message'),
+      ),
       ctMessageGet = library
           .lookupFunction<CtMessageGetNative, CtMessageGetDart>(
             'ct_message_get',
@@ -779,6 +788,7 @@ class CtFfiBindings {
   final CtHttp3ConnectionReleaseDart ctHttp3ConnectionRelease;
   final CtPollConnectionDart ctPollConnection;
   final CtPollConnectionMessageDart ctPollConnectionMessage;
+  final CtPollWebSocketMessageDart? ctPollWebSocketMessageHandle;
   final CtMessageGetDart ctMessageGet;
   final CtMessageReleaseDart ctMessageRelease;
   final CtMessageRetainDart ctMessageRetain;

@@ -78,7 +78,8 @@ flowchart TD
 | Multi-protocol listener stack | Unified accept loop with ALPN/Upgrade, surfacing serializer/subprotocol data. | 🔄 Planned (ROADMAP “Multi-protocol listener stack”) |
 | HTTP pipeline completion | HTTP/1.1 zero-copy bodies, full HTTP/2 server, WebSocket upgrade pipeline, request/response streaming E2E. | 🧭 Partially done (HTTP/3 + streaming in place; remaining bullets tracked in ROADMAP) |
 | Lifecycle telemetry & metrics | Connection events, GOAWAY/backpressure counters, boss-side metrics stream. | ✅ Current doc covers completed work; roadmap still calls for richer telemetry consumers. |
-| WebSocket transport completion | Frame reader/writer bridging into RawSocket/WAMP, subprotocol negotiation. | 🔄 Planned |
+| WebSocket transport completion | Frame reader/writer bridging into RawSocket/WAMP, subprotocol negotiation. | 🧭 Partially done (native reader/writer path + masked WAMP regression added; Dart routing/tests pending) |
+| HTTP streaming regression | listen_flow + router integration harness covering HTTP/1.1/HTTP/2/HTTP/3 zero-copy streaming. | 🧭 Native listen_flow now exercises HTTP/3 handshakes/streams under QUIC ALPN with WebPki clients; Dart HTTP/1.1 streaming test re-enabled; HTTP/2+HTTP/3 integration harness still pending. |
 | HTTP routing bridge | Translation tables, reserved realms/namespaces, STR auth bridge. | 🔄 Planned |
 | Serializer interop | JSON ↔ MessagePack ↔ CBOR bridging without copies. | 🔄 Planned |
 | Benchmarks & docs | Harness, auth docs, example gallery. | 🧭 Dart HTTP bench runner + Rust orchestrator scaffold checked in; scenario driver + load generators still pending. |

@@ -10,10 +10,16 @@ use h3::client as h3_client;
 use h3_quinn::Connection as H3QuinnConnection;
 use http::Request;
 use http02::{Request as Http2TestRequest, StatusCode as Http2StatusCode};
-use quinn::{ClientConfig as QuinnClientConfig, Endpoint as QuinnEndpoint, TransportConfig};
+use quinn::{
+    ClientConfig as QuinnClientConfig,
+    Endpoint as QuinnEndpoint,
+    TransportConfig,
+    crypto::rustls::QuicClientConfig as QuinnRustlsClientConfig,
+};
 use rcgen::generate_simple_self_signed;
+use rustls::client::WebPkiServerVerifier;
 use rustls::pki_types::CertificateDer;
-use rustls::RootCertStore;
+use rustls::{ClientConfig as RustlsClientConfig, RootCertStore};
 use serde_json::json;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::runtime::Runtime as TokioRuntime;
@@ -32,7 +38,8 @@ use crate::runtime::ffi::{
     ct_connection_max_rawsocket_exponent, ct_connection_poll_http_event, ct_connection_protocol,
     ct_connection_take_http2_handshake, ct_connection_take_http3_handshake,
     ct_connection_take_http_handshake, ct_connection_take_websocket_handshake, ct_get_local_port,
-    ct_http2_handshake_get, ct_http2_handshake_listener_protocol, ct_http2_handshake_release,
+    ct_connection_accept_websocket, ct_http2_handshake_get,
+    ct_http2_handshake_listener_protocol, ct_http2_handshake_release,
     ct_http3_connection_poll_request, ct_http3_connection_poll_stream, ct_http3_connection_release,
     ct_http3_handshake_get, ct_http3_handshake_listener_protocol, ct_http3_handshake_release,
     ct_http_body_finish, ct_http_body_get, ct_http_body_release, ct_http_body_stream_read,
@@ -40,7 +47,7 @@ use crate::runtime::ffi::{
     ct_http_handshake_get, ct_http_handshake_header, ct_http_handshake_release,
     ct_http_response_send, ct_http_response_stream_finish, ct_http_response_stream_open,
     ct_http_response_stream_write, ct_listen, ct_message_get, ct_message_release,
-    ct_poll_connection, ct_poll_connection_message, ct_set_on_connection,
+    ct_poll_connection, ct_poll_connection_message, ct_send_message, ct_set_on_connection,
     ct_set_on_listener_started, ct_shutdown, ct_start_runtime, ct_websocket_handshake_extension,
     ct_websocket_handshake_get, ct_websocket_handshake_protocol, ct_websocket_handshake_release,
     CtHttp2HandshakeInfo, CtHttp3HandshakeInfo, CtHttpBodyView, CtHttpConnectionEventInfo,
@@ -121,6 +128,30 @@ fn wait_for_http_event(timeout: Duration) -> (CtHttpConnectionEventInfo, Option<
         }
         std::thread::sleep(Duration::from_millis(10));
     }
+}
+
+fn build_http3_client_config(roots: Arc<RootCertStore>) -> QuinnClientConfig {
+    let provider = Arc::new(rustls::crypto::ring::default_provider());
+    let verifier = WebPkiServerVerifier::builder_with_provider(roots, provider.clone())
+        .build()
+        .expect("webpki verifier");
+    let mut inner = RustlsClientConfig::builder_with_provider(provider)
+        .with_protocol_versions(&[&rustls::version::TLS13])
+        .expect("tls13 supported")
+        .dangerous()
+        .with_custom_certificate_verifier(verifier)
+        .with_no_client_auth();
+    inner.enable_early_data = true;
+    inner.alpn_protocols = vec![b"h3".to_vec(), b"h3-29".to_vec()];
+    let quic_suite = rustls::crypto::ring::cipher_suite::TLS13_AES_128_GCM_SHA256
+        .tls13()
+        .and_then(|suite| suite.quic_suite())
+        .expect("quic suite");
+    let quic = QuinnRustlsClientConfig::with_initial(Arc::new(inner), quic_suite)
+        .expect("build quic client config");
+    let mut config = QuinnClientConfig::new(Arc::new(quic));
+    config.transport_config(Arc::new(TransportConfig::default()));
+    config
 }
 
 #[test]
@@ -997,8 +1028,7 @@ fn http3_handshake_surfaced_via_ffi() {
         roots
             .add(CertificateDer::from(cert_der.clone()))
             .expect("add root cert");
-        let mut client_config = QuinnClientConfig::with_root_certificates(Arc::new(roots)).unwrap();
-        client_config.transport_config(Arc::new(TransportConfig::default()));
+        let client_config = build_http3_client_config(Arc::new(roots));
 
         let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
         endpoint.set_default_client_config(client_config);
@@ -1114,9 +1144,9 @@ fn http3_multiple_connections_handshake() {
     let port = ct_get_local_port(listener_id);
     assert!(port > 0);
 
-    let connections = 5usize;
+    let connection_count = 5usize;
     let rt = TokioRuntime::new().unwrap();
-    rt.block_on(async move {
+    let client_connections = rt.block_on(async move {
         let addr = format!("127.0.0.1:{}", port);
         let server_addr = addr.parse().unwrap();
 
@@ -1124,21 +1154,23 @@ fn http3_multiple_connections_handshake() {
         roots
             .add(CertificateDer::from(cert_der.clone()))
             .expect("add root cert");
-        let mut client_config = QuinnClientConfig::with_root_certificates(Arc::new(roots)).unwrap();
-        client_config.transport_config(Arc::new(TransportConfig::default()));
+        let client_config = build_http3_client_config(Arc::new(roots));
 
         let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
         endpoint.set_default_client_config(client_config);
-        for _ in 0..connections {
+        let mut conns = Vec::with_capacity(connection_count);
+        for _ in 0..connection_count {
             let connection = endpoint
                 .connect(server_addr, "localhost")
                 .expect("connect http3");
-            let _ = connection.await.expect("http3 handshake");
+            let conn = connection.await.expect("http3 handshake");
+            conns.push(conn);
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
+        conns
     });
 
-    for _ in 0..connections {
+    for _ in 0..connection_count {
         let connection_id = ct_poll_connection(listener_id);
         assert!(connection_id > 0);
         assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP3);
@@ -1147,6 +1179,7 @@ fn http3_multiple_connections_handshake() {
         assert_eq!(ct_http3_handshake_release(handle), SUCCESS);
     }
 
+    drop(client_connections);
     assert_eq!(ct_shutdown(), SUCCESS);
 }
 
@@ -1217,8 +1250,7 @@ fn http3_stream_poll_returns_handle() {
         roots
             .add(CertificateDer::from(cert_der.clone()))
             .expect("add root cert");
-        let mut client_config = QuinnClientConfig::with_root_certificates(Arc::new(roots)).unwrap();
-        client_config.transport_config(Arc::new(TransportConfig::default()));
+        let client_config = build_http3_client_config(Arc::new(roots));
 
         let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
         endpoint.set_default_client_config(client_config);
@@ -1460,9 +1492,7 @@ fn http3_request_round_trip_over_network() {
             roots
                 .add(CertificateDer::from(cert_der.clone()))
                 .expect("add root cert");
-            let mut client_config =
-                QuinnClientConfig::with_root_certificates(Arc::new(roots)).unwrap();
-            client_config.transport_config(Arc::new(TransportConfig::default()));
+            let client_config = build_http3_client_config(Arc::new(roots));
 
             let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
             endpoint.set_default_client_config(client_config);
@@ -1634,9 +1664,7 @@ fn http3_response_streaming_round_trip() {
             roots
                 .add(CertificateDer::from(cert_der.clone()))
                 .expect("add root cert");
-            let mut client_config =
-                QuinnClientConfig::with_root_certificates(Arc::new(roots)).unwrap();
-            client_config.transport_config(Arc::new(TransportConfig::default()));
+            let client_config = build_http3_client_config(Arc::new(roots));
 
             let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
             endpoint.set_default_client_config(client_config);
@@ -2505,6 +2533,163 @@ Sec-WebSocket-Extensions: permessage-deflate\r\n\r\n",
     assert_eq!(ct_shutdown(), SUCCESS);
 }
 
+#[test]
+fn websocket_wamp_round_trip() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"native",
+                    "protocols":["rawsocket","websocket","http"],
+                    "websocket_path":"/ws",
+                    "http":{
+                        "alpn":["http/1.1"]
+                    }
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let rt = TokioRuntime::new().unwrap();
+    let mut stream = rt.block_on(async move {
+        let addr = format!("127.0.0.1:{}", port);
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        send_websocket_handshake(&mut stream, "/ws").await;
+        stream
+    });
+
+    let connection_id = wait_for_connection(listener_id);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_WEBSOCKET);
+
+    let handshake_handle = ct_connection_take_websocket_handshake(connection_id);
+    assert!(handshake_handle > 0);
+    let protocol = CString::new("wamp.2.json").unwrap();
+    assert_eq!(
+        ct_connection_accept_websocket(
+            connection_id,
+            handshake_handle,
+            1,
+            protocol.as_ptr(),
+            protocol.as_bytes().len() as i32
+        ),
+        SUCCESS
+    );
+
+    rt.block_on(async {
+        let response = read_http_response_until_body(&mut stream).await;
+        assert!(
+            response.starts_with("HTTP/1.1 101"),
+            "handshake response: {}",
+            response
+        );
+        assert!(
+            response
+                .to_ascii_lowercase()
+                .contains("sec-websocket-protocol: wamp.2.json"),
+            "handshake response missing subprotocol: {}",
+            response
+        );
+    });
+
+    let hello = serde_json::to_vec(&json!([
+        1,
+        "realm:default",
+        {
+            "roles": {
+                "publisher": {},
+                "subscriber": {}
+            }
+        }
+    ]))
+    .unwrap();
+    rt.block_on(async {
+        send_client_websocket_frame(&mut stream, 0x1, &hello).await;
+    });
+
+    let message_handle = {
+        let mut attempts = 0;
+        loop {
+            let handle = ct_poll_connection_message(connection_id);
+            if handle > 0 {
+                break handle;
+            }
+            attempts += 1;
+            assert!(attempts < 100, "timed out waiting for websocket message");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    };
+
+    let mut info = CtMessageInfo::default();
+    assert_eq!(
+        ct_message_get(message_handle, &mut info as *mut CtMessageInfo),
+        SUCCESS
+    );
+    assert_eq!(info.serializer, 1, "JSON serializer expected");
+    assert_eq!(info.message_code, 1, "HELLO message expected");
+    unsafe {
+        let frame = std::slice::from_raw_parts(info.frame_ptr, info.frame_len);
+        let parsed: serde_json::Value = serde_json::from_slice(frame).unwrap();
+        assert_eq!(parsed[0], json!(1));
+        assert_eq!(parsed[1], json!("realm:default"));
+    }
+    ct_message_release(message_handle);
+
+    let welcome = serde_json::to_vec(&json!([2, 1, {}, {}])).unwrap();
+    assert_eq!(
+        ct_send_message(
+            connection_id,
+            welcome.as_ptr(),
+            welcome.len() as i32
+        ),
+        SUCCESS
+    );
+
+    let received = rt.block_on(async { read_server_websocket_frame(&mut stream).await });
+    let parsed: serde_json::Value = serde_json::from_slice(&received).unwrap();
+    assert_eq!(parsed[0], json!(2));
+    assert_eq!(parsed[1], json!(1));
+
+    // Unmasked payloads should skip the XOR path while still parsing correctly.
+    let masked_hello = serde_json::to_vec(&json!([
+        1,
+        "realm:unmasked",
+        {
+            "roles": {
+                "publisher": {},
+                "subscriber": {}
+            }
+        }
+    ]))
+    .unwrap();
+    rt.block_on(async {
+        send_unmasked_websocket_frame(&mut stream, 0x1, &masked_hello).await;
+    });
+    // This will be parsed and enqueued inside the native runtime; just ensure it
+    // doesn't crash the reader (no server response expected).
+    std::thread::sleep(Duration::from_millis(50));
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
 async fn perform_handshake(
     stream: &mut tokio::net::TcpStream,
     exponent: u32,
@@ -2543,4 +2728,117 @@ async fn send_json_frame(stream: &mut tokio::net::TcpStream, payload: &[u8]) {
     if !payload.is_empty() {
         stream.write_all(payload).await.unwrap();
     }
+}
+
+async fn send_websocket_handshake(
+    stream: &mut tokio::net::TcpStream,
+    path: &str,
+) {
+    let request = format!(
+        "GET {} HTTP/1.1\r\n\
+Host: localhost\r\n\
+Upgrade: websocket\r\n\
+Connection: Upgrade\r\n\
+Sec-WebSocket-Key: SGVsbG9XU1Rlc3Q=\r\n\
+Sec-WebSocket-Version: 13\r\n\
+Sec-WebSocket-Protocol: wamp.2.json\r\n\r\n",
+        path
+    );
+    stream.write_all(request.as_bytes()).await.unwrap();
+}
+
+async fn read_http_response_until_body(
+    stream: &mut tokio::net::TcpStream,
+) -> String {
+    let mut buffer = Vec::new();
+    let mut chunk = [0u8; 1];
+    while !buffer.ends_with(b"\r\n\r\n") {
+        let read = stream.read(&mut chunk).await.unwrap();
+        if read == 0 {
+            break;
+        }
+        buffer.push(chunk[0]);
+    }
+    String::from_utf8_lossy(&buffer).to_string()
+}
+
+async fn send_client_websocket_frame(
+    stream: &mut tokio::net::TcpStream,
+    opcode: u8,
+    payload: &[u8],
+) {
+    let mask = [0x12u8, 0x34, 0x56, 0x78];
+    let mut header = Vec::with_capacity(6);
+    header.push(0x80 | (opcode & 0x0F));
+    if payload.len() < 126 {
+        header.push(0x80 | (payload.len() as u8));
+    } else if payload.len() <= u16::MAX as usize {
+        header.push(0x80 | 126);
+        header.extend_from_slice(&(payload.len() as u16).to_be_bytes());
+    } else {
+        header.push(0x80 | 127);
+        header.extend_from_slice(&(payload.len() as u64).to_be_bytes());
+    }
+    header.extend_from_slice(&mask);
+    stream.write_all(&header).await.unwrap();
+    if !payload.is_empty() {
+        let masked: Vec<u8> = payload
+            .iter()
+            .enumerate()
+            .map(|(idx, byte)| byte ^ mask[idx % 4])
+            .collect();
+        stream.write_all(&masked).await.unwrap();
+    }
+}
+
+async fn send_unmasked_websocket_frame(
+    stream: &mut tokio::net::TcpStream,
+    opcode: u8,
+    payload: &[u8],
+) {
+    let mut header = Vec::with_capacity(2);
+    header.push(0x80 | (opcode & 0x0F));
+    if payload.len() < 126 {
+        header.push(payload.len() as u8);
+    } else if payload.len() <= u16::MAX as usize {
+        header.push(126);
+        header.extend_from_slice(&(payload.len() as u16).to_be_bytes());
+    } else {
+        header.push(127);
+        header.extend_from_slice(&(payload.len() as u64).to_be_bytes());
+    }
+    stream.write_all(&header).await.unwrap();
+    if !payload.is_empty() {
+        stream.write_all(payload).await.unwrap();
+    }
+}
+
+async fn read_server_websocket_frame(
+    stream: &mut tokio::net::TcpStream,
+) -> Vec<u8> {
+    let mut header = [0u8; 2];
+    stream.read_exact(&mut header).await.unwrap();
+    let opcode = header[0] & 0x0F;
+    assert!(
+        opcode == 0x1 || opcode == 0x2,
+        "unexpected opcode {opcode}"
+    );
+    assert_eq!(header[1] & 0x80, 0, "server frames must be unmasked");
+
+    let mut len = (header[1] & 0x7F) as u64;
+    if len == 126 {
+        let mut extended = [0u8; 2];
+        stream.read_exact(&mut extended).await.unwrap();
+        len = u16::from_be_bytes(extended) as u64;
+    } else if len == 127 {
+        let mut extended = [0u8; 8];
+        stream.read_exact(&mut extended).await.unwrap();
+        len = u64::from_be_bytes(extended);
+    }
+
+    let mut payload = vec![0u8; len as usize];
+    if len > 0 {
+        stream.read_exact(&mut payload).await.unwrap();
+    }
+    payload
 }

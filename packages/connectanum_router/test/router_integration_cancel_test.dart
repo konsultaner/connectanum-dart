@@ -113,6 +113,9 @@ class _QueueRuntime implements NativeRuntimeWithHandles {
   int pollMessageHandle(int connectionId) => 0;
 
   @override
+  int pollWebSocketMessageHandle(int connectionId) => 0;
+
+  @override
   int retainMessageHandle(int handle) => handle;
 
   @override

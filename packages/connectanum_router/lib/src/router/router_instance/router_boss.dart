@@ -445,16 +445,6 @@ class _RouterBoss {
     }
   }
 
-  _WebSocketSelection? _selectWebSocketProtocol(List<String> proposals) {
-    for (final proposal in proposals) {
-      final serializer = _webSocketProtocols[proposal.toLowerCase()];
-      if (serializer != null) {
-        return _WebSocketSelection(proposal, serializer);
-      }
-    }
-    return null;
-  }
-
   _WorkerHandle? _chooseWorker() {
     if (_workers.isEmpty) {
       return null;
@@ -1222,6 +1212,16 @@ class _WebSocketSelection {
 
   final String protocol;
   final NativeMessageSerializer serializer;
+}
+
+_WebSocketSelection? _selectWebSocketProtocol(List<String> proposals) {
+  for (final proposal in proposals) {
+    final serializer = _webSocketProtocols[proposal.toLowerCase()];
+    if (serializer != null) {
+      return _WebSocketSelection(proposal, serializer);
+    }
+  }
+  return null;
 }
 
 sealed class _BossCommand {

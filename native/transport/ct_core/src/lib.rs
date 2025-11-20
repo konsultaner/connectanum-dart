@@ -2018,7 +2018,12 @@ impl WebSocketMessageAccumulator {
             ));
         }
 
-        self.buffer.extend_from_slice(&payload);
+        if self.buffer.is_empty() {
+            // Move the initial payload without copying so unmasked frames remain zero-copy.
+            self.buffer = payload;
+        } else {
+            self.buffer.extend_from_slice(&payload);
+        }
         if fin {
             self.complete = true;
         }
@@ -2076,10 +2081,6 @@ async fn read_websocket_frame(
             .read_exact(&mut mask)
             .await
             .map_err(|err| WebSocketFrameError(err.to_string()))?;
-    } else {
-        return Err(WebSocketFrameError(
-            "websocket frames must be masked".into(),
-        ));
     }
     let mut payload = vec![0u8; len as usize];
     if len > 0 {
@@ -2087,8 +2088,10 @@ async fn read_websocket_frame(
             .read_exact(&mut payload)
             .await
             .map_err(|err| WebSocketFrameError(err.to_string()))?;
-        for (index, byte) in payload.iter_mut().enumerate() {
-            *byte ^= mask[index % 4];
+        if masked {
+            for (index, byte) in payload.iter_mut().enumerate() {
+                *byte ^= mask[index % 4];
+            }
         }
     }
     match opcode {
@@ -2511,9 +2514,13 @@ pub fn connection_accept_websocket(
 ) -> Result<(), Error> {
     let manager = RuntimeManager::global();
     manager.with_state(|state| {
-        state
-            .registry
-            .accept_websocket_connection(connection_id, handshake, serializer, protocol)
+        let _enter = state.handle.enter();
+        state.registry.accept_websocket_connection(
+            connection_id,
+            handshake,
+            serializer,
+            protocol,
+        )
     })
 }
 

@@ -8,7 +8,6 @@ import 'package:connectanum_router/src/router/models/router_config.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
 import 'package:connectanum_router/src/router/models/tls_mode.dart';
 import 'package:connectanum_router/src/router/router_instance.dart';
-import 'package:connectanum_router/src/router/config/router_settings_builder.dart';
 import 'package:connectanum_client/connectanum.dart' as client_pkg;
 import 'package:connectanum_client/src/transport/socket/socket_transport.dart'
     as socket_transport;

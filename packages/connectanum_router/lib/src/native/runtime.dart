@@ -71,6 +71,7 @@ abstract class NativeRuntime {
 /// materialise messages without crossing isolate boundaries.
 abstract class NativeRuntimeWithHandles implements NativeRuntime {
   int pollMessageHandle(int connectionId);
+  int pollWebSocketMessageHandle(int connectionId);
   String? get libraryPathHint;
   int retainMessageHandle(int handle);
   void releaseMessageHandle(int handle);
@@ -488,6 +489,22 @@ class NativeRouterMetrics {
 }
 
 class NativeWebSocketHandshake {
+  factory NativeWebSocketHandshake.synthetic({
+    int handle = -1,
+    required String key,
+    List<String> protocols = const <String>[],
+    List<String> extensions = const <String>[],
+    void Function()? onRelease,
+  }) {
+    return NativeWebSocketHandshake._(
+      handle: handle,
+      key: key,
+      protocols: List<String>.unmodifiable(protocols),
+      extensions: List<String>.unmodifiable(extensions),
+      release: onRelease ?? () {},
+    );
+  }
+
   NativeWebSocketHandshake._({
     required this.handle,
     required this.key,
@@ -1143,6 +1160,37 @@ class NativeMessageHandleDecoder {
 }
 
 abstract final class NativeLibraryLoader {
+  static const _relativeCandidates = <String>{
+    '../native/transport/target/debug/libct_ffi.so',
+    '../native/transport/target/release/libct_ffi.so',
+    '../../native/transport/target/debug/libct_ffi.so',
+    '../../native/transport/target/release/libct_ffi.so',
+  };
+
+  static String? _probeFromAnchor(Directory anchor) {
+    var current = anchor;
+    for (var depth = 0; depth < 6; depth++) {
+      final debug = File(
+        '${current.path}/native/transport/target/debug/libct_ffi.so',
+      );
+      if (debug.existsSync()) {
+        return debug.path;
+      }
+      final release = File(
+        '${current.path}/native/transport/target/release/libct_ffi.so',
+      );
+      if (release.existsSync()) {
+        return release.path;
+      }
+      final parent = current.parent;
+      if (parent.path == current.path) {
+        break;
+      }
+      current = parent;
+    }
+    return null;
+  }
+
   static String resolvePath(String? overridePath) {
     if (overridePath != null && overridePath.isNotEmpty) {
       return overridePath;
@@ -1151,16 +1199,25 @@ abstract final class NativeLibraryLoader {
     if (envOverride != null && envOverride.isNotEmpty) {
       return envOverride;
     }
-    const candidates = [
-      '../native/transport/target/debug/libct_ffi.so',
-      '../native/transport/target/release/libct_ffi.so',
-    ];
-    for (final candidate in candidates) {
+    for (final candidate in _relativeCandidates) {
       if (File(candidate).existsSync()) {
         return candidate;
       }
     }
-    return candidates.first;
+    final searchRoots = <Directory>{
+      Directory.current,
+      Directory.current.parent,
+      File(Platform.script.toFilePath()).parent,
+      File(Platform.script.toFilePath()).parent.parent,
+      File(Platform.resolvedExecutable).parent,
+    };
+    for (final root in searchRoots) {
+      final probed = _probeFromAnchor(root);
+      if (probed != null) {
+        return probed;
+      }
+    }
+    return _relativeCandidates.first;
   }
 }
 
@@ -2114,6 +2171,22 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
     }
     if (handle < 0) {
       _throwForError(handle, 'Polling connection message failed');
+    }
+    return handle;
+  }
+
+  @override
+  int pollWebSocketMessageHandle(int connectionId) {
+    final pollWebSocket = _bindings.ctPollWebSocketMessageHandle;
+    if (pollWebSocket == null) {
+      return pollMessageHandle(connectionId);
+    }
+    final handle = pollWebSocket(connectionId);
+    if (handle == 0 || handle == NativeTransportErrorCode.unsupported) {
+      return 0;
+    }
+    if (handle < 0) {
+      _throwForError(handle, 'Polling websocket message failed');
     }
     return handle;
   }

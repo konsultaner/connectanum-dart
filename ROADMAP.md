@@ -38,6 +38,9 @@
     - [x] Rust `listen_flow` coverage for HTTP/2 streaming responses (multi-chunk DATA frames flushed via `ct_http_response_stream_*` APIs).
     - [x] Rust `listen_flow` coverage for HTTP/1.1 streaming responses (chunked writer backed by `ct_http_response_stream_*` APIs).
     - [x] Rust `listen_flow` coverage for HTTP/3 streaming responses (QUIC writer exercising `ct_http_response_stream_*` pipelines).
+    - [x] Rust `listen_flow` coverage for HTTP/3 request polling and streaming dispatch (`http3_stream_poll_returns_handle`).
+    - [x] Rust `listen_flow` coverage for WebSocket WAMP round-trips (masked client frames with server replies).
+    - [x] Rust `listen_flow` coverage for HTTP/3 handshake/multi-connection acceptance under QUIC ALPN (`http3_handshake_surfaced_via_ffi`, `http3_multiple_connections_handshake`).
     - [x] Router/Dart integration test for HTTP/1.1 streaming uploads/downloads (re-enabled “streams HTTP request and response payloads end-to-end” suite).
     - [x] Router runtime tests verifying `_HttpResponseStream` plumbing for HTTP/2 and HTTP/3 handshakes (synthetic boss harness).
     - [ ] Router/Dart integration tests for HTTP/2 + HTTP/3 streaming uploads/downloads (zero-copy regression harness powering benchmark validation).
