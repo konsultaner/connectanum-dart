@@ -463,8 +463,19 @@ class Serializer extends AbstractSerializer {
       return '[${MessageTypes.codePublished},${message.publishRequestId},${message.publicationId}]';
     }
     if (message is Event) {
-      final detailsJson = _serializeEventDetails(message.details);
-      return '[${MessageTypes.codeEvent},${message.subscriptionId},${message.publicationId},$detailsJson${_serializePayload(message)}]';
+      final payload = _serializePayload(message);
+      final detailsJson = _serializeEventDetails(
+        message.details,
+        allowOmit: payload.isNotEmpty,
+      );
+      if (detailsJson.isEmpty) {
+        final normalizedPayload = payload.startsWith(',')
+            ? payload.substring(1)
+            : payload;
+        final tail = normalizedPayload.isEmpty ? '{}' : normalizedPayload;
+        return '[${MessageTypes.codeEvent},${message.subscriptionId},${message.publicationId},$tail]';
+      }
+      return '[${MessageTypes.codeEvent},${message.subscriptionId},${message.publicationId},$detailsJson$payload]';
     }
     if (message is Subscribe) {
       return '[${MessageTypes.codeSubscribe},${message.requestId},${_serializeSubscribeOptions(message.options)},"${message.topic}"]';
@@ -897,7 +908,10 @@ class Serializer extends AbstractSerializer {
     return '\\u0000${base64.encode(binary)}';
   }
 
-  String _serializeEventDetails(EventDetails details) {
+  String _serializeEventDetails(
+    EventDetails details, {
+    required bool allowOmit,
+  }) {
     final map = <String, Object?>{};
     if (details.publisher != null) {
       map['publisher'] = details.publisher;
@@ -922,6 +936,9 @@ class Serializer extends AbstractSerializer {
     }
     if (details.custom.isNotEmpty) {
       map.addAll(details.custom);
+    }
+    if (map.isEmpty && allowOmit) {
+      return '';
     }
     return map.isEmpty ? '{}' : json.encode(map);
   }

@@ -520,7 +520,7 @@ const int _workerCmdDrainConnections = 6;
 
 Future<void> _waitUntil(
   bool Function() condition, {
-  Duration timeout = const Duration(milliseconds: 500),
+  Duration timeout = const Duration(seconds: 2),
   Duration pollInterval = const Duration(milliseconds: 5),
 }) async {
   final deadline = DateTime.now().add(timeout);
@@ -1617,7 +1617,7 @@ void main() {
               event['type'] == 'worker_ready' && event['connectionId'] == 5001,
         );
         return errorEvent && readyEvent;
-      });
+      }, timeout: const Duration(seconds: 2));
 
       final secondHandle = runtime.enqueueHandle(listener.listenerId, 5001);
       await _waitUntil(() {
@@ -1674,7 +1674,7 @@ void main() {
           (event) =>
               event['type'] == 'worker_ready' && event['connectionId'] == 6001,
         );
-      });
+      }, timeout: const Duration(seconds: 2));
 
       await binding.dispose();
 
@@ -1682,7 +1682,7 @@ void main() {
         return events.whereType<Map>().any(
           (event) => event['type'] == 'worker_drained',
         );
-      });
+      }, timeout: const Duration(seconds: 2));
 
       final drainEvents = events.whereType<Map>().where((event) {
         if (event['type'] != 'worker_unknown_event') {

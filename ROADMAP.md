@@ -20,7 +20,8 @@
   - [ ] Evaluate and implement WAMP-over-HTTP/3/WebTransport (RFC 9220) so browser clients can tunnel WAMP traffic over QUIC with datagram/bidi stream support.
   - [ ] Provide protocol-level metrics and backpressure hooks to the boss/worker pipeline.
     - [x] Track GOAWAY/backpressure/timeout stats per HTTP/2 and HTTP/3 connection inside `ct_core`, expose aggregated counters via `ct_router_metrics_snapshot`, and have `_RouterBoss` surface them through the metrics stream/OpenMetrics exporter.
-    - [ ] Split counters by listener/protocol and wire boss-side throttling hooks + Prometheus alerting once the exporter can authenticate per-router session.
+    - [x] Split counters by listener/protocol and surface them through boss telemetry + the metrics exporter for Prometheus scraping.
+    - [ ] Wire boss-side throttling hooks + Prometheus alerting once the exporter can authenticate per-router session.
   - [x] Surface HTTP/2 and HTTP/3 connection lifecycle events (GOAWAY, idle/body timeouts, backpressure) over FFI so Dart can drain connections deterministically and emit diagnostics.
   - [ ] Expose negotiated protocol identifiers via FFI so Dart workers can route WebSocket/HTTP sessions.
   - [ ] Add WebSocket frame streaming support (continuation aggregation, mask handling) with zero-copy forwarding.
@@ -37,13 +38,14 @@
     - [x] New Rust `listen_flow` coverage for HTTP/2 body timeouts and HTTP/3 idle lifecycle events (synthetic helper under `ffi-test`).
     - [x] Rust `listen_flow` coverage for HTTP/2 streaming responses (multi-chunk DATA frames flushed via `ct_http_response_stream_*` APIs).
     - [x] Rust `listen_flow` coverage for HTTP/1.1 streaming responses (chunked writer backed by `ct_http_response_stream_*` APIs).
-    - [x] Rust `listen_flow` coverage for HTTP/3 streaming responses (QUIC writer exercising `ct_http_response_stream_*` pipelines).
-    - [x] Rust `listen_flow` coverage for HTTP/3 request polling and streaming dispatch (`http3_stream_poll_returns_handle`).
-    - [x] Rust `listen_flow` coverage for WebSocket WAMP round-trips (masked client frames with server replies).
-    - [x] Rust `listen_flow` coverage for HTTP/3 handshake/multi-connection acceptance under QUIC ALPN (`http3_handshake_surfaced_via_ffi`, `http3_multiple_connections_handshake`).
+  - [x] Rust `listen_flow` coverage for HTTP/3 streaming responses (QUIC writer exercising `ct_http_response_stream_*` pipelines).
+  - [x] Rust `listen_flow` coverage for HTTP/3 request polling and streaming dispatch (`http3_stream_poll_returns_handle`).
+  - [x] Rust `listen_flow` coverage for WebSocket WAMP round-trips (masked client frames with server replies).
+  - [x] Rust `listen_flow` coverage for HTTP/3 handshake/multi-connection acceptance under QUIC ALPN (`http3_handshake_surfaced_via_ffi`, `http3_multiple_connections_handshake`).
     - [x] Router/Dart integration test for HTTP/1.1 streaming uploads/downloads (re-enabled “streams HTTP request and response payloads end-to-end” suite).
     - [x] Router runtime tests verifying `_HttpResponseStream` plumbing for HTTP/2 and HTTP/3 handshakes (synthetic boss harness).
-    - [ ] Router/Dart integration tests for HTTP/2 + HTTP/3 streaming uploads/downloads (zero-copy regression harness powering benchmark validation).
+    - [x] Router/Dart integration tests for HTTP/2 + HTTP/3 streaming uploads/downloads (router_integration_native_test.dart now streams HTTPS and QUIC payloads via the native test client + TLS fixtures, running the HTTP/3 client on a dedicated isolate so the boss keeps draining requests).
+    - [ ] Track upstream WAMP conformance suite (wamp-proto/wamp-proto#557) and integrate it into CI to validate RawSocket/WebSocket/HTTP/2/HTTP/3 transports and serializer combinations against the official test matrix.
 - [ ] HTTP bridge (general-purpose request handling)
   - [ ] Expose bridge configuration via listener protocols with pluggable pipelines (REST→RPC proxy, static asset serving, metrics scraping, custom handlers).
   - [ ] Support translation tables that map HTTP path/method/protocol combinations to explicit WAMP realms and procedures, including per-method overrides and catch-all wildcards.
@@ -220,6 +222,7 @@
 
 - [x] Router example CLI for local testing
 - [ ] Developer docs for native runtime build pipeline
+- [ ] Dart 3.10+ build hooks to compile `ct_ffi` during pub install/`dart pub get` (detect Rust toolchains, allow opting out for prebuilt/shared lib consumers, and document `CONNECTANUM_NATIVE_LIB` override).
 - [ ] Configuration reference (realm JSON schema, TLS modes, worker tuning)
   - [ ] Document feature toggles in crossbar-compatible config (meta events, benchmark exporters, zero-copy assertions)
   - [ ] Allow per-listener/realm flags to disable optional subsystems without code changes

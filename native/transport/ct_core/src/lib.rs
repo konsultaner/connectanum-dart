@@ -247,6 +247,25 @@ pub struct HttpMetricsSnapshot {
     pub max_backpressure_depth: u32,
 }
 
+#[derive(Debug, Clone)]
+pub struct HttpMetricsBreakdownSnapshot {
+    pub listener_id: ListenerId,
+    pub protocol: ConnectionProtocol,
+    pub snapshot: HttpMetricsSnapshot,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+struct HttpMetricsKey {
+    listener_id: ListenerId,
+    protocol: ConnectionProtocol,
+}
+
+#[derive(Default)]
+struct HttpMetricsStore {
+    totals: HttpMetrics,
+    by_key: Mutex<HashMap<HttpMetricsKey, Arc<HttpMetrics>>>,
+}
+
 impl HttpMetrics {
     fn record(&self, event: &HttpConnectionEvent) {
         self.total_events.fetch_add(1, Ordering::SeqCst);
@@ -303,18 +322,78 @@ impl HttpMetrics {
     }
 }
 
-static HTTP_METRICS: OnceLock<HttpMetrics> = OnceLock::new();
+impl HttpMetricsStore {
+    fn record(&self, listener_id: ListenerId, event: &HttpConnectionEvent) {
+        self.totals.record(event);
+        let metrics = {
+            let mut guard = self
+                .by_key
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner());
+            guard
+                .entry(HttpMetricsKey {
+                    listener_id,
+                    protocol: event.protocol,
+                })
+                .or_insert_with(|| Arc::new(HttpMetrics::default()))
+                .clone()
+        };
+        metrics.record(event);
+    }
 
-fn http_metrics() -> &'static HttpMetrics {
-    HTTP_METRICS.get_or_init(HttpMetrics::default)
+    fn totals_snapshot(&self) -> HttpMetricsSnapshot {
+        self.totals.snapshot()
+    }
+
+    fn snapshot_with_breakdown(&self) -> (HttpMetricsSnapshot, Vec<HttpMetricsBreakdownSnapshot>) {
+        let totals = self.totals_snapshot();
+        let guard = self
+            .by_key
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let mut breakdown = Vec::with_capacity(guard.len());
+        for (key, metrics) in guard.iter() {
+            breakdown.push(HttpMetricsBreakdownSnapshot {
+                listener_id: key.listener_id,
+                protocol: key.protocol,
+                snapshot: metrics.snapshot(),
+            });
+        }
+        breakdown.sort_by(|left, right| {
+            (left.listener_id.0, protocol_sort_key(left.protocol))
+                .cmp(&(right.listener_id.0, protocol_sort_key(right.protocol)))
+        });
+        (totals, breakdown)
+    }
+}
+
+static HTTP_METRICS: OnceLock<HttpMetricsStore> = OnceLock::new();
+
+fn http_metrics() -> &'static HttpMetricsStore {
+    HTTP_METRICS.get_or_init(HttpMetricsStore::default)
 }
 
 pub fn http_metrics_snapshot() -> HttpMetricsSnapshot {
-    http_metrics().snapshot()
+    http_metrics().totals_snapshot()
 }
 
-fn record_http_metrics(event: &HttpConnectionEvent) {
-    http_metrics().record(event);
+pub fn http_metrics_snapshot_with_breakdown(
+) -> (HttpMetricsSnapshot, Vec<HttpMetricsBreakdownSnapshot>) {
+    http_metrics().snapshot_with_breakdown()
+}
+
+fn protocol_sort_key(protocol: ConnectionProtocol) -> u8 {
+    match protocol {
+        ConnectionProtocol::RawSocket => 0,
+        ConnectionProtocol::WebSocket => 1,
+        ConnectionProtocol::Http => 2,
+        ConnectionProtocol::Http2 => 3,
+        ConnectionProtocol::Http3 => 4,
+    }
+}
+
+fn record_http_metrics(listener_id: ListenerId, event: &HttpConnectionEvent) {
+    http_metrics().record(listener_id, event);
 }
 
 pub use platform::{Runtime as PlatformRuntime, UnsupportedPlatform};
@@ -341,7 +420,7 @@ pub struct ListenerId(pub u32);
 pub struct ConnectionId(pub u32);
 
 /// Transport protocol negotiated for a connection.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum ConnectionProtocol {
     RawSocket,
     WebSocket,
@@ -1042,6 +1121,11 @@ impl ListenerRegistry {
         reason: HttpConnectionCloseReason,
         detail: Option<String>,
     ) {
+        #[cfg(feature = "ffi-test")]
+        eprintln!(
+            "registry: finish_http_connection {:?} reason {:?} detail {:?}",
+            connection_id, reason, detail
+        );
         let entry = self
             .connections
             .lock()
@@ -1050,13 +1134,13 @@ impl ListenerRegistry {
         if let Some(entry) = entry {
             if let Some(stats) = entry.stats {
                 let event = stats.finalize(connection_id, reason, detail);
-                self.push_connection_event(event);
+                self.push_connection_event(entry.listener_id, event);
             }
         }
     }
 
-    fn push_connection_event(&self, event: HttpConnectionEvent) {
-        record_http_metrics(&event);
+    fn push_connection_event(&self, listener_id: ListenerId, event: HttpConnectionEvent) {
+        record_http_metrics(listener_id, &event);
         self.connection_events
             .lock()
             .unwrap_or_else(|poison| poison.into_inner())
@@ -1134,10 +1218,12 @@ impl ListenerRegistry {
     ) -> Arc<Http3StreamChannels> {
         let stats = HttpConnectionStats::new(ConnectionProtocol::Http3);
         let streams = Arc::new(Http3StreamChannels::new());
-        self.connections
-            .lock()
-            .unwrap_or_else(|poison| poison.into_inner())
-            .insert(
+        {
+            let mut guard = self
+                .connections
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner());
+            guard.insert(
                 connection_id,
                 ConnectionEntry {
                     listener_id,
@@ -1153,6 +1239,18 @@ impl ListenerRegistry {
                     },
                 },
             );
+            #[cfg(feature = "ffi-test")]
+            {
+                let snapshot: Vec<String> = guard
+                    .iter()
+                    .map(|(id, entry)| format!("{:?}:{:?}", id, entry.protocol))
+                    .collect();
+                eprintln!(
+                    "registry: registered http3 connection {:?} for listener {:?}, peers {:?}, connections={:?}",
+                    connection_id, listener_id, peer_addr, snapshot
+                );
+            }
+        }
         streams
     }
 
@@ -1316,6 +1414,17 @@ impl ListenerRegistry {
             .connections
             .lock()
             .unwrap_or_else(|poison| poison.into_inner());
+        #[cfg(feature = "ffi-test")]
+        {
+            let snapshot: Vec<String> = connections
+                .iter()
+                .map(|(id, entry)| format!("{:?}:{:?}", id, entry.protocol))
+                .collect();
+            eprintln!(
+                "registry: take_http3_handshake {:?}, connections={:?}",
+                connection_id, snapshot
+            );
+        }
         let entry = connections
             .get(&connection_id)
             .ok_or(Error::ConnectionNotFound(connection_id))?;
@@ -1326,7 +1435,14 @@ impl ListenerRegistry {
                     .take()
                     .ok_or(Error::HandshakeAlreadyTaken(connection_id))
             }
-            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
+            _ => {
+                #[cfg(feature = "ffi-test")]
+                eprintln!(
+                    "registry: take_http3_handshake {:?} unsupported protocol {:?}",
+                    connection_id, entry.protocol
+                );
+                Err(Error::UnsupportedProtocol(connection_id, entry.protocol))
+            }
         }
     }
 
@@ -1456,6 +1572,11 @@ fn start_http3_listener(
                         let peer_addr = connection.remote_address();
                         let handshake = Http3Handshake::from_endpoint(&runtime_for_task);
                         let connection_id = registry_for_task.next_connection_id();
+                        #[cfg(feature = "ffi-test")]
+                        eprintln!(
+                            "http3 connection accepted on {:?} from {} (id {:?})",
+                            listener_id, peer_addr, connection_id
+                        );
                         let connection = Arc::new(connection);
                         let streams = registry_for_task.register_http3_connection(
                             listener_id,
@@ -1464,6 +1585,12 @@ fn start_http3_listener(
                             handshake,
                             Some(Arc::clone(&connection)),
                             peer_addr,
+                        );
+                        #[cfg(feature = "ffi-test")]
+                        eprintln!(
+                            "http3 registry stored {:?} with protocol {:?}",
+                            connection_id,
+                            registry_for_task.connection_protocol(connection_id)
                         );
                         let registry_for_connection = Arc::clone(&registry_for_task);
                         let endpoint_for_connection = Arc::clone(&runtime_for_task);
@@ -2515,12 +2642,9 @@ pub fn connection_accept_websocket(
     let manager = RuntimeManager::global();
     manager.with_state(|state| {
         let _enter = state.handle.enter();
-        state.registry.accept_websocket_connection(
-            connection_id,
-            handshake,
-            serializer,
-            protocol,
-        )
+        state
+            .registry
+            .accept_websocket_connection(connection_id, handshake, serializer, protocol)
     })
 }
 
@@ -2637,10 +2761,10 @@ pub fn register_http_request(
 }
 
 #[cfg(feature = "ffi-test")]
-pub fn push_http_connection_event(event: HttpConnectionEvent) {
+pub fn push_http_connection_event(listener_id: ListenerId, event: HttpConnectionEvent) {
     let manager = RuntimeManager::global();
     let _ = manager.with_state(|state| {
-        state.registry.push_connection_event(event);
+        state.registry.push_connection_event(listener_id, event);
         Ok(())
     });
 }
@@ -3174,6 +3298,13 @@ async fn serve_http3_requests(
         match h3_conn.accept().await {
             Ok(Some(resolver)) => match resolver.resolve_request().await {
                 Ok((request, stream)) => {
+                    #[cfg(feature = "ffi-test")]
+                    eprintln!(
+                        "http3 request accepted on connection {:?}: {} {}",
+                        connection_id,
+                        request.method(),
+                        request.uri()
+                    );
                     if let Err(err) = process_http3_request(
                         connection_id,
                         request,
@@ -3664,6 +3795,13 @@ async fn process_http3_request(
     endpoint_config: Arc<config::EndpointRuntimeConfig>,
     registry: Arc<ListenerRegistry>,
 ) -> Result<(), String> {
+    #[cfg(feature = "ffi-test")]
+    eprintln!(
+        "http3 processing request {:?}: {} {}",
+        connection_id,
+        request.method(),
+        request.uri()
+    );
     let method = request.method().as_str().to_string();
     let normalized_method = method.to_uppercase();
     let target = request
@@ -3820,8 +3958,9 @@ fn spawn_http3_stream_reader(
     total_timeout: Duration,
 ) {
     tokio::spawn(async move {
+        let stats_for_reader = stats.clone();
         if let Err(err) = run_http3_stream_reader(
-            stats,
+            stats_for_reader,
             state,
             stream,
             max_body,
@@ -3832,7 +3971,15 @@ fn spawn_http3_stream_reader(
         )
         .await
         {
-            eprintln!("http/3 body reader failed: {}", err);
+            #[cfg(feature = "ffi-test")]
+            eprintln!(
+                "http/3 body reader failed: {} (max_body {}, idle {:?}, total {:?})",
+                err, max_body, idle_timeout, total_timeout
+            );
+            if let Some(stats_ref) = stats.as_ref() {
+                stats_ref
+                    .set_close_reason(HttpConnectionCloseReason::ProtocolError, Some(err.clone()));
+            }
         }
     });
 }

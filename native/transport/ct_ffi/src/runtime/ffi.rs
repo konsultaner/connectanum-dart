@@ -1,8 +1,12 @@
 use std::ffi::CStr;
+#[cfg(feature = "ffi-test")]
+use std::io::Cursor;
 use std::os::raw::{c_char, c_int, c_uint};
 
+#[allow(unused_imports)]
+use bytes::Buf;
 use bytes::Bytes;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::{ptr, slice, str};
 
 #[cfg(feature = "ffi-test")]
@@ -11,11 +15,13 @@ use std::net::SocketAddr;
 #[cfg(feature = "ffi-test")]
 use dashmap::DashMap;
 #[cfg(feature = "ffi-test")]
+use futures_util::future;
+#[cfg(feature = "ffi-test")]
 use std::collections::VecDeque;
 #[cfg(feature = "ffi-test")]
-use std::sync::{Mutex, OnceLock};
+use tokio::runtime::Runtime as TokioRuntime;
 
-use ct_core::http_metrics_snapshot;
+use ct_core::http_metrics_snapshot_with_breakdown;
 #[cfg(feature = "ffi-test")]
 use ct_core::parse_message;
 use ct_core::{
@@ -26,15 +32,32 @@ use ct_core::{
     connection_take_websocket_handshake, listen, listener_http3_port, local_addr,
     poll_connection_message, response_stream_channel, send_wamp_message, send_wamp_segments,
     shutdown, start_runtime, ConnectionId, ConnectionProtocol, Error as CoreError,
-    HttpConnectionCloseReason, HttpMetricsSnapshot, HttpResponseBody, HttpResponseDispatch,
-    ListenerId, RawSocketSerializer, WampMessage, RESPONSE_STREAM_BUFFER,
+    HttpConnectionCloseReason, HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot, HttpResponseBody,
+    HttpResponseDispatch, ListenerId, RawSocketSerializer, WampMessage, RESPONSE_STREAM_BUFFER,
 };
 #[cfg(feature = "ffi-test")]
 use ct_core::{
     push_http_connection_event, register_http3_pending, Http3Handshake, HttpBodyHandle,
     HttpConnectionEvent, HttpRouteResolution,
 };
+#[cfg(feature = "ffi-test")]
+use h3::client as h3_client;
+#[cfg(feature = "ffi-test")]
+use h3_quinn::Connection as H3QuinnConnection;
 use http::StatusCode;
+#[cfg(feature = "ffi-test")]
+use quinn::{
+    crypto::rustls::QuicClientConfig as QuinnRustlsClientConfig, ClientConfig as QuinnClientConfig,
+    Endpoint as QuinnEndpoint, TransportConfig,
+};
+#[cfg(feature = "ffi-test")]
+use rustls::client::WebPkiServerVerifier;
+#[cfg(feature = "ffi-test")]
+use rustls::pki_types::CertificateDer;
+#[cfg(feature = "ffi-test")]
+use rustls::{ClientConfig as RustlsClientConfig, RootCertStore};
+#[cfg(feature = "ffi-test")]
+use rustls_pemfile::certs as read_pem_certs;
 
 use crate::callbacks::{
     invoke_connection_callback, invoke_listener_callback, register_connection_callback,
@@ -78,6 +101,13 @@ pub struct CtHttpHandshakeInfo {
     pub realm_len: usize,
     pub procedure_ptr: *const u8,
     pub procedure_len: usize,
+}
+
+#[cfg(feature = "ffi-test")]
+#[repr(C)]
+pub struct CtByteBuffer {
+    pub ptr: *mut u8,
+    pub len: usize,
 }
 
 #[repr(C)]
@@ -126,6 +156,24 @@ pub struct CtHttpConnectionEventInfo {
 #[repr(C)]
 #[derive(Default)]
 pub struct CtRouterMetricsInfo {
+    pub total_events: u64,
+    pub graceful_events: u64,
+    pub goaway_events: u64,
+    pub idle_timeout_events: u64,
+    pub body_timeout_events: u64,
+    pub protocol_error_events: u64,
+    pub internal_error_events: u64,
+    pub backpressure_events: u64,
+    pub max_backpressure_depth: u32,
+    pub breakdown_ptr: *const CtRouterMetricsBreakdownInfo,
+    pub breakdown_len: usize,
+}
+
+#[repr(C)]
+#[derive(Default)]
+pub struct CtRouterMetricsBreakdownInfo {
+    pub listener_id: u32,
+    pub protocol: c_int,
     pub total_events: u64,
     pub graceful_events: u64,
     pub goaway_events: u64,
@@ -277,6 +325,9 @@ const JSON_COMMA: &[u8] = b",";
 const JSON_CLOSE: &[u8] = b"]";
 const EMPTY_JSON_ARRAY: &[u8] = b"[]";
 const EMPTY_MSGPACK_ARRAY: &[u8] = &[0x90];
+
+static ROUTER_METRICS_BREAKDOWN: OnceLock<Mutex<Option<Box<[CtRouterMetricsBreakdownInfo]>>>> =
+    OnceLock::new();
 
 #[cfg(feature = "ffi-test")]
 type TestMessageQueues = DashMap<ConnectionId, Mutex<VecDeque<u32>>>;
@@ -938,11 +989,20 @@ pub extern "C" fn ct_connection_max_rawsocket_exponent(connection_id: c_int) -> 
 pub extern "C" fn ct_connection_protocol(connection_id: c_int) -> c_int {
     let connection_id = ConnectionId(connection_id as u32);
     match connection_protocol(connection_id) {
-        Ok(ConnectionProtocol::RawSocket) => PROTOCOL_RAWSOCKET,
-        Ok(ConnectionProtocol::WebSocket) => PROTOCOL_WEBSOCKET,
-        Ok(ConnectionProtocol::Http) => PROTOCOL_HTTP,
-        Ok(ConnectionProtocol::Http2) => PROTOCOL_HTTP2,
-        Ok(ConnectionProtocol::Http3) => PROTOCOL_HTTP3,
+        Ok(protocol) => {
+            #[cfg(feature = "ffi-test")]
+            eprintln!(
+                "ct_connection_protocol({:?}) -> {:?}",
+                connection_id, protocol
+            );
+            match protocol {
+                ConnectionProtocol::RawSocket => PROTOCOL_RAWSOCKET,
+                ConnectionProtocol::WebSocket => PROTOCOL_WEBSOCKET,
+                ConnectionProtocol::Http => PROTOCOL_HTTP,
+                ConnectionProtocol::Http2 => PROTOCOL_HTTP2,
+                ConnectionProtocol::Http3 => PROTOCOL_HTTP3,
+            }
+        }
         Err(err) => map_error(err),
     }
 }
@@ -1037,8 +1097,22 @@ pub extern "C" fn ct_connection_take_http3_handshake(connection_id: c_int) -> c_
     }
     let connection_id = ConnectionId(connection_id as u32);
     match connection_take_http3_handshake(connection_id) {
-        Ok(handshake) => store_http3_handshake(handshake) as c_int,
-        Err(err) => map_error(err),
+        Ok(handshake) => {
+            #[cfg(feature = "ffi-test")]
+            eprintln!(
+                "ct_connection_take_http3_handshake {:?} -> stored handle",
+                connection_id
+            );
+            store_http3_handshake(handshake) as c_int
+        }
+        Err(err) => {
+            #[cfg(feature = "ffi-test")]
+            eprintln!(
+                "ct_connection_take_http3_handshake {:?} failed: {:?}",
+                connection_id, err
+            );
+            map_error(err)
+        }
     }
 }
 
@@ -1239,7 +1313,8 @@ pub extern "C" fn ct_router_metrics_snapshot(info: *mut CtRouterMetricsInfo) -> 
     if info.is_null() {
         return ERR_INVALID_ARGUMENT;
     }
-    let snapshot: HttpMetricsSnapshot = http_metrics_snapshot();
+    let (snapshot, breakdown): (HttpMetricsSnapshot, Vec<HttpMetricsBreakdownSnapshot>) =
+        http_metrics_snapshot_with_breakdown();
     let info_ref = unsafe { info.as_mut().unwrap() };
     info_ref.total_events = snapshot.total_events;
     info_ref.graceful_events = snapshot.graceful_events;
@@ -1250,6 +1325,48 @@ pub extern "C" fn ct_router_metrics_snapshot(info: *mut CtRouterMetricsInfo) -> 
     info_ref.internal_error_events = snapshot.internal_error_events;
     info_ref.backpressure_events = snapshot.backpressure_events;
     info_ref.max_backpressure_depth = snapshot.max_backpressure_depth;
+    if breakdown.is_empty() {
+        info_ref.breakdown_ptr = ptr::null();
+        info_ref.breakdown_len = 0;
+        if let Some(cache) = ROUTER_METRICS_BREAKDOWN.get() {
+            let mut guard = cache.lock().unwrap();
+            *guard = None;
+        }
+    } else {
+        let boxed: Box<[CtRouterMetricsBreakdownInfo]> = breakdown
+            .into_iter()
+            .map(|entry| CtRouterMetricsBreakdownInfo {
+                listener_id: entry.listener_id.0,
+                protocol: match entry.protocol {
+                    ConnectionProtocol::RawSocket => PROTOCOL_RAWSOCKET,
+                    ConnectionProtocol::WebSocket => PROTOCOL_WEBSOCKET,
+                    ConnectionProtocol::Http => PROTOCOL_HTTP,
+                    ConnectionProtocol::Http2 => PROTOCOL_HTTP2,
+                    ConnectionProtocol::Http3 => PROTOCOL_HTTP3,
+                },
+                total_events: entry.snapshot.total_events,
+                graceful_events: entry.snapshot.graceful_events,
+                goaway_events: entry.snapshot.goaway_events,
+                idle_timeout_events: entry.snapshot.idle_timeout_events,
+                body_timeout_events: entry.snapshot.body_timeout_events,
+                protocol_error_events: entry.snapshot.protocol_error_events,
+                internal_error_events: entry.snapshot.internal_error_events,
+                backpressure_events: entry.snapshot.backpressure_events,
+                max_backpressure_depth: entry.snapshot.max_backpressure_depth,
+            })
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+        let cache = ROUTER_METRICS_BREAKDOWN.get_or_init(|| Mutex::new(None));
+        let mut guard = cache.lock().unwrap();
+        *guard = Some(boxed);
+        if let Some(slice) = guard.as_ref() {
+            info_ref.breakdown_ptr = slice.as_ptr();
+            info_ref.breakdown_len = slice.len();
+        } else {
+            info_ref.breakdown_ptr = ptr::null();
+            info_ref.breakdown_len = 0;
+        }
+    }
     SUCCESS
 }
 
@@ -1794,8 +1911,239 @@ pub extern "C" fn ct_test_register_http3_request(
 
 #[cfg(feature = "ffi-test")]
 #[no_mangle]
+pub extern "C" fn ct_test_byte_buffer_free(ptr: *mut u8, len: usize) {
+    if ptr.is_null() {
+        return;
+    }
+    unsafe {
+        Vec::from_raw_parts(ptr, len, len);
+    }
+}
+
+#[cfg(feature = "ffi-test")]
+fn build_http3_client_config_from_roots(
+    roots: Arc<RootCertStore>,
+) -> Result<QuinnClientConfig, c_int> {
+    let provider = rustls::crypto::ring::default_provider();
+    let verifier = WebPkiServerVerifier::builder_with_provider(roots, Arc::new(provider.clone()))
+        .build()
+        .map_err(|_| ERR_INVALID_ARGUMENT)?;
+    let mut inner = RustlsClientConfig::builder_with_provider(Arc::new(provider))
+        .with_protocol_versions(&[&rustls::version::TLS13])
+        .map_err(|_| ERR_INVALID_ARGUMENT)?
+        .dangerous()
+        .with_custom_certificate_verifier(verifier)
+        .with_no_client_auth();
+    inner.enable_early_data = true;
+    inner.alpn_protocols = vec![b"h3".to_vec(), b"h3-29".to_vec()];
+    let quic_suite = rustls::crypto::ring::cipher_suite::TLS13_AES_128_GCM_SHA256
+        .tls13()
+        .and_then(|suite| suite.quic_suite())
+        .ok_or(ERR_INVALID_ARGUMENT)?;
+    let quic = QuinnRustlsClientConfig::with_initial(Arc::new(inner), quic_suite)
+        .map_err(|_| ERR_INVALID_ARGUMENT)?;
+    let mut config = QuinnClientConfig::new(Arc::new(quic));
+    config.transport_config(Arc::new(TransportConfig::default()));
+    Ok(config)
+}
+
+#[cfg(feature = "ffi-test")]
+fn build_http3_client_config_from_pem(pem: &str) -> Result<QuinnClientConfig, c_int> {
+    let mut reader = Cursor::new(pem.as_bytes());
+    let mut certs = Vec::new();
+    for cert in read_pem_certs(&mut reader) {
+        let cert = cert.map_err(|_| ERR_INVALID_ARGUMENT)?;
+        certs.push(cert);
+    }
+    if certs.is_empty() {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
+    let mut roots = RootCertStore::empty();
+    for der in certs {
+        roots
+            .add(CertificateDer::from(der))
+            .map_err(|_| ERR_INVALID_ARGUMENT)?;
+    }
+    build_http3_client_config_from_roots(Arc::new(roots))
+}
+
+#[cfg(feature = "ffi-test")]
+#[no_mangle]
+pub extern "C" fn ct_test_http3_stream_request(
+    host_ptr: *const c_char,
+    port: c_int,
+    path_ptr: *const c_char,
+    method_ptr: *const c_char,
+    headers_ptr: *const CtHttpHeader,
+    headers_len: usize,
+    body_ptr: *const u8,
+    body_len: usize,
+    cert_pem_ptr: *const c_char,
+    status_out: *mut c_int,
+    response_ptr_out: *mut *mut u8,
+    response_len_out: *mut usize,
+) -> c_int {
+    if host_ptr.is_null() || path_ptr.is_null() || method_ptr.is_null() || port <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let host = match unsafe { CStr::from_ptr(host_ptr) }.to_str() {
+        Ok(value) => value.to_string(),
+        Err(_) => return ERR_INVALID_ARGUMENT,
+    };
+    let path = match unsafe { CStr::from_ptr(path_ptr) }.to_str() {
+        Ok(value) => value.to_string(),
+        Err(_) => return ERR_INVALID_ARGUMENT,
+    };
+    let method = match unsafe { CStr::from_ptr(method_ptr) }.to_str() {
+        Ok(value) => value.to_string(),
+        Err(_) => return ERR_INVALID_ARGUMENT,
+    };
+    let cert_pem = if cert_pem_ptr.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    } else {
+        match unsafe { CStr::from_ptr(cert_pem_ptr) }.to_str() {
+            Ok(value) => value.to_string(),
+            Err(_) => return ERR_INVALID_ARGUMENT,
+        }
+    };
+    let headers = if headers_len == 0 || headers_ptr.is_null() {
+        Vec::new()
+    } else {
+        let mut list = Vec::with_capacity(headers_len);
+        for index in 0..headers_len {
+            let header = unsafe { headers_ptr.add(index).as_ref() };
+            let Some(header) = header else {
+                return ERR_INVALID_ARGUMENT;
+            };
+            let name = unsafe { std::slice::from_raw_parts(header.name_ptr, header.name_len) };
+            let value = unsafe { std::slice::from_raw_parts(header.value_ptr, header.value_len) };
+            let name = match std::str::from_utf8(name) {
+                Ok(value) => value.to_string(),
+                Err(_) => return ERR_INVALID_ARGUMENT,
+            };
+            let value = match std::str::from_utf8(value) {
+                Ok(value) => value.to_string(),
+                Err(_) => return ERR_INVALID_ARGUMENT,
+            };
+            list.push((name, value));
+        }
+        list
+    };
+    let body = if body_len == 0 || body_ptr.is_null() {
+        &[]
+    } else {
+        unsafe { std::slice::from_raw_parts(body_ptr, body_len) }
+    };
+    let client_config = match build_http3_client_config_from_pem(&cert_pem) {
+        Ok(config) => config,
+        Err(code) => return code,
+    };
+    let runtime = match TokioRuntime::new() {
+        Ok(rt) => rt,
+        Err(_) => return ERR_INTERNAL,
+    };
+    let result = runtime.block_on(async {
+        let addr = format!("{host}:{port}");
+        let server_addr = addr.parse().map_err(|_| ERR_INVALID_ARGUMENT)?;
+        let mut endpoint =
+            QuinnEndpoint::client("[::]:0".parse().map_err(|_| ERR_INVALID_ARGUMENT)?)
+                .map_err(|_| ERR_INTERNAL)?;
+        endpoint.set_default_client_config(client_config);
+        let connecting = endpoint.connect(server_addr, &host).map_err(|err| {
+            eprintln!("ffi-test http3 connect failed: {err}");
+            ERR_INTERNAL
+        })?;
+        let connection = connecting.await.map_err(|err| {
+            eprintln!("ffi-test http3 handshake failed: {err}");
+            ERR_INTERNAL
+        })?;
+        let (mut driver, mut send_request) = h3_client::builder()
+            .build::<_, _, Bytes>(H3QuinnConnection::new(connection))
+            .await
+            .map_err(|err| {
+                eprintln!("ffi-test http3 builder failed: {err}");
+                ERR_INTERNAL
+            })?;
+        tokio::spawn(async move {
+            future::poll_fn(|cx| driver.poll_close(cx)).await;
+        });
+        let uri = format!("https://{host}:{port}{path}");
+        let http_method = method
+            .parse::<http::Method>()
+            .map_err(|_| ERR_INVALID_ARGUMENT)?;
+        let mut builder = http::Request::builder().method(http_method).uri(uri);
+        for (name, value) in &headers {
+            builder = builder.header(name.as_str(), value.as_str());
+        }
+        let request = builder.body(()).map_err(|_| ERR_INVALID_ARGUMENT)?;
+        let mut stream = send_request.send_request(request).await.map_err(|err| {
+            eprintln!("ffi-test http3 send_request failed: {err}");
+            ERR_INTERNAL
+        })?;
+        if body.is_empty() {
+            stream.finish().await.map_err(|err| {
+                eprintln!("ffi-test http3 finish failed: {err}");
+                ERR_INTERNAL
+            })?;
+        } else {
+            let mut offset = 0usize;
+            while offset < body.len() {
+                let end = usize::min(offset + 16 * 1024, body.len());
+                let chunk = Bytes::copy_from_slice(&body[offset..end]);
+                stream.send_data(chunk).await.map_err(|err| {
+                    eprintln!("ffi-test http3 send_data failed: {err}");
+                    ERR_INTERNAL
+                })?;
+                offset = end;
+            }
+            stream.finish().await.map_err(|err| {
+                eprintln!("ffi-test http3 finish failed: {err}");
+                ERR_INTERNAL
+            })?;
+        }
+        let response = stream.recv_response().await.map_err(|err| {
+            eprintln!("ffi-test http3 recv_response failed: {err}");
+            ERR_INTERNAL
+        })?;
+        let mut response_body = Vec::new();
+        while let Some(chunk) = stream.recv_data().await.map_err(|err| {
+            eprintln!("ffi-test http3 recv_data failed: {err}");
+            ERR_INTERNAL
+        })? {
+            response_body.extend_from_slice(chunk.chunk());
+        }
+        Ok::<(c_int, Vec<u8>), c_int>((response.status().as_u16() as c_int, response_body))
+    });
+    let (status, response_body) = match result {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    let (ptr, len) = if response_body.is_empty() {
+        (ptr::null_mut(), 0usize)
+    } else {
+        let len = response_body.len();
+        let boxed = response_body.into_boxed_slice();
+        (Box::into_raw(boxed) as *mut u8, len)
+    };
+    unsafe {
+        if !status_out.is_null() {
+            *status_out = status;
+        }
+        if !response_ptr_out.is_null() {
+            *response_ptr_out = ptr;
+        }
+        if !response_len_out.is_null() {
+            *response_len_out = len;
+        }
+    }
+    SUCCESS
+}
+
+#[cfg(feature = "ffi-test")]
+#[no_mangle]
 pub extern "C" fn ct_test_push_http_connection_event(
     connection_id: c_int,
+    listener_id: c_int,
     protocol: c_int,
     reason: c_int,
     request_count: u32,
@@ -1807,7 +2155,7 @@ pub extern "C" fn ct_test_push_http_connection_event(
     detail_ptr: *const c_char,
     detail_len: c_int,
 ) -> c_int {
-    if connection_id <= 0 || detail_len < 0 {
+    if connection_id <= 0 || listener_id <= 0 || detail_len < 0 {
         return ERR_INVALID_ARGUMENT;
     }
     let protocol = match protocol {
@@ -1849,7 +2197,7 @@ pub extern "C" fn ct_test_push_http_connection_event(
         goaway_events,
         detail,
     };
-    push_http_connection_event(event);
+    push_http_connection_event(ListenerId(listener_id as u32), event);
     SUCCESS
 }
 

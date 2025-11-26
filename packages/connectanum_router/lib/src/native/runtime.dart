@@ -400,6 +400,13 @@ class NativeHttpResponse {
   final NativeHttpResponseBody body;
 }
 
+class NativeHttpTestResponse {
+  NativeHttpTestResponse(this.status, this.body);
+
+  final int status;
+  final Uint8List body;
+}
+
 abstract class NativeHttpResponseStream {
   bool get isClosed;
   void add(Uint8List chunk);
@@ -463,6 +470,7 @@ class NativeRouterMetrics {
     required this.internalErrorEvents,
     required this.backpressureEvents,
     required this.maxBackpressureDepth,
+    this.breakdown = const <NativeRouterMetricsBreakdown>[],
   });
 
   final int totalEvents;
@@ -474,9 +482,63 @@ class NativeRouterMetrics {
   final int internalErrorEvents;
   final int backpressureEvents;
   final int maxBackpressureDepth;
+  final List<NativeRouterMetricsBreakdown> breakdown;
 
   bool sameValues(NativeRouterMetrics other) {
-    return totalEvents == other.totalEvents &&
+    if (totalEvents != other.totalEvents ||
+        gracefulEvents != other.gracefulEvents ||
+        goAwayEvents != other.goAwayEvents ||
+        idleTimeoutEvents != other.idleTimeoutEvents ||
+        bodyTimeoutEvents != other.bodyTimeoutEvents ||
+        protocolErrorEvents != other.protocolErrorEvents ||
+        internalErrorEvents != other.internalErrorEvents ||
+        backpressureEvents != other.backpressureEvents ||
+        maxBackpressureDepth != other.maxBackpressureDepth) {
+      return false;
+    }
+    if (breakdown.length != other.breakdown.length) {
+      return false;
+    }
+    for (var index = 0; index < breakdown.length; index++) {
+      if (!breakdown[index].sameValues(other.breakdown[index])) {
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
+class NativeRouterMetricsBreakdown {
+  const NativeRouterMetricsBreakdown({
+    required this.listenerId,
+    required this.protocol,
+    required this.totalEvents,
+    required this.gracefulEvents,
+    required this.goAwayEvents,
+    required this.idleTimeoutEvents,
+    required this.bodyTimeoutEvents,
+    required this.protocolErrorEvents,
+    required this.internalErrorEvents,
+    required this.backpressureEvents,
+    required this.maxBackpressureDepth,
+  });
+
+  final int listenerId;
+  final NativeConnectionProtocol protocol;
+  final int totalEvents;
+  final int gracefulEvents;
+  final int goAwayEvents;
+  final int idleTimeoutEvents;
+  final int bodyTimeoutEvents;
+  final int protocolErrorEvents;
+  final int internalErrorEvents;
+  final int backpressureEvents;
+  final int maxBackpressureDepth;
+
+  bool sameValues(NativeRouterMetricsBreakdown other) {
+    return listenerId == other.listenerId &&
+        protocol == other.protocol &&
+        totalEvents == other.totalEvents &&
         gracefulEvents == other.gracefulEvents &&
         goAwayEvents == other.goAwayEvents &&
         idleTimeoutEvents == other.idleTimeoutEvents &&
@@ -1319,6 +1381,89 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
     return result;
   }
 
+  bool get supportsHttp3TestClient =>
+      _bindings.ctTestHttp3StreamRequestHandle != null &&
+      _bindings.ctTestBufferFreeHandle != null;
+
+  NativeHttpTestResponse runHttp3StreamRequest({
+    required String host,
+    required int port,
+    required String path,
+    required String method,
+    Map<String, String> headers = const {},
+    Uint8List? body,
+    required String certificatePem,
+  }) {
+    final requestFn = _bindings.ctTestHttp3StreamRequestHandle;
+    final bufferFree = _bindings.ctTestBufferFreeHandle;
+    if (requestFn == null || bufferFree == null) {
+      throw UnsupportedError('HTTP/3 test client is not available');
+    }
+    final payload = body ?? Uint8List(0);
+    return using((arena) {
+      final hostPtr = host.toNativeUtf8(allocator: arena);
+      final pathPtr = path.toNativeUtf8(allocator: arena);
+      final methodPtr = method.toNativeUtf8(allocator: arena);
+      final certPtr = certificatePem.toNativeUtf8(allocator: arena);
+
+      final headerCount = headers.length;
+      final headerArray = headerCount == 0
+          ? ffi.nullptr
+          : arena<CtHttpHeader>(headerCount);
+      var index = 0;
+      headers.forEach((name, value) {
+        final namePtr = name.toNativeUtf8(allocator: arena);
+        final valuePtr = value.toNativeUtf8(allocator: arena);
+        headerArray[index]
+          ..namePtr = namePtr.cast()
+          ..nameLen = name.length
+          ..valuePtr = valuePtr.cast()
+          ..valueLen = value.length;
+        index += 1;
+      });
+
+      final bodyPtr = payload.isEmpty
+          ? ffi.nullptr
+          : arena<ffi.Uint8>(payload.length);
+      if (payload.isNotEmpty) {
+        bodyPtr.asTypedList(payload.length).setAll(0, payload);
+      }
+
+      final statusPtr = arena<ffi.Int32>();
+      final responsePtrPtr = arena<ffi.Pointer<ffi.Uint8>>();
+      final responseLenPtr = arena<ffi.IntPtr>();
+
+      final result = requestFn(
+        hostPtr,
+        port,
+        pathPtr,
+        methodPtr,
+        headerArray,
+        headerCount,
+        bodyPtr,
+        payload.length,
+        certPtr,
+        statusPtr,
+        responsePtrPtr,
+        responseLenPtr,
+      );
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'HTTP/3 test request failed');
+      }
+      final status = statusPtr.value;
+      final responsePtr = responsePtrPtr.value;
+      final responseLen = responseLenPtr.value;
+      Uint8List responseBody;
+      if (responsePtr == ffi.nullptr || responseLen == 0) {
+        responseBody = Uint8List(0);
+      } else {
+        responseBody = Uint8List.fromList(responsePtr.asTypedList(responseLen));
+        bufferFree(responsePtr, responseLen);
+      }
+      return NativeHttpTestResponse(status, responseBody);
+    });
+  }
+
   @override
   int pollConnection(int listenerId) {
     final result = _bindings.ctPollConnection(listenerId);
@@ -1974,6 +2119,27 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
         _throwForError(result, 'Failed to read router metrics');
       }
       final info = infoPtr.ref;
+      final breakdown = <NativeRouterMetricsBreakdown>[];
+      if (info.breakdownLen > 0 && info.breakdownPtr.address != 0) {
+        for (var index = 0; index < info.breakdownLen; index++) {
+          final entry = (info.breakdownPtr + index).ref;
+          breakdown.add(
+            NativeRouterMetricsBreakdown(
+              listenerId: entry.listenerId,
+              protocol: NativeConnectionProtocol.fromId(entry.protocol),
+              totalEvents: entry.totalEvents,
+              gracefulEvents: entry.gracefulEvents,
+              goAwayEvents: entry.goAwayEvents,
+              idleTimeoutEvents: entry.idleTimeoutEvents,
+              bodyTimeoutEvents: entry.bodyTimeoutEvents,
+              protocolErrorEvents: entry.protocolErrorEvents,
+              internalErrorEvents: entry.internalErrorEvents,
+              backpressureEvents: entry.backpressureEvents,
+              maxBackpressureDepth: entry.maxBackpressureDepth,
+            ),
+          );
+        }
+      }
       return NativeRouterMetrics(
         totalEvents: info.totalEvents,
         gracefulEvents: info.gracefulEvents,
@@ -1984,6 +2150,7 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
         internalErrorEvents: info.internalErrorEvents,
         backpressureEvents: info.backpressureEvents,
         maxBackpressureDepth: info.maxBackpressureDepth,
+        breakdown: breakdown,
       );
     } finally {
       calloc.free(infoPtr);

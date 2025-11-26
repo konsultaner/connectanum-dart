@@ -5,25 +5,30 @@ library router_integration_native_test;
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:ffi' as ffi;
 import 'dart:isolate';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:math' as math;
 
-import 'package:async/async.dart';
+import 'package:connectanum_router/src/native/ffi_bindings.dart';
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
 import 'package:connectanum_router/src/router/models/router_config.dart';
+import 'package:connectanum_router/src/router/models/sni_certificate.dart';
 import 'package:connectanum_router/src/router/models/tls_mode.dart';
 import 'package:connectanum_router/src/router/router_instance.dart';
 import 'package:connectanum_router/src/router/state/commands.dart';
 import 'package:connectanum_router/src/router/state/snapshot.dart';
+import 'package:ffi/ffi.dart';
 import 'package:test/test.dart';
 import 'package:http2/transport.dart' as http2;
 
 class _HybridRuntime implements NativeRuntimeWithHandles {
   _HybridRuntime(this._inner, List<int> connectionSequence)
-    : _connections = Queue<int>.from(connectionSequence);
+    : _connections = Queue<int>.from(connectionSequence) {
+    _syntheticConnections.addAll(connectionSequence);
+  }
 
   final NativeTransportRuntime _inner;
   final Queue<int> _connections;
@@ -66,12 +71,27 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
         final synthetic = _connections.removeFirst();
         _syntheticConnections.remove(synthetic);
         _connectionMap[synthetic] = actualId;
+        // ignore: avoid_print
+        print(
+          'hybrid: mapping synthetic $synthetic -> actual $actualId (listener $listenerId)',
+        );
         return synthetic;
       }
+      // ignore: avoid_print
+      print(
+        'hybrid: returning actual connection $actualId for listener $listenerId',
+      );
       return actualId;
     }
     if (_connections.isNotEmpty) {
-      return _connections.removeFirst();
+      final peek = _connections.first;
+      if (_syntheticConnections.contains(peek)) {
+        // ignore: avoid_print
+        print(
+          'hybrid: returning synthetic connection $peek for listener $listenerId',
+        );
+        return _connections.removeFirst();
+      }
     }
     return 0;
   }
@@ -87,7 +107,16 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
     if (override != null) {
       return override;
     }
-    return _inner.connectionProtocol(_resolveConnectionId(connectionId));
+    if (_syntheticConnections.contains(connectionId)) {
+      return NativeConnectionProtocol.rawsocket;
+    }
+    final resolved = _resolveConnectionId(connectionId);
+    final protocol = _inner.connectionProtocol(resolved);
+    // ignore: avoid_print
+    print(
+      'hybrid: connectionProtocol synthetic $connectionId resolved $resolved -> $protocol',
+    );
+    return protocol;
   }
 
   @override
@@ -193,10 +222,22 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
   }
 
   @override
-  NativeHttp3Stream? pollHttp3Stream(int connectionId) => null;
+  NativeHttp3Stream? pollHttp3Stream(int connectionId) =>
+      _inner.pollHttp3Stream(_resolveConnectionId(connectionId));
 
   @override
-  NativeHttpHandshake? pollHttp3Request(int connectionId) => null;
+  NativeHttpHandshake? pollHttp3Request(int connectionId) {
+    final resolved = _resolveConnectionId(connectionId);
+    final handshake = _inner.pollHttp3Request(resolved);
+    if (handshake != null) {
+      // ignore: avoid_print
+      print(
+        'hybrid: polled http/3 request for synthetic $connectionId (actual $resolved) '
+        '${handshake.method} ${handshake.path}',
+      );
+    }
+    return handshake;
+  }
 
   @override
   String? get libraryPathHint => _inner.libraryPath;
@@ -357,6 +398,28 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
   ) {
     _protocolOverrides[connectionId] = protocol;
   }
+
+  bool get supportsHttp3TestClient => _inner.supportsHttp3TestClient;
+
+  NativeHttpTestResponse runHttp3StreamRequest({
+    required String host,
+    required int port,
+    required String path,
+    required String method,
+    Map<String, String> headers = const {},
+    Uint8List? body,
+    required String certificatePem,
+  }) {
+    return _inner.runHttp3StreamRequest(
+      host: host,
+      port: port,
+      path: path,
+      method: method,
+      headers: headers,
+      body: body,
+      certificatePem: certificatePem,
+    );
+  }
 }
 
 class _RouterHarness {
@@ -366,10 +429,12 @@ class _RouterHarness {
     required this.runtime,
     required this.binding,
     required StreamController<Map<String, Object?>> events,
-    required StreamQueue<Map<String, Object?>> eventQueue,
+    required StreamController<void> pendingEventSignals,
+    required Queue<Map<String, Object?>> pendingEvents,
   }) : _innerRuntime = innerRuntime,
        _events = events,
-       _eventQueue = eventQueue,
+       _pendingEventSignals = pendingEventSignals,
+       _pendingEvents = pendingEvents,
        _statePort = binding.debugStatePort!;
 
   final int connectionId;
@@ -377,30 +442,43 @@ class _RouterHarness {
   final _HybridRuntime runtime;
   final RouterBinding binding;
   final StreamController<Map<String, Object?>> _events;
-  final StreamQueue<Map<String, Object?>> _eventQueue;
+  final StreamController<void> _pendingEventSignals;
+  final Queue<Map<String, Object?>> _pendingEvents;
   final SendPort _statePort;
   int? _sessionId;
+  bool _connectionQueued = false;
   bool _disposed = false;
 
   static Future<_RouterHarness> start({
     required int connectionId,
     required String? nativeLib,
+    RouterConfig? config,
+    RouterSettings? settings,
+    List<int>? connectionSequence,
   }) async {
     final innerRuntime = NativeTransportRuntime(libraryPath: nativeLib);
-    final runtime = _HybridRuntime(innerRuntime, [connectionId]);
+    final runtime = _HybridRuntime(
+      innerRuntime,
+      connectionSequence ?? const [],
+    );
     runtime.start();
     runtime.clearTestMessages();
 
+    final pendingEvents = Queue<Map<String, Object?>>();
+    final pendingSignals = StreamController<void>.broadcast();
     final events = StreamController<Map<String, Object?>>.broadcast();
-    final binding = Router(_buildConfig(), settings: _buildSettings()).start(
+    final routerConfig = config ?? _buildConfig();
+    final routerSettings = settings ?? _buildSettings();
+    final binding = Router(routerConfig, settings: routerSettings).start(
       runtime,
       onEvent: (event) {
         if (event is Map<String, Object?>) {
+          pendingEvents.add(event);
+          pendingSignals.add(null);
           events.add(event);
         }
       },
     );
-    final eventQueue = StreamQueue<Map<String, Object?>>(events.stream);
 
     final harness = _RouterHarness._(
       connectionId: connectionId,
@@ -408,7 +486,8 @@ class _RouterHarness {
       runtime: runtime,
       binding: binding,
       events: events,
-      eventQueue: eventQueue,
+      pendingEventSignals: pendingSignals,
+      pendingEvents: pendingEvents,
     );
     try {
       await harness
@@ -430,23 +509,47 @@ class _RouterHarness {
     _disposed = true;
     runtime.clearTestMessages();
     await binding.dispose();
-    await _eventQueue.cancel(immediate: true);
     await _events.close();
+    await _pendingEventSignals.close();
     runtime.shutdown();
     _innerRuntime.dispose();
   }
 
-  Future<Map<String, Object?>> _awaitEvent(String type) =>
-      _nextEvent(_eventQueue, type);
+  Future<Map<String, Object?>> _awaitEvent(String type) => nextEvent(type);
 
-  Future<Map<String, Object?>> nextEvent(String type) =>
-      _nextEvent(_eventQueue, type);
+  Future<Map<String, Object?>> nextEvent(String type) async {
+    final pending = _takePending(type);
+    if (pending != null) {
+      return pending;
+    }
+    await for (final _ in _pendingEventSignals.stream) {
+      final match = _takePending(type);
+      if (match != null) {
+        return match;
+      }
+    }
+    throw StateError('Stream ended while waiting for $type');
+  }
+
+  Map<String, Object?>? _takePending(String type) {
+    for (final event in _pendingEvents) {
+      if (event['type'] == type) {
+        _pendingEvents.remove(event);
+        return event;
+      }
+    }
+    return null;
+  }
 
   Stream<Map<String, Object?>> get events => _events.stream;
 
   Future<int> ensureSession() async {
     if (_sessionId != null) {
       return _sessionId!;
+    }
+    if (!_connectionQueued) {
+      runtime.queueConnection(connectionId);
+      _connectionQueued = true;
     }
     _enqueueHello(runtime, connectionId);
     _sessionId = await _awaitSessionId(_statePort, connectionId);
@@ -956,6 +1059,106 @@ void main() {
       );
     }, skip: skipReason);
 
+    test('streams HTTP/3 request and response payloads end-to-end', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9106,
+        nativeLib: nativeLib,
+        config: _buildTlsConfig(),
+        settings: _buildTlsSettings(),
+        connectionSequence: const [],
+      );
+      addTearDown(harness.dispose);
+
+      if (!harness.runtime.supportsHttp3TestClient) {
+        // Skip without failing the suite when ffi-test helpers are unavailable.
+        // ignore: avoid_print
+        print(
+          'Skipping HTTP/3 streaming test: native runtime lacks test client',
+        );
+        return;
+      }
+
+      final binding = harness.binding;
+      final httpSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'http3-stream',
+        authRole: 'internal',
+      );
+      addTearDown(httpSession.close);
+
+      final payloadLength = 62000;
+      final requestPayload = Uint8List.fromList(
+        List<int>.generate(payloadLength, (index) => (index * 3) % 251),
+      );
+      final responseChunk = Uint8List.fromList(
+        List<int>.filled(20 * 1024, 0x6B),
+      );
+      final finalChunk = Uint8List.fromList('http3-complete'.codeUnits);
+      const chunkCount = 5;
+
+      final registration = await httpSession.register(
+        'com.example.http.stream',
+      );
+      registration.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull, reason: 'Invocation missing HTTP context');
+        final body = context!.request.body;
+        expect(body, isNotNull);
+        expect(body!.length, equals(requestPayload.length));
+        expect(body, orderedEquals(requestPayload));
+
+        final stream = context.streamResponse(
+          status: 208,
+          headers: const {
+            'content-type': 'application/octet-stream',
+            'x-router': 'native-h3',
+          },
+        );
+        for (var i = 0; i < chunkCount; i++) {
+          stream.add(responseChunk);
+        }
+        stream.close(finalChunk);
+      });
+
+      final listener = binding.listeners.single;
+      expect(
+        listener.http3Port,
+        greaterThan(0),
+        reason: 'Router did not expose an HTTP/3 port',
+      );
+
+      final response = await _runHttp3StreamRequestInIsolate(
+        nativeLib!,
+        host: '127.0.0.1',
+        port: listener.http3Port,
+        path: '/api/stream',
+        method: 'POST',
+        headers: {
+          'content-type': 'application/octet-stream',
+          'content-length': payloadLength.toString(),
+          'x-client': 'router-http3-test',
+        },
+        body: requestPayload,
+        certificatePem: _http3CaCertificatePem,
+      );
+      expect(response.status, equals(208));
+      final responseBody = response.body;
+      final expectedLength =
+          responseChunk.length * chunkCount + finalChunk.length;
+      expect(responseBody.length, equals(expectedLength));
+      expect(
+        responseBody.sublist(0, responseChunk.length),
+        orderedEquals(responseChunk),
+      );
+      expect(
+        responseBody.sublist(
+          responseBody.length - finalChunk.length,
+          responseBody.length,
+        ),
+        orderedEquals(finalChunk),
+      );
+    }, skip: skipReason);
+
     test('reports HTTP/2 connection as pending protocol', () async {
       final harness = await _RouterHarness.start(
         connectionId: 9102,
@@ -963,7 +1166,6 @@ void main() {
       );
       addTearDown(harness.dispose);
 
-      harness.runtime.queueConnection(harness.connectionId);
       harness.runtime.setConnectionProtocol(
         harness.connectionId,
         NativeConnectionProtocol.http2,
@@ -978,6 +1180,7 @@ void main() {
           onRelease: () {},
         ),
       );
+      harness.runtime.queueConnection(harness.connectionId);
 
       Map<String, Object?> pending;
       while (true) {
@@ -1004,10 +1207,11 @@ void main() {
       final harness = await _RouterHarness.start(
         connectionId: 9103,
         nativeLib: nativeLib,
+        config: _buildTlsConfig(),
+        settings: _buildTlsSettings(),
       );
       addTearDown(harness.dispose);
 
-      harness.runtime.queueConnection(harness.connectionId);
       harness.runtime.setConnectionProtocol(
         harness.connectionId,
         NativeConnectionProtocol.http3,
@@ -1027,6 +1231,7 @@ void main() {
           onRelease: () {},
         ),
       );
+      harness.runtime.queueConnection(harness.connectionId);
 
       Map<String, Object?> pending;
       while (true) {
@@ -1076,19 +1281,73 @@ String? _resolveNativeLib() {
   return null;
 }
 
-RouterConfig _buildConfig() => RouterConfig(
+final String _http3CertificatePem = _loadRouterCert('http3_cert.pem');
+final String _http3PrivateKeyPem = _loadRouterCert('http3_key.pem');
+final String _http3CaCertificatePem = _loadRouterCert('http3_ca_cert.pem');
+
+final List<SniCertificate> _http3SniCertificates = [
+  SniCertificate(
+    hostname: 'localhost',
+    certificateChainPem: _http3CertificatePem,
+    privateKeyPem: _http3PrivateKeyPem,
+  ),
+  SniCertificate(
+    hostname: '127.0.0.1',
+    certificateChainPem: _http3CertificatePem,
+    privateKeyPem: _http3PrivateKeyPem,
+  ),
+];
+
+String _loadRouterCert(String fileName) {
+  final candidates = <Uri>[
+    Uri.base.resolve('packages/connectanum_router/test/certs/$fileName'),
+  ];
+  if (Platform.script.scheme == 'file') {
+    candidates.add(Platform.script.resolve('certs/$fileName'));
+  }
+  for (final uri in candidates) {
+    if (uri.scheme != 'file') {
+      continue;
+    }
+    final file = File.fromUri(uri);
+    if (file.existsSync()) {
+      return file.readAsStringSync();
+    }
+  }
+  final fallbacks = <String>[
+    'packages/connectanum_router/test/certs/$fileName',
+    'test/certs/$fileName',
+    fileName,
+  ];
+  for (final path in fallbacks) {
+    final file = File(path);
+    if (file.existsSync()) {
+      return file.readAsStringSync();
+    }
+  }
+  throw StateError('Missing router test certificate $fileName');
+}
+
+RouterConfig _buildConfig() => _buildRouterConfig(enableTls: false);
+RouterConfig _buildTlsConfig() => _buildRouterConfig(enableTls: true);
+
+RouterConfig _buildRouterConfig({required bool enableTls}) => RouterConfig(
   endpoints: [
     Endpoint(
       host: '127.0.0.1',
       port: 0,
-      tlsMode: TlsMode.disabled,
+      tlsMode: enableTls ? TlsMode.native : TlsMode.disabled,
       idleTimeout: const Duration(seconds: 30),
       maxRawSocketSizeExponent: 16,
+      sniCertificates: enableTls ? _http3SniCertificates : const [],
     ),
   ],
 );
 
-RouterSettings _buildSettings() {
+RouterSettings _buildSettings() => _buildRouterSettings(enableHttp3: false);
+RouterSettings _buildTlsSettings() => _buildRouterSettings(enableHttp3: true);
+
+RouterSettings _buildRouterSettings({required bool enableHttp3}) {
   final realmBuilder = RealmSettingsBuilder('realm1')
     ..addAuthMethod('anonymous')
     ..addRoleFromBuilder(
@@ -1125,11 +1384,18 @@ RouterSettings _buildSettings() {
     ..addAuthMethod('anonymous')
     ..addProtocol(ListenerProtocol.rawsocket)
     ..addProtocol(ListenerProtocol.http)
-    ..addProtocol(ListenerProtocol.http2)
+    ..addProtocol(ListenerProtocol.http2);
+  if (enableHttp3) {
+    listener.addProtocol(ListenerProtocol.http3);
+  }
+  listener
     ..setRawSocketOptions(const RawSocketListenerSettings(maxFrameExponent: 16))
     ..setHttpOptions(
       HttpListenerSettings(
-        alpn: const ['http/1.1', 'h2'],
+        alpn: enableHttp3
+            ? const ['http/1.1', 'h2', 'h3']
+            : const ['http/1.1', 'h2'],
+        http3: enableHttp3 ? const Http3Settings(enabled: true) : null,
         routes: const [
           HttpRouteSettings(
             match: HttpRouteMatch(path: '/api/health'),
@@ -1163,17 +1429,96 @@ RouterSettings _buildSettings() {
       .build();
 }
 
-Future<Map<String, Object?>> _nextEvent(
-  StreamQueue<Map<String, Object?>> queue,
-  String type,
-) async {
-  while (await queue.hasNext) {
-    final event = await queue.next;
-    if (event['type'] == type) {
-      return event;
+Future<NativeHttpTestResponse> _runHttp3StreamRequestInIsolate(
+  String nativeLibPath, {
+  required String host,
+  required int port,
+  required String path,
+  required String method,
+  required Map<String, String> headers,
+  required Uint8List body,
+  required String certificatePem,
+}) async {
+  final transferableBody = TransferableTypedData.fromList(<Uint8List>[body]);
+  final headerCopy = Map<String, String>.from(headers);
+  final result = await Isolate.run<Map<String, Object?>>(() {
+    final library = ffi.DynamicLibrary.open(nativeLibPath);
+    final bindings = CtFfiBindings(library);
+    final requestFn = bindings.ctTestHttp3StreamRequestHandle;
+    final bufferFree = bindings.ctTestBufferFreeHandle;
+    if (requestFn == null || bufferFree == null) {
+      throw UnsupportedError('HTTP/3 test client is not available');
     }
-  }
-  throw StateError('Stream ended while waiting for $type');
+    final payload = transferableBody.materialize().asUint8List();
+    return using((arena) {
+      final hostPtr = host.toNativeUtf8(allocator: arena);
+      final pathPtr = path.toNativeUtf8(allocator: arena);
+      final methodPtr = method.toNativeUtf8(allocator: arena);
+      final certPtr = certificatePem.toNativeUtf8(allocator: arena);
+
+      final headerCount = headerCopy.length;
+      final headerArray = headerCount == 0
+          ? ffi.nullptr
+          : arena<CtHttpHeader>(headerCount);
+      var index = 0;
+      headerCopy.forEach((name, value) {
+        final namePtr = name.toNativeUtf8(allocator: arena);
+        final valuePtr = value.toNativeUtf8(allocator: arena);
+        headerArray[index]
+          ..namePtr = namePtr.cast()
+          ..nameLen = name.length
+          ..valuePtr = valuePtr.cast()
+          ..valueLen = value.length;
+        index += 1;
+      });
+
+      final bodyPtr = payload.isEmpty
+          ? ffi.nullptr
+          : arena<ffi.Uint8>(payload.length);
+      if (payload.isNotEmpty) {
+        bodyPtr.asTypedList(payload.length).setAll(0, payload);
+      }
+
+      final statusPtr = arena<ffi.Int32>();
+      final responsePtrPtr = arena<ffi.Pointer<ffi.Uint8>>();
+      final responseLenPtr = arena<ffi.IntPtr>();
+
+      final resultCode = requestFn(
+        hostPtr,
+        port,
+        pathPtr,
+        methodPtr,
+        headerArray,
+        headerCount,
+        bodyPtr,
+        payload.length,
+        certPtr,
+        statusPtr,
+        responsePtrPtr,
+        responseLenPtr,
+      );
+      if (resultCode != NativeTransportErrorCode.success) {
+        throw NativeTransportException(
+          resultCode,
+          'HTTP/3 test request failed',
+        );
+      }
+      final status = statusPtr.value;
+      final responsePtr = responsePtrPtr.value;
+      final responseLen = responseLenPtr.value;
+      Uint8List responseBody;
+      if (responsePtr == ffi.nullptr || responseLen == 0) {
+        responseBody = Uint8List(0);
+      } else {
+        responseBody = Uint8List.fromList(responsePtr.asTypedList(responseLen));
+        bufferFree(responsePtr, responseLen);
+      }
+      return <String, Object?>{'status': status, 'body': responseBody};
+    });
+  });
+  final status = result['status'] as int? ?? 0;
+  final responseBody = (result['body'] as Uint8List?) ?? Uint8List(0);
+  return NativeHttpTestResponse(status, responseBody);
 }
 
 Future<RealmSnapshot> _fetchSnapshot(SendPort commandPort) async {

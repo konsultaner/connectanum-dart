@@ -614,6 +614,11 @@ class RouterBinding {
     RouterHttpRequest request,
     NativeHttpHandshake? handshake,
   ) async {
+    // ignore: avoid_print
+    print(
+      'binding: handling HTTP request ${request.method} ${request.path} (${request.protocol}) '
+      'conn=${request.connectionId}',
+    );
     NativeHttpHandshake? retainedHandshake = handshake;
     final realmUri = request.realm;
     final procedure = request.procedure;
@@ -1526,6 +1531,144 @@ class _MetricsService {
         ..writeln(
           'connectanum_router_http_max_backpressure_depth ${transport.maxBackpressureDepth}',
         );
+      if (transport.breakdown.isNotEmpty) {
+        buffer
+          ..writeln(
+            '# HELP connectanum_router_http_events_by_listener_total HTTP connection lifecycle events per listener/protocol',
+          )
+          ..writeln(
+            '# TYPE connectanum_router_http_events_by_listener_total counter',
+          );
+        for (final entry in transport.breakdown) {
+          final labels = _formatLabels({
+            'listener_id': entry.listenerId.toString(),
+            'protocol': entry.protocol,
+            'endpoint': entry.endpoint,
+          });
+          buffer.writeln(
+            'connectanum_router_http_events_by_listener_total$labels ${entry.totalEvents}',
+          );
+        }
+        buffer
+          ..writeln(
+            '# HELP connectanum_router_http_goaway_by_listener_total HTTP connections closed via GOAWAY per listener/protocol',
+          )
+          ..writeln(
+            '# TYPE connectanum_router_http_goaway_by_listener_total counter',
+          );
+        for (final entry in transport.breakdown) {
+          final labels = _formatLabels({
+            'listener_id': entry.listenerId.toString(),
+            'protocol': entry.protocol,
+            'endpoint': entry.endpoint,
+          });
+          buffer.writeln(
+            'connectanum_router_http_goaway_by_listener_total$labels ${entry.goAwayEvents}',
+          );
+        }
+        buffer
+          ..writeln(
+            '# HELP connectanum_router_http_idle_timeouts_by_listener_total HTTP idle timeout closures per listener/protocol',
+          )
+          ..writeln(
+            '# TYPE connectanum_router_http_idle_timeouts_by_listener_total counter',
+          );
+        for (final entry in transport.breakdown) {
+          final labels = _formatLabels({
+            'listener_id': entry.listenerId.toString(),
+            'protocol': entry.protocol,
+            'endpoint': entry.endpoint,
+          });
+          buffer.writeln(
+            'connectanum_router_http_idle_timeouts_by_listener_total$labels ${entry.idleTimeoutEvents}',
+          );
+        }
+        buffer
+          ..writeln(
+            '# HELP connectanum_router_http_body_timeouts_by_listener_total HTTP body timeout closures per listener/protocol',
+          )
+          ..writeln(
+            '# TYPE connectanum_router_http_body_timeouts_by_listener_total counter',
+          );
+        for (final entry in transport.breakdown) {
+          final labels = _formatLabels({
+            'listener_id': entry.listenerId.toString(),
+            'protocol': entry.protocol,
+            'endpoint': entry.endpoint,
+          });
+          buffer.writeln(
+            'connectanum_router_http_body_timeouts_by_listener_total$labels ${entry.bodyTimeoutEvents}',
+          );
+        }
+        buffer
+          ..writeln(
+            '# HELP connectanum_router_http_protocol_errors_by_listener_total HTTP protocol error closures per listener/protocol',
+          )
+          ..writeln(
+            '# TYPE connectanum_router_http_protocol_errors_by_listener_total counter',
+          );
+        for (final entry in transport.breakdown) {
+          final labels = _formatLabels({
+            'listener_id': entry.listenerId.toString(),
+            'protocol': entry.protocol,
+            'endpoint': entry.endpoint,
+          });
+          buffer.writeln(
+            'connectanum_router_http_protocol_errors_by_listener_total$labels ${entry.protocolErrorEvents}',
+          );
+        }
+        buffer
+          ..writeln(
+            '# HELP connectanum_router_http_internal_errors_by_listener_total HTTP internal error closures per listener/protocol',
+          )
+          ..writeln(
+            '# TYPE connectanum_router_http_internal_errors_by_listener_total counter',
+          );
+        for (final entry in transport.breakdown) {
+          final labels = _formatLabels({
+            'listener_id': entry.listenerId.toString(),
+            'protocol': entry.protocol,
+            'endpoint': entry.endpoint,
+          });
+          buffer.writeln(
+            'connectanum_router_http_internal_errors_by_listener_total$labels ${entry.internalErrorEvents}',
+          );
+        }
+        buffer
+          ..writeln(
+            '# HELP connectanum_router_http_backpressure_events_by_listener_total HTTP request queue backpressure events per listener/protocol',
+          )
+          ..writeln(
+            '# TYPE connectanum_router_http_backpressure_events_by_listener_total counter',
+          );
+        for (final entry in transport.breakdown) {
+          final labels = _formatLabels({
+            'listener_id': entry.listenerId.toString(),
+            'protocol': entry.protocol,
+            'endpoint': entry.endpoint,
+          });
+          buffer.writeln(
+            'connectanum_router_http_backpressure_events_by_listener_total$labels ${entry.backpressureEvents}',
+          );
+        }
+        buffer
+          ..writeln(
+            '# HELP connectanum_router_http_max_backpressure_depth_by_listener Maximum observed HTTP request queue depth per listener/protocol',
+          )
+          ..writeln(
+            '# TYPE connectanum_router_http_max_backpressure_depth_by_listener gauge',
+          );
+        for (final entry in transport.breakdown) {
+          final labels = _formatLabels({
+            'listener_id': entry.listenerId.toString(),
+            'protocol': entry.protocol,
+            'endpoint': entry.endpoint,
+          });
+          buffer.writeln(
+            'connectanum_router_http_max_backpressure_depth_by_listener$labels ${entry.maxBackpressureDepth}',
+          );
+        }
+      }
     }
 
     buffer

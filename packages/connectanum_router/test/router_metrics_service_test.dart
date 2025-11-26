@@ -194,6 +194,21 @@ class _NoopHandleRuntime extends _FakeRuntime
     internalErrorEvents: 0,
     backpressureEvents: 3,
     maxBackpressureDepth: 4,
+    breakdown: [
+      NativeRouterMetricsBreakdown(
+        listenerId: 1,
+        protocol: NativeConnectionProtocol.http2,
+        totalEvents: 12,
+        gracefulEvents: 8,
+        goAwayEvents: 1,
+        idleTimeoutEvents: 2,
+        bodyTimeoutEvents: 1,
+        protocolErrorEvents: 0,
+        internalErrorEvents: 0,
+        backpressureEvents: 3,
+        maxBackpressureDepth: 4,
+      ),
+    ],
   );
 }
 
@@ -263,6 +278,11 @@ void main() {
     expect(openMetricsText, contains('connectanum_router_realms'));
     expect(openMetricsText, contains('realm="realm1"'));
     expect(openMetricsText, contains('connectanum_router_http_events_total'));
+    expect(
+      openMetricsText,
+      contains('connectanum_router_http_events_by_listener_total'),
+    );
+    expect(openMetricsText, contains('listener_id="1"'));
   });
 }
 

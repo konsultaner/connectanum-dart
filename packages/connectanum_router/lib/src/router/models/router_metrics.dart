@@ -78,6 +78,7 @@ class RouterTransportMetrics {
     required this.internalErrorEvents,
     required this.backpressureEvents,
     required this.maxBackpressureDepth,
+    this.breakdown = const <RouterTransportMetricsBreakdown>[],
   });
 
   final int totalEvents;
@@ -89,6 +90,7 @@ class RouterTransportMetrics {
   final int internalErrorEvents;
   final int backpressureEvents;
   final int maxBackpressureDepth;
+  final List<RouterTransportMetricsBreakdown> breakdown;
 
   RouterTransportMetrics copyWith({
     int? totalEvents,
@@ -100,6 +102,7 @@ class RouterTransportMetrics {
     int? internalErrorEvents,
     int? backpressureEvents,
     int? maxBackpressureDepth,
+    List<RouterTransportMetricsBreakdown>? breakdown,
   }) {
     return RouterTransportMetrics(
       totalEvents: totalEvents ?? this.totalEvents,
@@ -111,10 +114,60 @@ class RouterTransportMetrics {
       internalErrorEvents: internalErrorEvents ?? this.internalErrorEvents,
       backpressureEvents: backpressureEvents ?? this.backpressureEvents,
       maxBackpressureDepth: maxBackpressureDepth ?? this.maxBackpressureDepth,
+      breakdown: breakdown ?? this.breakdown,
     );
   }
 
   Map<String, Object?> toJson() => {
+    'total_events': totalEvents,
+    'graceful_events': gracefulEvents,
+    'goaway_events': goAwayEvents,
+    'idle_timeout_events': idleTimeoutEvents,
+    'body_timeout_events': bodyTimeoutEvents,
+    'protocol_error_events': protocolErrorEvents,
+    'internal_error_events': internalErrorEvents,
+    'backpressure_events': backpressureEvents,
+    'max_backpressure_depth': maxBackpressureDepth,
+    if (breakdown.isNotEmpty)
+      'by_listener_protocol': breakdown.map((entry) => entry.toJson()).toList(),
+  };
+}
+
+/// Per-listener/per-protocol breakdown of transport metrics.
+@immutable
+class RouterTransportMetricsBreakdown {
+  const RouterTransportMetricsBreakdown({
+    required this.listenerId,
+    required this.protocol,
+    required this.endpoint,
+    required this.totalEvents,
+    required this.gracefulEvents,
+    required this.goAwayEvents,
+    required this.idleTimeoutEvents,
+    required this.bodyTimeoutEvents,
+    required this.protocolErrorEvents,
+    required this.internalErrorEvents,
+    required this.backpressureEvents,
+    required this.maxBackpressureDepth,
+  });
+
+  final int listenerId;
+  final String protocol;
+  final String endpoint;
+  final int totalEvents;
+  final int gracefulEvents;
+  final int goAwayEvents;
+  final int idleTimeoutEvents;
+  final int bodyTimeoutEvents;
+  final int protocolErrorEvents;
+  final int internalErrorEvents;
+  final int backpressureEvents;
+  final int maxBackpressureDepth;
+
+  Map<String, Object?> toJson() => {
+    'listener_id': listenerId,
+    'protocol': protocol,
+    'endpoint': endpoint,
     'total_events': totalEvents,
     'graceful_events': gracefulEvents,
     'goaway_events': goAwayEvents,

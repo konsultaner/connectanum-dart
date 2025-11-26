@@ -1,5 +1,7 @@
 import 'dart:ffi' as ffi;
 
+import 'package:ffi/ffi.dart' as pkgffi show Utf8;
+
 typedef CtStartRuntimeNative = ffi.Int32 Function();
 typedef CtStartRuntimeDart = int Function();
 
@@ -26,6 +28,39 @@ typedef CtPollConnectionMessageNative = ffi.Int32 Function(ffi.Int32);
 typedef CtPollConnectionMessageDart = int Function(int);
 typedef CtPollWebSocketMessageNative = ffi.Int32 Function(ffi.Int32);
 typedef CtPollWebSocketMessageDart = int Function(int);
+typedef CtTestHttp3StreamRequestNative =
+    ffi.Int32 Function(
+      ffi.Pointer<pkgffi.Utf8>,
+      ffi.Int32,
+      ffi.Pointer<pkgffi.Utf8>,
+      ffi.Pointer<pkgffi.Utf8>,
+      ffi.Pointer<CtHttpHeader>,
+      ffi.IntPtr,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.IntPtr,
+      ffi.Pointer<pkgffi.Utf8>,
+      ffi.Pointer<ffi.Int32>,
+      ffi.Pointer<ffi.Pointer<ffi.Uint8>>,
+      ffi.Pointer<ffi.IntPtr>,
+    );
+typedef CtTestHttp3StreamRequestDart =
+    int Function(
+      ffi.Pointer<pkgffi.Utf8>,
+      int,
+      ffi.Pointer<pkgffi.Utf8>,
+      ffi.Pointer<pkgffi.Utf8>,
+      ffi.Pointer<CtHttpHeader>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<pkgffi.Utf8>,
+      ffi.Pointer<ffi.Int32>,
+      ffi.Pointer<ffi.Pointer<ffi.Uint8>>,
+      ffi.Pointer<ffi.IntPtr>,
+    );
+typedef CtTestBufferFreeNative =
+    ffi.Void Function(ffi.Pointer<ffi.Uint8>, ffi.IntPtr);
+typedef CtTestBufferFreeDart = void Function(ffi.Pointer<ffi.Uint8>, int);
 
 typedef CtMessageGetNative =
     ffi.Int32 Function(ffi.Int32, ffi.Pointer<CtMessageInfo>);
@@ -448,6 +483,46 @@ final class CtRouterMetricsInfo extends ffi.Struct {
 
   @ffi.Uint32()
   external int maxBackpressureDepth;
+
+  external ffi.Pointer<CtRouterMetricsBreakdownInfo> breakdownPtr;
+
+  @ffi.Size()
+  external int breakdownLen;
+}
+
+final class CtRouterMetricsBreakdownInfo extends ffi.Struct {
+  @ffi.Uint32()
+  external int listenerId;
+
+  @ffi.Int32()
+  external int protocol;
+
+  @ffi.Uint64()
+  external int totalEvents;
+
+  @ffi.Uint64()
+  external int gracefulEvents;
+
+  @ffi.Uint64()
+  external int goAwayEvents;
+
+  @ffi.Uint64()
+  external int idleTimeoutEvents;
+
+  @ffi.Uint64()
+  external int bodyTimeoutEvents;
+
+  @ffi.Uint64()
+  external int protocolErrorEvents;
+
+  @ffi.Uint64()
+  external int internalErrorEvents;
+
+  @ffi.Uint64()
+  external int backpressureEvents;
+
+  @ffi.Uint32()
+  external int maxBackpressureDepth;
 }
 
 final class CtHttpHeader extends ffi.Struct {
@@ -535,6 +610,19 @@ class CtFfiBindings {
               CtPollWebSocketMessageNative,
               CtPollWebSocketMessageDart
             >('ct_poll_websocket_message'),
+      ),
+      ctTestHttp3StreamRequestHandle = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtTestHttp3StreamRequestNative,
+              CtTestHttp3StreamRequestDart
+            >('ct_test_http3_stream_request'),
+      ),
+      ctTestBufferFreeHandle = _tryLookup(
+        () => library
+            .lookupFunction<CtTestBufferFreeNative, CtTestBufferFreeDart>(
+              'ct_test_byte_buffer_free',
+            ),
       ),
       ctMessageGet = library
           .lookupFunction<CtMessageGetNative, CtMessageGetDart>(
@@ -789,6 +877,8 @@ class CtFfiBindings {
   final CtPollConnectionDart ctPollConnection;
   final CtPollConnectionMessageDart ctPollConnectionMessage;
   final CtPollWebSocketMessageDart? ctPollWebSocketMessageHandle;
+  final CtTestHttp3StreamRequestDart? ctTestHttp3StreamRequestHandle;
+  final CtTestBufferFreeDart? ctTestBufferFreeHandle;
   final CtMessageGetDart ctMessageGet;
   final CtMessageReleaseDart ctMessageRelease;
   final CtMessageRetainDart ctMessageRetain;

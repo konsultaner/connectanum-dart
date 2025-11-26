@@ -11,10 +11,8 @@ use h3_quinn::Connection as H3QuinnConnection;
 use http::Request;
 use http02::{Request as Http2TestRequest, StatusCode as Http2StatusCode};
 use quinn::{
-    ClientConfig as QuinnClientConfig,
-    Endpoint as QuinnEndpoint,
-    TransportConfig,
-    crypto::rustls::QuicClientConfig as QuinnRustlsClientConfig,
+    crypto::rustls::QuicClientConfig as QuinnRustlsClientConfig, ClientConfig as QuinnClientConfig,
+    Endpoint as QuinnEndpoint, TransportConfig,
 };
 use rcgen::generate_simple_self_signed;
 use rustls::client::WebPkiServerVerifier;
@@ -34,12 +32,11 @@ use crate::runtime::constants::{
     PROTOCOL_HTTP2, PROTOCOL_HTTP3, PROTOCOL_RAWSOCKET, PROTOCOL_WEBSOCKET, SUCCESS,
 };
 use crate::runtime::ffi::{
-    ct_apply_router_config, ct_connection_get_http3_connection,
+    ct_apply_router_config, ct_connection_accept_websocket, ct_connection_get_http3_connection,
     ct_connection_max_rawsocket_exponent, ct_connection_poll_http_event, ct_connection_protocol,
     ct_connection_take_http2_handshake, ct_connection_take_http3_handshake,
     ct_connection_take_http_handshake, ct_connection_take_websocket_handshake, ct_get_local_port,
-    ct_connection_accept_websocket, ct_http2_handshake_get,
-    ct_http2_handshake_listener_protocol, ct_http2_handshake_release,
+    ct_http2_handshake_get, ct_http2_handshake_listener_protocol, ct_http2_handshake_release,
     ct_http3_connection_poll_request, ct_http3_connection_poll_stream, ct_http3_connection_release,
     ct_http3_handshake_get, ct_http3_handshake_listener_protocol, ct_http3_handshake_release,
     ct_http_body_finish, ct_http_body_get, ct_http_body_release, ct_http_body_stream_read,
@@ -1914,6 +1911,7 @@ fn http3_idle_timeout_emits_connection_event() {
     assert_eq!(
         ct_test_push_http_connection_event(
             connection_id,
+            1,
             PROTOCOL_HTTP3,
             HTTP_EVENT_REASON_IDLE_TIMEOUT,
             1,
@@ -2655,11 +2653,7 @@ fn websocket_wamp_round_trip() {
 
     let welcome = serde_json::to_vec(&json!([2, 1, {}, {}])).unwrap();
     assert_eq!(
-        ct_send_message(
-            connection_id,
-            welcome.as_ptr(),
-            welcome.len() as i32
-        ),
+        ct_send_message(connection_id, welcome.as_ptr(), welcome.len() as i32),
         SUCCESS
     );
 
@@ -2730,10 +2724,7 @@ async fn send_json_frame(stream: &mut tokio::net::TcpStream, payload: &[u8]) {
     }
 }
 
-async fn send_websocket_handshake(
-    stream: &mut tokio::net::TcpStream,
-    path: &str,
-) {
+async fn send_websocket_handshake(stream: &mut tokio::net::TcpStream, path: &str) {
     let request = format!(
         "GET {} HTTP/1.1\r\n\
 Host: localhost\r\n\
@@ -2747,9 +2738,7 @@ Sec-WebSocket-Protocol: wamp.2.json\r\n\r\n",
     stream.write_all(request.as_bytes()).await.unwrap();
 }
 
-async fn read_http_response_until_body(
-    stream: &mut tokio::net::TcpStream,
-) -> String {
+async fn read_http_response_until_body(stream: &mut tokio::net::TcpStream) -> String {
     let mut buffer = Vec::new();
     let mut chunk = [0u8; 1];
     while !buffer.ends_with(b"\r\n\r\n") {
@@ -2813,16 +2802,11 @@ async fn send_unmasked_websocket_frame(
     }
 }
 
-async fn read_server_websocket_frame(
-    stream: &mut tokio::net::TcpStream,
-) -> Vec<u8> {
+async fn read_server_websocket_frame(stream: &mut tokio::net::TcpStream) -> Vec<u8> {
     let mut header = [0u8; 2];
     stream.read_exact(&mut header).await.unwrap();
     let opcode = header[0] & 0x0F;
-    assert!(
-        opcode == 0x1 || opcode == 0x2,
-        "unexpected opcode {opcode}"
-    );
+    assert!(opcode == 0x1 || opcode == 0x2, "unexpected opcode {opcode}");
     assert_eq!(header[1] & 0x80, 0, "server frames must be unmasked");
 
     let mut len = (header[1] & 0x7F) as u64;

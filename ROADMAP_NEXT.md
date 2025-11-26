@@ -10,17 +10,19 @@ Fresh state:
 Focus for the next session:
 1. **Boss Telemetry Stream & Prometheus Exporter**
    - ✅ `ct_router_metrics_snapshot` aggregates GOAWAY/backpressure/timeout counters, `_RouterBoss` now polls it each loop, and `_MetricsService` renders the HTTP stats inside the OpenMetrics payload/tests.
-   - Next up: break the snapshot down by listener/protocol, cache it inside the boss telemetry stream, and expose it via the metrics realm’s HTTP endpoint (configurable auth/token) so Prometheus can scrape without a WAMP client.
-   - Follow-on: document the boss telemetry stream, update STRUCTURE/ROADMAP once the HTTP exporter is wired, and keep listen_flow + router runtime coverage in sync.
+   - ✅ Snapshot now splits by listener/protocol, caches in the boss telemetry stream, and the metrics realm HTTP endpoint (with optional auth/token) exposes the per-listener counters for Prometheus without a WAMP client.
+   - Next up: add boss-side throttling/alerting hooks on top of the per-listener metrics, document the telemetry stream/exporter wiring, and keep listen_flow + router runtime coverage in sync.
 
 2. **HTTP/2 + HTTP/3 Deadline Enforcement**
    - Enforce the remaining idle/body deadlines for HTTP/2/HTTP/3 readers, emit GOAWAY with explicit reasons, and extend `listen_flow.rs` to cover the new timeout branches.
    - Mirror those scenarios in Dart (`router_runtime_test.dart`, worker/boss suites) so regressions get caught before Prometheus/benchmark runs.
 
 3. **HTTP Streaming Regression Coverage**
-  - ✅ HTTP/1.1 chunked writers + `_HttpResponseStream` plumbing are live, `listen_flow::http_response_streaming_round_trip` covers the native writer, router integration tests stream 60 KB uploads/downloads, `listen_flow::http3_response_streaming_round_trip` exercises the QUIC path, boss/runtime tests cover HTTP/2+HTTP/3 streaming, the new `tool/http_stream_bench.dart` CLI drives real HTTP/2 transfers while reporting router transport metric deltas, the bench runner exposes `/bench/*` HTTP control routes, and the Rust orchestrator now loads TOML scenarios (`h2_smoke`, `full_stack`) to drive HTTP/2 workloads via `hyper` and HTTP/3 workloads via `quinn`/`h3`, recording router metrics snapshots + JSONL summaries before stopping the Dart runner. Per-workload timeouts ensure hung regressions self-abort, the Dart bench process now always exits cleanly after `/bench/stop`, and every `/bench/metrics` call returns the OpenMetrics payload which is stored as `open_metrics_before`/`open_metrics_after` in `bench_results.jsonl`. Native `listen_flow` now covers HTTP/3 handshakes, stream polling, and multi-connection scenarios end-to-end under QUIC with ALPN `h3` after fixing the client verifier/ALPN wiring.
-   - Next: publish the captured OpenMetrics blobs to a Prometheus/Grafana stack (either by scraping the embedded exporter or transforming the JSONL output), then wire the harness into CI so regressions surface before release.
-   - Add the dedicated zero-copy HTTP regression harness the user requested (Rust listen_flow + Dart router/integration) so Prometheus exporters and perf scripts can rely on multi-MB streaming tests before each run.
+- ✅ HTTP/1.1 chunked writers + `_HttpResponseStream` plumbing are live, `listen_flow::http_response_streaming_round_trip` covers the native writer, router integration tests stream 60 KB uploads/downloads, `listen_flow::http3_response_streaming_round_trip` exercises the QUIC path, boss/runtime tests cover HTTP/2+HTTP/3 streaming, the new `tool/http_stream_bench.dart` CLI drives real HTTP/2 transfers while reporting router transport metric deltas, the bench runner exposes `/bench/*` HTTP control routes, and the Rust orchestrator now loads TOML scenarios (`h2_smoke`, `full_stack`) to drive HTTP/2 workloads via `hyper` and HTTP/3 workloads via `quinn`/`h3`, recording router metrics snapshots + JSONL summaries before stopping the Dart runner. Per-workload timeouts ensure hung regressions self-abort, the Dart bench process now always exits cleanly after `/bench/stop`, and every `/bench/metrics` call returns the OpenMetrics payload which is stored as `open_metrics_before`/`open_metrics_after` in `bench_results.jsonl`. Native `listen_flow` now covers HTTP/3 handshakes, stream polling, and multi-connection scenarios end-to-end under QUIC with ALPN `h3` after fixing the client verifier/ALPN wiring, and the Dart router integration harness now drives HTTPS + HTTP/3 streaming end-to-end via the new native test client helper and bundled TLS fixtures.
+  - Next: publish the captured OpenMetrics blobs to a Prometheus/Grafana stack (either by scraping the embedded exporter or transforming the JSONL output), then wire the harness into CI so regressions surface before release.
+  - ✅ Dedicated zero-copy HTTP regression harness (Rust listen_flow + Dart router/integration) now runs HTTPS and QUIC streaming scenarios against `router_integration_native_test.dart`; expand it with multi-MB permutations before Prometheus/bench CI absorbs it.
+  - [ ] Adopt the upstream WAMP conformance suite (wamp-proto/wamp-proto#557) once merged, and run it against our RawSocket/WebSocket/HTTP/2/HTTP/3 transports and serializer matrix in CI to validate protocol compliance alongside our bespoke regressions.
+  - ✅ HTTP/3 streaming integration test now runs its QUIC client on a dedicated isolate using the ffi-test helper and bundled CA/cert/key, so the Dart boss remains responsive while the native client drains the stream (timeout regression fixed).
 
 4. **WebSocket Transport Completion**
    - ✅ Frame read/write loops are live; new `listen_flow::websocket_wamp_round_trip` drives masked client frames into the native reader and asserts the server writer replies with WAMP payloads, covering the end-to-end WebSocket transport path.
@@ -59,6 +61,9 @@ Focus for the next session:
 11. **E2EE Research Spike**
    - Outline options for end-to-end payload encryption without incurring Dart 64-bit object overhead (e.g. offloading to Rust FFI or dedicated binary isolates).
    - Identify handshake/key-management changes required in HELLO/CHALLENGE and how they interact with zero-copy routing.
+
+12. **Packaging & Build Hooks**
+   - Add Dart 3.10+ build hooks that compile the Rust `ct_ffi` backend during pub get/install so consumers no longer need manual `cargo build` steps; gate platform detection and allow opting out for prebuilt/shared-lib setups.
 
 Regression / validation to run after changes:
 - `dart test packages/connectanum_router/test/router_worker_session_test.dart --chain-stack-traces`

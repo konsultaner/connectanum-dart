@@ -197,6 +197,27 @@ class _RouterBoss {
         protocol = NativeConnectionProtocol.rawsocket;
       }
 
+      NativeHttp3Handshake? forcedHttp3Handshake;
+      if (protocol == NativeConnectionProtocol.rawsocket) {
+        try {
+          forcedHttp3Handshake = runtime.takeHttp3Handshake(connectionId);
+          if (forcedHttp3Handshake != null) {
+            protocol = NativeConnectionProtocol.http3;
+            // ignore: avoid_print
+            print(
+              'boss: forced http/3 for connection $connectionId via handshake probe',
+            );
+          }
+        } on NativeTransportException {
+          forcedHttp3Handshake = null;
+        }
+      }
+
+      // ignore: avoid_print
+      print(
+        'boss: connection $connectionId protocol ${_protocolName(protocol)}',
+      );
+
       if (protocol != NativeConnectionProtocol.rawsocket) {
         if (protocol == NativeConnectionProtocol.http ||
             protocol == NativeConnectionProtocol.http2) {
@@ -258,7 +279,10 @@ class _RouterBoss {
           await _assignConnection(listener, connectionId);
           continue;
         } else if (protocol == NativeConnectionProtocol.http3) {
-          final handshake = runtime.takeHttp3Handshake(connectionId);
+          // ignore: avoid_print
+          print('boss: accepted http/3 connection $connectionId');
+          final handshake =
+              forcedHttp3Handshake ?? runtime.takeHttp3Handshake(connectionId);
           final details = <String, Object?>{
             'protocol': handshake?.protocol ?? 'http/3',
           };
@@ -380,6 +404,24 @@ class _RouterBoss {
     _lastRouterMetrics = nativeMetrics;
     final converted = _convertTransportMetrics(nativeMetrics);
     _cachedTransportMetrics = converted;
+    final breakdown = converted.breakdown
+        .map(
+          (entry) => {
+            'listenerId': entry.listenerId,
+            'protocol': entry.protocol,
+            'endpoint': entry.endpoint,
+            'totalEvents': entry.totalEvents,
+            'gracefulEvents': entry.gracefulEvents,
+            'goAwayEvents': entry.goAwayEvents,
+            'idleTimeoutEvents': entry.idleTimeoutEvents,
+            'bodyTimeoutEvents': entry.bodyTimeoutEvents,
+            'protocolErrorEvents': entry.protocolErrorEvents,
+            'internalErrorEvents': entry.internalErrorEvents,
+            'backpressureEvents': entry.backpressureEvents,
+            'maxBackpressureDepth': entry.maxBackpressureDepth,
+          },
+        )
+        .toList(growable: false);
     onEvent?.call({
       'source': 'boss',
       'type': 'router_metrics',
@@ -393,6 +435,7 @@ class _RouterBoss {
         'internalErrorEvents': converted.internalErrorEvents,
         'backpressureEvents': converted.backpressureEvents,
         'maxBackpressureDepth': converted.maxBackpressureDepth,
+        'breakdown': breakdown,
       },
     });
   }
@@ -415,6 +458,28 @@ class _RouterBoss {
   }
 
   RouterTransportMetrics _convertTransportMetrics(NativeRouterMetrics metrics) {
+    final breakdown = metrics.breakdown
+        .map((entry) {
+          final listener = _listenerById[entry.listenerId];
+          final endpoint = listener != null
+              ? '${listener.endpoint.host}:${entry.protocol == NativeConnectionProtocol.http3 && listener.http3Port > 0 ? listener.http3Port : listener.endpoint.port}'
+              : 'listener:${entry.listenerId}';
+          return RouterTransportMetricsBreakdown(
+            listenerId: entry.listenerId,
+            protocol: _protocolName(entry.protocol),
+            endpoint: endpoint,
+            totalEvents: entry.totalEvents,
+            gracefulEvents: entry.gracefulEvents,
+            goAwayEvents: entry.goAwayEvents,
+            idleTimeoutEvents: entry.idleTimeoutEvents,
+            bodyTimeoutEvents: entry.bodyTimeoutEvents,
+            protocolErrorEvents: entry.protocolErrorEvents,
+            internalErrorEvents: entry.internalErrorEvents,
+            backpressureEvents: entry.backpressureEvents,
+            maxBackpressureDepth: entry.maxBackpressureDepth,
+          );
+        })
+        .toList(growable: false);
     return RouterTransportMetrics(
       totalEvents: metrics.totalEvents,
       gracefulEvents: metrics.gracefulEvents,
@@ -425,6 +490,7 @@ class _RouterBoss {
       internalErrorEvents: metrics.internalErrorEvents,
       backpressureEvents: metrics.backpressureEvents,
       maxBackpressureDepth: metrics.maxBackpressureDepth,
+      breakdown: breakdown,
     );
   }
 
@@ -539,6 +605,11 @@ class _RouterBoss {
         if (handshake == null) {
           break;
         }
+        // Debug trace to observe HTTP/3 request dispatch during integration bring-up.
+        // ignore: avoid_print
+        print(
+          'boss: polled http/3 request on $connectionId ${handshake.method} ${handshake.path}',
+        );
         final listener = _http3ConnectionListeners[connectionId];
         if (listener == null) {
           handshake.release();
