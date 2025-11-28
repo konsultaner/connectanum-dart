@@ -47,9 +47,12 @@ class _RouterBoss {
   final Map<int, NativeHttp3Connection> _http3Connections = {};
   final Map<int, RouterListener> _http2ConnectionListeners = {};
   final Map<int, RouterListener> _http3ConnectionListeners = {};
+  final Map<int, _WebSocketSelection> _webSocketSelectionByConnection = {};
   final RouterStateStore _stateStore;
   NativeRouterMetrics? _lastRouterMetrics;
   RouterTransportMetrics? _cachedTransportMetrics;
+  final Map<String, RouterTransportMetricsBreakdown> _lastBreakdownByKey = {};
+  final Map<int, DateTime> _listenerThrottleUntil = {};
   bool _running = false;
   bool _stopping = false;
   Future<void>? _loopFuture;
@@ -167,6 +170,10 @@ class _RouterBoss {
   }
 
   Future<void> _acceptConnections(RouterListener listener) async {
+    final throttleUntil = _listenerThrottleUntil[listener.listenerId];
+    if (throttleUntil != null && throttleUntil.isAfter(DateTime.now())) {
+      return;
+    }
     while (_running) {
       int connectionId;
       NativeConnectionProtocol protocol;
@@ -265,6 +272,16 @@ class _RouterBoss {
               protocol: selection.protocol,
             );
             handshake.consume();
+            _webSocketSelectionByConnection[connectionId] = selection;
+            onEvent?.call({
+              'source': 'boss',
+              'type': 'listener_websocket_accepted',
+              'listenerId': listener.listenerId,
+              'endpoint': '${listener.endpoint.host}:${listener.endpoint.port}',
+              'connectionId': connectionId,
+              'protocol': selection.protocol,
+              'serializer': _serializerName(selection.serializer),
+            });
           } on NativeTransportException catch (error) {
             handshake.release();
             onEvent?.call({
@@ -390,11 +407,17 @@ class _RouterBoss {
     }
   }
 
+  static const int _backpressureDepthAlertThreshold = 16;
+  static const int _backpressureEventsAlertThreshold = 1;
+  static const Duration _backpressureThrottleWindow =
+      Duration(milliseconds: 250);
+
   void _emitRouterMetrics() {
     final nativeMetrics = runtime.pollRouterMetrics();
     if (nativeMetrics == null) {
       _lastRouterMetrics = null;
       _cachedTransportMetrics = null;
+      _lastBreakdownByKey.clear();
       return;
     }
     final last = _lastRouterMetrics;
@@ -422,6 +445,7 @@ class _RouterBoss {
           },
         )
         .toList(growable: false);
+    _emitBreakdownAlerts(converted.breakdown);
     onEvent?.call({
       'source': 'boss',
       'type': 'router_metrics',
@@ -438,6 +462,37 @@ class _RouterBoss {
         'breakdown': breakdown,
       },
     });
+  }
+
+  void _emitBreakdownAlerts(List<RouterTransportMetricsBreakdown> breakdowns) {
+    for (final entry in breakdowns) {
+      final key = '${entry.listenerId}:${entry.protocol}';
+      final last = _lastBreakdownByKey[key];
+      _lastBreakdownByKey[key] = entry;
+      final depthAlert = entry.maxBackpressureDepth >=
+          _backpressureDepthAlertThreshold;
+      final eventsAlert =
+          entry.backpressureEvents - (last?.backpressureEvents ?? 0) >=
+              _backpressureEventsAlertThreshold;
+      if (!depthAlert && !eventsAlert) {
+        continue;
+      }
+      if (depthAlert) {
+        _listenerThrottleUntil[entry.listenerId] =
+            DateTime.now().add(_backpressureThrottleWindow);
+      }
+      onEvent?.call({
+        'source': 'boss',
+        'type': 'listener_backpressure_alert',
+        'listenerId': entry.listenerId,
+        'protocol': entry.protocol,
+        'endpoint': entry.endpoint,
+        'maxBackpressureDepth': entry.maxBackpressureDepth,
+        'backpressureEvents': entry.backpressureEvents,
+        'newEvents': entry.backpressureEvents - (last?.backpressureEvents ?? 0),
+        'throttled': depthAlert,
+      });
+    }
   }
 
   RouterTransportMetrics? _ensureTransportMetrics() {
@@ -508,6 +563,21 @@ class _RouterBoss {
         return 'protocol_error';
       case NativeHttpConnectionCloseReason.internal:
         return 'internal';
+    }
+  }
+
+  String _serializerName(NativeMessageSerializer serializer) {
+    switch (serializer) {
+      case NativeMessageSerializer.json:
+        return 'json';
+      case NativeMessageSerializer.messagePack:
+        return 'msgpack';
+      case NativeMessageSerializer.cbor:
+        return 'cbor';
+      case NativeMessageSerializer.ubjson:
+        return 'ubjson';
+      case NativeMessageSerializer.flatbuffers:
+        return 'flatbuffers';
     }
   }
 
@@ -1236,6 +1306,7 @@ class _RouterBoss {
         connectionId,
       ]);
       _releaseHttp3Connection(connectionId);
+      _webSocketSelectionByConnection.remove(connectionId);
     }
     worker.commandPort.send(<Object?>[_workerCmdShutdown]);
     if (terminateIsolate) {
@@ -1260,6 +1331,7 @@ class _RouterBoss {
       ]);
     }
     _releaseHttp3Connection(connectionId);
+    _webSocketSelectionByConnection.remove(connectionId);
   }
 
   void _replaceHttp3Connection(

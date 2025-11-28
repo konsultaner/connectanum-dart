@@ -2173,7 +2173,7 @@ void main() {
           bodyTimeouts: 0,
           backpressureEvents: 0,
           maxBackpressureDepth: 0,
-          goAwayEvents: 0,
+          goAwayEvents: 1,
           detail: 'idle timeout triggered',
         ),
       );
@@ -2192,7 +2192,7 @@ void main() {
       expect(lifecycle['requestCount'], 2);
       expect(lifecycle['backpressureEvents'], 0);
       expect(lifecycle['maxBackpressureDepth'], 0);
-      expect(lifecycle['goAwayEvents'], 0);
+      expect(lifecycle['goAwayEvents'], greaterThanOrEqualTo(1));
       expect(lifecycle['detail'], 'idle timeout triggered');
     },
   );

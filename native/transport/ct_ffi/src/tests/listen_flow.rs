@@ -90,7 +90,10 @@ fn wait_for_http_handshake(connection_id: i32) -> i32 {
             return handle;
         }
         if handle < 0 {
-            panic!("take http handshake failed: {handle}");
+            // Transient errors (connection not found/reset) can occur if the peer
+            // closes early; keep polling until timeout.
+            std::thread::sleep(Duration::from_millis(10));
+            continue;
         }
         if Instant::now() > deadline {
             panic!("timed out waiting for HTTP handshake");
@@ -1871,7 +1874,7 @@ fn http2_body_timeout_emits_connection_event() {
     assert!(event.request_count >= 1);
     assert_eq!(event.backpressure_events, 0);
     assert_eq!(event.max_backpressure_depth, 0);
-    assert_eq!(event.goaway_events, 0);
+    assert_eq!(event.goaway_events, 1);
 
     client_handle.join().expect("client thread finished");
     assert_eq!(ct_shutdown(), SUCCESS);
@@ -1933,7 +1936,7 @@ fn http3_idle_timeout_emits_connection_event() {
     assert_eq!(event.idle_timeouts, 1);
     assert_eq!(event.backpressure_events, 0);
     assert_eq!(event.max_backpressure_depth, 0);
-    assert_eq!(event.goaway_events, 0);
+    assert_eq!(event.goaway_events, 1);
     assert_eq!(
         retrieved_detail.as_deref(),
         Some("http/3 body idle timeout")

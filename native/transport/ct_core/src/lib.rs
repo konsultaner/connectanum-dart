@@ -3606,6 +3606,7 @@ async fn run_http2_stream_reader(
         if Instant::now() >= total_deadline {
             if let Some(stats_ref) = stats.as_ref() {
                 stats_ref.record_body_timeout(Some("http/2 body total timeout".into()));
+                stats_ref.record_goaway(Some("http/2 body total timeout".into()));
             }
             state.mark_error("http/2 body total timeout exceeded".into());
             return Err("http/2 body total timeout".into());
@@ -3617,6 +3618,7 @@ async fn run_http2_stream_reader(
             Err(_) => {
                 if let Some(stats_ref) = stats.as_ref() {
                     stats_ref.record_idle_timeout(Some("http/2 body idle timeout".into()));
+                    stats_ref.record_goaway(Some("http/2 body idle timeout".into()));
                 }
                 state.mark_error("http/2 body idle timeout".into());
                 return Err("http/2 body idle timeout".into());
@@ -4004,6 +4006,7 @@ async fn run_http3_stream_reader(
         if Instant::now() >= total_deadline {
             if let Some(stats_ref) = stats.as_ref() {
                 stats_ref.record_body_timeout(Some("http/3 body total timeout".into()));
+                stats_ref.record_goaway(Some("http/3 body total timeout".into()));
             }
             state.mark_error("http/3 body total timeout exceeded".into());
             stream.stop_sending(H3ErrorCode::H3_REQUEST_CANCELLED);
@@ -4015,6 +4018,7 @@ async fn run_http3_stream_reader(
             Err(_) => {
                 if let Some(stats_ref) = stats.as_ref() {
                     stats_ref.record_idle_timeout(Some("http/3 body idle timeout".into()));
+                    stats_ref.record_goaway(Some("http/3 body idle timeout".into()));
                 }
                 state.mark_error("http/3 body idle timeout".into());
                 stream.stop_sending(H3ErrorCode::H3_REQUEST_CANCELLED);
