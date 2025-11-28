@@ -293,7 +293,15 @@ class _RouterBoss {
             });
             continue;
           }
-          await _assignConnection(listener, connectionId);
+          await _assignConnection(
+            listener,
+            connectionId,
+            metadata: {
+              'protocol': _protocolName(protocol),
+              'websocketProtocol': selection.protocol,
+              'websocketSerializer': _serializerName(selection.serializer),
+            },
+          );
           continue;
         } else if (protocol == NativeConnectionProtocol.http3) {
           // ignore: avoid_print
@@ -348,8 +356,9 @@ class _RouterBoss {
 
   Future<void> _assignConnection(
     RouterListener listener,
-    int connectionId,
-  ) async {
+    int connectionId, {
+    Map<String, Object?> metadata = const {},
+  }) async {
     final minWorkers = settings.workerPool.minWorkers;
     if (_workers.length < minWorkers) {
       await _spawnWorker(listener, connectionId);
@@ -367,6 +376,7 @@ class _RouterBoss {
       _workerCmdAddConnection,
       listener.listenerId,
       connectionId,
+      metadata,
     ]);
   }
 
@@ -407,10 +417,13 @@ class _RouterBoss {
     }
   }
 
-  static const int _backpressureDepthAlertThreshold = 16;
-  static const int _backpressureEventsAlertThreshold = 1;
-  static const Duration _backpressureThrottleWindow =
-      Duration(milliseconds: 250);
+  int get _backpressureDepthAlertThreshold =>
+      settings.metrics?.backpressure.depthThreshold ?? 16;
+  int get _backpressureEventsAlertThreshold =>
+      settings.metrics?.backpressure.newEventsThreshold ?? 1;
+  Duration get _backpressureThrottleWindow =>
+      settings.metrics?.backpressure.cooldown ??
+      const Duration(milliseconds: 250);
 
   void _emitRouterMetrics() {
     final nativeMetrics = runtime.pollRouterMetrics();

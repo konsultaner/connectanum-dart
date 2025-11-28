@@ -360,16 +360,39 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
     } else if (command == _workerCmdAddConnection) {
       final listenerId = raw[1] as int;
       final newConnectionId = raw[2] as int;
+      final metadata =
+          raw.length > 3 && raw[3] is Map ? raw[3] as Map<Object?, Object?> : null;
       connections[newConnectionId] = listenerId;
       final listener = resolveListener(listeners, settings, listenerId);
       connectionStates[newConnectionId] = WorkerConnectionState(
         listener: listener,
         listenerSettings: lookupListenerSettings(settings, listener),
       );
+      final state = connectionStates[newConnectionId];
+      if (metadata != null && state != null) {
+        final protocol = metadata['protocol'] as String?;
+        if (protocol != null) {
+          state.protocol = listenerProtocolFromString(protocol);
+        }
+        final wsProtocol = metadata['websocketProtocol'] as String?;
+        if (wsProtocol != null) {
+          state.websocketProtocol = wsProtocol;
+        }
+        final wsSerializer = metadata['websocketSerializer'] as String?;
+        if (wsSerializer != null) {
+          state.websocketSerializer = wsSerializer;
+        }
+      }
       bossPort.send({
         'type': _workerEventConnectionAdded,
         'connectionId': newConnectionId,
         'listenerId': listenerId,
+        if (state?.protocol != null)
+          'protocol': listenerProtocolToString(state!.protocol!),
+        if (state?.websocketProtocol != null)
+          'websocketProtocol': state!.websocketProtocol,
+        if (state?.websocketSerializer != null)
+          'websocketSerializer': state!.websocketSerializer,
       });
     } else if (command == _workerCmdRemoveConnection) {
       final removeId = raw[1] as int;

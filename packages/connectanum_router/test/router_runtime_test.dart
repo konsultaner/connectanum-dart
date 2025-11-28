@@ -1230,6 +1230,20 @@ void main() {
         isNotEmpty,
         reason: 'websocket was not accepted; events=$events',
       );
+      final addedEvents = events
+          .whereType<Map<String, Object?>>()
+          .where(
+            (event) =>
+                event['type'] == 'worker_connection_added' &&
+                event['connectionId'] == 9101,
+          )
+          .toList();
+      if (addedEvents.isNotEmpty) {
+        final added = addedEvents.first;
+        expect(added['protocol'], 'websocket');
+        expect(added['websocketProtocol'], 'wamp.2.msgpack');
+        expect(added['websocketSerializer'], 'msgpack');
+      }
       final accepted = runtime.acceptedWebSockets.single;
       expect(accepted['connectionId'], 9101);
       // `wamp.2.msgpack` is the first supported subprotocol in the proposals.

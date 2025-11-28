@@ -275,20 +275,26 @@ class ListenerSettings {
 /// Metrics configuration (OpenMetrics-compatible exporter, etc.).
 @immutable
 class MetricsSettings {
-  const MetricsSettings({this.openMetrics});
+  const MetricsSettings({
+    this.openMetrics,
+    this.backpressure = const BackpressureThrottleSettings(),
+  });
 
   final OpenMetricsSettings? openMetrics;
+  final BackpressureThrottleSettings backpressure;
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) {
       return true;
     }
-    return other is MetricsSettings && other.openMetrics == openMetrics;
+    return other is MetricsSettings &&
+        other.openMetrics == openMetrics &&
+        other.backpressure == backpressure;
   }
 
   @override
-  int get hashCode => openMetrics?.hashCode ?? 0;
+  int get hashCode => Object.hash(openMetrics, backpressure);
 }
 
 @immutable
@@ -344,6 +350,46 @@ class OpenMetricsSettings {
 
   @override
   int get hashCode => Object.hash(enabled, listen, path, authToken, realm);
+}
+
+/// Boss-side throttling thresholds derived from backpressure alerts.
+@immutable
+class BackpressureThrottleSettings {
+  const BackpressureThrottleSettings({
+    this.depthThreshold = 16,
+    this.newEventsThreshold = 1,
+    this.cooldown = const Duration(milliseconds: 250),
+  }) : assert(depthThreshold >= 0), assert(newEventsThreshold >= 0);
+
+  final int depthThreshold;
+  final int newEventsThreshold;
+  final Duration cooldown;
+
+  BackpressureThrottleSettings copyWith({
+    int? depthThreshold,
+    int? newEventsThreshold,
+    Duration? cooldown,
+  }) {
+    return BackpressureThrottleSettings(
+      depthThreshold: depthThreshold ?? this.depthThreshold,
+      newEventsThreshold: newEventsThreshold ?? this.newEventsThreshold,
+      cooldown: cooldown ?? this.cooldown,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    return other is BackpressureThrottleSettings &&
+        other.depthThreshold == depthThreshold &&
+        other.newEventsThreshold == newEventsThreshold &&
+        other.cooldown == cooldown;
+  }
+
+  @override
+  int get hashCode => Object.hash(depthThreshold, newEventsThreshold, cooldown);
 }
 
 @immutable
