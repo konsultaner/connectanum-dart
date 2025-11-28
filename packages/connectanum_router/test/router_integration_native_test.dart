@@ -859,6 +859,32 @@ void main() {
       expect(response.trim(), endsWith('service:ok'));
     }, skip: skipReason);
 
+    test('serves OpenMetrics payload over HTTP metrics route', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9110,
+        nativeLib: nativeLib,
+        settings: _buildRouterSettings(enableHttp3: false, enableMetrics: true),
+      );
+      addTearDown(harness.dispose);
+
+      final binding = harness.binding;
+      await binding.ensureInternalServicesReady();
+
+      final listener = binding.listeners.single;
+      final client = HttpClient();
+      addTearDown(() => client.close(force: true));
+      final request = await client.get('127.0.0.1', listener.port, '/metrics');
+      final response = await request.close();
+      expect(response.statusCode, equals(200));
+      expect(response.headers.contentType?.mimeType, equals('text/plain'));
+      final body = await utf8.decoder.bind(response).join();
+      expect(body, contains('connectanum_router_realms'));
+      expect(body, contains('realm="realm1"'));
+      expect(body, contains('connectanum_router_http_events_total'));
+
+      await _writeOpenMetricsSnapshot(binding, 'http_metrics_scrape');
+    }, skip: skipReason);
+
     test('streams HTTP request and response payloads end-to-end', () async {
       final harness = await _RouterHarness.start(
         connectionId: 9104,
@@ -1059,6 +1085,124 @@ void main() {
       );
     }, skip: skipReason);
 
+    test('streams multi-MB HTTP/2 payloads and exports metrics', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9107,
+        nativeLib: nativeLib,
+        settings: _buildRouterSettings(enableHttp3: false, enableMetrics: true),
+      );
+      addTearDown(harness.dispose);
+
+      final binding = harness.binding;
+      final httpSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'http2-large',
+        authRole: 'internal',
+      );
+      addTearDown(httpSession.close);
+
+      final payloadLength = 2 * 1024 * 1024 + 321;
+      final requestPayload = Uint8List.fromList(
+        List<int>.generate(payloadLength, (index) => (index * 5) % 251),
+      );
+      final responseChunk = Uint8List.fromList(
+        List<int>.filled(1024 * 1024, 0x4B),
+      );
+      const chunkCount = 2;
+      final finalChunk = Uint8List.fromList('http2-large-complete'.codeUnits);
+
+      final registration = await httpSession.register(
+        'com.example.http.stream',
+      );
+      registration.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull, reason: 'Invocation missing HTTP context');
+        final body = context!.request.body;
+        expect(body, isNotNull);
+        expect(body!.length, equals(requestPayload.length));
+        expect(body.first, equals(requestPayload.first));
+        expect(body[1024], equals(requestPayload[1024]));
+        expect(body.last, equals(requestPayload.last));
+
+        final stream = context.streamResponse(
+          status: 206,
+          headers: const {
+            'content-type': 'application/octet-stream',
+            'x-router': 'native-h2-large',
+          },
+        );
+        for (var i = 0; i < chunkCount; i++) {
+          stream.add(responseChunk);
+        }
+        stream.close(finalChunk);
+      });
+
+      final listener = binding.listeners.single;
+      final socket = await Socket.connect('127.0.0.1', listener.port);
+      addTearDown(() => socket.destroy());
+      final connection = http2.ClientTransportConnection.viaSocket(socket);
+      addTearDown(() async {
+        await connection.finish();
+      });
+
+      final headers = <http2.Header>[
+        http2.Header.ascii(':method', 'POST'),
+        http2.Header.ascii(':scheme', 'http'),
+        http2.Header.ascii(':path', '/api/stream'),
+        http2.Header.ascii(':authority', '127.0.0.1:${listener.port}'),
+        http2.Header.ascii('content-type', 'application/octet-stream'),
+        http2.Header.ascii('content-length', payloadLength.toString()),
+      ];
+      final stream = connection.makeRequest(headers, endStream: false);
+      const chunkSize = 192 * 1024;
+      var offset = 0;
+      while (offset < requestPayload.length) {
+        final end = math.min(offset + chunkSize, requestPayload.length);
+        stream.outgoingMessages.add(
+          http2.DataStreamMessage(
+            Uint8List.sublistView(requestPayload, offset, end),
+          ),
+        );
+        offset = end;
+      }
+      await stream.outgoingMessages.close();
+
+      var statusCode = 0;
+      final buffer = BytesBuilder(copy: false);
+      await for (final message in stream.incomingMessages) {
+        if (message is http2.HeadersStreamMessage) {
+          for (final header in message.headers) {
+            final name = utf8.decode(header.name);
+            if (name == ':status') {
+              statusCode =
+                  int.tryParse(utf8.decode(header.value)) ?? statusCode;
+            }
+          }
+        } else if (message is http2.DataStreamMessage) {
+          buffer.add(message.bytes);
+        }
+      }
+
+      expect(statusCode, equals(206));
+      final responseBody = buffer.takeBytes();
+      final expectedLength =
+          responseChunk.length * chunkCount + finalChunk.length;
+      expect(responseBody.length, equals(expectedLength));
+      expect(
+        responseBody.sublist(0, responseChunk.length),
+        orderedEquals(responseChunk),
+      );
+      expect(
+        responseBody.sublist(
+          responseBody.length - finalChunk.length,
+          responseBody.length,
+        ),
+        orderedEquals(finalChunk),
+      );
+
+      await _writeOpenMetricsSnapshot(binding, 'http2_multi_mb_stream');
+    }, skip: skipReason);
+
     test('streams HTTP/3 request and response payloads end-to-end', () async {
       final harness = await _RouterHarness.start(
         connectionId: 9106,
@@ -1157,6 +1301,109 @@ void main() {
         ),
         orderedEquals(finalChunk),
       );
+    }, skip: skipReason);
+
+    test('streams multi-MB HTTP/3 payloads and exports metrics', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9108,
+        nativeLib: nativeLib,
+        config: _buildTlsConfig(),
+        settings: _buildTlsSettings(enableMetrics: true),
+        connectionSequence: const [],
+      );
+      addTearDown(harness.dispose);
+
+      if (!harness.runtime.supportsHttp3TestClient) {
+        // ignore: avoid_print
+        print(
+          'Skipping HTTP/3 large streaming test: native runtime lacks test client',
+        );
+        return;
+      }
+
+      final binding = harness.binding;
+      final httpSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'http3-large',
+        authRole: 'internal',
+      );
+      addTearDown(httpSession.close);
+
+      final payloadLength = 3 * 1024 * 1024 + 509;
+      final requestPayload = Uint8List.fromList(
+        List<int>.generate(payloadLength, (index) => (index * 7) % 251),
+      );
+      final responseChunk = Uint8List.fromList(
+        List<int>.filled(1024 * 1024, 0x65),
+      );
+      const chunkCount = 2;
+      final finalChunk = Uint8List.fromList('http3-large-complete'.codeUnits);
+
+      final registration = await httpSession.register(
+        'com.example.http.stream',
+      );
+      registration.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull, reason: 'Invocation missing HTTP context');
+        final body = context!.request.body;
+        expect(body, isNotNull);
+        expect(body!.length, equals(requestPayload.length));
+        expect(body.first, equals(requestPayload.first));
+        expect(body[2048], equals(requestPayload[2048]));
+        expect(body.last, equals(requestPayload.last));
+
+        final stream = context.streamResponse(
+          status: 209,
+          headers: const {
+            'content-type': 'application/octet-stream',
+            'x-router': 'native-h3-large',
+          },
+        );
+        for (var i = 0; i < chunkCount; i++) {
+          stream.add(responseChunk);
+        }
+        stream.close(finalChunk);
+      });
+
+      final listener = binding.listeners.single;
+      expect(
+        listener.http3Port,
+        greaterThan(0),
+        reason: 'Router did not expose an HTTP/3 port',
+      );
+
+      final response = await _runHttp3StreamRequestInIsolate(
+        nativeLib!,
+        host: '127.0.0.1',
+        port: listener.http3Port,
+        path: '/api/stream',
+        method: 'POST',
+        headers: {
+          'content-type': 'application/octet-stream',
+          'content-length': payloadLength.toString(),
+          'x-client': 'router-http3-large-test',
+        },
+        body: requestPayload,
+        certificatePem: _http3CaCertificatePem,
+      );
+      expect(response.status, equals(209));
+      final responseBody = response.body;
+      final expectedLength =
+          responseChunk.length * chunkCount + finalChunk.length;
+      expect(responseBody.length, equals(expectedLength));
+      expect(
+        responseBody.sublist(0, responseChunk.length),
+        orderedEquals(responseChunk),
+      );
+      expect(
+        responseBody.sublist(
+          responseBody.length - finalChunk.length,
+          responseBody.length,
+        ),
+        orderedEquals(finalChunk),
+      );
+
+      await _writeOpenMetricsSnapshot(binding, 'http3_multi_mb_stream');
     }, skip: skipReason);
 
     test('reports HTTP/2 connection as pending protocol', () async {
@@ -1344,10 +1591,15 @@ RouterConfig _buildRouterConfig({required bool enableTls}) => RouterConfig(
   ],
 );
 
-RouterSettings _buildSettings() => _buildRouterSettings(enableHttp3: false);
-RouterSettings _buildTlsSettings() => _buildRouterSettings(enableHttp3: true);
+RouterSettings _buildSettings({bool enableMetrics = false}) =>
+    _buildRouterSettings(enableHttp3: false, enableMetrics: enableMetrics);
+RouterSettings _buildTlsSettings({bool enableMetrics = false}) =>
+    _buildRouterSettings(enableHttp3: true, enableMetrics: enableMetrics);
 
-RouterSettings _buildRouterSettings({required bool enableHttp3}) {
+RouterSettings _buildRouterSettings({
+  required bool enableHttp3,
+  bool enableMetrics = false,
+}) {
   final realmBuilder = RealmSettingsBuilder('realm1')
     ..addAuthMethod('anonymous')
     ..addRoleFromBuilder(
@@ -1388,6 +1640,36 @@ RouterSettings _buildRouterSettings({required bool enableHttp3}) {
   if (enableHttp3) {
     listener.addProtocol(ListenerProtocol.http3);
   }
+  final routes = <HttpRouteSettings>[
+    const HttpRouteSettings(
+      match: HttpRouteMatch(path: '/api/health'),
+      action: HttpRouteAction(
+        type: HttpRouteActionType.rpc,
+        procedure: 'com.example.http.health',
+        realm: 'realm1',
+      ),
+    ),
+    const HttpRouteSettings(
+      match: HttpRouteMatch(path: '/api/stream'),
+      action: HttpRouteAction(
+        type: HttpRouteActionType.rpc,
+        procedure: 'com.example.http.stream',
+        realm: 'realm1',
+      ),
+    ),
+  ];
+  if (enableMetrics) {
+    routes.add(
+      const HttpRouteSettings(
+        match: HttpRouteMatch(path: '/metrics'),
+        action: HttpRouteAction(
+          type: HttpRouteActionType.rpc,
+          procedure: 'connectanum.metrics.openmetrics',
+          realm: 'connectanum.metrics',
+        ),
+      ),
+    );
+  }
   listener
     ..setRawSocketOptions(const RawSocketListenerSettings(maxFrameExponent: 16))
     ..setHttpOptions(
@@ -1396,37 +1678,58 @@ RouterSettings _buildRouterSettings({required bool enableHttp3}) {
             ? const ['http/1.1', 'h2', 'h3']
             : const ['http/1.1', 'h2'],
         http3: enableHttp3 ? const Http3Settings(enabled: true) : null,
-        routes: const [
-          HttpRouteSettings(
-            match: HttpRouteMatch(path: '/api/health'),
-            action: HttpRouteAction(
-              type: HttpRouteActionType.rpc,
-              procedure: 'com.example.http.health',
-              realm: 'realm1',
-            ),
-          ),
-          HttpRouteSettings(
-            match: HttpRouteMatch(path: '/api/stream'),
-            action: HttpRouteAction(
-              type: HttpRouteActionType.rpc,
-              procedure: 'com.example.http.stream',
-              realm: 'realm1',
-            ),
-          ),
-        ],
+        routes: routes,
       ),
     )
     ..setOptions(const {'max_rawsocket_size_exponent': 16});
 
-  return RouterSettingsBuilder()
-      .addRealmFromBuilder(realmBuilder)
-      .addRealmFromBuilder(benchRealm)
-      .addListenerFromBuilder(listener)
-      .addAuthenticator(
-        'anonymous',
-        const AuthenticatorDefinition(type: 'anonymous'),
-      )
-      .build();
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(realmBuilder)
+    ..addRealmFromBuilder(benchRealm)
+    ..addListenerFromBuilder(listener)
+    ..addAuthenticator(
+      'anonymous',
+      const AuthenticatorDefinition(type: 'anonymous'),
+    );
+
+  if (enableMetrics) {
+    final metricsRealm = RealmSettingsBuilder('connectanum.metrics')
+      ..addAuthMethod('anonymous')
+      ..addRoleFromBuilder(
+        RoleSettingsBuilder('metrics')..addPermissionFromBuilder(
+          PermissionSettingsBuilder('')
+            ..setMatchPolicy(PermissionMatchPolicy.prefix)
+            ..allowOperations(const [
+              'register',
+              'unregister',
+              'subscribe',
+              'unsubscribe',
+              'publish',
+              'call',
+            ]),
+        ),
+      );
+    final metricsInternalRealm =
+        InternalRealmSettingsBuilder('connectanum.metrics')
+          ..setAuthId('metrics-daemon')
+          ..setAuthRole('metrics')
+          ..addService('metrics');
+    builder
+      ..addRealmFromBuilder(metricsRealm)
+      ..addInternalRealmFromBuilder(metricsInternalRealm)
+      ..metrics(
+        const MetricsSettings(
+          openMetrics: OpenMetricsSettings(
+            enabled: true,
+            listen: '127.0.0.1:0',
+            path: '/metrics',
+            realm: 'connectanum.metrics',
+          ),
+        ),
+      );
+  }
+
+  return builder.build();
 }
 
 Future<NativeHttpTestResponse> _runHttp3StreamRequestInIsolate(
@@ -1519,6 +1822,27 @@ Future<NativeHttpTestResponse> _runHttp3StreamRequestInIsolate(
   final status = result['status'] as int? ?? 0;
   final responseBody = (result['body'] as Uint8List?) ?? Uint8List(0);
   return NativeHttpTestResponse(status, responseBody);
+}
+
+Future<void> _writeOpenMetricsSnapshot(
+  RouterBinding binding,
+  String name,
+) async {
+  final artifactDir = Platform.environment['CONNECTANUM_ARTIFACT_DIR'];
+  if (artifactDir == null || artifactDir.isEmpty) {
+    return;
+  }
+  final snapshot = await binding.collectMetrics();
+  final openMetrics = await binding.collectOpenMetricsText(snapshot);
+  final dir = Directory(artifactDir);
+  await dir.create(recursive: true);
+  final sanitized = name.replaceAll(RegExp('[^A-Za-z0-9._-]'), '_');
+  if (openMetrics != null) {
+    final metricsFile = File('${dir.path}/$sanitized.openmetrics');
+    await metricsFile.writeAsString(openMetrics);
+  }
+  final jsonFile = File('${dir.path}/$sanitized.metrics.json');
+  await jsonFile.writeAsString(jsonEncode(snapshot.toJson()));
 }
 
 Future<RealmSnapshot> _fetchSnapshot(SendPort commandPort) async {

@@ -45,6 +45,8 @@
     - [x] Router/Dart integration test for HTTP/1.1 streaming uploads/downloads (re-enabled “streams HTTP request and response payloads end-to-end” suite).
     - [x] Router runtime tests verifying `_HttpResponseStream` plumbing for HTTP/2 and HTTP/3 handshakes (synthetic boss harness).
     - [x] Router/Dart integration tests for HTTP/2 + HTTP/3 streaming uploads/downloads (router_integration_native_test.dart now streams HTTPS and QUIC payloads via the native test client + TLS fixtures, running the HTTP/3 client on a dedicated isolate so the boss keeps draining requests).
+    - [x] Multi-MB HTTP/2 and HTTP/3 streaming regressions that emit OpenMetrics snapshots for CI artifacts (`router_integration_native_test.dart` multi-MB suites gated by `CONNECTANUM_ARTIFACT_DIR`).
+    - [x] Dedicated Dart WebSocket WAMP integration suite driving publish/call flows (continuation frames, large payloads, subprotocol + serializer negotiation).
     - [ ] Track upstream WAMP conformance suite (wamp-proto/wamp-proto#557) and integrate it into CI to validate RawSocket/WebSocket/HTTP/2/HTTP/3 transports and serializer combinations against the official test matrix.
 - [ ] HTTP bridge (general-purpose request handling)
   - [ ] Expose bridge configuration via listener protocols with pluggable pipelines (REST→RPC proxy, static asset serving, metrics scraping, custom handlers).
@@ -264,6 +266,7 @@
 - [ ] MCP (Model Context Protocol) server implementation for agentic AI integrations
 - [ ] Metrics & logging integration (Prometheus metrics, structured logs, CPU/RAM/throughput gauges)
   - [x] Always-on low-cost counters (native/Dart) exposed via on-demand snapshots for benchmark harnesses. `ct_router_metrics_snapshot` feeds `_RouterBoss` + `_MetricsService`, so the OpenMetrics payload now carries GOAWAY/backpressure/timeout totals.
+  - [x] Prometheus/Grafana wiring documented; HTTP scrape regression added (metrics route bridged to `connectanum.metrics.openmetrics`) and CI now captures `CONNECTANUM_ARTIFACT_DIR` OpenMetrics/JSON snapshots from long-payload regressions.
   - [ ] Configurable metrics exporter isolates (Prometheus) gated by crossbar-compatible config flags to avoid production overhead.
   - [ ] Sampling windows for high-cost histograms (latency, zero-copy reuse) triggered only during benchmarks.
   - [ ] Metrics realm configuration: expose internal realms via config (enable/disable, rename) and spin up embedded sessions automatically to serve metrics RPCs.

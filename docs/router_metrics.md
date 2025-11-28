@@ -120,6 +120,38 @@ permission to `call` on the metrics realm. The OpenMetrics string is designed to
 feed Prometheus/Grafana stacks and applies the same label strategy as the Java
 metric store (per-realm gauges plus per-topic/procedure series).
 
+## Prometheus & Grafana Wiring
+
+Expose an HTTP bridge route `/metrics` that targets the
+`connectanum.metrics.openmetrics` procedure, and Prometheus can scrape the
+router directly:
+
+```yaml
+scrape_configs:
+  - job_name: connectanum-router
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: ['127.0.0.1:9100']
+    # If you set `auth_token` in `open_metrics`, send it as a header:
+    # authorization:
+    #   type: Bearer
+    #   credentials: "<token>"
+```
+
+Grafana dashboards can reuse the exported names (all prefixed with
+`connectanum_router_*`). Listener/realm labels are already attached, so panels
+can filter by `listener_id`, `protocol`, or `realm`. The router does no
+background scraping; Prometheus drives collection by polling the endpoint.
+
+## CI Artifacts
+
+Long-running integration tests and benchmarks can dump OpenMetrics payloads and
+router snapshots to disk when the environment variable
+`CONNECTANUM_ARTIFACT_DIR` is set. Each test writes
+`<name>.openmetrics` (text) and `<name>.metrics.json` into that directory so CI
+pipelines can upload them for inspection when regressions occur.
+
 ## Compatibility Notes
 
 - The exported metric names intentionally follow the Java router so dashboards

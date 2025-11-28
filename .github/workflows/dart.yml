@@ -106,3 +106,43 @@ jobs:
 
       - name: Upload merged coverage
         run: bash <(curl -s https://codecov.io/bash)
+
+  native_regressions:
+    runs-on: ubuntu-latest
+    needs: analyze
+    env:
+      CONNECTANUM_ARTIFACT_DIR: ${{ github.workspace }}/out/ci-artifacts
+      CONNECTANUM_NATIVE_LIB: ${{ github.workspace }}/native/transport/target/release/libct_ffi.so
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Install dependencies
+        run: dart pub get
+
+      - name: Build native runtime (ffi-test)
+        run: |
+          cd native/transport
+          cargo build -p ct_ffi --features ffi-test --release
+
+      - name: Prepare artifact directory
+        run: mkdir -p "$CONNECTANUM_ARTIFACT_DIR"
+
+      - name: Run WebSocket + streaming regressions
+        run: |
+          dart test packages/connectanum_router/test/router_integration_websocket_test.dart
+          dart test packages/connectanum_router/test/router_integration_native_test.dart --plain-name "streams multi-MB HTTP/2 payloads and exports metrics"
+          dart test packages/connectanum_router/test/router_integration_native_test.dart --plain-name "streams multi-MB HTTP/3 payloads and exports metrics"
+          dart test packages/connectanum_router/test/router_integration_native_test.dart --plain-name "serves OpenMetrics payload over HTTP metrics route"
+
+      - name: Upload OpenMetrics snapshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: openmetrics-regressions
+          path: out/ci-artifacts
