@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
 import 'dart:typed_data';
+import 'dart:io' show Platform;
 
 import 'package:connectanum_core/connectanum_core.dart'
     show

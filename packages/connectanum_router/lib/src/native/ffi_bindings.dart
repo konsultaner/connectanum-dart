@@ -128,6 +128,15 @@ typedef CtConnectionMaxRawsocketExponentDart = int Function(int);
 typedef CtConnectionProtocolNative = ffi.Int32 Function(ffi.Int32);
 typedef CtConnectionProtocolDart = int Function(int);
 
+typedef CtConnectionWebSocketProtocolNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Pointer<ffi.Int32>,
+    );
+typedef CtConnectionWebSocketProtocolDart =
+    int Function(int, ffi.Pointer<ffi.Uint8>, ffi.Pointer<ffi.Int32>);
+
 typedef ListenerCallbackNative = ffi.Void Function(ffi.Int32, ffi.Int32);
 typedef ConnectionCallbackNative = ffi.Void Function(ffi.Int32, ffi.Int32);
 
@@ -670,6 +679,11 @@ class CtFfiBindings {
           .lookupFunction<CtConnectionProtocolNative, CtConnectionProtocolDart>(
             'ct_connection_protocol',
           ),
+      ctConnectionWebSocketProtocol = library
+          .lookupFunction<
+            CtConnectionWebSocketProtocolNative,
+            CtConnectionWebSocketProtocolDart
+          >('ct_connection_websocket_protocol'),
       ctConnectionTakeHttpHandshake = library
           .lookupFunction<
             CtConnectionTakeHttpHandshakeNative,
@@ -890,6 +904,7 @@ class CtFfiBindings {
   final CtApplyRouterConfigDart ctApplyRouterConfig;
   final CtConnectionMaxRawsocketExponentDart ctConnectionMaxRawsocketExponent;
   final CtConnectionProtocolDart ctConnectionProtocol;
+  final CtConnectionWebSocketProtocolDart ctConnectionWebSocketProtocol;
   final CtConnectionTakeHttpHandshakeDart ctConnectionTakeHttpHandshake;
   final CtConnectionTakeHttp2HandshakeDart ctConnectionTakeHttp2Handshake;
   final CtConnectionTakeHttp3HandshakeDart ctConnectionTakeHttp3Handshake;

@@ -120,6 +120,10 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
   }
 
   @override
+  String? connectionWebSocketProtocol(int connectionId) =>
+      _inner.connectionWebSocketProtocol(_resolveConnectionId(connectionId));
+
+  @override
   NativeHttpHandshake? takeHttpHandshake(int connectionId) {
     if (_syntheticConnections.contains(connectionId)) {
       return null;
@@ -659,11 +663,8 @@ class _RouterHarness {
   }
 }
 
-const bool _forwardNativePublishEventsEnabled = bool.fromEnvironment(
-  'CONNECTANUM_FORWARD_NATIVE_PUBLISH',
-  defaultValue: false,
-);
-const String? _nativePublishSkipReason = _forwardNativePublishEventsEnabled
+final bool _forwardNativePublishEventsEnabled = forwardNativePublishEvents;
+final String? _nativePublishSkipReason = _forwardNativePublishEventsEnabled
     ? null
     : 'CONNECTANUM_FORWARD_NATIVE_PUBLISH not enabled (zero-copy publish forwarding disabled).';
 
@@ -777,6 +778,14 @@ void main() {
     test(
       'forwards native events to subscribers',
       () async {
+        if (!_forwardNativePublishEventsEnabled) {
+          // ignore: avoid_print
+          print(
+            'Skipping native publish forwarding test: CONNECTANUM_FORWARD_NATIVE_PUBLISH not enabled',
+          );
+          return;
+        }
+
         final harness = await _RouterHarness.start(
           connectionId: 9102,
           nativeLib: nativeLib,
@@ -1267,10 +1276,15 @@ String? _resolveNativeLib() {
     return env;
   }
   const candidates = [
-    'native/transport/target/ffi-test/release/libct_ffi.so',
-    'native/transport/target/ffi-test/debug/libct_ffi.so',
-    'native/transport/target/release/libct_ffi.so',
     'native/transport/target/debug/libct_ffi.so',
+    '../../native/transport/target/debug/libct_ffi.so',
+    'native/transport/target/ffi-test/debug/libct_ffi.so',
+    '../../native/transport/target/ffi-test/debug/libct_ffi.so',
+    'native/transport/target/ffi-test/release/libct_ffi.so',
+    '../../native/transport/target/ffi-test/release/libct_ffi.so',
+    'native/transport/target/release/libct_ffi.so',
+    '../../native/transport/target/debug/libct_ffi.so',
+    '../../native/transport/target/release/libct_ffi.so',
   ];
   for (final path in candidates) {
     final file = File(path);

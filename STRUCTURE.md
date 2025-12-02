@@ -42,13 +42,15 @@ graph LR
   Provide zero-copy handles for inbound bodies and outbound responses. HTTP/2 and HTTP/3 readers use the shared `StreamingBodyState`, while response writers use bounded Tokio channels sized by `RESPONSE_STREAM_BUFFER`.
 
 - **FFI surface (`ct_ffi/src/runtime`)**  
-  Stores every handshake/body/stream in lock-free maps and exposes them as integer handles (`ct_connection_take_http_handshake`, `ct_http_body_stream_read`, etc.). Lifecycle telemetry (`ct_connection_poll_http_event`) and aggregate counters (`ct_router_metrics_snapshot`) flow through the same layer. Test-only helpers (feature `ffi-test`) let us seed HTTP/3 handshakes/events directly from Rust integration tests.
+  Stores every handshake/body/stream in lock-free maps and exposes them as integer handles (`ct_connection_take_http_handshake`, `ct_http_body_stream_read`, etc.). Lifecycle telemetry (`ct_connection_poll_http_event`) and aggregate counters (`ct_router_metrics_snapshot`) flow through the same layer. WebSocket upgrades now expose the negotiated subprotocol via `ct_connection_websocket_protocol` so Dart can forward it to workers/metrics. Test-only helpers (feature `ffi-test`) let us seed HTTP/3 handshakes/events directly from Rust integration tests.
 
 - **Dart bindings (`packages/connectanum_router/lib/src/native`)**  
   `NativeTransportRuntime` loads the shared library, wires callbacks, and converts raw structs into Dart objects (`NativeHttpHandshake`, `NativeHttpConnectionEvent`, `NativeRouterMetrics`). The runtime is protocol-agnostic: any new native symbol must be added to `ffi_bindings.dart`.
 
 - **Router boss/worker (`packages/connectanum_router/lib/src/router/router_instance/router_boss.dart`)**  
   The boss isolate accepts connections, assigns them to workers, drains HTTP requests, watches lifecycle events, and now emits a `router_metrics` event whenever the aggregated counters change. Workers own the actual WAMP sessions and execute application handlers.
+  Zero-copy publish forwarding stays behind `CONNECTANUM_FORWARD_NATIVE_PUBLISH` (compile-time define or runtime env var); boss telemetry sends are wrapped so tracing failures can’t block forwarding/handle release in the worker.
+  GOAWAY/backpressure alerts can throttle listener accepts based on configurable thresholds (`metrics.backpressure` / `metrics.transport_alerts`); detailed GOAWAY reasons are surfaced in both native and Dart runtime tests.
 
 ## HTTP Workflow (current)
 
@@ -70,7 +72,7 @@ flowchart TD
 ```
 
 - **Metrics loop:** Every connection teardown pushes an event into `ListenerRegistry.connection_events`. The new `http_metrics_snapshot()` aggregates totals across the runtime; `ct_router_metrics_snapshot` lifts it to Dart, where `_RouterBoss` emits a `router_metrics` event on change.  
-  Per-listener/protocol breakdowns are exposed via `http_metrics_snapshot_with_breakdown()` and cached in the boss telemetry stream so `_MetricsService` can publish them over OpenMetrics/WAMP or the HTTP metrics endpoint (with optional auth token) for Prometheus scraping.
+  Per-listener/protocol breakdowns are exposed via `http_metrics_snapshot_with_breakdown()` and cached in the boss telemetry stream so `_MetricsService` can publish them over OpenMetrics/WAMP or the HTTP metrics endpoint (with optional auth token) for Prometheus scraping. The boss also raises `listener_backpressure_alert` / `listener_transport_alert` events and throttles accepts based on the configurable `metrics.backpressure` and `metrics.transport_alerts` thresholds.
 - **Backpressure accounting:** Whenever pending HTTP queues exceed one item, `HttpConnectionStats::record_backpressure` increments the counter and tracks the largest depth. This information is available both per-event and in the aggregate snapshot.
 
 ## Planned Enhancements

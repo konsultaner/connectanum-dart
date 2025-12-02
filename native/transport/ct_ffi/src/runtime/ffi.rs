@@ -29,11 +29,12 @@ use ct_core::{
     connection_http3_poll_request, connection_http3_poll_stream, connection_http_poll_request,
     connection_poll_http_event, connection_protocol, connection_rawsocket_max_exponent,
     connection_reject_websocket, connection_take_http2_handshake, connection_take_http3_handshake,
-    connection_take_websocket_handshake, listen, listener_http3_port, local_addr,
-    poll_connection_message, response_stream_channel, send_wamp_message, send_wamp_segments,
-    shutdown, start_runtime, ConnectionId, ConnectionProtocol, Error as CoreError,
-    HttpConnectionCloseReason, HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot, HttpResponseBody,
-    HttpResponseDispatch, ListenerId, RawSocketSerializer, WampMessage, RESPONSE_STREAM_BUFFER,
+    connection_take_websocket_handshake, connection_websocket_protocol, listen,
+    listener_http3_port, local_addr, poll_connection_message, response_stream_channel,
+    send_wamp_message, send_wamp_segments, shutdown, start_runtime, ConnectionId,
+    ConnectionProtocol, Error as CoreError, HttpConnectionCloseReason,
+    HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot, HttpResponseBody, HttpResponseDispatch,
+    ListenerId, RawSocketSerializer, WampMessage, RESPONSE_STREAM_BUFFER,
 };
 #[cfg(feature = "ffi-test")]
 use ct_core::{
@@ -1002,6 +1003,47 @@ pub extern "C" fn ct_connection_protocol(connection_id: c_int) -> c_int {
                 ConnectionProtocol::Http2 => PROTOCOL_HTTP2,
                 ConnectionProtocol::Http3 => PROTOCOL_HTTP3,
             }
+        }
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_connection_websocket_protocol(
+    connection_id: c_int,
+    buffer: *mut u8,
+    len: *mut c_int,
+) -> c_int {
+    if len.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let capacity = unsafe { *len };
+    if capacity < 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let connection_id = ConnectionId(connection_id as u32);
+    match connection_websocket_protocol(connection_id) {
+        Ok(Some(protocol)) => {
+            let required = protocol.as_bytes().len() as c_int;
+            unsafe {
+                *len = required;
+            }
+            if buffer.is_null() {
+                return SUCCESS;
+            }
+            if capacity < required {
+                return ERR_INVALID_ARGUMENT;
+            }
+            unsafe {
+                ptr::copy_nonoverlapping(protocol.as_ptr(), buffer, required as usize);
+            }
+            SUCCESS
+        }
+        Ok(None) => {
+            unsafe {
+                *len = 0;
+            }
+            SUCCESS
         }
         Err(err) => map_error(err),
     }

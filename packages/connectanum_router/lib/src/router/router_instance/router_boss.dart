@@ -361,13 +361,13 @@ class _RouterBoss {
   }) async {
     final minWorkers = settings.workerPool.minWorkers;
     if (_workers.length < minWorkers) {
-      await _spawnWorker(listener, connectionId);
+      await _spawnWorker(listener, connectionId, metadata: metadata);
       return;
     }
 
     final worker = _chooseWorker();
     if (worker == null) {
-      await _spawnWorker(listener, connectionId);
+      await _spawnWorker(listener, connectionId, metadata: metadata);
       return;
     }
     worker.connections.add(connectionId);
@@ -424,6 +424,21 @@ class _RouterBoss {
   Duration get _backpressureThrottleWindow =>
       settings.metrics?.backpressure.cooldown ??
       const Duration(milliseconds: 250);
+  int get _goAwayAlertThreshold =>
+      settings.metrics?.transportAlerts.goAwayDeltaThreshold ?? 1;
+  int get _idleTimeoutAlertThreshold =>
+      settings.metrics?.transportAlerts.idleTimeoutDeltaThreshold ?? 1;
+  int get _bodyTimeoutAlertThreshold =>
+      settings.metrics?.transportAlerts.bodyTimeoutDeltaThreshold ?? 1;
+  int get _protocolErrorAlertThreshold =>
+      settings.metrics?.transportAlerts.protocolErrorDeltaThreshold ?? 1;
+  int get _internalErrorAlertThreshold =>
+      settings.metrics?.transportAlerts.internalErrorDeltaThreshold ?? 1;
+  Duration get _transportAlertCooldown =>
+      settings.metrics?.transportAlerts.cooldown ??
+      const Duration(milliseconds: 500);
+  bool get _throttleOnTransportAlert =>
+      settings.metrics?.transportAlerts.throttleOnAlert ?? true;
 
   void _emitRouterMetrics() {
     final nativeMetrics = runtime.pollRouterMetrics();
@@ -482,29 +497,106 @@ class _RouterBoss {
       final key = '${entry.listenerId}:${entry.protocol}';
       final last = _lastBreakdownByKey[key];
       _lastBreakdownByKey[key] = entry;
-      final depthAlert = entry.maxBackpressureDepth >=
-          _backpressureDepthAlertThreshold;
-      final eventsAlert =
-          entry.backpressureEvents - (last?.backpressureEvents ?? 0) >=
-              _backpressureEventsAlertThreshold;
-      if (!depthAlert && !eventsAlert) {
+      if (last == null) {
         continue;
       }
-      if (depthAlert) {
-        _listenerThrottleUntil[entry.listenerId] =
-            DateTime.now().add(_backpressureThrottleWindow);
+      final newBackpressure =
+          entry.backpressureEvents - last.backpressureEvents;
+      final depthAlert =
+          entry.maxBackpressureDepth >= _backpressureDepthAlertThreshold;
+      final eventsAlert = newBackpressure >= _backpressureEventsAlertThreshold;
+      final newGoAway = entry.goAwayEvents - last.goAwayEvents;
+      final newIdleTimeout = entry.idleTimeoutEvents - last.idleTimeoutEvents;
+      final newBodyTimeout =
+          entry.bodyTimeoutEvents - last.bodyTimeoutEvents;
+      final newProtocolErrors =
+          entry.protocolErrorEvents - last.protocolErrorEvents;
+      final newInternalErrors =
+          entry.internalErrorEvents - last.internalErrorEvents;
+      final alerts = <Map<String, Object?>>[];
+
+      if (depthAlert || eventsAlert) {
+        alerts.add({
+          'type': 'listener_backpressure_alert',
+          'newEvents': newBackpressure,
+          'totalEvents': entry.backpressureEvents,
+          'throttle': depthAlert ? _backpressureThrottleWindow : Duration.zero,
+        });
       }
-      onEvent?.call({
-        'source': 'boss',
-        'type': 'listener_backpressure_alert',
-        'listenerId': entry.listenerId,
-        'protocol': entry.protocol,
-        'endpoint': entry.endpoint,
-        'maxBackpressureDepth': entry.maxBackpressureDepth,
-        'backpressureEvents': entry.backpressureEvents,
-        'newEvents': entry.backpressureEvents - (last?.backpressureEvents ?? 0),
-        'throttled': depthAlert,
-      });
+      void addTransportAlert(String reason, int newEvents, int totalEvents) {
+        alerts.add({
+          'type': 'listener_transport_alert',
+          'reason': reason,
+          'newEvents': newEvents,
+          'totalEvents': totalEvents,
+          'throttle': _throttleOnTransportAlert
+              ? _transportAlertCooldown
+              : Duration.zero,
+        });
+      }
+
+      if (newGoAway >= _goAwayAlertThreshold && newGoAway > 0) {
+        addTransportAlert('go_away', newGoAway, entry.goAwayEvents);
+      }
+      if (newIdleTimeout >= _idleTimeoutAlertThreshold && newIdleTimeout > 0) {
+        addTransportAlert(
+          'idle_timeout',
+          newIdleTimeout,
+          entry.idleTimeoutEvents,
+        );
+      }
+      if (newBodyTimeout >= _bodyTimeoutAlertThreshold && newBodyTimeout > 0) {
+        addTransportAlert(
+          'body_timeout',
+          newBodyTimeout,
+          entry.bodyTimeoutEvents,
+        );
+      }
+      if (newProtocolErrors >= _protocolErrorAlertThreshold &&
+          newProtocolErrors > 0) {
+        addTransportAlert(
+          'protocol_error',
+          newProtocolErrors,
+          entry.protocolErrorEvents,
+        );
+      }
+      if (newInternalErrors >= _internalErrorAlertThreshold &&
+          newInternalErrors > 0) {
+        addTransportAlert(
+          'internal_error',
+          newInternalErrors,
+          entry.internalErrorEvents,
+        );
+      }
+      for (final alert in alerts) {
+        final throttle = alert['throttle'] as Duration? ?? Duration.zero;
+        final throttled = throttle > Duration.zero;
+        if (throttled) {
+          final existing = _listenerThrottleUntil[entry.listenerId];
+          final until = DateTime.now().add(throttle);
+          if (existing == null || until.isAfter(existing)) {
+            _listenerThrottleUntil[entry.listenerId] = until;
+          }
+        }
+        onEvent?.call({
+          'source': 'boss',
+          'type': alert['type'] as String,
+          'listenerId': entry.listenerId,
+          'protocol': entry.protocol,
+          'endpoint': entry.endpoint,
+          'maxBackpressureDepth': entry.maxBackpressureDepth,
+          'backpressureEvents': entry.backpressureEvents,
+          'goAwayEvents': entry.goAwayEvents,
+          'idleTimeoutEvents': entry.idleTimeoutEvents,
+          'bodyTimeoutEvents': entry.bodyTimeoutEvents,
+          'protocolErrorEvents': entry.protocolErrorEvents,
+          'internalErrorEvents': entry.internalErrorEvents,
+          'newEvents': alert['newEvents'],
+          'totalEvents': alert['totalEvents'],
+          'throttled': throttled,
+          if (alert['reason'] != null) 'reason': alert['reason'],
+        });
+      }
     }
   }
 
@@ -953,7 +1045,11 @@ class _RouterBoss {
     throw StateError('Unexpected metrics response: $response');
   }
 
-  Future<void> _spawnWorker(RouterListener listener, int connectionId) async {
+  Future<void> _spawnWorker(
+    RouterListener listener,
+    int connectionId, {
+    Map<String, Object?> metadata = const {},
+  }) async {
     final args = <String, Object?>{
       'bossPort': _eventPort.sendPort,
       'connectionId': connectionId,
@@ -976,6 +1072,9 @@ class _RouterBoss {
           )
           .toList(growable: false),
     };
+    if (metadata.isNotEmpty) {
+      args['metadata'] = metadata;
+    }
     final isolate = await Isolate.spawn<Map<String, Object?>>(
       entryPoint,
       args,
@@ -1150,6 +1249,18 @@ class _RouterBoss {
         ..['type'] = 'worker_connection_added'
         ..['connectionId'] = message['connectionId']
         ..['listenerId'] = message['listenerId'];
+      final protocol = message['protocol'];
+      if (protocol is String) {
+        payload['protocol'] = protocol;
+      }
+      final wsProtocol = message['websocketProtocol'];
+      if (wsProtocol is String) {
+        payload['websocketProtocol'] = wsProtocol;
+      }
+      final wsSerializer = message['websocketSerializer'];
+      if (wsSerializer is String) {
+        payload['websocketSerializer'] = wsSerializer;
+      }
     } else if (type == _workerEventConnectionRemoved) {
       final connectionId = message['connectionId'] as int;
       final worker = _connectionOwners.remove(connectionId);

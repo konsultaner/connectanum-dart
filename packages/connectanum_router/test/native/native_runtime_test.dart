@@ -33,6 +33,11 @@ void main() {
         onConnection: (id, conn) => connectionEvents.add((id, conn)),
       );
 
+      // Ensure a clean native runtime state in case a previous test left it running.
+      try {
+        runtime.shutdown();
+      } catch (_) {}
+
       runtime.start();
       addTearDown(runtime.shutdown);
 

@@ -252,6 +252,23 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
   );
   initialState.protocol =
       initialListener.settings?.primaryProtocol ?? ListenerProtocol.rawsocket;
+  final Map<Object?, Object?>? initialMetadata = init['metadata'] is Map
+      ? init['metadata'] as Map<Object?, Object?>
+      : null;
+  if (initialMetadata != null) {
+    final protocol = initialMetadata['protocol'] as String?;
+    if (protocol != null) {
+      initialState.protocol = listenerProtocolFromString(protocol);
+    }
+    final wsProtocol = initialMetadata['websocketProtocol'] as String?;
+    if (wsProtocol != null) {
+      initialState.websocketProtocol = wsProtocol;
+    }
+    final wsSerializer = initialMetadata['websocketSerializer'] as String?;
+    if (wsSerializer != null) {
+      initialState.websocketSerializer = wsSerializer;
+    }
+  }
   connectionStates[initialConnectionId] = initialState;
 
   final workerId = Isolate.current.hashCode;
@@ -360,8 +377,9 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
     } else if (command == _workerCmdAddConnection) {
       final listenerId = raw[1] as int;
       final newConnectionId = raw[2] as int;
-      final metadata =
-          raw.length > 3 && raw[3] is Map ? raw[3] as Map<Object?, Object?> : null;
+      final metadata = raw.length > 3 && raw[3] is Map
+          ? raw[3] as Map<Object?, Object?>
+          : null;
       connections[newConnectionId] = listenerId;
       final listener = resolveListener(listeners, settings, listenerId);
       connectionStates[newConnectionId] = WorkerConnectionState(

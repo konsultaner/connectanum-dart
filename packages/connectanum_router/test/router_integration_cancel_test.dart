@@ -41,6 +41,9 @@ class _QueueRuntime implements NativeRuntimeWithHandles {
       NativeConnectionProtocol.rawsocket;
 
   @override
+  String? connectionWebSocketProtocol(int connectionId) => null;
+
+  @override
   NativeHttpHandshake? takeHttpHandshake(int connectionId) => null;
 
   @override
@@ -255,8 +258,10 @@ String? _resolveNativeLib() {
     return env;
   }
   const candidates = [
-    'native/transport/target/release/libct_ffi.so',
     'native/transport/target/debug/libct_ffi.so',
+    'native/transport/target/release/libct_ffi.so',
+    '../../native/transport/target/debug/libct_ffi.so',
+    '../../native/transport/target/release/libct_ffi.so',
   ];
   for (final path in candidates) {
     final file = File(path);

@@ -756,6 +756,7 @@ struct ConnectionEntry {
     #[allow(dead_code)]
     peer_addr: SocketAddr,
     protocol: ConnectionProtocol,
+    websocket_protocol: Option<String>,
     endpoint_config: Arc<config::EndpointRuntimeConfig>,
     stats: Option<Arc<HttpConnectionStats>>,
     record: ConnectionRecord,
@@ -992,6 +993,7 @@ impl ListenerRegistry {
                     listener_id,
                     peer_addr,
                     protocol: ConnectionProtocol::RawSocket,
+                    websocket_protocol: None,
                     endpoint_config,
                     stats: None,
                     record: ConnectionRecord::RawSocket {
@@ -1023,6 +1025,7 @@ impl ListenerRegistry {
                     listener_id,
                     peer_addr,
                     protocol: ConnectionProtocol::WebSocket,
+                    websocket_protocol: None,
                     endpoint_config,
                     stats: None,
                     record: ConnectionRecord::WebSocketPending {
@@ -1062,6 +1065,7 @@ impl ListenerRegistry {
             Arc::clone(&entry.endpoint_config)
         };
 
+        let selected_protocol = protocol.map(|value| value.to_string());
         let reader_task = spawn_websocket_reader(
             connection_id,
             serializer,
@@ -1077,6 +1081,7 @@ impl ListenerRegistry {
             .lock()
             .unwrap_or_else(|poison| poison.into_inner());
         if let Some(entry) = connections.get_mut(&connection_id) {
+            entry.websocket_protocol = selected_protocol;
             entry.record = ConnectionRecord::WebSocket {
                 serializer,
                 frames: Mutex::new(frame_rx),
@@ -1170,6 +1175,7 @@ impl ListenerRegistry {
                     listener_id,
                     peer_addr,
                     protocol: ConnectionProtocol::Http,
+                    websocket_protocol: None,
                     endpoint_config,
                     stats: None,
                     record: ConnectionRecord::HttpPending {
@@ -1197,6 +1203,7 @@ impl ListenerRegistry {
                     listener_id,
                     peer_addr,
                     protocol: ConnectionProtocol::Http2,
+                    websocket_protocol: None,
                     endpoint_config,
                     stats: Some(Arc::clone(&stats)),
                     record: ConnectionRecord::Http2Pending {
@@ -1229,6 +1236,7 @@ impl ListenerRegistry {
                     listener_id,
                     peer_addr,
                     protocol: ConnectionProtocol::Http3,
+                    websocket_protocol: None,
                     endpoint_config,
                     stats: Some(Arc::clone(&stats)),
                     record: ConnectionRecord::Http3Pending {
@@ -1314,6 +1322,23 @@ impl ListenerRegistry {
             .get(&connection_id)
             .map(|entry| entry.protocol)
             .ok_or(Error::ConnectionNotFound(connection_id))
+    }
+
+    fn connection_websocket_protocol(
+        &self,
+        connection_id: ConnectionId,
+    ) -> Result<Option<String>, Error> {
+        let connections = self
+            .connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let entry = connections
+            .get(&connection_id)
+            .ok_or(Error::ConnectionNotFound(connection_id))?;
+        match entry.protocol {
+            ConnectionProtocol::WebSocket => Ok(entry.websocket_protocol.clone()),
+            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
+        }
     }
 
     fn poll_message(
@@ -2623,6 +2648,12 @@ pub fn connection_rawsocket_max_exponent(connection_id: ConnectionId) -> Result<
 pub fn connection_protocol(connection_id: ConnectionId) -> Result<ConnectionProtocol, Error> {
     let manager = RuntimeManager::global();
     manager.with_state(|state| state.registry.connection_protocol(connection_id))
+}
+
+/// Returns the negotiated WebSocket subprotocol for a connection, if available.
+pub fn connection_websocket_protocol(connection_id: ConnectionId) -> Result<Option<String>, Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| state.registry.connection_websocket_protocol(connection_id))
 }
 
 /// Retrieves and consumes a pending WebSocket handshake for a connection.

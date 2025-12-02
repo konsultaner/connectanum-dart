@@ -81,6 +81,9 @@ class _FakeRuntime implements NativeRuntime {
   }
 
   @override
+  String? connectionWebSocketProtocol(int connectionId) => null;
+
+  @override
   NativeHttpHandshake? takeHttpHandshake(int connectionId) {
     final queue = _httpHandshakes[connectionId];
     if (queue == null || queue.isEmpty) {
@@ -2210,6 +2213,65 @@ void main() {
       expect(lifecycle['detail'], 'idle timeout triggered');
     },
   );
+
+  test('emits http_connection_event with GOAWAY reason and detail', () async {
+    final runtime = _HandleRuntime();
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+          ),
+        ],
+      ),
+      settings: _buildRouterSettingsWithPendingProtocols(),
+    );
+
+    final events = <Map<String, Object?>>[];
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    const connectionId = 88;
+    runtime.enqueueHttpConnectionEvent(
+      NativeHttpConnectionEvent(
+        connectionId: connectionId,
+        protocol: NativeConnectionProtocol.http3,
+        reason: NativeHttpConnectionCloseReason.goAway,
+        requestCount: 1,
+        idleTimeouts: 0,
+        bodyTimeouts: 0,
+        backpressureEvents: 0,
+        maxBackpressureDepth: 0,
+        goAwayEvents: 2,
+        detail: 'remote GOAWAY: idle timeout',
+      ),
+    );
+
+    await _waitUntil(
+      () => events.any((event) => event['type'] == 'http_connection_event'),
+      timeout: const Duration(seconds: 2),
+    );
+
+    final lifecycle = events.firstWhere(
+      (event) => event['type'] == 'http_connection_event',
+    );
+    expect(lifecycle['connectionId'], connectionId);
+    expect(lifecycle['protocol'], 'http3');
+    expect(lifecycle['reason'], 'goaway');
+    expect(lifecycle['goAwayEvents'], equals(2));
+    expect(lifecycle['detail'], 'remote GOAWAY: idle timeout');
+  });
 
   test('dispatches HTTP/3 request when stream queued', () async {
     final runtime = _HandleRuntime();

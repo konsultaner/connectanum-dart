@@ -4,6 +4,10 @@ Fresh state:
 - PUB/SUB has non-blocking ACK handling with `worker_publish_routed` tracing; the standalone rawsocket publish+ACK test now passes (`publish_ack_test.dart` against `libct_ffi.so`).
 - WAMP bench/pubsub hangs fixed: EVENT serialization now includes details/kwargs and guards malformed kwargs, so `wamp_smoke` completes cleanly (pubsub + rpc) with 4 publishers/subscribers.
 - RPC flow supports full invocation lifecycle, including `CANCEL` modes and zero-copy RESULT/ERROR forwarding with buffer-release tests.
+- Zero-copy publish forwarding can be toggled at runtime via `CONNECTANUM_FORWARD_NATIVE_PUBLISH` (env or compile-time); boss telemetry sends no longer block the forwarding path, and the skipped PUB/SUB native tests now run with the flag set.
+- GOAWAY detail assertions now cover HTTP/2 and HTTP/3 in both native `listen_flow` and Dart runtime suites.
+- Negotiated WebSocket subprotocol/serializer surfaces over FFI (`ct_connection_websocket_protocol`) and flows into boss/worker metadata, so listeners and workers can trace/route WebSocket WAMP sessions consistently.
+- Boss-side metrics now track listener backpressure and transport lifecycle spikes with configurable thresholds (`metrics.backpressure` / `metrics.transport_alerts`), throttling accepts and emitting alerts when GOAWAY/timeout deltas jump.
 - Analyzer still reports info-level issues isolated to `packages/connectanum_auth_server`; production packages are clean.
 - JSON/MessagePack/CBOR serializers preserve custom option/detail fields; HTTP/2 and HTTP/3 responses stream directly from Rust into Dart (`context.streamResponse`) without buffering multi-MB payloads.
 
@@ -11,7 +15,8 @@ Focus for the next session:
 1. **Boss Telemetry Stream & Prometheus Exporter**
    - ✅ `ct_router_metrics_snapshot` aggregates GOAWAY/backpressure/timeout counters, `_RouterBoss` now polls it each loop, and `_MetricsService` renders the HTTP stats inside the OpenMetrics payload/tests.
    - ✅ Snapshot now splits by listener/protocol, caches in the boss telemetry stream, and the metrics realm HTTP endpoint (with optional auth/token) exposes the per-listener counters for Prometheus without a WAMP client.
-   - Next up: add boss-side throttling/alerting hooks on top of the per-listener metrics, document the telemetry stream/exporter wiring, and keep listen_flow + router runtime coverage in sync.
+   - ✅ Boss emits listener backpressure/transport alerts (GOAWAY, idle/body timeouts, protocol/internal errors) based on configurable thresholds and throttles accepts during spikes; tests now assert GOAWAY details and alert emission.
+   - Next up: flow those alerts into the OpenMetrics/Prometheus exporter, document the `metrics.backpressure` + `metrics.transport_alerts` knobs, and keep listen_flow + router runtime coverage in sync.
 
 2. **HTTP/2 + HTTP/3 Deadline Enforcement**
    - Enforce the remaining idle/body deadlines for HTTP/2/HTTP/3 readers, emit GOAWAY with explicit reasons, and extend `listen_flow.rs` to cover the new timeout branches.
@@ -26,7 +31,7 @@ Focus for the next session:
 
 4. **WebSocket Transport Completion**
    - ✅ Frame read/write loops are live; new `listen_flow::websocket_wamp_round_trip` drives masked client frames into the native reader and asserts the server writer replies with WAMP payloads, covering the end-to-end WebSocket transport path.
-   - ✅ Dart boss/runtime now exercises subprotocol selection in tests (`router_runtime_test.dart` covers accept + reject paths via synthetic WebSocket handshakes); finish surfacing the selected serializer/subprotocol back over FFI for downstream routing/metrics, and tighten continuation aggregation/mask handling/ping-pong/close coverage.
+   - ✅ Dart boss/runtime now exercises subprotocol selection in tests (`router_runtime_test.dart` covers accept + reject paths via synthetic WebSocket handshakes); `ct_connection_websocket_protocol` + Dart bindings surface the negotiated subprotocol so boss/worker metadata and telemetry include it. Next: tighten continuation aggregation/mask handling/ping-pong/close coverage.
    - Wire up Dart boss/runtime integration: route accepted connections to workers as standard WAMP transports and add router runtime/integration tests that cover successful upgrades, unsupported subprotocols, and connection shutdown.
    - Add Rust + Dart regression suites to ensure WebSocket clients can publish/call via WAMP end-to-end, including large payloads and continuation frames.
    - Plan zero-copy slices: refactor `ct_core` WebSocket storage to use a pooled slab (no per-frame Vec alloc), keep parsed WAMP frames as slices (offset/len) into that pool, expose slice-based handles via FFI (separate WebSocket handle store from RawSocket), and extend Dart bindings to retain/release those slices and decode directly without copying. Add tests to verify pool reuse, lifetime safety across FFI, and mixed RawSocket/WebSocket flows.

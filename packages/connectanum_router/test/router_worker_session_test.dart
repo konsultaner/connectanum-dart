@@ -35,11 +35,8 @@ import 'package:connectanum_router/src/router/state/store.dart';
 import 'package:connectanum_router/src/router/state/subscription.dart';
 import 'package:test/test.dart';
 
-const bool _forwardNativePublishEventsEnabled = bool.fromEnvironment(
-  'CONNECTANUM_FORWARD_NATIVE_PUBLISH',
-  defaultValue: false,
-);
-const String? _nativePublishSkipReason = _forwardNativePublishEventsEnabled
+final bool _forwardNativePublishEventsEnabled = forwardNativePublishEvents;
+final String? _nativePublishSkipReason = _forwardNativePublishEventsEnabled
     ? null
     : 'CONNECTANUM_FORWARD_NATIVE_PUBLISH not enabled (zero-copy publish forwarding disabled).';
 
@@ -1264,12 +1261,13 @@ void main() {
           throwsA(isA<StateError>()),
         );
 
-        final eventCommand = forwardedCommands
+        final nativeCommands = forwardedCommands
             .whereType<Map<String, Object?>>()
             .where(
               (command) => command['type'] == 'worker_forward_native_event',
             )
-            .single;
+            .toList();
+        final eventCommand = nativeCommands.single;
         expect(eventCommand['type'], equals('worker_forward_native_event'));
         expect(retainOrder.length, equals(2));
         expect(releasedHandles, equals(retainOrder));
@@ -1377,13 +1375,14 @@ void main() {
           throwsA(isA<StateError>()),
         );
 
-        final invocationCommand = forwarded
+        final invocationCommands = forwarded
             .whereType<Map<String, Object?>>()
             .where(
               (command) =>
                   command['type'] == 'worker_forward_native_invocation',
             )
-            .single;
+            .toList();
+        final invocationCommand = invocationCommands.single;
         expect(
           invocationCommand['type'],
           equals('worker_forward_native_invocation'),

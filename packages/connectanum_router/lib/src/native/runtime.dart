@@ -20,6 +20,7 @@ abstract class NativeRuntime {
   int pollConnection(int listenerId);
   int connectionMaxRawSocketExponent(int connectionId);
   NativeConnectionProtocol connectionProtocol(int connectionId);
+  String? connectionWebSocketProtocol(int connectionId) => null;
   NativeHttpHandshake? takeHttpHandshake(int connectionId);
   void releaseHttpHandshake(int handle);
   NativeWebSocketHandshake? takeWebSocketHandshake(int connectionId);
@@ -1492,6 +1493,39 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
       _throwForError(result, 'Failed to query connection protocol');
     }
     return NativeConnectionProtocol.fromId(result);
+  }
+
+  @override
+  String? connectionWebSocketProtocol(int connectionId) {
+    const initialCapacity = 256;
+    return using((arena) {
+      var capacity = initialCapacity;
+      final lenPtr = arena<ffi.Int32>()..value = capacity;
+      var buffer = arena<ffi.Uint8>(capacity);
+      for (var attempt = 0; attempt < 2; attempt++) {
+        final result = _bindings.ctConnectionWebSocketProtocol(
+          connectionId,
+          buffer,
+          lenPtr,
+        );
+        if (result == NativeTransportErrorCode.success) {
+          final length = lenPtr.value;
+          if (length <= 0) {
+            return null;
+          }
+          return utf8.decode(buffer.asTypedList(length));
+        }
+        if (result == NativeTransportErrorCode.invalidArgument &&
+            lenPtr.value > capacity) {
+          capacity = lenPtr.value;
+          buffer = arena<ffi.Uint8>(capacity);
+          lenPtr.value = capacity;
+          continue;
+        }
+        _throwForError(result, 'Failed to query WebSocket subprotocol');
+      }
+      return null;
+    });
   }
 
   @override

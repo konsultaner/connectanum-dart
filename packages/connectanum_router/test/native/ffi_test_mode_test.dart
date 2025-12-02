@@ -16,10 +16,15 @@ String? _resolveNativeLib() {
     return env;
   }
   const candidates = [
-    'native/transport/target/ffi-test/release/libct_ffi.so',
-    'native/transport/target/ffi-test/debug/libct_ffi.so',
-    'native/transport/target/release/libct_ffi.so',
     'native/transport/target/debug/libct_ffi.so',
+    '../../native/transport/target/debug/libct_ffi.so',
+    'native/transport/target/ffi-test/debug/libct_ffi.so',
+    '../../native/transport/target/ffi-test/debug/libct_ffi.so',
+    'native/transport/target/ffi-test/release/libct_ffi.so',
+    '../../native/transport/target/ffi-test/release/libct_ffi.so',
+    'native/transport/target/release/libct_ffi.so',
+    '../../native/transport/target/debug/libct_ffi.so',
+    '../../native/transport/target/release/libct_ffi.so',
   ];
   for (final path in candidates) {
     final file = File(path);

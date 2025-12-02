@@ -47,6 +47,9 @@ class _FakeRuntime implements NativeRuntime {
       NativeConnectionProtocol.rawsocket;
 
   @override
+  String? connectionWebSocketProtocol(int connectionId) => null;
+
+  @override
   NativeHttpHandshake? takeHttpHandshake(int connectionId) => null;
 
   @override
@@ -131,6 +134,7 @@ class _FakeRuntime implements NativeRuntime {
 
 class _NoopHandleRuntime extends _FakeRuntime
     implements NativeRuntimeWithHandles {
+  NativeRouterMetrics? routerMetrics;
   @override
   int pollMessageHandle(int connectionId) => 0;
 
@@ -184,20 +188,9 @@ class _NoopHandleRuntime extends _FakeRuntime
   String? get libraryPathHint => null;
 
   @override
-  NativeRouterMetrics? pollRouterMetrics() => const NativeRouterMetrics(
-    totalEvents: 12,
-    gracefulEvents: 8,
-    goAwayEvents: 1,
-    idleTimeoutEvents: 2,
-    bodyTimeoutEvents: 1,
-    protocolErrorEvents: 0,
-    internalErrorEvents: 0,
-    backpressureEvents: 3,
-    maxBackpressureDepth: 4,
-    breakdown: [
-      NativeRouterMetricsBreakdown(
-        listenerId: 1,
-        protocol: NativeConnectionProtocol.http2,
+  NativeRouterMetrics? pollRouterMetrics() =>
+      routerMetrics ??
+      const NativeRouterMetrics(
         totalEvents: 12,
         gracefulEvents: 8,
         goAwayEvents: 1,
@@ -207,9 +200,42 @@ class _NoopHandleRuntime extends _FakeRuntime
         internalErrorEvents: 0,
         backpressureEvents: 3,
         maxBackpressureDepth: 4,
-      ),
-    ],
-  );
+        breakdown: [
+          NativeRouterMetricsBreakdown(
+            listenerId: 1,
+            protocol: NativeConnectionProtocol.http2,
+            totalEvents: 12,
+            gracefulEvents: 8,
+            goAwayEvents: 1,
+            idleTimeoutEvents: 2,
+            bodyTimeoutEvents: 1,
+            protocolErrorEvents: 0,
+            internalErrorEvents: 0,
+            backpressureEvents: 3,
+            maxBackpressureDepth: 4,
+          ),
+        ],
+      );
+}
+
+class _SequencedMetricsRuntime extends _NoopHandleRuntime {
+  _SequencedMetricsRuntime(this.sequence);
+
+  final List<NativeRouterMetrics> sequence;
+  int _cursor = 0;
+
+  @override
+  NativeRouterMetrics? pollRouterMetrics() {
+    if (sequence.isEmpty) {
+      return super.pollRouterMetrics();
+    }
+    final index = _cursor < sequence.length ? _cursor : sequence.length - 1;
+    final current = sequence[index];
+    if (_cursor < sequence.length - 1) {
+      _cursor += 1;
+    }
+    return current;
+  }
 }
 
 void main() {
@@ -284,7 +310,90 @@ void main() {
     );
     expect(openMetricsText, contains('listener_id="1"'));
   });
+
+  test('boss emits transport alerts and throttles on GOAWAY spikes', () async {
+    final metricsBurst = _buildMetricsBreakdown(
+      goAwayEvents: 0,
+      backpressureEvents: 0,
+      maxBackpressureDepth: 0,
+    );
+    final metricsAfter = _buildMetricsBreakdown(
+      goAwayEvents: 2,
+      backpressureEvents: 0,
+      maxBackpressureDepth: 0,
+    );
+    final runtime = _SequencedMetricsRuntime([
+      metricsBurst,
+      metricsAfter,
+      metricsAfter,
+    ]);
+    final events = <Object>[];
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+          ),
+        ],
+      ),
+      settings: _buildSettings(),
+    );
+
+    final binding = router.start(
+      runtime,
+      workerPollInterval: const Duration(milliseconds: 2),
+      onEvent: events.add,
+    );
+    addTearDown(binding.dispose);
+
+    // Allow a few boss loops to poll the metrics sequence.
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    final alert = events.whereType<Map<String, Object?>>().firstWhere(
+      (event) => event['type'] == 'listener_transport_alert',
+      orElse: () => const {},
+    );
+    expect(alert, isNotEmpty);
+    expect(alert['listenerId'], equals(1));
+    expect(alert['reason'], equals('go_away'));
+    expect(alert['newEvents'], equals(2));
+    expect(alert['throttled'], isTrue);
+  });
 }
+
+NativeRouterMetrics _buildMetricsBreakdown({
+  int goAwayEvents = 1,
+  int backpressureEvents = 3,
+  int maxBackpressureDepth = 4,
+}) => NativeRouterMetrics(
+  totalEvents: goAwayEvents + backpressureEvents + 10,
+  gracefulEvents: 8,
+  goAwayEvents: goAwayEvents,
+  idleTimeoutEvents: 2,
+  bodyTimeoutEvents: 1,
+  protocolErrorEvents: 0,
+  internalErrorEvents: 0,
+  backpressureEvents: backpressureEvents,
+  maxBackpressureDepth: maxBackpressureDepth,
+  breakdown: [
+    NativeRouterMetricsBreakdown(
+      listenerId: 1,
+      protocol: NativeConnectionProtocol.http2,
+      totalEvents: goAwayEvents + backpressureEvents + 10,
+      gracefulEvents: 8,
+      goAwayEvents: goAwayEvents,
+      idleTimeoutEvents: 2,
+      bodyTimeoutEvents: 1,
+      protocolErrorEvents: 0,
+      internalErrorEvents: 0,
+      backpressureEvents: backpressureEvents,
+      maxBackpressureDepth: maxBackpressureDepth,
+    ),
+  ],
+);
 
 RouterSettings _buildSettings() {
   final realmBuilder = RealmSettingsBuilder('realm1')
