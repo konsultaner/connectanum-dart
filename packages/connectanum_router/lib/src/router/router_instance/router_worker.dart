@@ -250,11 +250,21 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
     listener: initialListener,
     listenerSettings: lookupListenerSettings(settings, initialListener),
   );
-  initialState.protocol =
-      initialListener.settings?.primaryProtocol ?? ListenerProtocol.rawsocket;
+  final primary = initialListener.settings?.primaryProtocol;
+  if (primary != null) {
+    initialState.protocol = primary;
+  }
   connectionStates[initialConnectionId] = initialState;
 
   final workerId = Isolate.current.hashCode;
+
+  bossPort.send({
+    'type': 'worker_debug',
+    'stage': 'start',
+    'connectionId': initialConnectionId,
+    'listenerId': initialListenerId,
+    'libraryPath': libraryPath,
+  });
 
   bossPort.send({
     'type': _workerEventRegister,
@@ -283,6 +293,10 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
         listenerSettings: lookupListenerSettings(settings, listener),
       );
     });
+    if (state.protocol == null &&
+        state.listenerSettings.primaryProtocol != null) {
+      state.protocol = state.listenerSettings.primaryProtocol;
+    }
     state.protocol ??=
         state.listener.settings?.primaryProtocol ?? ListenerProtocol.rawsocket;
 
@@ -360,8 +374,9 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
     } else if (command == _workerCmdAddConnection) {
       final listenerId = raw[1] as int;
       final newConnectionId = raw[2] as int;
-      final metadata =
-          raw.length > 3 && raw[3] is Map ? raw[3] as Map<Object?, Object?> : null;
+      final metadata = raw.length > 3 && raw[3] is Map
+          ? raw[3] as Map<Object?, Object?>
+          : null;
       connections[newConnectionId] = listenerId;
       final listener = resolveListener(listeners, settings, listenerId);
       connectionStates[newConnectionId] = WorkerConnectionState(

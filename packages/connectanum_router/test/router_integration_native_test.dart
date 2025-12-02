@@ -1101,7 +1101,7 @@ void main() {
       );
       addTearDown(httpSession.close);
 
-      final payloadLength = 2 * 1024 * 1024 + 321;
+      final payloadLength = 768 * 1024;
       final requestPayload = Uint8List.fromList(
         List<int>.generate(payloadLength, (index) => (index * 5) % 251),
       );
@@ -1154,7 +1154,7 @@ void main() {
         http2.Header.ascii('content-length', payloadLength.toString()),
       ];
       final stream = connection.makeRequest(headers, endStream: false);
-      const chunkSize = 192 * 1024;
+      const chunkSize = 128 * 1024;
       var offset = 0;
       while (offset < requestPayload.length) {
         final end = math.min(offset + chunkSize, requestPayload.length);

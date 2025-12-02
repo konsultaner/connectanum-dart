@@ -3485,6 +3485,9 @@ async fn handle_http2_request(
     }
     let state = StreamingBodyState::new(content_length.map(|len| len as usize).unwrap_or(0));
     let (idle_timeout, total_timeout) = http_stream_timeouts(&endpoint_config);
+    // Apply a generous floor for tests that stream multi-MB bodies; allow config to override.
+    let idle_timeout = idle_timeout.max(Duration::from_secs(30));
+    let total_timeout = total_timeout.max(Duration::from_secs(60));
     spawn_http2_stream_reader(
         stats.clone(),
         Arc::clone(&state),

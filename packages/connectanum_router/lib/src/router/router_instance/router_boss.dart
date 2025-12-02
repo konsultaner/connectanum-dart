@@ -482,17 +482,18 @@ class _RouterBoss {
       final key = '${entry.listenerId}:${entry.protocol}';
       final last = _lastBreakdownByKey[key];
       _lastBreakdownByKey[key] = entry;
-      final depthAlert = entry.maxBackpressureDepth >=
-          _backpressureDepthAlertThreshold;
+      final depthAlert =
+          entry.maxBackpressureDepth >= _backpressureDepthAlertThreshold;
       final eventsAlert =
           entry.backpressureEvents - (last?.backpressureEvents ?? 0) >=
-              _backpressureEventsAlertThreshold;
+          _backpressureEventsAlertThreshold;
       if (!depthAlert && !eventsAlert) {
         continue;
       }
       if (depthAlert) {
-        _listenerThrottleUntil[entry.listenerId] =
-            DateTime.now().add(_backpressureThrottleWindow);
+        _listenerThrottleUntil[entry.listenerId] = DateTime.now().add(
+          _backpressureThrottleWindow,
+        );
       }
       onEvent?.call({
         'source': 'boss',
@@ -998,6 +999,13 @@ class _RouterBoss {
     final Map<String, Object?> payload = {'source': 'worker'};
 
     if (type == _workerEventRegister) {
+      onEvent?.call({
+        'source': 'worker',
+        'type': 'worker_register_debug',
+        'connectionId': message['connectionId'],
+        'listenerId': message['listenerId'],
+        'workerHash': message['workerHash'],
+      });
       _handleWorkerRegister(message);
       payload
         ..['type'] = 'worker_registered'
