@@ -15,8 +15,8 @@ Focus for the next session:
 1. **Boss Telemetry Stream & Prometheus Exporter**
    - ✅ `ct_router_metrics_snapshot` aggregates GOAWAY/backpressure/timeout counters, `_RouterBoss` now polls it each loop, and `_MetricsService` renders the HTTP stats inside the OpenMetrics payload/tests.
    - ✅ Snapshot now splits by listener/protocol, caches in the boss telemetry stream, and the metrics realm HTTP endpoint (with optional auth/token) exposes the per-listener counters for Prometheus without a WAMP client.
-   - ✅ Boss emits listener backpressure/transport alerts (GOAWAY, idle/body timeouts, protocol/internal errors) based on configurable thresholds and throttles accepts during spikes; tests now assert GOAWAY details and alert emission.
-   - Next up: flow those alerts into the OpenMetrics/Prometheus exporter, document the `metrics.backpressure` + `metrics.transport_alerts` knobs, and keep listen_flow + router runtime coverage in sync.
+   - ✅ Boss emits listener backpressure/transport alerts (GOAWAY, idle/body timeouts, protocol/internal errors) based on configurable thresholds and throttles accepts during spikes; tests now assert GOAWAY details and alert emission. OpenMetrics exporter now surfaces those alert counters per reason/listener, and the config knobs are documented in `docs/router_metrics.md`.
+   - Next up: add Prometheus rules/dashboards for alert counters, and pipe alert snapshots into the metrics JSON payload so external consumers can inspect the current throttle state.
 
 2. **HTTP/2 + HTTP/3 Deadline Enforcement**
    - Enforce the remaining idle/body deadlines for HTTP/2/HTTP/3 readers, emit GOAWAY with explicit reasons, and extend `listen_flow.rs` to cover the new timeout branches.

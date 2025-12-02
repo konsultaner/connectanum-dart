@@ -23,7 +23,7 @@
     - [x] Track GOAWAY/backpressure/timeout stats per HTTP/2 and HTTP/3 connection inside `ct_core`, expose aggregated counters via `ct_router_metrics_snapshot`, and have `_RouterBoss` surface them through the metrics stream/OpenMetrics exporter.
     - [x] Split counters by listener/protocol and surface them through boss telemetry + the metrics exporter for Prometheus scraping.
     - [x] Boss-side backpressure/transport alerting with configurable thresholds (`metrics.backpressure` / `metrics.transport_alerts`) that can throttle accepts when GOAWAY/timeouts spike.
-    - [ ] Expose those alerts via the metrics/OpenMetrics exporter once auth/token gating is in place.
+    - [x] Expose those alerts via the metrics/OpenMetrics exporter (per-reason + per-listener counters) once auth/token gating is in place.
   - [x] Surface HTTP/2 and HTTP/3 connection lifecycle events (GOAWAY, idle/body timeouts, backpressure) over FFI so Dart can drain connections deterministically and emit diagnostics.
   - [x] Assert GOAWAY reasons/details for HTTP/2 + HTTP/3 in both native `listen_flow` and Dart runtime tests.
   - [x] Expose negotiated protocol identifiers via FFI so Dart workers can route WebSocket/HTTP sessions (new `ct_connection_websocket_protocol`, Dart bindings, and boss/worker metadata forwarding).

@@ -52,6 +52,14 @@ class _RouterBoss {
   NativeRouterMetrics? _lastRouterMetrics;
   RouterTransportMetrics? _cachedTransportMetrics;
   final Map<String, RouterTransportMetricsBreakdown> _lastBreakdownByKey = {};
+  final Map<String, _ListenerAlertCounts> _alertCountsByKey = {};
+  final Map<int, DateTime> _lastAlertAtByListener = {};
+  int _totalBackpressureAlerts = 0;
+  int _totalGoAwayAlerts = 0;
+  int _totalIdleTimeoutAlerts = 0;
+  int _totalBodyTimeoutAlerts = 0;
+  int _totalProtocolErrorAlerts = 0;
+  int _totalInternalErrorAlerts = 0;
   final Map<int, DateTime> _listenerThrottleUntil = {};
   bool _running = false;
   bool _stopping = false;
@@ -446,6 +454,13 @@ class _RouterBoss {
       _lastRouterMetrics = null;
       _cachedTransportMetrics = null;
       _lastBreakdownByKey.clear();
+      _alertCountsByKey.clear();
+      _totalBackpressureAlerts = 0;
+      _totalGoAwayAlerts = 0;
+      _totalIdleTimeoutAlerts = 0;
+      _totalBodyTimeoutAlerts = 0;
+      _totalProtocolErrorAlerts = 0;
+      _totalInternalErrorAlerts = 0;
       return;
     }
     final last = _lastRouterMetrics;
@@ -454,8 +469,10 @@ class _RouterBoss {
     }
     _lastRouterMetrics = nativeMetrics;
     final converted = _convertTransportMetrics(nativeMetrics);
-    _cachedTransportMetrics = converted;
-    final breakdown = converted.breakdown
+    _emitBreakdownAlerts(converted.breakdown);
+    final refreshed = _convertTransportMetrics(nativeMetrics);
+    _cachedTransportMetrics = refreshed;
+    final breakdown = refreshed.breakdown
         .map(
           (entry) => {
             'listenerId': entry.listenerId,
@@ -473,20 +490,19 @@ class _RouterBoss {
           },
         )
         .toList(growable: false);
-    _emitBreakdownAlerts(converted.breakdown);
     onEvent?.call({
       'source': 'boss',
       'type': 'router_metrics',
       'http': {
-        'totalEvents': converted.totalEvents,
-        'gracefulEvents': converted.gracefulEvents,
-        'goAwayEvents': converted.goAwayEvents,
-        'idleTimeoutEvents': converted.idleTimeoutEvents,
-        'bodyTimeoutEvents': converted.bodyTimeoutEvents,
-        'protocolErrorEvents': converted.protocolErrorEvents,
-        'internalErrorEvents': converted.internalErrorEvents,
-        'backpressureEvents': converted.backpressureEvents,
-        'maxBackpressureDepth': converted.maxBackpressureDepth,
+        'totalEvents': refreshed.totalEvents,
+        'gracefulEvents': refreshed.gracefulEvents,
+        'goAwayEvents': refreshed.goAwayEvents,
+        'idleTimeoutEvents': refreshed.idleTimeoutEvents,
+        'bodyTimeoutEvents': refreshed.bodyTimeoutEvents,
+        'protocolErrorEvents': refreshed.protocolErrorEvents,
+        'internalErrorEvents': refreshed.internalErrorEvents,
+        'backpressureEvents': refreshed.backpressureEvents,
+        'maxBackpressureDepth': refreshed.maxBackpressureDepth,
         'breakdown': breakdown,
       },
     });
@@ -507,8 +523,7 @@ class _RouterBoss {
       final eventsAlert = newBackpressure >= _backpressureEventsAlertThreshold;
       final newGoAway = entry.goAwayEvents - last.goAwayEvents;
       final newIdleTimeout = entry.idleTimeoutEvents - last.idleTimeoutEvents;
-      final newBodyTimeout =
-          entry.bodyTimeoutEvents - last.bodyTimeoutEvents;
+      final newBodyTimeout = entry.bodyTimeoutEvents - last.bodyTimeoutEvents;
       final newProtocolErrors =
           entry.protocolErrorEvents - last.protocolErrorEvents;
       final newInternalErrors =
@@ -522,6 +537,7 @@ class _RouterBoss {
           'totalEvents': entry.backpressureEvents,
           'throttle': depthAlert ? _backpressureThrottleWindow : Duration.zero,
         });
+        _recordBackpressureAlert(entry.listenerId, entry.protocol);
       }
       void addTransportAlert(String reason, int newEvents, int totalEvents) {
         alerts.add({
@@ -533,6 +549,7 @@ class _RouterBoss {
               ? _transportAlertCooldown
               : Duration.zero,
         });
+        _recordTransportAlert(entry.listenerId, entry.protocol, reason);
       }
 
       if (newGoAway >= _goAwayAlertThreshold && newGoAway > 0) {
@@ -613,17 +630,46 @@ class _RouterBoss {
     }
     _lastRouterMetrics = nativeMetrics;
     final converted = _convertTransportMetrics(nativeMetrics);
-    _cachedTransportMetrics = converted;
-    return converted;
+    _emitBreakdownAlerts(converted.breakdown);
+    final refreshed = _convertTransportMetrics(nativeMetrics);
+    _cachedTransportMetrics = refreshed;
+    return refreshed;
   }
 
   RouterTransportMetrics _convertTransportMetrics(NativeRouterMetrics metrics) {
+    final alertBreakdown = <RouterTransportAlertBreakdown>[];
+    final totalTransportAlerts =
+        _totalGoAwayAlerts +
+        _totalIdleTimeoutAlerts +
+        _totalBodyTimeoutAlerts +
+        _totalProtocolErrorAlerts +
+        _totalInternalErrorAlerts;
+
     final breakdown = metrics.breakdown
         .map((entry) {
           final listener = _listenerById[entry.listenerId];
           final endpoint = listener != null
-              ? '${listener.endpoint.host}:${entry.protocol == NativeConnectionProtocol.http3 && listener.http3Port > 0 ? listener.http3Port : listener.endpoint.port}'
+              ? '${listener.endpoint.host}:${entry.protocol == NativeConnectionProtocol.http3 && listener.http3Port > 0 ? listener.http3Port : listener.port}'
               : 'listener:${entry.listenerId}';
+          final key = '${entry.listenerId}:${_protocolName(entry.protocol)}';
+          final alertCounts = _alertCountsByKey[key];
+          final throttleUntil =
+              _listenerThrottleUntil[entry.listenerId] ??
+              _lastAlertAtByListener[entry.listenerId];
+          alertBreakdown.add(
+            RouterTransportAlertBreakdown(
+              listenerId: entry.listenerId,
+              protocol: _protocolName(entry.protocol),
+              endpoint: endpoint,
+              backpressureAlerts: alertCounts?.backpressure ?? 0,
+              goAwayAlerts: alertCounts?.goAway ?? 0,
+              idleTimeoutAlerts: alertCounts?.idleTimeout ?? 0,
+              bodyTimeoutAlerts: alertCounts?.bodyTimeout ?? 0,
+              protocolErrorAlerts: alertCounts?.protocolError ?? 0,
+              internalErrorAlerts: alertCounts?.internalError ?? 0,
+              throttleUntil: throttleUntil,
+            ),
+          );
           return RouterTransportMetricsBreakdown(
             listenerId: entry.listenerId,
             protocol: _protocolName(entry.protocol),
@@ -650,8 +696,56 @@ class _RouterBoss {
       internalErrorEvents: metrics.internalErrorEvents,
       backpressureEvents: metrics.backpressureEvents,
       maxBackpressureDepth: metrics.maxBackpressureDepth,
+      backpressureAlerts: _totalBackpressureAlerts,
+      transportAlerts: totalTransportAlerts,
+      goAwayAlerts: _totalGoAwayAlerts,
+      idleTimeoutAlerts: _totalIdleTimeoutAlerts,
+      bodyTimeoutAlerts: _totalBodyTimeoutAlerts,
+      protocolErrorAlerts: _totalProtocolErrorAlerts,
+      internalErrorAlerts: _totalInternalErrorAlerts,
+      alertBreakdown: alertBreakdown,
       breakdown: breakdown,
     );
+  }
+
+  void _recordBackpressureAlert(int listenerId, String protocol) {
+    final key = '$listenerId:$protocol';
+    final counts = _alertCountsByKey.putIfAbsent(key, _ListenerAlertCounts.new);
+    counts.backpressure += 1;
+    _lastAlertAtByListener[listenerId] = DateTime.now().toUtc();
+    _totalBackpressureAlerts += 1;
+  }
+
+  void _recordTransportAlert(int listenerId, String protocol, String reason) {
+    final key = '$listenerId:$protocol';
+    final counts = _alertCountsByKey.putIfAbsent(key, _ListenerAlertCounts.new);
+    switch (reason) {
+      case 'go_away':
+        counts.goAway += 1;
+        _lastAlertAtByListener[listenerId] = DateTime.now().toUtc();
+        _totalGoAwayAlerts += 1;
+        break;
+      case 'idle_timeout':
+        counts.idleTimeout += 1;
+        _lastAlertAtByListener[listenerId] = DateTime.now().toUtc();
+        _totalIdleTimeoutAlerts += 1;
+        break;
+      case 'body_timeout':
+        counts.bodyTimeout += 1;
+        _lastAlertAtByListener[listenerId] = DateTime.now().toUtc();
+        _totalBodyTimeoutAlerts += 1;
+        break;
+      case 'protocol_error':
+        counts.protocolError += 1;
+        _lastAlertAtByListener[listenerId] = DateTime.now().toUtc();
+        _totalProtocolErrorAlerts += 1;
+        break;
+      case 'internal_error':
+        counts.internalError += 1;
+        _lastAlertAtByListener[listenerId] = DateTime.now().toUtc();
+        _totalInternalErrorAlerts += 1;
+        break;
+    }
   }
 
   String _httpConnectionReason(NativeHttpConnectionCloseReason reason) {
@@ -1508,6 +1602,15 @@ const Map<String, NativeMessageSerializer> _webSocketProtocols = {
   'wamp.2.ubjson': NativeMessageSerializer.ubjson,
   'wamp.2.flatbuffers': NativeMessageSerializer.flatbuffers,
 };
+
+class _ListenerAlertCounts {
+  int backpressure = 0;
+  int goAway = 0;
+  int idleTimeout = 0;
+  int bodyTimeout = 0;
+  int protocolError = 0;
+  int internalError = 0;
+}
 
 class _WorkerHandle {
   _WorkerHandle({

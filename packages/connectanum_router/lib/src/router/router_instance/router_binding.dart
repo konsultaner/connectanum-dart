@@ -1270,6 +1270,7 @@ class _MetricsService {
   Future<Map<String, Object?>> _buildSnapshotPayload() async {
     final routerSnapshot = await binding.collectMetrics();
     final realmReports = await _collectRealmReports();
+    final transportAlerts = routerSnapshot.transport;
     return <String, Object?>{
       'router': routerSnapshot.toJson(),
       'realms': realmReports.map((report) => report.toJson()).toList(),
@@ -1280,6 +1281,33 @@ class _MetricsService {
         if (metricsSettings.authToken != null)
           'auth_token': metricsSettings.authToken,
       },
+      if (transportAlerts != null)
+        'alerts': <String, Object?>{
+          'backpressure': transportAlerts.backpressureAlerts,
+          'transport': transportAlerts.transportAlerts,
+          'goaway': transportAlerts.goAwayAlerts,
+          'idle_timeout': transportAlerts.idleTimeoutAlerts,
+          'body_timeout': transportAlerts.bodyTimeoutAlerts,
+          'protocol_error': transportAlerts.protocolErrorAlerts,
+          'internal_error': transportAlerts.internalErrorAlerts,
+          'by_listener': transportAlerts.alertBreakdown
+              .map(
+                (entry) => <String, Object?>{
+                  'listener_id': entry.listenerId,
+                  'protocol': entry.protocol,
+                  'endpoint': entry.endpoint,
+                  'backpressure': entry.backpressureAlerts,
+                  'goaway': entry.goAwayAlerts,
+                  'idle_timeout': entry.idleTimeoutAlerts,
+                  'body_timeout': entry.bodyTimeoutAlerts,
+                  'protocol_error': entry.protocolErrorAlerts,
+                  'internal_error': entry.internalErrorAlerts,
+                  if (entry.throttleUntil != null)
+                    'throttle_until': entry.throttleUntil!.toIso8601String(),
+                },
+              )
+              .toList(growable: false),
+        },
     };
   }
 
@@ -1668,6 +1696,65 @@ class _MetricsService {
             'connectanum_router_http_max_backpressure_depth_by_listener$labels ${entry.maxBackpressureDepth}',
           );
         }
+      }
+    }
+
+    if (transport != null) {
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_transport_alerts_total Transport/backpressure alerts emitted by the boss',
+        )
+        ..writeln('# TYPE connectanum_router_transport_alerts_total counter');
+      final alertTotals = <String, int>{
+        'backpressure': transport.backpressureAlerts,
+        'go_away': transport.goAwayAlerts,
+        'idle_timeout': transport.idleTimeoutAlerts,
+        'body_timeout': transport.bodyTimeoutAlerts,
+        'protocol_error': transport.protocolErrorAlerts,
+        'internal_error': transport.internalErrorAlerts,
+      };
+      alertTotals.forEach((reason, value) {
+        buffer.writeln(
+          'connectanum_router_transport_alerts_total${_formatLabels({'reason': reason})} $value',
+        );
+      });
+
+      var printedAlertHeader = false;
+      for (final entry in transport.alertBreakdown) {
+        final alertByReason = <String, int>{
+          'backpressure': entry.backpressureAlerts,
+          'go_away': entry.goAwayAlerts,
+          'idle_timeout': entry.idleTimeoutAlerts,
+          'body_timeout': entry.bodyTimeoutAlerts,
+          'protocol_error': entry.protocolErrorAlerts,
+          'internal_error': entry.internalErrorAlerts,
+        };
+        if (alertByReason.values.every((value) => value == 0)) {
+          continue;
+        }
+        if (!printedAlertHeader) {
+          buffer
+            ..writeln(
+              '# HELP connectanum_router_transport_alerts_by_listener_total Transport/backpressure alerts by listener/protocol',
+            )
+            ..writeln(
+              '# TYPE connectanum_router_transport_alerts_by_listener_total counter',
+            );
+          printedAlertHeader = true;
+        }
+        final baseLabels = {
+          'listener_id': entry.listenerId.toString(),
+          'protocol': entry.protocol,
+          'endpoint': entry.endpoint,
+        };
+        alertByReason.forEach((reason, value) {
+          if (value == 0) {
+            return;
+          }
+          buffer.writeln(
+            'connectanum_router_transport_alerts_by_listener_total${_formatLabels({...baseLabels, 'reason': reason})} $value',
+          );
+        });
       }
     }
 

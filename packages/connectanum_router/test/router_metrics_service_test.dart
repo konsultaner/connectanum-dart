@@ -240,7 +240,22 @@ class _SequencedMetricsRuntime extends _NoopHandleRuntime {
 
 void main() {
   test('metrics exporter collects snapshot and OpenMetrics payload', () async {
-    final runtime = _NoopHandleRuntime();
+    final events = <Object>[];
+    final metricsBurst = _buildMetricsBreakdown(
+      goAwayEvents: 0,
+      backpressureEvents: 0,
+      maxBackpressureDepth: 0,
+    );
+    final metricsAfter = _buildMetricsBreakdown(
+      goAwayEvents: 1,
+      backpressureEvents: 0,
+      maxBackpressureDepth: 0,
+    );
+    final runtime = _SequencedMetricsRuntime([
+      metricsBurst,
+      metricsAfter,
+      metricsAfter,
+    ]);
     final router = Router(
       RouterConfig(
         endpoints: [
@@ -255,8 +270,11 @@ void main() {
       settings: _buildSettings(),
     );
 
-    final binding = router.start(runtime);
+    final binding = router.start(runtime, onEvent: events.add);
     addTearDown(binding.dispose);
+
+    // Wait for the boss loop to observe the metrics delta and emit alerts.
+    await _waitForTransportAlert(events);
 
     await binding.ensureInternalServicesReady();
     final realmSession = await binding.createInternalSession(
@@ -309,6 +327,28 @@ void main() {
       contains('connectanum_router_http_events_by_listener_total'),
     );
     expect(openMetricsText, contains('listener_id="1"'));
+    expect(
+      openMetricsText,
+      contains('connectanum_router_transport_alerts_total{reason="go_away"} 1'),
+    );
+    expect(
+      openMetricsText,
+      contains(
+        'connectanum_router_transport_alerts_by_listener_total{listener_id="1",protocol="http2",endpoint="127.0.0.1:5001",reason="go_away"} 1',
+      ),
+    );
+
+    final alerts = snapshotPayload['alerts'] as Map<String, Object?>?;
+    expect(alerts, isNotNull);
+    expect(alerts!['goaway'], equals(1));
+    expect(alerts['transport'], equals(1));
+    final byListener = alerts['by_listener'] as List<Object?>? ?? const [];
+    final entry = byListener.whereType<Map<String, Object?>>().firstWhere(
+      (value) => value['listener_id'] == 1,
+      orElse: () => const {},
+    );
+    expect(entry['goaway'], equals(1));
+    expect(entry['throttle_until'], isA<String>());
   });
 
   test('boss emits transport alerts and throttles on GOAWAY spikes', () async {
@@ -362,6 +402,19 @@ void main() {
     expect(alert['newEvents'], equals(2));
     expect(alert['throttled'], isTrue);
   });
+}
+
+Future<void> _waitForTransportAlert(List<Object> events) async {
+  const attempts = 50;
+  for (var i = 0; i < attempts; i += 1) {
+    final hasAlert = events.whereType<Map<String, Object?>>().any(
+      (event) => event['type'] == 'listener_transport_alert',
+    );
+    if (hasAlert) {
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
 }
 
 NativeRouterMetrics _buildMetricsBreakdown({
