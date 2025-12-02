@@ -668,7 +668,7 @@ const String? _nativePublishSkipReason = _forwardNativePublishEventsEnabled
     : 'CONNECTANUM_FORWARD_NATIVE_PUBLISH not enabled (zero-copy publish forwarding disabled).';
 
 void main() {
-  final nativeLib = _resolveNativeLib();
+  final nativeLib = resolveOrBuildNativeLib();
   final skipReason = nativeLib == null
       ? 'libct_ffi.so missing; build native transport with --features ffi-test first.'
       : null;
@@ -1508,7 +1508,7 @@ void main() {
   });
 }
 
-String? _resolveNativeLib() {
+String? resolveOrBuildNativeLib() {
   final env = Platform.environment['CONNECTANUM_NATIVE_LIB'];
   if (env != null && env.isNotEmpty && File(env).existsSync()) {
     return env;

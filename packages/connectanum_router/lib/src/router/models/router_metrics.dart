@@ -14,6 +14,7 @@ class RouterMetricsSnapshot {
     required this.totalPublicationsRouted,
     required this.activeConnections,
     required this.workerCount,
+    this.alerts = const RouterAlertMetrics(),
     this.transport,
   });
 
@@ -47,6 +48,9 @@ class RouterMetricsSnapshot {
   /// Number of worker isolates currently running.
   final int workerCount;
 
+  /// Aggregated alert counters emitted by the boss loop (backpressure, etc.).
+  final RouterAlertMetrics alerts;
+
   /// Aggregated transport-level metrics emitted by the native runtime.
   final RouterTransportMetrics? transport;
 
@@ -61,7 +65,34 @@ class RouterMetricsSnapshot {
     'total_publications_routed': totalPublicationsRouted,
     'active_connections': activeConnections,
     'worker_count': workerCount,
+    'alerts': alerts.toJson(),
     if (transport != null) 'transport': transport!.toJson(),
+  };
+}
+
+/// Alert counters produced by the boss telemetry loop.
+@immutable
+class RouterAlertMetrics {
+  const RouterAlertMetrics({
+    this.backpressureAlerts = 0,
+    this.throttledBackpressureAlerts = 0,
+    this.backpressureAlertReasons = const <String, int>{},
+  });
+
+  /// Total listener backpressure alerts emitted by the boss loop.
+  final int backpressureAlerts;
+
+  /// Alerts that triggered throttling (depth threshold exceeded).
+  final int throttledBackpressureAlerts;
+
+  /// Alert counts grouped by reason (e.g. depth threshold vs bursty events).
+  final Map<String, int> backpressureAlertReasons;
+
+  Map<String, Object?> toJson() => {
+    'backpressure_alerts': backpressureAlerts,
+    'throttled_backpressure_alerts': throttledBackpressureAlerts,
+    if (backpressureAlertReasons.isNotEmpty)
+      'backpressure_alert_reasons': backpressureAlertReasons,
   };
 }
 

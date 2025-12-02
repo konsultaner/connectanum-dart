@@ -249,26 +249,8 @@ Future<Map<String, Object?>> _nextEvent(
   throw StateError('Unexpected end of stream while waiting for $type');
 }
 
-String? _resolveNativeLib() {
-  final env = Platform.environment['CONNECTANUM_NATIVE_LIB'];
-  if (env != null && env.isNotEmpty && File(env).existsSync()) {
-    return env;
-  }
-  const candidates = [
-    'native/transport/target/release/libct_ffi.so',
-    'native/transport/target/debug/libct_ffi.so',
-  ];
-  for (final path in candidates) {
-    final file = File(path);
-    if (file.existsSync()) {
-      return file.absolute.path;
-    }
-  }
-  return null;
-}
-
 void main() {
-  final nativeLib = _resolveNativeLib();
+  final nativeLib = resolveOrBuildNativeLib();
 
   group('Router integration', () {
     final skipReason = nativeLib == null

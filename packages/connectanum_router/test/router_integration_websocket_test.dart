@@ -22,7 +22,7 @@ import 'package:connectanum_router/src/router/router_instance.dart';
 import 'package:test/test.dart';
 
 void main() {
-  final nativeLib = _resolveNativeLib();
+  final nativeLib = resolveOrBuildNativeLib();
   final skipReason = nativeLib == null
       ? 'libct_ffi.so missing; build native transport with --features ffi-test first.'
       : null;

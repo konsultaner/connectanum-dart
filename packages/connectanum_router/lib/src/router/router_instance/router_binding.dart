@@ -1435,6 +1435,39 @@ class _MetricsService {
         'connectanum_router_worker_isolates ${routerSnapshot.workerCount}',
       );
 
+    final alerts = routerSnapshot.alerts;
+    buffer
+      ..writeln(
+        '# HELP connectanum_router_backpressure_alerts_total Listener backpressure alerts observed by the boss loop',
+      )
+      ..writeln('# TYPE connectanum_router_backpressure_alerts_total counter')
+      ..writeln(
+        'connectanum_router_backpressure_alerts_total ${alerts.backpressureAlerts}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_backpressure_alerts_throttled_total Backpressure alerts that triggered listener throttling',
+      )
+      ..writeln(
+        '# TYPE connectanum_router_backpressure_alerts_throttled_total counter',
+      )
+      ..writeln(
+        'connectanum_router_backpressure_alerts_throttled_total ${alerts.throttledBackpressureAlerts}',
+      );
+    if (alerts.backpressureAlertReasons.isNotEmpty) {
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_backpressure_alerts_by_reason_total Backpressure alerts grouped by reason',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_backpressure_alerts_by_reason_total counter',
+        );
+      alerts.backpressureAlertReasons.forEach((reason, count) {
+        buffer.writeln(
+          'connectanum_router_backpressure_alerts_by_reason_total${_formatLabels({'reason': reason})} $count',
+        );
+      });
+    }
+
     buffer
       ..writeln(
         '# HELP connectanum_router_realm_sessions Active sessions per realm',

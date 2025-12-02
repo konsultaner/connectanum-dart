@@ -78,7 +78,11 @@ per-realm details:
     "total_invocations_dispatched": 12,
     "total_publications_routed": 28,
     "active_connections": 1,
-    "worker_count": 2
+    "worker_count": 2,
+    "alerts": {
+      "backpressure_alerts": 0,
+      "throttled_backpressure_alerts": 0
+    }
   },
   "realms": [
     {
@@ -119,6 +123,37 @@ Consumers can call the snapshot procedure directly from any session that has
 permission to `call` on the metrics realm. The OpenMetrics string is designed to
 feed Prometheus/Grafana stacks and applies the same label strategy as the Java
 metric store (per-realm gauges plus per-topic/procedure series).
+
+## Backpressure Alerts & Thresholds
+
+The boss loop now emits counters for listener backpressure alerts:
+
+- `connectanum_router_backpressure_alerts_total` – all alerts triggered by the
+  boss telemetry loop.
+- `connectanum_router_backpressure_alerts_throttled_total` – alerts that
+  exceeded the depth threshold and temporarily throttled accepts on the
+  listener.
+- `connectanum_router_backpressure_alerts_by_reason_total{reason="depth_threshold|new_events_threshold|depth_and_new_events"}`
+  – grouped by the cause that tripped the alert.
+
+Alert thresholds are configurable under `metrics.backpressure`:
+
+```yaml
+metrics:
+  backpressure:
+    depth_threshold: 32          # throttle when max pending depth reaches this
+    new_events_threshold: 4      # alert when N new backpressure events arrive
+    cooldown: 500ms              # throttle window for depth-based alerts
+  open_metrics:
+    enabled: true
+    listen: 127.0.0.1:9100
+    path: /metrics
+    realm: connectanum.metrics
+```
+
+The exported alert counters mirror the running totals inside the boss telemetry
+loop, so dashboards/alerts can track both the frequency of alerts and the reason
+they were raised.
 
 ## Prometheus & Grafana Wiring
 

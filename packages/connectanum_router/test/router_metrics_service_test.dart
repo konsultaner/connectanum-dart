@@ -258,6 +258,10 @@ void main() {
 
     expect(snapshotPayload['router'], isA<Map<String, Object?>>());
     final routerMetrics = snapshotPayload['router'] as Map<String, Object?>;
+    final alerts = routerMetrics['alerts'] as Map<String, Object?>?;
+    expect(alerts, isNotNull);
+    expect(alerts!['backpressure_alerts'], greaterThanOrEqualTo(0));
+    expect(alerts['throttled_backpressure_alerts'], greaterThanOrEqualTo(0));
     expect(routerMetrics['transport'], isNotNull);
     final realms = snapshotPayload['realms'] as List<dynamic>;
     final realmMetrics = realms.cast<Map<String, Object?>>().firstWhere(
@@ -283,6 +287,14 @@ void main() {
       contains('connectanum_router_http_events_by_listener_total'),
     );
     expect(openMetricsText, contains('listener_id="1"'));
+    expect(
+      openMetricsText,
+      contains('connectanum_router_backpressure_alerts_total'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_backpressure_alerts_throttled_total'),
+    );
   });
 }
 

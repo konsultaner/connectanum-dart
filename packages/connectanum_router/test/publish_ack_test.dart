@@ -16,7 +16,7 @@ import 'package:connectanum_client/src/transport/socket/socket_helper.dart'
 import 'package:test/test.dart';
 
 void main() {
-  final nativeLib = _resolveNativeLib();
+  final nativeLib = resolveOrBuildNativeLib();
   if (nativeLib == null) {
     return;
   }
@@ -102,24 +102,4 @@ void main() {
           onTimeout: () => fail('publish timeout'),
         );
   });
-}
-
-String? _resolveNativeLib() {
-  final env = Platform.environment['CONNECTANUM_NATIVE_LIB'];
-  if (env != null && env.isNotEmpty && File(env).existsSync()) {
-    return env;
-  }
-  const candidates = [
-    'native/transport/target/ffi-test/release/libct_ffi.so',
-    'native/transport/target/ffi-test/debug/libct_ffi.so',
-    'native/transport/target/release/libct_ffi.so',
-    'native/transport/target/debug/libct_ffi.so',
-  ];
-  for (final path in candidates) {
-    final file = File(path);
-    if (file.existsSync()) {
-      return file.absolute.path;
-    }
-  }
-  return null;
 }

@@ -14,7 +14,7 @@ import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:test/test.dart';
 
 void main() {
-  final libraryPath = _resolveLibraryPath();
+  final libraryPath = resolveOrBuildNativeLib();
   final skipReason = !Platform.isLinux
       ? 'Native runtime test only runs on Linux'
       : libraryPath == null
@@ -151,25 +151,6 @@ void main() {
       await socket.close();
     }, skip: skipReason);
   });
-}
-
-String? _resolveLibraryPath() {
-  final env = Platform.environment['CONNECTANUM_NATIVE_LIB'];
-  if (env != null && File(env).existsSync()) {
-    return env;
-  }
-  const candidates = [
-    '../../native/transport/target/debug/libct_ffi.so',
-    '../../native/transport/target/release/libct_ffi.so',
-    'native/transport/target/debug/libct_ffi.so',
-    'native/transport/target/release/libct_ffi.so',
-  ];
-  for (final candidate in candidates) {
-    if (File(candidate).existsSync()) {
-      return candidate;
-    }
-  }
-  return null;
 }
 
 Future<void> _performHandshake(Socket socket) async {

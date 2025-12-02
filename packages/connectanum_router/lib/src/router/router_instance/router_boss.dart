@@ -53,6 +53,9 @@ class _RouterBoss {
   RouterTransportMetrics? _cachedTransportMetrics;
   final Map<String, RouterTransportMetricsBreakdown> _lastBreakdownByKey = {};
   final Map<int, DateTime> _listenerThrottleUntil = {};
+  int _backpressureAlertCount = 0;
+  int _throttledBackpressureAlerts = 0;
+  final Map<String, int> _backpressureAlertsByReason = {};
   bool _running = false;
   bool _stopping = false;
   Future<void>? _loopFuture;
@@ -490,7 +493,15 @@ class _RouterBoss {
       if (!depthAlert && !eventsAlert) {
         continue;
       }
+      final reason = _backpressureAlertReason(
+        depthAlert: depthAlert,
+        eventsAlert: eventsAlert,
+      );
+      _backpressureAlertCount++;
+      _backpressureAlertsByReason[reason] =
+          (_backpressureAlertsByReason[reason] ?? 0) + 1;
       if (depthAlert) {
+        _throttledBackpressureAlerts++;
         _listenerThrottleUntil[entry.listenerId] = DateTime.now().add(
           _backpressureThrottleWindow,
         );
@@ -505,9 +516,31 @@ class _RouterBoss {
         'backpressureEvents': entry.backpressureEvents,
         'newEvents': entry.backpressureEvents - (last?.backpressureEvents ?? 0),
         'throttled': depthAlert,
+        'reason': reason,
       });
     }
   }
+
+  String _backpressureAlertReason({
+    required bool depthAlert,
+    required bool eventsAlert,
+  }) {
+    if (depthAlert && eventsAlert) {
+      return 'depth_and_new_events';
+    }
+    if (depthAlert) {
+      return 'depth_threshold';
+    }
+    return 'new_events_threshold';
+  }
+
+  RouterAlertMetrics _buildAlertMetrics() => RouterAlertMetrics(
+    backpressureAlerts: _backpressureAlertCount,
+    throttledBackpressureAlerts: _throttledBackpressureAlerts,
+    backpressureAlertReasons: Map<String, int>.unmodifiable(
+      _backpressureAlertsByReason,
+    ),
+  );
 
   RouterTransportMetrics? _ensureTransportMetrics() {
     final cached = _cachedTransportMetrics;
@@ -912,6 +945,7 @@ class _RouterBoss {
       totalPublicationsRouted: stateMetrics.totalPublicationsRouted,
       activeConnections: _connectionOwners.length,
       workerCount: _workers.length,
+      alerts: _buildAlertMetrics(),
       transport: transportMetrics,
     );
   }

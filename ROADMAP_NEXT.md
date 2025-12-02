@@ -13,6 +13,7 @@ Focus for the next session:
 1. **Boss Telemetry Stream & Prometheus Exporter**
    - ✅ `ct_router_metrics_snapshot` aggregates GOAWAY/backpressure/timeout counters, `_RouterBoss` now polls it each loop, and `_MetricsService` renders the HTTP stats inside the OpenMetrics payload/tests.
    - ✅ Snapshot now splits by listener/protocol, caches in the boss telemetry stream, and the metrics realm HTTP endpoint (with optional auth/token) exposes the per-listener counters for Prometheus without a WAMP client.
+   - ✅ OpenMetrics exporter now surfaces backpressure alert counters (including throttled counts and reason labels) and the metrics docs include threshold examples for tuning.
    - Next up: add boss-side throttling/alerting hooks on top of the per-listener metrics, document the telemetry stream/exporter wiring, and keep listen_flow + router runtime coverage in sync.
 
 2. **HTTP/2 + HTTP/3 Deadline Enforcement**
