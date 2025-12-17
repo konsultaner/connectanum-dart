@@ -10,11 +10,11 @@ use std::{
 use bytes::Bytes;
 use tokio::{
     io::AsyncReadExt,
-    net::tcp::OwnedReadHalf,
     sync::oneshot::{self, Receiver},
     time,
 };
 
+use crate::io_stream::IoReadHalf;
 use crate::HttpBodySlice;
 
 const STREAMING_CHUNK_SIZE: usize = 64 * 1024;
@@ -48,11 +48,11 @@ impl StreamingChunk {
 
 #[derive(Debug)]
 pub struct Http1BodyReclaim {
-    receiver: Receiver<OwnedReadHalf>,
+    receiver: Receiver<IoReadHalf>,
 }
 
 impl Http1BodyReclaim {
-    pub async fn wait(self) -> Result<OwnedReadHalf, oneshot::error::RecvError> {
+    pub async fn wait(self) -> Result<IoReadHalf, oneshot::error::RecvError> {
         self.receiver.await
     }
 }
@@ -169,7 +169,7 @@ impl StreamingBodyState {
 
 pub fn spawn_http1_streaming_body(
     prefix: Bytes,
-    reader: OwnedReadHalf,
+    reader: IoReadHalf,
     remaining: usize,
     read_timeout: Duration,
 ) -> (Arc<StreamingBodyState>, Http1BodyReclaim) {
@@ -189,10 +189,10 @@ pub fn spawn_http1_streaming_body(
 
 async fn run_http1_stream_reader(
     state: Arc<StreamingBodyState>,
-    mut reader: OwnedReadHalf,
+    mut reader: IoReadHalf,
     mut remaining: usize,
     read_timeout: Duration,
-    reclaim: oneshot::Sender<OwnedReadHalf>,
+    reclaim: oneshot::Sender<IoReadHalf>,
 ) {
     let mut buffer = vec![0u8; STREAMING_CHUNK_SIZE];
     while remaining > 0 {
@@ -233,6 +233,7 @@ mod tests {
     use bytes::Bytes;
     use std::time::Duration;
     use tokio::{io::AsyncWriteExt, net::TcpListener};
+    use crate::io_stream::IoStream;
 
     #[test]
     fn streaming_body_state_reports_length() {
@@ -277,7 +278,7 @@ mod tests {
         });
 
         let (socket, _) = listener.accept().await.unwrap();
-        let (read_half, _write_half) = socket.into_split();
+        let (read_half, _write_half) = tokio::io::split(IoStream::plain(socket));
         let prefix = Bytes::from_static(b"12345");
         let (state, reclaim) =
             spawn_http1_streaming_body(prefix.clone(), read_half, 4, Duration::from_millis(200));
@@ -314,7 +315,7 @@ mod tests {
         });
 
         let (socket, _) = listener.accept().await.unwrap();
-        let (read_half, _write_half) = socket.into_split();
+        let (read_half, _write_half) = tokio::io::split(IoStream::plain(socket));
         let prefix = Bytes::from_static(b"");
         let (state, reclaim) =
             spawn_http1_streaming_body(prefix, read_half, 8, Duration::from_millis(100));

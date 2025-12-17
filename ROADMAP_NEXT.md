@@ -32,7 +32,8 @@ Focus for the next session:
 4. **WebSocket Transport Completion**
    - ✅ Frame read/write loops are live; new `listen_flow::websocket_wamp_round_trip` drives masked client frames into the native reader and asserts the server writer replies with WAMP payloads, covering the end-to-end WebSocket transport path.
    - ✅ Dart boss/runtime now exercises subprotocol selection in tests (`router_runtime_test.dart` covers accept + reject paths via synthetic WebSocket handshakes); `ct_connection_websocket_protocol` + Dart bindings surface the negotiated subprotocol so boss/worker metadata and telemetry include it. Next: tighten continuation aggregation/mask handling/ping-pong/close coverage.
-   - Wire up Dart boss/runtime integration: route accepted connections to workers as standard WAMP transports and add router runtime/integration tests that cover successful upgrades, unsupported subprotocols, and connection shutdown.
+   - ✅ Route accepted WebSocket connections into workers as standard WAMP transports, poll WebSocket message handles in the boss loop, and cover the end-to-end dispatch with runtime tests.
+   - ✅ Add worker-session regression tests that ensure WebSocket connections receive publish ACKs and CALL errors, keeping WAMP flows aligned with RawSocket behaviour.
    - Add Rust + Dart regression suites to ensure WebSocket clients can publish/call via WAMP end-to-end, including large payloads and continuation frames.
    - Plan zero-copy slices: refactor `ct_core` WebSocket storage to use a pooled slab (no per-frame Vec alloc), keep parsed WAMP frames as slices (offset/len) into that pool, expose slice-based handles via FFI (separate WebSocket handle store from RawSocket), and extend Dart bindings to retain/release those slices and decode directly without copying. Add tests to verify pool reuse, lifetime safety across FFI, and mixed RawSocket/WebSocket flows.
 
@@ -69,6 +70,12 @@ Focus for the next session:
 
 12. **Packaging & Build Hooks**
    - Add Dart 3.10+ build hooks that compile the Rust `ct_ffi` backend during pub get/install so consumers no longer need manual `cargo build` steps; gate platform detection and allow opting out for prebuilt/shared-lib setups.
+
+13. **TLS & Deployment Hardening**
+   - ✅ Native TCP TLS termination (rustls + SNI) is live.
+   - ✅ Router runner exposes an OpenMetrics HTTP endpoint when `metrics.open_metrics.listen` is set (`/metrics` + `/healthz`).
+   - ✅ Deployment templates added under `deploy/` (Docker/systemd/K8s) plus updated production docs/configs.
+   - Next: add mTLS support, certificate reload/rotation hooks, and CI packaging for prebuilt `ct_ffi` artifacts.
 
 Regression / validation to run after changes:
 - `dart test packages/connectanum_router/test/router_worker_session_test.dart --chain-stack-traces`

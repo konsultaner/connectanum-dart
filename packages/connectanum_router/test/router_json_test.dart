@@ -39,14 +39,8 @@ void main() {
       expect((endpointsJson.first as Map)['host'], '127.0.0.1');
     });
 
-    test('throws when mixing native and dart TLS modes', () {
+    test('throws when using unsupported dart TLS mode', () {
       final endpoints = [
-        Endpoint(
-          host: '0.0.0.0',
-          port: 0,
-          tlsMode: TlsMode.native,
-          maxRawSocketSizeExponent: 16,
-        ),
         Endpoint(
           host: '0.0.0.0',
           port: 0,

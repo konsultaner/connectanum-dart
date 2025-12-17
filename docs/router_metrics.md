@@ -73,6 +73,16 @@ When the metrics exporter is enabled, the session matching
   the same metric names as the Java router (`topics`, `topics_subscribed`,
   `topic_subscribers`, `registered_procedures`, `procedure_endpoints`, …).
 
+If `open_metrics.listen` is set and you run the router via
+`dart run connectanum_router` (or call `RouterBinding.startOpenMetricsHttpServer`
+from embedding code), the exporter is also served over HTTP:
+
+- `GET /metrics` – OpenMetrics text payload
+- `GET /healthz` – 200 OK health check
+
+If `open_metrics.auth_token` is set, `GET /metrics` requires
+`Authorization: Bearer <token>`.
+
 ## Snapshot Payload
 
 The snapshot response mirrors the `RouterMetricsSnapshot` structure and includes

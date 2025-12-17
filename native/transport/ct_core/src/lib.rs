@@ -34,11 +34,7 @@ use http02::{
 use sha1::{Digest, Sha1};
 use thiserror::Error;
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt, BufReader},
-    net::{
-        tcp::{OwnedReadHalf, OwnedWriteHalf},
-        TcpStream as TokioTcpStream,
-    },
+    io::{AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
     runtime::Runtime,
     sync::{
         mpsc::{self, error::TryRecvError, UnboundedReceiver, UnboundedSender},
@@ -49,14 +45,17 @@ use tokio::{
 };
 
 use crate::http_body::{spawn_http1_streaming_body, Http1BodyReclaim, StreamingError};
+use crate::io_stream::{IoReadHalf, IoStream, IoWriteHalf};
 
 mod config;
+mod io_stream;
 mod http1_stream;
 mod http_body;
 mod http_stream;
 mod platform;
 mod protocol;
 mod rawsocket;
+mod tls;
 mod wamp;
 
 use config::{HttpRouteMatch, TransportProtocol};
@@ -1037,19 +1036,23 @@ impl ListenerRegistry {
 
     fn accept_websocket_connection(
         &self,
+        handle: tokio::runtime::Handle,
         connection_id: ConnectionId,
         handshake: protocol::WebSocketHandshake,
         serializer: rawsocket::Serializer,
         protocol: Option<&str>,
     ) -> Result<(), Error> {
         let accept_value = websocket_accept_value(&handshake.sec_websocket_key);
-        let mut std_stream = handshake.into_stream().into_std().map_err(Error::Io)?;
-        write_websocket_handshake_response(&mut std_stream, &accept_value, protocol)
+        let mut stream = handshake.into_stream();
+        handle
+            .block_on(write_websocket_handshake_response(
+                &mut stream,
+                &accept_value,
+                protocol,
+            ))
             .map_err(Error::Io)?;
-        std_stream.set_nonblocking(true).map_err(Error::Io)?;
-        let stream = TokioTcpStream::from_std(std_stream).map_err(Error::Io)?;
-        stream.set_nodelay(true).map_err(Error::Io)?;
-        let (reader, writer) = stream.into_split();
+        let _ = stream.set_nodelay(true);
+        let (reader, writer) = tokio::io::split(stream);
 
         let (frame_tx, frame_rx) = mpsc::channel(1024);
         let (send_tx, send_rx) = mpsc::unbounded_channel();
@@ -1067,6 +1070,7 @@ impl ListenerRegistry {
 
         let selected_protocol = protocol.map(|value| value.to_string());
         let reader_task = spawn_websocket_reader(
+            handle.clone(),
             connection_id,
             serializer,
             endpoint_config,
@@ -1074,7 +1078,8 @@ impl ListenerRegistry {
             frame_tx,
             send_tx.clone(),
         );
-        let writer_task = spawn_websocket_writer(connection_id, serializer, writer, send_rx);
+        let writer_task =
+            spawn_websocket_writer(handle, connection_id, serializer, writer, send_rx);
 
         let mut connections = self
             .connections
@@ -1095,12 +1100,13 @@ impl ListenerRegistry {
 
     fn reject_websocket_connection(
         &self,
+        handle: tokio::runtime::Handle,
         connection_id: ConnectionId,
         handshake: protocol::WebSocketHandshake,
         status: StatusCode,
         reason: Option<&str>,
     ) -> Result<(), Error> {
-        let mut stream = handshake.into_stream().into_std().map_err(Error::Io)?;
+        let mut stream = handshake.into_stream();
         let body = reason.unwrap_or("websocket upgrade rejected");
         let response = format!(
             "HTTP/1.1 {} {}\r\nConnection: close\r\nContent-Length: {}\r\n\r\n{}",
@@ -1109,9 +1115,13 @@ impl ListenerRegistry {
             body.len(),
             body
         );
-        stream
-            .write_all(response.as_bytes())
-            .and_then(|_| stream.flush())
+        handle
+            .block_on(async {
+                stream.write_all(response.as_bytes()).await?;
+                stream.flush().await?;
+                let _ = stream.shutdown().await;
+                Ok::<(), io::Error>(())
+            })
             .map_err(Error::Io)?;
         self.connections
             .lock()
@@ -1819,7 +1829,7 @@ impl OutboundFrame {
 fn spawn_connection_reader(
     connection_id: ConnectionId,
     endpoint_config: Arc<config::EndpointRuntimeConfig>,
-    mut reader: OwnedReadHalf,
+    mut reader: IoReadHalf,
     serializer: rawsocket::Serializer,
     max_message_size_exponent: u32,
     frame_tx: mpsc::Sender<wamp::ParsedMessage>,
@@ -1893,7 +1903,7 @@ fn spawn_connection_reader(
 
 fn spawn_connection_writer(
     connection_id: ConnectionId,
-    mut writer: OwnedWriteHalf,
+    mut writer: IoWriteHalf,
     mut rx: UnboundedReceiver<OutboundFrame>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
@@ -1938,14 +1948,15 @@ fn spawn_connection_writer(
 }
 
 fn spawn_websocket_reader(
+    handle: tokio::runtime::Handle,
     connection_id: ConnectionId,
     serializer: rawsocket::Serializer,
     endpoint_config: Arc<config::EndpointRuntimeConfig>,
-    mut reader: OwnedReadHalf,
+    mut reader: IoReadHalf,
     frame_tx: mpsc::Sender<wamp::ParsedMessage>,
     send_tx: UnboundedSender<OutboundFrame>,
 ) -> JoinHandle<()> {
-    tokio::spawn(async move {
+    handle.spawn(async move {
         let idle_timeout = endpoint_config.idle_timeout;
         let mut accumulator = WebSocketMessageAccumulator::new();
         loop {
@@ -2017,12 +2028,13 @@ fn spawn_websocket_reader(
 }
 
 fn spawn_websocket_writer(
+    handle: tokio::runtime::Handle,
     connection_id: ConnectionId,
     serializer: rawsocket::Serializer,
-    mut writer: OwnedWriteHalf,
+    mut writer: IoWriteHalf,
     mut rx: UnboundedReceiver<OutboundFrame>,
 ) -> JoinHandle<()> {
-    tokio::spawn(async move {
+    handle.spawn(async move {
         while let Some(frame) = rx.recv().await {
             let mut payload = BytesMut::with_capacity(frame.payload_len);
             for segment in frame.segments {
@@ -2049,7 +2061,7 @@ fn spawn_websocket_writer(
 }
 
 async fn read_inbound_frame(
-    stream: &mut OwnedReadHalf,
+    stream: &mut IoReadHalf,
     max_payload: u64,
 ) -> Result<InboundFrame, FrameReadError> {
     let mut header = [0u8; 4];
@@ -2196,7 +2208,7 @@ impl WebSocketMessageAccumulator {
 }
 
 async fn read_websocket_frame(
-    reader: &mut OwnedReadHalf,
+    reader: &mut IoReadHalf,
 ) -> Result<WebSocketFrame, WebSocketFrameError> {
     let mut header = [0u8; 2];
     reader
@@ -2272,7 +2284,7 @@ async fn read_websocket_frame(
 }
 
 async fn write_websocket_frame(
-    writer: &mut OwnedWriteHalf,
+    writer: &mut IoWriteHalf,
     opcode: u8,
     payload: &[u8],
 ) -> io::Result<()> {
@@ -2405,6 +2417,7 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
             let runtime_config = Arc::new(config::EndpointRuntimeConfig::try_from_endpoint(
                 &endpoint_config,
             )?);
+            let tls_acceptor = tls::build_tls_acceptor(&runtime_config)?;
             let std_listener = create_listener(socket_addr, backlog as u32)?;
             let local_addr = std_listener.local_addr()?;
 
@@ -2413,6 +2426,7 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
             let accept_registry = Arc::clone(&view.registry);
             let async_sender = sender.clone();
             let runtime_config_for_task = Arc::clone(&runtime_config);
+            let tls_acceptor_for_task = tls_acceptor.clone();
             let runtime_handle = view.handle.clone();
             let task = runtime_handle.clone().spawn(async move {
                 let listener = tokio::net::TcpListener::from_std(std_listener)
@@ -2421,7 +2435,40 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                 loop {
                     match listener.accept().await {
                         Ok((stream, addr)) => {
-                            match protocol::negotiate_connection(stream, &runtime_config_for_task)
+                            let _ = stream.set_nodelay(true);
+                            let io_stream = match tls_acceptor_for_task.as_ref() {
+                                Some(acceptor) => {
+                                    let handshake = acceptor.accept(stream);
+                                    match time::timeout(
+                                        runtime_config_for_task.handshake_timeout,
+                                        handshake,
+                                    )
+                                    .await
+                                    {
+                                        Ok(Ok(tls_stream)) => IoStream::tls(tls_stream),
+                                        Ok(Err(err)) => {
+                                            eprintln!(
+                                                "tls handshake failed for connection from {}: {}",
+                                                addr, err
+                                            );
+                                            continue;
+                                        }
+                                        Err(_) => {
+                                            eprintln!(
+                                                "tls handshake timed out for connection from {}",
+                                                addr
+                                            );
+                                            continue;
+                                        }
+                                    }
+                                }
+                                None => IoStream::plain(stream),
+                            };
+
+                            match protocol::negotiate_connection(
+                                io_stream,
+                                &runtime_config_for_task,
+                            )
                                 .await
                             {
                                 Ok(protocol::NegotiatedConnection::RawSocket(negotiated)) => {
@@ -2672,10 +2719,9 @@ pub fn connection_accept_websocket(
 ) -> Result<(), Error> {
     let manager = RuntimeManager::global();
     manager.with_state(|state| {
-        let _enter = state.handle.enter();
         state
             .registry
-            .accept_websocket_connection(connection_id, handshake, serializer, protocol)
+            .accept_websocket_connection(state.handle.clone(), connection_id, handshake, serializer, protocol)
     })
 }
 
@@ -2689,7 +2735,7 @@ pub fn connection_reject_websocket(
     manager.with_state(|state| {
         state
             .registry
-            .reject_websocket_connection(connection_id, handshake, status, reason)
+            .reject_websocket_connection(state.handle.clone(), connection_id, handshake, status, reason)
     })
 }
 
@@ -2913,7 +2959,7 @@ async fn serve_http_connection(
 ) {
     let (stream, request, body_phase) = handshake.into_parts();
     let _ = stream.set_nodelay(true);
-    let (read_half, mut write_half) = stream.into_split();
+    let (read_half, mut write_half) = tokio::io::split(stream);
     let mut reader = Some(BufReader::new(read_half));
     let mut pending = Some((request, body_phase));
     let mut pending_reclaim: Option<Http1BodyReclaim> = None;
@@ -3110,7 +3156,7 @@ async fn serve_http_connection(
 }
 
 async fn send_http_dispatch(
-    writer: &mut OwnedWriteHalf,
+    writer: &mut IoWriteHalf,
     version: u8,
     keep_alive: bool,
     dispatch: &mut HttpResponseDispatch,
@@ -3142,7 +3188,7 @@ async fn send_http_dispatch(
 }
 
 async fn send_http_simple_response(
-    writer: &mut OwnedWriteHalf,
+    writer: &mut IoWriteHalf,
     version: u8,
     status: StatusCode,
     keep_alive: bool,
@@ -3183,7 +3229,7 @@ fn strip_content_length(headers: &mut Vec<(String, String)>) {
 }
 
 async fn write_http1_chunked_response(
-    writer: &mut OwnedWriteHalf,
+    writer: &mut IoWriteHalf,
     version: u8,
     status: i32,
     headers: &[(String, String)],
@@ -3252,11 +3298,14 @@ fn websocket_accept_value(key: &str) -> String {
     Base64Engine.encode(sha1.finalize())
 }
 
-fn write_websocket_handshake_response(
-    stream: &mut std::net::TcpStream,
+async fn write_websocket_handshake_response<W>(
+    stream: &mut W,
     accept_value: &str,
     protocol: Option<&str>,
-) -> io::Result<()> {
+) -> io::Result<()>
+where
+    W: AsyncWrite + Unpin,
+{
     let mut response = format!(
         "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {}\r\n",
         accept_value
@@ -3265,8 +3314,8 @@ fn write_websocket_handshake_response(
         response.push_str(&format!("Sec-WebSocket-Protocol: {}\r\n", protocol));
     }
     response.push_str("\r\n");
-    stream.write_all(response.as_bytes())?;
-    stream.flush()?;
+    stream.write_all(response.as_bytes()).await?;
+    stream.flush().await?;
     Ok(())
 }
 
@@ -3407,7 +3456,7 @@ async fn serve_http3_requests(
 async fn serve_http2_connection(
     listener_id: ListenerId,
     connection_id: ConnectionId,
-    stream: TokioTcpStream,
+    stream: IoStream,
     endpoint_config: Arc<config::EndpointRuntimeConfig>,
     registry: Arc<ListenerRegistry>,
 ) {
@@ -4286,9 +4335,11 @@ fn create_listener(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rustls::{pki_types::ServerName, ClientConfig as RustlsClientConfig};
     use serde_json::json;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::sync::mpsc::error::TryRecvError;
+    use tokio_rustls::TlsConnector;
 
     fn test_guard() -> std::sync::MutexGuard<'static, ()> {
         static GUARD: OnceLock<Mutex<()>> = OnceLock::new();
@@ -4299,7 +4350,7 @@ mod tests {
     fn apply_router_config_stores_config() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"native"}]}"#)
+        super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"disabled"}]}"#)
             .expect("config applies");
         let cfg = crate::config::current_config().expect("config stored");
         assert_eq!(cfg.endpoints.len(), 1);
@@ -4311,11 +4362,11 @@ mod tests {
     fn apply_router_config_rejects_invalid_rawsocket_exponent() {
         let _guard = test_guard();
         shutdown().ok();
-        let err = super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"native","max_rawsocket_size_exponent":8}]}"#)
+        let err = super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"disabled","max_rawsocket_size_exponent":8}]}"#)
             .expect_err("exponent below minimum rejected");
         assert!(matches!(err, Error::RouterConfigInvalid(_)));
 
-        let err = super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"native","max_rawsocket_size_exponent":31}]}"#)
+        let err = super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"disabled","max_rawsocket_size_exponent":31}]}"#)
             .expect_err("exponent above maximum rejected");
         assert!(matches!(err, Error::RouterConfigInvalid(_)));
     }
@@ -4335,7 +4386,7 @@ mod tests {
         let _guard = test_guard();
         shutdown().ok();
         super::apply_router_config(
-            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native"}]}"#,
+            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled"}]}"#,
         )
         .unwrap();
         start_runtime().unwrap();
@@ -4359,11 +4410,114 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn tls_accepts_rawsocket_connections() {
+        let _guard = test_guard();
+        shutdown().ok();
+        let cert_pem = include_str!("../../../bench/bench_tls.crt");
+        let key_pem = include_str!("../../../bench/bench_tls.key");
+
+        let config = json!({
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[{
+                "host":"127.0.0.1",
+                "port":0,
+                "tls_mode":"native",
+                "max_rawsocket_size_exponent":16,
+                "sni_certificates":[{
+                    "hostname":"localhost",
+                    "certificate_chain_pem":cert_pem,
+                    "private_key_pem":key_pem
+                }]
+            }]
+        });
+        let bytes = serde_json::to_vec(&config).unwrap();
+        super::apply_router_config(&bytes).unwrap();
+
+        start_runtime().unwrap();
+        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let addr = local_addr(listener_id).unwrap();
+        let mut receiver = accept_channel(listener_id).unwrap();
+
+        #[derive(Debug)]
+        struct NoCertificateVerification {
+            schemes: Vec<rustls::SignatureScheme>,
+        }
+
+        impl rustls::client::danger::ServerCertVerifier for NoCertificateVerification {
+            fn verify_server_cert(
+                &self,
+                _end_entity: &rustls::pki_types::CertificateDer<'_>,
+                _intermediates: &[rustls::pki_types::CertificateDer<'_>],
+                _server_name: &ServerName<'_>,
+                _ocsp_response: &[u8],
+                _now: rustls::pki_types::UnixTime,
+            ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
+                Ok(rustls::client::danger::ServerCertVerified::assertion())
+            }
+
+            fn verify_tls12_signature(
+                &self,
+                _message: &[u8],
+                _cert: &rustls::pki_types::CertificateDer<'_>,
+                _dss: &rustls::DigitallySignedStruct,
+            ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+                Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+            }
+
+            fn verify_tls13_signature(
+                &self,
+                _message: &[u8],
+                _cert: &rustls::pki_types::CertificateDer<'_>,
+                _dss: &rustls::DigitallySignedStruct,
+            ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+                Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+            }
+
+            fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+                self.schemes.clone()
+            }
+        }
+
+        let provider = Arc::new(rustls::crypto::ring::default_provider());
+        let verifier = Arc::new(NoCertificateVerification {
+            schemes: provider
+                .signature_verification_algorithms
+                .supported_schemes(),
+        });
+        let client_config = RustlsClientConfig::builder_with_provider(Arc::clone(&provider))
+            .with_protocol_versions(&[&rustls::version::TLS13])
+            .unwrap()
+            .dangerous()
+            .with_custom_certificate_verifier(verifier)
+            .with_no_client_auth();
+        let connector = TlsConnector::from(Arc::new(client_config));
+
+        let tcp = tokio::net::TcpStream::connect(addr).await.unwrap();
+        let server_name = ServerName::try_from("localhost").unwrap();
+        let mut tls_stream = connector.connect(server_name, tcp).await.unwrap();
+
+        let handshake_byte = ((16u8 - 9) << 4) | 0x01;
+        tls_stream
+            .write_all(&[0x7F, handshake_byte, 0x00, 0x00])
+            .await
+            .unwrap();
+        let mut response = [0u8; 4];
+        tls_stream.read_exact(&mut response).await.unwrap();
+        assert_eq!(response[0], 0x7F);
+        drop(tls_stream);
+
+        let connection_id = receiver.recv().await.expect("connection delivered");
+        assert!(connection_id.0 > 0);
+        shutdown().unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn connection_runtime_config_exposes_rawsocket_settings() {
         let _guard = test_guard();
         shutdown().ok();
         super::apply_router_config(
-            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","max_rawsocket_size_exponent":30}]}"#,
+            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","max_rawsocket_size_exponent":30}]}"#,
         )
         .unwrap();
         start_runtime().unwrap();
@@ -4399,7 +4553,7 @@ mod tests {
         let _guard = test_guard();
         shutdown().ok();
         super::apply_router_config(
-            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","max_rawsocket_size_exponent":16}]}"#,
+            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","max_rawsocket_size_exponent":16}]}"#,
         )
         .unwrap();
         start_runtime().unwrap();
@@ -4440,7 +4594,7 @@ mod tests {
         let _guard = test_guard();
         shutdown().ok();
         super::apply_router_config(
-            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","handshake_timeout_ms":100,"max_rawsocket_size_exponent":16}]}"#,
+            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","handshake_timeout_ms":100,"max_rawsocket_size_exponent":16}]}"#,
         )
         .unwrap();
         start_runtime().unwrap();
@@ -4511,7 +4665,7 @@ mod tests {
         let _guard = test_guard();
         shutdown().ok();
         super::apply_router_config(
-            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native"}]}"#,
+            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled"}]}"#,
         )
         .unwrap();
         start_runtime().unwrap();
@@ -4538,7 +4692,7 @@ mod tests {
         let _guard = test_guard();
         shutdown().ok();
         super::apply_router_config(
-            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native"}]}"#,
+            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled"}]}"#,
         )
         .unwrap();
         start_runtime().unwrap();

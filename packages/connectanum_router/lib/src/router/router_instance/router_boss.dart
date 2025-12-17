@@ -810,20 +810,7 @@ class _RouterBoss {
       for (var i = 0; i < connections.length; i++) {
         final index = (worker.connectionCursor + i) % connections.length;
         final connectionId = connections[index];
-        try {
-          handle = runtime.pollMessageHandle(connectionId);
-        } on NativeTransportException catch (error) {
-          onEvent?.call({
-            'source': 'boss',
-            'type': 'boss_error',
-            'connectionId': connectionId,
-            'error': error.toString(),
-          });
-          if (error.code == NativeTransportErrorCode.connectionNotFound) {
-            _detachConnection(connectionId, notifyWorker: true);
-          }
-          continue;
-        }
+        handle = _pollHandleForConnection(connectionId);
         if (handle == 0) {
           continue;
         }
@@ -846,6 +833,39 @@ class _RouterBoss {
         chosenConnection,
         handle,
       ]);
+    }
+  }
+
+  int _pollHandleForConnection(int connectionId) {
+    try {
+      final handle = runtime.pollMessageHandle(connectionId);
+      if (handle != 0) {
+        return handle;
+      }
+    } on NativeTransportException catch (error) {
+      _handlePollError(connectionId, error);
+      return 0;
+    }
+    try {
+      final wsHandle = runtime.pollWebSocketMessageHandle(connectionId);
+      if (wsHandle != 0) {
+        return wsHandle;
+      }
+    } on NativeTransportException catch (error) {
+      _handlePollError(connectionId, error);
+    }
+    return 0;
+  }
+
+  void _handlePollError(int connectionId, NativeTransportException error) {
+    onEvent?.call({
+      'source': 'boss',
+      'type': 'boss_error',
+      'connectionId': connectionId,
+      'error': error.toString(),
+    });
+    if (error.code == NativeTransportErrorCode.connectionNotFound) {
+      _detachConnection(connectionId, notifyWorker: true);
     }
   }
 

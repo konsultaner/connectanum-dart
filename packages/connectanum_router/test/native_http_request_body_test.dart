@@ -85,7 +85,7 @@ void main() {
       endpoint: Endpoint(
         host: '127.0.0.1',
         port: 0,
-        tlsMode: TlsMode.native,
+        tlsMode: TlsMode.disabled,
         maxRawSocketSizeExponent: 16,
       ),
       port: 0,

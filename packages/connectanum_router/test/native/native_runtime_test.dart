@@ -42,7 +42,7 @@ void main() {
       addTearDown(runtime.shutdown);
 
       const configJson =
-          '{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","max_rawsocket_size_exponent":30}]}';
+          '{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","max_rawsocket_size_exponent":30}]}';
       runtime.applyRouterConfig(Uint8List.fromList(utf8.encode(configJson)));
 
       final listenerId = runtime.listen('127.0.0.1', 0);

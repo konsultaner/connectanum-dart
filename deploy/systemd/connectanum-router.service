@@ -1,0 +1,30 @@
+[Unit]
+Description=Connectanum Router
+After=network.target
+
+[Service]
+Type=simple
+User=connectanum
+Group=connectanum
+WorkingDirectory=/opt/connectanum-router
+
+Environment=CONNECTANUM_NATIVE_LIB=/opt/connectanum-router/lib/libct_ffi.so
+ExecStart=/opt/connectanum-router/connectanum_router --config /etc/connectanum/router.yaml
+
+Restart=on-failure
+RestartSec=2
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+
+[Install]
+WantedBy=multi-user.target

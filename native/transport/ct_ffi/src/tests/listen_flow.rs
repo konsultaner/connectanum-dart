@@ -165,7 +165,7 @@ fn listener_callbacks_fire_and_connections_are_reported() {
                 {
                     "host":"127.0.0.1",
                     "port":0,
-                    "tls_mode":"native",
+                    "tls_mode":"disabled",
                     "max_rawsocket_size_exponent":30
                 }
             ]
@@ -259,7 +259,7 @@ fn poll_connection_message_returns_payload() {
                 {
                     "host":"127.0.0.1",
                     "port":0,
-                    "tls_mode":"native",
+                    "tls_mode":"disabled",
                     "protocols":["rawsocket","http"],
                     "http":{
                         "alpn":["http/1.1"]
@@ -352,7 +352,7 @@ fn poll_connection_message_returns_payload() {
 fn http_handshake_surfaced_via_ffi() {
     let _guard = super::test_guard();
     let config = CString::new(
-        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","protocols":["rawsocket","http"],"http":{"alpn":["http/1.1"]},"http_routes":[{"path":"/health","match_kind":"prefix","methods":{"GET":{"type":"reserved_realm","append_method_suffix":true}}}]}]}"#,
+        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["rawsocket","http"],"http":{"alpn":["http/1.1"]},"http_routes":[{"path":"/health","match_kind":"prefix","methods":{"GET":{"type":"reserved_realm","append_method_suffix":true}}}]}]}"#,
     )
     .unwrap();
     let bytes = config.as_bytes();
@@ -515,7 +515,7 @@ fn http_handshake_surfaced_via_ffi() {
 fn http_handshake_streaming_body_round_trip() {
     let _guard = super::test_guard();
     let config = CString::new(
-        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","protocols":["rawsocket","http"],"http":{"alpn":["http/1.1"]},"http_routes":[{"path":"/stream","match_kind":"prefix","methods":{"POST":{"type":"reserved_realm","append_method_suffix":true}}}]}]}"#,
+        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["rawsocket","http"],"http":{"alpn":["http/1.1"]},"http_routes":[{"path":"/stream","match_kind":"prefix","methods":{"POST":{"type":"reserved_realm","append_method_suffix":true}}}]}]}"#,
     )
     .unwrap();
     let bytes = config.as_bytes();
@@ -672,7 +672,7 @@ fn http_response_streaming_round_trip() {
                 {
                     "host":"127.0.0.1",
                     "port":0,
-                    "tls_mode":"native",
+                    "tls_mode":"disabled",
                     "protocols":["rawsocket","http"],
                     "http":{
                         "alpn":["http/1.1"]
@@ -856,7 +856,7 @@ fn http2_handshake_surfaced_via_ffi() {
                 {
                     "host":"127.0.0.1",
                     "port":0,
-                    "tls_mode":"native",
+                    "tls_mode":"disabled",
                     "protocols":["rawsocket","http"],
                     "http":{
                         "alpn":["h2","http/1.1"]
@@ -1790,7 +1790,7 @@ fn http2_body_timeout_emits_connection_event() {
             {
                 "host":"127.0.0.1",
                 "port":0,
-                "tls_mode":"native",
+                "tls_mode":"disabled",
                 "idle_timeout_ms":50,
                 "protocols":["rawsocket","http","http2"],
                 "http":{
@@ -2078,7 +2078,7 @@ fn http2_request_round_trip_over_network() {
                 {
                     "host":"127.0.0.1",
                     "port":0,
-                    "tls_mode":"native",
+                    "tls_mode":"disabled",
                     "protocols":["rawsocket","http","http2"],
                     "http":{
                         "alpn":["h2","http/1.1"]
@@ -2151,8 +2151,7 @@ fn http2_request_round_trip_over_network() {
 
     client_rx.recv().unwrap();
 
-    let connection_id = ct_poll_connection(listener_id);
-    assert!(connection_id > 0);
+    let connection_id = wait_for_connection(listener_id);
     assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP2);
 
     let deadline = Instant::now() + Duration::from_secs(5);
@@ -2213,7 +2212,7 @@ fn http2_streaming_body_round_trip() {
                 {
                     "host":"127.0.0.1",
                     "port":0,
-                    "tls_mode":"native",
+                    "tls_mode":"disabled",
                     "protocols":["rawsocket","http","http2"],
                     "http":{
                         "alpn":["h2","http/1.1"]
@@ -2401,7 +2400,7 @@ fn http2_response_streaming_round_trip() {
                 {
                     "host":"127.0.0.1",
                     "port":0,
-                    "tls_mode":"native",
+                    "tls_mode":"disabled",
                     "protocols":["rawsocket","http","http2"],
                     "http":{
                         "alpn":["h2","http/1.1"]
@@ -2549,7 +2548,7 @@ fn websocket_handshake_surfaced_via_ffi() {
                 {
                     "host":"127.0.0.1",
                     "port":0,
-                    "tls_mode":"native",
+                    "tls_mode":"disabled",
                     "protocols":["rawsocket","websocket","http"],
                     "http":{
                         "alpn":["http/1.1"]
@@ -2667,7 +2666,7 @@ fn websocket_wamp_round_trip() {
                 {
                     "host":"127.0.0.1",
                     "port":0,
-                    "tls_mode":"native",
+                    "tls_mode":"disabled",
                     "protocols":["rawsocket","websocket","http"],
                     "websocket_path":"/ws",
                     "http":{

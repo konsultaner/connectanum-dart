@@ -1,0 +1,63 @@
+router:
+  realms:
+    - name: realm1
+      auth:
+        authmethods: [anonymous]
+      roles:
+        - name: anonymous
+          permissions:
+            - uri: ""
+              match: prefix
+              allow: [subscribe, publish, call, register, unregister]
+      limits:
+        max_pending_auth: 32
+        auth_timeout_ms: 10000
+        session_idle_ms: 600000
+        max_failed_auth: 5
+        lockout_ms: 900000
+        call_timeout_ms: 30000
+
+    - name: connectanum.metrics
+      auth:
+        authmethods: [anonymous]
+      roles:
+        - name: metrics
+          permissions:
+            - uri: ""
+              match: prefix
+              allow: [register, unregister, call, subscribe, publish]
+
+  listeners:
+    - endpoint: 0.0.0.0:8443
+      authmethods: [anonymous]
+      protocols: [rawsocket, websocket, http, http2]
+      tls:
+        mode: native
+        sni_certificates:
+          - hostname: example.com
+            certificate_chain_file: /etc/connectanum/tls/fullchain.pem
+            private_key_file: /etc/connectanum/tls/privkey.pem
+      rawsocket:
+        max_rawsocket_size_exponent: 16
+      websocket:
+        path: /ws
+        serializer_fallback: json
+      http:
+        alpn: [h2, http/1.1]
+
+  internal_realms:
+    - name: connectanum.metrics
+      auth_id: metrics-daemon
+      auth_role: metrics
+      services: [metrics]
+
+  metrics:
+    open_metrics:
+      enabled: true
+      listen: 0.0.0.0:9100
+      path: /metrics
+      realm: connectanum.metrics
+
+  authenticators:
+    anonymous:
+      type: anonymous

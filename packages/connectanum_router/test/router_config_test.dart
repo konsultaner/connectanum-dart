@@ -128,7 +128,7 @@ void main() {
       final endpoint = Endpoint(
         host: '0.0.0.0',
         port: 0,
-        tlsMode: TlsMode.native,
+        tlsMode: TlsMode.disabled,
         maxRawSocketSizeExponent: 30,
       );
       expect(endpoint.maxRawSocketSizeExponent, 30);
@@ -156,6 +156,18 @@ void main() {
           tlsMode: TlsMode.dart,
           maxRawSocketSizeExponent: 16,
           sniCertificates: [cert, cert],
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('throws when native TLS is missing SNI certificates', () {
+      expect(
+        () => Endpoint(
+          host: 'localhost',
+          port: 8080,
+          tlsMode: TlsMode.native,
+          maxRawSocketSizeExponent: 16,
         ),
         throwsArgumentError,
       );
@@ -270,7 +282,7 @@ void main() {
     final endpoint = Endpoint(
       host: 'localhost',
       port: 0,
-      tlsMode: TlsMode.native,
+      tlsMode: TlsMode.disabled,
       maxRawSocketSizeExponent: 16,
     );
 

@@ -1305,11 +1305,6 @@ final List<SniCertificate> _http3SniCertificates = [
     certificateChainPem: _http3CertificatePem,
     privateKeyPem: _http3PrivateKeyPem,
   ),
-  SniCertificate(
-    hostname: '127.0.0.1',
-    certificateChainPem: _http3CertificatePem,
-    privateKeyPem: _http3PrivateKeyPem,
-  ),
 ];
 
 String _loadRouterCert(String fileName) {

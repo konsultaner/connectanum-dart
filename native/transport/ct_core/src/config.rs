@@ -271,6 +271,30 @@ impl EndpointRuntimeConfig {
                 }
             }
         }
+        match endpoint.tls_mode {
+            TlsMode::Disabled => {
+                if protocols.contains(&TransportProtocol::Http3) {
+                    return Err(Error::RouterConfigInvalid(format!(
+                        "endpoint {}:{} enables http3 but tls_mode is disabled",
+                        endpoint.host, endpoint.port
+                    )));
+                }
+            }
+            TlsMode::Native => {
+                if endpoint.sni_certificates.is_empty() {
+                    return Err(Error::RouterConfigInvalid(format!(
+                        "endpoint {}:{} tls_mode native requires at least one sni_certificates entry",
+                        endpoint.host, endpoint.port
+                    )));
+                }
+            }
+            TlsMode::Dart => {
+                return Err(Error::RouterConfigInvalid(format!(
+                    "endpoint {}:{} tls_mode dart is not supported yet",
+                    endpoint.host, endpoint.port
+                )));
+            }
+        }
         Ok(Self {
             host: endpoint.host.clone(),
             port: endpoint.port,
@@ -545,7 +569,7 @@ mod tests {
         let cfg: EndpointConfig = serde_json::from_value(json!({
             "host": "127.0.0.1",
             "port": 0,
-            "tls_mode": "native"
+            "tls_mode": "disabled"
         }))
         .unwrap();
         let runtime = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap();
@@ -557,7 +581,7 @@ mod tests {
         let cfg: EndpointConfig = serde_json::from_value(json!({
             "host": "127.0.0.1",
             "port": 0,
-            "tls_mode": "native",
+            "tls_mode": "disabled",
             "protocols": ["rawsocket", "http", "websocket", "http"]
         }))
         .unwrap();
@@ -577,7 +601,7 @@ mod tests {
         let cfg: EndpointConfig = serde_json::from_value(json!({
             "host": "127.0.0.1",
             "port": 0,
-            "tls_mode": "native",
+            "tls_mode": "disabled",
             "protocols": ["rawsocket"],
             "http_routes": [{
                 "path": "/metrics",
@@ -602,6 +626,11 @@ mod tests {
             "port": 0,
             "tls_mode": "native",
             "protocols": ["rawsocket", "http"],
+            "sni_certificates": [{
+                "hostname": "localhost",
+                "certificate_chain_pem": "CERT",
+                "private_key_pem": "KEY"
+            }],
             "http": {
                 "alpn": ["h2", "http/1.1", "h2"],
                 "http3": {"enabled": true, "port": 9443},

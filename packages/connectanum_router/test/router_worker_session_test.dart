@@ -4380,6 +4380,138 @@ void main() {
     );
 
     test(
+      'WebSocket connection publishes with ack and returns PUBLISHED',
+      () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
+
+        final listener = _buildListener();
+        final wsState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        wsState
+          ..serializer = NativeMessageSerializer.json
+          ..protocol = ListenerProtocol.websocket
+          ..websocketProtocol = 'wamp.2.json'
+          ..websocketSerializer = 'json'
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 8801;
+
+        _openSession(
+          stateStore,
+          sessionId: 8801,
+          listener: listener,
+          connectionId: 77,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+        addTearDown(realmContexts.dispose);
+
+        final publish = publish_msg.Publish(
+          9311,
+          'com.example.topic',
+          options: publish_msg.PublishOptions(acknowledge: true),
+        );
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: wsState,
+          message: publish,
+          connectionId: 77,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final workerSend = _extractWorkerSend(bossMessages);
+        final frame =
+            jsonDecode(utf8.decode(workerSend['payload'] as Uint8List))
+                as List<dynamic>;
+        expect(frame.first, equals(MessageTypes.codePublished));
+        expect(frame[1], equals(9311));
+        expect(frame[2], isA<int>());
+      },
+    );
+
+    test(
+      'WebSocket connection returns CALL error for missing registration',
+      () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
+
+        final listener = _buildListener();
+        final wsState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        wsState
+          ..serializer = NativeMessageSerializer.json
+          ..protocol = ListenerProtocol.websocket
+          ..websocketProtocol = 'wamp.2.json'
+          ..websocketSerializer = 'json'
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 8802;
+
+        _openSession(
+          stateStore,
+          sessionId: 8802,
+          listener: listener,
+          connectionId: 78,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+        addTearDown(realmContexts.dispose);
+
+        final call = call_msg.Call(9055, 'com.websocket.missing');
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: wsState,
+          message: call,
+          connectionId: 78,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final workerSend = _extractWorkerSend(bossMessages);
+        final payload = workerSend['payload'] as Uint8List;
+        final frame = jsonDecode(utf8.decode(payload)) as List<dynamic>;
+        expect(frame.first, equals(MessageTypes.codeError));
+        expect(frame[1], equals(MessageTypes.codeCall));
+        expect(frame[2], equals(9055));
+        expect(frame[4], equals(wamp_core.Error.noSuchProcedure));
+      },
+    );
+
+    test(
       'returns no_such_procedure when CALL targets missing registration',
       () async {
         final bossMessages = <Map<String, Object?>>[];

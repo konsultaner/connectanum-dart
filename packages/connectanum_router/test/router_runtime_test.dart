@@ -13,9 +13,21 @@ import 'package:connectanum_core/connectanum_core.dart'
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
 import 'package:connectanum_router/src/router/models/router_config.dart';
+import 'package:connectanum_router/src/router/models/sni_certificate.dart';
 import 'package:connectanum_router/src/router/models/tls_mode.dart';
 import 'package:connectanum_router/src/router/router_instance.dart';
 import 'package:test/test.dart';
+
+const _certificatePem =
+    '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----';
+const _privateKeyPem =
+    '-----BEGIN PRIVATE KEY-----\nMIIB\n-----END PRIVATE KEY-----';
+
+SniCertificate _cert(String host) => SniCertificate(
+  hostname: host,
+  certificateChainPem: _certificatePem,
+  privateKeyPem: _privateKeyPem,
+);
 
 class _FakeRuntime implements NativeRuntime {
   final List<String> listenCalls = [];
@@ -493,6 +505,12 @@ class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
     return handle;
   }
 
+  int enqueueHandleOnly(int connectionId) {
+    final handle = _nextHandle++;
+    _pendingHandles.putIfAbsent(connectionId, Queue.new).add(handle);
+    return handle;
+  }
+
   void scheduleErrorOnce(int code, String message) {
     _scheduledError = NativeTransportException(code, message);
   }
@@ -505,6 +523,36 @@ class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
   }) {
     final key = connectionId ?? handshakeHandle;
     httpResponses.putIfAbsent(key, () => []).add(response);
+  }
+}
+
+class _WebSocketHandleRuntime extends _HandleRuntime {
+  @override
+  int pollMessageHandle(int connectionId) {
+    final protocol = _protocols[connectionId];
+    if (protocol == NativeConnectionProtocol.websocket) {
+      final error = _scheduledError;
+      if (error != null) {
+        _scheduledError = null;
+        throw error;
+      }
+      return 0;
+    }
+    return super.pollMessageHandle(connectionId);
+  }
+
+  @override
+  int pollWebSocketMessageHandle(int connectionId) {
+    final error = _scheduledError;
+    if (error != null) {
+      _scheduledError = null;
+      throw error;
+    }
+    final queue = _pendingHandles[connectionId];
+    if (queue == null || queue.isEmpty) {
+      return 0;
+    }
+    return queue.removeFirst();
   }
 }
 
@@ -900,6 +948,7 @@ void main() {
               port: 0,
               tlsMode: TlsMode.native,
               maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
             ),
           ],
         ),
@@ -925,6 +974,7 @@ void main() {
               port: 8080,
               tlsMode: TlsMode.native,
               maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
             ),
           ],
         ),
@@ -1001,6 +1051,7 @@ void main() {
               port: 0,
               tlsMode: TlsMode.native,
               maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
             ),
           ],
         ),
@@ -1048,6 +1099,7 @@ void main() {
               port: 0,
               tlsMode: TlsMode.native,
               maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
             ),
           ],
         ),
@@ -1087,6 +1139,7 @@ void main() {
               port: 0,
               tlsMode: TlsMode.native,
               maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
             ),
           ],
         ),
@@ -1138,6 +1191,7 @@ void main() {
               port: 0,
               tlsMode: TlsMode.native,
               maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
             ),
           ],
         ),
@@ -1194,6 +1248,7 @@ void main() {
               port: 0,
               tlsMode: TlsMode.native,
               maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
               webSocketPath: '/ws',
             ),
           ],
@@ -1254,6 +1309,75 @@ void main() {
       expect(accepted['protocol'], 'wamp.2.msgpack');
     });
 
+    test('dispatches WebSocket message handles to workers', () async {
+      final runtime = _WebSocketHandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+              webSocketPath: '/ws',
+            ),
+          ],
+        ),
+      );
+
+      final events = <Object>[];
+      final binding = router.start(
+        runtime,
+        workerEntryPoint: _testWorkerEntryPoint,
+        onEvent: events.add,
+        workerPollInterval: const Duration(milliseconds: 1),
+      );
+      addTearDown(binding.dispose);
+
+      final listener = binding.listeners.single;
+      runtime.setConnectionProtocol(9201, NativeConnectionProtocol.websocket);
+      runtime.enqueueWebSocketHandshake(
+        listener.listenerId,
+        9201,
+        NativeWebSocketHandshake.synthetic(
+          handle: 80,
+          key: 'dGVzdEtleVdz',
+          protocols: const ['wamp.2.json'],
+        ),
+      );
+
+      await _waitUntil(() => runtime.acceptedWebSockets.isNotEmpty);
+
+      final handle = runtime.enqueueHandleOnly(9201);
+
+      await _waitUntil(() {
+        return events.any((event) {
+          if (event is! Map) {
+            return false;
+          }
+          if (event['type'] != 'worker_unknown_event') {
+            return false;
+          }
+          final payload = event['payload'];
+          return payload is Map &&
+              payload['type'] == 'test_processed' &&
+              payload['connectionId'] == 9201;
+        });
+      });
+
+      final processed =
+          events.whereType<Map>().firstWhere(
+                (event) =>
+                    event['type'] == 'worker_unknown_event' &&
+                    event['payload'] is Map &&
+                    (event['payload'] as Map)['type'] == 'test_processed' &&
+                    (event['payload'] as Map)['connectionId'] == 9201,
+              )['payload']
+              as Map;
+      expect(processed['handle'], handle);
+    });
+
     test(
       'rejects WebSocket handshakes without supported subprotocols',
       () async {
@@ -1266,6 +1390,7 @@ void main() {
                 port: 0,
                 tlsMode: TlsMode.native,
                 maxRawSocketSizeExponent: 16,
+                sniCertificates: [_cert('localhost')],
                 webSocketPath: '/ws',
               ),
             ],
@@ -1326,6 +1451,7 @@ void main() {
               port: 0,
               tlsMode: TlsMode.native,
               maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
             ),
           ],
         ),
@@ -1420,6 +1546,7 @@ void main() {
                 port: 0,
                 tlsMode: TlsMode.native,
                 maxRawSocketSizeExponent: 16,
+                sniCertificates: [_cert('localhost')],
               ),
             ],
           ),
@@ -1475,6 +1602,7 @@ void main() {
                 port: 0,
                 tlsMode: TlsMode.native,
                 maxRawSocketSizeExponent: 16,
+                sniCertificates: [_cert('localhost')],
               ),
             ],
           ),
@@ -1555,6 +1683,7 @@ void main() {
               port: 0,
               tlsMode: TlsMode.native,
               maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
             ),
           ],
         ),
@@ -1608,6 +1737,7 @@ void main() {
               port: 0,
               tlsMode: TlsMode.native,
               maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
             ),
           ],
         ),
@@ -1670,6 +1800,7 @@ void main() {
               port: 0,
               tlsMode: TlsMode.native,
               maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
             ),
           ],
         ),
@@ -1741,6 +1872,7 @@ void main() {
             port: 0,
             tlsMode: TlsMode.native,
             maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
           ),
         ],
       ),
@@ -1867,6 +1999,7 @@ void main() {
               port: 0,
               tlsMode: TlsMode.native,
               maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
             ),
           ],
         ),
@@ -1960,6 +2093,7 @@ void main() {
             port: 0,
             tlsMode: TlsMode.native,
             maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
           ),
         ],
       ),
@@ -2038,6 +2172,7 @@ void main() {
             port: 0,
             tlsMode: TlsMode.native,
             maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
           ),
         ],
       ),
@@ -2124,6 +2259,7 @@ void main() {
               port: 0,
               tlsMode: TlsMode.native,
               maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
             ),
           ],
         ),
@@ -2224,6 +2360,7 @@ void main() {
             port: 0,
             tlsMode: TlsMode.native,
             maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
           ),
         ],
       ),
@@ -2283,6 +2420,7 @@ void main() {
             port: 0,
             tlsMode: TlsMode.native,
             maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
           ),
         ],
       ),
@@ -2409,6 +2547,7 @@ void main() {
             port: 0,
             tlsMode: TlsMode.native,
             maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
           ),
         ],
       ),
@@ -2476,6 +2615,7 @@ void main() {
             port: 0,
             tlsMode: TlsMode.native,
             maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
           ),
         ],
       ),
@@ -2549,6 +2689,7 @@ void main() {
             port: 0,
             tlsMode: TlsMode.native,
             maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
           ),
         ],
       ),

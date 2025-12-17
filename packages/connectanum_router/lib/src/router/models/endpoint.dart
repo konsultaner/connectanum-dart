@@ -48,6 +48,13 @@ class Endpoint {
         );
       }
     }
+    if (tlsMode == TlsMode.native && certs.isEmpty) {
+      throw ArgumentError.value(
+        sniCertificates,
+        'sniCertificates',
+        'Native TLS requires at least one SNI certificate',
+      );
+    }
 
     return Endpoint._(
       host: normalizedHost,

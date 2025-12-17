@@ -104,6 +104,8 @@ class RouterBinding {
   _RouterBoss? _boss;
   bool _ready = false;
   int _nextHttpRequestId = 1;
+  HttpServer? _openMetricsHttpServer;
+  Future<HttpServer?>? _openMetricsHttpServerFuture;
 
   List<RouterListener> get listeners =>
       List<RouterListener>.unmodifiable(_listeners);
@@ -364,6 +366,136 @@ class RouterBinding {
     return service.buildOpenMetricsPayload(snapshot: snapshot);
   }
 
+  Future<HttpServer?> startOpenMetricsHttpServer({
+    OpenMetricsSettings? settingsOverride,
+  }) async {
+    final metricsSettings = settingsOverride ?? settings.metrics?.openMetrics;
+    if (metricsSettings == null || !metricsSettings.enabled) {
+      return null;
+    }
+    final listen = metricsSettings.listen?.trim();
+    if (listen == null || listen.isEmpty) {
+      return null;
+    }
+    final existing = _openMetricsHttpServer;
+    if (existing != null) {
+      return existing;
+    }
+    final pending = _openMetricsHttpServerFuture;
+    if (pending != null) {
+      return pending;
+    }
+    final future = _startOpenMetricsHttpServer(metricsSettings, listen);
+    _openMetricsHttpServerFuture = future;
+    try {
+      return await future;
+    } finally {
+      _openMetricsHttpServerFuture = null;
+    }
+  }
+
+  Future<void> stopOpenMetricsHttpServer() async {
+    _openMetricsHttpServerFuture = null;
+    final server = _openMetricsHttpServer;
+    if (server == null) {
+      return;
+    }
+    _openMetricsHttpServer = null;
+    await server.close(force: true);
+  }
+
+  Future<HttpServer> _startOpenMetricsHttpServer(
+    OpenMetricsSettings metricsSettings,
+    String listen,
+  ) async {
+    if (!_ready) {
+      activateListeners();
+    }
+    await ensureInternalServicesReady();
+
+    final parsed = _parseListenEndpoint(listen);
+    final address = InternetAddress.tryParse(parsed.host) ?? parsed.host.trim();
+    final server = await HttpServer.bind(address, parsed.port);
+    _openMetricsHttpServer = server;
+
+    final metricsPath = _normalizePath(metricsSettings.path);
+    server.listen(
+      (request) => unawaited(
+        _handleOpenMetricsHttpRequest(request, metricsSettings, metricsPath),
+      ),
+    );
+
+    onEvent?.call({
+      'source': 'binding',
+      'type': 'openmetrics_http_listening',
+      'listen': '${server.address.address}:${server.port}',
+      'path': metricsPath,
+    });
+
+    return server;
+  }
+
+  Future<void> _handleOpenMetricsHttpRequest(
+    HttpRequest request,
+    OpenMetricsSettings metricsSettings,
+    String metricsPath,
+  ) async {
+    final response = request.response;
+    response.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
+
+    if (request.method != 'GET' && request.method != 'HEAD') {
+      response.statusCode = HttpStatus.methodNotAllowed;
+      await response.close();
+      return;
+    }
+
+    final path = request.uri.path;
+    if (path == '/healthz' || path == '/health') {
+      response.statusCode = HttpStatus.ok;
+      response.headers.contentType = ContentType.text;
+      if (request.method == 'GET') {
+        response.write('ok');
+      }
+      await response.close();
+      return;
+    }
+
+    if (path != metricsPath) {
+      response.statusCode = HttpStatus.notFound;
+      await response.close();
+      return;
+    }
+
+    final expectedToken = metricsSettings.authToken;
+    if (expectedToken != null && expectedToken.isNotEmpty) {
+      final header = request.headers.value(HttpHeaders.authorizationHeader);
+      final bearer = 'Bearer $expectedToken';
+      if (header == null || header != bearer) {
+        response.statusCode = HttpStatus.unauthorized;
+        response.headers.set(HttpHeaders.wwwAuthenticateHeader, 'Bearer');
+        await response.close();
+        return;
+      }
+    }
+
+    final text = await collectOpenMetricsText();
+    if (text == null) {
+      response.statusCode = HttpStatus.serviceUnavailable;
+      await response.close();
+      return;
+    }
+
+    response.statusCode = HttpStatus.ok;
+    response.headers.set(
+      HttpHeaders.contentTypeHeader,
+      'text/plain; version=0.0.4; charset=utf-8',
+    );
+    if (request.method == 'GET') {
+      response.write(text);
+    }
+    await response.close();
+  }
+
   void _acceptConnections(RouterListener listener) {
     while (true) {
       final connectionId = runtime.pollConnection(listener.listenerId);
@@ -550,6 +682,7 @@ class RouterBinding {
 
   /// Stops the background boss isolate (if running) and releases resources.
   Future<void> dispose() async {
+    await stopOpenMetricsHttpServer();
     await _metricsService?.dispose();
     _metricsService = null;
     for (final session in _internalSessions.toList()) {
@@ -1930,4 +2063,46 @@ class _ProcedureMetricsDetail {
     'policy': policy.name,
     'callee_count': calleeCount,
   };
+}
+
+class _ParsedListenEndpoint {
+  const _ParsedListenEndpoint({required this.host, required this.port});
+
+  final String host;
+  final int port;
+}
+
+_ParsedListenEndpoint _parseListenEndpoint(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) {
+    throw FormatException('Listen endpoint must not be empty');
+  }
+  if (trimmed.startsWith('[')) {
+    final closing = trimmed.indexOf(']');
+    if (closing == -1 ||
+        closing + 1 >= trimmed.length ||
+        trimmed[closing + 1] != ':') {
+      throw FormatException('Listen endpoint "$value" must include :port');
+    }
+    final host = trimmed.substring(1, closing);
+    final portPart = trimmed.substring(closing + 2);
+    final port = int.parse(portPart);
+    return _ParsedListenEndpoint(host: host, port: port);
+  }
+  final lastColon = trimmed.lastIndexOf(':');
+  if (lastColon == -1) {
+    throw FormatException('Listen endpoint "$value" must include :port');
+  }
+  final host = trimmed.substring(0, lastColon);
+  final portPart = trimmed.substring(lastColon + 1);
+  final port = int.parse(portPart);
+  return _ParsedListenEndpoint(host: host, port: port);
+}
+
+String _normalizePath(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) {
+    return '/';
+  }
+  return trimmed.startsWith('/') ? trimmed : '/$trimmed';
 }
