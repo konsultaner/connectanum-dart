@@ -31,3 +31,6 @@ base64 = "0.21"
 
 [features]
 ffi-test = []
+
+[dev-dependencies]
+rcgen = "0.13"

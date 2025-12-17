@@ -47,6 +47,33 @@ When loading a config file, the Dart config loader reads `*_file` values and pas
 
 If a client does not send SNI, the first entry in `sni_certificates` is used as the default certificate.
 
+### Client certificate auth (mTLS)
+
+Native TLS can optionally verify client certificates (mTLS) using a configured CA bundle:
+
+```yaml
+router:
+  listeners:
+    - endpoint: 0.0.0.0:8443
+      tls:
+        mode: native
+        sni_certificates:
+          - hostname: example.com
+            certificate_chain_file: /etc/connectanum/tls/fullchain.pem
+            private_key_file: /etc/connectanum/tls/privkey.pem
+        client_auth:
+          mode: required # or: optional
+          ca_certificates_file: /etc/connectanum/tls/client_ca.pem
+```
+
+`client_auth.mode` values:
+
+- `required`: clients must present a certificate that validates against the configured CA bundle.
+- `optional`: clients may present a certificate; anonymous clients are still allowed.
+- `disabled`/`none` (or omit `client_auth`): no client certificate verification.
+
+Like `sni_certificates`, the Dart config loader reads `*_file` values and passes the PEM strings to the native runtime.
+
 ## HTTP/3 notes
 
 HTTP/3 runs over QUIC (UDP) and requires TLS. If HTTP/3 is enabled for a listener, `tls.mode` must be `native` and `sni_certificates` must be present.

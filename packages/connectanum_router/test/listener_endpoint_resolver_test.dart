@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:connectanum_router/src/router/config/router_settings.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
+import 'package:connectanum_router/src/router/models/tls_client_auth.dart';
 import 'package:connectanum_router/src/router/models/tls_mode.dart';
 import 'package:test/test.dart';
 
@@ -57,6 +58,46 @@ void main() {
         contains('CERT'),
       );
       expect(endpoint.sniCertificates.first.privateKeyPem, contains('KEY'));
+    });
+
+    test('resolves client auth from files', () async {
+      final certFile = await _writeTemp(
+        'cert.pem',
+        '-----BEGIN CERTIFICATE-----\nCERT\n-----END CERTIFICATE-----\n',
+      );
+      final keyFile = await _writeTemp(
+        'key.pem',
+        '-----BEGIN PRIVATE KEY-----\nKEY\n-----END PRIVATE KEY-----\n',
+      );
+      final caFile = await _writeTemp(
+        'ca.pem',
+        '-----BEGIN CERTIFICATE-----\nCA_CERT\n-----END CERTIFICATE-----\n',
+      );
+
+      final settings = ListenerSettings(
+        type: 'rawsocket',
+        endpoint: 'localhost:8443',
+        tls: {
+          'mode': 'native',
+          'sni_certificates': [
+            {
+              'hostname': 'localhost',
+              'certificate_chain_file': certFile.path,
+              'private_key_file': keyFile.path,
+            },
+          ],
+          'client_auth': {
+            'mode': 'required',
+            'ca_certificates_file': caFile.path,
+          },
+        },
+      );
+
+      final endpoint = Endpoint.fromListenerSettings(settings);
+
+      expect(endpoint.clientAuth, isNotNull);
+      expect(endpoint.clientAuth!.mode, TlsClientAuthMode.required);
+      expect(endpoint.clientAuth!.caCertificatesPem, contains('CA_CERT'));
     });
 
     test('parses timeouts and rawsocket size overrides', () {

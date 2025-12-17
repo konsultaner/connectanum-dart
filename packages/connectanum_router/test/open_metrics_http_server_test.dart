@@ -42,6 +42,9 @@ class _FakeRuntime implements NativeRuntime {
   void applyRouterConfig(Uint8List config) {}
 
   @override
+  int reloadTls() => 0;
+
+  @override
   int connectionMaxRawSocketExponent(int connectionId) => 16;
 
   @override

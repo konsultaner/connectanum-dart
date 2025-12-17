@@ -196,6 +196,7 @@ mod tests {
             max_rawsocket_size_exponent: Some(rawsocket_exponent),
             websocket_path: None,
             sni_certificates: Vec::new(),
+            client_auth: None,
             http_routes: Vec::new(),
             protocols: vec![
                 TransportProtocol::Rawsocket,

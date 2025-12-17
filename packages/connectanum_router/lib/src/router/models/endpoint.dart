@@ -5,6 +5,7 @@ import 'package:meta/meta.dart';
 
 import '../config/router_settings.dart';
 import 'sni_certificate.dart';
+import 'tls_client_auth.dart';
 import 'tls_mode.dart';
 import 'validators.dart';
 
@@ -21,6 +22,7 @@ class Endpoint {
     required int maxRawSocketSizeExponent,
     String? webSocketPath,
     List<SniCertificate> sniCertificates = const [],
+    TlsClientAuth? clientAuth,
   }) {
     final normalizedHost = normalizeHostname(host);
     final normalizedPort = normalizePort(port);
@@ -55,6 +57,13 @@ class Endpoint {
         'Native TLS requires at least one SNI certificate',
       );
     }
+    if (clientAuth != null && tlsMode != TlsMode.native) {
+      throw ArgumentError.value(
+        tlsMode,
+        'tlsMode',
+        'client_auth requires tls_mode "native"',
+      );
+    }
 
     return Endpoint._(
       host: normalizedHost,
@@ -66,6 +75,7 @@ class Endpoint {
       maxRawSocketSizeExponent: normalizedSocketSize,
       webSocketPath: normalizedWebSocketPath,
       sniCertificates: certs,
+      clientAuth: clientAuth,
     );
   }
 
@@ -85,6 +95,7 @@ class Endpoint {
     final tlsConfig = settings.tls;
     final tlsMode = _resolveTlsMode(tlsConfig);
     final sniCertificates = _resolveSniCertificates(tlsConfig);
+    final clientAuth = _resolveClientAuth(tlsConfig);
     final webSocketPath = settings.path;
     return Endpoint(
       host: parsed.host,
@@ -96,6 +107,7 @@ class Endpoint {
       maxRawSocketSizeExponent: maxExponent,
       webSocketPath: webSocketPath,
       sniCertificates: sniCertificates,
+      clientAuth: clientAuth,
     );
   }
 
@@ -109,6 +121,7 @@ class Endpoint {
     required this.maxRawSocketSizeExponent,
     required this.webSocketPath,
     required this.sniCertificates,
+    required this.clientAuth,
   });
 
   /// Hostname or IP address where the listener binds to.
@@ -138,6 +151,9 @@ class Endpoint {
   /// SNI certificates handled by the native transport runtime.
   final List<SniCertificate> sniCertificates;
 
+  /// Optional client certificate authentication configuration.
+  final TlsClientAuth? clientAuth;
+
   /// Serialises the endpoint to a JSON structure suitable for the native layer.
   Map<String, Object?> toNativeJson() {
     final map = <String, Object?>{
@@ -163,6 +179,9 @@ class Endpoint {
           .map((cert) => cert.toNativeJson())
           .toList();
     }
+    if (clientAuth != null) {
+      map['client_auth'] = clientAuth!.toNativeJson();
+    }
     return map;
   }
 
@@ -177,6 +196,7 @@ class Endpoint {
     maxRawSocketSizeExponent,
     webSocketPath,
     const DeepCollectionEquality().hash(sniCertificates),
+    clientAuth,
   );
 
   @override
@@ -196,7 +216,8 @@ class Endpoint {
         other.maxHttpContentLength == maxHttpContentLength &&
         other.maxRawSocketSizeExponent == maxRawSocketSizeExponent &&
         other.webSocketPath == webSocketPath &&
-        deepEquality.equals(other.sniCertificates, sniCertificates);
+        deepEquality.equals(other.sniCertificates, sniCertificates) &&
+        other.clientAuth == clientAuth;
   }
 
   @override
@@ -280,6 +301,34 @@ List<SniCertificate> _resolveSniCertificates(Map<String, Object?>? tls) {
         );
       })
       .toList(growable: false);
+}
+
+TlsClientAuth? _resolveClientAuth(Map<String, Object?>? tls) {
+  if (tls == null) {
+    return null;
+  }
+  final raw = tls['client_auth'];
+  if (raw == null) {
+    return null;
+  }
+  if (raw is! Map<String, Object?>) {
+    throw FormatException('tls.client_auth must be a map');
+  }
+  final modeValue = raw['mode'];
+  final modeString = modeValue?.toString().trim().toLowerCase();
+  if (modeString == null || modeString.isEmpty || modeString == 'disabled') {
+    return null;
+  }
+  final mode = TlsClientAuthModeWireFormat.parse(modeString);
+  if (mode == TlsClientAuthMode.disabled) {
+    return null;
+  }
+  final caPem = _loadPem(
+    inline: raw['ca_certificates_pem'],
+    filePath: raw['ca_certificates_file'],
+    description: 'ca_certificates',
+  );
+  return TlsClientAuth(mode: mode, caCertificatesPem: caPem);
 }
 
 String _loadPem({

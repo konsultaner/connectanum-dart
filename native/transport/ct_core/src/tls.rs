@@ -5,13 +5,14 @@ use rustls::{
     pki_types::{CertificateDer, PrivateKeyDer},
     server::{ClientHello, ResolvesServerCert, ResolvesServerCertUsingSni},
     sign::CertifiedKey,
+    RootCertStore,
     ServerConfig as RustlsServerConfig,
 };
 use rustls_pemfile::{certs as load_certs, pkcs8_private_keys, rsa_private_keys};
 use tokio_rustls::TlsAcceptor;
 
 use crate::{
-    config::{EndpointRuntimeConfig, TlsMode, TransportProtocol},
+    config::{ClientAuthMode, EndpointRuntimeConfig, TlsMode, TransportProtocol},
     Error,
 };
 
@@ -78,12 +79,57 @@ pub(crate) fn build_tls_acceptor(
         inner: sni,
         default_key,
     };
-    let mut config = RustlsServerConfig::builder()
-        .with_no_client_auth()
-        .with_cert_resolver(Arc::new(resolver));
+    let mut config = match build_client_cert_verifier(endpoint, &provider)? {
+        Some(verifier) => RustlsServerConfig::builder()
+            .with_client_cert_verifier(verifier)
+            .with_cert_resolver(Arc::new(resolver)),
+        None => RustlsServerConfig::builder()
+            .with_no_client_auth()
+            .with_cert_resolver(Arc::new(resolver)),
+    };
     config.alpn_protocols = tcp_alpn_protocols(endpoint);
 
     Ok(Some(TlsAcceptor::from(Arc::new(config))))
+}
+
+pub(crate) fn build_client_cert_verifier(
+    endpoint: &EndpointRuntimeConfig,
+    provider: &rustls::crypto::CryptoProvider,
+) -> Result<Option<Arc<dyn rustls::server::danger::ClientCertVerifier>>, Error> {
+    let Some(client_auth) = &endpoint.client_auth else {
+        return Ok(None);
+    };
+    let mut reader = Cursor::new(client_auth.ca_certificates_pem.as_bytes());
+    let certs = load_certs(&mut reader)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|err| {
+            Error::RouterConfigInvalid(format!(
+                "endpoint {}:{} failed to parse client_auth ca_certificates_pem: {}",
+                endpoint.host, endpoint.port, err
+            ))
+        })?;
+    let mut roots = RootCertStore::empty();
+    let (added, _) = roots.add_parsable_certificates(certs);
+    if added == 0 {
+        return Err(Error::RouterConfigInvalid(format!(
+            "endpoint {}:{} client_auth ca_certificates_pem did not contain valid certificates",
+            endpoint.host, endpoint.port
+        )));
+    }
+    let mut builder = rustls::server::WebPkiClientVerifier::builder_with_provider(
+        Arc::new(roots),
+        Arc::new(provider.clone()),
+    );
+    if client_auth.mode == ClientAuthMode::Optional {
+        builder = builder.allow_unauthenticated();
+    }
+    let verifier = builder.build().map_err(|err| {
+        Error::RouterConfigInvalid(format!(
+            "endpoint {}:{} client_auth verifier invalid: {}",
+            endpoint.host, endpoint.port, err
+        ))
+    })?;
+    Ok(Some(verifier))
 }
 
 fn tcp_alpn_protocols(endpoint: &EndpointRuntimeConfig) -> Vec<Vec<u8>> {

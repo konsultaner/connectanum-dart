@@ -73,9 +73,11 @@ Focus for the next session:
 
 13. **TLS & Deployment Hardening**
    - ✅ Native TCP TLS termination (rustls + SNI) is live.
+   - ✅ mTLS client certificate auth is supported for native TLS endpoints (`tls.client_auth`).
+   - ✅ TLS reload hooks are available via `ct_reload_tls`; the runner reloads certs/CA on `SIGHUP`.
    - ✅ Router runner exposes an OpenMetrics HTTP endpoint when `metrics.open_metrics.listen` is set (`/metrics` + `/healthz`).
    - ✅ Deployment templates added under `deploy/` (Docker/systemd/K8s) plus updated production docs/configs.
-   - Next: add mTLS support, certificate reload/rotation hooks, and CI packaging for prebuilt `ct_ffi` artifacts.
+   - Next: CI packaging for prebuilt `ct_ffi` artifacts (and multi-arch container images), plus kTLS exploration/benchmarks.
 
 Regression / validation to run after changes:
 - `dart test packages/connectanum_router/test/router_worker_session_test.dart --chain-stack-traces`

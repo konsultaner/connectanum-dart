@@ -65,6 +65,8 @@ abstract class NativeRuntime {
 
   void sendMessage(int connectionId, Uint8List payload);
   void applyRouterConfig(Uint8List config);
+  int reloadTls() =>
+      throw UnsupportedError('TLS reload is not supported by this runtime');
   NativeIncomingMessage? pollMessage(int connectionId);
 }
 
@@ -2345,6 +2347,15 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
     } finally {
       calloc.free(ptr);
     }
+  }
+
+  @override
+  int reloadTls() {
+    final result = _bindings.ctReloadTls();
+    if (result < 0) {
+      _throwForError(result, 'Failed to reload TLS configuration');
+    }
+    return result;
   }
 
   static void _listenerTrampoline(int listenerId, int status) {

@@ -10,6 +10,7 @@ WorkingDirectory=/opt/connectanum-router
 
 Environment=CONNECTANUM_NATIVE_LIB=/opt/connectanum-router/lib/libct_ffi.so
 ExecStart=/opt/connectanum-router/connectanum_router --config /etc/connectanum/router.yaml
+ExecReload=/bin/kill -HUP $MAINPID
 
 Restart=on-failure
 RestartSec=2

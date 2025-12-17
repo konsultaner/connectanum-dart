@@ -125,10 +125,42 @@ Future<void> main(List<String> args) async {
     }
 
     stdout.writeln('Router running. Press Ctrl+C to stop.');
+    var shuttingDown = false;
+    var reloading = false;
+    Future<void> reloadTls() async {
+      if (shuttingDown || reloading) {
+        return;
+      }
+      reloading = true;
+      try {
+        final newSettings = await RouterConfigLoaderIo.fromFile(configPath);
+        final newEndpoints = newSettings.listeners
+            .map(Endpoint.fromListenerSettings)
+            .toList(growable: false);
+        final reloadRouter = Router(
+          RouterConfig(endpoints: newEndpoints),
+          settings: newSettings,
+        );
+        final nativeConfig = reloadRouter.buildNativeConfigJson(newSettings);
+        runtime.applyRouterConfig(nativeConfig);
+        final count = runtime.reloadTls();
+        stdout.writeln('Reloaded TLS configuration for $count listener(s).');
+      } catch (error) {
+        stderr.writeln('Failed to reload TLS configuration: $error');
+      } finally {
+        reloading = false;
+      }
+    }
+
+    final hupSubscription = ProcessSignal.sighup.watch().listen((_) {
+      unawaited(reloadTls());
+    });
     await Future.any([
       ProcessSignal.sigint.watch().first,
       ProcessSignal.sigterm.watch().first,
     ]);
+    shuttingDown = true;
+    await hupSubscription.cancel();
   } finally {
     try {
       await binding?.dispose();

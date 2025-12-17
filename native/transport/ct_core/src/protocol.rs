@@ -848,6 +848,7 @@ mod tests {
             max_rawsocket_size_exponent: Some(rawsocket_exponent),
             websocket_path: None,
             sni_certificates: Vec::new(),
+            client_auth: None,
             http_routes: Vec::new(),
             protocols: vec![
                 TransportProtocol::Rawsocket,
@@ -1040,6 +1041,7 @@ Sec-WebSocket-Protocol: wamp.2.json, wamp.2.cbor\r\n\r\n";
             max_rawsocket_size_exponent: Some(16),
             websocket_path: None,
             sni_certificates: Vec::new(),
+            client_auth: None,
             http_routes: Vec::new(),
             protocols: vec![TransportProtocol::Rawsocket, TransportProtocol::Http],
             http: Some(HttpEndpointConfig {

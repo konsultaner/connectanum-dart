@@ -360,6 +360,9 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
   @override
   void applyRouterConfig(Uint8List config) => _inner.applyRouterConfig(config);
 
+  @override
+  int reloadTls() => _inner.reloadTls();
+
   int enqueueTestMessage({
     required int connectionId,
     required NativeMessageSerializer serializer,

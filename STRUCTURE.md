@@ -100,7 +100,7 @@ Feel free to update this document as new components (e.g., WebTransport, benchma
 
 ### Deployment & TLS
 
-- `packages/connectanum_router/bin/connectanum_router.dart` – config-driven router runner (loads JSON/YAML via `RouterConfigLoaderIo`, starts the native runtime, and runs until SIGINT/SIGTERM).
+- `packages/connectanum_router/bin/connectanum_router.dart` – config-driven router runner (loads JSON/YAML via `RouterConfigLoaderIo`, starts the native runtime, runs until SIGINT/SIGTERM, and reloads TLS certs/CA on SIGHUP via `ct_reload_tls`).
 - `packages/connectanum_router/lib/src/router/router_instance/router_binding.dart` – `startOpenMetricsHttpServer()` binds `metrics.open_metrics.listen` and serves `/metrics` (OpenMetrics) + `/healthz` for probes.
-- `docs/tls.md` / `docs/deployment.md` / `docs/router_example.yaml` – TLS configuration notes and a starter production config.
+- `docs/tls.md` / `docs/deployment.md` / `docs/router_example.yaml` – TLS configuration notes (SNI certs + optional mTLS via `tls.client_auth`) and a starter production config.
 - `deploy/docker` / `deploy/systemd` / `deploy/k8s` – production deployment templates (container image, systemd unit, Kubernetes manifests).

@@ -52,6 +52,16 @@ HTTP server on that address that serves:
 If `metrics.open_metrics.auth_token` is set, `GET /metrics` requires
 `Authorization: Bearer <token>`.
 
+## TLS reload / certificate rotation
+
+The production runner (`packages/connectanum_router/bin/connectanum_router.dart`) watches `SIGHUP`
+and reloads TLS configuration (certificates and `client_auth`) from the configured YAML/JSON file.
+This updates TLS settings for **new** connections (TCP + QUIC); existing connections keep using the
+previous TLS session.
+
+- systemd: `systemctl reload connectanum-router` (the unit uses `ExecReload=/bin/kill -HUP $MAINPID`)
+- manual: `kill -HUP <pid>`
+
 ## systemd sketch
 
 ```ini
@@ -64,6 +74,7 @@ Type=simple
 WorkingDirectory=/opt/connectanum-router
 Environment=CONNECTANUM_NATIVE_LIB=/opt/connectanum-router/lib/libct_ffi.so
 ExecStart=/usr/bin/dart run connectanum_router --config /etc/connectanum/router.yaml
+ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 RestartSec=2
 

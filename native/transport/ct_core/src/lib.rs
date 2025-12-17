@@ -7,7 +7,7 @@ use std::{
     ops::Deref,
     sync::{
         atomic::{AtomicU32, AtomicU64, Ordering},
-        Arc, Mutex, OnceLock,
+        Arc, Mutex, OnceLock, RwLock,
     },
     time::{Duration, Instant},
 };
@@ -43,6 +43,7 @@ use tokio::{
     task::JoinHandle,
     time,
 };
+use tokio_rustls::TlsAcceptor;
 
 use crate::http_body::{spawn_http1_streaming_body, Http1BodyReclaim, StreamingError};
 use crate::io_stream::{IoReadHalf, IoStream, IoWriteHalf};
@@ -746,7 +747,59 @@ struct ListenerEntry {
     http3_addr: Option<SocketAddr>,
     http3_endpoint: Option<QuinnEndpoint>,
     #[allow(dead_code)]
-    endpoint_config: Arc<config::EndpointRuntimeConfig>,
+    config_state: Arc<ListenerConfigState>,
+}
+
+struct ListenerConfigState {
+    endpoint_config: RwLock<Arc<config::EndpointRuntimeConfig>>,
+    tls_acceptor: RwLock<Option<TlsAcceptor>>,
+}
+
+impl ListenerConfigState {
+    fn new(
+        endpoint_config: Arc<config::EndpointRuntimeConfig>,
+        tls_acceptor: Option<TlsAcceptor>,
+    ) -> Self {
+        Self {
+            endpoint_config: RwLock::new(endpoint_config),
+            tls_acceptor: RwLock::new(tls_acceptor),
+        }
+    }
+
+    fn endpoint_config(&self) -> Arc<config::EndpointRuntimeConfig> {
+        self.endpoint_config
+            .read()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .clone()
+    }
+
+    fn tls_acceptor(&self) -> Option<TlsAcceptor> {
+        self.tls_acceptor
+            .read()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .clone()
+    }
+
+    fn update(
+        &self,
+        endpoint_config: Arc<config::EndpointRuntimeConfig>,
+        tls_acceptor: Option<TlsAcceptor>,
+    ) {
+        {
+            let mut guard = self
+                .endpoint_config
+                .write()
+                .unwrap_or_else(|poison| poison.into_inner());
+            *guard = endpoint_config;
+        }
+        {
+            let mut guard = self
+                .tls_acceptor
+                .write()
+                .unwrap_or_else(|poison| poison.into_inner());
+            *guard = tls_acceptor;
+        }
+    }
 }
 
 struct ConnectionEntry {
@@ -908,6 +961,52 @@ impl ListenerRegistry {
         let entry = listeners.get(&id).ok_or(Error::ListenerNotFound(id))?;
         let mut guard = entry.receiver.lock().unwrap();
         guard.take().ok_or(Error::AcceptChannelAlreadyTaken(id))
+    }
+
+    fn reload_tls(&self) -> Result<u32, Error> {
+        let listeners = self
+            .listeners
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let mut updated = 0u32;
+        for (listener_id, entry) in listeners.iter() {
+            let current = entry.config_state.endpoint_config();
+            let endpoint_cfg = config::find_endpoint(&current.host, current.port).ok_or_else(|| {
+                Error::EndpointNotConfigured(current.host.clone(), current.port)
+            })?;
+            let next = Arc::new(config::EndpointRuntimeConfig::try_from_endpoint(&endpoint_cfg)?);
+            if next.tls_mode != current.tls_mode {
+                return Err(Error::RouterConfigInvalid(format!(
+                    "listener {:?} tls_mode changed ({:?} -> {:?}); restart required",
+                    listener_id, current.tls_mode, next.tls_mode
+                )));
+            }
+            let current_http3 = current.supports_protocol(TransportProtocol::Http3);
+            let next_http3 = next.supports_protocol(TransportProtocol::Http3);
+            if current_http3 != next_http3 {
+                return Err(Error::RouterConfigInvalid(format!(
+                    "listener {:?} http3 enablement changed; restart required",
+                    listener_id
+                )));
+            }
+
+            let tls_acceptor = tls::build_tls_acceptor(&next)?;
+            entry
+                .config_state
+                .update(Arc::clone(&next), tls_acceptor);
+            if current_http3 {
+                let endpoint = entry.http3_endpoint.as_ref().ok_or_else(|| {
+                    Error::RouterConfigInvalid(format!(
+                        "listener {:?} missing http3 endpoint during reload",
+                        listener_id
+                    ))
+                })?;
+                let server_config = build_http3_server_config(&next)?;
+                endpoint.set_server_config(Some(server_config));
+            }
+            updated += 1;
+        }
+        Ok(updated)
     }
 
     fn shutdown(&self) {
@@ -1304,7 +1403,7 @@ impl ListenerRegistry {
             .lock()
             .unwrap_or_else(|poison| poison.into_inner())
             .get(&listener_id)
-            .map(|entry| Arc::clone(&entry.endpoint_config))
+            .map(|entry| entry.config_state.endpoint_config())
             .ok_or(Error::ListenerNotFound(listener_id))
     }
 
@@ -1584,11 +1683,12 @@ impl ListenerRegistry {
 fn start_http3_listener(
     listener_id: ListenerId,
     addr: SocketAddr,
-    runtime_config: Arc<config::EndpointRuntimeConfig>,
+    config_state: Arc<ListenerConfigState>,
     registry: Arc<ListenerRegistry>,
     sender: mpsc::Sender<ConnectionId>,
     handle: tokio::runtime::Handle,
 ) -> Result<(QuinnEndpoint, JoinHandle<()>, SocketAddr), Error> {
+    let runtime_config = config_state.endpoint_config();
     let server_config = build_http3_server_config(&runtime_config)?;
     let endpoint = handle
         .block_on(async move { QuinnEndpoint::server(server_config, addr) })
@@ -1596,7 +1696,7 @@ fn start_http3_listener(
     let local_addr = endpoint.local_addr().map_err(Error::Io)?;
 
     let registry_for_task = Arc::clone(&registry);
-    let runtime_for_task = Arc::clone(&runtime_config);
+    let config_for_task = Arc::clone(&config_state);
     let sender_for_task = sender.clone();
     let endpoint_for_task = endpoint.clone();
     let listener = handle.spawn(async move {
@@ -1605,6 +1705,7 @@ fn start_http3_listener(
                 Some(connecting) => match connecting.await {
                     Ok(connection) => {
                         let peer_addr = connection.remote_address();
+                        let runtime_for_task = config_for_task.endpoint_config();
                         let handshake = Http3Handshake::from_endpoint(&runtime_for_task);
                         let connection_id = registry_for_task.next_connection_id();
                         #[cfg(feature = "ffi-test")]
@@ -1663,15 +1764,18 @@ fn build_http3_server_config(
     endpoint: &config::EndpointRuntimeConfig,
 ) -> Result<QuinnServerConfig, Error> {
     let (certs, key) = load_http3_identity(endpoint)?;
-    let mut crypto = RustlsServerConfig::builder()
-        .with_no_client_auth()
-        .with_single_cert(certs, key)
-        .map_err(|err| {
-            Error::RouterConfigInvalid(format!(
-                "endpoint {}:{} http3 certificate invalid: {}",
-                endpoint.host, endpoint.port, err
-            ))
-        })?;
+    let provider = rustls::crypto::ring::default_provider();
+    let client_auth_verifier = tls::build_client_cert_verifier(endpoint, &provider)?;
+    let builder = match client_auth_verifier {
+        Some(verifier) => RustlsServerConfig::builder().with_client_cert_verifier(verifier),
+        None => RustlsServerConfig::builder().with_no_client_auth(),
+    };
+    let mut crypto = builder.with_single_cert(certs, key).map_err(|err| {
+        Error::RouterConfigInvalid(format!(
+            "endpoint {}:{} http3 certificate invalid: {}",
+            endpoint.host, endpoint.port, err
+        ))
+    })?;
     let mut alpn = endpoint
         .http_settings()
         .map(|settings| {
@@ -2390,6 +2494,13 @@ pub fn apply_router_config(bytes: &[u8]) -> Result<(), Error> {
     config::apply_router_config_bytes(bytes)
 }
 
+/// Rebuilds TLS configuration for all running listeners using the currently
+/// applied router configuration.
+pub fn reload_tls() -> Result<u32, Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| state.registry.reload_tls())
+}
+
 /// Gracefully shuts down the runtime and aborts all listener tasks.
 pub fn shutdown() -> Result<(), Error> {
     let manager = RuntimeManager::global();
@@ -2418,6 +2529,10 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                 &endpoint_config,
             )?);
             let tls_acceptor = tls::build_tls_acceptor(&runtime_config)?;
+            let config_state = Arc::new(ListenerConfigState::new(
+                Arc::clone(&runtime_config),
+                tls_acceptor,
+            ));
             let std_listener = create_listener(socket_addr, backlog as u32)?;
             let local_addr = std_listener.local_addr()?;
 
@@ -2425,8 +2540,7 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
             let listener_id = view.registry.next_listener_id();
             let accept_registry = Arc::clone(&view.registry);
             let async_sender = sender.clone();
-            let runtime_config_for_task = Arc::clone(&runtime_config);
-            let tls_acceptor_for_task = tls_acceptor.clone();
+            let config_state_for_task = Arc::clone(&config_state);
             let runtime_handle = view.handle.clone();
             let task = runtime_handle.clone().spawn(async move {
                 let listener = tokio::net::TcpListener::from_std(std_listener)
@@ -2436,6 +2550,10 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                     match listener.accept().await {
                         Ok((stream, addr)) => {
                             let _ = stream.set_nodelay(true);
+                            let runtime_config_for_task =
+                                config_state_for_task.endpoint_config();
+                            let tls_acceptor_for_task =
+                                config_state_for_task.tls_acceptor();
                             let io_stream = match tls_acceptor_for_task.as_ref() {
                                 Some(acceptor) => {
                                     let handshake = acceptor.accept(stream);
@@ -2467,7 +2585,7 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
 
                             match protocol::negotiate_connection(
                                 io_stream,
-                                &runtime_config_for_task,
+                                runtime_config_for_task.as_ref(),
                             )
                                 .await
                             {
@@ -2605,7 +2723,7 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                 match start_http3_listener(
                     listener_id,
                     desired_addr,
-                    Arc::clone(&runtime_config),
+                    Arc::clone(&config_state),
                     Arc::clone(&view.registry),
                     sender.clone(),
                     view.handle.clone(),
@@ -2631,7 +2749,7 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                 tasks: listener_tasks,
                 http3_addr,
                 http3_endpoint,
-                endpoint_config: runtime_config,
+                config_state,
             };
             view.registry.insert(listener_id, entry);
 
@@ -4335,7 +4453,12 @@ fn create_listener(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rcgen::{
+        BasicConstraints, CertificateParams, ExtendedKeyUsagePurpose, IsCa, KeyPair,
+        KeyUsagePurpose,
+    };
     use rustls::{pki_types::ServerName, ClientConfig as RustlsClientConfig};
+    use rustls_pemfile::pkcs8_private_keys;
     use serde_json::json;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::sync::mpsc::error::TryRecvError;
@@ -4344,6 +4467,106 @@ mod tests {
     fn test_guard() -> std::sync::MutexGuard<'static, ()> {
         static GUARD: OnceLock<Mutex<()>> = OnceLock::new();
         GUARD.get_or_init(|| Mutex::new(())).lock().unwrap()
+    }
+
+    struct GeneratedTlsMaterial {
+        ca_pem: String,
+        server_chain_pem: String,
+        server_key_pem: String,
+        client_chain_pem: String,
+        client_key_pem: String,
+    }
+
+    fn generate_tls_material() -> GeneratedTlsMaterial {
+        let mut ca_params = CertificateParams::new(Vec::new()).expect("ca params");
+        ca_params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
+        ca_params.key_usages = vec![
+            KeyUsagePurpose::KeyCertSign,
+            KeyUsagePurpose::CrlSign,
+            KeyUsagePurpose::DigitalSignature,
+        ];
+        let ca_key = KeyPair::generate().expect("ca key");
+        let ca = ca_params.self_signed(&ca_key).expect("ca cert");
+        let ca_pem = ca.pem();
+
+        let mut server_params =
+            CertificateParams::new(vec!["localhost".to_string()]).expect("server params");
+        server_params.extended_key_usages = vec![ExtendedKeyUsagePurpose::ServerAuth];
+        server_params.key_usages = vec![
+            KeyUsagePurpose::DigitalSignature,
+            KeyUsagePurpose::KeyEncipherment,
+        ];
+        let server_key = KeyPair::generate().expect("server key");
+        let server = server_params
+            .signed_by(&server_key, &ca, &ca_key)
+            .expect("server cert");
+        let server_chain_pem = format!("{}\n{}", server.pem(), ca_pem.as_str());
+        let server_key_pem = server_key.serialize_pem();
+
+        let mut client_params = CertificateParams::new(Vec::new()).expect("client params");
+        client_params.extended_key_usages = vec![ExtendedKeyUsagePurpose::ClientAuth];
+        client_params.key_usages = vec![
+            KeyUsagePurpose::DigitalSignature,
+            KeyUsagePurpose::KeyEncipherment,
+        ];
+        let client_key = KeyPair::generate().expect("client key");
+        let client = client_params
+            .signed_by(&client_key, &ca, &ca_key)
+            .expect("client cert");
+        let client_chain_pem = format!("{}\n{}", client.pem(), ca_pem.as_str());
+        let client_key_pem = client_key.serialize_pem();
+
+        GeneratedTlsMaterial {
+            ca_pem,
+            server_chain_pem,
+            server_key_pem,
+            client_chain_pem,
+            client_key_pem,
+        }
+    }
+
+    fn build_tls_connector(
+        ca_pem: &str,
+        client_chain_pem: Option<&str>,
+        client_key_pem: Option<&str>,
+    ) -> TlsConnector {
+        let provider = Arc::new(rustls::crypto::ring::default_provider());
+        let mut roots = rustls::RootCertStore::empty();
+        let mut ca_reader = Cursor::new(ca_pem.as_bytes());
+        let ca_certs = rustls_pemfile::certs(&mut ca_reader)
+            .collect::<Result<Vec<_>, _>>()
+            .expect("parse ca certs");
+        for cert in ca_certs {
+            roots.add(cert).expect("add ca cert");
+        }
+
+        let builder = RustlsClientConfig::builder_with_provider(Arc::clone(&provider))
+            .with_protocol_versions(&[&rustls::version::TLS13])
+            .unwrap()
+            .with_root_certificates(roots);
+
+        let client_config = match (client_chain_pem, client_key_pem) {
+            (Some(chain_pem), Some(key_pem)) => {
+                let mut chain_reader = Cursor::new(chain_pem.as_bytes());
+                let certs = rustls_pemfile::certs(&mut chain_reader)
+                    .collect::<Result<Vec<_>, _>>()
+                    .expect("parse client cert chain");
+                let mut key_reader = Cursor::new(key_pem.as_bytes());
+                let key = pkcs8_private_keys(&mut key_reader)
+                    .collect::<Result<Vec<_>, _>>()
+                    .expect("parse client key")
+                    .into_iter()
+                    .next()
+                    .expect("client key missing")
+                    .into();
+                builder
+                    .with_client_auth_cert(certs, key)
+                    .expect("client auth config")
+            }
+            _ => builder.with_no_client_auth(),
+        };
+
+        TlsConnector::from(Arc::new(client_config))
     }
 
     #[test]
@@ -4503,6 +4726,126 @@ mod tests {
             .await
             .unwrap();
         let mut response = [0u8; 4];
+        tls_stream.read_exact(&mut response).await.unwrap();
+        assert_eq!(response[0], 0x7F);
+        drop(tls_stream);
+
+        let connection_id = receiver.recv().await.expect("connection delivered");
+        assert!(connection_id.0 > 0);
+        shutdown().unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn reload_tls_updates_client_auth_mode() {
+        let _guard = test_guard();
+        shutdown().ok();
+
+        let tls = generate_tls_material();
+        let optional_cfg = json!({
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[{
+                "host":"127.0.0.1",
+                "port":0,
+                "tls_mode":"native",
+                "max_rawsocket_size_exponent":16,
+                "sni_certificates":[{
+                    "hostname":"localhost",
+                    "certificate_chain_pem":tls.server_chain_pem,
+                    "private_key_pem":tls.server_key_pem
+                }],
+                "client_auth": {
+                    "mode":"optional",
+                    "ca_certificates_pem":tls.ca_pem
+                }
+            }]
+        });
+        let bytes = serde_json::to_vec(&optional_cfg).unwrap();
+        super::apply_router_config(&bytes).unwrap();
+
+        start_runtime().unwrap();
+        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let addr = local_addr(listener_id).unwrap();
+        let mut receiver = accept_channel(listener_id).unwrap();
+
+        let connector = build_tls_connector(&tls.ca_pem, None, None);
+        let tcp = tokio::net::TcpStream::connect(addr).await.unwrap();
+        let mut tls_stream = connector
+            .connect(ServerName::try_from("localhost").unwrap(), tcp)
+            .await
+            .unwrap();
+
+        let handshake_byte = ((16u8 - 9) << 4) | 0x01;
+        tls_stream
+            .write_all(&[0x7F, handshake_byte, 0x00, 0x00])
+            .await
+            .unwrap();
+        let mut response = [0u8; 4];
+        tls_stream.read_exact(&mut response).await.unwrap();
+        assert_eq!(response[0], 0x7F);
+        drop(tls_stream);
+
+        let connection_id = receiver.recv().await.expect("connection delivered");
+        assert!(connection_id.0 > 0);
+
+        let required_cfg = json!({
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[{
+                "host":"127.0.0.1",
+                "port":0,
+                "tls_mode":"native",
+                "max_rawsocket_size_exponent":16,
+                "sni_certificates":[{
+                    "hostname":"localhost",
+                    "certificate_chain_pem":tls.server_chain_pem,
+                    "private_key_pem":tls.server_key_pem
+                }],
+                "client_auth": {
+                    "mode":"required",
+                    "ca_certificates_pem":tls.ca_pem
+                }
+            }]
+        });
+        let bytes = serde_json::to_vec(&required_cfg).unwrap();
+        super::apply_router_config(&bytes).unwrap();
+        reload_tls().unwrap();
+
+        let tcp = tokio::net::TcpStream::connect(addr).await.unwrap();
+        match connector
+            .connect(ServerName::try_from("localhost").unwrap(), tcp)
+            .await
+        {
+            Ok(mut stream) => {
+                let result = stream
+                    .write_all(&[0x7F, handshake_byte, 0x00, 0x00])
+                    .await;
+                if result.is_ok() {
+                    let mut buf = [0u8; 4];
+                    let read = stream.read_exact(&mut buf).await;
+                    assert!(read.is_err(), "expected client auth failure");
+                }
+            }
+            Err(_) => {}
+        }
+
+        let timeout = tokio::time::timeout(Duration::from_millis(150), receiver.recv()).await;
+        assert!(timeout.is_err(), "unexpected connection delivered");
+
+        let client_connector = build_tls_connector(
+            &tls.ca_pem,
+            Some(&tls.client_chain_pem),
+            Some(&tls.client_key_pem),
+        );
+        let tcp = tokio::net::TcpStream::connect(addr).await.unwrap();
+        let mut tls_stream = client_connector
+            .connect(ServerName::try_from("localhost").unwrap(), tcp)
+            .await
+            .unwrap();
+        tls_stream
+            .write_all(&[0x7F, handshake_byte, 0x00, 0x00])
+            .await
+            .unwrap();
         tls_stream.read_exact(&mut response).await.unwrap();
         assert_eq!(response[0], 0x7F);
         drop(tls_stream);

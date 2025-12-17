@@ -23,6 +23,9 @@ class _FakeRuntime implements NativeRuntime {
   }
 
   @override
+  int reloadTls() => 0;
+
+  @override
   int getLocalPort(int listenerId) => _ports[listenerId] ?? listenerId;
 
   @override

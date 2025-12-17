@@ -29,7 +29,7 @@ use ct_core::{
     connection_http3_poll_request, connection_http3_poll_stream, connection_http_poll_request,
     connection_poll_http_event, connection_protocol, connection_rawsocket_max_exponent,
     connection_reject_websocket, connection_take_http2_handshake, connection_take_http3_handshake,
-    connection_take_websocket_handshake, connection_websocket_protocol, listen,
+    connection_take_websocket_handshake, connection_websocket_protocol, listen, reload_tls,
     listener_http3_port, local_addr, poll_connection_message, response_stream_channel,
     send_wamp_message, send_wamp_segments, shutdown, start_runtime, ConnectionId,
     ConnectionProtocol, Error as CoreError, HttpConnectionCloseReason,
@@ -914,6 +914,14 @@ pub extern "C" fn ct_apply_router_config(data: *const u8, len: c_int) -> c_int {
     let bytes = unsafe { std::slice::from_raw_parts(data, len as usize) };
     match apply_router_config(bytes) {
         Ok(()) => SUCCESS,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_reload_tls() -> c_int {
+    match reload_tls() {
+        Ok(count) => count as c_int,
         Err(err) => map_error(err),
     }
 }

@@ -1,6 +1,7 @@
 import 'package:connectanum_router/src/router/models/endpoint.dart';
 import 'package:connectanum_router/src/router/models/router_config.dart';
 import 'package:connectanum_router/src/router/models/sni_certificate.dart';
+import 'package:connectanum_router/src/router/models/tls_client_auth.dart';
 import 'package:connectanum_router/src/router/models/tls_mode.dart';
 import 'package:test/test.dart';
 
@@ -92,6 +93,52 @@ void main() {
     });
   });
 
+  group('TlsClientAuthMode wire format', () {
+    test('round trip', () {
+      for (final mode in TlsClientAuthMode.values) {
+        expect(TlsClientAuthModeWireFormat.parse(mode.wireValue), mode);
+      }
+    });
+
+    test('parses disabled aliases', () {
+      expect(
+        TlsClientAuthModeWireFormat.parse('none'),
+        TlsClientAuthMode.disabled,
+      );
+    });
+
+    test('throws on invalid input', () {
+      expect(
+        () => TlsClientAuthModeWireFormat.parse('invalid'),
+        throwsArgumentError,
+      );
+    });
+  });
+
+  group('TlsClientAuth', () {
+    test('serialises to native json', () {
+      final auth = TlsClientAuth(
+        mode: TlsClientAuthMode.required,
+        caCertificatesPem: _certificatePem,
+      );
+      expect(auth.toNativeJson(), containsPair('mode', 'required'));
+      expect(
+        auth.toNativeJson(),
+        containsPair('ca_certificates_pem', _certificatePem.trim()),
+      );
+    });
+
+    test('rejects disabled mode', () {
+      expect(
+        () => TlsClientAuth(
+          mode: TlsClientAuthMode.disabled,
+          caCertificatesPem: _certificatePem,
+        ),
+        throwsArgumentError,
+      );
+    });
+  });
+
   group('Endpoint', () {
     final cert = SniCertificate(
       hostname: 'router.example',
@@ -100,6 +147,10 @@ void main() {
     );
 
     test('serialises to native json', () {
+      final clientAuth = TlsClientAuth(
+        mode: TlsClientAuthMode.optional,
+        caCertificatesPem: _certificatePem,
+      );
       final endpoint = Endpoint(
         host: '0.0.0.0',
         port: 0,
@@ -110,6 +161,7 @@ void main() {
         maxRawSocketSizeExponent: 16,
         webSocketPath: ' /wamp ',
         sniCertificates: [cert],
+        clientAuth: clientAuth,
       );
 
       final json = endpoint.toNativeJson();
@@ -122,6 +174,10 @@ void main() {
       expect(json['max_rawsocket_size_exponent'], 16);
       expect(json['websocket_path'], '/wamp');
       expect(json['sni_certificates'], hasLength(1));
+      expect(json['client_auth'], isA<Map>());
+      final clientAuthJson = json['client_auth'] as Map<String, Object?>;
+      expect(clientAuthJson['mode'], 'optional');
+      expect(clientAuthJson['ca_certificates_pem'], _certificatePem.trim());
     });
 
     test('supports connectanum extended raw socket exponent', () {
@@ -168,6 +224,22 @@ void main() {
           port: 8080,
           tlsMode: TlsMode.native,
           maxRawSocketSizeExponent: 16,
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('throws when client auth is enabled without native TLS', () {
+      expect(
+        () => Endpoint(
+          host: 'localhost',
+          port: 8080,
+          tlsMode: TlsMode.disabled,
+          maxRawSocketSizeExponent: 16,
+          clientAuth: TlsClientAuth(
+            mode: TlsClientAuthMode.required,
+            caCertificatesPem: _certificatePem,
+          ),
         ),
         throwsArgumentError,
       );

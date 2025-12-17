@@ -11,8 +11,8 @@
 - [x] Deployment templates (`deploy/docker`, `deploy/systemd`, `deploy/k8s`) plus production config docs (`docs/deployment.md`, `docs/router_example.yaml`).
 - [ ] Native TLS offload & kTLS integration
   - [x] Native TCP TLS termination (rustls + SNI certificates) for RawSocket/WebSocket/HTTP1/2 listeners.
-  - [ ] Certificate reload/rotation hooks (ACME/secret updates).
-  - [ ] mTLS (client cert auth) + endpoint-level transport gating.
+  - [x] Certificate reload/rotation hooks (ACME/secret updates) via `ct_reload_tls` + runner `SIGHUP`.
+  - [x] mTLS (client cert auth) for native TLS endpoints (`tls.client_auth`).
   - [ ] kTLS / kernel offload exploration and benchmarks.
 - [ ] WebSocket transport (WAMP over WebSocket)
   - [x] Route accepted WebSocket sessions into workers and poll WebSocket message handles in the boss loop so WAMP frames flow end-to-end.
