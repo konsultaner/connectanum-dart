@@ -5,9 +5,18 @@
 - [x] Native Rust runtime (`ct_ffi`) with WAMP RawSocket support
 - [x] Dart wrapper for native runtime (start/listen/poll/pollMessage)
 - [x] Boss/worker isolate pipeline with zero-copy frame handling
+- [x] Zero-copy PUB/SUB forwarding guarded by `CONNECTANUM_FORWARD_NATIVE_PUBLISH`, now overridable via env vars so router tests can exercise the native path without a compile-time define; boss telemetry sends are insulated from forwarding failures.
 - [x] Router CLI example (`packages/connectanum_router/example`)
+- [x] Config-driven router runner (`packages/connectanum_router/bin/connectanum_router.dart`) suitable for production deployments.
+- [x] Deployment templates (`deploy/docker`, `deploy/systemd`, `deploy/k8s`) plus production config docs (`docs/deployment.md`, `docs/router_example.yaml`).
 - [ ] Native TLS offload & kTLS integration
+  - [x] Native TCP TLS termination (rustls + SNI certificates) for RawSocket/WebSocket/HTTP1/2 listeners.
+  - [x] Certificate reload/rotation hooks (ACME/secret updates) via `ct_reload_tls` + runner `SIGHUP`.
+  - [x] mTLS (client cert auth) for native TLS endpoints (`tls.client_auth`).
+  - [ ] kTLS / kernel offload exploration and benchmarks.
 - [ ] WebSocket transport (WAMP over WebSocket)
+  - [x] Route accepted WebSocket sessions into workers and poll WebSocket message handles in the boss loop so WAMP frames flow end-to-end.
+  - [x] Add Dart worker regression coverage for WebSocket publish ACKs and missing-call errors to keep WAMP flows consistent with RawSocket.
 - [ ] Serializer matrix (JSON, MessagePack, CBOR, UBJSON, FlatBuffers)
   - [ ] Cross-serializer translation so mixed clients (e.g. JSON ↔ MessagePack/CBOR) can publish/call across encodings without data loss; include regression tests for EVENT, RESULT, and ERROR bridging and document zero-copy fallbacks.
 - [ ] Backpressure / flow control between workers and native layer
@@ -17,13 +26,15 @@
   - [ ] Handle HTTP/2 CONTINUATION frames and HTTP/3 header block fragments without copying (keep partial headers in native memory until complete).
   - [ ] Integrate TLS/SNI/ALPN config so listeners advertise all supported protocols and fall back in a configurable order.
   - [ ] Finish HTTP/3 implementation: surface stream handles for request/response bodies, manage connection lifecycle, and document operational limits.
-  - [ ] Evaluate and implement WAMP-over-HTTP/3/WebTransport (RFC 9220) so browser clients can tunnel WAMP traffic over QUIC with datagram/bidi stream support.
+  - [ ] Evaluate and implement [WAMP-over-HTTP/3/WebTransport](https://github.com/wamp-proto/wamp-proto/issues/559) (RFC 9220) so browser clients can tunnel WAMP traffic over QUIC with datagram/bidi stream support.
   - [ ] Provide protocol-level metrics and backpressure hooks to the boss/worker pipeline.
     - [x] Track GOAWAY/backpressure/timeout stats per HTTP/2 and HTTP/3 connection inside `ct_core`, expose aggregated counters via `ct_router_metrics_snapshot`, and have `_RouterBoss` surface them through the metrics stream/OpenMetrics exporter.
     - [x] Split counters by listener/protocol and surface them through boss telemetry + the metrics exporter for Prometheus scraping.
-    - [ ] Wire boss-side throttling hooks + Prometheus alerting once the exporter can authenticate per-router session.
+    - [x] Boss-side backpressure/transport alerting with configurable thresholds (`metrics.backpressure` / `metrics.transport_alerts`) that can throttle accepts when GOAWAY/timeouts spike.
+    - [x] Expose those alerts via the metrics/OpenMetrics exporter (per-reason + per-listener counters) once auth/token gating is in place.
   - [x] Surface HTTP/2 and HTTP/3 connection lifecycle events (GOAWAY, idle/body timeouts, backpressure) over FFI so Dart can drain connections deterministically and emit diagnostics.
-  - [ ] Expose negotiated protocol identifiers via FFI so Dart workers can route WebSocket/HTTP sessions.
+  - [x] Assert GOAWAY reasons/details for HTTP/2 + HTTP/3 in both native `listen_flow` and Dart runtime tests.
+  - [x] Expose negotiated protocol identifiers via FFI so Dart workers can route WebSocket/HTTP sessions (new `ct_connection_websocket_protocol`, Dart bindings, and boss/worker metadata forwarding).
   - [ ] Add WebSocket frame streaming support (continuation aggregation, mask handling) with zero-copy forwarding.
   - [ ] Add HTTP request/response streaming (header/state machines for HTTP/1.1, HTTP/2, HTTP/3) and surface body handles to Dart.
   - [ ] Stage native HTTP pipeline implementation:
@@ -61,7 +72,7 @@
   - [x] Extend FFI to accept structured HTTP responses (status, headers, zero-copy body descriptors, streaming handles) and flush them to the native runtime.
   - [x] Provide zero-copy response helpers: in-memory slices, file-backed payloads, and streaming writers with back-pressure.
   - [x] Implement initial HTTP response FFI plumbing (status/headers/bytes) in `ct_core`/`ct_ffi` and patch Dart runtime to call it.
-  - [ ] Add metrics endpoint handler using the new response pipeline and cover with integration tests.
+  - [x] Add OpenMetrics HTTP exporter (`metrics.open_metrics.listen`) for Prometheus scraping and cover with tests.
   - [ ] Add an end-to-end zero-copy HTTP regression test (large request/response) to ensure no stray serialization occurs in Dart.
   - [ ] Introduce adapter pipeline support (static file handler, PHP-FPM/FastCGI bridge, reverse proxy stubs) configurable per route; document adapter contracts and lifecycle.
   - [ ] `Add tests/doc coverage for the new HTTP call contract` (Dart unit tests, router integration test asserting response round-trip, native tests validating file/stream paths).
@@ -209,7 +220,7 @@
   - [ ] Interoperability with `connectanum-authentication` remote executor (Java auth server)
   - [ ] Survey community extensions (GitHub/routers) for additional mechanisms
 - [ ] Realm-level authorizers (permission checks before SUBSCRIBE/PUBLISH/etc.)
-- [ ] Static TLS cert/SNI configuration pipeline to native runtime
+- [x] Static TLS cert/SNI configuration pipeline to native runtime (config loader + native TLS acceptor; see `docs/tls.md`).
 - [ ] Intrusion detection (failed-auth rate limiting, account lockouts, anomaly alarms)
 
 ### Introspection & Testing
@@ -223,9 +234,11 @@
 ## Tooling & Documentation
 
 - [x] Router example CLI for local testing
+- [x] Router runner binary + deployment docs (`packages/connectanum_router/bin/connectanum_router.dart`, `docs/deployment.md`).
 - [ ] Developer docs for native runtime build pipeline
 - [ ] Dart 3.10+ build hooks to compile `ct_ffi` during pub install/`dart pub get` (detect Rust toolchains, allow opting out for prebuilt/shared lib consumers, and document `CONNECTANUM_NATIVE_LIB` override).
 - [ ] Configuration reference (realm JSON schema, TLS modes, worker tuning)
+  - [x] TLS configuration notes + example config (`docs/tls.md`, `docs/router_example.yaml`).
   - [ ] Document feature toggles in crossbar-compatible config (meta events, benchmark exporters, zero-copy assertions)
   - [ ] Allow per-listener/realm flags to disable optional subsystems without code changes
 - [x] Crossbar-compatible configuration schema + validation tooling

@@ -1,6 +1,35 @@
 part of '../router_instance.dart';
 
 const String _wampErrorNoSuchInvocation = 'wamp.error.no_such_invocation';
+const bool _forwardNativePublishEventsConst = bool.fromEnvironment(
+  'CONNECTANUM_FORWARD_NATIVE_PUBLISH',
+  defaultValue: false,
+);
+
+bool _parseForwardNativePublishFlag(String? raw) {
+  if (raw == null) {
+    return false;
+  }
+  final normalized = raw.trim().toLowerCase();
+  return normalized == 'true' ||
+      normalized == '1' ||
+      normalized == 'yes' ||
+      normalized == 'on';
+}
+
+final bool forwardNativePublishEvents =
+    _forwardNativePublishEventsConst ||
+    _parseForwardNativePublishFlag(
+      Platform.environment['CONNECTANUM_FORWARD_NATIVE_PUBLISH'],
+    );
+
+void _safeSend(SendPort port, Object? message) {
+  try {
+    port.send(message);
+  } catch (_) {
+    // Telemetry should not prevent session handling.
+  }
+}
 
 Future<void> _handleSessionMessage({
   required SendPort bossPort,
@@ -97,7 +126,7 @@ Future<void> _handleSessionMessage({
   }
 
   if (message is call_msg.Call) {
-    bossPort.send({
+    _safeSend(bossPort, {
       'type': _workerEventCallReceived,
       'connectionId': connectionId,
       'callRequestId': message.requestId,
@@ -503,12 +532,9 @@ Future<void> _handlePublish({
   NativeIncomingMessage? incomingMessage,
 }) async {
   // Zero-copy forwarding of publish payloads is disabled by default to avoid
-  // the bench/pubsub hang observed under higher concurrency. Flip the compile-
-  // time flag to re-enable once the native path is proven stable end-to-end.
-  const forwardNativePublishEvents = bool.fromEnvironment(
-    'CONNECTANUM_FORWARD_NATIVE_PUBLISH',
-    defaultValue: false,
-  );
+  // the bench/pubsub hang observed under higher concurrency. Opt in via the
+  // CONNECTANUM_FORWARD_NATIVE_PUBLISH flag (compile-time define or env var)
+  // once the native path is proven stable end-to-end.
   Map<String, Object?>? normalizedArgumentsKeywords;
   final Object? rawArgumentsKeywords = message.argumentsKeywords;
   if (rawArgumentsKeywords != null) {
@@ -545,6 +571,7 @@ Future<void> _handlePublish({
     return;
   }
 
+  var nativeForwardingFailed = false;
   try {
     final context = realmContexts.contextFor(state.realmUri!);
     final routing = await context.matchSubscriptions(
@@ -552,7 +579,7 @@ Future<void> _handlePublish({
       topic: message.topic,
       options: _publishOptionsToMap(message.options),
     );
-    bossPort.send({
+    _safeSend(bossPort, {
       'type': _workerEventPublishRouted,
       'connectionId': connectionId,
       'requestId': message.requestId,
@@ -616,6 +643,7 @@ Future<void> _handlePublish({
           }
           usedZeroCopy = true;
         } catch (error) {
+          nativeForwardingFailed = true;
           for (var i = sentCount; i < pending.length; i += 1) {
             final command = pending[i];
             messageHandle.releaseRetainedHandle(command['handle'] as int);
@@ -661,7 +689,7 @@ Future<void> _handlePublish({
     }
     if (message.options?.acknowledge == true) {
       try {
-        bossPort.send({
+        _safeSend(bossPort, {
           'type': _workerEventPublishRouted,
           'connectionId': connectionId,
           'requestId': message.requestId,
@@ -694,7 +722,7 @@ Future<void> _handlePublish({
                 });
               })
               .onError((error, stackTrace) {
-                bossPort.send({
+                _safeSend(bossPort, {
                   'type': _workerEventPublishRouted,
                   'connectionId': connectionId,
                   'requestId': message.requestId,
@@ -709,7 +737,7 @@ Future<void> _handlePublish({
               .timeout(
                 const Duration(seconds: 5),
                 onTimeout: () {
-                  bossPort.send({
+                  _safeSend(bossPort, {
                     'type': _workerEventPublishRouted,
                     'connectionId': connectionId,
                     'requestId': message.requestId,
@@ -722,7 +750,7 @@ Future<void> _handlePublish({
               ),
         );
       } catch (error, stackTrace) {
-        bossPort.send({
+        _safeSend(bossPort, {
           'type': _workerEventPublishRouted,
           'connectionId': connectionId,
           'requestId': message.requestId,
@@ -737,7 +765,7 @@ Future<void> _handlePublish({
       }
     }
   } on ArgumentError catch (error) {
-    bossPort.send({
+    _safeSend(bossPort, {
       'type': _workerEventPublishRouted,
       'connectionId': connectionId,
       'requestId': message.requestId,
@@ -757,7 +785,7 @@ Future<void> _handlePublish({
       detailsMessage: error.message,
     );
   } on StateError catch (error) {
-    bossPort.send({
+    _safeSend(bossPort, {
       'type': _workerEventPublishRouted,
       'connectionId': connectionId,
       'requestId': message.requestId,
@@ -776,8 +804,11 @@ Future<void> _handlePublish({
       reason: wamp_core.Error.noSuchSession,
       detailsMessage: error.message,
     );
+    if (nativeForwardingFailed) {
+      rethrow;
+    }
   } catch (error) {
-    bossPort.send({
+    _safeSend(bossPort, {
       'type': _workerEventPublishRouted,
       'connectionId': connectionId,
       'requestId': message.requestId,
@@ -796,6 +827,9 @@ Future<void> _handlePublish({
       reason: wamp_core.Error.unknown,
       detailsMessage: '${error.runtimeType}: $error',
     );
+    if (nativeForwardingFailed) {
+      rethrow;
+    }
   }
 }
 
@@ -808,7 +842,7 @@ Future<void> _handleCall({
   required call_msg.Call message,
   NativeIncomingMessage? incomingMessage,
 }) async {
-  bossPort.send({
+  _safeSend(bossPort, {
     'type': 'worker_call_dispatch_start',
     'connectionId': connectionId,
     'requestId': message.requestId,
@@ -828,6 +862,7 @@ Future<void> _handleCall({
     return;
   }
 
+  var nativeForwardingFailed = false;
   try {
     final context = realmContexts.contextFor(state.realmUri!);
     InvocationDispatchResult dispatch;
@@ -839,7 +874,7 @@ Future<void> _handleCall({
         options: _callOptionsToMap(message.options),
       );
     } catch (error, stackTrace) {
-      bossPort.send({
+      _safeSend(bossPort, {
         'type': _workerEventCallDispatched,
         'connectionId': connectionId,
         'requestId': message.requestId,
@@ -849,7 +884,7 @@ Future<void> _handleCall({
       });
       rethrow;
     }
-    bossPort.send({
+    _safeSend(bossPort, {
       'type': _workerEventCallDispatched,
       'connectionId': connectionId,
       'requestId': message.requestId,
@@ -896,6 +931,7 @@ Future<void> _handleCall({
           bossPort.send(command);
           usedZeroCopy = true;
         } catch (error) {
+          nativeForwardingFailed = true;
           messageHandle.releaseRetainedHandle(retainedHandle);
           rethrow;
         }
@@ -937,6 +973,9 @@ Future<void> _handleCall({
       reason: wamp_core.Error.invalidArgument,
       detailsMessage: error.message,
     );
+    if (nativeForwardingFailed) {
+      rethrow;
+    }
   } on StateError catch (error) {
     final reason = _reasonForInvocationDispatchError(error.message);
     await _sendSessionError(
@@ -948,6 +987,9 @@ Future<void> _handleCall({
       reason: reason,
       detailsMessage: error.message,
     );
+    if (nativeForwardingFailed) {
+      rethrow;
+    }
   } catch (error) {
     await _sendSessionError(
       bossPort: bossPort,
@@ -958,6 +1000,9 @@ Future<void> _handleCall({
       reason: wamp_core.Error.unknown,
       detailsMessage: error.toString(),
     );
+    if (nativeForwardingFailed) {
+      rethrow;
+    }
   }
 }
 
@@ -1424,6 +1469,7 @@ Future<void> _handleYield({
   }
 
   final invocationId = message.invocationRequestId;
+  var nativeForwardingFailed = false;
   try {
     final context = realmContexts.contextFor(state.realmUri!);
     final invocation = await context.getInvocation(invocationId);
@@ -1513,6 +1559,7 @@ Future<void> _handleYield({
           bossPort.send(command);
           usedZeroCopy = true;
         } catch (error) {
+          nativeForwardingFailed = true;
           incomingMessage.releaseRetainedHandle(retainedHandle);
           rethrow;
         }
@@ -1541,6 +1588,9 @@ Future<void> _handleYield({
       reason: _wampErrorNoSuchInvocation,
       detailsMessage: error.message,
     );
+    if (nativeForwardingFailed) {
+      rethrow;
+    }
   } catch (error) {
     await _sendInvocationErrorToCallee(
       bossPort: bossPort,
@@ -1550,6 +1600,9 @@ Future<void> _handleYield({
       reason: wamp_core.Error.unknown,
       detailsMessage: error.toString(),
     );
+    if (nativeForwardingFailed) {
+      rethrow;
+    }
   }
 }
 
@@ -1575,6 +1628,7 @@ Future<void> _handleInvocationError({
   }
 
   final invocationId = message.requestId;
+  var nativeForwardingFailed = false;
   try {
     final context = realmContexts.contextFor(state.realmUri!);
     final invocation = await context.getInvocation(invocationId);
@@ -1634,6 +1688,7 @@ Future<void> _handleInvocationError({
           bossPort.send(command);
           usedZeroCopy = true;
         } catch (error) {
+          nativeForwardingFailed = true;
           incomingMessage.releaseRetainedHandle(retainedHandle);
           rethrow;
         }
@@ -1664,6 +1719,9 @@ Future<void> _handleInvocationError({
       reason: _wampErrorNoSuchInvocation,
       detailsMessage: error.message,
     );
+    if (nativeForwardingFailed) {
+      rethrow;
+    }
   } catch (error) {
     await _sendInvocationErrorToCallee(
       bossPort: bossPort,
@@ -1673,6 +1731,9 @@ Future<void> _handleInvocationError({
       reason: wamp_core.Error.unknown,
       detailsMessage: error.toString(),
     );
+    if (nativeForwardingFailed) {
+      rethrow;
+    }
   }
 }
 

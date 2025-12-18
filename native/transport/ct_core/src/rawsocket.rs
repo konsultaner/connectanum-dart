@@ -2,11 +2,10 @@ use std::io;
 use std::time::Duration;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
-use tokio::net::TcpStream;
 use tokio::time;
 
 use crate::config::EndpointRuntimeConfig;
+use crate::io_stream::{IoReadHalf, IoStream, IoWriteHalf};
 
 pub(crate) const RAWSOCKET_MAGIC: u8 = 0x7F;
 const RAWSOCKET_UPGRADE_MAGIC: u8 = 0x3F;
@@ -32,8 +31,8 @@ pub enum Serializer {
 
 #[derive(Debug)]
 pub struct NegotiatedSession {
-    pub reader: OwnedReadHalf,
-    pub writer: OwnedWriteHalf,
+    pub reader: IoReadHalf,
+    pub writer: IoWriteHalf,
     pub serializer: Serializer,
     pub max_message_size_exponent: u32,
     #[allow(dead_code)]
@@ -53,7 +52,7 @@ impl From<io::Error> for HandshakeError {
 }
 
 pub async fn negotiate(
-    mut stream: TcpStream,
+    mut stream: IoStream,
     endpoint: &EndpointRuntimeConfig,
 ) -> Result<NegotiatedSession, HandshakeError> {
     let mut buf = [0u8; 4];
@@ -143,7 +142,7 @@ pub async fn negotiate(
         }
     }
 
-    let (reader, writer) = stream.into_split();
+    let (reader, writer) = tokio::io::split(stream);
 
     Ok(NegotiatedSession {
         reader,
@@ -155,7 +154,7 @@ pub async fn negotiate(
 }
 
 async fn read_with_timeout(
-    stream: &mut TcpStream,
+    stream: &mut IoStream,
     buf: &mut [u8],
     timeout: Duration,
 ) -> Result<(), HandshakeError> {
@@ -165,7 +164,7 @@ async fn read_with_timeout(
     Ok(())
 }
 
-async fn send_error(stream: &mut TcpStream, code: u8) -> io::Result<()> {
+async fn send_error(stream: &mut IoStream, code: u8) -> io::Result<()> {
     let frame = [RAWSOCKET_MAGIC, code << 4, 0, 0];
     stream.write_all(&frame).await?;
     let _ = stream.shutdown().await;
@@ -178,9 +177,10 @@ mod tests {
     use crate::config::{
         EndpointConfig, EndpointRuntimeConfig, HttpEndpointConfig, TlsMode, TransportProtocol,
     };
+    use crate::io_stream::IoStream;
     use serde_json::Value as JsonValue;
     use std::collections::HashMap;
-    use tokio::{net::TcpListener, sync::oneshot};
+    use tokio::{net::TcpListener, net::TcpStream, sync::oneshot};
 
     fn runtime_config(
         handshake_timeout: Option<Duration>,
@@ -189,13 +189,14 @@ mod tests {
         let endpoint = EndpointConfig {
             host: "127.0.0.1".into(),
             port: 0,
-            tls_mode: TlsMode::Native,
+            tls_mode: TlsMode::Disabled,
             idle_timeout: None,
             handshake_timeout,
             max_http_content_length: None,
             max_rawsocket_size_exponent: Some(rawsocket_exponent),
             websocket_path: None,
             sni_certificates: Vec::new(),
+            client_auth: None,
             http_routes: Vec::new(),
             protocols: vec![
                 TransportProtocol::Rawsocket,
@@ -238,7 +239,7 @@ mod tests {
 
         tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
-            let result = negotiate(stream, &config).await;
+            let result = negotiate(IoStream::plain(stream), &config).await;
             tx.send(result).ok();
         });
 
@@ -263,7 +264,7 @@ mod tests {
 
         tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
-            let result = negotiate(stream, &config).await;
+            let result = negotiate(IoStream::plain(stream), &config).await;
             tx.send(result).ok();
         });
 
@@ -287,7 +288,7 @@ mod tests {
 
         tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
-            let result = negotiate(stream, &config).await;
+            let result = negotiate(IoStream::plain(stream), &config).await;
             tx.send(result).ok();
         });
 
@@ -325,7 +326,7 @@ mod tests {
 
             tokio::spawn(async move {
                 let (stream, _) = listener.accept().await.unwrap();
-                let result = negotiate(stream, &config).await;
+                let result = negotiate(IoStream::plain(stream), &config).await;
                 tx.send(result).ok();
             });
 
@@ -352,7 +353,7 @@ mod tests {
 
         tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
-            let result = negotiate(stream, &config).await;
+            let result = negotiate(IoStream::plain(stream), &config).await;
             tx.send(result).ok();
         });
 
@@ -461,7 +462,7 @@ mod tests {
 
             tokio::spawn(async move {
                 let (stream, _) = listener.accept().await.unwrap();
-                let result = negotiate(stream, &config).await;
+                let result = negotiate(IoStream::plain(stream), &config).await;
                 tx.send(result).ok();
             });
 
@@ -507,11 +508,11 @@ mod tests {
         let config = runtime_config(Some(Duration::from_millis(50)), 16);
         let (tx, rx) = oneshot::channel();
 
-        tokio::spawn(async move {
-            let (stream, _) = listener.accept().await.unwrap();
-            let result = negotiate(stream, &config).await;
-            tx.send(result).ok();
-        });
+            tokio::spawn(async move {
+                let (stream, _) = listener.accept().await.unwrap();
+                let result = negotiate(IoStream::plain(stream), &config).await;
+                tx.send(result).ok();
+            });
 
         let _client = TcpStream::connect(addr).await.unwrap();
         let err = rx.await.unwrap().expect_err("handshake timeout");

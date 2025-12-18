@@ -13,6 +13,8 @@ import 'package:connectanum_core/connectanum_core.dart'
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:test/test.dart';
 
+import '../support/native_lib.dart';
+
 void main() {
   final libraryPath = resolveOrBuildNativeLib();
   final skipReason = !Platform.isLinux
@@ -33,11 +35,16 @@ void main() {
         onConnection: (id, conn) => connectionEvents.add((id, conn)),
       );
 
+      // Ensure a clean native runtime state in case a previous test left it running.
+      try {
+        runtime.shutdown();
+      } catch (_) {}
+
       runtime.start();
       addTearDown(runtime.shutdown);
 
       const configJson =
-          '{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","max_rawsocket_size_exponent":30}]}';
+          '{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","max_rawsocket_size_exponent":30}]}';
       runtime.applyRouterConfig(Uint8List.fromList(utf8.encode(configJson)));
 
       final listenerId = runtime.listen('127.0.0.1', 0);

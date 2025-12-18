@@ -313,6 +313,11 @@ class Router {
     final sniHosts = <String>{};
     int? nativeExponent;
     for (final endpoint in config.endpoints) {
+      if (endpoint.tlsMode == TlsMode.dart) {
+        throw ArgumentError(
+          'TlsMode.dart is not supported yet; use TlsMode.native or terminate TLS externally.',
+        );
+      }
       tlsModes.add(endpoint.tlsMode);
       if (endpoint.tlsMode == TlsMode.native) {
         nativeExponent ??= endpoint.maxRawSocketSizeExponent;

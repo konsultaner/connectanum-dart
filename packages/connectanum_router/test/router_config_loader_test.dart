@@ -82,6 +82,59 @@ void main() {
       expect(openMetrics.authToken, 'secret-token');
       expect(openMetrics.realm, 'connectanum.metrics');
     });
+
+    test('parses transport/backpressure alert settings', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'realms': [
+            <String, Object?>{
+              'name': 'realm1',
+              'auth': <String, Object?>{
+                'authmethods': ['anonymous'],
+              },
+            },
+          ],
+          'listeners': [
+            <String, Object?>{
+              'type': 'rawsocket',
+              'endpoint': '127.0.0.1:0',
+              'authmethods': ['anonymous'],
+            },
+          ],
+          'metrics': <String, Object?>{
+            'open_metrics': <String, Object?>{'enabled': true},
+            'backpressure': <String, Object?>{
+              'depth_threshold': 8,
+              'new_events_threshold': 2,
+              'cooldown_ms': 750,
+            },
+            'transport_alerts': <String, Object?>{
+              'goaway_delta_threshold': 2,
+              'idle_timeout_delta_threshold': 3,
+              'body_timeout_delta_threshold': 4,
+              'protocol_error_delta_threshold': 5,
+              'internal_error_delta_threshold': 6,
+              'cooldown_ms': 900,
+              'throttle_on_alert': false,
+            },
+          },
+        },
+      });
+
+      final metrics = settings.metrics!;
+      expect(metrics.backpressure.depthThreshold, 8);
+      expect(metrics.backpressure.newEventsThreshold, 2);
+      expect(metrics.backpressure.cooldown, const Duration(milliseconds: 750));
+
+      final alerts = metrics.transportAlerts;
+      expect(alerts.goAwayDeltaThreshold, 2);
+      expect(alerts.idleTimeoutDeltaThreshold, 3);
+      expect(alerts.bodyTimeoutDeltaThreshold, 4);
+      expect(alerts.protocolErrorDeltaThreshold, 5);
+      expect(alerts.internalErrorDeltaThreshold, 6);
+      expect(alerts.cooldown, const Duration(milliseconds: 900));
+      expect(alerts.throttleOnAlert, isFalse);
+    });
   });
 
   group('RouterSettingsBuilder', () {

@@ -13,7 +13,7 @@ fn errors_surface_correctly() {
     assert_eq!(ct_listen(std::ptr::null(), 0, 128), ERR_INVALID_ARGUMENT);
 
     let config = CString::new(
-        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native"}]}"#,
+        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled"}]}"#,
     )
     .unwrap();
     let bytes = config.as_bytes();

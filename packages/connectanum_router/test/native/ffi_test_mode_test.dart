@@ -3,7 +3,6 @@
 library native_ffi_test_mode_test;
 
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/src/message/call.dart' as call_msg;

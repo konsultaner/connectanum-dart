@@ -52,8 +52,15 @@ class _RouterBoss {
   NativeRouterMetrics? _lastRouterMetrics;
   RouterTransportMetrics? _cachedTransportMetrics;
   final Map<String, RouterTransportMetricsBreakdown> _lastBreakdownByKey = {};
+  final Map<String, _ListenerAlertCounts> _alertCountsByKey = {};
+  final Map<int, DateTime> _lastAlertAtByListener = {};
+  int _totalBackpressureAlerts = 0;
+  int _totalGoAwayAlerts = 0;
+  int _totalIdleTimeoutAlerts = 0;
+  int _totalBodyTimeoutAlerts = 0;
+  int _totalProtocolErrorAlerts = 0;
+  int _totalInternalErrorAlerts = 0;
   final Map<int, DateTime> _listenerThrottleUntil = {};
-  int _backpressureAlertCount = 0;
   int _throttledBackpressureAlerts = 0;
   final Map<String, int> _backpressureAlertsByReason = {};
   bool _running = false;
@@ -364,13 +371,13 @@ class _RouterBoss {
   }) async {
     final minWorkers = settings.workerPool.minWorkers;
     if (_workers.length < minWorkers) {
-      await _spawnWorker(listener, connectionId);
+      await _spawnWorker(listener, connectionId, metadata: metadata);
       return;
     }
 
     final worker = _chooseWorker();
     if (worker == null) {
-      await _spawnWorker(listener, connectionId);
+      await _spawnWorker(listener, connectionId, metadata: metadata);
       return;
     }
     worker.connections.add(connectionId);
@@ -427,6 +434,21 @@ class _RouterBoss {
   Duration get _backpressureThrottleWindow =>
       settings.metrics?.backpressure.cooldown ??
       const Duration(milliseconds: 250);
+  int get _goAwayAlertThreshold =>
+      settings.metrics?.transportAlerts.goAwayDeltaThreshold ?? 1;
+  int get _idleTimeoutAlertThreshold =>
+      settings.metrics?.transportAlerts.idleTimeoutDeltaThreshold ?? 1;
+  int get _bodyTimeoutAlertThreshold =>
+      settings.metrics?.transportAlerts.bodyTimeoutDeltaThreshold ?? 1;
+  int get _protocolErrorAlertThreshold =>
+      settings.metrics?.transportAlerts.protocolErrorDeltaThreshold ?? 1;
+  int get _internalErrorAlertThreshold =>
+      settings.metrics?.transportAlerts.internalErrorDeltaThreshold ?? 1;
+  Duration get _transportAlertCooldown =>
+      settings.metrics?.transportAlerts.cooldown ??
+      const Duration(milliseconds: 500);
+  bool get _throttleOnTransportAlert =>
+      settings.metrics?.transportAlerts.throttleOnAlert ?? true;
 
   void _emitRouterMetrics() {
     final nativeMetrics = runtime.pollRouterMetrics();
@@ -434,6 +456,17 @@ class _RouterBoss {
       _lastRouterMetrics = null;
       _cachedTransportMetrics = null;
       _lastBreakdownByKey.clear();
+      _alertCountsByKey.clear();
+      _totalBackpressureAlerts = 0;
+      _totalGoAwayAlerts = 0;
+      _totalIdleTimeoutAlerts = 0;
+      _totalBodyTimeoutAlerts = 0;
+      _totalProtocolErrorAlerts = 0;
+      _totalInternalErrorAlerts = 0;
+      _throttledBackpressureAlerts = 0;
+      _backpressureAlertsByReason.clear();
+      _lastAlertAtByListener.clear();
+      _listenerThrottleUntil.clear();
       return;
     }
     final last = _lastRouterMetrics;
@@ -442,8 +475,10 @@ class _RouterBoss {
     }
     _lastRouterMetrics = nativeMetrics;
     final converted = _convertTransportMetrics(nativeMetrics);
-    _cachedTransportMetrics = converted;
-    final breakdown = converted.breakdown
+    _emitBreakdownAlerts(converted.breakdown);
+    final refreshed = _convertTransportMetrics(nativeMetrics);
+    _cachedTransportMetrics = refreshed;
+    final breakdown = refreshed.breakdown
         .map(
           (entry) => {
             'listenerId': entry.listenerId,
@@ -461,20 +496,19 @@ class _RouterBoss {
           },
         )
         .toList(growable: false);
-    _emitBreakdownAlerts(converted.breakdown);
     onEvent?.call({
       'source': 'boss',
       'type': 'router_metrics',
       'http': {
-        'totalEvents': converted.totalEvents,
-        'gracefulEvents': converted.gracefulEvents,
-        'goAwayEvents': converted.goAwayEvents,
-        'idleTimeoutEvents': converted.idleTimeoutEvents,
-        'bodyTimeoutEvents': converted.bodyTimeoutEvents,
-        'protocolErrorEvents': converted.protocolErrorEvents,
-        'internalErrorEvents': converted.internalErrorEvents,
-        'backpressureEvents': converted.backpressureEvents,
-        'maxBackpressureDepth': converted.maxBackpressureDepth,
+        'totalEvents': refreshed.totalEvents,
+        'gracefulEvents': refreshed.gracefulEvents,
+        'goAwayEvents': refreshed.goAwayEvents,
+        'idleTimeoutEvents': refreshed.idleTimeoutEvents,
+        'bodyTimeoutEvents': refreshed.bodyTimeoutEvents,
+        'protocolErrorEvents': refreshed.protocolErrorEvents,
+        'internalErrorEvents': refreshed.internalErrorEvents,
+        'backpressureEvents': refreshed.backpressureEvents,
+        'maxBackpressureDepth': refreshed.maxBackpressureDepth,
         'breakdown': breakdown,
       },
     });
@@ -485,39 +519,117 @@ class _RouterBoss {
       final key = '${entry.listenerId}:${entry.protocol}';
       final last = _lastBreakdownByKey[key];
       _lastBreakdownByKey[key] = entry;
-      final depthAlert =
-          entry.maxBackpressureDepth >= _backpressureDepthAlertThreshold;
-      final eventsAlert =
-          entry.backpressureEvents - (last?.backpressureEvents ?? 0) >=
-          _backpressureEventsAlertThreshold;
-      if (!depthAlert && !eventsAlert) {
+      if (last == null) {
         continue;
       }
-      final reason = _backpressureAlertReason(
-        depthAlert: depthAlert,
-        eventsAlert: eventsAlert,
-      );
-      _backpressureAlertCount++;
-      _backpressureAlertsByReason[reason] =
-          (_backpressureAlertsByReason[reason] ?? 0) + 1;
-      if (depthAlert) {
-        _throttledBackpressureAlerts++;
-        _listenerThrottleUntil[entry.listenerId] = DateTime.now().add(
-          _backpressureThrottleWindow,
+      final newBackpressure =
+          entry.backpressureEvents - last.backpressureEvents;
+      final depthAlert =
+          entry.maxBackpressureDepth >= _backpressureDepthAlertThreshold;
+      final eventsAlert = newBackpressure >= _backpressureEventsAlertThreshold;
+      final newGoAway = entry.goAwayEvents - last.goAwayEvents;
+      final newIdleTimeout = entry.idleTimeoutEvents - last.idleTimeoutEvents;
+      final newBodyTimeout = entry.bodyTimeoutEvents - last.bodyTimeoutEvents;
+      final newProtocolErrors =
+          entry.protocolErrorEvents - last.protocolErrorEvents;
+      final newInternalErrors =
+          entry.internalErrorEvents - last.internalErrorEvents;
+      final alerts = <Map<String, Object?>>[];
+
+      if (depthAlert || eventsAlert) {
+        final reason = _backpressureAlertReason(
+          depthAlert: depthAlert,
+          eventsAlert: eventsAlert,
+        );
+        alerts.add({
+          'type': 'listener_backpressure_alert',
+          'reason': reason,
+          'newEvents': newBackpressure,
+          'totalEvents': entry.backpressureEvents,
+          'throttle': depthAlert ? _backpressureThrottleWindow : Duration.zero,
+        });
+        _recordBackpressureAlert(entry.listenerId, entry.protocol);
+        _backpressureAlertsByReason[reason] =
+            (_backpressureAlertsByReason[reason] ?? 0) + 1;
+        if (depthAlert) {
+          _throttledBackpressureAlerts++;
+        }
+      }
+      void addTransportAlert(String reason, int newEvents, int totalEvents) {
+        alerts.add({
+          'type': 'listener_transport_alert',
+          'reason': reason,
+          'newEvents': newEvents,
+          'totalEvents': totalEvents,
+          'throttle': _throttleOnTransportAlert
+              ? _transportAlertCooldown
+              : Duration.zero,
+        });
+        _recordTransportAlert(entry.listenerId, entry.protocol, reason);
+      }
+
+      if (newGoAway >= _goAwayAlertThreshold && newGoAway > 0) {
+        addTransportAlert('go_away', newGoAway, entry.goAwayEvents);
+      }
+      if (newIdleTimeout >= _idleTimeoutAlertThreshold && newIdleTimeout > 0) {
+        addTransportAlert(
+          'idle_timeout',
+          newIdleTimeout,
+          entry.idleTimeoutEvents,
         );
       }
-      onEvent?.call({
-        'source': 'boss',
-        'type': 'listener_backpressure_alert',
-        'listenerId': entry.listenerId,
-        'protocol': entry.protocol,
-        'endpoint': entry.endpoint,
-        'maxBackpressureDepth': entry.maxBackpressureDepth,
-        'backpressureEvents': entry.backpressureEvents,
-        'newEvents': entry.backpressureEvents - (last?.backpressureEvents ?? 0),
-        'throttled': depthAlert,
-        'reason': reason,
-      });
+      if (newBodyTimeout >= _bodyTimeoutAlertThreshold && newBodyTimeout > 0) {
+        addTransportAlert(
+          'body_timeout',
+          newBodyTimeout,
+          entry.bodyTimeoutEvents,
+        );
+      }
+      if (newProtocolErrors >= _protocolErrorAlertThreshold &&
+          newProtocolErrors > 0) {
+        addTransportAlert(
+          'protocol_error',
+          newProtocolErrors,
+          entry.protocolErrorEvents,
+        );
+      }
+      if (newInternalErrors >= _internalErrorAlertThreshold &&
+          newInternalErrors > 0) {
+        addTransportAlert(
+          'internal_error',
+          newInternalErrors,
+          entry.internalErrorEvents,
+        );
+      }
+      for (final alert in alerts) {
+        final throttle = alert['throttle'] as Duration? ?? Duration.zero;
+        final throttled = throttle > Duration.zero;
+        if (throttled) {
+          final existing = _listenerThrottleUntil[entry.listenerId];
+          final until = DateTime.now().add(throttle);
+          if (existing == null || until.isAfter(existing)) {
+            _listenerThrottleUntil[entry.listenerId] = until;
+          }
+        }
+        onEvent?.call({
+          'source': 'boss',
+          'type': alert['type'] as String,
+          'listenerId': entry.listenerId,
+          'protocol': entry.protocol,
+          'endpoint': entry.endpoint,
+          'maxBackpressureDepth': entry.maxBackpressureDepth,
+          'backpressureEvents': entry.backpressureEvents,
+          'goAwayEvents': entry.goAwayEvents,
+          'idleTimeoutEvents': entry.idleTimeoutEvents,
+          'bodyTimeoutEvents': entry.bodyTimeoutEvents,
+          'protocolErrorEvents': entry.protocolErrorEvents,
+          'internalErrorEvents': entry.internalErrorEvents,
+          'newEvents': alert['newEvents'],
+          'totalEvents': alert['totalEvents'],
+          'throttled': throttled,
+          if (alert['reason'] != null) 'reason': alert['reason'],
+        });
+      }
     }
   }
 
@@ -535,7 +647,7 @@ class _RouterBoss {
   }
 
   RouterAlertMetrics _buildAlertMetrics() => RouterAlertMetrics(
-    backpressureAlerts: _backpressureAlertCount,
+    backpressureAlerts: _totalBackpressureAlerts,
     throttledBackpressureAlerts: _throttledBackpressureAlerts,
     backpressureAlertReasons: Map<String, int>.unmodifiable(
       _backpressureAlertsByReason,
@@ -555,17 +667,46 @@ class _RouterBoss {
     }
     _lastRouterMetrics = nativeMetrics;
     final converted = _convertTransportMetrics(nativeMetrics);
-    _cachedTransportMetrics = converted;
-    return converted;
+    _emitBreakdownAlerts(converted.breakdown);
+    final refreshed = _convertTransportMetrics(nativeMetrics);
+    _cachedTransportMetrics = refreshed;
+    return refreshed;
   }
 
   RouterTransportMetrics _convertTransportMetrics(NativeRouterMetrics metrics) {
+    final alertBreakdown = <RouterTransportAlertBreakdown>[];
+    final totalTransportAlerts =
+        _totalGoAwayAlerts +
+        _totalIdleTimeoutAlerts +
+        _totalBodyTimeoutAlerts +
+        _totalProtocolErrorAlerts +
+        _totalInternalErrorAlerts;
+
     final breakdown = metrics.breakdown
         .map((entry) {
           final listener = _listenerById[entry.listenerId];
           final endpoint = listener != null
-              ? '${listener.endpoint.host}:${entry.protocol == NativeConnectionProtocol.http3 && listener.http3Port > 0 ? listener.http3Port : listener.endpoint.port}'
+              ? '${listener.endpoint.host}:${entry.protocol == NativeConnectionProtocol.http3 && listener.http3Port > 0 ? listener.http3Port : listener.port}'
               : 'listener:${entry.listenerId}';
+          final key = '${entry.listenerId}:${_protocolName(entry.protocol)}';
+          final alertCounts = _alertCountsByKey[key];
+          final throttleUntil =
+              _listenerThrottleUntil[entry.listenerId] ??
+              _lastAlertAtByListener[entry.listenerId];
+          alertBreakdown.add(
+            RouterTransportAlertBreakdown(
+              listenerId: entry.listenerId,
+              protocol: _protocolName(entry.protocol),
+              endpoint: endpoint,
+              backpressureAlerts: alertCounts?.backpressure ?? 0,
+              goAwayAlerts: alertCounts?.goAway ?? 0,
+              idleTimeoutAlerts: alertCounts?.idleTimeout ?? 0,
+              bodyTimeoutAlerts: alertCounts?.bodyTimeout ?? 0,
+              protocolErrorAlerts: alertCounts?.protocolError ?? 0,
+              internalErrorAlerts: alertCounts?.internalError ?? 0,
+              throttleUntil: throttleUntil,
+            ),
+          );
           return RouterTransportMetricsBreakdown(
             listenerId: entry.listenerId,
             protocol: _protocolName(entry.protocol),
@@ -592,8 +733,56 @@ class _RouterBoss {
       internalErrorEvents: metrics.internalErrorEvents,
       backpressureEvents: metrics.backpressureEvents,
       maxBackpressureDepth: metrics.maxBackpressureDepth,
+      backpressureAlerts: _totalBackpressureAlerts,
+      transportAlerts: totalTransportAlerts,
+      goAwayAlerts: _totalGoAwayAlerts,
+      idleTimeoutAlerts: _totalIdleTimeoutAlerts,
+      bodyTimeoutAlerts: _totalBodyTimeoutAlerts,
+      protocolErrorAlerts: _totalProtocolErrorAlerts,
+      internalErrorAlerts: _totalInternalErrorAlerts,
+      alertBreakdown: alertBreakdown,
       breakdown: breakdown,
     );
+  }
+
+  void _recordBackpressureAlert(int listenerId, String protocol) {
+    final key = '$listenerId:$protocol';
+    final counts = _alertCountsByKey.putIfAbsent(key, _ListenerAlertCounts.new);
+    counts.backpressure += 1;
+    _lastAlertAtByListener[listenerId] = DateTime.now().toUtc();
+    _totalBackpressureAlerts += 1;
+  }
+
+  void _recordTransportAlert(int listenerId, String protocol, String reason) {
+    final key = '$listenerId:$protocol';
+    final counts = _alertCountsByKey.putIfAbsent(key, _ListenerAlertCounts.new);
+    switch (reason) {
+      case 'go_away':
+        counts.goAway += 1;
+        _lastAlertAtByListener[listenerId] = DateTime.now().toUtc();
+        _totalGoAwayAlerts += 1;
+        break;
+      case 'idle_timeout':
+        counts.idleTimeout += 1;
+        _lastAlertAtByListener[listenerId] = DateTime.now().toUtc();
+        _totalIdleTimeoutAlerts += 1;
+        break;
+      case 'body_timeout':
+        counts.bodyTimeout += 1;
+        _lastAlertAtByListener[listenerId] = DateTime.now().toUtc();
+        _totalBodyTimeoutAlerts += 1;
+        break;
+      case 'protocol_error':
+        counts.protocolError += 1;
+        _lastAlertAtByListener[listenerId] = DateTime.now().toUtc();
+        _totalProtocolErrorAlerts += 1;
+        break;
+      case 'internal_error':
+        counts.internalError += 1;
+        _lastAlertAtByListener[listenerId] = DateTime.now().toUtc();
+        _totalInternalErrorAlerts += 1;
+        break;
+    }
   }
 
   String _httpConnectionReason(NativeHttpConnectionCloseReason reason) {
@@ -658,20 +847,7 @@ class _RouterBoss {
       for (var i = 0; i < connections.length; i++) {
         final index = (worker.connectionCursor + i) % connections.length;
         final connectionId = connections[index];
-        try {
-          handle = runtime.pollMessageHandle(connectionId);
-        } on NativeTransportException catch (error) {
-          onEvent?.call({
-            'source': 'boss',
-            'type': 'boss_error',
-            'connectionId': connectionId,
-            'error': error.toString(),
-          });
-          if (error.code == NativeTransportErrorCode.connectionNotFound) {
-            _detachConnection(connectionId, notifyWorker: true);
-          }
-          continue;
-        }
+        handle = _pollHandleForConnection(connectionId);
         if (handle == 0) {
           continue;
         }
@@ -694,6 +870,39 @@ class _RouterBoss {
         chosenConnection,
         handle,
       ]);
+    }
+  }
+
+  int _pollHandleForConnection(int connectionId) {
+    try {
+      final handle = runtime.pollMessageHandle(connectionId);
+      if (handle != 0) {
+        return handle;
+      }
+    } on NativeTransportException catch (error) {
+      _handlePollError(connectionId, error);
+      return 0;
+    }
+    try {
+      final wsHandle = runtime.pollWebSocketMessageHandle(connectionId);
+      if (wsHandle != 0) {
+        return wsHandle;
+      }
+    } on NativeTransportException catch (error) {
+      _handlePollError(connectionId, error);
+    }
+    return 0;
+  }
+
+  void _handlePollError(int connectionId, NativeTransportException error) {
+    onEvent?.call({
+      'source': 'boss',
+      'type': 'boss_error',
+      'connectionId': connectionId,
+      'error': error.toString(),
+    });
+    if (error.code == NativeTransportErrorCode.connectionNotFound) {
+      _detachConnection(connectionId, notifyWorker: true);
     }
   }
 
@@ -895,9 +1104,7 @@ class _RouterBoss {
       'realm': request.realm,
       'procedure': request.procedure,
       'headers': request.headers,
-      'body': request.body.isEmpty
-          ? Uint8List(0)
-          : Uint8List.fromList(request.body),
+      'bodyLength': request.nativeBody.length,
     };
     onEvent?.call(event);
     final handler = onHttpRequest;
@@ -988,7 +1195,11 @@ class _RouterBoss {
     throw StateError('Unexpected metrics response: $response');
   }
 
-  Future<void> _spawnWorker(RouterListener listener, int connectionId) async {
+  Future<void> _spawnWorker(
+    RouterListener listener,
+    int connectionId, {
+    Map<String, Object?> metadata = const {},
+  }) async {
     final args = <String, Object?>{
       'bossPort': _eventPort.sendPort,
       'connectionId': connectionId,
@@ -1011,6 +1222,9 @@ class _RouterBoss {
           )
           .toList(growable: false),
     };
+    if (metadata.isNotEmpty) {
+      args['metadata'] = metadata;
+    }
     final isolate = await Isolate.spawn<Map<String, Object?>>(
       entryPoint,
       args,
@@ -1192,6 +1406,18 @@ class _RouterBoss {
         ..['type'] = 'worker_connection_added'
         ..['connectionId'] = message['connectionId']
         ..['listenerId'] = message['listenerId'];
+      final protocol = message['protocol'];
+      if (protocol is String) {
+        payload['protocol'] = protocol;
+      }
+      final wsProtocol = message['websocketProtocol'];
+      if (wsProtocol is String) {
+        payload['websocketProtocol'] = wsProtocol;
+      }
+      final wsSerializer = message['websocketSerializer'];
+      if (wsSerializer is String) {
+        payload['websocketSerializer'] = wsSerializer;
+      }
     } else if (type == _workerEventConnectionRemoved) {
       final connectionId = message['connectionId'] as int;
       final worker = _connectionOwners.remove(connectionId);
@@ -1439,6 +1665,15 @@ const Map<String, NativeMessageSerializer> _webSocketProtocols = {
   'wamp.2.ubjson': NativeMessageSerializer.ubjson,
   'wamp.2.flatbuffers': NativeMessageSerializer.flatbuffers,
 };
+
+class _ListenerAlertCounts {
+  int backpressure = 0;
+  int goAway = 0;
+  int idleTimeout = 0;
+  int bodyTimeout = 0;
+  int protocolError = 0;
+  int internalError = 0;
+}
 
 class _WorkerHandle {
   _WorkerHandle({

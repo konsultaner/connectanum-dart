@@ -104,6 +104,8 @@ class RouterBinding {
   _RouterBoss? _boss;
   bool _ready = false;
   int _nextHttpRequestId = 1;
+  HttpServer? _openMetricsHttpServer;
+  Future<HttpServer?>? _openMetricsHttpServerFuture;
 
   List<RouterListener> get listeners =>
       List<RouterListener>.unmodifiable(_listeners);
@@ -364,6 +366,136 @@ class RouterBinding {
     return service.buildOpenMetricsPayload(snapshot: snapshot);
   }
 
+  Future<HttpServer?> startOpenMetricsHttpServer({
+    OpenMetricsSettings? settingsOverride,
+  }) async {
+    final metricsSettings = settingsOverride ?? settings.metrics?.openMetrics;
+    if (metricsSettings == null || !metricsSettings.enabled) {
+      return null;
+    }
+    final listen = metricsSettings.listen?.trim();
+    if (listen == null || listen.isEmpty) {
+      return null;
+    }
+    final existing = _openMetricsHttpServer;
+    if (existing != null) {
+      return existing;
+    }
+    final pending = _openMetricsHttpServerFuture;
+    if (pending != null) {
+      return pending;
+    }
+    final future = _startOpenMetricsHttpServer(metricsSettings, listen);
+    _openMetricsHttpServerFuture = future;
+    try {
+      return await future;
+    } finally {
+      _openMetricsHttpServerFuture = null;
+    }
+  }
+
+  Future<void> stopOpenMetricsHttpServer() async {
+    _openMetricsHttpServerFuture = null;
+    final server = _openMetricsHttpServer;
+    if (server == null) {
+      return;
+    }
+    _openMetricsHttpServer = null;
+    await server.close(force: true);
+  }
+
+  Future<HttpServer> _startOpenMetricsHttpServer(
+    OpenMetricsSettings metricsSettings,
+    String listen,
+  ) async {
+    if (!_ready) {
+      activateListeners();
+    }
+    await ensureInternalServicesReady();
+
+    final parsed = _parseListenEndpoint(listen);
+    final address = InternetAddress.tryParse(parsed.host) ?? parsed.host.trim();
+    final server = await HttpServer.bind(address, parsed.port);
+    _openMetricsHttpServer = server;
+
+    final metricsPath = _normalizePath(metricsSettings.path);
+    server.listen(
+      (request) => unawaited(
+        _handleOpenMetricsHttpRequest(request, metricsSettings, metricsPath),
+      ),
+    );
+
+    onEvent?.call({
+      'source': 'binding',
+      'type': 'openmetrics_http_listening',
+      'listen': '${server.address.address}:${server.port}',
+      'path': metricsPath,
+    });
+
+    return server;
+  }
+
+  Future<void> _handleOpenMetricsHttpRequest(
+    HttpRequest request,
+    OpenMetricsSettings metricsSettings,
+    String metricsPath,
+  ) async {
+    final response = request.response;
+    response.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
+
+    if (request.method != 'GET' && request.method != 'HEAD') {
+      response.statusCode = HttpStatus.methodNotAllowed;
+      await response.close();
+      return;
+    }
+
+    final path = request.uri.path;
+    if (path == '/healthz' || path == '/health') {
+      response.statusCode = HttpStatus.ok;
+      response.headers.contentType = ContentType.text;
+      if (request.method == 'GET') {
+        response.write('ok');
+      }
+      await response.close();
+      return;
+    }
+
+    if (path != metricsPath) {
+      response.statusCode = HttpStatus.notFound;
+      await response.close();
+      return;
+    }
+
+    final expectedToken = metricsSettings.authToken;
+    if (expectedToken != null && expectedToken.isNotEmpty) {
+      final header = request.headers.value(HttpHeaders.authorizationHeader);
+      final bearer = 'Bearer $expectedToken';
+      if (header == null || header != bearer) {
+        response.statusCode = HttpStatus.unauthorized;
+        response.headers.set(HttpHeaders.wwwAuthenticateHeader, 'Bearer');
+        await response.close();
+        return;
+      }
+    }
+
+    final text = await collectOpenMetricsText();
+    if (text == null) {
+      response.statusCode = HttpStatus.serviceUnavailable;
+      await response.close();
+      return;
+    }
+
+    response.statusCode = HttpStatus.ok;
+    response.headers.set(
+      HttpHeaders.contentTypeHeader,
+      'text/plain; version=0.0.4; charset=utf-8',
+    );
+    if (request.method == 'GET') {
+      response.write(text);
+    }
+    await response.close();
+  }
+
   void _acceptConnections(RouterListener listener) {
     while (true) {
       final connectionId = runtime.pollConnection(listener.listenerId);
@@ -550,6 +682,7 @@ class RouterBinding {
 
   /// Stops the background boss isolate (if running) and releases resources.
   Future<void> dispose() async {
+    await stopOpenMetricsHttpServer();
     await _metricsService?.dispose();
     _metricsService = null;
     for (final session in _internalSessions.toList()) {
@@ -1270,6 +1403,7 @@ class _MetricsService {
   Future<Map<String, Object?>> _buildSnapshotPayload() async {
     final routerSnapshot = await binding.collectMetrics();
     final realmReports = await _collectRealmReports();
+    final transportAlerts = routerSnapshot.transport;
     return <String, Object?>{
       'router': routerSnapshot.toJson(),
       'realms': realmReports.map((report) => report.toJson()).toList(),
@@ -1280,6 +1414,33 @@ class _MetricsService {
         if (metricsSettings.authToken != null)
           'auth_token': metricsSettings.authToken,
       },
+      if (transportAlerts != null)
+        'alerts': <String, Object?>{
+          'backpressure': transportAlerts.backpressureAlerts,
+          'transport': transportAlerts.transportAlerts,
+          'goaway': transportAlerts.goAwayAlerts,
+          'idle_timeout': transportAlerts.idleTimeoutAlerts,
+          'body_timeout': transportAlerts.bodyTimeoutAlerts,
+          'protocol_error': transportAlerts.protocolErrorAlerts,
+          'internal_error': transportAlerts.internalErrorAlerts,
+          'by_listener': transportAlerts.alertBreakdown
+              .map(
+                (entry) => <String, Object?>{
+                  'listener_id': entry.listenerId,
+                  'protocol': entry.protocol,
+                  'endpoint': entry.endpoint,
+                  'backpressure': entry.backpressureAlerts,
+                  'goaway': entry.goAwayAlerts,
+                  'idle_timeout': entry.idleTimeoutAlerts,
+                  'body_timeout': entry.bodyTimeoutAlerts,
+                  'protocol_error': entry.protocolErrorAlerts,
+                  'internal_error': entry.internalErrorAlerts,
+                  if (entry.throttleUntil != null)
+                    'throttle_until': entry.throttleUntil!.toIso8601String(),
+                },
+              )
+              .toList(growable: false),
+        },
     };
   }
 
@@ -1704,6 +1865,65 @@ class _MetricsService {
       }
     }
 
+    if (transport != null) {
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_transport_alerts_total Transport/backpressure alerts emitted by the boss',
+        )
+        ..writeln('# TYPE connectanum_router_transport_alerts_total counter');
+      final alertTotals = <String, int>{
+        'backpressure': transport.backpressureAlerts,
+        'go_away': transport.goAwayAlerts,
+        'idle_timeout': transport.idleTimeoutAlerts,
+        'body_timeout': transport.bodyTimeoutAlerts,
+        'protocol_error': transport.protocolErrorAlerts,
+        'internal_error': transport.internalErrorAlerts,
+      };
+      alertTotals.forEach((reason, value) {
+        buffer.writeln(
+          'connectanum_router_transport_alerts_total${_formatLabels({'reason': reason})} $value',
+        );
+      });
+
+      var printedAlertHeader = false;
+      for (final entry in transport.alertBreakdown) {
+        final alertByReason = <String, int>{
+          'backpressure': entry.backpressureAlerts,
+          'go_away': entry.goAwayAlerts,
+          'idle_timeout': entry.idleTimeoutAlerts,
+          'body_timeout': entry.bodyTimeoutAlerts,
+          'protocol_error': entry.protocolErrorAlerts,
+          'internal_error': entry.internalErrorAlerts,
+        };
+        if (alertByReason.values.every((value) => value == 0)) {
+          continue;
+        }
+        if (!printedAlertHeader) {
+          buffer
+            ..writeln(
+              '# HELP connectanum_router_transport_alerts_by_listener_total Transport/backpressure alerts by listener/protocol',
+            )
+            ..writeln(
+              '# TYPE connectanum_router_transport_alerts_by_listener_total counter',
+            );
+          printedAlertHeader = true;
+        }
+        final baseLabels = {
+          'listener_id': entry.listenerId.toString(),
+          'protocol': entry.protocol,
+          'endpoint': entry.endpoint,
+        };
+        alertByReason.forEach((reason, value) {
+          if (value == 0) {
+            return;
+          }
+          buffer.writeln(
+            'connectanum_router_transport_alerts_by_listener_total${_formatLabels({...baseLabels, 'reason': reason})} $value',
+          );
+        });
+      }
+    }
+
     buffer
       ..writeln(
         '# HELP connectanum_router_topic_subscribers Subscribers per topic',
@@ -1876,4 +2096,46 @@ class _ProcedureMetricsDetail {
     'policy': policy.name,
     'callee_count': calleeCount,
   };
+}
+
+class _ParsedListenEndpoint {
+  const _ParsedListenEndpoint({required this.host, required this.port});
+
+  final String host;
+  final int port;
+}
+
+_ParsedListenEndpoint _parseListenEndpoint(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) {
+    throw FormatException('Listen endpoint must not be empty');
+  }
+  if (trimmed.startsWith('[')) {
+    final closing = trimmed.indexOf(']');
+    if (closing == -1 ||
+        closing + 1 >= trimmed.length ||
+        trimmed[closing + 1] != ':') {
+      throw FormatException('Listen endpoint "$value" must include :port');
+    }
+    final host = trimmed.substring(1, closing);
+    final portPart = trimmed.substring(closing + 2);
+    final port = int.parse(portPart);
+    return _ParsedListenEndpoint(host: host, port: port);
+  }
+  final lastColon = trimmed.lastIndexOf(':');
+  if (lastColon == -1) {
+    throw FormatException('Listen endpoint "$value" must include :port');
+  }
+  final host = trimmed.substring(0, lastColon);
+  final portPart = trimmed.substring(lastColon + 1);
+  final port = int.parse(portPart);
+  return _ParsedListenEndpoint(host: host, port: port);
+}
+
+String _normalizePath(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) {
+    return '/';
+  }
+  return trimmed.startsWith('/') ? trimmed : '/$trimmed';
 }

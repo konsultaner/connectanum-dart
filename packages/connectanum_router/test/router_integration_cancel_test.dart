@@ -5,7 +5,6 @@ library router_integration_cancel_test;
 import 'dart:async';
 import 'dart:collection';
 import 'dart:isolate';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:async/async.dart';
@@ -19,6 +18,8 @@ import 'package:connectanum_router/src/router/router_instance.dart';
 import 'package:connectanum_router/src/router/state/commands.dart';
 import 'package:connectanum_router/src/router/state/session.dart';
 import 'package:test/test.dart';
+
+import 'support/native_lib.dart';
 
 class _QueueRuntime implements NativeRuntimeWithHandles {
   _QueueRuntime(List<int> connectionSequence, {String? libraryPathHint})
@@ -34,11 +35,17 @@ class _QueueRuntime implements NativeRuntimeWithHandles {
   void applyRouterConfig(Uint8List config) {}
 
   @override
+  int reloadTls() => 0;
+
+  @override
   int connectionMaxRawSocketExponent(int connectionId) => 16;
 
   @override
   NativeConnectionProtocol connectionProtocol(int connectionId) =>
       NativeConnectionProtocol.rawsocket;
+
+  @override
+  String? connectionWebSocketProtocol(int connectionId) => null;
 
   @override
   NativeHttpHandshake? takeHttpHandshake(int connectionId) => null;

@@ -466,15 +466,8 @@ class Serializer extends AbstractSerializer {
       final payload = _serializePayload(message);
       final detailsJson = _serializeEventDetails(
         message.details,
-        allowOmit: payload.isNotEmpty,
+        allowOmit: false,
       );
-      if (detailsJson.isEmpty) {
-        final normalizedPayload = payload.startsWith(',')
-            ? payload.substring(1)
-            : payload;
-        final tail = normalizedPayload.isEmpty ? '{}' : normalizedPayload;
-        return '[${MessageTypes.codeEvent},${message.subscriptionId},${message.publicationId},$tail]';
-      }
       return '[${MessageTypes.codeEvent},${message.subscriptionId},${message.publicationId},$detailsJson$payload]';
     }
     if (message is Subscribe) {

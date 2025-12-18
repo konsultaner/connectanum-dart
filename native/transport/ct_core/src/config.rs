@@ -52,6 +52,7 @@ pub struct EndpointConfig {
     pub websocket_path: Option<String>,
     #[serde(default)]
     pub sni_certificates: Vec<SniCertificate>,
+    pub client_auth: Option<ClientAuthConfig>,
     #[serde(default)]
     pub http_routes: Vec<HttpRouteConfig>,
     #[serde(default = "default_endpoint_protocols")]
@@ -66,6 +67,21 @@ pub struct SniCertificate {
     pub hostname: String,
     pub certificate_chain_pem: String,
     pub private_key_pem: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ClientAuthConfig {
+    pub mode: ClientAuthMode,
+    #[serde(default)]
+    pub ca_certificates_pem: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ClientAuthMode {
+    Disabled,
+    Optional,
+    Required,
 }
 
 pub fn apply_router_config_bytes(bytes: &[u8]) -> Result<(), Error> {
@@ -182,6 +198,7 @@ pub struct EndpointRuntimeConfig {
     pub host: String,
     pub port: u16,
     pub tls_mode: TlsMode,
+    pub client_auth: Option<ClientAuthRuntime>,
     pub protocols: Vec<TransportProtocol>,
     pub idle_timeout: Option<Duration>,
     pub handshake_timeout: Duration,
@@ -193,6 +210,12 @@ pub struct EndpointRuntimeConfig {
     pub sni_certificates: Vec<SniCertificate>,
     pub http_routes: Vec<HttpRouteRuntime>,
     pub http: Option<HttpEndpointRuntime>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ClientAuthRuntime {
+    pub mode: ClientAuthMode,
+    pub ca_certificates_pem: String,
 }
 
 impl EndpointRuntimeConfig {
@@ -271,10 +294,59 @@ impl EndpointRuntimeConfig {
                 }
             }
         }
+        match endpoint.tls_mode {
+            TlsMode::Disabled => {
+                if protocols.contains(&TransportProtocol::Http3) {
+                    return Err(Error::RouterConfigInvalid(format!(
+                        "endpoint {}:{} enables http3 but tls_mode is disabled",
+                        endpoint.host, endpoint.port
+                    )));
+                }
+            }
+            TlsMode::Native => {
+                if endpoint.sni_certificates.is_empty() {
+                    return Err(Error::RouterConfigInvalid(format!(
+                        "endpoint {}:{} tls_mode native requires at least one sni_certificates entry",
+                        endpoint.host, endpoint.port
+                    )));
+                }
+            }
+            TlsMode::Dart => {
+                return Err(Error::RouterConfigInvalid(format!(
+                    "endpoint {}:{} tls_mode dart is not supported yet",
+                    endpoint.host, endpoint.port
+                )));
+            }
+        }
+        let client_auth = match &endpoint.client_auth {
+            Some(config) => match config.mode {
+                ClientAuthMode::Disabled => None,
+                mode => {
+                    if endpoint.tls_mode != TlsMode::Native {
+                        return Err(Error::RouterConfigInvalid(format!(
+                            "endpoint {}:{} client_auth requires tls_mode native",
+                            endpoint.host, endpoint.port
+                        )));
+                    }
+                    if config.ca_certificates_pem.trim().is_empty() {
+                        return Err(Error::RouterConfigInvalid(format!(
+                            "endpoint {}:{} client_auth requires ca_certificates_pem",
+                            endpoint.host, endpoint.port
+                        )));
+                    }
+                    Some(ClientAuthRuntime {
+                        mode,
+                        ca_certificates_pem: config.ca_certificates_pem.trim().to_string(),
+                    })
+                }
+            },
+            None => None,
+        };
         Ok(Self {
             host: endpoint.host.clone(),
             port: endpoint.port,
             tls_mode: endpoint.tls_mode.clone(),
+            client_auth,
             protocols,
             idle_timeout: endpoint.idle_timeout,
             handshake_timeout: endpoint
@@ -545,7 +617,7 @@ mod tests {
         let cfg: EndpointConfig = serde_json::from_value(json!({
             "host": "127.0.0.1",
             "port": 0,
-            "tls_mode": "native"
+            "tls_mode": "disabled"
         }))
         .unwrap();
         let runtime = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap();
@@ -557,7 +629,7 @@ mod tests {
         let cfg: EndpointConfig = serde_json::from_value(json!({
             "host": "127.0.0.1",
             "port": 0,
-            "tls_mode": "native",
+            "tls_mode": "disabled",
             "protocols": ["rawsocket", "http", "websocket", "http"]
         }))
         .unwrap();
@@ -577,7 +649,7 @@ mod tests {
         let cfg: EndpointConfig = serde_json::from_value(json!({
             "host": "127.0.0.1",
             "port": 0,
-            "tls_mode": "native",
+            "tls_mode": "disabled",
             "protocols": ["rawsocket"],
             "http_routes": [{
                 "path": "/metrics",
@@ -602,6 +674,11 @@ mod tests {
             "port": 0,
             "tls_mode": "native",
             "protocols": ["rawsocket", "http"],
+            "sni_certificates": [{
+                "hostname": "localhost",
+                "certificate_chain_pem": "CERT",
+                "private_key_pem": "KEY"
+            }],
             "http": {
                 "alpn": ["h2", "http/1.1", "h2"],
                 "http3": {"enabled": true, "port": 9443},
@@ -621,6 +698,43 @@ mod tests {
         );
         assert!(runtime.protocols.contains(&TransportProtocol::Http2));
         assert!(runtime.protocols.contains(&TransportProtocol::Http3));
+    }
+
+    #[test]
+    fn client_auth_requires_native_tls() {
+        let cfg: EndpointConfig = serde_json::from_value(json!({
+            "host": "127.0.0.1",
+            "port": 0,
+            "tls_mode": "disabled",
+            "client_auth": {"mode": "required", "ca_certificates_pem": "CERT"}
+        }))
+        .unwrap();
+        let err = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap_err();
+        assert!(
+            format!("{err}").contains("client_auth requires tls_mode native"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn client_auth_requires_ca_certificates() {
+        let cfg: EndpointConfig = serde_json::from_value(json!({
+            "host": "127.0.0.1",
+            "port": 0,
+            "tls_mode": "native",
+            "sni_certificates": [{
+                "hostname": "localhost",
+                "certificate_chain_pem": "CERT",
+                "private_key_pem": "KEY"
+            }],
+            "client_auth": {"mode": "required"}
+        }))
+        .unwrap();
+        let err = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap_err();
+        assert!(
+            format!("{err}").contains("client_auth requires ca_certificates_pem"),
+            "{err}"
+        );
     }
 }
 

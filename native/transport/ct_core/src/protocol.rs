@@ -3,12 +3,12 @@ use std::io::{self, Write};
 use bytes::BytesMut;
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
-    net::TcpStream,
     time::{self, Duration},
 };
 
 use crate::{
     config::{EndpointRuntimeConfig, HttpRouteMatch, TransportProtocol},
+    io_stream::IoStream,
     http1_stream::{self, HttpBodyPhase},
     rawsocket::{self, NegotiatedSession, RAWSOCKET_MAGIC},
     HTTP1_INLINE_BODY_LIMIT,
@@ -50,18 +50,18 @@ impl From<io::Error> for NegotiationError {
 /// Parsed HTTP handshake data returned for plain HTTP requests.
 #[derive(Debug)]
 pub struct HttpHandshake {
-    stream: TcpStream,
+    stream: IoStream,
     pub request: HttpRequest,
     pub body: HttpBodyPhase,
 }
 
 impl HttpHandshake {
     /// Converts the handshake into the underlying TCP stream.
-    pub fn into_stream(self) -> TcpStream {
+    pub(crate) fn into_stream(self) -> IoStream {
         self.stream
     }
 
-    pub fn into_parts(self) -> (TcpStream, HttpRequest, HttpBodyPhase) {
+    pub(crate) fn into_parts(self) -> (IoStream, HttpRequest, HttpBodyPhase) {
         (self.stream, self.request, self.body)
     }
 
@@ -140,7 +140,7 @@ pub struct WebSocketHandshake {
 
 impl WebSocketHandshake {
     /// Converts the handshake into the underlying TCP stream.
-    pub fn into_stream(self) -> TcpStream {
+    pub(crate) fn into_stream(self) -> IoStream {
         self.http.into_stream()
     }
 }
@@ -158,18 +158,18 @@ pub struct HttpRequest {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct Http2Handshake {
-    stream: Option<TcpStream>,
+    stream: Option<IoStream>,
     protocol: String,
     alpn: Option<String>,
     listener_protocols: Vec<String>,
 }
 
 impl Http2Handshake {
-    pub fn into_stream(mut self) -> Option<TcpStream> {
+    pub(crate) fn into_stream(mut self) -> Option<IoStream> {
         self.stream.take()
     }
 
-    pub fn split(self) -> (TcpStream, Http2Handshake) {
+    pub(crate) fn split(self) -> (IoStream, Http2Handshake) {
         let Http2Handshake {
             stream,
             protocol,
@@ -252,10 +252,10 @@ impl HttpRequest {
 
 /// Performs protocol detection and handshake for an accepted TCP connection.
 pub async fn negotiate_connection(
-    stream: TcpStream,
+    mut stream: IoStream,
     endpoint: &EndpointRuntimeConfig,
 ) -> Result<NegotiatedConnection, NegotiationError> {
-    let prefix = peek_handshake(&stream, endpoint.handshake_timeout).await?;
+    let prefix = peek_handshake(&mut stream, endpoint.handshake_timeout).await?;
     if looks_like_http(&prefix) {
         if prefix == HTTP2_PREFACE[..4] {
             if !endpoint.supports_protocol(TransportProtocol::Http2) {
@@ -264,9 +264,11 @@ pub async fn negotiate_connection(
                 ));
             }
             let protocol = "http/2".to_string();
-            let alpn = endpoint
-                .http_settings()
-                .and_then(|settings| settings.alpn.iter().find(|token| *token == "h2").cloned());
+            let alpn = stream.negotiated_alpn().or_else(|| {
+                endpoint
+                    .http_settings()
+                    .and_then(|settings| settings.alpn.iter().find(|token| *token == "h2").cloned())
+            });
             let listener_protocols = endpoint
                 .protocols
                 .iter()
@@ -341,26 +343,30 @@ pub async fn respond_websocket_not_implemented(handshake: WebSocketHandshake) ->
 }
 
 #[allow(dead_code)]
-async fn send_http_response(mut stream: TcpStream, payload: &[u8]) -> io::Result<()> {
+async fn send_http_response(mut stream: IoStream, payload: &[u8]) -> io::Result<()> {
     stream.write_all(payload).await?;
     let _ = stream.shutdown().await;
     Ok(())
 }
 
 async fn peek_handshake(
-    stream: &TcpStream,
+    stream: &mut IoStream,
     timeout: Duration,
 ) -> Result<[u8; 4], NegotiationError> {
     let mut buf = [0u8; 4];
-    let read = time::timeout(timeout, stream.peek(&mut buf))
+    time::timeout(timeout, stream.read_exact(&mut buf))
         .await
         .map_err(|_| NegotiationError::Timeout)?
-        .map_err(NegotiationError::Io)?;
-    if read == 0 {
-        return Err(NegotiationError::Protocol(
-            "connection closed before protocol negotiation".into(),
-        ));
-    }
+        .map_err(|err| {
+            if err.kind() == io::ErrorKind::UnexpectedEof {
+                NegotiationError::Protocol(
+                    "connection closed before protocol negotiation".into(),
+                )
+            } else {
+                NegotiationError::Io(err)
+            }
+        })?;
+    stream.buffer_front(&buf);
     Ok(buf)
 }
 
@@ -403,7 +409,7 @@ pub async fn respond_http_not_found(handshake: HttpHandshake) -> io::Result<()> 
 }
 
 pub async fn write_http_response(
-    mut stream: TcpStream,
+    mut stream: IoStream,
     version: u8,
     status: i32,
     headers: Vec<(String, String)>,
@@ -524,7 +530,7 @@ pub async fn respond_http_method_not_allowed(
 }
 
 async fn parse_http_handshake(
-    stream: TcpStream,
+    stream: IoStream,
     endpoint: &EndpointRuntimeConfig,
 ) -> Result<HttpHandshake, NegotiationError> {
     let timeout = endpoint.handshake_timeout;
@@ -826,7 +832,7 @@ mod tests {
     };
     use serde_json::Value as JsonValue;
     use std::collections::HashMap;
-    use tokio::{net::TcpListener, sync::oneshot};
+    use tokio::{net::TcpListener, net::TcpStream, sync::oneshot};
 
     fn runtime_config(
         handshake_timeout: Option<Duration>,
@@ -835,13 +841,14 @@ mod tests {
         let endpoint = EndpointConfig {
             host: "127.0.0.1".into(),
             port: 0,
-            tls_mode: TlsMode::Native,
+            tls_mode: TlsMode::Disabled,
             idle_timeout: None,
             handshake_timeout,
             max_http_content_length: None,
             max_rawsocket_size_exponent: Some(rawsocket_exponent),
             websocket_path: None,
             sni_certificates: Vec::new(),
+            client_auth: None,
             http_routes: Vec::new(),
             protocols: vec![
                 TransportProtocol::Rawsocket,
@@ -929,7 +936,7 @@ mod tests {
 
         tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
-            let result = negotiate_connection(stream, &config).await;
+            let result = negotiate_connection(IoStream::plain(stream), &config).await;
             tx.send(result).ok();
         });
 
@@ -956,7 +963,7 @@ mod tests {
 
         tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
-            let result = negotiate_connection(stream, &config).await;
+            let result = negotiate_connection(IoStream::plain(stream), &config).await;
             tx.send(result).ok();
         });
 
@@ -991,7 +998,7 @@ mod tests {
 
         tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
-            let result = negotiate_connection(stream, &config).await;
+            let result = negotiate_connection(IoStream::plain(stream), &config).await;
             tx.send(result).ok();
         });
 
@@ -1027,13 +1034,14 @@ Sec-WebSocket-Protocol: wamp.2.json, wamp.2.cbor\r\n\r\n";
         let endpoint = EndpointConfig {
             host: "127.0.0.1".into(),
             port: 0,
-            tls_mode: TlsMode::Native,
+            tls_mode: TlsMode::Disabled,
             idle_timeout: None,
             handshake_timeout: Some(Duration::from_secs(1)),
             max_http_content_length: None,
             max_rawsocket_size_exponent: Some(16),
             websocket_path: None,
             sni_certificates: Vec::new(),
+            client_auth: None,
             http_routes: Vec::new(),
             protocols: vec![TransportProtocol::Rawsocket, TransportProtocol::Http],
             http: Some(HttpEndpointConfig {
@@ -1047,7 +1055,7 @@ Sec-WebSocket-Protocol: wamp.2.json, wamp.2.cbor\r\n\r\n";
 
         tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
-            let result = negotiate_connection(stream, &config).await;
+            let result = negotiate_connection(IoStream::plain(stream), &config).await;
             tx.send(result).ok();
         });
 
@@ -1073,7 +1081,7 @@ Sec-WebSocket-Protocol: wamp.2.json, wamp.2.cbor\r\n\r\n";
 
         tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
-            let result = negotiate_connection(stream, &config).await;
+            let result = negotiate_connection(IoStream::plain(stream), &config).await;
             tx.send(result).ok();
         });
 

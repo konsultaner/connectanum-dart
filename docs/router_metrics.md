@@ -49,6 +49,18 @@ router:
       listen: 127.0.0.1:9100
       path: /metrics
       realm: connectanum.metrics
+    backpressure:
+      depth_threshold: 16
+      new_events_threshold: 1
+      cooldown_ms: 250
+    transport_alerts:
+      goaway_delta_threshold: 1
+      idle_timeout_delta_threshold: 1
+      body_timeout_delta_threshold: 1
+      protocol_error_delta_threshold: 1
+      internal_error_delta_threshold: 1
+      cooldown_ms: 500
+      throttle_on_alert: true
 ```
 
 The router spawns an embedded session for every entry in `internal_realms`.
@@ -60,6 +72,16 @@ When the metrics exporter is enabled, the session matching
 - `connectanum.metrics.openmetrics` – returns an OpenMetrics text payload using
   the same metric names as the Java router (`topics`, `topics_subscribed`,
   `topic_subscribers`, `registered_procedures`, `procedure_endpoints`, …).
+
+If `open_metrics.listen` is set and you run the router via
+`dart run connectanum_router` (or call `RouterBinding.startOpenMetricsHttpServer`
+from embedding code), the exporter is also served over HTTP:
+
+- `GET /metrics` – OpenMetrics text payload
+- `GET /healthz` – 200 OK health check
+
+If `open_metrics.auth_token` is set, `GET /metrics` requires
+`Authorization: Bearer <token>`.
 
 ## Snapshot Payload
 
@@ -111,6 +133,28 @@ per-realm details:
       ]
     }
   ],
+  "alerts": {
+    "backpressure": 0,
+    "transport": 1,
+    "goaway": 1,
+    "idle_timeout": 0,
+    "body_timeout": 0,
+    "protocol_error": 0,
+    "internal_error": 0,
+    "by_listener": [
+      {
+        "listener_id": 1,
+        "protocol": "http2",
+        "endpoint": "127.0.0.1:8080",
+        "backpressure": 0,
+        "goaway": 1,
+        "idle_timeout": 0,
+        "body_timeout": 0,
+        "protocol_error": 0,
+        "internal_error": 0
+      }
+    ]
+  },
   "exporter": {
     "realm": "connectanum.metrics",
     "path": "/metrics",
@@ -195,3 +239,59 @@ pipelines can upload them for inspection when regressions occur.
   invocation consistently reflects the latest snapshot.
 - The exporter performs work only when invoked; there is no background polling,
   keeping overhead negligible until Prometheus scrapes the endpoint.
+- Alert knobs:
+  - `metrics.backpressure` controls when the boss emits `listener_backpressure_alert`
+    events (queue depth and new-event thresholds) and how long it throttles new
+    accepts after an alert (`cooldown_ms`).
+  - `metrics.transport_alerts` governs deltas for GOAWAY/timeout/error spikes,
+    whether the boss should throttle after an alert, and the throttle cooldown.
+  - Alert counters flow into the OpenMetrics payload under
+    `connectanum_router_transport_alerts_total{reason=*}` and
+    `connectanum_router_transport_alerts_by_listener_total{...}` so Prometheus
+    can trigger notifications on spikes.
+
+## Prometheus Alerting Examples
+
+You can drop the following rules into a Prometheus rules file to alert on
+transport/backpressure spikes. Adjust thresholds to match your deployment
+defaults:
+
+```yaml
+groups:
+  - name: connectanum-router-alerts
+    rules:
+      - alert: ConnectanumBackpressureSpike
+        expr: |
+          increase(connectanum_router_transport_alerts_total{reason="backpressure"}[5m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backpressure alerts observed on Connectanum router"
+          description: "Backpressure alerts fired in the last 5m; check listener throttle/queue depth."
+
+      - alert: ConnectanumGoAwaySpike
+        expr: |
+          increase(connectanum_router_transport_alerts_by_listener_total{reason="go_away"}[5m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "GOAWAY spikes on listener {{ $labels.listener_id }} ({{ $labels.endpoint }})"
+          description: "GOAWAY alerts fired in the last 5m for protocol {{ $labels.protocol }}."
+
+      - alert: ConnectanumTransportErrors
+        expr: |
+          increase(connectanum_router_transport_alerts_by_listener_total{reason=~"protocol_error|internal_error"}[5m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Transport error alerts on listener {{ $labels.listener_id }} ({{ $labels.endpoint }})"
+          description: "Protocol/internal error alerts fired in the last 5m for protocol {{ $labels.protocol }}."
+```
+
+Dashboards can chart `connectanum_router_transport_alerts_total` to show recent
+spikes, and `connectanum_router_transport_alerts_by_listener_total` to pinpoint
+the listener/protocol involved.
+
+See `docs/grafana_transport_alerts_dashboard.json` for a starter Grafana
+dashboard that charts per-reason alert counts, listener breakdowns, and a
+table you can extend with throttle info from the snapshot JSON (`alerts.by_listener[*].throttle_until`).

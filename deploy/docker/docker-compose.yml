@@ -1,0 +1,13 @@
+services:
+  connectanum-router:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    image: connectanum-router:local
+    restart: unless-stopped
+    ports:
+      - "8443:8443"
+      - "9100:9100"
+    volumes:
+      - ./router.yaml:/etc/connectanum/router.yaml:ro
+      - ./tls:/etc/connectanum/tls:ro

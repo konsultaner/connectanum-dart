@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:connectanum_core/src/serializer/json/serializer.dart'
     as json_serializer;
 import 'package:connectanum_core/src/message/publish.dart' as publish_msg;
@@ -14,6 +12,8 @@ import 'package:connectanum_client/src/transport/socket/socket_transport.dart'
 import 'package:connectanum_client/src/transport/socket/socket_helper.dart'
     as socket_helper;
 import 'package:test/test.dart';
+
+import 'support/native_lib.dart';
 
 void main() {
   final nativeLib = resolveOrBuildNativeLib();

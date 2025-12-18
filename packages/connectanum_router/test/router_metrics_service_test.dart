@@ -23,6 +23,9 @@ class _FakeRuntime implements NativeRuntime {
   }
 
   @override
+  int reloadTls() => 0;
+
+  @override
   int getLocalPort(int listenerId) => _ports[listenerId] ?? listenerId;
 
   @override
@@ -45,6 +48,9 @@ class _FakeRuntime implements NativeRuntime {
   @override
   NativeConnectionProtocol connectionProtocol(int connectionId) =>
       NativeConnectionProtocol.rawsocket;
+
+  @override
+  String? connectionWebSocketProtocol(int connectionId) => null;
 
   @override
   NativeHttpHandshake? takeHttpHandshake(int connectionId) => null;
@@ -131,6 +137,7 @@ class _FakeRuntime implements NativeRuntime {
 
 class _NoopHandleRuntime extends _FakeRuntime
     implements NativeRuntimeWithHandles {
+  NativeRouterMetrics? routerMetrics;
   @override
   int pollMessageHandle(int connectionId) => 0;
 
@@ -184,20 +191,9 @@ class _NoopHandleRuntime extends _FakeRuntime
   String? get libraryPathHint => null;
 
   @override
-  NativeRouterMetrics? pollRouterMetrics() => const NativeRouterMetrics(
-    totalEvents: 12,
-    gracefulEvents: 8,
-    goAwayEvents: 1,
-    idleTimeoutEvents: 2,
-    bodyTimeoutEvents: 1,
-    protocolErrorEvents: 0,
-    internalErrorEvents: 0,
-    backpressureEvents: 3,
-    maxBackpressureDepth: 4,
-    breakdown: [
-      NativeRouterMetricsBreakdown(
-        listenerId: 1,
-        protocol: NativeConnectionProtocol.http2,
+  NativeRouterMetrics? pollRouterMetrics() =>
+      routerMetrics ??
+      const NativeRouterMetrics(
         totalEvents: 12,
         gracefulEvents: 8,
         goAwayEvents: 1,
@@ -207,21 +203,69 @@ class _NoopHandleRuntime extends _FakeRuntime
         internalErrorEvents: 0,
         backpressureEvents: 3,
         maxBackpressureDepth: 4,
-      ),
-    ],
-  );
+        breakdown: [
+          NativeRouterMetricsBreakdown(
+            listenerId: 1,
+            protocol: NativeConnectionProtocol.http2,
+            totalEvents: 12,
+            gracefulEvents: 8,
+            goAwayEvents: 1,
+            idleTimeoutEvents: 2,
+            bodyTimeoutEvents: 1,
+            protocolErrorEvents: 0,
+            internalErrorEvents: 0,
+            backpressureEvents: 3,
+            maxBackpressureDepth: 4,
+          ),
+        ],
+      );
+}
+
+class _SequencedMetricsRuntime extends _NoopHandleRuntime {
+  _SequencedMetricsRuntime(this.sequence);
+
+  final List<NativeRouterMetrics> sequence;
+  int _cursor = 0;
+
+  @override
+  NativeRouterMetrics? pollRouterMetrics() {
+    if (sequence.isEmpty) {
+      return super.pollRouterMetrics();
+    }
+    final index = _cursor < sequence.length ? _cursor : sequence.length - 1;
+    final current = sequence[index];
+    if (_cursor < sequence.length - 1) {
+      _cursor += 1;
+    }
+    return current;
+  }
 }
 
 void main() {
   test('metrics exporter collects snapshot and OpenMetrics payload', () async {
-    final runtime = _NoopHandleRuntime();
+    final events = <Object>[];
+    final metricsBurst = _buildMetricsBreakdown(
+      goAwayEvents: 0,
+      backpressureEvents: 0,
+      maxBackpressureDepth: 0,
+    );
+    final metricsAfter = _buildMetricsBreakdown(
+      goAwayEvents: 1,
+      backpressureEvents: 0,
+      maxBackpressureDepth: 0,
+    );
+    final runtime = _SequencedMetricsRuntime([
+      metricsBurst,
+      metricsAfter,
+      metricsAfter,
+    ]);
     final router = Router(
       RouterConfig(
         endpoints: [
           Endpoint(
             host: '127.0.0.1',
             port: 0,
-            tlsMode: TlsMode.native,
+            tlsMode: TlsMode.disabled,
             maxRawSocketSizeExponent: 16,
           ),
         ],
@@ -229,8 +273,11 @@ void main() {
       settings: _buildSettings(),
     );
 
-    final binding = router.start(runtime);
+    final binding = router.start(runtime, onEvent: events.add);
     addTearDown(binding.dispose);
+
+    // Wait for the boss loop to observe the metrics delta and emit alerts.
+    await _waitForTransportAlert(events);
 
     await binding.ensureInternalServicesReady();
     final realmSession = await binding.createInternalSession(
@@ -258,10 +305,13 @@ void main() {
 
     expect(snapshotPayload['router'], isA<Map<String, Object?>>());
     final routerMetrics = snapshotPayload['router'] as Map<String, Object?>;
-    final alerts = routerMetrics['alerts'] as Map<String, Object?>?;
-    expect(alerts, isNotNull);
-    expect(alerts!['backpressure_alerts'], greaterThanOrEqualTo(0));
-    expect(alerts['throttled_backpressure_alerts'], greaterThanOrEqualTo(0));
+    final routerAlerts = routerMetrics['alerts'] as Map<String, Object?>?;
+    expect(routerAlerts, isNotNull);
+    expect(routerAlerts!['backpressure_alerts'], greaterThanOrEqualTo(0));
+    expect(
+      routerAlerts['throttled_backpressure_alerts'],
+      greaterThanOrEqualTo(0),
+    );
     expect(routerMetrics['transport'], isNotNull);
     final realms = snapshotPayload['realms'] as List<dynamic>;
     final realmMetrics = realms.cast<Map<String, Object?>>().firstWhere(
@@ -295,8 +345,127 @@ void main() {
       openMetricsText,
       contains('connectanum_router_backpressure_alerts_throttled_total'),
     );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_transport_alerts_total{reason="go_away"} 1'),
+    );
+    expect(
+      openMetricsText,
+      contains(
+        'connectanum_router_transport_alerts_by_listener_total{listener_id="1",protocol="http2",endpoint="127.0.0.1:5001",reason="go_away"} 1',
+      ),
+    );
+
+    final transportAlerts = snapshotPayload['alerts'] as Map<String, Object?>?;
+    expect(transportAlerts, isNotNull);
+    expect(transportAlerts!['goaway'], equals(1));
+    expect(transportAlerts['transport'], equals(1));
+    final byListener =
+        transportAlerts['by_listener'] as List<Object?>? ?? const [];
+    final entry = byListener.whereType<Map<String, Object?>>().firstWhere(
+      (value) => value['listener_id'] == 1,
+      orElse: () => const {},
+    );
+    expect(entry['goaway'], equals(1));
+    expect(entry['throttle_until'], isA<String>());
+  });
+
+  test('boss emits transport alerts and throttles on GOAWAY spikes', () async {
+    final metricsBurst = _buildMetricsBreakdown(
+      goAwayEvents: 0,
+      backpressureEvents: 0,
+      maxBackpressureDepth: 0,
+    );
+    final metricsAfter = _buildMetricsBreakdown(
+      goAwayEvents: 2,
+      backpressureEvents: 0,
+      maxBackpressureDepth: 0,
+    );
+    final runtime = _SequencedMetricsRuntime([
+      metricsBurst,
+      metricsAfter,
+      metricsAfter,
+    ]);
+    final events = <Object>[];
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.disabled,
+            maxRawSocketSizeExponent: 16,
+          ),
+        ],
+      ),
+      settings: _buildSettings(),
+    );
+
+    final binding = router.start(
+      runtime,
+      workerPollInterval: const Duration(milliseconds: 2),
+      onEvent: events.add,
+    );
+    addTearDown(binding.dispose);
+
+    // Allow a few boss loops to poll the metrics sequence.
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    final alert = events.whereType<Map<String, Object?>>().firstWhere(
+      (event) => event['type'] == 'listener_transport_alert',
+      orElse: () => const {},
+    );
+    expect(alert, isNotEmpty);
+    expect(alert['listenerId'], equals(1));
+    expect(alert['reason'], equals('go_away'));
+    expect(alert['newEvents'], equals(2));
+    expect(alert['throttled'], isTrue);
   });
 }
+
+Future<void> _waitForTransportAlert(List<Object> events) async {
+  const attempts = 50;
+  for (var i = 0; i < attempts; i += 1) {
+    final hasAlert = events.whereType<Map<String, Object?>>().any(
+      (event) => event['type'] == 'listener_transport_alert',
+    );
+    if (hasAlert) {
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+}
+
+NativeRouterMetrics _buildMetricsBreakdown({
+  int goAwayEvents = 1,
+  int backpressureEvents = 3,
+  int maxBackpressureDepth = 4,
+}) => NativeRouterMetrics(
+  totalEvents: goAwayEvents + backpressureEvents + 10,
+  gracefulEvents: 8,
+  goAwayEvents: goAwayEvents,
+  idleTimeoutEvents: 2,
+  bodyTimeoutEvents: 1,
+  protocolErrorEvents: 0,
+  internalErrorEvents: 0,
+  backpressureEvents: backpressureEvents,
+  maxBackpressureDepth: maxBackpressureDepth,
+  breakdown: [
+    NativeRouterMetricsBreakdown(
+      listenerId: 1,
+      protocol: NativeConnectionProtocol.http2,
+      totalEvents: goAwayEvents + backpressureEvents + 10,
+      gracefulEvents: 8,
+      goAwayEvents: goAwayEvents,
+      idleTimeoutEvents: 2,
+      bodyTimeoutEvents: 1,
+      protocolErrorEvents: 0,
+      internalErrorEvents: 0,
+      backpressureEvents: backpressureEvents,
+      maxBackpressureDepth: maxBackpressureDepth,
+    ),
+  ],
+);
 
 RouterSettings _buildSettings() {
   final realmBuilder = RealmSettingsBuilder('realm1')

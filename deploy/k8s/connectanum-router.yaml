@@ -1,0 +1,162 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: connectanum-router-config
+data:
+  router.yaml: |
+    router:
+      realms:
+        - name: realm1
+          auth:
+            authmethods: [anonymous]
+          roles:
+            - name: anonymous
+              permissions:
+                - uri: ""
+                  match: prefix
+                  allow: [subscribe, publish, call, register, unregister]
+
+        - name: connectanum.metrics
+          auth:
+            authmethods: [anonymous]
+          roles:
+            - name: metrics
+              permissions:
+                - uri: ""
+                  match: prefix
+                  allow: [register, unregister, call, subscribe, publish]
+
+      listeners:
+        - endpoint: 0.0.0.0:8443
+          authmethods: [anonymous]
+          protocols: [rawsocket, websocket, http, http2]
+          tls:
+            mode: native
+            sni_certificates:
+              - hostname: example.com
+                certificate_chain_file: /etc/connectanum/tls/fullchain.pem
+                private_key_file: /etc/connectanum/tls/privkey.pem
+            # Optional mTLS / client cert auth:
+            # client_auth:
+            #   mode: required # or: optional
+            #   ca_certificates_file: /etc/connectanum/tls/client_ca.pem
+          rawsocket:
+            max_rawsocket_size_exponent: 16
+          websocket:
+            path: /ws
+            serializer_fallback: json
+          http:
+            alpn: [h2, http/1.1]
+
+      internal_realms:
+        - name: connectanum.metrics
+          auth_id: metrics-daemon
+          auth_role: metrics
+          services: [metrics]
+
+      metrics:
+        open_metrics:
+          enabled: true
+          listen: 0.0.0.0:9100
+          path: /metrics
+          realm: connectanum.metrics
+
+      authenticators:
+        anonymous:
+          type: anonymous
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: connectanum-router-tls
+type: kubernetes.io/tls
+stringData:
+  tls.crt: |
+    -----BEGIN CERTIFICATE-----
+    REPLACE_WITH_CERTIFICATE_CHAIN
+    -----END CERTIFICATE-----
+  tls.key: |
+    -----BEGIN PRIVATE KEY-----
+    REPLACE_WITH_PRIVATE_KEY
+    -----END PRIVATE KEY-----
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: connectanum-router
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: connectanum-router
+  template:
+    metadata:
+      labels:
+        app: connectanum-router
+    spec:
+      containers:
+        - name: router
+          image: ghcr.io/your-org/connectanum-router:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: CONNECTANUM_NATIVE_LIB
+              value: /app/lib/libct_ffi.so
+          args: ["--config", "/etc/connectanum/router.yaml"]
+          ports:
+            - name: wamp
+              containerPort: 8443
+            - name: metrics
+              containerPort: 9100
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            initialDelaySeconds: 1
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 20
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 10001
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: config
+              mountPath: /etc/connectanum/router.yaml
+              subPath: router.yaml
+              readOnly: true
+            - name: tls
+              mountPath: /etc/connectanum/tls
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: connectanum-router-config
+        - name: tls
+          secret:
+            secretName: connectanum-router-tls
+            items:
+              - key: tls.crt
+                path: fullchain.pem
+              - key: tls.key
+                path: privkey.pem
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: connectanum-router
+spec:
+  selector:
+    app: connectanum-router
+  ports:
+    - name: wamp
+      port: 8443
+      targetPort: wamp
+    - name: metrics
+      port: 9100
+      targetPort: metrics

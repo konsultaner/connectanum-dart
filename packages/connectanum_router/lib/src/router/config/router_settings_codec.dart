@@ -252,6 +252,10 @@ abstract final class RouterSettingsCodec {
     if (openMetrics == null) {
       return const <String, Object?>{};
     }
+    final backpressure = metrics.backpressure;
+    const defaultBackpressure = BackpressureThrottleSettings();
+    final transportAlerts = metrics.transportAlerts;
+    const defaultTransportAlerts = TransportAlertSettings();
     return <String, Object?>{
       'open_metrics': <String, Object?>{
         'enabled': openMetrics.enabled,
@@ -261,6 +265,26 @@ abstract final class RouterSettingsCodec {
         if (openMetrics.realm != 'connectanum.metrics')
           'realm': openMetrics.realm,
       },
+      if (backpressure != defaultBackpressure)
+        'backpressure': <String, Object?>{
+          'depth_threshold': backpressure.depthThreshold,
+          'new_events_threshold': backpressure.newEventsThreshold,
+          'cooldown_ms': backpressure.cooldown.inMilliseconds,
+        },
+      if (transportAlerts != defaultTransportAlerts)
+        'transport_alerts': <String, Object?>{
+          'goaway_delta_threshold': transportAlerts.goAwayDeltaThreshold,
+          'idle_timeout_delta_threshold':
+              transportAlerts.idleTimeoutDeltaThreshold,
+          'body_timeout_delta_threshold':
+              transportAlerts.bodyTimeoutDeltaThreshold,
+          'protocol_error_delta_threshold':
+              transportAlerts.protocolErrorDeltaThreshold,
+          'internal_error_delta_threshold':
+              transportAlerts.internalErrorDeltaThreshold,
+          'cooldown_ms': transportAlerts.cooldown.inMilliseconds,
+          'throttle_on_alert': transportAlerts.throttleOnAlert,
+        },
     };
   }
 

@@ -21,6 +21,8 @@ import 'package:connectanum_router/src/router/models/tls_mode.dart';
 import 'package:connectanum_router/src/router/router_instance.dart';
 import 'package:test/test.dart';
 
+import 'support/native_lib.dart';
+
 void main() {
   final nativeLib = resolveOrBuildNativeLib();
   final skipReason = nativeLib == null
@@ -204,7 +206,11 @@ void main() {
         reason: 'websocket handshake not accepted: $events',
       );
       await _waitForCondition(
-        () => events.any((event) => event['type'] == 'worker_connection_added'),
+        () => events.any((event) {
+          final type = event['type'];
+          return type == 'worker_connection_added' ||
+              type == 'worker_registered';
+        }),
         timeout: const Duration(seconds: 5),
         reason: 'websocket worker assignment missing: $events',
       );
@@ -268,7 +274,24 @@ void main() {
               as List<dynamic>;
       expect(event[0], equals(MessageTypes.codeEvent));
       expect(event[1], equals(subscriptionId));
-      expect(event[4], isA<List>());
+      expect(
+        event.length,
+        greaterThanOrEqualTo(5),
+        reason:
+            'Unexpected EVENT message: len=${event.length} idx3=${event.length > 3 ? event[3].runtimeType : null} idx4=${event.length > 4 ? event[4].runtimeType : null}',
+      );
+      expect(
+        event[3],
+        isA<Map>(),
+        reason:
+            'Unexpected EVENT message: len=${event.length} idx3=${event[3].runtimeType}',
+      );
+      expect(
+        event[4],
+        isA<List>(),
+        reason:
+            'Unexpected EVENT message: len=${event.length} idx4=${event[4].runtimeType}',
+      );
       expect((event[4] as List).first, equals(largePayload));
 
       const callRequestId = 4242;
@@ -287,8 +310,9 @@ void main() {
               as List<dynamic>;
       expect(result[0], equals(MessageTypes.codeResult));
       expect(result[1], equals(callRequestId));
-      expect(result[4], isA<List>());
-      final resultArgs = result[4] as List;
+      expect(result[2], isA<Map>());
+      expect(result[3], isA<List>());
+      final resultArgs = result[3] as List;
       expect(resultArgs.first, equals(largeResponse));
       expect(resultArgs[1], equals(largePayload));
     }, skip: skipReason);
@@ -308,26 +332,6 @@ Future<void> _waitForCondition(
     }
     await Future<void>.delayed(pollInterval);
   }
-}
-
-String? _resolveNativeLib() {
-  final env = Platform.environment['CONNECTANUM_NATIVE_LIB'];
-  if (env != null && env.isNotEmpty && File(env).existsSync()) {
-    return env;
-  }
-  const candidates = [
-    'native/transport/target/ffi-test/release/libct_ffi.so',
-    'native/transport/target/ffi-test/debug/libct_ffi.so',
-    'native/transport/target/release/libct_ffi.so',
-    'native/transport/target/debug/libct_ffi.so',
-  ];
-  for (final path in candidates) {
-    final file = File(path);
-    if (file.existsSync()) {
-      return file.absolute.path;
-    }
-  }
-  return null;
 }
 
 RouterConfig _buildWebSocketConfig() => RouterConfig(

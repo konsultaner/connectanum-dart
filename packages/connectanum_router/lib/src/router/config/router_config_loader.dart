@@ -547,6 +547,12 @@ class RouterConfigLoader {
       openMetricsNode['realm'],
       defaultValue: 'connectanum.metrics',
     );
+    final backpressureSettings = _parseBackpressureSettings(
+      node['backpressure'],
+    );
+    final transportAlertSettings = _parseTransportAlertSettings(
+      node['transport_alerts'],
+    );
     return MetricsSettings(
       openMetrics: OpenMetricsSettings(
         enabled: enabled,
@@ -555,6 +561,81 @@ class RouterConfigLoader {
         authToken: authToken,
         realm: realm,
       ),
+      backpressure: backpressureSettings,
+      transportAlerts: transportAlertSettings,
+    );
+  }
+
+  static BackpressureThrottleSettings _parseBackpressureSettings(dynamic node) {
+    if (node == null) {
+      return const BackpressureThrottleSettings();
+    }
+    if (node is! Map<String, Object?>) {
+      throw FormatException('metrics.backpressure must be a map');
+    }
+    final depth = _asInt(
+      node['depth_threshold'],
+      defaultValue: const BackpressureThrottleSettings().depthThreshold,
+    );
+    final newEvents = _asInt(
+      node['new_events_threshold'],
+      defaultValue: const BackpressureThrottleSettings().newEventsThreshold,
+    );
+    final cooldownMs = _asInt(
+      node['cooldown_ms'],
+      defaultValue:
+          const BackpressureThrottleSettings().cooldown.inMilliseconds,
+    );
+    return BackpressureThrottleSettings(
+      depthThreshold: depth,
+      newEventsThreshold: newEvents,
+      cooldown: Duration(milliseconds: cooldownMs),
+    );
+  }
+
+  static TransportAlertSettings _parseTransportAlertSettings(dynamic node) {
+    if (node == null) {
+      return const TransportAlertSettings();
+    }
+    if (node is! Map<String, Object?>) {
+      throw FormatException('metrics.transport_alerts must be a map');
+    }
+    final goAway = _asInt(
+      node['goaway_delta_threshold'],
+      defaultValue: const TransportAlertSettings().goAwayDeltaThreshold,
+    );
+    final idleTimeout = _asInt(
+      node['idle_timeout_delta_threshold'],
+      defaultValue: const TransportAlertSettings().idleTimeoutDeltaThreshold,
+    );
+    final bodyTimeout = _asInt(
+      node['body_timeout_delta_threshold'],
+      defaultValue: const TransportAlertSettings().bodyTimeoutDeltaThreshold,
+    );
+    final protocolError = _asInt(
+      node['protocol_error_delta_threshold'],
+      defaultValue: const TransportAlertSettings().protocolErrorDeltaThreshold,
+    );
+    final internalError = _asInt(
+      node['internal_error_delta_threshold'],
+      defaultValue: const TransportAlertSettings().internalErrorDeltaThreshold,
+    );
+    final cooldownMs = _asInt(
+      node['cooldown_ms'],
+      defaultValue: const TransportAlertSettings().cooldown.inMilliseconds,
+    );
+    final throttle = _asBool(
+      node['throttle_on_alert'],
+      defaultValue: const TransportAlertSettings().throttleOnAlert,
+    );
+    return TransportAlertSettings(
+      goAwayDeltaThreshold: goAway,
+      idleTimeoutDeltaThreshold: idleTimeout,
+      bodyTimeoutDeltaThreshold: bodyTimeout,
+      protocolErrorDeltaThreshold: protocolError,
+      internalErrorDeltaThreshold: internalError,
+      cooldown: Duration(milliseconds: cooldownMs),
+      throttleOnAlert: throttle,
     );
   }
 

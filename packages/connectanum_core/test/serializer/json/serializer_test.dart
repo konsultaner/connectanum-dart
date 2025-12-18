@@ -590,6 +590,26 @@ void main() {
         ),
       );
     });
+    test('Event', () {
+      expect(
+        serializer.serializeToString(
+          Event(5512315355, 4429313566, EventDetails(), arguments: ['johnny']),
+        ),
+        equals('[36,5512315355,4429313566,{},["johnny"]]'),
+      );
+      expect(
+        serializer.serializeToString(
+          Event(
+            5512315355,
+            4429313566,
+            EventDetails(),
+            arguments: ['johnny'],
+            argumentsKeywords: {'karma': 10},
+          ),
+        ),
+        equals('[36,5512315355,4429313566,{},["johnny"],{"karma":10}]'),
+      );
+    });
     test('Goodbye', () {
       expect(
         serializer.serializeToString(
@@ -1187,13 +1207,13 @@ void main() {
       expect(
         serializer.serializeToString(event),
         equals(
-          '[36,1,2,[{"binary":{"content":["\\\\u0000EOP/kFMHXFJvX8BtT+N82w==","some"]}}],{"binary":"\\\\u0000EOP/kFMHXFJvX8BtT+N82w=="}]',
+          '[36,1,2,{},[{"binary":{"content":["\\\\u0000EOP/kFMHXFJvX8BtT+N82w==","some"]}}],{"binary":"\\\\u0000EOP/kFMHXFJvX8BtT+N82w=="}]',
         ),
       );
       event.transparentBinaryPayload = result.transparentBinaryPayload;
       expect(
         serializer.serializeToString(event),
-        equals('[36,1,2,"\\\\u0000EOP/kFMHXFJvX8BtT+N82w=="]'),
+        equals('[36,1,2,{},"\\\\u0000EOP/kFMHXFJvX8BtT+N82w=="]'),
       );
     });
   });

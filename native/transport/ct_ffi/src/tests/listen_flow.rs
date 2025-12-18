@@ -24,19 +24,19 @@ use tokio::runtime::Runtime as TokioRuntime;
 
 const HTTP2_PREFACE: &[u8] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
 
-#[cfg(feature = "ffi-test")]
-use crate::runtime::constants::HTTP_EVENT_REASON_IDLE_TIMEOUT;
 use crate::runtime::constants::{
     ERR_CONNECTION_NOT_FOUND, ERR_ENDPOINT_NOT_CONFIGURED, ERR_INVALID_ARGUMENT,
-    ERR_LISTENER_NOT_FOUND, ERR_UNSUPPORTED, HTTP_EVENT_REASON_BODY_TIMEOUT, PROTOCOL_HTTP,
-    PROTOCOL_HTTP2, PROTOCOL_HTTP3, PROTOCOL_RAWSOCKET, PROTOCOL_WEBSOCKET, SUCCESS,
+    ERR_LISTENER_NOT_FOUND, ERR_UNSUPPORTED, HTTP_EVENT_REASON_BODY_TIMEOUT,
+    HTTP_EVENT_REASON_GOAWAY, HTTP_EVENT_REASON_IDLE_TIMEOUT, PROTOCOL_HTTP, PROTOCOL_HTTP2,
+    PROTOCOL_HTTP3, PROTOCOL_RAWSOCKET, PROTOCOL_WEBSOCKET, SUCCESS,
 };
 use crate::runtime::ffi::{
     ct_apply_router_config, ct_connection_accept_websocket, ct_connection_get_http3_connection,
     ct_connection_max_rawsocket_exponent, ct_connection_poll_http_event, ct_connection_protocol,
     ct_connection_take_http2_handshake, ct_connection_take_http3_handshake,
-    ct_connection_take_http_handshake, ct_connection_take_websocket_handshake, ct_get_local_port,
-    ct_http2_handshake_get, ct_http2_handshake_listener_protocol, ct_http2_handshake_release,
+    ct_connection_take_http_handshake, ct_connection_take_websocket_handshake,
+    ct_connection_websocket_protocol, ct_get_local_port, ct_http2_handshake_get,
+    ct_http2_handshake_listener_protocol, ct_http2_handshake_release,
     ct_http3_connection_poll_request, ct_http3_connection_poll_stream, ct_http3_connection_release,
     ct_http3_handshake_get, ct_http3_handshake_listener_protocol, ct_http3_handshake_release,
     ct_http_body_finish, ct_http_body_get, ct_http_body_release, ct_http_body_stream_read,
@@ -165,7 +165,7 @@ fn listener_callbacks_fire_and_connections_are_reported() {
                 {
                     "host":"127.0.0.1",
                     "port":0,
-                    "tls_mode":"native",
+                    "tls_mode":"disabled",
                     "max_rawsocket_size_exponent":30
                 }
             ]
@@ -259,7 +259,7 @@ fn poll_connection_message_returns_payload() {
                 {
                     "host":"127.0.0.1",
                     "port":0,
-                    "tls_mode":"native",
+                    "tls_mode":"disabled",
                     "protocols":["rawsocket","http"],
                     "http":{
                         "alpn":["http/1.1"]
@@ -352,7 +352,7 @@ fn poll_connection_message_returns_payload() {
 fn http_handshake_surfaced_via_ffi() {
     let _guard = super::test_guard();
     let config = CString::new(
-        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","protocols":["rawsocket","http"],"http":{"alpn":["http/1.1"]},"http_routes":[{"path":"/health","match_kind":"prefix","methods":{"GET":{"type":"reserved_realm","append_method_suffix":true}}}]}]}"#,
+        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["rawsocket","http"],"http":{"alpn":["http/1.1"]},"http_routes":[{"path":"/health","match_kind":"prefix","methods":{"GET":{"type":"reserved_realm","append_method_suffix":true}}}]}]}"#,
     )
     .unwrap();
     let bytes = config.as_bytes();
@@ -515,7 +515,7 @@ fn http_handshake_surfaced_via_ffi() {
 fn http_handshake_streaming_body_round_trip() {
     let _guard = super::test_guard();
     let config = CString::new(
-        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"native","protocols":["rawsocket","http"],"http":{"alpn":["http/1.1"]},"http_routes":[{"path":"/stream","match_kind":"prefix","methods":{"POST":{"type":"reserved_realm","append_method_suffix":true}}}]}]}"#,
+        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["rawsocket","http"],"http":{"alpn":["http/1.1"]},"http_routes":[{"path":"/stream","match_kind":"prefix","methods":{"POST":{"type":"reserved_realm","append_method_suffix":true}}}]}]}"#,
     )
     .unwrap();
     let bytes = config.as_bytes();
@@ -672,7 +672,7 @@ fn http_response_streaming_round_trip() {
                 {
                     "host":"127.0.0.1",
                     "port":0,
-                    "tls_mode":"native",
+                    "tls_mode":"disabled",
                     "protocols":["rawsocket","http"],
                     "http":{
                         "alpn":["http/1.1"]
@@ -856,7 +856,7 @@ fn http2_handshake_surfaced_via_ffi() {
                 {
                     "host":"127.0.0.1",
                     "port":0,
-                    "tls_mode":"native",
+                    "tls_mode":"disabled",
                     "protocols":["rawsocket","http"],
                     "http":{
                         "alpn":["h2","http/1.1"]
@@ -1790,7 +1790,7 @@ fn http2_body_timeout_emits_connection_event() {
             {
                 "host":"127.0.0.1",
                 "port":0,
-                "tls_mode":"native",
+                "tls_mode":"disabled",
                 "idle_timeout_ms":50,
                 "protocols":["rawsocket","http","http2"],
                 "http":{
@@ -1882,6 +1882,69 @@ fn http2_body_timeout_emits_connection_event() {
 
 #[cfg(feature = "ffi-test")]
 #[test]
+fn http2_goaway_event_includes_detail() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"native",
+                    "protocols":["rawsocket","http","http2","http3"],
+                    "http":{"alpn":["http/1.1","h2","h3"],"http3":{"enabled":true}},
+                    "http_routes":[]
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let detail = CString::new("remote http/2 GOAWAY: too_many_streams").unwrap();
+    let detail_bytes = detail.as_bytes();
+    let connection_id = 5151;
+    assert_eq!(
+        ct_test_push_http_connection_event(
+            connection_id,
+            1,
+            PROTOCOL_HTTP2,
+            HTTP_EVENT_REASON_GOAWAY,
+            2,
+            0,
+            0,
+            0,
+            0,
+            1,
+            detail.as_ptr(),
+            detail_bytes.len() as i32,
+        ),
+        SUCCESS
+    );
+
+    let (event, retrieved_detail) = wait_for_http_event(Duration::from_secs(5));
+    assert_eq!(event.connection_id, connection_id);
+    assert_eq!(event.protocol, PROTOCOL_HTTP2);
+    assert_eq!(event.reason, HTTP_EVENT_REASON_GOAWAY);
+    assert_eq!(event.goaway_events, 1);
+    assert_eq!(event.request_count, 2);
+    assert_eq!(
+        retrieved_detail.as_deref(),
+        Some("remote http/2 GOAWAY: too_many_streams")
+    );
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[cfg(feature = "ffi-test")]
+#[test]
 fn http3_idle_timeout_emits_connection_event() {
     let _guard = super::test_guard();
     let config = CString::new(
@@ -1945,6 +2008,65 @@ fn http3_idle_timeout_emits_connection_event() {
     assert_eq!(ct_shutdown(), SUCCESS);
 }
 
+#[cfg(feature = "ffi-test")]
+#[test]
+fn http3_goaway_event_includes_detail() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"native",
+                    "protocols":["rawsocket","http","http2","http3"],
+                    "http":{"alpn":["http/1.1","h2","h3"],"http3":{"enabled":true}},
+                    "http_routes":[]
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let detail = CString::new("remote http/3 GOAWAY: idle").unwrap();
+    let detail_bytes = detail.as_bytes();
+    let connection_id = 5252;
+    assert_eq!(
+        ct_test_push_http_connection_event(
+            connection_id,
+            1,
+            PROTOCOL_HTTP3,
+            HTTP_EVENT_REASON_GOAWAY,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            detail.as_ptr(),
+            detail_bytes.len() as i32,
+        ),
+        SUCCESS
+    );
+
+    let (event, retrieved_detail) = wait_for_http_event(Duration::from_secs(5));
+    assert_eq!(event.connection_id, connection_id);
+    assert_eq!(event.protocol, PROTOCOL_HTTP3);
+    assert_eq!(event.reason, HTTP_EVENT_REASON_GOAWAY);
+    assert_eq!(event.goaway_events, 1);
+    assert_eq!(retrieved_detail.as_deref(), Some("remote http/3 GOAWAY: idle"));
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
 #[test]
 fn http2_request_round_trip_over_network() {
     let _guard = super::test_guard();
@@ -1956,7 +2078,7 @@ fn http2_request_round_trip_over_network() {
                 {
                     "host":"127.0.0.1",
                     "port":0,
-                    "tls_mode":"native",
+                    "tls_mode":"disabled",
                     "protocols":["rawsocket","http","http2"],
                     "http":{
                         "alpn":["h2","http/1.1"]
@@ -2029,8 +2151,7 @@ fn http2_request_round_trip_over_network() {
 
     client_rx.recv().unwrap();
 
-    let connection_id = ct_poll_connection(listener_id);
-    assert!(connection_id > 0);
+    let connection_id = wait_for_connection(listener_id);
     assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP2);
 
     let deadline = Instant::now() + Duration::from_secs(5);
@@ -2091,7 +2212,7 @@ fn http2_streaming_body_round_trip() {
                 {
                     "host":"127.0.0.1",
                     "port":0,
-                    "tls_mode":"native",
+                    "tls_mode":"disabled",
                     "protocols":["rawsocket","http","http2"],
                     "http":{
                         "alpn":["h2","http/1.1"]
@@ -2279,7 +2400,7 @@ fn http2_response_streaming_round_trip() {
                 {
                     "host":"127.0.0.1",
                     "port":0,
-                    "tls_mode":"native",
+                    "tls_mode":"disabled",
                     "protocols":["rawsocket","http","http2"],
                     "http":{
                         "alpn":["h2","http/1.1"]
@@ -2427,7 +2548,7 @@ fn websocket_handshake_surfaced_via_ffi() {
                 {
                     "host":"127.0.0.1",
                     "port":0,
-                    "tls_mode":"native",
+                    "tls_mode":"disabled",
                     "protocols":["rawsocket","websocket","http"],
                     "http":{
                         "alpn":["http/1.1"]
@@ -2545,7 +2666,7 @@ fn websocket_wamp_round_trip() {
                 {
                     "host":"127.0.0.1",
                     "port":0,
-                    "tls_mode":"native",
+                    "tls_mode":"disabled",
                     "protocols":["rawsocket","websocket","http"],
                     "websocket_path":"/ws",
                     "http":{
@@ -2594,6 +2715,24 @@ fn websocket_wamp_round_trip() {
         ),
         SUCCESS
     );
+
+    let mut protocol_len: i32 = 0;
+    assert_eq!(
+        ct_connection_websocket_protocol(connection_id, std::ptr::null_mut(), &mut protocol_len),
+        SUCCESS
+    );
+    assert_eq!(protocol_len, "wamp.2.json".len() as i32);
+
+    let mut buffer = vec![0u8; protocol_len as usize];
+    let mut buffer_len = protocol_len;
+    assert_eq!(
+        ct_connection_websocket_protocol(connection_id, buffer.as_mut_ptr(), &mut buffer_len),
+        SUCCESS
+    );
+    assert_eq!(buffer_len, protocol_len);
+    let negotiated =
+        std::str::from_utf8(&buffer[..buffer_len as usize]).expect("utf8 websocket protocol");
+    assert_eq!(negotiated, "wamp.2.json");
 
     rt.block_on(async {
         let response = read_http_response_until_body(&mut stream).await;

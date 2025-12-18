@@ -109,6 +109,14 @@ class RouterTransportMetrics {
     required this.internalErrorEvents,
     required this.backpressureEvents,
     required this.maxBackpressureDepth,
+    this.backpressureAlerts = 0,
+    this.transportAlerts = 0,
+    this.goAwayAlerts = 0,
+    this.idleTimeoutAlerts = 0,
+    this.bodyTimeoutAlerts = 0,
+    this.protocolErrorAlerts = 0,
+    this.internalErrorAlerts = 0,
+    this.alertBreakdown = const <RouterTransportAlertBreakdown>[],
     this.breakdown = const <RouterTransportMetricsBreakdown>[],
   });
 
@@ -121,6 +129,14 @@ class RouterTransportMetrics {
   final int internalErrorEvents;
   final int backpressureEvents;
   final int maxBackpressureDepth;
+  final int backpressureAlerts;
+  final int transportAlerts;
+  final int goAwayAlerts;
+  final int idleTimeoutAlerts;
+  final int bodyTimeoutAlerts;
+  final int protocolErrorAlerts;
+  final int internalErrorAlerts;
+  final List<RouterTransportAlertBreakdown> alertBreakdown;
   final List<RouterTransportMetricsBreakdown> breakdown;
 
   RouterTransportMetrics copyWith({
@@ -133,6 +149,14 @@ class RouterTransportMetrics {
     int? internalErrorEvents,
     int? backpressureEvents,
     int? maxBackpressureDepth,
+    int? backpressureAlerts,
+    int? transportAlerts,
+    int? goAwayAlerts,
+    int? idleTimeoutAlerts,
+    int? bodyTimeoutAlerts,
+    int? protocolErrorAlerts,
+    int? internalErrorAlerts,
+    List<RouterTransportAlertBreakdown>? alertBreakdown,
     List<RouterTransportMetricsBreakdown>? breakdown,
   }) {
     return RouterTransportMetrics(
@@ -145,6 +169,14 @@ class RouterTransportMetrics {
       internalErrorEvents: internalErrorEvents ?? this.internalErrorEvents,
       backpressureEvents: backpressureEvents ?? this.backpressureEvents,
       maxBackpressureDepth: maxBackpressureDepth ?? this.maxBackpressureDepth,
+      backpressureAlerts: backpressureAlerts ?? this.backpressureAlerts,
+      transportAlerts: transportAlerts ?? this.transportAlerts,
+      goAwayAlerts: goAwayAlerts ?? this.goAwayAlerts,
+      idleTimeoutAlerts: idleTimeoutAlerts ?? this.idleTimeoutAlerts,
+      bodyTimeoutAlerts: bodyTimeoutAlerts ?? this.bodyTimeoutAlerts,
+      protocolErrorAlerts: protocolErrorAlerts ?? this.protocolErrorAlerts,
+      internalErrorAlerts: internalErrorAlerts ?? this.internalErrorAlerts,
+      alertBreakdown: alertBreakdown ?? this.alertBreakdown,
       breakdown: breakdown ?? this.breakdown,
     );
   }
@@ -159,8 +191,68 @@ class RouterTransportMetrics {
     'internal_error_events': internalErrorEvents,
     'backpressure_events': backpressureEvents,
     'max_backpressure_depth': maxBackpressureDepth,
+    'backpressure_alerts': backpressureAlerts,
+    'transport_alerts': transportAlerts,
+    'goaway_alerts': goAwayAlerts,
+    'idle_timeout_alerts': idleTimeoutAlerts,
+    'body_timeout_alerts': bodyTimeoutAlerts,
+    'protocol_error_alerts': protocolErrorAlerts,
+    'internal_error_alerts': internalErrorAlerts,
+    if (alertBreakdown.isNotEmpty)
+      'alert_breakdown': alertBreakdown
+          .map((entry) => entry.toJson())
+          .toList(growable: false),
     if (breakdown.isNotEmpty)
       'by_listener_protocol': breakdown.map((entry) => entry.toJson()).toList(),
+  };
+}
+
+/// Per-listener/per-protocol aggregation of alert counts.
+@immutable
+class RouterTransportAlertBreakdown {
+  const RouterTransportAlertBreakdown({
+    required this.listenerId,
+    required this.protocol,
+    required this.endpoint,
+    required this.backpressureAlerts,
+    required this.goAwayAlerts,
+    required this.idleTimeoutAlerts,
+    required this.bodyTimeoutAlerts,
+    required this.protocolErrorAlerts,
+    required this.internalErrorAlerts,
+    this.throttleUntil,
+  });
+
+  final int listenerId;
+  final String protocol;
+  final String endpoint;
+  final int backpressureAlerts;
+  final int goAwayAlerts;
+  final int idleTimeoutAlerts;
+  final int bodyTimeoutAlerts;
+  final int protocolErrorAlerts;
+  final int internalErrorAlerts;
+  final DateTime? throttleUntil;
+
+  int get transportAlerts =>
+      goAwayAlerts +
+      idleTimeoutAlerts +
+      bodyTimeoutAlerts +
+      protocolErrorAlerts +
+      internalErrorAlerts;
+
+  Map<String, Object?> toJson() => {
+    'listener_id': listenerId,
+    'protocol': protocol,
+    'endpoint': endpoint,
+    'backpressure_alerts': backpressureAlerts,
+    'goaway_alerts': goAwayAlerts,
+    'idle_timeout_alerts': idleTimeoutAlerts,
+    'body_timeout_alerts': bodyTimeoutAlerts,
+    'protocol_error_alerts': protocolErrorAlerts,
+    'internal_error_alerts': internalErrorAlerts,
+    if (throttleUntil != null)
+      'throttle_until': throttleUntil!.toIso8601String(),
   };
 }
 

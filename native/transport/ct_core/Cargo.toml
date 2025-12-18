@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 socket2 = "0.5"
 tokio = { version = "1.40.0", features = ["rt-multi-thread", "net", "sync", "time", "macros", "io-util"] }
+tokio-rustls = { version = "0.26", default-features = false }
 thiserror = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
@@ -30,3 +31,6 @@ base64 = "0.21"
 
 [features]
 ffi-test = []
+
+[dev-dependencies]
+rcgen = "0.13"

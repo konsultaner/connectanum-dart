@@ -192,6 +192,22 @@ Uint8List encodeMessage(
   }
 }
 
+NativeMessageSerializer? _serializerFromName(String name) {
+  switch (name) {
+    case 'json':
+      return NativeMessageSerializer.json;
+    case 'msgpack':
+      return NativeMessageSerializer.messagePack;
+    case 'cbor':
+      return NativeMessageSerializer.cbor;
+    case 'ubjson':
+      return NativeMessageSerializer.ubjson;
+    case 'flatbuffers':
+      return NativeMessageSerializer.flatbuffers;
+  }
+  return null;
+}
+
 Future<int> allocateSessionId(SendPort? statePort) async {
   if (statePort == null) {
     return DateTime.now().microsecondsSinceEpoch;
@@ -250,9 +266,25 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
     listener: initialListener,
     listenerSettings: lookupListenerSettings(settings, initialListener),
   );
-  final primary = initialListener.settings?.primaryProtocol;
-  if (primary != null) {
-    initialState.protocol = primary;
+  initialState.protocol =
+      initialListener.settings?.primaryProtocol ?? ListenerProtocol.rawsocket;
+  final Map<Object?, Object?>? initialMetadata = init['metadata'] is Map
+      ? init['metadata'] as Map<Object?, Object?>
+      : null;
+  if (initialMetadata != null) {
+    final protocol = initialMetadata['protocol'] as String?;
+    if (protocol != null) {
+      initialState.protocol = listenerProtocolFromString(protocol);
+    }
+    final wsProtocol = initialMetadata['websocketProtocol'] as String?;
+    if (wsProtocol != null) {
+      initialState.websocketProtocol = wsProtocol;
+    }
+    final wsSerializer = initialMetadata['websocketSerializer'] as String?;
+    if (wsSerializer != null) {
+      initialState.websocketSerializer = wsSerializer;
+      initialState.serializer ??= _serializerFromName(wsSerializer);
+    }
   }
   connectionStates[initialConnectionId] = initialState;
 
@@ -396,6 +428,7 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
         final wsSerializer = metadata['websocketSerializer'] as String?;
         if (wsSerializer != null) {
           state.websocketSerializer = wsSerializer;
+          state.serializer ??= _serializerFromName(wsSerializer);
         }
       }
       bossPort.send({

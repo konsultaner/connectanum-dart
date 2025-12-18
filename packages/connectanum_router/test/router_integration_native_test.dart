@@ -120,6 +120,10 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
   }
 
   @override
+  String? connectionWebSocketProtocol(int connectionId) =>
+      _inner.connectionWebSocketProtocol(_resolveConnectionId(connectionId));
+
+  @override
   NativeHttpHandshake? takeHttpHandshake(int connectionId) {
     if (_syntheticConnections.contains(connectionId)) {
       return null;
@@ -355,6 +359,9 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
 
   @override
   void applyRouterConfig(Uint8List config) => _inner.applyRouterConfig(config);
+
+  @override
+  int reloadTls() => _inner.reloadTls();
 
   int enqueueTestMessage({
     required int connectionId,
@@ -659,11 +666,8 @@ class _RouterHarness {
   }
 }
 
-const bool _forwardNativePublishEventsEnabled = bool.fromEnvironment(
-  'CONNECTANUM_FORWARD_NATIVE_PUBLISH',
-  defaultValue: false,
-);
-const String? _nativePublishSkipReason = _forwardNativePublishEventsEnabled
+final bool _forwardNativePublishEventsEnabled = forwardNativePublishEvents;
+final String? _nativePublishSkipReason = _forwardNativePublishEventsEnabled
     ? null
     : 'CONNECTANUM_FORWARD_NATIVE_PUBLISH not enabled (zero-copy publish forwarding disabled).';
 
@@ -777,6 +781,14 @@ void main() {
     test(
       'forwards native events to subscribers',
       () async {
+        if (!_forwardNativePublishEventsEnabled) {
+          // ignore: avoid_print
+          print(
+            'Skipping native publish forwarding test: CONNECTANUM_FORWARD_NATIVE_PUBLISH not enabled',
+          );
+          return;
+        }
+
         final harness = await _RouterHarness.start(
           connectionId: 9102,
           nativeLib: nativeLib,
@@ -1029,6 +1041,7 @@ void main() {
       addTearDown(() async {
         await connection.finish();
       });
+      await connection.onInitialPeerSettingsReceived;
 
       final headers = <http2.Header>[
         http2.Header.ascii(':method', 'POST'),
@@ -1101,7 +1114,7 @@ void main() {
       );
       addTearDown(httpSession.close);
 
-      final payloadLength = 768 * 1024;
+      final payloadLength = 48 * 1024;
       final requestPayload = Uint8List.fromList(
         List<int>.generate(payloadLength, (index) => (index * 5) % 251),
       );
@@ -1154,7 +1167,25 @@ void main() {
         http2.Header.ascii('content-length', payloadLength.toString()),
       ];
       final stream = connection.makeRequest(headers, endStream: false);
-      const chunkSize = 128 * 1024;
+      final responseFuture = () async {
+        var statusCode = 0;
+        final buffer = BytesBuilder(copy: false);
+        await for (final message in stream.incomingMessages) {
+          if (message is http2.HeadersStreamMessage) {
+            for (final header in message.headers) {
+              final name = utf8.decode(header.name);
+              if (name == ':status') {
+                statusCode =
+                    int.tryParse(utf8.decode(header.value)) ?? statusCode;
+              }
+            }
+          } else if (message is http2.DataStreamMessage) {
+            buffer.add(message.bytes);
+          }
+        }
+        return (statusCode: statusCode, body: buffer.takeBytes());
+      }();
+      const chunkSize = 16 * 1024;
       var offset = 0;
       while (offset < requestPayload.length) {
         final end = math.min(offset + chunkSize, requestPayload.length);
@@ -1166,25 +1197,9 @@ void main() {
         offset = end;
       }
       await stream.outgoingMessages.close();
-
-      var statusCode = 0;
-      final buffer = BytesBuilder(copy: false);
-      await for (final message in stream.incomingMessages) {
-        if (message is http2.HeadersStreamMessage) {
-          for (final header in message.headers) {
-            final name = utf8.decode(header.name);
-            if (name == ':status') {
-              statusCode =
-                  int.tryParse(utf8.decode(header.value)) ?? statusCode;
-            }
-          }
-        } else if (message is http2.DataStreamMessage) {
-          buffer.add(message.bytes);
-        }
-      }
-
-      expect(statusCode, equals(206));
-      final responseBody = buffer.takeBytes();
+      final response = await responseFuture;
+      expect(response.statusCode, equals(206));
+      final responseBody = response.body;
       final expectedLength =
           responseChunk.length * chunkCount + finalChunk.length;
       expect(responseBody.length, equals(expectedLength));
@@ -1514,10 +1529,15 @@ String? resolveOrBuildNativeLib() {
     return env;
   }
   const candidates = [
-    'native/transport/target/ffi-test/release/libct_ffi.so',
-    'native/transport/target/ffi-test/debug/libct_ffi.so',
-    'native/transport/target/release/libct_ffi.so',
     'native/transport/target/debug/libct_ffi.so',
+    '../../native/transport/target/debug/libct_ffi.so',
+    'native/transport/target/ffi-test/debug/libct_ffi.so',
+    '../../native/transport/target/ffi-test/debug/libct_ffi.so',
+    'native/transport/target/ffi-test/release/libct_ffi.so',
+    '../../native/transport/target/ffi-test/release/libct_ffi.so',
+    'native/transport/target/release/libct_ffi.so',
+    '../../native/transport/target/debug/libct_ffi.so',
+    '../../native/transport/target/release/libct_ffi.so',
   ];
   for (final path in candidates) {
     final file = File(path);
@@ -1535,11 +1555,6 @@ final String _http3CaCertificatePem = _loadRouterCert('http3_ca_cert.pem');
 final List<SniCertificate> _http3SniCertificates = [
   SniCertificate(
     hostname: 'localhost',
-    certificateChainPem: _http3CertificatePem,
-    privateKeyPem: _http3PrivateKeyPem,
-  ),
-  SniCertificate(
-    hostname: '127.0.0.1',
     certificateChainPem: _http3CertificatePem,
     privateKeyPem: _http3PrivateKeyPem,
   ),

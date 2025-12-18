@@ -278,10 +278,12 @@ class MetricsSettings {
   const MetricsSettings({
     this.openMetrics,
     this.backpressure = const BackpressureThrottleSettings(),
+    this.transportAlerts = const TransportAlertSettings(),
   });
 
   final OpenMetricsSettings? openMetrics;
   final BackpressureThrottleSettings backpressure;
+  final TransportAlertSettings transportAlerts;
 
   @override
   bool operator ==(Object other) {
@@ -290,11 +292,12 @@ class MetricsSettings {
     }
     return other is MetricsSettings &&
         other.openMetrics == openMetrics &&
-        other.backpressure == backpressure;
+        other.backpressure == backpressure &&
+        other.transportAlerts == transportAlerts;
   }
 
   @override
-  int get hashCode => Object.hash(openMetrics, backpressure);
+  int get hashCode => Object.hash(openMetrics, backpressure, transportAlerts);
 }
 
 @immutable
@@ -359,7 +362,8 @@ class BackpressureThrottleSettings {
     this.depthThreshold = 16,
     this.newEventsThreshold = 1,
     this.cooldown = const Duration(milliseconds: 250),
-  }) : assert(depthThreshold >= 0), assert(newEventsThreshold >= 0);
+  }) : assert(depthThreshold >= 0),
+       assert(newEventsThreshold >= 0);
 
   final int depthThreshold;
   final int newEventsThreshold;
@@ -390,6 +394,82 @@ class BackpressureThrottleSettings {
 
   @override
   int get hashCode => Object.hash(depthThreshold, newEventsThreshold, cooldown);
+}
+
+/// Alert thresholds for transport lifecycle events (GOAWAY, timeouts, errors).
+@immutable
+class TransportAlertSettings {
+  const TransportAlertSettings({
+    this.goAwayDeltaThreshold = 1,
+    this.idleTimeoutDeltaThreshold = 1,
+    this.bodyTimeoutDeltaThreshold = 1,
+    this.protocolErrorDeltaThreshold = 1,
+    this.internalErrorDeltaThreshold = 1,
+    this.cooldown = const Duration(milliseconds: 500),
+    this.throttleOnAlert = true,
+  }) : assert(goAwayDeltaThreshold >= 0),
+       assert(idleTimeoutDeltaThreshold >= 0),
+       assert(bodyTimeoutDeltaThreshold >= 0),
+       assert(protocolErrorDeltaThreshold >= 0),
+       assert(internalErrorDeltaThreshold >= 0);
+
+  final int goAwayDeltaThreshold;
+  final int idleTimeoutDeltaThreshold;
+  final int bodyTimeoutDeltaThreshold;
+  final int protocolErrorDeltaThreshold;
+  final int internalErrorDeltaThreshold;
+  final Duration cooldown;
+  final bool throttleOnAlert;
+
+  TransportAlertSettings copyWith({
+    int? goAwayDeltaThreshold,
+    int? idleTimeoutDeltaThreshold,
+    int? bodyTimeoutDeltaThreshold,
+    int? protocolErrorDeltaThreshold,
+    int? internalErrorDeltaThreshold,
+    Duration? cooldown,
+    bool? throttleOnAlert,
+  }) {
+    return TransportAlertSettings(
+      goAwayDeltaThreshold: goAwayDeltaThreshold ?? this.goAwayDeltaThreshold,
+      idleTimeoutDeltaThreshold:
+          idleTimeoutDeltaThreshold ?? this.idleTimeoutDeltaThreshold,
+      bodyTimeoutDeltaThreshold:
+          bodyTimeoutDeltaThreshold ?? this.bodyTimeoutDeltaThreshold,
+      protocolErrorDeltaThreshold:
+          protocolErrorDeltaThreshold ?? this.protocolErrorDeltaThreshold,
+      internalErrorDeltaThreshold:
+          internalErrorDeltaThreshold ?? this.internalErrorDeltaThreshold,
+      cooldown: cooldown ?? this.cooldown,
+      throttleOnAlert: throttleOnAlert ?? this.throttleOnAlert,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    return other is TransportAlertSettings &&
+        other.goAwayDeltaThreshold == goAwayDeltaThreshold &&
+        other.idleTimeoutDeltaThreshold == idleTimeoutDeltaThreshold &&
+        other.bodyTimeoutDeltaThreshold == bodyTimeoutDeltaThreshold &&
+        other.protocolErrorDeltaThreshold == protocolErrorDeltaThreshold &&
+        other.internalErrorDeltaThreshold == internalErrorDeltaThreshold &&
+        other.cooldown == cooldown &&
+        other.throttleOnAlert == throttleOnAlert;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    goAwayDeltaThreshold,
+    idleTimeoutDeltaThreshold,
+    bodyTimeoutDeltaThreshold,
+    protocolErrorDeltaThreshold,
+    internalErrorDeltaThreshold,
+    cooldown,
+    throttleOnAlert,
+  );
 }
 
 @immutable

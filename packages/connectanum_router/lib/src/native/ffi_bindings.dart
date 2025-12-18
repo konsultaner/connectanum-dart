@@ -122,11 +122,23 @@ typedef CtApplyRouterConfigNative =
     ffi.Int32 Function(ffi.Pointer<ffi.Uint8>, ffi.Int32);
 typedef CtApplyRouterConfigDart = int Function(ffi.Pointer<ffi.Uint8>, int);
 
+typedef CtReloadTlsNative = ffi.Int32 Function();
+typedef CtReloadTlsDart = int Function();
+
 typedef CtConnectionMaxRawsocketExponentNative = ffi.Int32 Function(ffi.Int32);
 typedef CtConnectionMaxRawsocketExponentDart = int Function(int);
 
 typedef CtConnectionProtocolNative = ffi.Int32 Function(ffi.Int32);
 typedef CtConnectionProtocolDart = int Function(int);
+
+typedef CtConnectionWebSocketProtocolNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Pointer<ffi.Int32>,
+    );
+typedef CtConnectionWebSocketProtocolDart =
+    int Function(int, ffi.Pointer<ffi.Uint8>, ffi.Pointer<ffi.Int32>);
 
 typedef ListenerCallbackNative = ffi.Void Function(ffi.Int32, ffi.Int32);
 typedef ConnectionCallbackNative = ffi.Void Function(ffi.Int32, ffi.Int32);
@@ -661,6 +673,9 @@ class CtFfiBindings {
           .lookupFunction<CtApplyRouterConfigNative, CtApplyRouterConfigDart>(
             'ct_apply_router_config',
           ),
+      ctReloadTls = library.lookupFunction<CtReloadTlsNative, CtReloadTlsDart>(
+        'ct_reload_tls',
+      ),
       ctConnectionMaxRawsocketExponent = library
           .lookupFunction<
             CtConnectionMaxRawsocketExponentNative,
@@ -670,6 +685,11 @@ class CtFfiBindings {
           .lookupFunction<CtConnectionProtocolNative, CtConnectionProtocolDart>(
             'ct_connection_protocol',
           ),
+      ctConnectionWebSocketProtocol = library
+          .lookupFunction<
+            CtConnectionWebSocketProtocolNative,
+            CtConnectionWebSocketProtocolDart
+          >('ct_connection_websocket_protocol'),
       ctConnectionTakeHttpHandshake = library
           .lookupFunction<
             CtConnectionTakeHttpHandshakeNative,
@@ -888,8 +908,10 @@ class CtFfiBindings {
   final CtForwardErrorFromErrorDart ctForwardErrorFromError;
   final CtSendMessageDart ctSendMessage;
   final CtApplyRouterConfigDart ctApplyRouterConfig;
+  final CtReloadTlsDart ctReloadTls;
   final CtConnectionMaxRawsocketExponentDart ctConnectionMaxRawsocketExponent;
   final CtConnectionProtocolDart ctConnectionProtocol;
+  final CtConnectionWebSocketProtocolDart ctConnectionWebSocketProtocol;
   final CtConnectionTakeHttpHandshakeDart ctConnectionTakeHttpHandshake;
   final CtConnectionTakeHttp2HandshakeDart ctConnectionTakeHttp2Handshake;
   final CtConnectionTakeHttp3HandshakeDart ctConnectionTakeHttp3Handshake;

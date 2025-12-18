@@ -20,6 +20,7 @@ abstract class NativeRuntime {
   int pollConnection(int listenerId);
   int connectionMaxRawSocketExponent(int connectionId);
   NativeConnectionProtocol connectionProtocol(int connectionId);
+  String? connectionWebSocketProtocol(int connectionId) => null;
   NativeHttpHandshake? takeHttpHandshake(int connectionId);
   void releaseHttpHandshake(int handle);
   NativeWebSocketHandshake? takeWebSocketHandshake(int connectionId);
@@ -64,6 +65,8 @@ abstract class NativeRuntime {
 
   void sendMessage(int connectionId, Uint8List payload);
   void applyRouterConfig(Uint8List config);
+  int reloadTls() =>
+      throw UnsupportedError('TLS reload is not supported by this runtime');
   NativeIncomingMessage? pollMessage(int connectionId);
 }
 
@@ -1495,6 +1498,39 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
   }
 
   @override
+  String? connectionWebSocketProtocol(int connectionId) {
+    const initialCapacity = 256;
+    return using((arena) {
+      var capacity = initialCapacity;
+      final lenPtr = arena<ffi.Int32>()..value = capacity;
+      var buffer = arena<ffi.Uint8>(capacity);
+      for (var attempt = 0; attempt < 2; attempt++) {
+        final result = _bindings.ctConnectionWebSocketProtocol(
+          connectionId,
+          buffer,
+          lenPtr,
+        );
+        if (result == NativeTransportErrorCode.success) {
+          final length = lenPtr.value;
+          if (length <= 0) {
+            return null;
+          }
+          return utf8.decode(buffer.asTypedList(length));
+        }
+        if (result == NativeTransportErrorCode.invalidArgument &&
+            lenPtr.value > capacity) {
+          capacity = lenPtr.value;
+          buffer = arena<ffi.Uint8>(capacity);
+          lenPtr.value = capacity;
+          continue;
+        }
+        _throwForError(result, 'Failed to query WebSocket subprotocol');
+      }
+      return null;
+    });
+  }
+
+  @override
   NativeHttpHandshake? takeHttpHandshake(int connectionId) {
     final handle = _bindings.ctConnectionTakeHttpHandshake(connectionId);
     if (handle == 0) {
@@ -2311,6 +2347,15 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
     } finally {
       calloc.free(ptr);
     }
+  }
+
+  @override
+  int reloadTls() {
+    final result = _bindings.ctReloadTls();
+    if (result < 0) {
+      _throwForError(result, 'Failed to reload TLS configuration');
+    }
+    return result;
   }
 
   static void _listenerTrampoline(int listenerId, int status) {
