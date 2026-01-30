@@ -36,7 +36,7 @@ graph LR
 ### Current Responsibilities
 
 - **Tokio runtime & ListenerRegistry (`ct_core/src/lib.rs`)**  
-  Binds sockets, negotiates protocols, and spawns per-protocol tasks (RawSocket, WebSocket, HTTP/1.1 handshakes, HTTP/2 via `h2`, HTTP/3 via `quinn + h3`). Every connection gets a `HttpConnectionStats` instance that now records idle/body timeouts, GOAWAY, and backpressure depth.
+  Binds sockets, negotiates protocols, and spawns per-protocol tasks (RawSocket, WebSocket, HTTP/1.1 handshakes, HTTP/2 via `h2`, HTTP/3 via `quinn + h3`). RawSocket/WebSocket connections run a heartbeat monitor (PING/PONG), use bounded inbound/outbound queues (backpressure), and can be closed explicitly via FFI; every HTTP connection gets a `HttpConnectionStats` instance that records idle/body timeouts, GOAWAY, and backpressure depth; HTTP/3 body timeouts close the QUIC connection to avoid `h3-quinn` stop-sending races.
 
 - **Streaming primitives (`http_stream.rs`, `http_body.rs`)**  
   Provide zero-copy handles for inbound bodies and outbound responses. HTTP/2 and HTTP/3 readers use the shared `StreamingBodyState`, while response writers use bounded Tokio channels sized by `RESPONSE_STREAM_BUFFER`.

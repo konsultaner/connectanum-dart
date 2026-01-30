@@ -24,6 +24,7 @@ const int _workerEventCallDispatchComplete = 10;
 const int _workerEventCallDispatchError = 11;
 const int _workerEventPublishRouted = 12;
 const int _workerEventWorkerShutdown = 13;
+const int _workerEventSessionOpened = 14;
 
 final json_serializer.Serializer _jsonSerializer = json_serializer.Serializer();
 final msgpack_serializer.Serializer _msgpackSerializer =
@@ -49,6 +50,12 @@ RouterListener decodeListener(Map<String, Object?> data) {
     tlsMode: TlsModeWireFormat.parse(endpointMap['tls_mode'] as String),
     idleTimeout: endpointMap['idle_timeout_ms'] != null
         ? Duration(milliseconds: endpointMap['idle_timeout_ms'] as int)
+        : null,
+    heartbeatInterval: endpointMap['heartbeat_interval_ms'] != null
+        ? Duration(milliseconds: endpointMap['heartbeat_interval_ms'] as int)
+        : null,
+    heartbeatTimeout: endpointMap['heartbeat_timeout_ms'] != null
+        ? Duration(milliseconds: endpointMap['heartbeat_timeout_ms'] as int)
         : null,
     handshakeTimeout: endpointMap['handshake_timeout_ms'] != null
         ? Duration(milliseconds: endpointMap['handshake_timeout_ms'] as int)

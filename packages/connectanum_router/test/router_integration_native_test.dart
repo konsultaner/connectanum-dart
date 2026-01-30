@@ -21,6 +21,7 @@ import 'package:connectanum_router/src/router/router_instance.dart';
 import 'package:connectanum_router/src/router/state/commands.dart';
 import 'package:connectanum_router/src/router/state/snapshot.dart';
 import 'package:ffi/ffi.dart';
+import 'support/native_lib.dart';
 import 'package:test/test.dart';
 import 'package:http2/transport.dart' as http2;
 
@@ -117,6 +118,14 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
       'hybrid: connectionProtocol synthetic $connectionId resolved $resolved -> $protocol',
     );
     return protocol;
+  }
+
+  @override
+  void closeConnection(int connectionId) {
+    if (_syntheticConnections.contains(connectionId)) {
+      return;
+    }
+    _inner.closeConnection(_resolveConnectionId(connectionId));
   }
 
   @override
@@ -1521,31 +1530,6 @@ void main() {
       );
     }, skip: skipReason);
   });
-}
-
-String? resolveOrBuildNativeLib() {
-  final env = Platform.environment['CONNECTANUM_NATIVE_LIB'];
-  if (env != null && env.isNotEmpty && File(env).existsSync()) {
-    return env;
-  }
-  const candidates = [
-    'native/transport/target/debug/libct_ffi.so',
-    '../../native/transport/target/debug/libct_ffi.so',
-    'native/transport/target/ffi-test/debug/libct_ffi.so',
-    '../../native/transport/target/ffi-test/debug/libct_ffi.so',
-    'native/transport/target/ffi-test/release/libct_ffi.so',
-    '../../native/transport/target/ffi-test/release/libct_ffi.so',
-    'native/transport/target/release/libct_ffi.so',
-    '../../native/transport/target/debug/libct_ffi.so',
-    '../../native/transport/target/release/libct_ffi.so',
-  ];
-  for (final path in candidates) {
-    final file = File(path);
-    if (file.existsSync()) {
-      return file.absolute.path;
-    }
-  }
-  return null;
 }
 
 final String _http3CertificatePem = _loadRouterCert('http3_cert.pem');

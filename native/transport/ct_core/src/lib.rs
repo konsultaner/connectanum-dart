@@ -37,10 +37,14 @@ use tokio::{
     io::{AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
     runtime::Runtime,
     sync::{
-        mpsc::{self, error::TryRecvError, UnboundedReceiver, UnboundedSender},
+        mpsc::{
+            self,
+            error::{TryRecvError, TrySendError},
+            UnboundedReceiver, UnboundedSender,
+        },
         oneshot,
     },
-    task::JoinHandle,
+    task::{AbortHandle, JoinHandle},
     time,
 };
 use tokio_rustls::TlsAcceptor;
@@ -701,6 +705,9 @@ pub enum Error {
     /// Wrapper around I/O errors.
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    /// Send buffer is full; the caller should retry or close the connection.
+    #[error("connection {0:?} send queue full")]
+    SendQueueFull(ConnectionId),
 }
 
 struct RuntimeManager {
@@ -819,9 +826,10 @@ enum ConnectionRecord {
         serializer: rawsocket::Serializer,
         max_exponent: u32,
         frames: Mutex<mpsc::Receiver<wamp::ParsedMessage>>,
-        reader_task: JoinHandle<()>,
-        writer_task: JoinHandle<()>,
-        send_tx: UnboundedSender<OutboundFrame>,
+        reader_abort: AbortHandle,
+        writer_abort: AbortHandle,
+        heartbeat_abort: Option<AbortHandle>,
+        send_tx: mpsc::Sender<OutboundFrame>,
     },
     WebSocketPending {
         handshake: Mutex<Option<protocol::WebSocketHandshake>>,
@@ -829,9 +837,10 @@ enum ConnectionRecord {
     WebSocket {
         serializer: rawsocket::Serializer,
         frames: Mutex<mpsc::Receiver<wamp::ParsedMessage>>,
-        reader_task: JoinHandle<()>,
-        writer_task: JoinHandle<()>,
-        send_tx: UnboundedSender<OutboundFrame>,
+        reader_abort: AbortHandle,
+        writer_abort: AbortHandle,
+        heartbeat_abort: Option<AbortHandle>,
+        send_tx: mpsc::Sender<OutboundFrame>,
     },
     HttpPending {
         pending_requests: Mutex<VecDeque<QueuedHttpRequest>>,
@@ -1036,20 +1045,28 @@ impl ListenerRegistry {
         for entry in connection_entries {
             match entry.record {
                 ConnectionRecord::RawSocket {
-                    reader_task,
-                    writer_task,
+                    reader_abort,
+                    writer_abort,
+                    heartbeat_abort,
                     ..
                 } => {
-                    reader_task.abort();
-                    writer_task.abort();
+                    reader_abort.abort();
+                    writer_abort.abort();
+                    if let Some(abort) = heartbeat_abort {
+                        abort.abort();
+                    }
                 }
                 ConnectionRecord::WebSocket {
-                    reader_task,
-                    writer_task,
+                    reader_abort,
+                    writer_abort,
+                    heartbeat_abort,
                     ..
                 } => {
-                    reader_task.abort();
-                    writer_task.abort();
+                    reader_abort.abort();
+                    writer_abort.abort();
+                    if let Some(abort) = heartbeat_abort {
+                        abort.abort();
+                    }
                 }
                 ConnectionRecord::WebSocketPending { .. }
                 | ConnectionRecord::HttpPending { .. }
@@ -1059,8 +1076,48 @@ impl ListenerRegistry {
         }
     }
 
+    fn close_connection(&self, connection_id: ConnectionId) -> Result<(), Error> {
+        let entry = self
+            .connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .remove(&connection_id)
+            .ok_or(Error::ConnectionNotFound(connection_id))?;
+        match entry.record {
+            ConnectionRecord::RawSocket {
+                reader_abort,
+                writer_abort,
+                heartbeat_abort,
+                ..
+            } => {
+                reader_abort.abort();
+                writer_abort.abort();
+                if let Some(abort) = heartbeat_abort {
+                    abort.abort();
+                }
+            }
+            ConnectionRecord::WebSocket {
+                reader_abort,
+                writer_abort,
+                heartbeat_abort,
+                ..
+            } => {
+                reader_abort.abort();
+                writer_abort.abort();
+                if let Some(abort) = heartbeat_abort {
+                    abort.abort();
+                }
+            }
+            ConnectionRecord::WebSocketPending { .. }
+            | ConnectionRecord::HttpPending { .. }
+            | ConnectionRecord::Http2Pending { .. }
+            | ConnectionRecord::Http3Pending { .. } => {}
+        }
+        Ok(())
+    }
+
     fn register_rawsocket_connection(
-        &self,
+        self: Arc<Self>,
         listener_id: ListenerId,
         connection_id: ConnectionId,
         endpoint_config: Arc<config::EndpointRuntimeConfig>,
@@ -1068,10 +1125,32 @@ impl ListenerRegistry {
         peer_addr: SocketAddr,
     ) {
         let (frame_tx, frame_rx) = mpsc::channel(1024);
-        let (send_tx, send_rx) = mpsc::unbounded_channel();
+        let (send_tx, send_rx) = mpsc::channel(OUTBOUND_QUEUE_CAPACITY);
+        let (close_tx, mut close_rx) = mpsc::unbounded_channel::<()>();
         let serializer = negotiated.serializer;
         let max_exponent = negotiated.max_message_size_exponent;
-        let reader_task = spawn_connection_reader(
+        let (pong_tx, pong_rx) = mpsc::unbounded_channel::<Bytes>();
+        let heartbeat_abort = endpoint_config
+            .heartbeat_interval
+            .map(|interval| {
+                let timeout = endpoint_config.heartbeat_timeout.unwrap_or_else(|| {
+                    interval
+                        .checked_mul(2)
+                        .unwrap_or(Duration::from_secs(30))
+                });
+                spawn_connection_heartbeat(
+                    tokio::runtime::Handle::current(),
+                    Arc::clone(&self),
+                    connection_id,
+                    interval,
+                    timeout,
+                    send_tx.clone(),
+                    pong_rx,
+                )
+            });
+        let pong_tx = heartbeat_abort.as_ref().map(|_| pong_tx);
+
+        let reader_abort = spawn_connection_reader(
             connection_id,
             Arc::clone(&endpoint_config),
             negotiated.reader,
@@ -1079,8 +1158,17 @@ impl ListenerRegistry {
             max_exponent,
             frame_tx,
             send_tx.clone(),
+            pong_tx,
+            close_tx.clone(),
         );
-        let writer_task = spawn_connection_writer(connection_id, negotiated.writer, send_rx);
+        let writer_abort =
+            spawn_connection_writer(connection_id, negotiated.writer, send_rx, close_tx);
+
+        let registry = Arc::clone(&self);
+        tokio::spawn(async move {
+            let _ = close_rx.recv().await;
+            let _ = registry.close_connection(connection_id);
+        });
 
         self.connections
             .lock()
@@ -1098,8 +1186,9 @@ impl ListenerRegistry {
                         serializer,
                         max_exponent,
                         frames: Mutex::new(frame_rx),
-                        reader_task,
-                        writer_task,
+                        reader_abort,
+                        writer_abort,
+                        heartbeat_abort,
                         send_tx,
                     },
                 },
@@ -1134,7 +1223,7 @@ impl ListenerRegistry {
     }
 
     fn accept_websocket_connection(
-        &self,
+        self: Arc<Self>,
         handle: tokio::runtime::Handle,
         connection_id: ConnectionId,
         handshake: protocol::WebSocketHandshake,
@@ -1154,7 +1243,7 @@ impl ListenerRegistry {
         let (reader, writer) = tokio::io::split(stream);
 
         let (frame_tx, frame_rx) = mpsc::channel(1024);
-        let (send_tx, send_rx) = mpsc::unbounded_channel();
+        let (send_tx, send_rx) = mpsc::channel(OUTBOUND_QUEUE_CAPACITY);
 
         let endpoint_config = {
             let connections = self
@@ -1168,7 +1257,29 @@ impl ListenerRegistry {
         };
 
         let selected_protocol = protocol.map(|value| value.to_string());
-        let reader_task = spawn_websocket_reader(
+        let (close_tx, mut close_rx) = mpsc::unbounded_channel::<()>();
+        let (pong_tx, pong_rx) = mpsc::unbounded_channel::<Bytes>();
+        let heartbeat_abort = endpoint_config
+            .heartbeat_interval
+            .map(|interval| {
+                let timeout = endpoint_config.heartbeat_timeout.unwrap_or_else(|| {
+                    interval
+                        .checked_mul(2)
+                        .unwrap_or(Duration::from_secs(30))
+                });
+                spawn_connection_heartbeat(
+                    handle.clone(),
+                    Arc::clone(&self),
+                    connection_id,
+                    interval,
+                    timeout,
+                    send_tx.clone(),
+                    pong_rx,
+                )
+            });
+        let pong_tx = heartbeat_abort.as_ref().map(|_| pong_tx);
+
+        let reader_abort = spawn_websocket_reader(
             handle.clone(),
             connection_id,
             serializer,
@@ -1176,9 +1287,17 @@ impl ListenerRegistry {
             reader,
             frame_tx,
             send_tx.clone(),
+            pong_tx,
+            close_tx.clone(),
         );
-        let writer_task =
-            spawn_websocket_writer(handle, connection_id, serializer, writer, send_rx);
+        let writer_abort =
+            spawn_websocket_writer(handle.clone(), connection_id, serializer, writer, send_rx, close_tx);
+
+        let registry = Arc::clone(&self);
+        handle.spawn(async move {
+            let _ = close_rx.recv().await;
+            let _ = registry.close_connection(connection_id);
+        });
 
         let mut connections = self
             .connections
@@ -1189,8 +1308,9 @@ impl ListenerRegistry {
             entry.record = ConnectionRecord::WebSocket {
                 serializer,
                 frames: Mutex::new(frame_rx),
-                reader_task,
-                writer_task,
+                reader_abort,
+                writer_abort,
+                heartbeat_abort,
                 send_tx,
             };
         }
@@ -1489,9 +1609,11 @@ impl ListenerRegistry {
             .ok_or(Error::ConnectionNotFound(connection_id))?;
         match &entry.record {
             ConnectionRecord::RawSocket { send_tx, .. }
-            | ConnectionRecord::WebSocket { send_tx, .. } => send_tx
-                .send(frame)
-                .map_err(|_| Error::ConnectionNotFound(connection_id)),
+            | ConnectionRecord::WebSocket { send_tx, .. } => match send_tx.try_send(frame) {
+                Ok(()) => Ok(()),
+                Err(TrySendError::Full(_)) => Err(Error::SendQueueFull(connection_id)),
+                Err(TrySendError::Closed(_)) => Err(Error::ConnectionNotFound(connection_id)),
+            },
             _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
         }
     }
@@ -1891,7 +2013,7 @@ impl std::error::Error for FrameReadError {}
 enum InboundFrame {
     Message(Bytes),
     Ping(Bytes),
-    Pong,
+    Pong(Bytes),
 }
 
 #[derive(Debug, Clone)]
@@ -1930,6 +2052,8 @@ impl OutboundFrame {
     }
 }
 
+const OUTBOUND_QUEUE_CAPACITY: usize = 1024;
+
 fn spawn_connection_reader(
     connection_id: ConnectionId,
     endpoint_config: Arc<config::EndpointRuntimeConfig>,
@@ -1937,9 +2061,11 @@ fn spawn_connection_reader(
     serializer: rawsocket::Serializer,
     max_message_size_exponent: u32,
     frame_tx: mpsc::Sender<wamp::ParsedMessage>,
-    send_tx: UnboundedSender<OutboundFrame>,
-) -> JoinHandle<()> {
-    tokio::spawn(async move {
+    send_tx: mpsc::Sender<OutboundFrame>,
+    pong_tx: Option<UnboundedSender<Bytes>>,
+    close_tx: UnboundedSender<()>,
+) -> AbortHandle {
+    let task = tokio::spawn(async move {
         let max_payload = 1u64 << max_message_size_exponent;
         let idle_timeout = endpoint_config.idle_timeout;
 
@@ -1993,25 +2119,37 @@ fn spawn_connection_reader(
                     }
                 },
                 InboundFrame::Ping(payload) => {
-                    if send_tx.send(OutboundFrame::control(0x02, payload)).is_err() {
+                    if send_tx
+                        .send(OutboundFrame::control(0x02, payload))
+                        .await
+                        .is_err()
+                    {
                         break;
                     }
                 }
-                InboundFrame::Pong => {
-                    // No-op; router currently does not track round-trip times.
+                InboundFrame::Pong(payload) => {
+                    if let Some(tx) = &pong_tx {
+                        let _ = tx.send(payload);
+                    }
                 }
             }
         }
-    })
+        let _ = close_tx.send(());
+    });
+    task.abort_handle()
 }
 
 fn spawn_connection_writer(
     connection_id: ConnectionId,
     mut writer: IoWriteHalf,
-    mut rx: UnboundedReceiver<OutboundFrame>,
-) -> JoinHandle<()> {
-    tokio::spawn(async move {
+    mut rx: mpsc::Receiver<OutboundFrame>,
+    close_tx: UnboundedSender<()>,
+) -> AbortHandle {
+    let task = tokio::spawn(async move {
         while let Some(frame) = rx.recv().await {
+            if frame.frame_type > 2 {
+                continue;
+            }
             let header = match encode_frame_header(frame.frame_type, frame.payload_len) {
                 Ok(header) => header,
                 Err(err) => {
@@ -2048,7 +2186,74 @@ fn spawn_connection_writer(
                 }
             }
         }
-    })
+        let _ = close_tx.send(());
+    });
+    task.abort_handle()
+}
+
+fn spawn_connection_heartbeat(
+    handle: tokio::runtime::Handle,
+    registry: Arc<ListenerRegistry>,
+    connection_id: ConnectionId,
+    interval: Duration,
+    timeout: Duration,
+    send_tx: mpsc::Sender<OutboundFrame>,
+    mut pong_rx: UnboundedReceiver<Bytes>,
+) -> AbortHandle {
+    let task = handle.spawn(async move {
+        let mut ticker = time::interval(interval);
+        ticker.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
+
+        let mut next_nonce: u64 = 1;
+        let mut awaiting = false;
+        let mut last_ping_at = Instant::now();
+        let mut last_payload = Bytes::new();
+
+        loop {
+            tokio::select! {
+                _ = ticker.tick() => {
+                    if awaiting {
+                        if last_ping_at.elapsed() >= timeout {
+                            eprintln!(
+                                "connection {:?} heartbeat timeout after {:?}, closing",
+                                connection_id, timeout
+                            );
+                            let _ = registry.close_connection(connection_id);
+                            break;
+                        }
+                        continue;
+                    }
+
+                    let payload = Bytes::copy_from_slice(&next_nonce.to_be_bytes());
+                    next_nonce = next_nonce.wrapping_add(1);
+                    last_payload = payload.clone();
+                    last_ping_at = Instant::now();
+                    awaiting = true;
+                    if send_tx
+                        .send(OutboundFrame::control(0x01, payload))
+                        .await
+                        .is_err()
+                    {
+                        let _ = registry.close_connection(connection_id);
+                        break;
+                    }
+                }
+                received = pong_rx.recv() => {
+                    let Some(payload) = received else {
+                        break;
+                    };
+                    if awaiting && payload == last_payload {
+                        awaiting = false;
+                    } else {
+                        // Treat any pong as liveness; payload mismatch might come from
+                        // other intermediaries. We'll resync on the next ping.
+                        awaiting = false;
+                    }
+                }
+            }
+        }
+    });
+    task.abort_handle()
 }
 
 fn spawn_websocket_reader(
@@ -2058,9 +2263,11 @@ fn spawn_websocket_reader(
     endpoint_config: Arc<config::EndpointRuntimeConfig>,
     mut reader: IoReadHalf,
     frame_tx: mpsc::Sender<wamp::ParsedMessage>,
-    send_tx: UnboundedSender<OutboundFrame>,
-) -> JoinHandle<()> {
-    handle.spawn(async move {
+    send_tx: mpsc::Sender<OutboundFrame>,
+    pong_tx: Option<UnboundedSender<Bytes>>,
+    close_tx: UnboundedSender<()>,
+) -> AbortHandle {
+    let task = handle.spawn(async move {
         let idle_timeout = endpoint_config.idle_timeout;
         let mut accumulator = WebSocketMessageAccumulator::new();
         loop {
@@ -2114,21 +2321,32 @@ fn spawn_websocket_reader(
                     }
                 }
                 WebSocketFrame::Ping(payload) => {
-                    let _ = send_tx.send(OutboundFrame::control(0x02, Bytes::from(payload)));
+                    let _ = send_tx
+                        .send(OutboundFrame::control(0x02, Bytes::from(payload)))
+                        .await;
                 }
-                WebSocketFrame::Pong => {
-                    // No-op.
+                WebSocketFrame::Pong(payload) => {
+                    if let Some(tx) = &pong_tx {
+                        let _ = tx.send(Bytes::from(payload));
+                    }
                 }
                 WebSocketFrame::Close(code, reason) => {
                     let mut payload = Vec::new();
                     payload.extend_from_slice(&code.to_be_bytes());
-                    payload.extend_from_slice(reason.as_bytes());
-                    let _ = send_tx.send(OutboundFrame::control(0x02, Bytes::from(payload)));
+                    let reason_bytes = reason.as_bytes();
+                    // Close frames are limited to 125 bytes total payload.
+                    let remaining = 125usize.saturating_sub(payload.len());
+                    payload.extend_from_slice(&reason_bytes[..reason_bytes.len().min(remaining)]);
+                    let _ = send_tx
+                        .send(OutboundFrame::control(0x03, Bytes::from(payload)))
+                        .await;
                     break;
                 }
             }
         }
-    })
+        let _ = close_tx.send(());
+    });
+    task.abort_handle()
 }
 
 fn spawn_websocket_writer(
@@ -2136,9 +2354,10 @@ fn spawn_websocket_writer(
     connection_id: ConnectionId,
     serializer: rawsocket::Serializer,
     mut writer: IoWriteHalf,
-    mut rx: UnboundedReceiver<OutboundFrame>,
-) -> JoinHandle<()> {
-    handle.spawn(async move {
+    mut rx: mpsc::Receiver<OutboundFrame>,
+    close_tx: UnboundedSender<()>,
+) -> AbortHandle {
+    let task = handle.spawn(async move {
         while let Some(frame) = rx.recv().await {
             let mut payload = BytesMut::with_capacity(frame.payload_len);
             for segment in frame.segments {
@@ -2151,6 +2370,7 @@ fn spawn_websocket_writer(
                 },
                 1 => 0x9,
                 2 => 0xA,
+                3 => 0x8,
                 _ => continue,
             };
             if let Err(err) = write_websocket_frame(&mut writer, opcode, &payload).await {
@@ -2161,7 +2381,9 @@ fn spawn_websocket_writer(
                 break;
             }
         }
-    })
+        let _ = close_tx.send(());
+    });
+    task.abort_handle()
 }
 
 async fn read_inbound_frame(
@@ -2217,7 +2439,7 @@ async fn read_inbound_frame(
     match frame_type {
         0 => Ok(InboundFrame::Message(payload)),
         1 => Ok(InboundFrame::Ping(payload)),
-        2 => Ok(InboundFrame::Pong),
+        2 => Ok(InboundFrame::Pong(payload)),
         _ => Err(FrameReadError::Protocol(format!(
             "unsupported frame type {}",
             frame_type
@@ -2232,7 +2454,7 @@ enum WebSocketFrame {
         payload: Vec<u8>,
     },
     Ping(Vec<u8>),
-    Pong,
+    Pong(Vec<u8>),
     Close(u16, String),
 }
 
@@ -2382,7 +2604,7 @@ async fn read_websocket_frame(
             Ok(WebSocketFrame::Close(code, reason))
         }
         0x9 => Ok(WebSocketFrame::Ping(payload)),
-        0xA => Ok(WebSocketFrame::Pong),
+        0xA => Ok(WebSocketFrame::Pong(payload)),
         _ => Err(WebSocketFrameError("unsupported websocket opcode".into())),
     }
 }
@@ -2591,7 +2813,7 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                             {
                                 Ok(protocol::NegotiatedConnection::RawSocket(negotiated)) => {
                                     let connection_id = accept_registry.next_connection_id();
-                                    accept_registry.register_rawsocket_connection(
+                                    Arc::clone(&accept_registry).register_rawsocket_connection(
                                         listener_id,
                                         connection_id,
                                         Arc::clone(&runtime_config_for_task),
@@ -2837,9 +3059,13 @@ pub fn connection_accept_websocket(
 ) -> Result<(), Error> {
     let manager = RuntimeManager::global();
     manager.with_state(|state| {
-        state
-            .registry
-            .accept_websocket_connection(state.handle.clone(), connection_id, handshake, serializer, protocol)
+        Arc::clone(&state.registry).accept_websocket_connection(
+            state.handle.clone(),
+            connection_id,
+            handshake,
+            serializer,
+            protocol,
+        )
     })
 }
 
@@ -2970,6 +3196,12 @@ pub fn poll_connection_message(
 ) -> Result<Option<wamp::ParsedMessage>, Error> {
     let manager = RuntimeManager::global();
     manager.with_state(|state| state.registry.poll_message(connection_id))
+}
+
+/// Forces a connection to close and releases associated resources.
+pub fn close_connection(connection_id: ConnectionId) -> Result<(), Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| state.registry.close_connection(connection_id))
 }
 
 /// Enqueues a WAMP message to be sent to the connection.
@@ -3505,6 +3737,7 @@ async fn serve_http3_requests(
                     );
                     if let Err(err) = process_http3_request(
                         connection_id,
+                        Arc::clone(&connection),
                         request,
                         stream,
                         Arc::clone(&endpoint_config),
@@ -4001,6 +4234,7 @@ async fn send_http2_response_from_dispatch(
 
 async fn process_http3_request(
     connection_id: ConnectionId,
+    connection: Arc<QuinnConnection>,
     request: HttpRequest<()>,
     stream: H3ServerBidiStream,
     endpoint_config: Arc<config::EndpointRuntimeConfig>,
@@ -4036,9 +4270,20 @@ async fn process_http3_request(
     let (mut send_stream, recv_stream) = stream.split();
     let body_state = StreamingBodyState::new(content_length.map(|len| len as usize).unwrap_or(0));
     let (idle_timeout, total_timeout) = http_stream_timeouts(&endpoint_config);
+    // Apply a generous floor for endpoints that use the default idle timeout so multi-MB tests
+    // don't flake; explicit config keeps full control over the timeout values.
+    let (idle_timeout, total_timeout) = if endpoint_config.idle_timeout.is_none() {
+        (
+            idle_timeout.max(Duration::from_secs(30)),
+            total_timeout.max(Duration::from_secs(60)),
+        )
+    } else {
+        (idle_timeout, total_timeout)
+    };
     spawn_http3_stream_reader(
         stats.clone(),
         Arc::clone(&body_state),
+        connection,
         recv_stream,
         max_body,
         0,
@@ -4161,6 +4406,7 @@ fn parse_content_length(headers: &[(String, String)]) -> Option<u64> {
 fn spawn_http3_stream_reader(
     stats: Option<Arc<HttpConnectionStats>>,
     state: Arc<StreamingBodyState>,
+    connection: Arc<QuinnConnection>,
     stream: H3ServerRecvStream,
     max_body: u64,
     bytes_read: u64,
@@ -4173,6 +4419,7 @@ fn spawn_http3_stream_reader(
         if let Err(err) = run_http3_stream_reader(
             stats_for_reader,
             state,
+            connection,
             stream,
             max_body,
             bytes_read,
@@ -4198,6 +4445,7 @@ fn spawn_http3_stream_reader(
 async fn run_http3_stream_reader(
     stats: Option<Arc<HttpConnectionStats>>,
     state: Arc<StreamingBodyState>,
+    connection: Arc<QuinnConnection>,
     mut stream: H3ServerRecvStream,
     max_body: u64,
     mut bytes_read: u64,
@@ -4205,7 +4453,7 @@ async fn run_http3_stream_reader(
     idle_timeout: Duration,
     total_timeout: Duration,
 ) -> Result<(), String> {
-    let mut total_deadline = Instant::now() + total_timeout;
+    let total_deadline = Instant::now() + total_timeout;
     loop {
         if state.finish_requested() {
             stream.stop_sending(H3ErrorCode::H3_NO_ERROR);
@@ -4218,7 +4466,10 @@ async fn run_http3_stream_reader(
                 stats_ref.record_goaway(Some("http/3 body total timeout".into()));
             }
             state.mark_error("http/3 body total timeout exceeded".into());
-            stream.stop_sending(H3ErrorCode::H3_REQUEST_CANCELLED);
+            connection.close(
+                VarInt::from_u32(0),
+                b"http/3 body total timeout exceeded",
+            );
             return Err("http/3 body total timeout".into());
         }
         let recv_future = stream.recv_data();
@@ -4230,7 +4481,7 @@ async fn run_http3_stream_reader(
                     stats_ref.record_goaway(Some("http/3 body idle timeout".into()));
                 }
                 state.mark_error("http/3 body idle timeout".into());
-                stream.stop_sending(H3ErrorCode::H3_REQUEST_CANCELLED);
+                connection.close(VarInt::from_u32(0), b"http/3 body idle timeout");
                 return Err("http/3 body idle timeout".into());
             }
         };
@@ -4256,7 +4507,6 @@ async fn run_http3_stream_reader(
                         state.enqueue_vec(bytes.to_vec());
                     }
                 }
-                total_deadline = Instant::now() + total_timeout;
             }
             Ok(None) => {
                 if let Some(expected) = content_length {
@@ -4533,6 +4783,84 @@ mod tests {
             server_key_pem,
             client_chain_pem,
             client_key_pem,
+        }
+    }
+
+    #[test]
+    fn enqueue_frame_returns_send_queue_full_when_outbound_queue_saturated() {
+        let _guard = test_guard();
+
+        let registry = ListenerRegistry::default();
+        let connection_id = ConnectionId(1);
+        let listener_id = ListenerId(1);
+        let peer_addr: SocketAddr = "127.0.0.1:12345".parse().unwrap();
+
+        let (frame_tx, frame_rx) = mpsc::channel(1);
+        let _ = frame_tx;
+
+        let (send_tx, send_rx) = mpsc::channel(1);
+        let _send_rx = send_rx;
+
+        send_tx
+            .try_send(OutboundFrame::message(Bytes::from_static(b"one")))
+            .expect("first send fills the queue");
+
+        let rt = Runtime::new().unwrap();
+        let reader_abort = rt.spawn(async {}).abort_handle();
+        let writer_abort = rt.spawn(async {}).abort_handle();
+
+        let exponent = config::DEFAULT_RAWSOCKET_SIZE_EXPONENT;
+        let endpoint_config = Arc::new(config::EndpointRuntimeConfig {
+            host: "127.0.0.1".to_string(),
+            port: 0,
+            tls_mode: config::TlsMode::Disabled,
+            client_auth: None,
+            protocols: vec![TransportProtocol::Rawsocket],
+            idle_timeout: None,
+            heartbeat_interval: None,
+            heartbeat_timeout: None,
+            handshake_timeout: config::DEFAULT_HANDSHAKE_TIMEOUT,
+            max_http_content_length: None,
+            max_rawsocket_size_exponent: exponent,
+            max_rawsocket_size: 1u64 << exponent,
+            max_upgrade_exponent: None,
+            websocket_path: None,
+            sni_certificates: Vec::new(),
+            http_routes: Vec::new(),
+            http: None,
+        });
+
+        registry
+            .connections
+            .lock()
+            .unwrap()
+            .insert(
+                connection_id,
+                ConnectionEntry {
+                    listener_id,
+                    peer_addr,
+                    protocol: ConnectionProtocol::RawSocket,
+                    websocket_protocol: None,
+                    endpoint_config,
+                    stats: None,
+                    record: ConnectionRecord::RawSocket {
+                        serializer: rawsocket::Serializer::Json,
+                        max_exponent: exponent,
+                        frames: Mutex::new(frame_rx),
+                        reader_abort,
+                        writer_abort,
+                        heartbeat_abort: None,
+                        send_tx,
+                    },
+                },
+            );
+
+        match registry.enqueue_frame(
+            connection_id,
+            OutboundFrame::message(Bytes::from_static(b"two")),
+        ) {
+            Err(Error::SendQueueFull(id)) => assert_eq!(id, connection_id),
+            other => panic!("expected SendQueueFull, got {other:?}"),
         }
     }
 

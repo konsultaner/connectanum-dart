@@ -347,6 +347,14 @@ Future<void> _openAnonymousSession({
       SessionOpenCommand(realmUri: state.realmUri!, session: session),
     );
   }
+  try {
+    bossPort.send({
+      'type': _workerEventSessionOpened,
+      'connectionId': connectionId,
+      'sessionId': sessionId,
+      'realmUri': realmUri,
+    });
+  } catch (_) {}
 
   AuthAuditLogger.success(
     realmUri: state.realmUri ?? 'unknown',
@@ -509,6 +517,14 @@ Future<void> completeAuthenticatedSession({
       SessionOpenCommand(realmUri: state.realmUri!, session: session),
     );
   }
+  try {
+    bossPort.send({
+      'type': _workerEventSessionOpened,
+      'connectionId': connectionId,
+      'sessionId': sessionId,
+      'realmUri': state.realmUri,
+    });
+  } catch (_) {}
 
   if (realmContexts != null && state.realmUri != null) {
     realmContexts.invalidate(state.realmUri!);

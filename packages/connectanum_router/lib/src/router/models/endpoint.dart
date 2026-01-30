@@ -17,6 +17,8 @@ class Endpoint {
     required int port,
     required TlsMode tlsMode,
     Duration? idleTimeout,
+    Duration? heartbeatInterval,
+    Duration? heartbeatTimeout,
     Duration? handshakeTimeout,
     int? maxHttpContentLength,
     required int maxRawSocketSizeExponent,
@@ -27,6 +29,13 @@ class Endpoint {
     final normalizedHost = normalizeHostname(host);
     final normalizedPort = normalizePort(port);
     final normalizedIdleTimeout = normalizeIdleTimeout(idleTimeout);
+    final normalizedHeartbeatInterval = normalizeHeartbeatInterval(
+      heartbeatInterval,
+    );
+    final normalizedHeartbeatTimeout = normalizeHeartbeatTimeout(
+      heartbeatTimeout,
+      interval: normalizedHeartbeatInterval,
+    );
     final normalizedHandshakeTimeout = normalizeHandshakeTimeout(
       handshakeTimeout,
     );
@@ -70,6 +79,8 @@ class Endpoint {
       port: normalizedPort,
       tlsMode: tlsMode,
       idleTimeout: normalizedIdleTimeout,
+      heartbeatInterval: normalizedHeartbeatInterval,
+      heartbeatTimeout: normalizedHeartbeatTimeout,
       handshakeTimeout: normalizedHandshakeTimeout,
       maxHttpContentLength: normalizedMaxContentLength,
       maxRawSocketSizeExponent: normalizedSocketSize,
@@ -83,11 +94,12 @@ class Endpoint {
   factory Endpoint.fromListenerSettings(ListenerSettings settings) {
     final parsed = _parseEndpoint(settings.endpoint);
     final options = settings.options;
-    final maxExponent = _asInt(
-      options['max_rawsocket_size_exponent'],
-      defaultValue: 16,
-    );
+    final maxExponent =
+        settings.rawsocket?.maxFrameExponent ??
+        _asInt(options['max_rawsocket_size_exponent'], defaultValue: 16);
     final idleTimeout = _asDuration(options['idle_timeout_ms']);
+    final heartbeatInterval = _asDuration(options['heartbeat_interval_ms']);
+    final heartbeatTimeout = _asDuration(options['heartbeat_timeout_ms']);
     final handshakeTimeout = _asDuration(options['handshake_timeout_ms']);
     final maxHttpContentLength = options['max_http_content_length'] is int
         ? options['max_http_content_length'] as int
@@ -96,12 +108,14 @@ class Endpoint {
     final tlsMode = _resolveTlsMode(tlsConfig);
     final sniCertificates = _resolveSniCertificates(tlsConfig);
     final clientAuth = _resolveClientAuth(tlsConfig);
-    final webSocketPath = settings.path;
+    final webSocketPath = settings.websocket?.path ?? settings.path;
     return Endpoint(
       host: parsed.host,
       port: parsed.port,
       tlsMode: tlsMode,
       idleTimeout: idleTimeout,
+      heartbeatInterval: heartbeatInterval,
+      heartbeatTimeout: heartbeatTimeout,
       handshakeTimeout: handshakeTimeout,
       maxHttpContentLength: maxHttpContentLength,
       maxRawSocketSizeExponent: maxExponent,
@@ -116,6 +130,8 @@ class Endpoint {
     required this.port,
     required this.tlsMode,
     required this.idleTimeout,
+    required this.heartbeatInterval,
+    required this.heartbeatTimeout,
     required this.handshakeTimeout,
     required this.maxHttpContentLength,
     required this.maxRawSocketSizeExponent,
@@ -133,8 +149,14 @@ class Endpoint {
   /// TLS handling mode.
   final TlsMode tlsMode;
 
-  /// Optional idle timeout after which connections will be dropped (Dart-only).
+  /// Optional idle timeout after which connections will be dropped.
   final Duration? idleTimeout;
+
+  /// Optional transport heartbeat interval (native ping/pong).
+  final Duration? heartbeatInterval;
+
+  /// Optional heartbeat timeout after which the connection is dropped.
+  final Duration? heartbeatTimeout;
 
   /// Optional handshake timeout for the initial RawSocket negotiation.
   final Duration? handshakeTimeout;
@@ -165,6 +187,12 @@ class Endpoint {
     if (idleTimeout != null) {
       map['idle_timeout_ms'] = idleTimeout!.inMilliseconds;
     }
+    if (heartbeatInterval != null) {
+      map['heartbeat_interval_ms'] = heartbeatInterval!.inMilliseconds;
+    }
+    if (heartbeatTimeout != null) {
+      map['heartbeat_timeout_ms'] = heartbeatTimeout!.inMilliseconds;
+    }
     if (handshakeTimeout != null) {
       map['handshake_timeout_ms'] = handshakeTimeout!.inMilliseconds;
     }
@@ -191,6 +219,8 @@ class Endpoint {
     port,
     tlsMode,
     idleTimeout?.inMilliseconds,
+    heartbeatInterval?.inMilliseconds,
+    heartbeatTimeout?.inMilliseconds,
     handshakeTimeout?.inMilliseconds,
     maxHttpContentLength,
     maxRawSocketSizeExponent,
@@ -212,6 +242,8 @@ class Endpoint {
         other.port == port &&
         other.tlsMode == tlsMode &&
         other.idleTimeout == idleTimeout &&
+        other.heartbeatInterval == heartbeatInterval &&
+        other.heartbeatTimeout == heartbeatTimeout &&
         other.handshakeTimeout == handshakeTimeout &&
         other.maxHttpContentLength == maxHttpContentLength &&
         other.maxRawSocketSizeExponent == maxRawSocketSizeExponent &&

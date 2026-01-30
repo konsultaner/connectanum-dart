@@ -42,6 +42,18 @@ pub struct EndpointConfig {
     )]
     pub idle_timeout: Option<Duration>,
     #[serde(
+        rename = "heartbeat_interval_ms",
+        default,
+        deserialize_with = "deserialize_duration_opt"
+    )]
+    pub heartbeat_interval: Option<Duration>,
+    #[serde(
+        rename = "heartbeat_timeout_ms",
+        default,
+        deserialize_with = "deserialize_duration_opt"
+    )]
+    pub heartbeat_timeout: Option<Duration>,
+    #[serde(
         rename = "handshake_timeout_ms",
         default,
         deserialize_with = "deserialize_duration_opt"
@@ -201,6 +213,8 @@ pub struct EndpointRuntimeConfig {
     pub client_auth: Option<ClientAuthRuntime>,
     pub protocols: Vec<TransportProtocol>,
     pub idle_timeout: Option<Duration>,
+    pub heartbeat_interval: Option<Duration>,
+    pub heartbeat_timeout: Option<Duration>,
     pub handshake_timeout: Duration,
     pub max_http_content_length: Option<u64>,
     pub max_rawsocket_size_exponent: u32,
@@ -239,6 +253,30 @@ impl EndpointRuntimeConfig {
             if timeout.is_zero() {
                 return Err(Error::RouterConfigInvalid(format!(
                     "endpoint {}:{} idle_timeout_ms must be positive",
+                    endpoint.host, endpoint.port
+                )));
+            }
+        }
+        if let Some(interval) = endpoint.heartbeat_interval {
+            if interval.is_zero() {
+                return Err(Error::RouterConfigInvalid(format!(
+                    "endpoint {}:{} heartbeat_interval_ms must be positive",
+                    endpoint.host, endpoint.port
+                )));
+            }
+        }
+        if let Some(timeout) = endpoint.heartbeat_timeout {
+            if timeout.is_zero() {
+                return Err(Error::RouterConfigInvalid(format!(
+                    "endpoint {}:{} heartbeat_timeout_ms must be positive",
+                    endpoint.host, endpoint.port
+                )));
+            }
+        }
+        if let (Some(interval), Some(timeout)) = (endpoint.heartbeat_interval, endpoint.heartbeat_timeout) {
+            if timeout < interval {
+                return Err(Error::RouterConfigInvalid(format!(
+                    "endpoint {}:{} heartbeat_timeout_ms must be >= heartbeat_interval_ms",
                     endpoint.host, endpoint.port
                 )));
             }
@@ -349,6 +387,8 @@ impl EndpointRuntimeConfig {
             client_auth,
             protocols,
             idle_timeout: endpoint.idle_timeout,
+            heartbeat_interval: endpoint.heartbeat_interval,
+            heartbeat_timeout: endpoint.heartbeat_timeout,
             handshake_timeout: endpoint
                 .handshake_timeout
                 .unwrap_or(DEFAULT_HANDSHAKE_TIMEOUT),

@@ -32,6 +32,7 @@ SniCertificate _cert(String host) => SniCertificate(
 class _FakeRuntime implements NativeRuntime {
   final List<String> listenCalls = [];
   Uint8List? appliedConfig;
+  final List<int> closedConnections = [];
   final Map<int, int> _ports = {};
   final Map<int, int> _http3Ports = {};
   int _nextId = 1;
@@ -93,6 +94,13 @@ class _FakeRuntime implements NativeRuntime {
   @override
   NativeConnectionProtocol connectionProtocol(int connectionId) {
     return _protocols[connectionId] ?? NativeConnectionProtocol.rawsocket;
+  }
+
+  @override
+  void closeConnection(int connectionId) {
+    closedConnections.add(connectionId);
+    _protocols.remove(connectionId);
+    _pendingMessages.remove(connectionId);
   }
 
   @override
@@ -403,6 +411,13 @@ class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
   final Map<int, List<NativeHttpResponse>> httpResponses = {};
 
   @override
+  void closeConnection(int connectionId) {
+    super.closeConnection(connectionId);
+    _pendingHandles.remove(connectionId);
+    _knownConnections.remove(connectionId);
+  }
+
+  @override
   int pollMessageHandle(int connectionId) {
     final error = _scheduledError;
     if (error != null) {
@@ -570,6 +585,7 @@ const int kWorkerEventShutdown = 4;
 const int kWorkerEventConnectionAdded = 5;
 const int kWorkerEventConnectionRemoved = 6;
 const int kWorkerEventDrained = 7;
+const int kWorkerEventSessionOpened = 14;
 const int _workerCmdDrainConnections = 6;
 
 Future<void> _waitUntil(
@@ -850,6 +866,50 @@ void _erroringWorkerEntryPoint(Map<String, Object?> init) {
         connections.remove(entry.key);
       }
       bossPort.send({'type': kWorkerEventDrained, 'workerHash': workerHash});
+    }
+  });
+}
+
+void _idleWorkerEntryPoint(Map<String, Object?> init) {
+  final bossPort = init['bossPort'] as SendPort;
+  final connectionId = init['connectionId'] as int;
+  final listenerId = init['listenerId'] as int;
+  final commandPort = ReceivePort();
+  final workerHash = Isolate.current.hashCode;
+
+  bossPort.send({
+    'type': kWorkerEventRegister,
+    'connectionId': connectionId,
+    'listenerId': listenerId,
+    'commandPort': commandPort.sendPort,
+    'statePort': init['statePort'],
+    'workerHash': workerHash,
+  });
+  bossPort.send({
+    'type': kWorkerEventSessionOpened,
+    'connectionId': connectionId,
+    'sessionId': 1,
+    'realmUri': 'realm1',
+  });
+  bossPort.send({'type': kWorkerEventReady, 'connectionId': connectionId});
+
+  commandPort.listen((dynamic raw) {
+    if (raw is! List || raw.isEmpty) {
+      return;
+    }
+    final command = raw[0];
+    if (command == kWorkerCmdRemoveConnection) {
+      final removeConnection = raw[1] as int;
+      bossPort.send({
+        'type': kWorkerEventConnectionRemoved,
+        'connectionId': removeConnection,
+      });
+    } else if (command == kWorkerCmdShutdown) {
+      commandPort.close();
+      bossPort.send({
+        'type': kWorkerEventShutdown,
+        'connectionId': connectionId,
+      });
     }
   });
 }
@@ -1241,6 +1301,69 @@ void main() {
   });
 
   group('Router boss/worker', () {
+    test('closes idle sessions based on session_idle_ms', () async {
+      final runtime = _HandleRuntime();
+      final settings = RouterSettingsBuilder()
+          .addRealmFromBuilder(
+            RealmSettingsBuilder('realm1')
+              ..addAuthMethod('anonymous')
+              ..addRoleFromBuilder(
+                RoleSettingsBuilder('anonymous')..addPermissionFromBuilder(
+                  PermissionSettingsBuilder('')
+                    ..setMatchPolicy(PermissionMatchPolicy.prefix)
+                    ..allowOperations(const [
+                      'subscribe',
+                      'publish',
+                      'call',
+                      'register',
+                      'unregister',
+                    ]),
+                ),
+              )
+              ..setLimits(const RealmLimitSettings(sessionIdleMs: 50)),
+          )
+          .addListenerFromBuilder(
+            ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+              ..addAuthMethod('anonymous')
+              ..setOptions(const {'max_rawsocket_size_exponent': 16}),
+          )
+          .addAuthenticator(
+            'anonymous',
+            const AuthenticatorDefinition(type: 'anonymous'),
+          )
+          .build();
+
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.disabled,
+              maxRawSocketSizeExponent: 16,
+            ),
+          ],
+        ),
+        settings: settings,
+      );
+
+      final binding = router.start(
+        runtime,
+        workerEntryPoint: _idleWorkerEntryPoint,
+        workerPollInterval: const Duration(milliseconds: 1),
+      );
+      addTearDown(binding.dispose);
+
+      final listener = binding.listeners.single;
+      const connectionId = 9901;
+      runtime.enqueueConnection(listener.listenerId, connectionId);
+
+      await _waitUntil(
+        () => runtime.closedConnections.contains(connectionId),
+        timeout: const Duration(seconds: 3),
+      );
+    });
+
     test('accepts WebSocket handshakes with supported subprotocols', () async {
       final runtime = _FakeRuntime();
       final router = Router(
@@ -2350,6 +2473,70 @@ void main() {
       expect(lifecycle['maxBackpressureDepth'], 0);
       expect(lifecycle['goAwayEvents'], greaterThanOrEqualTo(1));
       expect(lifecycle['detail'], 'idle timeout triggered');
+    },
+  );
+
+  test(
+    'emits http_connection_event with body timeout reason and detail',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithPendingProtocols(),
+      );
+
+      final events = <Map<String, Object?>>[];
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      const connectionId = 97;
+      runtime.enqueueHttpConnectionEvent(
+        NativeHttpConnectionEvent(
+          connectionId: connectionId,
+          protocol: NativeConnectionProtocol.http3,
+          reason: NativeHttpConnectionCloseReason.bodyTimeout,
+          requestCount: 1,
+          idleTimeouts: 0,
+          bodyTimeouts: 1,
+          backpressureEvents: 0,
+          maxBackpressureDepth: 0,
+          goAwayEvents: 1,
+          detail: 'body timeout triggered',
+        ),
+      );
+
+      await _waitUntil(
+        () => events.any((event) => event['type'] == 'http_connection_event'),
+        timeout: const Duration(seconds: 2),
+      );
+
+      final lifecycle = events.firstWhere(
+        (event) => event['type'] == 'http_connection_event',
+      );
+      expect(lifecycle['connectionId'], connectionId);
+      expect(lifecycle['protocol'], 'http3');
+      expect(lifecycle['reason'], 'body_timeout');
+      expect(lifecycle['requestCount'], 1);
+      expect(lifecycle['goAwayEvents'], equals(1));
+      expect(lifecycle['detail'], 'body timeout triggered');
     },
   );
 

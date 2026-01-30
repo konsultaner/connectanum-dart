@@ -131,6 +131,9 @@ typedef CtConnectionMaxRawsocketExponentDart = int Function(int);
 typedef CtConnectionProtocolNative = ffi.Int32 Function(ffi.Int32);
 typedef CtConnectionProtocolDart = int Function(int);
 
+typedef CtConnectionCloseNative = ffi.Int32 Function(ffi.Int32);
+typedef CtConnectionCloseDart = int Function(int);
+
 typedef CtConnectionWebSocketProtocolNative =
     ffi.Int32 Function(
       ffi.Int32,
@@ -685,6 +688,10 @@ class CtFfiBindings {
           .lookupFunction<CtConnectionProtocolNative, CtConnectionProtocolDart>(
             'ct_connection_protocol',
           ),
+      ctConnectionClose = library
+          .lookupFunction<CtConnectionCloseNative, CtConnectionCloseDart>(
+            'ct_connection_close',
+          ),
       ctConnectionWebSocketProtocol = library
           .lookupFunction<
             CtConnectionWebSocketProtocolNative,
@@ -911,6 +918,7 @@ class CtFfiBindings {
   final CtReloadTlsDart ctReloadTls;
   final CtConnectionMaxRawsocketExponentDart ctConnectionMaxRawsocketExponent;
   final CtConnectionProtocolDart ctConnectionProtocol;
+  final CtConnectionCloseDart ctConnectionClose;
   final CtConnectionWebSocketProtocolDart ctConnectionWebSocketProtocol;
   final CtConnectionTakeHttpHandshakeDart ctConnectionTakeHttpHandshake;
   final CtConnectionTakeHttp2HandshakeDart ctConnectionTakeHttp2Handshake;

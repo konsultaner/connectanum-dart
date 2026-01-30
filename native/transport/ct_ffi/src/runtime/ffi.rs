@@ -26,6 +26,7 @@ use ct_core::http_metrics_snapshot_with_breakdown;
 use ct_core::parse_message;
 use ct_core::{
     accept_channel, apply_router_config, connection_accept_websocket, connection_http3_connection,
+    close_connection,
     connection_http3_poll_request, connection_http3_poll_stream, connection_http_poll_request,
     connection_poll_http_event, connection_protocol, connection_rawsocket_max_exponent,
     connection_reject_websocket, connection_take_http2_handshake, connection_take_http3_handshake,
@@ -236,6 +237,7 @@ fn map_error(err: CoreError) -> c_int {
         CoreError::HandshakeAlreadyTaken(_) => ERR_HANDSHAKE_CONSUMED,
         CoreError::ConnectionHandleUnavailable(_) => ERR_HANDLE_UNAVAILABLE,
         CoreError::Http3ResponseSend(_) => ERR_IO,
+        CoreError::SendQueueFull(_) => ERR_SEND_QUEUE_FULL,
         CoreError::Io(_) => ERR_IO,
     }
 }
@@ -972,16 +974,24 @@ pub extern "C" fn ct_listener_http3_port(listener_id: c_int) -> c_int {
 #[no_mangle]
 pub extern "C" fn ct_poll_connection(listener_id: c_int) -> c_int {
     let listener_id = ListenerId(listener_id as u32);
-    match with_channel(listener_id, |receiver| receiver.try_recv()) {
-        Some(Ok(connection_id)) => {
-            invoke_connection_callback(listener_id, connection_id);
-            connection_id.0 as c_int
+    loop {
+        match with_channel(listener_id, |receiver| receiver.try_recv()) {
+            Some(Ok(connection_id)) => match connection_protocol(connection_id) {
+                Ok(_) => {
+                    invoke_connection_callback(listener_id, connection_id);
+                    return connection_id.0 as c_int;
+                }
+                Err(CoreError::ConnectionNotFound(_)) => continue,
+                Err(err) => return map_error(err),
+            },
+            Some(Err(_)) => return 0,
+            None => {
+                return match local_addr(listener_id) {
+                    Ok(_) => 0,
+                    Err(err) => map_error(err),
+                }
+            }
         }
-        Some(Err(_)) => 0,
-        None => match local_addr(listener_id) {
-            Ok(_) => 0,
-            Err(err) => map_error(err),
-        },
     }
 }
 
@@ -1012,6 +1022,15 @@ pub extern "C" fn ct_connection_protocol(connection_id: c_int) -> c_int {
                 ConnectionProtocol::Http3 => PROTOCOL_HTTP3,
             }
         }
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_connection_close(connection_id: c_int) -> c_int {
+    let connection_id = ConnectionId(connection_id as u32);
+    match close_connection(connection_id) {
+        Ok(()) => SUCCESS,
         Err(err) => map_error(err),
     }
 }

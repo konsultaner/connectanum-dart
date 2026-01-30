@@ -20,6 +20,7 @@ abstract class NativeRuntime {
   int pollConnection(int listenerId);
   int connectionMaxRawSocketExponent(int connectionId);
   NativeConnectionProtocol connectionProtocol(int connectionId);
+  void closeConnection(int connectionId);
   String? connectionWebSocketProtocol(int connectionId) => null;
   NativeHttpHandshake? takeHttpHandshake(int connectionId);
   void releaseHttpHandshake(int handle);
@@ -135,6 +136,7 @@ abstract final class NativeTransportErrorCode {
   static const handshakeConsumed = -13;
   static const handleUnavailable = -14;
   static const streamClosed = -15;
+  static const sendQueueFull = -17;
 }
 
 /// Exception thrown when the native runtime reports an error.
@@ -1180,6 +1182,8 @@ String _buildNativeErrorMessage(int code, String context) {
       '$context: native handle unavailable',
     NativeTransportErrorCode.streamClosed =>
       '$context: native HTTP response stream closed',
+    NativeTransportErrorCode.sendQueueFull =>
+      '$context: native send queue full (backpressure)',
     _ => '$context: error code $code',
   };
 }
@@ -1313,8 +1317,11 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
   final ffi.DynamicLibrary _library; // Retain library for runtime lifetime.
   final CtFfiBindings _bindings;
   final _MessageBindings _messageBindings;
+  RandomAccessFile? _runtimeLock;
 
   static NativeTransportRuntime? _instance;
+  static final String _runtimeLockPath =
+      '${Directory.systemTemp.path}/connectanum_native_runtime.lock';
 
   void Function(int listenerId, int status)? _onListenerStarted;
   void Function(int listenerId, int connectionId)? _onConnection;
@@ -1328,11 +1335,37 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
       ffi.Pointer.fromFunction<ConnectionCallbackNative>(_connectionTrampoline);
 
   void dispose() {
+    _releaseRuntimeLock();
     if (_instance == this) {
       _instance = null;
     }
     _onListenerStarted = null;
     _onConnection = null;
+  }
+
+  void _acquireRuntimeLock() {
+    if (_runtimeLock != null) {
+      return;
+    }
+    final file = File(_runtimeLockPath);
+    file.parent.createSync(recursive: true);
+    final handle = file.openSync(mode: FileMode.write);
+    handle.lockSync();
+    _runtimeLock = handle;
+  }
+
+  void _releaseRuntimeLock() {
+    final handle = _runtimeLock;
+    if (handle == null) {
+      return;
+    }
+    try {
+      handle.unlockSync();
+    } catch (_) {}
+    try {
+      handle.closeSync();
+    } catch (_) {}
+    _runtimeLock = null;
   }
 
   void setListenerCallbacks({
@@ -1344,12 +1377,24 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
   }
 
   @override
-  void start() =>
+  void start() {
+    _acquireRuntimeLock();
+    try {
       _checkZero(_bindings.ctStartRuntime(), 'Failed to start runtime');
+    } catch (_) {
+      _releaseRuntimeLock();
+      rethrow;
+    }
+  }
 
   @override
-  void shutdown() =>
+  void shutdown() {
+    try {
       _checkZero(_bindings.ctShutdown(), 'Failed to shutdown runtime');
+    } finally {
+      _releaseRuntimeLock();
+    }
+  }
 
   @override
   int listen(String host, int port, {int backlog = 128}) {
@@ -1495,6 +1540,14 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
       _throwForError(result, 'Failed to query connection protocol');
     }
     return NativeConnectionProtocol.fromId(result);
+  }
+
+  @override
+  void closeConnection(int connectionId) {
+    final result = _bindings.ctConnectionClose(connectionId);
+    if (result < 0) {
+      _throwForError(result, 'Failed to close connection');
+    }
   }
 
   @override

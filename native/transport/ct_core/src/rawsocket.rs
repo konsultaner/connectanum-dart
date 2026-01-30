@@ -191,6 +191,8 @@ mod tests {
             port: 0,
             tls_mode: TlsMode::Disabled,
             idle_timeout: None,
+            heartbeat_interval: None,
+            heartbeat_timeout: None,
             handshake_timeout,
             max_http_content_length: None,
             max_rawsocket_size_exponent: Some(rawsocket_exponent),

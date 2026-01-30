@@ -107,6 +107,8 @@ void main() {
         options: const {
           'max_rawsocket_size_exponent': 18,
           'idle_timeout_ms': 1500,
+          'heartbeat_interval_ms': 1000,
+          'heartbeat_timeout_ms': 3000,
           'handshake_timeout_ms': '2500',
           'max_http_content_length': 4096,
         },
@@ -116,8 +118,39 @@ void main() {
 
       expect(endpoint.maxRawSocketSizeExponent, 18);
       expect(endpoint.idleTimeout, const Duration(milliseconds: 1500));
+      expect(endpoint.heartbeatInterval, const Duration(milliseconds: 1000));
+      expect(endpoint.heartbeatTimeout, const Duration(milliseconds: 3000));
       expect(endpoint.handshakeTimeout, const Duration(milliseconds: 2500));
       expect(endpoint.maxHttpContentLength, 4096);
+    });
+
+    test('prefers rawsocket max exponent from rawsocket block', () {
+      final settings = ListenerSettings(
+        endpoint: '0.0.0.0:0',
+        options: const {'max_rawsocket_size_exponent': 18},
+        rawsocket: const RawSocketListenerSettings(maxFrameExponent: 20),
+      );
+
+      final endpoint = Endpoint.fromListenerSettings(settings);
+
+      expect(endpoint.maxRawSocketSizeExponent, 20);
+    });
+
+    test('prefers websocket path from websocket block', () {
+      final settings = ListenerSettings(
+        endpoint: '0.0.0.0:0',
+        path: '/legacy',
+        websocket: const WebSocketListenerSettings(
+          path: '/ws',
+          subprotocols: [],
+          serializerFallback: null,
+          options: {},
+        ),
+      );
+
+      final endpoint = Endpoint.fromListenerSettings(settings);
+
+      expect(endpoint.webSocketPath, '/ws');
     });
   });
 }

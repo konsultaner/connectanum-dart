@@ -332,6 +332,10 @@ abstract final class RouterSettingsCodec {
       'tls_mode': endpoint.tlsMode.wireValue,
       if (endpoint.idleTimeout != null)
         'idle_timeout_ms': endpoint.idleTimeout!.inMilliseconds,
+      if (endpoint.heartbeatInterval != null)
+        'heartbeat_interval_ms': endpoint.heartbeatInterval!.inMilliseconds,
+      if (endpoint.heartbeatTimeout != null)
+        'heartbeat_timeout_ms': endpoint.heartbeatTimeout!.inMilliseconds,
       if (endpoint.handshakeTimeout != null)
         'handshake_timeout_ms': endpoint.handshakeTimeout!.inMilliseconds,
       if (endpoint.maxHttpContentLength != null)

@@ -52,6 +52,9 @@ class _FakeRuntime implements NativeRuntime {
       NativeConnectionProtocol.rawsocket;
 
   @override
+  void closeConnection(int connectionId) {}
+
+  @override
   String? connectionWebSocketProtocol(int connectionId) => null;
 
   @override

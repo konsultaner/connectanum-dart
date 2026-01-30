@@ -14,6 +14,7 @@ class _RouterBoss {
   }) : _eventPort = ReceivePort(),
        _commandPort = ReceivePort(),
        _stateStore = RouterStateStore(settings: settings) {
+    _realmByName = {for (final realm in settings.realms) realm.name: realm};
     for (final listener in listeners) {
       _listenerById[listener.listenerId] = listener;
     }
@@ -49,6 +50,10 @@ class _RouterBoss {
   final Map<int, RouterListener> _http3ConnectionListeners = {};
   final Map<int, _WebSocketSelection> _webSocketSelectionByConnection = {};
   final RouterStateStore _stateStore;
+  late final Map<String, RealmSettings> _realmByName;
+  final Map<int, DateTime> _lastActivityByConnection = {};
+  final Map<int, String> _realmByConnection = {};
+  DateTime _lastIdleSweep = DateTime.fromMillisecondsSinceEpoch(0);
   NativeRouterMetrics? _lastRouterMetrics;
   RouterTransportMetrics? _cachedTransportMetrics;
   final Map<String, RouterTransportMetricsBreakdown> _lastBreakdownByKey = {};
@@ -171,6 +176,7 @@ class _RouterBoss {
         await _acceptConnections(listener);
       }
       _dispatchMessages();
+      _expireIdleConnections();
       _drainHttp2Requests();
       _drainHttp3Requests();
       _drainHttpConnectionEvents();
@@ -201,6 +207,7 @@ class _RouterBoss {
       if (connectionId == 0) {
         break;
       }
+      _lastActivityByConnection[connectionId] = DateTime.now();
       try {
         protocol = runtime.connectionProtocol(connectionId);
       } on NativeTransportException catch (error) {
@@ -877,6 +884,7 @@ class _RouterBoss {
     try {
       final handle = runtime.pollMessageHandle(connectionId);
       if (handle != 0) {
+        _lastActivityByConnection[connectionId] = DateTime.now();
         return handle;
       }
     } on NativeTransportException catch (error) {
@@ -886,6 +894,7 @@ class _RouterBoss {
     try {
       final wsHandle = runtime.pollWebSocketMessageHandle(connectionId);
       if (wsHandle != 0) {
+        _lastActivityByConnection[connectionId] = DateTime.now();
         return wsHandle;
       }
     } on NativeTransportException catch (error) {
@@ -903,6 +912,57 @@ class _RouterBoss {
     });
     if (error.code == NativeTransportErrorCode.connectionNotFound) {
       _detachConnection(connectionId, notifyWorker: true);
+    }
+  }
+
+  void _expireIdleConnections() {
+    if (_realmByConnection.isEmpty) {
+      return;
+    }
+    final now = DateTime.now();
+    if (now.difference(_lastIdleSweep) < const Duration(seconds: 1)) {
+      return;
+    }
+    _lastIdleSweep = now;
+
+    final connectionIds = List<int>.from(_realmByConnection.keys);
+    for (final connectionId in connectionIds) {
+      final realmUri = _realmByConnection[connectionId];
+      if (realmUri == null) {
+        continue;
+      }
+      final realm = _realmByName[realmUri];
+      if (realm == null) {
+        continue;
+      }
+      final idleMs = realm.limits.sessionIdleMs;
+      if (idleMs <= 0) {
+        continue;
+      }
+      final lastActivity = _lastActivityByConnection[connectionId] ?? now;
+      if (now.difference(lastActivity).inMilliseconds < idleMs) {
+        continue;
+      }
+      onEvent?.call({
+        'source': 'boss',
+        'type': 'session_idle_timeout',
+        'connectionId': connectionId,
+        'realmUri': realmUri,
+        'idleMs': idleMs,
+      });
+      try {
+        runtime.closeConnection(connectionId);
+      } on NativeTransportException catch (error) {
+        onEvent?.call({
+          'source': 'boss',
+          'type': 'session_idle_timeout_close_error',
+          'connectionId': connectionId,
+          'error': error.toString(),
+        });
+      }
+      _detachConnection(connectionId, notifyWorker: true);
+      _lastActivityByConnection.remove(connectionId);
+      _realmByConnection.remove(connectionId);
     }
   }
 
@@ -1259,11 +1319,22 @@ class _RouterBoss {
         ..['type'] = 'worker_registered'
         ..['connectionId'] = message['connectionId']
         ..['listenerId'] = message['listenerId'];
+    } else if (type == _workerEventSessionOpened) {
+      final connectionId = message['connectionId'] as int?;
+      final realmUri = message['realmUri'] as String?;
+      if (connectionId != null && realmUri != null) {
+        _realmByConnection[connectionId] = realmUri;
+        _lastActivityByConnection[connectionId] = DateTime.now();
+      }
+      payload
+        ..['type'] = 'worker_session_opened'
+        ..addAll(message.cast<String, Object?>());
     } else if (type == 'worker_send') {
       final connectionId = message['connectionId'] as int;
       final Uint8List payloadBytes = message['payload'] as Uint8List;
       try {
         runtime.sendMessage(connectionId, payloadBytes);
+        _lastActivityByConnection[connectionId] = DateTime.now();
         payload
           ..['type'] = 'worker_send'
           ..['connectionId'] = connectionId;
@@ -1423,6 +1494,8 @@ class _RouterBoss {
       final worker = _connectionOwners.remove(connectionId);
       worker?.connections.remove(connectionId);
       _releaseHttp3Connection(connectionId);
+      _lastActivityByConnection.remove(connectionId);
+      _realmByConnection.remove(connectionId);
       payload
         ..['type'] = 'worker_connection_removed'
         ..['connectionId'] = connectionId;
@@ -1582,6 +1655,8 @@ class _RouterBoss {
   void _shutdownWorker(_WorkerHandle worker, {bool terminateIsolate = false}) {
     for (final connectionId in worker.connections.toList()) {
       _connectionOwners.remove(connectionId);
+      _lastActivityByConnection.remove(connectionId);
+      _realmByConnection.remove(connectionId);
       worker.commandPort.send(<Object?>[
         _workerCmdRemoveConnection,
         connectionId,
@@ -1598,6 +1673,8 @@ class _RouterBoss {
 
   void _detachConnection(int connectionId, {bool notifyWorker = false}) {
     final worker = _connectionOwners.remove(connectionId);
+    _lastActivityByConnection.remove(connectionId);
+    _realmByConnection.remove(connectionId);
     if (worker == null) {
       final pending = _pendingIsolates.remove(connectionId);
       pending?.kill(priority: Isolate.immediate);

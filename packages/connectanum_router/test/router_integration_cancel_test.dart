@@ -45,6 +45,9 @@ class _QueueRuntime implements NativeRuntimeWithHandles {
       NativeConnectionProtocol.rawsocket;
 
   @override
+  void closeConnection(int connectionId) {}
+
+  @override
   String? connectionWebSocketProtocol(int connectionId) => null;
 
   @override

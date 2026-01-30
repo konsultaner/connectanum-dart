@@ -109,6 +109,43 @@ Duration? normalizeIdleTimeout(Duration? timeout) {
   return timeout;
 }
 
+/// Validates the optional heartbeat interval.
+Duration? normalizeHeartbeatInterval(Duration? interval) {
+  if (interval == null) {
+    return null;
+  }
+  if (interval.isNegative || interval.inMilliseconds == 0) {
+    throw ArgumentError.value(
+      interval,
+      'heartbeatInterval',
+      'heartbeatInterval must be positive',
+    );
+  }
+  return interval;
+}
+
+/// Validates the optional heartbeat timeout.
+Duration? normalizeHeartbeatTimeout(Duration? timeout, {Duration? interval}) {
+  if (timeout == null) {
+    return null;
+  }
+  if (timeout.isNegative || timeout.inMilliseconds == 0) {
+    throw ArgumentError.value(
+      timeout,
+      'heartbeatTimeout',
+      'heartbeatTimeout must be positive',
+    );
+  }
+  if (interval != null && timeout < interval) {
+    throw ArgumentError.value(
+      timeout,
+      'heartbeatTimeout',
+      'heartbeatTimeout must be >= heartbeatInterval',
+    );
+  }
+  return timeout;
+}
+
 /// Validates the optional handshake timeout.
 Duration? normalizeHandshakeTimeout(Duration? timeout) {
   if (timeout == null) {

@@ -41,6 +41,12 @@ router:
         # client_auth:
         #   mode: required # or: optional
         #   ca_certificates_file: /etc/connectanum/tls/client_ca.pem
+      # Native endpoint options (timeouts, heartbeats, ...):
+      options:
+        # Native transport ping/pong (in ms). If set, connections without PONG
+        # replies are closed after `heartbeat_timeout_ms`.
+        heartbeat_interval_ms: 15000
+        heartbeat_timeout_ms: 45000
       rawsocket:
         max_rawsocket_size_exponent: 16
       websocket:

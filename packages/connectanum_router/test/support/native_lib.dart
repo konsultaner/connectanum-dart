@@ -1,5 +1,21 @@
 import 'dart:io';
 
+Directory? _findRepoRoot() {
+  var dir = Directory.current.absolute;
+  for (var i = 0; i < 10; i++) {
+    final candidate = Directory('${dir.path}/native/transport');
+    if (candidate.existsSync()) {
+      return dir;
+    }
+    final parent = dir.parent;
+    if (parent.path == dir.path) {
+      break;
+    }
+    dir = parent;
+  }
+  return null;
+}
+
 /// Resolve (and optionally build) the native `ct_ffi` library so integration
 /// tests run against a fresh artifact.
 ///
@@ -14,24 +30,32 @@ String? resolveOrBuildNativeLib({bool useFfiTest = true}) {
     return env;
   }
 
+  final root = _findRepoRoot();
+  if (root == null) {
+    stderr.writeln(
+      'Failed to locate repository root (expected native/transport). '
+      'Current directory: ${Directory.current.path}',
+    );
+    return null;
+  }
+
   final candidates = <String>[
-    if (useFfiTest) 'native/transport/target/ffi-test/release/libct_ffi.so',
-    'native/transport/target/release/libct_ffi.so',
-    if (useFfiTest) 'native/transport/target/ffi-test/debug/libct_ffi.so',
-    'native/transport/target/debug/libct_ffi.so',
+    if (useFfiTest)
+      '${root.path}/native/transport/target/ffi-test/release/libct_ffi.so',
+    '${root.path}/native/transport/target/release/libct_ffi.so',
   ];
 
-  final existing = _freshestExisting(candidates);
+  final existing = _freshestExisting(root, candidates);
   if (existing != null) {
     return existing;
   }
 
-  _buildNativeLib(useFfiTest: useFfiTest);
-  return _freshestExisting(candidates);
+  _buildNativeLib(root, useFfiTest: useFfiTest);
+  return _freshestExisting(root, candidates);
 }
 
-String? _freshestExisting(List<String> candidates) {
-  final latestSourceChange = _latestSourceChange();
+String? _freshestExisting(Directory root, List<String> candidates) {
+  final latestSourceChange = _latestSourceChange(root);
   File? freshest;
   for (final path in candidates) {
     final file = File(path);
@@ -53,20 +77,27 @@ String? _freshestExisting(List<String> candidates) {
   return freshest.path;
 }
 
-DateTime? _latestSourceChange() {
-  final srcDir = Directory('native/transport/src');
-  if (!srcDir.existsSync()) {
-    return null;
-  }
+DateTime? _latestSourceChange(Directory root) {
+  final srcDirs = <Directory>[
+    Directory('${root.path}/native/transport/ct_core/src'),
+    Directory('${root.path}/native/transport/ct_ffi/src'),
+  ];
   final timestamps = <DateTime>[];
-  for (final entity in srcDir.listSync(recursive: true)) {
-    if (entity is File) {
-      timestamps.add(entity.lastModifiedSync());
+  for (final srcDir in srcDirs) {
+    if (!srcDir.existsSync()) {
+      continue;
+    }
+    for (final entity in srcDir.listSync(recursive: true)) {
+      if (entity is File) {
+        timestamps.add(entity.lastModifiedSync());
+      }
     }
   }
   for (final file in [
-    File('native/transport/Cargo.toml'),
-    File('native/transport/Cargo.lock'),
+    File('${root.path}/native/transport/Cargo.toml'),
+    File('${root.path}/native/transport/Cargo.lock'),
+    File('${root.path}/native/transport/ct_core/Cargo.toml'),
+    File('${root.path}/native/transport/ct_ffi/Cargo.toml'),
   ]) {
     if (file.existsSync()) {
       timestamps.add(file.lastModifiedSync());
@@ -79,15 +110,21 @@ DateTime? _latestSourceChange() {
   return timestamps.last;
 }
 
-void _buildNativeLib({required bool useFfiTest}) {
+void _buildNativeLib(Directory root, {required bool useFfiTest}) {
   final args = <String>['build', '-p', 'ct_ffi', '--release'];
   if (useFfiTest) {
     args.addAll(['--features', 'ffi-test']);
   }
+  final environment = <String, String>{...Platform.environment};
+  if (useFfiTest) {
+    environment['CARGO_TARGET_DIR'] =
+        '${root.path}/native/transport/target/ffi-test';
+  }
   final result = Process.runSync(
     'cargo',
     args,
-    workingDirectory: 'native/transport',
+    workingDirectory: '${root.path}/native/transport',
+    environment: environment,
     runInShell: true,
   );
   if (result.exitCode != 0) {

@@ -1,6 +1,8 @@
 # Next Session Overview
 
 Fresh state:
+- Native transport heartbeat/ping-pong is enforced (RawSocket + WebSocket), and router sessions can be closed on `session_idle_ms` from the boss; coverage includes Rust `listen_flow` heartbeat + close tests and Dart router runtime idle-session enforcement.
+- Native outbound send queues are bounded (RawSocket + WebSocket); when saturated, `ct_send_message` surfaces a backpressure error instead of growing unbounded memory.
 - PUB/SUB has non-blocking ACK handling with `worker_publish_routed` tracing; the standalone rawsocket publish+ACK test now passes (`publish_ack_test.dart` against `libct_ffi.so`).
 - WAMP bench/pubsub hangs fixed: EVENT serialization now includes details/kwargs and guards malformed kwargs, so `wamp_smoke` completes cleanly (pubsub + rpc) with 4 publishers/subscribers.
 - RPC flow supports full invocation lifecycle, including `CANCEL` modes and zero-copy RESULT/ERROR forwarding with buffer-release tests.
@@ -21,8 +23,8 @@ Focus for the next session:
    - Next up: add Prometheus rules/dashboards for alert counters, pipe alert snapshots into the metrics JSON payload so external consumers can inspect the current throttle state, and keep listen_flow + router runtime coverage in sync.
 
 2. **HTTP/2 + HTTP/3 Deadline Enforcement**
-   - Enforce the remaining idle/body deadlines for HTTP/2/HTTP/3 readers, emit GOAWAY with explicit reasons, and extend `listen_flow.rs` to cover the new timeout branches.
-   - Mirror those scenarios in Dart (`router_runtime_test.dart`, worker/boss suites) so regressions get caught before Prometheus/benchmark runs.
+   - ✅ Enforced idle/body deadlines for HTTP/2 + HTTP/3 request-body readers; HTTP/3 timeouts now close the QUIC connection to avoid `h3-quinn` stop-sending races while still emitting lifecycle events with explicit details.
+   - ✅ Extended native `listen_flow.rs` coverage for HTTP/2 idle timeouts plus HTTP/3 idle/body timeouts, and mirrored the body-timeout lifecycle mapping in Dart (`router_runtime_test.dart`).
 
 3. **HTTP Streaming Regression Coverage**
 - ✅ HTTP/1.1 chunked writers + `_HttpResponseStream` plumbing are live, `listen_flow::http_response_streaming_round_trip` covers the native writer, router integration tests stream 60 KB uploads/downloads, `listen_flow::http3_response_streaming_round_trip` exercises the QUIC path, boss/runtime tests cover HTTP/2+HTTP/3 streaming, the new `tool/http_stream_bench.dart` CLI drives real HTTP/2 transfers while reporting router transport metric deltas, the bench runner exposes `/bench/*` HTTP control routes, and the Rust orchestrator now loads TOML scenarios (`h2_smoke`, `full_stack`) to drive HTTP/2 workloads via `hyper` and HTTP/3 workloads via `quinn`/`h3`, recording router metrics snapshots + JSONL summaries before stopping the Dart runner. Per-workload timeouts ensure hung regressions self-abort, the Dart bench process now always exits cleanly after `/bench/stop`, and every `/bench/metrics` call returns the OpenMetrics payload which is stored as `open_metrics_before`/`open_metrics_after` in `bench_results.jsonl`. Native `listen_flow` now covers HTTP/3 handshakes, stream polling, and multi-connection scenarios end-to-end under QUIC with ALPN `h3` after fixing the client verifier/ALPN wiring, and the Dart router integration harness now drives HTTPS + HTTP/3 streaming end-to-end via the new native test client helper and bundled TLS fixtures. Multi-MB HTTP/2/HTTP/3 integration suites now run in `router_integration_native_test.dart`, dump OpenMetrics/JSON snapshots when `CONNECTANUM_ARTIFACT_DIR` is set, and the new CI job builds `ct_ffi` + uploads those artifacts.

@@ -32,6 +32,7 @@ use crate::runtime::constants::{
 };
 use crate::runtime::ffi::{
     ct_apply_router_config, ct_connection_accept_websocket, ct_connection_get_http3_connection,
+    ct_connection_close,
     ct_connection_max_rawsocket_exponent, ct_connection_poll_http_event, ct_connection_protocol,
     ct_connection_take_http2_handshake, ct_connection_take_http3_handshake,
     ct_connection_take_http_handshake, ct_connection_take_websocket_handshake,
@@ -212,22 +213,32 @@ fn listener_callbacks_fire_and_connections_are_reported() {
     assert!(port > 0);
 
     let rt = TokioRuntime::new().unwrap();
-    rt.block_on(async move {
+    let poll_result = rt.block_on(async move {
         let addr = format!("127.0.0.1:{}", port);
         let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
         perform_handshake(&mut stream, 24, Some(30)).await;
+
+        let poll_result = loop {
+            let polled = ct_poll_connection(listener_id);
+            if polled > 0 {
+                break polled;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        };
+
+        assert_eq!(ct_connection_protocol(poll_result), PROTOCOL_RAWSOCKET);
+        assert_eq!(
+            ct_connection_max_rawsocket_exponent(poll_result),
+            30,
+            "raw socket exponent expected from runtime config"
+        );
+
         drop(stream);
         tokio::time::sleep(Duration::from_millis(50)).await;
+        poll_result
     });
 
-    let poll_result = ct_poll_connection(listener_id);
     assert!(poll_result > 0);
-    assert_eq!(ct_connection_protocol(poll_result), PROTOCOL_RAWSOCKET);
-    assert_eq!(
-        ct_connection_max_rawsocket_exponent(poll_result),
-        30,
-        "raw socket exponent expected from runtime config"
-    );
     CONNECTION_EVENTS.with(|events| {
         assert_eq!(
             events.lock().unwrap().as_slice(),
@@ -1880,6 +1891,365 @@ fn http2_body_timeout_emits_connection_event() {
     assert_eq!(ct_shutdown(), SUCCESS);
 }
 
+#[test]
+fn http2_idle_timeout_emits_connection_event() {
+    let _guard = super::test_guard();
+    let config_json = json!({
+        "schema":"connectanum.router",
+        "version":1,
+        "endpoints":[
+            {
+                "host":"127.0.0.1",
+                "port":0,
+                "tls_mode":"disabled",
+                "idle_timeout_ms":50,
+                "protocols":["rawsocket","http","http2"],
+                "http":{
+                    "alpn":["h2"]
+                },
+                "http_routes":[
+                    {
+                        "path":"/metrics",
+                        "methods":{
+                            "POST":{
+                                "type":"translation",
+                                "realm":"realm.metrics",
+                                "procedure":"connectanum.metrics.openmetrics"
+                            }
+                        }
+                    }
+                ]
+            }
+        ]
+    });
+    let config = CString::new(config_json.to_string()).unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let (ready_tx, ready_rx) = std::sync::mpsc::channel();
+    let client_handle = std::thread::spawn(move || {
+        let rt = TokioRuntime::new().unwrap();
+        rt.block_on(async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let tcp = tokio::net::TcpStream::connect(addr).await.unwrap();
+            let (mut client, connection) = client::handshake(tcp).await.unwrap();
+            tokio::spawn(async move {
+                let _ = connection.await;
+            });
+
+            let request = Http2TestRequest::builder()
+                .method("POST")
+                .uri("https://localhost/metrics")
+                .header("content-length", "1024")
+                .body(())
+                .unwrap();
+            let (_response, _send_stream) = client.send_request(request, false).unwrap();
+            ready_tx.send(()).unwrap();
+
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        })
+    });
+
+    ready_rx.recv().expect("client ready");
+
+    let connection_id = wait_for_connection(listener_id);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP2);
+
+    let handshake_handle = wait_for_http_handshake(connection_id);
+    assert_eq!(ct_http_handshake_release(handshake_handle), SUCCESS);
+
+    let (event, detail) = wait_for_http_event(Duration::from_secs(5));
+    assert_eq!(event.connection_id, connection_id);
+    assert_eq!(event.protocol, PROTOCOL_HTTP2);
+    assert_eq!(event.reason, HTTP_EVENT_REASON_IDLE_TIMEOUT);
+    assert_eq!(event.idle_timeouts, 1);
+    assert_eq!(event.body_timeouts, 0);
+    assert!(event.request_count >= 1);
+    assert_eq!(event.backpressure_events, 0);
+    assert_eq!(event.max_backpressure_depth, 0);
+    assert_eq!(event.goaway_events, 1);
+    assert_eq!(detail.as_deref(), Some("http/2 body idle timeout"));
+
+    client_handle.join().expect("client thread finished");
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn http3_body_timeout_emits_connection_event() {
+    let _guard = super::test_guard();
+    let certified =
+        generate_simple_self_signed(vec!["localhost".into(), "127.0.0.1".into()]).unwrap();
+    let cert_pem = certified.cert.pem();
+    let key_pem = certified.key_pair.serialize_pem();
+    let cert_der = certified.cert.der().to_vec();
+
+    let config_json = json!({
+        "schema":"connectanum.router",
+        "version":1,
+        "endpoints":[
+            {
+                "host":"127.0.0.1",
+                "port":0,
+                "tls_mode":"native",
+                "idle_timeout_ms":50,
+                "protocols":["rawsocket","http","http2","http3"],
+                "sni_certificates":[
+                    {
+                        "hostname":"localhost",
+                        "certificate_chain_pem":cert_pem,
+                        "private_key_pem":key_pem
+                    }
+                ],
+                "http":{
+                    "alpn":["http/1.1","h2","h3"],
+                    "http3":{"enabled":true}
+                },
+                "http_routes":[
+                    {
+                        "path":"/metrics",
+                        "methods":{
+                            "POST":{
+                                "type":"translation",
+                                "realm":"realm.metrics",
+                                "procedure":"connectanum.metrics.openmetrics"
+                            }
+                        }
+                    }
+                ]
+            }
+        ]
+    });
+    let config_string = config_json.to_string();
+    let config = CString::new(config_string).unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let (ready_tx, ready_rx) = std::sync::mpsc::channel();
+    let client_handle = std::thread::spawn(move || {
+        let rt = TokioRuntime::new().unwrap();
+        rt.block_on(async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let server_addr = addr.parse().unwrap();
+
+            let mut roots = RootCertStore::empty();
+            roots
+                .add(CertificateDer::from(cert_der.clone()))
+                .expect("add root cert");
+            let client_config = build_http3_client_config(Arc::new(roots));
+
+            let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+            endpoint.set_default_client_config(client_config);
+            let connecting = endpoint
+                .connect(server_addr, "localhost")
+                .expect("connect http3");
+            let connection = connecting.await.expect("http3 handshake");
+
+            let (mut driver, mut sender) = h3_client::builder()
+                .build::<_, _, Bytes>(H3QuinnConnection::new(connection))
+                .await
+                .expect("build h3 client");
+            tokio::spawn(async move {
+                let _ = future::poll_fn(|cx| driver.poll_close(cx)).await;
+            });
+
+            let request = Request::post("https://localhost/metrics")
+                .header("content-length", "1024")
+                .body(())
+                .unwrap();
+            let mut stream = sender
+                .send_request(request)
+                .await
+                .expect("send http3 request");
+            ready_tx.send(()).unwrap();
+
+            let start = Instant::now();
+            while start.elapsed() < Duration::from_millis(300) {
+                if stream
+                    .send_data(Bytes::copy_from_slice(&[b'x']))
+                    .await
+                    .is_err()
+                {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(30)).await;
+            }
+            let _ = stream.finish().await;
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        })
+    });
+
+    ready_rx.recv().expect("client ready");
+
+    let connection_id = wait_for_connection(listener_id);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP3);
+
+    let handshake_handle = wait_for_http_handshake(connection_id);
+    assert_eq!(ct_http_handshake_release(handshake_handle), SUCCESS);
+
+    let (event, detail) = wait_for_http_event(Duration::from_secs(5));
+    assert_eq!(event.connection_id, connection_id);
+    assert_eq!(event.protocol, PROTOCOL_HTTP3);
+    assert_eq!(event.reason, HTTP_EVENT_REASON_BODY_TIMEOUT);
+    assert_eq!(event.idle_timeouts, 0);
+    assert_eq!(event.body_timeouts, 1);
+    assert!(event.request_count >= 1);
+    assert_eq!(event.backpressure_events, 0);
+    assert_eq!(event.max_backpressure_depth, 0);
+    assert_eq!(event.goaway_events, 1);
+    assert_eq!(detail.as_deref(), Some("http/3 body total timeout"));
+
+    client_handle.join().expect("client thread finished");
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn http3_idle_timeout_emits_connection_event() {
+    let _guard = super::test_guard();
+    let certified =
+        generate_simple_self_signed(vec!["localhost".into(), "127.0.0.1".into()]).unwrap();
+    let cert_pem = certified.cert.pem();
+    let key_pem = certified.key_pair.serialize_pem();
+    let cert_der = certified.cert.der().to_vec();
+
+    let config_json = json!({
+        "schema":"connectanum.router",
+        "version":1,
+        "endpoints":[
+            {
+                "host":"127.0.0.1",
+                "port":0,
+                "tls_mode":"native",
+                "idle_timeout_ms":50,
+                "protocols":["rawsocket","http","http2","http3"],
+                "sni_certificates":[
+                    {
+                        "hostname":"localhost",
+                        "certificate_chain_pem":cert_pem,
+                        "private_key_pem":key_pem
+                    }
+                ],
+                "http":{
+                    "alpn":["http/1.1","h2","h3"],
+                    "http3":{"enabled":true}
+                },
+                "http_routes":[
+                    {
+                        "path":"/metrics",
+                        "methods":{
+                            "POST":{
+                                "type":"translation",
+                                "realm":"realm.metrics",
+                                "procedure":"connectanum.metrics.openmetrics"
+                            }
+                        }
+                    }
+                ]
+            }
+        ]
+    });
+    let config_string = config_json.to_string();
+    let config = CString::new(config_string).unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let (ready_tx, ready_rx) = std::sync::mpsc::channel();
+    let client_handle = std::thread::spawn(move || {
+        let rt = TokioRuntime::new().unwrap();
+        rt.block_on(async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let server_addr = addr.parse().unwrap();
+
+            let mut roots = RootCertStore::empty();
+            roots
+                .add(CertificateDer::from(cert_der.clone()))
+                .expect("add root cert");
+            let client_config = build_http3_client_config(Arc::new(roots));
+
+            let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+            endpoint.set_default_client_config(client_config);
+            let connecting = endpoint
+                .connect(server_addr, "localhost")
+                .expect("connect http3");
+            let connection = connecting.await.expect("http3 handshake");
+
+            let (mut driver, mut sender) = h3_client::builder()
+                .build::<_, _, Bytes>(H3QuinnConnection::new(connection))
+                .await
+                .expect("build h3 client");
+            tokio::spawn(async move {
+                let _ = future::poll_fn(|cx| driver.poll_close(cx)).await;
+            });
+
+            let request = Request::post("https://localhost/metrics")
+                .header("content-length", "1024")
+                .body(())
+                .unwrap();
+            let _stream = sender
+                .send_request(request)
+                .await
+                .expect("send http3 request");
+            ready_tx.send(()).unwrap();
+
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        })
+    });
+
+    ready_rx.recv().expect("client ready");
+
+    let connection_id = wait_for_connection(listener_id);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP3);
+
+    let handshake_handle = wait_for_http_handshake(connection_id);
+    assert_eq!(ct_http_handshake_release(handshake_handle), SUCCESS);
+
+    let (event, detail) = wait_for_http_event(Duration::from_secs(5));
+    assert_eq!(event.connection_id, connection_id);
+    assert_eq!(event.protocol, PROTOCOL_HTTP3);
+    assert_eq!(event.reason, HTTP_EVENT_REASON_IDLE_TIMEOUT);
+    assert_eq!(event.idle_timeouts, 1);
+    assert_eq!(event.body_timeouts, 0);
+    assert!(event.request_count >= 1);
+    assert_eq!(event.backpressure_events, 0);
+    assert_eq!(event.max_backpressure_depth, 0);
+    assert_eq!(event.goaway_events, 1);
+    assert_eq!(detail.as_deref(), Some("http/3 body idle timeout"));
+
+    client_handle.join().expect("client thread finished");
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
 #[cfg(feature = "ffi-test")]
 #[test]
 fn http2_goaway_event_includes_detail() {
@@ -1945,7 +2315,7 @@ fn http2_goaway_event_includes_detail() {
 
 #[cfg(feature = "ffi-test")]
 #[test]
-fn http3_idle_timeout_emits_connection_event() {
+fn http3_idle_timeout_event_push_includes_detail() {
     let _guard = super::test_guard();
     let config = CString::new(
         r#"{
@@ -2826,6 +3196,116 @@ fn websocket_wamp_round_trip() {
     assert_eq!(ct_shutdown(), SUCCESS);
 }
 
+#[test]
+fn rawsocket_heartbeat_sends_ping_and_accepts_pong() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"disabled",
+                    "heartbeat_interval_ms":50,
+                    "heartbeat_timeout_ms":200,
+                    "protocols":["rawsocket"]
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let rt = TokioRuntime::new().unwrap();
+    rt.block_on(async move {
+        let addr = format!("127.0.0.1:{}", port);
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        perform_handshake(&mut stream, 16, None).await;
+
+        let (frame_type, payload) = read_rawsocket_frame(&mut stream).await;
+        assert_eq!(frame_type, 1, "expected server PING frame");
+        assert_eq!(payload.len(), 8, "expected 8-byte ping payload");
+
+        send_rawsocket_frame(&mut stream, 2, &payload).await;
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    });
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn connection_close_removes_connection_entry() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"disabled",
+                    "protocols":["rawsocket"]
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let rt = TokioRuntime::new().unwrap();
+    let (hold_tx, hold_rx) = tokio::sync::oneshot::channel::<()>();
+    rt.spawn(async move {
+        let addr = format!("127.0.0.1:{}", port);
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        perform_handshake(&mut stream, 16, None).await;
+        let _ = hold_rx.await;
+    });
+
+    let deadline = Instant::now() + Duration::from_secs(1);
+    let connection_id = loop {
+        let connection_id = ct_poll_connection(listener_id);
+        if connection_id > 0 {
+            break connection_id;
+        }
+        if Instant::now() > deadline {
+            panic!("timed out waiting for connection id");
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    };
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_RAWSOCKET);
+    assert_eq!(ct_connection_close(connection_id), SUCCESS);
+    assert_eq!(ct_connection_protocol(connection_id), ERR_CONNECTION_NOT_FOUND);
+    let _ = hold_tx.send(());
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
 async fn perform_handshake(
     stream: &mut tokio::net::TcpStream,
     exponent: u32,
@@ -2850,12 +3330,21 @@ async fn perform_handshake(
 }
 
 async fn send_json_frame(stream: &mut tokio::net::TcpStream, payload: &[u8]) {
+    send_rawsocket_frame(stream, 0, payload).await;
+}
+
+async fn send_rawsocket_frame(
+    stream: &mut tokio::net::TcpStream,
+    frame_type: u8,
+    payload: &[u8],
+) {
+    assert!(frame_type <= 0x07);
     assert!(payload.len() <= (1 << 24));
     let mut header = [0u8; 4];
     if payload.len() == (1 << 24) {
-        header[0] = 0x08;
+        header[0] = 0x08 | (frame_type & 0x07);
     } else {
-        header[0] = 0x00;
+        header[0] = frame_type & 0x07;
         header[1] = ((payload.len() >> 16) & 0xFF) as u8;
         header[2] = ((payload.len() >> 8) & 0xFF) as u8;
         header[3] = (payload.len() & 0xFF) as u8;
@@ -2864,6 +3353,22 @@ async fn send_json_frame(stream: &mut tokio::net::TcpStream, payload: &[u8]) {
     if !payload.is_empty() {
         stream.write_all(payload).await.unwrap();
     }
+}
+
+async fn read_rawsocket_frame(stream: &mut tokio::net::TcpStream) -> (u8, Vec<u8>) {
+    let mut header = [0u8; 4];
+    stream.read_exact(&mut header).await.unwrap();
+    let frame_type = header[0] & 0x07;
+    let length_hi = (header[0] >> 3) & 0x01;
+    let mut length = ((header[1] as u32) << 16) | ((header[2] as u32) << 8) | header[3] as u32;
+    if length_hi == 1 {
+        length = 1 << 24;
+    }
+    let mut payload = vec![0u8; length as usize];
+    if length > 0 {
+        stream.read_exact(&mut payload).await.unwrap();
+    }
+    (frame_type, payload)
 }
 
 async fn send_websocket_handshake(stream: &mut tokio::net::TcpStream, path: &str) {

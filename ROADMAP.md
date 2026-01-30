@@ -19,7 +19,7 @@
   - [x] Add Dart worker regression coverage for WebSocket publish ACKs and missing-call errors to keep WAMP flows consistent with RawSocket.
 - [ ] Serializer matrix (JSON, MessagePack, CBOR, UBJSON, FlatBuffers)
   - [ ] Cross-serializer translation so mixed clients (e.g. JSON ↔ MessagePack/CBOR) can publish/call across encodings without data loss; include regression tests for EVENT, RESULT, and ERROR bridging and document zero-copy fallbacks.
-- [ ] Backpressure / flow control between workers and native layer
+- [x] Backpressure / flow control between workers and native layer
 - [ ] Multi-protocol listener stack (RawSocket/WebSocket/HTTP/1.1/HTTP/2/HTTP/3)
   - [ ] Implement a unified accept loop in the native runtime with ALPN + HTTP Upgrade negotiation so a single endpoint can downgrade/upgrade between RawSocket, WebSocket, and HTTP transports.
   - [ ] Maintain zero-copy buffers across all negotiated protocols (frame handles for RawSocket/WebSocket continuation frames, shared body handles for HTTP).
@@ -46,7 +46,7 @@
     - [ ] Implement the WebSocket upgrade pipeline (accept handshake, negotiate serializers, forward frames with continuation/mask handling, and downgrade to RawSocket when possible) plus boss/worker instrumentation.
     - [x] Update `NativeHttpRequestBody`/`HttpInvocationContext`/`HttpResponseUtil` in Dart to default to streaming reads/writes while preserving snapshot/copy fallbacks for legacy handlers.
   - [ ] Add end-to-end tests (Rust ffi `listen_flow`, Dart router_runtime/integration) that exercise HTTP/1.1, HTTP/2, HTTP/3, and WebSocket flows (multi-MB uploads/downloads, pointer comparisons, frame forwarding, streaming timeouts) and clean up temp files during teardown.
-    - [x] New Rust `listen_flow` coverage for HTTP/2 body timeouts and HTTP/3 idle lifecycle events (synthetic helper under `ffi-test`).
+    - [x] New Rust `listen_flow` coverage for HTTP/2 idle/body timeouts and HTTP/3 idle/body timeouts (QUIC path now closes the connection on timeout to avoid `h3-quinn` stop-sending races).
     - [x] Rust `listen_flow` coverage for HTTP/2 streaming responses (multi-chunk DATA frames flushed via `ct_http_response_stream_*` APIs).
     - [x] Rust `listen_flow` coverage for HTTP/1.1 streaming responses (chunked writer backed by `ct_http_response_stream_*` APIs).
   - [x] Rust `listen_flow` coverage for HTTP/3 streaming responses (QUIC writer exercising `ct_http_response_stream_*` pipelines).
@@ -125,7 +125,7 @@
 - [x] ABORT handling (capability or auth failure)
 - [x] GOODBYE reception & realm cleanup
 - [x] Router-initiated GOODBYE / graceful shutdown (drain sessions and propagate to clients)
-- [ ] Heartbeat / ping-pong / session timeout support
+- [x] Heartbeat / ping-pong / session timeout support
 
 ### Publish & Subscribe
 

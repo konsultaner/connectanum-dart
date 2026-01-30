@@ -2,3 +2,10 @@ platforms: [vm, chrome]
 compilers: [dart2wasm]
 on_platform:
   chrome: {timeout: 10x}
+
+override_platforms:
+  chrome:
+    settings:
+      executable:
+        linux: chromium-browser
+      arguments: --no-sandbox

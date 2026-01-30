@@ -36,6 +36,8 @@ router:
       authmethods: [anonymous]
       options:
         max_rawsocket_size_exponent: 16
+        heartbeat_interval_ms: 15000
+        heartbeat_timeout_ms: 45000
 
   internal_realms:
     - name: connectanum.metrics
