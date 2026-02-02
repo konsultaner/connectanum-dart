@@ -32,6 +32,9 @@ class _FakeRuntime implements NativeRuntime {
   int getHttp3Port(int listenerId) => 0;
 
   @override
+  void closeListener(int listenerId) {}
+
+  @override
   int listen(String host, int port, {int backlog = 128}) {
     final id = _nextId++;
     listenCalls.add('$host:$port:$backlog');

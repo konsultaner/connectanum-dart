@@ -80,10 +80,18 @@ If `open_metrics.listen` is set and you run the router via
 from embedding code), the exporter is also served over HTTP:
 
 - `GET /metrics` – OpenMetrics text payload
-- `GET /healthz` – 200 OK health check
+- `GET /healthz` – readiness check (`200 ok`, `503 draining` during graceful shutdown)
 
 If `open_metrics.auth_token` is set, `GET /metrics` requires
 `Authorization: Bearer <token>`.
+
+The OpenMetrics payload also exports drain/readiness counters:
+
+- `connectanum_router_drain_in_progress`
+- `connectanum_router_drain_total`
+- `connectanum_router_drain_timeouts_total`
+- `connectanum_router_listeners_closed_total`
+- `connectanum_router_pending_connections_closed_total`
 
 ## Snapshot Payload
 
@@ -103,6 +111,13 @@ per-realm details:
     "total_publications_routed": 28,
     "active_connections": 1,
     "worker_count": 2,
+    "shutdown": {
+      "drain_in_progress": false,
+      "drain_total": 0,
+      "drain_timeouts": 0,
+      "closed_listeners_total": 0,
+      "closed_pending_connections_total": 0
+    },
     "alerts": {
       "backpressure_alerts": 0,
       "throttled_backpressure_alerts": 0

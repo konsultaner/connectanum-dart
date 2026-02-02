@@ -25,14 +25,14 @@ use ct_core::http_metrics_snapshot_with_breakdown;
 #[cfg(feature = "ffi-test")]
 use ct_core::parse_message;
 use ct_core::{
-    accept_channel, apply_router_config, connection_accept_websocket, connection_http3_connection,
-    close_connection,
-    connection_http3_poll_request, connection_http3_poll_stream, connection_http_poll_request,
-    connection_poll_http_event, connection_protocol, connection_rawsocket_max_exponent,
-    connection_reject_websocket, connection_take_http2_handshake, connection_take_http3_handshake,
-    connection_take_websocket_handshake, connection_websocket_protocol, listen, reload_tls,
-    listener_http3_port, local_addr, poll_connection_message, response_stream_channel,
-    send_wamp_message, send_wamp_segments, shutdown, start_runtime, ConnectionId,
+    accept_channel, apply_router_config, close_connection, connection_accept_websocket,
+    connection_http3_connection, connection_http3_poll_request, connection_http3_poll_stream,
+    connection_http_poll_request, connection_poll_http_event, connection_protocol,
+    connection_rawsocket_max_exponent, connection_reject_websocket,
+    connection_take_http2_handshake, connection_take_http3_handshake,
+    connection_take_websocket_handshake, connection_websocket_protocol, listen,
+    listener_http3_port, local_addr, poll_connection_message, reload_tls, response_stream_channel,
+    send_wamp_message, send_wamp_segments, shutdown, start_runtime, close_listener, ConnectionId,
     ConnectionProtocol, Error as CoreError, HttpConnectionCloseReason,
     HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot, HttpResponseBody, HttpResponseDispatch,
     ListenerId, RawSocketSerializer, WampMessage, RESPONSE_STREAM_BUFFER,
@@ -967,6 +967,15 @@ pub extern "C" fn ct_listener_http3_port(listener_id: c_int) -> c_int {
     match listener_http3_port(listener_id) {
         Ok(Some(port)) => port as c_int,
         Ok(None) => 0,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_listener_close(listener_id: c_int) -> c_int {
+    let listener_id = ListenerId(listener_id as u32);
+    match close_listener(listener_id) {
+        Ok(()) => SUCCESS,
         Err(err) => map_error(err),
     }
 }

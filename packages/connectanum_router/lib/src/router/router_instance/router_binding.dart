@@ -106,11 +106,148 @@ class RouterBinding {
   int _nextHttpRequestId = 1;
   HttpServer? _openMetricsHttpServer;
   Future<HttpServer?>? _openMetricsHttpServerFuture;
+  Future<void>? _drainFuture;
+  bool _draining = false;
+  bool _listenersClosed = false;
+  DateTime? _drainStartedAtUtc;
+  DateTime? _drainDeadlineAtUtc;
+  Duration? _lastDrainDuration;
+  int _drainCount = 0;
+  int _drainTimeoutCount = 0;
+  int _closedListenersCount = 0;
+  int _closedPendingConnectionsCount = 0;
 
   List<RouterListener> get listeners =>
       List<RouterListener>.unmodifiable(_listeners);
 
   bool get isReady => _ready;
+
+  bool get isDraining => _draining;
+
+  /// Stops accepting new external connections and drains worker sessions.
+  ///
+  /// The native listener sockets are closed first so no additional connections
+  /// can enter the accept pipeline while workers send GOODBYE and close their
+  /// owned sessions.
+  Future<void> drain({Duration drainTimeout = const Duration(seconds: 15)}) {
+    final existing = _drainFuture;
+    if (existing != null) {
+      return existing;
+    }
+
+    final future = () async {
+      if (!_ready || _draining) {
+        return;
+      }
+      _draining = true;
+      _drainCount += 1;
+      _drainStartedAtUtc = DateTime.now().toUtc();
+      _drainDeadlineAtUtc = _drainStartedAtUtc!.add(drainTimeout);
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'drain_started',
+        'timeout_ms': drainTimeout.inMilliseconds,
+      });
+      try {
+        Future<void>? bossStop;
+        final boss = _boss;
+        if (boss != null) {
+          bossStop = boss.stop(drainTimeout: drainTimeout);
+        }
+        await _closeListenersAndPendingConnections();
+        if (bossStop != null) {
+          await bossStop;
+        }
+
+        final finishedAt = DateTime.now().toUtc();
+        _lastDrainDuration = finishedAt.difference(_drainStartedAtUtc!);
+        if (_drainDeadlineAtUtc != null &&
+            finishedAt.isAfter(_drainDeadlineAtUtc!)) {
+          _drainTimeoutCount += 1;
+        }
+        onEvent?.call({
+          'source': 'binding',
+          'type': 'drain_completed',
+          'duration_ms': _lastDrainDuration!.inMilliseconds,
+          'listeners_closed': _closedListenersCount,
+          'pending_connections_closed': _closedPendingConnectionsCount,
+        });
+      } catch (error, stackTrace) {
+        onEvent?.call({
+          'source': 'binding',
+          'type': 'drain_failed',
+          'error': error.toString(),
+          'stackTrace': stackTrace.toString(),
+        });
+        rethrow;
+      } finally {
+        _draining = false;
+      }
+    }();
+
+    _drainFuture = future;
+    return future.whenComplete(() {
+      if (identical(_drainFuture, future)) {
+        _drainFuture = null;
+      }
+    });
+  }
+
+  Future<void> _closeListenersAndPendingConnections() async {
+    if (_listenersClosed || _listeners.isEmpty) {
+      return;
+    }
+    _listenersClosed = true;
+
+    var closedListeners = 0;
+    var closedPendingConnections = 0;
+    final snapshot = List<RouterListener>.from(_listeners);
+    for (final listener in snapshot) {
+      try {
+        runtime.closeListener(listener.listenerId);
+        closedListeners += 1;
+      } catch (error) {
+        onEvent?.call({
+          'source': 'binding',
+          'type': 'listener_close_failed',
+          'listenerId': listener.listenerId,
+          'error': error.toString(),
+        });
+      }
+
+      while (true) {
+        int connectionId;
+        try {
+          connectionId = runtime.pollConnection(listener.listenerId);
+        } catch (_) {
+          break;
+        }
+        if (connectionId == 0) {
+          break;
+        }
+        try {
+          runtime.closeConnection(connectionId);
+          closedPendingConnections += 1;
+        } catch (error) {
+          onEvent?.call({
+            'source': 'binding',
+            'type': 'pending_connection_close_failed',
+            'listenerId': listener.listenerId,
+            'connectionId': connectionId,
+            'error': error.toString(),
+          });
+        }
+      }
+    }
+    _closedListenersCount += closedListeners;
+    _closedPendingConnectionsCount += closedPendingConnections;
+    onEvent?.call({
+      'source': 'binding',
+      'type': 'listeners_closed',
+      'listeners_closed': closedListeners,
+      'pending_connections_closed': closedPendingConnections,
+    });
+  }
 
   void activateListeners() {
     if (_ready) {
@@ -348,12 +485,25 @@ class RouterBinding {
     final response = await reply.first;
     reply.close();
     if (response is RouterMetricsSnapshot) {
-      return response;
+      return response.copyWith(shutdown: _buildShutdownMetrics());
     }
     if (response is StoreErrorResponse) {
       throw StateError('Failed to collect metrics: ${response.message}');
     }
     throw StateError('Unexpected metrics response: $response');
+  }
+
+  RouterShutdownMetrics _buildShutdownMetrics() {
+    return RouterShutdownMetrics(
+      drainInProgress: _draining,
+      drainTotal: _drainCount,
+      drainTimeouts: _drainTimeoutCount,
+      closedListenersTotal: _closedListenersCount,
+      closedPendingConnectionsTotal: _closedPendingConnectionsCount,
+      lastDrainDurationMs: _lastDrainDuration?.inMilliseconds,
+      drainStartedAtUtc: _drainStartedAtUtc,
+      drainDeadlineAtUtc: _drainDeadlineAtUtc,
+    );
   }
 
   Future<String?> collectOpenMetricsText([
@@ -451,10 +601,22 @@ class RouterBinding {
 
     final path = request.uri.path;
     if (path == '/healthz' || path == '/health') {
-      response.statusCode = HttpStatus.ok;
+      if (_draining) {
+        response.statusCode = HttpStatus.serviceUnavailable;
+      } else if (!_ready) {
+        response.statusCode = HttpStatus.serviceUnavailable;
+      } else {
+        response.statusCode = HttpStatus.ok;
+      }
       response.headers.contentType = ContentType.text;
       if (request.method == 'GET') {
-        response.write('ok');
+        if (_draining) {
+          response.write('draining');
+        } else if (!_ready) {
+          response.write('starting');
+        } else {
+          response.write('ok');
+        }
       }
       await response.close();
       return;
@@ -478,7 +640,18 @@ class RouterBinding {
       }
     }
 
-    final text = await collectOpenMetricsText();
+    String? text;
+    try {
+      text = await collectOpenMetricsText();
+    } catch (error, stackTrace) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'openmetrics_http_collect_failed',
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+      text = null;
+    }
     if (text == null) {
       response.statusCode = HttpStatus.serviceUnavailable;
       await response.close();
@@ -682,7 +855,9 @@ class RouterBinding {
 
   /// Stops the background boss isolate (if running) and releases resources.
   Future<void> dispose() async {
-    await stopOpenMetricsHttpServer();
+    try {
+      await _closeListenersAndPendingConnections();
+    } catch (_) {}
     await _metricsService?.dispose();
     _metricsService = null;
     for (final session in _internalSessions.toList()) {
@@ -698,6 +873,10 @@ class RouterBinding {
     _internalBootstrap = null;
     _internalBootstrapError = null;
     _internalBootstrapStack = null;
+    try {
+      await drain();
+    } catch (_) {}
+    await stopOpenMetricsHttpServer();
     final boss = _boss;
     if (boss != null) {
       await boss.stop();
@@ -1595,6 +1774,54 @@ class _MetricsService {
       ..writeln(
         'connectanum_router_worker_isolates ${routerSnapshot.workerCount}',
       );
+
+    final shutdown = routerSnapshot.shutdown;
+    buffer
+      ..writeln(
+        '# HELP connectanum_router_drain_in_progress 1 while the router is draining and refusing new accepts',
+      )
+      ..writeln('# TYPE connectanum_router_drain_in_progress gauge')
+      ..writeln(
+        'connectanum_router_drain_in_progress ${shutdown.drainInProgress ? 1 : 0}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_drain_total Count of drain attempts started',
+      )
+      ..writeln('# TYPE connectanum_router_drain_total counter')
+      ..writeln('connectanum_router_drain_total ${shutdown.drainTotal}')
+      ..writeln(
+        '# HELP connectanum_router_drain_timeouts_total Count of drains that exceeded their timeout budget',
+      )
+      ..writeln('# TYPE connectanum_router_drain_timeouts_total counter')
+      ..writeln(
+        'connectanum_router_drain_timeouts_total ${shutdown.drainTimeouts}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_listeners_closed_total Count of native listeners closed to stop accepting new connections',
+      )
+      ..writeln('# TYPE connectanum_router_listeners_closed_total counter')
+      ..writeln(
+        'connectanum_router_listeners_closed_total ${shutdown.closedListenersTotal}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_pending_connections_closed_total Count of accepted-but-unassigned connections closed during drain',
+      )
+      ..writeln(
+        '# TYPE connectanum_router_pending_connections_closed_total counter',
+      )
+      ..writeln(
+        'connectanum_router_pending_connections_closed_total ${shutdown.closedPendingConnectionsTotal}',
+      );
+    if (shutdown.lastDrainDurationMs != null) {
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_last_drain_duration_ms Duration of the most recent drain attempt in milliseconds',
+        )
+        ..writeln('# TYPE connectanum_router_last_drain_duration_ms gauge')
+        ..writeln(
+          'connectanum_router_last_drain_duration_ms ${shutdown.lastDrainDurationMs}',
+        );
+    }
 
     final alerts = routerSnapshot.alerts;
     buffer

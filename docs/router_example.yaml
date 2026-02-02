@@ -47,6 +47,9 @@ router:
         # replies are closed after `heartbeat_timeout_ms`.
         heartbeat_interval_ms: 15000
         heartbeat_timeout_ms: 45000
+        # Maximum number of outbound frames queued per connection for
+        # RawSocket/WebSocket. Use this to cap memory usage when peers stop reading.
+        # outbound_send_queue_capacity: 1024
       rawsocket:
         max_rawsocket_size_exponent: 16
       websocket:

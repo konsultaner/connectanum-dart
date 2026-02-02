@@ -37,6 +37,7 @@ graph LR
 
 - **Tokio runtime & ListenerRegistry (`ct_core/src/lib.rs`)**  
   Binds sockets, negotiates protocols, and spawns per-protocol tasks (RawSocket, WebSocket, HTTP/1.1 handshakes, HTTP/2 via `h2`, HTTP/3 via `quinn + h3`). RawSocket/WebSocket connections run a heartbeat monitor (PING/PONG), use bounded inbound/outbound queues (backpressure), and can be closed explicitly via FFI; every HTTP connection gets a `HttpConnectionStats` instance that records idle/body timeouts, GOAWAY, and backpressure depth; HTTP/3 body timeouts close the QUIC connection to avoid `h3-quinn` stop-sending races.
+  Listeners can be closed independently via `close_listener` (exposed as `ct_listener_close`) so deployments can stop accepting new connections while existing sessions drain.
 
 - **Streaming primitives (`http_stream.rs`, `http_body.rs`)**  
   Provide zero-copy handles for inbound bodies and outbound responses. HTTP/2 and HTTP/3 readers use the shared `StreamingBodyState`, while response writers use bounded Tokio channels sized by `RESPONSE_STREAM_BUFFER`.
@@ -45,7 +46,8 @@ graph LR
   Stores every handshake/body/stream in lock-free maps and exposes them as integer handles (`ct_connection_take_http_handshake`, `ct_http_body_stream_read`, etc.). Lifecycle telemetry (`ct_connection_poll_http_event`) and aggregate counters (`ct_router_metrics_snapshot`) flow through the same layer. WebSocket upgrades now expose the negotiated subprotocol via `ct_connection_websocket_protocol` so Dart can forward it to workers/metrics. Test-only helpers (feature `ffi-test`) let us seed HTTP/3 handshakes/events directly from Rust integration tests.
 
 - **Dart bindings (`packages/connectanum_router/lib/src/native`)**  
-  `NativeTransportRuntime` loads the shared library, wires callbacks, and converts raw structs into Dart objects (`NativeHttpHandshake`, `NativeHttpConnectionEvent`, `NativeRouterMetrics`). The runtime is protocol-agnostic: any new native symbol must be added to `ffi_bindings.dart`.
+  `NativeTransportRuntime` loads the shared library, wires callbacks, and converts raw structs into Dart objects (`NativeHttpHandshake`, `NativeHttpConnectionEvent`, `NativeRouterMetrics`). The runtime is protocol-agnostic: any new native symbol must be added to `ffi_bindings.dart`. The Dart 3.10+ build hook in `packages/connectanum_router/hook/build.dart` compiles `ct_ffi` during `dart run`/`dart test`, and `NativeLibraryLoader` prefers artifacts under `.dart_tool/hooks_runner` before falling back to `native/transport/target` or `CONNECTANUM_NATIVE_LIB`.
+  Shutdown/drain paths call `closeListener` (backed by `ct_listener_close`) before worker drain so accept queues can’t grow unbounded during graceful shutdown.
 
 - **Router boss/worker (`packages/connectanum_router/lib/src/router/router_instance/router_boss.dart`)**  
   The boss isolate accepts connections, assigns them to workers, drains HTTP requests, watches lifecycle events, and now emits a `router_metrics` event whenever the aggregated counters change. Workers own the actual WAMP sessions and execute application handlers.
@@ -102,5 +104,6 @@ Feel free to update this document as new components (e.g., WebTransport, benchma
 
 - `packages/connectanum_router/bin/connectanum_router.dart` – config-driven router runner (loads JSON/YAML via `RouterConfigLoaderIo`, starts the native runtime, runs until SIGINT/SIGTERM, and reloads TLS certs/CA on SIGHUP via `ct_reload_tls`).
 - `packages/connectanum_router/lib/src/router/router_instance/router_binding.dart` – `startOpenMetricsHttpServer()` binds `metrics.open_metrics.listen` and serves `/metrics` (OpenMetrics) + `/healthz` for probes.
+- `packages/connectanum_router/lib/src/router/router_instance/router_binding.dart` – `/healthz` returns `503 draining` while the router is draining and refusing new accepts.
 - `docs/tls.md` / `docs/deployment.md` / `docs/router_example.yaml` – TLS configuration notes (SNI certs + optional mTLS via `tls.client_auth`) and a starter production config.
 - `deploy/docker` / `deploy/systemd` / `deploy/k8s` – production deployment templates (container image, systemd unit, Kubernetes manifests).

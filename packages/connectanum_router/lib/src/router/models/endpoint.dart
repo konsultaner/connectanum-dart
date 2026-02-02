@@ -22,6 +22,7 @@ class Endpoint {
     Duration? handshakeTimeout,
     int? maxHttpContentLength,
     required int maxRawSocketSizeExponent,
+    int outboundSendQueueCapacity = defaultOutboundSendQueueCapacity,
     String? webSocketPath,
     List<SniCertificate> sniCertificates = const [],
     TlsClientAuth? clientAuth,
@@ -44,6 +45,9 @@ class Endpoint {
     );
     final normalizedSocketSize = normalizeRawSocketSizeExponent(
       maxRawSocketSizeExponent,
+    );
+    final normalizedOutboundQueueCapacity = normalizeOutboundSendQueueCapacity(
+      outboundSendQueueCapacity,
     );
     final normalizedWebSocketPath = normalizeWebSocketPath(webSocketPath);
 
@@ -84,6 +88,7 @@ class Endpoint {
       handshakeTimeout: normalizedHandshakeTimeout,
       maxHttpContentLength: normalizedMaxContentLength,
       maxRawSocketSizeExponent: normalizedSocketSize,
+      outboundSendQueueCapacity: normalizedOutboundQueueCapacity,
       webSocketPath: normalizedWebSocketPath,
       sniCertificates: certs,
       clientAuth: clientAuth,
@@ -104,6 +109,10 @@ class Endpoint {
     final maxHttpContentLength = options['max_http_content_length'] is int
         ? options['max_http_content_length'] as int
         : null;
+    final outboundSendQueueCapacity = _asInt(
+      options['outbound_send_queue_capacity'],
+      defaultValue: defaultOutboundSendQueueCapacity,
+    );
     final tlsConfig = settings.tls;
     final tlsMode = _resolveTlsMode(tlsConfig);
     final sniCertificates = _resolveSniCertificates(tlsConfig);
@@ -119,6 +128,7 @@ class Endpoint {
       handshakeTimeout: handshakeTimeout,
       maxHttpContentLength: maxHttpContentLength,
       maxRawSocketSizeExponent: maxExponent,
+      outboundSendQueueCapacity: outboundSendQueueCapacity,
       webSocketPath: webSocketPath,
       sniCertificates: sniCertificates,
       clientAuth: clientAuth,
@@ -135,6 +145,7 @@ class Endpoint {
     required this.handshakeTimeout,
     required this.maxHttpContentLength,
     required this.maxRawSocketSizeExponent,
+    required this.outboundSendQueueCapacity,
     required this.webSocketPath,
     required this.sniCertificates,
     required this.clientAuth,
@@ -167,6 +178,9 @@ class Endpoint {
   /// Connectanum-specific RawSocket size exponent.
   final int maxRawSocketSizeExponent;
 
+  /// Maximum number of frames queued for outbound writes per connection.
+  final int outboundSendQueueCapacity;
+
   /// Optional WebSocket path (must start with `/`).
   final String? webSocketPath;
 
@@ -184,6 +198,9 @@ class Endpoint {
       'tls_mode': tlsMode.wireValue,
       'max_rawsocket_size_exponent': maxRawSocketSizeExponent,
     };
+    if (outboundSendQueueCapacity != defaultOutboundSendQueueCapacity) {
+      map['outbound_send_queue_capacity'] = outboundSendQueueCapacity;
+    }
     if (idleTimeout != null) {
       map['idle_timeout_ms'] = idleTimeout!.inMilliseconds;
     }
@@ -224,6 +241,7 @@ class Endpoint {
     handshakeTimeout?.inMilliseconds,
     maxHttpContentLength,
     maxRawSocketSizeExponent,
+    outboundSendQueueCapacity,
     webSocketPath,
     const DeepCollectionEquality().hash(sniCertificates),
     clientAuth,
@@ -247,6 +265,7 @@ class Endpoint {
         other.handshakeTimeout == handshakeTimeout &&
         other.maxHttpContentLength == maxHttpContentLength &&
         other.maxRawSocketSizeExponent == maxRawSocketSizeExponent &&
+        other.outboundSendQueueCapacity == outboundSendQueueCapacity &&
         other.webSocketPath == webSocketPath &&
         deepEquality.equals(other.sniCertificates, sniCertificates) &&
         other.clientAuth == clientAuth;

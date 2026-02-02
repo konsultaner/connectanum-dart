@@ -106,6 +106,9 @@ class _QueueRuntime implements NativeRuntimeWithHandles {
   int getHttp3Port(int listenerId) => 0;
 
   @override
+  void closeListener(int listenerId) {}
+
+  @override
   int listen(String host, int port, {int backlog = 128}) {
     final id = _nextListenerId++;
     _ports[id] = port == 0 ? 7200 + id : port;

@@ -53,10 +53,10 @@ use crate::http_body::{spawn_http1_streaming_body, Http1BodyReclaim, StreamingEr
 use crate::io_stream::{IoReadHalf, IoStream, IoWriteHalf};
 
 mod config;
-mod io_stream;
 mod http1_stream;
 mod http_body;
 mod http_stream;
+mod io_stream;
 mod platform;
 mod protocol;
 mod rawsocket;
@@ -980,10 +980,11 @@ impl ListenerRegistry {
         let mut updated = 0u32;
         for (listener_id, entry) in listeners.iter() {
             let current = entry.config_state.endpoint_config();
-            let endpoint_cfg = config::find_endpoint(&current.host, current.port).ok_or_else(|| {
-                Error::EndpointNotConfigured(current.host.clone(), current.port)
-            })?;
-            let next = Arc::new(config::EndpointRuntimeConfig::try_from_endpoint(&endpoint_cfg)?);
+            let endpoint_cfg = config::find_endpoint(&current.host, current.port)
+                .ok_or_else(|| Error::EndpointNotConfigured(current.host.clone(), current.port))?;
+            let next = Arc::new(config::EndpointRuntimeConfig::try_from_endpoint(
+                &endpoint_cfg,
+            )?);
             if next.tls_mode != current.tls_mode {
                 return Err(Error::RouterConfigInvalid(format!(
                     "listener {:?} tls_mode changed ({:?} -> {:?}); restart required",
@@ -1000,9 +1001,7 @@ impl ListenerRegistry {
             }
 
             let tls_acceptor = tls::build_tls_acceptor(&next)?;
-            entry
-                .config_state
-                .update(Arc::clone(&next), tls_acceptor);
+            entry.config_state.update(Arc::clone(&next), tls_acceptor);
             if current_http3 {
                 let endpoint = entry.http3_endpoint.as_ref().ok_or_else(|| {
                     Error::RouterConfigInvalid(format!(
@@ -1016,6 +1015,23 @@ impl ListenerRegistry {
             updated += 1;
         }
         Ok(updated)
+    }
+
+    fn close_listener(&self, listener_id: ListenerId) -> Result<(), Error> {
+        let mut entry = self
+            .listeners
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .remove(&listener_id)
+            .ok_or(Error::ListenerNotFound(listener_id))?;
+
+        for task in entry.tasks {
+            task.abort();
+        }
+        if let Some(endpoint) = entry.http3_endpoint.take() {
+            endpoint.close(VarInt::from_u32(0), b"listener closed");
+        }
+        Ok(())
     }
 
     fn shutdown(&self) {
@@ -1125,29 +1141,25 @@ impl ListenerRegistry {
         peer_addr: SocketAddr,
     ) {
         let (frame_tx, frame_rx) = mpsc::channel(1024);
-        let (send_tx, send_rx) = mpsc::channel(OUTBOUND_QUEUE_CAPACITY);
+        let (send_tx, send_rx) = mpsc::channel(endpoint_config.outbound_send_queue_capacity);
         let (close_tx, mut close_rx) = mpsc::unbounded_channel::<()>();
         let serializer = negotiated.serializer;
         let max_exponent = negotiated.max_message_size_exponent;
         let (pong_tx, pong_rx) = mpsc::unbounded_channel::<Bytes>();
-        let heartbeat_abort = endpoint_config
-            .heartbeat_interval
-            .map(|interval| {
-                let timeout = endpoint_config.heartbeat_timeout.unwrap_or_else(|| {
-                    interval
-                        .checked_mul(2)
-                        .unwrap_or(Duration::from_secs(30))
-                });
-                spawn_connection_heartbeat(
-                    tokio::runtime::Handle::current(),
-                    Arc::clone(&self),
-                    connection_id,
-                    interval,
-                    timeout,
-                    send_tx.clone(),
-                    pong_rx,
-                )
-            });
+        let heartbeat_abort = endpoint_config.heartbeat_interval.map(|interval| {
+            let timeout = endpoint_config
+                .heartbeat_timeout
+                .unwrap_or_else(|| interval.checked_mul(2).unwrap_or(Duration::from_secs(30)));
+            spawn_connection_heartbeat(
+                tokio::runtime::Handle::current(),
+                Arc::clone(&self),
+                connection_id,
+                interval,
+                timeout,
+                send_tx.clone(),
+                pong_rx,
+            )
+        });
         let pong_tx = heartbeat_abort.as_ref().map(|_| pong_tx);
 
         let reader_abort = spawn_connection_reader(
@@ -1243,8 +1255,6 @@ impl ListenerRegistry {
         let (reader, writer) = tokio::io::split(stream);
 
         let (frame_tx, frame_rx) = mpsc::channel(1024);
-        let (send_tx, send_rx) = mpsc::channel(OUTBOUND_QUEUE_CAPACITY);
-
         let endpoint_config = {
             let connections = self
                 .connections
@@ -1255,28 +1265,25 @@ impl ListenerRegistry {
                 .ok_or(Error::ConnectionNotFound(connection_id))?;
             Arc::clone(&entry.endpoint_config)
         };
+        let (send_tx, send_rx) = mpsc::channel(endpoint_config.outbound_send_queue_capacity);
 
         let selected_protocol = protocol.map(|value| value.to_string());
         let (close_tx, mut close_rx) = mpsc::unbounded_channel::<()>();
         let (pong_tx, pong_rx) = mpsc::unbounded_channel::<Bytes>();
-        let heartbeat_abort = endpoint_config
-            .heartbeat_interval
-            .map(|interval| {
-                let timeout = endpoint_config.heartbeat_timeout.unwrap_or_else(|| {
-                    interval
-                        .checked_mul(2)
-                        .unwrap_or(Duration::from_secs(30))
-                });
-                spawn_connection_heartbeat(
-                    handle.clone(),
-                    Arc::clone(&self),
-                    connection_id,
-                    interval,
-                    timeout,
-                    send_tx.clone(),
-                    pong_rx,
-                )
-            });
+        let heartbeat_abort = endpoint_config.heartbeat_interval.map(|interval| {
+            let timeout = endpoint_config
+                .heartbeat_timeout
+                .unwrap_or_else(|| interval.checked_mul(2).unwrap_or(Duration::from_secs(30)));
+            spawn_connection_heartbeat(
+                handle.clone(),
+                Arc::clone(&self),
+                connection_id,
+                interval,
+                timeout,
+                send_tx.clone(),
+                pong_rx,
+            )
+        });
         let pong_tx = heartbeat_abort.as_ref().map(|_| pong_tx);
 
         let reader_abort = spawn_websocket_reader(
@@ -1290,8 +1297,14 @@ impl ListenerRegistry {
             pong_tx,
             close_tx.clone(),
         );
-        let writer_abort =
-            spawn_websocket_writer(handle.clone(), connection_id, serializer, writer, send_rx, close_tx);
+        let writer_abort = spawn_websocket_writer(
+            handle.clone(),
+            connection_id,
+            serializer,
+            writer,
+            send_rx,
+            close_tx,
+        );
 
         let registry = Arc::clone(&self);
         handle.spawn(async move {
@@ -2052,8 +2065,6 @@ impl OutboundFrame {
     }
 }
 
-const OUTBOUND_QUEUE_CAPACITY: usize = 1024;
-
 fn spawn_connection_reader(
     connection_id: ConnectionId,
     endpoint_config: Arc<config::EndpointRuntimeConfig>,
@@ -2772,10 +2783,8 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                     match listener.accept().await {
                         Ok((stream, addr)) => {
                             let _ = stream.set_nodelay(true);
-                            let runtime_config_for_task =
-                                config_state_for_task.endpoint_config();
-                            let tls_acceptor_for_task =
-                                config_state_for_task.tls_acceptor();
+                            let runtime_config_for_task = config_state_for_task.endpoint_config();
+                            let tls_acceptor_for_task = config_state_for_task.tls_acceptor();
                             let io_stream = match tls_acceptor_for_task.as_ref() {
                                 Some(acceptor) => {
                                     let handshake = acceptor.accept(stream);
@@ -2809,7 +2818,7 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                                 io_stream,
                                 runtime_config_for_task.as_ref(),
                             )
-                                .await
+                            .await
                             {
                                 Ok(protocol::NegotiatedConnection::RawSocket(negotiated)) => {
                                     let connection_id = accept_registry.next_connection_id();
@@ -3006,6 +3015,18 @@ pub fn listener_http3_port(listener_id: ListenerId) -> Result<Option<u16>, Error
         })
 }
 
+/// Stops accepting new connections on the provided listener and releases any
+/// listener-specific accept tasks. Existing connections remain active.
+pub fn close_listener(listener_id: ListenerId) -> Result<(), Error> {
+    let manager = RuntimeManager::global();
+    manager
+        .with_state(|state| state.registry.close_listener(listener_id))
+        .map_err(|err| match err {
+            Error::RuntimeNotStarted => err,
+            other => other,
+        })
+}
+
 /// Returns the channel that streams accepted connection identifiers.
 pub fn accept_channel(listener_id: ListenerId) -> Result<mpsc::Receiver<ConnectionId>, Error> {
     let manager = RuntimeManager::global();
@@ -3077,9 +3098,13 @@ pub fn connection_reject_websocket(
 ) -> Result<(), Error> {
     let manager = RuntimeManager::global();
     manager.with_state(|state| {
-        state
-            .registry
-            .reject_websocket_connection(state.handle.clone(), connection_id, handshake, status, reason)
+        state.registry.reject_websocket_connection(
+            state.handle.clone(),
+            connection_id,
+            handshake,
+            status,
+            reason,
+        )
     })
 }
 
@@ -4466,10 +4491,7 @@ async fn run_http3_stream_reader(
                 stats_ref.record_goaway(Some("http/3 body total timeout".into()));
             }
             state.mark_error("http/3 body total timeout exceeded".into());
-            connection.close(
-                VarInt::from_u32(0),
-                b"http/3 body total timeout exceeded",
-            );
+            connection.close(VarInt::from_u32(0), b"http/3 body total timeout exceeded");
             return Err("http/3 body total timeout".into());
         }
         let recv_future = stream.recv_data();
@@ -4824,36 +4846,33 @@ mod tests {
             max_rawsocket_size_exponent: exponent,
             max_rawsocket_size: 1u64 << exponent,
             max_upgrade_exponent: None,
+            outbound_send_queue_capacity: 1,
             websocket_path: None,
             sni_certificates: Vec::new(),
             http_routes: Vec::new(),
             http: None,
         });
 
-        registry
-            .connections
-            .lock()
-            .unwrap()
-            .insert(
-                connection_id,
-                ConnectionEntry {
-                    listener_id,
-                    peer_addr,
-                    protocol: ConnectionProtocol::RawSocket,
-                    websocket_protocol: None,
-                    endpoint_config,
-                    stats: None,
-                    record: ConnectionRecord::RawSocket {
-                        serializer: rawsocket::Serializer::Json,
-                        max_exponent: exponent,
-                        frames: Mutex::new(frame_rx),
-                        reader_abort,
-                        writer_abort,
-                        heartbeat_abort: None,
-                        send_tx,
-                    },
+        registry.connections.lock().unwrap().insert(
+            connection_id,
+            ConnectionEntry {
+                listener_id,
+                peer_addr,
+                protocol: ConnectionProtocol::RawSocket,
+                websocket_protocol: None,
+                endpoint_config,
+                stats: None,
+                record: ConnectionRecord::RawSocket {
+                    serializer: rawsocket::Serializer::Json,
+                    max_exponent: exponent,
+                    frames: Mutex::new(frame_rx),
+                    reader_abort,
+                    writer_abort,
+                    heartbeat_abort: None,
+                    send_tx,
                 },
-            );
+            },
+        );
 
         match registry.enqueue_frame(
             connection_id,
@@ -4972,6 +4991,27 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn listener_close_removes_entry() {
+        let _guard = test_guard();
+        shutdown().ok();
+        super::apply_router_config(
+            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled"}]}"#,
+        )
+        .unwrap();
+        start_runtime().unwrap();
+
+        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        assert!(local_addr(listener_id).is_ok());
+        close_listener(listener_id).unwrap();
+        let err = local_addr(listener_id).expect_err("listener removed");
+        assert!(matches!(err, Error::ListenerNotFound(_)));
+        let err = close_listener(listener_id).expect_err("second close fails");
+        assert!(matches!(err, Error::ListenerNotFound(_)));
+
+        shutdown().unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn tls_accepts_rawsocket_connections() {
         let _guard = test_guard();
         shutdown().ok();
@@ -5023,7 +5063,8 @@ mod tests {
                 _message: &[u8],
                 _cert: &rustls::pki_types::CertificateDer<'_>,
                 _dss: &rustls::DigitallySignedStruct,
-            ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+            ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error>
+            {
                 Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
             }
 
@@ -5032,7 +5073,8 @@ mod tests {
                 _message: &[u8],
                 _cert: &rustls::pki_types::CertificateDer<'_>,
                 _dss: &rustls::DigitallySignedStruct,
-            ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+            ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error>
+            {
                 Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
             }
 
@@ -5156,9 +5198,7 @@ mod tests {
             .await
         {
             Ok(mut stream) => {
-                let result = stream
-                    .write_all(&[0x7F, handshake_byte, 0x00, 0x00])
-                    .await;
+                let result = stream.write_all(&[0x7F, handshake_byte, 0x00, 0x00]).await;
                 if result.is_ok() {
                     let mut buf = [0u8; 4];
                     let read = stream.read_exact(&mut buf).await;

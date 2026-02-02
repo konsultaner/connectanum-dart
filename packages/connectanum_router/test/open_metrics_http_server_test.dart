@@ -61,6 +61,9 @@ class _FakeRuntime implements NativeRuntime {
   int getHttp3Port(int listenerId) => 0;
 
   @override
+  void closeListener(int listenerId) {}
+
+  @override
   int getLocalPort(int listenerId) => _ports[listenerId] ?? listenerId;
 
   @override

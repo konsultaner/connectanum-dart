@@ -16,6 +16,8 @@ typedef CtGetLocalPortNative = ffi.Int32 Function(ffi.Int32);
 typedef CtGetLocalPortDart = int Function(int);
 typedef CtListenerHttp3PortNative = ffi.Int32 Function(ffi.Int32);
 typedef CtListenerHttp3PortDart = int Function(int);
+typedef CtListenerCloseNative = ffi.Int32 Function(ffi.Int32);
+typedef CtListenerCloseDart = int Function(int);
 typedef CtConnectionGetHttp3ConnectionNative = ffi.Int32 Function(ffi.Int32);
 typedef CtConnectionGetHttp3ConnectionDart = int Function(int);
 typedef CtHttp3ConnectionReleaseNative = ffi.Int32 Function(ffi.Int32);
@@ -600,6 +602,10 @@ class CtFfiBindings {
           .lookupFunction<CtListenerHttp3PortNative, CtListenerHttp3PortDart>(
             'ct_listener_http3_port',
           ),
+      ctListenerClose = library
+          .lookupFunction<CtListenerCloseNative, CtListenerCloseDart>(
+            'ct_listener_close',
+          ),
       ctConnectionGetHttp3Connection = library
           .lookupFunction<
             CtConnectionGetHttp3ConnectionNative,
@@ -899,6 +905,7 @@ class CtFfiBindings {
   final CtListenDart ctListen;
   final CtGetLocalPortDart ctGetLocalPort;
   final CtListenerHttp3PortDart ctListenerHttp3Port;
+  final CtListenerCloseDart ctListenerClose;
   final CtConnectionGetHttp3ConnectionDart ctConnectionGetHttp3Connection;
   final CtHttp3ConnectionReleaseDart ctHttp3ConnectionRelease;
   final CtPollConnectionDart ctPollConnection;

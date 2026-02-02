@@ -159,6 +159,7 @@ void main() {
         handshakeTimeout: const Duration(seconds: 5),
         maxHttpContentLength: 1024,
         maxRawSocketSizeExponent: 16,
+        outboundSendQueueCapacity: 32,
         webSocketPath: ' /wamp ',
         sniCertificates: [cert],
         clientAuth: clientAuth,
@@ -172,6 +173,7 @@ void main() {
       expect(json['handshake_timeout_ms'], 5000);
       expect(json['max_http_content_length'], 1024);
       expect(json['max_rawsocket_size_exponent'], 16);
+      expect(json['outbound_send_queue_capacity'], 32);
       expect(json['websocket_path'], '/wamp');
       expect(json['sni_certificates'], hasLength(1));
       expect(json['client_auth'], isA<Map>());

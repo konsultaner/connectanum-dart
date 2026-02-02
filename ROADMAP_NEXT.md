@@ -14,6 +14,9 @@ Fresh state:
 - JSON/MessagePack/CBOR serializers preserve custom option/detail fields; HTTP/2 and HTTP/3 responses stream directly from Rust into Dart (`context.streamResponse`) without buffering multi-MB payloads.
 - Dart WebSocket integration suite now drives WAMP publish/call flows over WebSocket (continuation frames, large payloads) and asserts negotiated subprotocol/serializer on acceptance.
 - Multi-MB HTTP/2 + HTTP/3 streaming regressions landed with optional OpenMetrics artifact dumps (`CONNECTANUM_ARTIFACT_DIR`) and a Prometheus scrape regression targeting the metrics HTTP route.
+- Dart 3.10+ build hooks now compile `ct_ffi` automatically during `dart run`/`dart test` via `packages/connectanum_router/hook/build.dart`, and the runtime loader prefers artifacts under `.dart_tool/hooks_runner`.
+- RawSocket/WebSocket outbound send queues are now configurable via `outbound_send_queue_capacity` to cap memory usage under slow readers (still surfaces backpressure via `SendQueueFull`).
+- Router shutdown/drain now closes native listeners up-front (`ct_listener_close`) so no new accepts are queued while workers drain; `/healthz` reports `draining` during shutdown and OpenMetrics exports drain counters.
 
 Focus for the next session:
 1. **Boss Telemetry Stream & Prometheus Exporter**
@@ -75,7 +78,8 @@ Focus for the next session:
    - Identify handshake/key-management changes required in HELLO/CHALLENGE and how they interact with zero-copy routing.
 
 12. **Packaging & Build Hooks**
-   - Add Dart 3.10+ build hooks that compile the Rust `ct_ffi` backend during pub get/install so consumers no longer need manual `cargo build` steps; gate platform detection and allow opting out for prebuilt/shared-lib setups.
+   - ✅ Add Dart 3.10+ build hook that compiles the Rust `ct_ffi` backend during `dart run`/`dart test` (native assets build hooks).
+   - Next: add a publishable packaging story (prebuilt artifacts per platform or vendoring Rust sources inside a publishable package), plus opt-out knobs for deployments that provide a system/shared library.
 
 13. **TLS & Deployment Hardening**
    - ✅ Native TCP TLS termination (rustls + SNI) is live.

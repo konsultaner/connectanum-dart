@@ -230,10 +230,10 @@ async fn run_http1_stream_reader(
 #[cfg(test)]
 mod tests {
     use super::{spawn_http1_streaming_body, StreamingBodyState};
+    use crate::io_stream::IoStream;
     use bytes::Bytes;
     use std::time::Duration;
     use tokio::{io::AsyncWriteExt, net::TcpListener};
-    use crate::io_stream::IoStream;
 
     #[test]
     fn streaming_body_state_reports_length() {

@@ -27,17 +27,17 @@ const HTTP2_PREFACE: &[u8] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
 use crate::runtime::constants::{
     ERR_CONNECTION_NOT_FOUND, ERR_ENDPOINT_NOT_CONFIGURED, ERR_INVALID_ARGUMENT,
     ERR_LISTENER_NOT_FOUND, ERR_UNSUPPORTED, HTTP_EVENT_REASON_BODY_TIMEOUT,
-    HTTP_EVENT_REASON_GOAWAY, HTTP_EVENT_REASON_IDLE_TIMEOUT, PROTOCOL_HTTP, PROTOCOL_HTTP2,
+    HTTP_EVENT_REASON_IDLE_TIMEOUT, PROTOCOL_HTTP, PROTOCOL_HTTP2,
     PROTOCOL_HTTP3, PROTOCOL_RAWSOCKET, PROTOCOL_WEBSOCKET, SUCCESS,
 };
 use crate::runtime::ffi::{
-    ct_apply_router_config, ct_connection_accept_websocket, ct_connection_get_http3_connection,
-    ct_connection_close,
-    ct_connection_max_rawsocket_exponent, ct_connection_poll_http_event, ct_connection_protocol,
-    ct_connection_take_http2_handshake, ct_connection_take_http3_handshake,
-    ct_connection_take_http_handshake, ct_connection_take_websocket_handshake,
-    ct_connection_websocket_protocol, ct_get_local_port, ct_http2_handshake_get,
-    ct_http2_handshake_listener_protocol, ct_http2_handshake_release,
+    ct_apply_router_config, ct_connection_accept_websocket, ct_connection_close,
+    ct_connection_get_http3_connection, ct_connection_max_rawsocket_exponent,
+    ct_connection_poll_http_event, ct_connection_protocol, ct_connection_take_http2_handshake,
+    ct_connection_take_http3_handshake, ct_connection_take_http_handshake,
+    ct_connection_take_websocket_handshake, ct_connection_websocket_protocol, ct_get_local_port,
+    ct_listener_close,
+    ct_http2_handshake_get, ct_http2_handshake_listener_protocol, ct_http2_handshake_release,
     ct_http3_connection_poll_request, ct_http3_connection_poll_stream, ct_http3_connection_release,
     ct_http3_handshake_get, ct_http3_handshake_listener_protocol, ct_http3_handshake_release,
     ct_http_body_finish, ct_http_body_get, ct_http_body_release, ct_http_body_stream_read,
@@ -257,6 +257,36 @@ fn listener_callbacks_fire_and_connections_are_reported() {
 
     LISTENER_EVENTS.with(|events| events.lock().unwrap().clear());
     CONNECTION_EVENTS.with(|events| events.lock().unwrap().clear());
+}
+
+#[test]
+fn listener_close_removes_listener_from_queries() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled"}]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    assert_eq!(ct_listener_close(listener_id), SUCCESS);
+    assert_eq!(ct_get_local_port(listener_id), ERR_LISTENER_NOT_FOUND);
+    assert_eq!(ct_listener_close(listener_id), ERR_LISTENER_NOT_FOUND);
+    assert_eq!(ct_shutdown(), SUCCESS);
 }
 
 #[test]
@@ -2432,7 +2462,10 @@ fn http3_goaway_event_includes_detail() {
     assert_eq!(event.protocol, PROTOCOL_HTTP3);
     assert_eq!(event.reason, HTTP_EVENT_REASON_GOAWAY);
     assert_eq!(event.goaway_events, 1);
-    assert_eq!(retrieved_detail.as_deref(), Some("remote http/3 GOAWAY: idle"));
+    assert_eq!(
+        retrieved_detail.as_deref(),
+        Some("remote http/3 GOAWAY: idle")
+    );
 
     assert_eq!(ct_shutdown(), SUCCESS);
 }
@@ -3301,7 +3334,10 @@ fn connection_close_removes_connection_entry() {
     };
     assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_RAWSOCKET);
     assert_eq!(ct_connection_close(connection_id), SUCCESS);
-    assert_eq!(ct_connection_protocol(connection_id), ERR_CONNECTION_NOT_FOUND);
+    assert_eq!(
+        ct_connection_protocol(connection_id),
+        ERR_CONNECTION_NOT_FOUND
+    );
     let _ = hold_tx.send(());
     assert_eq!(ct_shutdown(), SUCCESS);
 }
@@ -3333,11 +3369,7 @@ async fn send_json_frame(stream: &mut tokio::net::TcpStream, payload: &[u8]) {
     send_rawsocket_frame(stream, 0, payload).await;
 }
 
-async fn send_rawsocket_frame(
-    stream: &mut tokio::net::TcpStream,
-    frame_type: u8,
-    payload: &[u8],
-) {
+async fn send_rawsocket_frame(stream: &mut tokio::net::TcpStream, frame_type: u8, payload: &[u8]) {
     assert!(frame_type <= 0x07);
     assert!(payload.len() <= (1 << 24));
     let mut header = [0u8; 4];

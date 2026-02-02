@@ -17,6 +17,7 @@ abstract class NativeRuntime {
   int listen(String host, int port, {int backlog = 128});
   int getLocalPort(int listenerId);
   int getHttp3Port(int listenerId);
+  void closeListener(int listenerId);
   int pollConnection(int listenerId);
   int connectionMaxRawSocketExponent(int connectionId);
   NativeConnectionProtocol connectionProtocol(int connectionId);
@@ -1229,24 +1230,71 @@ class NativeMessageHandleDecoder {
 }
 
 abstract final class NativeLibraryLoader {
-  static const _relativeCandidates = <String>{
-    '../native/transport/target/debug/libct_ffi.so',
-    '../native/transport/target/release/libct_ffi.so',
-    '../../native/transport/target/debug/libct_ffi.so',
-    '../../native/transport/target/release/libct_ffi.so',
+  static String get _libraryFileName => switch (Platform.operatingSystem) {
+    'linux' => 'libct_ffi.so',
+    'macos' => 'libct_ffi.dylib',
+    'windows' => 'ct_ffi.dll',
+    _ => 'libct_ffi.so',
   };
 
+  static Iterable<String> get _relativeCandidates sync* {
+    final name = _libraryFileName;
+    yield '../native/transport/target/debug/$name';
+    yield '../native/transport/target/release/$name';
+    yield '../../native/transport/target/debug/$name';
+    yield '../../native/transport/target/release/$name';
+  }
+
+  static String? _probeHooksRunnerSharedFromAnchor(Directory anchor) {
+    final name = _libraryFileName;
+    var current = anchor;
+    for (var depth = 0; depth < 8; depth++) {
+      final base = Directory(
+        '${current.path}/.dart_tool/hooks_runner/shared/connectanum_router/build',
+      );
+      if (base.existsSync()) {
+        final resolved = _freshestInConfigDirs(base, name);
+        if (resolved != null) {
+          return resolved;
+        }
+      }
+      final parent = current.parent;
+      if (parent.path == current.path) {
+        break;
+      }
+      current = parent;
+    }
+    return null;
+  }
+
+  static String? _freshestInConfigDirs(Directory base, String fileName) {
+    File? freshest;
+    for (final entity in base.listSync(followLinks: false)) {
+      if (entity is! Directory) {
+        continue;
+      }
+      final candidate = File('${entity.path}/$fileName');
+      if (!candidate.existsSync()) {
+        continue;
+      }
+      if (freshest == null ||
+          candidate.lastModifiedSync().isAfter(freshest.lastModifiedSync())) {
+        freshest = candidate;
+      }
+    }
+    return freshest?.path;
+  }
+
   static String? _probeFromAnchor(Directory anchor) {
+    final name = _libraryFileName;
     var current = anchor;
     for (var depth = 0; depth < 6; depth++) {
-      final debug = File(
-        '${current.path}/native/transport/target/debug/libct_ffi.so',
-      );
+      final debug = File('${current.path}/native/transport/target/debug/$name');
       if (debug.existsSync()) {
         return debug.path;
       }
       final release = File(
-        '${current.path}/native/transport/target/release/libct_ffi.so',
+        '${current.path}/native/transport/target/release/$name',
       );
       if (release.existsSync()) {
         return release.path;
@@ -1260,7 +1308,10 @@ abstract final class NativeLibraryLoader {
     return null;
   }
 
-  static String resolvePath(String? overridePath) {
+  static String resolvePath(
+    String? overridePath, {
+    Directory? currentDirectory,
+  }) {
     if (overridePath != null && overridePath.isNotEmpty) {
       return overridePath;
     }
@@ -1268,25 +1319,32 @@ abstract final class NativeLibraryLoader {
     if (envOverride != null && envOverride.isNotEmpty) {
       return envOverride;
     }
+    final cwd = currentDirectory ?? Directory.current;
+    final searchRoots = <Directory>{
+      cwd,
+      cwd.parent,
+      File(Platform.script.toFilePath()).parent,
+      File(Platform.script.toFilePath()).parent.parent,
+      File(Platform.resolvedExecutable).parent,
+    };
+    for (final root in searchRoots) {
+      final probed = _probeHooksRunnerSharedFromAnchor(root);
+      if (probed != null) {
+        return probed;
+      }
+    }
     for (final candidate in _relativeCandidates) {
       if (File(candidate).existsSync()) {
         return candidate;
       }
     }
-    final searchRoots = <Directory>{
-      Directory.current,
-      Directory.current.parent,
-      File(Platform.script.toFilePath()).parent,
-      File(Platform.script.toFilePath()).parent.parent,
-      File(Platform.resolvedExecutable).parent,
-    };
     for (final root in searchRoots) {
       final probed = _probeFromAnchor(root);
       if (probed != null) {
         return probed;
       }
     }
-    return _relativeCandidates.first;
+    return _libraryFileName;
   }
 }
 
@@ -1350,7 +1408,24 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
     final file = File(_runtimeLockPath);
     file.parent.createSync(recursive: true);
     final handle = file.openSync(mode: FileMode.write);
-    handle.lockSync();
+    final deadline = DateTime.now().add(const Duration(seconds: 30));
+    var backoff = const Duration(milliseconds: 25);
+    while (true) {
+      try {
+        handle.lockSync(FileLock.exclusive);
+        break;
+      } on FileSystemException catch (error) {
+        final errno = error.osError?.errorCode;
+        if (errno == 11 && DateTime.now().isBefore(deadline)) {
+          sleep(backoff);
+          if (backoff < const Duration(milliseconds: 250)) {
+            backoff *= 2;
+          }
+          continue;
+        }
+        rethrow;
+      }
+    }
     _runtimeLock = handle;
   }
 
@@ -1427,6 +1502,14 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
       _throwForError(result, 'Failed to query HTTP/3 port');
     }
     return result;
+  }
+
+  @override
+  void closeListener(int listenerId) {
+    final result = _bindings.ctListenerClose(listenerId);
+    if (result < 0) {
+      _throwForError(result, 'Failed to close listener');
+    }
   }
 
   bool get supportsHttp3TestClient =>

@@ -65,6 +65,9 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
       _http3Ports[listenerId] ?? _inner.getHttp3Port(listenerId);
 
   @override
+  void closeListener(int listenerId) => _inner.closeListener(listenerId);
+
+  @override
   int pollConnection(int listenerId) {
     final actualId = _inner.pollConnection(listenerId);
     if (actualId > 0) {

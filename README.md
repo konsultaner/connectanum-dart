@@ -31,6 +31,10 @@ runtime.
    cargo llvm-cov
    ```
 
+   When working on the router package (`packages/connectanum_router`), Dart 3.10+
+   build hooks will compile `ct_ffi` automatically during `dart run`/`dart test`
+   as long as a Rust toolchain is available.
+
 For additional package level documentation see
 `packages/connectanum_dart/README.md`.
 

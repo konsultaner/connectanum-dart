@@ -25,8 +25,9 @@ Future<void> main(List<String> args) async {
   } on ArgumentError catch (error) {
     stderr.writeln(
       'Failed to load the native transport runtime: ${error.message}\n'
-      'Build the ct_ffi library (see native/transport README) and either place it in '
-      'native/transport/target/{debug,release}/libct_ffi.so or pass its path as the first argument.',
+      'Ensure ct_ffi is available (build hooks compile it automatically during `dart run`/`dart test` '
+      'when a Rust toolchain is installed), set CONNECTANUM_NATIVE_LIB, or pass an explicit path as '
+      'the first argument.',
     );
     return;
   }

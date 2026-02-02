@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:isolate';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart'
@@ -32,6 +33,7 @@ SniCertificate _cert(String host) => SniCertificate(
 class _FakeRuntime implements NativeRuntime {
   final List<String> listenCalls = [];
   Uint8List? appliedConfig;
+  final List<int> closedListeners = [];
   final List<int> closedConnections = [];
   final Map<int, int> _ports = {};
   final Map<int, int> _http3Ports = {};
@@ -69,6 +71,11 @@ class _FakeRuntime implements NativeRuntime {
 
   @override
   int getHttp3Port(int listenerId) => _http3Ports[listenerId] ?? 0;
+
+  @override
+  void closeListener(int listenerId) {
+    closedListeners.add(listenerId);
+  }
 
   @override
   int listen(String host, int port, {int backlog = 128}) {
@@ -683,6 +690,78 @@ void _testWorkerEntryPoint(Map<String, Object?> init) {
   });
 }
 
+void _delayedDrainWorkerEntryPoint(Map<String, Object?> init) {
+  final bossPort = init['bossPort'] as SendPort;
+  final connectionId = init['connectionId'] as int;
+  final listenerId = init['listenerId'] as int;
+  final commandPort = ReceivePort();
+  final Map<int, int> connections = {connectionId: listenerId};
+  final workerHash = Isolate.current.hashCode;
+
+  bossPort.send({
+    'type': kWorkerEventRegister,
+    'connectionId': connectionId,
+    'listenerId': listenerId,
+    'commandPort': commandPort.sendPort,
+    'workerHash': workerHash,
+  });
+  bossPort.send({'type': kWorkerEventReady, 'connectionId': connectionId});
+
+  commandPort.listen((dynamic raw) {
+    if (raw is! List || raw.isEmpty) {
+      return;
+    }
+    final command = raw[0];
+    if (command == kWorkerCmdAddConnection) {
+      final newListener = raw[1] as int;
+      final newConnection = raw[2] as int;
+      connections[newConnection] = newListener;
+      bossPort.send({
+        'type': kWorkerEventConnectionAdded,
+        'connectionId': newConnection,
+        'listenerId': newListener,
+      });
+      bossPort.send({'type': kWorkerEventReady, 'connectionId': newConnection});
+    } else if (command == kWorkerCmdRemoveConnection) {
+      final removeConnection = raw[1] as int;
+      connections.remove(removeConnection);
+      bossPort.send({
+        'type': kWorkerEventConnectionRemoved,
+        'connectionId': removeConnection,
+      });
+    } else if (command == kWorkerCmdShutdown) {
+      commandPort.close();
+      bossPort.send({
+        'type': kWorkerEventShutdown,
+        'connectionId': connectionId,
+      });
+    } else if (command == _workerCmdDrainConnections) {
+      Timer(const Duration(milliseconds: 250), () {
+        for (final entry in connections.entries.toList()) {
+          bossPort.send({
+            'type': kWorkerEventConnectionRemoved,
+            'connectionId': entry.key,
+          });
+          connections.remove(entry.key);
+        }
+        bossPort.send({'type': kWorkerEventDrained, 'workerHash': workerHash});
+      });
+    }
+  });
+}
+
+Future<(int, String)> _getHealth(Uri uri) async {
+  final client = HttpClient();
+  try {
+    final request = await client.getUrl(uri);
+    final response = await request.close();
+    final body = await response.transform(utf8.decoder).join();
+    return (response.statusCode, body);
+  } finally {
+    client.close(force: true);
+  }
+}
+
 void _parallelWorkerEntryPoint(Map<String, Object?> init) {
   final bossPort = init['bossPort'] as SendPort;
   final connectionId = init['connectionId'] as int;
@@ -1048,6 +1127,35 @@ void main() {
       expect(binding.listeners, hasLength(1));
       expect(runtime.listenCalls, ['0.0.0.0:8080:128']);
     });
+
+    test(
+      'drain closes listeners and pending connections without boss',
+      () async {
+        final runtime = _FakeRuntime();
+        final router = Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                tlsMode: TlsMode.disabled,
+                maxRawSocketSizeExponent: 16,
+              ),
+            ],
+          ),
+        );
+
+        final binding = router.start(runtime);
+        addTearDown(binding.dispose);
+        final listener = binding.listeners.single;
+        runtime.enqueueConnection(listener.listenerId, 7001);
+
+        await binding.drain();
+
+        expect(runtime.closedListeners, contains(listener.listenerId));
+        expect(runtime.closedConnections, contains(7001));
+      },
+    );
 
     test('encodes reserved realm and namespace HTTP routes', () {
       final builder = RouterSettingsBuilder()
@@ -1985,6 +2093,66 @@ void main() {
         (event) => event['type'] == 'worker_drained',
       );
       expect(workerDrained.length, equals(1));
+    });
+
+    test('healthz returns draining while drain in progress', () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+      );
+
+      final events = <Object>[];
+      final binding = router.start(
+        runtime,
+        workerEntryPoint: _delayedDrainWorkerEntryPoint,
+        onEvent: events.add,
+        workerPollInterval: const Duration(milliseconds: 1),
+      );
+      addTearDown(binding.dispose);
+      final listener = binding.listeners.single;
+      runtime.enqueueHandle(listener.listenerId, 8001);
+
+      await _waitUntil(() {
+        return events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_ready' && event['connectionId'] == 8001,
+        );
+      }, timeout: const Duration(seconds: 2));
+
+      final server = await binding.startOpenMetricsHttpServer(
+        settingsOverride: const OpenMetricsSettings(
+          enabled: true,
+          listen: '127.0.0.1:0',
+        ),
+      );
+      expect(server, isNotNull);
+      final base = Uri(scheme: 'http', host: '127.0.0.1', port: server!.port);
+
+      final drainFuture = binding.drain(
+        drainTimeout: const Duration(seconds: 2),
+      );
+
+      final (status, body) = await _getHealth(base.replace(path: '/healthz'));
+      expect(status, equals(503));
+      expect(body, contains('draining'));
+
+      await drainFuture;
+
+      final (finalStatus, finalBody) = await _getHealth(
+        base.replace(path: '/healthz'),
+      );
+      expect(finalStatus, equals(200));
+      expect(finalBody, contains('ok'));
     });
   });
 

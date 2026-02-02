@@ -8,8 +8,8 @@ use tokio::{
 
 use crate::{
     config::{EndpointRuntimeConfig, HttpRouteMatch, TransportProtocol},
-    io_stream::IoStream,
     http1_stream::{self, HttpBodyPhase},
+    io_stream::IoStream,
     rawsocket::{self, NegotiatedSession, RAWSOCKET_MAGIC},
     HTTP1_INLINE_BODY_LIMIT,
 };
@@ -359,9 +359,7 @@ async fn peek_handshake(
         .map_err(|_| NegotiationError::Timeout)?
         .map_err(|err| {
             if err.kind() == io::ErrorKind::UnexpectedEof {
-                NegotiationError::Protocol(
-                    "connection closed before protocol negotiation".into(),
-                )
+                NegotiationError::Protocol("connection closed before protocol negotiation".into())
             } else {
                 NegotiationError::Io(err)
             }
@@ -848,6 +846,7 @@ mod tests {
             handshake_timeout,
             max_http_content_length: None,
             max_rawsocket_size_exponent: Some(rawsocket_exponent),
+            outbound_send_queue_capacity: None,
             websocket_path: None,
             sni_certificates: Vec::new(),
             client_auth: None,
@@ -1043,6 +1042,7 @@ Sec-WebSocket-Protocol: wamp.2.json, wamp.2.cbor\r\n\r\n";
             handshake_timeout: Some(Duration::from_secs(1)),
             max_http_content_length: None,
             max_rawsocket_size_exponent: Some(16),
+            outbound_send_queue_capacity: None,
             websocket_path: None,
             sni_certificates: Vec::new(),
             client_auth: None,

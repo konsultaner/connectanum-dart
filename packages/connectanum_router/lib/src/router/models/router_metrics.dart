@@ -14,6 +14,7 @@ class RouterMetricsSnapshot {
     required this.totalPublicationsRouted,
     required this.activeConnections,
     required this.workerCount,
+    this.shutdown = const RouterShutdownMetrics(),
     this.alerts = const RouterAlertMetrics(),
     this.transport,
   });
@@ -48,11 +49,49 @@ class RouterMetricsSnapshot {
   /// Number of worker isolates currently running.
   final int workerCount;
 
+  /// Graceful shutdown/drain state owned by the binding.
+  final RouterShutdownMetrics shutdown;
+
   /// Aggregated alert counters emitted by the boss loop (backpressure, etc.).
   final RouterAlertMetrics alerts;
 
   /// Aggregated transport-level metrics emitted by the native runtime.
   final RouterTransportMetrics? transport;
+
+  RouterMetricsSnapshot copyWith({
+    DateTime? timestamp,
+    int? realmCount,
+    int? sessionCount,
+    int? subscriptionCount,
+    int? registrationCount,
+    int? pendingInvocationCount,
+    int? totalInvocationsDispatched,
+    int? totalPublicationsRouted,
+    int? activeConnections,
+    int? workerCount,
+    RouterShutdownMetrics? shutdown,
+    RouterAlertMetrics? alerts,
+    RouterTransportMetrics? transport,
+  }) {
+    return RouterMetricsSnapshot(
+      timestamp: timestamp ?? this.timestamp,
+      realmCount: realmCount ?? this.realmCount,
+      sessionCount: sessionCount ?? this.sessionCount,
+      subscriptionCount: subscriptionCount ?? this.subscriptionCount,
+      registrationCount: registrationCount ?? this.registrationCount,
+      pendingInvocationCount:
+          pendingInvocationCount ?? this.pendingInvocationCount,
+      totalInvocationsDispatched:
+          totalInvocationsDispatched ?? this.totalInvocationsDispatched,
+      totalPublicationsRouted:
+          totalPublicationsRouted ?? this.totalPublicationsRouted,
+      activeConnections: activeConnections ?? this.activeConnections,
+      workerCount: workerCount ?? this.workerCount,
+      shutdown: shutdown ?? this.shutdown,
+      alerts: alerts ?? this.alerts,
+      transport: transport ?? this.transport,
+    );
+  }
 
   Map<String, Object?> toJson() => {
     'timestamp': timestamp.toIso8601String(),
@@ -65,8 +104,47 @@ class RouterMetricsSnapshot {
     'total_publications_routed': totalPublicationsRouted,
     'active_connections': activeConnections,
     'worker_count': workerCount,
+    'shutdown': shutdown.toJson(),
     'alerts': alerts.toJson(),
     if (transport != null) 'transport': transport!.toJson(),
+  };
+}
+
+/// Shutdown/drain counters emitted by the binding.
+@immutable
+class RouterShutdownMetrics {
+  const RouterShutdownMetrics({
+    this.drainInProgress = false,
+    this.drainTotal = 0,
+    this.drainTimeouts = 0,
+    this.closedListenersTotal = 0,
+    this.closedPendingConnectionsTotal = 0,
+    this.lastDrainDurationMs,
+    this.drainStartedAtUtc,
+    this.drainDeadlineAtUtc,
+  });
+
+  final bool drainInProgress;
+  final int drainTotal;
+  final int drainTimeouts;
+  final int closedListenersTotal;
+  final int closedPendingConnectionsTotal;
+  final int? lastDrainDurationMs;
+  final DateTime? drainStartedAtUtc;
+  final DateTime? drainDeadlineAtUtc;
+
+  Map<String, Object?> toJson() => {
+    'drain_in_progress': drainInProgress,
+    'drain_total': drainTotal,
+    'drain_timeouts': drainTimeouts,
+    'closed_listeners_total': closedListenersTotal,
+    'closed_pending_connections_total': closedPendingConnectionsTotal,
+    if (lastDrainDurationMs != null)
+      'last_drain_duration_ms': lastDrainDurationMs,
+    if (drainStartedAtUtc != null)
+      'drain_started_at': drainStartedAtUtc!.toIso8601String(),
+    if (drainDeadlineAtUtc != null)
+      'drain_deadline_at': drainDeadlineAtUtc!.toIso8601String(),
   };
 }
 

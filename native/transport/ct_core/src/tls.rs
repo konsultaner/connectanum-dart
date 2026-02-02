@@ -5,8 +5,7 @@ use rustls::{
     pki_types::{CertificateDer, PrivateKeyDer},
     server::{ClientHello, ResolvesServerCert, ResolvesServerCertUsingSni},
     sign::CertifiedKey,
-    RootCertStore,
-    ServerConfig as RustlsServerConfig,
+    RootCertStore, ServerConfig as RustlsServerConfig,
 };
 use rustls_pemfile::{certs as load_certs, pkcs8_private_keys, rsa_private_keys};
 use tokio_rustls::TlsAcceptor;
@@ -57,21 +56,23 @@ pub(crate) fn build_tls_acceptor(
 
     for (index, entry) in endpoint.sni_certificates.iter().enumerate() {
         let (cert_chain, key_der) = parse_identity(entry, endpoint)?;
-        let certified_key = CertifiedKey::from_der(cert_chain, key_der, &provider).map_err(|err| {
-            Error::RouterConfigInvalid(format!(
-                "endpoint {}:{} tls certificate invalid for {}: {}",
-                endpoint.host, endpoint.port, entry.hostname, err
-            ))
-        })?;
+        let certified_key =
+            CertifiedKey::from_der(cert_chain, key_der, &provider).map_err(|err| {
+                Error::RouterConfigInvalid(format!(
+                    "endpoint {}:{} tls certificate invalid for {}: {}",
+                    endpoint.host, endpoint.port, entry.hostname, err
+                ))
+            })?;
         if index == 0 {
             default_key = Some(Arc::new(certified_key.clone()));
         }
-        sni.add(entry.hostname.as_str(), certified_key).map_err(|err| {
-            Error::RouterConfigInvalid(format!(
-                "endpoint {}:{} tls SNI certificate invalid for {}: {}",
-                endpoint.host, endpoint.port, entry.hostname, err
-            ))
-        })?;
+        sni.add(entry.hostname.as_str(), certified_key)
+            .map_err(|err| {
+                Error::RouterConfigInvalid(format!(
+                    "endpoint {}:{} tls SNI certificate invalid for {}: {}",
+                    endpoint.host, endpoint.port, entry.hostname, err
+                ))
+            })?;
     }
 
     let default_key = default_key.expect("sni certificates checked non-empty");

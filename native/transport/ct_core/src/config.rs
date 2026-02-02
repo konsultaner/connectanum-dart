@@ -14,6 +14,10 @@ pub const DEFAULT_RAWSOCKET_SIZE_EXPONENT: u32 = 16;
 pub const CONNECTANUM_MAX_RAWSOCKET_SIZE_EXPONENT: u32 = 30;
 /// Default timeout for completing the RawSocket handshake.
 pub const DEFAULT_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
+/// Default number of queued outbound frames per connection (RawSocket/WebSocket).
+pub const DEFAULT_OUTBOUND_SEND_QUEUE_CAPACITY: usize = 1024;
+pub const MIN_OUTBOUND_SEND_QUEUE_CAPACITY: usize = 1;
+pub const MAX_OUTBOUND_SEND_QUEUE_CAPACITY: usize = 65535;
 
 static ROUTER_CONFIG: OnceLock<RwLock<Option<Arc<RouterConfig>>>> = OnceLock::new();
 
@@ -61,6 +65,7 @@ pub struct EndpointConfig {
     pub handshake_timeout: Option<Duration>,
     pub max_http_content_length: Option<u64>,
     pub max_rawsocket_size_exponent: Option<u32>,
+    pub outbound_send_queue_capacity: Option<usize>,
     pub websocket_path: Option<String>,
     #[serde(default)]
     pub sni_certificates: Vec<SniCertificate>,
@@ -220,6 +225,7 @@ pub struct EndpointRuntimeConfig {
     pub max_rawsocket_size_exponent: u32,
     pub max_rawsocket_size: u64,
     pub max_upgrade_exponent: Option<u32>,
+    pub outbound_send_queue_capacity: usize,
     pub websocket_path: Option<String>,
     pub sni_certificates: Vec<SniCertificate>,
     pub http_routes: Vec<HttpRouteRuntime>,
@@ -273,7 +279,9 @@ impl EndpointRuntimeConfig {
                 )));
             }
         }
-        if let (Some(interval), Some(timeout)) = (endpoint.heartbeat_interval, endpoint.heartbeat_timeout) {
+        if let (Some(interval), Some(timeout)) =
+            (endpoint.heartbeat_interval, endpoint.heartbeat_timeout)
+        {
             if timeout < interval {
                 return Err(Error::RouterConfigInvalid(format!(
                     "endpoint {}:{} heartbeat_timeout_ms must be >= heartbeat_interval_ms",
@@ -296,6 +304,21 @@ impl EndpointRuntimeConfig {
                     endpoint.host, endpoint.port
                 )));
             }
+        }
+        let outbound_send_queue_capacity = endpoint
+            .outbound_send_queue_capacity
+            .unwrap_or(DEFAULT_OUTBOUND_SEND_QUEUE_CAPACITY);
+        if outbound_send_queue_capacity < MIN_OUTBOUND_SEND_QUEUE_CAPACITY
+            || outbound_send_queue_capacity > MAX_OUTBOUND_SEND_QUEUE_CAPACITY
+        {
+            return Err(Error::RouterConfigInvalid(format!(
+                "endpoint {}:{} outbound_send_queue_capacity {} outside supported range {}..{}",
+                endpoint.host,
+                endpoint.port,
+                outbound_send_queue_capacity,
+                MIN_OUTBOUND_SEND_QUEUE_CAPACITY,
+                MAX_OUTBOUND_SEND_QUEUE_CAPACITY
+            )));
         }
         if !endpoint.http_routes.is_empty() && !protocols.contains(&TransportProtocol::Http) {
             return Err(Error::RouterConfigInvalid(format!(
@@ -396,6 +419,7 @@ impl EndpointRuntimeConfig {
             max_rawsocket_size_exponent: exponent,
             max_rawsocket_size: 1u64 << exponent,
             max_upgrade_exponent: endpoint.max_rawsocket_size_exponent,
+            outbound_send_queue_capacity,
             websocket_path: endpoint.websocket_path.clone(),
             sni_certificates: endpoint.sni_certificates.clone(),
             http_routes,
@@ -773,6 +797,44 @@ mod tests {
         let err = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap_err();
         assert!(
             format!("{err}").contains("client_auth requires ca_certificates_pem"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn outbound_send_queue_capacity_defaults_and_validates() {
+        let cfg: EndpointConfig = serde_json::from_value(json!({
+            "host": "127.0.0.1",
+            "port": 0,
+            "tls_mode": "disabled"
+        }))
+        .unwrap();
+        let runtime = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap();
+        assert_eq!(
+            runtime.outbound_send_queue_capacity,
+            DEFAULT_OUTBOUND_SEND_QUEUE_CAPACITY
+        );
+
+        let cfg: EndpointConfig = serde_json::from_value(json!({
+            "host": "127.0.0.1",
+            "port": 0,
+            "tls_mode": "disabled",
+            "outbound_send_queue_capacity": 32
+        }))
+        .unwrap();
+        let runtime = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap();
+        assert_eq!(runtime.outbound_send_queue_capacity, 32);
+
+        let cfg: EndpointConfig = serde_json::from_value(json!({
+            "host": "127.0.0.1",
+            "port": 0,
+            "tls_mode": "disabled",
+            "outbound_send_queue_capacity": 0
+        }))
+        .unwrap();
+        let err = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap_err();
+        assert!(
+            format!("{err}").contains("outbound_send_queue_capacity"),
             "{err}"
         );
     }

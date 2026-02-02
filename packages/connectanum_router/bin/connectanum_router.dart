@@ -66,7 +66,8 @@ Future<void> main(List<String> args) async {
   } on ArgumentError catch (error) {
     stderr.writeln(
       'Failed to load the native transport runtime: ${error.message}\n'
-      'Build ct_ffi and either place it next to the router executable or set CONNECTANUM_NATIVE_LIB.',
+      'Ensure ct_ffi is available (build hooks compile it automatically during `dart run`/`dart test` '
+      'when a Rust toolchain is installed) or set CONNECTANUM_NATIVE_LIB to a prebuilt library.',
     );
     exitCode = 78;
     return;

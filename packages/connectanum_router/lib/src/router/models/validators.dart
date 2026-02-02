@@ -1,5 +1,8 @@
 const int _minRawSocketSizeExponent = 9;
 const int _maxRawSocketSizeExponent = 30;
+const int _minOutboundSendQueueCapacity = 1;
+const int _maxOutboundSendQueueCapacity = 65535;
+const int defaultOutboundSendQueueCapacity = 1024;
 
 /// Validates and normalises a hostname.
 String normalizeHostname(String host) {
@@ -77,6 +80,21 @@ int normalizeRawSocketSizeExponent(int exponent) {
     );
   }
   return exponent;
+}
+
+/// Validates the outbound send queue capacity (frames), used for RawSocket and
+/// WebSocket.
+int normalizeOutboundSendQueueCapacity(int capacity) {
+  if (capacity < _minOutboundSendQueueCapacity ||
+      capacity > _maxOutboundSendQueueCapacity) {
+    throw ArgumentError.value(
+      capacity,
+      'outboundSendQueueCapacity',
+      'outboundSendQueueCapacity must be between '
+          '$_minOutboundSendQueueCapacity and $_maxOutboundSendQueueCapacity',
+    );
+  }
+  return capacity;
 }
 
 /// Validates the optional HTTP content length.

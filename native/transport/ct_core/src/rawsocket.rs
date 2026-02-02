@@ -196,6 +196,7 @@ mod tests {
             handshake_timeout,
             max_http_content_length: None,
             max_rawsocket_size_exponent: Some(rawsocket_exponent),
+            outbound_send_queue_capacity: None,
             websocket_path: None,
             sni_certificates: Vec::new(),
             client_auth: None,
@@ -510,11 +511,11 @@ mod tests {
         let config = runtime_config(Some(Duration::from_millis(50)), 16);
         let (tx, rx) = oneshot::channel();
 
-            tokio::spawn(async move {
-                let (stream, _) = listener.accept().await.unwrap();
-                let result = negotiate(IoStream::plain(stream), &config).await;
-                tx.send(result).ok();
-            });
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let result = negotiate(IoStream::plain(stream), &config).await;
+            tx.send(result).ok();
+        });
 
         let _client = TcpStream::connect(addr).await.unwrap();
         let err = rx.await.unwrap().expect_err("handshake timeout");

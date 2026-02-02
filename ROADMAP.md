@@ -9,6 +9,9 @@
 - [x] Router CLI example (`packages/connectanum_router/example`)
 - [x] Config-driven router runner (`packages/connectanum_router/bin/connectanum_router.dart`) suitable for production deployments.
 - [x] Deployment templates (`deploy/docker`, `deploy/systemd`, `deploy/k8s`) plus production config docs (`docs/deployment.md`, `docs/router_example.yaml`).
+- [x] Packaging & build hooks for `ct_ffi` (Dart 3.10+ native assets build hook builds the Rust library during `dart run`/`dart test`, and the runtime loader discovers artifacts under `.dart_tool/hooks_runner`).
+- [x] Resource caps: configurable outbound send queue capacity (`outbound_send_queue_capacity`) for RawSocket/WebSocket connections.
+- [x] Graceful drain: close native listeners before worker drain so no new accepts are queued; `/healthz` reports `draining`, and OpenMetrics exports drain counters.
 - [ ] Native TLS offload & kTLS integration
   - [x] Native TCP TLS termination (rustls + SNI certificates) for RawSocket/WebSocket/HTTP1/2 listeners.
   - [x] Certificate reload/rotation hooks (ACME/secret updates) via `ct_reload_tls` + runner `SIGHUP`.
