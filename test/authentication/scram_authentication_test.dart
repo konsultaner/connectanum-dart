@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:convert';
 
 import 'package:connectanum/connectanum.dart';
+import 'package:connectanum/src/authentication/cra_authentication.dart';
 import 'package:connectanum/src/authentication/scram_authentication.dart';
 import 'package:test/test.dart';
 
@@ -93,6 +94,33 @@ void main() {
       final authenticateSignature = ScramAuthentication(secret)
           .createSignature(user, helloNonce, challengeExtraArgon2, authExtra);
       expect(authenticateSignature, equals(signatureArgon));
+    });
+    test('derive key pbkdf2 with non-ascii password uses utf8 bytes', () async {
+      final authenticateSignature = ScramAuthentication('Straße')
+          .createSignature(user, helloNonce, challengeExtra, authExtra);
+      expect(authenticateSignature,
+          equals('TZVudO0htKotRan67S3g8mpR+2+TfH3wLC4CZ7DidWo='));
+    });
+    test('derive key pbkdf2 can use utf16 compatibility mode', () async {
+      final authenticateSignature = ScramAuthentication('Straße',
+              stringEncoding: AuthenticationStringEncoding.utf16)
+          .createSignature(user, helloNonce, challengeExtra, authExtra);
+      expect(authenticateSignature,
+          equals('NrrMuWTWkdLdDhentdYKxc1Mog1il6vOPvtrd1dsNxU='));
+    });
+    test('derive key argon2id with non-ascii password uses utf8 bytes',
+        () async {
+      final authenticateSignature = ScramAuthentication('Straße')
+          .createSignature(user, helloNonce, challengeExtraArgon2, authExtra);
+      expect(authenticateSignature,
+          equals('j1eU8k4NK9CglyQSc4X0ZsVj2Jr9o8AfJrD3zwR8+pg='));
+    });
+    test('derive key argon2id can use utf16 compatibility mode', () async {
+      final authenticateSignature = ScramAuthentication('Straße',
+              stringEncoding: AuthenticationStringEncoding.utf16)
+          .createSignature(user, helloNonce, challengeExtraArgon2, authExtra);
+      expect(authenticateSignature,
+          equals('h1krogHvNHm3PelExNS1M+4Yf5L0yRNZyAGocLyHfUo='));
     });
     test('reuse client key for authentication', () async {
       final authMethod = ScramAuthentication(secret);

@@ -1,3 +1,10 @@
+### 2.2.7
+
+- switched CRA/SCRAM string-to-byte conversion to UTF-8 by default
+- added configurable authentication string encoding via `AuthenticationStringEncoding`
+  (`utf8` default, `utf16` compatibility mode)
+- added regression tests for non-ASCII secrets (for example `ß`) in CRA/SCRAM
+
 ### 2.2.6
 
  - fixed abort reason to match a value of the listed `_abortReasons` in the client for local transport

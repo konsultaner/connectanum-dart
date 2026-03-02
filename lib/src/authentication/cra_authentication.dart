@@ -15,6 +15,16 @@ import '../message/authenticate.dart';
 import '../message/message_types.dart';
 import '../message/error.dart';
 
+/// Controls how auth strings are converted to bytes during key derivation and
+/// signature calculation.
+enum AuthenticationStringEncoding {
+  /// UTF-8 bytes. This follows common backend implementations and WAMP usage.
+  utf8,
+
+  /// Legacy UTF-16 code-unit bytes (`String.codeUnits`) for compatibility.
+  utf16,
+}
+
 /// This is the WAMPCRA authentication implementation for this package.
 /// Use it with the [Client].
 class CraAuthentication extends AbstractAuthentication {
@@ -25,9 +35,23 @@ class CraAuthentication extends AbstractAuthentication {
   static const int defaultIterations = 1000;
   static const int defaultKeyLength = 32;
   String secret;
+  final AuthenticationStringEncoding stringEncoding;
 
   /// Initializes the authentication method with the [secret] aka password
-  CraAuthentication(this.secret);
+  CraAuthentication(this.secret,
+      {this.stringEncoding = AuthenticationStringEncoding.utf8});
+
+  /// Encodes [value] according to [stringEncoding].
+  static List<int> encodeString(String value,
+      {AuthenticationStringEncoding stringEncoding =
+          AuthenticationStringEncoding.utf8}) {
+    switch (stringEncoding) {
+      case AuthenticationStringEncoding.utf8:
+        return utf8.encode(value);
+      case AuthenticationStringEncoding.utf16:
+        return value.codeUnits;
+    }
+  }
 
   /// When the challenge starts the stream will provide the current [Extra] in
   /// case the client needs some additional information to challenge the server.
@@ -62,15 +86,18 @@ class CraAuthentication extends AbstractAuthentication {
 
     Uint8List key;
     if (extra.salt == null) {
-      key = Uint8List.fromList(secret.codeUnits);
+      key = Uint8List.fromList(
+          encodeString(secret, stringEncoding: stringEncoding));
     } else {
-      key = deriveKey(secret, extra.salt!.codeUnits,
+      key = deriveKey(
+          secret, encodeString(extra.salt!, stringEncoding: stringEncoding),
           iterations: extra.iterations == null || extra.iterations! <= 0
               ? defaultIterations
               : extra.iterations!,
           keylen: extra.keyLen == null || extra.keyLen! <= 0
               ? defaultKeyLength
-              : extra.keyLen!);
+              : extra.keyLen!,
+          stringEncoding: stringEncoding);
     }
 
     authenticate.signature = encodeHmac(
@@ -78,7 +105,8 @@ class CraAuthentication extends AbstractAuthentication {
         extra.keyLen == null || extra.keyLen! <= 0
             ? defaultKeyLength
             : extra.keyLen!,
-        Uint8List.fromList(extra.challenge!.codeUnits));
+        Uint8List.fromList(
+            encodeString(extra.challenge!, stringEncoding: stringEncoding)));
     return authenticate;
   }
 
@@ -87,10 +115,14 @@ class CraAuthentication extends AbstractAuthentication {
   static Uint8List deriveKey(String secret, List<int> salt,
       {int iterations = defaultIterations,
       int keylen = defaultKeyLength,
-      hmacLength = 64}) {
+      hmacLength = 64,
+      AuthenticationStringEncoding stringEncoding =
+          AuthenticationStringEncoding.utf8}) {
     var derivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), hmacLength))
       ..init(Pbkdf2Parameters(Uint8List.fromList(salt), iterations, keylen));
-    return derivator.process(Uint8List.fromList(secret.codeUnits));
+    return derivator.process(Uint8List.fromList(
+      encodeString(secret, stringEncoding: stringEncoding),
+    ));
   }
 
   /// Creates an base 64 encoded hmac from a [key] that usually is the derived

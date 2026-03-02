@@ -179,10 +179,22 @@ void main() {
     test('derive key', () {
       for (var vector in pbkdf2HmacSha256TestVectors) {
         final key = CraAuthentication.deriveKey(
-            vector[0] as String, (vector[1] as String).codeUnits,
+            vector[0] as String, utf8.encode(vector[1] as String),
             iterations: vector[2] as int, keylen: vector[3] as int);
         expect(key, equals(vector[4]));
       }
+    });
+    test('derive key with non-ascii password uses utf8 bytes', () {
+      final key =
+          CraAuthentication.deriveKey('Straße123!', utf8.encode('pepper'));
+      expect(base64.encode(key),
+          equals('r/FzWwojHwqx4KyAcilek57r9UxeJuJnunKCBkz7h9c='));
+    });
+    test('derive key can use utf16 compatibility mode', () {
+      final key = CraAuthentication.deriveKey('Straße123!', 'pepper'.codeUnits,
+          stringEncoding: AuthenticationStringEncoding.utf16);
+      expect(base64.encode(key),
+          equals('mHqCy6oBzq25DALFw2KBuAhIdPo2TNibE9WZx6Qdj0o='));
     });
     test('hmac encode', () {
       final mac = CraAuthentication.encodeHmac(

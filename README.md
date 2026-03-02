@@ -55,6 +55,26 @@ eventually fail.
   - ☑ PBKDF2
   - ☑ reuse client key to save computation time
 
+### Authentication String Encoding
+
+`CraAuthentication` and `ScramAuthentication` use UTF-8 by default.
+If your backend was built against the legacy code-unit behavior, you can
+switch to compatibility mode:
+
+```dart
+import 'package:connectanum/authentication.dart';
+
+final cra = CraAuthentication(
+  'secret',
+  stringEncoding: AuthenticationStringEncoding.utf16,
+);
+
+final scram = ScramAuthentication(
+  'secret',
+  stringEncoding: AuthenticationStringEncoding.utf16,
+);
+```
+
 ### Advanced RPC features
 
 - ☑ Progressive Call Results
