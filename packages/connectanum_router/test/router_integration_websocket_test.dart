@@ -316,6 +316,91 @@ void main() {
       expect(resultArgs.first, equals(largeResponse));
       expect(resultArgs[1], equals(largePayload));
     }, skip: skipReason);
+
+    test('responds to ping and echoes empty close frames', () async {
+      final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
+      addTearDown(() {
+        runtime.shutdown();
+        runtime.dispose();
+      });
+
+      final events = <Map<String, Object?>>[];
+      final binding =
+          Router(
+            _buildWebSocketConfig(),
+            settings: _buildWebSocketSettings(),
+          ).start(
+            runtime,
+            workerPollInterval: const Duration(milliseconds: 1),
+            onEvent: (event) {
+              if (event is Map<String, Object?>) {
+                events.add(event);
+              }
+            },
+          );
+      addTearDown(binding.dispose);
+
+      final listener = binding.listeners.single;
+      final socket = await Socket.connect('127.0.0.1', listener.port);
+      addTearDown(() => socket.destroy());
+
+      final handshakeResponse = await _performWebSocketHandshake(
+        socket,
+        path: '/ws',
+        host: '127.0.0.1:${listener.port}',
+        protocols: const ['wamp.2.json'],
+      );
+      expect(
+        handshakeResponse.toLowerCase(),
+        contains('sec-websocket-protocol: wamp.2.json'),
+      );
+      await _waitForCondition(
+        () => events.any(
+          (event) => event['type'] == 'listener_websocket_accepted',
+        ),
+        timeout: const Duration(seconds: 5),
+        reason: 'websocket handshake not accepted: $events',
+      );
+      await _waitForCondition(
+        () => events.any((event) {
+          final type = event['type'];
+          return type == 'worker_connection_added' ||
+              type == 'worker_registered';
+        }),
+        timeout: const Duration(seconds: 5),
+        reason: 'websocket worker assignment missing: $events',
+      );
+
+      const pingPayload = [1, 2, 3, 4, 5, 6];
+      await _sendWebSocketFrame(
+        socket,
+        opcode: 0x9,
+        fin: true,
+        payload: pingPayload,
+      );
+      final pong = await _readFrame(socket);
+      expect(pong.fin, isTrue);
+      expect(pong.opcode, equals(0xA));
+      expect(pong.payload, orderedEquals(pingPayload));
+
+      await _sendWebSocketFrame(
+        socket,
+        opcode: 0x8,
+        fin: true,
+        payload: const [],
+      );
+      final close = await _readFrame(socket);
+      expect(close.fin, isTrue);
+      expect(close.opcode, equals(0x8));
+      expect(close.payload, isEmpty);
+
+      await _waitForCondition(
+        () =>
+            events.any((event) => event['type'] == 'worker_connection_removed'),
+        timeout: const Duration(seconds: 5),
+        reason: 'websocket close did not remove worker connection: $events',
+      );
+    }, skip: skipReason);
   });
 }
 

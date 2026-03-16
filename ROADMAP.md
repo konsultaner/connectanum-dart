@@ -20,6 +20,9 @@
 - [ ] WebSocket transport (WAMP over WebSocket)
   - [x] Route accepted WebSocket sessions into workers and poll WebSocket message handles in the boss loop so WAMP frames flow end-to-end.
   - [x] Add Dart worker regression coverage for WebSocket publish ACKs and missing-call errors to keep WAMP flows consistent with RawSocket.
+  - [x] Enforce RFC 6455 client masking/control-frame rules in the native transport (reserved-bit checks, non-fragmented control frames, 125-byte control payload limit, UTF-8 close reasons) and flush graceful close echoes before teardown.
+  - [x] Extend Rust `listen_flow` + Dart router integration coverage for WebSocket ping/pong, heartbeat pings, empty close echoes, and unmasked-frame rejection so upgrade/shutdown paths stay regression-tested.
+  - [x] Replace per-frame WebSocket `Vec` allocation with pooled owner-backed buffers, keep single-frame WAMP payloads zero-copy through WAMP parse + FFI/Dart, reassemble continuations in pooled storage, and write outbound segmented frames without flattening.
 - [ ] Serializer matrix (JSON, MessagePack, CBOR, UBJSON, FlatBuffers)
   - [ ] Cross-serializer translation so mixed clients (e.g. JSON ↔ MessagePack/CBOR) can publish/call across encodings without data loss; include regression tests for EVENT, RESULT, and ERROR bridging and document zero-copy fallbacks.
 - [x] Backpressure / flow control between workers and native layer
@@ -39,7 +42,9 @@
   - [x] Surface HTTP/2 and HTTP/3 connection lifecycle events (GOAWAY, idle/body timeouts, backpressure) over FFI so Dart can drain connections deterministically and emit diagnostics.
   - [x] Assert GOAWAY reasons/details for HTTP/2 + HTTP/3 in both native `listen_flow` and Dart runtime tests.
   - [x] Expose negotiated protocol identifiers via FFI so Dart workers can route WebSocket/HTTP sessions (new `ct_connection_websocket_protocol`, Dart bindings, and boss/worker metadata forwarding).
-  - [ ] Add WebSocket frame streaming support (continuation aggregation, mask handling) with zero-copy forwarding.
+  - [x] Add WebSocket frame streaming support (continuation aggregation, mask handling) with zero-copy forwarding.
+    - [x] Tighten RFC 6455 control-frame semantics and regression coverage (mask enforcement, ping/pong, graceful close echo, malformed control-frame rejection) across native + Dart tests.
+    - [x] Pool inbound frame storage in `ct_core`, keep single-frame WebSocket message handles slice-based through FFI/Dart, and stream outbound `Bytes` segments directly without a temporary `BytesMut` flatten step.
   - [ ] Add HTTP request/response streaming (header/state machines for HTTP/1.1, HTTP/2, HTTP/3) and surface body handles to Dart.
   - [ ] Stage native HTTP pipeline implementation:
     - [x] Bring up the HTTP/3 QUIC accept loop in `ct_core`: keep connections alive, parse requests via `h3`, match routes, queue `HttpRequestSummary` + response handles, and flush responses back along the same stream.
@@ -47,7 +52,8 @@
     - [ ] Rework HTTP/1.1 ingress to use those handles (no eager Vec copies), implement chunked/keep-alive writers, and surface status-only fast paths for early errors.
     - [ ] Bring up the dedicated HTTP/2 server (tokio + `h2`) with multi-stream routing, backpressure, and response writers backed by the shared handle abstraction.
     - [x] Align HTTP/3 request/response code with the new streaming primitives so QUIC uploads/downloads never copy into temporary Vecs, and expose stream IDs for diagnostics.
-    - [ ] Implement the WebSocket upgrade pipeline (accept handshake, negotiate serializers, forward frames with continuation/mask handling, and downgrade to RawSocket when possible) plus boss/worker instrumentation.
+    - [x] Implement the WebSocket upgrade pipeline (accept handshake, negotiate serializers, forward frames with continuation/mask handling, and boss/worker instrumentation).
+    - [ ] Evaluate downgrade-to-RawSocket fallback paths where an HTTP/WebSocket listener can safely hand off to the RawSocket fast path after negotiation.
     - [x] Update `NativeHttpRequestBody`/`HttpInvocationContext`/`HttpResponseUtil` in Dart to default to streaming reads/writes while preserving snapshot/copy fallbacks for legacy handlers.
   - [ ] Add end-to-end tests (Rust ffi `listen_flow`, Dart router_runtime/integration) that exercise HTTP/1.1, HTTP/2, HTTP/3, and WebSocket flows (multi-MB uploads/downloads, pointer comparisons, frame forwarding, streaming timeouts) and clean up temp files during teardown.
     - [x] New Rust `listen_flow` coverage for HTTP/2 idle/body timeouts and HTTP/3 idle/body timeouts (QUIC path now closes the connection on timeout to avoid `h3-quinn` stop-sending races).

@@ -1142,7 +1142,7 @@ impl ListenerRegistry {
     ) {
         let (frame_tx, frame_rx) = mpsc::channel(1024);
         let (send_tx, send_rx) = mpsc::channel(endpoint_config.outbound_send_queue_capacity);
-        let (close_tx, mut close_rx) = mpsc::unbounded_channel::<()>();
+        let (close_tx, mut close_rx) = mpsc::unbounded_channel::<ConnectionTaskSignal>();
         let serializer = negotiated.serializer;
         let max_exponent = negotiated.max_message_size_exponent;
         let (pong_tx, pong_rx) = mpsc::unbounded_channel::<Bytes>();
@@ -1268,7 +1268,7 @@ impl ListenerRegistry {
         let (send_tx, send_rx) = mpsc::channel(endpoint_config.outbound_send_queue_capacity);
 
         let selected_protocol = protocol.map(|value| value.to_string());
-        let (close_tx, mut close_rx) = mpsc::unbounded_channel::<()>();
+        let (close_tx, mut close_rx) = mpsc::unbounded_channel::<ConnectionTaskSignal>();
         let (pong_tx, pong_rx) = mpsc::unbounded_channel::<Bytes>();
         let heartbeat_abort = endpoint_config.heartbeat_interval.map(|interval| {
             let timeout = endpoint_config
@@ -1308,7 +1308,22 @@ impl ListenerRegistry {
 
         let registry = Arc::clone(&self);
         handle.spawn(async move {
-            let _ = close_rx.recv().await;
+            if matches!(
+                close_rx.recv().await,
+                Some(ConnectionTaskSignal::ReaderGracefulClose)
+            ) {
+                let grace = time::sleep(Duration::from_millis(100));
+                tokio::pin!(grace);
+                loop {
+                    tokio::select! {
+                        signal = close_rx.recv() => match signal {
+                            Some(ConnectionTaskSignal::WriterClosed) | None => break,
+                            Some(ConnectionTaskSignal::ReaderClosed | ConnectionTaskSignal::ReaderGracefulClose) => {}
+                        },
+                        _ = &mut grace => break,
+                    }
+                }
+            }
             let _ = registry.close_connection(connection_id);
         });
 
@@ -2063,6 +2078,17 @@ impl OutboundFrame {
             segments: vec![payload],
         }
     }
+
+    fn close(code: Option<u16>, reason: &str) -> Self {
+        Self::control(0x03, encode_websocket_close_payload(code, reason))
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ConnectionTaskSignal {
+    ReaderClosed,
+    ReaderGracefulClose,
+    WriterClosed,
 }
 
 fn spawn_connection_reader(
@@ -2074,7 +2100,7 @@ fn spawn_connection_reader(
     frame_tx: mpsc::Sender<wamp::ParsedMessage>,
     send_tx: mpsc::Sender<OutboundFrame>,
     pong_tx: Option<UnboundedSender<Bytes>>,
-    close_tx: UnboundedSender<()>,
+    close_tx: UnboundedSender<ConnectionTaskSignal>,
 ) -> AbortHandle {
     let task = tokio::spawn(async move {
         let max_payload = 1u64 << max_message_size_exponent;
@@ -2145,7 +2171,7 @@ fn spawn_connection_reader(
                 }
             }
         }
-        let _ = close_tx.send(());
+        let _ = close_tx.send(ConnectionTaskSignal::ReaderClosed);
     });
     task.abort_handle()
 }
@@ -2154,7 +2180,7 @@ fn spawn_connection_writer(
     connection_id: ConnectionId,
     mut writer: IoWriteHalf,
     mut rx: mpsc::Receiver<OutboundFrame>,
-    close_tx: UnboundedSender<()>,
+    close_tx: UnboundedSender<ConnectionTaskSignal>,
 ) -> AbortHandle {
     let task = tokio::spawn(async move {
         while let Some(frame) = rx.recv().await {
@@ -2197,7 +2223,7 @@ fn spawn_connection_writer(
                 }
             }
         }
-        let _ = close_tx.send(());
+        let _ = close_tx.send(ConnectionTaskSignal::WriterClosed);
     });
     task.abort_handle()
 }
@@ -2276,13 +2302,15 @@ fn spawn_websocket_reader(
     frame_tx: mpsc::Sender<wamp::ParsedMessage>,
     send_tx: mpsc::Sender<OutboundFrame>,
     pong_tx: Option<UnboundedSender<Bytes>>,
-    close_tx: UnboundedSender<()>,
+    close_tx: UnboundedSender<ConnectionTaskSignal>,
 ) -> AbortHandle {
     let task = handle.spawn(async move {
         let idle_timeout = endpoint_config.idle_timeout;
-        let mut accumulator = WebSocketMessageAccumulator::new();
+        let buffer_pool = Arc::new(WebSocketBufferPool::default());
+        let mut accumulator = WebSocketMessageAccumulator::new(Arc::clone(&buffer_pool));
+        let mut graceful_close_requested = false;
         loop {
-            let read_future = read_websocket_frame(&mut reader);
+            let read_future = read_websocket_frame(&mut reader, &buffer_pool);
             let frame = if let Some(timeout) = idle_timeout {
                 match time::timeout(timeout, read_future).await {
                     Ok(result) => result,
@@ -2302,6 +2330,12 @@ fn spawn_websocket_reader(
                 Ok(frame) => frame,
                 Err(err) => {
                     eprintln!("connection {:?} websocket error: {}", connection_id, err);
+                    if let Some(code) = err.close_code() {
+                        graceful_close_requested = send_tx
+                            .send(OutboundFrame::close(Some(code), ""))
+                            .await
+                            .is_ok();
+                    }
                     break;
                 }
             };
@@ -2317,6 +2351,12 @@ fn spawn_websocket_reader(
                             "connection {:?} websocket framing error: {}",
                             connection_id, err
                         );
+                        if let Some(code) = err.close_code() {
+                            graceful_close_requested = send_tx
+                                .send(OutboundFrame::close(Some(code), ""))
+                                .await
+                                .is_ok();
+                        }
                         break;
                     }
                     if let Some(message) = accumulator.take_complete() {
@@ -2332,30 +2372,28 @@ fn spawn_websocket_reader(
                     }
                 }
                 WebSocketFrame::Ping(payload) => {
-                    let _ = send_tx
-                        .send(OutboundFrame::control(0x02, Bytes::from(payload)))
-                        .await;
+                    let _ = send_tx.send(OutboundFrame::control(0x02, payload)).await;
                 }
                 WebSocketFrame::Pong(payload) => {
                     if let Some(tx) = &pong_tx {
-                        let _ = tx.send(Bytes::from(payload));
+                        let _ = tx.send(payload);
                     }
                 }
                 WebSocketFrame::Close(code, reason) => {
-                    let mut payload = Vec::new();
-                    payload.extend_from_slice(&code.to_be_bytes());
-                    let reason_bytes = reason.as_bytes();
-                    // Close frames are limited to 125 bytes total payload.
-                    let remaining = 125usize.saturating_sub(payload.len());
-                    payload.extend_from_slice(&reason_bytes[..reason_bytes.len().min(remaining)]);
-                    let _ = send_tx
-                        .send(OutboundFrame::control(0x03, Bytes::from(payload)))
-                        .await;
+                    graceful_close_requested = send_tx
+                        .send(OutboundFrame::close(code, &reason))
+                        .await
+                        .is_ok();
                     break;
                 }
             }
         }
-        let _ = close_tx.send(());
+        let signal = if graceful_close_requested {
+            ConnectionTaskSignal::ReaderGracefulClose
+        } else {
+            ConnectionTaskSignal::ReaderClosed
+        };
+        let _ = close_tx.send(signal);
     });
     task.abort_handle()
 }
@@ -2366,14 +2404,11 @@ fn spawn_websocket_writer(
     serializer: rawsocket::Serializer,
     mut writer: IoWriteHalf,
     mut rx: mpsc::Receiver<OutboundFrame>,
-    close_tx: UnboundedSender<()>,
+    close_tx: UnboundedSender<ConnectionTaskSignal>,
 ) -> AbortHandle {
     let task = handle.spawn(async move {
         while let Some(frame) = rx.recv().await {
-            let mut payload = BytesMut::with_capacity(frame.payload_len);
-            for segment in frame.segments {
-                payload.extend_from_slice(&segment);
-            }
+            let is_close_frame = frame.frame_type == 3;
             let opcode = match frame.frame_type {
                 0 => match serializer {
                     rawsocket::Serializer::Json => 0x1,
@@ -2384,15 +2419,20 @@ fn spawn_websocket_writer(
                 3 => 0x8,
                 _ => continue,
             };
-            if let Err(err) = write_websocket_frame(&mut writer, opcode, &payload).await {
+            if let Err(err) =
+                write_websocket_frame(&mut writer, opcode, frame.payload_len, &frame.segments).await
+            {
                 eprintln!(
                     "connection {:?} failed to write websocket frame: {}",
                     connection_id, err
                 );
                 break;
             }
+            if is_close_frame {
+                break;
+            }
         }
-        let _ = close_tx.send(());
+        let _ = close_tx.send(ConnectionTaskSignal::WriterClosed);
     });
     task.abort_handle()
 }
@@ -2458,72 +2498,225 @@ async fn read_inbound_frame(
     }
 }
 
+#[derive(Debug)]
 enum WebSocketFrame {
     Data {
         opcode: u8,
         fin: bool,
-        payload: Vec<u8>,
+        payload: Bytes,
     },
-    Ping(Vec<u8>),
-    Pong(Vec<u8>),
-    Close(u16, String),
+    Ping(Bytes),
+    Pong(Bytes),
+    Close(Option<u16>, String),
 }
 
 #[derive(Debug)]
-struct WebSocketFrameError(String);
+struct WebSocketFrameError {
+    message: String,
+    close_code: Option<u16>,
+}
+
+impl WebSocketFrameError {
+    fn io(err: io::Error) -> Self {
+        Self {
+            message: err.to_string(),
+            close_code: None,
+        }
+    }
+
+    fn protocol(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            close_code: Some(1002),
+        }
+    }
+
+    fn invalid_payload(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            close_code: Some(1007),
+        }
+    }
+
+    fn message_too_big(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            close_code: Some(1009),
+        }
+    }
+
+    fn close_code(&self) -> Option<u16> {
+        self.close_code
+    }
+}
 
 impl std::fmt::Display for WebSocketFrameError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.message)
     }
 }
 
 impl std::error::Error for WebSocketFrameError {}
 
+const MAX_POOLED_WEBSOCKET_BUFFERS: usize = 32;
+
+#[derive(Debug, Default)]
+struct WebSocketBufferPool {
+    buffers: Mutex<Vec<Vec<u8>>>,
+}
+
+impl WebSocketBufferPool {
+    fn acquire(self: &Arc<Self>, len: usize) -> PooledWebSocketBuffer {
+        let mut buffer = self.take_buffer(len);
+        buffer.resize(len, 0);
+        PooledWebSocketBuffer {
+            pool: Arc::clone(self),
+            buffer,
+        }
+    }
+
+    fn acquire_capacity(self: &Arc<Self>, capacity: usize) -> PooledWebSocketBuffer {
+        let buffer = self.take_buffer(capacity);
+        PooledWebSocketBuffer {
+            pool: Arc::clone(self),
+            buffer,
+        }
+    }
+
+    fn take_buffer(&self, min_capacity: usize) -> Vec<u8> {
+        let mut buffers = self
+            .buffers
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        if let Some(index) = buffers
+            .iter()
+            .position(|buffer| buffer.capacity() >= min_capacity)
+        {
+            return buffers.swap_remove(index);
+        }
+        Vec::with_capacity(min_capacity)
+    }
+
+    fn recycle(&self, mut buffer: Vec<u8>) {
+        buffer.clear();
+        let mut buffers = self
+            .buffers
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        if buffers.len() < MAX_POOLED_WEBSOCKET_BUFFERS {
+            buffers.push(buffer);
+        }
+    }
+
+    #[cfg(test)]
+    fn available_buffers(&self) -> usize {
+        self.buffers
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .len()
+    }
+}
+
+#[derive(Debug)]
+struct PooledWebSocketBuffer {
+    pool: Arc<WebSocketBufferPool>,
+    buffer: Vec<u8>,
+}
+
+impl PooledWebSocketBuffer {
+    fn as_mut_slice(&mut self) -> &mut [u8] {
+        self.buffer.as_mut_slice()
+    }
+
+    fn len(&self) -> usize {
+        self.buffer.len()
+    }
+
+    fn extend_from_bytes(&mut self, bytes: &Bytes) {
+        self.buffer.extend_from_slice(bytes.as_ref());
+    }
+
+    fn into_bytes(self) -> Bytes {
+        Bytes::from_owner(self)
+    }
+}
+
+impl AsRef<[u8]> for PooledWebSocketBuffer {
+    fn as_ref(&self) -> &[u8] {
+        self.buffer.as_ref()
+    }
+}
+
+impl Drop for PooledWebSocketBuffer {
+    fn drop(&mut self) {
+        let buffer = std::mem::take(&mut self.buffer);
+        if buffer.capacity() > 0 {
+            self.pool.recycle(buffer);
+        }
+    }
+}
+
+#[derive(Debug)]
+enum WebSocketMessageStorage {
+    Single(Bytes),
+    Pooled(PooledWebSocketBuffer),
+}
+
 struct WebSocketMessageAccumulator {
     opcode: Option<u8>,
-    buffer: Vec<u8>,
+    pool: Arc<WebSocketBufferPool>,
+    storage: Option<WebSocketMessageStorage>,
     complete: bool,
 }
 
 impl WebSocketMessageAccumulator {
-    fn new() -> Self {
+    fn new(pool: Arc<WebSocketBufferPool>) -> Self {
         Self {
             opcode: None,
-            buffer: Vec::new(),
+            pool,
+            storage: None,
             complete: false,
         }
     }
 
-    fn push(&mut self, opcode: u8, fin: bool, payload: Vec<u8>) -> Result<(), WebSocketFrameError> {
+    fn push(&mut self, opcode: u8, fin: bool, payload: Bytes) -> Result<(), WebSocketFrameError> {
         if opcode == 0x0 {
             if self.opcode.is_none() {
-                return Err(WebSocketFrameError(
-                    "received continuation frame without initial opcode".into(),
+                return Err(WebSocketFrameError::protocol(
+                    "received continuation frame without initial opcode",
                 ));
             }
         } else if opcode == 0x1 || opcode == 0x2 {
             if self.opcode.is_some() {
-                return Err(WebSocketFrameError(
-                    "received new data frame before finishing continuation".into(),
+                return Err(WebSocketFrameError::protocol(
+                    "received new data frame before finishing continuation",
                 ));
             }
             self.opcode = Some(opcode);
         } else {
-            return Err(WebSocketFrameError("unsupported data opcode".into()));
+            return Err(WebSocketFrameError::protocol("unsupported data opcode"));
         }
 
-        if self.buffer.len() + payload.len() > MAX_WEBSOCKET_MESSAGE_LEN {
-            return Err(WebSocketFrameError(
-                "websocket message exceeds supported length".into(),
+        if self.len() + payload.len() > MAX_WEBSOCKET_MESSAGE_LEN {
+            return Err(WebSocketFrameError::message_too_big(
+                "websocket message exceeds supported length",
             ));
         }
 
-        if self.buffer.is_empty() {
-            // Move the initial payload without copying so unmasked frames remain zero-copy.
-            self.buffer = payload;
-        } else {
-            self.buffer.extend_from_slice(&payload);
+        match self.storage.take() {
+            None => {
+                self.storage = Some(WebSocketMessageStorage::Single(payload));
+            }
+            Some(WebSocketMessageStorage::Single(existing)) => {
+                let mut pooled = self.pool.acquire_capacity(existing.len() + payload.len());
+                pooled.extend_from_bytes(&existing);
+                pooled.extend_from_bytes(&payload);
+                self.storage = Some(WebSocketMessageStorage::Pooled(pooled));
+            }
+            Some(WebSocketMessageStorage::Pooled(mut pooled)) => {
+                pooled.extend_from_bytes(&payload);
+                self.storage = Some(WebSocketMessageStorage::Pooled(pooled));
+            }
         }
         if fin {
             self.complete = true;
@@ -2531,49 +2724,80 @@ impl WebSocketMessageAccumulator {
         Ok(())
     }
 
-    fn take_complete(&mut self) -> Option<Vec<u8>> {
+    fn take_complete(&mut self) -> Option<Bytes> {
         if self.complete {
-            let mut data = Vec::new();
-            std::mem::swap(&mut data, &mut self.buffer);
             self.opcode = None;
             self.complete = false;
-            Some(data)
+            self.storage.take().map(|storage| match storage {
+                WebSocketMessageStorage::Single(bytes) => bytes,
+                WebSocketMessageStorage::Pooled(buffer) => buffer.into_bytes(),
+            })
         } else {
             None
+        }
+    }
+
+    fn len(&self) -> usize {
+        match &self.storage {
+            Some(WebSocketMessageStorage::Single(bytes)) => bytes.len(),
+            Some(WebSocketMessageStorage::Pooled(buffer)) => buffer.len(),
+            None => 0,
         }
     }
 }
 
 async fn read_websocket_frame(
     reader: &mut IoReadHalf,
+    buffer_pool: &Arc<WebSocketBufferPool>,
 ) -> Result<WebSocketFrame, WebSocketFrameError> {
     let mut header = [0u8; 2];
     reader
         .read_exact(&mut header)
         .await
-        .map_err(|err| WebSocketFrameError(err.to_string()))?;
+        .map_err(WebSocketFrameError::io)?;
+    if header[0] & 0x70 != 0 {
+        return Err(WebSocketFrameError::protocol(
+            "websocket reserved bits must be zero",
+        ));
+    }
     let fin = header[0] & 0x80 != 0;
     let opcode = header[0] & 0x0F;
     let masked = header[1] & 0x80 != 0;
+    if !masked {
+        return Err(WebSocketFrameError::protocol(
+            "client websocket frames must be masked",
+        ));
+    }
+    let is_control_frame = opcode & 0x08 != 0;
+    if is_control_frame && !fin {
+        return Err(WebSocketFrameError::protocol(
+            "websocket control frames must not be fragmented",
+        ));
+    }
     let mut len = (header[1] & 0x7F) as u64;
     if len == 126 {
         let mut extended = [0u8; 2];
         reader
             .read_exact(&mut extended)
             .await
-            .map_err(|err| WebSocketFrameError(err.to_string()))?;
+            .map_err(WebSocketFrameError::io)?;
         len = u16::from_be_bytes(extended) as u64;
     } else if len == 127 {
         let mut extended = [0u8; 8];
         reader
             .read_exact(&mut extended)
             .await
-            .map_err(|err| WebSocketFrameError(err.to_string()))?;
+            .map_err(WebSocketFrameError::io)?;
         len = u64::from_be_bytes(extended);
     }
+    if is_control_frame && len > 125 {
+        return Err(WebSocketFrameError::protocol(
+            "websocket control frames must not exceed 125 bytes",
+        ));
+    }
     if len as usize > MAX_WEBSOCKET_MESSAGE_LEN {
-        return Err(WebSocketFrameError(
-            "websocket frame exceeds supported length".into(),
+        return Err(WebSocketFrameError::message_too_big(
+            "websocket frame exceeds supported length",
         ));
     }
     let mut mask = [0u8; 4];
@@ -2581,81 +2805,120 @@ async fn read_websocket_frame(
         reader
             .read_exact(&mut mask)
             .await
-            .map_err(|err| WebSocketFrameError(err.to_string()))?;
+            .map_err(WebSocketFrameError::io)?;
     }
-    let mut payload = vec![0u8; len as usize];
+    let mut payload = if len == 0 {
+        None
+    } else {
+        Some(buffer_pool.acquire(len as usize))
+    };
     if len > 0 {
         reader
-            .read_exact(&mut payload)
+            .read_exact(
+                payload
+                    .as_mut()
+                    .expect("payload buffer exists for non-empty websocket frame")
+                    .as_mut_slice(),
+            )
             .await
-            .map_err(|err| WebSocketFrameError(err.to_string()))?;
-        if masked {
-            for (index, byte) in payload.iter_mut().enumerate() {
+            .map_err(WebSocketFrameError::io)?;
+        if let Some(payload) = payload.as_mut() {
+            for (index, byte) in payload.as_mut_slice().iter_mut().enumerate() {
                 *byte ^= mask[index % 4];
             }
         }
     }
+    let payload = payload
+        .map(PooledWebSocketBuffer::into_bytes)
+        .unwrap_or_else(Bytes::new);
     match opcode {
         0x0 | 0x1 | 0x2 => Ok(WebSocketFrame::Data {
             opcode,
             fin,
             payload,
         }),
-        0x8 => {
-            let code = if payload.len() >= 2 {
-                u16::from_be_bytes([payload[0], payload[1]])
-            } else {
-                1005
-            };
-            let reason = if payload.len() > 2 {
-                String::from_utf8_lossy(&payload[2..]).to_string()
-            } else {
-                String::new()
-            };
-            Ok(WebSocketFrame::Close(code, reason))
-        }
+        0x8 => parse_websocket_close_frame_payload(&payload)
+            .map(|(code, reason)| WebSocketFrame::Close(code, reason)),
         0x9 => Ok(WebSocketFrame::Ping(payload)),
         0xA => Ok(WebSocketFrame::Pong(payload)),
-        _ => Err(WebSocketFrameError("unsupported websocket opcode".into())),
+        _ => Err(WebSocketFrameError::protocol(
+            "unsupported websocket opcode",
+        )),
     }
+}
+
+fn parse_websocket_close_frame_payload(
+    payload: &[u8],
+) -> Result<(Option<u16>, String), WebSocketFrameError> {
+    if payload.is_empty() {
+        return Ok((None, String::new()));
+    }
+    if payload.len() == 1 {
+        return Err(WebSocketFrameError::protocol(
+            "websocket close frame payload must be empty or include a 2-byte status code",
+        ));
+    }
+    let code = u16::from_be_bytes([payload[0], payload[1]]);
+    let reason = std::str::from_utf8(&payload[2..])
+        .map_err(|_| {
+            WebSocketFrameError::invalid_payload("websocket close reason must be valid UTF-8")
+        })?
+        .to_string();
+    Ok((Some(code), reason))
+}
+
+fn encode_websocket_close_payload(code: Option<u16>, reason: &str) -> Bytes {
+    let Some(code) = code else {
+        return Bytes::new();
+    };
+    let mut payload = Vec::with_capacity(125.min(reason.len() + 2));
+    payload.extend_from_slice(&code.to_be_bytes());
+    let reason_bytes = reason.as_bytes();
+    let remaining = 125usize.saturating_sub(payload.len());
+    payload.extend_from_slice(&reason_bytes[..reason_bytes.len().min(remaining)]);
+    Bytes::from(payload)
 }
 
 async fn write_websocket_frame(
     writer: &mut IoWriteHalf,
     opcode: u8,
-    payload: &[u8],
+    payload_len: usize,
+    segments: &[Bytes],
 ) -> io::Result<()> {
     let mut header = Vec::with_capacity(2);
     header.push(0x80 | (opcode & 0x0F));
-    if payload.len() < 126 {
-        header.push(payload.len() as u8);
-    } else if payload.len() <= 0xFFFF {
+    if payload_len < 126 {
+        header.push(payload_len as u8);
+    } else if payload_len <= 0xFFFF {
         header.push(126);
-        header.extend_from_slice(&(payload.len() as u16).to_be_bytes());
+        header.extend_from_slice(&(payload_len as u16).to_be_bytes());
     } else {
         header.push(127);
-        header.extend_from_slice(&(payload.len() as u64).to_be_bytes());
+        header.extend_from_slice(&(payload_len as u64).to_be_bytes());
     }
     writer.write_all(&header).await?;
-    if !payload.is_empty() {
-        writer.write_all(payload).await?;
+    for segment in segments {
+        if segment.is_empty() {
+            continue;
+        }
+        writer.write_all(segment).await?;
     }
     Ok(())
 }
 
 async fn handle_websocket_message(
     serializer: rawsocket::Serializer,
-    data: Vec<u8>,
+    data: Bytes,
     frame_tx: &mpsc::Sender<wamp::ParsedMessage>,
 ) -> Result<(), String> {
     let payload = match serializer {
         rawsocket::Serializer::Json => {
-            if std::str::from_utf8(&data).is_err() {
+            if std::str::from_utf8(data.as_ref()).is_err() {
                 return Err("websocket text frame payload is not valid UTF-8".into());
             }
-            Bytes::from(data)
+            data
         }
-        _ => Bytes::from(data),
+        _ => data,
     };
     match wamp::parse_message(serializer, payload) {
         Ok(parsed) => frame_tx
@@ -5379,6 +5642,194 @@ mod tests {
         stream.write_all(&header).await.unwrap();
         if !payload.is_empty() {
             stream.write_all(payload).await.unwrap();
+        }
+    }
+
+    async fn read_websocket_frame_from_bytes(
+        frame: &[u8],
+    ) -> Result<WebSocketFrame, WebSocketFrameError> {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let payload = frame.to_vec();
+        let pool = Arc::new(WebSocketBufferPool::default());
+
+        let reader = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let io = IoStream::plain(stream);
+            let (mut reader, _) = tokio::io::split(io);
+            read_websocket_frame(&mut reader, &pool).await
+        });
+
+        let mut client = tokio::net::TcpStream::connect(addr).await.unwrap();
+        client.write_all(&payload).await.unwrap();
+        client.shutdown().await.unwrap();
+
+        reader.await.unwrap()
+    }
+
+    async fn write_websocket_frame_to_bytes(opcode: u8, segments: Vec<Bytes>) -> Vec<u8> {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let payload_len = segments.iter().map(Bytes::len).sum();
+
+        let writer = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let io = IoStream::plain(stream);
+            let (_, mut writer) = tokio::io::split(io);
+            write_websocket_frame(&mut writer, opcode, payload_len, &segments)
+                .await
+                .unwrap();
+        });
+
+        let mut client = tokio::net::TcpStream::connect(addr).await.unwrap();
+        let mut bytes = Vec::new();
+        client.read_to_end(&mut bytes).await.unwrap();
+        writer.await.unwrap();
+        bytes
+    }
+
+    #[test]
+    fn websocket_buffer_pool_recycles_owner_backed_bytes() {
+        let pool = Arc::new(WebSocketBufferPool::default());
+        let mut buffer = pool.acquire(4);
+        buffer.as_mut_slice().copy_from_slice(b"ping");
+        let bytes = buffer.into_bytes();
+        assert_eq!(pool.available_buffers(), 0);
+        assert_eq!(bytes.as_ref(), b"ping");
+        drop(bytes);
+        assert_eq!(pool.available_buffers(), 1);
+    }
+
+    #[test]
+    fn websocket_accumulator_returns_single_frame_without_copy() {
+        let pool = Arc::new(WebSocketBufferPool::default());
+        let mut accumulator = WebSocketMessageAccumulator::new(pool);
+        let payload = Bytes::from_static(b"single-frame");
+        let ptr = payload.as_ptr();
+        accumulator
+            .push(0x1, true, payload)
+            .expect("single websocket frame accepted");
+        let assembled = accumulator.take_complete().expect("message assembled");
+        assert_eq!(assembled.as_ptr(), ptr);
+        assert_eq!(assembled.as_ref(), b"single-frame");
+    }
+
+    #[test]
+    fn websocket_accumulator_recycles_fragment_buffer_after_drop() {
+        let pool = Arc::new(WebSocketBufferPool::default());
+        let mut accumulator = WebSocketMessageAccumulator::new(Arc::clone(&pool));
+        accumulator
+            .push(0x1, false, Bytes::from_static(b"first-"))
+            .expect("first fragment accepted");
+        accumulator
+            .push(0x0, true, Bytes::from_static(b"second"))
+            .expect("continuation fragment accepted");
+        let assembled = accumulator.take_complete().expect("message assembled");
+        assert_eq!(assembled.as_ref(), b"first-second");
+        assert_eq!(pool.available_buffers(), 0);
+        drop(assembled);
+        assert_eq!(pool.available_buffers(), 1);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn websocket_writer_serializes_segmented_payload() {
+        let bytes = write_websocket_frame_to_bytes(
+            0x1,
+            vec![
+                Bytes::from_static(b"hello"),
+                Bytes::new(),
+                Bytes::from_static(b"-world"),
+            ],
+        )
+        .await;
+        assert_eq!(
+            bytes,
+            [0x81, 0x0B, b'h', b'e', b'l', b'l', b'o', b'-', b'w', b'o', b'r', b'l', b'd',]
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn websocket_frame_requires_masking() {
+        let frame = [0x81, 0x01, b'x'];
+        let err = read_websocket_frame_from_bytes(&frame)
+            .await
+            .expect_err("unmasked client frame rejected");
+        assert_eq!(err.close_code(), Some(1002));
+        assert!(err.to_string().contains("must be masked"));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn websocket_frame_rejects_reserved_bits() {
+        let frame = [0xC1, 0x80, 0x00, 0x00, 0x00, 0x00];
+        let err = read_websocket_frame_from_bytes(&frame)
+            .await
+            .expect_err("reserved bits rejected");
+        assert_eq!(err.close_code(), Some(1002));
+        assert!(err.to_string().contains("reserved bits"));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn websocket_frame_rejects_fragmented_control_frames() {
+        let frame = [0x09, 0x81, 0x00, 0x00, 0x00, 0x00, b'x'];
+        let err = read_websocket_frame_from_bytes(&frame)
+            .await
+            .expect_err("fragmented ping rejected");
+        assert_eq!(err.close_code(), Some(1002));
+        assert!(err.to_string().contains("must not be fragmented"));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn websocket_frame_rejects_oversized_control_payloads() {
+        let mut frame = vec![0x89, 0xFE, 0x00, 0x7E, 0x00, 0x00, 0x00, 0x00];
+        frame.extend(std::iter::repeat_n(0u8, 126));
+        let err = read_websocket_frame_from_bytes(&frame)
+            .await
+            .expect_err("oversized ping rejected");
+        assert_eq!(err.close_code(), Some(1002));
+        assert!(err.to_string().contains("must not exceed 125 bytes"));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn websocket_frame_rejects_oversized_messages() {
+        let len = super::MAX_WEBSOCKET_MESSAGE_LEN as u64 + 1;
+        let mut frame = vec![0x82, 0xFF];
+        frame.extend_from_slice(&len.to_be_bytes());
+        let err = read_websocket_frame_from_bytes(&frame)
+            .await
+            .expect_err("oversized websocket message rejected");
+        assert_eq!(err.close_code(), Some(1009));
+        assert!(err.to_string().contains("exceeds supported length"));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn websocket_close_frame_rejects_single_byte_payload() {
+        let frame = [0x88, 0x81, 0x00, 0x00, 0x00, 0x00, 0x01];
+        let err = read_websocket_frame_from_bytes(&frame)
+            .await
+            .expect_err("1-byte close payload rejected");
+        assert_eq!(err.close_code(), Some(1002));
+        assert!(err.to_string().contains("2-byte status code"));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn websocket_close_frame_rejects_invalid_utf8_reason() {
+        let frame = [0x88, 0x83, 0x00, 0x00, 0x00, 0x00, 0x03, 0xE8, 0xFF];
+        let err = read_websocket_frame_from_bytes(&frame)
+            .await
+            .expect_err("invalid close reason rejected");
+        assert_eq!(err.close_code(), Some(1007));
+        assert!(err.to_string().contains("valid UTF-8"));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn websocket_close_frame_allows_empty_payload() {
+        let frame = [0x88, 0x80, 0x00, 0x00, 0x00, 0x00];
+        let parsed = read_websocket_frame_from_bytes(&frame)
+            .await
+            .expect("empty close payload accepted");
+        match parsed {
+            WebSocketFrame::Close(None, reason) => assert!(reason.is_empty()),
+            other => panic!("unexpected frame: {other:?}"),
         }
     }
 

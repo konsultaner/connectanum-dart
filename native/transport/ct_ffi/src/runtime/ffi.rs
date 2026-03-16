@@ -25,14 +25,14 @@ use ct_core::http_metrics_snapshot_with_breakdown;
 #[cfg(feature = "ffi-test")]
 use ct_core::parse_message;
 use ct_core::{
-    accept_channel, apply_router_config, close_connection, connection_accept_websocket,
-    connection_http3_connection, connection_http3_poll_request, connection_http3_poll_stream,
-    connection_http_poll_request, connection_poll_http_event, connection_protocol,
-    connection_rawsocket_max_exponent, connection_reject_websocket,
+    accept_channel, apply_router_config, close_connection, close_listener,
+    connection_accept_websocket, connection_http3_connection, connection_http3_poll_request,
+    connection_http3_poll_stream, connection_http_poll_request, connection_poll_http_event,
+    connection_protocol, connection_rawsocket_max_exponent, connection_reject_websocket,
     connection_take_http2_handshake, connection_take_http3_handshake,
     connection_take_websocket_handshake, connection_websocket_protocol, listen,
     listener_http3_port, local_addr, poll_connection_message, reload_tls, response_stream_channel,
-    send_wamp_message, send_wamp_segments, shutdown, start_runtime, close_listener, ConnectionId,
+    send_wamp_message, send_wamp_segments, shutdown, start_runtime, ConnectionId,
     ConnectionProtocol, Error as CoreError, HttpConnectionCloseReason,
     HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot, HttpResponseBody, HttpResponseDispatch,
     ListenerId, RawSocketSerializer, WampMessage, RESPONSE_STREAM_BUFFER,

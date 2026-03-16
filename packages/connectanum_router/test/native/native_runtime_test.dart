@@ -157,6 +157,141 @@ void main() {
       incoming.dispose();
       await socket.close();
     }, skip: skipReason);
+
+    test('websocket messages expose zero-copy payload slices', () async {
+      final runtime = NativeTransportRuntime(libraryPath: libraryPath!);
+      final decoder = NativeMessageHandleDecoder(libraryPath: libraryPath);
+      addTearDown(runtime.dispose);
+
+      try {
+        runtime.shutdown();
+      } catch (_) {}
+
+      runtime.start();
+      addTearDown(runtime.shutdown);
+
+      const configJson =
+          '{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","max_rawsocket_size_exponent":30,"protocols":["rawsocket","websocket","http"],"websocket_path":"/ws","http":{"alpn":["http/1.1"]}}]}';
+      runtime.applyRouterConfig(Uint8List.fromList(utf8.encode(configJson)));
+
+      final listenerId = runtime.listen('127.0.0.1', 0);
+      expect(listenerId, greaterThan(0));
+
+      final port = runtime.getLocalPort(listenerId);
+      expect(port, greaterThan(0));
+
+      final socket = await Socket.connect('127.0.0.1', port);
+      addTearDown(socket.close);
+
+      await _sendWebSocketHandshakeRequest(
+        socket,
+        path: '/ws',
+        host: '127.0.0.1:$port',
+        protocols: const ['wamp.2.json'],
+      );
+
+      final connectionId = await _pollConnectionUntil(runtime, listenerId);
+      expect(connectionId, greaterThan(0));
+
+      final handshake = await _takeWebSocketHandshakeUntil(
+        runtime,
+        connectionId,
+      );
+      addTearDown(handshake.release);
+      expect(handshake.protocols, contains('wamp.2.json'));
+      runtime.acceptWebSocket(
+        connectionId: connectionId,
+        handshakeHandle: handshake.handle,
+        serializer: NativeMessageSerializer.json,
+        protocol: 'wamp.2.json',
+      );
+      handshake.consume();
+
+      final handshakeResponse = await _readHttpResponse(socket);
+      expect(handshakeResponse, contains('101 Switching Protocols'));
+      expect(
+        handshakeResponse.toLowerCase(),
+        contains('sec-websocket-protocol: wamp.2.json'),
+      );
+      expect(runtime.connectionWebSocketProtocol(connectionId), 'wamp.2.json');
+
+      final payload = utf8.encode(
+        jsonEncode([
+          16,
+          900,
+          {},
+          'com.example.topic',
+          ['alpha'],
+          {'flag': true},
+        ]),
+      );
+      await _sendWebSocketFrame(
+        socket,
+        opcode: 0x1,
+        fin: true,
+        payload: payload,
+      );
+
+      final handle = await _pollWebSocketHandleUntil(runtime, connectionId);
+      expect(handle, greaterThan(0));
+
+      final incoming = decoder.materialize(handle);
+      addTearDown(incoming.dispose);
+      expect(incoming.serializer, NativeMessageSerializer.json);
+      final publish = incoming.message as Publish;
+      expect(publish.topic, 'com.example.topic');
+      expect(incoming.frameAddress, isNot(equals(0)));
+      expect(incoming.argumentsAddress, isNot(equals(0)));
+      expect(incoming.argumentsKeywordsAddress, isNot(equals(0)));
+      final argsOffset = incoming.argumentsAddress - incoming.frameAddress;
+      final kwargsOffset =
+          incoming.argumentsKeywordsAddress - incoming.frameAddress;
+      expect(argsOffset, greaterThan(0));
+      expect(kwargsOffset, greaterThan(argsOffset));
+      expect(
+        argsOffset + incoming.argumentsBytes!.length <= incoming.bytes.length,
+        isTrue,
+      );
+      expect(
+        kwargsOffset + incoming.argumentsKeywordsBytes!.length <=
+            incoming.bytes.length,
+        isTrue,
+      );
+      expect(
+        utf8.decode(incoming.bytes),
+        jsonEncode([
+          16,
+          900,
+          {},
+          'com.example.topic',
+          ['alpha'],
+          {'flag': true},
+        ]),
+      );
+      expect(
+        identical(incoming.argumentsBytes, publish.debugEncodedArgumentsBytes),
+        isTrue,
+      );
+      expect(
+        identical(
+          incoming.argumentsKeywordsBytes,
+          publish.debugEncodedArgumentsKeywordsBytes,
+        ),
+        isTrue,
+      );
+      expect(publish.hasLazyArguments, isTrue);
+      expect(publish.hasLazyArgumentsKeywords, isTrue);
+      expect(publish.arguments, ['alpha']);
+      expect(publish.argumentsKeywords, {'flag': true});
+      expect(runtime.pollWebSocketMessageHandle(connectionId), 0);
+      await _sendWebSocketFrame(
+        socket,
+        opcode: 0x8,
+        fin: true,
+        payload: const [],
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }, skip: skipReason);
   });
 }
 
@@ -203,6 +338,27 @@ Future<void> _sendPublishFrame(Socket socket) async {
   await socket.flush();
 }
 
+Future<void> _sendWebSocketHandshakeRequest(
+  Socket socket, {
+  required String path,
+  required String host,
+  required List<String> protocols,
+}) async {
+  final key = base64.encode(List<int>.generate(16, (index) => index + 1));
+  final lines = <String>[
+    'GET $path HTTP/1.1',
+    'Host: $host',
+    'Upgrade: websocket',
+    'Connection: Upgrade',
+    'Sec-WebSocket-Key: $key',
+    'Sec-WebSocket-Version: 13',
+    'Sec-WebSocket-Protocol: ${protocols.join(',')}',
+    '',
+  ];
+  socket.add(utf8.encode('${lines.join('\r\n')}\r\n'));
+  await socket.flush();
+}
+
 Future<List<int>> _readFrame(Socket socket) async {
   final header = await _readExact(socket, 4);
   final type = header[0] & 0x07;
@@ -218,6 +374,38 @@ Future<List<int>> _readFrame(Socket socket) async {
   return _readExact(socket, length);
 }
 
+Future<String> _readHttpResponse(Socket socket) async {
+  final queue = _socketQueues.putIfAbsent(
+    socket,
+    () => StreamQueue(socket.asBroadcastStream()),
+  );
+  final leftovers = _socketLeftovers.putIfAbsent(socket, () => <int>[]);
+  final buffer = <int>[];
+  const terminator = [13, 10, 13, 10];
+
+  while (true) {
+    if (leftovers.isNotEmpty) {
+      buffer.addAll(leftovers);
+      leftovers.clear();
+    } else {
+      if (!await queue.hasNext) {
+        break;
+      }
+      buffer.addAll(await queue.next);
+    }
+    final end = _indexOfSublist(buffer, terminator);
+    if (end != -1) {
+      final headerLength = end + terminator.length;
+      final remaining = buffer.sublist(headerLength);
+      leftovers
+        ..clear()
+        ..addAll(remaining);
+      return utf8.decode(buffer.sublist(0, headerLength));
+    }
+  }
+  throw StateError('Handshake response incomplete');
+}
+
 List<int> _encodeFrameHeader(int length) {
   if (length >= 1 << 24) {
     throw ArgumentError.value(length, 'length', 'Frame too large');
@@ -227,6 +415,107 @@ List<int> _encodeFrameHeader(int length) {
 
 final Map<Socket, StreamQueue<List<int>>> _socketQueues = {};
 final Map<Socket, List<int>> _socketLeftovers = {};
+
+Future<int> _pollConnectionUntil(
+  NativeTransportRuntime runtime,
+  int listenerId,
+) async {
+  final stopwatch = Stopwatch()..start();
+  while (stopwatch.elapsed < const Duration(seconds: 2)) {
+    final connectionId = runtime.pollConnection(listenerId);
+    if (connectionId > 0) {
+      return connectionId;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+  throw StateError(
+    'Timed out waiting for native connection on listener $listenerId',
+  );
+}
+
+Future<NativeWebSocketHandshake> _takeWebSocketHandshakeUntil(
+  NativeTransportRuntime runtime,
+  int connectionId,
+) async {
+  final stopwatch = Stopwatch()..start();
+  while (stopwatch.elapsed < const Duration(seconds: 2)) {
+    final handshake = runtime.takeWebSocketHandshake(connectionId);
+    if (handshake != null) {
+      return handshake;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+  throw StateError(
+    'Timed out waiting for websocket handshake on connection $connectionId',
+  );
+}
+
+Future<int> _pollWebSocketHandleUntil(
+  NativeTransportRuntime runtime,
+  int connectionId,
+) async {
+  final stopwatch = Stopwatch()..start();
+  while (stopwatch.elapsed < const Duration(seconds: 2)) {
+    final handle = runtime.pollWebSocketMessageHandle(connectionId);
+    if (handle > 0) {
+      return handle;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+  throw StateError(
+    'Timed out waiting for websocket message on connection $connectionId',
+  );
+}
+
+Future<void> _sendWebSocketFrame(
+  Socket socket, {
+  required int opcode,
+  required bool fin,
+  required List<int> payload,
+}) async {
+  const maskKey = [0x11, 0x22, 0x33, 0x44];
+  final header = <int>[(fin ? 0x80 : 0x00) | (opcode & 0x0F)];
+  if (payload.length < 126) {
+    header.add(0x80 | payload.length);
+  } else if (payload.length <= 0xFFFF) {
+    header
+      ..add(0x80 | 126)
+      ..add((payload.length >> 8) & 0xFF)
+      ..add(payload.length & 0xFF);
+  } else {
+    header.add(0x80 | 127);
+    final view = ByteData(8)..setUint64(0, payload.length);
+    header.addAll(view.buffer.asUint8List());
+  }
+  header.addAll(maskKey);
+  final maskedPayload = List<int>.generate(
+    payload.length,
+    (index) => payload[index] ^ maskKey[index % 4],
+  );
+  socket
+    ..add(header)
+    ..add(maskedPayload);
+  await socket.flush();
+}
+
+int _indexOfSublist(List<int> data, List<int> pattern) {
+  if (pattern.isEmpty) {
+    return 0;
+  }
+  for (var i = 0; i <= data.length - pattern.length; i++) {
+    var match = true;
+    for (var j = 0; j < pattern.length; j++) {
+      if (data[i + j] != pattern[j]) {
+        match = false;
+        break;
+      }
+    }
+    if (match) {
+      return i;
+    }
+  }
+  return -1;
+}
 
 Future<List<int>> _readExact(Socket socket, int length) async {
   final queue = _socketQueues.putIfAbsent(

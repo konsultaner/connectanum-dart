@@ -45,9 +45,11 @@ Focus for the next session:
    - ✅ Dart WebSocket integration suite (real WebSocket transport) drives publish/call flows with continuation frames + multi-MB payloads and asserts the negotiated subprotocol/serializer.
    - ✅ Route accepted WebSocket connections into workers as standard WAMP transports, poll WebSocket message handles in the boss loop, and cover the end-to-end dispatch with runtime tests.
    - ✅ Add worker-session regression tests that ensure WebSocket connections receive publish ACKs and CALL errors, keeping WAMP flows aligned with RawSocket behaviour.
-   - Next: tighten continuation aggregation/mask handling/ping-pong/close coverage and keep upgrade/shutdown paths regression-tested.
-   - Add Rust + Dart regression suites to ensure WebSocket clients can publish/call via WAMP end-to-end, including large payloads and continuation frames.
-   - Plan zero-copy slices: refactor `ct_core` WebSocket storage to use a pooled slab (no per-frame Vec alloc), keep parsed WAMP frames as slices (offset/len) into that pool, expose slice-based handles via FFI (separate WebSocket handle store from RawSocket), and extend Dart bindings to retain/release those slices and decode directly without copying. Add tests to verify pool reuse, lifetime safety across FFI, and mixed RawSocket/WebSocket flows.
+   - ✅ Tightened RFC 6455 control-frame handling: client masking is enforced, reserved bits / fragmented controls / oversized control payloads are rejected with protocol close frames, close reasons must be valid UTF-8, and empty close frames echo without leaking reserved code `1005`.
+   - ✅ Rust `listen_flow` now covers client ping -> server pong, server heartbeat ping -> client pong, empty close echoes, and unmasked-frame rejection; Dart `router_integration_websocket_test.dart` mirrors ping/pong + close behavior on the real boss/runtime path.
+   - ✅ `ct_core` now uses pooled owner-backed buffers for inbound WebSocket frames; single-frame WAMP payloads stay zero-copy through WAMP parse + FFI/Dart, fragmented messages reassemble in pooled storage, and the writer streams existing `Bytes` segments without flattening.
+   - ✅ Added Rust pool/writer regressions plus Dart `native_runtime_test.dart` coverage that polls a real WebSocket message handle and verifies args/kwargs slice pointers stay inside the native frame buffer.
+   - Next: bring the same shared-handle / pooled-buffer treatment to HTTP/1.1 ingress so request bodies stop allocating eager `Vec`s before entering the shared streaming body path.
 
 5. **Pattern Routing & Shared Registrations**
    - Implement wildcard/prefix ordering + priority handling and un-skip the advanced-profile placeholder test.

@@ -27,8 +27,8 @@ const HTTP2_PREFACE: &[u8] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
 use crate::runtime::constants::{
     ERR_CONNECTION_NOT_FOUND, ERR_ENDPOINT_NOT_CONFIGURED, ERR_INVALID_ARGUMENT,
     ERR_LISTENER_NOT_FOUND, ERR_UNSUPPORTED, HTTP_EVENT_REASON_BODY_TIMEOUT,
-    HTTP_EVENT_REASON_IDLE_TIMEOUT, PROTOCOL_HTTP, PROTOCOL_HTTP2,
-    PROTOCOL_HTTP3, PROTOCOL_RAWSOCKET, PROTOCOL_WEBSOCKET, SUCCESS,
+    HTTP_EVENT_REASON_IDLE_TIMEOUT, PROTOCOL_HTTP, PROTOCOL_HTTP2, PROTOCOL_HTTP3,
+    PROTOCOL_RAWSOCKET, PROTOCOL_WEBSOCKET, SUCCESS,
 };
 use crate::runtime::ffi::{
     ct_apply_router_config, ct_connection_accept_websocket, ct_connection_close,
@@ -36,7 +36,6 @@ use crate::runtime::ffi::{
     ct_connection_poll_http_event, ct_connection_protocol, ct_connection_take_http2_handshake,
     ct_connection_take_http3_handshake, ct_connection_take_http_handshake,
     ct_connection_take_websocket_handshake, ct_connection_websocket_protocol, ct_get_local_port,
-    ct_listener_close,
     ct_http2_handshake_get, ct_http2_handshake_listener_protocol, ct_http2_handshake_release,
     ct_http3_connection_poll_request, ct_http3_connection_poll_stream, ct_http3_connection_release,
     ct_http3_handshake_get, ct_http3_handshake_listener_protocol, ct_http3_handshake_release,
@@ -44,12 +43,13 @@ use crate::runtime::ffi::{
     ct_http_connection_event_get, ct_http_connection_event_release, ct_http_handshake_body_retain,
     ct_http_handshake_get, ct_http_handshake_header, ct_http_handshake_release,
     ct_http_response_send, ct_http_response_stream_finish, ct_http_response_stream_open,
-    ct_http_response_stream_write, ct_listen, ct_message_get, ct_message_release,
-    ct_poll_connection, ct_poll_connection_message, ct_send_message, ct_set_on_connection,
-    ct_set_on_listener_started, ct_shutdown, ct_start_runtime, ct_websocket_handshake_extension,
-    ct_websocket_handshake_get, ct_websocket_handshake_protocol, ct_websocket_handshake_release,
-    CtHttp2HandshakeInfo, CtHttp3HandshakeInfo, CtHttpBodyView, CtHttpConnectionEventInfo,
-    CtHttpHandshakeInfo, CtHttpHeader, CtMessageInfo, CtStringView, CtWebSocketHandshakeInfo,
+    ct_http_response_stream_write, ct_listen, ct_listener_close, ct_message_get,
+    ct_message_release, ct_poll_connection, ct_poll_connection_message, ct_send_message,
+    ct_set_on_connection, ct_set_on_listener_started, ct_shutdown, ct_start_runtime,
+    ct_websocket_handshake_extension, ct_websocket_handshake_get, ct_websocket_handshake_protocol,
+    ct_websocket_handshake_release, CtHttp2HandshakeInfo, CtHttp3HandshakeInfo, CtHttpBodyView,
+    CtHttpConnectionEventInfo, CtHttpHandshakeInfo, CtHttpHeader, CtMessageInfo, CtStringView,
+    CtWebSocketHandshakeInfo,
 };
 use crate::runtime::store_http_body;
 
@@ -3203,12 +3203,15 @@ fn websocket_wamp_round_trip() {
     );
 
     let received = rt.block_on(async { read_server_websocket_frame(&mut stream).await });
-    let parsed: serde_json::Value = serde_json::from_slice(&received).unwrap();
+    assert!(received.fin);
+    assert_eq!(received.opcode, 0x1);
+    let parsed: serde_json::Value = serde_json::from_slice(&received.payload).unwrap();
     assert_eq!(parsed[0], json!(2));
     assert_eq!(parsed[1], json!(1));
 
-    // Unmasked payloads should skip the XOR path while still parsing correctly.
-    let masked_hello = serde_json::to_vec(&json!([
+    // Client-to-server WebSocket frames must be masked. Unmasked payloads are
+    // rejected with a protocol-error close frame.
+    let unmasked_hello = serde_json::to_vec(&json!([
         1,
         "realm:unmasked",
         {
@@ -3220,11 +3223,183 @@ fn websocket_wamp_round_trip() {
     ]))
     .unwrap();
     rt.block_on(async {
-        send_unmasked_websocket_frame(&mut stream, 0x1, &masked_hello).await;
+        send_unmasked_websocket_frame(&mut stream, 0x1, &unmasked_hello).await;
     });
-    // This will be parsed and enqueued inside the native runtime; just ensure it
-    // doesn't crash the reader (no server response expected).
-    std::thread::sleep(Duration::from_millis(50));
+    let close = rt.block_on(async { read_server_websocket_frame(&mut stream).await });
+    assert!(close.fin);
+    assert_eq!(close.opcode, 0x8, "expected protocol-error close frame");
+    assert_eq!(decode_websocket_close_code(&close.payload), Some(1002));
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn websocket_ping_pong_and_empty_close_round_trip() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"disabled",
+                    "protocols":["websocket","http"],
+                    "websocket_path":"/ws",
+                    "http":{
+                        "alpn":["http/1.1"]
+                    }
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let rt = TokioRuntime::new().unwrap();
+    let mut stream = rt.block_on(async move {
+        let addr = format!("127.0.0.1:{}", port);
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        send_websocket_handshake(&mut stream, "/ws").await;
+        stream
+    });
+
+    let connection_id = wait_for_connection(listener_id);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_WEBSOCKET);
+
+    let handshake_handle = ct_connection_take_websocket_handshake(connection_id);
+    assert!(handshake_handle > 0);
+    let protocol = CString::new("wamp.2.json").unwrap();
+    assert_eq!(
+        ct_connection_accept_websocket(
+            connection_id,
+            handshake_handle,
+            1,
+            protocol.as_ptr(),
+            protocol.as_bytes().len() as i32
+        ),
+        SUCCESS
+    );
+
+    rt.block_on(async {
+        let response = read_http_response_until_body(&mut stream).await;
+        assert!(
+            response.starts_with("HTTP/1.1 101"),
+            "handshake response: {}",
+            response
+        );
+    });
+
+    rt.block_on(async {
+        send_client_websocket_frame(&mut stream, 0x9, b"ping-check").await;
+    });
+    let pong = rt.block_on(async { read_server_websocket_frame(&mut stream).await });
+    assert!(pong.fin);
+    assert_eq!(pong.opcode, 0xA);
+    assert_eq!(pong.payload, b"ping-check");
+
+    rt.block_on(async {
+        send_client_websocket_frame(&mut stream, 0x8, &[]).await;
+    });
+    let close = rt.block_on(async { read_server_websocket_frame(&mut stream).await });
+    assert!(close.fin);
+    assert_eq!(close.opcode, 0x8);
+    assert!(close.payload.is_empty(), "expected empty close echo");
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn websocket_heartbeat_sends_ping_and_accepts_pong() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"disabled",
+                    "heartbeat_interval_ms":50,
+                    "heartbeat_timeout_ms":200,
+                    "protocols":["websocket","http"],
+                    "websocket_path":"/ws",
+                    "http":{
+                        "alpn":["http/1.1"]
+                    }
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let rt = TokioRuntime::new().unwrap();
+    let mut stream = rt.block_on(async move {
+        let addr = format!("127.0.0.1:{}", port);
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        send_websocket_handshake(&mut stream, "/ws").await;
+        stream
+    });
+
+    let connection_id = wait_for_connection(listener_id);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_WEBSOCKET);
+    let handshake_handle = ct_connection_take_websocket_handshake(connection_id);
+    assert!(handshake_handle > 0);
+    let protocol = CString::new("wamp.2.json").unwrap();
+    assert_eq!(
+        ct_connection_accept_websocket(
+            connection_id,
+            handshake_handle,
+            1,
+            protocol.as_ptr(),
+            protocol.as_bytes().len() as i32
+        ),
+        SUCCESS
+    );
+
+    rt.block_on(async {
+        let response = read_http_response_until_body(&mut stream).await;
+        assert!(
+            response.starts_with("HTTP/1.1 101"),
+            "handshake response: {}",
+            response
+        );
+
+        let ping = read_server_websocket_frame(&mut stream).await;
+        assert!(ping.fin);
+        assert_eq!(ping.opcode, 0x9, "expected server heartbeat ping");
+        assert_eq!(ping.payload.len(), 8, "expected 8-byte heartbeat ping");
+
+        send_client_websocket_frame(&mut stream, 0xA, &ping.payload).await;
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    });
 
     assert_eq!(ct_shutdown(), SUCCESS);
 }
@@ -3481,12 +3656,12 @@ async fn send_unmasked_websocket_frame(
     }
 }
 
-async fn read_server_websocket_frame(stream: &mut tokio::net::TcpStream) -> Vec<u8> {
+async fn read_server_websocket_frame(stream: &mut tokio::net::TcpStream) -> TestWebSocketFrame {
     let mut header = [0u8; 2];
     stream.read_exact(&mut header).await.unwrap();
     let opcode = header[0] & 0x0F;
-    assert!(opcode == 0x1 || opcode == 0x2, "unexpected opcode {opcode}");
     assert_eq!(header[1] & 0x80, 0, "server frames must be unmasked");
+    let fin = header[0] & 0x80 != 0;
 
     let mut len = (header[1] & 0x7F) as u64;
     if len == 126 {
@@ -3503,5 +3678,22 @@ async fn read_server_websocket_frame(stream: &mut tokio::net::TcpStream) -> Vec<
     if len > 0 {
         stream.read_exact(&mut payload).await.unwrap();
     }
-    payload
+    TestWebSocketFrame {
+        fin,
+        opcode,
+        payload,
+    }
+}
+
+fn decode_websocket_close_code(payload: &[u8]) -> Option<u16> {
+    if payload.len() < 2 {
+        return None;
+    }
+    Some(u16::from_be_bytes([payload[0], payload[1]]))
+}
+
+struct TestWebSocketFrame {
+    fin: bool,
+    opcode: u8,
+    payload: Vec<u8>,
 }
