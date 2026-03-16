@@ -254,12 +254,16 @@ docker compose up -d
   `http://host.docker.internal:8080/metrics`. On Linux the compose stack adds
   `host.docker.internal` → `host-gateway` automatically. The `/metrics` route
   is served by the router itself via HTTP→WAMP bridging into
-  `connectanum.metrics.openmetrics`, so no sidecar HTTP server is needed.
+  `connectanum.metrics.openmetrics`, so no sidecar HTTP server is needed. The
+  compose stack also loads `connectanum_router_alerts.yml`, which raises alerts
+  for active throttles, backpressure bursts, GOAWAY spikes, and transport
+  errors.
 - Grafana binds `http://localhost:3000` (default `admin` / `admin`). The compose
   file auto-provisions a Prometheus datasource and ships a “Connectanum Bench
-  Summary” dashboard (timeseries for sessions, HTTP events, worker counts, and
-  invocation/publication throughput). Open Grafana, open the “Benchmarks”
-  folder, and you’re ready to watch the metrics live while the bench runs.
+  Summary” dashboard plus a “Connectanum Router Alerts” dashboard that charts
+  transport alert counters and the current throttle gauges. Open Grafana, open
+  the “Benchmarks” folder, and you’re ready to watch the metrics live while the
+  bench runs.
 
 When you are done benchmarking:
 

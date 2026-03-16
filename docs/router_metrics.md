@@ -158,17 +158,49 @@ per-realm details:
     "body_timeout": 0,
     "protocol_error": 0,
     "internal_error": 0,
+    "active_throttles": 1,
+    "active_throttle_listeners": [
+      {
+        "listener_id": 1,
+        "protocol": "http2",
+        "endpoint": "127.0.0.1:8080",
+        "backpressure": 0,
+        "transport": 1,
+        "goaway": 1,
+        "idle_timeout": 0,
+        "body_timeout": 0,
+        "protocol_error": 0,
+        "internal_error": 0,
+        "throttle_active": true,
+        "throttle_remaining_ms": 472,
+        "throttle_until": "2024-05-18T20:31:12.864Z",
+        "last_alert_at": "2024-05-18T20:31:12.364Z",
+        "last_alert_category": "transport",
+        "last_alert_reason": "go_away",
+        "last_new_events": 1,
+        "last_total_events": 1
+      }
+    ],
     "by_listener": [
       {
         "listener_id": 1,
         "protocol": "http2",
         "endpoint": "127.0.0.1:8080",
         "backpressure": 0,
+        "transport": 1,
         "goaway": 1,
         "idle_timeout": 0,
         "body_timeout": 0,
         "protocol_error": 0,
-        "internal_error": 0
+        "internal_error": 0,
+        "throttle_active": true,
+        "throttle_remaining_ms": 472,
+        "throttle_until": "2024-05-18T20:31:12.864Z",
+        "last_alert_at": "2024-05-18T20:31:12.364Z",
+        "last_alert_category": "transport",
+        "last_alert_reason": "go_away",
+        "last_new_events": 1,
+        "last_total_events": 1
       }
     ]
   },
@@ -184,6 +216,11 @@ Consumers can call the snapshot procedure directly from any session that has
 permission to `call` on the metrics realm. The OpenMetrics string is designed to
 feed Prometheus/Grafana stacks and applies the same label strategy as the Java
 metric store (per-realm gauges plus per-topic/procedure series).
+
+The alert snapshot is intended for consumers that need the current throttle
+state, not just cumulative counters. Each per-listener entry now includes
+`throttle_active`, `throttle_remaining_ms`, `throttle_until`, and the most
+recent alert metadata (`last_alert_*`).
 
 ## Backpressure Alerts & Thresholds
 
@@ -214,7 +251,12 @@ metrics:
 
 The exported alert counters mirror the running totals inside the boss telemetry
 loop, so dashboards/alerts can track both the frequency of alerts and the reason
-they were raised.
+they were raised. The OpenMetrics payload also exports the current throttle
+state:
+
+- `connectanum_router_throttled_listeners`
+- `connectanum_router_listener_throttle_active{listener_id,protocol,endpoint}`
+- `connectanum_router_listener_throttle_remaining_ms{listener_id,protocol,endpoint}`
 
 ## Prometheus & Grafana Wiring
 
@@ -269,22 +311,32 @@ pipelines can upload them for inspection when regressions occur.
 
 ## Prometheus Alerting Examples
 
-You can drop the following rules into a Prometheus rules file to alert on
-transport/backpressure spikes. Adjust thresholds to match your deployment
-defaults:
+The bench stack now ships a ready-to-load rules file at
+`native/bench/connectanum_router_alerts.yml`. It covers active throttles,
+backpressure spikes, GOAWAY bursts, and transport errors. Adjust thresholds and
+`for` windows to match your deployment defaults.
 
 ```yaml
 groups:
   - name: connectanum-router-alerts
     rules:
+      - alert: ConnectanumListenerThrottleActive
+        expr: connectanum_router_listener_throttle_active > 0
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Connectanum listener throttle is active"
+          description: "Listener {{ $labels.listener_id }} ({{ $labels.protocol }} on {{ $labels.endpoint }}) is currently throttled by the boss alert loop."
+
       - alert: ConnectanumBackpressureSpike
         expr: |
-          increase(connectanum_router_transport_alerts_total{reason="backpressure"}[5m]) > 0
+          increase(connectanum_router_transport_alerts_by_listener_total{reason="backpressure"}[5m]) > 0
         labels:
           severity: warning
         annotations:
           summary: "Backpressure alerts observed on Connectanum router"
-          description: "Backpressure alerts fired in the last 5m; check listener throttle/queue depth."
+          description: "Backpressure alerts fired in the last 5m for listener {{ $labels.listener_id }} ({{ $labels.protocol }} on {{ $labels.endpoint }})."
 
       - alert: ConnectanumGoAwaySpike
         expr: |
@@ -306,9 +358,10 @@ groups:
 ```
 
 Dashboards can chart `connectanum_router_transport_alerts_total` to show recent
-spikes, and `connectanum_router_transport_alerts_by_listener_total` to pinpoint
-the listener/protocol involved.
+spikes, `connectanum_router_transport_alerts_by_listener_total` to pinpoint the
+listener/protocol involved, and the throttle gauges to show whether the boss is
+currently suppressing accepts.
 
-See `docs/grafana_transport_alerts_dashboard.json` for a starter Grafana
-dashboard that charts per-reason alert counts, listener breakdowns, and a
-table you can extend with throttle info from the snapshot JSON (`alerts.by_listener[*].throttle_until`).
+See `native/bench/grafana/dashboards/router_transport_alerts.json` for a
+provisioned Grafana dashboard that charts per-reason alert counts, listener
+breakdowns, and the current throttle state.

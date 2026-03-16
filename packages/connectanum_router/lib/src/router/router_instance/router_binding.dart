@@ -1594,34 +1594,61 @@ class _MetricsService {
           'auth_token': metricsSettings.authToken,
       },
       if (transportAlerts != null)
-        'alerts': <String, Object?>{
-          'backpressure': transportAlerts.backpressureAlerts,
-          'transport': transportAlerts.transportAlerts,
-          'goaway': transportAlerts.goAwayAlerts,
-          'idle_timeout': transportAlerts.idleTimeoutAlerts,
-          'body_timeout': transportAlerts.bodyTimeoutAlerts,
-          'protocol_error': transportAlerts.protocolErrorAlerts,
-          'internal_error': transportAlerts.internalErrorAlerts,
-          'by_listener': transportAlerts.alertBreakdown
-              .map(
-                (entry) => <String, Object?>{
-                  'listener_id': entry.listenerId,
-                  'protocol': entry.protocol,
-                  'endpoint': entry.endpoint,
-                  'backpressure': entry.backpressureAlerts,
-                  'goaway': entry.goAwayAlerts,
-                  'idle_timeout': entry.idleTimeoutAlerts,
-                  'body_timeout': entry.bodyTimeoutAlerts,
-                  'protocol_error': entry.protocolErrorAlerts,
-                  'internal_error': entry.internalErrorAlerts,
-                  if (entry.throttleUntil != null)
-                    'throttle_until': entry.throttleUntil!.toIso8601String(),
-                },
-              )
-              .toList(growable: false),
-        },
+        'alerts': _buildTransportAlertsPayload(transportAlerts),
     };
   }
+
+  Map<String, Object?> _buildTransportAlertsPayload(
+    RouterTransportMetrics transportAlerts,
+  ) {
+    final byListener = transportAlerts.alertBreakdown
+        .map(_transportAlertEntryToJson)
+        .toList(growable: false);
+    return <String, Object?>{
+      'backpressure': transportAlerts.backpressureAlerts,
+      'transport': transportAlerts.transportAlerts,
+      'goaway': transportAlerts.goAwayAlerts,
+      'idle_timeout': transportAlerts.idleTimeoutAlerts,
+      'body_timeout': transportAlerts.bodyTimeoutAlerts,
+      'protocol_error': transportAlerts.protocolErrorAlerts,
+      'internal_error': transportAlerts.internalErrorAlerts,
+      'active_throttles': transportAlerts.activeThrottleCount,
+      if (transportAlerts.activeThrottles.isNotEmpty)
+        'active_throttle_listeners': transportAlerts.activeThrottles
+            .map(_transportAlertEntryToJson)
+            .toList(growable: false),
+      'by_listener': byListener,
+    };
+  }
+
+  Map<String, Object?> _transportAlertEntryToJson(
+    RouterTransportAlertBreakdown entry,
+  ) => <String, Object?>{
+    'listener_id': entry.listenerId,
+    'protocol': entry.protocol,
+    'endpoint': entry.endpoint,
+    'backpressure': entry.backpressureAlerts,
+    'transport': entry.transportAlerts,
+    'goaway': entry.goAwayAlerts,
+    'idle_timeout': entry.idleTimeoutAlerts,
+    'body_timeout': entry.bodyTimeoutAlerts,
+    'protocol_error': entry.protocolErrorAlerts,
+    'internal_error': entry.internalErrorAlerts,
+    'throttle_active': entry.throttleActive,
+    if (entry.throttleRemainingMs != null)
+      'throttle_remaining_ms': entry.throttleRemainingMs,
+    if (entry.throttleUntil != null)
+      'throttle_until': entry.throttleUntil!.toIso8601String(),
+    if (entry.lastAlertAt != null)
+      'last_alert_at': entry.lastAlertAt!.toIso8601String(),
+    if (entry.lastAlertCategory != null)
+      'last_alert_category': entry.lastAlertCategory,
+    if (entry.lastAlertReason != null)
+      'last_alert_reason': entry.lastAlertReason,
+    if (entry.lastNewEvents != null) 'last_new_events': entry.lastNewEvents,
+    if (entry.lastTotalEvents != null)
+      'last_total_events': entry.lastTotalEvents,
+  };
 
   Future<List<_RealmMetricsReport>> _collectRealmReports() async {
     final realmNames = <String>{
@@ -2148,6 +2175,51 @@ class _MetricsService {
             'connectanum_router_transport_alerts_by_listener_total${_formatLabels({...baseLabels, 'reason': reason})} $value',
           );
         });
+      }
+
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_throttled_listeners Listeners currently throttled by the boss alert loop',
+        )
+        ..writeln('# TYPE connectanum_router_throttled_listeners gauge')
+        ..writeln(
+          'connectanum_router_throttled_listeners ${transport.activeThrottleCount}',
+        );
+
+      if (transport.alertBreakdown.isNotEmpty) {
+        buffer
+          ..writeln(
+            '# HELP connectanum_router_listener_throttle_active Whether a listener/protocol is currently throttled',
+          )
+          ..writeln('# TYPE connectanum_router_listener_throttle_active gauge');
+        for (final entry in transport.alertBreakdown) {
+          final labels = _formatLabels({
+            'listener_id': entry.listenerId.toString(),
+            'protocol': entry.protocol,
+            'endpoint': entry.endpoint,
+          });
+          buffer.writeln(
+            'connectanum_router_listener_throttle_active$labels ${entry.throttleActive ? 1 : 0}',
+          );
+        }
+
+        buffer
+          ..writeln(
+            '# HELP connectanum_router_listener_throttle_remaining_ms Remaining throttle window in milliseconds for a listener/protocol',
+          )
+          ..writeln(
+            '# TYPE connectanum_router_listener_throttle_remaining_ms gauge',
+          );
+        for (final entry in transport.alertBreakdown) {
+          final labels = _formatLabels({
+            'listener_id': entry.listenerId.toString(),
+            'protocol': entry.protocol,
+            'endpoint': entry.endpoint,
+          });
+          buffer.writeln(
+            'connectanum_router_listener_throttle_remaining_ms$labels ${entry.throttleRemainingMs ?? 0}',
+          );
+        }
       }
     }
 

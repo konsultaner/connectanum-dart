@@ -55,9 +55,9 @@ class _RouterBoss {
   final Map<int, String> _realmByConnection = {};
   DateTime _lastIdleSweep = DateTime.fromMillisecondsSinceEpoch(0);
   NativeRouterMetrics? _lastRouterMetrics;
-  RouterTransportMetrics? _cachedTransportMetrics;
   final Map<String, RouterTransportMetricsBreakdown> _lastBreakdownByKey = {};
   final Map<String, _ListenerAlertCounts> _alertCountsByKey = {};
+  final Map<String, _ListenerAlertSnapshot> _alertSnapshotByKey = {};
   final Map<int, DateTime> _lastAlertAtByListener = {};
   int _totalBackpressureAlerts = 0;
   int _totalGoAwayAlerts = 0;
@@ -461,9 +461,9 @@ class _RouterBoss {
     final nativeMetrics = runtime.pollRouterMetrics();
     if (nativeMetrics == null) {
       _lastRouterMetrics = null;
-      _cachedTransportMetrics = null;
       _lastBreakdownByKey.clear();
       _alertCountsByKey.clear();
+      _alertSnapshotByKey.clear();
       _totalBackpressureAlerts = 0;
       _totalGoAwayAlerts = 0;
       _totalIdleTimeoutAlerts = 0;
@@ -484,7 +484,6 @@ class _RouterBoss {
     final converted = _convertTransportMetrics(nativeMetrics);
     _emitBreakdownAlerts(converted.breakdown);
     final refreshed = _convertTransportMetrics(nativeMetrics);
-    _cachedTransportMetrics = refreshed;
     final breakdown = refreshed.breakdown
         .map(
           (entry) => {
@@ -611,13 +610,27 @@ class _RouterBoss {
       for (final alert in alerts) {
         final throttle = alert['throttle'] as Duration? ?? Duration.zero;
         final throttled = throttle > Duration.zero;
+        final now = DateTime.now().toUtc();
+        final throttleUntil = throttled ? now.add(throttle) : null;
         if (throttled) {
           final existing = _listenerThrottleUntil[entry.listenerId];
-          final until = DateTime.now().add(throttle);
+          final until = now.add(throttle);
           if (existing == null || until.isAfter(existing)) {
             _listenerThrottleUntil[entry.listenerId] = until;
           }
         }
+        _recordAlertSnapshot(
+          listenerId: entry.listenerId,
+          protocol: entry.protocol,
+          category: alert['type'] == 'listener_backpressure_alert'
+              ? 'backpressure'
+              : 'transport',
+          reason: alert['reason'] as String?,
+          newEvents: alert['newEvents'] as int? ?? 0,
+          totalEvents: alert['totalEvents'] as int? ?? 0,
+          at: now,
+          throttleUntil: throttleUntil,
+        );
         onEvent?.call({
           'source': 'boss',
           'type': alert['type'] as String,
@@ -662,25 +675,23 @@ class _RouterBoss {
   );
 
   RouterTransportMetrics? _ensureTransportMetrics() {
-    final cached = _cachedTransportMetrics;
-    if (cached != null) {
-      return cached;
+    final last = _lastRouterMetrics;
+    if (last != null) {
+      return _convertTransportMetrics(last);
     }
     final nativeMetrics = runtime.pollRouterMetrics();
     if (nativeMetrics == null) {
       _lastRouterMetrics = null;
-      _cachedTransportMetrics = null;
       return null;
     }
     _lastRouterMetrics = nativeMetrics;
     final converted = _convertTransportMetrics(nativeMetrics);
     _emitBreakdownAlerts(converted.breakdown);
-    final refreshed = _convertTransportMetrics(nativeMetrics);
-    _cachedTransportMetrics = refreshed;
-    return refreshed;
+    return _convertTransportMetrics(nativeMetrics);
   }
 
   RouterTransportMetrics _convertTransportMetrics(NativeRouterMetrics metrics) {
+    final snapshotAt = DateTime.now().toUtc();
     final alertBreakdown = <RouterTransportAlertBreakdown>[];
     final totalTransportAlerts =
         _totalGoAwayAlerts +
@@ -697,9 +708,23 @@ class _RouterBoss {
               : 'listener:${entry.listenerId}';
           final key = '${entry.listenerId}:${_protocolName(entry.protocol)}';
           final alertCounts = _alertCountsByKey[key];
+          final alertSnapshot = _alertSnapshotByKey[key];
           final throttleUntil =
               _listenerThrottleUntil[entry.listenerId] ??
-              _lastAlertAtByListener[entry.listenerId];
+              alertSnapshot?.throttleUntil;
+          final throttleActive =
+              throttleUntil != null && throttleUntil.isAfter(snapshotAt);
+          final throttleRemainingMs = throttleUntil == null
+              ? null
+              : (() {
+                  final remaining = throttleUntil
+                      .difference(snapshotAt)
+                      .inMilliseconds;
+                  if (remaining <= 0) {
+                    return 0;
+                  }
+                  return remaining;
+                })();
           alertBreakdown.add(
             RouterTransportAlertBreakdown(
               listenerId: entry.listenerId,
@@ -711,7 +736,15 @@ class _RouterBoss {
               bodyTimeoutAlerts: alertCounts?.bodyTimeout ?? 0,
               protocolErrorAlerts: alertCounts?.protocolError ?? 0,
               internalErrorAlerts: alertCounts?.internalError ?? 0,
+              throttleActive: throttleActive,
+              throttleRemainingMs: throttleRemainingMs,
               throttleUntil: throttleUntil,
+              lastAlertAt:
+                  alertSnapshot?.at ?? _lastAlertAtByListener[entry.listenerId],
+              lastAlertCategory: alertSnapshot?.category,
+              lastAlertReason: alertSnapshot?.reason,
+              lastNewEvents: alertSnapshot?.newEvents,
+              lastTotalEvents: alertSnapshot?.totalEvents,
             ),
           );
           return RouterTransportMetricsBreakdown(
@@ -790,6 +823,26 @@ class _RouterBoss {
         _totalInternalErrorAlerts += 1;
         break;
     }
+  }
+
+  void _recordAlertSnapshot({
+    required int listenerId,
+    required String protocol,
+    required String category,
+    required String? reason,
+    required int newEvents,
+    required int totalEvents,
+    required DateTime at,
+    DateTime? throttleUntil,
+  }) {
+    _alertSnapshotByKey['$listenerId:$protocol'] = _ListenerAlertSnapshot(
+      at: at,
+      category: category,
+      reason: reason,
+      newEvents: newEvents,
+      totalEvents: totalEvents,
+      throttleUntil: throttleUntil,
+    );
   }
 
   String _httpConnectionReason(NativeHttpConnectionCloseReason reason) {
@@ -1750,6 +1803,24 @@ class _ListenerAlertCounts {
   int bodyTimeout = 0;
   int protocolError = 0;
   int internalError = 0;
+}
+
+class _ListenerAlertSnapshot {
+  const _ListenerAlertSnapshot({
+    required this.at,
+    required this.category,
+    required this.reason,
+    required this.newEvents,
+    required this.totalEvents,
+    this.throttleUntil,
+  });
+
+  final DateTime at;
+  final String category;
+  final String? reason;
+  final int newEvents;
+  final int totalEvents;
+  final DateTime? throttleUntil;
 }
 
 class _WorkerHandle {

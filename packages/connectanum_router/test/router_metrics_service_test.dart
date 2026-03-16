@@ -319,6 +319,9 @@ void main() {
       greaterThanOrEqualTo(0),
     );
     expect(routerMetrics['transport'], isNotNull);
+    final transportMetrics =
+        routerMetrics['transport'] as Map<String, Object?>? ?? const {};
+    expect(transportMetrics['active_throttles'], equals(1));
     final realms = snapshotPayload['realms'] as List<dynamic>;
     final realmMetrics = realms.cast<Map<String, Object?>>().firstWhere(
       (realm) => realm['realm'] == 'realm1',
@@ -361,11 +364,28 @@ void main() {
         'connectanum_router_transport_alerts_by_listener_total{listener_id="1",protocol="http2",endpoint="127.0.0.1:5001",reason="go_away"} 1',
       ),
     );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_throttled_listeners 1'),
+    );
+    expect(
+      openMetricsText,
+      contains(
+        'connectanum_router_listener_throttle_active{listener_id="1",protocol="http2",endpoint="127.0.0.1:5001"} 1',
+      ),
+    );
+    expect(
+      openMetricsText,
+      contains(
+        'connectanum_router_listener_throttle_remaining_ms{listener_id="1",protocol="http2",endpoint="127.0.0.1:5001"} ',
+      ),
+    );
 
     final transportAlerts = snapshotPayload['alerts'] as Map<String, Object?>?;
     expect(transportAlerts, isNotNull);
     expect(transportAlerts!['goaway'], equals(1));
     expect(transportAlerts['transport'], equals(1));
+    expect(transportAlerts['active_throttles'], equals(1));
     final byListener =
         transportAlerts['by_listener'] as List<Object?>? ?? const [];
     final entry = byListener.whereType<Map<String, Object?>>().firstWhere(
@@ -373,7 +393,19 @@ void main() {
       orElse: () => const {},
     );
     expect(entry['goaway'], equals(1));
+    expect(entry['transport'], equals(1));
+    expect(entry['throttle_active'], isTrue);
+    expect(entry['throttle_remaining_ms'], greaterThan(0));
     expect(entry['throttle_until'], isA<String>());
+    expect(entry['last_alert_at'], isA<String>());
+    expect(entry['last_alert_category'], equals('transport'));
+    expect(entry['last_alert_reason'], equals('go_away'));
+    expect(entry['last_new_events'], equals(1));
+    expect(entry['last_total_events'], equals(1));
+    final activeThrottleListeners =
+        transportAlerts['active_throttle_listeners'] as List<Object?>? ??
+        const [];
+    expect(activeThrottleListeners, hasLength(1));
   });
 
   test('boss emits transport alerts and throttles on GOAWAY spikes', () async {

@@ -35,6 +35,7 @@
     - [x] Split counters by listener/protocol and surface them through boss telemetry + the metrics exporter for Prometheus scraping.
     - [x] Boss-side backpressure/transport alerting with configurable thresholds (`metrics.backpressure` / `metrics.transport_alerts`) that can throttle accepts when GOAWAY/timeouts spike.
     - [x] Expose those alerts via the metrics/OpenMetrics exporter (per-reason + per-listener counters) once auth/token gating is in place.
+    - [x] Export live alert snapshots (active throttle state, remaining cooldown, and last alert metadata) through the metrics JSON payload and OpenMetrics throttle gauges for external consumers.
   - [x] Surface HTTP/2 and HTTP/3 connection lifecycle events (GOAWAY, idle/body timeouts, backpressure) over FFI so Dart can drain connections deterministically and emit diagnostics.
   - [x] Assert GOAWAY reasons/details for HTTP/2 + HTTP/3 in both native `listen_flow` and Dart runtime tests.
   - [x] Expose negotiated protocol identifiers via FFI so Dart workers can route WebSocket/HTTP sessions (new `ct_connection_websocket_protocol`, Dart bindings, and boss/worker metadata forwarding).
@@ -277,12 +278,13 @@
   - [ ] Extend the harness for HTTP/3/TLS runs, persist OpenMetrics snapshots after each scenario, and integrate the results with Prometheus dashboards.
     - [x] HTTP/3/TLS support landed in the orchestration CLI (QUIC prior-knowledge via `quinn`+`h3`, shared-port overrides, h3-only scenarios) so benchmarks can exercise both transports while capturing metrics deltas.
     - [x] `/bench/metrics` now returns both the router snapshot and the OpenMetrics payload, and the orchestrator serializes `open_metrics_before`/`open_metrics_after` fields per workload (`bench_results.jsonl` + docs updated).
-  - [ ] Ship Prometheus exporters and Grafana dashboards for benchmark metrics visualization.
-  - [ ] Provide docs/scripts to bootstrap a local Grafana/Prometheus stack alongside benchmarks.
+  - [x] Ship Prometheus exporters and Grafana dashboards for benchmark metrics visualization.
+  - [x] Provide docs/scripts to bootstrap a local Grafana/Prometheus stack alongside benchmarks.
 - [ ] MCP (Model Context Protocol) server implementation for agentic AI integrations
 - [ ] Metrics & logging integration (Prometheus metrics, structured logs, CPU/RAM/throughput gauges)
   - [x] Always-on low-cost counters (native/Dart) exposed via on-demand snapshots for benchmark harnesses. `ct_router_metrics_snapshot` feeds `_RouterBoss` + `_MetricsService`, so the OpenMetrics payload now carries GOAWAY/backpressure/timeout totals.
   - [x] Prometheus/Grafana wiring documented; HTTP scrape regression added (metrics route bridged to `connectanum.metrics.openmetrics`) and CI now captures `CONNECTANUM_ARTIFACT_DIR` OpenMetrics/JSON snapshots from long-payload regressions.
+  - [x] Bench stack ships Prometheus alert rules plus Grafana dashboards for transport alerts/throttle state, and the snapshot JSON now exposes current alert state for non-Prometheus consumers.
   - [ ] Configurable metrics exporter isolates (Prometheus) gated by crossbar-compatible config flags to avoid production overhead.
   - [ ] Sampling windows for high-cost histograms (latency, zero-copy reuse) triggered only during benchmarks.
   - [ ] Metrics realm configuration: expose internal realms via config (enable/disable, rename) and spin up embedded sessions automatically to serve metrics RPCs.

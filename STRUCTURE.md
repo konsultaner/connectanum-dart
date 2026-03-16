@@ -52,7 +52,7 @@ graph LR
 - **Router boss/worker (`packages/connectanum_router/lib/src/router/router_instance/router_boss.dart`)**  
   The boss isolate accepts connections, assigns them to workers, drains HTTP requests, watches lifecycle events, and now emits a `router_metrics` event whenever the aggregated counters change. Workers own the actual WAMP sessions and execute application handlers.
   Zero-copy publish forwarding stays behind `CONNECTANUM_FORWARD_NATIVE_PUBLISH` (compile-time define or runtime env var); boss telemetry sends are wrapped so tracing failures can’t block forwarding/handle release in the worker.
-  GOAWAY/backpressure alerts can throttle listener accepts based on configurable thresholds (`metrics.backpressure` / `metrics.transport_alerts`); detailed GOAWAY reasons are surfaced in both native and Dart runtime tests.
+  GOAWAY/backpressure alerts can throttle listener accepts based on configurable thresholds (`metrics.backpressure` / `metrics.transport_alerts`); detailed GOAWAY reasons are surfaced in both native and Dart runtime tests. The boss also keeps the latest per-listener alert snapshot (last reason/category, remaining throttle cooldown) so metrics consumers can inspect current alert state instead of only cumulative counters.
 
 ## HTTP Workflow (current)
 
@@ -74,7 +74,7 @@ flowchart TD
 ```
 
 - **Metrics loop:** Every connection teardown pushes an event into `ListenerRegistry.connection_events`. The new `http_metrics_snapshot()` aggregates totals across the runtime; `ct_router_metrics_snapshot` lifts it to Dart, where `_RouterBoss` emits a `router_metrics` event on change.  
-  Per-listener/protocol breakdowns are exposed via `http_metrics_snapshot_with_breakdown()` and cached in the boss telemetry stream so `_MetricsService` can publish them over OpenMetrics/WAMP or the HTTP metrics endpoint (with optional auth token) for Prometheus scraping. The boss also raises `listener_backpressure_alert` / `listener_transport_alert` events and throttles accepts based on the configurable `metrics.backpressure` and `metrics.transport_alerts` thresholds.
+  Per-listener/protocol breakdowns are exposed via `http_metrics_snapshot_with_breakdown()` and cached in the boss telemetry stream so `_MetricsService` can publish them over OpenMetrics/WAMP or the HTTP metrics endpoint (with optional auth token) for Prometheus scraping. The boss also raises `listener_backpressure_alert` / `listener_transport_alert` events and throttles accepts based on the configurable `metrics.backpressure` and `metrics.transport_alerts` thresholds. Snapshot JSON now includes active throttle state and last-alert metadata, while OpenMetrics exports throttle gauges for Prometheus/Grafana.
 - **Backpressure accounting:** Whenever pending HTTP queues exceed one item, `HttpConnectionStats::record_backpressure` increments the counter and tracks the largest depth. This information is available both per-event and in the aggregate snapshot.
 
 ## Planned Enhancements
@@ -99,6 +99,8 @@ Feel free to update this document as new components (e.g., WebTransport, benchma
 - `bench_router.json` – default listener/realm configuration used by the bench runner. It binds `127.0.0.1:8080`, enables RawSocket + HTTP/2, and maps HTTP routes to the internal procedures described above.
 - `native/bench/src/bin/http_stream.rs` – Rust CLI orchestrator that spawns the Dart runner, validates `/bench/*` control endpoints, parses TOML scenarios, drives HTTP/2 workloads via `hyper` prior-knowledge streams **and HTTP/3 workloads via `quinn` + `h3`** (QUIC prior knowledge), captures `binding.collectMetrics()` snapshots (plus the OpenMetrics text) before/after each workload, enforces per-workload timeouts (`--workload-timeout-ms`) so hung regressions fail fast, and emits JSONL summaries (`bench_results.jsonl`, including `open_metrics_before`/`open_metrics_after`) so CI/prom tooling can diff latency/throughput deltas.
 - `native/bench/scenarios/h2_smoke.toml` – reference scenario file defining warm-up/load workloads (iterations, concurrency, payload sizes, chunking) used during harness bring-up.
+- `native/bench/connectanum_router_alerts.yml` – Prometheus alert rules for active throttles, backpressure spikes, GOAWAY bursts, and transport errors.
+- `native/bench/grafana/dashboards/router_transport_alerts.json` – provisioned Grafana dashboard that charts transport alerts and live throttle gauges from the router exporter.
 
 ### Deployment & TLS
 

@@ -14,19 +14,55 @@ void main() {
     test(
       'Opening a server connection and simple send receive scenario using a serializer',
       () async {
-        var channel = spawnHybridUri('websocket_transport_web_server.dart');
-        late String port;
+        final channel = spawnHybridCode(r'''
+          import 'dart:io';
+
+          import 'package:connectanum_core/src/message/message_types.dart';
+          import 'package:stream_channel/stream_channel.dart';
+
+          Future<void> hybridMain(StreamChannel<Object?> channel) async {
+            final server = await HttpServer.bind('localhost', 0);
+            server.listen((HttpRequest req) async {
+              if (req.uri.path != '/wamp') {
+                req.response.statusCode = HttpStatus.notFound;
+                await req.response.close();
+                return;
+              }
+
+              final socket = await WebSocketTransformer.upgrade(
+                req,
+                protocolSelector: (protocols) => protocols[0],
+              );
+              channel.sink.add(socket.protocol);
+              await for (final message in socket) {
+                if (socket.protocol == 'wamp.2.json') {
+                  socket.add('[${MessageTypes.codeWelcome},1,{}]');
+                } else if (socket.protocol == 'wamp.2.msgpack') {
+                  if ((message as List)[1] == MessageTypes.codeHello) {
+                    socket.add([147, MessageTypes.codeWelcome, 1, 128]);
+                  }
+                } else if (socket.protocol == 'wamp.2.cbor') {
+                  if ((message as List)[1] == MessageTypes.codeHello) {
+                    socket.add([131, MessageTypes.codeWelcome, 1, 160]);
+                  }
+                }
+              }
+            });
+            channel.sink.add(server.port);
+          }
+        ''');
+        late int port;
         late WebSocketTransport transportJSON;
         late WebSocketTransport transportMsgpack;
         late WebSocketTransport transportCbor;
-        Completer jsonCompleter = Completer();
-        Completer msgpackCompleter = Completer();
-        Completer cborCompleter = Completer();
+        final jsonCompleter = Completer<void>();
+        final msgpackCompleter = Completer<void>();
+        final cborCompleter = Completer<void>();
         var channelValues = <dynamic>[];
         channel.stream.listen((event) async {
           channelValues.add(event);
           if (channelValues.length == 1) {
-            port = event;
+            port = (event as num).toInt();
             transportJSON = WebSocketTransport.withJsonSerializer(
               'ws://localhost:$port/wamp',
             );

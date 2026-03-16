@@ -23,7 +23,9 @@ Focus for the next session:
    - ✅ `ct_router_metrics_snapshot` aggregates GOAWAY/backpressure/timeout counters, `_RouterBoss` now polls it each loop, and `_MetricsService` renders the HTTP stats inside the OpenMetrics payload/tests.
    - ✅ Snapshot now splits by listener/protocol, caches in the boss telemetry stream, and the metrics realm HTTP endpoint (with optional auth/token) exposes the per-listener counters for Prometheus without a WAMP client.
    - ✅ Boss emits listener backpressure/transport alerts (GOAWAY, idle/body timeouts, protocol/internal errors) based on configurable thresholds and throttles accepts during spikes; tests assert GOAWAY details and alert emission. OpenMetrics exporter surfaces alert counters per reason/listener, including backpressure reason labels and throttled counts; config knobs + threshold examples are documented in `docs/router_metrics.md`.
-   - Next up: add Prometheus rules/dashboards for alert counters, pipe alert snapshots into the metrics JSON payload so external consumers can inspect the current throttle state, and keep listen_flow + router runtime coverage in sync.
+   - ✅ Metrics JSON payloads now export live alert snapshots (active throttles, remaining cooldown, last alert metadata), and OpenMetrics adds throttle gauges for Prometheus consumers.
+   - ✅ Bench assets now include `native/bench/connectanum_router_alerts.yml` plus a provisioned Grafana dashboard for transport alerts/throttle state.
+   - Next up: keep `listen_flow` + router runtime coverage in sync as the alert metrics evolve, and decide whether artifacted OpenMetrics/JSON snapshots should be transformed into long-lived dashboard inputs automatically.
 
 2. **HTTP/2 + HTTP/3 Deadline Enforcement**
    - ✅ Enforced idle/body deadlines for HTTP/2 + HTTP/3 request-body readers; HTTP/3 timeouts now close the QUIC connection to avoid `h3-quinn` stop-sending races while still emitting lifecycle events with explicit details.

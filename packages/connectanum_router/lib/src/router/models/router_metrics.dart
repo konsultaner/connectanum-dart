@@ -217,6 +217,13 @@ class RouterTransportMetrics {
   final List<RouterTransportAlertBreakdown> alertBreakdown;
   final List<RouterTransportMetricsBreakdown> breakdown;
 
+  int get activeThrottleCount =>
+      alertBreakdown.where((entry) => entry.throttleActive).length;
+
+  List<RouterTransportAlertBreakdown> get activeThrottles => alertBreakdown
+      .where((entry) => entry.throttleActive)
+      .toList(growable: false);
+
   RouterTransportMetrics copyWith({
     int? totalEvents,
     int? gracefulEvents,
@@ -276,6 +283,11 @@ class RouterTransportMetrics {
     'body_timeout_alerts': bodyTimeoutAlerts,
     'protocol_error_alerts': protocolErrorAlerts,
     'internal_error_alerts': internalErrorAlerts,
+    'active_throttles': activeThrottleCount,
+    if (activeThrottles.isNotEmpty)
+      'active_throttle_listeners': activeThrottles
+          .map((entry) => entry.toJson())
+          .toList(growable: false),
     if (alertBreakdown.isNotEmpty)
       'alert_breakdown': alertBreakdown
           .map((entry) => entry.toJson())
@@ -298,7 +310,14 @@ class RouterTransportAlertBreakdown {
     required this.bodyTimeoutAlerts,
     required this.protocolErrorAlerts,
     required this.internalErrorAlerts,
+    this.throttleActive = false,
+    this.throttleRemainingMs,
     this.throttleUntil,
+    this.lastAlertAt,
+    this.lastAlertCategory,
+    this.lastAlertReason,
+    this.lastNewEvents,
+    this.lastTotalEvents,
   });
 
   final int listenerId;
@@ -310,7 +329,14 @@ class RouterTransportAlertBreakdown {
   final int bodyTimeoutAlerts;
   final int protocolErrorAlerts;
   final int internalErrorAlerts;
+  final bool throttleActive;
+  final int? throttleRemainingMs;
   final DateTime? throttleUntil;
+  final DateTime? lastAlertAt;
+  final String? lastAlertCategory;
+  final String? lastAlertReason;
+  final int? lastNewEvents;
+  final int? lastTotalEvents;
 
   int get transportAlerts =>
       goAwayAlerts +
@@ -329,8 +355,17 @@ class RouterTransportAlertBreakdown {
     'body_timeout_alerts': bodyTimeoutAlerts,
     'protocol_error_alerts': protocolErrorAlerts,
     'internal_error_alerts': internalErrorAlerts,
+    'transport_alerts': transportAlerts,
+    'throttle_active': throttleActive,
+    if (throttleRemainingMs != null)
+      'throttle_remaining_ms': throttleRemainingMs,
     if (throttleUntil != null)
       'throttle_until': throttleUntil!.toIso8601String(),
+    if (lastAlertAt != null) 'last_alert_at': lastAlertAt!.toIso8601String(),
+    if (lastAlertCategory != null) 'last_alert_category': lastAlertCategory,
+    if (lastAlertReason != null) 'last_alert_reason': lastAlertReason,
+    if (lastNewEvents != null) 'last_new_events': lastNewEvents,
+    if (lastTotalEvents != null) 'last_total_events': lastTotalEvents,
   };
 }
 

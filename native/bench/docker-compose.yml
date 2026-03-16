@@ -6,6 +6,7 @@ services:
       - "--storage.tsdb.retention.time=12h"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./connectanum_router_alerts.yml:/etc/prometheus/connectanum_router_alerts.yml:ro
     ports:
       - "9090:9090"
     extra_hosts:
