@@ -290,6 +290,16 @@ router snapshots to disk when the environment variable
 `<name>.openmetrics` (text) and `<name>.metrics.json` into that directory so CI
 pipelines can upload them for inspection when regressions occur.
 
+The native bench harness builds on top of that by rewriting
+`native/bench/artifacts/bench_results.jsonl` into
+`native/bench/artifacts/bench_results.prom` and
+`native/bench/artifacts/bench_results.summary.json` after every workload. The
+bundled `native/bench/docker-compose.yml` uses a `node-exporter` textfile
+collector to ingest the `.prom` file, while Prometheus also loads
+`native/bench/connectanum_bench_artifact_alerts.yml` so transport regressions
+captured by a finished run surface as alertable series without a custom import
+step.
+
 ## Compatibility Notes
 
 - The exported metric names intentionally follow the Java router so dashboards

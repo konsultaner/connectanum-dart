@@ -94,6 +94,10 @@ recording transport metrics deltas.
    - `mass_auth.toml` (remote authenticator heavy-load scenario to validate CRA/SCRAM/remote delegates once implemented).
 4. **Output format**
    - `bench_results.jsonl` capturing per-iteration numbers + metric deltas.
+   - `native/bench/artifacts/bench_results.prom` rendered from the JSONL so the
+     Prometheus textfile collector can ingest workload summaries automatically.
+   - `native/bench/artifacts/bench_results.summary.json` with the same
+     per-workload rollups in a diff-friendly JSON bundle.
    - Human summary printed to stdout (similar to the current Dart tool).
 5. **CI integration**
    - Add a smoke scenario to the router integration suite (guarded by feature flag) once the orchestrator is committed.
@@ -218,6 +222,10 @@ The CLI will:
 4. Capture metrics snapshots (plus the accompanying OpenMetrics payload) before
    and after every workload, append a row to `bench_results.jsonl`, and print a
    human-readable summary with throughput, latency, and router counter deltas.
+   The orchestrator also rewrites the cumulative JSONL into
+   `bench_results.prom` and `bench_results.summary.json` after each workload so
+   Prometheus/Grafana always see the latest run without a manual conversion
+   step.
 5. Issue `/bench/stop` (falling back to the stdin `STOP` command if needed) and
    wait for the Dart process to exit cleanly.
 
@@ -225,6 +233,14 @@ The JSONL output records per-workload metadata (router metrics snapshots,
 OpenMetrics text, latency samples, total bytes) so downstream tooling
 (Prometheus exporters, dashboards, regression detectors) can diff runs without
 scraping stdout.
+
+If you already have a JSONL file from CI or an earlier run, regenerate the
+Prometheus/textfile bundle without rerunning the workloads:
+
+```sh
+cargo run --manifest-path native/bench/Cargo.toml --bin transform_results -- \
+  --input native/bench/artifacts/bench_results.jsonl
+```
 
 To run the WAMP-only scenario:
 
@@ -255,15 +271,18 @@ docker compose up -d
   `host.docker.internal` → `host-gateway` automatically. The `/metrics` route
   is served by the router itself via HTTP→WAMP bridging into
   `connectanum.metrics.openmetrics`, so no sidecar HTTP server is needed. The
-  compose stack also loads `connectanum_router_alerts.yml`, which raises alerts
-  for active throttles, backpressure bursts, GOAWAY spikes, and transport
-  errors.
+  compose stack also loads `connectanum_router_alerts.yml` for live router
+  state, `connectanum_bench_artifact_alerts.yml` for transformed benchmark
+  regressions, and a `node-exporter` textfile collector that scrapes
+  `native/bench/artifacts/*.prom`.
 - Grafana binds `http://localhost:3000` (default `admin` / `admin`). The compose
   file auto-provisions a Prometheus datasource and ships a “Connectanum Bench
-  Summary” dashboard plus a “Connectanum Router Alerts” dashboard that charts
-  transport alert counters and the current throttle gauges. Open Grafana, open
-  the “Benchmarks” folder, and you’re ready to watch the metrics live while the
-  bench runs.
+  Summary” dashboard, a “Connectanum Router Alerts” dashboard that charts
+  transport alert counters and the current throttle gauges, and a
+  “Connectanum Bench Artifacts” dashboard for transformed workload summaries
+  and alert deltas. Open Grafana, open the “Benchmarks” folder, and you’re
+  ready to watch the metrics live while the bench runs and review the captured
+  artifacts afterwards.
 
 When you are done benchmarking:
 
@@ -276,7 +295,10 @@ Typical workflow:
 1. `docker compose up -d`
 2. Run your scenario (`cargo run --manifest-path native/bench/Cargo.toml -- ...`)
 3. Watch Grafana at <http://localhost:3000> while the workloads execute
-4. `docker compose down` after the run (optional)
+4. Inspect `native/bench/artifacts/bench_results.prom` or
+   `native/bench/artifacts/bench_results.summary.json` if you want the rendered
+   artifact bundle directly from disk
+5. `docker compose down` after the run (optional)
 
 Because `/bench/metrics` now returns both the structured snapshot and the raw
 OpenMetrics payload, every workload in `bench_results.jsonl` carries a verbatim

@@ -4,6 +4,7 @@ global:
 
 rule_files:
   - /etc/prometheus/connectanum_router_alerts.yml
+  - /etc/prometheus/connectanum_bench_artifact_alerts.yml
 
 scrape_configs:
   - job_name: connectanum-bench
@@ -13,3 +14,8 @@ scrape_configs:
           # Docker resolves host.docker.internal on macOS/Windows automatically.
           # For Linux this compose stack adds an extra host entry pointing to host-gateway.
           - host.docker.internal:8080
+
+  - job_name: connectanum-bench-artifacts
+    static_configs:
+      - targets:
+          - node-exporter:9100

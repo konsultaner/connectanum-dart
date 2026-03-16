@@ -275,9 +275,10 @@
     - [x] Bench runner exposes `/bench/*` HTTP control routes backed by internal RPC handlers (`bench_router.json`), and the Rust scaffold now pings `/bench/healthz`, `/bench/metrics`, and `/bench/stop` before shutting down.
     - [x] Orchestrator loads TOML scenarios (`native/bench/scenarios/h2_smoke.toml`, `full_stack.toml`), drives HTTP/2 workloads via `hyper` with prior knowledge, captures router metrics snapshots before/after each workload, emits JSONL summaries (`bench_results.jsonl`), and enforces per-workload timeouts so hung runs fail fast instead of wedging CI.
   - [x] WAMP pub/sub benchmark stability: `wamp_smoke` now passes after fixing EVENT serialization (details/kwargs) and guarding malformed kwargs; bench runs no longer hang during pubsub.
-  - [ ] Extend the harness for HTTP/3/TLS runs, persist OpenMetrics snapshots after each scenario, and integrate the results with Prometheus dashboards.
+  - [x] Extend the harness for HTTP/3/TLS runs, persist OpenMetrics snapshots after each scenario, and integrate the results with Prometheus dashboards.
     - [x] HTTP/3/TLS support landed in the orchestration CLI (QUIC prior-knowledge via `quinn`+`h3`, shared-port overrides, h3-only scenarios) so benchmarks can exercise both transports while capturing metrics deltas.
     - [x] `/bench/metrics` now returns both the router snapshot and the OpenMetrics payload, and the orchestrator serializes `open_metrics_before`/`open_metrics_after` fields per workload (`bench_results.jsonl` + docs updated).
+    - [x] Bench results are transformed automatically into `bench_results.prom` + `bench_results.summary.json`, the Docker compose stack ingests the `.prom` output through the node-exporter textfile collector, and Prometheus/Grafana ship matching artifact rules + dashboards for per-workload regression surfacing.
   - [x] Ship Prometheus exporters and Grafana dashboards for benchmark metrics visualization.
   - [x] Provide docs/scripts to bootstrap a local Grafana/Prometheus stack alongside benchmarks.
 - [ ] MCP (Model Context Protocol) server implementation for agentic AI integrations
@@ -285,6 +286,7 @@
   - [x] Always-on low-cost counters (native/Dart) exposed via on-demand snapshots for benchmark harnesses. `ct_router_metrics_snapshot` feeds `_RouterBoss` + `_MetricsService`, so the OpenMetrics payload now carries GOAWAY/backpressure/timeout totals.
   - [x] Prometheus/Grafana wiring documented; HTTP scrape regression added (metrics route bridged to `connectanum.metrics.openmetrics`) and CI now captures `CONNECTANUM_ARTIFACT_DIR` OpenMetrics/JSON snapshots from long-payload regressions.
   - [x] Bench stack ships Prometheus alert rules plus Grafana dashboards for transport alerts/throttle state, and the snapshot JSON now exposes current alert state for non-Prometheus consumers.
+  - [x] Bench artifact outputs (`bench_results.jsonl`) now rewrite into Prometheus textfile metrics plus a summary JSON bundle, with alert rules over the transformed per-workload transport deltas so completed runs surface automatically in dashboards/alerts.
   - [ ] Configurable metrics exporter isolates (Prometheus) gated by crossbar-compatible config flags to avoid production overhead.
   - [ ] Sampling windows for high-cost histograms (latency, zero-copy reuse) triggered only during benchmarks.
   - [ ] Metrics realm configuration: expose internal realms via config (enable/disable, rename) and spin up embedded sessions automatically to serve metrics RPCs.

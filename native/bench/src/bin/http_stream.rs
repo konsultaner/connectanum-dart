@@ -28,12 +28,17 @@ use rustls::crypto;
 use rustls::crypto::ring;
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{DigitallySignedStruct, SignatureScheme};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::{json, Value};
 use tokio::net::lookup_host;
 use tokio::runtime::Runtime;
 use tokio::task::JoinSet;
 use url::Url;
+
+use connectanum_bench_orchestrator::artifacts::write_artifact_bundle;
+use connectanum_bench_orchestrator::report::{
+    router_counter_delta, WorkloadReport, WorkloadSample,
+};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about = "Connectanum bench orchestrator")]
@@ -70,8 +75,12 @@ struct Args {
     scenario: String,
 
     /// JSONL results output file.
-    #[arg(long, default_value = "bench_results.jsonl")]
+    #[arg(long, default_value = "native/bench/artifacts/bench_results.jsonl")]
     results: String,
+
+    /// Directory that receives transformed bench artifact outputs (.prom + summary json).
+    #[arg(long)]
+    artifact_dir: Option<String>,
 
     /// Timeout per workload in milliseconds (guards against hung tests).
     #[arg(long, default_value = "300000")]
@@ -182,6 +191,9 @@ fn main() -> Result<()> {
 
     let mut results_writer =
         ResultsWriter::create(&args.results).context("failed to open results file")?;
+    let results_path = Path::new(&args.results);
+    let artifact_dir = args.artifact_dir.as_deref().map(Path::new);
+    let mut reports = Vec::<WorkloadReport>::new();
     let runtime = Runtime::new().context("failed to create tokio runtime")?;
     let workload_timeout = Duration::from_millis(args.workload_timeout_ms);
 
@@ -197,18 +209,18 @@ fn main() -> Result<()> {
                 println!("Description: {description}");
             }
 
-                let (scenario_metrics_before, scenario_open_metrics_before) = if args.skip_metrics {
-                    (Value::Object(Default::default()), None)
-                } else {
-                    let raw = http_control.metrics().unwrap_or_else(|err| {
-                        eprintln!(
-                            "Warning: failed to fetch metrics before scenario {}: {err}",
-                            scenario.name
-                        );
-                        Value::Object(Default::default())
-                    });
-                    split_metrics_payload(raw)
-                };
+            let (scenario_metrics_before, scenario_open_metrics_before) = if args.skip_metrics {
+                (Value::Object(Default::default()), None)
+            } else {
+                let raw = http_control.metrics().unwrap_or_else(|err| {
+                    eprintln!(
+                        "Warning: failed to fetch metrics before scenario {}: {err}",
+                        scenario.name
+                    );
+                    Value::Object(Default::default())
+                });
+                split_metrics_payload(raw)
+            };
 
             let mut scenario_metrics_after = scenario_metrics_before.clone();
             let mut scenario_open_metrics_after = scenario_open_metrics_before.clone();
@@ -269,14 +281,25 @@ fn main() -> Result<()> {
                     concurrency: workload.concurrency,
                     started_at_ms: started_at,
                     completed_at_ms: completed_at,
-                    metrics_before: scenario_metrics_before.clone(),
+                    metrics_before: metrics_before.clone(),
                     metrics_after: scenario_metrics_after.clone(),
-                    open_metrics_before: scenario_open_metrics_before.clone(),
+                    open_metrics_before: open_metrics_before.clone(),
                     open_metrics_after: scenario_open_metrics_after.clone(),
+                    scenario_metrics_before: Some(scenario_metrics_before.clone()),
+                    scenario_metrics_after: Some(scenario_metrics_after.clone()),
+                    scenario_open_metrics_before: scenario_open_metrics_before.clone(),
+                    scenario_open_metrics_after: scenario_open_metrics_after.clone(),
                     samples,
                 };
                 print_workload_summary(&report, &prepared);
                 results_writer.write(&report)?;
+                reports.push(report);
+                write_artifact_bundle(&reports, results_path, artifact_dir).with_context(|| {
+                    format!(
+                        "failed to write transformed artifact bundle next to {}",
+                        args.results
+                    )
+                })?;
             }
         }
         Ok(())
@@ -544,39 +567,18 @@ impl PreparedWorkload {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-struct WorkloadSample {
-    worker: u32,
-    iteration: u32,
-    latency_ms: f64,
-    request_bytes: u64,
-    response_bytes: u64,
-}
-
-#[derive(Serialize)]
-struct WorkloadReport {
-    scenario: String,
-    workload: String,
-    protocol: String,
-    iterations: u32,
-    concurrency: u32,
-    started_at_ms: u128,
-    completed_at_ms: u128,
-    metrics_before: Value,
-    metrics_after: Value,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    open_metrics_before: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    open_metrics_after: Option<String>,
-    samples: Vec<WorkloadSample>,
-}
-
 struct ResultsWriter {
     file: File,
 }
 
 impl ResultsWriter {
     fn create(path: &str) -> Result<Self> {
+        if let Some(parent) = Path::new(path).parent() {
+            if !parent.as_os_str().is_empty() {
+                std::fs::create_dir_all(parent)
+                    .with_context(|| format!("failed to create {}", parent.display()))?;
+            }
+        }
         let file =
             File::create(Path::new(path)).with_context(|| format!("failed to create {}", path))?;
         Ok(Self { file })
@@ -650,12 +652,6 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
         format_bytes(workload.response_bytes),
         format_bytes(workload.response_chunk_bytes)
     );
-}
-
-fn router_counter_delta(before: &Value, after: &Value, field: &str) -> Option<i64> {
-    let start = before.get("metrics")?.get("router")?.get(field)?.as_i64()?;
-    let end = after.get("metrics")?.get("router")?.get(field)?.as_i64()?;
-    Some(end - start)
 }
 
 fn format_bytes(bytes: u64) -> String {
@@ -1032,6 +1028,11 @@ fn build_pattern_chunk(len: usize) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use serde_json::json;
+
     use super::*;
 
     fn sample(worker: u32) -> WorkloadSample {
@@ -1069,6 +1070,62 @@ mod tests {
             error.to_string().contains("timed out"),
             "unexpected error {error}"
         );
+    }
+
+    #[test]
+    fn split_metrics_payload_extracts_open_metrics_text() {
+        let (metrics, open_metrics) = split_metrics_payload(json!({
+            "metrics": {
+                "total_publications_routed": 5
+            },
+            "open_metrics": "# TYPE foo counter\nfoo 1\n"
+        }));
+        assert_eq!(
+            metrics["metrics"]["total_publications_routed"].as_i64(),
+            Some(5)
+        );
+        assert_eq!(open_metrics.as_deref(), Some("# TYPE foo counter\nfoo 1\n"));
+    }
+
+    #[test]
+    fn results_writer_creates_parent_directory_and_writes_jsonl() {
+        let temp_dir = unique_temp_dir("results_writer");
+        let path = temp_dir.join("nested").join("bench_results.jsonl");
+        let report = WorkloadReport {
+            scenario: "scenario".to_string(),
+            workload: "workload".to_string(),
+            protocol: "h2".to_string(),
+            iterations: 1,
+            concurrency: 1,
+            started_at_ms: 1,
+            completed_at_ms: 2,
+            metrics_before: json!({}),
+            metrics_after: json!({}),
+            open_metrics_before: None,
+            open_metrics_after: None,
+            scenario_metrics_before: None,
+            scenario_metrics_after: None,
+            scenario_open_metrics_before: None,
+            scenario_open_metrics_after: None,
+            samples: vec![sample(0)],
+        };
+
+        let mut writer = ResultsWriter::create(path.to_string_lossy().as_ref()).unwrap();
+        writer.write(&report).unwrap();
+
+        let written = fs::read_to_string(&path).unwrap();
+        assert!(written.contains("\"scenario\":\"scenario\""));
+        assert!(written.ends_with('\n'));
+
+        fs::remove_dir_all(&temp_dir).unwrap();
+    }
+
+    fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("connectanum_http_stream_{prefix}_{}", unique))
     }
 }
 
