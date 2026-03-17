@@ -45,6 +45,13 @@ use connectanum_bench_orchestrator::report::{
 
 type H3RequestSender = h3::client::SendRequest<h3_quinn::OpenStreams, Bytes>;
 const NATIVE_RUNTIME_THREADS_ENV: &str = "CONNECTANUM_NATIVE_RUNTIME_THREADS";
+const HTTP3_MAX_BIDI_STREAMS: u32 = 1024;
+const HTTP3_MAX_UNI_STREAMS: u32 = 256;
+const HTTP3_STREAM_RECEIVE_WINDOW: u32 = 8 * 1024 * 1024;
+const HTTP3_CONNECTION_RECEIVE_WINDOW: u32 = 64 * 1024 * 1024;
+const HTTP3_SEND_WINDOW: u64 = 64 * 1024 * 1024;
+const HTTP3_DATAGRAM_BUFFER_BYTES: usize = 8 * 1024 * 1024;
+const HTTP3_KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(5);
 
 #[derive(Parser, Debug)]
 #[command(author, version, about = "Connectanum bench orchestrator")]
@@ -2259,6 +2266,21 @@ mod tests {
         assert!(addrs[1].is_ipv6());
     }
 
+    #[test]
+    fn quinn_client_config_applies_transport_tuning() {
+        let _ = ring::default_provider().install_default();
+        let config = quinn_client_config();
+        let debug = format!("{config:?}");
+        assert!(debug.contains("max_concurrent_bidi_streams: 1024"));
+        assert!(debug.contains("max_concurrent_uni_streams: 256"));
+        assert!(debug.contains("stream_receive_window: 8388608"));
+        assert!(debug.contains("receive_window: 67108864"));
+        assert!(debug.contains("send_window: 67108864"));
+        assert!(debug.contains("keep_alive_interval: Some(5s)"));
+        assert!(debug.contains("datagram_receive_buffer_size: Some(8388608)"));
+        assert!(debug.contains("datagram_send_buffer_size: 8388608"));
+    }
+
     fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -2273,9 +2295,21 @@ fn quinn_client_config() -> QuinnClientConfig {
     let quic_client = QuicClientConfig::try_from(client_crypto).expect("invalid rustls config");
     let mut quinn_config = QuinnClientConfig::new(Arc::new(quic_client));
     let mut transport = TransportConfig::default();
-    transport.keep_alive_interval(Some(Duration::from_secs(5)));
+    apply_http3_transport_tuning(&mut transport);
     quinn_config.transport_config(Arc::new(transport));
     quinn_config
+}
+
+fn apply_http3_transport_tuning(transport: &mut TransportConfig) {
+    transport
+        .max_concurrent_bidi_streams(HTTP3_MAX_BIDI_STREAMS.into())
+        .max_concurrent_uni_streams(HTTP3_MAX_UNI_STREAMS.into())
+        .stream_receive_window(HTTP3_STREAM_RECEIVE_WINDOW.into())
+        .receive_window(HTTP3_CONNECTION_RECEIVE_WINDOW.into())
+        .send_window(HTTP3_SEND_WINDOW)
+        .datagram_receive_buffer_size(Some(HTTP3_DATAGRAM_BUFFER_BYTES))
+        .datagram_send_buffer_size(HTTP3_DATAGRAM_BUFFER_BYTES)
+        .keep_alive_interval(Some(HTTP3_KEEP_ALIVE_INTERVAL));
 }
 
 #[derive(Debug)]

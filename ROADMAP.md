@@ -49,6 +49,7 @@
   - [ ] Stage native HTTP pipeline implementation:
     - [x] Bring up the HTTP/3 QUIC accept loop in `ct_core`: keep connections alive, parse requests via `h3`, match routes, queue `HttpRequestSummary` + response handles, and flush responses back along the same stream.
     - [x] Introduce shared streaming body/response handles in `ct_core` + `ct_ffi` (retain/release/read APIs) so large HTTP payloads stay in native buffers end-to-end.
+    - [x] Apply explicit QUIC transport tuning on the router and bench client (stream/connection windows, send window, datagram buffers, keep-alive) instead of relying on Quinn defaults tuned for lower-bandwidth links; Rust tests now pin the config so HTTP/3 perf runs stay reproducible.
     - [x] Finish HTTP/1.1 early-error/status-only fast paths on top of the shared body-handle pipeline.
       - [x] Remove eager `Vec` copies from HTTP/1.1 ingress, keep buffered bodies as `Bytes` inside `HttpBodyHandle`, preserve prefetched bytes when handing off from the handshake parser to the streaming reader, and cover inline-vs-streaming bodies in Rust + Dart regressions.
       - [x] Reject malformed or unsupported HTTP/1.1 requests with native status-only responses (`400`, `413`, `501`) before the Dart bridge is involved, and cover the responses in `listen_flow`.
@@ -298,6 +299,7 @@
     - [x] Bench workers now reuse HTTP/2 and HTTP/3 sessions by default, prebuild request payload buffers once per worker, and report both response-only and total payload throughput so sustained runs measure transport work instead of repeated handshakes.
     - [x] Worker-sweep regressions for the HTTP bench path were eliminated by moving streamed HTTP responses off per-chunk WAMP progress payloads; the sustained worker sweep no longer drops when `router_workers` increases on the default `/bench/stream` workload.
     - [x] `_RouterBoss` now paces its poll loop adaptively instead of always sleeping `pollInterval`, and the HTTP boss/binding hot paths no longer print per-request debug logs, so runtime-thread sweeps measure transport scaling instead of scheduler/logging tax.
+    - [x] Release-built HTTP/3-only sweeps with the tuned QUIC transport now sustain roughly 3.9 Gbps at 1 native runtime thread and 4.6 Gbps at 2 threads in this environment; the earlier 6-thread collapse disappeared, so the remaining ceiling is treated as a workload/multiplexing limit rather than a broken thread-count setting.
   - [x] Ship Prometheus exporters and Grafana dashboards for benchmark metrics visualization.
   - [x] Provide docs/scripts to bootstrap a local Grafana/Prometheus stack alongside benchmarks.
 - [ ] MCP (Model Context Protocol) server implementation for agentic AI integrations

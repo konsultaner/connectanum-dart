@@ -233,9 +233,12 @@ handshake-oriented `h2_smoke.toml`. To study scaling, use
 `native/bench/scenarios/runtime_thread_scaling.toml` together with
 `--native-runtime-thread-counts`, or `worker_scaling.toml` with
 `--router-worker-counts` when you only want a router-worker sanity check.
+Use `cargo run --release` for throughput work; the debug/profile-default
+orchestrator is fine for harness development, but HTTP/3 numbers in particular
+are noisy enough in debug builds to mislead scaling conclusions.
 
 ```
-cargo run --manifest-path native/bench/Cargo.toml -- \
+cargo run --release --manifest-path native/bench/Cargo.toml -- \
   --router-config native/bench/bench_router.json \
   --scenario native/bench/scenarios/full_stack.toml \
   --control-base https://localhost:8080/bench \
@@ -278,7 +281,7 @@ Use `--router-worker-counts` to rerun the same scenario against multiple router
 worker-pool sizes. The flag accepts comma-separated values and inclusive ranges:
 
 ```sh
-cargo run --manifest-path native/bench/Cargo.toml -- \
+cargo run --release --manifest-path native/bench/Cargo.toml -- \
   --router-config native/bench/bench_router.json \
   --scenario native/bench/scenarios/worker_scaling.toml \
   --router-worker-counts 1-8 \
@@ -300,7 +303,7 @@ Tokio runtime thread counts. This flag accepts comma-separated values, inclusive
 ranges, and `auto`:
 
 ```sh
-cargo run --manifest-path native/bench/Cargo.toml -- \
+cargo run --release --manifest-path native/bench/Cargo.toml -- \
   --router-config native/bench/bench_router.json \
   --scenario native/bench/scenarios/runtime_thread_scaling.toml \
   --router-worker-counts 1 \
@@ -316,18 +319,25 @@ Prometheus textfile artifacts, and the CLI scaling summary all include
 `native_runtime_threads` so HTTP throughput can be graphed against the actual
 transport-side scaling knob.
 
+The router and the Rust HTTP/3 bench client now both apply explicit Quinn
+transport tuning (stream windows, send window, datagram buffers, keep-alive)
+instead of relying on the library defaults tuned for a much lower-bandwidth
+link. In this environment, recent release-built H3-only sweeps held roughly
+`3.9 Gbps` at `1` native runtime thread and `4.6 Gbps` at `2` threads, with the
+older pathological `6`-thread collapse no longer reproducing.
+
 If you already have a JSONL file from CI or an earlier run, regenerate the
 Prometheus/textfile bundle without rerunning the workloads:
 
 ```sh
-cargo run --manifest-path native/bench/Cargo.toml --bin transform_results -- \
+cargo run --release --manifest-path native/bench/Cargo.toml --bin transform_results -- \
   --input native/bench/artifacts/bench_results.jsonl
 ```
 
 To run the WAMP-only scenario:
 
 ```
-cargo run --manifest-path native/bench/Cargo.toml -- \
+cargo run --release --manifest-path native/bench/Cargo.toml -- \
   --router-config native/bench/bench_router.json \
   --scenario native/bench/scenarios/wamp_smoke.toml \
   --control-base https://localhost:8080/bench \
@@ -375,7 +385,7 @@ docker compose down
 Typical workflow:
 
 1. `docker compose up -d`
-2. Run your scenario (`cargo run --manifest-path native/bench/Cargo.toml -- ...`)
+2. Run your scenario (`cargo run --release --manifest-path native/bench/Cargo.toml -- ...`)
 3. Watch Grafana at <http://localhost:3000> while the workloads execute
 4. Inspect `native/bench/artifacts/bench_results.prom` or
    `native/bench/artifacts/bench_results.summary.json` if you want the rendered

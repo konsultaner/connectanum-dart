@@ -17,6 +17,7 @@ Fresh state:
 - Bench JSONL results now rewrite automatically into `native/bench/artifacts/bench_results.prom` + `bench_results.summary.json`; the bundled Prometheus stack ingests them through node-exporter textfile collection and loads dedicated alert rules/dashboard panels for post-run transport regressions.
 - Bench runs can now sweep router worker counts (`--router-worker-counts 1-8`) and native runtime thread counts (`--native-runtime-thread-counts 1-8`), and every JSONL / transformed Prometheus row is labeled with `router_workers` plus `native_runtime_threads` so scaling limits are visible directly in the artifact dashboards.
 - `_RouterBoss` no longer injects a fixed `pollInterval` sleep after busy passes, and the HTTP boss/binding hot paths no longer emit per-request debug prints; focused runtime-thread reruns now show the earlier “extra parallelism regresses HTTP/3” result was largely scheduler/logging noise rather than a deterministic worker-count bug.
+- HTTP/3 now applies explicit Quinn transport tuning on both the router and the Rust bench client (stream windows, send window, datagram buffers, keep-alive) instead of pure library defaults; release-built H3-only sweeps in this environment now hold roughly 3.9 Gbps at 1 native runtime thread and 4.6 Gbps at 2 threads, with the earlier 6-thread collapse gone.
 - Dart 3.10+ build hooks now compile `ct_ffi` automatically during `dart run`/`dart test` via `packages/connectanum_router/hook/build.dart`, and the runtime loader prefers artifacts under `.dart_tool/hooks_runner`.
 - RawSocket/WebSocket outbound send queues are now configurable via `outbound_send_queue_capacity` to cap memory usage under slow readers (still surfaces backpressure via `SendQueueFull`).
 - Router shutdown/drain now closes native listeners up-front (`ct_listener_close`) so no new accepts are queued while workers drain; `/healthz` reports `draining` during shutdown and OpenMetrics exports drain counters.
@@ -56,7 +57,7 @@ Focus for the next session:
    - ✅ HTTP/1.1 ingress now parses with `BytesMut`, keeps buffered bodies as `Bytes` inside `HttpBodyHandle`, preserves prefetched bytes across the handshake/body-reader handoff, and Dart/native regressions cover inline vs streaming request bodies on the real runtime path.
    - ✅ `_RouterBoss` now drains queued HTTP/1.1 keep-alive requests on active sockets, `router_runtime_test.dart` covers the synthetic queue-drain path, `router_integration_native_test.dart` exercises a streamed request + chunked streamed response followed by a second request on the same connection, and `native/bench/scenarios/h1_smoke.toml` runs with `reuse_connections = true` again. Recent H1 smoke runs completed at roughly 381 Mbps (1 native thread) and 442 Mbps (4 native threads) response throughput in this environment instead of hanging after the first request.
    - ✅ HTTP/2 and HTTP/3 body readers now enqueue inbound `Bytes` directly into `StreamingBodyState` instead of cloning each chunk into a temporary `Vec`.
-  - Next: keep widening the native-runtime thread-count sweep now that boss pacing/logging no longer distort it, profile the remaining HTTP/3-specific scaling ceiling beyond 4 threads, then move on to HTTP/2 header-fragment / multi-stream server completion work.
+  - Next: move on to HTTP/2 header-fragment / multi-stream server completion work. If we return to HTTP/3 scaling, the next useful axis is workload-side multiplexing/concurrency rather than more raw runtime threads, and throughput numbers should keep using the release-built orchestrator.
 
 5. **Pattern Routing & Shared Registrations**
    - Implement wildcard/prefix ordering + priority handling and un-skip the advanced-profile placeholder test.
@@ -76,7 +77,7 @@ Focus for the next session:
 
 8. **Benchmark Readiness**
    - ✅ Bench harness pieces are in place: Dart runner, Rust orchestrator, TOML scenarios, transformed Prometheus/summary artifacts, default HTTPS/TLS smoke runs over HTTP/2 + HTTP/3, and sustained-transfer scenarios that reuse hot transport sessions.
-   - Next: add CI gating over the transformed artifacts, and keep extending the runtime-thread sweep scenarios so HTTP benchmarks chart the real transport-side scaling axis alongside router worker isolates without scheduler/logging skew from the Dart boss path.
+   - Next: add CI gating over the transformed artifacts, keep release-built thread sweeps as the default for throughput claims, and extend the scenarios toward higher multiplexing so HTTP/2 and HTTP/3 ceilings reflect transport concurrency instead of only one hot request stream per worker.
 
 9. **Documentation & Examples**
    - Update router/auth docs to capture cancellation semantics, drain behaviour, and zero-copy guarantees.

@@ -83,6 +83,13 @@ type H3ServerRecvStream =
 const HTTP_STREAM_IDLE_FALLBACK: Duration = Duration::from_secs(10);
 const HTTP_STREAM_TOTAL_FALLBACK: Duration = Duration::from_secs(40);
 const HTTP_STREAM_TOTAL_MULTIPLIER: u32 = 4;
+const HTTP3_MAX_BIDI_STREAMS: u32 = 1024;
+const HTTP3_MAX_UNI_STREAMS: u32 = 256;
+const HTTP3_STREAM_RECEIVE_WINDOW: u32 = 8 * 1024 * 1024;
+const HTTP3_CONNECTION_RECEIVE_WINDOW: u32 = 64 * 1024 * 1024;
+const HTTP3_SEND_WINDOW: u64 = 64 * 1024 * 1024;
+const HTTP3_DATAGRAM_BUFFER_BYTES: usize = 8 * 1024 * 1024;
+const HTTP3_KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(5);
 
 fn http_stream_timeouts(config: &config::EndpointRuntimeConfig) -> (Duration, Duration) {
     let idle = config.idle_timeout.unwrap_or(HTTP_STREAM_IDLE_FALLBACK);
@@ -1929,7 +1936,7 @@ fn build_http3_server_config(
         alpn.push(b"h3".to_vec());
     }
     crypto.alpn_protocols = alpn;
-    let server = QuinnServerConfig::with_crypto(Arc::new(
+    let mut server = QuinnServerConfig::with_crypto(Arc::new(
         QuinnRustlsServerConfig::try_from(crypto).map_err(|err| {
             Error::RouterConfigInvalid(format!(
                 "endpoint {}:{} http3 rustls config invalid: {}",
@@ -1937,7 +1944,21 @@ fn build_http3_server_config(
             ))
         })?,
     ));
+    let transport = Arc::get_mut(&mut server.transport).expect("fresh http3 transport config");
+    apply_http3_transport_tuning(transport);
     Ok(server)
+}
+
+fn apply_http3_transport_tuning(transport: &mut quinn::TransportConfig) {
+    transport
+        .max_concurrent_bidi_streams(VarInt::from_u32(HTTP3_MAX_BIDI_STREAMS))
+        .max_concurrent_uni_streams(VarInt::from_u32(HTTP3_MAX_UNI_STREAMS))
+        .stream_receive_window(VarInt::from_u32(HTTP3_STREAM_RECEIVE_WINDOW))
+        .receive_window(VarInt::from_u32(HTTP3_CONNECTION_RECEIVE_WINDOW))
+        .send_window(HTTP3_SEND_WINDOW)
+        .datagram_receive_buffer_size(Some(HTTP3_DATAGRAM_BUFFER_BYTES))
+        .datagram_send_buffer_size(HTTP3_DATAGRAM_BUFFER_BYTES)
+        .keep_alive_interval(Some(HTTP3_KEEP_ALIVE_INTERVAL));
 }
 
 fn load_http3_identity(
@@ -5199,6 +5220,46 @@ mod tests {
             unsafe { std::slice::from_raw_parts(slice.ptr, slice.len) },
             &[2, 3]
         );
+    }
+
+    #[test]
+    fn http3_server_config_applies_transport_tuning() {
+        let tls = generate_tls_material();
+        let endpoint = config::EndpointRuntimeConfig {
+            host: "localhost".to_string(),
+            port: 8443,
+            tls_mode: config::TlsMode::Native,
+            client_auth: None,
+            protocols: vec![TransportProtocol::Http],
+            idle_timeout: None,
+            heartbeat_interval: None,
+            heartbeat_timeout: None,
+            handshake_timeout: config::DEFAULT_HANDSHAKE_TIMEOUT,
+            max_http_content_length: None,
+            max_rawsocket_size_exponent: config::DEFAULT_RAWSOCKET_SIZE_EXPONENT,
+            max_rawsocket_size: 1u64 << config::DEFAULT_RAWSOCKET_SIZE_EXPONENT,
+            max_upgrade_exponent: None,
+            outbound_send_queue_capacity: config::DEFAULT_OUTBOUND_SEND_QUEUE_CAPACITY,
+            websocket_path: None,
+            sni_certificates: vec![config::SniCertificate {
+                hostname: "localhost".to_string(),
+                certificate_chain_pem: tls.server_chain_pem,
+                private_key_pem: tls.server_key_pem,
+            }],
+            http_routes: Vec::new(),
+            http: None,
+        };
+
+        let server = build_http3_server_config(&endpoint).expect("http3 server config");
+        let transport_debug = format!("{:?}", server.transport);
+        assert!(transport_debug.contains("max_concurrent_bidi_streams: 1024"));
+        assert!(transport_debug.contains("max_concurrent_uni_streams: 256"));
+        assert!(transport_debug.contains("stream_receive_window: 8388608"));
+        assert!(transport_debug.contains("receive_window: 67108864"));
+        assert!(transport_debug.contains("send_window: 67108864"));
+        assert!(transport_debug.contains("keep_alive_interval: Some(5s)"));
+        assert!(transport_debug.contains("datagram_receive_buffer_size: Some(8388608)"));
+        assert!(transport_debug.contains("datagram_send_buffer_size: 8388608"));
     }
 
     fn build_tls_connector(
