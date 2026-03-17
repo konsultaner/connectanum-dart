@@ -34,7 +34,7 @@ use http02::{
 use sha1::{Digest, Sha1};
 use thiserror::Error;
 use tokio::{
-    io::{AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
+    io::{AsyncBufReadExt, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
     runtime::Runtime,
     sync::{
         mpsc::{
@@ -436,12 +436,11 @@ pub enum ConnectionProtocol {
 #[derive(Debug, Clone)]
 pub struct HttpBodyHandle {
     payload: Arc<HttpBodyPayload>,
-    len: usize,
 }
 
 #[derive(Debug)]
 enum HttpBodyPayload {
-    Inline(Arc<[u8]>),
+    Inline(Bytes),
     Streaming(StreamingPayload),
 }
 
@@ -459,8 +458,7 @@ pub struct HttpBodySlice {
 impl HttpBodyHandle {
     pub fn empty() -> Self {
         Self {
-            payload: Arc::new(HttpBodyPayload::Inline(Arc::<[u8]>::from(&[][..]))),
-            len: 0,
+            payload: Arc::new(HttpBodyPayload::Inline(Bytes::new())),
         }
     }
 
@@ -468,42 +466,30 @@ impl HttpBodyHandle {
         if bytes.is_empty() {
             return Self::empty();
         }
-        let len = bytes.len();
         Self {
-            payload: Arc::new(HttpBodyPayload::Inline(bytes.into_boxed_slice().into())),
-            len,
+            payload: Arc::new(HttpBodyPayload::Inline(Bytes::from(bytes))),
         }
     }
 
-    pub fn from_arc(bytes: Arc<[u8]>) -> Self {
+    pub fn from_inline(bytes: Bytes) -> Self {
         if bytes.is_empty() {
             return Self::empty();
         }
-        let len = bytes.len();
         Self {
             payload: Arc::new(HttpBodyPayload::Inline(bytes)),
-            len,
         }
     }
 
     pub fn streaming(state: Arc<StreamingBodyState>) -> Self {
         Self {
             payload: Arc::new(HttpBodyPayload::Streaming(StreamingPayload { state })),
-            len: 0,
         }
     }
 
     pub fn len(&self) -> usize {
         match self.payload.as_ref() {
-            HttpBodyPayload::Inline(_) => self.len,
+            HttpBodyPayload::Inline(bytes) => bytes.len(),
             HttpBodyPayload::Streaming(payload) => payload.state.total_len(),
-        }
-    }
-
-    pub fn as_arc(&self) -> Arc<[u8]> {
-        match self.payload.as_ref() {
-            HttpBodyPayload::Inline(bytes) => Arc::clone(bytes),
-            HttpBodyPayload::Streaming(_) => Arc::<[u8]>::from(&[][..]),
         }
     }
 
@@ -511,7 +497,7 @@ impl HttpBodyHandle {
         self.len() == 0
     }
 
-    pub fn inline_bytes(&self) -> Option<&Arc<[u8]>> {
+    pub fn inline_bytes(&self) -> Option<&Bytes> {
         match self.payload.as_ref() {
             HttpBodyPayload::Inline(bytes) => Some(bytes),
             HttpBodyPayload::Streaming(_) => None,
@@ -3637,14 +3623,14 @@ async fn serve_http_connection(
         };
 
         let (body_handle, new_reclaim) = match body_phase {
-            HttpBodyPhase::Buffered(bytes) => (HttpBodyHandle::from_bytes(bytes.to_vec()), None),
+            HttpBodyPhase::Buffered(bytes) => (HttpBodyHandle::from_inline(bytes), None),
             HttpBodyPhase::Finished => (HttpBodyHandle::empty(), None),
             HttpBodyPhase::NeedsStreaming {
                 prefix,
-                remaining_len,
+                mut remaining_len,
             } => {
-                let reader_half = match reader.take() {
-                    Some(buf) => buf.into_inner(),
+                let mut buf = match reader.take() {
+                    Some(buf) => buf,
                     None => {
                         eprintln!(
                             "http/1 streaming requested without active reader for listener {:?}",
@@ -3653,8 +3639,28 @@ async fn serve_http_connection(
                         break;
                     }
                 };
-                let (state, reclaim) =
-                    spawn_http1_streaming_body(prefix, reader_half, remaining_len, read_timeout);
+                let buffered_prefix = if remaining_len == 0 {
+                    None
+                } else {
+                    let buffered = buf.buffer();
+                    let buffered_len = buffered.len().min(remaining_len);
+                    if buffered_len == 0 {
+                        None
+                    } else {
+                        remaining_len = remaining_len.saturating_sub(buffered_len);
+                        let bytes = Bytes::copy_from_slice(&buffered[..buffered_len]);
+                        buf.consume(buffered_len);
+                        Some(bytes)
+                    }
+                };
+                let reader_half = buf.into_inner();
+                let (state, reclaim) = spawn_http1_streaming_body(
+                    prefix,
+                    buffered_prefix,
+                    reader_half,
+                    remaining_len,
+                    read_timeout,
+                );
                 (HttpBodyHandle::streaming(state), Some(reclaim))
             }
         };
@@ -4357,7 +4363,8 @@ async fn run_http2_stream_reader(
 
         match chunk {
             Some(Ok(bytes)) => {
-                bytes_read += bytes.len() as u64;
+                let len = bytes.len();
+                bytes_read += len as u64;
                 if bytes_read > max_body
                     || content_length
                         .map(|limit| bytes_read > limit)
@@ -4367,12 +4374,12 @@ async fn run_http2_stream_reader(
                     return Ok(());
                 }
                 if content_length.is_none() {
-                    state.extend_total_len(bytes.len());
+                    state.extend_total_len(len);
                 }
                 if !state.finish_requested() {
-                    state.enqueue_vec(bytes.to_vec());
+                    state.enqueue_bytes(bytes);
                 }
-                if let Err(err) = stream.flow_control().release_capacity(bytes.len()) {
+                if let Err(err) = stream.flow_control().release_capacity(len) {
                     state.mark_error(format!("http/2 flow control error: {}", err));
                     return Err(err.to_string());
                 }
@@ -4789,7 +4796,7 @@ async fn run_http3_stream_reader(
                         state.extend_total_len(len);
                     }
                     if !state.finish_requested() {
-                        state.enqueue_vec(bytes.to_vec());
+                        state.enqueue_bytes(bytes);
                     }
                 }
             }
@@ -4826,7 +4833,7 @@ fn http_summary_from_handshake(
     let (path, query) = protocol::split_http_target(&handshake.request.target);
     let normalized_path = if path.is_empty() { "/" } else { path };
     let body_handle = match &handshake.body {
-        HttpBodyPhase::Buffered(bytes) => HttpBodyHandle::from_bytes(bytes.to_vec()),
+        HttpBodyPhase::Buffered(bytes) => HttpBodyHandle::from_inline(bytes.clone()),
         HttpBodyPhase::Finished => HttpBodyHandle::empty(),
         HttpBodyPhase::NeedsStreaming { .. } => HttpBodyHandle::empty(),
     };
@@ -5144,6 +5151,20 @@ mod tests {
             Err(Error::SendQueueFull(id)) => assert_eq!(id, connection_id),
             other => panic!("expected SendQueueFull, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn http_body_handle_from_inline_bytes_reuses_backing_storage() {
+        let bytes = Bytes::from(vec![1u8, 2, 3, 4]);
+        let ptr = bytes.as_ptr();
+        let handle = HttpBodyHandle::from_inline(bytes);
+        let slice = handle.slice(1, 2).expect("body slice available");
+        assert_eq!(slice.ptr, unsafe { ptr.add(1) });
+        assert_eq!(slice.len, 2);
+        assert_eq!(
+            unsafe { std::slice::from_raw_parts(slice.ptr, slice.len) },
+            &[2, 3]
+        );
     }
 
     fn build_tls_connector(

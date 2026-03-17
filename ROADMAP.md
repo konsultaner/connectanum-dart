@@ -49,9 +49,12 @@
   - [ ] Stage native HTTP pipeline implementation:
     - [x] Bring up the HTTP/3 QUIC accept loop in `ct_core`: keep connections alive, parse requests via `h3`, match routes, queue `HttpRequestSummary` + response handles, and flush responses back along the same stream.
     - [x] Introduce shared streaming body/response handles in `ct_core` + `ct_ffi` (retain/release/read APIs) so large HTTP payloads stay in native buffers end-to-end.
-    - [ ] Rework HTTP/1.1 ingress to use those handles (no eager Vec copies), implement chunked/keep-alive writers, and surface status-only fast paths for early errors.
+    - [x] Finish HTTP/1.1 early-error/status-only fast paths on top of the shared body-handle pipeline.
+      - [x] Remove eager `Vec` copies from HTTP/1.1 ingress, keep buffered bodies as `Bytes` inside `HttpBodyHandle`, preserve prefetched bytes when handing off from the handshake parser to the streaming reader, and cover inline-vs-streaming bodies in Rust + Dart regressions.
+      - [x] Reject malformed or unsupported HTTP/1.1 requests with native status-only responses (`400`, `413`, `501`) before the Dart bridge is involved, and cover the responses in `listen_flow`.
     - [ ] Bring up the dedicated HTTP/2 server (tokio + `h2`) with multi-stream routing, backpressure, and response writers backed by the shared handle abstraction.
     - [x] Align HTTP/3 request/response code with the new streaming primitives so QUIC uploads/downloads never copy into temporary Vecs, and expose stream IDs for diagnostics.
+    - [x] Reuse inbound `Bytes` chunks directly in the HTTP/2 and HTTP/3 body readers so they feed `StreamingBodyState` without `Bytes -> Vec -> queue` copies.
     - [x] Implement the WebSocket upgrade pipeline (accept handshake, negotiate serializers, forward frames with continuation/mask handling, and boss/worker instrumentation).
     - [ ] Evaluate downgrade-to-RawSocket fallback paths where an HTTP/WebSocket listener can safely hand off to the RawSocket fast path after negotiation.
     - [x] Update `NativeHttpRequestBody`/`HttpInvocationContext`/`HttpResponseUtil` in Dart to default to streaming reads/writes while preserving snapshot/copy fallbacks for legacy handlers.
@@ -67,6 +70,7 @@
     - [x] Router runtime tests verifying `_HttpResponseStream` plumbing for HTTP/2 and HTTP/3 handshakes (synthetic boss harness).
     - [x] Router/Dart integration tests for HTTP/2 + HTTP/3 streaming uploads/downloads (router_integration_native_test.dart now streams HTTPS and QUIC payloads via the native test client + TLS fixtures, running the HTTP/3 client on a dedicated isolate so the boss keeps draining requests).
     - [x] Multi-MB HTTP/2 and HTTP/3 streaming regressions that emit OpenMetrics snapshots for CI artifacts (`router_integration_native_test.dart` multi-MB suites gated by `CONNECTANUM_ARTIFACT_DIR`).
+    - [x] Rust + Dart native runtime regressions assert HTTP/1.1 inline bodies remain directly viewable while oversized bodies stay on streaming handles without eager native buffering.
     - [x] Dedicated Dart WebSocket WAMP integration suite driving publish/call flows (continuation frames, large payloads, subprotocol + serializer negotiation).
     - [ ] Track upstream WAMP conformance suite (wamp-proto/wamp-proto#557) and integrate it into CI to validate RawSocket/WebSocket/HTTP/2/HTTP/3 transports and serializer combinations against the official test matrix.
 - [ ] HTTP bridge (general-purpose request handling)
@@ -83,7 +87,9 @@
   - [x] Provide zero-copy response helpers: in-memory slices, file-backed payloads, and streaming writers with back-pressure.
   - [x] Implement initial HTTP response FFI plumbing (status/headers/bytes) in `ct_core`/`ct_ffi` and patch Dart runtime to call it.
   - [x] Add OpenMetrics HTTP exporter (`metrics.open_metrics.listen`) for Prometheus scraping and cover with tests.
-  - [ ] Add an end-to-end zero-copy HTTP regression test (large request/response) to ensure no stray serialization occurs in Dart.
+  - [x] Route HTTP bridge requests into internal sessions via borrowed native body descriptors instead of serializing request bytes into invocation payload maps.
+  - [x] Forward streamed HTTP bridge response chunks across the internal-session isolate hop with transferable buffers so large progress payloads avoid repeated `Uint8List` copies.
+  - [x] Add end-to-end zero-copy HTTP regressions (large request/response plus descriptor-based internal-session routing) to ensure no stray serialization occurs in Dart.
   - [ ] Introduce adapter pipeline support (static file handler, PHP-FPM/FastCGI bridge, reverse proxy stubs) configurable per route; document adapter contracts and lifecycle.
   - [ ] `Add tests/doc coverage for the new HTTP call contract` (Dart unit tests, router integration test asserting response round-trip, native tests validating file/stream paths).
 - [ ] HTTP authentication & session tokens
@@ -285,6 +291,7 @@
     - [x] HTTP/3/TLS support landed in the orchestration CLI (QUIC prior-knowledge via `quinn`+`h3`, shared-port overrides, h3-only scenarios) so benchmarks can exercise both transports while capturing metrics deltas.
     - [x] `/bench/metrics` now returns both the router snapshot and the OpenMetrics payload, and the orchestrator serializes `open_metrics_before`/`open_metrics_after` fields per workload (`bench_results.jsonl` + docs updated).
     - [x] Bench results are transformed automatically into `bench_results.prom` + `bench_results.summary.json`, the Docker compose stack ingests the `.prom` output through the node-exporter textfile collector, and Prometheus/Grafana ship matching artifact rules + dashboards for per-workload regression surfacing.
+    - [x] Bench workers now reuse HTTP/2 and HTTP/3 sessions by default, prebuild request payload buffers once per worker, and report both response-only and total payload throughput so sustained runs measure transport work instead of repeated handshakes.
   - [x] Ship Prometheus exporters and Grafana dashboards for benchmark metrics visualization.
   - [x] Provide docs/scripts to bootstrap a local Grafana/Prometheus stack alongside benchmarks.
 - [ ] MCP (Model Context Protocol) server implementation for agentic AI integrations

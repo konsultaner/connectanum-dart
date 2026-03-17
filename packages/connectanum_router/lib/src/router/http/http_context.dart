@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:connectanum_core/src/message/invocation.dart' as invocation_msg;
 import 'package:connectanum_core/src/message/yield.dart' as yield_msg;
+import 'package:connectanum_router/src/native/runtime.dart';
 
 /// Keys used for encoding HTTP metadata into WAMP custom maps.
 abstract final class HttpInvocationKeys {
@@ -15,6 +16,10 @@ abstract final class HttpInvocationKeys {
   static const responseBody = 'body';
   static const responseBodyEncoding = 'bodyEncoding';
   static const responseFilePath = 'filePath';
+  static const requestBodyHandle = 'bodyHandle';
+  static const requestBodyLength = 'bodyLength';
+  static const requestBodyStreaming = 'bodyStreaming';
+  static const requestBodyLibraryPath = 'bodyLibraryPath';
 }
 
 /// Snapshot of an HTTP request that is routed through the WAMP invocation
@@ -30,10 +35,14 @@ class HttpRequestSnapshot {
     required Map<String, String> headers,
     this.query,
     Uint8List? body,
+    this.nativeBody,
+    bool copyBody = true,
     this.realm,
     this.procedure,
   }) : headers = Map.unmodifiable(headers),
-       body = body == null ? null : Uint8List.fromList(body);
+       _body = body == null
+           ? null
+           : (copyBody ? Uint8List.fromList(body) : body);
 
   final int id;
   final String method;
@@ -43,12 +52,27 @@ class HttpRequestSnapshot {
   final int version;
   final Map<String, String> headers;
   final String? query;
-  final Uint8List? body;
+  Uint8List? _body;
+  final NativeHttpRequestBody? nativeBody;
   final String? realm;
   final String? procedure;
 
-  Map<String, Object?> toInvocationPayload() {
-    return <String, Object?>{
+  Uint8List? get body {
+    final existing = _body;
+    if (existing != null) {
+      return existing;
+    }
+    final nativeBody = this.nativeBody;
+    if (nativeBody == null) {
+      return null;
+    }
+    final materialized = nativeBody.materializeOwnedBytes();
+    _body = materialized;
+    return materialized;
+  }
+
+  Map<String, Object?> toInvocationPayload({String? nativeLibraryPath}) {
+    final payload = <String, Object?>{
       'id': id,
       'method': method,
       'target': target,
@@ -57,10 +81,36 @@ class HttpRequestSnapshot {
       'protocol': protocol,
       'version': version,
       'headers': headers,
-      if (body != null) 'body': body,
       if (realm != null) 'realm': realm,
       if (procedure != null) 'procedure': procedure,
     };
+    final transferableBody = _transferableNativeBody(nativeLibraryPath);
+    if (transferableBody != null) {
+      payload[HttpInvocationKeys.requestBodyHandle] =
+          transferableBody.nativeHandle;
+      payload[HttpInvocationKeys.requestBodyLength] = transferableBody.length;
+      payload[HttpInvocationKeys.requestBodyStreaming] =
+          transferableBody.isStreaming;
+      payload[HttpInvocationKeys.requestBodyLibraryPath] = nativeLibraryPath;
+    } else {
+      final body = this.body;
+      if (body != null) {
+        payload['body'] = body;
+      }
+    }
+    return payload;
+  }
+
+  NativeHttpRequestBody? _transferableNativeBody(String? nativeLibraryPath) {
+    final candidate = nativeBody;
+    if (_body != null ||
+        candidate == null ||
+        !candidate.hasNativeHandle ||
+        nativeLibraryPath == null ||
+        nativeLibraryPath.isEmpty) {
+      return null;
+    }
+    return candidate;
   }
 
   static HttpRequestSnapshot? fromInvocationPayload(
@@ -93,6 +143,19 @@ class HttpRequestSnapshot {
     } else if (body is List<int>) {
       binaryBody = Uint8List.fromList(body);
     }
+    NativeHttpRequestBody? nativeBody;
+    final bodyHandle = payload[HttpInvocationKeys.requestBodyHandle];
+    final bodyLength = payload[HttpInvocationKeys.requestBodyLength];
+    final bodyStreaming = payload[HttpInvocationKeys.requestBodyStreaming];
+    if (bodyHandle is int && bodyLength is int && bodyStreaming is bool) {
+      nativeBody = NativeHttpRequestBody.borrowed(
+        handle: bodyHandle,
+        length: bodyLength,
+        streaming: bodyStreaming,
+        libraryPath:
+            payload[HttpInvocationKeys.requestBodyLibraryPath] as String?,
+      );
+    }
     return HttpRequestSnapshot(
       id: id,
       method: method,
@@ -103,6 +166,7 @@ class HttpRequestSnapshot {
       version: version,
       headers: headers.cast<String, String>(),
       body: binaryBody,
+      nativeBody: nativeBody,
       realm: payload['realm'] as String?,
       procedure: payload['procedure'] as String?,
     );

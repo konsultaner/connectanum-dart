@@ -88,7 +88,7 @@ class RouterSession {
       'type': 'command',
       'command': command,
       'requestId': requestId,
-      'payload': payload,
+      'payload': _transferIsolateValue(payload),
       'replyPort': _responsePort.sendPort,
     });
     return completer.future;
@@ -143,11 +143,12 @@ class RouterSession {
         subscriptionId,
         publicationId,
         details,
-        arguments: (message['arguments'] as List<dynamic>?)?.toList(
-          growable: false,
-        ),
-        argumentsKeywords: (message['argumentsKeywords'] as Map?)
-            ?.cast<String, Object?>(),
+        arguments: (_materializeTransferredValue(message['arguments']) as List?)
+            ?.cast<dynamic>()
+            .toList(growable: false),
+        argumentsKeywords:
+            (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
+                ?.cast<String, Object?>(),
       );
       binding.forwardMessageToConnection(connectionId, event);
     } else if (type == _internalMsgForwardInvocation) {
@@ -175,11 +176,12 @@ class RouterSession {
         subscriptionId,
         publicationId,
         details,
-        arguments: (message['arguments'] as List<dynamic>?)?.toList(
-          growable: false,
-        ),
-        argumentsKeywords: (message['argumentsKeywords'] as Map?)
-            ?.cast<String, Object?>(),
+        arguments: (_materializeTransferredValue(message['arguments']) as List?)
+            ?.cast<dynamic>()
+            .toList(growable: false),
+        argumentsKeywords:
+            (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
+                ?.cast<String, Object?>(),
       );
       controller.add(event);
     } else if (type == _internalMsgInvocationRequest) {
@@ -198,7 +200,9 @@ class RouterSession {
         return;
       }
       final options =
-          (message['options'] as Map?)?.cast<String, Object?>() ?? const {};
+          (_materializeTransferredValue(message['options']) as Map?)
+              ?.cast<String, Object?>() ??
+          const {};
       final details = invocation_msg.InvocationDetails(
         message['callerSessionId'] as int?,
         message['procedure'] as String?,
@@ -216,27 +220,32 @@ class RouterSession {
         invocationId,
         registrationId,
         details,
-        arguments: (message['arguments'] as List<dynamic>?)?.toList(
-          growable: false,
-        ),
-        argumentsKeywords: (message['argumentsKeywords'] as Map?)
-            ?.cast<String, dynamic>(),
+        arguments: (_materializeTransferredValue(message['arguments']) as List?)
+            ?.cast<dynamic>()
+            .toList(growable: false),
+        argumentsKeywords:
+            (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
+                ?.cast<String, dynamic>(),
       );
       invocation.onResponse((response) {
         if (response is yield_msg.Yield) {
           replyPort.send({
             'type': 'result',
-            'arguments': response.arguments,
-            'argumentsKeywords': response.argumentsKeywords,
+            'arguments': _transferIsolateValue(response.arguments),
+            'argumentsKeywords': _transferIsolateValue(
+              response.argumentsKeywords,
+            ),
             'progress': response.options?.progress ?? false,
           });
         } else if (response is error_msg.Error) {
           replyPort.send({
             'type': 'error',
             'error': response.error,
-            'arguments': response.arguments,
-            'argumentsKeywords': response.argumentsKeywords,
-            'details': response.details,
+            'arguments': _transferIsolateValue(response.arguments),
+            'argumentsKeywords': _transferIsolateValue(
+              response.argumentsKeywords,
+            ),
+            'details': _transferIsolateValue(response.details),
           });
         }
       });
@@ -261,11 +270,12 @@ class RouterSession {
       }
       _emitCallResult(
         requestId,
-        arguments: (message['arguments'] as List<dynamic>?)?.toList(
-          growable: false,
-        ),
-        argumentsKeywords: (message['argumentsKeywords'] as Map?)
-            ?.cast<String, dynamic>(),
+        arguments: (_materializeTransferredValue(message['arguments']) as List?)
+            ?.cast<dynamic>()
+            .toList(growable: false),
+        argumentsKeywords:
+            (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
+                ?.cast<String, dynamic>(),
         progress: message['progress'] == true,
       );
     } else if (type == _internalMsgCallError) {
@@ -276,12 +286,14 @@ class RouterSession {
       _emitCallError(
         requestId,
         errorUri: message['error'] as String? ?? wamp_core.Error.unknown,
-        arguments: (message['arguments'] as List<dynamic>?)?.toList(
-          growable: false,
-        ),
-        argumentsKeywords: (message['argumentsKeywords'] as Map?)
+        arguments: (_materializeTransferredValue(message['arguments']) as List?)
+            ?.cast<dynamic>()
+            .toList(growable: false),
+        argumentsKeywords:
+            (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
+                ?.cast<String, Object?>(),
+        details: (_materializeTransferredValue(message['details']) as Map?)
             ?.cast<String, Object?>(),
-        details: (message['details'] as Map?)?.cast<String, Object?>(),
       );
     } else if (type == _internalMsgCallProgress) {
       final requestId = message['requestId'] as int?;
@@ -290,11 +302,12 @@ class RouterSession {
       }
       _emitCallResult(
         requestId,
-        arguments: (message['arguments'] as List<dynamic>?)?.toList(
-          growable: false,
-        ),
-        argumentsKeywords: (message['argumentsKeywords'] as Map?)
-            ?.cast<String, dynamic>(),
+        arguments: (_materializeTransferredValue(message['arguments']) as List?)
+            ?.cast<dynamic>()
+            .toList(growable: false),
+        argumentsKeywords:
+            (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
+                ?.cast<String, dynamic>(),
         progress: true,
       );
     }
@@ -594,6 +607,67 @@ const String _internalMsgCallResult = 'call_result';
 const String _internalMsgCallError = 'call_error';
 const String _internalMsgCallProgress = 'call_progress';
 const String _internalMsgForwardInterrupt = 'forward_interrupt';
+
+Object? _transferIsolateValue(Object? value) {
+  if (value is Uint8List) {
+    return TransferableTypedData.fromList([value]);
+  }
+  if (value is List) {
+    return value
+        .map<Object?>((element) => _transferIsolateValue(element))
+        .toList(growable: false);
+  }
+  if (value is Map) {
+    final entries = <MapEntry<Object?, Object?>>[];
+    for (final entry in value.entries) {
+      entries.add(
+        MapEntry<Object?, Object?>(
+          entry.key,
+          _transferIsolateValue(entry.value),
+        ),
+      );
+    }
+    final allStringKeys = entries.every((entry) => entry.key is String);
+    if (allStringKeys) {
+      return Map<String, Object?>.fromEntries(
+        entries.map((entry) => MapEntry(entry.key as String, entry.value)),
+      );
+    }
+    return Map<Object?, Object?>.fromEntries(entries);
+  }
+  return value;
+}
+
+Object? _materializeTransferredValue(Object? value) {
+  if (value is TransferableTypedData) {
+    return value.materialize().asUint8List();
+  }
+  if (value is List) {
+    return value
+        .map<Object?>((element) => _materializeTransferredValue(element))
+        .toList(growable: false);
+  }
+  if (value is Map) {
+    final entries = <MapEntry<Object?, Object?>>[];
+    for (final entry in value.entries) {
+      entries.add(
+        MapEntry<Object?, Object?>(
+          entry.key,
+          _materializeTransferredValue(entry.value),
+        ),
+      );
+    }
+    final allStringKeys = entries.every((entry) => entry.key is String);
+    if (allStringKeys) {
+      return Map<String, Object?>.fromEntries(
+        entries.map((entry) => MapEntry(entry.key as String, entry.value)),
+      );
+    }
+    return Map<Object?, Object?>.fromEntries(entries);
+  }
+  return value;
+}
+
 const String _internalMsgForwardInvocation = 'forward_invocation';
 const String _internalMsgSessionClosed = 'session_closed';
 
@@ -657,10 +731,13 @@ class _InternalSessionIsolate {
     if (message is! Map) {
       return;
     }
-    final replyPort = message['replyPort'] as SendPort?;
-    final command = message['command'] as String?;
-    final requestId = message['requestId'] as int?;
-    final payload = (message['payload'] as Map?)?.cast<String, Object?>();
+    final decodedMessage = (_materializeTransferredValue(message) as Map)
+        .cast<Object?, Object?>();
+    final replyPort = decodedMessage['replyPort'] as SendPort?;
+    final command = decodedMessage['command'] as String?;
+    final requestId = decodedMessage['requestId'] as int?;
+    final payload = (decodedMessage['payload'] as Map?)
+        ?.cast<String, Object?>();
     if (replyPort == null ||
         command == null ||
         requestId == null ||
@@ -1060,35 +1137,37 @@ class _InternalSessionIsolate {
     if (message is! Map) {
       return;
     }
-    final type = message['type'];
+    final decodedMessage = (_materializeTransferredValue(message) as Map)
+        .cast<Object?, Object?>();
+    final type = decodedMessage['type'];
     switch (type) {
       case 'event':
         _bootstrap.controlPort.send({
           'type': _internalMsgSubscriptionEvent,
-          'subscriptionId': message['subscriptionId'],
-          'publicationId': message['publicationId'],
-          'topic': message['topic'],
-          'arguments': message['arguments'],
-          'argumentsKeywords': message['argumentsKeywords'],
-          'publisherSessionId': message['publisherSessionId'],
+          'subscriptionId': decodedMessage['subscriptionId'],
+          'publicationId': decodedMessage['publicationId'],
+          'topic': decodedMessage['topic'],
+          'arguments': decodedMessage['arguments'],
+          'argumentsKeywords': decodedMessage['argumentsKeywords'],
+          'publisherSessionId': decodedMessage['publisherSessionId'],
         });
         break;
       case 'invocation':
-        final replyPort = message['replyPort'] as SendPort?;
+        final replyPort = decodedMessage['replyPort'] as SendPort?;
         if (replyPort == null) {
           return;
         }
-        final invocationId = message['invocationId'] as int?;
+        final invocationId = decodedMessage['invocationId'] as int?;
         if (invocationId == null) {
           return;
         }
-        final callerRequestId = message['callerRequestId'] as int?;
+        final callerRequestId = decodedMessage['callerRequestId'] as int?;
         if (callerRequestId == null) {
           return;
         }
         final responsePort = ReceivePort();
         final realmUri =
-            (message['realmUri'] as String?) ?? _bootstrap.realmUri;
+            (decodedMessage['realmUri'] as String?) ?? _bootstrap.realmUri;
         _pendingInvocations[invocationId] = _InternalInvocationContext(
           replyPort: replyPort,
           realmUri: realmUri,
@@ -1098,13 +1177,13 @@ class _InternalSessionIsolate {
         _bootstrap.controlPort.send({
           'type': _internalMsgInvocationRequest,
           'invocationId': invocationId,
-          'registrationId': message['registrationId'],
-          'procedure': message['procedure'],
-          'arguments': message['arguments'],
-          'argumentsKeywords': message['argumentsKeywords'],
-          'options': message['options'],
-          'callerSessionId': message['callerSessionId'],
-          'callerRequestId': message['callerRequestId'],
+          'registrationId': decodedMessage['registrationId'],
+          'procedure': decodedMessage['procedure'],
+          'arguments': decodedMessage['arguments'],
+          'argumentsKeywords': decodedMessage['argumentsKeywords'],
+          'options': decodedMessage['options'],
+          'callerSessionId': decodedMessage['callerSessionId'],
+          'callerRequestId': decodedMessage['callerRequestId'],
           'replyPort': responsePort.sendPort,
         });
         try {
@@ -1135,7 +1214,7 @@ class _InternalSessionIsolate {
         }
         break;
       case 'interrupt':
-        final invocationId = message['invocationId'] as int?;
+        final invocationId = decodedMessage['invocationId'] as int?;
         if (invocationId == null) {
           return;
         }

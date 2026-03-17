@@ -118,7 +118,7 @@ paths to internal RPC handlers:
 | `/bench/healthz`  | GET    | `bench.http.healthz` | Liveness probe that returns `{"status":"ok"}`. |
 | `/bench/metrics`  | GET    | `bench.http.metrics` | Snapshot of `binding.collectMetrics()` so orchestrators can diff counters between runs. |
 | `/bench/stop`     | POST   | `bench.http.stop`    | Acknowledges the request and triggers the shutdown flow (mirrors the STOP stdin command). |
-| `/bench/stream`   | POST   | `bench.http.stream`  | Streams the request payload (or a default token) back to the caller to validate HTTP routing/streaming. |
+| `/bench/stream`   | POST   | `bench.http.stream`  | Drains/generated-responses or echoes the request body through `HttpRequestSnapshot.nativeBody`, so HTTP routing and the internal-session bridge stay on the streamed/descriptor path. |
 
 All handlers continue to be callable over WAMP, which keeps the YAML scenario
 runner and existing integration tests working without changes. The Rust
@@ -131,7 +131,8 @@ HTTP routes are live before real workloads are added.
 Workloads are described in TOML under `native/bench/scenarios/`. Each scenario
 declares a name plus a list of workloads. Every workload describes the
 protocol, HTTP method/path, request/response byte counts, chunk sizes, warm-up
-delays, and concurrency. Example (`h2_smoke.toml`):
+delays, concurrency, and whether transport sessions should be reused across
+iterations (`reuse_connections`, default `true`). Example (`h2_smoke.toml`):
 
 ```toml
 name = "h2_smoke"
@@ -165,12 +166,21 @@ response_chunk_bytes = 65536
 
 The bench HTTP handler honors the `x-bench-response-bytes` and
 `x-bench-response-chunk-bytes` headers so the orchestrator can request arbitrary
-response sizes/chunking regardless of the inbound payload.
+response sizes/chunking regardless of the inbound payload. When those headers
+are present, the handler drains the request body through the native body stream
+first instead of materializing `request.body`, which keeps the benchmark aligned
+with the router’s descriptor-based HTTP bridge.
+
+When `reuse_connections = true`, each worker keeps a hot HTTP/2 or HTTP/3
+session across iterations and reuses the same prebuilt request payload buffer.
+Set it to `false` if you explicitly want a handshake-heavy benchmark.
 
 ### Scenario Catalog
 
 - `h2_smoke.toml` – short warm-up + load + HTTP/3 probe to validate plumbing after a
   build. Use this for quick sanity checks.
+- `throughput_smoke.toml` – sustained-transfer scenario that keeps sessions hot across
+  iterations and is a better fit for rough throughput checks than `h2_smoke`.
 - `full_stack.toml` – extended matrix covering bulk uploads/downloads, latency spikes,
   idle soak phases, and both HTTP/2 and HTTP/3 transfers with higher concurrency.
 - `wamp_smoke.toml` – lightweight PUB/SUB and RPC workloads powered by RawSocket clients
@@ -185,7 +195,9 @@ response sizes/chunking regardless of the inbound payload.
 local self-signed pair for `localhost` under `native/bench/bench_tls.crt` and
 `native/bench/bench_tls.key`. The default `bench_router.json` references those files via the
 `certificate_chain_file`/`private_key_file` knobs, so no extra setup is required unless you want to
-use your own certs.
+use your own certs. The Rust orchestrator now accepts that bundled self-signed cert for its HTTPS
+control plane and TLS-backed HTTP/2 workloads, so the default smoke/full-stack scenarios run
+without extra trust-store setup as long as you target `https://localhost:8080/bench`.
 
 1. Make sure the native runtime is rebuilt so the latest TLS/ALPN changes are in the shared library:
    ```sh
@@ -198,13 +210,15 @@ use your own certs.
 2. Run the orchestrator:
 
 Run whichever scenario you need by pointing `--scenario` at the desired file. For
-example, the full-stack matrix:
+example, the full-stack matrix. For a more representative hot-session throughput
+sample, point it at `native/bench/scenarios/throughput_smoke.toml` instead of the
+handshake-oriented `h2_smoke.toml`.
 
 ```
 cargo run --manifest-path native/bench/Cargo.toml -- \
   --router-config native/bench/bench_router.json \
   --scenario native/bench/scenarios/full_stack.toml \
-  --control-base http://127.0.0.1:8080/bench \
+  --control-base https://localhost:8080/bench \
   --h3-port 8443 \
   --native-lib native/transport/target/release/libct_ffi.so
 ```
@@ -215,13 +229,16 @@ The CLI will:
    config/native library.
 2. Wait for the `READY` banner, poll `/bench/healthz`, and fetch `/bench/metrics`
    (which now returns both the JSON snapshot and the OpenMetrics text).
-3. Execute each workload from the scenario file. HTTP/2 runs use `hyper` with
-   prior knowledge while HTTP/3 workloads establish QUIC connections via
-   `quinn` + `h3` (prior knowledge, ALPN `h3`), allowing the same benchmark to
-   stress both transports.
+3. Execute each workload from the scenario file. With the default
+   `bench_router.json`, HTTP/2 runs negotiate TLS + ALPN `h2` against the
+   bundled self-signed cert, while HTTP/3 workloads establish QUIC connections
+   via `quinn` + `h3` (ALPN `h3`), allowing the same benchmark to stress both
+   transports. If you point `--control-base` at plain `http://...`, the
+   orchestrator falls back to cleartext HTTP/2 prior-knowledge mode.
 4. Capture metrics snapshots (plus the accompanying OpenMetrics payload) before
    and after every workload, append a row to `bench_results.jsonl`, and print a
-   human-readable summary with throughput, latency, and router counter deltas.
+   human-readable summary with latency, response throughput, total payload
+   throughput, connection reuse state, and router counter deltas.
    The orchestrator also rewrites the cumulative JSONL into
    `bench_results.prom` and `bench_results.summary.json` after each workload so
    Prometheus/Grafana always see the latest run without a manual conversion
@@ -248,7 +265,7 @@ To run the WAMP-only scenario:
 cargo run --manifest-path native/bench/Cargo.toml -- \
   --router-config native/bench/bench_router.json \
   --scenario native/bench/scenarios/wamp_smoke.toml \
-  --control-base http://127.0.0.1:8080/bench \
+  --control-base https://localhost:8080/bench \
   --native-lib native/transport/target/release/libct_ffi.so
 ```
 

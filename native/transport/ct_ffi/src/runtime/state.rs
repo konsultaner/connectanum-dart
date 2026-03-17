@@ -148,7 +148,7 @@ impl HttpMetadata {
             })
             .collect();
         let body = match &handshake.body {
-            HttpBodyPhase::Buffered(bytes) => HttpBodyHandle::from_bytes(bytes.to_vec()),
+            HttpBodyPhase::Buffered(bytes) => HttpBodyHandle::from_inline(bytes.clone()),
             HttpBodyPhase::Finished => HttpBodyHandle::empty(),
             HttpBodyPhase::NeedsStreaming { .. } => HttpBodyHandle::empty(),
         };

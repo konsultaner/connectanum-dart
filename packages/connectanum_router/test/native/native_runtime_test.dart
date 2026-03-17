@@ -292,6 +292,114 @@ void main() {
       );
       await Future<void>.delayed(const Duration(milliseconds: 50));
     }, skip: skipReason);
+
+    test('http request bodies surface inline and streaming handles', () async {
+      final runtime = NativeTransportRuntime(libraryPath: libraryPath!);
+      addTearDown(runtime.dispose);
+
+      try {
+        runtime.shutdown();
+      } catch (_) {}
+
+      runtime.start();
+      addTearDown(runtime.shutdown);
+
+      const configJson =
+          '{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["http"],"http":{"alpn":["http/1.1"]},"http_routes":[{"path":"/","match_kind":"prefix","methods":{"POST":{"type":"reserved_realm","append_method_suffix":true}}}]}]}';
+      runtime.applyRouterConfig(Uint8List.fromList(utf8.encode(configJson)));
+
+      final listenerId = runtime.listen('127.0.0.1', 0);
+      expect(listenerId, greaterThan(0));
+      final port = runtime.getLocalPort(listenerId);
+      expect(port, greaterThan(0));
+
+      final inlineSocket = await Socket.connect('127.0.0.1', port);
+      addTearDown(inlineSocket.close);
+      const inlineBodyText = 'inline-body';
+      final inlineBody = Uint8List.fromList(utf8.encode(inlineBodyText));
+      await _sendHttpRequest(
+        inlineSocket,
+        method: 'POST',
+        path: '/inline',
+        host: '127.0.0.1:$port',
+        body: inlineBody,
+      );
+
+      final inlineConnectionId = await _pollConnectionUntil(
+        runtime,
+        listenerId,
+      );
+      expect(
+        runtime.connectionProtocol(inlineConnectionId),
+        NativeConnectionProtocol.http,
+      );
+      final inlineHandshake = await _takeHttpHandshakeUntil(
+        runtime,
+        inlineConnectionId,
+      );
+      addTearDown(inlineHandshake.release);
+      expect(inlineHandshake.method, 'POST');
+      expect(inlineHandshake.path, '/inline');
+      expect(inlineHandshake.body.length, inlineBody.length);
+      expect(inlineHandshake.body.view, inlineBody);
+      expect(await _readBody(inlineHandshake.body, chunkSize: 4), inlineBody);
+
+      runtime.sendHttpResponse(
+        handshakeHandle: inlineHandshake.handle,
+        response: NativeHttpResponse(
+          status: 204,
+          body: NativeHttpResponseBytes(Uint8List(0)),
+        ),
+      );
+      inlineHandshake.release();
+      final inlineResponse = await _readHttpResponse(inlineSocket);
+      expect(inlineResponse, contains('204 No Content'));
+
+      final streamingSocket = await Socket.connect('127.0.0.1', port);
+      addTearDown(streamingSocket.close);
+      final streamingBody = Uint8List.fromList(
+        List<int>.filled(70 * 1024, 'x'.codeUnitAt(0)),
+      );
+      await _sendHttpRequest(
+        streamingSocket,
+        method: 'POST',
+        path: '/stream',
+        host: '127.0.0.1:$port',
+        body: streamingBody,
+      );
+
+      final streamingConnectionId = await _pollConnectionUntil(
+        runtime,
+        listenerId,
+      );
+      expect(
+        runtime.connectionProtocol(streamingConnectionId),
+        NativeConnectionProtocol.http,
+      );
+      final streamingHandshake = await _takeHttpHandshakeUntil(
+        runtime,
+        streamingConnectionId,
+      );
+      addTearDown(streamingHandshake.release);
+      expect(streamingHandshake.method, 'POST');
+      expect(streamingHandshake.path, '/stream');
+      expect(streamingHandshake.body.length, streamingBody.length);
+      expect(
+        await _readBody(streamingHandshake.body, chunkSize: 16 * 1024),
+        streamingBody,
+      );
+
+      runtime.sendHttpResponse(
+        handshakeHandle: streamingHandshake.handle,
+        response: NativeHttpResponse(
+          status: 204,
+          body: NativeHttpResponseBytes(Uint8List(0)),
+        ),
+      );
+      streamingHandshake.release();
+      final streamingResponse = await _readHttpResponse(streamingSocket);
+      expect(streamingResponse, contains('204 No Content'));
+    }, skip: skipReason);
   });
 }
 
@@ -359,6 +467,25 @@ Future<void> _sendWebSocketHandshakeRequest(
   await socket.flush();
 }
 
+Future<void> _sendHttpRequest(
+  Socket socket, {
+  required String method,
+  required String path,
+  required String host,
+  required Uint8List body,
+}) async {
+  final lines = <String>[
+    '$method $path HTTP/1.1',
+    'Host: $host',
+    'Content-Length: ${body.length}',
+    '',
+  ];
+  socket
+    ..add(utf8.encode('${lines.join('\r\n')}\r\n'))
+    ..add(body);
+  await socket.flush();
+}
+
 Future<List<int>> _readFrame(Socket socket) async {
   final header = await _readExact(socket, 4);
   final type = header[0] & 0x07;
@@ -404,6 +531,23 @@ Future<String> _readHttpResponse(Socket socket) async {
     }
   }
   throw StateError('Handshake response incomplete');
+}
+
+Future<NativeHttpHandshake> _takeHttpHandshakeUntil(
+  NativeTransportRuntime runtime,
+  int connectionId,
+) async {
+  final stopwatch = Stopwatch()..start();
+  while (stopwatch.elapsed < const Duration(seconds: 2)) {
+    final handshake = runtime.takeHttpHandshake(connectionId);
+    if (handshake != null) {
+      return handshake;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+  throw StateError(
+    'Timed out waiting for http handshake on connection $connectionId',
+  );
 }
 
 List<int> _encodeFrameHeader(int length) {
@@ -465,6 +609,17 @@ Future<int> _pollWebSocketHandleUntil(
   throw StateError(
     'Timed out waiting for websocket message on connection $connectionId',
   );
+}
+
+Future<Uint8List> _readBody(
+  NativeHttpRequestBody body, {
+  required int chunkSize,
+}) async {
+  final builder = BytesBuilder(copy: false);
+  await for (final chunk in body.openRead(chunkSize: chunkSize)) {
+    builder.add(chunk);
+  }
+  return builder.takeBytes();
 }
 
 Future<void> _sendWebSocketFrame(

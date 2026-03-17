@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
-import 'dart:math' as math;
 
 import 'package:args/args.dart';
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
@@ -11,6 +9,7 @@ import 'package:connectanum_core/src/message/registered.dart' as registered_msg;
 import 'package:connectanum_router/connectanum_router.dart';
 import 'package:logging/logging.dart';
 
+import 'package:connectanum_bench/src/http_stream_handler.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 
 Future<void> main(List<String> args) async {
@@ -416,17 +415,6 @@ class _BenchControlRegistry {
       invocation.respondWith(arguments: ['no_http_context']);
       return;
     }
-    final payload = context.request.body ?? Uint8List(0);
-    final responseBytes = _parseHeaderInt(
-      context.request.headers,
-      'x-bench-response-bytes',
-    );
-    final responseChunkBytes =
-        _parseHeaderInt(
-          context.request.headers,
-          'x-bench-response-chunk-bytes',
-        ) ??
-        math.min(payload.length, 64 * 1024);
     final response = context.streamResponse(
       status: 207,
       headers: const {
@@ -434,20 +422,11 @@ class _BenchControlRegistry {
         'x-bench': 'stream',
       },
     );
-    if (responseBytes != null && responseBytes > 0) {
-      final chunk = _buildPatternChunk(math.max(1, responseChunkBytes));
-      var remaining = responseBytes;
-      while (remaining > 0) {
-        final sliceLength = math.min(remaining, chunk.length);
-        response.add(Uint8List.sublistView(chunk, 0, sliceLength));
-        remaining -= sliceLength;
-      }
-    } else if (payload.isEmpty) {
-      response.add(Uint8List.fromList('bench'.codeUnits));
-    } else {
-      response.add(payload);
-    }
-    response.close();
+    await streamBenchHttpResponse(
+      request: context.request,
+      addChunk: response.add,
+      close: response.close,
+    );
   }
 
   Future<void> _handleWampInvoke(invocation_msg.Invocation invocation) async {
@@ -538,22 +517,4 @@ class _BenchControlRegistry {
       'stackTrace': stackTrace.toString(),
     });
   }
-
-  int? _parseHeaderInt(Map<String, String> headers, String headerName) {
-    final lower = headerName.toLowerCase();
-    for (final entry in headers.entries) {
-      if (entry.key.toLowerCase() == lower) {
-        return int.tryParse(entry.value);
-      }
-    }
-    return null;
-  }
-}
-
-Uint8List _buildPatternChunk(int length) {
-  final bytes = Uint8List(length);
-  for (var i = 0; i < length; i++) {
-    bytes[i] = (i * 31) & 0xFF;
-  }
-  return bytes;
 }

@@ -553,6 +553,76 @@ fn http_handshake_surfaced_via_ffi() {
 }
 
 #[test]
+fn http_handshake_rejects_bad_requests_with_status_only_responses() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","max_http_content_length":8,"protocols":["rawsocket","http"],"http":{"alpn":["http/1.1"]},"http_routes":[{"path":"/health","match_kind":"prefix","methods":{"GET":{"type":"reserved_realm","append_method_suffix":true}}}]}]}"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let rt = TokioRuntime::new().unwrap();
+    let cases = [
+        (
+            "bad-content-length",
+            "POST /health HTTP/1.1\r\nHost: localhost\r\nContent-Length: nope\r\n\r\n",
+            "HTTP/1.1 400 Bad Request",
+        ),
+        (
+            "payload-too-large",
+            "POST /health HTTP/1.1\r\nHost: localhost\r\nContent-Length: 16\r\n\r\n0123456789abcdef",
+            "HTTP/1.1 413 Payload Too Large",
+        ),
+        (
+            "chunked-not-implemented",
+            "POST /health HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n",
+            "HTTP/1.1 501 Not Implemented",
+        ),
+    ];
+
+    for (name, request, expected_status) in cases {
+        let response = rt.block_on(async {
+            let addr = format!("127.0.0.1:{}", port);
+            let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+            stream.write_all(request.as_bytes()).await.unwrap();
+            stream.shutdown().await.unwrap();
+            let mut response = Vec::new();
+            stream.read_to_end(&mut response).await.unwrap();
+            response
+        });
+        let response_text = String::from_utf8_lossy(&response);
+        assert!(
+            response_text.starts_with(expected_status),
+            "{name} unexpected response: {response_text}",
+        );
+        assert!(
+            response_text.contains("Content-Length: 0"),
+            "{name} missing zero-length body: {response_text}",
+        );
+        assert!(
+            response_text.ends_with("\r\n\r\n"),
+            "{name} expected status-only response: {response_text:?}",
+        );
+    }
+
+    std::thread::sleep(Duration::from_millis(50));
+    assert_eq!(ct_poll_connection(listener_id), 0);
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
 fn http_handshake_streaming_body_round_trip() {
     let _guard = super::test_guard();
     let config = CString::new(

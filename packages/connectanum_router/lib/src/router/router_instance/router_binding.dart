@@ -48,7 +48,7 @@ class RouterHttpRequest {
     protocol: protocol,
     version: version,
     headers: headers,
-    body: _body.copy(),
+    nativeBody: _body,
     query: query,
     realm: realm,
     procedure: procedure,
@@ -960,6 +960,12 @@ class RouterBinding {
 
     final httpRequestId = _nextHttpRequestId++;
     final snapshot = request.toSnapshot(httpRequestId);
+    final nativeLibraryPath = runtime is NativeRuntimeWithHandles
+        ? (runtime as NativeRuntimeWithHandles).libraryPathHint
+        : null;
+    final requestPayload = snapshot.toInvocationPayload(
+      nativeLibraryPath: nativeLibraryPath,
+    );
     RouterSession session;
     try {
       session = await _ensureInternalSession(realmUri);
@@ -979,7 +985,7 @@ class RouterBinding {
       return;
     }
 
-    final httpDetails = <String, Object?>{...snapshot.toInvocationPayload()};
+    final httpDetails = <String, Object?>{...requestPayload};
     final connectionDetails = <String, Object?>{
       'listenerId': request.listenerId,
       'connectionId': request.connectionId,
@@ -995,7 +1001,7 @@ class RouterBinding {
       final options = call_msg.CallOptions(
         custom: <String, dynamic>{
           HttpInvocationKeys.requestId: httpRequestId,
-          HttpInvocationKeys.request: snapshot.toInvocationPayload(),
+          HttpInvocationKeys.request: requestPayload,
         },
       );
       final stream = session.call(

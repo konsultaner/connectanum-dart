@@ -23,7 +23,7 @@ const STREAMING_CHUNK_SIZE: usize = 64 * 1024;
 pub struct StreamingBodyState {
     chunks: Mutex<VecDeque<StreamingChunk>>,
     ready: Condvar,
-    last_chunk: Mutex<Option<Arc<[u8]>>>,
+    last_chunk: Mutex<Option<Bytes>>,
     finished: AtomicBool,
     finish_requested: AtomicBool,
     total_len: AtomicUsize,
@@ -32,12 +32,12 @@ pub struct StreamingBodyState {
 
 #[derive(Debug)]
 struct StreamingChunk {
-    data: Arc<[u8]>,
+    data: Bytes,
     offset: usize,
 }
 
 impl StreamingChunk {
-    fn new(data: Arc<[u8]>) -> Self {
+    fn new(data: Bytes) -> Self {
         Self { data, offset: 0 }
     }
 
@@ -87,21 +87,17 @@ impl StreamingBodyState {
     }
 
     pub fn enqueue_prefix(&self, prefix: Bytes) {
-        if prefix.is_empty() {
-            return;
-        }
-        let arc = Arc::<[u8]>::from(prefix.to_vec());
-        self.enqueue_arc(arc);
+        self.enqueue_bytes(prefix);
     }
 
     pub fn enqueue_vec(&self, bytes: Vec<u8>) {
+        self.enqueue_bytes(Bytes::from(bytes));
+    }
+
+    pub fn enqueue_bytes(&self, bytes: Bytes) {
         if bytes.is_empty() {
             return;
         }
-        self.enqueue_arc(Arc::<[u8]>::from(bytes.into_boxed_slice()));
-    }
-
-    fn enqueue_arc(&self, bytes: Arc<[u8]>) {
         {
             let mut chunks = self.chunks.lock().unwrap();
             chunks.push_back(StreamingChunk::new(bytes));
@@ -145,9 +141,9 @@ impl StreamingBodyState {
                     drop(guard);
                     *self.last_chunk.lock().unwrap() = Some(finished_chunk.data);
                 } else {
-                    let arc = chunk.data.clone();
+                    let bytes = chunk.data.clone();
                     drop(guard);
-                    *self.last_chunk.lock().unwrap() = Some(arc);
+                    *self.last_chunk.lock().unwrap() = Some(bytes);
                 }
                 return Ok(Some(HttpBodySlice {
                     ptr,
@@ -169,13 +165,18 @@ impl StreamingBodyState {
 
 pub fn spawn_http1_streaming_body(
     prefix: Bytes,
+    buffered_prefix: Option<Bytes>,
     reader: IoReadHalf,
     remaining: usize,
     read_timeout: Duration,
 ) -> (Arc<StreamingBodyState>, Http1BodyReclaim) {
-    let total_len = prefix.len() + remaining;
+    let total_len =
+        prefix.len() + buffered_prefix.as_ref().map(Bytes::len).unwrap_or(0) + remaining;
     let state = StreamingBodyState::new(total_len);
     state.enqueue_prefix(prefix);
+    if let Some(buffered_prefix) = buffered_prefix {
+        state.enqueue_prefix(buffered_prefix);
+    }
     let (tx, rx) = oneshot::channel();
     tokio::spawn(run_http1_stream_reader(
         state.clone(),
@@ -194,10 +195,11 @@ async fn run_http1_stream_reader(
     read_timeout: Duration,
     reclaim: oneshot::Sender<IoReadHalf>,
 ) {
-    let mut buffer = vec![0u8; STREAMING_CHUNK_SIZE];
     while remaining > 0 {
-        let request = remaining.min(buffer.len());
-        match time::timeout(read_timeout, reader.read(&mut buffer[..request])).await {
+        let request = remaining.min(STREAMING_CHUNK_SIZE);
+        let mut chunk = bytes::BytesMut::with_capacity(request);
+        chunk.resize(request, 0);
+        match time::timeout(read_timeout, reader.read(&mut chunk[..])).await {
             Ok(Ok(0)) => {
                 eprintln!("http/1 body reader: connection closed before body drained");
                 state.mark_error("connection closed before body drained".into());
@@ -206,7 +208,8 @@ async fn run_http1_stream_reader(
             Ok(Ok(read)) => {
                 remaining = remaining.saturating_sub(read);
                 if !state.finish_requested() {
-                    state.enqueue_vec(buffer[..read].to_vec());
+                    chunk.truncate(read);
+                    state.enqueue_bytes(chunk.freeze());
                 }
             }
             Ok(Err(err)) => {
@@ -267,6 +270,20 @@ mod tests {
         assert!(state.take_slice(3).unwrap().is_none());
     }
 
+    #[test]
+    fn streaming_body_state_reuses_prefix_bytes_without_copy() {
+        let prefix = Bytes::from(vec![7u8, 8, 9]);
+        let ptr = prefix.as_ptr();
+        let state = StreamingBodyState::new(prefix.len());
+        state.enqueue_prefix(prefix);
+        let slice = state.take_slice(8).unwrap().unwrap();
+        assert_eq!(slice.ptr, ptr);
+        assert_eq!(
+            unsafe { std::slice::from_raw_parts(slice.ptr, slice.len) },
+            &[7, 8, 9]
+        );
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn http1_stream_reader_reclaims_after_completion() {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -280,8 +297,13 @@ mod tests {
         let (socket, _) = listener.accept().await.unwrap();
         let (read_half, _write_half) = tokio::io::split(IoStream::plain(socket));
         let prefix = Bytes::from_static(b"12345");
-        let (state, reclaim) =
-            spawn_http1_streaming_body(prefix.clone(), read_half, 4, Duration::from_millis(200));
+        let (state, reclaim) = spawn_http1_streaming_body(
+            prefix.clone(),
+            None,
+            read_half,
+            4,
+            Duration::from_millis(200),
+        );
 
         let reader_state = state.clone();
         let reader = tokio::task::spawn_blocking(move || {
@@ -318,7 +340,7 @@ mod tests {
         let (read_half, _write_half) = tokio::io::split(IoStream::plain(socket));
         let prefix = Bytes::from_static(b"");
         let (state, reclaim) =
-            spawn_http1_streaming_body(prefix, read_half, 8, Duration::from_millis(100));
+            spawn_http1_streaming_body(prefix, None, read_half, 8, Duration::from_millis(100));
 
         let reader_state = state.clone();
         let reader = tokio::task::spawn_blocking(move || match reader_state.take_slice(4) {

@@ -77,6 +77,35 @@ void main() {
       body.finish();
       expect(finishCalls, 1);
     });
+
+    test(
+      'materializeOwnedBytes streams once and returns isolate-safe storage',
+      () {
+        final queue = <Uint8List>[
+          Uint8List.fromList([1, 2]),
+          Uint8List.fromList([3, 4]),
+        ];
+        var reads = 0;
+        var finishCalls = 0;
+        final body = NativeHttpRequestBody.testStreaming(
+          length: 4,
+          onRead: (_) {
+            reads++;
+            return queue.isNotEmpty ? queue.removeAt(0) : Uint8List(0);
+          },
+          onFinish: () => finishCalls++,
+        );
+
+        final owned = body.materializeOwnedBytes();
+        expect(owned, equals(Uint8List.fromList([1, 2, 3, 4])));
+        expect(reads, 2);
+        expect(finishCalls, 1);
+
+        final copied = body.copy();
+        expect(copied, equals(owned));
+        expect(identical(copied, owned), isFalse);
+      },
+    );
   });
 
   test('RouterHttpRequest reuses native body handle until snapshot copy', () {
@@ -114,6 +143,7 @@ void main() {
     expect(identical(request.body, nativeBody.view), isTrue);
 
     final snapshot = request.toSnapshot(7);
+    expect(identical(snapshot.nativeBody, nativeBody), isTrue);
     final snapshotBody = snapshot.body;
     expect(snapshotBody, isNotNull);
     expect(snapshotBody, equals(request.body));
@@ -123,6 +153,39 @@ void main() {
       reason: 'snapshot must own its bytes',
     );
   });
+
+  test(
+    'HttpRequestSnapshot payload falls back to copied bytes when no native descriptor is available',
+    () {
+      final snapshot = HttpRequestSnapshot(
+        id: 7,
+        method: 'POST',
+        target: '/metrics',
+        path: '/metrics',
+        protocol: 'http/1.1',
+        version: 1,
+        headers: const {'content-type': 'application/octet-stream'},
+        nativeBody: NativeHttpRequestBody.synthetic(
+          Uint8List.fromList([1, 2, 3, 4]),
+        ),
+      );
+
+      final payload = snapshot.toInvocationPayload();
+      expect(payload['body'], equals(Uint8List.fromList([1, 2, 3, 4])));
+      expect(
+        payload.containsKey(HttpInvocationKeys.requestBodyHandle),
+        isFalse,
+      );
+      expect(
+        payload.containsKey(HttpInvocationKeys.requestBodyLength),
+        isFalse,
+      );
+      expect(
+        payload.containsKey(HttpInvocationKeys.requestBodyStreaming),
+        isFalse,
+      );
+    },
+  );
 
   test('NativeHttpHandshake.synthetic keeps provided body handle', () {
     final bodyHandle = NativeHttpRequestBody.synthetic(Uint8List.fromList([5]));

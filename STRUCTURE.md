@@ -40,7 +40,7 @@ graph LR
   Listeners can be closed independently via `close_listener` (exposed as `ct_listener_close`) so deployments can stop accepting new connections while existing sessions drain.
 
 - **Streaming primitives (`http_stream.rs`, `http_body.rs`)**  
-  Provide zero-copy handles for inbound bodies and outbound responses. HTTP/2 and HTTP/3 readers use the shared `StreamingBodyState`, while response writers use bounded Tokio channels sized by `RESPONSE_STREAM_BUFFER`.
+  Provide zero-copy handles for inbound bodies and outbound responses. HTTP/1.1 ingress now parses headers/bodies with `BytesMut`, keeps buffered bodies as `Bytes` inside `HttpBodyHandle`, and preserves prefetched bytes when switching from handshake parsing to the streaming reader. HTTP/2 and HTTP/3 readers use the shared `StreamingBodyState` and now enqueue received `Bytes` chunks directly instead of cloning into temporary `Vec`s, while response writers use bounded Tokio channels sized by `RESPONSE_STREAM_BUFFER`.
 
 - **FFI surface (`ct_ffi/src/runtime`)**  
   Stores every handshake/body/stream in lock-free maps and exposes them as integer handles (`ct_connection_take_http_handshake`, `ct_http_body_stream_read`, etc.). Lifecycle telemetry (`ct_connection_poll_http_event`) and aggregate counters (`ct_router_metrics_snapshot`) flow through the same layer. WebSocket upgrades now expose the negotiated subprotocol via `ct_connection_websocket_protocol` so Dart can forward it to workers/metrics. Test-only helpers (feature `ffi-test`) let us seed HTTP/3 handshakes/events directly from Rust integration tests.
@@ -54,6 +54,9 @@ graph LR
   Zero-copy publish forwarding stays behind `CONNECTANUM_FORWARD_NATIVE_PUBLISH` (compile-time define or runtime env var); boss telemetry sends are wrapped so tracing failures can’t block forwarding/handle release in the worker.
   GOAWAY/backpressure alerts can throttle listener accepts based on configurable thresholds (`metrics.backpressure` / `metrics.transport_alerts`); detailed GOAWAY reasons are surfaced in both native and Dart runtime tests. The boss also keeps the latest per-listener alert snapshot (last reason/category, remaining throttle cooldown) so metrics consumers can inspect current alert state instead of only cumulative counters.
 
+- **HTTP bridge isolate hop (`packages/connectanum_router/lib/src/router/http/http_context.dart`, `router_internal_session.dart`)**  
+  Internal-session HTTP invocations now carry borrowed native body descriptors (handle + length + streaming flag + library path) instead of copied request bytes, so handlers can either materialize on demand or stream directly from the native body handle inside the receiving isolate. Streamed HTTP response chunks use `TransferableTypedData` across the isolate hop, which removes the old `Uint8List` copy on every progress chunk before the boss forwards the bytes to the native response stream.
+
 ## HTTP Workflow (current)
 
 ```mermaid
@@ -65,8 +68,8 @@ flowchart TD
     E --> F["ct_ffi store_http_request_metadata"]
     F --> G["NativeTransportRuntime.takeHttpHandshake"]
     G --> H["_RouterBoss listener_http_request event"]
-    H --> I["Worker isolates invoke handler"]
-    I -->|NativeHttpResponse / stream| J["ct_http_response_send / stream APIs"]
+    H --> I["Internal session invocation\n(native body descriptor in custom map)"]
+    I -->|Transferable response chunks /\nNativeHttpResponse stream| J["ct_http_response_send / stream APIs"]
     J --> D
     D --> K["Finish connection\nstats recorded"]
     K --> L["HttpConnectionEvent + RouterMetrics -> Dart"]
@@ -85,9 +88,9 @@ flowchart TD
 | Lifecycle telemetry & metrics | Connection events, GOAWAY/backpressure counters, boss-side metrics stream. | ✅ Current doc covers completed work; roadmap still calls for richer telemetry consumers. |
 | WebSocket transport completion | Frame reader/writer bridging into RawSocket/WAMP, subprotocol negotiation. | ✅ Current transport path is in place: native reader/writer enforces core RFC 6455 control-frame rules, flushes close echoes before teardown, uses pooled owner-backed buffers for inbound frames, keeps single-frame WAMP payloads slice-based through FFI/Dart, reassembles continuations in pooled storage, and writes outbound segmented frames without coalescing; Rust + Dart regressions cover ping/pong, heartbeat ping, close echo, unmasked-frame rejection, continuation frames, large payloads, pool reuse, and WebSocket handle slice pointers. |
 | HTTP streaming regression | listen_flow + router integration harness covering HTTP/1.1/HTTP/2/HTTP/3 zero-copy streaming. | 🧭 Native listen_flow exercises HTTP/3 handshakes/streams under QUIC ALPN with WebPKI clients; `router_integration_native_test.dart` drives HTTPS + HTTP/2 over native TLS plus HTTP/3 streaming via the QUIC test helper on a dedicated isolate; multi-MB HTTP/2/HTTP/3 regressions dump OpenMetrics/JSON snapshots when `CONNECTANUM_ARTIFACT_DIR` is set. |
-| HTTP routing bridge | Translation tables, reserved realms/namespaces, STR auth bridge. | 🔄 Planned |
+| HTTP routing bridge | Translation tables, reserved realms/namespaces, STR auth bridge. | 🧭 Request-body descriptors + transferable response chunks are live; route tables/auth bridge remain. |
 | Serializer interop | JSON ↔ MessagePack ↔ CBOR bridging without copies. | 🔄 Planned |
-| Benchmarks & docs | Harness, auth docs, example gallery. | 🧭 Dart HTTP bench runner + Rust orchestrator scaffold checked in; scenario driver + load generators still pending. |
+| Benchmarks & docs | Harness, auth docs, example gallery. | 🧭 Dart HTTP bench runner + Rust orchestrator are in place; the bench path now ships transformed Prometheus artifacts plus sustained-transfer scenarios that reuse hot HTTP/2/HTTP/3 sessions, with broader scenario coverage still pending. |
 
 Refer back to `ROADMAP.md` for the authoritative, living checklist—the entries above simply highlight where each initiative maps onto this structural diagram.
 
@@ -95,11 +98,12 @@ Feel free to update this document as new components (e.g., WebTransport, benchma
 
 ### Benchmark Harness Components
 
-- `packages/connectanum_bench/tool/bench_main.dart` – boots the router using the configuration from `bench_router.json`, spins up the native runtime, and now registers `/bench/*` HTTP control handlers (health check, stop, metrics snapshot + OpenMetrics payload, streaming echo) alongside their WAMP equivalents so both HTTP callers and embedded sessions can reuse the same code path.
+- `packages/connectanum_bench/tool/bench_main.dart` – boots the router using the configuration from `bench_router.json`, spins up the native runtime, and now registers `/bench/*` HTTP control handlers (health check, stop, metrics snapshot + OpenMetrics payload, streaming echo) alongside their WAMP equivalents so both HTTP callers and embedded sessions can reuse the same code path. The `/bench/stream` path now drains or echoes request bodies through `HttpRequestSnapshot.nativeBody` first, so throughput runs exercise the descriptor-based internal-session bridge instead of forcing an eager `request.body` copy.
 - `bench_router.json` – default listener/realm configuration used by the bench runner. It binds `127.0.0.1:8080`, enables RawSocket + HTTP/2, and maps HTTP routes to the internal procedures described above.
-- `native/bench/src/bin/http_stream.rs` – Rust CLI orchestrator that spawns the Dart runner, validates `/bench/*` control endpoints, parses TOML scenarios, drives HTTP/2 workloads via `hyper` prior-knowledge streams **and HTTP/3 workloads via `quinn` + `h3`** (QUIC prior knowledge), captures `binding.collectMetrics()` snapshots (plus the OpenMetrics text) before/after each workload, enforces per-workload timeouts (`--workload-timeout-ms`) so hung regressions fail fast, emits JSONL summaries (`bench_results.jsonl`, including `open_metrics_before`/`open_metrics_after`), and continuously rewrites those results into a Prometheus textfile bundle for dashboards/alerts.
+- `native/bench/src/bin/http_stream.rs` – Rust CLI orchestrator that spawns the Dart runner, validates `/bench/*` control endpoints over the default HTTPS control plane (`https://localhost:8080/bench`, accepting the bundled self-signed cert), parses TOML scenarios, drives HTTP/2 workloads over TLS/ALPN **and HTTP/3 workloads via `quinn` + `h3`** (QUIC prior knowledge), keeps per-worker transport sessions hot by default, reuses prebuilt request payload buffers, captures `binding.collectMetrics()` snapshots (plus the OpenMetrics text) before/after each workload, enforces per-workload timeouts (`--workload-timeout-ms`) so hung regressions fail fast, emits JSONL summaries (`bench_results.jsonl`, including `open_metrics_before`/`open_metrics_after`), and continuously rewrites those results into a Prometheus textfile bundle for dashboards/alerts.
 - `native/bench/src/bin/transform_results.rs` – Offline converter for `bench_results.jsonl`; emits `bench_results.prom` + `bench_results.summary.json` so CI artifacts or historical runs can be loaded into the same Prometheus/Grafana workflow without rerunning the scenario.
 - `native/bench/scenarios/h2_smoke.toml` – reference scenario file defining warm-up/load workloads (iterations, concurrency, payload sizes, chunking) used during harness bring-up.
+- `native/bench/scenarios/throughput_smoke.toml` – sustained-transfer scenario meant to approximate hot-session throughput rather than handshake-heavy smoke checks.
 - `native/bench/connectanum_router_alerts.yml` – Prometheus alert rules for active throttles, backpressure spikes, GOAWAY bursts, and transport errors.
 - `native/bench/connectanum_bench_artifact_alerts.yml` – Prometheus alert rules over transformed benchmark artifacts (`bench_results.prom`) so completed runs can trip alerts when throttles, transport alerts, or timeout/protocol/internal error counters rise.
 - `native/bench/artifacts/` – textfile-collector output directory; the orchestrator writes `bench_results.prom` + `bench_results.summary.json` here and the bundled `node-exporter` service exposes the `.prom` file to Prometheus.

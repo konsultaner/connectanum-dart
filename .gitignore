@@ -12,3 +12,5 @@ Cargo.lock
 *.g.dart
 /native/bench/target/
 bench_results.jsonl
+/native/bench/artifacts/bench_results.prom
+/native/bench/artifacts/bench_results.summary.json

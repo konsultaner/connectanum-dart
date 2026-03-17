@@ -937,12 +937,33 @@ void main() {
       final registration = await httpSession.register(
         'com.example.http.stream',
       );
-      registration.onInvoke((invocation) {
+      registration.onInvoke((invocation) async {
         final context = HttpInvocationContext.maybeFromInvocation(invocation);
         expect(context, isNotNull, reason: 'Invocation missing HTTP context');
-        final body = context!.request.body;
-        expect(body, isNotNull);
-        expect(body!.length, equals(requestPayload.length));
+        final requestPayloadMap =
+            (invocation.details.custom[HttpInvocationKeys.request] as Map)
+                .cast<String, Object?>();
+        expect(requestPayloadMap.containsKey('body'), isFalse);
+        expect(
+          requestPayloadMap[HttpInvocationKeys.requestBodyHandle],
+          isA<int>(),
+        );
+        expect(
+          requestPayloadMap[HttpInvocationKeys.requestBodyLength],
+          equals(requestPayload.length),
+        );
+        expect(
+          requestPayloadMap[HttpInvocationKeys.requestBodyStreaming],
+          isA<bool>(),
+        );
+        final nativeBody = context!.request.nativeBody;
+        expect(nativeBody, isNotNull);
+        final streamedBody = BytesBuilder(copy: false);
+        await for (final chunk in nativeBody!.openRead(chunkSize: 16 * 1024)) {
+          streamedBody.add(chunk);
+        }
+        final body = streamedBody.takeBytes();
+        expect(body.length, equals(requestPayload.length));
         expect(body, orderedEquals(requestPayload));
 
         final stream = context.streamResponse(

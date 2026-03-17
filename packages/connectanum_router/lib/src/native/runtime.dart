@@ -606,6 +606,7 @@ class NativeHttpRequestBody {
     CtFfiBindings? bindings,
     int? handle,
     required int length,
+    bool ownsHandle = true,
     bool streaming = false,
     Uint8List Function(int length)? streamReadOverride,
     void Function()? streamFinishOverride,
@@ -613,6 +614,7 @@ class NativeHttpRequestBody {
        _bindings = bindings,
        _handle = handle,
        _length = length,
+       _ownsHandle = ownsHandle,
        _streaming = streaming,
        _streamReadOverride = streamReadOverride,
        _streamFinishOverride = streamFinishOverride;
@@ -637,6 +639,33 @@ class NativeHttpRequestBody {
     streaming: streaming,
   );
 
+  /// Reconstructs a borrowed HTTP body wrapper from a plain descriptor sent
+  /// across isolates. The underlying native handle remains owned by the source
+  /// isolate and is released there when the request completes.
+  factory NativeHttpRequestBody.borrowed({
+    required int handle,
+    required int length,
+    required bool streaming,
+    String? libraryPath,
+  }) {
+    if (handle <= 0) {
+      throw ArgumentError.value(handle, 'handle', 'must be positive');
+    }
+    final resolvedPath = NativeLibraryLoader.resolvePath(libraryPath);
+    final borrowedLibrary = _borrowedLibraries.putIfAbsent(resolvedPath, () {
+      final library = ffi.DynamicLibrary.open(resolvedPath);
+      return _BorrowedNativeLibrary(library, CtFfiBindings(library));
+    });
+    return NativeHttpRequestBody._internal(
+      Uint8List(0),
+      bindings: borrowedLibrary.bindings,
+      handle: handle,
+      length: length,
+      ownsHandle: false,
+      streaming: streaming,
+    );
+  }
+
   @visibleForTesting
   factory NativeHttpRequestBody.testStreaming({
     required int length,
@@ -654,15 +683,22 @@ class NativeHttpRequestBody {
   final CtFfiBindings? _bindings;
   final int? _handle;
   final int _length;
+  final bool _ownsHandle;
   bool _released = false;
   final bool _streaming;
   final Uint8List Function(int length)? _streamReadOverride;
   final void Function()? _streamFinishOverride;
   bool _streamFinished = false;
+  static final Map<String, _BorrowedNativeLibrary> _borrowedLibraries =
+      <String, _BorrowedNativeLibrary>{};
 
   static const int _defaultChunkSize = 64 * 1024;
 
   int get length => _length;
+  int? get nativeHandle => _handle;
+  bool get isStreaming => _streaming;
+  bool get hasNativeHandle =>
+      _handle != null && _bindings != null && !_released;
 
   /// View backed by the native buffer (callers must not mutate).
   Uint8List get view {
@@ -672,8 +708,47 @@ class NativeHttpRequestBody {
     return _view;
   }
 
+  /// Materializes an isolate-safe Dart-owned buffer without routing through
+  /// the borrowed [view] path when the native handle is still active.
+  Uint8List materializeOwnedBytes() {
+    if (_length == 0) {
+      if (_streaming) {
+        _finishStreaming(ignoreErrors: false);
+      }
+      return Uint8List(0);
+    }
+    if (_streaming) {
+      if (_view.isEmpty &&
+          ((_handle != null && !_released) || _streamReadOverride != null)) {
+        _view = _readAll();
+      }
+      return _view.isEmpty ? Uint8List(0) : Uint8List.fromList(_view);
+    }
+    if (_view.isNotEmpty) {
+      return Uint8List.fromList(_view);
+    }
+    final bindings = _bindings;
+    final handle = _handle;
+    if (bindings == null || handle == null || _released) {
+      return Uint8List(0);
+    }
+    final buffer = Uint8List(_length);
+    var offset = 0;
+    while (offset < _length) {
+      final remaining = _length - offset;
+      final toRead = math.min(remaining, _defaultChunkSize);
+      final chunk = _readSlice(offset, toRead);
+      if (chunk.isEmpty) {
+        break;
+      }
+      buffer.setRange(offset, offset + chunk.length, chunk);
+      offset += chunk.length;
+    }
+    return offset == _length ? buffer : buffer.sublist(0, offset);
+  }
+
   /// Copies the body into Dart-managed memory (safe to send across isolates).
-  Uint8List copy() => Uint8List.fromList(view);
+  Uint8List copy() => Uint8List.fromList(materializeOwnedBytes());
 
   /// Signals that no more streaming data is required and the native reader can reclaim the socket.
   void finish() {
@@ -738,14 +813,16 @@ class NativeHttpRequestBody {
         _view = _view.isNotEmpty ? Uint8List.fromList(_view) : Uint8List(0);
       } else if (_view.isNotEmpty) {
         _view = Uint8List.fromList(_view);
-      } else if (_length > 0) {
+      } else if (_ownsHandle && _length > 0) {
         _view = _readAll();
-      } else {
+      } else if (_ownsHandle) {
         _view = Uint8List(0);
       }
-      final result = bindings.ctHttpBodyRelease(handle);
-      if (result != NativeTransportErrorCode.success) {
-        // Swallow release failures to avoid crashing during shutdown.
+      if (_ownsHandle) {
+        final result = bindings.ctHttpBodyRelease(handle);
+        if (result != NativeTransportErrorCode.success) {
+          // Swallow release failures to avoid crashing during shutdown.
+        }
       }
     }
     _released = true;
@@ -867,6 +944,14 @@ class NativeHttpRequestBody {
     }
     _streamFinished = true;
   }
+}
+
+class _BorrowedNativeLibrary {
+  const _BorrowedNativeLibrary(this.library, this.bindings);
+
+  // ignore: unused_field
+  final ffi.DynamicLibrary library;
+  final CtFfiBindings bindings;
 }
 
 class _HttpHandshakeFields {

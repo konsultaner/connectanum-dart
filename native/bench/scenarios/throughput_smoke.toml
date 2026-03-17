@@ -1,0 +1,28 @@
+name = "throughput_smoke"
+description = "Sustained-transfer benchmark that keeps HTTP/2 and HTTP/3 sessions hot across iterations."
+
+[[workloads]]
+name = "h2_sustained_transfer"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 16
+concurrency = 4
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+warmup_ms = 500
+
+[[workloads]]
+name = "h3_sustained_transfer"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 12
+concurrency = 3
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+warmup_ms = 500

@@ -33,12 +33,15 @@ use serde_json::{json, Value};
 use tokio::net::lookup_host;
 use tokio::runtime::Runtime;
 use tokio::task::JoinSet;
+use tokio_rustls::TlsConnector;
 use url::Url;
 
 use connectanum_bench_orchestrator::artifacts::write_artifact_bundle;
 use connectanum_bench_orchestrator::report::{
     router_counter_delta, WorkloadReport, WorkloadSample,
 };
+
+type H3RequestSender = h3::client::SendRequest<h3_quinn::OpenStreams, Bytes>;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about = "Connectanum bench orchestrator")]
@@ -63,7 +66,7 @@ struct Args {
     native_lib: String,
 
     /// Base URL for the /bench/* HTTP control endpoints.
-    #[arg(long, default_value = "http://127.0.0.1:8080/bench")]
+    #[arg(long, default_value = "https://localhost:8080/bench")]
     control_base: String,
 
     /// Optional HTTP/3 port override (defaults to control port).
@@ -357,14 +360,16 @@ impl HttpEndpoint {
     fn from_control_base(base: &str, http3_port: Option<u16>) -> Result<Self> {
         let url = Url::parse(base).context("invalid control_base URL")?;
         let scheme = url.scheme().to_string();
-        if scheme != "http" {
-            bail!("Only http:// endpoints are supported for now (got {scheme})");
+        if scheme != "http" && scheme != "https" {
+            bail!("Only http:// and https:// endpoints are supported (got {scheme})");
         }
         let host = url
             .host_str()
             .ok_or_else(|| anyhow!("control_base missing host"))?
             .to_string();
-        let port = url.port().unwrap_or(80);
+        let port = url
+            .port_or_known_default()
+            .ok_or_else(|| anyhow!("control_base missing port for scheme {scheme}"))?;
         Ok(Self {
             scheme,
             host,
@@ -409,6 +414,8 @@ struct WorkloadConfig {
     response_chunk_bytes: Option<u64>,
     #[serde(default)]
     warmup_ms: Option<u64>,
+    #[serde(default = "default_reuse_connections")]
+    reuse_connections: bool,
 }
 
 fn default_protocol() -> String {
@@ -441,6 +448,10 @@ fn default_response_bytes() -> u64 {
 
 fn default_chunk_bytes() -> u64 {
     64 * 1024
+}
+
+fn default_reuse_connections() -> bool {
+    true
 }
 
 fn load_scenario(path: &str) -> Result<ScenarioFile> {
@@ -515,6 +526,7 @@ struct PreparedWorkload {
     response_bytes: u64,
     request_chunk_bytes: u64,
     response_chunk_bytes: u64,
+    reuse_connections: bool,
 }
 
 impl PreparedWorkload {
@@ -556,6 +568,7 @@ impl PreparedWorkload {
             response_chunk_bytes: config
                 .response_chunk_bytes
                 .unwrap_or(config.request_chunk_bytes),
+            reuse_connections: config.reuse_connections,
         })
     }
 
@@ -598,14 +611,20 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
     let total_latency: f64 = report.samples.iter().map(|s| s.latency_ms).sum();
     let total_requests: u64 = report.samples.iter().map(|s| s.request_bytes).sum();
     let total_responses: u64 = report.samples.iter().map(|s| s.response_bytes).sum();
+    let total_payload = total_requests + total_responses;
     let avg_latency = if total_samples > 0 {
         total_latency / total_samples as f64
     } else {
         0.0
     };
     let elapsed_ms = (report.completed_at_ms - report.started_at_ms) as f64;
-    let throughput_mbps = if elapsed_ms > 0.0 {
+    let response_throughput_mbps = if elapsed_ms > 0.0 {
         (total_responses as f64 * 8.0 / 1_000_000.0) / (elapsed_ms / 1000.0)
+    } else {
+        0.0
+    };
+    let payload_throughput_mbps = if elapsed_ms > 0.0 {
+        (total_payload as f64 * 8.0 / 1_000_000.0) / (elapsed_ms / 1000.0)
     } else {
         0.0
     };
@@ -630,7 +649,10 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
         format_bytes(total_requests),
         format_bytes(total_responses)
     );
-    println!("  Approx throughput: {:.2} Mbps", throughput_mbps);
+    println!(
+        "  Response throughput: {:.2} Mbps | Total payload throughput: {:.2} Mbps",
+        response_throughput_mbps, payload_throughput_mbps
+    );
     if let Some(delta) = router_counter_delta(
         &report.metrics_before,
         &report.metrics_after,
@@ -651,6 +673,14 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
         format_bytes(workload.request_chunk_bytes),
         format_bytes(workload.response_bytes),
         format_bytes(workload.response_chunk_bytes)
+    );
+    println!(
+        "  Connection reuse: {}",
+        if workload.reuse_connections {
+            "enabled"
+        } else {
+            "disabled"
+        }
     );
 }
 
@@ -740,8 +770,61 @@ async fn run_h2_worker(
     worker_id: u32,
 ) -> Result<Vec<WorkloadSample>> {
     let mut samples = Vec::with_capacity(workload.iterations as usize);
+    let request_body = build_payload(
+        workload.request_bytes,
+        workload.request_chunk_bytes as usize,
+    );
+    if workload.reuse_connections {
+        let mut sender = connect_h2_sender(&endpoint).await?;
+        for iteration in 0..workload.iterations {
+            let sample = match send_h2_request(
+                &mut sender,
+                &endpoint,
+                &workload,
+                request_body.clone(),
+                worker_id,
+                iteration,
+            )
+            .await
+            {
+                Ok(sample) => sample,
+                Err(first_error) => {
+                    sender = connect_h2_sender(&endpoint).await.with_context(|| {
+                        format!(
+                            "failed to reconnect HTTP/2 worker {} after {}",
+                            worker_id, first_error
+                        )
+                    })?;
+                    send_h2_request(
+                        &mut sender,
+                        &endpoint,
+                        &workload,
+                        request_body.clone(),
+                        worker_id,
+                        iteration,
+                    )
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "HTTP/2 worker {} request {} failed after reconnect",
+                            worker_id, iteration
+                        )
+                    })?
+                }
+            };
+            samples.push(sample);
+        }
+        return Ok(samples);
+    }
     for iteration in 0..workload.iterations {
-        let sample = run_h2_iteration(&endpoint, &workload, worker_id, iteration).await?;
+        let sample = run_h2_iteration(
+            &endpoint,
+            &workload,
+            request_body.clone(),
+            worker_id,
+            iteration,
+        )
+        .await?;
         samples.push(sample);
     }
     Ok(samples)
@@ -769,8 +852,58 @@ async fn run_h3_worker(
     worker_id: u32,
 ) -> Result<Vec<WorkloadSample>> {
     let mut samples = Vec::with_capacity(workload.iterations as usize);
+    let request_chunk =
+        build_pattern_chunk(std::cmp::max(1, workload.request_chunk_bytes as usize));
+    if workload.reuse_connections {
+        let (mut quinn_endpoint, mut send_request) = connect_h3_sender(&endpoint).await?;
+        for iteration in 0..workload.iterations {
+            let sample = match send_h3_request(
+                &mut send_request,
+                &endpoint,
+                &workload,
+                &request_chunk,
+                worker_id,
+                iteration,
+            )
+            .await
+            {
+                Ok(sample) => sample,
+                Err(first_error) => {
+                    quinn_endpoint.close(0u32.into(), b"reconnect");
+                    let (new_endpoint, new_send_request) =
+                        connect_h3_sender(&endpoint).await.with_context(|| {
+                            format!(
+                                "failed to reconnect HTTP/3 worker {} after {}",
+                                worker_id, first_error
+                            )
+                        })?;
+                    quinn_endpoint = new_endpoint;
+                    send_request = new_send_request;
+                    send_h3_request(
+                        &mut send_request,
+                        &endpoint,
+                        &workload,
+                        &request_chunk,
+                        worker_id,
+                        iteration,
+                    )
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "HTTP/3 worker {} request {} failed after reconnect",
+                            worker_id, iteration
+                        )
+                    })?
+                }
+            };
+            samples.push(sample);
+        }
+        quinn_endpoint.close(0u32.into(), b"done");
+        return Ok(samples);
+    }
     for iteration in 0..workload.iterations {
-        let sample = run_h3_iteration(&endpoint, &workload, worker_id, iteration).await?;
+        let sample =
+            run_h3_iteration(&endpoint, &workload, &request_chunk, worker_id, iteration).await?;
         samples.push(sample);
     }
     Ok(samples)
@@ -806,12 +939,9 @@ async fn collect_worker_samples(
     Ok(samples)
 }
 
-async fn run_h2_iteration(
+async fn connect_h2_sender(
     endpoint: &HttpEndpoint,
-    workload: &PreparedWorkload,
-    worker_id: u32,
-    iteration: u32,
-) -> Result<WorkloadSample> {
+) -> Result<hyper::client::conn::SendRequest<Body>> {
     let addr = format!("{}:{}", endpoint.host, endpoint.port);
     let stream = tokio::net::TcpStream::connect(&addr)
         .await
@@ -819,16 +949,43 @@ async fn run_h2_iteration(
     stream.set_nodelay(true)?;
     let mut builder = HyperConnBuilder::new();
     builder.http2_only(true);
-    let (mut sender, connection) = builder
-        .handshake::<_, Body>(stream)
-        .await
-        .context("HTTP/2 handshake failed")?;
-    tokio::spawn(async move {
-        if let Err(err) = connection.await {
-            eprintln!("hyper connection error: {err:?}");
-        }
-    });
+    if endpoint.scheme == "https" {
+        let connector = TlsConnector::from(insecure_rustls_client_config(&[b"h2"]));
+        let server_name = ServerName::try_from(endpoint.host.clone())
+            .map_err(|_| anyhow!("invalid TLS server name {}", endpoint.host))?;
+        let tls_stream = connector
+            .connect(server_name, stream)
+            .await
+            .context("TLS handshake failed")?;
+        let (sender, connection) = builder
+            .handshake::<_, Body>(tls_stream)
+            .await
+            .context("HTTP/2 handshake failed")?;
+        tokio::spawn(async move {
+            if let Err(err) = connection.await {
+                eprintln!("hyper connection error: {err:?}");
+            }
+        });
+        Ok(sender)
+    } else {
+        let (sender, connection) = builder
+            .handshake::<_, Body>(stream)
+            .await
+            .context("HTTP/2 handshake failed")?;
+        tokio::spawn(async move {
+            if let Err(err) = connection.await {
+                eprintln!("hyper connection error: {err:?}");
+            }
+        });
+        Ok(sender)
+    }
+}
 
+fn build_h2_request(
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+    request_body: Bytes,
+) -> Result<Request<Body>> {
     let uri = format!(
         "{}://{}:{}{}",
         endpoint.scheme, endpoint.host, endpoint.port, workload.path
@@ -854,14 +1011,20 @@ async fn run_h2_iteration(
         USER_AGENT,
         HyperHeaderValue::from_static("connectanum-bench/0.1"),
     );
-    let request_body = Body::from(build_payload(
-        workload.request_bytes,
-        workload.request_chunk_bytes as usize,
-    ));
-    let request = request_builder
-        .body(request_body)
-        .expect("failed to build HTTP/2 request");
+    request_builder
+        .body(Body::from(request_body))
+        .context("failed to build HTTP/2 request")
+}
 
+async fn send_h2_request(
+    sender: &mut hyper::client::conn::SendRequest<Body>,
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+    request_body: Bytes,
+    worker_id: u32,
+    iteration: u32,
+) -> Result<WorkloadSample> {
+    let request = build_h2_request(endpoint, workload, request_body)?;
     let start = Instant::now();
     let response = sender
         .send_request(request)
@@ -885,31 +1048,66 @@ async fn run_h2_iteration(
     })
 }
 
-async fn run_h3_iteration(
+async fn run_h2_iteration(
     endpoint: &HttpEndpoint,
     workload: &PreparedWorkload,
+    request_body: Bytes,
     worker_id: u32,
     iteration: u32,
 ) -> Result<WorkloadSample> {
+    let mut sender = connect_h2_sender(endpoint).await?;
+    send_h2_request(
+        &mut sender,
+        endpoint,
+        workload,
+        request_body,
+        worker_id,
+        iteration,
+    )
+    .await
+}
+
+async fn connect_h3_sender(endpoint: &HttpEndpoint) -> Result<(QuinnEndpoint, H3RequestSender)> {
     let bind_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
     let mut quinn_endpoint =
         QuinnEndpoint::client(bind_addr).context("failed to bind quic endpoint")?;
     let client_config = quinn_client_config();
     quinn_endpoint.set_default_client_config(client_config);
     let server_port = endpoint.http3_port();
-    let mut resolved = lookup_host((&endpoint.host[..], server_port))
+    let mut resolved: Vec<_> = lookup_host((&endpoint.host[..], server_port))
         .await
-        .with_context(|| format!("failed to resolve {}", endpoint.host))?;
-    let server_addr = resolved
-        .next()
-        .ok_or_else(|| anyhow!("no addresses for {}", endpoint.host))?;
-    let connection = quinn_endpoint
-        .connect(server_addr, &endpoint.host)
-        .context("failed to start QUIC connect")?
-        .await
-        .context("QUIC connect failed")?;
+        .with_context(|| format!("failed to resolve {}", endpoint.host))?
+        .collect();
+    sort_socket_addrs_prefer_ipv4(&mut resolved);
+    let mut connection = None;
+    let mut last_error = None;
+    for server_addr in resolved {
+        let connecting = match quinn_endpoint.connect(server_addr, &endpoint.host) {
+            Ok(connecting) => connecting,
+            Err(err) => {
+                last_error = Some(anyhow!(
+                    "failed to start QUIC connect for {}: {}",
+                    server_addr,
+                    err
+                ));
+                continue;
+            }
+        };
+        match connecting.await {
+            Ok(established) => {
+                connection = Some(established);
+                break;
+            }
+            Err(err) => {
+                last_error = Some(anyhow!("QUIC connect failed for {}: {}", server_addr, err));
+            }
+        }
+    }
+    let connection = connection.ok_or_else(|| {
+        last_error.unwrap_or_else(|| anyhow!("no addresses for {}", endpoint.host))
+    })?;
     let h3_conn = H3QuinnConnection::new(connection);
-    let (driver, mut send_request) = h3::client::builder()
+    let (driver, send_request) = h3::client::builder()
         .max_field_section_size(64 * 1024)
         .build(h3_conn)
         .await
@@ -918,7 +1116,18 @@ async fn run_h3_iteration(
         let mut conn = driver;
         let _ = conn.wait_idle().await;
     });
+    Ok((quinn_endpoint, send_request))
+}
 
+async fn send_h3_request(
+    send_request: &mut H3RequestSender,
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+    request_chunk: &Bytes,
+    worker_id: u32,
+    iteration: u32,
+) -> Result<WorkloadSample> {
+    let server_port = endpoint.http3_port();
     let uri = format!("https://{}:{}{}", endpoint.host, server_port, workload.path);
     let h3_method = http3::Method::from_bytes(workload.method.as_str().as_bytes())
         .map_err(|_| anyhow!("invalid HTTP/3 method {}", workload.method))?;
@@ -965,12 +1174,11 @@ async fn run_h3_iteration(
             .await
             .context("failed to finish request")?;
     } else {
-        let chunk = build_pattern_chunk(std::cmp::max(1, workload.request_chunk_bytes as usize));
         let mut remaining = workload.request_bytes;
         while remaining > 0 {
-            let chunk_len = std::cmp::min(remaining, chunk.len() as u64) as usize;
+            let chunk_len = std::cmp::min(remaining, request_chunk.len() as u64) as usize;
             req_stream
-                .send_data(Bytes::copy_from_slice(&chunk[..chunk_len]))
+                .send_data(request_chunk.slice(..chunk_len))
                 .await
                 .context("failed to send HTTP/3 request chunk")?;
             remaining -= chunk_len as u64;
@@ -994,7 +1202,6 @@ async fn run_h3_iteration(
     {
         received += chunk.remaining() as u64;
     }
-    quinn_endpoint.close(0u32.into(), b"done");
 
     let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
     Ok(WorkloadSample {
@@ -1006,32 +1213,64 @@ async fn run_h3_iteration(
     })
 }
 
-fn build_payload(total_bytes: u64, chunk_len: usize) -> Vec<u8> {
+async fn run_h3_iteration(
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+    request_chunk: &Bytes,
+    worker_id: u32,
+    iteration: u32,
+) -> Result<WorkloadSample> {
+    let (quinn_endpoint, mut send_request) = connect_h3_sender(endpoint).await?;
+    let sample = send_h3_request(
+        &mut send_request,
+        endpoint,
+        workload,
+        request_chunk,
+        worker_id,
+        iteration,
+    )
+    .await;
+    quinn_endpoint.close(0u32.into(), b"done");
+    sample
+}
+
+fn build_payload(total_bytes: u64, chunk_len: usize) -> Bytes {
     if total_bytes == 0 {
-        return Vec::new();
+        return Bytes::new();
     }
     let mut buffer = vec![0u8; total_bytes as usize];
     let chunk = build_pattern_chunk(std::cmp::max(1, chunk_len));
     for (idx, byte) in buffer.iter_mut().enumerate() {
         *byte = chunk[idx % chunk.len()];
     }
-    buffer
+    Bytes::from(buffer)
 }
 
-fn build_pattern_chunk(len: usize) -> Vec<u8> {
+fn build_pattern_chunk(len: usize) -> Bytes {
     let mut bytes = vec![0u8; len];
     for (i, byte) in bytes.iter_mut().enumerate() {
         *byte = ((i * 31) & 0xFF) as u8;
     }
-    bytes
+    Bytes::from(bytes)
+}
+
+fn sort_socket_addrs_prefer_ipv4(addrs: &mut Vec<SocketAddr>) {
+    addrs.sort_by_key(|addr| if addr.is_ipv4() { 0u8 } else { 1u8 });
 }
 
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use hyper::service::service_fn;
+    use hyper::{server::conn::Http as HyperServerHttp, Response};
     use serde_json::json;
+    use tokio::net::TcpListener;
 
     use super::*;
 
@@ -1120,6 +1359,147 @@ mod tests {
         fs::remove_dir_all(&temp_dir).unwrap();
     }
 
+    #[test]
+    fn http_endpoint_accepts_https_control_base() {
+        let endpoint =
+            HttpEndpoint::from_control_base("https://localhost:8080/bench", Some(8443)).unwrap();
+        assert_eq!(endpoint.scheme, "https");
+        assert_eq!(endpoint.host, "localhost");
+        assert_eq!(endpoint.port, 8080);
+        assert_eq!(endpoint.http3_port(), 8443);
+    }
+
+    #[test]
+    fn prepared_workload_defaults_to_connection_reuse() {
+        let config = WorkloadConfig {
+            name: "load".to_string(),
+            protocol: default_protocol(),
+            method: default_method(),
+            path: default_path(),
+            iterations: default_iterations(),
+            concurrency: default_concurrency(),
+            request_bytes: default_request_bytes(),
+            response_bytes: default_response_bytes(),
+            request_chunk_bytes: default_chunk_bytes(),
+            response_chunk_bytes: None,
+            warmup_ms: None,
+            reuse_connections: default_reuse_connections(),
+        };
+        let prepared = PreparedWorkload::from_config(&config).unwrap();
+        assert!(prepared.reuse_connections);
+    }
+
+    async fn spawn_h2_test_server() -> (
+        HttpEndpoint,
+        Arc<AtomicUsize>,
+        Arc<AtomicUsize>,
+        tokio::task::JoinHandle<()>,
+    ) {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let accept_count = Arc::new(AtomicUsize::new(0));
+        let request_count = Arc::new(AtomicUsize::new(0));
+        let accept_count_for_task = Arc::clone(&accept_count);
+        let request_count_for_task = Arc::clone(&request_count);
+        let server = tokio::spawn(async move {
+            loop {
+                let (stream, _) = match listener.accept().await {
+                    Ok(value) => value,
+                    Err(_) => break,
+                };
+                accept_count_for_task.fetch_add(1, Ordering::SeqCst);
+                let request_count_for_conn = Arc::clone(&request_count_for_task);
+                tokio::spawn(async move {
+                    let service = service_fn(move |request: Request<Body>| {
+                        let request_count_for_req = Arc::clone(&request_count_for_conn);
+                        async move {
+                            let mut body = request.into_body();
+                            while let Some(chunk) = body.data().await {
+                                chunk?;
+                            }
+                            request_count_for_req.fetch_add(1, Ordering::SeqCst);
+                            Ok::<_, hyper::Error>(Response::new(Body::from("ok")))
+                        }
+                    });
+                    let _ = HyperServerHttp::new()
+                        .http2_only(true)
+                        .serve_connection(stream, service)
+                        .await;
+                });
+            }
+        });
+        (
+            HttpEndpoint {
+                scheme: "http".to_string(),
+                host: Ipv4Addr::LOCALHOST.to_string(),
+                port: addr.port(),
+                http3_port: None,
+            },
+            accept_count,
+            request_count,
+            server,
+        )
+    }
+
+    fn sample_h2_workload(reuse_connections: bool) -> PreparedWorkload {
+        PreparedWorkload {
+            name: "h2_test".to_string(),
+            protocol: "h2".to_string(),
+            method: HyperMethod::POST,
+            path: "/bench/stream".to_string(),
+            iterations: 3,
+            concurrency: 1,
+            request_bytes: 0,
+            response_bytes: 0,
+            request_chunk_bytes: 1024,
+            response_chunk_bytes: 1024,
+            reuse_connections,
+        }
+    }
+
+    #[tokio::test]
+    async fn h2_worker_reuses_single_connection_when_enabled() {
+        let (endpoint, accept_count, request_count, server) = spawn_h2_test_server().await;
+        let samples = run_h2_worker(endpoint, sample_h2_workload(true), 0)
+            .await
+            .unwrap();
+        assert_eq!(samples.len(), 3);
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert_eq!(accept_count.load(Ordering::SeqCst), 1);
+        assert_eq!(request_count.load(Ordering::SeqCst), 3);
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn h2_worker_reconnects_per_iteration_when_disabled() {
+        let (endpoint, accept_count, request_count, server) = spawn_h2_test_server().await;
+        let samples = run_h2_worker(endpoint, sample_h2_workload(false), 0)
+            .await
+            .unwrap();
+        assert_eq!(samples.len(), 3);
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert_eq!(accept_count.load(Ordering::SeqCst), 3);
+        assert_eq!(request_count.load(Ordering::SeqCst), 3);
+        server.abort();
+    }
+
+    #[test]
+    fn bench_http_client_builds_https_client() {
+        let client = BenchHttpClient::new("https://localhost:8080/bench").unwrap();
+        client.build_client().unwrap();
+    }
+
+    #[test]
+    fn sort_socket_addrs_places_ipv4_first() {
+        let mut addrs = vec![
+            SocketAddr::new(IpAddr::V6(std::net::Ipv6Addr::LOCALHOST), 8443),
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 8443),
+        ];
+        sort_socket_addrs_prefer_ipv4(&mut addrs);
+        assert!(addrs[0].is_ipv4());
+        assert!(addrs[1].is_ipv6());
+    }
+
     fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -1130,12 +1510,7 @@ mod tests {
 }
 
 fn quinn_client_config() -> QuinnClientConfig {
-    let verifier = AcceptAnyCertVerifier::new();
-    let mut client_crypto = rustls::ClientConfig::builder()
-        .dangerous()
-        .with_custom_certificate_verifier(verifier)
-        .with_no_client_auth();
-    client_crypto.alpn_protocols = vec![b"h3".to_vec()];
+    let client_crypto = insecure_rustls_client_config(&[b"h3"]);
     let quic_client = QuicClientConfig::try_from(client_crypto).expect("invalid rustls config");
     let mut quinn_config = QuinnClientConfig::new(Arc::new(quic_client));
     let mut transport = TransportConfig::default();
@@ -1223,7 +1598,7 @@ impl BenchHttpClient {
             .base
             .join("stop")
             .map_err(|err| anyhow!("invalid control_base stop URL: {err}"))?;
-        Self::build_client()?
+        self.build_client()?
             .post(url)
             .header(hyper::http::header::CONNECTION, "close")
             .json(&serde_json::json!({"source":"orchestrator"}))
@@ -1238,7 +1613,8 @@ impl BenchHttpClient {
             .base
             .join(path)
             .map_err(|err| anyhow!("invalid control_base path {path}: {err}"))?;
-        let response = Self::build_client()?
+        let response = self
+            .build_client()?
             .get(url)
             .header(hyper::http::header::CONNECTION, "close")
             .send()
@@ -1252,7 +1628,8 @@ impl BenchHttpClient {
             .base
             .join(path)
             .map_err(|err| anyhow!("invalid control_base path {path}: {err}"))?;
-        let response = Self::build_client()?
+        let response = self
+            .build_client()?
             .post(url)
             .header(hyper::http::header::CONNECTION, "close")
             .json(body)
@@ -1262,12 +1639,28 @@ impl BenchHttpClient {
         Ok(response.json().context("failed to decode JSON response")?)
     }
 
-    fn build_client() -> Result<BlockingHttpClient> {
-        BlockingHttpClient::builder()
-            .timeout(Duration::from_secs(30))
-            .pool_max_idle_per_host(0)
-            .pool_idle_timeout(Duration::from_secs(0))
-            .build()
-            .context("failed to build HTTP client")
+    fn build_client(&self) -> Result<BlockingHttpClient> {
+        build_control_http_client(self.base.scheme())
     }
+}
+
+fn build_control_http_client(scheme: &str) -> Result<BlockingHttpClient> {
+    let mut builder = BlockingHttpClient::builder()
+        .timeout(Duration::from_secs(30))
+        .pool_max_idle_per_host(0)
+        .pool_idle_timeout(Duration::from_secs(0));
+    if scheme.eq_ignore_ascii_case("https") {
+        builder = builder.danger_accept_invalid_certs(true);
+    }
+    builder.build().context("failed to build HTTP client")
+}
+
+fn insecure_rustls_client_config(alpn_protocols: &[&[u8]]) -> Arc<rustls::ClientConfig> {
+    let verifier = AcceptAnyCertVerifier::new();
+    let mut client_crypto = rustls::ClientConfig::builder()
+        .dangerous()
+        .with_custom_certificate_verifier(verifier)
+        .with_no_client_auth();
+    client_crypto.alpn_protocols = alpn_protocols.iter().map(|value| value.to_vec()).collect();
+    Arc::new(client_crypto)
 }
