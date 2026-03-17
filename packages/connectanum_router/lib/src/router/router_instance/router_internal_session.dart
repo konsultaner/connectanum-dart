@@ -310,6 +310,36 @@ class RouterSession {
                 ?.cast<String, dynamic>(),
         progress: true,
       );
+    } else if (type == HttpInvocationControlMessages.openResponseStream) {
+      final requestId = message['requestId'] as int?;
+      final status = message['status'] as int?;
+      final headers = (message['headers'] as Map?)?.cast<String, String>();
+      final replyPort = message['replyPort'] as SendPort?;
+      if (requestId == null ||
+          status == null ||
+          headers == null ||
+          replyPort == null) {
+        return;
+      }
+      final pending = binding._pendingHttpCalls[requestId];
+      if (pending == null) {
+        replyPort.send(const {'error': 'pending_http_request_not_found'});
+        return;
+      }
+      final descriptor = binding._openDirectResponseStream(
+        pending,
+        status: status,
+        headers: headers,
+      );
+      if (descriptor == null) {
+        replyPort.send(const {'error': 'unsupported'});
+        return;
+      }
+      replyPort.send({
+        'handle': descriptor.handle,
+        if (descriptor.libraryPath != null)
+          'libraryPath': descriptor.libraryPath,
+      });
     }
   }
 

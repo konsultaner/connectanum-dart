@@ -1,6 +1,9 @@
 // ignore_for_file: implementation_imports
 
+import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/src/message/invocation.dart' as invocation_msg;
@@ -12,6 +15,7 @@ abstract final class HttpInvocationKeys {
   static const requestId = '_http_request_id';
   static const request = '_http';
   static const response = '_http_response';
+  static const responseStreamControlPort = '_http_response_stream_control_port';
   static const responseBodyKind = 'bodyKind';
   static const responseBody = 'body';
   static const responseBodyEncoding = 'bodyEncoding';
@@ -20,6 +24,10 @@ abstract final class HttpInvocationKeys {
   static const requestBodyLength = 'bodyLength';
   static const requestBodyStreaming = 'bodyStreaming';
   static const requestBodyLibraryPath = 'bodyLibraryPath';
+}
+
+abstract final class HttpInvocationControlMessages {
+  static const openResponseStream = '_http_response_stream_open';
 }
 
 /// Snapshot of an HTTP request that is routed through the WAMP invocation
@@ -542,6 +550,10 @@ class HttpInvocationContext {
       requestId: requestId,
       status: status,
       headers: headers ?? const {},
+      responseStreamControlPort:
+          invocation.details.custom[HttpInvocationKeys
+                  .responseStreamControlPort]
+              as SendPort?,
     );
   }
 }
@@ -552,12 +564,45 @@ class HttpResponseStream {
     required this.requestId,
     required this.status,
     required Map<String, String> headers,
-  }) : headers = Map.unmodifiable(headers);
+    SendPort? responseStreamControlPort,
+  }) : headers = Map.unmodifiable(headers),
+       _directStream = responseStreamControlPort == null
+           ? null
+           : _DirectHttpResponseStreamController(
+               requestId: requestId,
+               status: status,
+               headers: Map.unmodifiable(headers),
+               controlPort: responseStreamControlPort,
+               onFallbackProgress: (chunk) {
+                 final payload = HttpResponsePayload._(
+                   requestId: requestId,
+                   status: status,
+                   headers: headers,
+                   bodyKind: HttpResponseBodyKind.bytes,
+                   bodyBytes: chunk,
+                   progress: true,
+                 );
+                 HttpResponseUtil.respond(invocation, payload, progress: true);
+               },
+               onFallbackClose: (finalChunk) {
+                 final payload = HttpResponsePayload._(
+                   requestId: requestId,
+                   status: status,
+                   headers: headers,
+                   bodyKind: HttpResponseBodyKind.bytes,
+                   bodyBytes: finalChunk,
+                   progress: false,
+                 );
+                 HttpResponseUtil.respond(invocation, payload);
+               },
+               onDirectComplete: () => invocation.respondWith(),
+             );
 
   final invocation_msg.Invocation invocation;
   final int requestId;
   final int status;
   final Map<String, String> headers;
+  final _DirectHttpResponseStreamController? _directStream;
   bool _closed = false;
 
   bool get isClosed => _closed;
@@ -570,6 +615,10 @@ class HttpResponseStream {
       return;
     }
     final bytes = chunk is Uint8List ? chunk : Uint8List.fromList(chunk);
+    final directStream = _directStream;
+    if (directStream != null && directStream.add(bytes)) {
+      return;
+    }
     final payload = HttpResponsePayload._(
       requestId: requestId,
       status: status,
@@ -591,6 +640,11 @@ class HttpResponseStream {
           ? finalChunk
           : Uint8List.fromList(finalChunk);
     }
+    final directStream = _directStream;
+    if (directStream != null && directStream.close(finalBytes)) {
+      _closed = true;
+      return;
+    }
     final payload = HttpResponsePayload._(
       requestId: requestId,
       status: status,
@@ -601,5 +655,166 @@ class HttpResponseStream {
     );
     HttpResponseUtil.respond(invocation, payload);
     _closed = true;
+  }
+}
+
+class _DirectHttpResponseStreamController {
+  _DirectHttpResponseStreamController({
+    required this.requestId,
+    required this.status,
+    required this.headers,
+    required this.controlPort,
+    required this.onFallbackProgress,
+    required this.onFallbackClose,
+    required this.onDirectComplete,
+  });
+
+  final int requestId;
+  final int status;
+  final Map<String, String> headers;
+  final SendPort controlPort;
+  final void Function(Uint8List chunk) onFallbackProgress;
+  final void Function(Uint8List? finalChunk) onFallbackClose;
+  final void Function() onDirectComplete;
+
+  final Queue<Uint8List> _pendingChunks = Queue<Uint8List>();
+  Future<NativeHttpResponseStream?>? _streamFuture;
+  NativeHttpResponseStream? _stream;
+  Uint8List? _finalChunk;
+  bool _fallback = false;
+  bool _closed = false;
+  bool _flushing = false;
+  bool _completionSent = false;
+  bool _directWriteStarted = false;
+
+  bool add(Uint8List chunk) {
+    if (_fallback) {
+      return false;
+    }
+    _pendingChunks.add(chunk);
+    _scheduleFlush();
+    return true;
+  }
+
+  bool close(Uint8List? finalChunk) {
+    if (_fallback) {
+      return false;
+    }
+    _closed = true;
+    _finalChunk = finalChunk;
+    _scheduleFlush();
+    return true;
+  }
+
+  void _scheduleFlush() {
+    if (_flushing) {
+      return;
+    }
+    _flushing = true;
+    unawaited(_flush());
+  }
+
+  Future<void> _flush() async {
+    try {
+      final stream = await _ensureStream();
+      if (stream == null) {
+        _fallbackPendingChunks();
+        return;
+      }
+      while (_pendingChunks.isNotEmpty) {
+        final chunk = _pendingChunks.removeFirst();
+        if (chunk.isEmpty) {
+          continue;
+        }
+        stream.add(chunk);
+        _directWriteStarted = true;
+      }
+      if (_closed) {
+        final finalChunk = _finalChunk;
+        _finalChunk = null;
+        if (finalChunk != null && finalChunk.isNotEmpty) {
+          stream.add(finalChunk);
+          _directWriteStarted = true;
+        }
+        stream.close();
+        _sendCompletionOnce();
+      }
+    } catch (_) {
+      if (!_directWriteStarted) {
+        _fallbackPendingChunks();
+      } else if (_closed) {
+        _sendCompletionOnce();
+      }
+    } finally {
+      _flushing = false;
+      if (!_fallback &&
+          !_completionSent &&
+          (_pendingChunks.isNotEmpty || _closed)) {
+        _scheduleFlush();
+      }
+    }
+  }
+
+  Future<NativeHttpResponseStream?> _ensureStream() async {
+    final existing = _stream;
+    if (existing != null) {
+      return existing;
+    }
+    final future = _streamFuture ??= _openStream();
+    final resolved = await future;
+    _stream = resolved;
+    return resolved;
+  }
+
+  Future<NativeHttpResponseStream?> _openStream() async {
+    final replyPort = ReceivePort();
+    try {
+      controlPort.send({
+        'type': HttpInvocationControlMessages.openResponseStream,
+        'requestId': requestId,
+        'status': status,
+        'headers': headers,
+        'replyPort': replyPort.sendPort,
+      });
+      final response = await replyPort.first;
+      if (response is! Map) {
+        return null;
+      }
+      final handle = response['handle'];
+      if (handle is! int || handle <= 0) {
+        return null;
+      }
+      return NativeHttpResponseStream.borrowed(
+        handle: handle,
+        libraryPath: response['libraryPath'] as String?,
+      );
+    } finally {
+      replyPort.close();
+    }
+  }
+
+  void _fallbackPendingChunks() {
+    if (_fallback) {
+      return;
+    }
+    _fallback = true;
+    while (_pendingChunks.isNotEmpty) {
+      final chunk = _pendingChunks.removeFirst();
+      if (chunk.isNotEmpty) {
+        onFallbackProgress(chunk);
+      }
+    }
+    if (_closed) {
+      onFallbackClose(_finalChunk);
+      _completionSent = true;
+    }
+  }
+
+  void _sendCompletionOnce() {
+    if (_completionSent) {
+      return;
+    }
+    _completionSent = true;
+    onDirectComplete();
   }
 }

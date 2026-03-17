@@ -15,6 +15,8 @@ Fresh state:
 - Dart WebSocket integration suite now drives WAMP publish/call flows over WebSocket (continuation frames, large payloads) and asserts negotiated subprotocol/serializer on acceptance.
 - Multi-MB HTTP/2 + HTTP/3 streaming regressions landed with optional OpenMetrics artifact dumps (`CONNECTANUM_ARTIFACT_DIR`) and a Prometheus scrape regression targeting the metrics HTTP route.
 - Bench JSONL results now rewrite automatically into `native/bench/artifacts/bench_results.prom` + `bench_results.summary.json`; the bundled Prometheus stack ingests them through node-exporter textfile collection and loads dedicated alert rules/dashboard panels for post-run transport regressions.
+- Bench runs can now sweep router worker counts (`--router-worker-counts 1-8`) and native runtime thread counts (`--native-runtime-thread-counts 1-8`), and every JSONL / transformed Prometheus row is labeled with `router_workers` plus `native_runtime_threads` so scaling limits are visible directly in the artifact dashboards.
+- `_RouterBoss` no longer injects a fixed `pollInterval` sleep after busy passes, and the HTTP boss/binding hot paths no longer emit per-request debug prints; focused runtime-thread reruns now show the earlier “extra parallelism regresses HTTP/3” result was largely scheduler/logging noise rather than a deterministic worker-count bug.
 - Dart 3.10+ build hooks now compile `ct_ffi` automatically during `dart run`/`dart test` via `packages/connectanum_router/hook/build.dart`, and the runtime loader prefers artifacts under `.dart_tool/hooks_runner`.
 - RawSocket/WebSocket outbound send queues are now configurable via `outbound_send_queue_capacity` to cap memory usage under slow readers (still surfaces backpressure via `SendQueueFull`).
 - Router shutdown/drain now closes native listeners up-front (`ct_listener_close`) so no new accepts are queued while workers drain; `/healthz` reports `draining` during shutdown and OpenMetrics exports drain counters.
@@ -37,6 +39,7 @@ Focus for the next session:
   - ✅ Bench artifacts are transformed alongside `bench_results.jsonl` into Prometheus textfile metrics and a summary JSON bundle; the bench compose stack loads matching alert rules and a Grafana dashboard so regressions surface automatically after each run.
   - ✅ Dedicated zero-copy HTTP regression harness (Rust listen_flow + Dart router/integration) now runs HTTPS and QUIC streaming scenarios against `router_integration_native_test.dart`; expand it with multi-MB permutations before Prometheus/bench CI absorbs it.
   - ✅ Internal-session HTTP bridge calls now pass borrowed native request-body descriptors instead of copied byte arrays, streamed response chunks cross the isolate hop via transferable buffers, and the bench `/bench/stream` handler drains/echoes bodies without forcing `request.body` materialization first.
+  - ✅ Streamed HTTP bridge responses now request a native response-stream descriptor once, write chunks directly from the internal-session isolate, and emit only a final completion result through the shared call lifecycle. The sustained worker sweep no longer regresses when `router_workers` increases on the default bench workload.
   - [ ] Adopt the upstream WAMP conformance suite (wamp-proto/wamp-proto#557) once merged, and run it against our RawSocket/WebSocket/HTTP/2/HTTP/3 transports and serializer matrix in CI to validate protocol compliance alongside our bespoke regressions.
   - ✅ HTTP/3 streaming integration test now runs its QUIC client on a dedicated isolate using the ffi-test helper and bundled CA/cert/key, so the Dart boss remains responsive while the native client drains the stream (timeout regression fixed).
 
@@ -52,7 +55,7 @@ Focus for the next session:
    - ✅ Added Rust pool/writer regressions plus Dart `native_runtime_test.dart` coverage that polls a real WebSocket message handle and verifies args/kwargs slice pointers stay inside the native frame buffer.
    - ✅ HTTP/1.1 ingress now parses with `BytesMut`, keeps buffered bodies as `Bytes` inside `HttpBodyHandle`, preserves prefetched bytes across the handshake/body-reader handoff, and Dart/native regressions cover inline vs streaming request bodies on the real runtime path.
    - ✅ HTTP/2 and HTTP/3 body readers now enqueue inbound `Bytes` directly into `StreamingBodyState` instead of cloning each chunk into a temporary `Vec`.
-  - Next: if throughput work resumes, move HTTP bridge progress/results off the WAMP-style response envelope entirely so internal sessions can hand native response streams or transferable chunk queues straight back to the boss without the current message framing overhead; in parallel, shrink the remaining small buffered-prefix copy at the `BufReader` handoff and then move on to HTTP/2 header-fragment / multi-stream server completion work.
+  - Next: keep widening the native-runtime thread-count sweep now that boss pacing/logging no longer distort it, profile the remaining HTTP/3-specific scaling ceiling beyond 4 threads, then shrink the remaining small buffered-prefix copy at the `BufReader` handoff and move on to HTTP/2 header-fragment / multi-stream server completion work.
 
 5. **Pattern Routing & Shared Registrations**
    - Implement wildcard/prefix ordering + priority handling and un-skip the advanced-profile placeholder test.
@@ -72,7 +75,7 @@ Focus for the next session:
 
 8. **Benchmark Readiness**
    - ✅ Bench harness pieces are in place: Dart runner, Rust orchestrator, TOML scenarios, transformed Prometheus/summary artifacts, default HTTPS/TLS smoke runs over HTTP/2 + HTTP/3, and sustained-transfer scenarios that reuse hot transport sessions.
-   - Next: add CI gating over the transformed artifacts and grow the scenario catalog toward higher-concurrency and remote-auth loads.
+   - Next: add CI gating over the transformed artifacts, and keep extending the runtime-thread sweep scenarios so HTTP benchmarks chart the real transport-side scaling axis alongside router worker isolates without scheduler/logging skew from the Dart boss path.
 
 9. **Documentation & Examples**
    - Update router/auth docs to capture cancellation semantics, drain behaviour, and zero-copy guarantees.

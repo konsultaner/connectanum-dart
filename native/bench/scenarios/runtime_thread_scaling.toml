@@ -1,0 +1,28 @@
+name = "runtime_thread_scaling"
+description = "Sustained-transfer benchmark intended for native runtime thread-count sweeps."
+
+[[workloads]]
+name = "h2_runtime_thread_scaling"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 24
+concurrency = 8
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+warmup_ms = 500
+
+[[workloads]]
+name = "h3_runtime_thread_scaling"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 18
+concurrency = 8
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+warmup_ms = 500

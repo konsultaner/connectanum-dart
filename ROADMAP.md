@@ -89,6 +89,7 @@
   - [x] Add OpenMetrics HTTP exporter (`metrics.open_metrics.listen`) for Prometheus scraping and cover with tests.
   - [x] Route HTTP bridge requests into internal sessions via borrowed native body descriptors instead of serializing request bytes into invocation payload maps.
   - [x] Forward streamed HTTP bridge response chunks across the internal-session isolate hop with transferable buffers so large progress payloads avoid repeated `Uint8List` copies.
+  - [x] Bypass the per-chunk WAMP response envelope for streamed HTTP bridge responses: internal sessions now open borrowed native response-stream descriptors once, write chunks directly from the callee isolate, and emit only a final completion result back through the call lifecycle.
   - [x] Add end-to-end zero-copy HTTP regressions (large request/response plus descriptor-based internal-session routing) to ensure no stray serialization occurs in Dart.
   - [ ] Introduce adapter pipeline support (static file handler, PHP-FPM/FastCGI bridge, reverse proxy stubs) configurable per route; document adapter contracts and lifecycle.
   - [ ] `Add tests/doc coverage for the new HTTP call contract` (Dart unit tests, router integration test asserting response round-trip, native tests validating file/stream paths).
@@ -291,7 +292,11 @@
     - [x] HTTP/3/TLS support landed in the orchestration CLI (QUIC prior-knowledge via `quinn`+`h3`, shared-port overrides, h3-only scenarios) so benchmarks can exercise both transports while capturing metrics deltas.
     - [x] `/bench/metrics` now returns both the router snapshot and the OpenMetrics payload, and the orchestrator serializes `open_metrics_before`/`open_metrics_after` fields per workload (`bench_results.jsonl` + docs updated).
     - [x] Bench results are transformed automatically into `bench_results.prom` + `bench_results.summary.json`, the Docker compose stack ingests the `.prom` output through the node-exporter textfile collector, and Prometheus/Grafana ship matching artifact rules + dashboards for per-workload regression surfacing.
+    - [x] The orchestrator can now sweep router worker counts (`--router-worker-counts 1-8`), rewriting the bench router config per run, stamping JSONL/Prometheus artifact rows with `router_workers`, and printing a scaling summary so throughput plateaus are visible instead of being inferred from one-off runs.
+    - [x] The orchestrator can now sweep native runtime thread counts (`--native-runtime-thread-counts 1-8`), exporting `native_runtime_threads` alongside `router_workers` in JSONL/Prometheus artifacts so HTTP throughput can be graphed against the actual transport-side scaling knob instead of inferring from router-worker changes.
     - [x] Bench workers now reuse HTTP/2 and HTTP/3 sessions by default, prebuild request payload buffers once per worker, and report both response-only and total payload throughput so sustained runs measure transport work instead of repeated handshakes.
+    - [x] Worker-sweep regressions for the HTTP bench path were eliminated by moving streamed HTTP responses off per-chunk WAMP progress payloads; the sustained worker sweep no longer drops when `router_workers` increases on the default `/bench/stream` workload.
+    - [x] `_RouterBoss` now paces its poll loop adaptively instead of always sleeping `pollInterval`, and the HTTP boss/binding hot paths no longer print per-request debug logs, so runtime-thread sweeps measure transport scaling instead of scheduler/logging tax.
   - [x] Ship Prometheus exporters and Grafana dashboards for benchmark metrics visualization.
   - [x] Provide docs/scripts to bootstrap a local Grafana/Prometheus stack alongside benchmarks.
 - [ ] MCP (Model Context Protocol) server implementation for agentic AI integrations

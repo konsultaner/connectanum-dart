@@ -198,6 +198,17 @@ class _QueueRuntime implements NativeRuntimeWithHandles {
   }
 
   @override
+  NativeHttpResponseStreamDescriptor openHttpResponseStreamDescriptor({
+    required int handshakeHandle,
+    required int status,
+    required Map<String, String> headers,
+  }) {
+    throw UnsupportedError(
+      'HTTP response streaming not supported in queue runtime',
+    );
+  }
+
+  @override
   NativeRouterMetrics? pollRouterMetrics() => null;
 
   @override

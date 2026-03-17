@@ -18,10 +18,7 @@ use h2::{
     server::{self as h2_server, SendResponse as H2SendResponse},
     RecvStream as H2RecvStream,
 };
-use h3::{
-    error::Code as H3ErrorCode, quic::BidiStream as H3BidiStreamTrait,
-    server::RequestStream as H3RequestStream,
-};
+use h3::{quic::BidiStream as H3BidiStreamTrait, server::RequestStream as H3RequestStream};
 use h3_quinn::Connection as H3QuinnConnection;
 use http::{
     header::{HeaderName, HeaderValue, CONTENT_LENGTH},
@@ -694,7 +691,12 @@ pub enum Error {
     /// Send buffer is full; the caller should retry or close the connection.
     #[error("connection {0:?} send queue full")]
     SendQueueFull(ConnectionId),
+    /// Native runtime thread count env var is invalid.
+    #[error("native runtime thread count invalid: {0}")]
+    InvalidRuntimeThreadCount(String),
 }
+
+const NATIVE_RUNTIME_THREADS_ENV: &str = "CONNECTANUM_NATIVE_RUNTIME_THREADS";
 
 struct RuntimeManager {
     state: Mutex<Option<RuntimeState>>,
@@ -2956,10 +2958,13 @@ pub fn start_runtime() -> Result<(), Error> {
     // Ensure the platform allows native runtime creation.
     PlatformRuntime::new().map_err(|_| Error::UnsupportedPlatform)?;
 
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .thread_name("connectanum-rt")
-        .enable_all()
-        .build()?;
+    let worker_threads = runtime_worker_threads_from_env()?;
+    let mut builder = tokio::runtime::Builder::new_multi_thread();
+    builder.thread_name("connectanum-rt").enable_all();
+    if let Some(worker_threads) = worker_threads {
+        builder.worker_threads(worker_threads);
+    }
+    let runtime = builder.build()?;
 
     let handle = runtime.handle().clone();
     let state = RuntimeState {
@@ -2969,6 +2974,23 @@ pub fn start_runtime() -> Result<(), Error> {
     };
     *guard = Some(state);
     Ok(())
+}
+
+fn runtime_worker_threads_from_env() -> Result<Option<usize>, Error> {
+    parse_runtime_worker_threads(std::env::var(NATIVE_RUNTIME_THREADS_ENV).ok().as_deref())
+}
+
+fn parse_runtime_worker_threads(raw: Option<&str>) -> Result<Option<usize>, Error> {
+    let Some(raw) = raw.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    let parsed = raw
+        .parse::<usize>()
+        .map_err(|_| Error::InvalidRuntimeThreadCount(raw.to_string()))?;
+    if parsed == 0 {
+        return Err(Error::InvalidRuntimeThreadCount(raw.to_string()));
+    }
+    Ok(Some(parsed))
 }
 
 /// Applies the router configuration JSON produced on the Dart side.
@@ -4751,7 +4773,6 @@ async fn run_http3_stream_reader(
     let total_deadline = Instant::now() + total_timeout;
     loop {
         if state.finish_requested() {
-            stream.stop_sending(H3ErrorCode::H3_NO_ERROR);
             state.mark_finished();
             return Ok(());
         }
@@ -4789,7 +4810,6 @@ async fn run_http3_stream_reader(
                             .unwrap_or(false)
                     {
                         state.mark_error("http/3 body exceeded configured limit".into());
-                        stream.stop_sending(H3ErrorCode::H3_REQUEST_CANCELLED);
                         return Ok(());
                     }
                     if content_length.is_none() {
@@ -4808,7 +4828,6 @@ async fn run_http3_stream_reader(
                     }
                 }
                 state.mark_finished();
-                stream.stop_sending(H3ErrorCode::H3_NO_ERROR);
                 return Ok(());
             }
             Err(err) => {
@@ -4818,8 +4837,13 @@ async fn run_http3_stream_reader(
                         Some(format!("http/3 body read failed: {}", err)),
                     );
                 }
+                // `h3-quinn` keeps the underlying recv stream inside an in-flight
+                // future while `recv_data()` is being polled. Calling
+                // `stop_sending()` on every shutdown path can therefore panic
+                // under load if the stream is dropped mid-poll. Marking the body
+                // state and letting the request stream drop avoids the panic while
+                // preserving timeout/connection-close handling above.
                 state.mark_error(format!("http/3 body read failed: {}", err));
-                stream.stop_sending(H3ErrorCode::H3_REQUEST_CANCELLED);
                 return Err(err.to_string());
             }
         }
@@ -5020,6 +5044,31 @@ mod tests {
     fn test_guard() -> std::sync::MutexGuard<'static, ()> {
         static GUARD: OnceLock<Mutex<()>> = OnceLock::new();
         GUARD.get_or_init(|| Mutex::new(())).lock().unwrap()
+    }
+
+    #[test]
+    fn parse_runtime_worker_threads_defaults_to_auto() {
+        assert_eq!(parse_runtime_worker_threads(None).unwrap(), None);
+        assert_eq!(parse_runtime_worker_threads(Some("")).unwrap(), None);
+        assert_eq!(parse_runtime_worker_threads(Some("   ")).unwrap(), None);
+    }
+
+    #[test]
+    fn parse_runtime_worker_threads_accepts_positive_values() {
+        assert_eq!(parse_runtime_worker_threads(Some("1")).unwrap(), Some(1));
+        assert_eq!(parse_runtime_worker_threads(Some(" 4 ")).unwrap(), Some(4));
+    }
+
+    #[test]
+    fn parse_runtime_worker_threads_rejects_zero_and_invalid_values() {
+        assert!(matches!(
+            parse_runtime_worker_threads(Some("0")),
+            Err(Error::InvalidRuntimeThreadCount(_))
+        ));
+        assert!(matches!(
+            parse_runtime_worker_threads(Some("abc")),
+            Err(Error::InvalidRuntimeThreadCount(_))
+        ));
     }
 
     struct GeneratedTlsMaterial {

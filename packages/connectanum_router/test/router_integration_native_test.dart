@@ -367,6 +367,17 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
   );
 
   @override
+  NativeHttpResponseStreamDescriptor openHttpResponseStreamDescriptor({
+    required int handshakeHandle,
+    required int status,
+    required Map<String, String> headers,
+  }) => _inner.openHttpResponseStreamDescriptor(
+    handshakeHandle: handshakeHandle,
+    status: status,
+    headers: headers,
+  );
+
+  @override
   NativeRouterMetrics? pollRouterMetrics() => _inner.pollRouterMetrics();
 
   @override
@@ -1020,6 +1031,8 @@ void main() {
         ),
         orderedEquals(finalChunk),
       );
+      final resultEvent = await harness.nextEvent('http_request_result');
+      expect(resultEvent['progress'], isFalse);
     }, skip: skipReason);
 
     test('streams HTTP/2 request and response payloads end-to-end', () async {

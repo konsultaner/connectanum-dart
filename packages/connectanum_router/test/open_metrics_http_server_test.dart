@@ -27,6 +27,15 @@ class _FakeRuntime implements NativeRuntime {
   }
 
   @override
+  NativeHttpResponseStreamDescriptor openHttpResponseStreamDescriptor({
+    required int handshakeHandle,
+    required int status,
+    required Map<String, String> headers,
+  }) {
+    throw UnsupportedError('HTTP response streaming not supported');
+  }
+
+  @override
   NativeRouterMetrics? pollRouterMetrics() => null;
 
   @override

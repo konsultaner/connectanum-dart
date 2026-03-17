@@ -15,6 +15,10 @@ pub struct WorkloadReport {
     pub scenario: String,
     pub workload: String,
     pub protocol: String,
+    #[serde(default = "default_router_workers")]
+    pub router_workers: u32,
+    #[serde(default = "default_native_runtime_threads")]
+    pub native_runtime_threads: u32,
     pub iterations: u32,
     pub concurrency: u32,
     pub started_at_ms: u128,
@@ -34,6 +38,14 @@ pub struct WorkloadReport {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scenario_open_metrics_after: Option<String>,
     pub samples: Vec<WorkloadSample>,
+}
+
+fn default_router_workers() -> u32 {
+    1
+}
+
+fn default_native_runtime_threads() -> u32 {
+    0
 }
 
 pub fn metric_root(value: &Value) -> Option<&Value> {
@@ -138,5 +150,24 @@ mod tests {
             router_counter_delta(&before, &after, "total_publications_routed"),
             Some(7)
         );
+    }
+
+    #[test]
+    fn workload_report_defaults_router_workers_for_legacy_rows() {
+        let report: WorkloadReport = serde_json::from_value(json!({
+            "scenario": "legacy",
+            "workload": "load",
+            "protocol": "h2",
+            "iterations": 1,
+            "concurrency": 1,
+            "started_at_ms": 1,
+            "completed_at_ms": 2,
+            "metrics_before": {},
+            "metrics_after": {},
+            "samples": []
+        }))
+        .unwrap();
+        assert_eq!(report.router_workers, 1);
+        assert_eq!(report.native_runtime_threads, 0);
     }
 }

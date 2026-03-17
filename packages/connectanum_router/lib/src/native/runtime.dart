@@ -61,6 +61,14 @@ abstract class NativeRuntime {
     throw UnsupportedError('HTTP response streaming not supported by runtime');
   }
 
+  NativeHttpResponseStreamDescriptor openHttpResponseStreamDescriptor({
+    required int handshakeHandle,
+    required int status,
+    required Map<String, String> headers,
+  }) {
+    throw UnsupportedError('HTTP response streaming not supported by runtime');
+  }
+
   NativeHttpConnectionEvent? pollHttpConnectionEvent();
 
   NativeRouterMetrics? pollRouterMetrics() => null;
@@ -413,7 +421,22 @@ class NativeHttpTestResponse {
   final Uint8List body;
 }
 
+class NativeHttpResponseStreamDescriptor {
+  const NativeHttpResponseStreamDescriptor({
+    required this.handle,
+    this.libraryPath,
+  });
+
+  final int handle;
+  final String? libraryPath;
+}
+
 abstract class NativeHttpResponseStream {
+  factory NativeHttpResponseStream.borrowed({
+    required int handle,
+    String? libraryPath,
+  }) = _BorrowedHttpResponseStream;
+
   bool get isClosed;
   void add(Uint8List chunk);
   void close([Uint8List? finalChunk]);
@@ -2278,6 +2301,40 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
     required int status,
     required Map<String, String> headers,
   }) {
+    final handle = _openHttpResponseStreamHandle(
+      handshakeHandle: handshakeHandle,
+      status: status,
+      headers: headers,
+    );
+    return _FfiHttpResponseStream(
+      bindings: _bindings,
+      handle: handle,
+      onError: _throwForError,
+    );
+  }
+
+  @override
+  NativeHttpResponseStreamDescriptor openHttpResponseStreamDescriptor({
+    required int handshakeHandle,
+    required int status,
+    required Map<String, String> headers,
+  }) {
+    final handle = _openHttpResponseStreamHandle(
+      handshakeHandle: handshakeHandle,
+      status: status,
+      headers: headers,
+    );
+    return NativeHttpResponseStreamDescriptor(
+      handle: handle,
+      libraryPath: _libraryPath,
+    );
+  }
+
+  int _openHttpResponseStreamHandle({
+    required int handshakeHandle,
+    required int status,
+    required Map<String, String> headers,
+  }) {
     if (handshakeHandle <= 0) {
       throw UnsupportedError(
         'HTTP response streaming requires a native handshake handle.',
@@ -2312,11 +2369,7 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
       if (result <= 0) {
         _throwForError(result, 'Failed to open HTTP response stream');
       }
-      return _FfiHttpResponseStream(
-        bindings: _bindings,
-        handle: result,
-        onError: _throwForError,
-      );
+      return result;
     } finally {
       for (final name in headerNameStrings) {
         name.dispose();
@@ -2816,8 +2869,8 @@ class _NativeString {
   }
 }
 
-class _FfiHttpResponseStream implements NativeHttpResponseStream {
-  _FfiHttpResponseStream({
+abstract class _BindingsHttpResponseStream implements NativeHttpResponseStream {
+  _BindingsHttpResponseStream({
     required CtFfiBindings bindings,
     required int handle,
     required void Function(int code, String context) onError,
@@ -2875,6 +2928,36 @@ class _FfiHttpResponseStream implements NativeHttpResponseStream {
       _onError(result, 'Failed to finish HTTP response stream');
     }
   }
+}
+
+class _FfiHttpResponseStream extends _BindingsHttpResponseStream {
+  _FfiHttpResponseStream({
+    required super.bindings,
+    required super.handle,
+    required super.onError,
+  });
+}
+
+class _BorrowedHttpResponseStream extends _BindingsHttpResponseStream {
+  _BorrowedHttpResponseStream({required super.handle, String? libraryPath})
+    : super(
+        bindings: _borrowedNativeLibrary(libraryPath).bindings,
+        onError: (code, context) => throw NativeTransportException(
+          code,
+          _buildNativeErrorMessage(code, context),
+        ),
+      );
+
+  static _BorrowedNativeLibrary _borrowedNativeLibrary(String? libraryPath) {
+    final resolvedPath = NativeLibraryLoader.resolvePath(libraryPath);
+    return _borrowedLibraries.putIfAbsent(resolvedPath, () {
+      final library = ffi.DynamicLibrary.open(resolvedPath);
+      return _BorrowedNativeLibrary(library, CtFfiBindings(library));
+    });
+  }
+
+  static final Map<String, _BorrowedNativeLibrary> _borrowedLibraries =
+      <String, _BorrowedNativeLibrary>{};
 }
 
 class _BorrowedBodyHandleView {

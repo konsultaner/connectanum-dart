@@ -34,6 +34,8 @@ pub struct WorkloadArtifactSummary {
     pub scenario: String,
     pub workload: String,
     pub protocol: String,
+    pub router_workers: u32,
+    pub native_runtime_threads: u32,
     pub iterations: u32,
     pub concurrency: u32,
     pub started_at_ms: u128,
@@ -139,6 +141,8 @@ pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
         scenario: report.scenario.clone(),
         workload: report.workload.clone(),
         protocol: report.protocol.clone(),
+        router_workers: report.router_workers,
+        native_runtime_threads: report.native_runtime_threads,
         iterations: report.iterations,
         concurrency: report.concurrency,
         started_at_ms: report.started_at_ms,
@@ -343,10 +347,14 @@ pub fn render_prometheus_metrics(
     output.push_str("# TYPE connectanum_bench_artifact_workload_transport_after gauge\n");
 
     for summary in summaries {
+        let router_workers = summary.router_workers.to_string();
+        let native_runtime_threads = native_runtime_threads_label(summary.native_runtime_threads);
         let base_labels = [
             ("scenario", summary.scenario.as_str()),
             ("workload", summary.workload.as_str()),
             ("protocol", summary.protocol.as_str()),
+            ("router_workers", router_workers.as_str()),
+            ("native_runtime_threads", native_runtime_threads.as_str()),
         ];
         output.push_str(&format!(
             "connectanum_bench_artifact_workload_samples{} {}\n",
@@ -470,6 +478,14 @@ pub fn render_prometheus_metrics(
     }
 
     output
+}
+
+fn native_runtime_threads_label(value: u32) -> String {
+    if value == 0 {
+        "auto".to_string()
+    } else {
+        value.to_string()
+    }
 }
 
 pub fn write_artifact_bundle(
@@ -596,6 +612,8 @@ mod tests {
             scenario: "full_stack".to_string(),
             workload: "load".to_string(),
             protocol: "h2".to_string(),
+            router_workers: 3,
+            native_runtime_threads: 4,
             iterations: 4,
             concurrency: 2,
             started_at_ms: 1_000,
@@ -722,6 +740,8 @@ mod tests {
     fn summarize_report_computes_latency_and_deltas() {
         let summary = summarize_report(&sample_report());
         assert_eq!(summary.sample_count, 3);
+        assert_eq!(summary.router_workers, 3);
+        assert_eq!(summary.native_runtime_threads, 4);
         assert_eq!(summary.request_bytes_total, 300);
         assert_eq!(summary.response_bytes_total, 1200);
         assert_eq!(summary.router_invocations_delta, 5);
@@ -745,6 +765,8 @@ mod tests {
         assert!(text.contains("connectanum_bench_artifact_workload_latency_avg_ms"));
         assert!(text.contains("scenario=\"full_stack\""));
         assert!(text.contains("workload=\"load\""));
+        assert!(text.contains("router_workers=\"3\""));
+        assert!(text.contains("native_runtime_threads=\"4\""));
         assert!(text.contains("kind=\"active_throttles\""));
         assert!(text.contains("counter=\"invocations_dispatched\""));
     }

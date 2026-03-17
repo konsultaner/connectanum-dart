@@ -238,6 +238,7 @@ fn map_error(err: CoreError) -> c_int {
         CoreError::ConnectionHandleUnavailable(_) => ERR_HANDLE_UNAVAILABLE,
         CoreError::Http3ResponseSend(_) => ERR_IO,
         CoreError::SendQueueFull(_) => ERR_SEND_QUEUE_FULL,
+        CoreError::InvalidRuntimeThreadCount(_) => ERR_INVALID_ARGUMENT,
         CoreError::Io(_) => ERR_IO,
     }
 }

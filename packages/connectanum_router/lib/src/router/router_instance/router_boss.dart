@@ -1,5 +1,66 @@
 part of '../router_instance.dart';
 
+@visibleForTesting
+Duration routerBossLoopDelay({
+  required bool didWork,
+  required Duration pollInterval,
+}) => didWork ? Duration.zero : pollInterval;
+
+@visibleForTesting
+final class RouterBossLoopPacer {
+  Completer<void>? _wakeCompleter;
+  bool _wakeRequested = false;
+
+  void requestWake() {
+    _wakeRequested = true;
+    final wakeCompleter = _wakeCompleter;
+    if (wakeCompleter != null && !wakeCompleter.isCompleted) {
+      wakeCompleter.complete();
+    }
+  }
+
+  Future<void> waitForNextTick({
+    required bool didWork,
+    required Duration pollInterval,
+  }) async {
+    final delay = routerBossLoopDelay(
+      didWork: didWork || _consumeWakeRequest(),
+      pollInterval: pollInterval,
+    );
+    if (delay == Duration.zero) {
+      await Future<void>.delayed(Duration.zero);
+      return;
+    }
+
+    final wakeCompleter = Completer<void>();
+    _wakeCompleter = wakeCompleter;
+    if (_consumeWakeRequest()) {
+      if (identical(_wakeCompleter, wakeCompleter)) {
+        _wakeCompleter = null;
+      }
+      await Future<void>.delayed(Duration.zero);
+      return;
+    }
+
+    try {
+      await Future.any<void>(<Future<void>>[
+        Future<void>.delayed(delay),
+        wakeCompleter.future,
+      ]);
+    } finally {
+      if (identical(_wakeCompleter, wakeCompleter)) {
+        _wakeCompleter = null;
+      }
+    }
+  }
+
+  bool _consumeWakeRequest() {
+    final wakeRequested = _wakeRequested;
+    _wakeRequested = false;
+    return wakeRequested;
+  }
+}
+
 /// Coordinates worker isolates and round-robins connections across them.
 class _RouterBoss {
   _RouterBoss({
@@ -68,6 +129,7 @@ class _RouterBoss {
   final Map<int, DateTime> _listenerThrottleUntil = {};
   int _throttledBackpressureAlerts = 0;
   final Map<String, int> _backpressureAlertsByReason = {};
+  final RouterBossLoopPacer _loopPacer = RouterBossLoopPacer();
   bool _running = false;
   bool _stopping = false;
   Future<void>? _loopFuture;
@@ -127,6 +189,7 @@ class _RouterBoss {
     }
 
     _running = false;
+    _loopPacer.requestWake();
     final loop = _loopFuture;
     if (drainFutures.isNotEmpty) {
       try {
@@ -172,24 +235,29 @@ class _RouterBoss {
 
   Future<void> _loop() async {
     while (_running) {
+      var didWork = false;
       for (final listener in listeners) {
-        await _acceptConnections(listener);
+        didWork = await _acceptConnections(listener) || didWork;
       }
-      _dispatchMessages();
-      _expireIdleConnections();
-      _drainHttp2Requests();
-      _drainHttp3Requests();
-      _drainHttpConnectionEvents();
-      _emitRouterMetrics();
-      await Future<void>.delayed(pollInterval);
+      didWork = _dispatchMessages() || didWork;
+      didWork = _expireIdleConnections() || didWork;
+      didWork = _drainHttp2Requests() || didWork;
+      didWork = _drainHttp3Requests() || didWork;
+      didWork = _drainHttpConnectionEvents() || didWork;
+      didWork = _emitRouterMetrics() || didWork;
+      await _loopPacer.waitForNextTick(
+        didWork: didWork,
+        pollInterval: pollInterval,
+      );
     }
   }
 
-  Future<void> _acceptConnections(RouterListener listener) async {
+  Future<bool> _acceptConnections(RouterListener listener) async {
     final throttleUntil = _listenerThrottleUntil[listener.listenerId];
     if (throttleUntil != null && throttleUntil.isAfter(DateTime.now())) {
-      return;
+      return false;
     }
+    var didWork = false;
     while (_running) {
       int connectionId;
       NativeConnectionProtocol protocol;
@@ -207,6 +275,7 @@ class _RouterBoss {
       if (connectionId == 0) {
         break;
       }
+      didWork = true;
       _lastActivityByConnection[connectionId] = DateTime.now();
       try {
         protocol = runtime.connectionProtocol(connectionId);
@@ -227,20 +296,11 @@ class _RouterBoss {
           forcedHttp3Handshake = runtime.takeHttp3Handshake(connectionId);
           if (forcedHttp3Handshake != null) {
             protocol = NativeConnectionProtocol.http3;
-            // ignore: avoid_print
-            print(
-              'boss: forced http/3 for connection $connectionId via handshake probe',
-            );
           }
         } on NativeTransportException {
           forcedHttp3Handshake = null;
         }
       }
-
-      // ignore: avoid_print
-      print(
-        'boss: connection $connectionId protocol ${_protocolName(protocol)}',
-      );
 
       if (protocol != NativeConnectionProtocol.rawsocket) {
         if (protocol == NativeConnectionProtocol.http ||
@@ -321,8 +381,6 @@ class _RouterBoss {
           );
           continue;
         } else if (protocol == NativeConnectionProtocol.http3) {
-          // ignore: avoid_print
-          print('boss: accepted http/3 connection $connectionId');
           final handshake =
               forcedHttp3Handshake ?? runtime.takeHttp3Handshake(connectionId);
           final details = <String, Object?>{
@@ -369,6 +427,7 @@ class _RouterBoss {
       }
       await _assignConnection(listener, connectionId);
     }
+    return didWork;
   }
 
   Future<void> _assignConnection(
@@ -457,9 +516,24 @@ class _RouterBoss {
   bool get _throttleOnTransportAlert =>
       settings.metrics?.transportAlerts.throttleOnAlert ?? true;
 
-  void _emitRouterMetrics() {
+  bool _emitRouterMetrics() {
     final nativeMetrics = runtime.pollRouterMetrics();
     if (nativeMetrics == null) {
+      final hadMetrics =
+          _lastRouterMetrics != null ||
+          _lastBreakdownByKey.isNotEmpty ||
+          _alertCountsByKey.isNotEmpty ||
+          _alertSnapshotByKey.isNotEmpty ||
+          _lastAlertAtByListener.isNotEmpty ||
+          _listenerThrottleUntil.isNotEmpty ||
+          _totalBackpressureAlerts != 0 ||
+          _totalGoAwayAlerts != 0 ||
+          _totalIdleTimeoutAlerts != 0 ||
+          _totalBodyTimeoutAlerts != 0 ||
+          _totalProtocolErrorAlerts != 0 ||
+          _totalInternalErrorAlerts != 0 ||
+          _throttledBackpressureAlerts != 0 ||
+          _backpressureAlertsByReason.isNotEmpty;
       _lastRouterMetrics = null;
       _lastBreakdownByKey.clear();
       _alertCountsByKey.clear();
@@ -474,11 +548,11 @@ class _RouterBoss {
       _backpressureAlertsByReason.clear();
       _lastAlertAtByListener.clear();
       _listenerThrottleUntil.clear();
-      return;
+      return hadMetrics;
     }
     final last = _lastRouterMetrics;
     if (last != null && last.sameValues(nativeMetrics)) {
-      return;
+      return false;
     }
     _lastRouterMetrics = nativeMetrics;
     final converted = _convertTransportMetrics(nativeMetrics);
@@ -518,6 +592,7 @@ class _RouterBoss {
         'breakdown': breakdown,
       },
     });
+    return true;
   }
 
   void _emitBreakdownAlerts(List<RouterTransportMetricsBreakdown> breakdowns) {
@@ -889,7 +964,8 @@ class _RouterBoss {
     return worker;
   }
 
-  void _dispatchMessages() {
+  bool _dispatchMessages() {
+    var didWork = false;
     final workersSnapshot = List<_WorkerHandle>.from(_workers);
     for (final worker in workersSnapshot) {
       if (worker.busy || worker.connections.isEmpty) {
@@ -930,7 +1006,9 @@ class _RouterBoss {
         chosenConnection,
         handle,
       ]);
+      didWork = true;
     }
+    return didWork;
   }
 
   int _pollHandleForConnection(int connectionId) {
@@ -968,16 +1046,17 @@ class _RouterBoss {
     }
   }
 
-  void _expireIdleConnections() {
+  bool _expireIdleConnections() {
     if (_realmByConnection.isEmpty) {
-      return;
+      return false;
     }
     final now = DateTime.now();
     if (now.difference(_lastIdleSweep) < const Duration(seconds: 1)) {
-      return;
+      return false;
     }
     _lastIdleSweep = now;
 
+    var didWork = false;
     final connectionIds = List<int>.from(_realmByConnection.keys);
     for (final connectionId in connectionIds) {
       final realmUri = _realmByConnection[connectionId];
@@ -1016,13 +1095,16 @@ class _RouterBoss {
       _detachConnection(connectionId, notifyWorker: true);
       _lastActivityByConnection.remove(connectionId);
       _realmByConnection.remove(connectionId);
+      didWork = true;
     }
+    return didWork;
   }
 
-  void _drainHttp3Requests() {
+  bool _drainHttp3Requests() {
     if (_http3ConnectionListeners.isEmpty) {
-      return;
+      return false;
     }
+    var didWork = false;
     final connectionIds = List<int>.from(_http3ConnectionListeners.keys);
     for (final connectionId in connectionIds) {
       while (true) {
@@ -1044,11 +1126,7 @@ class _RouterBoss {
         if (handshake == null) {
           break;
         }
-        // Debug trace to observe HTTP/3 request dispatch during integration bring-up.
-        // ignore: avoid_print
-        print(
-          'boss: polled http/3 request on $connectionId ${handshake.method} ${handshake.path}',
-        );
+        didWork = true;
         final listener = _http3ConnectionListeners[connectionId];
         if (listener == null) {
           handshake.release();
@@ -1062,9 +1140,11 @@ class _RouterBoss {
         );
       }
     }
+    return didWork;
   }
 
-  void _drainHttpConnectionEvents() {
+  bool _drainHttpConnectionEvents() {
+    var didWork = false;
     while (true) {
       NativeHttpConnectionEvent? event;
       try {
@@ -1080,14 +1160,17 @@ class _RouterBoss {
       if (event == null) {
         break;
       }
+      didWork = true;
       _handleHttpConnectionEvent(event);
     }
+    return didWork;
   }
 
-  void _drainHttp2Requests() {
+  bool _drainHttp2Requests() {
     if (_http2ConnectionListeners.isEmpty) {
-      return;
+      return false;
     }
+    var didWork = false;
     final connectionIds = List<int>.from(
       _http2ConnectionListeners.keys,
       growable: false,
@@ -1112,6 +1195,7 @@ class _RouterBoss {
         if (handshake == null) {
           break;
         }
+        didWork = true;
         final listener = _http2ConnectionListeners[connectionId];
         if (listener == null) {
           handshake.release();
@@ -1125,6 +1209,7 @@ class _RouterBoss {
         );
       }
     }
+    return didWork;
   }
 
   void _registerHttp2Connection(RouterListener listener, int connectionId) {
@@ -1347,6 +1432,7 @@ class _RouterBoss {
   }
 
   void _handleEvent(dynamic message) {
+    _loopPacer.requestWake();
     if (message is! Map) {
       onEvent?.call({
         'source': 'worker',
@@ -1635,6 +1721,7 @@ class _RouterBoss {
   }
 
   void _handleCommand(dynamic message) {
+    _loopPacer.requestWake();
     if (message is _BossGetMetricsCommand) {
       _respondWithMetricsSnapshot(message.replyPort);
     }
@@ -1662,6 +1749,7 @@ class _RouterBoss {
   }
 
   void _handleStateEvent(StateChangedEvent event) {
+    _loopPacer.requestWake();
     onEvent?.call({
       'source': 'state',
       'type': 'state_changed',

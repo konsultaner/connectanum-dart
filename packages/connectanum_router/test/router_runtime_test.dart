@@ -241,6 +241,15 @@ class _FakeRuntime implements NativeRuntime {
   }
 
   @override
+  NativeHttpResponseStreamDescriptor openHttpResponseStreamDescriptor({
+    required int handshakeHandle,
+    required int status,
+    required Map<String, String> headers,
+  }) {
+    throw UnsupportedError('HTTP response stream descriptors not supported');
+  }
+
+  @override
   void sendMessage(int connectionId, Uint8List payload) {
     sentMessages.putIfAbsent(connectionId, () => []).add(payload);
   }
@@ -1405,6 +1414,68 @@ void main() {
           containsAll(<String>{'http', 'http2', 'http3'}),
         );
       }
+    });
+  });
+
+  group('Router boss pacing', () {
+    test('uses zero delay when a loop pass processed work', () {
+      expect(
+        routerBossLoopDelay(
+          didWork: true,
+          pollInterval: const Duration(milliseconds: 25),
+        ),
+        Duration.zero,
+      );
+      expect(
+        routerBossLoopDelay(
+          didWork: false,
+          pollInterval: const Duration(milliseconds: 25),
+        ),
+        const Duration(milliseconds: 25),
+      );
+    });
+
+    test('waits for the poll interval only when idle', () async {
+      final pacer = RouterBossLoopPacer();
+      final stopwatch = Stopwatch()..start();
+      await pacer.waitForNextTick(
+        didWork: false,
+        pollInterval: const Duration(milliseconds: 20),
+      );
+      stopwatch.stop();
+      expect(
+        stopwatch.elapsed,
+        greaterThanOrEqualTo(const Duration(milliseconds: 10)),
+      );
+    });
+
+    test('yields immediately after a busy loop pass', () async {
+      final pacer = RouterBossLoopPacer();
+      await pacer
+          .waitForNextTick(
+            didWork: true,
+            pollInterval: const Duration(seconds: 1),
+          )
+          .timeout(const Duration(milliseconds: 200));
+    });
+
+    test('wakes an idle wait from queued or in-flight work', () async {
+      final preSignaled = RouterBossLoopPacer()..requestWake();
+      await preSignaled
+          .waitForNextTick(
+            didWork: false,
+            pollInterval: const Duration(seconds: 1),
+          )
+          .timeout(const Duration(milliseconds: 200));
+
+      final pacer = RouterBossLoopPacer();
+      final wait = pacer.waitForNextTick(
+        didWork: false,
+        pollInterval: const Duration(seconds: 1),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      pacer.requestWake();
+      await wait.timeout(const Duration(milliseconds: 200));
     });
   });
 

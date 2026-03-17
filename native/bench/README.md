@@ -44,7 +44,7 @@ recording transport metrics deltas.
 | Component                         | Description                                                                                   |
 |----------------------------------|-----------------------------------------------------------------------------------------------|
 | `bench_main.dart` (new target)   | Applies the bench router config, registers HTTP handlers, spins up internal bench sessions **and external clients** (RawSocket, WebSocket, `connectanum_client`), exposes a tiny control API (stdin + `/bench/*` HTTP routes) to signal readiness/shutdown, and serves metrics snapshots on demand. |
-| Rust orchestrator binary         | Lives under `native/bench/src/bin/http_stream.rs`. Parses scenario files / CLI flags, spawns the Dart runner, waits for readiness, and then executes a list of workloads. |
+| Rust orchestrator binary         | Lives under `native/bench/src/bin/http_stream.rs`. Parses scenario files / CLI flags, can sweep router worker counts and native runtime thread counts, spawns the Dart runner, waits for readiness, and then executes a list of workloads. |
 | Scenario configuration           | Simple TOML/JSON describing iterations, upload/download bytes, chunk sizes, pauses, and parallel streams. Stored under `native/bench/scenarios/`. |
 | Load generators                  | In-process clients: hyper/h2 for HTTP/2, quinn+h3 for HTTP/3, a plain `reqwest` fallback for HTTP/1.1 sanity checks, **and Dart-side WAMP clients (RawSocket/WebSocket) so the connectanum client stack is exercised**. Each generator reports status, latency, bytes, and optionally stream IDs. |
 | Metrics collectors               | Before/after every scenario the orchestrator calls the router-served `/bench/metrics` endpoint (backed by `binding.collectMetrics()` + the OpenMetrics exporter), capturing both the JSON snapshot delta and the full OpenMetrics text so Prometheus-ready output is archived alongside throughput stats. |
@@ -104,7 +104,7 @@ recording transport metrics deltas.
    - Track the follow-up task to migrate the connectanum clients to zero-copy once the client package supports it.
    - Plan for “mass connection / mass authentication” scenarios to be part of CI once remote auth and the reconnect logic are fully wired.
 
-This directory will eventually house the orchestrator crate (`native/bench/Cargo.toml`), scenarios, and supporting scripts. For now, the README documents the agreed architecture so implementation can start iteratively.
+The orchestrator crate, scenarios, and supporting scripts now live here; the remaining work is mainly scenario growth, better scaling studies, and CI gating.
 
 ## Bench Router Configuration & Control API
 
@@ -169,7 +169,10 @@ The bench HTTP handler honors the `x-bench-response-bytes` and
 response sizes/chunking regardless of the inbound payload. When those headers
 are present, the handler drains the request body through the native body stream
 first instead of materializing `request.body`, which keeps the benchmark aligned
-with the router’s descriptor-based HTTP bridge.
+with the router’s descriptor-based HTTP bridge. Streamed responses now open one
+native response-stream descriptor per request and write chunks directly from the
+internal-session isolate, so the benchmark no longer pays a per-chunk WAMP
+progress envelope on `/bench/stream`.
 
 When `reuse_connections = true`, each worker keeps a hot HTTP/2 or HTTP/3
 session across iterations and reuses the same prebuilt request payload buffer.
@@ -181,6 +184,16 @@ Set it to `false` if you explicitly want a handshake-heavy benchmark.
   build. Use this for quick sanity checks.
 - `throughput_smoke.toml` – sustained-transfer scenario that keeps sessions hot across
   iterations and is a better fit for rough throughput checks than `h2_smoke`.
+- `worker_scaling.toml` – sustained-transfer scenario intended for `--router-worker-counts`
+  sweeps so you can sanity-check that changing the router worker pool does not
+  introduce regressions on the HTTP bench path.
+- `runtime_thread_scaling.toml` – sustained-transfer scenario intended for
+  `--native-runtime-thread-counts` sweeps. This is the real scaling axis for
+  HTTP/2 and HTTP/3 because request execution stays centered on the boss plus
+  the native Tokio runtime rather than the router worker pool. Recent router
+  pacing cleanup removed a fixed busy-loop sleep and per-request HTTP debug
+  logging from the Dart hot path, so these sweeps now reflect transport scaling
+  much more closely than the earlier worker-count-only runs.
 - `full_stack.toml` – extended matrix covering bulk uploads/downloads, latency spikes,
   idle soak phases, and both HTTP/2 and HTTP/3 transfers with higher concurrency.
 - `wamp_smoke.toml` – lightweight PUB/SUB and RPC workloads powered by RawSocket clients
@@ -212,7 +225,10 @@ without extra trust-store setup as long as you target `https://localhost:8080/be
 Run whichever scenario you need by pointing `--scenario` at the desired file. For
 example, the full-stack matrix. For a more representative hot-session throughput
 sample, point it at `native/bench/scenarios/throughput_smoke.toml` instead of the
-handshake-oriented `h2_smoke.toml`.
+handshake-oriented `h2_smoke.toml`. To study scaling, use
+`native/bench/scenarios/runtime_thread_scaling.toml` together with
+`--native-runtime-thread-counts`, or `worker_scaling.toml` with
+`--router-worker-counts` when you only want a router-worker sanity check.
 
 ```
 cargo run --manifest-path native/bench/Cargo.toml -- \
@@ -247,9 +263,54 @@ The CLI will:
    wait for the Dart process to exit cleanly.
 
 The JSONL output records per-workload metadata (router metrics snapshots,
-OpenMetrics text, latency samples, total bytes) so downstream tooling
+OpenMetrics text, effective `router_workers`, effective `native_runtime_threads`,
+latency samples, and total bytes) so downstream tooling
 (Prometheus exporters, dashboards, regression detectors) can diff runs without
 scraping stdout.
+
+### Worker Sweep Runs
+
+Use `--router-worker-counts` to rerun the same scenario against multiple router
+worker-pool sizes. The flag accepts comma-separated values and inclusive ranges:
+
+```sh
+cargo run --manifest-path native/bench/Cargo.toml -- \
+  --router-config native/bench/bench_router.json \
+  --scenario native/bench/scenarios/worker_scaling.toml \
+  --router-worker-counts 1-8 \
+  --control-base https://localhost:8080/bench \
+  --h3-port 8443 \
+  --native-lib native/transport/target/release/libct_ffi.so
+```
+
+Each sweep point starts a fresh bench runner with `router.worker_pool.min_workers`
+overridden to the requested value, appends labeled rows to `bench_results.jsonl`,
+and rewrites the artifact bundle. Prometheus labels every workload series with
+`router_workers`, and the CLI prints a compact scaling summary after the run so
+it is obvious where throughput stops improving.
+
+### Native Runtime Thread Sweep Runs
+
+Use `--native-runtime-thread-counts` to rerun the same scenario against multiple
+Tokio runtime thread counts. This flag accepts comma-separated values, inclusive
+ranges, and `auto`:
+
+```sh
+cargo run --manifest-path native/bench/Cargo.toml -- \
+  --router-config native/bench/bench_router.json \
+  --scenario native/bench/scenarios/runtime_thread_scaling.toml \
+  --router-worker-counts 1 \
+  --native-runtime-thread-counts 1-4 \
+  --control-base https://localhost:8080/bench \
+  --h3-port 8443 \
+  --native-lib native/transport/target/release/libct_ffi.so
+```
+
+Each sweep point starts a fresh bench runner with
+`CONNECTANUM_NATIVE_RUNTIME_THREADS` set for that process. JSONL rows,
+Prometheus textfile artifacts, and the CLI scaling summary all include
+`native_runtime_threads` so HTTP throughput can be graphed against the actual
+transport-side scaling knob.
 
 If you already have a JSONL file from CI or an earlier run, regenerate the
 Prometheus/textfile bundle without rerunning the workloads:

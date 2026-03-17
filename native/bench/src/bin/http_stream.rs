@@ -1,3 +1,4 @@
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -36,12 +37,14 @@ use tokio::task::JoinSet;
 use tokio_rustls::TlsConnector;
 use url::Url;
 
-use connectanum_bench_orchestrator::artifacts::write_artifact_bundle;
+use connectanum_bench_orchestrator::artifacts::summarize_report;
+use connectanum_bench_orchestrator::artifacts::{write_artifact_bundle, WorkloadArtifactSummary};
 use connectanum_bench_orchestrator::report::{
     router_counter_delta, WorkloadReport, WorkloadSample,
 };
 
 type H3RequestSender = h3::client::SendRequest<h3_quinn::OpenStreams, Bytes>;
+const NATIVE_RUNTIME_THREADS_ENV: &str = "CONNECTANUM_NATIVE_RUNTIME_THREADS";
 
 #[derive(Parser, Debug)]
 #[command(author, version, about = "Connectanum bench orchestrator")]
@@ -77,6 +80,16 @@ struct Args {
     #[arg(long, default_value = "native/bench/scenarios/h2_smoke.toml")]
     scenario: String,
 
+    /// Router worker isolate counts to benchmark. Accepts comma-separated
+    /// values and inclusive ranges, e.g. `1,2,4-8`.
+    #[arg(long)]
+    router_worker_counts: Option<String>,
+
+    /// Native Tokio runtime thread counts to benchmark. Accepts comma-separated
+    /// values, inclusive ranges, and `auto`, e.g. `auto,1-4`.
+    #[arg(long)]
+    native_runtime_thread_counts: Option<String>,
+
     /// JSONL results output file.
     #[arg(long, default_value = "native/bench/artifacts/bench_results.jsonl")]
     results: String,
@@ -100,23 +113,81 @@ fn main() -> Result<()> {
         .expect("failed to install ring crypto provider");
     let args = Args::parse();
 
+    let router_worker_counts =
+        resolve_router_worker_counts(args.router_worker_counts.as_deref(), &args.router_config)?;
+    let native_runtime_thread_counts =
+        resolve_native_runtime_thread_counts(args.native_runtime_thread_counts.as_deref())?;
+    let mut results_writer =
+        ResultsWriter::create(&args.results).context("failed to open results file")?;
+    let results_path = Path::new(&args.results);
+    let artifact_dir = args.artifact_dir.as_deref().map(Path::new);
+    let mut reports = Vec::<WorkloadReport>::new();
+
+    for native_runtime_threads in native_runtime_thread_counts {
+        for &router_workers in &router_worker_counts {
+            println!(
+                "\n=== Native runtime threads {} / router worker count {} ===",
+                format_native_runtime_threads(native_runtime_threads),
+                router_workers
+            );
+            let config_variant =
+                prepare_router_config_variant(&args.router_config, router_workers)?;
+            let run_result = run_bench_suite(
+                &args,
+                &config_variant.path,
+                router_workers,
+                native_runtime_threads,
+                &mut results_writer,
+                &mut reports,
+                results_path,
+                artifact_dir,
+            );
+            config_variant.cleanup();
+            run_result?;
+        }
+    }
+
+    print_router_worker_scaling_summary(&reports);
+    print_native_runtime_thread_scaling_summary(&reports);
+    println!("Bench run completed successfully");
+    Ok(())
+}
+
+fn run_bench_suite(
+    args: &Args,
+    router_config_path: &str,
+    router_workers: u32,
+    native_runtime_threads: u32,
+    results_writer: &mut ResultsWriter,
+    reports: &mut Vec<WorkloadReport>,
+    results_path: &Path,
+    artifact_dir: Option<&Path>,
+) -> Result<()> {
     println!(
         "Starting bench runner via {} {}",
         args.dart, args.bench_main
     );
 
-    let mut child_process = Command::new(&args.dart)
+    let mut command = Command::new(&args.dart);
+    command
         .arg("run")
         .arg(&args.bench_main)
         .arg("--router-config")
-        .arg(&args.router_config)
+        .arg(router_config_path)
         .arg("--native-lib")
         .arg(&args.native_lib)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .spawn()
-        .context("failed to spawn bench_main")?;
+        .stderr(Stdio::inherit());
+    if native_runtime_threads == 0 {
+        command.env_remove(NATIVE_RUNTIME_THREADS_ENV);
+    } else {
+        command.env(
+            NATIVE_RUNTIME_THREADS_ENV,
+            native_runtime_threads.to_string(),
+        );
+    }
+    let mut child_process = command.spawn().context("failed to spawn bench_main")?;
 
     let mut child_stdin = child_process.stdin.take();
     let stdout = child_process
@@ -172,7 +243,7 @@ fn main() -> Result<()> {
     });
     let inferred_h3_port = if requires_h3 {
         args.h3_port
-            .or_else(|| infer_h3_port(&args.router_config))
+            .or_else(|| infer_h3_port(router_config_path))
             .or(Some(8443))
     } else {
         args.h3_port
@@ -192,11 +263,6 @@ fn main() -> Result<()> {
             .unwrap_or("unknown")
     );
 
-    let mut results_writer =
-        ResultsWriter::create(&args.results).context("failed to open results file")?;
-    let results_path = Path::new(&args.results);
-    let artifact_dir = args.artifact_dir.as_deref().map(Path::new);
-    let mut reports = Vec::<WorkloadReport>::new();
     let runtime = Runtime::new().context("failed to create tokio runtime")?;
     let workload_timeout = Duration::from_millis(args.workload_timeout_ms);
 
@@ -280,6 +346,8 @@ fn main() -> Result<()> {
                     scenario: scenario.name.clone(),
                     workload: workload.name.clone(),
                     protocol: workload.protocol.clone(),
+                    router_workers,
+                    native_runtime_threads,
                     iterations: workload.iterations,
                     concurrency: workload.concurrency,
                     started_at_ms: started_at,
@@ -297,7 +365,7 @@ fn main() -> Result<()> {
                 print_workload_summary(&report, &prepared);
                 results_writer.write(&report)?;
                 reports.push(report);
-                write_artifact_bundle(&reports, results_path, artifact_dir).with_context(|| {
+                write_artifact_bundle(reports, results_path, artifact_dir).with_context(|| {
                     format!(
                         "failed to write transformed artifact bundle next to {}",
                         args.results
@@ -343,9 +411,281 @@ fn main() -> Result<()> {
         .join()
         .map_err(|_| anyhow!("bench_main stdout reader panicked"))?;
     stdout_result?;
-
-    println!("Bench run completed successfully");
     Ok(())
+}
+
+struct RouterConfigVariant {
+    path: String,
+    cleanup_path: Option<std::path::PathBuf>,
+}
+
+impl RouterConfigVariant {
+    fn cleanup(&self) {
+        if let Some(path) = &self.cleanup_path {
+            let _ = std::fs::remove_file(path);
+        }
+    }
+}
+
+fn resolve_router_worker_counts(spec: Option<&str>, router_config_path: &str) -> Result<Vec<u32>> {
+    match spec {
+        Some(value) => parse_router_worker_counts(value),
+        None => Ok(vec![configured_router_workers(router_config_path)?]),
+    }
+}
+
+fn resolve_native_runtime_thread_counts(spec: Option<&str>) -> Result<Vec<u32>> {
+    match spec {
+        Some(value) => parse_native_runtime_thread_counts(value),
+        None => Ok(vec![configured_native_runtime_threads()?]),
+    }
+}
+
+fn parse_router_worker_counts(spec: &str) -> Result<Vec<u32>> {
+    let mut values = BTreeSet::new();
+    for raw_segment in spec.split(',') {
+        let segment = raw_segment.trim();
+        if segment.is_empty() {
+            continue;
+        }
+        if let Some((start, end)) = segment.split_once('-') {
+            let start = parse_positive_worker_count(start)?;
+            let end = parse_positive_worker_count(end)?;
+            if start > end {
+                bail!("invalid worker range {segment}: start must be <= end");
+            }
+            for value in start..=end {
+                values.insert(value);
+            }
+            continue;
+        }
+        values.insert(parse_positive_worker_count(segment)?);
+    }
+    if values.is_empty() {
+        bail!("router_worker_counts must contain at least one value");
+    }
+    Ok(values.into_iter().collect())
+}
+
+fn parse_positive_worker_count(raw: &str) -> Result<u32> {
+    let value = raw
+        .trim()
+        .parse::<u32>()
+        .with_context(|| format!("invalid worker count {raw:?}"))?;
+    if value == 0 {
+        bail!("worker counts must be >= 1");
+    }
+    Ok(value)
+}
+
+fn parse_native_runtime_thread_counts(spec: &str) -> Result<Vec<u32>> {
+    let mut values = BTreeSet::new();
+    for raw_segment in spec.split(',') {
+        let segment = raw_segment.trim();
+        if segment.is_empty() {
+            continue;
+        }
+        if segment.eq_ignore_ascii_case("auto") {
+            values.insert(0);
+            continue;
+        }
+        if let Some((start, end)) = segment.split_once('-') {
+            let start = parse_positive_worker_count(start)?;
+            let end = parse_positive_worker_count(end)?;
+            if start > end {
+                bail!("invalid runtime thread range {segment}: start must be <= end");
+            }
+            for value in start..=end {
+                values.insert(value);
+            }
+            continue;
+        }
+        values.insert(parse_positive_worker_count(segment)?);
+    }
+    if values.is_empty() {
+        bail!("native_runtime_thread_counts must contain at least one value");
+    }
+    Ok(values.into_iter().collect())
+}
+
+fn configured_native_runtime_threads() -> Result<u32> {
+    let Ok(raw) = std::env::var(NATIVE_RUNTIME_THREADS_ENV) else {
+        return Ok(0);
+    };
+    let trimmed = raw.trim();
+    if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("auto") {
+        return Ok(0);
+    }
+    parse_positive_worker_count(trimmed)
+}
+
+fn configured_router_workers(router_config_path: &str) -> Result<u32> {
+    let value = load_router_config_value(router_config_path)?;
+    Ok(extract_router_workers(&value))
+}
+
+fn load_router_config_value(router_config_path: &str) -> Result<Value> {
+    let contents = std::fs::read_to_string(router_config_path)
+        .with_context(|| format!("failed to read router config {router_config_path}"))?;
+    serde_json::from_str(&contents)
+        .with_context(|| format!("failed to parse router config {router_config_path}"))
+}
+
+fn extract_router_workers(value: &Value) -> u32 {
+    value
+        .get("router")
+        .and_then(Value::as_object)
+        .and_then(|router| router.get("worker_pool"))
+        .and_then(Value::as_object)
+        .and_then(|worker_pool| worker_pool.get("min_workers"))
+        .and_then(Value::as_u64)
+        .and_then(|value| u32::try_from(value).ok())
+        .unwrap_or(1)
+}
+
+fn prepare_router_config_variant(
+    router_config_path: &str,
+    router_workers: u32,
+) -> Result<RouterConfigVariant> {
+    if configured_router_workers(router_config_path)? == router_workers {
+        return Ok(RouterConfigVariant {
+            path: router_config_path.to_string(),
+            cleanup_path: None,
+        });
+    }
+
+    let mut value = load_router_config_value(router_config_path)?;
+    let router = value
+        .get_mut("router")
+        .and_then(Value::as_object_mut)
+        .ok_or_else(|| anyhow!("router config {router_config_path} missing root router object"))?;
+    let worker_pool = router.entry("worker_pool").or_insert_with(|| json!({}));
+    let worker_pool = worker_pool.as_object_mut().ok_or_else(|| {
+        anyhow!("router config {router_config_path} has non-object worker_pool entry")
+    })?;
+    worker_pool.insert("min_workers".to_string(), Value::from(router_workers));
+
+    let file_name = format!(
+        "connectanum_router_workers_{}_{}.json",
+        router_workers,
+        now_millis()
+    );
+    let path = std::env::temp_dir().join(file_name);
+    let encoded =
+        serde_json::to_vec_pretty(&value).context("failed to encode worker override config")?;
+    std::fs::write(&path, encoded)
+        .with_context(|| format!("failed to write {}", path.display()))?;
+    Ok(RouterConfigVariant {
+        path: path.to_string_lossy().into_owned(),
+        cleanup_path: Some(path),
+    })
+}
+
+fn print_router_worker_scaling_summary(reports: &[WorkloadReport]) {
+    let workers = reports
+        .iter()
+        .map(|report| report.router_workers)
+        .collect::<BTreeSet<_>>();
+    if workers.len() <= 1 {
+        return;
+    }
+
+    let summaries = reports
+        .iter()
+        .map(summarize_report)
+        .collect::<Vec<WorkloadArtifactSummary>>();
+    let mut grouped =
+        BTreeMap::<(String, String, String, u32), Vec<WorkloadArtifactSummary>>::new();
+    for summary in summaries {
+        grouped
+            .entry((
+                summary.scenario.clone(),
+                summary.workload.clone(),
+                summary.protocol.clone(),
+                summary.native_runtime_threads,
+            ))
+            .or_default()
+            .push(summary);
+    }
+
+    let worker_list = workers
+        .iter()
+        .map(u32::to_string)
+        .collect::<Vec<_>>()
+        .join(", ");
+    println!("\n=== Router worker scaling summary ({worker_list}) ===");
+    for ((scenario, workload, protocol, native_runtime_threads), mut entries) in grouped {
+        entries.sort_by_key(|entry| entry.router_workers);
+        println!(
+            "  {scenario} / {workload} [{protocol}] runtime_threads={}",
+            format_native_runtime_threads(native_runtime_threads)
+        );
+        for entry in entries {
+            println!(
+                "    workers {:>2}: {:.2} Mbps, p95 {:.2} ms, samples {}",
+                entry.router_workers,
+                entry.throughput_mbps,
+                entry.latency_p95_ms,
+                entry.sample_count
+            );
+        }
+    }
+}
+
+fn print_native_runtime_thread_scaling_summary(reports: &[WorkloadReport]) {
+    let native_runtime_threads = reports
+        .iter()
+        .map(|report| report.native_runtime_threads)
+        .collect::<BTreeSet<_>>();
+    if native_runtime_threads.len() <= 1 {
+        return;
+    }
+
+    let summaries = reports
+        .iter()
+        .map(summarize_report)
+        .collect::<Vec<WorkloadArtifactSummary>>();
+    let mut grouped =
+        BTreeMap::<(String, String, String, u32), Vec<WorkloadArtifactSummary>>::new();
+    for summary in summaries {
+        grouped
+            .entry((
+                summary.scenario.clone(),
+                summary.workload.clone(),
+                summary.protocol.clone(),
+                summary.router_workers,
+            ))
+            .or_default()
+            .push(summary);
+    }
+
+    let thread_list = native_runtime_threads
+        .iter()
+        .map(|value| format_native_runtime_threads(*value))
+        .collect::<Vec<_>>()
+        .join(", ");
+    println!("\n=== Native runtime thread scaling summary ({thread_list}) ===");
+    for ((scenario, workload, protocol, router_workers), mut entries) in grouped {
+        entries.sort_by_key(|entry| entry.native_runtime_threads);
+        println!("  {scenario} / {workload} [{protocol}] router_workers={router_workers}");
+        for entry in entries {
+            println!(
+                "    threads {:>4}: {:.2} Mbps, p95 {:.2} ms, samples {}",
+                format_native_runtime_threads(entry.native_runtime_threads),
+                entry.throughput_mbps,
+                entry.latency_p95_ms,
+                entry.sample_count
+            );
+        }
+    }
+}
+
+fn format_native_runtime_threads(value: u32) -> String {
+    if value == 0 {
+        "auto".to_string()
+    } else {
+        value.to_string()
+    }
 }
 
 #[derive(Clone)]
@@ -653,6 +993,11 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
         "  Response throughput: {:.2} Mbps | Total payload throughput: {:.2} Mbps",
         response_throughput_mbps, payload_throughput_mbps
     );
+    println!(
+        "  Native runtime threads: {}",
+        format_native_runtime_threads(report.native_runtime_threads)
+    );
+    println!("  Router workers: {}", report.router_workers);
     if let Some(delta) = router_counter_delta(
         &report.metrics_before,
         &report.metrics_after,
@@ -1334,6 +1679,8 @@ mod tests {
             scenario: "scenario".to_string(),
             workload: "workload".to_string(),
             protocol: "h2".to_string(),
+            router_workers: 2,
+            native_runtime_threads: 4,
             iterations: 1,
             concurrency: 1,
             started_at_ms: 1,
@@ -1387,6 +1734,55 @@ mod tests {
         };
         let prepared = PreparedWorkload::from_config(&config).unwrap();
         assert!(prepared.reuse_connections);
+    }
+
+    #[test]
+    fn parse_router_worker_counts_supports_ranges_and_deduplicates() {
+        let counts = parse_router_worker_counts("4,1-3,2,6").unwrap();
+        assert_eq!(counts, vec![1, 2, 3, 4, 6]);
+    }
+
+    #[test]
+    fn parse_router_worker_counts_rejects_zero() {
+        let error = parse_router_worker_counts("0,1").unwrap_err();
+        assert!(error.to_string().contains(">= 1"));
+    }
+
+    #[test]
+    fn parse_native_runtime_thread_counts_supports_auto_ranges_and_deduplicates() {
+        let counts = parse_native_runtime_thread_counts("auto,4,1-3,2").unwrap();
+        assert_eq!(counts, vec![0, 1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn parse_native_runtime_thread_counts_rejects_zero() {
+        let error = parse_native_runtime_thread_counts("0,1").unwrap_err();
+        assert!(error.to_string().contains(">= 1"));
+    }
+
+    #[test]
+    fn prepare_router_config_variant_overrides_worker_pool() {
+        let temp_dir = unique_temp_dir("router_config_override");
+        fs::create_dir_all(&temp_dir).unwrap();
+        let router_config = temp_dir.join("router.json");
+        fs::write(
+            &router_config,
+            serde_json::to_vec_pretty(&json!({
+                "router": {
+                    "listeners": [],
+                    "realms": []
+                }
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let variant =
+            prepare_router_config_variant(router_config.to_string_lossy().as_ref(), 4).unwrap();
+        let overridden: Value = serde_json::from_slice(&fs::read(&variant.path).unwrap()).unwrap();
+        assert_eq!(extract_router_workers(&overridden), 4);
+        variant.cleanup();
+        fs::remove_dir_all(&temp_dir).unwrap();
     }
 
     async fn spawn_h2_test_server() -> (

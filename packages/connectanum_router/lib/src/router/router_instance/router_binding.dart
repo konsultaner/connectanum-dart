@@ -926,11 +926,6 @@ class RouterBinding {
     RouterHttpRequest request,
     NativeHttpHandshake? handshake,
   ) async {
-    // ignore: avoid_print
-    print(
-      'binding: handling HTTP request ${request.method} ${request.path} (${request.protocol}) '
-      'conn=${request.connectionId}',
-    );
     NativeHttpHandshake? retainedHandshake = handshake;
     final realmUri = request.realm;
     final procedure = request.procedure;
@@ -996,12 +991,23 @@ class RouterBinding {
       '_connection': connectionDetails,
     };
 
+    final pending = _PendingHttpCall(
+      id: httpRequestId,
+      request: request,
+      snapshot: snapshot,
+      session: session,
+      handshake: retainedHandshake,
+    );
+    _pendingHttpCalls[httpRequestId] = pending;
+
     StreamSubscription<result_msg.Result>? subscription;
     try {
       final options = call_msg.CallOptions(
         custom: <String, dynamic>{
           HttpInvocationKeys.requestId: httpRequestId,
           HttpInvocationKeys.request: requestPayload,
+          HttpInvocationKeys.responseStreamControlPort:
+              session._controlPort.sendPort,
         },
       );
       final stream = session.call(
@@ -1107,6 +1113,10 @@ class RouterBinding {
               _completeHttpRequest(responsePayload.requestId);
             }
           } else if (!progress) {
+            final pending = _pendingHttpCalls[httpRequestId];
+            if (pending?.directResponseStream != null) {
+              pending!.directResponseStreamCompleted = true;
+            }
             _completeHttpRequest(httpRequestId);
           }
         },
@@ -1127,7 +1137,9 @@ class RouterBinding {
         },
         cancelOnError: false,
       );
+      pending.subscription = subscription;
     } catch (error, stackTrace) {
+      _pendingHttpCalls.remove(httpRequestId);
       subscription?.cancel();
       onEvent?.call({
         'source': 'binding',
@@ -1143,15 +1155,6 @@ class RouterBinding {
       retainedHandshake?.release();
       return;
     }
-
-    _pendingHttpCalls[httpRequestId] = _PendingHttpCall(
-      id: httpRequestId,
-      request: request,
-      snapshot: snapshot,
-      session: session,
-      subscription: subscription,
-      handshake: retainedHandshake,
-    );
     retainedHandshake = null;
     onEvent?.call({
       'source': 'binding',
@@ -1287,6 +1290,59 @@ class RouterBinding {
     }
   }
 
+  NativeHttpResponseStreamDescriptor? _openDirectResponseStream(
+    _PendingHttpCall pending, {
+    required int status,
+    required Map<String, String> headers,
+  }) {
+    final existing = pending.directResponseStream;
+    if (existing != null) {
+      return existing;
+    }
+    final handshake = pending.handshake;
+    if (handshake == null) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_response_stream_missing_handshake',
+        'httpRequestId': pending.id,
+        'listenerId': pending.request.listenerId,
+        'connectionId': pending.request.connectionId,
+      });
+      return null;
+    }
+    try {
+      final descriptor = runtime.openHttpResponseStreamDescriptor(
+        handshakeHandle: handshake.handle,
+        status: status,
+        headers: headers,
+      );
+      pending.directResponseStream = descriptor;
+      return descriptor;
+    } on UnsupportedError catch (error, stackTrace) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_response_stream_open_unsupported',
+        'httpRequestId': pending.id,
+        'listenerId': pending.request.listenerId,
+        'connectionId': pending.request.connectionId,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+      return null;
+    } on NativeTransportException catch (error, stackTrace) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_response_stream_open_error',
+        'httpRequestId': pending.id,
+        'listenerId': pending.request.listenerId,
+        'connectionId': pending.request.connectionId,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+      return null;
+    }
+  }
+
   void _finishStreamingResponse(_PendingHttpCall pending) {
     final stream = pending.responseStream;
     pending.responseStream = null;
@@ -1314,6 +1370,24 @@ class RouterBinding {
     if (stream != null && !stream.isClosed) {
       try {
         stream.close();
+      } catch (error, stackTrace) {
+        onEvent?.call({
+          'source': 'binding',
+          'type': 'http_response_stream_finish_error',
+          'httpRequestId': httpRequestId,
+          'error': error.toString(),
+          'stackTrace': stackTrace.toString(),
+        });
+      }
+    }
+    final directStream = pending?.directResponseStream;
+    if (directStream != null &&
+        pending?.directResponseStreamCompleted != true) {
+      try {
+        NativeHttpResponseStream.borrowed(
+          handle: directStream.handle,
+          libraryPath: directStream.libraryPath,
+        ).close();
       } catch (error, stackTrace) {
         onEvent?.call({
           'source': 'binding',
@@ -1472,7 +1546,6 @@ class _PendingHttpCall {
     required this.request,
     required this.snapshot,
     required this.session,
-    required this.subscription,
     this.handshake,
   });
 
@@ -1480,9 +1553,11 @@ class _PendingHttpCall {
   final RouterHttpRequest request;
   final HttpRequestSnapshot snapshot;
   final RouterSession session;
-  final StreamSubscription<result_msg.Result> subscription;
+  late StreamSubscription<result_msg.Result> subscription;
   NativeHttpHandshake? handshake;
   NativeHttpResponseStream? responseStream;
+  NativeHttpResponseStreamDescriptor? directResponseStream;
+  bool directResponseStreamCompleted = false;
 }
 
 class _MetricsService {

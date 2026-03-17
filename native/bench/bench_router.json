@@ -162,6 +162,9 @@
         "realm": "connectanum.metrics"
       }
     },
+    "worker_pool": {
+      "min_workers": 1
+    },
     "authenticators": {
       "anonymous": {
         "type": "anonymous"
