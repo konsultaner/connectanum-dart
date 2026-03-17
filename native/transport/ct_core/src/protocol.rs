@@ -80,6 +80,7 @@ pub struct HttpHandshake {
     stream: IoStream,
     pub request: HttpRequest,
     pub body: HttpBodyPhase,
+    prefetched: Bytes,
 }
 
 impl HttpHandshake {
@@ -88,8 +89,8 @@ impl HttpHandshake {
         self.stream
     }
 
-    pub(crate) fn into_parts(self) -> (IoStream, HttpRequest, HttpBodyPhase) {
-        (self.stream, self.request, self.body)
+    pub(crate) fn into_parts(self) -> (IoStream, HttpRequest, HttpBodyPhase, Bytes) {
+        (self.stream, self.request, self.body, self.prefetched)
     }
 
     /// Returns the HTTP version captured during negotiation.
@@ -634,16 +635,14 @@ async fn parse_http_handshake(
                 "chunked transfer encoding is not supported",
             )));
         }
-        let buffered = Bytes::copy_from_slice(reader.buffer());
-        reader.consume(buffered.len());
-        let mut stream = reader.into_inner();
-        if !buffered.is_empty() {
-            stream.buffer_front(buffered.as_ref());
-        }
+        let prefetched = Bytes::copy_from_slice(reader.buffer());
+        reader.consume(prefetched.len());
+        let stream = reader.into_inner();
         Ok(HttpHandshake {
             stream,
             request,
             body: body_phase,
+            prefetched,
         })
     })
     .await
@@ -708,15 +707,59 @@ async fn read_http_request_with_options<R>(
 where
     R: AsyncRead + Unpin,
 {
-    let mut buffer = BytesMut::with_capacity(1024);
     let read_timeout = endpoint.idle_timeout.unwrap_or(endpoint.handshake_timeout);
-    let header_len =
-        match read_until_header_terminator(reader, &mut buffer, read_timeout, allow_eof).await? {
-            Some(len) => len,
-            None => return Ok(None),
-        };
+    let mut header_bytes = BytesMut::with_capacity(1024);
+    loop {
+        let step = {
+            let available = match time::timeout(read_timeout, reader.fill_buf()).await {
+                Ok(result) => result.map_err(NegotiationError::Io)?,
+                Err(_) => return Err(NegotiationError::Timeout),
+            };
+            if available.is_empty() {
+                if allow_eof && header_bytes.is_empty() {
+                    return Ok(None);
+                }
+                return Err(NegotiationError::Protocol(
+                    "connection closed before HTTP headers completed".into(),
+                ));
+            }
 
-    let (request, content_length_u64) = parse_http_request(&buffer[..header_len])?;
+            let search_start = header_bytes.len().saturating_sub(3);
+            let mut search_bytes =
+                BytesMut::with_capacity(header_bytes.len() - search_start + available.len());
+            search_bytes.extend_from_slice(&header_bytes[search_start..]);
+            search_bytes.extend_from_slice(available);
+
+            match find_header_terminator(&search_bytes) {
+                Some(relative_index) => {
+                    let header_end = search_start + relative_index + 4;
+                    if header_end > MAX_HTTP_HEADER_BYTES {
+                        return Err(NegotiationError::Protocol(
+                            "HTTP headers exceed supported limit".into(),
+                        ));
+                    }
+                    let needed = header_end.saturating_sub(header_bytes.len());
+                    header_bytes.extend_from_slice(&available[..needed]);
+                    (needed, true)
+                }
+                None => {
+                    if header_bytes.len() + available.len() > MAX_HTTP_HEADER_BYTES {
+                        return Err(NegotiationError::Protocol(
+                            "HTTP headers exceed supported limit".into(),
+                        ));
+                    }
+                    header_bytes.extend_from_slice(available);
+                    (available.len(), false)
+                }
+            }
+        };
+        reader.consume(step.0);
+        if step.1 {
+            break;
+        }
+    }
+
+    let (request, content_length_u64) = parse_http_request(&header_bytes)?;
 
     let max_body = endpoint
         .max_http_content_length
@@ -743,80 +786,47 @@ where
         ));
     }
 
-    let mut body_bytes = buffer.split_off(header_len);
-    if let Some(len) = content_length {
-        if len < body_bytes.len() {
-            body_bytes.truncate(len);
-        }
-    }
-
     if let Some(len) = content_length {
         if len <= inline_limit {
-            let mut remaining = len.saturating_sub(body_bytes.len());
-            let timeout = endpoint.idle_timeout.unwrap_or(endpoint.handshake_timeout);
-            while remaining > 0 {
-                let request = remaining.min(4096);
-                let start = body_bytes.len();
-                body_bytes.resize(start + request, 0);
-                let read = read_with_timeout(reader, &mut body_bytes[start..], timeout).await?;
-                if read == 0 {
+            let mut body_bytes = BytesMut::with_capacity(len);
+            while body_bytes.len() < len {
+                let consumed = {
+                    let available = match time::timeout(read_timeout, reader.fill_buf()).await {
+                        Ok(result) => result.map_err(NegotiationError::Io)?,
+                        Err(_) => return Err(NegotiationError::Timeout),
+                    };
+                    if available.is_empty() {
+                        0
+                    } else {
+                        let take = (len - body_bytes.len()).min(available.len());
+                        body_bytes.extend_from_slice(&available[..take]);
+                        take
+                    }
+                };
+                if consumed == 0 {
                     return Err(NegotiationError::Protocol(
                         "connection closed before receiving declared HTTP body".into(),
                     ));
                 }
-                body_bytes.truncate(start + read);
-                remaining -= read;
+                reader.consume(consumed);
             }
             return Ok(Some((
                 request,
                 HttpBodyPhase::Buffered(body_bytes.freeze()),
             )));
         } else {
-            let prefix = body_bytes.freeze();
+            let (prefix, consumed) = {
+                let available = reader.buffer();
+                let take = len.min(available.len());
+                (Bytes::copy_from_slice(&available[..take]), take)
+            };
+            reader.consume(consumed);
             let phase = http1_stream::classify_http_body(prefix, Some(len));
             return Ok(Some((request, phase)));
         }
     }
 
-    Ok(Some((
-        request,
-        HttpBodyPhase::Buffered(body_bytes.freeze()),
-    )))
-}
-
-async fn read_until_header_terminator<R>(
-    reader: &mut BufReader<R>,
-    buffer: &mut BytesMut,
-    timeout: Duration,
-    allow_eof: bool,
-) -> Result<Option<usize>, NegotiationError>
-where
-    R: AsyncRead + Unpin,
-{
-    loop {
-        if let Some(index) = find_header_terminator(buffer) {
-            return Ok(Some(index + 4));
-        }
-        let start = buffer.len();
-        buffer.resize(start + 1024, 0);
-        let read = read_with_timeout(reader, &mut buffer[start..], timeout).await?;
-        if read == 0 {
-            buffer.truncate(start);
-            if allow_eof && buffer.is_empty() {
-                return Ok(None);
-            } else {
-                return Err(NegotiationError::Protocol(
-                    "connection closed before HTTP headers completed".into(),
-                ));
-            }
-        }
-        buffer.truncate(start + read);
-        if buffer.len() > MAX_HTTP_HEADER_BYTES {
-            return Err(NegotiationError::Protocol(
-                "HTTP headers exceed supported limit".into(),
-            ));
-        }
-    }
+    Ok(Some((request, HttpBodyPhase::Buffered(Bytes::new()))))
 }
 
 fn find_header_terminator(buffer: &[u8]) -> Option<usize> {
@@ -824,20 +834,6 @@ fn find_header_terminator(buffer: &[u8]) -> Option<usize> {
         .windows(4)
         .position(|window| window == b"\r\n\r\n")
         .map(|index| index)
-}
-
-async fn read_with_timeout<R>(
-    reader: &mut BufReader<R>,
-    buf: &mut [u8],
-    timeout: Duration,
-) -> Result<usize, NegotiationError>
-where
-    R: AsyncRead + Unpin,
-{
-    match time::timeout(timeout, reader.read(buf)).await {
-        Ok(result) => result.map_err(NegotiationError::Io),
-        Err(_) => Err(NegotiationError::Timeout),
-    }
 }
 
 fn parse_http_request(bytes: &[u8]) -> Result<(HttpRequest, Option<u64>), NegotiationError> {
@@ -929,6 +925,7 @@ mod tests {
     use crate::config::{
         EndpointConfig, EndpointRuntimeConfig, HttpEndpointConfig, TlsMode, TransportProtocol,
     };
+    use crate::io_stream::IoStream;
     use serde_json::Value as JsonValue;
     use std::collections::HashMap;
     use tokio::{net::TcpListener, net::TcpStream, sync::oneshot};
@@ -1065,6 +1062,88 @@ mod tests {
             }
             other => panic!("expected streaming phase, got {:?}", other),
         }
+    }
+
+    #[tokio::test]
+    async fn read_http_request_preserves_pipelined_followup_after_inline_body() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let config = runtime_config(Some(Duration::from_secs(1)), 16);
+        let (tx, rx) = oneshot::channel();
+
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut reader = BufReader::new(stream);
+            let first = read_http_request(&mut reader, &config)
+                .await
+                .expect("first request parsed")
+                .expect("first request present");
+            let second = read_http_request(&mut reader, &config)
+                .await
+                .expect("second request parsed")
+                .expect("second request present");
+            tx.send((first, second)).ok();
+        });
+
+        let mut client = TcpStream::connect(addr).await.unwrap();
+        client
+            .write_all(
+                b"POST /first HTTP/1.1\r\nHost: localhost\r\nContent-Length: 4\r\n\r\nbodyGET /second HTTP/1.1\r\nHost: localhost\r\n\r\n",
+            )
+            .await
+            .unwrap();
+
+        let ((first_request, first_body), (second_request, second_body)) = rx.await.unwrap();
+        assert_eq!(first_request.method, "POST");
+        assert_eq!(first_request.target, "/first");
+        match first_body {
+            HttpBodyPhase::Buffered(bytes) => {
+                assert_eq!(bytes, Bytes::from_static(b"body"));
+            }
+            other => panic!("expected buffered inline body, got {:?}", other),
+        }
+        assert_eq!(second_request.method, "GET");
+        assert_eq!(second_request.target, "/second");
+        match second_body {
+            HttpBodyPhase::Buffered(bytes) => assert!(bytes.is_empty()),
+            other => panic!("expected empty buffered body, got {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn parse_http_handshake_preserves_prefetched_followup_bytes() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let config = runtime_config(Some(Duration::from_secs(1)), 16);
+        let (tx, rx) = oneshot::channel();
+
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let handshake = parse_http_handshake(IoStream::plain(stream), &config)
+                .await
+                .expect("handshake parsed");
+            tx.send(handshake.into_parts()).ok();
+        });
+
+        let mut client = TcpStream::connect(addr).await.unwrap();
+        client
+            .write_all(
+                b"GET /first HTTP/1.1\r\nHost: localhost\r\n\r\nGET /second HTTP/1.1\r\nHost: localhost\r\n\r\n",
+            )
+            .await
+            .unwrap();
+
+        let (_stream, request, body, prefetched) = rx.await.unwrap();
+        assert_eq!(request.method, "GET");
+        assert_eq!(request.target, "/first");
+        match body {
+            HttpBodyPhase::Buffered(bytes) => assert!(bytes.is_empty()),
+            other => panic!("expected empty buffered body, got {:?}", other),
+        }
+        assert_eq!(
+            prefetched,
+            Bytes::from_static(b"GET /second HTTP/1.1\r\nHost: localhost\r\n\r\n")
+        );
     }
 
     #[test]

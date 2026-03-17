@@ -165,18 +165,13 @@ impl StreamingBodyState {
 
 pub fn spawn_http1_streaming_body(
     prefix: Bytes,
-    buffered_prefix: Option<Bytes>,
     reader: IoReadHalf,
     remaining: usize,
     read_timeout: Duration,
 ) -> (Arc<StreamingBodyState>, Http1BodyReclaim) {
-    let total_len =
-        prefix.len() + buffered_prefix.as_ref().map(Bytes::len).unwrap_or(0) + remaining;
+    let total_len = prefix.len() + remaining;
     let state = StreamingBodyState::new(total_len);
     state.enqueue_prefix(prefix);
-    if let Some(buffered_prefix) = buffered_prefix {
-        state.enqueue_prefix(buffered_prefix);
-    }
     let (tx, rx) = oneshot::channel();
     tokio::spawn(run_http1_stream_reader(
         state.clone(),
@@ -297,13 +292,8 @@ mod tests {
         let (socket, _) = listener.accept().await.unwrap();
         let (read_half, _write_half) = tokio::io::split(IoStream::plain(socket));
         let prefix = Bytes::from_static(b"12345");
-        let (state, reclaim) = spawn_http1_streaming_body(
-            prefix.clone(),
-            None,
-            read_half,
-            4,
-            Duration::from_millis(200),
-        );
+        let (state, reclaim) =
+            spawn_http1_streaming_body(prefix.clone(), read_half, 4, Duration::from_millis(200));
 
         let reader_state = state.clone();
         let reader = tokio::task::spawn_blocking(move || {
@@ -340,7 +330,7 @@ mod tests {
         let (read_half, _write_half) = tokio::io::split(IoStream::plain(socket));
         let prefix = Bytes::from_static(b"");
         let (state, reclaim) =
-            spawn_http1_streaming_body(prefix, None, read_half, 8, Duration::from_millis(100));
+            spawn_http1_streaming_body(prefix, read_half, 8, Duration::from_millis(100));
 
         let reader_state = state.clone();
         let reader = tokio::task::spawn_blocking(move || match reader_state.take_slice(4) {

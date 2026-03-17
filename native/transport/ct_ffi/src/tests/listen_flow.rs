@@ -131,6 +131,94 @@ fn wait_for_http_event(timeout: Duration) -> (CtHttpConnectionEventInfo, Option<
     }
 }
 
+async fn read_http_response_head(stream: &mut tokio::net::TcpStream) -> (String, Vec<u8>) {
+    let mut buffer = Vec::new();
+    loop {
+        let mut chunk = [0u8; 1024];
+        let read = tokio::time::timeout(Duration::from_secs(5), stream.read(&mut chunk))
+            .await
+            .expect("read response head timeout")
+            .expect("read response head failed");
+        assert!(read > 0, "connection closed before response head");
+        buffer.extend_from_slice(&chunk[..read]);
+        if let Some(index) = buffer.windows(4).position(|window| window == b"\r\n\r\n") {
+            let head = String::from_utf8_lossy(&buffer[..index + 4]).to_string();
+            let rest = buffer[index + 4..].to_vec();
+            return (head, rest);
+        }
+    }
+}
+
+async fn read_exact_prefetched(
+    stream: &mut tokio::net::TcpStream,
+    prefetched: &mut Vec<u8>,
+    len: usize,
+) -> Vec<u8> {
+    let mut output = Vec::with_capacity(len);
+    while output.len() < len {
+        if !prefetched.is_empty() {
+            let take = (len - output.len()).min(prefetched.len());
+            output.extend_from_slice(&prefetched[..take]);
+            prefetched.drain(..take);
+            continue;
+        }
+        let mut chunk = vec![0u8; len - output.len()];
+        tokio::time::timeout(Duration::from_secs(5), stream.read_exact(&mut chunk))
+            .await
+            .expect("read exact timeout")
+            .expect("read exact failed");
+        output.extend_from_slice(&chunk);
+    }
+    output
+}
+
+async fn read_line_prefetched(
+    stream: &mut tokio::net::TcpStream,
+    prefetched: &mut Vec<u8>,
+) -> Vec<u8> {
+    let mut output = Vec::new();
+    loop {
+        if let Some(index) = prefetched.windows(2).position(|window| window == b"\r\n") {
+            output.extend_from_slice(&prefetched[..index]);
+            prefetched.drain(..index + 2);
+            return output;
+        }
+        if !prefetched.is_empty() {
+            output.extend_from_slice(prefetched);
+            prefetched.clear();
+        }
+        let mut chunk = [0u8; 1024];
+        let read = tokio::time::timeout(Duration::from_secs(5), stream.read(&mut chunk))
+            .await
+            .expect("read line timeout")
+            .expect("read line failed");
+        assert!(read > 0, "connection closed before line terminator");
+        prefetched.extend_from_slice(&chunk[..read]);
+    }
+}
+
+async fn read_chunked_response_body(
+    stream: &mut tokio::net::TcpStream,
+    prefetched: &mut Vec<u8>,
+) -> Vec<u8> {
+    let mut decoded = Vec::new();
+    loop {
+        let line = read_line_prefetched(stream, prefetched).await;
+        let len_str = std::str::from_utf8(&line).expect("chunk size utf8");
+        let chunk_len = usize::from_str_radix(len_str.trim(), 16).expect("chunk size hex");
+        if chunk_len == 0 {
+            let trailer = read_exact_prefetched(stream, prefetched, 2).await;
+            assert_eq!(trailer, b"\r\n");
+            break;
+        }
+        let chunk = read_exact_prefetched(stream, prefetched, chunk_len).await;
+        decoded.extend_from_slice(&chunk);
+        let suffix = read_exact_prefetched(stream, prefetched, 2).await;
+        assert_eq!(suffix, b"\r\n");
+    }
+    decoded
+}
+
 fn build_http3_client_config(roots: Arc<RootCertStore>) -> QuinnClientConfig {
     let provider = Arc::new(rustls::crypto::ring::default_provider());
     let verifier = WebPkiServerVerifier::builder_with_provider(roots, provider.clone())
@@ -909,6 +997,376 @@ fn http_response_streaming_round_trip() {
     assert_eq!(decoded.len(), expected_len);
     assert!(decoded[..chunk.len()].iter().all(|byte| *byte == b'q'));
     assert!(decoded.ends_with(trailer));
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn http1_keep_alive_pipeline_preserves_prefetched_requests() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"disabled",
+                    "protocols":["rawsocket","http"],
+                    "http":{
+                        "alpn":["http/1.1"]
+                    },
+                    "http_routes":[
+                        {
+                            "path":"/first",
+                            "match_kind":"prefix",
+                            "methods":{
+                                "POST":{
+                                    "type":"reserved_realm",
+                                    "append_method_suffix":true
+                                }
+                            }
+                        },
+                        {
+                            "path":"/second",
+                            "match_kind":"prefix",
+                            "methods":{
+                                "GET":{
+                                    "type":"reserved_realm",
+                                    "append_method_suffix":true
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let client_handle = std::thread::spawn(move || {
+        let rt = TokioRuntime::new().unwrap();
+        rt.block_on(async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+            stream
+                .write_all(
+                    b"POST /first HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\nContent-Length: 4\r\n\r\nbodyGET /second HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n",
+                )
+                .await
+                .unwrap();
+            stream.flush().await.unwrap();
+            let mut response = Vec::new();
+            stream.read_to_end(&mut response).await.unwrap();
+            response
+        })
+    });
+
+    let connection_id = wait_for_connection(listener_id);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP);
+
+    let first_handle = wait_for_http_handshake(connection_id);
+    let mut first_info = CtHttpHandshakeInfo::default();
+    assert_eq!(
+        ct_http_handshake_get(first_handle, &mut first_info as *mut CtHttpHandshakeInfo),
+        SUCCESS
+    );
+    unsafe {
+        let method = std::str::from_utf8(std::slice::from_raw_parts(
+            first_info.method_ptr,
+            first_info.method_len,
+        ))
+        .expect("first method utf8");
+        let path = std::str::from_utf8(std::slice::from_raw_parts(
+            first_info.path_ptr,
+            first_info.path_len,
+        ))
+        .expect("first path utf8");
+        assert_eq!(method, "POST");
+        assert_eq!(path, "/first");
+    }
+    assert_eq!(first_info.body_len, 4);
+
+    let body_handle = ct_http_handshake_body_retain(first_handle);
+    assert!(body_handle > 0);
+    let mut body_view = CtHttpBodyView::default();
+    assert_eq!(
+        ct_http_body_get(body_handle, &mut body_view as *mut CtHttpBodyView),
+        SUCCESS
+    );
+    unsafe {
+        let bytes = std::slice::from_raw_parts(body_view.data_ptr, body_view.data_len);
+        assert_eq!(bytes, b"body");
+    }
+    assert_eq!(ct_http_body_release(body_handle), SUCCESS);
+
+    let first_body = b"first-response";
+    assert_eq!(
+        ct_http_response_send(
+            first_handle,
+            201,
+            std::ptr::null(),
+            0,
+            first_body.as_ptr(),
+            first_body.len(),
+        ),
+        SUCCESS
+    );
+    assert_eq!(ct_http_handshake_release(first_handle), SUCCESS);
+
+    let second_handle = wait_for_http_handshake(connection_id);
+    let mut second_info = CtHttpHandshakeInfo::default();
+    assert_eq!(
+        ct_http_handshake_get(second_handle, &mut second_info as *mut CtHttpHandshakeInfo),
+        SUCCESS
+    );
+    unsafe {
+        let method = std::str::from_utf8(std::slice::from_raw_parts(
+            second_info.method_ptr,
+            second_info.method_len,
+        ))
+        .expect("second method utf8");
+        let path = std::str::from_utf8(std::slice::from_raw_parts(
+            second_info.path_ptr,
+            second_info.path_len,
+        ))
+        .expect("second path utf8");
+        assert_eq!(method, "GET");
+        assert_eq!(path, "/second");
+    }
+    assert_eq!(second_info.body_len, 0);
+
+    let second_body = b"second-response";
+    assert_eq!(
+        ct_http_response_send(
+            second_handle,
+            202,
+            std::ptr::null(),
+            0,
+            second_body.as_ptr(),
+            second_body.len(),
+        ),
+        SUCCESS
+    );
+    assert_eq!(ct_http_handshake_release(second_handle), SUCCESS);
+
+    let response_bytes = client_handle.join().unwrap();
+    let response_text = String::from_utf8_lossy(&response_bytes);
+    let first_status = response_text
+        .find("HTTP/1.1 201")
+        .expect("first response status");
+    let second_status = response_text
+        .find("HTTP/1.1 202")
+        .expect("second response status");
+    assert!(
+        first_status < second_status,
+        "responses out of order: {response_text}"
+    );
+    assert!(
+        response_text.contains("first-response"),
+        "missing first body: {response_text}"
+    );
+    assert!(
+        response_text.contains("second-response"),
+        "missing second body: {response_text}"
+    );
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn http1_streaming_request_and_streaming_response_keep_alive_round_trip() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"disabled",
+                    "protocols":["rawsocket","http"],
+                    "http":{
+                        "alpn":["http/1.1"]
+                    },
+                    "http_routes":[
+                        {
+                            "path":"/stream",
+                            "match_kind":"prefix",
+                            "methods":{
+                                "POST":{
+                                    "type":"reserved_realm",
+                                    "append_method_suffix":true
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let payload_len = 70_000usize;
+    let response_chunk = vec![b'r'; 32 * 1024];
+    let response_trailer = b"stream-finished";
+    let client_handle = std::thread::spawn(move || {
+        let rt = TokioRuntime::new().unwrap();
+        rt.block_on(async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+            let first_request = format!(
+                "POST /stream HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\nContent-Length: {}\r\n\r\n",
+                payload_len
+            );
+            stream.write_all(first_request.as_bytes()).await.unwrap();
+            stream.write_all(&vec![b'x'; payload_len]).await.unwrap();
+            stream.flush().await.unwrap();
+
+            let (first_head, mut first_prefetched) = read_http_response_head(&mut stream).await;
+            assert!(
+                first_head.starts_with("HTTP/1.1 207"),
+                "unexpected first response: {first_head}"
+            );
+            assert!(
+                first_head
+                    .to_ascii_lowercase()
+                    .contains("transfer-encoding: chunked"),
+                "missing chunked header: {first_head}"
+            );
+            let first_body = read_chunked_response_body(&mut stream, &mut first_prefetched).await;
+
+            let second_request =
+                b"POST /stream HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nContent-Length: 0\r\n\r\n";
+            stream.write_all(second_request).await.unwrap();
+            stream.flush().await.unwrap();
+
+            let (second_head, second_prefetched) = read_http_response_head(&mut stream).await;
+            assert!(
+                second_head.starts_with("HTTP/1.1 204"),
+                "unexpected second response: {second_head}"
+            );
+            assert!(second_prefetched.is_empty());
+            let mut tail = Vec::new();
+            stream.read_to_end(&mut tail).await.unwrap();
+            (first_body, second_head)
+        })
+    });
+
+    let connection_id = wait_for_connection(listener_id);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP);
+
+    let first_handle = wait_for_http_handshake(connection_id);
+    let mut first_info = CtHttpHandshakeInfo::default();
+    assert_eq!(
+        ct_http_handshake_get(first_handle, &mut first_info as *mut CtHttpHandshakeInfo),
+        SUCCESS
+    );
+    assert_eq!(first_info.body_len, payload_len);
+
+    let body_handle = ct_http_handshake_body_retain(first_handle);
+    assert!(body_handle > 0);
+    let mut collected = Vec::new();
+    loop {
+        let mut view = CtHttpBodyView::default();
+        assert_eq!(
+            ct_http_body_stream_read(body_handle, 8192, &mut view as *mut CtHttpBodyView),
+            SUCCESS
+        );
+        if view.data_len == 0 {
+            break;
+        }
+        unsafe {
+            let slice = std::slice::from_raw_parts(view.data_ptr, view.data_len);
+            collected.extend_from_slice(slice);
+        }
+    }
+    assert_eq!(collected.len(), payload_len);
+    assert!(collected.iter().all(|byte| *byte == b'x'));
+    assert_eq!(ct_http_body_finish(body_handle), SUCCESS);
+    assert_eq!(ct_http_body_release(body_handle), SUCCESS);
+
+    let header_name = CString::new("content-type").unwrap();
+    let header_value = CString::new("application/octet-stream").unwrap();
+    let headers = [CtHttpHeader {
+        name_ptr: header_name.as_ptr() as *const u8,
+        name_len: header_name.as_bytes().len(),
+        value_ptr: header_value.as_ptr() as *const u8,
+        value_len: header_value.as_bytes().len(),
+    }];
+    let stream_handle =
+        ct_http_response_stream_open(first_handle, 207, headers.as_ptr(), headers.len());
+    assert!(stream_handle > 0);
+    for _ in 0..4 {
+        assert_eq!(
+            ct_http_response_stream_write(
+                stream_handle,
+                response_chunk.as_ptr(),
+                response_chunk.len()
+            ),
+            SUCCESS
+        );
+    }
+    assert_eq!(
+        ct_http_response_stream_write(
+            stream_handle,
+            response_trailer.as_ptr(),
+            response_trailer.len(),
+        ),
+        SUCCESS
+    );
+    assert_eq!(ct_http_response_stream_finish(stream_handle), SUCCESS);
+    assert_eq!(ct_http_handshake_release(first_handle), SUCCESS);
+
+    let second_handle = wait_for_http_handshake(connection_id);
+    let mut second_info = CtHttpHandshakeInfo::default();
+    assert_eq!(
+        ct_http_handshake_get(second_handle, &mut second_info as *mut CtHttpHandshakeInfo),
+        SUCCESS
+    );
+    assert_eq!(second_info.body_len, 0);
+    assert_eq!(
+        ct_http_response_send(second_handle, 204, std::ptr::null(), 0, std::ptr::null(), 0),
+        SUCCESS
+    );
+    assert_eq!(ct_http_handshake_release(second_handle), SUCCESS);
+
+    let (first_body, second_head) = client_handle.join().unwrap();
+    let expected_len = response_chunk.len() * 4 + response_trailer.len();
+    assert_eq!(first_body.len(), expected_len);
+    assert!(first_body[..response_chunk.len()]
+        .iter()
+        .all(|byte| *byte == b'r'));
+    assert!(first_body.ends_with(response_trailer));
+    assert!(second_head.contains("Content-Length: 0"));
 
     assert_eq!(ct_shutdown(), SUCCESS);
 }

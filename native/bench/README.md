@@ -176,12 +176,16 @@ progress envelope on `/bench/stream`.
 
 When `reuse_connections = true`, each worker keeps a hot HTTP/2 or HTTP/3
 session across iterations and reuses the same prebuilt request payload buffer.
-Set it to `false` if you explicitly want a handshake-heavy benchmark.
+HTTP/1.1 workloads now use the same knob for keep-alive reuse on the shared
+router bridge. Set it to `false` if you explicitly want a handshake-heavy
+benchmark.
 
 ### Scenario Catalog
 
 - `h2_smoke.toml` – short warm-up + load + HTTP/3 probe to validate plumbing after a
   build. Use this for quick sanity checks.
+- `h1_smoke.toml` – HTTP/1.1 keep-alive streaming smoke used to verify that reused
+  sockets continue draining requests across the boss/runtime bridge.
 - `throughput_smoke.toml` – sustained-transfer scenario that keeps sessions hot across
   iterations and is a better fit for rough throughput checks than `h2_smoke`.
 - `worker_scaling.toml` – sustained-transfer scenario intended for `--router-worker-counts`

@@ -1087,10 +1087,93 @@ async fn execute_workload(
     timeout: Duration,
 ) -> Result<Vec<WorkloadSample>> {
     match workload.protocol.as_str() {
+        "h1" | "http1" | "http" => run_h1_workload(endpoint, workload, timeout).await,
         "h2" | "http2" => run_h2_workload(endpoint, workload, timeout).await,
         "h3" | "http3" => run_h3_workload(endpoint, workload, timeout).await,
         other => bail!("unsupported protocol {other}"),
     }
+}
+
+async fn run_h1_workload(
+    endpoint: HttpEndpoint,
+    workload: PreparedWorkload,
+    timeout: Duration,
+) -> Result<Vec<WorkloadSample>> {
+    let mut join_set = JoinSet::new();
+    for worker_id in 0..workload.concurrency {
+        let endpoint_clone = endpoint.clone();
+        let workload_clone = workload.clone();
+        join_set
+            .spawn(async move { run_h1_worker(endpoint_clone, workload_clone, worker_id).await });
+    }
+    let label = format!("{} [HTTP/1.1]", workload.name.as_str());
+    collect_worker_samples(join_set, timeout, &label).await
+}
+
+async fn run_h1_worker(
+    endpoint: HttpEndpoint,
+    workload: PreparedWorkload,
+    worker_id: u32,
+) -> Result<Vec<WorkloadSample>> {
+    let mut samples = Vec::with_capacity(workload.iterations as usize);
+    let request_body = build_payload(
+        workload.request_bytes,
+        workload.request_chunk_bytes as usize,
+    );
+    if workload.reuse_connections {
+        let mut sender = connect_h1_sender(&endpoint).await?;
+        for iteration in 0..workload.iterations {
+            let sample = match send_h1_request(
+                &mut sender,
+                &endpoint,
+                &workload,
+                request_body.clone(),
+                worker_id,
+                iteration,
+            )
+            .await
+            {
+                Ok(sample) => sample,
+                Err(first_error) => {
+                    sender = connect_h1_sender(&endpoint).await.with_context(|| {
+                        format!(
+                            "failed to reconnect HTTP/1.1 worker {} after {}",
+                            worker_id, first_error
+                        )
+                    })?;
+                    send_h1_request(
+                        &mut sender,
+                        &endpoint,
+                        &workload,
+                        request_body.clone(),
+                        worker_id,
+                        iteration,
+                    )
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "HTTP/1.1 worker {} request {} failed after reconnect",
+                            worker_id, iteration
+                        )
+                    })?
+                }
+            };
+            samples.push(sample);
+        }
+        return Ok(samples);
+    }
+    for iteration in 0..workload.iterations {
+        let sample = run_h1_iteration(
+            &endpoint,
+            &workload,
+            request_body.clone(),
+            worker_id,
+            iteration,
+        )
+        .await?;
+        samples.push(sample);
+    }
+    Ok(samples)
 }
 
 async fn run_h2_workload(
@@ -1284,6 +1367,107 @@ async fn collect_worker_samples(
     Ok(samples)
 }
 
+async fn connect_h1_sender(
+    endpoint: &HttpEndpoint,
+) -> Result<hyper::client::conn::SendRequest<Body>> {
+    let addr = format!("{}:{}", endpoint.host, endpoint.port);
+    let stream = tokio::net::TcpStream::connect(&addr)
+        .await
+        .with_context(|| format!("failed to connect to {}", addr))?;
+    stream.set_nodelay(true)?;
+    let builder = HyperConnBuilder::new();
+    if endpoint.scheme == "https" {
+        let connector = TlsConnector::from(insecure_rustls_client_config(&[b"http/1.1"]));
+        let server_name = ServerName::try_from(endpoint.host.clone())
+            .map_err(|_| anyhow!("invalid TLS server name {}", endpoint.host))?;
+        let tls_stream = connector
+            .connect(server_name, stream)
+            .await
+            .context("TLS handshake failed")?;
+        let (sender, connection) = builder
+            .handshake::<_, Body>(tls_stream)
+            .await
+            .context("HTTP/1.1 handshake failed")?;
+        tokio::spawn(async move {
+            if let Err(err) = connection.await {
+                eprintln!("hyper connection error: {err:?}");
+            }
+        });
+        Ok(sender)
+    } else {
+        let (sender, connection) = builder
+            .handshake::<_, Body>(stream)
+            .await
+            .context("HTTP/1.1 handshake failed")?;
+        tokio::spawn(async move {
+            if let Err(err) = connection.await {
+                eprintln!("hyper connection error: {err:?}");
+            }
+        });
+        Ok(sender)
+    }
+}
+
+fn build_http_request(
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+    request_body: Bytes,
+    absolute_uri: bool,
+) -> Result<Request<Body>> {
+    let uri = if absolute_uri {
+        format!(
+            "{}://{}:{}{}",
+            endpoint.scheme, endpoint.host, endpoint.port, workload.path
+        )
+    } else {
+        workload.path.clone()
+    };
+    let mut request_builder = Request::builder().method(workload.method.clone()).uri(uri);
+    let headers = request_builder.headers_mut().unwrap();
+    if !absolute_uri {
+        headers.insert(
+            "host",
+            HyperHeaderValue::from_str(&endpoint_authority(endpoint))
+                .context("invalid host header value")?,
+        );
+    }
+    headers.insert(
+        "content-type",
+        HyperHeaderValue::from_static("application/octet-stream"),
+    );
+    headers.insert(
+        "x-bench-response-bytes",
+        HyperHeaderValue::from_str(&workload.response_bytes.to_string())
+            .unwrap_or_else(|_| HyperHeaderValue::from_static("0")),
+    );
+    headers.insert(
+        "x-bench-response-chunk-bytes",
+        HyperHeaderValue::from_str(&workload.response_chunk_bytes.to_string())
+            .unwrap_or_else(|_| HyperHeaderValue::from_static("1024")),
+    );
+    headers.insert(ACCEPT, HyperHeaderValue::from_static("*/*"));
+    headers.insert(
+        USER_AGENT,
+        HyperHeaderValue::from_static("connectanum-bench/0.1"),
+    );
+    request_builder
+        .body(Body::from(request_body))
+        .context("failed to build HTTP request")
+}
+
+fn endpoint_authority(endpoint: &HttpEndpoint) -> String {
+    let default_port = match endpoint.scheme.as_str() {
+        "http" => 80,
+        "https" => 443,
+        _ => endpoint.port,
+    };
+    if endpoint.port == default_port {
+        endpoint.host.clone()
+    } else {
+        format!("{}:{}", endpoint.host, endpoint.port)
+    }
+}
+
 async fn connect_h2_sender(
     endpoint: &HttpEndpoint,
 ) -> Result<hyper::client::conn::SendRequest<Body>> {
@@ -1331,34 +1515,73 @@ fn build_h2_request(
     workload: &PreparedWorkload,
     request_body: Bytes,
 ) -> Result<Request<Body>> {
-    let uri = format!(
-        "{}://{}:{}{}",
-        endpoint.scheme, endpoint.host, endpoint.port, workload.path
-    );
-    let mut request_builder = Request::builder().method(workload.method.clone()).uri(uri);
-    let headers = request_builder.headers_mut().unwrap();
-    headers.insert(
-        "content-type",
-        HyperHeaderValue::from_static("application/octet-stream"),
-    );
-    headers.insert(
-        "x-bench-response-bytes",
-        HyperHeaderValue::from_str(&workload.response_bytes.to_string())
-            .unwrap_or_else(|_| HyperHeaderValue::from_static("0")),
-    );
-    headers.insert(
-        "x-bench-response-chunk-bytes",
-        HyperHeaderValue::from_str(&workload.response_chunk_bytes.to_string())
-            .unwrap_or_else(|_| HyperHeaderValue::from_static("1024")),
-    );
-    headers.insert(ACCEPT, HyperHeaderValue::from_static("*/*"));
-    headers.insert(
-        USER_AGENT,
-        HyperHeaderValue::from_static("connectanum-bench/0.1"),
-    );
-    request_builder
-        .body(Body::from(request_body))
+    build_http_request(endpoint, workload, request_body, true)
         .context("failed to build HTTP/2 request")
+}
+
+async fn drain_hyper_response(response: hyper::Response<Body>) -> Result<u64> {
+    let status = response.status();
+    let mut body = response.into_body();
+    let mut received = 0u64;
+    let mut error_body = Vec::new();
+    while let Some(chunk) = body.data().await {
+        let bytes = chunk?;
+        received += bytes.len() as u64;
+        if !status.is_success() && error_body.len() < 256 {
+            let remaining = 256 - error_body.len();
+            error_body.extend_from_slice(&bytes[..bytes.len().min(remaining)]);
+        }
+    }
+    if !status.is_success() {
+        let preview = String::from_utf8_lossy(&error_body);
+        bail!("unexpected HTTP status {} with body {}", status, preview);
+    }
+    Ok(received)
+}
+
+async fn send_h1_request(
+    sender: &mut hyper::client::conn::SendRequest<Body>,
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+    request_body: Bytes,
+    worker_id: u32,
+    iteration: u32,
+) -> Result<WorkloadSample> {
+    let request = build_http_request(endpoint, workload, request_body, false)?;
+    let start = Instant::now();
+    let response = sender
+        .send_request(request)
+        .await
+        .context("failed to send request")?;
+
+    let received = drain_hyper_response(response).await?;
+    let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
+    Ok(WorkloadSample {
+        worker: worker_id,
+        iteration,
+        latency_ms,
+        request_bytes: workload.request_bytes,
+        response_bytes: received,
+    })
+}
+
+async fn run_h1_iteration(
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+    request_body: Bytes,
+    worker_id: u32,
+    iteration: u32,
+) -> Result<WorkloadSample> {
+    let mut sender = connect_h1_sender(endpoint).await?;
+    send_h1_request(
+        &mut sender,
+        endpoint,
+        workload,
+        request_body,
+        worker_id,
+        iteration,
+    )
+    .await
 }
 
 async fn send_h2_request(
@@ -1376,13 +1599,7 @@ async fn send_h2_request(
         .await
         .context("failed to send request")?;
 
-    let mut body = response.into_body();
-    let mut received = 0u64;
-    while let Some(chunk) = body.data().await {
-        let bytes = chunk?;
-        received += bytes.len() as u64;
-    }
-
+    let received = drain_hyper_response(response).await?;
     let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
     Ok(WorkloadSample {
         worker: worker_id,
@@ -1535,17 +1752,32 @@ async fn send_h3_request(
             .context("failed to finish request")?;
     }
 
-    req_stream
+    let response = req_stream
         .recv_response()
         .await
         .context("failed to receive HTTP/3 response headers")?;
     let mut received = 0u64;
+    let mut error_body = Vec::new();
     while let Some(chunk) = req_stream
         .recv_data()
         .await
         .context("failed to read HTTP/3 body")?
     {
-        received += chunk.remaining() as u64;
+        let mut chunk = chunk;
+        let chunk_len = chunk.remaining();
+        if !response.status().is_success() && error_body.len() < 256 {
+            let remaining = 256 - error_body.len();
+            error_body.extend_from_slice(&chunk.copy_to_bytes(chunk_len.min(remaining)));
+        }
+        received += chunk_len as u64;
+    }
+    if !response.status().is_success() {
+        let preview = String::from_utf8_lossy(&error_body);
+        bail!(
+            "unexpected HTTP/3 status {} with body {}",
+            response.status(),
+            preview
+        );
     }
 
     let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
@@ -1737,6 +1969,43 @@ mod tests {
     }
 
     #[test]
+    fn build_http1_request_uses_origin_form_and_host_header() {
+        let endpoint =
+            HttpEndpoint::from_control_base("https://localhost:8080/bench", Some(8443)).unwrap();
+        let workload = PreparedWorkload {
+            name: "h1_test".to_string(),
+            protocol: "h1".to_string(),
+            method: HyperMethod::POST,
+            path: "/bench/stream".to_string(),
+            iterations: 1,
+            concurrency: 1,
+            request_bytes: 0,
+            response_bytes: 0,
+            request_chunk_bytes: 1024,
+            response_chunk_bytes: 1024,
+            reuse_connections: true,
+        };
+        let request = build_http_request(&endpoint, &workload, Bytes::new(), false).unwrap();
+        assert_eq!(request.uri().path(), "/bench/stream");
+        assert_eq!(request.uri().scheme_str(), None);
+        assert_eq!(
+            request.headers().get("host").unwrap(),
+            &HyperHeaderValue::from_static("localhost:8080")
+        );
+    }
+
+    #[tokio::test]
+    async fn drain_hyper_response_rejects_non_success_status() {
+        let response = Response::builder()
+            .status(404)
+            .body(Body::from("not-found"))
+            .unwrap();
+        let error = drain_hyper_response(response).await.unwrap_err();
+        assert!(error.to_string().contains("404"));
+        assert!(error.to_string().contains("not-found"));
+    }
+
+    #[test]
     fn parse_router_worker_counts_supports_ranges_and_deduplicates() {
         let counts = parse_router_worker_counts("4,1-3,2,6").unwrap();
         assert_eq!(counts, vec![1, 2, 3, 4, 6]);
@@ -1837,6 +2106,74 @@ mod tests {
         )
     }
 
+    async fn spawn_h1_test_server() -> (
+        HttpEndpoint,
+        Arc<AtomicUsize>,
+        Arc<AtomicUsize>,
+        tokio::task::JoinHandle<()>,
+    ) {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let accept_count = Arc::new(AtomicUsize::new(0));
+        let request_count = Arc::new(AtomicUsize::new(0));
+        let accept_count_for_task = Arc::clone(&accept_count);
+        let request_count_for_task = Arc::clone(&request_count);
+        let server = tokio::spawn(async move {
+            loop {
+                let (stream, _) = match listener.accept().await {
+                    Ok(value) => value,
+                    Err(_) => break,
+                };
+                accept_count_for_task.fetch_add(1, Ordering::SeqCst);
+                let request_count_for_conn = Arc::clone(&request_count_for_task);
+                tokio::spawn(async move {
+                    let service = service_fn(move |request: Request<Body>| {
+                        let request_count_for_req = Arc::clone(&request_count_for_conn);
+                        async move {
+                            let mut body = request.into_body();
+                            while let Some(chunk) = body.data().await {
+                                chunk?;
+                            }
+                            request_count_for_req.fetch_add(1, Ordering::SeqCst);
+                            Ok::<_, hyper::Error>(Response::new(Body::from("ok")))
+                        }
+                    });
+                    let _ = HyperServerHttp::new()
+                        .http1_keep_alive(true)
+                        .serve_connection(stream, service)
+                        .await;
+                });
+            }
+        });
+        (
+            HttpEndpoint {
+                scheme: "http".to_string(),
+                host: Ipv4Addr::LOCALHOST.to_string(),
+                port: addr.port(),
+                http3_port: None,
+            },
+            accept_count,
+            request_count,
+            server,
+        )
+    }
+
+    fn sample_h1_workload(reuse_connections: bool) -> PreparedWorkload {
+        PreparedWorkload {
+            name: "h1_test".to_string(),
+            protocol: "h1".to_string(),
+            method: HyperMethod::POST,
+            path: "/bench/stream".to_string(),
+            iterations: 3,
+            concurrency: 1,
+            request_bytes: 0,
+            response_bytes: 0,
+            request_chunk_bytes: 1024,
+            response_chunk_bytes: 1024,
+            reuse_connections,
+        }
+    }
+
     fn sample_h2_workload(reuse_connections: bool) -> PreparedWorkload {
         PreparedWorkload {
             name: "h2_test".to_string(),
@@ -1851,6 +2188,32 @@ mod tests {
             response_chunk_bytes: 1024,
             reuse_connections,
         }
+    }
+
+    #[tokio::test]
+    async fn h1_worker_reuses_single_connection_when_enabled() {
+        let (endpoint, accept_count, request_count, server) = spawn_h1_test_server().await;
+        let samples = run_h1_worker(endpoint, sample_h1_workload(true), 0)
+            .await
+            .unwrap();
+        assert_eq!(samples.len(), 3);
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert_eq!(accept_count.load(Ordering::SeqCst), 1);
+        assert_eq!(request_count.load(Ordering::SeqCst), 3);
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn h1_worker_reconnects_per_iteration_when_disabled() {
+        let (endpoint, accept_count, request_count, server) = spawn_h1_test_server().await;
+        let samples = run_h1_worker(endpoint, sample_h1_workload(false), 0)
+            .await
+            .unwrap();
+        assert_eq!(samples.len(), 3);
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert_eq!(accept_count.load(Ordering::SeqCst), 3);
+        assert_eq!(request_count.load(Ordering::SeqCst), 3);
+        server.abort();
     }
 
     #[tokio::test]

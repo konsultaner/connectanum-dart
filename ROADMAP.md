@@ -67,6 +67,7 @@
   - [x] Rust `listen_flow` coverage for WebSocket WAMP round-trips (masked client frames with server replies).
   - [x] Rust `listen_flow` coverage for HTTP/3 handshake/multi-connection acceptance under QUIC ALPN (`http3_handshake_surfaced_via_ffi`, `http3_multiple_connections_handshake`).
     - [x] Router/Dart integration test for HTTP/1.1 streaming uploads/downloads (re-enabled “streams HTTP request and response payloads end-to-end” suite).
+    - [x] Router boss/runtime + native integration coverage for HTTP/1.1 keep-alive reuse after streamed uploads/responses, so queued requests on an active socket are drained after the first handshake instead of stalling in the shared HTTP bridge.
     - [x] Router runtime tests verifying `_HttpResponseStream` plumbing for HTTP/2 and HTTP/3 handshakes (synthetic boss harness).
     - [x] Router/Dart integration tests for HTTP/2 + HTTP/3 streaming uploads/downloads (router_integration_native_test.dart now streams HTTPS and QUIC payloads via the native test client + TLS fixtures, running the HTTP/3 client on a dedicated isolate so the boss keeps draining requests).
     - [x] Multi-MB HTTP/2 and HTTP/3 streaming regressions that emit OpenMetrics snapshots for CI artifacts (`router_integration_native_test.dart` multi-MB suites gated by `CONNECTANUM_ARTIFACT_DIR`).

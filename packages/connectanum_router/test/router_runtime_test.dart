@@ -3206,4 +3206,100 @@ void main() {
     );
     expect(betaEvents, isNotEmpty);
   });
+
+  test(
+    'http1 keep-alive connections are drained for additional requests',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithPendingProtocols(),
+      );
+
+      final events = <Map<String, Object?>>[];
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      const connectionId = 100;
+
+      runtime.setConnectionProtocol(
+        connectionId,
+        NativeConnectionProtocol.http,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 801,
+          method: 'POST',
+          target: '/alpha',
+          path: '/alpha',
+          protocol: 'http/1.1',
+          headers: const {'connection': 'keep-alive'},
+          body: Uint8List(0),
+        ),
+      );
+      runtime.enqueueHandle(listenerId, connectionId);
+
+      await _waitUntil(
+        () => events.any(
+          (event) =>
+              event['type'] == 'listener_http_request' &&
+              event['connectionId'] == connectionId &&
+              event['path'] == '/alpha',
+        ),
+        timeout: const Duration(seconds: 2),
+      );
+
+      runtime.queueHttpRequestForConnection(
+        connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 802,
+          method: 'POST',
+          target: '/beta',
+          path: '/beta',
+          protocol: 'http/1.1',
+          headers: const {'connection': 'close'},
+          body: Uint8List(0),
+        ),
+      );
+
+      await _waitUntil(
+        () => events.any(
+          (event) =>
+              event['type'] == 'listener_http_request' &&
+              event['connectionId'] == connectionId &&
+              event['path'] == '/beta',
+        ),
+        timeout: const Duration(seconds: 2),
+      );
+
+      final betaEvents = events.where(
+        (event) =>
+            event['type'] == 'listener_http_request' &&
+            event['connectionId'] == connectionId &&
+            event['path'] == '/beta',
+      );
+      expect(betaEvents, isNotEmpty);
+    },
+  );
 }

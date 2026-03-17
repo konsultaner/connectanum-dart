@@ -31,7 +31,7 @@ use http02::{
 use sha1::{Digest, Sha1};
 use thiserror::Error;
 use tokio::{
-    io::{AsyncBufReadExt, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
+    io::{AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
     runtime::Runtime,
     sync::{
         mpsc::{
@@ -3603,7 +3603,12 @@ async fn serve_http_connection(
     endpoint_config: Arc<config::EndpointRuntimeConfig>,
     registry: Arc<ListenerRegistry>,
 ) {
-    let (stream, request, body_phase) = handshake.into_parts();
+    let (mut stream, request, body_phase, prefetched) = handshake.into_parts();
+    if !prefetched.is_empty() {
+        // Preserve parser-prefetched bytes on the underlying stream so the
+        // body reader or the next pipelined request can drain them directly.
+        stream.buffer_front(prefetched.as_ref());
+    }
     let _ = stream.set_nodelay(true);
     let (read_half, mut write_half) = tokio::io::split(stream);
     let mut reader = Some(BufReader::new(read_half));
@@ -3649,10 +3654,10 @@ async fn serve_http_connection(
             HttpBodyPhase::Finished => (HttpBodyHandle::empty(), None),
             HttpBodyPhase::NeedsStreaming {
                 prefix,
-                mut remaining_len,
+                remaining_len,
             } => {
-                let mut buf = match reader.take() {
-                    Some(buf) => buf,
+                let reader_half = match reader.take() {
+                    Some(buf) => buf.into_inner(),
                     None => {
                         eprintln!(
                             "http/1 streaming requested without active reader for listener {:?}",
@@ -3661,28 +3666,8 @@ async fn serve_http_connection(
                         break;
                     }
                 };
-                let buffered_prefix = if remaining_len == 0 {
-                    None
-                } else {
-                    let buffered = buf.buffer();
-                    let buffered_len = buffered.len().min(remaining_len);
-                    if buffered_len == 0 {
-                        None
-                    } else {
-                        remaining_len = remaining_len.saturating_sub(buffered_len);
-                        let bytes = Bytes::copy_from_slice(&buffered[..buffered_len]);
-                        buf.consume(buffered_len);
-                        Some(bytes)
-                    }
-                };
-                let reader_half = buf.into_inner();
-                let (state, reclaim) = spawn_http1_streaming_body(
-                    prefix,
-                    buffered_prefix,
-                    reader_half,
-                    remaining_len,
-                    read_timeout,
-                );
+                let (state, reclaim) =
+                    spawn_http1_streaming_body(prefix, reader_half, remaining_len, read_timeout);
                 (HttpBodyHandle::streaming(state), Some(reclaim))
             }
         };

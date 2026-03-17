@@ -106,6 +106,7 @@ class _RouterBoss {
   final List<_WorkerHandle> _workers = [];
   final Map<int, _WorkerHandle> _connectionOwners = {};
   final Map<int, Isolate> _pendingIsolates = {};
+  final Map<int, RouterListener> _httpConnectionListeners = {};
   final Map<int, NativeHttp3Connection> _http3Connections = {};
   final Map<int, RouterListener> _http2ConnectionListeners = {};
   final Map<int, RouterListener> _http3ConnectionListeners = {};
@@ -223,6 +224,7 @@ class _RouterBoss {
     _workers.clear();
     _pendingIsolates.clear();
     _connectionOwners.clear();
+    _httpConnectionListeners.clear();
     _http2ConnectionListeners.clear();
     if (_http3Connections.isNotEmpty) {
       final connections = _http3Connections.values.toList(growable: false);
@@ -241,6 +243,7 @@ class _RouterBoss {
       }
       didWork = _dispatchMessages() || didWork;
       didWork = _expireIdleConnections() || didWork;
+      didWork = _drainHttpRequests() || didWork;
       didWork = _drainHttp2Requests() || didWork;
       didWork = _drainHttp3Requests() || didWork;
       didWork = _drainHttpConnectionEvents() || didWork;
@@ -305,6 +308,9 @@ class _RouterBoss {
       if (protocol != NativeConnectionProtocol.rawsocket) {
         if (protocol == NativeConnectionProtocol.http ||
             protocol == NativeConnectionProtocol.http2) {
+          if (protocol == NativeConnectionProtocol.http) {
+            _registerHttpConnection(listener, connectionId);
+          }
           if (protocol == NativeConnectionProtocol.http2) {
             _registerHttp2Connection(listener, connectionId);
           }
@@ -485,7 +491,9 @@ class _RouterBoss {
       if (event.detail != null) 'detail': event.detail,
     };
     onEvent?.call({'source': 'boss', 'type': 'http_connection_event', ...data});
-    if (event.protocol == NativeConnectionProtocol.http2) {
+    if (event.protocol == NativeConnectionProtocol.http) {
+      _httpConnectionListeners.remove(event.connectionId);
+    } else if (event.protocol == NativeConnectionProtocol.http2) {
       _http2ConnectionListeners.remove(event.connectionId);
     } else if (event.protocol == NativeConnectionProtocol.http3) {
       _http3ConnectionListeners.remove(event.connectionId);
@@ -1166,6 +1174,52 @@ class _RouterBoss {
     return didWork;
   }
 
+  bool _drainHttpRequests() {
+    if (_httpConnectionListeners.isEmpty) {
+      return false;
+    }
+    var didWork = false;
+    final connectionIds = List<int>.from(
+      _httpConnectionListeners.keys,
+      growable: false,
+    );
+    for (final connectionId in connectionIds) {
+      while (true) {
+        NativeHttpHandshake? handshake;
+        try {
+          handshake = runtime.takeHttpHandshake(connectionId);
+        } on NativeTransportException catch (error) {
+          onEvent?.call({
+            'source': 'boss',
+            'type': 'boss_error',
+            'connectionId': connectionId,
+            'error': error.toString(),
+          });
+          if (error.code == NativeTransportErrorCode.connectionNotFound) {
+            _httpConnectionListeners.remove(connectionId);
+          }
+          break;
+        }
+        if (handshake == null) {
+          break;
+        }
+        didWork = true;
+        final listener = _httpConnectionListeners[connectionId];
+        if (listener == null) {
+          handshake.release();
+          break;
+        }
+        _processHttpHandshake(
+          listener,
+          connectionId,
+          NativeConnectionProtocol.http,
+          handshake,
+        );
+      }
+    }
+    return didWork;
+  }
+
   bool _drainHttp2Requests() {
     if (_http2ConnectionListeners.isEmpty) {
       return false;
@@ -1210,6 +1264,10 @@ class _RouterBoss {
       }
     }
     return didWork;
+  }
+
+  void _registerHttpConnection(RouterListener listener, int connectionId) {
+    _httpConnectionListeners[connectionId] = listener;
   }
 
   void _registerHttp2Connection(RouterListener listener, int connectionId) {
@@ -1632,6 +1690,8 @@ class _RouterBoss {
       final connectionId = message['connectionId'] as int;
       final worker = _connectionOwners.remove(connectionId);
       worker?.connections.remove(connectionId);
+      _httpConnectionListeners.remove(connectionId);
+      _http2ConnectionListeners.remove(connectionId);
       _releaseHttp3Connection(connectionId);
       _lastActivityByConnection.remove(connectionId);
       _realmByConnection.remove(connectionId);
@@ -1798,6 +1858,8 @@ class _RouterBoss {
       _connectionOwners.remove(connectionId);
       _lastActivityByConnection.remove(connectionId);
       _realmByConnection.remove(connectionId);
+      _httpConnectionListeners.remove(connectionId);
+      _http2ConnectionListeners.remove(connectionId);
       worker.commandPort.send(<Object?>[
         _workerCmdRemoveConnection,
         connectionId,
@@ -1816,6 +1878,8 @@ class _RouterBoss {
     final worker = _connectionOwners.remove(connectionId);
     _lastActivityByConnection.remove(connectionId);
     _realmByConnection.remove(connectionId);
+    _httpConnectionListeners.remove(connectionId);
+    _http2ConnectionListeners.remove(connectionId);
     if (worker == null) {
       final pending = _pendingIsolates.remove(connectionId);
       pending?.kill(priority: Isolate.immediate);

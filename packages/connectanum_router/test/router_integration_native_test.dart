@@ -1035,6 +1035,144 @@ void main() {
       expect(resultEvent['progress'], isFalse);
     }, skip: skipReason);
 
+    test(
+      'reuses HTTP/1.1 keep-alive connection after streamed request and response',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9109,
+          nativeLib: nativeLib,
+        );
+        addTearDown(harness.dispose);
+
+        final binding = harness.binding;
+        final httpSession = await binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'http1-keepalive',
+          authRole: 'internal',
+        );
+        addTearDown(httpSession.close);
+
+        final requestPayload = Uint8List.fromList(
+          List<int>.generate(70000, (index) => 65 + (index % 26)),
+        );
+        final responseChunk = Uint8List.fromList(
+          List<int>.filled(32 * 1024, 0x72),
+        );
+        final finalChunk = Uint8List.fromList('stream-finished'.codeUnits);
+        var invocationCount = 0;
+
+        final registration = await httpSession.register(
+          'com.example.http.stream',
+        );
+        registration.onInvoke((invocation) async {
+          invocationCount += 1;
+          final context = HttpInvocationContext.maybeFromInvocation(invocation);
+          expect(context, isNotNull, reason: 'Invocation missing HTTP context');
+
+          final nativeBody = context!.request.nativeBody;
+          expect(nativeBody, isNotNull);
+          final builder = BytesBuilder(copy: false);
+          await for (final chunk in nativeBody!.openRead(chunkSize: 8 * 1024)) {
+            builder.add(chunk);
+          }
+          final body = builder.takeBytes();
+
+          if (invocationCount == 1) {
+            expect(body, orderedEquals(requestPayload));
+            final stream = context.streamResponse(
+              status: 207,
+              headers: const {
+                'content-type': 'application/octet-stream',
+                'x-router': 'native-h1-keepalive',
+              },
+            );
+            for (var i = 0; i < 4; i++) {
+              stream.add(responseChunk);
+            }
+            stream.close(finalChunk);
+            return;
+          }
+
+          expect(body, isEmpty);
+          context.sendText(
+            status: 200,
+            headers: const {'x-router': 'native-h1-second'},
+            body: 'second-response',
+          );
+        });
+
+        final listener = binding.listeners.single;
+        final socket = await Socket.connect('127.0.0.1', listener.port);
+        addTearDown(socket.destroy);
+        final reader = _SocketHttpReader(socket);
+        addTearDown(reader.cancel);
+
+        socket.add(
+          utf8.encode(
+            'POST /api/stream HTTP/1.1\r\n'
+            'Host: localhost\r\n'
+            'Connection: keep-alive\r\n'
+            'Content-Length: ${requestPayload.length}\r\n'
+            '\r\n',
+          ),
+        );
+        socket.add(requestPayload);
+        await socket.flush();
+
+        final firstRequestEvent = await harness.nextEvent(
+          'listener_http_request',
+        );
+        expect(firstRequestEvent['path'], equals('/api/stream'));
+        expect(firstRequestEvent['connectionId'], isA<int>());
+
+        final firstHead = await reader.readResponseHead();
+        expect(firstHead, contains('HTTP/1.1 207'));
+        expect(firstHead.toLowerCase(), contains('transfer-encoding: chunked'));
+        final firstBody = await reader.readChunkedBody();
+        final expectedLength = responseChunk.length * 4 + finalChunk.length;
+        expect(firstBody.length, equals(expectedLength));
+        expect(
+          firstBody.sublist(0, responseChunk.length),
+          orderedEquals(responseChunk),
+        );
+        expect(
+          firstBody.sublist(
+            firstBody.length - finalChunk.length,
+            firstBody.length,
+          ),
+          orderedEquals(finalChunk),
+        );
+
+        socket.add(
+          utf8.encode(
+            'POST /api/stream HTTP/1.1\r\n'
+            'Host: localhost\r\n'
+            'Connection: close\r\n'
+            'Content-Length: 0\r\n'
+            '\r\n',
+          ),
+        );
+        await socket.flush();
+
+        final secondRequestEvent = await harness.nextEvent(
+          'listener_http_request',
+        );
+        expect(
+          secondRequestEvent['connectionId'],
+          equals(firstRequestEvent['connectionId']),
+        );
+        expect(secondRequestEvent['path'], equals('/api/stream'));
+
+        final secondHead = await reader.readResponseHead();
+        expect(secondHead, contains('HTTP/1.1 200 OK'));
+        expect(secondHead.toLowerCase(), contains('content-length: 15'));
+        final secondBody = await reader.readContentLengthBody(secondHead);
+        expect(utf8.decode(secondBody), equals('second-response'));
+        expect(invocationCount, equals(2));
+      },
+      skip: skipReason,
+    );
+
     test('streams HTTP/2 request and response payloads end-to-end', () async {
       final harness = await _RouterHarness.start(
         connectionId: 9105,
@@ -1893,6 +2031,85 @@ Future<RealmSnapshot> _fetchSnapshot(SendPort commandPort) async {
   final response = await replyPort.first as RealmSnapshotResponse;
   replyPort.close();
   return response.snapshot;
+}
+
+class _SocketHttpReader {
+  _SocketHttpReader(Socket socket)
+    : _iterator = StreamIterator<List<int>>(socket);
+
+  final StreamIterator<List<int>> _iterator;
+  final List<int> _prefetched = <int>[];
+
+  Future<String> readResponseHead() async {
+    const terminator = [13, 10, 13, 10];
+    while (true) {
+      final headerEnd = _indexOfSequence(_prefetched, terminator);
+      if (headerEnd != -1) {
+        final head = utf8.decode(_prefetched.sublist(0, headerEnd + 4));
+        _prefetched.removeRange(0, headerEnd + 4);
+        return head;
+      }
+      if (!await _iterator.moveNext()) {
+        throw StateError('HTTP response headers incomplete');
+      }
+      _prefetched.addAll(_iterator.current);
+    }
+  }
+
+  Future<List<int>> readChunkedBody() async {
+    final decoded = <int>[];
+    while (true) {
+      final line = await _readLine();
+      final chunkLen = int.parse(utf8.decode(line).trim(), radix: 16);
+      if (chunkLen == 0) {
+        final trailer = await _readExact(2);
+        expect(trailer, equals(utf8.encode('\r\n')));
+        return decoded;
+      }
+      decoded.addAll(await _readExact(chunkLen));
+      final suffix = await _readExact(2);
+      expect(suffix, equals(utf8.encode('\r\n')));
+    }
+  }
+
+  Future<List<int>> readContentLengthBody(String headers) async {
+    final contentLength = _parseContentLength(headers);
+    return _readExact(contentLength);
+  }
+
+  Future<void> cancel() => _iterator.cancel();
+
+  Future<List<int>> _readExact(int len) async {
+    final output = <int>[];
+    while (output.length < len) {
+      if (_prefetched.isNotEmpty) {
+        final take = math.min(len - output.length, _prefetched.length);
+        output.addAll(_prefetched.sublist(0, take));
+        _prefetched.removeRange(0, take);
+        continue;
+      }
+      if (!await _iterator.moveNext()) {
+        throw StateError('HTTP response body incomplete');
+      }
+      _prefetched.addAll(_iterator.current);
+    }
+    return output;
+  }
+
+  Future<List<int>> _readLine() async {
+    while (true) {
+      final lineEnd = _indexOfSequence(_prefetched, const [13, 10]);
+      if (lineEnd != -1) {
+        final line = _prefetched.sublist(0, lineEnd);
+        _prefetched.removeRange(0, lineEnd + 2);
+        return line;
+      }
+      if (!await _iterator.moveNext()) {
+        throw StateError('HTTP chunk line incomplete');
+      }
+      _prefetched.addAll(_iterator.current);
+    }
+  }
 }
 
 Future<String> _readHttpResponse(Socket socket) async {

@@ -1,0 +1,16 @@
+name = "h1_smoke"
+description = "Sustained-transfer HTTP/1.1 benchmark used to validate native keep-alive streaming on the shared router bridge."
+
+[[workloads]]
+name = "h1_sustained_transfer"
+protocol = "h1"
+path = "/bench/stream"
+method = "POST"
+iterations = 8
+concurrency = 2
+request_bytes = 131072
+response_bytes = 262144
+request_chunk_bytes = 32768
+response_chunk_bytes = 65536
+reuse_connections = true
+warmup_ms = 500
