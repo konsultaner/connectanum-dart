@@ -56,7 +56,7 @@
       {
         "endpoint": "127.0.0.1:8080",
         "authmethods": ["anonymous"],
-        "protocols": ["rawsocket", "http", "http2", "http3"],
+        "protocols": ["http", "http2", "http3"],
         "tls": {
           "mode": "native",
           "sni_certificates": [
@@ -144,6 +144,18 @@
               }
             }
           ]
+        }
+      },
+      {
+        "endpoint": "127.0.0.1:8081",
+        "authmethods": ["anonymous"],
+        "protocols": ["rawsocket", "websocket"],
+        "rawsocket": {
+          "max_rawsocket_size_exponent": 18
+        },
+        "websocket": {
+          "path": "/wamp",
+          "subprotocols": ["wamp.2.json"]
         }
       }
     ],

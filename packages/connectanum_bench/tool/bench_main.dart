@@ -10,6 +10,7 @@ import 'package:connectanum_router/connectanum_router.dart';
 import 'package:logging/logging.dart';
 
 import 'package:connectanum_bench/src/http_stream_handler.dart';
+import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 
 Future<void> main(List<String> args) async {
@@ -139,7 +140,7 @@ class _BenchRouterService {
         );
       }
       final routerConfig = RouterConfig(endpoints: endpoints);
-      final primaryEndpoint = endpoints.first;
+      final wampTargets = resolveWampTransportTargets(routerSettings.listeners);
 
       final runtime = NativeTransportRuntime(libraryPath: nativeLibraryPath);
       runtime.start();
@@ -161,9 +162,8 @@ class _BenchRouterService {
         binding: binding,
         session: controlSession,
         onStopRequested: () => requestShutdown('RPC'),
-        routerHost: primaryEndpoint.host,
-        routerPort: primaryEndpoint.port,
         realmUri: controlRealm,
+        wampTargets: wampTargets,
       );
       await control.initialize();
       _controlRegistry = control;
@@ -283,17 +283,11 @@ class _BenchControlRegistry {
     required this.binding,
     required this.session,
     required this.onStopRequested,
-    required this.routerHost,
-    required this.routerPort,
     required this.realmUri,
+    required this.wampTargets,
   }) {
-    final sessionFactory = RawSocketWampSessionFactory(
-      host: routerHost,
-      port: routerPort,
-      realmUri: realmUri,
-    );
     _wampRunner = WampWorkloadRunner(
-      sessionFactory: sessionFactory.call,
+      sessionFactory: _openWampSession,
       logger: _logger,
     );
   }
@@ -301,14 +295,41 @@ class _BenchControlRegistry {
   final RouterBinding binding;
   final RouterSession session;
   final void Function() onStopRequested;
-  final String routerHost;
-  final int routerPort;
   final String realmUri;
+  final Map<WampTransport, WampTransportTarget> wampTargets;
 
   final _logger = Logger('BenchControlRegistry');
   final List<registered_msg.Registered> _registrations = [];
   bool _stopping = false;
   late final WampWorkloadRunner _wampRunner;
+
+  Future<WampSession> _openWampSession(WampScenario scenario) {
+    final target = wampTargets[scenario.transport];
+    if (target == null) {
+      throw StateError(
+        'No bench listener configured for WAMP transport ${scenario.transport.name}',
+      );
+    }
+    switch (scenario.transport) {
+      case WampTransport.rawsocket:
+        final factory = RawSocketWampSessionFactory(
+          host: target.host,
+          port: target.port,
+          realmUri: realmUri,
+          serializer: scenario.serializer,
+          ssl: target.secure,
+          allowInsecureCertificates: target.secure,
+        );
+        return factory.call();
+      case WampTransport.websocket:
+        final factory = WebSocketWampSessionFactory(
+          url: target.webSocketUri.toString(),
+          realmUri: realmUri,
+          serializer: scenario.serializer,
+        );
+        return factory.call();
+    }
+  }
 
   void markStopping() {
     _stopping = true;

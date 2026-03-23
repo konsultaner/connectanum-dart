@@ -32,7 +32,8 @@ recording transport metrics deltas.
 │  native/bench/src/bin  │ <──────> │  • payload sizes            │
 │  • spawns Dart router  │          │  • chunk patterns           │
 │  • drives HTTP/2 via   │          │  • pauses, concurrency      │
-│    hyper/h2            │          │  • iterations, warmup       │
+│    h2                  │          │  • iterations, warmup       │
+│  • multiplexes H2/H3   │          │  • streams per connection   │
 │  • drives HTTP/3 via   │          └─────────────────────────────┘
 │    quinn + h3          │
 │  • collects metrics    │─────► jsonl / stdout summaries
@@ -46,7 +47,7 @@ recording transport metrics deltas.
 | `bench_main.dart` (new target)   | Applies the bench router config, registers HTTP handlers, spins up internal bench sessions **and external clients** (RawSocket, WebSocket, `connectanum_client`), exposes a tiny control API (stdin + `/bench/*` HTTP routes) to signal readiness/shutdown, and serves metrics snapshots on demand. |
 | Rust orchestrator binary         | Lives under `native/bench/src/bin/http_stream.rs`. Parses scenario files / CLI flags, can sweep router worker counts and native runtime thread counts, spawns the Dart runner, waits for readiness, and then executes a list of workloads. |
 | Scenario configuration           | Simple TOML/JSON describing iterations, upload/download bytes, chunk sizes, pauses, and parallel streams. Stored under `native/bench/scenarios/`. |
-| Load generators                  | In-process clients: hyper/h2 for HTTP/2, quinn+h3 for HTTP/3, a plain `reqwest` fallback for HTTP/1.1 sanity checks, **and Dart-side WAMP clients (RawSocket/WebSocket) so the connectanum client stack is exercised**. Each generator reports status, latency, bytes, and optionally stream IDs. |
+| Load generators                  | In-process clients: direct `h2` for HTTP/2, quinn+h3 for HTTP/3, a plain `reqwest` fallback for HTTP/1.1 sanity checks, **and Dart-side WAMP clients (RawSocket/WebSocket) so the connectanum client stack is exercised**. Each generator reports status, latency, bytes, and optionally stream IDs. |
 | Metrics collectors               | Before/after every scenario the orchestrator calls the router-served `/bench/metrics` endpoint (backed by `binding.collectMetrics()` + the OpenMetrics exporter), capturing both the JSON snapshot delta and the full OpenMetrics text so Prometheus-ready output is archived alongside throughput stats. |
 
 ## Execution Flow
@@ -82,14 +83,14 @@ recording transport metrics deltas.
 2. **Rust orchestrator (native/bench crate)**
    - New crate under `native/bench/` with binaries like `http_stream.rs`.
    - Parses scenario files (TOML/JSON), spawns the Dart bench runner, waits for `/bench/healthz`, and coordinates workloads.
-   - Implements HTTP/2 (hyper) and HTTP/3 (quinn) generators, plus optional HTTP/1.1 sanity checks.
+   - Implements HTTP/2 (`h2`) and HTTP/3 (`quinn`) generators, plus optional HTTP/1.1 sanity checks.
    - Calls `/bench/metrics` before/after each workload to capture deltas, and serializes the embedded OpenMetrics payload next to the raw snapshot.
    - Writes stdout summaries and structured JSONL for downstream tooling.
 3. **Scenario samples**
    - `h2_small.toml` (many short streams).
    - `h2_large.toml` (multi-MB uploads/downloads).
    - `h3_idle.toml` (deliberate pauses to trigger idle/body timeouts).
-   - `wamp_rawsocket.toml` / `wamp_websocket.toml` (connectanum_client over RawSocket/WebSocket alongside HTTP traffic; future zero-copy client upgrades plug in here).
+   - `wamp_smoke.toml` / `all_transports_smoke.toml` (transport-aware connectanum_client workloads over RawSocket and WebSocket alongside HTTP traffic).
    - `mass_connections.toml` (thousands of short-lived sessions to stress connect/disconnect paths; later extended with “remote auth” when that feature lands).
    - `mass_auth.toml` (remote authenticator heavy-load scenario to validate CRA/SCRAM/remote delegates once implemented).
 4. **Output format**
@@ -108,10 +109,11 @@ The orchestrator crate, scenarios, and supporting scripts now live here; the rem
 
 ## Bench Router Configuration & Control API
 
-The Dart runner ships with a default `bench_router.json` that exposes a
-multi-protocol listener on `127.0.0.1:8080` with HTTP/2 and a dedicated HTTP/3 port
-(`8443`). The listener enables RawSocket + HTTP/2/HTTP/3 and maps the `/bench/*`
-paths to internal RPC handlers:
+The Dart runner ships with a default `bench_router.json` that exposes an HTTPS
+control listener on `127.0.0.1:8080` with HTTP/2 and a dedicated HTTP/3 port
+(`8443`), plus a separate plain WAMP listener on `127.0.0.1:8081` for
+RawSocket/WebSocket transport benchmarks. The control listener maps the
+`/bench/*` paths to internal RPC handlers:
 
 | Path              | Method | Procedure            | Description                                |
 |-------------------|--------|----------------------|--------------------------------------------|
@@ -132,7 +134,10 @@ Workloads are described in TOML under `native/bench/scenarios/`. Each scenario
 declares a name plus a list of workloads. Every workload describes the
 protocol, HTTP method/path, request/response byte counts, chunk sizes, warm-up
 delays, concurrency, and whether transport sessions should be reused across
-iterations (`reuse_connections`, default `true`). Example (`h2_smoke.toml`):
+iterations (`reuse_connections`, default `true`). WAMP workloads also accept a
+`serializer` field (`json`, `msgpack`, `cbor`; default `json`) so the same
+transport bench can compare serializer overhead directly. Example
+(`h2_smoke.toml`):
 
 ```toml
 name = "h2_smoke"
@@ -158,6 +163,7 @@ path = "/bench/stream"
 method = "POST"
 iterations = 4
 concurrency = 2
+streams_per_connection = 2
 request_bytes = 262144
 response_bytes = 262144
 request_chunk_bytes = 65536
@@ -180,6 +186,12 @@ HTTP/1.1 workloads now use the same knob for keep-alive reuse on the shared
 router bridge. Set it to `false` if you explicitly want a handshake-heavy
 benchmark.
 
+`streams_per_connection` controls how many concurrent HTTP/2 or HTTP/3 request
+streams a worker keeps in flight on each reused connection. The default is `1`.
+Set it above `1` when you want to stress same-connection multiplexing; it
+requires `reuse_connections = true`. HTTP/1.1 still rejects values above `1`
+because the bench path does not pipeline H1 requests.
+
 ### Scenario Catalog
 
 - `h2_smoke.toml` – short warm-up + load + HTTP/3 probe to validate plumbing after a
@@ -197,13 +209,34 @@ benchmark.
   the native Tokio runtime rather than the router worker pool. Recent router
   pacing cleanup removed a fixed busy-loop sleep and per-request HTTP debug
   logging from the Dart hot path, so these sweeps now reflect transport scaling
-  much more closely than the earlier worker-count-only runs.
+  much more closely than the earlier worker-count-only runs. The H2 and H3
+  workloads in this scenario now drive `4` concurrent streams per reused
+  connection so the thread sweep measures actual multiplexing instead of only
+  one hot request at a time.
+- `h2_multiplex_scaling.toml` – focused H2-only sustained-transfer scenario that
+  drives `4` streams per reused connection. Use this when you want a clean
+  same-connection HTTP/2 throughput sweep without the H3 workload in the same
+  run.
+- `h3_multiplex_scaling.toml` – focused H3-only sustained-transfer scenario that
+  drives `4` streams per reused connection. Use this when you want a clean
+  same-connection HTTP/3 throughput sweep without the H2 workload in the same
+  run.
 - `full_stack.toml` – extended matrix covering bulk uploads/downloads, latency spikes,
   idle soak phases, and both HTTP/2 and HTTP/3 transfers with higher concurrency.
-- `wamp_smoke.toml` – lightweight PUB/SUB and RPC workloads powered by RawSocket clients
-  to exercise the router’s WAMP routing path.
-- `real_world_smoke.toml` – higher-connection smoke that mixes WAMP pubsub/RPC with HTTP/2
-  and HTTP/3 fanout; roughly 2k WAMP RawSocket connections (1000 pub/sub workers) plus
+- `wamp_smoke.toml` – lightweight PUB/SUB and RPC workloads over both RawSocket and
+  WebSocket, now with explicit serializer coverage (`json`, `msgpack`, `cbor`)
+  on the representative paths so transport benches stop silently defaulting to
+  JSON everywhere.
+- `wamp_serializer_matrix.toml` – larger-payload RawSocket/WebSocket RPC sweep
+  that runs JSON, MessagePack, and CBOR side by side to compare serializer
+  overhead without HTTP traffic in the same run.
+- `all_transports_smoke.toml` – quick cross-transport smoke covering RawSocket,
+  WebSocket, HTTP/1.1, HTTP/2, and HTTP/3 in one run. The WAMP side now mixes
+  JSON, MessagePack, and CBOR across RawSocket/WebSocket workloads so serializer
+  regressions show up in the default cross-transport run.
+- `real_world_smoke.toml` – higher-connection smoke that mixes RawSocket and
+  WebSocket WAMP pubsub/RPC with HTTP/2 and HTTP/3 fanout; roughly 2k
+  RawSocket WAMP connections plus a smaller WebSocket comparison load and
   high-concurrency HTTP fanout/asset echoes to probe backpressure.
 
 ### TLS Setup & Running the Orchestrator
@@ -231,8 +264,10 @@ example, the full-stack matrix. For a more representative hot-session throughput
 sample, point it at `native/bench/scenarios/throughput_smoke.toml` instead of the
 handshake-oriented `h2_smoke.toml`. To study scaling, use
 `native/bench/scenarios/runtime_thread_scaling.toml` together with
-`--native-runtime-thread-counts`, or `worker_scaling.toml` with
-`--router-worker-counts` when you only want a router-worker sanity check.
+`--native-runtime-thread-counts`, `h2_multiplex_scaling.toml` or
+`h3_multiplex_scaling.toml` when you want a focused same-connection transport
+multiplex sweep, or `worker_scaling.toml` with `--router-worker-counts` when
+you only want a router-worker sanity check.
 Use `cargo run --release` for throughput work; the debug/profile-default
 orchestrator is fine for harness development, but HTTP/3 numbers in particular
 are noisy enough in debug builds to mislead scaling conclusions.
@@ -319,6 +354,18 @@ Prometheus textfile artifacts, and the CLI scaling summary all include
 `native_runtime_threads` so HTTP throughput can be graphed against the actual
 transport-side scaling knob.
 
+For HTTP/2, the orchestrator can now drive multiple in-flight streams through a
+single reused connection. Recent release-built `h2_multiplex_scaling` sweeps in
+this environment held roughly `3.64 Gbps` at `1` native runtime thread and
+`5.90 Gbps` at `4` threads, with throughput increasing monotonically once the
+bench stopped measuring only one hot H2 request stream per connection.
+
+HTTP/3 now uses the same per-connection multiplexing knob. Recent
+release-built `h3_multiplex_scaling` sweeps in this environment held roughly
+`3.14 Gbps` at `1` native runtime thread and `4.35 Gbps` at `4` threads, so the
+bench no longer under-reports H3 by serializing request loops on each reused
+connection.
+
 The router and the Rust HTTP/3 bench client now both apply explicit Quinn
 transport tuning (stream windows, send window, datagram buffers, keep-alive)
 instead of relying on the library defaults tuned for a much lower-bandwidth
@@ -344,9 +391,52 @@ cargo run --release --manifest-path native/bench/Cargo.toml -- \
   --native-lib native/transport/target/release/libct_ffi.so
 ```
 
-The `wamp_pubsub` workloads interpret `path` as the topic URI, while `wamp_rpc`
-workloads use it as the procedure URI. `request_bytes` sets the payload size
-sent in each publish/call (which is echoed back for RPC).
+The WAMP workloads use transport-specific protocol labels:
+
+- `wamp_rawsocket_pubsub`
+- `wamp_rawsocket_rpc`
+- `wamp_websocket_pubsub`
+- `wamp_websocket_rpc`
+
+`path` is interpreted as the topic URI for `*_pubsub` workloads and as the
+procedure URI for `*_rpc` workloads. `request_bytes` sets the payload size sent
+in each publish/call (which is echoed back for RPC). The legacy
+`wamp_pubsub` / `wamp_rpc` labels still map to RawSocket for backward
+compatibility.
+
+Recent `all_transports_smoke` runs in this environment exposed and then fixed a
+major RawSocket client-side latency issue: the Dart RawSocket transport now
+disables Nagle (`tcpNoDelay`) and writes WAMP frames as a single socket write
+instead of splitting frame headers and payloads into separate writes. After
+that change, the same smoke scenario moved RawSocket pub/sub latency from about
+`45 ms` down to about `6.7 ms` on loopback, much closer to the WebSocket path
+(`~3.6 ms` here).
+
+The same cross-transport bench also exposed a router-side inefficiency: the
+boss loop was probing dedicated RawSocket accepts for HTTP/3 handshakes even
+though `connectionProtocol()` had already resolved them as RawSocket. That
+probe is gone now, so RawSocket/WebSocket transport runs no longer emit
+`ct_connection_take_http3_handshake ... unsupported protocol RawSocket` noise.
+
+The bench harness now also exercises MessagePack and CBOR over the live router
+instead of only JSON. Router-side outbound MsgPack `RESULT` serialization and
+the native CBOR decode/encode path were completed so RawSocket/WebSocket WAMP
+benchmarks can run the same HELLO/CALL/RESULT flow across all three serializers.
+
+On the latest release-built `all_transports_smoke` run in this environment, the
+transport comparison landed roughly at:
+
+- RawSocket pub/sub: `6.81 ms` average latency
+- RawSocket RPC: `4.83 ms`
+- WebSocket pub/sub: `3.45 ms`
+- WebSocket RPC: `4.77 ms`
+- HTTP/1.1: `178.48 Mbps` response throughput
+- HTTP/2: `559.24 Mbps`
+- HTTP/3: `364.72 Mbps`
+
+That leaves one obvious transport follow-up: on this shared smoke workload,
+HTTP/3 still trails HTTP/2 materially even after the recent QUIC tuning and
+multiplexing work.
 
 ## Prometheus & Grafana (docker-compose)
 

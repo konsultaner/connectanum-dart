@@ -55,6 +55,8 @@ import 'package:connectanum_core/src/message/yield.dart' as yield_msg;
 import 'package:connectanum_core/src/message/uri_pattern.dart' as uri_pattern;
 import 'package:connectanum_core/src/serializer/json/serializer.dart'
     as json_serializer;
+import 'package:connectanum_core/src/serializer/cbor/serializer.dart'
+    as cbor_serializer;
 import 'package:connectanum_core/src/serializer/msgpack/serializer.dart'
     as msgpack_serializer;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core show Error;

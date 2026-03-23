@@ -13,6 +13,7 @@ import 'package:connectanum_core/src/message/error.dart';
 import 'package:connectanum_core/src/message/event.dart';
 import 'package:connectanum_core/src/message/goodbye.dart';
 import 'package:connectanum_core/src/message/hello.dart';
+import 'package:connectanum_core/src/message/interrupt.dart' as interrupt_msg;
 import 'package:connectanum_core/src/message/message_types.dart';
 import 'package:connectanum_core/src/message/publish.dart';
 import 'package:connectanum_core/src/message/published.dart';
@@ -390,6 +391,18 @@ class Serializer extends AbstractSerializer {
       res += payload.payload;
       return Uint8List.fromList(res);
     }
+    if (message is interrupt_msg.Interrupt) {
+      final options = <String, Object?>{};
+      if (message.options?.mode != null) {
+        options['mode'] = message.options!.mode;
+      }
+      return Uint8List.fromList(
+        [147] +
+            msgpack_dart.serialize(MessageTypes.codeInterrupt) +
+            msgpack_dart.serialize(message.requestId) +
+            msgpack_dart.serialize(options),
+      );
+    }
     if (message is Invocation) {
       // for serializer unit test only
       var res =
@@ -486,6 +499,37 @@ class Serializer extends AbstractSerializer {
             msgpack_dart.serialize(message.unsubscribeRequestId),
       );
     }
+    if (message is Result) {
+      final details = <String, Object?>{};
+      final resultDetails = message.details;
+      if (resultDetails.progress != null) {
+        details['progress'] = resultDetails.progress;
+      }
+      if (resultDetails.pptScheme != null) {
+        details['ppt_scheme'] = resultDetails.pptScheme;
+      }
+      if (resultDetails.pptSerializer != null) {
+        details['ppt_serializer'] = resultDetails.pptSerializer;
+      }
+      if (resultDetails.pptCipher != null) {
+        details['ppt_cipher'] = resultDetails.pptCipher;
+      }
+      if (resultDetails.pptKeyId != null) {
+        details['ppt_keyid'] = resultDetails.pptKeyId;
+      }
+      if (resultDetails.custom.isNotEmpty) {
+        details.addAll(resultDetails.custom);
+      }
+      var res =
+          [147] +
+          msgpack_dart.serialize(MessageTypes.codeResult) +
+          msgpack_dart.serialize(message.callRequestId) +
+          msgpack_dart.serialize(details);
+      var payload = _serializePayload(message);
+      res[0] += payload.payloadType;
+      res += payload.payload;
+      return Uint8List.fromList(res);
+    }
     if (message is Error) {
       var res =
           [149] +
@@ -540,7 +584,9 @@ class Serializer extends AbstractSerializer {
     }
 
     _logger.shout('Could not serialize the message of type: $message');
-    throw Exception('Message type not known!');
+    throw UnsupportedError(
+      'MsgPack serializer does not support ${message.runtimeType}',
+    );
   }
 
   Uint8List? _serializeDetails(Details details) {

@@ -1,0 +1,56 @@
+name = "wamp_serializer_matrix"
+description = "Serializer-aware WAMP RPC sweep over RawSocket and WebSocket using larger payloads."
+
+[[workloads]]
+name = "rawsocket_rpc_json_16k"
+protocol = "wamp_rawsocket_rpc"
+serializer = "json"
+path = "bench.rpc.echo"
+iterations = 80
+concurrency = 8
+request_bytes = 16384
+
+[[workloads]]
+name = "rawsocket_rpc_msgpack_16k"
+protocol = "wamp_rawsocket_rpc"
+serializer = "msgpack"
+path = "bench.rpc.echo"
+iterations = 80
+concurrency = 8
+request_bytes = 16384
+
+[[workloads]]
+name = "rawsocket_rpc_cbor_16k"
+protocol = "wamp_rawsocket_rpc"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 80
+concurrency = 8
+request_bytes = 16384
+
+[[workloads]]
+name = "websocket_rpc_json_16k"
+protocol = "wamp_websocket_rpc"
+serializer = "json"
+path = "bench.rpc.echo"
+iterations = 80
+concurrency = 8
+request_bytes = 16384
+
+[[workloads]]
+name = "websocket_rpc_msgpack_16k"
+protocol = "wamp_websocket_rpc"
+serializer = "msgpack"
+path = "bench.rpc.echo"
+iterations = 80
+concurrency = 8
+request_bytes = 16384
+
+[[workloads]]
+name = "websocket_rpc_cbor_16k"
+protocol = "wamp_websocket_rpc"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 80
+concurrency = 8
+request_bytes = 16384

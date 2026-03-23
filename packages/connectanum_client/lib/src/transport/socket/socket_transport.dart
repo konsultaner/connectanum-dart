@@ -171,6 +171,7 @@ class SocketTransport extends AbstractTransport {
       } else {
         _socket = await Socket.connect(_host, _port);
       }
+      _socket!.setOption(SocketOption.tcpNoDelay, true);
       _pingInterval = pingInterval;
       unawaited(_runPingInterval());
       _sendInitialHandshake();
@@ -397,6 +398,11 @@ class SocketTransport extends AbstractTransport {
     if (message is Goodbye) {
       _goodbyeSent = true;
     }
+    var serialalizedMessage = _serializer.serialize(message);
+    if (serialalizedMessage is String) {
+      serialalizedMessage = utf8.encoder.convert(serialalizedMessage);
+    }
+    final frame = _buildWampFrame(serialalizedMessage as List<int>);
     if (!_handshakeCompleter.isCompleted) {
       if (_outboundBuffer!.isEmpty) {
         _handshakeCompleter.future.then((aVoid) {
@@ -404,35 +410,26 @@ class SocketTransport extends AbstractTransport {
           _outboundBuffer = null;
         });
       }
-      var serialalizedMessage = _serializer.serialize(message);
-      if (serialalizedMessage is String) {
-        serialalizedMessage = utf8.encoder.convert(serialalizedMessage);
-      }
-      _outboundBuffer!.addAll(
-        SocketHelper.buildMessageHeader(
-          SocketHelper.messageWamp,
-          serialalizedMessage.length,
-          isUpgradedProtocol,
-        ),
-      );
-      _outboundBuffer!.addAll(serialalizedMessage);
+      _outboundBuffer!.addAll(frame);
     } else {
-      var serialalizedMessage = _serializer.serialize(message);
-      if (serialalizedMessage is String) {
-        serialalizedMessage = utf8.encoder.convert(serialalizedMessage);
-      }
-      _send0(
-        SocketHelper.buildMessageHeader(
-          SocketHelper.messageWamp,
-          serialalizedMessage.length,
-          isUpgradedProtocol,
-        ),
-      );
-      _send0(serialalizedMessage);
+      _send0(frame);
     }
   }
 
   void _send0(List<int> data) {
     _socket!.add(data);
+  }
+
+  Uint8List _buildWampFrame(List<int> payload) {
+    final builder = BytesBuilder(copy: false);
+    builder.add(
+      SocketHelper.buildMessageHeader(
+        SocketHelper.messageWamp,
+        payload.length,
+        isUpgradedProtocol,
+      ),
+    );
+    builder.add(payload);
+    return builder.takeBytes();
   }
 }

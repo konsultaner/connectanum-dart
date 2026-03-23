@@ -10,11 +10,13 @@ void main() {
     test('completes pubsub scenario after receiving matching events', () async {
       final broker = _FakeWampBroker();
       final runner = WampWorkloadRunner(
-        sessionFactory: () async => _FakeWampSession(broker),
+        sessionFactory: (_) async => _FakeWampSession(broker),
         logger: Logger.detached('pubsub_test'),
         eventTimeout: const Duration(seconds: 1),
       );
       final scenario = WampScenario(
+        transport: WampTransport.rawsocket,
+        serializer: WampSerializer.json,
         mode: WampMode.pubsub,
         uri: 'bench.topic',
         iterations: 3,
@@ -33,11 +35,13 @@ void main() {
     test('throws when matching events do not arrive before timeout', () async {
       final broker = _FakeWampBroker(dropMetadata: true);
       final runner = WampWorkloadRunner(
-        sessionFactory: () async => _FakeWampSession(broker),
+        sessionFactory: (_) async => _FakeWampSession(broker),
         logger: Logger.detached('timeout_test'),
         eventTimeout: const Duration(milliseconds: 50),
       );
       final scenario = WampScenario(
+        transport: WampTransport.rawsocket,
+        serializer: WampSerializer.json,
         mode: WampMode.pubsub,
         uri: 'bench.topic',
         iterations: 1,
@@ -54,11 +58,13 @@ void main() {
     test('executes RPC scenario via session.call', () async {
       final broker = _FakeWampBroker();
       final runner = WampWorkloadRunner(
-        sessionFactory: () async => _FakeWampSession(broker),
+        sessionFactory: (_) async => _FakeWampSession(broker),
         logger: Logger.detached('rpc_test'),
         eventTimeout: const Duration(seconds: 1),
       );
       final scenario = WampScenario(
+        transport: WampTransport.rawsocket,
+        serializer: WampSerializer.json,
         mode: WampMode.rpc,
         uri: 'bench.rpc.echo',
         iterations: 2,
@@ -74,11 +80,13 @@ void main() {
 
     test('RPC scenario times out when call never yields', () async {
       final runner = WampWorkloadRunner(
-        sessionFactory: () async => _HangingRpcSession(),
+        sessionFactory: (_) async => _HangingRpcSession(),
         logger: Logger.detached('rpc_hang_test'),
         eventTimeout: const Duration(milliseconds: 50),
       );
       final scenario = WampScenario(
+        transport: WampTransport.rawsocket,
+        serializer: WampSerializer.json,
         mode: WampMode.rpc,
         uri: 'bench.rpc.echo',
         iterations: 1,
@@ -91,6 +99,116 @@ void main() {
         throwsA(isA<TimeoutException>()),
       );
     });
+
+    test('passes scenario transport into the session factory', () async {
+      final broker = _FakeWampBroker();
+      final seenTransports = <WampTransport>[];
+      final seenSerializers = <WampSerializer>[];
+      final runner = WampWorkloadRunner(
+        sessionFactory: (scenario) async {
+          seenTransports.add(scenario.transport);
+          seenSerializers.add(scenario.serializer);
+          return _FakeWampSession(broker);
+        },
+        logger: Logger.detached('transport_test'),
+        eventTimeout: const Duration(seconds: 1),
+      );
+      final scenario = WampScenario(
+        transport: WampTransport.websocket,
+        serializer: WampSerializer.msgpack,
+        mode: WampMode.rpc,
+        uri: 'bench.rpc.echo',
+        iterations: 1,
+        concurrency: 2,
+        payloadBytes: 8,
+      );
+
+      final samples = await runner.run(scenario);
+
+      expect(samples, hasLength(2));
+      expect(seenTransports, everyElement(equals(WampTransport.websocket)));
+      expect(seenSerializers, everyElement(equals(WampSerializer.msgpack)));
+    });
+  });
+
+  group('WampScenario', () {
+    test('defaults transport to rawsocket when omitted', () {
+      final scenario = WampScenario.fromJson({
+        'mode': 'pubsub',
+        'uri': 'bench.topic',
+      });
+
+      expect(scenario.transport, WampTransport.rawsocket);
+      expect(scenario.serializer, WampSerializer.json);
+      expect(scenario.mode, WampMode.pubsub);
+    });
+
+    test('parses websocket transport aliases', () {
+      final scenario = WampScenario.fromJson({
+        'transport': 'ws',
+        'mode': 'rpc',
+        'uri': 'bench.rpc.echo',
+      });
+
+      expect(scenario.transport, WampTransport.websocket);
+      expect(scenario.mode, WampMode.rpc);
+    });
+
+    test('parses msgpack serializer aliases', () {
+      final scenario = WampScenario.fromJson({
+        'transport': 'rawsocket',
+        'serializer': 'messagepack',
+        'mode': 'rpc',
+        'uri': 'bench.rpc.echo',
+      });
+
+      expect(scenario.serializer, WampSerializer.msgpack);
+    });
+
+    test('parses cbor serializer', () {
+      final scenario = WampScenario.fromJson({
+        'transport': 'ws',
+        'serializer': 'cbor',
+        'mode': 'pubsub',
+        'uri': 'bench.topic',
+      });
+
+      expect(scenario.serializer, WampSerializer.cbor);
+    });
+  });
+
+  group('WampEventBuffer', () {
+    test('replays buffered matching events to later waiters', () async {
+      final buffer = WampEventBuffer();
+      buffer.add(
+        WampEvent(argumentsKeywords: const {'worker': 1, 'iteration': 2}),
+      );
+
+      final event = await buffer.nextWhere(
+        (event) =>
+            event.argumentsKeywords?['worker'] == 1 &&
+            event.argumentsKeywords?['iteration'] == 2,
+      );
+
+      expect(event.argumentsKeywords?['worker'], 1);
+      expect(event.argumentsKeywords?['iteration'], 2);
+    });
+
+    test(
+      'completes pending waiter when matching event arrives later',
+      () async {
+        final buffer = WampEventBuffer();
+        final future = buffer.nextWhere(
+          (event) => event.argumentsKeywords?['worker'] == 7,
+        );
+
+        buffer.add(WampEvent(argumentsKeywords: const {'worker': 3}));
+        buffer.add(WampEvent(argumentsKeywords: const {'worker': 7}));
+
+        final event = await future;
+        expect(event.argumentsKeywords?['worker'], 7);
+      },
+    );
   });
 }
 

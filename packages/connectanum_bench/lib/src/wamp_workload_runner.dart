@@ -1,12 +1,16 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:connectanum_client/connectanum.dart' as wamp_client;
 import 'package:connectanum_client/socket.dart' as wamp_socket;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
+import 'package:connectanum_core/cbor_serializer.dart' as wamp_cbor;
 import 'package:connectanum_core/json_serializer.dart' as wamp_json;
+import 'package:connectanum_core/msgpack_serializer.dart' as wamp_msgpack;
 import 'package:logging/logging.dart';
 
-typedef WampSessionFactory = Future<WampSession> Function();
+typedef WampSessionFactory =
+    Future<WampSession> Function(WampScenario scenario);
 
 class WampWorkloadRunner {
   WampWorkloadRunner({
@@ -50,15 +54,20 @@ class WampWorkloadRunner {
     WampScenario scenario,
     String payload,
   ) async {
-    final publisher = await _sessionFactory();
-    final subscriber = await _sessionFactory();
+    final publisher = await _sessionFactory(scenario);
+    final subscriber = await _sessionFactory(scenario);
     final subscription = await subscriber.subscribe(scenario.uri);
-    final events = subscription.events.asBroadcastStream();
-    final eventLogSub = events.listen(
-      (event) => _logger.finer(
-        'PUBSUB event received worker=$workerId '
-        'args=${event.arguments} kwargs=${event.argumentsKeywords}',
-      ),
+    final eventBuffer = WampEventBuffer();
+    final eventSub = subscription.events.listen(
+      (event) {
+        _logger.finer(
+          'PUBSUB event received worker=$workerId '
+          'args=${event.arguments} kwargs=${event.argumentsKeywords}',
+        );
+        eventBuffer.add(event);
+      },
+      onError: eventBuffer.closeWithError,
+      onDone: eventBuffer.close,
     );
     final samples = <WampSample>[];
     try {
@@ -70,8 +79,8 @@ class WampWorkloadRunner {
         _logger.fine(
           'PUBSUB publish start worker=$workerId iteration=$iteration uri=${scenario.uri}',
         );
-        final eventFuture = events
-            .firstWhere((event) => _matches(event, workerId, iteration))
+        final eventFuture = eventBuffer
+            .nextWhere((event) => _matches(event, workerId, iteration))
             .timeout(_eventTimeout);
         final start = DateTime.now();
         await publisher.publish(
@@ -109,7 +118,7 @@ class WampWorkloadRunner {
       );
       rethrow;
     } finally {
-      await eventLogSub.cancel();
+      await eventSub.cancel();
       await subscription.cancel();
       await subscriber.close();
       await publisher.close();
@@ -156,7 +165,7 @@ class WampWorkloadRunner {
     WampScenario scenario,
     String payload,
   ) async {
-    final session = await _sessionFactory();
+    final session = await _sessionFactory(scenario);
     final samples = <WampSample>[];
     try {
       for (var iteration = 0; iteration < scenario.iterations; iteration++) {
@@ -234,6 +243,74 @@ class WampSubscription {
   Future<void> cancel() => _onCancel();
 }
 
+class WampEventBuffer {
+  final Queue<WampEvent> _buffer = Queue<WampEvent>();
+  bool Function(WampEvent)? _matcher;
+  Completer<WampEvent>? _pending;
+  bool _closed = false;
+  Object? _error;
+  StackTrace? _stackTrace;
+
+  void add(WampEvent event) {
+    final matcher = _matcher;
+    final pending = _pending;
+    if (matcher != null && pending != null && !pending.isCompleted) {
+      if (matcher(event)) {
+        _matcher = null;
+        _pending = null;
+        pending.complete(event);
+        return;
+      }
+    }
+    _buffer.addLast(event);
+  }
+
+  Future<WampEvent> nextWhere(bool Function(WampEvent) matcher) {
+    while (_buffer.isNotEmpty) {
+      final event = _buffer.removeFirst();
+      if (matcher(event)) {
+        return Future<WampEvent>.value(event);
+      }
+    }
+    if (_error != null) {
+      return Future<WampEvent>.error(_error!, _stackTrace);
+    }
+    if (_closed) {
+      return Future<WampEvent>.error(StateError('No element'));
+    }
+    if (_pending != null && !_pending!.isCompleted) {
+      throw StateError('nextWhere already pending');
+    }
+    final completer = Completer<WampEvent>();
+    _matcher = matcher;
+    _pending = completer;
+    return completer.future;
+  }
+
+  void close() {
+    _closed = true;
+    final pending = _pending;
+    if (pending != null && !pending.isCompleted) {
+      _matcher = null;
+      _pending = null;
+      pending.completeError(StateError('No element'));
+    }
+  }
+
+  void closeWithError(Object error, [StackTrace? stackTrace]) {
+    _error = error;
+    _stackTrace = stackTrace;
+    _closed = true;
+    final pending = _pending;
+    if (pending != null && !pending.isCompleted) {
+      _matcher = null;
+      _pending = null;
+      pending.completeError(error, stackTrace);
+      return;
+    }
+  }
+}
+
 class WampEvent {
   WampEvent({this.arguments, this.argumentsKeywords});
 
@@ -269,23 +346,81 @@ class RawSocketWampSessionFactory {
     required this.host,
     required this.port,
     required this.realmUri,
+    this.serializer = WampSerializer.json,
+    this.ssl = false,
+    this.allowInsecureCertificates = false,
   });
 
   final String host;
   final int port;
   final String realmUri;
+  final WampSerializer serializer;
+  final bool ssl;
+  final bool allowInsecureCertificates;
 
   Future<WampSession> call() async {
-    final serializer = wamp_json.Serializer();
+    final (transportSerializer, serializerType) = _rawSocketSerializerConfig(
+      serializer,
+    );
     final transport = wamp_socket.SocketTransport(
       host,
       port,
-      serializer,
-      wamp_socket.SocketHelper.serializationJson,
+      transportSerializer,
+      serializerType,
+      ssl: ssl,
+      allowInsecureCertificates: allowInsecureCertificates,
     );
     final client = wamp_client.Client(realm: realmUri, transport: transport);
     final session = await client.connect().first;
     return _ClientBackedWampSession(client, session);
+  }
+}
+
+class WebSocketWampSessionFactory {
+  WebSocketWampSessionFactory({
+    required this.url,
+    required this.realmUri,
+    this.serializer = WampSerializer.json,
+  });
+
+  final String url;
+  final String realmUri;
+  final WampSerializer serializer;
+
+  Future<WampSession> call() async {
+    final transport = switch (serializer) {
+      WampSerializer.json => wamp_client.WebSocketTransport.withJsonSerializer(
+        url,
+      ),
+      WampSerializer.msgpack =>
+        wamp_client.WebSocketTransport.withMsgpackSerializer(url),
+      WampSerializer.cbor => wamp_client.WebSocketTransport.withCborSerializer(
+        url,
+      ),
+    };
+    final client = wamp_client.Client(realm: realmUri, transport: transport);
+    final session = await client.connect().first;
+    return _ClientBackedWampSession(client, session);
+  }
+}
+
+(dynamic, int) _rawSocketSerializerConfig(WampSerializer serializer) {
+  switch (serializer) {
+    case WampSerializer.json:
+      return (
+        wamp_json.Serializer(),
+        wamp_socket.SocketHelper.serializationJson,
+      );
+    case WampSerializer.msgpack:
+      return (
+        wamp_msgpack.Serializer(),
+        wamp_socket.SocketHelper.serializationMsgpack,
+      );
+    case WampSerializer.cbor:
+      return (
+        wamp_cbor.Serializer(),
+        wamp_socket.SocketHelper.serializationCbor,
+      );
   }
 }
 
@@ -352,6 +487,8 @@ class _ClientBackedWampSession implements WampSession {
 
 class WampScenario {
   WampScenario({
+    required this.transport,
+    required this.serializer,
     required this.mode,
     required this.uri,
     required this.iterations,
@@ -359,6 +496,8 @@ class WampScenario {
     required this.payloadBytes,
   });
 
+  final WampTransport transport;
+  final WampSerializer serializer;
   final WampMode mode;
   final String uri;
   final int iterations;
@@ -371,10 +510,14 @@ class WampScenario {
     if (rawMode is! String || uri is! String || uri.trim().isEmpty) {
       throw FormatException('WAMP workload requires mode and uri');
     }
+    final rawTransport = json['transport'];
+    final rawSerializer = json['serializer'];
     final iterations = _readPositiveInt(json['iterations'], fallback: 1);
     final concurrency = _readPositiveInt(json['concurrency'], fallback: 1);
     final payloadBytes = _readPositiveInt(json['payload_bytes'], fallback: 0);
     return WampScenario(
+      transport: WampTransport.parse(rawTransport),
+      serializer: WampSerializer.parse(rawSerializer),
       mode: WampMode.parse(rawMode),
       uri: uri,
       iterations: iterations,
@@ -394,6 +537,57 @@ class WampScenario {
       return int.tryParse(value) ?? fallback;
     }
     throw FormatException('Expected integer, got $value');
+  }
+}
+
+enum WampTransport {
+  rawsocket,
+  websocket;
+
+  static WampTransport parse(Object? raw) {
+    if (raw == null) {
+      return WampTransport.rawsocket;
+    }
+    if (raw is! String) {
+      throw FormatException('Unsupported WAMP transport "$raw"');
+    }
+    switch (raw.toLowerCase()) {
+      case 'rawsocket':
+      case 'raw':
+      case 'socket':
+        return WampTransport.rawsocket;
+      case 'websocket':
+      case 'ws':
+        return WampTransport.websocket;
+      default:
+        throw FormatException('Unsupported WAMP transport "$raw"');
+    }
+  }
+}
+
+enum WampSerializer {
+  json,
+  msgpack,
+  cbor;
+
+  static WampSerializer parse(Object? raw) {
+    if (raw == null) {
+      return WampSerializer.json;
+    }
+    if (raw is! String) {
+      throw FormatException('Unsupported WAMP serializer "$raw"');
+    }
+    switch (raw.toLowerCase()) {
+      case 'json':
+        return WampSerializer.json;
+      case 'msgpack':
+      case 'messagepack':
+        return WampSerializer.msgpack;
+      case 'cbor':
+        return WampSerializer.cbor;
+      default:
+        throw FormatException('Unsupported WAMP serializer "$raw"');
+    }
   }
 }
 

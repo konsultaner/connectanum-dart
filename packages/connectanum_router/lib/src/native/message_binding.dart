@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 
@@ -33,7 +34,7 @@ Object? _decodePayload(NativeMessageSerializer serializer, Uint8List bytes) {
     case NativeMessageSerializer.messagePack:
       return msgpack.deserialize(bytes);
     case NativeMessageSerializer.cbor:
-      throw UnsupportedError('CBOR decoding not yet implemented');
+      return _decodeCborBytes(bytes);
     case NativeMessageSerializer.ubjson:
     case NativeMessageSerializer.flatbuffers:
       throw UnsupportedError(
@@ -241,13 +242,17 @@ Object? _decodeFragment(NativeMessageSerializer serializer, Uint8List bytes) {
     case NativeMessageSerializer.messagePack:
       return msgpack.deserialize(bytes);
     case NativeMessageSerializer.cbor:
-      throw UnsupportedError('CBOR decoding not yet implemented');
+      return _decodeCborBytes(bytes);
     case NativeMessageSerializer.ubjson:
     case NativeMessageSerializer.flatbuffers:
       throw UnsupportedError(
         'Serializer ${serializer.name} is not supported for payload decoding',
       );
   }
+}
+
+Object? _decodeCborBytes(Uint8List bytes) {
+  return cbor.cborDecode(bytes.toList()).toObject();
 }
 
 Roles? _mapRoles(Map<String, dynamic>? rolesMap) {

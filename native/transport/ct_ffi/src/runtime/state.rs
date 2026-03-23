@@ -166,41 +166,27 @@ impl HttpMetadata {
         }
     }
 
-    pub fn from_summary(summary: &HttpRequestSummary) -> Self {
-        let method = Arc::<[u8]>::from(summary.method.as_bytes().to_vec());
-        let target = Arc::<[u8]>::from(summary.target.as_bytes().to_vec());
-        let path = Arc::<[u8]>::from(summary.path.as_bytes().to_vec());
-        let query = summary
-            .query
-            .as_ref()
-            .map(|value| Arc::<[u8]>::from(value.as_bytes().to_vec()));
-        let protocol = Arc::<[u8]>::from(summary.protocol.as_bytes().to_vec());
-        let realm = summary
-            .realm
-            .as_ref()
-            .map(|value| Arc::<[u8]>::from(value.as_bytes().to_vec()));
-        let procedure = summary
-            .procedure
-            .as_ref()
-            .map(|value| Arc::<[u8]>::from(value.as_bytes().to_vec()));
-        let headers = summary
-            .headers
-            .iter()
-            .map(|(name, value)| {
-                (
-                    Arc::<[u8]>::from(name.as_bytes().to_vec()),
-                    Arc::<[u8]>::from(value.as_bytes().to_vec()),
-                )
-            })
-            .collect();
-        let body = summary.body.clone();
+    pub fn from_summary(summary: HttpRequestSummary) -> Self {
+        let HttpRequestSummary {
+            method,
+            target,
+            path,
+            query,
+            protocol,
+            version,
+            headers,
+            body,
+            realm,
+            procedure,
+            ..
+        } = summary;
         Self {
             method,
             target,
             path,
             query,
             protocol,
-            version: summary.version,
+            version,
             headers,
             body,
             realm,

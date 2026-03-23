@@ -1,17 +1,37 @@
 name = "wamp_smoke"
-description = "Simple WAMP PUB/SUB and RPC workloads exercising the routing pipeline."
+description = "RawSocket and WebSocket PUB/SUB + RPC workloads exercising the WAMP routing pipeline."
 
 [[workloads]]
-name = "pubsub_small"
-protocol = "wamp_pubsub"
+name = "rawsocket_pubsub_json"
+protocol = "wamp_rawsocket_pubsub"
+serializer = "json"
 path = "bench.wamp.topic"
 iterations = 50
 concurrency = 4
 request_bytes = 256
 
 [[workloads]]
-name = "rpc_echo"
-protocol = "wamp_rpc"
+name = "rawsocket_rpc_msgpack"
+protocol = "wamp_rawsocket_rpc"
+serializer = "msgpack"
+path = "bench.rpc.echo"
+iterations = 100
+concurrency = 8
+request_bytes = 256
+
+[[workloads]]
+name = "websocket_pubsub_json"
+protocol = "wamp_websocket_pubsub"
+serializer = "json"
+path = "bench.wamp.topic"
+iterations = 50
+concurrency = 4
+request_bytes = 256
+
+[[workloads]]
+name = "websocket_rpc_cbor"
+protocol = "wamp_websocket_rpc"
+serializer = "cbor"
 path = "bench.rpc.echo"
 iterations = 100
 concurrency = 8

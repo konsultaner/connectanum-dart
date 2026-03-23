@@ -83,6 +83,13 @@ type H3ServerRecvStream =
 const HTTP_STREAM_IDLE_FALLBACK: Duration = Duration::from_secs(10);
 const HTTP_STREAM_TOTAL_FALLBACK: Duration = Duration::from_secs(40);
 const HTTP_STREAM_TOTAL_MULTIPLIER: u32 = 4;
+const HTTP2_MAX_CONCURRENT_STREAMS: u32 = 1024;
+const HTTP2_INITIAL_STREAM_WINDOW: u32 = 8 * 1024 * 1024;
+const HTTP2_INITIAL_CONNECTION_WINDOW: u32 = 64 * 1024 * 1024;
+const HTTP2_MAX_FRAME_SIZE: u32 = 1 * 1024 * 1024;
+const HTTP2_MAX_HEADER_LIST_SIZE: u32 = 16 * 1024 * 1024;
+const HTTP2_MAX_CONCURRENT_RESET_STREAMS: usize = 256;
+const HTTP2_MAX_SEND_BUFFER_SIZE: usize = 8 * 1024 * 1024;
 const HTTP3_MAX_BIDI_STREAMS: u32 = 1024;
 const HTTP3_MAX_UNI_STREAMS: u32 = 256;
 const HTTP3_STREAM_RECEIVE_WINDOW: u32 = 8 * 1024 * 1024;
@@ -546,16 +553,16 @@ impl HttpBodyHandle {
 }
 
 pub struct HttpRequestSummary {
-    pub method: String,
-    pub target: String,
-    pub path: String,
-    pub query: Option<String>,
-    pub protocol: String,
+    pub method: Arc<[u8]>,
+    pub target: Arc<[u8]>,
+    pub path: Arc<[u8]>,
+    pub query: Option<Arc<[u8]>>,
+    pub protocol: Arc<[u8]>,
     pub version: u8,
-    pub headers: Vec<(String, String)>,
+    pub headers: Vec<(Arc<[u8]>, Arc<[u8]>)>,
     pub body: HttpBodyHandle,
-    pub realm: Option<String>,
-    pub procedure: Option<String>,
+    pub realm: Option<Arc<[u8]>>,
+    pub procedure: Option<Arc<[u8]>>,
     pub route: Option<HttpRouteResolution>,
 }
 
@@ -568,26 +575,34 @@ impl HttpRequestSummary {
         query: Option<String>,
         protocol: String,
         version: u8,
-        headers: Vec<(String, String)>,
+        headers: Vec<(Arc<[u8]>, Arc<[u8]>)>,
         body: HttpBodyHandle,
         realm: Option<String>,
         procedure: Option<String>,
         route: Option<HttpRouteResolution>,
     ) -> Self {
         Self {
-            method,
-            target,
-            path,
-            query,
-            protocol,
+            method: http_bytes_from_string(method),
+            target: http_bytes_from_string(target),
+            path: http_bytes_from_string(path),
+            query: query.map(http_bytes_from_string),
+            protocol: http_bytes_from_string(protocol),
             version,
             headers,
             body,
-            realm,
-            procedure,
+            realm: realm.map(http_bytes_from_string),
+            procedure: procedure.map(http_bytes_from_string),
             route,
         }
     }
+}
+
+fn http_bytes_from_string(value: String) -> Arc<[u8]> {
+    Arc::<[u8]>::from(value.into_bytes())
+}
+
+fn http_bytes_from_slice(value: &[u8]) -> Arc<[u8]> {
+    Arc::<[u8]>::from(value.to_vec())
 }
 
 pub struct HttpResponseHandle {
@@ -1947,6 +1962,23 @@ fn build_http3_server_config(
     let transport = Arc::get_mut(&mut server.transport).expect("fresh http3 transport config");
     apply_http3_transport_tuning(transport);
     Ok(server)
+}
+
+fn http2_server_builder() -> h2_server::Builder {
+    let mut builder = h2_server::Builder::new();
+    apply_http2_transport_tuning(&mut builder);
+    builder
+}
+
+fn apply_http2_transport_tuning(builder: &mut h2_server::Builder) {
+    builder
+        .max_concurrent_streams(HTTP2_MAX_CONCURRENT_STREAMS)
+        .initial_window_size(HTTP2_INITIAL_STREAM_WINDOW)
+        .initial_connection_window_size(HTTP2_INITIAL_CONNECTION_WINDOW)
+        .max_frame_size(HTTP2_MAX_FRAME_SIZE)
+        .max_header_list_size(HTTP2_MAX_HEADER_LIST_SIZE)
+        .max_concurrent_reset_streams(HTTP2_MAX_CONCURRENT_RESET_STREAMS)
+        .max_send_buffer_size(HTTP2_MAX_SEND_BUFFER_SIZE);
 }
 
 fn apply_http3_transport_tuning(transport: &mut quinn::TransportConfig) {
@@ -3718,6 +3750,15 @@ async fn serve_http_connection(
         ) {
             HttpRouteMatch::Resolved(resolution) => {
                 let (tx, rx) = oneshot::channel::<HttpResponseDispatch>();
+                let summary_headers = headers
+                    .iter()
+                    .map(|(name, value)| {
+                        (
+                            http_bytes_from_slice(name.as_bytes()),
+                            http_bytes_from_slice(value.as_bytes()),
+                        )
+                    })
+                    .collect();
                 let summary = HttpRequestSummary::new(
                     method,
                     target,
@@ -3725,7 +3766,7 @@ async fn serve_http_connection(
                     query_owned,
                     protocol_label.clone(),
                     version,
-                    headers,
+                    summary_headers,
                     body_handle,
                     Some(resolution.realm.clone()),
                     Some(resolution.procedure.clone()),
@@ -4133,7 +4174,8 @@ async fn serve_http2_connection(
     endpoint_config: Arc<config::EndpointRuntimeConfig>,
     registry: Arc<ListenerRegistry>,
 ) {
-    let mut connection = match h2_server::handshake(stream).await {
+    let builder = http2_server_builder();
+    let mut connection = match builder.handshake(stream).await {
         Ok(connection) => connection,
         Err(err) => {
             eprintln!(
@@ -4686,28 +4728,26 @@ async fn process_http3_request(
     }
 }
 
-fn flatten_headers(headers: &http::HeaderMap) -> Vec<(String, String)> {
+fn flatten_headers(headers: &http::HeaderMap) -> Vec<(Arc<[u8]>, Arc<[u8]>)> {
     headers
         .iter()
         .map(|(name, value)| {
-            let header_value = value
-                .to_str()
-                .map(|s| s.to_string())
-                .unwrap_or_else(|_| String::new());
-            (name.as_str().to_string(), header_value)
+            (
+                http_bytes_from_slice(name.as_str().as_bytes()),
+                http_bytes_from_slice(value.as_bytes()),
+            )
         })
         .collect()
 }
 
-fn flatten_http2_headers(headers: &http02::HeaderMap) -> Vec<(String, String)> {
+fn flatten_http2_headers(headers: &http02::HeaderMap) -> Vec<(Arc<[u8]>, Arc<[u8]>)> {
     headers
         .iter()
         .map(|(name, value)| {
-            let header_value = value
-                .to_str()
-                .map(|s| s.to_string())
-                .unwrap_or_else(|_| String::new());
-            (name.as_str().to_string(), header_value)
+            (
+                http_bytes_from_slice(name.as_str().as_bytes()),
+                http_bytes_from_slice(value.as_bytes()),
+            )
         })
         .collect()
 }
@@ -4719,11 +4759,12 @@ fn split_target_components(target: &str) -> (String, Option<String>) {
     }
 }
 
-fn parse_content_length(headers: &[(String, String)]) -> Option<u64> {
+fn parse_content_length(headers: &[(Arc<[u8]>, Arc<[u8]>)]) -> Option<u64> {
     headers
         .iter()
-        .find(|(name, _)| name.eq_ignore_ascii_case(CONTENT_LENGTH.as_str()))
-        .and_then(|(_, value)| value.trim().parse::<u64>().ok())
+        .find(|(name, _)| name.eq_ignore_ascii_case(CONTENT_LENGTH.as_str().as_bytes()))
+        .and_then(|(_, value)| std::str::from_utf8(value.as_ref()).ok())
+        .and_then(|value| value.trim().parse::<u64>().ok())
 }
 
 fn spawn_http3_stream_reader(
@@ -4878,7 +4919,12 @@ fn http_summary_from_handshake(
             .request
             .headers
             .iter()
-            .map(|(name, value)| (name.clone(), value.clone()))
+            .map(|(name, value)| {
+                (
+                    http_bytes_from_slice(name.as_bytes()),
+                    http_bytes_from_slice(value.as_bytes()),
+                )
+            })
             .collect(),
         body_handle,
         Some(route.realm.clone()),
@@ -5220,6 +5266,43 @@ mod tests {
             unsafe { std::slice::from_raw_parts(slice.ptr, slice.len) },
             &[2, 3]
         );
+    }
+
+    #[test]
+    fn flatten_headers_preserves_raw_http1_bytes() {
+        let mut headers = http::HeaderMap::new();
+        headers.insert(
+            HeaderName::from_static("x-binary"),
+            HeaderValue::from_bytes(b"abc\xff").expect("header value"),
+        );
+
+        let flattened = flatten_headers(&headers);
+        assert_eq!(flattened.len(), 1);
+        assert_eq!(flattened[0].0.as_ref(), b"x-binary");
+        assert_eq!(flattened[0].1.as_ref(), b"abc\xff");
+    }
+
+    #[test]
+    fn flatten_http2_headers_preserves_raw_bytes() {
+        let mut headers = http02::HeaderMap::new();
+        headers.insert(
+            Http2HeaderName::from_static("x-binary"),
+            Http2HeaderValue::from_bytes(b"abc\xff").expect("header value"),
+        );
+
+        let flattened = flatten_http2_headers(&headers);
+        assert_eq!(flattened.len(), 1);
+        assert_eq!(flattened[0].0.as_ref(), b"x-binary");
+        assert_eq!(flattened[0].1.as_ref(), b"abc\xff");
+    }
+
+    #[test]
+    fn parse_content_length_reads_byte_backed_headers() {
+        let headers = vec![(
+            http_bytes_from_slice(b"content-length"),
+            http_bytes_from_slice(b" 42 "),
+        )];
+        assert_eq!(parse_content_length(&headers), Some(42));
     }
 
     #[test]

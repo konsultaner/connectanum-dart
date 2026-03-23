@@ -46,6 +46,7 @@ class _FakeRuntime implements NativeRuntime {
   final Map<int, Queue<NativeHttp2Handshake>> _http2Handshakes = {};
   final Map<int, Queue<NativeHttp3Handshake>> _http3Handshakes = {};
   final Map<int, Queue<NativeHttpHandshake>> _http3Requests = {};
+  final List<int> http3HandshakePolls = [];
   final Queue<NativeHttpConnectionEvent> _httpConnectionEvents =
       Queue<NativeHttpConnectionEvent>();
   final Queue<NativeRouterMetrics> _routerMetricsQueue =
@@ -178,6 +179,7 @@ class _FakeRuntime implements NativeRuntime {
 
   @override
   NativeHttp3Handshake? takeHttp3Handshake(int connectionId) {
+    http3HandshakePolls.add(connectionId);
     final queue = _http3Handshakes[connectionId];
     if (queue == null || queue.isEmpty) {
       return null;
@@ -1612,6 +1614,41 @@ void main() {
       // `wamp.2.msgpack` is the first supported subprotocol in the proposals.
       expect(accepted['serializer'], NativeMessageSerializer.messagePack);
       expect(accepted['protocol'], 'wamp.2.msgpack');
+    });
+
+    test('rawsocket connections do not probe for http3 handshakes', () async {
+      final runtime = _FakeRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.disabled,
+              maxRawSocketSizeExponent: 16,
+            ),
+          ],
+        ),
+      );
+
+      final binding = router.start(
+        runtime,
+        workerEntryPoint: _testWorkerEntryPoint,
+        workerPollInterval: const Duration(milliseconds: 1),
+      );
+      addTearDown(binding.dispose);
+
+      final listener = binding.listeners.single;
+      const connectionId = 9103;
+      runtime.setConnectionProtocol(
+        connectionId,
+        NativeConnectionProtocol.rawsocket,
+      );
+      runtime.enqueueConnection(listener.listenerId, connectionId);
+
+      binding.pollNativeMessages();
+
+      expect(runtime.http3HandshakePolls, isEmpty);
     });
 
     test('dispatches WebSocket message handles to workers', () async {

@@ -293,18 +293,6 @@ class _RouterBoss {
         protocol = NativeConnectionProtocol.rawsocket;
       }
 
-      NativeHttp3Handshake? forcedHttp3Handshake;
-      if (protocol == NativeConnectionProtocol.rawsocket) {
-        try {
-          forcedHttp3Handshake = runtime.takeHttp3Handshake(connectionId);
-          if (forcedHttp3Handshake != null) {
-            protocol = NativeConnectionProtocol.http3;
-          }
-        } on NativeTransportException {
-          forcedHttp3Handshake = null;
-        }
-      }
-
       if (protocol != NativeConnectionProtocol.rawsocket) {
         if (protocol == NativeConnectionProtocol.http ||
             protocol == NativeConnectionProtocol.http2) {
@@ -387,8 +375,7 @@ class _RouterBoss {
           );
           continue;
         } else if (protocol == NativeConnectionProtocol.http3) {
-          final handshake =
-              forcedHttp3Handshake ?? runtime.takeHttp3Handshake(connectionId);
+          final handshake = runtime.takeHttp3Handshake(connectionId);
           final details = <String, Object?>{
             'protocol': handshake?.protocol ?? 'http/3',
           };

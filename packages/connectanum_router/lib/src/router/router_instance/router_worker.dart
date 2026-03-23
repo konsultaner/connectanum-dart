@@ -27,6 +27,7 @@ const int _workerEventWorkerShutdown = 13;
 const int _workerEventSessionOpened = 14;
 
 final json_serializer.Serializer _jsonSerializer = json_serializer.Serializer();
+final cbor_serializer.Serializer _cborSerializer = cbor_serializer.Serializer();
 final msgpack_serializer.Serializer _msgpackSerializer =
     msgpack_serializer.Serializer();
 
@@ -194,6 +195,8 @@ Uint8List encodeMessage(
       );
     case NativeMessageSerializer.messagePack:
       return _msgpackSerializer.serialize(message);
+    case NativeMessageSerializer.cbor:
+      return _cborSerializer.serialize(message);
     default:
       throw UnsupportedError('Serializer ${serializer.name} not supported');
   }

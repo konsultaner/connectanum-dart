@@ -6,6 +6,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/src/serializer/json/serializer.dart'
     as json_serializer;
 import 'package:connectanum_core/src/serializer/msgpack/serializer.dart'
@@ -372,5 +373,60 @@ void main() {
       await pongCompleter.future;
       expect(pongCompleter.isCompleted, isTrue);
     });
+
+    test(
+      'sends WAMP frames as a single socket write after handshake',
+      () async {
+        final serializer = json_serializer.Serializer();
+        final receivedFrames = <Uint8List>[];
+        final frameCompleter = Completer<void>();
+        final server = await ServerSocket.bind('0.0.0.0', 9011);
+        server.listen((socket) {
+          var handshakeDone = false;
+          socket.listen((message) {
+            if (!handshakeDone) {
+              handshakeDone = true;
+              socket.add(
+                SocketHelper.getInitialHandshake(
+                  SocketHelper.maxMessageLengthExponent,
+                  SocketHelper.serializationJson,
+                ),
+              );
+              return;
+            }
+            receivedFrames.add(Uint8List.fromList(message));
+            if (!frameCompleter.isCompleted) {
+              frameCompleter.complete();
+            }
+          });
+        });
+
+        final transport = SocketTransport(
+          '127.0.0.1',
+          9011,
+          serializer,
+          SocketHelper.serializationJson,
+          messageLengthExponent: SocketHelper.maxMessageLengthExponent,
+        );
+        await transport.open();
+        transport.receive().listen((_) {});
+        await transport.onReady;
+
+        transport.send(Hello('bench.realm', Details.forHello()));
+        await frameCompleter.future;
+
+        expect(receivedFrames, hasLength(1));
+        final frame = receivedFrames.single;
+        expect(frame.first, SocketHelper.messageWamp);
+        final payloadLength = SocketHelper.getPayloadLength(
+          frame,
+          transport.headerLength,
+        );
+        expect(payloadLength, frame.length - transport.headerLength);
+
+        await transport.close();
+        await server.close();
+      },
+    );
   });
 }

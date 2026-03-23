@@ -621,6 +621,17 @@ class Serializer extends AbstractSerializer {
         ),
       );
     }
+    if (message is Challenge) {
+      return Uint8List.fromList(
+        cbor.encode(
+          CborValue([
+            MessageTypes.codeChallenge,
+            message.authMethod,
+            _challengeExtraToMap(message.extra),
+          ]),
+        ),
+      );
+    }
     if (message is Authenticate) {
       return Uint8List.fromList(
         cbor.encode(
@@ -628,6 +639,17 @@ class Serializer extends AbstractSerializer {
             MessageTypes.codeAuthenticate,
             message.signature ?? '',
             message.extra ?? {},
+          ]),
+        ),
+      );
+    }
+    if (message is Welcome) {
+      return Uint8List.fromList(
+        cbor.encode(
+          CborValue([
+            MessageTypes.codeWelcome,
+            message.sessionId,
+            _serializeDetails(message.details)!,
           ]),
         ),
       );
@@ -674,6 +696,17 @@ class Serializer extends AbstractSerializer {
       _appendPayloadToList(structuredMessage, message);
       return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
     }
+    if (message is Interrupt) {
+      final details = <String, Object?>{};
+      if (message.options?.mode != null) {
+        details['mode'] = message.options!.mode;
+      }
+      return Uint8List.fromList(
+        cbor.encode(
+          CborValue([MessageTypes.codeInterrupt, message.requestId, details]),
+        ),
+      );
+    }
     if (message is Invocation) {
       // for serializer unit test only
       var structuredMessage = [
@@ -695,6 +728,17 @@ class Serializer extends AbstractSerializer {
       _appendPayloadToList(structuredMessage, message);
       return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
     }
+    if (message is Published) {
+      return Uint8List.fromList(
+        cbor.encode(
+          CborValue([
+            MessageTypes.codePublished,
+            message.publishRequestId,
+            message.publicationId,
+          ]),
+        ),
+      );
+    }
     if (message is Event) {
       var structuredMessage = [
         MessageTypes.codeEvent,
@@ -714,12 +758,83 @@ class Serializer extends AbstractSerializer {
       ];
       return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
     }
+    if (message is Subscribed) {
+      return Uint8List.fromList(
+        cbor.encode(
+          CborValue([
+            MessageTypes.codeSubscribed,
+            message.subscribeRequestId,
+            message.subscriptionId,
+          ]),
+        ),
+      );
+    }
     if (message is Unsubscribe) {
       var structuredMessage = [
         MessageTypes.codeUnsubscribe,
         message.requestId,
         message.subscriptionId,
       ];
+      return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
+    }
+    if (message is Unsubscribed) {
+      final details = message.details;
+      if (details != null) {
+        final map = <String, Object?>{};
+        if (details.subscription != null) {
+          map['subscription'] = details.subscription;
+        }
+        if (details.reason != null) {
+          map['reason'] = details.reason;
+        }
+        if (map.isNotEmpty) {
+          return Uint8List.fromList(
+            cbor.encode(
+              CborValue([
+                MessageTypes.codeUnsubscribed,
+                message.unsubscribeRequestId,
+                map,
+              ]),
+            ),
+          );
+        }
+      }
+      return Uint8List.fromList(
+        cbor.encode(
+          CborValue([
+            MessageTypes.codeUnsubscribed,
+            message.unsubscribeRequestId,
+          ]),
+        ),
+      );
+    }
+    if (message is Result) {
+      final details = <String, Object?>{};
+      final resultDetails = message.details;
+      if (resultDetails.progress != null) {
+        details['progress'] = resultDetails.progress;
+      }
+      if (resultDetails.pptScheme != null) {
+        details['ppt_scheme'] = resultDetails.pptScheme;
+      }
+      if (resultDetails.pptSerializer != null) {
+        details['ppt_serializer'] = resultDetails.pptSerializer;
+      }
+      if (resultDetails.pptCipher != null) {
+        details['ppt_cipher'] = resultDetails.pptCipher;
+      }
+      if (resultDetails.pptKeyId != null) {
+        details['ppt_keyid'] = resultDetails.pptKeyId;
+      }
+      if (resultDetails.custom.isNotEmpty) {
+        details.addAll(resultDetails.custom);
+      }
+      final structuredMessage = [
+        MessageTypes.codeResult,
+        message.callRequestId,
+        details,
+      ];
+      _appendPayloadToList(structuredMessage, message);
       return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
     }
     if (message is Error) {
@@ -751,9 +866,32 @@ class Serializer extends AbstractSerializer {
       ];
       return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
     }
+    if (message is Registered) {
+      return Uint8List.fromList(
+        cbor.encode(
+          CborValue([
+            MessageTypes.codeRegistered,
+            message.registerRequestId,
+            message.registrationId,
+          ]),
+        ),
+      );
+    }
+    if (message is Unregistered) {
+      return Uint8List.fromList(
+        cbor.encode(
+          CborValue([
+            MessageTypes.codeUnregistered,
+            message.unregisterRequestId,
+          ]),
+        ),
+      );
+    }
 
     _logger.shout('Could not serialize the message of type: $message');
-    throw Exception(''); // TODO think of something helpful here...
+    throw UnsupportedError(
+      'CBOR serializer does not support ${message.runtimeType}',
+    );
   }
 
   dynamic _firstPayload(AbstractMessageWithPayload message) {
@@ -1140,5 +1278,34 @@ class Serializer extends AbstractSerializer {
       'kwargs': pptPayload.argumentsKeywords,
     };
     return Uint8List.fromList(cbor.encode(CborValue(pptMap)));
+  }
+
+  Map<String, Object?> _challengeExtraToMap(Extra extra) {
+    final map = <String, Object?>{};
+    if (extra.challenge != null) {
+      map['challenge'] = extra.challenge;
+    }
+    if (extra.salt != null) {
+      map['salt'] = extra.salt;
+    }
+    if (extra.keyLen != null) {
+      map['keylen'] = extra.keyLen;
+    }
+    if (extra.iterations != null) {
+      map['iterations'] = extra.iterations;
+    }
+    if (extra.memory != null) {
+      map['memory'] = extra.memory;
+    }
+    if (extra.kdf != null) {
+      map['kdf'] = extra.kdf;
+    }
+    if (extra.channelBinding != null) {
+      map['channel_binding'] = extra.channelBinding;
+    }
+    if (extra.nonce != null) {
+      map['nonce'] = extra.nonce;
+    }
+    return map;
   }
 }

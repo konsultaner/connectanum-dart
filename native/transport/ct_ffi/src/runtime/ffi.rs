@@ -500,6 +500,80 @@ fn encode_event_segments_msgpack(
     Ok(segments)
 }
 
+fn write_cbor_array_len(buf: &mut Vec<u8>, len: usize) {
+    if len <= 23 {
+        buf.push(0x80 | len as u8);
+    } else if len <= u8::MAX as usize {
+        buf.push(0x98);
+        buf.push(len as u8);
+    } else if len <= u16::MAX as usize {
+        buf.push(0x99);
+        buf.extend_from_slice(&(len as u16).to_be_bytes());
+    } else if len <= u32::MAX as usize {
+        buf.push(0x9a);
+        buf.extend_from_slice(&(len as u32).to_be_bytes());
+    } else {
+        buf.push(0x9b);
+        buf.extend_from_slice(&(len as u64).to_be_bytes());
+    }
+}
+
+fn encode_event_segments_cbor(
+    payload: &ct_core::WampPayload,
+    subscription_id: u64,
+    publication_id: u64,
+    publisher: Option<u64>,
+    topic: Option<&str>,
+) -> Result<Vec<Bytes>, c_int> {
+    let mut details = JsonMap::new();
+    if let Some(publisher_id) = publisher {
+        details.insert(
+            "publisher".into(),
+            JsonValue::Number(JsonNumber::from(publisher_id)),
+        );
+    }
+    if let Some(topic_value) = topic {
+        details.insert("topic".into(), JsonValue::String(topic_value.to_string()));
+    }
+    let details_value = JsonValue::Object(details);
+    let details_cbor = serde_cbor::to_vec(&details_value).map_err(|_| ERR_INVALID_ARGUMENT)?;
+
+    let has_kwargs = payload.kwargs.is_some();
+    let has_args = payload.args.is_some() || has_kwargs;
+    let mut element_count = 4; // code, subscription_id, publication_id, details
+    if has_args {
+        element_count += 1;
+    }
+    if has_kwargs {
+        element_count += 1;
+    }
+
+    let mut prefix = Vec::new();
+    write_cbor_array_len(&mut prefix, element_count);
+    prefix.extend_from_slice(&serde_cbor::to_vec(&36u64).map_err(|_| ERR_INVALID_ARGUMENT)?);
+    prefix.extend_from_slice(
+        &serde_cbor::to_vec(&subscription_id).map_err(|_| ERR_INVALID_ARGUMENT)?,
+    );
+    prefix
+        .extend_from_slice(&serde_cbor::to_vec(&publication_id).map_err(|_| ERR_INVALID_ARGUMENT)?);
+    prefix.extend_from_slice(&details_cbor);
+
+    let mut segments = Vec::new();
+    segments.push(Bytes::from(prefix));
+    if has_args {
+        let args_bytes = if let Some(args) = payload.args.clone() {
+            args
+        } else {
+            Bytes::from_static(&[0x80])
+        };
+        segments.push(args_bytes);
+    }
+    if let Some(kwargs) = payload.kwargs.clone() {
+        segments.push(kwargs);
+    }
+    Ok(segments)
+}
+
 fn encode_event_segments(
     message: &StoredMessage,
     subscription_id: u64,
@@ -522,6 +596,9 @@ fn encode_event_segments(
             publisher,
             topic,
         ),
+        RawSocketSerializer::Cbor => {
+            encode_event_segments_cbor(payload, subscription_id, publication_id, publisher, topic)
+        }
         _ => Err(ERR_UNSUPPORTED),
     }
 }
@@ -640,6 +717,66 @@ fn encode_invocation_segments_msgpack(
     Ok(segments)
 }
 
+fn encode_invocation_segments_cbor(
+    payload: &ct_core::WampPayload,
+    invocation_id: u64,
+    registration_id: u64,
+    caller: Option<u64>,
+    procedure: Option<&str>,
+    receive_progress: Option<bool>,
+) -> Result<Vec<Bytes>, c_int> {
+    let mut details = JsonMap::new();
+    if let Some(caller_id) = caller {
+        details.insert(
+            "caller".into(),
+            JsonValue::Number(JsonNumber::from(caller_id)),
+        );
+    }
+    if let Some(proc_name) = procedure {
+        details.insert("procedure".into(), JsonValue::String(proc_name.to_string()));
+    }
+    if let Some(progress) = receive_progress {
+        details.insert("receive_progress".into(), JsonValue::Bool(progress));
+    }
+    let details_value = JsonValue::Object(details);
+    let details_cbor = serde_cbor::to_vec(&details_value).map_err(|_| ERR_INVALID_ARGUMENT)?;
+
+    let has_kwargs = payload.kwargs.is_some();
+    let has_args = payload.args.is_some() || has_kwargs;
+    let mut element_count = 4; // code, invocation_id, registration_id, details
+    if has_args {
+        element_count += 1;
+    }
+    if has_kwargs {
+        element_count += 1;
+    }
+
+    let mut prefix = Vec::new();
+    write_cbor_array_len(&mut prefix, element_count);
+    prefix.extend_from_slice(&serde_cbor::to_vec(&68u64).map_err(|_| ERR_INVALID_ARGUMENT)?);
+    prefix
+        .extend_from_slice(&serde_cbor::to_vec(&invocation_id).map_err(|_| ERR_INVALID_ARGUMENT)?);
+    prefix.extend_from_slice(
+        &serde_cbor::to_vec(&registration_id).map_err(|_| ERR_INVALID_ARGUMENT)?,
+    );
+    prefix.extend_from_slice(&details_cbor);
+
+    let mut segments = Vec::new();
+    segments.push(Bytes::from(prefix));
+    if has_args {
+        let args_bytes = if let Some(args) = payload.args.clone() {
+            args
+        } else {
+            Bytes::from_static(&[0x80])
+        };
+        segments.push(args_bytes);
+    }
+    if let Some(kwargs) = payload.kwargs.clone() {
+        segments.push(kwargs);
+    }
+    Ok(segments)
+}
+
 fn encode_invocation_segments(
     message: &StoredMessage,
     invocation_id: u64,
@@ -662,6 +799,14 @@ fn encode_invocation_segments(
             receive_progress,
         ),
         RawSocketSerializer::MessagePack => encode_invocation_segments_msgpack(
+            payload,
+            invocation_id,
+            registration_id,
+            caller,
+            procedure,
+            receive_progress,
+        ),
+        RawSocketSerializer::Cbor => encode_invocation_segments_cbor(
             payload,
             invocation_id,
             registration_id,
@@ -736,6 +881,43 @@ fn build_result_segments_msgpack(
     Ok(segments)
 }
 
+fn build_result_segments_cbor(
+    payload: &ct_core::WampPayload,
+    request_id: u64,
+    details_cbor: Vec<u8>,
+) -> Result<Vec<Bytes>, c_int> {
+    let has_kwargs = payload.kwargs.is_some();
+    let has_args = payload.args.is_some() || has_kwargs;
+    let mut element_count = 3; // code, request_id, details
+    if has_args {
+        element_count += 1;
+    }
+    if has_kwargs {
+        element_count += 1;
+    }
+
+    let mut prefix = Vec::new();
+    write_cbor_array_len(&mut prefix, element_count);
+    prefix.extend_from_slice(&serde_cbor::to_vec(&50u64).map_err(|_| ERR_INVALID_ARGUMENT)?);
+    prefix.extend_from_slice(&serde_cbor::to_vec(&request_id).map_err(|_| ERR_INVALID_ARGUMENT)?);
+    prefix.extend_from_slice(&details_cbor);
+
+    let mut segments = Vec::new();
+    segments.push(Bytes::from(prefix));
+    if has_args {
+        let args_bytes = if let Some(args) = payload.args.clone() {
+            args
+        } else {
+            Bytes::from_static(&[0x80])
+        };
+        segments.push(args_bytes);
+    }
+    if let Some(kwargs) = payload.kwargs.clone() {
+        segments.push(kwargs);
+    }
+    Ok(segments)
+}
+
 fn encode_result_segments(
     message: &StoredMessage,
     request_id: u64,
@@ -772,6 +954,18 @@ fn encode_result_segments(
                 let details_msgpack =
                     rmp_serde::to_vec(&details_map).map_err(|_| ERR_INVALID_ARGUMENT)?;
                 build_result_segments_msgpack(payload, request_id, details_msgpack)
+            }
+            RawSocketSerializer::Cbor => {
+                let mut details_map = options.clone();
+                if progress {
+                    details_map.insert(
+                        SerdeValue::String("progress".into()),
+                        SerdeValue::Bool(true),
+                    );
+                }
+                let details_cbor =
+                    serde_cbor::to_vec(&details_map).map_err(|_| ERR_INVALID_ARGUMENT)?;
+                build_result_segments_cbor(payload, request_id, details_cbor)
             }
             _ => Err(ERR_UNSUPPORTED),
         },
@@ -853,6 +1047,47 @@ fn build_error_segments_msgpack(
     Ok(segments)
 }
 
+fn build_error_segments_cbor(
+    payload: &ct_core::WampPayload,
+    request_type: u64,
+    request_id: u64,
+    details_cbor: Vec<u8>,
+    error_cbor: Vec<u8>,
+) -> Result<Vec<Bytes>, c_int> {
+    let has_kwargs = payload.kwargs.is_some();
+    let has_args = payload.args.is_some() || has_kwargs;
+    let mut element_count = 5; // code, request_type, request_id, details, error
+    if has_args {
+        element_count += 1;
+    }
+    if has_kwargs {
+        element_count += 1;
+    }
+
+    let mut prefix = Vec::new();
+    write_cbor_array_len(&mut prefix, element_count);
+    prefix.extend_from_slice(&serde_cbor::to_vec(&8u64).map_err(|_| ERR_INVALID_ARGUMENT)?);
+    prefix.extend_from_slice(&serde_cbor::to_vec(&request_type).map_err(|_| ERR_INVALID_ARGUMENT)?);
+    prefix.extend_from_slice(&serde_cbor::to_vec(&request_id).map_err(|_| ERR_INVALID_ARGUMENT)?);
+    prefix.extend_from_slice(&details_cbor);
+    prefix.extend_from_slice(&error_cbor);
+
+    let mut segments = Vec::new();
+    segments.push(Bytes::from(prefix));
+    if has_args {
+        let args_bytes = if let Some(args) = payload.args.clone() {
+            args
+        } else {
+            Bytes::from_static(&[0x80])
+        };
+        segments.push(args_bytes);
+    }
+    if let Some(kwargs) = payload.kwargs.clone() {
+        segments.push(kwargs);
+    }
+    Ok(segments)
+}
+
 fn encode_error_segments(
     message: &StoredMessage,
     request_type: u64,
@@ -886,6 +1121,17 @@ fn encode_error_segments(
                     request_id,
                     details_msgpack,
                     error_msgpack,
+                )
+            }
+            RawSocketSerializer::Cbor => {
+                let details_cbor = serde_cbor::to_vec(details).map_err(|_| ERR_INVALID_ARGUMENT)?;
+                let error_cbor = serde_cbor::to_vec(error).map_err(|_| ERR_INVALID_ARGUMENT)?;
+                build_error_segments_cbor(
+                    payload,
+                    request_type,
+                    request_id,
+                    details_cbor,
+                    error_cbor,
                 )
             }
             _ => Err(ERR_UNSUPPORTED),
@@ -1094,7 +1340,7 @@ pub extern "C" fn ct_connection_take_http_handshake(connection_id: c_int) -> c_i
     let connection_id = ConnectionId(connection_id as u32);
     match connection_http_poll_request(connection_id) {
         Ok(Some((summary, response))) => {
-            let metadata = HttpMetadata::from_summary(&summary);
+            let metadata = HttpMetadata::from_summary(summary);
             store_http_request_metadata(metadata, response) as c_int
         }
         Ok(None) => 0,
@@ -1292,7 +1538,7 @@ pub extern "C" fn ct_http3_connection_poll_request(connection_id: c_int) -> c_in
     let connection_id = ConnectionId(connection_id as u32);
     match connection_http3_poll_request(connection_id) {
         Ok(Some((summary, response_handle))) => {
-            let metadata = HttpMetadata::from_summary(&summary);
+            let metadata = HttpMetadata::from_summary(summary);
             store_http_request_metadata(metadata, response_handle) as c_int
         }
         Ok(None) => 0,
@@ -1929,7 +2175,10 @@ pub extern "C" fn ct_test_register_http3_request(
                 Ok(value) => value.to_string(),
                 Err(_) => return ERR_INVALID_ARGUMENT,
             };
-            list.push((name, value));
+            list.push((
+                std::sync::Arc::<[u8]>::from(name.into_bytes()),
+                std::sync::Arc::<[u8]>::from(value.into_bytes()),
+            ));
         }
         list
     };
@@ -2799,4 +3048,151 @@ pub extern "C" fn ct_set_on_listener_started(callback: extern "C" fn(c_int, c_in
 #[no_mangle]
 pub extern "C" fn ct_set_on_connection(callback: extern "C" fn(c_int, c_int)) {
     register_connection_callback(callback);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bytes::Bytes;
+    use ct_core::{WampMessage, WampPayload};
+    use serde_json::json;
+    use std::collections::BTreeMap;
+
+    fn concat_segments(segments: Vec<Bytes>) -> Vec<u8> {
+        let total_len: usize = segments.iter().map(Bytes::len).sum();
+        let mut bytes = Vec::with_capacity(total_len);
+        for segment in segments {
+            bytes.extend_from_slice(&segment);
+        }
+        bytes
+    }
+
+    #[test]
+    fn cbor_event_and_invocation_segments_preserve_payload_slices() {
+        let args = Bytes::from(serde_cbor::to_vec(&vec!["payload"]).unwrap());
+        let kwargs = Bytes::from(serde_cbor::to_vec(&json!({"flag": true})).unwrap());
+
+        let publish = StoredMessage {
+            serializer: RawSocketSerializer::Cbor,
+            code: 16,
+            raw: Bytes::new(),
+            message: WampMessage::Publish {
+                request_id: 1,
+                options: BTreeMap::new(),
+                topic: "bench.topic".into(),
+                payload: WampPayload {
+                    args: Some(args.clone()),
+                    kwargs: Some(kwargs.clone()),
+                },
+            },
+            args: Some(args.clone()),
+            kwargs: Some(kwargs.clone()),
+        };
+        let event = concat_segments(
+            encode_event_segments(&publish, 77, 88, Some(9), Some("bench.topic")).unwrap(),
+        );
+        let decoded_event: serde_json::Value = serde_cbor::from_slice(&event).unwrap();
+        assert_eq!(
+            decoded_event,
+            json!([36, 77, 88, {"publisher": 9, "topic": "bench.topic"}, ["payload"], {"flag": true}])
+        );
+
+        let call = StoredMessage {
+            serializer: RawSocketSerializer::Cbor,
+            code: 48,
+            raw: Bytes::new(),
+            message: WampMessage::Call {
+                request_id: 2,
+                options: BTreeMap::new(),
+                procedure: "bench.rpc.echo".into(),
+                payload: WampPayload {
+                    args: Some(args.clone()),
+                    kwargs: Some(kwargs.clone()),
+                },
+            },
+            args: Some(args),
+            kwargs: Some(kwargs),
+        };
+        let invocation = concat_segments(
+            encode_invocation_segments(&call, 99, 101, Some(7), Some("bench.rpc.echo"), Some(true))
+                .unwrap(),
+        );
+        let decoded_invocation: serde_json::Value = serde_cbor::from_slice(&invocation).unwrap();
+        assert_eq!(
+            decoded_invocation,
+            json!([
+                68,
+                99,
+                101,
+                {"caller": 7, "procedure": "bench.rpc.echo", "receive_progress": true},
+                ["payload"],
+                {"flag": true}
+            ])
+        );
+    }
+
+    #[test]
+    fn cbor_result_and_error_segments_preserve_payload_slices() {
+        let args = Bytes::from(serde_cbor::to_vec(&vec!["payload"]).unwrap());
+        let kwargs = Bytes::from(serde_cbor::to_vec(&json!({"flag": true})).unwrap());
+
+        let mut yield_options = BTreeMap::new();
+        yield_options.insert(
+            SerdeValue::String("progress".into()),
+            SerdeValue::Bool(false),
+        );
+        let yield_message = StoredMessage {
+            serializer: RawSocketSerializer::Cbor,
+            code: 70,
+            raw: Bytes::new(),
+            message: WampMessage::Yield {
+                request_id: 3,
+                options: yield_options,
+                payload: WampPayload {
+                    args: Some(args.clone()),
+                    kwargs: Some(kwargs.clone()),
+                },
+            },
+            args: Some(args.clone()),
+            kwargs: Some(kwargs.clone()),
+        };
+        let result = concat_segments(encode_result_segments(&yield_message, 123, true).unwrap());
+        let decoded_result: serde_json::Value = serde_cbor::from_slice(&result).unwrap();
+        assert_eq!(
+            decoded_result,
+            json!([50, 123, {"progress": true}, ["payload"], {"flag": true}])
+        );
+
+        let error_message = StoredMessage {
+            serializer: RawSocketSerializer::Cbor,
+            code: 8,
+            raw: Bytes::new(),
+            message: WampMessage::Error {
+                request_type: 68,
+                request_id: 123,
+                details: BTreeMap::new(),
+                error: "wamp.error.runtime_error".into(),
+                payload: WampPayload {
+                    args: Some(args.clone()),
+                    kwargs: Some(kwargs.clone()),
+                },
+            },
+            args: Some(args),
+            kwargs: Some(kwargs),
+        };
+        let error = concat_segments(encode_error_segments(&error_message, 68, 123).unwrap());
+        let decoded_error: serde_json::Value = serde_cbor::from_slice(&error).unwrap();
+        assert_eq!(
+            decoded_error,
+            json!([
+                8,
+                68,
+                123,
+                {},
+                "wamp.error.runtime_error",
+                ["payload"],
+                {"flag": true}
+            ])
+        );
+    }
 }

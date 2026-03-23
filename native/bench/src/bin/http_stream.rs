@@ -11,13 +11,14 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use anyhow::{anyhow, bail, Context, Result};
 use bytes::{Buf, Bytes};
 use clap::Parser;
+use h2::{client as h2_client, RecvStream as H2RecvStream};
 use h3_quinn::Connection as H3QuinnConnection;
 use http as http3;
 use hyper::body::HttpBody as _;
 use hyper::client::conn::Builder as HyperConnBuilder;
 use hyper::http::{
     header::{HeaderValue as HyperHeaderValue, ACCEPT, USER_AGENT},
-    Method as HyperMethod,
+    Method as HyperMethod, Version as HyperVersion,
 };
 use hyper::{Body, Request};
 use quinn::{ClientConfig as QuinnClientConfig, Endpoint as QuinnEndpoint, TransportConfig};
@@ -45,6 +46,13 @@ use connectanum_bench_orchestrator::report::{
 
 type H3RequestSender = h3::client::SendRequest<h3_quinn::OpenStreams, Bytes>;
 const NATIVE_RUNTIME_THREADS_ENV: &str = "CONNECTANUM_NATIVE_RUNTIME_THREADS";
+const HTTP2_MAX_CONCURRENT_STREAMS: u32 = 1024;
+const HTTP2_INITIAL_STREAM_WINDOW: u32 = 8 * 1024 * 1024;
+const HTTP2_INITIAL_CONNECTION_WINDOW: u32 = 64 * 1024 * 1024;
+const HTTP2_MAX_FRAME_SIZE: u32 = 1 * 1024 * 1024;
+const HTTP2_MAX_HEADER_LIST_SIZE: u32 = 16 * 1024 * 1024;
+const HTTP2_MAX_CONCURRENT_RESET_STREAMS: usize = 256;
+const HTTP2_MAX_SEND_BUFFER_SIZE: usize = 8 * 1024 * 1024;
 const HTTP3_MAX_BIDI_STREAMS: u32 = 1024;
 const HTTP3_MAX_UNI_STREAMS: u32 = 256;
 const HTTP3_STREAM_RECEIVE_WINDOW: u32 = 8 * 1024 * 1024;
@@ -743,6 +751,8 @@ struct WorkloadConfig {
     name: String,
     #[serde(default = "default_protocol")]
     protocol: String,
+    #[serde(default = "default_wamp_serializer")]
+    serializer: String,
     #[serde(default = "default_method")]
     method: String,
     #[serde(default = "default_path")]
@@ -763,6 +773,8 @@ struct WorkloadConfig {
     warmup_ms: Option<u64>,
     #[serde(default = "default_reuse_connections")]
     reuse_connections: bool,
+    #[serde(default = "default_streams_per_connection")]
+    streams_per_connection: u32,
 }
 
 fn default_protocol() -> String {
@@ -771,6 +783,10 @@ fn default_protocol() -> String {
 
 fn default_method() -> String {
     "POST".to_string()
+}
+
+fn default_wamp_serializer() -> String {
+    "json".to_string()
 }
 
 fn default_path() -> String {
@@ -799,6 +815,10 @@ fn default_chunk_bytes() -> u64 {
 
 fn default_reuse_connections() -> bool {
     true
+}
+
+fn default_streams_per_connection() -> u32 {
+    1
 }
 
 fn load_scenario(path: &str) -> Result<ScenarioFile> {
@@ -861,10 +881,55 @@ fn infer_h3_port(router_config_path: &str) -> Option<u16> {
         .and_then(|v| u16::try_from(v).ok())
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum BenchWampTransport {
+    RawSocket,
+    WebSocket,
+}
+
+impl BenchWampTransport {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::RawSocket => "rawsocket",
+            Self::WebSocket => "websocket",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum BenchWampMode {
+    PubSub,
+    Rpc,
+}
+
+impl BenchWampMode {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::PubSub => "pubsub",
+            Self::Rpc => "rpc",
+        }
+    }
+}
+
+fn parse_wamp_protocol(protocol: &str) -> Option<(BenchWampTransport, BenchWampMode)> {
+    match protocol.to_ascii_lowercase().as_str() {
+        "wamp_pubsub" | "wamp_rawsocket_pubsub" => {
+            Some((BenchWampTransport::RawSocket, BenchWampMode::PubSub))
+        }
+        "wamp_rpc" | "wamp_rawsocket_rpc" => {
+            Some((BenchWampTransport::RawSocket, BenchWampMode::Rpc))
+        }
+        "wamp_websocket_pubsub" => Some((BenchWampTransport::WebSocket, BenchWampMode::PubSub)),
+        "wamp_websocket_rpc" => Some((BenchWampTransport::WebSocket, BenchWampMode::Rpc)),
+        _ => None,
+    }
+}
+
 #[derive(Clone)]
 struct PreparedWorkload {
     name: String,
     protocol: String,
+    serializer: String,
     method: HyperMethod,
     path: String,
     iterations: u32,
@@ -874,6 +939,7 @@ struct PreparedWorkload {
     request_chunk_bytes: u64,
     response_chunk_bytes: u64,
     reuse_connections: bool,
+    streams_per_connection: u32,
 }
 
 impl PreparedWorkload {
@@ -887,14 +953,27 @@ impl PreparedWorkload {
         if config.request_chunk_bytes == 0 {
             bail!("request_chunk_bytes must be > 0");
         }
+        if config.streams_per_connection == 0 {
+            bail!("streams_per_connection must be >= 1");
+        }
         let method = config
             .method
             .parse::<HyperMethod>()
             .map_err(|_| anyhow!("invalid HTTP method {}", config.method))?;
-        let is_wamp = matches!(
-            config.protocol.to_lowercase().as_str(),
-            "wamp_pubsub" | "wamp_rpc"
-        );
+        if config.streams_per_connection > 1 && !config.reuse_connections {
+            if config.protocol.eq_ignore_ascii_case("h2")
+                || config.protocol.eq_ignore_ascii_case("h3")
+            {
+                bail!(
+                    "{} streams_per_connection > 1 requires reuse_connections = true",
+                    config.protocol.to_uppercase()
+                );
+            }
+        }
+        if config.streams_per_connection > 1 && config.protocol.eq_ignore_ascii_case("h1") {
+            bail!("HTTP/1.1 does not support streams_per_connection > 1");
+        }
+        let is_wamp = parse_wamp_protocol(&config.protocol).is_some();
         let path = if is_wamp {
             config.path.clone()
         } else if config.path.starts_with('/') {
@@ -905,6 +984,7 @@ impl PreparedWorkload {
         Ok(Self {
             name: config.name.clone(),
             protocol: config.protocol.clone(),
+            serializer: config.serializer.clone(),
             method,
             path,
             iterations: config.iterations,
@@ -916,14 +996,12 @@ impl PreparedWorkload {
                 .response_chunk_bytes
                 .unwrap_or(config.request_chunk_bytes),
             reuse_connections: config.reuse_connections,
+            streams_per_connection: config.streams_per_connection,
         })
     }
 
     fn is_wamp(&self) -> bool {
-        matches!(
-            self.protocol.to_lowercase().as_str(),
-            "wamp_pubsub" | "wamp_rpc"
-        )
+        parse_wamp_protocol(&self.protocol).is_some()
     }
 }
 
@@ -1034,6 +1112,10 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
             "disabled"
         }
     );
+    println!(
+        "  Streams per connection: {}",
+        workload.streams_per_connection
+    );
 }
 
 fn format_bytes(bytes: u64) -> String {
@@ -1066,13 +1148,12 @@ fn run_wamp_workload(
     http_control: &BenchHttpClient,
     workload: &PreparedWorkload,
 ) -> Result<Vec<WorkloadSample>> {
-    let mode = match workload.protocol.to_lowercase().as_str() {
-        "wamp_pubsub" => "pubsub",
-        "wamp_rpc" => "rpc",
-        other => bail!("unsupported WAMP workload {other}"),
-    };
+    let (transport, mode) = parse_wamp_protocol(&workload.protocol)
+        .ok_or_else(|| anyhow!("unsupported WAMP workload {}", workload.protocol))?;
     let body = json!({
-        "mode": mode,
+        "transport": transport.as_str(),
+        "serializer": workload.serializer,
+        "mode": mode.as_str(),
         "uri": workload.path,
         "iterations": workload.iterations,
         "concurrency": workload.concurrency,
@@ -1211,9 +1292,13 @@ async fn run_h2_worker(
     );
     if workload.reuse_connections {
         let mut sender = connect_h2_sender(&endpoint).await?;
+        if workload.streams_per_connection > 1 {
+            return run_h2_multiplexed_worker(sender, endpoint, workload, request_body, worker_id)
+                .await;
+        }
         for iteration in 0..workload.iterations {
             let sample = match send_h2_request(
-                &mut sender,
+                sender.clone(),
                 &endpoint,
                 &workload,
                 request_body.clone(),
@@ -1231,7 +1316,7 @@ async fn run_h2_worker(
                         )
                     })?;
                     send_h2_request(
-                        &mut sender,
+                        sender.clone(),
                         &endpoint,
                         &workload,
                         request_body.clone(),
@@ -1265,6 +1350,52 @@ async fn run_h2_worker(
     Ok(samples)
 }
 
+async fn run_h2_multiplexed_worker(
+    sender: h2_client::SendRequest<Bytes>,
+    endpoint: HttpEndpoint,
+    workload: PreparedWorkload,
+    request_body: Bytes,
+    worker_id: u32,
+) -> Result<Vec<WorkloadSample>> {
+    let mut join_set = JoinSet::new();
+    let mut samples = Vec::with_capacity(workload.iterations as usize);
+    let mut next_iteration = 0u32;
+    let max_in_flight = workload
+        .streams_per_connection
+        .min(workload.iterations)
+        .max(1);
+
+    while next_iteration < workload.iterations || !join_set.is_empty() {
+        while next_iteration < workload.iterations && join_set.len() < max_in_flight as usize {
+            let sender_clone = sender.clone();
+            let endpoint_clone = endpoint.clone();
+            let workload_clone = workload.clone();
+            let request_body_clone = request_body.clone();
+            let iteration = next_iteration;
+            join_set.spawn(async move {
+                send_h2_request(
+                    sender_clone,
+                    &endpoint_clone,
+                    &workload_clone,
+                    request_body_clone,
+                    worker_id,
+                    iteration,
+                )
+                .await
+            });
+            next_iteration += 1;
+        }
+        let sample = join_set
+            .join_next()
+            .await
+            .expect("join_set should contain inflight HTTP/2 streams")
+            .map_err(|err| anyhow!("HTTP/2 multiplexed worker failed: {err}"))??;
+        samples.push(sample);
+    }
+
+    Ok(samples)
+}
+
 async fn run_h3_workload(
     endpoint: HttpEndpoint,
     workload: PreparedWorkload,
@@ -1291,12 +1422,23 @@ async fn run_h3_worker(
         build_pattern_chunk(std::cmp::max(1, workload.request_chunk_bytes as usize));
     if workload.reuse_connections {
         let (mut quinn_endpoint, mut send_request) = connect_h3_sender(&endpoint).await?;
+        if workload.streams_per_connection > 1 {
+            return run_h3_multiplexed_worker(
+                quinn_endpoint,
+                send_request,
+                endpoint,
+                workload,
+                request_chunk,
+                worker_id,
+            )
+            .await;
+        }
         for iteration in 0..workload.iterations {
             let sample = match send_h3_request(
-                &mut send_request,
+                send_request.clone(),
                 &endpoint,
                 &workload,
-                &request_chunk,
+                request_chunk.clone(),
                 worker_id,
                 iteration,
             )
@@ -1315,10 +1457,10 @@ async fn run_h3_worker(
                     quinn_endpoint = new_endpoint;
                     send_request = new_send_request;
                     send_h3_request(
-                        &mut send_request,
+                        send_request.clone(),
                         &endpoint,
                         &workload,
-                        &request_chunk,
+                        request_chunk.clone(),
                         worker_id,
                         iteration,
                     )
@@ -1337,10 +1479,64 @@ async fn run_h3_worker(
         return Ok(samples);
     }
     for iteration in 0..workload.iterations {
-        let sample =
-            run_h3_iteration(&endpoint, &workload, &request_chunk, worker_id, iteration).await?;
+        let sample = run_h3_iteration(
+            &endpoint,
+            &workload,
+            request_chunk.clone(),
+            worker_id,
+            iteration,
+        )
+        .await?;
         samples.push(sample);
     }
+    Ok(samples)
+}
+
+async fn run_h3_multiplexed_worker(
+    quinn_endpoint: QuinnEndpoint,
+    send_request: H3RequestSender,
+    endpoint: HttpEndpoint,
+    workload: PreparedWorkload,
+    request_chunk: Bytes,
+    worker_id: u32,
+) -> Result<Vec<WorkloadSample>> {
+    let mut join_set = JoinSet::new();
+    let mut samples = Vec::with_capacity(workload.iterations as usize);
+    let mut next_iteration = 0u32;
+    let max_in_flight = workload
+        .streams_per_connection
+        .min(workload.iterations)
+        .max(1);
+
+    while next_iteration < workload.iterations || !join_set.is_empty() {
+        while next_iteration < workload.iterations && join_set.len() < max_in_flight as usize {
+            let sender_clone = send_request.clone();
+            let endpoint_clone = endpoint.clone();
+            let workload_clone = workload.clone();
+            let request_chunk_clone = request_chunk.clone();
+            let iteration = next_iteration;
+            join_set.spawn(async move {
+                send_h3_request(
+                    sender_clone,
+                    &endpoint_clone,
+                    &workload_clone,
+                    request_chunk_clone,
+                    worker_id,
+                    iteration,
+                )
+                .await
+            });
+            next_iteration += 1;
+        }
+        let sample = join_set
+            .join_next()
+            .await
+            .expect("join_set should contain inflight HTTP/3 streams")
+            .map_err(|err| anyhow!("HTTP/3 multiplexed worker failed: {err}"))??;
+        samples.push(sample);
+    }
+
+    quinn_endpoint.close(0u32.into(), b"done");
     Ok(samples)
 }
 
@@ -1415,10 +1611,45 @@ async fn connect_h1_sender(
     }
 }
 
+fn split_request_body_chunks(payload: &Bytes, chunk_len: usize) -> Vec<Bytes> {
+    if payload.is_empty() {
+        return Vec::new();
+    }
+    let chunk_len = std::cmp::max(1, chunk_len);
+    let mut chunks = Vec::with_capacity((payload.len() + chunk_len - 1) / chunk_len);
+    let mut offset = 0usize;
+    while offset < payload.len() {
+        let end = std::cmp::min(offset + chunk_len, payload.len());
+        chunks.push(payload.slice(offset..end));
+        offset = end;
+    }
+    chunks
+}
+
+fn build_h1_body(payload: Bytes, chunk_len: usize) -> (Body, tokio::task::JoinHandle<Result<u64>>) {
+    if payload.is_empty() {
+        return (Body::empty(), tokio::spawn(async { Ok(0) }));
+    }
+    let chunks = split_request_body_chunks(&payload, chunk_len);
+    let total_bytes: u64 = chunks.iter().map(|chunk| chunk.len() as u64).sum();
+    let (mut sender, body) = Body::channel();
+    let writer = tokio::spawn(async move {
+        for chunk in chunks {
+            sender
+                .send_data(chunk)
+                .await
+                .context("failed to send HTTP/1.1 request chunk")?;
+        }
+        Ok(total_bytes)
+    });
+    (body, writer)
+}
+
 fn build_http_request(
     endpoint: &HttpEndpoint,
     workload: &PreparedWorkload,
-    request_body: Bytes,
+    request_body: Body,
+    request_bytes: u64,
     absolute_uri: bool,
 ) -> Result<Request<Body>> {
     let uri = if absolute_uri {
@@ -1443,6 +1674,11 @@ fn build_http_request(
         HyperHeaderValue::from_static("application/octet-stream"),
     );
     headers.insert(
+        "content-length",
+        HyperHeaderValue::from_str(&request_bytes.to_string())
+            .unwrap_or_else(|_| HyperHeaderValue::from_static("0")),
+    );
+    headers.insert(
         "x-bench-response-bytes",
         HyperHeaderValue::from_str(&workload.response_bytes.to_string())
             .unwrap_or_else(|_| HyperHeaderValue::from_static("0")),
@@ -1458,7 +1694,7 @@ fn build_http_request(
         HyperHeaderValue::from_static("connectanum-bench/0.1"),
     );
     request_builder
-        .body(Body::from(request_body))
+        .body(request_body)
         .context("failed to build HTTP request")
 }
 
@@ -1475,16 +1711,25 @@ fn endpoint_authority(endpoint: &HttpEndpoint) -> String {
     }
 }
 
-async fn connect_h2_sender(
-    endpoint: &HttpEndpoint,
-) -> Result<hyper::client::conn::SendRequest<Body>> {
+fn apply_http2_transport_tuning(builder: &mut h2_client::Builder) {
+    builder
+        .max_concurrent_streams(HTTP2_MAX_CONCURRENT_STREAMS)
+        .initial_window_size(HTTP2_INITIAL_STREAM_WINDOW)
+        .initial_connection_window_size(HTTP2_INITIAL_CONNECTION_WINDOW)
+        .max_frame_size(HTTP2_MAX_FRAME_SIZE)
+        .max_header_list_size(HTTP2_MAX_HEADER_LIST_SIZE)
+        .max_concurrent_reset_streams(HTTP2_MAX_CONCURRENT_RESET_STREAMS)
+        .max_send_buffer_size(HTTP2_MAX_SEND_BUFFER_SIZE);
+}
+
+async fn connect_h2_sender(endpoint: &HttpEndpoint) -> Result<h2_client::SendRequest<Bytes>> {
     let addr = format!("{}:{}", endpoint.host, endpoint.port);
     let stream = tokio::net::TcpStream::connect(&addr)
         .await
         .with_context(|| format!("failed to connect to {}", addr))?;
     stream.set_nodelay(true)?;
-    let mut builder = HyperConnBuilder::new();
-    builder.http2_only(true);
+    let mut builder = h2_client::Builder::new();
+    apply_http2_transport_tuning(&mut builder);
     if endpoint.scheme == "https" {
         let connector = TlsConnector::from(insecure_rustls_client_config(&[b"h2"]));
         let server_name = ServerName::try_from(endpoint.host.clone())
@@ -1494,35 +1739,65 @@ async fn connect_h2_sender(
             .await
             .context("TLS handshake failed")?;
         let (sender, connection) = builder
-            .handshake::<_, Body>(tls_stream)
+            .handshake(tls_stream)
             .await
             .context("HTTP/2 handshake failed")?;
         tokio::spawn(async move {
             if let Err(err) = connection.await {
-                eprintln!("hyper connection error: {err:?}");
+                eprintln!("h2 connection error: {err:?}");
             }
         });
         Ok(sender)
     } else {
         let (sender, connection) = builder
-            .handshake::<_, Body>(stream)
+            .handshake(stream)
             .await
             .context("HTTP/2 handshake failed")?;
         tokio::spawn(async move {
             if let Err(err) = connection.await {
-                eprintln!("hyper connection error: {err:?}");
+                eprintln!("h2 connection error: {err:?}");
             }
         });
         Ok(sender)
     }
 }
 
-fn build_h2_request(
-    endpoint: &HttpEndpoint,
-    workload: &PreparedWorkload,
-    request_body: Bytes,
-) -> Result<Request<Body>> {
-    build_http_request(endpoint, workload, request_body, true)
+fn build_h2_request(endpoint: &HttpEndpoint, workload: &PreparedWorkload) -> Result<Request<()>> {
+    let uri = format!(
+        "{}://{}:{}{}",
+        endpoint.scheme, endpoint.host, endpoint.port, workload.path
+    );
+    let mut request_builder = Request::builder()
+        .method(workload.method.clone())
+        .uri(uri)
+        .version(HyperVersion::HTTP_2);
+    let headers = request_builder.headers_mut().unwrap();
+    headers.insert(
+        "content-type",
+        HyperHeaderValue::from_static("application/octet-stream"),
+    );
+    headers.insert(
+        "content-length",
+        HyperHeaderValue::from_str(&workload.request_bytes.to_string())
+            .unwrap_or_else(|_| HyperHeaderValue::from_static("0")),
+    );
+    headers.insert(
+        "x-bench-response-bytes",
+        HyperHeaderValue::from_str(&workload.response_bytes.to_string())
+            .unwrap_or_else(|_| HyperHeaderValue::from_static("0")),
+    );
+    headers.insert(
+        "x-bench-response-chunk-bytes",
+        HyperHeaderValue::from_str(&workload.response_chunk_bytes.to_string())
+            .unwrap_or_else(|_| HyperHeaderValue::from_static("1024")),
+    );
+    headers.insert(ACCEPT, HyperHeaderValue::from_static("*/*"));
+    headers.insert(
+        USER_AGENT,
+        HyperHeaderValue::from_static("connectanum-bench/0.1"),
+    );
+    request_builder
+        .body(())
         .context("failed to build HTTP/2 request")
 }
 
@@ -1546,6 +1821,29 @@ async fn drain_hyper_response(response: hyper::Response<Body>) -> Result<u64> {
     Ok(received)
 }
 
+async fn drain_h2_response(response: hyper::http::Response<H2RecvStream>) -> Result<u64> {
+    let status = response.status();
+    let mut body = response.into_body();
+    let mut received = 0u64;
+    let mut error_body = Vec::new();
+    while let Some(chunk) = body.data().await {
+        let bytes = chunk?;
+        body.flow_control()
+            .release_capacity(bytes.len())
+            .context("failed to release HTTP/2 flow-control capacity")?;
+        received += bytes.len() as u64;
+        if !status.is_success() && error_body.len() < 256 {
+            let remaining = 256 - error_body.len();
+            error_body.extend_from_slice(&bytes[..bytes.len().min(remaining)]);
+        }
+    }
+    if !status.is_success() {
+        let preview = String::from_utf8_lossy(&error_body);
+        bail!("unexpected HTTP/2 status {} with body {}", status, preview);
+    }
+    Ok(received)
+}
+
 async fn send_h1_request(
     sender: &mut hyper::client::conn::SendRequest<Body>,
     endpoint: &HttpEndpoint,
@@ -1554,12 +1852,16 @@ async fn send_h1_request(
     worker_id: u32,
     iteration: u32,
 ) -> Result<WorkloadSample> {
-    let request = build_http_request(endpoint, workload, request_body, false)?;
+    let (body, body_writer) = build_h1_body(request_body, workload.request_chunk_bytes as usize);
+    let request = build_http_request(endpoint, workload, body, workload.request_bytes, false)?;
     let start = Instant::now();
     let response = sender
         .send_request(request)
         .await
         .context("failed to send request")?;
+    let sent = body_writer
+        .await
+        .map_err(|err| anyhow!("HTTP/1.1 body writer failed: {err}"))??;
 
     let received = drain_hyper_response(response).await?;
     let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
@@ -1567,7 +1869,7 @@ async fn send_h1_request(
         worker: worker_id,
         iteration,
         latency_ms,
-        request_bytes: workload.request_bytes,
+        request_bytes: sent,
         response_bytes: received,
     })
 }
@@ -1592,21 +1894,36 @@ async fn run_h1_iteration(
 }
 
 async fn send_h2_request(
-    sender: &mut hyper::client::conn::SendRequest<Body>,
+    sender: h2_client::SendRequest<Bytes>,
     endpoint: &HttpEndpoint,
     workload: &PreparedWorkload,
     request_body: Bytes,
     worker_id: u32,
     iteration: u32,
 ) -> Result<WorkloadSample> {
-    let request = build_h2_request(endpoint, workload, request_body)?;
-    let start = Instant::now();
-    let response = sender
-        .send_request(request)
+    let mut sender = sender
+        .ready()
         .await
+        .context("HTTP/2 sender not ready for a new stream")?;
+    let request = build_h2_request(endpoint, workload)?;
+    let start = Instant::now();
+    let end_stream = request_body.is_empty();
+    let (response, mut send_stream) = sender
+        .send_request(request, end_stream)
         .context("failed to send request")?;
+    if !end_stream {
+        let request_chunks =
+            split_request_body_chunks(&request_body, workload.request_chunk_bytes as usize);
+        let last_index = request_chunks.len().saturating_sub(1);
+        for (index, chunk) in request_chunks.into_iter().enumerate() {
+            let is_last = index == last_index;
+            send_stream
+                .send_data(chunk, is_last)
+                .context("failed to send HTTP/2 request body")?;
+        }
+    }
 
-    let received = drain_hyper_response(response).await?;
+    let received = drain_h2_response(response.await.context("failed to receive response")?).await?;
     let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
     Ok(WorkloadSample {
         worker: worker_id,
@@ -1624,9 +1941,9 @@ async fn run_h2_iteration(
     worker_id: u32,
     iteration: u32,
 ) -> Result<WorkloadSample> {
-    let mut sender = connect_h2_sender(endpoint).await?;
+    let sender = connect_h2_sender(endpoint).await?;
     send_h2_request(
-        &mut sender,
+        sender,
         endpoint,
         workload,
         request_body,
@@ -1689,10 +2006,10 @@ async fn connect_h3_sender(endpoint: &HttpEndpoint) -> Result<(QuinnEndpoint, H3
 }
 
 async fn send_h3_request(
-    send_request: &mut H3RequestSender,
+    mut send_request: H3RequestSender,
     endpoint: &HttpEndpoint,
     workload: &PreparedWorkload,
-    request_chunk: &Bytes,
+    request_chunk: Bytes,
     worker_id: u32,
     iteration: u32,
 ) -> Result<WorkloadSample> {
@@ -1707,6 +2024,11 @@ async fn send_h3_request(
     headers.insert(
         http3::header::HeaderName::from_static("content-type"),
         http3::header::HeaderValue::from_static("application/octet-stream"),
+    );
+    headers.insert(
+        http3::header::HeaderName::from_static("content-length"),
+        http3::header::HeaderValue::from_str(&workload.request_bytes.to_string())
+            .unwrap_or_else(|_| http3::header::HeaderValue::from_static("0")),
     );
     headers.insert(
         http3::header::HeaderName::from_static("x-bench-response-bytes"),
@@ -1800,13 +2122,13 @@ async fn send_h3_request(
 async fn run_h3_iteration(
     endpoint: &HttpEndpoint,
     workload: &PreparedWorkload,
-    request_chunk: &Bytes,
+    request_chunk: Bytes,
     worker_id: u32,
     iteration: u32,
 ) -> Result<WorkloadSample> {
-    let (quinn_endpoint, mut send_request) = connect_h3_sender(endpoint).await?;
+    let (quinn_endpoint, send_request) = connect_h3_sender(endpoint).await?;
     let sample = send_h3_request(
-        &mut send_request,
+        send_request.clone(),
         endpoint,
         workload,
         request_chunk,
@@ -1845,14 +2167,21 @@ fn sort_socket_addrs_prefer_ipv4(addrs: &mut Vec<SocketAddr>) {
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::net::UdpSocket;
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
     };
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use h3::server;
     use hyper::service::service_fn;
     use hyper::{server::conn::Http as HyperServerHttp, Response};
+    use quinn::ServerConfig as QuinnServerConfig;
+    use quinn_proto::crypto::rustls::QuicServerConfig as QuinnRustlsServerConfig;
+    use rcgen::generate_simple_self_signed;
+    use rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
+    use rustls::ServerConfig as RustlsServerConfig;
     use serde_json::json;
     use tokio::net::TcpListener;
 
@@ -1960,6 +2289,7 @@ mod tests {
         let config = WorkloadConfig {
             name: "load".to_string(),
             protocol: default_protocol(),
+            serializer: default_wamp_serializer(),
             method: default_method(),
             path: default_path(),
             iterations: default_iterations(),
@@ -1970,9 +2300,145 @@ mod tests {
             response_chunk_bytes: None,
             warmup_ms: None,
             reuse_connections: default_reuse_connections(),
+            streams_per_connection: default_streams_per_connection(),
         };
         let prepared = PreparedWorkload::from_config(&config).unwrap();
         assert!(prepared.reuse_connections);
+        assert_eq!(prepared.streams_per_connection, 1);
+    }
+
+    #[test]
+    fn parse_wamp_protocol_supports_transport_specific_labels() {
+        assert_eq!(
+            parse_wamp_protocol("wamp_rawsocket_pubsub"),
+            Some((BenchWampTransport::RawSocket, BenchWampMode::PubSub))
+        );
+        assert_eq!(
+            parse_wamp_protocol("wamp_websocket_rpc"),
+            Some((BenchWampTransport::WebSocket, BenchWampMode::Rpc))
+        );
+        assert_eq!(
+            parse_wamp_protocol("wamp_pubsub"),
+            Some((BenchWampTransport::RawSocket, BenchWampMode::PubSub))
+        );
+        assert_eq!(parse_wamp_protocol("h2"), None);
+    }
+
+    #[test]
+    fn prepared_workload_accepts_transport_specific_wamp_protocols() {
+        let config = WorkloadConfig {
+            name: "load".to_string(),
+            protocol: "wamp_websocket_pubsub".to_string(),
+            serializer: default_wamp_serializer(),
+            method: default_method(),
+            path: "bench.topic".to_string(),
+            iterations: default_iterations(),
+            concurrency: default_concurrency(),
+            request_bytes: default_request_bytes(),
+            response_bytes: default_response_bytes(),
+            request_chunk_bytes: default_chunk_bytes(),
+            response_chunk_bytes: None,
+            warmup_ms: None,
+            reuse_connections: default_reuse_connections(),
+            streams_per_connection: default_streams_per_connection(),
+        };
+        let prepared = PreparedWorkload::from_config(&config).unwrap();
+        assert!(prepared.is_wamp());
+        assert_eq!(prepared.path, "bench.topic");
+    }
+
+    #[test]
+    fn prepared_workload_preserves_wamp_serializer() {
+        let config = WorkloadConfig {
+            name: "load".to_string(),
+            protocol: "wamp_rawsocket_rpc".to_string(),
+            serializer: "msgpack".to_string(),
+            method: default_method(),
+            path: "bench.rpc.echo".to_string(),
+            iterations: default_iterations(),
+            concurrency: default_concurrency(),
+            request_bytes: default_request_bytes(),
+            response_bytes: default_response_bytes(),
+            request_chunk_bytes: default_chunk_bytes(),
+            response_chunk_bytes: None,
+            warmup_ms: None,
+            reuse_connections: default_reuse_connections(),
+            streams_per_connection: default_streams_per_connection(),
+        };
+        let prepared = PreparedWorkload::from_config(&config).unwrap();
+        assert_eq!(prepared.serializer, "msgpack");
+    }
+
+    #[test]
+    fn prepared_workload_rejects_invalid_h2_stream_multiplexing_config() {
+        let config = WorkloadConfig {
+            name: "load".to_string(),
+            protocol: "h2".to_string(),
+            serializer: default_wamp_serializer(),
+            method: default_method(),
+            path: default_path(),
+            iterations: default_iterations(),
+            concurrency: default_concurrency(),
+            request_bytes: default_request_bytes(),
+            response_bytes: default_response_bytes(),
+            request_chunk_bytes: default_chunk_bytes(),
+            response_chunk_bytes: None,
+            warmup_ms: None,
+            reuse_connections: false,
+            streams_per_connection: 2,
+        };
+        let error = PreparedWorkload::from_config(&config).err().unwrap();
+        assert!(error
+            .to_string()
+            .contains("streams_per_connection > 1 requires reuse_connections = true"));
+    }
+
+    #[test]
+    fn prepared_workload_rejects_invalid_h3_stream_multiplexing_config() {
+        let config = WorkloadConfig {
+            name: "load".to_string(),
+            protocol: "h3".to_string(),
+            serializer: default_wamp_serializer(),
+            method: default_method(),
+            path: default_path(),
+            iterations: default_iterations(),
+            concurrency: default_concurrency(),
+            request_bytes: default_request_bytes(),
+            response_bytes: default_response_bytes(),
+            request_chunk_bytes: default_chunk_bytes(),
+            response_chunk_bytes: None,
+            warmup_ms: None,
+            reuse_connections: false,
+            streams_per_connection: 2,
+        };
+        let error = PreparedWorkload::from_config(&config).err().unwrap();
+        assert!(error
+            .to_string()
+            .contains("streams_per_connection > 1 requires reuse_connections = true"));
+    }
+
+    #[test]
+    fn prepared_workload_rejects_invalid_h1_stream_multiplexing_config() {
+        let config = WorkloadConfig {
+            name: "load".to_string(),
+            protocol: "h1".to_string(),
+            serializer: default_wamp_serializer(),
+            method: default_method(),
+            path: default_path(),
+            iterations: default_iterations(),
+            concurrency: default_concurrency(),
+            request_bytes: default_request_bytes(),
+            response_bytes: default_response_bytes(),
+            request_chunk_bytes: default_chunk_bytes(),
+            response_chunk_bytes: None,
+            warmup_ms: None,
+            reuse_connections: true,
+            streams_per_connection: 2,
+        };
+        let error = PreparedWorkload::from_config(&config).err().unwrap();
+        assert!(error
+            .to_string()
+            .contains("HTTP/1.1 does not support streams_per_connection > 1"));
     }
 
     #[test]
@@ -1982,6 +2448,7 @@ mod tests {
         let workload = PreparedWorkload {
             name: "h1_test".to_string(),
             protocol: "h1".to_string(),
+            serializer: default_wamp_serializer(),
             method: HyperMethod::POST,
             path: "/bench/stream".to_string(),
             iterations: 1,
@@ -1991,14 +2458,25 @@ mod tests {
             request_chunk_bytes: 1024,
             response_chunk_bytes: 1024,
             reuse_connections: true,
+            streams_per_connection: 1,
         };
-        let request = build_http_request(&endpoint, &workload, Bytes::new(), false).unwrap();
+        let request = build_http_request(&endpoint, &workload, Body::empty(), 0, false).unwrap();
         assert_eq!(request.uri().path(), "/bench/stream");
         assert_eq!(request.uri().scheme_str(), None);
         assert_eq!(
             request.headers().get("host").unwrap(),
             &HyperHeaderValue::from_static("localhost:8080")
         );
+    }
+
+    #[test]
+    fn split_request_body_chunks_slices_payload_by_chunk_size() {
+        let payload = Bytes::from_static(b"abcdefghi");
+        let chunks = split_request_body_chunks(&payload, 4);
+        assert_eq!(chunks.len(), 3);
+        assert_eq!(chunks[0], Bytes::from_static(b"abcd"));
+        assert_eq!(chunks[1], Bytes::from_static(b"efgh"));
+        assert_eq!(chunks[2], Bytes::from_static(b"i"));
     }
 
     #[tokio::test]
@@ -2065,14 +2543,17 @@ mod tests {
         HttpEndpoint,
         Arc<AtomicUsize>,
         Arc<AtomicUsize>,
+        Arc<AtomicUsize>,
         tokio::task::JoinHandle<()>,
     ) {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
         let addr = listener.local_addr().unwrap();
         let accept_count = Arc::new(AtomicUsize::new(0));
         let request_count = Arc::new(AtomicUsize::new(0));
+        let max_request_chunks = Arc::new(AtomicUsize::new(0));
         let accept_count_for_task = Arc::clone(&accept_count);
         let request_count_for_task = Arc::clone(&request_count);
+        let max_request_chunks_for_task = Arc::clone(&max_request_chunks);
         let server = tokio::spawn(async move {
             loop {
                 let (stream, _) = match listener.accept().await {
@@ -2081,14 +2562,29 @@ mod tests {
                 };
                 accept_count_for_task.fetch_add(1, Ordering::SeqCst);
                 let request_count_for_conn = Arc::clone(&request_count_for_task);
+                let max_request_chunks_for_conn = Arc::clone(&max_request_chunks_for_task);
                 tokio::spawn(async move {
                     let service = service_fn(move |request: Request<Body>| {
                         let request_count_for_req = Arc::clone(&request_count_for_conn);
+                        let max_request_chunks_for_req = Arc::clone(&max_request_chunks_for_conn);
                         async move {
                             let mut body = request.into_body();
+                            let mut chunk_count = 0usize;
                             while let Some(chunk) = body.data().await {
                                 chunk?;
+                                chunk_count += 1;
                             }
+                            let _ = max_request_chunks_for_req.fetch_update(
+                                Ordering::SeqCst,
+                                Ordering::SeqCst,
+                                |current| {
+                                    if chunk_count > current {
+                                        Some(chunk_count)
+                                    } else {
+                                        None
+                                    }
+                                },
+                            );
                             request_count_for_req.fetch_add(1, Ordering::SeqCst);
                             Ok::<_, hyper::Error>(Response::new(Body::from("ok")))
                         }
@@ -2109,6 +2605,7 @@ mod tests {
             },
             accept_count,
             request_count,
+            max_request_chunks,
             server,
         )
     }
@@ -2117,14 +2614,17 @@ mod tests {
         HttpEndpoint,
         Arc<AtomicUsize>,
         Arc<AtomicUsize>,
+        Arc<AtomicUsize>,
         tokio::task::JoinHandle<()>,
     ) {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
         let addr = listener.local_addr().unwrap();
         let accept_count = Arc::new(AtomicUsize::new(0));
         let request_count = Arc::new(AtomicUsize::new(0));
+        let max_request_chunks = Arc::new(AtomicUsize::new(0));
         let accept_count_for_task = Arc::clone(&accept_count);
         let request_count_for_task = Arc::clone(&request_count);
+        let max_request_chunks_for_task = Arc::clone(&max_request_chunks);
         let server = tokio::spawn(async move {
             loop {
                 let (stream, _) = match listener.accept().await {
@@ -2133,14 +2633,29 @@ mod tests {
                 };
                 accept_count_for_task.fetch_add(1, Ordering::SeqCst);
                 let request_count_for_conn = Arc::clone(&request_count_for_task);
+                let max_request_chunks_for_conn = Arc::clone(&max_request_chunks_for_task);
                 tokio::spawn(async move {
                     let service = service_fn(move |request: Request<Body>| {
                         let request_count_for_req = Arc::clone(&request_count_for_conn);
+                        let max_request_chunks_for_req = Arc::clone(&max_request_chunks_for_conn);
                         async move {
                             let mut body = request.into_body();
+                            let mut chunk_count = 0usize;
                             while let Some(chunk) = body.data().await {
                                 chunk?;
+                                chunk_count += 1;
                             }
+                            let _ = max_request_chunks_for_req.fetch_update(
+                                Ordering::SeqCst,
+                                Ordering::SeqCst,
+                                |current| {
+                                    if chunk_count > current {
+                                        Some(chunk_count)
+                                    } else {
+                                        None
+                                    }
+                                },
+                            );
                             request_count_for_req.fetch_add(1, Ordering::SeqCst);
                             Ok::<_, hyper::Error>(Response::new(Body::from("ok")))
                         }
@@ -2161,6 +2676,202 @@ mod tests {
             },
             accept_count,
             request_count,
+            max_request_chunks,
+            server,
+        )
+    }
+
+    async fn spawn_h2_overlap_test_server() -> (
+        HttpEndpoint,
+        Arc<AtomicUsize>,
+        Arc<AtomicUsize>,
+        Arc<AtomicUsize>,
+        tokio::task::JoinHandle<()>,
+    ) {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let accept_count = Arc::new(AtomicUsize::new(0));
+        let request_count = Arc::new(AtomicUsize::new(0));
+        let current_in_flight = Arc::new(AtomicUsize::new(0));
+        let max_in_flight = Arc::new(AtomicUsize::new(0));
+        let accept_count_for_task = Arc::clone(&accept_count);
+        let request_count_for_task = Arc::clone(&request_count);
+        let current_in_flight_for_task = Arc::clone(&current_in_flight);
+        let max_in_flight_for_task = Arc::clone(&max_in_flight);
+        let server = tokio::spawn(async move {
+            loop {
+                let (stream, _) = match listener.accept().await {
+                    Ok(value) => value,
+                    Err(_) => break,
+                };
+                accept_count_for_task.fetch_add(1, Ordering::SeqCst);
+                let request_count_for_conn = Arc::clone(&request_count_for_task);
+                let current_for_conn = Arc::clone(&current_in_flight_for_task);
+                let max_for_conn = Arc::clone(&max_in_flight_for_task);
+                tokio::spawn(async move {
+                    let service = service_fn(move |request: Request<Body>| {
+                        let request_count_for_req = Arc::clone(&request_count_for_conn);
+                        let current_for_req = Arc::clone(&current_for_conn);
+                        let max_for_req = Arc::clone(&max_for_conn);
+                        async move {
+                            let in_flight = current_for_req.fetch_add(1, Ordering::SeqCst) + 1;
+                            let _ = max_for_req.fetch_update(
+                                Ordering::SeqCst,
+                                Ordering::SeqCst,
+                                |current| {
+                                    if in_flight > current {
+                                        Some(in_flight)
+                                    } else {
+                                        None
+                                    }
+                                },
+                            );
+                            let mut body = request.into_body();
+                            while let Some(chunk) = body.data().await {
+                                chunk?;
+                            }
+                            tokio::time::sleep(Duration::from_millis(50)).await;
+                            current_for_req.fetch_sub(1, Ordering::SeqCst);
+                            request_count_for_req.fetch_add(1, Ordering::SeqCst);
+                            Ok::<_, hyper::Error>(Response::new(Body::from("ok")))
+                        }
+                    });
+                    let _ = HyperServerHttp::new()
+                        .http2_only(true)
+                        .serve_connection(stream, service)
+                        .await;
+                });
+            }
+        });
+        (
+            HttpEndpoint {
+                scheme: "http".to_string(),
+                host: Ipv4Addr::LOCALHOST.to_string(),
+                port: addr.port(),
+                http3_port: None,
+            },
+            accept_count,
+            request_count,
+            max_in_flight,
+            server,
+        )
+    }
+
+    async fn spawn_h3_overlap_test_server() -> (
+        HttpEndpoint,
+        Arc<AtomicUsize>,
+        Arc<AtomicUsize>,
+        Arc<AtomicUsize>,
+        tokio::task::JoinHandle<()>,
+    ) {
+        let certified = generate_simple_self_signed(vec!["localhost".to_string()]).unwrap();
+        let mut server_crypto = RustlsServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(
+                vec![certified.cert.der().clone()],
+                PrivateKeyDer::from(PrivatePkcs8KeyDer::from(certified.key_pair.serialize_der())),
+            )
+            .unwrap();
+        server_crypto.alpn_protocols = vec![b"h3".to_vec()];
+        let mut server_config = QuinnServerConfig::with_crypto(Arc::new(
+            QuinnRustlsServerConfig::try_from(server_crypto).unwrap(),
+        ));
+        let transport = Arc::get_mut(&mut server_config.transport).unwrap();
+        apply_http3_transport_tuning(transport);
+
+        let bind_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let server_addr = bind_socket.local_addr().unwrap();
+        let server_endpoint = quinn::Endpoint::new(
+            quinn::EndpointConfig::default(),
+            Some(server_config),
+            bind_socket,
+            Arc::new(quinn::TokioRuntime),
+        )
+        .unwrap();
+
+        let accept_count = Arc::new(AtomicUsize::new(0));
+        let request_count = Arc::new(AtomicUsize::new(0));
+        let current_in_flight = Arc::new(AtomicUsize::new(0));
+        let max_in_flight = Arc::new(AtomicUsize::new(0));
+        let accept_count_for_task = Arc::clone(&accept_count);
+        let request_count_for_task = Arc::clone(&request_count);
+        let current_in_flight_for_task = Arc::clone(&current_in_flight);
+        let max_in_flight_for_task = Arc::clone(&max_in_flight);
+
+        let server = tokio::spawn(async move {
+            while let Some(connecting) = server_endpoint.accept().await {
+                accept_count_for_task.fetch_add(1, Ordering::SeqCst);
+                let request_count_for_conn = Arc::clone(&request_count_for_task);
+                let current_for_conn = Arc::clone(&current_in_flight_for_task);
+                let max_for_conn = Arc::clone(&max_in_flight_for_task);
+                tokio::spawn(async move {
+                    let connection = match connecting.await {
+                        Ok(connection) => connection,
+                        Err(_) => return,
+                    };
+                    let mut incoming = match server::builder()
+                        .build(H3QuinnConnection::new(connection))
+                        .await
+                    {
+                        Ok(connection) => connection,
+                        Err(_) => return,
+                    };
+                    loop {
+                        let resolver = match incoming.accept().await {
+                            Ok(Some(resolver)) => resolver,
+                            Ok(None) | Err(_) => break,
+                        };
+                        let request_count_for_req = Arc::clone(&request_count_for_conn);
+                        let current_for_req = Arc::clone(&current_for_conn);
+                        let max_for_req = Arc::clone(&max_for_conn);
+                        tokio::spawn(async move {
+                            let (_, mut stream) = match resolver.resolve_request().await {
+                                Ok(value) => value,
+                                Err(_) => return,
+                            };
+                            let in_flight = current_for_req.fetch_add(1, Ordering::SeqCst) + 1;
+                            let _ = max_for_req.fetch_update(
+                                Ordering::SeqCst,
+                                Ordering::SeqCst,
+                                |current| {
+                                    if in_flight > current {
+                                        Some(in_flight)
+                                    } else {
+                                        None
+                                    }
+                                },
+                            );
+                            while let Ok(Some(_)) = stream.recv_data().await {}
+                            tokio::time::sleep(Duration::from_millis(50)).await;
+                            current_for_req.fetch_sub(1, Ordering::SeqCst);
+                            request_count_for_req.fetch_add(1, Ordering::SeqCst);
+                            let response = http3::Response::builder()
+                                .status(http3::StatusCode::OK)
+                                .body(())
+                                .unwrap();
+                            if stream.send_response(response).await.is_err() {
+                                return;
+                            }
+                            if stream.send_data(Bytes::from_static(b"ok")).await.is_err() {
+                                return;
+                            }
+                            let _ = stream.finish().await;
+                        });
+                    }
+                });
+            }
+        });
+
+        (
+            HttpEndpoint {
+                scheme: "https".to_string(),
+                host: "localhost".to_string(),
+                port: server_addr.port(),
+                http3_port: Some(server_addr.port()),
+            },
+            accept_count,
+            request_count,
+            max_in_flight,
             server,
         )
     }
@@ -2169,6 +2880,7 @@ mod tests {
         PreparedWorkload {
             name: "h1_test".to_string(),
             protocol: "h1".to_string(),
+            serializer: default_wamp_serializer(),
             method: HyperMethod::POST,
             path: "/bench/stream".to_string(),
             iterations: 3,
@@ -2178,13 +2890,18 @@ mod tests {
             request_chunk_bytes: 1024,
             response_chunk_bytes: 1024,
             reuse_connections,
+            streams_per_connection: 1,
         }
     }
 
-    fn sample_h2_workload(reuse_connections: bool) -> PreparedWorkload {
+    fn sample_h2_workload(
+        reuse_connections: bool,
+        streams_per_connection: u32,
+    ) -> PreparedWorkload {
         PreparedWorkload {
             name: "h2_test".to_string(),
             protocol: "h2".to_string(),
+            serializer: default_wamp_serializer(),
             method: HyperMethod::POST,
             path: "/bench/stream".to_string(),
             iterations: 3,
@@ -2194,12 +2911,34 @@ mod tests {
             request_chunk_bytes: 1024,
             response_chunk_bytes: 1024,
             reuse_connections,
+            streams_per_connection,
+        }
+    }
+
+    fn sample_h3_workload(
+        reuse_connections: bool,
+        streams_per_connection: u32,
+    ) -> PreparedWorkload {
+        PreparedWorkload {
+            name: "h3_test".to_string(),
+            protocol: "h3".to_string(),
+            serializer: default_wamp_serializer(),
+            method: HyperMethod::POST,
+            path: "/bench/stream".to_string(),
+            iterations: 3,
+            concurrency: 1,
+            request_bytes: 0,
+            response_bytes: 0,
+            request_chunk_bytes: 1024,
+            response_chunk_bytes: 1024,
+            reuse_connections,
+            streams_per_connection,
         }
     }
 
     #[tokio::test]
     async fn h1_worker_reuses_single_connection_when_enabled() {
-        let (endpoint, accept_count, request_count, server) = spawn_h1_test_server().await;
+        let (endpoint, accept_count, request_count, _, server) = spawn_h1_test_server().await;
         let samples = run_h1_worker(endpoint, sample_h1_workload(true), 0)
             .await
             .unwrap();
@@ -2212,7 +2951,7 @@ mod tests {
 
     #[tokio::test]
     async fn h1_worker_reconnects_per_iteration_when_disabled() {
-        let (endpoint, accept_count, request_count, server) = spawn_h1_test_server().await;
+        let (endpoint, accept_count, request_count, _, server) = spawn_h1_test_server().await;
         let samples = run_h1_worker(endpoint, sample_h1_workload(false), 0)
             .await
             .unwrap();
@@ -2224,9 +2963,29 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn build_h1_body_streams_request_chunks() {
+        let (body, writer) = build_h1_body(Bytes::from_static(b"abcdef"), 2);
+        let mut body = body;
+        let mut chunks = Vec::new();
+        while let Some(chunk) = body.data().await {
+            chunks.push(chunk.unwrap());
+        }
+        let sent = writer.await.unwrap().unwrap();
+        assert_eq!(sent, 6);
+        assert_eq!(
+            chunks,
+            vec![
+                Bytes::from_static(b"ab"),
+                Bytes::from_static(b"cd"),
+                Bytes::from_static(b"ef"),
+            ]
+        );
+    }
+
+    #[tokio::test]
     async fn h2_worker_reuses_single_connection_when_enabled() {
-        let (endpoint, accept_count, request_count, server) = spawn_h2_test_server().await;
-        let samples = run_h2_worker(endpoint, sample_h2_workload(true), 0)
+        let (endpoint, accept_count, request_count, _, server) = spawn_h2_test_server().await;
+        let samples = run_h2_worker(endpoint, sample_h2_workload(true, 1), 0)
             .await
             .unwrap();
         assert_eq!(samples.len(), 3);
@@ -2238,14 +2997,60 @@ mod tests {
 
     #[tokio::test]
     async fn h2_worker_reconnects_per_iteration_when_disabled() {
-        let (endpoint, accept_count, request_count, server) = spawn_h2_test_server().await;
-        let samples = run_h2_worker(endpoint, sample_h2_workload(false), 0)
+        let (endpoint, accept_count, request_count, _, server) = spawn_h2_test_server().await;
+        let samples = run_h2_worker(endpoint, sample_h2_workload(false, 1), 0)
             .await
             .unwrap();
         assert_eq!(samples.len(), 3);
         tokio::time::sleep(Duration::from_millis(50)).await;
         assert_eq!(accept_count.load(Ordering::SeqCst), 3);
         assert_eq!(request_count.load(Ordering::SeqCst), 3);
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn h2_worker_honors_request_chunk_size() {
+        let (endpoint, _, request_count, max_request_chunks, server) = spawn_h2_test_server().await;
+        let mut workload = sample_h2_workload(true, 1);
+        workload.iterations = 1;
+        workload.request_bytes = 4096;
+        workload.request_chunk_bytes = 1024;
+        let samples = run_h2_worker(endpoint, workload, 0).await.unwrap();
+        assert_eq!(samples.len(), 1);
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert_eq!(request_count.load(Ordering::SeqCst), 1);
+        assert!(max_request_chunks.load(Ordering::SeqCst) > 1);
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn h2_worker_multiplexes_streams_on_single_connection() {
+        let (endpoint, accept_count, request_count, max_in_flight, server) =
+            spawn_h2_overlap_test_server().await;
+        let samples = run_h2_worker(endpoint, sample_h2_workload(true, 3), 0)
+            .await
+            .unwrap();
+        assert_eq!(samples.len(), 3);
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert_eq!(accept_count.load(Ordering::SeqCst), 1);
+        assert_eq!(request_count.load(Ordering::SeqCst), 3);
+        assert!(max_in_flight.load(Ordering::SeqCst) > 1);
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn h3_worker_multiplexes_streams_on_single_connection() {
+        let _ = ring::default_provider().install_default();
+        let (endpoint, accept_count, request_count, max_in_flight, server) =
+            spawn_h3_overlap_test_server().await;
+        let samples = run_h3_worker(endpoint, sample_h3_workload(true, 3), 0)
+            .await
+            .unwrap();
+        assert_eq!(samples.len(), 3);
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert_eq!(accept_count.load(Ordering::SeqCst), 1);
+        assert_eq!(request_count.load(Ordering::SeqCst), 3);
+        assert!(max_in_flight.load(Ordering::SeqCst) > 1);
         server.abort();
     }
 

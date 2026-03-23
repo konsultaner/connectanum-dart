@@ -23,6 +23,13 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::runtime::Runtime as TokioRuntime;
 
 const HTTP2_PREFACE: &[u8] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
+const HTTP2_TEST_MAX_CONCURRENT_STREAMS: u32 = 1024;
+const HTTP2_TEST_INITIAL_STREAM_WINDOW: u32 = 8 * 1024 * 1024;
+const HTTP2_TEST_INITIAL_CONNECTION_WINDOW: u32 = 64 * 1024 * 1024;
+const HTTP2_TEST_MAX_FRAME_SIZE: u32 = 1 * 1024 * 1024;
+const HTTP2_TEST_MAX_HEADER_LIST_SIZE: u32 = 16 * 1024 * 1024;
+const HTTP2_TEST_MAX_CONCURRENT_RESET_STREAMS: usize = 256;
+const HTTP2_TEST_MAX_SEND_BUFFER_SIZE: usize = 8 * 1024 * 1024;
 
 use crate::runtime::constants::{
     ERR_CONNECTION_NOT_FOUND, ERR_ENDPOINT_NOT_CONFIGURED, ERR_INVALID_ARGUMENT,
@@ -101,6 +108,43 @@ fn wait_for_http_handshake(connection_id: i32) -> i32 {
         }
         std::thread::sleep(Duration::from_millis(10));
     }
+}
+
+fn wait_for_http_handshakes(connection_id: i32, expected: usize, timeout: Duration) -> Vec<i32> {
+    let deadline = Instant::now() + timeout;
+    let mut handles = Vec::with_capacity(expected);
+    while handles.len() < expected {
+        let handle = ct_connection_take_http_handshake(connection_id);
+        if handle > 0 {
+            handles.push(handle);
+            continue;
+        }
+        if handle < 0 {
+            std::thread::sleep(Duration::from_millis(10));
+            continue;
+        }
+        if Instant::now() > deadline {
+            panic!(
+                "timed out waiting for {} HTTP handshakes on connection {}",
+                expected, connection_id
+            );
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    handles
+}
+
+fn http2_test_client_builder() -> client::Builder {
+    let mut builder = client::Builder::new();
+    builder
+        .max_concurrent_streams(HTTP2_TEST_MAX_CONCURRENT_STREAMS)
+        .initial_window_size(HTTP2_TEST_INITIAL_STREAM_WINDOW)
+        .initial_connection_window_size(HTTP2_TEST_INITIAL_CONNECTION_WINDOW)
+        .max_frame_size(HTTP2_TEST_MAX_FRAME_SIZE)
+        .max_header_list_size(HTTP2_TEST_MAX_HEADER_LIST_SIZE)
+        .max_concurrent_reset_streams(HTTP2_TEST_MAX_CONCURRENT_RESET_STREAMS)
+        .max_send_buffer_size(HTTP2_TEST_MAX_SEND_BUFFER_SIZE);
+    builder
 }
 
 fn wait_for_http_event(timeout: Duration) -> (CtHttpConnectionEventInfo, Option<String>) {
@@ -2400,7 +2444,8 @@ fn http2_body_timeout_emits_connection_event() {
         rt.block_on(async move {
             let addr = format!("127.0.0.1:{}", port);
             let tcp = tokio::net::TcpStream::connect(addr).await.unwrap();
-            let (mut client, connection) = client::handshake(tcp).await.unwrap();
+            let builder = http2_test_client_builder();
+            let (mut client, connection) = builder.handshake::<_, Bytes>(tcp).await.unwrap();
             tokio::spawn(async move {
                 let _ = connection.await;
             });
@@ -2500,7 +2545,8 @@ fn http2_idle_timeout_emits_connection_event() {
         rt.block_on(async move {
             let addr = format!("127.0.0.1:{}", port);
             let tcp = tokio::net::TcpStream::connect(addr).await.unwrap();
-            let (mut client, connection) = client::handshake(tcp).await.unwrap();
+            let builder = http2_test_client_builder();
+            let (mut client, connection) = builder.handshake::<_, Bytes>(tcp).await.unwrap();
             tokio::spawn(async move {
                 let _ = connection.await;
             });
@@ -3051,7 +3097,8 @@ fn http2_request_round_trip_over_network() {
         rt.block_on(async move {
             let addr = format!("127.0.0.1:{}", port);
             let tcp = tokio::net::TcpStream::connect(&addr).await.unwrap();
-            let (mut client, connection) = client::handshake(tcp).await.unwrap();
+            let builder = http2_test_client_builder();
+            let (mut client, connection) = builder.handshake::<_, Bytes>(tcp).await.unwrap();
             tokio::spawn(async move {
                 if let Err(err) = connection.await {
                     panic!("h2 connection error: {}", err);
@@ -3133,6 +3180,320 @@ fn http2_request_round_trip_over_network() {
 }
 
 #[test]
+fn http2_large_headers_survive_continuation_frames() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"disabled",
+                    "protocols":["rawsocket","http","http2"],
+                    "http":{
+                        "alpn":["h2","http/1.1"]
+                    },
+                    "http_routes":[
+                        {
+                            "path":"/h2headers",
+                            "match_kind":"prefix",
+                            "methods":{
+                                "GET":{
+                                    "type":"reserved_realm",
+                                    "append_method_suffix":true
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let large_header_value = "a".repeat(96 * 1024);
+    let expected_len = large_header_value.len();
+    let (client_tx, client_rx) = std::sync::mpsc::channel();
+    let client_handle = std::thread::spawn(move || {
+        let rt = TokioRuntime::new().unwrap();
+        rt.block_on(async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let tcp = tokio::net::TcpStream::connect(&addr).await.unwrap();
+            let builder = http2_test_client_builder();
+            let (mut client, connection) = builder.handshake::<_, Bytes>(tcp).await.unwrap();
+            tokio::spawn(async move {
+                if let Err(err) = connection.await {
+                    panic!("h2 connection error: {}", err);
+                }
+            });
+            let request = Http2TestRequest::builder()
+                .method("GET")
+                .uri("/h2headers?fragmented=true")
+                .header("x-long", large_header_value)
+                .body(())
+                .unwrap();
+            let (response, _send_stream) = client.send_request(request, true).unwrap();
+            client_tx.send(()).unwrap();
+            let response = response.await.unwrap();
+            assert_eq!(response.status(), Http2StatusCode::OK);
+            let mut body = response.into_body();
+            let mut collected = Vec::new();
+            while let Some(chunk) = body.data().await {
+                let chunk = chunk.unwrap();
+                body.flow_control()
+                    .release_capacity(chunk.len())
+                    .expect("release capacity");
+                collected.extend_from_slice(&chunk);
+            }
+            collected
+        })
+    });
+
+    client_rx.recv().unwrap();
+
+    let connection_id = wait_for_connection(listener_id);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP2);
+
+    let handle = wait_for_http_handshake(connection_id);
+    let mut info = CtHttpHandshakeInfo::default();
+    assert_eq!(
+        ct_http_handshake_get(handle, &mut info as *mut CtHttpHandshakeInfo),
+        SUCCESS
+    );
+    unsafe {
+        let target =
+            std::str::from_utf8(std::slice::from_raw_parts(info.target_ptr, info.target_len))
+                .expect("target utf8");
+        assert_eq!(target, "/h2headers?fragmented=true");
+    }
+
+    let mut found_large_header = false;
+    for index in 0..info.headers_len {
+        let mut header = CtHttpHeader::default();
+        assert_eq!(
+            ct_http_handshake_header(handle, index, &mut header as *mut CtHttpHeader),
+            SUCCESS
+        );
+        unsafe {
+            let name =
+                std::str::from_utf8(std::slice::from_raw_parts(header.name_ptr, header.name_len))
+                    .expect("header name utf8");
+            let value = std::str::from_utf8(std::slice::from_raw_parts(
+                header.value_ptr,
+                header.value_len,
+            ))
+            .expect("header value utf8");
+            if name.eq_ignore_ascii_case("x-long") {
+                assert_eq!(value.len(), expected_len);
+                assert!(value.as_bytes().iter().all(|byte| *byte == b'a'));
+                found_large_header = true;
+                break;
+            }
+        }
+    }
+    assert!(
+        found_large_header,
+        "expected fragmented header to be surfaced"
+    );
+
+    let response_body = b"h2-continuation-ok";
+    assert_eq!(
+        ct_http_response_send(
+            handle,
+            200,
+            std::ptr::null(),
+            0,
+            response_body.as_ptr(),
+            response_body.len(),
+        ),
+        SUCCESS
+    );
+    assert_eq!(ct_http_handshake_release(handle), SUCCESS);
+
+    let body = client_handle.join().unwrap();
+    assert_eq!(body, response_body);
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn http2_accepts_multiple_streams_before_first_response_finishes() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"disabled",
+                    "protocols":["rawsocket","http","http2"],
+                    "http":{
+                        "alpn":["h2","http/1.1"]
+                    },
+                    "http_routes":[
+                        {
+                            "path":"/h2multi",
+                            "match_kind":"prefix",
+                            "methods":{
+                                "GET":{
+                                    "type":"reserved_realm",
+                                    "append_method_suffix":true
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let (client_tx, client_rx) = std::sync::mpsc::channel();
+    let client_handle = std::thread::spawn(move || {
+        let rt = TokioRuntime::new().unwrap();
+        rt.block_on(async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let tcp = tokio::net::TcpStream::connect(&addr).await.unwrap();
+            let builder = http2_test_client_builder();
+            let (client, connection) = builder.handshake::<_, Bytes>(tcp).await.unwrap();
+            tokio::spawn(async move {
+                if let Err(err) = connection.await {
+                    panic!("h2 connection error: {}", err);
+                }
+            });
+
+            let mut client_one = client;
+            let mut client_two = client_one.clone();
+            let first = async move {
+                let request = Http2TestRequest::builder()
+                    .method("GET")
+                    .uri("/h2multi?stream=1")
+                    .body(())
+                    .unwrap();
+                let (response, _send_stream) = client_one.send_request(request, true).unwrap();
+                let response = response.await.unwrap();
+                assert_eq!(response.status(), Http2StatusCode::OK);
+                let mut body = response.into_body();
+                let mut collected = Vec::new();
+                while let Some(chunk) = body.data().await {
+                    let chunk = chunk.unwrap();
+                    body.flow_control()
+                        .release_capacity(chunk.len())
+                        .expect("release capacity");
+                    collected.extend_from_slice(&chunk);
+                }
+                collected
+            };
+            let second = async move {
+                let request = Http2TestRequest::builder()
+                    .method("GET")
+                    .uri("/h2multi?stream=2")
+                    .body(())
+                    .unwrap();
+                let (response, _send_stream) = client_two.send_request(request, true).unwrap();
+                let response = response.await.unwrap();
+                assert_eq!(response.status(), Http2StatusCode::OK);
+                let mut body = response.into_body();
+                let mut collected = Vec::new();
+                while let Some(chunk) = body.data().await {
+                    let chunk = chunk.unwrap();
+                    body.flow_control()
+                        .release_capacity(chunk.len())
+                        .expect("release capacity");
+                    collected.extend_from_slice(&chunk);
+                }
+                collected
+            };
+
+            client_tx.send(()).unwrap();
+            tokio::join!(first, second)
+        })
+    });
+
+    client_rx.recv().unwrap();
+
+    let connection_id = wait_for_connection(listener_id);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP2);
+
+    let handles = wait_for_http_handshakes(connection_id, 2, Duration::from_secs(5));
+    let mut seen_targets = Vec::with_capacity(handles.len());
+    for handle in handles {
+        let mut info = CtHttpHandshakeInfo::default();
+        assert_eq!(
+            ct_http_handshake_get(handle, &mut info as *mut CtHttpHandshakeInfo),
+            SUCCESS
+        );
+        let target = unsafe {
+            std::str::from_utf8(std::slice::from_raw_parts(info.target_ptr, info.target_len))
+                .expect("target utf8")
+                .to_string()
+        };
+        let response_body = match target.as_str() {
+            "/h2multi?stream=1" => b"stream-one".as_slice(),
+            "/h2multi?stream=2" => b"stream-two".as_slice(),
+            other => panic!("unexpected target {other}"),
+        };
+        assert_eq!(
+            ct_http_response_send(
+                handle,
+                200,
+                std::ptr::null(),
+                0,
+                response_body.as_ptr(),
+                response_body.len(),
+            ),
+            SUCCESS
+        );
+        assert_eq!(ct_http_handshake_release(handle), SUCCESS);
+        seen_targets.push(target);
+    }
+    seen_targets.sort();
+    assert_eq!(
+        seen_targets,
+        vec![
+            "/h2multi?stream=1".to_string(),
+            "/h2multi?stream=2".to_string(),
+        ]
+    );
+
+    let (first_body, second_body) = client_handle.join().unwrap();
+    assert_eq!(first_body, b"stream-one");
+    assert_eq!(second_body, b"stream-two");
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
 fn http2_streaming_body_round_trip() {
     let _guard = super::test_guard();
     let config = CString::new(
@@ -3186,7 +3547,8 @@ fn http2_streaming_body_round_trip() {
         rt.block_on(async move {
             let addr = format!("127.0.0.1:{}", port);
             let tcp = tokio::net::TcpStream::connect(&addr).await.unwrap();
-            let (mut client, connection) = client::handshake(tcp).await.unwrap();
+            let builder = http2_test_client_builder();
+            let (mut client, connection) = builder.handshake::<_, Bytes>(tcp).await.unwrap();
             tokio::spawn(async move {
                 if let Err(err) = connection.await {
                     panic!("h2 connection error: {}", err);
@@ -3373,7 +3735,8 @@ fn http2_response_streaming_round_trip() {
         rt.block_on(async move {
             let addr = format!("127.0.0.1:{}", port);
             let tcp = tokio::net::TcpStream::connect(&addr).await.unwrap();
-            let (mut client, connection) = client::handshake(tcp).await.unwrap();
+            let builder = http2_test_client_builder();
+            let (mut client, connection) = builder.handshake::<_, Bytes>(tcp).await.unwrap();
             tokio::spawn(async move {
                 if let Err(err) = connection.await {
                     panic!("h2 connection error: {}", err);
