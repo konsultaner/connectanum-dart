@@ -136,7 +136,9 @@ protocol, HTTP method/path, request/response byte counts, chunk sizes, warm-up
 delays, concurrency, and whether transport sessions should be reused across
 iterations (`reuse_connections`, default `true`). WAMP workloads also accept a
 `serializer` field (`json`, `msgpack`, `cbor`; default `json`) so the same
-transport bench can compare serializer overhead directly. Example
+transport bench can compare serializer overhead directly, plus an
+`in_flight_per_session` knob (default `1`) that keeps multiple publishes/calls
+outstanding on each hot WAMP session. Example
 (`h2_smoke.toml`):
 
 ```toml
@@ -224,12 +226,18 @@ because the bench path does not pipeline H1 requests.
 - `full_stack.toml` – extended matrix covering bulk uploads/downloads, latency spikes,
   idle soak phases, and both HTTP/2 and HTTP/3 transfers with higher concurrency.
 - `wamp_smoke.toml` – lightweight PUB/SUB and RPC workloads over both RawSocket and
-  WebSocket, now with explicit serializer coverage (`json`, `msgpack`, `cbor`)
-  on the representative paths so transport benches stop silently defaulting to
-  JSON everywhere.
+  WebSocket, now covering the full mode/serializer matrix (`json`, `msgpack`,
+  `cbor`) on both transports so smoke runs can catch serializer-specific
+  regressions on either RPC or pub/sub paths.
 - `wamp_serializer_matrix.toml` – larger-payload RawSocket/WebSocket RPC sweep
   that runs JSON, MessagePack, and CBOR side by side to compare serializer
-  overhead without HTTP traffic in the same run.
+  overhead without HTTP traffic in the same run. The current version enables
+  `in_flight_per_session = 4` so it behaves like a throughput sweep instead of
+  one outstanding call per session.
+- `wamp_transport_throughput.toml` – larger-payload RawSocket/WebSocket pub/sub
+  plus RPC sweep covering JSON, MsgPack, and CBOR on both transports so
+  hot-session throughput comparisons stay apples-to-apples across modes and
+  serializers.
 - `all_transports_smoke.toml` – quick cross-transport smoke covering RawSocket,
   WebSocket, HTTP/1.1, HTTP/2, and HTTP/3 in one run. The WAMP side now mixes
   JSON, MessagePack, and CBOR across RawSocket/WebSocket workloads so serializer
@@ -431,6 +439,18 @@ be dropped even though the router succeeded. That race is fixed now, so
 `wamp_serializer_matrix.toml` completes reliably instead of hanging on the
 successful RawSocket/CBOR path.
 
+The newer larger-payload WAMP runs also exposed two transport-side issues on
+the Dart client path. First, the pub/sub matcher only supported one pending
+waiter, which meant larger-payload pub/sub sweeps quietly serialized on one
+outstanding event even when the scenario asked for more pipelining. The
+`WampEventBuffer` now supports multiple concurrent waiters, and WAMP scenarios
+accept `in_flight_per_session` to keep several publishes/calls outstanding per
+hot session. Second, the RawSocket client was still concatenating inbound bytes
+with two copies and could drop the first WAMP frame when the server replied
+with the handshake and initial payload in one TCP chunk. The receive path now
+merges bytes in one copy, uses `Uint8List.sublistView` for complete frame
+slices, and preserves any handshake remainder for normal frame parsing.
+
 On the latest release-built `all_transports_smoke` run in this environment, the
 transport comparison landed roughly at:
 
@@ -447,6 +467,29 @@ transport comparison landed roughly at:
 That leaves one obvious transport follow-up: on this shared smoke workload,
 HTTP/3 still trails HTTP/2 materially even after the recent QUIC tuning and
 multiplexing work.
+
+On focused release-built WAMP throughput runs in this environment, the newer
+hot-session path now lands roughly at:
+
+- `wamp_serializer_matrix.toml`: RawSocket about `72-94 Mbps`, WebSocket about
+  `81-110 Mbps` depending on serializer (`json`, `msgpack`, `cbor`) on the 16
+  KiB RPC matrix.
+- `wamp_transport_throughput.toml`: RawSocket about `92-131 Mbps`, WebSocket
+  about `104-138 Mbps` across the 64 KiB pub/sub + RPC sweep.
+
+Those WAMP numbers are still end-to-end Dart-client numbers, not pure native
+transport ceilings. The current bench deliberately exercises
+`connectanum_client`, and that client stack is not zero-copy yet. That matters
+more for RawSocket than WebSocket because the RawSocket client still performs
+its own handshake, frame splitting, and message-boundary parsing in Dart,
+whereas the WebSocket client leans on `dart:io`'s native WebSocket framing and
+receives already-delimited messages. On the wire, RawSocket is still the leaner
+protocol; on this benchmark path, the remaining client-side Dart work can let
+WebSocket edge it out until the client transport becomes more zero-copy.
+
+Treat those as relative loopback signals, not product claims. They are useful
+for before/after comparisons on the same machine and now reflect actual
+per-session pipelining instead of a single-outstanding-operation workload.
 
 ## Prometheus & Grafana (docker-compose)
 

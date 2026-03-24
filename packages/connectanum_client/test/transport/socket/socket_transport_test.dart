@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -428,5 +429,75 @@ void main() {
         await server.close();
       },
     );
+
+    test('buffers partial raw socket frames until complete', () async {
+      final serializer = json_serializer.Serializer();
+      final server = await ServerSocket.bind('0.0.0.0', 9012);
+      server.listen((socket) {
+        var handshakeDone = false;
+        socket.listen((message) {
+          if (handshakeDone) {
+            return;
+          }
+          handshakeDone = true;
+          socket.add(
+            SocketHelper.getInitialHandshake(
+              SocketHelper.maxMessageLengthExponent,
+              SocketHelper.serializationJson,
+            ),
+          );
+          final encoded = utf8.encoder.convert(
+            serializer.serialize(
+              Goodbye(GoodbyeMessage('bye'), Goodbye.reasonGoodbyeAndOut),
+            ),
+          );
+          final frame = Uint8List.fromList(
+            SocketHelper.buildMessageHeader(
+                  SocketHelper.messageWamp,
+                  encoded.length,
+                  false,
+                ) +
+                encoded,
+          );
+          socket.add(frame.sublist(0, 3));
+          Future<void>.delayed(const Duration(milliseconds: 10)).then((_) {
+            socket.add(frame.sublist(3));
+          });
+        });
+      });
+
+      final transport = SocketTransport(
+        '127.0.0.1',
+        9012,
+        serializer,
+        SocketHelper.serializationJson,
+        messageLengthExponent: SocketHelper.maxMessageLengthExponent,
+      );
+      await transport.open();
+
+      final message = await transport.receive().first.timeout(
+        const Duration(seconds: 1),
+      );
+
+      expect(message, isA<Goodbye>());
+
+      await transport.close();
+      await server.close();
+    });
+  });
+
+  group('Socket helper validation', () {
+    test('rejects unknown raw socket message types', () {
+      expect(
+        SocketHelper.isValidMessage(Uint8List.fromList([9, 0, 0, 0])),
+        isFalse,
+      );
+      expect(
+        SocketHelper.isValidMessage(
+          Uint8List.fromList([SocketHelper.messageWamp, 0, 0, 0]),
+        ),
+        isTrue,
+      );
+    });
   });
 }

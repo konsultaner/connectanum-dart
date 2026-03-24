@@ -198,80 +198,120 @@ class SocketTransport extends AbstractTransport {
     );
     // TODO set keep alive to true
     //_socket.setOption(RawSocketOption.fromBool(??, SO_KEEPALIVE, true), true)
-    return _socket!
-        .where((List<int> message) {
-          message = Uint8List.fromList(_inboundBuffer + message);
-          if (_negotiateProtocol(message as Uint8List) ||
-              !_assertValidMessage(message)) {
-            return false;
-          }
-          final finalMessageLength = message.length - headerLength;
-          final payloadLength = SocketHelper.getPayloadLength(
-            message,
-            headerLength,
-          );
-          if (finalMessageLength < payloadLength) {
-            _inboundBuffer = message;
-            return false;
-          }
-          if (finalMessageLength > _messageLength!) {
-            _sendProtocolError(SocketHelper.errorMessageLengthExceeded);
-            _logger.fine(
-              'Closed raw socket channel because the message length exceeded the max value of $_messageLength',
-            );
-            return false;
-          }
-          return true;
-        })
-        .expand((Uint8List message) => _handleMessage(message));
+    return _socket!.expand(_consumeInboundChunk);
   }
 
-  bool _negotiateProtocol(Uint8List message) {
-    if (_handshakeCompleter.isCompleted) return false;
-    var errorNumber = SocketHelper.getErrorNumber(message);
-    if (errorNumber == 0) {
-      // RECEIVED FIRST HANDSHAKE RESPONSE
-      if (SocketHelper.isRawSocket(message)) {
-        var maxMessageSizeExponent = SocketHelper.getMaxMessageSizeExponent(
-          message,
-        );
-        // TRY UPGRADE TO 5 BYTE HEADER, IF WANTED
-        if (maxMessageSizeExponent == SocketHelper.maxMessageLengthExponent &&
-            _messageLengthExponent > SocketHelper.maxMessageLengthExponent) {
-          _logger.finer('Try to upgrade to 5 byte raw socket header');
-          _send0(SocketHelper.getUpgradeHandshake(_messageLengthExponent));
-        } else {
-          // AN UPGRADE WAS NOT WANTED SO SET THE MESSAGE LENGTH AND COMPLETE THE HANDSHAKE
-          _messageLength =
-              pow(
-                    2,
-                    min(
-                      SocketHelper.getMaxMessageSizeExponent(message),
-                      _messageLengthExponent,
-                    ),
-                  )
-                  as int?;
-          _handshakeCompleter.complete();
-        }
-      }
-      // RECEIVED SECOND HANDSHAKE / UPGRADE
-      if (SocketHelper.isUpgrade(message)) {
-        _messageLength =
-            pow(
-                  2,
-                  min(
-                    SocketHelper.getMaxUpgradeMessageSizeExponent(message),
-                    _messageLengthExponent,
-                  ),
-                )
-                as int?;
-        _handshakeCompleter.complete();
-      }
-      return true;
-    } else {
-      _handleError(errorNumber);
-      return true;
+  List<AbstractMessage> _consumeInboundChunk(List<int> message) {
+    final inboundData = _mergeInboundChunk(message);
+    final negotiatedData = _consumeNegotiation(inboundData);
+    if (negotiatedData.isEmpty) {
+      return const [];
     }
+    if (negotiatedData.length < headerLength) {
+      _inboundBuffer = negotiatedData;
+      return const [];
+    }
+    if (!_assertValidMessage(negotiatedData)) {
+      return const [];
+    }
+    final payloadLength = SocketHelper.getPayloadLength(
+      negotiatedData,
+      headerLength,
+    );
+    if (payloadLength > _messageLength!) {
+      _sendProtocolError(SocketHelper.errorMessageLengthExceeded);
+      _logger.fine(
+        'Closed raw socket channel because the message length exceeded the max value of $_messageLength',
+      );
+      return const [];
+    }
+    if (negotiatedData.length < headerLength + payloadLength) {
+      _inboundBuffer = negotiatedData;
+      return const [];
+    }
+    return _handleMessage(negotiatedData);
+  }
+
+  Uint8List _mergeInboundChunk(List<int> message) {
+    final typedMessage = message is Uint8List
+        ? message
+        : Uint8List.fromList(message);
+    if (_inboundBuffer.isEmpty) {
+      return typedMessage;
+    }
+    final merged = Uint8List(_inboundBuffer.length + typedMessage.length);
+    merged.setRange(0, _inboundBuffer.length, _inboundBuffer);
+    merged.setRange(_inboundBuffer.length, merged.length, typedMessage);
+    _inboundBuffer = Uint8List(0);
+    return merged;
+  }
+
+  Uint8List _consumeNegotiation(Uint8List message) {
+    if (_handshakeCompleter.isCompleted) {
+      return message;
+    }
+    if (message.isEmpty) {
+      return message;
+    }
+    if (SocketHelper.isUpgrade(message)) {
+      if (message.length < 2) {
+        _inboundBuffer = message;
+        return Uint8List(0);
+      }
+      _messageLength =
+          pow(
+                2,
+                min(
+                  SocketHelper.getMaxUpgradeMessageSizeExponent(message),
+                  _messageLengthExponent,
+                ),
+              )
+              as int?;
+      _handshakeCompleter.complete();
+      if (message.length == 2) {
+        return Uint8List(0);
+      }
+      return Uint8List.sublistView(message, 2, message.length);
+    }
+    if (message.length < 4) {
+      _inboundBuffer = message;
+      return Uint8List(0);
+    }
+    final handshake = Uint8List.sublistView(message, 0, 4);
+    final errorNumber = SocketHelper.getErrorNumber(handshake);
+    if (errorNumber != 0) {
+      _handleError(errorNumber);
+      return Uint8List(0);
+    }
+    if (!SocketHelper.isRawSocket(handshake)) {
+      return message;
+    }
+    final maxMessageSizeExponent = SocketHelper.getMaxMessageSizeExponent(
+      handshake,
+    );
+    if (maxMessageSizeExponent == SocketHelper.maxMessageLengthExponent &&
+        _messageLengthExponent > SocketHelper.maxMessageLengthExponent) {
+      _logger.finer('Try to upgrade to 5 byte raw socket header');
+      _send0(SocketHelper.getUpgradeHandshake(_messageLengthExponent));
+      if (message.length > 4) {
+        _inboundBuffer = Uint8List.sublistView(message, 4, message.length);
+      }
+      return Uint8List(0);
+    }
+    _messageLength =
+        pow(
+              2,
+              min(
+                SocketHelper.getMaxMessageSizeExponent(handshake),
+                _messageLengthExponent,
+              ),
+            )
+            as int?;
+    _handshakeCompleter.complete();
+    if (message.length == 4) {
+      return Uint8List(0);
+    }
+    return Uint8List.sublistView(message, 4, message.length);
   }
 
   void _handleError(int errorNumber) {
@@ -314,9 +354,13 @@ class SocketTransport extends AbstractTransport {
     try {
       for (var message in _splitMessages(inboundData)) {
         var messageType = SocketHelper.getMessageType(message);
-        message = message.sublist(headerLength);
+        final payload = Uint8List.sublistView(
+          message,
+          headerLength,
+          message.length,
+        );
         if (messageType == SocketHelper.messageWamp) {
-          var deserializedMessage = _serializer.deserialize(message)!;
+          var deserializedMessage = _serializer.deserialize(payload)!;
           if (deserializedMessage is Goodbye) {
             _goodbyeReceived = true;
           }
@@ -325,18 +369,26 @@ class SocketTransport extends AbstractTransport {
         } else if (messageType == SocketHelper.messagePing) {
           // send pong
           _logger.finest(
-            'Responded to ping with pong and a payload length of ${message.length}',
+            'Responded to ping with pong and a payload length of ${payload.length}',
           );
-          _send0(SocketHelper.getPong(message.length, isUpgradedProtocol));
-          if (message.isNotEmpty) {
-            _send0(message);
+          _send0(SocketHelper.getPong(payload.length, isUpgradedProtocol));
+          if (payload.isNotEmpty) {
+            _send0(payload);
           }
-        } else {
+        } else if (messageType == SocketHelper.messagePong) {
           // received a pong
-          _pingCompleter!.complete(message);
+          if (_pingCompleter != null && !_pingCompleter!.isCompleted) {
+            _pingCompleter!.complete(payload);
+          }
           _logger.finest(
-            'Received a Pong with a payload length of ${message.length}',
+            'Received a Pong with a payload length of ${payload.length}',
           );
+        } else {
+          _sendProtocolError(SocketHelper.errorUseOfReservedBits);
+          _logger.shout(
+            'Closed raw socket channel because the received message type $messageType is unknown.',
+          );
+          break;
         }
       }
     } on Exception catch (error) {
@@ -350,21 +402,49 @@ class SocketTransport extends AbstractTransport {
     var messages = <Uint8List>[];
     var offset = 0;
     while (offset < inboundData.length) {
+      final remaining = inboundData.length - offset;
+      if (remaining < headerLength) {
+        _inboundBuffer = Uint8List.sublistView(
+          inboundData,
+          offset,
+          inboundData.length,
+        );
+        break;
+      }
       var messageLength = SocketHelper.getPayloadLength(
         inboundData,
         headerLength,
         offset: offset,
       );
+      if (messageLength > _messageLength!) {
+        _sendProtocolError(SocketHelper.errorMessageLengthExceeded);
+        _logger.fine(
+          'Closed raw socket channel because the message length exceeded the max value of $_messageLength',
+        );
+        break;
+      }
       if (offset + headerLength + messageLength <= inboundData.length) {
         // cut out the message
         messages.add(
-          inboundData.sublist(offset, offset + headerLength + messageLength),
+          Uint8List.sublistView(
+            inboundData,
+            offset,
+            offset + headerLength + messageLength,
+          ),
         );
       } else {
         // send the rest of the message back to the buffer
-        _inboundBuffer = inboundData.sublist(offset, inboundData.length);
+        _inboundBuffer = Uint8List.sublistView(
+          inboundData,
+          offset,
+          inboundData.length,
+        );
+        break;
       }
       offset += headerLength + messageLength;
+    }
+    if (offset >= inboundData.length) {
+      _inboundBuffer = Uint8List(0);
     }
     return messages;
   }

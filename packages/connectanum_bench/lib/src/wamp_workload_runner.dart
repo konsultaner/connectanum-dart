@@ -71,44 +71,20 @@ class WampWorkloadRunner {
     );
     final samples = <WampSample>[];
     try {
-      for (var iteration = 0; iteration < scenario.iterations; iteration++) {
-        final metadata = <String, Object?>{
-          'worker': workerId,
-          'iteration': iteration,
-        };
-        _logger.fine(
-          'PUBSUB publish start worker=$workerId iteration=$iteration uri=${scenario.uri}',
-        );
-        final eventFuture = eventBuffer
-            .nextWhere((event) => _matches(event, workerId, iteration))
-            .timeout(_eventTimeout);
-        final start = DateTime.now();
-        await publisher.publish(
-          scenario.uri,
-          arguments: [payload],
-          argumentsKeywords: metadata,
-          options: wamp_core.PublishOptions(acknowledge: true),
-        );
-        _logger.fine(
-          'PUBSUB publish acked worker=$workerId iteration=$iteration uri=${scenario.uri}',
-        );
-        final event = await eventFuture;
-        final latencyMs =
-            DateTime.now().difference(start).inMicroseconds / 1000.0;
-        samples.add(
-          WampSample(
-            worker: workerId,
-            iteration: iteration,
-            latencyMs: latencyMs,
-            requestBytes: scenario.payloadBytes,
-            responseBytes: scenario.payloadBytes,
+      samples.addAll(
+        await _runWithInFlightLimit(
+          iterations: scenario.iterations,
+          maxInFlight: scenario.inFlightPerSession,
+          launch: (iteration) => _runPubSubIteration(
+            workerId,
+            iteration,
+            scenario,
+            payload,
+            eventBuffer,
+            publisher,
           ),
-        );
-        _logger.fine(
-          'PUBSUB publish done worker=$workerId iteration=$iteration uri=${scenario.uri} '
-          'latency_ms=$latencyMs argsKeywords=${event.argumentsKeywords}',
-        );
-      }
+        ),
+      );
     } on TimeoutException catch (error) {
       _logger.severe(
         'PUBSUB timed out waiting for event '
@@ -118,12 +94,56 @@ class WampWorkloadRunner {
       );
       rethrow;
     } finally {
+      eventBuffer.close();
       await eventSub.cancel();
       await subscription.cancel();
       await subscriber.close();
       await publisher.close();
     }
     return samples;
+  }
+
+  Future<WampSample> _runPubSubIteration(
+    int workerId,
+    int iteration,
+    WampScenario scenario,
+    String payload,
+    WampEventBuffer eventBuffer,
+    WampSession publisher,
+  ) async {
+    final metadata = <String, Object?>{
+      'worker': workerId,
+      'iteration': iteration,
+    };
+    _logger.fine(
+      'PUBSUB publish start worker=$workerId iteration=$iteration uri=${scenario.uri}',
+    );
+    final eventFuture = eventBuffer
+        .nextWhere((event) => _matches(event, workerId, iteration))
+        .timeout(_eventTimeout);
+    final start = DateTime.now();
+    await publisher.publish(
+      scenario.uri,
+      arguments: [payload],
+      argumentsKeywords: metadata,
+      options: wamp_core.PublishOptions(acknowledge: true),
+    );
+    _logger.fine(
+      'PUBSUB publish acked worker=$workerId iteration=$iteration uri=${scenario.uri}',
+    );
+    final event = await eventFuture;
+    final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
+    _logger.fine(
+      'PUBSUB publish done worker=$workerId iteration=$iteration uri=${scenario.uri} '
+      'latency_ms=$latencyMs argsKeywords=${event.argumentsKeywords}',
+    );
+    return WampSample(
+      worker: workerId,
+      iteration: iteration,
+      latencyMs: latencyMs,
+      requestBytes: scenario.payloadBytes,
+      responseBytes: scenario.payloadBytes,
+    );
   }
 
   bool _matches(WampEvent event, int workerId, int iteration) {
@@ -168,41 +188,14 @@ class WampWorkloadRunner {
     final session = await _sessionFactory(scenario);
     final samples = <WampSample>[];
     try {
-      for (var iteration = 0; iteration < scenario.iterations; iteration++) {
-        _logger.fine(
-          'RPC call start worker=$workerId iteration=$iteration uri=${scenario.uri}',
-        );
-        final start = DateTime.now();
-        final resultStream = await session.call(
-          scenario.uri,
-          arguments: [payload],
-        );
-        await resultStream.first.timeout(
-          _eventTimeout,
-          onTimeout: () {
-            _logger.severe(
-              'RPC call timed out waiting for first result '
-              'worker=$workerId iteration=$iteration uri=${scenario.uri}',
-            );
-            throw TimeoutException('rpc_call_timeout');
-          },
-        );
-        final latencyMs =
-            DateTime.now().difference(start).inMicroseconds / 1000.0;
-        samples.add(
-          WampSample(
-            worker: workerId,
-            iteration: iteration,
-            latencyMs: latencyMs,
-            requestBytes: scenario.payloadBytes,
-            responseBytes: scenario.payloadBytes,
-          ),
-        );
-        _logger.fine(
-          'RPC call done worker=$workerId iteration=$iteration uri=${scenario.uri} '
-          'latency_ms=$latencyMs',
-        );
-      }
+      samples.addAll(
+        await _runWithInFlightLimit(
+          iterations: scenario.iterations,
+          maxInFlight: scenario.inFlightPerSession,
+          launch: (iteration) =>
+              _runRpcIteration(workerId, iteration, scenario, payload, session),
+        ),
+      );
     } on TimeoutException catch (error) {
       _logger.severe(
         'RPC call timed out worker=$workerId uri=${scenario.uri} '
@@ -212,6 +205,72 @@ class WampWorkloadRunner {
       rethrow;
     } finally {
       await session.close();
+    }
+    return samples;
+  }
+
+  Future<WampSample> _runRpcIteration(
+    int workerId,
+    int iteration,
+    WampScenario scenario,
+    String payload,
+    WampSession session,
+  ) async {
+    _logger.fine(
+      'RPC call start worker=$workerId iteration=$iteration uri=${scenario.uri}',
+    );
+    final start = DateTime.now();
+    final resultStream = await session.call(scenario.uri, arguments: [payload]);
+    await resultStream.first.timeout(
+      _eventTimeout,
+      onTimeout: () {
+        _logger.severe(
+          'RPC call timed out waiting for first result '
+          'worker=$workerId iteration=$iteration uri=${scenario.uri}',
+        );
+        throw TimeoutException('rpc_call_timeout');
+      },
+    );
+    final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
+    _logger.fine(
+      'RPC call done worker=$workerId iteration=$iteration uri=${scenario.uri} '
+      'latency_ms=$latencyMs',
+    );
+    return WampSample(
+      worker: workerId,
+      iteration: iteration,
+      latencyMs: latencyMs,
+      requestBytes: scenario.payloadBytes,
+      responseBytes: scenario.payloadBytes,
+    );
+  }
+
+  Future<List<WampSample>> _runWithInFlightLimit({
+    required int iterations,
+    required int maxInFlight,
+    required Future<WampSample> Function(int iteration) launch,
+  }) async {
+    final samples = <WampSample>[];
+    final pending = <_PendingWampSample>[];
+    final boundedInFlight = maxInFlight.clamp(1, iterations);
+    var nextIteration = 0;
+    while (nextIteration < iterations || pending.isNotEmpty) {
+      while (nextIteration < iterations && pending.length < boundedInFlight) {
+        final iteration = nextIteration;
+        pending.add(
+          _PendingWampSample(
+            iteration: iteration,
+            future: launch(iteration).then(
+              (sample) =>
+                  _CompletedWampSample(iteration: iteration, sample: sample),
+            ),
+          ),
+        );
+        nextIteration += 1;
+      }
+      final completed = await Future.any(pending.map((entry) => entry.future));
+      pending.removeWhere((entry) => entry.iteration == completed.iteration);
+      samples.add(completed.sample);
     }
     return samples;
   }
@@ -245,20 +304,20 @@ class WampSubscription {
 
 class WampEventBuffer {
   final Queue<WampEvent> _buffer = Queue<WampEvent>();
-  bool Function(WampEvent)? _matcher;
-  Completer<WampEvent>? _pending;
+  final Queue<_PendingWampEvent> _pending = Queue<_PendingWampEvent>();
   bool _closed = false;
   Object? _error;
   StackTrace? _stackTrace;
 
   void add(WampEvent event) {
-    final matcher = _matcher;
-    final pending = _pending;
-    if (matcher != null && pending != null && !pending.isCompleted) {
-      if (matcher(event)) {
-        _matcher = null;
-        _pending = null;
-        pending.complete(event);
+    for (final pending in _pending.toList(growable: false)) {
+      if (pending.completer.isCompleted) {
+        _pending.remove(pending);
+        continue;
+      }
+      if (pending.matcher(event)) {
+        _pending.remove(pending);
+        pending.completer.complete(event);
         return;
       }
     }
@@ -266,11 +325,19 @@ class WampEventBuffer {
   }
 
   Future<WampEvent> nextWhere(bool Function(WampEvent) matcher) {
+    final replayBuffer = Queue<WampEvent>();
+    WampEvent? matchedEvent;
     while (_buffer.isNotEmpty) {
       final event = _buffer.removeFirst();
-      if (matcher(event)) {
-        return Future<WampEvent>.value(event);
+      if (matchedEvent == null && matcher(event)) {
+        matchedEvent = event;
+        continue;
       }
+      replayBuffer.addLast(event);
+    }
+    _buffer.addAll(replayBuffer);
+    if (matchedEvent != null) {
+      return Future<WampEvent>.value(matchedEvent);
     }
     if (_error != null) {
       return Future<WampEvent>.error(_error!, _stackTrace);
@@ -278,22 +345,18 @@ class WampEventBuffer {
     if (_closed) {
       return Future<WampEvent>.error(StateError('No element'));
     }
-    if (_pending != null && !_pending!.isCompleted) {
-      throw StateError('nextWhere already pending');
-    }
     final completer = Completer<WampEvent>();
-    _matcher = matcher;
-    _pending = completer;
+    _pending.addLast(_PendingWampEvent(matcher: matcher, completer: completer));
     return completer.future;
   }
 
   void close() {
     _closed = true;
-    final pending = _pending;
-    if (pending != null && !pending.isCompleted) {
-      _matcher = null;
-      _pending = null;
-      pending.completeError(StateError('No element'));
+    while (_pending.isNotEmpty) {
+      final pending = _pending.removeFirst();
+      if (!pending.completer.isCompleted) {
+        pending.completer.completeError(StateError('No element'));
+      }
     }
   }
 
@@ -301,14 +364,20 @@ class WampEventBuffer {
     _error = error;
     _stackTrace = stackTrace;
     _closed = true;
-    final pending = _pending;
-    if (pending != null && !pending.isCompleted) {
-      _matcher = null;
-      _pending = null;
-      pending.completeError(error, stackTrace);
-      return;
+    while (_pending.isNotEmpty) {
+      final pending = _pending.removeFirst();
+      if (!pending.completer.isCompleted) {
+        pending.completer.completeError(error, stackTrace);
+      }
     }
   }
+}
+
+class _PendingWampEvent {
+  _PendingWampEvent({required this.matcher, required this.completer});
+
+  final bool Function(WampEvent event) matcher;
+  final Completer<WampEvent> completer;
 }
 
 class WampEvent {
@@ -493,6 +562,7 @@ class WampScenario {
     required this.uri,
     required this.iterations,
     required this.concurrency,
+    this.inFlightPerSession = 1,
     required this.payloadBytes,
   });
 
@@ -502,6 +572,7 @@ class WampScenario {
   final String uri;
   final int iterations;
   final int concurrency;
+  final int inFlightPerSession;
   final int payloadBytes;
 
   factory WampScenario.fromJson(Map<String, Object?> json) {
@@ -514,6 +585,10 @@ class WampScenario {
     final rawSerializer = json['serializer'];
     final iterations = _readPositiveInt(json['iterations'], fallback: 1);
     final concurrency = _readPositiveInt(json['concurrency'], fallback: 1);
+    final inFlightPerSession = _readPositiveInt(
+      json['in_flight_per_session'],
+      fallback: 1,
+    );
     final payloadBytes = _readPositiveInt(json['payload_bytes'], fallback: 0);
     return WampScenario(
       transport: WampTransport.parse(rawTransport),
@@ -522,6 +597,7 @@ class WampScenario {
       uri: uri,
       iterations: iterations,
       concurrency: concurrency,
+      inFlightPerSession: inFlightPerSession,
       payloadBytes: payloadBytes,
     );
   }
@@ -631,4 +707,18 @@ class WampSample {
     'request_bytes': requestBytes,
     'response_bytes': responseBytes,
   };
+}
+
+class _PendingWampSample {
+  _PendingWampSample({required this.iteration, required this.future});
+
+  final int iteration;
+  final Future<_CompletedWampSample> future;
+}
+
+class _CompletedWampSample {
+  _CompletedWampSample({required this.iteration, required this.sample});
+
+  final int iteration;
+  final WampSample sample;
 }

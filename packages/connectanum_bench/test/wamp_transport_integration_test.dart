@@ -120,72 +120,32 @@ void main() {
         eventTimeout: const Duration(seconds: 5),
       );
 
-      final rawPubSub = await runner.run(
-        WampScenario(
-          transport: WampTransport.rawsocket,
-          serializer: WampSerializer.json,
-          mode: WampMode.pubsub,
-          uri: 'bench.topic',
-          iterations: 4,
-          concurrency: 2,
-          payloadBytes: 32,
-        ),
-      );
-      final rawRpc = await runner.run(
-        WampScenario(
-          transport: WampTransport.rawsocket,
-          serializer: WampSerializer.msgpack,
-          mode: WampMode.rpc,
-          uri: 'bench.rpc.echo',
-          iterations: 4,
-          concurrency: 2,
-          payloadBytes: 32,
-        ),
-      );
-      final rawRpcCbor = await runner.run(
-        WampScenario(
-          transport: WampTransport.rawsocket,
-          serializer: WampSerializer.cbor,
-          mode: WampMode.rpc,
-          uri: 'bench.rpc.echo',
-          iterations: 4,
-          concurrency: 2,
-          payloadBytes: 32,
-        ),
-      );
-      final webSocketPubSub = await runner.run(
-        WampScenario(
-          transport: WampTransport.websocket,
-          serializer: WampSerializer.json,
-          mode: WampMode.pubsub,
-          uri: 'bench.topic',
-          iterations: 4,
-          concurrency: 2,
-          payloadBytes: 32,
-        ),
-      );
-      final webSocketRpcMsgPack = await runner.run(
-        WampScenario(
-          transport: WampTransport.websocket,
-          serializer: WampSerializer.msgpack,
-          mode: WampMode.rpc,
-          uri: 'bench.rpc.echo',
-          iterations: 4,
-          concurrency: 2,
-          payloadBytes: 32,
-        ),
-      );
-      final webSocketRpc = await runner.run(
-        WampScenario(
-          transport: WampTransport.websocket,
-          serializer: WampSerializer.cbor,
-          mode: WampMode.rpc,
-          uri: 'bench.rpc.echo',
-          iterations: 4,
-          concurrency: 2,
-          payloadBytes: 32,
-        ),
-      );
+      const iterations = 4;
+      const concurrency = 2;
+      final scenarios = <WampScenario>[
+        for (final transport in WampTransport.values)
+          for (final mode in WampMode.values)
+            for (final serializer in WampSerializer.values)
+              WampScenario(
+                transport: transport,
+                serializer: serializer,
+                mode: mode,
+                uri: mode == WampMode.pubsub ? 'bench.topic' : 'bench.rpc.echo',
+                iterations: iterations,
+                concurrency: concurrency,
+                payloadBytes: 32,
+              ),
+      ];
+      for (final scenario in scenarios) {
+        final samples = await runner.run(scenario);
+        expect(
+          samples,
+          hasLength(iterations * concurrency),
+          reason:
+              '${scenario.transport.name}/${scenario.mode.name}/${scenario.serializer.name}',
+        );
+      }
+
       final rawRpcCborLarge = await runner.run(
         WampScenario(
           transport: WampTransport.rawsocket,
@@ -194,6 +154,7 @@ void main() {
           uri: 'bench.rpc.echo',
           iterations: 8,
           concurrency: 4,
+          inFlightPerSession: 2,
           payloadBytes: 16384,
         ),
       );
@@ -205,16 +166,11 @@ void main() {
           uri: 'bench.rpc.echo',
           iterations: 8,
           concurrency: 4,
+          inFlightPerSession: 2,
           payloadBytes: 16384,
         ),
       );
 
-      expect(rawPubSub, hasLength(8));
-      expect(rawRpc, hasLength(8));
-      expect(rawRpcCbor, hasLength(8));
-      expect(webSocketPubSub, hasLength(8));
-      expect(webSocketRpcMsgPack, hasLength(8));
-      expect(webSocketRpc, hasLength(8));
       expect(rawRpcCborLarge, hasLength(32));
       expect(webSocketRpcCborLarge, hasLength(32));
     },

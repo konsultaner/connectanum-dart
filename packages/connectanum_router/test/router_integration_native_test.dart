@@ -707,20 +707,21 @@ void main() {
     });
 
     test('forwards progressive and final results', () async {
+      const stepTimeout = Duration(seconds: 10);
       final harness = await _RouterHarness.start(
         connectionId: 9102,
         nativeLib: nativeLib,
       );
       addTearDown(harness.dispose);
 
-      await harness.ensureSession();
-      await harness.registerProcedure();
+      await harness.ensureSession().timeout(stepTimeout);
+      await harness.registerProcedure().timeout(stepTimeout);
 
       const requestId = 42;
       harness.enqueueCall(requestId: requestId, receiveProgress: true);
-      final invocationEvent = await harness.nextEvent(
-        'worker_forward_native_invocation',
-      );
+      final invocationEvent = await harness
+          .nextEvent('worker_forward_native_invocation')
+          .timeout(stepTimeout);
       final invocationId = invocationEvent['invocationId'] as int;
 
       harness.enqueueYield(
@@ -728,9 +729,9 @@ void main() {
         progress: true,
         arguments: const ['chunk'],
       );
-      final progressEvent = await harness.nextEvent(
-        'worker_forward_native_result',
-      );
+      final progressEvent = await harness
+          .nextEvent('worker_forward_native_result')
+          .timeout(stepTimeout);
       expect(progressEvent['progress'], isTrue);
       expect(progressEvent['requestId'], equals(requestId));
 
@@ -739,30 +740,31 @@ void main() {
         progress: false,
         arguments: const ['complete'],
       );
-      final finalEvent = await harness.nextEvent(
-        'worker_forward_native_result',
-      );
+      final finalEvent = await harness
+          .nextEvent('worker_forward_native_result')
+          .timeout(stepTimeout);
       expect(finalEvent['progress'], isFalse);
       expect(finalEvent['requestId'], equals(requestId));
 
-      await harness.expectInvocationCleared(invocationId);
+      await harness.expectInvocationCleared(invocationId).timeout(stepTimeout);
     }, skip: skipReason);
 
     test('propagates callee errors', () async {
+      const stepTimeout = Duration(seconds: 10);
       final harness = await _RouterHarness.start(
         connectionId: 9102,
         nativeLib: nativeLib,
       );
       addTearDown(harness.dispose);
 
-      await harness.ensureSession();
-      await harness.registerProcedure();
+      await harness.ensureSession().timeout(stepTimeout);
+      await harness.registerProcedure().timeout(stepTimeout);
 
       const requestId = 99;
       harness.enqueueCall(requestId: requestId);
-      final invocationEvent = await harness.nextEvent(
-        'worker_forward_native_invocation',
-      );
+      final invocationEvent = await harness
+          .nextEvent('worker_forward_native_invocation')
+          .timeout(stepTimeout);
       final invocationId = invocationEvent['invocationId'] as int;
 
       harness.enqueueInvocationError(
@@ -770,35 +772,38 @@ void main() {
         errorUri: 'wamp.error.runtime_error',
       );
 
-      final errorEvent = await harness.nextEvent('worker_forward_native_error');
+      final errorEvent = await harness
+          .nextEvent('worker_forward_native_error')
+          .timeout(stepTimeout);
       expect(errorEvent['connectionId'], equals(9102));
       expect(errorEvent['requestId'], equals(requestId));
 
-      await harness.expectInvocationCleared(invocationId);
+      await harness.expectInvocationCleared(invocationId).timeout(stepTimeout);
     }, skip: skipReason);
 
     test('handles caller cancellation', () async {
+      const stepTimeout = Duration(seconds: 10);
       final harness = await _RouterHarness.start(
         connectionId: 9102,
         nativeLib: nativeLib,
       );
       addTearDown(harness.dispose);
 
-      await harness.ensureSession();
-      await harness.registerProcedure();
+      await harness.ensureSession().timeout(stepTimeout);
+      await harness.registerProcedure().timeout(stepTimeout);
 
       const requestId = 123;
       harness.enqueueCall(requestId: requestId);
-      final invocationEvent = await harness.nextEvent(
-        'worker_forward_native_invocation',
-      );
+      final invocationEvent = await harness
+          .nextEvent('worker_forward_native_invocation')
+          .timeout(stepTimeout);
       final invocationId = invocationEvent['invocationId'] as int;
 
       harness.enqueueCancel(requestId: requestId, mode: 'killnowait');
 
-      await harness.nextEvent('worker_forward_message');
+      await harness.nextEvent('worker_forward_message').timeout(stepTimeout);
 
-      await harness.expectInvocationCleared(invocationId);
+      await harness.expectInvocationCleared(invocationId).timeout(stepTimeout);
     }, skip: skipReason);
 
     test(

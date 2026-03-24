@@ -56,7 +56,9 @@ void main() {
     });
 
     test('executes RPC scenario via session.call', () async {
-      final broker = _FakeWampBroker();
+      final broker = _FakeWampBroker(
+        callDelay: const Duration(milliseconds: 10),
+      );
       final runner = WampWorkloadRunner(
         sessionFactory: (_) async => _FakeWampSession(broker),
         logger: Logger.detached('rpc_test'),
@@ -69,6 +71,7 @@ void main() {
         uri: 'bench.rpc.echo',
         iterations: 2,
         concurrency: 3,
+        inFlightPerSession: 2,
         payloadBytes: 16,
       );
 
@@ -76,6 +79,55 @@ void main() {
 
       expect(samples, hasLength(6));
       expect(broker.callCounts['bench.rpc.echo'], 6);
+      expect(broker.maxConcurrentCalls, greaterThanOrEqualTo(2));
+    });
+
+    test(
+      'executes pubsub scenario with multiple in-flight publishes per worker',
+      () async {
+        final broker = _FakeWampBroker(
+          publishDelay: const Duration(milliseconds: 10),
+        );
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async => _FakeWampSession(broker),
+          logger: Logger.detached('pubsub_inflight_test'),
+          eventTimeout: const Duration(seconds: 1),
+        );
+        final scenario = WampScenario(
+          transport: WampTransport.rawsocket,
+          serializer: WampSerializer.json,
+          mode: WampMode.pubsub,
+          uri: 'bench.topic',
+          iterations: 4,
+          concurrency: 1,
+          inFlightPerSession: 2,
+          payloadBytes: 16,
+        );
+
+        final samples = await runner.run(scenario);
+
+        expect(samples, hasLength(4));
+        expect(broker.maxConcurrentPublishes, greaterThanOrEqualTo(2));
+      },
+    );
+
+    test('supports multiple concurrent event waiters', () async {
+      final buffer = WampEventBuffer();
+      final waiterOne = buffer.nextWhere(
+        (event) => event.argumentsKeywords?['worker'] == 1,
+      );
+      final waiterTwo = buffer.nextWhere(
+        (event) => event.argumentsKeywords?['worker'] == 2,
+      );
+
+      buffer.add(WampEvent(argumentsKeywords: const {'worker': 2}));
+      buffer.add(WampEvent(argumentsKeywords: const {'worker': 1}));
+
+      final eventOne = await waiterOne;
+      final eventTwo = await waiterTwo;
+
+      expect(eventOne.argumentsKeywords?['worker'], 1);
+      expect(eventTwo.argumentsKeywords?['worker'], 2);
     });
 
     test('RPC scenario times out when call never yields', () async {
@@ -175,6 +227,17 @@ void main() {
 
       expect(scenario.serializer, WampSerializer.cbor);
     });
+
+    test('parses in-flight-per-session overrides', () {
+      final scenario = WampScenario.fromJson({
+        'transport': 'rawsocket',
+        'mode': 'rpc',
+        'uri': 'bench.rpc.echo',
+        'in_flight_per_session': 4,
+      });
+
+      expect(scenario.inFlightPerSession, 4);
+    });
   });
 
   group('WampEventBuffer', () {
@@ -213,11 +276,21 @@ void main() {
 }
 
 class _FakeWampBroker {
-  _FakeWampBroker({this.dropMetadata = false});
+  _FakeWampBroker({
+    this.dropMetadata = false,
+    this.callDelay = Duration.zero,
+    this.publishDelay = Duration.zero,
+  });
 
   final Map<String, List<StreamController<WampEvent>>> _subscribers = {};
   final Map<String, int> callCounts = {};
   final bool dropMetadata;
+  final Duration callDelay;
+  final Duration publishDelay;
+  int _activeCalls = 0;
+  int maxConcurrentCalls = 0;
+  int _activePublishes = 0;
+  int maxConcurrentPublishes = 0;
 
   void addSubscriber(String topic, StreamController<WampEvent> controller) {
     final list = _subscribers.putIfAbsent(topic, () => []);
@@ -256,6 +329,28 @@ class _FakeWampBroker {
   void recordCall(String procedure) {
     callCounts[procedure] = (callCounts[procedure] ?? 0) + 1;
   }
+
+  void beginCall() {
+    _activeCalls += 1;
+    if (_activeCalls > maxConcurrentCalls) {
+      maxConcurrentCalls = _activeCalls;
+    }
+  }
+
+  void endCall() {
+    _activeCalls -= 1;
+  }
+
+  void beginPublish() {
+    _activePublishes += 1;
+    if (_activePublishes > maxConcurrentPublishes) {
+      maxConcurrentPublishes = _activePublishes;
+    }
+  }
+
+  void endPublish() {
+    _activePublishes -= 1;
+  }
 }
 
 class _FakeWampSession implements WampSession {
@@ -271,11 +366,19 @@ class _FakeWampSession implements WampSession {
     Map<String, Object?>? argumentsKeywords,
     wamp_core.PublishOptions? options,
   }) async {
-    _broker.publish(
-      topic,
-      arguments: arguments,
-      argumentsKeywords: argumentsKeywords,
-    );
+    _broker.beginPublish();
+    try {
+      if (_broker.publishDelay > Duration.zero) {
+        await Future<void>.delayed(_broker.publishDelay);
+      }
+      _broker.publish(
+        topic,
+        arguments: arguments,
+        argumentsKeywords: argumentsKeywords,
+      );
+    } finally {
+      _broker.endPublish();
+    }
   }
 
   @override
@@ -304,7 +407,11 @@ class _FakeWampSession implements WampSession {
     wamp_core.CallOptions? options,
   }) async {
     _broker.recordCall(procedure);
-    return Stream.value(null);
+    _broker.beginCall();
+    final response = Future<dynamic>.delayed(
+      _broker.callDelay,
+    ).whenComplete(_broker.endCall);
+    return Stream.fromFuture(response);
   }
 
   @override

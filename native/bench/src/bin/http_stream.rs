@@ -761,6 +761,8 @@ struct WorkloadConfig {
     iterations: u32,
     #[serde(default = "default_concurrency")]
     concurrency: u32,
+    #[serde(default = "default_in_flight_per_session")]
+    in_flight_per_session: u32,
     #[serde(default = "default_request_bytes")]
     request_bytes: u64,
     #[serde(default = "default_response_bytes")]
@@ -798,6 +800,10 @@ fn default_iterations() -> u32 {
 }
 
 fn default_concurrency() -> u32 {
+    1
+}
+
+fn default_in_flight_per_session() -> u32 {
     1
 }
 
@@ -934,6 +940,7 @@ struct PreparedWorkload {
     path: String,
     iterations: u32,
     concurrency: u32,
+    in_flight_per_session: u32,
     request_bytes: u64,
     response_bytes: u64,
     request_chunk_bytes: u64,
@@ -949,6 +956,12 @@ impl PreparedWorkload {
         }
         if config.concurrency == 0 {
             bail!("workload {} must have concurrency >= 1", config.name);
+        }
+        if config.in_flight_per_session == 0 {
+            bail!(
+                "workload {} must have in_flight_per_session >= 1",
+                config.name
+            );
         }
         if config.request_chunk_bytes == 0 {
             bail!("request_chunk_bytes must be > 0");
@@ -989,6 +1002,7 @@ impl PreparedWorkload {
             path,
             iterations: config.iterations,
             concurrency: config.concurrency,
+            in_flight_per_session: config.in_flight_per_session,
             request_bytes: config.request_bytes,
             response_bytes: config.response_bytes,
             request_chunk_bytes: config.request_chunk_bytes,
@@ -1112,10 +1126,17 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
             "disabled"
         }
     );
-    println!(
-        "  Streams per connection: {}",
-        workload.streams_per_connection
-    );
+    if workload.is_wamp() {
+        println!(
+            "  In-flight operations per session: {}",
+            workload.in_flight_per_session
+        );
+    } else {
+        println!(
+            "  Streams per connection: {}",
+            workload.streams_per_connection
+        );
+    }
 }
 
 fn format_bytes(bytes: u64) -> String {
@@ -1157,6 +1178,7 @@ fn run_wamp_workload(
         "uri": workload.path,
         "iterations": workload.iterations,
         "concurrency": workload.concurrency,
+        "in_flight_per_session": workload.in_flight_per_session,
         "payload_bytes": workload.request_bytes,
     });
     let response = http_control.post_json("wamp", &body)?;
@@ -2294,6 +2316,7 @@ mod tests {
             path: default_path(),
             iterations: default_iterations(),
             concurrency: default_concurrency(),
+            in_flight_per_session: default_in_flight_per_session(),
             request_bytes: default_request_bytes(),
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
@@ -2334,6 +2357,7 @@ mod tests {
             path: "bench.topic".to_string(),
             iterations: default_iterations(),
             concurrency: default_concurrency(),
+            in_flight_per_session: default_in_flight_per_session(),
             request_bytes: default_request_bytes(),
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
@@ -2357,6 +2381,7 @@ mod tests {
             path: "bench.rpc.echo".to_string(),
             iterations: default_iterations(),
             concurrency: default_concurrency(),
+            in_flight_per_session: default_in_flight_per_session(),
             request_bytes: default_request_bytes(),
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
@@ -2370,6 +2395,29 @@ mod tests {
     }
 
     #[test]
+    fn prepared_workload_preserves_wamp_in_flight_setting() {
+        let config = WorkloadConfig {
+            name: "load".to_string(),
+            protocol: "wamp_websocket_rpc".to_string(),
+            serializer: default_wamp_serializer(),
+            method: default_method(),
+            path: "bench.rpc.echo".to_string(),
+            iterations: default_iterations(),
+            concurrency: default_concurrency(),
+            in_flight_per_session: 4,
+            request_bytes: default_request_bytes(),
+            response_bytes: default_response_bytes(),
+            request_chunk_bytes: default_chunk_bytes(),
+            response_chunk_bytes: None,
+            warmup_ms: None,
+            reuse_connections: default_reuse_connections(),
+            streams_per_connection: default_streams_per_connection(),
+        };
+        let prepared = PreparedWorkload::from_config(&config).unwrap();
+        assert_eq!(prepared.in_flight_per_session, 4);
+    }
+
+    #[test]
     fn prepared_workload_rejects_invalid_h2_stream_multiplexing_config() {
         let config = WorkloadConfig {
             name: "load".to_string(),
@@ -2379,6 +2427,7 @@ mod tests {
             path: default_path(),
             iterations: default_iterations(),
             concurrency: default_concurrency(),
+            in_flight_per_session: default_in_flight_per_session(),
             request_bytes: default_request_bytes(),
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
@@ -2403,6 +2452,7 @@ mod tests {
             path: default_path(),
             iterations: default_iterations(),
             concurrency: default_concurrency(),
+            in_flight_per_session: default_in_flight_per_session(),
             request_bytes: default_request_bytes(),
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
@@ -2427,6 +2477,7 @@ mod tests {
             path: default_path(),
             iterations: default_iterations(),
             concurrency: default_concurrency(),
+            in_flight_per_session: default_in_flight_per_session(),
             request_bytes: default_request_bytes(),
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
@@ -2453,6 +2504,7 @@ mod tests {
             path: "/bench/stream".to_string(),
             iterations: 1,
             concurrency: 1,
+            in_flight_per_session: default_in_flight_per_session(),
             request_bytes: 0,
             response_bytes: 0,
             request_chunk_bytes: 1024,
@@ -2885,6 +2937,7 @@ mod tests {
             path: "/bench/stream".to_string(),
             iterations: 3,
             concurrency: 1,
+            in_flight_per_session: default_in_flight_per_session(),
             request_bytes: 0,
             response_bytes: 0,
             request_chunk_bytes: 1024,
@@ -2906,6 +2959,7 @@ mod tests {
             path: "/bench/stream".to_string(),
             iterations: 3,
             concurrency: 1,
+            in_flight_per_session: default_in_flight_per_session(),
             request_bytes: 0,
             response_bytes: 0,
             request_chunk_bytes: 1024,
@@ -2927,6 +2981,7 @@ mod tests {
             path: "/bench/stream".to_string(),
             iterations: 3,
             concurrency: 1,
+            in_flight_per_session: default_in_flight_per_session(),
             request_bytes: 0,
             response_bytes: 0,
             request_chunk_bytes: 1024,

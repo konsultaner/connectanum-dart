@@ -121,7 +121,7 @@ class Client {
   ///
   /// After calling the method, this instance of Client can no longer be used.
   Future<void> disconnect() async {
-    _logger.shout('Disconnecting');
+    _logger.fine('Disconnecting');
     _changeState(_ClientState.done);
     await _connectStreamSubscription?.cancel();
     if (!_connectStreamController.isClosed) {

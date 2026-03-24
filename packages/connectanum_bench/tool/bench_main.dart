@@ -89,7 +89,7 @@ Future<void> main(List<String> args) async {
 
 void _configureLogging({required bool verbose}) {
   Logger.root
-    ..level = verbose ? Level.ALL : Level.INFO
+    ..level = verbose ? Level.ALL : Level.WARNING
     ..onRecord.listen((record) {
       final time = record.time.toIso8601String();
       final logger = record.loggerName;

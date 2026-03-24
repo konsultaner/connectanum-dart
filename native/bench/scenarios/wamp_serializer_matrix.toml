@@ -8,6 +8,7 @@ serializer = "json"
 path = "bench.rpc.echo"
 iterations = 80
 concurrency = 8
+in_flight_per_session = 4
 request_bytes = 16384
 
 [[workloads]]
@@ -17,6 +18,7 @@ serializer = "msgpack"
 path = "bench.rpc.echo"
 iterations = 80
 concurrency = 8
+in_flight_per_session = 4
 request_bytes = 16384
 
 [[workloads]]
@@ -26,6 +28,7 @@ serializer = "cbor"
 path = "bench.rpc.echo"
 iterations = 80
 concurrency = 8
+in_flight_per_session = 4
 request_bytes = 16384
 
 [[workloads]]
@@ -35,6 +38,7 @@ serializer = "json"
 path = "bench.rpc.echo"
 iterations = 80
 concurrency = 8
+in_flight_per_session = 4
 request_bytes = 16384
 
 [[workloads]]
@@ -44,6 +48,7 @@ serializer = "msgpack"
 path = "bench.rpc.echo"
 iterations = 80
 concurrency = 8
+in_flight_per_session = 4
 request_bytes = 16384
 
 [[workloads]]
@@ -53,4 +58,5 @@ serializer = "cbor"
 path = "bench.rpc.echo"
 iterations = 80
 concurrency = 8
+in_flight_per_session = 4
 request_bytes = 16384
