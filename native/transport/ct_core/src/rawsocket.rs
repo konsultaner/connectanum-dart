@@ -153,6 +153,107 @@ pub async fn negotiate(
     })
 }
 
+pub async fn connect(
+    mut stream: IoStream,
+    serializer: Serializer,
+    desired_exponent: u32,
+    handshake_timeout: Duration,
+) -> Result<NegotiatedSession, HandshakeError> {
+    let requested_exponent =
+        desired_exponent.min(crate::config::CONNECTANUM_MAX_RAWSOCKET_SIZE_EXPONENT);
+    let serializer_id = serializer_to_wire_id(serializer)
+        .ok_or(HandshakeError::Protocol("unsupported serializer"))?;
+    let base_exponent = requested_exponent.min(24);
+    let header = [
+        RAWSOCKET_MAGIC,
+        (((base_exponent.saturating_sub(9)).min(15) as u8) << 4) | serializer_id,
+        0,
+        0,
+    ];
+    time::timeout(handshake_timeout, stream.write_all(&header))
+        .await
+        .map_err(|_| HandshakeError::Protocol("rawsocket handshake timed out"))??;
+
+    let mut response = [0u8; 4];
+    read_with_timeout(&mut stream, &mut response, handshake_timeout).await?;
+    if response[0] != RAWSOCKET_MAGIC {
+        return Err(HandshakeError::Protocol("invalid rawsocket response magic"));
+    }
+    if response[2] != 0 || response[3] != 0 {
+        return Err(HandshakeError::Protocol(
+            "rawsocket reserved bits must be zero",
+        ));
+    }
+    let serializer_id = response[1] & 0x0F;
+    if serializer_id == 0 {
+        let response_code = response[1] >> 4;
+        return Err(HandshakeError::Protocol(match response_code {
+            ERROR_SERIALIZER_UNSUPPORTED => "rawsocket serializer unsupported",
+            ERROR_MESSAGE_LENGTH_EXCEEDED => "rawsocket message length exceeded",
+            ERROR_RESERVED_BITS => "rawsocket reserved bits error",
+            _ => "rawsocket handshake failed",
+        }));
+    }
+    let negotiated_serializer = serializer_from_wire_id(serializer_id).ok_or(
+        HandshakeError::Protocol("rawsocket serializer response invalid"),
+    )?;
+    if negotiated_serializer != serializer {
+        return Err(HandshakeError::Protocol("rawsocket serializer mismatch"));
+    }
+
+    let mut final_exponent = ((response[1] & 0xF0) >> 4) as u32 + 9;
+    let mut upgraded = false;
+    if requested_exponent > 24 && final_exponent >= 24 {
+        let upgrade = [
+            RAWSOCKET_UPGRADE_MAGIC,
+            ((requested_exponent - 25).min(15) as u8) & 0x0F,
+        ];
+        time::timeout(handshake_timeout, stream.write_all(&upgrade))
+            .await
+            .map_err(|_| HandshakeError::Protocol("rawsocket upgrade timed out"))??;
+        let mut upgrade_response = [0u8; 2];
+        read_with_timeout(&mut stream, &mut upgrade_response, handshake_timeout).await?;
+        if upgrade_response[0] != RAWSOCKET_UPGRADE_MAGIC {
+            return Err(HandshakeError::Protocol(
+                "invalid rawsocket upgrade response",
+            ));
+        }
+        final_exponent = ((upgrade_response[1] & 0x0F) as u32) + 25;
+        upgraded = true;
+    }
+
+    let _ = stream.set_nodelay(true);
+    let (reader, writer) = tokio::io::split(stream);
+    Ok(NegotiatedSession {
+        reader,
+        writer,
+        serializer,
+        max_message_size_exponent: final_exponent,
+        upgraded,
+    })
+}
+
+fn serializer_to_wire_id(serializer: Serializer) -> Option<u8> {
+    match serializer {
+        Serializer::Json => Some(SERIALIZER_JSON),
+        Serializer::MessagePack => Some(SERIALIZER_MSGPACK),
+        Serializer::Cbor => Some(SERIALIZER_CBOR),
+        Serializer::Ubjson => Some(SERIALIZER_UBJSON),
+        Serializer::Flatbuffers => Some(SERIALIZER_FLATBUFFERS),
+    }
+}
+
+fn serializer_from_wire_id(value: u8) -> Option<Serializer> {
+    match value {
+        SERIALIZER_JSON => Some(Serializer::Json),
+        SERIALIZER_MSGPACK => Some(Serializer::MessagePack),
+        SERIALIZER_CBOR => Some(Serializer::Cbor),
+        SERIALIZER_UBJSON => Some(Serializer::Ubjson),
+        SERIALIZER_FLATBUFFERS => Some(Serializer::Flatbuffers),
+        _ => None,
+    }
+}
+
 async fn read_with_timeout(
     stream: &mut IoStream,
     buf: &mut [u8],

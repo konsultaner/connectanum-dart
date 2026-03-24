@@ -1,0 +1,419 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:connectanum_core/cbor_serializer.dart' as serializer_cbor;
+import 'package:connectanum_core/connectanum_core.dart';
+import 'package:connectanum_core/json_serializer.dart' as serializer_json;
+import 'package:connectanum_core/msgpack_serializer.dart' as serializer_msgpack;
+import 'package:logging/logging.dart';
+
+import '../abstract_transport.dart';
+import '../socket/socket_helper.dart';
+import '../websocket/websocket_transport_serialization.dart';
+import 'runtime.dart';
+
+final _nativeMessageAnchor = Expando<NativeIncomingMessage>(
+  'connectanum.native.message',
+);
+
+abstract class _NativeTransportBase extends AbstractTransport {
+  _NativeTransportBase(this._serializer, this._nativeSerializer);
+
+  final AbstractSerializer _serializer;
+  final NativeMessageSerializer _nativeSerializer;
+  final NativeClientRuntime _runtime = NativeClientRuntime.instance();
+
+  StreamController<AbstractMessage?>? _messageController;
+  Completer<void>? _onReadyCompleter;
+  Completer<dynamic>? _onConnectionLostCompleter;
+  Completer<dynamic>? _onDisconnectCompleter;
+  int? _connectionId;
+  bool _pumpStarted = false;
+  bool _closeRequested = false;
+  bool _goodbyeSent = false;
+  bool _goodbyeReceived = false;
+
+  Future<int> openNativeConnection(Duration? pingInterval);
+
+  Logger get logger;
+
+  @override
+  Completer? get onConnectionLost => _onConnectionLostCompleter;
+
+  @override
+  Completer? get onDisconnect => _onDisconnectCompleter;
+
+  @override
+  bool get isOpen =>
+      _connectionId != null &&
+      !(_onConnectionLostCompleter?.isCompleted ?? true) &&
+      !(_onDisconnectCompleter?.isCompleted ?? true);
+
+  @override
+  bool get isReady => isOpen && (_onReadyCompleter?.isCompleted ?? false);
+
+  @override
+  Future<void> get onReady => _onReadyCompleter!.future;
+
+  int? get connectionId => _connectionId;
+
+  @override
+  Future<void> open({Duration? pingInterval}) async {
+    if (isOpen) {
+      return;
+    }
+    _closeRequested = false;
+    _goodbyeSent = false;
+    _goodbyeReceived = false;
+    _pumpStarted = false;
+    _messageController = StreamController<AbstractMessage?>.broadcast();
+    _onReadyCompleter = Completer<void>();
+    _onConnectionLostCompleter = Completer<dynamic>();
+    _onDisconnectCompleter = Completer<dynamic>();
+    try {
+      final connectionId = await openNativeConnection(pingInterval);
+      _connectionId = connectionId;
+      _onReadyCompleter!.complete();
+    } catch (error, stackTrace) {
+      if (!(_onReadyCompleter?.isCompleted ?? true)) {
+        _onReadyCompleter!.completeError(error, stackTrace);
+      }
+      if (!(_onConnectionLostCompleter?.isCompleted ?? true)) {
+        _onConnectionLostCompleter!.complete(error);
+      }
+    }
+  }
+
+  @override
+  Stream<AbstractMessage?> receive() {
+    final controller = _messageController;
+    if (controller == null) {
+      throw StateError('Transport must be opened before receive() is used.');
+    }
+    final connectionId = _connectionId;
+    if (!_pumpStarted && connectionId != null) {
+      _pumpStarted = true;
+      unawaited(_pumpMessages(connectionId));
+    }
+    return controller.stream;
+  }
+
+  @override
+  Future<void> close({error}) async {
+    _closeRequested = true;
+    final connectionId = _connectionId;
+    _connectionId = null;
+    if (connectionId != null) {
+      try {
+        _runtime.closeConnection(connectionId);
+      } catch (_) {
+        // The connection might already be gone.
+      }
+    }
+    final controller = _messageController;
+    if (controller != null && !controller.isClosed) {
+      await controller.close();
+    }
+    complete(_onDisconnectCompleter, error);
+  }
+
+  @override
+  void send(AbstractMessage message) {
+    final connectionId = _connectionId;
+    if (connectionId == null) {
+      throw StateError('Transport is not connected.');
+    }
+    if (message is Goodbye) {
+      _goodbyeSent = true;
+    }
+    _runtime.sendMessage(connectionId, _encodeMessage(message));
+  }
+
+  Future<void> _pumpMessages(int connectionId) async {
+    var idleDelay = const Duration(microseconds: 50);
+    while (_connectionId == connectionId) {
+      try {
+        final handle = _runtime.pollMessageHandle(connectionId);
+        if (handle == 0) {
+          await Future.delayed(idleDelay);
+          if (idleDelay < const Duration(milliseconds: 5)) {
+            idleDelay *= 2;
+          }
+          continue;
+        }
+        idleDelay = const Duration(microseconds: 50);
+        final incoming = _runtime.materialize(handle);
+        final message = incoming.message;
+        _nativeMessageAnchor[message] = incoming;
+        if (message is Goodbye) {
+          _goodbyeReceived = true;
+        }
+        final controller = _messageController;
+        if (controller == null || controller.isClosed) {
+          return;
+        }
+        controller.add(message);
+      } catch (error, stackTrace) {
+        final controller = _messageController;
+        if (controller != null && !controller.isClosed) {
+          controller.addError(error, stackTrace);
+          await controller.close();
+        }
+        _connectionId = null;
+        if (_closeRequested || _goodbyeSent || _goodbyeReceived) {
+          complete(_onDisconnectCompleter, error);
+        } else if (!(_onConnectionLostCompleter?.isCompleted ?? true)) {
+          _onConnectionLostCompleter!.complete(error);
+        } else {
+          logger.fine('Native transport receive loop ended: $error');
+        }
+        return;
+      }
+    }
+  }
+
+  Uint8List _encodeMessage(AbstractMessage message) {
+    final serialized = _serializer.serialize(message);
+    if (serialized is Uint8List) {
+      return serialized;
+    }
+    if (serialized is String) {
+      return Uint8List.fromList(utf8.encode(serialized));
+    }
+    if (serialized is List<int>) {
+      return Uint8List.fromList(serialized);
+    }
+    throw UnsupportedError(
+      'Serializer ${_nativeSerializer.name} returned unsupported payload ${serialized.runtimeType}',
+    );
+  }
+}
+
+class NativeRawSocketTransport extends _NativeTransportBase {
+  NativeRawSocketTransport(
+    this._host,
+    this._port,
+    AbstractSerializer serializer,
+    this._serializerType, {
+    bool ssl = false,
+    bool allowInsecureCertificates = false,
+    int messageLengthExponent = SocketHelper.maxMessageLengthExponent,
+  }) : _ssl = ssl,
+       _allowInsecureCertificates = allowInsecureCertificates,
+       _messageLengthExponent = messageLengthExponent,
+       super(serializer, _nativeSerializerForRawSocket(_serializerType));
+
+  final String _host;
+  final int _port;
+  final int _serializerType;
+  final bool _ssl;
+  final bool _allowInsecureCertificates;
+  int _messageLengthExponent;
+
+  static final _logger = Logger('Connectanum.NativeRawSocketTransport');
+
+  factory NativeRawSocketTransport.withJsonSerializer(
+    String host,
+    int port, {
+    bool ssl = false,
+    bool allowInsecureCertificates = false,
+    int messageLengthExponent = SocketHelper.maxMessageLengthExponent,
+  }) => NativeRawSocketTransport(
+    host,
+    port,
+    serializer_json.Serializer(),
+    SocketHelper.serializationJson,
+    ssl: ssl,
+    allowInsecureCertificates: allowInsecureCertificates,
+    messageLengthExponent: messageLengthExponent,
+  );
+
+  factory NativeRawSocketTransport.withMsgpackSerializer(
+    String host,
+    int port, {
+    bool ssl = false,
+    bool allowInsecureCertificates = false,
+    int messageLengthExponent = SocketHelper.maxMessageLengthExponent,
+  }) => NativeRawSocketTransport(
+    host,
+    port,
+    serializer_msgpack.Serializer(),
+    SocketHelper.serializationMsgpack,
+    ssl: ssl,
+    allowInsecureCertificates: allowInsecureCertificates,
+    messageLengthExponent: messageLengthExponent,
+  );
+
+  factory NativeRawSocketTransport.withCborSerializer(
+    String host,
+    int port, {
+    bool ssl = false,
+    bool allowInsecureCertificates = false,
+    int messageLengthExponent = SocketHelper.maxMessageLengthExponent,
+  }) => NativeRawSocketTransport(
+    host,
+    port,
+    serializer_cbor.Serializer(),
+    SocketHelper.serializationCbor,
+    ssl: ssl,
+    allowInsecureCertificates: allowInsecureCertificates,
+    messageLengthExponent: messageLengthExponent,
+  );
+
+  bool get isUpgradedProtocol => _messageLengthExponent > 24;
+
+  int get headerLength => isUpgradedProtocol ? 5 : 4;
+
+  int? get maxMessageLength => 1 << _messageLengthExponent;
+
+  @override
+  Logger get logger => _logger;
+
+  @override
+  Future<int> openNativeConnection(Duration? pingInterval) async {
+    final connectionId = _runtime.connectRawSocket(
+      host: _host,
+      port: _port,
+      useTls: _ssl,
+      allowInsecure: _allowInsecureCertificates,
+      serializer: _nativeSerializerForRawSocket(_serializerType),
+      maxMessageLengthExponent: _messageLengthExponent,
+      heartbeatInterval: pingInterval,
+      heartbeatTimeout: pingInterval == null ? null : pingInterval * 2,
+    );
+    _messageLengthExponent = _runtime.connectionMaxRawSocketExponent(
+      connectionId,
+    );
+    return connectionId;
+  }
+}
+
+class NativeWebSocketTransport extends _NativeTransportBase {
+  NativeWebSocketTransport(
+    this._url,
+    AbstractSerializer serializer,
+    this._serializerType, [
+    Map<String, dynamic>? headers,
+    this._allowInsecureCertificates = false,
+  ]) : _headers = headers,
+       super(serializer, _nativeSerializerForWebSocket(_serializerType));
+
+  final String _url;
+  final String _serializerType;
+  final Map<String, dynamic>? _headers;
+  final bool _allowInsecureCertificates;
+
+  static final _logger = Logger('Connectanum.NativeWebSocketTransport');
+
+  factory NativeWebSocketTransport.withJsonSerializer(
+    String url, [
+    Map<String, dynamic>? headers,
+    bool allowInsecureCertificates = false,
+  ]) => NativeWebSocketTransport(
+    url,
+    serializer_json.Serializer(),
+    WebSocketSerialization.serializationJson,
+    headers,
+    allowInsecureCertificates,
+  );
+
+  factory NativeWebSocketTransport.withMsgpackSerializer(
+    String url, [
+    Map<String, dynamic>? headers,
+    bool allowInsecureCertificates = false,
+  ]) => NativeWebSocketTransport(
+    url,
+    serializer_msgpack.Serializer(),
+    WebSocketSerialization.serializationMsgpack,
+    headers,
+    allowInsecureCertificates,
+  );
+
+  factory NativeWebSocketTransport.withCborSerializer(
+    String url, [
+    Map<String, dynamic>? headers,
+    bool allowInsecureCertificates = false,
+  ]) => NativeWebSocketTransport(
+    url,
+    serializer_cbor.Serializer(),
+    WebSocketSerialization.serializationCbor,
+    headers,
+    allowInsecureCertificates,
+  );
+
+  @override
+  Logger get logger => _logger;
+
+  @override
+  Future<int> openNativeConnection(Duration? pingInterval) async {
+    final uri = Uri.parse(_url);
+    if (uri.scheme != 'ws' && uri.scheme != 'wss') {
+      throw ArgumentError(
+        'NativeWebSocketTransport requires a ws:// or wss:// URL.',
+      );
+    }
+    final useTls = uri.scheme == 'wss';
+    final port = uri.hasPort ? uri.port : (useTls ? 443 : 80);
+    var target = uri.path.isEmpty ? '/' : uri.path;
+    if (uri.hasQuery) {
+      target = '$target?${uri.query}';
+    }
+    return _runtime.connectWebSocket(
+      host: uri.host,
+      port: port,
+      target: target,
+      useTls: useTls,
+      allowInsecure: _allowInsecureCertificates,
+      serializer: _nativeSerializerForWebSocket(_serializerType),
+      headers: _flattenHeaders(_headers),
+      heartbeatInterval: pingInterval,
+      heartbeatTimeout: pingInterval == null ? null : pingInterval * 2,
+    );
+  }
+}
+
+NativeMessageSerializer _nativeSerializerForRawSocket(int serializerType) {
+  return switch (serializerType) {
+    SocketHelper.serializationJson => NativeMessageSerializer.json,
+    SocketHelper.serializationMsgpack => NativeMessageSerializer.messagePack,
+    SocketHelper.serializationCbor => NativeMessageSerializer.cbor,
+    SocketHelper.serializationUbJson => NativeMessageSerializer.ubjson,
+    SocketHelper.serializationFlatBuffers =>
+      NativeMessageSerializer.flatbuffers,
+    _ => throw ArgumentError(
+      'Unsupported rawsocket serializer id $serializerType',
+    ),
+  };
+}
+
+NativeMessageSerializer _nativeSerializerForWebSocket(String serializerType) {
+  return switch (serializerType) {
+    WebSocketSerialization.serializationJson => NativeMessageSerializer.json,
+    WebSocketSerialization.serializationMsgpack =>
+      NativeMessageSerializer.messagePack,
+    WebSocketSerialization.serializationCbor => NativeMessageSerializer.cbor,
+    _ => throw ArgumentError(
+      'Unsupported websocket serializer protocol $serializerType',
+    ),
+  };
+}
+
+Map<String, String> _flattenHeaders(Map<String, dynamic>? headers) {
+  if (headers == null || headers.isEmpty) {
+    return const <String, String>{};
+  }
+  final flattened = <String, String>{};
+  headers.forEach((key, value) {
+    if (value is String) {
+      flattened[key] = value;
+      return;
+    }
+    if (value is Iterable) {
+      flattened[key] = value.map((item) => item.toString()).join(', ');
+      return;
+    }
+    flattened[key] = value.toString();
+  });
+  return flattened;
+}

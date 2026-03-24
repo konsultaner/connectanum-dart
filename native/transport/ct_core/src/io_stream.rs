@@ -7,7 +7,7 @@ use std::{
 use bytes::BytesMut;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::TcpStream;
-use tokio_rustls::server::TlsStream;
+use tokio_rustls::{client::TlsStream as ClientTlsStream, server::TlsStream as ServerTlsStream};
 
 pub(crate) type IoReadHalf = tokio::io::ReadHalf<IoStream>;
 pub(crate) type IoWriteHalf = tokio::io::WriteHalf<IoStream>;
@@ -15,7 +15,8 @@ pub(crate) type IoWriteHalf = tokio::io::WriteHalf<IoStream>;
 #[derive(Debug)]
 pub(crate) enum StreamInner {
     Tcp(TcpStream),
-    Tls(TlsStream<TcpStream>),
+    TlsServer(ServerTlsStream<TcpStream>),
+    TlsClient(ClientTlsStream<TcpStream>),
 }
 
 #[derive(Debug)]
@@ -34,28 +35,45 @@ impl IoStream {
         }
     }
 
-    pub(crate) fn tls(stream: TlsStream<TcpStream>) -> Self {
+    pub(crate) fn tls(stream: ServerTlsStream<TcpStream>) -> Self {
         Self {
-            inner: StreamInner::Tls(stream),
+            inner: StreamInner::TlsServer(stream),
+            buffered: BytesMut::new(),
+            buffered_offset: 0,
+        }
+    }
+
+    pub(crate) fn tls_client(stream: ClientTlsStream<TcpStream>) -> Self {
+        Self {
+            inner: StreamInner::TlsClient(stream),
             buffered: BytesMut::new(),
             buffered_offset: 0,
         }
     }
 
     pub(crate) fn is_tls(&self) -> bool {
-        matches!(self.inner, StreamInner::Tls(_))
+        matches!(
+            self.inner,
+            StreamInner::TlsServer(_) | StreamInner::TlsClient(_)
+        )
     }
 
     pub(crate) fn set_nodelay(&self, enabled: bool) -> io::Result<()> {
         match &self.inner {
             StreamInner::Tcp(stream) => stream.set_nodelay(enabled),
-            StreamInner::Tls(stream) => stream.get_ref().0.set_nodelay(enabled),
+            StreamInner::TlsServer(stream) => stream.get_ref().0.set_nodelay(enabled),
+            StreamInner::TlsClient(stream) => stream.get_ref().0.set_nodelay(enabled),
         }
     }
 
     pub(crate) fn negotiated_alpn(&self) -> Option<String> {
         match &self.inner {
-            StreamInner::Tls(stream) => stream
+            StreamInner::TlsServer(stream) => stream
+                .get_ref()
+                .1
+                .alpn_protocol()
+                .map(|bytes| String::from_utf8_lossy(bytes).to_string()),
+            StreamInner::TlsClient(stream) => stream
                 .get_ref()
                 .1
                 .alpn_protocol()
@@ -102,7 +120,8 @@ impl AsyncRead for IoStream {
 
         match &mut me.inner {
             StreamInner::Tcp(stream) => Pin::new(stream).poll_read(cx, buf),
-            StreamInner::Tls(stream) => Pin::new(stream).poll_read(cx, buf),
+            StreamInner::TlsServer(stream) => Pin::new(stream).poll_read(cx, buf),
+            StreamInner::TlsClient(stream) => Pin::new(stream).poll_read(cx, buf),
         }
     }
 }
@@ -116,7 +135,8 @@ impl AsyncWrite for IoStream {
         let me = self.get_mut();
         match &mut me.inner {
             StreamInner::Tcp(stream) => Pin::new(stream).poll_write(cx, buf),
-            StreamInner::Tls(stream) => Pin::new(stream).poll_write(cx, buf),
+            StreamInner::TlsServer(stream) => Pin::new(stream).poll_write(cx, buf),
+            StreamInner::TlsClient(stream) => Pin::new(stream).poll_write(cx, buf),
         }
     }
 
@@ -124,7 +144,8 @@ impl AsyncWrite for IoStream {
         let me = self.get_mut();
         match &mut me.inner {
             StreamInner::Tcp(stream) => Pin::new(stream).poll_flush(cx),
-            StreamInner::Tls(stream) => Pin::new(stream).poll_flush(cx),
+            StreamInner::TlsServer(stream) => Pin::new(stream).poll_flush(cx),
+            StreamInner::TlsClient(stream) => Pin::new(stream).poll_flush(cx),
         }
     }
 
@@ -132,7 +153,8 @@ impl AsyncWrite for IoStream {
         let me = self.get_mut();
         match &mut me.inner {
             StreamInner::Tcp(stream) => Pin::new(stream).poll_shutdown(cx),
-            StreamInner::Tls(stream) => Pin::new(stream).poll_shutdown(cx),
+            StreamInner::TlsServer(stream) => Pin::new(stream).poll_shutdown(cx),
+            StreamInner::TlsClient(stream) => Pin::new(stream).poll_shutdown(cx),
         }
     }
 }

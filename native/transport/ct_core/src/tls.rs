@@ -1,14 +1,16 @@
 use std::{io::Cursor, sync::Arc};
 
 use rustls::{
+    client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier},
     crypto::ring::default_provider,
-    pki_types::{CertificateDer, PrivateKeyDer},
+    pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime},
     server::{ClientHello, ResolvesServerCert, ResolvesServerCertUsingSni},
     sign::CertifiedKey,
-    RootCertStore, ServerConfig as RustlsServerConfig,
+    ClientConfig as RustlsClientConfig, RootCertStore, ServerConfig as RustlsServerConfig,
 };
+use rustls_native_certs::load_native_certs;
 use rustls_pemfile::{certs as load_certs, pkcs8_private_keys, rsa_private_keys};
-use tokio_rustls::TlsAcceptor;
+use tokio_rustls::{TlsAcceptor, TlsConnector};
 
 use crate::{
     config::{ClientAuthMode, EndpointRuntimeConfig, TlsMode, TransportProtocol},
@@ -91,6 +93,94 @@ pub(crate) fn build_tls_acceptor(
     config.alpn_protocols = tcp_alpn_protocols(endpoint);
 
     Ok(Some(TlsAcceptor::from(Arc::new(config))))
+}
+
+#[derive(Debug)]
+struct NoCertificateVerification {
+    schemes: Vec<rustls::SignatureScheme>,
+}
+
+impl ServerCertVerifier for NoCertificateVerification {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &CertificateDer<'_>,
+        _intermediates: &[CertificateDer<'_>],
+        _server_name: &ServerName<'_>,
+        _ocsp_response: &[u8],
+        _now: UnixTime,
+    ) -> Result<ServerCertVerified, rustls::Error> {
+        Ok(ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        _message: &[u8],
+        _cert: &CertificateDer<'_>,
+        _dss: &rustls::DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, rustls::Error> {
+        Ok(HandshakeSignatureValid::assertion())
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        _message: &[u8],
+        _cert: &CertificateDer<'_>,
+        _dss: &rustls::DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, rustls::Error> {
+        Ok(HandshakeSignatureValid::assertion())
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        self.schemes.clone()
+    }
+}
+
+pub(crate) fn build_client_connector(
+    allow_insecure: bool,
+    alpn_protocols: &[Vec<u8>],
+) -> Result<TlsConnector, Error> {
+    let provider = Arc::new(default_provider());
+    let mut config = if allow_insecure {
+        let verifier = Arc::new(NoCertificateVerification {
+            schemes: provider
+                .signature_verification_algorithms
+                .supported_schemes(),
+        });
+        RustlsClientConfig::builder_with_provider(Arc::clone(&provider))
+            .with_protocol_versions(&[&rustls::version::TLS13])
+            .map_err(|err| {
+                Error::RouterConfigInvalid(format!(
+                    "client tls protocol configuration invalid: {}",
+                    err
+                ))
+            })?
+            .dangerous()
+            .with_custom_certificate_verifier(verifier)
+            .with_no_client_auth()
+    } else {
+        let mut roots = RootCertStore::empty();
+        let certs = load_native_certs();
+        for cert in certs.certs {
+            roots.add(cert).map_err(|err| {
+                Error::RouterConfigInvalid(format!(
+                    "failed to load native tls certificate store: {}",
+                    err
+                ))
+            })?;
+        }
+        RustlsClientConfig::builder_with_provider(Arc::clone(&provider))
+            .with_protocol_versions(&[&rustls::version::TLS13])
+            .map_err(|err| {
+                Error::RouterConfigInvalid(format!(
+                    "client tls protocol configuration invalid: {}",
+                    err
+                ))
+            })?
+            .with_root_certificates(roots)
+            .with_no_client_auth()
+    };
+    config.alpn_protocols = alpn_protocols.to_vec();
+    Ok(TlsConnector::from(Arc::new(config)))
 }
 
 pub(crate) fn build_client_cert_verifier(

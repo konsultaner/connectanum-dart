@@ -3,7 +3,7 @@
 use std::{
     collections::{HashMap, VecDeque},
     io::{self, Cursor, Write},
-    net::{SocketAddr, ToSocketAddrs},
+    net::{IpAddr, SocketAddr, ToSocketAddrs},
     ops::Deref,
     sync::{
         atomic::{AtomicU32, AtomicU64, Ordering},
@@ -66,8 +66,9 @@ use quinn::{
     VarInt,
 };
 use quinn_proto::crypto::rustls::QuicServerConfig as QuinnRustlsServerConfig;
+use rand::RngCore;
 use rustls::{
-    pki_types::{CertificateDer, PrivateKeyDer},
+    pki_types::{CertificateDer, PrivateKeyDer, ServerName},
     ServerConfig as RustlsServerConfig,
 };
 use rustls_pemfile::{certs as load_certs, pkcs8_private_keys, rsa_private_keys};
@@ -1144,6 +1145,7 @@ impl ListenerRegistry {
 
     fn register_rawsocket_connection(
         self: Arc<Self>,
+        handle: tokio::runtime::Handle,
         listener_id: ListenerId,
         connection_id: ConnectionId,
         endpoint_config: Arc<config::EndpointRuntimeConfig>,
@@ -1161,7 +1163,7 @@ impl ListenerRegistry {
                 .heartbeat_timeout
                 .unwrap_or_else(|| interval.checked_mul(2).unwrap_or(Duration::from_secs(30)));
             spawn_connection_heartbeat(
-                tokio::runtime::Handle::current(),
+                handle.clone(),
                 Arc::clone(&self),
                 connection_id,
                 interval,
@@ -1173,6 +1175,7 @@ impl ListenerRegistry {
         let pong_tx = heartbeat_abort.as_ref().map(|_| pong_tx);
 
         let reader_abort = spawn_connection_reader(
+            handle.clone(),
             connection_id,
             Arc::clone(&endpoint_config),
             negotiated.reader,
@@ -1183,11 +1186,18 @@ impl ListenerRegistry {
             pong_tx,
             close_tx.clone(),
         );
-        let writer_abort =
-            spawn_connection_writer(connection_id, negotiated.writer, send_rx, close_tx);
+        let close_watch_handle = handle.clone();
+        let writer_abort = spawn_connection_writer(
+            handle,
+            connection_id,
+            negotiated.writer,
+            max_exponent,
+            send_rx,
+            close_tx,
+        );
 
         let registry = Arc::clone(&self);
-        tokio::spawn(async move {
+        close_watch_handle.spawn(async move {
             let _ = close_rx.recv().await;
             let _ = registry.close_connection(connection_id);
         });
@@ -1254,18 +1264,14 @@ impl ListenerRegistry {
     ) -> Result<(), Error> {
         let accept_value = websocket_accept_value(&handshake.sec_websocket_key);
         let mut stream = handshake.into_stream();
-        handle
-            .block_on(write_websocket_handshake_response(
-                &mut stream,
-                &accept_value,
-                protocol,
-            ))
-            .map_err(Error::Io)?;
+        runtime_block_on(
+            &handle,
+            write_websocket_handshake_response(&mut stream, &accept_value, protocol),
+        )
+        .map_err(Error::Io)?;
         let _ = stream.set_nodelay(true);
         let (reader, writer) = tokio::io::split(stream);
-
-        let (frame_tx, frame_rx) = mpsc::channel(1024);
-        let endpoint_config = {
+        let (listener_id, peer_addr, endpoint_config) = {
             let connections = self
                 .connections
                 .lock()
@@ -1273,11 +1279,44 @@ impl ListenerRegistry {
             let entry = connections
                 .get(&connection_id)
                 .ok_or(Error::ConnectionNotFound(connection_id))?;
-            Arc::clone(&entry.endpoint_config)
+            (
+                entry.listener_id,
+                entry.peer_addr,
+                Arc::clone(&entry.endpoint_config),
+            )
         };
-        let (send_tx, send_rx) = mpsc::channel(endpoint_config.outbound_send_queue_capacity);
+        self.register_established_websocket_connection(
+            handle,
+            listener_id,
+            connection_id,
+            endpoint_config,
+            peer_addr,
+            serializer,
+            protocol.map(|value| value.to_string()),
+            reader,
+            writer,
+            true,
+            false,
+        )
+    }
 
-        let selected_protocol = protocol.map(|value| value.to_string());
+    #[allow(clippy::too_many_arguments)]
+    fn register_established_websocket_connection(
+        self: Arc<Self>,
+        handle: tokio::runtime::Handle,
+        listener_id: ListenerId,
+        connection_id: ConnectionId,
+        endpoint_config: Arc<config::EndpointRuntimeConfig>,
+        peer_addr: SocketAddr,
+        serializer: rawsocket::Serializer,
+        selected_protocol: Option<String>,
+        reader: IoReadHalf,
+        writer: IoWriteHalf,
+        expect_masked_frames: bool,
+        mask_outbound_frames: bool,
+    ) -> Result<(), Error> {
+        let (frame_tx, frame_rx) = mpsc::channel(1024);
+        let (send_tx, send_rx) = mpsc::channel(endpoint_config.outbound_send_queue_capacity);
         let (close_tx, mut close_rx) = mpsc::unbounded_channel::<ConnectionTaskSignal>();
         let (pong_tx, pong_rx) = mpsc::unbounded_channel::<Bytes>();
         let heartbeat_abort = endpoint_config.heartbeat_interval.map(|interval| {
@@ -1300,12 +1339,13 @@ impl ListenerRegistry {
             handle.clone(),
             connection_id,
             serializer,
-            endpoint_config,
+            endpoint_config.clone(),
             reader,
             frame_tx,
             send_tx.clone(),
             pong_tx,
             close_tx.clone(),
+            expect_masked_frames,
         );
         let writer_abort = spawn_websocket_writer(
             handle.clone(),
@@ -1314,6 +1354,7 @@ impl ListenerRegistry {
             writer,
             send_rx,
             close_tx,
+            mask_outbound_frames,
         );
 
         let registry = Arc::clone(&self);
@@ -1341,17 +1382,25 @@ impl ListenerRegistry {
             .connections
             .lock()
             .unwrap_or_else(|poison| poison.into_inner());
-        if let Some(entry) = connections.get_mut(&connection_id) {
-            entry.websocket_protocol = selected_protocol;
-            entry.record = ConnectionRecord::WebSocket {
-                serializer,
-                frames: Mutex::new(frame_rx),
-                reader_abort,
-                writer_abort,
-                heartbeat_abort,
-                send_tx,
-            };
-        }
+        connections.insert(
+            connection_id,
+            ConnectionEntry {
+                listener_id,
+                peer_addr,
+                protocol: ConnectionProtocol::WebSocket,
+                websocket_protocol: selected_protocol,
+                endpoint_config,
+                stats: None,
+                record: ConnectionRecord::WebSocket {
+                    serializer,
+                    frames: Mutex::new(frame_rx),
+                    reader_abort,
+                    writer_abort,
+                    heartbeat_abort,
+                    send_tx,
+                },
+            },
+        );
         Ok(())
     }
 
@@ -1372,14 +1421,13 @@ impl ListenerRegistry {
             body.len(),
             body
         );
-        handle
-            .block_on(async {
-                stream.write_all(response.as_bytes()).await?;
-                stream.flush().await?;
-                let _ = stream.shutdown().await;
-                Ok::<(), io::Error>(())
-            })
-            .map_err(Error::Io)?;
+        runtime_block_on(&handle, async {
+            stream.write_all(response.as_bytes()).await?;
+            stream.flush().await?;
+            let _ = stream.shutdown().await;
+            Ok::<(), io::Error>(())
+        })
+        .map_err(Error::Io)?;
         self.connections
             .lock()
             .unwrap_or_else(|poison| poison.into_inner())
@@ -2133,6 +2181,7 @@ enum ConnectionTaskSignal {
 }
 
 fn spawn_connection_reader(
+    handle: tokio::runtime::Handle,
     connection_id: ConnectionId,
     endpoint_config: Arc<config::EndpointRuntimeConfig>,
     mut reader: IoReadHalf,
@@ -2143,12 +2192,13 @@ fn spawn_connection_reader(
     pong_tx: Option<UnboundedSender<Bytes>>,
     close_tx: UnboundedSender<ConnectionTaskSignal>,
 ) -> AbortHandle {
-    let task = tokio::spawn(async move {
+    let task = handle.spawn(async move {
         let max_payload = 1u64 << max_message_size_exponent;
+        let upgraded_protocol = max_message_size_exponent > 24;
         let idle_timeout = endpoint_config.idle_timeout;
 
         loop {
-            let read_future = read_inbound_frame(&mut reader, max_payload);
+            let read_future = read_inbound_frame(&mut reader, max_payload, upgraded_protocol);
             let frame = if let Some(timeout) = idle_timeout {
                 match time::timeout(timeout, read_future).await {
                     Ok(result) => result,
@@ -2218,28 +2268,32 @@ fn spawn_connection_reader(
 }
 
 fn spawn_connection_writer(
+    handle: tokio::runtime::Handle,
     connection_id: ConnectionId,
     mut writer: IoWriteHalf,
+    max_message_size_exponent: u32,
     mut rx: mpsc::Receiver<OutboundFrame>,
     close_tx: UnboundedSender<ConnectionTaskSignal>,
 ) -> AbortHandle {
-    let task = tokio::spawn(async move {
+    let task = handle.spawn(async move {
+        let upgraded_protocol = max_message_size_exponent > 24;
         while let Some(frame) = rx.recv().await {
             if frame.frame_type > 2 {
                 continue;
             }
-            let header = match encode_frame_header(frame.frame_type, frame.payload_len) {
-                Ok(header) => header,
-                Err(err) => {
-                    eprintln!(
-                        "connection {:?} failed to encode outbound frame header: {}",
-                        connection_id, err
-                    );
-                    continue;
-                }
-            };
+            let header =
+                match encode_frame_header(frame.frame_type, frame.payload_len, upgraded_protocol) {
+                    Ok(header) => header,
+                    Err(err) => {
+                        eprintln!(
+                            "connection {:?} failed to encode outbound frame header: {}",
+                            connection_id, err
+                        );
+                        continue;
+                    }
+                };
 
-            if let Err(err) = writer.write_all(&header).await {
+            if let Err(err) = writer.write_all(header.as_bytes()).await {
                 if err.kind() != io::ErrorKind::BrokenPipe {
                     eprintln!(
                         "connection {:?} failed to write frame header: {}",
@@ -2344,6 +2398,7 @@ fn spawn_websocket_reader(
     send_tx: mpsc::Sender<OutboundFrame>,
     pong_tx: Option<UnboundedSender<Bytes>>,
     close_tx: UnboundedSender<ConnectionTaskSignal>,
+    expect_masked_frames: bool,
 ) -> AbortHandle {
     let task = handle.spawn(async move {
         let idle_timeout = endpoint_config.idle_timeout;
@@ -2351,7 +2406,8 @@ fn spawn_websocket_reader(
         let mut accumulator = WebSocketMessageAccumulator::new(Arc::clone(&buffer_pool));
         let mut graceful_close_requested = false;
         loop {
-            let read_future = read_websocket_frame(&mut reader, &buffer_pool);
+            let read_future =
+                read_websocket_frame_mode(&mut reader, &buffer_pool, expect_masked_frames);
             let frame = if let Some(timeout) = idle_timeout {
                 match time::timeout(timeout, read_future).await {
                     Ok(result) => result,
@@ -2446,6 +2502,7 @@ fn spawn_websocket_writer(
     mut writer: IoWriteHalf,
     mut rx: mpsc::Receiver<OutboundFrame>,
     close_tx: UnboundedSender<ConnectionTaskSignal>,
+    mask_outbound_frames: bool,
 ) -> AbortHandle {
     let task = handle.spawn(async move {
         while let Some(frame) = rx.recv().await {
@@ -2460,8 +2517,14 @@ fn spawn_websocket_writer(
                 3 => 0x8,
                 _ => continue,
             };
-            if let Err(err) =
-                write_websocket_frame(&mut writer, opcode, frame.payload_len, &frame.segments).await
+            if let Err(err) = write_websocket_frame_mode(
+                &mut writer,
+                opcode,
+                frame.payload_len,
+                &frame.segments,
+                mask_outbound_frames,
+            )
+            .await
             {
                 eprintln!(
                     "connection {:?} failed to write websocket frame: {}",
@@ -2481,49 +2544,64 @@ fn spawn_websocket_writer(
 async fn read_inbound_frame(
     stream: &mut IoReadHalf,
     max_payload: u64,
+    upgraded_protocol: bool,
 ) -> Result<InboundFrame, FrameReadError> {
-    let mut header = [0u8; 4];
-    stream.read_exact(&mut header).await?;
-
-    let reserved = header[0] >> 4;
-    if reserved != 0 {
-        return Err(FrameReadError::Protocol(
-            "reserved bits must be zero".into(),
-        ));
-    }
-
-    let length_hi = (header[0] >> 3) & 0x01;
-    let frame_type = header[0] & 0x07;
-
-    let mut length = ((header[1] as u32) << 16) | ((header[2] as u32) << 8) | header[3] as u32;
-    if length_hi == 1 {
-        if length != 0 {
+    let (frame_type, length_u64) = if upgraded_protocol {
+        let mut header = [0u8; 5];
+        stream.read_exact(&mut header).await?;
+        if header[0] & !0x07 != 0 {
             return Err(FrameReadError::Protocol(
-                "extended length bit set with non-zero length bytes".into(),
+                "reserved bits must be zero".into(),
             ));
         }
-        length = 1 << 24;
-    }
+        let frame_type = header[0] & 0x07;
+        let length = u32::from_be_bytes([header[1], header[2], header[3], header[4]]) as u64;
+        (frame_type, length)
+    } else {
+        let mut header = [0u8; 4];
+        stream.read_exact(&mut header).await?;
 
-    let length_u64 = length as u64;
+        let reserved = header[0] >> 4;
+        if reserved != 0 {
+            return Err(FrameReadError::Protocol(
+                "reserved bits must be zero".into(),
+            ));
+        }
+
+        let length_hi = (header[0] >> 3) & 0x01;
+        let frame_type = header[0] & 0x07;
+
+        let mut length = ((header[1] as u32) << 16) | ((header[2] as u32) << 8) | header[3] as u32;
+        if length_hi == 1 {
+            if length != 0 {
+                return Err(FrameReadError::Protocol(
+                    "extended length bit set with non-zero length bytes".into(),
+                ));
+            }
+            length = 1 << 24;
+        }
+
+        (frame_type, length as u64)
+    };
+
     if length_u64 > max_payload {
         return Err(FrameReadError::Protocol(format!(
             "frame length {} exceeds negotiated maximum {}",
             length_u64, max_payload
         )));
     }
-    if length_u64 > MAX_FRAME_LEN {
+    if !upgraded_protocol && length_u64 > MAX_FRAME_LEN {
         return Err(FrameReadError::Protocol(format!(
             "frame length {} exceeds supported maximum {}",
             length_u64, MAX_FRAME_LEN
         )));
     }
 
-    let payload = if length == 0 {
+    let payload = if length_u64 == 0 {
         Bytes::new()
     } else {
-        let mut buf = BytesMut::with_capacity(length as usize);
-        buf.resize(length as usize, 0);
+        let mut buf = BytesMut::with_capacity(length_u64 as usize);
+        buf.resize(length_u64 as usize, 0);
         stream.read_exact(&mut buf).await?;
         buf.freeze()
     };
@@ -2791,6 +2869,21 @@ async fn read_websocket_frame(
     reader: &mut IoReadHalf,
     buffer_pool: &Arc<WebSocketBufferPool>,
 ) -> Result<WebSocketFrame, WebSocketFrameError> {
+    read_websocket_frame_mode(reader, buffer_pool, true).await
+}
+
+async fn read_websocket_frame_client(
+    reader: &mut IoReadHalf,
+    buffer_pool: &Arc<WebSocketBufferPool>,
+) -> Result<WebSocketFrame, WebSocketFrameError> {
+    read_websocket_frame_mode(reader, buffer_pool, false).await
+}
+
+async fn read_websocket_frame_mode(
+    reader: &mut IoReadHalf,
+    buffer_pool: &Arc<WebSocketBufferPool>,
+    expect_masked: bool,
+) -> Result<WebSocketFrame, WebSocketFrameError> {
     let mut header = [0u8; 2];
     reader
         .read_exact(&mut header)
@@ -2804,10 +2897,12 @@ async fn read_websocket_frame(
     let fin = header[0] & 0x80 != 0;
     let opcode = header[0] & 0x0F;
     let masked = header[1] & 0x80 != 0;
-    if !masked {
-        return Err(WebSocketFrameError::protocol(
-            "client websocket frames must be masked",
-        ));
+    if masked != expect_masked {
+        return Err(WebSocketFrameError::protocol(if expect_masked {
+            "client websocket frames must be masked"
+        } else {
+            "server websocket frames must not be masked"
+        }));
     }
     let is_control_frame = opcode & 0x08 != 0;
     if is_control_frame && !fin {
@@ -2926,6 +3021,25 @@ async fn write_websocket_frame(
     payload_len: usize,
     segments: &[Bytes],
 ) -> io::Result<()> {
+    write_websocket_frame_mode(writer, opcode, payload_len, segments, false).await
+}
+
+async fn write_websocket_frame_client(
+    writer: &mut IoWriteHalf,
+    opcode: u8,
+    payload_len: usize,
+    segments: &[Bytes],
+) -> io::Result<()> {
+    write_websocket_frame_mode(writer, opcode, payload_len, segments, true).await
+}
+
+async fn write_websocket_frame_mode(
+    writer: &mut IoWriteHalf,
+    opcode: u8,
+    payload_len: usize,
+    segments: &[Bytes],
+    mask_payload: bool,
+) -> io::Result<()> {
     let mut header = Vec::with_capacity(2);
     header.push(0x80 | (opcode & 0x0F));
     if payload_len < 126 {
@@ -2937,12 +3051,34 @@ async fn write_websocket_frame(
         header.push(127);
         header.extend_from_slice(&(payload_len as u64).to_be_bytes());
     }
+    let mut mask = [0u8; 4];
+    if mask_payload {
+        header[1] |= 0x80;
+        rand::thread_rng().fill_bytes(&mut mask);
+        header.extend_from_slice(&mask);
+    }
     writer.write_all(&header).await?;
+    if !mask_payload {
+        for segment in segments {
+            if segment.is_empty() {
+                continue;
+            }
+            writer.write_all(segment).await?;
+        }
+        return Ok(());
+    }
+    let mut payload_offset = 0usize;
     for segment in segments {
         if segment.is_empty() {
             continue;
         }
-        writer.write_all(segment).await?;
+        let mut masked = Vec::with_capacity(segment.len());
+        for byte in segment.iter() {
+            let mask_index = payload_offset % mask.len();
+            masked.push(*byte ^ mask[mask_index]);
+            payload_offset += 1;
+        }
+        writer.write_all(&masked).await?;
     }
     Ok(())
 }
@@ -2970,12 +3106,43 @@ async fn handle_websocket_message(
     }
 }
 
-fn encode_frame_header(frame_type: u8, payload_len: usize) -> Result<[u8; 4], FrameReadError> {
+struct EncodedFrameHeader {
+    bytes: [u8; 5],
+    len: usize,
+}
+
+impl EncodedFrameHeader {
+    fn as_bytes(&self) -> &[u8] {
+        &self.bytes[..self.len]
+    }
+}
+
+fn encode_frame_header(
+    frame_type: u8,
+    payload_len: usize,
+    upgraded_protocol: bool,
+) -> Result<EncodedFrameHeader, FrameReadError> {
     if frame_type > 0x07 {
         return Err(FrameReadError::Protocol(format!(
             "invalid frame type {}",
             frame_type
         )));
+    }
+    if upgraded_protocol {
+        let length = u32::try_from(payload_len).map_err(|_| {
+            FrameReadError::Protocol(format!(
+                "payload length {} exceeds supported maximum {}",
+                payload_len,
+                u32::MAX
+            ))
+        })?;
+        let mut header = [0u8; 5];
+        header[0] = frame_type & 0x07;
+        header[1..5].copy_from_slice(&length.to_be_bytes());
+        return Ok(EncodedFrameHeader {
+            bytes: header,
+            len: 5,
+        });
     }
     if payload_len > MAX_FRAME_LEN as usize {
         return Err(FrameReadError::Protocol(format!(
@@ -2984,7 +3151,7 @@ fn encode_frame_header(frame_type: u8, payload_len: usize) -> Result<[u8; 4], Fr
         )));
     }
 
-    let mut header = [0u8; 4];
+    let mut header = [0u8; 5];
     let mut first = frame_type & 0x07;
     if payload_len == (MAX_FRAME_LEN as usize) {
         first |= 0x08;
@@ -2994,7 +3161,10 @@ fn encode_frame_header(frame_type: u8, payload_len: usize) -> Result<[u8; 4], Fr
         header[3] = (payload_len & 0xFF) as u8;
     }
     header[0] = first;
-    Ok(header)
+    Ok(EncodedFrameHeader {
+        bytes: header,
+        len: 4,
+    })
 }
 
 /// Initialises the multi-threaded tokio runtime if it has not been started yet.
@@ -3147,6 +3317,7 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                                 Ok(protocol::NegotiatedConnection::RawSocket(negotiated)) => {
                                     let connection_id = accept_registry.next_connection_id();
                                     Arc::clone(&accept_registry).register_rawsocket_connection(
+                                        runtime_handle.clone(),
                                         listener_id,
                                         connection_id,
                                         Arc::clone(&runtime_config_for_task),
@@ -3551,6 +3722,121 @@ pub fn poll_connection_message(
 pub fn close_connection(connection_id: ConnectionId) -> Result<(), Error> {
     let manager = RuntimeManager::global();
     manager.with_state(|state| state.registry.close_connection(connection_id))
+}
+
+/// Opens an outbound RawSocket client connection and registers it in the runtime.
+pub fn connect_rawsocket(
+    host: &str,
+    port: u16,
+    use_tls: bool,
+    allow_insecure: bool,
+    serializer: rawsocket::Serializer,
+    desired_exponent: u32,
+    heartbeat_interval: Option<Duration>,
+    heartbeat_timeout: Option<Duration>,
+) -> Result<ConnectionId, Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| {
+        let connection_id = state.registry.next_connection_id();
+        let endpoint_config = Arc::new(build_client_endpoint_config(
+            host,
+            port,
+            use_tls,
+            TransportProtocol::Rawsocket,
+            desired_exponent,
+            heartbeat_interval,
+            heartbeat_timeout,
+        ));
+        let (stream, peer_addr) = runtime_block_on(
+            &state.handle,
+            connect_io_stream(host, port, use_tls, allow_insecure, &[]),
+        )?;
+        let negotiated = runtime_block_on(
+            &state.handle,
+            rawsocket::connect(
+                stream,
+                serializer,
+                endpoint_config.max_rawsocket_size_exponent,
+                endpoint_config.handshake_timeout,
+            ),
+        )
+        .map_err(handshake_error_to_io)?;
+        Arc::clone(&state.registry).register_rawsocket_connection(
+            state.handle.clone(),
+            ListenerId(0),
+            connection_id,
+            endpoint_config,
+            negotiated,
+            peer_addr,
+        );
+        Ok(connection_id)
+    })
+}
+
+/// Opens an outbound WebSocket client connection and registers it in the runtime.
+pub fn connect_websocket(
+    host: &str,
+    port: u16,
+    target: &str,
+    use_tls: bool,
+    allow_insecure: bool,
+    serializer: rawsocket::Serializer,
+    headers: &[(String, String)],
+    heartbeat_interval: Option<Duration>,
+    heartbeat_timeout: Option<Duration>,
+) -> Result<ConnectionId, Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| {
+        let subprotocol = websocket_subprotocol(serializer)?;
+        let connection_id = state.registry.next_connection_id();
+        let endpoint_config = Arc::new(build_client_endpoint_config(
+            host,
+            port,
+            use_tls,
+            TransportProtocol::Websocket,
+            config::DEFAULT_RAWSOCKET_SIZE_EXPONENT,
+            heartbeat_interval,
+            heartbeat_timeout,
+        ));
+        let alpn_protocols = if use_tls {
+            vec![b"http/1.1".to_vec()]
+        } else {
+            Vec::new()
+        };
+        let (mut stream, peer_addr) = runtime_block_on(
+            &state.handle,
+            connect_io_stream(host, port, use_tls, allow_insecure, &alpn_protocols),
+        )?;
+        runtime_block_on(
+            &state.handle,
+            perform_websocket_client_handshake(
+                &mut stream,
+                host,
+                port,
+                use_tls,
+                target,
+                subprotocol,
+                headers,
+                endpoint_config.handshake_timeout,
+            ),
+        )?;
+        let _ = stream.set_nodelay(true);
+        let (reader, writer) = tokio::io::split(stream);
+        Arc::clone(&state.registry).register_established_websocket_connection(
+            state.handle.clone(),
+            ListenerId(0),
+            connection_id,
+            endpoint_config,
+            peer_addr,
+            serializer,
+            Some(subprotocol.to_string()),
+            reader,
+            writer,
+            false,
+            true,
+        )?;
+        Ok(connection_id)
+    })
 }
 
 /// Enqueues a WAMP message to be sent to the connection.
@@ -4001,6 +4287,305 @@ async fn write_http1_chunked_response(
                 return Err(format!("http/1.x streaming response failed: {}", err));
             }
         }
+    }
+}
+
+fn runtime_block_on<F>(handle: &tokio::runtime::Handle, future: F) -> F::Output
+where
+    F: std::future::Future,
+{
+    if tokio::runtime::Handle::try_current().is_ok() {
+        tokio::task::block_in_place(|| handle.block_on(future))
+    } else {
+        handle.block_on(future)
+    }
+}
+
+fn build_client_endpoint_config(
+    host: &str,
+    port: u16,
+    use_tls: bool,
+    protocol: TransportProtocol,
+    max_rawsocket_size_exponent: u32,
+    heartbeat_interval: Option<Duration>,
+    heartbeat_timeout: Option<Duration>,
+) -> config::EndpointRuntimeConfig {
+    let exponent = max_rawsocket_size_exponent.clamp(
+        config::MIN_RAWSOCKET_SIZE_EXPONENT,
+        config::CONNECTANUM_MAX_RAWSOCKET_SIZE_EXPONENT,
+    );
+    config::EndpointRuntimeConfig {
+        host: host.to_string(),
+        port,
+        tls_mode: if use_tls {
+            config::TlsMode::Native
+        } else {
+            config::TlsMode::Disabled
+        },
+        client_auth: None,
+        protocols: vec![protocol],
+        idle_timeout: None,
+        heartbeat_interval,
+        heartbeat_timeout: heartbeat_timeout
+            .or_else(|| heartbeat_interval.and_then(|interval| interval.checked_mul(2))),
+        handshake_timeout: config::DEFAULT_HANDSHAKE_TIMEOUT,
+        max_http_content_length: None,
+        max_rawsocket_size_exponent: exponent,
+        max_rawsocket_size: 1u64 << exponent,
+        max_upgrade_exponent: (exponent > 24).then_some(exponent),
+        outbound_send_queue_capacity: config::DEFAULT_OUTBOUND_SEND_QUEUE_CAPACITY,
+        websocket_path: None,
+        sni_certificates: Vec::new(),
+        http_routes: Vec::new(),
+        http: None,
+    }
+}
+
+fn handshake_error_to_io(err: rawsocket::HandshakeError) -> Error {
+    match err {
+        rawsocket::HandshakeError::Protocol(reason) => {
+            Error::Io(io::Error::new(io::ErrorKind::InvalidData, reason))
+        }
+        rawsocket::HandshakeError::Io(err) => Error::Io(err),
+    }
+}
+
+async fn connect_io_stream(
+    host: &str,
+    port: u16,
+    use_tls: bool,
+    allow_insecure: bool,
+    alpn_protocols: &[Vec<u8>],
+) -> Result<(IoStream, SocketAddr), Error> {
+    let stream = tokio::net::TcpStream::connect((host, port)).await?;
+    let peer_addr = stream.peer_addr()?;
+    let io_stream = if use_tls {
+        let connector = tls::build_client_connector(allow_insecure, alpn_protocols)?;
+        let server_name = server_name_from_host(host)?;
+        let tls_stream = connector
+            .connect(server_name, stream)
+            .await
+            .map_err(|err| io::Error::new(io::ErrorKind::ConnectionAborted, err.to_string()))?;
+        IoStream::tls_client(tls_stream)
+    } else {
+        IoStream::plain(stream)
+    };
+    let _ = io_stream.set_nodelay(true);
+    Ok((io_stream, peer_addr))
+}
+
+fn server_name_from_host(host: &str) -> Result<ServerName<'static>, Error> {
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        return Ok(ServerName::IpAddress(ip.into()));
+    }
+    ServerName::try_from(host.to_string()).map_err(|err| {
+        Error::Io(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("invalid tls server name {host}: {err}"),
+        ))
+    })
+}
+
+fn websocket_subprotocol(serializer: rawsocket::Serializer) -> Result<&'static str, Error> {
+    match serializer {
+        rawsocket::Serializer::Json => Ok("wamp.2.json"),
+        rawsocket::Serializer::MessagePack => Ok("wamp.2.msgpack"),
+        rawsocket::Serializer::Cbor => Ok("wamp.2.cbor"),
+        _ => Err(Error::Io(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("websocket serializer {serializer:?} is unsupported"),
+        ))),
+    }
+}
+
+fn websocket_host_header(host: &str, port: u16, use_tls: bool) -> String {
+    let default_port = if use_tls { 443 } else { 80 };
+    let base = if host.contains(':') && !host.starts_with('[') {
+        format!("[{host}]")
+    } else {
+        host.to_string()
+    };
+    if port == default_port {
+        base
+    } else {
+        format!("{base}:{port}")
+    }
+}
+
+async fn perform_websocket_client_handshake(
+    stream: &mut IoStream,
+    host: &str,
+    port: u16,
+    use_tls: bool,
+    target: &str,
+    subprotocol: &str,
+    headers: &[(String, String)],
+    timeout: Duration,
+) -> Result<(), Error> {
+    let mut nonce_bytes = [0u8; 16];
+    rand::thread_rng().fill_bytes(&mut nonce_bytes);
+    let nonce = Base64Engine.encode(nonce_bytes);
+    let mut request = format!(
+        "GET {} HTTP/1.1\r\nHost: {}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: {}\r\nSec-WebSocket-Protocol: {}\r\n",
+        if target.is_empty() { "/" } else { target },
+        websocket_host_header(host, port, use_tls),
+        nonce,
+        subprotocol,
+    );
+    for (name, value) in headers {
+        if name.eq_ignore_ascii_case("host")
+            || name.eq_ignore_ascii_case("upgrade")
+            || name.eq_ignore_ascii_case("connection")
+            || name.eq_ignore_ascii_case("sec-websocket-version")
+            || name.eq_ignore_ascii_case("sec-websocket-key")
+            || name.eq_ignore_ascii_case("sec-websocket-protocol")
+        {
+            continue;
+        }
+        request.push_str(name);
+        request.push_str(": ");
+        request.push_str(value);
+        request.push_str("\r\n");
+    }
+    request.push_str("\r\n");
+    time::timeout(timeout, async {
+        stream.write_all(request.as_bytes()).await?;
+        stream.flush().await
+    })
+    .await
+    .map_err(|_| {
+        Error::Io(io::Error::new(
+            io::ErrorKind::TimedOut,
+            "websocket client handshake timed out",
+        ))
+    })??;
+
+    let header_block = read_http_header_block(stream, timeout).await?;
+    let header_text = std::str::from_utf8(&header_block).map_err(|err| {
+        Error::Io(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("websocket handshake response is not valid utf-8: {err}"),
+        ))
+    })?;
+    let mut lines = header_text.split("\r\n");
+    let status_line = lines.next().ok_or_else(|| {
+        Error::Io(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "websocket handshake response missing status line",
+        ))
+    })?;
+    if !status_line.starts_with("HTTP/1.1 101") && !status_line.starts_with("HTTP/1.0 101") {
+        return Err(Error::Io(io::Error::new(
+            io::ErrorKind::ConnectionRefused,
+            format!("websocket upgrade failed: {status_line}"),
+        )));
+    }
+
+    let mut response_headers = Vec::<(String, String)>::new();
+    for line in lines {
+        if line.is_empty() {
+            break;
+        }
+        let Some((name, value)) = line.split_once(':') else {
+            return Err(Error::Io(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("invalid websocket handshake header: {line}"),
+            )));
+        };
+        response_headers.push((name.trim().to_string(), value.trim().to_string()));
+    }
+
+    let upgrade = response_headers
+        .iter()
+        .find(|(name, _)| name.eq_ignore_ascii_case("upgrade"))
+        .map(|(_, value)| value.as_str())
+        .unwrap_or_default();
+    if !upgrade.eq_ignore_ascii_case("websocket") {
+        return Err(Error::Io(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "websocket handshake missing Upgrade: websocket",
+        )));
+    }
+    let connection = response_headers
+        .iter()
+        .find(|(name, _)| name.eq_ignore_ascii_case("connection"))
+        .map(|(_, value)| value.as_str())
+        .unwrap_or_default();
+    if !header_has_token(connection, "upgrade") {
+        return Err(Error::Io(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "websocket handshake missing Connection: Upgrade",
+        )));
+    }
+    let accept = response_headers
+        .iter()
+        .find(|(name, _)| name.eq_ignore_ascii_case("sec-websocket-accept"))
+        .map(|(_, value)| value.as_str())
+        .ok_or_else(|| {
+            Error::Io(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "websocket handshake missing Sec-WebSocket-Accept",
+            ))
+        })?;
+    if accept != websocket_accept_value(&nonce) {
+        return Err(Error::Io(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "websocket handshake accept value mismatch",
+        )));
+    }
+    let negotiated_protocol = response_headers
+        .iter()
+        .find(|(name, _)| name.eq_ignore_ascii_case("sec-websocket-protocol"))
+        .map(|(_, value)| value.as_str());
+    if negotiated_protocol != Some(subprotocol) {
+        return Err(Error::Io(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!(
+                "websocket handshake negotiated unexpected protocol {:?}",
+                negotiated_protocol
+            ),
+        )));
+    }
+    Ok(())
+}
+
+async fn read_http_header_block(
+    stream: &mut IoStream,
+    timeout: Duration,
+) -> Result<Vec<u8>, Error> {
+    const HEADER_LIMIT: usize = 64 * 1024;
+    let mut buffer = Vec::with_capacity(1024);
+    loop {
+        if let Some(end) = buffer.windows(4).position(|window| window == b"\r\n\r\n") {
+            let header_end = end + 4;
+            if buffer.len() > header_end {
+                stream.buffer_front(&buffer[header_end..]);
+            }
+            buffer.truncate(header_end);
+            return Ok(buffer);
+        }
+        if buffer.len() >= HEADER_LIMIT {
+            return Err(Error::Io(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "http header block exceeded limit",
+            )));
+        }
+        let mut chunk = [0u8; 1024];
+        let read = time::timeout(timeout, stream.read(&mut chunk))
+            .await
+            .map_err(|_| {
+                Error::Io(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "http header read timed out",
+                ))
+            })??;
+        if read == 0 {
+            return Err(Error::Io(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "connection closed before http headers completed",
+            )));
+        }
+        buffer.extend_from_slice(&chunk[..read]);
     }
 }
 
@@ -5733,6 +6318,185 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn connect_rawsocket_registers_outbound_client_connection() {
+        let _guard = test_guard();
+        shutdown().ok();
+        super::apply_router_config(
+            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","max_rawsocket_size_exponent":30}]}"#,
+        )
+        .unwrap();
+        start_runtime().unwrap();
+        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let addr = local_addr(listener_id).unwrap();
+        let mut receiver = accept_channel(listener_id).unwrap();
+
+        let client_connection_id = connect_rawsocket(
+            "127.0.0.1",
+            addr.port(),
+            false,
+            false,
+            RawSocketSerializer::Json,
+            30,
+            None,
+            None,
+        )
+        .unwrap();
+        let server_connection_id = receiver.recv().await.expect("server connection");
+
+        assert_eq!(
+            connection_rawsocket_max_exponent(client_connection_id).unwrap(),
+            30
+        );
+        assert_eq!(
+            connection_rawsocket_max_exponent(server_connection_id).unwrap(),
+            30
+        );
+
+        send_wamp_message(
+            client_connection_id,
+            Bytes::from_static(br#"[1,"realm",{}]"#),
+        )
+        .unwrap();
+        let server_message = wait_for_polled_message(server_connection_id).await;
+        match server_message.message {
+            WampMessage::Hello { realm, .. } => assert_eq!(realm, "realm"),
+            other => panic!("unexpected server message: {other:?}"),
+        }
+
+        send_wamp_message(server_connection_id, Bytes::from_static(br#"[2,4242,{}]"#)).unwrap();
+        let client_message = wait_for_polled_message(client_connection_id).await;
+        match client_message.message {
+            WampMessage::Welcome { session_id, .. } => assert_eq!(session_id, 4242),
+            other => panic!("unexpected client message: {other:?}"),
+        }
+
+        shutdown().unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn connect_rawsocket_supports_native_tls_client_connections() {
+        let _guard = test_guard();
+        shutdown().ok();
+        let cert_pem = include_str!("../../../bench/bench_tls.crt");
+        let key_pem = include_str!("../../../bench/bench_tls.key");
+        let config = json!({
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[{
+                "host":"127.0.0.1",
+                "port":0,
+                "tls_mode":"native",
+                "max_rawsocket_size_exponent":16,
+                "sni_certificates":[{
+                    "hostname":"localhost",
+                    "certificate_chain_pem":cert_pem,
+                    "private_key_pem":key_pem
+                }]
+            }]
+        });
+        super::apply_router_config(&serde_json::to_vec(&config).unwrap()).unwrap();
+        start_runtime().unwrap();
+        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let addr = local_addr(listener_id).unwrap();
+        let mut receiver = accept_channel(listener_id).unwrap();
+
+        let client_connection_id = connect_rawsocket(
+            "localhost",
+            addr.port(),
+            true,
+            true,
+            RawSocketSerializer::Json,
+            16,
+            None,
+            None,
+        )
+        .unwrap();
+        let server_connection_id = receiver.recv().await.expect("server connection");
+
+        send_wamp_message(
+            client_connection_id,
+            Bytes::from_static(br#"[1,"realm",{}]"#),
+        )
+        .unwrap();
+        let server_message = wait_for_polled_message(server_connection_id).await;
+        match server_message.message {
+            WampMessage::Hello { realm, .. } => assert_eq!(realm, "realm"),
+            other => panic!("unexpected tls server message: {other:?}"),
+        }
+
+        shutdown().unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn connect_websocket_registers_outbound_client_connection() {
+        let _guard = test_guard();
+        shutdown().ok();
+        super::apply_router_config(
+            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["websocket"]}]}"#,
+        )
+        .unwrap();
+        start_runtime().unwrap();
+        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let addr = local_addr(listener_id).unwrap();
+        let mut receiver = accept_channel(listener_id).unwrap();
+
+        let connect = tokio::task::spawn_blocking(move || {
+            connect_websocket(
+                "127.0.0.1",
+                addr.port(),
+                "/wamp",
+                false,
+                false,
+                RawSocketSerializer::Json,
+                &[("X-Test".to_string(), "1".to_string())],
+                None,
+                None,
+            )
+        });
+
+        let server_connection_id = receiver.recv().await.expect("server connection");
+        let handshake = connection_take_websocket_handshake(server_connection_id).unwrap();
+        assert_eq!(handshake.http.request.header("X-Test"), Some("1"));
+        assert!(handshake
+            .sec_websocket_protocols
+            .iter()
+            .any(|value| value == "wamp.2.json"));
+        connection_accept_websocket(
+            server_connection_id,
+            handshake,
+            RawSocketSerializer::Json,
+            Some("wamp.2.json"),
+        )
+        .unwrap();
+
+        let client_connection_id = connect.await.unwrap().unwrap();
+        assert_eq!(
+            connection_websocket_protocol(client_connection_id).unwrap(),
+            Some("wamp.2.json".to_string())
+        );
+
+        send_wamp_message(
+            client_connection_id,
+            Bytes::from_static(br#"[1,"realm",{}]"#),
+        )
+        .unwrap();
+        let server_message = wait_for_polled_message(server_connection_id).await;
+        match server_message.message {
+            WampMessage::Hello { realm, .. } => assert_eq!(realm, "realm"),
+            other => panic!("unexpected websocket server message: {other:?}"),
+        }
+
+        send_wamp_message(server_connection_id, Bytes::from_static(br#"[2,5150,{}]"#)).unwrap();
+        let client_message = wait_for_polled_message(client_connection_id).await;
+        match client_message.message {
+            WampMessage::Welcome { session_id, .. } => assert_eq!(session_id, 5150),
+            other => panic!("unexpected websocket client message: {other:?}"),
+        }
+
+        shutdown().unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn connection_messages_can_be_polled() {
         let _guard = test_guard();
         shutdown().ok();
@@ -5793,6 +6557,19 @@ mod tests {
 
         assert!(matches!(receiver.try_recv(), Err(TryRecvError::Empty)));
         shutdown().unwrap();
+    }
+
+    async fn wait_for_polled_message(connection_id: ConnectionId) -> super::ParsedMessage {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            match poll_connection_message(connection_id).unwrap() {
+                Some(message) => return message,
+                None if Instant::now() < deadline => {
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+                None => panic!("timed out waiting for message on {connection_id:?}"),
+            }
+        }
     }
 
     async fn perform_handshake(

@@ -10,4 +10,6 @@ export 'src/transport/websocket/websocket_transport_none.dart'
     if (dart.library.js_interop) 'src/transport/websocket/websocket_transport_web.dart'; // package:web/web.dart implementation
 export 'src/transport/socket/socket_transport_stub.dart'
     if (dart.library.io) 'src/transport/socket/socket_transport.dart';
+export 'src/transport/native/native_transports_none.dart'
+    if (dart.library.io) 'src/transport/native/native_transports_io.dart';
 export 'package:connectanum_core/connectanum_core.dart';

@@ -46,5 +46,36 @@ void main() {
         ]),
       );
     });
+
+    test('serializes welcome details with realm and auth metadata', () {
+      final encoded = serializer.serialize(
+        Welcome(
+          4242,
+          Details.forWelcome(
+            realm: 'test.realm',
+            authId: 'native-user',
+            authMethod: 'ticket',
+            authProvider: 'native-router',
+            authRole: 'client',
+          ),
+        ),
+      );
+
+      expect(
+        msgpack_dart.deserialize(encoded),
+        equals([
+          MessageTypes.codeWelcome,
+          4242,
+          {
+            'roles': {},
+            'realm': 'test.realm',
+            'authid': 'native-user',
+            'authmethod': 'ticket',
+            'authprovider': 'native-router',
+            'authrole': 'client',
+          },
+        ]),
+      );
+    });
   });
 }

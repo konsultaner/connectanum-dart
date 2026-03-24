@@ -38,6 +38,38 @@ void main() {
       expect(welcome[0], MessageTypes.codeWelcome);
       expect(welcome[1], 12345);
       expect((welcome[2] as Map)['authid'], 'bench');
+      expect((welcome[2] as Map)['realm'], isNull);
+    });
+
+    test('serializes welcome details with realm and auth metadata', () {
+      final welcome = decodeList(
+        serializer.serialize(
+          Welcome(
+            4242,
+            Details.forWelcome(
+              realm: 'test.realm',
+              authId: 'native-user',
+              authMethod: 'ticket',
+              authProvider: 'native-router',
+              authRole: 'client',
+            ),
+          ),
+        ),
+      );
+
+      expect(welcome[0], MessageTypes.codeWelcome);
+      expect(welcome[1], 4242);
+      expect(
+        welcome[2],
+        equals({
+          'roles': {},
+          'realm': 'test.realm',
+          'authid': 'native-user',
+          'authmethod': 'ticket',
+          'authprovider': 'native-router',
+          'authrole': 'client',
+        }),
+      );
     });
 
     test('serializes result and interrupt frames', () {

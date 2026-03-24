@@ -10,6 +10,7 @@
 - [x] Config-driven router runner (`packages/connectanum_router/bin/connectanum_router.dart`) suitable for production deployments.
 - [x] Deployment templates (`deploy/docker`, `deploy/systemd`, `deploy/k8s`) plus production config docs (`docs/deployment.md`, `docs/router_example.yaml`).
 - [x] Packaging & build hooks for `ct_ffi` (Dart 3.10+ native assets build hook builds the Rust library during `dart run`/`dart test`, and the runtime loader discovers artifacts under `.dart_tool/hooks_runner`).
+- [x] Native outbound client transports in `connectanum_client` (`NativeRawSocketTransport`, `NativeWebSocketTransport`) backed by `ct_ffi`, with a package-local build hook/runtime loader and a package-specific native-asset name to avoid collisions with `connectanum_router`.
 - [x] Resource caps: configurable outbound send queue capacity (`outbound_send_queue_capacity`) for RawSocket/WebSocket connections.
 - [x] Graceful drain: close native listeners before worker drain so no new accepts are queued; `/healthz` reports `draining`, and OpenMetrics exports drain counters.
 - [ ] Native TLS offload & kTLS integration
@@ -26,6 +27,7 @@
 - [ ] Serializer matrix (JSON, MessagePack, CBOR, UBJSON, FlatBuffers)
   - [x] Complete the router-side JSON/MessagePack/CBOR encode/decode path used by current WAMP benches (including MsgPack `RESULT` and the native CBOR binding path) and cover it with RawSocket/WebSocket integration tests plus serializer-specific bench scenarios.
   - [x] Arm client-side request/reply listeners before sending `CALL` / acknowledged `PUBLISH` / `SUBSCRIBE` / `UNSUBSCRIBE` / `REGISTER` / `UNREGISTER`, so fast RawSocket/WebSocket replies are no longer dropped on the broadcast session stream and serializer-aware WAMP benches stop hanging on successful transports.
+  - [x] Preserve `WELCOME` realm/auth metadata in the MsgPack + CBOR serializers so non-JSON/native client transports see the same session details as JSON clients.
   - [ ] Cross-serializer translation so mixed clients (e.g. JSON ↔ MessagePack/CBOR) can publish/call across encodings without data loss; include regression tests for EVENT, RESULT, and ERROR bridging and document zero-copy fallbacks.
 - [x] Backpressure / flow control between workers and native layer
 - [ ] Multi-protocol listener stack (RawSocket/WebSocket/HTTP/1.1/HTTP/2/HTTP/3)

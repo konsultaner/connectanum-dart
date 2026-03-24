@@ -1101,11 +1101,13 @@ Future<void> _handleCancel({
           'mode': mode,
         });
       } else {
-        final calleeConnectionId = await _findConnectionIdForSession(
-          context: context,
-          sessionId: invocation.calleeSessionId,
-          forceRefresh: true,
-        );
+        final calleeConnectionId =
+            invocation.calleeConnectionId ??
+            await _findConnectionIdForSession(
+              context: context,
+              sessionId: invocation.calleeSessionId,
+              forceRefresh: true,
+            );
         if (calleeConnectionId != null) {
           final interruptOptions = interrupt_msg.InterruptOptions()
             ..mode = mode;

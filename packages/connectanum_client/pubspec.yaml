@@ -10,6 +10,8 @@ dependencies:
   cbor: ^6.3.7
   web: ^1.1.1
   ffi: ^2.1.0
+  hooks: ^0.20.1
+  code_assets: ^0.19.7
   collection: ^1.18.0
   pinenacl: ^0.6.0
   connectanum_core: ^0.1.0

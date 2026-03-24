@@ -28,6 +28,8 @@ http = "1.3"
 http02 = { package = "http", version = "0.2" }
 sha1 = "0.10"
 base64 = "0.21"
+rand = "0.8"
+rustls-native-certs = "0.8"
 
 [features]
 ffi-test = []

@@ -25,11 +25,11 @@ use ct_core::http_metrics_snapshot_with_breakdown;
 #[cfg(feature = "ffi-test")]
 use ct_core::parse_message;
 use ct_core::{
-    accept_channel, apply_router_config, close_connection, close_listener,
-    connection_accept_websocket, connection_http3_connection, connection_http3_poll_request,
-    connection_http3_poll_stream, connection_http_poll_request, connection_poll_http_event,
-    connection_protocol, connection_rawsocket_max_exponent, connection_reject_websocket,
-    connection_take_http2_handshake, connection_take_http3_handshake,
+    accept_channel, apply_router_config, close_connection, close_listener, connect_rawsocket,
+    connect_websocket, connection_accept_websocket, connection_http3_connection,
+    connection_http3_poll_request, connection_http3_poll_stream, connection_http_poll_request,
+    connection_poll_http_event, connection_protocol, connection_rawsocket_max_exponent,
+    connection_reject_websocket, connection_take_http2_handshake, connection_take_http3_handshake,
     connection_take_websocket_handshake, connection_websocket_protocol, listen,
     listener_http3_port, local_addr, poll_connection_message, reload_tls, response_stream_channel,
     send_wamp_message, send_wamp_segments, shutdown, start_runtime, ConnectionId,
@@ -1292,6 +1292,119 @@ pub extern "C" fn ct_connection_close(connection_id: c_int) -> c_int {
 }
 
 #[no_mangle]
+pub extern "C" fn ct_client_connect_rawsocket(
+    host_ptr: *const c_char,
+    port: c_int,
+    tls_enabled: c_int,
+    allow_insecure: c_int,
+    serializer_id: c_int,
+    max_message_size_exponent: c_int,
+    heartbeat_interval_ms: c_uint,
+    heartbeat_timeout_ms: c_uint,
+) -> c_int {
+    if host_ptr.is_null() || port <= 0 || max_message_size_exponent <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let host = match unsafe { CStr::from_ptr(host_ptr) }.to_str() {
+        Ok(value) if !value.is_empty() => value,
+        _ => return ERR_INVALID_ARGUMENT,
+    };
+    let serializer = match serializer_from_id(serializer_id) {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    let heartbeat_interval = duration_from_millis(heartbeat_interval_ms);
+    let heartbeat_timeout = duration_from_millis(heartbeat_timeout_ms);
+    match connect_rawsocket(
+        host,
+        port as u16,
+        tls_enabled != 0,
+        allow_insecure != 0,
+        serializer,
+        max_message_size_exponent as u32,
+        heartbeat_interval,
+        heartbeat_timeout,
+    ) {
+        Ok(connection_id) => connection_id.0 as c_int,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_client_connect_websocket(
+    host_ptr: *const c_char,
+    port: c_int,
+    target_ptr: *const c_char,
+    tls_enabled: c_int,
+    allow_insecure: c_int,
+    serializer_id: c_int,
+    headers_ptr: *const CtHttpHeader,
+    headers_len: usize,
+    heartbeat_interval_ms: c_uint,
+    heartbeat_timeout_ms: c_uint,
+) -> c_int {
+    if host_ptr.is_null() || target_ptr.is_null() || port <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let host = match unsafe { CStr::from_ptr(host_ptr) }.to_str() {
+        Ok(value) if !value.is_empty() => value,
+        _ => return ERR_INVALID_ARGUMENT,
+    };
+    let target = match unsafe { CStr::from_ptr(target_ptr) }.to_str() {
+        Ok(value) if !value.is_empty() => value,
+        _ => return ERR_INVALID_ARGUMENT,
+    };
+    let serializer = match serializer_from_id(serializer_id) {
+        Ok(RawSocketSerializer::Json) => RawSocketSerializer::Json,
+        Ok(RawSocketSerializer::MessagePack) => RawSocketSerializer::MessagePack,
+        Ok(RawSocketSerializer::Cbor) => RawSocketSerializer::Cbor,
+        Ok(_) => return ERR_UNSUPPORTED_SERIALIZER,
+        Err(code) => return code,
+    };
+    let headers = if headers_len == 0 || headers_ptr.is_null() {
+        Vec::new()
+    } else {
+        let mut list = Vec::with_capacity(headers_len);
+        for index in 0..headers_len {
+            let Some(header) = (unsafe { headers_ptr.add(index).as_ref() }) else {
+                return ERR_INVALID_ARGUMENT;
+            };
+            if header.name_ptr.is_null() || header.value_ptr.is_null() {
+                return ERR_INVALID_ARGUMENT;
+            }
+            let name = unsafe { slice::from_raw_parts(header.name_ptr, header.name_len) };
+            let value = unsafe { slice::from_raw_parts(header.value_ptr, header.value_len) };
+            let name = match str::from_utf8(name) {
+                Ok(value) => value.to_string(),
+                Err(_) => return ERR_INVALID_ARGUMENT,
+            };
+            let value = match str::from_utf8(value) {
+                Ok(value) => value.to_string(),
+                Err(_) => return ERR_INVALID_ARGUMENT,
+            };
+            list.push((name, value));
+        }
+        list
+    };
+    let heartbeat_interval = duration_from_millis(heartbeat_interval_ms);
+    let heartbeat_timeout = duration_from_millis(heartbeat_timeout_ms);
+    match connect_websocket(
+        host,
+        port as u16,
+        target,
+        tls_enabled != 0,
+        allow_insecure != 0,
+        serializer,
+        &headers,
+        heartbeat_interval,
+        heartbeat_timeout,
+    ) {
+        Ok(connection_id) => connection_id.0 as c_int,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn ct_connection_websocket_protocol(
     connection_id: c_int,
     buffer: *mut u8,
@@ -1953,6 +2066,7 @@ pub extern "C" fn ct_connection_reject_websocket(
 }
 
 #[repr(C)]
+#[repr(C)]
 #[derive(Default)]
 pub struct CtMessageInfo {
     pub serializer: u8,
@@ -1983,6 +2097,14 @@ fn serializer_from_id(value: c_int) -> Result<RawSocketSerializer, c_int> {
         4 => Ok(RawSocketSerializer::Ubjson),
         5 => Ok(RawSocketSerializer::Flatbuffers),
         _ => Err(ERR_INVALID_ARGUMENT),
+    }
+}
+
+fn duration_from_millis(value: c_uint) -> Option<std::time::Duration> {
+    if value == 0 {
+        None
+    } else {
+        Some(std::time::Duration::from_millis(value as u64))
     }
 }
 

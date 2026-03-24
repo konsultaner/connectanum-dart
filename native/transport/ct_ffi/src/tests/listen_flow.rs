@@ -38,12 +38,13 @@ use crate::runtime::constants::{
     PROTOCOL_RAWSOCKET, PROTOCOL_WEBSOCKET, SUCCESS,
 };
 use crate::runtime::ffi::{
-    ct_apply_router_config, ct_connection_accept_websocket, ct_connection_close,
-    ct_connection_get_http3_connection, ct_connection_max_rawsocket_exponent,
-    ct_connection_poll_http_event, ct_connection_protocol, ct_connection_take_http2_handshake,
-    ct_connection_take_http3_handshake, ct_connection_take_http_handshake,
-    ct_connection_take_websocket_handshake, ct_connection_websocket_protocol, ct_get_local_port,
-    ct_http2_handshake_get, ct_http2_handshake_listener_protocol, ct_http2_handshake_release,
+    ct_apply_router_config, ct_client_connect_rawsocket, ct_client_connect_websocket,
+    ct_connection_accept_websocket, ct_connection_close, ct_connection_get_http3_connection,
+    ct_connection_max_rawsocket_exponent, ct_connection_poll_http_event, ct_connection_protocol,
+    ct_connection_take_http2_handshake, ct_connection_take_http3_handshake,
+    ct_connection_take_http_handshake, ct_connection_take_websocket_handshake,
+    ct_connection_websocket_protocol, ct_get_local_port, ct_http2_handshake_get,
+    ct_http2_handshake_listener_protocol, ct_http2_handshake_release,
     ct_http3_connection_poll_request, ct_http3_connection_poll_stream, ct_http3_connection_release,
     ct_http3_handshake_get, ct_http3_handshake_listener_protocol, ct_http3_handshake_release,
     ct_http_body_finish, ct_http_body_get, ct_http_body_release, ct_http_body_stream_read,
@@ -85,6 +86,23 @@ fn wait_for_connection(listener_id: i32) -> i32 {
         }
         if Instant::now() > deadline {
             panic!("timed out waiting for connection");
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
+fn wait_for_message_handle(connection_id: i32) -> i32 {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let handle = ct_poll_connection_message(connection_id);
+        if handle > 0 {
+            return handle;
+        }
+        if handle < 0 {
+            panic!("poll message failed: {handle}");
+        }
+        if Instant::now() > deadline {
+            panic!("timed out waiting for message on connection {connection_id}");
         }
         std::thread::sleep(Duration::from_millis(10));
     }
@@ -517,6 +535,193 @@ fn poll_connection_message_returns_payload() {
     ct_message_release(handle);
     // Releasing twice should be a no-op.
     ct_message_release(handle);
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn client_connect_rawsocket_round_trips_over_ffi() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","max_rawsocket_size_exponent":30}]}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        ct_apply_router_config(config.as_bytes().as_ptr(), config.as_bytes().len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let host = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(host.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let client_connection_id = ct_client_connect_rawsocket(host.as_ptr(), port, 0, 0, 1, 30, 0, 0);
+    assert!(client_connection_id > 0);
+    let server_connection_id = wait_for_connection(listener_id);
+    assert_eq!(
+        ct_connection_protocol(client_connection_id),
+        PROTOCOL_RAWSOCKET
+    );
+    assert_eq!(
+        ct_connection_protocol(server_connection_id),
+        PROTOCOL_RAWSOCKET
+    );
+    assert_eq!(
+        ct_connection_max_rawsocket_exponent(client_connection_id),
+        30
+    );
+
+    let hello = serde_json::to_vec(&json!([1, "realm", {}])).unwrap();
+    assert_eq!(
+        ct_send_message(client_connection_id, hello.as_ptr(), hello.len() as i32,),
+        SUCCESS
+    );
+    let server_handle = wait_for_message_handle(server_connection_id);
+    let mut server_info = CtMessageInfo::default();
+    assert_eq!(
+        ct_message_get(server_handle, &mut server_info as *mut CtMessageInfo),
+        SUCCESS
+    );
+    assert_eq!(server_info.message_code, 1, "HELLO expected");
+    ct_message_release(server_handle);
+
+    let welcome = serde_json::to_vec(&json!([2, 9001, {}])).unwrap();
+    assert_eq!(
+        ct_send_message(server_connection_id, welcome.as_ptr(), welcome.len() as i32,),
+        SUCCESS
+    );
+    let client_handle = wait_for_message_handle(client_connection_id);
+    let mut client_info = CtMessageInfo::default();
+    assert_eq!(
+        ct_message_get(client_handle, &mut client_info as *mut CtMessageInfo),
+        SUCCESS
+    );
+    assert_eq!(client_info.message_code, 2, "WELCOME expected");
+    ct_message_release(client_handle);
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn client_connect_websocket_round_trips_over_ffi() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["websocket"]}]}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        ct_apply_router_config(config.as_bytes().as_ptr(), config.as_bytes().len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let host = CString::new("127.0.0.1").unwrap();
+    let target = CString::new("/wamp").unwrap();
+    let listener_id = ct_listen(host.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let host_ptr = host.clone();
+    let target_ptr = target.clone();
+    let header_name = b"X-Test".to_vec();
+    let header_value = b"ffi".to_vec();
+    let connect = std::thread::spawn(move || {
+        let header = CtHttpHeader {
+            name_ptr: header_name.as_ptr(),
+            name_len: header_name.len(),
+            value_ptr: header_value.as_ptr(),
+            value_len: header_value.len(),
+        };
+        ct_client_connect_websocket(
+            host_ptr.as_ptr(),
+            port,
+            target_ptr.as_ptr(),
+            0,
+            0,
+            1,
+            &header as *const CtHttpHeader,
+            1,
+            0,
+            0,
+        )
+    });
+
+    let server_connection_id = wait_for_connection(listener_id);
+    assert_eq!(
+        ct_connection_protocol(server_connection_id),
+        PROTOCOL_WEBSOCKET
+    );
+    let handshake_handle = ct_connection_take_websocket_handshake(server_connection_id);
+    assert!(handshake_handle > 0);
+
+    let mut handshake = CtWebSocketHandshakeInfo::default();
+    assert_eq!(
+        ct_websocket_handshake_get(
+            handshake_handle,
+            &mut handshake as *mut CtWebSocketHandshakeInfo
+        ),
+        SUCCESS
+    );
+    assert_eq!(handshake.protocols_len, 1);
+    let mut protocol = CtStringView::default();
+    assert_eq!(
+        ct_websocket_handshake_protocol(handshake_handle, 0, &mut protocol as *mut CtStringView),
+        SUCCESS
+    );
+    unsafe {
+        let protocol = std::slice::from_raw_parts(protocol.ptr, protocol.len);
+        assert_eq!(std::str::from_utf8(protocol).unwrap(), "wamp.2.json");
+    }
+
+    let selected = CString::new("wamp.2.json").unwrap();
+    assert_eq!(
+        ct_connection_accept_websocket(
+            server_connection_id,
+            handshake_handle,
+            1,
+            selected.as_ptr(),
+            selected.as_bytes().len() as i32,
+        ),
+        SUCCESS
+    );
+    let client_connection_id = connect.join().unwrap();
+    assert!(client_connection_id > 0);
+    assert_eq!(
+        ct_connection_protocol(client_connection_id),
+        PROTOCOL_WEBSOCKET
+    );
+
+    let hello = serde_json::to_vec(&json!([1, "realm", {}])).unwrap();
+    assert_eq!(
+        ct_send_message(client_connection_id, hello.as_ptr(), hello.len() as i32,),
+        SUCCESS
+    );
+    let server_handle = wait_for_message_handle(server_connection_id);
+    let mut server_info = CtMessageInfo::default();
+    assert_eq!(
+        ct_message_get(server_handle, &mut server_info as *mut CtMessageInfo),
+        SUCCESS
+    );
+    assert_eq!(server_info.message_code, 1, "HELLO expected");
+    ct_message_release(server_handle);
+
+    let welcome = serde_json::to_vec(&json!([2, 5150, {}])).unwrap();
+    assert_eq!(
+        ct_send_message(server_connection_id, welcome.as_ptr(), welcome.len() as i32,),
+        SUCCESS
+    );
+    let client_handle = wait_for_message_handle(client_connection_id);
+    let mut client_info = CtMessageInfo::default();
+    assert_eq!(
+        ct_message_get(client_handle, &mut client_info as *mut CtMessageInfo),
+        SUCCESS
+    );
+    assert_eq!(client_info.message_code, 2, "WELCOME expected");
+    ct_message_release(client_handle);
 
     assert_eq!(ct_shutdown(), SUCCESS);
 }

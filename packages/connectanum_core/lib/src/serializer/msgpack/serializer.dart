@@ -722,8 +722,20 @@ class Serializer extends AbstractSerializer {
       }
       var detailsParts = <String, dynamic>{};
       detailsParts['roles'] = roles;
+      if (details.realm != null) {
+        detailsParts['realm'] = details.realm;
+      }
       if (details.authid != null) {
         detailsParts['authid'] = details.authid;
+      }
+      if (details.authmethod != null) {
+        detailsParts['authmethod'] = details.authmethod;
+      }
+      if (details.authprovider != null) {
+        detailsParts['authprovider'] = details.authprovider;
+      }
+      if (details.authrole != null) {
+        detailsParts['authrole'] = details.authrole;
       }
       if (details.authmethods != null && details.authmethods!.isNotEmpty) {
         detailsParts['authmethods'] = details.authmethods;
