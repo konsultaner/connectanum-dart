@@ -227,7 +227,7 @@ class Session {
     Map<String, dynamic>? argumentsKeywords,
     CallOptions? options,
     Completer<String>? cancelCompleter,
-  }) async* {
+  }) {
     var callArguments = arguments;
     var callArgumentsKeywords = argumentsKeywords;
 
@@ -256,39 +256,73 @@ class Session {
       argumentsKeywords: callArgumentsKeywords,
       options: options,
     );
-    _transport.send(call);
-    if (cancelCompleter != null) {
-      unawaited(
-        cancelCompleter.future.then((cancelMode) {
-          CancelOptions? options;
-          if (CancelOptions.modeKillNoWait == cancelMode ||
-              CancelOptions.modeKill == cancelMode ||
-              CancelOptions.modeSkip == cancelMode) {
-            options = CancelOptions();
-            options.mode = cancelMode;
-          }
-          var cancel = Cancel(call.requestId, options: options);
-          _transport.send(cancel);
-        }),
-      );
-    }
-    await for (AbstractMessageWithPayload result
-        in _openSessionStreamController.stream.where(
-          (message) =>
-              (message is Result && message.callRequestId == call.requestId) ||
-              (message is Error &&
-                  message.requestTypeId == MessageTypes.codeCall &&
-                  message.requestId == call.requestId),
-        )) {
-      if (result is Result) {
-        yield result;
-        if (!result.isProgressive()) {
-          break;
-        }
-      } else if (result is Error) {
-        throw result;
+    StreamSubscription<dynamic>? subscription;
+    late StreamController<Result> controller;
+
+    Future<void> closeController() async {
+      if (!controller.isClosed) {
+        await controller.close();
       }
     }
+
+    controller = StreamController<Result>(
+      sync: true,
+      onListen: () {
+        subscription = _openSessionStreamController.stream
+            .where(
+              (message) =>
+                  (message is Result &&
+                      message.callRequestId == call.requestId) ||
+                  (message is Error &&
+                      message.requestTypeId == MessageTypes.codeCall &&
+                      message.requestId == call.requestId),
+            )
+            .listen(
+              (result) {
+                if (result is Result) {
+                  controller.add(result);
+                  if (!result.isProgressive()) {
+                    unawaited(subscription?.cancel());
+                    subscription = null;
+                    unawaited(closeController());
+                  }
+                } else if (result is Error) {
+                  controller.addError(result);
+                  unawaited(subscription?.cancel());
+                  subscription = null;
+                  unawaited(closeController());
+                }
+              },
+              onError: controller.addError,
+              onDone: () {
+                unawaited(closeController());
+              },
+            );
+
+        _transport.send(call);
+        if (cancelCompleter != null) {
+          unawaited(
+            cancelCompleter.future.then((cancelMode) {
+              CancelOptions? options;
+              if (CancelOptions.modeKillNoWait == cancelMode ||
+                  CancelOptions.modeKill == cancelMode ||
+                  CancelOptions.modeSkip == cancelMode) {
+                options = CancelOptions();
+                options.mode = cancelMode;
+              }
+              var cancel = Cancel(call.requestId, options: options);
+              _transport.send(cancel);
+            }),
+          );
+        }
+      },
+      onCancel: () async {
+        await subscription?.cancel();
+        subscription = null;
+      },
+    );
+
+    return controller.stream;
   }
 
   /// This subscribes the session to a [topic]. The subscriber may pass [options]
@@ -299,8 +333,7 @@ class Session {
     SubscribeOptions? options,
   }) async {
     var subscribe = Subscribe(nextSubscribeId++, topic, options: options);
-    _transport.send(subscribe);
-    AbstractMessage subscribed = await _openSessionStreamController.stream
+    final subscribedFuture = _openSessionStreamController.stream
         .where(
           (message) =>
               (message is Subscribed &&
@@ -310,6 +343,8 @@ class Session {
                   message.requestId == subscribe.requestId),
         )
         .first;
+    _transport.send(subscribe);
+    AbstractMessage subscribed = await subscribedFuture;
     if (subscribed is Subscribed) {
       subscriptions[subscribed.subscriptionId] = subscribed;
       subscribed.eventStream = _openSessionStreamController.stream
@@ -359,8 +394,9 @@ class Session {
   /// to unsubscribe.
   Future<void> unsubscribe(int subscriptionId) async {
     var unsubscribe = Unsubscribe(nextUnsubscribeId++, subscriptionId);
-    _transport.send(unsubscribe);
-    await _openSessionStreamController.stream.where((message) {
+    final unsubscribeFuture = _openSessionStreamController.stream.where((
+      message,
+    ) {
       if (message is Unsubscribed &&
           message.unsubscribeRequestId == unsubscribe.requestId) {
         return true;
@@ -372,6 +408,8 @@ class Session {
       }
       return false;
     }).first;
+    _transport.send(unsubscribe);
+    await unsubscribeFuture;
     subscriptions.remove(subscriptionId);
   }
 
@@ -410,23 +448,27 @@ class Session {
       argumentsKeywords: pubArgumentsKeywords,
       options: options,
     );
-    _transport.send(publish);
     if (options?.acknowledge == null || options?.acknowledge == false) {
+      _transport.send(publish);
       return Future.value(null);
     }
-    var publishStream = _openSessionStreamController.stream.where((message) {
-      if (message is Published &&
-          message.publishRequestId == publish.requestId) {
-        return true;
-      }
-      if (message is Error &&
-          message.requestTypeId == MessageTypes.codePublish &&
-          message.requestId == publish.requestId) {
-        throw message;
-      }
-      return false;
-    }).cast<Published>();
-    return publishStream.first;
+    final publishFuture = _openSessionStreamController.stream
+        .where((message) {
+          if (message is Published &&
+              message.publishRequestId == publish.requestId) {
+            return true;
+          }
+          if (message is Error &&
+              message.requestTypeId == MessageTypes.codePublish &&
+              message.requestId == publish.requestId) {
+            throw message;
+          }
+          return false;
+        })
+        .cast<Published>()
+        .first;
+    _transport.send(publish);
+    return publishFuture;
   }
 
   /// This registers a [procedure] with the given [options] that may be called
@@ -436,8 +478,7 @@ class Session {
     RegisterOptions? options,
   }) async {
     var register = Register(nextRegisterId++, procedure, options: options);
-    _transport.send(register);
-    AbstractMessage registered = await _openSessionStreamController.stream
+    final registeredFuture = _openSessionStreamController.stream
         .where(
           (message) =>
               (message is Registered &&
@@ -447,6 +488,8 @@ class Session {
                   message.requestId == register.requestId),
         )
         .first;
+    _transport.send(register);
+    AbstractMessage registered = await registeredFuture;
     if (registered is Registered) {
       registrations[registered.registrationId] = registered;
       registered.procedure = procedure;
@@ -483,8 +526,9 @@ class Session {
   /// to unregister.
   Future<void> unregister(int registrationId) async {
     var unregister = Unregister(nextUnregisterId++, registrationId);
-    _transport.send(unregister);
-    await _openSessionStreamController.stream.where((message) {
+    final unregisterFuture = _openSessionStreamController.stream.where((
+      message,
+    ) {
       if (message is Unregistered &&
           message.unregisterRequestId == unregister.requestId) {
         return true;
@@ -496,6 +540,8 @@ class Session {
       }
       return false;
     }).first;
+    _transport.send(unregister);
+    await unregisterFuture;
     registrations.remove(registrationId);
   }
 

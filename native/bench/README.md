@@ -423,16 +423,26 @@ instead of only JSON. Router-side outbound MsgPack `RESULT` serialization and
 the native CBOR decode/encode path were completed so RawSocket/WebSocket WAMP
 benchmarks can run the same HELLO/CALL/RESULT flow across all three serializers.
 
+The serializer matrix also exposed a client-side correctness bug: several
+request/reply APIs were sending `CALL` / acknowledged `PUBLISH` / `SUBSCRIBE` /
+`UNSUBSCRIBE` / `REGISTER` / `UNREGISTER` before arming the matching listener on
+the session broadcast stream. Fast RawSocket/WebSocket replies could therefore
+be dropped even though the router succeeded. That race is fixed now, so
+`wamp_serializer_matrix.toml` completes reliably instead of hanging on the
+successful RawSocket/CBOR path.
+
 On the latest release-built `all_transports_smoke` run in this environment, the
 transport comparison landed roughly at:
 
-- RawSocket pub/sub: `6.81 ms` average latency
-- RawSocket RPC: `4.83 ms`
-- WebSocket pub/sub: `3.45 ms`
-- WebSocket RPC: `4.77 ms`
-- HTTP/1.1: `178.48 Mbps` response throughput
-- HTTP/2: `559.24 Mbps`
-- HTTP/3: `364.72 Mbps`
+- RawSocket pub/sub (JSON): `4.99 ms` average latency
+- RawSocket RPC (MsgPack): `3.44 ms`
+- RawSocket RPC (CBOR): `3.95 ms`
+- WebSocket pub/sub (JSON): `3.40 ms`
+- WebSocket RPC (MsgPack): `3.30 ms`
+- WebSocket RPC (CBOR): `3.28 ms`
+- HTTP/1.1: `226.72 Mbps` response throughput
+- HTTP/2: `932.07 Mbps`
+- HTTP/3: `524.29 Mbps`
 
 That leaves one obvious transport follow-up: on this shared smoke workload,
 HTTP/3 still trails HTTP/2 materially even after the recent QUIC tuning and

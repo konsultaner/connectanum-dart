@@ -1224,6 +1224,36 @@ void main() {
       expect(session.isConnected(), isFalse);
       expect(session.onDisconnect, completes);
     });
+    test('request-response APIs handle immediate router replies', () async {
+      const stepTimeout = Duration(seconds: 1);
+      final transport = _ImmediateResponseTransport();
+      final client = Client(realm: 'test.realm', transport: transport);
+      final session = await client.connect().first.timeout(stepTimeout);
+
+      final result = await session
+          .call('bench.fast')
+          .first
+          .timeout(stepTimeout);
+      expect(result.arguments, equals(['ok']));
+
+      final published = await session
+          .publish('bench.topic', options: PublishOptions(acknowledge: true))
+          .timeout(stepTimeout);
+      expect(published, isNotNull);
+      expect(published!.publicationId, equals(1));
+
+      final subscribed = await session
+          .subscribe('bench.topic')
+          .timeout(stepTimeout);
+      expect(subscribed.subscriptionId, equals(10));
+      await session.unsubscribe(subscribed.subscriptionId).timeout(stepTimeout);
+
+      final registered = await session
+          .register('bench.proc')
+          .timeout(stepTimeout);
+      expect(registered.registrationId, equals(20));
+      await session.unregister(registered.registrationId).timeout(stepTimeout);
+    });
   });
 }
 
@@ -1297,6 +1327,100 @@ class _MockTransport extends AbstractTransport {
     _open = true;
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
+    return Future.value();
+  }
+
+  @override
+  Stream<AbstractMessage> receive() {
+    return inbound.stream;
+  }
+}
+
+class _ImmediateResponseTransport extends AbstractTransport {
+  final StreamController<AbstractMessage> inbound = StreamController.broadcast(
+    sync: true,
+  );
+  final StreamController<AbstractMessage> outbound = StreamController(
+    sync: true,
+  );
+
+  Completer? _onConnectionLost;
+  Completer? _onDisconnect;
+  bool _open = false;
+  int _nextPublicationId = 1;
+  final int _nextSubscriptionId = 10;
+  final int _nextRegistrationId = 20;
+
+  @override
+  Completer? get onConnectionLost => _onConnectionLost;
+
+  @override
+  Completer? get onDisconnect => _onDisconnect;
+
+  @override
+  bool get isOpen => _open;
+
+  @override
+  bool get isReady => _open;
+
+  @override
+  Future<void> get onReady => Future.value();
+
+  @override
+  Future<void> open({Duration? pingInterval}) {
+    _open = true;
+    _onDisconnect = Completer();
+    _onConnectionLost = Completer();
+    return Future.value();
+  }
+
+  @override
+  void send(AbstractMessage message) {
+    outbound.add(message);
+    if (message is Hello) {
+      inbound.add(Welcome(42, Details.forWelcome()));
+      return;
+    }
+    if (message is Call) {
+      inbound.add(
+        Result(message.requestId, ResultDetails(), arguments: const ['ok']),
+      );
+      return;
+    }
+    if (message is Publish && message.options?.acknowledge == true) {
+      inbound.add(Published(message.requestId, _nextPublicationId++));
+      return;
+    }
+    if (message is Subscribe) {
+      inbound.add(Subscribed(message.requestId, _nextSubscriptionId));
+      return;
+    }
+    if (message is Unsubscribe) {
+      inbound.add(
+        Unsubscribed(
+          message.requestId,
+          UnsubscribedDetails(message.subscriptionId, null),
+        ),
+      );
+      return;
+    }
+    if (message is Register) {
+      inbound.add(Registered(message.requestId, _nextRegistrationId));
+      return;
+    }
+    if (message is Unregister) {
+      inbound.add(Unregistered(message.requestId));
+      return;
+    }
+    if (message is Goodbye) {
+      unawaited(close());
+    }
+  }
+
+  @override
+  Future<void> close({error}) {
+    _open = false;
+    complete(_onDisconnect, error);
     return Future.value();
   }
 

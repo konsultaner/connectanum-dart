@@ -25,6 +25,7 @@
   - [x] Replace per-frame WebSocket `Vec` allocation with pooled owner-backed buffers, keep single-frame WAMP payloads zero-copy through WAMP parse + FFI/Dart, reassemble continuations in pooled storage, and write outbound segmented frames without flattening.
 - [ ] Serializer matrix (JSON, MessagePack, CBOR, UBJSON, FlatBuffers)
   - [x] Complete the router-side JSON/MessagePack/CBOR encode/decode path used by current WAMP benches (including MsgPack `RESULT` and the native CBOR binding path) and cover it with RawSocket/WebSocket integration tests plus serializer-specific bench scenarios.
+  - [x] Arm client-side request/reply listeners before sending `CALL` / acknowledged `PUBLISH` / `SUBSCRIBE` / `UNSUBSCRIBE` / `REGISTER` / `UNREGISTER`, so fast RawSocket/WebSocket replies are no longer dropped on the broadcast session stream and serializer-aware WAMP benches stop hanging on successful transports.
   - [ ] Cross-serializer translation so mixed clients (e.g. JSON ↔ MessagePack/CBOR) can publish/call across encodings without data loss; include regression tests for EVENT, RESULT, and ERROR bridging and document zero-copy fallbacks.
 - [x] Backpressure / flow control between workers and native layer
 - [ ] Multi-protocol listener stack (RawSocket/WebSocket/HTTP/1.1/HTTP/2/HTTP/3)

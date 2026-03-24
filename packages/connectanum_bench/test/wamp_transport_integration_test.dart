@@ -186,6 +186,28 @@ void main() {
           payloadBytes: 32,
         ),
       );
+      final rawRpcCborLarge = await runner.run(
+        WampScenario(
+          transport: WampTransport.rawsocket,
+          serializer: WampSerializer.cbor,
+          mode: WampMode.rpc,
+          uri: 'bench.rpc.echo',
+          iterations: 8,
+          concurrency: 4,
+          payloadBytes: 16384,
+        ),
+      );
+      final webSocketRpcCborLarge = await runner.run(
+        WampScenario(
+          transport: WampTransport.websocket,
+          serializer: WampSerializer.cbor,
+          mode: WampMode.rpc,
+          uri: 'bench.rpc.echo',
+          iterations: 8,
+          concurrency: 4,
+          payloadBytes: 16384,
+        ),
+      );
 
       expect(rawPubSub, hasLength(8));
       expect(rawRpc, hasLength(8));
@@ -193,6 +215,8 @@ void main() {
       expect(webSocketPubSub, hasLength(8));
       expect(webSocketRpcMsgPack, hasLength(8));
       expect(webSocketRpc, hasLength(8));
+      expect(rawRpcCborLarge, hasLength(32));
+      expect(webSocketRpcCborLarge, hasLength(32));
     },
     skip: skipReason,
   );
