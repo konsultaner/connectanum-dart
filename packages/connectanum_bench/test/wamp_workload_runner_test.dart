@@ -32,6 +32,30 @@ void main() {
       expect(samples.every((sample) => sample.latencyMs >= 0), isTrue);
     });
 
+    test('supports pubsub workloads through direct event callbacks', () async {
+      final broker = _FakeWampBroker();
+      final runner = WampWorkloadRunner(
+        sessionFactory: (_) async =>
+            _FakeWampSession(broker, useDirectEventHandler: true),
+        logger: Logger.detached('pubsub_direct_callback_test'),
+        eventTimeout: const Duration(seconds: 1),
+      );
+      final scenario = WampScenario(
+        transport: WampTransport.rawsocket,
+        serializer: WampSerializer.json,
+        mode: WampMode.pubsub,
+        uri: 'bench.topic',
+        iterations: 2,
+        concurrency: 2,
+        payloadBytes: 8,
+      );
+
+      final samples = await runner.run(scenario);
+
+      expect(samples, hasLength(4));
+      expect(samples.every((sample) => sample.latencyMs >= 0), isTrue);
+    });
+
     test('throws when matching events do not arrive before timeout', () async {
       final broker = _FakeWampBroker(dropMetadata: true);
       final runner = WampWorkloadRunner(
@@ -55,7 +79,7 @@ void main() {
       );
     });
 
-    test('executes RPC scenario via session.call', () async {
+    test('executes RPC scenario via the single-result call path', () async {
       final broker = _FakeWampBroker(
         callDelay: const Duration(milliseconds: 10),
       );
@@ -120,8 +144,22 @@ void main() {
         (event) => event.argumentsKeywords?['worker'] == 2,
       );
 
-      buffer.add(WampEvent(argumentsKeywords: const {'worker': 2}));
-      buffer.add(WampEvent(argumentsKeywords: const {'worker': 1}));
+      buffer.add(
+        wamp_core.Event(
+          1,
+          2,
+          wamp_core.EventDetails(),
+          argumentsKeywords: const {'worker': 2},
+        ),
+      );
+      buffer.add(
+        wamp_core.Event(
+          1,
+          1,
+          wamp_core.EventDetails(),
+          argumentsKeywords: const {'worker': 1},
+        ),
+      );
 
       final eventOne = await waiterOne;
       final eventTwo = await waiterTwo;
@@ -155,10 +193,12 @@ void main() {
     test('passes scenario transport into the session factory', () async {
       final broker = _FakeWampBroker();
       final seenTransports = <WampTransport>[];
+      final seenClientImplementations = <WampClientImplementation>[];
       final seenSerializers = <WampSerializer>[];
       final runner = WampWorkloadRunner(
         sessionFactory: (scenario) async {
           seenTransports.add(scenario.transport);
+          seenClientImplementations.add(scenario.clientImplementation);
           seenSerializers.add(scenario.serializer);
           return _FakeWampSession(broker);
         },
@@ -167,6 +207,7 @@ void main() {
       );
       final scenario = WampScenario(
         transport: WampTransport.websocket,
+        clientImplementation: WampClientImplementation.native,
         serializer: WampSerializer.msgpack,
         mode: WampMode.rpc,
         uri: 'bench.rpc.echo',
@@ -179,6 +220,10 @@ void main() {
 
       expect(samples, hasLength(2));
       expect(seenTransports, everyElement(equals(WampTransport.websocket)));
+      expect(
+        seenClientImplementations,
+        everyElement(equals(WampClientImplementation.native)),
+      );
       expect(seenSerializers, everyElement(equals(WampSerializer.msgpack)));
     });
   });
@@ -191,8 +236,20 @@ void main() {
       });
 
       expect(scenario.transport, WampTransport.rawsocket);
+      expect(scenario.clientImplementation, WampClientImplementation.dart);
       expect(scenario.serializer, WampSerializer.json);
       expect(scenario.mode, WampMode.pubsub);
+    });
+
+    test('parses native client implementation aliases', () {
+      final scenario = WampScenario.fromJson({
+        'transport': 'rawsocket',
+        'client_impl': 'rust',
+        'mode': 'rpc',
+        'uri': 'bench.rpc.echo',
+      });
+
+      expect(scenario.clientImplementation, WampClientImplementation.native);
     });
 
     test('parses websocket transport aliases', () {
@@ -244,7 +301,12 @@ void main() {
     test('replays buffered matching events to later waiters', () async {
       final buffer = WampEventBuffer();
       buffer.add(
-        WampEvent(argumentsKeywords: const {'worker': 1, 'iteration': 2}),
+        wamp_core.Event(
+          1,
+          2,
+          wamp_core.EventDetails(),
+          argumentsKeywords: const {'worker': 1, 'iteration': 2},
+        ),
       );
 
       final event = await buffer.nextWhere(
@@ -265,8 +327,22 @@ void main() {
           (event) => event.argumentsKeywords?['worker'] == 7,
         );
 
-        buffer.add(WampEvent(argumentsKeywords: const {'worker': 3}));
-        buffer.add(WampEvent(argumentsKeywords: const {'worker': 7}));
+        buffer.add(
+          wamp_core.Event(
+            1,
+            3,
+            wamp_core.EventDetails(),
+            argumentsKeywords: const {'worker': 3},
+          ),
+        );
+        buffer.add(
+          wamp_core.Event(
+            1,
+            7,
+            wamp_core.EventDetails(),
+            argumentsKeywords: const {'worker': 7},
+          ),
+        );
 
         final event = await future;
         expect(event.argumentsKeywords?['worker'], 7);
@@ -282,7 +358,9 @@ class _FakeWampBroker {
     this.publishDelay = Duration.zero,
   });
 
-  final Map<String, List<StreamController<WampEvent>>> _subscribers = {};
+  final Map<String, List<StreamController<wamp_core.Event>>> _subscribers = {};
+  final Map<String, List<void Function(wamp_core.Event event)>>
+  _callbackSubscribers = {};
   final Map<String, int> callCounts = {};
   final bool dropMetadata;
   final Duration callDelay;
@@ -292,12 +370,18 @@ class _FakeWampBroker {
   int _activePublishes = 0;
   int maxConcurrentPublishes = 0;
 
-  void addSubscriber(String topic, StreamController<WampEvent> controller) {
+  void addSubscriber(
+    String topic,
+    StreamController<wamp_core.Event> controller,
+  ) {
     final list = _subscribers.putIfAbsent(topic, () => []);
     list.add(controller);
   }
 
-  void removeSubscriber(String topic, StreamController<WampEvent> controller) {
+  void removeSubscriber(
+    String topic,
+    StreamController<wamp_core.Event> controller,
+  ) {
     final list = _subscribers[topic];
     if (list == null) {
       return;
@@ -308,21 +392,52 @@ class _FakeWampBroker {
     }
   }
 
+  void addCallbackSubscriber(
+    String topic,
+    void Function(wamp_core.Event event) onEvent,
+  ) {
+    final list = _callbackSubscribers.putIfAbsent(topic, () => []);
+    list.add(onEvent);
+  }
+
+  void removeCallbackSubscriber(
+    String topic,
+    void Function(wamp_core.Event event) onEvent,
+  ) {
+    final list = _callbackSubscribers[topic];
+    if (list == null) {
+      return;
+    }
+    list.remove(onEvent);
+    if (list.isEmpty) {
+      _callbackSubscribers.remove(topic);
+    }
+  }
+
   void publish(
     String topic, {
     List<dynamic>? arguments,
     Map<String, Object?>? argumentsKeywords,
   }) {
-    final event = WampEvent(
+    final event = wamp_core.Event(
+      1,
+      1,
+      wamp_core.EventDetails(),
       arguments: arguments,
       argumentsKeywords: dropMetadata ? null : argumentsKeywords,
     );
     final subscribers = _subscribers[topic];
-    if (subscribers == null) {
+    if (subscribers != null) {
+      for (final controller in subscribers) {
+        controller.add(event);
+      }
+    }
+    final callbackSubscribers = _callbackSubscribers[topic];
+    if (callbackSubscribers == null) {
       return;
     }
-    for (final controller in subscribers) {
-      controller.add(event);
+    for (final callback in callbackSubscribers) {
+      callback(event);
     }
   }
 
@@ -354,10 +469,15 @@ class _FakeWampBroker {
 }
 
 class _FakeWampSession implements WampSession {
-  _FakeWampSession(this._broker);
+  _FakeWampSession(this._broker, {this.useDirectEventHandler = false});
 
   final _FakeWampBroker _broker;
+  final bool useDirectEventHandler;
   final List<WampSubscription> _subscriptions = [];
+  final _disconnectCompleter = Completer<void>();
+
+  @override
+  Future<dynamic> get onDisconnect => _disconnectCompleter.future;
 
   @override
   Future<void> publish(
@@ -386,15 +506,33 @@ class _FakeWampSession implements WampSession {
     String topic, {
     wamp_core.SubscribeOptions? options,
   }) async {
-    final controller = StreamController<WampEvent>.broadcast();
-    _broker.addSubscriber(topic, controller);
-    final subscription = WampSubscription(
-      events: controller.stream,
-      cancel: () async {
-        _broker.removeSubscriber(topic, controller);
-        await controller.close();
-      },
-    );
+    WampSubscription subscription;
+    if (useDirectEventHandler) {
+      void Function(wamp_core.Event event)? callback;
+      subscription = WampSubscription(
+        attachEventHandler: (onEvent) {
+          callback = onEvent;
+          _broker.addCallbackSubscriber(topic, onEvent);
+        },
+        cancel: () async {
+          final activeCallback = callback;
+          if (activeCallback != null) {
+            _broker.removeCallbackSubscriber(topic, activeCallback);
+            callback = null;
+          }
+        },
+      );
+    } else {
+      final controller = StreamController<wamp_core.Event>.broadcast();
+      _broker.addSubscriber(topic, controller);
+      subscription = WampSubscription(
+        eventStreamFactory: () => controller.stream,
+        cancel: () async {
+          _broker.removeSubscriber(topic, controller);
+          await controller.close();
+        },
+      );
+    }
     _subscriptions.add(subscription);
     return subscription;
   }
@@ -415,16 +553,47 @@ class _FakeWampSession implements WampSession {
   }
 
   @override
+  Future<dynamic> callSingle(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  }) async {
+    _broker.recordCall(procedure);
+    _broker.beginCall();
+    try {
+      if (_broker.callDelay > Duration.zero) {
+        await Future<void>.delayed(_broker.callDelay);
+      }
+      return null;
+    } finally {
+      _broker.endCall();
+    }
+  }
+
+  @override
   Future<void> close() async {
     for (final subscription in _subscriptions) {
       await subscription.cancel();
+    }
+    if (!_disconnectCompleter.isCompleted) {
+      _disconnectCompleter.complete();
     }
   }
 }
 
 class _HangingRpcSession implements WampSession {
+  final _disconnectCompleter = Completer<void>();
+
   @override
-  Future<void> close() async {}
+  Future<dynamic> get onDisconnect => _disconnectCompleter.future;
+
+  @override
+  Future<void> close() async {
+    if (!_disconnectCompleter.isCompleted) {
+      _disconnectCompleter.complete();
+    }
+  }
 
   @override
   Future<void> publish(
@@ -446,6 +615,16 @@ class _HangingRpcSession implements WampSession {
     // Never emits or completes to simulate a stuck RPC.
     final controller = StreamController<dynamic>();
     return controller.stream;
+  }
+
+  @override
+  Future<dynamic> callSingle(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  }) {
+    return Completer<dynamic>().future;
   }
 
   @override

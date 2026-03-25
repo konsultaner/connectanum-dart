@@ -347,6 +347,46 @@ final class CtMessageInfo extends ffi.Struct {
 
   @ffi.Size()
   external int kwargsLen;
+
+  @ffi.Uint64()
+  external int primaryId;
+
+  @ffi.Uint64()
+  external int secondaryId;
+
+  @ffi.Uint64()
+  external int detailNumberA;
+
+  @ffi.Uint64()
+  external int detailNumberB;
+
+  @ffi.Uint32()
+  external int flags;
+
+  external ffi.Pointer<ffi.Uint8> stringAPtr;
+
+  @ffi.Size()
+  external int stringALen;
+
+  external ffi.Pointer<ffi.Uint8> stringBPtr;
+
+  @ffi.Size()
+  external int stringBLen;
+
+  external ffi.Pointer<ffi.Uint8> stringCPtr;
+
+  @ffi.Size()
+  external int stringCLen;
+
+  external ffi.Pointer<ffi.Uint8> stringDPtr;
+
+  @ffi.Size()
+  external int stringDLen;
+
+  external ffi.Pointer<ffi.Uint8> stringEPtr;
+
+  @ffi.Size()
+  external int stringELen;
 }
 
 final class CtHttpHandshakeInfo extends ffi.Struct {

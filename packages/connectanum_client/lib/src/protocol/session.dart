@@ -56,12 +56,15 @@ class Session {
   final Map<int, Subscribed> subscriptions = {};
 
   late StreamSubscription<AbstractMessage?> _transportStreamSubscription;
-  final _openSessionStreamController = StreamController.broadcast();
+  final Map<int, _PendingCall> _pendingCalls = {};
+  final Map<int, Completer<Published>> _pendingPublishes = {};
+  final Map<int, Completer<Subscribed>> _pendingSubscribes = {};
+  final Map<int, _PendingUnsubscribe> _pendingUnsubscribes = {};
+  final Map<int, _PendingRegister> _pendingRegisters = {};
+  final Map<int, _PendingUnregister> _pendingUnregisters = {};
+  bool _incomingClosed = false;
 
   Session(this.realm, this._transport)
-    /// The realm object my be null but must mach the uri pattern if it was
-    /// passed The connection should have been established before initializing
-    /// the session.
     : assert(realm == null || UriPattern.match(realm), _transport.isOpen);
 
   /// Starting the session will also start the authentication process.
@@ -74,10 +77,8 @@ class Session {
     List<AbstractAuthentication>? authMethods,
     Duration? reconnect,
   }) async {
-    /// Initialize the session object with the realm it belongs to
     final session = Session(realm, transport);
 
-    /// Initialize the sub protocol with a hello message
     final hello = Hello(realm, Details.forHello());
     if (authId != null) {
       hello.details.authid = authId;
@@ -96,9 +97,7 @@ class Session {
           .toList();
     }
 
-    /// Either return the welcome or execute a challenge before and eventually
-    /// return the welcome after this
-    var welcomeCompleter = Completer<Session>();
+    final welcomeCompleter = Completer<Session>();
     session._transportStreamSubscription = transport.receive()!.listen(
       (message) {
         if (message is Challenge) {
@@ -115,6 +114,14 @@ class Session {
                   .then(
                     (authenticate) => session.authenticate(authenticate),
                     onError: (error) {
+                      if (!welcomeCompleter.isCompleted) {
+                        welcomeCompleter.completeError(
+                          Abort(
+                            Error.authorizationFailed,
+                            message: error.toString(),
+                          ),
+                        );
+                      }
                       session._transport.send(
                         Abort(
                           Error.authorizationFailed,
@@ -127,24 +134,26 @@ class Session {
             } catch (exception) {
               try {
                 transport.close();
-              } catch (ignore) {
-                /* my be already closed */
+              } catch (_) {
+                /* transport may already be closed */
               }
               welcomeCompleter.completeError(
                 Abort(Error.authorizationFailed, message: exception.toString()),
               );
             }
-          } else {
-            final goodbye = Goodbye(
-              GoodbyeMessage('Authmethod $foundAuthMethod not supported'),
-              Goodbye.reasonGoodbyeAndOut,
-            );
-            session._transport.send(goodbye);
-            welcomeCompleter.completeError(goodbye);
+            return;
           }
-        } else if (message is Welcome) {
-          session.id = message.sessionId;
+          final goodbye = Goodbye(
+            GoodbyeMessage('Authmethod $foundAuthMethod not supported'),
+            Goodbye.reasonGoodbyeAndOut,
+          );
+          session._transport.send(goodbye);
+          welcomeCompleter.completeError(goodbye);
+          return;
+        }
 
+        if (message is Welcome) {
+          session.id = message.sessionId;
           if ((session.realm ?? message.details.realm) == null) {
             welcomeCompleter.completeError(
               Abort(
@@ -162,40 +171,57 @@ class Session {
           } else {
             session.realm = message.details.realm;
           }
-
           session.authId = message.details.authid;
           session.authRole = message.details.authrole;
           session.authMethod = message.details.authmethod;
           session.authProvider = message.details.authprovider;
           session.authExtra = message.details.authextra;
-          session._transportStreamSubscription.onData((message) {
-            session._openSessionStreamController.add(message);
-          });
+          session._transportStreamSubscription.onData(
+            session._handleTransportMessage,
+          );
           session._transportStreamSubscription.onDone(() {
-            session._openSessionStreamController.close();
+            unawaited(session._handleTransportClosed());
           });
           welcomeCompleter.complete(session);
-        } else if (message is Abort) {
+          return;
+        }
+
+        if (message is Abort) {
           try {
             transport.close();
-          } catch (ignore) {
-            /* my be already closed */
+          } catch (_) {
+            /* transport may already be closed */
           }
           welcomeCompleter.completeError(message);
-        } else if (message is Goodbye) {
+          return;
+        }
+
+        if (message is Goodbye) {
           try {
             transport.close();
-          } catch (ignore) {
-            /* my be already closed */
+          } catch (_) {
+            /* transport may already be closed */
           }
         }
       },
       cancelOnError: true,
-      onError: (error) {
+      onError: (error, stackTrace) {
         _logger.warning(error);
+        if (!welcomeCompleter.isCompleted) {
+          welcomeCompleter.completeError(error, stackTrace);
+        }
+        unawaited(session._handleTransportClosed(error, stackTrace));
         transport.close(error: error);
       },
-      onDone: () => transport.close(),
+      onDone: () {
+        if (!welcomeCompleter.isCompleted) {
+          welcomeCompleter.completeError(
+            StateError('Transport closed before session welcome'),
+          );
+        }
+        unawaited(session._handleTransportClosed());
+        transport.close();
+      },
     );
     if (!transport.isReady) {
       await transport.onReady;
@@ -210,7 +236,7 @@ class Session {
   /// If there is a transport object that is opened and the incoming stream has not
   /// been closed, this will return true.
   bool isConnected() {
-    return _transport.isReady && !_openSessionStreamController.isClosed;
+    return _transport.isReady && !_incomingClosed;
   }
 
   /// This sends the [authenticate] message to the transport outgoing stream.
@@ -228,189 +254,83 @@ class Session {
     CallOptions? options,
     Completer<String>? cancelCompleter,
   }) {
-    var callArguments = arguments;
-    var callArgumentsKeywords = argumentsKeywords;
-
-    if (options?.pptScheme == 'wamp') {
-      // It's E2EE payload
-      callArguments = E2EEPayload.packE2EEPayload(
-        arguments,
-        argumentsKeywords,
-        options!,
-      );
-      callArgumentsKeywords = null;
-    } else if (options?.pptScheme != null) {
-      // It's some variation of PPT
-      callArguments = PPTPayload.packPPTPayload(
-        arguments,
-        argumentsKeywords,
-        options!,
-      );
-      callArgumentsKeywords = null;
-    }
-
-    var call = Call(
-      nextCallId++,
+    final call = _buildCall(
       procedure,
-      arguments: callArguments,
-      argumentsKeywords: callArgumentsKeywords,
+      arguments: arguments,
+      argumentsKeywords: argumentsKeywords,
       options: options,
     );
-    StreamSubscription<dynamic>? subscription;
-    late StreamController<Result> controller;
-
-    Future<void> closeController() async {
-      if (!controller.isClosed) {
-        await controller.close();
-      }
-    }
-
-    controller = StreamController<Result>(
+    final controller = StreamController<Result>(
       sync: true,
-      onListen: () {
-        subscription = _openSessionStreamController.stream
-            .where(
-              (message) =>
-                  (message is Result &&
-                      message.callRequestId == call.requestId) ||
-                  (message is Error &&
-                      message.requestTypeId == MessageTypes.codeCall &&
-                      message.requestId == call.requestId),
-            )
-            .listen(
-              (result) {
-                if (result is Result) {
-                  controller.add(result);
-                  if (!result.isProgressive()) {
-                    unawaited(subscription?.cancel());
-                    subscription = null;
-                    unawaited(closeController());
-                  }
-                } else if (result is Error) {
-                  controller.addError(result);
-                  unawaited(subscription?.cancel());
-                  subscription = null;
-                  unawaited(closeController());
-                }
-              },
-              onError: controller.addError,
-              onDone: () {
-                unawaited(closeController());
-              },
-            );
-
-        _transport.send(call);
-        if (cancelCompleter != null) {
-          unawaited(
-            cancelCompleter.future.then((cancelMode) {
-              CancelOptions? options;
-              if (CancelOptions.modeKillNoWait == cancelMode ||
-                  CancelOptions.modeKill == cancelMode ||
-                  CancelOptions.modeSkip == cancelMode) {
-                options = CancelOptions();
-                options.mode = cancelMode;
-              }
-              var cancel = Cancel(call.requestId, options: options);
-              _transport.send(cancel);
-            }),
-          );
+      onCancel: () async {
+        final pending = _pendingCalls.remove(call.requestId);
+        if (pending != null) {
+          await pending.close();
         }
       },
-      onCancel: () async {
-        await subscription?.cancel();
-        subscription = null;
-      },
     );
-
+    _pendingCalls[call.requestId] = _PendingCallStream(controller);
+    _transport.send(call);
+    _attachCallCancellation(call.requestId, cancelCompleter);
     return controller.stream;
+  }
+
+  /// This calls a [procedure] and waits for the final non-progressive [Result].
+  /// Progressive interim results are ignored; use [call] when the caller needs the stream.
+  Future<Result> callSingle(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    CallOptions? options,
+    Completer<String>? cancelCompleter,
+  }) {
+    final call = _buildCall(
+      procedure,
+      arguments: arguments,
+      argumentsKeywords: argumentsKeywords,
+      options: options,
+    );
+    final completer = Completer<Result>();
+    _pendingCalls[call.requestId] = _PendingCallFuture(completer);
+    _transport.send(call);
+    _attachCallCancellation(call.requestId, cancelCompleter);
+    return completer.future;
   }
 
   /// This subscribes the session to a [topic]. The subscriber may pass [options]
   /// while subscribing. The resulting events are passed to the [Subscribed.eventStream].
   /// The subscriber should therefore subscribe to that stream to receive the events.
-  Future<Subscribed> subscribe(
-    String topic, {
+  Future<Subscribed> subscribe(String topic, {SubscribeOptions? options}) {
+    final subscribe = Subscribe(nextSubscribeId++, topic, options: options);
+    final completer = Completer<Subscribed>();
+    _pendingSubscribes[subscribe.requestId] = completer;
+    _transport.send(subscribe);
+    return completer.future;
+  }
+
+  /// This subscribes the session to a [topic] and routes events directly to
+  /// [onEvent] without requiring the caller to touch [Subscribed.eventStream].
+  Future<Subscribed> subscribeHandler(
+    String topic,
+    void Function(Event event) onEvent, {
     SubscribeOptions? options,
   }) async {
-    var subscribe = Subscribe(nextSubscribeId++, topic, options: options);
-    final subscribedFuture = _openSessionStreamController.stream
-        .where(
-          (message) =>
-              (message is Subscribed &&
-                  message.subscribeRequestId == subscribe.requestId) ||
-              (message is Error &&
-                  message.requestTypeId == MessageTypes.codeSubscribe &&
-                  message.requestId == subscribe.requestId),
-        )
-        .first;
-    _transport.send(subscribe);
-    AbstractMessage subscribed = await subscribedFuture;
-    if (subscribed is Subscribed) {
-      subscriptions[subscribed.subscriptionId] = subscribed;
-      subscribed.eventStream = _openSessionStreamController.stream
-          .where((message) {
-            if (message is Unsubscribed &&
-                message.details?.subscription == subscribed.subscriptionId) {
-              subscriptions.remove(subscribed.subscriptionId);
-              subscribed.revoke(message.details!.reason);
-              return false;
-            }
-            return message is Event &&
-                subscriptions[subscribed.subscriptionId] != null &&
-                message.subscriptionId == subscribed.subscriptionId;
-          })
-          .map((event) {
-            var eventUpdated = event;
-
-            if (event.details.pptScheme == 'wamp') {
-              // It's E2EE payload
-              var e2eePayload = E2EEPayload.unpackE2EEPayload(
-                event.arguments,
-                event.details,
-              );
-
-              event.arguments = e2eePayload.arguments;
-              event.argumentsKeywords = e2eePayload.argumentsKeywords;
-            } else if (event.details.pptScheme != null) {
-              // It's some variation of PPT
-              var pptPayload = PPTPayload.unpackPPTPayload(
-                event.arguments,
-                event.details,
-              );
-
-              event.arguments = pptPayload.arguments;
-              event.argumentsKeywords = pptPayload.argumentsKeywords;
-            }
-            return eventUpdated;
-          })
-          .cast();
-      return subscribed;
-    } else {
-      throw subscribed;
-    }
+    final subscribed = await subscribe(topic, options: options);
+    subscribed.onEvent(onEvent);
+    return subscribed;
   }
 
   /// This unsubscribes the session from a subscription. Use the [Subscribed.subscriptionId]
   /// to unsubscribe.
-  Future<void> unsubscribe(int subscriptionId) async {
-    var unsubscribe = Unsubscribe(nextUnsubscribeId++, subscriptionId);
-    final unsubscribeFuture = _openSessionStreamController.stream.where((
-      message,
-    ) {
-      if (message is Unsubscribed &&
-          message.unsubscribeRequestId == unsubscribe.requestId) {
-        return true;
-      }
-      if (message is Error &&
-          message.requestTypeId == MessageTypes.codeUnsubscribe &&
-          message.requestId == unsubscribe.requestId) {
-        throw message;
-      }
-      return false;
-    }).first;
+  Future<void> unsubscribe(int subscriptionId) {
+    final unsubscribe = Unsubscribe(nextUnsubscribeId++, subscriptionId);
+    final completer = Completer<void>();
+    _pendingUnsubscribes[unsubscribe.requestId] = _PendingUnsubscribe(
+      subscriptionId: subscriptionId,
+      completer: completer,
+    );
     _transport.send(unsubscribe);
-    await unsubscribeFuture;
-    subscriptions.remove(subscriptionId);
+    return completer.future;
   }
 
   /// This publishes an event to a [topic] with the given [arguments] and [argumentsKeywords].
@@ -424,7 +344,6 @@ class Session {
     var pubArgumentsKeywords = argumentsKeywords;
 
     if (options?.pptScheme == 'wamp') {
-      // It's E2EE payload
       pubArguments = E2EEPayload.packE2EEPayload(
         arguments,
         argumentsKeywords,
@@ -432,7 +351,6 @@ class Session {
       );
       pubArgumentsKeywords = null;
     } else if (options?.pptScheme != null) {
-      // It's some variation of PPT
       pubArguments = PPTPayload.packPPTPayload(
         arguments,
         argumentsKeywords,
@@ -441,108 +359,59 @@ class Session {
       pubArgumentsKeywords = null;
     }
 
-    var publish = Publish(
+    final publish = Publish(
       nextPublishId++,
       topic,
       arguments: pubArguments,
       argumentsKeywords: pubArgumentsKeywords,
       options: options,
     );
-    if (options?.acknowledge == null || options?.acknowledge == false) {
+    if (options?.acknowledge != true) {
       _transport.send(publish);
-      return Future.value(null);
+      return Future<Published?>.value(null);
     }
-    final publishFuture = _openSessionStreamController.stream
-        .where((message) {
-          if (message is Published &&
-              message.publishRequestId == publish.requestId) {
-            return true;
-          }
-          if (message is Error &&
-              message.requestTypeId == MessageTypes.codePublish &&
-              message.requestId == publish.requestId) {
-            throw message;
-          }
-          return false;
-        })
-        .cast<Published>()
-        .first;
+    final completer = Completer<Published>();
+    _pendingPublishes[publish.requestId] = completer;
     _transport.send(publish);
-    return publishFuture;
+    return completer.future;
   }
 
   /// This registers a [procedure] with the given [options] that may be called
   /// by other sessions.
-  Future<Registered> register(
-    String procedure, {
+  Future<Registered> register(String procedure, {RegisterOptions? options}) {
+    final register = Register(nextRegisterId++, procedure, options: options);
+    final completer = Completer<Registered>();
+    _pendingRegisters[register.requestId] = _PendingRegister(
+      procedure: procedure,
+      completer: completer,
+    );
+    _transport.send(register);
+    return completer.future;
+  }
+
+  /// This registers a [procedure] and routes invocations directly to [onInvoke]
+  /// without requiring the caller to touch [Registered.invocationStream].
+  Future<Registered> registerHandler(
+    String procedure,
+    FutureOr<void> Function(Invocation invocation) onInvoke, {
     RegisterOptions? options,
   }) async {
-    var register = Register(nextRegisterId++, procedure, options: options);
-    final registeredFuture = _openSessionStreamController.stream
-        .where(
-          (message) =>
-              (message is Registered &&
-                  message.registerRequestId == register.requestId) ||
-              (message is Error &&
-                  message.requestTypeId == MessageTypes.codeRegister &&
-                  message.requestId == register.requestId),
-        )
-        .first;
-    _transport.send(register);
-    AbstractMessage registered = await registeredFuture;
-    if (registered is Registered) {
-      registrations[registered.registrationId] = registered;
-      registered.procedure = procedure;
-      registered.invocationStream = _openSessionStreamController.stream.where((
-        message,
-      ) {
-        if (message is Invocation &&
-            message.registrationId == registered.registrationId) {
-          // Check if there is a registration that has not been unregistered yet
-          if (registrations[registered.registrationId] != null) {
-            message.onResponse((message) => _transport.send(message));
-            return true;
-          } else {
-            _transport.send(
-              Error(
-                MessageTypes.codeInvocation,
-                message.requestId,
-                {},
-                Error.noSuchRegistration,
-              ),
-            );
-            return false;
-          }
-        }
-        return false;
-      }).cast();
-      return registered;
-    } else {
-      throw (registered as Error?)!;
-    }
+    final registered = await register(procedure, options: options);
+    registered.onInvoke(onInvoke);
+    return registered;
   }
 
   /// This unregisters a procedure by its [registrationId]. Use the [Registered.registrationId]
   /// to unregister.
-  Future<void> unregister(int registrationId) async {
-    var unregister = Unregister(nextUnregisterId++, registrationId);
-    final unregisterFuture = _openSessionStreamController.stream.where((
-      message,
-    ) {
-      if (message is Unregistered &&
-          message.unregisterRequestId == unregister.requestId) {
-        return true;
-      }
-      if (message is Error &&
-          message.requestTypeId == MessageTypes.codeUnregister &&
-          message.requestId == unregister.requestId) {
-        throw message;
-      }
-      return false;
-    }).first;
+  Future<void> unregister(int registrationId) {
+    final unregister = Unregister(nextUnregisterId++, registrationId);
+    final completer = Completer<void>();
+    _pendingUnregisters[unregister.requestId] = _PendingUnregister(
+      registrationId: registrationId,
+      completer: completer,
+    );
     _transport.send(unregister);
-    await unregisterFuture;
-    registrations.remove(registrationId);
+    return completer.future;
   }
 
   /// Sends a goodbye message and closes the transport after a given [timeout].
@@ -556,6 +425,384 @@ class Session {
     if (timeout != null) {
       return Future.delayed(timeout, () => _transport.close());
     }
-    return Future.value();
+    return Future<void>.value();
   }
+
+  void _handleTransportMessage(AbstractMessage? message) {
+    if (message == null) {
+      return;
+    }
+    if (message is Result) {
+      _handleResult(message);
+      return;
+    }
+    if (message is Published) {
+      _pendingPublishes.remove(message.publishRequestId)?.complete(message);
+      return;
+    }
+    if (message is Subscribed) {
+      subscriptions[message.subscriptionId] = message;
+      _pendingSubscribes.remove(message.subscribeRequestId)?.complete(message);
+      return;
+    }
+    if (message is Unsubscribed) {
+      _handleUnsubscribed(message);
+      return;
+    }
+    if (message is Event) {
+      subscriptions[message.subscriptionId]?.addEvent(_decodeEvent(message));
+      return;
+    }
+    if (message is Registered) {
+      registrations[message.registrationId] = message;
+      final pending = _pendingRegisters.remove(message.registerRequestId);
+      if (pending != null) {
+        message.procedure = pending.procedure;
+        pending.completer.complete(message);
+      }
+      return;
+    }
+    if (message is Unregistered) {
+      final pending = _pendingUnregisters.remove(message.unregisterRequestId);
+      if (pending != null) {
+        _removeRegistration(pending.registrationId);
+        pending.completer.complete();
+      }
+      return;
+    }
+    if (message is Invocation) {
+      final registered = registrations[message.registrationId];
+      if (registered != null) {
+        message.onResponse((response) => _transport.send(response));
+        registered.addInvocation(message);
+        return;
+      }
+      _transport.send(
+        Error(
+          MessageTypes.codeInvocation,
+          message.requestId,
+          {},
+          Error.noSuchRegistration,
+        ),
+      );
+      return;
+    }
+    if (message is Error) {
+      _handleError(message);
+    }
+  }
+
+  void _handleResult(Result message) {
+    final pending = _pendingCalls[message.callRequestId];
+    if (pending == null) {
+      return;
+    }
+    if (pending.addResult(message)) {
+      _pendingCalls.remove(message.callRequestId);
+      unawaited(pending.close());
+    }
+  }
+
+  void _handleUnsubscribed(Unsubscribed message) {
+    final pending = _pendingUnsubscribes.remove(message.unsubscribeRequestId);
+    if (pending != null) {
+      _removeSubscription(pending.subscriptionId);
+      pending.completer.complete();
+    }
+    final revokedSubscription = message.details?.subscription;
+    if (revokedSubscription != null) {
+      final subscribed = _removeSubscription(revokedSubscription);
+      subscribed?.revoke(message.details?.reason);
+    }
+  }
+
+  void _handleError(Error message) {
+    if (message.requestTypeId == MessageTypes.codeCall) {
+      final pendingCall = _pendingCalls.remove(message.requestId);
+      if (pendingCall != null) {
+        pendingCall.addError(message);
+        unawaited(pendingCall.close());
+      }
+      return;
+    }
+    if (message.requestTypeId == MessageTypes.codePublish) {
+      _completePendingError(
+        _pendingPublishes.remove(message.requestId),
+        message,
+      );
+      return;
+    }
+    if (message.requestTypeId == MessageTypes.codeSubscribe) {
+      _completePendingError(
+        _pendingSubscribes.remove(message.requestId),
+        message,
+      );
+      return;
+    }
+    if (message.requestTypeId == MessageTypes.codeUnsubscribe) {
+      final pendingUnsubscribe = _pendingUnsubscribes.remove(message.requestId);
+      _completePendingError(pendingUnsubscribe?.completer, message);
+      return;
+    }
+    if (message.requestTypeId == MessageTypes.codeRegister) {
+      _completePendingError(
+        _pendingRegisters.remove(message.requestId)?.completer,
+        message,
+      );
+      return;
+    }
+    if (message.requestTypeId == MessageTypes.codeUnregister) {
+      final pendingUnregister = _pendingUnregisters.remove(message.requestId);
+      _completePendingError(pendingUnregister?.completer, message);
+    }
+  }
+
+  Event _decodeEvent(Event event) {
+    var eventUpdated = event;
+    if (event.details.pptScheme == 'wamp') {
+      final e2eePayload = E2EEPayload.unpackE2EEPayload(
+        event.arguments,
+        event.details,
+      );
+      eventUpdated.arguments = e2eePayload.arguments;
+      eventUpdated.argumentsKeywords = e2eePayload.argumentsKeywords;
+    } else if (event.details.pptScheme != null) {
+      final pptPayload = PPTPayload.unpackPPTPayload(
+        event.arguments,
+        event.details,
+      );
+      eventUpdated.arguments = pptPayload.arguments;
+      eventUpdated.argumentsKeywords = pptPayload.argumentsKeywords;
+    }
+    return eventUpdated;
+  }
+
+  Subscribed? _removeSubscription(int subscriptionId) {
+    final subscribed = subscriptions.remove(subscriptionId);
+    if (subscribed != null) {
+      unawaited(subscribed.closeEventStream());
+    }
+    return subscribed;
+  }
+
+  Registered? _removeRegistration(int registrationId) {
+    final registered = registrations.remove(registrationId);
+    if (registered != null) {
+      unawaited(registered.closeInvocationStream());
+    }
+    return registered;
+  }
+
+  Future<void> _handleTransportClosed([
+    Object? error,
+    StackTrace? stackTrace,
+  ]) async {
+    if (_incomingClosed) {
+      return;
+    }
+    _incomingClosed = true;
+    final closureError = error ?? StateError('Session transport closed');
+
+    final pendingCalls = _pendingCalls.values.toList(growable: false);
+    _pendingCalls.clear();
+    for (final pending in pendingCalls) {
+      pending.addError(closureError, stackTrace);
+      await pending.close();
+    }
+
+    final publishCompleters = _pendingPublishes.values.toList(growable: false);
+    final subscribeCompleters = _pendingSubscribes.values.toList(
+      growable: false,
+    );
+    final unsubscribeCompleters = _pendingUnsubscribes.values
+        .map((pending) => pending.completer)
+        .toList(growable: false);
+    final registerCompleters = _pendingRegisters.values
+        .map((pending) => pending.completer)
+        .toList(growable: false);
+    final unregisterCompleters = _pendingUnregisters.values
+        .map((pending) => pending.completer)
+        .toList(growable: false);
+
+    _pendingPublishes.clear();
+    _pendingSubscribes.clear();
+    _pendingUnsubscribes.clear();
+    _pendingRegisters.clear();
+    _pendingUnregisters.clear();
+
+    for (final completer in publishCompleters) {
+      _completePendingError(completer, closureError, stackTrace);
+    }
+    for (final completer in subscribeCompleters) {
+      _completePendingError(completer, closureError, stackTrace);
+    }
+    for (final completer in unsubscribeCompleters) {
+      _completePendingError(completer, closureError, stackTrace);
+    }
+    for (final completer in registerCompleters) {
+      _completePendingError(completer, closureError, stackTrace);
+    }
+    for (final completer in unregisterCompleters) {
+      _completePendingError(completer, closureError, stackTrace);
+    }
+
+    final activeSubscriptions = subscriptions.values.toList(growable: false);
+    final activeRegistrations = registrations.values.toList(growable: false);
+    subscriptions.clear();
+    registrations.clear();
+
+    for (final subscription in activeSubscriptions) {
+      await subscription.closeEventStream();
+    }
+    for (final registration in activeRegistrations) {
+      await registration.closeInvocationStream();
+    }
+  }
+
+  void _completePendingError<T>(
+    Completer<T>? completer,
+    Object error, [
+    StackTrace? stackTrace,
+  ]) {
+    if (completer == null || completer.isCompleted) {
+      return;
+    }
+    completer.completeError(error, stackTrace);
+  }
+
+  Call _buildCall(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    CallOptions? options,
+  }) {
+    var callArguments = arguments;
+    var callArgumentsKeywords = argumentsKeywords;
+
+    if (options?.pptScheme == 'wamp') {
+      callArguments = E2EEPayload.packE2EEPayload(
+        arguments,
+        argumentsKeywords,
+        options!,
+      );
+      callArgumentsKeywords = null;
+    } else if (options?.pptScheme != null) {
+      callArguments = PPTPayload.packPPTPayload(
+        arguments,
+        argumentsKeywords,
+        options!,
+      );
+      callArgumentsKeywords = null;
+    }
+
+    return Call(
+      nextCallId++,
+      procedure,
+      arguments: callArguments,
+      argumentsKeywords: callArgumentsKeywords,
+      options: options,
+    );
+  }
+
+  void _attachCallCancellation(
+    int requestId,
+    Completer<String>? cancelCompleter,
+  ) {
+    if (cancelCompleter == null) {
+      return;
+    }
+    unawaited(
+      cancelCompleter.future.then((cancelMode) {
+        CancelOptions? options;
+        if (CancelOptions.modeKillNoWait == cancelMode ||
+            CancelOptions.modeKill == cancelMode ||
+            CancelOptions.modeSkip == cancelMode) {
+          options = CancelOptions()..mode = cancelMode;
+        }
+        _transport.send(Cancel(requestId, options: options));
+      }),
+    );
+  }
+}
+
+abstract class _PendingCall {
+  bool addResult(Result result);
+
+  void addError(Object error, [StackTrace? stackTrace]);
+
+  Future<void> close();
+}
+
+class _PendingCallStream implements _PendingCall {
+  _PendingCallStream(this.controller);
+
+  final StreamController<Result> controller;
+
+  @override
+  bool addResult(Result result) {
+    controller.add(result);
+    return !result.isProgressive();
+  }
+
+  @override
+  void addError(Object error, [StackTrace? stackTrace]) {
+    controller.addError(error, stackTrace);
+  }
+
+  @override
+  Future<void> close() {
+    if (controller.isClosed) {
+      return Future<void>.value();
+    }
+    return controller.close();
+  }
+}
+
+class _PendingCallFuture implements _PendingCall {
+  _PendingCallFuture(this.completer);
+
+  final Completer<Result> completer;
+
+  @override
+  bool addResult(Result result) {
+    if (result.isProgressive()) {
+      return false;
+    }
+    if (!completer.isCompleted) {
+      completer.complete(result);
+    }
+    return true;
+  }
+
+  @override
+  void addError(Object error, [StackTrace? stackTrace]) {
+    if (completer.isCompleted) {
+      return;
+    }
+    completer.completeError(error, stackTrace);
+  }
+
+  @override
+  Future<void> close() => Future<void>.value();
+}
+
+class _PendingUnsubscribe {
+  _PendingUnsubscribe({required this.subscriptionId, required this.completer});
+
+  final int subscriptionId;
+  final Completer<void> completer;
+}
+
+class _PendingRegister {
+  _PendingRegister({required this.procedure, required this.completer});
+
+  final String procedure;
+  final Completer<Registered> completer;
+}
+
+class _PendingUnregister {
+  _PendingUnregister({required this.registrationId, required this.completer});
+
+  final int registrationId;
+  final Completer<void> completer;
 }

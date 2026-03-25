@@ -836,7 +836,7 @@ enum ConnectionRecord {
     RawSocket {
         serializer: rawsocket::Serializer,
         max_exponent: u32,
-        frames: Mutex<mpsc::Receiver<wamp::ParsedMessage>>,
+        frames: Arc<Mutex<mpsc::Receiver<wamp::ParsedMessage>>>,
         reader_abort: AbortHandle,
         writer_abort: AbortHandle,
         heartbeat_abort: Option<AbortHandle>,
@@ -847,7 +847,7 @@ enum ConnectionRecord {
     },
     WebSocket {
         serializer: rawsocket::Serializer,
-        frames: Mutex<mpsc::Receiver<wamp::ParsedMessage>>,
+        frames: Arc<Mutex<mpsc::Receiver<wamp::ParsedMessage>>>,
         reader_abort: AbortHandle,
         writer_abort: AbortHandle,
         heartbeat_abort: Option<AbortHandle>,
@@ -1127,13 +1127,15 @@ impl ListenerRegistry {
                 reader_abort,
                 writer_abort,
                 heartbeat_abort,
+                send_tx,
                 ..
             } => {
                 reader_abort.abort();
-                writer_abort.abort();
                 if let Some(abort) = heartbeat_abort {
                     abort.abort();
                 }
+                drop(send_tx);
+                drop(writer_abort);
             }
             ConnectionRecord::WebSocketPending { .. }
             | ConnectionRecord::HttpPending { .. }
@@ -1217,7 +1219,7 @@ impl ListenerRegistry {
                     record: ConnectionRecord::RawSocket {
                         serializer,
                         max_exponent,
-                        frames: Mutex::new(frame_rx),
+                        frames: Arc::new(Mutex::new(frame_rx)),
                         reader_abort,
                         writer_abort,
                         heartbeat_abort,
@@ -1393,7 +1395,7 @@ impl ListenerRegistry {
                 stats: None,
                 record: ConnectionRecord::WebSocket {
                     serializer,
-                    frames: Mutex::new(frame_rx),
+                    frames: Arc::new(Mutex::new(frame_rx)),
                     reader_abort,
                     writer_abort,
                     heartbeat_abort,
@@ -1660,6 +1662,19 @@ impl ListenerRegistry {
         &self,
         connection_id: ConnectionId,
     ) -> Result<Option<wamp::ParsedMessage>, Error> {
+        let frames = self.message_frames(connection_id)?;
+        let mut receiver = frames.lock().unwrap();
+        match receiver.try_recv() {
+            Ok(message) => Ok(Some(message)),
+            Err(TryRecvError::Empty) => Ok(None),
+            Err(TryRecvError::Disconnected) => Ok(None),
+        }
+    }
+
+    fn message_frames(
+        &self,
+        connection_id: ConnectionId,
+    ) -> Result<Arc<Mutex<mpsc::Receiver<wamp::ParsedMessage>>>, Error> {
         let connections = self
             .connections
             .lock()
@@ -1669,14 +1684,7 @@ impl ListenerRegistry {
             .ok_or(Error::ConnectionNotFound(connection_id))?;
         match &entry.record {
             ConnectionRecord::RawSocket { frames, .. }
-            | ConnectionRecord::WebSocket { frames, .. } => {
-                let mut receiver = frames.lock().unwrap();
-                match receiver.try_recv() {
-                    Ok(message) => Ok(Some(message)),
-                    Err(TryRecvError::Empty) => Ok(None),
-                    Err(TryRecvError::Disconnected) => Ok(None),
-                }
-            }
+            | ConnectionRecord::WebSocket { frames, .. } => Ok(Arc::clone(frames)),
             _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
         }
     }
@@ -2426,6 +2434,9 @@ fn spawn_websocket_reader(
             let frame = match frame {
                 Ok(frame) => frame,
                 Err(err) => {
+                    if err.is_peer_disconnect() {
+                        break;
+                    }
                     eprintln!("connection {:?} websocket error: {}", connection_id, err);
                     if let Some(code) = err.close_code() {
                         graceful_close_requested = send_tx
@@ -2505,6 +2516,8 @@ fn spawn_websocket_writer(
     mask_outbound_frames: bool,
 ) -> AbortHandle {
     let task = handle.spawn(async move {
+        let mut close_sent = false;
+        let mut write_failed = false;
         while let Some(frame) = rx.recv().await {
             let is_close_frame = frame.frame_type == 3;
             let opcode = match frame.frame_type {
@@ -2526,14 +2539,37 @@ fn spawn_websocket_writer(
             )
             .await
             {
-                eprintln!(
-                    "connection {:?} failed to write websocket frame: {}",
-                    connection_id, err
-                );
+                if !is_benign_socket_shutdown(err.kind()) {
+                    eprintln!(
+                        "connection {:?} failed to write websocket frame: {}",
+                        connection_id, err
+                    );
+                }
+                write_failed = true;
                 break;
             }
             if is_close_frame {
+                close_sent = true;
                 break;
+            }
+        }
+        if !close_sent && !write_failed {
+            let close_frame = OutboundFrame::close(Some(1000), "");
+            if let Err(err) = write_websocket_frame_mode(
+                &mut writer,
+                0x8,
+                close_frame.payload_len,
+                &close_frame.segments,
+                mask_outbound_frames,
+            )
+            .await
+            {
+                if !is_benign_socket_shutdown(err.kind()) {
+                    eprintln!(
+                        "connection {:?} failed to write websocket close frame: {}",
+                        connection_id, err
+                    );
+                }
             }
         }
         let _ = close_tx.send(ConnectionTaskSignal::WriterClosed);
@@ -2633,6 +2669,7 @@ enum WebSocketFrame {
 struct WebSocketFrameError {
     message: String,
     close_code: Option<u16>,
+    io_kind: Option<io::ErrorKind>,
 }
 
 impl WebSocketFrameError {
@@ -2640,6 +2677,7 @@ impl WebSocketFrameError {
         Self {
             message: err.to_string(),
             close_code: None,
+            io_kind: Some(err.kind()),
         }
     }
 
@@ -2647,6 +2685,7 @@ impl WebSocketFrameError {
         Self {
             message: message.into(),
             close_code: Some(1002),
+            io_kind: None,
         }
     }
 
@@ -2654,6 +2693,7 @@ impl WebSocketFrameError {
         Self {
             message: message.into(),
             close_code: Some(1007),
+            io_kind: None,
         }
     }
 
@@ -2661,11 +2701,24 @@ impl WebSocketFrameError {
         Self {
             message: message.into(),
             close_code: Some(1009),
+            io_kind: None,
         }
     }
 
     fn close_code(&self) -> Option<u16> {
         self.close_code
+    }
+
+    fn is_peer_disconnect(&self) -> bool {
+        matches!(
+            self.io_kind,
+            Some(
+                io::ErrorKind::UnexpectedEof
+                    | io::ErrorKind::BrokenPipe
+                    | io::ErrorKind::ConnectionReset
+                    | io::ErrorKind::ConnectionAborted
+            )
+        )
     }
 }
 
@@ -3718,6 +3771,29 @@ pub fn poll_connection_message(
     manager.with_state(|state| state.registry.poll_message(connection_id))
 }
 
+/// Waits for the next parsed WAMP message for a connection.
+pub fn wait_connection_message(
+    connection_id: ConnectionId,
+    timeout: Option<Duration>,
+) -> Result<Option<wamp::ParsedMessage>, Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| {
+        let frames = state.registry.message_frames(connection_id)?;
+        let mut receiver = frames.lock().unwrap();
+        let receive = receiver.recv();
+        let message = match timeout {
+            Some(deadline) => runtime_block_on(&state.handle, async move {
+                match time::timeout(deadline, receive).await {
+                    Ok(result) => result,
+                    Err(_) => None,
+                }
+            }),
+            None => runtime_block_on(&state.handle, receive),
+        };
+        Ok(message)
+    })
+}
+
 /// Forces a connection to close and releases associated resources.
 pub fn close_connection(connection_id: ConnectionId) -> Result<(), Error> {
     let manager = RuntimeManager::global();
@@ -4630,6 +4706,16 @@ fn should_keep_alive(version: u8, headers: &[(String, String)]) -> bool {
             .map(|value| !header_has_token(value, "close"))
             .unwrap_or(true),
     }
+}
+
+fn is_benign_socket_shutdown(kind: io::ErrorKind) -> bool {
+    matches!(
+        kind,
+        io::ErrorKind::UnexpectedEof
+            | io::ErrorKind::BrokenPipe
+            | io::ErrorKind::ConnectionReset
+            | io::ErrorKind::ConnectionAborted
+    )
 }
 
 fn header_has_token(value: &str, needle: &str) -> bool {
@@ -5821,7 +5907,7 @@ mod tests {
                 record: ConnectionRecord::RawSocket {
                     serializer: rawsocket::Serializer::Json,
                     max_exponent: exponent,
-                    frames: Mutex::new(frame_rx),
+                    frames: Arc::new(Mutex::new(frame_rx)),
                     reader_abort,
                     writer_abort,
                     heartbeat_abort: None,
@@ -6497,6 +6583,76 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn close_connection_sends_websocket_close_frame_for_outbound_client() {
+        let _guard = test_guard();
+        shutdown().ok();
+        start_runtime().unwrap();
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (socket, _) = listener.accept().await.unwrap();
+            let mut stream = IoStream::plain(socket);
+            let headers = read_http_header_block(&mut stream, Duration::from_secs(1))
+                .await
+                .unwrap();
+            let header_text = std::str::from_utf8(&headers).unwrap();
+            let key = header_text
+                .split("\r\n")
+                .find_map(|line| {
+                    let (name, value) = line.split_once(':')?;
+                    if name.eq_ignore_ascii_case("sec-websocket-key") {
+                        Some(value.trim().to_string())
+                    } else {
+                        None
+                    }
+                })
+                .expect("sec-websocket-key present");
+            let accept = websocket_accept_value(&key);
+            write_websocket_handshake_response(&mut stream, &accept, Some("wamp.2.json"))
+                .await
+                .unwrap();
+            let (mut reader, _) = tokio::io::split(stream);
+            let pool = Arc::new(WebSocketBufferPool::default());
+            let close_frame = time::timeout(
+                Duration::from_secs(1),
+                read_websocket_frame(&mut reader, &pool),
+            )
+            .await
+            .expect("close frame arrives in time")
+            .unwrap();
+            match close_frame {
+                WebSocketFrame::Close(code, reason) => {
+                    assert_eq!(code, Some(1000));
+                    assert!(reason.is_empty());
+                }
+                other => panic!("unexpected websocket frame: {other:?}"),
+            }
+        });
+
+        let client_connection_id = tokio::task::spawn_blocking(move || {
+            connect_websocket(
+                "127.0.0.1",
+                addr.port(),
+                "/wamp",
+                false,
+                false,
+                RawSocketSerializer::Json,
+                &[],
+                None,
+                None,
+            )
+        })
+        .await
+        .unwrap()
+        .unwrap();
+
+        close_connection(client_connection_id).unwrap();
+        server.await.unwrap();
+        shutdown().unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn connection_messages_can_be_polled() {
         let _guard = test_guard();
         shutdown().ok();
@@ -6732,6 +6888,16 @@ mod tests {
             .expect_err("unmasked client frame rejected");
         assert_eq!(err.close_code(), Some(1002));
         assert!(err.to_string().contains("must be masked"));
+        assert!(!err.is_peer_disconnect());
+    }
+
+    #[test]
+    fn websocket_io_disconnects_are_classified_as_peer_shutdowns() {
+        let err =
+            WebSocketFrameError::io(io::Error::new(io::ErrorKind::UnexpectedEof, "early eof"));
+        assert!(err.is_peer_disconnect());
+        assert!(is_benign_socket_shutdown(io::ErrorKind::ConnectionReset));
+        assert!(!is_benign_socket_shutdown(io::ErrorKind::InvalidData));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

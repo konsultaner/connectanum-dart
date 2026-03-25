@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
@@ -9,6 +10,8 @@ import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_client/connectanum.dart';
+import 'package:connectanum_client/src/transport/native/native_transports_io.dart'
+    show collectNativeReceiveBatch;
 import 'package:connectanum_client/src/transport/socket/socket_helper.dart';
 import 'package:connectanum_core/cbor_serializer.dart' as serializer_cbor;
 import 'package:connectanum_core/json_serializer.dart' as serializer_json;
@@ -73,6 +76,32 @@ final _serializers = <_SerializerCase>[
 ];
 
 void main() {
+  group('collectNativeReceiveBatch', () {
+    test('drains ready handles in order', () {
+      final readyHandles = Queue<int>.from([2, 3, 0]);
+
+      final batch = collectNativeReceiveBatch(
+        1,
+        () => readyHandles.removeFirst(),
+      );
+
+      expect(batch, [1, 2, 3]);
+    });
+
+    test('respects the configured batch limit', () {
+      final readyHandles = Queue<int>.from([2, 3, 4, 5, 0]);
+
+      final batch = collectNativeReceiveBatch(
+        1,
+        () => readyHandles.removeFirst(),
+        maxBatchSize: 3,
+      );
+
+      expect(batch, [1, 2, 3]);
+      expect(readyHandles, Queue<int>.from([4, 5, 0]));
+    });
+  });
+
   group('NativeRawSocketTransport', () {
     for (final config in _serializers) {
       test('connects and authenticates over ${config.name}', () async {
@@ -99,6 +128,37 @@ void main() {
         }
       });
     }
+
+    test('receives back-to-back frames from one native worker batch', () async {
+      final server = await _spawnNativeTestServer(
+        kind: 'rawsocket',
+        serializerName: 'json',
+        rawsocketType: SocketHelper.serializationJson,
+        sendBurstAfterHello: true,
+      );
+      try {
+        final transport = NativeRawSocketTransport.withJsonSerializer(
+          '127.0.0.1',
+          server.port,
+        );
+        await transport.open();
+        transport.send(Hello('test.realm', Details.forHello()));
+
+        final messages = await transport
+            .receive()!
+            .take(2)
+            .cast<AbstractMessage>()
+            .toList()
+            .timeout(const Duration(seconds: 2));
+
+        expect(messages[0], isA<Welcome>());
+        expect(messages[1], isA<Goodbye>());
+
+        await transport.close();
+      } finally {
+        await server.dispose();
+      }
+    });
   });
 
   group('NativeWebSocketTransport', () {
@@ -161,6 +221,7 @@ Future<_NativeTestServer> _spawnNativeTestServer({
   required String serializerName,
   int? rawsocketType,
   String? websocketProtocol,
+  bool sendBurstAfterHello = false,
 }) async {
   final receivePort = ReceivePort();
   final readyCompleter = Completer<int>();
@@ -196,6 +257,7 @@ Future<_NativeTestServer> _spawnNativeTestServer({
     'serializerName': serializerName,
     'rawsocketType': rawsocketType,
     'websocketProtocol': websocketProtocol,
+    'sendBurstAfterHello': sendBurstAfterHello,
   });
   final port = await readyCompleter.future;
   return _NativeTestServer(
@@ -217,6 +279,7 @@ Future<void> _nativeTestServerMain(Map<String, Object?> config) async {
           sendPort,
           serializerName: config['serializerName']! as String,
           rawsocketType: config['rawsocketType']! as int,
+          sendBurstAfterHello: config['sendBurstAfterHello'] as bool? ?? false,
         );
         return;
       case 'websocket':
@@ -240,6 +303,7 @@ Future<void> _runRawSocketServer(
   SendPort sendPort, {
   required String serializerName,
   required int rawsocketType,
+  bool sendBurstAfterHello = false,
 }) async {
   final serializer = _serializerForName(serializerName);
   final server = await ServerSocket.bind('127.0.0.1', 0);
@@ -295,23 +359,38 @@ Future<void> _runRawSocketServer(
         'type': 'hello',
         'realm': _helloRealmFromPayload(serializerName, payload),
       });
-      socket.add(
-        _buildRawSocketFrame(
-          _encodePayload(
-            serializer,
-            Welcome(
-              4242,
-              Details.forWelcome(
-                realm: 'test.realm',
-                authId: 'native-user',
-                authMethod: 'none',
-                authProvider: 'native',
-                authRole: 'client',
-              ),
+      final welcomeFrame = _buildRawSocketFrame(
+        _encodePayload(
+          serializer,
+          Welcome(
+            4242,
+            Details.forWelcome(
+              realm: 'test.realm',
+              authId: 'native-user',
+              authMethod: 'none',
+              authProvider: 'native',
+              authRole: 'client',
             ),
           ),
         ),
       );
+      if (sendBurstAfterHello) {
+        final goodbyeFrame = _buildRawSocketFrame(
+          _encodePayload(
+            serializer,
+            Goodbye(
+              GoodbyeMessage('server closing'),
+              Goodbye.reasonGoodbyeAndOut,
+            ),
+          ),
+        );
+        final burst = Uint8List(welcomeFrame.length + goodbyeFrame.length);
+        burst.setRange(0, welcomeFrame.length, welcomeFrame);
+        burst.setRange(welcomeFrame.length, burst.length, goodbyeFrame);
+        socket.add(burst);
+      } else {
+        socket.add(welcomeFrame);
+      }
       await socket.flush();
       await Future<void>.delayed(const Duration(milliseconds: 50));
       await socket.close();

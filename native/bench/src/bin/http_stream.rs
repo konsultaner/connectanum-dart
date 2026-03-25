@@ -361,6 +361,7 @@ fn run_bench_suite(
                     scenario: scenario.name.clone(),
                     workload: workload.name.clone(),
                     protocol: workload.protocol.clone(),
+                    client_impl: prepared.client_impl.clone(),
                     router_workers,
                     native_runtime_threads,
                     iterations: workload.iterations,
@@ -610,13 +611,14 @@ fn print_router_worker_scaling_summary(reports: &[WorkloadReport]) {
         .map(summarize_report)
         .collect::<Vec<WorkloadArtifactSummary>>();
     let mut grouped =
-        BTreeMap::<(String, String, String, u32), Vec<WorkloadArtifactSummary>>::new();
+        BTreeMap::<(String, String, String, String, u32), Vec<WorkloadArtifactSummary>>::new();
     for summary in summaries {
         grouped
             .entry((
                 summary.scenario.clone(),
                 summary.workload.clone(),
                 summary.protocol.clone(),
+                summary.client_impl.clone(),
                 summary.native_runtime_threads,
             ))
             .or_default()
@@ -629,10 +631,12 @@ fn print_router_worker_scaling_summary(reports: &[WorkloadReport]) {
         .collect::<Vec<_>>()
         .join(", ");
     println!("\n=== Router worker scaling summary ({worker_list}) ===");
-    for ((scenario, workload, protocol, native_runtime_threads), mut entries) in grouped {
+    for ((scenario, workload, protocol, client_impl, native_runtime_threads), mut entries) in
+        grouped
+    {
         entries.sort_by_key(|entry| entry.router_workers);
         println!(
-            "  {scenario} / {workload} [{protocol}] runtime_threads={}",
+            "  {scenario} / {workload} [{protocol}] client_impl={client_impl} runtime_threads={}",
             format_native_runtime_threads(native_runtime_threads)
         );
         for entry in entries {
@@ -661,13 +665,14 @@ fn print_native_runtime_thread_scaling_summary(reports: &[WorkloadReport]) {
         .map(summarize_report)
         .collect::<Vec<WorkloadArtifactSummary>>();
     let mut grouped =
-        BTreeMap::<(String, String, String, u32), Vec<WorkloadArtifactSummary>>::new();
+        BTreeMap::<(String, String, String, String, u32), Vec<WorkloadArtifactSummary>>::new();
     for summary in summaries {
         grouped
             .entry((
                 summary.scenario.clone(),
                 summary.workload.clone(),
                 summary.protocol.clone(),
+                summary.client_impl.clone(),
                 summary.router_workers,
             ))
             .or_default()
@@ -680,9 +685,11 @@ fn print_native_runtime_thread_scaling_summary(reports: &[WorkloadReport]) {
         .collect::<Vec<_>>()
         .join(", ");
     println!("\n=== Native runtime thread scaling summary ({thread_list}) ===");
-    for ((scenario, workload, protocol, router_workers), mut entries) in grouped {
+    for ((scenario, workload, protocol, client_impl, router_workers), mut entries) in grouped {
         entries.sort_by_key(|entry| entry.native_runtime_threads);
-        println!("  {scenario} / {workload} [{protocol}] router_workers={router_workers}");
+        println!(
+            "  {scenario} / {workload} [{protocol}] client_impl={client_impl} router_workers={router_workers}"
+        );
         for entry in entries {
             println!(
                 "    threads {:>4}: {:.2} Mbps, p95 {:.2} ms, samples {}",
@@ -751,6 +758,8 @@ struct WorkloadConfig {
     name: String,
     #[serde(default = "default_protocol")]
     protocol: String,
+    #[serde(default = "default_wamp_client_impl")]
+    client_impl: String,
     #[serde(default = "default_wamp_serializer")]
     serializer: String,
     #[serde(default = "default_method")]
@@ -789,6 +798,10 @@ fn default_method() -> String {
 
 fn default_wamp_serializer() -> String {
     "json".to_string()
+}
+
+fn default_wamp_client_impl() -> String {
+    "dart".to_string()
 }
 
 fn default_path() -> String {
@@ -935,6 +948,7 @@ fn parse_wamp_protocol(protocol: &str) -> Option<(BenchWampTransport, BenchWampM
 struct PreparedWorkload {
     name: String,
     protocol: String,
+    client_impl: String,
     serializer: String,
     method: HyperMethod,
     path: String,
@@ -994,9 +1008,15 @@ impl PreparedWorkload {
         } else {
             format!("/{}", config.path)
         };
+        let client_impl = if is_wamp {
+            normalize_wamp_client_impl(&config.client_impl)?
+        } else {
+            "n/a".to_string()
+        };
         Ok(Self {
             name: config.name.clone(),
             protocol: config.protocol.clone(),
+            client_impl,
             serializer: config.serializer.clone(),
             method,
             path,
@@ -1016,6 +1036,14 @@ impl PreparedWorkload {
 
     fn is_wamp(&self) -> bool {
         parse_wamp_protocol(&self.protocol).is_some()
+    }
+}
+
+fn normalize_wamp_client_impl(raw: &str) -> Result<String> {
+    match raw.to_ascii_lowercase().as_str() {
+        "dart" | "vm" => Ok("dart".to_string()),
+        "native" | "rust" => Ok("native".to_string()),
+        other => bail!("unsupported WAMP client implementation {other}"),
     }
 }
 
@@ -1097,6 +1125,9 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
         format_native_runtime_threads(report.native_runtime_threads)
     );
     println!("  Router workers: {}", report.router_workers);
+    if report.client_impl != "n/a" {
+        println!("  Client implementation: {}", report.client_impl);
+    }
     if let Some(delta) = router_counter_delta(
         &report.metrics_before,
         &report.metrics_after,
@@ -1173,6 +1204,7 @@ fn run_wamp_workload(
         .ok_or_else(|| anyhow!("unsupported WAMP workload {}", workload.protocol))?;
     let body = json!({
         "transport": transport.as_str(),
+        "client_impl": workload.client_impl,
         "serializer": workload.serializer,
         "mode": mode.as_str(),
         "uri": workload.path,
@@ -2269,6 +2301,7 @@ mod tests {
             scenario: "scenario".to_string(),
             workload: "workload".to_string(),
             protocol: "h2".to_string(),
+            client_impl: "n/a".to_string(),
             router_workers: 2,
             native_runtime_threads: 4,
             iterations: 1,
@@ -2311,6 +2344,7 @@ mod tests {
         let config = WorkloadConfig {
             name: "load".to_string(),
             protocol: default_protocol(),
+            client_impl: default_wamp_client_impl(),
             serializer: default_wamp_serializer(),
             method: default_method(),
             path: default_path(),
@@ -2327,7 +2361,35 @@ mod tests {
         };
         let prepared = PreparedWorkload::from_config(&config).unwrap();
         assert!(prepared.reuse_connections);
+        assert_eq!(prepared.client_impl, "n/a");
         assert_eq!(prepared.streams_per_connection, 1);
+    }
+
+    #[test]
+    fn prepared_workload_rejects_invalid_wamp_client_impl() {
+        let config = WorkloadConfig {
+            name: "load".to_string(),
+            protocol: "wamp_rawsocket_rpc".to_string(),
+            client_impl: "fast".to_string(),
+            serializer: default_wamp_serializer(),
+            method: default_method(),
+            path: "bench.rpc.echo".to_string(),
+            iterations: default_iterations(),
+            concurrency: default_concurrency(),
+            in_flight_per_session: default_in_flight_per_session(),
+            request_bytes: default_request_bytes(),
+            response_bytes: default_response_bytes(),
+            request_chunk_bytes: default_chunk_bytes(),
+            response_chunk_bytes: None,
+            warmup_ms: None,
+            reuse_connections: default_reuse_connections(),
+            streams_per_connection: default_streams_per_connection(),
+        };
+
+        let error = PreparedWorkload::from_config(&config).err().unwrap();
+        assert!(error
+            .to_string()
+            .contains("unsupported WAMP client implementation"));
     }
 
     #[test]
@@ -2352,6 +2414,7 @@ mod tests {
         let config = WorkloadConfig {
             name: "load".to_string(),
             protocol: "wamp_websocket_pubsub".to_string(),
+            client_impl: "native".to_string(),
             serializer: default_wamp_serializer(),
             method: default_method(),
             path: "bench.topic".to_string(),
@@ -2368,6 +2431,7 @@ mod tests {
         };
         let prepared = PreparedWorkload::from_config(&config).unwrap();
         assert!(prepared.is_wamp());
+        assert_eq!(prepared.client_impl, "native");
         assert_eq!(prepared.path, "bench.topic");
     }
 
@@ -2376,6 +2440,7 @@ mod tests {
         let config = WorkloadConfig {
             name: "load".to_string(),
             protocol: "wamp_rawsocket_rpc".to_string(),
+            client_impl: default_wamp_client_impl(),
             serializer: "msgpack".to_string(),
             method: default_method(),
             path: "bench.rpc.echo".to_string(),
@@ -2399,6 +2464,7 @@ mod tests {
         let config = WorkloadConfig {
             name: "load".to_string(),
             protocol: "wamp_websocket_rpc".to_string(),
+            client_impl: default_wamp_client_impl(),
             serializer: default_wamp_serializer(),
             method: default_method(),
             path: "bench.rpc.echo".to_string(),
@@ -2422,6 +2488,7 @@ mod tests {
         let config = WorkloadConfig {
             name: "load".to_string(),
             protocol: "h2".to_string(),
+            client_impl: default_wamp_client_impl(),
             serializer: default_wamp_serializer(),
             method: default_method(),
             path: default_path(),
@@ -2447,6 +2514,7 @@ mod tests {
         let config = WorkloadConfig {
             name: "load".to_string(),
             protocol: "h3".to_string(),
+            client_impl: default_wamp_client_impl(),
             serializer: default_wamp_serializer(),
             method: default_method(),
             path: default_path(),
@@ -2472,6 +2540,7 @@ mod tests {
         let config = WorkloadConfig {
             name: "load".to_string(),
             protocol: "h1".to_string(),
+            client_impl: default_wamp_client_impl(),
             serializer: default_wamp_serializer(),
             method: default_method(),
             path: default_path(),
@@ -2499,6 +2568,7 @@ mod tests {
         let workload = PreparedWorkload {
             name: "h1_test".to_string(),
             protocol: "h1".to_string(),
+            client_impl: "n/a".to_string(),
             serializer: default_wamp_serializer(),
             method: HyperMethod::POST,
             path: "/bench/stream".to_string(),
@@ -2932,6 +3002,7 @@ mod tests {
         PreparedWorkload {
             name: "h1_test".to_string(),
             protocol: "h1".to_string(),
+            client_impl: "n/a".to_string(),
             serializer: default_wamp_serializer(),
             method: HyperMethod::POST,
             path: "/bench/stream".to_string(),
@@ -2954,6 +3025,7 @@ mod tests {
         PreparedWorkload {
             name: "h2_test".to_string(),
             protocol: "h2".to_string(),
+            client_impl: "n/a".to_string(),
             serializer: default_wamp_serializer(),
             method: HyperMethod::POST,
             path: "/bench/stream".to_string(),
@@ -2976,6 +3048,7 @@ mod tests {
         PreparedWorkload {
             name: "h3_test".to_string(),
             protocol: "h3".to_string(),
+            client_impl: "n/a".to_string(),
             serializer: default_wamp_serializer(),
             method: HyperMethod::POST,
             path: "/bench/stream".to_string(),

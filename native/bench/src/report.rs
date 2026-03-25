@@ -15,6 +15,8 @@ pub struct WorkloadReport {
     pub scenario: String,
     pub workload: String,
     pub protocol: String,
+    #[serde(default = "default_client_impl")]
+    pub client_impl: String,
     #[serde(default = "default_router_workers")]
     pub router_workers: u32,
     #[serde(default = "default_native_runtime_threads")]
@@ -42,6 +44,10 @@ pub struct WorkloadReport {
 
 fn default_router_workers() -> u32 {
     1
+}
+
+fn default_client_impl() -> String {
+    "n/a".to_string()
 }
 
 fn default_native_runtime_threads() -> u32 {
@@ -167,6 +173,7 @@ mod tests {
             "samples": []
         }))
         .unwrap();
+        assert_eq!(report.client_impl, "n/a");
         assert_eq!(report.router_workers, 1);
         assert_eq!(report.native_runtime_threads, 0);
     }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/cbor_serializer.dart' as serializer_cbor;
@@ -7,6 +8,7 @@ import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/json_serializer.dart' as serializer_json;
 import 'package:connectanum_core/msgpack_serializer.dart' as serializer_msgpack;
 import 'package:logging/logging.dart';
+import 'package:meta/meta.dart';
 
 import '../abstract_transport.dart';
 import '../socket/socket_helper.dart';
@@ -17,18 +19,45 @@ final _nativeMessageAnchor = Expando<NativeIncomingMessage>(
   'connectanum.native.message',
 );
 
+const _nativeReceiveBatchSize = 32;
+
+@visibleForTesting
+List<int> collectNativeReceiveBatch(
+  int firstHandle,
+  int Function() pollHandle, {
+  int maxBatchSize = _nativeReceiveBatchSize,
+}) {
+  final batch = <int>[firstHandle];
+  while (batch.length < maxBatchSize) {
+    final nextHandle = pollHandle();
+    if (nextHandle <= 0) {
+      break;
+    }
+    batch.add(nextHandle);
+  }
+  return batch;
+}
+
 abstract class _NativeTransportBase extends AbstractTransport {
-  _NativeTransportBase(this._serializer, this._nativeSerializer);
+  _NativeTransportBase(
+    this._serializer,
+    this._nativeSerializer, {
+    String? libraryPath,
+  }) : _libraryPath = libraryPath;
 
   final AbstractSerializer _serializer;
   final NativeMessageSerializer _nativeSerializer;
-  final NativeClientRuntime _runtime = NativeClientRuntime.instance();
+  final String? _libraryPath;
+  late final NativeClientRuntime _runtime = NativeClientRuntime.instance(
+    libraryPath: _libraryPath,
+  );
 
   StreamController<AbstractMessage?>? _messageController;
   Completer<void>? _onReadyCompleter;
   Completer<dynamic>? _onConnectionLostCompleter;
   Completer<dynamic>? _onDisconnectCompleter;
   int? _connectionId;
+  _NativeReceiveWorker? _receiveWorker;
   bool _pumpStarted = false;
   bool _closeRequested = false;
   bool _goodbyeSent = false;
@@ -111,6 +140,7 @@ abstract class _NativeTransportBase extends AbstractTransport {
         // The connection might already be gone.
       }
     }
+    await _disposeReceiveWorker();
     final controller = _messageController;
     if (controller != null && !controller.isClosed) {
       await controller.close();
@@ -131,45 +161,75 @@ abstract class _NativeTransportBase extends AbstractTransport {
   }
 
   Future<void> _pumpMessages(int connectionId) async {
-    var idleDelay = const Duration(microseconds: 50);
-    while (_connectionId == connectionId) {
-      try {
-        final handle = _runtime.pollMessageHandle(connectionId);
-        if (handle == 0) {
-          await Future.delayed(idleDelay);
-          if (idleDelay < const Duration(milliseconds: 5)) {
-            idleDelay *= 2;
+    _NativeReceiveWorker? worker;
+    try {
+      worker = await _NativeReceiveWorker.start(
+        connectionId: connectionId,
+        libraryPath: _runtime.libraryPath,
+      );
+      _receiveWorker = worker;
+      await for (final batch in worker.handleBatches) {
+        for (var index = 0; index < batch.length; index += 1) {
+          final handle = batch[index];
+          if (_connectionId != connectionId) {
+            _runtime.releaseMessageHandle(handle);
+            continue;
           }
-          continue;
+          final incoming = _runtime.materialize(handle);
+          final message = incoming.message;
+          _nativeMessageAnchor[message] = incoming;
+          if (message is Goodbye) {
+            _goodbyeReceived = true;
+          }
+          final controller = _messageController;
+          if (controller == null || controller.isClosed) {
+            for (
+              var remaining = index + 1;
+              remaining < batch.length;
+              remaining += 1
+            ) {
+              _runtime.releaseMessageHandle(batch[remaining]);
+            }
+            return;
+          }
+          controller.add(message);
         }
-        idleDelay = const Duration(microseconds: 50);
-        final incoming = _runtime.materialize(handle);
-        final message = incoming.message;
-        _nativeMessageAnchor[message] = incoming;
-        if (message is Goodbye) {
-          _goodbyeReceived = true;
-        }
-        final controller = _messageController;
-        if (controller == null || controller.isClosed) {
-          return;
-        }
-        controller.add(message);
-      } catch (error, stackTrace) {
-        final controller = _messageController;
-        if (controller != null && !controller.isClosed) {
-          controller.addError(error, stackTrace);
-          await controller.close();
-        }
-        _connectionId = null;
-        if (_closeRequested || _goodbyeSent || _goodbyeReceived) {
-          complete(_onDisconnectCompleter, error);
-        } else if (!(_onConnectionLostCompleter?.isCompleted ?? true)) {
-          _onConnectionLostCompleter!.complete(error);
-        } else {
-          logger.fine('Native transport receive loop ended: $error');
-        }
-        return;
       }
+      if (_connectionId == connectionId &&
+          !_closeRequested &&
+          !_goodbyeSent &&
+          !_goodbyeReceived) {
+        throw StateError(
+          'Native transport receive worker exited unexpectedly.',
+        );
+      }
+    } catch (error, stackTrace) {
+      final controller = _messageController;
+      if (controller != null && !controller.isClosed) {
+        controller.addError(error, stackTrace);
+        await controller.close();
+      }
+      _connectionId = null;
+      if (_closeRequested || _goodbyeSent || _goodbyeReceived) {
+        complete(_onDisconnectCompleter, error);
+      } else if (!(_onConnectionLostCompleter?.isCompleted ?? true)) {
+        _onConnectionLostCompleter!.complete(error);
+      } else {
+        logger.fine('Native transport receive loop ended: $error');
+      }
+    } finally {
+      if (worker != null && identical(_receiveWorker, worker)) {
+        _receiveWorker = null;
+      }
+      await worker?.close();
+    }
+  }
+
+  Future<void> _disposeReceiveWorker() async {
+    final worker = _receiveWorker;
+    _receiveWorker = null;
+    if (worker != null) {
+      await worker.close();
     }
   }
 
@@ -199,10 +259,15 @@ class NativeRawSocketTransport extends _NativeTransportBase {
     bool ssl = false,
     bool allowInsecureCertificates = false,
     int messageLengthExponent = SocketHelper.maxMessageLengthExponent,
+    String? libraryPath,
   }) : _ssl = ssl,
        _allowInsecureCertificates = allowInsecureCertificates,
        _messageLengthExponent = messageLengthExponent,
-       super(serializer, _nativeSerializerForRawSocket(_serializerType));
+       super(
+         serializer,
+         _nativeSerializerForRawSocket(_serializerType),
+         libraryPath: libraryPath,
+       );
 
   final String _host;
   final int _port;
@@ -219,6 +284,7 @@ class NativeRawSocketTransport extends _NativeTransportBase {
     bool ssl = false,
     bool allowInsecureCertificates = false,
     int messageLengthExponent = SocketHelper.maxMessageLengthExponent,
+    String? libraryPath,
   }) => NativeRawSocketTransport(
     host,
     port,
@@ -227,6 +293,7 @@ class NativeRawSocketTransport extends _NativeTransportBase {
     ssl: ssl,
     allowInsecureCertificates: allowInsecureCertificates,
     messageLengthExponent: messageLengthExponent,
+    libraryPath: libraryPath,
   );
 
   factory NativeRawSocketTransport.withMsgpackSerializer(
@@ -235,6 +302,7 @@ class NativeRawSocketTransport extends _NativeTransportBase {
     bool ssl = false,
     bool allowInsecureCertificates = false,
     int messageLengthExponent = SocketHelper.maxMessageLengthExponent,
+    String? libraryPath,
   }) => NativeRawSocketTransport(
     host,
     port,
@@ -243,6 +311,7 @@ class NativeRawSocketTransport extends _NativeTransportBase {
     ssl: ssl,
     allowInsecureCertificates: allowInsecureCertificates,
     messageLengthExponent: messageLengthExponent,
+    libraryPath: libraryPath,
   );
 
   factory NativeRawSocketTransport.withCborSerializer(
@@ -251,6 +320,7 @@ class NativeRawSocketTransport extends _NativeTransportBase {
     bool ssl = false,
     bool allowInsecureCertificates = false,
     int messageLengthExponent = SocketHelper.maxMessageLengthExponent,
+    String? libraryPath,
   }) => NativeRawSocketTransport(
     host,
     port,
@@ -259,6 +329,7 @@ class NativeRawSocketTransport extends _NativeTransportBase {
     ssl: ssl,
     allowInsecureCertificates: allowInsecureCertificates,
     messageLengthExponent: messageLengthExponent,
+    libraryPath: libraryPath,
   );
 
   bool get isUpgradedProtocol => _messageLengthExponent > 24;
@@ -296,8 +367,13 @@ class NativeWebSocketTransport extends _NativeTransportBase {
     this._serializerType, [
     Map<String, dynamic>? headers,
     this._allowInsecureCertificates = false,
+    String? libraryPath,
   ]) : _headers = headers,
-       super(serializer, _nativeSerializerForWebSocket(_serializerType));
+       super(
+         serializer,
+         _nativeSerializerForWebSocket(_serializerType),
+         libraryPath: libraryPath,
+       );
 
   final String _url;
   final String _serializerType;
@@ -310,36 +386,42 @@ class NativeWebSocketTransport extends _NativeTransportBase {
     String url, [
     Map<String, dynamic>? headers,
     bool allowInsecureCertificates = false,
+    String? libraryPath,
   ]) => NativeWebSocketTransport(
     url,
     serializer_json.Serializer(),
     WebSocketSerialization.serializationJson,
     headers,
     allowInsecureCertificates,
+    libraryPath,
   );
 
   factory NativeWebSocketTransport.withMsgpackSerializer(
     String url, [
     Map<String, dynamic>? headers,
     bool allowInsecureCertificates = false,
+    String? libraryPath,
   ]) => NativeWebSocketTransport(
     url,
     serializer_msgpack.Serializer(),
     WebSocketSerialization.serializationMsgpack,
     headers,
     allowInsecureCertificates,
+    libraryPath,
   );
 
   factory NativeWebSocketTransport.withCborSerializer(
     String url, [
     Map<String, dynamic>? headers,
     bool allowInsecureCertificates = false,
+    String? libraryPath,
   ]) => NativeWebSocketTransport(
     url,
     serializer_cbor.Serializer(),
     WebSocketSerialization.serializationCbor,
     headers,
     allowInsecureCertificates,
+    libraryPath,
   );
 
   @override
@@ -416,4 +498,108 @@ Map<String, String> _flattenHeaders(Map<String, dynamic>? headers) {
     flattened[key] = value.toString();
   });
   return flattened;
+}
+
+class _NativeReceiveWorker {
+  _NativeReceiveWorker._(
+    this._isolate,
+    this._eventsPort,
+    this._exitPort,
+    this.handleBatches,
+    this._controlPort,
+  );
+
+  static const _waitTimeout = Duration(milliseconds: 50);
+
+  final Isolate _isolate;
+  final ReceivePort _eventsPort;
+  final ReceivePort _exitPort;
+  final Stream<List<int>> handleBatches;
+  final SendPort _controlPort;
+  Future<void>? _closeFuture;
+
+  static Future<_NativeReceiveWorker> start({
+    required int connectionId,
+    required String libraryPath,
+  }) async {
+    final eventsPort = ReceivePort();
+    final exitPort = ReceivePort();
+    final events = eventsPort.asBroadcastStream();
+    final controlPortFuture = events
+        .firstWhere((event) => event is SendPort)
+        .then((event) => event as SendPort);
+    final isolate =
+        await Isolate.spawn(_nativeReceiveWorkerMain, <String, Object?>{
+          'connectionId': connectionId,
+          'libraryPath': libraryPath,
+          'sendPort': eventsPort.sendPort,
+          'timeoutMs': _waitTimeout.inMilliseconds,
+        }, onExit: exitPort.sendPort);
+    final controlPort = await controlPortFuture;
+    return _NativeReceiveWorker._(
+      isolate,
+      eventsPort,
+      exitPort,
+      events.where((event) => event is int || event is List).map<List<int>>((
+        event,
+      ) {
+        if (event is int) {
+          return <int>[event];
+        }
+        return (event as List<dynamic>).cast<int>();
+      }),
+      controlPort,
+    );
+  }
+
+  Future<void> close() {
+    return _closeFuture ??= _closeImpl();
+  }
+
+  Future<void> _closeImpl() async {
+    _controlPort.send(null);
+    try {
+      await _exitPort.first.timeout(const Duration(milliseconds: 200));
+    } on TimeoutException {
+      _isolate.kill(priority: Isolate.immediate);
+    } finally {
+      _eventsPort.close();
+      _exitPort.close();
+    }
+  }
+}
+
+@pragma('vm:entry-point')
+Future<void> _nativeReceiveWorkerMain(Map<String, Object?> config) async {
+  final sendPort = config['sendPort']! as SendPort;
+  final controlPort = ReceivePort();
+  sendPort.send(controlPort.sendPort);
+  var stopped = false;
+  final subscription = controlPort.listen((_) {
+    stopped = true;
+  });
+  try {
+    final runtime = NativeClientRuntime.instance(
+      libraryPath: config['libraryPath']! as String,
+    );
+    final connectionId = config['connectionId']! as int;
+    final timeout = Duration(milliseconds: config['timeoutMs']! as int);
+    while (!stopped) {
+      final handle = runtime.waitMessageHandle(connectionId, timeout: timeout);
+      if (handle > 0) {
+        final batch = collectNativeReceiveBatch(
+          handle,
+          () => runtime.pollMessageHandle(connectionId),
+        );
+        sendPort.send(batch.length == 1 ? handle : batch);
+      }
+    }
+  } on NativeTransportException catch (error) {
+    if (!stopped && error.code != NativeTransportErrorCode.connectionNotFound) {
+      rethrow;
+    }
+  } finally {
+    await subscription.cancel();
+    controlPort.close();
+  }
 }

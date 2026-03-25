@@ -58,16 +58,23 @@ class WampWorkloadRunner {
     final subscriber = await _sessionFactory(scenario);
     final subscription = await subscriber.subscribe(scenario.uri);
     final eventBuffer = WampEventBuffer();
-    final eventSub = subscription.events.listen(
-      (event) {
-        _logger.finer(
-          'PUBSUB event received worker=$workerId '
-          'args=${event.arguments} kwargs=${event.argumentsKeywords}',
-        );
-        eventBuffer.add(event);
-      },
-      onError: eventBuffer.closeWithError,
-      onDone: eventBuffer.close,
+    subscription.onEvent((event) {
+      _logger.finer(
+        'PUBSUB event received worker=$workerId '
+        'args=${event.arguments} kwargs=${event.argumentsKeywords}',
+      );
+      eventBuffer.add(event);
+    });
+    final onRevoke = subscription.onRevoke;
+    if (onRevoke != null) {
+      unawaited(onRevoke.then((_) => eventBuffer.close()));
+    }
+    unawaited(
+      subscriber.onDisconnect.then(
+        (_) => eventBuffer.close(),
+        onError: (error, stackTrace) =>
+            eventBuffer.closeWithError(error, stackTrace),
+      ),
     );
     final samples = <WampSample>[];
     try {
@@ -95,7 +102,6 @@ class WampWorkloadRunner {
       rethrow;
     } finally {
       eventBuffer.close();
-      await eventSub.cancel();
       await subscription.cancel();
       await subscriber.close();
       await publisher.close();
@@ -146,7 +152,7 @@ class WampWorkloadRunner {
     );
   }
 
-  bool _matches(WampEvent event, int workerId, int iteration) {
+  bool _matches(wamp_core.Event event, int workerId, int iteration) {
     final keywords = event.argumentsKeywords;
     if (keywords == null) {
       return false;
@@ -220,17 +226,18 @@ class WampWorkloadRunner {
       'RPC call start worker=$workerId iteration=$iteration uri=${scenario.uri}',
     );
     final start = DateTime.now();
-    final resultStream = await session.call(scenario.uri, arguments: [payload]);
-    await resultStream.first.timeout(
-      _eventTimeout,
-      onTimeout: () {
-        _logger.severe(
-          'RPC call timed out waiting for first result '
-          'worker=$workerId iteration=$iteration uri=${scenario.uri}',
+    await session
+        .callSingle(scenario.uri, arguments: [payload])
+        .timeout(
+          _eventTimeout,
+          onTimeout: () {
+            _logger.severe(
+              'RPC call timed out waiting for final result '
+              'worker=$workerId iteration=$iteration uri=${scenario.uri}',
+            );
+            throw TimeoutException('rpc_call_timeout');
+          },
         );
-        throw TimeoutException('rpc_call_timeout');
-      },
-    );
     final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
     _logger.fine(
       'RPC call done worker=$workerId iteration=$iteration uri=${scenario.uri} '
@@ -289,27 +296,50 @@ class WampWorkloadRunner {
 
 class WampSubscription {
   WampSubscription({
-    required Stream<WampEvent> events,
+    Stream<wamp_core.Event> Function()? eventStreamFactory,
+    void Function(void Function(wamp_core.Event event) onEvent)?
+    attachEventHandler,
+    Future<void> Function()? onRevoke,
     required Future<void> Function() cancel,
-  }) : _events = events,
+  }) : _eventStreamFactory = eventStreamFactory,
+       _attachEventHandler = attachEventHandler,
+       _onRevoke = onRevoke,
        _onCancel = cancel;
 
-  final Stream<WampEvent> _events;
+  final Stream<wamp_core.Event> Function()? _eventStreamFactory;
+  final void Function(void Function(wamp_core.Event event) onEvent)?
+  _attachEventHandler;
+  final Future<void> Function()? _onRevoke;
   final Future<void> Function() _onCancel;
+  Stream<wamp_core.Event>? _events;
 
-  Stream<WampEvent> get events => _events;
+  Stream<wamp_core.Event> get events {
+    return _events ??=
+        _eventStreamFactory?.call() ?? const Stream<wamp_core.Event>.empty();
+  }
+
+  Future<void>? get onRevoke => _onRevoke?.call();
+
+  void onEvent(void Function(wamp_core.Event event) onEvent) {
+    final attachEventHandler = _attachEventHandler;
+    if (attachEventHandler != null) {
+      attachEventHandler(onEvent);
+      return;
+    }
+    events.listen(onEvent);
+  }
 
   Future<void> cancel() => _onCancel();
 }
 
 class WampEventBuffer {
-  final Queue<WampEvent> _buffer = Queue<WampEvent>();
+  final Queue<wamp_core.Event> _buffer = Queue<wamp_core.Event>();
   final Queue<_PendingWampEvent> _pending = Queue<_PendingWampEvent>();
   bool _closed = false;
   Object? _error;
   StackTrace? _stackTrace;
 
-  void add(WampEvent event) {
+  void add(wamp_core.Event event) {
     for (final pending in _pending.toList(growable: false)) {
       if (pending.completer.isCompleted) {
         _pending.remove(pending);
@@ -324,9 +354,9 @@ class WampEventBuffer {
     _buffer.addLast(event);
   }
 
-  Future<WampEvent> nextWhere(bool Function(WampEvent) matcher) {
-    final replayBuffer = Queue<WampEvent>();
-    WampEvent? matchedEvent;
+  Future<wamp_core.Event> nextWhere(bool Function(wamp_core.Event) matcher) {
+    final replayBuffer = Queue<wamp_core.Event>();
+    wamp_core.Event? matchedEvent;
     while (_buffer.isNotEmpty) {
       final event = _buffer.removeFirst();
       if (matchedEvent == null && matcher(event)) {
@@ -337,15 +367,15 @@ class WampEventBuffer {
     }
     _buffer.addAll(replayBuffer);
     if (matchedEvent != null) {
-      return Future<WampEvent>.value(matchedEvent);
+      return Future<wamp_core.Event>.value(matchedEvent);
     }
     if (_error != null) {
-      return Future<WampEvent>.error(_error!, _stackTrace);
+      return Future<wamp_core.Event>.error(_error!, _stackTrace);
     }
     if (_closed) {
-      return Future<WampEvent>.error(StateError('No element'));
+      return Future<wamp_core.Event>.error(StateError('No element'));
     }
-    final completer = Completer<WampEvent>();
+    final completer = Completer<wamp_core.Event>();
     _pending.addLast(_PendingWampEvent(matcher: matcher, completer: completer));
     return completer.future;
   }
@@ -376,18 +406,13 @@ class WampEventBuffer {
 class _PendingWampEvent {
   _PendingWampEvent({required this.matcher, required this.completer});
 
-  final bool Function(WampEvent event) matcher;
-  final Completer<WampEvent> completer;
-}
-
-class WampEvent {
-  WampEvent({this.arguments, this.argumentsKeywords});
-
-  final List<dynamic>? arguments;
-  final Map<String, Object?>? argumentsKeywords;
+  final bool Function(wamp_core.Event event) matcher;
+  final Completer<wamp_core.Event> completer;
 }
 
 abstract class WampSession {
+  Future<dynamic> get onDisconnect;
+
   Future<void> publish(
     String topic, {
     List<dynamic>? arguments,
@@ -407,6 +432,13 @@ abstract class WampSession {
     wamp_core.CallOptions? options,
   });
 
+  Future<dynamic> callSingle(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  });
+
   Future<void> close();
 }
 
@@ -416,22 +448,36 @@ class RawSocketWampSessionFactory {
     required this.port,
     required this.realmUri,
     this.serializer = WampSerializer.json,
+    this.clientImplementation = WampClientImplementation.dart,
     this.ssl = false,
     this.allowInsecureCertificates = false,
+    this.nativeLibraryPath,
   });
 
   final String host;
   final int port;
   final String realmUri;
   final WampSerializer serializer;
+  final WampClientImplementation clientImplementation;
   final bool ssl;
   final bool allowInsecureCertificates;
+  final String? nativeLibraryPath;
 
   Future<WampSession> call() async {
+    final transport = switch (clientImplementation) {
+      WampClientImplementation.dart => _buildDartTransport(),
+      WampClientImplementation.native => _buildNativeTransport(),
+    };
+    final client = wamp_client.Client(realm: realmUri, transport: transport);
+    final session = await client.connect().first;
+    return _ClientBackedWampSession(client, session);
+  }
+
+  wamp_client.AbstractTransport _buildDartTransport() {
     final (transportSerializer, serializerType) = _rawSocketSerializerConfig(
       serializer,
     );
-    final transport = wamp_socket.SocketTransport(
+    return wamp_socket.SocketTransport(
       host,
       port,
       transportSerializer,
@@ -439,9 +485,35 @@ class RawSocketWampSessionFactory {
       ssl: ssl,
       allowInsecureCertificates: allowInsecureCertificates,
     );
-    final client = wamp_client.Client(realm: realmUri, transport: transport);
-    final session = await client.connect().first;
-    return _ClientBackedWampSession(client, session);
+  }
+
+  wamp_client.AbstractTransport _buildNativeTransport() {
+    return switch (serializer) {
+      WampSerializer.json =>
+        wamp_client.NativeRawSocketTransport.withJsonSerializer(
+          host,
+          port,
+          ssl: ssl,
+          allowInsecureCertificates: allowInsecureCertificates,
+          libraryPath: nativeLibraryPath,
+        ),
+      WampSerializer.msgpack =>
+        wamp_client.NativeRawSocketTransport.withMsgpackSerializer(
+          host,
+          port,
+          ssl: ssl,
+          allowInsecureCertificates: allowInsecureCertificates,
+          libraryPath: nativeLibraryPath,
+        ),
+      WampSerializer.cbor =>
+        wamp_client.NativeRawSocketTransport.withCborSerializer(
+          host,
+          port,
+          ssl: ssl,
+          allowInsecureCertificates: allowInsecureCertificates,
+          libraryPath: nativeLibraryPath,
+        ),
+    };
   }
 }
 
@@ -450,26 +522,69 @@ class WebSocketWampSessionFactory {
     required this.url,
     required this.realmUri,
     this.serializer = WampSerializer.json,
+    this.clientImplementation = WampClientImplementation.dart,
+    this.headers = const <String, Object?>{},
+    this.allowInsecureCertificates = false,
+    this.nativeLibraryPath,
   });
 
   final String url;
   final String realmUri;
   final WampSerializer serializer;
+  final WampClientImplementation clientImplementation;
+  final Map<String, Object?> headers;
+  final bool allowInsecureCertificates;
+  final String? nativeLibraryPath;
 
   Future<WampSession> call() async {
-    final transport = switch (serializer) {
-      WampSerializer.json => wamp_client.WebSocketTransport.withJsonSerializer(
-        url,
-      ),
-      WampSerializer.msgpack =>
-        wamp_client.WebSocketTransport.withMsgpackSerializer(url),
-      WampSerializer.cbor => wamp_client.WebSocketTransport.withCborSerializer(
-        url,
-      ),
+    final transport = switch (clientImplementation) {
+      WampClientImplementation.dart => _buildDartTransport(),
+      WampClientImplementation.native => _buildNativeTransport(),
     };
     final client = wamp_client.Client(realm: realmUri, transport: transport);
     final session = await client.connect().first;
     return _ClientBackedWampSession(client, session);
+  }
+
+  wamp_client.AbstractTransport _buildDartTransport() {
+    return switch (serializer) {
+      WampSerializer.json => wamp_client.WebSocketTransport.withJsonSerializer(
+        url,
+        headers,
+      ),
+      WampSerializer.msgpack =>
+        wamp_client.WebSocketTransport.withMsgpackSerializer(url, headers),
+      WampSerializer.cbor => wamp_client.WebSocketTransport.withCborSerializer(
+        url,
+        headers,
+      ),
+    };
+  }
+
+  wamp_client.AbstractTransport _buildNativeTransport() {
+    return switch (serializer) {
+      WampSerializer.json =>
+        wamp_client.NativeWebSocketTransport.withJsonSerializer(
+          url,
+          headers.cast<String, dynamic>(),
+          allowInsecureCertificates,
+          nativeLibraryPath,
+        ),
+      WampSerializer.msgpack =>
+        wamp_client.NativeWebSocketTransport.withMsgpackSerializer(
+          url,
+          headers.cast<String, dynamic>(),
+          allowInsecureCertificates,
+          nativeLibraryPath,
+        ),
+      WampSerializer.cbor =>
+        wamp_client.NativeWebSocketTransport.withCborSerializer(
+          url,
+          headers.cast<String, dynamic>(),
+          allowInsecureCertificates,
+          nativeLibraryPath,
+        ),
+    };
   }
 }
 
@@ -500,6 +615,9 @@ class _ClientBackedWampSession implements WampSession {
   final wamp_client.Session _session;
 
   @override
+  Future<dynamic> get onDisconnect => _session.onDisconnect;
+
+  @override
   Future<void> publish(
     String topic, {
     List<dynamic>? arguments,
@@ -520,14 +638,11 @@ class _ClientBackedWampSession implements WampSession {
     wamp_core.SubscribeOptions? options,
   }) async {
     final subscribed = await _session.subscribe(topic, options: options);
-    final stream = subscribed.eventStream ?? const Stream.empty();
     return WampSubscription(
-      events: stream.map(
-        (event) => WampEvent(
-          arguments: event.arguments,
-          argumentsKeywords: event.argumentsKeywords,
-        ),
-      ),
+      eventStreamFactory: () =>
+          subscribed.eventStream ?? const Stream<wamp_core.Event>.empty(),
+      attachEventHandler: subscribed.onEvent,
+      onRevoke: () => subscribed.onRevoke.then((_) {}),
       cancel: () => _session.unsubscribe(subscribed.subscriptionId),
     );
   }
@@ -549,6 +664,21 @@ class _ClientBackedWampSession implements WampSession {
   }
 
   @override
+  Future<dynamic> callSingle(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  }) {
+    return _session.callSingle(
+      procedure,
+      arguments: arguments,
+      argumentsKeywords: argumentsKeywords?.cast<String, dynamic>(),
+      options: options,
+    );
+  }
+
+  @override
   Future<void> close() async {
     await _client.disconnect();
   }
@@ -557,6 +687,7 @@ class _ClientBackedWampSession implements WampSession {
 class WampScenario {
   WampScenario({
     required this.transport,
+    this.clientImplementation = WampClientImplementation.dart,
     required this.serializer,
     required this.mode,
     required this.uri,
@@ -567,6 +698,7 @@ class WampScenario {
   });
 
   final WampTransport transport;
+  final WampClientImplementation clientImplementation;
   final WampSerializer serializer;
   final WampMode mode;
   final String uri;
@@ -592,6 +724,7 @@ class WampScenario {
     final payloadBytes = _readPositiveInt(json['payload_bytes'], fallback: 0);
     return WampScenario(
       transport: WampTransport.parse(rawTransport),
+      clientImplementation: WampClientImplementation.parse(json['client_impl']),
       serializer: WampSerializer.parse(rawSerializer),
       mode: WampMode.parse(rawMode),
       uri: uri,
@@ -613,6 +746,42 @@ class WampScenario {
       return int.tryParse(value) ?? fallback;
     }
     throw FormatException('Expected integer, got $value');
+  }
+
+  Map<String, Object?> toJson() => {
+    'transport': transport.name,
+    'client_impl': clientImplementation.name,
+    'serializer': serializer.name,
+    'mode': mode.name,
+    'uri': uri,
+    'iterations': iterations,
+    'concurrency': concurrency,
+    'in_flight_per_session': inFlightPerSession,
+    'payload_bytes': payloadBytes,
+  };
+}
+
+enum WampClientImplementation {
+  dart,
+  native;
+
+  static WampClientImplementation parse(Object? raw) {
+    if (raw == null) {
+      return WampClientImplementation.dart;
+    }
+    if (raw is! String) {
+      throw FormatException('Unsupported WAMP client implementation "$raw"');
+    }
+    switch (raw.toLowerCase()) {
+      case 'dart':
+      case 'vm':
+        return WampClientImplementation.dart;
+      case 'native':
+      case 'rust':
+        return WampClientImplementation.native;
+      default:
+        throw FormatException('Unsupported WAMP client implementation "$raw"');
+    }
   }
 }
 
@@ -700,6 +869,16 @@ class WampSample {
   final int requestBytes;
   final int responseBytes;
 
+  factory WampSample.fromJson(Map<String, Object?> json) {
+    return WampSample(
+      worker: _readJsonInt(json['worker']),
+      iteration: _readJsonInt(json['iteration']),
+      latencyMs: _readJsonDouble(json['latency_ms']),
+      requestBytes: _readJsonInt(json['request_bytes']),
+      responseBytes: _readJsonInt(json['response_bytes']),
+    );
+  }
+
   Map<String, Object?> toJson() => {
     'worker': worker,
     'iteration': iteration,
@@ -707,6 +886,26 @@ class WampSample {
     'request_bytes': requestBytes,
     'response_bytes': responseBytes,
   };
+}
+
+int _readJsonInt(Object? value) {
+  if (value is int) {
+    return value;
+  }
+  if (value is num) {
+    return value.toInt();
+  }
+  throw FormatException('Expected integer, got $value');
+}
+
+double _readJsonDouble(Object? value) {
+  if (value is double) {
+    return value;
+  }
+  if (value is num) {
+    return value.toDouble();
+  }
+  throw FormatException('Expected number, got $value');
 }
 
 class _PendingWampSample {

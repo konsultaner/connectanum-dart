@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:collection';
 
 import 'e2ee_payload.dart';
@@ -15,7 +14,11 @@ class Invocation extends AbstractMessageWithPayload {
   int requestId;
   int registrationId;
   InvocationDetails details;
-  late StreamController<AbstractMessageWithPayload> _responseStreamController;
+  void Function(AbstractMessageWithPayload invocationResultMessage)?
+  _onResponse;
+  bool _responseClosed = false;
+
+  bool get responseClosed => _responseClosed;
 
   void respondWith({
     List<dynamic>? arguments,
@@ -37,7 +40,7 @@ class Invocation extends AbstractMessageWithPayload {
         arguments: arguments,
         argumentsKeywords: argumentsKeywords,
       );
-      _responseStreamController.add(error);
+      _emitResponse(error);
     } else {
       var invokeArguments = arguments;
       var invokeArgumentsKeywords = argumentsKeywords;
@@ -66,10 +69,7 @@ class Invocation extends AbstractMessageWithPayload {
         arguments: invokeArguments,
         argumentsKeywords: invokeArgumentsKeywords,
       );
-      _responseStreamController.add(yield);
-    }
-    if (options != null && !options.progress) {
-      _responseStreamController.close();
+      _emitResponse(yield);
     }
   }
 
@@ -92,8 +92,26 @@ class Invocation extends AbstractMessageWithPayload {
   void onResponse(
     void Function(AbstractMessageWithPayload invocationResultMessage) onData,
   ) {
-    _responseStreamController = StreamController<AbstractMessageWithPayload>();
-    _responseStreamController.stream.listen(onData);
+    _onResponse = onData;
+  }
+
+  void _emitResponse(AbstractMessageWithPayload response) {
+    if (_responseClosed) {
+      throw StateError('Invocation response handler already completed');
+    }
+    final onResponse = _onResponse;
+    if (onResponse == null) {
+      throw StateError('Invocation response handler not attached');
+    }
+    onResponse(response);
+    if (response is Error) {
+      _responseClosed = true;
+      return;
+    }
+    if (response is Yield && response.options?.progress == true) {
+      return;
+    }
+    _responseClosed = true;
   }
 }
 

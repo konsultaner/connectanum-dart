@@ -32,8 +32,8 @@ use ct_core::{
     connection_reject_websocket, connection_take_http2_handshake, connection_take_http3_handshake,
     connection_take_websocket_handshake, connection_websocket_protocol, listen,
     listener_http3_port, local_addr, poll_connection_message, reload_tls, response_stream_channel,
-    send_wamp_message, send_wamp_segments, shutdown, start_runtime, ConnectionId,
-    ConnectionProtocol, Error as CoreError, HttpConnectionCloseReason,
+    send_wamp_message, send_wamp_segments, shutdown, start_runtime, wait_connection_message,
+    ConnectionId, ConnectionProtocol, Error as CoreError, HttpConnectionCloseReason,
     HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot, HttpResponseBody, HttpResponseDispatch,
     ListenerId, RawSocketSerializer, WampMessage, RESPONSE_STREAM_BUFFER,
 };
@@ -2077,7 +2077,27 @@ pub struct CtMessageInfo {
     pub args_len: usize,
     pub kwargs_ptr: *const u8,
     pub kwargs_len: usize,
+    pub primary_id: u64,
+    pub secondary_id: u64,
+    pub detail_number_a: u64,
+    pub detail_number_b: u64,
+    pub flags: u32,
+    pub string_a_ptr: *const u8,
+    pub string_a_len: usize,
+    pub string_b_ptr: *const u8,
+    pub string_b_len: usize,
+    pub string_c_ptr: *const u8,
+    pub string_c_len: usize,
+    pub string_d_ptr: *const u8,
+    pub string_d_len: usize,
+    pub string_e_ptr: *const u8,
+    pub string_e_len: usize,
 }
+
+const CT_MESSAGE_FLAG_DIRECT_BIND: u32 = 1 << 0;
+const CT_MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT: u32 = 1 << 1;
+const CT_MESSAGE_FLAG_DETAIL_NUMBER_B_PRESENT: u32 = 1 << 2;
+const CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE: u32 = 1 << 3;
 
 fn serializer_id(serializer: ct_core::RawSocketSerializer) -> u8 {
     match serializer {
@@ -2108,6 +2128,301 @@ fn duration_from_millis(value: c_uint) -> Option<std::time::Duration> {
     }
 }
 
+fn option_str_ptr(value: Option<&str>) -> (*const u8, usize) {
+    match value {
+        Some(data) => (data.as_ptr(), data.len()),
+        None => (ptr::null(), 0),
+    }
+}
+
+fn set_string_a(info: &mut CtMessageInfo, value: Option<&str>) {
+    let (ptr, len) = option_str_ptr(value);
+    info.string_a_ptr = ptr;
+    info.string_a_len = len;
+}
+
+fn set_string_b(info: &mut CtMessageInfo, value: Option<&str>) {
+    let (ptr, len) = option_str_ptr(value);
+    info.string_b_ptr = ptr;
+    info.string_b_len = len;
+}
+
+fn set_string_c(info: &mut CtMessageInfo, value: Option<&str>) {
+    let (ptr, len) = option_str_ptr(value);
+    info.string_c_ptr = ptr;
+    info.string_c_len = len;
+}
+
+fn set_string_d(info: &mut CtMessageInfo, value: Option<&str>) {
+    let (ptr, len) = option_str_ptr(value);
+    info.string_d_ptr = ptr;
+    info.string_d_len = len;
+}
+
+fn set_string_e(info: &mut CtMessageInfo, value: Option<&str>) {
+    let (ptr, len) = option_str_ptr(value);
+    info.string_e_ptr = ptr;
+    info.string_e_len = len;
+}
+
+fn serde_key_str(value: &SerdeValue) -> Option<&str> {
+    match value {
+        SerdeValue::String(text) => Some(text.as_str()),
+        _ => None,
+    }
+}
+
+fn serde_value_u64(value: &SerdeValue) -> Option<u64> {
+    match value {
+        SerdeValue::U8(number) => Some(*number as u64),
+        SerdeValue::U16(number) => Some(*number as u64),
+        SerdeValue::U32(number) => Some(*number as u64),
+        SerdeValue::U64(number) => Some(*number),
+        SerdeValue::I8(number) if *number >= 0 => Some(*number as u64),
+        SerdeValue::I16(number) if *number >= 0 => Some(*number as u64),
+        SerdeValue::I32(number) if *number >= 0 => Some(*number as u64),
+        SerdeValue::I64(number) if *number >= 0 => Some(*number as u64),
+        _ => None,
+    }
+}
+
+fn serde_value_bool(value: &SerdeValue) -> Option<bool> {
+    match value {
+        SerdeValue::Bool(boolean) => Some(*boolean),
+        _ => None,
+    }
+}
+
+fn serde_value_str(value: &SerdeValue) -> Option<&str> {
+    match value {
+        SerdeValue::String(text) => Some(text.as_str()),
+        _ => None,
+    }
+}
+
+fn populate_event_details_info(
+    info: &mut CtMessageInfo,
+    details: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
+) -> bool {
+    for (key, value) in details {
+        match serde_key_str(key) {
+            Some("publisher") => match serde_value_u64(value) {
+                Some(number) => {
+                    info.detail_number_a = number;
+                    info.flags |= CT_MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT;
+                }
+                None => return false,
+            },
+            Some("trustlevel") => match serde_value_u64(value) {
+                Some(number) => {
+                    info.detail_number_b = number;
+                    info.flags |= CT_MESSAGE_FLAG_DETAIL_NUMBER_B_PRESENT;
+                }
+                None => return false,
+            },
+            Some("topic") => match serde_value_str(value) {
+                Some(text) => set_string_a(info, Some(text)),
+                None => return false,
+            },
+            Some("ppt_scheme") => match serde_value_str(value) {
+                Some(text) => set_string_b(info, Some(text)),
+                None => return false,
+            },
+            Some("ppt_serializer") => match serde_value_str(value) {
+                Some(text) => set_string_c(info, Some(text)),
+                None => return false,
+            },
+            Some("ppt_cipher") => match serde_value_str(value) {
+                Some(text) => set_string_d(info, Some(text)),
+                None => return false,
+            },
+            Some("ppt_keyid") => match serde_value_str(value) {
+                Some(text) => set_string_e(info, Some(text)),
+                None => return false,
+            },
+            _ => return false,
+        }
+    }
+    true
+}
+
+fn populate_result_details_info(
+    info: &mut CtMessageInfo,
+    details: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
+) -> bool {
+    for (key, value) in details {
+        match serde_key_str(key) {
+            Some("progress") => match serde_value_bool(value) {
+                Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
+                Some(false) => {}
+                None => return false,
+            },
+            Some("ppt_scheme") => match serde_value_str(value) {
+                Some(text) => set_string_a(info, Some(text)),
+                None => return false,
+            },
+            Some("ppt_serializer") => match serde_value_str(value) {
+                Some(text) => set_string_b(info, Some(text)),
+                None => return false,
+            },
+            Some("ppt_cipher") => match serde_value_str(value) {
+                Some(text) => set_string_c(info, Some(text)),
+                None => return false,
+            },
+            Some("ppt_keyid") => match serde_value_str(value) {
+                Some(text) => set_string_d(info, Some(text)),
+                None => return false,
+            },
+            _ => return false,
+        }
+    }
+    true
+}
+
+fn populate_invocation_details_info(
+    info: &mut CtMessageInfo,
+    details: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
+) -> bool {
+    for (key, value) in details {
+        match serde_key_str(key) {
+            Some("caller") => match serde_value_u64(value) {
+                Some(number) => {
+                    info.detail_number_a = number;
+                    info.flags |= CT_MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT;
+                }
+                None => return false,
+            },
+            Some("procedure") => match serde_value_str(value) {
+                Some(text) => set_string_a(info, Some(text)),
+                None => return false,
+            },
+            Some("receive_progress") => match serde_value_bool(value) {
+                Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
+                Some(false) => {}
+                None => return false,
+            },
+            Some("ppt_scheme") => match serde_value_str(value) {
+                Some(text) => set_string_b(info, Some(text)),
+                None => return false,
+            },
+            Some("ppt_serializer") => match serde_value_str(value) {
+                Some(text) => set_string_c(info, Some(text)),
+                None => return false,
+            },
+            Some("ppt_cipher") => match serde_value_str(value) {
+                Some(text) => set_string_d(info, Some(text)),
+                None => return false,
+            },
+            Some("ppt_keyid") => match serde_value_str(value) {
+                Some(text) => set_string_e(info, Some(text)),
+                None => return false,
+            },
+            _ => return false,
+        }
+    }
+    true
+}
+
+fn build_message_info(msg: &StoredMessage) -> CtMessageInfo {
+    let (args_ptr, args_len) = option_bytes_ptr(&msg.args);
+    let (kwargs_ptr, kwargs_len) = option_bytes_ptr(&msg.kwargs);
+    let mut info = CtMessageInfo {
+        serializer: serializer_id(msg.serializer),
+        message_code: msg.code,
+        frame_ptr: msg.raw.as_ptr(),
+        frame_len: msg.raw.len(),
+        args_ptr,
+        args_len,
+        kwargs_ptr,
+        kwargs_len,
+        ..CtMessageInfo::default()
+    };
+    match &msg.message {
+        WampMessage::Published {
+            request_id,
+            publication_id,
+        } => {
+            info.primary_id = *request_id;
+            info.secondary_id = *publication_id;
+            info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND;
+        }
+        WampMessage::Subscribed {
+            request_id,
+            subscription_id,
+        } => {
+            info.primary_id = *request_id;
+            info.secondary_id = *subscription_id;
+            info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND;
+        }
+        WampMessage::Registered {
+            request_id,
+            registration_id,
+        } => {
+            info.primary_id = *request_id;
+            info.secondary_id = *registration_id;
+            info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND;
+        }
+        WampMessage::Unregistered { request_id } => {
+            info.primary_id = *request_id;
+            info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND;
+        }
+        WampMessage::Event {
+            subscription_id,
+            publication_id,
+            details,
+            ..
+        } => {
+            info.primary_id = *subscription_id;
+            info.secondary_id = *publication_id;
+            if populate_event_details_info(&mut info, details) {
+                info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND;
+            }
+        }
+        WampMessage::Result {
+            request_id,
+            details,
+            ..
+        } => {
+            info.primary_id = *request_id;
+            if populate_result_details_info(&mut info, details) {
+                info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND;
+            }
+        }
+        WampMessage::Invocation {
+            request_id,
+            registration_id,
+            details,
+            ..
+        } => {
+            info.primary_id = *request_id;
+            info.secondary_id = *registration_id;
+            if populate_invocation_details_info(&mut info, details) {
+                info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND;
+            }
+        }
+        _ => {}
+    }
+    info
+}
+
+fn store_parsed_message(parsed: ct_core::ParsedMessage) -> c_int {
+    let ct_core::ParsedMessage {
+        message,
+        raw,
+        serializer,
+    } = parsed;
+    let (args, kwargs) = extract_payload_slices(&message);
+    let info = StoredMessage {
+        serializer,
+        code: message.code(),
+        raw,
+        message,
+        args,
+        kwargs,
+    };
+    store_message(info) as c_int
+}
+
 #[no_mangle]
 pub extern "C" fn ct_poll_connection_message(connection_id: c_int) -> c_int {
     let connection_id = ConnectionId(connection_id as u32);
@@ -2116,23 +2431,18 @@ pub extern "C" fn ct_poll_connection_message(connection_id: c_int) -> c_int {
         return handle as c_int;
     }
     match poll_connection_message(connection_id) {
-        Ok(Some(parsed)) => {
-            let ct_core::ParsedMessage {
-                message,
-                raw,
-                serializer,
-            } = parsed;
-            let (args, kwargs) = extract_payload_slices(&message);
-            let info = StoredMessage {
-                serializer,
-                code: message.code(),
-                raw,
-                message,
-                args,
-                kwargs,
-            };
-            store_message(info) as c_int
-        }
+        Ok(Some(parsed)) => store_parsed_message(parsed),
+        Ok(None) => 0,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_wait_connection_message(connection_id: c_int, timeout_ms: c_uint) -> c_int {
+    let connection_id = ConnectionId(connection_id as u32);
+    let timeout = duration_from_millis(timeout_ms);
+    match wait_connection_message(connection_id, timeout) {
+        Ok(Some(parsed)) => store_parsed_message(parsed),
         Ok(None) => 0,
         Err(err) => map_error(err),
     }
@@ -2689,20 +2999,7 @@ pub extern "C" fn ct_message_get(handle: c_int, out_info: *mut CtMessageInfo) ->
         return ERR_INVALID_ARGUMENT;
     }
     let handle_u32 = handle as u32;
-    match with_message(handle_u32, |msg| {
-        let (args_ptr, args_len) = option_bytes_ptr(&msg.args);
-        let (kwargs_ptr, kwargs_len) = option_bytes_ptr(&msg.kwargs);
-        CtMessageInfo {
-            serializer: serializer_id(msg.serializer),
-            message_code: msg.code,
-            frame_ptr: msg.raw.as_ptr(),
-            frame_len: msg.raw.len(),
-            args_ptr,
-            args_len,
-            kwargs_ptr,
-            kwargs_len,
-        }
-    }) {
+    match with_message(handle_u32, build_message_info) {
         Some(info) => {
             unsafe {
                 out_info.write(info);

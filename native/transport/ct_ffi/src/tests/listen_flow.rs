@@ -30,6 +30,10 @@ const HTTP2_TEST_MAX_FRAME_SIZE: u32 = 1 * 1024 * 1024;
 const HTTP2_TEST_MAX_HEADER_LIST_SIZE: u32 = 16 * 1024 * 1024;
 const HTTP2_TEST_MAX_CONCURRENT_RESET_STREAMS: usize = 256;
 const HTTP2_TEST_MAX_SEND_BUFFER_SIZE: usize = 8 * 1024 * 1024;
+const MESSAGE_FLAG_DIRECT_BIND: u32 = 1 << 0;
+const MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT: u32 = 1 << 1;
+const MESSAGE_FLAG_DETAIL_NUMBER_B_PRESENT: u32 = 1 << 2;
+const MESSAGE_FLAG_DETAIL_BOOL_A_TRUE: u32 = 1 << 3;
 
 use crate::runtime::constants::{
     ERR_CONNECTION_NOT_FOUND, ERR_ENDPOINT_NOT_CONFIGURED, ERR_INVALID_ARGUMENT,
@@ -54,10 +58,10 @@ use crate::runtime::ffi::{
     ct_http_response_stream_write, ct_listen, ct_listener_close, ct_message_get,
     ct_message_release, ct_poll_connection, ct_poll_connection_message, ct_send_message,
     ct_set_on_connection, ct_set_on_listener_started, ct_shutdown, ct_start_runtime,
-    ct_websocket_handshake_extension, ct_websocket_handshake_get, ct_websocket_handshake_protocol,
-    ct_websocket_handshake_release, CtHttp2HandshakeInfo, CtHttp3HandshakeInfo, CtHttpBodyView,
-    CtHttpConnectionEventInfo, CtHttpHandshakeInfo, CtHttpHeader, CtMessageInfo, CtStringView,
-    CtWebSocketHandshakeInfo,
+    ct_wait_connection_message, ct_websocket_handshake_extension, ct_websocket_handshake_get,
+    ct_websocket_handshake_protocol, ct_websocket_handshake_release, CtHttp2HandshakeInfo,
+    CtHttp3HandshakeInfo, CtHttpBodyView, CtHttpConnectionEventInfo, CtHttpHandshakeInfo,
+    CtHttpHeader, CtMessageInfo, CtStringView, CtWebSocketHandshakeInfo,
 };
 use crate::runtime::store_http_body;
 
@@ -92,20 +96,11 @@ fn wait_for_connection(listener_id: i32) -> i32 {
 }
 
 fn wait_for_message_handle(connection_id: i32) -> i32 {
-    let deadline = Instant::now() + Duration::from_secs(5);
-    loop {
-        let handle = ct_poll_connection_message(connection_id);
-        if handle > 0 {
-            return handle;
-        }
-        if handle < 0 {
-            panic!("poll message failed: {handle}");
-        }
-        if Instant::now() > deadline {
-            panic!("timed out waiting for message on connection {connection_id}");
-        }
-        std::thread::sleep(Duration::from_millis(10));
+    let handle = ct_wait_connection_message(connection_id, 5_000);
+    if handle <= 0 {
+        panic!("timed out waiting for message on connection {connection_id}: {handle}");
     }
+    handle
 }
 
 fn wait_for_http_handshake(connection_id: i32) -> i32 {
@@ -501,8 +496,7 @@ fn poll_connection_message_returns_payload() {
         tokio::time::sleep(Duration::from_millis(50)).await;
     });
 
-    let connection_id = ct_poll_connection(listener_id);
-    assert!(connection_id > 0);
+    let connection_id = wait_for_connection(listener_id);
     assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_RAWSOCKET);
 
     let handle = ct_poll_connection_message(connection_id);
@@ -536,6 +530,271 @@ fn poll_connection_message_returns_payload() {
     // Releasing twice should be a no-op.
     ct_message_release(handle);
 
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn ct_message_get_exports_direct_bind_metadata_for_hot_messages() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"disabled",
+                    "protocols":["rawsocket"]
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let messages = vec![
+        serde_json::to_vec(&json!([17, 43, 99])).unwrap(),
+        serde_json::to_vec(&json!([
+            36,
+            7,
+            99,
+            {
+                "publisher": 55,
+                "trustlevel": 9,
+                "topic": "bench.topic",
+                "ppt_scheme": "wamp",
+                "ppt_serializer": "cbor",
+                "ppt_cipher": "aes",
+                "ppt_keyid": "kid-1"
+            },
+            [1],
+            {"flag": true}
+        ]))
+        .unwrap(),
+        serde_json::to_vec(&json!([
+            50,
+            123,
+            {
+                "progress": true,
+                "ppt_scheme": "wamp",
+                "ppt_serializer": "msgpack",
+                "ppt_cipher": "aes",
+                "ppt_keyid": "kid-2"
+            },
+            [1],
+            {"flag": true}
+        ]))
+        .unwrap(),
+        serde_json::to_vec(&json!([
+            68,
+            77,
+            12,
+            {
+                "caller": 5,
+                "procedure": "bench.rpc.echo",
+                "receive_progress": true,
+                "ppt_scheme": "wamp",
+                "ppt_serializer": "cbor",
+                "ppt_cipher": "aes",
+                "ppt_keyid": "kid-3"
+            },
+            [1],
+            {"flag": true}
+        ]))
+        .unwrap(),
+        serde_json::to_vec(&json!([
+            36,
+            8,
+            100,
+            {
+                "topic": "bench.topic",
+                "_custom": true
+            }
+        ]))
+        .unwrap(),
+    ];
+    let sender = std::thread::spawn(move || {
+        let rt = TokioRuntime::new().unwrap();
+        rt.block_on(async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+            perform_handshake(&mut stream, 16, None).await;
+            for message in messages {
+                send_json_frame(&mut stream, &message).await;
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+            tokio::time::sleep(Duration::from_millis(250)).await;
+        });
+    });
+
+    let connection_id = wait_for_connection(listener_id);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_RAWSOCKET);
+
+    let ack_handle = ct_wait_connection_message(connection_id, 5_000);
+    assert!(ack_handle > 0);
+    let mut ack_info = CtMessageInfo::default();
+    assert_eq!(
+        ct_message_get(ack_handle, &mut ack_info as *mut CtMessageInfo),
+        SUCCESS
+    );
+    assert_eq!(ack_info.message_code, 17);
+    assert_eq!(ack_info.primary_id, 43);
+    assert_eq!(ack_info.secondary_id, 99);
+    assert_eq!(
+        ack_info.flags & MESSAGE_FLAG_DIRECT_BIND,
+        MESSAGE_FLAG_DIRECT_BIND
+    );
+    ct_message_release(ack_handle);
+
+    let event_handle = ct_wait_connection_message(connection_id, 5_000);
+    assert!(event_handle > 0);
+    let mut event_info = CtMessageInfo::default();
+    assert_eq!(
+        ct_message_get(event_handle, &mut event_info as *mut CtMessageInfo),
+        SUCCESS
+    );
+    assert_eq!(event_info.message_code, 36);
+    assert_eq!(event_info.primary_id, 7);
+    assert_eq!(event_info.secondary_id, 99);
+    assert_eq!(event_info.detail_number_a, 55);
+    assert_eq!(event_info.detail_number_b, 9);
+    assert_eq!(
+        event_info.flags,
+        MESSAGE_FLAG_DIRECT_BIND
+            | MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT
+            | MESSAGE_FLAG_DETAIL_NUMBER_B_PRESENT
+    );
+    unsafe {
+        let topic = std::slice::from_raw_parts(event_info.string_a_ptr, event_info.string_a_len);
+        let ppt_serializer =
+            std::slice::from_raw_parts(event_info.string_c_ptr, event_info.string_c_len);
+        assert_eq!(std::str::from_utf8(topic).unwrap(), "bench.topic");
+        assert_eq!(std::str::from_utf8(ppt_serializer).unwrap(), "cbor");
+    }
+    ct_message_release(event_handle);
+
+    let result_handle = ct_wait_connection_message(connection_id, 5_000);
+    assert!(result_handle > 0);
+    let mut result_info = CtMessageInfo::default();
+    assert_eq!(
+        ct_message_get(result_handle, &mut result_info as *mut CtMessageInfo),
+        SUCCESS
+    );
+    assert_eq!(result_info.message_code, 50);
+    assert_eq!(result_info.primary_id, 123);
+    assert_eq!(
+        result_info.flags,
+        MESSAGE_FLAG_DIRECT_BIND | MESSAGE_FLAG_DETAIL_BOOL_A_TRUE
+    );
+    unsafe {
+        let ppt_scheme =
+            std::slice::from_raw_parts(result_info.string_a_ptr, result_info.string_a_len);
+        assert_eq!(std::str::from_utf8(ppt_scheme).unwrap(), "wamp");
+    }
+    ct_message_release(result_handle);
+
+    let invocation_handle = ct_wait_connection_message(connection_id, 5_000);
+    assert!(invocation_handle > 0);
+    let mut invocation_info = CtMessageInfo::default();
+    assert_eq!(
+        ct_message_get(
+            invocation_handle,
+            &mut invocation_info as *mut CtMessageInfo
+        ),
+        SUCCESS
+    );
+    assert_eq!(invocation_info.message_code, 68);
+    assert_eq!(invocation_info.primary_id, 77);
+    assert_eq!(invocation_info.secondary_id, 12);
+    assert_eq!(invocation_info.detail_number_a, 5);
+    assert_eq!(
+        invocation_info.flags,
+        MESSAGE_FLAG_DIRECT_BIND
+            | MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT
+            | MESSAGE_FLAG_DETAIL_BOOL_A_TRUE
+    );
+    unsafe {
+        let procedure =
+            std::slice::from_raw_parts(invocation_info.string_a_ptr, invocation_info.string_a_len);
+        assert_eq!(std::str::from_utf8(procedure).unwrap(), "bench.rpc.echo");
+    }
+    ct_message_release(invocation_handle);
+
+    let custom_event_handle = ct_wait_connection_message(connection_id, 5_000);
+    assert!(custom_event_handle > 0);
+    let mut custom_event_info = CtMessageInfo::default();
+    assert_eq!(
+        ct_message_get(
+            custom_event_handle,
+            &mut custom_event_info as *mut CtMessageInfo
+        ),
+        SUCCESS
+    );
+    assert_eq!(custom_event_info.message_code, 36);
+    assert_eq!(custom_event_info.flags & MESSAGE_FLAG_DIRECT_BIND, 0);
+    ct_message_release(custom_event_handle);
+
+    sender.join().unwrap();
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn wait_connection_message_times_out_without_payload() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"disabled",
+                    "protocols":["rawsocket"]
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let rt = TokioRuntime::new().unwrap();
+    rt.block_on(async move {
+        let addr = format!("127.0.0.1:{port}");
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        perform_handshake(&mut stream, 16, None).await;
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    });
+
+    let connection_id = wait_for_connection(listener_id);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_RAWSOCKET);
+    assert_eq!(ct_wait_connection_message(connection_id, 10), 0);
+
+    assert_eq!(ct_listener_close(listener_id), SUCCESS);
     assert_eq!(ct_shutdown(), SUCCESS);
 }
 

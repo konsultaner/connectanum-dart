@@ -56,6 +56,10 @@ typedef CtConnectionMaxRawsocketExponentDart = int Function(int);
 typedef CtPollConnectionMessageNative = ffi.Int32 Function(ffi.Int32);
 typedef CtPollConnectionMessageDart = int Function(int);
 
+typedef CtWaitConnectionMessageNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Uint32);
+typedef CtWaitConnectionMessageDart = int Function(int, int);
+
 typedef CtMessageGetNative =
     ffi.Int32 Function(ffi.Int32, ffi.Pointer<CtMessageInfo>);
 typedef CtMessageGetDart = int Function(int, ffi.Pointer<CtMessageInfo>);
@@ -103,6 +107,46 @@ final class CtMessageInfo extends ffi.Struct {
 
   @ffi.Size()
   external int kwargsLen;
+
+  @ffi.Uint64()
+  external int primaryId;
+
+  @ffi.Uint64()
+  external int secondaryId;
+
+  @ffi.Uint64()
+  external int detailNumberA;
+
+  @ffi.Uint64()
+  external int detailNumberB;
+
+  @ffi.Uint32()
+  external int flags;
+
+  external ffi.Pointer<ffi.Uint8> stringAPtr;
+
+  @ffi.Size()
+  external int stringALen;
+
+  external ffi.Pointer<ffi.Uint8> stringBPtr;
+
+  @ffi.Size()
+  external int stringBLen;
+
+  external ffi.Pointer<ffi.Uint8> stringCPtr;
+
+  @ffi.Size()
+  external int stringCLen;
+
+  external ffi.Pointer<ffi.Uint8> stringDPtr;
+
+  @ffi.Size()
+  external int stringDLen;
+
+  external ffi.Pointer<ffi.Uint8> stringEPtr;
+
+  @ffi.Size()
+  external int stringELen;
 }
 
 class CtFfiBindings {
@@ -138,6 +182,11 @@ class CtFfiBindings {
             CtPollConnectionMessageNative,
             CtPollConnectionMessageDart
           >('ct_poll_connection_message'),
+      ctWaitConnectionMessage = library
+          .lookupFunction<
+            CtWaitConnectionMessageNative,
+            CtWaitConnectionMessageDart
+          >('ct_wait_connection_message'),
       ctMessageGet = library
           .lookupFunction<CtMessageGetNative, CtMessageGetDart>(
             'ct_message_get',
@@ -162,6 +211,7 @@ class CtFfiBindings {
   final CtConnectionCloseDart ctConnectionClose;
   final CtConnectionMaxRawsocketExponentDart ctConnectionMaxRawsocketExponent;
   final CtPollConnectionMessageDart ctPollConnectionMessage;
+  final CtWaitConnectionMessageDart ctWaitConnectionMessage;
   final CtMessageGetDart ctMessageGet;
   final CtMessageReleaseDart ctMessageRelease;
   final CtMessageRetainDart ctMessageRetain;

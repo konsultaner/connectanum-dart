@@ -238,6 +238,12 @@ because the bench path does not pipeline H1 requests.
   plus RPC sweep covering JSON, MsgPack, and CBOR on both transports so
   hot-session throughput comparisons stay apples-to-apples across modes and
   serializers.
+- `wamp_client_impl_smoke.toml` – small-payload RawSocket/WebSocket RPC + pub/sub
+  comparison between Dart and native `connectanum_client` implementations on
+  the same workloads.
+- `wamp_client_impl_throughput.toml` – 64 KiB RawSocket/WebSocket RPC + pub/sub
+  comparison between Dart and native `connectanum_client` implementations on
+  the same hot-session workloads.
 - `all_transports_smoke.toml` – quick cross-transport smoke covering RawSocket,
   WebSocket, HTTP/1.1, HTTP/2, and HTTP/3 in one run. The WAMP side now mixes
   JSON, MessagePack, and CBOR across RawSocket/WebSocket workloads so serializer
@@ -476,16 +482,40 @@ hot-session path now lands roughly at:
   KiB RPC matrix.
 - `wamp_transport_throughput.toml`: RawSocket about `92-131 Mbps`, WebSocket
   about `104-138 Mbps` across the 64 KiB pub/sub + RPC sweep.
+- `wamp_client_impl_smoke.toml`: native now wins the small-message RPC and
+  most pub/sub smoke workloads in this environment after `ct_ffi` started
+  exporting direct-bind metadata for common inbound WAMP messages and the
+  dedicated waitable-FFI receive isolate started batch-draining already-ready
+  handles per connection before sending them back to the main isolate. A recent
+  release run landed around `2.64 Mbps` native vs `1.69 Mbps` Dart on RawSocket
+  JSON RPC, `2.66 Mbps` native vs `1.61 Mbps` Dart on RawSocket CBOR pub/sub,
+  `4.34 Mbps` native vs `3.29 Mbps` Dart on WebSocket JSON RPC, and
+  `3.26 Mbps` native vs `3.40 Mbps` Dart on WebSocket CBOR pub/sub.
+- `wamp_client_impl_throughput.toml`: native is materially ahead on the 64 KiB
+  hot-session path, landing around `144-174 Mbps` on RawSocket and
+  `160-199 Mbps` on WebSocket versus roughly `51-65 Mbps` and `42-122 Mbps`
+  respectively for the Dart client on this machine.
 
 Those WAMP numbers are still end-to-end Dart-client numbers, not pure native
 transport ceilings. The current bench deliberately exercises
-`connectanum_client`, and that client stack is not zero-copy yet. That matters
-more for RawSocket than WebSocket because the RawSocket client still performs
-its own handshake, frame splitting, and message-boundary parsing in Dart,
-whereas the WebSocket client leans on `dart:io`'s native WebSocket framing and
-receives already-delimited messages. On the wire, RawSocket is still the leaner
-protocol; on this benchmark path, the remaining client-side Dart work can let
-WebSocket edge it out until the client transport becomes more zero-copy.
+`connectanum_client`, not just the wire protocol. The native-client path is now
+substantially leaner because common inbound native messages now cross the FFI
+boundary as typed metadata instead of forcing Dart to re-decode every full
+frame, payload slices stay lazy, and the dedicated receive isolate blocks on
+`ct_wait_connection_message(...)` while batch-draining ready handles instead of
+spin-polling from the main isolate. The RPC workloads also use
+`Session.callSingle(...)` on the client side so non-progressive calls no longer
+allocate a `StreamController` per request, backend-oriented callees and
+subscribers can now use `Session.registerHandler(...)`,
+`Session.subscribeHandler(...)`, and `Subscribed.onEvent(...)` to stay off the
+stream path entirely, subscription events are decoded once on ingress instead
+of through a mapped stream, subscription and registration streams are now
+allocated lazily only when callers actually use the stream-oriented API, async
+callee failures still flow back as WAMP `ERROR`s after `await`, and the bench
+no longer wraps inbound pub/sub events in an extra Dart object before matching
+them. Full-frame decode remains as a fallback for custom-detail message shapes
+that are not safe to represent in the direct-bind metadata. Treat the numbers
+as relative comparisons on the same machine, not product claims.
 
 Treat those as relative loopback signals, not product claims. They are useful
 for before/after comparisons on the same machine and now reflect actual

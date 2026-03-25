@@ -17,6 +17,21 @@ class WampTransportTarget {
   final bool secure;
   final String? webSocketPath;
 
+  factory WampTransportTarget.fromJson(Map<String, Object?> json) {
+    final rawHost = json['host'];
+    final rawPort = json['port'];
+    if (rawHost is! String || rawPort is! int) {
+      throw FormatException('Invalid WAMP transport target: $json');
+    }
+    return WampTransportTarget(
+      transport: WampTransport.parse(json['transport']),
+      host: rawHost,
+      port: rawPort,
+      secure: json['secure'] == true,
+      webSocketPath: json['web_socket_path'] as String?,
+    );
+  }
+
   Uri get webSocketUri {
     if (transport != WampTransport.websocket) {
       throw StateError('webSocketUri is only available for websocket targets');
@@ -28,6 +43,14 @@ class WampTransportTarget {
       path: webSocketPath ?? '/wamp',
     );
   }
+
+  Map<String, Object?> toJson() => {
+    'transport': transport.name,
+    'host': host,
+    'port': port,
+    'secure': secure,
+    if (webSocketPath != null) 'web_socket_path': webSocketPath,
+  };
 }
 
 Map<WampTransport, WampTransportTarget> resolveWampTransportTargets(

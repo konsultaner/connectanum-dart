@@ -10,6 +10,7 @@ import 'package:connectanum_router/connectanum_router.dart';
 import 'package:logging/logging.dart';
 
 import 'package:connectanum_bench/src/http_stream_handler.dart';
+import 'package:connectanum_bench/src/native_wamp_worker.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 
@@ -60,12 +61,13 @@ Future<void> main(List<String> args) async {
     exitCode = 64;
     return;
   }
+  final nativeLibraryPath = File(nativeLib).absolute.path;
 
   final controlRealm = results['control-realm'] as String;
 
   final runner = _BenchRouterService(
     routerConfigPath: routerConfigPath,
-    nativeLibraryPath: nativeLib,
+    nativeLibraryPath: nativeLibraryPath,
     controlRealm: controlRealm,
   );
 
@@ -164,6 +166,10 @@ class _BenchRouterService {
         onStopRequested: () => requestShutdown('RPC'),
         realmUri: controlRealm,
         wampTargets: wampTargets,
+        nativeLibraryPath: nativeLibraryPath,
+        workerScriptPath: File.fromUri(
+          Platform.script.resolve('wamp_client_main.dart'),
+        ).path,
       );
       await control.initialize();
       _controlRegistry = control;
@@ -285,9 +291,18 @@ class _BenchControlRegistry {
     required this.onStopRequested,
     required this.realmUri,
     required this.wampTargets,
+    required this.nativeLibraryPath,
+    required this.workerScriptPath,
   }) {
     _wampRunner = WampWorkloadRunner(
       sessionFactory: _openWampSession,
+      logger: _logger,
+    );
+    _nativeWampWorker = NativeWampWorker(
+      realmUri: realmUri,
+      wampTargets: wampTargets,
+      nativeLibraryPath: nativeLibraryPath,
+      workerScriptPath: workerScriptPath,
       logger: _logger,
     );
   }
@@ -297,11 +312,14 @@ class _BenchControlRegistry {
   final void Function() onStopRequested;
   final String realmUri;
   final Map<WampTransport, WampTransportTarget> wampTargets;
+  final String nativeLibraryPath;
+  final String workerScriptPath;
 
   final _logger = Logger('BenchControlRegistry');
   final List<registered_msg.Registered> _registrations = [];
   bool _stopping = false;
   late final WampWorkloadRunner _wampRunner;
+  late final NativeWampWorker _nativeWampWorker;
 
   Future<WampSession> _openWampSession(WampScenario scenario) {
     final target = wampTargets[scenario.transport];
@@ -317,8 +335,10 @@ class _BenchControlRegistry {
           port: target.port,
           realmUri: realmUri,
           serializer: scenario.serializer,
+          clientImplementation: scenario.clientImplementation,
           ssl: target.secure,
           allowInsecureCertificates: target.secure,
+          nativeLibraryPath: nativeLibraryPath,
         );
         return factory.call();
       case WampTransport.websocket:
@@ -326,6 +346,10 @@ class _BenchControlRegistry {
           url: target.webSocketUri.toString(),
           realmUri: realmUri,
           serializer: scenario.serializer,
+          clientImplementation: scenario.clientImplementation,
+          headers: const {'x-connectanum-bench': '1'},
+          allowInsecureCertificates: target.secure,
+          nativeLibraryPath: nativeLibraryPath,
         );
         return factory.call();
     }
@@ -344,6 +368,7 @@ class _BenchControlRegistry {
     await _register('bench.http.stream', _handleStreamInvoke);
     await _register('bench.http.wamp', _handleWampInvoke);
     await _register('bench.rpc.echo', _handleRpcEchoInvoke);
+    await _nativeWampWorker.start();
   }
 
   Future<void> dispose() async {
@@ -351,6 +376,7 @@ class _BenchControlRegistry {
       await session.unregister(registration.registrationId);
     }
     _registrations.clear();
+    await _nativeWampWorker.close();
   }
 
   Future<void> _register(
@@ -491,7 +517,10 @@ class _BenchControlRegistry {
     }
     try {
       final scenario = WampScenario.fromJson(payload);
-      final samples = await _wampRunner.run(scenario);
+      final samples =
+          scenario.clientImplementation == WampClientImplementation.native
+          ? await _nativeWampWorker.run(scenario)
+          : await _wampRunner.run(scenario);
       context.sendJson(
         body: {'samples': samples.map((sample) => sample.toJson()).toList()},
       );

@@ -30,6 +30,76 @@ enum NativeMessageSerializer {
   }
 }
 
+class NativeMessageMetadata {
+  const NativeMessageMetadata({
+    required this.messageCode,
+    required this.primaryId,
+    required this.secondaryId,
+    required this.detailNumberA,
+    required this.detailNumberB,
+    required this.flags,
+    this.stringA,
+    this.stringB,
+    this.stringC,
+    this.stringD,
+    this.stringE,
+  });
+
+  static const flagDirectBind = 1 << 0;
+  static const flagDetailNumberAPresent = 1 << 1;
+  static const flagDetailNumberBPresent = 1 << 2;
+  static const flagDetailBoolATrue = 1 << 3;
+
+  factory NativeMessageMetadata.fromFfi(CtMessageInfo info) {
+    final flags = info.flags;
+    final directBind = (flags & flagDirectBind) != 0;
+    return NativeMessageMetadata(
+      messageCode: info.messageCode,
+      primaryId: info.primaryId,
+      secondaryId: info.secondaryId,
+      detailNumberA: info.detailNumberA,
+      detailNumberB: info.detailNumberB,
+      flags: flags,
+      stringA: directBind
+          ? _readOptionalString(info.stringAPtr, info.stringALen)
+          : null,
+      stringB: directBind
+          ? _readOptionalString(info.stringBPtr, info.stringBLen)
+          : null,
+      stringC: directBind
+          ? _readOptionalString(info.stringCPtr, info.stringCLen)
+          : null,
+      stringD: directBind
+          ? _readOptionalString(info.stringDPtr, info.stringDLen)
+          : null,
+      stringE: directBind
+          ? _readOptionalString(info.stringEPtr, info.stringELen)
+          : null,
+    );
+  }
+
+  final int messageCode;
+  final int primaryId;
+  final int secondaryId;
+  final int detailNumberA;
+  final int detailNumberB;
+  final int flags;
+  final String? stringA;
+  final String? stringB;
+  final String? stringC;
+  final String? stringD;
+  final String? stringE;
+
+  bool hasFlag(int flag) => (flags & flag) != 0;
+}
+
+String? _readOptionalString(ffi.Pointer<ffi.Uint8> ptr, int len) {
+  if (ptr == ffi.nullptr) {
+    return null;
+  }
+  return utf8.decode(ptr.asTypedList(len));
+}
+
 abstract final class NativeTransportErrorCode {
   static const success = 0;
   static const unsupported = -1;
@@ -235,6 +305,7 @@ class NativeClientRuntime {
   }
 
   int connectionMaxRawSocketExponent(int connectionId) {
+    ensureStarted();
     final result = _bindings.ctConnectionMaxRawsocketExponent(connectionId);
     if (result < 0) {
       _throwForError(result, 'Failed to read native rawsocket settings');
@@ -243,6 +314,7 @@ class NativeClientRuntime {
   }
 
   void closeConnection(int connectionId) {
+    ensureStarted();
     final result = _bindings.ctConnectionClose(connectionId);
     if (result < 0 && result != NativeTransportErrorCode.connectionNotFound) {
       _throwForError(result, 'Failed to close native transport connection');
@@ -250,6 +322,7 @@ class NativeClientRuntime {
   }
 
   void sendMessage(int connectionId, Uint8List payload) {
+    ensureStarted();
     final dataPtr = malloc<ffi.Uint8>(payload.length);
     try {
       dataPtr.asTypedList(payload.length).setAll(0, payload);
@@ -267,6 +340,7 @@ class NativeClientRuntime {
   }
 
   int pollMessageHandle(int connectionId) {
+    ensureStarted();
     final result = _bindings.ctPollConnectionMessage(connectionId);
     if (result < 0) {
       _throwForError(result, 'Polling native transport message failed');
@@ -274,7 +348,20 @@ class NativeClientRuntime {
     return result;
   }
 
+  int waitMessageHandle(int connectionId, {Duration? timeout}) {
+    ensureStarted();
+    final result = _bindings.ctWaitConnectionMessage(
+      connectionId,
+      timeout?.inMilliseconds ?? 0,
+    );
+    if (result < 0) {
+      _throwForError(result, 'Waiting for native transport message failed');
+    }
+    return result;
+  }
+
   NativeIncomingMessage materialize(int handle) {
+    ensureStarted();
     final infoPtr = calloc<CtMessageInfo>();
     try {
       final result = _bindings.ctMessageGet(handle, infoPtr);
@@ -292,11 +379,13 @@ class NativeClientRuntime {
       final kwargs = info.kwargsLen == 0
           ? null
           : info.kwargsPtr.asTypedList(info.kwargsLen);
+      final metadata = NativeMessageMetadata.fromFfi(info);
       final message = bindMessage(
         serializer,
         frame,
         argsBytes: args,
         kwargsBytes: kwargs,
+        metadata: metadata,
       );
       final incoming = NativeIncomingMessage._(
         message: message,
@@ -322,6 +411,11 @@ class NativeClientRuntime {
       code,
       _buildNativeErrorMessage(code, context),
     );
+  }
+
+  void releaseMessageHandle(int handle) {
+    ensureStarted();
+    _bindings.ctMessageRelease(handle);
   }
 }
 

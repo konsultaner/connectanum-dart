@@ -258,7 +258,7 @@ void main() {
           receivedAbortCompleter.complete(message as Abort);
         }
       });
-      client.connect();
+      client.connect().listen((_) {}, onError: (_) {});
       var abort = await receivedAbortCompleter.future;
       expect(abort, isNotNull);
       expect(abort.reason, equals(Error.authorizationFailed));
@@ -575,6 +575,7 @@ void main() {
       final registered = await session.register('my.procedure');
       expect(registered, isNotNull);
       expect(registered.registrationId, equals(1010));
+      expect(registered.procedure, equals('my.procedure'));
 
       var progressiveCalls = 0;
       registered.onInvoke((invocation) {
@@ -899,6 +900,207 @@ void main() {
       );
       expect(unregisterError.error, equals(Error.noSuchRegistration));
     });
+    test(
+      'registered invocationStream lazily receives routed invocations',
+      () async {
+        final transport = _MockTransport();
+        final client = Client(realm: 'test.realm', transport: transport);
+        final yieldCompleter = Completer<Yield>();
+
+        transport.outbound.stream.listen((message) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveMessage(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codeRegister) {
+            transport.receiveMessage(
+              Registered((message as Register).requestId, 2020),
+            );
+            return;
+          }
+          if (message.id == MessageTypes.codeYield &&
+              !yieldCompleter.isCompleted) {
+            yieldCompleter.complete(message as Yield);
+          }
+        });
+
+        final session = await client.connect().first;
+        final registered = await session.register('lazy.proc');
+        final invocationFuture = registered.invocationStream!.first;
+
+        transport.receiveMessage(
+          Invocation(
+            9001,
+            registered.registrationId,
+            InvocationDetails(null, null, false),
+            arguments: const ['payload'],
+          ),
+        );
+
+        final invocation = await invocationFuture;
+        expect(invocation.requestId, equals(9001));
+        expect(invocation.arguments, equals(const ['payload']));
+
+        invocation.respondWith(arguments: const ['done']);
+
+        final yieldMessage = await yieldCompleter.future;
+        expect(yieldMessage.invocationRequestId, equals(9001));
+        expect(yieldMessage.arguments, equals(const ['done']));
+      },
+    );
+    test('subscribed onEvent lazily receives routed events', () async {
+      final transport = _MockTransport();
+      final client = Client(realm: 'test.realm', transport: transport);
+
+      transport.outbound.stream.listen((message) {
+        if (message.id == MessageTypes.codeHello) {
+          transport.receiveMessage(Welcome(42, Details.forWelcome()));
+          return;
+        }
+        if (message.id == MessageTypes.codeSubscribe) {
+          transport.receiveMessage(
+            Subscribed((message as Subscribe).requestId, 3030),
+          );
+        }
+      });
+
+      final session = await client.connect().first;
+      final subscribed = await session.subscribe('lazy.topic');
+      final eventCompleter = Completer<Event>();
+
+      subscribed.onEvent((event) {
+        if (!eventCompleter.isCompleted) {
+          eventCompleter.complete(event);
+        }
+      });
+
+      transport.receiveMessage(
+        Event(
+          subscribed.subscriptionId,
+          7001,
+          EventDetails(),
+          argumentsKeywords: const {'worker': 1},
+        ),
+      );
+
+      final event = await eventCompleter.future;
+      expect(event.publicationId, equals(7001));
+      expect(event.argumentsKeywords, equals(const {'worker': 1}));
+    });
+    test(
+      'subscribeHandler routes events without touching eventStream',
+      () async {
+        final transport = _MockTransport();
+        final client = Client(realm: 'test.realm', transport: transport);
+
+        transport.outbound.stream.listen((message) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveMessage(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codeSubscribe) {
+            transport.receiveMessage(
+              Subscribed((message as Subscribe).requestId, 4040),
+            );
+          }
+        });
+
+        final session = await client.connect().first;
+        final eventCompleter = Completer<Event>();
+        final subscribed = await session.subscribeHandler('handler.topic', (
+          event,
+        ) {
+          if (!eventCompleter.isCompleted) {
+            eventCompleter.complete(event);
+          }
+        });
+
+        transport.receiveMessage(
+          Event(
+            subscribed.subscriptionId,
+            8001,
+            EventDetails(),
+            arguments: const ['payload'],
+          ),
+        );
+
+        final event = await eventCompleter.future;
+        expect(event.publicationId, equals(8001));
+        expect(event.arguments, equals(const ['payload']));
+      },
+    );
+    test(
+      'registerHandler catches async failures and ignores late failures after final yields',
+      () async {
+        final transport = _MockTransport();
+        final client = Client(realm: 'test.realm', transport: transport);
+        final unknownErrors = <Error>[];
+        final yields = <Yield>[];
+
+        transport.outbound.stream.listen((message) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveMessage(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codeRegister) {
+            transport.receiveMessage(
+              Registered((message as Register).requestId, 5050),
+            );
+            return;
+          }
+          if (message.id == MessageTypes.codeYield) {
+            yields.add(message as Yield);
+            return;
+          }
+          if (message.id == MessageTypes.codeError &&
+              (message as Error).error == Error.unknown) {
+            unknownErrors.add(message);
+          }
+        });
+
+        final session = await client.connect().first;
+        final registered = await session.registerHandler('handler.proc', (
+          invocation,
+        ) async {
+          final value = invocation.argumentsKeywords?['value'];
+          if (value == 1) {
+            await Future<void>.delayed(Duration.zero);
+            throw StateError('async failure');
+          }
+          invocation.respondWith(arguments: const ['done']);
+          await Future<void>.delayed(Duration.zero);
+          throw StateError('late failure');
+        });
+
+        transport.receiveMessage(
+          Invocation(
+            9101,
+            registered.registrationId,
+            InvocationDetails(null, null, false),
+            argumentsKeywords: const {'value': 1},
+          ),
+        );
+        transport.receiveMessage(
+          Invocation(
+            9102,
+            registered.registrationId,
+            InvocationDetails(null, null, false),
+            argumentsKeywords: const {'value': 2},
+          ),
+        );
+
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+
+        expect(yields, hasLength(1));
+        expect(yields.single.invocationRequestId, equals(9102));
+        expect(unknownErrors, hasLength(1));
+        expect(unknownErrors.single.requestId, equals(9101));
+        expect(
+          unknownErrors.single.arguments,
+          equals(const ['Bad state: async failure']),
+        );
+      },
+    );
     test('event subscription and publish', () async {
       final transport = _MockTransport();
       final client = Client(realm: 'test.realm', transport: transport);
@@ -1057,11 +1259,64 @@ void main() {
           subscribed.subscriptionId,
           1155,
           EventDetails(pptScheme: 'x_custom_scheme', pptSerializer: 'cbor'),
+          arguments: [
+            Uint8List.fromList([
+              162,
+              100,
+              97,
+              114,
+              103,
+              115,
+              131,
+              24,
+              100,
+              99,
+              116,
+              119,
+              111,
+              245,
+              102,
+              107,
+              119,
+              97,
+              114,
+              103,
+              115,
+              163,
+              100,
+              107,
+              101,
+              121,
+              49,
+              24,
+              100,
+              100,
+              107,
+              101,
+              121,
+              50,
+              99,
+              116,
+              119,
+              111,
+              100,
+              107,
+              101,
+              121,
+              51,
+              245,
+            ]),
+          ],
         ),
       );
       var event4 = await eventCompleter4.future;
       expect(event4, isNotNull);
       expect(event4.publicationId, equals(1155));
+      expect(event4.arguments, equals([100, 'two', true]));
+      expect(
+        event4.argumentsKeywords,
+        equals({'key1': 100, 'key2': 'two', 'key3': true}),
+      );
 
       // UNSUBSCRIBE ERROR
 
@@ -1236,6 +1491,11 @@ void main() {
           .timeout(stepTimeout);
       expect(result.arguments, equals(['ok']));
 
+      final singleResult = await session
+          .callSingle('bench.fast')
+          .timeout(stepTimeout);
+      expect(singleResult.arguments, equals(['ok']));
+
       final published = await session
           .publish('bench.topic', options: PublishOptions(acknowledge: true))
           .timeout(stepTimeout);
@@ -1253,6 +1513,146 @@ void main() {
           .timeout(stepTimeout);
       expect(registered.registrationId, equals(20));
       await session.unregister(registered.registrationId).timeout(stepTimeout);
+    });
+    test(
+      'callSingle waits for final result and surfaces call errors',
+      () async {
+        const stepTimeout = Duration(seconds: 1);
+        final transport = _ImmediateResponseTransport();
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+        ).connect().first.timeout(stepTimeout);
+
+        final finalResult = await session
+            .callSingle('bench.progressive')
+            .timeout(stepTimeout);
+        expect(finalResult.arguments, equals(['final']));
+
+        await expectLater(
+          session.callSingle('bench.error').timeout(stepTimeout),
+          throwsA(
+            isA<Error>().having(
+              (error) => error.requestTypeId,
+              'requestTypeId',
+              MessageTypes.codeCall,
+            ),
+          ),
+        );
+      },
+    );
+    test('request routing handles out-of-order router replies', () async {
+      const stepTimeout = Duration(seconds: 1);
+      final transport = _OutOfOrderResponseTransport();
+      final session = await Client(
+        realm: 'test.realm',
+        transport: transport,
+      ).connect().first.timeout(stepTimeout);
+
+      final callResults = await Future.wait([
+        session.call('bench.first').first.timeout(stepTimeout),
+        session.call('bench.second').first.timeout(stepTimeout),
+        session.call('bench.third').first.timeout(stepTimeout),
+      ]);
+      expect(
+        callResults.map((result) => result.arguments!.first).toList(),
+        equals(['bench.first', 'bench.second', 'bench.third']),
+      );
+
+      final singleCallResults = await Future.wait([
+        session.callSingle('bench.first').timeout(stepTimeout),
+        session.callSingle('bench.second').timeout(stepTimeout),
+        session.callSingle('bench.third').timeout(stepTimeout),
+      ]);
+      expect(
+        singleCallResults.map((result) => result.arguments!.first).toList(),
+        equals(['bench.first', 'bench.second', 'bench.third']),
+      );
+
+      final published = await Future.wait([
+        session
+            .publish('bench.topic', options: PublishOptions(acknowledge: true))
+            .timeout(stepTimeout),
+        session
+            .publish('bench.topic', options: PublishOptions(acknowledge: true))
+            .timeout(stepTimeout),
+        session
+            .publish('bench.topic', options: PublishOptions(acknowledge: true))
+            .timeout(stepTimeout),
+      ]);
+      expect(
+        published.map((value) => value!.publicationId).toList(),
+        equals([100, 200, 300]),
+      );
+
+      final subscribed = await Future.wait([
+        session.subscribe('bench.topic.1').timeout(stepTimeout),
+        session.subscribe('bench.topic.2').timeout(stepTimeout),
+        session.subscribe('bench.topic.3').timeout(stepTimeout),
+      ]);
+      expect(
+        subscribed.map((value) => value.subscriptionId).toList(),
+        equals([10, 20, 30]),
+      );
+
+      final registered = await Future.wait([
+        session.register('bench.proc.1').timeout(stepTimeout),
+        session.register('bench.proc.2').timeout(stepTimeout),
+        session.register('bench.proc.3').timeout(stepTimeout),
+      ]);
+      expect(
+        registered.map((value) => value.registrationId).toList(),
+        equals([20, 40, 60]),
+      );
+      expect(
+        registered.map((value) => value.procedure).toList(),
+        equals(['bench.proc.1', 'bench.proc.2', 'bench.proc.3']),
+      );
+    });
+    test('pending request APIs fail when the transport closes', () async {
+      const stepTimeout = Duration(seconds: 1);
+      final transport = _PendingCloseTransport();
+      final session = await Client(
+        realm: 'test.realm',
+        transport: transport,
+      ).connect().first.timeout(stepTimeout);
+
+      final subscribed = await session
+          .subscribe('bench.ready')
+          .timeout(stepTimeout);
+      final registered = await session
+          .register('bench.ready.proc')
+          .timeout(stepTimeout);
+
+      final callFuture = session.call('bench.hang').first.timeout(stepTimeout);
+      final callSingleFuture = session
+          .callSingle('bench.hang')
+          .timeout(stepTimeout);
+      final publishFuture = session
+          .publish('bench.topic', options: PublishOptions(acknowledge: true))
+          .timeout(stepTimeout);
+      final subscribeFuture = session
+          .subscribe('bench.hang.topic')
+          .timeout(stepTimeout);
+      final registerFuture = session
+          .register('bench.hang.proc')
+          .timeout(stepTimeout);
+      final unsubscribeFuture = session.unsubscribe(subscribed.subscriptionId);
+      final unregisterFuture = session.unregister(registered.registrationId);
+
+      final matcher = throwsA(isA<StateError>());
+      final expectations = [
+        expectLater(callFuture, matcher),
+        expectLater(callSingleFuture, matcher),
+        expectLater(publishFuture, matcher),
+        expectLater(subscribeFuture, matcher),
+        expectLater(registerFuture, matcher),
+        expectLater(unsubscribeFuture, matcher),
+        expectLater(unregisterFuture, matcher),
+      ];
+
+      await transport.close();
+      await Future.wait(expectations);
     });
   });
 }
@@ -1382,6 +1782,34 @@ class _ImmediateResponseTransport extends AbstractTransport {
       return;
     }
     if (message is Call) {
+      if (message.procedure == 'bench.progressive') {
+        inbound.add(
+          Result(
+            message.requestId,
+            ResultDetails(progress: true),
+            arguments: const ['progress'],
+          ),
+        );
+        inbound.add(
+          Result(
+            message.requestId,
+            ResultDetails(progress: false),
+            arguments: const ['final'],
+          ),
+        );
+        return;
+      }
+      if (message.procedure == 'bench.error') {
+        inbound.add(
+          Error(
+            MessageTypes.codeCall,
+            message.requestId,
+            const {},
+            'wamp.error.runtime_error',
+          ),
+        );
+        return;
+      }
       inbound.add(
         Result(message.requestId, ResultDetails(), arguments: const ['ok']),
       );
@@ -1427,5 +1855,94 @@ class _ImmediateResponseTransport extends AbstractTransport {
   @override
   Stream<AbstractMessage> receive() {
     return inbound.stream;
+  }
+}
+
+class _OutOfOrderResponseTransport extends _ImmediateResponseTransport {
+  @override
+  void send(AbstractMessage message) {
+    outbound.add(message);
+    if (message is Hello) {
+      inbound.add(Welcome(42, Details.forWelcome()));
+      return;
+    }
+    if (message is Call) {
+      _schedule(
+        message.requestId,
+        () => inbound.add(
+          Result(
+            message.requestId,
+            ResultDetails(),
+            arguments: [message.procedure],
+          ),
+        ),
+      );
+      return;
+    }
+    if (message is Publish && message.options?.acknowledge == true) {
+      _schedule(
+        message.requestId,
+        () =>
+            inbound.add(Published(message.requestId, message.requestId * 100)),
+      );
+      return;
+    }
+    if (message is Subscribe) {
+      _schedule(
+        message.requestId,
+        () =>
+            inbound.add(Subscribed(message.requestId, message.requestId * 10)),
+      );
+      return;
+    }
+    if (message is Register) {
+      _schedule(
+        message.requestId,
+        () =>
+            inbound.add(Registered(message.requestId, message.requestId * 20)),
+      );
+      return;
+    }
+    if (message is Goodbye) {
+      unawaited(close());
+    }
+  }
+
+  void _schedule(int requestId, void Function() callback) {
+    Timer(_delayFor(requestId), callback);
+  }
+
+  Duration _delayFor(int requestId) {
+    final bounded = requestId.clamp(1, 3);
+    return Duration(milliseconds: 5 - bounded);
+  }
+}
+
+class _PendingCloseTransport extends _ImmediateResponseTransport {
+  @override
+  void send(AbstractMessage message) {
+    outbound.add(message);
+    if (message is Hello) {
+      inbound.add(Welcome(42, Details.forWelcome()));
+      return;
+    }
+    if (message is Subscribe && message.topic == 'bench.ready') {
+      inbound.add(Subscribed(message.requestId, 10));
+      return;
+    }
+    if (message is Register && message.procedure == 'bench.ready.proc') {
+      inbound.add(Registered(message.requestId, 20));
+      return;
+    }
+    if (message is Goodbye) {
+      unawaited(close());
+    }
+  }
+
+  @override
+  Future<void> close({error}) async {
+    _open = false;
+    await inbound.close();
+    complete(_onDisconnect, error);
   }
 }

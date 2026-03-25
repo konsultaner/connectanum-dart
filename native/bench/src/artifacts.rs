@@ -34,6 +34,7 @@ pub struct WorkloadArtifactSummary {
     pub scenario: String,
     pub workload: String,
     pub protocol: String,
+    pub client_impl: String,
     pub router_workers: u32,
     pub native_runtime_threads: u32,
     pub iterations: u32,
@@ -141,6 +142,7 @@ pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
         scenario: report.scenario.clone(),
         workload: report.workload.clone(),
         protocol: report.protocol.clone(),
+        client_impl: report.client_impl.clone(),
         router_workers: report.router_workers,
         native_runtime_threads: report.native_runtime_threads,
         iterations: report.iterations,
@@ -353,6 +355,7 @@ pub fn render_prometheus_metrics(
             ("scenario", summary.scenario.as_str()),
             ("workload", summary.workload.as_str()),
             ("protocol", summary.protocol.as_str()),
+            ("client_impl", summary.client_impl.as_str()),
             ("router_workers", router_workers.as_str()),
             ("native_runtime_threads", native_runtime_threads.as_str()),
         ];
@@ -612,6 +615,7 @@ mod tests {
             scenario: "full_stack".to_string(),
             workload: "load".to_string(),
             protocol: "h2".to_string(),
+            client_impl: "n/a".to_string(),
             router_workers: 3,
             native_runtime_threads: 4,
             iterations: 4,
@@ -740,6 +744,7 @@ mod tests {
     fn summarize_report_computes_latency_and_deltas() {
         let summary = summarize_report(&sample_report());
         assert_eq!(summary.sample_count, 3);
+        assert_eq!(summary.client_impl, "n/a");
         assert_eq!(summary.router_workers, 3);
         assert_eq!(summary.native_runtime_threads, 4);
         assert_eq!(summary.request_bytes_total, 300);
@@ -765,6 +770,7 @@ mod tests {
         assert!(text.contains("connectanum_bench_artifact_workload_latency_avg_ms"));
         assert!(text.contains("scenario=\"full_stack\""));
         assert!(text.contains("workload=\"load\""));
+        assert!(text.contains("client_impl=\"n/a\""));
         assert!(text.contains("router_workers=\"3\""));
         assert!(text.contains("native_runtime_threads=\"4\""));
         assert!(text.contains("kind=\"active_throttles\""));
