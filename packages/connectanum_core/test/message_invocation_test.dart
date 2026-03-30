@@ -103,6 +103,31 @@ void main() {
       expect((responses.single as Yield).arguments, equals(const ['ok']));
     });
 
+    test(
+      'toLazyPayload preserves materialized kwargs when only args are encoded',
+      () {
+        final invocation = Invocation(
+          1,
+          2,
+          InvocationDetails(9, 'bench.proc', false),
+        );
+        invocation.setLazyPayload(
+          argumentsBytes: Uint8List.fromList(utf8.encode('["done"]')),
+          argumentsDecoder: (bytes) =>
+              (jsonDecode(utf8.decode(bytes)) as List<dynamic>),
+          encoding: LazyPayloadEncoding.json,
+        );
+        invocation.argumentsKeywords = const {'worker': 1};
+
+        final payload = invocation.toLazyInvocationPayload();
+
+        expect(payload.argumentsBytes, isNotNull);
+        expect(payload.arguments, equals(const ['done']));
+        expect(payload.argumentsKeywordsBytes, isNull);
+        expect(payload.argumentsKeywords, equals(const {'worker': 1}));
+      },
+    );
+
     test('toPayload unpacks PPT payloads', () {
       final invocation = Invocation(
         1,
@@ -183,6 +208,31 @@ void main() {
       );
       expect(response.argumentsKeywords, isNull);
     });
+
+    test(
+      'copyPayloadTo preserves materialized kwargs alongside encoded args',
+      () {
+        final invocation = Invocation(
+          1,
+          2,
+          InvocationDetails(null, null, false),
+        );
+        invocation.setLazyPayload(
+          argumentsBytes: Uint8List.fromList(utf8.encode('["done"]')),
+          argumentsDecoder: (bytes) =>
+              (jsonDecode(utf8.decode(bytes)) as List<dynamic>),
+          encoding: LazyPayloadEncoding.json,
+        );
+        invocation.argumentsKeywords = const {'worker': 9};
+        final yield = Yield(1);
+
+        invocation.copyPayloadTo(yield);
+
+        expect(yield.debugEncodedArgumentsBytes, isNotNull);
+        expect(yield.arguments, equals(const ['done']));
+        expect(yield.argumentsKeywords, equals(const {'worker': 9}));
+      },
+    );
 
     test('Registered onInvokePayload unpacks PPT payloads', () async {
       final registered = Registered(1, 2);

@@ -956,6 +956,10 @@ LazyMessagePayload? _lazyPayloadFromTransferred(Object? value) {
           argumentsKeywordsBytes == null || encoding == null
           ? null
           : _payloadMapDecoderForEncoding(encoding),
+      arguments: argumentsBytes == null ? arguments : null,
+      argumentsKeywords: argumentsKeywordsBytes == null
+          ? argumentsKeywords
+          : null,
     );
   }
   if (packedPayloadBytes != null) {

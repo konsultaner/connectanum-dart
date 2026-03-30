@@ -878,14 +878,19 @@ class Serializer extends AbstractSerializer {
         message.lazyPayloadEncoding == LazyPayloadEncoding.json
         ? message.debugEncodedArgumentsKeywordsBytes
         : null;
-    if (encodedKwargs != null) {
+    if (encodedArgs != null || encodedKwargs != null) {
       final argsJson = encodedArgs == null
-          ? '[]'
+          ? json.encode(
+              _jsonEncodablePayloadFragment(message.arguments ?? const []),
+            )
           : _utf8Decoder.convert(encodedArgs);
-      return ',$argsJson,${_utf8Decoder.convert(encodedKwargs)}';
-    }
-    if (encodedArgs != null) {
-      return ',${_utf8Decoder.convert(encodedArgs)}';
+      if (encodedKwargs != null) {
+        return ',$argsJson,${_utf8Decoder.convert(encodedKwargs)}';
+      }
+      if (message.argumentsKeywords != null) {
+        return ',$argsJson,${json.encode(_jsonEncodablePayloadFragment(message.argumentsKeywords))}';
+      }
+      return ',$argsJson';
     }
     _convertMessagePayloadUint8ListToBinaryJsonString(message);
     if (message.transparentBinaryPayload != null) {
@@ -953,6 +958,23 @@ class Serializer extends AbstractSerializer {
     return '\\u0000${base64.encode(binary)}';
   }
 
+  Object? _jsonEncodablePayloadFragment(Object? value) {
+    if (value is Uint8List) {
+      return _convertUint8ListToString(value);
+    }
+    if (value is List) {
+      return value
+          .map<Object?>((entry) => _jsonEncodablePayloadFragment(entry))
+          .toList(growable: false);
+    }
+    if (value is Map) {
+      return value.map<Object?, Object?>(
+        (key, entry) => MapEntry(key, _jsonEncodablePayloadFragment(entry)),
+      );
+    }
+    return value;
+  }
+
   String _serializeEventDetails(
     EventDetails details, {
     required bool allowOmit,
@@ -1009,14 +1031,32 @@ class Serializer extends AbstractSerializer {
   /// Converts a PPT Payload Object into a uint8 array
   @override
   Uint8List serializePPT(PPTPayload pptPayload) {
-    var pptMap = {
-      'arguments': pptPayload.arguments,
-      'argumentsKeywords': pptPayload.argumentsKeywords,
-    };
-    _convertMapEntriesUint8ListToBinaryJsonString(pptMap);
-    var str =
-        '{"args": ${json.encode(pptMap['arguments'])}, "kwargs": ${json.encode(pptMap['argumentsKeywords'])}}';
-    return Utf8Encoder().convert(str);
+    return serializePPTFragments(
+      arguments: pptPayload.arguments,
+      argumentsKeywords: pptPayload.argumentsKeywords,
+    );
+  }
+
+  @override
+  Uint8List serializePPTFragments({
+    Uint8List? argumentsBytes,
+    Uint8List? argumentsKeywordsBytes,
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+  }) {
+    final argsJson = argumentsBytes == null
+        ? json.encode(_jsonEncodablePayloadFragment(arguments))
+        : _utf8Decoder.convert(argumentsBytes);
+    final kwargsJson = argumentsKeywordsBytes == null
+        ? json.encode(_jsonEncodablePayloadFragment(argumentsKeywords))
+        : _utf8Decoder.convert(argumentsKeywordsBytes);
+    final builder = StringBuffer()
+      ..write('{"args": ')
+      ..write(argsJson)
+      ..write(', "kwargs": ')
+      ..write(kwargsJson)
+      ..write('}');
+    return Utf8Encoder().convert(builder.toString());
   }
 
   Map<String, Object?> _challengeExtraToMap(Extra extra) {

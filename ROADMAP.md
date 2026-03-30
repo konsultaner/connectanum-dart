@@ -32,6 +32,7 @@
   - [x] Preserve `WELCOME` realm/auth metadata in the MsgPack + CBOR serializers so non-JSON/native client transports see the same session details as JSON clients.
   - [x] Reuse matching lazy payload slices on outbound JSON/MessagePack/CBOR serialization and stop copying full detail maps on the common inbound `INVOCATION` / `RESULT` / `EVENT` decode paths; serializer regressions now pin custom-detail preservation for JSON, MessagePack, and CBOR.
   - [x] CBOR outbound option serialization now includes PPT fields for `PUBLISH` / `CALL` / `YIELD`, fixing the live-router PPT benchmark path (`wamp_ppt_lazy_smoke`) and keeping RawSocket/WebSocket CBOR PPT traffic aligned with JSON/MessagePack semantics.
+  - [x] Push the shared `LazyMessagePayload` contract through outbound `CALL` / `PUBLISH`, router internal-session forwarding, and PPT fragment serialization so mixed encoded/materialized args+kwargs survive end-to-end and matching serializers can forward pre-serialized JSON/MessagePack/CBOR payload bytes without decode+re-encode.
   - [ ] Cross-serializer translation so mixed clients (e.g. JSON ↔ MessagePack/CBOR) can publish/call across encodings without data loss; include regression tests for EVENT, RESULT, and ERROR bridging and document zero-copy fallbacks.
 - [x] Backpressure / flow control between workers and native layer
 - [ ] Multi-protocol listener stack (RawSocket/WebSocket/HTTP/1.1/HTTP/2/HTTP/3)

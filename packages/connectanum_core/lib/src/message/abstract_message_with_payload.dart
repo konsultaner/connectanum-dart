@@ -46,6 +46,8 @@ class LazyMessagePayload {
     Uint8List? argumentsKeywordsBytes,
     PayloadListDecoder? argumentsDecoder,
     PayloadMapDecoder? argumentsKeywordsDecoder,
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
     Object? anchor,
   }) {
     return LazyMessagePayload._(
@@ -55,6 +57,8 @@ class LazyMessagePayload {
       argumentsKeywordsBytes: argumentsKeywordsBytes,
       argumentsDecoder: argumentsDecoder,
       argumentsKeywordsDecoder: argumentsKeywordsDecoder,
+      arguments: arguments,
+      argumentsKeywords: argumentsKeywords,
       packedPayloadBytes: null,
       packedPayloadDecoder: null,
       anchor: anchor,
@@ -458,6 +462,10 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
         argumentsKeywordsBytes: _encodedArgumentsKeywords,
         argumentsDecoder: _argumentsDecoder,
         argumentsKeywordsDecoder: _argumentsKeywordsDecoder,
+        arguments: _encodedArguments == null ? _arguments : null,
+        argumentsKeywords: _encodedArgumentsKeywords == null
+            ? _argumentsKeywords
+            : null,
         anchor: anchor ?? this,
       );
     }
@@ -516,6 +524,17 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
         argumentsKeywordsDecoder: _argumentsKeywordsDecoder,
         encoding: _lazyPayloadEncoding,
       );
+      if (_encodedArguments == null) {
+        message.arguments = _arguments == null
+            ? null
+            : List<dynamic>.from(_arguments!);
+      }
+      if (_encodedArgumentsKeywords == null) {
+        message.argumentsKeywords = _argumentsKeywords == null
+            ? null
+            : Map<String, dynamic>.from(_argumentsKeywords!);
+      }
+      message._pptPayloadDecoded = _pptPayloadDecoded;
     } else {
       message._lazyPayloadEncoding = _lazyPayloadEncoding;
       message.arguments = _arguments == null

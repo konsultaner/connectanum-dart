@@ -1219,6 +1219,29 @@ void main() {
         ]),
       );
     });
+    test('Call preserves materialized args with lazy CBOR kwargs bytes', () {
+      final call = Call(7814135, 'com.myapp.ping', arguments: ['lazy']);
+      call.setLazyPayload(
+        argumentsKeywordsBytes: Uint8List.fromList(
+          cbor.encode(CborValue({'worker': 1})),
+        ),
+        argumentsKeywordsDecoder: (_) =>
+            throw StateError('should not decode kwargs'),
+        encoding: LazyPayloadEncoding.cbor,
+      );
+
+      expect(
+        (cbor.decode(serializer.serialize(call)) as CborList).toObject(),
+        equals([
+          MessageTypes.codeCall,
+          7814135,
+          {},
+          'com.myapp.ping',
+          ['lazy'],
+          {'worker': 1},
+        ]),
+      );
+    });
     test('Hello with auth information', () {
       var authHello = Hello('my.realm', Details.forHello());
       authHello.details.authid = 'Richard';

@@ -38,7 +38,9 @@ import '../abstract_serializer.dart';
 /// It is used to initialize an [AbstractTransport] object.
 class Serializer extends AbstractSerializer {
   static final Logger _logger = Logger('Connectanum.Serializer');
-  static final Uint8List _emptyListBytes = msgpack_dart.serialize(const []);
+  static final Uint8List _pptArgsKeyBytes = msgpack_dart.serialize('args');
+  static final Uint8List _pptKwargsKeyBytes = msgpack_dart.serialize('kwargs');
+  static final Uint8List _nilBytes = msgpack_dart.serialize(null);
   static const Set<String> _invocationDetailKeys = {
     'caller',
     'procedure',
@@ -946,14 +948,18 @@ class Serializer extends AbstractSerializer {
         message.lazyPayloadEncoding == LazyPayloadEncoding.messagePack
         ? message.debugEncodedArgumentsKeywordsBytes
         : null;
-    if (encodedKwargs != null) {
-      return SerializedPayload(
-        2,
-        _concatBytes(encodedArgs ?? _emptyListBytes, encodedKwargs),
-      );
-    }
-    if (encodedArgs != null) {
-      return SerializedPayload(1, encodedArgs);
+    if (encodedArgs != null || encodedKwargs != null) {
+      final argsBytes =
+          encodedArgs ?? msgpack_dart.serialize(message.arguments ?? []);
+      final kwargsBytes =
+          encodedKwargs ??
+          (message.argumentsKeywords == null
+              ? null
+              : msgpack_dart.serialize(message.argumentsKeywords));
+      if (kwargsBytes != null) {
+        return SerializedPayload(2, _concatBytes(argsBytes, kwargsBytes));
+      }
+      return SerializedPayload(1, argsBytes);
     }
     if (message.argumentsKeywords != null) {
       return SerializedPayload(
@@ -1025,11 +1031,35 @@ class Serializer extends AbstractSerializer {
   /// Converts a PPT Payload Object into a uint8 array
   @override
   Uint8List serializePPT(PPTPayload pptPayload) {
-    var pptMap = {
-      'args': pptPayload.arguments,
-      'kwargs': pptPayload.argumentsKeywords,
-    };
-    return msgpack_dart.serialize(pptMap);
+    return serializePPTFragments(
+      arguments: pptPayload.arguments,
+      argumentsKeywords: pptPayload.argumentsKeywords,
+    );
+  }
+
+  @override
+  Uint8List serializePPTFragments({
+    Uint8List? argumentsBytes,
+    Uint8List? argumentsKeywordsBytes,
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+  }) {
+    final argsBytes = argumentsBytes ?? msgpack_dart.serialize(arguments);
+    final kwargsBytes =
+        argumentsKeywordsBytes ?? msgpack_dart.serialize(argumentsKeywords);
+    return _concatBytes(
+      Uint8List.fromList([0x82]),
+      _concatBytes(
+        _pptArgsKeyBytes,
+        _concatBytes(
+          argsBytes.isEmpty ? _nilBytes : argsBytes,
+          _concatBytes(
+            _pptKwargsKeyBytes,
+            kwargsBytes.isEmpty ? _nilBytes : kwargsBytes,
+          ),
+        ),
+      ),
+    );
   }
 
   Map<String, Object?> _challengeExtraToMap(Extra extra) {

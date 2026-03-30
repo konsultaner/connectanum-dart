@@ -236,6 +236,51 @@ void main() {
         ]),
       );
     });
+    test('Call preserves materialized kwargs with lazy JSON args bytes', () {
+      final call = Call(
+        7814135,
+        'com.myapp.ping',
+        argumentsKeywords: {'worker': 1},
+      );
+      call.setLazyPayload(
+        argumentsBytes: Uint8List.fromList(utf8.encode('["lazy"]')),
+        argumentsDecoder: (_) => throw StateError('should not decode args'),
+        encoding: LazyPayloadEncoding.json,
+      );
+
+      expect(
+        json.decode(serializer.serializeToString(call)),
+        equals([
+          MessageTypes.codeCall,
+          7814135,
+          {},
+          'com.myapp.ping',
+          ['lazy'],
+          {'worker': 1},
+        ]),
+      );
+    });
+    test('Call preserves materialized args with lazy JSON kwargs bytes', () {
+      final call = Call(7814135, 'com.myapp.ping', arguments: ['lazy']);
+      call.setLazyPayload(
+        argumentsKeywordsBytes: Uint8List.fromList(utf8.encode('{"worker":1}')),
+        argumentsKeywordsDecoder: (_) =>
+            throw StateError('should not decode kwargs'),
+        encoding: LazyPayloadEncoding.json,
+      );
+
+      expect(
+        json.decode(serializer.serializeToString(call)),
+        equals([
+          MessageTypes.codeCall,
+          7814135,
+          {},
+          'com.myapp.ping',
+          ['lazy'],
+          {'worker': 1},
+        ]),
+      );
+    });
     test('Yield', () {
       expect(
         serializer.serializeToString(Yield(6131533)),

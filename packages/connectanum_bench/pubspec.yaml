@@ -6,7 +6,9 @@ environment:
   sdk: '^3.9.2'
 dependencies:
   args: ^2.4.2
+  cbor: ^6.3.7
   logging: ^1.2.0
+  msgpack_dart: ^1.0.1
   yaml: ^3.1.2
   connectanum_router:
     path: ../connectanum_router

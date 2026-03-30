@@ -11,6 +11,15 @@ class Serializer extends AbstractSerializer {
   static final Uint8List _emptyListBytes = Uint8List.fromList(
     cbor.encode(CborValue(const [])),
   );
+  static final Uint8List _pptArgsKeyBytes = Uint8List.fromList(
+    cbor.encode(CborValue('args')),
+  );
+  static final Uint8List _pptKwargsKeyBytes = Uint8List.fromList(
+    cbor.encode(CborValue('kwargs')),
+  );
+  static final Uint8List _nullBytes = Uint8List.fromList(
+    cbor.encode(CborValue(null)),
+  );
 
   @override
   AbstractMessage? deserialize(Uint8List? message) {
@@ -905,6 +914,9 @@ class Serializer extends AbstractSerializer {
         return _decodePayloadFragment(encodedArgs);
       }
       if (encodedKwargs != null) {
+        if (message.arguments != null) {
+          return message.arguments;
+        }
         return _decodePayloadFragment(_emptyListBytes);
       }
     }
@@ -1351,11 +1363,31 @@ class Serializer extends AbstractSerializer {
   /// Converts a PPT Payload Object into a uint8 array
   @override
   Uint8List serializePPT(PPTPayload pptPayload) {
-    var pptMap = {
-      'args': pptPayload.arguments,
-      'kwargs': pptPayload.argumentsKeywords,
-    };
-    return Uint8List.fromList(cbor.encode(CborValue(pptMap)));
+    return serializePPTFragments(
+      arguments: pptPayload.arguments,
+      argumentsKeywords: pptPayload.argumentsKeywords,
+    );
+  }
+
+  @override
+  Uint8List serializePPTFragments({
+    Uint8List? argumentsBytes,
+    Uint8List? argumentsKeywordsBytes,
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+  }) {
+    final argsBytes =
+        argumentsBytes ?? Uint8List.fromList(cbor.encode(CborValue(arguments)));
+    final kwargsBytes =
+        argumentsKeywordsBytes ??
+        Uint8List.fromList(cbor.encode(CborValue(argumentsKeywords)));
+    return Uint8List.fromList([
+      0xa2,
+      ..._pptArgsKeyBytes,
+      ...(argsBytes.isEmpty ? _nullBytes : argsBytes),
+      ..._pptKwargsKeyBytes,
+      ...(kwargsBytes.isEmpty ? _nullBytes : kwargsBytes),
+    ]);
   }
 
   Map<String, Object?> _challengeExtraToMap(Extra extra) {

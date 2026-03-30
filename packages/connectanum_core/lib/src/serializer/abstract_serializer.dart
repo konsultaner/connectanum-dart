@@ -16,6 +16,15 @@ abstract class AbstractSerializer {
   /// Serializer Payload for PPT Mode
   Uint8List serializePPT(PPTPayload pptPayload);
 
+  /// Serializer PPT payload from already-encoded args / kwargs fragments when
+  /// the payload serializer matches the surrounding transport serializer.
+  Uint8List serializePPTFragments({
+    Uint8List? argumentsBytes,
+    Uint8List? argumentsKeywordsBytes,
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+  });
+
   /// Deserialize and prepare payload from PPT Mode
   PPTPayload? deserializePPT(Uint8List binPayload);
 }

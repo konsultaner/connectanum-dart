@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:logging/logging.dart';
@@ -275,10 +276,28 @@ class Session {
     CallOptions? options,
     Completer<String>? cancelCompleter,
   }) {
-    final call = _buildCall(
+    return callLazyPayload(
       procedure,
-      arguments: arguments,
-      argumentsKeywords: argumentsKeywords,
+      payload: LazyMessagePayload.materialized(
+        arguments: arguments,
+        argumentsKeywords: argumentsKeywords,
+      ),
+      options: options,
+      cancelCompleter: cancelCompleter,
+    );
+  }
+
+  /// This calls a [procedure] with a [LazyMessagePayload] so encoded args /
+  /// kwargs bytes can flow through the serializer without eager decode.
+  Stream<Result> callLazyPayload(
+    String procedure, {
+    required LazyMessagePayload payload,
+    CallOptions? options,
+    Completer<String>? cancelCompleter,
+  }) {
+    final call = _buildCallLazyPayload(
+      procedure,
+      payload: payload,
       options: options,
     );
     final controller = StreamController<Result>(
@@ -305,17 +324,44 @@ class Session {
     CallOptions? options,
     Completer<String>? cancelCompleter,
   }) {
-    final call = _buildCall(
+    return callSingleWithLazyPayload(
       procedure,
-      arguments: arguments,
-      argumentsKeywords: argumentsKeywords,
+      payload: LazyMessagePayload.materialized(
+        arguments: arguments,
+        argumentsKeywords: argumentsKeywords,
+      ),
       options: options,
+      cancelCompleter: cancelCompleter,
     );
-    final completer = Completer<Result>();
-    _pendingCalls[call.requestId] = _PendingCallFuture(completer);
-    _transport.send(call);
-    _attachCallCancellation(call.requestId, cancelCompleter);
-    return completer.future;
+  }
+
+  /// This calls a [procedure] with a [LazyMessagePayload] and waits for the
+  /// final non-progressive [Result].
+  Future<Result> callSingleWithLazyPayload(
+    String procedure, {
+    required LazyMessagePayload payload,
+    CallOptions? options,
+    Completer<String>? cancelCompleter,
+  }) async {
+    final result = await callSinglePayloadWithLazyPayload(
+      procedure,
+      payload: payload,
+      options: options,
+      cancelCompleter: cancelCompleter,
+    );
+    return Result(
+      result.callRequestId,
+      ResultDetails(
+        progress: result.progress,
+        pptScheme: result.pptScheme,
+        pptSerializer: result.pptSerializer,
+        pptCipher: result.pptCipher,
+        pptKeyId: result.pptKeyId,
+        custom: result.customDetails,
+      ),
+      arguments: result.arguments,
+      argumentsKeywords: result.argumentsKeywords,
+    );
   }
 
   /// This calls a [procedure] and waits for the final non-progressive payload
@@ -327,17 +373,32 @@ class Session {
     CallOptions? options,
     Completer<String>? cancelCompleter,
   }) {
-    final call = _buildCall(
+    return callSinglePayloadWithLazyPayload(
       procedure,
-      arguments: arguments,
-      argumentsKeywords: argumentsKeywords,
+      payload: LazyMessagePayload.materialized(
+        arguments: arguments,
+        argumentsKeywords: argumentsKeywords,
+      ),
       options: options,
+      cancelCompleter: cancelCompleter,
     );
-    final completer = Completer<ResultPayload>();
-    _pendingCalls[call.requestId] = _PendingCallPayloadFuture(completer);
-    _transport.send(call);
-    _attachCallCancellation(call.requestId, cancelCompleter);
-    return completer.future;
+  }
+
+  /// This calls a [procedure] with a [LazyMessagePayload] and waits for the
+  /// final non-progressive payload without materializing a [Result] object.
+  Future<ResultPayload> callSinglePayloadWithLazyPayload(
+    String procedure, {
+    required LazyMessagePayload payload,
+    CallOptions? options,
+    Completer<String>? cancelCompleter,
+  }) async {
+    final result = await callSingleLazyPayloadView(
+      procedure,
+      payload: payload,
+      options: options,
+      cancelCompleter: cancelCompleter,
+    );
+    return result.toPayload();
   }
 
   /// This calls a [procedure] and returns the final non-progressive payload
@@ -349,10 +410,28 @@ class Session {
     CallOptions? options,
     Completer<String>? cancelCompleter,
   }) {
-    final call = _buildCall(
+    return callSingleLazyPayloadView(
       procedure,
-      arguments: arguments,
-      argumentsKeywords: argumentsKeywords,
+      payload: LazyMessagePayload.materialized(
+        arguments: arguments,
+        argumentsKeywords: argumentsKeywords,
+      ),
+      options: options,
+      cancelCompleter: cancelCompleter,
+    );
+  }
+
+  /// This calls a [procedure] with a [LazyMessagePayload] and returns the
+  /// final non-progressive payload as a lazy view over the transport payload.
+  Future<LazyResultPayload> callSingleLazyPayloadView(
+    String procedure, {
+    required LazyMessagePayload payload,
+    CallOptions? options,
+    Completer<String>? cancelCompleter,
+  }) {
+    final call = _buildCallLazyPayload(
+      procedure,
+      payload: payload,
       options: options,
     );
     final completer = Completer<LazyResultPayload>();
@@ -430,30 +509,26 @@ class Session {
     Map<String, dynamic>? argumentsKeywords,
     PublishOptions? options,
   }) {
-    var pubArguments = arguments;
-    var pubArgumentsKeywords = argumentsKeywords;
-
-    if (options?.pptScheme == 'wamp') {
-      pubArguments = E2EEPayload.packE2EEPayload(
-        arguments,
-        argumentsKeywords,
-        options!,
-      );
-      pubArgumentsKeywords = null;
-    } else if (options?.pptScheme != null) {
-      pubArguments = PPTPayload.packPPTPayload(
-        arguments,
-        argumentsKeywords,
-        options!,
-      );
-      pubArgumentsKeywords = null;
-    }
-
-    final publish = Publish(
-      nextPublishId++,
+    return publishLazyPayload(
       topic,
-      arguments: pubArguments,
-      argumentsKeywords: pubArgumentsKeywords,
+      payload: LazyMessagePayload.materialized(
+        arguments: arguments,
+        argumentsKeywords: argumentsKeywords,
+      ),
+      options: options,
+    );
+  }
+
+  /// This publishes an event with a [LazyMessagePayload] so encoded args /
+  /// kwargs bytes can pass through the serializer without eager decode.
+  Future<Published?> publishLazyPayload(
+    String topic, {
+    required LazyMessagePayload payload,
+    PublishOptions? options,
+  }) {
+    final publish = _buildPublishLazyPayload(
+      topic,
+      payload: payload,
       options: options,
     );
     if (options?.acknowledge != true) {
@@ -639,13 +714,6 @@ class Session {
       }
       return;
     }
-    if (pending is _PendingCallPayloadFuture) {
-      if (pending.addDirectResult(_resultPayloadFromNative(message))) {
-        _pendingCalls.remove(message.metadata.primaryId);
-        unawaited(pending.close());
-      }
-      return;
-    }
     _handleResult(message.materialize() as Result);
   }
 
@@ -776,10 +844,6 @@ class Session {
     eventUpdated.argumentsKeywords = decoded.argumentsKeywords;
     eventUpdated.markPptPayloadDecoded();
     return eventUpdated;
-  }
-
-  ResultPayload _resultPayloadFromNative(NativeSessionMessage message) {
-    return _lazyResultPayloadFromNative(message).toPayload();
   }
 
   LazyResultPayload _lazyResultPayloadFromNative(NativeSessionMessage message) {
@@ -1055,38 +1119,117 @@ class Session {
     completer.completeError(error, stackTrace);
   }
 
-  Call _buildCall(
+  Call _buildCallLazyPayload(
     String procedure, {
-    List<dynamic>? arguments,
-    Map<String, dynamic>? argumentsKeywords,
+    required LazyMessagePayload payload,
     CallOptions? options,
   }) {
-    var callArguments = arguments;
-    var callArgumentsKeywords = argumentsKeywords;
+    final call = Call(nextCallId++, procedure, options: options);
+    _applyOutboundLazyPayload(call, payload, options);
+    return call;
+  }
 
+  Publish _buildPublishLazyPayload(
+    String topic, {
+    required LazyMessagePayload payload,
+    PublishOptions? options,
+  }) {
+    final publish = Publish(nextPublishId++, topic, options: options);
+    _applyOutboundLazyPayload(publish, payload, options);
+    return publish;
+  }
+
+  void _applyOutboundLazyPayload(
+    AbstractMessageWithPayload message,
+    LazyMessagePayload payload,
+    PPTOptions? options,
+  ) {
+    message.transparentBinaryPayload = payload.transparentBinaryPayload;
     if (options?.pptScheme == 'wamp') {
-      callArguments = E2EEPayload.packE2EEPayload(
-        arguments,
-        argumentsKeywords,
+      message.arguments = E2EEPayload.packE2EEPayload(
+        payload.arguments,
+        payload.argumentsKeywords,
         options!,
       );
-      callArgumentsKeywords = null;
-    } else if (options?.pptScheme != null) {
-      callArguments = PPTPayload.packPPTPayload(
-        arguments,
-        argumentsKeywords,
-        options!,
-      );
-      callArgumentsKeywords = null;
+      message.argumentsKeywords = null;
+      return;
     }
-
-    return Call(
-      nextCallId++,
-      procedure,
-      arguments: callArguments,
-      argumentsKeywords: callArgumentsKeywords,
-      options: options,
+    if (options?.pptScheme != null) {
+      final packedPayload = _packMatchingLazyPayload(
+        payload,
+        options!.pptSerializer,
+      );
+      message.arguments = packedPayload == null
+          ? PPTPayload.packPPTPayload(
+              payload.arguments,
+              payload.argumentsKeywords,
+              options,
+            )
+          : [packedPayload];
+      message.argumentsKeywords = null;
+      return;
+    }
+    if (payload.packedPayloadBytes != null) {
+      message.arguments = payload.arguments;
+      message.argumentsKeywords = payload.argumentsKeywords;
+      if (payload.pptDecoded) {
+        message.markPptPayloadDecoded();
+      }
+      return;
+    }
+    message.setLazyPayload(
+      argumentsBytes: payload.argumentsBytes,
+      argumentsDecoder: payload.argumentsBytes == null
+          ? null
+          : (_) => payload.arguments ?? const <dynamic>[],
+      argumentsKeywordsBytes: payload.argumentsKeywordsBytes,
+      argumentsKeywordsDecoder: payload.argumentsKeywordsBytes == null
+          ? null
+          : (_) => payload.argumentsKeywords ?? const <String, dynamic>{},
+      encoding: payload.encoding,
     );
+    if (!payload.hasEncodedArguments) {
+      message.arguments = payload.arguments;
+    }
+    if (!payload.hasEncodedArgumentsKeywords) {
+      message.argumentsKeywords = payload.argumentsKeywords;
+    }
+    if (payload.pptDecoded) {
+      message.markPptPayloadDecoded();
+    }
+  }
+
+  Uint8List? _packMatchingLazyPayload(
+    LazyMessagePayload payload,
+    String? serializerName,
+  ) {
+    if (!_matchesPayloadEncoding(payload.encoding, serializerName)) {
+      return null;
+    }
+    if (payload.packedPayloadBytes != null) {
+      return payload.packedPayloadBytes;
+    }
+    return PPTPayload.packSerializedPayload(
+      serializerName,
+      argumentsBytes: payload.argumentsBytes,
+      argumentsKeywordsBytes: payload.argumentsKeywordsBytes,
+      arguments: payload.argumentsBytes == null ? payload.arguments : null,
+      argumentsKeywords: payload.argumentsKeywordsBytes == null
+          ? payload.argumentsKeywords
+          : null,
+    );
+  }
+
+  bool _matchesPayloadEncoding(
+    LazyPayloadEncoding? encoding,
+    String? serializerName,
+  ) {
+    return switch ((encoding, serializerName)) {
+      (LazyPayloadEncoding.json, 'json') => true,
+      (LazyPayloadEncoding.messagePack, 'msgpack') => true,
+      (LazyPayloadEncoding.cbor, 'cbor') => true,
+      _ => false,
+    };
   }
 
   void _attachCallCancellation(
@@ -1141,66 +1284,6 @@ class _PendingCallStream implements _PendingCall {
     }
     return controller.close();
   }
-}
-
-class _PendingCallFuture implements _PendingCall {
-  _PendingCallFuture(this.completer);
-
-  final Completer<Result> completer;
-
-  @override
-  bool addResult(Result result) {
-    if (result.isProgressive()) {
-      return false;
-    }
-    if (!completer.isCompleted) {
-      completer.complete(result);
-    }
-    return true;
-  }
-
-  @override
-  void addError(Object error, [StackTrace? stackTrace]) {
-    if (completer.isCompleted) {
-      return;
-    }
-    completer.completeError(error, stackTrace);
-  }
-
-  @override
-  Future<void> close() => Future<void>.value();
-}
-
-class _PendingCallPayloadFuture implements _PendingCall {
-  _PendingCallPayloadFuture(this.completer);
-
-  final Completer<ResultPayload> completer;
-
-  bool addDirectResult(ResultPayload result) {
-    if (result.progress) {
-      return false;
-    }
-    if (!completer.isCompleted) {
-      completer.complete(result);
-    }
-    return true;
-  }
-
-  @override
-  bool addResult(Result result) {
-    return addDirectResult(result.toPayload());
-  }
-
-  @override
-  void addError(Object error, [StackTrace? stackTrace]) {
-    if (completer.isCompleted) {
-      return;
-    }
-    completer.completeError(error, stackTrace);
-  }
-
-  @override
-  Future<void> close() => Future<void>.value();
 }
 
 class _PendingCallLazyPayloadFuture implements _PendingCall {

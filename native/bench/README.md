@@ -502,15 +502,23 @@ hot-session path now lands roughly at:
   most pub/sub smoke workloads in this environment after `ct_ffi` started
   exporting direct-bind metadata for common inbound WAMP messages and the
   dedicated waitable-FFI receive isolate started batch-draining already-ready
-  handles per connection before sending them back to the main isolate. A recent
-  release run landed around `2.64 Mbps` native vs `1.69 Mbps` Dart on RawSocket
-  JSON RPC, `2.66 Mbps` native vs `1.61 Mbps` Dart on RawSocket CBOR pub/sub,
-  `4.34 Mbps` native vs `3.29 Mbps` Dart on WebSocket JSON RPC, and
-  `3.26 Mbps` native vs `3.40 Mbps` Dart on WebSocket CBOR pub/sub.
+  handles per connection before sending them back to the main isolate. Outbound
+  `CALL` / `PUBLISH` now reuse matching lazy payload fragments as well, so the
+  same release run shape now lands around `2.64 Mbps` native vs `1.62 Mbps`
+  Dart on RawSocket JSON RPC, `1.88 Mbps` native vs `1.45 Mbps` Dart on
+  RawSocket CBOR pub/sub, `3.38 Mbps` native vs `2.61 Mbps` Dart on WebSocket
+  JSON RPC, and `2.99 Mbps` native vs `3.34 Mbps` Dart on WebSocket CBOR
+  pub/sub.
 - `wamp_client_impl_throughput.toml`: native is materially ahead on the 64 KiB
-  hot-session path, landing around `144-174 Mbps` on RawSocket and
-  `160-199 Mbps` on WebSocket versus roughly `51-65 Mbps` and `42-122 Mbps`
-  respectively for the Dart client on this machine.
+  hot-session path, landing around `103.88/116.24 Mbps` on RawSocket RPC/pubsub
+  and `108.94/136.96 Mbps` on WebSocket RPC/pubsub versus roughly
+  `45.92/40.43 Mbps` and `63.27/45.12 Mbps` respectively for the Dart client on
+  this machine.
+- `wamp_ppt_lazy_smoke.toml`: the live CBOR PPT lazy path completes for both
+  Dart and native clients after the serializer/PPT fixes and currently lands
+  around `2.17/2.02 Mbps` on RawSocket RPC/pubsub and `3.74/3.15 Mbps` on
+  WebSocket RPC/pubsub for the native client, versus roughly `1.17/1.59 Mbps`
+  and `1.80/2.18 Mbps` for the Dart client on this machine.
 
 Those WAMP numbers are still end-to-end Dart-client numbers, not pure native
 transport ceilings. The current bench deliberately exercises

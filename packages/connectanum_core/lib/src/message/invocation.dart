@@ -157,11 +157,12 @@ class Invocation extends AbstractMessageWithPayload {
         invokeArgumentsKeywords = null;
       } else if (options?.pptScheme != null) {
         // It's some variation of PPT
-        invokeArguments = PPTPayload.packPPTPayload(
-          arguments,
-          argumentsKeywords,
-          options!,
-        );
+        final packedPayload = lazyPayload == null
+            ? null
+            : _packMatchingLazyPayload(lazyPayload, options!);
+        invokeArguments = packedPayload == null
+            ? PPTPayload.packPPTPayload(arguments, argumentsKeywords, options!)
+            : [packedPayload];
         invokeArgumentsKeywords = null;
       }
 
@@ -340,12 +341,41 @@ bool _matchesPackedPayloadEncoding(
   LazyMessagePayload payload,
   YieldOptions? options,
 ) {
-  return switch ((payload.encoding, options?.pptSerializer)) {
+  return _matchesPayloadEncoding(payload.encoding, options?.pptSerializer);
+}
+
+bool _matchesPayloadEncoding(
+  LazyPayloadEncoding? encoding,
+  String? serializer,
+) {
+  return switch ((encoding, serializer)) {
     (LazyPayloadEncoding.json, 'json') => true,
     (LazyPayloadEncoding.messagePack, 'msgpack') => true,
     (LazyPayloadEncoding.cbor, 'cbor') => true,
     _ => false,
   };
+}
+
+Uint8List? _packMatchingLazyPayload(
+  LazyMessagePayload payload,
+  YieldOptions options,
+) {
+  if (payload.packedPayloadBytes != null &&
+      _matchesPackedPayloadEncoding(payload, options)) {
+    return payload.packedPayloadBytes;
+  }
+  if (!_matchesPayloadEncoding(payload.encoding, options.pptSerializer)) {
+    return null;
+  }
+  return PPTPayload.packSerializedPayload(
+    options.pptSerializer,
+    argumentsBytes: payload.argumentsBytes,
+    argumentsKeywordsBytes: payload.argumentsKeywordsBytes,
+    arguments: payload.argumentsBytes == null ? payload.arguments : null,
+    argumentsKeywords: payload.argumentsKeywordsBytes == null
+        ? payload.argumentsKeywords
+        : null,
+  );
 }
 
 class InvocationDetails extends PPTOptions with CustomFieldContainer {

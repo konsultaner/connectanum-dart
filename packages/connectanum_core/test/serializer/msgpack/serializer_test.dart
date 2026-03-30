@@ -1205,6 +1205,51 @@ void main() {
         ]),
       );
     });
+    test('Call preserves materialized kwargs with lazy MsgPack args bytes', () {
+      final call = Call(
+        7814135,
+        'com.myapp.ping',
+        argumentsKeywords: {'worker': 1},
+      );
+      call.setLazyPayload(
+        argumentsBytes: msgpack_dart.serialize(['lazy']),
+        argumentsDecoder: (_) => throw StateError('should not decode args'),
+        encoding: LazyPayloadEncoding.messagePack,
+      );
+
+      expect(
+        msgpack_dart.deserialize(serializer.serialize(call)),
+        equals([
+          MessageTypes.codeCall,
+          7814135,
+          {},
+          'com.myapp.ping',
+          ['lazy'],
+          {'worker': 1},
+        ]),
+      );
+    });
+    test('Call preserves materialized args with lazy MsgPack kwargs bytes', () {
+      final call = Call(7814135, 'com.myapp.ping', arguments: ['lazy']);
+      call.setLazyPayload(
+        argumentsKeywordsBytes: msgpack_dart.serialize({'worker': 1}),
+        argumentsKeywordsDecoder: (_) =>
+            throw StateError('should not decode kwargs'),
+        encoding: LazyPayloadEncoding.messagePack,
+      );
+
+      expect(
+        msgpack_dart.deserialize(serializer.serialize(call)),
+        equals([
+          MessageTypes.codeCall,
+          7814135,
+          {},
+          'com.myapp.ping',
+          ['lazy'],
+          {'worker': 1},
+        ]),
+      );
+    });
     test('Hello with auth information', () {
       var authHello = Hello('my.realm', Details.forHello());
       authHello.details.authid = 'Richard';

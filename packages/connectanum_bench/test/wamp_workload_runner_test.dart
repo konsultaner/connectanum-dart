@@ -620,6 +620,20 @@ class _FakeWampSession implements WampSession {
   }
 
   @override
+  Future<void> publishLazyPayload(
+    String topic, {
+    required wamp_core.LazyMessagePayload payload,
+    wamp_core.PublishOptions? options,
+  }) {
+    return publish(
+      topic,
+      arguments: payload.arguments,
+      argumentsKeywords: payload.argumentsKeywords,
+      options: options,
+    );
+  }
+
+  @override
   Future<WampSubscription> subscribe(
     String topic, {
     wamp_core.SubscribeOptions? options,
@@ -830,6 +844,20 @@ class _FakeWampSession implements WampSession {
   }
 
   @override
+  Future<wamp_core.LazyResultPayload> callSingleWithLazyPayload(
+    String procedure, {
+    required wamp_core.LazyMessagePayload payload,
+    wamp_core.CallOptions? options,
+  }) {
+    return callSingleLazyPayload(
+      procedure,
+      arguments: payload.arguments,
+      argumentsKeywords: payload.argumentsKeywords,
+      options: options,
+    );
+  }
+
+  @override
   Future<void> close() async {
     for (final subscription in _subscriptions) {
       await subscription.cancel();
@@ -861,6 +889,15 @@ class _HangingRpcSession implements WampSession {
     wamp_core.PublishOptions? options,
   }) {
     throw UnimplementedError();
+  }
+
+  @override
+  Future<void> publishLazyPayload(
+    String topic, {
+    required wamp_core.LazyMessagePayload payload,
+    wamp_core.PublishOptions? options,
+  }) {
+    return Completer<void>().future;
   }
 
   @override
@@ -900,6 +937,15 @@ class _HangingRpcSession implements WampSession {
     String procedure, {
     List<dynamic>? arguments,
     Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  }) {
+    return Completer<wamp_core.LazyResultPayload>().future;
+  }
+
+  @override
+  Future<wamp_core.LazyResultPayload> callSingleWithLazyPayload(
+    String procedure, {
+    required wamp_core.LazyMessagePayload payload,
     wamp_core.CallOptions? options,
   }) {
     return Completer<wamp_core.LazyResultPayload>().future;

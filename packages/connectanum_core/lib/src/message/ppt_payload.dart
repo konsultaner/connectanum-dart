@@ -7,6 +7,13 @@ import '../serializer/json/serializer.dart' as json_serializer;
 import '../serializer/msgpack/serializer.dart' as msgpack_serializer;
 
 class PPTPayload {
+  static final AbstractSerializer _jsonSerializer =
+      json_serializer.Serializer();
+  static final AbstractSerializer _cborSerializer =
+      cbor_serializer.Serializer();
+  static final AbstractSerializer _msgpackSerializer =
+      msgpack_serializer.Serializer();
+
   List<dynamic>? arguments;
   Map<String, dynamic>? argumentsKeywords;
 
@@ -18,35 +25,40 @@ class PPTPayload {
     Map<String, dynamic>? argumentsKeywords,
     PPTOptions options,
   ) {
-    if (options.pptSerializer != null && options.pptSerializer != 'native') {
-      AbstractSerializer serializer;
-
-      switch (options.pptSerializer) {
-        case 'json':
-          serializer = json_serializer.Serializer();
-          break;
-        case 'cbor':
-          serializer = cbor_serializer.Serializer();
-          break;
-        case 'msgpack':
-          serializer = msgpack_serializer.Serializer();
-          break;
-        default:
-          //TODO Throw error/handle invalid serializer
-          return [];
-      }
-
-      var pptPayload = PPTPayload(
-        arguments: arguments,
-        argumentsKeywords: argumentsKeywords,
-      );
-
-      return [serializer.serializePPT(pptPayload)];
+    final serializer = _serializerForName(options.pptSerializer);
+    if (serializer != null) {
+      return [
+        serializer.serializePPT(
+          PPTPayload(
+            arguments: arguments,
+            argumentsKeywords: argumentsKeywords,
+          ),
+        ),
+      ];
     } else {
       return [
         {'args': arguments, 'kwargs': argumentsKeywords},
       ];
     }
+  }
+
+  static Uint8List? packSerializedPayload(
+    String? serializerName, {
+    Uint8List? argumentsBytes,
+    Uint8List? argumentsKeywordsBytes,
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+  }) {
+    final serializer = _serializerForName(serializerName);
+    if (serializer == null) {
+      return null;
+    }
+    return serializer.serializePPTFragments(
+      argumentsBytes: argumentsBytes,
+      argumentsKeywordsBytes: argumentsKeywordsBytes,
+      arguments: arguments,
+      argumentsKeywords: argumentsKeywords,
+    );
   }
 
   static PPTPayload unpackPPTPayload(
@@ -57,24 +69,8 @@ class PPTPayload {
       return PPTPayload();
     }
 
-    if (details.pptSerializer != null && details.pptSerializer != 'native') {
-      AbstractSerializer serializer;
-
-      switch (details.pptSerializer) {
-        case 'json':
-          serializer = json_serializer.Serializer();
-          break;
-        case 'cbor':
-          serializer = cbor_serializer.Serializer();
-          break;
-        case 'msgpack':
-          serializer = msgpack_serializer.Serializer();
-          break;
-        default:
-          //TODO Throw error/handle invalid serializer
-          return PPTPayload();
-      }
-
+    final serializer = _serializerForName(details.pptSerializer);
+    if (serializer != null) {
       return serializer.deserializePPT(_coerceBinaryPayload(arguments[0])) ??
           PPTPayload();
     } else {
@@ -83,6 +79,15 @@ class PPTPayload {
         argumentsKeywords: arguments[0]['kwargs'],
       );
     }
+  }
+
+  static AbstractSerializer? _serializerForName(String? serializerName) {
+    return switch (serializerName) {
+      'json' => _jsonSerializer,
+      'cbor' => _cborSerializer,
+      'msgpack' => _msgpackSerializer,
+      _ => null,
+    };
   }
 
   static Uint8List _coerceBinaryPayload(Object? value) {

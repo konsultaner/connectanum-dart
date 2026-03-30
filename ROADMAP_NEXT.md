@@ -94,7 +94,12 @@ Focus for the next session:
   - ✅ `connectanum_client` now exposes native RawSocket/WebSocket transports backed by `ct_ffi`, with direct RawSocket/WebSocket connect coverage and package-local native asset packaging.
   - ✅ The bench now compares Dart versus native client transports on the same WAMP workloads, and the client inbound path now avoids full-frame Dart deserialization by binding common native messages directly from `ct_ffi` metadata while keeping payload slices lazy.
   - ✅ The remaining live PPT/custom-detail regression on the CBOR path is fixed: CBOR `PUBLISH` / `CALL` / `YIELD` serializers now emit `ppt_*` option fields, native zero-copy `EVENT` / `INVOCATION` forwarding preserves those fields when re-encoding from retained message handles, and already-decoded PPT event/result/invocation objects no longer try to unpack the same inner payload twice when converted back into lazy views. `wamp_ppt_lazy_smoke.toml` now completes again for both Dart and native clients over RawSocket and WebSocket.
-  - Next: keep pushing borrowed payload bytes through the remaining custom-detail / serializer edge cases, and keep pushing on the HTTP/3 vs HTTP/2 gap in `all_transports_smoke`.
+  - ✅ The same lazy payload contract now drives outbound `CALL` / `PUBLISH` as well: matching JSON/MessagePack/CBOR serializers reuse pre-serialized args/kwargs bytes, PPT replies can be re-fragmented without an eager decode, and mixed encoded/materialized args+kwargs now survive router internal-session forwarding instead of dropping one side back to eager `List` / `Map` materialization.
+  - Latest release-built WAMP client comparisons in this environment:
+    - `wamp_client_impl_smoke.toml`: RawSocket JSON RPC about `1.62 Mbps` Dart vs `2.64 Mbps` native, RawSocket CBOR pub/sub about `1.45 Mbps` vs `1.88 Mbps`, WebSocket JSON RPC about `2.61 Mbps` vs `3.38 Mbps`, WebSocket CBOR pub/sub about `3.34 Mbps` vs `2.99 Mbps`.
+    - `wamp_client_impl_throughput.toml`: RawSocket 64 KiB RPC/pubsub about `45.92/40.43 Mbps` Dart vs `103.88/116.24 Mbps` native; WebSocket 64 KiB RPC/pubsub about `63.27/45.12 Mbps` Dart vs `108.94/136.96 Mbps` native.
+    - `wamp_ppt_lazy_smoke.toml`: RawSocket CBOR PPT RPC/pubsub about `1.17/1.59 Mbps` Dart vs `2.17/2.02 Mbps` native; WebSocket CBOR PPT RPC/pubsub about `1.80/2.18 Mbps` Dart vs `3.74/3.15 Mbps` native.
+  - Next: keep pushing borrowed payload bytes through the remaining custom-detail / serializer edge cases, then tackle the cross-serializer bridge and the E2EE research spike against the shared lazy-payload contract.
 
 9. **Documentation & Examples**
    - Update router/auth docs to capture cancellation semantics, drain behaviour, and zero-copy guarantees.

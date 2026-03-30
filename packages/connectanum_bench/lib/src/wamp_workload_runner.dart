@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
+import 'dart:typed_data';
 
+import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_client/connectanum.dart' as wamp_client;
 import 'package:connectanum_client/socket.dart' as wamp_socket;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
@@ -8,6 +11,7 @@ import 'package:connectanum_core/cbor_serializer.dart' as wamp_cbor;
 import 'package:connectanum_core/json_serializer.dart' as wamp_json;
 import 'package:connectanum_core/msgpack_serializer.dart' as wamp_msgpack;
 import 'package:logging/logging.dart';
+import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
 
 typedef WampSessionFactory =
     Future<WampSession> Function(WampScenario scenario);
@@ -128,10 +132,13 @@ class WampWorkloadRunner {
         .nextWhere((event) => _matches(event, workerId, iteration))
         .timeout(_eventTimeout);
     final start = DateTime.now();
-    await publisher.publish(
+    await publisher.publishLazyPayload(
       scenario.uri,
-      arguments: [payload],
-      argumentsKeywords: metadata,
+      payload: _buildLazyPayload(
+        scenario,
+        arguments: [payload],
+        argumentsKeywords: metadata,
+      ),
       options: _buildPublishOptions(scenario),
     );
     _logger.fine(
@@ -227,9 +234,9 @@ class WampWorkloadRunner {
     );
     final start = DateTime.now();
     final result = await session
-        .callSingleLazyPayload(
+        .callSingleWithLazyPayload(
           scenario.uri,
-          arguments: [payload],
+          payload: _buildLazyPayload(scenario, arguments: [payload]),
           options: _buildCallOptions(scenario),
         )
         .timeout(
@@ -320,6 +327,44 @@ class WampWorkloadRunner {
       return null;
     }
     return scenario.pptSerializer ?? scenario.serializer.name;
+  }
+
+  wamp_core.LazyMessagePayload _buildLazyPayload(
+    WampScenario scenario, {
+    required List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+  }) {
+    final encoding = switch (scenario.serializer) {
+      WampSerializer.json => wamp_core.LazyPayloadEncoding.json,
+      WampSerializer.msgpack => wamp_core.LazyPayloadEncoding.messagePack,
+      WampSerializer.cbor => wamp_core.LazyPayloadEncoding.cbor,
+    };
+    final argsBytes = arguments == null
+        ? null
+        : _encodePayloadFragment(scenario.serializer, arguments);
+    final kwargsMap = argumentsKeywords?.cast<String, dynamic>();
+    final kwargsBytes = kwargsMap == null
+        ? null
+        : _encodePayloadFragment(scenario.serializer, kwargsMap);
+    return wamp_core.LazyMessagePayload.encoded(
+      encoding: encoding,
+      argumentsBytes: argsBytes,
+      argumentsKeywordsBytes: kwargsBytes,
+      argumentsDecoder: argsBytes == null ? null : (_) => arguments!,
+      argumentsKeywordsDecoder: kwargsBytes == null ? null : (_) => kwargsMap!,
+      arguments: argsBytes == null ? arguments : null,
+      argumentsKeywords: kwargsBytes == null ? kwargsMap : null,
+    );
+  }
+
+  Uint8List _encodePayloadFragment(WampSerializer serializer, Object? value) {
+    return switch (serializer) {
+      WampSerializer.json => Uint8List.fromList(utf8.encode(jsonEncode(value))),
+      WampSerializer.msgpack => msgpack_dart.serialize(value),
+      WampSerializer.cbor => Uint8List.fromList(
+        cbor.cborEncode(cbor.CborValue(value)),
+      ),
+    };
   }
 }
 
@@ -453,6 +498,12 @@ abstract class WampSession {
     wamp_core.PublishOptions? options,
   });
 
+  Future<void> publishLazyPayload(
+    String topic, {
+    required wamp_core.LazyMessagePayload payload,
+    wamp_core.PublishOptions? options,
+  });
+
   Future<WampSubscription> subscribe(
     String topic, {
     wamp_core.SubscribeOptions? options,
@@ -493,6 +544,12 @@ abstract class WampSession {
     String procedure, {
     List<dynamic>? arguments,
     Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  });
+
+  Future<wamp_core.LazyResultPayload> callSingleWithLazyPayload(
+    String procedure, {
+    required wamp_core.LazyMessagePayload payload,
     wamp_core.CallOptions? options,
   });
 
@@ -690,6 +747,19 @@ class _ClientBackedWampSession implements WampSession {
   }
 
   @override
+  Future<void> publishLazyPayload(
+    String topic, {
+    required wamp_core.LazyMessagePayload payload,
+    wamp_core.PublishOptions? options,
+  }) async {
+    await _session.publishLazyPayload(
+      topic,
+      payload: payload,
+      options: options,
+    );
+  }
+
+  @override
   Future<WampSubscription> subscribe(
     String topic, {
     wamp_core.SubscribeOptions? options,
@@ -801,6 +871,19 @@ class _ClientBackedWampSession implements WampSession {
       procedure,
       arguments: arguments,
       argumentsKeywords: argumentsKeywords?.cast<String, dynamic>(),
+      options: options,
+    );
+  }
+
+  @override
+  Future<wamp_core.LazyResultPayload> callSingleWithLazyPayload(
+    String procedure, {
+    required wamp_core.LazyMessagePayload payload,
+    wamp_core.CallOptions? options,
+  }) {
+    return _session.callSingleLazyPayloadView(
+      procedure,
+      payload: payload,
       options: options,
     );
   }

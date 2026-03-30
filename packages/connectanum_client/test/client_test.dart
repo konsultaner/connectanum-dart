@@ -1990,6 +1990,94 @@ void main() {
         expect(result.argumentsKeywords, equals(const {'worker': 9}));
       },
     );
+    test(
+      'callSingleLazyPayloadView sends mixed lazy args and materialized kwargs',
+      () async {
+        final transport = _MockTransport();
+        final client = Client(realm: 'test.realm', transport: transport);
+
+        transport.outbound.stream.listen((message) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveMessage(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codeCall) {
+            final call = message as Call;
+            expect(call.debugEncodedArgumentsBytes, isNotNull);
+            expect(call.argumentsKeywords, equals(const {'worker': 7}));
+            transport.receiveMessage(
+              Result(
+                call.requestId,
+                ResultDetails(progress: false),
+                arguments: const ['done'],
+              ),
+            );
+          }
+        });
+
+        final session = await client.connect().first;
+        final result = await session.callSingleLazyPayloadView(
+          'lazy.call',
+          payload: LazyMessagePayload.encoded(
+            encoding: LazyPayloadEncoding.json,
+            argumentsBytes: Uint8List.fromList(utf8.encode('["lazy"]')),
+            argumentsDecoder: (_) => throw StateError('should not decode args'),
+            argumentsKeywords: const {'worker': 7},
+          ),
+        );
+
+        expect(result.arguments, equals(const ['done']));
+      },
+    );
+    test(
+      'publishLazyPayload packs matching PPT fragments without decoding',
+      () async {
+        final transport = _MockTransport();
+        final client = Client(realm: 'test.realm', transport: transport);
+        var decodeCount = 0;
+
+        transport.outbound.stream.listen((message) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveMessage(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codePublish) {
+            final publish = message as Publish;
+            expect(publish.arguments, hasLength(1));
+            expect(publish.arguments!.single, isA<Uint8List>());
+            expect(publish.argumentsKeywords, isNull);
+          }
+        });
+
+        final session = await client.connect().first;
+        await session.publishLazyPayload(
+          'ppt.topic',
+          payload: LazyMessagePayload.encoded(
+            encoding: LazyPayloadEncoding.cbor,
+            argumentsBytes: Uint8List.fromList(
+              cbor.cborEncode(cbor.CborValue(const ['ppt'])),
+            ),
+            argumentsDecoder: (_) {
+              decodeCount += 1;
+              return const ['ppt'];
+            },
+            argumentsKeywordsBytes: Uint8List.fromList(
+              cbor.cborEncode(cbor.CborValue(const {'worker': 3})),
+            ),
+            argumentsKeywordsDecoder: (_) {
+              decodeCount += 1;
+              return const {'worker': 3};
+            },
+          ),
+          options: PublishOptions(
+            pptScheme: 'x_custom_scheme',
+            pptSerializer: 'cbor',
+          ),
+        );
+
+        expect(decodeCount, 0);
+      },
+    );
     test('request routing handles out-of-order router replies', () async {
       const stepTimeout = Duration(seconds: 1);
       final transport = _OutOfOrderResponseTransport();
