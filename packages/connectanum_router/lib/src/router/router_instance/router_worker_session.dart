@@ -535,6 +535,13 @@ Future<void> _handlePublish({
   // the bench/pubsub hang observed under higher concurrency. Opt in via the
   // CONNECTANUM_FORWARD_NATIVE_PUBLISH flag (compile-time define or env var)
   // once the native path is proven stable end-to-end.
+  final payloadEncoding = message.lazyPayloadEncoding;
+  final encodedArgumentsBytes = payloadEncoding == null
+      ? null
+      : message.debugEncodedArgumentsBytes;
+  final encodedArgumentsKeywordsBytes = payloadEncoding == null
+      ? null
+      : message.debugEncodedArgumentsKeywordsBytes;
   Map<String, Object?>? normalizedArgumentsKeywords;
   final Object? rawArgumentsKeywords = message.argumentsKeywords;
   if (rawArgumentsKeywords != null) {
@@ -558,6 +565,22 @@ Future<void> _handlePublish({
       });
     }
   }
+  final dropEncodedArgumentsKeywords =
+      rawArgumentsKeywords != null && normalizedArgumentsKeywords == null;
+  final transferredPayload = _buildTransferredLazyPayload(
+    encoding: payloadEncoding,
+    transparentBinaryPayload: message.transparentBinaryPayload,
+    argumentsBytes: encodedArgumentsBytes,
+    argumentsKeywordsBytes: dropEncodedArgumentsKeywords
+        ? null
+        : encodedArgumentsKeywordsBytes,
+    arguments: encodedArgumentsBytes == null ? message.arguments : null,
+    argumentsKeywords: dropEncodedArgumentsKeywords
+        ? null
+        : (encodedArgumentsKeywordsBytes == null
+              ? normalizedArgumentsKeywords?.cast<String, dynamic>()
+              : null),
+  );
   if (statePort == null || realmContexts == null || state.realmUri == null) {
     await _sendSessionError(
       bossPort: bossPort,
@@ -655,15 +678,27 @@ Future<void> _handlePublish({
 
     for (final match in internalMatches) {
       final topic = _eventTopicForMatch(match.details, message.topic);
+      final eventDetails = Map<String, Object?>.from(match.details);
+      if (message.options?.pptScheme != null) {
+        eventDetails['ppt_scheme'] = message.options!.pptScheme;
+      }
+      if (message.options?.pptSerializer != null) {
+        eventDetails['ppt_serializer'] = message.options!.pptSerializer;
+      }
+      if (message.options?.pptCipher != null) {
+        eventDetails['ppt_cipher'] = message.options!.pptCipher;
+      }
+      if (message.options?.pptKeyId != null) {
+        eventDetails['ppt_keyid'] = message.options!.pptKeyId;
+      }
       match.internalSendPort!.send({
         'type': 'event',
         'subscriptionId': match.subscriptionId,
         'publicationId': routing.publicationId,
         'topic': topic,
-        'arguments': message.arguments,
-        'argumentsKeywords': normalizedArgumentsKeywords,
+        _internalMsgLazyPayload: transferredPayload,
         'publisherSessionId': discloseMe ? state.sessionId : null,
-        'details': Map<String, Object?>.from(match.details),
+        'details': eventDetails,
       });
     }
 
@@ -672,13 +707,22 @@ Future<void> _handlePublish({
         final eventDetails = event_msg.EventDetails(
           publisher: discloseMe ? state.sessionId : null,
           topic: _eventTopicForMatch(match.details, message.topic),
+          pptScheme: message.options?.pptScheme,
+          pptSerializer: message.options?.pptSerializer,
+          pptCipher: message.options?.pptCipher,
+          pptKeyid: message.options?.pptKeyId,
         );
         final event = event_msg.Event(
           match.subscriptionId,
           routing.publicationId,
           eventDetails,
-          arguments: message.arguments,
-          argumentsKeywords: normalizedArgumentsKeywords,
+        );
+        _applyTransferredLazyPayload(
+          event,
+          transferredPayload,
+          fallbackArguments: message.arguments,
+          fallbackArgumentsKeywords: normalizedArgumentsKeywords
+              ?.cast<String, dynamic>(),
         );
         _forwardToConnection(
           bossPort: bossPort,
@@ -943,6 +987,10 @@ Future<void> _handleCall({
         discloseCaller ? state.sessionId : null,
         message.procedure,
         message.options?.receiveProgress,
+        message.options?.pptScheme,
+        message.options?.pptSerializer,
+        message.options?.pptCipher,
+        message.options?.pptKeyId,
       );
       final customOptions = message.options?.custom;
       if (customOptions != null && customOptions.isNotEmpty) {
@@ -954,8 +1002,12 @@ Future<void> _handleCall({
         dispatch.invocationId,
         dispatch.registrationId,
         invocationDetails,
-        arguments: message.arguments,
-        argumentsKeywords: message.argumentsKeywords,
+      );
+      _applyTransferredLazyPayload(
+        invocation,
+        _transferAbstractMessagePayload(message),
+        fallbackArguments: message.arguments,
+        fallbackArgumentsKeywords: message.argumentsKeywords,
       );
       _forwardToConnection(
         bossPort: bossPort,
@@ -1200,14 +1252,14 @@ Future<void> _handleInternalInvocation({
     return;
   }
   final replyPort = ReceivePort();
+  final transferredPayload = _transferAbstractMessagePayload(message);
   try {
     dispatch.calleeInternalSendPort!.send({
       'type': 'invocation',
       'invocationId': dispatch.invocationId,
       'registrationId': dispatch.registrationId,
       'procedure': message.procedure,
-      'arguments': message.arguments,
-      'argumentsKeywords': message.argumentsKeywords,
+      _internalMsgLazyPayload: transferredPayload,
       'options': _callOptionsToMap(message.options),
       'realmUri': realmUri,
       'callerSessionId': callerSessionId,
@@ -1222,10 +1274,15 @@ Future<void> _handleInternalInvocation({
         realmUri: realmUri,
         invocationId: dispatch.invocationId,
         calleeSessionId: dispatch.calleeSessionId,
+        transferredPayload: response[_internalMsgLazyPayload],
         arguments: response['arguments'] as List<dynamic>?,
         argumentsKeywords:
             response['argumentsKeywords'] as Map<String, Object?>?,
         progress: response['progress'] as bool? ?? false,
+        pptScheme: response['pptScheme'] as String?,
+        pptSerializer: response['pptSerializer'] as String?,
+        pptCipher: response['pptCipher'] as String?,
+        pptKeyId: response['pptKeyId'] as String?,
       );
     } else if (response is Map<String, Object?> &&
         response['type'] == 'error') {
@@ -1236,6 +1293,7 @@ Future<void> _handleInternalInvocation({
         invocationId: dispatch.invocationId,
         calleeSessionId: dispatch.calleeSessionId,
         errorUri: (response['error'] as String?) ?? 'wamp.error.runtime_error',
+        transferredPayload: response[_internalMsgLazyPayload],
         arguments: response['arguments'] as List<dynamic>?,
         argumentsKeywords:
             response['argumentsKeywords'] as Map<String, Object?>?,
@@ -1285,9 +1343,14 @@ Future<void> _sendInternalInvocationResult({
   required String realmUri,
   required int invocationId,
   required int calleeSessionId,
+  Object? transferredPayload,
   List<dynamic>? arguments,
   Map<String, Object?>? argumentsKeywords,
   bool progress = false,
+  String? pptScheme,
+  String? pptSerializer,
+  String? pptCipher,
+  String? pptKeyId,
 }) async {
   try {
     final context = realmContexts.contextFor(realmUri);
@@ -1307,6 +1370,9 @@ Future<void> _sendInternalInvocationResult({
           'type': 'call_error',
           'requestId': invocation.callerRequestId,
           'error': error_msg.Error.errorInvocationCanceled,
+          _internalMsgLazyPayload: _buildTransferredLazyPayload(
+            arguments: const ['Invocation cancelled'],
+          ),
           'arguments': const ['Invocation cancelled'],
         });
       } else {
@@ -1329,6 +1395,9 @@ Future<void> _sendInternalInvocationResult({
           'type': 'call_error',
           'requestId': invocation.callerRequestId,
           'error': wamp_core.Error.invalidArgument,
+          _internalMsgLazyPayload: _buildTransferredLazyPayload(
+            arguments: const ['Invocation does not allow progress'],
+          ),
           'arguments': const ['Invocation does not allow progress'],
         });
       } else {
@@ -1351,9 +1420,19 @@ Future<void> _sendInternalInvocationResult({
       callerPort.send({
         'type': progress ? 'call_progress' : 'call_result',
         'requestId': invocation.callerRequestId,
+        _internalMsgLazyPayload:
+            transferredPayload ??
+            _buildTransferredLazyPayload(
+              arguments: arguments,
+              argumentsKeywords: argumentsKeywords?.cast<String, dynamic>(),
+            ),
         'arguments': arguments,
         'argumentsKeywords': argumentsKeywords,
         'progress': progress,
+        'pptScheme': pptScheme,
+        'pptSerializer': pptSerializer,
+        'pptCipher': pptCipher,
+        'pptKeyId': pptKeyId,
       });
       return;
     }
@@ -1367,9 +1446,19 @@ Future<void> _sendInternalInvocationResult({
     }
     final result = result_msg.Result(
       invocation.callerRequestId,
-      result_msg.ResultDetails(progress: progress),
-      arguments: arguments,
-      argumentsKeywords: argumentsKeywords,
+      result_msg.ResultDetails(
+        progress: progress,
+        pptScheme: pptScheme,
+        pptSerializer: pptSerializer,
+        pptCipher: pptCipher,
+        pptKeyId: pptKeyId,
+      ),
+    );
+    _applyTransferredLazyPayload(
+      result,
+      transferredPayload,
+      fallbackArguments: arguments,
+      fallbackArgumentsKeywords: argumentsKeywords?.cast<String, dynamic>(),
     );
     _forwardToConnection(
       bossPort: bossPort,
@@ -1396,6 +1485,7 @@ Future<void> _sendInternalInvocationError({
   required int invocationId,
   required int calleeSessionId,
   required String errorUri,
+  Object? transferredPayload,
   List<dynamic>? arguments,
   Map<String, Object?>? argumentsKeywords,
   Map<String, Object?>? details,
@@ -1417,6 +1507,12 @@ Future<void> _sendInternalInvocationError({
         'type': 'call_error',
         'requestId': invocation.callerRequestId,
         'error': errorUri,
+        _internalMsgLazyPayload:
+            transferredPayload ??
+            _buildTransferredLazyPayload(
+              arguments: arguments,
+              argumentsKeywords: argumentsKeywords?.cast<String, dynamic>(),
+            ),
         'arguments': arguments,
         'argumentsKeywords': argumentsKeywords,
         'details': details,
@@ -1436,8 +1532,12 @@ Future<void> _sendInternalInvocationError({
       invocation.callerRequestId,
       details ?? const {},
       errorUri,
-      arguments: arguments,
-      argumentsKeywords: argumentsKeywords,
+    );
+    _applyTransferredLazyPayload(
+      error,
+      transferredPayload,
+      fallbackArguments: arguments,
+      fallbackArgumentsKeywords: argumentsKeywords?.cast<String, dynamic>(),
     );
     _forwardToConnection(
       bossPort: bossPort,
@@ -1571,7 +1671,13 @@ Future<void> _handleYield({
     if (!usedZeroCopy) {
       final result = result_msg.Result(
         invocation.callerRequestId,
-        result_msg.ResultDetails(progress: isProgress),
+        result_msg.ResultDetails(
+          progress: isProgress,
+          pptScheme: message.options?.pptScheme,
+          pptSerializer: message.options?.pptSerializer,
+          pptCipher: message.options?.pptCipher,
+          pptKeyId: message.options?.pptKeyId,
+        ),
         arguments: message.arguments,
         argumentsKeywords: message.argumentsKeywords,
       );

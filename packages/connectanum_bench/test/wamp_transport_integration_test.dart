@@ -2,10 +2,12 @@
 library;
 
 import 'dart:io';
+import 'dart:async';
 
 import 'package:connectanum_bench/src/native_wamp_worker.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
+import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
 import 'package:connectanum_router/connectanum_router.dart';
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
@@ -69,6 +71,30 @@ void main() {
     );
 
     test(
+      'Dart RawSocket PPT pubsub workload runs against a real router',
+      () async {
+        final samples = await harness!.runDart(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.dart,
+            serializer: WampSerializer.cbor,
+            mode: WampMode.pubsub,
+            uri: 'bench.topic',
+            iterations: 2,
+            concurrency: 1,
+            payloadBytes: 32,
+            pptScheme: 'x_custom_scheme',
+            pptSerializer: 'cbor',
+          ),
+        );
+
+        expect(samples, hasLength(2));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
       'native RawSocket RPC workload runs against a real router',
       () async {
         final samples = await harness!.runNative(
@@ -107,6 +133,97 @@ void main() {
         );
 
         expect(samples, hasLength(2));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
+      'native RawSocket PPT pubsub workload runs against a real router',
+      () async {
+        final samples = await harness!.runNative(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.cbor,
+            mode: WampMode.pubsub,
+            uri: 'bench.topic',
+            iterations: 2,
+            concurrency: 1,
+            payloadBytes: 32,
+            pptScheme: 'x_custom_scheme',
+            pptSerializer: 'cbor',
+          ),
+        );
+
+        expect(samples, hasLength(2));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
+      'Dart RawSocket PPT pubsub exposes unpacked kwargs on a real router',
+      () async {
+        final port = harness!.binding.listeners
+            .firstWhere(
+              (listener) =>
+                  listener.settings?.protocols.contains(
+                    ListenerProtocol.rawsocket,
+                  ) ??
+                  false,
+            )
+            .port;
+        final subscriber = await RawSocketWampSessionFactory(
+          host: '127.0.0.1',
+          port: port,
+          realmUri: 'bench.control',
+          serializer: WampSerializer.cbor,
+          clientImplementation: WampClientImplementation.dart,
+          nativeLibraryPath: nativeLib!,
+        ).call();
+        final publisher = await RawSocketWampSessionFactory(
+          host: '127.0.0.1',
+          port: port,
+          realmUri: 'bench.control',
+          serializer: WampSerializer.cbor,
+          clientImplementation: WampClientImplementation.dart,
+          nativeLibraryPath: nativeLib,
+        ).call();
+        final eventCompleter = Completer<dynamic>();
+        final subscription = await subscriber.subscribeLazyPayload(
+          'bench.topic',
+        );
+        subscription.onEvent((event) {
+          if (!eventCompleter.isCompleted) {
+            eventCompleter.complete(event);
+          }
+        });
+
+        try {
+          await publisher.publish(
+            'bench.topic',
+            arguments: const ['ppt-event'],
+            argumentsKeywords: const {'worker': 7, 'iteration': 1},
+            options: wamp_core.PublishOptions(
+              acknowledge: true,
+              pptScheme: 'x_custom_scheme',
+              pptSerializer: 'cbor',
+            ),
+          );
+          final event = await eventCompleter.future.timeout(
+            const Duration(seconds: 5),
+          );
+          expect(event.arguments, equals(const ['ppt-event']));
+          expect(
+            event.argumentsKeywords,
+            equals(const {'worker': 7, 'iteration': 1}),
+          );
+        } finally {
+          await subscription.cancel();
+          await subscriber.close();
+          await publisher.close();
+        }
       },
       skip: skipReason,
       timeout: const Timeout(Duration(seconds: 45)),

@@ -1,7 +1,91 @@
+import 'dart:typed_data';
+
 import 'abstract_message_with_payload.dart';
 import 'abstract_ppt_options.dart';
 import 'custom_fields.dart';
 import 'message_types.dart';
+
+class LazyEventPayload {
+  LazyEventPayload({
+    required this.subscriptionId,
+    required this.publicationId,
+    required this.payload,
+    this.publisher,
+    this.trustlevel,
+    this.topic,
+    this.pptScheme,
+    this.pptSerializer,
+    this.pptCipher,
+    this.pptKeyId,
+    this.customDetails,
+  });
+
+  final int subscriptionId;
+  final int publicationId;
+  final int? publisher;
+  final int? trustlevel;
+  final String? topic;
+  final String? pptScheme;
+  final String? pptSerializer;
+  final String? pptCipher;
+  final String? pptKeyId;
+  final Map<String, dynamic>? customDetails;
+  final LazyMessagePayload payload;
+
+  List<dynamic>? get arguments => payload.arguments;
+
+  Map<String, dynamic>? get argumentsKeywords => payload.argumentsKeywords;
+
+  Uint8List? get argumentsBytes => payload.argumentsBytes;
+
+  Uint8List? get argumentsKeywordsBytes => payload.argumentsKeywordsBytes;
+
+  Uint8List? get packedPayloadBytes => payload.packedPayloadBytes;
+
+  EventPayload toPayload() {
+    final decoded = payload.pptDecoded
+        ? (
+            arguments: payload.arguments,
+            argumentsKeywords: payload.argumentsKeywords,
+          )
+        : decodeLazyPayloadView(
+            payload,
+            pptScheme: pptScheme,
+            pptSerializer: pptSerializer,
+            pptCipher: pptCipher,
+            pptKeyId: pptKeyId,
+          );
+    return (
+      subscriptionId: subscriptionId,
+      publicationId: publicationId,
+      publisher: publisher,
+      trustlevel: trustlevel,
+      topic: topic,
+      pptScheme: pptScheme,
+      pptSerializer: pptSerializer,
+      pptCipher: pptCipher,
+      pptKeyId: pptKeyId,
+      customDetails: customDetails,
+      arguments: decoded.arguments,
+      argumentsKeywords: decoded.argumentsKeywords,
+    );
+  }
+}
+
+typedef EventPayload = ({
+  int subscriptionId,
+  int publicationId,
+  int? publisher,
+  int? trustlevel,
+  String? topic,
+  String? pptScheme,
+  String? pptSerializer,
+  String? pptCipher,
+  String? pptKeyId,
+  Map<String, dynamic>? customDetails,
+  List<dynamic>? arguments,
+  Map<String, dynamic>? argumentsKeywords,
+});
 
 class Event extends AbstractMessageWithPayload {
   /// The ID for the subscription under which the Subscriber receives the event.
@@ -23,6 +107,78 @@ class Event extends AbstractMessageWithPayload {
     this.arguments = arguments;
     this.argumentsKeywords = argumentsKeywords;
   }
+
+  EventPayload toPayload() {
+    final decoded = hasDecodedPptPayload
+        ? (arguments: arguments, argumentsKeywords: argumentsKeywords)
+        : decodePayloadView(
+            arguments,
+            argumentsKeywords,
+            pptScheme: details.pptScheme,
+            pptSerializer: details.pptSerializer,
+            pptCipher: details.pptCipher,
+            pptKeyId: details.pptKeyId,
+          );
+    return (
+      subscriptionId: subscriptionId,
+      publicationId: publicationId,
+      publisher: details.publisher,
+      trustlevel: details.trustlevel,
+      topic: details.topic,
+      pptScheme: details.pptScheme,
+      pptSerializer: details.pptSerializer,
+      pptCipher: details.pptCipher,
+      pptKeyId: details.pptKeyId,
+      customDetails: details.custom.isEmpty ? null : details.custom,
+      arguments: decoded.arguments,
+      argumentsKeywords: decoded.argumentsKeywords,
+    );
+  }
+
+  LazyEventPayload toLazyEventPayload({Object? anchor}) {
+    return LazyEventPayload(
+      subscriptionId: subscriptionId,
+      publicationId: publicationId,
+      publisher: details.publisher,
+      trustlevel: details.trustlevel,
+      topic: details.topic,
+      pptScheme: details.pptScheme,
+      pptSerializer: details.pptSerializer,
+      pptCipher: details.pptCipher,
+      pptKeyId: details.pptKeyId,
+      customDetails: details.custom.isEmpty ? null : details.custom,
+      payload: unwrapLazyPayloadView(
+        super.toLazyPayload(anchor: anchor ?? this),
+        pptScheme: details.pptScheme,
+        pptSerializer: details.pptSerializer,
+        pptCipher: details.pptCipher,
+        pptKeyId: details.pptKeyId,
+      ),
+    );
+  }
+}
+
+Event eventFromPayload(EventPayload payload) {
+  return Event(
+    payload.subscriptionId,
+    payload.publicationId,
+    EventDetails(
+      publisher: payload.publisher,
+      trustlevel: payload.trustlevel,
+      topic: payload.topic,
+      pptScheme: payload.pptScheme,
+      pptSerializer: payload.pptSerializer,
+      pptCipher: payload.pptCipher,
+      pptKeyid: payload.pptKeyId,
+      custom: payload.customDetails,
+    ),
+    arguments: payload.arguments == null
+        ? null
+        : List<dynamic>.from(payload.arguments!),
+    argumentsKeywords: payload.argumentsKeywords == null
+        ? null
+        : Map<String, dynamic>.from(payload.argumentsKeywords!),
+  );
 }
 
 /// Options used influence the event behavior

@@ -13,7 +13,7 @@ import 'package:connectanum_client/connectanum.dart' as client_pkg;
 import 'package:connectanum_client/src/transport/websocket/websocket_transport_io.dart'
     as ws_transport;
 import 'package:connectanum_core/connectanum_core.dart'
-    show MessageTypes, PublishOptions, Result;
+    show LazyPayloadEncoding, MessageTypes, PublishOptions, Result;
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
 import 'package:connectanum_router/src/router/models/router_config.dart';
@@ -139,6 +139,103 @@ void main() {
           timeout: const Duration(seconds: 5),
           reason: 'websocket acceptance events missing: $events',
         );
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'preserves lazy payload bytes for internal session subscribers and callees',
+      () async {
+        final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
+        addTearDown(() {
+          runtime.shutdown();
+          runtime.dispose();
+        });
+
+        final binding = Router(
+          _buildWebSocketConfig(),
+          settings: _buildWebSocketSettings(),
+        ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
+        addTearDown(binding.dispose);
+
+        final internalSession = await binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'lazy-internal',
+          authRole: 'internal',
+        );
+        addTearDown(internalSession.close);
+
+        final lazyEvents = <Map<String, Uint8List?>>[];
+        final lazyInvocations = <Map<String, Uint8List?>>[];
+
+        final subscription = await internalSession.subscribe(
+          'com.example.ws.lazy.topic',
+        );
+        subscription.onLazyEventPayload((event) {
+          expect(event.payload.encoding, LazyPayloadEncoding.messagePack);
+          lazyEvents.add({
+            'arguments': event.argumentsBytes,
+            'argumentsKeywords': event.argumentsKeywordsBytes,
+          });
+        });
+
+        final registration = await internalSession.register(
+          'com.example.ws.lazy.proc',
+        );
+        registration.onLazyInvokePayload((invocation) {
+          expect(invocation.payload.encoding, LazyPayloadEncoding.messagePack);
+          lazyInvocations.add({
+            'arguments': invocation.argumentsBytes,
+            'argumentsKeywords': invocation.argumentsKeywordsBytes,
+          });
+          invocation.respondWith(arguments: const ['ok']);
+        });
+
+        final listener = binding.listeners.single;
+        final url = 'ws://127.0.0.1:${listener.port}/ws';
+        final client = client_pkg.Client(
+          realm: 'realm1',
+          transport: ws_transport.WebSocketTransport.withMsgpackSerializer(url),
+        );
+        final session = await client.connect().first.timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => fail('client connect timeout'),
+        );
+        addTearDown(session.close);
+
+        final payload = Uint8List.fromList(
+          List<int>.generate(128 * 1024 + 13, (index) => index % 251),
+        );
+        final kwargs = <String, Object?>{'len': payload.length, 'tag': 'lazy'};
+
+        await session.publish(
+          'com.example.ws.lazy.topic',
+          arguments: [payload],
+          argumentsKeywords: kwargs,
+          options: PublishOptions(acknowledge: true, excludeMe: false),
+        );
+        final callResult = await session
+            .call(
+              'com.example.ws.lazy.proc',
+              arguments: [payload],
+              argumentsKeywords: kwargs,
+            )
+            .first;
+
+        expect(callResult, isA<Result>());
+        expect(callResult.arguments, equals(const ['ok']));
+
+        await _waitForCondition(
+          () => lazyEvents.isNotEmpty && lazyInvocations.isNotEmpty,
+          timeout: const Duration(seconds: 10),
+          reason:
+              'lazy internal payloads missing: events=$lazyEvents invocations=$lazyInvocations',
+        );
+
+        expect(lazyEvents.single['arguments'], isNotNull);
+        expect(lazyEvents.single['argumentsKeywords'], isNotNull);
+        expect(lazyInvocations.single['arguments'], isNotNull);
+        expect(lazyInvocations.single['argumentsKeywords'], isNotNull);
       },
       skip: skipReason,
     );

@@ -38,6 +38,32 @@ import '../abstract_serializer.dart';
 /// It is used to initialize an [AbstractTransport] object.
 class Serializer extends AbstractSerializer {
   static final Logger _logger = Logger('Connectanum.Serializer');
+  static final Uint8List _emptyListBytes = msgpack_dart.serialize(const []);
+  static const Set<String> _invocationDetailKeys = {
+    'caller',
+    'procedure',
+    'receive_progress',
+    'ppt_scheme',
+    'ppt_serializer',
+    'ppt_cipher',
+    'ppt_keyid',
+  };
+  static const Set<String> _resultDetailKeys = {
+    'progress',
+    'ppt_scheme',
+    'ppt_serializer',
+    'ppt_cipher',
+    'ppt_keyid',
+  };
+  static const Set<String> _eventDetailKeys = {
+    'publisher',
+    'trustlevel',
+    'topic',
+    'ppt_scheme',
+    'ppt_serializer',
+    'ppt_cipher',
+    'ppt_keyid',
+  };
 
   /// Converts a uint8 msgpack message into a WAMP message object
   @override
@@ -168,16 +194,14 @@ class Serializer extends AbstractSerializer {
         return Unregistered(message[1]);
       }
       if (messageId == MessageTypes.codeInvocation) {
-        final detailsMap = Map<String, dynamic>.from(
-          message[3] as Map<dynamic, dynamic>,
-        );
-        final caller = detailsMap.remove('caller');
-        final procedure = detailsMap.remove('procedure');
-        final receiveProgress = detailsMap.remove('receive_progress');
-        final pptScheme = detailsMap.remove('ppt_scheme');
-        final pptSerializer = detailsMap.remove('ppt_serializer');
-        final pptCipher = detailsMap.remove('ppt_cipher');
-        final pptKeyId = detailsMap.remove('ppt_keyid');
+        final detailsMap = message[3] as Map<dynamic, dynamic>;
+        final caller = detailsMap['caller'];
+        final procedure = detailsMap['procedure'];
+        final receiveProgress = detailsMap['receive_progress'];
+        final pptScheme = detailsMap['ppt_scheme'];
+        final pptSerializer = detailsMap['ppt_serializer'];
+        final pptCipher = detailsMap['ppt_cipher'];
+        final pptKeyId = detailsMap['ppt_keyid'];
         return _addPayload(
           Invocation(
             message[1],
@@ -190,7 +214,7 @@ class Serializer extends AbstractSerializer {
               pptSerializer,
               pptCipher,
               pptKeyId,
-              detailsMap,
+              _extractCustomDetails(detailsMap, _invocationDetailKeys),
             ),
           ),
           message,
@@ -198,14 +222,12 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeResult) {
-        final detailsMap = Map<String, dynamic>.from(
-          message[2] as Map<dynamic, dynamic>,
-        );
-        final progress = detailsMap.remove('progress');
-        final pptScheme = detailsMap.remove('ppt_scheme');
-        final pptSerializer = detailsMap.remove('ppt_serializer');
-        final pptCipher = detailsMap.remove('ppt_cipher');
-        final pptKeyId = detailsMap.remove('ppt_keyid');
+        final detailsMap = message[2] as Map<dynamic, dynamic>;
+        final progress = detailsMap['progress'];
+        final pptScheme = detailsMap['ppt_scheme'];
+        final pptSerializer = detailsMap['ppt_serializer'];
+        final pptCipher = detailsMap['ppt_cipher'];
+        final pptKeyId = detailsMap['ppt_keyid'];
         return _addPayload(
           Result(
             message[1],
@@ -215,7 +237,7 @@ class Serializer extends AbstractSerializer {
               pptSerializer: pptSerializer,
               pptCipher: pptCipher,
               pptKeyId: pptKeyId,
-              custom: detailsMap,
+              custom: _extractCustomDetails(detailsMap, _resultDetailKeys),
             ),
           ),
           message,
@@ -240,16 +262,14 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeEvent) {
-        final detailsMap = Map<String, dynamic>.from(
-          message[3] as Map<dynamic, dynamic>,
-        );
-        final publisher = detailsMap.remove('publisher');
-        final trustlevel = detailsMap.remove('trustlevel');
-        final topic = detailsMap.remove('topic');
-        final pptScheme = detailsMap.remove('ppt_scheme');
-        final pptSerializer = detailsMap.remove('ppt_serializer');
-        final pptCipher = detailsMap.remove('ppt_cipher');
-        final pptKeyId = detailsMap.remove('ppt_keyid');
+        final detailsMap = message[3] as Map<dynamic, dynamic>;
+        final publisher = detailsMap['publisher'];
+        final trustlevel = detailsMap['trustlevel'];
+        final topic = detailsMap['topic'];
+        final pptScheme = detailsMap['ppt_scheme'];
+        final pptSerializer = detailsMap['ppt_serializer'];
+        final pptCipher = detailsMap['ppt_cipher'];
+        final pptKeyId = detailsMap['ppt_keyid'];
         return _addPayload(
           Event(
             message[1],
@@ -262,7 +282,7 @@ class Serializer extends AbstractSerializer {
               pptSerializer: pptSerializer,
               pptCipher: pptCipher,
               pptKeyid: pptKeyId,
-              custom: detailsMap,
+              custom: _extractCustomDetails(detailsMap, _eventDetailKeys),
             ),
           ),
           message,
@@ -918,6 +938,23 @@ class Serializer extends AbstractSerializer {
   SerializedPayload<int, Uint8List> _serializePayload(
     AbstractMessageWithPayload message,
   ) {
+    final encodedArgs =
+        message.lazyPayloadEncoding == LazyPayloadEncoding.messagePack
+        ? message.debugEncodedArgumentsBytes
+        : null;
+    final encodedKwargs =
+        message.lazyPayloadEncoding == LazyPayloadEncoding.messagePack
+        ? message.debugEncodedArgumentsKeywordsBytes
+        : null;
+    if (encodedKwargs != null) {
+      return SerializedPayload(
+        2,
+        _concatBytes(encodedArgs ?? _emptyListBytes, encodedKwargs),
+      );
+    }
+    if (encodedArgs != null) {
+      return SerializedPayload(1, encodedArgs);
+    }
     if (message.argumentsKeywords != null) {
       return SerializedPayload(
         2,
@@ -930,6 +967,29 @@ class Serializer extends AbstractSerializer {
       return SerializedPayload(1, msgpack_dart.serialize(message.arguments));
     }
     return SerializedPayload(0, Uint8List(0));
+  }
+
+  Uint8List _concatBytes(Uint8List left, Uint8List right) {
+    final combined = Uint8List(left.length + right.length);
+    combined.setRange(0, left.length, left);
+    combined.setRange(left.length, combined.length, right);
+    return combined;
+  }
+
+  Map<String, dynamic> _extractCustomDetails(
+    Map<dynamic, dynamic> source,
+    Set<String> knownKeys,
+  ) {
+    Map<String, dynamic>? custom;
+    source.forEach((key, value) {
+      final keyString = key is String ? key : key.toString();
+      if (knownKeys.contains(keyString)) {
+        return;
+      }
+      custom ??= <String, dynamic>{};
+      custom![keyString] = value;
+    });
+    return custom ?? <String, dynamic>{};
   }
 
   /// Converts a uint8 data into a PPT Payload Object

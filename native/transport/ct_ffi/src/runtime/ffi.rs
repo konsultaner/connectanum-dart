@@ -400,6 +400,7 @@ fn encode_event_segments_json(
     publication_id: u64,
     publisher: Option<u64>,
     topic: Option<&str>,
+    options: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
 ) -> Result<Vec<Bytes>, c_int> {
     let mut details = JsonMap::new();
     if let Some(publisher_id) = publisher {
@@ -411,6 +412,7 @@ fn encode_event_segments_json(
     if let Some(topic_value) = topic {
         details.insert("topic".into(), JsonValue::String(topic_value.to_string()));
     }
+    insert_ppt_details_from_options(&mut details, options)?;
     let details_value = JsonValue::Object(details);
     let details_json = serde_json::to_string(&details_value).map_err(|_| ERR_INVALID_ARGUMENT)?;
     let details_bytes = Bytes::from(details_json.clone().into_bytes());
@@ -453,6 +455,7 @@ fn encode_event_segments_msgpack(
     publication_id: u64,
     publisher: Option<u64>,
     topic: Option<&str>,
+    options: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
 ) -> Result<Vec<Bytes>, c_int> {
     let mut details = JsonMap::new();
     if let Some(publisher_id) = publisher {
@@ -464,6 +467,7 @@ fn encode_event_segments_msgpack(
     if let Some(topic_value) = topic {
         details.insert("topic".into(), JsonValue::String(topic_value.to_string()));
     }
+    insert_ppt_details_from_options(&mut details, options)?;
     let details_value = JsonValue::Object(details);
     let details_msgpack = rmp_serde::to_vec(&details_value).map_err(|_| ERR_INVALID_ARGUMENT)?;
 
@@ -518,12 +522,49 @@ fn write_cbor_array_len(buf: &mut Vec<u8>, len: usize) {
     }
 }
 
+fn insert_ppt_details_from_options(
+    details: &mut JsonMap<String, JsonValue>,
+    options: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
+) -> Result<(), c_int> {
+    for (key, value) in options {
+        match serde_key_str(key) {
+            Some("ppt_scheme") => match serde_value_str(value) {
+                Some(text) => {
+                    details.insert("ppt_scheme".into(), JsonValue::String(text.to_string()));
+                }
+                None => return Err(ERR_INVALID_ARGUMENT),
+            },
+            Some("ppt_serializer") => match serde_value_str(value) {
+                Some(text) => {
+                    details.insert("ppt_serializer".into(), JsonValue::String(text.to_string()));
+                }
+                None => return Err(ERR_INVALID_ARGUMENT),
+            },
+            Some("ppt_cipher") => match serde_value_str(value) {
+                Some(text) => {
+                    details.insert("ppt_cipher".into(), JsonValue::String(text.to_string()));
+                }
+                None => return Err(ERR_INVALID_ARGUMENT),
+            },
+            Some("ppt_keyid") => match serde_value_str(value) {
+                Some(text) => {
+                    details.insert("ppt_keyid".into(), JsonValue::String(text.to_string()));
+                }
+                None => return Err(ERR_INVALID_ARGUMENT),
+            },
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 fn encode_event_segments_cbor(
     payload: &ct_core::WampPayload,
     subscription_id: u64,
     publication_id: u64,
     publisher: Option<u64>,
     topic: Option<&str>,
+    options: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
 ) -> Result<Vec<Bytes>, c_int> {
     let mut details = JsonMap::new();
     if let Some(publisher_id) = publisher {
@@ -535,6 +576,7 @@ fn encode_event_segments_cbor(
     if let Some(topic_value) = topic {
         details.insert("topic".into(), JsonValue::String(topic_value.to_string()));
     }
+    insert_ppt_details_from_options(&mut details, options)?;
     let details_value = JsonValue::Object(details);
     let details_cbor = serde_cbor::to_vec(&details_value).map_err(|_| ERR_INVALID_ARGUMENT)?;
 
@@ -581,24 +623,35 @@ fn encode_event_segments(
     publisher: Option<u64>,
     topic: Option<&str>,
 ) -> Result<Vec<Bytes>, c_int> {
-    let payload = match &message.message {
-        WampMessage::Publish { payload, .. } => payload,
+    let (payload, options) = match &message.message {
+        WampMessage::Publish { payload, options, .. } => (payload, options),
         _ => return Err(ERR_INVALID_ARGUMENT),
     };
     match message.serializer {
-        RawSocketSerializer::Json => {
-            encode_event_segments_json(payload, subscription_id, publication_id, publisher, topic)
-        }
+        RawSocketSerializer::Json => encode_event_segments_json(
+            payload,
+            subscription_id,
+            publication_id,
+            publisher,
+            topic,
+            options,
+        ),
         RawSocketSerializer::MessagePack => encode_event_segments_msgpack(
             payload,
             subscription_id,
             publication_id,
             publisher,
             topic,
+            options,
         ),
-        RawSocketSerializer::Cbor => {
-            encode_event_segments_cbor(payload, subscription_id, publication_id, publisher, topic)
-        }
+        RawSocketSerializer::Cbor => encode_event_segments_cbor(
+            payload,
+            subscription_id,
+            publication_id,
+            publisher,
+            topic,
+            options,
+        ),
         _ => Err(ERR_UNSUPPORTED),
     }
 }
@@ -610,6 +663,7 @@ fn encode_invocation_segments_json(
     caller: Option<u64>,
     procedure: Option<&str>,
     receive_progress: Option<bool>,
+    options: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
 ) -> Result<Vec<Bytes>, c_int> {
     let mut details = JsonMap::new();
     if let Some(caller_id) = caller {
@@ -624,6 +678,7 @@ fn encode_invocation_segments_json(
     if let Some(progress) = receive_progress {
         details.insert("receive_progress".into(), JsonValue::Bool(progress));
     }
+    insert_ppt_details_from_options(&mut details, options)?;
     let details_value = JsonValue::Object(details);
     let details_json = serde_json::to_string(&details_value).map_err(|_| ERR_INVALID_ARGUMENT)?;
     let details_bytes = Bytes::from(details_json.clone().into_bytes());
@@ -667,6 +722,7 @@ fn encode_invocation_segments_msgpack(
     caller: Option<u64>,
     procedure: Option<&str>,
     receive_progress: Option<bool>,
+    options: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
 ) -> Result<Vec<Bytes>, c_int> {
     let mut details = JsonMap::new();
     if let Some(caller_id) = caller {
@@ -681,6 +737,7 @@ fn encode_invocation_segments_msgpack(
     if let Some(progress) = receive_progress {
         details.insert("receive_progress".into(), JsonValue::Bool(progress));
     }
+    insert_ppt_details_from_options(&mut details, options)?;
     let details_value = JsonValue::Object(details);
     let details_msgpack = rmp_serde::to_vec(&details_value).map_err(|_| ERR_INVALID_ARGUMENT)?;
 
@@ -724,6 +781,7 @@ fn encode_invocation_segments_cbor(
     caller: Option<u64>,
     procedure: Option<&str>,
     receive_progress: Option<bool>,
+    options: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
 ) -> Result<Vec<Bytes>, c_int> {
     let mut details = JsonMap::new();
     if let Some(caller_id) = caller {
@@ -738,6 +796,7 @@ fn encode_invocation_segments_cbor(
     if let Some(progress) = receive_progress {
         details.insert("receive_progress".into(), JsonValue::Bool(progress));
     }
+    insert_ppt_details_from_options(&mut details, options)?;
     let details_value = JsonValue::Object(details);
     let details_cbor = serde_cbor::to_vec(&details_value).map_err(|_| ERR_INVALID_ARGUMENT)?;
 
@@ -785,8 +844,8 @@ fn encode_invocation_segments(
     procedure: Option<&str>,
     receive_progress: Option<bool>,
 ) -> Result<Vec<Bytes>, c_int> {
-    let payload = match &message.message {
-        WampMessage::Call { payload, .. } => payload,
+    let (payload, options) = match &message.message {
+        WampMessage::Call { payload, options, .. } => (payload, options),
         _ => return Err(ERR_INVALID_ARGUMENT),
     };
     match message.serializer {
@@ -797,6 +856,7 @@ fn encode_invocation_segments(
             caller,
             procedure,
             receive_progress,
+            options,
         ),
         RawSocketSerializer::MessagePack => encode_invocation_segments_msgpack(
             payload,
@@ -805,6 +865,7 @@ fn encode_invocation_segments(
             caller,
             procedure,
             receive_progress,
+            options,
         ),
         RawSocketSerializer::Cbor => encode_invocation_segments_cbor(
             payload,
@@ -813,6 +874,7 @@ fn encode_invocation_segments(
             caller,
             procedure,
             receive_progress,
+            options,
         ),
         _ => Err(ERR_UNSUPPORTED),
     }
@@ -3490,6 +3552,15 @@ mod tests {
     fn cbor_event_and_invocation_segments_preserve_payload_slices() {
         let args = Bytes::from(serde_cbor::to_vec(&vec!["payload"]).unwrap());
         let kwargs = Bytes::from(serde_cbor::to_vec(&json!({"flag": true})).unwrap());
+        let mut publish_options = BTreeMap::new();
+        publish_options.insert(
+            SerdeValue::String("ppt_scheme".into()),
+            SerdeValue::String("x_custom_scheme".into()),
+        );
+        publish_options.insert(
+            SerdeValue::String("ppt_serializer".into()),
+            SerdeValue::String("cbor".into()),
+        );
 
         let publish = StoredMessage {
             serializer: RawSocketSerializer::Cbor,
@@ -3497,7 +3568,7 @@ mod tests {
             raw: Bytes::new(),
             message: WampMessage::Publish {
                 request_id: 1,
-                options: BTreeMap::new(),
+                options: publish_options,
                 topic: "bench.topic".into(),
                 payload: WampPayload {
                     args: Some(args.clone()),
@@ -3513,16 +3584,37 @@ mod tests {
         let decoded_event: serde_json::Value = serde_cbor::from_slice(&event).unwrap();
         assert_eq!(
             decoded_event,
-            json!([36, 77, 88, {"publisher": 9, "topic": "bench.topic"}, ["payload"], {"flag": true}])
+            json!([
+                36,
+                77,
+                88,
+                {
+                    "publisher": 9,
+                    "topic": "bench.topic",
+                    "ppt_scheme": "x_custom_scheme",
+                    "ppt_serializer": "cbor"
+                },
+                ["payload"],
+                {"flag": true}
+            ])
         );
 
+        let mut call_options = BTreeMap::new();
+        call_options.insert(
+            SerdeValue::String("ppt_scheme".into()),
+            SerdeValue::String("x_custom_scheme".into()),
+        );
+        call_options.insert(
+            SerdeValue::String("ppt_serializer".into()),
+            SerdeValue::String("cbor".into()),
+        );
         let call = StoredMessage {
             serializer: RawSocketSerializer::Cbor,
             code: 48,
             raw: Bytes::new(),
             message: WampMessage::Call {
                 request_id: 2,
-                options: BTreeMap::new(),
+                options: call_options,
                 procedure: "bench.rpc.echo".into(),
                 payload: WampPayload {
                     args: Some(args.clone()),
@@ -3543,7 +3635,13 @@ mod tests {
                 68,
                 99,
                 101,
-                {"caller": 7, "procedure": "bench.rpc.echo", "receive_progress": true},
+                {
+                    "caller": 7,
+                    "procedure": "bench.rpc.echo",
+                    "receive_progress": true,
+                    "ppt_scheme": "x_custom_scheme",
+                    "ppt_serializer": "cbor"
+                },
                 ["payload"],
                 {"flag": true}
             ])

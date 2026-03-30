@@ -5,7 +5,40 @@ import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 
-import 'runtime.dart';
+import 'message_protocol.dart';
+
+class NativeSessionMessage extends AbstractMessageWithPayload {
+  NativeSessionMessage({
+    required this.serializer,
+    required this.metadata,
+    Uint8List? argsBytes,
+    Uint8List? kwargsBytes,
+  }) {
+    id = metadata.messageCode;
+    _applyLazyPayload(this, serializer, argsBytes, kwargsBytes);
+  }
+
+  final NativeMessageSerializer serializer;
+  final NativeMessageMetadata metadata;
+
+  AbstractMessage materialize() {
+    final boundMessage = _bindDirectFromMetadata(metadata);
+    if (boundMessage == null) {
+      throw StateError(
+        'Native session message ${metadata.messageCode} cannot be materialized',
+      );
+    }
+    if (boundMessage is AbstractMessageWithPayload) {
+      _applyLazyPayload(
+        boundMessage,
+        serializer,
+        debugEncodedArgumentsBytes,
+        debugEncodedArgumentsKeywordsBytes,
+      );
+    }
+    return boundMessage;
+  }
+}
 
 AbstractMessage bindMessage(
   NativeMessageSerializer serializer,
@@ -20,6 +53,39 @@ AbstractMessage bindMessage(
     _applyLazyPayload(boundMessage, serializer, argsBytes, kwargsBytes);
   }
   return boundMessage;
+}
+
+Object bindSessionMessage(
+  NativeMessageSerializer serializer,
+  Uint8List bytes, {
+  Uint8List? argsBytes,
+  Uint8List? kwargsBytes,
+  NativeMessageMetadata? metadata,
+}) {
+  if (metadata != null &&
+      metadata.hasFlag(NativeMessageMetadata.flagDirectBind) &&
+      _supportsSessionDirectMessage(metadata.messageCode)) {
+    return NativeSessionMessage(
+      serializer: serializer,
+      metadata: metadata,
+      argsBytes: argsBytes,
+      kwargsBytes: kwargsBytes,
+    );
+  }
+  return bindMessage(
+    serializer,
+    bytes,
+    argsBytes: argsBytes,
+    kwargsBytes: kwargsBytes,
+    metadata: metadata,
+  );
+}
+
+AbstractMessage materializeSessionMessage(Object message) {
+  if (message is NativeSessionMessage) {
+    return message.materialize();
+  }
+  return message as AbstractMessage;
 }
 
 AbstractMessage _bindDecodedPayload(
@@ -108,6 +174,12 @@ AbstractMessage? _bindDirectFromMetadata(NativeMessageMetadata metadata) {
     return Unregistered(metadata.primaryId);
   }
   return null;
+}
+
+bool _supportsSessionDirectMessage(int code) {
+  return code == MessageTypes.codeEvent ||
+      code == MessageTypes.codeResult ||
+      code == MessageTypes.codeInvocation;
 }
 
 Object? _decodePayload(NativeMessageSerializer serializer, Uint8List bytes) {
@@ -241,7 +313,20 @@ void _applyLazyPayload(
     argumentsKeywordsDecoder: kwargsBytes == null
         ? null
         : (fragment) => _decodeKeywordMap(serializer, fragment),
+    encoding: _lazyPayloadEncodingForSerializer(serializer),
   );
+}
+
+LazyPayloadEncoding? _lazyPayloadEncodingForSerializer(
+  NativeMessageSerializer serializer,
+) {
+  return switch (serializer) {
+    NativeMessageSerializer.json => LazyPayloadEncoding.json,
+    NativeMessageSerializer.messagePack => LazyPayloadEncoding.messagePack,
+    NativeMessageSerializer.cbor => LazyPayloadEncoding.cbor,
+    NativeMessageSerializer.ubjson => null,
+    NativeMessageSerializer.flatbuffers => null,
+  };
 }
 
 Details _mapDetails(Map<String, dynamic>? map) {

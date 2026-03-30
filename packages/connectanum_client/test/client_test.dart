@@ -3,7 +3,10 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_client/connectanum.dart';
+import 'package:connectanum_client/src/transport/native/message_binding.dart';
+import 'package:connectanum_client/src/transport/native/message_protocol.dart';
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 
@@ -1030,6 +1033,156 @@ void main() {
       },
     );
     test(
+      'subscribePayloadHandler routes payloads without requiring Event wrappers',
+      () async {
+        final transport = _MockTransport();
+        final client = Client(realm: 'test.realm', transport: transport);
+
+        transport.outbound.stream.listen((message) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveMessage(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codeSubscribe) {
+            transport.receiveMessage(
+              Subscribed((message as Subscribe).requestId, 4141),
+            );
+          }
+        });
+
+        final session = await client.connect().first;
+        final eventCompleter = Completer<EventPayload>();
+        final subscribed = await session.subscribePayloadHandler(
+          'payload.topic',
+          (event) {
+            if (!eventCompleter.isCompleted) {
+              eventCompleter.complete(event);
+            }
+          },
+        );
+
+        transport.receiveMessage(
+          Event(
+            subscribed.subscriptionId,
+            8101,
+            EventDetails(topic: 'payload.topic'),
+            argumentsKeywords: const {'worker': 1},
+          ),
+        );
+
+        final event = await eventCompleter.future;
+        expect(event.publicationId, equals(8101));
+        expect(event.topic, equals('payload.topic'));
+        expect(event.argumentsKeywords, equals(const {'worker': 1}));
+      },
+    );
+    test('subscribeLazyPayloadHandler routes lazy payload views', () async {
+      final transport = _MockTransport();
+      final client = Client(realm: 'test.realm', transport: transport);
+
+      transport.outbound.stream.listen((message) {
+        if (message.id == MessageTypes.codeHello) {
+          transport.receiveMessage(Welcome(42, Details.forWelcome()));
+          return;
+        }
+        if (message.id == MessageTypes.codeSubscribe) {
+          transport.receiveMessage(
+            Subscribed((message as Subscribe).requestId, 4242),
+          );
+        }
+      });
+
+      final session = await client.connect().first;
+      final eventCompleter = Completer<LazyEventPayload>();
+      final subscribed = await session.subscribeLazyPayloadHandler(
+        'lazy.topic',
+        (event) {
+          if (!eventCompleter.isCompleted) {
+            eventCompleter.complete(event);
+          }
+        },
+      );
+
+      transport.receiveMessage(
+        Event(
+          subscribed.subscriptionId,
+          8201,
+          EventDetails(topic: 'lazy.topic'),
+          argumentsKeywords: const {'worker': 2},
+        ),
+      );
+
+      final event = await eventCompleter.future;
+      expect(event.publicationId, equals(8201));
+      expect(event.topic, equals('lazy.topic'));
+      expect(event.argumentsKeywords, equals(const {'worker': 2}));
+    });
+    test(
+      'native direct event path keeps PPT lazy bytes and exposes unpacked payloads',
+      () async {
+        final transport = _SessionOptimizedMockTransport((message, transport) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveObject(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codeSubscribe) {
+            transport.receiveObject(
+              Subscribed((message as Subscribe).requestId, 4343),
+            );
+          }
+        });
+
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+        ).connect().first;
+        final lazyCompleter = Completer<LazyEventPayload>();
+        final payloadCompleter = Completer<EventPayload>();
+        final subscribed = await session.subscribeLazyPayloadHandler(
+          'ppt.topic',
+          (event) {
+            if (!lazyCompleter.isCompleted) {
+              lazyCompleter.complete(event);
+            }
+          },
+        );
+        subscribed.onEventPayload((event) {
+          if (!payloadCompleter.isCompleted) {
+            payloadCompleter.complete(event);
+          }
+        });
+
+        final argsBytes = _encodeNativePptArguments(
+          arguments: const ['ppt-event'],
+          argumentsKeywords: const {'worker': 7},
+        );
+        final packedPayloadBytes = _encodeNativePptPayload(
+          arguments: const ['ppt-event'],
+          argumentsKeywords: const {'worker': 7},
+        );
+        transport.receiveObject(
+          _nativeDirectEventMessage(
+            subscriptionId: subscribed.subscriptionId,
+            publicationId: 8401,
+            topic: 'ppt.topic',
+            pptScheme: 'x_custom_scheme',
+            pptSerializer: 'cbor',
+            argsBytes: argsBytes,
+          ),
+        );
+
+        final lazyEvent = await lazyCompleter.future;
+        final payloadEvent = await payloadCompleter.future;
+        expect(lazyEvent.publicationId, equals(8401));
+        expect(lazyEvent.topic, equals('ppt.topic'));
+        expect(lazyEvent.pptScheme, equals('x_custom_scheme'));
+        expect(lazyEvent.argumentsBytes, isNull);
+        expect(lazyEvent.packedPayloadBytes, orderedEquals(packedPayloadBytes));
+        expect(payloadEvent.arguments, equals(const ['ppt-event']));
+        expect(payloadEvent.argumentsKeywords, equals(const {'worker': 7}));
+      },
+    );
+    test(
       'registerHandler catches async failures and ignores late failures after final yields',
       () async {
         final transport = _MockTransport();
@@ -1099,6 +1252,195 @@ void main() {
           unknownErrors.single.arguments,
           equals(const ['Bad state: async failure']),
         );
+      },
+    );
+    test(
+      'registerPayloadHandler routes invocation payloads and responses',
+      () async {
+        final transport = _MockTransport();
+        final client = Client(realm: 'test.realm', transport: transport);
+        final yields = <Yield>[];
+
+        transport.outbound.stream.listen((message) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveMessage(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codeRegister) {
+            transport.receiveMessage(
+              Registered((message as Register).requestId, 5151),
+            );
+            return;
+          }
+          if (message.id == MessageTypes.codeYield) {
+            yields.add(message as Yield);
+          }
+        });
+
+        final session = await client.connect().first;
+        final invocationCompleter = Completer<InvocationPayload>();
+        final registered = await session.registerPayloadHandler(
+          'payload.proc',
+          (invocation) {
+            if (!invocationCompleter.isCompleted) {
+              invocationCompleter.complete(invocation);
+            }
+            invocation.respondWith(arguments: const ['done']);
+          },
+        );
+
+        transport.receiveMessage(
+          Invocation(
+            9201,
+            registered.registrationId,
+            InvocationDetails(9, 'payload.proc', false),
+            argumentsKeywords: const {'value': 3},
+          ),
+        );
+
+        final invocation = await invocationCompleter.future;
+        await Future<void>.delayed(Duration.zero);
+        expect(invocation.requestId, equals(9201));
+        expect(invocation.caller, equals(9));
+        expect(invocation.procedure, equals('payload.proc'));
+        expect(invocation.argumentsKeywords, equals(const {'value': 3}));
+        expect(yields, hasLength(1));
+        expect(yields.single.invocationRequestId, equals(9201));
+        expect(yields.single.arguments, equals(const ['done']));
+      },
+    );
+    test(
+      'registerLazyPayloadHandler routes lazy invocation payloads and responses',
+      () async {
+        final transport = _MockTransport();
+        final client = Client(realm: 'test.realm', transport: transport);
+        final yields = <Yield>[];
+
+        transport.outbound.stream.listen((message) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveMessage(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codeRegister) {
+            transport.receiveMessage(
+              Registered((message as Register).requestId, 5252),
+            );
+            return;
+          }
+          if (message.id == MessageTypes.codeYield) {
+            yields.add(message as Yield);
+          }
+        });
+
+        final session = await client.connect().first;
+        final invocationCompleter = Completer<LazyInvocationPayload>();
+        final registered = await session.registerLazyPayloadHandler(
+          'lazy.proc',
+          (invocation) {
+            if (!invocationCompleter.isCompleted) {
+              invocationCompleter.complete(invocation);
+            }
+            invocation.respondWith(arguments: const ['lazy-done']);
+          },
+        );
+
+        transport.receiveMessage(
+          Invocation(
+            9301,
+            registered.registrationId,
+            InvocationDetails(11, 'lazy.proc', false),
+            argumentsKeywords: const {'value': 4},
+          ),
+        );
+
+        final invocation = await invocationCompleter.future;
+        await Future<void>.delayed(Duration.zero);
+        expect(invocation.requestId, equals(9301));
+        expect(invocation.caller, equals(11));
+        expect(invocation.procedure, equals('lazy.proc'));
+        expect(invocation.argumentsKeywords, equals(const {'value': 4}));
+        expect(yields, hasLength(1));
+        expect(yields.single.invocationRequestId, equals(9301));
+        expect(yields.single.arguments, equals(const ['lazy-done']));
+      },
+    );
+    test(
+      'native direct invocation path keeps PPT lazy bytes and exposes unpacked payloads',
+      () async {
+        final yields = <Yield>[];
+        final transport = _SessionOptimizedMockTransport((message, transport) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveObject(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codeRegister) {
+            transport.receiveObject(
+              Registered((message as Register).requestId, 5353),
+            );
+            return;
+          }
+          if (message.id == MessageTypes.codeYield) {
+            yields.add(message as Yield);
+          }
+        });
+
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+        ).connect().first;
+        final lazyCompleter = Completer<LazyInvocationPayload>();
+        final payloadCompleter = Completer<InvocationPayload>();
+        final registered = await session.registerLazyPayloadHandler(
+          'ppt.proc',
+          (invocation) {
+            if (!lazyCompleter.isCompleted) {
+              lazyCompleter.complete(invocation);
+            }
+            invocation.respondWith(arguments: const ['ppt-ok']);
+          },
+        );
+        registered.onInvokePayload((invocation) {
+          if (!payloadCompleter.isCompleted) {
+            payloadCompleter.complete(invocation);
+          }
+        });
+
+        final argsBytes = _encodeNativePptArguments(
+          arguments: const ['ppt-invocation'],
+          argumentsKeywords: const {'worker': 8},
+        );
+        final packedPayloadBytes = _encodeNativePptPayload(
+          arguments: const ['ppt-invocation'],
+          argumentsKeywords: const {'worker': 8},
+        );
+        transport.receiveObject(
+          _nativeDirectInvocationMessage(
+            requestId: 9401,
+            registrationId: registered.registrationId,
+            procedure: 'ppt.proc',
+            pptScheme: 'x_custom_scheme',
+            pptSerializer: 'cbor',
+            argsBytes: argsBytes,
+          ),
+        );
+
+        final lazyInvocation = await lazyCompleter.future;
+        final payloadInvocation = await payloadCompleter.future;
+        await Future<void>.delayed(Duration.zero);
+        expect(lazyInvocation.requestId, equals(9401));
+        expect(lazyInvocation.pptScheme, equals('x_custom_scheme'));
+        expect(lazyInvocation.argumentsBytes, isNull);
+        expect(
+          lazyInvocation.packedPayloadBytes,
+          orderedEquals(packedPayloadBytes),
+        );
+        expect(payloadInvocation.arguments, equals(const ['ppt-invocation']));
+        expect(
+          payloadInvocation.argumentsKeywords,
+          equals(const {'worker': 8}),
+        );
+        expect(yields, hasLength(1));
+        expect(yields.single.arguments, equals(const ['ppt-ok']));
       },
     );
     test('event subscription and publish', () async {
@@ -1541,6 +1883,113 @@ void main() {
         );
       },
     );
+    test('callSinglePayload returns the final payload result', () async {
+      const stepTimeout = Duration(seconds: 1);
+      final transport = _ImmediateResponseTransport();
+      final session = await Client(
+        realm: 'test.realm',
+        transport: transport,
+      ).connect().first.timeout(stepTimeout);
+
+      final finalResult = await session
+          .callSinglePayload('bench.progressive')
+          .timeout(stepTimeout);
+      expect(finalResult.arguments, equals(['final']));
+      expect(finalResult.progress, isFalse);
+    });
+    test(
+      'callSingleLazyPayload returns the final lazy payload result',
+      () async {
+        const stepTimeout = Duration(seconds: 1);
+        final transport = _ImmediateResponseTransport();
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+        ).connect().first.timeout(stepTimeout);
+
+        final finalResult = await session
+            .callSingleLazyPayload('bench.progressive')
+            .timeout(stepTimeout);
+        expect(finalResult.arguments, equals(['final']));
+        expect(finalResult.progress, isFalse);
+      },
+    );
+    test(
+      'callSinglePayload unpacks PPT payloads on the native direct result path',
+      () async {
+        final transport = _SessionOptimizedMockTransport((message, transport) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveObject(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codeCall) {
+            transport.receiveObject(
+              _nativeDirectResultMessage(
+                requestId: (message as Call).requestId,
+                pptScheme: 'x_custom_scheme',
+                pptSerializer: 'cbor',
+                argsBytes: _encodeNativePptArguments(
+                  arguments: const ['ppt-result'],
+                  argumentsKeywords: const {'worker': 9},
+                ),
+              ),
+            );
+          }
+        });
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+        ).connect().first;
+
+        final result = await session.callSinglePayload('ppt.result');
+        expect(result.progress, isFalse);
+        expect(result.pptScheme, equals('x_custom_scheme'));
+        expect(result.arguments, equals(const ['ppt-result']));
+        expect(result.argumentsKeywords, equals(const {'worker': 9}));
+      },
+    );
+    test(
+      'callSingleLazyPayload preserves packed PPT bytes on the native direct result path',
+      () async {
+        final transport = _SessionOptimizedMockTransport((message, transport) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveObject(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codeCall) {
+            transport.receiveObject(
+              _nativeDirectResultMessage(
+                requestId: (message as Call).requestId,
+                pptScheme: 'x_custom_scheme',
+                pptSerializer: 'cbor',
+                argsBytes: _encodeNativePptArguments(
+                  arguments: const ['ppt-result'],
+                  argumentsKeywords: const {'worker': 9},
+                ),
+              ),
+            );
+          }
+        });
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+        ).connect().first;
+
+        final result = await session.callSingleLazyPayload('ppt.result');
+        expect(result.pptScheme, equals('x_custom_scheme'));
+        expect(
+          result.packedPayloadBytes,
+          orderedEquals(
+            _encodeNativePptPayload(
+              arguments: const ['ppt-result'],
+              argumentsKeywords: const {'worker': 9},
+            ),
+          ),
+        );
+        expect(result.arguments, equals(const ['ppt-result']));
+        expect(result.argumentsKeywords, equals(const {'worker': 9}));
+      },
+    );
     test('request routing handles out-of-order router replies', () async {
       const stepTimeout = Duration(seconds: 1);
       final transport = _OutOfOrderResponseTransport();
@@ -1734,6 +2183,179 @@ class _MockTransport extends AbstractTransport {
   Stream<AbstractMessage> receive() {
     return inbound.stream;
   }
+}
+
+class _SessionOptimizedMockTransport extends AbstractTransport
+    implements SessionOptimizedTransport {
+  _SessionOptimizedMockTransport(this._onSend);
+
+  final void Function(
+    AbstractMessage message,
+    _SessionOptimizedMockTransport transport,
+  )
+  _onSend;
+
+  final StreamController<Object?> inbound = StreamController.broadcast(
+    sync: true,
+  );
+  final StreamController<AbstractMessage> outbound = StreamController(
+    sync: true,
+  );
+
+  Completer? _onConnectionLost;
+  Completer? _onDisconnect;
+  bool _open = false;
+
+  @override
+  Completer? get onConnectionLost => _onConnectionLost;
+
+  @override
+  Completer? get onDisconnect => _onDisconnect;
+
+  @override
+  bool get isOpen => _open;
+
+  @override
+  bool get isReady => _open;
+
+  @override
+  Future<void> get onReady => Future.value();
+
+  @override
+  Future<void> open({Duration? pingInterval}) {
+    _open = true;
+    _onDisconnect = Completer();
+    _onConnectionLost = Completer();
+    return Future.value();
+  }
+
+  @override
+  Future<void> close({error}) {
+    _open = false;
+    complete(_onDisconnect, error);
+    return inbound.close();
+  }
+
+  @override
+  void send(AbstractMessage message) {
+    outbound.add(message);
+    _onSend(message, this);
+  }
+
+  void receiveObject(Object? message) {
+    inbound.add(message);
+  }
+
+  @override
+  Stream<AbstractMessage?> receive() {
+    return inbound.stream
+        .where((message) => message is AbstractMessage)
+        .cast<AbstractMessage?>();
+  }
+
+  @override
+  Stream<Object?> receiveSessionMessages() {
+    return inbound.stream;
+  }
+}
+
+Uint8List _encodeNativePptArguments({
+  List<dynamic>? arguments,
+  Map<String, dynamic>? argumentsKeywords,
+}) {
+  final payloadBytes = _encodeNativePptPayload(
+    arguments: arguments,
+    argumentsKeywords: argumentsKeywords,
+  );
+  return Uint8List.fromList(
+    cbor.cborEncode(cbor.CborValue(<Object?>[payloadBytes])),
+  );
+}
+
+Uint8List _encodeNativePptPayload({
+  List<dynamic>? arguments,
+  Map<String, dynamic>? argumentsKeywords,
+}) {
+  return Uint8List.fromList(
+    cbor.cborEncode(
+      cbor.CborValue(<String, Object?>{
+        'args': arguments,
+        'kwargs': argumentsKeywords,
+      }),
+    ),
+  );
+}
+
+NativeSessionMessage _nativeDirectResultMessage({
+  required int requestId,
+  required String pptScheme,
+  required String pptSerializer,
+  required Uint8List argsBytes,
+}) {
+  return NativeSessionMessage(
+    serializer: NativeMessageSerializer.cbor,
+    metadata: NativeMessageMetadata(
+      messageCode: MessageTypes.codeResult,
+      primaryId: requestId,
+      secondaryId: 0,
+      detailNumberA: 0,
+      detailNumberB: 0,
+      flags: NativeMessageMetadata.flagDirectBind,
+      stringA: pptScheme,
+      stringB: pptSerializer,
+    ),
+    argsBytes: argsBytes,
+  );
+}
+
+NativeSessionMessage _nativeDirectEventMessage({
+  required int subscriptionId,
+  required int publicationId,
+  required String topic,
+  required String pptScheme,
+  required String pptSerializer,
+  required Uint8List argsBytes,
+}) {
+  return NativeSessionMessage(
+    serializer: NativeMessageSerializer.cbor,
+    metadata: NativeMessageMetadata(
+      messageCode: MessageTypes.codeEvent,
+      primaryId: subscriptionId,
+      secondaryId: publicationId,
+      detailNumberA: 0,
+      detailNumberB: 0,
+      flags: NativeMessageMetadata.flagDirectBind,
+      stringA: topic,
+      stringB: pptScheme,
+      stringC: pptSerializer,
+    ),
+    argsBytes: argsBytes,
+  );
+}
+
+NativeSessionMessage _nativeDirectInvocationMessage({
+  required int requestId,
+  required int registrationId,
+  required String procedure,
+  required String pptScheme,
+  required String pptSerializer,
+  required Uint8List argsBytes,
+}) {
+  return NativeSessionMessage(
+    serializer: NativeMessageSerializer.cbor,
+    metadata: NativeMessageMetadata(
+      messageCode: MessageTypes.codeInvocation,
+      primaryId: requestId,
+      secondaryId: registrationId,
+      detailNumberA: 0,
+      detailNumberB: 0,
+      flags: NativeMessageMetadata.flagDirectBind,
+      stringA: procedure,
+      stringB: pptScheme,
+      stringC: pptSerializer,
+    ),
+    argsBytes: argsBytes,
+  );
 }
 
 class _ImmediateResponseTransport extends AbstractTransport {

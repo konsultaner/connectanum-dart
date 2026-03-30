@@ -6,7 +6,7 @@ import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_client/src/transport/native/message_binding.dart';
-import 'package:connectanum_client/src/transport/native/runtime.dart';
+import 'package:connectanum_client/src/transport/native/message_protocol.dart';
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 import 'package:test/test.dart';
@@ -171,6 +171,29 @@ void main() {
       expect(event.arguments, ['payload']);
       expect(event.argumentsKeywords, {'flag': true});
     });
+
+    test(
+      'bindSessionMessage keeps direct event payloads as native session messages',
+      () {
+        final message = bindSessionMessage(
+          NativeMessageSerializer.json,
+          Uint8List.fromList([0x00]),
+          metadata: _metadata(
+            messageCode: MessageTypes.codeEvent,
+            primaryId: 7,
+            secondaryId: 99,
+            flags: NativeMessageMetadata.flagDirectBind,
+          ),
+          argsBytes: Uint8List.fromList(utf8.encode(jsonEncode(['payload']))),
+        );
+
+        expect(message, isA<NativeSessionMessage>());
+        final materialized = materializeSessionMessage(message) as Event;
+        expect(materialized.subscriptionId, 7);
+        expect(materialized.publicationId, 99);
+        expect(materialized.arguments, ['payload']);
+      },
+    );
 
     test('decodes JSON events with lazy args and kwargs', () {
       final message = bindMessage(

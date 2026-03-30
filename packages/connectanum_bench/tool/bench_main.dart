@@ -367,7 +367,7 @@ class _BenchControlRegistry {
     await _register('bench.http.stop', _handleStopInvoke);
     await _register('bench.http.stream', _handleStreamInvoke);
     await _register('bench.http.wamp', _handleWampInvoke);
-    await _register('bench.rpc.echo', _handleRpcEchoInvoke);
+    await _registerLazyPayload('bench.rpc.echo', _handleRpcEchoLazyInvoke);
     await _nativeWampWorker.start();
   }
 
@@ -385,6 +385,15 @@ class _BenchControlRegistry {
   ) async {
     final registration = await session.register(procedure);
     registration.onInvoke(handler);
+    _registrations.add(registration);
+  }
+
+  Future<void> _registerLazyPayload(
+    String procedure,
+    FutureOr<void> Function(wamp_core.LazyInvocationPayload invocation) handler,
+  ) async {
+    final registration = await session.register(procedure);
+    registration.onLazyInvokePayload(handler);
     _registrations.add(registration);
   }
 
@@ -544,18 +553,42 @@ class _BenchControlRegistry {
     }
   }
 
-  Future<void> _handleRpcEchoInvoke(
-    invocation_msg.Invocation invocation,
+  Future<void> _handleRpcEchoLazyInvoke(
+    wamp_core.LazyInvocationPayload invocation,
   ) async {
     _logger.fine(
       'RPC echo invoked requestId=${invocation.requestId} '
       'args=${invocation.arguments} kwargs=${invocation.argumentsKeywords}',
     );
-    invocation.respondWith(
-      arguments: invocation.arguments,
-      argumentsKeywords: invocation.argumentsKeywords,
-    );
+    final responseOptions = _yieldOptionsFromInvocation(invocation);
+    if (invocation.packedPayloadBytes != null && responseOptions != null) {
+      invocation.respondWith(
+        lazyPayload: invocation.payload,
+        options: responseOptions,
+      );
+    } else {
+      invocation.respondWith(
+        arguments: invocation.arguments,
+        argumentsKeywords: invocation.argumentsKeywords,
+        options: responseOptions,
+      );
+    }
     _logger.fine('RPC echo responded requestId=${invocation.requestId}');
+  }
+
+  wamp_core.YieldOptions? _yieldOptionsFromInvocation(
+    wamp_core.LazyInvocationPayload invocation,
+  ) {
+    if (invocation.pptScheme == null) {
+      return null;
+    }
+    return wamp_core.YieldOptions(
+      pptScheme: invocation.pptScheme,
+      pptSerializer: invocation.pptSerializer,
+      pptCipher: invocation.pptCipher,
+      pptKeyId: invocation.pptKeyId,
+      custom: invocation.customDetails,
+    );
   }
 
   void _reportError(String type, Object error, StackTrace stackTrace) {

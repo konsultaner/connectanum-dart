@@ -106,6 +106,46 @@ void main() {
       expect(broker.maxConcurrentCalls, greaterThanOrEqualTo(2));
     });
 
+    test('passes PPT options through pubsub and rpc workloads', () async {
+      final broker = _FakeWampBroker();
+      final runner = WampWorkloadRunner(
+        sessionFactory: (_) async => _FakeWampSession(broker),
+        logger: Logger.detached('ppt_options_test'),
+        eventTimeout: const Duration(seconds: 1),
+      );
+
+      await runner.run(
+        WampScenario(
+          transport: WampTransport.rawsocket,
+          serializer: WampSerializer.cbor,
+          mode: WampMode.pubsub,
+          uri: 'bench.topic',
+          iterations: 1,
+          concurrency: 1,
+          payloadBytes: 8,
+          pptScheme: 'x_custom_scheme',
+        ),
+      );
+      expect(broker.lastPublishOptions?.pptScheme, 'x_custom_scheme');
+      expect(broker.lastPublishOptions?.pptSerializer, 'cbor');
+
+      await runner.run(
+        WampScenario(
+          transport: WampTransport.websocket,
+          serializer: WampSerializer.msgpack,
+          mode: WampMode.rpc,
+          uri: 'bench.rpc.echo',
+          iterations: 1,
+          concurrency: 1,
+          payloadBytes: 8,
+          pptScheme: 'x_custom_scheme',
+          pptSerializer: 'json',
+        ),
+      );
+      expect(broker.lastCallOptions?.pptScheme, 'x_custom_scheme');
+      expect(broker.lastCallOptions?.pptSerializer, 'json');
+    });
+
     test(
       'executes pubsub scenario with multiple in-flight publishes per worker',
       () async {
@@ -150,7 +190,7 @@ void main() {
           2,
           wamp_core.EventDetails(),
           argumentsKeywords: const {'worker': 2},
-        ),
+        ).toLazyEventPayload(),
       );
       buffer.add(
         wamp_core.Event(
@@ -158,7 +198,7 @@ void main() {
           1,
           wamp_core.EventDetails(),
           argumentsKeywords: const {'worker': 1},
-        ),
+        ).toLazyEventPayload(),
       );
 
       final eventOne = await waiterOne;
@@ -295,6 +335,20 @@ void main() {
 
       expect(scenario.inFlightPerSession, 4);
     });
+
+    test('parses PPT overrides', () {
+      final scenario = WampScenario.fromJson({
+        'transport': 'ws',
+        'serializer': 'cbor',
+        'mode': 'rpc',
+        'uri': 'bench.rpc.echo',
+        'ppt_scheme': 'x_custom_scheme',
+        'ppt_serializer': 'msgpack',
+      });
+
+      expect(scenario.pptScheme, 'x_custom_scheme');
+      expect(scenario.pptSerializer, 'msgpack');
+    });
   });
 
   group('WampEventBuffer', () {
@@ -306,7 +360,7 @@ void main() {
           2,
           wamp_core.EventDetails(),
           argumentsKeywords: const {'worker': 1, 'iteration': 2},
-        ),
+        ).toLazyEventPayload(),
       );
 
       final event = await buffer.nextWhere(
@@ -333,7 +387,7 @@ void main() {
             3,
             wamp_core.EventDetails(),
             argumentsKeywords: const {'worker': 3},
-          ),
+          ).toLazyEventPayload(),
         );
         buffer.add(
           wamp_core.Event(
@@ -341,7 +395,7 @@ void main() {
             7,
             wamp_core.EventDetails(),
             argumentsKeywords: const {'worker': 7},
-          ),
+          ).toLazyEventPayload(),
         );
 
         final event = await future;
@@ -359,12 +413,18 @@ class _FakeWampBroker {
   });
 
   final Map<String, List<StreamController<wamp_core.Event>>> _subscribers = {};
+  final Map<String, List<StreamController<wamp_core.LazyEventPayload>>>
+  _payloadSubscribers = {};
   final Map<String, List<void Function(wamp_core.Event event)>>
   _callbackSubscribers = {};
+  final Map<String, List<void Function(wamp_core.LazyEventPayload event)>>
+  _payloadCallbackSubscribers = {};
   final Map<String, int> callCounts = {};
   final bool dropMetadata;
   final Duration callDelay;
   final Duration publishDelay;
+  wamp_core.CallOptions? lastCallOptions;
+  wamp_core.PublishOptions? lastPublishOptions;
   int _activeCalls = 0;
   int maxConcurrentCalls = 0;
   int _activePublishes = 0;
@@ -414,6 +474,50 @@ class _FakeWampBroker {
     }
   }
 
+  void addPayloadSubscriber(
+    String topic,
+    StreamController<wamp_core.LazyEventPayload> controller,
+  ) {
+    final list = _payloadSubscribers.putIfAbsent(topic, () => []);
+    list.add(controller);
+  }
+
+  void removePayloadSubscriber(
+    String topic,
+    StreamController<wamp_core.LazyEventPayload> controller,
+  ) {
+    final list = _payloadSubscribers[topic];
+    if (list == null) {
+      return;
+    }
+    list.remove(controller);
+    if (list.isEmpty) {
+      _payloadSubscribers.remove(topic);
+    }
+  }
+
+  void addPayloadCallbackSubscriber(
+    String topic,
+    void Function(wamp_core.LazyEventPayload event) onEvent,
+  ) {
+    final list = _payloadCallbackSubscribers.putIfAbsent(topic, () => []);
+    list.add(onEvent);
+  }
+
+  void removePayloadCallbackSubscriber(
+    String topic,
+    void Function(wamp_core.LazyEventPayload event) onEvent,
+  ) {
+    final list = _payloadCallbackSubscribers[topic];
+    if (list == null) {
+      return;
+    }
+    list.remove(onEvent);
+    if (list.isEmpty) {
+      _payloadCallbackSubscribers.remove(topic);
+    }
+  }
+
   void publish(
     String topic, {
     List<dynamic>? arguments,
@@ -432,12 +536,25 @@ class _FakeWampBroker {
         controller.add(event);
       }
     }
+    final payload = event.toLazyEventPayload(anchor: event);
+    final payloadSubscribers = _payloadSubscribers[topic];
+    if (payloadSubscribers != null) {
+      for (final controller in payloadSubscribers) {
+        controller.add(payload);
+      }
+    }
     final callbackSubscribers = _callbackSubscribers[topic];
-    if (callbackSubscribers == null) {
+    if (callbackSubscribers != null) {
+      for (final callback in callbackSubscribers) {
+        callback(event);
+      }
+    }
+    final payloadCallbacks = _payloadCallbackSubscribers[topic];
+    if (payloadCallbacks == null) {
       return;
     }
-    for (final callback in callbackSubscribers) {
-      callback(event);
+    for (final callback in payloadCallbacks) {
+      callback(payload);
     }
   }
 
@@ -486,6 +603,7 @@ class _FakeWampSession implements WampSession {
     Map<String, Object?>? argumentsKeywords,
     wamp_core.PublishOptions? options,
   }) async {
+    _broker.lastPublishOptions = options;
     _broker.beginPublish();
     try {
       if (_broker.publishDelay > Duration.zero) {
@@ -508,27 +626,28 @@ class _FakeWampSession implements WampSession {
   }) async {
     WampSubscription subscription;
     if (useDirectEventHandler) {
-      void Function(wamp_core.Event event)? callback;
+      void Function(wamp_core.LazyEventPayload event)? callback;
       subscription = WampSubscription(
         attachEventHandler: (onEvent) {
           callback = onEvent;
-          _broker.addCallbackSubscriber(topic, onEvent);
+          _broker.addPayloadCallbackSubscriber(topic, onEvent);
         },
         cancel: () async {
           final activeCallback = callback;
           if (activeCallback != null) {
-            _broker.removeCallbackSubscriber(topic, activeCallback);
+            _broker.removePayloadCallbackSubscriber(topic, activeCallback);
             callback = null;
           }
         },
       );
     } else {
-      final controller = StreamController<wamp_core.Event>.broadcast();
-      _broker.addSubscriber(topic, controller);
+      final controller =
+          StreamController<wamp_core.LazyEventPayload>.broadcast();
+      _broker.addPayloadSubscriber(topic, controller);
       subscription = WampSubscription(
         eventStreamFactory: () => controller.stream,
         cancel: () async {
-          _broker.removeSubscriber(topic, controller);
+          _broker.removePayloadSubscriber(topic, controller);
           await controller.close();
         },
       );
@@ -538,12 +657,58 @@ class _FakeWampSession implements WampSession {
   }
 
   @override
+  Future<WampSubscription> subscribePayload(
+    String topic, {
+    wamp_core.SubscribeOptions? options,
+  }) async {
+    WampSubscription subscription;
+    if (useDirectEventHandler) {
+      void Function(wamp_core.LazyEventPayload event)? callback;
+      subscription = WampSubscription(
+        attachEventHandler: (onEvent) {
+          callback = onEvent;
+          _broker.addPayloadCallbackSubscriber(topic, onEvent);
+        },
+        cancel: () async {
+          final activeCallback = callback;
+          if (activeCallback != null) {
+            _broker.removePayloadCallbackSubscriber(topic, activeCallback);
+            callback = null;
+          }
+        },
+      );
+    } else {
+      final controller =
+          StreamController<wamp_core.LazyEventPayload>.broadcast();
+      _broker.addPayloadSubscriber(topic, controller);
+      subscription = WampSubscription(
+        eventStreamFactory: () => controller.stream,
+        cancel: () async {
+          _broker.removePayloadSubscriber(topic, controller);
+          await controller.close();
+        },
+      );
+    }
+    _subscriptions.add(subscription);
+    return subscription;
+  }
+
+  @override
+  Future<WampSubscription> subscribeLazyPayload(
+    String topic, {
+    wamp_core.SubscribeOptions? options,
+  }) {
+    return subscribePayload(topic, options: options);
+  }
+
+  @override
   Future<Stream<dynamic>> call(
     String procedure, {
     List<dynamic>? arguments,
     Map<String, Object?>? argumentsKeywords,
     wamp_core.CallOptions? options,
   }) async {
+    _broker.lastCallOptions = options;
     _broker.recordCall(procedure);
     _broker.beginCall();
     final response = Future<dynamic>.delayed(
@@ -566,6 +731,99 @@ class _FakeWampSession implements WampSession {
         await Future<void>.delayed(_broker.callDelay);
       }
       return null;
+    } finally {
+      _broker.endCall();
+    }
+  }
+
+  @override
+  Future<wamp_core.ResultPayload> callSinglePayload(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  }) async {
+    _broker.recordCall(procedure);
+    _broker.beginCall();
+    try {
+      if (_broker.callDelay > Duration.zero) {
+        await Future<void>.delayed(_broker.callDelay);
+      }
+      final decodedPayload = options?.pptScheme == null
+          ? (
+              arguments: arguments == null
+                  ? null
+                  : List<dynamic>.from(arguments),
+              argumentsKeywords: argumentsKeywords == null
+                  ? null
+                  : Map<String, dynamic>.from(argumentsKeywords),
+            )
+          : (() {
+              final pptOptions = options!;
+              final unpacked = wamp_core.PPTPayload.unpackPPTPayload(
+                wamp_core.PPTPayload.packPPTPayload(
+                  arguments,
+                  argumentsKeywords?.cast<String, dynamic>(),
+                  pptOptions,
+                ),
+                pptOptions,
+              );
+              return (
+                arguments: unpacked.arguments,
+                argumentsKeywords: unpacked.argumentsKeywords,
+              );
+            })();
+      return (
+        callRequestId: 1,
+        progress: false,
+        pptScheme: options?.pptScheme,
+        pptSerializer: options?.pptSerializer,
+        pptCipher: null,
+        pptKeyId: null,
+        customDetails: null,
+        arguments: decodedPayload.arguments,
+        argumentsKeywords: decodedPayload.argumentsKeywords,
+      );
+    } finally {
+      _broker.endCall();
+    }
+  }
+
+  @override
+  Future<wamp_core.LazyResultPayload> callSingleLazyPayload(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  }) async {
+    _broker.lastCallOptions = options;
+    _broker.recordCall(procedure);
+    _broker.beginCall();
+    try {
+      if (_broker.callDelay > Duration.zero) {
+        await Future<void>.delayed(_broker.callDelay);
+      }
+      final payloadArguments = options?.pptScheme == null
+          ? (arguments == null ? null : List<dynamic>.from(arguments))
+          : wamp_core.PPTPayload.packPPTPayload(
+              arguments,
+              argumentsKeywords?.cast<String, dynamic>(),
+              options!,
+            );
+      return wamp_core.Result(
+        1,
+        wamp_core.ResultDetails(
+          progress: false,
+          pptScheme: options?.pptScheme,
+          pptSerializer: options?.pptSerializer,
+        ),
+        arguments: payloadArguments,
+        argumentsKeywords: options?.pptScheme == null
+            ? argumentsKeywords == null
+                  ? null
+                  : Map<String, dynamic>.from(argumentsKeywords)
+            : null,
+      ).toLazyResultPayload();
     } finally {
       _broker.endCall();
     }
@@ -628,7 +886,43 @@ class _HangingRpcSession implements WampSession {
   }
 
   @override
+  Future<wamp_core.ResultPayload> callSinglePayload(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  }) {
+    return Completer<wamp_core.ResultPayload>().future;
+  }
+
+  @override
+  Future<wamp_core.LazyResultPayload> callSingleLazyPayload(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  }) {
+    return Completer<wamp_core.LazyResultPayload>().future;
+  }
+
+  @override
   Future<WampSubscription> subscribe(
+    String topic, {
+    wamp_core.SubscribeOptions? options,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<WampSubscription> subscribePayload(
+    String topic, {
+    wamp_core.SubscribeOptions? options,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<WampSubscription> subscribeLazyPayload(
     String topic, {
     wamp_core.SubscribeOptions? options,
   }) {

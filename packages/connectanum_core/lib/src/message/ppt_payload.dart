@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../message/abstract_ppt_options.dart';
 import '../serializer/abstract_serializer.dart';
 import '../serializer/cbor/serializer.dart' as cbor_serializer;
@@ -73,12 +75,30 @@ class PPTPayload {
           return PPTPayload();
       }
 
-      return serializer.deserializePPT(arguments[0]) ?? PPTPayload();
+      return serializer.deserializePPT(_coerceBinaryPayload(arguments[0])) ??
+          PPTPayload();
     } else {
       return PPTPayload(
         arguments: arguments[0]['args'],
         argumentsKeywords: arguments[0]['kwargs'],
       );
     }
+  }
+
+  static Uint8List _coerceBinaryPayload(Object? value) {
+    if (value is Uint8List) {
+      return value;
+    }
+    if (value is List<int>) {
+      return Uint8List.fromList(value);
+    }
+    if (value is List) {
+      return Uint8List.fromList(value.cast<int>());
+    }
+    throw ArgumentError.value(
+      value,
+      'value',
+      'PPT payload must be a byte sequence',
+    );
   }
 }

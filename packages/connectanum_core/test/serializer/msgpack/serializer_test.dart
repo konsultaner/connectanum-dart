@@ -1165,6 +1165,46 @@ void main() {
         ),
       );
     });
+    test('Call reuses lazy MsgPack argument bytes without decoding', () {
+      final call = Call(7814135, 'com.myapp.ping');
+      call.setLazyPayload(
+        argumentsBytes: msgpack_dart.serialize(['lazy']),
+        argumentsDecoder: (_) => throw StateError('should not decode args'),
+        encoding: LazyPayloadEncoding.messagePack,
+      );
+
+      expect(
+        msgpack_dart.deserialize(serializer.serialize(call)),
+        equals([
+          MessageTypes.codeCall,
+          7814135,
+          {},
+          'com.myapp.ping',
+          ['lazy'],
+        ]),
+      );
+    });
+    test('Call reuses lazy MsgPack kwargs bytes without decoding', () {
+      final call = Call(7814135, 'com.myapp.ping');
+      call.setLazyPayload(
+        argumentsKeywordsBytes: msgpack_dart.serialize({'worker': 1}),
+        argumentsKeywordsDecoder: (_) =>
+            throw StateError('should not decode kwargs'),
+        encoding: LazyPayloadEncoding.messagePack,
+      );
+
+      expect(
+        msgpack_dart.deserialize(serializer.serialize(call)),
+        equals([
+          MessageTypes.codeCall,
+          7814135,
+          {},
+          'com.myapp.ping',
+          [],
+          {'worker': 1},
+        ]),
+      );
+    });
     test('Hello with auth information', () {
       var authHello = Hello('my.realm', Details.forHello());
       authHello.details.authid = 'Richard';
@@ -4601,6 +4641,61 @@ void main() {
               )
               as Event;
       expect(event.details.custom['_debounce'], isTrue);
+    });
+    test('deserialize Invocation retains custom detail fields', () {
+      final invocation =
+          serializer.deserialize(
+                msgpack_dart.serialize([
+                  MessageTypes.codeInvocation,
+                  6131533,
+                  9823526,
+                  {
+                    'caller': 1,
+                    'procedure': 'com.myapp.foo',
+                    'trace_id': 'abc',
+                  },
+                  ['hi'],
+                ]),
+              )
+              as Invocation;
+
+      expect(invocation.details.caller, equals(1));
+      expect(invocation.details.procedure, equals('com.myapp.foo'));
+      expect(invocation.details.custom, containsPair('trace_id', 'abc'));
+      expect(invocation.arguments, equals(['hi']));
+    });
+    test('deserialize Result retains custom detail fields', () {
+      final result =
+          serializer.deserialize(
+                msgpack_dart.serialize([
+                  MessageTypes.codeResult,
+                  6131533,
+                  {'progress': false, 'trace_id': 'abc'},
+                  ['hi'],
+                ]),
+              )
+              as Result;
+
+      expect(result.details.progress, isFalse);
+      expect(result.details.custom, containsPair('trace_id', 'abc'));
+      expect(result.arguments, equals(['hi']));
+    });
+    test('deserialize Event retains custom detail fields', () {
+      final event =
+          serializer.deserialize(
+                msgpack_dart.serialize([
+                  MessageTypes.codeEvent,
+                  123,
+                  456,
+                  {'publisher': 1, 'trace_id': 'abc'},
+                  ['hi'],
+                ]),
+              )
+              as Event;
+
+      expect(event.details.publisher, equals(1));
+      expect(event.details.custom, containsPair('trace_id', 'abc'));
+      expect(event.arguments, equals(['hi']));
     });
     test('Goodbye', () {
       var toDeserialize = serializer.serialize(

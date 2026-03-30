@@ -3,95 +3,11 @@ import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:connectanum_core/connectanum_core.dart';
 import 'package:ffi/ffi.dart';
 
 import 'ffi_bindings.dart';
 import 'message_binding.dart';
-
-enum NativeMessageSerializer {
-  json(1),
-  messagePack(2),
-  cbor(3),
-  ubjson(4),
-  flatbuffers(5);
-
-  const NativeMessageSerializer(this.id);
-
-  final int id;
-
-  static NativeMessageSerializer fromId(int id) {
-    for (final serializer in values) {
-      if (serializer.id == id) {
-        return serializer;
-      }
-    }
-    throw StateError('Unsupported native serializer id $id');
-  }
-}
-
-class NativeMessageMetadata {
-  const NativeMessageMetadata({
-    required this.messageCode,
-    required this.primaryId,
-    required this.secondaryId,
-    required this.detailNumberA,
-    required this.detailNumberB,
-    required this.flags,
-    this.stringA,
-    this.stringB,
-    this.stringC,
-    this.stringD,
-    this.stringE,
-  });
-
-  static const flagDirectBind = 1 << 0;
-  static const flagDetailNumberAPresent = 1 << 1;
-  static const flagDetailNumberBPresent = 1 << 2;
-  static const flagDetailBoolATrue = 1 << 3;
-
-  factory NativeMessageMetadata.fromFfi(CtMessageInfo info) {
-    final flags = info.flags;
-    final directBind = (flags & flagDirectBind) != 0;
-    return NativeMessageMetadata(
-      messageCode: info.messageCode,
-      primaryId: info.primaryId,
-      secondaryId: info.secondaryId,
-      detailNumberA: info.detailNumberA,
-      detailNumberB: info.detailNumberB,
-      flags: flags,
-      stringA: directBind
-          ? _readOptionalString(info.stringAPtr, info.stringALen)
-          : null,
-      stringB: directBind
-          ? _readOptionalString(info.stringBPtr, info.stringBLen)
-          : null,
-      stringC: directBind
-          ? _readOptionalString(info.stringCPtr, info.stringCLen)
-          : null,
-      stringD: directBind
-          ? _readOptionalString(info.stringDPtr, info.stringDLen)
-          : null,
-      stringE: directBind
-          ? _readOptionalString(info.stringEPtr, info.stringELen)
-          : null,
-    );
-  }
-
-  final int messageCode;
-  final int primaryId;
-  final int secondaryId;
-  final int detailNumberA;
-  final int detailNumberB;
-  final int flags;
-  final String? stringA;
-  final String? stringB;
-  final String? stringC;
-  final String? stringD;
-  final String? stringE;
-
-  bool hasFlag(int flag) => (flags & flag) != 0;
-}
+import 'message_protocol.dart';
 
 String? _readOptionalString(ffi.Pointer<ffi.Uint8> ptr, int len) {
   if (ptr == ffi.nullptr) {
@@ -133,7 +49,7 @@ class NativeIncomingMessage {
     this.argumentsKeywordsBytes,
   }) : _bindings = bindings;
 
-  final AbstractMessage message;
+  final Object message;
   final Uint8List bytes;
   final int handle;
   final Uint8List? argumentsBytes;
@@ -379,8 +295,8 @@ class NativeClientRuntime {
       final kwargs = info.kwargsLen == 0
           ? null
           : info.kwargsPtr.asTypedList(info.kwargsLen);
-      final metadata = NativeMessageMetadata.fromFfi(info);
-      final message = bindMessage(
+      final metadata = _metadataFromFfi(info);
+      final message = bindSessionMessage(
         serializer,
         frame,
         argsBytes: args,
@@ -417,6 +333,34 @@ class NativeClientRuntime {
     ensureStarted();
     _bindings.ctMessageRelease(handle);
   }
+}
+
+NativeMessageMetadata _metadataFromFfi(CtMessageInfo info) {
+  final flags = info.flags;
+  final directBind = (flags & NativeMessageMetadata.flagDirectBind) != 0;
+  return NativeMessageMetadata(
+    messageCode: info.messageCode,
+    primaryId: info.primaryId,
+    secondaryId: info.secondaryId,
+    detailNumberA: info.detailNumberA,
+    detailNumberB: info.detailNumberB,
+    flags: flags,
+    stringA: directBind
+        ? _readOptionalString(info.stringAPtr, info.stringALen)
+        : null,
+    stringB: directBind
+        ? _readOptionalString(info.stringBPtr, info.stringBLen)
+        : null,
+    stringC: directBind
+        ? _readOptionalString(info.stringCPtr, info.stringCLen)
+        : null,
+    stringD: directBind
+        ? _readOptionalString(info.stringDPtr, info.stringDLen)
+        : null,
+    stringE: directBind
+        ? _readOptionalString(info.stringEPtr, info.stringELen)
+        : null,
+  );
 }
 
 String _buildNativeErrorMessage(int code, String context) {

@@ -1,7 +1,6 @@
 import 'dart:async';
 
-import 'e2ee_payload.dart';
-import 'ppt_payload.dart';
+import 'abstract_message_with_payload.dart';
 import 'error.dart';
 import 'message_types.dart';
 import 'abstract_message.dart';
@@ -16,6 +15,9 @@ class Registered extends AbstractMessage {
   StreamController<Invocation>? _invocationController;
   StreamSubscription<Invocation>? _streamInvocationSubscription;
   FutureOr<void> Function(Invocation invocation)? _onInvoke;
+  FutureOr<void> Function(InvocationPayload invocation)? _onInvokePayload;
+  FutureOr<void> Function(LazyInvocationPayload invocation)?
+  _onLazyInvokePayload;
 
   set invocationStream(Stream<Invocation> invocationStream) {
     _invocationStreamOverride = invocationStream;
@@ -34,17 +36,66 @@ class Registered extends AbstractMessage {
     _attachStreamInvocationHandlerIfNeeded();
   }
 
+  void onInvokePayload(
+    FutureOr<void> Function(InvocationPayload invocation) onInvoke,
+  ) {
+    _onInvokePayload = onInvoke;
+  }
+
+  void onLazyInvokePayload(
+    FutureOr<void> Function(LazyInvocationPayload invocation) onInvoke,
+  ) {
+    _onLazyInvokePayload = onInvoke;
+  }
+
   Registered(this.registerRequestId, this.registrationId) {
     id = MessageTypes.codeRegistered;
   }
 
+  bool get hasMaterializedInvocationConsumers =>
+      _onInvoke != null || _invocationController != null;
+
+  bool get hasPayloadInvocationHandler => _onInvokePayload != null;
+
+  bool get hasLazyPayloadInvocationHandler => _onLazyInvokePayload != null;
+
   void addInvocation(Invocation invocation) {
     final invocationUpdated = _prepareInvocation(invocation);
+    final onLazyInvokePayload = _onLazyInvokePayload;
+    if (onLazyInvokePayload != null) {
+      _deliverLazyInvocationPayload(
+        onLazyInvokePayload,
+        invocationUpdated.toLazyInvocationPayload(anchor: invocationUpdated),
+      );
+    }
+    final onInvokePayload = _onInvokePayload;
+    if (onInvokePayload != null) {
+      _deliverInvocationPayload(onInvokePayload, invocationUpdated.toPayload());
+    }
     final onInvoke = _onInvoke;
     if (onInvoke != null) {
       _deliverInvocation(onInvoke, invocation, invocationUpdated);
     }
     _invocationController?.add(invocationUpdated);
+  }
+
+  void addInvocationPayload(InvocationPayload invocation) {
+    final onInvokePayload = _onInvokePayload;
+    if (onInvokePayload == null) {
+      return;
+    }
+    _deliverInvocationPayload(onInvokePayload, invocation);
+  }
+
+  void addLazyInvocationPayload(LazyInvocationPayload invocation) {
+    final onLazyInvokePayload = _onLazyInvokePayload;
+    if (onLazyInvokePayload != null) {
+      _deliverLazyInvocationPayload(onLazyInvokePayload, invocation);
+    }
+    final onInvokePayload = _onInvokePayload;
+    if (onInvokePayload != null) {
+      _deliverInvocationPayload(onInvokePayload, invocation.toPayload());
+    }
   }
 
   Future<void> closeInvocationStream() async {
@@ -73,25 +124,18 @@ class Registered extends AbstractMessage {
   }
 
   Invocation _prepareInvocation(Invocation invocation) {
-    var invocationUpdated = invocation;
-
-    if (invocation.details.pptScheme == 'wamp') {
-      final e2eePayload = E2EEPayload.unpackE2EEPayload(
-        invocation.arguments,
-        invocation.details,
-      );
-
-      invocationUpdated.arguments = e2eePayload.arguments;
-      invocationUpdated.argumentsKeywords = e2eePayload.argumentsKeywords;
-    } else if (invocation.details.pptScheme != null) {
-      final pptPayload = PPTPayload.unpackPPTPayload(
-        invocation.arguments,
-        invocation.details,
-      );
-
-      invocationUpdated.arguments = pptPayload.arguments;
-      invocationUpdated.argumentsKeywords = pptPayload.argumentsKeywords;
-    }
+    final invocationUpdated = invocation;
+    final decoded = decodePayloadView(
+      invocation.arguments,
+      invocation.argumentsKeywords,
+      pptScheme: invocation.details.pptScheme,
+      pptSerializer: invocation.details.pptSerializer,
+      pptCipher: invocation.details.pptCipher,
+      pptKeyId: invocation.details.pptKeyId,
+    );
+    invocationUpdated.arguments = decoded.arguments;
+    invocationUpdated.argumentsKeywords = decoded.argumentsKeywords;
+    invocationUpdated.markPptPayloadDecoded();
     return invocationUpdated;
   }
 
@@ -106,6 +150,48 @@ class Registered extends AbstractMessage {
         StackTrace stackTrace,
       ) {
         if (invocation.responseClosed) {
+          return;
+        }
+        invocation.respondWith(
+          isError: true,
+          errorUri: Error.unknown,
+          arguments: [error.toString()],
+        );
+      }),
+    );
+  }
+
+  void _deliverInvocationPayload(
+    FutureOr<void> Function(InvocationPayload invocation) onInvoke,
+    InvocationPayload invocation,
+  ) {
+    unawaited(
+      Future.sync(() => onInvoke(invocation)).catchError((
+        Object error,
+        StackTrace stackTrace,
+      ) {
+        if (invocation.isResponseClosed()) {
+          return;
+        }
+        invocation.respondWith(
+          isError: true,
+          errorUri: Error.unknown,
+          arguments: [error.toString()],
+        );
+      }),
+    );
+  }
+
+  void _deliverLazyInvocationPayload(
+    FutureOr<void> Function(LazyInvocationPayload invocation) onInvoke,
+    LazyInvocationPayload invocation,
+  ) {
+    unawaited(
+      Future.sync(() => onInvoke(invocation)).catchError((
+        Object error,
+        StackTrace stackTrace,
+      ) {
+        if (invocation.isResponseClosed()) {
           return;
         }
         invocation.respondWith(

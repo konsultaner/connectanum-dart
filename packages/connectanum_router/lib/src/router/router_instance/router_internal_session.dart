@@ -44,10 +44,7 @@ class RouterSession {
 
   final Map<int, Completer<dynamic>> _pendingCommands = {};
   final Map<int, registered_msg.Registered> _registrations = {};
-  final Map<int, StreamController<invocation_msg.Invocation>>
-  _invocationControllers = {};
   final Map<int, subscribed_msg.Subscribed> _subscriptions = {};
-  final Map<int, StreamController<event_msg.Event>> _eventControllers = {};
   final Map<int, StreamController<result_msg.Result>> _callControllers = {};
 
   Future<void> close() async {
@@ -61,14 +58,14 @@ class RouterSession {
     _controlPort.close();
     _responsePort.close();
     _pendingCommands.clear();
-    for (final controller in _invocationControllers.values.toList()) {
-      await controller.close();
+    for (final registered in _registrations.values.toList()) {
+      await registered.closeInvocationStream();
     }
-    _invocationControllers.clear();
-    for (final controller in _eventControllers.values.toList()) {
-      await controller.close();
+    _registrations.clear();
+    for (final subscribed in _subscriptions.values.toList()) {
+      await subscribed.closeEventStream();
     }
-    _eventControllers.clear();
+    _subscriptions.clear();
     for (final controller in _callControllers.values.toList()) {
       await controller.close();
     }
@@ -138,17 +135,25 @@ class RouterSession {
       final details = event_msg.EventDetails(
         publisher: message['publisherSessionId'] as int?,
         topic: message['topic'] as String?,
+        pptScheme: message['pptScheme'] as String?,
+        pptSerializer: message['pptSerializer'] as String?,
+        pptCipher: message['pptCipher'] as String?,
+        pptKeyid: message['pptKeyId'] as String?,
       );
-      final event = event_msg.Event(
-        subscriptionId,
-        publicationId,
-        details,
-        arguments: (_materializeTransferredValue(message['arguments']) as List?)
-            ?.cast<dynamic>()
-            .toList(growable: false),
-        argumentsKeywords:
+      final transferredPayload = _materializeTransferredValue(
+        message[_internalMsgLazyPayload],
+      );
+      final event = event_msg.Event(subscriptionId, publicationId, details);
+      _applyTransferredLazyPayload(
+        event,
+        transferredPayload,
+        fallbackArguments:
+            (_materializeTransferredValue(message['arguments']) as List?)
+                ?.cast<dynamic>()
+                .toList(growable: false),
+        fallbackArgumentsKeywords:
             (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
-                ?.cast<String, Object?>(),
+                ?.cast<String, dynamic>(),
       );
       binding.forwardMessageToConnection(connectionId, event);
     } else if (type == _internalMsgForwardInvocation) {
@@ -164,26 +169,61 @@ class RouterSession {
       if (subscriptionId == null || publicationId == null) {
         return;
       }
-      final controller = _eventControllers[subscriptionId];
-      if (controller == null || controller.isClosed) {
+      final subscribed = _subscriptions[subscriptionId];
+      if (subscribed == null) {
         return;
       }
       final details = event_msg.EventDetails(
         publisher: message['publisherSessionId'] as int?,
         topic: message['topic'] as String?,
       );
-      final event = event_msg.Event(
-        subscriptionId,
-        publicationId,
-        details,
-        arguments: (_materializeTransferredValue(message['arguments']) as List?)
-            ?.cast<dynamic>()
-            .toList(growable: false),
-        argumentsKeywords:
-            (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
-                ?.cast<String, Object?>(),
+      final transferredPayload = _materializeTransferredValue(
+        message[_internalMsgLazyPayload],
       );
-      controller.add(event);
+      if (!subscribed.hasMaterializedEventConsumers) {
+        subscribed.addLazyEventPayload(
+          event_msg.LazyEventPayload(
+            subscriptionId: subscriptionId,
+            publicationId: publicationId,
+            publisher: message['publisherSessionId'] as int?,
+            topic: message['topic'] as String?,
+            pptScheme: message['pptScheme'] as String?,
+            pptSerializer: message['pptSerializer'] as String?,
+            pptCipher: message['pptCipher'] as String?,
+            pptKeyId: message['pptKeyId'] as String?,
+            customDetails: null,
+            payload:
+                _lazyPayloadFromTransferred(transferredPayload) ??
+                LazyMessagePayload.materialized(
+                  arguments:
+                      (_materializeTransferredValue(message['arguments'])
+                              as List?)
+                          ?.cast<dynamic>()
+                          .toList(growable: false),
+                  argumentsKeywords:
+                      (_materializeTransferredValue(
+                                message['argumentsKeywords'],
+                              )
+                              as Map?)
+                          ?.cast<String, dynamic>(),
+                ),
+          ),
+        );
+        return;
+      }
+      final event = event_msg.Event(subscriptionId, publicationId, details);
+      _applyTransferredLazyPayload(
+        event,
+        transferredPayload,
+        fallbackArguments:
+            (_materializeTransferredValue(message['arguments']) as List?)
+                ?.cast<dynamic>()
+                .toList(growable: false),
+        fallbackArgumentsKeywords:
+            (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
+                ?.cast<String, dynamic>(),
+      );
+      subscribed.addEvent(event);
     } else if (type == _internalMsgInvocationRequest) {
       final registrationId = message['registrationId'] as int?;
       final invocationId = message['invocationId'] as int?;
@@ -191,8 +231,8 @@ class RouterSession {
       if (registrationId == null || invocationId == null || replyPort == null) {
         return;
       }
-      final controller = _invocationControllers[registrationId];
-      if (controller == null || controller.isClosed) {
+      final registered = _registrations[registrationId];
+      if (registered == null) {
         replyPort.send({
           'type': 'error',
           'error': wamp_core.Error.noSuchProcedure,
@@ -207,23 +247,40 @@ class RouterSession {
         message['callerSessionId'] as int?,
         message['procedure'] as String?,
         options['receive_progress'] == true,
+        message['pptScheme'] as String? ?? options['ppt_scheme'] as String?,
+        message['pptSerializer'] as String? ??
+            options['ppt_serializer'] as String?,
+        message['pptCipher'] as String? ?? options['ppt_cipher'] as String?,
+        message['pptKeyId'] as String? ?? options['ppt_keyid'] as String?,
       );
       if (options.isNotEmpty) {
         // Remove fields already consumed to avoid duplication.
         final custom = Map<String, dynamic>.from(options)
-          ..remove('receive_progress');
+          ..remove('receive_progress')
+          ..remove('ppt_scheme')
+          ..remove('ppt_serializer')
+          ..remove('ppt_cipher')
+          ..remove('ppt_keyid');
         if (custom.isNotEmpty) {
           details.custom.addAll(custom);
         }
       }
+      final transferredPayload = _materializeTransferredValue(
+        message[_internalMsgLazyPayload],
+      );
       final invocation = invocation_msg.Invocation(
         invocationId,
         registrationId,
         details,
-        arguments: (_materializeTransferredValue(message['arguments']) as List?)
-            ?.cast<dynamic>()
-            .toList(growable: false),
-        argumentsKeywords:
+      );
+      _applyTransferredLazyPayload(
+        invocation,
+        transferredPayload,
+        fallbackArguments:
+            (_materializeTransferredValue(message['arguments']) as List?)
+                ?.cast<dynamic>()
+                .toList(growable: false),
+        fallbackArgumentsKeywords:
             (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
                 ?.cast<String, dynamic>(),
       );
@@ -231,25 +288,29 @@ class RouterSession {
         if (response is yield_msg.Yield) {
           replyPort.send({
             'type': 'result',
-            'arguments': _transferIsolateValue(response.arguments),
-            'argumentsKeywords': _transferIsolateValue(
-              response.argumentsKeywords,
-            ),
+            _internalMsgLazyPayload: _transferAbstractMessagePayload(response),
             'progress': response.options?.progress ?? false,
+            'pptScheme': response.options?.pptScheme,
+            'pptSerializer': response.options?.pptSerializer,
+            'pptCipher': response.options?.pptCipher,
+            'pptKeyId': response.options?.pptKeyId,
           });
         } else if (response is error_msg.Error) {
           replyPort.send({
             'type': 'error',
             'error': response.error,
-            'arguments': _transferIsolateValue(response.arguments),
-            'argumentsKeywords': _transferIsolateValue(
-              response.argumentsKeywords,
-            ),
+            _internalMsgLazyPayload: _transferAbstractMessagePayload(response),
             'details': _transferIsolateValue(response.details),
           });
         }
       });
-      controller.add(invocation);
+      if (!registered.hasMaterializedInvocationConsumers) {
+        registered.addLazyInvocationPayload(
+          invocation.toLazyInvocationPayload(anchor: invocation),
+        );
+      } else {
+        registered.addInvocation(invocation);
+      }
     } else if (type == _internalMsgForwardInterrupt) {
       final connectionId = message['connectionId'] as int?;
       final invocationId = message['invocationId'] as int?;
@@ -270,6 +331,9 @@ class RouterSession {
       }
       _emitCallResult(
         requestId,
+        transferredPayload: _materializeTransferredValue(
+          message[_internalMsgLazyPayload],
+        ),
         arguments: (_materializeTransferredValue(message['arguments']) as List?)
             ?.cast<dynamic>()
             .toList(growable: false),
@@ -277,6 +341,10 @@ class RouterSession {
             (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
                 ?.cast<String, dynamic>(),
         progress: message['progress'] == true,
+        pptScheme: message['pptScheme'] as String?,
+        pptSerializer: message['pptSerializer'] as String?,
+        pptCipher: message['pptCipher'] as String?,
+        pptKeyId: message['pptKeyId'] as String?,
       );
     } else if (type == _internalMsgCallError) {
       final requestId = message['requestId'] as int?;
@@ -286,6 +354,9 @@ class RouterSession {
       _emitCallError(
         requestId,
         errorUri: message['error'] as String? ?? wamp_core.Error.unknown,
+        transferredPayload: _materializeTransferredValue(
+          message[_internalMsgLazyPayload],
+        ),
         arguments: (_materializeTransferredValue(message['arguments']) as List?)
             ?.cast<dynamic>()
             .toList(growable: false),
@@ -302,6 +373,9 @@ class RouterSession {
       }
       _emitCallResult(
         requestId,
+        transferredPayload: _materializeTransferredValue(
+          message[_internalMsgLazyPayload],
+        ),
         arguments: (_materializeTransferredValue(message['arguments']) as List?)
             ?.cast<dynamic>()
             .toList(growable: false),
@@ -309,6 +383,10 @@ class RouterSession {
             (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
                 ?.cast<String, dynamic>(),
         progress: true,
+        pptScheme: message['pptScheme'] as String?,
+        pptSerializer: message['pptSerializer'] as String?,
+        pptCipher: message['pptCipher'] as String?,
+        pptKeyId: message['pptKeyId'] as String?,
       );
     } else if (type == HttpInvocationControlMessages.openResponseStream) {
       final requestId = message['requestId'] as int?;
@@ -350,9 +428,14 @@ class RouterSession {
 
   void _emitCallResult(
     int requestId, {
+    Object? transferredPayload,
     List<dynamic>? arguments,
     Map<String, dynamic>? argumentsKeywords,
     bool progress = false,
+    String? pptScheme,
+    String? pptSerializer,
+    String? pptCipher,
+    String? pptKeyId,
   }) {
     final controller = _callControllers[requestId];
     if (controller == null || controller.isClosed) {
@@ -360,10 +443,36 @@ class RouterSession {
     }
     final result = result_msg.Result(
       requestId,
-      result_msg.ResultDetails(progress: progress),
-      arguments: arguments,
-      argumentsKeywords: argumentsKeywords,
+      result_msg.ResultDetails(
+        progress: progress,
+        pptScheme: pptScheme,
+        pptSerializer: pptSerializer,
+        pptCipher: pptCipher,
+        pptKeyId: pptKeyId,
+      ),
     );
+    _applyTransferredLazyPayload(
+      result,
+      transferredPayload,
+      fallbackArguments: arguments,
+      fallbackArgumentsKeywords: argumentsKeywords,
+    );
+    final retainedPayload = _lazyPayloadFromTransferred(transferredPayload);
+    if (retainedPayload != null) {
+      if (pptScheme != null) {
+        final decoded = decodeLazyPayloadView(
+          retainedPayload,
+          pptScheme: pptScheme,
+          pptSerializer: pptSerializer,
+          pptCipher: pptCipher,
+          pptKeyId: pptKeyId,
+        );
+        result.arguments = decoded.arguments;
+        result.argumentsKeywords = decoded.argumentsKeywords;
+        result.markPptPayloadDecoded();
+      }
+      result.retainLazyPayload(retainedPayload);
+    }
     controller.add(result);
     if (!progress) {
       controller.close();
@@ -374,6 +483,7 @@ class RouterSession {
   void _emitCallError(
     int requestId, {
     required String errorUri,
+    Object? transferredPayload,
     List<dynamic>? arguments,
     Map<String, Object?>? argumentsKeywords,
     Map<String, Object?>? details,
@@ -387,8 +497,12 @@ class RouterSession {
       requestId,
       details ?? const {},
       errorUri,
-      arguments: arguments,
-      argumentsKeywords: argumentsKeywords,
+    );
+    _applyTransferredLazyPayload(
+      error,
+      transferredPayload,
+      fallbackArguments: arguments,
+      fallbackArgumentsKeywords: argumentsKeywords?.cast<String, dynamic>(),
     );
     controller.addError(error);
     controller.close();
@@ -407,10 +521,7 @@ class RouterSession {
             as int;
     final registered = registered_msg.Registered(requestId, registrationId)
       ..procedure = procedure;
-    final controller = StreamController<invocation_msg.Invocation>.broadcast();
     _registrations[registrationId] = registered;
-    _invocationControllers[registrationId] = controller;
-    registered.invocationStream = controller.stream;
     return registered;
   }
 
@@ -418,8 +529,8 @@ class RouterSession {
     await _sendCommand(_internalCmdUnregister, <String, Object?>{
       'registrationId': registrationId,
     });
-    _registrations.remove(registrationId);
-    await _invocationControllers.remove(registrationId)?.close();
+    final registered = _registrations.remove(registrationId);
+    await registered?.closeInvocationStream();
   }
 
   Future<subscribed_msg.Subscribed> subscribe(
@@ -434,10 +545,7 @@ class RouterSession {
             })
             as int;
     final subscribed = subscribed_msg.Subscribed(requestId, subscriptionId);
-    final controller = StreamController<event_msg.Event>.broadcast();
-    subscribed.eventStream = controller.stream;
     _subscriptions[subscriptionId] = subscribed;
-    _eventControllers[subscriptionId] = controller;
     return subscribed;
   }
 
@@ -445,8 +553,8 @@ class RouterSession {
     await _sendCommand(_internalCmdUnsubscribe, <String, Object?>{
       'subscriptionId': subscriptionId,
     });
-    _subscriptions.remove(subscriptionId);
-    await _eventControllers.remove(subscriptionId)?.close();
+    final subscribed = _subscriptions.remove(subscriptionId);
+    await subscribed?.closeEventStream();
   }
 
   Future<published_msg.Published?> publish(
@@ -455,15 +563,29 @@ class RouterSession {
     Map<String, dynamic>? argumentsKeywords,
     publish_msg.PublishOptions? options,
   }) async {
+    return publishLazyPayload(
+      topic,
+      payload: LazyMessagePayload.materialized(
+        arguments: arguments,
+        argumentsKeywords: argumentsKeywords,
+      ),
+      options: options,
+    );
+  }
+
+  Future<published_msg.Published?> publishLazyPayload(
+    String topic, {
+    required LazyMessagePayload payload,
+    publish_msg.PublishOptions? options,
+  }) async {
     final requestId = _nextPublishRequestId++;
-    final payload = <String, Object?>{
+    final commandPayload = <String, Object?>{
       'topic': topic,
-      'arguments': arguments,
-      'argumentsKeywords': argumentsKeywords,
+      'lazyPayload': _transferLazyMessagePayload(payload),
       'options': _publishOptionsToMap(options),
     };
     final publicationId =
-        await _sendCommand(_internalCmdPublish, payload) as int;
+        await _sendCommand(_internalCmdPublish, commandPayload) as int;
     if (options?.acknowledge == true) {
       return published_msg.Published(requestId, publicationId);
     }
@@ -477,6 +599,23 @@ class RouterSession {
     call_msg.CallOptions? options,
     Completer<String>? cancelCompleter,
   }) {
+    return callLazyPayload(
+      procedure,
+      payload: LazyMessagePayload.materialized(
+        arguments: arguments,
+        argumentsKeywords: argumentsKeywords,
+      ),
+      options: options,
+      cancelCompleter: cancelCompleter,
+    );
+  }
+
+  Stream<result_msg.Result> callLazyPayload(
+    String procedure, {
+    required LazyMessagePayload payload,
+    call_msg.CallOptions? options,
+    Completer<String>? cancelCompleter,
+  }) {
     final requestId = _nextCallRequestId++;
     final controller = StreamController<result_msg.Result>(
       onCancel: () {
@@ -484,14 +623,13 @@ class RouterSession {
       },
     );
     _callControllers[requestId] = controller;
-    final payload = <String, Object?>{
+    final commandPayload = <String, Object?>{
       'requestId': requestId,
       'procedure': procedure,
-      'arguments': arguments,
-      'argumentsKeywords': argumentsKeywords,
+      'lazyPayload': _transferLazyMessagePayload(payload),
       'options': _callOptionsToMap(options),
     };
-    _sendCommand(_internalCmdCall, payload).catchError((error, stack) {
+    _sendCommand(_internalCmdCall, commandPayload).catchError((error, stack) {
       if (!controller.isClosed) {
         controller.addError(
           error,
@@ -592,6 +730,18 @@ class RouterSession {
     if (options.retain != null) {
       map['retain'] = options.retain;
     }
+    if (options.pptScheme != null) {
+      map['ppt_scheme'] = options.pptScheme;
+    }
+    if (options.pptSerializer != null) {
+      map['ppt_serializer'] = options.pptSerializer;
+    }
+    if (options.pptCipher != null) {
+      map['ppt_cipher'] = options.pptCipher;
+    }
+    if (options.pptKeyId != null) {
+      map['ppt_keyid'] = options.pptKeyId;
+    }
     if (options.custom.isNotEmpty) {
       map.addAll(options.custom);
     }
@@ -611,6 +761,18 @@ class RouterSession {
     }
     if (options.discloseMe != null) {
       map['disclose_me'] = options.discloseMe;
+    }
+    if (options.pptScheme != null) {
+      map['ppt_scheme'] = options.pptScheme;
+    }
+    if (options.pptSerializer != null) {
+      map['ppt_serializer'] = options.pptSerializer;
+    }
+    if (options.pptCipher != null) {
+      map['ppt_cipher'] = options.pptCipher;
+    }
+    if (options.pptKeyId != null) {
+      map['ppt_keyid'] = options.pptKeyId;
     }
     if (options.custom.isNotEmpty) {
       map.addAll(options.custom);
@@ -637,6 +799,330 @@ const String _internalMsgCallResult = 'call_result';
 const String _internalMsgCallError = 'call_error';
 const String _internalMsgCallProgress = 'call_progress';
 const String _internalMsgForwardInterrupt = 'forward_interrupt';
+const String _internalMsgLazyPayload = 'lazyPayload';
+
+const String _transferredLazyPayloadMarkerKey = r'$connectanumLazyPayload';
+const String _transferredLazyPayloadEncodingKey = 'encoding';
+const String _transferredLazyPayloadTransparentBinaryKey =
+    'transparentBinaryPayload';
+const String _transferredLazyPayloadArgumentsBytesKey = 'argumentsBytes';
+const String _transferredLazyPayloadArgumentsKeywordsBytesKey =
+    'argumentsKeywordsBytes';
+const String _transferredLazyPayloadPackedPayloadBytesKey =
+    'packedPayloadBytes';
+const String _transferredLazyPayloadArgumentsKey = 'arguments';
+const String _transferredLazyPayloadArgumentsKeywordsKey = 'argumentsKeywords';
+const String _transferredLazyPayloadPptDecodedKey = 'pptDecoded';
+
+Object? _transferLazyMessagePayload(LazyMessagePayload? payload) {
+  if (payload == null) {
+    return null;
+  }
+  return _buildTransferredLazyPayload(
+    encoding: payload.encoding,
+    pptDecoded: payload.pptDecoded,
+    transparentBinaryPayload: payload.transparentBinaryPayload,
+    argumentsBytes: payload.argumentsBytes,
+    argumentsKeywordsBytes: payload.argumentsKeywordsBytes,
+    packedPayloadBytes: payload.packedPayloadBytes,
+    arguments:
+        payload.argumentsBytes == null && payload.packedPayloadBytes == null
+        ? payload.arguments
+        : null,
+    argumentsKeywords:
+        payload.argumentsKeywordsBytes == null &&
+            payload.packedPayloadBytes == null
+        ? payload.argumentsKeywords
+        : null,
+  );
+}
+
+Object? _transferAbstractMessagePayload(
+  AbstractMessageWithPayload message, {
+  List<dynamic>? argumentsOverride,
+  bool overrideArguments = false,
+  Map<String, dynamic>? argumentsKeywordsOverride,
+  bool overrideArgumentsKeywords = false,
+}) {
+  final canReuseEncodedArguments =
+      !overrideArguments &&
+      message.debugEncodedArgumentsBytes != null &&
+      message.lazyPayloadEncoding != null;
+  final canReuseEncodedArgumentsKeywords =
+      !overrideArgumentsKeywords &&
+      message.debugEncodedArgumentsKeywordsBytes != null &&
+      message.lazyPayloadEncoding != null;
+  return _buildTransferredLazyPayload(
+    encoding: message.lazyPayloadEncoding,
+    pptDecoded: message.hasDecodedPptPayload,
+    transparentBinaryPayload: message.transparentBinaryPayload,
+    argumentsBytes: canReuseEncodedArguments
+        ? message.debugEncodedArgumentsBytes
+        : null,
+    argumentsKeywordsBytes: canReuseEncodedArgumentsKeywords
+        ? message.debugEncodedArgumentsKeywordsBytes
+        : null,
+    arguments: canReuseEncodedArguments
+        ? null
+        : (overrideArguments ? argumentsOverride : message.arguments),
+    argumentsKeywords: canReuseEncodedArgumentsKeywords
+        ? null
+        : (overrideArgumentsKeywords
+              ? argumentsKeywordsOverride
+              : message.argumentsKeywords),
+  );
+}
+
+Object? _buildTransferredLazyPayload({
+  LazyPayloadEncoding? encoding,
+  bool pptDecoded = false,
+  Uint8List? transparentBinaryPayload,
+  Uint8List? argumentsBytes,
+  Uint8List? argumentsKeywordsBytes,
+  Uint8List? packedPayloadBytes,
+  List<dynamic>? arguments,
+  Map<String, dynamic>? argumentsKeywords,
+}) {
+  if (transparentBinaryPayload == null &&
+      argumentsBytes == null &&
+      argumentsKeywordsBytes == null &&
+      packedPayloadBytes == null &&
+      arguments == null &&
+      argumentsKeywords == null) {
+    return null;
+  }
+  return <String, Object?>{
+    _transferredLazyPayloadMarkerKey: true,
+    if (encoding != null) _transferredLazyPayloadEncodingKey: encoding.name,
+    if (pptDecoded) _transferredLazyPayloadPptDecodedKey: true,
+    if (transparentBinaryPayload != null)
+      _transferredLazyPayloadTransparentBinaryKey: transparentBinaryPayload,
+    if (packedPayloadBytes != null)
+      _transferredLazyPayloadPackedPayloadBytesKey: packedPayloadBytes,
+    if (argumentsBytes != null)
+      _transferredLazyPayloadArgumentsBytesKey: argumentsBytes
+    else if (arguments != null)
+      _transferredLazyPayloadArgumentsKey: _transferIsolateValue(arguments),
+    if (argumentsKeywordsBytes != null)
+      _transferredLazyPayloadArgumentsKeywordsBytesKey: argumentsKeywordsBytes
+    else if (argumentsKeywords != null)
+      _transferredLazyPayloadArgumentsKeywordsKey: _transferIsolateValue(
+        argumentsKeywords,
+      ),
+  };
+}
+
+bool _isTransferredLazyPayload(Object? value) {
+  return value is Map && value[_transferredLazyPayloadMarkerKey] == true;
+}
+
+LazyMessagePayload? _lazyPayloadFromTransferred(Object? value) {
+  if (!_isTransferredLazyPayload(value)) {
+    return null;
+  }
+  final raw = (value as Map).cast<Object?, Object?>();
+  final encoding = _lazyPayloadEncodingFromName(
+    raw[_transferredLazyPayloadEncodingKey] as String?,
+  );
+  final transparentBinaryPayload = _coerceTransferredBytes(
+    raw[_transferredLazyPayloadTransparentBinaryKey],
+  );
+  final pptDecoded = raw[_transferredLazyPayloadPptDecodedKey] == true;
+  final argumentsBytes = _coerceTransferredBytes(
+    raw[_transferredLazyPayloadArgumentsBytesKey],
+  );
+  final argumentsKeywordsBytes = _coerceTransferredBytes(
+    raw[_transferredLazyPayloadArgumentsKeywordsBytesKey],
+  );
+  final packedPayloadBytes = _coerceTransferredBytes(
+    raw[_transferredLazyPayloadPackedPayloadBytesKey],
+  );
+  final arguments = (raw[_transferredLazyPayloadArgumentsKey] as List?)
+      ?.cast<dynamic>()
+      .toList(growable: false);
+  final argumentsKeywords =
+      (raw[_transferredLazyPayloadArgumentsKeywordsKey] as Map?)
+          ?.cast<String, dynamic>();
+  if (argumentsBytes != null || argumentsKeywordsBytes != null) {
+    return LazyMessagePayload.encoded(
+      transparentBinaryPayload: transparentBinaryPayload,
+      encoding: encoding,
+      argumentsBytes: argumentsBytes,
+      argumentsKeywordsBytes: argumentsKeywordsBytes,
+      argumentsDecoder: argumentsBytes == null || encoding == null
+          ? null
+          : _payloadListDecoderForEncoding(encoding),
+      argumentsKeywordsDecoder:
+          argumentsKeywordsBytes == null || encoding == null
+          ? null
+          : _payloadMapDecoderForEncoding(encoding),
+    );
+  }
+  if (packedPayloadBytes != null) {
+    return LazyMessagePayload.packed(
+      transparentBinaryPayload: transparentBinaryPayload,
+      encoding: encoding,
+      packedPayloadBytes: packedPayloadBytes,
+      packedPayloadDecoder: (bytes) {
+        final serializer = _pptSerializerNameForEncoding(encoding);
+        final decoded = PPTPayload.unpackPPTPayload([
+          bytes,
+        ], _TransferredPptOptions(pptSerializer: serializer));
+        return (
+          arguments: decoded.arguments,
+          argumentsKeywords: decoded.argumentsKeywords,
+        );
+      },
+      pptDecoded: pptDecoded,
+    );
+  }
+  return LazyMessagePayload.materialized(
+    transparentBinaryPayload: transparentBinaryPayload,
+    encoding: encoding,
+    arguments: arguments,
+    argumentsKeywords: argumentsKeywords,
+    pptDecoded: pptDecoded,
+  );
+}
+
+Uint8List? _coerceTransferredBytes(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  if (value is Uint8List) {
+    return value;
+  }
+  if (value is List<int>) {
+    return Uint8List.fromList(value);
+  }
+  if (value is List) {
+    return Uint8List.fromList(value.cast<int>());
+  }
+  throw StateError('Expected transferred byte payload but got $value');
+}
+
+void _applyTransferredLazyPayload(
+  AbstractMessageWithPayload message,
+  Object? transferredPayload, {
+  List<dynamic>? fallbackArguments,
+  Map<String, dynamic>? fallbackArgumentsKeywords,
+}) {
+  final payload = _lazyPayloadFromTransferred(transferredPayload);
+  if (payload == null) {
+    message.arguments = fallbackArguments;
+    message.argumentsKeywords = fallbackArgumentsKeywords;
+    return;
+  }
+  message.transparentBinaryPayload = payload.transparentBinaryPayload;
+  if (payload.packedPayloadBytes != null) {
+    message.arguments = [payload.packedPayloadBytes!];
+    message.argumentsKeywords = null;
+  } else if (payload.argumentsBytes != null ||
+      payload.argumentsKeywordsBytes != null) {
+    final encoding = payload.encoding;
+    message.setLazyPayload(
+      argumentsBytes: payload.argumentsBytes,
+      argumentsDecoder: payload.argumentsBytes == null || encoding == null
+          ? null
+          : _payloadListDecoderForEncoding(encoding),
+      argumentsKeywordsBytes: payload.argumentsKeywordsBytes,
+      argumentsKeywordsDecoder:
+          payload.argumentsKeywordsBytes == null || encoding == null
+          ? null
+          : _payloadMapDecoderForEncoding(encoding),
+      encoding: encoding,
+    );
+  } else {
+    message.arguments = payload.arguments == null
+        ? fallbackArguments
+        : List<dynamic>.from(payload.arguments!);
+    message.argumentsKeywords = payload.argumentsKeywords == null
+        ? fallbackArgumentsKeywords
+        : Map<String, dynamic>.from(payload.argumentsKeywords!);
+    if (payload.pptDecoded) {
+      message.markPptPayloadDecoded();
+    }
+  }
+}
+
+LazyPayloadEncoding? _lazyPayloadEncodingFromName(String? value) {
+  return switch (value) {
+    'json' => LazyPayloadEncoding.json,
+    'messagePack' => LazyPayloadEncoding.messagePack,
+    'cbor' => LazyPayloadEncoding.cbor,
+    _ => null,
+  };
+}
+
+PayloadListDecoder _payloadListDecoderForEncoding(
+  LazyPayloadEncoding encoding,
+) {
+  return (bytes) => _decodePayloadArgumentList(encoding, bytes);
+}
+
+PayloadMapDecoder _payloadMapDecoderForEncoding(LazyPayloadEncoding encoding) {
+  return (bytes) => _decodePayloadKeywordMap(encoding, bytes);
+}
+
+List<dynamic> _decodePayloadArgumentList(
+  LazyPayloadEncoding encoding,
+  Uint8List bytes,
+) {
+  final decoded = _decodePayloadFragment(encoding, bytes);
+  if (decoded == null) {
+    return <dynamic>[];
+  }
+  if (decoded is List) {
+    return List<dynamic>.from(decoded);
+  }
+  throw ArgumentError('Expected lazy payload arguments list but got $decoded');
+}
+
+Map<String, dynamic> _decodePayloadKeywordMap(
+  LazyPayloadEncoding encoding,
+  Uint8List bytes,
+) {
+  final decoded = _decodePayloadFragment(encoding, bytes);
+  if (decoded == null) {
+    return <String, dynamic>{};
+  }
+  if (decoded is Map) {
+    return decoded.map((key, value) => MapEntry(key.toString(), value));
+  }
+  throw ArgumentError(
+    'Expected lazy payload keyword arguments map but got $decoded',
+  );
+}
+
+Object? _decodePayloadFragment(LazyPayloadEncoding encoding, Uint8List bytes) {
+  return switch (encoding) {
+    LazyPayloadEncoding.json => json.decode(utf8.decode(bytes)),
+    LazyPayloadEncoding.messagePack => msgpack_dart.deserialize(bytes),
+    LazyPayloadEncoding.cbor => _decodeCborPayloadFragment(bytes),
+  };
+}
+
+String? _pptSerializerNameForEncoding(LazyPayloadEncoding? encoding) {
+  return switch (encoding) {
+    LazyPayloadEncoding.json => 'json',
+    LazyPayloadEncoding.messagePack => 'msgpack',
+    LazyPayloadEncoding.cbor => 'cbor',
+    null => null,
+  };
+}
+
+class _TransferredPptOptions extends PPTOptions {
+  _TransferredPptOptions({String? pptSerializer}) {
+    this.pptSerializer = pptSerializer;
+  }
+
+  @override
+  bool verify() => true;
+}
+
+Object? _decodeCborPayloadFragment(Uint8List bytes) {
+  return cbor.decode(bytes.toList()).toObject();
+}
 
 Object? _transferIsolateValue(Object? value) {
   if (value is Uint8List) {
@@ -671,6 +1157,9 @@ Object? _transferIsolateValue(Object? value) {
 Object? _materializeTransferredValue(Object? value) {
   if (value is TransferableTypedData) {
     return value.materialize().asUint8List();
+  }
+  if (value is Uint8List) {
+    return value;
   }
   if (value is List) {
     return value
@@ -916,25 +1405,51 @@ class _InternalSessionIsolate {
     final topic =
         payload['topic'] as String? ??
         (throw ArgumentError('topic is required'));
+    final options = Map<String, Object?>.from(
+      (payload['options'] as Map?)?.cast<String, Object?>() ?? const {},
+    );
+    final transferredPayload =
+        payload[_internalMsgLazyPayload] ??
+        _buildTransferredLazyPayload(
+          arguments: (payload['arguments'] as List?)?.cast<dynamic>(),
+          argumentsKeywords: (payload['argumentsKeywords'] as Map?)
+              ?.cast<String, dynamic>(),
+        );
     final context = _realmContexts.contextFor(_bootstrap.realmUri);
+    final eventPptScheme = options['ppt_scheme'] as String?;
+    final eventPptSerializer = options['ppt_serializer'] as String?;
+    final eventPptCipher = options['ppt_cipher'] as String?;
+    final eventPptKeyId = options['ppt_keyid'] as String?;
     final routing = await context.matchSubscriptions(
       publisherSessionId: _bootstrap.sessionId,
       topic: topic,
-      options: Map<String, Object?>.from(
-        (payload['options'] as Map?)?.cast<String, Object?>() ?? const {},
-      ),
+      options: options,
     );
     for (final match in routing.matches) {
+      final eventDetails = Map<String, Object?>.from(match.details);
+      if (eventPptScheme != null) {
+        eventDetails['ppt_scheme'] = eventPptScheme;
+      }
+      if (eventPptSerializer != null) {
+        eventDetails['ppt_serializer'] = eventPptSerializer;
+      }
+      if (eventPptCipher != null) {
+        eventDetails['ppt_cipher'] = eventPptCipher;
+      }
+      if (eventPptKeyId != null) {
+        eventDetails['ppt_keyid'] = eventPptKeyId;
+      }
       if (match.internalSendPort != null) {
         match.internalSendPort!.send({
           'type': 'event',
           'subscriptionId': match.subscriptionId,
           'publicationId': routing.publicationId,
           'topic': payload['topic'],
+          _internalMsgLazyPayload: transferredPayload,
           'arguments': payload['arguments'],
           'argumentsKeywords': payload['argumentsKeywords'],
           'publisherSessionId': _bootstrap.sessionId,
-          'details': match.details,
+          'details': eventDetails,
         });
       } else {
         _bootstrap.controlPort.send({
@@ -943,10 +1458,15 @@ class _InternalSessionIsolate {
           'subscriptionId': match.subscriptionId,
           'publicationId': routing.publicationId,
           'topic': payload['topic'],
+          _internalMsgLazyPayload: transferredPayload,
           'arguments': payload['arguments'],
           'argumentsKeywords': payload['argumentsKeywords'],
           'publisherSessionId': _bootstrap.sessionId,
-          'details': match.details,
+          'details': eventDetails,
+          'pptScheme': eventPptScheme,
+          'pptSerializer': eventPptSerializer,
+          'pptCipher': eventPptCipher,
+          'pptKeyId': eventPptKeyId,
         });
       }
     }
@@ -964,6 +1484,13 @@ class _InternalSessionIsolate {
     final procedure =
         payload['procedure'] as String? ??
         (throw ArgumentError('procedure is required'));
+    final transferredPayload =
+        payload[_internalMsgLazyPayload] ??
+        _buildTransferredLazyPayload(
+          arguments: (payload['arguments'] as List?)?.cast<dynamic>(),
+          argumentsKeywords: (payload['argumentsKeywords'] as Map?)
+              ?.cast<String, dynamic>(),
+        );
     final arguments = (payload['arguments'] as List<dynamic>?)?.toList(
       growable: false,
     );
@@ -987,6 +1514,7 @@ class _InternalSessionIsolate {
         'invocationId': dispatch.invocationId,
         'registrationId': dispatch.registrationId,
         'procedure': procedure,
+        _internalMsgLazyPayload: transferredPayload,
         'arguments': arguments,
         'argumentsKeywords': argumentsKeywords,
         'options': options,
@@ -1003,6 +1531,9 @@ class _InternalSessionIsolate {
               'type': _internalMsgCallError,
               'requestId': requestId,
               'error': wamp_core.Error.runtimeError,
+              _internalMsgLazyPayload: _buildTransferredLazyPayload(
+                arguments: const ['Invalid response from callee'],
+              ),
               'arguments': const ['Invalid response from callee'],
             });
             break;
@@ -1016,9 +1547,14 @@ class _InternalSessionIsolate {
             _bootstrap.controlPort.send({
               'type': _internalMsgCallResult,
               'requestId': requestId,
+              _internalMsgLazyPayload: response[_internalMsgLazyPayload],
               'arguments': response['arguments'],
               'argumentsKeywords': response['argumentsKeywords'],
               'progress': progress,
+              'pptScheme': response['pptScheme'],
+              'pptSerializer': response['pptSerializer'],
+              'pptCipher': response['pptCipher'],
+              'pptKeyId': response['pptKeyId'],
             });
             if (!progress) {
               break;
@@ -1028,6 +1564,7 @@ class _InternalSessionIsolate {
               'type': _internalMsgCallError,
               'requestId': requestId,
               'error': response['error'],
+              _internalMsgLazyPayload: response[_internalMsgLazyPayload],
               'arguments': response['arguments'],
               'argumentsKeywords': response['argumentsKeywords'],
               'details': response['details'],
@@ -1039,6 +1576,7 @@ class _InternalSessionIsolate {
               'type': _internalMsgCallError,
               'requestId': requestId,
               'error': response['error'],
+              _internalMsgLazyPayload: response[_internalMsgLazyPayload],
               'arguments': response['arguments'],
               'argumentsKeywords': response['argumentsKeywords'],
               'details': response['details'],
@@ -1050,6 +1588,9 @@ class _InternalSessionIsolate {
               'type': _internalMsgCallError,
               'requestId': requestId,
               'error': wamp_core.Error.runtimeError,
+              _internalMsgLazyPayload: _buildTransferredLazyPayload(
+                arguments: const ['Invalid response from callee'],
+              ),
               'arguments': const ['Invalid response from callee'],
             });
             break;
@@ -1067,13 +1608,32 @@ class _InternalSessionIsolate {
       discloseCaller ? _bootstrap.sessionId : null,
       procedure,
       receiveProgress,
+      options['ppt_scheme'] as String?,
+      options['ppt_serializer'] as String?,
+      options['ppt_cipher'] as String?,
+      options['ppt_keyid'] as String?,
     );
+    if (options.isNotEmpty) {
+      final custom = Map<String, dynamic>.from(options)
+        ..remove('receive_progress')
+        ..remove('ppt_scheme')
+        ..remove('ppt_serializer')
+        ..remove('ppt_cipher')
+        ..remove('ppt_keyid');
+      if (custom.isNotEmpty) {
+        invocationDetails.custom.addAll(custom);
+      }
+    }
     final invocation = invocation_msg.Invocation(
       dispatch.invocationId,
       dispatch.registrationId,
       invocationDetails,
-      arguments: arguments,
-      argumentsKeywords: argumentsKeywords,
+    );
+    _applyTransferredLazyPayload(
+      invocation,
+      transferredPayload,
+      fallbackArguments: arguments,
+      fallbackArgumentsKeywords: argumentsKeywords,
     );
     _bootstrap.controlPort.send({
       'type': _internalMsgForwardInvocation,
@@ -1177,9 +1737,15 @@ class _InternalSessionIsolate {
           'subscriptionId': decodedMessage['subscriptionId'],
           'publicationId': decodedMessage['publicationId'],
           'topic': decodedMessage['topic'],
+          _internalMsgLazyPayload: decodedMessage[_internalMsgLazyPayload],
           'arguments': decodedMessage['arguments'],
           'argumentsKeywords': decodedMessage['argumentsKeywords'],
           'publisherSessionId': decodedMessage['publisherSessionId'],
+          'pptScheme': (decodedMessage['details'] as Map?)?['ppt_scheme'],
+          'pptSerializer':
+              (decodedMessage['details'] as Map?)?['ppt_serializer'],
+          'pptCipher': (decodedMessage['details'] as Map?)?['ppt_cipher'],
+          'pptKeyId': (decodedMessage['details'] as Map?)?['ppt_keyid'],
         });
         break;
       case 'invocation':
@@ -1209,9 +1775,15 @@ class _InternalSessionIsolate {
           'invocationId': invocationId,
           'registrationId': decodedMessage['registrationId'],
           'procedure': decodedMessage['procedure'],
+          _internalMsgLazyPayload: decodedMessage[_internalMsgLazyPayload],
           'arguments': decodedMessage['arguments'],
           'argumentsKeywords': decodedMessage['argumentsKeywords'],
           'options': decodedMessage['options'],
+          'pptScheme': (decodedMessage['options'] as Map?)?['ppt_scheme'],
+          'pptSerializer':
+              (decodedMessage['options'] as Map?)?['ppt_serializer'],
+          'pptCipher': (decodedMessage['options'] as Map?)?['ppt_cipher'],
+          'pptKeyId': (decodedMessage['options'] as Map?)?['ppt_keyid'],
           'callerSessionId': decodedMessage['callerSessionId'],
           'callerRequestId': decodedMessage['callerRequestId'],
           'replyPort': responsePort.sendPort,
@@ -1222,6 +1794,9 @@ class _InternalSessionIsolate {
               replyPort.send({
                 'type': 'error',
                 'error': wamp_core.Error.unknown,
+                _internalMsgLazyPayload: _buildTransferredLazyPayload(
+                  arguments: const ['Invalid response from internal session'],
+                ),
                 'arguments': ['Invalid response from internal session'],
               });
               break;
@@ -1268,6 +1843,9 @@ class _InternalSessionIsolate {
           'type': _internalMsgCallError,
           'requestId': context.callerRequestId,
           'error': error_msg.Error.errorInvocationCanceled,
+          _internalMsgLazyPayload: _buildTransferredLazyPayload(
+            arguments: const ['Invocation cancelled'],
+          ),
           'arguments': const ['Invocation cancelled'],
           if (details.isNotEmpty) 'details': details,
         });

@@ -13,6 +13,8 @@ import 'package:meta/meta.dart';
 import '../abstract_transport.dart';
 import '../socket/socket_helper.dart';
 import '../websocket/websocket_transport_serialization.dart';
+import 'message_binding.dart';
+import 'message_protocol.dart';
 import 'runtime.dart';
 
 final _nativeMessageAnchor = Expando<NativeIncomingMessage>(
@@ -38,7 +40,8 @@ List<int> collectNativeReceiveBatch(
   return batch;
 }
 
-abstract class _NativeTransportBase extends AbstractTransport {
+abstract class _NativeTransportBase extends AbstractTransport
+    implements SessionOptimizedTransport {
   _NativeTransportBase(
     this._serializer,
     this._nativeSerializer, {
@@ -52,7 +55,7 @@ abstract class _NativeTransportBase extends AbstractTransport {
     libraryPath: _libraryPath,
   );
 
-  StreamController<AbstractMessage?>? _messageController;
+  StreamController<Object?>? _messageController;
   Completer<void>? _onReadyCompleter;
   Completer<dynamic>? _onConnectionLostCompleter;
   Completer<dynamic>? _onDisconnectCompleter;
@@ -96,7 +99,7 @@ abstract class _NativeTransportBase extends AbstractTransport {
     _goodbyeSent = false;
     _goodbyeReceived = false;
     _pumpStarted = false;
-    _messageController = StreamController<AbstractMessage?>.broadcast();
+    _messageController = StreamController<Object?>.broadcast();
     _onReadyCompleter = Completer<void>();
     _onConnectionLostCompleter = Completer<dynamic>();
     _onDisconnectCompleter = Completer<dynamic>();
@@ -116,6 +119,11 @@ abstract class _NativeTransportBase extends AbstractTransport {
 
   @override
   Stream<AbstractMessage?> receive() {
+    return receiveSessionMessages().map(_materializePublicMessage);
+  }
+
+  @override
+  Stream<Object?> receiveSessionMessages() {
     final controller = _messageController;
     if (controller == null) {
       throw StateError('Transport must be opened before receive() is used.');
@@ -178,7 +186,7 @@ abstract class _NativeTransportBase extends AbstractTransport {
           final incoming = _runtime.materialize(handle);
           final message = incoming.message;
           _nativeMessageAnchor[message] = incoming;
-          if (message is Goodbye) {
+          if (_isGoodbyeMessage(message)) {
             _goodbyeReceived = true;
           }
           final controller = _messageController;
@@ -248,6 +256,28 @@ abstract class _NativeTransportBase extends AbstractTransport {
       'Serializer ${_nativeSerializer.name} returned unsupported payload ${serialized.runtimeType}',
     );
   }
+}
+
+AbstractMessage? _materializePublicMessage(Object? message) {
+  if (message == null) {
+    return null;
+  }
+  final materialized = materializeSessionMessage(message);
+  final anchored = _nativeMessageAnchor[message];
+  if (anchored != null && !identical(materialized, message)) {
+    _nativeMessageAnchor[materialized] = anchored;
+  }
+  return materialized;
+}
+
+bool _isGoodbyeMessage(Object message) {
+  if (message is Goodbye) {
+    return true;
+  }
+  if (message is NativeSessionMessage) {
+    return message.metadata.messageCode == MessageTypes.codeGoodbye;
+  }
+  return false;
 }
 
 class NativeRawSocketTransport extends _NativeTransportBase {

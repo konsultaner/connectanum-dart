@@ -10,13 +10,22 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart'
-    show MessageTypes, Publish;
+    show
+        CallOptions,
+        LazyMessagePayload,
+        LazyPayloadEncoding,
+        MessageTypes,
+        PPTPayload,
+        Publish,
+        PublishOptions;
+import 'package:connectanum_core/connectanum_core.dart' show YieldOptions;
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
 import 'package:connectanum_router/src/router/models/router_config.dart';
 import 'package:connectanum_router/src/router/models/sni_certificate.dart';
 import 'package:connectanum_router/src/router/models/tls_mode.dart';
 import 'package:connectanum_router/src/router/router_instance.dart';
+import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
 import 'package:test/test.dart';
 
 const _certificatePem =
@@ -3337,6 +3346,309 @@ void main() {
             event['path'] == '/beta',
       );
       expect(betaEvents, isNotEmpty);
+    },
+  );
+
+  test(
+    'routes lazy call payloads across internal sessions without decoding',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithPendingProtocols(),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+
+      final callee = await binding.createInternalSession(realmUri: 'realm1');
+      final caller = await binding.createInternalSession(realmUri: 'realm1');
+      addTearDown(callee.close);
+      addTearDown(caller.close);
+
+      final encodedArguments = Uint8List.fromList(
+        msgpack_dart.serialize([
+          'payload',
+          [1, 2, 3],
+        ]),
+      );
+      final encodedArgumentsKeywords = Uint8List.fromList(
+        msgpack_dart.serialize({'flag': true, 'count': 2}),
+      );
+      final invocationPayloads = <Map<String, Uint8List?>>[];
+
+      final registration = await callee.register('com.example.lazy.proc');
+      registration.onLazyInvokePayload((invocation) {
+        invocationPayloads.add({
+          'arguments': invocation.argumentsBytes,
+          'argumentsKeywords': invocation.argumentsKeywordsBytes,
+        });
+        expect(invocation.payload.encoding, LazyPayloadEncoding.messagePack);
+        invocation.respondWith(arguments: const ['ok']);
+      });
+
+      final result = await caller
+          .callLazyPayload(
+            'com.example.lazy.proc',
+            payload: LazyMessagePayload.encoded(
+              encoding: LazyPayloadEncoding.messagePack,
+              argumentsBytes: encodedArguments,
+              argumentsKeywordsBytes: encodedArgumentsKeywords,
+            ),
+          )
+          .first;
+
+      expect(result.arguments, equals(const ['ok']));
+      expect(invocationPayloads, hasLength(1));
+      expect(
+        invocationPayloads.single['arguments'],
+        orderedEquals(encodedArguments),
+      );
+      expect(
+        invocationPayloads.single['argumentsKeywords'],
+        orderedEquals(encodedArgumentsKeywords),
+      );
+    },
+  );
+
+  test(
+    'routes lazy publish payloads across internal sessions without decoding',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithPendingProtocols(),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+
+      final subscriber = await binding.createInternalSession(
+        realmUri: 'realm1',
+      );
+      final publisher = await binding.createInternalSession(realmUri: 'realm1');
+      addTearDown(subscriber.close);
+      addTearDown(publisher.close);
+
+      final encodedArguments = Uint8List.fromList(
+        msgpack_dart.serialize([
+          'event',
+          [4, 5, 6],
+        ]),
+      );
+      final encodedArgumentsKeywords = Uint8List.fromList(
+        msgpack_dart.serialize({'stream': 'alpha'}),
+      );
+      final eventPayloads = <Map<String, Uint8List?>>[];
+
+      final subscription = await subscriber.subscribe('com.example.lazy.topic');
+      subscription.onLazyEventPayload((event) {
+        eventPayloads.add({
+          'arguments': event.argumentsBytes,
+          'argumentsKeywords': event.argumentsKeywordsBytes,
+        });
+        expect(event.payload.encoding, LazyPayloadEncoding.messagePack);
+      });
+
+      await publisher.publishLazyPayload(
+        'com.example.lazy.topic',
+        payload: LazyMessagePayload.encoded(
+          encoding: LazyPayloadEncoding.messagePack,
+          argumentsBytes: encodedArguments,
+          argumentsKeywordsBytes: encodedArgumentsKeywords,
+        ),
+        options: PublishOptions(acknowledge: true),
+      );
+
+      await _waitUntil(
+        () => eventPayloads.isNotEmpty,
+        timeout: const Duration(seconds: 2),
+      );
+      expect(
+        eventPayloads.single['arguments'],
+        orderedEquals(encodedArguments),
+      );
+      expect(
+        eventPayloads.single['argumentsKeywords'],
+        orderedEquals(encodedArgumentsKeywords),
+      );
+    },
+  );
+
+  test(
+    'preserves packed PPT lazy payloads across internal session publish',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithPendingProtocols(),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+
+      final subscriber = await binding.createInternalSession(
+        realmUri: 'realm1',
+      );
+      final publisher = await binding.createInternalSession(realmUri: 'realm1');
+      addTearDown(subscriber.close);
+      addTearDown(publisher.close);
+
+      final packedBytes =
+          PPTPayload.packPPTPayload(
+                const ['ppt-event'],
+                const {'worker': 7},
+                PublishOptions(
+                  acknowledge: true,
+                  pptScheme: 'x_custom_scheme',
+                  pptSerializer: 'msgpack',
+                ),
+              ).single
+              as Uint8List;
+      Uint8List? seenPackedBytes;
+      List<dynamic>? seenArguments;
+      Map<String, dynamic>? seenArgumentsKeywords;
+
+      final subscription = await subscriber.subscribe('com.example.ppt.topic');
+      subscription.onLazyEventPayload((event) {
+        seenPackedBytes = event.packedPayloadBytes;
+        seenArguments = event.arguments;
+        seenArgumentsKeywords = event.argumentsKeywords;
+      });
+
+      await publisher.publishLazyPayload(
+        'com.example.ppt.topic',
+        payload: LazyMessagePayload.packed(
+          encoding: LazyPayloadEncoding.messagePack,
+          packedPayloadBytes: packedBytes,
+          packedPayloadDecoder: (_) => (
+            arguments: const ['ppt-event'],
+            argumentsKeywords: const {'worker': 7},
+          ),
+        ),
+        options: PublishOptions(
+          acknowledge: true,
+          pptScheme: 'x_custom_scheme',
+          pptSerializer: 'msgpack',
+        ),
+      );
+
+      await _waitUntil(
+        () => seenPackedBytes != null,
+        timeout: const Duration(seconds: 2),
+      );
+      expect(seenPackedBytes, orderedEquals(packedBytes));
+      expect(seenArguments, equals(const ['ppt-event']));
+      expect(seenArgumentsKeywords, equals(const {'worker': 7}));
+    },
+  );
+
+  test(
+    'preserves packed PPT lazy payloads across internal session calls',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithPendingProtocols(),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+
+      final caller = await binding.createInternalSession(realmUri: 'realm1');
+      final callee = await binding.createInternalSession(realmUri: 'realm1');
+      addTearDown(caller.close);
+      addTearDown(callee.close);
+
+      final packedBytes =
+          PPTPayload.packPPTPayload(
+                const ['ppt-call'],
+                const {'worker': 7},
+                CallOptions(
+                  pptScheme: 'x_custom_scheme',
+                  pptSerializer: 'msgpack',
+                ),
+              ).single
+              as Uint8List;
+      Uint8List? seenPackedBytes;
+
+      final registration = await callee.register('com.example.ppt.proc');
+      registration.onLazyInvokePayload((invocation) {
+        seenPackedBytes = invocation.packedPayloadBytes;
+        invocation.respondWith(
+          lazyPayload: invocation.payload,
+          options: YieldOptions(
+            pptScheme: invocation.pptScheme,
+            pptSerializer: invocation.pptSerializer,
+          ),
+        );
+      });
+
+      final result = await caller
+          .callLazyPayload(
+            'com.example.ppt.proc',
+            payload: LazyMessagePayload.packed(
+              encoding: LazyPayloadEncoding.messagePack,
+              packedPayloadBytes: packedBytes,
+              packedPayloadDecoder: (_) => (
+                arguments: const ['ppt-call'],
+                argumentsKeywords: const {'worker': 7},
+              ),
+            ),
+            options: CallOptions(
+              pptScheme: 'x_custom_scheme',
+              pptSerializer: 'msgpack',
+            ),
+          )
+          .first;
+
+      expect(seenPackedBytes, orderedEquals(packedBytes));
+      expect(
+        result.toLazyResultPayload().packedPayloadBytes,
+        orderedEquals(packedBytes),
+      );
+      expect(result.arguments, equals(const ['ppt-call']));
+      expect(result.argumentsKeywords, equals(const {'worker': 7}));
     },
   );
 }

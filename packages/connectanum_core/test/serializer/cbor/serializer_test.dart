@@ -1177,6 +1177,48 @@ void main() {
         ),
       );
     });
+    test('Call reuses lazy CBOR argument bytes without decoding', () {
+      final call = Call(7814135, 'com.myapp.ping');
+      call.setLazyPayload(
+        argumentsBytes: Uint8List.fromList(cbor.encode(CborValue(['lazy']))),
+        argumentsDecoder: (_) => throw StateError('should not decode args'),
+        encoding: LazyPayloadEncoding.cbor,
+      );
+
+      expect(
+        (cbor.decode(serializer.serialize(call)) as CborList).toObject(),
+        equals([
+          MessageTypes.codeCall,
+          7814135,
+          {},
+          'com.myapp.ping',
+          ['lazy'],
+        ]),
+      );
+    });
+    test('Call reuses lazy CBOR kwargs bytes without decoding', () {
+      final call = Call(7814135, 'com.myapp.ping');
+      call.setLazyPayload(
+        argumentsKeywordsBytes: Uint8List.fromList(
+          cbor.encode(CborValue({'worker': 1})),
+        ),
+        argumentsKeywordsDecoder: (_) =>
+            throw StateError('should not decode kwargs'),
+        encoding: LazyPayloadEncoding.cbor,
+      );
+
+      expect(
+        (cbor.decode(serializer.serialize(call)) as CborList).toObject(),
+        equals([
+          MessageTypes.codeCall,
+          7814135,
+          {},
+          'com.myapp.ping',
+          [],
+          {'worker': 1},
+        ]),
+      );
+    });
     test('Hello with auth information', () {
       var authHello = Hello('my.realm', Details.forHello());
       authHello.details.authid = 'Richard';
@@ -2287,6 +2329,41 @@ void main() {
           ]),
         ),
       );
+      final callWithPpt = serializer.serialize(
+        Call(
+          7814135,
+          'com.myapp.ping',
+          options: CallOptions(
+            receiveProgress: true,
+            pptScheme: 'x_custom_scheme',
+            pptSerializer: 'cbor',
+            pptCipher: 'aes',
+            pptKeyId: 'kid-2',
+          ),
+        ),
+      );
+      final callWithPptDecoded = cbor.decode(callWithPpt.toList()) as CborList;
+      final callOptions = callWithPptDecoded[2] as CborMap;
+      expect(
+        (callOptions[CborString('receive_progress')] as CborBool).value,
+        isTrue,
+      );
+      expect(
+        (callOptions[CborString('ppt_scheme')] as CborString).toString(),
+        equals('x_custom_scheme'),
+      );
+      expect(
+        (callOptions[CborString('ppt_serializer')] as CborString).toString(),
+        equals('cbor'),
+      );
+      expect(
+        (callOptions[CborString('ppt_cipher')] as CborString).toString(),
+        equals('aes'),
+      );
+      expect(
+        (callOptions[CborString('ppt_keyid')] as CborString).toString(),
+        equals('kid-2'),
+      );
       expect(
         serializer.serialize(
           Call(7814135, 'com.myapp.ping', arguments: ['hi', 2]),
@@ -2473,6 +2550,38 @@ void main() {
             245,
           ]),
         ),
+      );
+      final yieldWithPpt = serializer.serialize(
+        Yield(
+          6131533,
+          options: YieldOptions(
+            progress: true,
+            pptScheme: 'x_custom_scheme',
+            pptSerializer: 'cbor',
+            pptCipher: 'aes',
+            pptKeyId: 'kid-3',
+          ),
+        ),
+      );
+      final yieldWithPptDecoded =
+          cbor.decode(yieldWithPpt.toList()) as CborList;
+      final yieldOptions = yieldWithPptDecoded[2] as CborMap;
+      expect((yieldOptions[CborString('progress')] as CborBool).value, isTrue);
+      expect(
+        (yieldOptions[CborString('ppt_scheme')] as CborString).toString(),
+        equals('x_custom_scheme'),
+      );
+      expect(
+        (yieldOptions[CborString('ppt_serializer')] as CborString).toString(),
+        equals('cbor'),
+      );
+      expect(
+        (yieldOptions[CborString('ppt_cipher')] as CborString).toString(),
+        equals('aes'),
+      );
+      expect(
+        (yieldOptions[CborString('ppt_keyid')] as CborString).toString(),
+        equals('kid-3'),
       );
       expect(
         serializer.serialize(Yield(6131533, arguments: ['hi', 2])),
@@ -3348,199 +3457,71 @@ void main() {
           ]),
         ),
       );
-      expect(
-        serializer.serialize(
-          Publish(
-            239714735,
-            'com.myapp.mytopic1',
-            options: PublishOptions(
-              retain: true,
-              discloseMe: true,
-              acknowledge: true,
-              excludeMe: true,
-              eligible: [1],
-              eligibleAuthId: ['aaa'],
-              eligibleAuthRole: ['role'],
-              exclude: [2],
-              excludeAuthId: ['bbb'],
-              excludeAuthRole: ['admin'],
-            ),
+      final publishWithRoutingOptions = serializer.serialize(
+        Publish(
+          239714735,
+          'com.myapp.mytopic1',
+          options: PublishOptions(
+            retain: true,
+            discloseMe: true,
+            acknowledge: true,
+            excludeMe: true,
+            eligible: [1],
+            eligibleAuthId: ['aaa'],
+            eligibleAuthRole: ['role'],
+            exclude: [2],
+            excludeAuthId: ['bbb'],
+            excludeAuthRole: ['admin'],
           ),
         ),
-        equals(
-          Uint8List.fromList([
-            132,
-            16,
-            26,
-            14,
-            73,
-            193,
-            175,
-            169,
-            102,
-            114,
-            101,
-            116,
-            97,
-            105,
-            110,
-            245,
-            107,
-            97,
-            99,
-            107,
-            110,
-            111,
-            119,
-            108,
-            101,
-            100,
-            103,
-            101,
-            245,
-            106,
-            101,
-            120,
-            99,
-            108,
-            117,
-            100,
-            101,
-            95,
-            109,
-            101,
-            245,
-            103,
-            101,
-            120,
-            99,
-            108,
-            117,
-            100,
-            101,
-            129,
-            2,
-            110,
-            101,
-            120,
-            99,
-            108,
-            117,
-            100,
-            101,
-            95,
-            97,
-            117,
-            116,
-            104,
-            105,
-            100,
-            129,
-            99,
-            98,
-            98,
-            98,
-            112,
-            101,
-            120,
-            99,
-            108,
-            117,
-            100,
-            101,
-            95,
-            97,
-            117,
-            116,
-            104,
-            114,
-            111,
-            108,
-            101,
-            129,
-            101,
-            97,
-            100,
-            109,
-            105,
-            110,
-            104,
-            101,
-            108,
-            105,
-            103,
-            105,
-            98,
-            108,
-            101,
-            129,
-            1,
-            111,
-            101,
-            108,
-            105,
-            103,
-            105,
-            98,
-            108,
-            101,
-            95,
-            97,
-            117,
-            116,
-            104,
-            105,
-            100,
-            129,
-            99,
-            97,
-            97,
-            97,
-            113,
-            101,
-            108,
-            105,
-            103,
-            105,
-            98,
-            108,
-            101,
-            95,
-            97,
-            117,
-            116,
-            104,
-            114,
-            111,
-            108,
-            101,
-            129,
-            100,
-            114,
-            111,
-            108,
-            101,
-            114,
-            99,
-            111,
-            109,
-            46,
-            109,
-            121,
-            97,
-            112,
-            112,
-            46,
-            109,
-            121,
-            116,
-            111,
-            112,
-            105,
-            99,
-            49,
-          ]),
-        ),
+      );
+      final publishWithRoutingOptionsDecoded =
+          cbor.decode(publishWithRoutingOptions.toList()) as CborList;
+      final publishRoutingOptions =
+          publishWithRoutingOptionsDecoded[2] as CborMap;
+      expect(
+        (publishRoutingOptions[CborString('retain')] as CborBool).value,
+        isTrue,
+      );
+      expect(
+        (publishRoutingOptions[CborString('disclose_me')] as CborBool).value,
+        isTrue,
+      );
+      expect(
+        (publishRoutingOptions[CborString('acknowledge')] as CborBool).value,
+        isTrue,
+      );
+      expect(
+        (publishRoutingOptions[CborString('exclude_me')] as CborBool).value,
+        isTrue,
+      );
+      expect(
+        (publishRoutingOptions[CborString('exclude')] as CborList).toObject(),
+        equals(const [2]),
+      );
+      expect(
+        (publishRoutingOptions[CborString('exclude_authid')] as CborList)
+            .toObject(),
+        equals(const ['bbb']),
+      );
+      expect(
+        (publishRoutingOptions[CborString('exclude_authrole')] as CborList)
+            .toObject(),
+        equals(const ['admin']),
+      );
+      expect(
+        (publishRoutingOptions[CborString('eligible')] as CborList).toObject(),
+        equals(const [1]),
+      );
+      expect(
+        (publishRoutingOptions[CborString('eligible_authid')] as CborList)
+            .toObject(),
+        equals(const ['aaa']),
+      );
+      expect(
+        (publishRoutingOptions[CborString('eligible_authrole')] as CborList)
+            .toObject(),
+        equals(const ['role']),
       );
       expect(
         serializer.serialize(
@@ -3996,6 +3977,47 @@ void main() {
             7,
           ]),
         ),
+      );
+      final publishWithPpt = serializer.serialize(
+        Publish(
+          239714735,
+          'com.myapp.mytopic1',
+          options: PublishOptions(
+            acknowledge: true,
+            discloseMe: true,
+            pptScheme: 'x_custom_scheme',
+            pptSerializer: 'cbor',
+            pptCipher: 'aes',
+            pptKeyId: 'kid-1',
+          ),
+        ),
+      );
+      final publishWithPptDecoded =
+          cbor.decode(publishWithPpt.toList()) as CborList;
+      final publishOptions = publishWithPptDecoded[2] as CborMap;
+      expect(
+        (publishOptions[CborString('acknowledge')] as CborBool).value,
+        isTrue,
+      );
+      expect(
+        (publishOptions[CborString('disclose_me')] as CborBool).value,
+        isTrue,
+      );
+      expect(
+        (publishOptions[CborString('ppt_scheme')] as CborString).toString(),
+        equals('x_custom_scheme'),
+      );
+      expect(
+        (publishOptions[CborString('ppt_serializer')] as CborString).toString(),
+        equals('cbor'),
+      );
+      expect(
+        (publishOptions[CborString('ppt_cipher')] as CborString).toString(),
+        equals('aes'),
+      );
+      expect(
+        (publishOptions[CborString('ppt_keyid')] as CborString).toString(),
+        equals('kid-1'),
       );
     });
     test('Goodbye', () {

@@ -243,7 +243,14 @@ because the bench path does not pipeline H1 requests.
   the same workloads.
 - `wamp_client_impl_throughput.toml` – 64 KiB RawSocket/WebSocket RPC + pub/sub
   comparison between Dart and native `connectanum_client` implementations on
-  the same hot-session workloads.
+  the same hot-session workloads. The current native path keeps PPT-wrapped
+  args/kwargs on shared `LazyMessagePayload` views until a workload actually
+  asks for decoded payloads, so backend-style pass-through workloads are not
+  forced through eager Dart `List`/`Map` materialization first.
+- `wamp_ppt_lazy_smoke.toml` – focused RawSocket/WebSocket CBOR PPT workload for
+  both Dart and native clients. Use this when you want to sanity-check that
+  live router traffic still preserves `ppt_*` options, lazy payload bytes, and
+  decoded inner args/kwargs across the full transport path.
 - `all_transports_smoke.toml` – quick cross-transport smoke covering RawSocket,
   WebSocket, HTTP/1.1, HTTP/2, and HTTP/3 in one run. The WAMP side now mixes
   JSON, MessagePack, and CBOR across RawSocket/WebSocket workloads so serializer
@@ -445,6 +452,15 @@ be dropped even though the router succeeded. That race is fixed now, so
 `wamp_serializer_matrix.toml` completes reliably instead of hanging on the
 successful RawSocket/CBOR path.
 
+The PPT-focused smoke run then exposed a live CBOR correctness gap: outbound
+CBOR `PUBLISH` / `CALL` / `YIELD` frames were not serializing `ppt_*` option
+fields, so the router could not preserve PPT metadata on the real wire path
+even though the lazy/native paths worked in isolation. That is fixed now, and
+the shared lazy payload layer also keeps track of already-decoded PPT payloads
+so materialized `Event` / `Result` / `Invocation` objects can be converted back
+into lazy views without a second unpack attempt. `wamp_ppt_lazy_smoke.toml`
+now completes for both Dart and native clients over RawSocket and WebSocket.
+
 The newer larger-payload WAMP runs also exposed two transport-side issues on
 the Dart client path. First, the pub/sub matcher only supported one pending
 waiter, which meant larger-payload pub/sub sweeps quietly serialized on one
@@ -503,19 +519,30 @@ substantially leaner because common inbound native messages now cross the FFI
 boundary as typed metadata instead of forcing Dart to re-decode every full
 frame, payload slices stay lazy, and the dedicated receive isolate blocks on
 `ct_wait_connection_message(...)` while batch-draining ready handles instead of
-spin-polling from the main isolate. The RPC workloads also use
-`Session.callSingle(...)` on the client side so non-progressive calls no longer
-allocate a `StreamController` per request, backend-oriented callees and
-subscribers can now use `Session.registerHandler(...)`,
-`Session.subscribeHandler(...)`, and `Subscribed.onEvent(...)` to stay off the
-stream path entirely, subscription events are decoded once on ingress instead
-of through a mapped stream, subscription and registration streams are now
-allocated lazily only when callers actually use the stream-oriented API, async
-callee failures still flow back as WAMP `ERROR`s after `await`, and the bench
-no longer wraps inbound pub/sub events in an extra Dart object before matching
-them. Full-frame decode remains as a fallback for custom-detail message shapes
-that are not safe to represent in the direct-bind metadata. Treat the numbers
-as relative comparisons on the same machine, not product claims.
+spin-polling from the main isolate. The native client now also has a
+session-only envelope for hot `Event` / `Result` / `Invocation` traffic plus a
+`LazyMessagePayload` object, so backend-style paths can keep borrowed encoded
+args/kwargs bytes around until they actually need decode. The router’s own
+internal-session bridge now uses the same lazy payload contract, so internal
+publish/call forwarding preserves encoded args/kwargs bytes and serializer
+hints across isolate hops instead of eagerly materializing `List` / `Map`
+payloads. The RPC workloads now use `Session.callSingleLazyPayload()` so
+non-progressive calls avoid `Result` allocation on the native fast path and can
+still forward encoded payload bytes, backend-oriented callees and subscribers
+can now use
+`Session.registerLazyPayloadHandler(...)`,
+`Session.subscribeLazyPayloadHandler(...)`, and
+`Subscribed.onLazyEventPayload(...)` to stay off the object/stream path
+entirely, while the older
+`Session.registerHandler(...)`, `Session.subscribeHandler(...)`, and
+`Subscribed.onEvent(...)` APIs remain for consumers that prefer message
+objects. Subscription and registration streams are still allocated lazily only
+when callers actually use the stream-oriented API, async callee failures still
+flow back as WAMP `ERROR`s after `await`, and the bench no longer wraps inbound
+pub/sub events in an extra Dart object before matching them. Full-frame decode
+remains as a fallback for custom-detail message shapes that are not safe to
+represent in the direct-bind metadata. Treat the numbers as relative
+comparisons on the same machine, not product claims.
 
 Treat those as relative loopback signals, not product claims. They are useful
 for before/after comparisons on the same machine and now reflect actual

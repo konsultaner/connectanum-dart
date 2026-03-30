@@ -172,7 +172,20 @@ void _applyLazyPayload(
     argumentsKeywordsDecoder: kwargsBytes == null
         ? null
         : (Uint8List bytes) => _decodeKeywordMap(serializer, bytes),
+    encoding: _lazyPayloadEncodingForSerializer(serializer),
   );
+}
+
+LazyPayloadEncoding? _lazyPayloadEncodingForSerializer(
+  NativeMessageSerializer serializer,
+) {
+  return switch (serializer) {
+    NativeMessageSerializer.json => LazyPayloadEncoding.json,
+    NativeMessageSerializer.messagePack => LazyPayloadEncoding.messagePack,
+    NativeMessageSerializer.cbor => LazyPayloadEncoding.cbor,
+    NativeMessageSerializer.ubjson => null,
+    NativeMessageSerializer.flatbuffers => null,
+  };
 }
 
 Details _mapDetails(Map<String, dynamic>? map) {

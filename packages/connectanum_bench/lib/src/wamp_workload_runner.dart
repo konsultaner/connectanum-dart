@@ -56,7 +56,7 @@ class WampWorkloadRunner {
   ) async {
     final publisher = await _sessionFactory(scenario);
     final subscriber = await _sessionFactory(scenario);
-    final subscription = await subscriber.subscribe(scenario.uri);
+    final subscription = await subscriber.subscribeLazyPayload(scenario.uri);
     final eventBuffer = WampEventBuffer();
     subscription.onEvent((event) {
       _logger.finer(
@@ -132,7 +132,7 @@ class WampWorkloadRunner {
       scenario.uri,
       arguments: [payload],
       argumentsKeywords: metadata,
-      options: wamp_core.PublishOptions(acknowledge: true),
+      options: _buildPublishOptions(scenario),
     );
     _logger.fine(
       'PUBSUB publish acked worker=$workerId iteration=$iteration uri=${scenario.uri}',
@@ -152,7 +152,7 @@ class WampWorkloadRunner {
     );
   }
 
-  bool _matches(wamp_core.Event event, int workerId, int iteration) {
+  bool _matches(wamp_core.LazyEventPayload event, int workerId, int iteration) {
     final keywords = event.argumentsKeywords;
     if (keywords == null) {
       return false;
@@ -226,8 +226,12 @@ class WampWorkloadRunner {
       'RPC call start worker=$workerId iteration=$iteration uri=${scenario.uri}',
     );
     final start = DateTime.now();
-    await session
-        .callSingle(scenario.uri, arguments: [payload])
+    final result = await session
+        .callSingleLazyPayload(
+          scenario.uri,
+          arguments: [payload],
+          options: _buildCallOptions(scenario),
+        )
         .timeout(
           _eventTimeout,
           onTimeout: () {
@@ -241,7 +245,7 @@ class WampWorkloadRunner {
     final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
     _logger.fine(
       'RPC call done worker=$workerId iteration=$iteration uri=${scenario.uri} '
-      'latency_ms=$latencyMs',
+      'latency_ms=$latencyMs args=${result.arguments}',
     );
     return WampSample(
       worker: workerId,
@@ -292,12 +296,37 @@ class WampWorkloadRunner {
     }
     return buffer.toString();
   }
+
+  wamp_core.PublishOptions _buildPublishOptions(WampScenario scenario) {
+    return wamp_core.PublishOptions(
+      acknowledge: true,
+      pptScheme: scenario.pptScheme,
+      pptSerializer: _resolvePptSerializer(scenario),
+    );
+  }
+
+  wamp_core.CallOptions? _buildCallOptions(WampScenario scenario) {
+    if (scenario.pptScheme == null) {
+      return null;
+    }
+    return wamp_core.CallOptions(
+      pptScheme: scenario.pptScheme,
+      pptSerializer: _resolvePptSerializer(scenario),
+    );
+  }
+
+  String? _resolvePptSerializer(WampScenario scenario) {
+    if (scenario.pptScheme == null) {
+      return null;
+    }
+    return scenario.pptSerializer ?? scenario.serializer.name;
+  }
 }
 
 class WampSubscription {
   WampSubscription({
-    Stream<wamp_core.Event> Function()? eventStreamFactory,
-    void Function(void Function(wamp_core.Event event) onEvent)?
+    Stream<wamp_core.LazyEventPayload> Function()? eventStreamFactory,
+    void Function(void Function(wamp_core.LazyEventPayload event) onEvent)?
     attachEventHandler,
     Future<void> Function()? onRevoke,
     required Future<void> Function() cancel,
@@ -306,21 +335,22 @@ class WampSubscription {
        _onRevoke = onRevoke,
        _onCancel = cancel;
 
-  final Stream<wamp_core.Event> Function()? _eventStreamFactory;
-  final void Function(void Function(wamp_core.Event event) onEvent)?
+  final Stream<wamp_core.LazyEventPayload> Function()? _eventStreamFactory;
+  final void Function(void Function(wamp_core.LazyEventPayload event) onEvent)?
   _attachEventHandler;
   final Future<void> Function()? _onRevoke;
   final Future<void> Function() _onCancel;
-  Stream<wamp_core.Event>? _events;
+  Stream<wamp_core.LazyEventPayload>? _events;
 
-  Stream<wamp_core.Event> get events {
+  Stream<wamp_core.LazyEventPayload> get events {
     return _events ??=
-        _eventStreamFactory?.call() ?? const Stream<wamp_core.Event>.empty();
+        _eventStreamFactory?.call() ??
+        const Stream<wamp_core.LazyEventPayload>.empty();
   }
 
   Future<void>? get onRevoke => _onRevoke?.call();
 
-  void onEvent(void Function(wamp_core.Event event) onEvent) {
+  void onEvent(void Function(wamp_core.LazyEventPayload event) onEvent) {
     final attachEventHandler = _attachEventHandler;
     if (attachEventHandler != null) {
       attachEventHandler(onEvent);
@@ -333,13 +363,14 @@ class WampSubscription {
 }
 
 class WampEventBuffer {
-  final Queue<wamp_core.Event> _buffer = Queue<wamp_core.Event>();
+  final Queue<wamp_core.LazyEventPayload> _buffer =
+      Queue<wamp_core.LazyEventPayload>();
   final Queue<_PendingWampEvent> _pending = Queue<_PendingWampEvent>();
   bool _closed = false;
   Object? _error;
   StackTrace? _stackTrace;
 
-  void add(wamp_core.Event event) {
+  void add(wamp_core.LazyEventPayload event) {
     for (final pending in _pending.toList(growable: false)) {
       if (pending.completer.isCompleted) {
         _pending.remove(pending);
@@ -354,9 +385,11 @@ class WampEventBuffer {
     _buffer.addLast(event);
   }
 
-  Future<wamp_core.Event> nextWhere(bool Function(wamp_core.Event) matcher) {
-    final replayBuffer = Queue<wamp_core.Event>();
-    wamp_core.Event? matchedEvent;
+  Future<wamp_core.LazyEventPayload> nextWhere(
+    bool Function(wamp_core.LazyEventPayload) matcher,
+  ) {
+    final replayBuffer = Queue<wamp_core.LazyEventPayload>();
+    wamp_core.LazyEventPayload? matchedEvent;
     while (_buffer.isNotEmpty) {
       final event = _buffer.removeFirst();
       if (matchedEvent == null && matcher(event)) {
@@ -367,15 +400,15 @@ class WampEventBuffer {
     }
     _buffer.addAll(replayBuffer);
     if (matchedEvent != null) {
-      return Future<wamp_core.Event>.value(matchedEvent);
+      return Future<wamp_core.LazyEventPayload>.value(matchedEvent);
     }
     if (_error != null) {
-      return Future<wamp_core.Event>.error(_error!, _stackTrace);
+      return Future<wamp_core.LazyEventPayload>.error(_error!, _stackTrace);
     }
     if (_closed) {
-      return Future<wamp_core.Event>.error(StateError('No element'));
+      return Future<wamp_core.LazyEventPayload>.error(StateError('No element'));
     }
-    final completer = Completer<wamp_core.Event>();
+    final completer = Completer<wamp_core.LazyEventPayload>();
     _pending.addLast(_PendingWampEvent(matcher: matcher, completer: completer));
     return completer.future;
   }
@@ -406,8 +439,8 @@ class WampEventBuffer {
 class _PendingWampEvent {
   _PendingWampEvent({required this.matcher, required this.completer});
 
-  final bool Function(wamp_core.Event event) matcher;
-  final Completer<wamp_core.Event> completer;
+  final bool Function(wamp_core.LazyEventPayload event) matcher;
+  final Completer<wamp_core.LazyEventPayload> completer;
 }
 
 abstract class WampSession {
@@ -425,6 +458,16 @@ abstract class WampSession {
     wamp_core.SubscribeOptions? options,
   });
 
+  Future<WampSubscription> subscribePayload(
+    String topic, {
+    wamp_core.SubscribeOptions? options,
+  });
+
+  Future<WampSubscription> subscribeLazyPayload(
+    String topic, {
+    wamp_core.SubscribeOptions? options,
+  });
+
   Future<Stream<dynamic>> call(
     String procedure, {
     List<dynamic>? arguments,
@@ -433,6 +476,20 @@ abstract class WampSession {
   });
 
   Future<dynamic> callSingle(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  });
+
+  Future<wamp_core.ResultPayload> callSinglePayload(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  });
+
+  Future<wamp_core.LazyResultPayload> callSingleLazyPayload(
     String procedure, {
     List<dynamic>? arguments,
     Map<String, Object?>? argumentsKeywords,
@@ -640,8 +697,48 @@ class _ClientBackedWampSession implements WampSession {
     final subscribed = await _session.subscribe(topic, options: options);
     return WampSubscription(
       eventStreamFactory: () =>
-          subscribed.eventStream ?? const Stream<wamp_core.Event>.empty(),
-      attachEventHandler: subscribed.onEvent,
+          (subscribed.eventStream ?? const Stream<wamp_core.Event>.empty()).map(
+            (event) => event.toLazyEventPayload(anchor: event),
+          ),
+      attachEventHandler: (onEvent) {
+        subscribed.onEvent(
+          (event) => onEvent(event.toLazyEventPayload(anchor: event)),
+        );
+      },
+      onRevoke: () => subscribed.onRevoke.then((_) {}),
+      cancel: () => _session.unsubscribe(subscribed.subscriptionId),
+    );
+  }
+
+  @override
+  Future<WampSubscription> subscribePayload(
+    String topic, {
+    wamp_core.SubscribeOptions? options,
+  }) async {
+    final subscribed = await _session.subscribeLazyPayloadHandler(
+      topic,
+      (_) {},
+      options: options,
+    );
+    return WampSubscription(
+      attachEventHandler: subscribed.onLazyEventPayload,
+      onRevoke: () => subscribed.onRevoke.then((_) {}),
+      cancel: () => _session.unsubscribe(subscribed.subscriptionId),
+    );
+  }
+
+  @override
+  Future<WampSubscription> subscribeLazyPayload(
+    String topic, {
+    wamp_core.SubscribeOptions? options,
+  }) async {
+    final subscribed = await _session.subscribeLazyPayloadHandler(
+      topic,
+      (_) {},
+      options: options,
+    );
+    return WampSubscription(
+      attachEventHandler: subscribed.onLazyEventPayload,
       onRevoke: () => subscribed.onRevoke.then((_) {}),
       cancel: () => _session.unsubscribe(subscribed.subscriptionId),
     );
@@ -679,6 +776,36 @@ class _ClientBackedWampSession implements WampSession {
   }
 
   @override
+  Future<wamp_core.ResultPayload> callSinglePayload(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  }) {
+    return _session.callSinglePayload(
+      procedure,
+      arguments: arguments,
+      argumentsKeywords: argumentsKeywords?.cast<String, dynamic>(),
+      options: options,
+    );
+  }
+
+  @override
+  Future<wamp_core.LazyResultPayload> callSingleLazyPayload(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  }) {
+    return _session.callSingleLazyPayload(
+      procedure,
+      arguments: arguments,
+      argumentsKeywords: argumentsKeywords?.cast<String, dynamic>(),
+      options: options,
+    );
+  }
+
+  @override
   Future<void> close() async {
     await _client.disconnect();
   }
@@ -695,6 +822,8 @@ class WampScenario {
     required this.concurrency,
     this.inFlightPerSession = 1,
     required this.payloadBytes,
+    this.pptScheme,
+    this.pptSerializer,
   });
 
   final WampTransport transport;
@@ -706,6 +835,8 @@ class WampScenario {
   final int concurrency;
   final int inFlightPerSession;
   final int payloadBytes;
+  final String? pptScheme;
+  final String? pptSerializer;
 
   factory WampScenario.fromJson(Map<String, Object?> json) {
     final rawMode = json['mode'];
@@ -732,6 +863,8 @@ class WampScenario {
       concurrency: concurrency,
       inFlightPerSession: inFlightPerSession,
       payloadBytes: payloadBytes,
+      pptScheme: json['ppt_scheme'] as String?,
+      pptSerializer: json['ppt_serializer'] as String?,
     );
   }
 
@@ -758,6 +891,8 @@ class WampScenario {
     'concurrency': concurrency,
     'in_flight_per_session': inFlightPerSession,
     'payload_bytes': payloadBytes,
+    if (pptScheme != null) 'ppt_scheme': pptScheme,
+    if (pptSerializer != null) 'ppt_serializer': pptSerializer,
   };
 }
 

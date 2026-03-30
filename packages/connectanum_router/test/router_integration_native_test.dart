@@ -561,9 +561,34 @@ class _RouterHarness {
     throw StateError('Stream ended while waiting for $type');
   }
 
+  Future<Map<String, Object?>> nextEventMatching(Set<String> types) async {
+    final pending = _takePendingMatching(types);
+    if (pending != null) {
+      return pending;
+    }
+    await for (final _ in _pendingEventSignals.stream) {
+      final match = _takePendingMatching(types);
+      if (match != null) {
+        return match;
+      }
+    }
+    throw StateError('Stream ended while waiting for ${types.join(", ")}');
+  }
+
   Map<String, Object?>? _takePending(String type) {
     for (final event in _pendingEvents) {
       if (event['type'] == type) {
+        _pendingEvents.remove(event);
+        return event;
+      }
+    }
+    return null;
+  }
+
+  Map<String, Object?>? _takePendingMatching(Set<String> types) {
+    for (final event in _pendingEvents) {
+      final type = event['type'];
+      if (type is String && types.contains(type)) {
         _pendingEvents.remove(event);
         return event;
       }
@@ -773,8 +798,14 @@ void main() {
       );
 
       final errorEvent = await harness
-          .nextEvent('worker_forward_native_error')
+          .nextEventMatching(const {
+            'worker_forward_native_error',
+            'worker_forward_native_error_error',
+            'worker_forward_message',
+            'worker_error',
+          })
           .timeout(stepTimeout);
+      expect(errorEvent['type'], equals('worker_forward_native_error'));
       expect(errorEvent['connectionId'], equals(9102));
       expect(errorEvent['requestId'], equals(requestId));
 

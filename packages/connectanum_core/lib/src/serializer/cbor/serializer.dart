@@ -8,6 +8,9 @@ import 'package:logging/logging.dart';
 /// It is used to initialize an [AbstractTransport] object.
 class Serializer extends AbstractSerializer {
   static final Logger _logger = Logger('Connectanum.Serializer');
+  static final Uint8List _emptyListBytes = Uint8List.fromList(
+    cbor.encode(CborValue(const [])),
+  );
 
   @override
   AbstractMessage? deserialize(Uint8List? message) {
@@ -895,12 +898,28 @@ class Serializer extends AbstractSerializer {
   }
 
   dynamic _firstPayload(AbstractMessageWithPayload message) {
+    if (message.lazyPayloadEncoding == LazyPayloadEncoding.cbor) {
+      final encodedArgs = message.debugEncodedArgumentsBytes;
+      final encodedKwargs = message.debugEncodedArgumentsKeywordsBytes;
+      if (encodedArgs != null) {
+        return _decodePayloadFragment(encodedArgs);
+      }
+      if (encodedKwargs != null) {
+        return _decodePayloadFragment(_emptyListBytes);
+      }
+    }
     return message.transparentBinaryPayload ??
         message.arguments ??
         (message.argumentsKeywords != null ? [] : null);
   }
 
   dynamic _secondPayload(AbstractMessageWithPayload message) {
+    if (message.lazyPayloadEncoding == LazyPayloadEncoding.cbor) {
+      final encodedKwargs = message.debugEncodedArgumentsKeywordsBytes;
+      if (encodedKwargs != null) {
+        return _decodePayloadFragment(encodedKwargs);
+      }
+    }
     if (message.transparentBinaryPayload == null &&
         message.argumentsKeywords != null) {
       return message.argumentsKeywords;
@@ -920,6 +939,11 @@ class Serializer extends AbstractSerializer {
         structuredMessage.add(secondPayload);
       }
     }
+  }
+
+  Object? _decodePayloadFragment(Uint8List bytes) {
+    final decoded = cbor.decode(bytes);
+    return decoded.toObject();
   }
 
   Map<String, dynamic> _cborMapToStringMap(CborMap? map) {
@@ -1131,6 +1155,20 @@ class Serializer extends AbstractSerializer {
       if (options.timeout != null) {
         optionMap.addEntries([MapEntry('timeout', options.timeout!)]);
       }
+      if (options.pptScheme != null) {
+        optionMap.addEntries([MapEntry('ppt_scheme', options.pptScheme!)]);
+      }
+      if (options.pptSerializer != null) {
+        optionMap.addEntries([
+          MapEntry('ppt_serializer', options.pptSerializer!),
+        ]);
+      }
+      if (options.pptCipher != null) {
+        optionMap.addEntries([MapEntry('ppt_cipher', options.pptCipher!)]);
+      }
+      if (options.pptKeyId != null) {
+        optionMap.addEntries([MapEntry('ppt_keyid', options.pptKeyId!)]);
+      }
       if (options.custom.isNotEmpty) {
         optionMap.addAll(options.custom);
       }
@@ -1142,6 +1180,20 @@ class Serializer extends AbstractSerializer {
     var optionsMap = {};
     if (options != null) {
       optionsMap.addEntries([MapEntry('progress', options.progress)]);
+      if (options.pptScheme != null) {
+        optionsMap.addEntries([MapEntry('ppt_scheme', options.pptScheme!)]);
+      }
+      if (options.pptSerializer != null) {
+        optionsMap.addEntries([
+          MapEntry('ppt_serializer', options.pptSerializer!),
+        ]);
+      }
+      if (options.pptCipher != null) {
+        optionsMap.addEntries([MapEntry('ppt_cipher', options.pptCipher!)]);
+      }
+      if (options.pptKeyId != null) {
+        optionsMap.addEntries([MapEntry('ppt_keyid', options.pptKeyId!)]);
+      }
       if (options.custom.isNotEmpty) {
         optionsMap.addAll(options.custom);
       }
@@ -1156,7 +1208,7 @@ class Serializer extends AbstractSerializer {
         optionMap.addEntries([MapEntry('retain', options.retain)]);
       }
       if (options.discloseMe != null) {
-        optionMap.addEntries([MapEntry('retain', options.discloseMe)]);
+        optionMap.addEntries([MapEntry('disclose_me', options.discloseMe)]);
       }
       if (options.acknowledge != null) {
         optionMap.addEntries([MapEntry('acknowledge', options.acknowledge)]);
@@ -1189,6 +1241,20 @@ class Serializer extends AbstractSerializer {
         optionMap.addEntries([
           MapEntry('eligible_authrole', options.eligibleAuthRole),
         ]);
+      }
+      if (options.pptScheme != null) {
+        optionMap.addEntries([MapEntry('ppt_scheme', options.pptScheme)]);
+      }
+      if (options.pptSerializer != null) {
+        optionMap.addEntries([
+          MapEntry('ppt_serializer', options.pptSerializer),
+        ]);
+      }
+      if (options.pptCipher != null) {
+        optionMap.addEntries([MapEntry('ppt_cipher', options.pptCipher)]);
+      }
+      if (options.pptKeyId != null) {
+        optionMap.addEntries([MapEntry('ppt_keyid', options.pptKeyId)]);
       }
       if (options.custom.isNotEmpty) {
         optionMap.addAll(options.custom);

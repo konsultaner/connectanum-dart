@@ -1,7 +1,79 @@
+import 'dart:typed_data';
+
 import 'abstract_ppt_options.dart';
 import 'custom_fields.dart';
 import 'message_types.dart';
 import 'abstract_message_with_payload.dart';
+
+class LazyResultPayload {
+  LazyResultPayload({
+    required this.callRequestId,
+    required this.progress,
+    required this.payload,
+    this.pptScheme,
+    this.pptSerializer,
+    this.pptCipher,
+    this.pptKeyId,
+    this.customDetails,
+  });
+
+  final int callRequestId;
+  final bool progress;
+  final String? pptScheme;
+  final String? pptSerializer;
+  final String? pptCipher;
+  final String? pptKeyId;
+  final Map<String, dynamic>? customDetails;
+  final LazyMessagePayload payload;
+
+  List<dynamic>? get arguments => payload.arguments;
+
+  Map<String, dynamic>? get argumentsKeywords => payload.argumentsKeywords;
+
+  Uint8List? get argumentsBytes => payload.argumentsBytes;
+
+  Uint8List? get argumentsKeywordsBytes => payload.argumentsKeywordsBytes;
+
+  Uint8List? get packedPayloadBytes => payload.packedPayloadBytes;
+
+  ResultPayload toPayload() {
+    final decoded = payload.pptDecoded
+        ? (
+            arguments: payload.arguments,
+            argumentsKeywords: payload.argumentsKeywords,
+          )
+        : decodeLazyPayloadView(
+            payload,
+            pptScheme: pptScheme,
+            pptSerializer: pptSerializer,
+            pptCipher: pptCipher,
+            pptKeyId: pptKeyId,
+          );
+    return (
+      callRequestId: callRequestId,
+      progress: progress,
+      pptScheme: pptScheme,
+      pptSerializer: pptSerializer,
+      pptCipher: pptCipher,
+      pptKeyId: pptKeyId,
+      customDetails: customDetails,
+      arguments: decoded.arguments,
+      argumentsKeywords: decoded.argumentsKeywords,
+    );
+  }
+}
+
+typedef ResultPayload = ({
+  int callRequestId,
+  bool progress,
+  String? pptScheme,
+  String? pptSerializer,
+  String? pptCipher,
+  String? pptKeyId,
+  Map<String, dynamic>? customDetails,
+  List<dynamic>? arguments,
+  Map<String, dynamic>? argumentsKeywords,
+});
 
 class Result extends AbstractMessageWithPayload {
   /// The ID for the subscription under which the Subscriber receives the event.
@@ -24,6 +96,49 @@ class Result extends AbstractMessageWithPayload {
 
   bool isProgressive() {
     return details.progress != null && details.progress!;
+  }
+
+  ResultPayload toPayload() {
+    final decoded = hasDecodedPptPayload
+        ? (arguments: arguments, argumentsKeywords: argumentsKeywords)
+        : decodePayloadView(
+            arguments,
+            argumentsKeywords,
+            pptScheme: details.pptScheme,
+            pptSerializer: details.pptSerializer,
+            pptCipher: details.pptCipher,
+            pptKeyId: details.pptKeyId,
+          );
+    return (
+      callRequestId: callRequestId,
+      progress: isProgressive(),
+      pptScheme: details.pptScheme,
+      pptSerializer: details.pptSerializer,
+      pptCipher: details.pptCipher,
+      pptKeyId: details.pptKeyId,
+      customDetails: details.custom.isEmpty ? null : details.custom,
+      arguments: decoded.arguments,
+      argumentsKeywords: decoded.argumentsKeywords,
+    );
+  }
+
+  LazyResultPayload toLazyResultPayload({Object? anchor}) {
+    return LazyResultPayload(
+      callRequestId: callRequestId,
+      progress: isProgressive(),
+      pptScheme: details.pptScheme,
+      pptSerializer: details.pptSerializer,
+      pptCipher: details.pptCipher,
+      pptKeyId: details.pptKeyId,
+      customDetails: details.custom.isEmpty ? null : details.custom,
+      payload: unwrapLazyPayloadView(
+        super.toLazyPayload(anchor: anchor ?? this),
+        pptScheme: details.pptScheme,
+        pptSerializer: details.pptSerializer,
+        pptCipher: details.pptCipher,
+        pptKeyId: details.pptKeyId,
+      ),
+    );
   }
 }
 

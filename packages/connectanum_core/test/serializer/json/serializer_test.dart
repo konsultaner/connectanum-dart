@@ -1,5 +1,6 @@
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:connectanum_core/src/message/abort.dart';
 import 'package:connectanum_core/src/message/authenticate.dart';
@@ -27,6 +28,7 @@ import 'package:connectanum_core/src/message/unsubscribed.dart';
 import 'package:connectanum_core/src/message/welcome.dart';
 import 'package:connectanum_core/src/message/invocation.dart';
 import 'package:connectanum_core/src/message/yield.dart';
+import 'package:connectanum_core/src/message/abstract_message_with_payload.dart';
 import 'package:connectanum_core/src/message/ppt_payload.dart';
 import 'package:connectanum_core/src/serializer/json/serializer.dart';
 import 'package:pinenacl/api.dart';
@@ -192,6 +194,46 @@ void main() {
         equals(
           '[${MessageTypes.codeCall},7814135,{},"com.myapp.ping",["hi",2],{"hi":12}]',
         ),
+      );
+    });
+    test('Call reuses lazy JSON argument bytes without decoding', () {
+      final call = Call(7814135, 'com.myapp.ping');
+      call.setLazyPayload(
+        argumentsBytes: Uint8List.fromList(utf8.encode('["lazy"]')),
+        argumentsDecoder: (_) => throw StateError('should not decode args'),
+        encoding: LazyPayloadEncoding.json,
+      );
+
+      expect(
+        json.decode(serializer.serializeToString(call)),
+        equals([
+          MessageTypes.codeCall,
+          7814135,
+          {},
+          'com.myapp.ping',
+          ['lazy'],
+        ]),
+      );
+    });
+    test('Call reuses lazy JSON kwargs bytes without decoding', () {
+      final call = Call(7814135, 'com.myapp.ping');
+      call.setLazyPayload(
+        argumentsKeywordsBytes: Uint8List.fromList(utf8.encode('{"worker":1}')),
+        argumentsKeywordsDecoder: (_) =>
+            throw StateError('should not decode kwargs'),
+        encoding: LazyPayloadEncoding.json,
+      );
+
+      expect(
+        json.decode(serializer.serializeToString(call)),
+        equals([
+          MessageTypes.codeCall,
+          7814135,
+          {},
+          'com.myapp.ping',
+          [],
+          {'worker': 1},
+        ]),
       );
     });
     test('Yield', () {
@@ -1125,6 +1167,40 @@ void main() {
               )
               as Event;
       expect(event.details.custom['_debounce'], isTrue);
+    });
+    test('Invocation retains custom detail fields', () {
+      final invocation =
+          serializer.deserializeFromString(
+                '[68,6131533,9823526,{"caller":1,"procedure":"com.myapp.foo","trace_id":"abc"},["hi"]]',
+              )
+              as Invocation;
+
+      expect(invocation.details.caller, equals(1));
+      expect(invocation.details.procedure, equals('com.myapp.foo'));
+      expect(invocation.details.custom, containsPair('trace_id', 'abc'));
+      expect(invocation.arguments, equals(['hi']));
+    });
+    test('Result retains custom detail fields', () {
+      final result =
+          serializer.deserializeFromString(
+                '[50,6131533,{"progress":false,"trace_id":"abc"},["hi"]]',
+              )
+              as Result;
+
+      expect(result.details.progress, isFalse);
+      expect(result.details.custom, containsPair('trace_id', 'abc'));
+      expect(result.arguments, equals(['hi']));
+    });
+    test('Event retains custom detail fields', () {
+      final event =
+          serializer.deserializeFromString(
+                '[36,123,456,{"publisher":1,"trace_id":"abc"},["hi"]]',
+              )
+              as Event;
+
+      expect(event.details.publisher, equals(1));
+      expect(event.details.custom, containsPair('trace_id', 'abc'));
+      expect(event.arguments, equals(['hi']));
     });
     test('deserializePPT', () {
       var binData = Utf8Encoder().convert(

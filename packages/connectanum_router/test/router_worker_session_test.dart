@@ -2874,6 +2874,124 @@ void main() {
       },
     );
 
+    test('routes PPT publish payloads with event PPT details intact', () async {
+      final bossMessages = <Map<String, Object?>>[];
+      final bossPort = ReceivePort()
+        ..listen((dynamic message) {
+          if (message is Map<String, Object?>) {
+            bossMessages.add(message);
+          }
+        });
+      addTearDown(bossPort.close);
+
+      final listener = _buildListener();
+      final publisherState =
+          createWorkerStateForTest(
+                listener: listener,
+                listenerSettings: routerSettings.listeners.first,
+              )
+              as WorkerConnectionState;
+      publisherState
+        ..serializer = NativeMessageSerializer.json
+        ..phase = HandshakePhase.open
+        ..realmUri = 'realm1'
+        ..realmSettings = routerSettings.realms.first
+        ..sessionId = 501;
+
+      _openSession(
+        stateStore,
+        sessionId: 501,
+        listener: listener,
+        connectionId: 11,
+      );
+      _openSession(
+        stateStore,
+        sessionId: 502,
+        listener: listener,
+        connectionId: 21,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final subscribeReply = ReceivePort();
+      stateStore.commandPort.send(
+        SubscriptionAddCommand(
+          realmUri: 'realm1',
+          sessionId: 502,
+          topic: 'com.example.topic',
+          matchPolicy: TopicMatchPolicy.exact,
+          details: const {},
+          replyPort: subscribeReply.sendPort,
+        ),
+      );
+      final subscriptionId = await subscribeReply.first as int;
+      subscribeReply.close();
+
+      final packedBytes =
+          PPTPayload.packPPTPayload(
+                const ['hello'],
+                const {'worker': 7},
+                publish_msg.PublishOptions(
+                  acknowledge: true,
+                  pptScheme: 'x_custom_scheme',
+                  pptSerializer: 'msgpack',
+                ),
+              ).single
+              as Uint8List;
+      final publish =
+          publish_msg.Publish(
+              9002,
+              'com.example.topic',
+              arguments: [packedBytes],
+            )
+            ..options = publish_msg.PublishOptions(
+              acknowledge: true,
+              discloseMe: true,
+              pptScheme: 'x_custom_scheme',
+              pptSerializer: 'msgpack',
+            );
+
+      final realmContexts = RealmContextCache(
+        statePort: stateStore.commandPort,
+      );
+      await handleSessionMessageForTest(
+        bossPort: bossPort.sendPort,
+        statePort: stateStore.commandPort,
+        realmContexts: realmContexts,
+        state: publisherState,
+        message: publish,
+        connectionId: 11,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final forwards = _extractForwardMessages(bossMessages);
+      expect(forwards, hasLength(1));
+      final forward = forwards.single;
+      expect(forward['connectionId'], equals(21));
+      final event = forward['message'] as event_msg.Event;
+      expect(event.subscriptionId, equals(subscriptionId));
+      expect(event.details.pptScheme, equals('x_custom_scheme'));
+      expect(event.details.pptSerializer, equals('msgpack'));
+      final packedForwardPayload =
+          (event.arguments!.single as TransferableTypedData)
+              .materialize()
+              .asUint8List();
+      final materializedEvent = event_msg.Event(
+        event.subscriptionId,
+        event.publicationId,
+        event.details,
+        arguments: [packedForwardPayload],
+      );
+      expect(
+        materializedEvent.toLazyEventPayload().packedPayloadBytes,
+        orderedEquals(packedBytes),
+      );
+      expect(materializedEvent.toPayload().arguments, equals(const ['hello']));
+      expect(
+        materializedEvent.toPayload().argumentsKeywords,
+        equals(const {'worker': 7}),
+      );
+    });
+
     test(
       'uses native forwarding for publish payloads when handle is present',
       () async {

@@ -4,6 +4,8 @@ import 'package:connectanum_core/connectanum_core.dart';
 import 'package:logging/logging.dart';
 
 import '../transport/abstract_transport.dart';
+import '../transport/native/message_binding.dart';
+import '../transport/native/message_protocol.dart';
 
 class Session {
   static final Logger _logger = Logger('Connectanum.Session');
@@ -55,7 +57,7 @@ class Session {
   /// A map that stores all the active subscriptions
   final Map<int, Subscribed> subscriptions = {};
 
-  late StreamSubscription<AbstractMessage?> _transportStreamSubscription;
+  late StreamSubscription<Object?> _transportStreamSubscription;
   final Map<int, _PendingCall> _pendingCalls = {};
   final Map<int, Completer<Published>> _pendingPublishes = {};
   final Map<int, Completer<Subscribed>> _pendingSubscribes = {};
@@ -98,19 +100,21 @@ class Session {
     }
 
     final welcomeCompleter = Completer<Session>();
-    session._transportStreamSubscription = transport.receive()!.listen(
+    session
+        ._transportStreamSubscription = session._receiveSessionMessages().listen(
       (message) {
-        if (message is Challenge) {
+        final materialized = session._materializeTransportMessage(message);
+        if (materialized is Challenge) {
           final foundAuthMethod = authMethods
               ?.where(
                 (authenticationMethod) =>
-                    authenticationMethod.getName() == message.authMethod,
+                    authenticationMethod.getName() == materialized.authMethod,
               )
               .first;
           if (foundAuthMethod != null) {
             try {
               foundAuthMethod
-                  .challenge(message.extra)
+                  .challenge(materialized.extra)
                   .then(
                     (authenticate) => session.authenticate(authenticate),
                     onError: (error) {
@@ -152,9 +156,9 @@ class Session {
           return;
         }
 
-        if (message is Welcome) {
-          session.id = message.sessionId;
-          if ((session.realm ?? message.details.realm) == null) {
+        if (materialized is Welcome) {
+          session.id = materialized.sessionId;
+          if ((session.realm ?? materialized.details.realm) == null) {
             welcomeCompleter.completeError(
               Abort(
                 Error.authorizationFailed,
@@ -164,18 +168,18 @@ class Session {
             );
             return;
           }
-          if (message.details.realm == null) {
+          if (materialized.details.realm == null) {
             if (_logger.level <= Level.INFO) {
               _logger.info('Warning! No realm returned by the router');
             }
           } else {
-            session.realm = message.details.realm;
+            session.realm = materialized.details.realm;
           }
-          session.authId = message.details.authid;
-          session.authRole = message.details.authrole;
-          session.authMethod = message.details.authmethod;
-          session.authProvider = message.details.authprovider;
-          session.authExtra = message.details.authextra;
+          session.authId = materialized.details.authid;
+          session.authRole = materialized.details.authrole;
+          session.authMethod = materialized.details.authmethod;
+          session.authProvider = materialized.details.authprovider;
+          session.authExtra = materialized.details.authextra;
           session._transportStreamSubscription.onData(
             session._handleTransportMessage,
           );
@@ -186,17 +190,17 @@ class Session {
           return;
         }
 
-        if (message is Abort) {
+        if (materialized is Abort) {
           try {
             transport.close();
           } catch (_) {
             /* transport may already be closed */
           }
-          welcomeCompleter.completeError(message);
+          welcomeCompleter.completeError(materialized);
           return;
         }
 
-        if (message is Goodbye) {
+        if (materialized is Goodbye) {
           try {
             transport.close();
           } catch (_) {
@@ -232,6 +236,23 @@ class Session {
 
   Future<dynamic> get onDisconnect => _transport.onDisconnect!.future;
   Future<dynamic> get onConnectionLost => _transport.onConnectionLost!.future;
+
+  Stream<Object?> _receiveSessionMessages() {
+    if (_transport is SessionOptimizedTransport) {
+      return (_transport as SessionOptimizedTransport).receiveSessionMessages();
+    }
+    return _transport.receive()!.cast<Object?>();
+  }
+
+  AbstractMessage? _materializeTransportMessage(Object? message) {
+    if (message == null) {
+      return null;
+    }
+    if (message is NativeSessionMessage) {
+      return message.materialize();
+    }
+    return message as AbstractMessage?;
+  }
 
   /// If there is a transport object that is opened and the incoming stream has not
   /// been closed, this will return true.
@@ -297,6 +318,50 @@ class Session {
     return completer.future;
   }
 
+  /// This calls a [procedure] and waits for the final non-progressive payload
+  /// without materializing a [Result] object on the native fast path.
+  Future<ResultPayload> callSinglePayload(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    CallOptions? options,
+    Completer<String>? cancelCompleter,
+  }) {
+    final call = _buildCall(
+      procedure,
+      arguments: arguments,
+      argumentsKeywords: argumentsKeywords,
+      options: options,
+    );
+    final completer = Completer<ResultPayload>();
+    _pendingCalls[call.requestId] = _PendingCallPayloadFuture(completer);
+    _transport.send(call);
+    _attachCallCancellation(call.requestId, cancelCompleter);
+    return completer.future;
+  }
+
+  /// This calls a [procedure] and returns the final non-progressive payload
+  /// as a lazy view over the transport payload when possible.
+  Future<LazyResultPayload> callSingleLazyPayload(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    CallOptions? options,
+    Completer<String>? cancelCompleter,
+  }) {
+    final call = _buildCall(
+      procedure,
+      arguments: arguments,
+      argumentsKeywords: argumentsKeywords,
+      options: options,
+    );
+    final completer = Completer<LazyResultPayload>();
+    _pendingCalls[call.requestId] = _PendingCallLazyPayloadFuture(completer);
+    _transport.send(call);
+    _attachCallCancellation(call.requestId, cancelCompleter);
+    return completer.future;
+  }
+
   /// This subscribes the session to a [topic]. The subscriber may pass [options]
   /// while subscribing. The resulting events are passed to the [Subscribed.eventStream].
   /// The subscriber should therefore subscribe to that stream to receive the events.
@@ -317,6 +382,31 @@ class Session {
   }) async {
     final subscribed = await subscribe(topic, options: options);
     subscribed.onEvent(onEvent);
+    return subscribed;
+  }
+
+  /// This subscribes the session to a [topic] and routes payloads directly to
+  /// [onEvent] without forcing [Event] allocation on the native fast path.
+  Future<Subscribed> subscribePayloadHandler(
+    String topic,
+    void Function(EventPayload event) onEvent, {
+    SubscribeOptions? options,
+  }) async {
+    final subscribed = await subscribe(topic, options: options);
+    subscribed.onEventPayload(onEvent);
+    return subscribed;
+  }
+
+  /// This subscribes the session to a [topic] and routes lazy payload views
+  /// directly to [onEvent] so encoded payload bytes can be forwarded without
+  /// forcing immediate decode.
+  Future<Subscribed> subscribeLazyPayloadHandler(
+    String topic,
+    void Function(LazyEventPayload event) onEvent, {
+    SubscribeOptions? options,
+  }) async {
+    final subscribed = await subscribe(topic, options: options);
+    subscribed.onLazyEventPayload(onEvent);
     return subscribed;
   }
 
@@ -401,6 +491,30 @@ class Session {
     return registered;
   }
 
+  /// This registers a [procedure] and routes invocation payloads directly to
+  /// [onInvoke] without forcing [Invocation] allocation on the native fast path.
+  Future<Registered> registerPayloadHandler(
+    String procedure,
+    FutureOr<void> Function(InvocationPayload invocation) onInvoke, {
+    RegisterOptions? options,
+  }) async {
+    final registered = await register(procedure, options: options);
+    registered.onInvokePayload(onInvoke);
+    return registered;
+  }
+
+  /// This registers a [procedure] and routes invocation payloads directly to
+  /// [onInvoke] as lazy payload views.
+  Future<Registered> registerLazyPayloadHandler(
+    String procedure,
+    FutureOr<void> Function(LazyInvocationPayload invocation) onInvoke, {
+    RegisterOptions? options,
+  }) async {
+    final registered = await register(procedure, options: options);
+    registered.onLazyInvokePayload(onInvoke);
+    return registered;
+  }
+
   /// This unregisters a procedure by its [registrationId]. Use the [Registered.registrationId]
   /// to unregister.
   Future<void> unregister(int registrationId) {
@@ -428,8 +542,12 @@ class Session {
     return Future<void>.value();
   }
 
-  void _handleTransportMessage(AbstractMessage? message) {
+  void _handleTransportMessage(Object? message) {
     if (message == null) {
+      return;
+    }
+    if (message is NativeSessionMessage) {
+      _handleNativeSessionMessage(message);
       return;
     }
     if (message is Result) {
@@ -489,6 +607,93 @@ class Session {
     }
     if (message is Error) {
       _handleError(message);
+    }
+  }
+
+  void _handleNativeSessionMessage(NativeSessionMessage message) {
+    final code = message.metadata.messageCode;
+    if (code == MessageTypes.codeResult) {
+      _handleNativeResult(message);
+      return;
+    }
+    if (code == MessageTypes.codeEvent) {
+      _handleNativeEvent(message);
+      return;
+    }
+    if (code == MessageTypes.codeInvocation) {
+      _handleNativeInvocation(message);
+      return;
+    }
+    _handleTransportMessage(message.materialize());
+  }
+
+  void _handleNativeResult(NativeSessionMessage message) {
+    final pending = _pendingCalls[message.metadata.primaryId];
+    if (pending == null) {
+      return;
+    }
+    if (pending is _PendingCallLazyPayloadFuture) {
+      if (pending.addDirectResult(_lazyResultPayloadFromNative(message))) {
+        _pendingCalls.remove(message.metadata.primaryId);
+        unawaited(pending.close());
+      }
+      return;
+    }
+    if (pending is _PendingCallPayloadFuture) {
+      if (pending.addDirectResult(_resultPayloadFromNative(message))) {
+        _pendingCalls.remove(message.metadata.primaryId);
+        unawaited(pending.close());
+      }
+      return;
+    }
+    _handleResult(message.materialize() as Result);
+  }
+
+  void _handleNativeEvent(NativeSessionMessage message) {
+    final subscribed = subscriptions[message.metadata.primaryId];
+    if (subscribed == null) {
+      return;
+    }
+    if (subscribed.hasMaterializedEventConsumers) {
+      subscribed.addEvent(_decodeEvent(message.materialize() as Event));
+      return;
+    }
+    final lazyEvent = _lazyEventPayloadFromNative(message);
+    if (subscribed.hasLazyPayloadEventHandler) {
+      subscribed.addLazyEventPayload(lazyEvent);
+      return;
+    }
+    if (subscribed.hasPayloadEventHandler) {
+      subscribed.addEventPayload(lazyEvent.toPayload());
+    }
+  }
+
+  void _handleNativeInvocation(NativeSessionMessage message) {
+    final registered = registrations[message.metadata.secondaryId];
+    if (registered == null) {
+      _transport.send(
+        Error(
+          MessageTypes.codeInvocation,
+          message.metadata.primaryId,
+          {},
+          Error.noSuchRegistration,
+        ),
+      );
+      return;
+    }
+    if (registered.hasMaterializedInvocationConsumers) {
+      final invocation = message.materialize() as Invocation;
+      invocation.onResponse((response) => _transport.send(response));
+      registered.addInvocation(invocation);
+      return;
+    }
+    final lazyInvocation = _lazyInvocationPayloadFromNative(message);
+    if (registered.hasLazyPayloadInvocationHandler) {
+      registered.addLazyInvocationPayload(lazyInvocation);
+      return;
+    }
+    if (registered.hasPayloadInvocationHandler) {
+      registered.addInvocationPayload(lazyInvocation.toPayload());
     }
   }
 
@@ -558,23 +763,203 @@ class Session {
   }
 
   Event _decodeEvent(Event event) {
-    var eventUpdated = event;
-    if (event.details.pptScheme == 'wamp') {
-      final e2eePayload = E2EEPayload.unpackE2EEPayload(
-        event.arguments,
-        event.details,
-      );
-      eventUpdated.arguments = e2eePayload.arguments;
-      eventUpdated.argumentsKeywords = e2eePayload.argumentsKeywords;
-    } else if (event.details.pptScheme != null) {
-      final pptPayload = PPTPayload.unpackPPTPayload(
-        event.arguments,
-        event.details,
-      );
-      eventUpdated.arguments = pptPayload.arguments;
-      eventUpdated.argumentsKeywords = pptPayload.argumentsKeywords;
-    }
+    final eventUpdated = event;
+    final decoded = decodePayloadView(
+      event.arguments,
+      event.argumentsKeywords,
+      pptScheme: event.details.pptScheme,
+      pptSerializer: event.details.pptSerializer,
+      pptCipher: event.details.pptCipher,
+      pptKeyId: event.details.pptKeyId,
+    );
+    eventUpdated.arguments = decoded.arguments;
+    eventUpdated.argumentsKeywords = decoded.argumentsKeywords;
+    eventUpdated.markPptPayloadDecoded();
     return eventUpdated;
+  }
+
+  ResultPayload _resultPayloadFromNative(NativeSessionMessage message) {
+    return _lazyResultPayloadFromNative(message).toPayload();
+  }
+
+  LazyResultPayload _lazyResultPayloadFromNative(NativeSessionMessage message) {
+    return LazyResultPayload(
+      callRequestId: message.metadata.primaryId,
+      progress: message.metadata.hasFlag(
+        NativeMessageMetadata.flagDetailBoolATrue,
+      ),
+      pptScheme: message.metadata.stringA,
+      pptSerializer: message.metadata.stringB,
+      pptCipher: message.metadata.stringC,
+      pptKeyId: message.metadata.stringD,
+      customDetails: null,
+      payload: unwrapLazyPayloadView(
+        message.toLazyPayload(anchor: message),
+        pptScheme: message.metadata.stringA,
+        pptSerializer: message.metadata.stringB,
+        pptCipher: message.metadata.stringC,
+        pptKeyId: message.metadata.stringD,
+      ),
+    );
+  }
+
+  LazyEventPayload _lazyEventPayloadFromNative(NativeSessionMessage message) {
+    return LazyEventPayload(
+      subscriptionId: message.metadata.primaryId,
+      publicationId: message.metadata.secondaryId,
+      publisher:
+          message.metadata.hasFlag(
+            NativeMessageMetadata.flagDetailNumberAPresent,
+          )
+          ? message.metadata.detailNumberA
+          : null,
+      trustlevel:
+          message.metadata.hasFlag(
+            NativeMessageMetadata.flagDetailNumberBPresent,
+          )
+          ? message.metadata.detailNumberB
+          : null,
+      topic: message.metadata.stringA,
+      pptScheme: message.metadata.stringB,
+      pptSerializer: message.metadata.stringC,
+      pptCipher: message.metadata.stringD,
+      pptKeyId: message.metadata.stringE,
+      customDetails: null,
+      payload: unwrapLazyPayloadView(
+        message.toLazyPayload(anchor: message),
+        pptScheme: message.metadata.stringB,
+        pptSerializer: message.metadata.stringC,
+        pptCipher: message.metadata.stringD,
+        pptKeyId: message.metadata.stringE,
+      ),
+    );
+  }
+
+  LazyInvocationPayload _lazyInvocationPayloadFromNative(
+    NativeSessionMessage message,
+  ) {
+    var responseClosed = false;
+
+    void respondWith({
+      LazyMessagePayload? lazyPayload,
+      List<dynamic>? arguments,
+      Map<String, dynamic>? argumentsKeywords,
+      bool isError = false,
+      String? errorUri,
+      YieldOptions? options,
+    }) {
+      if (responseClosed) {
+        throw StateError('Invocation response handler already completed');
+      }
+      if (isError) {
+        _transport.send(
+          Error(
+            MessageTypes.codeInvocation,
+            message.metadata.primaryId,
+            {},
+            errorUri,
+            arguments: arguments,
+            argumentsKeywords: argumentsKeywords,
+          ),
+        );
+        responseClosed = true;
+        return;
+      }
+      final yieldMessage = Yield(
+        message.metadata.primaryId,
+        options: options,
+        arguments: arguments,
+        argumentsKeywords: argumentsKeywords,
+      );
+      if (lazyPayload != null) {
+        final matchesPackedEncoding = switch ((
+          lazyPayload.encoding,
+          options?.pptSerializer,
+        )) {
+          (LazyPayloadEncoding.json, 'json') => true,
+          (LazyPayloadEncoding.messagePack, 'msgpack') => true,
+          (LazyPayloadEncoding.cbor, 'cbor') => true,
+          _ => false,
+        };
+        if (options?.pptScheme != null &&
+            options?.pptScheme != 'wamp' &&
+            lazyPayload.packedPayloadBytes != null &&
+            matchesPackedEncoding) {
+          yieldMessage.arguments = [lazyPayload.packedPayloadBytes!];
+          yieldMessage.argumentsKeywords = null;
+        } else if (options?.pptScheme == null) {
+          yieldMessage.setLazyPayload(
+            argumentsBytes: lazyPayload.argumentsBytes,
+            argumentsDecoder: lazyPayload.argumentsBytes == null
+                ? null
+                : (_) => lazyPayload.arguments ?? const <dynamic>[],
+            argumentsKeywordsBytes: lazyPayload.argumentsKeywordsBytes,
+            argumentsKeywordsDecoder: lazyPayload.argumentsKeywordsBytes == null
+                ? null
+                : (_) =>
+                      lazyPayload.argumentsKeywords ??
+                      const <String, dynamic>{},
+            encoding: lazyPayload.encoding,
+          );
+          if (!lazyPayload.hasEncodedArguments) {
+            yieldMessage.arguments = lazyPayload.arguments;
+          }
+          if (!lazyPayload.hasEncodedArgumentsKeywords) {
+            yieldMessage.argumentsKeywords = lazyPayload.argumentsKeywords;
+          }
+        }
+      }
+      _transport.send(yieldMessage);
+      if (options?.progress != true) {
+        responseClosed = true;
+      }
+    }
+
+    return LazyInvocationPayload(
+      requestId: message.metadata.primaryId,
+      registrationId: message.metadata.secondaryId,
+      caller:
+          message.metadata.hasFlag(
+            NativeMessageMetadata.flagDetailNumberAPresent,
+          )
+          ? message.metadata.detailNumberA
+          : null,
+      procedure: message.metadata.stringA,
+      receiveProgress: message.metadata.hasFlag(
+        NativeMessageMetadata.flagDetailBoolATrue,
+      ),
+      pptScheme: message.metadata.stringB,
+      pptSerializer: message.metadata.stringC,
+      pptCipher: message.metadata.stringD,
+      pptKeyId: message.metadata.stringE,
+      customDetails: null,
+      respondWith:
+          ({
+            LazyMessagePayload? lazyPayload,
+            List<dynamic>? arguments,
+            Map<String, dynamic>? argumentsKeywords,
+            bool isError = false,
+            String? errorUri,
+            YieldOptions? options,
+          }) {
+            respondWith(
+              lazyPayload: lazyPayload,
+              arguments: arguments,
+              argumentsKeywords: argumentsKeywords,
+              isError: isError,
+              errorUri: errorUri,
+              options: options,
+            );
+          },
+      isResponseClosed: () => responseClosed,
+      payload: unwrapLazyPayloadView(
+        message.toLazyPayload(anchor: message),
+        pptScheme: message.metadata.stringB,
+        pptSerializer: message.metadata.stringC,
+        pptCipher: message.metadata.stringD,
+        pptKeyId: message.metadata.stringE,
+      ),
+    );
   }
 
   Subscribed? _removeSubscription(int subscriptionId) {
@@ -772,6 +1157,70 @@ class _PendingCallFuture implements _PendingCall {
       completer.complete(result);
     }
     return true;
+  }
+
+  @override
+  void addError(Object error, [StackTrace? stackTrace]) {
+    if (completer.isCompleted) {
+      return;
+    }
+    completer.completeError(error, stackTrace);
+  }
+
+  @override
+  Future<void> close() => Future<void>.value();
+}
+
+class _PendingCallPayloadFuture implements _PendingCall {
+  _PendingCallPayloadFuture(this.completer);
+
+  final Completer<ResultPayload> completer;
+
+  bool addDirectResult(ResultPayload result) {
+    if (result.progress) {
+      return false;
+    }
+    if (!completer.isCompleted) {
+      completer.complete(result);
+    }
+    return true;
+  }
+
+  @override
+  bool addResult(Result result) {
+    return addDirectResult(result.toPayload());
+  }
+
+  @override
+  void addError(Object error, [StackTrace? stackTrace]) {
+    if (completer.isCompleted) {
+      return;
+    }
+    completer.completeError(error, stackTrace);
+  }
+
+  @override
+  Future<void> close() => Future<void>.value();
+}
+
+class _PendingCallLazyPayloadFuture implements _PendingCall {
+  _PendingCallLazyPayloadFuture(this.completer);
+
+  final Completer<LazyResultPayload> completer;
+
+  bool addDirectResult(LazyResultPayload result) {
+    if (result.progress) {
+      return false;
+    }
+    if (!completer.isCompleted) {
+      completer.complete(result);
+    }
+    return true;
+  }
+
+  @override
+  bool addResult(Result result) {
+    return addDirectResult(result.toLazyResultPayload(anchor: result));
   }
 
   @override
