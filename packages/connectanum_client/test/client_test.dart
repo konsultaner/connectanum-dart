@@ -1183,6 +1183,53 @@ void main() {
       },
     );
     test(
+      'subscribeHandler lazily unpacks PPT payloads on the native direct event path',
+      () async {
+        final transport = _SessionOptimizedMockTransport((message, transport) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveObject(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codeSubscribe) {
+            transport.receiveObject(
+              Subscribed((message as Subscribe).requestId, 4343),
+            );
+          }
+        });
+
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+        ).connect().first;
+        final eventCompleter = Completer<Event>();
+        final subscribed = await session.subscribeHandler('ppt.topic', (event) {
+          if (!eventCompleter.isCompleted) {
+            eventCompleter.complete(event);
+          }
+        });
+
+        transport.receiveObject(
+          _nativeDirectEventMessage(
+            subscriptionId: subscribed.subscriptionId,
+            publicationId: 8401,
+            topic: 'ppt.topic',
+            pptScheme: 'x_custom_scheme',
+            pptSerializer: 'cbor',
+            argsBytes: _encodeNativePptArguments(
+              arguments: const ['ppt-event'],
+              argumentsKeywords: const {'worker': 7},
+            ),
+          ),
+        );
+
+        final event = await eventCompleter.future;
+        expect(event.hasDecodedPptPayload, isFalse);
+        expect(event.arguments, equals(const ['ppt-event']));
+        expect(event.argumentsKeywords, equals(const {'worker': 7}));
+        expect(event.hasDecodedPptPayload, isTrue);
+      },
+    );
+    test(
       'registerHandler catches async failures and ignores late failures after final yields',
       () async {
         final transport = _MockTransport();
@@ -1439,6 +1486,66 @@ void main() {
           payloadInvocation.argumentsKeywords,
           equals(const {'worker': 8}),
         );
+        expect(yields, hasLength(1));
+        expect(yields.single.arguments, equals(const ['ppt-ok']));
+      },
+    );
+    test(
+      'registerHandler lazily unpacks PPT payloads on the native direct invocation path',
+      () async {
+        final transport = _SessionOptimizedMockTransport((message, transport) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveObject(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codeRegister) {
+            transport.receiveObject(
+              Registered((message as Register).requestId, 5050),
+            );
+            return;
+          }
+        });
+        final yields = <Yield>[];
+        transport.outbound.stream.listen((message) {
+          if (message is Yield) {
+            yields.add(message);
+          }
+        });
+
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+        ).connect().first;
+        final invocationCompleter = Completer<Invocation>();
+        final registered = await session.registerHandler('ppt.proc', (
+          invocation,
+        ) {
+          if (!invocationCompleter.isCompleted) {
+            invocationCompleter.complete(invocation);
+          }
+          invocation.respondWith(arguments: const ['ppt-ok']);
+        });
+
+        transport.receiveObject(
+          _nativeDirectInvocationMessage(
+            requestId: 9401,
+            registrationId: registered.registrationId,
+            procedure: 'ppt.proc',
+            pptScheme: 'x_custom_scheme',
+            pptSerializer: 'cbor',
+            argsBytes: _encodeNativePptArguments(
+              arguments: const ['ppt-invocation'],
+              argumentsKeywords: const {'worker': 8},
+            ),
+          ),
+        );
+
+        final invocation = await invocationCompleter.future;
+        await Future<void>.delayed(Duration.zero);
+        expect(invocation.hasDecodedPptPayload, isFalse);
+        expect(invocation.arguments, equals(const ['ppt-invocation']));
+        expect(invocation.argumentsKeywords, equals(const {'worker': 8}));
+        expect(invocation.hasDecodedPptPayload, isTrue);
         expect(yields, hasLength(1));
         expect(yields.single.arguments, equals(const ['ppt-ok']));
       },
@@ -1949,6 +2056,40 @@ void main() {
       },
     );
     test(
+      'callSingle lazily unpacks PPT payloads on the native direct result path',
+      () async {
+        final transport = _SessionOptimizedMockTransport((message, transport) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveObject(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codeCall) {
+            transport.receiveObject(
+              _nativeDirectResultMessage(
+                requestId: (message as Call).requestId,
+                pptScheme: 'x_custom_scheme',
+                pptSerializer: 'cbor',
+                argsBytes: _encodeNativePptArguments(
+                  arguments: const ['ppt-result'],
+                  argumentsKeywords: const {'worker': 9},
+                ),
+              ),
+            );
+          }
+        });
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+        ).connect().first;
+
+        final result = await session.callSingle('ppt.result');
+        expect(result.hasDecodedPptPayload, isFalse);
+        expect(result.arguments, equals(const ['ppt-result']));
+        expect(result.argumentsKeywords, equals(const {'worker': 9}));
+        expect(result.hasDecodedPptPayload, isTrue);
+      },
+    );
+    test(
       'callSingleLazyPayload preserves packed PPT bytes on the native direct result path',
       () async {
         final transport = _SessionOptimizedMockTransport((message, transport) {
@@ -2073,6 +2214,52 @@ void main() {
             pptScheme: 'x_custom_scheme',
             pptSerializer: 'cbor',
           ),
+        );
+
+        expect(decodeCount, 0);
+      },
+    );
+    test(
+      'publishLazyPayload reuses matching wamp wrapped payload bytes without decoding',
+      () async {
+        final transport = _MockTransport();
+        final client = Client(realm: 'test.realm', transport: transport);
+        var decodeCount = 0;
+        final packedPayloadBytes = Uint8List.fromList(
+          cbor.cborEncode(cbor.CborValue(const ['wrapped'])),
+        );
+
+        transport.outbound.stream.listen((message) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveMessage(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codePublish) {
+            final publish = message as Publish;
+            expect(publish.arguments, hasLength(1));
+            expect(
+              publish.arguments!.single,
+              orderedEquals(packedPayloadBytes),
+            );
+            expect(publish.argumentsKeywords, isNull);
+          }
+        });
+
+        final session = await client.connect().first;
+        await session.publishLazyPayload(
+          'ppt.topic',
+          payload: LazyMessagePayload.packed(
+            encoding: LazyPayloadEncoding.cbor,
+            packedPayloadBytes: packedPayloadBytes,
+            packedPayloadDecoder: (_) {
+              decodeCount += 1;
+              return (
+                arguments: const ['wrapped'],
+                argumentsKeywords: const <String, dynamic>{},
+              );
+            },
+          ),
+          options: PublishOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
         );
 
         expect(decodeCount, 0);

@@ -154,6 +154,10 @@ class RouterSession {
         fallbackArgumentsKeywords:
             (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
                 ?.cast<String, dynamic>(),
+        pptScheme: details.pptScheme,
+        pptSerializer: details.pptSerializer,
+        pptCipher: details.pptCipher,
+        pptKeyId: details.pptKeyId,
       );
       binding.forwardMessageToConnection(connectionId, event);
     } else if (type == _internalMsgForwardInvocation) {
@@ -193,7 +197,13 @@ class RouterSession {
             pptKeyId: message['pptKeyId'] as String?,
             customDetails: null,
             payload:
-                _lazyPayloadFromTransferred(transferredPayload) ??
+                _lazyPayloadFromTransferredWithPpt(
+                  transferredPayload,
+                  pptScheme: message['pptScheme'] as String?,
+                  pptSerializer: message['pptSerializer'] as String?,
+                  pptCipher: message['pptCipher'] as String?,
+                  pptKeyId: message['pptKeyId'] as String?,
+                ) ??
                 LazyMessagePayload.materialized(
                   arguments:
                       (_materializeTransferredValue(message['arguments'])
@@ -222,6 +232,10 @@ class RouterSession {
         fallbackArgumentsKeywords:
             (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
                 ?.cast<String, dynamic>(),
+        pptScheme: details.pptScheme,
+        pptSerializer: details.pptSerializer,
+        pptCipher: details.pptCipher,
+        pptKeyId: details.pptKeyId,
       );
       subscribed.addEvent(event);
     } else if (type == _internalMsgInvocationRequest) {
@@ -283,6 +297,10 @@ class RouterSession {
         fallbackArgumentsKeywords:
             (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
                 ?.cast<String, dynamic>(),
+        pptScheme: details.pptScheme,
+        pptSerializer: details.pptSerializer,
+        pptCipher: details.pptCipher,
+        pptKeyId: details.pptKeyId,
       );
       invocation.onResponse((response) {
         if (response is yield_msg.Yield) {
@@ -456,23 +474,11 @@ class RouterSession {
       transferredPayload,
       fallbackArguments: arguments,
       fallbackArgumentsKeywords: argumentsKeywords,
+      pptScheme: pptScheme,
+      pptSerializer: pptSerializer,
+      pptCipher: pptCipher,
+      pptKeyId: pptKeyId,
     );
-    final retainedPayload = _lazyPayloadFromTransferred(transferredPayload);
-    if (retainedPayload != null) {
-      if (pptScheme != null) {
-        final decoded = decodeLazyPayloadView(
-          retainedPayload,
-          pptScheme: pptScheme,
-          pptSerializer: pptSerializer,
-          pptCipher: pptCipher,
-          pptKeyId: pptKeyId,
-        );
-        result.arguments = decoded.arguments;
-        result.argumentsKeywords = decoded.argumentsKeywords;
-        result.markPptPayloadDecoded();
-      }
-      result.retainLazyPayload(retainedPayload);
-    }
     controller.add(result);
     if (!progress) {
       controller.close();
@@ -916,7 +922,13 @@ bool _isTransferredLazyPayload(Object? value) {
   return value is Map && value[_transferredLazyPayloadMarkerKey] == true;
 }
 
-LazyMessagePayload? _lazyPayloadFromTransferred(Object? value) {
+LazyMessagePayload? _lazyPayloadFromTransferredWithPpt(
+  Object? value, {
+  String? pptScheme,
+  String? pptSerializer,
+  String? pptCipher,
+  String? pptKeyId,
+}) {
   if (!_isTransferredLazyPayload(value)) {
     return null;
   }
@@ -943,6 +955,14 @@ LazyMessagePayload? _lazyPayloadFromTransferred(Object? value) {
   final argumentsKeywords =
       (raw[_transferredLazyPayloadArgumentsKeywordsKey] as Map?)
           ?.cast<String, dynamic>();
+  final retainedPackedPayloadBytes =
+      packedPayloadBytes ??
+      _extractTransferredWrappedPayloadBytes(
+        arguments,
+        argumentsKeywords,
+        pptScheme: pptScheme,
+        pptSerializer: pptSerializer,
+      );
   if (argumentsBytes != null || argumentsKeywordsBytes != null) {
     return LazyMessagePayload.encoded(
       transparentBinaryPayload: transparentBinaryPayload,
@@ -962,16 +982,21 @@ LazyMessagePayload? _lazyPayloadFromTransferred(Object? value) {
           : null,
     );
   }
-  if (packedPayloadBytes != null) {
+  if (retainedPackedPayloadBytes != null) {
     return LazyMessagePayload.packed(
       transparentBinaryPayload: transparentBinaryPayload,
-      encoding: encoding,
-      packedPayloadBytes: packedPayloadBytes,
+      encoding:
+          encoding ?? _lazyPayloadEncodingFromPptSerializer(pptSerializer),
+      packedPayloadBytes: retainedPackedPayloadBytes,
       packedPayloadDecoder: (bytes) {
-        final serializer = _pptSerializerNameForEncoding(encoding);
-        final decoded = PPTPayload.unpackPPTPayload([
-          bytes,
-        ], _TransferredPptOptions(pptSerializer: serializer));
+        final decoded = decodeLazyPayloadView(
+          LazyMessagePayload.materialized(arguments: <dynamic>[bytes]),
+          pptScheme: pptScheme,
+          pptSerializer:
+              pptSerializer ?? _pptSerializerNameForEncoding(encoding),
+          pptCipher: pptCipher,
+          pptKeyId: pptKeyId,
+        );
         return (
           arguments: decoded.arguments,
           argumentsKeywords: decoded.argumentsKeywords,
@@ -1010,43 +1035,24 @@ void _applyTransferredLazyPayload(
   Object? transferredPayload, {
   List<dynamic>? fallbackArguments,
   Map<String, dynamic>? fallbackArgumentsKeywords,
+  String? pptScheme,
+  String? pptSerializer,
+  String? pptCipher,
+  String? pptKeyId,
 }) {
-  final payload = _lazyPayloadFromTransferred(transferredPayload);
+  final payload = _lazyPayloadFromTransferredWithPpt(
+    transferredPayload,
+    pptScheme: pptScheme,
+    pptSerializer: pptSerializer,
+    pptCipher: pptCipher,
+    pptKeyId: pptKeyId,
+  );
   if (payload == null) {
     message.arguments = fallbackArguments;
     message.argumentsKeywords = fallbackArgumentsKeywords;
     return;
   }
-  message.transparentBinaryPayload = payload.transparentBinaryPayload;
-  if (payload.packedPayloadBytes != null) {
-    message.arguments = [payload.packedPayloadBytes!];
-    message.argumentsKeywords = null;
-  } else if (payload.argumentsBytes != null ||
-      payload.argumentsKeywordsBytes != null) {
-    final encoding = payload.encoding;
-    message.setLazyPayload(
-      argumentsBytes: payload.argumentsBytes,
-      argumentsDecoder: payload.argumentsBytes == null || encoding == null
-          ? null
-          : _payloadListDecoderForEncoding(encoding),
-      argumentsKeywordsBytes: payload.argumentsKeywordsBytes,
-      argumentsKeywordsDecoder:
-          payload.argumentsKeywordsBytes == null || encoding == null
-          ? null
-          : _payloadMapDecoderForEncoding(encoding),
-      encoding: encoding,
-    );
-  } else {
-    message.arguments = payload.arguments == null
-        ? fallbackArguments
-        : List<dynamic>.from(payload.arguments!);
-    message.argumentsKeywords = payload.argumentsKeywords == null
-        ? fallbackArgumentsKeywords
-        : Map<String, dynamic>.from(payload.argumentsKeywords!);
-    if (payload.pptDecoded) {
-      message.markPptPayloadDecoded();
-    }
-  }
+  message.restoreLazyPayload(payload);
 }
 
 LazyPayloadEncoding? _lazyPayloadEncodingFromName(String? value) {
@@ -1115,13 +1121,47 @@ String? _pptSerializerNameForEncoding(LazyPayloadEncoding? encoding) {
   };
 }
 
-class _TransferredPptOptions extends PPTOptions {
-  _TransferredPptOptions({String? pptSerializer}) {
-    this.pptSerializer = pptSerializer;
-  }
+LazyPayloadEncoding? _lazyPayloadEncodingFromPptSerializer(String? serializer) {
+  return switch (serializer) {
+    'json' => LazyPayloadEncoding.json,
+    'msgpack' => LazyPayloadEncoding.messagePack,
+    'cbor' => LazyPayloadEncoding.cbor,
+    _ => null,
+  };
+}
 
-  @override
-  bool verify() => true;
+Uint8List? _extractTransferredWrappedPayloadBytes(
+  List<dynamic>? arguments,
+  Map<String, dynamic>? argumentsKeywords, {
+  String? pptScheme,
+  String? pptSerializer,
+}) {
+  if (pptScheme == null) {
+    return null;
+  }
+  if (argumentsKeywords != null && argumentsKeywords.isNotEmpty) {
+    return null;
+  }
+  if (arguments == null || arguments.length != 1) {
+    return null;
+  }
+  final first = arguments.first;
+  if (first is Uint8List) {
+    return first;
+  }
+  if (first is List<int>) {
+    return Uint8List.fromList(first);
+  }
+  if (first is List) {
+    return Uint8List.fromList(first.cast<int>());
+  }
+  if (pptSerializer == null ||
+      (pptSerializer != 'json' &&
+          pptSerializer != 'msgpack' &&
+          pptSerializer != 'cbor')) {
+    return null;
+  }
+  return null;
 }
 
 Object? _decodeCborPayloadFragment(Uint8List bytes) {
@@ -1638,6 +1678,10 @@ class _InternalSessionIsolate {
       transferredPayload,
       fallbackArguments: arguments,
       fallbackArgumentsKeywords: argumentsKeywords,
+      pptScheme: invocationDetails.pptScheme,
+      pptSerializer: invocationDetails.pptSerializer,
+      pptCipher: invocationDetails.pptCipher,
+      pptKeyId: invocationDetails.pptKeyId,
     );
     _bootstrap.controlPort.send({
       'type': _internalMsgForwardInvocation,

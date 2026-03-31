@@ -71,6 +71,33 @@ void main() {
       expect(received!.argumentsKeywords, equals(const {'worker': 4}));
     });
 
+    test('onEvent lazily unpacks PPT payloads on access', () {
+      final subscribed = Subscribed(1, 2);
+      Event? received;
+
+      subscribed.onEvent((event) {
+        received = event;
+        expect(event.hasDecodedPptPayload, isFalse);
+        expect(event.arguments, equals(const ['ppt-event']));
+        expect(event.argumentsKeywords, equals(const {'worker': 4}));
+      });
+      subscribed.addEvent(
+        Event(
+          2,
+          3,
+          EventDetails(pptScheme: 'x_custom_scheme', pptSerializer: 'cbor'),
+          arguments: PPTPayload.packPPTPayload(
+            const ['ppt-event'],
+            const {'worker': 4},
+            EventDetails(pptScheme: 'x_custom_scheme', pptSerializer: 'cbor'),
+          ),
+        ),
+      );
+
+      expect(received, isNotNull);
+      expect(received!.hasDecodedPptPayload, isTrue);
+    });
+
     test('onLazyEventPayload preserves encoded payload bytes until needed', () {
       final subscribed = Subscribed(1, 2);
       LazyEventPayload? received;

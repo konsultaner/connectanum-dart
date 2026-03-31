@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'abstract_message_with_payload.dart';
 import 'error.dart';
 import 'message_types.dart';
 import 'abstract_message.dart';
@@ -60,7 +59,7 @@ class Registered extends AbstractMessage {
   bool get hasLazyPayloadInvocationHandler => _onLazyInvokePayload != null;
 
   void addInvocation(Invocation invocation) {
-    final invocationUpdated = _prepareInvocation(invocation);
+    final invocationUpdated = invocation;
     final onLazyInvokePayload = _onLazyInvokePayload;
     if (onLazyInvokePayload != null) {
       _deliverLazyInvocationPayload(
@@ -115,28 +114,8 @@ class Registered extends AbstractMessage {
       return;
     }
     _streamInvocationSubscription = _invocationStreamOverride!.listen(
-      (invocation) => _deliverInvocation(
-        _onInvoke!,
-        invocation,
-        _prepareInvocation(invocation),
-      ),
+      (invocation) => _deliverInvocation(_onInvoke!, invocation, invocation),
     );
-  }
-
-  Invocation _prepareInvocation(Invocation invocation) {
-    final invocationUpdated = invocation;
-    final decoded = decodePayloadView(
-      invocation.arguments,
-      invocation.argumentsKeywords,
-      pptScheme: invocation.details.pptScheme,
-      pptSerializer: invocation.details.pptSerializer,
-      pptCipher: invocation.details.pptCipher,
-      pptKeyId: invocation.details.pptKeyId,
-    );
-    invocationUpdated.arguments = decoded.arguments;
-    invocationUpdated.argumentsKeywords = decoded.argumentsKeywords;
-    invocationUpdated.markPptPayloadDecoded();
-    return invocationUpdated;
   }
 
   void _deliverInvocation(

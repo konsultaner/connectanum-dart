@@ -108,17 +108,35 @@ class Event extends AbstractMessageWithPayload {
     this.argumentsKeywords = argumentsKeywords;
   }
 
+  @override
+  List<dynamic>? get arguments {
+    ensureDecodedPayloadView(
+      pptScheme: details.pptScheme,
+      pptSerializer: details.pptSerializer,
+      pptCipher: details.pptCipher,
+      pptKeyId: details.pptKeyId,
+    );
+    return super.arguments;
+  }
+
+  @override
+  Map<String, dynamic>? get argumentsKeywords {
+    ensureDecodedPayloadView(
+      pptScheme: details.pptScheme,
+      pptSerializer: details.pptSerializer,
+      pptCipher: details.pptCipher,
+      pptKeyId: details.pptKeyId,
+    );
+    return super.argumentsKeywords;
+  }
+
   EventPayload toPayload() {
-    final decoded = hasDecodedPptPayload
-        ? (arguments: arguments, argumentsKeywords: argumentsKeywords)
-        : decodePayloadView(
-            arguments,
-            argumentsKeywords,
-            pptScheme: details.pptScheme,
-            pptSerializer: details.pptSerializer,
-            pptCipher: details.pptCipher,
-            pptKeyId: details.pptKeyId,
-          );
+    ensureDecodedPayloadView(
+      pptScheme: details.pptScheme,
+      pptSerializer: details.pptSerializer,
+      pptCipher: details.pptCipher,
+      pptKeyId: details.pptKeyId,
+    );
     return (
       subscriptionId: subscriptionId,
       publicationId: publicationId,
@@ -130,8 +148,8 @@ class Event extends AbstractMessageWithPayload {
       pptCipher: details.pptCipher,
       pptKeyId: details.pptKeyId,
       customDetails: details.custom.isEmpty ? null : details.custom,
-      arguments: decoded.arguments,
-      argumentsKeywords: decoded.argumentsKeywords,
+      arguments: super.arguments,
+      argumentsKeywords: super.argumentsKeywords,
     );
   }
 

@@ -94,21 +94,39 @@ class Result extends AbstractMessageWithPayload {
     this.argumentsKeywords = argumentsKeywords;
   }
 
+  @override
+  List<dynamic>? get arguments {
+    ensureDecodedPayloadView(
+      pptScheme: details.pptScheme,
+      pptSerializer: details.pptSerializer,
+      pptCipher: details.pptCipher,
+      pptKeyId: details.pptKeyId,
+    );
+    return super.arguments;
+  }
+
+  @override
+  Map<String, dynamic>? get argumentsKeywords {
+    ensureDecodedPayloadView(
+      pptScheme: details.pptScheme,
+      pptSerializer: details.pptSerializer,
+      pptCipher: details.pptCipher,
+      pptKeyId: details.pptKeyId,
+    );
+    return super.argumentsKeywords;
+  }
+
   bool isProgressive() {
     return details.progress != null && details.progress!;
   }
 
   ResultPayload toPayload() {
-    final decoded = hasDecodedPptPayload
-        ? (arguments: arguments, argumentsKeywords: argumentsKeywords)
-        : decodePayloadView(
-            arguments,
-            argumentsKeywords,
-            pptScheme: details.pptScheme,
-            pptSerializer: details.pptSerializer,
-            pptCipher: details.pptCipher,
-            pptKeyId: details.pptKeyId,
-          );
+    ensureDecodedPayloadView(
+      pptScheme: details.pptScheme,
+      pptSerializer: details.pptSerializer,
+      pptCipher: details.pptCipher,
+      pptKeyId: details.pptKeyId,
+    );
     return (
       callRequestId: callRequestId,
       progress: isProgressive(),
@@ -117,8 +135,8 @@ class Result extends AbstractMessageWithPayload {
       pptCipher: details.pptCipher,
       pptKeyId: details.pptKeyId,
       customDetails: details.custom.isEmpty ? null : details.custom,
-      arguments: decoded.arguments,
-      argumentsKeywords: decoded.argumentsKeywords,
+      arguments: super.arguments,
+      argumentsKeywords: super.argumentsKeywords,
     );
   }
 
@@ -140,6 +158,22 @@ class Result extends AbstractMessageWithPayload {
       ),
     );
   }
+}
+
+Result resultFromLazyPayload(LazyResultPayload payload) {
+  final result = Result(
+    payload.callRequestId,
+    ResultDetails(
+      progress: payload.progress,
+      pptScheme: payload.pptScheme,
+      pptSerializer: payload.pptSerializer,
+      pptCipher: payload.pptCipher,
+      pptKeyId: payload.pptKeyId,
+      custom: payload.customDetails,
+    ),
+  );
+  result.restoreLazyPayload(payload.payload);
+  return result;
 }
 
 class ResultDetails extends PPTOptions with CustomFieldContainer {

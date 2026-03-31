@@ -43,7 +43,6 @@ import 'package:connectanum_core/src/message/goodbye.dart' as goodbye_msg;
 import 'package:connectanum_core/src/message/event.dart' as event_msg;
 import 'package:connectanum_core/src/message/interrupt.dart' as interrupt_msg;
 import 'package:connectanum_core/src/message/publish.dart' as publish_msg;
-import 'package:connectanum_core/src/message/ppt_payload.dart';
 import 'package:connectanum_core/src/message/register.dart' as register_msg;
 import 'package:connectanum_core/src/message/registered.dart' as registered_msg;
 import 'package:connectanum_core/src/message/subscribe.dart' as subscribe_msg;
@@ -61,7 +60,6 @@ import 'http/http_context.dart';
 import 'package:connectanum_core/src/message/unsubscribed.dart'
     as unsubscribed_msg;
 import 'package:connectanum_core/src/message/yield.dart' as yield_msg;
-import 'package:connectanum_core/src/message/abstract_ppt_options.dart';
 import 'package:connectanum_core/src/message/uri_pattern.dart' as uri_pattern;
 import 'package:connectanum_core/src/serializer/json/serializer.dart'
     as json_serializer;

@@ -3651,4 +3651,141 @@ void main() {
       expect(result.argumentsKeywords, equals(const {'worker': 7}));
     },
   );
+
+  test(
+    'preserves packed wamp lazy payloads across internal session publish',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithPendingProtocols(),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+
+      final subscriber = await binding.createInternalSession(
+        realmUri: 'realm1',
+      );
+      final publisher = await binding.createInternalSession(realmUri: 'realm1');
+      addTearDown(subscriber.close);
+      addTearDown(publisher.close);
+
+      final packedBytes = Uint8List.fromList(const [9, 8, 7, 6]);
+      Uint8List? seenPackedBytes;
+      var decodeCount = 0;
+
+      final subscription = await subscriber.subscribe('com.example.wamp.topic');
+      subscription.onLazyEventPayload((event) {
+        seenPackedBytes = event.packedPayloadBytes;
+      });
+
+      await publisher.publishLazyPayload(
+        'com.example.wamp.topic',
+        payload: LazyMessagePayload.packed(
+          encoding: LazyPayloadEncoding.cbor,
+          packedPayloadBytes: packedBytes,
+          packedPayloadDecoder: (_) {
+            decodeCount += 1;
+            return (
+              arguments: const ['should-not-decode'],
+              argumentsKeywords: const <String, dynamic>{},
+            );
+          },
+        ),
+        options: PublishOptions(
+          acknowledge: true,
+          pptScheme: 'wamp',
+          pptSerializer: 'cbor',
+        ),
+      );
+
+      await _waitUntil(
+        () => seenPackedBytes != null,
+        timeout: const Duration(seconds: 2),
+      );
+      expect(seenPackedBytes, orderedEquals(packedBytes));
+      expect(decodeCount, 0);
+    },
+  );
+
+  test(
+    'preserves packed wamp lazy payloads across internal session calls',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithPendingProtocols(),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+
+      final caller = await binding.createInternalSession(realmUri: 'realm1');
+      final callee = await binding.createInternalSession(realmUri: 'realm1');
+      addTearDown(caller.close);
+      addTearDown(callee.close);
+
+      final packedBytes = Uint8List.fromList(const [4, 5, 6, 7]);
+      Uint8List? seenPackedBytes;
+      var decodeCount = 0;
+
+      final registration = await callee.register('com.example.wamp.proc');
+      registration.onLazyInvokePayload((invocation) {
+        seenPackedBytes = invocation.packedPayloadBytes;
+        invocation.respondWith(
+          lazyPayload: invocation.payload,
+          options: YieldOptions(
+            pptScheme: invocation.pptScheme,
+            pptSerializer: invocation.pptSerializer,
+          ),
+        );
+      });
+
+      final result = await caller
+          .callLazyPayload(
+            'com.example.wamp.proc',
+            payload: LazyMessagePayload.packed(
+              encoding: LazyPayloadEncoding.cbor,
+              packedPayloadBytes: packedBytes,
+              packedPayloadDecoder: (_) {
+                decodeCount += 1;
+                return (
+                  arguments: const ['should-not-decode'],
+                  argumentsKeywords: const <String, dynamic>{},
+                );
+              },
+            ),
+            options: CallOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
+          )
+          .first;
+
+      expect(seenPackedBytes, orderedEquals(packedBytes));
+      expect(
+        result.toLazyResultPayload().packedPayloadBytes,
+        orderedEquals(packedBytes),
+      );
+      expect(decodeCount, 0);
+    },
+  );
 }

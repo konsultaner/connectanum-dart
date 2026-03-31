@@ -146,20 +146,27 @@ class Invocation extends AbstractMessageWithPayload {
     } else {
       var invokeArguments = arguments;
       var invokeArgumentsKeywords = argumentsKeywords;
+      Uint8List? packedPayload;
+
+      if (options?.pptScheme != null) {
+        packedPayload = lazyPayload == null
+            ? null
+            : _packMatchingLazyPayload(lazyPayload, options!);
+      }
 
       if (options?.pptScheme == 'wamp') {
-        // It's E2EE payload
-        invokeArguments = E2EEPayload.packE2EEPayload(
-          arguments,
-          argumentsKeywords,
-          options!,
-        );
+        // Preserve matching wrapped payload bytes until actual E2EE decode is
+        // implemented, otherwise fall back to the current placeholder packer.
+        invokeArguments = packedPayload == null
+            ? E2EEPayload.packE2EEPayload(
+                arguments,
+                argumentsKeywords,
+                options!,
+              )
+            : <dynamic>[packedPayload];
         invokeArgumentsKeywords = null;
       } else if (options?.pptScheme != null) {
         // It's some variation of PPT
-        final packedPayload = lazyPayload == null
-            ? null
-            : _packMatchingLazyPayload(lazyPayload, options!);
         invokeArguments = packedPayload == null
             ? PPTPayload.packPPTPayload(arguments, argumentsKeywords, options!)
             : [packedPayload];
@@ -173,10 +180,9 @@ class Invocation extends AbstractMessageWithPayload {
         argumentsKeywords: invokeArgumentsKeywords,
       );
       if (lazyPayload != null) {
-        if (options?.pptScheme != null && options?.pptScheme != 'wamp') {
-          if (lazyPayload.packedPayloadBytes != null &&
-              _matchesPackedPayloadEncoding(lazyPayload, options)) {
-            yield.arguments = [lazyPayload.packedPayloadBytes!];
+        if (options?.pptScheme != null) {
+          if (packedPayload != null) {
+            yield.arguments = <dynamic>[packedPayload];
             yield.argumentsKeywords = null;
           } else {
             yield.arguments = invokeArguments;
@@ -220,6 +226,28 @@ class Invocation extends AbstractMessageWithPayload {
     this.argumentsKeywords = argumentsKeywords;
   }
 
+  @override
+  List<dynamic>? get arguments {
+    ensureDecodedPayloadView(
+      pptScheme: details.pptScheme,
+      pptSerializer: details.pptSerializer,
+      pptCipher: details.pptCipher,
+      pptKeyId: details.pptKeyId,
+    );
+    return super.arguments;
+  }
+
+  @override
+  Map<String, dynamic>? get argumentsKeywords {
+    ensureDecodedPayloadView(
+      pptScheme: details.pptScheme,
+      pptSerializer: details.pptSerializer,
+      pptCipher: details.pptCipher,
+      pptKeyId: details.pptKeyId,
+    );
+    return super.argumentsKeywords;
+  }
+
   bool isProgressive() {
     return details.receiveProgress ?? false;
   }
@@ -250,16 +278,12 @@ class Invocation extends AbstractMessageWithPayload {
   }
 
   InvocationPayload toPayload() {
-    final decoded = hasDecodedPptPayload
-        ? (arguments: arguments, argumentsKeywords: argumentsKeywords)
-        : decodePayloadView(
-            arguments,
-            argumentsKeywords,
-            pptScheme: details.pptScheme,
-            pptSerializer: details.pptSerializer,
-            pptCipher: details.pptCipher,
-            pptKeyId: details.pptKeyId,
-          );
+    ensureDecodedPayloadView(
+      pptScheme: details.pptScheme,
+      pptSerializer: details.pptSerializer,
+      pptCipher: details.pptCipher,
+      pptKeyId: details.pptKeyId,
+    );
     return (
       requestId: requestId,
       registrationId: registrationId,
@@ -271,8 +295,8 @@ class Invocation extends AbstractMessageWithPayload {
       pptCipher: details.pptCipher,
       pptKeyId: details.pptKeyId,
       customDetails: details.custom.isEmpty ? null : details.custom,
-      arguments: decoded.arguments,
-      argumentsKeywords: decoded.argumentsKeywords,
+      arguments: super.arguments,
+      argumentsKeywords: super.argumentsKeywords,
       respondWith:
           ({
             LazyMessagePayload? lazyPayload,

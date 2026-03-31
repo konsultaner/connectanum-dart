@@ -265,27 +265,13 @@ LazyMessagePayload unwrapLazyPayloadView(
   String? pptCipher,
   String? pptKeyId,
 }) {
-  if (pptScheme == null || payload.pptDecoded) {
+  if (pptScheme == null ||
+      payload.pptDecoded ||
+      payload.packedPayloadBytes != null) {
     return payload;
   }
-  if (pptScheme == 'wamp') {
-    final decoded = decodeLazyPayloadView(
-      payload,
-      pptScheme: pptScheme,
-      pptSerializer: pptSerializer,
-      pptCipher: pptCipher,
-      pptKeyId: pptKeyId,
-    );
-    return LazyMessagePayload.materialized(
-      transparentBinaryPayload: payload.transparentBinaryPayload,
-      encoding: payload.encoding,
-      arguments: decoded.arguments,
-      argumentsKeywords: decoded.argumentsKeywords,
-      pptDecoded: true,
-      anchor: payload.anchor,
-    );
-  }
   final outerArguments = payload.arguments;
+  final outerArgumentsKeywords = payload.argumentsKeywords;
   if (outerArguments == null || outerArguments.isEmpty) {
     return LazyMessagePayload.materialized(
       transparentBinaryPayload: payload.transparentBinaryPayload,
@@ -296,24 +282,45 @@ LazyMessagePayload unwrapLazyPayloadView(
       anchor: payload.anchor,
     );
   }
-  final binPayload = _coercePptBinaryPayload(outerArguments.first);
-  return LazyMessagePayload.packed(
+  final packedPayloadBytes = _extractWrappedPayloadBytes(
+    outerArguments,
+    outerArgumentsKeywords,
+  );
+  if (packedPayloadBytes != null) {
+    return LazyMessagePayload.packed(
+      transparentBinaryPayload: payload.transparentBinaryPayload,
+      encoding: _lazyEncodingFromPptSerializer(pptSerializer),
+      packedPayloadBytes: packedPayloadBytes,
+      packedPayloadDecoder: (bytes) {
+        final decoded = decodePayloadView(
+          <dynamic>[bytes],
+          null,
+          pptScheme: pptScheme,
+          pptSerializer: pptSerializer,
+          pptCipher: pptCipher,
+          pptKeyId: pptKeyId,
+        );
+        return (
+          arguments: decoded.arguments,
+          argumentsKeywords: decoded.argumentsKeywords,
+        );
+      },
+      anchor: payload.anchor,
+    );
+  }
+  final decoded = decodeLazyPayloadView(
+    payload,
+    pptScheme: pptScheme,
+    pptSerializer: pptSerializer,
+    pptCipher: pptCipher,
+    pptKeyId: pptKeyId,
+  );
+  return LazyMessagePayload.materialized(
     transparentBinaryPayload: payload.transparentBinaryPayload,
-    encoding: _lazyEncodingFromPptSerializer(pptSerializer),
-    packedPayloadBytes: binPayload,
-    packedPayloadDecoder: (bytes) {
-      final options = _InlinePptOptions(
-        pptScheme: pptScheme,
-        pptSerializer: pptSerializer,
-        pptCipher: pptCipher,
-        pptKeyId: pptKeyId,
-      );
-      final decoded = PPTPayload.unpackPPTPayload([bytes], options);
-      return (
-        arguments: decoded.arguments,
-        argumentsKeywords: decoded.argumentsKeywords,
-      );
-    },
+    encoding: payload.encoding,
+    arguments: decoded.arguments,
+    argumentsKeywords: decoded.argumentsKeywords,
+    pptDecoded: true,
     anchor: payload.anchor,
   );
 }
@@ -342,6 +349,23 @@ Uint8List _coercePptBinaryPayload(Object? value) {
     'value',
     'PPT payload must be a byte sequence',
   );
+}
+
+Uint8List? _extractWrappedPayloadBytes(
+  List<dynamic>? arguments,
+  Map<String, dynamic>? argumentsKeywords,
+) {
+  if (argumentsKeywords != null && argumentsKeywords.isNotEmpty) {
+    return null;
+  }
+  if (arguments == null || arguments.length != 1) {
+    return null;
+  }
+  final first = arguments.first;
+  if (!_isBinaryPayloadValue(first)) {
+    return null;
+  }
+  return _coercePptBinaryPayload(first);
 }
 
 class _InlinePptOptions extends PPTOptions {
@@ -506,6 +530,98 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
     _lazyPayloadEncoding ??= payload.encoding;
   }
 
+  /// Rehydrates a materialized message from a shared lazy payload view without
+  /// forcing an eager decode. Packed PPT payloads are restored as outer
+  /// arguments so decode-on-access still works for classic getters.
+  void restoreLazyPayload(LazyMessagePayload payload) {
+    transparentBinaryPayload = payload.transparentBinaryPayload;
+    _lazyPayloadEncoding = payload.encoding;
+    if (payload.packedPayloadBytes != null) {
+      arguments = <dynamic>[payload.packedPayloadBytes!];
+      argumentsKeywords = null;
+      retainLazyPayload(payload);
+      return;
+    }
+    setLazyPayload(
+      argumentsBytes: payload.argumentsBytes,
+      argumentsDecoder: payload.argumentsBytes == null
+          ? null
+          : (_) => payload.arguments ?? const <dynamic>[],
+      argumentsKeywordsBytes: payload.argumentsKeywordsBytes,
+      argumentsKeywordsDecoder: payload.argumentsKeywordsBytes == null
+          ? null
+          : (_) => payload.argumentsKeywords ?? const <String, dynamic>{},
+      encoding: payload.encoding,
+    );
+    if (!payload.hasEncodedArguments) {
+      arguments = payload.arguments;
+    }
+    if (!payload.hasEncodedArgumentsKeywords) {
+      argumentsKeywords = payload.argumentsKeywords;
+    }
+    if (payload.pptDecoded) {
+      markPptPayloadDecoded();
+    }
+    retainLazyPayload(payload);
+  }
+
+  /// Unpacks PPT/E2EE payloads in place only when a caller actually touches the
+  /// materialized payload getters. The original lazy bytes are retained so the
+  /// message can still be forwarded without forcing a re-encode.
+  void ensureDecodedPayloadView({
+    required String? pptScheme,
+    required String? pptSerializer,
+    required String? pptCipher,
+    required String? pptKeyId,
+  }) {
+    if (pptScheme == null || _pptPayloadDecoded) {
+      return;
+    }
+    final retainedPayload = toLazyPayload(anchor: this);
+    final rawArguments = _arguments ?? _decodeArgumentsBytes();
+    final rawArgumentsKeywords =
+        _argumentsKeywords ?? _decodeArgumentsKeywordsBytes();
+    if (!_payloadLooksPackedForPpt(
+      rawArguments,
+      rawArgumentsKeywords,
+      pptScheme: pptScheme,
+      pptSerializer: pptSerializer,
+    )) {
+      retainLazyPayload(retainedPayload);
+      _pptPayloadDecoded = true;
+      return;
+    }
+    final decoded = decodePayloadView(
+      rawArguments,
+      rawArgumentsKeywords,
+      pptScheme: pptScheme,
+      pptSerializer: pptSerializer,
+      pptCipher: pptCipher,
+      pptKeyId: pptKeyId,
+    );
+    _arguments = decoded.arguments;
+    _argumentsKeywords = decoded.argumentsKeywords;
+    retainLazyPayload(retainedPayload);
+    _pptPayloadDecoded = true;
+  }
+
+  List<dynamic>? _decodeArgumentsBytes() {
+    if (_encodedArguments == null || _argumentsDecoder == null) {
+      return null;
+    }
+    _arguments = _argumentsDecoder!(_encodedArguments!);
+    return _arguments;
+  }
+
+  Map<String, dynamic>? _decodeArgumentsKeywordsBytes() {
+    if (_encodedArgumentsKeywords == null ||
+        _argumentsKeywordsDecoder == null) {
+      return null;
+    }
+    _argumentsKeywords = _argumentsKeywordsDecoder!(_encodedArgumentsKeywords!);
+    return _argumentsKeywords;
+  }
+
   /// Transfers the message payload to another message
   void copyPayloadTo(AbstractMessageWithPayload message) {
     message.transparentBinaryPayload = transparentBinaryPayload;
@@ -550,4 +666,36 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
       message.retainLazyPayload(retainedLazyPayload.toOwned());
     }
   }
+}
+
+bool _payloadLooksPackedForPpt(
+  List<dynamic>? arguments,
+  Map<String, dynamic>? argumentsKeywords, {
+  required String? pptScheme,
+  required String? pptSerializer,
+}) {
+  if (pptScheme == null) {
+    return false;
+  }
+  if (argumentsKeywords != null && argumentsKeywords.isNotEmpty) {
+    return false;
+  }
+  if (arguments == null || arguments.isEmpty) {
+    return false;
+  }
+  final first = arguments.first;
+  if (pptScheme == 'wamp') {
+    return _isBinaryPayloadValue(first);
+  }
+  if (pptSerializer == null ||
+      (pptSerializer != 'json' &&
+          pptSerializer != 'msgpack' &&
+          pptSerializer != 'cbor')) {
+    return arguments.length == 1 && first is Map;
+  }
+  return _isBinaryPayloadValue(first);
+}
+
+bool _isBinaryPayloadValue(Object? value) {
+  return value is Uint8List || value is List<int>;
 }

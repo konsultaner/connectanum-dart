@@ -11,6 +11,7 @@ import 'package:logging/logging.dart';
 
 import 'package:connectanum_bench/src/http_stream_handler.dart';
 import 'package:connectanum_bench/src/native_wamp_worker.dart';
+import 'package:connectanum_bench/src/wamp_echo_handler.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 
@@ -556,39 +557,7 @@ class _BenchControlRegistry {
   Future<void> _handleRpcEchoLazyInvoke(
     wamp_core.LazyInvocationPayload invocation,
   ) async {
-    _logger.fine(
-      'RPC echo invoked requestId=${invocation.requestId} '
-      'args=${invocation.arguments} kwargs=${invocation.argumentsKeywords}',
-    );
-    final responseOptions = _yieldOptionsFromInvocation(invocation);
-    if (invocation.packedPayloadBytes != null && responseOptions != null) {
-      invocation.respondWith(
-        lazyPayload: invocation.payload,
-        options: responseOptions,
-      );
-    } else {
-      invocation.respondWith(
-        arguments: invocation.arguments,
-        argumentsKeywords: invocation.argumentsKeywords,
-        options: responseOptions,
-      );
-    }
-    _logger.fine('RPC echo responded requestId=${invocation.requestId}');
-  }
-
-  wamp_core.YieldOptions? _yieldOptionsFromInvocation(
-    wamp_core.LazyInvocationPayload invocation,
-  ) {
-    if (invocation.pptScheme == null) {
-      return null;
-    }
-    return wamp_core.YieldOptions(
-      pptScheme: invocation.pptScheme,
-      pptSerializer: invocation.pptSerializer,
-      pptCipher: invocation.pptCipher,
-      pptKeyId: invocation.pptKeyId,
-      custom: invocation.customDetails,
-    );
+    respondEchoLazyInvocation(invocation, logger: _logger);
   }
 
   void _reportError(String type, Object error, StackTrace stackTrace) {

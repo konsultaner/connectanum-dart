@@ -498,27 +498,35 @@ hot-session path now lands roughly at:
   KiB RPC matrix.
 - `wamp_transport_throughput.toml`: RawSocket about `92-131 Mbps`, WebSocket
   about `104-138 Mbps` across the 64 KiB pub/sub + RPC sweep.
-- `wamp_client_impl_smoke.toml`: native now wins the small-message RPC and
-  most pub/sub smoke workloads in this environment after `ct_ffi` started
-  exporting direct-bind metadata for common inbound WAMP messages and the
+- `wamp_client_impl_smoke.toml`: native still wins the small-message RPC and
+  pub/sub smoke workloads in this environment after `ct_ffi` started
+  exporting direct-bind metadata for common inbound WAMP messages, the
   dedicated waitable-FFI receive isolate started batch-draining already-ready
-  handles per connection before sending them back to the main isolate. Outbound
-  `CALL` / `PUBLISH` now reuse matching lazy payload fragments as well, so the
-  same release run shape now lands around `2.64 Mbps` native vs `1.62 Mbps`
-  Dart on RawSocket JSON RPC, `1.88 Mbps` native vs `1.45 Mbps` Dart on
-  RawSocket CBOR pub/sub, `3.38 Mbps` native vs `2.61 Mbps` Dart on WebSocket
-  JSON RPC, and `2.99 Mbps` native vs `3.34 Mbps` Dart on WebSocket CBOR
-  pub/sub.
+  handles per connection before sending them back to the main isolate, and
+  `Session.callSingle(...)` stopped rebuilding materialized `Result` objects
+  from already-decoded payload views. Outbound `CALL` / `PUBLISH` now reuse
+  matching lazy payload fragments as well, so the same release run shape now
+  lands around `2.65 Mbps` native vs `2.09 Mbps` Dart on RawSocket JSON RPC,
+  `2.07 Mbps` native vs `0.68 Mbps` Dart on RawSocket CBOR pub/sub,
+  `3.56 Mbps` native vs `2.96 Mbps` Dart on WebSocket JSON RPC, and
+  `3.34 Mbps` native vs `3.01 Mbps` Dart on WebSocket CBOR pub/sub.
 - `wamp_client_impl_throughput.toml`: native is materially ahead on the 64 KiB
-  hot-session path, landing around `103.88/116.24 Mbps` on RawSocket RPC/pubsub
-  and `108.94/136.96 Mbps` on WebSocket RPC/pubsub versus roughly
-  `45.92/40.43 Mbps` and `63.27/45.12 Mbps` respectively for the Dart client on
+  hot-session path, landing around `98.98/128.07 Mbps` on RawSocket RPC/pubsub
+  and `116.51/127.91 Mbps` on WebSocket RPC/pubsub versus roughly
+  `53.49/48.54 Mbps` and `52.90/47.28 Mbps` respectively for the Dart client on
   this machine.
 - `wamp_ppt_lazy_smoke.toml`: the live CBOR PPT lazy path completes for both
   Dart and native clients after the serializer/PPT fixes and currently lands
   around `2.17/2.02 Mbps` on RawSocket RPC/pubsub and `3.74/3.15 Mbps` on
   WebSocket RPC/pubsub for the native client, versus roughly `1.17/1.59 Mbps`
   and `1.80/2.18 Mbps` for the Dart client on this machine.
+- `wamp_payload_mode_smoke.toml`: explicit side-by-side no-PPT versus PPT
+  comparison for the same RawSocket/WebSocket, RPC/pubsub, Dart/native CBOR
+  workloads so payload-wrapping overhead is visible in one run instead of being
+  inferred from separate scenarios.
+- `wamp_payload_mode_throughput.toml`: the same explicit no-PPT versus PPT
+  comparison shape at the 64 KiB throughput profile, so plain-mode regressions
+  are easier to distinguish from smoke-run noise.
 
 Those WAMP numbers are still end-to-end Dart-client numbers, not pure native
 transport ceilings. The current bench deliberately exercises
@@ -549,7 +557,12 @@ when callers actually use the stream-oriented API, async callee failures still
 flow back as WAMP `ERROR`s after `await`, and the bench no longer wraps inbound
 pub/sub events in an extra Dart object before matching them. Full-frame decode
 remains as a fallback for custom-detail message shapes that are not safe to
-represent in the direct-bind metadata. Treat the numbers as relative
+represent in the direct-bind metadata. The same lazy path now keeps
+already-packed `pptScheme == 'wamp'` payload bytes intact across client
+outbound sends, invocation yields, and router internal-session
+event/result/invocation forwarding, so the benchmark no longer pays the
+placeholder E2EE decode/re-pack tax on those wrapped paths. Treat the numbers
+as relative
 comparisons on the same machine, not product claims.
 
 Treat those as relative loopback signals, not product claims. They are useful

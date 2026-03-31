@@ -343,25 +343,13 @@ class Session {
     CallOptions? options,
     Completer<String>? cancelCompleter,
   }) async {
-    final result = await callSinglePayloadWithLazyPayload(
+    final result = await callSingleLazyPayloadView(
       procedure,
       payload: payload,
       options: options,
       cancelCompleter: cancelCompleter,
     );
-    return Result(
-      result.callRequestId,
-      ResultDetails(
-        progress: result.progress,
-        pptScheme: result.pptScheme,
-        pptSerializer: result.pptSerializer,
-        pptCipher: result.pptCipher,
-        pptKeyId: result.pptKeyId,
-        custom: result.customDetails,
-      ),
-      arguments: result.arguments,
-      argumentsKeywords: result.argumentsKeywords,
-    );
+    return resultFromLazyPayload(result);
   }
 
   /// This calls a [procedure] and waits for the final non-progressive payload
@@ -643,7 +631,7 @@ class Session {
       return;
     }
     if (message is Event) {
-      subscriptions[message.subscriptionId]?.addEvent(_decodeEvent(message));
+      subscriptions[message.subscriptionId]?.addEvent(message);
       return;
     }
     if (message is Registered) {
@@ -723,7 +711,7 @@ class Session {
       return;
     }
     if (subscribed.hasMaterializedEventConsumers) {
-      subscribed.addEvent(_decodeEvent(message.materialize() as Event));
+      subscribed.addEvent(message.materialize() as Event);
       return;
     }
     final lazyEvent = _lazyEventPayloadFromNative(message);
@@ -828,22 +816,6 @@ class Session {
       final pendingUnregister = _pendingUnregisters.remove(message.requestId);
       _completePendingError(pendingUnregister?.completer, message);
     }
-  }
-
-  Event _decodeEvent(Event event) {
-    final eventUpdated = event;
-    final decoded = decodePayloadView(
-      event.arguments,
-      event.argumentsKeywords,
-      pptScheme: event.details.pptScheme,
-      pptSerializer: event.details.pptSerializer,
-      pptCipher: event.details.pptCipher,
-      pptKeyId: event.details.pptKeyId,
-    );
-    eventUpdated.arguments = decoded.arguments;
-    eventUpdated.argumentsKeywords = decoded.argumentsKeywords;
-    eventUpdated.markPptPayloadDecoded();
-    return eventUpdated;
   }
 
   LazyResultPayload _lazyResultPayloadFromNative(NativeSessionMessage message) {
@@ -1145,25 +1117,27 @@ class Session {
     PPTOptions? options,
   ) {
     message.transparentBinaryPayload = payload.transparentBinaryPayload;
+    Uint8List? packedPayload;
+    if (options?.pptScheme != null) {
+      packedPayload = _packMatchingLazyPayload(payload, options!.pptSerializer);
+    }
     if (options?.pptScheme == 'wamp') {
-      message.arguments = E2EEPayload.packE2EEPayload(
-        payload.arguments,
-        payload.argumentsKeywords,
-        options!,
-      );
+      message.arguments = packedPayload == null
+          ? E2EEPayload.packE2EEPayload(
+              payload.arguments,
+              payload.argumentsKeywords,
+              options!,
+            )
+          : <dynamic>[packedPayload];
       message.argumentsKeywords = null;
       return;
     }
     if (options?.pptScheme != null) {
-      final packedPayload = _packMatchingLazyPayload(
-        payload,
-        options!.pptSerializer,
-      );
       message.arguments = packedPayload == null
           ? PPTPayload.packPPTPayload(
               payload.arguments,
               payload.argumentsKeywords,
-              options,
+              options!,
             )
           : [packedPayload];
       message.argumentsKeywords = null;

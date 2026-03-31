@@ -164,6 +164,28 @@ void main() {
       expect(lazy.argumentsKeywords, equals(const {'worker': 5}));
     });
 
+    test('toLazyPayload preserves packed wamp bytes until accessed', () {
+      final serializer = cbor_serializer.Serializer();
+      final packedBytes = Uint8List.fromList(
+        serializer.serializePPT(
+          PPTPayload(
+            arguments: const ['wrapped-invocation'],
+            argumentsKeywords: const {'worker': 12},
+          ),
+        ),
+      );
+      final invocation = Invocation(
+        1,
+        2,
+        InvocationDetails(9, 'bench.proc', false, 'wamp', 'cbor'),
+        arguments: <dynamic>[packedBytes],
+      );
+
+      final lazy = invocation.toLazyInvocationPayload();
+
+      expect(lazy.packedPayloadBytes, orderedEquals(packedBytes));
+    });
+
     test('respondWith reuses lazy PPT envelope bytes without decoding', () {
       final invocation = Invocation(1, 2, InvocationDetails(null, null, false));
       final responses = <AbstractMessageWithPayload>[];
@@ -196,6 +218,48 @@ void main() {
           pptScheme: 'x_custom_scheme',
           pptSerializer: 'cbor',
         ),
+      );
+
+      expect(decodeCount, 0);
+      expect(responses, hasLength(1));
+      final response = responses.single as Yield;
+      expect(response.arguments, hasLength(1));
+      expect(
+        response.arguments!.single,
+        equals(packedPayload.packedPayloadBytes),
+      );
+      expect(response.argumentsKeywords, isNull);
+    });
+
+    test('respondWith reuses lazy wamp envelope bytes without decoding', () {
+      final invocation = Invocation(1, 2, InvocationDetails(null, null, false));
+      final responses = <AbstractMessageWithPayload>[];
+      invocation.onResponse(responses.add);
+      var decodeCount = 0;
+      final serializer = cbor_serializer.Serializer();
+      final packedPayload = LazyMessagePayload.packed(
+        encoding: LazyPayloadEncoding.cbor,
+        packedPayloadBytes: Uint8List.fromList(
+          serializer.serializePPT(
+            PPTPayload(
+              arguments: const ['wrapped-response'],
+              argumentsKeywords: const {'worker': 11},
+            ),
+          ),
+        ),
+        packedPayloadDecoder: (bytes) {
+          decodeCount += 1;
+          final decoded = serializer.deserializePPT(bytes)!;
+          return (
+            arguments: decoded.arguments,
+            argumentsKeywords: decoded.argumentsKeywords,
+          );
+        },
+      );
+
+      invocation.respondWith(
+        lazyPayload: packedPayload,
+        options: YieldOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
       );
 
       expect(decodeCount, 0);
@@ -262,6 +326,40 @@ void main() {
       expect(received, isNotNull);
       expect(received!.arguments, equals(const ['ppt-invocation']));
       expect(received!.argumentsKeywords, equals(const {'worker': 6}));
+      expect(responses, hasLength(1));
+      expect((responses.single as Yield).arguments, equals(const ['ok']));
+    });
+
+    test('Registered onInvoke lazily unpacks PPT payloads on access', () async {
+      final registered = Registered(1, 2);
+      Invocation? received;
+      final responses = <AbstractMessageWithPayload>[];
+
+      registered.onInvoke((invocation) {
+        received = invocation;
+        expect(invocation.hasDecodedPptPayload, isFalse);
+        expect(invocation.arguments, equals(const ['ppt-invocation']));
+        expect(invocation.argumentsKeywords, equals(const {'worker': 6}));
+        invocation.respondWith(arguments: const ['ok']);
+      });
+
+      final invocation = Invocation(
+        1,
+        2,
+        InvocationDetails(9, 'bench.proc', false, 'x_custom_scheme', 'cbor'),
+        arguments: PPTPayload.packPPTPayload(
+          const ['ppt-invocation'],
+          const {'worker': 6},
+          InvocationDetails(9, 'bench.proc', false, 'x_custom_scheme', 'cbor'),
+        ),
+      );
+      invocation.onResponse(responses.add);
+
+      registered.addInvocation(invocation);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(received, isNotNull);
+      expect(received!.hasDecodedPptPayload, isTrue);
       expect(responses, hasLength(1));
       expect((responses.single as Yield).arguments, equals(const ['ok']));
     });
