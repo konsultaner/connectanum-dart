@@ -91,10 +91,12 @@
   - [ ] Support translation tables that map HTTP path/method/protocol combinations to explicit WAMP realms and procedures, including per-method overrides and catch-all wildcards.
   - [ ] Provide reserved realm/namespace shorthand so routes can auto-map into a router-managed HTTP realm with deterministic URI derivation (e.g. `/` → `router.http.index`).
   - [ ] Allow namespace-based auto-mapping (path segments → URI prefixes) for teams already organising registrations by namespace.
+  - [ ] Map incoming REST requests to internal router sessions through an in-memory transport so PHP/FCM or other external services can act as lightweight proxies.
+  - [ ] Provide policy-driven routing (path → WAMP procedure/topic, file proxy, custom isolate handler) with per-route auth hooks aligned with realm permissions.
   - [ ] Enforce method/protocol whitelists from the configuration; return 405/426 at the native layer before touching Dart.
   - [x] Keep HTTP payloads zero-copy by exposing request/response body handles over FFI and streaming through Rust.
+  - [x] Support request/response streaming and file-backed payloads to preserve zero-copy semantics for large bodies.
   - [x] Surface structured responses (status, headers, trailers) back to the native runtime without materialising entire payloads in Dart.
-  - [ ] Offer middleware hooks (logging, rate limiting, throttling) that run inside worker isolates while heavy I/O remains in Rust.
   - [x] Land `HttpRequestContext`/`HttpResponseUtil` in Dart so HTTP routes can read bodies lazily, pipe uploads directly to disk, and send structured responses (status/headers/body) back through the boss without copies.
   - [x] Extend FFI to accept structured HTTP responses (status, headers, zero-copy body descriptors, streaming handles) and flush them to the native runtime.
   - [x] Provide zero-copy response helpers: in-memory slices, file-backed payloads, and streaming writers with back-pressure.
@@ -104,22 +106,15 @@
   - [x] Forward streamed HTTP bridge response chunks across the internal-session isolate hop with transferable buffers so large progress payloads avoid repeated `Uint8List` copies.
   - [x] Bypass the per-chunk WAMP response envelope for streamed HTTP bridge responses: internal sessions now open borrowed native response-stream descriptors once, write chunks directly from the callee isolate, and emit only a final completion result back through the call lifecycle.
   - [x] Add end-to-end zero-copy HTTP regressions (large request/response plus descriptor-based internal-session routing) to ensure no stray serialization occurs in Dart.
+  - [ ] Offer middleware hooks (logging, rate limiting, throttling) that run inside worker isolates while heavy I/O remains in Rust.
   - [ ] Introduce adapter pipeline support (static file handler, PHP-FPM/FastCGI bridge, reverse proxy stubs) configurable per route; document adapter contracts and lifecycle.
-  - [ ] `Add tests/doc coverage for the new HTTP call contract` (Dart unit tests, router integration test asserting response round-trip, native tests validating file/stream paths).
+  - [ ] Add tests/doc coverage for the new HTTP call contract (Dart unit tests, router integration test asserting response round-trip, native tests validating file/stream paths).
 - [ ] HTTP authentication & session tokens
   - [ ] Reuse endpoint authenticators (CRA, SCRAM, remote delegates) to issue short-lived access tokens for HTTP clients; tokens include target realm information from a header or query parameter.
   - [ ] Provide a configurable auth/refresh route (defaults to `/auth`) reserved inside the HTTP namespace so clients can obtain and refresh tokens.
   - [ ] Enforce endpoint-level transport auth (TLS/mTLS/ALPN) before route-level checks; reject unauthorised requests in the native layer.
   - [ ] Implement refresh token handling (configurable TTL, dedicated handler in reserved realm) with support for issuing new access tokens without replaying the full handshake.
   - [ ] Propagate auth context (`_authid`, `_authrole`, `_authmethod`) into the WAMP invocation details so downstream procedures honour existing router policies.
-- [ ] HTTP bridge (general-purpose request handling)
-  - [ ] Expose bridge configuration via listener protocols with pluggable pipelines (REST→RPC proxy, static asset serving, metrics scraping, custom handlers).
-- [ ] HTTP bridge (general-purpose request handling)
-  - [ ] Map incoming REST requests to internal router sessions through an in-memory transport so PHP/FCM or other external services can act as lightweight proxies.
-  - [ ] Provide policy-driven routing (path → WAMP procedure/topic, file proxy, custom isolate handler) with per-route auth hooks aligned with realm permissions.
-  - [x] Support request/response streaming and file-backed payloads to preserve zero-copy semantics for large bodies.
-  - [x] Surface structured responses (status, headers, trailers) back to the native runtime without materialising entire payloads in Dart.
-  - [ ] Offer middleware hooks (logging, rate limiting, throttling) that run inside worker isolates while heavy I/O remains in Rust.
 - [ ] HTTP forwarding hooks for custom routing/handling in RPC implementations
   - [ ] Graceful shutdown (drain sessions, send GOODBYE/HTTP responses, stop listeners)
     - [ ] Provide unified HTTP bridge that can surface Prometheus/Grafana exporters alongside REST→WAMP translation.
