@@ -603,18 +603,16 @@ class Serializer extends AbstractSerializer {
   ) {
     if (messageData.length >= argumentsOffset + 1) {
       if (messageData[argumentsOffset] is CborList) {
-        message.arguments =
-            (messageData[argumentsOffset] as CborList).toObject()
-                as List<dynamic>;
+        message.arguments = _cborListToDart(
+          messageData[argumentsOffset] as CborList,
+        );
       }
     }
     if (messageData.length >= argumentsOffset + 2) {
       if (messageData[argumentsOffset + 1] is CborMap) {
-        message.argumentsKeywords =
-            Map.castFrom<dynamic, dynamic, String, dynamic>(
-              (messageData[argumentsOffset + 1] as CborMap).toObject()
-                  as Map<dynamic, dynamic>,
-            );
+        message.argumentsKeywords = _cborMapToStringMap(
+          messageData[argumentsOffset + 1] as CborMap,
+        );
       }
     }
     return message;
@@ -720,12 +718,11 @@ class Serializer extends AbstractSerializer {
       );
     }
     if (message is Invocation) {
-      // for serializer unit test only
       var structuredMessage = [
         MessageTypes.codeInvocation,
         message.requestId,
         message.registrationId,
-        {},
+        _serializeInvocationDetails(message.details),
       ];
       _appendPayloadToList(structuredMessage, message);
       return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
@@ -955,7 +952,7 @@ class Serializer extends AbstractSerializer {
 
   Object? _decodePayloadFragment(Uint8List bytes) {
     final decoded = cbor.decode(bytes);
-    return decoded.toObject();
+    return _cborValueToDart(decoded);
   }
 
   Map<String, dynamic> _cborMapToStringMap(CborMap? map) {
@@ -964,10 +961,34 @@ class Serializer extends AbstractSerializer {
       return result;
     }
     map.forEach((key, value) {
-      final resolvedKey = key.toObject().toString();
-      result[resolvedKey] = value.toObject();
+      final resolvedKey = _cborValueToDart(key).toString();
+      result[resolvedKey] = _cborValueToDart(value);
     });
     return result;
+  }
+
+  List<dynamic> _cborListToDart(CborList list) {
+    return list.map(_cborValueToDart).toList(growable: false);
+  }
+
+  Object? _cborValueToDart(Object? value) {
+    if (value is CborBytes) {
+      return Uint8List.fromList(value.bytes);
+    }
+    if (value is CborList) {
+      return _cborListToDart(value);
+    }
+    if (value is CborMap) {
+      final result = <Object?, Object?>{};
+      value.forEach((key, nestedValue) {
+        result[_cborValueToDart(key)] = _cborValueToDart(nestedValue);
+      });
+      return result;
+    }
+    if (value is CborValue) {
+      return value.toObject();
+    }
+    return value;
   }
 
   Map? _serializeDetails(Details details) {
@@ -1304,6 +1325,35 @@ class Serializer extends AbstractSerializer {
     return map;
   }
 
+  Map<String, dynamic> _serializeInvocationDetails(InvocationDetails details) {
+    final map = <String, dynamic>{};
+    if (details.caller != null) {
+      map['caller'] = details.caller;
+    }
+    if (details.procedure != null) {
+      map['procedure'] = details.procedure;
+    }
+    if (details.receiveProgress != null) {
+      map['receive_progress'] = details.receiveProgress;
+    }
+    if (details.pptScheme != null) {
+      map['ppt_scheme'] = details.pptScheme;
+    }
+    if (details.pptSerializer != null) {
+      map['ppt_serializer'] = details.pptSerializer;
+    }
+    if (details.pptCipher != null) {
+      map['ppt_cipher'] = details.pptCipher;
+    }
+    if (details.pptKeyId != null) {
+      map['ppt_keyid'] = details.pptKeyId;
+    }
+    if (details.custom.isNotEmpty) {
+      map.addAll(details.custom);
+    }
+    return map;
+  }
+
   Map _serializeSubscribeOptions(SubscribeOptions? options) {
     var jsonOptions = {};
     if (options != null) {
@@ -1339,16 +1389,16 @@ class Serializer extends AbstractSerializer {
     if (decodedMessage is CborMap) {
       if (decodedMessage[CborString('args')] != null &&
           decodedMessage[CborString('args')] is CborList) {
-        arguments =
-            (decodedMessage[CborString('args')] as CborList).toObject()
-                as List<dynamic>;
+        arguments = _cborListToDart(
+          decodedMessage[CborString('args')] as CborList,
+        );
       }
 
       if (decodedMessage[CborString('kwargs')] != null &&
           decodedMessage[CborString('kwargs')] is CborMap) {
-        argumentsKeywords = Map.castFrom<dynamic, dynamic, String, dynamic>(
-          (decodedMessage[CborString('kwargs')] as CborMap).toObject()
-              as Map<dynamic, dynamic>,
+        argumentsKeywords = Map.castFrom<Object?, Object?, String, dynamic>(
+          _cborValueToDart(decodedMessage[CborString('kwargs')])!
+              as Map<Object?, Object?>,
         );
       }
 

@@ -449,6 +449,10 @@ void main() {
           connectionId: 32,
         );
         await Future<void>.delayed(Duration.zero);
+        final connectionStates = <int, WorkerConnectionState>{
+          31: calleeState,
+          32: callerState,
+        };
 
         final realmContexts = RealmContextCache(
           statePort: stateStore.commandPort,
@@ -459,6 +463,7 @@ void main() {
           bossPort: bossPort.sendPort,
           statePort: stateStore.commandPort,
           realmContexts: realmContexts,
+          connectionStates: connectionStates,
           state: calleeState,
           message: register,
           connectionId: 31,
@@ -481,6 +486,7 @@ void main() {
           bossPort: bossPort.sendPort,
           statePort: stateStore.commandPort,
           realmContexts: realmContexts,
+          connectionStates: connectionStates,
           state: callerState,
           message: call,
           connectionId: 32,
@@ -512,6 +518,7 @@ void main() {
           bossPort: bossPort.sendPort,
           statePort: stateStore.commandPort,
           realmContexts: realmContexts,
+          connectionStates: connectionStates,
           state: calleeState,
           message: yieldMessage,
           connectionId: 31,
@@ -912,6 +919,10 @@ void main() {
           connectionId: 142,
         );
         await Future<void>.delayed(Duration.zero);
+        final connectionStates = <int, WorkerConnectionState>{
+          141: callerState,
+          142: calleeState,
+        };
 
         final realmContexts = RealmContextCache(
           statePort: stateStore.commandPort,
@@ -920,6 +931,7 @@ void main() {
           bossPort: bossPort.sendPort,
           statePort: stateStore.commandPort,
           realmContexts: realmContexts,
+          connectionStates: connectionStates,
           state: calleeState,
           message: register_msg.Register(9813, 'com.zero.result'),
           connectionId: 142,
@@ -936,6 +948,7 @@ void main() {
           bossPort: bossPort.sendPort,
           statePort: stateStore.commandPort,
           realmContexts: realmContexts,
+          connectionStates: connectionStates,
           state: callerState,
           message: call,
           connectionId: 141,
@@ -967,6 +980,7 @@ void main() {
           bossPort: bossPort.sendPort,
           statePort: stateStore.commandPort,
           realmContexts: realmContexts,
+          connectionStates: connectionStates,
           state: calleeState,
           message: yieldMessage,
           connectionId: 142,
@@ -1046,6 +1060,10 @@ void main() {
           connectionId: 152,
         );
         await Future<void>.delayed(Duration.zero);
+        final connectionStates = <int, WorkerConnectionState>{
+          151: callerState,
+          152: calleeState,
+        };
 
         final realmContexts = RealmContextCache(
           statePort: stateStore.commandPort,
@@ -1054,6 +1072,7 @@ void main() {
           bossPort: bossPort.sendPort,
           statePort: stateStore.commandPort,
           realmContexts: realmContexts,
+          connectionStates: connectionStates,
           state: calleeState,
           message: register_msg.Register(9913, 'com.zero.error'),
           connectionId: 152,
@@ -1066,6 +1085,7 @@ void main() {
           bossPort: bossPort.sendPort,
           statePort: stateStore.commandPort,
           realmContexts: realmContexts,
+          connectionStates: connectionStates,
           state: callerState,
           message: call,
           connectionId: 151,
@@ -1099,6 +1119,7 @@ void main() {
           bossPort: bossPort.sendPort,
           statePort: stateStore.commandPort,
           realmContexts: realmContexts,
+          connectionStates: connectionStates,
           state: calleeState,
           message: errorMessage,
           connectionId: 152,
@@ -1433,6 +1454,10 @@ void main() {
         connectionId: 84,
       );
       await Future<void>.delayed(Duration.zero);
+      final connectionStates = <int, WorkerConnectionState>{
+        83: callerState,
+        84: calleeState,
+      };
 
       final realmContexts = RealmContextCache(
         statePort: stateStore.commandPort,
@@ -1450,6 +1475,7 @@ void main() {
         bossPort: setupBoss.sendPort,
         statePort: stateStore.commandPort,
         realmContexts: realmContexts,
+        connectionStates: connectionStates,
         state: calleeState,
         message: register_msg.Register(13003, 'com.zero.copy.yield'),
         connectionId: 84,
@@ -1462,6 +1488,7 @@ void main() {
         bossPort: setupBoss.sendPort,
         statePort: stateStore.commandPort,
         realmContexts: realmContexts,
+        connectionStates: connectionStates,
         state: callerState,
         message: call,
         connectionId: 83,
@@ -1502,6 +1529,7 @@ void main() {
           bossPort: throwingBoss,
           statePort: stateStore.commandPort,
           realmContexts: realmContexts,
+          connectionStates: connectionStates,
           state: calleeState,
           message: yieldMessage,
           connectionId: 84,
@@ -1559,6 +1587,10 @@ void main() {
         connectionId: 86,
       );
       await Future<void>.delayed(Duration.zero);
+      final connectionStates = <int, WorkerConnectionState>{
+        85: callerState,
+        86: calleeState,
+      };
 
       final realmContexts = RealmContextCache(
         statePort: stateStore.commandPort,
@@ -1576,6 +1608,7 @@ void main() {
         bossPort: setupBoss.sendPort,
         statePort: stateStore.commandPort,
         realmContexts: realmContexts,
+        connectionStates: connectionStates,
         state: calleeState,
         message: register_msg.Register(14003, 'com.zero.copy.error'),
         connectionId: 86,
@@ -1588,6 +1621,7 @@ void main() {
         bossPort: setupBoss.sendPort,
         statePort: stateStore.commandPort,
         realmContexts: realmContexts,
+        connectionStates: connectionStates,
         state: callerState,
         message: call,
         connectionId: 85,
@@ -1630,6 +1664,7 @@ void main() {
           bossPort: throwingBoss,
           statePort: stateStore.commandPort,
           realmContexts: realmContexts,
+          connectionStates: connectionStates,
           state: calleeState,
           message: errorMessage,
           connectionId: 86,
@@ -2712,6 +2747,10 @@ void main() {
           connectionId: 22,
         );
         await Future<void>.delayed(Duration.zero);
+        final connectionStates = <int, WorkerConnectionState>{
+          21: callerState,
+          22: calleeState,
+        };
 
         final realmContexts = RealmContextCache(
           statePort: stateStore.commandPort,
@@ -2721,6 +2760,7 @@ void main() {
           bossPort: bossPort.sendPort,
           statePort: stateStore.commandPort,
           realmContexts: realmContexts,
+          connectionStates: connectionStates,
           state: calleeState,
           message: register_msg.Register(7001, 'com.zero.proc'),
           connectionId: 22,
@@ -2744,6 +2784,7 @@ void main() {
           bossPort: bossPort.sendPort,
           statePort: stateStore.commandPort,
           realmContexts: realmContexts,
+          connectionStates: connectionStates,
           state: callerState,
           message: call,
           connectionId: 21,
@@ -2767,6 +2808,132 @@ void main() {
           ),
           isEmpty,
         );
+      },
+    );
+
+    test(
+      'falls back to Dart forwarding for mixed-serializer invocations',
+      () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
+
+        final listener = _buildListener();
+        final callerState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        callerState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 811;
+
+        final calleeState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        calleeState
+          ..serializer = NativeMessageSerializer.messagePack
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 812;
+
+        _openSession(
+          stateStore,
+          sessionId: 811,
+          listener: listener,
+          connectionId: 31,
+        );
+        _openSession(
+          stateStore,
+          sessionId: 812,
+          listener: listener,
+          connectionId: 32,
+        );
+        await Future<void>.delayed(Duration.zero);
+        final connectionStates = <int, WorkerConnectionState>{
+          31: callerState,
+          32: calleeState,
+        };
+
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          connectionStates: connectionStates,
+          state: calleeState,
+          message: register_msg.Register(7101, 'com.mixed.proc'),
+          connectionId: 32,
+        );
+        await Future<void>.delayed(Duration.zero);
+        bossMessages.clear();
+
+        final payload = Uint8List.fromList(
+          List<int>.generate(128, (index) => index),
+        );
+        final call = call_msg.Call(
+          8101,
+          'com.mixed.proc',
+          arguments: [payload],
+        );
+        final incoming = NativeIncomingMessage.test(
+          serializer: NativeMessageSerializer.json,
+          message: call,
+          handle: 188,
+          onRetain: (handle) => handle,
+        );
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          connectionStates: connectionStates,
+          state: callerState,
+          message: call,
+          connectionId: 31,
+          incomingMessage: incoming,
+        );
+
+        await Future<void>.delayed(Duration.zero);
+
+        expect(
+          bossMessages.where(
+            (message) => message['type'] == 'worker_forward_native_invocation',
+          ),
+          isEmpty,
+        );
+        final forwards = _extractForwardMessages(bossMessages);
+        expect(forwards, hasLength(1));
+        expect(forwards.single['connectionId'], equals(32));
+        final invocation =
+            forwards.single['message'] as invocation_msg.Invocation;
+        expect(invocation.arguments, hasLength(1));
+        final forwardedArgument = invocation.arguments!.first;
+        final forwardedPayload = switch (forwardedArgument) {
+          TransferableTypedData data => data.materialize().asUint8List(),
+          Uint8List data => data,
+          List<int> data => Uint8List.fromList(data),
+          _ => fail(
+            'Unexpected forwarded payload type: ${forwardedArgument.runtimeType}',
+          ),
+        };
+        expect(forwardedPayload, equals(payload));
       },
     );
 

@@ -87,6 +87,31 @@ void main() {
         ),
       );
     });
+    test('Call serializes binary custom option fields', () {
+      final call = Call(
+        42,
+        'com.myapp.binary',
+        options: CallOptions(
+          custom: {
+            'trace_id': 'abc',
+            'blob': Uint8List.fromList(const [1, 2, 3, 4]),
+            'nested': {
+              'payload': Uint8List.fromList(const [5, 6, 7]),
+            },
+          },
+        ),
+      );
+
+      final frame =
+          jsonDecode(serializer.serializeToString(call)) as List<dynamic>;
+      final options = frame[2] as Map<dynamic, dynamic>;
+      expect(options['trace_id'], equals('abc'));
+      expect(options['blob'], startsWith('\\u0000'));
+      expect(
+        (options['nested'] as Map<dynamic, dynamic>)['payload'],
+        startsWith('\\u0000'),
+      );
+    });
     test('Register', () {
       expect(
         serializer.serializeToString(
@@ -439,6 +464,31 @@ void main() {
         equals(
           '[${MessageTypes.codeError},${MessageTypes.codeHello},123422,{"cause":"some"},"wamp.unknown",["hi",2],{"hi":12}]',
         ),
+      );
+    });
+    test('Error round-trips binary detail fields', () {
+      final message = Error(MessageTypes.codeCall, 77, {
+        'trace_id': 'err-1',
+        'blob': Uint8List.fromList(const [1, 2, 3, 4]),
+        'nested': {
+          'payload': Uint8List.fromList(const [5, 6, 7]),
+        },
+      }, Error.runtimeError);
+
+      final roundTrip =
+          serializer.deserializeFromString(
+                serializer.serializeToString(message),
+              )
+              as Error;
+
+      expect(roundTrip.details['trace_id'], equals('err-1'));
+      expect(
+        roundTrip.details['blob'],
+        orderedEquals(Uint8List.fromList(const [1, 2, 3, 4])),
+      );
+      expect(
+        (roundTrip.details['nested'] as Map)['payload'],
+        orderedEquals(Uint8List.fromList(const [5, 6, 7])),
       );
     });
     test('Subscribe', () {
@@ -1225,6 +1275,45 @@ void main() {
       expect(invocation.details.custom, containsPair('trace_id', 'abc'));
       expect(invocation.arguments, equals(['hi']));
     });
+    test('Invocation serializes custom detail fields', () {
+      final invocation = Invocation(
+        6131533,
+        9823526,
+        InvocationDetails(1, 'com.myapp.foo', true, null, null, null, null, {
+          'trace_id': 'abc',
+        }),
+        arguments: const ['hi'],
+      );
+
+      final roundTrip =
+          serializer.deserializeFromString(
+                serializer.serializeToString(invocation),
+              )
+              as Invocation;
+
+      expect(roundTrip.details.caller, equals(1));
+      expect(roundTrip.details.procedure, equals('com.myapp.foo'));
+      expect(roundTrip.details.receiveProgress, isTrue);
+      expect(roundTrip.details.custom, containsPair('trace_id', 'abc'));
+      expect(roundTrip.arguments, equals(['hi']));
+    });
+    test('Invocation retains binary custom detail fields', () {
+      final invocation =
+          serializer.deserializeFromString(
+                '[68,6131533,9823526,{"caller":1,"trace_id":"abc","blob":"\\\\u0000AQID","nested":{"payload":"\\\\u0000BAUG"}},["hi"]]',
+              )
+              as Invocation;
+
+      expect(invocation.details.custom['trace_id'], equals('abc'));
+      expect(
+        invocation.details.custom['blob'],
+        orderedEquals(Uint8List.fromList(const [1, 2, 3])),
+      );
+      expect(
+        (invocation.details.custom['nested'] as Map)['payload'],
+        orderedEquals(Uint8List.fromList(const [4, 5, 6])),
+      );
+    });
     test('Result retains custom detail fields', () {
       final result =
           serializer.deserializeFromString(
@@ -1236,6 +1325,35 @@ void main() {
       expect(result.details.custom, containsPair('trace_id', 'abc'));
       expect(result.arguments, equals(['hi']));
     });
+    test('Result round-trips binary custom detail fields', () {
+      final result = Result(
+        6131533,
+        ResultDetails(
+          custom: {
+            'trace_id': 'abc',
+            'blob': Uint8List.fromList(const [7, 8, 9]),
+            'nested': {
+              'payload': Uint8List.fromList(const [10, 11]),
+            },
+          },
+        ),
+        arguments: const ['hi'],
+      );
+
+      final roundTrip =
+          serializer.deserializeFromString(serializer.serializeToString(result))
+              as Result;
+
+      expect(roundTrip.details.custom['trace_id'], equals('abc'));
+      expect(
+        roundTrip.details.custom['blob'],
+        orderedEquals(Uint8List.fromList(const [7, 8, 9])),
+      );
+      expect(
+        (roundTrip.details.custom['nested'] as Map)['payload'],
+        orderedEquals(Uint8List.fromList(const [10, 11])),
+      );
+    });
     test('Event retains custom detail fields', () {
       final event =
           serializer.deserializeFromString(
@@ -1246,6 +1364,38 @@ void main() {
       expect(event.details.publisher, equals(1));
       expect(event.details.custom, containsPair('trace_id', 'abc'));
       expect(event.arguments, equals(['hi']));
+    });
+    test('Event round-trips binary custom detail fields', () {
+      final event = Event(
+        123,
+        456,
+        EventDetails(
+          publisher: 1,
+          custom: {
+            'trace_id': 'abc',
+            'blob': Uint8List.fromList(const [12, 13, 14]),
+            'nested': {
+              'payload': Uint8List.fromList(const [15, 16]),
+            },
+          },
+        ),
+        arguments: const ['hi'],
+      );
+
+      final roundTrip =
+          serializer.deserializeFromString(serializer.serializeToString(event))
+              as Event;
+
+      expect(roundTrip.details.publisher, equals(1));
+      expect(roundTrip.details.custom['trace_id'], equals('abc'));
+      expect(
+        roundTrip.details.custom['blob'],
+        orderedEquals(Uint8List.fromList(const [12, 13, 14])),
+      );
+      expect(
+        (roundTrip.details.custom['nested'] as Map)['payload'],
+        orderedEquals(Uint8List.fromList(const [15, 16])),
+      );
     });
     test('deserializePPT', () {
       var binData = Utf8Encoder().convert(

@@ -35,6 +35,7 @@ Future<void> _handleSessionMessage({
   required SendPort bossPort,
   required SendPort? statePort,
   required RealmContextCache? realmContexts,
+  required Map<int, WorkerConnectionState> connectionStates,
   required WorkerConnectionState state,
   required AbstractMessage message,
   required int connectionId,
@@ -136,6 +137,7 @@ Future<void> _handleSessionMessage({
       bossPort: bossPort,
       statePort: statePort,
       realmContexts: realmContexts,
+      connectionStates: connectionStates,
       state: state,
       connectionId: connectionId,
       message: message,
@@ -161,6 +163,7 @@ Future<void> _handleSessionMessage({
       bossPort: bossPort,
       statePort: statePort,
       realmContexts: realmContexts,
+      connectionStates: connectionStates,
       state: state,
       connectionId: connectionId,
       message: message,
@@ -175,6 +178,7 @@ Future<void> _handleSessionMessage({
       bossPort: bossPort,
       statePort: statePort,
       realmContexts: realmContexts,
+      connectionStates: connectionStates,
       state: state,
       connectionId: connectionId,
       message: message,
@@ -679,6 +683,9 @@ Future<void> _handlePublish({
     for (final match in internalMatches) {
       final topic = _eventTopicForMatch(match.details, message.topic);
       final eventDetails = Map<String, Object?>.from(match.details);
+      if (message.options?.custom.isNotEmpty == true) {
+        eventDetails.addAll(message.options!.custom);
+      }
       if (message.options?.pptScheme != null) {
         eventDetails['ppt_scheme'] = message.options!.pptScheme;
       }
@@ -712,6 +719,9 @@ Future<void> _handlePublish({
           pptCipher: message.options?.pptCipher,
           pptKeyid: message.options?.pptKeyId,
         );
+        if (message.options?.custom.isNotEmpty == true) {
+          eventDetails.custom.addAll(message.options!.custom);
+        }
         final event = event_msg.Event(
           match.subscriptionId,
           routing.publicationId,
@@ -881,6 +891,7 @@ Future<void> _handleCall({
   required SendPort bossPort,
   required SendPort? statePort,
   required RealmContextCache? realmContexts,
+  required Map<int, WorkerConnectionState> connectionStates,
   required WorkerConnectionState state,
   required int connectionId,
   required call_msg.Call message,
@@ -952,7 +963,12 @@ Future<void> _handleCall({
       );
       return;
     }
-    if (nativeMessage?.hasNativeHandle == true) {
+    if (_canUseNativeForwardPath(
+      connectionStates: connectionStates,
+      sourceState: state,
+      targetConnectionId: dispatch.calleeConnectionId,
+      incomingMessage: nativeMessage,
+    )) {
       final messageHandle = nativeMessage!;
       final retainedHandle = messageHandle.retainHandle();
       if (retainedHandle > 0) {
@@ -1283,6 +1299,7 @@ Future<void> _handleInternalInvocation({
         pptSerializer: response['pptSerializer'] as String?,
         pptCipher: response['pptCipher'] as String?,
         pptKeyId: response['pptKeyId'] as String?,
+        details: response['details'] as Map<String, Object?>?,
       );
     } else if (response is Map<String, Object?> &&
         response['type'] == 'error') {
@@ -1351,6 +1368,7 @@ Future<void> _sendInternalInvocationResult({
   String? pptSerializer,
   String? pptCipher,
   String? pptKeyId,
+  Map<String, Object?>? details,
 }) async {
   try {
     final context = realmContexts.contextFor(realmUri);
@@ -1433,6 +1451,7 @@ Future<void> _sendInternalInvocationResult({
         'pptSerializer': pptSerializer,
         'pptCipher': pptCipher,
         'pptKeyId': pptKeyId,
+        'details': details,
       });
       return;
     }
@@ -1454,6 +1473,14 @@ Future<void> _sendInternalInvocationResult({
         pptKeyId: pptKeyId,
       ),
     );
+    if (details != null && details.isNotEmpty) {
+      result.details.custom.addAll(details);
+      result.details.custom.remove('progress');
+      result.details.custom.remove('ppt_scheme');
+      result.details.custom.remove('ppt_serializer');
+      result.details.custom.remove('ppt_cipher');
+      result.details.custom.remove('ppt_keyid');
+    }
     _applyTransferredLazyPayload(
       result,
       transferredPayload,
@@ -1553,6 +1580,7 @@ Future<void> _handleYield({
   required SendPort bossPort,
   required SendPort? statePort,
   required RealmContextCache? realmContexts,
+  required Map<int, WorkerConnectionState> connectionStates,
   required WorkerConnectionState state,
   required int connectionId,
   required yield_msg.Yield message,
@@ -1647,7 +1675,12 @@ Future<void> _handleYield({
     }
 
     var usedZeroCopy = false;
-    if (incomingMessage?.hasNativeHandle == true) {
+    if (_canUseNativeForwardPath(
+      connectionStates: connectionStates,
+      sourceState: state,
+      targetConnectionId: callerConnectionId,
+      incomingMessage: incomingMessage,
+    )) {
       final retainedHandle = incomingMessage!.retainHandle();
       if (retainedHandle > 0) {
         final command = {
@@ -1681,6 +1714,9 @@ Future<void> _handleYield({
         arguments: message.arguments,
         argumentsKeywords: message.argumentsKeywords,
       );
+      if (message.options?.custom.isNotEmpty == true) {
+        result.details.custom.addAll(message.options!.custom);
+      }
       _forwardToConnection(
         bossPort: bossPort,
         connectionId: callerConnectionId,
@@ -1718,6 +1754,7 @@ Future<void> _handleInvocationError({
   required SendPort bossPort,
   required SendPort? statePort,
   required RealmContextCache? realmContexts,
+  required Map<int, WorkerConnectionState> connectionStates,
   required WorkerConnectionState state,
   required int connectionId,
   required error_msg.Error message,
@@ -1782,7 +1819,12 @@ Future<void> _handleInvocationError({
     }
 
     var usedZeroCopy = false;
-    if (incomingMessage?.hasNativeHandle == true) {
+    if (_canUseNativeForwardPath(
+      connectionStates: connectionStates,
+      sourceState: state,
+      targetConnectionId: callerConnectionId,
+      incomingMessage: incomingMessage,
+    )) {
       final retainedHandle = incomingMessage!.retainHandle();
       if (retainedHandle > 0) {
         final command = {
@@ -1843,6 +1885,26 @@ Future<void> _handleInvocationError({
       rethrow;
     }
   }
+}
+
+bool _canUseNativeForwardPath({
+  required Map<int, WorkerConnectionState> connectionStates,
+  required WorkerConnectionState sourceState,
+  required int targetConnectionId,
+  required NativeIncomingMessage? incomingMessage,
+}) {
+  if (incomingMessage?.hasNativeHandle != true) {
+    return false;
+  }
+  final targetState = connectionStates[targetConnectionId];
+  if (targetState == null) {
+    return false;
+  }
+  final sourceSerializer =
+      sourceState.serializer ?? NativeMessageSerializer.json;
+  final targetSerializer =
+      targetState.serializer ?? NativeMessageSerializer.json;
+  return sourceSerializer == targetSerializer;
 }
 
 TopicMatchPolicy _matchPolicyFromSubscribe(
@@ -2184,11 +2246,14 @@ Future<void> handleSessionMessageForTest({
   required WorkerConnectionState state,
   required AbstractMessage message,
   required int connectionId,
+  Map<int, WorkerConnectionState>? connectionStates,
   NativeIncomingMessage? incomingMessage,
 }) => _handleSessionMessage(
   bossPort: bossPort,
   statePort: statePort,
   realmContexts: realmContexts,
+  connectionStates:
+      connectionStates ?? <int, WorkerConnectionState>{connectionId: state},
   state: state,
   message: message,
   connectionId: connectionId,

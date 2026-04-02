@@ -13,6 +13,8 @@ import 'package:connectanum_core/msgpack_serializer.dart' as wamp_msgpack;
 import 'package:logging/logging.dart';
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
 
+import 'wamp_echo_handler.dart';
+
 typedef WampSessionFactory =
     Future<WampSession> Function(WampScenario scenario);
 
@@ -59,7 +61,7 @@ class WampWorkloadRunner {
     String payload,
   ) async {
     final publisher = await _sessionFactory(scenario);
-    final subscriber = await _sessionFactory(scenario);
+    final subscriber = await _sessionFactory(_peerScenario(scenario));
     final subscription = await subscriber.subscribeLazyPayload(scenario.uri);
     final eventBuffer = WampEventBuffer();
     subscription.onEvent((event) {
@@ -199,14 +201,31 @@ class WampWorkloadRunner {
     String payload,
   ) async {
     final session = await _sessionFactory(scenario);
+    WampSession? calleeSession;
+    WampRegistration? registration;
+    var procedure = scenario.uri;
+    if (scenario.peerSerializer != null) {
+      procedure = _externalProcedureUri(scenario.uri, workerId);
+      calleeSession = await _sessionFactory(_peerScenario(scenario));
+      registration = await calleeSession.registerLazyPayloadHandler(
+        procedure,
+        (invocation) => respondEchoLazyInvocation(invocation, logger: _logger),
+      );
+    }
     final samples = <WampSample>[];
     try {
       samples.addAll(
         await _runWithInFlightLimit(
           iterations: scenario.iterations,
           maxInFlight: scenario.inFlightPerSession,
-          launch: (iteration) =>
-              _runRpcIteration(workerId, iteration, scenario, payload, session),
+          launch: (iteration) => _runRpcIteration(
+            workerId,
+            iteration,
+            scenario,
+            procedure,
+            payload,
+            session,
+          ),
         ),
       );
     } on TimeoutException catch (error) {
@@ -217,6 +236,8 @@ class WampWorkloadRunner {
       );
       rethrow;
     } finally {
+      await registration?.cancel();
+      await calleeSession?.close();
       await session.close();
     }
     return samples;
@@ -226,16 +247,17 @@ class WampWorkloadRunner {
     int workerId,
     int iteration,
     WampScenario scenario,
+    String procedure,
     String payload,
     WampSession session,
   ) async {
     _logger.fine(
-      'RPC call start worker=$workerId iteration=$iteration uri=${scenario.uri}',
+      'RPC call start worker=$workerId iteration=$iteration uri=$procedure',
     );
     final start = DateTime.now();
     final result = await session
         .callSingleWithLazyPayload(
-          scenario.uri,
+          procedure,
           payload: _buildLazyPayload(scenario, arguments: [payload]),
           options: _buildCallOptions(scenario),
         )
@@ -244,14 +266,14 @@ class WampWorkloadRunner {
           onTimeout: () {
             _logger.severe(
               'RPC call timed out waiting for final result '
-              'worker=$workerId iteration=$iteration uri=${scenario.uri}',
+              'worker=$workerId iteration=$iteration uri=$procedure',
             );
             throw TimeoutException('rpc_call_timeout');
           },
         );
     final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
     _logger.fine(
-      'RPC call done worker=$workerId iteration=$iteration uri=${scenario.uri} '
+      'RPC call done worker=$workerId iteration=$iteration uri=$procedure '
       'latency_ms=$latencyMs args=${result.arguments}',
     );
     return WampSample(
@@ -365,6 +387,18 @@ class WampWorkloadRunner {
         cbor.cborEncode(cbor.CborValue(value)),
       ),
     };
+  }
+
+  WampScenario _peerScenario(WampScenario scenario) {
+    final peerSerializer = scenario.peerSerializer;
+    if (peerSerializer == null) {
+      return scenario;
+    }
+    return scenario.copyWith(serializer: peerSerializer, peerSerializer: null);
+  }
+
+  String _externalProcedureUri(String baseUri, int workerId) {
+    return '$baseUri.worker.$workerId';
   }
 }
 
@@ -491,6 +525,12 @@ class _PendingWampEvent {
 abstract class WampSession {
   Future<dynamic> get onDisconnect;
 
+  Future<WampRegistration> registerLazyPayloadHandler(
+    String procedure,
+    FutureOr<void> Function(wamp_core.LazyInvocationPayload invocation)
+    onInvoke,
+  );
+
   Future<void> publish(
     String topic, {
     List<dynamic>? arguments,
@@ -554,6 +594,15 @@ abstract class WampSession {
   });
 
   Future<void> close();
+}
+
+class WampRegistration {
+  WampRegistration({required Future<void> Function() cancel})
+    : _cancel = cancel;
+
+  final Future<void> Function() _cancel;
+
+  Future<void> cancel() => _cancel();
 }
 
 class RawSocketWampSessionFactory {
@@ -815,6 +864,21 @@ class _ClientBackedWampSession implements WampSession {
   }
 
   @override
+  Future<WampRegistration> registerLazyPayloadHandler(
+    String procedure,
+    FutureOr<void> Function(wamp_core.LazyInvocationPayload invocation)
+    onInvoke,
+  ) async {
+    final registered = await _session.registerLazyPayloadHandler(
+      procedure,
+      onInvoke,
+    );
+    return WampRegistration(
+      cancel: () => _session.unregister(registered.registrationId),
+    );
+  }
+
+  @override
   Future<Stream<dynamic>> call(
     String procedure, {
     List<dynamic>? arguments,
@@ -899,6 +963,7 @@ class WampScenario {
     required this.transport,
     this.clientImplementation = WampClientImplementation.dart,
     required this.serializer,
+    this.peerSerializer,
     required this.mode,
     required this.uri,
     required this.iterations,
@@ -912,6 +977,7 @@ class WampScenario {
   final WampTransport transport;
   final WampClientImplementation clientImplementation;
   final WampSerializer serializer;
+  final WampSerializer? peerSerializer;
   final WampMode mode;
   final String uri;
   final int iterations;
@@ -940,6 +1006,7 @@ class WampScenario {
       transport: WampTransport.parse(rawTransport),
       clientImplementation: WampClientImplementation.parse(json['client_impl']),
       serializer: WampSerializer.parse(rawSerializer),
+      peerSerializer: WampSerializer.tryParse(json['peer_serializer']),
       mode: WampMode.parse(rawMode),
       uri: uri,
       iterations: iterations,
@@ -968,6 +1035,7 @@ class WampScenario {
     'transport': transport.name,
     'client_impl': clientImplementation.name,
     'serializer': serializer.name,
+    if (peerSerializer != null) 'peer_serializer': peerSerializer!.name,
     'mode': mode.name,
     'uri': uri,
     'iterations': iterations,
@@ -977,6 +1045,42 @@ class WampScenario {
     if (pptScheme != null) 'ppt_scheme': pptScheme,
     if (pptSerializer != null) 'ppt_serializer': pptSerializer,
   };
+
+  WampScenario copyWith({
+    WampTransport? transport,
+    WampClientImplementation? clientImplementation,
+    WampSerializer? serializer,
+    Object? peerSerializer = _copySentinel,
+    WampMode? mode,
+    String? uri,
+    int? iterations,
+    int? concurrency,
+    int? inFlightPerSession,
+    int? payloadBytes,
+    Object? pptScheme = _copySentinel,
+    Object? pptSerializer = _copySentinel,
+  }) {
+    return WampScenario(
+      transport: transport ?? this.transport,
+      clientImplementation: clientImplementation ?? this.clientImplementation,
+      serializer: serializer ?? this.serializer,
+      peerSerializer: identical(peerSerializer, _copySentinel)
+          ? this.peerSerializer
+          : peerSerializer as WampSerializer?,
+      mode: mode ?? this.mode,
+      uri: uri ?? this.uri,
+      iterations: iterations ?? this.iterations,
+      concurrency: concurrency ?? this.concurrency,
+      inFlightPerSession: inFlightPerSession ?? this.inFlightPerSession,
+      payloadBytes: payloadBytes ?? this.payloadBytes,
+      pptScheme: identical(pptScheme, _copySentinel)
+          ? this.pptScheme
+          : pptScheme as String?,
+      pptSerializer: identical(pptSerializer, _copySentinel)
+          ? this.pptSerializer
+          : pptSerializer as String?,
+    );
+  }
 }
 
 enum WampClientImplementation {
@@ -1033,6 +1137,13 @@ enum WampSerializer {
   msgpack,
   cbor;
 
+  static WampSerializer? tryParse(Object? raw) {
+    if (raw == null) {
+      return null;
+    }
+    return parse(raw);
+  }
+
   static WampSerializer parse(Object? raw) {
     if (raw == null) {
       return WampSerializer.json;
@@ -1053,6 +1164,8 @@ enum WampSerializer {
     }
   }
 }
+
+const Object _copySentinel = Object();
 
 enum WampMode {
   pubsub,

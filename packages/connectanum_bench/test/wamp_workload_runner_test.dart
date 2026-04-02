@@ -266,6 +266,58 @@ void main() {
       );
       expect(seenSerializers, everyElement(equals(WampSerializer.msgpack)));
     });
+
+    test(
+      'uses peer serializer sessions for mixed pubsub and rpc workloads',
+      () async {
+        final broker = _FakeWampBroker();
+        final seenSerializers = <WampSerializer>[];
+        final runner = WampWorkloadRunner(
+          sessionFactory: (scenario) async {
+            seenSerializers.add(scenario.serializer);
+            return _FakeWampSession(broker);
+          },
+          logger: Logger.detached('peer_serializer_test'),
+          eventTimeout: const Duration(seconds: 1),
+        );
+
+        await runner.run(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            serializer: WampSerializer.json,
+            peerSerializer: WampSerializer.cbor,
+            mode: WampMode.pubsub,
+            uri: 'bench.topic',
+            iterations: 1,
+            concurrency: 1,
+            payloadBytes: 8,
+          ),
+        );
+        await runner.run(
+          WampScenario(
+            transport: WampTransport.websocket,
+            serializer: WampSerializer.msgpack,
+            peerSerializer: WampSerializer.json,
+            mode: WampMode.rpc,
+            uri: 'bench.rpc.echo',
+            iterations: 1,
+            concurrency: 1,
+            payloadBytes: 8,
+          ),
+        );
+
+        expect(
+          seenSerializers,
+          equals([
+            WampSerializer.json,
+            WampSerializer.cbor,
+            WampSerializer.msgpack,
+            WampSerializer.json,
+          ]),
+        );
+        expect(broker.callCounts['bench.rpc.echo.worker.0'], 1);
+      },
+    );
   });
 
   group('WampScenario', () {
@@ -340,12 +392,14 @@ void main() {
       final scenario = WampScenario.fromJson({
         'transport': 'ws',
         'serializer': 'cbor',
+        'peer_serializer': 'json',
         'mode': 'rpc',
         'uri': 'bench.rpc.echo',
         'ppt_scheme': 'x_custom_scheme',
         'ppt_serializer': 'msgpack',
       });
 
+      expect(scenario.peerSerializer, WampSerializer.json);
       expect(scenario.pptScheme, 'x_custom_scheme');
       expect(scenario.pptSerializer, 'msgpack');
     });
@@ -429,6 +483,8 @@ class _FakeWampBroker {
   int maxConcurrentCalls = 0;
   int _activePublishes = 0;
   int maxConcurrentPublishes = 0;
+  final Map<String, FutureOr<void> Function(wamp_core.LazyInvocationPayload)>
+  _lazyRegistrations = {};
 
   void addSubscriber(
     String topic,
@@ -583,6 +639,135 @@ class _FakeWampBroker {
   void endPublish() {
     _activePublishes -= 1;
   }
+
+  void addLazyRegistration(
+    String procedure,
+    FutureOr<void> Function(wamp_core.LazyInvocationPayload invocation)
+    onInvoke,
+  ) {
+    _lazyRegistrations[procedure] = onInvoke;
+  }
+
+  void removeLazyRegistration(String procedure) {
+    _lazyRegistrations.remove(procedure);
+  }
+
+  Future<wamp_core.LazyResultPayload> callLazy(
+    String procedure, {
+    required wamp_core.LazyMessagePayload payload,
+    wamp_core.CallOptions? options,
+  }) async {
+    lastCallOptions = options;
+    recordCall(procedure);
+    beginCall();
+    try {
+      if (callDelay > Duration.zero) {
+        await Future<void>.delayed(callDelay);
+      }
+      final handler = _lazyRegistrations[procedure];
+      if (handler == null) {
+        final payloadArguments = options?.pptScheme == null
+            ? payload.arguments
+            : wamp_core.PPTPayload.packPPTPayload(
+                payload.arguments,
+                payload.argumentsKeywords,
+                options!,
+              );
+        return wamp_core.Result(
+          1,
+          wamp_core.ResultDetails(
+            progress: false,
+            pptScheme: options?.pptScheme,
+            pptSerializer: options?.pptSerializer,
+          ),
+          arguments: payloadArguments,
+          argumentsKeywords: options?.pptScheme == null
+              ? payload.argumentsKeywords
+              : null,
+        ).toLazyResultPayload();
+      }
+      final completer = Completer<wamp_core.LazyResultPayload>();
+      var responseClosed = false;
+      final invocation = wamp_core.LazyInvocationPayload(
+        requestId: 1,
+        registrationId: 1,
+        receiveProgress: false,
+        respondWith:
+            ({
+              wamp_core.LazyMessagePayload? lazyPayload,
+              List<dynamic>? arguments,
+              Map<String, dynamic>? argumentsKeywords,
+              bool isError = false,
+              String? errorUri,
+              wamp_core.YieldOptions? options,
+            }) {
+              responseClosed = true;
+              if (isError) {
+                completer.completeError(
+                  StateError(errorUri ?? 'wamp.error.unknown'),
+                );
+                return;
+              }
+              final resultPayload =
+                  lazyPayload ??
+                  wamp_core.LazyMessagePayload.materialized(
+                    arguments: arguments,
+                    argumentsKeywords: argumentsKeywords,
+                  );
+              if (options?.pptScheme != null) {
+                completer.complete(
+                  wamp_core.Result(
+                    1,
+                    wamp_core.ResultDetails(
+                      progress: false,
+                      pptScheme: options?.pptScheme,
+                      pptSerializer: options?.pptSerializer,
+                      pptCipher: options?.pptCipher,
+                      pptKeyId: options?.pptKeyId,
+                      custom: options?.custom,
+                    ),
+                    arguments: [
+                      wamp_core.PPTPayload.packPPTPayload(
+                        resultPayload.arguments,
+                        resultPayload.argumentsKeywords,
+                        options!,
+                      ),
+                    ],
+                  ).toLazyResultPayload(),
+                );
+                return;
+              }
+              final result = wamp_core.Result(
+                1,
+                wamp_core.ResultDetails(
+                  progress: false,
+                  pptScheme: options?.pptScheme,
+                  pptSerializer: options?.pptSerializer,
+                  pptCipher: options?.pptCipher,
+                  pptKeyId: options?.pptKeyId,
+                  custom: options?.custom,
+                ),
+              );
+              result.retainLazyPayload(resultPayload);
+              if (!resultPayload.hasEncodedArguments) {
+                result.arguments = resultPayload.arguments;
+              }
+              if (!resultPayload.hasEncodedArgumentsKeywords) {
+                result.argumentsKeywords = resultPayload.argumentsKeywords;
+              }
+              completer.complete(result.toLazyResultPayload());
+            },
+        isResponseClosed: () => responseClosed,
+        payload: payload,
+        pptScheme: options?.pptScheme,
+        pptSerializer: options?.pptSerializer,
+      );
+      await Future.sync(() => handler(invocation));
+      return completer.future;
+    } finally {
+      endCall();
+    }
+  }
 }
 
 class _FakeWampSession implements WampSession {
@@ -595,6 +780,18 @@ class _FakeWampSession implements WampSession {
 
   @override
   Future<dynamic> get onDisconnect => _disconnectCompleter.future;
+
+  @override
+  Future<WampRegistration> registerLazyPayloadHandler(
+    String procedure,
+    FutureOr<void> Function(wamp_core.LazyInvocationPayload invocation)
+    onInvoke,
+  ) async {
+    _broker.addLazyRegistration(procedure, onInvoke);
+    return WampRegistration(
+      cancel: () async => _broker.removeLazyRegistration(procedure),
+    );
+  }
 
   @override
   Future<void> publish(
@@ -849,12 +1046,7 @@ class _FakeWampSession implements WampSession {
     required wamp_core.LazyMessagePayload payload,
     wamp_core.CallOptions? options,
   }) {
-    return callSingleLazyPayload(
-      procedure,
-      arguments: payload.arguments,
-      argumentsKeywords: payload.argumentsKeywords,
-      options: options,
-    );
+    return _broker.callLazy(procedure, payload: payload, options: options);
   }
 
   @override
@@ -873,6 +1065,15 @@ class _HangingRpcSession implements WampSession {
 
   @override
   Future<dynamic> get onDisconnect => _disconnectCompleter.future;
+
+  @override
+  Future<WampRegistration> registerLazyPayloadHandler(
+    String procedure,
+    FutureOr<void> Function(wamp_core.LazyInvocationPayload invocation)
+    onInvoke,
+  ) {
+    throw UnimplementedError();
+  }
 
   @override
   Future<void> close() async {

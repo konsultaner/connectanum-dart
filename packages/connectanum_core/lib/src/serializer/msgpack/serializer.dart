@@ -426,13 +426,12 @@ class Serializer extends AbstractSerializer {
       );
     }
     if (message is Invocation) {
-      // for serializer unit test only
       var res =
           [148] +
           msgpack_dart.serialize(MessageTypes.codeInvocation) +
           msgpack_dart.serialize(message.requestId) +
           msgpack_dart.serialize(message.registrationId) +
-          msgpack_dart.serialize({});
+          _serializeInvocationDetails(message.details);
       var payload = _serializePayload(message);
       res[0] += payload.payloadType;
       res += payload.payload;
@@ -917,6 +916,35 @@ class Serializer extends AbstractSerializer {
     }
     if (details.trustlevel != null) {
       map['trustlevel'] = details.trustlevel;
+    }
+    if (details.pptScheme != null) {
+      map['ppt_scheme'] = details.pptScheme;
+    }
+    if (details.pptSerializer != null) {
+      map['ppt_serializer'] = details.pptSerializer;
+    }
+    if (details.pptCipher != null) {
+      map['ppt_cipher'] = details.pptCipher;
+    }
+    if (details.pptKeyId != null) {
+      map['ppt_keyid'] = details.pptKeyId;
+    }
+    if (details.custom.isNotEmpty) {
+      map.addAll(details.custom);
+    }
+    return msgpack_dart.serialize(map);
+  }
+
+  Uint8List _serializeInvocationDetails(InvocationDetails details) {
+    final map = <String, dynamic>{};
+    if (details.caller != null) {
+      map['caller'] = details.caller;
+    }
+    if (details.procedure != null) {
+      map['procedure'] = details.procedure;
+    }
+    if (details.receiveProgress != null) {
+      map['receive_progress'] = details.receiveProgress;
     }
     if (details.pptScheme != null) {
       map['ppt_scheme'] = details.pptScheme;

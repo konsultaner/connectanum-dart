@@ -6627,6 +6627,36 @@ void main() {
       expect(invocation.details.pptScheme, equals('wamp'));
       expect(invocation.details.custom['_token'], equals('abc123'));
     });
+    test('Invocation serializes custom detail fields', () {
+      final roundTrip =
+          serializer.deserialize(
+                serializer.serialize(
+                  Invocation(
+                    42,
+                    99,
+                    InvocationDetails(
+                      12,
+                      'com.examples.proc',
+                      true,
+                      'wamp',
+                      'cbor',
+                      null,
+                      null,
+                      {'_token': 'abc123'},
+                    ),
+                    arguments: const ['payload'],
+                  ),
+                ),
+              )
+              as Invocation;
+      expect(roundTrip.details.caller, equals(12));
+      expect(roundTrip.details.procedure, equals('com.examples.proc'));
+      expect(roundTrip.details.receiveProgress, isTrue);
+      expect(roundTrip.details.pptScheme, equals('wamp'));
+      expect(roundTrip.details.pptSerializer, equals('cbor'));
+      expect(roundTrip.details.custom['_token'], equals('abc123'));
+      expect(roundTrip.arguments, equals(['payload']));
+    });
     test('Result retains custom detail fields', () {
       final encoded = Uint8List.fromList(
         cbor.encode(
@@ -7023,6 +7053,38 @@ void main() {
       expect(event.details.topic, equals('com.example.topic'));
       expect(event.details.custom['_debounce'], isTrue);
     });
+    test('Event preserves CBOR byte strings as Uint8List', () {
+      final encoded = Uint8List.fromList(
+        cbor.encode(
+          CborValue([
+            MessageTypes.codeEvent,
+            123,
+            456,
+            {'publisher': 7},
+            [
+              CborBytes(const [1, 2, 3, 4]),
+            ],
+            {
+              'blob': CborBytes(const [5, 6, 7]),
+            },
+          ]),
+        ),
+      );
+
+      final event = serializer.deserialize(encoded) as Event;
+
+      expect(event.arguments, hasLength(1));
+      expect(event.arguments!.first, isA<Uint8List>());
+      expect(
+        event.arguments!.first,
+        equals(Uint8List.fromList(const [1, 2, 3, 4])),
+      );
+      expect(event.argumentsKeywords!['blob'], isA<Uint8List>());
+      expect(
+        event.argumentsKeywords!['blob'],
+        equals(Uint8List.fromList(const [5, 6, 7])),
+      );
+    });
     test('deserializePPT', () {
       var pptPayload = serializer.deserializePPT(
         Uint8List.fromList([
@@ -7085,6 +7147,35 @@ void main() {
       expect(pptPayload.argumentsKeywords!['key1'], equals(100));
       expect(pptPayload.argumentsKeywords!['key2'], equals('two'));
       expect(pptPayload.argumentsKeywords!['key3'], equals(true));
+    });
+    test('deserializePPT preserves CBOR byte strings as Uint8List', () {
+      final pptPayload = serializer.deserializePPT(
+        Uint8List.fromList(
+          cbor.encode(
+            CborValue({
+              'args': [
+                CborBytes(const [8, 9, 10]),
+              ],
+              'kwargs': {
+                'blob': CborBytes(const [11, 12, 13]),
+              },
+            }),
+          ),
+        ),
+      );
+
+      expect(pptPayload, isNotNull);
+      expect(pptPayload!.arguments, hasLength(1));
+      expect(pptPayload.arguments!.first, isA<Uint8List>());
+      expect(
+        pptPayload.arguments!.first,
+        equals(Uint8List.fromList(const [8, 9, 10])),
+      );
+      expect(pptPayload.argumentsKeywords!['blob'], isA<Uint8List>());
+      expect(
+        pptPayload.argumentsKeywords!['blob'],
+        equals(Uint8List.fromList(const [11, 12, 13])),
+      );
     });
   });
 }

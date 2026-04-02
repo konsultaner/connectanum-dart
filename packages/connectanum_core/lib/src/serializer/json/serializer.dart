@@ -101,10 +101,9 @@ class Serializer extends AbstractSerializer {
         details.authmethod = message[2]['authmethod'] ?? '';
         details.authrole = message[2]['authrole'] ?? '';
         if (message[2]['authextra'] != null) {
-          (message[2]['authextra'] as Map).forEach((key, value) {
-            details.authextra ??= <String, dynamic>{};
-            details.authextra![key] = value;
-          });
+          details.authextra = _normalizeJsonStringKeyMap(
+            message[2]['authextra'] as Map<dynamic, dynamic>,
+          );
         }
         if (message[2]['roles'] != null) {
           details.roles = Roles();
@@ -194,7 +193,7 @@ class Serializer extends AbstractSerializer {
           remainingDetails.remove('authmethods');
         }
         if (remainingDetails.isNotEmpty) {
-          details.custom.addAll(remainingDetails);
+          details.custom.addAll(_normalizeJsonStringKeyMap(remainingDetails));
         }
         return Welcome(message[1], details);
       }
@@ -302,14 +301,19 @@ class Serializer extends AbstractSerializer {
       }
       if (messageId == MessageTypes.codeError) {
         return _addPayload(
-          Error(message[1], message[2], message[3], message[4]),
+          Error(
+            message[1],
+            message[2],
+            _normalizeJsonStringKeyMap(message[3] as Map<dynamic, dynamic>),
+            message[4],
+          ),
           message,
           5,
         );
       }
       if (messageId == MessageTypes.codeAbort) {
         final details = message.length > 1 && message[1] != null
-            ? Map<String, Object?>.from(message[1] as Map<String, dynamic>)
+            ? _normalizeJsonStringKeyMap(message[1] as Map<dynamic, dynamic>)
             : <String, Object?>{};
         final reason = message.length > 2 ? message[2] as String : '';
         List<dynamic>? arguments;
@@ -438,9 +442,43 @@ class Serializer extends AbstractSerializer {
         return;
       }
       custom ??= <String, dynamic>{};
-      custom![keyString] = value;
+      custom![keyString] = _normalizeJsonPayloadFragment(value);
     });
     return custom ?? <String, dynamic>{};
+  }
+
+  Map<String, dynamic> _normalizeJsonStringKeyMap(
+    Map<dynamic, dynamic> source,
+  ) {
+    return source.map<String, dynamic>(
+      (key, value) => MapEntry(
+        key is String ? key : key.toString(),
+        _normalizeJsonPayloadFragment(value),
+      ),
+    );
+  }
+
+  Object? _normalizeJsonPayloadFragment(Object? value) {
+    if (value is String && value.startsWith(_binaryPrefix)) {
+      return _convertStringToUint8List(
+        value.substring(_binaryPrefix.length - 1),
+      );
+    }
+    if (value is List) {
+      return value
+          .map<Object?>((entry) => _normalizeJsonPayloadFragment(entry))
+          .toList(growable: false);
+    }
+    if (value is Map) {
+      return value.map<Object?, Object?>(
+        (key, entry) => MapEntry(key, _normalizeJsonPayloadFragment(entry)),
+      );
+    }
+    return value;
+  }
+
+  String _encodeJsonObject(Object? value) {
+    return json.encode(_jsonEncodablePayloadFragment(value));
   }
 
   Uint8List _convertStringToUint8List(String binaryJsonString) {
@@ -459,10 +497,10 @@ class Serializer extends AbstractSerializer {
       return '[${MessageTypes.codeHello},${message.realm == null ? 'null' : '"${message.realm!}"'},${_serializeDetails(message.details)}]';
     }
     if (message is Challenge) {
-      return '[${MessageTypes.codeChallenge},"${message.authMethod}",${json.encode(_challengeExtraToMap(message.extra))}]';
+      return '[${MessageTypes.codeChallenge},"${message.authMethod}",${_encodeJsonObject(_challengeExtraToMap(message.extra))}]';
     }
     if (message is Authenticate) {
-      return '[${MessageTypes.codeAuthenticate},"${message.signature ?? ""}",${message.extra == null ? '{}' : json.encode(message.extra)}]';
+      return '[${MessageTypes.codeAuthenticate},"${message.signature ?? ""}",${message.extra == null ? '{}' : _encodeJsonObject(message.extra)}]';
     }
     if (message is Welcome) {
       return '[${MessageTypes.codeWelcome},${message.sessionId},${_serializeDetails(message.details)}]';
@@ -489,8 +527,7 @@ class Serializer extends AbstractSerializer {
       return '[${MessageTypes.codeInterrupt},${message.requestId},$detailsJson]';
     }
     if (message is Invocation) {
-      // for serializer unit test only
-      return '[${MessageTypes.codeInvocation},${message.requestId},${message.registrationId},{}${_serializePayload(message)}]';
+      return '[${MessageTypes.codeInvocation},${message.requestId},${message.registrationId},${_serializeInvocationDetails(message.details)}${_serializePayload(message)}]';
     }
     if (message is Publish) {
       return '[${MessageTypes.codePublish},${message.requestId},${_serializePublish(message.options)},"${message.topic}"${_serializePayload(message)}]';
@@ -526,7 +563,7 @@ class Serializer extends AbstractSerializer {
           map['reason'] = details.reason;
         }
         if (map.isNotEmpty) {
-          return '[${MessageTypes.codeUnsubscribed},${message.unsubscribeRequestId},${json.encode(map)}]';
+          return '[${MessageTypes.codeUnsubscribed},${message.unsubscribeRequestId},${_encodeJsonObject(map)}]';
         }
       }
       return '[${MessageTypes.codeUnsubscribed},${message.unsubscribeRequestId}]';
@@ -552,11 +589,11 @@ class Serializer extends AbstractSerializer {
       if (resultDetails.custom.isNotEmpty) {
         details.addAll(resultDetails.custom);
       }
-      final encodedDetails = json.encode(details);
+      final encodedDetails = _encodeJsonObject(details);
       return '[${MessageTypes.codeResult},${message.callRequestId},$encodedDetails${_serializePayload(message)}]';
     }
     if (message is Error) {
-      return '[${MessageTypes.codeError},${message.requestTypeId},${message.requestId},${json.encode(message.details)},"${message.error}"${_serializePayload(message)}]';
+      return '[${MessageTypes.codeError},${message.requestTypeId},${message.requestId},${_encodeJsonObject(message.details)},"${message.error}"${_serializePayload(message)}]';
     }
     if (message is Abort) {
       final data = <dynamic>[
@@ -573,7 +610,7 @@ class Serializer extends AbstractSerializer {
         data.add(const []);
         data.add(message.argumentsKeywords);
       }
-      return json.encode(data);
+      return _encodeJsonObject(data);
     }
     if (message is Goodbye) {
       return '[${MessageTypes.codeGoodbye},${message.message != null ? '{"message":"${message.message!.message ?? ""}"}' : "{}"},"${message.reason}"]';
@@ -700,11 +737,11 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (details.authextra != null) {
-        detailsParts.add('"authextra":${json.encode(details.authextra)}');
+        detailsParts.add('"authextra":${_encodeJsonObject(details.authextra)}');
       }
       if (details.custom.isNotEmpty) {
         details.custom.forEach((key, value) {
-          detailsParts.add('"$key":${json.encode(value)}');
+          detailsParts.add('"$key":${_encodeJsonObject(value)}');
         });
       }
       return '{${detailsParts.join(",")}}';
@@ -739,7 +776,7 @@ class Serializer extends AbstractSerializer {
     for (final entry in legacyCustomEntries) {
       map.putIfAbsent(entry.key, () => _decodeCustomJsonValue(entry.value));
     }
-    return json.encode(map);
+    return _encodeJsonObject(map);
   }
 
   String _serializeRegisterOptions(RegisterOptions? options) {
@@ -759,7 +796,7 @@ class Serializer extends AbstractSerializer {
     if (options.custom.isNotEmpty) {
       map.addAll(options.custom);
     }
-    return json.encode(map);
+    return _encodeJsonObject(map);
   }
 
   String _serializeCallOptions(CallOptions? options) {
@@ -791,7 +828,7 @@ class Serializer extends AbstractSerializer {
     if (options.pptKeyId != null) {
       map['ppt_keyid'] = options.pptKeyId;
     }
-    return json.encode(map);
+    return _encodeJsonObject(map);
   }
 
   String _serializeYieldOptions(YieldOptions? options) {
@@ -814,7 +851,7 @@ class Serializer extends AbstractSerializer {
     if (options.pptKeyId != null) {
       map['ppt_keyid'] = options.pptKeyId;
     }
-    return json.encode(map);
+    return _encodeJsonObject(map);
   }
 
   String _serializePublish(PublishOptions? options) {
@@ -867,7 +904,7 @@ class Serializer extends AbstractSerializer {
     if (options.pptKeyId != null) {
       map['ppt_keyid'] = options.pptKeyId;
     }
-    return json.encode(map);
+    return _encodeJsonObject(map);
   }
 
   String _serializePayload(AbstractMessageWithPayload message) {
@@ -880,26 +917,24 @@ class Serializer extends AbstractSerializer {
         : null;
     if (encodedArgs != null || encodedKwargs != null) {
       final argsJson = encodedArgs == null
-          ? json.encode(
-              _jsonEncodablePayloadFragment(message.arguments ?? const []),
-            )
+          ? _encodeJsonObject(message.arguments ?? const [])
           : _utf8Decoder.convert(encodedArgs);
       if (encodedKwargs != null) {
         return ',$argsJson,${_utf8Decoder.convert(encodedKwargs)}';
       }
       if (message.argumentsKeywords != null) {
-        return ',$argsJson,${json.encode(_jsonEncodablePayloadFragment(message.argumentsKeywords))}';
+        return ',$argsJson,${_encodeJsonObject(message.argumentsKeywords)}';
       }
       return ',$argsJson';
     }
     _convertMessagePayloadUint8ListToBinaryJsonString(message);
     if (message.transparentBinaryPayload != null) {
-      return ',${json.encode(_convertUint8ListToString(message.transparentBinaryPayload!))}';
+      return ',${_encodeJsonObject(_convertUint8ListToString(message.transparentBinaryPayload!))}';
     } else {
       if (message.argumentsKeywords != null) {
-        return ',${json.encode(message.arguments ?? [])},${json.encode(message.argumentsKeywords)}';
+        return ',${_encodeJsonObject(message.arguments ?? [])},${_encodeJsonObject(message.argumentsKeywords)}';
       } else if (message.arguments != null) {
-        return ',${json.encode(message.arguments)}';
+        return ',${_encodeJsonObject(message.arguments)}';
       }
     }
     return '';
@@ -934,7 +969,7 @@ class Serializer extends AbstractSerializer {
 
   dynamic _decodeCustomJsonValue(String value) {
     try {
-      return json.decode(value);
+      return _normalizeJsonPayloadFragment(json.decode(value));
     } catch (_) {
       return value;
     }
@@ -1007,7 +1042,36 @@ class Serializer extends AbstractSerializer {
     if (map.isEmpty && allowOmit) {
       return '';
     }
-    return map.isEmpty ? '{}' : json.encode(map);
+    return map.isEmpty ? '{}' : _encodeJsonObject(map);
+  }
+
+  String _serializeInvocationDetails(InvocationDetails details) {
+    final map = <String, Object?>{};
+    if (details.caller != null) {
+      map['caller'] = details.caller;
+    }
+    if (details.procedure != null) {
+      map['procedure'] = details.procedure;
+    }
+    if (details.receiveProgress != null) {
+      map['receive_progress'] = details.receiveProgress;
+    }
+    if (details.pptScheme != null) {
+      map['ppt_scheme'] = details.pptScheme;
+    }
+    if (details.pptSerializer != null) {
+      map['ppt_serializer'] = details.pptSerializer;
+    }
+    if (details.pptCipher != null) {
+      map['ppt_cipher'] = details.pptCipher;
+    }
+    if (details.pptKeyId != null) {
+      map['ppt_keyid'] = details.pptKeyId;
+    }
+    if (details.custom.isNotEmpty) {
+      map.addAll(details.custom);
+    }
+    return map.isEmpty ? '{}' : _encodeJsonObject(map);
   }
 
   /// Converts a uint8 JSON message into a PPT Payload Object
@@ -1017,9 +1081,15 @@ class Serializer extends AbstractSerializer {
     Object? decodedObject = json.decode(messageStr);
 
     if (decodedObject is Map) {
+      final arguments = _normalizeJsonPayloadFragment(decodedObject['args']);
+      final argumentsKeywords = _normalizeJsonPayloadFragment(
+        decodedObject['kwargs'],
+      );
       return PPTPayload(
-        arguments: decodedObject['args'],
-        argumentsKeywords: decodedObject['kwargs'],
+        arguments: arguments is List ? arguments.cast<dynamic>() : null,
+        argumentsKeywords: argumentsKeywords is Map
+            ? argumentsKeywords.cast<String, dynamic>()
+            : null,
       );
     }
 
@@ -1045,10 +1115,10 @@ class Serializer extends AbstractSerializer {
     Map<String, dynamic>? argumentsKeywords,
   }) {
     final argsJson = argumentsBytes == null
-        ? json.encode(_jsonEncodablePayloadFragment(arguments))
+        ? _encodeJsonObject(arguments)
         : _utf8Decoder.convert(argumentsBytes);
     final kwargsJson = argumentsKeywordsBytes == null
-        ? json.encode(_jsonEncodablePayloadFragment(argumentsKeywords))
+        ? _encodeJsonObject(argumentsKeywords)
         : _utf8Decoder.convert(argumentsKeywordsBytes);
     final builder = StringBuffer()
       ..write('{"args": ')

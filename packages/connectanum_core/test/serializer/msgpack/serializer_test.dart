@@ -4709,6 +4709,35 @@ void main() {
       expect(invocation.details.custom, containsPair('trace_id', 'abc'));
       expect(invocation.arguments, equals(['hi']));
     });
+    test('serialize Invocation retains custom detail fields', () {
+      final roundTrip =
+          serializer.deserialize(
+                serializer.serialize(
+                  Invocation(
+                    6131533,
+                    9823526,
+                    InvocationDetails(
+                      1,
+                      'com.myapp.foo',
+                      true,
+                      null,
+                      null,
+                      null,
+                      null,
+                      {'trace_id': 'abc'},
+                    ),
+                    arguments: const ['hi'],
+                  ),
+                ),
+              )
+              as Invocation;
+
+      expect(roundTrip.details.caller, equals(1));
+      expect(roundTrip.details.procedure, equals('com.myapp.foo'));
+      expect(roundTrip.details.receiveProgress, isTrue);
+      expect(roundTrip.details.custom, containsPair('trace_id', 'abc'));
+      expect(roundTrip.arguments, equals(['hi']));
+    });
     test('deserialize Result retains custom detail fields', () {
       final result =
           serializer.deserialize(

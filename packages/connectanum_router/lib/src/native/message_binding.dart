@@ -7,6 +7,8 @@ import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 
 import 'runtime.dart';
 
+const String _jsonBinaryPrefix = '\\u0000';
+
 AbstractMessage bindMessage(
   NativeMessageSerializer serializer,
   Uint8List bytes, {
@@ -30,7 +32,7 @@ AbstractMessage bindMessage(
 Object? _decodePayload(NativeMessageSerializer serializer, Uint8List bytes) {
   switch (serializer) {
     case NativeMessageSerializer.json:
-      return jsonDecode(utf8.decode(bytes));
+      return _normalizeJsonBinaryPayload(jsonDecode(utf8.decode(bytes)));
     case NativeMessageSerializer.messagePack:
       return msgpack.deserialize(bytes);
     case NativeMessageSerializer.cbor:
@@ -217,6 +219,28 @@ Details _mapDetails(Map<String, dynamic>? map) {
   }
   details.trustlevel = _asInt(map['trustlevel']);
   details.roles = _mapRoles(_asStringKeyMap(map['roles']));
+  details.custom.addAll(
+    _extractCustomFields(map, const {
+      'agent',
+      'realm',
+      'authmethods',
+      'authid',
+      'authrole',
+      'authmethod',
+      'authprovider',
+      'authextra',
+      'nonce',
+      'challenge',
+      'iterations',
+      'keylen',
+      'progress',
+      'salt',
+      'topic',
+      'procedure',
+      'trustlevel',
+      'roles',
+    }),
+  );
   return details;
 }
 
@@ -251,7 +275,7 @@ Map<String, dynamic> _decodeKeywordMap(
 Object? _decodeFragment(NativeMessageSerializer serializer, Uint8List bytes) {
   switch (serializer) {
     case NativeMessageSerializer.json:
-      return jsonDecode(utf8.decode(bytes));
+      return _normalizeJsonBinaryPayload(jsonDecode(utf8.decode(bytes)));
     case NativeMessageSerializer.messagePack:
       return msgpack.deserialize(bytes);
     case NativeMessageSerializer.cbor:
@@ -266,6 +290,25 @@ Object? _decodeFragment(NativeMessageSerializer serializer, Uint8List bytes) {
 
 Object? _decodeCborBytes(Uint8List bytes) {
   return cbor.cborDecode(bytes.toList()).toObject();
+}
+
+Object? _normalizeJsonBinaryPayload(Object? value) {
+  if (value is String && value.startsWith(_jsonBinaryPrefix)) {
+    return Uint8List.fromList(
+      base64.decode(value.substring(_jsonBinaryPrefix.length)),
+    );
+  }
+  if (value is List) {
+    return value
+        .map<Object?>((entry) => _normalizeJsonBinaryPayload(entry))
+        .toList(growable: false);
+  }
+  if (value is Map) {
+    return value.map<Object?, Object?>(
+      (key, entry) => MapEntry(key, _normalizeJsonBinaryPayload(entry)),
+    );
+  }
+  return value;
 }
 
 Roles? _mapRoles(Map<String, dynamic>? rolesMap) {
@@ -425,7 +468,7 @@ CallerFeatures? _mapCallerFeatures(Map<String, dynamic>? map) {
 
 PublishOptions? _mapPublishOptions(Map<String, dynamic>? map) {
   if (map == null) return null;
-  return PublishOptions(
+  final options = PublishOptions(
     acknowledge: map['acknowledge'] as bool?,
     exclude: _asIntList(map['exclude']),
     excludeAuthId: _asStringList(map['exclude_authid']),
@@ -441,20 +484,43 @@ PublishOptions? _mapPublishOptions(Map<String, dynamic>? map) {
     pptCipher: map['ppt_cipher'] as String?,
     pptKeyId: map['ppt_keyid'] as String?,
   );
+  options.custom.addAll(
+    _extractCustomFields(map, const {
+      'acknowledge',
+      'exclude',
+      'exclude_authid',
+      'exclude_authrole',
+      'eligible',
+      'eligible_authid',
+      'eligible_authrole',
+      'exclude_me',
+      'disclose_me',
+      'retain',
+      'ppt_scheme',
+      'ppt_serializer',
+      'ppt_cipher',
+      'ppt_keyid',
+    }),
+  );
+  return options;
 }
 
 SubscribeOptions? _mapSubscribeOptions(Map<String, dynamic>? map) {
   if (map == null) return null;
-  return SubscribeOptions(
+  final options = SubscribeOptions(
     match: map['match'] as String?,
     metaTopic: map['meta_topic'] as String?,
     getRetained: map['get_retained'] as bool?,
   );
+  options.custom.addAll(
+    _extractCustomFields(map, const {'match', 'meta_topic', 'get_retained'}),
+  );
+  return options;
 }
 
 CallOptions? _mapCallOptions(Map<String, dynamic>? map) {
   if (map == null) return null;
-  return CallOptions(
+  final options = CallOptions(
     receiveProgress: map['receive_progress'] as bool?,
     timeout: _asInt(map['timeout']),
     discloseMe: map['disclose_me'] as bool?,
@@ -463,6 +529,18 @@ CallOptions? _mapCallOptions(Map<String, dynamic>? map) {
     pptCipher: map['ppt_cipher'] as String?,
     pptKeyId: map['ppt_keyid'] as String?,
   );
+  options.custom.addAll(
+    _extractCustomFields(map, const {
+      'receive_progress',
+      'timeout',
+      'disclose_me',
+      'ppt_scheme',
+      'ppt_serializer',
+      'ppt_cipher',
+      'ppt_keyid',
+    }),
+  );
+  return options;
 }
 
 CancelOptions? _mapCancelOptions(Map<String, dynamic>? map) {
@@ -474,22 +552,49 @@ CancelOptions? _mapCancelOptions(Map<String, dynamic>? map) {
 
 RegisterOptions? _mapRegisterOptions(Map<String, dynamic>? map) {
   if (map == null) return null;
-  return RegisterOptions(
+  final options = RegisterOptions(
     discloseCaller: map['disclose_caller'] as bool?,
     match: map['match'] as String?,
     invoke: map['invoke'] as String?,
   );
+  options.custom.addAll(
+    _extractCustomFields(map, const {'disclose_caller', 'match', 'invoke'}),
+  );
+  return options;
 }
 
 YieldOptions? _mapYieldOptions(Map<String, dynamic>? map) {
   if (map == null) return null;
-  return YieldOptions(
+  final options = YieldOptions(
     progress: map['progress'] as bool?,
     pptScheme: map['ppt_scheme'] as String?,
     pptSerializer: map['ppt_serializer'] as String?,
     pptCipher: map['ppt_cipher'] as String?,
     pptKeyId: map['ppt_keyid'] as String?,
   );
+  options.custom.addAll(
+    _extractCustomFields(map, const {
+      'progress',
+      'ppt_scheme',
+      'ppt_serializer',
+      'ppt_cipher',
+      'ppt_keyid',
+    }),
+  );
+  return options;
+}
+
+Map<String, dynamic> _extractCustomFields(
+  Map<String, dynamic> map,
+  Set<String> knownKeys,
+) {
+  final custom = <String, dynamic>{};
+  for (final entry in map.entries) {
+    if (!knownKeys.contains(entry.key)) {
+      custom[entry.key] = entry.value;
+    }
+  }
+  return custom;
 }
 
 String? _readOptionalMessageText(List<dynamic> message, int index) {

@@ -163,6 +163,80 @@ void main() {
     );
 
     test(
+      'Dart mixed-serializer RawSocket and WebSocket workloads run against a real router',
+      () async {
+        final rawSocketRpcSamples = await harness!.runDart(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.dart,
+            serializer: WampSerializer.json,
+            peerSerializer: WampSerializer.msgpack,
+            mode: WampMode.rpc,
+            uri: 'bench.rpc.echo',
+            iterations: 2,
+            concurrency: 1,
+            payloadBytes: 256,
+          ),
+        );
+        final webSocketPubSubSamples = await harness!.runDart(
+          WampScenario(
+            transport: WampTransport.websocket,
+            clientImplementation: WampClientImplementation.dart,
+            serializer: WampSerializer.cbor,
+            peerSerializer: WampSerializer.json,
+            mode: WampMode.pubsub,
+            uri: 'bench.topic',
+            iterations: 2,
+            concurrency: 1,
+            payloadBytes: 256,
+          ),
+        );
+
+        expect(rawSocketRpcSamples, hasLength(2));
+        expect(webSocketPubSubSamples, hasLength(2));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
+      'native mixed-serializer RawSocket and WebSocket workloads run against a real router',
+      () async {
+        final rawSocketRpcSamples = await harness!.runNative(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.json,
+            peerSerializer: WampSerializer.msgpack,
+            mode: WampMode.rpc,
+            uri: 'bench.rpc.echo',
+            iterations: 2,
+            concurrency: 1,
+            payloadBytes: 256,
+          ),
+        );
+        final webSocketPubSubSamples = await harness!.runNative(
+          WampScenario(
+            transport: WampTransport.websocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.cbor,
+            peerSerializer: WampSerializer.json,
+            mode: WampMode.pubsub,
+            uri: 'bench.topic',
+            iterations: 2,
+            concurrency: 1,
+            payloadBytes: 256,
+          ),
+        );
+
+        expect(rawSocketRpcSamples, hasLength(2));
+        expect(webSocketPubSubSamples, hasLength(2));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
       'Dart RawSocket PPT pubsub exposes unpacked kwargs on a real router',
       () async {
         final port = harness!.binding.listeners

@@ -373,6 +373,7 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
             bossPort: bossPort,
             statePort: statePort,
             realmContexts: realmContexts,
+            connectionStates: connectionStates,
             state: state,
             message: message,
             connectionId: connectionId,

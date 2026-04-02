@@ -98,19 +98,22 @@ Focus for the next session:
   - ✅ Packed `pptScheme == 'wamp'` payload bytes now survive the same path too: outbound client `CALL` / `PUBLISH`, invocation `YIELD`, internal-session event/result/invocation forwarding, and lazy result/event/invocation views all keep the wrapped bytes until access instead of forcing the current placeholder E2EE pack/unpack logic.
   - ✅ The bench now has an explicit no-PPT versus PPT comparison scenario (`wamp_payload_mode_smoke.toml`) so the plain baseline is reported directly instead of being inferred from unrelated throughput runs.
   - ✅ The bench now also has a 64 KiB side-by-side comparison (`wamp_payload_mode_throughput.toml`), and the bench RPC echo path keeps the plain no-PPT response on the lazy payload route instead of decoding it first.
+  - ✅ Mixed-serializer WAMP workloads now run against real remote peers too: `peer_serializer` opens a second caller/callee or publisher/subscriber session with a different serializer, package-local integration tests cover RawSocket and WebSocket on both Dart and native clients, and `wamp_mixed_serializer_throughput.toml` benches JSON/MessagePack/CBOR cross-encoding on the live router path instead of only on synthetic bridge tests.
+  - ✅ The remaining wrapped/custom-detail side of that bridge is live too: router native ingress now preserves custom option/detail fields, outbound `Invocation` serializers emit real detail maps instead of `{}`, JSON custom/detail maps normalize binary sentinel strings recursively, and mixed WebSocket regressions now cover nested binary custom fields on EVENT / INVOCATION / RESULT / ERROR routing across JSON, MessagePack, and CBOR.
   - Latest release-built WAMP client comparisons in this environment:
     - `wamp_client_impl_smoke.toml`: RawSocket JSON RPC about `2.09 Mbps` Dart vs `2.65 Mbps` native, RawSocket CBOR pub/sub about `0.68 Mbps` vs `2.07 Mbps`, WebSocket JSON RPC about `2.96 Mbps` vs `3.56 Mbps`, WebSocket CBOR pub/sub about `3.01 Mbps` vs `3.34 Mbps`.
     - `wamp_client_impl_throughput.toml`: RawSocket 64 KiB RPC/pubsub about `53.49/48.54 Mbps` Dart vs `98.98/128.07 Mbps` native; WebSocket 64 KiB RPC/pubsub about `52.90/47.28 Mbps` Dart vs `116.51/127.91 Mbps` native.
     - `wamp_ppt_lazy_smoke.toml`: RawSocket CBOR PPT RPC/pubsub about `1.17/1.59 Mbps` Dart vs `2.17/2.02 Mbps` native; WebSocket CBOR PPT RPC/pubsub about `1.80/2.18 Mbps` Dart vs `3.74/3.15 Mbps` native.
-  - Next: tackle the cross-serializer bridge so mixed JSON/MessagePack/CBOR clients can exchange lazy payloads without eager decode, then do the E2EE research spike against the now-shared lazy-payload contract.
+    - `wamp_mixed_serializer_throughput.toml`: RawSocket JSON->MessagePack RPC about `126.14/302.29 Mbps` Dart/native and MsgPack->CBOR pubsub about `75.46/95.33 Mbps`; WebSocket JSON->CBOR RPC about `180.40/426.54 Mbps` and CBOR->JSON pubsub about `41.70/116.91 Mbps`.
+  - Next: rerun the mixed-serializer throughput sweep after the wrapped/custom-detail fixes so the artifact set reflects the full bridge, then do the E2EE research spike against the now-shared lazy-payload contract.
 
 9. **Documentation & Examples**
    - Update router/auth docs to capture cancellation semantics, drain behaviour, and zero-copy guarantees.
    - Expand the example gallery (progressive results + cancellation walkthrough) to help integrators.
 
 10. **Serializer Interop Bridge**
-   - Add translation pipelines so mixed clients (JSON ↔ MessagePack ↔ CBOR) can exchange EVENT/RESULT/ERROR frames seamlessly, with fallbacks that keep zero-copy semantics where possible.
-   - Extend serializer/router tests to cover cross-encoding publish/call scenarios.
+   - ✅ Wrapped/custom-detail routing is now covered on top of the mixed-serializer bridge: JSON ↔ MessagePack ↔ CBOR clients retain nested binary custom fields on EVENT / INVOCATION / RESULT / ERROR paths, router native ingress preserves custom options/details, and the live bridge keeps the same-serializer native fast path versus mixed-serializer Dart fallback explicit.
+   - Keep the same-serializer native fast path and mixed-serializer Dart fallback explicit in tests/benchmarks as more transport-specific fast paths are added.
 
 11. **E2EE Research Spike**
    - Outline options for end-to-end payload encryption without incurring Dart 64-bit object overhead (e.g. offloading to Rust FFI or dedicated binary isolates).

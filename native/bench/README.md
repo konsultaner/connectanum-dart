@@ -136,9 +136,11 @@ protocol, HTTP method/path, request/response byte counts, chunk sizes, warm-up
 delays, concurrency, and whether transport sessions should be reused across
 iterations (`reuse_connections`, default `true`). WAMP workloads also accept a
 `serializer` field (`json`, `msgpack`, `cbor`; default `json`) so the same
-transport bench can compare serializer overhead directly, plus an
-`in_flight_per_session` knob (default `1`) that keeps multiple publishes/calls
-outstanding on each hot WAMP session. Example
+transport bench can compare serializer overhead directly, an optional
+`peer_serializer` field so the caller/publisher can talk to a real remote
+callee/subscriber using a different serializer, plus an `in_flight_per_session`
+knob (default `1`) that keeps multiple publishes/calls outstanding on each hot
+WAMP session. Example
 (`h2_smoke.toml`):
 
 ```toml
@@ -251,6 +253,10 @@ because the bench path does not pipeline H1 requests.
   both Dart and native clients. Use this when you want to sanity-check that
   live router traffic still preserves `ppt_*` options, lazy payload bytes, and
   decoded inner args/kwargs across the full transport path.
+- `wamp_mixed_serializer_throughput.toml` – 64 KiB RawSocket/WebSocket RPC +
+  pub/sub sweep that uses `peer_serializer` to open a real remote
+  callee/subscriber with a different serializer, so JSON/MessagePack/CBOR
+  bridge costs can be compared directly for both Dart and native clients.
 - `all_transports_smoke.toml` – quick cross-transport smoke covering RawSocket,
   WebSocket, HTTP/1.1, HTTP/2, and HTTP/3 in one run. The WAMP side now mixes
   JSON, MessagePack, and CBOR across RawSocket/WebSocket workloads so serializer
@@ -527,6 +533,12 @@ hot-session path now lands roughly at:
 - `wamp_payload_mode_throughput.toml`: the same explicit no-PPT versus PPT
   comparison shape at the 64 KiB throughput profile, so plain-mode regressions
   are easier to distinguish from smoke-run noise.
+- `wamp_mixed_serializer_throughput.toml`: explicit mixed-serializer 64 KiB
+  throughput comparison against real remote peers. On this machine it currently
+  lands around `126.14/302.29 Mbps` Dart/native for RawSocket JSON->MessagePack
+  RPC, `75.46/95.33 Mbps` for RawSocket MessagePack->CBOR pub/sub,
+  `180.40/426.54 Mbps` for WebSocket JSON->CBOR RPC, and `41.70/116.91 Mbps`
+  for WebSocket CBOR->JSON pub/sub.
 
 Those WAMP numbers are still end-to-end Dart-client numbers, not pure native
 transport ceilings. The current bench deliberately exercises
@@ -557,12 +569,22 @@ when callers actually use the stream-oriented API, async callee failures still
 flow back as WAMP `ERROR`s after `await`, and the bench no longer wraps inbound
 pub/sub events in an extra Dart object before matching them. Full-frame decode
 remains as a fallback for custom-detail message shapes that are not safe to
-represent in the direct-bind metadata. The same lazy path now keeps
-already-packed `pptScheme == 'wamp'` payload bytes intact across client
-outbound sends, invocation yields, and router internal-session
-event/result/invocation forwarding, so the benchmark no longer pays the
-placeholder E2EE decode/re-pack tax on those wrapped paths. Treat the numbers
-as relative
+represent in the direct-bind metadata. Mixed-serializer runs now also use real
+remote peers instead of synthetic bridge-only tests: the orchestrator can open
+the publisher/caller with one serializer and the subscriber/callee with
+`peer_serializer`, while the router keeps the same-serializer native fast path
+for matching peers and falls back to the Dart bridge when serializers differ.
+The wrapped/custom-detail side of that bridge is now covered too: router native
+ingress preserves custom option/detail fields, outbound `INVOCATION` details no
+longer collapse to `{}`, JSON custom/detail maps normalize binary sentinel
+strings recursively, and live mixed WebSocket regressions now cover nested
+binary custom values on `EVENT`, `INVOCATION`, `RESULT`, and `ERROR` routing
+across JSON, MessagePack, and CBOR.
+The same lazy path now keeps already-packed `pptScheme == 'wamp'` payload bytes
+intact across client outbound sends, invocation yields, and router
+internal-session event/result/invocation forwarding, so the benchmark no longer
+pays the placeholder E2EE decode/re-pack tax on those wrapped paths. Treat the
+numbers as relative
 comparisons on the same machine, not product claims.
 
 Treat those as relative loopback signals, not product claims. They are useful

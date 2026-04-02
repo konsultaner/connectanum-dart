@@ -1,5 +1,7 @@
 part of '../router_instance.dart';
 
+const String _jsonBinaryPrefix = '\\u0000';
+
 class RouterSession {
   RouterSession._({
     required this.binding,
@@ -132,14 +134,30 @@ class RouterSession {
           publicationId == null) {
         return;
       }
+      final detailMap =
+          (_materializeTransferredValue(message['details']) as Map?)
+              ?.cast<String, Object?>() ??
+          const <String, Object?>{};
       final details = event_msg.EventDetails(
         publisher: message['publisherSessionId'] as int?,
         topic: message['topic'] as String?,
+        trustlevel: detailMap['trustlevel'] as int?,
         pptScheme: message['pptScheme'] as String?,
         pptSerializer: message['pptSerializer'] as String?,
         pptCipher: message['pptCipher'] as String?,
         pptKeyid: message['pptKeyId'] as String?,
       );
+      final custom = Map<String, dynamic>.from(detailMap)
+        ..remove('publisher')
+        ..remove('trustlevel')
+        ..remove('topic')
+        ..remove('ppt_scheme')
+        ..remove('ppt_serializer')
+        ..remove('ppt_cipher')
+        ..remove('ppt_keyid');
+      if (custom.isNotEmpty) {
+        details.custom.addAll(custom);
+      }
       final transferredPayload = _materializeTransferredValue(
         message[_internalMsgLazyPayload],
       );
@@ -177,10 +195,30 @@ class RouterSession {
       if (subscribed == null) {
         return;
       }
+      final detailMap =
+          (_materializeTransferredValue(message['details']) as Map?)
+              ?.cast<String, Object?>() ??
+          const <String, Object?>{};
+      final custom = Map<String, dynamic>.from(detailMap)
+        ..remove('publisher')
+        ..remove('trustlevel')
+        ..remove('topic')
+        ..remove('ppt_scheme')
+        ..remove('ppt_serializer')
+        ..remove('ppt_cipher')
+        ..remove('ppt_keyid');
       final details = event_msg.EventDetails(
         publisher: message['publisherSessionId'] as int?,
         topic: message['topic'] as String?,
+        trustlevel: detailMap['trustlevel'] as int?,
+        pptScheme: message['pptScheme'] as String?,
+        pptSerializer: message['pptSerializer'] as String?,
+        pptCipher: message['pptCipher'] as String?,
+        pptKeyid: message['pptKeyId'] as String?,
       );
+      if (custom.isNotEmpty) {
+        details.custom.addAll(custom);
+      }
       final transferredPayload = _materializeTransferredValue(
         message[_internalMsgLazyPayload],
       );
@@ -195,7 +233,7 @@ class RouterSession {
             pptSerializer: message['pptSerializer'] as String?,
             pptCipher: message['pptCipher'] as String?,
             pptKeyId: message['pptKeyId'] as String?,
-            customDetails: null,
+            customDetails: custom.isEmpty ? null : custom,
             payload:
                 _lazyPayloadFromTransferredWithPpt(
                   transferredPayload,
@@ -304,6 +342,25 @@ class RouterSession {
       );
       invocation.onResponse((response) {
         if (response is yield_msg.Yield) {
+          final details = <String, Object?>{};
+          if (response.options?.progress != null) {
+            details['progress'] = response.options!.progress;
+          }
+          if (response.options?.pptScheme != null) {
+            details['ppt_scheme'] = response.options!.pptScheme;
+          }
+          if (response.options?.pptSerializer != null) {
+            details['ppt_serializer'] = response.options!.pptSerializer;
+          }
+          if (response.options?.pptCipher != null) {
+            details['ppt_cipher'] = response.options!.pptCipher;
+          }
+          if (response.options?.pptKeyId != null) {
+            details['ppt_keyid'] = response.options!.pptKeyId;
+          }
+          if (response.options?.custom.isNotEmpty == true) {
+            details.addAll(response.options!.custom);
+          }
           replyPort.send({
             'type': 'result',
             _internalMsgLazyPayload: _transferAbstractMessagePayload(response),
@@ -312,6 +369,7 @@ class RouterSession {
             'pptSerializer': response.options?.pptSerializer,
             'pptCipher': response.options?.pptCipher,
             'pptKeyId': response.options?.pptKeyId,
+            'details': details.isEmpty ? null : _transferIsolateValue(details),
           });
         } else if (response is error_msg.Error) {
           replyPort.send({
@@ -363,6 +421,8 @@ class RouterSession {
         pptSerializer: message['pptSerializer'] as String?,
         pptCipher: message['pptCipher'] as String?,
         pptKeyId: message['pptKeyId'] as String?,
+        details: (_materializeTransferredValue(message['details']) as Map?)
+            ?.cast<String, Object?>(),
       );
     } else if (type == _internalMsgCallError) {
       final requestId = message['requestId'] as int?;
@@ -405,6 +465,8 @@ class RouterSession {
         pptSerializer: message['pptSerializer'] as String?,
         pptCipher: message['pptCipher'] as String?,
         pptKeyId: message['pptKeyId'] as String?,
+        details: (_materializeTransferredValue(message['details']) as Map?)
+            ?.cast<String, Object?>(),
       );
     } else if (type == HttpInvocationControlMessages.openResponseStream) {
       final requestId = message['requestId'] as int?;
@@ -454,6 +516,7 @@ class RouterSession {
     String? pptSerializer,
     String? pptCipher,
     String? pptKeyId,
+    Map<String, Object?>? details,
   }) {
     final controller = _callControllers[requestId];
     if (controller == null || controller.isClosed) {
@@ -469,6 +532,14 @@ class RouterSession {
         pptKeyId: pptKeyId,
       ),
     );
+    if (details != null && details.isNotEmpty) {
+      result.details.custom.addAll(details);
+      result.details.custom.remove('progress');
+      result.details.custom.remove('ppt_scheme');
+      result.details.custom.remove('ppt_serializer');
+      result.details.custom.remove('ppt_cipher');
+      result.details.custom.remove('ppt_keyid');
+    }
     _applyTransferredLazyPayload(
       result,
       transferredPayload,
@@ -1106,7 +1177,7 @@ Map<String, dynamic> _decodePayloadKeywordMap(
 
 Object? _decodePayloadFragment(LazyPayloadEncoding encoding, Uint8List bytes) {
   return switch (encoding) {
-    LazyPayloadEncoding.json => json.decode(utf8.decode(bytes)),
+    LazyPayloadEncoding.json => _decodeJsonPayloadFragment(bytes),
     LazyPayloadEncoding.messagePack => msgpack_dart.deserialize(bytes),
     LazyPayloadEncoding.cbor => _decodeCborPayloadFragment(bytes),
   };
@@ -1165,7 +1236,74 @@ Uint8List? _extractTransferredWrappedPayloadBytes(
 }
 
 Object? _decodeCborPayloadFragment(Uint8List bytes) {
-  return cbor.decode(bytes.toList()).toObject();
+  return _cborValueToDart(cbor.decode(bytes.toList()));
+}
+
+Object? _decodeJsonPayloadFragment(Uint8List bytes) {
+  return _normalizeJsonBinaryPayload(json.decode(utf8.decode(bytes)));
+}
+
+Object? _normalizeJsonBinaryPayload(Object? value) {
+  if (value is String && value.startsWith(_jsonBinaryPrefix)) {
+    return Uint8List.fromList(
+      base64.decode(value.substring(_jsonBinaryPrefix.length)),
+    );
+  }
+  if (value is List) {
+    return value
+        .map<Object?>((element) => _normalizeJsonBinaryPayload(element))
+        .toList(growable: false);
+  }
+  if (value is Map) {
+    final entries = <MapEntry<Object?, Object?>>[];
+    for (final entry in value.entries) {
+      entries.add(
+        MapEntry<Object?, Object?>(
+          entry.key,
+          _normalizeJsonBinaryPayload(entry.value),
+        ),
+      );
+    }
+    final allStringKeys = entries.every((entry) => entry.key is String);
+    if (allStringKeys) {
+      return Map<String, Object?>.fromEntries(
+        entries.map((entry) => MapEntry(entry.key as String, entry.value)),
+      );
+    }
+    return Map<Object?, Object?>.fromEntries(entries);
+  }
+  return value;
+}
+
+Object? _cborValueToDart(Object? value) {
+  if (value is CborBytes) {
+    return Uint8List.fromList(value.bytes);
+  }
+  if (value is CborList) {
+    return value.map(_cborValueToDart).toList(growable: false);
+  }
+  if (value is CborMap) {
+    final entries = <MapEntry<Object?, Object?>>[];
+    value.forEach((key, nestedValue) {
+      entries.add(
+        MapEntry<Object?, Object?>(
+          _cborValueToDart(key),
+          _cborValueToDart(nestedValue),
+        ),
+      );
+    });
+    final allStringKeys = entries.every((entry) => entry.key is String);
+    if (allStringKeys) {
+      return Map<String, Object?>.fromEntries(
+        entries.map((entry) => MapEntry(entry.key as String, entry.value)),
+      );
+    }
+    return Map<Object?, Object?>.fromEntries(entries);
+  }
+  if (value is CborValue) {
+    return value.toObject();
+  }
+  return value;
 }
 
 Object? _transferIsolateValue(Object? value) {
@@ -1464,6 +1602,21 @@ class _InternalSessionIsolate {
     final eventPptSerializer = options['ppt_serializer'] as String?;
     final eventPptCipher = options['ppt_cipher'] as String?;
     final eventPptKeyId = options['ppt_keyid'] as String?;
+    final customEventDetails = Map<String, Object?>.from(options)
+      ..remove('acknowledge')
+      ..remove('exclude_me')
+      ..remove('disclose_me')
+      ..remove('retain')
+      ..remove('exclude')
+      ..remove('exclude_authid')
+      ..remove('exclude_authrole')
+      ..remove('eligible')
+      ..remove('eligible_authid')
+      ..remove('eligible_authrole')
+      ..remove('ppt_scheme')
+      ..remove('ppt_serializer')
+      ..remove('ppt_cipher')
+      ..remove('ppt_keyid');
     final routing = await context.matchSubscriptions(
       publisherSessionId: _bootstrap.sessionId,
       topic: topic,
@@ -1471,6 +1624,9 @@ class _InternalSessionIsolate {
     );
     for (final match in routing.matches) {
       final eventDetails = Map<String, Object?>.from(match.details);
+      if (customEventDetails.isNotEmpty) {
+        eventDetails.addAll(customEventDetails);
+      }
       if (eventPptScheme != null) {
         eventDetails['ppt_scheme'] = eventPptScheme;
       }
@@ -1599,6 +1755,7 @@ class _InternalSessionIsolate {
               'pptSerializer': response['pptSerializer'],
               'pptCipher': response['pptCipher'],
               'pptKeyId': response['pptKeyId'],
+              'details': response['details'],
             });
             if (!progress) {
               break;
