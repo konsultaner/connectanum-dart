@@ -1229,6 +1229,50 @@ void main() {
         ]),
       );
     });
+    test('Result reuses lazy MsgPack argument bytes without decoding', () {
+      final result = Result(7814135, ResultDetails());
+      result.setLazyPayload(
+        argumentsBytes: msgpack_dart.serialize(['lazy']),
+        argumentsDecoder: (_) => throw StateError('should not decode args'),
+        encoding: LazyPayloadEncoding.messagePack,
+      );
+
+      expect(
+        msgpack_dart.deserialize(serializer.serialize(result)),
+        equals([
+          MessageTypes.codeResult,
+          7814135,
+          {'progress': false},
+          ['lazy'],
+        ]),
+      );
+    });
+    test(
+      'Result preserves materialized kwargs with lazy MsgPack args bytes',
+      () {
+        final result = Result(
+          7814135,
+          ResultDetails(),
+          argumentsKeywords: {'worker': 1},
+        );
+        result.setLazyPayload(
+          argumentsBytes: msgpack_dart.serialize(['lazy']),
+          argumentsDecoder: (_) => throw StateError('should not decode args'),
+          encoding: LazyPayloadEncoding.messagePack,
+        );
+
+        expect(
+          msgpack_dart.deserialize(serializer.serialize(result)),
+          equals([
+            MessageTypes.codeResult,
+            7814135,
+            {'progress': false},
+            ['lazy'],
+            {'worker': 1},
+          ]),
+        );
+      },
+    );
     test('Call preserves materialized args with lazy MsgPack kwargs bytes', () {
       final call = Call(7814135, 'com.myapp.ping', arguments: ['lazy']);
       call.setLazyPayload(
@@ -4844,6 +4888,60 @@ void main() {
       expect(pptPayload.argumentsKeywords!['key1'], equals(100));
       expect(pptPayload.argumentsKeywords!['key2'], equals('two'));
       expect(pptPayload.argumentsKeywords!['key3'], equals(true));
+    });
+  });
+  group('deserialize lazy payloads', () {
+    test('Result retains lazy MsgPack payload slices on decode', () {
+      final encoded = serializer.serialize(
+        Result(
+          44,
+          ResultDetails(custom: {'_trace': 'abc'}),
+          arguments: <dynamic>[
+            Uint8List.fromList(const [1, 2, 3]),
+          ],
+          argumentsKeywords: <String, dynamic>{'count': 3},
+        ),
+      );
+
+      final result = serializer.deserialize(encoded) as Result;
+
+      expect(result.details.custom['_trace'], equals('abc'));
+      expect(result.hasLazyArguments, isTrue);
+      expect(result.hasLazyArgumentsKeywords, isTrue);
+      expect(result.debugEncodedArgumentsBytes, isNotNull);
+      expect(result.debugEncodedArgumentsKeywordsBytes, isNotNull);
+      expect(result.arguments, hasLength(1));
+      expect(
+        result.arguments!.first,
+        equals(Uint8List.fromList(const [1, 2, 3])),
+      );
+      expect(result.argumentsKeywords!['count'], equals(3));
+    });
+
+    test('Event retains lazy MsgPack payload slices on decode', () {
+      final encoded = serializer.serialize(
+        Event(
+          12,
+          99,
+          EventDetails(
+            publisher: 7,
+            topic: 'com.example.topic',
+            custom: {'_debounce': true},
+          ),
+          arguments: const <dynamic>['payload'],
+          argumentsKeywords: <String, dynamic>{'flag': true},
+        ),
+      );
+
+      final event = serializer.deserialize(encoded) as Event;
+
+      expect(event.details.publisher, equals(7));
+      expect(event.details.topic, equals('com.example.topic'));
+      expect(event.details.custom['_debounce'], isTrue);
+      expect(event.hasLazyArguments, isTrue);
+      expect(event.hasLazyArgumentsKeywords, isTrue);
+      expect(event.arguments, equals(const <dynamic>['payload']));
+      expect(event.argumentsKeywords!['flag'], isTrue);
     });
   });
   group('string conversion', () {

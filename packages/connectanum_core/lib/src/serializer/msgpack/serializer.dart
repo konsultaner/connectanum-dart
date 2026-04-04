@@ -70,7 +70,14 @@ class Serializer extends AbstractSerializer {
   /// Converts a uint8 msgpack message into a WAMP message object
   @override
   AbstractMessage? deserialize(Uint8List? msgPack) {
-    Object? message = msgpack_dart.deserialize(msgPack!);
+    if (msgPack == null) {
+      return null;
+    }
+    final lazyMessage = _deserializeLazyPayloadMessage(msgPack);
+    if (lazyMessage != null) {
+      return lazyMessage;
+    }
+    Object? message = msgpack_dart.deserialize(msgPack);
     if (message is List) {
       int messageId = message[0];
       if (messageId == MessageTypes.codeChallenge) {
@@ -338,162 +345,293 @@ class Serializer extends AbstractSerializer {
     return message;
   }
 
+  AbstractMessage? _deserializeLazyPayloadMessage(Uint8List msgPack) {
+    final ranges = _parseMsgPackTopLevelRanges(msgPack);
+    if (ranges == null || ranges.isEmpty) {
+      return null;
+    }
+    final messageId = _decodeMsgPackFragment(_sliceRange(msgPack, ranges[0]));
+    if (messageId is! int) {
+      return null;
+    }
+    if (messageId == MessageTypes.codeInvocation) {
+      if (ranges.length < 4) {
+        return null;
+      }
+      final detailsMap = _decodeMsgPackMap(_sliceRange(msgPack, ranges[3]));
+      final invocation = Invocation(
+        _decodeMsgPackInt(_sliceRange(msgPack, ranges[1])),
+        _decodeMsgPackInt(_sliceRange(msgPack, ranges[2])),
+        InvocationDetails(
+          _coerceInt(detailsMap['caller']),
+          detailsMap['procedure'] as String?,
+          detailsMap['receive_progress'] as bool?,
+          detailsMap['ppt_scheme'] as String?,
+          detailsMap['ppt_serializer'] as String?,
+          detailsMap['ppt_cipher'] as String?,
+          detailsMap['ppt_keyid'] as String?,
+          _extractCustomDetails(detailsMap, _invocationDetailKeys),
+        ),
+      );
+      _setLazyMsgPackPayload(invocation, msgPack, ranges, 4);
+      return invocation;
+    }
+    if (messageId == MessageTypes.codeResult) {
+      if (ranges.length < 3) {
+        return null;
+      }
+      final detailsMap = _decodeMsgPackMap(_sliceRange(msgPack, ranges[2]));
+      final result = Result(
+        _decodeMsgPackInt(_sliceRange(msgPack, ranges[1])),
+        ResultDetails(
+          progress: detailsMap['progress'] as bool?,
+          pptScheme: detailsMap['ppt_scheme'] as String?,
+          pptSerializer: detailsMap['ppt_serializer'] as String?,
+          pptCipher: detailsMap['ppt_cipher'] as String?,
+          pptKeyId: detailsMap['ppt_keyid'] as String?,
+          custom: _extractCustomDetails(detailsMap, _resultDetailKeys),
+        ),
+      );
+      _setLazyMsgPackPayload(result, msgPack, ranges, 3);
+      return result;
+    }
+    if (messageId == MessageTypes.codeEvent) {
+      if (ranges.length < 4) {
+        return null;
+      }
+      final detailsMap = _decodeMsgPackMap(_sliceRange(msgPack, ranges[3]));
+      final event = Event(
+        _decodeMsgPackInt(_sliceRange(msgPack, ranges[1])),
+        _decodeMsgPackInt(_sliceRange(msgPack, ranges[2])),
+        EventDetails(
+          publisher: _coerceInt(detailsMap['publisher']),
+          trustlevel: _coerceInt(detailsMap['trustlevel']),
+          topic: detailsMap['topic'] as String?,
+          pptScheme: detailsMap['ppt_scheme'] as String?,
+          pptSerializer: detailsMap['ppt_serializer'] as String?,
+          pptCipher: detailsMap['ppt_cipher'] as String?,
+          pptKeyid: detailsMap['ppt_keyid'] as String?,
+          custom: _extractCustomDetails(detailsMap, _eventDetailKeys),
+        ),
+      );
+      _setLazyMsgPackPayload(event, msgPack, ranges, 4);
+      return event;
+    }
+    if (messageId == MessageTypes.codeError) {
+      if (ranges.length < 5) {
+        return null;
+      }
+      final error = Error(
+        _decodeMsgPackInt(_sliceRange(msgPack, ranges[1])),
+        _decodeMsgPackInt(_sliceRange(msgPack, ranges[2])),
+        Map<String, Object>.from(
+          _decodeMsgPackMap(_sliceRange(msgPack, ranges[3])),
+        ),
+        _decodeMsgPackString(_sliceRange(msgPack, ranges[4])),
+      );
+      _setLazyMsgPackPayload(error, msgPack, ranges, 5);
+      return error;
+    }
+    return null;
+  }
+
+  void _setLazyMsgPackPayload(
+    AbstractMessageWithPayload message,
+    Uint8List msgPack,
+    List<_ByteRange> ranges,
+    int argumentsOffset,
+  ) {
+    final hasArguments = ranges.length > argumentsOffset;
+    final hasArgumentsKeywords = ranges.length > argumentsOffset + 1;
+    if (!hasArguments && !hasArgumentsKeywords) {
+      return;
+    }
+    message.setLazyPayload(
+      argumentsBytes: hasArguments
+          ? _sliceRange(msgPack, ranges[argumentsOffset])
+          : null,
+      argumentsDecoder: hasArguments ? _decodeMsgPackArguments : null,
+      argumentsKeywordsBytes: hasArgumentsKeywords
+          ? _sliceRange(msgPack, ranges[argumentsOffset + 1])
+          : null,
+      argumentsKeywordsDecoder: hasArgumentsKeywords
+          ? _decodeMsgPackKeywordArguments
+          : null,
+      encoding: LazyPayloadEncoding.messagePack,
+    );
+  }
+
+  List<dynamic> _decodeMsgPackArguments(Uint8List bytes) {
+    final decoded = _decodeMsgPackFragment(bytes);
+    if (decoded is List) {
+      return List<dynamic>.from(decoded);
+    }
+    throw ArgumentError('Expected MessagePack arguments list but got $decoded');
+  }
+
+  Map<String, dynamic> _decodeMsgPackKeywordArguments(Uint8List bytes) {
+    final decoded = _decodeMsgPackFragment(bytes);
+    if (decoded is Map) {
+      return decoded.map((key, value) => MapEntry(key.toString(), value));
+    }
+    throw ArgumentError(
+      'Expected MessagePack keyword arguments map but got $decoded',
+    );
+  }
+
+  Object? _decodeMsgPackFragment(Uint8List bytes) {
+    return msgpack_dart.deserialize(bytes);
+  }
+
+  Map<dynamic, dynamic> _decodeMsgPackMap(Uint8List bytes) {
+    final decoded = _decodeMsgPackFragment(bytes);
+    if (decoded is Map<dynamic, dynamic>) {
+      return decoded;
+    }
+    throw ArgumentError('Expected MessagePack map but got $decoded');
+  }
+
+  int _decodeMsgPackInt(Uint8List bytes) {
+    final decoded = _decodeMsgPackFragment(bytes);
+    if (decoded is num) {
+      return decoded.toInt();
+    }
+    throw ArgumentError('Expected MessagePack integer but got $decoded');
+  }
+
+  String _decodeMsgPackString(Uint8List bytes) {
+    final decoded = _decodeMsgPackFragment(bytes);
+    if (decoded is String) {
+      return decoded;
+    }
+    throw ArgumentError('Expected MessagePack string but got $decoded');
+  }
+
   /// Converts a WAMP message object into a uint8 msgpack message
   @override
   Uint8List serialize(AbstractMessage message) {
     if (message is Hello) {
-      return Uint8List.fromList(
-        [147] +
-            msgpack_dart.serialize(MessageTypes.codeHello) +
-            msgpack_dart.serialize(message.realm) +
-            _serializeDetails(message.details)!,
-      );
+      return _buildMessage(3, [
+        msgpack_dart.serialize(MessageTypes.codeHello),
+        msgpack_dart.serialize(message.realm),
+        _serializeDetails(message.details)!,
+      ]);
     }
     if (message is Challenge) {
-      return Uint8List.fromList(
-        [147] +
-            msgpack_dart.serialize(MessageTypes.codeChallenge) +
-            msgpack_dart.serialize(message.authMethod) +
-            msgpack_dart.serialize(_challengeExtraToMap(message.extra)),
-      );
+      return _buildMessage(3, [
+        msgpack_dart.serialize(MessageTypes.codeChallenge),
+        msgpack_dart.serialize(message.authMethod),
+        msgpack_dart.serialize(_challengeExtraToMap(message.extra)),
+      ]);
     }
     if (message is Authenticate) {
-      return Uint8List.fromList(
-        [147] +
-            msgpack_dart.serialize(MessageTypes.codeAuthenticate) +
-            msgpack_dart.serialize(message.signature ?? '') +
-            msgpack_dart.serialize(message.extra ?? '{}'),
-      );
+      return _buildMessage(3, [
+        msgpack_dart.serialize(MessageTypes.codeAuthenticate),
+        msgpack_dart.serialize(message.signature ?? ''),
+        msgpack_dart.serialize(message.extra ?? '{}'),
+      ]);
     }
     if (message is Welcome) {
-      return Uint8List.fromList(
-        [147] +
-            msgpack_dart.serialize(MessageTypes.codeWelcome) +
-            msgpack_dart.serialize(message.sessionId) +
-            _serializeDetails(message.details)!,
-      );
+      return _buildMessage(3, [
+        msgpack_dart.serialize(MessageTypes.codeWelcome),
+        msgpack_dart.serialize(message.sessionId),
+        _serializeDetails(message.details)!,
+      ]);
     }
     if (message is Register) {
-      return Uint8List.fromList(
-        [148] +
-            msgpack_dart.serialize(MessageTypes.codeRegister) +
-            msgpack_dart.serialize(message.requestId) +
-            _serializeRegisterOptions(message.options) +
-            msgpack_dart.serialize(message.procedure),
-      );
+      return _buildMessage(4, [
+        msgpack_dart.serialize(MessageTypes.codeRegister),
+        msgpack_dart.serialize(message.requestId),
+        _serializeRegisterOptions(message.options),
+        msgpack_dart.serialize(message.procedure),
+      ]);
     }
     if (message is Unregister) {
-      return Uint8List.fromList(
-        [147] +
-            msgpack_dart.serialize(MessageTypes.codeUnregister) +
-            msgpack_dart.serialize(message.requestId) +
-            msgpack_dart.serialize(message.registrationId),
-      );
+      return _buildMessage(3, [
+        msgpack_dart.serialize(MessageTypes.codeUnregister),
+        msgpack_dart.serialize(message.requestId),
+        msgpack_dart.serialize(message.registrationId),
+      ]);
     }
     if (message is Call) {
-      var res =
-          [148] +
-          msgpack_dart.serialize(MessageTypes.codeCall) +
-          msgpack_dart.serialize(message.requestId) +
-          _serializeCallOptions(message.options) +
-          msgpack_dart.serialize(message.procedure);
-      var payload = _serializePayload(message);
-      res[0] += payload.payloadType;
-      res += payload.payload;
-      return Uint8List.fromList(res);
+      return _buildPayloadMessage(4, [
+        msgpack_dart.serialize(MessageTypes.codeCall),
+        msgpack_dart.serialize(message.requestId),
+        _serializeCallOptions(message.options),
+        msgpack_dart.serialize(message.procedure),
+      ], _serializePayload(message));
     }
     if (message is Yield) {
-      var res =
-          [147] +
-          msgpack_dart.serialize(MessageTypes.codeYield) +
-          msgpack_dart.serialize(message.invocationRequestId) +
-          _serializeYieldOptions(message.options);
-      var payload = _serializePayload(message);
-      res[0] += payload.payloadType;
-      res += payload.payload;
-      return Uint8List.fromList(res);
+      return _buildPayloadMessage(3, [
+        msgpack_dart.serialize(MessageTypes.codeYield),
+        msgpack_dart.serialize(message.invocationRequestId),
+        _serializeYieldOptions(message.options),
+      ], _serializePayload(message));
     }
     if (message is interrupt_msg.Interrupt) {
       final options = <String, Object?>{};
       if (message.options?.mode != null) {
         options['mode'] = message.options!.mode;
       }
-      return Uint8List.fromList(
-        [147] +
-            msgpack_dart.serialize(MessageTypes.codeInterrupt) +
-            msgpack_dart.serialize(message.requestId) +
-            msgpack_dart.serialize(options),
-      );
+      return _buildMessage(3, [
+        msgpack_dart.serialize(MessageTypes.codeInterrupt),
+        msgpack_dart.serialize(message.requestId),
+        msgpack_dart.serialize(options),
+      ]);
     }
     if (message is Invocation) {
-      var res =
-          [148] +
-          msgpack_dart.serialize(MessageTypes.codeInvocation) +
-          msgpack_dart.serialize(message.requestId) +
-          msgpack_dart.serialize(message.registrationId) +
-          _serializeInvocationDetails(message.details);
-      var payload = _serializePayload(message);
-      res[0] += payload.payloadType;
-      res += payload.payload;
-      return Uint8List.fromList(res);
+      return _buildPayloadMessage(4, [
+        msgpack_dart.serialize(MessageTypes.codeInvocation),
+        msgpack_dart.serialize(message.requestId),
+        msgpack_dart.serialize(message.registrationId),
+        _serializeInvocationDetails(message.details),
+      ], _serializePayload(message));
     }
     if (message is Publish) {
-      var res =
-          [148] +
-          msgpack_dart.serialize(MessageTypes.codePublish) +
-          msgpack_dart.serialize(message.requestId) +
-          _serializePublish(message.options) +
-          msgpack_dart.serialize(message.topic);
-      var payload = _serializePayload(message);
-      res[0] += payload.payloadType;
-      res += payload.payload;
-      return Uint8List.fromList(res);
+      return _buildPayloadMessage(4, [
+        msgpack_dart.serialize(MessageTypes.codePublish),
+        msgpack_dart.serialize(message.requestId),
+        _serializePublish(message.options),
+        msgpack_dart.serialize(message.topic),
+      ], _serializePayload(message));
     }
     if (message is Published) {
-      return Uint8List.fromList(
-        [147] +
-            msgpack_dart.serialize(MessageTypes.codePublished) +
-            msgpack_dart.serialize(message.publishRequestId) +
-            msgpack_dart.serialize(message.publicationId),
-      );
+      return _buildMessage(3, [
+        msgpack_dart.serialize(MessageTypes.codePublished),
+        msgpack_dart.serialize(message.publishRequestId),
+        msgpack_dart.serialize(message.publicationId),
+      ]);
     }
     if (message is Event) {
       final detailsBytes = _serializeEventDetails(message.details);
-      var res =
-          [148] +
-          msgpack_dart.serialize(MessageTypes.codeEvent) +
-          msgpack_dart.serialize(message.subscriptionId) +
-          msgpack_dart.serialize(message.publicationId) +
-          detailsBytes.toList();
-      var payload = _serializePayload(message);
-      res[0] += payload.payloadType;
-      res += payload.payload;
-      return Uint8List.fromList(res);
+      return _buildPayloadMessage(4, [
+        msgpack_dart.serialize(MessageTypes.codeEvent),
+        msgpack_dart.serialize(message.subscriptionId),
+        msgpack_dart.serialize(message.publicationId),
+        detailsBytes,
+      ], _serializePayload(message));
     }
     if (message is Subscribe) {
-      return Uint8List.fromList(
-        [148] +
-            msgpack_dart.serialize(MessageTypes.codeSubscribe) +
-            msgpack_dart.serialize(message.requestId) +
-            _serializeSubscribeOptions(message.options) +
-            msgpack_dart.serialize(message.topic),
-      );
+      return _buildMessage(4, [
+        msgpack_dart.serialize(MessageTypes.codeSubscribe),
+        msgpack_dart.serialize(message.requestId),
+        _serializeSubscribeOptions(message.options),
+        msgpack_dart.serialize(message.topic),
+      ]);
     }
     if (message is Subscribed) {
-      return Uint8List.fromList(
-        [147] +
-            msgpack_dart.serialize(MessageTypes.codeSubscribed) +
-            msgpack_dart.serialize(message.subscribeRequestId) +
-            msgpack_dart.serialize(message.subscriptionId),
-      );
+      return _buildMessage(3, [
+        msgpack_dart.serialize(MessageTypes.codeSubscribed),
+        msgpack_dart.serialize(message.subscribeRequestId),
+        msgpack_dart.serialize(message.subscriptionId),
+      ]);
     }
     if (message is Unsubscribe) {
-      return Uint8List.fromList(
-        [147] +
-            msgpack_dart.serialize(MessageTypes.codeUnsubscribe) +
-            msgpack_dart.serialize(message.requestId) +
-            msgpack_dart.serialize(message.subscriptionId),
-      );
+      return _buildMessage(3, [
+        msgpack_dart.serialize(MessageTypes.codeUnsubscribe),
+        msgpack_dart.serialize(message.requestId),
+        msgpack_dart.serialize(message.subscriptionId),
+      ]);
     }
     if (message is Unsubscribed) {
       final details = message.details;
@@ -506,19 +644,17 @@ class Serializer extends AbstractSerializer {
           map['reason'] = details.reason;
         }
         if (map.isNotEmpty) {
-          return Uint8List.fromList(
-            [147] +
-                msgpack_dart.serialize(MessageTypes.codeUnsubscribed) +
-                msgpack_dart.serialize(message.unsubscribeRequestId) +
-                msgpack_dart.serialize(map),
-          );
+          return _buildMessage(3, [
+            msgpack_dart.serialize(MessageTypes.codeUnsubscribed),
+            msgpack_dart.serialize(message.unsubscribeRequestId),
+            msgpack_dart.serialize(map),
+          ]);
         }
       }
-      return Uint8List.fromList(
-        [146] +
-            msgpack_dart.serialize(MessageTypes.codeUnsubscribed) +
-            msgpack_dart.serialize(message.unsubscribeRequestId),
-      );
+      return _buildMessage(2, [
+        msgpack_dart.serialize(MessageTypes.codeUnsubscribed),
+        msgpack_dart.serialize(message.unsubscribeRequestId),
+      ]);
     }
     if (message is Result) {
       final details = <String, Object?>{};
@@ -541,73 +677,88 @@ class Serializer extends AbstractSerializer {
       if (resultDetails.custom.isNotEmpty) {
         details.addAll(resultDetails.custom);
       }
-      var res =
-          [147] +
-          msgpack_dart.serialize(MessageTypes.codeResult) +
-          msgpack_dart.serialize(message.callRequestId) +
-          msgpack_dart.serialize(details);
-      var payload = _serializePayload(message);
-      res[0] += payload.payloadType;
-      res += payload.payload;
-      return Uint8List.fromList(res);
+      return _buildPayloadMessage(3, [
+        msgpack_dart.serialize(MessageTypes.codeResult),
+        msgpack_dart.serialize(message.callRequestId),
+        msgpack_dart.serialize(details),
+      ], _serializePayload(message));
     }
     if (message is Error) {
-      var res =
-          [149] +
-          msgpack_dart.serialize(MessageTypes.codeError) +
-          msgpack_dart.serialize(message.requestTypeId) +
-          msgpack_dart.serialize(message.requestId) +
-          msgpack_dart.serialize(message.details) +
-          msgpack_dart.serialize(message.error);
-      var payload = _serializePayload(message);
-      res[0] += payload.payloadType;
-      res += payload.payload;
-      return Uint8List.fromList(res);
+      return _buildPayloadMessage(5, [
+        msgpack_dart.serialize(MessageTypes.codeError),
+        msgpack_dart.serialize(message.requestTypeId),
+        msgpack_dart.serialize(message.requestId),
+        msgpack_dart.serialize(message.details),
+        msgpack_dart.serialize(message.error),
+      ], _serializePayload(message));
     }
     if (message is Abort) {
-      return Uint8List.fromList(
-        [147] +
-            msgpack_dart.serialize(MessageTypes.codeAbort) +
-            msgpack_dart.serialize(
-              message.message != null
-                  ? {'message': message.message!.message}
-                  : {},
-            ) +
-            msgpack_dart.serialize(message.reason),
-      );
+      return _buildMessage(3, [
+        msgpack_dart.serialize(MessageTypes.codeAbort),
+        msgpack_dart.serialize(
+          message.message != null ? {'message': message.message!.message} : {},
+        ),
+        msgpack_dart.serialize(message.reason),
+      ]);
     }
     if (message is Goodbye) {
-      return Uint8List.fromList(
-        [147] +
-            msgpack_dart.serialize(MessageTypes.codeGoodbye) +
-            msgpack_dart.serialize(
-              message.message != null
-                  ? {'message': message.message!.message ?? ""}
-                  : {},
-            ) +
-            msgpack_dart.serialize(message.reason),
-      );
+      return _buildMessage(3, [
+        msgpack_dart.serialize(MessageTypes.codeGoodbye),
+        msgpack_dart.serialize(
+          message.message != null
+              ? {'message': message.message!.message ?? ''}
+              : {},
+        ),
+        msgpack_dart.serialize(message.reason),
+      ]);
     }
     if (message is Registered) {
-      return Uint8List.fromList(
-        [147] +
-            msgpack_dart.serialize(MessageTypes.codeRegistered) +
-            msgpack_dart.serialize(message.registerRequestId) +
-            msgpack_dart.serialize(message.registrationId),
-      );
+      return _buildMessage(3, [
+        msgpack_dart.serialize(MessageTypes.codeRegistered),
+        msgpack_dart.serialize(message.registerRequestId),
+        msgpack_dart.serialize(message.registrationId),
+      ]);
     }
     if (message is Unregistered) {
-      return Uint8List.fromList(
-        [146] +
-            msgpack_dart.serialize(MessageTypes.codeUnregistered) +
-            msgpack_dart.serialize(message.unregisterRequestId),
-      );
+      return _buildMessage(2, [
+        msgpack_dart.serialize(MessageTypes.codeUnregistered),
+        msgpack_dart.serialize(message.unregisterRequestId),
+      ]);
     }
 
     _logger.shout('Could not serialize the message of type: $message');
     throw UnsupportedError(
       'MsgPack serializer does not support ${message.runtimeType}',
     );
+  }
+
+  Uint8List _buildMessage(int length, List<Uint8List> parts) {
+    final builder = BytesBuilder(copy: false)..add([_fixArrayHeader(length)]);
+    for (final part in parts) {
+      builder.add(part);
+    }
+    return builder.takeBytes();
+  }
+
+  Uint8List _buildPayloadMessage(
+    int fixedLength,
+    List<Uint8List> fixedParts,
+    SerializedPayload<int, Uint8List> payload,
+  ) {
+    final builder = BytesBuilder(copy: false)
+      ..add([_fixArrayHeader(fixedLength + payload.payloadType)]);
+    for (final part in fixedParts) {
+      builder.add(part);
+    }
+    if (payload.payload.isNotEmpty) {
+      builder.add(payload.payload);
+    }
+    return builder.takeBytes();
+  }
+
+  int _fixArrayHeader(int length) {
+    assert(length >= 0 && length <= 15);
+    return 0x90 | length;
   }
 
   Uint8List? _serializeDetails(Details details) {
@@ -992,9 +1143,9 @@ class Serializer extends AbstractSerializer {
     if (message.argumentsKeywords != null) {
       return SerializedPayload(
         2,
-        Uint8List.fromList(
-          msgpack_dart.serialize(message.arguments ?? []) +
-              msgpack_dart.serialize(message.argumentsKeywords),
+        _concatBytes(
+          msgpack_dart.serialize(message.arguments ?? []),
+          msgpack_dart.serialize(message.argumentsKeywords),
         ),
       );
     } else if (message.arguments != null) {
@@ -1075,19 +1226,13 @@ class Serializer extends AbstractSerializer {
     final argsBytes = argumentsBytes ?? msgpack_dart.serialize(arguments);
     final kwargsBytes =
         argumentsKeywordsBytes ?? msgpack_dart.serialize(argumentsKeywords);
-    return _concatBytes(
-      Uint8List.fromList([0x82]),
-      _concatBytes(
-        _pptArgsKeyBytes,
-        _concatBytes(
-          argsBytes.isEmpty ? _nilBytes : argsBytes,
-          _concatBytes(
-            _pptKwargsKeyBytes,
-            kwargsBytes.isEmpty ? _nilBytes : kwargsBytes,
-          ),
-        ),
-      ),
-    );
+    final builder = BytesBuilder(copy: false)
+      ..add([0x82])
+      ..add(_pptArgsKeyBytes)
+      ..add(argsBytes.isEmpty ? _nilBytes : argsBytes)
+      ..add(_pptKwargsKeyBytes)
+      ..add(kwargsBytes.isEmpty ? _nilBytes : kwargsBytes);
+    return builder.takeBytes();
   }
 
   Map<String, Object?> _challengeExtraToMap(Extra extra) {
@@ -1127,4 +1272,228 @@ class SerializedPayload<TTag, TPayload> {
   final TPayload payload;
 
   SerializedPayload(this.payloadType, this.payload);
+}
+
+class _ByteRange {
+  const _ByteRange(this.start, this.end);
+
+  final int start;
+  final int end;
+}
+
+class _MsgPackArrayHeader {
+  const _MsgPackArrayHeader(this.length, this.nextOffset);
+
+  final int length;
+  final int nextOffset;
+}
+
+Uint8List _sliceRange(Uint8List bytes, _ByteRange range) {
+  return Uint8List.sublistView(bytes, range.start, range.end);
+}
+
+List<_ByteRange>? _parseMsgPackTopLevelRanges(Uint8List bytes) {
+  final header = _readMsgPackArrayHeader(bytes, 0);
+  if (header == null) {
+    return null;
+  }
+  var offset = header.nextOffset;
+  final ranges = <_ByteRange>[];
+  for (var index = 0; index < header.length; index++) {
+    final start = offset;
+    final next = _skipMsgPackValue(bytes, offset);
+    if (next == null) {
+      return null;
+    }
+    ranges.add(_ByteRange(start, next));
+    offset = next;
+  }
+  return ranges;
+}
+
+_MsgPackArrayHeader? _readMsgPackArrayHeader(Uint8List bytes, int offset) {
+  if (offset >= bytes.length) {
+    return null;
+  }
+  final lead = bytes[offset];
+  if ((lead & 0xf0) == 0x90) {
+    return _MsgPackArrayHeader(lead & 0x0f, offset + 1);
+  }
+  if (lead == 0xdc) {
+    if (offset + 3 > bytes.length) {
+      return null;
+    }
+    return _MsgPackArrayHeader(
+      ByteData.sublistView(bytes, offset + 1, offset + 3).getUint16(0),
+      offset + 3,
+    );
+  }
+  if (lead == 0xdd) {
+    if (offset + 5 > bytes.length) {
+      return null;
+    }
+    return _MsgPackArrayHeader(
+      ByteData.sublistView(bytes, offset + 1, offset + 5).getUint32(0),
+      offset + 5,
+    );
+  }
+  return null;
+}
+
+int? _skipMsgPackValue(Uint8List bytes, int offset) {
+  if (offset >= bytes.length) {
+    return null;
+  }
+  final lead = bytes[offset];
+  if (lead <= 0x7f || lead >= 0xe0) {
+    return offset + 1;
+  }
+  if ((lead & 0xe0) == 0xa0) {
+    final length = lead & 0x1f;
+    return _advanceMsgPackOffset(bytes, offset + 1, length);
+  }
+  if ((lead & 0xf0) == 0x90) {
+    return _skipMsgPackArray(bytes, offset + 1, lead & 0x0f);
+  }
+  if ((lead & 0xf0) == 0x80) {
+    return _skipMsgPackMap(bytes, offset + 1, lead & 0x0f);
+  }
+  switch (lead) {
+    case 0xc0:
+    case 0xc2:
+    case 0xc3:
+      return offset + 1;
+    case 0xcc:
+    case 0xd0:
+      return _advanceMsgPackOffset(bytes, offset + 1, 1);
+    case 0xcd:
+    case 0xd1:
+      return _advanceMsgPackOffset(bytes, offset + 1, 2);
+    case 0xce:
+    case 0xd2:
+    case 0xca:
+      return _advanceMsgPackOffset(bytes, offset + 1, 4);
+    case 0xcf:
+    case 0xd3:
+    case 0xcb:
+      return _advanceMsgPackOffset(bytes, offset + 1, 8);
+    case 0xd9:
+      return _skipMsgPackLengthPrefixed(bytes, offset + 1, 1);
+    case 0xda:
+      return _skipMsgPackLengthPrefixed(bytes, offset + 1, 2);
+    case 0xdb:
+      return _skipMsgPackLengthPrefixed(bytes, offset + 1, 4);
+    case 0xc4:
+      return _skipMsgPackLengthPrefixed(bytes, offset + 1, 1);
+    case 0xc5:
+      return _skipMsgPackLengthPrefixed(bytes, offset + 1, 2);
+    case 0xc6:
+      return _skipMsgPackLengthPrefixed(bytes, offset + 1, 4);
+    case 0xdc:
+      final length = _readMsgPackLength(bytes, offset + 1, 2);
+      return length == null
+          ? null
+          : _skipMsgPackArray(bytes, offset + 3, length);
+    case 0xdd:
+      final length = _readMsgPackLength(bytes, offset + 1, 4);
+      return length == null
+          ? null
+          : _skipMsgPackArray(bytes, offset + 5, length);
+    case 0xde:
+      final length = _readMsgPackLength(bytes, offset + 1, 2);
+      return length == null ? null : _skipMsgPackMap(bytes, offset + 3, length);
+    case 0xdf:
+      final length = _readMsgPackLength(bytes, offset + 1, 4);
+      return length == null ? null : _skipMsgPackMap(bytes, offset + 5, length);
+    case 0xd4:
+      return _advanceMsgPackOffset(bytes, offset + 2, 1);
+    case 0xd5:
+      return _advanceMsgPackOffset(bytes, offset + 2, 2);
+    case 0xd6:
+      return _advanceMsgPackOffset(bytes, offset + 2, 4);
+    case 0xd7:
+      return _advanceMsgPackOffset(bytes, offset + 2, 8);
+    case 0xd8:
+      return _advanceMsgPackOffset(bytes, offset + 2, 16);
+    case 0xc7:
+      return _skipMsgPackExt(bytes, offset + 1, 1);
+    case 0xc8:
+      return _skipMsgPackExt(bytes, offset + 1, 2);
+    case 0xc9:
+      return _skipMsgPackExt(bytes, offset + 1, 4);
+    default:
+      return null;
+  }
+}
+
+int? _skipMsgPackArray(Uint8List bytes, int offset, int length) {
+  var current = offset;
+  for (var index = 0; index < length; index++) {
+    final next = _skipMsgPackValue(bytes, current);
+    if (next == null) {
+      return null;
+    }
+    current = next;
+  }
+  return current;
+}
+
+int? _skipMsgPackMap(Uint8List bytes, int offset, int length) {
+  var current = offset;
+  for (var index = 0; index < length; index++) {
+    final nextKey = _skipMsgPackValue(bytes, current);
+    if (nextKey == null) {
+      return null;
+    }
+    final nextValue = _skipMsgPackValue(bytes, nextKey);
+    if (nextValue == null) {
+      return null;
+    }
+    current = nextValue;
+  }
+  return current;
+}
+
+int? _skipMsgPackLengthPrefixed(Uint8List bytes, int offset, int lengthBytes) {
+  final length = _readMsgPackLength(bytes, offset, lengthBytes);
+  if (length == null) {
+    return null;
+  }
+  return _advanceMsgPackOffset(bytes, offset + lengthBytes, length);
+}
+
+int? _skipMsgPackExt(Uint8List bytes, int offset, int lengthBytes) {
+  final length = _readMsgPackLength(bytes, offset, lengthBytes);
+  if (length == null) {
+    return null;
+  }
+  return _advanceMsgPackOffset(bytes, offset + lengthBytes + 1, length);
+}
+
+int? _advanceMsgPackOffset(Uint8List bytes, int offset, int length) {
+  final next = offset + length;
+  if (next > bytes.length) {
+    return null;
+  }
+  return next;
+}
+
+int? _readMsgPackLength(Uint8List bytes, int offset, int lengthBytes) {
+  if (offset + lengthBytes > bytes.length) {
+    return null;
+  }
+  final data = ByteData.sublistView(bytes, offset, offset + lengthBytes);
+  return switch (lengthBytes) {
+    1 => data.getUint8(0),
+    2 => data.getUint16(0),
+    4 => data.getUint32(0),
+    _ => null,
+  };
+}
+
+int? _coerceInt(Object? value) {
+  if (value is num) {
+    return value.toInt();
+  }
+  return null;
 }

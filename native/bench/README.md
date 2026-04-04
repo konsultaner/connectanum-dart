@@ -580,6 +580,15 @@ longer collapse to `{}`, JSON custom/detail maps normalize binary sentinel
 strings recursively, and live mixed WebSocket regressions now cover nested
 binary custom values on `EVENT`, `INVOCATION`, `RESULT`, and `ERROR` routing
 across JSON, MessagePack, and CBOR.
+The serializer-specific hot path is leaner as well: MessagePack outbound WAMP
+messages now assemble with byte builders instead of repeated list
+concatenation, and CBOR same-serializer outbound payloads now splice retained
+lazy fragments directly instead of decoding and re-encoding them first.
+The inbound side now follows the same rule on the hottest payload-bearing
+frames: MessagePack and CBOR `INVOCATION`, `RESULT`, `EVENT`, and `ERROR`
+messages scan only the top-level WAMP array, eagerly decode the fixed header
+and detail fields, and keep args/kwargs as lazy encoded slices until benchmark
+or application code actually touches the materialized payload getters.
 The same lazy path now keeps already-packed `pptScheme == 'wamp'` payload bytes
 intact across client outbound sends, invocation yields, and router
 internal-session event/result/invocation forwarding, so the benchmark no longer
