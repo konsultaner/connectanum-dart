@@ -3041,6 +3041,97 @@ void main() {
       },
     );
 
+    test(
+      'preserves lazy publish kwargs without decoding on Dart fallback',
+      () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
+
+        final listener = _buildListener();
+        final publisherState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        publisherState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 511;
+
+        _openSession(
+          stateStore,
+          sessionId: 511,
+          listener: listener,
+          connectionId: 11,
+        );
+        _openSession(
+          stateStore,
+          sessionId: 512,
+          listener: listener,
+          connectionId: 21,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final subscribeReply = ReceivePort();
+        stateStore.commandPort.send(
+          SubscriptionAddCommand(
+            realmUri: 'realm1',
+            sessionId: 512,
+            topic: 'com.example.lazy.topic',
+            matchPolicy: TopicMatchPolicy.exact,
+            details: const {},
+            replyPort: subscribeReply.sendPort,
+          ),
+        );
+        await subscribeReply.first;
+        subscribeReply.close();
+
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+        final kwargsBytes = _jsonFragmentBytes(const {'worker': 7});
+        var decodeCount = 0;
+        final publish = publish_msg.Publish(9011, 'com.example.lazy.topic');
+        publish.setLazyPayload(
+          argumentsKeywordsBytes: kwargsBytes,
+          argumentsKeywordsDecoder: (_) {
+            decodeCount += 1;
+            return const {'worker': 7};
+          },
+          encoding: LazyPayloadEncoding.json,
+        );
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: publisherState,
+          message: publish,
+          connectionId: 11,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final forwards = _extractForwardMessages(bossMessages);
+        expect(forwards, hasLength(1));
+        final event = forwards.single['message'] as event_msg.Event;
+        expect(event.debugEncodedArgumentsBytes, isNull);
+        expect(
+          event.debugEncodedArgumentsKeywordsBytes,
+          orderedEquals(kwargsBytes),
+        );
+        expect(decodeCount, 0);
+      },
+    );
+
     test('routes PPT publish payloads with event PPT details intact', () async {
       final bossMessages = <Map<String, Object?>>[];
       final bossPort = ReceivePort()
@@ -4665,6 +4756,242 @@ void main() {
     );
 
     test(
+      'preserves lazy call payload without decoding on Dart fallback',
+      () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
+
+        final listener = _buildListener();
+        final callerState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        callerState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 611;
+        final calleeState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        calleeState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 612;
+
+        _openSession(
+          stateStore,
+          sessionId: 611,
+          listener: listener,
+          connectionId: 31,
+        );
+        _openSession(
+          stateStore,
+          sessionId: 612,
+          listener: listener,
+          connectionId: 32,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final registerReply = ReceivePort();
+        stateStore.commandPort.send(
+          ProcedureRegisterCommand(
+            realmUri: 'realm1',
+            sessionId: 612,
+            procedure: 'com.example.lazy.proc',
+            details: const {},
+            replyPort: registerReply.sendPort,
+          ),
+        );
+        await registerReply.first;
+        registerReply.close();
+
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+        final argsBytes = _jsonFragmentBytes(const ['lazy', 1]);
+        final kwargsBytes = _jsonFragmentBytes(const {'worker': 7});
+        var decodeCount = 0;
+        final call = call_msg.Call(7101, 'com.example.lazy.proc');
+        call.setLazyPayload(
+          argumentsBytes: argsBytes,
+          argumentsDecoder: (_) {
+            decodeCount += 1;
+            return const ['lazy', 1];
+          },
+          argumentsKeywordsBytes: kwargsBytes,
+          argumentsKeywordsDecoder: (_) {
+            decodeCount += 1;
+            return const {'worker': 7};
+          },
+          encoding: LazyPayloadEncoding.json,
+        );
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: callerState,
+          message: call,
+          connectionId: 31,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final invocationForward = _extractForwardMessages(bossMessages);
+        expect(invocationForward, hasLength(1));
+        final invocation =
+            invocationForward.single['message'] as invocation_msg.Invocation;
+        expect(invocation.debugEncodedArgumentsBytes, orderedEquals(argsBytes));
+        expect(
+          invocation.debugEncodedArgumentsKeywordsBytes,
+          orderedEquals(kwargsBytes),
+        );
+        expect(decodeCount, 0);
+      },
+    );
+
+    test(
+      'preserves lazy yield payload without decoding on Dart fallback',
+      () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
+
+        final listener = _buildListener();
+        final callerState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        callerState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 621;
+        final calleeState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        calleeState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 622;
+
+        _openSession(
+          stateStore,
+          sessionId: 621,
+          listener: listener,
+          connectionId: 31,
+        );
+        _openSession(
+          stateStore,
+          sessionId: 622,
+          listener: listener,
+          connectionId: 32,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final registerReply = ReceivePort();
+        stateStore.commandPort.send(
+          ProcedureRegisterCommand(
+            realmUri: 'realm1',
+            sessionId: 622,
+            procedure: 'com.example.lazy.result',
+            details: const {},
+            replyPort: registerReply.sendPort,
+          ),
+        );
+        await registerReply.first;
+        registerReply.close();
+
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+        final call = call_msg.Call(7201, 'com.example.lazy.result');
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: callerState,
+          message: call,
+          connectionId: 31,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final invocationForward = _extractForwardMessages(bossMessages);
+        expect(invocationForward, hasLength(1));
+        final invocation =
+            invocationForward.single['message'] as invocation_msg.Invocation;
+        final invocationId = invocation.requestId;
+        bossMessages.clear();
+
+        final argsBytes = _jsonFragmentBytes(const ['yielded']);
+        final kwargsBytes = _jsonFragmentBytes(const {'worker': 9});
+        var decodeCount = 0;
+        final yieldMessage = yield_msg.Yield(invocationId);
+        yieldMessage.setLazyPayload(
+          argumentsBytes: argsBytes,
+          argumentsDecoder: (_) {
+            decodeCount += 1;
+            return const ['yielded'];
+          },
+          argumentsKeywordsBytes: kwargsBytes,
+          argumentsKeywordsDecoder: (_) {
+            decodeCount += 1;
+            return const {'worker': 9};
+          },
+          encoding: LazyPayloadEncoding.json,
+        );
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: calleeState,
+          message: yieldMessage,
+          connectionId: 32,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final resultForward = _extractForwardMessages(bossMessages);
+        expect(resultForward, hasLength(1));
+        final result = resultForward.single['message'] as result_msg.Result;
+        expect(result.debugEncodedArgumentsBytes, orderedEquals(argsBytes));
+        expect(
+          result.debugEncodedArgumentsKeywordsBytes,
+          orderedEquals(kwargsBytes),
+        );
+        expect(decodeCount, 0);
+      },
+    );
+
+    test(
       'WebSocket connection publishes with ack and returns PUBLISHED',
       () async {
         final bossMessages = <Map<String, Object?>>[];
@@ -4971,6 +5298,138 @@ void main() {
       expect(error.error, equals(wamp_core.Error.runtimeError));
       expect(error.arguments, equals(['boom']));
     });
+
+    test(
+      'preserves lazy invocation error payload without decoding on Dart fallback',
+      () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
+
+        final listener = _buildListener();
+        final callerState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        callerState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 711;
+        final calleeState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        calleeState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 712;
+
+        _openSession(
+          stateStore,
+          sessionId: 711,
+          listener: listener,
+          connectionId: 41,
+        );
+        _openSession(
+          stateStore,
+          sessionId: 712,
+          listener: listener,
+          connectionId: 42,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final registerReply = ReceivePort();
+        stateStore.commandPort.send(
+          ProcedureRegisterCommand(
+            realmUri: 'realm1',
+            sessionId: 712,
+            procedure: 'com.example.lazy.fail',
+            details: const {},
+            replyPort: registerReply.sendPort,
+          ),
+        );
+        await registerReply.first;
+        registerReply.close();
+
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+        final call = call_msg.Call(8101, 'com.example.lazy.fail');
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: callerState,
+          message: call,
+          connectionId: 41,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final invocationForward = _extractForwardMessages(bossMessages);
+        expect(invocationForward, hasLength(1));
+        final invocation =
+            invocationForward.single['message'] as invocation_msg.Invocation;
+        final invocationId = invocation.requestId;
+        bossMessages.clear();
+
+        final argsBytes = _jsonFragmentBytes(const ['boom']);
+        final kwargsBytes = _jsonFragmentBytes(const {'worker': 5});
+        var decodeCount = 0;
+        final invocationError = error_msg.Error(
+          MessageTypes.codeInvocation,
+          invocationId,
+          {},
+          wamp_core.Error.runtimeError,
+        );
+        invocationError.setLazyPayload(
+          argumentsBytes: argsBytes,
+          argumentsDecoder: (_) {
+            decodeCount += 1;
+            return const ['boom'];
+          },
+          argumentsKeywordsBytes: kwargsBytes,
+          argumentsKeywordsDecoder: (_) {
+            decodeCount += 1;
+            return const {'worker': 5};
+          },
+          encoding: LazyPayloadEncoding.json,
+        );
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: calleeState,
+          message: invocationError,
+          connectionId: 42,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final errorForward = _extractForwardMessages(bossMessages);
+        expect(errorForward, hasLength(1));
+        final forwarded = errorForward.single['message'] as error_msg.Error;
+        expect(forwarded.debugEncodedArgumentsBytes, orderedEquals(argsBytes));
+        expect(
+          forwarded.debugEncodedArgumentsKeywordsBytes,
+          orderedEquals(kwargsBytes),
+        );
+        expect(decodeCount, 0);
+      },
+    );
 
     test('supports progressive call results when caller opts in', () async {
       final bossMessages = <Map<String, Object?>>[];
@@ -7005,6 +7464,9 @@ List<Map<String, Object?>> _extractForwardMessages(
     .where((message) => message['type'] == 'worker_forward_message')
     .cast<Map<String, Object?>>()
     .toList();
+
+Uint8List _jsonFragmentBytes(Object? value) =>
+    Uint8List.fromList(utf8.encode(jsonEncode(value)));
 
 RouterSettings _buildRouterSettings() {
   final realm = RealmSettings(

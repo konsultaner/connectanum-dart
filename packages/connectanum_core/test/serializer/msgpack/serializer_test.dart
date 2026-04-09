@@ -4944,6 +4944,52 @@ void main() {
       expect(event.argumentsKeywords!['flag'], isTrue);
     });
   });
+  group('fast path control messages', () {
+    test('Welcome preserves authmethods and custom details', () {
+      final details = Details.forWelcome(
+        realm: 'realm1',
+        authId: 'user1',
+        authMethod: 'ticket',
+        authProvider: 'static',
+        authRole: 'backend',
+      );
+      details.authmethods = const <String>['ticket', 'wampcra'];
+      details.custom['_tenant'] = 'acme';
+
+      final welcome =
+          serializer.deserialize(serializer.serialize(Welcome(42, details)))
+              as Welcome;
+
+      expect(welcome.sessionId, equals(42));
+      expect(
+        welcome.details.authmethods,
+        equals(const <String>['ticket', 'wampcra']),
+      );
+      expect(welcome.details.custom['_tenant'], equals('acme'));
+    });
+
+    test('Challenge preserves channel binding', () {
+      final challenge =
+          serializer.deserialize(
+                serializer.serialize(
+                  Challenge(
+                    'cryptosign',
+                    Extra(
+                      challenge: 'nonce',
+                      channelBinding: 'tls-unique',
+                      nonce: 'abc',
+                    ),
+                  ),
+                ),
+              )
+              as Challenge;
+
+      expect(challenge.authMethod, equals('cryptosign'));
+      expect(challenge.extra.challenge, equals('nonce'));
+      expect(challenge.extra.channelBinding, equals('tls-unique'));
+      expect(challenge.extra.nonce, equals('abc'));
+    });
+  });
   group('string conversion', () {
     test('convert UTF-8', () {
       var invocation = Invocation(

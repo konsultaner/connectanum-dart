@@ -416,7 +416,8 @@ pub use platform::{Runtime as PlatformRuntime, UnsupportedPlatform};
 pub use protocol::{Http2Handshake, Http3Handshake, HttpHandshake, WebSocketHandshake};
 pub use rawsocket::Serializer as RawSocketSerializer;
 pub use wamp::{
-    parse_message, ParseError as WampParseError, ParsedMessage, Payload as WampPayload, WampMessage,
+    parse_message, parse_message_segments, ParseError as WampParseError, ParsedMessage,
+    Payload as WampPayload, RawFrame as WampRawFrame, WampMessage,
 };
 
 static RUNTIME_MANAGER: OnceLock<RuntimeManager> = OnceLock::new();
@@ -2469,7 +2470,8 @@ fn spawn_websocket_reader(
                     }
                     if let Some(message) = accumulator.take_complete() {
                         if let Err(err) =
-                            handle_websocket_message(serializer, message, &frame_tx).await
+                            handle_websocket_message(serializer, message, &buffer_pool, &frame_tx)
+                                .await
                         {
                             eprintln!(
                                 "connection {:?} failed to parse WAMP message: {}",
@@ -2800,10 +2802,6 @@ impl PooledWebSocketBuffer {
         self.buffer.as_mut_slice()
     }
 
-    fn len(&self) -> usize {
-        self.buffer.len()
-    }
-
     fn extend_from_bytes(&mut self, bytes: &Bytes) {
         self.buffer.extend_from_slice(bytes.as_ref());
     }
@@ -2831,21 +2829,43 @@ impl Drop for PooledWebSocketBuffer {
 #[derive(Debug)]
 enum WebSocketMessageStorage {
     Single(Bytes),
-    Pooled(PooledWebSocketBuffer),
+    Segmented { segments: Vec<Bytes>, len: usize },
+}
+
+#[derive(Debug)]
+enum CompletedWebSocketMessage {
+    Single(Bytes),
+    Segmented { segments: Vec<Bytes>, len: usize },
+}
+
+impl CompletedWebSocketMessage {
+    fn into_bytes(self, pool: &Arc<WebSocketBufferPool>) -> Bytes {
+        match self {
+            CompletedWebSocketMessage::Single(bytes) => bytes,
+            CompletedWebSocketMessage::Segmented { segments, len } => {
+                let mut pooled = pool.acquire_capacity(len);
+                for segment in segments {
+                    if segment.is_empty() {
+                        continue;
+                    }
+                    pooled.extend_from_bytes(&segment);
+                }
+                pooled.into_bytes()
+            }
+        }
+    }
 }
 
 struct WebSocketMessageAccumulator {
     opcode: Option<u8>,
-    pool: Arc<WebSocketBufferPool>,
     storage: Option<WebSocketMessageStorage>,
     complete: bool,
 }
 
 impl WebSocketMessageAccumulator {
-    fn new(pool: Arc<WebSocketBufferPool>) -> Self {
+    fn new(_pool: Arc<WebSocketBufferPool>) -> Self {
         Self {
             opcode: None,
-            pool,
             storage: None,
             complete: false,
         }
@@ -2880,14 +2900,19 @@ impl WebSocketMessageAccumulator {
                 self.storage = Some(WebSocketMessageStorage::Single(payload));
             }
             Some(WebSocketMessageStorage::Single(existing)) => {
-                let mut pooled = self.pool.acquire_capacity(existing.len() + payload.len());
-                pooled.extend_from_bytes(&existing);
-                pooled.extend_from_bytes(&payload);
-                self.storage = Some(WebSocketMessageStorage::Pooled(pooled));
+                let len = existing.len() + payload.len();
+                self.storage = Some(WebSocketMessageStorage::Segmented {
+                    segments: vec![existing, payload],
+                    len,
+                });
             }
-            Some(WebSocketMessageStorage::Pooled(mut pooled)) => {
-                pooled.extend_from_bytes(&payload);
-                self.storage = Some(WebSocketMessageStorage::Pooled(pooled));
+            Some(WebSocketMessageStorage::Segmented {
+                mut segments,
+                mut len,
+            }) => {
+                len += payload.len();
+                segments.push(payload);
+                self.storage = Some(WebSocketMessageStorage::Segmented { segments, len });
             }
         }
         if fin {
@@ -2896,13 +2921,15 @@ impl WebSocketMessageAccumulator {
         Ok(())
     }
 
-    fn take_complete(&mut self) -> Option<Bytes> {
+    fn take_complete(&mut self) -> Option<CompletedWebSocketMessage> {
         if self.complete {
             self.opcode = None;
             self.complete = false;
             self.storage.take().map(|storage| match storage {
-                WebSocketMessageStorage::Single(bytes) => bytes,
-                WebSocketMessageStorage::Pooled(buffer) => buffer.into_bytes(),
+                WebSocketMessageStorage::Single(bytes) => CompletedWebSocketMessage::Single(bytes),
+                WebSocketMessageStorage::Segmented { segments, len } => {
+                    CompletedWebSocketMessage::Segmented { segments, len }
+                }
             })
         } else {
             None
@@ -2912,7 +2939,7 @@ impl WebSocketMessageAccumulator {
     fn len(&self) -> usize {
         match &self.storage {
             Some(WebSocketMessageStorage::Single(bytes)) => bytes.len(),
-            Some(WebSocketMessageStorage::Pooled(buffer)) => buffer.len(),
+            Some(WebSocketMessageStorage::Segmented { len, .. }) => *len,
             None => 0,
         }
     }
@@ -3138,19 +3165,36 @@ async fn write_websocket_frame_mode(
 
 async fn handle_websocket_message(
     serializer: rawsocket::Serializer,
-    data: Bytes,
+    data: CompletedWebSocketMessage,
+    buffer_pool: &Arc<WebSocketBufferPool>,
     frame_tx: &mpsc::Sender<wamp::ParsedMessage>,
 ) -> Result<(), String> {
-    let payload = match serializer {
-        rawsocket::Serializer::Json => {
-            if std::str::from_utf8(data.as_ref()).is_err() {
-                return Err("websocket text frame payload is not valid UTF-8".into());
-            }
-            data
+    let parsed = match data {
+        CompletedWebSocketMessage::Single(data) => {
+            let payload = match serializer {
+                rawsocket::Serializer::Json => {
+                    if std::str::from_utf8(data.as_ref()).is_err() {
+                        return Err("websocket text frame payload is not valid UTF-8".into());
+                    }
+                    data
+                }
+                _ => data,
+            };
+            wamp::parse_message(serializer, payload)
         }
-        _ => data,
+        CompletedWebSocketMessage::Segmented { segments, len } => match serializer {
+            rawsocket::Serializer::Json => {
+                let payload =
+                    CompletedWebSocketMessage::Segmented { segments, len }.into_bytes(buffer_pool);
+                if std::str::from_utf8(payload.as_ref()).is_err() {
+                    return Err("websocket text frame payload is not valid UTF-8".into());
+                }
+                wamp::parse_message(serializer, payload)
+            }
+            _ => wamp::parse_message_segments(serializer, segments),
+        },
     };
-    match wamp::parse_message(serializer, payload) {
+    match parsed {
         Ok(parsed) => frame_tx
             .send(parsed)
             .await
@@ -6842,12 +6886,48 @@ mod tests {
             .push(0x1, true, payload)
             .expect("single websocket frame accepted");
         let assembled = accumulator.take_complete().expect("message assembled");
-        assert_eq!(assembled.as_ptr(), ptr);
-        assert_eq!(assembled.as_ref(), b"single-frame");
+        match assembled {
+            CompletedWebSocketMessage::Single(bytes) => {
+                assert_eq!(bytes.as_ptr(), ptr);
+                assert_eq!(bytes.as_ref(), b"single-frame");
+            }
+            CompletedWebSocketMessage::Segmented { .. } => {
+                panic!("single websocket frame should stay single-segment")
+            }
+        }
     }
 
     #[test]
-    fn websocket_accumulator_recycles_fragment_buffer_after_drop() {
+    fn websocket_accumulator_keeps_fragment_handles_until_completion() {
+        let pool = Arc::new(WebSocketBufferPool::default());
+        let mut accumulator = WebSocketMessageAccumulator::new(Arc::clone(&pool));
+        let first = Bytes::from_static(b"first-");
+        let second = Bytes::from_static(b"second");
+        let first_ptr = first.as_ptr();
+        let second_ptr = second.as_ptr();
+        accumulator
+            .push(0x1, false, first)
+            .expect("first fragment accepted");
+        accumulator
+            .push(0x0, true, second)
+            .expect("continuation fragment accepted");
+        let assembled = accumulator.take_complete().expect("message assembled");
+        match assembled {
+            CompletedWebSocketMessage::Single(_) => {
+                panic!("fragmented websocket message should stay segmented until flatten")
+            }
+            CompletedWebSocketMessage::Segmented { segments, len } => {
+                assert_eq!(len, 12);
+                assert_eq!(segments.len(), 2);
+                assert_eq!(segments[0].as_ptr(), first_ptr);
+                assert_eq!(segments[1].as_ptr(), second_ptr);
+                assert_eq!(pool.available_buffers(), 0);
+            }
+        }
+    }
+
+    #[test]
+    fn websocket_fragmented_message_flattens_once_and_recycles_after_drop() {
         let pool = Arc::new(WebSocketBufferPool::default());
         let mut accumulator = WebSocketMessageAccumulator::new(Arc::clone(&pool));
         accumulator
@@ -6856,7 +6936,10 @@ mod tests {
         accumulator
             .push(0x0, true, Bytes::from_static(b"second"))
             .expect("continuation fragment accepted");
-        let assembled = accumulator.take_complete().expect("message assembled");
+        let assembled = accumulator
+            .take_complete()
+            .expect("message assembled")
+            .into_bytes(&pool);
         assert_eq!(assembled.as_ref(), b"first-second");
         assert_eq!(pool.available_buffers(), 0);
         drop(assembled);

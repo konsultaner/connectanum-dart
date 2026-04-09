@@ -547,7 +547,9 @@ Future<void> _handlePublish({
       ? null
       : message.debugEncodedArgumentsKeywordsBytes;
   Map<String, Object?>? normalizedArgumentsKeywords;
-  final Object? rawArgumentsKeywords = message.argumentsKeywords;
+  final Object? rawArgumentsKeywords = encodedArgumentsKeywordsBytes == null
+      ? message.argumentsKeywords
+      : null;
   if (rawArgumentsKeywords != null) {
     if (rawArgumentsKeywords is Map<String, Object?>) {
       normalizedArgumentsKeywords = Map<String, Object?>.from(
@@ -727,13 +729,7 @@ Future<void> _handlePublish({
           routing.publicationId,
           eventDetails,
         );
-        _applyTransferredLazyPayload(
-          event,
-          transferredPayload,
-          fallbackArguments: message.arguments,
-          fallbackArgumentsKeywords: normalizedArgumentsKeywords
-              ?.cast<String, dynamic>(),
-        );
+        _applyTransferredLazyPayload(event, transferredPayload);
         _forwardToConnection(
           bossPort: bossPort,
           connectionId: match.connectionId,
@@ -999,6 +995,7 @@ Future<void> _handleCall({
     }
 
     if (!usedZeroCopy) {
+      final transferredPayload = _transferAbstractMessagePayload(message);
       final invocationDetails = invocation_msg.InvocationDetails(
         discloseCaller ? state.sessionId : null,
         message.procedure,
@@ -1019,12 +1016,7 @@ Future<void> _handleCall({
         dispatch.registrationId,
         invocationDetails,
       );
-      _applyTransferredLazyPayload(
-        invocation,
-        _transferAbstractMessagePayload(message),
-        fallbackArguments: message.arguments,
-        fallbackArgumentsKeywords: message.argumentsKeywords,
-      );
+      _applyTransferredLazyPayload(invocation, transferredPayload);
       _forwardToConnection(
         bossPort: bossPort,
         connectionId: dispatch.calleeConnectionId,
@@ -1702,6 +1694,7 @@ Future<void> _handleYield({
     }
 
     if (!usedZeroCopy) {
+      final transferredPayload = _transferAbstractMessagePayload(message);
       final result = result_msg.Result(
         invocation.callerRequestId,
         result_msg.ResultDetails(
@@ -1711,12 +1704,11 @@ Future<void> _handleYield({
           pptCipher: message.options?.pptCipher,
           pptKeyId: message.options?.pptKeyId,
         ),
-        arguments: message.arguments,
-        argumentsKeywords: message.argumentsKeywords,
       );
       if (message.options?.custom.isNotEmpty == true) {
         result.details.custom.addAll(message.options!.custom);
       }
+      _applyTransferredLazyPayload(result, transferredPayload);
       _forwardToConnection(
         bossPort: bossPort,
         connectionId: callerConnectionId,
@@ -1846,14 +1838,14 @@ Future<void> _handleInvocationError({
     }
 
     if (!usedZeroCopy) {
+      final transferredPayload = _transferAbstractMessagePayload(message);
       final forwardedError = error_msg.Error(
         MessageTypes.codeCall,
         invocation.callerRequestId,
         Map<String, dynamic>.from(message.details),
         message.error,
-        arguments: message.arguments,
-        argumentsKeywords: message.argumentsKeywords,
       );
+      _applyTransferredLazyPayload(forwardedError, transferredPayload);
       _forwardToConnection(
         bossPort: bossPort,
         connectionId: callerConnectionId,

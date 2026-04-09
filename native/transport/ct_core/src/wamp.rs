@@ -3,7 +3,7 @@ use serde::Deserialize;
 use serde_value::Value;
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
-use std::io::Cursor;
+use std::io::{Cursor, Read};
 use std::ops::Range;
 
 use crate::rawsocket::Serializer;
@@ -201,13 +201,151 @@ impl WampMessage {
 #[derive(Debug, Clone)]
 pub struct ParsedMessage {
     pub message: WampMessage,
-    pub raw: Bytes,
+    pub raw: RawFrame,
     pub serializer: Serializer,
+}
+
+#[derive(Debug, Clone)]
+pub enum RawFrame {
+    Contiguous(Bytes),
+    Segmented { segments: Vec<Bytes>, len: usize },
+}
+
+impl RawFrame {
+    pub fn from_segments(segments: Vec<Bytes>) -> Self {
+        let len = segments.iter().map(|segment| segment.len()).sum();
+        Self::Segmented { segments, len }
+    }
+
+    pub fn len(&self) -> usize {
+        match self {
+            RawFrame::Contiguous(bytes) => bytes.len(),
+            RawFrame::Segmented { len, .. } => *len,
+        }
+    }
+
+    pub fn as_contiguous(&self) -> Option<&Bytes> {
+        match self {
+            RawFrame::Contiguous(bytes) => Some(bytes),
+            RawFrame::Segmented { .. } => None,
+        }
+    }
+
+    pub fn into_bytes(self) -> Bytes {
+        match self {
+            RawFrame::Contiguous(bytes) => bytes,
+            RawFrame::Segmented { segments, len } => {
+                let mut flattened = Vec::with_capacity(len);
+                for segment in segments {
+                    flattened.extend_from_slice(segment.as_ref());
+                }
+                Bytes::from(flattened)
+            }
+        }
+    }
+
+    fn read_byte(&self, index: usize) -> Result<u8, ParseError> {
+        if index >= self.len() {
+            return Err(ParseError::Deserialize(
+                "unexpected end of message data".into(),
+            ));
+        }
+        match self {
+            RawFrame::Contiguous(bytes) => Ok(bytes[index]),
+            RawFrame::Segmented { segments, .. } => {
+                let mut offset = index;
+                for segment in segments {
+                    if offset < segment.len() {
+                        return Ok(segment[offset]);
+                    }
+                    offset -= segment.len();
+                }
+                Err(ParseError::Deserialize(
+                    "unexpected end of message data".into(),
+                ))
+            }
+        }
+    }
+
+    fn slice_or_copy(&self, range: &Range<usize>) -> Result<Bytes, ParseError> {
+        if range.end > self.len() {
+            return Err(ParseError::Deserialize(
+                "payload range exceeds message bounds".into(),
+            ));
+        }
+        match self {
+            RawFrame::Contiguous(bytes) => Ok(bytes.slice(range.clone())),
+            RawFrame::Segmented { segments, .. } => {
+                let mut absolute = 0usize;
+                for segment in segments {
+                    let segment_end = absolute + segment.len();
+                    if range.start >= absolute && range.end <= segment_end {
+                        let start = range.start - absolute;
+                        let end = range.end - absolute;
+                        return Ok(segment.slice(start..end));
+                    }
+                    absolute = segment_end;
+                }
+
+                let mut copied = Vec::with_capacity(range.len());
+                let mut absolute = 0usize;
+                for segment in segments {
+                    let segment_end = absolute + segment.len();
+                    let start = range.start.max(absolute);
+                    let end = range.end.min(segment_end);
+                    if start < end {
+                        copied.extend_from_slice(&segment[(start - absolute)..(end - absolute)]);
+                    }
+                    if end == range.end {
+                        break;
+                    }
+                    absolute = segment_end;
+                }
+                Ok(Bytes::from(copied))
+            }
+        }
+    }
+
+    #[cfg(test)]
+    fn contains_slice(&self, slice: &Bytes) -> bool {
+        match self {
+            RawFrame::Contiguous(raw) => {
+                let base = raw.as_ptr() as usize;
+                let ptr = slice.as_ptr() as usize;
+                let Some(offset) = ptr.checked_sub(base) else {
+                    return false;
+                };
+                offset + slice.len() <= raw.len()
+            }
+            RawFrame::Segmented { segments, .. } => segments.iter().any(|segment| {
+                let base = segment.as_ptr() as usize;
+                let ptr = slice.as_ptr() as usize;
+                let Some(offset) = ptr.checked_sub(base) else {
+                    return false;
+                };
+                offset + slice.len() <= segment.len()
+            }),
+        }
+    }
 }
 
 pub fn parse_message(
     serializer: Serializer,
     raw_payload: Bytes,
+) -> Result<ParsedMessage, ParseError> {
+    parse_message_frame(serializer, RawFrame::Contiguous(raw_payload))
+}
+
+pub fn parse_message_segments(
+    serializer: Serializer,
+    segments: Vec<Bytes>,
+) -> Result<ParsedMessage, ParseError> {
+    parse_message_frame(serializer, RawFrame::from_segments(segments))
+}
+
+fn parse_message_frame(
+    serializer: Serializer,
+    raw_payload: RawFrame,
 ) -> Result<ParsedMessage, ParseError> {
     match serializer {
         Serializer::Json => parse_json_message(raw_payload),
@@ -219,7 +357,7 @@ pub fn parse_message(
 
 fn parse_value_message(
     serializer: Serializer,
-    raw_payload: Bytes,
+    raw_payload: RawFrame,
 ) -> Result<ParsedMessage, ParseError> {
     let value = deserialize_value(serializer, &raw_payload)?;
     let seq = match value {
@@ -272,7 +410,8 @@ fn parse_value_message(
 #[derive(Deserialize)]
 struct BorrowedFields<'a>(#[serde(borrow)] Vec<&'a RawValue>);
 
-fn parse_json_message(raw_payload: Bytes) -> Result<ParsedMessage, ParseError> {
+fn parse_json_message(raw_payload: RawFrame) -> Result<ParsedMessage, ParseError> {
+    let raw_payload = raw_payload.into_bytes();
     let slice = raw_payload.as_ref();
     let mut deserializer = serde_json::Deserializer::from_slice(slice);
     let BorrowedFields(fields) = BorrowedFields::deserialize(&mut deserializer)
@@ -591,25 +730,29 @@ fn parse_json_message(raw_payload: Bytes) -> Result<ParsedMessage, ParseError> {
 
     Ok(ParsedMessage {
         message,
-        raw: raw_payload,
+        raw: RawFrame::Contiguous(raw_payload),
         serializer: Serializer::Json,
     })
 }
 
-fn parse_msgpack_message(raw_payload: Bytes) -> Result<ParsedMessage, ParseError> {
-    let data = raw_payload.as_ref();
+fn parse_msgpack_message(raw_payload: RawFrame) -> Result<ParsedMessage, ParseError> {
     let mut offset = 0;
-    let len = msgpack_read_array_len(data, &mut offset)?;
+    let len = msgpack_read_array_len(&raw_payload, &mut offset)?;
     if len == 0 {
         return Err(ParseError::MissingElement("message code"));
     }
 
     let mut ranges = Vec::with_capacity(len);
     for _ in 0..len {
-        ranges.push(msgpack_read_value_range(data, &mut offset)?);
+        ranges.push(msgpack_read_value_range(&raw_payload, &mut offset)?);
     }
 
-    let code = msgpack_u64(data, range_at(&ranges, 0, "message code")?, "message code")?;
+    let code = msgpack_u64(
+        &raw_payload,
+        range_at(&ranges, 0, "message code")?,
+        "message code",
+    )?;
+    let data = &raw_payload;
     let message = match code {
         1 => {
             let realm = msgpack_string(data, range_at(&ranges, 1, "hello.realm")?, "hello.realm")?;
@@ -1122,7 +1265,7 @@ fn range_opt<'a>(ranges: &'a [Range<usize>], index: usize) -> Option<&'a Range<u
     ranges.get(index)
 }
 
-fn msgpack_read_array_len(data: &[u8], offset: &mut usize) -> Result<usize, ParseError> {
+fn msgpack_read_array_len(data: &RawFrame, offset: &mut usize) -> Result<usize, ParseError> {
     let marker = read_u8(data, offset).map_err(|_| ParseError::ExpectedArray)?;
     match marker {
         0x90..=0x9f => Ok((marker & 0x0f) as usize),
@@ -1135,13 +1278,16 @@ fn msgpack_read_array_len(data: &[u8], offset: &mut usize) -> Result<usize, Pars
     }
 }
 
-fn msgpack_read_value_range(data: &[u8], offset: &mut usize) -> Result<Range<usize>, ParseError> {
+fn msgpack_read_value_range(
+    data: &RawFrame,
+    offset: &mut usize,
+) -> Result<Range<usize>, ParseError> {
     let start = *offset;
     msgpack_skip_value(data, offset)?;
     Ok(start..*offset)
 }
 
-fn msgpack_skip_value(data: &[u8], offset: &mut usize) -> Result<(), ParseError> {
+fn msgpack_skip_value(data: &RawFrame, offset: &mut usize) -> Result<(), ParseError> {
     let marker = read_u8(data, offset)?;
     match marker {
         0x00..=0x7f | 0xe0..=0xff | 0xc0 | 0xc2 | 0xc3 => Ok(()),
@@ -1248,43 +1394,30 @@ fn msgpack_skip_value(data: &[u8], offset: &mut usize) -> Result<(), ParseError>
     }
 }
 
-fn skip_ext(data: &[u8], offset: &mut usize, ext_len: usize) -> Result<(), ParseError> {
+fn skip_ext(data: &RawFrame, offset: &mut usize, ext_len: usize) -> Result<(), ParseError> {
     skip_bytes(data, offset, 1 + ext_len)
 }
 
-fn read_u8(data: &[u8], offset: &mut usize) -> Result<u8, ParseError> {
-    if *offset >= data.len() {
-        return Err(ParseError::Deserialize(
-            "unexpected end of MessagePack data".into(),
-        ));
-    }
-    let value = data[*offset];
+fn read_u8(data: &RawFrame, offset: &mut usize) -> Result<u8, ParseError> {
+    let value = data
+        .read_byte(*offset)
+        .map_err(|_| ParseError::Deserialize("unexpected end of MessagePack data".into()))?;
     *offset += 1;
     Ok(value)
 }
 
-fn read_u16(data: &[u8], offset: &mut usize) -> Result<u16, ParseError> {
-    if *offset + 2 > data.len() {
-        return Err(ParseError::Deserialize(
-            "unexpected end of MessagePack data".into(),
-        ));
-    }
-    let value = u16::from_be_bytes([data[*offset], data[*offset + 1]]);
+fn read_u16(data: &RawFrame, offset: &mut usize) -> Result<u16, ParseError> {
+    let value = u16::from_be_bytes([data.read_byte(*offset)?, data.read_byte(*offset + 1)?]);
     *offset += 2;
     Ok(value)
 }
 
-fn read_u32(data: &[u8], offset: &mut usize) -> Result<u32, ParseError> {
-    if *offset + 4 > data.len() {
-        return Err(ParseError::Deserialize(
-            "unexpected end of MessagePack data".into(),
-        ));
-    }
+fn read_u32(data: &RawFrame, offset: &mut usize) -> Result<u32, ParseError> {
     let value = u32::from_be_bytes([
-        data[*offset],
-        data[*offset + 1],
-        data[*offset + 2],
-        data[*offset + 3],
+        data.read_byte(*offset)?,
+        data.read_byte(*offset + 1)?,
+        data.read_byte(*offset + 2)?,
+        data.read_byte(*offset + 3)?,
     ]);
     *offset += 4;
     Ok(value)
@@ -1295,7 +1428,7 @@ fn u32_to_usize(value: u32) -> Result<usize, ParseError> {
         .map_err(|_| ParseError::Deserialize("MessagePack length exceeds supported size".into()))
 }
 
-fn skip_bytes(data: &[u8], offset: &mut usize, len: usize) -> Result<(), ParseError> {
+fn skip_bytes(data: &RawFrame, offset: &mut usize, len: usize) -> Result<(), ParseError> {
     if data.len().saturating_sub(*offset) < len {
         return Err(ParseError::Deserialize(
             "unexpected end of MessagePack data".into(),
@@ -1306,37 +1439,41 @@ fn skip_bytes(data: &[u8], offset: &mut usize, len: usize) -> Result<(), ParseEr
 }
 
 fn msgpack_string(
-    data: &[u8],
+    data: &RawFrame,
     range: &Range<usize>,
     label: &'static str,
 ) -> Result<String, ParseError> {
-    let slice = &data[range.clone()];
-    if msgpack_is_nil(slice) {
+    let slice = data.slice_or_copy(range)?;
+    if msgpack_is_nil(slice.as_ref()) {
         return Err(ParseError::ExpectedString(label));
     }
-    let mut de = rmp_serde::Deserializer::new(Cursor::new(slice));
+    let mut de = rmp_serde::Deserializer::new(Cursor::new(slice.as_ref()));
     String::deserialize(&mut de).map_err(|_| ParseError::ExpectedString(label))
 }
 
-fn msgpack_u64(data: &[u8], range: &Range<usize>, label: &'static str) -> Result<u64, ParseError> {
-    let slice = &data[range.clone()];
-    if msgpack_is_nil(slice) {
+fn msgpack_u64(
+    data: &RawFrame,
+    range: &Range<usize>,
+    label: &'static str,
+) -> Result<u64, ParseError> {
+    let slice = data.slice_or_copy(range)?;
+    if msgpack_is_nil(slice.as_ref()) {
         return Err(ParseError::ExpectedIdentifier(label));
     }
-    let mut de = rmp_serde::Deserializer::new(Cursor::new(slice));
+    let mut de = rmp_serde::Deserializer::new(Cursor::new(slice.as_ref()));
     u64::deserialize(&mut de).map_err(|_| ParseError::ExpectedIdentifier(label))
 }
 
 fn msgpack_optional_u64(
-    data: &[u8],
+    data: &RawFrame,
     range: Option<&Range<usize>>,
     label: &'static str,
 ) -> Result<Option<u64>, ParseError> {
     match range {
         None => Ok(None),
         Some(range) => {
-            let slice = &data[range.clone()];
-            if msgpack_is_nil(slice) {
+            let slice = data.slice_or_copy(range)?;
+            if msgpack_is_nil(slice.as_ref()) {
                 Ok(None)
             } else {
                 msgpack_u64(data, range, label).map(Some)
@@ -1346,30 +1483,30 @@ fn msgpack_optional_u64(
 }
 
 fn msgpack_required_map(
-    data: &[u8],
+    data: &RawFrame,
     range: &Range<usize>,
     label: &'static str,
 ) -> Result<ValueMap, ParseError> {
-    let slice = &data[range.clone()];
-    if msgpack_is_nil(slice) {
+    let slice = data.slice_or_copy(range)?;
+    if msgpack_is_nil(slice.as_ref()) {
         return Err(ParseError::ExpectedMap(label));
     }
-    msgpack_map_from_slice(slice, label)
+    msgpack_map_from_slice(slice.as_ref(), label)
 }
 
 fn msgpack_optional_map(
-    data: &[u8],
+    data: &RawFrame,
     range: Option<&Range<usize>>,
     label: &'static str,
 ) -> Result<ValueMap, ParseError> {
     match range {
         None => Ok(ValueMap::new()),
         Some(range) => {
-            let slice = &data[range.clone()];
-            if msgpack_is_nil(slice) {
+            let slice = data.slice_or_copy(range)?;
+            if msgpack_is_nil(slice.as_ref()) {
                 Ok(ValueMap::new())
             } else {
-                msgpack_map_from_slice(slice, label)
+                msgpack_map_from_slice(slice.as_ref(), label)
             }
         }
     }
@@ -1390,8 +1527,8 @@ fn msgpack_map_from_slice(slice: &[u8], label: &'static str) -> Result<ValueMap,
 }
 
 fn msgpack_payload(
-    raw_payload: &Bytes,
-    data: &[u8],
+    raw_payload: &RawFrame,
+    data: &RawFrame,
     args_label: &'static str,
     args_range: Option<&Range<usize>>,
     kwargs_label: &'static str,
@@ -1400,11 +1537,11 @@ fn msgpack_payload(
     let args = match args_range {
         None => None,
         Some(range) => {
-            let slice = &data[range.clone()];
-            if msgpack_is_nil(slice) {
+            let slice = data.slice_or_copy(range)?;
+            if msgpack_is_nil(slice.as_ref()) {
                 None
-            } else if msgpack_is_array(slice) {
-                Some(raw_payload.slice(range.clone()))
+            } else if msgpack_is_array(slice.as_ref()) {
+                Some(raw_payload.slice_or_copy(range)?)
             } else {
                 return Err(ParseError::ExpectedList(args_label));
             }
@@ -1414,11 +1551,11 @@ fn msgpack_payload(
     let kwargs = match kwargs_range {
         None => None,
         Some(range) => {
-            let slice = &data[range.clone()];
-            if msgpack_is_nil(slice) {
+            let slice = data.slice_or_copy(range)?;
+            if msgpack_is_nil(slice.as_ref()) {
                 None
-            } else if msgpack_is_map(slice) {
-                Some(raw_payload.slice(range.clone()))
+            } else if msgpack_is_map(slice.as_ref()) {
+                Some(raw_payload.slice_or_copy(range)?)
             } else {
                 return Err(ParseError::ExpectedMap(kwargs_label));
             }
@@ -1428,9 +1565,9 @@ fn msgpack_payload(
     Ok(Payload { args, kwargs })
 }
 
-fn msgpack_value(data: &[u8], range: &Range<usize>) -> Result<Value, ParseError> {
-    let slice = &data[range.clone()];
-    let mut de = rmp_serde::Deserializer::new(Cursor::new(slice));
+fn msgpack_value(data: &RawFrame, range: &Range<usize>) -> Result<Value, ParseError> {
+    let slice = data.slice_or_copy(range)?;
+    let mut de = rmp_serde::Deserializer::new(Cursor::new(slice.as_ref()));
     Value::deserialize(&mut de).map_err(|err| ParseError::Deserialize(err.to_string()))
 }
 
@@ -1575,20 +1712,79 @@ fn is_json_null(s: &str) -> bool {
     s.trim().eq("null")
 }
 
-fn deserialize_value(serializer: Serializer, bytes: &[u8]) -> Result<Value, ParseError> {
+struct SegmentedFrameReader {
+    segments: Vec<Bytes>,
+    segment_index: usize,
+    segment_offset: usize,
+}
+
+impl SegmentedFrameReader {
+    fn new(segments: Vec<Bytes>) -> Self {
+        Self {
+            segments,
+            segment_index: 0,
+            segment_offset: 0,
+        }
+    }
+}
+
+impl Read for SegmentedFrameReader {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        if buf.is_empty() {
+            return Ok(0);
+        }
+        let mut written = 0usize;
+        while written < buf.len() && self.segment_index < self.segments.len() {
+            let segment = &self.segments[self.segment_index];
+            let remaining = &segment[self.segment_offset..];
+            if remaining.is_empty() {
+                self.segment_index += 1;
+                self.segment_offset = 0;
+                continue;
+            }
+            let count = remaining.len().min(buf.len() - written);
+            buf[written..written + count].copy_from_slice(&remaining[..count]);
+            written += count;
+            self.segment_offset += count;
+            if self.segment_offset >= segment.len() {
+                self.segment_index += 1;
+                self.segment_offset = 0;
+            }
+        }
+        Ok(written)
+    }
+}
+
+fn deserialize_value(serializer: Serializer, bytes: &RawFrame) -> Result<Value, ParseError> {
     match serializer {
         Serializer::Json => {
-            let mut de = serde_json::Deserializer::from_slice(bytes);
+            let raw = bytes
+                .as_contiguous()
+                .cloned()
+                .unwrap_or_else(|| bytes.clone().into_bytes());
+            let mut de = serde_json::Deserializer::from_slice(raw.as_ref());
             Value::deserialize(&mut de).map_err(|err| ParseError::Deserialize(err.to_string()))
         }
         Serializer::MessagePack => {
-            let mut de = rmp_serde::Deserializer::new(bytes);
+            let raw = bytes
+                .as_contiguous()
+                .cloned()
+                .unwrap_or_else(|| bytes.clone().into_bytes());
+            let mut de = rmp_serde::Deserializer::new(raw.as_ref());
             Value::deserialize(&mut de).map_err(|err| ParseError::Deserialize(err.to_string()))
         }
-        Serializer::Cbor => {
-            let mut de = serde_cbor::Deserializer::from_slice(bytes);
-            Value::deserialize(&mut de).map_err(|err| ParseError::Deserialize(err.to_string()))
-        }
+        Serializer::Cbor => match bytes {
+            RawFrame::Contiguous(raw) => {
+                let mut de = serde_cbor::Deserializer::from_slice(raw.as_ref());
+                Value::deserialize(&mut de).map_err(|err| ParseError::Deserialize(err.to_string()))
+            }
+            RawFrame::Segmented { segments, .. } => {
+                let mut de = serde_cbor::Deserializer::from_reader(SegmentedFrameReader::new(
+                    segments.clone(),
+                ));
+                Value::deserialize(&mut de).map_err(|err| ParseError::Deserialize(err.to_string()))
+            }
+        },
         Serializer::Ubjson => Err(ParseError::UnsupportedSerializer(serializer)),
         Serializer::Flatbuffers => Err(ParseError::UnsupportedSerializer(serializer)),
     }
@@ -2066,15 +2262,10 @@ mod tests {
         data.as_ref().map(|bytes| decode_value(serializer, bytes))
     }
 
-    fn assert_slice_points_into(raw: &Bytes, slice: &Bytes) {
-        let base = raw.as_ptr() as usize;
-        let ptr = slice.as_ptr() as usize;
-        let offset = ptr
-            .checked_sub(base)
-            .expect("payload slice must point into raw buffer");
+    fn assert_slice_points_into(raw: &RawFrame, slice: &Bytes) {
         assert!(
-            offset + slice.len() <= raw.len(),
-            "payload slice exceeds raw buffer bounds"
+            raw.contains_slice(slice),
+            "payload slice must point into raw frame storage"
         );
     }
 
@@ -2090,8 +2281,12 @@ mod tests {
         ]);
         let frame = to_bytes_json(payload);
         let parsed = parse_message(Serializer::Json, frame.clone()).unwrap();
-        assert_eq!(parsed.raw.as_ptr(), frame.as_ptr());
-        assert_eq!(parsed.raw.len(), frame.len());
+        let raw = parsed
+            .raw
+            .as_contiguous()
+            .expect("json raw frame contiguous");
+        assert_eq!(raw.as_ptr(), frame.as_ptr());
+        assert_eq!(raw.len(), frame.len());
         match parsed.message {
             WampMessage::Publish { payload, .. } => {
                 let args = payload.args.expect("payload args missing");
@@ -2106,10 +2301,10 @@ mod tests {
                     decode_option(Serializer::Json, &Some(kwargs.clone())),
                     Some(json!({"beta": true}))
                 );
-                let args_offset = args.as_ptr() as usize - parsed.raw.as_ptr() as usize;
-                assert!(args_offset < parsed.raw.len());
-                let kwargs_offset = kwargs.as_ptr() as usize - parsed.raw.as_ptr() as usize;
-                assert!(kwargs_offset < parsed.raw.len());
+                let args_offset = args.as_ptr() as usize - raw.as_ptr() as usize;
+                assert!(args_offset < raw.len());
+                let kwargs_offset = kwargs.as_ptr() as usize - raw.as_ptr() as usize;
+                assert!(kwargs_offset < raw.len());
             }
             other => panic!("unexpected message: {:?}", other),
         }
@@ -2129,8 +2324,12 @@ mod tests {
         ]);
         let bytes = Bytes::from(to_vec(&value).unwrap());
         let parsed = parse_message(Serializer::MessagePack, bytes.clone()).unwrap();
-        assert_eq!(parsed.raw.as_ptr(), bytes.as_ptr());
-        assert_eq!(parsed.raw.len(), bytes.len());
+        let raw = parsed
+            .raw
+            .as_contiguous()
+            .expect("contiguous msgpack input should stay contiguous");
+        assert_eq!(raw.as_ptr(), bytes.as_ptr());
+        assert_eq!(raw.len(), bytes.len());
         match parsed.message {
             WampMessage::Publish { payload, .. } => {
                 let args = payload.args.expect("payload args missing");
@@ -2145,10 +2344,88 @@ mod tests {
                     decode_option(Serializer::MessagePack, &Some(kwargs.clone())),
                     Some(json!({"flag": false}))
                 );
-                let args_offset = args.as_ptr() as usize - parsed.raw.as_ptr() as usize;
-                assert!(args_offset < parsed.raw.len());
-                let kwargs_offset = kwargs.as_ptr() as usize - parsed.raw.as_ptr() as usize;
-                assert!(kwargs_offset < parsed.raw.len());
+                let args_offset = args.as_ptr() as usize - raw.as_ptr() as usize;
+                assert!(args_offset < raw.len());
+                let kwargs_offset = kwargs.as_ptr() as usize - raw.as_ptr() as usize;
+                assert!(kwargs_offset < raw.len());
+            }
+            other => panic!("unexpected message: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn msgpack_segmented_message_parses_without_flattening_full_frame() {
+        use rmp_serde::encode::to_vec;
+
+        let value = serde_json::json!([
+            16,
+            999,
+            {"acknowledge": true},
+            "com.example.topic",
+            [1, 2],
+            {"flag": false}
+        ]);
+        let bytes = Bytes::from(to_vec(&value).unwrap());
+        let contiguous = parse_message(Serializer::MessagePack, bytes.clone()).unwrap();
+        let (args_offset, kwargs_offset) = match contiguous.message {
+            WampMessage::Publish { payload, .. } => {
+                let raw = contiguous
+                    .raw
+                    .as_contiguous()
+                    .expect("contiguous msgpack frame expected");
+                let args = payload.args.expect("payload args missing");
+                let kwargs = payload.kwargs.expect("payload kwargs missing");
+                (
+                    args.as_ptr() as usize - raw.as_ptr() as usize,
+                    kwargs.as_ptr() as usize - raw.as_ptr() as usize,
+                )
+            }
+            other => panic!("unexpected message: {:?}", other),
+        };
+        let segments = vec![
+            bytes.slice(0..args_offset),
+            bytes.slice(args_offset..kwargs_offset),
+            bytes.slice(kwargs_offset..bytes.len()),
+        ];
+        let parsed = parse_message_segments(Serializer::MessagePack, segments).unwrap();
+        assert!(matches!(parsed.raw, RawFrame::Segmented { .. }));
+        match parsed.message {
+            WampMessage::Publish { payload, .. } => {
+                let args = payload.args.expect("payload args missing");
+                let kwargs = payload.kwargs.expect("payload kwargs missing");
+                assert_slice_points_into(&parsed.raw, &args);
+                assert_slice_points_into(&parsed.raw, &kwargs);
+                assert_eq!(
+                    decode_option(Serializer::MessagePack, &Some(args)),
+                    Some(json!([1, 2]))
+                );
+                assert_eq!(
+                    decode_option(Serializer::MessagePack, &Some(kwargs)),
+                    Some(json!({"flag": false}))
+                );
+            }
+            other => panic!("unexpected message: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn cbor_segmented_message_parses_without_flattening_full_frame() {
+        let value = serde_json::json!([17, 999, 12345]);
+        let bytes = Bytes::from(serde_cbor::to_vec(&value).unwrap());
+        let split = bytes.len() / 2;
+        let parsed = parse_message_segments(
+            Serializer::Cbor,
+            vec![bytes.slice(0..split), bytes.slice(split..bytes.len())],
+        )
+        .unwrap();
+        assert!(matches!(parsed.raw, RawFrame::Segmented { .. }));
+        match parsed.message {
+            WampMessage::Published {
+                request_id,
+                publication_id,
+            } => {
+                assert_eq!(request_id, 999);
+                assert_eq!(publication_id, 12345);
             }
             other => panic!("unexpected message: {:?}", other),
         }

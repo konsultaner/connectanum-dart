@@ -257,6 +257,12 @@ because the bench path does not pipeline H1 requests.
   pub/sub sweep that uses `peer_serializer` to open a real remote
   callee/subscriber with a different serializer, so JSON/MessagePack/CBOR
   bridge costs can be compared directly for both Dart and native clients.
+- The current WAMP scenarios do not intentionally fragment WebSocket messages
+  at the frame layer. Normal throughput/latency runs therefore act as
+  no-regression checks for the segmented native WebSocket parser path; the
+  actual continuation/fragmentation behavior is pinned today by the Rust
+  transport tests and Dart router integration tests instead of a dedicated bench
+  workload.
 - `all_transports_smoke.toml` – quick cross-transport smoke covering RawSocket,
   WebSocket, HTTP/1.1, HTTP/2, and HTTP/3 in one run. The WAMP side now mixes
   JSON, MessagePack, and CBOR across RawSocket/WebSocket workloads so serializer
@@ -580,6 +586,11 @@ longer collapse to `{}`, JSON custom/detail maps normalize binary sentinel
 strings recursively, and live mixed WebSocket regressions now cover nested
 binary custom values on `EVENT`, `INVOCATION`, `RESULT`, and `ERROR` routing
 across JSON, MessagePack, and CBOR.
+The same-serializer Dart fallback path in the router is now aligned with that
+lazy bridge too: when native forwarding is unavailable, worker-session
+`PUBLISH` / `CALL` / `YIELD` / invocation-`ERROR` forwarding reuses the
+transferred lazy payload directly instead of touching the source message
+decoders just to prepare fallback arguments or kwargs.
 The serializer-specific hot path is leaner as well: MessagePack outbound WAMP
 messages now assemble with byte builders instead of repeated list
 concatenation, and CBOR same-serializer outbound payloads now splice retained
@@ -589,6 +600,13 @@ frames: MessagePack and CBOR `INVOCATION`, `RESULT`, `EVENT`, and `ERROR`
 messages scan only the top-level WAMP array, eagerly decode the fixed header
 and detail fields, and keep args/kwargs as lazy encoded slices until benchmark
 or application code actually touches the materialized payload getters.
+The same scanner now covers the handled control/ack path too: MessagePack/CBOR
+`CHALLENGE`, `WELCOME`, `REGISTERED`, `UNREGISTERED`, `PUBLISHED`,
+`SUBSCRIBED`, `UNSUBSCRIBED`, `ABORT`, and `GOODBYE` rebuild from fragment
+decoders instead of paying a full-array decode first. That change matters more
+for control-heavy smoke workloads than for large steady-state payload sweeps,
+so use `wamp_smoke.toml` or the client-implementation smoke scenarios when you
+want to see the direct effect.
 The same lazy path now keeps already-packed `pptScheme == 'wamp'` payload bytes
 intact across client outbound sends, invocation yields, and router
 internal-session event/result/invocation forwarding, so the benchmark no longer

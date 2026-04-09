@@ -624,7 +624,9 @@ fn encode_event_segments(
     topic: Option<&str>,
 ) -> Result<Vec<Bytes>, c_int> {
     let (payload, options) = match &message.message {
-        WampMessage::Publish { payload, options, .. } => (payload, options),
+        WampMessage::Publish {
+            payload, options, ..
+        } => (payload, options),
         _ => return Err(ERR_INVALID_ARGUMENT),
     };
     match message.serializer {
@@ -845,7 +847,9 @@ fn encode_invocation_segments(
     receive_progress: Option<bool>,
 ) -> Result<Vec<Bytes>, c_int> {
     let (payload, options) = match &message.message {
-        WampMessage::Call { payload, options, .. } => (payload, options),
+        WampMessage::Call {
+            payload, options, ..
+        } => (payload, options),
         _ => return Err(ERR_INVALID_ARGUMENT),
     };
     match message.serializer {
@@ -2477,7 +2481,7 @@ fn store_parsed_message(parsed: ct_core::ParsedMessage) -> c_int {
     let info = StoredMessage {
         serializer,
         code: message.code(),
-        raw,
+        raw: raw.into_bytes(),
         message,
         args,
         kwargs,
@@ -2548,7 +2552,7 @@ pub extern "C" fn ct_test_message_enqueue(
             let handle = store_message(StoredMessage {
                 serializer,
                 code: message.code(),
-                raw,
+                raw: raw.into_bytes(),
                 message,
                 args,
                 kwargs,
