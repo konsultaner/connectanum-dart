@@ -10,8 +10,13 @@ import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_client/connectanum.dart';
+import 'package:connectanum_client/src/transport/native/message_binding.dart'
+    show NativeSessionMessage, materializeSessionMessage;
+import 'package:connectanum_client/src/transport/native/message_protocol.dart'
+    show NativeMessageSerializer;
 import 'package:connectanum_client/src/transport/native/native_transports_io.dart'
     show collectNativeReceiveBatch;
+import 'package:connectanum_client/src/transport/native/runtime.dart';
 import 'package:connectanum_client/src/transport/socket/socket_helper.dart';
 import 'package:connectanum_core/cbor_serializer.dart' as serializer_cbor;
 import 'package:connectanum_core/json_serializer.dart' as serializer_json;
@@ -190,6 +195,111 @@ void main() {
         }
       });
     }
+
+    test('supports fragmented native websocket sends', () async {
+      final server = await _spawnNativeTestServer(
+        kind: 'websocket',
+        serializerName: 'msgpack',
+        websocketProtocol: WebSocketSerialization.serializationMsgpack,
+      );
+      try {
+        final url = 'ws://127.0.0.1:${server.port}/wamp';
+        final transport = NativeWebSocketTransport.withMsgpackSerializer(
+          url,
+          {'X-Custom-Header': 'native-client'},
+          false,
+          null,
+          7,
+        );
+        final client = Client(realm: 'test.realm', transport: transport);
+        final session = await client.connect().first;
+
+        expect(session.id, equals(5150));
+        expect(session.realm, equals('test.realm'));
+        final hello = await server.helloFuture;
+        expect(hello['realm'], equals('test.realm'));
+        expect(hello['protocol'], equals('wamp.2.msgpack'));
+
+        await client.disconnect();
+      } finally {
+        await server.dispose();
+      }
+    });
+
+    test(
+      'materializes metadata-bound websocket messages without contiguous frame bytes',
+      () async {
+        final server = await _spawnNativeTestServer(
+          kind: 'websocket',
+          serializerName: 'msgpack',
+          websocketProtocol: WebSocketSerialization.serializationMsgpack,
+          sendEventAfterHello: true,
+        );
+        try {
+          final runtime = NativeClientRuntime.instance();
+          final connectionId = runtime.connectWebSocket(
+            host: '127.0.0.1',
+            port: server.port,
+            target: '/wamp',
+            useTls: false,
+            allowInsecure: false,
+            serializer: NativeMessageSerializer.messagePack,
+            headers: {'X-Custom-Header': 'native-client'},
+          );
+          try {
+            runtime.sendMessage(
+              connectionId,
+              _encodePayload(
+                serializer_msgpack.Serializer(),
+                Hello('test.realm', Details.forHello()),
+              ),
+            );
+
+            final welcome = runtime.materialize(
+              runtime.waitMessageHandle(
+                connectionId,
+                timeout: const Duration(seconds: 2),
+              ),
+            );
+            expect(welcome.message, isA<NativeSessionMessage>());
+            expect(welcome.bytes, isEmpty);
+            final materializedWelcome =
+                materializeSessionMessage(welcome.message) as Welcome;
+            expect(materializedWelcome.sessionId, 5150);
+            expect(materializedWelcome.details.realm, 'test.realm');
+
+            final event = runtime.materialize(
+              runtime.waitMessageHandle(
+                connectionId,
+                timeout: const Duration(seconds: 2),
+              ),
+            );
+            expect(event.message, isA<NativeSessionMessage>());
+            expect(event.bytes, isEmpty);
+            expect(event.argumentsBytes, isNotNull);
+            expect(event.argumentsKeywordsBytes, isNotNull);
+
+            final materialized = materializeSessionMessage(event.message);
+            expect(materialized, isA<Event>());
+            final directEvent = materialized as Event;
+            expect(directEvent.subscriptionId, 777);
+            expect(directEvent.publicationId, 999);
+            expect(directEvent.details.topic, 'bench.topic');
+            expect(directEvent.hasLazyArguments, isTrue);
+            expect(directEvent.hasLazyArgumentsKeywords, isTrue);
+            expect(directEvent.arguments, ['payload']);
+            expect(directEvent.argumentsKeywords, {'flag': true});
+
+            welcome.release();
+            event.release();
+          } finally {
+            runtime.closeConnection(connectionId);
+          }
+        } finally {
+          await server.dispose();
+        }
+      },
+    );
   });
 }
 
@@ -222,6 +332,7 @@ Future<_NativeTestServer> _spawnNativeTestServer({
   int? rawsocketType,
   String? websocketProtocol,
   bool sendBurstAfterHello = false,
+  bool sendEventAfterHello = false,
 }) async {
   final receivePort = ReceivePort();
   final readyCompleter = Completer<int>();
@@ -258,6 +369,7 @@ Future<_NativeTestServer> _spawnNativeTestServer({
     'rawsocketType': rawsocketType,
     'websocketProtocol': websocketProtocol,
     'sendBurstAfterHello': sendBurstAfterHello,
+    'sendEventAfterHello': sendEventAfterHello,
   });
   final port = await readyCompleter.future;
   return _NativeTestServer(
@@ -287,6 +399,7 @@ Future<void> _nativeTestServerMain(Map<String, Object?> config) async {
           sendPort,
           serializerName: config['serializerName']! as String,
           websocketProtocol: config['websocketProtocol']! as String,
+          sendEventAfterHello: config['sendEventAfterHello'] as bool? ?? false,
         );
         return;
       default:
@@ -405,6 +518,7 @@ Future<void> _runWebSocketServer(
   SendPort sendPort, {
   required String serializerName,
   required String websocketProtocol,
+  bool sendEventAfterHello = false,
 }) async {
   final serializer = _serializerForName(serializerName);
   final server = await HttpServer.bind('127.0.0.1', 0);
@@ -444,6 +558,21 @@ Future<void> _runWebSocketServer(
             ),
           ),
         );
+        if (sendEventAfterHello) {
+          socket.add(
+            _encodeWebSocketPayload(
+              serializer,
+              websocketProtocol,
+              Event(
+                777,
+                999,
+                EventDetails(topic: 'bench.topic'),
+                arguments: ['payload'],
+                argumentsKeywords: {'flag': true},
+              ),
+            ),
+          );
+        }
         await Future<void>.delayed(const Duration(milliseconds: 50));
         await socket.close();
         return;

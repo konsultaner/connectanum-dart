@@ -93,6 +93,7 @@ class NativeWebSocketTransport extends AbstractTransport {
     Map<String, dynamic>? headers,
     bool allowInsecureCertificates = false,
     String? libraryPath,
+    int? fragmentSize,
   ]) {
     throw UnsupportedError('Native transports require dart:io.');
   }
@@ -102,6 +103,7 @@ class NativeWebSocketTransport extends AbstractTransport {
     Map<String, dynamic>? headers,
     bool allowInsecureCertificates = false,
     String? libraryPath,
+    int? fragmentSize,
   ]) => throw UnsupportedError('Native transports require dart:io.');
 
   factory NativeWebSocketTransport.withMsgpackSerializer(
@@ -109,6 +111,7 @@ class NativeWebSocketTransport extends AbstractTransport {
     Map<String, dynamic>? headers,
     bool allowInsecureCertificates = false,
     String? libraryPath,
+    int? fragmentSize,
   ]) => throw UnsupportedError('Native transports require dart:io.');
 
   factory NativeWebSocketTransport.withCborSerializer(
@@ -116,6 +119,7 @@ class NativeWebSocketTransport extends AbstractTransport {
     Map<String, dynamic>? headers,
     bool allowInsecureCertificates = false,
     String? libraryPath,
+    int? fragmentSize,
   ]) => throw UnsupportedError('Native transports require dart:io.');
 
   @override

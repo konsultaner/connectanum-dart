@@ -403,6 +403,19 @@ void main() {
       expect(scenario.pptScheme, 'x_custom_scheme');
       expect(scenario.pptSerializer, 'msgpack');
     });
+
+    test('parses websocket fragmentation overrides', () {
+      final scenario = WampScenario.fromJson({
+        'transport': 'ws',
+        'serializer': 'msgpack',
+        'mode': 'rpc',
+        'uri': 'bench.rpc.echo',
+        'websocket_fragment_size': 4096,
+      });
+
+      expect(scenario.websocketFragmentSize, 4096);
+      expect(scenario.toJson()['websocket_fragment_size'], 4096);
+    });
   });
 
   group('WampEventBuffer', () {

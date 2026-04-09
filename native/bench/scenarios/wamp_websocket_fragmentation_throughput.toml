@@ -1,0 +1,94 @@
+name = "wamp_websocket_fragmentation_throughput"
+description = "Native WebSocket WAMP throughput comparison between contiguous and explicit RFC 6455 continuation-frame outbound sends."
+
+[[workloads]]
+name = "websocket_rpc_msgpack_64k_native_contiguous"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.rpc.echo"
+iterations = 32
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+
+[[workloads]]
+name = "websocket_rpc_msgpack_64k_native_fragmented_4k"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.rpc.echo"
+iterations = 32
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+websocket_fragment_size = 4096
+
+[[workloads]]
+name = "websocket_pubsub_msgpack_64k_native_contiguous"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+
+[[workloads]]
+name = "websocket_pubsub_msgpack_64k_native_fragmented_4k"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+websocket_fragment_size = 4096
+
+[[workloads]]
+name = "websocket_rpc_cbor_64k_native_contiguous"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 32
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+
+[[workloads]]
+name = "websocket_rpc_cbor_64k_native_fragmented_4k"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 32
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+websocket_fragment_size = 4096
+
+[[workloads]]
+name = "websocket_pubsub_cbor_64k_native_contiguous"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+
+[[workloads]]
+name = "websocket_pubsub_cbor_64k_native_fragmented_4k"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+websocket_fragment_size = 4096

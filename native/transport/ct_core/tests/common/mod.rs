@@ -88,7 +88,7 @@ pub fn scenarios() -> Vec<Scenario> {
         },
         Scenario {
             name: "unsubscribe",
-            json: json!([34, 44]),
+            json: json!([34, 44, 55]),
         },
         Scenario {
             name: "unsubscribed",
@@ -277,7 +277,10 @@ pub fn message_to_json(message: &WampMessage, serializer: RawSocketSerializer) -
             request_id,
             subscription_id,
         } => json!([33, request_id, subscription_id]),
-        WampMessage::Unsubscribe { request_id } => json!([34, request_id]),
+        WampMessage::Unsubscribe {
+            request_id,
+            subscription_id,
+        } => json!([34, request_id, subscription_id]),
         WampMessage::Unsubscribed {
             request_id,
             details,

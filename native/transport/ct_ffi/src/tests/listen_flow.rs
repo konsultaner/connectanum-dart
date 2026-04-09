@@ -34,6 +34,7 @@ const MESSAGE_FLAG_DIRECT_BIND: u32 = 1 << 0;
 const MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT: u32 = 1 << 1;
 const MESSAGE_FLAG_DETAIL_NUMBER_B_PRESENT: u32 = 1 << 2;
 const MESSAGE_FLAG_DETAIL_BOOL_A_TRUE: u32 = 1 << 3;
+const MESSAGE_FLAG_METADATA_BIND: u32 = 1 << 4;
 
 use crate::runtime::constants::{
     ERR_CONNECTION_NOT_FOUND, ERR_ENDPOINT_NOT_CONFIGURED, ERR_INVALID_ARGUMENT,
@@ -55,7 +56,7 @@ use crate::runtime::ffi::{
     ct_http_connection_event_get, ct_http_connection_event_release, ct_http_handshake_body_retain,
     ct_http_handshake_get, ct_http_handshake_header, ct_http_handshake_release,
     ct_http_response_send, ct_http_response_stream_finish, ct_http_response_stream_open,
-    ct_http_response_stream_write, ct_listen, ct_listener_close, ct_message_get,
+    ct_http_response_stream_write, ct_listen, ct_listener_close, ct_message_get, ct_message_peek,
     ct_message_release, ct_poll_connection, ct_poll_connection_message, ct_send_message,
     ct_set_on_connection, ct_set_on_listener_started, ct_shutdown, ct_start_runtime,
     ct_wait_connection_message, ct_websocket_handshake_extension, ct_websocket_handshake_get,
@@ -566,6 +567,34 @@ fn ct_message_get_exports_direct_bind_metadata_for_hot_messages() {
     assert!(port > 0);
 
     let messages = vec![
+        serde_json::to_vec(&json!([
+            2,
+            5150,
+            {
+                "realm": "bench.realm",
+                "authid": "bench-user",
+                "authrole": "bench-role",
+                "authmethod": "ticket",
+                "authprovider": "native"
+            }
+        ]))
+        .unwrap(),
+        serde_json::to_vec(&json!([
+            3,
+            {"message": "denied"},
+            "wamp.error.authorization_failed"
+        ]))
+        .unwrap(),
+        serde_json::to_vec(&json!([
+            4,
+            "ticket",
+            {
+                "challenge": "abc123",
+                "channel_binding": "tls-unique",
+                "iterations": 4096
+            }
+        ]))
+        .unwrap(),
         serde_json::to_vec(&json!([17, 43, 99])).unwrap(),
         serde_json::to_vec(&json!([
             36,
@@ -616,6 +645,22 @@ fn ct_message_get_exports_direct_bind_metadata_for_hot_messages() {
         ]))
         .unwrap(),
         serde_json::to_vec(&json!([
+            8,
+            48,
+            777,
+            {"message": "boom"},
+            "wamp.error.runtime_error",
+            [1],
+            {"flag": true}
+        ]))
+        .unwrap(),
+        serde_json::to_vec(&json!([
+            6,
+            {"message": "bye"},
+            "wamp.error.system_shutdown"
+        ]))
+        .unwrap(),
+        serde_json::to_vec(&json!([
             36,
             8,
             100,
@@ -643,6 +688,98 @@ fn ct_message_get_exports_direct_bind_metadata_for_hot_messages() {
     let connection_id = wait_for_connection(listener_id);
     assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_RAWSOCKET);
 
+    let welcome_handle = ct_wait_connection_message(connection_id, 5_000);
+    assert!(welcome_handle > 0);
+    let mut welcome_info = CtMessageInfo::default();
+    assert_eq!(
+        ct_message_get(welcome_handle, &mut welcome_info as *mut CtMessageInfo),
+        SUCCESS
+    );
+    assert_eq!(welcome_info.message_code, 2);
+    assert_eq!(welcome_info.primary_id, 5150);
+    assert_eq!(
+        welcome_info.flags & MESSAGE_FLAG_DIRECT_BIND,
+        MESSAGE_FLAG_DIRECT_BIND
+    );
+    unsafe {
+        let realm =
+            std::slice::from_raw_parts(welcome_info.string_a_ptr, welcome_info.string_a_len);
+        let authid =
+            std::slice::from_raw_parts(welcome_info.string_b_ptr, welcome_info.string_b_len);
+        let authrole =
+            std::slice::from_raw_parts(welcome_info.string_c_ptr, welcome_info.string_c_len);
+        let authmethod =
+            std::slice::from_raw_parts(welcome_info.string_d_ptr, welcome_info.string_d_len);
+        let authprovider =
+            std::slice::from_raw_parts(welcome_info.string_e_ptr, welcome_info.string_e_len);
+        assert_eq!(std::str::from_utf8(realm).unwrap(), "bench.realm");
+        assert_eq!(std::str::from_utf8(authid).unwrap(), "bench-user");
+        assert_eq!(std::str::from_utf8(authrole).unwrap(), "bench-role");
+        assert_eq!(std::str::from_utf8(authmethod).unwrap(), "ticket");
+        assert_eq!(std::str::from_utf8(authprovider).unwrap(), "native");
+    }
+    ct_message_release(welcome_handle);
+
+    let abort_handle = ct_wait_connection_message(connection_id, 5_000);
+    assert!(abort_handle > 0);
+    let mut abort_info = CtMessageInfo::default();
+    assert_eq!(
+        ct_message_get(abort_handle, &mut abort_info as *mut CtMessageInfo),
+        SUCCESS
+    );
+    assert_eq!(abort_info.message_code, 3);
+    assert_eq!(
+        abort_info.flags & MESSAGE_FLAG_DIRECT_BIND,
+        MESSAGE_FLAG_DIRECT_BIND
+    );
+    assert_eq!(
+        abort_info.flags & MESSAGE_FLAG_METADATA_BIND,
+        MESSAGE_FLAG_METADATA_BIND
+    );
+    unsafe {
+        let reason = std::slice::from_raw_parts(abort_info.string_a_ptr, abort_info.string_a_len);
+        let message = std::slice::from_raw_parts(abort_info.string_b_ptr, abort_info.string_b_len);
+        assert_eq!(
+            std::str::from_utf8(reason).unwrap(),
+            "wamp.error.authorization_failed"
+        );
+        assert_eq!(std::str::from_utf8(message).unwrap(), "denied");
+    }
+    ct_message_release(abort_handle);
+
+    let challenge_handle = ct_wait_connection_message(connection_id, 5_000);
+    assert!(challenge_handle > 0);
+    let mut challenge_info = CtMessageInfo::default();
+    assert_eq!(
+        ct_message_peek(challenge_handle, &mut challenge_info as *mut CtMessageInfo),
+        SUCCESS
+    );
+    assert_eq!(challenge_info.message_code, 4);
+    assert_eq!(challenge_info.flags & MESSAGE_FLAG_DIRECT_BIND, 0);
+    assert_eq!(
+        challenge_info.flags & MESSAGE_FLAG_METADATA_BIND,
+        MESSAGE_FLAG_METADATA_BIND
+    );
+    assert_eq!(challenge_info.frame_len, 0);
+    assert!(challenge_info.details_len > 0);
+    unsafe {
+        let auth_method =
+            std::slice::from_raw_parts(challenge_info.string_a_ptr, challenge_info.string_a_len);
+        let details =
+            std::slice::from_raw_parts(challenge_info.details_ptr, challenge_info.details_len);
+        assert_eq!(std::str::from_utf8(auth_method).unwrap(), "ticket");
+        let extra: serde_json::Value = serde_json::from_slice(details).unwrap();
+        assert_eq!(
+            extra,
+            json!({
+                "challenge": "abc123",
+                "channel_binding": "tls-unique",
+                "iterations": 4096
+            })
+        );
+    }
+    ct_message_release(challenge_handle);
+
     let ack_handle = ct_wait_connection_message(connection_id, 5_000);
     assert!(ack_handle > 0);
     let mut ack_info = CtMessageInfo::default();
@@ -656,6 +793,10 @@ fn ct_message_get_exports_direct_bind_metadata_for_hot_messages() {
     assert_eq!(
         ack_info.flags & MESSAGE_FLAG_DIRECT_BIND,
         MESSAGE_FLAG_DIRECT_BIND
+    );
+    assert_eq!(
+        ack_info.flags & MESSAGE_FLAG_METADATA_BIND,
+        MESSAGE_FLAG_METADATA_BIND
     );
     ct_message_release(ack_handle);
 
@@ -674,6 +815,7 @@ fn ct_message_get_exports_direct_bind_metadata_for_hot_messages() {
     assert_eq!(
         event_info.flags,
         MESSAGE_FLAG_DIRECT_BIND
+            | MESSAGE_FLAG_METADATA_BIND
             | MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT
             | MESSAGE_FLAG_DETAIL_NUMBER_B_PRESENT
     );
@@ -697,7 +839,7 @@ fn ct_message_get_exports_direct_bind_metadata_for_hot_messages() {
     assert_eq!(result_info.primary_id, 123);
     assert_eq!(
         result_info.flags,
-        MESSAGE_FLAG_DIRECT_BIND | MESSAGE_FLAG_DETAIL_BOOL_A_TRUE
+        MESSAGE_FLAG_DIRECT_BIND | MESSAGE_FLAG_METADATA_BIND | MESSAGE_FLAG_DETAIL_BOOL_A_TRUE
     );
     unsafe {
         let ppt_scheme =
@@ -723,6 +865,7 @@ fn ct_message_get_exports_direct_bind_metadata_for_hot_messages() {
     assert_eq!(
         invocation_info.flags,
         MESSAGE_FLAG_DIRECT_BIND
+            | MESSAGE_FLAG_METADATA_BIND
             | MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT
             | MESSAGE_FLAG_DETAIL_BOOL_A_TRUE
     );
@@ -733,11 +876,77 @@ fn ct_message_get_exports_direct_bind_metadata_for_hot_messages() {
     }
     ct_message_release(invocation_handle);
 
+    let error_handle = ct_wait_connection_message(connection_id, 5_000);
+    assert!(error_handle > 0);
+    let mut error_info = CtMessageInfo::default();
+    assert_eq!(
+        ct_message_get(error_handle, &mut error_info as *mut CtMessageInfo),
+        SUCCESS
+    );
+    assert_eq!(error_info.message_code, 8);
+    assert_eq!(error_info.primary_id, 48);
+    assert_eq!(error_info.secondary_id, 777);
+    assert_eq!(
+        error_info.flags & MESSAGE_FLAG_DIRECT_BIND,
+        MESSAGE_FLAG_DIRECT_BIND
+    );
+    assert_eq!(
+        error_info.flags & MESSAGE_FLAG_METADATA_BIND,
+        MESSAGE_FLAG_METADATA_BIND
+    );
+    assert!(error_info.args_len > 0);
+    assert!(error_info.kwargs_len > 0);
+    unsafe {
+        let error = std::slice::from_raw_parts(error_info.string_a_ptr, error_info.string_a_len);
+        let message = std::slice::from_raw_parts(error_info.string_b_ptr, error_info.string_b_len);
+        let args = std::slice::from_raw_parts(error_info.args_ptr, error_info.args_len);
+        let kwargs = std::slice::from_raw_parts(error_info.kwargs_ptr, error_info.kwargs_len);
+        assert_eq!(
+            std::str::from_utf8(error).unwrap(),
+            "wamp.error.runtime_error"
+        );
+        assert_eq!(std::str::from_utf8(message).unwrap(), "boom");
+        let args_value: serde_json::Value = serde_json::from_slice(args).unwrap();
+        assert_eq!(args_value, json!([1]));
+        let kwargs_value: serde_json::Value = serde_json::from_slice(kwargs).unwrap();
+        assert_eq!(kwargs_value, json!({"flag": true}));
+    }
+    ct_message_release(error_handle);
+
+    let goodbye_handle = ct_wait_connection_message(connection_id, 5_000);
+    assert!(goodbye_handle > 0);
+    let mut goodbye_info = CtMessageInfo::default();
+    assert_eq!(
+        ct_message_get(goodbye_handle, &mut goodbye_info as *mut CtMessageInfo),
+        SUCCESS
+    );
+    assert_eq!(goodbye_info.message_code, 6);
+    assert_eq!(
+        goodbye_info.flags & MESSAGE_FLAG_DIRECT_BIND,
+        MESSAGE_FLAG_DIRECT_BIND
+    );
+    assert_eq!(
+        goodbye_info.flags & MESSAGE_FLAG_METADATA_BIND,
+        MESSAGE_FLAG_METADATA_BIND
+    );
+    unsafe {
+        let reason =
+            std::slice::from_raw_parts(goodbye_info.string_a_ptr, goodbye_info.string_a_len);
+        let message =
+            std::slice::from_raw_parts(goodbye_info.string_b_ptr, goodbye_info.string_b_len);
+        assert_eq!(
+            std::str::from_utf8(reason).unwrap(),
+            "wamp.error.system_shutdown"
+        );
+        assert_eq!(std::str::from_utf8(message).unwrap(), "bye");
+    }
+    ct_message_release(goodbye_handle);
+
     let custom_event_handle = ct_wait_connection_message(connection_id, 5_000);
     assert!(custom_event_handle > 0);
     let mut custom_event_info = CtMessageInfo::default();
     assert_eq!(
-        ct_message_get(
+        ct_message_peek(
             custom_event_handle,
             &mut custom_event_info as *mut CtMessageInfo
         ),
@@ -745,6 +954,26 @@ fn ct_message_get_exports_direct_bind_metadata_for_hot_messages() {
     );
     assert_eq!(custom_event_info.message_code, 36);
     assert_eq!(custom_event_info.flags & MESSAGE_FLAG_DIRECT_BIND, 0);
+    assert_eq!(
+        custom_event_info.flags & MESSAGE_FLAG_METADATA_BIND,
+        MESSAGE_FLAG_METADATA_BIND
+    );
+    assert_eq!(custom_event_info.frame_len, 0);
+    assert!(custom_event_info.details_len > 0);
+    unsafe {
+        let details = std::slice::from_raw_parts(
+            custom_event_info.details_ptr,
+            custom_event_info.details_len,
+        );
+        let decoded: serde_json::Value = serde_json::from_slice(details).unwrap();
+        assert_eq!(
+            decoded,
+            json!({
+                "topic": "bench.topic",
+                "_custom": true
+            })
+        );
+    }
     ct_message_release(custom_event_handle);
 
     sender.join().unwrap();

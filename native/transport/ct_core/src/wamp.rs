@@ -102,6 +102,7 @@ pub enum WampMessage {
     },
     Unsubscribe {
         request_id: u64,
+        subscription_id: u64,
     },
     Unsubscribed {
         request_id: u64,
@@ -566,8 +567,10 @@ fn parse_json_message(raw_payload: RawFrame) -> Result<ParsedMessage, ParseError
         }
         34 => {
             let request_raw = json_get(&fields, 1, "unsubscribe.request_id")?;
+            let subscription_raw = json_get(&fields, 2, "unsubscribe.subscription_id")?;
             WampMessage::Unsubscribe {
                 request_id: json_u64(request_raw, "unsubscribe.request_id")?,
+                subscription_id: json_u64(subscription_raw, "unsubscribe.subscription_id")?,
             }
         }
         35 => {
@@ -988,7 +991,15 @@ fn parse_msgpack_message(raw_payload: RawFrame) -> Result<ParsedMessage, ParseEr
                 range_at(&ranges, 1, "unsubscribe.request_id")?,
                 "unsubscribe.request_id",
             )?;
-            WampMessage::Unsubscribe { request_id }
+            let subscription_id = msgpack_u64(
+                data,
+                range_at(&ranges, 2, "unsubscribe.subscription_id")?,
+                "unsubscribe.subscription_id",
+            )?;
+            WampMessage::Unsubscribe {
+                request_id,
+                subscription_id,
+            }
         }
         35 => {
             let request_id = msgpack_u64(
@@ -1968,7 +1979,14 @@ fn parse_unsubscribe(parts: &[Value]) -> Result<WampMessage, ParseError> {
         get(parts, 0, "unsubscribe.request_id")?,
         "unsubscribe.request_id",
     )?;
-    Ok(WampMessage::Unsubscribe { request_id })
+    let subscription_id = value_as_u64(
+        get(parts, 1, "unsubscribe.subscription_id")?,
+        "unsubscribe.subscription_id",
+    )?;
+    Ok(WampMessage::Unsubscribe {
+        request_id,
+        subscription_id,
+    })
 }
 
 fn parse_unsubscribed(parts: &[Value]) -> Result<WampMessage, ParseError> {

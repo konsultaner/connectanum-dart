@@ -136,5 +136,96 @@ void main() {
         orderedEquals(Uint8List.fromList(const [4, 5, 6])),
       );
     });
+
+    test('binds request metadata without a full frame', () {
+      final helloDetailsBytes = Uint8List.fromList(
+        cbor.cborEncode(
+          cbor.CborValue({
+            'roles': {'dealer': {}},
+            'authid': 'bench-user',
+          }),
+        ),
+      );
+      final authenticateExtraBytes = Uint8List.fromList(
+        cbor.cborEncode(cbor.CborValue({'nonce': 'abc123'})),
+      );
+      final publishDetailsBytes = Uint8List.fromList(
+        cbor.cborEncode(
+          cbor.CborValue({'acknowledge': true, 'trace_id': 'pub-1'}),
+        ),
+      );
+      final argsBytes = Uint8List.fromList(
+        cbor.cborEncode(cbor.CborValue(['payload'])),
+      );
+      final kwargsBytes = Uint8List.fromList(
+        cbor.cborEncode(cbor.CborValue({'flag': true})),
+      );
+
+      final hello =
+          bindMessageFromMetadata(
+                NativeMessageSerializer.cbor,
+                messageCode: MessageTypes.codeHello,
+                primaryId: 0,
+                secondaryId: 0,
+                flags: 1 << 4,
+                detailsBytes: helloDetailsBytes,
+                stringA: 'bench.realm',
+              )
+              as Hello;
+      final authenticate =
+          bindMessageFromMetadata(
+                NativeMessageSerializer.cbor,
+                messageCode: MessageTypes.codeAuthenticate,
+                primaryId: 0,
+                secondaryId: 0,
+                flags: 1 << 4,
+                detailsBytes: authenticateExtraBytes,
+                stringA: 'sig',
+              )
+              as Authenticate;
+      final publish =
+          bindMessageFromMetadata(
+                NativeMessageSerializer.cbor,
+                messageCode: MessageTypes.codePublish,
+                primaryId: 42,
+                secondaryId: 0,
+                flags: 1 << 4,
+                detailsBytes: publishDetailsBytes,
+                stringA: 'bench.topic',
+                argsBytes: argsBytes,
+                kwargsBytes: kwargsBytes,
+              )
+              as Publish;
+
+      expect(hello.realm, 'bench.realm');
+      expect(hello.details.authid, 'bench-user');
+      expect(hello.details.roles?.dealer, isNotNull);
+
+      expect(authenticate.signature, 'sig');
+      expect(authenticate.extra, {'nonce': 'abc123'});
+
+      expect(publish.topic, 'bench.topic');
+      expect(publish.options?.acknowledge, isTrue);
+      expect(publish.options?.custom['trace_id'], 'pub-1');
+      expect(publish.hasLazyArguments, isTrue);
+      expect(publish.hasLazyArgumentsKeywords, isTrue);
+      expect(publish.arguments, ['payload']);
+      expect(publish.argumentsKeywords, {'flag': true});
+    });
+
+    test('binds unsubscribe metadata without a full frame', () {
+      final message =
+          bindMessageFromMetadata(
+                NativeMessageSerializer.json,
+                messageCode: MessageTypes.codeUnsubscribe,
+                primaryId: 7,
+                secondaryId: 9,
+                flags: 1 << 4,
+              )
+              as Unsubscribe;
+
+      expect(message.requestId, 7);
+      expect(message.subscriptionId, 9);
+    });
   });
 }

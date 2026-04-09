@@ -67,6 +67,9 @@ typedef CtTestBufferFreeDart = void Function(ffi.Pointer<ffi.Uint8>, int);
 typedef CtMessageGetNative =
     ffi.Int32 Function(ffi.Int32, ffi.Pointer<CtMessageInfo>);
 typedef CtMessageGetDart = int Function(int, ffi.Pointer<CtMessageInfo>);
+typedef CtMessagePeekNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Pointer<CtMessageInfo>);
+typedef CtMessagePeekDart = int Function(int, ffi.Pointer<CtMessageInfo>);
 
 typedef CtMessageReleaseNative = ffi.Void Function(ffi.Int32);
 typedef CtMessageReleaseDart = void Function(int);
@@ -347,6 +350,11 @@ final class CtMessageInfo extends ffi.Struct {
 
   @ffi.Size()
   external int kwargsLen;
+
+  external ffi.Pointer<ffi.Uint8> detailsPtr;
+
+  @ffi.Size()
+  external int detailsLen;
 
   @ffi.Uint64()
   external int primaryId;
@@ -689,6 +697,10 @@ class CtFfiBindings {
           .lookupFunction<CtMessageGetNative, CtMessageGetDart>(
             'ct_message_get',
           ),
+      ctMessagePeek = library
+          .lookupFunction<CtMessagePeekNative, CtMessagePeekDart>(
+            'ct_message_peek',
+          ),
       ctMessageRelease = library
           .lookupFunction<CtMessageReleaseNative, CtMessageReleaseDart>(
             'ct_message_release',
@@ -954,6 +966,7 @@ class CtFfiBindings {
   final CtTestHttp3StreamRequestDart? ctTestHttp3StreamRequestHandle;
   final CtTestBufferFreeDart? ctTestBufferFreeHandle;
   final CtMessageGetDart ctMessageGet;
+  final CtMessagePeekDart ctMessagePeek;
   final CtMessageReleaseDart ctMessageRelease;
   final CtMessageRetainDart ctMessageRetain;
   final CtForwardPublishEventDart ctForwardPublishEvent;

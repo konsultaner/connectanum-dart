@@ -8,7 +8,7 @@ use ct_core::{
     ConnectionId, ConnectionProtocol, Http2Handshake, Http3BidiStream, Http3Handshake,
     HttpBodyHandle, HttpBodyPhase, HttpConnectionCloseReason, HttpConnectionEvent, HttpHandshake,
     HttpRequestSummary, HttpResponseHandle, HttpRouteResolution, ListenerId, RawSocketSerializer,
-    ResponseStreamWriter, WampMessage, WebSocketHandshake,
+    ResponseStreamWriter, WampMessage, WampRawFrame, WebSocketHandshake,
 };
 use dashmap::DashMap;
 use quinn::Connection as QuinnConnection;
@@ -834,12 +834,49 @@ pub fn clear_websocket_handshakes() {
     }
 }
 
-#[derive(Clone)]
+pub struct StoredRawFrame {
+    raw: WampRawFrame,
+    contiguous: OnceLock<Bytes>,
+}
+
+impl StoredRawFrame {
+    pub fn from_raw(raw: WampRawFrame) -> Self {
+        Self {
+            raw,
+            contiguous: OnceLock::new(),
+        }
+    }
+
+    #[cfg(test)]
+    pub fn from_bytes(bytes: Bytes) -> Self {
+        Self::from_raw(WampRawFrame::Contiguous(bytes))
+    }
+
+    pub fn bytes(&self) -> &Bytes {
+        if let WampRawFrame::Contiguous(bytes) = &self.raw {
+            return bytes;
+        }
+        self.contiguous
+            .get_or_init(|| self.raw.clone().into_bytes())
+    }
+
+    #[cfg(test)]
+    pub fn is_segmented(&self) -> bool {
+        matches!(self.raw, WampRawFrame::Segmented { .. })
+    }
+
+    #[cfg(test)]
+    pub fn has_contiguous_cache(&self) -> bool {
+        self.contiguous.get().is_some()
+    }
+}
+
 pub struct StoredMessage {
     pub serializer: RawSocketSerializer,
     pub code: u64,
-    pub raw: Bytes,
+    pub raw: StoredRawFrame,
     pub message: WampMessage,
+    pub details: Option<Bytes>,
     pub args: Option<Bytes>,
     pub kwargs: Option<Bytes>,
 }

@@ -1026,6 +1026,28 @@ enum NativeMessageSerializer {
   }
 }
 
+class _NativeMessageMetadata {
+  const _NativeMessageMetadata({
+    required this.messageCode,
+    required this.primaryId,
+    required this.secondaryId,
+    required this.flags,
+    this.detailsBytes,
+    this.stringA,
+  });
+
+  static const flagMetadataBind = 1 << 4;
+
+  final int messageCode;
+  final int primaryId;
+  final int secondaryId;
+  final int flags;
+  final Uint8List? detailsBytes;
+  final String? stringA;
+
+  bool hasFlag(int flag) => (flags & flag) != 0;
+}
+
 class NativeIncomingMessage {
   NativeIncomingMessage._({
     required this.serializer,
@@ -1184,37 +1206,75 @@ class _MessageBindings {
   NativeIncomingMessage materialize(int handle) {
     final infoPtr = calloc<CtMessageInfo>();
     try {
-      final result = _bindings.ctMessageGet(handle, infoPtr);
+      var result = _bindings.ctMessagePeek(handle, infoPtr);
       if (result != NativeTransportErrorCode.success) {
         _bindings.ctMessageRelease(handle);
         throw NativeTransportException(
           result,
-          _buildNativeErrorMessage(result, 'Failed to read connection message'),
+          _buildNativeErrorMessage(result, 'Failed to peek connection message'),
         );
       }
 
-      final info = infoPtr.ref;
+      var info = infoPtr.ref;
       final serializer = NativeMessageSerializer.fromId(info.serializer);
-      final frameAddress = info.framePtr.address;
       final argsAddress = info.argsLen == 0 ? 0 : info.argsPtr.address;
       final kwargsAddress = info.kwargsLen == 0 ? 0 : info.kwargsPtr.address;
-      final frame = info.frameLen == 0
-          ? Uint8List(0)
-          : info.framePtr.asTypedList(info.frameLen);
       final args = info.argsLen == 0
           ? null
           : info.argsPtr.asTypedList(info.argsLen);
       final kwargs = info.kwargsLen == 0
           ? null
           : info.kwargsPtr.asTypedList(info.kwargsLen);
+      final metadata = _metadataFromFfi(info);
+
+      Uint8List frame;
+      int frameAddress;
+      AbstractMessage message;
 
       try {
-        final message = bindMessage(
-          serializer,
-          frame,
-          argsBytes: args,
-          kwargsBytes: kwargs,
-        );
+        final metadataBound =
+            metadata.hasFlag(_NativeMessageMetadata.flagMetadataBind)
+            ? bindMessage(
+                serializer,
+                Uint8List(0),
+                argsBytes: args,
+                kwargsBytes: kwargs,
+                metadataMessageCode: metadata.messageCode,
+                metadataPrimaryId: metadata.primaryId,
+                metadataSecondaryId: metadata.secondaryId,
+                metadataFlags: metadata.flags,
+                metadataDetailsBytes: metadata.detailsBytes,
+                metadataStringA: metadata.stringA,
+              )
+            : null;
+        if (metadataBound != null) {
+          frame = Uint8List(0);
+          frameAddress = 0;
+          message = metadataBound;
+        } else {
+          result = _bindings.ctMessageGet(handle, infoPtr);
+          if (result != NativeTransportErrorCode.success) {
+            _bindings.ctMessageRelease(handle);
+            throw NativeTransportException(
+              result,
+              _buildNativeErrorMessage(
+                result,
+                'Failed to read connection message',
+              ),
+            );
+          }
+          info = infoPtr.ref;
+          frameAddress = info.framePtr.address;
+          frame = info.frameLen == 0
+              ? Uint8List(0)
+              : info.framePtr.asTypedList(info.frameLen);
+          message = bindMessage(
+            serializer,
+            frame,
+            argsBytes: args,
+            kwargsBytes: kwargs,
+          );
+        }
         final nativeMessage = NativeIncomingMessage._(
           serializer: serializer,
           message: message,
@@ -1259,6 +1319,37 @@ class _MessageBindings {
       calloc.free(infoPtr);
     }
   }
+}
+
+_NativeMessageMetadata _metadataFromFfi(CtMessageInfo info) {
+  final flags = info.flags;
+  final metadataBind = (flags & _NativeMessageMetadata.flagMetadataBind) != 0;
+  return _NativeMessageMetadata(
+    messageCode: info.messageCode,
+    primaryId: info.primaryId,
+    secondaryId: info.secondaryId,
+    flags: flags,
+    detailsBytes: metadataBind
+        ? _readOptionalBytes(info.detailsPtr, info.detailsLen)
+        : null,
+    stringA: metadataBind
+        ? _readOptionalString(info.stringAPtr, info.stringALen)
+        : null,
+  );
+}
+
+Uint8List? _readOptionalBytes(ffi.Pointer<ffi.Uint8> ptr, int len) {
+  if (len <= 0 || ptr.address == 0) {
+    return null;
+  }
+  return ptr.asTypedList(len);
+}
+
+String? _readOptionalString(ffi.Pointer<ffi.Uint8> ptr, int len) {
+  if (len <= 0 || ptr.address == 0) {
+    return null;
+  }
+  return String.fromCharCodes(ptr.asTypedList(len));
 }
 
 String _buildNativeErrorMessage(int code, String context) {

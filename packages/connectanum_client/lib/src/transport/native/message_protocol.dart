@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 enum NativeMessageSerializer {
   json(1),
@@ -29,6 +30,7 @@ class NativeMessageMetadata {
     required this.detailNumberA,
     required this.detailNumberB,
     required this.flags,
+    this.detailsBytes,
     this.stringA,
     this.stringB,
     this.stringC,
@@ -40,6 +42,7 @@ class NativeMessageMetadata {
   static const flagDetailNumberAPresent = 1 << 1;
   static const flagDetailNumberBPresent = 1 << 2;
   static const flagDetailBoolATrue = 1 << 3;
+  static const flagMetadataBind = 1 << 4;
 
   final int messageCode;
   final int primaryId;
@@ -47,6 +50,7 @@ class NativeMessageMetadata {
   final int detailNumberA;
   final int detailNumberB;
   final int flags;
+  final Uint8List? detailsBytes;
   final String? stringA;
   final String? stringB;
   final String? stringC;

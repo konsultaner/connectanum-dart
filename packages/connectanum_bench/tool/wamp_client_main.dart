@@ -71,6 +71,7 @@ Future<void> main(List<String> args) async {
             clientImplementation: scenario.clientImplementation,
             headers: const {'x-connectanum-bench': '1'},
             allowInsecureCertificates: target.secure,
+            websocketFragmentSize: scenario.websocketFragmentSize,
             nativeLibraryPath: nativeLibraryPath,
           ).call();
       }

@@ -9,7 +9,7 @@ import 'dart:typed_data';
 
 import 'package:async/async.dart';
 import 'package:connectanum_core/connectanum_core.dart'
-    show Hello, MessageTypes, Publish;
+    show Hello, MessageTypes, Publish, Unsubscribe;
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:test/test.dart';
 
@@ -61,6 +61,7 @@ void main() {
       await _performHandshake(socket);
       await _sendHelloFrame(socket);
       await _sendPublishFrame(socket);
+      await _sendUnsubscribeFrame(socket);
       await Future<void>.delayed(const Duration(milliseconds: 50));
 
       final polledId = runtime.pollConnection(listenerId);
@@ -74,36 +75,19 @@ void main() {
       final hello = incoming.message as Hello;
       expect(hello.id, MessageTypes.codeHello);
       expect(hello.realm, 'com.example.realm');
-      expect(incoming.bytes, isNotEmpty);
+      expect(hello.details.roles?.dealer, isNotNull);
+      expect(incoming.bytes, isEmpty);
+      expect(incoming.frameAddress, 0);
 
       final publishMessage = runtime.pollMessage(polledId);
       expect(publishMessage, isNotNull);
       expect(publishMessage!.serializer, NativeMessageSerializer.json);
       final publish = publishMessage.message as Publish;
       expect(publish.topic, 'com.example.topic');
-      expect(publishMessage.frameAddress, isNot(equals(0)));
+      expect(publishMessage.bytes, isEmpty);
+      expect(publishMessage.frameAddress, 0);
       expect(publishMessage.argumentsAddress, isNot(equals(0)));
       expect(publishMessage.argumentsKeywordsAddress, isNot(equals(0)));
-      final argsOffset =
-          publishMessage.argumentsAddress - publishMessage.frameAddress;
-      final kwargsOffset =
-          publishMessage.argumentsKeywordsAddress - publishMessage.frameAddress;
-      expect(argsOffset, greaterThan(0));
-      expect(kwargsOffset, greaterThan(argsOffset));
-      expect(
-        argsOffset + publishMessage.argumentsBytes!.length <=
-            publishMessage.bytes.length,
-        isTrue,
-      );
-      expect(
-        kwargsOffset + publishMessage.argumentsKeywordsBytes!.length <=
-            publishMessage.bytes.length,
-        isTrue,
-      );
-      final decodedFrame =
-          jsonDecode(utf8.decode(publishMessage.bytes)) as List<dynamic>;
-      expect(decodedFrame[4], ['alpha']);
-      expect((decodedFrame[5] as Map)['flag'], true);
       expect(publishMessage.argumentsBytes, isNotNull);
       expect(publishMessage.argumentsKeywordsBytes, isNotNull);
       expect(
@@ -126,6 +110,17 @@ void main() {
       expect(publish.arguments, ['alpha']);
       expect(publish.argumentsKeywords, {'flag': true});
       publishMessage.dispose();
+
+      final unsubscribeMessage = runtime.pollMessage(polledId);
+      expect(unsubscribeMessage, isNotNull);
+      expect(unsubscribeMessage!.serializer, NativeMessageSerializer.json);
+      expect(unsubscribeMessage.bytes, isEmpty);
+      expect(unsubscribeMessage.frameAddress, 0);
+      expect(unsubscribeMessage.message, isA<Unsubscribe>());
+      final unsubscribe = unsubscribeMessage.message as Unsubscribe;
+      expect(unsubscribe.requestId, 901);
+      expect(unsubscribe.subscriptionId, 902);
+      unsubscribeMessage.dispose();
 
       expect(runtime.pollMessage(polledId), isNull);
 
@@ -240,34 +235,10 @@ void main() {
       expect(incoming.serializer, NativeMessageSerializer.json);
       final publish = incoming.message as Publish;
       expect(publish.topic, 'com.example.topic');
-      expect(incoming.frameAddress, isNot(equals(0)));
+      expect(incoming.bytes, isEmpty);
+      expect(incoming.frameAddress, 0);
       expect(incoming.argumentsAddress, isNot(equals(0)));
       expect(incoming.argumentsKeywordsAddress, isNot(equals(0)));
-      final argsOffset = incoming.argumentsAddress - incoming.frameAddress;
-      final kwargsOffset =
-          incoming.argumentsKeywordsAddress - incoming.frameAddress;
-      expect(argsOffset, greaterThan(0));
-      expect(kwargsOffset, greaterThan(argsOffset));
-      expect(
-        argsOffset + incoming.argumentsBytes!.length <= incoming.bytes.length,
-        isTrue,
-      );
-      expect(
-        kwargsOffset + incoming.argumentsKeywordsBytes!.length <=
-            incoming.bytes.length,
-        isTrue,
-      );
-      expect(
-        utf8.decode(incoming.bytes),
-        jsonEncode([
-          16,
-          900,
-          {},
-          'com.example.topic',
-          ['alpha'],
-          {'flag': true},
-        ]),
-      );
       expect(
         identical(incoming.argumentsBytes, publish.debugEncodedArgumentsBytes),
         isTrue,
@@ -439,6 +410,16 @@ Future<void> _sendPublishFrame(Socket socket) async {
       ['alpha'],
       {'flag': true},
     ]),
+  );
+  final header = _encodeFrameHeader(payload.length);
+  socket.add(header);
+  socket.add(payload);
+  await socket.flush();
+}
+
+Future<void> _sendUnsubscribeFrame(Socket socket) async {
+  final payload = utf8.encode(
+    jsonEncode([MessageTypes.codeUnsubscribe, 901, 902]),
   );
   final header = _encodeFrameHeader(payload.length);
   socket.add(header);

@@ -398,6 +398,7 @@ class NativeWebSocketTransport extends _NativeTransportBase {
     Map<String, dynamic>? headers,
     this._allowInsecureCertificates = false,
     String? libraryPath,
+    this._fragmentSize,
   ]) : _headers = headers,
        super(
          serializer,
@@ -409,6 +410,7 @@ class NativeWebSocketTransport extends _NativeTransportBase {
   final String _serializerType;
   final Map<String, dynamic>? _headers;
   final bool _allowInsecureCertificates;
+  final int? _fragmentSize;
 
   static final _logger = Logger('Connectanum.NativeWebSocketTransport');
 
@@ -417,6 +419,7 @@ class NativeWebSocketTransport extends _NativeTransportBase {
     Map<String, dynamic>? headers,
     bool allowInsecureCertificates = false,
     String? libraryPath,
+    int? fragmentSize,
   ]) => NativeWebSocketTransport(
     url,
     serializer_json.Serializer(),
@@ -424,6 +427,7 @@ class NativeWebSocketTransport extends _NativeTransportBase {
     headers,
     allowInsecureCertificates,
     libraryPath,
+    fragmentSize,
   );
 
   factory NativeWebSocketTransport.withMsgpackSerializer(
@@ -431,6 +435,7 @@ class NativeWebSocketTransport extends _NativeTransportBase {
     Map<String, dynamic>? headers,
     bool allowInsecureCertificates = false,
     String? libraryPath,
+    int? fragmentSize,
   ]) => NativeWebSocketTransport(
     url,
     serializer_msgpack.Serializer(),
@@ -438,6 +443,7 @@ class NativeWebSocketTransport extends _NativeTransportBase {
     headers,
     allowInsecureCertificates,
     libraryPath,
+    fragmentSize,
   );
 
   factory NativeWebSocketTransport.withCborSerializer(
@@ -445,6 +451,7 @@ class NativeWebSocketTransport extends _NativeTransportBase {
     Map<String, dynamic>? headers,
     bool allowInsecureCertificates = false,
     String? libraryPath,
+    int? fragmentSize,
   ]) => NativeWebSocketTransport(
     url,
     serializer_cbor.Serializer(),
@@ -452,7 +459,32 @@ class NativeWebSocketTransport extends _NativeTransportBase {
     headers,
     allowInsecureCertificates,
     libraryPath,
+    fragmentSize,
   );
+
+  @override
+  void send(AbstractMessage message) {
+    final connectionId = _connectionId;
+    if (connectionId == null) {
+      throw StateError('Transport is not connected.');
+    }
+    if (message is Goodbye) {
+      _goodbyeSent = true;
+    }
+    final encoded = _encodeMessage(message);
+    final fragmentSize = _fragmentSize;
+    if (fragmentSize != null &&
+        fragmentSize > 0 &&
+        encoded.length > fragmentSize) {
+      _runtime.sendMessageFragmented(
+        connectionId,
+        encoded,
+        fragmentSize: fragmentSize,
+      );
+      return;
+    }
+    _runtime.sendMessage(connectionId, encoded);
+  }
 
   @override
   Logger get logger => _logger;

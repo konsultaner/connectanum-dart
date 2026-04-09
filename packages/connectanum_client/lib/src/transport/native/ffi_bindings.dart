@@ -64,6 +64,10 @@ typedef CtMessageGetNative =
     ffi.Int32 Function(ffi.Int32, ffi.Pointer<CtMessageInfo>);
 typedef CtMessageGetDart = int Function(int, ffi.Pointer<CtMessageInfo>);
 
+typedef CtMessagePeekNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Pointer<CtMessageInfo>);
+typedef CtMessagePeekDart = int Function(int, ffi.Pointer<CtMessageInfo>);
+
 typedef CtMessageReleaseNative = ffi.Void Function(ffi.Int32);
 typedef CtMessageReleaseDart = void Function(int);
 
@@ -73,6 +77,11 @@ typedef CtMessageRetainDart = int Function(int);
 typedef CtSendMessageNative =
     ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32);
 typedef CtSendMessageDart = int Function(int, ffi.Pointer<ffi.Uint8>, int);
+
+typedef CtSendMessageFragmentedNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32, ffi.Int32);
+typedef CtSendMessageFragmentedDart =
+    int Function(int, ffi.Pointer<ffi.Uint8>, int, int);
 
 final class CtHttpHeader extends ffi.Struct {
   external ffi.Pointer<ffi.Uint8> namePtr;
@@ -107,6 +116,11 @@ final class CtMessageInfo extends ffi.Struct {
 
   @ffi.Size()
   external int kwargsLen;
+
+  external ffi.Pointer<ffi.Uint8> detailsPtr;
+
+  @ffi.Size()
+  external int detailsLen;
 
   @ffi.Uint64()
   external int primaryId;
@@ -191,6 +205,10 @@ class CtFfiBindings {
           .lookupFunction<CtMessageGetNative, CtMessageGetDart>(
             'ct_message_get',
           ),
+      ctMessagePeek = library
+          .lookupFunction<CtMessagePeekNative, CtMessagePeekDart>(
+            'ct_message_peek',
+          ),
       ctMessageRelease = library
           .lookupFunction<CtMessageReleaseNative, CtMessageReleaseDart>(
             'ct_message_release',
@@ -202,7 +220,12 @@ class CtFfiBindings {
       ctSendMessage = library
           .lookupFunction<CtSendMessageNative, CtSendMessageDart>(
             'ct_send_message',
-          );
+          ),
+      ctSendMessageFragmented = library
+          .lookupFunction<
+            CtSendMessageFragmentedNative,
+            CtSendMessageFragmentedDart
+          >('ct_send_message_fragmented');
 
   final CtStartRuntimeDart ctStartRuntime;
   final CtShutdownDart ctShutdown;
@@ -213,7 +236,9 @@ class CtFfiBindings {
   final CtPollConnectionMessageDart ctPollConnectionMessage;
   final CtWaitConnectionMessageDart ctWaitConnectionMessage;
   final CtMessageGetDart ctMessageGet;
+  final CtMessagePeekDart ctMessagePeek;
   final CtMessageReleaseDart ctMessageRelease;
   final CtMessageRetainDart ctMessageRetain;
   final CtSendMessageDart ctSendMessage;
+  final CtSendMessageFragmentedDart ctSendMessageFragmented;
 }

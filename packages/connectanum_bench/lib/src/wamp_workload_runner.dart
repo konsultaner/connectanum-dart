@@ -688,6 +688,7 @@ class WebSocketWampSessionFactory {
     this.clientImplementation = WampClientImplementation.dart,
     this.headers = const <String, Object?>{},
     this.allowInsecureCertificates = false,
+    this.websocketFragmentSize,
     this.nativeLibraryPath,
   });
 
@@ -697,6 +698,7 @@ class WebSocketWampSessionFactory {
   final WampClientImplementation clientImplementation;
   final Map<String, Object?> headers;
   final bool allowInsecureCertificates;
+  final int? websocketFragmentSize;
   final String? nativeLibraryPath;
 
   Future<WampSession> call() async {
@@ -732,6 +734,7 @@ class WebSocketWampSessionFactory {
           headers.cast<String, dynamic>(),
           allowInsecureCertificates,
           nativeLibraryPath,
+          websocketFragmentSize,
         ),
       WampSerializer.msgpack =>
         wamp_client.NativeWebSocketTransport.withMsgpackSerializer(
@@ -739,6 +742,7 @@ class WebSocketWampSessionFactory {
           headers.cast<String, dynamic>(),
           allowInsecureCertificates,
           nativeLibraryPath,
+          websocketFragmentSize,
         ),
       WampSerializer.cbor =>
         wamp_client.NativeWebSocketTransport.withCborSerializer(
@@ -746,6 +750,7 @@ class WebSocketWampSessionFactory {
           headers.cast<String, dynamic>(),
           allowInsecureCertificates,
           nativeLibraryPath,
+          websocketFragmentSize,
         ),
     };
   }
@@ -970,6 +975,7 @@ class WampScenario {
     required this.concurrency,
     this.inFlightPerSession = 1,
     required this.payloadBytes,
+    this.websocketFragmentSize,
     this.pptScheme,
     this.pptSerializer,
   });
@@ -984,6 +990,7 @@ class WampScenario {
   final int concurrency;
   final int inFlightPerSession;
   final int payloadBytes;
+  final int? websocketFragmentSize;
   final String? pptScheme;
   final String? pptSerializer;
 
@@ -1013,6 +1020,9 @@ class WampScenario {
       concurrency: concurrency,
       inFlightPerSession: inFlightPerSession,
       payloadBytes: payloadBytes,
+      websocketFragmentSize: _readOptionalPositiveInt(
+        json['websocket_fragment_size'],
+      ),
       pptScheme: json['ppt_scheme'] as String?,
       pptSerializer: json['ppt_serializer'] as String?,
     );
@@ -1031,6 +1041,14 @@ class WampScenario {
     throw FormatException('Expected integer, got $value');
   }
 
+  static int? _readOptionalPositiveInt(Object? value) {
+    if (value == null) {
+      return null;
+    }
+    final parsed = _readPositiveInt(value, fallback: 0);
+    return parsed > 0 ? parsed : null;
+  }
+
   Map<String, Object?> toJson() => {
     'transport': transport.name,
     'client_impl': clientImplementation.name,
@@ -1042,6 +1060,8 @@ class WampScenario {
     'concurrency': concurrency,
     'in_flight_per_session': inFlightPerSession,
     'payload_bytes': payloadBytes,
+    if (websocketFragmentSize != null)
+      'websocket_fragment_size': websocketFragmentSize,
     if (pptScheme != null) 'ppt_scheme': pptScheme,
     if (pptSerializer != null) 'ppt_serializer': pptSerializer,
   };
@@ -1057,6 +1077,7 @@ class WampScenario {
     int? concurrency,
     int? inFlightPerSession,
     int? payloadBytes,
+    Object? websocketFragmentSize = _copySentinel,
     Object? pptScheme = _copySentinel,
     Object? pptSerializer = _copySentinel,
   }) {
@@ -1073,6 +1094,9 @@ class WampScenario {
       concurrency: concurrency ?? this.concurrency,
       inFlightPerSession: inFlightPerSession ?? this.inFlightPerSession,
       payloadBytes: payloadBytes ?? this.payloadBytes,
+      websocketFragmentSize: identical(websocketFragmentSize, _copySentinel)
+          ? this.websocketFragmentSize
+          : websocketFragmentSize as int?,
       pptScheme: identical(pptScheme, _copySentinel)
           ? this.pptScheme
           : pptScheme as String?,

@@ -22,18 +22,15 @@ class NativeSessionMessage extends AbstractMessageWithPayload {
   final NativeMessageMetadata metadata;
 
   AbstractMessage materialize() {
-    final boundMessage = _bindDirectFromMetadata(metadata);
+    final boundMessage = _bindFromMetadata(
+      serializer,
+      metadata,
+      argsBytes: debugEncodedArgumentsBytes,
+      kwargsBytes: debugEncodedArgumentsKeywordsBytes,
+    );
     if (boundMessage == null) {
       throw StateError(
         'Native session message ${metadata.messageCode} cannot be materialized',
-      );
-    }
-    if (boundMessage is AbstractMessageWithPayload) {
-      _applyLazyPayload(
-        boundMessage,
-        serializer,
-        debugEncodedArgumentsBytes,
-        debugEncodedArgumentsKeywordsBytes,
       );
     }
     return boundMessage;
@@ -47,9 +44,16 @@ AbstractMessage bindMessage(
   Uint8List? kwargsBytes,
   NativeMessageMetadata? metadata,
 }) {
-  final message = metadata != null ? _bindDirectFromMetadata(metadata) : null;
+  final message = metadata != null
+      ? _bindFromMetadata(
+          serializer,
+          metadata,
+          argsBytes: argsBytes,
+          kwargsBytes: kwargsBytes,
+        )
+      : null;
   final boundMessage = message ?? _bindDecodedPayload(serializer, bytes);
-  if (boundMessage is AbstractMessageWithPayload) {
+  if (message == null && boundMessage is AbstractMessageWithPayload) {
     _applyLazyPayload(boundMessage, serializer, argsBytes, kwargsBytes);
   }
   return boundMessage;
@@ -63,8 +67,8 @@ Object bindSessionMessage(
   NativeMessageMetadata? metadata,
 }) {
   if (metadata != null &&
-      metadata.hasFlag(NativeMessageMetadata.flagDirectBind) &&
-      _supportsSessionDirectMessage(metadata.messageCode)) {
+      metadata.hasFlag(NativeMessageMetadata.flagMetadataBind) &&
+      _supportsSessionMetadataMessage(metadata.messageCode)) {
     return NativeSessionMessage(
       serializer: serializer,
       metadata: metadata,
@@ -102,84 +106,212 @@ AbstractMessage _bindDecodedPayload(
   return _bindDecoded(decoded.cast<dynamic>());
 }
 
-AbstractMessage? _bindDirectFromMetadata(NativeMessageMetadata metadata) {
-  if (!metadata.hasFlag(NativeMessageMetadata.flagDirectBind)) {
+AbstractMessage? _bindFromMetadata(
+  NativeMessageSerializer serializer,
+  NativeMessageMetadata metadata, {
+  Uint8List? argsBytes,
+  Uint8List? kwargsBytes,
+}) {
+  if (!metadata.hasFlag(NativeMessageMetadata.flagMetadataBind)) {
     return null;
   }
   final code = metadata.messageCode;
+  final directBind = metadata.hasFlag(NativeMessageMetadata.flagDirectBind);
   if (code == MessageTypes.codePublished) {
     return Published(metadata.primaryId, metadata.secondaryId);
   }
   if (code == MessageTypes.codeSubscribed) {
     return Subscribed(metadata.primaryId, metadata.secondaryId);
   }
-  if (code == MessageTypes.codeEvent) {
-    return Event(
+  if (code == MessageTypes.codeWelcome) {
+    if (directBind) {
+      final details = Details();
+      details.realm = metadata.stringA;
+      details.authid = metadata.stringB;
+      details.authrole = metadata.stringC;
+      details.authmethod = metadata.stringD;
+      details.authprovider = metadata.stringE;
+      return Welcome(metadata.primaryId, details);
+    }
+    return Welcome(
       metadata.primaryId,
-      metadata.secondaryId,
-      EventDetails(
-        publisher:
-            metadata.hasFlag(NativeMessageMetadata.flagDetailNumberAPresent)
-            ? metadata.detailNumberA
-            : null,
-        trustlevel:
-            metadata.hasFlag(NativeMessageMetadata.flagDetailNumberBPresent)
-            ? metadata.detailNumberB
-            : null,
-        topic: metadata.stringA,
-        pptScheme: metadata.stringB,
-        pptSerializer: metadata.stringC,
-        pptCipher: metadata.stringD,
-        pptKeyid: metadata.stringE,
+      _mapDetails(
+        _decodeOptionalMapFragment(serializer, metadata.detailsBytes),
       ),
     );
   }
-  if (code == MessageTypes.codeResult) {
-    return Result(
-      metadata.primaryId,
-      ResultDetails(
-        progress: metadata.hasFlag(NativeMessageMetadata.flagDetailBoolATrue)
-            ? true
-            : null,
-        pptScheme: metadata.stringA,
-        pptSerializer: metadata.stringB,
-        pptCipher: metadata.stringC,
-        pptKeyId: metadata.stringD,
+  if (code == MessageTypes.codeChallenge) {
+    final extraMap = _decodeOptionalMapFragment(
+      serializer,
+      metadata.detailsBytes,
+    );
+    return Challenge(
+      metadata.stringA ?? '',
+      Extra(
+        challenge: extraMap?['challenge'] as String?,
+        salt: extraMap?['salt'] as String?,
+        keyLen: _asInt(extraMap?['keylen']),
+        channelBinding: extraMap?['channel_binding'] as String?,
+        iterations: _asInt(extraMap?['iterations']),
+        memory: _asInt(extraMap?['memory']),
+        kdf: extraMap?['kdf'] as String?,
+        nonce: extraMap?['nonce'] as String?,
       ),
     );
+  }
+  if (code == MessageTypes.codeAbort) {
+    final details = directBind
+        ? (metadata.stringB == null
+              ? const <String, Object?>{}
+              : <String, Object?>{'message': metadata.stringB})
+        : _decodeOptionalMapFragment(serializer, metadata.detailsBytes) ??
+              const <String, Object?>{};
+    return Abort(
+      metadata.stringA ?? '',
+      details: details,
+      message: details['message'] as String?,
+      arguments: _decodeOptionalArgumentList(serializer, argsBytes),
+      argumentsKeywords: _decodeOptionalKeywordMap(serializer, kwargsBytes),
+    );
+  }
+  if (code == MessageTypes.codeEvent) {
+    final message = Event(
+      metadata.primaryId,
+      metadata.secondaryId,
+      directBind
+          ? EventDetails(
+              publisher:
+                  metadata.hasFlag(
+                    NativeMessageMetadata.flagDetailNumberAPresent,
+                  )
+                  ? metadata.detailNumberA
+                  : null,
+              trustlevel:
+                  metadata.hasFlag(
+                    NativeMessageMetadata.flagDetailNumberBPresent,
+                  )
+                  ? metadata.detailNumberB
+                  : null,
+              topic: metadata.stringA,
+              pptScheme: metadata.stringB,
+              pptSerializer: metadata.stringC,
+              pptCipher: metadata.stringD,
+              pptKeyid: metadata.stringE,
+            )
+          : _mapEventDetails(
+              _decodeOptionalMapFragment(serializer, metadata.detailsBytes),
+            ),
+    );
+    _applyLazyPayload(message, serializer, argsBytes, kwargsBytes);
+    return message;
+  }
+  if (code == MessageTypes.codeResult) {
+    final message = Result(
+      metadata.primaryId,
+      directBind
+          ? ResultDetails(
+              progress:
+                  metadata.hasFlag(NativeMessageMetadata.flagDetailBoolATrue)
+                  ? true
+                  : null,
+              pptScheme: metadata.stringA,
+              pptSerializer: metadata.stringB,
+              pptCipher: metadata.stringC,
+              pptKeyId: metadata.stringD,
+            )
+          : _mapResultDetails(
+              _decodeOptionalMapFragment(serializer, metadata.detailsBytes),
+            ),
+    );
+    _applyLazyPayload(message, serializer, argsBytes, kwargsBytes);
+    return message;
   }
   if (code == MessageTypes.codeRegistered) {
     return Registered(metadata.primaryId, metadata.secondaryId);
   }
   if (code == MessageTypes.codeInvocation) {
-    return Invocation(
+    final message = Invocation(
       metadata.primaryId,
       metadata.secondaryId,
-      InvocationDetails(
-        metadata.hasFlag(NativeMessageMetadata.flagDetailNumberAPresent)
-            ? metadata.detailNumberA
-            : null,
-        metadata.stringA,
-        metadata.hasFlag(NativeMessageMetadata.flagDetailBoolATrue)
-            ? true
-            : null,
-        metadata.stringB,
-        metadata.stringC,
-        metadata.stringD,
-        metadata.stringE,
-      ),
+      directBind
+          ? InvocationDetails(
+              metadata.hasFlag(NativeMessageMetadata.flagDetailNumberAPresent)
+                  ? metadata.detailNumberA
+                  : null,
+              metadata.stringA,
+              metadata.hasFlag(NativeMessageMetadata.flagDetailBoolATrue)
+                  ? true
+                  : null,
+              metadata.stringB,
+              metadata.stringC,
+              metadata.stringD,
+              metadata.stringE,
+            )
+          : _mapInvocationDetails(
+              _decodeOptionalMapFragment(serializer, metadata.detailsBytes),
+            ),
     );
+    _applyLazyPayload(message, serializer, argsBytes, kwargsBytes);
+    return message;
   }
   if (code == MessageTypes.codeUnregistered) {
     return Unregistered(metadata.primaryId);
   }
+  if (code == MessageTypes.codeUnsubscribed) {
+    return Unsubscribed(
+      metadata.primaryId,
+      _mapUnsubscribedDetails(
+        _decodeOptionalMapFragment(serializer, metadata.detailsBytes),
+      ),
+    );
+  }
+  if (code == MessageTypes.codeGoodbye) {
+    final details = directBind
+        ? (metadata.stringB == null
+              ? const <String, Object?>{}
+              : <String, Object?>{'message': metadata.stringB})
+        : _decodeOptionalMapFragment(serializer, metadata.detailsBytes) ??
+              const <String, Object?>{};
+    return Goodbye(
+      details['message'] == null
+          ? null
+          : GoodbyeMessage(details['message'] as String?),
+      metadata.stringA ?? '',
+    );
+  }
+  if (code == MessageTypes.codeError) {
+    final details = directBind
+        ? <String, dynamic>{
+            if (metadata.stringB != null) 'message': metadata.stringB,
+          }
+        : _decodeOptionalMapFragment(serializer, metadata.detailsBytes) ??
+              <String, dynamic>{};
+    final message = Error(
+      metadata.primaryId,
+      metadata.secondaryId,
+      details,
+      metadata.stringA,
+    );
+    _applyLazyPayload(message, serializer, argsBytes, kwargsBytes);
+    return message;
+  }
   return null;
 }
 
-bool _supportsSessionDirectMessage(int code) {
-  return code == MessageTypes.codeEvent ||
+bool _supportsSessionMetadataMessage(int code) {
+  return code == MessageTypes.codeChallenge ||
+      code == MessageTypes.codeWelcome ||
+      code == MessageTypes.codeAbort ||
+      code == MessageTypes.codePublished ||
+      code == MessageTypes.codeSubscribed ||
+      code == MessageTypes.codeEvent ||
+      code == MessageTypes.codeUnsubscribed ||
       code == MessageTypes.codeResult ||
-      code == MessageTypes.codeInvocation;
+      code == MessageTypes.codeRegistered ||
+      code == MessageTypes.codeInvocation ||
+      code == MessageTypes.codeUnregistered ||
+      code == MessageTypes.codeGoodbye ||
+      code == MessageTypes.codeError;
 }
 
 Object? _decodePayload(NativeMessageSerializer serializer, Uint8List bytes) {
@@ -196,6 +328,43 @@ Object? _decodePayload(NativeMessageSerializer serializer, Uint8List bytes) {
         'Serializer ${serializer.name} is not supported for inbound messages',
       );
   }
+}
+
+Map<String, dynamic>? _decodeOptionalMapFragment(
+  NativeMessageSerializer serializer,
+  Uint8List? bytes,
+) {
+  if (bytes == null) {
+    return null;
+  }
+  final decoded = _decodeFragment(serializer, bytes);
+  if (decoded == null) {
+    return null;
+  }
+  if (decoded is Map) {
+    return decoded.map((key, value) => MapEntry(key.toString(), value));
+  }
+  throw ArgumentError('Expected details map but got $decoded');
+}
+
+List<dynamic>? _decodeOptionalArgumentList(
+  NativeMessageSerializer serializer,
+  Uint8List? bytes,
+) {
+  if (bytes == null) {
+    return null;
+  }
+  return _decodeArgumentList(serializer, bytes);
+}
+
+Map<String, dynamic>? _decodeOptionalKeywordMap(
+  NativeMessageSerializer serializer,
+  Uint8List? bytes,
+) {
+  if (bytes == null) {
+    return null;
+  }
+  return _decodeKeywordMap(serializer, bytes);
 }
 
 AbstractMessage _bindDecoded(List<dynamic> message) {

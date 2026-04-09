@@ -14,7 +14,31 @@ AbstractMessage bindMessage(
   Uint8List bytes, {
   Uint8List? argsBytes,
   Uint8List? kwargsBytes,
+  int? metadataMessageCode,
+  int? metadataPrimaryId,
+  int? metadataSecondaryId,
+  int? metadataFlags,
+  Uint8List? metadataDetailsBytes,
+  String? metadataStringA,
 }) {
+  if (metadataMessageCode != null &&
+      metadataFlags != null &&
+      (metadataFlags & _metadataBindFlag) != 0) {
+    final metadataBound = bindMessageFromMetadata(
+      serializer,
+      messageCode: metadataMessageCode,
+      primaryId: metadataPrimaryId ?? 0,
+      secondaryId: metadataSecondaryId ?? 0,
+      flags: metadataFlags,
+      detailsBytes: metadataDetailsBytes,
+      stringA: metadataStringA,
+      argsBytes: argsBytes,
+      kwargsBytes: kwargsBytes,
+    );
+    if (metadataBound != null) {
+      return metadataBound;
+    }
+  }
   final decoded = _decodePayload(serializer, bytes);
   if (decoded is! List) {
     throw ArgumentError('Decoded WAMP message is not an array: $decoded');
@@ -23,6 +47,85 @@ AbstractMessage bindMessage(
     throw ArgumentError('WAMP message cannot be empty');
   }
   final message = _bindDecoded(decoded.cast<dynamic>());
+  if (message is AbstractMessageWithPayload) {
+    _applyLazyPayload(message, serializer, argsBytes, kwargsBytes);
+  }
+  return message;
+}
+
+const int _metadataBindFlag = 1 << 4;
+
+AbstractMessage? bindMessageFromMetadata(
+  NativeMessageSerializer serializer, {
+  required int messageCode,
+  required int primaryId,
+  required int secondaryId,
+  required int flags,
+  Uint8List? detailsBytes,
+  String? stringA,
+  Uint8List? argsBytes,
+  Uint8List? kwargsBytes,
+}) {
+  if ((flags & _metadataBindFlag) == 0) {
+    return null;
+  }
+
+  final detailsMap = _decodeOptionalMapFragment(serializer, detailsBytes);
+  AbstractMessage? message;
+  if (messageCode == MessageTypes.codeHello) {
+    message = stringA == null ? null : Hello(stringA, _mapDetails(detailsMap));
+  } else if (messageCode == MessageTypes.codeAuthenticate) {
+    message = Authenticate(signature: stringA)..extra = detailsMap;
+  } else if (messageCode == MessageTypes.codeAbort) {
+    message = Abort(stringA ?? '', message: detailsMap?['message'] as String?);
+  } else if (messageCode == MessageTypes.codeGoodbye) {
+    message = Goodbye(
+      detailsMap != null && detailsMap['message'] is String
+          ? GoodbyeMessage(detailsMap['message'] as String)
+          : null,
+      stringA ?? '',
+    );
+  } else if (messageCode == MessageTypes.codePublish) {
+    message = stringA == null
+        ? null
+        : Publish(primaryId, stringA, options: _mapPublishOptions(detailsMap));
+  } else if (messageCode == MessageTypes.codeSubscribe) {
+    message = stringA == null
+        ? null
+        : Subscribe(
+            primaryId,
+            stringA,
+            options: _mapSubscribeOptions(detailsMap),
+          );
+  } else if (messageCode == MessageTypes.codeUnsubscribe) {
+    message = Unsubscribe(primaryId, secondaryId);
+  } else if (messageCode == MessageTypes.codeCall) {
+    message = stringA == null
+        ? null
+        : Call(primaryId, stringA, options: _mapCallOptions(detailsMap));
+  } else if (messageCode == MessageTypes.codeCancel) {
+    message = Cancel(primaryId, options: _mapCancelOptions(detailsMap));
+  } else if (messageCode == MessageTypes.codeRegister) {
+    message = stringA == null
+        ? null
+        : Register(
+            primaryId,
+            stringA,
+            options: _mapRegisterOptions(detailsMap),
+          );
+  } else if (messageCode == MessageTypes.codeUnregister) {
+    message = Unregister(primaryId, secondaryId);
+  } else if (messageCode == MessageTypes.codeYield) {
+    message = Yield(primaryId, options: _mapYieldOptions(detailsMap));
+  } else if (messageCode == MessageTypes.codeError) {
+    message = Error(
+      primaryId,
+      secondaryId,
+      detailsMap ?? <String, dynamic>{},
+      stringA,
+    );
+  }
+
   if (message is AbstractMessageWithPayload) {
     _applyLazyPayload(message, serializer, argsBytes, kwargsBytes);
   }
@@ -286,6 +389,23 @@ Object? _decodeFragment(NativeMessageSerializer serializer, Uint8List bytes) {
         'Serializer ${serializer.name} is not supported for payload decoding',
       );
   }
+}
+
+Map<String, dynamic>? _decodeOptionalMapFragment(
+  NativeMessageSerializer serializer,
+  Uint8List? bytes,
+) {
+  if (bytes == null || bytes.isEmpty) {
+    return null;
+  }
+  final decoded = _decodeFragment(serializer, bytes);
+  if (decoded == null) {
+    return null;
+  }
+  if (decoded is Map) {
+    return decoded.map((key, value) => MapEntry(key.toString(), value));
+  }
+  throw ArgumentError('Expected metadata map but got $decoded');
 }
 
 Object? _decodeCborBytes(Uint8List bytes) {

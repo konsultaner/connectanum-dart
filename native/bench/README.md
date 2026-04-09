@@ -140,7 +140,9 @@ transport bench can compare serializer overhead directly, an optional
 `peer_serializer` field so the caller/publisher can talk to a real remote
 callee/subscriber using a different serializer, plus an `in_flight_per_session`
 knob (default `1`) that keeps multiple publishes/calls outstanding on each hot
-WAMP session. Example
+WAMP session. Native WebSocket WAMP workloads also accept
+`websocket_fragment_size` so a single encoded message can be sent as deliberate
+RFC 6455 continuation frames and benchmarked on the live router path. Example
 (`h2_smoke.toml`):
 
 ```toml
@@ -257,12 +259,12 @@ because the bench path does not pipeline H1 requests.
   pub/sub sweep that uses `peer_serializer` to open a real remote
   callee/subscriber with a different serializer, so JSON/MessagePack/CBOR
   bridge costs can be compared directly for both Dart and native clients.
-- The current WAMP scenarios do not intentionally fragment WebSocket messages
-  at the frame layer. Normal throughput/latency runs therefore act as
-  no-regression checks for the segmented native WebSocket parser path; the
-  actual continuation/fragmentation behavior is pinned today by the Rust
-  transport tests and Dart router integration tests instead of a dedicated bench
-  workload.
+- `wamp_websocket_fragmentation_throughput.toml` – 64 KiB native WebSocket
+  MsgPack/CBOR RPC + pub/sub sweep that compares contiguous sends against
+  explicit continuation-frame workloads (`websocket_fragment_size = 4096`) on
+  the same live router path, so the segmented native WebSocket
+  parser/storage path and contiguous masked-writer path are both measured
+  directly instead of only pinned by transport regressions.
 - `all_transports_smoke.toml` – quick cross-transport smoke covering RawSocket,
   WebSocket, HTTP/1.1, HTTP/2, and HTTP/3 in one run. The WAMP side now mixes
   JSON, MessagePack, and CBOR across RawSocket/WebSocket workloads so serializer
@@ -513,6 +515,9 @@ hot-session path now lands roughly at:
 - `wamp_client_impl_smoke.toml`: native still wins the small-message RPC and
   pub/sub smoke workloads in this environment after `ct_ffi` started
   exporting direct-bind metadata for common inbound WAMP messages, the
+  metadata-only set expanded to carry encoded detail-map bytes for richer
+  `CHALLENGE` / `WELCOME` / `ABORT` / `EVENT` / `RESULT` / `INVOCATION` /
+  `GOODBYE` / `ERROR` messages, the
   dedicated waitable-FFI receive isolate started batch-draining already-ready
   handles per connection before sending them back to the main isolate, and
   `Session.callSingle(...)` stopped rebuilding materialized `Result` objects
@@ -607,6 +612,12 @@ decoders instead of paying a full-array decode first. That change matters more
 for control-heavy smoke workloads than for large steady-state payload sweeps,
 so use `wamp_smoke.toml` or the client-implementation smoke scenarios when you
 want to see the direct effect.
+The native metadata-peek path now reaches both sides of the Dart boundary:
+client runtimes and the router runtime can bind common request/control WAMP
+messages from `ct_message_peek` metadata + encoded detail bytes without asking
+`ct_message_get` for a contiguous frame first. On the router side that now
+includes metadata-only `UNSUBSCRIBE`, so the remaining fallbacks are only the
+still-unsupported message shapes outside the handled request/control set.
 The same lazy path now keeps already-packed `pptScheme == 'wamp'` payload bytes
 intact across client outbound sends, invocation yields, and router
 internal-session event/result/invocation forwarding, so the benchmark no longer

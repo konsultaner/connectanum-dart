@@ -16,6 +16,13 @@ String? _readOptionalString(ffi.Pointer<ffi.Uint8> ptr, int len) {
   return utf8.decode(ptr.asTypedList(len));
 }
 
+Uint8List? _readOptionalBytes(ffi.Pointer<ffi.Uint8> ptr, int len) {
+  if (ptr == ffi.nullptr || len == 0) {
+    return null;
+  }
+  return ptr.asTypedList(len);
+}
+
 abstract final class NativeTransportErrorCode {
   static const success = 0;
   static const unsupported = -1;
@@ -255,6 +262,39 @@ class NativeClientRuntime {
     }
   }
 
+  void sendMessageFragmented(
+    int connectionId,
+    Uint8List payload, {
+    required int fragmentSize,
+  }) {
+    ensureStarted();
+    if (fragmentSize <= 0) {
+      throw ArgumentError.value(
+        fragmentSize,
+        'fragmentSize',
+        'fragmentSize must be > 0',
+      );
+    }
+    final dataPtr = malloc<ffi.Uint8>(payload.length);
+    try {
+      dataPtr.asTypedList(payload.length).setAll(0, payload);
+      final result = _bindings.ctSendMessageFragmented(
+        connectionId,
+        dataPtr,
+        payload.length,
+        fragmentSize,
+      );
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(
+          result,
+          'Failed to send fragmented native transport message',
+        );
+      }
+    } finally {
+      malloc.free(dataPtr);
+    }
+  }
+
   int pollMessageHandle(int connectionId) {
     ensureStarted();
     final result = _bindings.ctPollConnectionMessage(connectionId);
@@ -280,15 +320,12 @@ class NativeClientRuntime {
     ensureStarted();
     final infoPtr = calloc<CtMessageInfo>();
     try {
-      final result = _bindings.ctMessageGet(handle, infoPtr);
+      var result = _bindings.ctMessagePeek(handle, infoPtr);
       if (result != NativeTransportErrorCode.success) {
-        _throwForError(result, 'Failed to materialize native message');
+        _throwForError(result, 'Failed to peek native message');
       }
-      final info = infoPtr.ref;
+      var info = infoPtr.ref;
       final serializer = NativeMessageSerializer.fromId(info.serializer);
-      final frame = info.frameLen == 0
-          ? Uint8List(0)
-          : info.framePtr.asTypedList(info.frameLen);
       final args = info.argsLen == 0
           ? null
           : info.argsPtr.asTypedList(info.argsLen);
@@ -296,13 +333,35 @@ class NativeClientRuntime {
           ? null
           : info.kwargsPtr.asTypedList(info.kwargsLen);
       final metadata = _metadataFromFfi(info);
-      final message = bindSessionMessage(
-        serializer,
-        frame,
-        argsBytes: args,
-        kwargsBytes: kwargs,
-        metadata: metadata,
-      );
+
+      Uint8List frame;
+      Object message;
+      if (metadata.hasFlag(NativeMessageMetadata.flagMetadataBind)) {
+        frame = Uint8List(0);
+        message = bindSessionMessage(
+          serializer,
+          frame,
+          argsBytes: args,
+          kwargsBytes: kwargs,
+          metadata: metadata,
+        );
+      } else {
+        result = _bindings.ctMessageGet(handle, infoPtr);
+        if (result != NativeTransportErrorCode.success) {
+          _throwForError(result, 'Failed to materialize native message');
+        }
+        info = infoPtr.ref;
+        frame = info.frameLen == 0
+            ? Uint8List(0)
+            : info.framePtr.asTypedList(info.frameLen);
+        message = bindSessionMessage(
+          serializer,
+          frame,
+          argsBytes: args,
+          kwargsBytes: kwargs,
+          metadata: metadata,
+        );
+      }
       final incoming = NativeIncomingMessage._(
         message: message,
         bytes: frame,
@@ -337,7 +396,7 @@ class NativeClientRuntime {
 
 NativeMessageMetadata _metadataFromFfi(CtMessageInfo info) {
   final flags = info.flags;
-  final directBind = (flags & NativeMessageMetadata.flagDirectBind) != 0;
+  final metadataBind = (flags & NativeMessageMetadata.flagMetadataBind) != 0;
   return NativeMessageMetadata(
     messageCode: info.messageCode,
     primaryId: info.primaryId,
@@ -345,19 +404,22 @@ NativeMessageMetadata _metadataFromFfi(CtMessageInfo info) {
     detailNumberA: info.detailNumberA,
     detailNumberB: info.detailNumberB,
     flags: flags,
-    stringA: directBind
+    detailsBytes: metadataBind
+        ? _readOptionalBytes(info.detailsPtr, info.detailsLen)
+        : null,
+    stringA: metadataBind
         ? _readOptionalString(info.stringAPtr, info.stringALen)
         : null,
-    stringB: directBind
+    stringB: metadataBind
         ? _readOptionalString(info.stringBPtr, info.stringBLen)
         : null,
-    stringC: directBind
+    stringC: metadataBind
         ? _readOptionalString(info.stringCPtr, info.stringCLen)
         : null,
-    stringD: directBind
+    stringD: metadataBind
         ? _readOptionalString(info.stringDPtr, info.stringDLen)
         : null,
-    stringE: directBind
+    stringE: metadataBind
         ? _readOptionalString(info.stringEPtr, info.stringELen)
         : null,
   );

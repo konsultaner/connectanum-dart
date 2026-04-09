@@ -2575,7 +2575,9 @@ NativeSessionMessage _nativeDirectResultMessage({
       secondaryId: 0,
       detailNumberA: 0,
       detailNumberB: 0,
-      flags: NativeMessageMetadata.flagDirectBind,
+      flags:
+          NativeMessageMetadata.flagDirectBind |
+          NativeMessageMetadata.flagMetadataBind,
       stringA: pptScheme,
       stringB: pptSerializer,
     ),
@@ -2599,7 +2601,9 @@ NativeSessionMessage _nativeDirectEventMessage({
       secondaryId: publicationId,
       detailNumberA: 0,
       detailNumberB: 0,
-      flags: NativeMessageMetadata.flagDirectBind,
+      flags:
+          NativeMessageMetadata.flagDirectBind |
+          NativeMessageMetadata.flagMetadataBind,
       stringA: topic,
       stringB: pptScheme,
       stringC: pptSerializer,
@@ -2624,7 +2628,9 @@ NativeSessionMessage _nativeDirectInvocationMessage({
       secondaryId: registrationId,
       detailNumberA: 0,
       detailNumberB: 0,
-      flags: NativeMessageMetadata.flagDirectBind,
+      flags:
+          NativeMessageMetadata.flagDirectBind |
+          NativeMessageMetadata.flagMetadataBind,
       stringA: procedure,
       stringB: pptScheme,
       stringC: pptSerializer,

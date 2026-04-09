@@ -77,6 +77,7 @@ use super::state::{
     with_http2_handshake, with_http3_handshake, with_http3_stream, with_http_body,
     with_http_connection_event, with_http_handshake, with_http_response_stream, with_message,
     with_websocket_handshake, HttpMetadata, StoredHttpHandshakePayload, StoredMessage,
+    StoredRawFrame,
 };
 use rmp::encode::{write_array_len, write_u64};
 use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
@@ -262,6 +263,55 @@ fn option_bytes_ptr(bytes: &Option<Bytes>) -> (*const u8, usize) {
     match bytes {
         Some(data) => (data.as_ptr(), data.len()),
         None => (ptr::null(), 0),
+    }
+}
+
+fn encode_value_map_bytes(
+    serializer: RawSocketSerializer,
+    map: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
+) -> Option<Bytes> {
+    let encoded = match serializer {
+        RawSocketSerializer::Json => serde_json::to_vec(map).ok()?,
+        RawSocketSerializer::MessagePack => rmp_serde::to_vec(map).ok()?,
+        RawSocketSerializer::Cbor => serde_cbor::to_vec(map).ok()?,
+        RawSocketSerializer::Ubjson | RawSocketSerializer::Flatbuffers => return None,
+    };
+    Some(Bytes::from(encoded))
+}
+
+fn extract_detail_bytes(serializer: RawSocketSerializer, message: &WampMessage) -> Option<Bytes> {
+    match message {
+        WampMessage::Hello { details, .. }
+        | WampMessage::Publish {
+            options: details, ..
+        }
+        | WampMessage::Subscribe {
+            options: details, ..
+        }
+        | WampMessage::Call {
+            options: details, ..
+        }
+        | WampMessage::Cancel {
+            options: details, ..
+        }
+        | WampMessage::Register {
+            options: details, ..
+        }
+        | WampMessage::Welcome { details, .. }
+        | WampMessage::Abort { details, .. }
+        | WampMessage::Goodbye { details, .. }
+        | WampMessage::Error { details, .. }
+        | WampMessage::Unsubscribed { details, .. }
+        | WampMessage::Event { details, .. }
+        | WampMessage::Result { details, .. }
+        | WampMessage::Invocation { details, .. }
+        | WampMessage::Yield {
+            options: details, ..
+        } => encode_value_map_bytes(serializer, details),
+        WampMessage::Challenge { extra, .. } | WampMessage::Authenticate { extra, .. } => {
+            encode_value_map_bytes(serializer, extra)
+        }
+        _ => None,
     }
 }
 
@@ -2143,6 +2193,8 @@ pub struct CtMessageInfo {
     pub args_len: usize,
     pub kwargs_ptr: *const u8,
     pub kwargs_len: usize,
+    pub details_ptr: *const u8,
+    pub details_len: usize,
     pub primary_id: u64,
     pub secondary_id: u64,
     pub detail_number_a: u64,
@@ -2164,6 +2216,7 @@ const CT_MESSAGE_FLAG_DIRECT_BIND: u32 = 1 << 0;
 const CT_MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT: u32 = 1 << 1;
 const CT_MESSAGE_FLAG_DETAIL_NUMBER_B_PRESENT: u32 = 1 << 2;
 const CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE: u32 = 1 << 3;
+const CT_MESSAGE_FLAG_METADATA_BIND: u32 = 1 << 4;
 
 fn serializer_id(serializer: ct_core::RawSocketSerializer) -> u8 {
     match serializer {
@@ -2389,28 +2442,131 @@ fn populate_invocation_details_info(
     true
 }
 
-fn build_message_info(msg: &StoredMessage) -> CtMessageInfo {
+fn populate_welcome_details_info(
+    info: &mut CtMessageInfo,
+    details: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
+) -> bool {
+    for (key, value) in details {
+        match serde_key_str(key) {
+            Some("realm") => match serde_value_str(value) {
+                Some(text) => set_string_a(info, Some(text)),
+                None => return false,
+            },
+            Some("authid") => match serde_value_str(value) {
+                Some(text) => set_string_b(info, Some(text)),
+                None => return false,
+            },
+            Some("authrole") => match serde_value_str(value) {
+                Some(text) => set_string_c(info, Some(text)),
+                None => return false,
+            },
+            Some("authmethod") => match serde_value_str(value) {
+                Some(text) => set_string_d(info, Some(text)),
+                None => return false,
+            },
+            Some("authprovider") => match serde_value_str(value) {
+                Some(text) => set_string_e(info, Some(text)),
+                None => return false,
+            },
+            _ => return false,
+        }
+    }
+    true
+}
+
+fn populate_message_only_details_info(
+    info: &mut CtMessageInfo,
+    details: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
+) -> bool {
+    for (key, value) in details {
+        match serde_key_str(key) {
+            Some("message") => match serde_value_str(value) {
+                Some(text) => set_string_b(info, Some(text)),
+                None => return false,
+            },
+            _ => return false,
+        }
+    }
+    true
+}
+
+fn build_message_info(msg: &StoredMessage, include_frame: bool) -> CtMessageInfo {
+    let raw = include_frame.then(|| msg.raw.bytes());
     let (args_ptr, args_len) = option_bytes_ptr(&msg.args);
     let (kwargs_ptr, kwargs_len) = option_bytes_ptr(&msg.kwargs);
+    let (details_ptr, details_len) = option_bytes_ptr(&msg.details);
     let mut info = CtMessageInfo {
         serializer: serializer_id(msg.serializer),
         message_code: msg.code,
-        frame_ptr: msg.raw.as_ptr(),
-        frame_len: msg.raw.len(),
+        frame_ptr: raw.map_or(ptr::null(), |raw| raw.as_ptr()),
+        frame_len: raw.map_or(0, Bytes::len),
         args_ptr,
         args_len,
         kwargs_ptr,
         kwargs_len,
+        details_ptr,
+        details_len,
         ..CtMessageInfo::default()
     };
     match &msg.message {
+        WampMessage::Hello { realm, .. } => {
+            info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            set_string_a(&mut info, Some(realm));
+        }
+        WampMessage::Welcome {
+            session_id,
+            details,
+        } => {
+            info.primary_id = *session_id;
+            if msg.details.is_some() {
+                info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            }
+            if populate_welcome_details_info(&mut info, details) {
+                info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
+            }
+        }
+        WampMessage::Challenge { auth_method, .. } => {
+            set_string_a(&mut info, Some(auth_method));
+            if msg.details.is_some() {
+                info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            }
+        }
+        WampMessage::Authenticate { signature, .. } => {
+            info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            set_string_a(&mut info, Some(signature));
+        }
+        WampMessage::Abort {
+            details, reason, ..
+        } => {
+            set_string_a(&mut info, Some(reason));
+            if msg.details.is_some() {
+                info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            }
+            if populate_message_only_details_info(&mut info, details) {
+                info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
+            }
+        }
         WampMessage::Published {
             request_id,
             publication_id,
         } => {
             info.primary_id = *request_id;
             info.secondary_id = *publication_id;
-            info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND;
+            info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
+        }
+        WampMessage::Publish {
+            request_id, topic, ..
+        } => {
+            info.primary_id = *request_id;
+            set_string_a(&mut info, Some(topic));
+            info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+        }
+        WampMessage::Subscribe {
+            request_id, topic, ..
+        } => {
+            info.primary_id = *request_id;
+            set_string_a(&mut info, Some(topic));
+            info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
         }
         WampMessage::Subscribed {
             request_id,
@@ -2418,7 +2574,15 @@ fn build_message_info(msg: &StoredMessage) -> CtMessageInfo {
         } => {
             info.primary_id = *request_id;
             info.secondary_id = *subscription_id;
-            info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND;
+            info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
+        }
+        WampMessage::Unsubscribe {
+            request_id,
+            subscription_id,
+        } => {
+            info.primary_id = *request_id;
+            info.secondary_id = *subscription_id;
+            info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
         }
         WampMessage::Registered {
             request_id,
@@ -2426,11 +2590,47 @@ fn build_message_info(msg: &StoredMessage) -> CtMessageInfo {
         } => {
             info.primary_id = *request_id;
             info.secondary_id = *registration_id;
-            info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND;
+            info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
         }
         WampMessage::Unregistered { request_id } => {
             info.primary_id = *request_id;
-            info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND;
+            info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
+        }
+        WampMessage::Call {
+            request_id,
+            procedure,
+            ..
+        } => {
+            info.primary_id = *request_id;
+            set_string_a(&mut info, Some(procedure));
+            info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+        }
+        WampMessage::Cancel { request_id, .. } => {
+            info.primary_id = *request_id;
+            info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+        }
+        WampMessage::Register {
+            request_id,
+            procedure,
+            ..
+        } => {
+            info.primary_id = *request_id;
+            set_string_a(&mut info, Some(procedure));
+            info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+        }
+        WampMessage::Unregister {
+            request_id,
+            registration_id,
+        } => {
+            info.primary_id = *request_id;
+            info.secondary_id = *registration_id;
+            info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+        }
+        WampMessage::Unsubscribed { request_id, .. } => {
+            info.primary_id = *request_id;
+            if msg.details.is_some() {
+                info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            }
         }
         WampMessage::Event {
             subscription_id,
@@ -2440,8 +2640,11 @@ fn build_message_info(msg: &StoredMessage) -> CtMessageInfo {
         } => {
             info.primary_id = *subscription_id;
             info.secondary_id = *publication_id;
+            if msg.details.is_some() {
+                info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            }
             if populate_event_details_info(&mut info, details) {
-                info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND;
+                info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
             }
         }
         WampMessage::Result {
@@ -2450,8 +2653,11 @@ fn build_message_info(msg: &StoredMessage) -> CtMessageInfo {
             ..
         } => {
             info.primary_id = *request_id;
+            if msg.details.is_some() {
+                info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            }
             if populate_result_details_info(&mut info, details) {
-                info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND;
+                info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
             }
         }
         WampMessage::Invocation {
@@ -2462,8 +2668,45 @@ fn build_message_info(msg: &StoredMessage) -> CtMessageInfo {
         } => {
             info.primary_id = *request_id;
             info.secondary_id = *registration_id;
+            if msg.details.is_some() {
+                info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            }
             if populate_invocation_details_info(&mut info, details) {
-                info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND;
+                info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
+            }
+        }
+        WampMessage::Yield { request_id, .. } => {
+            info.primary_id = *request_id;
+            if msg.details.is_some() {
+                info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            }
+        }
+        WampMessage::Goodbye {
+            details, reason, ..
+        } => {
+            set_string_a(&mut info, Some(reason));
+            if msg.details.is_some() {
+                info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            }
+            if populate_message_only_details_info(&mut info, details) {
+                info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
+            }
+        }
+        WampMessage::Error {
+            request_type,
+            request_id,
+            details,
+            error,
+            ..
+        } => {
+            info.primary_id = *request_type;
+            info.secondary_id = *request_id;
+            set_string_a(&mut info, Some(error));
+            if msg.details.is_some() {
+                info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            }
+            if populate_message_only_details_info(&mut info, details) {
+                info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
             }
         }
         _ => {}
@@ -2478,11 +2721,13 @@ fn store_parsed_message(parsed: ct_core::ParsedMessage) -> c_int {
         serializer,
     } = parsed;
     let (args, kwargs) = extract_payload_slices(&message);
+    let details = extract_detail_bytes(serializer, &message);
     let info = StoredMessage {
         serializer,
         code: message.code(),
-        raw: raw.into_bytes(),
+        raw: StoredRawFrame::from_raw(raw),
         message,
+        details,
         args,
         kwargs,
     };
@@ -2549,11 +2794,13 @@ pub extern "C" fn ct_test_message_enqueue(
             serializer: _,
         }) => {
             let (args, kwargs) = extract_payload_slices(&message);
+            let details = extract_detail_bytes(serializer, &message);
             let handle = store_message(StoredMessage {
                 serializer,
                 code: message.code(),
-                raw: raw.into_bytes(),
+                raw: StoredRawFrame::from_raw(raw),
                 message,
+                details,
                 args,
                 kwargs,
             });
@@ -3060,12 +3307,69 @@ pub extern "C" fn ct_send_message(
 }
 
 #[no_mangle]
+pub extern "C" fn ct_send_message_fragmented(
+    connection_id: c_int,
+    payload_ptr: *const u8,
+    payload_len: c_int,
+    fragment_len: c_int,
+) -> c_int {
+    if payload_len < 0 || fragment_len <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let connection_id = ConnectionId(connection_id as u32);
+    let payload = if payload_len == 0 {
+        Bytes::new()
+    } else {
+        if payload_ptr.is_null() {
+            return ERR_INVALID_ARGUMENT;
+        }
+        let slice = unsafe { std::slice::from_raw_parts(payload_ptr, payload_len as usize) };
+        Bytes::copy_from_slice(slice)
+    };
+    if payload.is_empty() || fragment_len as usize >= payload.len() {
+        return match send_wamp_message(connection_id, payload) {
+            Ok(()) => SUCCESS,
+            Err(err) => map_error(err),
+        };
+    }
+    let fragment_len = fragment_len as usize;
+    let mut segments = Vec::with_capacity(payload.len().div_ceil(fragment_len));
+    let mut offset = 0usize;
+    while offset < payload.len() {
+        let end = (offset + fragment_len).min(payload.len());
+        segments.push(payload.slice(offset..end));
+        offset = end;
+    }
+    match send_wamp_segments(connection_id, segments) {
+        Ok(()) => SUCCESS,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn ct_message_get(handle: c_int, out_info: *mut CtMessageInfo) -> c_int {
     if out_info.is_null() || handle <= 0 {
         return ERR_INVALID_ARGUMENT;
     }
     let handle_u32 = handle as u32;
-    match with_message(handle_u32, build_message_info) {
+    match with_message(handle_u32, |message| build_message_info(message, true)) {
+        Some(info) => {
+            unsafe {
+                out_info.write(info);
+            }
+            SUCCESS
+        }
+        None => ERR_INVALID_ARGUMENT,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_message_peek(handle: c_int, out_info: *mut CtMessageInfo) -> c_int {
+    if out_info.is_null() || handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let handle_u32 = handle as u32;
+    match with_message(handle_u32, |message| build_message_info(message, false)) {
         Some(info) => {
             unsafe {
                 out_info.write(info);
@@ -3539,7 +3843,8 @@ pub extern "C" fn ct_set_on_connection(callback: extern "C" fn(c_int, c_int)) {
 mod tests {
     use super::*;
     use bytes::Bytes;
-    use ct_core::{WampMessage, WampPayload};
+    use ct_core::{parse_message_segments, WampMessage, WampPayload, WampRawFrame};
+    use rmp_serde::encode::to_vec as to_msgpack;
     use serde_json::json;
     use std::collections::BTreeMap;
 
@@ -3569,7 +3874,7 @@ mod tests {
         let publish = StoredMessage {
             serializer: RawSocketSerializer::Cbor,
             code: 16,
-            raw: Bytes::new(),
+            raw: StoredRawFrame::from_bytes(Bytes::new()),
             message: WampMessage::Publish {
                 request_id: 1,
                 options: publish_options,
@@ -3579,6 +3884,7 @@ mod tests {
                     kwargs: Some(kwargs.clone()),
                 },
             },
+            details: None,
             args: Some(args.clone()),
             kwargs: Some(kwargs.clone()),
         };
@@ -3615,7 +3921,7 @@ mod tests {
         let call = StoredMessage {
             serializer: RawSocketSerializer::Cbor,
             code: 48,
-            raw: Bytes::new(),
+            raw: StoredRawFrame::from_bytes(Bytes::new()),
             message: WampMessage::Call {
                 request_id: 2,
                 options: call_options,
@@ -3625,6 +3931,7 @@ mod tests {
                     kwargs: Some(kwargs.clone()),
                 },
             },
+            details: None,
             args: Some(args),
             kwargs: Some(kwargs),
         };
@@ -3665,7 +3972,7 @@ mod tests {
         let yield_message = StoredMessage {
             serializer: RawSocketSerializer::Cbor,
             code: 70,
-            raw: Bytes::new(),
+            raw: StoredRawFrame::from_bytes(Bytes::new()),
             message: WampMessage::Yield {
                 request_id: 3,
                 options: yield_options,
@@ -3674,6 +3981,7 @@ mod tests {
                     kwargs: Some(kwargs.clone()),
                 },
             },
+            details: None,
             args: Some(args.clone()),
             kwargs: Some(kwargs.clone()),
         };
@@ -3687,7 +3995,7 @@ mod tests {
         let error_message = StoredMessage {
             serializer: RawSocketSerializer::Cbor,
             code: 8,
-            raw: Bytes::new(),
+            raw: StoredRawFrame::from_bytes(Bytes::new()),
             message: WampMessage::Error {
                 request_type: 68,
                 request_id: 123,
@@ -3698,6 +4006,7 @@ mod tests {
                     kwargs: Some(kwargs.clone()),
                 },
             },
+            details: None,
             args: Some(args),
             kwargs: Some(kwargs),
         };
@@ -3714,6 +4023,289 @@ mod tests {
                 ["payload"],
                 {"flag": true}
             ])
+        );
+    }
+
+    #[test]
+    fn stored_segmented_raw_frame_flattens_only_on_message_get() {
+        let value = json!([50, 77, {}, ["payload"], {"flag": true}]);
+        let encoded = Bytes::from(to_msgpack(&value).unwrap());
+        let split = encoded.len() / 2;
+        let parsed = parse_message_segments(
+            RawSocketSerializer::MessagePack,
+            vec![encoded.slice(0..split), encoded.slice(split..encoded.len())],
+        )
+        .expect("segmented msgpack parse");
+        assert!(matches!(parsed.raw, WampRawFrame::Segmented { .. }));
+
+        let handle = store_parsed_message(parsed) as u32;
+
+        with_message(handle, |message| {
+            assert!(message.raw.is_segmented());
+            assert!(!message.raw.has_contiguous_cache());
+        })
+        .expect("stored message available");
+
+        let mut info = CtMessageInfo::default();
+        assert_eq!(ct_message_get(handle as c_int, &mut info), SUCCESS);
+        assert_eq!(info.frame_len, encoded.len());
+
+        with_message(handle, |message| {
+            assert!(message.raw.is_segmented());
+            assert!(message.raw.has_contiguous_cache());
+        })
+        .expect("stored message available after materialize");
+
+        ct_message_release(handle as c_int);
+    }
+
+    #[test]
+    fn stored_segmented_raw_frame_stays_lazy_on_message_peek() {
+        let value = json!([50, 77, {}, ["payload"], {"flag": true}]);
+        let encoded = Bytes::from(to_msgpack(&value).unwrap());
+        let split = encoded.len() / 2;
+        let parsed = parse_message_segments(
+            RawSocketSerializer::MessagePack,
+            vec![encoded.slice(0..split), encoded.slice(split..encoded.len())],
+        )
+        .expect("segmented msgpack parse");
+        assert!(matches!(parsed.raw, WampRawFrame::Segmented { .. }));
+
+        let handle = store_parsed_message(parsed) as u32;
+
+        with_message(handle, |message| {
+            assert!(message.raw.is_segmented());
+            assert!(!message.raw.has_contiguous_cache());
+        })
+        .expect("stored message available");
+
+        let mut info = CtMessageInfo::default();
+        assert_eq!(ct_message_peek(handle as c_int, &mut info), SUCCESS);
+        assert_eq!(info.frame_len, 0);
+        assert!(info.frame_ptr.is_null());
+
+        with_message(handle, |message| {
+            assert!(message.raw.is_segmented());
+            assert!(!message.raw.has_contiguous_cache());
+        })
+        .expect("stored message available after peek");
+
+        ct_message_release(handle as c_int);
+    }
+
+    #[test]
+    fn router_request_messages_export_metadata_bind_info() {
+        let mut hello_details = BTreeMap::new();
+        hello_details.insert(
+            SerdeValue::String("roles".into()),
+            SerdeValue::Map(BTreeMap::new()),
+        );
+        let hello = StoredMessage {
+            serializer: RawSocketSerializer::Json,
+            code: 1,
+            raw: StoredRawFrame::from_bytes(Bytes::from_static(br#"[1,"bench.realm",{}]"#)),
+            message: WampMessage::Hello {
+                realm: "bench.realm".into(),
+                details: hello_details,
+            },
+            details: Some(Bytes::from_static(br#"{"roles":{}}"#)),
+            args: None,
+            kwargs: None,
+        };
+        let hello_info = build_message_info(&hello, false);
+        assert_eq!(hello_info.frame_len, 0);
+        assert_eq!(
+            hello_info.flags & CT_MESSAGE_FLAG_METADATA_BIND,
+            CT_MESSAGE_FLAG_METADATA_BIND
+        );
+        unsafe {
+            let realm =
+                std::slice::from_raw_parts(hello_info.string_a_ptr, hello_info.string_a_len);
+            assert_eq!(std::str::from_utf8(realm).unwrap(), "bench.realm");
+        }
+
+        let mut auth_extra = BTreeMap::new();
+        auth_extra.insert(
+            SerdeValue::String("nonce".into()),
+            SerdeValue::String("abc123".into()),
+        );
+        let authenticate = StoredMessage {
+            serializer: RawSocketSerializer::Json,
+            code: 5,
+            raw: StoredRawFrame::from_bytes(Bytes::from_static(br#"[5,"sig",{"nonce":"abc123"}]"#)),
+            message: WampMessage::Authenticate {
+                signature: "sig".into(),
+                extra: auth_extra,
+            },
+            details: Some(Bytes::from_static(br#"{"nonce":"abc123"}"#)),
+            args: None,
+            kwargs: None,
+        };
+        let authenticate_info = build_message_info(&authenticate, false);
+        assert_eq!(
+            authenticate_info.flags & CT_MESSAGE_FLAG_METADATA_BIND,
+            CT_MESSAGE_FLAG_METADATA_BIND
+        );
+        unsafe {
+            let signature = std::slice::from_raw_parts(
+                authenticate_info.string_a_ptr,
+                authenticate_info.string_a_len,
+            );
+            assert_eq!(std::str::from_utf8(signature).unwrap(), "sig");
+        }
+
+        let mut publish_options = BTreeMap::new();
+        publish_options.insert(
+            SerdeValue::String("acknowledge".into()),
+            SerdeValue::Bool(true),
+        );
+        let publish = StoredMessage {
+            serializer: RawSocketSerializer::Json,
+            code: 16,
+            raw: StoredRawFrame::from_bytes(Bytes::from_static(
+                br#"[16,7,{"acknowledge":true},"bench.topic"]"#,
+            )),
+            message: WampMessage::Publish {
+                request_id: 7,
+                options: publish_options,
+                topic: "bench.topic".into(),
+                payload: WampPayload::default(),
+            },
+            details: Some(Bytes::from_static(br#"{"acknowledge":true}"#)),
+            args: None,
+            kwargs: None,
+        };
+        let publish_info = build_message_info(&publish, false);
+        assert_eq!(publish_info.primary_id, 7);
+        assert_eq!(
+            publish_info.flags & CT_MESSAGE_FLAG_METADATA_BIND,
+            CT_MESSAGE_FLAG_METADATA_BIND
+        );
+        unsafe {
+            let topic =
+                std::slice::from_raw_parts(publish_info.string_a_ptr, publish_info.string_a_len);
+            assert_eq!(std::str::from_utf8(topic).unwrap(), "bench.topic");
+        }
+
+        let mut cancel_options = BTreeMap::new();
+        cancel_options.insert(
+            SerdeValue::String("mode".into()),
+            SerdeValue::String("killnowait".into()),
+        );
+        let cancel = StoredMessage {
+            serializer: RawSocketSerializer::Json,
+            code: 49,
+            raw: StoredRawFrame::from_bytes(Bytes::from_static(br#"[49,9,{"mode":"killnowait"}]"#)),
+            message: WampMessage::Cancel {
+                request_id: 9,
+                options: cancel_options,
+            },
+            details: Some(Bytes::from_static(br#"{"mode":"killnowait"}"#)),
+            args: None,
+            kwargs: None,
+        };
+        let cancel_info = build_message_info(&cancel, false);
+        assert_eq!(cancel_info.primary_id, 9);
+        assert_eq!(
+            cancel_info.flags & CT_MESSAGE_FLAG_METADATA_BIND,
+            CT_MESSAGE_FLAG_METADATA_BIND
+        );
+
+        let mut register_options = BTreeMap::new();
+        register_options.insert(
+            SerdeValue::String("invoke".into()),
+            SerdeValue::String("roundrobin".into()),
+        );
+        let register = StoredMessage {
+            serializer: RawSocketSerializer::Json,
+            code: 64,
+            raw: StoredRawFrame::from_bytes(Bytes::from_static(
+                br#"[64,11,{"invoke":"roundrobin"},"bench.proc"]"#,
+            )),
+            message: WampMessage::Register {
+                request_id: 11,
+                options: register_options,
+                procedure: "bench.proc".into(),
+            },
+            details: Some(Bytes::from_static(br#"{"invoke":"roundrobin"}"#)),
+            args: None,
+            kwargs: None,
+        };
+        let register_info = build_message_info(&register, false);
+        assert_eq!(register_info.primary_id, 11);
+        assert_eq!(
+            register_info.flags & CT_MESSAGE_FLAG_METADATA_BIND,
+            CT_MESSAGE_FLAG_METADATA_BIND
+        );
+        unsafe {
+            let procedure =
+                std::slice::from_raw_parts(register_info.string_a_ptr, register_info.string_a_len);
+            assert_eq!(std::str::from_utf8(procedure).unwrap(), "bench.proc");
+        }
+
+        let unregister = StoredMessage {
+            serializer: RawSocketSerializer::Json,
+            code: 66,
+            raw: StoredRawFrame::from_bytes(Bytes::from_static(br#"[66,12,99]"#)),
+            message: WampMessage::Unregister {
+                request_id: 12,
+                registration_id: 99,
+            },
+            details: None,
+            args: None,
+            kwargs: None,
+        };
+        let unregister_info = build_message_info(&unregister, false);
+        assert_eq!(unregister_info.primary_id, 12);
+        assert_eq!(unregister_info.secondary_id, 99);
+        assert_eq!(
+            unregister_info.flags & CT_MESSAGE_FLAG_METADATA_BIND,
+            CT_MESSAGE_FLAG_METADATA_BIND
+        );
+
+        let unsubscribe = StoredMessage {
+            serializer: RawSocketSerializer::Json,
+            code: 34,
+            raw: StoredRawFrame::from_bytes(Bytes::from_static(br#"[34,21,99]"#)),
+            message: WampMessage::Unsubscribe {
+                request_id: 21,
+                subscription_id: 99,
+            },
+            details: None,
+            args: None,
+            kwargs: None,
+        };
+        let unsubscribe_info = build_message_info(&unsubscribe, false);
+        assert_eq!(unsubscribe_info.primary_id, 21);
+        assert_eq!(unsubscribe_info.secondary_id, 99);
+        assert_eq!(
+            unsubscribe_info.flags & CT_MESSAGE_FLAG_METADATA_BIND,
+            CT_MESSAGE_FLAG_METADATA_BIND
+        );
+
+        let mut yield_options = BTreeMap::new();
+        yield_options.insert(
+            SerdeValue::String("progress".into()),
+            SerdeValue::Bool(true),
+        );
+        let yield_message = StoredMessage {
+            serializer: RawSocketSerializer::Json,
+            code: 70,
+            raw: StoredRawFrame::from_bytes(Bytes::from_static(br#"[70,13,{"progress":true}]"#)),
+            message: WampMessage::Yield {
+                request_id: 13,
+                options: yield_options,
+                payload: WampPayload::default(),
+            },
+            details: Some(Bytes::from_static(br#"{"progress":true}"#)),
+            args: None,
+            kwargs: None,
+        };
+        let yield_info = build_message_info(&yield_message, false);
+        assert_eq!(yield_info.primary_id, 13);
+        assert_eq!(
+            yield_info.flags & CT_MESSAGE_FLAG_METADATA_BIND,
+            CT_MESSAGE_FLAG_METADATA_BIND
         );
     }
 }
