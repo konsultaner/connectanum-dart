@@ -17,9 +17,14 @@ AbstractMessage bindMessage(
   int? metadataMessageCode,
   int? metadataPrimaryId,
   int? metadataSecondaryId,
+  int? metadataDetailNumberA,
   int? metadataFlags,
   Uint8List? metadataDetailsBytes,
   String? metadataStringA,
+  String? metadataStringB,
+  String? metadataStringC,
+  String? metadataStringD,
+  String? metadataStringE,
 }) {
   if (metadataMessageCode != null &&
       metadataFlags != null &&
@@ -29,9 +34,14 @@ AbstractMessage bindMessage(
       messageCode: metadataMessageCode,
       primaryId: metadataPrimaryId ?? 0,
       secondaryId: metadataSecondaryId ?? 0,
+      detailNumberA: metadataDetailNumberA ?? 0,
       flags: metadataFlags,
       detailsBytes: metadataDetailsBytes,
       stringA: metadataStringA,
+      stringB: metadataStringB,
+      stringC: metadataStringC,
+      stringD: metadataStringD,
+      stringE: metadataStringE,
       argsBytes: argsBytes,
       kwargsBytes: kwargsBytes,
     );
@@ -54,15 +64,26 @@ AbstractMessage bindMessage(
 }
 
 const int _metadataBindFlag = 1 << 4;
+const int _directBindFlag = 1 << 0;
+const int _detailNumberAPresentFlag = 1 << 1;
+const int _detailBoolATrueFlag = 1 << 3;
+const int _detailBoolBTrueFlag = 1 << 5;
+const int _detailBoolCTrueFlag = 1 << 6;
+const int _detailBoolDTrueFlag = 1 << 7;
 
 AbstractMessage? bindMessageFromMetadata(
   NativeMessageSerializer serializer, {
   required int messageCode,
   required int primaryId,
   required int secondaryId,
+  required int detailNumberA,
   required int flags,
   Uint8List? detailsBytes,
   String? stringA,
+  String? stringB,
+  String? stringC,
+  String? stringD,
+  String? stringE,
   Uint8List? argsBytes,
   Uint8List? kwargsBytes,
 }) {
@@ -70,15 +91,23 @@ AbstractMessage? bindMessageFromMetadata(
     return null;
   }
 
-  final detailsMap = _decodeOptionalMapFragment(serializer, detailsBytes);
+  final directBind = (flags & _directBindFlag) != 0;
   AbstractMessage? message;
   if (messageCode == MessageTypes.codeHello) {
+    final detailsMap = _decodeOptionalMapFragment(serializer, detailsBytes);
     message = stringA == null ? null : Hello(stringA, _mapDetails(detailsMap));
   } else if (messageCode == MessageTypes.codeAuthenticate) {
+    final detailsMap = _decodeOptionalMapFragment(serializer, detailsBytes);
     message = Authenticate(signature: stringA)..extra = detailsMap;
   } else if (messageCode == MessageTypes.codeAbort) {
+    final detailsMap = directBind
+        ? (stringB == null ? null : <String, dynamic>{'message': stringB})
+        : _decodeOptionalMapFragment(serializer, detailsBytes);
     message = Abort(stringA ?? '', message: detailsMap?['message'] as String?);
   } else if (messageCode == MessageTypes.codeGoodbye) {
+    final detailsMap = directBind
+        ? (stringB == null ? null : <String, dynamic>{'message': stringB})
+        : _decodeOptionalMapFragment(serializer, detailsBytes);
     message = Goodbye(
       detailsMap != null && detailsMap['message'] is String
           ? GoodbyeMessage(detailsMap['message'] as String)
@@ -88,41 +117,108 @@ AbstractMessage? bindMessageFromMetadata(
   } else if (messageCode == MessageTypes.codePublish) {
     message = stringA == null
         ? null
-        : Publish(primaryId, stringA, options: _mapPublishOptions(detailsMap));
+        : Publish(
+            primaryId,
+            stringA,
+            options: directBind
+                ? _mapPublishOptionsFromMetadata(
+                    flags,
+                    stringB,
+                    stringC,
+                    stringD,
+                    stringE,
+                  )
+                : _mapPublishOptions(
+                    _decodeOptionalMapFragment(serializer, detailsBytes),
+                  ),
+          );
   } else if (messageCode == MessageTypes.codeSubscribe) {
     message = stringA == null
         ? null
         : Subscribe(
             primaryId,
             stringA,
-            options: _mapSubscribeOptions(detailsMap),
+            options: directBind
+                ? _mapSubscribeOptionsFromMetadata(flags, stringB, stringC)
+                : _mapSubscribeOptions(
+                    _decodeOptionalMapFragment(serializer, detailsBytes),
+                  ),
           );
   } else if (messageCode == MessageTypes.codeUnsubscribe) {
     message = Unsubscribe(primaryId, secondaryId);
   } else if (messageCode == MessageTypes.codeCall) {
     message = stringA == null
         ? null
-        : Call(primaryId, stringA, options: _mapCallOptions(detailsMap));
+        : Call(
+            primaryId,
+            stringA,
+            options: directBind
+                ? _mapCallOptionsFromMetadata(
+                    flags,
+                    detailNumberA,
+                    stringB,
+                    stringC,
+                    stringD,
+                    stringE,
+                  )
+                : _mapCallOptions(
+                    _decodeOptionalMapFragment(serializer, detailsBytes),
+                  ),
+          );
   } else if (messageCode == MessageTypes.codeCancel) {
-    message = Cancel(primaryId, options: _mapCancelOptions(detailsMap));
+    message = Cancel(
+      primaryId,
+      options: directBind
+          ? _mapCancelOptionsFromMetadata(stringA)
+          : _mapCancelOptions(
+              _decodeOptionalMapFragment(serializer, detailsBytes),
+            ),
+    );
   } else if (messageCode == MessageTypes.codeRegister) {
     message = stringA == null
         ? null
         : Register(
             primaryId,
             stringA,
-            options: _mapRegisterOptions(detailsMap),
+            options: directBind
+                ? _mapRegisterOptionsFromMetadata(flags, stringB, stringC)
+                : _mapRegisterOptions(
+                    _decodeOptionalMapFragment(serializer, detailsBytes),
+                  ),
           );
   } else if (messageCode == MessageTypes.codeUnregister) {
     message = Unregister(primaryId, secondaryId);
   } else if (messageCode == MessageTypes.codeYield) {
-    message = Yield(primaryId, options: _mapYieldOptions(detailsMap));
-  } else if (messageCode == MessageTypes.codeError) {
-    message = Error(
+    message = Yield(
       primaryId,
-      secondaryId,
-      detailsMap ?? <String, dynamic>{},
-      stringA,
+      options: directBind
+          ? _mapYieldOptionsFromMetadata(
+              flags,
+              stringA,
+              stringB,
+              stringC,
+              stringD,
+            )
+          : _mapYieldOptions(
+              _decodeOptionalMapFragment(serializer, detailsBytes),
+            ),
+    );
+  } else if (messageCode == MessageTypes.codeError) {
+    final detailsMap = directBind
+        ? (stringB == null
+              ? <String, dynamic>{}
+              : <String, dynamic>{'message': stringB})
+        : _decodeOptionalMapFragment(serializer, detailsBytes) ??
+              <String, dynamic>{};
+    message = Error(primaryId, secondaryId, detailsMap, stringA);
+  } else if (messageCode == MessageTypes.codeUnsubscribed) {
+    message = Unsubscribed(
+      primaryId,
+      directBind
+          ? _mapUnsubscribedDetailsFromMetadata(flags, detailNumberA, stringA)
+          : _mapUnsubscribedDetails(
+              _decodeOptionalMapFragment(serializer, detailsBytes),
+            ),
     );
   }
 
@@ -625,6 +721,39 @@ PublishOptions? _mapPublishOptions(Map<String, dynamic>? map) {
   return options;
 }
 
+PublishOptions? _mapPublishOptionsFromMetadata(
+  int flags,
+  String? pptScheme,
+  String? pptSerializer,
+  String? pptCipher,
+  String? pptKeyId,
+) {
+  final acknowledge = (flags & _detailBoolATrueFlag) != 0 ? true : null;
+  final excludeMe = (flags & _detailBoolBTrueFlag) != 0 ? true : null;
+  final discloseMe = (flags & _detailBoolCTrueFlag) != 0 ? true : null;
+  final retain = (flags & _detailBoolDTrueFlag) != 0 ? true : null;
+  if (acknowledge == null &&
+      excludeMe == null &&
+      discloseMe == null &&
+      retain == null &&
+      pptScheme == null &&
+      pptSerializer == null &&
+      pptCipher == null &&
+      pptKeyId == null) {
+    return null;
+  }
+  return PublishOptions(
+    acknowledge: acknowledge,
+    excludeMe: excludeMe,
+    discloseMe: discloseMe,
+    retain: retain,
+    pptScheme: pptScheme,
+    pptSerializer: pptSerializer,
+    pptCipher: pptCipher,
+    pptKeyId: pptKeyId,
+  );
+}
+
 SubscribeOptions? _mapSubscribeOptions(Map<String, dynamic>? map) {
   if (map == null) return null;
   final options = SubscribeOptions(
@@ -636,6 +765,22 @@ SubscribeOptions? _mapSubscribeOptions(Map<String, dynamic>? map) {
     _extractCustomFields(map, const {'match', 'meta_topic', 'get_retained'}),
   );
   return options;
+}
+
+SubscribeOptions? _mapSubscribeOptionsFromMetadata(
+  int flags,
+  String? match,
+  String? metaTopic,
+) {
+  final getRetained = (flags & _detailBoolATrueFlag) != 0 ? true : null;
+  if (match == null && metaTopic == null && getRetained == null) {
+    return null;
+  }
+  return SubscribeOptions(
+    match: match,
+    metaTopic: metaTopic,
+    getRetained: getRetained,
+  );
 }
 
 CallOptions? _mapCallOptions(Map<String, dynamic>? map) {
@@ -663,10 +808,52 @@ CallOptions? _mapCallOptions(Map<String, dynamic>? map) {
   return options;
 }
 
+CallOptions? _mapCallOptionsFromMetadata(
+  int flags,
+  int timeout,
+  String? pptScheme,
+  String? pptSerializer,
+  String? pptCipher,
+  String? pptKeyId,
+) {
+  final receiveProgress = (flags & _detailBoolATrueFlag) != 0 ? true : null;
+  final discloseMe = (flags & _detailBoolBTrueFlag) != 0 ? true : null;
+  final resolvedTimeout = (flags & _detailNumberAPresentFlag) != 0
+      ? timeout
+      : null;
+  if (receiveProgress == null &&
+      resolvedTimeout == null &&
+      discloseMe == null &&
+      pptScheme == null &&
+      pptSerializer == null &&
+      pptCipher == null &&
+      pptKeyId == null) {
+    return null;
+  }
+  return CallOptions(
+    receiveProgress: receiveProgress,
+    timeout: resolvedTimeout,
+    discloseMe: discloseMe,
+    pptScheme: pptScheme,
+    pptSerializer: pptSerializer,
+    pptCipher: pptCipher,
+    pptKeyId: pptKeyId,
+  );
+}
+
 CancelOptions? _mapCancelOptions(Map<String, dynamic>? map) {
   if (map == null) return null;
   final options = CancelOptions();
   options.mode = map['mode'] as String?;
+  return options;
+}
+
+CancelOptions? _mapCancelOptionsFromMetadata(String? mode) {
+  if (mode == null) {
+    return null;
+  }
+  final options = CancelOptions();
+  options.mode = mode;
   return options;
 }
 
@@ -681,6 +868,22 @@ RegisterOptions? _mapRegisterOptions(Map<String, dynamic>? map) {
     _extractCustomFields(map, const {'disclose_caller', 'match', 'invoke'}),
   );
   return options;
+}
+
+RegisterOptions? _mapRegisterOptionsFromMetadata(
+  int flags,
+  String? match,
+  String? invoke,
+) {
+  final discloseCaller = (flags & _detailBoolATrueFlag) != 0 ? true : null;
+  if (discloseCaller == null && match == null && invoke == null) {
+    return null;
+  }
+  return RegisterOptions(
+    discloseCaller: discloseCaller,
+    match: match,
+    invoke: invoke,
+  );
 }
 
 YieldOptions? _mapYieldOptions(Map<String, dynamic>? map) {
@@ -702,6 +905,54 @@ YieldOptions? _mapYieldOptions(Map<String, dynamic>? map) {
     }),
   );
   return options;
+}
+
+YieldOptions? _mapYieldOptionsFromMetadata(
+  int flags,
+  String? pptScheme,
+  String? pptSerializer,
+  String? pptCipher,
+  String? pptKeyId,
+) {
+  final progress = (flags & _detailBoolATrueFlag) != 0 ? true : null;
+  if (progress == null &&
+      pptScheme == null &&
+      pptSerializer == null &&
+      pptCipher == null &&
+      pptKeyId == null) {
+    return null;
+  }
+  return YieldOptions(
+    progress: progress,
+    pptScheme: pptScheme,
+    pptSerializer: pptSerializer,
+    pptCipher: pptCipher,
+    pptKeyId: pptKeyId,
+  );
+}
+
+UnsubscribedDetails? _mapUnsubscribedDetails(Map<String, dynamic>? map) {
+  if (map == null) {
+    return null;
+  }
+  return UnsubscribedDetails(
+    _asInt(map['subscription']),
+    map['reason'] as String?,
+  );
+}
+
+UnsubscribedDetails? _mapUnsubscribedDetailsFromMetadata(
+  int flags,
+  int subscription,
+  String? reason,
+) {
+  final resolvedSubscription = (flags & _detailNumberAPresentFlag) != 0
+      ? subscription
+      : null;
+  if (resolvedSubscription == null && reason == null) {
+    return null;
+  }
+  return UnsubscribedDetails(resolvedSubscription, reason);
 }
 
 Map<String, dynamic> _extractCustomFields(

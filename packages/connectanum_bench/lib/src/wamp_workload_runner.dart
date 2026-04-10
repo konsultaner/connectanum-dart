@@ -42,6 +42,12 @@ class WampWorkloadRunner {
         return _runPubSubScenario(scenario);
       case WampMode.rpc:
         return _runRpcScenario(scenario);
+      case WampMode.publishAck:
+        return _runPublishAckScenario(scenario);
+      case WampMode.subscribeCycle:
+        return _runSubscribeCycleScenario(scenario);
+      case WampMode.registerCycle:
+        return _runRegisterCycleScenario(scenario);
     }
   }
 
@@ -285,6 +291,169 @@ class WampWorkloadRunner {
     );
   }
 
+  Future<List<WampSample>> _runPublishAckScenario(WampScenario scenario) async {
+    final payload = _buildPayloadString(scenario.payloadBytes);
+    final workers = List.generate(
+      scenario.concurrency,
+      (workerId) => _runPublishAckWorker(workerId, scenario, payload),
+    );
+    final results = await Future.wait(workers);
+    return results.expand((samples) => samples).toList(growable: false);
+  }
+
+  Future<List<WampSample>> _runPublishAckWorker(
+    int workerId,
+    WampScenario scenario,
+    String payload,
+  ) async {
+    final publisher = await _sessionFactory(scenario);
+    try {
+      return await _runWithInFlightLimit(
+        iterations: scenario.iterations,
+        maxInFlight: scenario.inFlightPerSession,
+        launch: (iteration) => _runPublishAckIteration(
+          workerId,
+          iteration,
+          scenario,
+          payload,
+          publisher,
+        ),
+      );
+    } finally {
+      await publisher.close();
+    }
+  }
+
+  Future<WampSample> _runPublishAckIteration(
+    int workerId,
+    int iteration,
+    WampScenario scenario,
+    String payload,
+    WampSession publisher,
+  ) async {
+    final topic = _iterationUri(scenario.uri, workerId, iteration);
+    final start = DateTime.now();
+    await publisher.publishLazyPayload(
+      topic,
+      payload: _buildLazyPayload(
+        scenario,
+        arguments: payload.isEmpty ? null : [payload],
+      ),
+      options: _buildControlPublishOptions(scenario),
+    );
+    final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
+    return WampSample(
+      worker: workerId,
+      iteration: iteration,
+      latencyMs: latencyMs,
+      requestBytes: scenario.payloadBytes,
+      responseBytes: 0,
+    );
+  }
+
+  Future<List<WampSample>> _runSubscribeCycleScenario(
+    WampScenario scenario,
+  ) async {
+    final workers = List.generate(
+      scenario.concurrency,
+      (workerId) => _runSubscribeCycleWorker(workerId, scenario),
+    );
+    final results = await Future.wait(workers);
+    return results.expand((samples) => samples).toList(growable: false);
+  }
+
+  Future<List<WampSample>> _runSubscribeCycleWorker(
+    int workerId,
+    WampScenario scenario,
+  ) async {
+    final session = await _sessionFactory(scenario);
+    try {
+      return await _runWithInFlightLimit(
+        iterations: scenario.iterations,
+        maxInFlight: scenario.inFlightPerSession,
+        launch: (iteration) =>
+            _runSubscribeCycleIteration(workerId, iteration, scenario, session),
+      );
+    } finally {
+      await session.close();
+    }
+  }
+
+  Future<WampSample> _runSubscribeCycleIteration(
+    int workerId,
+    int iteration,
+    WampScenario scenario,
+    WampSession session,
+  ) async {
+    final topic = _iterationUri(scenario.uri, workerId, iteration);
+    final start = DateTime.now();
+    final subscription = await session.subscribeLazyPayload(
+      topic,
+      options: _buildControlSubscribeOptions(),
+    );
+    await subscription.cancel();
+    final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
+    return WampSample(
+      worker: workerId,
+      iteration: iteration,
+      latencyMs: latencyMs,
+      requestBytes: 0,
+      responseBytes: 0,
+    );
+  }
+
+  Future<List<WampSample>> _runRegisterCycleScenario(
+    WampScenario scenario,
+  ) async {
+    final workers = List.generate(
+      scenario.concurrency,
+      (workerId) => _runRegisterCycleWorker(workerId, scenario),
+    );
+    final results = await Future.wait(workers);
+    return results.expand((samples) => samples).toList(growable: false);
+  }
+
+  Future<List<WampSample>> _runRegisterCycleWorker(
+    int workerId,
+    WampScenario scenario,
+  ) async {
+    final session = await _sessionFactory(scenario);
+    try {
+      return await _runWithInFlightLimit(
+        iterations: scenario.iterations,
+        maxInFlight: scenario.inFlightPerSession,
+        launch: (iteration) =>
+            _runRegisterCycleIteration(workerId, iteration, scenario, session),
+      );
+    } finally {
+      await session.close();
+    }
+  }
+
+  Future<WampSample> _runRegisterCycleIteration(
+    int workerId,
+    int iteration,
+    WampScenario scenario,
+    WampSession session,
+  ) async {
+    final procedure = _iterationUri(scenario.uri, workerId, iteration);
+    final start = DateTime.now();
+    final registration = await session.registerLazyPayloadHandler(
+      procedure,
+      (_) {},
+      options: _buildControlRegisterOptions(),
+    );
+    await registration.cancel();
+    final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
+    return WampSample(
+      worker: workerId,
+      iteration: iteration,
+      latencyMs: latencyMs,
+      requestBytes: 0,
+      responseBytes: 0,
+    );
+  }
+
   Future<List<WampSample>> _runWithInFlightLimit({
     required int iterations,
     required int maxInFlight,
@@ -331,6 +500,32 @@ class WampWorkloadRunner {
       acknowledge: true,
       pptScheme: scenario.pptScheme,
       pptSerializer: _resolvePptSerializer(scenario),
+    );
+  }
+
+  wamp_core.PublishOptions _buildControlPublishOptions(WampScenario scenario) {
+    return wamp_core.PublishOptions(
+      acknowledge: true,
+      excludeMe: true,
+      discloseMe: true,
+      pptScheme: scenario.pptScheme,
+      pptSerializer: _resolvePptSerializer(scenario),
+    );
+  }
+
+  wamp_core.SubscribeOptions _buildControlSubscribeOptions() {
+    return wamp_core.SubscribeOptions(
+      match: wamp_core.SubscribeOptions.matchPrefix,
+      metaTopic: 'bench.control.meta',
+      getRetained: true,
+    );
+  }
+
+  wamp_core.RegisterOptions _buildControlRegisterOptions() {
+    return wamp_core.RegisterOptions(
+      discloseCaller: true,
+      match: wamp_core.RegisterOptions.matchPrefix,
+      invoke: wamp_core.RegisterOptions.invocationPolicyRoundRobin,
     );
   }
 
@@ -399,6 +594,10 @@ class WampWorkloadRunner {
 
   String _externalProcedureUri(String baseUri, int workerId) {
     return '$baseUri.worker.$workerId';
+  }
+
+  String _iterationUri(String baseUri, int workerId, int iteration) {
+    return '$baseUri.$workerId.$iteration';
   }
 }
 
@@ -528,8 +727,9 @@ abstract class WampSession {
   Future<WampRegistration> registerLazyPayloadHandler(
     String procedure,
     FutureOr<void> Function(wamp_core.LazyInvocationPayload invocation)
-    onInvoke,
-  );
+    onInvoke, {
+    wamp_core.RegisterOptions? options,
+  });
 
   Future<void> publish(
     String topic, {
@@ -872,11 +1072,13 @@ class _ClientBackedWampSession implements WampSession {
   Future<WampRegistration> registerLazyPayloadHandler(
     String procedure,
     FutureOr<void> Function(wamp_core.LazyInvocationPayload invocation)
-    onInvoke,
-  ) async {
+    onInvoke, {
+    wamp_core.RegisterOptions? options,
+  }) async {
     final registered = await _session.registerLazyPayloadHandler(
       procedure,
       onInvoke,
+      options: options,
     );
     return WampRegistration(
       cancel: () => _session.unregister(registered.registrationId),
@@ -1054,7 +1256,7 @@ class WampScenario {
     'client_impl': clientImplementation.name,
     'serializer': serializer.name,
     if (peerSerializer != null) 'peer_serializer': peerSerializer!.name,
-    'mode': mode.name,
+    'mode': mode.wireName,
     'uri': uri,
     'iterations': iterations,
     'concurrency': concurrency,
@@ -1193,7 +1395,18 @@ const Object _copySentinel = Object();
 
 enum WampMode {
   pubsub,
-  rpc;
+  rpc,
+  publishAck,
+  subscribeCycle,
+  registerCycle;
+
+  String get wireName => switch (this) {
+    WampMode.pubsub => 'pubsub',
+    WampMode.rpc => 'rpc',
+    WampMode.publishAck => 'publish_ack',
+    WampMode.subscribeCycle => 'subscribe_cycle',
+    WampMode.registerCycle => 'register_cycle',
+  };
 
   static WampMode parse(String raw) {
     switch (raw.toLowerCase()) {
@@ -1203,6 +1416,18 @@ enum WampMode {
       case 'rpc':
       case 'wamp_rpc':
         return WampMode.rpc;
+      case 'publish_ack':
+      case 'publishack':
+      case 'wamp_publish_ack':
+        return WampMode.publishAck;
+      case 'subscribe_cycle':
+      case 'subscribecycle':
+      case 'wamp_subscribe_cycle':
+        return WampMode.subscribeCycle;
+      case 'register_cycle':
+      case 'registercycle':
+      case 'wamp_register_cycle':
+        return WampMode.registerCycle;
       default:
         throw FormatException('Unsupported WAMP mode "$raw"');
     }

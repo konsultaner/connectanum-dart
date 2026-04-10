@@ -925,6 +925,9 @@ impl BenchWampTransport {
 enum BenchWampMode {
     PubSub,
     Rpc,
+    PublishAck,
+    SubscribeCycle,
+    RegisterCycle,
 }
 
 impl BenchWampMode {
@@ -932,6 +935,9 @@ impl BenchWampMode {
         match self {
             Self::PubSub => "pubsub",
             Self::Rpc => "rpc",
+            Self::PublishAck => "publish_ack",
+            Self::SubscribeCycle => "subscribe_cycle",
+            Self::RegisterCycle => "register_cycle",
         }
     }
 }
@@ -944,8 +950,26 @@ fn parse_wamp_protocol(protocol: &str) -> Option<(BenchWampTransport, BenchWampM
         "wamp_rpc" | "wamp_rawsocket_rpc" => {
             Some((BenchWampTransport::RawSocket, BenchWampMode::Rpc))
         }
+        "wamp_publish_ack" | "wamp_rawsocket_publish_ack" => {
+            Some((BenchWampTransport::RawSocket, BenchWampMode::PublishAck))
+        }
+        "wamp_subscribe_cycle" | "wamp_rawsocket_subscribe_cycle" => {
+            Some((BenchWampTransport::RawSocket, BenchWampMode::SubscribeCycle))
+        }
+        "wamp_register_cycle" | "wamp_rawsocket_register_cycle" => {
+            Some((BenchWampTransport::RawSocket, BenchWampMode::RegisterCycle))
+        }
         "wamp_websocket_pubsub" => Some((BenchWampTransport::WebSocket, BenchWampMode::PubSub)),
         "wamp_websocket_rpc" => Some((BenchWampTransport::WebSocket, BenchWampMode::Rpc)),
+        "wamp_websocket_publish_ack" => {
+            Some((BenchWampTransport::WebSocket, BenchWampMode::PublishAck))
+        }
+        "wamp_websocket_subscribe_cycle" => {
+            Some((BenchWampTransport::WebSocket, BenchWampMode::SubscribeCycle))
+        }
+        "wamp_websocket_register_cycle" => {
+            Some((BenchWampTransport::WebSocket, BenchWampMode::RegisterCycle))
+        }
         _ => None,
     }
 }
@@ -2426,6 +2450,18 @@ mod tests {
         assert_eq!(
             parse_wamp_protocol("wamp_pubsub"),
             Some((BenchWampTransport::RawSocket, BenchWampMode::PubSub))
+        );
+        assert_eq!(
+            parse_wamp_protocol("wamp_websocket_publish_ack"),
+            Some((BenchWampTransport::WebSocket, BenchWampMode::PublishAck))
+        );
+        assert_eq!(
+            parse_wamp_protocol("wamp_rawsocket_subscribe_cycle"),
+            Some((BenchWampTransport::RawSocket, BenchWampMode::SubscribeCycle))
+        );
+        assert_eq!(
+            parse_wamp_protocol("wamp_register_cycle"),
+            Some((BenchWampTransport::RawSocket, BenchWampMode::RegisterCycle))
         );
         assert_eq!(parse_wamp_protocol("h2"), None);
     }

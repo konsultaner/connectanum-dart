@@ -147,6 +147,97 @@ void main() {
     });
 
     test(
+      'executes publish-ack control workloads with direct-bind options',
+      () async {
+        final broker = _FakeWampBroker();
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async => _FakeWampSession(broker),
+          logger: Logger.detached('publish_ack_test'),
+          eventTimeout: const Duration(seconds: 1),
+        );
+        final scenario = WampScenario(
+          transport: WampTransport.rawsocket,
+          serializer: WampSerializer.cbor,
+          mode: WampMode.publishAck,
+          uri: 'bench.control.topic',
+          iterations: 2,
+          concurrency: 2,
+          payloadBytes: 8,
+        );
+
+        final samples = await runner.run(scenario);
+
+        expect(samples, hasLength(4));
+        expect(broker.lastPublishOptions?.acknowledge, isTrue);
+        expect(broker.lastPublishOptions?.excludeMe, isTrue);
+        expect(broker.lastPublishOptions?.discloseMe, isTrue);
+      },
+    );
+
+    test('executes subscribe-cycle control workloads', () async {
+      final broker = _FakeWampBroker();
+      final runner = WampWorkloadRunner(
+        sessionFactory: (_) async => _FakeWampSession(broker),
+        logger: Logger.detached('subscribe_cycle_test'),
+        eventTimeout: const Duration(seconds: 1),
+      );
+      final scenario = WampScenario(
+        transport: WampTransport.websocket,
+        serializer: WampSerializer.msgpack,
+        mode: WampMode.subscribeCycle,
+        uri: 'bench.control.topic',
+        iterations: 3,
+        concurrency: 1,
+        payloadBytes: 0,
+      );
+
+      final samples = await runner.run(scenario);
+
+      expect(samples, hasLength(3));
+      expect(broker.subscribeAdds, 3);
+      expect(broker.subscribeRemoves, greaterThanOrEqualTo(3));
+      expect(
+        broker.lastSubscribeOptions?.match,
+        wamp_core.SubscribeOptions.matchPrefix,
+      );
+      expect(broker.lastSubscribeOptions?.metaTopic, 'bench.control.meta');
+      expect(broker.lastSubscribeOptions?.getRetained, isTrue);
+    });
+
+    test('executes register-cycle control workloads', () async {
+      final broker = _FakeWampBroker();
+      final runner = WampWorkloadRunner(
+        sessionFactory: (_) async => _FakeWampSession(broker),
+        logger: Logger.detached('register_cycle_test'),
+        eventTimeout: const Duration(seconds: 1),
+      );
+      final scenario = WampScenario(
+        transport: WampTransport.rawsocket,
+        serializer: WampSerializer.json,
+        mode: WampMode.registerCycle,
+        uri: 'bench.control.proc',
+        iterations: 2,
+        concurrency: 2,
+        payloadBytes: 0,
+      );
+
+      final samples = await runner.run(scenario);
+
+      expect(samples, hasLength(4));
+      expect(broker.registerAdds, 4);
+      expect(broker.registerRemoves, 4);
+      expect(broker.lastRegisterOptions?.discloseCaller, isTrue);
+      expect(
+        broker.lastRegisterOptions?.match,
+        wamp_core.RegisterOptions.matchPrefix,
+      );
+      expect(
+        broker.lastRegisterOptions?.invoke,
+        wamp_core.RegisterOptions.invocationPolicyRoundRobin,
+      );
+    });
+
+    test(
       'executes pubsub scenario with multiple in-flight publishes per worker',
       () async {
         final broker = _FakeWampBroker(
@@ -416,6 +507,34 @@ void main() {
       expect(scenario.websocketFragmentSize, 4096);
       expect(scenario.toJson()['websocket_fragment_size'], 4096);
     });
+
+    test('parses control workload modes', () {
+      final publishAck = WampScenario.fromJson({
+        'transport': 'rawsocket',
+        'serializer': 'json',
+        'mode': 'publish_ack',
+        'uri': 'bench.control.topic',
+      });
+      final subscribeCycle = WampScenario.fromJson({
+        'transport': 'ws',
+        'serializer': 'cbor',
+        'mode': 'subscribe_cycle',
+        'uri': 'bench.control.topic',
+      });
+      final registerCycle = WampScenario.fromJson({
+        'transport': 'rawsocket',
+        'serializer': 'msgpack',
+        'mode': 'register_cycle',
+        'uri': 'bench.control.proc',
+      });
+
+      expect(publishAck.mode, WampMode.publishAck);
+      expect(subscribeCycle.mode, WampMode.subscribeCycle);
+      expect(registerCycle.mode, WampMode.registerCycle);
+      expect(publishAck.toJson()['mode'], 'publish_ack');
+      expect(subscribeCycle.toJson()['mode'], 'subscribe_cycle');
+      expect(registerCycle.toJson()['mode'], 'register_cycle');
+    });
   });
 
   group('WampEventBuffer', () {
@@ -492,10 +611,16 @@ class _FakeWampBroker {
   final Duration publishDelay;
   wamp_core.CallOptions? lastCallOptions;
   wamp_core.PublishOptions? lastPublishOptions;
+  wamp_core.SubscribeOptions? lastSubscribeOptions;
+  wamp_core.RegisterOptions? lastRegisterOptions;
   int _activeCalls = 0;
   int maxConcurrentCalls = 0;
   int _activePublishes = 0;
   int maxConcurrentPublishes = 0;
+  int subscribeAdds = 0;
+  int subscribeRemoves = 0;
+  int registerAdds = 0;
+  int registerRemoves = 0;
   final Map<String, FutureOr<void> Function(wamp_core.LazyInvocationPayload)>
   _lazyRegistrations = {};
 
@@ -503,6 +628,7 @@ class _FakeWampBroker {
     String topic,
     StreamController<wamp_core.Event> controller,
   ) {
+    subscribeAdds += 1;
     final list = _subscribers.putIfAbsent(topic, () => []);
     list.add(controller);
   }
@@ -511,6 +637,7 @@ class _FakeWampBroker {
     String topic,
     StreamController<wamp_core.Event> controller,
   ) {
+    subscribeRemoves += 1;
     final list = _subscribers[topic];
     if (list == null) {
       return;
@@ -525,6 +652,7 @@ class _FakeWampBroker {
     String topic,
     void Function(wamp_core.Event event) onEvent,
   ) {
+    subscribeAdds += 1;
     final list = _callbackSubscribers.putIfAbsent(topic, () => []);
     list.add(onEvent);
   }
@@ -533,6 +661,7 @@ class _FakeWampBroker {
     String topic,
     void Function(wamp_core.Event event) onEvent,
   ) {
+    subscribeRemoves += 1;
     final list = _callbackSubscribers[topic];
     if (list == null) {
       return;
@@ -547,6 +676,7 @@ class _FakeWampBroker {
     String topic,
     StreamController<wamp_core.LazyEventPayload> controller,
   ) {
+    subscribeAdds += 1;
     final list = _payloadSubscribers.putIfAbsent(topic, () => []);
     list.add(controller);
   }
@@ -555,6 +685,7 @@ class _FakeWampBroker {
     String topic,
     StreamController<wamp_core.LazyEventPayload> controller,
   ) {
+    subscribeRemoves += 1;
     final list = _payloadSubscribers[topic];
     if (list == null) {
       return;
@@ -569,6 +700,7 @@ class _FakeWampBroker {
     String topic,
     void Function(wamp_core.LazyEventPayload event) onEvent,
   ) {
+    subscribeAdds += 1;
     final list = _payloadCallbackSubscribers.putIfAbsent(topic, () => []);
     list.add(onEvent);
   }
@@ -577,6 +709,7 @@ class _FakeWampBroker {
     String topic,
     void Function(wamp_core.LazyEventPayload event) onEvent,
   ) {
+    subscribeRemoves += 1;
     final list = _payloadCallbackSubscribers[topic];
     if (list == null) {
       return;
@@ -656,12 +789,16 @@ class _FakeWampBroker {
   void addLazyRegistration(
     String procedure,
     FutureOr<void> Function(wamp_core.LazyInvocationPayload invocation)
-    onInvoke,
-  ) {
+    onInvoke, {
+    wamp_core.RegisterOptions? options,
+  }) {
+    lastRegisterOptions = options;
+    registerAdds += 1;
     _lazyRegistrations[procedure] = onInvoke;
   }
 
   void removeLazyRegistration(String procedure) {
+    registerRemoves += 1;
     _lazyRegistrations.remove(procedure);
   }
 
@@ -798,9 +935,10 @@ class _FakeWampSession implements WampSession {
   Future<WampRegistration> registerLazyPayloadHandler(
     String procedure,
     FutureOr<void> Function(wamp_core.LazyInvocationPayload invocation)
-    onInvoke,
-  ) async {
-    _broker.addLazyRegistration(procedure, onInvoke);
+    onInvoke, {
+    wamp_core.RegisterOptions? options,
+  }) async {
+    _broker.addLazyRegistration(procedure, onInvoke, options: options);
     return WampRegistration(
       cancel: () async => _broker.removeLazyRegistration(procedure),
     );
@@ -848,6 +986,7 @@ class _FakeWampSession implements WampSession {
     String topic, {
     wamp_core.SubscribeOptions? options,
   }) async {
+    _broker.lastSubscribeOptions = options;
     WampSubscription subscription;
     if (useDirectEventHandler) {
       void Function(wamp_core.LazyEventPayload event)? callback;
@@ -885,6 +1024,7 @@ class _FakeWampSession implements WampSession {
     String topic, {
     wamp_core.SubscribeOptions? options,
   }) async {
+    _broker.lastSubscribeOptions = options;
     WampSubscription subscription;
     if (useDirectEventHandler) {
       void Function(wamp_core.LazyEventPayload event)? callback;
@@ -1083,8 +1223,9 @@ class _HangingRpcSession implements WampSession {
   Future<WampRegistration> registerLazyPayloadHandler(
     String procedure,
     FutureOr<void> Function(wamp_core.LazyInvocationPayload invocation)
-    onInvoke,
-  ) {
+    onInvoke, {
+    wamp_core.RegisterOptions? options,
+  }) {
     throw UnimplementedError();
   }
 

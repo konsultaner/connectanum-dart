@@ -139,6 +139,54 @@ void main() {
     );
 
     test(
+      'native control workloads run against a real router',
+      () async {
+        final publishAckSamples = await harness!.runNative(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.msgpack,
+            mode: WampMode.publishAck,
+            uri: 'bench.control.topic',
+            iterations: 2,
+            concurrency: 1,
+            payloadBytes: 32,
+          ),
+        );
+        final subscribeCycleSamples = await harness!.runNative(
+          WampScenario(
+            transport: WampTransport.websocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.cbor,
+            mode: WampMode.subscribeCycle,
+            uri: 'bench.control.topic',
+            iterations: 2,
+            concurrency: 1,
+            payloadBytes: 0,
+          ),
+        );
+        final registerCycleSamples = await harness!.runNative(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.json,
+            mode: WampMode.registerCycle,
+            uri: 'bench.control.proc',
+            iterations: 2,
+            concurrency: 1,
+            payloadBytes: 0,
+          ),
+        );
+
+        expect(publishAckSamples, hasLength(2));
+        expect(subscribeCycleSamples, hasLength(2));
+        expect(registerCycleSamples, hasLength(2));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
       'native RawSocket PPT pubsub workload runs against a real router',
       () async {
         final samples = await harness!.runNative(

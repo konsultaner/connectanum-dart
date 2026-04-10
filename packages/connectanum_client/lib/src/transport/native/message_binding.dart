@@ -260,9 +260,16 @@ AbstractMessage? _bindFromMetadata(
   if (code == MessageTypes.codeUnsubscribed) {
     return Unsubscribed(
       metadata.primaryId,
-      _mapUnsubscribedDetails(
-        _decodeOptionalMapFragment(serializer, metadata.detailsBytes),
-      ),
+      directBind
+          ? UnsubscribedDetails(
+              metadata.hasFlag(NativeMessageMetadata.flagDetailNumberAPresent)
+                  ? metadata.detailNumberA
+                  : null,
+              metadata.stringA,
+            )
+          : _mapUnsubscribedDetails(
+              _decodeOptionalMapFragment(serializer, metadata.detailsBytes),
+            ),
     );
   }
   if (code == MessageTypes.codeGoodbye) {

@@ -2217,6 +2217,9 @@ const CT_MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT: u32 = 1 << 1;
 const CT_MESSAGE_FLAG_DETAIL_NUMBER_B_PRESENT: u32 = 1 << 2;
 const CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE: u32 = 1 << 3;
 const CT_MESSAGE_FLAG_METADATA_BIND: u32 = 1 << 4;
+const CT_MESSAGE_FLAG_DETAIL_BOOL_B_TRUE: u32 = 1 << 5;
+const CT_MESSAGE_FLAG_DETAIL_BOOL_C_TRUE: u32 = 1 << 6;
+const CT_MESSAGE_FLAG_DETAIL_BOOL_D_TRUE: u32 = 1 << 7;
 
 fn serializer_id(serializer: ct_core::RawSocketSerializer) -> u8 {
     match serializer {
@@ -2490,6 +2493,221 @@ fn populate_message_only_details_info(
     true
 }
 
+fn populate_publish_options_info(
+    info: &mut CtMessageInfo,
+    options: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
+) -> bool {
+    for (key, value) in options {
+        match serde_key_str(key) {
+            Some("acknowledge") => match serde_value_bool(value) {
+                Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
+                Some(false) => {}
+                None => return false,
+            },
+            Some("exclude_me") => match serde_value_bool(value) {
+                Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_B_TRUE,
+                Some(false) => {}
+                None => return false,
+            },
+            Some("disclose_me") => match serde_value_bool(value) {
+                Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_C_TRUE,
+                Some(false) => {}
+                None => return false,
+            },
+            Some("retain") => match serde_value_bool(value) {
+                Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_D_TRUE,
+                Some(false) => {}
+                None => return false,
+            },
+            Some("ppt_scheme") => match serde_value_str(value) {
+                Some(text) => set_string_b(info, Some(text)),
+                None => return false,
+            },
+            Some("ppt_serializer") => match serde_value_str(value) {
+                Some(text) => set_string_c(info, Some(text)),
+                None => return false,
+            },
+            Some("ppt_cipher") => match serde_value_str(value) {
+                Some(text) => set_string_d(info, Some(text)),
+                None => return false,
+            },
+            Some("ppt_keyid") => match serde_value_str(value) {
+                Some(text) => set_string_e(info, Some(text)),
+                None => return false,
+            },
+            _ => return false,
+        }
+    }
+    true
+}
+
+fn populate_subscribe_options_info(
+    info: &mut CtMessageInfo,
+    options: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
+) -> bool {
+    for (key, value) in options {
+        match serde_key_str(key) {
+            Some("match") => match serde_value_str(value) {
+                Some(text) => set_string_b(info, Some(text)),
+                None => return false,
+            },
+            Some("meta_topic") => match serde_value_str(value) {
+                Some(text) => set_string_c(info, Some(text)),
+                None => return false,
+            },
+            Some("get_retained") => match serde_value_bool(value) {
+                Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
+                Some(false) => {}
+                None => return false,
+            },
+            _ => return false,
+        }
+    }
+    true
+}
+
+fn populate_call_options_info(
+    info: &mut CtMessageInfo,
+    options: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
+) -> bool {
+    for (key, value) in options {
+        match serde_key_str(key) {
+            Some("receive_progress") => match serde_value_bool(value) {
+                Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
+                Some(false) => {}
+                None => return false,
+            },
+            Some("timeout") => match serde_value_u64(value) {
+                Some(number) => {
+                    info.detail_number_a = number;
+                    info.flags |= CT_MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT;
+                }
+                None => return false,
+            },
+            Some("disclose_me") => match serde_value_bool(value) {
+                Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_B_TRUE,
+                Some(false) => {}
+                None => return false,
+            },
+            Some("ppt_scheme") => match serde_value_str(value) {
+                Some(text) => set_string_b(info, Some(text)),
+                None => return false,
+            },
+            Some("ppt_serializer") => match serde_value_str(value) {
+                Some(text) => set_string_c(info, Some(text)),
+                None => return false,
+            },
+            Some("ppt_cipher") => match serde_value_str(value) {
+                Some(text) => set_string_d(info, Some(text)),
+                None => return false,
+            },
+            Some("ppt_keyid") => match serde_value_str(value) {
+                Some(text) => set_string_e(info, Some(text)),
+                None => return false,
+            },
+            _ => return false,
+        }
+    }
+    true
+}
+
+fn populate_cancel_options_info(
+    info: &mut CtMessageInfo,
+    options: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
+) -> bool {
+    for (key, value) in options {
+        match serde_key_str(key) {
+            Some("mode") => match serde_value_str(value) {
+                Some(text) => set_string_a(info, Some(text)),
+                None => return false,
+            },
+            _ => return false,
+        }
+    }
+    true
+}
+
+fn populate_register_options_info(
+    info: &mut CtMessageInfo,
+    options: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
+) -> bool {
+    for (key, value) in options {
+        match serde_key_str(key) {
+            Some("disclose_caller") => match serde_value_bool(value) {
+                Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
+                Some(false) => {}
+                None => return false,
+            },
+            Some("match") => match serde_value_str(value) {
+                Some(text) => set_string_b(info, Some(text)),
+                None => return false,
+            },
+            Some("invoke") => match serde_value_str(value) {
+                Some(text) => set_string_c(info, Some(text)),
+                None => return false,
+            },
+            _ => return false,
+        }
+    }
+    true
+}
+
+fn populate_yield_options_info(
+    info: &mut CtMessageInfo,
+    options: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
+) -> bool {
+    for (key, value) in options {
+        match serde_key_str(key) {
+            Some("progress") => match serde_value_bool(value) {
+                Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
+                Some(false) => {}
+                None => return false,
+            },
+            Some("ppt_scheme") => match serde_value_str(value) {
+                Some(text) => set_string_a(info, Some(text)),
+                None => return false,
+            },
+            Some("ppt_serializer") => match serde_value_str(value) {
+                Some(text) => set_string_b(info, Some(text)),
+                None => return false,
+            },
+            Some("ppt_cipher") => match serde_value_str(value) {
+                Some(text) => set_string_c(info, Some(text)),
+                None => return false,
+            },
+            Some("ppt_keyid") => match serde_value_str(value) {
+                Some(text) => set_string_d(info, Some(text)),
+                None => return false,
+            },
+            _ => return false,
+        }
+    }
+    true
+}
+
+fn populate_unsubscribed_details_info(
+    info: &mut CtMessageInfo,
+    details: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
+) -> bool {
+    for (key, value) in details {
+        match serde_key_str(key) {
+            Some("subscription") => match serde_value_u64(value) {
+                Some(number) => {
+                    info.detail_number_a = number;
+                    info.flags |= CT_MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT;
+                }
+                None => return false,
+            },
+            Some("reason") => match serde_value_str(value) {
+                Some(text) => set_string_a(info, Some(text)),
+                None => return false,
+            },
+            _ => return false,
+        }
+    }
+    true
+}
+
 fn build_message_info(msg: &StoredMessage, include_frame: bool) -> CtMessageInfo {
     let raw = include_frame.then(|| msg.raw.bytes());
     let (args_ptr, args_len) = option_bytes_ptr(&msg.args);
@@ -2555,18 +2773,34 @@ fn build_message_info(msg: &StoredMessage, include_frame: bool) -> CtMessageInfo
             info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
         }
         WampMessage::Publish {
-            request_id, topic, ..
+            request_id,
+            options,
+            topic,
+            ..
         } => {
             info.primary_id = *request_id;
             set_string_a(&mut info, Some(topic));
-            info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            if msg.details.is_some() {
+                info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            }
+            if populate_publish_options_info(&mut info, options) {
+                info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
+            }
         }
         WampMessage::Subscribe {
-            request_id, topic, ..
+            request_id,
+            options,
+            topic,
+            ..
         } => {
             info.primary_id = *request_id;
             set_string_a(&mut info, Some(topic));
-            info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            if msg.details.is_some() {
+                info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            }
+            if populate_subscribe_options_info(&mut info, options) {
+                info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
+            }
         }
         WampMessage::Subscribed {
             request_id,
@@ -2598,25 +2832,45 @@ fn build_message_info(msg: &StoredMessage, include_frame: bool) -> CtMessageInfo
         }
         WampMessage::Call {
             request_id,
+            options,
             procedure,
             ..
         } => {
             info.primary_id = *request_id;
             set_string_a(&mut info, Some(procedure));
-            info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            if msg.details.is_some() {
+                info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            }
+            if populate_call_options_info(&mut info, options) {
+                info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
+            }
         }
-        WampMessage::Cancel { request_id, .. } => {
+        WampMessage::Cancel {
+            request_id,
+            options,
+        } => {
             info.primary_id = *request_id;
-            info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            if msg.details.is_some() {
+                info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            }
+            if populate_cancel_options_info(&mut info, options) {
+                info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
+            }
         }
         WampMessage::Register {
             request_id,
+            options,
             procedure,
             ..
         } => {
             info.primary_id = *request_id;
             set_string_a(&mut info, Some(procedure));
-            info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            if msg.details.is_some() {
+                info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            }
+            if populate_register_options_info(&mut info, options) {
+                info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
+            }
         }
         WampMessage::Unregister {
             request_id,
@@ -2626,10 +2880,16 @@ fn build_message_info(msg: &StoredMessage, include_frame: bool) -> CtMessageInfo
             info.secondary_id = *registration_id;
             info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
         }
-        WampMessage::Unsubscribed { request_id, .. } => {
+        WampMessage::Unsubscribed {
+            request_id,
+            details,
+        } => {
             info.primary_id = *request_id;
             if msg.details.is_some() {
                 info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            }
+            if populate_unsubscribed_details_info(&mut info, details) {
+                info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
             }
         }
         WampMessage::Event {
@@ -2675,10 +2935,17 @@ fn build_message_info(msg: &StoredMessage, include_frame: bool) -> CtMessageInfo
                 info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
             }
         }
-        WampMessage::Yield { request_id, .. } => {
+        WampMessage::Yield {
+            request_id,
+            options,
+            ..
+        } => {
             info.primary_id = *request_id;
             if msg.details.is_some() {
                 info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            }
+            if populate_yield_options_info(&mut info, options) {
+                info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
             }
         }
         WampMessage::Goodbye {
@@ -4181,11 +4448,107 @@ mod tests {
             publish_info.flags & CT_MESSAGE_FLAG_METADATA_BIND,
             CT_MESSAGE_FLAG_METADATA_BIND
         );
+        assert_eq!(
+            publish_info.flags & CT_MESSAGE_FLAG_DIRECT_BIND,
+            CT_MESSAGE_FLAG_DIRECT_BIND
+        );
+        assert_eq!(
+            publish_info.flags & CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
+            CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE
+        );
         unsafe {
             let topic =
                 std::slice::from_raw_parts(publish_info.string_a_ptr, publish_info.string_a_len);
             assert_eq!(std::str::from_utf8(topic).unwrap(), "bench.topic");
         }
+
+        let mut subscribe_options = BTreeMap::new();
+        subscribe_options.insert(
+            SerdeValue::String("match".into()),
+            SerdeValue::String("prefix".into()),
+        );
+        subscribe_options.insert(
+            SerdeValue::String("get_retained".into()),
+            SerdeValue::Bool(true),
+        );
+        let subscribe = StoredMessage {
+            serializer: RawSocketSerializer::Json,
+            code: 32,
+            raw: StoredRawFrame::from_bytes(Bytes::from_static(
+                br#"[32,8,{"match":"prefix","get_retained":true},"bench.topic"]"#,
+            )),
+            message: WampMessage::Subscribe {
+                request_id: 8,
+                options: subscribe_options,
+                topic: "bench.topic".into(),
+            },
+            details: Some(Bytes::from_static(
+                br#"{"match":"prefix","get_retained":true}"#,
+            )),
+            args: None,
+            kwargs: None,
+        };
+        let subscribe_info = build_message_info(&subscribe, false);
+        assert_eq!(subscribe_info.primary_id, 8);
+        assert_eq!(
+            subscribe_info.flags & CT_MESSAGE_FLAG_DIRECT_BIND,
+            CT_MESSAGE_FLAG_DIRECT_BIND
+        );
+        assert_eq!(
+            subscribe_info.flags & CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
+            CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE
+        );
+        unsafe {
+            let match_value = std::slice::from_raw_parts(
+                subscribe_info.string_b_ptr,
+                subscribe_info.string_b_len,
+            );
+            assert_eq!(std::str::from_utf8(match_value).unwrap(), "prefix");
+        }
+
+        let mut call_options = BTreeMap::new();
+        call_options.insert(
+            SerdeValue::String("receive_progress".into()),
+            SerdeValue::Bool(true),
+        );
+        call_options.insert(SerdeValue::String("timeout".into()), SerdeValue::U64(1500));
+        call_options.insert(
+            SerdeValue::String("ppt_scheme".into()),
+            SerdeValue::String("wamp".into()),
+        );
+        let call = StoredMessage {
+            serializer: RawSocketSerializer::Json,
+            code: 48,
+            raw: StoredRawFrame::from_bytes(Bytes::from_static(
+                br#"[48,10,{"receive_progress":true,"timeout":1500,"ppt_scheme":"wamp"},"bench.proc"]"#,
+            )),
+            message: WampMessage::Call {
+                request_id: 10,
+                options: call_options,
+                procedure: "bench.proc".into(),
+                payload: WampPayload::default(),
+            },
+            details: Some(Bytes::from_static(
+                br#"{"receive_progress":true,"timeout":1500,"ppt_scheme":"wamp"}"#,
+            )),
+            args: None,
+            kwargs: None,
+        };
+        let call_info = build_message_info(&call, false);
+        assert_eq!(call_info.primary_id, 10);
+        assert_eq!(
+            call_info.flags & CT_MESSAGE_FLAG_DIRECT_BIND,
+            CT_MESSAGE_FLAG_DIRECT_BIND
+        );
+        assert_eq!(
+            call_info.flags & CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
+            CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE
+        );
+        assert_eq!(
+            call_info.flags & CT_MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT,
+            CT_MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT
+        );
+        assert_eq!(call_info.detail_number_a, 1500);
 
         let mut cancel_options = BTreeMap::new();
         cancel_options.insert(
@@ -4210,8 +4573,21 @@ mod tests {
             cancel_info.flags & CT_MESSAGE_FLAG_METADATA_BIND,
             CT_MESSAGE_FLAG_METADATA_BIND
         );
+        assert_eq!(
+            cancel_info.flags & CT_MESSAGE_FLAG_DIRECT_BIND,
+            CT_MESSAGE_FLAG_DIRECT_BIND
+        );
+        unsafe {
+            let mode =
+                std::slice::from_raw_parts(cancel_info.string_a_ptr, cancel_info.string_a_len);
+            assert_eq!(std::str::from_utf8(mode).unwrap(), "killnowait");
+        }
 
         let mut register_options = BTreeMap::new();
+        register_options.insert(
+            SerdeValue::String("disclose_caller".into()),
+            SerdeValue::Bool(true),
+        );
         register_options.insert(
             SerdeValue::String("invoke".into()),
             SerdeValue::String("roundrobin".into()),
@@ -4220,14 +4596,16 @@ mod tests {
             serializer: RawSocketSerializer::Json,
             code: 64,
             raw: StoredRawFrame::from_bytes(Bytes::from_static(
-                br#"[64,11,{"invoke":"roundrobin"},"bench.proc"]"#,
+                br#"[64,11,{"disclose_caller":true,"invoke":"roundrobin"},"bench.proc"]"#,
             )),
             message: WampMessage::Register {
                 request_id: 11,
                 options: register_options,
                 procedure: "bench.proc".into(),
             },
-            details: Some(Bytes::from_static(br#"{"invoke":"roundrobin"}"#)),
+            details: Some(Bytes::from_static(
+                br#"{"disclose_caller":true,"invoke":"roundrobin"}"#,
+            )),
             args: None,
             kwargs: None,
         };
@@ -4237,10 +4615,21 @@ mod tests {
             register_info.flags & CT_MESSAGE_FLAG_METADATA_BIND,
             CT_MESSAGE_FLAG_METADATA_BIND
         );
+        assert_eq!(
+            register_info.flags & CT_MESSAGE_FLAG_DIRECT_BIND,
+            CT_MESSAGE_FLAG_DIRECT_BIND
+        );
+        assert_eq!(
+            register_info.flags & CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
+            CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE
+        );
         unsafe {
             let procedure =
                 std::slice::from_raw_parts(register_info.string_a_ptr, register_info.string_a_len);
             assert_eq!(std::str::from_utf8(procedure).unwrap(), "bench.proc");
+            let invoke =
+                std::slice::from_raw_parts(register_info.string_c_ptr, register_info.string_c_len);
+            assert_eq!(std::str::from_utf8(invoke).unwrap(), "roundrobin");
         }
 
         let unregister = StoredMessage {
@@ -4307,5 +4696,57 @@ mod tests {
             yield_info.flags & CT_MESSAGE_FLAG_METADATA_BIND,
             CT_MESSAGE_FLAG_METADATA_BIND
         );
+        assert_eq!(
+            yield_info.flags & CT_MESSAGE_FLAG_DIRECT_BIND,
+            CT_MESSAGE_FLAG_DIRECT_BIND
+        );
+        assert_eq!(
+            yield_info.flags & CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
+            CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE
+        );
+
+        let mut unsubscribed_details = BTreeMap::new();
+        unsubscribed_details.insert(
+            SerdeValue::String("subscription".into()),
+            SerdeValue::U64(99),
+        );
+        unsubscribed_details.insert(
+            SerdeValue::String("reason".into()),
+            SerdeValue::String("wamp.close.normal".into()),
+        );
+        let unsubscribed = StoredMessage {
+            serializer: RawSocketSerializer::Json,
+            code: 35,
+            raw: StoredRawFrame::from_bytes(Bytes::from_static(
+                br#"[35,21,{"subscription":99,"reason":"wamp.close.normal"}]"#,
+            )),
+            message: WampMessage::Unsubscribed {
+                request_id: 21,
+                details: unsubscribed_details,
+            },
+            details: Some(Bytes::from_static(
+                br#"{"subscription":99,"reason":"wamp.close.normal"}"#,
+            )),
+            args: None,
+            kwargs: None,
+        };
+        let unsubscribed_info = build_message_info(&unsubscribed, false);
+        assert_eq!(unsubscribed_info.primary_id, 21);
+        assert_eq!(
+            unsubscribed_info.flags & CT_MESSAGE_FLAG_DIRECT_BIND,
+            CT_MESSAGE_FLAG_DIRECT_BIND
+        );
+        assert_eq!(
+            unsubscribed_info.flags & CT_MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT,
+            CT_MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT
+        );
+        assert_eq!(unsubscribed_info.detail_number_a, 99);
+        unsafe {
+            let reason = std::slice::from_raw_parts(
+                unsubscribed_info.string_a_ptr,
+                unsubscribed_info.string_a_len,
+            );
+            assert_eq!(std::str::from_utf8(reason).unwrap(), "wamp.close.normal");
+        }
     }
 }

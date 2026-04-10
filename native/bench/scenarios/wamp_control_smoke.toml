@@ -1,0 +1,200 @@
+name = "wamp_control_smoke"
+description = "Control-heavy native WAMP workloads covering publish acknowledgements, subscribe cycles, and register cycles across RawSocket/WebSocket and JSON/MsgPack/CBOR."
+
+[[workloads]]
+name = "rawsocket_publish_ack_json"
+protocol = "wamp_rawsocket_publish_ack"
+client_impl = "native"
+serializer = "json"
+path = "bench.control.topic"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 128
+
+[[workloads]]
+name = "rawsocket_publish_ack_msgpack"
+protocol = "wamp_rawsocket_publish_ack"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.control.topic"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 128
+
+[[workloads]]
+name = "rawsocket_publish_ack_cbor"
+protocol = "wamp_rawsocket_publish_ack"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.control.topic"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 128
+
+[[workloads]]
+name = "rawsocket_subscribe_cycle_json"
+protocol = "wamp_rawsocket_subscribe_cycle"
+client_impl = "native"
+serializer = "json"
+path = "bench.control.topic"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+
+[[workloads]]
+name = "rawsocket_subscribe_cycle_msgpack"
+protocol = "wamp_rawsocket_subscribe_cycle"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.control.topic"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+
+[[workloads]]
+name = "rawsocket_subscribe_cycle_cbor"
+protocol = "wamp_rawsocket_subscribe_cycle"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.control.topic"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+
+[[workloads]]
+name = "rawsocket_register_cycle_json"
+protocol = "wamp_rawsocket_register_cycle"
+client_impl = "native"
+serializer = "json"
+path = "bench.control.proc"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+
+[[workloads]]
+name = "rawsocket_register_cycle_msgpack"
+protocol = "wamp_rawsocket_register_cycle"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.control.proc"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+
+[[workloads]]
+name = "rawsocket_register_cycle_cbor"
+protocol = "wamp_rawsocket_register_cycle"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.control.proc"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+
+[[workloads]]
+name = "websocket_publish_ack_json"
+protocol = "wamp_websocket_publish_ack"
+client_impl = "native"
+serializer = "json"
+path = "bench.control.topic"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 128
+
+[[workloads]]
+name = "websocket_publish_ack_msgpack"
+protocol = "wamp_websocket_publish_ack"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.control.topic"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 128
+
+[[workloads]]
+name = "websocket_publish_ack_cbor"
+protocol = "wamp_websocket_publish_ack"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.control.topic"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 128
+
+[[workloads]]
+name = "websocket_subscribe_cycle_json"
+protocol = "wamp_websocket_subscribe_cycle"
+client_impl = "native"
+serializer = "json"
+path = "bench.control.topic"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+
+[[workloads]]
+name = "websocket_subscribe_cycle_msgpack"
+protocol = "wamp_websocket_subscribe_cycle"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.control.topic"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+
+[[workloads]]
+name = "websocket_subscribe_cycle_cbor"
+protocol = "wamp_websocket_subscribe_cycle"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.control.topic"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+
+[[workloads]]
+name = "websocket_register_cycle_json"
+protocol = "wamp_websocket_register_cycle"
+client_impl = "native"
+serializer = "json"
+path = "bench.control.proc"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+
+[[workloads]]
+name = "websocket_register_cycle_msgpack"
+protocol = "wamp_websocket_register_cycle"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.control.proc"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+
+[[workloads]]
+name = "websocket_register_cycle_cbor"
+protocol = "wamp_websocket_register_cycle"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.control.proc"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0

@@ -43,6 +43,9 @@ class NativeMessageMetadata {
   static const flagDetailNumberBPresent = 1 << 2;
   static const flagDetailBoolATrue = 1 << 3;
   static const flagMetadataBind = 1 << 4;
+  static const flagDetailBoolBTrue = 1 << 5;
+  static const flagDetailBoolCTrue = 1 << 6;
+  static const flagDetailBoolDTrue = 1 << 7;
 
   final int messageCode;
   final int primaryId;

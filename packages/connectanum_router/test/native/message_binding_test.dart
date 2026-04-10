@@ -167,6 +167,7 @@ void main() {
                 messageCode: MessageTypes.codeHello,
                 primaryId: 0,
                 secondaryId: 0,
+                detailNumberA: 0,
                 flags: 1 << 4,
                 detailsBytes: helloDetailsBytes,
                 stringA: 'bench.realm',
@@ -178,6 +179,7 @@ void main() {
                 messageCode: MessageTypes.codeAuthenticate,
                 primaryId: 0,
                 secondaryId: 0,
+                detailNumberA: 0,
                 flags: 1 << 4,
                 detailsBytes: authenticateExtraBytes,
                 stringA: 'sig',
@@ -189,6 +191,7 @@ void main() {
                 messageCode: MessageTypes.codePublish,
                 primaryId: 42,
                 secondaryId: 0,
+                detailNumberA: 0,
                 flags: 1 << 4,
                 detailsBytes: publishDetailsBytes,
                 stringA: 'bench.topic',
@@ -220,12 +223,135 @@ void main() {
                 messageCode: MessageTypes.codeUnsubscribe,
                 primaryId: 7,
                 secondaryId: 9,
+                detailNumberA: 0,
                 flags: 1 << 4,
               )
               as Unsubscribe;
 
       expect(message.requestId, 7);
       expect(message.subscriptionId, 9);
+    });
+
+    test('binds direct control metadata without decoding details maps', () {
+      final publish =
+          bindMessageFromMetadata(
+                NativeMessageSerializer.cbor,
+                messageCode: MessageTypes.codePublish,
+                primaryId: 7,
+                secondaryId: 0,
+                detailNumberA: 0,
+                flags: (1 << 4) | (1 << 0) | (1 << 3) | (1 << 6),
+                stringA: 'bench.topic',
+                stringB: 'wamp',
+                stringC: 'cbor',
+              )
+              as Publish;
+      final subscribe =
+          bindMessageFromMetadata(
+                NativeMessageSerializer.cbor,
+                messageCode: MessageTypes.codeSubscribe,
+                primaryId: 8,
+                secondaryId: 0,
+                detailNumberA: 0,
+                flags: (1 << 4) | (1 << 0) | (1 << 3),
+                stringA: 'bench.topic',
+                stringB: 'prefix',
+                stringC: 'meta.topic',
+              )
+              as Subscribe;
+      final call =
+          bindMessageFromMetadata(
+                NativeMessageSerializer.cbor,
+                messageCode: MessageTypes.codeCall,
+                primaryId: 9,
+                secondaryId: 0,
+                detailNumberA: 1500,
+                flags: (1 << 4) | (1 << 0) | (1 << 1) | (1 << 3) | (1 << 5),
+                stringA: 'bench.proc',
+                stringB: 'wamp',
+                stringC: 'cbor',
+              )
+              as Call;
+      final cancel =
+          bindMessageFromMetadata(
+                NativeMessageSerializer.cbor,
+                messageCode: MessageTypes.codeCancel,
+                primaryId: 10,
+                secondaryId: 0,
+                detailNumberA: 0,
+                flags: (1 << 4) | (1 << 0),
+                stringA: 'killnowait',
+              )
+              as Cancel;
+      final register =
+          bindMessageFromMetadata(
+                NativeMessageSerializer.cbor,
+                messageCode: MessageTypes.codeRegister,
+                primaryId: 11,
+                secondaryId: 0,
+                detailNumberA: 0,
+                flags: (1 << 4) | (1 << 0) | (1 << 3),
+                stringA: 'bench.proc',
+                stringB: 'prefix',
+                stringC: 'roundrobin',
+              )
+              as Register;
+      final yield =
+          bindMessageFromMetadata(
+                NativeMessageSerializer.cbor,
+                messageCode: MessageTypes.codeYield,
+                primaryId: 12,
+                secondaryId: 0,
+                detailNumberA: 0,
+                flags: (1 << 4) | (1 << 0) | (1 << 3),
+                stringA: 'wamp',
+                stringB: 'cbor',
+                stringC: 'aes',
+                stringD: 'key-1',
+              )
+              as Yield;
+      final unsubscribed =
+          bindMessageFromMetadata(
+                NativeMessageSerializer.cbor,
+                messageCode: MessageTypes.codeUnsubscribed,
+                primaryId: 13,
+                secondaryId: 0,
+                detailNumberA: 99,
+                flags: (1 << 4) | (1 << 0) | (1 << 1),
+                stringA: 'wamp.close.normal',
+              )
+              as Unsubscribed;
+
+      expect(publish.options?.acknowledge, isTrue);
+      expect(publish.options?.discloseMe, isTrue);
+      expect(publish.options?.pptScheme, 'wamp');
+      expect(publish.options?.pptSerializer, 'cbor');
+
+      expect(subscribe.options?.match, 'prefix');
+      expect(subscribe.options?.metaTopic, 'meta.topic');
+      expect(subscribe.options?.getRetained, isTrue);
+
+      expect(call.options?.receiveProgress, isTrue);
+      expect(call.options?.discloseMe, isTrue);
+      expect(call.options?.timeout, 1500);
+      expect(call.options?.pptScheme, 'wamp');
+      expect(call.options?.pptSerializer, 'cbor');
+
+      expect(cancel.options?.mode, 'killnowait');
+
+      expect(register.options?.discloseCaller, isTrue);
+      expect(register.options?.match, 'prefix');
+      expect(register.options?.invoke, 'roundrobin');
+
+      expect(yield.options?.progress, isTrue);
+      expect(yield.options?.pptScheme, 'wamp');
+      expect(yield.options?.pptSerializer, 'cbor');
+      expect(yield.options?.pptCipher, 'aes');
+      expect(yield.options?.pptKeyId, 'key-1');
+
+      expect(unsubscribed.unsubscribeRequestId, 13);
+      expect(unsubscribed.details?.subscription, 99);
+      expect(unsubscribed.details?.reason, 'wamp.close.normal');
     });
   });
 }

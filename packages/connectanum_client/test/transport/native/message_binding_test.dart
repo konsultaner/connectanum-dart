@@ -77,6 +77,29 @@ void main() {
       expect((unregistered as Unregistered).unregisterRequestId, 56);
     });
 
+    test('direct binds Unsubscribed acknowledgements with details', () {
+      final message = bindMessage(
+        NativeMessageSerializer.json,
+        Uint8List.fromList([0x00]),
+        metadata: _metadata(
+          messageCode: MessageTypes.codeUnsubscribed,
+          primaryId: 57,
+          detailNumberA: 88,
+          flags:
+              NativeMessageMetadata.flagDirectBind |
+              NativeMessageMetadata.flagMetadataBind |
+              NativeMessageMetadata.flagDetailNumberAPresent,
+          stringA: 'wamp.close.normal',
+        ),
+      );
+
+      expect(message, isA<Unsubscribed>());
+      final unsubscribed = message as Unsubscribed;
+      expect(unsubscribed.unsubscribeRequestId, 57);
+      expect(unsubscribed.details?.subscription, 88);
+      expect(unsubscribed.details?.reason, 'wamp.close.normal');
+    });
+
     test('decodes Welcome details and preserves custom fields', () {
       final message = bindMessage(
         NativeMessageSerializer.json,

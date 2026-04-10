@@ -233,6 +233,11 @@ because the bench path does not pipeline H1 requests.
   WebSocket, now covering the full mode/serializer matrix (`json`, `msgpack`,
   `cbor`) on both transports so smoke runs can catch serializer-specific
   regressions on either RPC or pub/sub paths.
+- `wamp_control_smoke.toml` – control-heavy native WAMP sweep covering
+  `PUBLISH`+ACK, `SUBSCRIBE`/`UNSUBSCRIBE`, and `REGISTER`/`UNREGISTER` cycles
+  across RawSocket/WebSocket and JSON/MsgPack/CBOR so metadata-bind control-path
+  work is measured directly instead of inferred from payload-heavy RPC/pubsub
+  runs.
 - `wamp_serializer_matrix.toml` – larger-payload RawSocket/WebSocket RPC sweep
   that runs JSON, MessagePack, and CBOR side by side to compare serializer
   overhead without HTTP traffic in the same run. The current version enables
@@ -610,14 +615,16 @@ The same scanner now covers the handled control/ack path too: MessagePack/CBOR
 `SUBSCRIBED`, `UNSUBSCRIBED`, `ABORT`, and `GOODBYE` rebuild from fragment
 decoders instead of paying a full-array decode first. That change matters more
 for control-heavy smoke workloads than for large steady-state payload sweeps,
-so use `wamp_smoke.toml` or the client-implementation smoke scenarios when you
-want to see the direct effect.
+so use `wamp_control_smoke.toml`, `wamp_smoke.toml`, or the client-implementation
+smoke scenarios when you want to see the direct effect.
 The native metadata-peek path now reaches both sides of the Dart boundary:
 client runtimes and the router runtime can bind common request/control WAMP
 messages from `ct_message_peek` metadata + encoded detail bytes without asking
 `ct_message_get` for a contiguous frame first. On the router side that now
-includes metadata-only `UNSUBSCRIBE`, so the remaining fallbacks are only the
-still-unsupported message shapes outside the handled request/control set.
+includes scalar direct-bind rebuilds for `PUBLISH`, `SUBSCRIBE`, `CALL`,
+`CANCEL`, `REGISTER`, `YIELD`, and `UNSUBSCRIBED` option/detail maps when they
+stay inside the handled control-key subset, so the remaining fallbacks are only
+custom-detail or still-unsupported message shapes outside that set.
 The same lazy path now keeps already-packed `pptScheme == 'wamp'` payload bytes
 intact across client outbound sends, invocation yields, and router
 internal-session event/result/invocation forwarding, so the benchmark no longer

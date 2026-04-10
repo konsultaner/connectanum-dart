@@ -1031,9 +1031,15 @@ class _NativeMessageMetadata {
     required this.messageCode,
     required this.primaryId,
     required this.secondaryId,
+    required this.detailNumberA,
+    required this.detailNumberB,
     required this.flags,
     this.detailsBytes,
     this.stringA,
+    this.stringB,
+    this.stringC,
+    this.stringD,
+    this.stringE,
   });
 
   static const flagMetadataBind = 1 << 4;
@@ -1041,9 +1047,15 @@ class _NativeMessageMetadata {
   final int messageCode;
   final int primaryId;
   final int secondaryId;
+  final int detailNumberA;
+  final int detailNumberB;
   final int flags;
   final Uint8List? detailsBytes;
   final String? stringA;
+  final String? stringB;
+  final String? stringC;
+  final String? stringD;
+  final String? stringE;
 
   bool hasFlag(int flag) => (flags & flag) != 0;
 }
@@ -1242,9 +1254,14 @@ class _MessageBindings {
                 metadataMessageCode: metadata.messageCode,
                 metadataPrimaryId: metadata.primaryId,
                 metadataSecondaryId: metadata.secondaryId,
+                metadataDetailNumberA: metadata.detailNumberA,
                 metadataFlags: metadata.flags,
                 metadataDetailsBytes: metadata.detailsBytes,
                 metadataStringA: metadata.stringA,
+                metadataStringB: metadata.stringB,
+                metadataStringC: metadata.stringC,
+                metadataStringD: metadata.stringD,
+                metadataStringE: metadata.stringE,
               )
             : null;
         if (metadataBound != null) {
@@ -1328,12 +1345,26 @@ _NativeMessageMetadata _metadataFromFfi(CtMessageInfo info) {
     messageCode: info.messageCode,
     primaryId: info.primaryId,
     secondaryId: info.secondaryId,
+    detailNumberA: info.detailNumberA,
+    detailNumberB: info.detailNumberB,
     flags: flags,
     detailsBytes: metadataBind
         ? _readOptionalBytes(info.detailsPtr, info.detailsLen)
         : null,
     stringA: metadataBind
         ? _readOptionalString(info.stringAPtr, info.stringALen)
+        : null,
+    stringB: metadataBind
+        ? _readOptionalString(info.stringBPtr, info.stringBLen)
+        : null,
+    stringC: metadataBind
+        ? _readOptionalString(info.stringCPtr, info.stringCLen)
+        : null,
+    stringD: metadataBind
+        ? _readOptionalString(info.stringDPtr, info.stringDLen)
+        : null,
+    stringE: metadataBind
+        ? _readOptionalString(info.stringEPtr, info.stringELen)
         : null,
   );
 }
