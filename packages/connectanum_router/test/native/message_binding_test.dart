@@ -283,6 +283,17 @@ void main() {
                 stringA: 'killnowait',
               )
               as Cancel;
+      final interrupt =
+          bindMessageFromMetadata(
+                NativeMessageSerializer.cbor,
+                messageCode: MessageTypes.codeInterrupt,
+                primaryId: 10,
+                secondaryId: 0,
+                detailNumberA: 0,
+                flags: (1 << 4) | (1 << 0),
+                stringA: 'kill',
+              )
+              as Interrupt;
       final register =
           bindMessageFromMetadata(
                 NativeMessageSerializer.cbor,
@@ -338,6 +349,7 @@ void main() {
       expect(call.options?.pptSerializer, 'cbor');
 
       expect(cancel.options?.mode, 'killnowait');
+      expect(interrupt.options?.mode, 'kill');
 
       expect(register.options?.discloseCaller, isTrue);
       expect(register.options?.match, 'prefix');

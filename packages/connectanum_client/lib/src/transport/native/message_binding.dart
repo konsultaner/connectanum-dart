@@ -254,6 +254,17 @@ AbstractMessage? _bindFromMetadata(
     _applyLazyPayload(message, serializer, argsBytes, kwargsBytes);
     return message;
   }
+  if (code == MessageTypes.codeInterrupt) {
+    final options = directBind
+        ? _mapCancelOptionsFromMetadata(metadata.stringA)
+        : _mapCancelOptions(
+            _decodeOptionalMapFragment(serializer, metadata.detailsBytes),
+          );
+    return Interrupt(
+      metadata.primaryId,
+      options: _interruptOptionsFromMode(options?.mode),
+    );
+  }
   if (code == MessageTypes.codeUnregistered) {
     return Unregistered(metadata.primaryId);
   }
@@ -316,6 +327,7 @@ bool _supportsSessionMetadataMessage(int code) {
       code == MessageTypes.codeResult ||
       code == MessageTypes.codeRegistered ||
       code == MessageTypes.codeInvocation ||
+      code == MessageTypes.codeInterrupt ||
       code == MessageTypes.codeUnregistered ||
       code == MessageTypes.codeGoodbye ||
       code == MessageTypes.codeError;
@@ -437,6 +449,15 @@ AbstractMessage _bindDecoded(List<dynamic> message) {
       message[1] as int,
       message[2] as int,
       _mapInvocationDetails(_asStringKeyMap(message[3])),
+    );
+  }
+  if (code == MessageTypes.codeInterrupt) {
+    final options = _mapCancelOptions(
+      _asStringKeyMap(message.length > 2 ? message[2] : null),
+    );
+    return Interrupt(
+      message[1] as int,
+      options: _interruptOptionsFromMode(options?.mode),
     );
   }
   if (code == MessageTypes.codeUnregistered) {
@@ -629,6 +650,33 @@ UnsubscribedDetails? _mapUnsubscribedDetails(Map<String, dynamic>? map) {
     _asInt(map['subscription']),
     map['reason'] as String?,
   );
+}
+
+CancelOptions? _mapCancelOptions(Map<String, dynamic>? map) {
+  if (map == null) {
+    return null;
+  }
+  final options = CancelOptions();
+  options.mode = map['mode'] as String?;
+  return options;
+}
+
+CancelOptions? _mapCancelOptionsFromMetadata(String? mode) {
+  if (mode == null) {
+    return null;
+  }
+  final options = CancelOptions();
+  options.mode = mode;
+  return options;
+}
+
+InterruptOptions? _interruptOptionsFromMode(String? mode) {
+  if (mode == null) {
+    return null;
+  }
+  final options = InterruptOptions();
+  options.mode = mode;
+  return options;
 }
 
 List<dynamic> _decodeArgumentList(

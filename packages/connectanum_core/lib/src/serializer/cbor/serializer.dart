@@ -412,6 +412,42 @@ class Serializer extends AbstractSerializer {
           }
           return Welcome((decodedMessage[1] as CborInt).toInt(), details);
         }
+        if (messageId == MessageTypes.codeInterrupt &&
+            decodedMessage.length >= 2) {
+          final options =
+              decodedMessage.length > 2 && decodedMessage[2] is CborMap
+              ? (() {
+                  final options = InterruptOptions();
+                  options.mode =
+                      ((decodedMessage[2] as CborMap)[CborString('mode')]
+                              as CborString?)
+                          ?.toString();
+                  return options;
+                })()
+              : null;
+          return Interrupt(
+            (decodedMessage[1] as CborInt).toInt(),
+            options: options,
+          );
+        }
+        if (messageId == MessageTypes.codeCancel &&
+            decodedMessage.length >= 2) {
+          final options =
+              decodedMessage.length > 2 && decodedMessage[2] is CborMap
+              ? (() {
+                  final options = CancelOptions();
+                  options.mode =
+                      ((decodedMessage[2] as CborMap)[CborString('mode')]
+                              as CborString?)
+                          ?.toString();
+                  return options;
+                })()
+              : null;
+          return Cancel(
+            (decodedMessage[1] as CborInt).toInt(),
+            options: options,
+          );
+        }
         if (messageId == MessageTypes.codeRegistered &&
             decodedMessage.length == 3) {
           return Registered(
@@ -1107,6 +1143,17 @@ class Serializer extends AbstractSerializer {
               cbor.encode(CborValue(structuredMessage)),
             );
           })();
+    }
+    if (message is Cancel) {
+      final details = <String, Object?>{};
+      if (message.options?.mode != null) {
+        details['mode'] = message.options!.mode;
+      }
+      return Uint8List.fromList(
+        cbor.encode(
+          CborValue([MessageTypes.codeCancel, message.requestId, details]),
+        ),
+      );
     }
     if (message is Interrupt) {
       final details = <String, Object?>{};

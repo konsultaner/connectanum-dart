@@ -174,6 +174,16 @@ AbstractMessage? bindMessageFromMetadata(
               _decodeOptionalMapFragment(serializer, detailsBytes),
             ),
     );
+  } else if (messageCode == MessageTypes.codeInterrupt) {
+    final options = directBind
+        ? _mapCancelOptionsFromMetadata(stringA)
+        : _mapCancelOptions(
+            _decodeOptionalMapFragment(serializer, detailsBytes),
+          );
+    message = Interrupt(
+      primaryId,
+      options: _interruptOptionsFromMode(options?.mode),
+    );
   } else if (messageCode == MessageTypes.codeRegister) {
     message = stringA == null
         ? null
@@ -287,6 +297,9 @@ AbstractMessage _bindDecoded(List<dynamic> message) {
   if (code == MessageTypes.codeCancel) {
     return _bindCancel(message);
   }
+  if (code == MessageTypes.codeInterrupt) {
+    return _bindInterrupt(message);
+  }
   if (code == MessageTypes.codeRegister) {
     return _bindRegister(message);
   }
@@ -329,6 +342,17 @@ Cancel _bindCancel(List<dynamic> message) {
     _asStringKeyMap(message.length > 2 ? message[2] : null),
   );
   return Cancel(requestId, options: options);
+}
+
+Interrupt _bindInterrupt(List<dynamic> message) {
+  final requestId = message[1] as int;
+  final options = _mapCancelOptions(
+    _asStringKeyMap(message.length > 2 ? message[2] : null),
+  );
+  return Interrupt(
+    requestId,
+    options: _interruptOptionsFromMode(options?.mode),
+  );
 }
 
 Register _bindRegister(List<dynamic> message) {
@@ -853,6 +877,15 @@ CancelOptions? _mapCancelOptionsFromMetadata(String? mode) {
     return null;
   }
   final options = CancelOptions();
+  options.mode = mode;
+  return options;
+}
+
+InterruptOptions? _interruptOptionsFromMode(String? mode) {
+  if (mode == null) {
+    return null;
+  }
+  final options = InterruptOptions();
   options.mode = mode;
   return options;
 }

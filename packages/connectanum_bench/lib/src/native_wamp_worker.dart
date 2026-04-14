@@ -51,12 +51,19 @@ class NativeWampWorker {
     _pending.addLast(completer);
     stdin.writeln(jsonEncode(scenario.toJson()));
     await stdin.flush();
-    final response = await completer.future;
-    final error = response.error;
-    if (error != null) {
-      throw StateError(error);
+    try {
+      final response = await completer.future;
+      final error = response.error;
+      if (error != null) {
+        throw StateError(error);
+      }
+      return response.samples;
+    } finally {
+      // Native cancel-cycle workloads can leave late interrupts/errors in flight.
+      // Recycle the helper between scenarios so those messages do not poison the
+      // next benchmark command in the same worker isolate.
+      await close();
     }
-    return response.samples;
   }
 
   Future<void> close() async {

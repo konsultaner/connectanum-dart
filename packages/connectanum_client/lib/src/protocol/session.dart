@@ -60,6 +60,8 @@ class Session {
 
   late StreamSubscription<Object?> _transportStreamSubscription;
   final Map<int, _PendingCall> _pendingCalls = {};
+  final Map<int, _PendingInvocationResponder> _pendingInvocations = {};
+  final Map<int, String?> _pendingInvocationInterrupts = {};
   final Map<int, Completer<Published>> _pendingPublishes = {};
   final Map<int, Completer<Subscribed>> _pendingSubscribes = {};
   final Map<int, _PendingUnsubscribe> _pendingUnsubscribes = {};
@@ -654,7 +656,31 @@ class Session {
     if (message is Invocation) {
       final registered = registrations[message.registrationId];
       if (registered != null) {
-        message.onResponse((response) => _transport.send(response));
+        message.onResponse((response) {
+          _transport.send(response);
+          if (response is Error ||
+              response is! Yield ||
+              response.options?.progress != true) {
+            _pendingInvocations.remove(message.requestId);
+          }
+        });
+        final responder = _PendingInvocationResponder(
+          isClosed: () => message.responseClosed,
+          cancel: (mode) {
+            if (message.responseClosed) {
+              return;
+            }
+            message.respondWith(
+              isError: true,
+              errorUri: Error.errorInvocationCanceled,
+              arguments: mode == null ? null : [mode],
+            );
+          },
+        );
+        _pendingInvocations[message.requestId] = responder;
+        if (_cancelInterruptedInvocation(message.requestId, responder)) {
+          return;
+        }
         registered.addInvocation(message);
         return;
       }
@@ -666,6 +692,19 @@ class Session {
           Error.noSuchRegistration,
         ),
       );
+      return;
+    }
+    if (message is Interrupt) {
+      final pendingInvocation = _pendingInvocations.remove(message.requestId);
+      if (pendingInvocation != null && !pendingInvocation.isClosed()) {
+        pendingInvocation.cancel(message.options?.mode);
+      } else {
+        _pendingInvocationInterrupts[message.requestId] = message.options?.mode;
+        _logger.finer(
+          'Ignoring callee interrupt for request ${message.requestId} '
+          'mode=${message.options?.mode}',
+        );
+      }
       return;
     }
     if (message is Error) {
@@ -685,6 +724,22 @@ class Session {
     }
     if (code == MessageTypes.codeInvocation) {
       _handleNativeInvocation(message);
+      return;
+    }
+    if (code == MessageTypes.codeInterrupt) {
+      final pendingInvocation = _pendingInvocations.remove(
+        message.metadata.primaryId,
+      );
+      if (pendingInvocation != null && !pendingInvocation.isClosed()) {
+        pendingInvocation.cancel(message.metadata.stringA);
+      } else {
+        _pendingInvocationInterrupts[message.metadata.primaryId] =
+            message.metadata.stringA;
+        _logger.finer(
+          'Ignoring native callee interrupt for request ${message.metadata.primaryId} '
+          'mode=${message.metadata.stringA}',
+        );
+      }
       return;
     }
     _handleTransportMessage(message.materialize());
@@ -740,10 +795,32 @@ class Session {
     if (registered.hasMaterializedInvocationConsumers) {
       final invocation = message.materialize() as Invocation;
       invocation.onResponse((response) => _transport.send(response));
+      final responder = _PendingInvocationResponder(
+        isClosed: () => invocation.responseClosed,
+        cancel: (mode) {
+          if (invocation.responseClosed) {
+            return;
+          }
+          invocation.respondWith(
+            isError: true,
+            errorUri: Error.errorInvocationCanceled,
+            arguments: mode == null ? null : [mode],
+          );
+        },
+      );
+      _pendingInvocations[message.metadata.primaryId] = responder;
+      if (_cancelInterruptedInvocation(message.metadata.primaryId, responder)) {
+        return;
+      }
       registered.addInvocation(invocation);
       return;
     }
     final lazyInvocation = _lazyInvocationPayloadFromNative(message);
+    final responder = _pendingInvocations[message.metadata.primaryId];
+    if (responder != null &&
+        _cancelInterruptedInvocation(message.metadata.primaryId, responder)) {
+      return;
+    }
     if (registered.hasLazyPayloadInvocationHandler) {
       registered.addLazyInvocationPayload(lazyInvocation);
       return;
@@ -785,6 +862,14 @@ class Session {
         unawaited(pendingCall.close());
       }
       return;
+    }
+    if (message.requestTypeId == MessageTypes.codeCancel) {
+      final pendingCall = _pendingCalls.remove(message.requestId);
+      if (pendingCall != null) {
+        pendingCall.addError(message);
+        unawaited(pendingCall.close());
+        return;
+      }
     }
     if (message.requestTypeId == MessageTypes.codePublish) {
       _completePendingError(
@@ -899,6 +984,7 @@ class Session {
           ),
         );
         responseClosed = true;
+        _pendingInvocations.remove(message.metadata.primaryId);
         return;
       }
       final yieldMessage = Yield(
@@ -948,10 +1034,11 @@ class Session {
       _transport.send(yieldMessage);
       if (options?.progress != true) {
         responseClosed = true;
+        _pendingInvocations.remove(message.metadata.primaryId);
       }
     }
 
-    return LazyInvocationPayload(
+    final invocation = LazyInvocationPayload(
       requestId: message.metadata.primaryId,
       registrationId: message.metadata.secondaryId,
       caller:
@@ -996,6 +1083,21 @@ class Session {
         pptKeyId: message.metadata.stringE,
       ),
     );
+    _pendingInvocations[message.metadata.primaryId] =
+        _PendingInvocationResponder(
+          isClosed: () => responseClosed,
+          cancel: (mode) {
+            if (responseClosed) {
+              return;
+            }
+            respondWith(
+              isError: true,
+              errorUri: Error.errorInvocationCanceled,
+              arguments: mode == null ? null : [mode],
+            );
+          },
+        );
+    return invocation;
   }
 
   Subscribed? _removeSubscription(int subscriptionId) {
@@ -1050,6 +1152,7 @@ class Session {
     _pendingUnsubscribes.clear();
     _pendingRegisters.clear();
     _pendingUnregisters.clear();
+    _pendingInvocationInterrupts.clear();
 
     for (final completer in publishCompleters) {
       _completePendingError(completer, closureError, stackTrace);
@@ -1069,6 +1172,7 @@ class Session {
 
     final activeSubscriptions = subscriptions.values.toList(growable: false);
     final activeRegistrations = registrations.values.toList(growable: false);
+    _pendingInvocations.clear();
     subscriptions.clear();
     registrations.clear();
 
@@ -1089,6 +1193,23 @@ class Session {
       return;
     }
     completer.completeError(error, stackTrace);
+  }
+
+  bool _cancelInterruptedInvocation(
+    int requestId,
+    _PendingInvocationResponder responder,
+  ) {
+    final hasQueuedInterrupt = _pendingInvocationInterrupts.containsKey(
+      requestId,
+    );
+    final mode = _pendingInvocationInterrupts.remove(requestId);
+    if (!hasQueuedInterrupt) {
+      return false;
+    }
+    if (!responder.isClosed()) {
+      responder.cancel(mode);
+    }
+    return true;
   }
 
   Call _buildCallLazyPayload(
@@ -1290,6 +1411,13 @@ class _PendingCallLazyPayloadFuture implements _PendingCall {
 
   @override
   Future<void> close() => Future<void>.value();
+}
+
+class _PendingInvocationResponder {
+  _PendingInvocationResponder({required this.isClosed, required this.cancel});
+
+  final bool Function() isClosed;
+  final void Function(String? mode) cancel;
 }
 
 class _PendingUnsubscribe {

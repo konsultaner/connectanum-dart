@@ -965,13 +965,13 @@ void main() {
           invocationId,
           arguments: ['finished'],
         );
-        final retainedHandles = <int>[];
+        final takenHandles = <int>[];
         final incoming = NativeIncomingMessage.test(
           serializer: NativeMessageSerializer.json,
           message: yieldMessage,
           handle: 105,
-          onRetain: (handle) {
-            retainedHandles.add(handle);
+          onTake: (handle) {
+            takenHandles.add(handle);
             return handle;
           },
         );
@@ -994,7 +994,7 @@ void main() {
               (message) => message['type'] == 'worker_forward_native_result',
             )
             .toList();
-        expect(retainedHandles, equals([105]));
+        expect(takenHandles, equals([105]));
         expect(bossMessages, isNotEmpty);
         expect(nativeCommands, hasLength(1));
         expect(nativeCommands.single['handle'], equals(105));
@@ -1104,13 +1104,13 @@ void main() {
           wamp_core.Error.runtimeError,
           arguments: ['fail'],
         );
-        final retainedHandles = <int>[];
+        final takenHandles = <int>[];
         final incoming = NativeIncomingMessage.test(
           serializer: NativeMessageSerializer.json,
           message: errorMessage,
           handle: 115,
-          onRetain: (handle) {
-            retainedHandles.add(handle);
+          onTake: (handle) {
+            takenHandles.add(handle);
             return handle;
           },
         );
@@ -1133,7 +1133,7 @@ void main() {
               (message) => message['type'] == 'worker_forward_native_error',
             )
             .toList();
-        expect(retainedHandles, equals([115]));
+        expect(takenHandles, equals([115]));
         expect(bossMessages, isNotEmpty);
         expect(nativeCommands, hasLength(1));
         expect(nativeCommands.single['handle'], equals(115));
@@ -1242,6 +1242,7 @@ void main() {
         await Future<void>.delayed(Duration.zero);
         setupBossMessages.clear();
 
+        final takeOrder = <int>[];
         final retainOrder = <int>[];
         final releasedHandles = <int>[];
         final forwardedCommands = <Object?>[];
@@ -1261,8 +1262,12 @@ void main() {
           serializer: NativeMessageSerializer.json,
           message: publish,
           handle: 901,
+          onTake: (handle) {
+            takeOrder.add(handle);
+            return handle;
+          },
           onRetain: (handle) {
-            final retainedHandle = handle + retainOrder.length;
+            final retainedHandle = handle + retainOrder.length + 1;
             retainOrder.add(retainedHandle);
             return retainedHandle;
           },
@@ -1290,8 +1295,10 @@ void main() {
             .toList();
         final eventCommand = nativeCommands.single;
         expect(eventCommand['type'], equals('worker_forward_native_event'));
-        expect(retainOrder.length, equals(2));
-        expect(releasedHandles, equals(retainOrder));
+        expect(eventCommand['handle'], equals(901));
+        expect(takeOrder, equals([901]));
+        expect(retainOrder, equals([902]));
+        expect(releasedHandles, equals([901, 902]));
       },
       skip: _nativePublishSkipReason,
     );
@@ -1338,6 +1345,10 @@ void main() {
           connectionId: 82,
         );
         await Future<void>.delayed(Duration.zero);
+        final connectionStates = <int, WorkerConnectionState>{
+          81: callerState,
+          82: calleeState,
+        };
 
         final realmContexts = RealmContextCache(
           statePort: stateStore.commandPort,
@@ -1355,6 +1366,7 @@ void main() {
           bossPort: setupBoss.sendPort,
           statePort: stateStore.commandPort,
           realmContexts: realmContexts,
+          connectionStates: connectionStates,
           state: calleeState,
           message: register_msg.Register(12003, 'com.zero.copy.fail'),
           connectionId: 82,
@@ -1362,7 +1374,7 @@ void main() {
         await Future<void>.delayed(Duration.zero);
         setupBossMessages.clear();
 
-        final retained = <int>[];
+        final taken = <int>[];
         final released = <int>[];
         final forwarded = <Object?>[];
         final throwingBoss = _ThrowingSendPort(onSend: forwarded.add);
@@ -1376,8 +1388,8 @@ void main() {
           serializer: NativeMessageSerializer.json,
           message: call,
           handle: 120,
-          onRetain: (handle) {
-            retained.add(handle);
+          onTake: (handle) {
+            taken.add(handle);
             return handle;
           },
           onRelease: released.add,
@@ -1388,6 +1400,7 @@ void main() {
             bossPort: throwingBoss,
             statePort: stateStore.commandPort,
             realmContexts: realmContexts,
+            connectionStates: connectionStates,
             state: callerState,
             message: call,
             connectionId: 81,
@@ -1408,7 +1421,7 @@ void main() {
           invocationCommand['type'],
           equals('worker_forward_native_invocation'),
         );
-        expect(retained, equals([120]));
+        expect(taken, equals([120]));
         expect(released, equals([120]));
       },
       skip: _nativePublishSkipReason,
@@ -1504,7 +1517,7 @@ void main() {
       final invocationId = invocation.requestId;
       setupBossMessages.clear();
 
-      final retained = <int>[];
+      final taken = <int>[];
       final released = <int>[];
       final forwarded = <Object?>[];
       final throwingBoss = _ThrowingSendPort(onSend: forwarded.add);
@@ -1517,8 +1530,8 @@ void main() {
         serializer: NativeMessageSerializer.json,
         message: yieldMessage,
         handle: 130,
-        onRetain: (handle) {
-          retained.add(handle);
+        onTake: (handle) {
+          taken.add(handle);
           return handle;
         },
         onRelease: released.add,
@@ -1543,7 +1556,7 @@ void main() {
           .where((command) => command['type'] == 'worker_forward_native_result')
           .single;
       expect(resultCommand['type'], equals('worker_forward_native_result'));
-      expect(retained, equals([130]));
+      expect(taken, equals([130]));
       expect(released, equals([130]));
     });
 
@@ -1637,7 +1650,7 @@ void main() {
       final invocationId = invocation.requestId;
       setupBossMessages.clear();
 
-      final retained = <int>[];
+      final taken = <int>[];
       final released = <int>[];
       final forwarded = <Object?>[];
       final throwingBoss = _ThrowingSendPort(onSend: forwarded.add);
@@ -1652,8 +1665,8 @@ void main() {
         serializer: NativeMessageSerializer.json,
         message: errorMessage,
         handle: 140,
-        onRetain: (handle) {
-          retained.add(handle);
+        onTake: (handle) {
+          taken.add(handle);
           return handle;
         },
         onRelease: released.add,
@@ -1678,7 +1691,7 @@ void main() {
           .where((command) => command['type'] == 'worker_forward_native_error')
           .single;
       expect(errorCommand['type'], equals('worker_forward_native_error'));
-      expect(retained, equals([140]));
+      expect(taken, equals([140]));
       expect(released, equals([140]));
     });
 
@@ -1874,6 +1887,167 @@ void main() {
         final details = frame[3] as Map<String, Object?>;
         expect(details['message'], contains('error completion failure'));
       },
+    );
+
+    test(
+      'releases only unsent publish handles when boss send fails after first forward',
+      () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
+
+        final listener = _buildListener();
+        final subscriberOne =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        subscriberOne
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 12101;
+        final subscriberTwo =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        subscriberTwo
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 12102;
+        final publisherState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        publisherState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 12103;
+
+        _openSession(
+          stateStore,
+          sessionId: subscriberOne.sessionId!,
+          listener: listener,
+          connectionId: 121,
+        );
+        _openSession(
+          stateStore,
+          sessionId: subscriberTwo.sessionId!,
+          listener: listener,
+          connectionId: 122,
+        );
+        _openSession(
+          stateStore,
+          sessionId: publisherState.sessionId!,
+          listener: listener,
+          connectionId: 123,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: subscriberOne,
+          message: subscribe_msg.Subscribe(12101, 'com.partial.fail'),
+          connectionId: 121,
+        );
+        await Future<void>.delayed(Duration.zero);
+        bossMessages.clear();
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: subscriberTwo,
+          message: subscribe_msg.Subscribe(12102, 'com.partial.fail'),
+          connectionId: 122,
+        );
+        await Future<void>.delayed(Duration.zero);
+        bossMessages.clear();
+
+        final forwarded = <Object?>[];
+        final throwingBoss = _FailAfterNSendPort(
+          failOnSendNumber: 3,
+          onSend: forwarded.add,
+        );
+
+        final publish =
+            publish_msg.Publish(
+                12103,
+                'com.partial.fail',
+                arguments: const ['payload'],
+              )
+              ..options = publish_msg.PublishOptions(
+                acknowledge: false,
+                discloseMe: true,
+              );
+
+        final takenHandles = <int>[];
+        final retainedHandles = <int>[];
+        final releasedHandles = <int>[];
+        final incoming = NativeIncomingMessage.test(
+          serializer: NativeMessageSerializer.json,
+          message: publish,
+          handle: 950,
+          onTake: (handle) {
+            takenHandles.add(handle);
+            return handle;
+          },
+          onRetain: (handle) {
+            final retainedHandle = handle + 1;
+            retainedHandles.add(retainedHandle);
+            return retainedHandle;
+          },
+          onRelease: releasedHandles.add,
+        );
+
+        await expectLater(
+          handleSessionMessageForTest(
+            bossPort: throwingBoss,
+            statePort: stateStore.commandPort,
+            realmContexts: realmContexts,
+            state: publisherState,
+            message: publish,
+            connectionId: 123,
+            incomingMessage: incoming,
+          ),
+          throwsA(isA<StateError>()),
+        );
+
+        final nativeCommands = forwarded
+            .whereType<Map<String, Object?>>()
+            .where(
+              (command) => command['type'] == 'worker_forward_native_event',
+            )
+            .toList();
+        expect(nativeCommands, hasLength(2));
+        expect(nativeCommands.first['handle'], equals(950));
+        expect(nativeCommands.last['handle'], equals(951));
+        expect(takenHandles, equals([950]));
+        expect(retainedHandles, equals([951]));
+        expect(releasedHandles, equals([951]));
+      },
+      skip: _nativePublishSkipReason,
     );
 
     test('handles SUBSCRIBE by registering subscription', () async {
@@ -2769,13 +2943,13 @@ void main() {
         bossMessages.clear();
 
         final call = call_msg.Call(8001, 'com.zero.proc', arguments: ['arg']);
-        final retainedHandles = <int>[];
+        final takenHandles = <int>[];
         final incoming = NativeIncomingMessage.test(
           serializer: NativeMessageSerializer.json,
           message: call,
           handle: 88,
-          onRetain: (handle) {
-            retainedHandles.add(handle);
+          onTake: (handle) {
+            takenHandles.add(handle);
             return handle;
           },
         );
@@ -2801,7 +2975,7 @@ void main() {
             .toList();
         expect(nativeCommands, hasLength(1));
         expect(nativeCommands.single['handle'], equals(88));
-        expect(retainedHandles, equals([88]));
+        expect(takenHandles, equals([88]));
         expect(
           bossMessages.where(
             (message) => message['type'] == 'worker_forward_message',
@@ -3315,13 +3489,13 @@ void main() {
                 discloseMe: true,
               );
 
-        final retainedHandles = <int>[];
+        final takenHandles = <int>[];
         final incoming = NativeIncomingMessage.test(
           serializer: NativeMessageSerializer.json,
           message: publish,
           handle: 77,
-          onRetain: (handle) {
-            retainedHandles.add(handle);
+          onTake: (handle) {
+            takenHandles.add(handle);
             return handle;
           },
         );
@@ -3345,13 +3519,161 @@ void main() {
             .toList();
         expect(nativeCommands, hasLength(1));
         expect(nativeCommands.single['handle'], equals(77));
-        expect(retainedHandles, equals([77]));
+        expect(takenHandles, equals([77]));
         expect(
           bossMessages.where(
             (message) => message['type'] == 'worker_forward_message',
           ),
           isEmpty,
         );
+      },
+      skip: _nativePublishSkipReason,
+    );
+
+    test(
+      'uses original native publish handle for first subscriber and clones extras',
+      () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
+
+        final listener = _buildListener();
+        final subscriberOne =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        subscriberOne
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 8711;
+        final subscriberTwo =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        subscriberTwo
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 8712;
+        final publisherState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        publisherState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 8713;
+
+        _openSession(
+          stateStore,
+          sessionId: subscriberOne.sessionId!,
+          listener: listener,
+          connectionId: 51,
+        );
+        _openSession(
+          stateStore,
+          sessionId: subscriberTwo.sessionId!,
+          listener: listener,
+          connectionId: 52,
+        );
+        _openSession(
+          stateStore,
+          sessionId: publisherState.sessionId!,
+          listener: listener,
+          connectionId: 53,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: subscriberOne,
+          message: subscribe_msg.Subscribe(5101, 'com.zero.copy.multi'),
+          connectionId: 51,
+        );
+        await Future<void>.delayed(Duration.zero);
+        bossMessages.clear();
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: subscriberTwo,
+          message: subscribe_msg.Subscribe(5102, 'com.zero.copy.multi'),
+          connectionId: 52,
+        );
+        await Future<void>.delayed(Duration.zero);
+        bossMessages.clear();
+
+        final publish =
+            publish_msg.Publish(
+                5103,
+                'com.zero.copy.multi',
+                arguments: const ['payload'],
+              )
+              ..options = publish_msg.PublishOptions(
+                acknowledge: false,
+                discloseMe: true,
+              );
+
+        final takenHandles = <int>[];
+        final retainedHandles = <int>[];
+        final incoming = NativeIncomingMessage.test(
+          serializer: NativeMessageSerializer.json,
+          message: publish,
+          handle: 600,
+          onTake: (handle) {
+            takenHandles.add(handle);
+            return handle;
+          },
+          onRetain: (handle) {
+            retainedHandles.add(handle + 1);
+            return handle + 1;
+          },
+        );
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: publisherState,
+          message: publish,
+          connectionId: 53,
+          incomingMessage: incoming,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final nativeEvents = bossMessages
+            .where(
+              (message) => message['type'] == 'worker_forward_native_event',
+            )
+            .toList();
+        expect(nativeEvents, hasLength(2));
+        expect(nativeEvents.first['handle'], equals(600));
+        expect(nativeEvents.last['handle'], equals(601));
+        expect(takenHandles, equals([600]));
+        expect(retainedHandles, equals([601]));
       },
       skip: _nativePublishSkipReason,
     );
@@ -3690,6 +4012,18 @@ void main() {
           ..realmUri = 'realm1'
           ..realmSettings = routerSettings.realms.first
           ..sessionId = 8804;
+        final subscriberThree =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        subscriberThree
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 8806;
         final publisherState =
             createWorkerStateForTest(
                   listener: listener,
@@ -3714,6 +4048,12 @@ void main() {
           sessionId: subscriberTwo.sessionId!,
           listener: listener,
           connectionId: 62,
+        );
+        _openSession(
+          stateStore,
+          sessionId: subscriberThree.sessionId!,
+          listener: listener,
+          connectionId: 64,
         );
         _openSession(
           stateStore,
@@ -3749,6 +4089,17 @@ void main() {
         await Future<void>.delayed(Duration.zero);
         bossMessages.clear();
 
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: subscriberThree,
+          message: subscribe_msg.Subscribe(6104, 'com.zero.copy'),
+          connectionId: 64,
+        );
+        await Future<void>.delayed(Duration.zero);
+        bossMessages.clear();
+
         final publish =
             publish_msg.Publish(
                 6103,
@@ -3760,12 +4111,17 @@ void main() {
                 discloseMe: true,
               );
 
+        final takenHandles = <int>[];
         var retainCount = 0;
         final releasedHandles = <int>[];
         final incoming = NativeIncomingMessage.test(
           serializer: NativeMessageSerializer.json,
           message: publish,
           handle: 901,
+          onTake: (handle) {
+            takenHandles.add(handle);
+            return handle;
+          },
           onRetain: (_) {
             retainCount += 1;
             if (retainCount == 1) {
@@ -3787,11 +4143,12 @@ void main() {
         );
         await Future<void>.delayed(Duration.zero);
 
-        expect(releasedHandles, equals([777]));
+        expect(takenHandles, equals([901]));
+        expect(releasedHandles, equals([901, 777]));
         final forwarded = bossMessages
             .where((message) => message['type'] == 'worker_forward_message')
             .toList();
-        expect(forwarded, hasLength(2));
+        expect(forwarded, hasLength(3));
         expect(
           bossMessages.where(
             (message) => message['type'] == 'worker_forward_native_event',
@@ -7717,4 +8074,35 @@ class _ThrowingSendPort implements SendPort {
 
   @override
   String toString() => 'ThrowingSendPort($_message)';
+}
+
+class _FailAfterNSendPort implements SendPort {
+  _FailAfterNSendPort({
+    required this.failOnSendNumber,
+    this.onSend,
+    String? message,
+  }) : _message = message ?? 'zero-copy forwarding failed';
+
+  final int failOnSendNumber;
+  final void Function(Object? message)? onSend;
+  final String _message;
+  int _sendCount = 0;
+
+  @override
+  void send(Object? message) {
+    _sendCount += 1;
+    onSend?.call(message);
+    if (_sendCount >= failOnSendNumber) {
+      throw StateError(_message);
+    }
+  }
+
+  @override
+  bool operator ==(Object other) => identical(this, other);
+
+  @override
+  int get hashCode => identityHashCode(this);
+
+  @override
+  String toString() => 'FailAfterNSendPort($failOnSendNumber, $_message)';
 }

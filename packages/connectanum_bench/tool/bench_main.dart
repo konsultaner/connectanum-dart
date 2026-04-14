@@ -527,10 +527,19 @@ class _BenchControlRegistry {
     }
     try {
       final scenario = WampScenario.fromJson(payload);
+      Object? baselineMetrics;
+      try {
+        baselineMetrics = await binding.collectMetrics();
+      } catch (_) {
+        baselineMetrics = null;
+      }
       final samples =
           scenario.clientImplementation == WampClientImplementation.native
           ? await _nativeWampWorker.run(scenario)
           : await _wampRunner.run(scenario);
+      if (baselineMetrics != null) {
+        await _awaitRouterQuiescence(baselineMetrics);
+      }
       context.sendJson(
         body: {'samples': samples.map((sample) => sample.toJson()).toList()},
       );
@@ -568,5 +577,38 @@ class _BenchControlRegistry {
       'error': error.toString(),
       'stackTrace': stackTrace.toString(),
     });
+  }
+
+  Future<void> _awaitRouterQuiescence(
+    Object baseline, {
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
+    final baselineSnapshot = baseline as dynamic;
+    final deadline = DateTime.now().add(timeout);
+    while (true) {
+      final metrics = await binding.collectMetrics();
+      final isQuiescent =
+          metrics.activeConnections <= baselineSnapshot.activeConnections &&
+          metrics.sessionCount <= baselineSnapshot.sessionCount &&
+          metrics.pendingInvocationCount <=
+              baselineSnapshot.pendingInvocationCount &&
+          metrics.subscriptionCount <= baselineSnapshot.subscriptionCount &&
+          metrics.registrationCount <= baselineSnapshot.registrationCount;
+      if (isQuiescent) {
+        return;
+      }
+      if (DateTime.now().isAfter(deadline)) {
+        _logger.warning(
+          'Timed out waiting for router quiescence after workload: '
+          'active_connections=${metrics.activeConnections} '
+          'sessions=${metrics.sessionCount} '
+          'pending_invocations=${metrics.pendingInvocationCount} '
+          'subscriptions=${metrics.subscriptionCount} '
+          'registrations=${metrics.registrationCount}',
+        );
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
   }
 }

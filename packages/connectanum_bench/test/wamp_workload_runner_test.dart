@@ -56,6 +56,39 @@ void main() {
       expect(samples.every((sample) => sample.latencyMs >= 0), isTrue);
     });
 
+    test(
+      'supports pubsub fanout workloads with multiple subscribers',
+      () async {
+        final broker = _FakeWampBroker();
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async => _FakeWampSession(broker),
+          logger: Logger.detached('pubsub_fanout_test'),
+          eventTimeout: const Duration(seconds: 1),
+        );
+        final scenario = WampScenario(
+          transport: WampTransport.websocket,
+          serializer: WampSerializer.msgpack,
+          mode: WampMode.pubsub,
+          uri: 'bench.topic',
+          iterations: 2,
+          concurrency: 1,
+          inFlightPerSession: 2,
+          peerCount: 3,
+          payloadBytes: 32,
+        );
+
+        final samples = await runner.run(scenario);
+
+        expect(samples, hasLength(2));
+        expect(
+          samples.every((sample) => sample.responseBytes == 32 * 3),
+          isTrue,
+        );
+        expect(broker.subscribeAdds, 3);
+        expect(broker.subscribeRemoves, greaterThanOrEqualTo(3));
+      },
+    );
+
     test('throws when matching events do not arrive before timeout', () async {
       final broker = _FakeWampBroker(dropMetadata: true);
       final runner = WampWorkloadRunner(
@@ -235,6 +268,92 @@ void main() {
         broker.lastRegisterOptions?.invoke,
         wamp_core.RegisterOptions.invocationPolicyRoundRobin,
       );
+    });
+
+    test('executes cancel-cycle control workloads', () async {
+      final broker = _FakeWampBroker();
+      final runner = WampWorkloadRunner(
+        sessionFactory: (_) async => _FakeWampSession(broker),
+        logger: Logger.detached('cancel_cycle_test'),
+        eventTimeout: const Duration(seconds: 1),
+      );
+      final scenario = WampScenario(
+        transport: WampTransport.websocket,
+        serializer: WampSerializer.json,
+        mode: WampMode.cancelCycle,
+        uri: 'bench.control.cancel',
+        iterations: 3,
+        concurrency: 1,
+        payloadBytes: 0,
+      );
+
+      final samples = await runner.run(scenario);
+
+      expect(samples, hasLength(3));
+      expect(broker.registerAdds, 1);
+      expect(broker.registerRemoves, 1);
+      expect(broker.cancelCalls, 3);
+      expect(broker.lastCancelMode, wamp_core.CancelOptions.modeKillNoWait);
+    });
+
+    test(
+      'cancel-cycle cleanup closes sessions when unregister hangs',
+      () async {
+        final caller = _CancelCleanupSession();
+        final callee = _CancelCleanupSession(hangRegistrationCancel: true);
+        var sessionFactoryCalls = 0;
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async {
+            sessionFactoryCalls += 1;
+            return sessionFactoryCalls == 1 ? caller : callee;
+          },
+          logger: Logger.detached('cancel_cycle_cleanup_test'),
+          eventTimeout: const Duration(seconds: 1),
+          cancelCleanupTimeout: const Duration(milliseconds: 10),
+        );
+        final scenario = WampScenario(
+          transport: WampTransport.rawsocket,
+          serializer: WampSerializer.json,
+          mode: WampMode.cancelCycle,
+          uri: 'bench.control.cancel',
+          iterations: 1,
+          concurrency: 1,
+          payloadBytes: 0,
+        );
+
+        final samples = await runner.run(scenario);
+
+        expect(samples, hasLength(1));
+        expect(callee.registrationCancelCalls, 1);
+        expect(callee.closed, isTrue);
+        expect(caller.closed, isTrue);
+      },
+    );
+
+    test('cancel-cycle scenario times out when cancel calls never finish', () {
+      final caller = _CancelCleanupSession(hangCancelCall: true);
+      final callee = _CancelCleanupSession();
+      var sessionFactoryCalls = 0;
+      final runner = WampWorkloadRunner(
+        sessionFactory: (_) async {
+          sessionFactoryCalls += 1;
+          return sessionFactoryCalls == 1 ? caller : callee;
+        },
+        logger: Logger.detached('cancel_cycle_timeout_test'),
+        eventTimeout: const Duration(milliseconds: 10),
+        cancelCleanupTimeout: const Duration(milliseconds: 10),
+      );
+      final scenario = WampScenario(
+        transport: WampTransport.rawsocket,
+        serializer: WampSerializer.json,
+        mode: WampMode.cancelCycle,
+        uri: 'bench.control.cancel',
+        iterations: 1,
+        concurrency: 1,
+        payloadBytes: 0,
+      );
+
+      expect(() => runner.run(scenario), throwsA(isA<TimeoutException>()));
     });
 
     test(
@@ -479,6 +598,19 @@ void main() {
       expect(scenario.inFlightPerSession, 4);
     });
 
+    test('parses peer-count overrides', () {
+      final scenario = WampScenario.fromJson({
+        'transport': 'ws',
+        'serializer': 'msgpack',
+        'mode': 'pubsub',
+        'uri': 'bench.topic',
+        'peer_count': 8,
+      });
+
+      expect(scenario.peerCount, 8);
+      expect(scenario.toJson()['peer_count'], 8);
+    });
+
     test('parses PPT overrides', () {
       final scenario = WampScenario.fromJson({
         'transport': 'ws',
@@ -527,13 +659,21 @@ void main() {
         'mode': 'register_cycle',
         'uri': 'bench.control.proc',
       });
+      final cancelCycle = WampScenario.fromJson({
+        'transport': 'rawsocket',
+        'serializer': 'json',
+        'mode': 'cancel_cycle',
+        'uri': 'bench.control.cancel',
+      });
 
       expect(publishAck.mode, WampMode.publishAck);
       expect(subscribeCycle.mode, WampMode.subscribeCycle);
       expect(registerCycle.mode, WampMode.registerCycle);
+      expect(cancelCycle.mode, WampMode.cancelCycle);
       expect(publishAck.toJson()['mode'], 'publish_ack');
       expect(subscribeCycle.toJson()['mode'], 'subscribe_cycle');
       expect(registerCycle.toJson()['mode'], 'register_cycle');
+      expect(cancelCycle.toJson()['mode'], 'cancel_cycle');
     });
   });
 
@@ -613,6 +753,7 @@ class _FakeWampBroker {
   wamp_core.PublishOptions? lastPublishOptions;
   wamp_core.SubscribeOptions? lastSubscribeOptions;
   wamp_core.RegisterOptions? lastRegisterOptions;
+  String? lastCancelMode;
   int _activeCalls = 0;
   int maxConcurrentCalls = 0;
   int _activePublishes = 0;
@@ -621,6 +762,7 @@ class _FakeWampBroker {
   int subscribeRemoves = 0;
   int registerAdds = 0;
   int registerRemoves = 0;
+  int cancelCalls = 0;
   final Map<String, FutureOr<void> Function(wamp_core.LazyInvocationPayload)>
   _lazyRegistrations = {};
 
@@ -775,6 +917,11 @@ class _FakeWampBroker {
     _activeCalls -= 1;
   }
 
+  void recordCancel(String mode) {
+    cancelCalls += 1;
+    lastCancelMode = mode;
+  }
+
   void beginPublish() {
     _activePublishes += 1;
     if (_activePublishes > maxConcurrentPublishes) {
@@ -914,6 +1061,26 @@ class _FakeWampBroker {
       );
       await Future.sync(() => handler(invocation));
       return completer.future;
+    } finally {
+      endCall();
+    }
+  }
+
+  Future<void> cancelingCall(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    required String cancelMode,
+    wamp_core.CallOptions? options,
+  }) async {
+    lastCallOptions = options;
+    recordCall(procedure);
+    recordCancel(cancelMode);
+    beginCall();
+    try {
+      if (callDelay > Duration.zero) {
+        await Future<void>.delayed(callDelay);
+      }
     } finally {
       endCall();
     }
@@ -1203,6 +1370,23 @@ class _FakeWampSession implements WampSession {
   }
 
   @override
+  Future<void> cancelingCall(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    required String cancelMode,
+    wamp_core.CallOptions? options,
+  }) {
+    return _broker.cancelingCall(
+      procedure,
+      arguments: arguments,
+      argumentsKeywords: argumentsKeywords,
+      cancelMode: cancelMode,
+      options: options,
+    );
+  }
+
+  @override
   Future<void> close() async {
     for (final subscription in _subscriptions) {
       await subscription.cancel();
@@ -1304,6 +1488,164 @@ class _HangingRpcSession implements WampSession {
     wamp_core.CallOptions? options,
   }) {
     return Completer<wamp_core.LazyResultPayload>().future;
+  }
+
+  @override
+  Future<void> cancelingCall(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    required String cancelMode,
+    wamp_core.CallOptions? options,
+  }) {
+    return Completer<void>().future;
+  }
+
+  @override
+  Future<WampSubscription> subscribe(
+    String topic, {
+    wamp_core.SubscribeOptions? options,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<WampSubscription> subscribePayload(
+    String topic, {
+    wamp_core.SubscribeOptions? options,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<WampSubscription> subscribeLazyPayload(
+    String topic, {
+    wamp_core.SubscribeOptions? options,
+  }) {
+    throw UnimplementedError();
+  }
+}
+
+class _CancelCleanupSession implements WampSession {
+  _CancelCleanupSession({
+    this.hangRegistrationCancel = false,
+    this.hangCancelCall = false,
+  });
+
+  final bool hangRegistrationCancel;
+  final bool hangCancelCall;
+  final _disconnectCompleter = Completer<void>();
+  int registrationCancelCalls = 0;
+  bool closed = false;
+
+  @override
+  Future<dynamic> get onDisconnect => _disconnectCompleter.future;
+
+  @override
+  Future<WampRegistration> registerLazyPayloadHandler(
+    String procedure,
+    FutureOr<void> Function(wamp_core.LazyInvocationPayload invocation)
+    onInvoke, {
+    wamp_core.RegisterOptions? options,
+  }) async {
+    return WampRegistration(
+      cancel: () async {
+        registrationCancelCalls += 1;
+        if (hangRegistrationCancel) {
+          return Completer<void>().future;
+        }
+      },
+    );
+  }
+
+  @override
+  Future<void> cancelingCall(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    required String cancelMode,
+    wamp_core.CallOptions? options,
+  }) {
+    if (hangCancelCall) {
+      return Completer<void>().future;
+    }
+    return Future<void>.value();
+  }
+
+  @override
+  Future<void> close() async {
+    closed = true;
+    if (!_disconnectCompleter.isCompleted) {
+      _disconnectCompleter.complete();
+    }
+  }
+
+  @override
+  Future<Stream<dynamic>> call(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<dynamic> callSingle(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<wamp_core.ResultPayload> callSinglePayload(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<wamp_core.LazyResultPayload> callSingleLazyPayload(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<wamp_core.LazyResultPayload> callSingleWithLazyPayload(
+    String procedure, {
+    required wamp_core.LazyMessagePayload payload,
+    wamp_core.CallOptions? options,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> publish(
+    String topic, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    wamp_core.PublishOptions? options,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> publishLazyPayload(
+    String topic, {
+    required wamp_core.LazyMessagePayload payload,
+    wamp_core.PublishOptions? options,
+  }) {
+    throw UnimplementedError();
   }
 
   @override

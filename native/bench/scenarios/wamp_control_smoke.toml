@@ -1,5 +1,5 @@
 name = "wamp_control_smoke"
-description = "Control-heavy native WAMP workloads covering publish acknowledgements, subscribe cycles, and register cycles across RawSocket/WebSocket and JSON/MsgPack/CBOR."
+description = "Control-heavy native WAMP workloads covering publish acknowledgements, subscribe cycles, register cycles, and cancel/interrupt cycles across RawSocket/WebSocket and JSON/MsgPack/CBOR."
 
 [[workloads]]
 name = "rawsocket_publish_ack_json"
@@ -101,6 +101,39 @@ in_flight_per_session = 4
 request_bytes = 0
 
 [[workloads]]
+name = "rawsocket_cancel_cycle_json"
+protocol = "wamp_rawsocket_cancel_cycle"
+client_impl = "native"
+serializer = "json"
+path = "bench.control.cancel"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+
+[[workloads]]
+name = "rawsocket_cancel_cycle_msgpack"
+protocol = "wamp_rawsocket_cancel_cycle"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.control.cancel"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+
+[[workloads]]
+name = "rawsocket_cancel_cycle_cbor"
+protocol = "wamp_rawsocket_cancel_cycle"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.control.cancel"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+
+[[workloads]]
 name = "websocket_publish_ack_json"
 protocol = "wamp_websocket_publish_ack"
 client_impl = "native"
@@ -194,6 +227,39 @@ protocol = "wamp_websocket_register_cycle"
 client_impl = "native"
 serializer = "cbor"
 path = "bench.control.proc"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+
+[[workloads]]
+name = "websocket_cancel_cycle_json"
+protocol = "wamp_websocket_cancel_cycle"
+client_impl = "native"
+serializer = "json"
+path = "bench.control.cancel"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+
+[[workloads]]
+name = "websocket_cancel_cycle_msgpack"
+protocol = "wamp_websocket_cancel_cycle"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.control.cancel"
+iterations = 96
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+
+[[workloads]]
+name = "websocket_cancel_cycle_cbor"
+protocol = "wamp_websocket_cancel_cycle"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.control.cancel"
 iterations = 96
 concurrency = 8
 in_flight_per_session = 4

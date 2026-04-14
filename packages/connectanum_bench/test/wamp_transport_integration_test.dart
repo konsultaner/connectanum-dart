@@ -3,6 +3,7 @@ library;
 
 import 'dart:io';
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:connectanum_bench/src/native_wamp_worker.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
@@ -177,10 +178,149 @@ void main() {
             payloadBytes: 0,
           ),
         );
+        final cancelCycleSamples = await harness!.runNative(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.json,
+            mode: WampMode.cancelCycle,
+            uri: 'bench.control.cancel',
+            iterations: 2,
+            concurrency: 1,
+            payloadBytes: 0,
+          ),
+        );
+        final webSocketCancelCycleSamples = await harness!.runNative(
+          WampScenario(
+            transport: WampTransport.websocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.msgpack,
+            mode: WampMode.cancelCycle,
+            uri: 'bench.control.cancel',
+            iterations: 2,
+            concurrency: 1,
+            payloadBytes: 0,
+          ),
+        );
+        final rawSocketMsgPackCancelCycleSamples = await harness!.runNative(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.msgpack,
+            mode: WampMode.cancelCycle,
+            uri: 'bench.control.cancel',
+            iterations: 2,
+            concurrency: 1,
+            payloadBytes: 0,
+          ),
+        );
 
         expect(publishAckSamples, hasLength(2));
         expect(subscribeCycleSamples, hasLength(2));
         expect(registerCycleSamples, hasLength(2));
+        expect(cancelCycleSamples, hasLength(2));
+        expect(webSocketCancelCycleSamples, hasLength(2));
+        expect(rawSocketMsgPackCancelCycleSamples, hasLength(2));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
+      'native WAMP worker process exits cleanly after STOP following a native cancel workload',
+      () async {
+        final rawSocketListener = harness!.binding.listeners.firstWhere(
+          (listener) =>
+              listener.settings?.protocols.contains(
+                ListenerProtocol.rawsocket,
+              ) ??
+              false,
+        );
+        final webSocketListener = harness!.binding.listeners.firstWhere(
+          (listener) =>
+              listener.settings?.protocols.contains(
+                ListenerProtocol.websocket,
+              ) ??
+              false,
+        );
+        final process = await Process.start(Platform.resolvedExecutable, [
+          File('tool/wamp_client_main.dart').absolute.path,
+          '--realm',
+          'bench.control',
+          '--targets-json',
+          jsonEncode({
+            'rawsocket': WampTransportTarget(
+              transport: WampTransport.rawsocket,
+              host: '127.0.0.1',
+              port: rawSocketListener.port,
+              secure: false,
+            ).toJson(),
+            'websocket': WampTransportTarget(
+              transport: WampTransport.websocket,
+              host: '127.0.0.1',
+              port: webSocketListener.port,
+              secure: false,
+              webSocketPath: '/wamp',
+            ).toJson(),
+          }),
+          '--native-lib',
+          nativeLib!,
+        ], workingDirectory: Directory.current.path);
+        final stdoutLines = process.stdout
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())
+            .asBroadcastStream();
+        final stderrLines = <String>[];
+        final stderrSub = process.stderr
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())
+            .listen(stderrLines.add);
+        try {
+          final ready = await stdoutLines.first.timeout(
+            const Duration(seconds: 10),
+          );
+          expect(ready, 'READY');
+
+          process.stdin.writeln(
+            jsonEncode(
+              WampScenario(
+                transport: WampTransport.rawsocket,
+                clientImplementation: WampClientImplementation.native,
+                serializer: WampSerializer.json,
+                mode: WampMode.cancelCycle,
+                uri: 'bench.control.cancel',
+                iterations: 1,
+                concurrency: 1,
+                payloadBytes: 0,
+              ).toJson(),
+            ),
+          );
+          await process.stdin.flush();
+
+          final responseLine = await stdoutLines
+              .firstWhere((line) => line != 'READY')
+              .timeout(const Duration(seconds: 20));
+          final response = jsonDecode(responseLine) as Map<String, Object?>;
+          expect(response['error'], isNull, reason: stderrLines.join('\n'));
+          expect(response['samples'], isA<List<Object?>>());
+
+          process.stdin.writeln('STOP');
+          await process.stdin.flush();
+          await process.stdin.close();
+
+          final exitCode = await process.exitCode.timeout(
+            const Duration(seconds: 10),
+          );
+          expect(exitCode, 0, reason: stderrLines.join('\n'));
+        } finally {
+          await stderrSub.cancel();
+          if (process.kill()) {
+            await process.exitCode.timeout(
+              const Duration(seconds: 5),
+              onTimeout: () => -1,
+            );
+          }
+        }
       },
       skip: skipReason,
       timeout: const Timeout(Duration(seconds: 45)),

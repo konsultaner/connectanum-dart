@@ -8,6 +8,7 @@ import 'package:connectanum_core/src/message/abort.dart';
 import 'package:connectanum_core/src/message/abstract_message_with_payload.dart';
 import 'package:connectanum_core/src/message/authenticate.dart';
 import 'package:connectanum_core/src/message/call.dart';
+import 'package:connectanum_core/src/message/cancel.dart' as cancel_msg;
 import 'package:connectanum_core/src/message/challenge.dart';
 import 'package:connectanum_core/src/message/error.dart';
 import 'package:connectanum_core/src/message/event.dart';
@@ -128,6 +129,36 @@ class Serializer extends AbstractSerializer {
           ),
           message,
           4,
+        );
+      }
+      if (messageId == MessageTypes.codeInterrupt) {
+        final optionsMap = message.length > 2 && message[2] is Map
+            ? Map<dynamic, dynamic>.from(message[2] as Map<dynamic, dynamic>)
+            : null;
+        return interrupt_msg.Interrupt(
+          message[1],
+          options: optionsMap == null
+              ? null
+              : (() {
+                  final options = interrupt_msg.InterruptOptions();
+                  options.mode = optionsMap['mode'] as String?;
+                  return options;
+                })(),
+        );
+      }
+      if (messageId == MessageTypes.codeCancel) {
+        final optionsMap = message.length > 2 && message[2] is Map
+            ? Map<dynamic, dynamic>.from(message[2] as Map<dynamic, dynamic>)
+            : null;
+        return cancel_msg.Cancel(
+          message[1],
+          options: optionsMap == null
+              ? null
+              : (() {
+                  final options = cancel_msg.CancelOptions();
+                  options.mode = optionsMap['mode'] as String?;
+                  return options;
+                })(),
         );
       }
       if (messageId == MessageTypes.codeResult) {
@@ -709,6 +740,17 @@ class Serializer extends AbstractSerializer {
         msgpack_dart.serialize(message.invocationRequestId),
         _serializeYieldOptions(message.options),
       ], _serializePayload(message));
+    }
+    if (message is cancel_msg.Cancel) {
+      final options = <String, Object?>{};
+      if (message.options?.mode != null) {
+        options['mode'] = message.options!.mode;
+      }
+      return _buildMessage(3, [
+        msgpack_dart.serialize(MessageTypes.codeCancel),
+        msgpack_dart.serialize(message.requestId),
+        msgpack_dart.serialize(options),
+      ]);
     }
     if (message is interrupt_msg.Interrupt) {
       final options = <String, Object?>{};

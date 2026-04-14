@@ -294,6 +294,9 @@ fn extract_detail_bytes(serializer: RawSocketSerializer, message: &WampMessage) 
         | WampMessage::Cancel {
             options: details, ..
         }
+        | WampMessage::Interrupt {
+            options: details, ..
+        }
         | WampMessage::Register {
             options: details, ..
         }
@@ -2857,6 +2860,18 @@ fn build_message_info(msg: &StoredMessage, include_frame: bool) -> CtMessageInfo
                 info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
             }
         }
+        WampMessage::Interrupt {
+            request_id,
+            options,
+        } => {
+            info.primary_id = *request_id;
+            if msg.details.is_some() {
+                info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            }
+            if populate_cancel_options_info(&mut info, options) {
+                info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
+            }
+        }
         WampMessage::Register {
             request_id,
             options,
@@ -4581,6 +4596,41 @@ mod tests {
             let mode =
                 std::slice::from_raw_parts(cancel_info.string_a_ptr, cancel_info.string_a_len);
             assert_eq!(std::str::from_utf8(mode).unwrap(), "killnowait");
+        }
+
+        let mut interrupt_options = BTreeMap::new();
+        interrupt_options.insert(
+            SerdeValue::String("mode".into()),
+            SerdeValue::String("kill".into()),
+        );
+        let interrupt = StoredMessage {
+            serializer: RawSocketSerializer::Json,
+            code: 69,
+            raw: StoredRawFrame::from_bytes(Bytes::from_static(br#"[69,14,{"mode":"kill"}]"#)),
+            message: WampMessage::Interrupt {
+                request_id: 14,
+                options: interrupt_options,
+            },
+            details: Some(Bytes::from_static(br#"{"mode":"kill"}"#)),
+            args: None,
+            kwargs: None,
+        };
+        let interrupt_info = build_message_info(&interrupt, false);
+        assert_eq!(interrupt_info.primary_id, 14);
+        assert_eq!(
+            interrupt_info.flags & CT_MESSAGE_FLAG_METADATA_BIND,
+            CT_MESSAGE_FLAG_METADATA_BIND
+        );
+        assert_eq!(
+            interrupt_info.flags & CT_MESSAGE_FLAG_DIRECT_BIND,
+            CT_MESSAGE_FLAG_DIRECT_BIND
+        );
+        unsafe {
+            let mode = std::slice::from_raw_parts(
+                interrupt_info.string_a_ptr,
+                interrupt_info.string_a_len,
+            );
+            assert_eq!(std::str::from_utf8(mode).unwrap(), "kill");
         }
 
         let mut register_options = BTreeMap::new();

@@ -34,6 +34,7 @@
   - [x] Trim the remaining serializer-side outbound churn on the hot same-serializer path: MessagePack now assembles WAMP frames with byte builders instead of repeated list concatenation, CBOR now splices already-encoded lazy payload fragments into outbound `CALL` / `YIELD` / `INVOCATION` / `PUBLISH` / `EVENT` / `RESULT` / `ERROR` arrays instead of decoding then re-encoding them, and focused serializer regressions now pin lazy `Result` reuse on both paths.
   - [x] Trim the decode side on the same hot path too: MessagePack and CBOR now scan the top-level WAMP array for inbound `INVOCATION` / `RESULT` / `EVENT` / `ERROR` frames, decode only the fixed header/detail fields eagerly, and retain raw args/kwargs payload slices as `LazyMessagePayload` bytes until a caller actually touches the materialized payload getters.
   - [x] Finish the remaining handled control/ack decode path on the same scanner: inbound MessagePack/CBOR `CHALLENGE` / `WELCOME` / `REGISTERED` / `UNREGISTERED` / `PUBLISHED` / `SUBSCRIBED` / `UNSUBSCRIBED` / `ABORT` / `GOODBYE` frames now rebuild from fragment decoders instead of full-array deserialization, while `WELCOME.details` still preserves auth methods and custom details and `CHALLENGE.extra` keeps `channel_binding`.
+  - [x] Keep WAMP cancellation on the normal serializer path too: JSON / MessagePack / CBOR now serialize and deserialize `CANCEL` alongside `INTERRUPT`, so native and Dart control-cycle workloads stop depending on router-side native binders for cancellation traffic.
   - [x] CBOR outbound option serialization now includes PPT fields for `PUBLISH` / `CALL` / `YIELD`, fixing the live-router PPT benchmark path (`wamp_ppt_lazy_smoke`) and keeping RawSocket/WebSocket CBOR PPT traffic aligned with JSON/MessagePack semantics.
   - [x] Push the shared `LazyMessagePayload` contract through outbound `CALL` / `PUBLISH`, router internal-session forwarding, and PPT fragment serialization so mixed encoded/materialized args+kwargs survive end-to-end and matching serializers can forward pre-serialized JSON/MessagePack/CBOR payload bytes without decode+re-encode. The same path now preserves already-packed `pptScheme == 'wamp'` payload bytes across client outbound messages, invocation yields, internal-session routing, and lazy result/event/invocation views instead of forcing a placeholder E2EE decode/re-pack cycle.
   - [x] Make the non-PPT baseline explicit in the bench as well: `wamp_payload_mode_smoke.toml` now runs side-by-side plain versus PPT CBOR workloads across RawSocket/WebSocket, RPC/pubsub, and Dart/native client implementations.
@@ -173,6 +174,7 @@
   - [x] FFI support for cloning publish frames with patched headers only
   - [x] Worker routing uses native handles instead of Dart re-serialization
   - [x] Tests ensure EVENT payload buffers are reused across recipients
+  - [x] Multi-recipient native publish fan-out now transfers the original handle to the first external subscriber and only clones for the remaining recipients; tests cover clone-setup failure and mid-send release paths
 
 ### Remote Procedure Calls
 
@@ -187,8 +189,8 @@
 - [x] CALL cancellation (basic profile – CANCEL)
 - [x] End-to-end zero-copy RPC dispatch (reuse native call payload buffers)
   - [x] FFI helper for cloning invocation frames without copying arguments
-  - [x] Worker invocation forwarding uses cloned native handles
-  - [x] Tests ensure YIELD/ERROR paths dispose clones correctly
+  - [x] Worker invocation/result/error forwarding now transfers the original native handle on one-recipient zero-copy paths, and native publish fan-out now uses the same transfer-first rule for the first subscriber before cloning only the extra recipients
+  - [x] Tests ensure transferred/retained handles are released correctly on YIELD/ERROR success and boss-send failure paths
 
 ## Advanced Profile
 

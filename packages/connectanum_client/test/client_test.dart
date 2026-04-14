@@ -391,6 +391,7 @@ void main() {
       final error1completer = Completer<Error>();
       final error2completer = Completer<Error>();
       final error3completer = Completer<Error>();
+      final cancelRequestErrorRequestIds = <int>{};
 
       // ALL ROUTER MOCK RESULTS
       transport.outbound.stream.listen((message) {
@@ -485,7 +486,8 @@ void main() {
           );
         } else if (message.id == MessageTypes.codeCall &&
             (message as Call).argumentsKeywords!['value'] != -3 &&
-            (message).argumentsKeywords!['value'] != -4) {
+            (message).argumentsKeywords!['value'] != -4 &&
+            (message).argumentsKeywords!['value'] != -5) {
           transport.receiveMessage(
             Result(
               message.requestId,
@@ -515,16 +517,32 @@ void main() {
         } else if (message.id == MessageTypes.codeCall &&
             (message as Call).argumentsKeywords!['value'] == -4) {
           // ignored because it will not complete before cancellation happens
+        } else if (message.id == MessageTypes.codeCall &&
+            (message as Call).argumentsKeywords!['value'] == -5) {
+          cancelRequestErrorRequestIds.add(message.requestId);
         } else if (message.id == MessageTypes.codeCancel) {
-          transport.receiveMessage(
-            Error(
-              MessageTypes.codeCall,
-              (message as Cancel).requestId,
-              HashMap(),
-              Error.errorInvocationCanceled,
-              arguments: [message.options!.mode],
-            ),
-          );
+          final cancel = message as Cancel;
+          if (cancelRequestErrorRequestIds.remove(cancel.requestId)) {
+            transport.receiveMessage(
+              Error(
+                MessageTypes.codeCancel,
+                cancel.requestId,
+                HashMap(),
+                Error.invalidArgument,
+                arguments: ['cancel failed'],
+              ),
+            );
+          } else {
+            transport.receiveMessage(
+              Error(
+                MessageTypes.codeCall,
+                cancel.requestId,
+                HashMap(),
+                Error.errorInvocationCanceled,
+                arguments: [cancel.options!.mode],
+              ),
+            );
+          }
         } else if (message.id == MessageTypes.codeYield &&
             (message as Yield).invocationRequestId == 55001100) {
           yieldCompleter2.complete(message);
@@ -862,6 +880,26 @@ void main() {
       expect(cancelError.requestTypeId, equals(MessageTypes.codeCall));
       expect(cancelError.arguments![0], equals(CancelOptions.modeKillNoWait));
 
+      // ERROR BY CANCELLATION REQUEST
+
+      final cancelRequestErrorCompleter = Completer<Error>();
+      final cancelRequestCompleter = Completer<String>();
+      session
+          .call(
+            'my.procedure',
+            argumentsKeywords: HashMap<String, Object>()..['value'] = -5,
+            cancelCompleter: cancelRequestCompleter,
+          )
+          .listen(
+            (result) {},
+            onError: (error) => cancelRequestErrorCompleter.complete(error),
+          );
+      cancelRequestCompleter.complete(CancelOptions.modeKillNoWait);
+      var cancelRequestError = await cancelRequestErrorCompleter.future;
+      expect(cancelRequestError, isNotNull);
+      expect(cancelRequestError.requestTypeId, equals(MessageTypes.codeCancel));
+      expect(cancelRequestError.arguments![0], equals('cancel failed'));
+
       // UNREGISTER
 
       await session.unregister(registered.registrationId);
@@ -903,6 +941,133 @@ void main() {
       );
       expect(unregisterError.error, equals(Error.noSuchRegistration));
     });
+    test('ignores interrupt messages without closing the session', () async {
+      final transport = _MockTransport();
+      final client = Client(realm: 'test.realm', transport: transport);
+
+      transport.outbound.stream.listen((message) {
+        if (message.id == MessageTypes.codeHello) {
+          transport.receiveMessage(Welcome(42, Details.forWelcome()));
+        }
+      });
+
+      final session = await client.connect().first;
+
+      transport.receiveMessage(
+        Interrupt(
+          31337,
+          options: InterruptOptions()..mode = CancelOptions.modeKillNoWait,
+        ),
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(session.id, equals(42));
+      expect(transport.isOpen, isTrue);
+    });
+    test('interrupt auto-cancels pending materialized invocations', () async {
+      final transport = _MockTransport();
+      final client = Client(realm: 'test.realm', transport: transport);
+      final invocationCancelError = Completer<Error>();
+
+      transport.outbound.stream.listen((message) {
+        if (message.id == MessageTypes.codeHello) {
+          transport.receiveMessage(Welcome(42, Details.forWelcome()));
+          return;
+        }
+        if (message.id == MessageTypes.codeRegister) {
+          transport.receiveMessage(
+            Registered((message as Register).requestId, 1010),
+          );
+          return;
+        }
+        if (message is Error &&
+            message.requestTypeId == MessageTypes.codeInvocation &&
+            !invocationCancelError.isCompleted) {
+          invocationCancelError.complete(message);
+        }
+      });
+
+      final session = await client.connect().first;
+      final registered = await session.registerHandler(
+        'bench.cancel.proc',
+        (_) {},
+      );
+
+      transport.receiveMessage(
+        Invocation(
+          31338,
+          registered.registrationId,
+          InvocationDetails(null, 'bench.cancel.proc', false),
+        ),
+      );
+
+      await Future<void>.delayed(Duration.zero);
+      transport.receiveMessage(
+        Interrupt(
+          31338,
+          options: InterruptOptions()..mode = CancelOptions.modeKillNoWait,
+        ),
+      );
+
+      final error = await invocationCancelError.future;
+      expect(error.error, equals(Error.errorInvocationCanceled));
+      expect(error.arguments, equals([CancelOptions.modeKillNoWait]));
+    });
+    test(
+      'queues early interrupts until materialized invocations arrive',
+      () async {
+        final transport = _MockTransport();
+        final client = Client(realm: 'test.realm', transport: transport);
+        final invocationCancelError = Completer<Error>();
+        var invocationDelivered = false;
+
+        transport.outbound.stream.listen((message) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveMessage(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codeRegister) {
+            transport.receiveMessage(
+              Registered((message as Register).requestId, 1011),
+            );
+            return;
+          }
+          if (message is Error &&
+              message.requestTypeId == MessageTypes.codeInvocation &&
+              !invocationCancelError.isCompleted) {
+            invocationCancelError.complete(message);
+          }
+        });
+
+        final session = await client.connect().first;
+        final registered = await session.registerHandler('bench.cancel.proc', (
+          _,
+        ) {
+          invocationDelivered = true;
+        });
+
+        transport.receiveMessage(
+          Interrupt(
+            31339,
+            options: InterruptOptions()..mode = CancelOptions.modeKillNoWait,
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+        transport.receiveMessage(
+          Invocation(
+            31339,
+            registered.registrationId,
+            InvocationDetails(null, 'bench.cancel.proc', false),
+          ),
+        );
+
+        final error = await invocationCancelError.future;
+        expect(error.error, equals(Error.errorInvocationCanceled));
+        expect(error.arguments, equals([CancelOptions.modeKillNoWait]));
+        expect(invocationDelivered, isFalse);
+      },
+    );
     test(
       'registered invocationStream lazily receives routed invocations',
       () async {
@@ -1548,6 +1713,124 @@ void main() {
         expect(invocation.hasDecodedPptPayload, isTrue);
         expect(yields, hasLength(1));
         expect(yields.single.arguments, equals(const ['ppt-ok']));
+      },
+    );
+    test('native direct interrupt auto-cancels pending invocations', () async {
+      final transport = _SessionOptimizedMockTransport((message, transport) {
+        if (message.id == MessageTypes.codeHello) {
+          transport.receiveObject(Welcome(42, Details.forWelcome()));
+          return;
+        }
+        if (message.id == MessageTypes.codeRegister) {
+          transport.receiveObject(
+            Registered((message as Register).requestId, 6060),
+          );
+          return;
+        }
+      });
+      final invocationCancelError = Completer<Error>();
+      transport.outbound.stream.listen((message) {
+        if (message is Error &&
+            message.requestTypeId == MessageTypes.codeInvocation &&
+            !invocationCancelError.isCompleted) {
+          invocationCancelError.complete(message);
+        }
+      });
+
+      final session = await Client(
+        realm: 'test.realm',
+        transport: transport,
+      ).connect().first;
+      final registered = await session.registerLazyPayloadHandler(
+        'bench.cancel.proc',
+        (_) {},
+      );
+
+      transport.receiveObject(
+        _nativeDirectInvocationMessage(
+          requestId: 9501,
+          registrationId: registered.registrationId,
+          procedure: 'bench.cancel.proc',
+          pptScheme: '',
+          pptSerializer: '',
+          argsBytes: Uint8List.fromList(
+            cbor.cborEncode(cbor.CborValue(const <Object?>[])),
+          ),
+        ),
+      );
+
+      await Future<void>.delayed(Duration.zero);
+      transport.receiveObject(
+        _nativeDirectInterruptMessage(
+          requestId: 9501,
+          mode: CancelOptions.modeKillNoWait,
+        ),
+      );
+
+      final error = await invocationCancelError.future;
+      expect(error.error, equals(Error.errorInvocationCanceled));
+      expect(error.arguments, equals([CancelOptions.modeKillNoWait]));
+    });
+    test(
+      'queues early native direct interrupts until invocations arrive',
+      () async {
+        final transport = _SessionOptimizedMockTransport((message, transport) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveObject(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codeRegister) {
+            transport.receiveObject(
+              Registered((message as Register).requestId, 6061),
+            );
+            return;
+          }
+        });
+        final invocationCancelError = Completer<Error>();
+        var invocationDelivered = false;
+        transport.outbound.stream.listen((message) {
+          if (message is Error &&
+              message.requestTypeId == MessageTypes.codeInvocation &&
+              !invocationCancelError.isCompleted) {
+            invocationCancelError.complete(message);
+          }
+        });
+
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+        ).connect().first;
+        final registered = await session.registerLazyPayloadHandler(
+          'bench.cancel.proc',
+          (_) {
+            invocationDelivered = true;
+          },
+        );
+
+        transport.receiveObject(
+          _nativeDirectInterruptMessage(
+            requestId: 9502,
+            mode: CancelOptions.modeKillNoWait,
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+        transport.receiveObject(
+          _nativeDirectInvocationMessage(
+            requestId: 9502,
+            registrationId: registered.registrationId,
+            procedure: 'bench.cancel.proc',
+            pptScheme: '',
+            pptSerializer: '',
+            argsBytes: Uint8List.fromList(
+              cbor.cborEncode(cbor.CborValue(const <Object?>[])),
+            ),
+          ),
+        );
+
+        final error = await invocationCancelError.future;
+        expect(error.error, equals(Error.errorInvocationCanceled));
+        expect(error.arguments, equals([CancelOptions.modeKillNoWait]));
+        expect(invocationDelivered, isFalse);
       },
     );
     test('event subscription and publish', () async {
@@ -2636,6 +2919,26 @@ NativeSessionMessage _nativeDirectInvocationMessage({
       stringC: pptSerializer,
     ),
     argsBytes: argsBytes,
+  );
+}
+
+NativeSessionMessage _nativeDirectInterruptMessage({
+  required int requestId,
+  required String mode,
+}) {
+  return NativeSessionMessage(
+    serializer: NativeMessageSerializer.json,
+    metadata: NativeMessageMetadata(
+      messageCode: MessageTypes.codeInterrupt,
+      primaryId: requestId,
+      secondaryId: 0,
+      detailNumberA: 0,
+      detailNumberB: 0,
+      flags:
+          NativeMessageMetadata.flagDirectBind |
+          NativeMessageMetadata.flagMetadataBind,
+      stringA: mode,
+    ),
   );
 }
 

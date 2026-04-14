@@ -772,6 +772,8 @@ struct WorkloadConfig {
     concurrency: u32,
     #[serde(default = "default_in_flight_per_session")]
     in_flight_per_session: u32,
+    #[serde(default = "default_peer_count")]
+    peer_count: u32,
     #[serde(default = "default_request_bytes")]
     request_bytes: u64,
     #[serde(default)]
@@ -823,6 +825,10 @@ fn default_concurrency() -> u32 {
 }
 
 fn default_in_flight_per_session() -> u32 {
+    1
+}
+
+fn default_peer_count() -> u32 {
     1
 }
 
@@ -928,6 +934,7 @@ enum BenchWampMode {
     PublishAck,
     SubscribeCycle,
     RegisterCycle,
+    CancelCycle,
 }
 
 impl BenchWampMode {
@@ -938,6 +945,7 @@ impl BenchWampMode {
             Self::PublishAck => "publish_ack",
             Self::SubscribeCycle => "subscribe_cycle",
             Self::RegisterCycle => "register_cycle",
+            Self::CancelCycle => "cancel_cycle",
         }
     }
 }
@@ -959,6 +967,9 @@ fn parse_wamp_protocol(protocol: &str) -> Option<(BenchWampTransport, BenchWampM
         "wamp_register_cycle" | "wamp_rawsocket_register_cycle" => {
             Some((BenchWampTransport::RawSocket, BenchWampMode::RegisterCycle))
         }
+        "wamp_cancel_cycle" | "wamp_rawsocket_cancel_cycle" => {
+            Some((BenchWampTransport::RawSocket, BenchWampMode::CancelCycle))
+        }
         "wamp_websocket_pubsub" => Some((BenchWampTransport::WebSocket, BenchWampMode::PubSub)),
         "wamp_websocket_rpc" => Some((BenchWampTransport::WebSocket, BenchWampMode::Rpc)),
         "wamp_websocket_publish_ack" => {
@@ -969,6 +980,9 @@ fn parse_wamp_protocol(protocol: &str) -> Option<(BenchWampTransport, BenchWampM
         }
         "wamp_websocket_register_cycle" => {
             Some((BenchWampTransport::WebSocket, BenchWampMode::RegisterCycle))
+        }
+        "wamp_websocket_cancel_cycle" => {
+            Some((BenchWampTransport::WebSocket, BenchWampMode::CancelCycle))
         }
         _ => None,
     }
@@ -985,6 +999,7 @@ struct PreparedWorkload {
     iterations: u32,
     concurrency: u32,
     in_flight_per_session: u32,
+    peer_count: u32,
     request_bytes: u64,
     websocket_fragment_size: Option<u32>,
     ppt_scheme: Option<String>,
@@ -1056,6 +1071,7 @@ impl PreparedWorkload {
             iterations: config.iterations,
             concurrency: config.concurrency,
             in_flight_per_session: config.in_flight_per_session,
+            peer_count: config.peer_count,
             request_bytes: config.request_bytes,
             websocket_fragment_size: config.websocket_fragment_size,
             ppt_scheme: config.ppt_scheme.clone(),
@@ -1247,6 +1263,7 @@ fn run_wamp_workload(
         "iterations": workload.iterations,
         "concurrency": workload.concurrency,
         "in_flight_per_session": workload.in_flight_per_session,
+        "peer_count": workload.peer_count,
         "payload_bytes": workload.request_bytes,
         "websocket_fragment_size": workload.websocket_fragment_size,
         "ppt_scheme": workload.ppt_scheme.clone(),
@@ -2390,6 +2407,7 @@ mod tests {
             iterations: default_iterations(),
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
+            peer_count: default_peer_count(),
             request_bytes: default_request_bytes(),
             websocket_fragment_size: None,
             ppt_scheme: None,
@@ -2419,6 +2437,7 @@ mod tests {
             iterations: default_iterations(),
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
+            peer_count: default_peer_count(),
             request_bytes: default_request_bytes(),
             websocket_fragment_size: None,
             ppt_scheme: None,
@@ -2463,6 +2482,10 @@ mod tests {
             parse_wamp_protocol("wamp_register_cycle"),
             Some((BenchWampTransport::RawSocket, BenchWampMode::RegisterCycle))
         );
+        assert_eq!(
+            parse_wamp_protocol("wamp_websocket_cancel_cycle"),
+            Some((BenchWampTransport::WebSocket, BenchWampMode::CancelCycle))
+        );
         assert_eq!(parse_wamp_protocol("h2"), None);
     }
 
@@ -2478,6 +2501,7 @@ mod tests {
             iterations: default_iterations(),
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
+            peer_count: default_peer_count(),
             request_bytes: default_request_bytes(),
             websocket_fragment_size: None,
             ppt_scheme: None,
@@ -2507,6 +2531,7 @@ mod tests {
             iterations: default_iterations(),
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
+            peer_count: default_peer_count(),
             request_bytes: default_request_bytes(),
             websocket_fragment_size: None,
             ppt_scheme: None,
@@ -2534,6 +2559,7 @@ mod tests {
             iterations: default_iterations(),
             concurrency: default_concurrency(),
             in_flight_per_session: 4,
+            peer_count: default_peer_count(),
             request_bytes: default_request_bytes(),
             websocket_fragment_size: None,
             ppt_scheme: None,
@@ -2550,6 +2576,34 @@ mod tests {
     }
 
     #[test]
+    fn prepared_workload_preserves_wamp_peer_count() {
+        let config = WorkloadConfig {
+            name: "load".to_string(),
+            protocol: "wamp_websocket_pubsub".to_string(),
+            client_impl: "native".to_string(),
+            serializer: "msgpack".to_string(),
+            method: default_method(),
+            path: "bench.topic".to_string(),
+            iterations: default_iterations(),
+            concurrency: default_concurrency(),
+            in_flight_per_session: default_in_flight_per_session(),
+            peer_count: 8,
+            request_bytes: default_request_bytes(),
+            websocket_fragment_size: None,
+            ppt_scheme: None,
+            ppt_serializer: None,
+            response_bytes: default_response_bytes(),
+            request_chunk_bytes: default_chunk_bytes(),
+            response_chunk_bytes: None,
+            warmup_ms: None,
+            reuse_connections: default_reuse_connections(),
+            streams_per_connection: default_streams_per_connection(),
+        };
+        let prepared = PreparedWorkload::from_config(&config).unwrap();
+        assert_eq!(prepared.peer_count, 8);
+    }
+
+    #[test]
     fn prepared_workload_rejects_invalid_h2_stream_multiplexing_config() {
         let config = WorkloadConfig {
             name: "load".to_string(),
@@ -2561,6 +2615,7 @@ mod tests {
             iterations: default_iterations(),
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
+            peer_count: default_peer_count(),
             request_bytes: default_request_bytes(),
             websocket_fragment_size: None,
             ppt_scheme: None,
@@ -2590,6 +2645,7 @@ mod tests {
             iterations: default_iterations(),
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
+            peer_count: default_peer_count(),
             request_bytes: default_request_bytes(),
             websocket_fragment_size: None,
             ppt_scheme: None,
@@ -2619,6 +2675,7 @@ mod tests {
             iterations: default_iterations(),
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
+            peer_count: default_peer_count(),
             request_bytes: default_request_bytes(),
             websocket_fragment_size: None,
             ppt_scheme: None,
@@ -2650,6 +2707,7 @@ mod tests {
             iterations: 1,
             concurrency: 1,
             in_flight_per_session: default_in_flight_per_session(),
+            peer_count: default_peer_count(),
             request_bytes: 0,
             websocket_fragment_size: None,
             ppt_scheme: None,
@@ -3087,6 +3145,7 @@ mod tests {
             iterations: 3,
             concurrency: 1,
             in_flight_per_session: default_in_flight_per_session(),
+            peer_count: default_peer_count(),
             request_bytes: 0,
             websocket_fragment_size: None,
             ppt_scheme: None,
@@ -3113,6 +3172,7 @@ mod tests {
             iterations: 3,
             concurrency: 1,
             in_flight_per_session: default_in_flight_per_session(),
+            peer_count: default_peer_count(),
             request_bytes: 0,
             websocket_fragment_size: None,
             ppt_scheme: None,
@@ -3139,6 +3199,7 @@ mod tests {
             iterations: 3,
             concurrency: 1,
             in_flight_per_session: default_in_flight_per_session(),
+            peer_count: default_peer_count(),
             request_bytes: 0,
             websocket_fragment_size: None,
             ppt_scheme: None,

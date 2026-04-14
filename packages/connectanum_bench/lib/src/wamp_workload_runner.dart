@@ -23,13 +23,16 @@ class WampWorkloadRunner {
     required WampSessionFactory sessionFactory,
     Logger? logger,
     Duration eventTimeout = const Duration(seconds: 30),
+    Duration cancelCleanupTimeout = const Duration(seconds: 2),
   }) : _sessionFactory = sessionFactory,
        _logger = logger ?? Logger('WampWorkloadRunner'),
-       _eventTimeout = eventTimeout;
+       _eventTimeout = eventTimeout,
+       _cancelCleanupTimeout = cancelCleanupTimeout;
 
   final WampSessionFactory _sessionFactory;
   final Logger _logger;
   final Duration _eventTimeout;
+  final Duration _cancelCleanupTimeout;
 
   Future<List<WampSample>> run(WampScenario scenario) async {
     _logger.fine(
@@ -48,6 +51,8 @@ class WampWorkloadRunner {
         return _runSubscribeCycleScenario(scenario);
       case WampMode.registerCycle:
         return _runRegisterCycleScenario(scenario);
+      case WampMode.cancelCycle:
+        return _runCancelCycleScenario(scenario);
     }
   }
 
@@ -67,27 +72,35 @@ class WampWorkloadRunner {
     String payload,
   ) async {
     final publisher = await _sessionFactory(scenario);
-    final subscriber = await _sessionFactory(_peerScenario(scenario));
-    final subscription = await subscriber.subscribeLazyPayload(scenario.uri);
-    final eventBuffer = WampEventBuffer();
-    subscription.onEvent((event) {
-      _logger.finer(
-        'PUBSUB event received worker=$workerId '
-        'args=${event.arguments} kwargs=${event.argumentsKeywords}',
+    final subscribers = <WampSession>[];
+    final subscriptions = <WampSubscription>[];
+    final eventBuffers = <WampEventBuffer>[];
+    for (var peerIndex = 0; peerIndex < scenario.peerCount; peerIndex += 1) {
+      final subscriber = await _sessionFactory(_peerScenario(scenario));
+      final subscription = await subscriber.subscribeLazyPayload(scenario.uri);
+      final eventBuffer = WampEventBuffer();
+      subscription.onEvent((event) {
+        _logger.finer(
+          'PUBSUB event received worker=$workerId peer=$peerIndex '
+          'args=${event.arguments} kwargs=${event.argumentsKeywords}',
+        );
+        eventBuffer.add(event);
+      });
+      final onRevoke = subscription.onRevoke;
+      if (onRevoke != null) {
+        unawaited(onRevoke.then((_) => eventBuffer.close()));
+      }
+      unawaited(
+        subscriber.onDisconnect.then(
+          (_) => eventBuffer.close(),
+          onError: (error, stackTrace) =>
+              eventBuffer.closeWithError(error, stackTrace),
+        ),
       );
-      eventBuffer.add(event);
-    });
-    final onRevoke = subscription.onRevoke;
-    if (onRevoke != null) {
-      unawaited(onRevoke.then((_) => eventBuffer.close()));
+      subscribers.add(subscriber);
+      subscriptions.add(subscription);
+      eventBuffers.add(eventBuffer);
     }
-    unawaited(
-      subscriber.onDisconnect.then(
-        (_) => eventBuffer.close(),
-        onError: (error, stackTrace) =>
-            eventBuffer.closeWithError(error, stackTrace),
-      ),
-    );
     final samples = <WampSample>[];
     try {
       samples.addAll(
@@ -99,7 +112,7 @@ class WampWorkloadRunner {
             iteration,
             scenario,
             payload,
-            eventBuffer,
+            eventBuffers,
             publisher,
           ),
         ),
@@ -113,9 +126,15 @@ class WampWorkloadRunner {
       );
       rethrow;
     } finally {
-      eventBuffer.close();
-      await subscription.cancel();
-      await subscriber.close();
+      for (final eventBuffer in eventBuffers) {
+        eventBuffer.close();
+      }
+      for (final subscription in subscriptions) {
+        await subscription.cancel();
+      }
+      for (final subscriber in subscribers) {
+        await subscriber.close();
+      }
       await publisher.close();
     }
     return samples;
@@ -126,7 +145,7 @@ class WampWorkloadRunner {
     int iteration,
     WampScenario scenario,
     String payload,
-    WampEventBuffer eventBuffer,
+    List<WampEventBuffer> eventBuffers,
     WampSession publisher,
   ) async {
     final metadata = <String, Object?>{
@@ -136,9 +155,12 @@ class WampWorkloadRunner {
     _logger.fine(
       'PUBSUB publish start worker=$workerId iteration=$iteration uri=${scenario.uri}',
     );
-    final eventFuture = eventBuffer
-        .nextWhere((event) => _matches(event, workerId, iteration))
-        .timeout(_eventTimeout);
+    final eventFutures = [
+      for (final eventBuffer in eventBuffers)
+        eventBuffer
+            .nextWhere((event) => _matches(event, workerId, iteration))
+            .timeout(_eventTimeout),
+    ];
     final start = DateTime.now();
     await publisher.publishLazyPayload(
       scenario.uri,
@@ -152,18 +174,18 @@ class WampWorkloadRunner {
     _logger.fine(
       'PUBSUB publish acked worker=$workerId iteration=$iteration uri=${scenario.uri}',
     );
-    final event = await eventFuture;
+    await Future.wait(eventFutures);
     final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
     _logger.fine(
       'PUBSUB publish done worker=$workerId iteration=$iteration uri=${scenario.uri} '
-      'latency_ms=$latencyMs argsKeywords=${event.argumentsKeywords}',
+      'latency_ms=$latencyMs fanout=${scenario.peerCount}',
     );
     return WampSample(
       worker: workerId,
       iteration: iteration,
       latencyMs: latencyMs,
       requestBytes: scenario.payloadBytes,
-      responseBytes: scenario.payloadBytes,
+      responseBytes: scenario.payloadBytes * scenario.peerCount,
     );
   }
 
@@ -444,6 +466,117 @@ class WampWorkloadRunner {
       options: _buildControlRegisterOptions(),
     );
     await registration.cancel();
+    final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
+    return WampSample(
+      worker: workerId,
+      iteration: iteration,
+      latencyMs: latencyMs,
+      requestBytes: 0,
+      responseBytes: 0,
+    );
+  }
+
+  Future<List<WampSample>> _runCancelCycleScenario(
+    WampScenario scenario,
+  ) async {
+    final workers = List.generate(
+      scenario.concurrency,
+      (workerId) => _runCancelCycleWorker(workerId, scenario),
+    );
+    final results = await Future.wait(workers);
+    return results.expand((samples) => samples).toList(growable: false);
+  }
+
+  Future<List<WampSample>> _runCancelCycleWorker(
+    int workerId,
+    WampScenario scenario,
+  ) async {
+    final caller = await _sessionFactory(scenario).timeout(
+      _eventTimeout,
+      onTimeout: () {
+        _logger.severe(
+          'Cancel-cycle caller session open timed out '
+          'worker=$workerId transport=${scenario.transport.name} '
+          'serializer=${scenario.serializer.name}',
+        );
+        throw TimeoutException('cancel_caller_open_timeout');
+      },
+    );
+    final callee = await _sessionFactory(_peerScenario(scenario)).timeout(
+      _eventTimeout,
+      onTimeout: () {
+        _logger.severe(
+          'Cancel-cycle callee session open timed out '
+          'worker=$workerId transport=${scenario.transport.name} '
+          'serializer=${_peerScenario(scenario).serializer.name}',
+        );
+        throw TimeoutException('cancel_callee_open_timeout');
+      },
+    );
+    final procedure = _externalProcedureUri(scenario.uri, workerId);
+    final registration = await callee
+        .registerLazyPayloadHandler(
+          procedure,
+          (_) {},
+          options: _buildControlRegisterOptions(),
+        )
+        .timeout(
+          _eventTimeout,
+          onTimeout: () {
+            _logger.severe(
+              'Cancel-cycle registration timed out '
+              'worker=$workerId uri=$procedure',
+            );
+            throw TimeoutException('cancel_register_timeout');
+          },
+        );
+    try {
+      return await _runWithInFlightLimit(
+        iterations: scenario.iterations,
+        maxInFlight: scenario.inFlightPerSession,
+        launch: (iteration) =>
+            _runCancelCycleIteration(workerId, iteration, procedure, caller),
+      );
+    } finally {
+      try {
+        await registration.cancel().timeout(_cancelCleanupTimeout);
+      } on TimeoutException {
+        _logger.warning(
+          'Cancel-cycle registration cleanup timed out for $procedure; '
+          'closing sessions to force teardown of interrupted invocations.',
+        );
+      }
+      await callee.close();
+      await caller.close();
+    }
+  }
+
+  Future<WampSample> _runCancelCycleIteration(
+    int workerId,
+    int iteration,
+    String procedure,
+    WampSession caller,
+  ) async {
+    final start = DateTime.now();
+    await caller
+        .cancelingCall(
+          procedure,
+          argumentsKeywords: <String, Object?>{
+            'worker': workerId,
+            'iteration': iteration,
+          },
+          cancelMode: wamp_core.CancelOptions.modeKillNoWait,
+        )
+        .timeout(
+          _eventTimeout,
+          onTimeout: () {
+            _logger.severe(
+              'Cancel-cycle call timed out waiting for cancellation '
+              'worker=$workerId iteration=$iteration uri=$procedure',
+            );
+            throw TimeoutException('cancel_call_timeout');
+          },
+        );
     final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
     return WampSample(
       worker: workerId,
@@ -790,6 +923,14 @@ abstract class WampSession {
   Future<wamp_core.LazyResultPayload> callSingleWithLazyPayload(
     String procedure, {
     required wamp_core.LazyMessagePayload payload,
+    wamp_core.CallOptions? options,
+  });
+
+  Future<void> cancelingCall(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    required String cancelMode,
     wamp_core.CallOptions? options,
   });
 
@@ -1160,6 +1301,53 @@ class _ClientBackedWampSession implements WampSession {
   }
 
   @override
+  Future<void> cancelingCall(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    required String cancelMode,
+    wamp_core.CallOptions? options,
+  }) async {
+    final cancelCompleter = Completer<String>();
+    final stream = _session.call(
+      procedure,
+      arguments: arguments,
+      argumentsKeywords: argumentsKeywords?.cast<String, dynamic>(),
+      options: options,
+      cancelCompleter: cancelCompleter,
+    );
+    final completion = Completer<void>();
+    late final StreamSubscription<dynamic> subscription;
+    subscription = stream.listen(
+      (_) {
+        if (!completion.isCompleted) {
+          completion.completeError(
+            StateError('Cancelled call unexpectedly produced a result'),
+          );
+        }
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        if (!completion.isCompleted) {
+          completion.complete();
+        }
+      },
+      onDone: () {
+        if (!completion.isCompleted) {
+          completion.completeError(
+            StateError('Cancelled call completed without an error'),
+          );
+        }
+      },
+    );
+    cancelCompleter.complete(cancelMode);
+    try {
+      await completion.future;
+    } finally {
+      await subscription.cancel();
+    }
+  }
+
+  @override
   Future<void> close() async {
     await _client.disconnect();
   }
@@ -1176,6 +1364,7 @@ class WampScenario {
     required this.iterations,
     required this.concurrency,
     this.inFlightPerSession = 1,
+    this.peerCount = 1,
     required this.payloadBytes,
     this.websocketFragmentSize,
     this.pptScheme,
@@ -1191,6 +1380,7 @@ class WampScenario {
   final int iterations;
   final int concurrency;
   final int inFlightPerSession;
+  final int peerCount;
   final int payloadBytes;
   final int? websocketFragmentSize;
   final String? pptScheme;
@@ -1210,6 +1400,7 @@ class WampScenario {
       json['in_flight_per_session'],
       fallback: 1,
     );
+    final peerCount = _readPositiveInt(json['peer_count'], fallback: 1);
     final payloadBytes = _readPositiveInt(json['payload_bytes'], fallback: 0);
     return WampScenario(
       transport: WampTransport.parse(rawTransport),
@@ -1221,6 +1412,7 @@ class WampScenario {
       iterations: iterations,
       concurrency: concurrency,
       inFlightPerSession: inFlightPerSession,
+      peerCount: peerCount,
       payloadBytes: payloadBytes,
       websocketFragmentSize: _readOptionalPositiveInt(
         json['websocket_fragment_size'],
@@ -1261,6 +1453,7 @@ class WampScenario {
     'iterations': iterations,
     'concurrency': concurrency,
     'in_flight_per_session': inFlightPerSession,
+    'peer_count': peerCount,
     'payload_bytes': payloadBytes,
     if (websocketFragmentSize != null)
       'websocket_fragment_size': websocketFragmentSize,
@@ -1278,6 +1471,7 @@ class WampScenario {
     int? iterations,
     int? concurrency,
     int? inFlightPerSession,
+    int? peerCount,
     int? payloadBytes,
     Object? websocketFragmentSize = _copySentinel,
     Object? pptScheme = _copySentinel,
@@ -1295,6 +1489,7 @@ class WampScenario {
       iterations: iterations ?? this.iterations,
       concurrency: concurrency ?? this.concurrency,
       inFlightPerSession: inFlightPerSession ?? this.inFlightPerSession,
+      peerCount: peerCount ?? this.peerCount,
       payloadBytes: payloadBytes ?? this.payloadBytes,
       websocketFragmentSize: identical(websocketFragmentSize, _copySentinel)
           ? this.websocketFragmentSize
@@ -1398,7 +1593,8 @@ enum WampMode {
   rpc,
   publishAck,
   subscribeCycle,
-  registerCycle;
+  registerCycle,
+  cancelCycle;
 
   String get wireName => switch (this) {
     WampMode.pubsub => 'pubsub',
@@ -1406,6 +1602,7 @@ enum WampMode {
     WampMode.publishAck => 'publish_ack',
     WampMode.subscribeCycle => 'subscribe_cycle',
     WampMode.registerCycle => 'register_cycle',
+    WampMode.cancelCycle => 'cancel_cycle',
   };
 
   static WampMode parse(String raw) {
@@ -1428,6 +1625,10 @@ enum WampMode {
       case 'registercycle':
       case 'wamp_register_cycle':
         return WampMode.registerCycle;
+      case 'cancel_cycle':
+      case 'cancelcycle':
+      case 'wamp_cancel_cycle':
+        return WampMode.cancelCycle;
       default:
         throw FormatException('Unsupported WAMP mode "$raw"');
     }

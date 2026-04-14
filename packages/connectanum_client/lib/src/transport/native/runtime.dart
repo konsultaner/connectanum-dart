@@ -128,6 +128,25 @@ class NativeClientRuntime {
     _started = true;
   }
 
+  void shutdown() {
+    if (!_started) {
+      return;
+    }
+    final result = _bindings.ctShutdown();
+    if (result != NativeTransportErrorCode.success &&
+        result != NativeTransportErrorCode.runtimeNotStarted) {
+      _throwForError(result, 'Failed to shut down native client runtime');
+    }
+    _started = false;
+    if (identical(_instance, this)) {
+      _instance = null;
+    }
+  }
+
+  static void shutdownShared() {
+    _instance?.shutdown();
+  }
+
   int connectRawSocket({
     required String host,
     required int port,

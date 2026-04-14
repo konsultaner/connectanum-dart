@@ -138,9 +138,10 @@ iterations (`reuse_connections`, default `true`). WAMP workloads also accept a
 `serializer` field (`json`, `msgpack`, `cbor`; default `json`) so the same
 transport bench can compare serializer overhead directly, an optional
 `peer_serializer` field so the caller/publisher can talk to a real remote
-callee/subscriber using a different serializer, plus an `in_flight_per_session`
-knob (default `1`) that keeps multiple publishes/calls outstanding on each hot
-WAMP session. Native WebSocket WAMP workloads also accept
+callee/subscriber using a different serializer, an optional `peer_count` field
+for pub/sub fan-out against multiple real subscriber sessions, plus an
+`in_flight_per_session` knob (default `1`) that keeps multiple publishes/calls
+outstanding on each hot WAMP session. Native WebSocket WAMP workloads also accept
 `websocket_fragment_size` so a single encoded message can be sent as deliberate
 RFC 6455 continuation frames and benchmarked on the live router path. Example
 (`h2_smoke.toml`):
@@ -234,10 +235,13 @@ because the bench path does not pipeline H1 requests.
   `cbor`) on both transports so smoke runs can catch serializer-specific
   regressions on either RPC or pub/sub paths.
 - `wamp_control_smoke.toml` – control-heavy native WAMP sweep covering
-  `PUBLISH`+ACK, `SUBSCRIBE`/`UNSUBSCRIBE`, and `REGISTER`/`UNREGISTER` cycles
-  across RawSocket/WebSocket and JSON/MsgPack/CBOR so metadata-bind control-path
-  work is measured directly instead of inferred from payload-heavy RPC/pubsub
-  runs.
+  `PUBLISH`+ACK, `SUBSCRIBE`/`UNSUBSCRIBE`, `REGISTER`/`UNREGISTER`, and
+  `CANCEL`/`INTERRUPT` cycles across RawSocket/WebSocket and JSON/MsgPack/CBOR
+  so metadata-bind control-path work is measured directly instead of inferred
+  from payload-heavy RPC/pubsub runs.
+- `wamp_publish_fanout_throughput.toml` – eight-subscriber 64 KiB native-client
+  RawSocket/WebSocket pub/sub sweep that measures multi-recipient publish
+  fan-out directly on the live router path.
 - `wamp_serializer_matrix.toml` – larger-payload RawSocket/WebSocket RPC sweep
   that runs JSON, MessagePack, and CBOR side by side to compare serializer
   overhead without HTTP traffic in the same run. The current version enables
@@ -613,10 +617,12 @@ or application code actually touches the materialized payload getters.
 The same scanner now covers the handled control/ack path too: MessagePack/CBOR
 `CHALLENGE`, `WELCOME`, `REGISTERED`, `UNREGISTERED`, `PUBLISHED`,
 `SUBSCRIBED`, `UNSUBSCRIBED`, `ABORT`, and `GOODBYE` rebuild from fragment
-decoders instead of paying a full-array decode first. That change matters more
-for control-heavy smoke workloads than for large steady-state payload sweeps,
-so use `wamp_control_smoke.toml`, `wamp_smoke.toml`, or the client-implementation
-smoke scenarios when you want to see the direct effect.
+decoders instead of paying a full-array decode first, and JSON/MsgPack/CBOR all
+round-trip `CANCEL` alongside `INTERRUPT` on the normal serializer path. That
+change matters more for control-heavy smoke workloads than for large
+steady-state payload sweeps, so use `wamp_control_smoke.toml`,
+`wamp_smoke.toml`, or the client-implementation smoke scenarios when you want
+to see the direct effect.
 The native metadata-peek path now reaches both sides of the Dart boundary:
 client runtimes and the router runtime can bind common request/control WAMP
 messages from `ct_message_peek` metadata + encoded detail bytes without asking
@@ -625,6 +631,12 @@ includes scalar direct-bind rebuilds for `PUBLISH`, `SUBSCRIBE`, `CALL`,
 `CANCEL`, `REGISTER`, `YIELD`, and `UNSUBSCRIBED` option/detail maps when they
 stay inside the handled control-key subset, so the remaining fallbacks are only
 custom-detail or still-unsupported message shapes outside that set.
+The router-side zero-copy path is leaner under control-heavy load too:
+one-recipient native `INVOCATION`, `RESULT`, and invocation-`ERROR` forwards
+now transfer the original native handle to the boss instead of cloning it via
+`ct_message_retain`, which removed the message-store contention that used to
+stall the full `wamp_control_smoke.toml` matrix on RawSocket/MsgPack
+`cancel_cycle`.
 The same lazy path now keeps already-packed `pptScheme == 'wamp'` payload bytes
 intact across client outbound sends, invocation yields, and router
 internal-session event/result/invocation forwarding, so the benchmark no longer

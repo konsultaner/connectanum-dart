@@ -400,6 +400,20 @@ void main() {
         equals('[${MessageTypes.codeInterrupt},101,{"mode":"kill"}]'),
       );
     });
+    test('Cancel', () {
+      expect(
+        serializer.serializeToString(Cancel(99)),
+        equals('[${MessageTypes.codeCancel},99,{}]'),
+      );
+      final cancel = Cancel(
+        101,
+        options: CancelOptions()..mode = CancelOptions.modeKill,
+      );
+      expect(
+        serializer.serializeToString(cancel),
+        equals('[${MessageTypes.codeCancel},101,{"mode":"kill"}]'),
+      );
+    });
     test('Error', () {
       expect(
         serializer.serializeToString(
@@ -834,6 +848,26 @@ void main() {
       expect(challenge.extra.salt, equals('fhhi290fh7§)GQ)G)'));
       expect(challenge.extra.keyLen, equals(35));
       expect(challenge.extra.iterations, equals(410));
+    });
+    test('Interrupt', () {
+      final interrupt =
+          serializer.deserializeFromString(
+                '[${MessageTypes.codeInterrupt},31337,{"mode":"killnowait"}]',
+              )
+              as interrupt_msg.Interrupt;
+      expect(interrupt.id, equals(MessageTypes.codeInterrupt));
+      expect(interrupt.requestId, equals(31337));
+      expect(interrupt.options?.mode, equals(CancelOptions.modeKillNoWait));
+    });
+    test('Cancel', () {
+      final cancel =
+          serializer.deserializeFromString(
+                '[${MessageTypes.codeCancel},31337,{"mode":"killnowait"}]',
+              )
+              as Cancel;
+      expect(cancel.id, equals(MessageTypes.codeCancel));
+      expect(cancel.requestId, equals(31337));
+      expect(cancel.options?.mode, equals(CancelOptions.modeKillNoWait));
     });
     test('Welcome', () {
       var welcome =

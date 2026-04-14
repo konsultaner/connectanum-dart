@@ -4582,6 +4582,38 @@ void main() {
       );
       expect(abort.reason, equals(Error.protocolViolation));
     });
+    test('Interrupt', () {
+      final interrupt =
+          serializer.deserialize(
+                serializer.serialize(
+                  Interrupt(
+                    31337,
+                    options: InterruptOptions()
+                      ..mode = CancelOptions.modeKillNoWait,
+                  ),
+                ),
+              )
+              as Interrupt;
+      expect(interrupt.id, equals(MessageTypes.codeInterrupt));
+      expect(interrupt.requestId, equals(31337));
+      expect(interrupt.options?.mode, equals(CancelOptions.modeKillNoWait));
+    });
+    test('Cancel', () {
+      final cancel =
+          serializer.deserialize(
+                serializer.serialize(
+                  Cancel(
+                    31337,
+                    options: CancelOptions()
+                      ..mode = CancelOptions.modeKillNoWait,
+                  ),
+                ),
+              )
+              as Cancel;
+      expect(cancel.id, equals(MessageTypes.codeCancel));
+      expect(cancel.requestId, equals(31337));
+      expect(cancel.options?.mode, equals(CancelOptions.modeKillNoWait));
+    });
     test('Challenge', () {
       var challenge =
           serializer.deserialize(

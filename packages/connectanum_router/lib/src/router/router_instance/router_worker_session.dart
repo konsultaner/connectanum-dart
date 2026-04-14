@@ -636,16 +636,19 @@ Future<void> _handlePublish({
       final messageHandle = nativeMessage!;
       final pending = <Map<String, Object?>>[];
       var failed = false;
-      for (final match in externalMatches) {
-        final retainedHandle = messageHandle.retainHandle();
-        if (retainedHandle <= 0) {
+      for (var i = 0; i < externalMatches.length; i += 1) {
+        final match = externalMatches[i];
+        final forwardedHandle = i == 0
+            ? messageHandle.takeHandle()
+            : messageHandle.retainHandle();
+        if (forwardedHandle <= 0) {
           failed = true;
           break;
         }
         final command = <String, Object?>{
           'type': 'worker_forward_native_event',
           'connectionId': match.connectionId,
-          'handle': retainedHandle,
+          'handle': forwardedHandle,
           'subscriptionId': match.subscriptionId,
           'publicationId': routing.publicationId,
         };
@@ -966,12 +969,12 @@ Future<void> _handleCall({
       incomingMessage: nativeMessage,
     )) {
       final messageHandle = nativeMessage!;
-      final retainedHandle = messageHandle.retainHandle();
-      if (retainedHandle > 0) {
+      final transferredHandle = messageHandle.takeHandle();
+      if (transferredHandle > 0) {
         final command = <String, Object?>{
           'type': 'worker_forward_native_invocation',
           'connectionId': dispatch.calleeConnectionId,
-          'handle': retainedHandle,
+          'handle': transferredHandle,
           'invocationId': dispatch.invocationId,
           'registrationId': dispatch.registrationId,
           'procedure': message.procedure,
@@ -988,7 +991,7 @@ Future<void> _handleCall({
           usedZeroCopy = true;
         } catch (error) {
           nativeForwardingFailed = true;
-          messageHandle.releaseRetainedHandle(retainedHandle);
+          messageHandle.releaseRetainedHandle(transferredHandle);
           rethrow;
         }
       }
@@ -1673,12 +1676,12 @@ Future<void> _handleYield({
       targetConnectionId: callerConnectionId,
       incomingMessage: incomingMessage,
     )) {
-      final retainedHandle = incomingMessage!.retainHandle();
-      if (retainedHandle > 0) {
+      final transferredHandle = incomingMessage!.takeHandle();
+      if (transferredHandle > 0) {
         final command = {
           'type': 'worker_forward_native_result',
           'connectionId': callerConnectionId,
-          'handle': retainedHandle,
+          'handle': transferredHandle,
           'requestId': invocation.callerRequestId,
           'progress': isProgress,
         };
@@ -1687,7 +1690,7 @@ Future<void> _handleYield({
           usedZeroCopy = true;
         } catch (error) {
           nativeForwardingFailed = true;
-          incomingMessage.releaseRetainedHandle(retainedHandle);
+          incomingMessage.releaseRetainedHandle(transferredHandle);
           rethrow;
         }
       }
@@ -1817,12 +1820,12 @@ Future<void> _handleInvocationError({
       targetConnectionId: callerConnectionId,
       incomingMessage: incomingMessage,
     )) {
-      final retainedHandle = incomingMessage!.retainHandle();
-      if (retainedHandle > 0) {
+      final transferredHandle = incomingMessage!.takeHandle();
+      if (transferredHandle > 0) {
         final command = {
           'type': 'worker_forward_native_error',
           'connectionId': callerConnectionId,
-          'handle': retainedHandle,
+          'handle': transferredHandle,
           'requestType': MessageTypes.codeCall,
           'requestId': invocation.callerRequestId,
         };
@@ -1831,7 +1834,7 @@ Future<void> _handleInvocationError({
           usedZeroCopy = true;
         } catch (error) {
           nativeForwardingFailed = true;
-          incomingMessage.releaseRetainedHandle(retainedHandle);
+          incomingMessage.releaseRetainedHandle(transferredHandle);
           rethrow;
         }
       }

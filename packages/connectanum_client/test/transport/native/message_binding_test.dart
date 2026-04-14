@@ -430,6 +430,32 @@ void main() {
       },
     );
 
+    test(
+      'bindSessionMessage keeps interrupt control frames as native session messages',
+      () {
+        final message = bindSessionMessage(
+          NativeMessageSerializer.json,
+          Uint8List.fromList([0x00]),
+          metadata: _metadata(
+            messageCode: MessageTypes.codeInterrupt,
+            primaryId: 31337,
+            flags:
+                NativeMessageMetadata.flagDirectBind |
+                NativeMessageMetadata.flagMetadataBind,
+            stringA: CancelOptions.modeKillNoWait,
+          ),
+        );
+
+        expect(message, isA<NativeSessionMessage>());
+        final materialized = materializeSessionMessage(message) as Interrupt;
+        expect(materialized.requestId, 31337);
+        expect(
+          materialized.options?.mode,
+          equals(CancelOptions.modeKillNoWait),
+        );
+      },
+    );
+
     test('decodes JSON events with lazy args and kwargs', () {
       final message = bindMessage(
         NativeMessageSerializer.json,

@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
+import 'package:connectanum_client/src/transport/native/runtime.dart';
 import 'package:logging/logging.dart';
 
 Future<void> main(List<String> args) async {
@@ -79,36 +80,40 @@ Future<void> main(List<String> args) async {
     logger: Logger('NativeWampWorker'),
   );
 
-  stdout.writeln('READY');
-  await stdout.flush();
+  try {
+    stdout.writeln('READY');
+    await stdout.flush();
 
-  await for (final line
-      in stdin.transform(utf8.decoder).transform(const LineSplitter())) {
-    final trimmed = line.trim();
-    if (trimmed.isEmpty) {
-      continue;
+    await for (final line
+        in stdin.transform(utf8.decoder).transform(const LineSplitter())) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) {
+        continue;
+      }
+      if (trimmed == 'STOP') {
+        break;
+      }
+      try {
+        final scenario = WampScenario.fromJson(
+          Map<String, Object?>.from(jsonDecode(trimmed) as Map),
+        );
+        final samples = await runner.run(scenario);
+        stdout.writeln(
+          jsonEncode({
+            'samples': samples.map((sample) => sample.toJson()).toList(),
+          }),
+        );
+        await stdout.flush();
+      } catch (error, stackTrace) {
+        Logger(
+          'NativeWampWorker',
+        ).warning('Failed to run WAMP workload', error, stackTrace);
+        stdout.writeln(jsonEncode({'error': error.toString()}));
+        await stdout.flush();
+      }
     }
-    if (trimmed == 'STOP') {
-      break;
-    }
-    try {
-      final scenario = WampScenario.fromJson(
-        Map<String, Object?>.from(jsonDecode(trimmed) as Map),
-      );
-      final samples = await runner.run(scenario);
-      stdout.writeln(
-        jsonEncode({
-          'samples': samples.map((sample) => sample.toJson()).toList(),
-        }),
-      );
-      await stdout.flush();
-    } catch (error, stackTrace) {
-      Logger(
-        'NativeWampWorker',
-      ).warning('Failed to run WAMP workload', error, stackTrace);
-      stdout.writeln(jsonEncode({'error': error.toString()}));
-      await stdout.flush();
-    }
+  } finally {
+    NativeClientRuntime.shutdownShared();
   }
 }
 

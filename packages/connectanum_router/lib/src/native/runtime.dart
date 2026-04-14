@@ -1072,9 +1072,11 @@ class NativeIncomingMessage {
     required CtFfiBindings? bindings,
     this.argumentsBytes,
     this.argumentsKeywordsBytes,
+    int Function(int handle)? takeOverride,
     int Function(int handle)? retainOverride,
     void Function(int handle)? releaseOverride,
   }) : _bindings = bindings,
+       _takeOverride = takeOverride,
        _retainOverride = retainOverride,
        _releaseOverride = releaseOverride;
 
@@ -1097,6 +1099,7 @@ class NativeIncomingMessage {
       bindings: null,
       argumentsBytes: argumentsBytes,
       argumentsKeywordsBytes: argumentsKeywordsBytes,
+      takeOverride: null,
       retainOverride: null,
       releaseOverride: null,
     );
@@ -1111,6 +1114,7 @@ class NativeIncomingMessage {
     Uint8List? bytes,
     Uint8List? argumentsBytes,
     Uint8List? argumentsKeywordsBytes,
+    int Function(int handle)? onTake,
     int Function(int handle)? onRetain,
     void Function(int handle)? onRelease,
   }) {
@@ -1126,6 +1130,7 @@ class NativeIncomingMessage {
       bindings: null,
       argumentsBytes: argumentsBytes,
       argumentsKeywordsBytes: argumentsKeywordsBytes,
+      takeOverride: onTake ?? (handle > 0 ? (_) => handle : null),
       retainOverride: onRetain,
       releaseOverride: onRelease,
     );
@@ -1143,10 +1148,23 @@ class NativeIncomingMessage {
   final Uint8List? argumentsBytes;
   final Uint8List? argumentsKeywordsBytes;
   final CtFfiBindings? _bindings;
+  int Function(int handle)? _takeOverride;
   final int Function(int handle)? _retainOverride;
   final void Function(int handle)? _releaseOverride;
 
   bool get hasNativeHandle => handle > 0;
+
+  int takeHandle() {
+    if (!_tryMarkReleased()) {
+      return 0;
+    }
+    _releaseHandle = null;
+    final takeOverride = _takeOverride;
+    if (takeOverride != null) {
+      return takeOverride(handle);
+    }
+    return 0;
+  }
 
   int retainHandle() {
     if (_retainOverride != null) {
@@ -1176,6 +1194,10 @@ class NativeIncomingMessage {
 
   void _setReleaser(void Function() releaseHandle) {
     _releaseHandle = releaseHandle;
+  }
+
+  void _setTakeOverride(int Function(int handle)? takeHandle) {
+    _takeOverride = takeHandle;
   }
 
   bool _tryMarkReleased() {
@@ -1303,11 +1325,16 @@ class _MessageBindings {
           bindings: _bindings,
           argumentsBytes: args,
           argumentsKeywordsBytes: kwargs,
+          takeOverride: null,
           retainOverride: null,
           releaseOverride: null,
         );
         final token = _MessageFinalizerToken(_bindings, handle);
         _messageFinalizer.attach(nativeMessage, token, detach: nativeMessage);
+        nativeMessage._setTakeOverride((_) {
+          _messageFinalizer.detach(nativeMessage);
+          return handle;
+        });
         nativeMessage._setReleaser(() {
           if (nativeMessage._tryMarkReleased()) {
             _messageFinalizer.detach(nativeMessage);
