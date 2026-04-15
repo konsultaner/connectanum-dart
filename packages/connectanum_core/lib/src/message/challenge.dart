@@ -16,23 +16,137 @@ class Challenge extends AbstractMessage {
 
 /// Challenge values to check the authentication validity
 class Extra {
-  String? challenge;
-  String? salt;
-  String? channelBinding;
-  int? keyLen;
-  int? iterations;
-  int? memory;
-  String? kdf;
-  String? nonce;
+  String? _challenge;
+  String? _salt;
+  String? _channelBinding;
+  int? _keyLen;
+  int? _iterations;
+  int? _memory;
+  String? _kdf;
+  String? _nonce;
+
+  Map<String, dynamic> Function()? _lazyLoader;
+
+  String? get challenge {
+    if (_challenge == null) {
+      _ensureLazyLoaded();
+    }
+    return _challenge;
+  }
+
+  set challenge(String? value) => _challenge = value;
+
+  String? get salt {
+    if (_salt == null) {
+      _ensureLazyLoaded();
+    }
+    return _salt;
+  }
+
+  set salt(String? value) => _salt = value;
+
+  String? get channelBinding {
+    if (_channelBinding == null) {
+      _ensureLazyLoaded();
+    }
+    return _channelBinding;
+  }
+
+  set channelBinding(String? value) => _channelBinding = value;
+
+  int? get keyLen {
+    if (_keyLen == null) {
+      _ensureLazyLoaded();
+    }
+    return _keyLen;
+  }
+
+  set keyLen(int? value) => _keyLen = value;
+
+  int? get iterations {
+    if (_iterations == null) {
+      _ensureLazyLoaded();
+    }
+    return _iterations;
+  }
+
+  set iterations(int? value) => _iterations = value;
+
+  int? get memory {
+    if (_memory == null) {
+      _ensureLazyLoaded();
+    }
+    return _memory;
+  }
+
+  set memory(int? value) => _memory = value;
+
+  String? get kdf {
+    if (_kdf == null) {
+      _ensureLazyLoaded();
+    }
+    return _kdf;
+  }
+
+  set kdf(String? value) => _kdf = value;
+
+  String? get nonce {
+    if (_nonce == null) {
+      _ensureLazyLoaded();
+    }
+    return _nonce;
+  }
+
+  set nonce(String? value) => _nonce = value;
 
   Extra({
-    this.challenge,
-    this.salt,
-    this.keyLen,
-    this.channelBinding,
-    this.iterations,
-    this.memory,
-    this.kdf,
-    this.nonce,
-  });
+    String? challenge,
+    String? salt,
+    int? keyLen,
+    String? channelBinding,
+    int? iterations,
+    int? memory,
+    String? kdf,
+    String? nonce,
+  }) : _challenge = challenge,
+       _salt = salt,
+       _keyLen = keyLen,
+       _channelBinding = channelBinding,
+       _iterations = iterations,
+       _memory = memory,
+       _kdf = kdf,
+       _nonce = nonce;
+
+  void setLazyLoader(Map<String, dynamic> Function() loader) {
+    final previousLoader = _lazyLoader;
+    if (previousLoader == null) {
+      _lazyLoader = loader;
+      return;
+    }
+    _lazyLoader = () {
+      final merged = <String, dynamic>{}
+        ..addAll(previousLoader())
+        ..addAll(loader());
+      return merged;
+    };
+  }
+
+  void _ensureLazyLoaded() {
+    final loader = _lazyLoader;
+    if (loader == null) {
+      return;
+    }
+    _lazyLoader = null;
+    final map = loader();
+    _challenge ??= map['challenge'] as String?;
+    _salt ??= map['salt'] as String?;
+    _keyLen ??= _asInt(map['keylen']);
+    _channelBinding ??= map['channel_binding'] as String?;
+    _iterations ??= _asInt(map['iterations']);
+    _memory ??= _asInt(map['memory']);
+    _kdf ??= map['kdf'] as String?;
+    _nonce ??= map['nonce'] as String?;
+  }
 }
+
+int? _asInt(Object? value) => value is int ? value : null;

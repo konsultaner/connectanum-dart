@@ -52,6 +52,10 @@ Future<void> _handleSessionMessage({
     return;
   }
 
+  if (message is Heartbeat) {
+    return;
+  }
+
   if (state.phase != HandshakePhase.open || state.sessionId == null) {
     await _sendSessionError(
       bossPort: bossPort,
@@ -2210,6 +2214,7 @@ int? _messageTypeCode(AbstractMessage message) => switch (message) {
   authenticate_msg.Authenticate() => MessageTypes.codeAuthenticate,
   abort_msg.Abort() => MessageTypes.codeAbort,
   goodbye_msg.Goodbye() => MessageTypes.codeGoodbye,
+  Heartbeat() => MessageTypes.codeHeartbeat,
   subscribe_msg.Subscribe() => MessageTypes.codeSubscribe,
   unsubscribe_msg.Unsubscribe() => MessageTypes.codeUnsubscribe,
   register_msg.Register() => MessageTypes.codeRegister,
@@ -2218,6 +2223,7 @@ int? _messageTypeCode(AbstractMessage message) => switch (message) {
   call_msg.Call() => MessageTypes.codeCall,
   cancel_msg.Cancel() => MessageTypes.codeCancel,
   yield_msg.Yield() => MessageTypes.codeYield,
+  UnknownMessage() => message.id,
   _ => null,
 };
 
@@ -2230,6 +2236,7 @@ int? _extractRequestId(AbstractMessage message) => switch (message) {
   call_msg.Call() => message.requestId,
   cancel_msg.Cancel() => message.requestId,
   yield_msg.Yield() => message.invocationRequestId,
+  UnknownMessage() => message.requestId,
   _ => null,
 };
 

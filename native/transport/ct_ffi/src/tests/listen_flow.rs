@@ -953,7 +953,10 @@ fn ct_message_get_exports_direct_bind_metadata_for_hot_messages() {
         SUCCESS
     );
     assert_eq!(custom_event_info.message_code, 36);
-    assert_eq!(custom_event_info.flags & MESSAGE_FLAG_DIRECT_BIND, 0);
+    assert_eq!(
+        custom_event_info.flags & MESSAGE_FLAG_DIRECT_BIND,
+        MESSAGE_FLAG_DIRECT_BIND
+    );
     assert_eq!(
         custom_event_info.flags & MESSAGE_FLAG_METADATA_BIND,
         MESSAGE_FLAG_METADATA_BIND

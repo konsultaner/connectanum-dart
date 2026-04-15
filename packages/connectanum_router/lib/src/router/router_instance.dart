@@ -25,12 +25,14 @@ import 'package:connectanum_core/connectanum_core.dart'
         Details,
         decodeLazyPayloadView,
         Extra,
+        Heartbeat,
         Hello,
         LazyMessagePayload,
         LazyPayloadEncoding,
         MessageTypes,
         PayloadListDecoder,
         PayloadMapDecoder,
+        UnknownMessage,
         Welcome;
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
 import 'package:connectanum_core/src/message/abort.dart' as abort_msg;

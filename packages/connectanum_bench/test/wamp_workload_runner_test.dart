@@ -207,6 +207,34 @@ void main() {
       },
     );
 
+    test('control workloads can add custom option fields', () async {
+      final broker = _FakeWampBroker();
+      final runner = WampWorkloadRunner(
+        sessionFactory: (_) async => _FakeWampSession(broker),
+        logger: Logger.detached('control_custom_fields_test'),
+        eventTimeout: const Duration(seconds: 1),
+      );
+      final scenario = WampScenario(
+        transport: WampTransport.rawsocket,
+        serializer: WampSerializer.msgpack,
+        mode: WampMode.registerCycle,
+        uri: 'bench.control.proc',
+        iterations: 1,
+        concurrency: 1,
+        payloadBytes: 0,
+        controlCustomFields: true,
+      );
+
+      final samples = await runner.run(scenario);
+
+      expect(samples, hasLength(1));
+      expect(
+        broker.lastRegisterOptions?.custom['_trace'],
+        'bench.control.register_cycle',
+      );
+      expect(broker.lastRegisterOptions?.custom['_serializer'], 'msgpack');
+    });
+
     test('executes subscribe-cycle control workloads', () async {
       final broker = _FakeWampBroker();
       final runner = WampWorkloadRunner(
@@ -638,6 +666,19 @@ void main() {
 
       expect(scenario.websocketFragmentSize, 4096);
       expect(scenario.toJson()['websocket_fragment_size'], 4096);
+    });
+
+    test('parses control custom field overrides', () {
+      final scenario = WampScenario.fromJson({
+        'transport': 'rawsocket',
+        'serializer': 'msgpack',
+        'mode': 'register_cycle',
+        'uri': 'bench.control.proc',
+        'control_custom_fields': true,
+      });
+
+      expect(scenario.controlCustomFields, isTrue);
+      expect(scenario.toJson()['control_custom_fields'], isTrue);
     });
 
     test('parses control workload modes', () {

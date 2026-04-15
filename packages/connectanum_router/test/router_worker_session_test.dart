@@ -2318,6 +2318,101 @@ void main() {
       expect(details['message'], contains('Session 512 not found'));
     });
 
+    test('ignores Heartbeat session messages', () async {
+      final bossMessages = <Map<String, Object?>>[];
+      final bossPort = ReceivePort()
+        ..listen((dynamic message) {
+          if (message is Map<String, Object?>) {
+            bossMessages.add(message);
+          }
+        });
+      addTearDown(bossPort.close);
+
+      final listener = _buildListener();
+      final workerState =
+          createWorkerStateForTest(
+                listener: listener,
+                listenerSettings: routerSettings.listeners.first,
+              )
+              as WorkerConnectionState;
+      workerState
+        ..serializer = NativeMessageSerializer.json
+        ..phase = HandshakePhase.open
+        ..realmUri = 'realm1'
+        ..realmSettings = routerSettings.realms.first
+        ..sessionId = 512;
+
+      _openSession(stateStore, sessionId: 512, listener: listener);
+      await Future<void>.delayed(Duration.zero);
+
+      await handleSessionMessageForTest(
+        bossPort: bossPort.sendPort,
+        statePort: stateStore.commandPort,
+        realmContexts: RealmContextCache(statePort: stateStore.commandPort),
+        state: workerState,
+        message: Heartbeat(details: const {'mode': 'ping'}, ping: 1),
+        connectionId: 45,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(bossMessages, isEmpty);
+    });
+
+    test(
+      'responds to UnknownMessage with a generic not_supported error',
+      () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
+
+        final listener = _buildListener();
+        final workerState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        workerState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 777;
+
+        _openSession(stateStore, sessionId: 777, listener: listener);
+        await Future<void>.delayed(Duration.zero);
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: RealmContextCache(statePort: stateStore.commandPort),
+          state: workerState,
+          message: UnknownMessage(
+            777,
+            fields: const [
+              91,
+              {'trace': 'edge'},
+            ],
+          ),
+          connectionId: 45,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final workerSend = _extractWorkerSend(bossMessages);
+        final payload = workerSend['payload'] as Uint8List;
+        final frame = jsonDecode(utf8.decode(payload)) as List<dynamic>;
+        expect(frame.first, equals(MessageTypes.codeError));
+        expect(frame[1], equals(777));
+        expect(frame[2], equals(91));
+        expect(frame[4], equals('wamp.error.not_supported'));
+      },
+    );
+
     test('handles REGISTER by registering procedure', () async {
       final bossMessages = <Map<String, Object?>>[];
       final bossPort = ReceivePort()

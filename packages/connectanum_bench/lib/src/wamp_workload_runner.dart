@@ -411,7 +411,7 @@ class WampWorkloadRunner {
     final start = DateTime.now();
     final subscription = await session.subscribeLazyPayload(
       topic,
-      options: _buildControlSubscribeOptions(),
+      options: _buildControlSubscribeOptions(scenario),
     );
     await subscription.cancel();
     final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
@@ -463,7 +463,7 @@ class WampWorkloadRunner {
     final registration = await session.registerLazyPayloadHandler(
       procedure,
       (_) {},
-      options: _buildControlRegisterOptions(),
+      options: _buildControlRegisterOptions(scenario),
     );
     await registration.cancel();
     final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
@@ -518,7 +518,7 @@ class WampWorkloadRunner {
         .registerLazyPayloadHandler(
           procedure,
           (_) {},
-          options: _buildControlRegisterOptions(),
+          options: _buildControlRegisterOptions(scenario),
         )
         .timeout(
           _eventTimeout,
@@ -637,29 +637,50 @@ class WampWorkloadRunner {
   }
 
   wamp_core.PublishOptions _buildControlPublishOptions(WampScenario scenario) {
-    return wamp_core.PublishOptions(
+    final options = wamp_core.PublishOptions(
       acknowledge: true,
       excludeMe: true,
       discloseMe: true,
       pptScheme: scenario.pptScheme,
       pptSerializer: _resolvePptSerializer(scenario),
     );
+    _applyControlCustomFields(options, scenario);
+    return options;
   }
 
-  wamp_core.SubscribeOptions _buildControlSubscribeOptions() {
-    return wamp_core.SubscribeOptions(
+  wamp_core.SubscribeOptions _buildControlSubscribeOptions(
+    WampScenario scenario,
+  ) {
+    final options = wamp_core.SubscribeOptions(
       match: wamp_core.SubscribeOptions.matchPrefix,
       metaTopic: 'bench.control.meta',
       getRetained: true,
     );
+    _applyControlCustomFields(options, scenario);
+    return options;
   }
 
-  wamp_core.RegisterOptions _buildControlRegisterOptions() {
-    return wamp_core.RegisterOptions(
+  wamp_core.RegisterOptions _buildControlRegisterOptions(
+    WampScenario scenario,
+  ) {
+    final options = wamp_core.RegisterOptions(
       discloseCaller: true,
       match: wamp_core.RegisterOptions.matchPrefix,
       invoke: wamp_core.RegisterOptions.invocationPolicyRoundRobin,
     );
+    _applyControlCustomFields(options, scenario);
+    return options;
+  }
+
+  void _applyControlCustomFields(
+    wamp_core.CustomFieldContainer options,
+    WampScenario scenario,
+  ) {
+    if (!scenario.controlCustomFields) {
+      return;
+    }
+    options.setCustomField('_trace', 'bench.control.${scenario.mode.wireName}');
+    options.setCustomField('_serializer', scenario.serializer.name);
   }
 
   wamp_core.CallOptions? _buildCallOptions(WampScenario scenario) {
@@ -1367,6 +1388,7 @@ class WampScenario {
     this.peerCount = 1,
     required this.payloadBytes,
     this.websocketFragmentSize,
+    this.controlCustomFields = false,
     this.pptScheme,
     this.pptSerializer,
   });
@@ -1383,6 +1405,7 @@ class WampScenario {
   final int peerCount;
   final int payloadBytes;
   final int? websocketFragmentSize;
+  final bool controlCustomFields;
   final String? pptScheme;
   final String? pptSerializer;
 
@@ -1417,6 +1440,7 @@ class WampScenario {
       websocketFragmentSize: _readOptionalPositiveInt(
         json['websocket_fragment_size'],
       ),
+      controlCustomFields: json['control_custom_fields'] == true,
       pptScheme: json['ppt_scheme'] as String?,
       pptSerializer: json['ppt_serializer'] as String?,
     );
@@ -1457,6 +1481,7 @@ class WampScenario {
     'payload_bytes': payloadBytes,
     if (websocketFragmentSize != null)
       'websocket_fragment_size': websocketFragmentSize,
+    if (controlCustomFields) 'control_custom_fields': true,
     if (pptScheme != null) 'ppt_scheme': pptScheme,
     if (pptSerializer != null) 'ppt_serializer': pptSerializer,
   };
@@ -1474,6 +1499,7 @@ class WampScenario {
     int? peerCount,
     int? payloadBytes,
     Object? websocketFragmentSize = _copySentinel,
+    bool? controlCustomFields,
     Object? pptScheme = _copySentinel,
     Object? pptSerializer = _copySentinel,
   }) {
@@ -1494,6 +1520,7 @@ class WampScenario {
       websocketFragmentSize: identical(websocketFragmentSize, _copySentinel)
           ? this.websocketFragmentSize
           : websocketFragmentSize as int?,
+      controlCustomFields: controlCustomFields ?? this.controlCustomFields,
       pptScheme: identical(pptScheme, _copySentinel)
           ? this.pptScheme
           : pptScheme as String?,

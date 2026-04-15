@@ -94,16 +94,62 @@ AbstractMessage? bindMessageFromMetadata(
   final directBind = (flags & _directBindFlag) != 0;
   AbstractMessage? message;
   if (messageCode == MessageTypes.codeHello) {
-    final detailsMap = _decodeOptionalMapFragment(serializer, detailsBytes);
-    message = stringA == null ? null : Hello(stringA, _mapDetails(detailsMap));
+    message = stringA == null
+        ? null
+        : Hello(
+            stringA,
+            _detailsFromMetadata(
+              serializer,
+              detailsBytes,
+              authId: directBind ? stringB : null,
+              authRole: directBind ? stringC : null,
+              authMethod: directBind ? stringD : null,
+              authProvider: directBind ? stringE : null,
+            ),
+          );
   } else if (messageCode == MessageTypes.codeAuthenticate) {
-    final detailsMap = _decodeOptionalMapFragment(serializer, detailsBytes);
-    message = Authenticate(signature: stringA)..extra = detailsMap;
+    final authenticate = Authenticate(signature: stringA);
+    if (detailsBytes != null) {
+      authenticate.extra = lazyStringKeyMap<Object?>(
+        loader: () => Map<String, Object?>.from(
+          _decodeOptionalMapFragment(serializer, detailsBytes) ??
+              const <String, dynamic>{},
+        ),
+      );
+    }
+    message = authenticate;
   } else if (messageCode == MessageTypes.codeAbort) {
     final detailsMap = directBind
-        ? (stringB == null ? null : <String, dynamic>{'message': stringB})
-        : _decodeOptionalMapFragment(serializer, detailsBytes);
-    message = Abort(stringA ?? '', message: detailsMap?['message'] as String?);
+        ? _lazyObjectDetailMap(
+            serializer,
+            detailsBytes,
+            initialValues: <String, Object?>{
+              if (stringB != null) 'message': stringB,
+            },
+            knownKeys: const {'message'},
+          )
+        : _decodeOptionalMapFragment(serializer, detailsBytes) == null
+        ? null
+        : Map<String, Object?>.from(
+            _decodeOptionalMapFragment(serializer, detailsBytes)!,
+          );
+    message = Abort(
+      stringA ?? '',
+      details: detailsMap,
+      message: detailsMap?['message'] as String?,
+    );
+  } else if (messageCode == MessageTypes.codeHeartbeat) {
+    final heartbeat =
+        _decodeOptionalMapFragment(serializer, detailsBytes) ??
+        const <String, dynamic>{};
+    message = Heartbeat(
+      details: Map<String, Object?>.from(
+        _asStringKeyMap(heartbeat['details']) ?? const <String, Object?>{},
+      ),
+      ping: _asInt(heartbeat['ping']),
+      incoming: _asInt(heartbeat['incoming']),
+      outgoing: _asInt(heartbeat['outgoing']),
+    );
   } else if (messageCode == MessageTypes.codeGoodbye) {
     final detailsMap = directBind
         ? (stringB == null ? null : <String, dynamic>{'message': stringB})
@@ -115,56 +161,95 @@ AbstractMessage? bindMessageFromMetadata(
       stringA ?? '',
     );
   } else if (messageCode == MessageTypes.codePublish) {
+    final options = directBind
+        ? (_mapPublishOptionsFromMetadata(
+                flags,
+                stringB,
+                stringC,
+                stringD,
+                stringE,
+              ) ??
+              (detailsBytes == null ? null : PublishOptions()))
+        : _mapPublishOptions(
+            _decodeOptionalMapFragment(serializer, detailsBytes),
+          );
+    if (directBind && options != null) {
+      _attachLazyCustomFieldsFromDetails(
+        options,
+        serializer,
+        detailsBytes,
+        const {
+          'acknowledge',
+          'exclude',
+          'exclude_authid',
+          'exclude_authrole',
+          'eligible',
+          'eligible_authid',
+          'eligible_authrole',
+          'exclude_me',
+          'disclose_me',
+          'retain',
+          'ppt_scheme',
+          'ppt_serializer',
+          'ppt_cipher',
+          'ppt_keyid',
+        },
+      );
+    }
     message = stringA == null
         ? null
-        : Publish(
-            primaryId,
-            stringA,
-            options: directBind
-                ? _mapPublishOptionsFromMetadata(
-                    flags,
-                    stringB,
-                    stringC,
-                    stringD,
-                    stringE,
-                  )
-                : _mapPublishOptions(
-                    _decodeOptionalMapFragment(serializer, detailsBytes),
-                  ),
-          );
+        : Publish(primaryId, stringA, options: options);
   } else if (messageCode == MessageTypes.codeSubscribe) {
+    final options = directBind
+        ? (_mapSubscribeOptionsFromMetadata(flags, stringB, stringC) ??
+              (detailsBytes == null ? null : SubscribeOptions()))
+        : _mapSubscribeOptions(
+            _decodeOptionalMapFragment(serializer, detailsBytes),
+          );
+    if (directBind && options != null) {
+      _attachLazyCustomFieldsFromDetails(
+        options,
+        serializer,
+        detailsBytes,
+        const {'match', 'meta_topic', 'get_retained'},
+      );
+    }
     message = stringA == null
         ? null
-        : Subscribe(
-            primaryId,
-            stringA,
-            options: directBind
-                ? _mapSubscribeOptionsFromMetadata(flags, stringB, stringC)
-                : _mapSubscribeOptions(
-                    _decodeOptionalMapFragment(serializer, detailsBytes),
-                  ),
-          );
+        : Subscribe(primaryId, stringA, options: options);
   } else if (messageCode == MessageTypes.codeUnsubscribe) {
     message = Unsubscribe(primaryId, secondaryId);
   } else if (messageCode == MessageTypes.codeCall) {
+    final options = directBind
+        ? _mapCallOptionsFromMetadata(
+                flags,
+                detailNumberA,
+                stringB,
+                stringC,
+                stringD,
+                stringE,
+              ) ??
+              (detailsBytes == null ? null : CallOptions())
+        : _mapCallOptions(_decodeOptionalMapFragment(serializer, detailsBytes));
+    if (directBind && options != null) {
+      _attachLazyCustomFieldsFromDetails(
+        options,
+        serializer,
+        detailsBytes,
+        const {
+          'receive_progress',
+          'timeout',
+          'disclose_me',
+          'ppt_scheme',
+          'ppt_serializer',
+          'ppt_cipher',
+          'ppt_keyid',
+        },
+      );
+    }
     message = stringA == null
         ? null
-        : Call(
-            primaryId,
-            stringA,
-            options: directBind
-                ? _mapCallOptionsFromMetadata(
-                    flags,
-                    detailNumberA,
-                    stringB,
-                    stringC,
-                    stringD,
-                    stringE,
-                  )
-                : _mapCallOptions(
-                    _decodeOptionalMapFragment(serializer, detailsBytes),
-                  ),
-          );
+        : Call(primaryId, stringA, options: options);
   } else if (messageCode == MessageTypes.codeCancel) {
     message = Cancel(
       primaryId,
@@ -185,39 +270,63 @@ AbstractMessage? bindMessageFromMetadata(
       options: _interruptOptionsFromMode(options?.mode),
     );
   } else if (messageCode == MessageTypes.codeRegister) {
+    final options = directBind
+        ? (_mapRegisterOptionsFromMetadata(flags, stringB, stringC) ??
+              (detailsBytes == null ? null : RegisterOptions()))
+        : _mapRegisterOptions(
+            _decodeOptionalMapFragment(serializer, detailsBytes),
+          );
+    if (directBind && options != null) {
+      _attachLazyCustomFieldsFromDetails(
+        options,
+        serializer,
+        detailsBytes,
+        const {'disclose_caller', 'match', 'invoke'},
+      );
+    }
     message = stringA == null
         ? null
-        : Register(
-            primaryId,
-            stringA,
-            options: directBind
-                ? _mapRegisterOptionsFromMetadata(flags, stringB, stringC)
-                : _mapRegisterOptions(
-                    _decodeOptionalMapFragment(serializer, detailsBytes),
-                  ),
-          );
+        : Register(primaryId, stringA, options: options);
   } else if (messageCode == MessageTypes.codeUnregister) {
     message = Unregister(primaryId, secondaryId);
   } else if (messageCode == MessageTypes.codeYield) {
-    message = Yield(
-      primaryId,
-      options: directBind
-          ? _mapYieldOptionsFromMetadata(
-              flags,
-              stringA,
-              stringB,
-              stringC,
-              stringD,
-            )
-          : _mapYieldOptions(
-              _decodeOptionalMapFragment(serializer, detailsBytes),
-            ),
-    );
+    final options = directBind
+        ? (_mapYieldOptionsFromMetadata(
+                flags,
+                stringA,
+                stringB,
+                stringC,
+                stringD,
+              ) ??
+              (detailsBytes == null ? null : YieldOptions()))
+        : _mapYieldOptions(
+            _decodeOptionalMapFragment(serializer, detailsBytes),
+          );
+    if (directBind && options != null) {
+      _attachLazyCustomFieldsFromDetails(
+        options,
+        serializer,
+        detailsBytes,
+        const {
+          'progress',
+          'ppt_scheme',
+          'ppt_serializer',
+          'ppt_cipher',
+          'ppt_keyid',
+        },
+      );
+    }
+    message = Yield(primaryId, options: options);
   } else if (messageCode == MessageTypes.codeError) {
     final detailsMap = directBind
-        ? (stringB == null
-              ? <String, dynamic>{}
-              : <String, dynamic>{'message': stringB})
+        ? _lazyDynamicDetailMap(
+            serializer,
+            detailsBytes,
+            initialValues: <String, dynamic>{
+              if (stringB != null) 'message': stringB,
+            },
+            knownKeys: const {'message'},
+          )
         : _decodeOptionalMapFragment(serializer, detailsBytes) ??
               <String, dynamic>{};
     message = Error(primaryId, secondaryId, detailsMap, stringA);
@@ -230,6 +339,15 @@ AbstractMessage? bindMessageFromMetadata(
               _decodeOptionalMapFragment(serializer, detailsBytes),
             ),
     );
+  } else {
+    final unknown = _decodeOptionalMapFragment(serializer, detailsBytes);
+    if (unknown != null && unknown['fields'] is List) {
+      message = UnknownMessage(
+        messageCode,
+        fields: _asDynamicList(unknown['fields']),
+        requestId: _asInt(unknown['request_id']),
+      );
+    }
   }
 
   if (message is AbstractMessageWithPayload) {
@@ -274,6 +392,17 @@ AbstractMessage _bindDecoded(List<dynamic> message) {
     final reason = message.length > 2 ? message[2] as String : '';
     return Abort(reason, message: _readOptionalMessageText(message, 1));
   }
+  if (code == MessageTypes.codeHeartbeat) {
+    return Heartbeat(
+      details: Map<String, Object?>.from(
+        _asStringKeyMap(message.length > 1 ? message[1] : null) ??
+            const <String, Object?>{},
+      ),
+      ping: _asInt(message.length > 2 ? message[2] : null),
+      incoming: _asInt(message.length > 3 ? message[3] : null),
+      outgoing: _asInt(message.length > 4 ? message[4] : null),
+    );
+  }
   if (code == MessageTypes.codeGoodbye) {
     final details = _asStringKeyMap(message.length > 1 ? message[1] : null);
     final reason = message.length > 2 ? message[2] as String : '';
@@ -312,7 +441,10 @@ AbstractMessage _bindDecoded(List<dynamic> message) {
   if (code == MessageTypes.codeError) {
     return _bindError(message);
   }
-  throw UnsupportedError('WAMP message code $code is not supported');
+  return UnknownMessage(
+    code,
+    fields: message.length > 1 ? message.sublist(1) : const <dynamic>[],
+  );
 }
 
 Publish _bindPublish(List<dynamic> message) {
@@ -464,6 +596,30 @@ Details _mapDetails(Map<String, dynamic>? map) {
       'roles',
     }),
   );
+  return details;
+}
+
+Details _detailsFromMetadata(
+  NativeMessageSerializer serializer,
+  Uint8List? detailsBytes, {
+  String? authId,
+  String? authRole,
+  String? authMethod,
+  String? authProvider,
+}) {
+  final details = Details();
+  details.authid = authId;
+  details.authrole = authRole;
+  details.authmethod = authMethod;
+  details.authprovider = authProvider;
+  if (detailsBytes != null) {
+    details.setLazyFieldsLoader(
+      () => Map<String, dynamic>.from(
+        _decodeOptionalMapFragment(serializer, detailsBytes) ??
+            const <String, dynamic>{},
+      ),
+    );
+  }
   return details;
 }
 
@@ -988,6 +1144,62 @@ UnsubscribedDetails? _mapUnsubscribedDetailsFromMetadata(
   return UnsubscribedDetails(resolvedSubscription, reason);
 }
 
+void _attachLazyCustomFieldsFromDetails(
+  CustomFieldContainer target,
+  NativeMessageSerializer serializer,
+  Uint8List? detailsBytes,
+  Set<String> knownKeys,
+) {
+  if (detailsBytes == null) {
+    return;
+  }
+  target.setLazyCustomFieldsLoader(
+    () => _extractCustomFields(
+      _decodeOptionalMapFragment(serializer, detailsBytes) ??
+          const <String, dynamic>{},
+      knownKeys,
+    ),
+  );
+}
+
+Map<String, dynamic> _lazyDynamicDetailMap(
+  NativeMessageSerializer serializer,
+  Uint8List? detailsBytes, {
+  Map<String, dynamic>? initialValues,
+  Set<String> knownKeys = const <String>{},
+}) {
+  return lazyStringKeyMap<dynamic>(
+    initialValues: initialValues,
+    loader: detailsBytes == null
+        ? null
+        : () => _extractCustomFields(
+            _decodeOptionalMapFragment(serializer, detailsBytes) ??
+                const <String, dynamic>{},
+            knownKeys,
+          ),
+  );
+}
+
+Map<String, Object?> _lazyObjectDetailMap(
+  NativeMessageSerializer serializer,
+  Uint8List? detailsBytes, {
+  Map<String, Object?>? initialValues,
+  Set<String> knownKeys = const <String>{},
+}) {
+  return lazyStringKeyMap<Object?>(
+    initialValues: initialValues,
+    loader: detailsBytes == null
+        ? null
+        : () => Map<String, Object?>.from(
+            _extractCustomFields(
+              _decodeOptionalMapFragment(serializer, detailsBytes) ??
+                  const <String, dynamic>{},
+              knownKeys,
+            ),
+          ),
+  );
+}
+
 Map<String, dynamic> _extractCustomFields(
   Map<String, dynamic> map,
   Set<String> knownKeys,
@@ -1017,6 +1229,16 @@ Map<String, dynamic>? _asStringKeyMap(Object? value) {
     return value.map((key, val) => MapEntry(key.toString(), val));
   }
   throw ArgumentError('Expected map but received $value');
+}
+
+List<dynamic> _asDynamicList(Object? value) {
+  if (value == null) {
+    return const <dynamic>[];
+  }
+  if (value is List) {
+    return List<dynamic>.from(value);
+  }
+  throw ArgumentError('Expected list but received $value');
 }
 
 int? _asInt(Object? value) {

@@ -80,6 +80,7 @@ use super::state::{
     StoredRawFrame,
 };
 use rmp::encode::{write_array_len, write_u64};
+use serde::Serialize;
 use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
 use serde_value::Value as SerdeValue;
 
@@ -270,13 +271,38 @@ fn encode_value_map_bytes(
     serializer: RawSocketSerializer,
     map: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
 ) -> Option<Bytes> {
+    encode_serializable_bytes(serializer, map)
+}
+
+fn encode_serializable_bytes<T: Serialize>(
+    serializer: RawSocketSerializer,
+    value: &T,
+) -> Option<Bytes> {
     let encoded = match serializer {
-        RawSocketSerializer::Json => serde_json::to_vec(map).ok()?,
-        RawSocketSerializer::MessagePack => rmp_serde::to_vec(map).ok()?,
-        RawSocketSerializer::Cbor => serde_cbor::to_vec(map).ok()?,
+        RawSocketSerializer::Json => serde_json::to_vec(value).ok()?,
+        RawSocketSerializer::MessagePack => rmp_serde::to_vec(value).ok()?,
+        RawSocketSerializer::Cbor => serde_cbor::to_vec(value).ok()?,
         RawSocketSerializer::Ubjson | RawSocketSerializer::Flatbuffers => return None,
     };
     Some(Bytes::from(encoded))
+}
+
+#[derive(Serialize)]
+struct HeartbeatMetadata<'a> {
+    details: &'a std::collections::BTreeMap<SerdeValue, SerdeValue>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ping: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    incoming: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    outgoing: Option<u64>,
+}
+
+#[derive(Serialize)]
+struct UnknownMetadata<'a> {
+    fields: &'a [SerdeValue],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    request_id: Option<u64>,
 }
 
 fn extract_detail_bytes(serializer: RawSocketSerializer, message: &WampMessage) -> Option<Bytes> {
@@ -314,6 +340,27 @@ fn extract_detail_bytes(serializer: RawSocketSerializer, message: &WampMessage) 
         WampMessage::Challenge { extra, .. } | WampMessage::Authenticate { extra, .. } => {
             encode_value_map_bytes(serializer, extra)
         }
+        WampMessage::Heartbeat {
+            details,
+            ping,
+            incoming,
+            outgoing,
+        } => encode_serializable_bytes(
+            serializer,
+            &HeartbeatMetadata {
+                details,
+                ping: *ping,
+                incoming: *incoming,
+                outgoing: *outgoing,
+            },
+        ),
+        WampMessage::Unknown { fields, .. } => encode_serializable_bytes(
+            serializer,
+            &UnknownMetadata {
+                fields,
+                request_id: fields.first().and_then(serde_value_u64),
+            },
+        ),
         _ => None,
     }
 }
@@ -2365,7 +2412,8 @@ fn populate_event_details_info(
                 Some(text) => set_string_e(info, Some(text)),
                 None => return false,
             },
-            _ => return false,
+            Some(_) => {}
+            None => return false,
         }
     }
     true
@@ -2398,7 +2446,8 @@ fn populate_result_details_info(
                 Some(text) => set_string_d(info, Some(text)),
                 None => return false,
             },
-            _ => return false,
+            Some(_) => {}
+            None => return false,
         }
     }
     true
@@ -2442,7 +2491,8 @@ fn populate_invocation_details_info(
                 Some(text) => set_string_e(info, Some(text)),
                 None => return false,
             },
-            _ => return false,
+            Some(_) => {}
+            None => return false,
         }
     }
     true
@@ -2474,7 +2524,37 @@ fn populate_welcome_details_info(
                 Some(text) => set_string_e(info, Some(text)),
                 None => return false,
             },
-            _ => return false,
+            Some(_) => {}
+            None => return false,
+        }
+    }
+    true
+}
+
+fn populate_hello_details_info(
+    info: &mut CtMessageInfo,
+    details: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
+) -> bool {
+    for (key, value) in details {
+        match serde_key_str(key) {
+            Some("authid") => match serde_value_str(value) {
+                Some(text) => set_string_b(info, Some(text)),
+                None => return false,
+            },
+            Some("authrole") => match serde_value_str(value) {
+                Some(text) => set_string_c(info, Some(text)),
+                None => return false,
+            },
+            Some("authmethod") => match serde_value_str(value) {
+                Some(text) => set_string_d(info, Some(text)),
+                None => return false,
+            },
+            Some("authprovider") => match serde_value_str(value) {
+                Some(text) => set_string_e(info, Some(text)),
+                None => return false,
+            },
+            Some(_) => {}
+            None => return false,
         }
     }
     true
@@ -2490,7 +2570,8 @@ fn populate_message_only_details_info(
                 Some(text) => set_string_b(info, Some(text)),
                 None => return false,
             },
-            _ => return false,
+            Some(_) => {}
+            None => return false,
         }
     }
     true
@@ -2538,7 +2619,14 @@ fn populate_publish_options_info(
                 Some(text) => set_string_e(info, Some(text)),
                 None => return false,
             },
-            _ => return false,
+            Some("exclude")
+            | Some("exclude_authid")
+            | Some("exclude_authrole")
+            | Some("eligible")
+            | Some("eligible_authid")
+            | Some("eligible_authrole") => return false,
+            Some(_) => {}
+            None => return false,
         }
     }
     true
@@ -2563,7 +2651,8 @@ fn populate_subscribe_options_info(
                 Some(false) => {}
                 None => return false,
             },
-            _ => return false,
+            Some(_) => {}
+            None => return false,
         }
     }
     true
@@ -2608,7 +2697,8 @@ fn populate_call_options_info(
                 Some(text) => set_string_e(info, Some(text)),
                 None => return false,
             },
-            _ => return false,
+            Some(_) => {}
+            None => return false,
         }
     }
     true
@@ -2649,7 +2739,8 @@ fn populate_register_options_info(
                 Some(text) => set_string_c(info, Some(text)),
                 None => return false,
             },
-            _ => return false,
+            Some(_) => {}
+            None => return false,
         }
     }
     true
@@ -2682,7 +2773,8 @@ fn populate_yield_options_info(
                 Some(text) => set_string_d(info, Some(text)),
                 None => return false,
             },
-            _ => return false,
+            Some(_) => {}
+            None => return false,
         }
     }
     true
@@ -2733,6 +2825,11 @@ fn build_message_info(msg: &StoredMessage, include_frame: bool) -> CtMessageInfo
         WampMessage::Hello { realm, .. } => {
             info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
             set_string_a(&mut info, Some(realm));
+            if let WampMessage::Hello { details, .. } = &msg.message {
+                if populate_hello_details_info(&mut info, details) {
+                    info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
+                }
+            }
         }
         WampMessage::Welcome {
             session_id,
@@ -2748,6 +2845,11 @@ fn build_message_info(msg: &StoredMessage, include_frame: bool) -> CtMessageInfo
         }
         WampMessage::Challenge { auth_method, .. } => {
             set_string_a(&mut info, Some(auth_method));
+            if msg.details.is_some() {
+                info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            }
+        }
+        WampMessage::Heartbeat { .. } => {
             if msg.details.is_some() {
                 info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
             }
@@ -2991,7 +3093,11 @@ fn build_message_info(msg: &StoredMessage, include_frame: bool) -> CtMessageInfo
                 info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
             }
         }
-        _ => {}
+        WampMessage::Unknown { .. } => {
+            if msg.details.is_some() {
+                info.flags |= CT_MESSAGE_FLAG_METADATA_BIND;
+            }
+        }
     }
     info
 }
@@ -4379,23 +4485,51 @@ mod tests {
     fn router_request_messages_export_metadata_bind_info() {
         let mut hello_details = BTreeMap::new();
         hello_details.insert(
+            SerdeValue::String("authid".into()),
+            SerdeValue::String("bench-user".into()),
+        );
+        hello_details.insert(
+            SerdeValue::String("authrole".into()),
+            SerdeValue::String("bench-role".into()),
+        );
+        hello_details.insert(
+            SerdeValue::String("authmethod".into()),
+            SerdeValue::String("ticket".into()),
+        );
+        hello_details.insert(
+            SerdeValue::String("authprovider".into()),
+            SerdeValue::String("native".into()),
+        );
+        hello_details.insert(
             SerdeValue::String("roles".into()),
             SerdeValue::Map(BTreeMap::new()),
+        );
+        hello_details.insert(
+            SerdeValue::String("_trace".into()),
+            SerdeValue::String("hello-custom".into()),
         );
         let hello = StoredMessage {
             serializer: RawSocketSerializer::Json,
             code: 1,
-            raw: StoredRawFrame::from_bytes(Bytes::from_static(br#"[1,"bench.realm",{}]"#)),
+            raw: StoredRawFrame::from_bytes(Bytes::from_static(
+                br#"[1,"bench.realm",{"authid":"bench-user","authrole":"bench-role","authmethod":"ticket","authprovider":"native","roles":{},"_trace":"hello-custom"}]"#,
+            )),
             message: WampMessage::Hello {
                 realm: "bench.realm".into(),
                 details: hello_details,
             },
-            details: Some(Bytes::from_static(br#"{"roles":{}}"#)),
+            details: Some(Bytes::from_static(
+                br#"{"authid":"bench-user","authrole":"bench-role","authmethod":"ticket","authprovider":"native","roles":{},"_trace":"hello-custom"}"#,
+            )),
             args: None,
             kwargs: None,
         };
         let hello_info = build_message_info(&hello, false);
         assert_eq!(hello_info.frame_len, 0);
+        assert_eq!(
+            hello_info.flags & CT_MESSAGE_FLAG_DIRECT_BIND,
+            CT_MESSAGE_FLAG_DIRECT_BIND
+        );
         assert_eq!(
             hello_info.flags & CT_MESSAGE_FLAG_METADATA_BIND,
             CT_MESSAGE_FLAG_METADATA_BIND
@@ -4403,7 +4537,92 @@ mod tests {
         unsafe {
             let realm =
                 std::slice::from_raw_parts(hello_info.string_a_ptr, hello_info.string_a_len);
+            let authid =
+                std::slice::from_raw_parts(hello_info.string_b_ptr, hello_info.string_b_len);
+            let authrole =
+                std::slice::from_raw_parts(hello_info.string_c_ptr, hello_info.string_c_len);
+            let authmethod =
+                std::slice::from_raw_parts(hello_info.string_d_ptr, hello_info.string_d_len);
+            let authprovider =
+                std::slice::from_raw_parts(hello_info.string_e_ptr, hello_info.string_e_len);
             assert_eq!(std::str::from_utf8(realm).unwrap(), "bench.realm");
+            assert_eq!(std::str::from_utf8(authid).unwrap(), "bench-user");
+            assert_eq!(std::str::from_utf8(authrole).unwrap(), "bench-role");
+            assert_eq!(std::str::from_utf8(authmethod).unwrap(), "ticket");
+            assert_eq!(std::str::from_utf8(authprovider).unwrap(), "native");
+        }
+
+        let mut welcome_details = BTreeMap::new();
+        welcome_details.insert(
+            SerdeValue::String("realm".into()),
+            SerdeValue::String("bench.realm".into()),
+        );
+        welcome_details.insert(
+            SerdeValue::String("authid".into()),
+            SerdeValue::String("bench-user".into()),
+        );
+        welcome_details.insert(
+            SerdeValue::String("authrole".into()),
+            SerdeValue::String("bench-role".into()),
+        );
+        welcome_details.insert(
+            SerdeValue::String("authmethod".into()),
+            SerdeValue::String("ticket".into()),
+        );
+        welcome_details.insert(
+            SerdeValue::String("authprovider".into()),
+            SerdeValue::String("native".into()),
+        );
+        welcome_details.insert(
+            SerdeValue::String("roles".into()),
+            SerdeValue::Map(BTreeMap::new()),
+        );
+        welcome_details.insert(
+            SerdeValue::String("_trace".into()),
+            SerdeValue::String("welcome-custom".into()),
+        );
+        let welcome = StoredMessage {
+            serializer: RawSocketSerializer::Json,
+            code: 2,
+            raw: StoredRawFrame::from_bytes(Bytes::from_static(
+                br#"[2,5150,{"realm":"bench.realm","authid":"bench-user","authrole":"bench-role","authmethod":"ticket","authprovider":"native","roles":{},"_trace":"welcome-custom"}]"#,
+            )),
+            message: WampMessage::Welcome {
+                session_id: 5150,
+                details: welcome_details,
+            },
+            details: Some(Bytes::from_static(
+                br#"{"realm":"bench.realm","authid":"bench-user","authrole":"bench-role","authmethod":"ticket","authprovider":"native","roles":{},"_trace":"welcome-custom"}"#,
+            )),
+            args: None,
+            kwargs: None,
+        };
+        let welcome_info = build_message_info(&welcome, false);
+        assert_eq!(welcome_info.primary_id, 5150);
+        assert_eq!(
+            welcome_info.flags & CT_MESSAGE_FLAG_DIRECT_BIND,
+            CT_MESSAGE_FLAG_DIRECT_BIND
+        );
+        assert_eq!(
+            welcome_info.flags & CT_MESSAGE_FLAG_METADATA_BIND,
+            CT_MESSAGE_FLAG_METADATA_BIND
+        );
+        unsafe {
+            let realm =
+                std::slice::from_raw_parts(welcome_info.string_a_ptr, welcome_info.string_a_len);
+            let authid =
+                std::slice::from_raw_parts(welcome_info.string_b_ptr, welcome_info.string_b_len);
+            let authrole =
+                std::slice::from_raw_parts(welcome_info.string_c_ptr, welcome_info.string_c_len);
+            let authmethod =
+                std::slice::from_raw_parts(welcome_info.string_d_ptr, welcome_info.string_d_len);
+            let authprovider =
+                std::slice::from_raw_parts(welcome_info.string_e_ptr, welcome_info.string_e_len);
+            assert_eq!(std::str::from_utf8(realm).unwrap(), "bench.realm");
+            assert_eq!(std::str::from_utf8(authid).unwrap(), "bench-user");
+            assert_eq!(std::str::from_utf8(authrole).unwrap(), "bench-role");
+            assert_eq!(std::str::from_utf8(authmethod).unwrap(), "ticket");
+            assert_eq!(std::str::from_utf8(authprovider).unwrap(), "native");
         }
 
         let mut auth_extra = BTreeMap::new();
@@ -4475,6 +4694,50 @@ mod tests {
             let topic =
                 std::slice::from_raw_parts(publish_info.string_a_ptr, publish_info.string_a_len);
             assert_eq!(std::str::from_utf8(topic).unwrap(), "bench.topic");
+        }
+
+        let mut publish_custom_options = BTreeMap::new();
+        publish_custom_options.insert(
+            SerdeValue::String("acknowledge".into()),
+            SerdeValue::Bool(true),
+        );
+        publish_custom_options.insert(
+            SerdeValue::String("_trace".into()),
+            SerdeValue::String("publish-custom".into()),
+        );
+        let publish_with_custom = StoredMessage {
+            serializer: RawSocketSerializer::Json,
+            code: 16,
+            raw: StoredRawFrame::from_bytes(Bytes::from_static(
+                br#"[16,17,{"acknowledge":true,"_trace":"publish-custom"},"bench.topic"]"#,
+            )),
+            message: WampMessage::Publish {
+                request_id: 17,
+                options: publish_custom_options,
+                topic: "bench.topic".into(),
+                payload: WampPayload::default(),
+            },
+            details: Some(Bytes::from_static(
+                br#"{"acknowledge":true,"_trace":"publish-custom"}"#,
+            )),
+            args: None,
+            kwargs: None,
+        };
+        let publish_custom_info = build_message_info(&publish_with_custom, false);
+        assert_eq!(publish_custom_info.primary_id, 17);
+        assert_eq!(
+            publish_custom_info.flags & CT_MESSAGE_FLAG_DIRECT_BIND,
+            CT_MESSAGE_FLAG_DIRECT_BIND
+        );
+        unsafe {
+            let details = std::slice::from_raw_parts(
+                publish_custom_info.details_ptr,
+                publish_custom_info.details_len,
+            );
+            assert_eq!(
+                std::str::from_utf8(details).unwrap(),
+                r#"{"acknowledge":true,"_trace":"publish-custom"}"#
+            );
         }
 
         let mut subscribe_options = BTreeMap::new();
@@ -4798,5 +5061,110 @@ mod tests {
             );
             assert_eq!(std::str::from_utf8(reason).unwrap(), "wamp.close.normal");
         }
+
+        let mut event_details = BTreeMap::new();
+        event_details.insert(SerdeValue::String("publisher".into()), SerdeValue::U64(55));
+        event_details.insert(
+            SerdeValue::String("_trace".into()),
+            SerdeValue::String("event-custom".into()),
+        );
+        let event = StoredMessage {
+            serializer: RawSocketSerializer::Json,
+            code: 36,
+            raw: StoredRawFrame::from_bytes(Bytes::from_static(
+                br#"[36,7,99,{"publisher":55,"_trace":"event-custom"}]"#,
+            )),
+            message: WampMessage::Event {
+                subscription_id: 7,
+                publication_id: 99,
+                details: event_details,
+                payload: WampPayload::default(),
+            },
+            details: Some(Bytes::from_static(
+                br#"{"publisher":55,"_trace":"event-custom"}"#,
+            )),
+            args: None,
+            kwargs: None,
+        };
+        let event_info = build_message_info(&event, false);
+        assert_eq!(event_info.primary_id, 7);
+        assert_eq!(event_info.secondary_id, 99);
+        assert_eq!(
+            event_info.flags & CT_MESSAGE_FLAG_DIRECT_BIND,
+            CT_MESSAGE_FLAG_DIRECT_BIND
+        );
+        assert_eq!(
+            event_info.flags & CT_MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT,
+            CT_MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT
+        );
+        assert_eq!(event_info.detail_number_a, 55);
+
+        let mut heartbeat_details = BTreeMap::new();
+        heartbeat_details.insert(
+            SerdeValue::String("mode".into()),
+            SerdeValue::String("ping".into()),
+        );
+        let heartbeat_message = WampMessage::Heartbeat {
+            details: heartbeat_details,
+            ping: Some(7),
+            incoming: Some(8),
+            outgoing: Some(9),
+        };
+        let heartbeat = StoredMessage {
+            serializer: RawSocketSerializer::Json,
+            code: 7,
+            raw: StoredRawFrame::from_bytes(Bytes::from_static(br#"[7,{"mode":"ping"},7,8,9]"#)),
+            details: extract_detail_bytes(RawSocketSerializer::Json, &heartbeat_message),
+            message: heartbeat_message,
+            args: None,
+            kwargs: None,
+        };
+        let heartbeat_info = build_message_info(&heartbeat, false);
+        assert_eq!(
+            heartbeat_info.flags & CT_MESSAGE_FLAG_METADATA_BIND,
+            CT_MESSAGE_FLAG_METADATA_BIND
+        );
+        assert_eq!(
+            std::str::from_utf8(unsafe {
+                std::slice::from_raw_parts(heartbeat_info.details_ptr, heartbeat_info.details_len)
+            })
+            .unwrap(),
+            r#"{"details":{"mode":"ping"},"ping":7,"incoming":8,"outgoing":9}"#
+        );
+
+        let unknown_fields = vec![
+            SerdeValue::U64(91),
+            SerdeValue::Map(BTreeMap::from([(
+                SerdeValue::String("trace_id".into()),
+                SerdeValue::String("unknown-1".into()),
+            )])),
+        ];
+        let unknown_message = WampMessage::Unknown {
+            code: 999,
+            fields: unknown_fields,
+        };
+        let unknown = StoredMessage {
+            serializer: RawSocketSerializer::Json,
+            code: 999,
+            raw: StoredRawFrame::from_bytes(Bytes::from_static(
+                br#"[999,91,{"trace_id":"unknown-1"}]"#,
+            )),
+            details: extract_detail_bytes(RawSocketSerializer::Json, &unknown_message),
+            message: unknown_message,
+            args: None,
+            kwargs: None,
+        };
+        let unknown_info = build_message_info(&unknown, false);
+        assert_eq!(
+            unknown_info.flags & CT_MESSAGE_FLAG_METADATA_BIND,
+            CT_MESSAGE_FLAG_METADATA_BIND
+        );
+        assert_eq!(
+            std::str::from_utf8(unsafe {
+                std::slice::from_raw_parts(unknown_info.details_ptr, unknown_info.details_len)
+            })
+            .unwrap(),
+            r#"{"fields":[91,{"trace_id":"unknown-1"}],"request_id":91}"#
+        );
     }
 }

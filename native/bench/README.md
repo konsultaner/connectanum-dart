@@ -239,6 +239,10 @@ because the bench path does not pipeline H1 requests.
   `CANCEL`/`INTERRUPT` cycles across RawSocket/WebSocket and JSON/MsgPack/CBOR
   so metadata-bind control-path work is measured directly instead of inferred
   from payload-heavy RPC/pubsub runs.
+- `wamp_control_custom_smoke.toml` – the same control-heavy sweep with
+  `control_custom_fields = true`, so lazy direct-bind coverage for custom
+  option/detail fields is measurable directly instead of only through generic
+  mixed payload runs.
 - `wamp_publish_fanout_throughput.toml` – eight-subscriber 64 KiB native-client
   RawSocket/WebSocket pub/sub sweep that measures multi-recipient publish
   fan-out directly on the live router path.
@@ -629,8 +633,13 @@ messages from `ct_message_peek` metadata + encoded detail bytes without asking
 `ct_message_get` for a contiguous frame first. On the router side that now
 includes scalar direct-bind rebuilds for `PUBLISH`, `SUBSCRIBE`, `CALL`,
 `CANCEL`, `REGISTER`, `YIELD`, and `UNSUBSCRIBED` option/detail maps when they
-stay inside the handled control-key subset, so the remaining fallbacks are only
-custom-detail or still-unsupported message shapes outside that set.
+stay inside the handled control-key subset, direct-bound custom control/detail
+maps now stay lazy in Dart instead of forcing eager detail-fragment decode,
+richer `HELLO` / `WELCOME` detail maps now keep auth/role state lazy on top of
+metadata bind, client/router auth extras now do the same for `CHALLENGE` /
+`AUTHENTICATE`, and heartbeat/unknown fallback messages now stay on the same
+metadata path too, so the remaining fallbacks are future unsupported message
+shapes outside that set.
 The router-side zero-copy path is leaner under control-heavy load too:
 one-recipient native `INVOCATION`, `RESULT`, and invocation-`ERROR` forwards
 now transfer the original native handle to the boss instead of cloning it via

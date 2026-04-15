@@ -5,6 +5,7 @@ class MessageTypes {
   static final int codeChallenge = 4;
   static final int codeAuthenticate = 5;
   static final int codeGoodbye = 6;
+  static final int codeHeartbeat = 7;
 
   static final int codeError = 8;
 

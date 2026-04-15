@@ -8,6 +8,7 @@ import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_router/src/native/message_binding.dart';
 import 'package:connectanum_router/src/native/runtime.dart';
+import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 import 'package:test/test.dart';
 
 void main() {
@@ -137,12 +138,61 @@ void main() {
       );
     });
 
+    test('decodes Heartbeat and Unknown messages from full frames', () {
+      final heartbeat = bindMessage(
+        NativeMessageSerializer.json,
+        Uint8List.fromList(
+          utf8.encode(
+            jsonEncode([
+              MessageTypes.codeHeartbeat,
+              {'mode': 'ping'},
+              7,
+              8,
+              9,
+            ]),
+          ),
+        ),
+      );
+      final unknown = bindMessage(
+        NativeMessageSerializer.json,
+        Uint8List.fromList(
+          utf8.encode(
+            jsonEncode([
+              999,
+              321,
+              {'trace_id': 'unknown-router'},
+            ]),
+          ),
+        ),
+      );
+
+      expect(heartbeat, isA<Heartbeat>());
+      expect((heartbeat as Heartbeat).details, {'mode': 'ping'});
+      expect(heartbeat.ping, 7);
+      expect(heartbeat.incoming, 8);
+      expect(heartbeat.outgoing, 9);
+
+      expect(unknown, isA<UnknownMessage>());
+      expect((unknown as UnknownMessage).id, 999);
+      expect(unknown.requestId, 321);
+      expect(unknown.fields, [
+        321,
+        {'trace_id': 'unknown-router'},
+      ]);
+    });
+
     test('binds request metadata without a full frame', () {
       final helloDetailsBytes = Uint8List.fromList(
         cbor.cborEncode(
           cbor.CborValue({
-            'roles': {'dealer': {}},
             'authid': 'bench-user',
+            'authrole': 'bench-role',
+            'authmethod': 'ticket',
+            'authprovider': 'native',
+            'authmethods': ['ticket'],
+            'roles': {'dealer': {}},
+            'authextra': {'nonce': 'abc123'},
+            '_trace': 'hello-custom',
           }),
         ),
       );
@@ -168,9 +218,13 @@ void main() {
                 primaryId: 0,
                 secondaryId: 0,
                 detailNumberA: 0,
-                flags: 1 << 4,
+                flags: (1 << 4) | (1 << 0),
                 detailsBytes: helloDetailsBytes,
                 stringA: 'bench.realm',
+                stringB: 'bench-user',
+                stringC: 'bench-role',
+                stringD: 'ticket',
+                stringE: 'native',
               )
               as Hello;
       final authenticate =
@@ -202,7 +256,13 @@ void main() {
 
       expect(hello.realm, 'bench.realm');
       expect(hello.details.authid, 'bench-user');
+      expect(hello.details.authrole, 'bench-role');
+      expect(hello.details.authmethod, 'ticket');
+      expect(hello.details.authprovider, 'native');
+      expect(hello.details.authmethods, ['ticket']);
       expect(hello.details.roles?.dealer, isNotNull);
+      expect(hello.details.authextra?['nonce'], 'abc123');
+      expect(hello.details.custom['_trace'], 'hello-custom');
 
       expect(authenticate.signature, 'sig');
       expect(authenticate.extra, {'nonce': 'abc123'});
@@ -364,6 +424,123 @@ void main() {
       expect(unsubscribed.unsubscribeRequestId, 13);
       expect(unsubscribed.details?.subscription, 99);
       expect(unsubscribed.details?.reason, 'wamp.close.normal');
+    });
+
+    test('binds direct control metadata with lazy custom details', () {
+      final publish =
+          bindMessageFromMetadata(
+                NativeMessageSerializer.cbor,
+                messageCode: MessageTypes.codePublish,
+                primaryId: 7,
+                secondaryId: 0,
+                detailNumberA: 0,
+                flags: (1 << 4) | (1 << 0) | (1 << 3),
+                stringA: 'bench.topic',
+                detailsBytes: Uint8List.fromList(
+                  cbor.cborEncode(
+                    cbor.CborValue({
+                      'acknowledge': true,
+                      '_trace': 'publish-custom',
+                    }),
+                  ),
+                ),
+              )
+              as Publish;
+      final register =
+          bindMessageFromMetadata(
+                NativeMessageSerializer.messagePack,
+                messageCode: MessageTypes.codeRegister,
+                primaryId: 11,
+                secondaryId: 0,
+                detailNumberA: 0,
+                flags: (1 << 4) | (1 << 0) | (1 << 3),
+                stringA: 'bench.proc',
+                detailsBytes: Uint8List.fromList(
+                  msgpack.serialize({
+                    'disclose_caller': true,
+                    '_trace': 'register-custom',
+                  }),
+                ),
+              )
+              as Register;
+      final abort =
+          bindMessageFromMetadata(
+                NativeMessageSerializer.json,
+                messageCode: MessageTypes.codeAbort,
+                primaryId: 0,
+                secondaryId: 0,
+                detailNumberA: 0,
+                flags: (1 << 4) | (1 << 0),
+                stringA: 'wamp.error.abort',
+                stringB: 'boom',
+                detailsBytes: Uint8List.fromList(
+                  utf8.encode(
+                    jsonEncode({'message': 'boom', '_trace': 'abort-custom'}),
+                  ),
+                ),
+              )
+              as Abort;
+
+      expect(publish.options?.acknowledge, isTrue);
+      expect(publish.options?.custom['_trace'], 'publish-custom');
+      expect(register.options?.discloseCaller, isTrue);
+      expect(register.options?.custom['_trace'], 'register-custom');
+      expect(abort.message?.message, 'boom');
+      expect(abort.details['_trace'], 'abort-custom');
+    });
+
+    test('binds Heartbeat and Unknown metadata without a full frame', () {
+      final heartbeat =
+          bindMessageFromMetadata(
+                NativeMessageSerializer.cbor,
+                messageCode: MessageTypes.codeHeartbeat,
+                primaryId: 0,
+                secondaryId: 0,
+                detailNumberA: 0,
+                flags: 1 << 4,
+                detailsBytes: Uint8List.fromList(
+                  cbor.cborEncode(
+                    cbor.CborValue({
+                      'details': {'mode': 'ping'},
+                      'ping': 7,
+                      'incoming': 8,
+                      'outgoing': 9,
+                    }),
+                  ),
+                ),
+              )
+              as Heartbeat;
+      final unknown =
+          bindMessageFromMetadata(
+                NativeMessageSerializer.messagePack,
+                messageCode: 999,
+                primaryId: 0,
+                secondaryId: 0,
+                detailNumberA: 0,
+                flags: 1 << 4,
+                detailsBytes: Uint8List.fromList(
+                  msgpack.serialize({
+                    'fields': [
+                      321,
+                      {'trace_id': 'unknown-router'},
+                    ],
+                    'request_id': 321,
+                  }),
+                ),
+              )
+              as UnknownMessage;
+
+      expect(heartbeat.details, {'mode': 'ping'});
+      expect(heartbeat.ping, 7);
+      expect(heartbeat.incoming, 8);
+      expect(heartbeat.outgoing, 9);
+
+      expect(unknown.id, 999);
+      expect(unknown.requestId, 321);
+      expect(unknown.fields, [
+        321,
+        {'trace_id': 'unknown-router'},
+      ]);
     });
   });
 }

@@ -152,7 +152,50 @@ void main() {
       expect(challenge.extra.iterations, 4096);
     });
 
-    test('direct binds Welcome from native metadata', () {
+    test('decodes Heartbeat and Unknown messages from full frames', () {
+      final heartbeat = bindMessage(
+        NativeMessageSerializer.json,
+        Uint8List.fromList(
+          utf8.encode(
+            jsonEncode([
+              MessageTypes.codeHeartbeat,
+              {'mode': 'ping'},
+              10,
+              11,
+              12,
+            ]),
+          ),
+        ),
+      );
+      final unknown = bindMessage(
+        NativeMessageSerializer.json,
+        Uint8List.fromList(
+          utf8.encode(
+            jsonEncode([
+              999,
+              123,
+              {'trace_id': 'unknown-1'},
+            ]),
+          ),
+        ),
+      );
+
+      expect(heartbeat, isA<Heartbeat>());
+      expect((heartbeat as Heartbeat).details, {'mode': 'ping'});
+      expect(heartbeat.ping, 10);
+      expect(heartbeat.incoming, 11);
+      expect(heartbeat.outgoing, 12);
+
+      expect(unknown, isA<UnknownMessage>());
+      expect((unknown as UnknownMessage).id, 999);
+      expect(unknown.requestId, 123);
+      expect(unknown.fields, [
+        123,
+        {'trace_id': 'unknown-1'},
+      ]);
+    });
+
+    test('direct binds rich Welcome from native metadata', () {
       final message = bindMessage(
         NativeMessageSerializer.json,
         Uint8List.fromList([0x00]),
@@ -167,6 +210,25 @@ void main() {
           stringC: 'bench-role',
           stringD: 'ticket',
           stringE: 'native',
+          detailsBytes: Uint8List.fromList(
+            utf8.encode(
+              jsonEncode({
+                'realm': 'bench.realm',
+                'authid': 'bench-user',
+                'authrole': 'bench-role',
+                'authmethod': 'ticket',
+                'authprovider': 'native',
+                'authmethods': ['ticket'],
+                'roles': {
+                  'dealer': {
+                    'features': {'call_timeout': true},
+                  },
+                },
+                'authextra': {'nonce': 'abc123'},
+                '_custom_detail': 'value',
+              }),
+            ),
+          ),
         ),
       );
 
@@ -178,6 +240,10 @@ void main() {
       expect(welcome.details.authrole, 'bench-role');
       expect(welcome.details.authmethod, 'ticket');
       expect(welcome.details.authprovider, 'native');
+      expect(welcome.details.authmethods, ['ticket']);
+      expect(welcome.details.roles?.dealer?.features?.callTimeout, isTrue);
+      expect(welcome.details.authextra?['nonce'], 'abc123');
+      expect(welcome.details.custom['_custom_detail'], 'value');
     });
 
     test('metadata binds rich Welcome details from detail bytes', () {
@@ -338,6 +404,48 @@ void main() {
         final event = message as Event;
         expect(event.subscriptionId, 7);
         expect(event.publicationId, 99);
+        expect(event.details.publisher, 55);
+        expect(event.details.topic, 'bench.topic');
+        expect(event.details.custom['_trace'], 'ok');
+        expect(event.arguments, ['payload']);
+        expect(event.argumentsKeywords, {'flag': true});
+      },
+    );
+
+    test(
+      'direct binds JSON events with lazy custom details from metadata bytes',
+      () {
+        final message = bindMessage(
+          NativeMessageSerializer.json,
+          Uint8List.fromList([0x00]),
+          metadata: _metadata(
+            messageCode: MessageTypes.codeEvent,
+            primaryId: 7,
+            secondaryId: 99,
+            flags:
+                NativeMessageMetadata.flagMetadataBind |
+                NativeMessageMetadata.flagDirectBind |
+                NativeMessageMetadata.flagDetailNumberAPresent,
+            detailNumberA: 55,
+            stringA: 'bench.topic',
+            detailsBytes: Uint8List.fromList(
+              utf8.encode(
+                jsonEncode({
+                  'publisher': 55,
+                  'topic': 'bench.topic',
+                  '_trace': 'ok',
+                }),
+              ),
+            ),
+          ),
+          argsBytes: Uint8List.fromList(utf8.encode(jsonEncode(['payload']))),
+          kwargsBytes: Uint8List.fromList(
+            utf8.encode(jsonEncode({'flag': true})),
+          ),
+        );
+
+        expect(message, isA<Event>());
+        final event = message as Event;
         expect(event.details.publisher, 55);
         expect(event.details.topic, 'bench.topic');
         expect(event.details.custom['_trace'], 'ok');
@@ -701,6 +809,32 @@ void main() {
       expect(error.argumentsKeywords, {'flag': true});
     });
 
+    test('direct binds Error custom details from metadata bytes', () {
+      final message = bindMessage(
+        NativeMessageSerializer.messagePack,
+        Uint8List.fromList([0x00]),
+        metadata: _metadata(
+          messageCode: MessageTypes.codeError,
+          primaryId: MessageTypes.codeCall,
+          secondaryId: 777,
+          flags:
+              NativeMessageMetadata.flagDirectBind |
+              NativeMessageMetadata.flagMetadataBind,
+          stringA: Error.runtimeError,
+          stringB: 'boom',
+          detailsBytes: Uint8List.fromList(
+            msgpack.serialize({'message': 'boom', '_trace': 'native'}),
+          ),
+        ),
+      );
+
+      expect(message, isA<Error>());
+      final error = message as Error;
+      expect(error.error, Error.runtimeError);
+      expect(error.details['message'], 'boom');
+      expect(error.details['_trace'], 'native');
+    });
+
     test('metadata binds Error custom details with lazy payload', () {
       final message = bindMessage(
         NativeMessageSerializer.cbor,
@@ -734,6 +868,63 @@ void main() {
       expect(error.details['_trace'], 'native');
       expect(error.arguments, ['payload']);
       expect(error.argumentsKeywords, {'flag': true});
+    });
+
+    test('metadata binds Heartbeat without a full frame', () {
+      final message = bindMessage(
+        NativeMessageSerializer.cbor,
+        Uint8List(0),
+        metadata: _metadata(
+          messageCode: MessageTypes.codeHeartbeat,
+          flags: NativeMessageMetadata.flagMetadataBind,
+          detailsBytes: Uint8List.fromList(
+            cbor.cborEncode(
+              cbor.CborValue({
+                'details': {'mode': 'ping'},
+                'ping': 10,
+                'incoming': 11,
+                'outgoing': 12,
+              }),
+            ),
+          ),
+        ),
+      );
+
+      expect(message, isA<Heartbeat>());
+      final heartbeat = message as Heartbeat;
+      expect(heartbeat.details, {'mode': 'ping'});
+      expect(heartbeat.ping, 10);
+      expect(heartbeat.incoming, 11);
+      expect(heartbeat.outgoing, 12);
+    });
+
+    test('metadata binds Unknown messages without a full frame', () {
+      final message = bindMessage(
+        NativeMessageSerializer.messagePack,
+        Uint8List(0),
+        metadata: _metadata(
+          messageCode: 999,
+          flags: NativeMessageMetadata.flagMetadataBind,
+          detailsBytes: Uint8List.fromList(
+            msgpack.serialize({
+              'fields': [
+                123,
+                {'trace_id': 'unknown-1'},
+              ],
+              'request_id': 123,
+            }),
+          ),
+        ),
+      );
+
+      expect(message, isA<UnknownMessage>());
+      final unknown = message as UnknownMessage;
+      expect(unknown.id, 999);
+      expect(unknown.requestId, 123);
+      expect(unknown.fields, [
+        123,
+        {'trace_id': 'unknown-1'},
+      ]);
     });
   });
 }

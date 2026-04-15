@@ -1,5 +1,6 @@
 import 'message_types.dart';
 import 'abstract_message.dart';
+import 'custom_fields.dart';
 
 /// The WAMP Abort massage
 class Abort extends AbstractMessage {
@@ -9,7 +10,11 @@ class Abort extends AbstractMessage {
     String? message,
     List<dynamic>? arguments,
     Map<String, Object?>? argumentsKeywords,
-  }) : details = Map<String, Object?>.from(details ?? const {}),
+  }) : details = details == null
+           ? <String, Object?>{}
+           : details is LazyStringKeyMap
+           ? details
+           : Map<String, Object?>.from(details),
        arguments = arguments == null ? null : List<dynamic>.from(arguments),
        argumentsKeywords = argumentsKeywords == null
            ? null
