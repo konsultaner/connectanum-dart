@@ -194,6 +194,7 @@ Future<void> _handleAuthenticate(
       state.authContext == null ||
       state.realmSettings == null ||
       state.authMethod == null) {
+    await _abortPendingAuthentication(state, reason: 'unexpected_authenticate');
     await sendAbort(
       bossPort,
       state,
@@ -209,6 +210,7 @@ Future<void> _handleAuthenticate(
 
   final signature = authenticate.signature;
   if (signature == null || signature.isEmpty) {
+    await _abortPendingAuthentication(state, reason: 'missing_signature');
     await sendAbort(
       bossPort,
       state,
@@ -235,6 +237,7 @@ Future<void> _handleAuthenticate(
       Duration(milliseconds: limits.authTimeoutMs),
     );
     if (DateTime.now().isAfter(deadline)) {
+      await _abortPendingAuthentication(state, reason: 'challenge_timeout');
       await sendAbort(
         bossPort,
         state,
@@ -279,6 +282,7 @@ Future<void> _handleAuthenticate(
       workerId: workerId,
     );
   } catch (error) {
+    await _abortPendingAuthentication(state, reason: 'authenticate_exception');
     await sendAbort(
       bossPort,
       state,
@@ -289,6 +293,25 @@ Future<void> _handleAuthenticate(
     state.phase = HandshakePhase.aborted;
     state.authenticator = null;
     state.authContext = null;
+  }
+}
+
+Future<void> _abortPendingAuthentication(
+  WorkerConnectionState state, {
+  String? reason,
+}) async {
+  if (state.phase != HandshakePhase.awaitingAuthenticate) {
+    return;
+  }
+  final authenticator = state.authenticator;
+  final authContext = state.authContext;
+  if (authenticator == null || authContext == null) {
+    return;
+  }
+  try {
+    await authenticator.onAbort(authContext, reason: reason);
+  } catch (_) {
+    // Best-effort cleanup only.
   }
 }
 
@@ -549,6 +572,7 @@ Future<void> handleAuthFailure(
   int connectionId,
   AuthFailure failure,
 ) async {
+  await _abortPendingAuthentication(state, reason: failure.reason);
   await sendAbort(
     bossPort,
     state,

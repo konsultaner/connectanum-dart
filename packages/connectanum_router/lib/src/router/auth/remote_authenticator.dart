@@ -5,6 +5,7 @@ import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
 
 import '../config/authenticator.dart';
 import '../config/router_settings.dart';
+import 'remote_wamp_delegate.dart';
 
 /// Delegate invoked for remote authentication decisions.
 abstract class RemoteAuthenticatorDelegate {
@@ -12,6 +13,8 @@ abstract class RemoteAuthenticatorDelegate {
   Future<RemoteAuthenticateResponse> onAuthenticate(
     RemoteAuthenticateRequest request,
   );
+
+  Future<void> onAbort(RemoteAbortRequest request) async {}
 }
 
 class RemoteDelegateUnavailableException implements Exception {
@@ -63,36 +66,45 @@ class RemoteAuthenticatorFactory extends AuthenticatorFactory {
   ) async {
     final config = RemoteAuthenticatorConfig.parse(options, realm);
     final delegates = <RemoteAuthenticatorDelegate>[];
-    for (final id in config.delegateIds) {
-      final delegate = RemoteAuthenticatorRegistry.delegateFor(id);
-      if (delegate == null) {
-        throw StateError(
-          'Remote authenticator delegate "$id" not registered. '
-          'Call RemoteAuthenticatorRegistry.register(..., id: "$id") first.',
-        );
+    final delegateIds = <String>[];
+    if (config.rpcDelegate != null) {
+      final rpcConfig = config.rpcDelegate!;
+      delegates.add(RemoteWampDelegateRegistry.forConfig(rpcConfig));
+      delegateIds.add(rpcConfig.cacheKey());
+    } else {
+      for (final id in config.delegateIds) {
+        final delegate = RemoteAuthenticatorRegistry.delegateFor(id);
+        if (delegate == null) {
+          throw StateError(
+            'Remote authenticator delegate "$id" not registered. '
+            'Call RemoteAuthenticatorRegistry.register(..., id: "$id") first.',
+          );
+        }
+        delegates.add(delegate);
+        delegateIds.add(id);
       }
-      delegates.add(delegate);
     }
-    return RemoteAuthenticator(config, delegates);
+    return RemoteAuthenticator(config, delegates, delegateIds: delegateIds);
   }
 }
 
 class RemoteAuthenticator extends Authenticator {
   RemoteAuthenticator(
     RemoteAuthenticatorConfig config,
-    List<RemoteAuthenticatorDelegate> delegates,
-  ) : _config = config,
-      _random = Random.secure(),
-      _handles = delegates
-          .asMap()
-          .entries
-          .map(
-            (entry) => _DelegateHandle(
-              id: config.delegateIds[entry.key],
-              delegate: entry.value,
-            ),
-          )
-          .toList(growable: false) {
+    List<RemoteAuthenticatorDelegate> delegates, {
+    required List<String> delegateIds,
+  }) : _config = config,
+       _random = Random.secure(),
+       _handles = delegates
+           .asMap()
+           .entries
+           .map(
+             (entry) => _DelegateHandle(
+               id: delegateIds[entry.key],
+               delegate: entry.value,
+             ),
+           )
+           .toList(growable: false) {
     if (_handles.isEmpty) {
       throw StateError('RemoteAuthenticator requires at least one delegate');
     }
@@ -130,37 +142,76 @@ class RemoteAuthenticator extends Authenticator {
         ),
       );
     }
-    final (_DelegateHandle handle, RemoteHelloResponse response) = selected;
-
-    switch (response.status) {
-      case RemoteHelloStatus.success:
-        final failure = _validateSuccess(response.success!, authId);
-        if (failure != null) {
+    final (handle, rawResponse) = selected;
+    try {
+      switch (rawResponse.status) {
+        case RemoteHelloStatus.success:
+          final success = _sanitizeSuccess(rawResponse.success!);
+          final failure = _validateSuccess(success);
+          if (failure != null) {
+            _registerFailure(authId);
+            return AuthResult.failure(failure);
+          }
+          _registerSuccess(authId);
+          handle.markSuccess();
+          return AuthResult.success(success);
+        case RemoteHelloStatus.failure:
+          final failure = _sanitizeFailure(rawResponse.failure!);
           _registerFailure(authId);
+          handle.markSuccess();
+          if (_config.fakeChallengeOnHelloFailure) {
+            _pending = _RemotePendingSession(
+              authId: authId ?? 'unknown',
+              sessionId: context.sessionId,
+              transactionId: transactionId,
+              issuedAt: issuedAt,
+              delegateId: handle.id,
+              shouldFail: true,
+              failure: AuthFailure(
+                reason: wamp_core.Error.authenticationFailed,
+                message: failure.message,
+                details: failure.details,
+                arguments: failure.arguments,
+                argumentsKeywords: failure.argumentsKeywords,
+              ),
+            );
+            return AuthResult.challenge(
+              AuthChallenge(
+                challenge: _fakeChallenge(
+                  context: context,
+                  authId: authId ?? 'unknown',
+                ),
+                extra: const {'fake': true},
+              ),
+            );
+          }
           return AuthResult.failure(failure);
-        }
-        _registerSuccess(authId);
-        handle.markSuccess();
-        return AuthResult.success(response.success!);
-      case RemoteHelloStatus.failure:
-        _registerFailure(authId);
-        handle.markSuccess();
-        return AuthResult.failure(response.failure!);
-      case RemoteHelloStatus.challenge:
-        _pending = _RemotePendingSession(
-          authId: response.challenge!.authId,
-          sessionId: context.sessionId,
-          transactionId: transactionId,
-          issuedAt: issuedAt,
-          delegateId: handle.id,
-        );
-        handle.markSuccess();
-        return AuthResult.challenge(
-          AuthChallenge(
-            challenge: response.challenge!.challenge,
-            extra: response.challenge!.extra,
-          ),
-        );
+        case RemoteHelloStatus.challenge:
+          final challenge = _sanitizeChallenge(rawResponse.challenge!);
+          _pending = _RemotePendingSession(
+            authId: challenge.authId,
+            sessionId: context.sessionId,
+            transactionId: transactionId,
+            issuedAt: issuedAt,
+            delegateId: handle.id,
+          );
+          handle.markSuccess();
+          return AuthResult.challenge(
+            AuthChallenge(
+              challenge: challenge.challenge,
+              extra: challenge.extra,
+            ),
+          );
+      }
+    } on _RemoteSchemaException catch (error) {
+      _registerFailure(authId);
+      handle.markSuccess();
+      return AuthResult.failure(
+        AuthFailure(
+          reason: wamp_core.Error.notAuthorized,
+          message: error.message,
+        ),
+      );
     }
   }
 
@@ -185,6 +236,7 @@ class RemoteAuthenticator extends Authenticator {
         Duration(milliseconds: _config.challengeTimeoutMs),
       );
       if (DateTime.now().isAfter(expiresAt)) {
+        await _notifyAbort(context, pending, reason: 'challenge_timeout');
         return AuthResult.failure(
           const AuthFailure(
             reason: wamp_core.Error.authenticationFailed,
@@ -192,6 +244,16 @@ class RemoteAuthenticator extends Authenticator {
           ),
         );
       }
+    }
+
+    if (pending.shouldFail) {
+      return AuthResult.failure(
+        pending.failure ??
+            const AuthFailure(
+              reason: wamp_core.Error.authenticationFailed,
+              message: 'Remote authentication rejected',
+            ),
+      );
     }
 
     final rateLimitFailure = _guardRateLimit(pending.authId);
@@ -248,20 +310,40 @@ class RemoteAuthenticator extends Authenticator {
       );
     }
 
-    switch (response.status) {
-      case RemoteAuthenticateStatus.success:
-        final success = response.success!;
-        final failure = _validateSuccess(success, pending.authId);
-        if (failure != null) {
+    try {
+      switch (response.status) {
+        case RemoteAuthenticateStatus.success:
+          final success = _sanitizeSuccess(response.success!);
+          final failure = _validateSuccess(success);
+          if (failure != null) {
+            _registerFailure(pending.authId);
+            return AuthResult.failure(failure);
+          }
+          _registerSuccess(pending.authId);
+          return AuthResult.success(success);
+        case RemoteAuthenticateStatus.failure:
           _registerFailure(pending.authId);
-          return AuthResult.failure(failure);
-        }
-        _registerSuccess(pending.authId);
-        return AuthResult.success(success);
-      case RemoteAuthenticateStatus.failure:
-        _registerFailure(pending.authId);
-        return AuthResult.failure(response.failure!);
+          return AuthResult.failure(_sanitizeFailure(response.failure!));
+      }
+    } on _RemoteSchemaException catch (error) {
+      _registerFailure(pending.authId);
+      return AuthResult.failure(
+        AuthFailure(
+          reason: wamp_core.Error.notAuthorized,
+          message: error.message,
+        ),
+      );
     }
+  }
+
+  @override
+  Future<void> onAbort(AuthenticatorContext context, {String? reason}) async {
+    final pending = _pending;
+    _pending = null;
+    if (pending == null) {
+      return;
+    }
+    await _notifyAbort(context, pending, reason: reason);
   }
 
   Future<(_DelegateHandle, RemoteHelloResponse)?> _invokeHello({
@@ -307,7 +389,19 @@ class RemoteAuthenticator extends Authenticator {
     return base64UrlEncode(bytes);
   }
 
-  AuthFailure? _validateSuccess(AuthSuccess success, String? authId) {
+  AuthFailure? _validateSuccess(AuthSuccess success) {
+    if (success.authId.trim().isEmpty) {
+      return const AuthFailure(
+        reason: wamp_core.Error.notAuthorized,
+        message: 'Remote authenticator returned empty authId',
+      );
+    }
+    if (success.authRole.trim().isEmpty) {
+      return const AuthFailure(
+        reason: wamp_core.Error.notAuthorized,
+        message: 'Remote authenticator returned empty authRole',
+      );
+    }
     if (_config.allowedRoles.isNotEmpty &&
         !_config.allowedRoles.contains(success.authRole)) {
       return const AuthFailure(
@@ -327,6 +421,143 @@ class RemoteAuthenticator extends Authenticator {
       }
     }
     return null;
+  }
+
+  AuthSuccess _sanitizeSuccess(AuthSuccess success) {
+    return AuthSuccess(
+      authId: success.authId,
+      authRole: success.authRole,
+      details: _sanitizeMap(success.details, context: 'remote success details'),
+    );
+  }
+
+  AuthFailure _sanitizeFailure(AuthFailure failure) {
+    return AuthFailure(
+      reason: failure.reason,
+      message: failure.message,
+      details: _sanitizeMap(failure.details, context: 'remote failure details'),
+      arguments: failure.arguments == null
+          ? null
+          : _sanitizeList(
+              failure.arguments!,
+              context: 'remote failure arguments',
+            ),
+      argumentsKeywords: failure.argumentsKeywords == null
+          ? null
+          : _sanitizeMap(
+              failure.argumentsKeywords!,
+              context: 'remote failure argumentsKeywords',
+            ),
+    );
+  }
+
+  RemoteChallenge _sanitizeChallenge(RemoteChallenge challenge) {
+    if (challenge.authId.trim().isEmpty) {
+      throw const _RemoteSchemaException(
+        'Remote authenticator returned empty challenge authId',
+      );
+    }
+    return RemoteChallenge(
+      authId: challenge.authId,
+      challenge: _sanitizeMap(
+        challenge.challenge,
+        context: 'remote challenge payload',
+      ),
+      extra: _sanitizeMap(challenge.extra, context: 'remote challenge extra'),
+    );
+  }
+
+  Map<String, Object?> _sanitizeMap(
+    Map<String, Object?> map, {
+    required String context,
+  }) {
+    final result = <String, Object?>{};
+    for (final entry in map.entries) {
+      if (entry.key.isEmpty) {
+        throw _RemoteSchemaException('$context contains an empty key');
+      }
+      result[entry.key] = _sanitizeValue(
+        entry.value,
+        context: '$context.${entry.key}',
+      );
+    }
+    return Map<String, Object?>.unmodifiable(result);
+  }
+
+  List<dynamic> _sanitizeList(List<dynamic> values, {required String context}) {
+    return List<dynamic>.unmodifiable(
+      values.map((value) => _sanitizeValue(value, context: context)),
+    );
+  }
+
+  Object? _sanitizeValue(Object? value, {required String context}) {
+    if (value == null || value is String || value is bool || value is num) {
+      return value;
+    }
+    if (value is List) {
+      return _sanitizeList(List<dynamic>.from(value), context: context);
+    }
+    if (value is Map) {
+      return _sanitizeMap(
+        Map<String, Object?>.from(value.cast<Object?, Object?>()),
+        context: context,
+      );
+    }
+    throw _RemoteSchemaException(
+      '$context contains unsupported value type ${value.runtimeType}',
+    );
+  }
+
+  Map<String, Object?> _fakeChallenge({
+    required AuthenticatorContext context,
+    required String authId,
+  }) {
+    final nonce = base64UrlEncode(
+      List<int>.generate(32, (_) => _random.nextInt(256)),
+    );
+    final salt = base64UrlEncode(
+      List<int>.generate(16, (_) => _random.nextInt(256)),
+    );
+    final challengeJson = jsonEncode({
+      'authid': authId,
+      'realm': context.realm.name,
+      'timestamp': DateTime.now().toUtc().toIso8601String(),
+      'session': context.sessionId,
+      'nonce': nonce,
+    });
+    return <String, Object?>{
+      'challenge': challengeJson,
+      'salt': salt,
+      'iterations': 2000,
+      'keylen': 32,
+    };
+  }
+
+  Future<void> _notifyAbort(
+    AuthenticatorContext context,
+    _RemotePendingSession pending, {
+    String? reason,
+  }) async {
+    final handle = _handleForId(pending.delegateId);
+    if (handle == null) {
+      return;
+    }
+    try {
+      await handle.delegate.onAbort(
+        RemoteAbortRequest(
+          realmSettings: _config.realm,
+          context: context,
+          authId: pending.authId,
+          options: _config.options,
+          transactionId: pending.transactionId,
+          reason: reason,
+        ),
+      );
+    } on RemoteDelegateUnavailableException {
+      handle.markFailure(DateTime.now(), _config.delegateRetryDelay);
+    } catch (_) {
+      handle.markFailure(DateTime.now(), _config.delegateRetryDelay);
+    }
   }
 
   String? _extractAuthId(Map<String, Object?> helloDetails) {
@@ -399,7 +630,10 @@ class RemoteAuthenticator extends Authenticator {
 
   String _rateLimitKey(String authId) => '${_config.realm.name}::$authId';
 
-  static void resetRateLimiter() => _rateLimitStates.clear();
+  static void resetRateLimiter() {
+    _rateLimitStates.clear();
+    RemoteWampDelegateRegistry.clear();
+  }
 }
 
 class RemoteAuthenticatorConfig {
@@ -411,6 +645,8 @@ class RemoteAuthenticatorConfig {
     required this.challengeTimeoutMs,
     required this.allowedRoles,
     required this.allowedProviders,
+    required this.fakeChallengeOnHelloFailure,
+    required this.rpcDelegate,
     required this.rateLimitMaxAttempts,
     required this.rateLimitWindowMs,
     required this.backoffBaseMs,
@@ -426,6 +662,8 @@ class RemoteAuthenticatorConfig {
   final int challengeTimeoutMs;
   final Set<String> allowedRoles;
   final Set<String> allowedProviders;
+  final bool fakeChallengeOnHelloFailure;
+  final RemoteWampDelegateConfig? rpcDelegate;
   final int rateLimitMaxAttempts;
   final int rateLimitWindowMs;
   final int backoffBaseMs;
@@ -445,9 +683,17 @@ class RemoteAuthenticatorConfig {
         realm.limits.authTimeoutMs;
     final copy = Map<String, Object?>.from(options)..remove('method');
     copy.remove('challenge_timeout_ms');
-    final delegateIds = _parseDelegateIds(copy.remove('delegates'));
+    final rpcDelegate = copy.containsKey('rpc')
+        ? RemoteWampDelegateConfig.parse(copy, realm)
+        : null;
+    copy.remove('rpc');
+    final delegateIds = rpcDelegate == null
+        ? _parseDelegateIds(copy.remove('delegates'))
+        : const <String>[];
     final allowedRoles = _parseStringSet(copy.remove('allowed_roles'));
     final allowedProviders = _parseStringSet(copy.remove('allowed_providers'));
+    final fakeChallengeOnHelloFailure =
+        copy.remove('fake_challenge_on_hello_failure') != false;
     final rateLimitMaxAttempts = _parsePositiveInt(
       copy.remove('rate_limit_max_attempts'),
       5,
@@ -480,6 +726,8 @@ class RemoteAuthenticatorConfig {
       challengeTimeoutMs: timeoutMs,
       allowedRoles: allowedRoles,
       allowedProviders: allowedProviders,
+      fakeChallengeOnHelloFailure: fakeChallengeOnHelloFailure,
+      rpcDelegate: rpcDelegate,
       rateLimitMaxAttempts: rateLimitMaxAttempts,
       rateLimitWindowMs: rateLimitWindowMs,
       backoffBaseMs: backoffBaseMs,
@@ -569,6 +817,24 @@ class RemoteHelloRequest {
   final String transactionId;
 }
 
+class RemoteAbortRequest {
+  RemoteAbortRequest({
+    required this.realmSettings,
+    required this.context,
+    required this.authId,
+    required this.options,
+    required this.transactionId,
+    this.reason,
+  });
+
+  final RealmSettings realmSettings;
+  final AuthenticatorContext context;
+  final String authId;
+  final Map<String, Object?> options;
+  final String transactionId;
+  final String? reason;
+}
+
 enum RemoteHelloStatus { success, failure, challenge }
 
 class RemoteHelloResponse {
@@ -651,6 +917,8 @@ class _RemotePendingSession {
     required this.transactionId,
     required this.issuedAt,
     required this.delegateId,
+    this.shouldFail = false,
+    this.failure,
   });
 
   final String authId;
@@ -658,6 +926,8 @@ class _RemotePendingSession {
   final String transactionId;
   final DateTime issuedAt;
   final String delegateId;
+  final bool shouldFail;
+  final AuthFailure? failure;
 }
 
 class _RateLimitState {
@@ -685,4 +955,10 @@ class _DelegateHandle {
   void markSuccess() {
     _nextRetry = null;
   }
+}
+
+class _RemoteSchemaException implements Exception {
+  const _RemoteSchemaException(this.message);
+
+  final String message;
 }

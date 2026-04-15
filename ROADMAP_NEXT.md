@@ -87,9 +87,7 @@ Focus for the next session:
    - Resolve remaining analyzer warnings by fixing `packages/connectanum_auth_server` dependencies/imports or documenting follow-up tasks.
 
 7. **Remote Authentication Hardening & HTTP Auth Bridge**
-   - Wire authenticated transport to the remote auth service (mTLS or signed tokens) with rotation hooks.
-   - Validate remote auth request/response schema strictly; keep payload minimal before issuing `CHALLENGE`/`WELCOME`.
-   - Preserve “fake challenge” behaviour on remote rejection; add integration tests with a stub remote service (success/rejection/timeout/abort) for WAMP HELLO/CHALLENGE/AUTHENTICATE.
+   - Add mutual-TLS and credential-rotation hooks to the now-live remote auth RPC path; shared tokens and strict schema validation are already in place.
    - Add a constrained rawsocket frame pusher in the bench orchestrator to fuzz remote auth without full WAMP clients and collect latency/backpressure metrics.
    - Design the HTTP auth bridge: reserved `/auth` route to delegate CRA/SCRAM-to-token, realm selection via header/query, endpoint-level auth defaults for HTTP.
    - Deliver HTTP response helpers and keep metrics plumbing ready for the auth bridge.

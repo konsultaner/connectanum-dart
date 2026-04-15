@@ -314,6 +314,129 @@ void main() {
         wamp_core.Error.authenticationFailed,
       );
     });
+
+    test('validates auth token on authenticate as well', () async {
+      final settings = _buildSettings(
+        authenticators: {
+          'ticket-basic': const AuthenticatorDefinition(
+            type: 'ticket',
+            options: {
+              'secrets': {
+                'ticket-user': {'ticket': 'ticket-secret', 'role': 'member'},
+              },
+            },
+          ),
+        },
+        realmAuthMethods: const ['ticket'],
+        realmAuthOptions: const {
+          'ticket': {'authenticator': 'ticket-basic'},
+        },
+      );
+
+      final server = AuthServer(
+        settings: settings,
+        authTokens: const ['expected'],
+      );
+      final helloContext = _helloContext(
+        realm: settings.realms.first,
+        authId: 'ticket-user',
+        methods: const ['ticket'],
+      );
+
+      final helloResponse = await server.onHello(
+        RemoteHelloRequest(
+          realmSettings: settings.realms.first,
+          context: helloContext,
+          options: const {'auth_token': 'expected'},
+          transactionId: 'tx-auth-token',
+        ),
+      );
+
+      expect(helloResponse.status, RemoteHelloStatus.challenge);
+
+      final authResponse = await server.onAuthenticate(
+        RemoteAuthenticateRequest(
+          realmSettings: settings.realms.first,
+          context: helloContext,
+          authId: 'ticket-user',
+          authenticate: AuthenticateMessage(signature: 'ticket-secret'),
+          options: const {'auth_token': 'wrong'},
+          transactionId: 'tx-auth-token',
+        ),
+      );
+
+      expect(authResponse.status, RemoteAuthenticateStatus.failure);
+      expect(
+        authResponse.failure?.reason,
+        equals(wamp_core.Error.notAuthorized),
+      );
+      expect(authResponse.failure?.message, contains('token rejected'));
+    });
+
+    test('cleans up pending challenge on abort', () async {
+      final settings = _buildSettings(
+        authenticators: {
+          'ticket-basic': const AuthenticatorDefinition(
+            type: 'ticket',
+            options: {
+              'secrets': {
+                'ticket-user': {'ticket': 'ticket-secret', 'role': 'member'},
+              },
+            },
+          ),
+        },
+        realmAuthMethods: const ['ticket'],
+        realmAuthOptions: const {
+          'ticket': {'authenticator': 'ticket-basic'},
+        },
+      );
+
+      final server = AuthServer(settings: settings);
+      final helloContext = _helloContext(
+        realm: settings.realms.first,
+        authId: 'ticket-user',
+        methods: const ['ticket'],
+      );
+
+      final helloResponse = await server.onHello(
+        RemoteHelloRequest(
+          realmSettings: settings.realms.first,
+          context: helloContext,
+          options: const {},
+          transactionId: 'tx-abort',
+        ),
+      );
+
+      expect(helloResponse.status, RemoteHelloStatus.challenge);
+
+      await server.onAbort(
+        RemoteAbortRequest(
+          realmSettings: settings.realms.first,
+          context: helloContext,
+          authId: 'ticket-user',
+          options: const {},
+          transactionId: 'tx-abort',
+          reason: 'connection_closed',
+        ),
+      );
+
+      final authResponse = await server.onAuthenticate(
+        RemoteAuthenticateRequest(
+          realmSettings: settings.realms.first,
+          context: helloContext,
+          authId: 'ticket-user',
+          authenticate: AuthenticateMessage(signature: 'ticket-secret'),
+          options: const {},
+          transactionId: 'tx-abort',
+        ),
+      );
+
+      expect(authResponse.status, RemoteAuthenticateStatus.failure);
+      expect(
+        authResponse.failure?.reason,
+        equals(wamp_core.Error.protocolViolation),
+      );
+    });
   });
 }
 

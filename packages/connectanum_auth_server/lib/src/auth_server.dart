@@ -40,6 +40,8 @@ class AuthServer implements RemoteAuthenticatorDelegate {
   final Random _random;
   final Map<String, _PendingSession> _pending = {};
 
+  RouterSettings get settings => _settings;
+
   @override
   Future<RemoteHelloResponse> onHello(RemoteHelloRequest request) async {
     final realmName = request.realmSettings.name;
@@ -56,21 +58,17 @@ class AuthServer implements RemoteAuthenticatorDelegate {
         ? 'unknown'
         : rawAuthId;
 
-    final tokens = _authTokens;
-    if (tokens != null && tokens.isNotEmpty) {
-      final provided = request.options['auth_token'];
-      if (provided is! String || !tokens.contains(provided)) {
-        return _respondWithHelloFailure(
-          realm: realm,
-          request: request,
-          authId: authId,
-          method: 'remote',
-          failure: const AuthFailure(
-            reason: wamp_core.Error.notAuthorized,
-            message: 'Remote authenticator token rejected',
-          ),
-        );
-      }
+    if (!_isValidAuthToken(request.options)) {
+      return _respondWithHelloFailure(
+        realm: realm,
+        request: request,
+        authId: authId,
+        method: 'remote',
+        failure: const AuthFailure(
+          reason: wamp_core.Error.notAuthorized,
+          message: 'Remote authenticator token rejected',
+        ),
+      );
     }
 
     if (rawAuthId == null || rawAuthId.isEmpty) {
@@ -191,6 +189,21 @@ class AuthServer implements RemoteAuthenticatorDelegate {
       );
     }
 
+    if (!_isValidAuthToken(request.options)) {
+      _recordFailure(
+        pending.realm,
+        pending.authId,
+        method: pending.method,
+        message: 'Remote authenticator token rejected',
+      );
+      return RemoteAuthenticateResponse.failure(
+        const AuthFailure(
+          reason: wamp_core.Error.notAuthorized,
+          message: 'Remote authenticator token rejected',
+        ),
+      );
+    }
+
     final timeout =
         _challengeTimeout ??
         Duration(milliseconds: pending.realm.limits.authTimeoutMs);
@@ -247,9 +260,26 @@ class AuthServer implements RemoteAuthenticatorDelegate {
     }
   }
 
+  @override
+  Future<void> onAbort(RemoteAbortRequest request) async {
+    if (!_isValidAuthToken(request.options)) {
+      return;
+    }
+    _pending.remove(request.transactionId);
+  }
+
   /// Aborts and cleans up any stored challenge for the [transactionId].
   void abort(String transactionId) {
     _pending.remove(transactionId);
+  }
+
+  bool _isValidAuthToken(Map<String, Object?> options) {
+    final tokens = _authTokens;
+    if (tokens == null || tokens.isEmpty) {
+      return true;
+    }
+    final provided = options['auth_token'];
+    return provided is String && tokens.contains(provided);
   }
 
   List<String> _extractClientMethods(Map<String, Object?> details) {

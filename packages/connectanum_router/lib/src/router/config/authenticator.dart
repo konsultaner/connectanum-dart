@@ -51,6 +51,9 @@ abstract class Authenticator {
     AuthenticatorContext context,
     AuthenticateMessage message,
   );
+
+  /// Best-effort cleanup hook when a handshake is abandoned before completion.
+  Future<void> onAbort(AuthenticatorContext context, {String? reason}) async {}
 }
 
 /// Factory responsible for creating authenticators for specific methods.

@@ -636,7 +636,14 @@ void main() {
       final context = _HandshakeHarness(routerSettings, serializer);
       await context.performHello(authMethod: 'remote', authId: 'user-1');
 
-      expect(context.lastAbort?.reason, equals(wamp_core.Error.notAuthorized));
+      expect(context.lastChallenge, isNotNull);
+
+      await context.performAuthenticate(Authenticate(signature: 'ignored'));
+
+      expect(
+        context.lastAbort?.reason,
+        equals(wamp_core.Error.authenticationFailed),
+      );
     });
 
     test('supports direct success without challenge', () async {
@@ -755,11 +762,16 @@ void main() {
 
       final first = _HandshakeHarness(routerSettings, serializer);
       await first.performHello(authMethod: 'remote', authId: 'user-rl');
-      expect(first.lastAbort?.reason, equals(wamp_core.Error.notAuthorized));
+      await first.performAuthenticate(Authenticate(signature: 'ignored'));
+      expect(
+        first.lastAbort?.reason,
+        equals(wamp_core.Error.authenticationFailed),
+      );
       expect(delegate.helloCount, equals(1));
 
       final second = _HandshakeHarness(routerSettings, serializer);
       await second.performHello(authMethod: 'remote', authId: 'user-rl');
+      expect(second.lastChallenge, isNull);
       expect(second.lastAbort?.reason, equals(wamp_core.Error.notAuthorized));
       expect(
         second.lastAbort?.message?.message ?? '',
@@ -821,8 +833,15 @@ void main() {
       final context = _HandshakeHarness(routerSettings, serializer);
       await context.performHello(authMethod: 'remote', authId: 'user-token');
 
+      expect(context.lastChallenge, isNotNull);
+
+      await context.performAuthenticate(Authenticate(signature: 'ignored'));
+
       expect(context.lastWelcome, isNull);
-      expect(context.lastAbort?.reason, equals(wamp_core.Error.notAuthorized));
+      expect(
+        context.lastAbort?.reason,
+        equals(wamp_core.Error.authenticationFailed),
+      );
       expect(context.lastAbort?.message?.message, contains('token rejected'));
     });
 
@@ -862,6 +881,75 @@ void main() {
       expect(context.lastWelcome, isNotNull);
       expect(context.openedSessions.single.authRole, equals('member'));
       expect(secondary.lastTransactionId, isNotNull);
+    });
+
+    test(
+      'notifies delegate when pending challenge connection closes',
+      () async {
+        final delegate = _AbortAwareRemoteDelegate();
+        RemoteAuthenticatorRegistry.register(delegate);
+
+        final routerSettings = _buildRouterSettings(
+          realmMethods: const ['remote'],
+          realmOptions: const {
+            'remote': {'authenticator': 'remote-basic'},
+          },
+          listenerMethods: const ['remote'],
+          authenticators: const {
+            'remote-basic': AuthenticatorDefinition(
+              type: 'remote',
+              options: {'method': 'remote'},
+            ),
+          },
+        );
+
+        final context = _HandshakeHarness(routerSettings, serializer);
+        await context.performHello(authMethod: 'remote', authId: 'user-1');
+
+        expect(context.lastChallenge, isNotNull);
+
+        await context.performDisconnect();
+
+        expect(delegate.abortRequests, hasLength(1));
+        expect(
+          delegate.abortRequests.single.reason,
+          equals('connection_closed'),
+        );
+        expect(delegate.abortRequests.single.authId, equals('user-1'));
+      },
+    );
+
+    test('notifies delegate when authenticate frame is malformed', () async {
+      final delegate = _AbortAwareRemoteDelegate();
+      RemoteAuthenticatorRegistry.register(delegate);
+
+      final routerSettings = _buildRouterSettings(
+        realmMethods: const ['remote'],
+        realmOptions: const {
+          'remote': {'authenticator': 'remote-basic'},
+        },
+        listenerMethods: const ['remote'],
+        authenticators: const {
+          'remote-basic': AuthenticatorDefinition(
+            type: 'remote',
+            options: {'method': 'remote'},
+          ),
+        },
+      );
+
+      final context = _HandshakeHarness(routerSettings, serializer);
+      await context.performHello(authMethod: 'remote', authId: 'user-1');
+
+      expect(context.lastChallenge, isNotNull);
+
+      await context.performAuthenticate(Authenticate());
+
+      expect(
+        context.lastAbort?.reason,
+        equals(wamp_core.Error.protocolViolation),
+      );
+      expect(delegate.abortRequests, hasLength(1));
+      expect(delegate.abortRequests.single.reason, equals('missing_signature'));
     });
   });
 
@@ -1044,6 +1132,17 @@ class _HandshakeHarness {
       lastAbort = frame;
     }
     bossMessages.clear();
+  }
+
+  Future<void> performDisconnect() async {
+    await handleRemoveConnectionForTest(
+      connectionId: 10,
+      connections: <int, int>{10: 11},
+      connectionStates: <int, WorkerConnectionState>{10: state},
+      statePort: statePort.sendPort,
+      realmContexts: null,
+    );
+    await Future<void>.delayed(Duration.zero);
   }
 }
 
@@ -1250,6 +1349,9 @@ class _UnavailableRemoteDelegate implements RemoteAuthenticatorDelegate {
   ) async {
     throw RemoteDelegateUnavailableException('primary unavailable');
   }
+
+  @override
+  Future<void> onAbort(RemoteAbortRequest request) async {}
 }
 
 class _TestRemoteDelegate implements RemoteAuthenticatorDelegate {
@@ -1297,6 +1399,9 @@ class _TestRemoteDelegate implements RemoteAuthenticatorDelegate {
       ),
     );
   }
+
+  @override
+  Future<void> onAbort(RemoteAbortRequest request) async {}
 }
 
 class _FailingRemoteDelegate implements RemoteAuthenticatorDelegate {
@@ -1332,6 +1437,9 @@ class _FailingRemoteDelegate implements RemoteAuthenticatorDelegate {
       ),
     );
   }
+
+  @override
+  Future<void> onAbort(RemoteAbortRequest request) async {}
 }
 
 class _ImmediateRemoteDelegate implements RemoteAuthenticatorDelegate {
@@ -1360,6 +1468,9 @@ class _ImmediateRemoteDelegate implements RemoteAuthenticatorDelegate {
   ) async {
     throw StateError('AUTHENTICATE should not be called for immediate success');
   }
+
+  @override
+  Future<void> onAbort(RemoteAbortRequest request) async {}
 }
 
 class _RoleOverridingDelegate implements RemoteAuthenticatorDelegate {
@@ -1410,6 +1521,9 @@ class _RoleOverridingDelegate implements RemoteAuthenticatorDelegate {
       ),
     );
   }
+
+  @override
+  Future<void> onAbort(RemoteAbortRequest request) async {}
 }
 
 class _CountingFailingRemoteDelegate implements RemoteAuthenticatorDelegate {
@@ -1437,6 +1551,9 @@ class _CountingFailingRemoteDelegate implements RemoteAuthenticatorDelegate {
       ),
     );
   }
+
+  @override
+  Future<void> onAbort(RemoteAbortRequest request) async {}
 }
 
 class _TokenAwareRemoteDelegate implements RemoteAuthenticatorDelegate {
@@ -1494,5 +1611,41 @@ class _TokenAwareRemoteDelegate implements RemoteAuthenticatorDelegate {
         details: const {'authprovider': 'remote-token'},
       ),
     );
+  }
+
+  @override
+  Future<void> onAbort(RemoteAbortRequest request) async {}
+}
+
+class _AbortAwareRemoteDelegate implements RemoteAuthenticatorDelegate {
+  final List<RemoteAbortRequest> abortRequests = <RemoteAbortRequest>[];
+
+  @override
+  Future<RemoteHelloResponse> onHello(RemoteHelloRequest request) async {
+    final authId = request.context.helloDetails['authid'] as String? ?? 'user';
+    return RemoteHelloResponse.challenge(
+      RemoteChallenge(
+        authId: authId,
+        challenge: const {'challenge': 'delegate-challenge'},
+        extra: const {'nonce': 'delegate-nonce'},
+      ),
+    );
+  }
+
+  @override
+  Future<RemoteAuthenticateResponse> onAuthenticate(
+    RemoteAuthenticateRequest request,
+  ) async {
+    return const RemoteAuthenticateResponse.failure(
+      AuthFailure(
+        reason: wamp_core.Error.authenticationFailed,
+        message: 'unexpected authenticate',
+      ),
+    );
+  }
+
+  @override
+  Future<void> onAbort(RemoteAbortRequest request) async {
+    abortRequests.add(request);
   }
 }

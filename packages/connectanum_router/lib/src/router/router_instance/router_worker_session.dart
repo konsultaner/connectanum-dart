@@ -2182,7 +2182,20 @@ Future<void> _closeSession({
   required RealmContextCache? realmContexts,
   required WorkerConnectionState state,
 }) async {
+  await _abortPendingAuthentication(state, reason: 'connection_closed');
+
   if (state.phase != HandshakePhase.open) {
+    state.phase = HandshakePhase.aborted;
+    state.sessionId = null;
+    state.realmUri = null;
+    state.realmSettings = null;
+    state.welcomeDetails = null;
+    state.authenticator = null;
+    state.authContext = null;
+    state.authMethod = null;
+    state.pendingChallengeExtra = null;
+    state.pendingAuthId = null;
+    state.challengeIssuedAt = null;
     return;
   }
 
@@ -2207,6 +2220,8 @@ Future<void> _closeSession({
   state.authContext = null;
   state.authMethod = null;
   state.pendingChallengeExtra = null;
+  state.pendingAuthId = null;
+  state.challengeIssuedAt = null;
 }
 
 int? _messageTypeCode(AbstractMessage message) => switch (message) {

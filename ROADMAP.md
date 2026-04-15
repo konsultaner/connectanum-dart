@@ -236,10 +236,11 @@
       - [x] Add realm-configurable policy to whitelabel permitted authroles/authproviders returned by delegate; abort if response violates policy.
       - [x] Support multiple remote authenticators per realm/listener with failover strategy and connection-state monitoring.
       - [x] Enforce rate limiting/backoff for remote auth RPC calls and integrate failures with `AuthSecurityTracker`.
-      - [ ] Introduce authenticated transport to the remote service (mutual TLS and/or signed tokens) and automatic credential rotation hooks.
-      - [ ] Restrict serialized payload to the minimal required auth fields; validate schema on both request and response before issuing `CHALLENGE`/`WELCOME`.
-      - [ ] Preserve “fake challenge” behavior on remote rejection while logging audit details for operators.
-      - [ ] Add integration tests spinning up a stub remote service to verify success, rejection, timeout, and abort flows end-to-end.
+      - [x] Introduce the worker-safe WAMP RPC delegate path so routers can call a real remote auth realm over RawSocket/WebSocket instead of only relying on isolate-local delegate registration. `connectanum_auth_server` now exposes `AuthServerProcedureBinding` for `authenticate.hello` / `authenticate.authenticate` / `authenticate.abort`, and the router supports config-driven `rpc` delegates plus shared-token validation on `HELLO` / `AUTHENTICATE` / `ABORT`.
+      - [x] Restrict serialized payload to the minimal required auth fields and validate schema on both request and response before issuing `CHALLENGE`/`WELCOME`.
+      - [x] Preserve fake-challenge behavior on remote rejection, keep pending transaction abort cleanup wired through worker disconnect/error paths, and continue logging audit details for operators.
+      - [x] Add integration tests spinning up a stub remote service to verify success, malformed responses, timeout, and abort flows end-to-end.
+      - [ ] Introduce authenticated transport to the remote service with mutual TLS and automatic credential rotation hooks in addition to the current shared-token path.
       - [ ] Build a constrained remote-auth client stub in the bench orchestrator to fuzz HELLO/CHALLENGE/AUTHENTICATE flows without full WAMP clients (rawsocket frame pusher), and instrument latency/backpressure on remote auth RPCs.
     - [ ] Add internal transport support for router ↔ auth server chaining:
       - [ ] Design in-process frame transport (shared ring buffer / isolate message channel) with backpressure.

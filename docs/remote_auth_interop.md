@@ -32,7 +32,18 @@ Realm authenticator entries may include the following options in addition to `me
         "rate_limit_window_ms": 10000,
         "backoff_base_ms": 500,
         "backoff_factor": 2.0,
-        "backoff_max_ms": 30000
+        "backoff_max_ms": 30000,
+        "auth_token": "shared-token",
+        "rpc": {
+          "realm": "connectanum.authenticate",
+          "call_timeout_ms": 5000,
+          "connect_timeout_ms": 5000,
+          "transport": {
+            "type": "websocket",
+            "url": "wss://auth.example/ws",
+            "serializer": "json"
+          }
+        }
       }
     }
   }
@@ -44,6 +55,8 @@ Realm authenticator entries may include the following options in addition to `me
 - `rate_limit_max_attempts` (optional, default `5`): number of remote failures within the window before backoff kicks in.
 - `rate_limit_window_ms` (optional, default `10000`): sliding window for counting failures.
 - `backoff_base_ms` / `backoff_factor` / `backoff_max_ms` (optional): exponential backoff parameters applied once the max attempts threshold is exceeded.  The router refuses further attempts until the backoff expires.
+- `auth_token` (optional): shared token forwarded on `authenticate.hello` / `authenticate.authenticate` / `authenticate.abort`. The Dart auth server now validates it on all three procedures.
+- `rpc` (optional): transport-backed remote auth configuration. The Dart router now supports `websocket` and `rawsocket` RPC delegates in worker isolates; the in-process registry path remains available for tests/examples.
 
 
 ### `authenticate.hello`
@@ -52,8 +65,22 @@ Request keywords:
 
 ```jsonc
 {
-  "hello": { /* raw HELLO message as materialised by the router */ },
+  "hello": {
+    "realm": "demo.realm",
+    "sessionId": 4242,
+    "details": {
+      "authid": "alice",
+      "authmethods": ["ticket"],
+      "authextra": { /* optional */ }
+    },
+    "transport": {
+      "connectionId": 99,
+      "peerAddress": "203.0.113.10:32100",
+      "isEncrypted": true
+    }
+  },
   "transactionId": "opaque-transaction-id"
+  // optional: "auth_token": "shared-token"
 }
 ```
 
@@ -61,10 +88,11 @@ The router must generate a cryptographically secure `transactionId` per handshak
 
 Response options:
 
-| Status | Java class | Fields |
+| Status | Current Dart/Java shape | Fields |
 | --- | --- | --- |
-| Success | `HelloResult` | `ArgumentsKeywords.signature` (optional), `ArgumentsKeywords.extra` (challenge map) |
-| Failure | `ErrorMessageException` | `error` contains reason; Java executor synthesises a “fake challenge” so the client cannot distinguish remote failures from local ones. |
+| Challenge | status map | `status = "challenge"`, `authId`, `challenge`, optional `extra` |
+| Success | status map | `status = "success"`, `authId`, `authRole`, optional `details` |
+| Failure | status map | `status = "failure"`, `reason`, optional `message`, `details`, `arguments`, `argumentsKeywords` |
 
 For a successful challenge the router should forward:
 
@@ -89,15 +117,16 @@ Request keywords:
 {
   "authenticate": { /* AUTHENTICATE message */ },
   "transactionId": "same-id-as-HELLO"
+  // optional: "auth_token": "shared-token"
 }
 ```
 
 Responses:
 
-| Status | Java class | Fields |
+| Status | Current Dart/Java shape | Fields |
 | --- | --- | --- |
-| Success | `WelcomeResult` | `ArgumentsKeywords` contains the negotiated session attributes. |
-| Failure | `ErrorMessageException` | router should send `ABORT`. |
+| Success | status map | `status = "success"`, `authId`, `authRole`, optional `details` |
+| Failure | status map | `status = "failure"`, `reason`, optional `message`, `details`, `arguments`, `argumentsKeywords` |
 
 Successful payload example:
 
@@ -122,6 +151,8 @@ Sent on best-effort basis when the edge connection is terminated before completi
 ```jsonc
 {
   "transactionId": "same-id-as-HELLO"
+  // optional: "reason": "connection_closed",
+  // optional: "auth_token": "shared-token"
 }
 ```
 
@@ -135,7 +166,8 @@ The remote service is expected to clean up any stored transaction state associat
 
 ## Data-Minimisation Guidelines
 
-Only the following fields are required for remote RPCs:
+Only the following fields are required for remote RPCs, and the current Dart
+router now forwards only this reduced shape on the transport-backed RPC path:
 
 * From `HELLO`: `realm`, `details.authid`, `details.authmethods`, and `details.authextra`.  Avoid sending role negotiation data or large option maps unless the remote service explicitly depends on them.
 * From `AUTHENTICATE`: `signature` and any extra fields carrying nonces/proofs.
@@ -152,8 +184,8 @@ The Java executor generates a “fake” SCRAM/Cra challenge when the remote ser
 
 ## Implementation Checklist for Dart Delegates
 
-1. Connect to `connectanum.authenticate` with service credentials (mutual TLS recommended).
-2. Register RPC handlers for the three procedures above.
+1. Connect to `connectanum.authenticate` with service credentials or a shared token (mutual TLS still recommended for production).
+2. Register RPC handlers for the three procedures above, or use `AuthServerProcedureBinding` from `connectanum_auth_server`.
 3. Persist transaction metadata keyed by `transactionId` and expire entries on `authenticate.abort` or timeout.
 4. Produce deterministic challenge / welcome payloads adhering to the schema.
 5. Return hashed credentials (CRA derived keys, SCRAM stored/server keys) and avoid exposing secrets in responses.
