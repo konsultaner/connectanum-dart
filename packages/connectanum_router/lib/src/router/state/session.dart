@@ -72,6 +72,7 @@ class PendingInvocation {
   PendingInvocation({
     required this.invocationId,
     required this.registrationId,
+    required this.procedure,
     required this.callerRequestId,
     required this.calleeSessionId,
     required this.calleeConnectionId,
@@ -86,6 +87,7 @@ class PendingInvocation {
 
   final int invocationId;
   final int registrationId;
+  final String procedure;
   final int callerRequestId;
   final int calleeSessionId;
   final int? calleeConnectionId;

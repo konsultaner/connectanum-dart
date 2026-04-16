@@ -96,6 +96,7 @@
     - [ ] Track upstream WAMP conformance suite (wamp-proto/wamp-proto#557) and integrate it into CI to validate RawSocket/WebSocket/HTTP/2/HTTP/3 transports and serializer combinations against the official test matrix.
 - [ ] HTTP bridge (general-purpose request handling)
   - [ ] Expose bridge configuration via listener protocols with pluggable pipelines (REST→RPC proxy, static asset serving, metrics scraping, custom handlers).
+  - [x] Introduce shared `session_profiles` across WAMP listeners, HTTP listeners/routes, and `internal_realms`, so transport-specific ingress config can reference one common realm/auth/authz profile shape. Listeners can now inherit `auth.methods` from a profile, HTTP dispatch resolves route/listener session profiles before creating internal caller sessions, and internal sessions can derive `realm`, `auth_id`, `auth_role`, and role maps from the same shared profile definition.
   - [ ] Support translation tables that map HTTP path/method/protocol combinations to explicit WAMP realms and procedures, including per-method overrides and catch-all wildcards.
   - [ ] Provide reserved realm/namespace shorthand so routes can auto-map into a router-managed HTTP realm with deterministic URI derivation (e.g. `/` → `router.http.index`).
   - [ ] Allow namespace-based auto-mapping (path segments → URI prefixes) for teams already organising registrations by namespace.
@@ -118,11 +119,12 @@
   - [ ] Introduce adapter pipeline support (static file handler, PHP-FPM/FastCGI bridge, reverse proxy stubs) configurable per route; document adapter contracts and lifecycle.
   - [ ] Add tests/doc coverage for the new HTTP call contract (Dart unit tests, router integration test asserting response round-trip, native tests validating file/stream paths).
 - [ ] HTTP authentication & session tokens
-  - [ ] Reuse endpoint authenticators (CRA, SCRAM, remote delegates) to issue short-lived access tokens for HTTP clients; tokens include target realm information from a header or query parameter.
-  - [ ] Provide a configurable auth/refresh route (defaults to `/auth`) reserved inside the HTTP namespace so clients can obtain and refresh tokens.
+  - [x] Shared `session_profiles` now provide the common auth/session config surface for WAMP listeners, HTTP listeners/routes, and public/internal profiles, including explicit public profiles (`auth.methods: []` or `anonymous`) and shared method declarations such as `ticket`, `scram`, and `wampcra`.
+  - [x] Reuse endpoint authenticators (ticket, CRA, SCRAM, and any configured remote-backed method) to issue short-lived bearer tokens for HTTP clients; the bridge resolves target realm information from body/query/header and keeps public profiles on the current fast path.
+  - [x] Provide a dedicated HTTP `auth` route action that fronts a configurable auth endpoint (commonly `/auth`) so clients can complete challenge/response methods over HTTP and receive bearer tokens for protected routes.
   - [ ] Enforce endpoint-level transport auth (TLS/mTLS/ALPN) before route-level checks; reject unauthorised requests in the native layer.
   - [ ] Implement refresh token handling (configurable TTL, dedicated handler in reserved realm) with support for issuing new access tokens without replaying the full handshake.
-  - [ ] Propagate auth context (`_authid`, `_authrole`, `_authmethod`) into the WAMP invocation details so downstream procedures honour existing router policies.
+  - [x] Propagate auth context through the internal caller session created for protected HTTP requests, so downstream realm permissions are evaluated against the bearer-backed principal instead of a generic bridge identity.
 - [ ] HTTP forwarding hooks for custom routing/handling in RPC implementations
   - [ ] Graceful shutdown (drain sessions, send GOODBYE/HTTP responses, stop listeners)
     - [ ] Provide unified HTTP bridge that can surface Prometheus/Grafana exporters alongside REST→WAMP translation.
@@ -254,7 +256,10 @@
       - [ ] Ensure new abstraction is covered by unit tests for both publish/event and call/result paths.
   - [ ] Interoperability with `connectanum-authentication` remote executor (Java auth server)
   - [ ] Survey community extensions (GitHub/routers) for additional mechanisms
-- [ ] Realm-level authorizers (permission checks before SUBSCRIBE/PUBLISH/etc.)
+- [x] Realm-level authorizers (permission checks before SUBSCRIBE/PUBLISH/etc.)
+  - [x] Static `RoleSettings.permissions` now gate `SUBSCRIBE`, `UNSUBSCRIBE`, `PUBLISH`, `CALL`, `CANCEL`, `REGISTER`, and `UNREGISTER` on both external worker traffic and internal router sessions when a realm actually defines permission entries; legacy realms with no permission policy keep the prior allow-all behavior.
+  - [x] Optional runtime `AuthorizationProviderRegistry` hooks can supplement the static realm policy for dynamic database/rule-engine decisions; static denies still win, configured permissioned realms default deny, and unconfigured legacy realms continue to allow by default.
+  - [x] Remote-auth integration coverage now proves that post-auth realm permissions are enforced on authenticated client actions, not just on handshake success.
 - [x] Static TLS cert/SNI configuration pipeline to native runtime (config loader + native TLS acceptor; see `docs/tls.md`).
 - [ ] Intrusion detection (failed-auth rate limiting, account lockouts, anomaly alarms)
 

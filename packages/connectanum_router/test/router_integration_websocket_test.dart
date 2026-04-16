@@ -763,14 +763,30 @@ RouterSettings _buildWebSocketSettings() {
     ..addAuthMethod('anonymous')
     ..addRoleFromBuilder(
       RoleSettingsBuilder('anonymous')..addPermissionFromBuilder(
-        PermissionSettingsBuilder('')..allowOperations(const [
-          'register',
-          'unregister',
-          'subscribe',
-          'unsubscribe',
-          'publish',
-          'call',
-        ]),
+        PermissionSettingsBuilder('')
+          ..setMatchPolicy(PermissionMatchPolicy.prefix)
+          ..allowOperations(const [
+            'register',
+            'unregister',
+            'subscribe',
+            'unsubscribe',
+            'publish',
+            'call',
+          ]),
+      ),
+    )
+    ..addRoleFromBuilder(
+      RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+        PermissionSettingsBuilder('')
+          ..setMatchPolicy(PermissionMatchPolicy.prefix)
+          ..allowOperations(const [
+            'register',
+            'unregister',
+            'subscribe',
+            'unsubscribe',
+            'publish',
+            'call',
+          ]),
       ),
     );
 

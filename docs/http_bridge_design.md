@@ -110,13 +110,29 @@
 
 ```yaml
 router:
+  session_profiles:
+    - name: public-wamp
+      auth:
+        methods: [anonymous]
+
+    - name: public-http
+      auth:
+        methods: []
+
+    - name: http-auth
+      realm: realm1
+      auth:
+        methods: [ticket, scram, wampcra]
+        auth_id: http-gateway
+        auth_role: internal
+
   listeners:
     - endpoint: 0.0.0.0:8080
       protocols:
         - rawsocket
         - websocket
         - http
-      authmethods: [anonymous]
+      session_profile: public-wamp
       rawsocket:
         max_rawsocket_size_exponent: 16
       websocket:
@@ -127,13 +143,22 @@ router:
         http3:
           enabled: true
           port: 8443
+        session_profile: public-http
         routes:
+          - match:
+              path: /auth
+              methods: [POST]
+            action:
+              type: auth
+              session_profile: http-auth
+              token_ttl_ms: 600000
           - match:
               prefix: /api/
             action:
               type: rpc
               procedure: "com.example.api.{path}"
               serializer: msgpack
+              session_profile: http-auth
           - match:
               path: /metrics
             action:
@@ -152,6 +177,11 @@ router:
               type: session_proxy
               delegate: "php_fcm_bridge"
 ```
+
+- `session_profiles` now provide the common realm/auth identity layout across WAMP listeners, HTTP listeners/routes, and internal sessions.
+- Public HTTP profiles can set `auth.methods: []` to declare “no auth required” explicitly.
+- `type: auth` is the dedicated HTTP auth bridge action. It reuses the configured WAMP authenticators for `ticket`, `wampcra`, `scram`, or remote-backed methods, then issues short-lived bearer tokens for the protected HTTP routes that reference the same session profile.
+- Declaring `ticket`, `scram`, or `wampcra` on an HTTP-facing profile is now operational: clients authenticate against the reserved auth route, then present `Authorization: Bearer <token>` on the protected routes that reference that profile.
 
 - `session_proxy` routes create or reuse an internal session specified in
   `internal_realms`. This enables wiring to a PHP FPM-based bridge or any other

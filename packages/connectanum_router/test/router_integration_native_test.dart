@@ -1814,31 +1814,65 @@ RouterSettings _buildRouterSettings({
     ..addAuthMethod('anonymous')
     ..addRoleFromBuilder(
       RoleSettingsBuilder('anonymous')..addPermissionFromBuilder(
-        PermissionSettingsBuilder('')..allowOperations(const [
-          'register',
-          'unregister',
-          'subscribe',
-          'unsubscribe',
-          'publish',
-          'call',
-          'cancel',
-        ]),
+        PermissionSettingsBuilder('')
+          ..setMatchPolicy(PermissionMatchPolicy.prefix)
+          ..allowOperations(const [
+            'register',
+            'unregister',
+            'subscribe',
+            'unsubscribe',
+            'publish',
+            'call',
+            'cancel',
+          ]),
+      ),
+    )
+    ..addRoleFromBuilder(
+      RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+        PermissionSettingsBuilder('')
+          ..setMatchPolicy(PermissionMatchPolicy.prefix)
+          ..allowOperations(const [
+            'register',
+            'unregister',
+            'subscribe',
+            'unsubscribe',
+            'publish',
+            'call',
+            'cancel',
+          ]),
       ),
     );
 
   final benchRealm = RealmSettingsBuilder('bench.control')
     ..addAuthMethod('anonymous')
     ..addRoleFromBuilder(
+      RoleSettingsBuilder('anonymous')..addPermissionFromBuilder(
+        PermissionSettingsBuilder('')
+          ..setMatchPolicy(PermissionMatchPolicy.prefix)
+          ..allowOperations(const [
+            'register',
+            'unregister',
+            'subscribe',
+            'unsubscribe',
+            'publish',
+            'call',
+            'cancel',
+          ]),
+      ),
+    )
+    ..addRoleFromBuilder(
       RoleSettingsBuilder('bench')..addPermissionFromBuilder(
-        PermissionSettingsBuilder('')..allowOperations(const [
-          'register',
-          'unregister',
-          'subscribe',
-          'unsubscribe',
-          'publish',
-          'call',
-          'cancel',
-        ]),
+        PermissionSettingsBuilder('')
+          ..setMatchPolicy(PermissionMatchPolicy.prefix)
+          ..allowOperations(const [
+            'register',
+            'unregister',
+            'subscribe',
+            'unsubscribe',
+            'publish',
+            'call',
+            'cancel',
+          ]),
       ),
     );
 

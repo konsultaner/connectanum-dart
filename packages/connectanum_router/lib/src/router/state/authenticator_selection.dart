@@ -39,9 +39,16 @@ AuthenticatorSelection? resolveAuthenticatorSelection({
   final clientMethods = hello.details.authmethods ?? const <String>[];
   final realmMethods = realmSettings.auth.methods;
   final realmAllowed = realmMethods.toSet();
-  final listenerAllowed = listenerSettings.authmethods.isEmpty
+  final profileMethods = _listenerSessionProfileMethods(
+    settings: settings,
+    listenerSettings: listenerSettings,
+  );
+  final listenerMethods = listenerSettings.authmethods.isNotEmpty
+      ? listenerSettings.authmethods
+      : profileMethods;
+  final listenerAllowed = listenerMethods.isEmpty
       ? null
-      : listenerSettings.authmethods.toSet();
+      : listenerMethods.toSet();
 
   bool listenerAllows(String method) =>
       listenerAllowed == null || listenerAllowed.contains(method);
@@ -74,6 +81,25 @@ AuthenticatorSelection? resolveAuthenticatorSelection({
   }
 
   return null;
+}
+
+List<String> _listenerSessionProfileMethods({
+  required RouterSettings settings,
+  required ListenerSettings listenerSettings,
+}) {
+  final profileName = listenerSettings.sessionProfile?.trim();
+  if (profileName == null || profileName.isEmpty) {
+    return const <String>[];
+  }
+  for (final profile in settings.sessionProfiles) {
+    if (profile.name == profileName) {
+      return profile.auth.methods;
+    }
+  }
+  throw StateError(
+    'Unknown session profile "$profileName" referenced by listener '
+    '${listenerSettings.endpoint}.',
+  );
 }
 
 AuthenticatorSelection? createAuthenticatorSelectionForMethod({

@@ -183,6 +183,12 @@ class Router {
           );
         }
         return {'type': 'translation', 'realm': realm, 'procedure': procedure};
+      case HttpRouteActionType.auth:
+        return const <String, Object?>{
+          'type': 'translation',
+          'realm': 'router.http',
+          'procedure': 'router.http.auth',
+        };
       case HttpRouteActionType.reservedRealm:
         final namespace = _resolveRouteNamespace(action);
         final appendSuffix = _resolveAppendMethodSuffix(action);
@@ -234,6 +240,17 @@ class Router {
     if (optionRealm is String && optionRealm.trim().isNotEmpty) {
       realm = optionRealm.trim();
     }
+    final sessionProfile = _sessionProfileForRoute(
+      action: action,
+      listener: listener,
+      settings: settings,
+    );
+    final profileRealm = sessionProfile?.realm?.trim();
+    if ((realm == null || realm.isEmpty) &&
+        profileRealm != null &&
+        profileRealm.isNotEmpty) {
+      realm = profileRealm;
+    }
     realm ??= _listenerRealm(listener);
     realm ??= _uniqueRealm(settings);
     if (realm == null &&
@@ -251,6 +268,34 @@ class Router {
       }
     }
     return realm;
+  }
+
+  SessionProfileSettings? _sessionProfileForRoute({
+    required HttpRouteAction action,
+    required ListenerSettings? listener,
+    required RouterSettings? settings,
+  }) {
+    if (settings == null) {
+      return null;
+    }
+    final actionProfile = action.sessionProfile?.trim();
+    final listenerProfile = listener?.http?.sessionProfile?.trim();
+    final profileName = (actionProfile != null && actionProfile.isNotEmpty)
+        ? actionProfile
+        : ((listenerProfile != null && listenerProfile.isNotEmpty)
+              ? listenerProfile
+              : null);
+    if (profileName == null) {
+      return null;
+    }
+    for (final profile in settings.sessionProfiles) {
+      if (profile.name == profileName) {
+        return profile;
+      }
+    }
+    throw StateError(
+      'Unknown session profile "$profileName" referenced by HTTP route.',
+    );
   }
 
   String? _resolveRouteNamespace(HttpRouteAction action) {

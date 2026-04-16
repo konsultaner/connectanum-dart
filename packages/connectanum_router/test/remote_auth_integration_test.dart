@@ -88,6 +88,84 @@ void main() {
     );
 
     test(
+      'applies realm permissions after remote authentication succeeds',
+      () async {
+        final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
+        addTearDown(() {
+          runtime.shutdown();
+          runtime.dispose();
+        });
+
+        final authRouter = Router(
+          _webSocketConfig(),
+          settings: _buildAuthRouterSettings(),
+        ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
+        addTearDown(authRouter.dispose);
+
+        final authServer = AuthServer(
+          settings: _buildAuthServerSettings(),
+          authTokens: const ['shared-token'],
+        );
+        final authSession = await authRouter.createInternalSession(
+          realmUri: 'connectanum.authenticate',
+          authId: 'auth-service',
+          authRole: 'internal',
+        );
+        addTearDown(authSession.close);
+
+        final procedures = await AuthServerProcedureBinding.bind(
+          server: authServer,
+          session: authSession,
+        );
+        addTearDown(procedures.close);
+
+        final authListener = authRouter.listeners.single;
+        final edgeRouter = Router(
+          _webSocketConfig(),
+          settings: _buildEdgeRouterSettings(
+            authUrl: 'ws://127.0.0.1:${authListener.port}/ws',
+            nativeLib: nativeLib!,
+          ),
+        ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
+        addTearDown(edgeRouter.dispose);
+
+        final edgeListener = edgeRouter.listeners.single;
+        final client = client_pkg.Client(
+          realm: 'demo.realm',
+          authId: 'ticket-user',
+          authenticationMethods: <client_pkg.AbstractAuthentication>[
+            client_pkg.TicketAuthentication('ticket-secret'),
+          ],
+          transport: client_pkg.WebSocketTransport.withJsonSerializer(
+            'ws://127.0.0.1:${edgeListener.port}/ws',
+          ),
+        );
+        addTearDown(client.disconnect);
+
+        final session = await client.connect().first.timeout(
+          const Duration(seconds: 10),
+        );
+        addTearDown(session.close);
+
+        await expectLater(
+          session.publish(
+            'demo.restricted.topic',
+            arguments: const <Object?>['payload'],
+            options: client_pkg.PublishOptions(acknowledge: true),
+          ),
+          throwsA(
+            isA<wamp_core.Error>().having(
+              (error) => error.error,
+              'error',
+              wamp_core.Error.notAuthorized,
+            ),
+          ),
+        );
+      },
+      skip: skipReason,
+    );
+
+    test(
       'fails closed when the remote auth service returns malformed hello payload',
       () async {
         final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
@@ -298,6 +376,13 @@ RouterSettings _buildAuthRouterSettings() {
             PermissionSettingsBuilder('authenticate.')
               ..setMatchPolicy(PermissionMatchPolicy.prefix)
               ..allowOperations(const <String>['call']),
+          ),
+        )
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('authenticate.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const <String>['register', 'unregister']),
           ),
         ),
     )

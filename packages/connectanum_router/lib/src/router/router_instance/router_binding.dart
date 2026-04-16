@@ -93,9 +93,14 @@ class RouterBinding {
   final Map<int, _ConnectionState> _connections = {};
   final Set<RouterSession> _internalSessions = {};
   final Map<String, RouterSession> _internalSessionsByRealm = {};
+  final Map<String, RouterSession> _internalSessionsByCacheKey = {};
   final Map<int, _PendingHttpCall> _pendingHttpCalls = {};
+  final Map<String, _PendingHttpAuthTransaction> _pendingHttpAuthTransactions =
+      {};
+  final Map<String, _HttpAuthTokenRecord> _httpAuthTokens = {};
   final Map<String, ListenerSettings> _listenerSettingsByEndpoint;
   final Map<int, ListenerSettings?> _listenerConfigById = {};
+  final Random _random = Random.secure();
   Future<void>? _internalBootstrap;
   Object? _internalBootstrapError;
   StackTrace? _internalBootstrapStack;
@@ -314,6 +319,8 @@ class RouterBinding {
     String? authId,
     String? authRole,
     Map<String, Object?> roles = const {},
+    String? sessionProfile,
+    String? cacheKey,
   }) async {
     if (!_ready) {
       activateListeners();
@@ -324,6 +331,29 @@ class RouterBinding {
         'Embedded sessions require native isolate support on this platform.',
       );
     }
+    final resolvedProfile = _resolveSessionProfile(sessionProfile);
+    final resolvedRealmUri =
+        (resolvedProfile?.realm != null && resolvedProfile!.realm!.isNotEmpty)
+        ? resolvedProfile.realm!
+        : realmUri;
+    final resolvedAuthId = authId ?? resolvedProfile?.auth.authId;
+    final requestedAuthRole = authRole ?? resolvedProfile?.auth.authRole;
+    final resolvedRoles = roles.isNotEmpty
+        ? roles
+        : (resolvedProfile?.roles ?? const <String, Object?>{});
+
+    RealmSettings? realmSettings;
+    for (final candidate in settings.realms) {
+      if (candidate.name == resolvedRealmUri) {
+        realmSettings = candidate;
+        break;
+      }
+    }
+    final resolvedAuthRole =
+        requestedAuthRole ??
+        (realmSettings?.roles.any((role) => role.name == 'anonymous') == true
+            ? 'anonymous'
+            : null);
     final statePort = boss.stateCommandPort;
     final sessionId = await _allocateSessionId(statePort);
     final controlPort = ReceivePort();
@@ -332,10 +362,11 @@ class RouterBinding {
       _routerInternalSessionIsolate,
       _InternalSessionBootstrap(
         sessionId: sessionId,
-        realmUri: realmUri,
-        authId: authId,
-        authRole: authRole,
-        roles: roles,
+        realmUri: resolvedRealmUri,
+        authId: resolvedAuthId,
+        authRole: resolvedAuthRole,
+        roles: resolvedRoles,
+        realmSettings: realmSettings,
         statePort: statePort,
         controlPort: controlPort.sendPort,
         handshakePort: handshakePort.sendPort,
@@ -370,10 +401,11 @@ class RouterBinding {
     final session = RouterSession._(
       binding: this,
       sessionId: sessionId,
-      realmUri: realmUri,
-      authId: authId,
-      authRole: authRole,
-      roles: roles,
+      realmUri: resolvedRealmUri,
+      authId: resolvedAuthId,
+      authRole: resolvedAuthRole,
+      cacheKey: cacheKey,
+      roles: resolvedRoles,
       commandPort: requestPort,
       controlPort: controlPort,
       controlSubscription: null,
@@ -383,9 +415,9 @@ class RouterBinding {
     session._attachControlListener();
     final record = SessionRecord(
       id: sessionId,
-      authId: authId,
-      authRole: authRole,
-      roles: roles,
+      authId: resolvedAuthId,
+      authRole: resolvedAuthRole,
+      roles: resolvedRoles,
       workerId: 0,
       connectionId: -sessionId,
       lastActivity: DateTime.now(),
@@ -393,9 +425,14 @@ class RouterBinding {
       protocol: listenerSettings?.primaryProtocol ?? ListenerProtocol.rawsocket,
       internalSendPort: internalPort,
     );
-    statePort.send(SessionOpenCommand(realmUri: realmUri, session: record));
+    statePort.send(
+      SessionOpenCommand(realmUri: resolvedRealmUri, session: record),
+    );
     _internalSessions.add(session);
-    _internalSessionsByRealm[realmUri] = session;
+    _internalSessionsByRealm[resolvedRealmUri] = session;
+    if (cacheKey != null && cacheKey.isNotEmpty) {
+      _internalSessionsByCacheKey[cacheKey] = session;
+    }
     return session;
   }
 
@@ -855,6 +892,11 @@ class RouterBinding {
 
   /// Stops the background boss isolate (if running) and releases resources.
   Future<void> dispose() async {
+    for (final pending in _pendingHttpAuthTransactions.values.toList()) {
+      unawaited(pending.abort(reason: 'binding_dispose'));
+    }
+    _pendingHttpAuthTransactions.clear();
+    _httpAuthTokens.clear();
     try {
       await _closeListenersAndPendingConnections();
     } catch (_) {}
@@ -865,6 +907,7 @@ class RouterBinding {
     }
     _internalSessions.clear();
     _internalSessionsByRealm.clear();
+    _internalSessionsByCacheKey.clear();
     _listenerConfigById.clear();
     for (final state in _connections.values) {
       state.dispose();
@@ -885,6 +928,13 @@ class RouterBinding {
 
   void _removeInternalSession(RouterSession session) {
     _internalSessions.remove(session);
+    final cacheKey = session.cacheKey;
+    if (cacheKey != null) {
+      final cached = _internalSessionsByCacheKey[cacheKey];
+      if (identical(cached, session)) {
+        _internalSessionsByCacheKey.remove(cacheKey);
+      }
+    }
     final existing = _internalSessionsByRealm[session.realmUri];
     if (identical(existing, session)) {
       _internalSessionsByRealm.remove(session.realmUri);
@@ -900,6 +950,19 @@ class RouterBinding {
   @visibleForTesting
   RouterSession? internalSessionForRealm(String realmUri) =>
       _internalSessionsByRealm[realmUri];
+
+  SessionProfileSettings? _resolveSessionProfile(String? profileName) {
+    final trimmed = profileName?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+    for (final profile in settings.sessionProfiles) {
+      if (profile.name == trimmed) {
+        return profile;
+      }
+    }
+    throw StateError('Unknown session profile "$trimmed".');
+  }
 
   @visibleForTesting
   ListenerSettings? listenerSettingsFor(int listenerId) =>
@@ -927,6 +990,28 @@ class RouterBinding {
     NativeHttpHandshake? handshake,
   ) async {
     NativeHttpHandshake? retainedHandshake = handshake;
+    _cleanupExpiredHttpAuthState();
+    final listenerSettings = _listenerConfigById[request.listenerId];
+    final matchedRoute = _matchHttpRoute(listenerSettings?.http, request);
+    final sessionProfile = _resolveHttpSessionProfile(
+      listenerSettings: listenerSettings,
+      route: matchedRoute,
+    );
+    if (matchedRoute?.action.type == HttpRouteActionType.auth) {
+      try {
+        await _handleHttpAuthRequest(
+          request: request,
+          handshake: retainedHandshake,
+          listenerSettings: listenerSettings,
+          route: matchedRoute!,
+          sessionProfile: sessionProfile,
+        );
+      } finally {
+        retainedHandshake?.release();
+      }
+      return;
+    }
+
     final realmUri = request.realm;
     final procedure = request.procedure;
     if (realmUri == null || realmUri.isEmpty) {
@@ -961,9 +1046,69 @@ class RouterBinding {
     final requestPayload = snapshot.toInvocationPayload(
       nativeLibraryPath: nativeLibraryPath,
     );
+    final profileRealm = sessionProfile?.realm?.trim();
+    final resolvedRealmUri = (profileRealm != null && profileRealm.isNotEmpty)
+        ? profileRealm
+        : realmUri;
     RouterSession session;
     try {
-      session = await _ensureInternalSession(realmUri);
+      final bearer = _extractBearerToken(request.headers);
+      if (bearer != null) {
+        session = await _authenticatedHttpSessionForToken(
+          token: bearer,
+          realmUri: resolvedRealmUri,
+          sessionProfile: sessionProfile,
+        );
+      } else {
+        final allowsAnonymous = _httpProfileAllowsAnonymous(sessionProfile);
+        final requiresBridgeAuth =
+            sessionProfile != null &&
+            sessionProfile.auth.methods.isNotEmpty &&
+            !allowsAnonymous;
+        if (requiresBridgeAuth) {
+          await _sendImmediateHttpResponse(
+            request: request,
+            handshake: retainedHandshake,
+            response: NativeHttpResponse(
+              status: HttpStatus.unauthorized,
+              headers: _httpUnauthorizedHeaders(
+                realm: resolvedRealmUri,
+                authPath: _httpAuthPathFor(listenerSettings?.http),
+              ),
+              body: NativeHttpResponseJson(<String, Object?>{
+                'status': 'error',
+                'reason': 'unauthorized',
+                'message': 'Bearer token required',
+              }),
+            ),
+          );
+          retainedHandshake?.release();
+          return;
+        }
+        session = await _ensureInternalSession(
+          realmUri: resolvedRealmUri,
+          sessionProfile: sessionProfile?.name,
+        );
+      }
+    } on _HttpUnauthorized catch (error) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: retainedHandshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.unauthorized,
+          headers: _httpUnauthorizedHeaders(
+            realm: resolvedRealmUri,
+            authPath: _httpAuthPathFor(listenerSettings?.http),
+          ),
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'error',
+            'reason': error.reason,
+            if (error.message != null) 'message': error.message,
+          }),
+        ),
+      );
+      retainedHandshake?.release();
+      return;
     } catch (error, stackTrace) {
       onEvent?.call({
         'source': 'binding',
@@ -971,7 +1116,7 @@ class RouterBinding {
         'listenerId': request.listenerId,
         'connectionId': request.connectionId,
         'endpoint': request.endpoint,
-        'realm': realmUri,
+        'realm': resolvedRealmUri,
         'procedure': procedure,
         'error': error.toString(),
         'stackTrace': stackTrace.toString(),
@@ -1162,19 +1307,882 @@ class RouterBinding {
       'httpRequestId': httpRequestId,
       'listenerId': request.listenerId,
       'connectionId': request.connectionId,
-      'realm': realmUri,
+      'realm': resolvedRealmUri,
       'procedure': procedure,
     });
 
     retainedHandshake?.release();
   }
 
-  Future<RouterSession> _ensureInternalSession(String realmUri) async {
-    final existing = _internalSessionsByRealm[realmUri];
+  Future<RouterSession> _ensureInternalSession({
+    required String realmUri,
+    String? sessionProfile,
+    String? authId,
+    String? authRole,
+    Map<String, Object?> roles = const {},
+    String? cacheKey,
+  }) async {
+    final resolvedCacheKey = cacheKey ?? sessionProfile;
+    final existing = resolvedCacheKey == null
+        ? _internalSessionsByRealm[realmUri]
+        : _internalSessionsByCacheKey[resolvedCacheKey];
     if (existing != null) {
       return existing;
     }
-    return createInternalSession(realmUri: realmUri);
+    return createInternalSession(
+      realmUri: realmUri,
+      authId: authId,
+      authRole: authRole,
+      roles: roles,
+      sessionProfile: sessionProfile,
+      cacheKey: resolvedCacheKey,
+    );
+  }
+
+  SessionProfileSettings? _resolveHttpSessionProfile({
+    required ListenerSettings? listenerSettings,
+    required HttpRouteSettings? route,
+  }) {
+    final routeProfile = route?.action.sessionProfile?.trim();
+    final listenerProfile = listenerSettings?.http?.sessionProfile?.trim();
+    final profileName = (routeProfile != null && routeProfile.isNotEmpty)
+        ? routeProfile
+        : ((listenerProfile != null && listenerProfile.isNotEmpty)
+              ? listenerProfile
+              : null);
+    return _resolveSessionProfile(profileName);
+  }
+
+  HttpRouteSettings? _matchHttpRoute(
+    HttpListenerSettings? httpSettings,
+    RouterHttpRequest request,
+  ) {
+    if (httpSettings == null) {
+      return null;
+    }
+    for (final route in httpSettings.routes) {
+      if (_httpRouteMatchesRequest(route, request)) {
+        return route;
+      }
+    }
+    return null;
+  }
+
+  bool _httpRouteMatchesRequest(
+    HttpRouteSettings route,
+    RouterHttpRequest request,
+  ) {
+    final match = route.match;
+    if (match.path != null && match.path != request.path) {
+      return false;
+    }
+    if (match.path == null &&
+        match.prefix != null &&
+        !request.path.startsWith(match.prefix!)) {
+      return false;
+    }
+    if (match.host != null) {
+      final hostHeader = request.headers.entries
+          .firstWhere(
+            (entry) => entry.key.toLowerCase() == 'host',
+            orElse: () => const MapEntry<String, String>('', ''),
+          )
+          .value;
+      if (hostHeader.isEmpty) {
+        return false;
+      }
+      final requestHost = hostHeader.split(':').first.trim().toLowerCase();
+      if (requestHost != match.host!.trim().toLowerCase()) {
+        return false;
+      }
+    }
+    if (match.methods.isNotEmpty) {
+      final requestMethod = request.method.trim().toUpperCase();
+      final allowed = match.methods.map(
+        (method) => method.trim().toUpperCase(),
+      );
+      if (!allowed.contains(requestMethod)) {
+        return false;
+      }
+    }
+    if (match.headers.isNotEmpty) {
+      final normalizedHeaders = <String, String>{
+        for (final entry in request.headers.entries)
+          entry.key.toLowerCase(): entry.value,
+      };
+      for (final entry in match.headers.entries) {
+        final actual = normalizedHeaders[entry.key.toLowerCase()];
+        if (actual != entry.value) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  Future<void> _handleHttpAuthRequest({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required ListenerSettings? listenerSettings,
+    required HttpRouteSettings route,
+    required SessionProfileSettings? sessionProfile,
+  }) async {
+    if (request.method.trim().toUpperCase() != 'POST') {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.methodNotAllowed,
+          headers: const {HttpHeaders.allowHeader: 'POST'},
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'method_not_allowed',
+            'message': 'HTTP auth bridge only supports POST',
+          }),
+        ),
+      );
+      return;
+    }
+
+    late final Map<String, Object?> body;
+    try {
+      body = _decodeHttpJsonBody(request);
+    } on FormatException catch (error) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.badRequest,
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'error',
+            'reason': 'invalid_json',
+            'message': error.message,
+          }),
+        ),
+      );
+      return;
+    }
+    final query = _httpQueryParameters(request);
+    final allowedMethods = sessionProfile?.auth.methods ?? const <String>[];
+    if (allowedMethods.isEmpty) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.badRequest,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'invalid_profile',
+            'message':
+                'HTTP auth route requires a session profile with auth methods',
+          }),
+        ),
+      );
+      return;
+    }
+
+    final state = _firstNonEmptyString(
+      body['state'],
+      query['state'],
+      _headerValue(request.headers, 'x-connectanum-auth-state'),
+    );
+
+    if (state != null) {
+      await _continueHttpAuthTransaction(
+        request: request,
+        handshake: handshake,
+        state: state,
+        body: body,
+        sessionProfile: sessionProfile,
+      );
+      return;
+    }
+
+    registerDefaultAuthenticators();
+    final realmUri = _resolveHttpAuthRealm(
+      request: request,
+      route: route,
+      sessionProfile: sessionProfile,
+      body: body,
+      query: query,
+    );
+    if (realmUri == null || realmUri.isEmpty) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.badRequest,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'missing_realm',
+            'message': 'realm is required for HTTP authentication',
+          }),
+        ),
+      );
+      return;
+    }
+
+    final realmSettings = _realmSettingsFor(realmUri);
+    if (realmSettings == null) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.notFound,
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'error',
+            'reason': wamp_core.Error.noSuchRealm,
+            'message': 'Realm $realmUri is not configured',
+          }),
+        ),
+      );
+      return;
+    }
+
+    final authMethod = _firstNonEmptyString(
+      body['authmethod'],
+      query['authmethod'],
+      _headerValue(request.headers, 'x-connectanum-auth-method'),
+    );
+    if (authMethod == null || authMethod == 'anonymous') {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.badRequest,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'missing_authmethod',
+            'message': 'authmethod is required and must not be anonymous',
+          }),
+        ),
+      );
+      return;
+    }
+    if (!allowedMethods.contains(authMethod)) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.unauthorized,
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'error',
+            'reason': 'unsupported_authmethod',
+            'message': 'authmethod $authMethod is not allowed for this route',
+          }),
+        ),
+      );
+      return;
+    }
+    if (realmSettings.auth.methods.isNotEmpty &&
+        !realmSettings.auth.methods.contains(authMethod)) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.unauthorized,
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'error',
+            'reason': 'unsupported_authmethod',
+            'message':
+                'authmethod $authMethod is not enabled for realm $realmUri',
+          }),
+        ),
+      );
+      return;
+    }
+
+    final selection = createAuthenticatorSelectionForMethod(
+      settings: settings,
+      realmSettings: realmSettings,
+      method: authMethod,
+    );
+    if (selection == null) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.unauthorized,
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'error',
+            'reason': 'unsupported_authmethod',
+            'message': 'No authenticator is configured for $authMethod',
+          }),
+        ),
+      );
+      return;
+    }
+
+    final authId = _firstNonEmptyString(
+      body['authid'],
+      query['authid'],
+      _headerValue(request.headers, 'x-connectanum-auth-id'),
+    );
+    final helloDetails = <String, Object?>{
+      if (authId != null) 'authid': authId,
+      'authmethods': <String>[authMethod],
+      if (body['authextra'] is Map<String, Object?>)
+        'authextra': Map<String, Object?>.from(
+          body['authextra'] as Map<String, Object?>,
+        )
+      else if (body['authextra'] is Map)
+        'authextra': Map<String, Object?>.from(body['authextra'] as Map),
+    };
+
+    final boss = _boss;
+    if (boss == null) {
+      throw StateError('HTTP auth bridge requires the router boss.');
+    }
+    final sessionId = await _allocateSessionId(boss.stateCommandPort);
+    final authenticator = await selection.factory!.create(
+      realmSettings,
+      selection.options,
+    );
+    final context = AuthenticatorContext(
+      realm: realmSettings,
+      sessionId: sessionId,
+      transport: buildTransportMetadata(
+        listener: request.listener,
+        connectionId: request.connectionId,
+      ),
+      helloDetails: helloDetails,
+    );
+
+    final result = await authenticator.onHello(context);
+    switch (result.status) {
+      case AuthStatus.challenge:
+        final challenge = result.challenge!;
+        final authState = _randomHttpAuthToken();
+        final timeoutMs = realmSettings.limits.authTimeoutMs;
+        _pendingHttpAuthTransactions[authState] = _PendingHttpAuthTransaction(
+          state: authState,
+          realmUri: realmUri,
+          authMethod: authMethod,
+          authId: authId,
+          authenticator: authenticator,
+          context: context,
+          sessionProfileName: sessionProfile?.name,
+          expiresAt: DateTime.now().toUtc().add(
+            Duration(milliseconds: timeoutMs > 0 ? timeoutMs : 10000),
+          ),
+        );
+        await _sendImmediateHttpResponse(
+          request: request,
+          handshake: handshake,
+          response: NativeHttpResponse(
+            status: HttpStatus.unauthorized,
+            headers: const {HttpHeaders.wwwAuthenticateHeader: 'Bearer'},
+            body: NativeHttpResponseJson(<String, Object?>{
+              'status': 'challenge',
+              'state': authState,
+              'realm': realmUri,
+              'authmethod': authMethod,
+              'challenge': challenge.challenge,
+              'extra': challenge.extra,
+            }),
+          ),
+        );
+      case AuthStatus.success:
+        final token = _issueHttpAuthToken(
+          realmUri: realmUri,
+          authMethod: authMethod,
+          success: result.success!,
+          sessionProfileName: sessionProfile?.name,
+          route: route,
+          listenerSettings: listenerSettings,
+          realmSettings: realmSettings,
+        );
+        await _sendImmediateHttpResponse(
+          request: request,
+          handshake: handshake,
+          response: NativeHttpResponse(
+            status: HttpStatus.ok,
+            body: NativeHttpResponseJson(_httpAuthSuccessPayload(token)),
+          ),
+        );
+      case AuthStatus.failure:
+        await _sendImmediateHttpResponse(
+          request: request,
+          handshake: handshake,
+          response: NativeHttpResponse(
+            status: HttpStatus.unauthorized,
+            headers: const {HttpHeaders.wwwAuthenticateHeader: 'Bearer'},
+            body: NativeHttpResponseJson(<String, Object?>{
+              'status': 'error',
+              'reason': result.failure!.reason,
+              if (result.failure!.message != null)
+                'message': result.failure!.message,
+            }),
+          ),
+        );
+    }
+  }
+
+  Future<void> _continueHttpAuthTransaction({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required String state,
+    required Map<String, Object?> body,
+    required SessionProfileSettings? sessionProfile,
+  }) async {
+    final pending = _pendingHttpAuthTransactions.remove(state);
+    if (pending == null) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.unauthorized,
+          headers: const {HttpHeaders.wwwAuthenticateHeader: 'Bearer'},
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'invalid_state',
+            'message': 'Authentication state is unknown or expired',
+          }),
+        ),
+      );
+      return;
+    }
+    if (pending.expiresAt.isBefore(DateTime.now().toUtc())) {
+      await pending.abort(reason: 'http_auth_timeout');
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.unauthorized,
+          headers: const {HttpHeaders.wwwAuthenticateHeader: 'Bearer'},
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'expired_state',
+            'message': 'Authentication state expired',
+          }),
+        ),
+      );
+      return;
+    }
+
+    final signature = _firstNonEmptyString(
+      body['signature'],
+      _headerValue(request.headers, 'x-connectanum-auth-signature'),
+    );
+    if (signature == null || signature.isEmpty) {
+      await pending.abort(reason: 'missing_signature');
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.badRequest,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'missing_signature',
+            'message': 'signature is required to complete authentication',
+          }),
+        ),
+      );
+      return;
+    }
+    final extra = body['extra'];
+    final message = AuthenticateMessage(
+      signature: signature,
+      extra: extra is Map<String, Object?>
+          ? Map<String, Object?>.from(extra)
+          : extra is Map
+          ? Map<String, Object?>.from(extra)
+          : const <String, Object?>{},
+    );
+    final result = await pending.authenticator.onAuthenticate(
+      pending.context,
+      message,
+    );
+    switch (result.status) {
+      case AuthStatus.challenge:
+        final nextState = _randomHttpAuthToken();
+        _pendingHttpAuthTransactions[nextState] = pending.copyWith(
+          state: nextState,
+          expiresAt: DateTime.now().toUtc().add(const Duration(seconds: 10)),
+        );
+        await _sendImmediateHttpResponse(
+          request: request,
+          handshake: handshake,
+          response: NativeHttpResponse(
+            status: HttpStatus.unauthorized,
+            headers: const {HttpHeaders.wwwAuthenticateHeader: 'Bearer'},
+            body: NativeHttpResponseJson(<String, Object?>{
+              'status': 'challenge',
+              'state': nextState,
+              'realm': pending.realmUri,
+              'authmethod': pending.authMethod,
+              'challenge': result.challenge!.challenge,
+              'extra': result.challenge!.extra,
+            }),
+          ),
+        );
+      case AuthStatus.success:
+        final realmSettings = _realmSettingsFor(pending.realmUri);
+        if (realmSettings == null) {
+          await _sendImmediateHttpResponse(
+            request: request,
+            handshake: handshake,
+            response: NativeHttpResponse(
+              status: HttpStatus.unauthorized,
+              body: NativeHttpResponseJson(<String, Object?>{
+                'status': 'error',
+                'reason': wamp_core.Error.noSuchRealm,
+                'message': 'Realm ${pending.realmUri} is no longer configured',
+              }),
+            ),
+          );
+          return;
+        }
+        final token = _issueHttpAuthToken(
+          realmUri: pending.realmUri,
+          authMethod: pending.authMethod,
+          success: result.success!,
+          sessionProfileName:
+              pending.sessionProfileName ?? sessionProfile?.name,
+          route: null,
+          listenerSettings: null,
+          realmSettings: realmSettings,
+        );
+        await _sendImmediateHttpResponse(
+          request: request,
+          handshake: handshake,
+          response: NativeHttpResponse(
+            status: HttpStatus.ok,
+            body: NativeHttpResponseJson(_httpAuthSuccessPayload(token)),
+          ),
+        );
+      case AuthStatus.failure:
+        await pending.abort(reason: 'authenticate_failed');
+        await _sendImmediateHttpResponse(
+          request: request,
+          handshake: handshake,
+          response: NativeHttpResponse(
+            status: HttpStatus.unauthorized,
+            headers: const {HttpHeaders.wwwAuthenticateHeader: 'Bearer'},
+            body: NativeHttpResponseJson(<String, Object?>{
+              'status': 'error',
+              'reason': result.failure!.reason,
+              if (result.failure!.message != null)
+                'message': result.failure!.message,
+            }),
+          ),
+        );
+    }
+  }
+
+  RealmSettings? _realmSettingsFor(String realmUri) {
+    for (final realm in settings.realms) {
+      if (realm.name == realmUri) {
+        return realm;
+      }
+    }
+    return null;
+  }
+
+  String? _resolveHttpAuthRealm({
+    required RouterHttpRequest request,
+    required HttpRouteSettings route,
+    required SessionProfileSettings? sessionProfile,
+    required Map<String, Object?> body,
+    required Map<String, String> query,
+  }) {
+    final bodyRealm = _firstNonEmptyString(body['realm']);
+    if (bodyRealm != null) {
+      return bodyRealm;
+    }
+    final queryRealm = _firstNonEmptyString(query['realm']);
+    if (queryRealm != null) {
+      return queryRealm;
+    }
+    final headerRealm = _headerValue(request.headers, 'x-connectanum-realm');
+    if (headerRealm != null && headerRealm.isNotEmpty) {
+      return headerRealm;
+    }
+    final routeRealm = route.action.realm?.trim();
+    if (routeRealm != null && routeRealm.isNotEmpty) {
+      return routeRealm;
+    }
+    final profileRealm = sessionProfile?.realm?.trim();
+    if (profileRealm != null && profileRealm.isNotEmpty) {
+      return profileRealm;
+    }
+    final requestRealm = request.realm?.trim();
+    if (requestRealm != null && requestRealm.isNotEmpty) {
+      return requestRealm;
+    }
+    return null;
+  }
+
+  Future<RouterSession> _authenticatedHttpSessionForToken({
+    required String token,
+    required String realmUri,
+    required SessionProfileSettings? sessionProfile,
+  }) async {
+    final record = _httpAuthTokens[token];
+    if (record == null) {
+      throw const _HttpUnauthorized(
+        reason: 'invalid_token',
+        message: 'Bearer token is unknown',
+      );
+    }
+    if (record.expiresAt.isBefore(DateTime.now().toUtc())) {
+      await _expireHttpAuthToken(token);
+      throw const _HttpUnauthorized(
+        reason: 'expired_token',
+        message: 'Bearer token expired',
+      );
+    }
+    if (record.realmUri != realmUri) {
+      throw const _HttpUnauthorized(
+        reason: 'wrong_realm',
+        message: 'Bearer token does not grant access to this realm',
+      );
+    }
+    final allowedMethods = sessionProfile?.auth.methods;
+    if (allowedMethods != null &&
+        allowedMethods.isNotEmpty &&
+        !allowedMethods.contains('anonymous') &&
+        !allowedMethods.contains(record.authMethod)) {
+      throw const _HttpUnauthorized(
+        reason: 'wrong_authmethod',
+        message: 'Bearer token auth method is not allowed for this route',
+      );
+    }
+    final cacheKey =
+        sessionProfile?.name != null && sessionProfile!.name.isNotEmpty
+        ? '${record.cacheKeyPrefix}:${sessionProfile.name}'
+        : record.cacheKeyPrefix;
+    return _ensureInternalSession(
+      realmUri: realmUri,
+      authId: record.authId,
+      authRole: record.authRole,
+      sessionProfile: sessionProfile?.name,
+      cacheKey: cacheKey,
+    );
+  }
+
+  bool _httpProfileAllowsAnonymous(SessionProfileSettings? sessionProfile) {
+    final methods = sessionProfile?.auth.methods;
+    if (methods == null || methods.isEmpty) {
+      return true;
+    }
+    return methods.contains('anonymous');
+  }
+
+  String? _extractBearerToken(Map<String, String> headers) {
+    final header = _headerValue(headers, HttpHeaders.authorizationHeader);
+    if (header == null) {
+      return null;
+    }
+    const prefix = 'Bearer ';
+    if (!header.startsWith(prefix) || header.length <= prefix.length) {
+      return null;
+    }
+    return header.substring(prefix.length).trim();
+  }
+
+  Map<String, String> _httpUnauthorizedHeaders({
+    required String realm,
+    required String authPath,
+  }) {
+    return <String, String>{
+      HttpHeaders.wwwAuthenticateHeader:
+          'Bearer realm="$realm", auth_path="$authPath"',
+    };
+  }
+
+  String _httpAuthPathFor(HttpListenerSettings? httpSettings) {
+    if (httpSettings == null) {
+      return '/auth';
+    }
+    for (final route in httpSettings.routes) {
+      if (route.action.type == HttpRouteActionType.auth &&
+          route.match.path != null &&
+          route.match.path!.isNotEmpty) {
+        return route.match.path!;
+      }
+    }
+    return '/auth';
+  }
+
+  Future<void> _sendImmediateHttpResponse({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required NativeHttpResponse response,
+  }) async {
+    final handle = handshake?.handle ?? request.handshakeHandle;
+    if (handle <= 0) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_response_send_unsupported',
+        'connectionId': request.connectionId,
+        'listenerId': request.listenerId,
+        'error': 'missing native handshake handle',
+      });
+      return;
+    }
+    runtime.sendHttpResponse(
+      handshakeHandle: handle,
+      connectionId: request.connectionId,
+      response: response,
+    );
+  }
+
+  Map<String, Object?> _decodeHttpJsonBody(RouterHttpRequest request) {
+    final bytes = request.body;
+    if (bytes.isEmpty) {
+      return <String, Object?>{};
+    }
+    final decoded = jsonDecode(utf8.decode(bytes));
+    if (decoded is Map<String, Object?>) {
+      return Map<String, Object?>.from(decoded);
+    }
+    if (decoded is Map) {
+      return Map<String, Object?>.from(decoded);
+    }
+    throw FormatException('HTTP auth body must decode to a JSON object');
+  }
+
+  Map<String, String> _httpQueryParameters(RouterHttpRequest request) {
+    final query = request.query;
+    if (query == null || query.isEmpty) {
+      return const <String, String>{};
+    }
+    return Uri.splitQueryString(query);
+  }
+
+  String? _headerValue(Map<String, String> headers, String name) {
+    final lower = name.toLowerCase();
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() == lower) {
+        return entry.value;
+      }
+    }
+    return null;
+  }
+
+  String? _firstNonEmptyString([Object? a, Object? b, Object? c]) {
+    for (final candidate in <Object?>[a, b, c]) {
+      if (candidate is String) {
+        final trimmed = candidate.trim();
+        if (trimmed.isNotEmpty) {
+          return trimmed;
+        }
+      }
+    }
+    return null;
+  }
+
+  _HttpAuthTokenRecord _issueHttpAuthToken({
+    required String realmUri,
+    required String authMethod,
+    required AuthSuccess success,
+    required String? sessionProfileName,
+    required HttpRouteSettings? route,
+    required ListenerSettings? listenerSettings,
+    required RealmSettings realmSettings,
+  }) {
+    final ttl = _resolveHttpAuthTokenTtl(
+      route: route,
+      listenerSettings: listenerSettings,
+      realmSettings: realmSettings,
+    );
+    final token = _randomHttpAuthToken();
+    final record = _HttpAuthTokenRecord(
+      token: token,
+      realmUri: realmUri,
+      authMethod: authMethod,
+      authId: success.authId,
+      authRole: success.authRole,
+      details: Map<String, Object?>.unmodifiable(success.details),
+      sessionProfileName: sessionProfileName,
+      expiresAt: DateTime.now().toUtc().add(ttl),
+    );
+    _httpAuthTokens[token] = record;
+    return record;
+  }
+
+  Duration _resolveHttpAuthTokenTtl({
+    required HttpRouteSettings? route,
+    required ListenerSettings? listenerSettings,
+    required RealmSettings realmSettings,
+  }) {
+    final routeTtl = route?.action.options['token_ttl_ms'];
+    if (routeTtl is int && routeTtl > 0) {
+      return Duration(milliseconds: routeTtl);
+    }
+    final listenerTtl = listenerSettings?.http?.options['auth_token_ttl_ms'];
+    if (listenerTtl is int && listenerTtl > 0) {
+      return Duration(milliseconds: listenerTtl);
+    }
+    final idleMs = realmSettings.limits.sessionIdleMs;
+    if (idleMs > 0) {
+      return Duration(milliseconds: idleMs);
+    }
+    return const Duration(minutes: 15);
+  }
+
+  String _randomHttpAuthToken([int bytes = 32]) {
+    final values = List<int>.generate(bytes, (_) => _random.nextInt(256));
+    return base64Url.encode(values);
+  }
+
+  Map<String, Object?> _httpAuthSuccessPayload(_HttpAuthTokenRecord record) {
+    return <String, Object?>{
+      'status': 'ok',
+      'token_type': 'Bearer',
+      'access_token': record.token,
+      'realm': record.realmUri,
+      'authid': record.authId,
+      'authrole': record.authRole,
+      'authmethod': record.authMethod,
+      'expires_in': record.expiresIn.inSeconds,
+      if (record.details.isNotEmpty) 'details': record.details,
+    };
+  }
+
+  void _cleanupExpiredHttpAuthState() {
+    if (_pendingHttpAuthTransactions.isEmpty && _httpAuthTokens.isEmpty) {
+      return;
+    }
+    final now = DateTime.now().toUtc();
+    final expiredPending = _pendingHttpAuthTransactions.entries
+        .where((entry) => entry.value.expiresAt.isBefore(now))
+        .map((entry) => entry.key)
+        .toList(growable: false);
+    for (final state in expiredPending) {
+      final pending = _pendingHttpAuthTransactions.remove(state);
+      if (pending != null) {
+        unawaited(pending.abort(reason: 'http_auth_timeout'));
+      }
+    }
+    final expiredTokens = _httpAuthTokens.entries
+        .where((entry) => entry.value.expiresAt.isBefore(now))
+        .map((entry) => entry.key)
+        .toList(growable: false);
+    for (final token in expiredTokens) {
+      unawaited(_expireHttpAuthToken(token));
+    }
+  }
+
+  Future<void> _expireHttpAuthToken(String token) async {
+    final record = _httpAuthTokens.remove(token);
+    if (record == null) {
+      return;
+    }
+    final cacheKeys = _internalSessionsByCacheKey.keys
+        .where(
+          (key) =>
+              key == record.cacheKeyPrefix ||
+              key.startsWith('${record.cacheKeyPrefix}:'),
+        )
+        .toList(growable: false);
+    for (final cacheKey in cacheKeys) {
+      final session = _internalSessionsByCacheKey[cacheKey];
+      if (session != null) {
+        await session.close();
+      }
+    }
   }
 
   NativeHttpResponse _toNativeHttpResponse(HttpResponsePayload payload) {
@@ -1445,6 +2453,10 @@ class RouterBinding {
           authId: internal.authId,
           authRole: internal.authRole,
           roles: internal.roles,
+          sessionProfile: internal.sessionProfile,
+          cacheKey: internal.sessionProfile?.trim().isNotEmpty == true
+              ? internal.sessionProfile!.trim()
+              : internal.name,
         );
         if (metricsEnabled && internal.name == metricsConfig!.realm) {
           if (!internal.services.contains('metrics')) {
@@ -2476,6 +3488,83 @@ class _ProcedureMetricsDetail {
     'policy': policy.name,
     'callee_count': calleeCount,
   };
+}
+
+class _PendingHttpAuthTransaction {
+  const _PendingHttpAuthTransaction({
+    required this.state,
+    required this.realmUri,
+    required this.authMethod,
+    required this.authId,
+    required this.authenticator,
+    required this.context,
+    required this.sessionProfileName,
+    required this.expiresAt,
+  });
+
+  final String state;
+  final String realmUri;
+  final String authMethod;
+  final String? authId;
+  final Authenticator authenticator;
+  final AuthenticatorContext context;
+  final String? sessionProfileName;
+  final DateTime expiresAt;
+
+  _PendingHttpAuthTransaction copyWith({String? state, DateTime? expiresAt}) {
+    return _PendingHttpAuthTransaction(
+      state: state ?? this.state,
+      realmUri: realmUri,
+      authMethod: authMethod,
+      authId: authId,
+      authenticator: authenticator,
+      context: context,
+      sessionProfileName: sessionProfileName,
+      expiresAt: expiresAt ?? this.expiresAt,
+    );
+  }
+
+  Future<void> abort({String? reason}) =>
+      authenticator.onAbort(context, reason: reason);
+}
+
+class _HttpAuthTokenRecord {
+  const _HttpAuthTokenRecord({
+    required this.token,
+    required this.realmUri,
+    required this.authMethod,
+    required this.authId,
+    required this.authRole,
+    required this.details,
+    required this.sessionProfileName,
+    required this.expiresAt,
+  });
+
+  final String token;
+  final String realmUri;
+  final String authMethod;
+  final String authId;
+  final String authRole;
+  final Map<String, Object?> details;
+  final String? sessionProfileName;
+  final DateTime expiresAt;
+
+  String get cacheKeyPrefix => 'http-auth-token:$token';
+
+  Duration get expiresIn {
+    final remaining = expiresAt.difference(DateTime.now().toUtc());
+    if (remaining.isNegative) {
+      return Duration.zero;
+    }
+    return remaining;
+  }
+}
+
+class _HttpUnauthorized implements Exception {
+  const _HttpUnauthorized({required this.reason, this.message});
+
+  final String reason;
+  final String? message;
 }
 
 class _ParsedListenEndpoint {

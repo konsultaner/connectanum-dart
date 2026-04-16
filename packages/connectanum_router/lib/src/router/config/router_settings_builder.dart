@@ -4,6 +4,7 @@ import 'router_settings.dart';
 class RouterSettingsBuilder {
   final List<RealmSettings> _realms = [];
   final List<ListenerSettings> _listeners = [];
+  final List<SessionProfileSettings> _sessionProfiles = [];
   final Map<String, AuthenticatorDefinition> _authenticators = {};
   final List<InternalRealmSettings> _internalRealms = [];
   MetricsSettings? _metrics;
@@ -28,6 +29,18 @@ class RouterSettingsBuilder {
     ListenerSettingsBuilder builder,
   ) {
     _listeners.add(builder.build());
+    return this;
+  }
+
+  RouterSettingsBuilder addSessionProfile(SessionProfileSettings profile) {
+    _sessionProfiles.add(profile);
+    return this;
+  }
+
+  RouterSettingsBuilder addSessionProfileFromBuilder(
+    SessionProfileSettingsBuilder builder,
+  ) {
+    _sessionProfiles.add(builder.build());
     return this;
   }
 
@@ -64,10 +77,74 @@ class RouterSettingsBuilder {
   RouterSettings build() => RouterSettings(
     realms: List.unmodifiable(_realms),
     listeners: List.unmodifiable(_listeners),
+    sessionProfiles: List.unmodifiable(_sessionProfiles),
     internalRealms: List.unmodifiable(_internalRealms),
     metrics: _metrics,
     authenticators: Map.unmodifiable(_authenticators),
     workerPool: _workerPool,
+  );
+}
+
+class SessionProfileSettingsBuilder {
+  SessionProfileSettingsBuilder(this.name);
+
+  final String name;
+  String? realm;
+  final List<String> _authMethods = [];
+  String? authId;
+  String? authRole;
+  final Map<String, Object?> _roles = {};
+
+  SessionProfileSettingsBuilder setRealm(String? value) {
+    realm = value;
+    return this;
+  }
+
+  SessionProfileSettingsBuilder addAuthMethod(String method) {
+    if (!_authMethods.contains(method)) {
+      _authMethods.add(method);
+    }
+    return this;
+  }
+
+  SessionProfileSettingsBuilder setAuthMethods(Iterable<String> methods) {
+    _authMethods
+      ..clear()
+      ..addAll(methods);
+    return this;
+  }
+
+  SessionProfileSettingsBuilder setAuthId(String? value) {
+    authId = value;
+    return this;
+  }
+
+  SessionProfileSettingsBuilder setAuthRole(String? value) {
+    authRole = value;
+    return this;
+  }
+
+  SessionProfileSettingsBuilder setRoles(Map<String, Object?> roles) {
+    _roles
+      ..clear()
+      ..addAll(roles);
+    return this;
+  }
+
+  SessionProfileSettingsBuilder putRole(String role, Object? definition) {
+    _roles[role] = definition;
+    return this;
+  }
+
+  SessionProfileSettings build() => SessionProfileSettings(
+    name: name,
+    realm: realm,
+    auth: SessionProfileAuthSettings(
+      methods: List.unmodifiable(_authMethods),
+      authId: authId,
+      authRole: authRole,
+    ),
+    roles: Map.unmodifiable(_roles),
   );
 }
 
@@ -191,6 +268,7 @@ class ListenerSettingsBuilder {
   final String type;
   final String endpoint;
   final List<String> authmethods = [];
+  String? sessionProfile;
   String? path;
   Map<String, Object?>? tls;
   Map<String, Object?> options = const {};
@@ -208,6 +286,11 @@ class ListenerSettingsBuilder {
 
   ListenerSettingsBuilder setPath(String value) {
     path = value;
+    return this;
+  }
+
+  ListenerSettingsBuilder setSessionProfile(String? value) {
+    sessionProfile = value;
     return this;
   }
 
@@ -255,6 +338,7 @@ class ListenerSettingsBuilder {
     type: type,
     endpoint: endpoint,
     authmethods: List.unmodifiable(authmethods),
+    sessionProfile: sessionProfile,
     path: path,
     tls: tls,
     options: options,
@@ -273,6 +357,7 @@ class InternalRealmSettingsBuilder {
   final String name;
   String? authId;
   String? authRole;
+  String? sessionProfile;
   final Map<String, Object?> _roles = {};
   final Set<String> _services = <String>{};
 
@@ -283,6 +368,11 @@ class InternalRealmSettingsBuilder {
 
   InternalRealmSettingsBuilder setAuthRole(String? value) {
     authRole = value;
+    return this;
+  }
+
+  InternalRealmSettingsBuilder setSessionProfile(String? value) {
+    sessionProfile = value;
     return this;
   }
 
@@ -314,6 +404,7 @@ class InternalRealmSettingsBuilder {
     name: name,
     authId: authId,
     authRole: authRole,
+    sessionProfile: sessionProfile,
     roles: Map.unmodifiable(_roles),
     services: _services.isEmpty ? null : Set<String>.from(_services),
   );

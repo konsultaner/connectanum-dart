@@ -25,6 +25,7 @@ class RouterSettings {
   const RouterSettings({
     required this.realms,
     required this.listeners,
+    this.sessionProfiles = const [],
     this.internalRealms = const [],
     this.metrics,
     this.authenticators = const {},
@@ -33,6 +34,7 @@ class RouterSettings {
 
   final List<RealmSettings> realms;
   final List<ListenerSettings> listeners;
+  final List<SessionProfileSettings> sessionProfiles;
   final List<InternalRealmSettings> internalRealms;
   final MetricsSettings? metrics;
   final Map<String, AuthenticatorDefinition> authenticators;
@@ -41,6 +43,7 @@ class RouterSettings {
   RouterSettings copyWith({
     List<RealmSettings>? realms,
     List<ListenerSettings>? listeners,
+    List<SessionProfileSettings>? sessionProfiles,
     List<InternalRealmSettings>? internalRealms,
     MetricsSettings? metrics,
     Map<String, AuthenticatorDefinition>? authenticators,
@@ -49,6 +52,7 @@ class RouterSettings {
     return RouterSettings(
       realms: realms ?? this.realms,
       listeners: listeners ?? this.listeners,
+      sessionProfiles: sessionProfiles ?? this.sessionProfiles,
       internalRealms: internalRealms ?? this.internalRealms,
       metrics: metrics ?? this.metrics,
       authenticators: authenticators ?? this.authenticators,
@@ -64,6 +68,71 @@ class AuthenticatorDefinition {
 
   final String type;
   final Map<String, Object?> options;
+}
+
+/// Shared session/auth profile that multiple transports can reference.
+@immutable
+class SessionProfileSettings {
+  const SessionProfileSettings({
+    required this.name,
+    this.realm,
+    this.auth = const SessionProfileAuthSettings(),
+    this.roles = const {},
+  });
+
+  final String name;
+  final String? realm;
+  final SessionProfileAuthSettings auth;
+  final Map<String, Object?> roles;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    return other is SessionProfileSettings &&
+        other.name == name &&
+        other.realm == realm &&
+        other.auth == auth &&
+        const DeepCollectionEquality().equals(other.roles, roles);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    name,
+    realm,
+    auth,
+    const DeepCollectionEquality().hash(roles),
+  );
+}
+
+/// Authentication and identity defaults for a [SessionProfileSettings].
+@immutable
+class SessionProfileAuthSettings {
+  const SessionProfileAuthSettings({
+    this.methods = const [],
+    this.authId,
+    this.authRole,
+  });
+
+  final List<String> methods;
+  final String? authId;
+  final String? authRole;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    return other is SessionProfileAuthSettings &&
+        const ListEquality<String>().equals(other.methods, methods) &&
+        other.authId == authId &&
+        other.authRole == authRole;
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(const ListEquality<String>().hash(methods), authId, authRole);
 }
 
 /// Configuration for an individual realm.
@@ -213,6 +282,7 @@ class ListenerSettings {
     required this.endpoint,
     this.type,
     this.authmethods = const [],
+    this.sessionProfile,
     this.path,
     this.tls,
     this.options = const {},
@@ -225,6 +295,7 @@ class ListenerSettings {
   final String? type;
   final String endpoint;
   final List<String> authmethods;
+  final String? sessionProfile;
   final String? path;
   final Map<String, Object?>? tls;
   final Map<String, Object?> options;
@@ -245,6 +316,7 @@ class ListenerSettings {
         other.type == type &&
         other.endpoint == endpoint &&
         const ListEquality<String>().equals(other.authmethods, authmethods) &&
+        other.sessionProfile == sessionProfile &&
         other.path == path &&
         const DeepCollectionEquality().equals(other.tls, tls) &&
         const DeepCollectionEquality().equals(other.options, options) &&
@@ -262,6 +334,7 @@ class ListenerSettings {
     type,
     endpoint,
     const ListEquality<String>().hash(authmethods),
+    sessionProfile,
     path,
     const DeepCollectionEquality().hash(tls),
     const DeepCollectionEquality().hash(options),
@@ -478,6 +551,7 @@ class InternalRealmSettings {
     required this.name,
     this.authId,
     this.authRole,
+    this.sessionProfile,
     Map<String, Object?> roles = const {},
     Set<String>? services,
   }) : roles = Map.unmodifiable(roles),
@@ -488,6 +562,7 @@ class InternalRealmSettings {
   final String name;
   final String? authId;
   final String? authRole;
+  final String? sessionProfile;
   final Map<String, Object?> roles;
   final Set<String> services;
 
@@ -495,12 +570,14 @@ class InternalRealmSettings {
     String? name,
     String? authId,
     String? authRole,
+    String? sessionProfile,
     Map<String, Object?>? roles,
     Set<String>? services,
   }) => InternalRealmSettings(
     name: name ?? this.name,
     authId: authId ?? this.authId,
     authRole: authRole ?? this.authRole,
+    sessionProfile: sessionProfile ?? this.sessionProfile,
     roles: roles ?? this.roles,
     services: services ?? this.services,
   );
@@ -514,6 +591,7 @@ class InternalRealmSettings {
         other.name == name &&
         other.authId == authId &&
         other.authRole == authRole &&
+        other.sessionProfile == sessionProfile &&
         const DeepCollectionEquality().equals(other.roles, roles) &&
         const SetEquality<String>().equals(other.services, services);
   }
@@ -523,6 +601,7 @@ class InternalRealmSettings {
     name,
     authId,
     authRole,
+    sessionProfile,
     const DeepCollectionEquality().hash(roles),
     const SetEquality<String>().hash(services),
   );
@@ -595,12 +674,14 @@ class HttpListenerSettings {
   const HttpListenerSettings({
     this.alpn = const [],
     this.http3,
+    this.sessionProfile,
     this.routes = const [],
     this.options = const {},
   });
 
   final List<String> alpn;
   final Http3Settings? http3;
+  final String? sessionProfile;
   final List<HttpRouteSettings> routes;
   final Map<String, Object?> options;
 
@@ -612,6 +693,7 @@ class HttpListenerSettings {
     return other is HttpListenerSettings &&
         const ListEquality<String>().equals(other.alpn, alpn) &&
         other.http3 == http3 &&
+        other.sessionProfile == sessionProfile &&
         const ListEquality<HttpRouteSettings>().equals(other.routes, routes) &&
         const DeepCollectionEquality().equals(other.options, options);
   }
@@ -620,6 +702,7 @@ class HttpListenerSettings {
   int get hashCode => Object.hash(
     const ListEquality<String>().hash(alpn),
     http3,
+    sessionProfile,
     const ListEquality<HttpRouteSettings>().hash(routes),
     const DeepCollectionEquality().hash(options),
   );
@@ -649,6 +732,7 @@ class Http3Settings {
 enum HttpRouteActionType {
   rpc,
   internalCall,
+  auth,
   reservedRealm,
   namespace,
   file,
@@ -662,6 +746,8 @@ HttpRouteActionType httpRouteActionTypeFromString(String value) {
       return HttpRouteActionType.rpc;
     case 'internal_call':
       return HttpRouteActionType.internalCall;
+    case 'auth':
+      return HttpRouteActionType.auth;
     case 'reserved_realm':
       return HttpRouteActionType.reservedRealm;
     case 'namespace':
@@ -680,6 +766,7 @@ HttpRouteActionType httpRouteActionTypeFromString(String value) {
 String httpRouteActionTypeToString(HttpRouteActionType type) => switch (type) {
   HttpRouteActionType.rpc => 'rpc',
   HttpRouteActionType.internalCall => 'internal_call',
+  HttpRouteActionType.auth => 'auth',
   HttpRouteActionType.reservedRealm => 'reserved_realm',
   HttpRouteActionType.namespace => 'namespace',
   HttpRouteActionType.file => 'file',
@@ -736,6 +823,7 @@ class HttpRouteAction {
     required this.type,
     this.procedure,
     this.realm,
+    this.sessionProfile,
     this.namespace,
     this.appendMethodSuffix,
     this.topic,
@@ -750,6 +838,7 @@ class HttpRouteAction {
   final HttpRouteActionType type;
   final String? procedure;
   final String? realm;
+  final String? sessionProfile;
   final String? namespace;
   final bool? appendMethodSuffix;
   final String? topic;
@@ -769,6 +858,7 @@ class HttpRouteAction {
         other.type == type &&
         other.procedure == procedure &&
         other.realm == realm &&
+        other.sessionProfile == sessionProfile &&
         other.namespace == namespace &&
         other.appendMethodSuffix == appendMethodSuffix &&
         other.topic == topic &&
@@ -785,6 +875,7 @@ class HttpRouteAction {
     type,
     procedure,
     realm,
+    sessionProfile,
     namespace,
     appendMethodSuffix,
     topic,
@@ -829,6 +920,10 @@ class RouterSettingsEquality implements Equality<RouterSettings> {
         e1.listeners,
         e2.listeners,
       ) &&
+      const ListEquality<SessionProfileSettings>().equals(
+        e1.sessionProfiles,
+        e2.sessionProfiles,
+      ) &&
       const ListEquality<InternalRealmSettings>().equals(
         e1.internalRealms,
         e2.internalRealms,
@@ -844,6 +939,7 @@ class RouterSettingsEquality implements Equality<RouterSettings> {
   int hash(RouterSettings e) => Object.hash(
     const ListEquality<RealmSettings>().hash(e.realms),
     const ListEquality<ListenerSettings>().hash(e.listeners),
+    const ListEquality<SessionProfileSettings>().hash(e.sessionProfiles),
     const ListEquality<InternalRealmSettings>().hash(e.internalRealms),
     const DeepCollectionEquality().hash(e.authenticators),
     e.metrics,

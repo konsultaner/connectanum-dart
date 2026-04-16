@@ -8094,6 +8094,7 @@ class _StateErrorRealmContext extends RealmContext {
   PendingInvocation _buildInvocation() => PendingInvocation(
     invocationId: invocationId,
     registrationId: registrationId,
+    procedure: 'com.example.proc',
     callerRequestId: callerRequestId,
     calleeSessionId: calleeSessionId,
     calleeConnectionId: calleeConnectionId,

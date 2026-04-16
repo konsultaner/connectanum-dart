@@ -8,6 +8,23 @@
         },
         "roles": [
           {
+            "name": "anonymous",
+            "permissions": [
+              {
+                "uri": "",
+                "match": "prefix",
+                "allow": [
+                  "register",
+                  "unregister",
+                  "subscribe",
+                  "unsubscribe",
+                  "publish",
+                  "call"
+                ]
+              }
+            ]
+          },
+          {
             "name": "bench",
             "permissions": [
               {

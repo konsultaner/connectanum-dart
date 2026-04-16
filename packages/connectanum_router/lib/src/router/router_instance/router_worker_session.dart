@@ -254,6 +254,19 @@ Future<void> _handleSubscribe({
     final context = realmContexts.contextFor(state.realmUri!);
     final matchPolicy = _matchPolicyFromSubscribe(message.options);
     _validateTopicUri(message.topic, matchPolicy);
+    if (!await _authorizeStateActionOrSendError(
+      bossPort: bossPort,
+      state: state,
+      connectionId: connectionId,
+      requestType: MessageTypes.codeSubscribe,
+      requestId: message.requestId,
+      action: AuthorizationAction.subscribe,
+      uri: message.topic,
+      targetMatchPolicy: _permissionMatchPolicyFromTopic(matchPolicy),
+      options: _subscriptionDetailsFromOptions(message.options),
+    )) {
+      return;
+    }
     final subscriptionId = await context.addSubscription(
       sessionId: state.sessionId!,
       topic: message.topic,
@@ -346,6 +359,20 @@ Future<void> _handleUnsubscribe({
         '$sessionId',
       );
     }
+    if (!await _authorizeStateActionOrSendError(
+      bossPort: bossPort,
+      state: state,
+      connectionId: connectionId,
+      requestType: MessageTypes.codeUnsubscribe,
+      requestId: message.requestId,
+      action: AuthorizationAction.unsubscribe,
+      uri: subscription!.topic,
+      targetMatchPolicy: _permissionMatchPolicyFromTopic(
+        subscription.matchPolicy,
+      ),
+    )) {
+      return;
+    }
     await context.removeSubscription(
       sessionId: sessionId,
       subscriptionId: message.subscriptionId,
@@ -404,6 +431,19 @@ Future<void> _handleRegister({
     final context = realmContexts.contextFor(state.realmUri!);
     final matchPolicy = _matchPolicyFromRegisterOptions(message.options);
     _validateProcedureUri(message.procedure, matchPolicy);
+    if (!await _authorizeStateActionOrSendError(
+      bossPort: bossPort,
+      state: state,
+      connectionId: connectionId,
+      requestType: MessageTypes.codeRegister,
+      requestId: message.requestId,
+      action: AuthorizationAction.register,
+      uri: message.procedure,
+      targetMatchPolicy: _permissionMatchPolicyFromProcedure(matchPolicy),
+      options: _registrationDetailsFromOptions(message.options),
+    )) {
+      return;
+    }
     final registrationId = await context.registerProcedure(
       sessionId: state.sessionId!,
       procedure: message.procedure,
@@ -496,6 +536,20 @@ Future<void> _handleUnregister({
         'Registration ${message.registrationId} not found for session '
         '$sessionId',
       );
+    }
+    if (!await _authorizeStateActionOrSendError(
+      bossPort: bossPort,
+      state: state,
+      connectionId: connectionId,
+      requestType: MessageTypes.codeUnregister,
+      requestId: message.requestId,
+      action: AuthorizationAction.unregister,
+      uri: registrationRecord!.procedure,
+      targetMatchPolicy: _permissionMatchPolicyFromProcedure(
+        registrationRecord.matchPolicy,
+      ),
+    )) {
+      return;
     }
     await context.unregisterProcedure(
       sessionId: sessionId,
@@ -606,6 +660,18 @@ Future<void> _handlePublish({
 
   var nativeForwardingFailed = false;
   try {
+    if (!await _authorizeStateActionOrSendError(
+      bossPort: bossPort,
+      state: state,
+      connectionId: connectionId,
+      requestType: MessageTypes.codePublish,
+      requestId: message.requestId,
+      action: AuthorizationAction.publish,
+      uri: message.topic,
+      options: _publishOptionsToMap(message.options),
+    )) {
+      return;
+    }
     final context = realmContexts.contextFor(state.realmUri!);
     final routing = await context.matchSubscriptions(
       publisherSessionId: state.sessionId!,
@@ -922,6 +988,18 @@ Future<void> _handleCall({
 
   var nativeForwardingFailed = false;
   try {
+    if (!await _authorizeStateActionOrSendError(
+      bossPort: bossPort,
+      state: state,
+      connectionId: connectionId,
+      requestType: MessageTypes.codeCall,
+      requestId: message.requestId,
+      action: AuthorizationAction.call,
+      uri: message.procedure,
+      options: _callOptionsToMap(message.options),
+    )) {
+      return;
+    }
     final context = realmContexts.contextFor(state.realmUri!);
     InvocationDispatchResult dispatch;
     try {
@@ -1110,6 +1188,17 @@ Future<void> _handleCancel({
         reason: _wampErrorNoSuchInvocation,
         detailsMessage: 'No active invocation for request ${message.requestId}',
       );
+      return;
+    }
+    if (!await _authorizeStateActionOrSendError(
+      bossPort: bossPort,
+      state: state,
+      connectionId: connectionId,
+      requestType: MessageTypes.codeCancel,
+      requestId: message.requestId,
+      action: AuthorizationAction.cancel,
+      uri: invocation.procedure,
+    )) {
       return;
     }
 
@@ -1970,6 +2059,26 @@ ProcedureMatchPolicy _matchPolicyFromRegisterOptions(
   return ProcedureMatchPolicy.exact;
 }
 
+PermissionMatchPolicy _permissionMatchPolicyFromTopic(
+  TopicMatchPolicy matchPolicy,
+) {
+  return switch (matchPolicy) {
+    TopicMatchPolicy.exact => PermissionMatchPolicy.exact,
+    TopicMatchPolicy.prefix => PermissionMatchPolicy.prefix,
+    TopicMatchPolicy.wildcard => PermissionMatchPolicy.wildcard,
+  };
+}
+
+PermissionMatchPolicy _permissionMatchPolicyFromProcedure(
+  ProcedureMatchPolicy matchPolicy,
+) {
+  return switch (matchPolicy) {
+    ProcedureMatchPolicy.exact => PermissionMatchPolicy.exact,
+    ProcedureMatchPolicy.prefix => PermissionMatchPolicy.prefix,
+    ProcedureMatchPolicy.wildcard => PermissionMatchPolicy.wildcard,
+  };
+}
+
 void _validateTopicUri(String topic, TopicMatchPolicy policy) {
   if (policy == TopicMatchPolicy.prefix && topic.endsWith('.')) {
     final trimmed = topic.substring(0, topic.length - 1);
@@ -2222,6 +2331,101 @@ Future<void> _closeSession({
   state.pendingChallengeExtra = null;
   state.pendingAuthId = null;
   state.challengeIssuedAt = null;
+}
+
+Future<AuthorizationDecision> _authorizeRealmAction({
+  required RealmSettings realmSettings,
+  required String realmUri,
+  required AuthorizationAction action,
+  required String uri,
+  required int sessionId,
+  required int? connectionId,
+  required String? authId,
+  required String? authRole,
+  required String? authMethod,
+  required String? authProvider,
+  required ListenerProtocol? protocol,
+  required bool isInternal,
+  Map<String, Object?> options = const <String, Object?>{},
+  PermissionMatchPolicy? targetMatchPolicy,
+}) {
+  return RealmAuthorizer.authorize(
+    realmSettings: realmSettings,
+    request: AuthorizationRequest(
+      realmUri: realmUri,
+      action: action,
+      uri: uri,
+      sessionId: sessionId,
+      connectionId: connectionId,
+      authId: authId,
+      authRole: authRole,
+      authMethod: authMethod,
+      authProvider: authProvider,
+      protocol: protocol,
+      options: options,
+      targetMatchPolicy: targetMatchPolicy,
+      isInternal: isInternal,
+    ),
+  );
+}
+
+Future<bool> _authorizeStateActionOrSendError({
+  required SendPort bossPort,
+  required WorkerConnectionState state,
+  required int connectionId,
+  required int requestType,
+  required int requestId,
+  required AuthorizationAction action,
+  required String uri,
+  Map<String, Object?> options = const <String, Object?>{},
+  PermissionMatchPolicy? targetMatchPolicy,
+}) async {
+  final realmSettings = state.realmSettings;
+  final realmUri = state.realmUri;
+  final sessionId = state.sessionId;
+  if (realmSettings == null || realmUri == null || sessionId == null) {
+    await _sendSessionError(
+      bossPort: bossPort,
+      state: state,
+      connectionId: connectionId,
+      requestType: requestType,
+      requestId: requestId,
+      reason: 'wamp.error.not_supported',
+      detailsMessage: 'Session authorization context unavailable',
+    );
+    return false;
+  }
+  final welcomeDetails = state.welcomeDetails;
+  final decision = await _authorizeRealmAction(
+    realmSettings: realmSettings,
+    realmUri: realmUri,
+    action: action,
+    uri: uri,
+    sessionId: sessionId,
+    connectionId: connectionId,
+    authId: welcomeDetails?.authid,
+    authRole: welcomeDetails?.authrole,
+    authMethod: welcomeDetails?.authmethod ?? state.authMethod,
+    authProvider: welcomeDetails?.authprovider,
+    protocol: state.protocol ?? state.listenerSettings.primaryProtocol,
+    isInternal: false,
+    options: options,
+    targetMatchPolicy: targetMatchPolicy,
+  );
+  if (decision.allowed) {
+    return true;
+  }
+  await _sendSessionError(
+    bossPort: bossPort,
+    state: state,
+    connectionId: connectionId,
+    requestType: requestType,
+    requestId: requestId,
+    reason: decision.reason,
+    detailsMessage:
+        decision.message ?? 'Not authorized to ${action.operationName} $uri',
+  );
+  return false;
 }
 
 int? _messageTypeCode(AbstractMessage message) => switch (message) {

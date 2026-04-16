@@ -33,15 +33,31 @@ void main() {
           RealmSettingsBuilder('bench.control')
             ..addAuthMethod('anonymous')
             ..addRoleFromBuilder(
+              RoleSettingsBuilder('anonymous')..addPermissionFromBuilder(
+                PermissionSettingsBuilder('')
+                  ..setMatchPolicy(PermissionMatchPolicy.prefix)
+                  ..allowOperations(const [
+                    'register',
+                    'unregister',
+                    'subscribe',
+                    'unsubscribe',
+                    'publish',
+                    'call',
+                  ]),
+              ),
+            )
+            ..addRoleFromBuilder(
               RoleSettingsBuilder('bench')..addPermissionFromBuilder(
-                PermissionSettingsBuilder('')..allowOperations(const [
-                  'register',
-                  'unregister',
-                  'subscribe',
-                  'unsubscribe',
-                  'publish',
-                  'call',
-                ]),
+                PermissionSettingsBuilder('')
+                  ..setMatchPolicy(PermissionMatchPolicy.prefix)
+                  ..allowOperations(const [
+                    'register',
+                    'unregister',
+                    'subscribe',
+                    'unsubscribe',
+                    'publish',
+                    'call',
+                  ]),
               ),
             ),
         )

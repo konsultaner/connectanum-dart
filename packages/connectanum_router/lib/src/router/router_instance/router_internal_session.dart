@@ -9,6 +9,7 @@ class RouterSession {
     required this.realmUri,
     required this.authId,
     required this.authRole,
+    this.cacheKey,
     required Map<String, Object?> roles,
     required SendPort commandPort,
     required ReceivePort controlPort,
@@ -29,6 +30,7 @@ class RouterSession {
   final String realmUri;
   final String? authId;
   final String? authRole;
+  final String? cacheKey;
   final Map<String, Object?> roles;
 
   final SendPort _commandPort;
@@ -1379,6 +1381,7 @@ class _InternalSessionBootstrap {
     required this.authId,
     required this.authRole,
     required this.roles,
+    required this.realmSettings,
     required this.statePort,
     required this.controlPort,
     required this.handshakePort,
@@ -1389,6 +1392,7 @@ class _InternalSessionBootstrap {
   final String? authId;
   final String? authRole;
   final Map<String, Object?> roles;
+  final RealmSettings? realmSettings;
   final SendPort statePort;
   final SendPort controlPort;
   final SendPort handshakePort;
@@ -1527,6 +1531,40 @@ class _InternalSessionIsolate {
     }
   }
 
+  Future<void> _authorizeActionOrThrow({
+    required AuthorizationAction action,
+    required String uri,
+    Map<String, Object?> options = const <String, Object?>{},
+    PermissionMatchPolicy? targetMatchPolicy,
+  }) async {
+    final realmSettings = _bootstrap.realmSettings;
+    if (realmSettings == null) {
+      throw StateError('Session authorization context unavailable');
+    }
+    final decision = await _authorizeRealmAction(
+      realmSettings: realmSettings,
+      realmUri: _bootstrap.realmUri,
+      action: action,
+      uri: uri,
+      sessionId: _bootstrap.sessionId,
+      connectionId: null,
+      authId: _bootstrap.authId,
+      authRole: _bootstrap.authRole,
+      authMethod: null,
+      authProvider: null,
+      protocol: null,
+      isInternal: true,
+      options: options,
+      targetMatchPolicy: targetMatchPolicy,
+    );
+    if (decision.allowed) {
+      return;
+    }
+    throw StateError(
+      decision.message ?? 'Not authorized to ${action.operationName} $uri',
+    );
+  }
+
   Future<int> _register(Map<String, Object?> payload) async {
     final procedure =
         payload['procedure'] as String? ??
@@ -1534,6 +1572,14 @@ class _InternalSessionIsolate {
     final context = _realmContexts.contextFor(_bootstrap.realmUri);
     final details = Map<String, Object?>.from(
       (payload['options'] as Map?)?.cast<String, Object?>() ?? const {},
+    );
+    final matchPolicy = _parseProcedureMatchPolicy(details['match'] as String?);
+    _validateProcedureUri(procedure, matchPolicy);
+    await _authorizeActionOrThrow(
+      action: AuthorizationAction.register,
+      uri: procedure,
+      options: details,
+      targetMatchPolicy: _permissionMatchPolicyFromProcedure(matchPolicy),
     );
     return context.registerProcedure(
       sessionId: _bootstrap.sessionId,
@@ -1547,6 +1593,34 @@ class _InternalSessionIsolate {
         payload['registrationId'] as int? ??
         (throw ArgumentError('registrationId is required'));
     final context = _realmContexts.contextFor(_bootstrap.realmUri);
+    final snapshot = await context.ensureSnapshot(forceRefresh: true);
+    RegistrationRecord? registrationRecord;
+    for (final candidate in snapshot.registrations) {
+      for (final callee in candidate.callees) {
+        if (callee.registrationId == registrationId) {
+          registrationRecord = callee;
+          break;
+        }
+      }
+      if (registrationRecord != null) {
+        break;
+      }
+    }
+    final ownsRegistration =
+        registrationRecord?.sessionId == _bootstrap.sessionId;
+    if (!ownsRegistration) {
+      throw StateError(
+        'Registration $registrationId not found for session '
+        '${_bootstrap.sessionId}',
+      );
+    }
+    await _authorizeActionOrThrow(
+      action: AuthorizationAction.unregister,
+      uri: registrationRecord!.procedure,
+      targetMatchPolicy: _permissionMatchPolicyFromProcedure(
+        registrationRecord.matchPolicy,
+      ),
+    );
     await context.unregisterProcedure(
       sessionId: _bootstrap.sessionId,
       registrationId: registrationId,
@@ -1563,6 +1637,13 @@ class _InternalSessionIsolate {
     final matchPolicy = _parseTopicMatchPolicy(
       details.remove('match') as String?,
     );
+    _validateTopicUri(topic, matchPolicy);
+    await _authorizeActionOrThrow(
+      action: AuthorizationAction.subscribe,
+      uri: topic,
+      options: details,
+      targetMatchPolicy: _permissionMatchPolicyFromTopic(matchPolicy),
+    );
     final context = _realmContexts.contextFor(_bootstrap.realmUri);
     return context.addSubscription(
       sessionId: _bootstrap.sessionId,
@@ -1577,6 +1658,32 @@ class _InternalSessionIsolate {
         payload['subscriptionId'] as int? ??
         (throw ArgumentError('subscriptionId is required'));
     final context = _realmContexts.contextFor(_bootstrap.realmUri);
+    final snapshot = await context.ensureSnapshot(forceRefresh: true);
+    SubscriptionSnapshot? subscription;
+    for (final candidate in snapshot.subscriptions) {
+      if (candidate.id == subscriptionId) {
+        subscription = candidate;
+        break;
+      }
+    }
+    final ownsSubscription =
+        subscription?.subscribers.any(
+          (subscriber) => subscriber.sessionId == _bootstrap.sessionId,
+        ) ??
+        false;
+    if (!ownsSubscription) {
+      throw StateError(
+        'Subscription $subscriptionId not found for session '
+        '${_bootstrap.sessionId}',
+      );
+    }
+    await _authorizeActionOrThrow(
+      action: AuthorizationAction.unsubscribe,
+      uri: subscription!.topic,
+      targetMatchPolicy: _permissionMatchPolicyFromTopic(
+        subscription.matchPolicy,
+      ),
+    );
     await context.removeSubscription(
       sessionId: _bootstrap.sessionId,
       subscriptionId: subscriptionId,
@@ -1598,6 +1705,11 @@ class _InternalSessionIsolate {
               ?.cast<String, dynamic>(),
         );
     final context = _realmContexts.contextFor(_bootstrap.realmUri);
+    await _authorizeActionOrThrow(
+      action: AuthorizationAction.publish,
+      uri: topic,
+      options: options,
+    );
     final eventPptScheme = options['ppt_scheme'] as String?;
     final eventPptSerializer = options['ppt_serializer'] as String?;
     final eventPptCipher = options['ppt_cipher'] as String?;
@@ -1700,6 +1812,11 @@ class _InternalSessionIsolate {
       (payload['options'] as Map?)?.cast<String, Object?>() ?? const {},
     );
     final context = _realmContexts.contextFor(_bootstrap.realmUri);
+    await _authorizeActionOrThrow(
+      action: AuthorizationAction.call,
+      uri: procedure,
+      options: options,
+    );
     final dispatch = await context.dispatchInvocation(
       callerSessionId: _bootstrap.sessionId,
       requestId: requestId,
@@ -1866,6 +1983,10 @@ class _InternalSessionIsolate {
       });
       return;
     }
+    await _authorizeActionOrThrow(
+      action: AuthorizationAction.cancel,
+      uri: invocation.procedure,
+    );
     final cancelMode = mode ?? cancel_msg.CancelOptions.modeSkip;
     final waitForAck = cancelMode == cancel_msg.CancelOptions.modeKill;
     final shouldInterrupt =
@@ -2069,6 +2190,16 @@ class _InternalSessionIsolate {
       'wildcard' => TopicMatchPolicy.wildcard,
       _ => TopicMatchPolicy.exact,
     };
+  }
+
+  ProcedureMatchPolicy _parseProcedureMatchPolicy(String? raw) {
+    if (raw == register_msg.RegisterOptions.matchPrefix) {
+      return ProcedureMatchPolicy.prefix;
+    }
+    if (raw == register_msg.RegisterOptions.matchWildcard) {
+      return ProcedureMatchPolicy.wildcard;
+    }
+    return ProcedureMatchPolicy.exact;
   }
 }
 

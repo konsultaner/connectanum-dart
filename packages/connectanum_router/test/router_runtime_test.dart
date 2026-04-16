@@ -9,9 +9,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:connectanum_core/authentication.dart' show TicketAuthentication;
 import 'package:connectanum_core/connectanum_core.dart'
     show
         CallOptions,
+        Extra,
         LazyMessagePayload,
         LazyPayloadEncoding,
         MessageTypes,
@@ -629,6 +631,22 @@ Future<void> _waitUntil(
   }
 }
 
+Map<String, Object?> _jsonResponseBody(NativeHttpResponse response) {
+  final body = response.body;
+  if (body is NativeHttpResponseJson) {
+    return Map<String, Object?>.from(body.value as Map);
+  }
+  if (body is NativeHttpResponseText) {
+    return Map<String, Object?>.from(json.decode(body.text) as Map);
+  }
+  if (body is NativeHttpResponseBytes) {
+    return Map<String, Object?>.from(
+      json.decode(utf8.decode(body.bytes)) as Map,
+    );
+  }
+  throw StateError('Unsupported HTTP response body: ${body.runtimeType}');
+}
+
 void _testWorkerEntryPoint(Map<String, Object?> init) {
   final bossPort = init['bossPort'] as SendPort;
   final connectionId = init['connectionId'] as int;
@@ -1090,6 +1108,198 @@ RouterSettings _buildRouterSettingsWithPendingProtocols() {
             ),
           ))
         ..setOptions(const {'max_rawsocket_size_exponent': 16}),
+    )
+    ..addAuthenticator(
+      'anonymous',
+      const AuthenticatorDefinition(type: 'anonymous'),
+    );
+  return builder.build();
+}
+
+RouterSettings _buildRouterSettingsWithSessionProfiles() {
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('realm1')
+        ..addAuthMethod('anonymous')
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('anonymous')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const [
+                'subscribe',
+                'publish',
+                'call',
+                'register',
+                'unregister',
+              ]),
+          ),
+        )
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const [
+                'subscribe',
+                'publish',
+                'call',
+                'register',
+                'unregister',
+              ]),
+          ),
+        ),
+    )
+    ..addSessionProfileFromBuilder(
+      SessionProfileSettingsBuilder('public-wamp')..addAuthMethod('anonymous'),
+    )
+    ..addSessionProfileFromBuilder(SessionProfileSettingsBuilder('public-http'))
+    ..addSessionProfileFromBuilder(
+      SessionProfileSettingsBuilder('http-handler')
+        ..setRealm('realm1')
+        ..setAuthId('http-handler')
+        ..setAuthRole('internal')
+        ..putRole('callee', const {'features': <String, Object?>{}}),
+    )
+    ..addListenerFromBuilder(
+      (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+          ..setSessionProfile('public-wamp')
+          ..setRawSocketOptions(
+            const RawSocketListenerSettings(maxFrameExponent: 16),
+          )
+          ..addProtocol(ListenerProtocol.rawsocket)
+          ..addProtocol(ListenerProtocol.http)
+          ..addProtocol(ListenerProtocol.http2)
+          ..addProtocol(ListenerProtocol.http3)
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              alpn: ['http/1.1', 'h2'],
+              sessionProfile: 'public-http',
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/api/health'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.rpc,
+                    procedure: 'com.example.api.health',
+                    sessionProfile: 'http-handler',
+                  ),
+                ),
+              ],
+            ),
+          ))
+        ..setOptions(const {'max_rawsocket_size_exponent': 16}),
+    )
+    ..addAuthenticator(
+      'anonymous',
+      const AuthenticatorDefinition(type: 'anonymous'),
+    );
+  return builder.build();
+}
+
+RouterSettings _buildRouterSettingsWithHttpAuthBridge() {
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('realm1')
+        ..addAuthMethod(
+          'ticket',
+          options: const {'authenticator': 'ticket-basic'},
+        )
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('member')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('com.example.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const ['call']),
+          ),
+        )
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('com.example.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const ['call', 'register', 'unregister']),
+          ),
+        ),
+    )
+    ..addSessionProfileFromBuilder(
+      SessionProfileSettingsBuilder('public-wamp')..addAuthMethod('anonymous'),
+    )
+    ..addSessionProfileFromBuilder(SessionProfileSettingsBuilder('public-http'))
+    ..addSessionProfileFromBuilder(
+      SessionProfileSettingsBuilder('http-ticket')
+        ..setRealm('realm1')
+        ..setAuthMethods(const ['ticket']),
+    )
+    ..addListenerFromBuilder(
+      (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+          ..setSessionProfile('public-wamp')
+          ..setRawSocketOptions(
+            const RawSocketListenerSettings(maxFrameExponent: 16),
+          )
+          ..addProtocol(ListenerProtocol.rawsocket)
+          ..addProtocol(ListenerProtocol.http)
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              sessionProfile: 'public-http',
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/auth'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.auth,
+                    sessionProfile: 'http-ticket',
+                    options: <String, Object?>{'token_ttl_ms': 60000},
+                  ),
+                ),
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/api/secure'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.rpc,
+                    procedure: 'com.example.api.secure',
+                    sessionProfile: 'http-ticket',
+                  ),
+                ),
+              ],
+            ),
+          ))
+        ..setOptions(const {'max_rawsocket_size_exponent': 16}),
+    )
+    ..addAuthenticator(
+      'anonymous',
+      const AuthenticatorDefinition(type: 'anonymous'),
+    )
+    ..addAuthenticator(
+      'ticket-basic',
+      const AuthenticatorDefinition(
+        type: 'ticket',
+        options: <String, Object?>{
+          'secrets': <String, Object?>{
+            'user-1': <String, Object?>{
+              'ticket': 'signed-token',
+              'role': 'member',
+              'provider': 'ticket-db',
+            },
+          },
+        },
+      ),
+    );
+  return builder.build();
+}
+
+RouterSettings _buildRestrictedInternalSessionSettings() {
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('realm1')
+        ..addAuthMethod('anonymous')
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('member')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('com.example.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const ['call', 'register']),
+          ),
+        ),
+    )
+    ..addListenerFromBuilder(
+      (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+        ..addAuthMethod('anonymous')
+        ..setRawSocketOptions(
+          const RawSocketListenerSettings(maxFrameExponent: 16),
+        )),
     )
     ..addAuthenticator(
       'anonymous',
@@ -2398,6 +2608,355 @@ void main() {
     expect((body as NativeHttpResponseText).text, 'OK');
   });
 
+  test('creates internal sessions from session profile defaults', () async {
+    final runtime = _HandleRuntime();
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: _buildRouterSettingsWithSessionProfiles(),
+    );
+
+    final binding = router.start(runtime);
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+
+    final session = await binding.createInternalSession(
+      realmUri: 'ignored.realm',
+      sessionProfile: 'http-handler',
+    );
+    addTearDown(session.close);
+
+    expect(session.realmUri, 'realm1');
+    expect(session.authId, 'http-handler');
+    expect(session.authRole, 'internal');
+    expect(session.roles, contains('callee'));
+  });
+
+  test('uses HTTP route session profile realm for dispatch', () async {
+    final runtime = _HandleRuntime();
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: _buildRouterSettingsWithSessionProfiles(),
+    );
+
+    final events = <Map<String, Object?>>[];
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    const connectionId = 43;
+
+    final internalSession = await binding.createInternalSession(
+      realmUri: 'realm1',
+    );
+    addTearDown(internalSession.close);
+    final registered = await internalSession.register('com.example.api.health');
+    registered.onInvoke((invocation) {
+      final context = HttpInvocationContext.maybeFromInvocation(invocation);
+      expect(context, isNotNull);
+      expect(context!.request.path, '/api/health');
+      context.sendText(body: 'OK', status: 200);
+    });
+
+    runtime.setConnectionProtocol(connectionId, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      connectionId,
+      NativeHttpHandshake.synthetic(
+        handle: 2,
+        method: 'GET',
+        target: '/api/health',
+        path: '/api/health',
+        protocol: 'http/1.1',
+        headers: const {'x-test': 'true'},
+        body: Uint8List(0),
+        realm: 'wrong.realm',
+        procedure: 'com.example.api.health',
+      ),
+    );
+
+    await _waitUntil(
+      () => events.any((event) => event['type'] == 'http_request_dispatched'),
+      timeout: const Duration(seconds: 2),
+    );
+    final dispatchEvent = events.firstWhere(
+      (event) => event['type'] == 'http_request_dispatched',
+    );
+    expect(dispatchEvent['realm'], 'realm1');
+    expect(dispatchEvent['procedure'], 'com.example.api.health');
+
+    await _waitUntil(
+      () => events.any((event) => event['type'] == 'http_response_ready'),
+      timeout: const Duration(seconds: 2),
+    );
+    final response = runtime.httpResponses[connectionId];
+    expect(response, isNotNull);
+    expect(response!.single.status, 200);
+  });
+
+  test('requires bearer token for protected HTTP routes', () async {
+    final runtime = _HandleRuntime();
+    final events = <Map<String, Object?>>[];
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: _buildRouterSettingsWithHttpAuthBridge(),
+    );
+
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    const connectionId = 52;
+
+    runtime.setConnectionProtocol(connectionId, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      connectionId,
+      NativeHttpHandshake.synthetic(
+        handle: 12,
+        method: 'GET',
+        target: '/api/secure',
+        path: '/api/secure',
+        protocol: 'http/1.1',
+        headers: const {},
+        body: Uint8List(0),
+        realm: 'realm1',
+        procedure: 'com.example.api.secure',
+      ),
+    );
+
+    await _waitUntil(
+      () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+    );
+    final response = runtime.httpResponses[connectionId]!.single;
+    expect(response.status, HttpStatus.unauthorized);
+    final jsonBody = _jsonResponseBody(response);
+    expect(jsonBody['reason'], 'unauthorized');
+    expect(jsonBody['message'], contains('Bearer token required'));
+    expect(
+      events.any((event) => event['type'] == 'http_request_dispatched'),
+      isFalse,
+    );
+  });
+
+  test(
+    'auth bridge issues bearer token for ticket and dispatches secure route',
+    () async {
+      final runtime = _HandleRuntime();
+      final events = <Map<String, Object?>>[];
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpAuthBridge(),
+      );
+
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+
+      final callee = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'svc-http',
+        authRole: 'internal',
+        roles: const {'callee': <String, Object?>{}},
+      );
+      addTearDown(callee.close);
+      final registration = await callee.register('com.example.api.secure');
+      registration.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull);
+        expect(context!.request.path, '/api/secure');
+        context.sendText(body: 'secured', status: 200);
+      });
+
+      const firstConnectionId = 60;
+      runtime.setConnectionProtocol(
+        firstConnectionId,
+        NativeConnectionProtocol.http,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        firstConnectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 20,
+          method: 'POST',
+          target: '/auth',
+          path: '/auth',
+          protocol: 'http/1.1',
+          headers: const {'content-type': 'application/json'},
+          body: Uint8List.fromList(
+            utf8.encode(
+              json.encode(const <String, Object?>{
+                'realm': 'realm1',
+                'authmethod': 'ticket',
+                'authid': 'user-1',
+              }),
+            ),
+          ),
+          realm: 'router.http',
+          procedure: 'router.http.auth',
+        ),
+      );
+
+      await _waitUntil(
+        () => runtime.httpResponses[firstConnectionId]?.isNotEmpty ?? false,
+      );
+      final firstBody = _jsonResponseBody(
+        runtime.httpResponses[firstConnectionId]!.single,
+      );
+      expect(
+        runtime.httpResponses[firstConnectionId]!.single.status,
+        HttpStatus.unauthorized,
+      );
+      expect(firstBody['status'], 'challenge');
+      final state = firstBody['state'] as String;
+
+      final ticketAuth = TicketAuthentication('signed-token');
+      final authenticate = await ticketAuth.challenge(Extra());
+
+      const secondConnectionId = 61;
+      runtime.setConnectionProtocol(
+        secondConnectionId,
+        NativeConnectionProtocol.http,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        secondConnectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 21,
+          method: 'POST',
+          target: '/auth',
+          path: '/auth',
+          protocol: 'http/1.1',
+          headers: const {'content-type': 'application/json'},
+          body: Uint8List.fromList(
+            utf8.encode(
+              json.encode(<String, Object?>{
+                'state': state,
+                'signature': authenticate.signature,
+                'extra': authenticate.extra,
+              }),
+            ),
+          ),
+          realm: 'router.http',
+          procedure: 'router.http.auth',
+        ),
+      );
+
+      await _waitUntil(
+        () => runtime.httpResponses[secondConnectionId]?.isNotEmpty ?? false,
+      );
+      final secondResponse = runtime.httpResponses[secondConnectionId]!.single;
+      expect(secondResponse.status, HttpStatus.ok);
+      final secondBody = _jsonResponseBody(secondResponse);
+      expect(secondBody['status'], 'ok');
+      final token = secondBody['access_token'] as String;
+
+      const thirdConnectionId = 62;
+      runtime.setConnectionProtocol(
+        thirdConnectionId,
+        NativeConnectionProtocol.http,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        thirdConnectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 22,
+          method: 'GET',
+          target: '/api/secure',
+          path: '/api/secure',
+          protocol: 'http/1.1',
+          headers: {'authorization': 'Bearer $token'},
+          body: Uint8List(0),
+          realm: 'realm1',
+          procedure: 'com.example.api.secure',
+        ),
+      );
+
+      await _waitUntil(
+        () => runtime.httpResponses[thirdConnectionId]?.isNotEmpty ?? false,
+      );
+      final protectedResponse =
+          runtime.httpResponses[thirdConnectionId]!.single;
+      expect(protectedResponse.status, HttpStatus.ok);
+      final protectedBody = protectedResponse.body;
+      expect(protectedBody, isA<NativeHttpResponseText>());
+      expect((protectedBody as NativeHttpResponseText).text, 'secured');
+      expect(
+        events.any(
+          (event) =>
+              event['type'] == 'http_request_dispatched' &&
+              event['connectionId'] == thirdConnectionId,
+        ),
+        isTrue,
+      );
+    },
+  );
+
   test(
     'streams HTTP response chunks when progressive results emitted',
     () async {
@@ -3348,6 +3907,63 @@ void main() {
       expect(betaEvents, isNotEmpty);
     },
   );
+
+  test('applies realm permissions to internal session actions', () async {
+    final runtime = _HandleRuntime();
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: _buildRestrictedInternalSessionSettings(),
+    );
+
+    final binding = router.start(runtime);
+    addTearDown(binding.dispose);
+
+    final caller = await binding.createInternalSession(
+      realmUri: 'realm1',
+      authId: 'member-1',
+      authRole: 'member',
+    );
+    final callee = await binding.createInternalSession(
+      realmUri: 'realm1',
+      authId: 'member-2',
+      authRole: 'member',
+    );
+    addTearDown(caller.close);
+    addTearDown(callee.close);
+
+    final registration = await callee.register('com.example.proc');
+    registration.onInvoke((invocation) {
+      invocation.respondWith(arguments: const ['ok']);
+    });
+
+    final result = await caller.call('com.example.proc').first;
+    expect(result.arguments, equals(const ['ok']));
+
+    await expectLater(
+      caller.publish(
+        'com.example.topic',
+        arguments: const ['blocked'],
+        options: PublishOptions(acknowledge: true),
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('publish'),
+        ),
+      ),
+    );
+  });
 
   test(
     'routes lazy call payloads across internal sessions without decoding',

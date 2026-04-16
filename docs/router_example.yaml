@@ -1,14 +1,41 @@
 router:
+  session_profiles:
+    - name: public-wamp
+      auth:
+        methods: [anonymous]
+
+    - name: public-http
+      auth:
+        methods: []
+
+    - name: http-auth
+      realm: realm1
+      auth:
+        methods: [ticket]
+
+    - name: metrics-internal
+      realm: connectanum.metrics
+      auth:
+        auth_id: metrics-daemon
+        auth_role: metrics
+
   realms:
     - name: realm1
       auth:
-        authmethods: [anonymous]
+        authmethods: [anonymous, ticket]
+        ticket:
+          authenticator: ticket-basic
       roles:
         - name: anonymous
           permissions:
             - uri: ""
               match: prefix
               allow: [subscribe, publish, call, register, unregister]
+        - name: member
+          permissions:
+            - uri: "com.example.api."
+              match: prefix
+              allow: [call]
       limits:
         max_pending_auth: 32
         auth_timeout_ms: 10000
@@ -29,7 +56,7 @@ router:
 
   listeners:
     - endpoint: 0.0.0.0:8443
-      authmethods: [anonymous]
+      session_profile: public-wamp
       protocols: [rawsocket, websocket, http, http2]
       tls:
         mode: native
@@ -57,11 +84,25 @@ router:
         serializer_fallback: json
       http:
         alpn: [h2, http/1.1]
+        session_profile: public-http
+        routes:
+          - match:
+              path: /auth
+              methods: [POST]
+            action:
+              type: auth
+              session_profile: http-auth
+              token_ttl_ms: 600000
+          - match:
+              path: /api/secure
+            action:
+              type: rpc
+              procedure: com.example.api.secure
+              session_profile: http-auth
 
   internal_realms:
     - name: connectanum.metrics
-      auth_id: metrics-daemon
-      auth_role: metrics
+      session_profile: metrics-internal
       services: [metrics]
 
   metrics:
@@ -74,3 +115,10 @@ router:
   authenticators:
     anonymous:
       type: anonymous
+    ticket-basic:
+      type: ticket
+      options:
+        secrets:
+          user-1:
+            ticket: signed-token
+            role: member

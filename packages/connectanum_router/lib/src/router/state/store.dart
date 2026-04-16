@@ -581,6 +581,7 @@ class RouterStateStore {
     final record = PendingInvocation(
       invocationId: invocationId,
       registrationId: callee.registrationId,
+      procedure: procedure,
       callerRequestId: requestId,
       calleeSessionId: callee.sessionId,
       calleeConnectionId: _connectionIdForSession(realm, callee.sessionId),

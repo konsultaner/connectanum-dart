@@ -6,6 +6,115 @@ import 'package:test/test.dart';
 
 void main() {
   group('RouterConfigLoader', () {
+    test('parses shared session profiles and references', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'realms': [
+            <String, Object?>{
+              'name': 'realm1',
+              'auth': <String, Object?>{
+                'authmethods': ['anonymous'],
+              },
+            },
+          ],
+          'listeners': [
+            <String, Object?>{
+              'type': 'rawsocket',
+              'endpoint': '127.0.0.1:0',
+              'session_profile': 'public-wamp',
+              'http': <String, Object?>{
+                'session_profile': 'public-http',
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'path': '/auth'},
+                    'action': <String, Object?>{
+                      'type': 'auth',
+                      'session_profile': 'http-handler',
+                      'token_ttl_ms': 45000,
+                    },
+                  },
+                  <String, Object?>{
+                    'match': <String, Object?>{'path': '/health'},
+                    'action': <String, Object?>{
+                      'type': 'rpc',
+                      'procedure': 'com.example.health',
+                      'session_profile': 'http-handler',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+          'session_profiles': [
+            <String, Object?>{
+              'name': 'public-wamp',
+              'auth': <String, Object?>{
+                'methods': ['ticket', 'scram', 'wampcra'],
+              },
+            },
+            <String, Object?>{
+              'name': 'public-http',
+              'auth': <String, Object?>{'methods': <String>[]},
+            },
+            <String, Object?>{
+              'name': 'http-handler',
+              'realm': 'realm1',
+              'auth': <String, Object?>{
+                'auth_id': 'http-handler',
+                'auth_role': 'internal',
+              },
+              'roles': <String, Object?>{
+                'callee': const {'features': <String, Object?>{}},
+              },
+            },
+          ],
+          'internal_realms': [
+            <String, Object?>{
+              'name': 'connectanum.metrics',
+              'session_profile': 'http-handler',
+              'services': ['metrics'],
+            },
+          ],
+        },
+      });
+
+      expect(settings.sessionProfiles, hasLength(3));
+      expect(settings.listeners.single.sessionProfile, 'public-wamp');
+      expect(settings.listeners.single.http?.sessionProfile, 'public-http');
+      expect(
+        settings.listeners.single.http?.routes.first.action.type,
+        HttpRouteActionType.auth,
+      );
+      expect(
+        settings
+            .listeners
+            .single
+            .http
+            ?.routes
+            .first
+            .action
+            .options['token_ttl_ms'],
+        45000,
+      );
+      expect(
+        settings.listeners.single.http?.routes.last.action.sessionProfile,
+        'http-handler',
+      );
+      expect(settings.sessionProfiles.first.auth.methods, [
+        'ticket',
+        'scram',
+        'wampcra',
+      ]);
+      expect(
+        settings.sessionProfiles
+            .firstWhere((profile) => profile.name == 'http-handler')
+            .auth
+            .authRole,
+        'internal',
+      );
+      expect(settings.internalRealms.single.sessionProfile, 'http-handler');
+    });
+
     test('parses internal realms and open metrics settings', () {
       final settings = RouterConfigLoader.fromMap({
         'router': <String, Object?>{
@@ -211,6 +320,88 @@ void main() {
       expect(openMetrics!.enabled, isFalse);
       expect(openMetrics.path, '/custom');
       expect(openMetrics.realm, 'custom.realm');
+    });
+
+    test('codec round-trips shared session profiles and references', () {
+      final updatedBuilder = RouterSettingsBuilder()
+        ..addRealmFromBuilder(
+          RealmSettingsBuilder('realm1')..addAuthMethod('anonymous'),
+        )
+        ..addSessionProfileFromBuilder(
+          SessionProfileSettingsBuilder('public-wamp')
+            ..setAuthMethods(const ['ticket', 'scram', 'wampcra']),
+        )
+        ..addSessionProfileFromBuilder(
+          SessionProfileSettingsBuilder('public-http'),
+        )
+        ..addSessionProfileFromBuilder(
+          SessionProfileSettingsBuilder('http-handler')
+            ..setRealm('realm1')
+            ..setAuthId('http-handler')
+            ..setAuthRole('internal')
+            ..putRole('callee', const {'features': <String, Object?>{}}),
+        )
+        ..addListenerFromBuilder(
+          ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+            ..setSessionProfile('public-wamp')
+            ..setOptions(const {'max_rawsocket_size_exponent': 16})
+            ..setHttpOptions(
+              const HttpListenerSettings(
+                sessionProfile: 'public-http',
+                routes: <HttpRouteSettings>[
+                  HttpRouteSettings(
+                    match: HttpRouteMatch(path: '/auth'),
+                    action: HttpRouteAction(
+                      type: HttpRouteActionType.auth,
+                      sessionProfile: 'http-handler',
+                      options: <String, Object?>{'token_ttl_ms': 45000},
+                    ),
+                  ),
+                  HttpRouteSettings(
+                    match: HttpRouteMatch(path: '/health'),
+                    action: HttpRouteAction(
+                      type: HttpRouteActionType.rpc,
+                      procedure: 'com.example.health',
+                      sessionProfile: 'http-handler',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        )
+        ..addInternalRealmFromBuilder(
+          InternalRealmSettingsBuilder('connectanum.metrics')
+            ..setSessionProfile('http-handler')
+            ..addService('metrics'),
+        );
+
+      final settings = updatedBuilder.build();
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+
+      expect(decoded.sessionProfiles, hasLength(3));
+      expect(decoded.listeners.single.sessionProfile, 'public-wamp');
+      expect(decoded.listeners.single.http?.sessionProfile, 'public-http');
+      expect(
+        decoded.listeners.single.http?.routes.first.action.type,
+        HttpRouteActionType.auth,
+      );
+      expect(
+        decoded
+            .listeners
+            .single
+            .http
+            ?.routes
+            .first
+            .action
+            .options['token_ttl_ms'],
+        45000,
+      );
+      expect(
+        decoded.listeners.single.http?.routes.last.action.sessionProfile,
+        'http-handler',
+      );
+      expect(decoded.internalRealms.single.sessionProfile, 'http-handler');
     });
 
     test('parses multi-protocol listener with http routes', () {

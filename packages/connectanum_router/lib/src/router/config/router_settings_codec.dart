@@ -12,6 +12,10 @@ abstract final class RouterSettingsCodec {
     return <String, Object?>{
       'realms': settings.realms.map(_realmToMap).toList(),
       'listeners': settings.listeners.map(_listenerToMap).toList(),
+      if (settings.sessionProfiles.isNotEmpty)
+        'session_profiles': settings.sessionProfiles
+            .map(_sessionProfileToMap)
+            .toList(),
       if (settings.internalRealms.isNotEmpty)
         'internal_realms': settings.internalRealms
             .map(_internalRealmToMap)
@@ -89,6 +93,9 @@ abstract final class RouterSettingsCodec {
       'endpoint': listener.endpoint,
       'authmethods': List<String>.from(listener.authmethods),
     };
+    if (listener.sessionProfile != null) {
+      map['session_profile'] = listener.sessionProfile;
+    }
     if (listener.type != null) {
       map['type'] = listener.type;
     }
@@ -167,6 +174,9 @@ abstract final class RouterSettingsCodec {
     if (settings.http3 != null) {
       map['http3'] = _http3ToMap(settings.http3!);
     }
+    if (settings.sessionProfile != null) {
+      map['session_profile'] = settings.sessionProfile;
+    }
     if (settings.routes.isNotEmpty) {
       map['routes'] = settings.routes
           .map(_httpRouteToMap)
@@ -222,6 +232,18 @@ abstract final class RouterSettingsCodec {
     };
     if (action.procedure != null) {
       map['procedure'] = action.procedure;
+    }
+    if (action.realm != null) {
+      map['realm'] = action.realm;
+    }
+    if (action.sessionProfile != null) {
+      map['session_profile'] = action.sessionProfile;
+    }
+    if (action.namespace != null) {
+      map['namespace'] = action.namespace;
+    }
+    if (action.appendMethodSuffix != null) {
+      map['append_method_suffix'] = action.appendMethodSuffix;
     }
     if (action.topic != null) {
       map['topic'] = action.topic;
@@ -295,9 +317,32 @@ abstract final class RouterSettingsCodec {
       'name': internalRealm.name,
       if (internalRealm.authId != null) 'auth_id': internalRealm.authId,
       if (internalRealm.authRole != null) 'auth_role': internalRealm.authRole,
+      if (internalRealm.sessionProfile != null)
+        'session_profile': internalRealm.sessionProfile,
       if (internalRealm.roles.isNotEmpty) 'roles': internalRealm.roles,
       if (internalRealm.services.isNotEmpty)
         'services': List<String>.from(internalRealm.services),
+    };
+  }
+
+  static Map<String, Object?> _sessionProfileToMap(
+    SessionProfileSettings profile,
+  ) {
+    return <String, Object?>{
+      'name': profile.name,
+      if (profile.realm != null) 'realm': profile.realm,
+      'auth': _sessionProfileAuthToMap(profile.auth),
+      if (profile.roles.isNotEmpty) 'roles': profile.roles,
+    };
+  }
+
+  static Map<String, Object?> _sessionProfileAuthToMap(
+    SessionProfileAuthSettings auth,
+  ) {
+    return <String, Object?>{
+      if (auth.methods.isNotEmpty) 'methods': List<String>.from(auth.methods),
+      if (auth.authId != null) 'auth_id': auth.authId,
+      if (auth.authRole != null) 'auth_role': auth.authRole,
     };
   }
 

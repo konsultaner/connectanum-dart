@@ -234,15 +234,17 @@ RouterSettings _buildSettings() {
     ..addAuthMethod('anonymous')
     ..addRoleFromBuilder(
       RoleSettingsBuilder('anonymous')..addPermissionFromBuilder(
-        PermissionSettingsBuilder('')..allowOperations(const [
-          'register',
-          'unregister',
-          'subscribe',
-          'unsubscribe',
-          'publish',
-          'call',
-          'cancel',
-        ]),
+        PermissionSettingsBuilder('')
+          ..setMatchPolicy(PermissionMatchPolicy.prefix)
+          ..allowOperations(const [
+            'register',
+            'unregister',
+            'subscribe',
+            'unsubscribe',
+            'publish',
+            'call',
+            'cancel',
+          ]),
       ),
     );
 

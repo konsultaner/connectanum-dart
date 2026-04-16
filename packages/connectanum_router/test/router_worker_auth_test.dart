@@ -78,6 +78,47 @@ void main() {
       expect(context.openedSessions.single.authId, equals('user-1'));
     });
 
+    test(
+      'uses listener session profile auth methods when listener authmethods omitted',
+      () async {
+        final routerSettings = _buildRouterSettings(
+          realmMethods: const ['ticket'],
+          realmOptions: const {
+            'ticket': {'authenticator': 'ticket-basic'},
+          },
+          listenerMethods: const [],
+          listenerSessionProfile: 'public-wamp',
+          sessionProfiles: const [
+            SessionProfileSettings(
+              name: 'public-wamp',
+              auth: SessionProfileAuthSettings(methods: ['ticket']),
+            ),
+          ],
+          authenticators: const {
+            'ticket-basic': AuthenticatorDefinition(
+              type: 'ticket',
+              options: {
+                'secrets': {
+                  'user-1': {'ticket': 'signed-token', 'role': 'member'},
+                },
+              },
+            ),
+          },
+        );
+
+        final context = _HandshakeHarness(routerSettings, serializer);
+        await context.performHello(authMethod: 'ticket', authId: 'user-1');
+        final ticketAuth = TicketAuthentication('signed-token');
+        final authenticate = await ticketAuth.challenge(
+          context.lastChallenge!.extra,
+        );
+        await context.performAuthenticate(authenticate);
+
+        expect(context.lastWelcome, isA<Welcome>());
+        expect(context.openedSessions.single.authRole, equals('member'));
+      },
+    );
+
     test('rejects invalid ticket', () async {
       final routerSettings = _buildRouterSettings(
         realmMethods: const ['ticket'],
@@ -1300,6 +1341,8 @@ RouterSettings _buildRouterSettings({
   required Map<String, Map<String, Object?>> realmOptions,
   required List<String> listenerMethods,
   required Map<String, AuthenticatorDefinition> authenticators,
+  List<SessionProfileSettings> sessionProfiles = const [],
+  String? listenerSessionProfile,
   RealmLimitSettings limits = const RealmLimitSettings(),
 }) {
   final realm = RealmSettings(
@@ -1314,12 +1357,14 @@ RouterSettings _buildRouterSettings({
     type: 'rawsocket',
     endpoint: '127.0.0.1:7000',
     authmethods: listenerMethods,
+    sessionProfile: listenerSessionProfile,
     options: const {},
   );
 
   return RouterSettings(
     realms: [realm],
     listeners: [listener],
+    sessionProfiles: sessionProfiles,
     metrics: null,
     authenticators: authenticators,
   );

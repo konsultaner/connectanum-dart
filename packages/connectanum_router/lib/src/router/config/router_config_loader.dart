@@ -79,6 +79,7 @@ class RouterConfigLoader {
       throw FormatException('listener.http must be a map');
     }
     final alpn = _stringList(node['alpn']);
+    final sessionProfile = _asNullableString(node['session_profile']);
     final http3Node = node['http3'];
     Http3Settings? http3;
     if (http3Node != null) {
@@ -94,6 +95,7 @@ class RouterConfigLoader {
     return HttpListenerSettings(
       alpn: List.unmodifiable(alpn),
       http3: http3,
+      sessionProfile: sessionProfile,
       routes: List.unmodifiable(routes),
       options: options,
     );
@@ -153,6 +155,9 @@ class RouterConfigLoader {
     );
     final procedure = _asNullableString(map.remove('procedure'));
     final realm = _asNullableString(map.remove('realm'));
+    final sessionProfile = _asNullableString(
+      map.remove('session_profile') ?? map.remove('sessionProfile'),
+    );
     final namespace = _asNullableString(map.remove('namespace'));
     final appendMethodSuffix = _asNullableBool(
       map.remove('append_method_suffix'),
@@ -176,6 +181,7 @@ class RouterConfigLoader {
       type: type,
       procedure: procedure,
       realm: realm,
+      sessionProfile: sessionProfile,
       namespace: namespace,
       appendMethodSuffix: appendMethodSuffix,
       topic: topic,
@@ -261,6 +267,9 @@ class RouterConfigLoader {
 
     final realms = _parseRealms(routerNode['realms']);
     final listeners = _parseListeners(routerNode['listeners']);
+    final sessionProfiles = _parseSessionProfiles(
+      routerNode['session_profiles'],
+    );
     final internalRealms = _parseInternalRealms(routerNode['internal_realms']);
     final metrics = _parseMetrics(routerNode['metrics']);
     final authenticators = _parseAuthenticators(routerNode['authenticators']);
@@ -269,10 +278,51 @@ class RouterConfigLoader {
     return RouterSettings(
       realms: realms,
       listeners: listeners,
+      sessionProfiles: sessionProfiles,
       internalRealms: internalRealms,
       metrics: metrics,
       authenticators: authenticators,
       workerPool: workerPool,
+    );
+  }
+
+  static List<SessionProfileSettings> _parseSessionProfiles(dynamic node) {
+    if (node == null) {
+      return const [];
+    }
+    if (node is! List) {
+      throw FormatException('Router "session_profiles" must be a list');
+    }
+    return node
+        .map((entry) {
+          if (entry is! Map<String, Object?>) {
+            throw FormatException('session_profiles entries must be maps');
+          }
+          final name = _expectString(entry['name'], 'session_profiles.name');
+          final realm = _asNullableString(entry['realm']);
+          final auth = _parseSessionProfileAuth(entry['auth']);
+          final roles = _asMap(entry['roles'], allowNull: true) ?? const {};
+          return SessionProfileSettings(
+            name: name,
+            realm: realm,
+            auth: auth,
+            roles: roles,
+          );
+        })
+        .toList(growable: false);
+  }
+
+  static SessionProfileAuthSettings _parseSessionProfileAuth(dynamic node) {
+    if (node == null) {
+      return const SessionProfileAuthSettings();
+    }
+    if (node is! Map<String, Object?>) {
+      throw FormatException('session_profiles.auth must be a map');
+    }
+    return SessionProfileAuthSettings(
+      methods: _stringList(node['methods']),
+      authId: _asNullableString(node['auth_id'] ?? node['authId']),
+      authRole: _asNullableString(node['auth_role'] ?? node['authRole']),
     );
   }
 
@@ -445,6 +495,9 @@ class RouterConfigLoader {
           );
           final path = _asNullableString(listener['path']);
           final authmethods = _stringList(listener['authmethods']);
+          final sessionProfile = _asNullableString(
+            listener['session_profile'] ?? listener['sessionProfile'],
+          );
           final tls = _asMap(listener['tls'], allowNull: true);
           final options =
               _asMap(listener['options'], allowNull: true) ?? const {};
@@ -483,6 +536,7 @@ class RouterConfigLoader {
             endpoint: endpoint,
             path: path,
             authmethods: authmethods,
+            sessionProfile: sessionProfile,
             tls: tls,
             options: options,
             protocols: resolvedProtocols,
@@ -509,6 +563,9 @@ class RouterConfigLoader {
           final name = _expectString(entry['name'], 'internal_realms.name');
           final authId = _asNullableString(entry['auth_id']);
           final authRole = _asNullableString(entry['auth_role']);
+          final sessionProfile = _asNullableString(
+            entry['session_profile'] ?? entry['sessionProfile'],
+          );
           final roles = _asMap(entry['roles'], allowNull: true) ?? const {};
           final servicesList = _stringList(entry['services']);
           final Set<String>? services = servicesList.isEmpty
@@ -518,6 +575,7 @@ class RouterConfigLoader {
             name: name,
             authId: authId,
             authRole: authRole,
+            sessionProfile: sessionProfile,
             roles: roles,
             services: services,
           );
