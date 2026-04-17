@@ -140,6 +140,88 @@ void main() {
     );
 
     test(
+      'ticket-authenticated WAMP workloads run against the secure realm',
+      () async {
+        final rpcSamples = await harness!.runNative(
+          WampScenario(
+            realmUri: 'bench.secure',
+            authMethod: 'ticket',
+            authId: 'bench-user',
+            authSecret: 'bench-ticket',
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.cbor,
+            mode: WampMode.rpc,
+            uri: 'bench.rpc.echo',
+            iterations: 2,
+            concurrency: 1,
+            payloadBytes: 32,
+          ),
+        );
+        final pubsubSamples = await harness!.runNative(
+          WampScenario(
+            realmUri: 'bench.secure',
+            authMethod: 'ticket',
+            authId: 'bench-user',
+            authSecret: 'bench-ticket',
+            transport: WampTransport.websocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.cbor,
+            mode: WampMode.pubsub,
+            uri: 'bench.topic',
+            iterations: 2,
+            concurrency: 1,
+            payloadBytes: 32,
+          ),
+        );
+
+        expect(rpcSamples, hasLength(2));
+        expect(pubsubSamples, hasLength(2));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
+      'WAMP authenticate workloads measure session setup for anonymous and ticket clients',
+      () async {
+        final anonymousSamples = await harness!.runDart(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.dart,
+            serializer: WampSerializer.json,
+            mode: WampMode.authenticate,
+            uri: 'bench.auth',
+            iterations: 2,
+            concurrency: 1,
+            payloadBytes: 0,
+          ),
+        );
+        final ticketSamples = await harness!.runNative(
+          WampScenario(
+            realmUri: 'bench.secure',
+            authMethod: 'ticket',
+            authId: 'bench-user',
+            authSecret: 'bench-ticket',
+            transport: WampTransport.websocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.msgpack,
+            mode: WampMode.authenticate,
+            uri: 'bench.auth',
+            iterations: 2,
+            concurrency: 1,
+            payloadBytes: 0,
+          ),
+        );
+
+        expect(anonymousSamples, hasLength(2));
+        expect(ticketSamples, hasLength(2));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
       'native control workloads run against a real router',
       () async {
         final publishAckSamples = await harness!.runNative(
@@ -571,6 +653,7 @@ class _WampTransportHarness {
     required this.runtime,
     required this.binding,
     required this.internalSession,
+    required this.protectedSession,
     required this.runner,
     required this.nativeWorker,
   });
@@ -578,6 +661,7 @@ class _WampTransportHarness {
   final NativeTransportRuntime runtime;
   final RouterBinding binding;
   final RouterSession internalSession;
+  final RouterSession protectedSession;
   final WampWorkloadRunner runner;
   final NativeWampWorker nativeWorker;
 
@@ -589,9 +673,18 @@ class _WampTransportHarness {
         .addRealmFromBuilder(
           RealmSettingsBuilder('bench.control')
             ..addAuthMethod('anonymous')
+            ..addRole(const RoleSettings(name: 'anonymous', permissions: []))
+            ..addRole(const RoleSettings(name: 'bench', permissions: [])),
+        )
+        .addRealmFromBuilder(
+          RealmSettingsBuilder('bench.secure')
+            ..addAuthMethod(
+              'ticket',
+              options: const {'authenticator': 'ticket-basic'},
+            )
             ..addRoleFromBuilder(
-              RoleSettingsBuilder('anonymous')..addPermissionFromBuilder(
-                PermissionSettingsBuilder('')
+              RoleSettingsBuilder('member')..addPermissionFromBuilder(
+                PermissionSettingsBuilder('bench.')
                   ..setMatchPolicy(PermissionMatchPolicy.prefix)
                   ..allowOperations(const [
                     'register',
@@ -604,8 +697,8 @@ class _WampTransportHarness {
               ),
             )
             ..addRoleFromBuilder(
-              RoleSettingsBuilder('bench')..addPermissionFromBuilder(
-                PermissionSettingsBuilder('')
+              RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+                PermissionSettingsBuilder('bench.')
                   ..setMatchPolicy(PermissionMatchPolicy.prefix)
                   ..allowOperations(const [
                     'register',
@@ -621,6 +714,7 @@ class _WampTransportHarness {
         .addListenerFromBuilder(
           ListenerSettingsBuilder('rawsocket-only', '127.0.0.1:$rawSocketPort')
             ..addAuthMethod('anonymous')
+            ..addAuthMethod('ticket')
             ..addProtocol(ListenerProtocol.rawsocket)
             ..setRawSocketOptions(
               const RawSocketListenerSettings(maxFrameExponent: 18),
@@ -629,6 +723,7 @@ class _WampTransportHarness {
         .addListenerFromBuilder(
           ListenerSettingsBuilder('websocket-only', '127.0.0.1:$webSocketPort')
             ..addAuthMethod('anonymous')
+            ..addAuthMethod('ticket')
             ..addProtocol(ListenerProtocol.websocket)
             ..setPath('/wamp')
             ..setWebSocketOptions(
@@ -641,6 +736,21 @@ class _WampTransportHarness {
         .addAuthenticator(
           'anonymous',
           const AuthenticatorDefinition(type: 'anonymous'),
+        )
+        .addAuthenticator(
+          'ticket-basic',
+          const AuthenticatorDefinition(
+            type: 'ticket',
+            options: {
+              'secrets': {
+                'bench-user': {
+                  'ticket': 'bench-ticket',
+                  'role': 'member',
+                  'provider': 'bench-ticket-store',
+                },
+              },
+            },
+          ),
         )
         .setWorkerPool(const WorkerPoolSettings(minWorkers: 1))
         .build();
@@ -669,13 +779,20 @@ class _WampTransportHarness {
       authId: 'bench-control',
       authRole: 'bench',
     );
-    final registration = await internalSession.register('bench.rpc.echo');
-    registration.onInvoke((invocation) async {
-      invocation.respondWith(
-        arguments: invocation.arguments,
-        argumentsKeywords: invocation.argumentsKeywords,
-      );
-    });
+    final protectedSession = await binding.createInternalSession(
+      realmUri: 'bench.secure',
+      authId: 'bench-secure',
+      authRole: 'internal',
+    );
+    for (final session in [internalSession, protectedSession]) {
+      final registration = await session.register('bench.rpc.echo');
+      registration.onInvoke((invocation) async {
+        invocation.respondWith(
+          arguments: invocation.arguments,
+          argumentsKeywords: invocation.argumentsKeywords,
+        );
+      });
+    }
 
     final rawSocketListener = binding.listeners.firstWhere(
       (listener) =>
@@ -695,7 +812,9 @@ class _WampTransportHarness {
             return RawSocketWampSessionFactory(
               host: '127.0.0.1',
               port: rawSocketListener.port,
-              realmUri: 'bench.control',
+              realmUri: scenario.realmUri,
+              authId: scenario.authId,
+              authenticationMethods: authenticationMethodsForScenario(scenario),
               serializer: scenario.serializer,
               clientImplementation: scenario.clientImplementation,
               nativeLibraryPath: nativeLib,
@@ -703,7 +822,9 @@ class _WampTransportHarness {
           case WampTransport.websocket:
             return WebSocketWampSessionFactory(
               url: 'ws://127.0.0.1:${webSocketListener.port}/wamp',
-              realmUri: 'bench.control',
+              realmUri: scenario.realmUri,
+              authId: scenario.authId,
+              authenticationMethods: authenticationMethodsForScenario(scenario),
               serializer: scenario.serializer,
               clientImplementation: scenario.clientImplementation,
               headers: const {'x-connectanum-bench': '1'},
@@ -741,6 +862,7 @@ class _WampTransportHarness {
       runtime: runtime,
       binding: binding,
       internalSession: internalSession,
+      protectedSession: protectedSession,
       runner: runner,
       nativeWorker: nativeWorker,
     );
@@ -754,6 +876,7 @@ class _WampTransportHarness {
 
   Future<void> close() async {
     await nativeWorker.close();
+    await protectedSession.close();
     await internalSession.close();
     await binding.dispose();
     runtime.shutdown();

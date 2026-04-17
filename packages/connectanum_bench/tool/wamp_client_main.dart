@@ -54,10 +54,15 @@ Future<void> main(List<String> args) async {
       }
       switch (scenario.transport) {
         case WampTransport.rawsocket:
+          final scenarioRealm = scenario.realmUri.isEmpty
+              ? realmUri
+              : scenario.realmUri;
           return RawSocketWampSessionFactory(
             host: target.host,
             port: target.port,
-            realmUri: realmUri,
+            realmUri: scenarioRealm,
+            authId: scenario.authId,
+            authenticationMethods: authenticationMethodsForScenario(scenario),
             serializer: scenario.serializer,
             clientImplementation: scenario.clientImplementation,
             ssl: target.secure,
@@ -65,9 +70,14 @@ Future<void> main(List<String> args) async {
             nativeLibraryPath: nativeLibraryPath,
           ).call();
         case WampTransport.websocket:
+          final scenarioRealm = scenario.realmUri.isEmpty
+              ? realmUri
+              : scenario.realmUri;
           return WebSocketWampSessionFactory(
             url: target.webSocketUri.toString(),
-            realmUri: realmUri,
+            realmUri: scenarioRealm,
+            authId: scenario.authId,
+            authenticationMethods: authenticationMethodsForScenario(scenario),
             serializer: scenario.serializer,
             clientImplementation: scenario.clientImplementation,
             headers: const {'x-connectanum-bench': '1'},

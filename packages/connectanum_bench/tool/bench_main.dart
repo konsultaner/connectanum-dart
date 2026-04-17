@@ -341,7 +341,9 @@ class _BenchControlRegistry {
         final factory = RawSocketWampSessionFactory(
           host: target.host,
           port: target.port,
-          realmUri: realmUri,
+          realmUri: scenario.realmUri,
+          authId: scenario.authId,
+          authenticationMethods: authenticationMethodsForScenario(scenario),
           serializer: scenario.serializer,
           clientImplementation: scenario.clientImplementation,
           ssl: target.secure,
@@ -352,7 +354,9 @@ class _BenchControlRegistry {
       case WampTransport.websocket:
         final factory = WebSocketWampSessionFactory(
           url: target.webSocketUri.toString(),
-          realmUri: realmUri,
+          realmUri: scenario.realmUri,
+          authId: scenario.authId,
+          authenticationMethods: authenticationMethodsForScenario(scenario),
           serializer: scenario.serializer,
           clientImplementation: scenario.clientImplementation,
           headers: const {'x-connectanum-bench': '1'},
@@ -381,6 +385,11 @@ class _BenchControlRegistry {
     );
     await _register('bench.http.wamp', _handleWampInvoke);
     await _registerLazyPayload('bench.rpc.echo', _handleRpcEchoLazyInvoke);
+    await _registerLazyPayloadWithSession(
+      protectedSession,
+      'bench.rpc.echo',
+      _handleRpcEchoLazyInvoke,
+    );
     await _nativeWampWorker.start();
   }
 
@@ -418,11 +427,19 @@ class _BenchControlRegistry {
     String procedure,
     FutureOr<void> Function(wamp_core.LazyInvocationPayload invocation) handler,
   ) async {
-    final registration = await session.register(procedure);
+    await _registerLazyPayloadWithSession(session, procedure, handler);
+  }
+
+  Future<void> _registerLazyPayloadWithSession(
+    RouterSession targetSession,
+    String procedure,
+    FutureOr<void> Function(wamp_core.LazyInvocationPayload invocation) handler,
+  ) async {
+    final registration = await targetSession.register(procedure);
     registration.onLazyInvokePayload(handler);
     _registrations.add(
       _BenchRegisteredHandler(
-        session: session,
+        session: targetSession,
         registrationId: registration.registrationId,
       ),
     );

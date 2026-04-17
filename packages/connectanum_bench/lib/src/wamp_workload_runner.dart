@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_client/connectanum.dart' as wamp_client;
 import 'package:connectanum_client/socket.dart' as wamp_socket;
+import 'package:connectanum_core/authentication.dart' as wamp_auth;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
 import 'package:connectanum_core/cbor_serializer.dart' as wamp_cbor;
 import 'package:connectanum_core/json_serializer.dart' as wamp_json;
@@ -41,6 +42,8 @@ class WampWorkloadRunner {
       'iterations=${scenario.iterations}',
     );
     switch (scenario.mode) {
+      case WampMode.authenticate:
+        return _runAuthenticateScenario(scenario);
       case WampMode.pubsub:
         return _runPubSubScenario(scenario);
       case WampMode.rpc:
@@ -64,6 +67,57 @@ class WampWorkloadRunner {
     );
     final results = await Future.wait(workers);
     return results.expand((samples) => samples).toList(growable: false);
+  }
+
+  Future<List<WampSample>> _runAuthenticateScenario(
+    WampScenario scenario,
+  ) async {
+    final workers = List.generate(
+      scenario.concurrency,
+      (workerId) => _runAuthenticateWorker(workerId, scenario),
+    );
+    final results = await Future.wait(workers);
+    return results.expand((samples) => samples).toList(growable: false);
+  }
+
+  Future<List<WampSample>> _runAuthenticateWorker(
+    int workerId,
+    WampScenario scenario,
+  ) async {
+    return _runWithInFlightLimit(
+      iterations: scenario.iterations,
+      maxInFlight: 1,
+      launch: (iteration) =>
+          _runAuthenticateIteration(workerId, iteration, scenario),
+    );
+  }
+
+  Future<WampSample> _runAuthenticateIteration(
+    int workerId,
+    int iteration,
+    WampScenario scenario,
+  ) async {
+    final start = DateTime.now();
+    final session = await _sessionFactory(scenario).timeout(
+      _eventTimeout,
+      onTimeout: () {
+        _logger.severe(
+          'Authenticate session open timed out '
+          'worker=$workerId iteration=$iteration '
+          'transport=${scenario.transport.name} realm=${scenario.realmUri}',
+        );
+        throw TimeoutException('wamp_auth_timeout');
+      },
+    );
+    await session.close();
+    final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
+    return WampSample(
+      worker: workerId,
+      iteration: iteration,
+      latencyMs: latencyMs,
+      requestBytes: 0,
+      responseBytes: 0,
+    );
   }
 
   Future<List<WampSample>> _runPubSubWorker(
@@ -972,6 +1026,8 @@ class RawSocketWampSessionFactory {
     required this.host,
     required this.port,
     required this.realmUri,
+    this.authId,
+    this.authenticationMethods,
     this.serializer = WampSerializer.json,
     this.clientImplementation = WampClientImplementation.dart,
     this.ssl = false,
@@ -982,6 +1038,8 @@ class RawSocketWampSessionFactory {
   final String host;
   final int port;
   final String realmUri;
+  final String? authId;
+  final List<wamp_auth.AbstractAuthentication>? authenticationMethods;
   final WampSerializer serializer;
   final WampClientImplementation clientImplementation;
   final bool ssl;
@@ -993,7 +1051,12 @@ class RawSocketWampSessionFactory {
       WampClientImplementation.dart => _buildDartTransport(),
       WampClientImplementation.native => _buildNativeTransport(),
     };
-    final client = wamp_client.Client(realm: realmUri, transport: transport);
+    final client = wamp_client.Client(
+      realm: realmUri,
+      transport: transport,
+      authId: authId,
+      authenticationMethods: authenticationMethods,
+    );
     final session = await client.connect().first;
     return _ClientBackedWampSession(client, session);
   }
@@ -1046,6 +1109,8 @@ class WebSocketWampSessionFactory {
   WebSocketWampSessionFactory({
     required this.url,
     required this.realmUri,
+    this.authId,
+    this.authenticationMethods,
     this.serializer = WampSerializer.json,
     this.clientImplementation = WampClientImplementation.dart,
     this.headers = const <String, Object?>{},
@@ -1056,6 +1121,8 @@ class WebSocketWampSessionFactory {
 
   final String url;
   final String realmUri;
+  final String? authId;
+  final List<wamp_auth.AbstractAuthentication>? authenticationMethods;
   final WampSerializer serializer;
   final WampClientImplementation clientImplementation;
   final Map<String, Object?> headers;
@@ -1068,7 +1135,12 @@ class WebSocketWampSessionFactory {
       WampClientImplementation.dart => _buildDartTransport(),
       WampClientImplementation.native => _buildNativeTransport(),
     };
-    final client = wamp_client.Client(realm: realmUri, transport: transport);
+    final client = wamp_client.Client(
+      realm: realmUri,
+      transport: transport,
+      authId: authId,
+      authenticationMethods: authenticationMethods,
+    );
     final session = await client.connect().first;
     return _ClientBackedWampSession(client, session);
   }
@@ -1135,6 +1207,44 @@ class WebSocketWampSessionFactory {
         wamp_cbor.Serializer(),
         wamp_socket.SocketHelper.serializationCbor,
       );
+  }
+}
+
+List<wamp_auth.AbstractAuthentication>? authenticationMethodsForScenario(
+  WampScenario scenario,
+) {
+  switch (scenario.authMethod.toLowerCase()) {
+    case '':
+    case 'anonymous':
+      return null;
+    case 'ticket':
+      final secret = scenario.authSecret;
+      if (secret == null || secret.isEmpty) {
+        throw StateError('ticket WAMP auth requires authSecret');
+      }
+      return <wamp_auth.AbstractAuthentication>[
+        wamp_auth.TicketAuthentication(secret),
+      ];
+    case 'wampcra':
+    case 'cra':
+      final secret = scenario.authSecret;
+      if (secret == null || secret.isEmpty) {
+        throw StateError('WAMP-CRA auth requires authSecret');
+      }
+      return <wamp_auth.AbstractAuthentication>[
+        wamp_auth.CraAuthentication(secret),
+      ];
+    case 'wamp-scram':
+    case 'scram':
+      final secret = scenario.authSecret;
+      if (secret == null || secret.isEmpty) {
+        throw StateError('SCRAM auth requires authSecret');
+      }
+      return <wamp_auth.AbstractAuthentication>[
+        wamp_auth.ScramAuthentication(secret),
+      ];
+    default:
+      throw StateError('Unsupported WAMP auth method ${scenario.authMethod}');
   }
 }
 
@@ -1376,6 +1486,10 @@ class _ClientBackedWampSession implements WampSession {
 
 class WampScenario {
   WampScenario({
+    this.realmUri = 'bench.control',
+    this.authMethod = 'anonymous',
+    this.authId,
+    this.authSecret,
     required this.transport,
     this.clientImplementation = WampClientImplementation.dart,
     required this.serializer,
@@ -1393,6 +1507,10 @@ class WampScenario {
     this.pptSerializer,
   });
 
+  final String realmUri;
+  final String authMethod;
+  final String? authId;
+  final String? authSecret;
   final WampTransport transport;
   final WampClientImplementation clientImplementation;
   final WampSerializer serializer;
@@ -1417,6 +1535,10 @@ class WampScenario {
     }
     final rawTransport = json['transport'];
     final rawSerializer = json['serializer'];
+    final rawRealm = json['realm'];
+    final rawAuthMethod = json['auth_method'];
+    final rawAuthId = json['auth_id'];
+    final rawAuthSecret = json['auth_secret'];
     final iterations = _readPositiveInt(json['iterations'], fallback: 1);
     final concurrency = _readPositiveInt(json['concurrency'], fallback: 1);
     final inFlightPerSession = _readPositiveInt(
@@ -1426,6 +1548,18 @@ class WampScenario {
     final peerCount = _readPositiveInt(json['peer_count'], fallback: 1);
     final payloadBytes = _readPositiveInt(json['payload_bytes'], fallback: 0);
     return WampScenario(
+      realmUri: rawRealm is String && rawRealm.trim().isNotEmpty
+          ? rawRealm
+          : 'bench.control',
+      authMethod: rawAuthMethod is String && rawAuthMethod.trim().isNotEmpty
+          ? rawAuthMethod
+          : 'anonymous',
+      authId: rawAuthId is String && rawAuthId.trim().isNotEmpty
+          ? rawAuthId
+          : null,
+      authSecret: rawAuthSecret is String && rawAuthSecret.trim().isNotEmpty
+          ? rawAuthSecret
+          : null,
       transport: WampTransport.parse(rawTransport),
       clientImplementation: WampClientImplementation.parse(json['client_impl']),
       serializer: WampSerializer.parse(rawSerializer),
@@ -1468,6 +1602,10 @@ class WampScenario {
   }
 
   Map<String, Object?> toJson() => {
+    'realm': realmUri,
+    'auth_method': authMethod,
+    if (authId != null) 'auth_id': authId,
+    if (authSecret != null) 'auth_secret': authSecret,
     'transport': transport.name,
     'client_impl': clientImplementation.name,
     'serializer': serializer.name,
@@ -1487,6 +1625,10 @@ class WampScenario {
   };
 
   WampScenario copyWith({
+    String? realmUri,
+    String? authMethod,
+    Object? authId = _copySentinel,
+    Object? authSecret = _copySentinel,
     WampTransport? transport,
     WampClientImplementation? clientImplementation,
     WampSerializer? serializer,
@@ -1504,6 +1646,14 @@ class WampScenario {
     Object? pptSerializer = _copySentinel,
   }) {
     return WampScenario(
+      realmUri: realmUri ?? this.realmUri,
+      authMethod: authMethod ?? this.authMethod,
+      authId: identical(authId, _copySentinel)
+          ? this.authId
+          : authId as String?,
+      authSecret: identical(authSecret, _copySentinel)
+          ? this.authSecret
+          : authSecret as String?,
       transport: transport ?? this.transport,
       clientImplementation: clientImplementation ?? this.clientImplementation,
       serializer: serializer ?? this.serializer,
@@ -1616,6 +1766,7 @@ enum WampSerializer {
 const Object _copySentinel = Object();
 
 enum WampMode {
+  authenticate,
   pubsub,
   rpc,
   publishAck,
@@ -1624,6 +1775,7 @@ enum WampMode {
   cancelCycle;
 
   String get wireName => switch (this) {
+    WampMode.authenticate => 'authenticate',
     WampMode.pubsub => 'pubsub',
     WampMode.rpc => 'rpc',
     WampMode.publishAck => 'publish_ack',
@@ -1637,6 +1789,10 @@ enum WampMode {
       case 'pubsub':
       case 'wamp_pubsub':
         return WampMode.pubsub;
+      case 'authenticate':
+      case 'auth':
+      case 'wamp_auth':
+        return WampMode.authenticate;
       case 'rpc':
       case 'wamp_rpc':
         return WampMode.rpc;

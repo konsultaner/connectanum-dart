@@ -701,7 +701,7 @@ class Serializer extends AbstractSerializer {
       return _buildMessage(3, [
         msgpack_dart.serialize(MessageTypes.codeAuthenticate),
         msgpack_dart.serialize(message.signature ?? ''),
-        msgpack_dart.serialize(message.extra ?? '{}'),
+        msgpack_dart.serialize(message.extra ?? const <String, Object?>{}),
       ]);
     }
     if (message is Welcome) {

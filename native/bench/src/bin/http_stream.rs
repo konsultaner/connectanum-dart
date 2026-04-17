@@ -943,6 +943,7 @@ impl BenchWampTransport {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum BenchWampMode {
+    Authenticate,
     PubSub,
     Rpc,
     PublishAck,
@@ -954,6 +955,7 @@ enum BenchWampMode {
 impl BenchWampMode {
     fn as_str(self) -> &'static str {
         match self {
+            Self::Authenticate => "authenticate",
             Self::PubSub => "pubsub",
             Self::Rpc => "rpc",
             Self::PublishAck => "publish_ack",
@@ -966,6 +968,9 @@ impl BenchWampMode {
 
 fn parse_wamp_protocol(protocol: &str) -> Option<(BenchWampTransport, BenchWampMode)> {
     match protocol.to_ascii_lowercase().as_str() {
+        "wamp_auth" | "wamp_rawsocket_auth" => {
+            Some((BenchWampTransport::RawSocket, BenchWampMode::Authenticate))
+        }
         "wamp_pubsub" | "wamp_rawsocket_pubsub" => {
             Some((BenchWampTransport::RawSocket, BenchWampMode::PubSub))
         }
@@ -985,6 +990,7 @@ fn parse_wamp_protocol(protocol: &str) -> Option<(BenchWampTransport, BenchWampM
             Some((BenchWampTransport::RawSocket, BenchWampMode::CancelCycle))
         }
         "wamp_websocket_pubsub" => Some((BenchWampTransport::WebSocket, BenchWampMode::PubSub)),
+        "wamp_websocket_auth" => Some((BenchWampTransport::WebSocket, BenchWampMode::Authenticate)),
         "wamp_websocket_rpc" => Some((BenchWampTransport::WebSocket, BenchWampMode::Rpc)),
         "wamp_websocket_publish_ack" => {
             Some((BenchWampTransport::WebSocket, BenchWampMode::PublishAck))
@@ -1090,22 +1096,34 @@ impl PreparedWorkload {
             .auth_path
             .clone()
             .unwrap_or_else(|| "/bench/auth".to_string());
-        let auth_realm = config
-            .auth_realm
-            .clone()
-            .unwrap_or_else(|| "bench.secure".to_string());
-        let auth_method = config
-            .auth_method
-            .clone()
-            .unwrap_or_else(|| "ticket".to_string());
-        let auth_id = config
-            .auth_id
-            .clone()
-            .unwrap_or_else(|| "bench-user".to_string());
-        let auth_secret = config
-            .auth_secret
-            .clone()
-            .unwrap_or_else(|| "bench-ticket".to_string());
+        let auth_realm = config.auth_realm.clone().unwrap_or_else(|| {
+            if is_wamp {
+                "bench.control".to_string()
+            } else {
+                "bench.secure".to_string()
+            }
+        });
+        let auth_method = config.auth_method.clone().unwrap_or_else(|| {
+            if is_wamp {
+                "anonymous".to_string()
+            } else {
+                "ticket".to_string()
+            }
+        });
+        let auth_id = config.auth_id.clone().unwrap_or_else(|| {
+            if is_wamp && auth_method.eq_ignore_ascii_case("anonymous") {
+                "".to_string()
+            } else {
+                "bench-user".to_string()
+            }
+        });
+        let auth_secret = config.auth_secret.clone().unwrap_or_else(|| {
+            if is_wamp && auth_method.eq_ignore_ascii_case("anonymous") {
+                "".to_string()
+            } else {
+                "bench-ticket".to_string()
+            }
+        });
         let auth_bearer_token = config.auth_bearer_token.clone();
         if auth_flow.is_some() && auth_method != "ticket" && auth_bearer_token.is_none() {
             bail!("HTTP auth bench currently supports ticket only");
@@ -1342,6 +1360,18 @@ fn run_wamp_workload(
     let (transport, mode) = parse_wamp_protocol(&workload.protocol)
         .ok_or_else(|| anyhow!("unsupported WAMP workload {}", workload.protocol))?;
     let body = json!({
+        "realm": workload.auth_realm,
+        "auth_method": workload.auth_method,
+        "auth_id": if workload.auth_id.is_empty() {
+            Value::Null
+        } else {
+            Value::String(workload.auth_id.clone())
+        },
+        "auth_secret": if workload.auth_secret.is_empty() {
+            Value::Null
+        } else {
+            Value::String(workload.auth_secret.clone())
+        },
         "transport": transport.as_str(),
         "client_impl": workload.client_impl,
         "serializer": workload.serializer,
@@ -3703,8 +3733,16 @@ mod tests {
     #[test]
     fn parse_wamp_protocol_supports_transport_specific_labels() {
         assert_eq!(
+            parse_wamp_protocol("wamp_rawsocket_auth"),
+            Some((BenchWampTransport::RawSocket, BenchWampMode::Authenticate))
+        );
+        assert_eq!(
             parse_wamp_protocol("wamp_rawsocket_pubsub"),
             Some((BenchWampTransport::RawSocket, BenchWampMode::PubSub))
+        );
+        assert_eq!(
+            parse_wamp_protocol("wamp_websocket_auth"),
+            Some((BenchWampTransport::WebSocket, BenchWampMode::Authenticate))
         );
         assert_eq!(
             parse_wamp_protocol("wamp_websocket_rpc"),
@@ -3731,6 +3769,46 @@ mod tests {
             Some((BenchWampTransport::WebSocket, BenchWampMode::CancelCycle))
         );
         assert_eq!(parse_wamp_protocol("h2"), None);
+    }
+
+    #[test]
+    fn prepared_workload_defaults_wamp_auth_to_anonymous_control_realm() {
+        let config = WorkloadConfig {
+            name: "load".to_string(),
+            protocol: "wamp_rawsocket_rpc".to_string(),
+            client_impl: default_wamp_client_impl(),
+            serializer: default_wamp_serializer(),
+            method: default_method(),
+            path: "bench.rpc.echo".to_string(),
+            iterations: default_iterations(),
+            concurrency: default_concurrency(),
+            in_flight_per_session: default_in_flight_per_session(),
+            peer_count: default_peer_count(),
+            request_bytes: default_request_bytes(),
+            websocket_fragment_size: None,
+            ppt_scheme: None,
+            ppt_serializer: None,
+            response_bytes: default_response_bytes(),
+            request_chunk_bytes: default_chunk_bytes(),
+            response_chunk_bytes: None,
+            warmup_ms: None,
+            reuse_connections: default_reuse_connections(),
+            streams_per_connection: default_streams_per_connection(),
+            auth_flow: None,
+            auth_path: None,
+            auth_realm: None,
+            auth_method: None,
+            auth_id: None,
+            auth_secret: None,
+            auth_bearer_token: None,
+        };
+
+        let prepared = PreparedWorkload::from_config(&config).unwrap();
+
+        assert_eq!(prepared.auth_realm, "bench.control");
+        assert_eq!(prepared.auth_method, "anonymous");
+        assert!(prepared.auth_id.is_empty());
+        assert!(prepared.auth_secret.is_empty());
     }
 
     #[test]

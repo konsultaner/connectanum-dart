@@ -139,6 +139,40 @@ void main() {
       expect(broker.maxConcurrentCalls, greaterThanOrEqualTo(2));
     });
 
+    test(
+      'executes authenticate scenario by opening and closing sessions',
+      () async {
+        final broker = _FakeWampBroker();
+        var openedSessions = 0;
+        final closedSessions = <_FakeWampSession>[];
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async {
+            openedSessions += 1;
+            final session = _FakeWampSession(broker);
+            closedSessions.add(session);
+            return session;
+          },
+          logger: Logger.detached('authenticate_test'),
+          eventTimeout: const Duration(seconds: 1),
+        );
+        final scenario = WampScenario(
+          transport: WampTransport.rawsocket,
+          serializer: WampSerializer.json,
+          mode: WampMode.authenticate,
+          uri: 'bench.auth',
+          iterations: 2,
+          concurrency: 2,
+          payloadBytes: 0,
+        );
+
+        final samples = await runner.run(scenario);
+
+        expect(samples, hasLength(4));
+        expect(openedSessions, 4);
+        expect(closedSessions.every((session) => session.isClosed), isTrue);
+      },
+    );
+
     test('passes PPT options through pubsub and rpc workloads', () async {
       final broker = _FakeWampBroker();
       final runner = WampWorkloadRunner(
@@ -682,6 +716,11 @@ void main() {
     });
 
     test('parses control workload modes', () {
+      final authenticate = WampScenario.fromJson({
+        'transport': 'rawsocket',
+        'mode': 'authenticate',
+        'uri': 'bench.auth',
+      });
       final publishAck = WampScenario.fromJson({
         'transport': 'rawsocket',
         'serializer': 'json',
@@ -707,14 +746,73 @@ void main() {
         'uri': 'bench.control.cancel',
       });
 
+      expect(authenticate.mode, WampMode.authenticate);
       expect(publishAck.mode, WampMode.publishAck);
       expect(subscribeCycle.mode, WampMode.subscribeCycle);
       expect(registerCycle.mode, WampMode.registerCycle);
       expect(cancelCycle.mode, WampMode.cancelCycle);
+      expect(authenticate.toJson()['mode'], 'authenticate');
       expect(publishAck.toJson()['mode'], 'publish_ack');
       expect(subscribeCycle.toJson()['mode'], 'subscribe_cycle');
       expect(registerCycle.toJson()['mode'], 'register_cycle');
       expect(cancelCycle.toJson()['mode'], 'cancel_cycle');
+    });
+
+    test('parses realm and WAMP auth fields', () {
+      final scenario = WampScenario.fromJson({
+        'realm': 'bench.secure',
+        'auth_method': 'ticket',
+        'auth_id': 'bench-user',
+        'auth_secret': 'bench-ticket',
+        'transport': 'rawsocket',
+        'mode': 'rpc',
+        'uri': 'bench.rpc.echo',
+      });
+
+      expect(scenario.realmUri, 'bench.secure');
+      expect(scenario.authMethod, 'ticket');
+      expect(scenario.authId, 'bench-user');
+      expect(scenario.authSecret, 'bench-ticket');
+      expect(scenario.toJson()['realm'], 'bench.secure');
+      expect(scenario.toJson()['auth_method'], 'ticket');
+    });
+  });
+
+  group('authenticationMethodsForScenario', () {
+    test('returns null for anonymous auth', () {
+      final scenario = WampScenario(
+        transport: WampTransport.rawsocket,
+        serializer: WampSerializer.json,
+        mode: WampMode.rpc,
+        uri: 'bench.rpc.echo',
+        iterations: 1,
+        concurrency: 1,
+        payloadBytes: 0,
+      );
+
+      expect(authenticationMethodsForScenario(scenario), isNull);
+    });
+
+    test('builds ticket auth for ticket scenarios', () {
+      final scenario = WampScenario(
+        realmUri: 'bench.secure',
+        authMethod: 'ticket',
+        authId: 'bench-user',
+        authSecret: 'bench-ticket',
+        transport: WampTransport.rawsocket,
+        serializer: WampSerializer.json,
+        mode: WampMode.rpc,
+        uri: 'bench.rpc.echo',
+        iterations: 1,
+        concurrency: 1,
+        payloadBytes: 0,
+      );
+
+      final methods = authenticationMethodsForScenario(scenario);
+
+      expect(methods, isNotNull);
+      expect(methods, hasLength(1));
+      expect(methods!.single.getName(), 'ticket');
     });
   });
 
@@ -1135,6 +1233,7 @@ class _FakeWampSession implements WampSession {
   final bool useDirectEventHandler;
   final List<WampSubscription> _subscriptions = [];
   final _disconnectCompleter = Completer<void>();
+  var isClosed = false;
 
   @override
   Future<dynamic> get onDisconnect => _disconnectCompleter.future;
@@ -1429,6 +1528,7 @@ class _FakeWampSession implements WampSession {
 
   @override
   Future<void> close() async {
+    isClosed = true;
     for (final subscription in _subscriptions) {
       await subscription.cancel();
     }

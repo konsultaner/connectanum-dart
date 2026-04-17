@@ -1969,7 +1969,7 @@ void main() {
     test('Authenticate', () {
       expect(
         serializer.serialize(Authenticate()),
-        equals([147, MessageTypes.codeAuthenticate, 160, 162, 123, 125]),
+        equals([147, MessageTypes.codeAuthenticate, 160, 128]),
       );
       expect(
         serializer.serialize(Authenticate.signature('someSignature')),
@@ -1977,7 +1977,7 @@ void main() {
           Uint8List.fromList([
             147, MessageTypes.codeAuthenticate, 173, 115, 111, 109, 101, 83,
             105, 103, //
-            110, 97, 116, 117, 114, 101, 162, 123, 125,
+            110, 97, 116, 117, 114, 101, 128,
           ]),
         ),
       );

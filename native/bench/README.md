@@ -144,10 +144,12 @@ transport bench can compare serializer overhead directly, an optional
 callee/subscriber using a different serializer, an optional `peer_count` field
 for pub/sub fan-out against multiple real subscriber sessions, plus an
 `in_flight_per_session` knob (default `1`) that keeps multiple publishes/calls
-outstanding on each hot WAMP session. Native WebSocket WAMP workloads also accept
-`websocket_fragment_size` so a single encoded message can be sent as deliberate
-RFC 6455 continuation frames and benchmarked on the live router path. Example
-(`h2_smoke.toml`):
+outstanding on each hot WAMP session. WAMP workloads can also declare
+`realm`, `auth_method`, `auth_id`, and `auth_secret`, and `mode = "authenticate"`
+measures connect/authenticate/close without an RPC or pub/sub phase. Native
+WebSocket WAMP workloads also accept `websocket_fragment_size` so a single
+encoded message can be sent as deliberate RFC 6455 continuation frames and
+benchmarked on the live router path. Example (`h2_smoke.toml`):
 
 ```toml
 name = "h2_smoke"
@@ -214,6 +216,14 @@ HTTP auth workloads can also declare:
   protected route directly with a static bearer token. This is used by the
   JWT provider smoke so local bearer validation overhead can be compared
   separately from the ticket bridge.
+
+The default `bench_router.json` now exposes both an ACL-off WAMP realm and an
+ACL-on one so the same bench run can compare authorization overhead:
+
+- `bench.control` keeps the legacy allow-all behavior for anonymous and bench
+  roles.
+- `bench.secure` requires ticket auth and enforces explicit `bench.*`
+  permissions for the configured roles.
 
 ### Scenario Catalog
 
@@ -300,6 +310,11 @@ HTTP auth workloads can also declare:
   the same live router path, so the segmented native WebSocket
   parser/storage path and contiguous masked-writer path are both measured
   directly instead of only pinned by transport regressions.
+- `transport_mbit_matrix_smoke.toml` – consolidated comparable matrix that
+  combines WAMP authentication, RawSocket/WebSocket RPC + pub/sub at
+  representative payload sizes, ACL-off versus ACL-on realms, WebSocket
+  continuation-size rows where meaningful, and HTTP/1.1/2/3 public plus
+  authenticated route probes into one Mbps-oriented artifact set.
 - `all_transports_smoke.toml` – quick cross-transport smoke covering RawSocket,
   WebSocket, HTTP/1.1, HTTP/2, and HTTP/3 in one run. The WAMP side now mixes
   JSON, MessagePack, and CBOR across RawSocket/WebSocket workloads so serializer

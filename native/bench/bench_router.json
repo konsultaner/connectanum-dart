@@ -9,37 +9,11 @@
         "roles": [
           {
             "name": "anonymous",
-            "permissions": [
-              {
-                "uri": "",
-                "match": "prefix",
-                "allow": [
-                  "register",
-                  "unregister",
-                  "subscribe",
-                  "unsubscribe",
-                  "publish",
-                  "call"
-                ]
-              }
-            ]
+            "permissions": []
           },
           {
             "name": "bench",
-            "permissions": [
-              {
-                "uri": "",
-                "match": "prefix",
-                "allow": [
-                  "register",
-                  "unregister",
-                  "subscribe",
-                  "unsubscribe",
-                  "publish",
-                  "call"
-                ]
-              }
-            ]
+            "permissions": []
           }
         ]
       },
@@ -56,9 +30,16 @@
             "name": "member",
             "permissions": [
               {
-                "uri": "bench.http.secure",
-                "match": "exact",
-                "allow": ["call"]
+                "uri": "bench.",
+                "match": "prefix",
+                "allow": [
+                  "register",
+                  "unregister",
+                  "subscribe",
+                  "unsubscribe",
+                  "publish",
+                  "call"
+                ]
               }
             ]
           },
@@ -66,9 +47,16 @@
             "name": "internal",
             "permissions": [
               {
-                "uri": "bench.http.secure",
-                "match": "exact",
-                "allow": ["call", "register", "unregister"]
+                "uri": "bench.",
+                "match": "prefix",
+                "allow": [
+                  "register",
+                  "unregister",
+                  "subscribe",
+                  "unsubscribe",
+                  "publish",
+                  "call"
+                ]
               }
             ]
           }
@@ -269,7 +257,7 @@
       },
       {
         "endpoint": "127.0.0.1:8081",
-        "authmethods": ["anonymous"],
+        "authmethods": ["anonymous", "ticket"],
         "protocols": ["rawsocket", "websocket"],
         "rawsocket": {
           "max_rawsocket_size_exponent": 18
