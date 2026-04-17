@@ -31,6 +31,8 @@ void main() {
                       'type': 'auth',
                       'session_profile': 'http-handler',
                       'token_ttl_ms': 45000,
+                      'refresh_token_ttl_ms': 240000,
+                      'rotate_refresh_tokens': true,
                     },
                   },
                   <String, Object?>{
@@ -62,12 +64,22 @@ void main() {
               'auth': <String, Object?>{
                 'auth_id': 'http-handler',
                 'auth_role': 'internal',
+                'http_provider': 'edge-jwt',
               },
               'roles': <String, Object?>{
                 'callee': const {'features': <String, Object?>{}},
               },
             },
           ],
+          'http_auth_providers': <String, Object?>{
+            'edge-jwt': <String, Object?>{
+              'type': 'jwt',
+              'options': <String, Object?>{
+                'issuer': 'https://issuer.example',
+                'audience': ['connectanum-http'],
+              },
+            },
+          },
           'internal_realms': [
             <String, Object?>{
               'name': 'connectanum.metrics',
@@ -97,6 +109,28 @@ void main() {
         45000,
       );
       expect(
+        settings
+            .listeners
+            .single
+            .http
+            ?.routes
+            .first
+            .action
+            .options['refresh_token_ttl_ms'],
+        240000,
+      );
+      expect(
+        settings
+            .listeners
+            .single
+            .http
+            ?.routes
+            .first
+            .action
+            .options['rotate_refresh_tokens'],
+        isTrue,
+      );
+      expect(
         settings.listeners.single.http?.routes.last.action.sessionProfile,
         'http-handler',
       );
@@ -112,6 +146,14 @@ void main() {
             .authRole,
         'internal',
       );
+      expect(
+        settings.sessionProfiles
+            .firstWhere((profile) => profile.name == 'http-handler')
+            .auth
+            .httpProvider,
+        'edge-jwt',
+      );
+      expect(settings.httpAuthProviders.keys, contains('edge-jwt'));
       expect(settings.internalRealms.single.sessionProfile, 'http-handler');
     });
 
@@ -339,7 +381,18 @@ void main() {
             ..setRealm('realm1')
             ..setAuthId('http-handler')
             ..setAuthRole('internal')
+            ..setHttpProvider('edge-jwt')
             ..putRole('callee', const {'features': <String, Object?>{}}),
+        )
+        ..addHttpAuthProvider(
+          'edge-jwt',
+          const HttpAuthProviderDefinition(
+            type: 'jwt',
+            options: <String, Object?>{
+              'issuer': 'https://issuer.example',
+              'audience': <String>['connectanum-http'],
+            },
+          ),
         )
         ..addListenerFromBuilder(
           ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
@@ -354,7 +407,11 @@ void main() {
                     action: HttpRouteAction(
                       type: HttpRouteActionType.auth,
                       sessionProfile: 'http-handler',
-                      options: <String, Object?>{'token_ttl_ms': 45000},
+                      options: <String, Object?>{
+                        'token_ttl_ms': 45000,
+                        'refresh_token_ttl_ms': 240000,
+                        'rotate_refresh_tokens': true,
+                      },
                     ),
                   ),
                   HttpRouteSettings(
@@ -398,8 +455,38 @@ void main() {
         45000,
       );
       expect(
+        decoded
+            .listeners
+            .single
+            .http
+            ?.routes
+            .first
+            .action
+            .options['refresh_token_ttl_ms'],
+        240000,
+      );
+      expect(
+        decoded
+            .listeners
+            .single
+            .http
+            ?.routes
+            .first
+            .action
+            .options['rotate_refresh_tokens'],
+        isTrue,
+      );
+      expect(
         decoded.listeners.single.http?.routes.last.action.sessionProfile,
         'http-handler',
+      );
+      expect(decoded.httpAuthProviders.keys, contains('edge-jwt'));
+      expect(
+        decoded.sessionProfiles
+            .firstWhere((profile) => profile.name == 'http-handler')
+            .auth
+            .httpProvider,
+        'edge-jwt',
       );
       expect(decoded.internalRealms.single.sessionProfile, 'http-handler');
     });

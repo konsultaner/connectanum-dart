@@ -90,8 +90,8 @@ Focus for the next session:
    - Add mutual-TLS and credential-rotation hooks to the now-live remote auth RPC path; shared tokens and strict schema validation are already in place.
    - Add a constrained rawsocket frame pusher in the bench orchestrator to fuzz remote auth without full WAMP clients and collect latency/backpressure metrics.
    - Decide whether dynamic realm authorization should stay as the current runtime `AuthorizationProviderRegistry` hook or grow a config-driven provider/factory model per realm.
-   - Add refresh-token rotation and revocation to the live HTTP auth bridge so protected HTTP clients can renew access without replaying the full CRA/SCRAM handshake.
-   - Add a dedicated HTTP auth bench scenario that measures `/auth` challenge latency and bearer-protected route overhead across HTTP/1.1, HTTP/2, and HTTP/3.
+   - Tighten native listener-side transport auth enforcement (mTLS / ALPN / bearer-required routes) so clearly unauthorized HTTP requests can be rejected before the Dart bridge/session layer.
+   - Add a dedicated HTTP bearer-provider bench (JWT local validation and OAuth introspection) so the new provider-backed route path is measured separately from the ticket bridge smoke.
 
 8. **Benchmark Readiness**
   - ✅ Bench harness pieces are in place: Dart runner, Rust orchestrator, TOML scenarios, transformed Prometheus/summary artifacts, default HTTPS/TLS smoke runs over HTTP/2 + HTTP/3, explicit RawSocket/WebSocket WAMP scenarios, serializer-aware WAMP workloads (`json`, `msgpack`, `cbor`), and `all_transports_smoke.toml` / `wamp_serializer_matrix.toml` for cross-transport and serializer-specific sanity checks.

@@ -1,0 +1,154 @@
+name = "http_auth_smoke"
+description = "HTTP auth bridge smoke coverage for ticket login, refresh rotation, and bearer-protected routes across HTTP/1.1, HTTP/2, and HTTP/3."
+
+[[workloads]]
+name = "h1_ticket_login"
+protocol = "h1"
+path = "/bench/auth"
+method = "POST"
+iterations = 3
+concurrency = 1
+auth_flow = "login"
+auth_path = "/bench/auth"
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+request_bytes = 0
+response_bytes = 0
+
+[[workloads]]
+name = "h1_ticket_refresh"
+protocol = "h1"
+path = "/bench/auth"
+method = "POST"
+iterations = 3
+concurrency = 1
+auth_flow = "refresh"
+auth_path = "/bench/auth"
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+request_bytes = 0
+response_bytes = 0
+
+[[workloads]]
+name = "h1_ticket_protected"
+protocol = "h1"
+path = "/bench/secure"
+method = "POST"
+iterations = 4
+concurrency = 2
+auth_flow = "protected"
+auth_path = "/bench/auth"
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+request_bytes = 4096
+response_bytes = 4096
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "h2_ticket_login"
+protocol = "h2"
+path = "/bench/auth"
+method = "POST"
+iterations = 3
+concurrency = 1
+auth_flow = "login"
+auth_path = "/bench/auth"
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+request_bytes = 0
+response_bytes = 0
+
+[[workloads]]
+name = "h2_ticket_refresh"
+protocol = "h2"
+path = "/bench/auth"
+method = "POST"
+iterations = 3
+concurrency = 1
+auth_flow = "refresh"
+auth_path = "/bench/auth"
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+request_bytes = 0
+response_bytes = 0
+
+[[workloads]]
+name = "h2_ticket_protected"
+protocol = "h2"
+path = "/bench/secure"
+method = "POST"
+iterations = 4
+concurrency = 2
+streams_per_connection = 2
+auth_flow = "protected"
+auth_path = "/bench/auth"
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+request_bytes = 4096
+response_bytes = 4096
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "h3_ticket_login"
+protocol = "h3"
+path = "/bench/auth"
+method = "POST"
+iterations = 3
+concurrency = 1
+auth_flow = "login"
+auth_path = "/bench/auth"
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+request_bytes = 0
+response_bytes = 0
+
+[[workloads]]
+name = "h3_ticket_refresh"
+protocol = "h3"
+path = "/bench/auth"
+method = "POST"
+iterations = 3
+concurrency = 1
+auth_flow = "refresh"
+auth_path = "/bench/auth"
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+request_bytes = 0
+response_bytes = 0
+
+[[workloads]]
+name = "h3_ticket_protected"
+protocol = "h3"
+path = "/bench/secure"
+method = "POST"
+iterations = 4
+concurrency = 2
+streams_per_connection = 2
+auth_flow = "protected"
+auth_path = "/bench/auth"
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+request_bytes = 4096
+response_bytes = 4096
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024

@@ -98,6 +98,8 @@ class RouterBinding {
   final Map<String, _PendingHttpAuthTransaction> _pendingHttpAuthTransactions =
       {};
   final Map<String, _HttpAuthTokenRecord> _httpAuthTokens = {};
+  final Map<String, _HttpRefreshTokenRecord> _httpRefreshTokens = {};
+  final Map<String, Future<HttpAuthProvider>> _httpAuthProviderCache = {};
   final Map<String, ListenerSettings> _listenerSettingsByEndpoint;
   final Map<int, ListenerSettings?> _listenerConfigById = {};
   final Random _random = Random.secure();
@@ -318,6 +320,8 @@ class RouterBinding {
     required String realmUri,
     String? authId,
     String? authRole,
+    String? authMethod,
+    String? authProvider,
     Map<String, Object?> roles = const {},
     String? sessionProfile,
     String? cacheKey,
@@ -338,9 +342,10 @@ class RouterBinding {
         : realmUri;
     final resolvedAuthId = authId ?? resolvedProfile?.auth.authId;
     final requestedAuthRole = authRole ?? resolvedProfile?.auth.authRole;
-    final resolvedRoles = roles.isNotEmpty
-        ? roles
-        : (resolvedProfile?.roles ?? const <String, Object?>{});
+    final resolvedRoles = <String, Object?>{
+      ...?resolvedProfile?.roles,
+      ...roles,
+    };
 
     RealmSettings? realmSettings;
     for (final candidate in settings.realms) {
@@ -365,6 +370,8 @@ class RouterBinding {
         realmUri: resolvedRealmUri,
         authId: resolvedAuthId,
         authRole: resolvedAuthRole,
+        authMethod: authMethod,
+        authProvider: authProvider,
         roles: resolvedRoles,
         realmSettings: realmSettings,
         statePort: statePort,
@@ -404,6 +411,8 @@ class RouterBinding {
       realmUri: resolvedRealmUri,
       authId: resolvedAuthId,
       authRole: resolvedAuthRole,
+      authMethod: authMethod,
+      authProvider: authProvider,
       cacheKey: cacheKey,
       roles: resolvedRoles,
       commandPort: requestPort,
@@ -417,6 +426,8 @@ class RouterBinding {
       id: sessionId,
       authId: resolvedAuthId,
       authRole: resolvedAuthRole,
+      authMethod: authMethod,
+      authProvider: authProvider,
       roles: resolvedRoles,
       workerId: 0,
       connectionId: -sessionId,
@@ -897,6 +908,7 @@ class RouterBinding {
     }
     _pendingHttpAuthTransactions.clear();
     _httpAuthTokens.clear();
+    _httpRefreshTokens.clear();
     try {
       await _closeListenersAndPendingConnections();
     } catch (_) {}
@@ -1056,6 +1068,7 @@ class RouterBinding {
       if (bearer != null) {
         session = await _authenticatedHttpSessionForToken(
           token: bearer,
+          request: request,
           realmUri: resolvedRealmUri,
           sessionProfile: sessionProfile,
         );
@@ -1319,6 +1332,8 @@ class RouterBinding {
     String? sessionProfile,
     String? authId,
     String? authRole,
+    String? authMethod,
+    String? authProvider,
     Map<String, Object?> roles = const {},
     String? cacheKey,
   }) async {
@@ -1333,6 +1348,8 @@ class RouterBinding {
       realmUri: realmUri,
       authId: authId,
       authRole: authRole,
+      authMethod: authMethod,
+      authProvider: authProvider,
       roles: roles,
       sessionProfile: sessionProfile,
       cacheKey: resolvedCacheKey,
@@ -1494,8 +1511,41 @@ class RouterBinding {
         state: state,
         body: body,
         sessionProfile: sessionProfile,
+        route: route,
+        listenerSettings: listenerSettings,
       );
       return;
+    }
+
+    final grantType = _firstNonEmptyString(
+      body['grant_type'],
+      query['grant_type'],
+      _headerValue(request.headers, 'x-connectanum-grant-type'),
+    );
+    if (grantType != null) {
+      switch (grantType) {
+        case 'refresh':
+        case 'refresh_token':
+          await _handleHttpRefreshGrant(
+            request: request,
+            handshake: handshake,
+            body: body,
+            query: query,
+            sessionProfile: sessionProfile,
+            route: route,
+            listenerSettings: listenerSettings,
+          );
+          return;
+        case 'revoke':
+        case 'revocation':
+          await _handleHttpRevokeGrant(
+            request: request,
+            handshake: handshake,
+            body: body,
+            query: query,
+          );
+          return;
+      }
     }
 
     registerDefaultAuthenticators();
@@ -1686,7 +1736,12 @@ class RouterBinding {
         final token = _issueHttpAuthToken(
           realmUri: realmUri,
           authMethod: authMethod,
-          success: result.success!,
+          authProvider: _resolveAuthProviderFromDetails(
+            result.success!.details,
+          ),
+          authId: result.success!.authId,
+          authRole: result.success!.authRole,
+          details: result.success!.details,
           sessionProfileName: sessionProfile?.name,
           route: route,
           listenerSettings: listenerSettings,
@@ -1724,6 +1779,8 @@ class RouterBinding {
     required String state,
     required Map<String, Object?> body,
     required SessionProfileSettings? sessionProfile,
+    required HttpRouteSettings route,
+    required ListenerSettings? listenerSettings,
   }) async {
     final pending = _pendingHttpAuthTransactions.remove(state);
     if (pending == null) {
@@ -1836,11 +1893,16 @@ class RouterBinding {
         final token = _issueHttpAuthToken(
           realmUri: pending.realmUri,
           authMethod: pending.authMethod,
-          success: result.success!,
+          authProvider: _resolveAuthProviderFromDetails(
+            result.success!.details,
+          ),
+          authId: result.success!.authId,
+          authRole: result.success!.authRole,
+          details: result.success!.details,
           sessionProfileName:
               pending.sessionProfileName ?? sessionProfile?.name,
-          route: null,
-          listenerSettings: null,
+          route: route,
+          listenerSettings: listenerSettings,
           realmSettings: realmSettings,
         );
         await _sendImmediateHttpResponse(
@@ -1868,6 +1930,211 @@ class RouterBinding {
           ),
         );
     }
+  }
+
+  Future<void> _handleHttpRefreshGrant({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required Map<String, Object?> body,
+    required Map<String, String> query,
+    required SessionProfileSettings? sessionProfile,
+    required HttpRouteSettings route,
+    required ListenerSettings? listenerSettings,
+  }) async {
+    final refreshToken = _firstNonEmptyString(
+      body['refresh_token'],
+      body['token'],
+      query['refresh_token'],
+    );
+    if (refreshToken == null || refreshToken.isEmpty) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.badRequest,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'missing_refresh_token',
+            'message': 'refresh_token is required',
+          }),
+        ),
+      );
+      return;
+    }
+
+    final record = _httpRefreshTokens[refreshToken];
+    if (record == null) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.unauthorized,
+          headers: const {HttpHeaders.wwwAuthenticateHeader: 'Bearer'},
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'invalid_refresh_token',
+            'message': 'Refresh token is unknown',
+          }),
+        ),
+      );
+      return;
+    }
+    if (record.expiresAt.isBefore(DateTime.now().toUtc())) {
+      await _revokeHttpRefreshToken(refreshToken);
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.unauthorized,
+          headers: const {HttpHeaders.wwwAuthenticateHeader: 'Bearer'},
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'expired_refresh_token',
+            'message': 'Refresh token expired',
+          }),
+        ),
+      );
+      return;
+    }
+
+    final allowedMethods = sessionProfile?.auth.methods ?? const <String>[];
+    if (allowedMethods.isNotEmpty &&
+        !allowedMethods.contains('anonymous') &&
+        !allowedMethods.contains(record.authMethod)) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.unauthorized,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'wrong_authmethod',
+            'message':
+                'Refresh token auth method is not allowed for this route',
+          }),
+        ),
+      );
+      return;
+    }
+
+    final realmSettings = _realmSettingsFor(record.realmUri);
+    if (realmSettings == null) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.unauthorized,
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'error',
+            'reason': wamp_core.Error.noSuchRealm,
+            'message': 'Realm ${record.realmUri} is no longer configured',
+          }),
+        ),
+      );
+      return;
+    }
+
+    final rotateRefreshTokens = _resolveHttpRotateRefreshTokens(
+      route: route,
+      listenerSettings: listenerSettings,
+    );
+    final linkedAccessTokens = record.accessTokens.toList(growable: false);
+    for (final accessToken in linkedAccessTokens) {
+      await _revokeHttpAccessToken(accessToken, removeFromRefreshToken: false);
+    }
+
+    late final _HttpAuthIssueResult issued;
+    if (rotateRefreshTokens) {
+      _httpRefreshTokens.remove(refreshToken);
+      issued = _issueHttpAuthToken(
+        realmUri: record.realmUri,
+        authMethod: record.authMethod,
+        authProvider: record.authProvider,
+        authId: record.authId,
+        authRole: record.authRole,
+        details: record.details,
+        sessionProfileName: record.sessionProfileName ?? sessionProfile?.name,
+        route: route,
+        listenerSettings: listenerSettings,
+        realmSettings: realmSettings,
+      );
+    } else {
+      final accessRecord = _issueHttpAccessTokenRecord(
+        realmUri: record.realmUri,
+        authMethod: record.authMethod,
+        authProvider: record.authProvider,
+        authId: record.authId,
+        authRole: record.authRole,
+        details: record.details,
+        sessionProfileName: record.sessionProfileName ?? sessionProfile?.name,
+        expiresAt: DateTime.now().toUtc().add(
+          _resolveHttpAuthTokenTtl(
+            route: route,
+            listenerSettings: listenerSettings,
+            realmSettings: realmSettings,
+          ),
+        ),
+        refreshToken: refreshToken,
+      );
+      _httpAuthTokens[accessRecord.token] = accessRecord;
+      record
+        ..accessTokens.clear()
+        ..accessTokens.add(accessRecord.token);
+      issued = _HttpAuthIssueResult(
+        accessToken: accessRecord,
+        refreshToken: record,
+      );
+    }
+
+    await _sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: NativeHttpResponse(
+        status: HttpStatus.ok,
+        body: NativeHttpResponseJson(_httpAuthSuccessPayload(issued)),
+      ),
+    );
+  }
+
+  Future<void> _handleHttpRevokeGrant({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required Map<String, Object?> body,
+    required Map<String, String> query,
+  }) async {
+    final token = _firstNonEmptyString(
+      body['token'],
+      body['refresh_token'],
+      query['token'],
+    );
+    final tokenTypeHint = _firstNonEmptyString(
+      body['token_type_hint'],
+      query['token_type_hint'],
+      _headerValue(request.headers, 'x-connectanum-token-type-hint'),
+    );
+
+    if (token != null && token.isNotEmpty) {
+      if (tokenTypeHint == 'refresh_token') {
+        await _revokeHttpRefreshToken(token);
+      } else if (tokenTypeHint == 'access_token') {
+        await _revokeHttpAccessToken(token);
+      } else if (_httpRefreshTokens.containsKey(token)) {
+        await _revokeHttpRefreshToken(token);
+      } else {
+        await _revokeHttpAccessToken(token);
+      }
+    }
+
+    await _sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: NativeHttpResponse(
+        status: HttpStatus.ok,
+        body: NativeHttpResponseJson(const <String, Object?>{
+          'status': 'revoked',
+        }),
+      ),
+    );
   }
 
   RealmSettings? _realmSettingsFor(String realmUri) {
@@ -1913,51 +2180,138 @@ class RouterBinding {
     return null;
   }
 
+  Future<_ConfiguredHttpAuthProvider?> _configuredHttpAuthProviderFor(
+    SessionProfileSettings? sessionProfile,
+  ) async {
+    final providerName = sessionProfile?.auth.httpProvider?.trim();
+    if (providerName == null || providerName.isEmpty) {
+      return null;
+    }
+    final definition = settings.httpAuthProviders[providerName];
+    if (definition == null) {
+      throw StateError(
+        'Session profile ${sessionProfile!.name} references unknown '
+        'HTTP auth provider $providerName',
+      );
+    }
+    registerDefaultHttpAuthProviders();
+    final future = _httpAuthProviderCache.putIfAbsent(providerName, () async {
+      final factory = HttpAuthProviderRegistry.factoryFor(definition.type);
+      if (factory == null) {
+        throw StateError(
+          'No HTTP auth provider factory registered for ${definition.type}',
+        );
+      }
+      return factory.create(<String, Object?>{
+        'name': providerName,
+        ...definition.options,
+      });
+    });
+    return _ConfiguredHttpAuthProvider(
+      name: providerName,
+      provider: await future,
+    );
+  }
+
   Future<RouterSession> _authenticatedHttpSessionForToken({
     required String token,
+    required RouterHttpRequest request,
     required String realmUri,
     required SessionProfileSettings? sessionProfile,
   }) async {
     final record = _httpAuthTokens[token];
-    if (record == null) {
+    if (record != null) {
+      if (record.expiresAt.isBefore(DateTime.now().toUtc())) {
+        await _revokeHttpAccessToken(token);
+        throw const _HttpUnauthorized(
+          reason: 'expired_token',
+          message: 'Bearer token expired',
+        );
+      }
+      if (record.realmUri != realmUri) {
+        throw const _HttpUnauthorized(
+          reason: 'wrong_realm',
+          message: 'Bearer token does not grant access to this realm',
+        );
+      }
+      final allowedMethods = sessionProfile?.auth.methods;
+      if (allowedMethods != null &&
+          allowedMethods.isNotEmpty &&
+          !allowedMethods.contains('anonymous') &&
+          !allowedMethods.contains(record.authMethod)) {
+        throw const _HttpUnauthorized(
+          reason: 'wrong_authmethod',
+          message: 'Bearer token auth method is not allowed for this route',
+        );
+      }
+      final cacheKey =
+          sessionProfile?.name != null && sessionProfile!.name.isNotEmpty
+          ? '${record.cacheKeyPrefix}:${sessionProfile.name}'
+          : record.cacheKeyPrefix;
+      return _ensureInternalSession(
+        realmUri: realmUri,
+        authId: record.authId,
+        authRole: record.authRole,
+        authMethod: record.authMethod,
+        authProvider: record.authProvider,
+        sessionProfile: sessionProfile?.name,
+        cacheKey: cacheKey,
+      );
+    }
+
+    final configuredProvider = await _configuredHttpAuthProviderFor(
+      sessionProfile,
+    );
+    if (configuredProvider == null) {
       throw const _HttpUnauthorized(
         reason: 'invalid_token',
         message: 'Bearer token is unknown',
       );
     }
-    if (record.expiresAt.isBefore(DateTime.now().toUtc())) {
-      await _expireHttpAuthToken(token);
-      throw const _HttpUnauthorized(
-        reason: 'expired_token',
-        message: 'Bearer token expired',
-      );
+
+    final providerResult = await configuredProvider.provider.authenticate(
+      HttpAuthBearerRequest(
+        token: token,
+        realmUri: realmUri,
+        method: request.method,
+        path: request.path,
+        headers: request.headers,
+        transport: buildTransportMetadata(
+          listener: request.listener,
+          connectionId: request.connectionId,
+        ),
+        sessionProfileName: sessionProfile?.name,
+      ),
+    );
+    if (!providerResult.success) {
+      final failure = providerResult.failure!;
+      throw _HttpUnauthorized(reason: failure.reason, message: failure.message);
     }
-    if (record.realmUri != realmUri) {
-      throw const _HttpUnauthorized(
-        reason: 'wrong_realm',
-        message: 'Bearer token does not grant access to this realm',
-      );
-    }
+    final authenticated = providerResult.authenticated!;
     final allowedMethods = sessionProfile?.auth.methods;
     if (allowedMethods != null &&
         allowedMethods.isNotEmpty &&
         !allowedMethods.contains('anonymous') &&
-        !allowedMethods.contains(record.authMethod)) {
+        !allowedMethods.contains(authenticated.authMethod)) {
       throw const _HttpUnauthorized(
         reason: 'wrong_authmethod',
         message: 'Bearer token auth method is not allowed for this route',
       );
     }
-    final cacheKey =
-        sessionProfile?.name != null && sessionProfile!.name.isNotEmpty
-        ? '${record.cacheKeyPrefix}:${sessionProfile.name}'
-        : record.cacheKeyPrefix;
+
+    final cacheKeyBase =
+        'http-external:${configuredProvider.name}:$realmUri:$token';
     return _ensureInternalSession(
       realmUri: realmUri,
-      authId: record.authId,
-      authRole: record.authRole,
+      authId: authenticated.authId,
+      authRole: authenticated.authRole,
+      authMethod: authenticated.authMethod,
+      authProvider: authenticated.authProvider,
+      roles: authenticated.roles,
       sessionProfile: sessionProfile?.name,
-      cacheKey: cacheKey,
+      cacheKey: sessionProfile?.name != null && sessionProfile!.name.isNotEmpty
+          ? '$cacheKeyBase:${sessionProfile.name}'
+          : cacheKeyBase,
     );
   }
 
@@ -2073,10 +2427,13 @@ class RouterBinding {
     return null;
   }
 
-  _HttpAuthTokenRecord _issueHttpAuthToken({
+  _HttpAuthIssueResult _issueHttpAuthToken({
     required String realmUri,
     required String authMethod,
-    required AuthSuccess success,
+    required String? authProvider,
+    required String authId,
+    required String authRole,
+    required Map<String, Object?> details,
     required String? sessionProfileName,
     required HttpRouteSettings? route,
     required ListenerSettings? listenerSettings,
@@ -2087,19 +2444,70 @@ class RouterBinding {
       listenerSettings: listenerSettings,
       realmSettings: realmSettings,
     );
+    final refreshTtl = _resolveHttpRefreshTokenTtl(
+      route: route,
+      listenerSettings: listenerSettings,
+      realmSettings: realmSettings,
+    );
+    _HttpRefreshTokenRecord? refreshRecord;
+    if (refreshTtl > Duration.zero) {
+      final refreshToken = _randomHttpAuthToken();
+      refreshRecord = _HttpRefreshTokenRecord(
+        token: refreshToken,
+        realmUri: realmUri,
+        authMethod: authMethod,
+        authProvider: authProvider,
+        authId: authId,
+        authRole: authRole,
+        details: Map<String, Object?>.unmodifiable(details),
+        sessionProfileName: sessionProfileName,
+        expiresAt: DateTime.now().toUtc().add(refreshTtl),
+      );
+      _httpRefreshTokens[refreshToken] = refreshRecord;
+    }
+    final accessRecord = _issueHttpAccessTokenRecord(
+      realmUri: realmUri,
+      authMethod: authMethod,
+      authProvider: authProvider,
+      authId: authId,
+      authRole: authRole,
+      details: details,
+      sessionProfileName: sessionProfileName,
+      expiresAt: DateTime.now().toUtc().add(ttl),
+      refreshToken: refreshRecord?.token,
+    );
+    _httpAuthTokens[accessRecord.token] = accessRecord;
+    refreshRecord?.accessTokens.add(accessRecord.token);
+    return _HttpAuthIssueResult(
+      accessToken: accessRecord,
+      refreshToken: refreshRecord,
+    );
+  }
+
+  _HttpAuthTokenRecord _issueHttpAccessTokenRecord({
+    required String realmUri,
+    required String authMethod,
+    required String? authProvider,
+    required String authId,
+    required String authRole,
+    required Map<String, Object?> details,
+    required String? sessionProfileName,
+    required DateTime expiresAt,
+    required String? refreshToken,
+  }) {
     final token = _randomHttpAuthToken();
-    final record = _HttpAuthTokenRecord(
+    return _HttpAuthTokenRecord(
       token: token,
       realmUri: realmUri,
       authMethod: authMethod,
-      authId: success.authId,
-      authRole: success.authRole,
-      details: Map<String, Object?>.unmodifiable(success.details),
+      authProvider: authProvider,
+      authId: authId,
+      authRole: authRole,
+      details: Map<String, Object?>.unmodifiable(details),
       sessionProfileName: sessionProfileName,
-      expiresAt: DateTime.now().toUtc().add(ttl),
+      expiresAt: expiresAt,
+      refreshToken: refreshToken,
     );
-    _httpAuthTokens[token] = record;
-    return record;
   }
 
   Duration _resolveHttpAuthTokenTtl({
@@ -2122,12 +2530,64 @@ class RouterBinding {
     return const Duration(minutes: 15);
   }
 
+  Duration _resolveHttpRefreshTokenTtl({
+    required HttpRouteSettings? route,
+    required ListenerSettings? listenerSettings,
+    required RealmSettings realmSettings,
+  }) {
+    final routeTtl = route?.action.options['refresh_token_ttl_ms'];
+    if (routeTtl is int) {
+      return routeTtl > 0 ? Duration(milliseconds: routeTtl) : Duration.zero;
+    }
+    final listenerTtl =
+        listenerSettings?.http?.options['auth_refresh_token_ttl_ms'];
+    if (listenerTtl is int) {
+      return listenerTtl > 0
+          ? Duration(milliseconds: listenerTtl)
+          : Duration.zero;
+    }
+    final idleMs = realmSettings.limits.sessionIdleMs;
+    if (idleMs > 0) {
+      return Duration(milliseconds: idleMs * 4);
+    }
+    return const Duration(hours: 24);
+  }
+
+  bool _resolveHttpRotateRefreshTokens({
+    required HttpRouteSettings? route,
+    required ListenerSettings? listenerSettings,
+  }) {
+    final routeValue = route?.action.options['rotate_refresh_tokens'];
+    if (routeValue is bool) {
+      return routeValue;
+    }
+    final listenerValue =
+        listenerSettings?.http?.options['auth_rotate_refresh_tokens'];
+    if (listenerValue is bool) {
+      return listenerValue;
+    }
+    return true;
+  }
+
   String _randomHttpAuthToken([int bytes = 32]) {
     final values = List<int>.generate(bytes, (_) => _random.nextInt(256));
     return base64Url.encode(values);
   }
 
-  Map<String, Object?> _httpAuthSuccessPayload(_HttpAuthTokenRecord record) {
+  String? _resolveAuthProviderFromDetails(Map<String, Object?> details) {
+    final provider =
+        details['authprovider'] ??
+        details['provider'] ??
+        details['auth_provider'];
+    if (provider is! String) {
+      return null;
+    }
+    final trimmed = provider.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  Map<String, Object?> _httpAuthSuccessPayload(_HttpAuthIssueResult issue) {
+    final record = issue.accessToken;
     return <String, Object?>{
       'status': 'ok',
       'token_type': 'Bearer',
@@ -2136,13 +2596,20 @@ class RouterBinding {
       'authid': record.authId,
       'authrole': record.authRole,
       'authmethod': record.authMethod,
+      if (record.authProvider != null) 'authprovider': record.authProvider,
       'expires_in': record.expiresIn.inSeconds,
+      if (issue.refreshToken != null)
+        'refresh_token': issue.refreshToken!.token,
+      if (issue.refreshToken != null)
+        'refresh_token_expires_in': issue.refreshToken!.expiresIn.inSeconds,
       if (record.details.isNotEmpty) 'details': record.details,
     };
   }
 
   void _cleanupExpiredHttpAuthState() {
-    if (_pendingHttpAuthTransactions.isEmpty && _httpAuthTokens.isEmpty) {
+    if (_pendingHttpAuthTransactions.isEmpty &&
+        _httpAuthTokens.isEmpty &&
+        _httpRefreshTokens.isEmpty) {
       return;
     }
     final now = DateTime.now().toUtc();
@@ -2161,14 +2628,30 @@ class RouterBinding {
         .map((entry) => entry.key)
         .toList(growable: false);
     for (final token in expiredTokens) {
-      unawaited(_expireHttpAuthToken(token));
+      unawaited(_revokeHttpAccessToken(token));
+    }
+    final expiredRefreshTokens = _httpRefreshTokens.entries
+        .where((entry) => entry.value.expiresAt.isBefore(now))
+        .map((entry) => entry.key)
+        .toList(growable: false);
+    for (final token in expiredRefreshTokens) {
+      unawaited(_revokeHttpRefreshToken(token));
     }
   }
 
-  Future<void> _expireHttpAuthToken(String token) async {
+  Future<void> _revokeHttpAccessToken(
+    String token, {
+    bool removeFromRefreshToken = true,
+  }) async {
     final record = _httpAuthTokens.remove(token);
     if (record == null) {
       return;
+    }
+    if (removeFromRefreshToken) {
+      final refreshToken = record.refreshToken;
+      if (refreshToken != null) {
+        _httpRefreshTokens[refreshToken]?.accessTokens.remove(token);
+      }
     }
     final cacheKeys = _internalSessionsByCacheKey.keys
         .where(
@@ -2183,6 +2666,18 @@ class RouterBinding {
         await session.close();
       }
     }
+  }
+
+  Future<void> _revokeHttpRefreshToken(String token) async {
+    final record = _httpRefreshTokens.remove(token);
+    if (record == null) {
+      return;
+    }
+    final linkedAccessTokens = record.accessTokens.toList(growable: false);
+    for (final accessToken in linkedAccessTokens) {
+      await _revokeHttpAccessToken(accessToken, removeFromRefreshToken: false);
+    }
+    record.accessTokens.clear();
   }
 
   NativeHttpResponse _toNativeHttpResponse(HttpResponsePayload payload) {
@@ -3528,28 +4023,73 @@ class _PendingHttpAuthTransaction {
       authenticator.onAbort(context, reason: reason);
 }
 
+class _HttpAuthIssueResult {
+  const _HttpAuthIssueResult({required this.accessToken, this.refreshToken});
+
+  final _HttpAuthTokenRecord accessToken;
+  final _HttpRefreshTokenRecord? refreshToken;
+}
+
 class _HttpAuthTokenRecord {
   const _HttpAuthTokenRecord({
     required this.token,
     required this.realmUri,
     required this.authMethod,
+    required this.authProvider,
     required this.authId,
     required this.authRole,
     required this.details,
     required this.sessionProfileName,
     required this.expiresAt,
+    required this.refreshToken,
   });
 
   final String token;
   final String realmUri;
   final String authMethod;
+  final String? authProvider;
   final String authId;
   final String authRole;
   final Map<String, Object?> details;
   final String? sessionProfileName;
   final DateTime expiresAt;
+  final String? refreshToken;
 
   String get cacheKeyPrefix => 'http-auth-token:$token';
+
+  Duration get expiresIn {
+    final remaining = expiresAt.difference(DateTime.now().toUtc());
+    if (remaining.isNegative) {
+      return Duration.zero;
+    }
+    return remaining;
+  }
+}
+
+class _HttpRefreshTokenRecord {
+  _HttpRefreshTokenRecord({
+    required this.token,
+    required this.realmUri,
+    required this.authMethod,
+    required this.authProvider,
+    required this.authId,
+    required this.authRole,
+    required this.details,
+    required this.sessionProfileName,
+    required this.expiresAt,
+    Set<String>? accessTokens,
+  }) : accessTokens = accessTokens ?? <String>{};
+
+  final String token;
+  final String realmUri;
+  final String authMethod;
+  final String? authProvider;
+  final String authId;
+  final String authRole;
+  final Map<String, Object?> details;
+  final String? sessionProfileName;
+  final DateTime expiresAt;
+  final Set<String> accessTokens;
 
   Duration get expiresIn {
     final remaining = expiresAt.difference(DateTime.now().toUtc());
@@ -3565,6 +4105,16 @@ class _HttpUnauthorized implements Exception {
 
   final String reason;
   final String? message;
+}
+
+class _ConfiguredHttpAuthProvider {
+  const _ConfiguredHttpAuthProvider({
+    required this.name,
+    required this.provider,
+  });
+
+  final String name;
+  final HttpAuthProvider provider;
 }
 
 class _ParsedListenEndpoint {

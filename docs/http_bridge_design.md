@@ -126,6 +126,20 @@ router:
         auth_id: http-gateway
         auth_role: internal
 
+    - name: http-jwt
+      realm: realm1
+      auth:
+        methods: [jwt]
+        http_provider: edge-jwt
+
+  http_auth_providers:
+    edge-jwt:
+      type: jwt
+      options:
+        issuer: https://issuer.example
+        audience: [connectanum-http]
+        hmac_secret: ${HTTP_JWT_SECRET}
+
   listeners:
     - endpoint: 0.0.0.0:8080
       protocols:
@@ -152,6 +166,8 @@ router:
               type: auth
               session_profile: http-auth
               token_ttl_ms: 600000
+              refresh_token_ttl_ms: 3600000
+              rotate_refresh_tokens: true
           - match:
               prefix: /api/
             action:
@@ -159,6 +175,12 @@ router:
               procedure: "com.example.api.{path}"
               serializer: msgpack
               session_profile: http-auth
+          - match:
+              path: /api/jwt
+            action:
+              type: rpc
+              procedure: "com.example.api.jwt"
+              session_profile: http-jwt
           - match:
               path: /metrics
             action:
@@ -180,8 +202,10 @@ router:
 
 - `session_profiles` now provide the common realm/auth identity layout across WAMP listeners, HTTP listeners/routes, and internal sessions.
 - Public HTTP profiles can set `auth.methods: []` to declare “no auth required” explicitly.
-- `type: auth` is the dedicated HTTP auth bridge action. It reuses the configured WAMP authenticators for `ticket`, `wampcra`, `scram`, or remote-backed methods, then issues short-lived bearer tokens for the protected HTTP routes that reference the same session profile.
+- `type: auth` is the dedicated HTTP auth bridge action. It reuses the configured WAMP authenticators for `ticket`, `wampcra`, `scram`, or remote-backed methods, then issues short-lived bearer tokens plus refresh tokens for the protected HTTP routes that reference the same session profile.
 - Declaring `ticket`, `scram`, or `wampcra` on an HTTP-facing profile is now operational: clients authenticate against the reserved auth route, then present `Authorization: Bearer <token>` on the protected routes that reference that profile.
+- The same auth route also accepts `grant_type=refresh_token` with `refresh_token` to rotate bearer credentials and `grant_type=revoke` with `token`/`token_type_hint` to invalidate access or refresh credentials without replaying the full challenge handshake.
+- `http_auth_providers` let protected HTTP routes validate bearer tokens without using the challenge bridge. `jwt` and `oidc` profiles currently perform local HS256 verification plus issuer/audience checks, and `oauth` profiles call a configured introspection endpoint. All three map their result into the same internal auth context as the bridge-issued bearer tokens.
 
 - `session_proxy` routes create or reuse an internal session specified in
   `internal_realms`. This enables wiring to a PHP FPM-based bridge or any other
@@ -221,16 +245,6 @@ router:
 
 ## Next Steps
 
-1. Finalise the listener schema and update the config loader/builder.
-2. Prototype the Rust-side HTTP listener with zero-copy buffer sharing.
-3. Build the worker route dispatcher and internal session utilities.
-4. Add integration tests covering:
-   - REST→RPC,
-   - static file streaming,
-   - metrics endpoint against the existing exporter,
-   - mixed HTTP/RawSocket workloads to confirm isolation.
-5. Document deployment guidance, including TLS/ALPN configuration and reverse
-   proxy considerations.
-6. Define the HTTP response FFI ABI (status/headers/body descriptors), implement
-   the corresponding `ct_ffi` entry point, and update the Dart runtime bindings
-   so the boss can flush responses without layering hacks on metrics endpoints.
+1. Enforce more route-level auth requirements in the native layer when the transport already has enough information (for example, mTLS-gated routes).
+2. Grow the auth bench beyond the current ticket-based smoke so SCRAM/WAMP-CRA and external provider latencies are measurable too.
+3. Extend local bearer validation beyond the current HS256 baseline where required (for example JWK-backed RSA/EC verification or OIDC discovery helpers) without breaking the shared session-profile model.

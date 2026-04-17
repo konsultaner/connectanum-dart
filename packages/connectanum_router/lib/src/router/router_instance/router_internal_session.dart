@@ -9,6 +9,8 @@ class RouterSession {
     required this.realmUri,
     required this.authId,
     required this.authRole,
+    required this.authMethod,
+    required this.authProvider,
     this.cacheKey,
     required Map<String, Object?> roles,
     required SendPort commandPort,
@@ -30,6 +32,8 @@ class RouterSession {
   final String realmUri;
   final String? authId;
   final String? authRole;
+  final String? authMethod;
+  final String? authProvider;
   final String? cacheKey;
   final Map<String, Object?> roles;
 
@@ -1380,6 +1384,8 @@ class _InternalSessionBootstrap {
     required this.realmUri,
     required this.authId,
     required this.authRole,
+    required this.authMethod,
+    required this.authProvider,
     required this.roles,
     required this.realmSettings,
     required this.statePort,
@@ -1391,6 +1397,8 @@ class _InternalSessionBootstrap {
   final String realmUri;
   final String? authId;
   final String? authRole;
+  final String? authMethod;
+  final String? authProvider;
   final Map<String, Object?> roles;
   final RealmSettings? realmSettings;
   final SendPort statePort;
@@ -1550,8 +1558,8 @@ class _InternalSessionIsolate {
       connectionId: null,
       authId: _bootstrap.authId,
       authRole: _bootstrap.authRole,
-      authMethod: null,
-      authProvider: null,
+      authMethod: _bootstrap.authMethod,
+      authProvider: _bootstrap.authProvider,
       protocol: null,
       isInternal: true,
       options: options,

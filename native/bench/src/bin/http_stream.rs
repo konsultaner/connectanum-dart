@@ -18,7 +18,7 @@ use hyper::body::HttpBody as _;
 use hyper::client::conn::Builder as HyperConnBuilder;
 use hyper::http::{
     header::{HeaderValue as HyperHeaderValue, ACCEPT, USER_AGENT},
-    Method as HyperMethod, Version as HyperVersion,
+    Method as HyperMethod, StatusCode as HyperStatusCode, Version as HyperVersion,
 };
 use hyper::{Body, Request};
 use quinn::{ClientConfig as QuinnClientConfig, Endpoint as QuinnEndpoint, TransportConfig};
@@ -794,6 +794,20 @@ struct WorkloadConfig {
     reuse_connections: bool,
     #[serde(default = "default_streams_per_connection")]
     streams_per_connection: u32,
+    #[serde(default)]
+    auth_flow: Option<String>,
+    #[serde(default)]
+    auth_path: Option<String>,
+    #[serde(default)]
+    auth_realm: Option<String>,
+    #[serde(default)]
+    auth_method: Option<String>,
+    #[serde(default)]
+    auth_id: Option<String>,
+    #[serde(default)]
+    auth_secret: Option<String>,
+    #[serde(default)]
+    auth_bearer_token: Option<String>,
 }
 
 fn default_protocol() -> String {
@@ -1009,6 +1023,13 @@ struct PreparedWorkload {
     response_chunk_bytes: u64,
     reuse_connections: bool,
     streams_per_connection: u32,
+    auth_flow: Option<HttpAuthFlow>,
+    auth_path: String,
+    auth_realm: String,
+    auth_method: String,
+    auth_id: String,
+    auth_secret: String,
+    auth_bearer_token: Option<String>,
 }
 
 impl PreparedWorkload {
@@ -1061,6 +1082,34 @@ impl PreparedWorkload {
         } else {
             "n/a".to_string()
         };
+        let auth_flow = parse_http_auth_flow(config.auth_flow.as_deref())?;
+        if auth_flow.is_some() && is_wamp {
+            bail!("HTTP auth workloads are not valid for WAMP protocols");
+        }
+        let auth_path = config
+            .auth_path
+            .clone()
+            .unwrap_or_else(|| "/bench/auth".to_string());
+        let auth_realm = config
+            .auth_realm
+            .clone()
+            .unwrap_or_else(|| "bench.secure".to_string());
+        let auth_method = config
+            .auth_method
+            .clone()
+            .unwrap_or_else(|| "ticket".to_string());
+        let auth_id = config
+            .auth_id
+            .clone()
+            .unwrap_or_else(|| "bench-user".to_string());
+        let auth_secret = config
+            .auth_secret
+            .clone()
+            .unwrap_or_else(|| "bench-ticket".to_string());
+        let auth_bearer_token = config.auth_bearer_token.clone();
+        if auth_flow.is_some() && auth_method != "ticket" && auth_bearer_token.is_none() {
+            bail!("HTTP auth bench currently supports ticket only");
+        }
         Ok(Self {
             name: config.name.clone(),
             protocol: config.protocol.clone(),
@@ -1083,12 +1132,50 @@ impl PreparedWorkload {
                 .unwrap_or(config.request_chunk_bytes),
             reuse_connections: config.reuse_connections,
             streams_per_connection: config.streams_per_connection,
+            auth_flow,
+            auth_path,
+            auth_realm,
+            auth_method,
+            auth_id,
+            auth_secret,
+            auth_bearer_token,
         })
     }
 
     fn is_wamp(&self) -> bool {
         parse_wamp_protocol(&self.protocol).is_some()
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum HttpAuthFlow {
+    Login,
+    Protected,
+    Refresh,
+}
+
+fn parse_http_auth_flow(raw: Option<&str>) -> Result<Option<HttpAuthFlow>> {
+    let Some(raw) = raw else {
+        return Ok(None);
+    };
+    let flow = match raw.to_ascii_lowercase().as_str() {
+        "login" | "challenge" | "challenge_login" => HttpAuthFlow::Login,
+        "protected" | "protected_route" | "bearer" => HttpAuthFlow::Protected,
+        "refresh" | "refresh_token" => HttpAuthFlow::Refresh,
+        other => bail!("unsupported http auth flow {other}"),
+    };
+    Ok(Some(flow))
+}
+
+#[derive(Clone, Debug)]
+struct HttpAuthSession {
+    access_token: String,
+    refresh_token: String,
+}
+
+struct HttpBodyResponse {
+    status: HyperStatusCode,
+    body: Vec<u8>,
 }
 
 fn normalize_wamp_client_impl(raw: &str) -> Result<String> {
@@ -1313,6 +1400,9 @@ async fn run_h1_worker(
     workload: PreparedWorkload,
     worker_id: u32,
 ) -> Result<Vec<WorkloadSample>> {
+    if workload.auth_flow.is_some() {
+        return run_h1_auth_worker(endpoint, workload, worker_id).await;
+    }
     let mut samples = Vec::with_capacity(workload.iterations as usize);
     let request_body = build_payload(
         workload.request_bytes,
@@ -1395,6 +1485,9 @@ async fn run_h2_worker(
     workload: PreparedWorkload,
     worker_id: u32,
 ) -> Result<Vec<WorkloadSample>> {
+    if workload.auth_flow.is_some() {
+        return run_h2_auth_worker(endpoint, workload, worker_id).await;
+    }
     let mut samples = Vec::with_capacity(workload.iterations as usize);
     let request_body = build_payload(
         workload.request_bytes,
@@ -1527,6 +1620,9 @@ async fn run_h3_worker(
     workload: PreparedWorkload,
     worker_id: u32,
 ) -> Result<Vec<WorkloadSample>> {
+    if workload.auth_flow.is_some() {
+        return run_h3_auth_worker(endpoint, workload, worker_id).await;
+    }
     let mut samples = Vec::with_capacity(workload.iterations as usize);
     let request_chunk =
         build_pattern_chunk(std::cmp::max(1, workload.request_chunk_bytes as usize));
@@ -1650,6 +1746,223 @@ async fn run_h3_multiplexed_worker(
     Ok(samples)
 }
 
+async fn run_h1_auth_worker(
+    endpoint: HttpEndpoint,
+    workload: PreparedWorkload,
+    worker_id: u32,
+) -> Result<Vec<WorkloadSample>> {
+    let mut sender = connect_h1_sender(&endpoint).await?;
+    let mut samples = Vec::with_capacity(workload.iterations as usize);
+    let request_body = build_payload(
+        workload.request_bytes,
+        workload.request_chunk_bytes as usize,
+    );
+    let flow = workload
+        .auth_flow
+        .ok_or_else(|| anyhow!("missing http auth flow"))?;
+    let mut auth_session = match flow {
+        HttpAuthFlow::Protected if workload.auth_bearer_token.is_some() => Some(HttpAuthSession {
+            access_token: workload.auth_bearer_token.clone().unwrap(),
+            refresh_token: String::new(),
+        }),
+        HttpAuthFlow::Protected | HttpAuthFlow::Refresh => {
+            Some(h1_authenticate(&mut sender, &endpoint, &workload).await?)
+        }
+        HttpAuthFlow::Login => None,
+    };
+
+    for iteration in 0..workload.iterations {
+        let sample = match flow {
+            HttpAuthFlow::Login => {
+                h1_login_iteration(&mut sender, &endpoint, &workload, worker_id, iteration).await?
+            }
+            HttpAuthFlow::Protected => {
+                let session = auth_session
+                    .as_ref()
+                    .ok_or_else(|| anyhow!("missing bearer token for protected auth workload"))?;
+                send_h1_protected_request(
+                    &mut sender,
+                    &endpoint,
+                    &workload,
+                    request_body.clone(),
+                    &session.access_token,
+                    worker_id,
+                    iteration,
+                )
+                .await?
+            }
+            HttpAuthFlow::Refresh => {
+                let session = auth_session
+                    .as_ref()
+                    .ok_or_else(|| anyhow!("missing refresh token for auth workload"))?;
+                let start = Instant::now();
+                let (next_session, request_bytes, response_bytes) =
+                    h1_refresh(&mut sender, &endpoint, &workload, &session.refresh_token).await?;
+                auth_session = Some(next_session);
+                WorkloadSample {
+                    worker: worker_id,
+                    iteration,
+                    latency_ms: start.elapsed().as_secs_f64() * 1000.0,
+                    request_bytes,
+                    response_bytes,
+                }
+            }
+        };
+        samples.push(sample);
+    }
+
+    Ok(samples)
+}
+
+async fn run_h2_auth_worker(
+    endpoint: HttpEndpoint,
+    workload: PreparedWorkload,
+    worker_id: u32,
+) -> Result<Vec<WorkloadSample>> {
+    let sender = connect_h2_sender(&endpoint).await?;
+    let mut samples = Vec::with_capacity(workload.iterations as usize);
+    let request_body = build_payload(
+        workload.request_bytes,
+        workload.request_chunk_bytes as usize,
+    );
+    let flow = workload
+        .auth_flow
+        .ok_or_else(|| anyhow!("missing http auth flow"))?;
+    let mut auth_session = match flow {
+        HttpAuthFlow::Protected if workload.auth_bearer_token.is_some() => Some(HttpAuthSession {
+            access_token: workload.auth_bearer_token.clone().unwrap(),
+            refresh_token: String::new(),
+        }),
+        HttpAuthFlow::Protected | HttpAuthFlow::Refresh => {
+            Some(h2_authenticate(sender.clone(), &endpoint, &workload).await?)
+        }
+        HttpAuthFlow::Login => None,
+    };
+
+    for iteration in 0..workload.iterations {
+        let sample = match flow {
+            HttpAuthFlow::Login => {
+                h2_login_iteration(sender.clone(), &endpoint, &workload, worker_id, iteration)
+                    .await?
+            }
+            HttpAuthFlow::Protected => {
+                let session = auth_session
+                    .as_ref()
+                    .ok_or_else(|| anyhow!("missing bearer token for protected auth workload"))?;
+                send_h2_protected_request(
+                    sender.clone(),
+                    &endpoint,
+                    &workload,
+                    request_body.clone(),
+                    &session.access_token,
+                    worker_id,
+                    iteration,
+                )
+                .await?
+            }
+            HttpAuthFlow::Refresh => {
+                let session = auth_session
+                    .as_ref()
+                    .ok_or_else(|| anyhow!("missing refresh token for auth workload"))?;
+                let start = Instant::now();
+                let (next_session, request_bytes, response_bytes) =
+                    h2_refresh(sender.clone(), &endpoint, &workload, &session.refresh_token)
+                        .await?;
+                auth_session = Some(next_session);
+                WorkloadSample {
+                    worker: worker_id,
+                    iteration,
+                    latency_ms: start.elapsed().as_secs_f64() * 1000.0,
+                    request_bytes,
+                    response_bytes,
+                }
+            }
+        };
+        samples.push(sample);
+    }
+
+    Ok(samples)
+}
+
+async fn run_h3_auth_worker(
+    endpoint: HttpEndpoint,
+    workload: PreparedWorkload,
+    worker_id: u32,
+) -> Result<Vec<WorkloadSample>> {
+    let (quinn_endpoint, send_request) = connect_h3_sender(&endpoint).await?;
+    let mut samples = Vec::with_capacity(workload.iterations as usize);
+    let request_chunk =
+        build_pattern_chunk(std::cmp::max(1, workload.request_chunk_bytes as usize));
+    let flow = workload
+        .auth_flow
+        .ok_or_else(|| anyhow!("missing http auth flow"))?;
+    let mut auth_session = match flow {
+        HttpAuthFlow::Protected if workload.auth_bearer_token.is_some() => Some(HttpAuthSession {
+            access_token: workload.auth_bearer_token.clone().unwrap(),
+            refresh_token: String::new(),
+        }),
+        HttpAuthFlow::Protected | HttpAuthFlow::Refresh => {
+            Some(h3_authenticate(send_request.clone(), &endpoint, &workload).await?)
+        }
+        HttpAuthFlow::Login => None,
+    };
+
+    for iteration in 0..workload.iterations {
+        let sample = match flow {
+            HttpAuthFlow::Login => {
+                h3_login_iteration(
+                    send_request.clone(),
+                    &endpoint,
+                    &workload,
+                    worker_id,
+                    iteration,
+                )
+                .await?
+            }
+            HttpAuthFlow::Protected => {
+                let session = auth_session
+                    .as_ref()
+                    .ok_or_else(|| anyhow!("missing bearer token for protected auth workload"))?;
+                send_h3_protected_request(
+                    send_request.clone(),
+                    &endpoint,
+                    &workload,
+                    request_chunk.clone(),
+                    &session.access_token,
+                    worker_id,
+                    iteration,
+                )
+                .await?
+            }
+            HttpAuthFlow::Refresh => {
+                let session = auth_session
+                    .as_ref()
+                    .ok_or_else(|| anyhow!("missing refresh token for auth workload"))?;
+                let start = Instant::now();
+                let (next_session, request_bytes, response_bytes) = h3_refresh(
+                    send_request.clone(),
+                    &endpoint,
+                    &workload,
+                    &session.refresh_token,
+                )
+                .await?;
+                auth_session = Some(next_session);
+                WorkloadSample {
+                    worker: worker_id,
+                    iteration,
+                    latency_ms: start.elapsed().as_secs_f64() * 1000.0,
+                    request_bytes,
+                    response_bytes,
+                }
+            }
+        };
+        samples.push(sample);
+    }
+
+    quinn_endpoint.close(0u32.into(), b"done");
+    Ok(samples)
+}
+
 async fn collect_worker_samples(
     mut join_set: JoinSet<Result<Vec<WorkloadSample>>>,
     timeout: Duration,
@@ -1678,6 +1991,624 @@ async fn collect_worker_samples(
         }
     }
     Ok(samples)
+}
+
+fn build_auth_start_body(workload: &PreparedWorkload) -> Value {
+    json!({
+        "realm": workload.auth_realm,
+        "authmethod": workload.auth_method,
+        "authid": workload.auth_id,
+    })
+}
+
+fn build_auth_complete_body(state: &str, secret: &str) -> Value {
+    json!({
+        "state": state,
+        "signature": secret,
+        "extra": {},
+    })
+}
+
+fn build_auth_refresh_body(refresh_token: &str) -> Value {
+    json!({
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token,
+    })
+}
+
+fn parse_json_response(response: &HttpBodyResponse) -> Result<Value> {
+    serde_json::from_slice(&response.body).context("failed to decode JSON response")
+}
+
+fn parse_auth_challenge(response: &HttpBodyResponse) -> Result<String> {
+    if response.status != HyperStatusCode::UNAUTHORIZED {
+        bail!("expected 401 challenge, got {}", response.status);
+    }
+    let body = parse_json_response(response)?;
+    let state = body
+        .get("state")
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow!("challenge response missing state"))?;
+    Ok(state.to_string())
+}
+
+fn parse_auth_success(response: &HttpBodyResponse) -> Result<HttpAuthSession> {
+    if response.status != HyperStatusCode::OK {
+        bail!("expected 200 success, got {}", response.status);
+    }
+    let body = parse_json_response(response)?;
+    let access_token = body
+        .get("access_token")
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow!("auth response missing access_token"))?;
+    let refresh_token = body
+        .get("refresh_token")
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow!("auth response missing refresh_token"))?;
+    Ok(HttpAuthSession {
+        access_token: access_token.to_string(),
+        refresh_token: refresh_token.to_string(),
+    })
+}
+
+fn json_request_bytes(body: &Value) -> Result<Bytes> {
+    let encoded = serde_json::to_vec(body).context("failed to encode JSON body")?;
+    Ok(Bytes::from(encoded))
+}
+
+fn build_h1_json_request(
+    endpoint: &HttpEndpoint,
+    method: &HyperMethod,
+    path: &str,
+    request_body: Body,
+    request_bytes: u64,
+    bearer: Option<&str>,
+) -> Result<Request<Body>> {
+    let uri = path.to_string();
+    let mut request_builder = Request::builder().method(method.clone()).uri(uri);
+    let headers = request_builder.headers_mut().unwrap();
+    headers.insert(
+        "host",
+        HyperHeaderValue::from_str(&endpoint_authority(endpoint))
+            .context("invalid host header value")?,
+    );
+    headers.insert(
+        "content-type",
+        HyperHeaderValue::from_static("application/json"),
+    );
+    headers.insert(
+        "content-length",
+        HyperHeaderValue::from_str(&request_bytes.to_string())
+            .unwrap_or_else(|_| HyperHeaderValue::from_static("0")),
+    );
+    headers.insert(ACCEPT, HyperHeaderValue::from_static("application/json"));
+    headers.insert(
+        USER_AGENT,
+        HyperHeaderValue::from_static("connectanum-bench/0.1"),
+    );
+    if let Some(token) = bearer {
+        headers.insert(
+            "authorization",
+            HyperHeaderValue::from_str(&format!("Bearer {token}"))
+                .context("invalid authorization header")?,
+        );
+    }
+    request_builder
+        .body(request_body)
+        .context("failed to build HTTP/1.1 JSON request")
+}
+
+fn build_h2_json_request(
+    endpoint: &HttpEndpoint,
+    method: &HyperMethod,
+    path: &str,
+    request_bytes: u64,
+    bearer: Option<&str>,
+) -> Result<Request<()>> {
+    let uri = format!(
+        "{}://{}:{}{}",
+        endpoint.scheme, endpoint.host, endpoint.port, path
+    );
+    let mut request_builder = Request::builder()
+        .method(method.clone())
+        .uri(uri)
+        .version(HyperVersion::HTTP_2);
+    let headers = request_builder.headers_mut().unwrap();
+    headers.insert(
+        "content-type",
+        HyperHeaderValue::from_static("application/json"),
+    );
+    headers.insert(
+        "content-length",
+        HyperHeaderValue::from_str(&request_bytes.to_string())
+            .unwrap_or_else(|_| HyperHeaderValue::from_static("0")),
+    );
+    headers.insert(ACCEPT, HyperHeaderValue::from_static("application/json"));
+    headers.insert(
+        USER_AGENT,
+        HyperHeaderValue::from_static("connectanum-bench/0.1"),
+    );
+    if let Some(token) = bearer {
+        headers.insert(
+            "authorization",
+            HyperHeaderValue::from_str(&format!("Bearer {token}"))
+                .context("invalid authorization header")?,
+        );
+    }
+    request_builder
+        .body(())
+        .context("failed to build HTTP/2 JSON request")
+}
+
+fn build_h3_json_request(
+    endpoint: &HttpEndpoint,
+    method: &HyperMethod,
+    path: &str,
+    request_bytes: u64,
+    bearer: Option<&str>,
+) -> Result<http3::Request<()>> {
+    let server_port = endpoint.http3_port();
+    let uri = format!("https://{}:{}{}", endpoint.host, server_port, path);
+    let h3_method = http3::Method::from_bytes(method.as_str().as_bytes())
+        .map_err(|_| anyhow!("invalid HTTP/3 method {}", method.as_str()))?;
+    let mut request_builder = http3::Request::builder().method(h3_method).uri(uri);
+    let headers = request_builder
+        .headers_mut()
+        .ok_or_else(|| anyhow!("unable to access HTTP/3 request headers"))?;
+    headers.insert(
+        http3::header::HeaderName::from_static("content-type"),
+        http3::header::HeaderValue::from_static("application/json"),
+    );
+    headers.insert(
+        http3::header::HeaderName::from_static("content-length"),
+        http3::header::HeaderValue::from_str(&request_bytes.to_string())
+            .unwrap_or_else(|_| http3::header::HeaderValue::from_static("0")),
+    );
+    headers.insert(
+        http3::header::HeaderName::from_static("accept"),
+        http3::header::HeaderValue::from_static("application/json"),
+    );
+    headers.insert(
+        http3::header::HeaderName::from_static("user-agent"),
+        http3::header::HeaderValue::from_static("connectanum-bench/0.1"),
+    );
+    if let Some(token) = bearer {
+        headers.insert(
+            http3::header::HeaderName::from_static("authorization"),
+            http3::header::HeaderValue::from_str(&format!("Bearer {token}"))
+                .context("invalid authorization header")?,
+        );
+    }
+    request_builder
+        .body(())
+        .context("failed to build HTTP/3 JSON request")
+}
+
+async fn drain_hyper_response_bytes(response: hyper::Response<Body>) -> Result<HttpBodyResponse> {
+    let status = response.status();
+    let mut body = response.into_body();
+    let mut received = Vec::new();
+    while let Some(chunk) = body.data().await {
+        received.extend_from_slice(&chunk?);
+    }
+    Ok(HttpBodyResponse {
+        status,
+        body: received,
+    })
+}
+
+async fn drain_h2_response_bytes(
+    response: hyper::http::Response<H2RecvStream>,
+) -> Result<HttpBodyResponse> {
+    let status = response.status();
+    let mut body = response.into_body();
+    let mut received = Vec::new();
+    while let Some(chunk) = body.data().await {
+        let bytes = chunk?;
+        body.flow_control()
+            .release_capacity(bytes.len())
+            .context("failed to release HTTP/2 flow-control capacity")?;
+        received.extend_from_slice(&bytes);
+    }
+    Ok(HttpBodyResponse {
+        status,
+        body: received,
+    })
+}
+
+async fn send_h1_json_request(
+    sender: &mut hyper::client::conn::SendRequest<Body>,
+    endpoint: &HttpEndpoint,
+    method: &HyperMethod,
+    path: &str,
+    body: &Value,
+    bearer: Option<&str>,
+) -> Result<(HttpBodyResponse, u64)> {
+    let payload = json_request_bytes(body)?;
+    let request = build_h1_json_request(
+        endpoint,
+        method,
+        path,
+        Body::from(payload.clone()),
+        payload.len() as u64,
+        bearer,
+    )?;
+    let response = sender
+        .send_request(request)
+        .await
+        .context("failed to send HTTP/1.1 JSON request")?;
+    Ok((
+        drain_hyper_response_bytes(response).await?,
+        payload.len() as u64,
+    ))
+}
+
+async fn send_h2_json_request(
+    sender: h2_client::SendRequest<Bytes>,
+    endpoint: &HttpEndpoint,
+    method: &HyperMethod,
+    path: &str,
+    body: &Value,
+    bearer: Option<&str>,
+) -> Result<(HttpBodyResponse, u64)> {
+    let payload = json_request_bytes(body)?;
+    let mut sender = sender
+        .ready()
+        .await
+        .context("HTTP/2 sender not ready for JSON request")?;
+    let request = build_h2_json_request(endpoint, method, path, payload.len() as u64, bearer)?;
+    let end_stream = payload.is_empty();
+    let (response, mut send_stream) = sender
+        .send_request(request, end_stream)
+        .context("failed to send HTTP/2 JSON request")?;
+    if !end_stream {
+        send_stream
+            .send_data(payload.clone(), true)
+            .context("failed to send HTTP/2 JSON body")?;
+    }
+    Ok((
+        drain_h2_response_bytes(
+            response
+                .await
+                .context("failed to receive HTTP/2 JSON response")?,
+        )
+        .await?,
+        payload.len() as u64,
+    ))
+}
+
+async fn send_h3_json_request(
+    mut send_request: H3RequestSender,
+    endpoint: &HttpEndpoint,
+    method: &HyperMethod,
+    path: &str,
+    body: &Value,
+    bearer: Option<&str>,
+) -> Result<(HttpBodyResponse, u64)> {
+    let payload = json_request_bytes(body)?;
+    let request = build_h3_json_request(endpoint, method, path, payload.len() as u64, bearer)?;
+    let mut req_stream = send_request
+        .send_request(request)
+        .await
+        .context("failed to open HTTP/3 JSON request stream")?;
+    if payload.is_empty() {
+        req_stream
+            .finish()
+            .await
+            .context("failed to finish HTTP/3 JSON request")?;
+    } else {
+        req_stream
+            .send_data(payload.clone())
+            .await
+            .context("failed to send HTTP/3 JSON body")?;
+        req_stream
+            .finish()
+            .await
+            .context("failed to finish HTTP/3 JSON request")?;
+    }
+    let response = req_stream
+        .recv_response()
+        .await
+        .context("failed to receive HTTP/3 JSON response headers")?;
+    let mut received = Vec::new();
+    while let Some(chunk) = req_stream
+        .recv_data()
+        .await
+        .context("failed to read HTTP/3 JSON body")?
+    {
+        let mut chunk = chunk;
+        received.extend_from_slice(&chunk.copy_to_bytes(chunk.remaining()));
+    }
+    Ok((
+        HttpBodyResponse {
+            status: HyperStatusCode::from_u16(response.status().as_u16())
+                .map_err(|_| anyhow!("invalid HTTP/3 status {}", response.status()))?,
+            body: received,
+        },
+        payload.len() as u64,
+    ))
+}
+
+async fn h1_authenticate(
+    sender: &mut hyper::client::conn::SendRequest<Body>,
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+) -> Result<HttpAuthSession> {
+    let start_body = build_auth_start_body(workload);
+    let (challenge, _) = send_h1_json_request(
+        sender,
+        endpoint,
+        &HyperMethod::POST,
+        &workload.auth_path,
+        &start_body,
+        None,
+    )
+    .await?;
+    let state = parse_auth_challenge(&challenge)?;
+    let complete_body = build_auth_complete_body(&state, &workload.auth_secret);
+    let (success, _) = send_h1_json_request(
+        sender,
+        endpoint,
+        &HyperMethod::POST,
+        &workload.auth_path,
+        &complete_body,
+        None,
+    )
+    .await?;
+    parse_auth_success(&success)
+}
+
+async fn h2_authenticate(
+    sender: h2_client::SendRequest<Bytes>,
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+) -> Result<HttpAuthSession> {
+    let start_body = build_auth_start_body(workload);
+    let (challenge, _) = send_h2_json_request(
+        sender.clone(),
+        endpoint,
+        &HyperMethod::POST,
+        &workload.auth_path,
+        &start_body,
+        None,
+    )
+    .await?;
+    let state = parse_auth_challenge(&challenge)?;
+    let complete_body = build_auth_complete_body(&state, &workload.auth_secret);
+    let (success, _) = send_h2_json_request(
+        sender,
+        endpoint,
+        &HyperMethod::POST,
+        &workload.auth_path,
+        &complete_body,
+        None,
+    )
+    .await?;
+    parse_auth_success(&success)
+}
+
+async fn h3_authenticate(
+    sender: H3RequestSender,
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+) -> Result<HttpAuthSession> {
+    let start_body = build_auth_start_body(workload);
+    let (challenge, _) = send_h3_json_request(
+        sender.clone(),
+        endpoint,
+        &HyperMethod::POST,
+        &workload.auth_path,
+        &start_body,
+        None,
+    )
+    .await?;
+    let state = parse_auth_challenge(&challenge)?;
+    let complete_body = build_auth_complete_body(&state, &workload.auth_secret);
+    let (success, _) = send_h3_json_request(
+        sender,
+        endpoint,
+        &HyperMethod::POST,
+        &workload.auth_path,
+        &complete_body,
+        None,
+    )
+    .await?;
+    parse_auth_success(&success)
+}
+
+async fn h1_login_iteration(
+    sender: &mut hyper::client::conn::SendRequest<Body>,
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+    worker_id: u32,
+    iteration: u32,
+) -> Result<WorkloadSample> {
+    let start = Instant::now();
+    let start_body = build_auth_start_body(workload);
+    let (challenge, request1) = send_h1_json_request(
+        sender,
+        endpoint,
+        &HyperMethod::POST,
+        &workload.auth_path,
+        &start_body,
+        None,
+    )
+    .await?;
+    let challenge_bytes = challenge.body.len() as u64;
+    let state = parse_auth_challenge(&challenge)?;
+    let complete_body = build_auth_complete_body(&state, &workload.auth_secret);
+    let (success, request2) = send_h1_json_request(
+        sender,
+        endpoint,
+        &HyperMethod::POST,
+        &workload.auth_path,
+        &complete_body,
+        None,
+    )
+    .await?;
+    let success_bytes = success.body.len() as u64;
+    let _ = parse_auth_success(&success)?;
+    Ok(WorkloadSample {
+        worker: worker_id,
+        iteration,
+        latency_ms: start.elapsed().as_secs_f64() * 1000.0,
+        request_bytes: request1 + request2,
+        response_bytes: challenge_bytes + success_bytes,
+    })
+}
+
+async fn h2_login_iteration(
+    sender: h2_client::SendRequest<Bytes>,
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+    worker_id: u32,
+    iteration: u32,
+) -> Result<WorkloadSample> {
+    let start = Instant::now();
+    let start_body = build_auth_start_body(workload);
+    let (challenge, request1) = send_h2_json_request(
+        sender.clone(),
+        endpoint,
+        &HyperMethod::POST,
+        &workload.auth_path,
+        &start_body,
+        None,
+    )
+    .await?;
+    let challenge_bytes = challenge.body.len() as u64;
+    let state = parse_auth_challenge(&challenge)?;
+    let complete_body = build_auth_complete_body(&state, &workload.auth_secret);
+    let (success, request2) = send_h2_json_request(
+        sender,
+        endpoint,
+        &HyperMethod::POST,
+        &workload.auth_path,
+        &complete_body,
+        None,
+    )
+    .await?;
+    let success_bytes = success.body.len() as u64;
+    let _ = parse_auth_success(&success)?;
+    Ok(WorkloadSample {
+        worker: worker_id,
+        iteration,
+        latency_ms: start.elapsed().as_secs_f64() * 1000.0,
+        request_bytes: request1 + request2,
+        response_bytes: challenge_bytes + success_bytes,
+    })
+}
+
+async fn h3_login_iteration(
+    sender: H3RequestSender,
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+    worker_id: u32,
+    iteration: u32,
+) -> Result<WorkloadSample> {
+    let start = Instant::now();
+    let start_body = build_auth_start_body(workload);
+    let (challenge, request1) = send_h3_json_request(
+        sender.clone(),
+        endpoint,
+        &HyperMethod::POST,
+        &workload.auth_path,
+        &start_body,
+        None,
+    )
+    .await?;
+    let challenge_bytes = challenge.body.len() as u64;
+    let state = parse_auth_challenge(&challenge)?;
+    let complete_body = build_auth_complete_body(&state, &workload.auth_secret);
+    let (success, request2) = send_h3_json_request(
+        sender,
+        endpoint,
+        &HyperMethod::POST,
+        &workload.auth_path,
+        &complete_body,
+        None,
+    )
+    .await?;
+    let success_bytes = success.body.len() as u64;
+    let _ = parse_auth_success(&success)?;
+    Ok(WorkloadSample {
+        worker: worker_id,
+        iteration,
+        latency_ms: start.elapsed().as_secs_f64() * 1000.0,
+        request_bytes: request1 + request2,
+        response_bytes: challenge_bytes + success_bytes,
+    })
+}
+
+async fn h1_refresh(
+    sender: &mut hyper::client::conn::SendRequest<Body>,
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+    refresh_token: &str,
+) -> Result<(HttpAuthSession, u64, u64)> {
+    let body = build_auth_refresh_body(refresh_token);
+    let (response, request_bytes) = send_h1_json_request(
+        sender,
+        endpoint,
+        &HyperMethod::POST,
+        &workload.auth_path,
+        &body,
+        None,
+    )
+    .await?;
+    let response_bytes = response.body.len() as u64;
+    Ok((
+        parse_auth_success(&response)?,
+        request_bytes,
+        response_bytes,
+    ))
+}
+
+async fn h2_refresh(
+    sender: h2_client::SendRequest<Bytes>,
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+    refresh_token: &str,
+) -> Result<(HttpAuthSession, u64, u64)> {
+    let body = build_auth_refresh_body(refresh_token);
+    let (response, request_bytes) = send_h2_json_request(
+        sender,
+        endpoint,
+        &HyperMethod::POST,
+        &workload.auth_path,
+        &body,
+        None,
+    )
+    .await?;
+    let response_bytes = response.body.len() as u64;
+    Ok((
+        parse_auth_success(&response)?,
+        request_bytes,
+        response_bytes,
+    ))
+}
+
+async fn h3_refresh(
+    sender: H3RequestSender,
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+    refresh_token: &str,
+) -> Result<(HttpAuthSession, u64, u64)> {
+    let body = build_auth_refresh_body(refresh_token);
+    let (response, request_bytes) = send_h3_json_request(
+        sender,
+        endpoint,
+        &HyperMethod::POST,
+        &workload.auth_path,
+        &body,
+        None,
+    )
+    .await?;
+    let response_bytes = response.body.len() as u64;
+    Ok((
+        parse_auth_success(&response)?,
+        request_bytes,
+        response_bytes,
+    ))
 }
 
 async fn connect_h1_sender(
@@ -1808,6 +2739,56 @@ fn build_http_request(
         .context("failed to build HTTP request")
 }
 
+fn build_h1_protected_request(
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+    request_body: Body,
+    request_bytes: u64,
+    bearer: &str,
+) -> Result<Request<Body>> {
+    let mut request_builder = Request::builder()
+        .method(workload.method.clone())
+        .uri(workload.path.clone());
+    let headers = request_builder.headers_mut().unwrap();
+    headers.insert(
+        "host",
+        HyperHeaderValue::from_str(&endpoint_authority(endpoint))
+            .context("invalid host header value")?,
+    );
+    headers.insert(
+        "authorization",
+        HyperHeaderValue::from_str(&format!("Bearer {bearer}"))
+            .context("invalid authorization header")?,
+    );
+    headers.insert(
+        "content-type",
+        HyperHeaderValue::from_static("application/octet-stream"),
+    );
+    headers.insert(
+        "content-length",
+        HyperHeaderValue::from_str(&request_bytes.to_string())
+            .unwrap_or_else(|_| HyperHeaderValue::from_static("0")),
+    );
+    headers.insert(
+        "x-bench-response-bytes",
+        HyperHeaderValue::from_str(&workload.response_bytes.to_string())
+            .unwrap_or_else(|_| HyperHeaderValue::from_static("0")),
+    );
+    headers.insert(
+        "x-bench-response-chunk-bytes",
+        HyperHeaderValue::from_str(&workload.response_chunk_bytes.to_string())
+            .unwrap_or_else(|_| HyperHeaderValue::from_static("1024")),
+    );
+    headers.insert(ACCEPT, HyperHeaderValue::from_static("*/*"));
+    headers.insert(
+        USER_AGENT,
+        HyperHeaderValue::from_static("connectanum-bench/0.1"),
+    );
+    request_builder
+        .body(request_body)
+        .context("failed to build protected HTTP/1.1 request")
+}
+
 fn endpoint_authority(endpoint: &HttpEndpoint) -> String {
     let default_port = match endpoint.scheme.as_str() {
         "http" => 80,
@@ -1911,6 +2892,54 @@ fn build_h2_request(endpoint: &HttpEndpoint, workload: &PreparedWorkload) -> Res
         .context("failed to build HTTP/2 request")
 }
 
+fn build_h2_protected_request(
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+    bearer: &str,
+) -> Result<Request<()>> {
+    let uri = format!(
+        "{}://{}:{}{}",
+        endpoint.scheme, endpoint.host, endpoint.port, workload.path
+    );
+    let mut request_builder = Request::builder()
+        .method(workload.method.clone())
+        .uri(uri)
+        .version(HyperVersion::HTTP_2);
+    let headers = request_builder.headers_mut().unwrap();
+    headers.insert(
+        "authorization",
+        HyperHeaderValue::from_str(&format!("Bearer {bearer}"))
+            .context("invalid authorization header")?,
+    );
+    headers.insert(
+        "content-type",
+        HyperHeaderValue::from_static("application/octet-stream"),
+    );
+    headers.insert(
+        "content-length",
+        HyperHeaderValue::from_str(&workload.request_bytes.to_string())
+            .unwrap_or_else(|_| HyperHeaderValue::from_static("0")),
+    );
+    headers.insert(
+        "x-bench-response-bytes",
+        HyperHeaderValue::from_str(&workload.response_bytes.to_string())
+            .unwrap_or_else(|_| HyperHeaderValue::from_static("0")),
+    );
+    headers.insert(
+        "x-bench-response-chunk-bytes",
+        HyperHeaderValue::from_str(&workload.response_chunk_bytes.to_string())
+            .unwrap_or_else(|_| HyperHeaderValue::from_static("1024")),
+    );
+    headers.insert(ACCEPT, HyperHeaderValue::from_static("*/*"));
+    headers.insert(
+        USER_AGENT,
+        HyperHeaderValue::from_static("connectanum-bench/0.1"),
+    );
+    request_builder
+        .body(())
+        .context("failed to build protected HTTP/2 request")
+}
+
 async fn drain_hyper_response(response: hyper::Response<Body>) -> Result<u64> {
     let status = response.status();
     let mut body = response.into_body();
@@ -1984,6 +3013,44 @@ async fn send_h1_request(
     })
 }
 
+async fn send_h1_protected_request(
+    sender: &mut hyper::client::conn::SendRequest<Body>,
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+    request_body: Bytes,
+    bearer: &str,
+    worker_id: u32,
+    iteration: u32,
+) -> Result<WorkloadSample> {
+    let (body, body_writer) = build_h1_body(request_body, workload.request_chunk_bytes as usize);
+    let request =
+        build_h1_protected_request(endpoint, workload, body, workload.request_bytes, bearer)?;
+    let start = Instant::now();
+    let response = sender
+        .send_request(request)
+        .await
+        .context("failed to send protected HTTP/1.1 request")?;
+    let sent = body_writer
+        .await
+        .map_err(|err| anyhow!("HTTP/1.1 protected body writer failed: {err}"))??;
+    let response = drain_hyper_response_bytes(response).await?;
+    if !response.status.is_success() {
+        let preview = String::from_utf8_lossy(&response.body);
+        bail!(
+            "unexpected protected HTTP/1.1 status {} with body {}",
+            response.status,
+            preview
+        );
+    }
+    Ok(WorkloadSample {
+        worker: worker_id,
+        iteration,
+        latency_ms: start.elapsed().as_secs_f64() * 1000.0,
+        request_bytes: sent,
+        response_bytes: response.body.len() as u64,
+    })
+}
+
 async fn run_h1_iteration(
     endpoint: &HttpEndpoint,
     workload: &PreparedWorkload,
@@ -2041,6 +3108,59 @@ async fn send_h2_request(
         latency_ms,
         request_bytes: workload.request_bytes,
         response_bytes: received,
+    })
+}
+
+async fn send_h2_protected_request(
+    sender: h2_client::SendRequest<Bytes>,
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+    request_body: Bytes,
+    bearer: &str,
+    worker_id: u32,
+    iteration: u32,
+) -> Result<WorkloadSample> {
+    let mut sender = sender
+        .ready()
+        .await
+        .context("HTTP/2 sender not ready for protected request")?;
+    let request = build_h2_protected_request(endpoint, workload, bearer)?;
+    let start = Instant::now();
+    let end_stream = request_body.is_empty();
+    let (response, mut send_stream) = sender
+        .send_request(request, end_stream)
+        .context("failed to send protected HTTP/2 request")?;
+    if !end_stream {
+        let request_chunks =
+            split_request_body_chunks(&request_body, workload.request_chunk_bytes as usize);
+        let last_index = request_chunks.len().saturating_sub(1);
+        for (index, chunk) in request_chunks.into_iter().enumerate() {
+            let is_last = index == last_index;
+            send_stream
+                .send_data(chunk, is_last)
+                .context("failed to send protected HTTP/2 request body")?;
+        }
+    }
+    let response = drain_h2_response_bytes(
+        response
+            .await
+            .context("failed to receive protected HTTP/2 response")?,
+    )
+    .await?;
+    if !response.status.is_success() {
+        let preview = String::from_utf8_lossy(&response.body);
+        bail!(
+            "unexpected protected HTTP/2 status {} with body {}",
+            response.status,
+            preview
+        );
+    }
+    Ok(WorkloadSample {
+        worker: worker_id,
+        iteration,
+        latency_ms: start.elapsed().as_secs_f64() * 1000.0,
+        request_bytes: workload.request_bytes,
+        response_bytes: response.body.len() as u64,
     })
 }
 
@@ -2226,6 +3346,116 @@ async fn send_h3_request(
         latency_ms,
         request_bytes: sent,
         response_bytes: received,
+    })
+}
+
+async fn send_h3_protected_request(
+    mut send_request: H3RequestSender,
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+    request_chunk: Bytes,
+    bearer: &str,
+    worker_id: u32,
+    iteration: u32,
+) -> Result<WorkloadSample> {
+    let server_port = endpoint.http3_port();
+    let uri = format!("https://{}:{}{}", endpoint.host, server_port, workload.path);
+    let h3_method = http3::Method::from_bytes(workload.method.as_str().as_bytes())
+        .map_err(|_| anyhow!("invalid HTTP/3 method {}", workload.method))?;
+    let mut request_builder = http3::Request::builder().method(h3_method).uri(uri);
+    let headers = request_builder
+        .headers_mut()
+        .ok_or_else(|| anyhow!("unable to access protected HTTP/3 headers"))?;
+    headers.insert(
+        http3::header::HeaderName::from_static("authorization"),
+        http3::header::HeaderValue::from_str(&format!("Bearer {bearer}"))
+            .context("invalid authorization header")?,
+    );
+    headers.insert(
+        http3::header::HeaderName::from_static("content-type"),
+        http3::header::HeaderValue::from_static("application/octet-stream"),
+    );
+    headers.insert(
+        http3::header::HeaderName::from_static("content-length"),
+        http3::header::HeaderValue::from_str(&workload.request_bytes.to_string())
+            .unwrap_or_else(|_| http3::header::HeaderValue::from_static("0")),
+    );
+    headers.insert(
+        http3::header::HeaderName::from_static("x-bench-response-bytes"),
+        http3::header::HeaderValue::from_str(&workload.response_bytes.to_string())
+            .unwrap_or_else(|_| http3::header::HeaderValue::from_static("0")),
+    );
+    headers.insert(
+        http3::header::HeaderName::from_static("x-bench-response-chunk-bytes"),
+        http3::header::HeaderValue::from_str(&workload.response_chunk_bytes.to_string())
+            .unwrap_or_else(|_| http3::header::HeaderValue::from_static("1024")),
+    );
+    headers.insert(
+        http3::header::HeaderName::from_static("accept"),
+        http3::header::HeaderValue::from_static("*/*"),
+    );
+    headers.insert(
+        http3::header::HeaderName::from_static("user-agent"),
+        http3::header::HeaderValue::from_static("connectanum-bench/0.1"),
+    );
+    let request = request_builder
+        .body(())
+        .expect("failed to build protected HTTP/3 request");
+
+    let start = Instant::now();
+    let mut req_stream = send_request
+        .send_request(request)
+        .await
+        .context("failed to open protected HTTP/3 request stream")?;
+    let mut sent = 0u64;
+    if workload.request_bytes == 0 {
+        req_stream
+            .finish()
+            .await
+            .context("failed to finish protected HTTP/3 request")?;
+    } else {
+        let mut remaining = workload.request_bytes;
+        while remaining > 0 {
+            let chunk_len = std::cmp::min(remaining, request_chunk.len() as u64) as usize;
+            req_stream
+                .send_data(request_chunk.slice(..chunk_len))
+                .await
+                .context("failed to send protected HTTP/3 request chunk")?;
+            remaining -= chunk_len as u64;
+            sent += chunk_len as u64;
+        }
+        req_stream
+            .finish()
+            .await
+            .context("failed to finish protected HTTP/3 request")?;
+    }
+    let response = req_stream
+        .recv_response()
+        .await
+        .context("failed to receive protected HTTP/3 response headers")?;
+    let mut received = Vec::new();
+    while let Some(chunk) = req_stream
+        .recv_data()
+        .await
+        .context("failed to read protected HTTP/3 body")?
+    {
+        let mut chunk = chunk;
+        received.extend_from_slice(&chunk.copy_to_bytes(chunk.remaining()));
+    }
+    if !response.status().is_success() {
+        let preview = String::from_utf8_lossy(&received);
+        bail!(
+            "unexpected protected HTTP/3 status {} with body {}",
+            response.status(),
+            preview
+        );
+    }
+    Ok(WorkloadSample {
+        worker: worker_id,
+        iteration,
+        latency_ms: start.elapsed().as_secs_f64() * 1000.0,
+        request_bytes: sent,
+        response_bytes: received.len() as u64,
     })
 }
 
@@ -2418,6 +3648,13 @@ mod tests {
             warmup_ms: None,
             reuse_connections: default_reuse_connections(),
             streams_per_connection: default_streams_per_connection(),
+            auth_flow: None,
+            auth_path: None,
+            auth_realm: None,
+            auth_method: None,
+            auth_id: None,
+            auth_secret: None,
+            auth_bearer_token: None,
         };
         let prepared = PreparedWorkload::from_config(&config).unwrap();
         assert!(prepared.reuse_connections);
@@ -2448,6 +3685,13 @@ mod tests {
             warmup_ms: None,
             reuse_connections: default_reuse_connections(),
             streams_per_connection: default_streams_per_connection(),
+            auth_flow: None,
+            auth_path: None,
+            auth_realm: None,
+            auth_method: None,
+            auth_id: None,
+            auth_secret: None,
+            auth_bearer_token: None,
         };
 
         let error = PreparedWorkload::from_config(&config).err().unwrap();
@@ -2512,6 +3756,13 @@ mod tests {
             warmup_ms: None,
             reuse_connections: default_reuse_connections(),
             streams_per_connection: default_streams_per_connection(),
+            auth_flow: None,
+            auth_path: None,
+            auth_realm: None,
+            auth_method: None,
+            auth_id: None,
+            auth_secret: None,
+            auth_bearer_token: None,
         };
         let prepared = PreparedWorkload::from_config(&config).unwrap();
         assert!(prepared.is_wamp());
@@ -2542,6 +3793,13 @@ mod tests {
             warmup_ms: None,
             reuse_connections: default_reuse_connections(),
             streams_per_connection: default_streams_per_connection(),
+            auth_flow: None,
+            auth_path: None,
+            auth_realm: None,
+            auth_method: None,
+            auth_id: None,
+            auth_secret: None,
+            auth_bearer_token: None,
         };
         let prepared = PreparedWorkload::from_config(&config).unwrap();
         assert_eq!(prepared.serializer, "msgpack");
@@ -2570,6 +3828,13 @@ mod tests {
             warmup_ms: None,
             reuse_connections: default_reuse_connections(),
             streams_per_connection: default_streams_per_connection(),
+            auth_flow: None,
+            auth_path: None,
+            auth_realm: None,
+            auth_method: None,
+            auth_id: None,
+            auth_secret: None,
+            auth_bearer_token: None,
         };
         let prepared = PreparedWorkload::from_config(&config).unwrap();
         assert_eq!(prepared.in_flight_per_session, 4);
@@ -2598,6 +3863,13 @@ mod tests {
             warmup_ms: None,
             reuse_connections: default_reuse_connections(),
             streams_per_connection: default_streams_per_connection(),
+            auth_flow: None,
+            auth_path: None,
+            auth_realm: None,
+            auth_method: None,
+            auth_id: None,
+            auth_secret: None,
+            auth_bearer_token: None,
         };
         let prepared = PreparedWorkload::from_config(&config).unwrap();
         assert_eq!(prepared.peer_count, 8);
@@ -2626,6 +3898,13 @@ mod tests {
             warmup_ms: None,
             reuse_connections: false,
             streams_per_connection: 2,
+            auth_flow: None,
+            auth_path: None,
+            auth_realm: None,
+            auth_method: None,
+            auth_id: None,
+            auth_secret: None,
+            auth_bearer_token: None,
         };
         let error = PreparedWorkload::from_config(&config).err().unwrap();
         assert!(error
@@ -2656,6 +3935,13 @@ mod tests {
             warmup_ms: None,
             reuse_connections: false,
             streams_per_connection: 2,
+            auth_flow: None,
+            auth_path: None,
+            auth_realm: None,
+            auth_method: None,
+            auth_id: None,
+            auth_secret: None,
+            auth_bearer_token: None,
         };
         let error = PreparedWorkload::from_config(&config).err().unwrap();
         assert!(error
@@ -2686,6 +3972,13 @@ mod tests {
             warmup_ms: None,
             reuse_connections: true,
             streams_per_connection: 2,
+            auth_flow: None,
+            auth_path: None,
+            auth_realm: None,
+            auth_method: None,
+            auth_id: None,
+            auth_secret: None,
+            auth_bearer_token: None,
         };
         let error = PreparedWorkload::from_config(&config).err().unwrap();
         assert!(error
@@ -2717,6 +4010,13 @@ mod tests {
             response_chunk_bytes: 1024,
             reuse_connections: true,
             streams_per_connection: 1,
+            auth_flow: None,
+            auth_path: "/bench/auth".to_string(),
+            auth_realm: "bench.secure".to_string(),
+            auth_method: "ticket".to_string(),
+            auth_id: "bench-user".to_string(),
+            auth_secret: "bench-ticket".to_string(),
+            auth_bearer_token: None,
         };
         let request = build_http_request(&endpoint, &workload, Body::empty(), 0, false).unwrap();
         assert_eq!(request.uri().path(), "/bench/stream");
@@ -2725,6 +4025,44 @@ mod tests {
             request.headers().get("host").unwrap(),
             &HyperHeaderValue::from_static("localhost:8080")
         );
+    }
+
+    #[test]
+    fn prepared_workload_allows_static_bearer_auth_for_protected_routes() {
+        let config = WorkloadConfig {
+            name: "jwt_protected".to_string(),
+            protocol: "h2".to_string(),
+            client_impl: default_wamp_client_impl(),
+            serializer: default_wamp_serializer(),
+            method: default_method(),
+            path: "/bench/secure-jwt".to_string(),
+            iterations: default_iterations(),
+            concurrency: default_concurrency(),
+            in_flight_per_session: default_in_flight_per_session(),
+            peer_count: default_peer_count(),
+            request_bytes: default_request_bytes(),
+            websocket_fragment_size: None,
+            ppt_scheme: None,
+            ppt_serializer: None,
+            response_bytes: default_response_bytes(),
+            request_chunk_bytes: default_chunk_bytes(),
+            response_chunk_bytes: None,
+            warmup_ms: None,
+            reuse_connections: default_reuse_connections(),
+            streams_per_connection: default_streams_per_connection(),
+            auth_flow: Some("protected".to_string()),
+            auth_path: None,
+            auth_realm: None,
+            auth_method: Some("jwt".to_string()),
+            auth_id: None,
+            auth_secret: None,
+            auth_bearer_token: Some("static-bearer".to_string()),
+        };
+
+        let prepared = PreparedWorkload::from_config(&config).unwrap();
+        assert_eq!(prepared.auth_flow, Some(HttpAuthFlow::Protected));
+        assert_eq!(prepared.auth_method, "jwt");
+        assert_eq!(prepared.auth_bearer_token.as_deref(), Some("static-bearer"));
     }
 
     #[test]
@@ -3155,6 +4493,13 @@ mod tests {
             response_chunk_bytes: 1024,
             reuse_connections,
             streams_per_connection: 1,
+            auth_flow: None,
+            auth_path: "/bench/auth".to_string(),
+            auth_realm: "bench.secure".to_string(),
+            auth_method: "ticket".to_string(),
+            auth_id: "bench-user".to_string(),
+            auth_secret: "bench-ticket".to_string(),
+            auth_bearer_token: None,
         }
     }
 
@@ -3182,6 +4527,13 @@ mod tests {
             response_chunk_bytes: 1024,
             reuse_connections,
             streams_per_connection,
+            auth_flow: None,
+            auth_path: "/bench/auth".to_string(),
+            auth_realm: "bench.secure".to_string(),
+            auth_method: "ticket".to_string(),
+            auth_id: "bench-user".to_string(),
+            auth_secret: "bench-ticket".to_string(),
+            auth_bearer_token: None,
         }
     }
 
@@ -3209,6 +4561,13 @@ mod tests {
             response_chunk_bytes: 1024,
             reuse_connections,
             streams_per_connection,
+            auth_flow: None,
+            auth_path: "/bench/auth".to_string(),
+            auth_realm: "bench.secure".to_string(),
+            auth_method: "ticket".to_string(),
+            auth_id: "bench-user".to_string(),
+            auth_secret: "bench-ticket".to_string(),
+            auth_bearer_token: None,
         }
     }
 

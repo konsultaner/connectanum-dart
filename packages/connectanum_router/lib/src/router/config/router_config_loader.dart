@@ -273,6 +273,9 @@ class RouterConfigLoader {
     final internalRealms = _parseInternalRealms(routerNode['internal_realms']);
     final metrics = _parseMetrics(routerNode['metrics']);
     final authenticators = _parseAuthenticators(routerNode['authenticators']);
+    final httpAuthProviders = _parseHttpAuthProviders(
+      routerNode['http_auth_providers'],
+    );
     final workerPool = _parseWorkerPool(routerNode['worker_pool']);
 
     return RouterSettings(
@@ -282,6 +285,7 @@ class RouterConfigLoader {
       internalRealms: internalRealms,
       metrics: metrics,
       authenticators: authenticators,
+      httpAuthProviders: httpAuthProviders,
       workerPool: workerPool,
     );
   }
@@ -323,7 +327,45 @@ class RouterConfigLoader {
       methods: _stringList(node['methods']),
       authId: _asNullableString(node['auth_id'] ?? node['authId']),
       authRole: _asNullableString(node['auth_role'] ?? node['authRole']),
+      httpProvider: _asNullableString(
+        node['http_provider'] ?? node['httpProvider'] ?? node['provider'],
+      ),
     );
+  }
+
+  static Map<String, HttpAuthProviderDefinition> _parseHttpAuthProviders(
+    dynamic node,
+  ) {
+    if (node == null) {
+      return const {};
+    }
+    if (node is! Map<String, Object?>) {
+      throw FormatException('Router "http_auth_providers" must be a map');
+    }
+    final providers = <String, HttpAuthProviderDefinition>{};
+    for (final entry in node.entries) {
+      final name = entry.key;
+      final value = entry.value;
+      if (value is String) {
+        providers[name] = HttpAuthProviderDefinition(type: value);
+        continue;
+      }
+      if (value is! Map<String, Object?>) {
+        throw FormatException(
+          'http_auth_providers.$name must be a string or map',
+        );
+      }
+      final type = _expectString(
+        value['type'] ?? value['provider_type'],
+        'http_auth_providers.$name.type',
+      );
+      final options = _asMap(value['options'], allowNull: true) ?? const {};
+      providers[name] = HttpAuthProviderDefinition(
+        type: type,
+        options: options,
+      );
+    }
+    return Map.unmodifiable(providers);
   }
 
   static List<RealmSettings> _parseRealms(dynamic node) {

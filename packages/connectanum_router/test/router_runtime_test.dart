@@ -9,7 +9,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:connectanum_core/authentication.dart' show TicketAuthentication;
+import 'package:connectanum_core/authentication.dart'
+    show CraAuthentication, TicketAuthentication;
 import 'package:connectanum_core/connectanum_core.dart'
     show
         CallOptions,
@@ -647,6 +648,101 @@ Map<String, Object?> _jsonResponseBody(NativeHttpResponse response) {
   throw StateError('Unsupported HTTP response body: ${body.runtimeType}');
 }
 
+void _enqueueSyntheticHttpRequest({
+  required _HandleRuntime runtime,
+  required int listenerId,
+  required int connectionId,
+  required int handle,
+  required String method,
+  required String target,
+  required Map<String, String> headers,
+  required Object? body,
+  required String realm,
+  required String procedure,
+}) {
+  runtime.setConnectionProtocol(connectionId, NativeConnectionProtocol.http);
+  runtime.enqueueHttpHandshake(
+    listenerId,
+    connectionId,
+    NativeHttpHandshake.synthetic(
+      handle: handle,
+      method: method,
+      target: target,
+      path: target.split('?').first,
+      protocol: 'http/1.1',
+      headers: headers,
+      body: body == null
+          ? Uint8List(0)
+          : Uint8List.fromList(utf8.encode(json.encode(body))),
+      realm: realm,
+      procedure: procedure,
+    ),
+  );
+}
+
+Future<({String accessToken, String refreshToken})> _issueTicketHttpTokens({
+  required _HandleRuntime runtime,
+  required int listenerId,
+  int startConnectionId = 60,
+  String authId = 'user-1',
+  String realm = 'realm1',
+  String ticket = 'signed-token',
+}) async {
+  _enqueueSyntheticHttpRequest(
+    runtime: runtime,
+    listenerId: listenerId,
+    connectionId: startConnectionId,
+    handle: startConnectionId - 40,
+    method: 'POST',
+    target: '/auth',
+    headers: const {'content-type': 'application/json'},
+    body: <String, Object?>{
+      'realm': realm,
+      'authmethod': 'ticket',
+      'authid': authId,
+    },
+    realm: 'router.http',
+    procedure: 'router.http.auth',
+  );
+
+  await _waitUntil(
+    () => runtime.httpResponses[startConnectionId]?.isNotEmpty ?? false,
+  );
+  final challengeBody = _jsonResponseBody(
+    runtime.httpResponses[startConnectionId]!.single,
+  );
+  final state = challengeBody['state'] as String;
+  final authenticate = await TicketAuthentication(ticket).challenge(Extra());
+
+  _enqueueSyntheticHttpRequest(
+    runtime: runtime,
+    listenerId: listenerId,
+    connectionId: startConnectionId + 1,
+    handle: startConnectionId - 39,
+    method: 'POST',
+    target: '/auth',
+    headers: const {'content-type': 'application/json'},
+    body: <String, Object?>{
+      'state': state,
+      'signature': authenticate.signature,
+      'extra': authenticate.extra,
+    },
+    realm: 'router.http',
+    procedure: 'router.http.auth',
+  );
+
+  await _waitUntil(
+    () => runtime.httpResponses[startConnectionId + 1]?.isNotEmpty ?? false,
+  );
+  final success = _jsonResponseBody(
+    runtime.httpResponses[startConnectionId + 1]!.single,
+  );
+  return (
+    accessToken: success['access_token'] as String,
+    refreshToken: success['refresh_token'] as String,
+  );
+}
+
 void _testWorkerEntryPoint(Map<String, Object?> init) {
   final bossPort = init['bossPort'] as SendPort;
   final connectionId = init['connectionId'] as int;
@@ -1243,7 +1339,11 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge() {
                   action: HttpRouteAction(
                     type: HttpRouteActionType.auth,
                     sessionProfile: 'http-ticket',
-                    options: <String, Object?>{'token_ttl_ms': 60000},
+                    options: <String, Object?>{
+                      'token_ttl_ms': 60000,
+                      'refresh_token_ttl_ms': 300000,
+                      'rotate_refresh_tokens': true,
+                    },
                   ),
                 ),
                 HttpRouteSettings(
@@ -1279,6 +1379,98 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge() {
       ),
     );
   return builder.build();
+}
+
+RouterSettings _buildRouterSettingsWithHttpJwtProvider() {
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('realm1')
+        ..addAuthMethod('anonymous')
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('member')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('com.example.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const ['call']),
+          ),
+        )
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('com.example.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const ['call', 'register', 'unregister']),
+          ),
+        ),
+    )
+    ..addSessionProfileFromBuilder(SessionProfileSettingsBuilder('public-http'))
+    ..addSessionProfileFromBuilder(
+      SessionProfileSettingsBuilder('http-jwt')
+        ..setRealm('realm1')
+        ..setAuthMethods(const ['jwt'])
+        ..setHttpProvider('edge-jwt'),
+    )
+    ..addHttpAuthProvider(
+      'edge-jwt',
+      const HttpAuthProviderDefinition(
+        type: 'jwt',
+        options: <String, Object?>{
+          'hmac_secret': 'jwt-secret',
+          'issuer': 'https://issuer.example',
+          'audience': <String>['connectanum-http'],
+          'auth_id_claim': 'sub',
+          'auth_role_claim': 'role',
+        },
+      ),
+    )
+    ..addListenerFromBuilder(
+      (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+          ..addAuthMethod('anonymous')
+          ..addProtocol(ListenerProtocol.http)
+          ..setRawSocketOptions(
+            const RawSocketListenerSettings(maxFrameExponent: 16),
+          )
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              sessionProfile: 'public-http',
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/api/jwt'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.rpc,
+                    procedure: 'com.example.api.jwt',
+                    sessionProfile: 'http-jwt',
+                  ),
+                ),
+              ],
+            ),
+          ))
+        ..setOptions(const {'max_rawsocket_size_exponent': 16}),
+    )
+    ..addAuthenticator(
+      'anonymous',
+      const AuthenticatorDefinition(type: 'anonymous'),
+    );
+  return builder.build();
+}
+
+String _encodeHs256Jwt({
+  required Map<String, Object?> claims,
+  required String secret,
+}) {
+  final header = <String, Object?>{'alg': 'HS256', 'typ': 'JWT'};
+  final encodedHeader = base64Url
+      .encode(utf8.encode(jsonEncode(header)))
+      .replaceAll('=', '');
+  final encodedClaims = base64Url
+      .encode(utf8.encode(jsonEncode(claims)))
+      .replaceAll('=', '');
+  final signingInput = '$encodedHeader.$encodedClaims';
+  final signature = CraAuthentication.encodeByteHmac(
+    Uint8List.fromList(utf8.encode(secret)),
+    32,
+    utf8.encode(signingInput),
+  );
+  final encodedSignature = base64Url.encode(signature).replaceAll('=', '');
+  return '$signingInput.$encodedSignature';
 }
 
 RouterSettings _buildRestrictedInternalSessionSettings() {
@@ -2786,6 +2978,93 @@ void main() {
   });
 
   test(
+    'validates protected HTTP bearer routes through configured JWT provider',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpJwtProvider(),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+
+      final callee = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'svc-http',
+        authRole: 'internal',
+        roles: const {'callee': <String, Object?>{}},
+      );
+      addTearDown(callee.close);
+      final registration = await callee.register('com.example.api.jwt');
+      registration.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull);
+        expect(context!.request.path, '/api/jwt');
+        context.sendText(body: 'jwt-secured', status: HttpStatus.ok);
+      });
+
+      final jwt = _encodeHs256Jwt(
+        secret: 'jwt-secret',
+        claims: <String, Object?>{
+          'sub': 'jwt-user',
+          'role': 'member',
+          'iss': 'https://issuer.example',
+          'aud': <String>['connectanum-http'],
+          'exp':
+              DateTime.now()
+                  .toUtc()
+                  .add(const Duration(minutes: 5))
+                  .millisecondsSinceEpoch ~/
+              1000,
+        },
+      );
+
+      const connectionId = 63;
+      runtime.setConnectionProtocol(
+        connectionId,
+        NativeConnectionProtocol.http,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 23,
+          method: 'GET',
+          target: '/api/jwt',
+          path: '/api/jwt',
+          protocol: 'http/1.1',
+          headers: {'authorization': 'Bearer $jwt'},
+          body: Uint8List(0),
+          realm: 'realm1',
+          procedure: 'com.example.api.jwt',
+        ),
+      );
+
+      await _waitUntil(
+        () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+      );
+      final response = runtime.httpResponses[connectionId]!.single;
+      expect(response.status, HttpStatus.ok);
+      expect(response.body, isA<NativeHttpResponseText>());
+      expect((response.body as NativeHttpResponseText).text, 'jwt-secured');
+    },
+  );
+
+  test(
     'auth bridge issues bearer token for ticket and dispatches secure route',
     () async {
       final runtime = _HandleRuntime();
@@ -2833,88 +3112,10 @@ void main() {
         context.sendText(body: 'secured', status: 200);
       });
 
-      const firstConnectionId = 60;
-      runtime.setConnectionProtocol(
-        firstConnectionId,
-        NativeConnectionProtocol.http,
+      final tokens = await _issueTicketHttpTokens(
+        runtime: runtime,
+        listenerId: listenerId,
       );
-      runtime.enqueueHttpHandshake(
-        listenerId,
-        firstConnectionId,
-        NativeHttpHandshake.synthetic(
-          handle: 20,
-          method: 'POST',
-          target: '/auth',
-          path: '/auth',
-          protocol: 'http/1.1',
-          headers: const {'content-type': 'application/json'},
-          body: Uint8List.fromList(
-            utf8.encode(
-              json.encode(const <String, Object?>{
-                'realm': 'realm1',
-                'authmethod': 'ticket',
-                'authid': 'user-1',
-              }),
-            ),
-          ),
-          realm: 'router.http',
-          procedure: 'router.http.auth',
-        ),
-      );
-
-      await _waitUntil(
-        () => runtime.httpResponses[firstConnectionId]?.isNotEmpty ?? false,
-      );
-      final firstBody = _jsonResponseBody(
-        runtime.httpResponses[firstConnectionId]!.single,
-      );
-      expect(
-        runtime.httpResponses[firstConnectionId]!.single.status,
-        HttpStatus.unauthorized,
-      );
-      expect(firstBody['status'], 'challenge');
-      final state = firstBody['state'] as String;
-
-      final ticketAuth = TicketAuthentication('signed-token');
-      final authenticate = await ticketAuth.challenge(Extra());
-
-      const secondConnectionId = 61;
-      runtime.setConnectionProtocol(
-        secondConnectionId,
-        NativeConnectionProtocol.http,
-      );
-      runtime.enqueueHttpHandshake(
-        listenerId,
-        secondConnectionId,
-        NativeHttpHandshake.synthetic(
-          handle: 21,
-          method: 'POST',
-          target: '/auth',
-          path: '/auth',
-          protocol: 'http/1.1',
-          headers: const {'content-type': 'application/json'},
-          body: Uint8List.fromList(
-            utf8.encode(
-              json.encode(<String, Object?>{
-                'state': state,
-                'signature': authenticate.signature,
-                'extra': authenticate.extra,
-              }),
-            ),
-          ),
-          realm: 'router.http',
-          procedure: 'router.http.auth',
-        ),
-      );
-
-      await _waitUntil(
-        () => runtime.httpResponses[secondConnectionId]?.isNotEmpty ?? false,
-      );
-      final secondResponse = runtime.httpResponses[secondConnectionId]!.single;
-      expect(secondResponse.status, HttpStatus.ok);
-      final secondBody = _jsonResponseBody(secondResponse);
-      expect(secondBody['status'], 'ok');
-      final token = secondBody['access_token'] as String;
 
       const thirdConnectionId = 62;
       runtime.setConnectionProtocol(
@@ -2930,7 +3131,7 @@ void main() {
           target: '/api/secure',
           path: '/api/secure',
           protocol: 'http/1.1',
-          headers: {'authorization': 'Bearer $token'},
+          headers: {'authorization': 'Bearer ${tokens.accessToken}'},
           body: Uint8List(0),
           realm: 'realm1',
           procedure: 'com.example.api.secure',
@@ -2946,6 +3147,7 @@ void main() {
       final protectedBody = protectedResponse.body;
       expect(protectedBody, isA<NativeHttpResponseText>());
       expect((protectedBody as NativeHttpResponseText).text, 'secured');
+      expect(tokens.refreshToken, isNotEmpty);
       expect(
         events.any(
           (event) =>
@@ -2956,6 +3158,250 @@ void main() {
       );
     },
   );
+
+  test(
+    'auth bridge rotates refresh tokens and rejects old credentials',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpAuthBridge(),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+
+      final callee = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'svc-http',
+        authRole: 'internal',
+        roles: const {'callee': <String, Object?>{}},
+      );
+      addTearDown(callee.close);
+      final registration = await callee.register('com.example.api.secure');
+      registration.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        context!.sendText(body: 'secured', status: 200);
+      });
+
+      final firstGrant = await _issueTicketHttpTokens(
+        runtime: runtime,
+        listenerId: listenerId,
+        startConnectionId: 70,
+      );
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 72,
+        handle: 32,
+        method: 'POST',
+        target: '/auth',
+        headers: const {'content-type': 'application/json'},
+        body: <String, Object?>{
+          'grant_type': 'refresh_token',
+          'refresh_token': firstGrant.refreshToken,
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+
+      await _waitUntil(() => runtime.httpResponses[72]?.isNotEmpty ?? false);
+      final refreshResponse = runtime.httpResponses[72]!.single;
+      expect(refreshResponse.status, HttpStatus.ok);
+      final refreshedBody = _jsonResponseBody(refreshResponse);
+      expect(refreshedBody['status'], 'ok');
+      final refreshedAccessToken = refreshedBody['access_token'] as String;
+      final refreshedRefreshToken = refreshedBody['refresh_token'] as String;
+      expect(refreshedAccessToken, isNot(firstGrant.accessToken));
+      expect(refreshedRefreshToken, isNot(firstGrant.refreshToken));
+
+      runtime.setConnectionProtocol(73, NativeConnectionProtocol.http);
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        73,
+        NativeHttpHandshake.synthetic(
+          handle: 33,
+          method: 'GET',
+          target: '/api/secure',
+          path: '/api/secure',
+          protocol: 'http/1.1',
+          headers: {'authorization': 'Bearer ${firstGrant.accessToken}'},
+          body: Uint8List(0),
+          realm: 'realm1',
+          procedure: 'com.example.api.secure',
+        ),
+      );
+      await _waitUntil(() => runtime.httpResponses[73]?.isNotEmpty ?? false);
+      final revokedAccess = runtime.httpResponses[73]!.single;
+      expect(revokedAccess.status, HttpStatus.unauthorized);
+      expect(_jsonResponseBody(revokedAccess)['reason'], 'invalid_token');
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 74,
+        handle: 34,
+        method: 'POST',
+        target: '/auth',
+        headers: const {'content-type': 'application/json'},
+        body: <String, Object?>{
+          'grant_type': 'refresh_token',
+          'refresh_token': firstGrant.refreshToken,
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+      await _waitUntil(() => runtime.httpResponses[74]?.isNotEmpty ?? false);
+      final staleRefresh = runtime.httpResponses[74]!.single;
+      expect(staleRefresh.status, HttpStatus.unauthorized);
+      expect(
+        _jsonResponseBody(staleRefresh)['reason'],
+        'invalid_refresh_token',
+      );
+
+      runtime.setConnectionProtocol(75, NativeConnectionProtocol.http);
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        75,
+        NativeHttpHandshake.synthetic(
+          handle: 35,
+          method: 'GET',
+          target: '/api/secure',
+          path: '/api/secure',
+          protocol: 'http/1.1',
+          headers: {'authorization': 'Bearer $refreshedAccessToken'},
+          body: Uint8List(0),
+          realm: 'realm1',
+          procedure: 'com.example.api.secure',
+        ),
+      );
+      await _waitUntil(() => runtime.httpResponses[75]?.isNotEmpty ?? false);
+      final activeAccess = runtime.httpResponses[75]!.single;
+      expect(activeAccess.status, HttpStatus.ok);
+    },
+  );
+
+  test('auth bridge revokes refresh and access tokens', () async {
+    final runtime = _HandleRuntime();
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: _buildRouterSettingsWithHttpAuthBridge(),
+    );
+
+    final binding = router.start(runtime);
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+
+    final callee = await binding.createInternalSession(
+      realmUri: 'realm1',
+      authId: 'svc-http',
+      authRole: 'internal',
+      roles: const {'callee': <String, Object?>{}},
+    );
+    addTearDown(callee.close);
+    final registration = await callee.register('com.example.api.secure');
+    registration.onInvoke((invocation) {
+      final context = HttpInvocationContext.maybeFromInvocation(invocation);
+      context!.sendText(body: 'secured', status: 200);
+    });
+
+    final grant = await _issueTicketHttpTokens(
+      runtime: runtime,
+      listenerId: listenerId,
+      startConnectionId: 80,
+    );
+
+    _enqueueSyntheticHttpRequest(
+      runtime: runtime,
+      listenerId: listenerId,
+      connectionId: 82,
+      handle: 42,
+      method: 'POST',
+      target: '/auth',
+      headers: const {'content-type': 'application/json'},
+      body: <String, Object?>{
+        'grant_type': 'revoke',
+        'token': grant.refreshToken,
+        'token_type_hint': 'refresh_token',
+      },
+      realm: 'router.http',
+      procedure: 'router.http.auth',
+    );
+    await _waitUntil(() => runtime.httpResponses[82]?.isNotEmpty ?? false);
+    final revokeResponse = runtime.httpResponses[82]!.single;
+    expect(revokeResponse.status, HttpStatus.ok);
+    expect(_jsonResponseBody(revokeResponse)['status'], 'revoked');
+
+    runtime.setConnectionProtocol(83, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      83,
+      NativeHttpHandshake.synthetic(
+        handle: 43,
+        method: 'GET',
+        target: '/api/secure',
+        path: '/api/secure',
+        protocol: 'http/1.1',
+        headers: {'authorization': 'Bearer ${grant.accessToken}'},
+        body: Uint8List(0),
+        realm: 'realm1',
+        procedure: 'com.example.api.secure',
+      ),
+    );
+    await _waitUntil(() => runtime.httpResponses[83]?.isNotEmpty ?? false);
+    final revokedAccess = runtime.httpResponses[83]!.single;
+    expect(revokedAccess.status, HttpStatus.unauthorized);
+    expect(_jsonResponseBody(revokedAccess)['reason'], 'invalid_token');
+
+    _enqueueSyntheticHttpRequest(
+      runtime: runtime,
+      listenerId: listenerId,
+      connectionId: 84,
+      handle: 44,
+      method: 'POST',
+      target: '/auth',
+      headers: const {'content-type': 'application/json'},
+      body: <String, Object?>{
+        'grant_type': 'refresh_token',
+        'refresh_token': grant.refreshToken,
+      },
+      realm: 'router.http',
+      procedure: 'router.http.auth',
+    );
+    await _waitUntil(() => runtime.httpResponses[84]?.isNotEmpty ?? false);
+    final revokedRefresh = runtime.httpResponses[84]!.single;
+    expect(revokedRefresh.status, HttpStatus.unauthorized);
+    expect(
+      _jsonResponseBody(revokedRefresh)['reason'],
+      anyOf('invalid_refresh_token', 'expired_refresh_token'),
+    );
+  });
 
   test(
     'streams HTTP response chunks when progressive results emitted',

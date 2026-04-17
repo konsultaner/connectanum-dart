@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
 import 'package:connectanum_core/src/message/invocation.dart' as invocation_msg;
-import 'package:connectanum_core/src/message/registered.dart' as registered_msg;
 import 'package:connectanum_router/connectanum_router.dart';
 import 'package:logging/logging.dart';
 
@@ -161,9 +160,15 @@ class _BenchRouterService {
         authId: 'bench-control',
         authRole: 'bench',
       );
+      final protectedSession = await binding.createInternalSession(
+        realmUri: 'bench.secure',
+        authId: 'bench-http',
+        authRole: 'internal',
+      );
       final control = _BenchControlRegistry(
         binding: binding,
         session: controlSession,
+        protectedSession: protectedSession,
         onStopRequested: () => requestShutdown('RPC'),
         realmUri: controlRealm,
         wampTargets: wampTargets,
@@ -289,6 +294,7 @@ class _BenchControlRegistry {
   _BenchControlRegistry({
     required this.binding,
     required this.session,
+    required this.protectedSession,
     required this.onStopRequested,
     required this.realmUri,
     required this.wampTargets,
@@ -310,6 +316,7 @@ class _BenchControlRegistry {
 
   final RouterBinding binding;
   final RouterSession session;
+  final RouterSession protectedSession;
   final void Function() onStopRequested;
   final String realmUri;
   final Map<WampTransport, WampTransportTarget> wampTargets;
@@ -317,7 +324,7 @@ class _BenchControlRegistry {
   final String workerScriptPath;
 
   final _logger = Logger('BenchControlRegistry');
-  final List<registered_msg.Registered> _registrations = [];
+  final List<_BenchRegisteredHandler> _registrations = [];
   bool _stopping = false;
   late final WampWorkloadRunner _wampRunner;
   late final NativeWampWorker _nativeWampWorker;
@@ -367,6 +374,11 @@ class _BenchControlRegistry {
     await _register('bench.http.metrics', _handleMetricsInvoke);
     await _register('bench.http.stop', _handleStopInvoke);
     await _register('bench.http.stream', _handleStreamInvoke);
+    await _registerWithSession(
+      protectedSession,
+      'bench.http.secure',
+      _handleSecureInvoke,
+    );
     await _register('bench.http.wamp', _handleWampInvoke);
     await _registerLazyPayload('bench.rpc.echo', _handleRpcEchoLazyInvoke);
     await _nativeWampWorker.start();
@@ -374,7 +386,7 @@ class _BenchControlRegistry {
 
   Future<void> dispose() async {
     for (final registration in _registrations) {
-      await session.unregister(registration.registrationId);
+      await registration.session.unregister(registration.registrationId);
     }
     _registrations.clear();
     await _nativeWampWorker.close();
@@ -384,9 +396,22 @@ class _BenchControlRegistry {
     String procedure,
     FutureOr<void> Function(invocation_msg.Invocation) handler,
   ) async {
-    final registration = await session.register(procedure);
+    await _registerWithSession(session, procedure, handler);
+  }
+
+  Future<void> _registerWithSession(
+    RouterSession targetSession,
+    String procedure,
+    FutureOr<void> Function(invocation_msg.Invocation) handler,
+  ) async {
+    final registration = await targetSession.register(procedure);
     registration.onInvoke(handler);
-    _registrations.add(registration);
+    _registrations.add(
+      _BenchRegisteredHandler(
+        session: targetSession,
+        registrationId: registration.registrationId,
+      ),
+    );
   }
 
   Future<void> _registerLazyPayload(
@@ -395,7 +420,12 @@ class _BenchControlRegistry {
   ) async {
     final registration = await session.register(procedure);
     registration.onLazyInvokePayload(handler);
-    _registrations.add(registration);
+    _registrations.add(
+      _BenchRegisteredHandler(
+        session: session,
+        registrationId: registration.registrationId,
+      ),
+    );
   }
 
   Future<void> _handleHealthzInvoke(
@@ -477,6 +507,26 @@ class _BenchControlRegistry {
       headers: const {
         'content-type': 'application/octet-stream',
         'x-bench': 'stream',
+      },
+    );
+    await streamBenchHttpResponse(
+      request: context.request,
+      addChunk: response.add,
+      close: response.close,
+    );
+  }
+
+  Future<void> _handleSecureInvoke(invocation_msg.Invocation invocation) async {
+    final context = HttpInvocationContext.maybeFromInvocation(invocation);
+    if (context == null) {
+      invocation.respondWith(arguments: ['no_http_context']);
+      return;
+    }
+    final response = context.streamResponse(
+      status: 200,
+      headers: const {
+        'content-type': 'application/octet-stream',
+        'x-bench': 'secure',
       },
     );
     await streamBenchHttpResponse(
@@ -611,4 +661,14 @@ class _BenchControlRegistry {
       await Future<void>.delayed(const Duration(milliseconds: 50));
     }
   }
+}
+
+class _BenchRegisteredHandler {
+  const _BenchRegisteredHandler({
+    required this.session,
+    required this.registrationId,
+  });
+
+  final RouterSession session;
+  final int registrationId;
 }

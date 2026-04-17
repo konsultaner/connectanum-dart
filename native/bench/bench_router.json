@@ -44,6 +44,37 @@
         ]
       },
       {
+        "name": "bench.secure",
+        "auth": {
+          "authmethods": ["ticket"],
+          "ticket": {
+            "authenticator": "ticket-basic"
+          }
+        },
+        "roles": [
+          {
+            "name": "member",
+            "permissions": [
+              {
+                "uri": "bench.http.secure",
+                "match": "exact",
+                "allow": ["call"]
+              }
+            ]
+          },
+          {
+            "name": "internal",
+            "permissions": [
+              {
+                "uri": "bench.http.secure",
+                "match": "exact",
+                "allow": ["call", "register", "unregister"]
+              }
+            ]
+          }
+        ]
+      },
+      {
         "name": "connectanum.metrics",
         "auth": {
           "authmethods": ["anonymous"]
@@ -69,6 +100,41 @@
         ]
       }
     ],
+    "session_profiles": [
+      {
+        "name": "public-http",
+        "auth": {
+          "methods": []
+        }
+      },
+      {
+        "name": "http-ticket",
+        "realm": "bench.secure",
+        "auth": {
+          "methods": ["ticket"]
+        }
+      },
+      {
+        "name": "http-jwt",
+        "realm": "bench.secure",
+        "auth": {
+          "methods": ["jwt"],
+          "http_provider": "bench-jwt"
+        }
+      }
+    ],
+    "http_auth_providers": {
+      "bench-jwt": {
+        "type": "jwt",
+        "options": {
+          "issuer": "https://issuer.example",
+          "audience": ["connectanum-http"],
+          "hmac_secret": "bench-jwt-secret",
+          "auth_id_claim": "sub",
+          "auth_role_claim": "role"
+        }
+      }
+    },
     "listeners": [
       {
         "endpoint": "127.0.0.1:8080",
@@ -88,12 +154,26 @@
           "max_rawsocket_size_exponent": 18
         },
         "http": {
+          "session_profile": "public-http",
           "alpn": ["h3", "h2", "http/1.1"],
           "http3": {
             "enabled": true,
             "port": 8443
           },
           "routes": [
+            {
+              "match": {
+                "path": "/bench/auth",
+                "methods": ["POST"]
+              },
+              "action": {
+                "type": "auth",
+                "session_profile": "http-ticket",
+                "token_ttl_ms": 60000,
+                "refresh_token_ttl_ms": 300000,
+                "rotate_refresh_tokens": true
+              }
+            },
             {
               "match": {
                 "path": "/bench/healthz",
@@ -136,6 +216,30 @@
                 "type": "rpc",
                 "realm": "bench.control",
                 "procedure": "bench.http.stream"
+              }
+            },
+            {
+              "match": {
+                "path": "/bench/secure",
+                "methods": ["POST"]
+              },
+              "action": {
+                "type": "rpc",
+                "realm": "bench.secure",
+                "procedure": "bench.http.secure",
+                "session_profile": "http-ticket"
+              }
+            },
+            {
+              "match": {
+                "path": "/bench/secure-jwt",
+                "methods": ["POST"]
+              },
+              "action": {
+                "type": "rpc",
+                "realm": "bench.secure",
+                "procedure": "bench.http.secure",
+                "session_profile": "http-jwt"
               }
             },
             {
@@ -197,6 +301,18 @@
     "authenticators": {
       "anonymous": {
         "type": "anonymous"
+      },
+      "ticket-basic": {
+        "type": "ticket",
+        "options": {
+          "secrets": {
+            "bench-user": {
+              "ticket": "bench-ticket",
+              "role": "member",
+              "provider": "bench-ticket-store"
+            }
+          }
+        }
       }
     }
   }

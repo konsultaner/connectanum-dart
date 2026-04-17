@@ -917,6 +917,8 @@ class RealmRecord {
         id: session.id,
         authId: session.authId,
         authRole: session.authRole,
+        authMethod: session.authMethod,
+        authProvider: session.authProvider,
         roles: Map.unmodifiable(session.roles),
         workerId: session.workerId,
         connectionId: session.connectionId,

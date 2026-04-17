@@ -16,6 +16,10 @@ abstract final class RouterSettingsCodec {
         'session_profiles': settings.sessionProfiles
             .map(_sessionProfileToMap)
             .toList(),
+      if (settings.httpAuthProviders.isNotEmpty)
+        'http_auth_providers': settings.httpAuthProviders.map((key, value) {
+          return MapEntry(key, _httpAuthProviderToMap(value));
+        }),
       if (settings.internalRealms.isNotEmpty)
         'internal_realms': settings.internalRealms
             .map(_internalRealmToMap)
@@ -343,6 +347,16 @@ abstract final class RouterSettingsCodec {
       if (auth.methods.isNotEmpty) 'methods': List<String>.from(auth.methods),
       if (auth.authId != null) 'auth_id': auth.authId,
       if (auth.authRole != null) 'auth_role': auth.authRole,
+      if (auth.httpProvider != null) 'http_provider': auth.httpProvider,
+    };
+  }
+
+  static Map<String, Object?> _httpAuthProviderToMap(
+    HttpAuthProviderDefinition definition,
+  ) {
+    return <String, Object?>{
+      'type': definition.type,
+      if (definition.options.isNotEmpty) 'options': definition.options,
     };
   }
 

@@ -29,6 +29,7 @@ class RouterSettings {
     this.internalRealms = const [],
     this.metrics,
     this.authenticators = const {},
+    this.httpAuthProviders = const {},
     this.workerPool = const WorkerPoolSettings(),
   });
 
@@ -38,6 +39,7 @@ class RouterSettings {
   final List<InternalRealmSettings> internalRealms;
   final MetricsSettings? metrics;
   final Map<String, AuthenticatorDefinition> authenticators;
+  final Map<String, HttpAuthProviderDefinition> httpAuthProviders;
   final WorkerPoolSettings workerPool;
 
   RouterSettings copyWith({
@@ -47,6 +49,7 @@ class RouterSettings {
     List<InternalRealmSettings>? internalRealms,
     MetricsSettings? metrics,
     Map<String, AuthenticatorDefinition>? authenticators,
+    Map<String, HttpAuthProviderDefinition>? httpAuthProviders,
     WorkerPoolSettings? workerPool,
   }) {
     return RouterSettings(
@@ -56,6 +59,7 @@ class RouterSettings {
       internalRealms: internalRealms ?? this.internalRealms,
       metrics: metrics ?? this.metrics,
       authenticators: authenticators ?? this.authenticators,
+      httpAuthProviders: httpAuthProviders ?? this.httpAuthProviders,
       workerPool: workerPool ?? this.workerPool,
     );
   }
@@ -65,6 +69,18 @@ class RouterSettings {
 @immutable
 class AuthenticatorDefinition {
   const AuthenticatorDefinition({required this.type, this.options = const {}});
+
+  final String type;
+  final Map<String, Object?> options;
+}
+
+/// Definition of an HTTP bearer auth provider used by protected HTTP routes.
+@immutable
+class HttpAuthProviderDefinition {
+  const HttpAuthProviderDefinition({
+    required this.type,
+    this.options = const {},
+  });
 
   final String type;
   final Map<String, Object?> options;
@@ -113,11 +129,13 @@ class SessionProfileAuthSettings {
     this.methods = const [],
     this.authId,
     this.authRole,
+    this.httpProvider,
   });
 
   final List<String> methods;
   final String? authId;
   final String? authRole;
+  final String? httpProvider;
 
   @override
   bool operator ==(Object other) {
@@ -127,12 +145,17 @@ class SessionProfileAuthSettings {
     return other is SessionProfileAuthSettings &&
         const ListEquality<String>().equals(other.methods, methods) &&
         other.authId == authId &&
-        other.authRole == authRole;
+        other.authRole == authRole &&
+        other.httpProvider == httpProvider;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(const ListEquality<String>().hash(methods), authId, authRole);
+  int get hashCode => Object.hash(
+    const ListEquality<String>().hash(methods),
+    authId,
+    authRole,
+    httpProvider,
+  );
 }
 
 /// Configuration for an individual realm.

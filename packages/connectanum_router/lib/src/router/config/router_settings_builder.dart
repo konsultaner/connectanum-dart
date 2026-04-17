@@ -6,6 +6,7 @@ class RouterSettingsBuilder {
   final List<ListenerSettings> _listeners = [];
   final List<SessionProfileSettings> _sessionProfiles = [];
   final Map<String, AuthenticatorDefinition> _authenticators = {};
+  final Map<String, HttpAuthProviderDefinition> _httpAuthProviders = {};
   final List<InternalRealmSettings> _internalRealms = [];
   MetricsSettings? _metrics;
   WorkerPoolSettings _workerPool = const WorkerPoolSettings();
@@ -64,6 +65,14 @@ class RouterSettingsBuilder {
     return this;
   }
 
+  RouterSettingsBuilder addHttpAuthProvider(
+    String name,
+    HttpAuthProviderDefinition definition,
+  ) {
+    _httpAuthProviders[name] = definition;
+    return this;
+  }
+
   RouterSettingsBuilder metrics(MetricsSettings metrics) {
     _metrics = metrics;
     return this;
@@ -81,6 +90,7 @@ class RouterSettingsBuilder {
     internalRealms: List.unmodifiable(_internalRealms),
     metrics: _metrics,
     authenticators: Map.unmodifiable(_authenticators),
+    httpAuthProviders: Map.unmodifiable(_httpAuthProviders),
     workerPool: _workerPool,
   );
 }
@@ -93,6 +103,7 @@ class SessionProfileSettingsBuilder {
   final List<String> _authMethods = [];
   String? authId;
   String? authRole;
+  String? httpProvider;
   final Map<String, Object?> _roles = {};
 
   SessionProfileSettingsBuilder setRealm(String? value) {
@@ -124,6 +135,11 @@ class SessionProfileSettingsBuilder {
     return this;
   }
 
+  SessionProfileSettingsBuilder setHttpProvider(String? value) {
+    httpProvider = value;
+    return this;
+  }
+
   SessionProfileSettingsBuilder setRoles(Map<String, Object?> roles) {
     _roles
       ..clear()
@@ -143,6 +159,7 @@ class SessionProfileSettingsBuilder {
       methods: List.unmodifiable(_authMethods),
       authId: authId,
       authRole: authRole,
+      httpProvider: httpProvider,
     ),
     roles: Map.unmodifiable(_roles),
   );

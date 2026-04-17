@@ -120,6 +120,9 @@ RawSocket/WebSocket transport benchmarks. The control listener maps the
 | `/bench/healthz`  | GET    | `bench.http.healthz` | Liveness probe that returns `{"status":"ok"}`. |
 | `/bench/metrics`  | GET    | `bench.http.metrics` | Snapshot of `binding.collectMetrics()` so orchestrators can diff counters between runs. |
 | `/bench/stop`     | POST   | `bench.http.stop`    | Acknowledges the request and triggers the shutdown flow (mirrors the STOP stdin command). |
+| `/bench/auth`     | POST   | router `type: auth` bridge | Ticket/SCRAM/WAMP-CRA challenge endpoint used by the HTTP auth bench and protected-route smoke flows. |
+| `/bench/secure`   | POST   | `bench.http.secure`  | Bearer-protected HTTP route that streams a configurable payload for auth overhead measurement. |
+| `/bench/secure-jwt` | POST | `bench.http.secure`  | JWT-provider-protected HTTP route that measures the shared `http_auth_providers` path without going through the challenge bridge. |
 | `/bench/stream`   | POST   | `bench.http.stream`  | Drains/generated-responses or echoes the request body through `HttpRequestSnapshot.nativeBody`, so HTTP routing and the internal-session bridge stay on the streamed/descriptor path. |
 
 All handlers continue to be callable over WAMP, which keeps the YAML scenario
@@ -199,6 +202,19 @@ Set it above `1` when you want to stress same-connection multiplexing; it
 requires `reuse_connections = true`. HTTP/1.1 still rejects values above `1`
 because the bench path does not pipeline H1 requests.
 
+HTTP auth workloads can also declare:
+
+- `auth_flow = "login" | "refresh" | "protected"` to measure the `/bench/auth`
+  challenge handshake, refresh-token rotation, or bearer-protected route path.
+- `auth_path`, `auth_realm`, `auth_method`, `auth_id`, and `auth_secret` to
+  drive the auth bridge. The current bench implementation uses the ticket flow
+  (`bench-user` / `bench-ticket`) against the shared session-profile auth
+  bridge.
+- `auth_bearer_token` to skip the challenge bridge and hit a provider-backed
+  protected route directly with a static bearer token. This is used by the
+  JWT provider smoke so local bearer validation overhead can be compared
+  separately from the ticket bridge.
+
 ### Scenario Catalog
 
 - `h2_smoke.toml` – short warm-up + load + HTTP/3 probe to validate plumbing after a
@@ -234,6 +250,12 @@ because the bench path does not pipeline H1 requests.
   WebSocket, now covering the full mode/serializer matrix (`json`, `msgpack`,
   `cbor`) on both transports so smoke runs can catch serializer-specific
   regressions on either RPC or pub/sub paths.
+- `http_auth_smoke.toml` – dedicated HTTP auth bridge smoke covering ticket
+  login, refresh-token rotation, and bearer-protected route overhead across
+  HTTP/1.1, HTTP/2, and HTTP/3.
+- `http_bearer_provider_smoke.toml` – dedicated JWT provider smoke covering
+  provider-backed protected routes across HTTP/1.1, HTTP/2, and HTTP/3 without
+  going through the challenge bridge first.
 - `wamp_control_smoke.toml` – control-heavy native WAMP sweep covering
   `PUBLISH`+ACK, `SUBSCRIBE`/`UNSUBSCRIBE`, `REGISTER`/`UNREGISTER`, and
   `CANCEL`/`INTERRUPT` cycles across RawSocket/WebSocket and JSON/MsgPack/CBOR

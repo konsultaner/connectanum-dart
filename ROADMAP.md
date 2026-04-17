@@ -121,9 +121,10 @@
 - [ ] HTTP authentication & session tokens
   - [x] Shared `session_profiles` now provide the common auth/session config surface for WAMP listeners, HTTP listeners/routes, and public/internal profiles, including explicit public profiles (`auth.methods: []` or `anonymous`) and shared method declarations such as `ticket`, `scram`, and `wampcra`.
   - [x] Reuse endpoint authenticators (ticket, CRA, SCRAM, and any configured remote-backed method) to issue short-lived bearer tokens for HTTP clients; the bridge resolves target realm information from body/query/header and keeps public profiles on the current fast path.
-  - [x] Provide a dedicated HTTP `auth` route action that fronts a configurable auth endpoint (commonly `/auth`) so clients can complete challenge/response methods over HTTP and receive bearer tokens for protected routes.
+  - [x] Provide a dedicated HTTP `auth` route action that fronts a configurable auth endpoint (commonly `/auth`) so clients can complete challenge/response methods over HTTP, receive bearer tokens for protected routes, refresh them with `grant_type=refresh_token`, and revoke access/refresh credentials with `grant_type=revoke`.
+  - [x] Add config-driven HTTP bearer auth providers (`http_auth_providers`) on top of shared `session_profiles`, so protected HTTP routes can validate JWT/OIDC bearer tokens locally or OAuth access tokens through introspection and then map the result into the same internal auth context used by the WAMP-backed challenge bridge.
   - [ ] Enforce endpoint-level transport auth (TLS/mTLS/ALPN) before route-level checks; reject unauthorised requests in the native layer.
-  - [ ] Implement refresh token handling (configurable TTL, dedicated handler in reserved realm) with support for issuing new access tokens without replaying the full handshake.
+  - [x] Implement refresh token handling (configurable TTL + rotation) directly on the HTTP auth bridge so protected HTTP clients can renew access without replaying the full handshake; revocation now invalidates linked access sessions too.
   - [x] Propagate auth context through the internal caller session created for protected HTTP requests, so downstream realm permissions are evaluated against the bearer-backed principal instead of a generic bridge identity.
 - [ ] HTTP forwarding hooks for custom routing/handling in RPC implementations
   - [ ] Graceful shutdown (drain sessions, send GOODBYE/HTTP responses, stop listeners)

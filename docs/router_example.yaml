@@ -13,11 +13,25 @@ router:
       auth:
         methods: [ticket]
 
+    - name: http-jwt
+      realm: realm1
+      auth:
+        methods: [jwt]
+        http_provider: edge-jwt
+
     - name: metrics-internal
       realm: connectanum.metrics
       auth:
         auth_id: metrics-daemon
         auth_role: metrics
+
+  http_auth_providers:
+    edge-jwt:
+      type: jwt
+      options:
+        issuer: https://issuer.example
+        audience: [connectanum-http]
+        hmac_secret: ${HTTP_JWT_SECRET}
 
   realms:
     - name: realm1
@@ -93,12 +107,20 @@ router:
               type: auth
               session_profile: http-auth
               token_ttl_ms: 600000
+              refresh_token_ttl_ms: 3600000
+              rotate_refresh_tokens: true
           - match:
               path: /api/secure
             action:
               type: rpc
               procedure: com.example.api.secure
               session_profile: http-auth
+          - match:
+              path: /api/jwt
+            action:
+              type: rpc
+              procedure: com.example.api.jwt
+              session_profile: http-jwt
 
   internal_realms:
     - name: connectanum.metrics

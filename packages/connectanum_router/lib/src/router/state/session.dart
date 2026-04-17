@@ -9,6 +9,8 @@ class SessionInfo {
     required this.id,
     required this.authId,
     required this.authRole,
+    this.authMethod,
+    this.authProvider,
     required this.roles,
     required this.workerId,
     required this.connectionId,
@@ -19,6 +21,8 @@ class SessionInfo {
   final int id;
   final String? authId;
   final String? authRole;
+  final String? authMethod;
+  final String? authProvider;
   final Map<String, Object?> roles;
   final int workerId;
   final int connectionId;
@@ -32,6 +36,8 @@ class SessionRecord extends SessionInfo {
     required super.id,
     required super.authId,
     required super.authRole,
+    super.authMethod,
+    super.authProvider,
     required super.roles,
     required super.workerId,
     required super.connectionId,
