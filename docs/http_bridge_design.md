@@ -206,6 +206,11 @@ router:
 - Declaring `ticket`, `scram`, or `wampcra` on an HTTP-facing profile is now operational: clients authenticate against the reserved auth route, then present `Authorization: Bearer <token>` on the protected routes that reference that profile.
 - The same auth route also accepts `grant_type=refresh_token` with `refresh_token` to rotate bearer credentials and `grant_type=revoke` with `token`/`token_type_hint` to invalidate access or refresh credentials without replaying the full challenge handshake.
 - `http_auth_providers` let protected HTTP routes validate bearer tokens without using the challenge bridge. `jwt` and `oidc` profiles currently perform local HS256 verification plus issuer/audience checks, and `oauth` profiles call a configured introspection endpoint. All three map their result into the same internal auth context as the bridge-issued bearer tokens.
+- Protected routes now derive cheap transport-auth gates from the same config surface before full auth runs:
+  - `session_profiles` with protected auth methods or `auth.http_provider` imply `require_bearer` and `require_tls` for non-`auth` routes.
+  - `type: auth` routes imply `require_tls` by default so challenge/response login is not exposed over plain HTTP unless a route explicitly opts into `allow_insecure_transport`.
+  - Route action options can tighten this further with `require_mtls: true`, `require_tls: true`, or `require_bearer: true`.
+  - Route matches can now declare `protocols: [...]` directly instead of relying on the older undocumented extra-map hook.
 
 - `session_proxy` routes create or reuse an internal session specified in
   `internal_realms`. This enables wiring to a PHP FPM-based bridge or any other
@@ -245,6 +250,6 @@ router:
 
 ## Next Steps
 
-1. Enforce more route-level auth requirements in the native layer when the transport already has enough information (for example, mTLS-gated routes).
-2. Grow the auth bench beyond the current ticket-based smoke so SCRAM/WAMP-CRA and external provider latencies are measurable too.
-3. Extend local bearer validation beyond the current HS256 baseline where required (for example JWK-backed RSA/EC verification or OIDC discovery helpers) without breaking the shared session-profile model.
+1. Grow the auth bench beyond the current ticket-based smoke so SCRAM/WAMP-CRA and external provider latencies are measurable too.
+2. Extend local bearer validation beyond the current HS256 baseline where required (for example JWK-backed RSA/EC verification or OIDC discovery helpers) without breaking the shared session-profile model.
+3. Decide whether additional transport gates should become fully typed config fields instead of living under `HttpRouteAction.options` overrides.

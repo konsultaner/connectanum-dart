@@ -3347,6 +3347,7 @@ pub extern "C" fn ct_test_register_http3_request(
             protocol: protocol.clone(),
             path: path.clone(),
             query: query.clone(),
+            transport_auth: Default::default(),
         }),
         _ => None,
     };

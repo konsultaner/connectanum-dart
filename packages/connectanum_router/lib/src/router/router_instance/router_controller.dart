@@ -122,13 +122,19 @@ class Router {
     if (match.headers.isNotEmpty) {
       routeMap['headers'] = Map<String, String>.from(match.headers);
     }
-    final protocols = match.extra['protocols'];
-    if (protocols is List) {
-      routeMap['protocols'] = protocols
-          .map((value) => value.toString())
-          .toList();
-    } else if (protocols is String && protocols.isNotEmpty) {
-      routeMap['protocols'] = [protocols];
+    if (match.protocols.isNotEmpty) {
+      routeMap['protocols'] = List<String>.from(match.protocols);
+    }
+    final transportAuth = deriveHttpRouteTransportAuth(
+      action: route.action,
+      sessionProfile: _sessionProfileForRoute(
+        action: route.action,
+        listener: listener,
+        settings: settings,
+      ),
+    );
+    if (transportAuth.isConfigured) {
+      routeMap['transport_auth'] = transportAuth.toNativeMap();
     }
 
     final methods = match.methods

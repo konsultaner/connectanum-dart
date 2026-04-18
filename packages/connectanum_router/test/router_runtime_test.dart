@@ -1452,6 +1452,88 @@ RouterSettings _buildRouterSettingsWithHttpJwtProvider() {
   return builder.build();
 }
 
+RouterSettings _buildRouterSettingsWithHttpMtlsRoute() {
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('realm1')
+        ..addAuthMethod('anonymous')
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('com.example.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const ['call', 'register', 'unregister']),
+          ),
+        ),
+    )
+    ..addSessionProfileFromBuilder(SessionProfileSettingsBuilder('public-http'))
+    ..addListenerFromBuilder(
+      (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setRawSocketOptions(
+            const RawSocketListenerSettings(maxFrameExponent: 16),
+          )
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              sessionProfile: 'public-http',
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/api/mtls'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.rpc,
+                    procedure: 'com.example.api.mtls',
+                    options: <String, Object?>{'require_mtls': true},
+                  ),
+                ),
+              ],
+            ),
+          ))
+        ..setOptions(const {'max_rawsocket_size_exponent': 16}),
+    );
+  return builder.build();
+}
+
+RouterSettings _buildRouterSettingsWithHttpProtocolRoute() {
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('realm1')
+        ..addAuthMethod('anonymous')
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('com.example.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const ['call', 'register', 'unregister']),
+          ),
+        ),
+    )
+    ..addSessionProfileFromBuilder(SessionProfileSettingsBuilder('public-http'))
+    ..addListenerFromBuilder(
+      (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setRawSocketOptions(
+            const RawSocketListenerSettings(maxFrameExponent: 16),
+          )
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              sessionProfile: 'public-http',
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(
+                    path: '/api/h2-only',
+                    protocols: ['http/2'],
+                  ),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.rpc,
+                    procedure: 'com.example.api.h2',
+                  ),
+                ),
+              ],
+            ),
+          ))
+        ..setOptions(const {'max_rawsocket_size_exponent': 16}),
+    );
+  return builder.build();
+}
+
 String _encodeHs256Jwt({
   required Map<String, Object?> claims,
   required String secret,
@@ -2978,6 +3060,205 @@ void main() {
   });
 
   test(
+    'rejects protected HTTP routes on insecure listeners before dispatch',
+    () async {
+      final runtime = _HandleRuntime();
+      final events = <Map<String, Object?>>[];
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.disabled,
+              maxRawSocketSizeExponent: 16,
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpAuthBridge(),
+      );
+
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      const connectionId = 153;
+
+      runtime.setConnectionProtocol(
+        connectionId,
+        NativeConnectionProtocol.http,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 112,
+          method: 'GET',
+          target: '/api/secure',
+          path: '/api/secure',
+          protocol: 'http/1.1',
+          headers: const {},
+          body: Uint8List(0),
+          realm: 'realm1',
+          procedure: 'com.example.api.secure',
+        ),
+      );
+
+      await _waitUntil(
+        () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+      );
+      final response = runtime.httpResponses[connectionId]!.single;
+      expect(response.status, HttpStatus.forbidden);
+      final jsonBody = _jsonResponseBody(response);
+      expect(jsonBody['reason'], 'tls_required');
+      expect(jsonBody['message'], contains('TLS is required'));
+      expect(
+        events.any((event) => event['type'] == 'http_request_dispatched'),
+        isFalse,
+      );
+    },
+  );
+
+  test('rejects mTLS-gated HTTP routes before dispatch', () async {
+    final runtime = _HandleRuntime();
+    final events = <Map<String, Object?>>[];
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: _buildRouterSettingsWithHttpMtlsRoute(),
+    );
+
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    const connectionId = 154;
+
+    runtime.setConnectionProtocol(connectionId, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      connectionId,
+      NativeHttpHandshake.synthetic(
+        handle: 113,
+        method: 'GET',
+        target: '/api/mtls',
+        path: '/api/mtls',
+        protocol: 'http/1.1',
+        headers: const {},
+        body: Uint8List(0),
+        realm: 'realm1',
+        procedure: 'com.example.api.mtls',
+      ),
+    );
+
+    await _waitUntil(
+      () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+    );
+    final response = runtime.httpResponses[connectionId]!.single;
+    expect(response.status, HttpStatus.forbidden);
+    final jsonBody = _jsonResponseBody(response);
+    expect(jsonBody['reason'], 'mutual_tls_required');
+    expect(jsonBody['message'], contains('Mutual TLS is required'));
+    expect(
+      events.any((event) => event['type'] == 'http_request_dispatched'),
+      isFalse,
+    );
+  });
+
+  test(
+    'honors typed HTTP route protocol restrictions before dispatch',
+    () async {
+      final runtime = _HandleRuntime();
+      final events = <Map<String, Object?>>[];
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpProtocolRoute(),
+      );
+
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      const connectionId = 155;
+
+      runtime.setConnectionProtocol(
+        connectionId,
+        NativeConnectionProtocol.http,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 114,
+          method: 'GET',
+          target: '/api/h2-only',
+          path: '/api/h2-only',
+          protocol: 'http/1.1',
+          headers: const {},
+          body: Uint8List(0),
+          realm: 'realm1',
+          procedure: 'com.example.api.h2',
+        ),
+      );
+
+      await _waitUntil(
+        () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+      );
+      final response = runtime.httpResponses[connectionId]!.single;
+      expect(response.status, HttpStatus.notFound);
+      final jsonBody = _jsonResponseBody(response);
+      expect(jsonBody['reason'], 'route_not_found');
+      expect(
+        events.any((event) => event['type'] == 'http_request_dispatched'),
+        isFalse,
+      );
+    },
+  );
+
+  test(
     'validates protected HTTP bearer routes through configured JWT provider',
     () async {
       final runtime = _HandleRuntime();
@@ -3947,7 +4228,7 @@ void main() {
         listenerProtocols: const ['rawsocket', 'http', 'http2', 'http3'],
       ),
     );
-    runtime.enqueueHandle(listenerId, connectionId);
+    runtime.enqueueConnection(listenerId, connectionId);
 
     await _waitUntil(
       () => events.any(
@@ -3963,8 +4244,8 @@ void main() {
       NativeHttpHandshake.synthetic(
         handle: 11,
         method: 'GET',
-        target: '/metrics',
-        path: '/metrics',
+        target: '/api/health',
+        path: '/api/health',
         protocol: 'http/3',
         headers: const {'x-test': 'true'},
         body: Uint8List.fromList(utf8.encode('{}')),
@@ -3988,7 +4269,7 @@ void main() {
     );
     expect(httpEvent['protocol'], 'http/3');
     expect(httpEvent['method'], 'GET');
-    expect(httpEvent['path'], '/metrics');
+    expect(httpEvent['path'], '/api/health');
     expect(httpEvent['realm'], 'realm1');
     expect(httpEvent['procedure'], 'com.example.api.health');
 

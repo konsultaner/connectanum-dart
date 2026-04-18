@@ -221,6 +221,9 @@ abstract final class RouterSettingsCodec {
     if (match.methods.isNotEmpty) {
       map['methods'] = List<String>.from(match.methods);
     }
+    if (match.protocols.isNotEmpty) {
+      map['protocols'] = List<String>.from(match.protocols);
+    }
     if (match.headers.isNotEmpty) {
       map['headers'] = Map<String, String>.from(match.headers);
     }

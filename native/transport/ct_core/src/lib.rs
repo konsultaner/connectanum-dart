@@ -4137,6 +4137,89 @@ pub fn spawn_http_response(
     })
 }
 
+#[derive(Clone, Copy)]
+enum HttpTransportAuthFailure {
+    BearerRequired,
+    TlsRequired,
+    MutualTlsRequired,
+}
+
+fn evaluate_http_transport_auth_string_headers(
+    requirements: &config::HttpRouteTransportAuthRuntime,
+    endpoint_config: &config::EndpointRuntimeConfig,
+    headers: &[(String, String)],
+) -> Option<HttpTransportAuthFailure> {
+    if requirements.require_mtls
+        && endpoint_config
+            .client_auth
+            .as_ref()
+            .map(|client_auth| client_auth.mode == config::ClientAuthMode::Required)
+            != Some(true)
+    {
+        return Some(HttpTransportAuthFailure::MutualTlsRequired);
+    }
+    if requirements.require_tls && endpoint_config.tls_mode == config::TlsMode::Disabled {
+        return Some(HttpTransportAuthFailure::TlsRequired);
+    }
+    if requirements.require_bearer && !has_bearer_header_string(headers) {
+        return Some(HttpTransportAuthFailure::BearerRequired);
+    }
+    None
+}
+
+fn evaluate_http_transport_auth_bytes_headers(
+    requirements: &config::HttpRouteTransportAuthRuntime,
+    endpoint_config: &config::EndpointRuntimeConfig,
+    headers: &[(Arc<[u8]>, Arc<[u8]>)],
+) -> Option<HttpTransportAuthFailure> {
+    if requirements.require_mtls
+        && endpoint_config
+            .client_auth
+            .as_ref()
+            .map(|client_auth| client_auth.mode == config::ClientAuthMode::Required)
+            != Some(true)
+    {
+        return Some(HttpTransportAuthFailure::MutualTlsRequired);
+    }
+    if requirements.require_tls && endpoint_config.tls_mode == config::TlsMode::Disabled {
+        return Some(HttpTransportAuthFailure::TlsRequired);
+    }
+    if requirements.require_bearer && !has_bearer_header_bytes(headers) {
+        return Some(HttpTransportAuthFailure::BearerRequired);
+    }
+    None
+}
+
+fn has_bearer_header_string(headers: &[(String, String)]) -> bool {
+    headers.iter().any(|(name, value)| {
+        name.eq_ignore_ascii_case("authorization")
+            && value.len() > 7
+            && value
+                .get(..7)
+                .map(|prefix| prefix.eq_ignore_ascii_case("bearer "))
+                .unwrap_or(false)
+            && !value[7..].trim().is_empty()
+    })
+}
+
+fn has_bearer_header_bytes(headers: &[(Arc<[u8]>, Arc<[u8]>)]) -> bool {
+    headers.iter().any(|(name, value)| {
+        std::str::from_utf8(name.as_ref())
+            .map(|header_name| header_name.eq_ignore_ascii_case("authorization"))
+            .unwrap_or(false)
+            && std::str::from_utf8(value.as_ref())
+                .map(|header_value| {
+                    header_value.len() > 7
+                        && header_value
+                            .get(..7)
+                            .map(|prefix| prefix.eq_ignore_ascii_case("bearer "))
+                            .unwrap_or(false)
+                        && !header_value[7..].trim().is_empty()
+                })
+                .unwrap_or(false)
+    })
+}
+
 #[cfg(test)]
 mod stats_tests {
     use super::*;
@@ -4277,6 +4360,55 @@ async fn serve_http_connection(
             &protocol_label,
         ) {
             HttpRouteMatch::Resolved(resolution) => {
+                if let Some(failure) = evaluate_http_transport_auth_string_headers(
+                    &resolution.transport_auth,
+                    &endpoint_config,
+                    &headers,
+                ) {
+                    let response = match failure {
+                        HttpTransportAuthFailure::BearerRequired => {
+                            send_http_simple_response(
+                                &mut write_half,
+                                version,
+                                StatusCode::UNAUTHORIZED,
+                                keep_alive,
+                                b"bearer token required",
+                                &[("WWW-Authenticate", "Bearer")],
+                            )
+                            .await
+                        }
+                        HttpTransportAuthFailure::TlsRequired => {
+                            send_http_simple_response(
+                                &mut write_half,
+                                version,
+                                StatusCode::FORBIDDEN,
+                                keep_alive,
+                                b"tls required",
+                                &[],
+                            )
+                            .await
+                        }
+                        HttpTransportAuthFailure::MutualTlsRequired => {
+                            send_http_simple_response(
+                                &mut write_half,
+                                version,
+                                StatusCode::FORBIDDEN,
+                                keep_alive,
+                                b"mutual tls required",
+                                &[],
+                            )
+                            .await
+                        }
+                    };
+                    if let Err(err) = response {
+                        eprintln!(
+                            "failed to send transport-auth rejection for listener {:?}: {}",
+                            listener_id, err
+                        );
+                        break;
+                    }
+                    continue;
+                }
                 let (tx, rx) = oneshot::channel::<HttpResponseDispatch>();
                 let summary_headers = headers
                     .iter()
@@ -5141,6 +5273,41 @@ async fn handle_http2_request(
 
     match endpoint_config.match_http_route(&path, query.as_deref(), &normalized_method, "http2") {
         HttpRouteMatch::Resolved(resolution) => {
+            if let Some(failure) = evaluate_http_transport_auth_bytes_headers(
+                &resolution.transport_auth,
+                &endpoint_config,
+                &headers,
+            ) {
+                return match failure {
+                    HttpTransportAuthFailure::BearerRequired => {
+                        send_http2_plain_response(
+                            respond,
+                            StatusCode::UNAUTHORIZED,
+                            b"bearer token required",
+                            &[("www-authenticate", "Bearer")],
+                        )
+                        .await
+                    }
+                    HttpTransportAuthFailure::TlsRequired => {
+                        send_http2_plain_response(
+                            respond,
+                            StatusCode::FORBIDDEN,
+                            b"tls required",
+                            &[],
+                        )
+                        .await
+                    }
+                    HttpTransportAuthFailure::MutualTlsRequired => {
+                        send_http2_plain_response(
+                            respond,
+                            StatusCode::FORBIDDEN,
+                            b"mutual tls required",
+                            &[],
+                        )
+                        .await
+                    }
+                };
+            }
             let (tx, rx) = oneshot::channel::<HttpResponseDispatch>();
             let summary = HttpRequestSummary::new(
                 normalized_method,
@@ -5497,6 +5664,41 @@ async fn process_http3_request(
 
     match endpoint_config.match_http_route(&path, query.as_deref(), &normalized_method, "http3") {
         HttpRouteMatch::Resolved(resolution) => {
+            if let Some(failure) = evaluate_http_transport_auth_bytes_headers(
+                &resolution.transport_auth,
+                &endpoint_config,
+                &headers,
+            ) {
+                return match failure {
+                    HttpTransportAuthFailure::BearerRequired => {
+                        send_http3_plain_response(
+                            &mut send_stream,
+                            StatusCode::UNAUTHORIZED,
+                            b"bearer token required",
+                            &[("www-authenticate", "Bearer")],
+                        )
+                        .await
+                    }
+                    HttpTransportAuthFailure::TlsRequired => {
+                        send_http3_plain_response(
+                            &mut send_stream,
+                            StatusCode::FORBIDDEN,
+                            b"tls required",
+                            &[],
+                        )
+                        .await
+                    }
+                    HttpTransportAuthFailure::MutualTlsRequired => {
+                        send_http3_plain_response(
+                            &mut send_stream,
+                            StatusCode::FORBIDDEN,
+                            b"mutual tls required",
+                            &[],
+                        )
+                        .await
+                    }
+                };
+            }
             let (tx, rx) = oneshot::channel::<HttpResponseDispatch>();
             let summary = HttpRequestSummary::new(
                 normalized_method,

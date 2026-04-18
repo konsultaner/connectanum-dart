@@ -36,7 +36,10 @@ void main() {
                     },
                   },
                   <String, Object?>{
-                    'match': <String, Object?>{'path': '/health'},
+                    'match': <String, Object?>{
+                      'path': '/health',
+                      'protocols': ['http/2', 'http/3'],
+                    },
                     'action': <String, Object?>{
                       'type': 'rpc',
                       'procedure': 'com.example.health',
@@ -134,6 +137,10 @@ void main() {
         settings.listeners.single.http?.routes.last.action.sessionProfile,
         'http-handler',
       );
+      expect(settings.listeners.single.http?.routes.last.match.protocols, [
+        'http/2',
+        'http/3',
+      ]);
       expect(settings.sessionProfiles.first.auth.methods, [
         'ticket',
         'scram',

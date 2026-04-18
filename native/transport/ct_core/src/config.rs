@@ -457,9 +457,21 @@ pub struct HttpRouteConfig {
     #[serde(default)]
     pub protocols: Vec<String>,
     #[serde(default)]
+    pub transport_auth: HttpRouteTransportAuthConfig,
+    #[serde(default)]
     pub methods: HashMap<String, HttpRouteMethodConfig>,
     #[serde(default)]
     pub default: Option<HttpRouteMethodConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct HttpRouteTransportAuthConfig {
+    #[serde(default)]
+    pub require_bearer: bool,
+    #[serde(default)]
+    pub require_tls: bool,
+    #[serde(default)]
+    pub require_mtls: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -494,8 +506,16 @@ pub struct HttpRouteRuntime {
     pub path: String,
     pub match_kind: HttpRouteMatchKind,
     pub protocols: Vec<String>,
+    pub transport_auth: HttpRouteTransportAuthRuntime,
     pub methods: HashMap<String, HttpRouteTarget>,
     pub default: Option<HttpRouteTarget>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct HttpRouteTransportAuthRuntime {
+    pub require_bearer: bool,
+    pub require_tls: bool,
+    pub require_mtls: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -540,6 +560,7 @@ impl HttpRouteRuntime {
                 path,
                 match_kind: config.match_kind.clone(),
                 protocols,
+                transport_auth: HttpRouteTransportAuthRuntime::from_config(&config.transport_auth),
                 methods,
                 default,
             });
@@ -588,6 +609,16 @@ impl HttpRouteTarget {
                     append_method_suffix: *append_method_suffix,
                 })
             }
+        }
+    }
+}
+
+impl HttpRouteTransportAuthRuntime {
+    fn from_config(config: &HttpRouteTransportAuthConfig) -> Self {
+        Self {
+            require_bearer: config.require_bearer,
+            require_tls: config.require_tls || config.require_mtls,
+            require_mtls: config.require_mtls,
         }
     }
 }
@@ -850,6 +881,7 @@ pub struct HttpRouteResolution {
     pub protocol: String,
     pub path: String,
     pub query: Option<String>,
+    pub transport_auth: HttpRouteTransportAuthRuntime,
 }
 
 #[derive(Debug, Clone)]
@@ -956,7 +988,7 @@ impl HttpRouteRuntime {
             .methods
             .get(&method_key)
             .or_else(|| self.default.as_ref())?;
-        Some(target.materialise(path, query, &method_key, protocol))
+        Some(target.materialise(&self.transport_auth, path, query, &method_key, protocol))
     }
 
     fn allowed_methods(&self) -> Vec<String> {
@@ -969,6 +1001,7 @@ impl HttpRouteRuntime {
 impl HttpRouteTarget {
     fn materialise(
         &self,
+        transport_auth: &HttpRouteTransportAuthRuntime,
         path: &str,
         query: Option<&str>,
         method: &str,
@@ -982,6 +1015,7 @@ impl HttpRouteTarget {
                 protocol: protocol.to_string(),
                 path: path.to_string(),
                 query: query.map(|value| value.to_string()),
+                transport_auth: transport_auth.clone(),
             },
             HttpRouteTarget::ReservedRealm {
                 namespace,
@@ -1002,6 +1036,7 @@ impl HttpRouteTarget {
                     protocol: protocol.to_string(),
                     path: path.to_string(),
                     query: query.map(|value| value.to_string()),
+                    transport_auth: transport_auth.clone(),
                 }
             }
             HttpRouteTarget::Namespace {
@@ -1021,6 +1056,7 @@ impl HttpRouteTarget {
                     protocol: protocol.to_string(),
                     path: path.to_string(),
                     query: query.map(|value| value.to_string()),
+                    transport_auth: transport_auth.clone(),
                 }
             }
         }

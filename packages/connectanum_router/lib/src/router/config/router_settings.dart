@@ -804,6 +804,7 @@ class HttpRouteMatch {
     this.prefix,
     this.host,
     this.methods = const [],
+    this.protocols = const [],
     this.headers = const {},
     this.extra = const {},
   });
@@ -812,6 +813,7 @@ class HttpRouteMatch {
   final String? prefix;
   final String? host;
   final List<String> methods;
+  final List<String> protocols;
   final Map<String, String> headers;
   final Map<String, Object?> extra;
 
@@ -825,6 +827,7 @@ class HttpRouteMatch {
         other.prefix == prefix &&
         other.host == host &&
         const ListEquality<String>().equals(other.methods, methods) &&
+        const ListEquality<String>().equals(other.protocols, protocols) &&
         const MapEquality<String, String>().equals(other.headers, headers) &&
         const DeepCollectionEquality().equals(other.extra, extra);
   }
@@ -835,6 +838,7 @@ class HttpRouteMatch {
     prefix,
     host,
     const ListEquality<String>().hash(methods),
+    const ListEquality<String>().hash(protocols),
     const MapEquality<String, String>().hash(headers),
     const DeepCollectionEquality().hash(extra),
   );

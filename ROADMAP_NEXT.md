@@ -90,7 +90,7 @@ Focus for the next session:
    - Add mutual-TLS and credential-rotation hooks to the now-live remote auth RPC path; shared tokens and strict schema validation are already in place.
    - Add a constrained rawsocket frame pusher in the bench orchestrator to fuzz remote auth without full WAMP clients and collect latency/backpressure metrics.
    - Decide whether dynamic realm authorization should stay as the current runtime `AuthorizationProviderRegistry` hook or grow a config-driven provider/factory model per realm.
-   - Tighten native listener-side transport auth enforcement (mTLS / ALPN / bearer-required routes) so clearly unauthorized HTTP requests can be rejected before the Dart bridge/session layer.
+   - ✅ Tighten native listener-side transport auth enforcement so clearly unauthorized HTTP requests can be rejected before the Dart bridge/session layer. Protected routes now derive cheap `transport_auth` gates (TLS / mTLS / bearer presence) from `session_profiles` plus explicit route overrides, and `HttpRouteMatch.protocols` is now a first-class config field instead of an undocumented extra-map hook.
    - Add a dedicated HTTP bearer-provider bench (JWT local validation and OAuth introspection) so the new provider-backed route path is measured separately from the ticket bridge smoke.
 
 8. **Benchmark Readiness**

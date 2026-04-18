@@ -1004,11 +1004,79 @@ class RouterBinding {
     NativeHttpHandshake? retainedHandshake = handshake;
     _cleanupExpiredHttpAuthState();
     final listenerSettings = _listenerConfigById[request.listenerId];
-    final matchedRoute = _matchHttpRoute(listenerSettings?.http, request);
+    final routeMatch = _matchHttpRoute(listenerSettings?.http, request);
+    final matchedRoute = routeMatch.route;
     final sessionProfile = _resolveHttpSessionProfile(
       listenerSettings: listenerSettings,
       route: matchedRoute,
     );
+    if (routeMatch.isMethodNotAllowed) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: retainedHandshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.methodNotAllowed,
+          headers: <String, String>{
+            HttpHeaders.allowHeader: routeMatch.allowedMethods.join(', '),
+          },
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'method_not_allowed',
+            'message': 'HTTP method is not allowed for this route',
+          }),
+        ),
+      );
+      retainedHandshake?.release();
+      return;
+    }
+    if (routeMatch.isNotFound && listenerSettings?.http != null) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: retainedHandshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.notFound,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'route_not_found',
+            'message': 'HTTP route not found',
+          }),
+        ),
+      );
+      retainedHandshake?.release();
+      return;
+    }
+    final transportAuthFailure = _evaluateHttpRouteTransportAuth(
+      request: request,
+      route: matchedRoute,
+      sessionProfile: sessionProfile,
+      listenerSettings: listenerSettings,
+    );
+    if (transportAuthFailure != null) {
+      final resolvedRealm = sessionProfile?.realm?.trim();
+      final authRealm = resolvedRealm != null && resolvedRealm.isNotEmpty
+          ? resolvedRealm
+          : (request.realm ?? 'router.http');
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: retainedHandshake,
+        response: NativeHttpResponse(
+          status: transportAuthFailure.status,
+          headers: transportAuthFailure.bearerChallenge
+              ? _httpUnauthorizedHeaders(
+                  realm: authRealm,
+                  authPath: _httpAuthPathFor(listenerSettings?.http),
+                )
+              : const <String, String>{},
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'error',
+            'reason': transportAuthFailure.reason,
+            'message': transportAuthFailure.message,
+          }),
+        ),
+      );
+      retainedHandshake?.release();
+      return;
+    }
     if (matchedRoute?.action.type == HttpRouteActionType.auth) {
       try {
         await _handleHttpAuthRequest(
@@ -1073,7 +1141,9 @@ class RouterBinding {
           sessionProfile: sessionProfile,
         );
       } else {
-        final allowsAnonymous = _httpProfileAllowsAnonymous(sessionProfile);
+        final allowsAnonymous = httpSessionProfileAllowsAnonymous(
+          sessionProfile,
+        );
         final requiresBridgeAuth =
             sessionProfile != null &&
             sessionProfile.auth.methods.isNotEmpty &&
@@ -1370,25 +1440,36 @@ class RouterBinding {
     return _resolveSessionProfile(profileName);
   }
 
-  HttpRouteSettings? _matchHttpRoute(
+  _HttpRouteMatchResult _matchHttpRoute(
     HttpListenerSettings? httpSettings,
     RouterHttpRequest request,
   ) {
     if (httpSettings == null) {
-      return null;
+      return const _HttpRouteMatchResult.notFound();
     }
+    final allowedMethods = <String>{};
     for (final route in httpSettings.routes) {
       if (_httpRouteMatchesRequest(route, request)) {
-        return route;
+        return _HttpRouteMatchResult.route(route);
+      }
+      if (_httpRouteMatchesRequest(route, request, ignoreMethod: true)) {
+        allowedMethods.addAll(
+          route.match.methods.map((method) => method.trim().toUpperCase()),
+        );
       }
     }
-    return null;
+    if (allowedMethods.isNotEmpty) {
+      final normalized = allowedMethods.toList(growable: false)..sort();
+      return _HttpRouteMatchResult.methodNotAllowed(normalized);
+    }
+    return const _HttpRouteMatchResult.notFound();
   }
 
   bool _httpRouteMatchesRequest(
     HttpRouteSettings route,
-    RouterHttpRequest request,
-  ) {
+    RouterHttpRequest request, {
+    bool ignoreMethod = false,
+  }) {
     final match = route.match;
     if (match.path != null && match.path != request.path) {
       return false;
@@ -1413,7 +1494,16 @@ class RouterBinding {
         return false;
       }
     }
-    if (match.methods.isNotEmpty) {
+    if (match.protocols.isNotEmpty) {
+      final requestProtocol = request.protocol.trim().toLowerCase();
+      final allowedProtocols = match.protocols.map(
+        (protocol) => protocol.trim().toLowerCase(),
+      );
+      if (!allowedProtocols.contains(requestProtocol)) {
+        return false;
+      }
+    }
+    if (!ignoreMethod && match.methods.isNotEmpty) {
       final requestMethod = request.method.trim().toUpperCase();
       final allowed = match.methods.map(
         (method) => method.trim().toUpperCase(),
@@ -1435,6 +1525,47 @@ class RouterBinding {
       }
     }
     return true;
+  }
+
+  _HttpRouteTransportAuthFailure? _evaluateHttpRouteTransportAuth({
+    required RouterHttpRequest request,
+    required HttpRouteSettings? route,
+    required SessionProfileSettings? sessionProfile,
+    required ListenerSettings? listenerSettings,
+  }) {
+    if (route == null) {
+      return null;
+    }
+    final requirements = deriveHttpRouteTransportAuth(
+      action: route.action,
+      sessionProfile: sessionProfile,
+    );
+    if (!requirements.isConfigured) {
+      return null;
+    }
+    if (requirements.requireMutualTls &&
+        request.listener.endpoint.clientAuth?.mode !=
+            TlsClientAuthMode.required) {
+      return const _HttpRouteTransportAuthFailure.forbidden(
+        reason: 'mutual_tls_required',
+        message: 'Mutual TLS is required for this route',
+      );
+    }
+    if (requirements.requireTls &&
+        request.listener.endpoint.tlsMode == TlsMode.disabled) {
+      return const _HttpRouteTransportAuthFailure.forbidden(
+        reason: 'tls_required',
+        message: 'TLS is required for this route',
+      );
+    }
+    if (requirements.requireBearer &&
+        _extractBearerToken(request.headers) == null) {
+      return _HttpRouteTransportAuthFailure.unauthorized(
+        reason: 'unauthorized',
+        message: 'Bearer token required',
+      );
+    }
+    return null;
   }
 
   Future<void> _handleHttpAuthRequest({
@@ -2313,14 +2444,6 @@ class RouterBinding {
           ? '$cacheKeyBase:${sessionProfile.name}'
           : cacheKeyBase,
     );
-  }
-
-  bool _httpProfileAllowsAnonymous(SessionProfileSettings? sessionProfile) {
-    final methods = sessionProfile?.auth.methods;
-    if (methods == null || methods.isEmpty) {
-      return true;
-    }
-    return methods.contains('anonymous');
   }
 
   String? _extractBearerToken(Map<String, String> headers) {
@@ -4098,6 +4221,58 @@ class _HttpRefreshTokenRecord {
     }
     return remaining;
   }
+}
+
+class _HttpRouteMatchResult {
+  const _HttpRouteMatchResult._({this.route, this.allowedMethods = const []});
+
+  const _HttpRouteMatchResult.route(HttpRouteSettings route)
+    : this._(route: route);
+
+  const _HttpRouteMatchResult.methodNotAllowed(List<String> allowedMethods)
+    : this._(allowedMethods: allowedMethods);
+
+  const _HttpRouteMatchResult.notFound() : this._();
+
+  final HttpRouteSettings? route;
+  final List<String> allowedMethods;
+
+  bool get isMethodNotAllowed => route == null && allowedMethods.isNotEmpty;
+  bool get isNotFound => route == null && allowedMethods.isEmpty;
+}
+
+class _HttpRouteTransportAuthFailure {
+  const _HttpRouteTransportAuthFailure._({
+    required this.status,
+    required this.reason,
+    required this.message,
+    required this.bearerChallenge,
+  });
+
+  const _HttpRouteTransportAuthFailure.unauthorized({
+    required String reason,
+    required String message,
+  }) : this._(
+         status: HttpStatus.unauthorized,
+         reason: reason,
+         message: message,
+         bearerChallenge: true,
+       );
+
+  const _HttpRouteTransportAuthFailure.forbidden({
+    required String reason,
+    required String message,
+  }) : this._(
+         status: HttpStatus.forbidden,
+         reason: reason,
+         message: message,
+         bearerChallenge: false,
+       );
+
+  final int status;
+  final String reason;
+  final String message;
+  final bool bearerChallenge;
 }
 
 class _HttpUnauthorized implements Exception {

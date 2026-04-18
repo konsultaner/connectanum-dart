@@ -111,10 +111,18 @@ router:
               rotate_refresh_tokens: true
           - match:
               path: /api/secure
+              protocols: [http/1.1, http/2, http/3]
             action:
               type: rpc
               procedure: com.example.api.secure
               session_profile: http-auth
+          - match:
+              path: /api/mtls
+            action:
+              type: rpc
+              procedure: com.example.api.mtls
+              session_profile: http-auth
+              require_mtls: true
           - match:
               path: /api/jwt
             action:

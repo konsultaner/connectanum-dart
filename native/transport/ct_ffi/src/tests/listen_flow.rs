@@ -1451,6 +1451,55 @@ fn http_handshake_rejects_bad_requests_with_status_only_responses() {
 }
 
 #[test]
+fn http_transport_auth_rejects_bearerless_http1_route() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["rawsocket","http"],"http":{"alpn":["http/1.1"]},"http_routes":[{"path":"/secure","match_kind":"exact","transport_auth":{"require_bearer":true},"methods":{"GET":{"type":"reserved_realm","append_method_suffix":true}}}]}]}"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let rt = TokioRuntime::new().unwrap();
+    let response = rt.block_on(async move {
+        let addr = format!("127.0.0.1:{}", port);
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        stream
+            .write_all(b"GET /secure HTTP/1.1\r\nHost: localhost\r\n\r\n")
+            .await
+            .unwrap();
+        stream.shutdown().await.unwrap();
+        let mut response = Vec::new();
+        stream.read_to_end(&mut response).await.unwrap();
+        response
+    });
+    let response_text = String::from_utf8_lossy(&response);
+    assert!(
+        response_text.starts_with("HTTP/1.1 401 Unauthorized"),
+        "unexpected response: {}",
+        response_text
+    );
+    assert!(
+        response_text.contains("WWW-Authenticate: Bearer"),
+        "unexpected response: {}",
+        response_text
+    );
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
 fn http_handshake_streaming_body_round_trip() {
     let _guard = super::test_guard();
     let config = CString::new(
@@ -2900,6 +2949,117 @@ fn http3_request_round_trip_over_network() {
 }
 
 #[test]
+fn http3_transport_auth_rejects_bearerless_route() {
+    let _guard = super::test_guard();
+    let certified =
+        generate_simple_self_signed(vec!["localhost".into(), "127.0.0.1".into()]).unwrap();
+    let cert_pem = certified.cert.pem();
+    let key_pem = certified.key_pair.serialize_pem();
+    let cert_der = certified.cert.der().to_vec();
+
+    let config_json = json!({
+        "schema":"connectanum.router",
+        "version":1,
+        "endpoints":[
+            {
+                "host":"127.0.0.1",
+                "port":0,
+                "tls_mode":"native",
+                "protocols":["rawsocket","http","http2","http3"],
+                "sni_certificates":[
+                    {
+                        "hostname":"localhost",
+                        "certificate_chain_pem":cert_pem,
+                        "private_key_pem":key_pem
+                    }
+                ],
+                "http":{
+                    "alpn":["http/1.1","h2","h3"],
+                    "http3":{"enabled":true}
+                },
+                "http_routes":[
+                    {
+                        "path":"/secure",
+                        "match_kind":"exact",
+                        "transport_auth":{"require_bearer":true},
+                        "methods":{
+                            "GET":{
+                                "type":"reserved_realm",
+                                "append_method_suffix":true
+                            }
+                        }
+                    }
+                ]
+            }
+        ]
+    });
+    let config_string = config_json.to_string();
+    let config = CString::new(config_string).unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let client_handle = std::thread::spawn(move || {
+        let rt = TokioRuntime::new().unwrap();
+        rt.block_on(async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let server_addr = addr.parse().unwrap();
+
+            let mut roots = RootCertStore::empty();
+            roots
+                .add(CertificateDer::from(cert_der.clone()))
+                .expect("add root cert");
+            let client_config = build_http3_client_config(Arc::new(roots));
+
+            let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+            endpoint.set_default_client_config(client_config);
+            let connecting = endpoint
+                .connect(server_addr, "localhost")
+                .expect("connect http3");
+            let connection = connecting.await.expect("http3 handshake");
+
+            let (mut driver, mut send_request) = h3_client::builder()
+                .build::<_, _, Bytes>(H3QuinnConnection::new(connection))
+                .await
+                .expect("build h3 client");
+            tokio::spawn(async move {
+                let _ = future::poll_fn(|cx| driver.poll_close(cx)).await;
+            });
+
+            let request = Request::get("https://localhost/secure").body(()).unwrap();
+            let mut stream = send_request
+                .send_request(request)
+                .await
+                .expect("send request");
+            stream.finish().await.expect("finish request");
+            let response = stream.recv_response().await.expect("recv response");
+            let header = response
+                .headers()
+                .get("www-authenticate")
+                .and_then(|value| value.to_str().ok())
+                .map(|value| value.to_string());
+            (response.status().as_u16(), header)
+        })
+    });
+
+    let (status, auth_header) = client_handle.join().expect("client result");
+    assert_eq!(status, 401);
+    assert_eq!(auth_header.as_deref(), Some("Bearer"));
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
 fn http3_response_streaming_round_trip() {
     let _guard = super::test_guard();
     let certified =
@@ -3871,6 +4031,89 @@ fn http2_request_round_trip_over_network() {
 
     let response_body = body_handle.join().unwrap();
     assert_eq!(response_body, b"pong");
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn http2_transport_auth_rejects_bearerless_route() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[
+                {
+                    "host":"127.0.0.1",
+                    "port":0,
+                    "tls_mode":"disabled",
+                    "protocols":["rawsocket","http","http2"],
+                    "http":{
+                        "alpn":["h2","http/1.1"]
+                    },
+                    "http_routes":[
+                        {
+                            "path":"/secure",
+                            "match_kind":"exact",
+                            "transport_auth":{"require_bearer":true},
+                            "methods":{
+                                "GET":{
+                                    "type":"reserved_realm",
+                                    "append_method_suffix":true
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let client_handle = std::thread::spawn(move || {
+        let rt = TokioRuntime::new().unwrap();
+        rt.block_on(async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let tcp = tokio::net::TcpStream::connect(&addr).await.unwrap();
+            let builder = http2_test_client_builder();
+            let (mut client, connection) = builder.handshake::<_, Bytes>(tcp).await.unwrap();
+            tokio::spawn(async move {
+                if let Err(err) = connection.await {
+                    panic!("h2 connection error: {}", err);
+                }
+            });
+            let request = Http2TestRequest::builder()
+                .method("GET")
+                .uri("/secure")
+                .body(())
+                .unwrap();
+            let (response, _) = client.send_request(request, true).unwrap();
+            let response = response.await.unwrap();
+            let header = response
+                .headers()
+                .get("www-authenticate")
+                .and_then(|value| value.to_str().ok())
+                .map(|value| value.to_string());
+            (response.status().as_u16(), header)
+        })
+    });
+
+    let (status, auth_header) = client_handle.join().expect("client result");
+    assert_eq!(status, 401);
+    assert_eq!(auth_header.as_deref(), Some("Bearer"));
 
     assert_eq!(ct_shutdown(), SUCCESS);
 }

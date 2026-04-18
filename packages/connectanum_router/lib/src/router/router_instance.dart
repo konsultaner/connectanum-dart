@@ -75,6 +75,7 @@ import 'package:meta/meta.dart';
 
 import 'config/authenticator.dart';
 import 'config/auth_registry.dart';
+import 'config/http_route_transport_auth.dart';
 
 import '../native/runtime.dart';
 import 'isolate_support.dart';
@@ -84,6 +85,7 @@ import 'models/router_listener.dart';
 import 'models/router_message.dart';
 import 'models/router_metrics.dart';
 import 'models/sni_certificate.dart';
+import 'models/tls_client_auth.dart';
 import 'models/tls_mode.dart';
 import 'state/commands.dart';
 import 'state/procedure.dart';
