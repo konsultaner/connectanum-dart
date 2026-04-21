@@ -1,162 +1,73 @@
-name: Dart
+name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
+
+permissions:
+  contents: read
+
+env:
+  CI: true
 
 jobs:
-  analyze:
+  fast:
+    name: Fast Checks
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
+
       - uses: dart-lang/setup-dart@v1
 
-      - name: Install dependencies
-        run: dart pub get
+      - uses: dtolnay/rust-toolchain@stable
 
-      - name: Analyze project source
-        run: dart analyze
+      - id: chrome
+        uses: browser-actions/setup-chrome@v1
 
-  test_vm:
+      - name: Bootstrap workspace
+        env:
+          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+        run: bin/bootstrap
+
+      - name: Run fast regression set
+        env:
+          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+        run: bin/test-fast
+
+  verify:
+    name: Full Verify
     runs-on: ubuntu-latest
-    needs: analyze
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dart-lang/setup-dart@v1
-
-      - name: Install dependencies
-        run: dart pub get
-
-      - name: Run tests on VM with coverage
-        run: dart run test -p vm --coverage=./coverage
-
-      - name: Upload VM coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage_vm
-          path: ./coverage
-
-  test_chrome:
-    runs-on: ubuntu-latest
-    needs: analyze
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dart-lang/setup-dart@v1
-
-      - name: Install dependencies
-        run: dart pub get
-
-      - name: Run tests on Chrome with coverage
-        run: dart run test -p chrome --timeout=5m --concurrency=1
-        # run: dart run test -p chrome --coverage=./coverage --timeout=5m --concurrency=1
-
-      # - name: Upload Chrome coverage
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: coverage_chrome
-      #     path: ./coverage
-
-  wamp_conformance:
-    runs-on: ubuntu-latest
-    needs: analyze
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dart-lang/setup-dart@v1
-
-      - name: Install dependencies
-        run: dart pub get
-
-      - name: Run pinned WAMP conformance vectors
-        run: dart test packages/connectanum_core/test/conformance/wamp_singlemessage_conformance_test.dart
-
-  coverage:
-    runs-on: ubuntu-latest
-    needs: [test_vm, test_chrome, wamp_conformance]
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dart-lang/setup-dart@v1
-
-      - name: Install dependencies
-        run: dart pub get
-
-      - name: Download VM coverage
-        uses: actions/download-artifact@v4
-        with:
-          name: coverage_vm
-          path: ./coverage_vm
-
-      # - name: Download Chrome coverage
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: coverage_chrome
-      #     path: ./coverage_chrome
-
-      - name: Activate coverage tool
-        run: dart pub global activate coverage
-
-      - name: Format VM coverage
-        run: format_coverage -l -v -i ./coverage_vm -o lcov_vm.info --packages=.dart_tool/package_config.json --report-on=lib
-
-      # We'll have to wait for
-      #  https://issues.chromium.org/issues/354020953#comment4
-      #  https://github.com/dart-lang/test/issues/2278
-      #  For now, wasm has no coverage support
-      #- name: Format Chrome coverage
-      #  run: format_coverage -l -i ./coverage_chrome -o lcov_chrome.info --packages=.dart_tool/package_config.json --report-on=lib
-
-      - name: Install lcov
-        run: sudo apt-get update && sudo apt-get install -y lcov
-
-      - name: Merge coverage reports
-        run: lcov --add-tracefile lcov_vm.info --output-file lcov.info
-      #  run: lcov --add-tracefile lcov_vm.info --add-tracefile lcov_chrome.info --output-file lcov.info
-
-      - name: Upload merged coverage
-        run: bash <(curl -s https://codecov.io/bash)
-
-  native_regressions:
-    runs-on: ubuntu-latest
-    needs: analyze
+    needs: fast
     env:
       CONNECTANUM_ARTIFACT_DIR: ${{ github.workspace }}/out/ci-artifacts
-      CONNECTANUM_NATIVE_LIB: ${{ github.workspace }}/native/transport/target/release/libct_ffi.so
 
     steps:
       - uses: actions/checkout@v4
+
       - uses: dart-lang/setup-dart@v1
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
 
-      - name: Install dependencies
-        run: dart pub get
+      - uses: dtolnay/rust-toolchain@stable
 
-      - name: Build native runtime (ffi-test)
-        run: |
-          cd native/transport
-          cargo build -p ct_ffi --features ffi-test --release
+      - id: chrome
+        uses: browser-actions/setup-chrome@v1
 
-      - name: Prepare artifact directory
-        run: mkdir -p "$CONNECTANUM_ARTIFACT_DIR"
+      - name: Bootstrap workspace
+        env:
+          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+        run: bin/bootstrap
 
-      - name: Run WebSocket + streaming regressions
-        run: |
-          dart test packages/connectanum_router/test/router_integration_websocket_test.dart
-          dart test packages/connectanum_router/test/router_integration_native_test.dart --plain-name "streams multi-MB HTTP/2 payloads and exports metrics"
-          dart test packages/connectanum_router/test/router_integration_native_test.dart --plain-name "streams multi-MB HTTP/3 payloads and exports metrics"
-          dart test packages/connectanum_router/test/router_integration_native_test.dart --plain-name "serves OpenMetrics payload over HTTP metrics route"
+      - name: Run full verification
+        env:
+          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+        run: bin/verify
 
-      - name: Upload OpenMetrics snapshots
+      - name: Upload CI artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: openmetrics-regressions
+          name: ci-artifacts
           path: out/ci-artifacts
+          if-no-files-found: ignore

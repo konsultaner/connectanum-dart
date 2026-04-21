@@ -17,10 +17,12 @@ Last reviewed commit: `d6b9c46` (`feat(auth): secure remote auth and pin WAMP co
 - The repo is a Dart workspace plus a Rust native transport workspace.
 - The canonical root entrypoints are `bin/bootstrap`, `bin/test-fast`, `bin/test-all`, and `bin/verify`.
 - Root shell helpers now auto-detect Dart from Flutter, Rust from `~/.cargo`, Chrome/Chromium, and the standard prebuilt native library path.
+- GitHub Actions CI is being aligned with the canonical root `bin/*` entrypoints under `docs/exec-plans/2026-04-21-ci-alignment.md`.
 - Native runtime execution is now validated on both Linux and macOS; unsupported hosts still skip the native runtime slices.
 - On macOS, the root router verification uses explicit sequential native slices instead of the Linux package-wide sweep because the native runtime and callback bridge are process-global and unsafe under parallel package execution.
 - Package-local browser verification now runs from `packages/connectanum_client`, and the client/router build hooks build on Linux and macOS while still no-oping on unsupported hosts.
 - The local autonomy blockers from the 2026-04-21 audit are resolved for this macOS shell environment.
+- Codex heartbeat automations run in a stricter sandbox than the normal interactive shell here; they can reuse the local pub cache with a temporary writable `HOME`, but loopback socket binds are blocked, so socket-heavy local verification must still be confirmed in CI or an unrestricted thread.
 
 ## Environment Requirements
 
@@ -39,13 +41,12 @@ Last reviewed commit: `d6b9c46` (`feat(auth): secure remote auth and pin WAMP co
 
 ## Active Plan
 
-- No active execution plan is checked in right now.
-- Most recent completed plan: `docs/exec-plans/2026-04-21-macos-remote-auth-tls.md`
-- Use `docs/exec-plans/template.md` for the next substantial cross-package/native task.
+- Active execution plan: `docs/exec-plans/2026-04-21-ci-alignment.md`
+- Most recent completed plan before this: `docs/exec-plans/2026-04-21-macos-remote-auth-tls.md`
+- Use `docs/exec-plans/template.md` for the next substantial cross-package/native task only when this active plan is complete.
 
 ## Known Follow-Ups
 
-- Align CI workflows with the canonical root `bin/*` entrypoints.
 - Refresh stale package-level docs so they match the monorepo and root-script workflow.
 
 ## Update Checklist
