@@ -15,6 +15,8 @@ import 'package:test/test.dart';
 
 void main() {
   final nativeLib = _resolveNativeLib();
+  final workerScriptPath = _resolveBenchTool('wamp_client_main.dart');
+  final workerPackageDirectory = File(workerScriptPath).absolute.parent.parent;
   final skipReason = !Platform.isLinux
       ? 'Native WAMP transport workloads currently require Linux runtime support.'
       : nativeLib == null
@@ -327,29 +329,33 @@ void main() {
               ) ??
               false,
         );
-        final process = await Process.start(Platform.resolvedExecutable, [
-          File('tool/wamp_client_main.dart').absolute.path,
-          '--realm',
-          'bench.control',
-          '--targets-json',
-          jsonEncode({
-            'rawsocket': WampTransportTarget(
-              transport: WampTransport.rawsocket,
-              host: '127.0.0.1',
-              port: rawSocketListener.port,
-              secure: false,
-            ).toJson(),
-            'websocket': WampTransportTarget(
-              transport: WampTransport.websocket,
-              host: '127.0.0.1',
-              port: webSocketListener.port,
-              secure: false,
-              webSocketPath: '/wamp',
-            ).toJson(),
-          }),
-          '--native-lib',
-          nativeLib!,
-        ], workingDirectory: Directory.current.path);
+        final process = await Process.start(
+          Platform.resolvedExecutable,
+          [
+            workerScriptPath,
+            '--realm',
+            'bench.control',
+            '--targets-json',
+            jsonEncode({
+              'rawsocket': WampTransportTarget(
+                transport: WampTransport.rawsocket,
+                host: '127.0.0.1',
+                port: rawSocketListener.port,
+                secure: false,
+              ).toJson(),
+              'websocket': WampTransportTarget(
+                transport: WampTransport.websocket,
+                host: '127.0.0.1',
+                port: webSocketListener.port,
+                secure: false,
+                webSocketPath: '/wamp',
+              ).toJson(),
+            }),
+            '--native-lib',
+            nativeLib!,
+          ],
+          workingDirectory: workerPackageDirectory.path,
+        );
         final stdoutLines = process.stdout
             .transform(utf8.decoder)
             .transform(const LineSplitter())
@@ -668,6 +674,7 @@ class _WampTransportHarness {
   final NativeWampWorker nativeWorker;
 
   static Future<_WampTransportHarness> start(String nativeLib) async {
+    final workerScriptPath = _resolveBenchTool('wamp_client_main.dart');
     final rawSocketPort = await _reservePort();
     final webSocketPort = await _reservePort();
     final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
@@ -856,7 +863,7 @@ class _WampTransportHarness {
         ),
       },
       nativeLibraryPath: nativeLib,
-      workerScriptPath: File('tool/wamp_client_main.dart').absolute.path,
+      workerScriptPath: workerScriptPath,
       logger: Logger.detached('native_wamp_worker_test'),
     );
 
@@ -902,6 +909,21 @@ String? _resolveNativeLib() {
     }
   }
   return null;
+}
+
+String _resolveBenchTool(String fileName) {
+  final candidates = [
+    File('tool/$fileName'),
+    File('packages/connectanum_bench/tool/$fileName'),
+  ];
+  for (final candidate in candidates) {
+    if (candidate.existsSync()) {
+      return candidate.absolute.path;
+    }
+  }
+  throw StateError(
+    'Failed to locate bench tool $fileName from ${Directory.current.path}.',
+  );
 }
 
 Future<int> _reservePort() async {
