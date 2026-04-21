@@ -1,6 +1,7 @@
+import 'dart:typed_data';
+import 'package:connectanum_core/cbor_serializer.dart' as cbor_serializer;
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:test/test.dart';
-import 'dart:typed_data';
 
 void main() {
   group('Result', () {
@@ -125,5 +126,88 @@ void main() {
       expect(rebuilt.arguments, equals(const ['lazy-result']));
       expect(rebuilt.argumentsKeywords, equals(const {'worker': 11}));
     });
+
+    test('wamp payload access throws when no E2EE provider is attached', () {
+      final provider = _TestWampE2eeProvider();
+      final details = ResultDetails(pptScheme: 'wamp', pptSerializer: 'cbor');
+      final result = Result(
+        1,
+        details,
+        arguments: provider.packPayload(
+          const ['wrapped-result'],
+          const {'worker': 10},
+          details,
+        ),
+      );
+
+      expect(
+        () => result.arguments,
+        throwsA(isA<WampE2eeProviderUnavailableException>()),
+      );
+    });
+
+    test('wamp payload access decodes with an attached E2EE provider', () {
+      final provider = _TestWampE2eeProvider();
+      final details = ResultDetails(pptScheme: 'wamp', pptSerializer: 'cbor');
+      final result = Result(
+        1,
+        details,
+        arguments: provider.packPayload(
+          const ['wrapped-result'],
+          const {'worker': 10},
+          details,
+        ),
+      );
+      result.attachE2eeProvider(provider);
+
+      expect(result.arguments, equals(const ['wrapped-result']));
+      expect(result.argumentsKeywords, equals(const {'worker': 10}));
+      expect(result.hasDecodedPptPayload, isTrue);
+    });
   });
+}
+
+class _TestWampE2eeProvider implements WampE2eeProvider {
+  final cbor_serializer.Serializer _serializer = cbor_serializer.Serializer();
+
+  @override
+  List<dynamic> packPayload(
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    PPTOptions options,
+  ) {
+    return <dynamic>[
+      Uint8List.fromList(
+        _serializer.serializePPT(
+          PPTPayload(
+            arguments: arguments,
+            argumentsKeywords: argumentsKeywords,
+          ),
+        ),
+      ),
+    ];
+  }
+
+  @override
+  E2EEPayloadView unpackPayload(List<dynamic>? arguments, PPTOptions options) {
+    final bytes = _coerceBytes(arguments?.single);
+    final decoded = _serializer.deserializePPT(bytes)!;
+    return (
+      arguments: decoded.arguments,
+      argumentsKeywords: decoded.argumentsKeywords,
+    );
+  }
+
+  Uint8List _coerceBytes(Object? value) {
+    if (value is Uint8List) {
+      return value;
+    }
+    if (value is List<int>) {
+      return Uint8List.fromList(value);
+    }
+    if (value is List) {
+      return Uint8List.fromList(value.cast<int>());
+    }
+    throw ArgumentError.value(value, 'value', 'Expected packed payload bytes');
+  }
 }

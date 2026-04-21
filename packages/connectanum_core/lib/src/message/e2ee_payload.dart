@@ -1,7 +1,40 @@
 import 'abstract_ppt_options.dart';
 import '../message/ppt_payload.dart';
 
-// TODO implement End-to-End Encryption
+typedef E2EEPayloadView = ({
+  List<dynamic>? arguments,
+  Map<String, dynamic>? argumentsKeywords,
+});
+
+abstract class WampE2eeProvider {
+  List<dynamic> packPayload(
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    PPTOptions options,
+  );
+
+  E2EEPayloadView unpackPayload(List<dynamic>? arguments, PPTOptions options);
+}
+
+class WampE2eeProviderUnavailableException implements Exception {
+  WampE2eeProviderUnavailableException(this.operation, {required this.options});
+
+  final String operation;
+  final PPTOptions options;
+
+  @override
+  String toString() {
+    final fields = <String>[
+      "pptScheme=${options.pptScheme ?? 'null'}",
+      "pptSerializer=${options.pptSerializer ?? 'null'}",
+      "pptCipher=${options.pptCipher ?? 'null'}",
+      "pptKeyId=${options.pptKeyId ?? 'null'}",
+    ];
+    return 'WampE2eeProviderUnavailableException('
+        'operation: $operation, ${fields.join(', ')})';
+  }
+}
+
 class E2EEPayload extends PPTPayload {
   String? uri;
 
@@ -14,15 +47,29 @@ class E2EEPayload extends PPTPayload {
   static List<dynamic> packE2EEPayload(
     List<dynamic>? arguments,
     Map<String, dynamic>? argumentsKeywords,
-    PPTOptions options,
-  ) {
-    return [];
+    PPTOptions options, {
+    WampE2eeProvider? provider,
+  }) {
+    final resolvedProvider = provider;
+    if (resolvedProvider == null) {
+      throw WampE2eeProviderUnavailableException('pack', options: options);
+    }
+    return resolvedProvider.packPayload(arguments, argumentsKeywords, options);
   }
 
   static E2EEPayload unpackE2EEPayload(
     List<dynamic>? arguments,
-    PPTOptions options,
-  ) {
-    return E2EEPayload();
+    PPTOptions options, {
+    WampE2eeProvider? provider,
+  }) {
+    final resolvedProvider = provider;
+    if (resolvedProvider == null) {
+      throw WampE2eeProviderUnavailableException('unpack', options: options);
+    }
+    final decoded = resolvedProvider.unpackPayload(arguments, options);
+    return E2EEPayload(
+      arguments: decoded.arguments,
+      argumentsKeywords: decoded.argumentsKeywords,
+    );
   }
 }

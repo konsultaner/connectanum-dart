@@ -273,6 +273,34 @@ void main() {
       expect(response.argumentsKeywords, isNull);
     });
 
+    test('respondWith packs wamp payloads with the attached E2EE provider', () {
+      final provider = _TestWampE2eeProvider();
+      final invocation = Invocation(1, 2, InvocationDetails(null, null, false));
+      final responses = <AbstractMessageWithPayload>[];
+      invocation.attachE2eeProvider(provider);
+      invocation.onResponse(responses.add);
+
+      invocation.respondWith(
+        arguments: const ['wrapped-response'],
+        argumentsKeywords: const {'worker': 11},
+        options: YieldOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
+      );
+
+      expect(responses, hasLength(1));
+      final response = responses.single as Yield;
+      expect(
+        response.arguments,
+        equals(
+          provider.packPayload(
+            const ['wrapped-response'],
+            const {'worker': 11},
+            YieldOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
+          ),
+        ),
+      );
+      expect(response.argumentsKeywords, isNull);
+    });
+
     test(
       'copyPayloadTo preserves materialized kwargs alongside encoded args',
       () {
@@ -364,4 +392,49 @@ void main() {
       expect((responses.single as Yield).arguments, equals(const ['ok']));
     });
   });
+}
+
+class _TestWampE2eeProvider implements WampE2eeProvider {
+  final cbor_serializer.Serializer _serializer = cbor_serializer.Serializer();
+
+  @override
+  List<dynamic> packPayload(
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    PPTOptions options,
+  ) {
+    return <dynamic>[
+      Uint8List.fromList(
+        _serializer.serializePPT(
+          PPTPayload(
+            arguments: arguments,
+            argumentsKeywords: argumentsKeywords,
+          ),
+        ),
+      ),
+    ];
+  }
+
+  @override
+  E2EEPayloadView unpackPayload(List<dynamic>? arguments, PPTOptions options) {
+    final bytes = _coerceBytes(arguments?.single);
+    final decoded = _serializer.deserializePPT(bytes)!;
+    return (
+      arguments: decoded.arguments,
+      argumentsKeywords: decoded.argumentsKeywords,
+    );
+  }
+
+  Uint8List _coerceBytes(Object? value) {
+    if (value is Uint8List) {
+      return value;
+    }
+    if (value is List<int>) {
+      return Uint8List.fromList(value);
+    }
+    if (value is List) {
+      return Uint8List.fromList(value.cast<int>());
+    }
+    throw ArgumentError.value(value, 'value', 'Expected packed payload bytes');
+  }
 }

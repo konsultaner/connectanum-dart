@@ -33,6 +33,9 @@ class NativeSessionMessage extends AbstractMessageWithPayload {
         'Native session message ${metadata.messageCode} cannot be materialized',
       );
     }
+    if (boundMessage is AbstractMessageWithPayload) {
+      boundMessage.attachE2eeProvider(e2eeProvider);
+    }
     return boundMessage;
   }
 }

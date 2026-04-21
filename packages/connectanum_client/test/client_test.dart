@@ -7,6 +7,7 @@ import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_client/connectanum.dart';
 import 'package:connectanum_client/src/transport/native/message_binding.dart';
 import 'package:connectanum_client/src/transport/native/message_protocol.dart';
+import 'package:connectanum_core/cbor_serializer.dart' as cbor_serializer;
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 
@@ -2373,6 +2374,49 @@ void main() {
       },
     );
     test(
+      'callSingle decodes wamp payloads on the native direct result path with a session provider',
+      () async {
+        final provider = _TestWampE2eeProvider();
+        final details = ResultDetails(pptScheme: 'wamp', pptSerializer: 'cbor');
+        final packedArguments = provider.packPayload(
+          const ['wrapped-result'],
+          const {'worker': 12},
+          details,
+        );
+        final transport = _SessionOptimizedMockTransport((message, transport) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveObject(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codeCall) {
+            transport.receiveObject(
+              _nativeDirectResultMessage(
+                requestId: (message as Call).requestId,
+                pptScheme: 'wamp',
+                pptSerializer: 'cbor',
+                argsBytes: Uint8List.fromList(
+                  cbor.cborEncode(
+                    cbor.CborValue(<Object?>[packedArguments.single]),
+                  ),
+                ),
+              ),
+            );
+          }
+        });
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+          e2eeProvider: provider,
+        ).connect().first;
+
+        final result = await session.callSingle('wamp.result');
+        expect(result.hasDecodedPptPayload, isFalse);
+        expect(result.arguments, equals(const ['wrapped-result']));
+        expect(result.argumentsKeywords, equals(const {'worker': 12}));
+        expect(result.hasDecodedPptPayload, isTrue);
+      },
+    );
+    test(
       'callSingleLazyPayload preserves packed PPT bytes on the native direct result path',
       () async {
         final transport = _SessionOptimizedMockTransport((message, transport) {
@@ -2548,6 +2592,67 @@ void main() {
         expect(decodeCount, 0);
       },
     );
+    test(
+      'publishLazyPayload throws for wamp payloads without an E2EE provider',
+      () async {
+        final transport = _ImmediateResponseTransport();
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+        ).connect().first;
+
+        expect(
+          () => session.publishLazyPayload(
+            'ppt.topic',
+            payload: LazyMessagePayload.materialized(
+              arguments: const ['wrapped'],
+              argumentsKeywords: const {'worker': 4},
+            ),
+            options: PublishOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
+          ),
+          throwsA(isA<WampE2eeProviderUnavailableException>()),
+        );
+      },
+    );
+    test(
+      'publishLazyPayload uses the client E2EE provider for wamp payloads',
+      () async {
+        final transport = _MockTransport();
+        final provider = _TestWampE2eeProvider();
+        final expectedArguments = provider.packPayload(
+          const ['wrapped'],
+          const {'worker': 4},
+          PublishOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
+        );
+        final client = Client(
+          realm: 'test.realm',
+          transport: transport,
+          e2eeProvider: provider,
+        );
+
+        transport.outbound.stream.listen((message) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveMessage(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codePublish) {
+            final publish = message as Publish;
+            expect(publish.arguments, equals(expectedArguments));
+            expect(publish.argumentsKeywords, isNull);
+          }
+        });
+
+        final session = await client.connect().first;
+        await session.publishLazyPayload(
+          'ppt.topic',
+          payload: LazyMessagePayload.materialized(
+            arguments: const ['wrapped'],
+            argumentsKeywords: const {'worker': 4},
+          ),
+          options: PublishOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
+        );
+      },
+    );
     test('request routing handles out-of-order router replies', () async {
       const stepTimeout = Duration(seconds: 1);
       final transport = _OutOfOrderResponseTransport();
@@ -2681,6 +2786,52 @@ class _MockChallengeFailAuthenticator extends AbstractAuthentication {
   @override
   Future<void> hello(String? realm, Details details) {
     return Future.value();
+  }
+}
+
+class _TestWampE2eeProvider implements WampE2eeProvider {
+  final cbor_serializer.Serializer _serializer = cbor_serializer.Serializer();
+
+  @override
+  List<dynamic> packPayload(
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    PPTOptions options,
+  ) {
+    return <dynamic>[
+      Uint8List.fromList(
+        _serializer.serializePPT(
+          PPTPayload(
+            arguments: arguments,
+            argumentsKeywords: argumentsKeywords,
+          ),
+        ),
+      ),
+    ];
+  }
+
+  @override
+  E2EEPayloadView unpackPayload(List<dynamic>? arguments, PPTOptions options) {
+    final decoded = _serializer.deserializePPT(
+      _coerceBytes(arguments?.single),
+    )!;
+    return (
+      arguments: decoded.arguments,
+      argumentsKeywords: decoded.argumentsKeywords,
+    );
+  }
+
+  Uint8List _coerceBytes(Object? value) {
+    if (value is Uint8List) {
+      return value;
+    }
+    if (value is List<int>) {
+      return Uint8List.fromList(value);
+    }
+    if (value is List) {
+      return Uint8List.fromList(value.cast<int>());
+    }
+    throw ArgumentError.value(value, 'value', 'Expected packed payload bytes');
   }
 }
 

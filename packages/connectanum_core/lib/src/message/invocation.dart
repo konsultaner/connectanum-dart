@@ -162,6 +162,7 @@ class Invocation extends AbstractMessageWithPayload {
                 arguments,
                 argumentsKeywords,
                 options!,
+                provider: lazyPayload?.e2eeProvider ?? e2eeProvider,
               )
             : <dynamic>[packedPayload];
         invokeArgumentsKeywords = null;
@@ -179,6 +180,7 @@ class Invocation extends AbstractMessageWithPayload {
         arguments: invokeArguments,
         argumentsKeywords: invokeArgumentsKeywords,
       );
+      yield.attachE2eeProvider(lazyPayload?.e2eeProvider ?? e2eeProvider);
       if (lazyPayload != null) {
         if (options?.pptScheme != null) {
           if (packedPayload != null) {

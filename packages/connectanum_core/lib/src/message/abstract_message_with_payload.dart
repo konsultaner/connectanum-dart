@@ -21,6 +21,7 @@ class LazyMessagePayload {
     this.transparentBinaryPayload,
     this.encoding,
     this.pptDecoded = false,
+    this.e2eeProvider,
     Uint8List? argumentsBytes,
     Uint8List? argumentsKeywordsBytes,
     PayloadListDecoder? argumentsDecoder,
@@ -42,6 +43,7 @@ class LazyMessagePayload {
   factory LazyMessagePayload.encoded({
     Uint8List? transparentBinaryPayload,
     LazyPayloadEncoding? encoding,
+    WampE2eeProvider? e2eeProvider,
     Uint8List? argumentsBytes,
     Uint8List? argumentsKeywordsBytes,
     PayloadListDecoder? argumentsDecoder,
@@ -53,6 +55,7 @@ class LazyMessagePayload {
     return LazyMessagePayload._(
       transparentBinaryPayload: transparentBinaryPayload,
       encoding: encoding,
+      e2eeProvider: e2eeProvider,
       argumentsBytes: argumentsBytes,
       argumentsKeywordsBytes: argumentsKeywordsBytes,
       argumentsDecoder: argumentsDecoder,
@@ -71,11 +74,13 @@ class LazyMessagePayload {
     required Uint8List packedPayloadBytes,
     required PackedPayloadDecoder packedPayloadDecoder,
     bool pptDecoded = true,
+    WampE2eeProvider? e2eeProvider,
     Object? anchor,
   }) {
     return LazyMessagePayload._(
       transparentBinaryPayload: transparentBinaryPayload,
       encoding: encoding,
+      e2eeProvider: e2eeProvider,
       packedPayloadBytes: packedPayloadBytes,
       packedPayloadDecoder: packedPayloadDecoder,
       pptDecoded: pptDecoded,
@@ -89,11 +94,13 @@ class LazyMessagePayload {
     List<dynamic>? arguments,
     Map<String, dynamic>? argumentsKeywords,
     bool pptDecoded = false,
+    WampE2eeProvider? e2eeProvider,
     Object? anchor,
   }) {
     return LazyMessagePayload._(
       transparentBinaryPayload: transparentBinaryPayload,
       encoding: encoding,
+      e2eeProvider: e2eeProvider,
       arguments: arguments,
       argumentsKeywords: argumentsKeywords,
       pptDecoded: pptDecoded,
@@ -104,6 +111,7 @@ class LazyMessagePayload {
   final Uint8List? transparentBinaryPayload;
   final LazyPayloadEncoding? encoding;
   final bool pptDecoded;
+  final WampE2eeProvider? e2eeProvider;
   final Object? anchor;
 
   Uint8List? _argumentsBytes;
@@ -154,6 +162,7 @@ class LazyMessagePayload {
           : Uint8List.fromList(transparentBinaryPayload!),
       encoding: encoding,
       pptDecoded: pptDecoded,
+      e2eeProvider: e2eeProvider,
       argumentsBytes: _argumentsBytes == null
           ? null
           : Uint8List.fromList(_argumentsBytes!),
@@ -190,6 +199,28 @@ class LazyMessagePayload {
       transparentBinaryPayload: transparentBinaryPayload,
       encoding: encoding,
       pptDecoded: pptDecoded,
+      e2eeProvider: e2eeProvider,
+      argumentsBytes: _argumentsBytes,
+      argumentsKeywordsBytes: _argumentsKeywordsBytes,
+      argumentsDecoder: _argumentsDecoder,
+      argumentsKeywordsDecoder: _argumentsKeywordsDecoder,
+      packedPayloadBytes: _packedPayloadBytes,
+      packedPayloadDecoder: _packedPayloadDecoder,
+      arguments: _arguments,
+      argumentsKeywords: _argumentsKeywords,
+      anchor: anchor,
+    );
+  }
+
+  LazyMessagePayload withE2eeProvider(WampE2eeProvider? provider) {
+    if (provider == e2eeProvider) {
+      return this;
+    }
+    return LazyMessagePayload._(
+      transparentBinaryPayload: transparentBinaryPayload,
+      encoding: encoding,
+      pptDecoded: pptDecoded,
+      e2eeProvider: provider,
       argumentsBytes: _argumentsBytes,
       argumentsKeywordsBytes: _argumentsKeywordsBytes,
       argumentsDecoder: _argumentsDecoder,
@@ -210,6 +241,7 @@ MaterializedPayloadView decodePayloadView(
   String? pptSerializer,
   String? pptCipher,
   String? pptKeyId,
+  WampE2eeProvider? e2eeProvider,
 }) {
   if (pptScheme == null) {
     return (arguments: arguments, argumentsKeywords: argumentsKeywords);
@@ -222,7 +254,11 @@ MaterializedPayloadView decodePayloadView(
     pptKeyId: pptKeyId,
   );
   if (pptScheme == 'wamp') {
-    final e2eePayload = E2EEPayload.unpackE2EEPayload(arguments, options);
+    final e2eePayload = E2EEPayload.unpackE2EEPayload(
+      arguments,
+      options,
+      provider: e2eeProvider,
+    );
     return (
       arguments: e2eePayload.arguments,
       argumentsKeywords: e2eePayload.argumentsKeywords,
@@ -241,6 +277,7 @@ MaterializedPayloadView decodeLazyPayloadView(
   String? pptSerializer,
   String? pptCipher,
   String? pptKeyId,
+  WampE2eeProvider? e2eeProvider,
 }) {
   if (payload.pptDecoded) {
     return (
@@ -255,6 +292,7 @@ MaterializedPayloadView decodeLazyPayloadView(
     pptSerializer: pptSerializer,
     pptCipher: pptCipher,
     pptKeyId: pptKeyId,
+    e2eeProvider: e2eeProvider ?? payload.e2eeProvider,
   );
 }
 
@@ -264,11 +302,13 @@ LazyMessagePayload unwrapLazyPayloadView(
   String? pptSerializer,
   String? pptCipher,
   String? pptKeyId,
+  WampE2eeProvider? e2eeProvider,
 }) {
+  final resolvedE2eeProvider = e2eeProvider ?? payload.e2eeProvider;
   if (pptScheme == null ||
       payload.pptDecoded ||
       payload.packedPayloadBytes != null) {
-    return payload;
+    return payload.withE2eeProvider(resolvedE2eeProvider);
   }
   final outerArguments = payload.arguments;
   final outerArgumentsKeywords = payload.argumentsKeywords;
@@ -279,6 +319,7 @@ LazyMessagePayload unwrapLazyPayloadView(
       arguments: const <dynamic>[],
       argumentsKeywords: const <String, dynamic>{},
       pptDecoded: true,
+      e2eeProvider: resolvedE2eeProvider,
       anchor: payload.anchor,
     );
   }
@@ -299,12 +340,14 @@ LazyMessagePayload unwrapLazyPayloadView(
           pptSerializer: pptSerializer,
           pptCipher: pptCipher,
           pptKeyId: pptKeyId,
+          e2eeProvider: resolvedE2eeProvider,
         );
         return (
           arguments: decoded.arguments,
           argumentsKeywords: decoded.argumentsKeywords,
         );
       },
+      e2eeProvider: resolvedE2eeProvider,
       anchor: payload.anchor,
     );
   }
@@ -314,6 +357,7 @@ LazyMessagePayload unwrapLazyPayloadView(
     pptSerializer: pptSerializer,
     pptCipher: pptCipher,
     pptKeyId: pptKeyId,
+    e2eeProvider: resolvedE2eeProvider,
   );
   return LazyMessagePayload.materialized(
     transparentBinaryPayload: payload.transparentBinaryPayload,
@@ -321,6 +365,7 @@ LazyMessagePayload unwrapLazyPayloadView(
     arguments: decoded.arguments,
     argumentsKeywords: decoded.argumentsKeywords,
     pptDecoded: true,
+    e2eeProvider: resolvedE2eeProvider,
     anchor: payload.anchor,
   );
 }
@@ -399,6 +444,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
   LazyPayloadEncoding? _lazyPayloadEncoding;
   bool _pptPayloadDecoded = false;
   LazyMessagePayload? _retainedLazyPayload;
+  WampE2eeProvider? _e2eeProvider;
 
   AbstractMessageWithPayload({
     List<dynamic>? arguments,
@@ -457,6 +503,19 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
 
   bool get hasDecodedPptPayload => _pptPayloadDecoded;
 
+  WampE2eeProvider? get e2eeProvider =>
+      _retainedLazyPayload?.e2eeProvider ?? _e2eeProvider;
+
+  void attachE2eeProvider(WampE2eeProvider? provider) {
+    _e2eeProvider = provider;
+    final retainedLazyPayload = _retainedLazyPayload;
+    if (retainedLazyPayload != null) {
+      _retainedLazyPayload = retainedLazyPayload
+          .withE2eeProvider(provider)
+          .withAnchor(this);
+    }
+  }
+
   void markPptPayloadDecoded() {
     _pptPayloadDecoded = true;
   }
@@ -473,6 +532,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
         arguments: arguments,
         argumentsKeywords: argumentsKeywords,
         pptDecoded: true,
+        e2eeProvider: e2eeProvider,
         anchor: anchor ?? this,
       );
     }
@@ -490,6 +550,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
         argumentsKeywords: _encodedArgumentsKeywords == null
             ? _argumentsKeywords
             : null,
+        e2eeProvider: e2eeProvider,
         anchor: anchor ?? this,
       );
     }
@@ -498,6 +559,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
       encoding: _lazyPayloadEncoding,
       arguments: _arguments,
       argumentsKeywords: _argumentsKeywords,
+      e2eeProvider: e2eeProvider,
       anchor: anchor ?? this,
     );
   }
@@ -526,7 +588,9 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
   }
 
   void retainLazyPayload(LazyMessagePayload payload) {
-    _retainedLazyPayload = payload.withAnchor(this);
+    final provider = payload.e2eeProvider ?? _e2eeProvider;
+    _e2eeProvider = provider;
+    _retainedLazyPayload = payload.withE2eeProvider(provider).withAnchor(this);
     _lazyPayloadEncoding ??= payload.encoding;
   }
 
@@ -534,12 +598,14 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
   /// forcing an eager decode. Packed PPT payloads are restored as outer
   /// arguments so decode-on-access still works for classic getters.
   void restoreLazyPayload(LazyMessagePayload payload) {
+    final provider = payload.e2eeProvider ?? _e2eeProvider;
     transparentBinaryPayload = payload.transparentBinaryPayload;
     _lazyPayloadEncoding = payload.encoding;
     if (payload.packedPayloadBytes != null) {
       arguments = <dynamic>[payload.packedPayloadBytes!];
       argumentsKeywords = null;
-      retainLazyPayload(payload);
+      attachE2eeProvider(provider);
+      retainLazyPayload(payload.withE2eeProvider(provider));
       return;
     }
     setLazyPayload(
@@ -562,7 +628,8 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
     if (payload.pptDecoded) {
       markPptPayloadDecoded();
     }
-    retainLazyPayload(payload);
+    attachE2eeProvider(provider);
+    retainLazyPayload(payload.withE2eeProvider(provider));
   }
 
   /// Unpacks PPT/E2EE payloads in place only when a caller actually touches the
@@ -598,6 +665,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
       pptSerializer: pptSerializer,
       pptCipher: pptCipher,
       pptKeyId: pptKeyId,
+      e2eeProvider: e2eeProvider,
     );
     _arguments = decoded.arguments;
     _argumentsKeywords = decoded.argumentsKeywords;
@@ -624,6 +692,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
 
   /// Transfers the message payload to another message
   void copyPayloadTo(AbstractMessageWithPayload message) {
+    message.attachE2eeProvider(e2eeProvider);
     message.transparentBinaryPayload = transparentBinaryPayload;
 
     if ((_encodedArguments != null && _argumentsDecoder != null) ||

@@ -3,7 +3,7 @@
 Status: active
 Owner: Codex
 Created: 2026-04-21
-Last updated: 2026-04-21
+Last updated: 2026-04-22
 
 ## Goal
 
@@ -30,7 +30,12 @@ breaking current router/client forwarding behavior.
 - `docs/project_state.md`
 - `packages/connectanum_core/lib/src/message/e2ee_payload.dart`
 - `packages/connectanum_core/lib/src/message/abstract_message_with_payload.dart`
+- `packages/connectanum_core/lib/src/message/invocation.dart`
+- `packages/connectanum_core/test/message_result_test.dart`
+- `packages/connectanum_core/test/message_invocation_test.dart`
+- `packages/connectanum_client/lib/src/client.dart`
 - `packages/connectanum_client/lib/src/protocol/session.dart`
+- `packages/connectanum_client/lib/src/transport/native/message_binding.dart`
 - `packages/connectanum_client/test/client_test.dart`
 - `packages/connectanum_router/test/router_runtime_test.dart`
 - other focused config/test files needed for provider plumbing
@@ -71,12 +76,21 @@ breaking current router/client forwarding behavior.
 - 2026-04-21: Deferred handshake-based key negotiation and router-assisted key
   distribution to later work, because the current roadmap item is explicitly a
   research/prototype spike and the relevant WAMP spec text is still unsettled.
+- 2026-04-22: Landed the provider plumbing first instead of jumping straight to
+  crypto implementation. `connectanum_core` now throws an explicit
+  missing-provider exception for WAMP payload decode/pack, and the client
+  threads an optional provider through outbound publish/call/yield paths plus
+  native direct-result/event/invocation materialization without regressing lazy
+  wrapped-byte passthrough.
 
 ## Handoff
 
 - `docs/e2ee_ppt_research.md` is the startup document for this milestone.
-- The next coding session should begin by wiring the runtime E2EE provider into
-  the client/router path and replacing the `E2EEPayload` stub with real
-  CBOR-based packing/unpacking behavior.
+- The next coding session should begin by replacing the provider-backed test
+  doubles with a real CBOR + `xsalsa20poly1305` provider implementation and
+  wiring that concrete provider into the public client configuration surface.
+- Router forwarding does not need to decrypt payloads for this milestone; keep
+  preserving packed WAMP bytes unless a later requirement makes router-side
+  inspection unavoidable.
 - Do not start with transport or auth handshake changes; prove the payload-layer
   contract first.

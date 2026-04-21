@@ -33,6 +33,7 @@ class Session {
   Map<String, dynamic>? authExtra;
 
   final AbstractTransport _transport;
+  final WampE2eeProvider? _e2eeProvider;
 
   /// the next id used to generate request id for a call
   int nextCallId = 1;
@@ -69,8 +70,9 @@ class Session {
   final Map<int, _PendingUnregister> _pendingUnregisters = {};
   bool _incomingClosed = false;
 
-  Session(this.realm, this._transport)
-    : assert(realm == null || UriPattern.match(realm), _transport.isOpen);
+  Session(this.realm, this._transport, {WampE2eeProvider? e2eeProvider})
+    : _e2eeProvider = e2eeProvider,
+      assert(realm == null || UriPattern.match(realm), _transport.isOpen);
 
   /// Starting the session will also start the authentication process.
   static Future<Session> start(
@@ -81,8 +83,9 @@ class Session {
     Map<String, dynamic>? authExtra,
     List<AbstractAuthentication>? authMethods,
     Duration? reconnect,
+    WampE2eeProvider? e2eeProvider,
   }) async {
-    final session = Session(realm, transport);
+    final session = Session(realm, transport, e2eeProvider: e2eeProvider);
 
     final hello = Hello(realm, Details.forHello());
     if (authId != null) {
@@ -252,7 +255,11 @@ class Session {
       return null;
     }
     if (message is NativeSessionMessage) {
+      message.attachE2eeProvider(_e2eeProvider);
       return message.materialize();
+    }
+    if (message is AbstractMessageWithPayload) {
+      message.attachE2eeProvider(_e2eeProvider);
     }
     return message as AbstractMessage?;
   }
@@ -611,6 +618,9 @@ class Session {
     if (message == null) {
       return;
     }
+    if (message is AbstractMessageWithPayload) {
+      message.attachE2eeProvider(_e2eeProvider);
+    }
     if (message is NativeSessionMessage) {
       _handleNativeSessionMessage(message);
       return;
@@ -713,6 +723,7 @@ class Session {
   }
 
   void _handleNativeSessionMessage(NativeSessionMessage message) {
+    message.attachE2eeProvider(_e2eeProvider);
     final code = message.metadata.messageCode;
     if (code == MessageTypes.codeResult) {
       _handleNativeResult(message);
@@ -920,6 +931,7 @@ class Session {
         pptSerializer: message.metadata.stringB,
         pptCipher: message.metadata.stringC,
         pptKeyId: message.metadata.stringD,
+        e2eeProvider: message.e2eeProvider,
       ),
     );
   }
@@ -952,6 +964,7 @@ class Session {
         pptSerializer: message.metadata.stringC,
         pptCipher: message.metadata.stringD,
         pptKeyId: message.metadata.stringE,
+        e2eeProvider: message.e2eeProvider,
       ),
     );
   }
@@ -1004,7 +1017,6 @@ class Session {
           _ => false,
         };
         if (options?.pptScheme != null &&
-            options?.pptScheme != 'wamp' &&
             lazyPayload.packedPayloadBytes != null &&
             matchesPackedEncoding) {
           yieldMessage.arguments = [lazyPayload.packedPayloadBytes!];
@@ -1031,6 +1043,9 @@ class Session {
           }
         }
       }
+      yieldMessage.attachE2eeProvider(
+        lazyPayload?.e2eeProvider ?? _e2eeProvider,
+      );
       _transport.send(yieldMessage);
       if (options?.progress != true) {
         responseClosed = true;
@@ -1081,6 +1096,7 @@ class Session {
         pptSerializer: message.metadata.stringC,
         pptCipher: message.metadata.stringD,
         pptKeyId: message.metadata.stringE,
+        e2eeProvider: message.e2eeProvider,
       ),
     );
     _pendingInvocations[message.metadata.primaryId] =
@@ -1237,6 +1253,7 @@ class Session {
     LazyMessagePayload payload,
     PPTOptions? options,
   ) {
+    message.attachE2eeProvider(payload.e2eeProvider ?? _e2eeProvider);
     message.transparentBinaryPayload = payload.transparentBinaryPayload;
     Uint8List? packedPayload;
     if (options?.pptScheme != null) {
@@ -1248,6 +1265,7 @@ class Session {
               payload.arguments,
               payload.argumentsKeywords,
               options!,
+              provider: payload.e2eeProvider ?? message.e2eeProvider,
             )
           : <dynamic>[packedPayload];
       message.argumentsKeywords = null;
