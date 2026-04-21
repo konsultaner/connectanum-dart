@@ -24,41 +24,11 @@ run_client_vm_tests() {
 }
 
 run_router_vm_tests() {
-  if [[ "$(uname -s)" == "Linux" ]]; then
-    dart test packages/connectanum_router/test
-    return 0
-  fi
-
-  if [[ "$(uname -s)" == "Darwin" ]]; then
-    printf 'Running the macOS-safe router suite with sequential native integration slices.\n'
-  else
-    printf 'Native router integration tests are only supported on Linux/macOS; skipping them on %s.\n' "$(uname -s)"
-  fi
-  dart test packages/connectanum_router/test/authorization_test.dart
-  dart test packages/connectanum_router/test/http_auth_provider_test.dart
-  dart test packages/connectanum_router/test/http_route_transport_auth_test.dart
-  dart test packages/connectanum_router/test/listener_endpoint_resolver_test.dart
-  dart test packages/connectanum_router/test/native/ffi_test_mode_test.dart --concurrency=1
-  dart test packages/connectanum_router/test/native/message_binding_test.dart
-  dart test packages/connectanum_router/test/native/native_library_loader_test.dart
-  dart test packages/connectanum_router/test/native/native_runtime_test.dart --concurrency=1
-  dart test packages/connectanum_router/test/native_http_request_body_test.dart
-  dart test packages/connectanum_router/test/open_metrics_http_server_test.dart
-  if [[ "$(uname -s)" == "Darwin" ]]; then
-    dart test packages/connectanum_router/test/router_integration_native_test.dart --concurrency=1
-    dart test packages/connectanum_router/test/router_integration_websocket_test.dart --concurrency=1
-  fi
-  dart test packages/connectanum_router/test/remote_wamp_delegate_test.dart
-  dart test packages/connectanum_router/test/router_config_loader_test.dart
-  dart test packages/connectanum_router/test/router_config_test.dart
-  dart test packages/connectanum_router/test/router_integration_cancel_test.dart
-  dart test packages/connectanum_router/test/router_json_test.dart
-  dart test packages/connectanum_router/test/router_metrics_service_test.dart
-  dart test packages/connectanum_router/test/router_metrics_test.dart
-  dart test packages/connectanum_router/test/router_runtime_test.dart
-  dart test packages/connectanum_router/test/router_worker_auth_test.dart
-  dart test packages/connectanum_router/test/router_worker_session_test.dart --chain-stack-traces
-  dart test packages/connectanum_router/test/state/pattern_matching_test.dart
+  printf 'Running router suite from package root so package-local test config applies on %s.\n' "$(uname -s)"
+  (
+    cd packages/connectanum_router
+    dart test test
+  )
 }
 
 if native_runtime_supported; then
