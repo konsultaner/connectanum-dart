@@ -6134,7 +6134,12 @@ mod tests {
 
     fn test_guard() -> std::sync::MutexGuard<'static, ()> {
         static GUARD: OnceLock<Mutex<()>> = OnceLock::new();
-        GUARD.get_or_init(|| Mutex::new(())).lock().unwrap()
+        // Recover the guard after a prior test panic so one flaky runtime test
+        // does not cascade into unrelated PoisonError failures.
+        GUARD
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
     #[test]
@@ -6750,7 +6755,6 @@ mod tests {
 
         let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
         perform_handshake(&mut stream, 24, Some(30)).await;
-        drop(stream);
 
         let connection_id = receiver.recv().await.expect("connection delivered");
         let config = connection_runtime_config(connection_id).expect("config available");
@@ -6768,6 +6772,7 @@ mod tests {
             missing_err,
             Error::ConnectionNotFound(ConnectionId(_))
         ));
+        drop(stream);
         shutdown().unwrap();
     }
 
