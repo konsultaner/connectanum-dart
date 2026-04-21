@@ -1,44 +1,32 @@
 # Instructions for Codex agents
 
-Read the ROADMAP.md and ROADMAP_NEXT.md. Understand it, read the relevant code and wamp-proto.org specs or relevant GitHub
-discussions on certain topics or implementation specs. Then tell me what's next to be done, once a task is finished. 
-If you started working on a blocking issue, try to fix it without asking for next steps and next steps summaries.
+## Resume order
 
-## Blocking issues
+1. Read `docs/project_state.md`.
+2. If there is an active plan under `docs/exec-plans/`, read that next.
+3. Use `ROADMAP_NEXT.md` to choose the next milestone only when no active plan exists.
+4. Use `ROADMAP.md` and `STRUCTURE.md` as reference material, not as mandatory startup reading for every task.
 
-- try to reproduce it with a unit test or a reproducible example
-- work out a solution and don't tell me next steps until you are done with investigating and fixing it
-- fix it and tell me next steps
+## Canonical commands
 
-## Before creating pull requests / after finishing a task
+- `bin/bootstrap` validates the local toolchain and fetches workspace dependencies.
+- `bin/test-fast` runs the fastest useful regression set before or during a task.
+- `bin/test-all` runs the full Rust + Dart verification flow and builds `ct_ffi` in `ffi-test` mode.
+- `bin/verify` checks formatting and then runs `bin/test-all`.
 
-- update ROADMAP.md, ROADMAP_NEXT.md, STRUCTURE.md
-- check if you wrote unit tests for new code lines
-- test all code on chromium and dart-vm
-- have 100% coverage on the new code lines
-- run `dart format .` to format all files
-- run `dart analyze` again
-- run all tests in all packages and native code again to find broken code.
-- check `dart outdated`
+If the native library already exists in the standard release location, the root scripts auto-detect it and export `CONNECTANUM_NATIVE_LIB`.
 
-## Running Rust tests locally
+## Working rules
 
-```
-cd native/transport
-cargo test -p ct_core
-cargo test -p ct_ffi
-```
+- Reproduce blocking issues with a unit test or minimal repro before changing behavior.
+- Keep one active execution plan in `docs/exec-plans/` for any task that spans packages, native code, deployment, or multiple working sessions.
+- Update `docs/project_state.md` when the active milestone, blockers, or last-known verification status changes.
+- Update `ROADMAP.md`, `ROADMAP_NEXT.md`, and `STRUCTURE.md` only when the implementation or project shape materially changes.
+- Capture external spec research in checked-in docs when it changes implementation direction; do not rely on transient chat context alone.
+- Stop and ask only for product decisions, secrets or credentials, or deployment access that cannot be inferred safely.
 
-(Rebuild with `cargo build -p ct_ffi --release` to refresh the shared library.)
+## Verification expectations
 
-## Running Dart tests
-
-After exporting `CONNECTANUM_NATIVE_LIB` to the built `libct_ffi.so`, run the Dart tests from inside the package:
-
-```
-cd packages/connectanum_dart
-export CONNECTANUM_NATIVE_LIB=/absolute/path/to/native/transport/target/release/libct_ffi.so
-dart test test/router/router_json_test.dart test/router/router_runtime_test.dart
-```
-
-`CONNECTANUM_NATIVE_LIB` defaults to `libct_ffi.so` in the current directory. so usually you can just run `dart test`.
+- Before a substantial change: `bin/test-fast`
+- Before handoff: `bin/verify`
+- If Chrome or Chromium is unavailable locally, `bin/test-all` and `bin/verify` skip browser-platform tests and print a warning.

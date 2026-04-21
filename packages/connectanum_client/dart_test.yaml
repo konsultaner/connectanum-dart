@@ -8,4 +8,5 @@ override_platforms:
     settings:
       executable:
         linux: chromium-browser
+        mac_os: Chromium
       arguments: --no-sandbox

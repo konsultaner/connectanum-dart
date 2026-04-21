@@ -17,9 +17,7 @@ import '../support/native_lib.dart';
 
 void main() {
   final libraryPath = resolveOrBuildNativeLib();
-  final skipReason = !Platform.isLinux
-      ? 'Native runtime test only runs on Linux'
-      : libraryPath == null
+  final skipReason = libraryPath == null
       ? 'Native ct_ffi library not found'
       : null;
 

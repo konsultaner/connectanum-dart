@@ -15,15 +15,17 @@ import 'package:test/test.dart';
 
 void main() {
   final nativeLib = _resolveNativeLib();
-  final skipReason = nativeLib == null
-      ? 'libct_ffi.so missing; build native transport first.'
+  final skipReason = !Platform.isLinux
+      ? 'Native WAMP transport workloads currently require Linux runtime support.'
+      : nativeLib == null
+      ? 'Native transport library missing; build native transport first.'
       : null;
 
   group('live WAMP transport workloads', () {
     _WampTransportHarness? harness;
 
     setUpAll(() async {
-      if (nativeLib == null) {
+      if (skipReason != null || nativeLib == null) {
         return;
       }
       harness = await _WampTransportHarness.start(nativeLib);

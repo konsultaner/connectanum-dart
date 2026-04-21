@@ -49,17 +49,36 @@ void main() {
               }
             });
             channel.sink.add(server.port);
+
+            await channel.stream.firstWhere((event) => event == 'shutdown');
+            await server.close(force: true);
+            await channel.sink.close();
           }
         ''');
+        late final StreamSubscription<dynamic> channelSubscription;
         late int port;
-        late WebSocketTransport transportJSON;
-        late WebSocketTransport transportMsgpack;
-        late WebSocketTransport transportCbor;
+        WebSocketTransport? transportJSON;
+        WebSocketTransport? transportMsgpack;
+        WebSocketTransport? transportCbor;
         final jsonCompleter = Completer<void>();
         final msgpackCompleter = Completer<void>();
         final cborCompleter = Completer<void>();
         var channelValues = <dynamic>[];
-        channel.stream.listen((event) async {
+        addTearDown(() async {
+          if (transportJSON != null) {
+            await transportJSON!.close();
+          }
+          if (transportMsgpack != null) {
+            await transportMsgpack!.close();
+          }
+          if (transportCbor != null) {
+            await transportCbor!.close();
+          }
+          channel.sink.add('shutdown');
+          await channel.sink.close();
+          await channelSubscription.cancel();
+        });
+        channelSubscription = channel.stream.listen((event) async {
           channelValues.add(event);
           if (channelValues.length == 1) {
             port = (event as num).toInt();
@@ -75,17 +94,17 @@ void main() {
           }
           if (channelValues.length == 1) {
             print('Connect to ws://localhost:$port/wamp via json');
-            await transportJSON.open();
+            await transportJSON!.open();
           }
           if (channelValues.length == 2) {
             jsonCompleter.complete();
             print('Connect to ws://localhost:$port/wamp via msgpack');
-            await transportMsgpack.open();
+            await transportMsgpack!.open();
           }
           if (channelValues.length == 3) {
             msgpackCompleter.complete();
             print('Connect to ws://localhost:$port/wamp via cbor');
-            await transportCbor.open();
+            await transportCbor!.open();
           }
           if (channelValues.length == 4) {
             cborCompleter.complete();
@@ -94,20 +113,20 @@ void main() {
 
         print('#### JSON transport');
         await jsonCompleter.future;
-        transportJSON.send(Hello('my.realm', Details.forHello()));
-        var welcome = await transportJSON.receive().first;
+        transportJSON!.send(Hello('my.realm', Details.forHello()));
+        var welcome = await transportJSON!.receive().first;
         expect(welcome, isA<Welcome>());
 
         print('#### MSGPACK transport');
         await msgpackCompleter.future;
-        transportMsgpack.send(Hello('my.realm', Details.forHello()));
-        welcome = await transportMsgpack.receive().first;
+        transportMsgpack!.send(Hello('my.realm', Details.forHello()));
+        welcome = await transportMsgpack!.receive().first;
         expect(welcome, isA<Welcome>());
 
         print('#### CBOR transport');
         await cborCompleter.future;
-        transportCbor.send(Hello('my.realm', Details.forHello()));
-        welcome = await transportCbor.receive().first;
+        transportCbor!.send(Hello('my.realm', Details.forHello()));
+        welcome = await transportCbor!.receive().first;
         expect(welcome, isA<Welcome>());
       },
     );

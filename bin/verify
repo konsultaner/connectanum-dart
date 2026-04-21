@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/common.sh"
+
+cd_repo_root
+require_command dart
+
+dart format --output=none --set-exit-if-changed .
+"$(repo_root)/bin/test-all"

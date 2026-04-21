@@ -1,4 +1,4 @@
-//! Linux specific runtime primitives.
+//! Runtime primitives shared by the currently supported Unix hosts.
 
 use super::UnsupportedPlatform;
 
@@ -7,8 +7,8 @@ use super::UnsupportedPlatform;
 pub struct Runtime;
 
 impl Runtime {
-    /// Create a new runtime instance. On Linux this succeeds today, while other
-    /// platforms yield an [`UnsupportedPlatform`] error.
+    /// Create a new runtime instance. Supported Unix hosts succeed here, while
+    /// unsupported platforms yield an [`UnsupportedPlatform`] error.
     pub fn new() -> Result<Self, UnsupportedPlatform> {
         Ok(Self)
     }

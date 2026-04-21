@@ -504,6 +504,8 @@ abstract final class NativeLibraryLoader {
 
   static Iterable<String> get _relativeCandidates sync* {
     final name = _libraryFileName;
+    yield 'native/transport/target/debug/$name';
+    yield 'native/transport/target/release/$name';
     yield '../native/transport/target/debug/$name';
     yield '../native/transport/target/release/$name';
     yield '../../native/transport/target/debug/$name';

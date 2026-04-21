@@ -1,5 +1,12 @@
 import 'dart:io';
 
+String _nativeLibraryFileName() => switch (Platform.operatingSystem) {
+  'linux' => 'libct_ffi.so',
+  'macos' => 'libct_ffi.dylib',
+  'windows' => 'ct_ffi.dll',
+  _ => 'libct_ffi.so',
+};
+
 Directory? _findRepoRoot() {
   var dir = Directory.current.absolute;
   for (var i = 0; i < 10; i++) {
@@ -41,8 +48,8 @@ String? resolveOrBuildNativeLib({bool useFfiTest = true}) {
 
   final candidates = <String>[
     if (useFfiTest)
-      '${root.path}/native/transport/target/ffi-test/release/libct_ffi.so',
-    '${root.path}/native/transport/target/release/libct_ffi.so',
+      '${root.path}/native/transport/target/ffi-test/release/${_nativeLibraryFileName()}',
+    '${root.path}/native/transport/target/release/${_nativeLibraryFileName()}',
   ];
 
   final existing = _freshestExisting(root, candidates);

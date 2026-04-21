@@ -11,19 +11,14 @@ void main(List<String> args) async {
 
     final targetOS = input.config.code.targetOS;
     final targetArch = input.config.code.targetArchitecture;
-    if (targetOS != OS.linux) {
-      throw BuildError(
-        message:
-            'connectanum_client currently only supports Linux, but '
-            'build hooks were invoked for $targetOS/$targetArch.',
-      );
-    }
-    if (targetArch != Architecture.x64) {
-      throw BuildError(
-        message:
-            'connectanum_client currently only supports linux_x64, but '
-            'build hooks were invoked for $targetOS/$targetArch.',
-      );
+    final supportedHost =
+        (targetOS == OS.linux && targetArch == Architecture.x64) ||
+        (targetOS == OS.macOS &&
+            (targetArch == Architecture.x64 ||
+                targetArch == Architecture.arm64));
+    if (!supportedHost) {
+      // Unsupported hosts should still be able to run pure Dart/browser flows.
+      return;
     }
 
     final transportDir = _findTransportWorkspace(

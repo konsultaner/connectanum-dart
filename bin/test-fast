@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/common.sh"
+
+cd_repo_root
+dart_workspace_bootstrap
+
+run_client_fast_tests() {
+  dart test packages/connectanum_client/test/client_test.dart
+  dart test packages/connectanum_client/test/client_on_transport_io_events_test.dart
+  dart test packages/connectanum_client/test/transport/local
+  dart test packages/connectanum_client/test/transport/socket/socket_transport_test.dart
+  dart test packages/connectanum_client/test/transport/websocket/websocket_transport_io_test.dart
+  dart test packages/connectanum_client/test/transport/native/message_binding_test.dart
+
+  if ! native_runtime_supported; then
+    printf 'Native client transports are only supported on Linux; skipping native transport fast tests on %s.\n' "$(uname -s)"
+    return 0
+  fi
+
+  if ensure_rust_env; then
+    build_native_ffi_test_release
+    dart test packages/connectanum_client/test/transport/native/native_transports_test.dart
+    return 0
+  fi
+
+  printf 'Cargo not found; skipping native client transport fast tests.\n'
+}
+
+dart analyze
+dart test packages/connectanum_core/test
+run_client_fast_tests
+dart test packages/connectanum_auth_server/test
+dart test packages/connectanum_bench/test
+
+if ensure_rust_env; then
+  if native_runtime_supported; then
+    dart test packages/connectanum_router/test/native/native_runtime_test.dart --concurrency=1
+  fi
+  dart test packages/connectanum_router/test/router_worker_auth_test.dart
+  dart test packages/connectanum_router/test/router_worker_session_test.dart --chain-stack-traces
+else
+  printf 'Cargo not found; skipping native router fast tests.\n'
+fi

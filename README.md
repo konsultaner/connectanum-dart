@@ -5,23 +5,39 @@ split into a Dart workspace that keeps the client and upcoming router code
 side-by-side, and a Rust workspace that will provide the native transport
 runtime.
 
-- `packages/connectanum_dart` – Dart package containing the existing WAMP
-  client and the new router modules (work in progress).
-- `native/transport` – Rust workspace for the native networking runtime
-  (currently a skeleton).
+- `packages/connectanum_core` - shared WAMP protocol types, serializers, and
+  conformance coverage.
+- `packages/connectanum_client` - Dart client package, including native client
+  transports.
+- `packages/connectanum_router` - router implementation, examples, runner, and
+  integration tests.
+- `packages/connectanum_auth_server` - config-driven remote authentication
+  helpers and server building blocks.
+- `packages/connectanum_bench` - benchmark harnesses and scenarios.
+- `native/transport` - Rust workspace for the native transport runtime backing
+  the router and native client transports.
 
 ## Getting Started
 
-1. Install the Dart SDK locally (or run `./codex.sh`).
-2. Fetch dependencies and run tests from the Dart package:
+1. Validate the local toolchain and fetch workspace dependencies:
 
    ```bash
-   cd packages/connectanum_dart
-   dart pub get
-   dart test
+   bin/bootstrap
    ```
 
-3. Build or test the native workspace (Linux support is implemented first):
+2. Run a fast local regression pass:
+
+   ```bash
+   bin/test-fast
+   ```
+
+3. Run the full verification flow before handoff:
+
+   ```bash
+   bin/verify
+   ```
+
+4. Build or test the native workspace directly when needed:
 
    ```bash
    cd native/transport
@@ -35,8 +51,20 @@ runtime.
    build hooks will compile `ct_ffi` automatically during `dart run`/`dart test`
    as long as a Rust toolchain is available.
 
-For additional package level documentation see
-`packages/connectanum_dart/README.md`.
+The root scripts auto-detect the standard release location for `ct_ffi` and set
+`CONNECTANUM_NATIVE_LIB` when possible. If you are using a prebuilt library in a
+different location, export `CONNECTANUM_NATIVE_LIB` yourself before running
+tests or the router runner.
+
+## Codex-Friendly Workflow
+
+- `AGENTS.md` contains the durable operating rules for autonomous runs.
+- `docs/project_state.md` is the small current-state file Codex should read
+  first when resuming work.
+- `docs/exec-plans/` stores one plan per substantial task so long-running work
+  can continue without rebuilding context from scratch.
+- `ROADMAP_NEXT.md` holds milestone candidates; `ROADMAP.md` and `STRUCTURE.md`
+  are reference material rather than required startup reading.
 
 ## Router Authentication Reference
 
@@ -145,4 +173,3 @@ Key points:
   be implemented so that cancellers can wait for the callee to perform any
   required cleanup. This guarantees that subsequent processing shuts down
   gracefully instead of leaving background work dangling.
-```
