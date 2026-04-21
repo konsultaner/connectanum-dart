@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-21
 Current branch: `add-router`
-Last reviewed commit: `28830f2` (`test(ct_core): stabilize runtime tests`)
+Last reviewed commit: `2fac53b` (`chore(native): trim dead-code warnings`)
 
 ## Resume Order
 
@@ -17,17 +17,19 @@ Last reviewed commit: `28830f2` (`test(ct_core): stabilize runtime tests`)
 - The repo is a Dart workspace plus a Rust native transport workspace.
 - The canonical root entrypoints are `bin/bootstrap`, `bin/test-fast`, `bin/test-all`, and `bin/verify`.
 - Root shell helpers now auto-detect Dart from Flutter, Rust from `~/.cargo`, Chrome/Chromium, and the standard prebuilt native library path.
-- GitHub Actions CI is being aligned with the canonical root `bin/*` entrypoints under `docs/exec-plans/2026-04-21-ci-alignment.md`.
+- GitHub Actions CI now runs through the canonical root `bin/*` entrypoints on branch pushes and PRs to `master`; GitHub Actions run `24732889424` for `2fac53b` completed successfully with both `Fast Checks` and `Full Verify`.
 - The CI workflow now targets all branch pushes plus PRs to `master`, and it also exposes `workflow_dispatch` for manual runs.
 - The root router verification now runs from `packages/connectanum_router` so the package-local `dart_test.yaml` (`concurrency: 1`) applies to the full suite on every host.
 - The bench WAMP integration tests now resolve their worker helper from either the bench package root or the repo root so Linux CI and local root-script runs share the same path contract.
+- The bench now ships `native/bench/scenarios/transport_mbit_matrix_throughput.toml` as the throughput-grade counterpart to the cross-transport/auth/authz smoke matrix, preserving the same auth/authz/public/protected row shape while raising sustained-workload settings for one canonical Mbps artifact set.
 - The `ct_core` runtime test suite now keeps the rawsocket config connection alive through its assertions and recovers the shared test mutex after prior panics so Linux `cargo test -p ct_core` does not cascade `PoisonError` failures after one flaky test.
+- The native Rust workspace no longer emits the previously-tracked dead-code warning block during local verification; the cleanup landed in `2fac53b` without changing runtime behavior.
+- The `ct_ffi` HTTP/3 idle-timeout regression test now asserts directly on the emitted HTTP/3 connection event instead of waiting on a separate accepted-connection callback, which removes a full-suite race that could intermittently fail `bin/verify`.
 - Native runtime execution is now validated on both Linux and macOS; unsupported hosts still skip the native runtime slices.
 - Root verification now covers the full router package, including `publish_ack_test.dart` and `remote_auth_integration_test.dart`, while still serialising native runtime work through the router package's checked-in test config.
 - Package-local browser verification now runs from `packages/connectanum_client`, and the client/router build hooks build on Linux and macOS while still no-oping on unsupported hosts.
 - The local autonomy blockers from the 2026-04-21 audit are resolved for this macOS shell environment.
-- Codex heartbeat automations run in a stricter sandbox than the normal interactive shell here; they can reuse the local pub cache with a temporary writable `HOME`, but loopback socket binds are blocked, so socket-heavy local verification must still be confirmed in CI or an unrestricted thread.
-- This heartbeat sandbox currently cannot reach GitHub, so remote CI status must still be confirmed from an unrestricted shell, a network-capable Codex run, or GitHub itself.
+- In-app heartbeat sandboxes are more restricted than the interactive shell here; remote CI inspection and git metadata writes should still happen from unrestricted interactive runs or the external launchd worker.
 
 ## Environment Requirements
 
@@ -48,12 +50,19 @@ Last reviewed commit: `28830f2` (`test(ct_core): stabilize runtime tests`)
 - 2026-04-21: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core connection_runtime_config_exposes_rawsocket_settings -- --nocapture` passed on Darwin arm64 after keeping the test connection alive through runtime-config assertions.
 - 2026-04-21: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core runtime_starts_only_once -- --nocapture` passed on Darwin arm64 after making the shared Rust test guard recover from poisoned mutex state.
 - 2026-04-21: GitHub Actions run `24730190112` reached green `Fast Checks`, then failed in `Full Verify` because `bin/test-all` invoked `dart test packages/connectanum_router/test` from the repo root, which bypassed `packages/connectanum_router/dart_test.yaml` and let `remote_auth_integration_test.dart` collide with the process-global native runtime in Linux CI.
+- 2026-04-21: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core`, `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi`, and `bin/verify` all passed on Darwin arm64 after `2fac53b` removed the known Rust dead-code warning block from local verification output.
+- 2026-04-21: GitHub Actions run `24732889424` passed on `add-router` for commit `2fac53b`, with both `Fast Checks` and `Full Verify` green.
+- 2026-04-21: `bin/test-fast` passed again on Darwin arm64 before the transport/auth/authz throughput-matrix update.
+- 2026-04-21: `python3` `tomllib` parsing confirmed `native/bench/scenarios/transport_mbit_matrix_throughput.toml` loads cleanly with 57 uniquely named workloads.
+- 2026-04-21: `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi http3_idle_timeout_emits_connection_event -- --nocapture` passed three consecutive reruns on Darwin arm64 after removing the flaky accepted-connection dependency from the test.
+- 2026-04-21: `bin/verify` passed on Darwin arm64 after adding `native/bench/scenarios/transport_mbit_matrix_throughput.toml` and stabilizing `ct_ffi`'s HTTP/3 idle-timeout regression test.
 
 ## Active Plan
 
-- Active execution plan: `docs/exec-plans/2026-04-21-ci-alignment.md`
-- Most recent completed plan before this: `docs/exec-plans/2026-04-21-macos-remote-auth-tls.md`
-- Use `docs/exec-plans/template.md` for the next substantial cross-package/native task only when this active plan is complete.
+- No active execution plan.
+- Most recent completed plan: `docs/exec-plans/2026-04-21-transport-mbit-matrix-throughput.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-21-ci-alignment.md`
+- Use `ROADMAP_NEXT.md` to choose the next substantial cross-package/native task.
 
 ## Known Follow-Ups
 

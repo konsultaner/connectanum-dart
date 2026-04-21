@@ -330,6 +330,10 @@ ACL-on one so the same bench run can compare authorization overhead:
   representative payload sizes, ACL-off versus ACL-on realms, WebSocket
   continuation-size rows where meaningful, and HTTP/1.1/2/3 public plus
   authenticated route probes into one Mbps-oriented artifact set.
+- `transport_mbit_matrix_throughput.toml` – throughput-grade counterpart to the
+  smoke matrix that keeps the same auth/authz/public/protected row shape but
+  raises iterations, concurrency, in-flight depth, and multiplexing so one run
+  yields a more stable canonical Mbps table for CI/reporting.
 - `all_transports_smoke.toml` – quick cross-transport smoke covering RawSocket,
   WebSocket, HTTP/1.1, HTTP/2, and HTTP/3 in one run. The WAMP side now mixes
   JSON, MessagePack, and CBOR across RawSocket/WebSocket workloads so serializer

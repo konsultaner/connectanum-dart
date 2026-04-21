@@ -116,7 +116,8 @@ Focus for the next session:
     - `wamp_client_impl_throughput.toml`: RawSocket 64 KiB RPC/pubsub about `53.49/48.54 Mbps` Dart vs `98.98/128.07 Mbps` native; WebSocket 64 KiB RPC/pubsub about `52.90/47.28 Mbps` Dart vs `116.51/127.91 Mbps` native.
     - `wamp_ppt_lazy_smoke.toml`: RawSocket CBOR PPT RPC/pubsub about `1.17/1.59 Mbps` Dart vs `2.17/2.02 Mbps` native; WebSocket CBOR PPT RPC/pubsub about `1.80/2.18 Mbps` Dart vs `3.74/3.15 Mbps` native.
     - `wamp_mixed_serializer_throughput.toml`: RawSocket JSON->MessagePack RPC about `126.14/302.29 Mbps` Dart/native and MsgPack->CBOR pubsub about `75.46/95.33 Mbps`; WebSocket JSON->CBOR RPC about `180.40/426.54 Mbps` and CBOR->JSON pubsub about `41.70/116.91 Mbps`.
-  - Next: promote the new smoke matrix into a larger throughput-grade transport/auth/authz matrix (representative payload sizes, continuation sizes where meaningful, and stable ACL-on/off rows) so CI/reporting can consume one canonical Mbps table per run. After that, use the shared lazy-payload contract for the E2EE/PPT research spike.
+  - ✅ The smoke matrix is now promoted into a throughput-grade canonical scenario too: `transport_mbit_matrix_throughput.toml` preserves the comparable auth/authz/public/protected row shape, adds larger protected HTTP samples, and raises iterations/concurrency/in-flight depth/multiplexing so CI/reporting can consume one canonical Mbps table per run.
+  - Next: use the shared lazy-payload contract for the E2EE/PPT research spike.
 
 9. **Documentation & Examples**
    - Update router/auth docs to capture cancellation semantics, drain behaviour, and zero-copy guarantees.

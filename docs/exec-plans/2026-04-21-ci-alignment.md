@@ -1,6 +1,6 @@
 # Exec Plan: ci-alignment
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-04-21
 Last updated: 2026-04-21
@@ -48,9 +48,13 @@ Align GitHub Actions with the canonical root `bin/*` workflow so CI enforces the
 - 2026-04-21: After the bench-path fix, GitHub `Fast Checks` passed, but `Full Verify` still failed in Linux `cargo test -p ct_core` because `connection_runtime_config_exposes_rawsocket_settings` could drop its client connection before reading the runtime config, and the shared Rust test guard then poisoned the rest of the suite; fixed both issues in `28830f2 test(ct_core): stabilize runtime tests`.
 - 2026-04-21: GitHub run `24730190112` showed the remaining Linux failure was no longer in Rust; `remote_auth_integration_test.dart` was colliding with the process-global native runtime because `bin/test-all` invoked `dart test packages/connectanum_router/test` from the repo root, which bypassed the router package's checked-in `dart_test.yaml` (`concurrency: 1`).
 - 2026-04-21: Switched `bin/test-all` to run the router suite from `packages/connectanum_router`, which restores the package-local serial test contract on both Linux and macOS and also brings `publish_ack_test.dart` plus `remote_auth_integration_test.dart` into root verification on Darwin.
+- 2026-04-21: Cleaned up the remaining tracked Rust dead-code warnings in `2fac53b chore(native): trim dead-code warnings`; local `cargo test -p ct_core`, `cargo test -p ct_ffi`, and `bin/verify` are green again, so the only unresolved part of this plan is GitHub-side confirmation.
+- 2026-04-21: The rerun after the router-package fix (`24732311355`) completed with failure, but the current heartbeat sandbox cannot inspect remote logs or confirm whether the subsequent run for `2fac53b` (`24732889424`) has cleared the remaining CI issue.
+- 2026-04-21: Confirmed from a network-capable interactive run that GitHub Actions run `24732889424` for `2fac53b` completed successfully, with both `Fast Checks` and `Full Verify` green, so the CI-alignment goal is complete.
 
 ## Handoff
 
 - CI should exercise the same bootstrap and verification surface that local autonomous work uses.
 - If coverage reporting is still desired later, it should be reintroduced behind the root scripts instead of bypassing them.
-- The workflow patch now covers branch pushes as well as PRs to `master`, and the next step is confirming that a rerun after the `bin/test-all` router-package fix clears the Linux `remote_auth_integration_test.dart` collision in GitHub Actions.
+- The workflow patch now covers branch pushes as well as PRs to `master`, and local verification is aligned with that contract again.
+- This plan is complete. Choose the next milestone from `ROADMAP_NEXT.md`.
