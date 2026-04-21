@@ -4,6 +4,7 @@
 connectanum-dart.iml
 .packages
 .pub-cache
+.token
 pubspec.lock
 coverage
 /native/transport/target/
