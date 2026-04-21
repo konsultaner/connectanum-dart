@@ -273,6 +273,7 @@ impl StoredHttp2Handshake {
 
 pub struct StoredHttp3Handshake {
     pub metadata: Http3Metadata,
+    #[allow(dead_code)]
     handshake: Mutex<Option<Http3Handshake>>,
 }
 
@@ -294,6 +295,7 @@ impl StoredHttp3Handshake {
         }
     }
 
+    #[allow(dead_code)]
     pub fn take(&self) -> Option<Http3Handshake> {
         self.handshake.lock().unwrap().take()
     }
@@ -637,6 +639,7 @@ pub fn remove_http3_connection(id: u32) -> Option<Arc<QuinnConnection>> {
         .map(|(_, connection)| connection)
 }
 
+#[allow(dead_code)]
 pub fn with_http3_connection<F, T>(id: u32, f: F) -> Option<T>
 where
     F: FnOnce(&Arc<QuinnConnection>) -> T,

@@ -51,13 +51,6 @@ impl IoStream {
         }
     }
 
-    pub(crate) fn is_tls(&self) -> bool {
-        matches!(
-            self.inner,
-            StreamInner::TlsServer(_) | StreamInner::TlsClient(_)
-        )
-    }
-
     pub(crate) fn set_nodelay(&self, enabled: bool) -> io::Result<()> {
         match &self.inner {
             StreamInner::Tcp(stream) => stream.set_nodelay(enabled),

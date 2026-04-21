@@ -649,11 +649,6 @@ pub struct Http3BidiStream {
 }
 
 impl Http3BidiStream {
-    fn new(send: quinn::SendStream, recv: quinn::RecvStream) -> Self {
-        let id = recv.id().index();
-        Self { id, send, recv }
-    }
-
     /// Returns the QUIC stream identifier.
     pub fn id(&self) -> u64 {
         self.id
@@ -836,7 +831,7 @@ struct ConnectionEntry {
 
 enum ConnectionRecord {
     RawSocket {
-        serializer: rawsocket::Serializer,
+        _serializer: rawsocket::Serializer,
         max_exponent: u32,
         frames: Arc<Mutex<mpsc::Receiver<wamp::ParsedMessage>>>,
         reader_abort: AbortHandle,
@@ -848,7 +843,7 @@ enum ConnectionRecord {
         handshake: Mutex<Option<protocol::WebSocketHandshake>>,
     },
     WebSocket {
-        serializer: rawsocket::Serializer,
+        _serializer: rawsocket::Serializer,
         frames: Arc<Mutex<mpsc::Receiver<wamp::ParsedMessage>>>,
         reader_abort: AbortHandle,
         writer_abort: AbortHandle,
@@ -879,10 +874,6 @@ impl Http3StreamChannels {
         Self {
             streams: Mutex::new(VecDeque::new()),
         }
-    }
-
-    fn push(&self, stream: Http3BidiStream) {
-        self.streams.lock().unwrap().push_back(stream);
     }
 
     fn try_recv(&self) -> Option<Http3BidiStream> {
@@ -1219,7 +1210,7 @@ impl ListenerRegistry {
                     endpoint_config,
                     stats: None,
                     record: ConnectionRecord::RawSocket {
-                        serializer,
+                        _serializer: serializer,
                         max_exponent,
                         frames: Arc::new(Mutex::new(frame_rx)),
                         reader_abort,
@@ -1396,7 +1387,7 @@ impl ListenerRegistry {
                 endpoint_config,
                 stats: None,
                 record: ConnectionRecord::WebSocket {
-                    serializer,
+                    _serializer: serializer,
                     frames: Arc::new(Mutex::new(frame_rx)),
                     reader_abort,
                     writer_abort,
@@ -2949,18 +2940,12 @@ impl WebSocketMessageAccumulator {
     }
 }
 
+#[cfg(test)]
 async fn read_websocket_frame(
     reader: &mut IoReadHalf,
     buffer_pool: &Arc<WebSocketBufferPool>,
 ) -> Result<WebSocketFrame, WebSocketFrameError> {
     read_websocket_frame_mode(reader, buffer_pool, true).await
-}
-
-async fn read_websocket_frame_client(
-    reader: &mut IoReadHalf,
-    buffer_pool: &Arc<WebSocketBufferPool>,
-) -> Result<WebSocketFrame, WebSocketFrameError> {
-    read_websocket_frame_mode(reader, buffer_pool, false).await
 }
 
 async fn read_websocket_frame_mode(
@@ -3099,6 +3084,7 @@ fn encode_websocket_close_payload(code: Option<u16>, reason: &str) -> Bytes {
     Bytes::from(payload)
 }
 
+#[cfg(test)]
 async fn write_websocket_frame(
     writer: &mut IoWriteHalf,
     opcode: u8,
@@ -3117,6 +3103,7 @@ async fn write_websocket_frame(
     .await
 }
 
+#[cfg(test)]
 async fn write_websocket_frame_client(
     writer: &mut IoWriteHalf,
     opcode: u8,
@@ -6278,7 +6265,7 @@ mod tests {
                 endpoint_config,
                 stats: None,
                 record: ConnectionRecord::RawSocket {
-                    serializer: rawsocket::Serializer::Json,
+                    _serializer: rawsocket::Serializer::Json,
                     max_exponent: exponent,
                     frames: Arc::new(Mutex::new(frame_rx)),
                     reader_abort,

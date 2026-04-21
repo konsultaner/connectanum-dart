@@ -30,6 +30,7 @@ pub enum NegotiatedConnection {
     WebSocket(WebSocketHandshake),
     Http(HttpHandshake),
     Http2(Http2Handshake),
+    #[allow(dead_code)]
     Http3(Http3Handshake),
 }
 
@@ -193,6 +194,7 @@ pub struct Http2Handshake {
 }
 
 impl Http2Handshake {
+    #[cfg(test)]
     pub(crate) fn into_stream(mut self) -> Option<IoStream> {
         self.stream.take()
     }
