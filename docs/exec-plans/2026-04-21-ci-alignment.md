@@ -41,9 +41,11 @@ Align GitHub Actions with the canonical root `bin/*` workflow so CI enforces the
 
 - 2026-04-21: Chose to collapse CI onto the root `bin/*` entrypoints rather than preserve job-specific direct `dart test` commands, because the repo now treats those root scripts as the canonical contract for both humans and Codex.
 - 2026-04-21: The Codex heartbeat sandbox can reuse the local pub cache with a temporary writable `HOME`, but it still blocks loopback socket binds, so local `bin/test-fast` re-runs in automation can fail inside socket-heavy integration tests even when the same suite passes in an unrestricted shell or CI.
+- 2026-04-21: The CI workflow patch is already committed on `add-router` (`293edf1 update dart workflow`) and pushed to both configured remotes; the remaining validation step is observing GitHub-side workflow execution from an environment with working network/plugin transport access.
+- 2026-04-21: The workflow was still filtered to `push.branches: [master]`, which prevented branch pushes like `add-router` from starting Actions at all; widened `push` to all branches and added `workflow_dispatch` for manual fallback.
 
 ## Handoff
 
 - CI should exercise the same bootstrap and verification surface that local autonomous work uses.
 - If coverage reporting is still desired later, it should be reintroduced behind the root scripts instead of bypassing them.
-- The workflow patch is in place, but the final post-change `bin/verify` confirmation still needs a less-restricted environment than the current heartbeat sandbox.
+- The workflow patch now covers branch pushes as well as PRs to `master`, but the final post-change `bin/verify` confirmation still needs either CI itself or an unrestricted local environment.

@@ -18,6 +18,7 @@ Last reviewed commit: `d6b9c46` (`feat(auth): secure remote auth and pin WAMP co
 - The canonical root entrypoints are `bin/bootstrap`, `bin/test-fast`, `bin/test-all`, and `bin/verify`.
 - Root shell helpers now auto-detect Dart from Flutter, Rust from `~/.cargo`, Chrome/Chromium, and the standard prebuilt native library path.
 - GitHub Actions CI is being aligned with the canonical root `bin/*` entrypoints under `docs/exec-plans/2026-04-21-ci-alignment.md`.
+- The CI workflow now targets all branch pushes plus PRs to `master`, and it also exposes `workflow_dispatch` for manual runs.
 - Native runtime execution is now validated on both Linux and macOS; unsupported hosts still skip the native runtime slices.
 - On macOS, the root router verification uses explicit sequential native slices instead of the Linux package-wide sweep because the native runtime and callback bridge are process-global and unsafe under parallel package execution.
 - Package-local browser verification now runs from `packages/connectanum_client`, and the client/router build hooks build on Linux and macOS while still no-oping on unsupported hosts.
