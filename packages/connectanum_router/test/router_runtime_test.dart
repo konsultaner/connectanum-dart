@@ -5037,11 +5037,15 @@ void main() {
 
       final packedBytes = Uint8List.fromList(const [9, 8, 7, 6]);
       Uint8List? seenPackedBytes;
+      String? seenPptCipher;
+      String? seenPptKeyId;
       var decodeCount = 0;
 
       final subscription = await subscriber.subscribe('com.example.wamp.topic');
       subscription.onLazyEventPayload((event) {
         seenPackedBytes = event.packedPayloadBytes;
+        seenPptCipher = event.pptCipher;
+        seenPptKeyId = event.pptKeyId;
       });
 
       await publisher.publishLazyPayload(
@@ -5061,6 +5065,8 @@ void main() {
           acknowledge: true,
           pptScheme: 'wamp',
           pptSerializer: 'cbor',
+          pptCipher: 'xsalsa20poly1305',
+          pptKeyId: 'test-key',
         ),
       );
 
@@ -5069,6 +5075,8 @@ void main() {
         timeout: const Duration(seconds: 2),
       );
       expect(seenPackedBytes, orderedEquals(packedBytes));
+      expect(seenPptCipher, equals('xsalsa20poly1305'));
+      expect(seenPptKeyId, equals('test-key'));
       expect(decodeCount, 0);
     },
   );
@@ -5112,6 +5120,8 @@ void main() {
           options: YieldOptions(
             pptScheme: invocation.pptScheme,
             pptSerializer: invocation.pptSerializer,
+            pptCipher: invocation.pptCipher,
+            pptKeyId: invocation.pptKeyId,
           ),
         );
       });
@@ -5130,7 +5140,12 @@ void main() {
                 );
               },
             ),
-            options: CallOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
+            options: CallOptions(
+              pptScheme: 'wamp',
+              pptSerializer: 'cbor',
+              pptCipher: 'xsalsa20poly1305',
+              pptKeyId: 'test-key',
+            ),
           )
           .first;
 
@@ -5139,6 +5154,8 @@ void main() {
         result.toLazyResultPayload().packedPayloadBytes,
         orderedEquals(packedBytes),
       );
+      expect(result.details.pptCipher, equals('xsalsa20poly1305'));
+      expect(result.details.pptKeyId, equals('test-key'));
       expect(decodeCount, 0);
     },
   );

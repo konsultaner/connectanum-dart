@@ -1,6 +1,6 @@
 # Exec Plan: e2ee-research-spike
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-04-21
 Last updated: 2026-04-22
@@ -33,6 +33,7 @@ breaking current router/client forwarding behavior.
 - `packages/connectanum_core/lib/src/message/invocation.dart`
 - `packages/connectanum_core/test/message_result_test.dart`
 - `packages/connectanum_core/test/message_invocation_test.dart`
+- `packages/connectanum_core/test/message_e2ee_payload_test.dart`
 - `packages/connectanum_client/lib/src/client.dart`
 - `packages/connectanum_client/lib/src/protocol/session.dart`
 - `packages/connectanum_client/lib/src/transport/native/message_binding.dart`
@@ -82,15 +83,18 @@ breaking current router/client forwarding behavior.
   threads an optional provider through outbound publish/call/yield paths plus
   native direct-result/event/invocation materialization without regressing lazy
   wrapped-byte passthrough.
+- 2026-04-22: Completed the first Dart-side prototype with a built-in
+  `WampCborXsalsa20Poly1305Provider`, explicit missing-key / unsupported-cipher
+  / invalid-payload / decryption errors, provider-backed client tests, and
+  router runtime assertions that `ppt_cipher` / `ppt_keyid` survive internal
+  session forwarding without forcing router-side decrypts.
 
 ## Handoff
 
-- `docs/e2ee_ppt_research.md` is the startup document for this milestone.
-- The next coding session should begin by replacing the provider-backed test
-  doubles with a real CBOR + `xsalsa20poly1305` provider implementation and
-  wiring that concrete provider into the public client configuration surface.
-- Router forwarding does not need to decrypt payloads for this milestone; keep
-  preserving packed WAMP bytes unless a later requirement makes router-side
-  inspection unavoidable.
-- Do not start with transport or auth handshake changes; prove the payload-layer
-  contract first.
+- This milestone is complete. `docs/e2ee_ppt_research.md` now captures the
+  phase-1 boundary and the implementation outcome.
+- The next coding session should choose a new milestone from `ROADMAP_NEXT.md`.
+- If E2EE work resumes immediately, the remaining slices are handshake/key
+  distribution, key rotation/discovery policy, or Rust/native parity; do not
+  reopen the payload-layer contract that now has passing core/client/router
+  coverage.

@@ -7,7 +7,6 @@ import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_client/connectanum.dart';
 import 'package:connectanum_client/src/transport/native/message_binding.dart';
 import 'package:connectanum_client/src/transport/native/message_protocol.dart';
-import 'package:connectanum_core/cbor_serializer.dart' as cbor_serializer;
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 
@@ -2376,7 +2375,7 @@ void main() {
     test(
       'callSingle decodes wamp payloads on the native direct result path with a session provider',
       () async {
-        final provider = _TestWampE2eeProvider();
+        final provider = _testWampE2eeProvider();
         final details = ResultDetails(pptScheme: 'wamp', pptSerializer: 'cbor');
         final packedArguments = provider.packPayload(
           const ['wrapped-result'],
@@ -2394,6 +2393,8 @@ void main() {
                 requestId: (message as Call).requestId,
                 pptScheme: 'wamp',
                 pptSerializer: 'cbor',
+                pptCipher: details.pptCipher,
+                pptKeyId: details.pptKeyId,
                 argsBytes: Uint8List.fromList(
                   cbor.cborEncode(
                     cbor.CborValue(<Object?>[packedArguments.single]),
@@ -2618,12 +2619,7 @@ void main() {
       'publishLazyPayload uses the client E2EE provider for wamp payloads',
       () async {
         final transport = _MockTransport();
-        final provider = _TestWampE2eeProvider();
-        final expectedArguments = provider.packPayload(
-          const ['wrapped'],
-          const {'worker': 4},
-          PublishOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
-        );
+        final provider = _testWampE2eeProvider();
         final client = Client(
           realm: 'test.realm',
           transport: transport,
@@ -2637,7 +2633,14 @@ void main() {
           }
           if (message.id == MessageTypes.codePublish) {
             final publish = message as Publish;
-            expect(publish.arguments, equals(expectedArguments));
+            expect(publish.options?.pptCipher, equals('xsalsa20poly1305'));
+            expect(publish.options?.pptKeyId, equals('test-key'));
+            final decoded = provider.unpackPayload(
+              publish.arguments,
+              publish.options!,
+            );
+            expect(decoded.arguments, equals(const ['wrapped']));
+            expect(decoded.argumentsKeywords, equals(const {'worker': 4}));
             expect(publish.argumentsKeywords, isNull);
           }
         });
@@ -2789,50 +2792,11 @@ class _MockChallengeFailAuthenticator extends AbstractAuthentication {
   }
 }
 
-class _TestWampE2eeProvider implements WampE2eeProvider {
-  final cbor_serializer.Serializer _serializer = cbor_serializer.Serializer();
-
-  @override
-  List<dynamic> packPayload(
-    List<dynamic>? arguments,
-    Map<String, dynamic>? argumentsKeywords,
-    PPTOptions options,
-  ) {
-    return <dynamic>[
-      Uint8List.fromList(
-        _serializer.serializePPT(
-          PPTPayload(
-            arguments: arguments,
-            argumentsKeywords: argumentsKeywords,
-          ),
-        ),
-      ),
-    ];
-  }
-
-  @override
-  E2EEPayloadView unpackPayload(List<dynamic>? arguments, PPTOptions options) {
-    final decoded = _serializer.deserializePPT(
-      _coerceBytes(arguments?.single),
-    )!;
-    return (
-      arguments: decoded.arguments,
-      argumentsKeywords: decoded.argumentsKeywords,
-    );
-  }
-
-  Uint8List _coerceBytes(Object? value) {
-    if (value is Uint8List) {
-      return value;
-    }
-    if (value is List<int>) {
-      return Uint8List.fromList(value);
-    }
-    if (value is List) {
-      return Uint8List.fromList(value.cast<int>());
-    }
-    throw ArgumentError.value(value, 'value', 'Expected packed payload bytes');
-  }
+WampCborXsalsa20Poly1305Provider _testWampE2eeProvider() {
+  return WampCborXsalsa20Poly1305Provider.single(
+    keyId: 'test-key',
+    key: Uint8List.fromList(List<int>.generate(32, (index) => index + 1)),
+  );
 }
 
 class _MockTransport extends AbstractTransport {
@@ -2999,6 +2963,8 @@ NativeSessionMessage _nativeDirectResultMessage({
   required int requestId,
   required String pptScheme,
   required String pptSerializer,
+  String? pptCipher,
+  String? pptKeyId,
   required Uint8List argsBytes,
 }) {
   return NativeSessionMessage(
@@ -3014,6 +2980,8 @@ NativeSessionMessage _nativeDirectResultMessage({
           NativeMessageMetadata.flagMetadataBind,
       stringA: pptScheme,
       stringB: pptSerializer,
+      stringC: pptCipher,
+      stringD: pptKeyId,
     ),
     argsBytes: argsBytes,
   );

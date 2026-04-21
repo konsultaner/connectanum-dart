@@ -274,7 +274,7 @@ void main() {
     });
 
     test('respondWith packs wamp payloads with the attached E2EE provider', () {
-      final provider = _TestWampE2eeProvider();
+      final provider = _testWampE2eeProvider();
       final invocation = Invocation(1, 2, InvocationDetails(null, null, false));
       final responses = <AbstractMessageWithPayload>[];
       invocation.attachE2eeProvider(provider);
@@ -288,16 +288,14 @@ void main() {
 
       expect(responses, hasLength(1));
       final response = responses.single as Yield;
-      expect(
+      expect(response.options?.pptCipher, equals('xsalsa20poly1305'));
+      expect(response.options?.pptKeyId, equals('test-key'));
+      final decoded = provider.unpackPayload(
         response.arguments,
-        equals(
-          provider.packPayload(
-            const ['wrapped-response'],
-            const {'worker': 11},
-            YieldOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
-          ),
-        ),
+        response.options!,
       );
+      expect(decoded.arguments, equals(const ['wrapped-response']));
+      expect(decoded.argumentsKeywords, equals(const {'worker': 11}));
       expect(response.argumentsKeywords, isNull);
     });
 
@@ -394,47 +392,9 @@ void main() {
   });
 }
 
-class _TestWampE2eeProvider implements WampE2eeProvider {
-  final cbor_serializer.Serializer _serializer = cbor_serializer.Serializer();
-
-  @override
-  List<dynamic> packPayload(
-    List<dynamic>? arguments,
-    Map<String, dynamic>? argumentsKeywords,
-    PPTOptions options,
-  ) {
-    return <dynamic>[
-      Uint8List.fromList(
-        _serializer.serializePPT(
-          PPTPayload(
-            arguments: arguments,
-            argumentsKeywords: argumentsKeywords,
-          ),
-        ),
-      ),
-    ];
-  }
-
-  @override
-  E2EEPayloadView unpackPayload(List<dynamic>? arguments, PPTOptions options) {
-    final bytes = _coerceBytes(arguments?.single);
-    final decoded = _serializer.deserializePPT(bytes)!;
-    return (
-      arguments: decoded.arguments,
-      argumentsKeywords: decoded.argumentsKeywords,
-    );
-  }
-
-  Uint8List _coerceBytes(Object? value) {
-    if (value is Uint8List) {
-      return value;
-    }
-    if (value is List<int>) {
-      return Uint8List.fromList(value);
-    }
-    if (value is List) {
-      return Uint8List.fromList(value.cast<int>());
-    }
-    throw ArgumentError.value(value, 'value', 'Expected packed payload bytes');
-  }
+WampCborXsalsa20Poly1305Provider _testWampE2eeProvider() {
+  return WampCborXsalsa20Poly1305Provider.single(
+    keyId: 'test-key',
+    key: Uint8List.fromList(List<int>.generate(32, (index) => index + 1)),
+  );
 }

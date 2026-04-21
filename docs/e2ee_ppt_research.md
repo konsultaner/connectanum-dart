@@ -2,18 +2,17 @@
 
 ## Why This Exists
 
-The repo already has the right message-layer hook for end-to-end payload protection:
-`ppt_scheme = "wamp"`. What it does not have yet is an implementation. The
-current `E2EEPayload` helper is still a stub, while the surrounding lazy-payload
-and payload-passthru machinery is already in place.
-
-The next prototype should therefore answer one narrow question first: how do we
-add transport-neutral WAMP E2EE without breaking the existing lazy-payload and
-zero-copy routing contract?
+The repo already had the right message-layer hook for end-to-end payload
+protection: `ppt_scheme = "wamp"`. This note captured the boundary for the
+first implementation and now records the resulting phase-1 prototype.
 
 ## Current Repo Baseline
 
-- `packages/connectanum_core/lib/src/message/e2ee_payload.dart` is still a TODO.
+- `packages/connectanum_core/lib/src/message/e2ee_payload.dart` now ships the
+  provider abstraction, the built-in
+  `WampCborXsalsa20Poly1305Provider`, and explicit failure types for
+  missing providers, unsupported ciphers, missing keys, invalid payload shape,
+  and authentication/decryption failure.
 - `packages/connectanum_core/lib/src/message/abstract_ppt_options.dart`
   already accepts `ppt_scheme = "wamp"`, but currently only with
   `ppt_serializer = "cbor"`. The upstream draft also mentions `flatbuffers`,
@@ -25,9 +24,16 @@ zero-copy routing contract?
   already routes inbound `ppt_scheme = "wamp"` payloads through
   `E2EEPayload.unpackE2EEPayload`, and the surrounding `LazyMessagePayload`
   model can keep a packed binary payload opaque until materialization.
+- `packages/connectanum_client/lib/src/client.dart` already exposes
+  `Client.e2eeProvider`, so the concrete provider is part of the public client
+  configuration surface without another transport-specific config layer.
+- Router forwarding still treats WAMP E2EE payloads as opaque ciphertext bytes;
+  the router runtime tests now pin `ppt_cipher` / `ppt_keyid` passthrough on
+  internal-session publish/call flows.
 - The repo already depends on `pinenacl` and `pointycastle` for authentication
-  work, but there is no E2EE-specific crypto path in either the Dart stack or
-  the Rust native transport today.
+  work; phase 1 now uses `pinenacl` `SecretBox` for the Dart-side
+  `xsalsa20poly1305` prototype. There is still no Rust-native encrypt/decrypt
+  parity.
 
 ## External References
 
@@ -181,6 +187,19 @@ to empty args/kwargs. The runtime needs an explicit surface for:
 The best fit is to keep ciphertext as an opaque lazy payload until a provider
 chooses to decrypt it, rather than forcing immediate materialization.
 
+## Phase 1 Outcome
+
+- Outbound `CALL` / `PUBLISH` / `YIELD` on the Dart path now emit one packed
+  ciphertext argument and fill `ppt_serializer = "cbor"`,
+  `ppt_cipher = "xsalsa20poly1305"`, and `ppt_keyid`.
+- Inbound `RESULT` / `EVENT` / `INVOCATION` decrypt only when a provider is
+  attached; missing providers, missing keys, unsupported ciphers, malformed
+  payload shape, and authentication/decryption failures all surface explicitly.
+- Same-serializer lazy forwarding still preserves ciphertext bytes without a
+  decode/re-encrypt round trip.
+- Router internal-session forwarding still does not decrypt; it preserves the
+  opaque payload bytes and the `ppt_*` metadata that the endpoints need.
+
 ## First Prototype Test Matrix
 
 ### Core / Client
@@ -211,13 +230,11 @@ chooses to decrypt it, rather than forcing immediate materialization.
 - Rust-native encrypt/decrypt parity
 - dedicated benchmark scenarios
 
-## Recommended Next Implementation Slice
+## Possible Next Slices After Phase 1
 
-1. Add a runtime `WampE2eeProvider`-style interface plus config plumbing on the
-   client/router side.
-2. Add an explicit undecryptable-encrypted-payload surface instead of silently
-   materializing empty payloads.
-3. Implement CBOR + `xsalsa20poly1305` outbound pack and inbound unpack on the
-   Dart path.
-4. Cover `CALL/PUBLISH/RESULT/EVENT/INVOCATION` with focused tests before
-   attempting native parity or handshake extensions.
+1. Decide whether key discovery/rotation should stay out-of-band or move into a
+   session/auth handshake extension.
+2. Add Rust/native parity only after the Dart payload contract is considered
+   stable.
+3. Revisit router-assisted key distribution only if deployments need it; do not
+   collapse phase 1 back into router-side payload inspection.
