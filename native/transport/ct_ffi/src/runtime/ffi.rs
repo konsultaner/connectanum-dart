@@ -4231,6 +4231,7 @@ pub extern "C" fn ct_set_on_connection(callback: extern "C" fn(c_int, c_int)) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tests::test_guard;
     use bytes::Bytes;
     use ct_core::{parse_message_segments, WampMessage, WampPayload, WampRawFrame};
     use rmp_serde::encode::to_vec as to_msgpack;
@@ -4248,6 +4249,7 @@ mod tests {
 
     #[test]
     fn cbor_event_and_invocation_segments_preserve_payload_slices() {
+        let _guard = test_guard();
         let args = Bytes::from(serde_cbor::to_vec(&vec!["payload"]).unwrap());
         let kwargs = Bytes::from(serde_cbor::to_vec(&json!({"flag": true})).unwrap());
         let mut publish_options = BTreeMap::new();
@@ -4350,6 +4352,7 @@ mod tests {
 
     #[test]
     fn cbor_result_and_error_segments_preserve_payload_slices() {
+        let _guard = test_guard();
         let args = Bytes::from(serde_cbor::to_vec(&vec!["payload"]).unwrap());
         let kwargs = Bytes::from(serde_cbor::to_vec(&json!({"flag": true})).unwrap());
 
@@ -4417,6 +4420,7 @@ mod tests {
 
     #[test]
     fn stored_segmented_raw_frame_flattens_only_on_message_get() {
+        let _guard = test_guard();
         let value = json!([50, 77, {}, ["payload"], {"flag": true}]);
         let encoded = Bytes::from(to_msgpack(&value).unwrap());
         let split = encoded.len() / 2;
@@ -4450,6 +4454,7 @@ mod tests {
 
     #[test]
     fn stored_segmented_raw_frame_stays_lazy_on_message_peek() {
+        let _guard = test_guard();
         let value = json!([50, 77, {}, ["payload"], {"flag": true}]);
         let encoded = Bytes::from(to_msgpack(&value).unwrap());
         let split = encoded.len() / 2;
@@ -4484,6 +4489,7 @@ mod tests {
 
     #[test]
     fn router_request_messages_export_metadata_bind_info() {
+        let _guard = test_guard();
         let mut hello_details = BTreeMap::new();
         hello_details.insert(
             SerdeValue::String("authid".into()),
