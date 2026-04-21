@@ -35,16 +35,16 @@ Last reviewed commit: `d6b9c46` (`feat(auth): secure remote auth and pin WAMP co
 - 2026-04-21: `bin/bootstrap` passed in a plain non-login shell on Darwin arm64.
 - 2026-04-21: `bin/test-fast` passed in a plain non-login shell on Darwin arm64, including the native client transport fast tests and the sequential router native runtime smoke test.
 - 2026-04-21: `bin/verify` passed in a plain non-login shell on Darwin arm64, including `ct_core`/`ct_ffi` Rust tests, the `ffi-test` native release build, native client transport tests, the macOS-safe sequential router native slices, and the Chromium/Dart2Wasm browser websocket test from `packages/connectanum_client`.
+- 2026-04-21: `dart test packages/connectanum_router/test/remote_auth_integration_test.dart --concurrency=1 -r expanded` passed on Darwin arm64 after rotating the remote-auth TLS fixtures to an Apple-compatible server certificate lifetime.
 
 ## Active Plan
 
 - No active execution plan is checked in right now.
-- Most recent completed plan: `docs/exec-plans/2026-04-21-macos-native-runtime.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-21-macos-remote-auth-tls.md`
 - Use `docs/exec-plans/template.md` for the next substantial cross-package/native task.
 
 ## Known Follow-Ups
 
-- Investigate the remaining macOS TLS verification failure in `packages/connectanum_router/test/remote_auth_integration_test.dart` before adding that suite to the Darwin root verification flow.
 - Align CI workflows with the canonical root `bin/*` entrypoints.
 - Refresh stale package-level docs so they match the monorepo and root-script workflow.
 
