@@ -76,3 +76,9 @@ Future<void> main() async {
 `authenticate.authenticate`, and `authenticate.abort` on the given internal
 session, performs strict request-shape validation, and forwards the calls into
 `AuthServer`.
+
+For production deployments, pair the auth-service listener with TLS/mTLS and
+point the edge router's remote-auth `rpc.transport` at it using file-backed
+`auth_token` / service credentials. The router now rereads those files on
+subsequent remote-auth RPCs and reconnects the service session when transport
+or service-auth material changes.

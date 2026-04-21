@@ -16,6 +16,8 @@ dependencies:
     path: ../connectanum_core
   connectanum_client:
     path: ../connectanum_client
+  connectanum_auth_server:
+    path: ../connectanum_auth_server
 dev_dependencies:
   lints: ^6.0.0
   test: ^1.26.2

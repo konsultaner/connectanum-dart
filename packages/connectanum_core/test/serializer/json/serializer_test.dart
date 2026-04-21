@@ -106,10 +106,10 @@ void main() {
           jsonDecode(serializer.serializeToString(call)) as List<dynamic>;
       final options = frame[2] as Map<dynamic, dynamic>;
       expect(options['trace_id'], equals('abc'));
-      expect(options['blob'], startsWith('\\u0000'));
+      expect(options['blob'], startsWith('\u0000'));
       expect(
         (options['nested'] as Map<dynamic, dynamic>)['payload'],
-        startsWith('\\u0000'),
+        startsWith('\u0000'),
       );
     });
     test('Register', () {
@@ -772,7 +772,7 @@ void main() {
         serializer.serializeToString(
           Goodbye(GoodbyeMessage(null), Goodbye.reasonCloseRealm),
         ),
-        equals('[6,{"message":""},"wamp.error.close_realm"]'),
+        equals('[6,{},"wamp.error.close_realm"]'),
       );
       expect(
         serializer.serializeToString(
@@ -1117,7 +1117,7 @@ void main() {
       expect(result.id, equals(MessageTypes.codeResult));
       expect(result.callRequestId, equals(7814135));
       expect(result.details, isNotNull);
-      expect(result.details.progress, false);
+      expect(result.details.progress, isNull);
       expect(result.arguments, isNull);
       expect(result.argumentsKeywords, isNull);
 
@@ -1127,7 +1127,7 @@ void main() {
       expect(result.id, equals(MessageTypes.codeResult));
       expect(result.callRequestId, equals(7814135));
       expect(result.details, isNotNull);
-      expect(result.details.progress, false);
+      expect(result.details.progress, isNull);
       expect(result.arguments![0], equals(30));
       expect(result.argumentsKeywords, isNull);
 
@@ -1140,7 +1140,7 @@ void main() {
       expect(result.id, equals(MessageTypes.codeResult));
       expect(result.callRequestId, equals(6131533));
       expect(result.details, isNotNull);
-      expect(result.details.progress, false);
+      expect(result.details.progress, isNull);
       expect(result.arguments![0], equals('johnny'));
       expect(result.argumentsKeywords!['userid'], equals(123));
       expect(result.argumentsKeywords!['karma'], equals(10));
@@ -1512,13 +1512,13 @@ void main() {
       expect(
         serializer.serializeToString(event),
         equals(
-          '[36,1,2,{},[{"binary":{"content":["\\\\u0000EOP/kFMHXFJvX8BtT+N82w==","some"]}}],{"binary":"\\\\u0000EOP/kFMHXFJvX8BtT+N82w=="}]',
+          '[36,1,2,{},[{"binary":{"content":["\\u0000EOP/kFMHXFJvX8BtT+N82w==","some"]}}],{"binary":"\\u0000EOP/kFMHXFJvX8BtT+N82w=="}]',
         ),
       );
       event.transparentBinaryPayload = result.transparentBinaryPayload;
       expect(
         serializer.serializeToString(event),
-        equals('[36,1,2,{},"\\\\u0000EOP/kFMHXFJvX8BtT+N82w=="]'),
+        equals('[36,1,2,{},"\\u0000EOP/kFMHXFJvX8BtT+N82w=="]'),
       );
     });
   });

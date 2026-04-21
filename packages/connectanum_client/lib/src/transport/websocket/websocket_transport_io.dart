@@ -20,6 +20,8 @@ class WebSocketTransport extends AbstractTransport {
   final String _url;
   final AbstractSerializer _serializer;
   final String _serializerType;
+  final bool _allowInsecureCertificates;
+  final Object? _tlsSecurityContext;
 
   /// The keys of the map are the header
   /// fields and the values are either String or List of String
@@ -36,7 +38,11 @@ class WebSocketTransport extends AbstractTransport {
     this._serializer,
     this._serializerType, [
     this._headers,
-  ]) : assert(
+    bool allowInsecureCertificates = false,
+    Object? tlsSecurityContext,
+  ]) : _allowInsecureCertificates = allowInsecureCertificates,
+       _tlsSecurityContext = tlsSecurityContext,
+       assert(
          _serializerType == WebSocketSerialization.serializationJson ||
              _serializerType == WebSocketSerialization.serializationMsgpack ||
              _serializerType == WebSocketSerialization.serializationCbor,
@@ -45,31 +51,43 @@ class WebSocketTransport extends AbstractTransport {
   factory WebSocketTransport.withJsonSerializer(
     String url, [
     Map<String, dynamic>? headers,
+    bool allowInsecureCertificates = false,
+    Object? tlsSecurityContext,
   ]) => WebSocketTransport(
     url,
     serializer_json.Serializer(),
     WebSocketSerialization.serializationJson,
     headers,
+    allowInsecureCertificates,
+    tlsSecurityContext,
   );
 
   factory WebSocketTransport.withMsgpackSerializer(
     String url, [
     Map<String, dynamic>? headers,
+    bool allowInsecureCertificates = false,
+    Object? tlsSecurityContext,
   ]) => WebSocketTransport(
     url,
     serializer_msgpack.Serializer(),
     WebSocketSerialization.serializationMsgpack,
     headers,
+    allowInsecureCertificates,
+    tlsSecurityContext,
   );
 
   factory WebSocketTransport.withCborSerializer(
     String url, [
     Map<String, dynamic>? headers,
+    bool allowInsecureCertificates = false,
+    Object? tlsSecurityContext,
   ]) => WebSocketTransport(
     url,
     serializer_cbor.Serializer(),
     WebSocketSerialization.serializationCbor,
     headers,
+    allowInsecureCertificates,
+    tlsSecurityContext,
   );
 
   /// Calling close will close the underlying socket connection
@@ -113,10 +131,19 @@ class WebSocketTransport extends AbstractTransport {
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
     try {
+      final securityContext = _tlsSecurityContext as SecurityContext?;
+      final client = securityContext != null || _allowInsecureCertificates
+          ? HttpClient(context: securityContext)
+          : null;
+      if (client != null && _allowInsecureCertificates) {
+        client.badCertificateCallback =
+            (X509Certificate certificate, String host, int port) => true;
+      }
       _socket = await WebSocket.connect(
         _url,
         protocols: [_serializerType],
         headers: _headers,
+        customClient: client,
       );
       _onReady.complete();
       if (pingInterval != null) {

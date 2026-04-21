@@ -181,14 +181,13 @@ class ResultDetails extends PPTOptions with CustomFieldContainer {
   bool? progress;
 
   ResultDetails({
-    bool? progress,
+    this.progress,
     String? pptScheme,
     String? pptSerializer,
     String? pptCipher,
     String? pptKeyId,
     Map<String, dynamic>? custom,
   }) {
-    this.progress = progress ?? false;
     this.pptScheme = pptScheme;
     this.pptSerializer = pptSerializer;
     this.pptCipher = pptCipher;

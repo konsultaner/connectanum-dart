@@ -136,6 +136,7 @@ class _RouterBoss {
   Future<void>? _loopFuture;
   int _nextWorkerIndex = 0;
   int _nextWorkerId = 1;
+  int _nextPendingWorkerToken = -1;
 
   SendPort get stateCommandPort => _stateStore.commandPort;
   SendPort get bossCommandPort => _commandPort.sendPort;
@@ -238,6 +239,7 @@ class _RouterBoss {
   Future<void> _loop() async {
     while (_running) {
       var didWork = false;
+      didWork = await _ensureMinimumWorkers() || didWork;
       for (final listener in listeners) {
         didWork = await _acceptConnections(listener) || didWork;
       }
@@ -253,6 +255,22 @@ class _RouterBoss {
         pollInterval: pollInterval,
       );
     }
+  }
+
+  Future<bool> _ensureMinimumWorkers() async {
+    if (listeners.isEmpty) {
+      return false;
+    }
+    final minWorkers = settings.workerPool.minWorkers;
+    if (minWorkers <= 0) {
+      return false;
+    }
+    var didWork = false;
+    while ((_workers.length + _pendingIsolates.length) < minWorkers) {
+      await _spawnWorker(listeners.first, _allocatePendingWorkerToken());
+      didWork = true;
+    }
+    return didWork;
   }
 
   Future<bool> _acceptConnections(RouterListener listener) async {
@@ -1476,6 +1494,8 @@ class _RouterBoss {
     _pendingIsolates[connectionId] = isolate;
   }
 
+  int _allocatePendingWorkerToken() => _nextPendingWorkerToken--;
+
   void _handleEvent(dynamic message) {
     _loopPacer.requestWake();
     if (message is! Map) {
@@ -1835,9 +1855,14 @@ class _RouterBoss {
       commandPort: commandPort,
       statePort: statePort ?? _stateStore.commandPort,
       isolateHash: message['workerHash'] as int? ?? isolate.hashCode,
-    )..connections.add(connectionId);
+    );
+    if (connectionId > 0) {
+      worker.connections.add(connectionId);
+    }
     _workers.add(worker);
-    _connectionOwners[connectionId] = worker;
+    if (connectionId > 0) {
+      _connectionOwners[connectionId] = worker;
+    }
   }
 
   void _shutdownWorker(_WorkerHandle worker, {bool terminateIsolate = false}) {

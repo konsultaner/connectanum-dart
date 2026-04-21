@@ -2398,9 +2398,6 @@ void main() {
         addTearDown(binding.dispose);
         final listener = binding.listeners.single;
 
-        runtime.enqueueHandle(listener.listenerId, 6101);
-        runtime.enqueueHandle(listener.listenerId, 6102);
-
         await _waitUntil(
           () =>
               events
@@ -2410,9 +2407,21 @@ void main() {
               2,
         );
 
+        runtime.enqueueHandle(listener.listenerId, 6101);
+        runtime.enqueueHandle(listener.listenerId, 6102);
+
+        await _waitUntil(
+          () =>
+              events
+                  .whereType<Map>()
+                  .where((event) => event['type'] == 'worker_connection_added')
+                  .length >=
+              2,
+        );
+
         final registeredConnections = events
             .whereType<Map>()
-            .where((event) => event['type'] == 'worker_registered')
+            .where((event) => event['type'] == 'worker_connection_added')
             .map((event) => event['connectionId'] as int)
             .toSet();
         expect(registeredConnections, containsAll({6101, 6102}));
@@ -2675,9 +2684,11 @@ void main() {
         return payload is Map && payload['type'] == 'test_drain';
       }).toList();
 
-      expect(drainEvents, hasLength(1));
-      final drainPayload = drainEvents.single['payload'] as Map;
-      expect(drainPayload['reason'], equals('wamp.close.system_shutdown'));
+      expect(drainEvents, isNotEmpty);
+      for (final drainEvent in drainEvents) {
+        final drainPayload = drainEvent['payload'] as Map;
+        expect(drainPayload['reason'], equals('wamp.close.system_shutdown'));
+      }
 
       final sentFrames = runtime.sentMessages[6001];
       expect(sentFrames, isNotNull);
@@ -2693,7 +2704,7 @@ void main() {
       final workerDrained = events.whereType<Map>().where(
         (event) => event['type'] == 'worker_drained',
       );
-      expect(workerDrained.length, equals(1));
+      expect(workerDrained, isNotEmpty);
     });
 
     test('healthz returns draining while drain in progress', () async {

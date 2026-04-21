@@ -1255,7 +1255,7 @@ void main() {
         equals([
           MessageTypes.codeResult,
           7814135,
-          {'progress': false},
+          {},
           ['lazy'],
         ]),
       );
@@ -1277,7 +1277,7 @@ void main() {
         equals([
           MessageTypes.codeResult,
           7814135,
-          {'progress': false},
+          {},
           ['lazy'],
           {'worker': 1},
         ]),
@@ -4145,16 +4145,7 @@ void main() {
           Uint8List.fromList([
             131,
             6,
-            161,
-            103,
-            109,
-            101,
-            115,
-            115,
-            97,
-            103,
-            101,
-            96,
+            160,
             118,
             119,
             97,
@@ -6385,7 +6376,7 @@ void main() {
       expect(result.id, equals(MessageTypes.codeResult));
       expect(result.callRequestId, equals(7814135));
       expect(result.details, isNotNull);
-      expect(result.details.progress, false);
+      expect(result.details.progress, isNull);
       expect(result.arguments, isNull);
       expect(result.argumentsKeywords, isNull);
 
@@ -6411,7 +6402,7 @@ void main() {
       expect(result.id, equals(MessageTypes.codeResult));
       expect(result.callRequestId, equals(7814135));
       expect(result.details, isNotNull);
-      expect(result.details.progress, false);
+      expect(result.details.progress, isNull);
       expect(result.arguments![0], equals(30));
       expect(result.argumentsKeywords, isNull);
 
@@ -6459,7 +6450,7 @@ void main() {
       expect(result.id, equals(MessageTypes.codeResult));
       expect(result.callRequestId, equals(6131533));
       expect(result.details, isNotNull);
-      expect(result.details.progress, false);
+      expect(result.details.progress, isNull);
       expect(result.arguments![0], equals('johnny'));
       expect(result.argumentsKeywords!['userid'], equals(123));
       expect(result.argumentsKeywords!['karma'], equals(10));

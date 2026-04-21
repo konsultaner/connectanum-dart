@@ -45,6 +45,48 @@ class Serializer extends AbstractSerializer {
     'ppt_cipher',
     'ppt_keyid',
   };
+  static const Set<String> _callOptionKeys = {
+    'receive_progress',
+    'timeout',
+    'disclose_me',
+    'ppt_scheme',
+    'ppt_serializer',
+    'ppt_cipher',
+    'ppt_keyid',
+  };
+  static const Set<String> _publishOptionKeys = {
+    'acknowledge',
+    'exclude',
+    'exclude_authid',
+    'exclude_authrole',
+    'eligible',
+    'eligible_authid',
+    'eligible_authrole',
+    'exclude_me',
+    'disclose_me',
+    'retain',
+    'ppt_scheme',
+    'ppt_serializer',
+    'ppt_cipher',
+    'ppt_keyid',
+  };
+  static const Set<String> _registerOptionKeys = {
+    'disclose_caller',
+    'match',
+    'invoke',
+  };
+  static const Set<String> _subscribeOptionKeys = {
+    'match',
+    'meta_topic',
+    'get_retained',
+  };
+  static const Set<String> _yieldOptionKeys = {
+    'progress',
+    'ppt_scheme',
+    'ppt_serializer',
+    'ppt_cipher',
+    'ppt_keyid',
+  };
 
   @override
   AbstractMessage? deserialize(Uint8List? message) {
@@ -122,295 +164,97 @@ class Serializer extends AbstractSerializer {
             ),
           );
         }
+        if (messageId == MessageTypes.codeHello && decodedMessage.length == 3) {
+          return Hello(
+            (decodedMessage[1] as CborString?)?.toString(),
+            _decodeDetailsMap(
+              _cborMapToStringMap(decodedMessage[2] as CborMap),
+            ),
+          );
+        }
+        if (messageId == MessageTypes.codeAuthenticate &&
+            decodedMessage.length == 3) {
+          return Authenticate(
+              signature: (decodedMessage[1] as CborString?)?.toString(),
+            )
+            ..extra = decodedMessage[2] is CborMap
+                ? Map<String, Object?>.from(
+                    _cborMapToStringMap(decodedMessage[2] as CborMap),
+                  )
+                : <String, Object?>{};
+        }
         if (messageId == MessageTypes.codeWelcome &&
             decodedMessage.length == 3) {
-          final details = Details();
-          details.realm =
-              (((decodedMessage[2] as CborMap)[CborString('realm')] ??
-                          CborString(''))
-                      as CborString)
-                  .toString();
-          details.authid =
-              (((decodedMessage[2] as CborMap)[CborString('authid')] ??
-                          CborString(''))
-                      as CborString)
-                  .toString();
-          details.authprovider =
-              (((decodedMessage[2] as CborMap)[CborString('authprovider')] ??
-                          CborString(''))
-                      as CborString)
-                  .toString();
-          details.authmethod =
-              (((decodedMessage[2] as CborMap)[CborString('authmethod')] ??
-                          CborString(''))
-                      as CborString)
-                  .toString();
-          details.authrole =
-              (((decodedMessage[2] as CborMap)[CborString('authrole')] ??
-                          CborString(''))
-                      as CborString)
-                  .toString();
-          if ((decodedMessage[2] as CborMap)[CborString('authextra')] != null) {
-            ((decodedMessage[2] as CborMap)[CborString('authextra')] as CborMap)
-                .forEach((key, value) {
-                  details.authextra ??= <String, dynamic>{};
-                  if (value is CborString) {
-                    details.authextra![(key as CborString).toString()] = value
-                        .toString();
-                  }
-                  if (value is CborInt) {
-                    details.authextra![(key as CborString).toString()] = value
-                        .toInt();
-                  }
-                  if (value is CborFloat) {
-                    details.authextra![(key as CborString).toString()] =
-                        value.value;
-                  }
-                  if (value is CborBool) {
-                    details.authextra![(key as CborString).toString()] =
-                        value.value;
-                  }
-                  if (value is CborBase64) {
-                    details.authextra![(key as CborString).toString()] = value
-                        .toString();
-                  }
-                });
-          }
-          if ((decodedMessage[2] as CborMap)[CborString('roles')] != null) {
-            details.roles = Roles();
-            if (((decodedMessage[2] as CborMap)[CborString('roles')]
-                    as CborMap)[CborString('dealer')] !=
-                null) {
-              details.roles!.dealer = Dealer();
-              if ((((decodedMessage[2] as CborMap)[CborString('roles')]
-                          as CborMap)[CborString('dealer')]
-                      as CborMap)[CborString('features')] !=
-                  null) {
-                details.roles!.dealer!.features = DealerFeatures();
-                details.roles!.dealer!.features!.callerIdentification =
-                    ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                            as CborMap)[CborString('dealer')]
-                                        as CborMap)[CborString('features')]
-                                    as CborMap)[CborString(
-                                  'caller_identification',
-                                )] ??
-                                CborBool(false))
-                            as CborBool)
-                        .value;
-                details.roles!.dealer!.features!.callTrustLevels =
-                    ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                            as CborMap)[CborString('dealer')]
-                                        as CborMap)[CborString('features')]
-                                    as CborMap)[CborString(
-                                  'call_trustlevels',
-                                )] ??
-                                CborBool(false))
-                            as CborBool)
-                        .value;
-                details.roles!.dealer!.features!.patternBasedRegistration =
-                    ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                            as CborMap)[CborString('dealer')]
-                                        as CborMap)[CborString('features')]
-                                    as CborMap)[CborString(
-                                  'pattern_based_registration',
-                                )] ??
-                                CborBool(false))
-                            as CborBool)
-                        .value;
-                details.roles!.dealer!.features!.registrationMetaApi =
-                    ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                            as CborMap)[CborString('dealer')]
-                                        as CborMap)[CborString('features')]
-                                    as CborMap)[CborString(
-                                  'registration_meta_api',
-                                )] ??
-                                CborBool(false))
-                            as CborBool)
-                        .value;
-                details.roles!.dealer!.features!.sharedRegistration =
-                    ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                            as CborMap)[CborString('dealer')]
-                                        as CborMap)[CborString('features')]
-                                    as CborMap)[CborString(
-                                  'shared_registration',
-                                )] ??
-                                CborBool(false))
-                            as CborBool)
-                        .value;
-                details.roles!.dealer!.features!.sessionMetaApi =
-                    ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                            as CborMap)[CborString('dealer')]
-                                        as CborMap)[CborString('features')]
-                                    as CborMap)[CborString(
-                                  'session_meta_api',
-                                )] ??
-                                CborBool(false))
-                            as CborBool)
-                        .value;
-                details.roles!.dealer!.features!.callTimeout =
-                    ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                            as CborMap)[CborString('dealer')]
-                                        as CborMap)[CborString('features')]
-                                    as CborMap)[CborString('call_timeout')] ??
-                                CborBool(false))
-                            as CborBool)
-                        .value;
-                details.roles!.dealer!.features!.callCanceling =
-                    ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                            as CborMap)[CborString('dealer')]
-                                        as CborMap)[CborString('features')]
-                                    as CborMap)[CborString('call_canceling')] ??
-                                CborBool(false))
-                            as CborBool)
-                        .value;
-                details.roles!.dealer!.features!.progressiveCallResults =
-                    ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                            as CborMap)[CborString('dealer')]
-                                        as CborMap)[CborString('features')]
-                                    as CborMap)[CborString(
-                                  'progressive_call_results',
-                                )] ??
-                                CborBool(false))
-                            as CborBool)
-                        .value;
-                details.roles!.dealer!.features!.payloadPassThruMode =
-                    ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                            as CborMap)[CborString('dealer')]
-                                        as CborMap)[CborString('features')]
-                                    as CborMap)[CborString(
-                                  'payload_passthru_mode',
-                                )] ??
-                                CborBool(false))
-                            as CborBool)
-                        .value;
-              }
-            }
-            if (((decodedMessage[2] as CborMap)[CborString('roles')]
-                    as CborMap)[CborString('broker')] !=
-                null) {
-              details.roles!.broker = Broker();
-              if ((((decodedMessage[2] as CborMap)[CborString('roles')]
-                          as CborMap)[CborString('broker')]
-                      as CborMap)[CborString('features')] !=
-                  null) {
-                details.roles!.broker!.features = BrokerFeatures();
-                details.roles!.broker!.features!.publisherIdentification =
-                    ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                            as CborMap)[CborString('broker')]
-                                        as CborMap)[CborString('features')]
-                                    as CborMap)[CborString(
-                                  'publisher_identification',
-                                )] ??
-                                CborBool(false))
-                            as CborBool)
-                        .value;
-                details.roles!.broker!.features!.publicationTrustLevels =
-                    ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                            as CborMap)[CborString('broker')]
-                                        as CborMap)[CborString('features')]
-                                    as CborMap)[CborString(
-                                  'publication_trustlevels',
-                                )] ??
-                                CborBool(false))
-                            as CborBool)
-                        .value;
-                details.roles!.broker!.features!.patternBasedSubscription =
-                    ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                            as CborMap)[CborString('broker')]
-                                        as CborMap)[CborString('features')]
-                                    as CborMap)[CborString(
-                                  'pattern_based_subscription',
-                                )] ??
-                                CborBool(false))
-                            as CborBool)
-                        .value;
-                details.roles!.broker!.features!.subscriptionMetaApi =
-                    ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                            as CborMap)[CborString('broker')]
-                                        as CborMap)[CborString('features')]
-                                    as CborMap)[CborString(
-                                  'subscription_meta_api',
-                                )] ??
-                                CborBool(false))
-                            as CborBool)
-                        .value;
-                details.roles!.broker!.features!.subscriberBlackWhiteListing =
-                    ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                            as CborMap)[CborString('broker')]
-                                        as CborMap)[CborString('features')]
-                                    as CborMap)[CborString(
-                                  'subscriber_blackwhite_listing',
-                                )] ??
-                                CborBool(false))
-                            as CborBool)
-                        .value;
-                details.roles!.broker!.features!.sessionMetaApi =
-                    ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                            as CborMap)[CborString('broker')]
-                                        as CborMap)[CborString('features')]
-                                    as CborMap)[CborString(
-                                  'session_meta_api',
-                                )] ??
-                                CborBool(false))
-                            as CborBool)
-                        .value;
-                details.roles!.broker!.features!.publisherExclusion =
-                    ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                            as CborMap)[CborString('broker')]
-                                        as CborMap)[CborString('features')]
-                                    as CborMap)[CborString(
-                                  'publisher_exclusion',
-                                )] ??
-                                CborBool(false))
-                            as CborBool)
-                        .value;
-                details.roles!.broker!.features!.eventHistory =
-                    ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                            as CborMap)[CborString('broker')]
-                                        as CborMap)[CborString('features')]
-                                    as CborMap)[CborString('event_history')] ??
-                                CborBool(false))
-                            as CborBool)
-                        .value;
-                details.roles!.broker!.features!.payloadPassThruMode =
-                    ((((((decodedMessage[2] as CborMap)[CborString('roles')]
-                                            as CborMap)[CborString('broker')]
-                                        as CborMap)[CborString('features')]
-                                    as CborMap)[CborString(
-                                  'payload_passthru_mode',
-                                )] ??
-                                CborBool(false))
-                            as CborBool)
-                        .value;
-              }
-            }
-          }
-          final authMethodsValue =
-              (decodedMessage[2] as CborMap)[CborString('authmethods')];
-          if (authMethodsValue is CborList) {
-            final authMethods = authMethodsValue.toObject();
-            if (authMethods is List) {
-              details.authmethods = authMethods.cast<String>();
-            }
-          }
-          final remainingDetails = _cborMapToStringMap(
-            decodedMessage[2] as CborMap,
+          return Welcome(
+            (decodedMessage[1] as CborInt).toInt(),
+            _decodeDetailsMap(
+              _cborMapToStringMap(decodedMessage[2] as CborMap),
+            ),
           );
-          remainingDetails
-            ..remove('roles')
-            ..remove('realm')
-            ..remove('authid')
-            ..remove('authprovider')
-            ..remove('authmethod')
-            ..remove('authrole')
-            ..remove('authextra');
-          if (details.authmethods != null) {
-            remainingDetails.remove('authmethods');
-          }
-          if (remainingDetails.isNotEmpty) {
-            details.custom.addAll(remainingDetails);
-          }
-          return Welcome((decodedMessage[1] as CborInt).toInt(), details);
+        }
+        if (messageId == MessageTypes.codeRegister &&
+            decodedMessage.length == 4) {
+          return Register(
+            (decodedMessage[1] as CborInt).toInt(),
+            (decodedMessage[3] as CborString).toString(),
+            options: _decodeRegisterOptions(
+              decodedMessage[2] is CborMap
+                  ? _cborMapToStringMap(decodedMessage[2] as CborMap)
+                  : null,
+            ),
+          );
+        }
+        if (messageId == MessageTypes.codeUnregister &&
+            decodedMessage.length == 3) {
+          return Unregister(
+            (decodedMessage[1] as CborInt).toInt(),
+            (decodedMessage[2] as CborInt).toInt(),
+          );
+        }
+        if (messageId == MessageTypes.codeCall && decodedMessage.length >= 4) {
+          return _addPayload(
+            Call(
+              (decodedMessage[1] as CborInt).toInt(),
+              (decodedMessage[3] as CborString).toString(),
+              options: _decodeCallOptions(
+                decodedMessage[2] is CborMap
+                    ? _cborMapToStringMap(decodedMessage[2] as CborMap)
+                    : null,
+              ),
+            ),
+            decodedMessage,
+            4,
+          );
+        }
+        if (messageId == MessageTypes.codeYield && decodedMessage.length >= 2) {
+          return _addPayload(
+            Yield(
+              (decodedMessage[1] as CborInt).toInt(),
+              options: _decodeYieldOptions(
+                decodedMessage.length > 2 && decodedMessage[2] is CborMap
+                    ? _cborMapToStringMap(decodedMessage[2] as CborMap)
+                    : null,
+              ),
+            ),
+            decodedMessage,
+            3,
+          );
+        }
+        if (messageId == MessageTypes.codePublish &&
+            decodedMessage.length >= 4) {
+          return _addPayload(
+            Publish(
+              (decodedMessage[1] as CborInt).toInt(),
+              (decodedMessage[3] as CborString).toString(),
+              options: _decodePublishOptions(
+                decodedMessage[2] is CborMap
+                    ? _cborMapToStringMap(decodedMessage[2] as CborMap)
+                    : null,
+              ),
+            ),
+            decodedMessage,
+            4,
+          );
         }
         if (messageId == MessageTypes.codeInterrupt &&
             decodedMessage.length >= 2) {
@@ -539,6 +383,25 @@ class Serializer extends AbstractSerializer {
             (decodedMessage[2] as CborInt).toInt(),
           );
         }
+        if (messageId == MessageTypes.codeSubscribe &&
+            decodedMessage.length == 4) {
+          return Subscribe(
+            (decodedMessage[1] as CborInt).toInt(),
+            (decodedMessage[3] as CborString).toString(),
+            options: _decodeSubscribeOptions(
+              decodedMessage[2] is CborMap
+                  ? _cborMapToStringMap(decodedMessage[2] as CborMap)
+                  : null,
+            ),
+          );
+        }
+        if (messageId == MessageTypes.codeUnsubscribe &&
+            decodedMessage.length == 3) {
+          return Unsubscribe(
+            (decodedMessage[1] as CborInt).toInt(),
+            (decodedMessage[2] as CborInt).toInt(),
+          );
+        }
         if (messageId == MessageTypes.codeUnsubscribed &&
             decodedMessage.length > 1) {
           return Unsubscribed(
@@ -645,7 +508,11 @@ class Serializer extends AbstractSerializer {
     argumentsOffset,
   ) {
     if (messageData.length >= argumentsOffset + 1) {
-      if (messageData[argumentsOffset] is CborList) {
+      if (messageData[argumentsOffset] is CborBytes) {
+        message.transparentBinaryPayload = Uint8List.fromList(
+          (messageData[argumentsOffset] as CborBytes).bytes,
+        );
+      } else if (messageData[argumentsOffset] is CborList) {
         message.arguments = _cborListToDart(
           messageData[argumentsOffset] as CborList,
         );
@@ -857,95 +724,119 @@ class Serializer extends AbstractSerializer {
     );
   }
 
-  Details _decodeWelcomeDetailMap(Map<String, dynamic> detailsMap) {
+  Details _decodeDetailsMap(Map<String, dynamic> detailsMap) {
     final details = Details();
-    details.realm = detailsMap['realm'] as String? ?? '';
-    details.authid = detailsMap['authid'] as String? ?? '';
-    details.authprovider = detailsMap['authprovider'] as String? ?? '';
-    details.authmethod = detailsMap['authmethod'] as String? ?? '';
-    details.authrole = detailsMap['authrole'] as String? ?? '';
-    final authMethods = detailsMap['authmethods'];
-    if (authMethods is List) {
-      details.authmethods = authMethods.cast<String>();
-    }
-    final authExtra = _asStringDynamicMap(detailsMap['authextra']);
-    if (authExtra != null) {
-      details.authextra = authExtra;
-    }
-    final rolesMap = _asStringDynamicMap(detailsMap['roles']);
-    if (rolesMap != null) {
-      final roles = Roles();
-      final dealerMap = _asStringDynamicMap(rolesMap['dealer']);
-      if (dealerMap != null) {
-        roles.dealer = Dealer();
-        final featuresMap = _asStringDynamicMap(dealerMap['features']);
-        if (featuresMap != null) {
-          roles.dealer!.features = DealerFeatures();
-          roles.dealer!.features!.callerIdentification =
-              featuresMap['caller_identification'] as bool? ?? false;
-          roles.dealer!.features!.callTrustLevels =
-              featuresMap['call_trustlevels'] as bool? ?? false;
-          roles.dealer!.features!.patternBasedRegistration =
-              featuresMap['pattern_based_registration'] as bool? ?? false;
-          roles.dealer!.features!.registrationMetaApi =
-              featuresMap['registration_meta_api'] as bool? ?? false;
-          roles.dealer!.features!.sharedRegistration =
-              featuresMap['shared_registration'] as bool? ?? false;
-          roles.dealer!.features!.sessionMetaApi =
-              featuresMap['session_meta_api'] as bool? ?? false;
-          roles.dealer!.features!.callTimeout =
-              featuresMap['call_timeout'] as bool? ?? false;
-          roles.dealer!.features!.callCanceling =
-              featuresMap['call_canceling'] as bool? ?? false;
-          roles.dealer!.features!.progressiveCallResults =
-              featuresMap['progressive_call_results'] as bool? ?? false;
-          roles.dealer!.features!.payloadPassThruMode =
-              featuresMap['payload_passthru_mode'] as bool? ?? false;
-        }
-      }
-      final brokerMap = _asStringDynamicMap(rolesMap['broker']);
-      if (brokerMap != null) {
-        roles.broker = Broker();
-        final featuresMap = _asStringDynamicMap(brokerMap['features']);
-        if (featuresMap != null) {
-          roles.broker!.features = BrokerFeatures();
-          roles.broker!.features!.publisherIdentification =
-              featuresMap['publisher_identification'] as bool? ?? false;
-          roles.broker!.features!.publicationTrustLevels =
-              featuresMap['publication_trustlevels'] as bool? ?? false;
-          roles.broker!.features!.patternBasedSubscription =
-              featuresMap['pattern_based_subscription'] as bool? ?? false;
-          roles.broker!.features!.subscriptionMetaApi =
-              featuresMap['subscription_meta_api'] as bool? ?? false;
-          roles.broker!.features!.subscriberBlackWhiteListing =
-              featuresMap['subscriber_blackwhite_listing'] as bool? ?? false;
-          roles.broker!.features!.sessionMetaApi =
-              featuresMap['session_meta_api'] as bool? ?? false;
-          roles.broker!.features!.publisherExclusion =
-              featuresMap['publisher_exclusion'] as bool? ?? false;
-          roles.broker!.features!.eventHistory =
-              featuresMap['event_history'] as bool? ?? false;
-          roles.broker!.features!.payloadPassThruMode =
-              featuresMap['payload_passthru_mode'] as bool? ?? false;
-        }
-      }
-      if (roles.dealer != null || roles.broker != null) {
-        details.roles = roles;
-      }
-    }
-    final remainingDetails = Map<String, dynamic>.from(detailsMap);
-    remainingDetails.remove('roles');
-    remainingDetails.remove('realm');
-    remainingDetails.remove('authid');
-    remainingDetails.remove('authprovider');
-    remainingDetails.remove('authmethod');
-    remainingDetails.remove('authrole');
-    remainingDetails.remove('authextra');
-    remainingDetails.remove('authmethods');
-    if (remainingDetails.isNotEmpty) {
-      details.custom.addAll(remainingDetails);
-    }
+    details.setLazyFieldsLoader(() => Map<String, dynamic>.from(detailsMap));
     return details;
+  }
+
+  RegisterOptions? _decodeRegisterOptions(Map<String, dynamic>? optionsMap) {
+    if (optionsMap == null || optionsMap.isEmpty) {
+      return null;
+    }
+    final custom = _copyWithoutKeys(optionsMap, _registerOptionKeys);
+    return RegisterOptions(
+      discloseCaller: optionsMap['disclose_caller'] as bool?,
+      match: optionsMap['match'] as String?,
+      invoke: optionsMap['invoke'] as String?,
+      custom: custom.isEmpty ? null : custom,
+    );
+  }
+
+  CallOptions? _decodeCallOptions(Map<String, dynamic>? optionsMap) {
+    if (optionsMap == null || optionsMap.isEmpty) {
+      return null;
+    }
+    final custom = _copyWithoutKeys(optionsMap, _callOptionKeys);
+    return CallOptions(
+      receiveProgress: optionsMap['receive_progress'] as bool?,
+      timeout: _coerceNumToInt(optionsMap['timeout']),
+      discloseMe: optionsMap['disclose_me'] as bool?,
+      pptScheme: optionsMap['ppt_scheme'] as String?,
+      pptSerializer: optionsMap['ppt_serializer'] as String?,
+      pptCipher: optionsMap['ppt_cipher'] as String?,
+      pptKeyId: optionsMap['ppt_keyid'] as String?,
+      custom: custom.isEmpty ? null : custom,
+    );
+  }
+
+  YieldOptions? _decodeYieldOptions(Map<String, dynamic>? optionsMap) {
+    if (optionsMap == null || optionsMap.isEmpty) {
+      return null;
+    }
+    final custom = _copyWithoutKeys(optionsMap, _yieldOptionKeys);
+    return YieldOptions(
+      progress: optionsMap['progress'] as bool?,
+      pptScheme: optionsMap['ppt_scheme'] as String?,
+      pptSerializer: optionsMap['ppt_serializer'] as String?,
+      pptCipher: optionsMap['ppt_cipher'] as String?,
+      pptKeyId: optionsMap['ppt_keyid'] as String?,
+      custom: custom.isEmpty ? null : custom,
+    );
+  }
+
+  PublishOptions? _decodePublishOptions(Map<String, dynamic>? optionsMap) {
+    if (optionsMap == null || optionsMap.isEmpty) {
+      return null;
+    }
+    final custom = _copyWithoutKeys(optionsMap, _publishOptionKeys);
+    return PublishOptions(
+      acknowledge: optionsMap['acknowledge'] as bool?,
+      exclude: _asIntList(optionsMap['exclude']),
+      excludeAuthId: _asStringList(optionsMap['exclude_authid']),
+      excludeAuthRole: _asStringList(optionsMap['exclude_authrole']),
+      eligible: _asIntList(optionsMap['eligible']),
+      eligibleAuthId: _asStringList(optionsMap['eligible_authid']),
+      eligibleAuthRole: _asStringList(optionsMap['eligible_authrole']),
+      excludeMe: optionsMap['exclude_me'] as bool?,
+      discloseMe: optionsMap['disclose_me'] as bool?,
+      retain: optionsMap['retain'] as bool?,
+      pptScheme: optionsMap['ppt_scheme'] as String?,
+      pptSerializer: optionsMap['ppt_serializer'] as String?,
+      pptCipher: optionsMap['ppt_cipher'] as String?,
+      pptKeyId: optionsMap['ppt_keyid'] as String?,
+      custom: custom.isEmpty ? null : custom,
+    );
+  }
+
+  SubscribeOptions? _decodeSubscribeOptions(Map<String, dynamic>? optionsMap) {
+    if (optionsMap == null || optionsMap.isEmpty) {
+      return null;
+    }
+    final custom = _copyWithoutKeys(optionsMap, _subscribeOptionKeys);
+    return SubscribeOptions(
+      match: optionsMap['match'] as String?,
+      metaTopic: optionsMap['meta_topic'] as String?,
+      getRetained: optionsMap['get_retained'] as bool?,
+      custom: custom.isEmpty ? null : custom,
+    );
+  }
+
+  Map<String, dynamic> _copyWithoutKeys(
+    Map<String, dynamic> map,
+    Set<String> keys,
+  ) {
+    final custom = Map<String, dynamic>.from(map);
+    custom.removeWhere((key, _) => keys.contains(key));
+    return custom;
+  }
+
+  List<int>? _asIntList(Object? value) {
+    if (value is! List) {
+      return null;
+    }
+    return value.whereType<num>().map((entry) => entry.toInt()).toList();
+  }
+
+  List<String>? _asStringList(Object? value) {
+    if (value is! List) {
+      return null;
+    }
+    return value.map((entry) => entry.toString()).toList();
+  }
+
+  Details _decodeWelcomeDetailMap(Map<String, dynamic> detailsMap) {
+    return _decodeDetailsMap(detailsMap);
   }
 
   UnsubscribedDetails _decodeUnsubscribedDetailMap(
@@ -962,15 +853,6 @@ class Serializer extends AbstractSerializer {
     return message == null ? null : GoodbyeMessage(message);
   }
 
-  Map<String, dynamic>? _asStringDynamicMap(Object? value) {
-    if (value is Map) {
-      return value.map(
-        (key, nestedValue) => MapEntry(key.toString(), nestedValue),
-      );
-    }
-    return null;
-  }
-
   void _setLazyCborPayload(
     AbstractMessageWithPayload message,
     Uint8List bytes,
@@ -981,6 +863,14 @@ class Serializer extends AbstractSerializer {
     final hasArgumentsKeywords = ranges.length > argumentsOffset + 1;
     if (!hasArguments && !hasArgumentsKeywords) {
       return;
+    }
+    if (hasArguments && !hasArgumentsKeywords) {
+      final argumentsBytes = _sliceRange(bytes, ranges[argumentsOffset]);
+      final decodedArguments = _decodePayloadFragment(argumentsBytes);
+      if (decodedArguments is Uint8List) {
+        message.transparentBinaryPayload = decodedArguments;
+        return;
+      }
     }
     message.setLazyPayload(
       argumentsBytes: hasArguments
@@ -1367,8 +1257,8 @@ class Serializer extends AbstractSerializer {
     if (message is Goodbye) {
       var structuredMessage = [
         MessageTypes.codeGoodbye,
-        message.message != null
-            ? {'message': message.message!.message ?? ''}
+        message.message?.message != null
+            ? {'message': message.message!.message}
             : {},
         message.reason,
       ];
@@ -1554,129 +1444,167 @@ class Serializer extends AbstractSerializer {
   Map? _serializeDetails(Details details) {
     if (details.roles != null) {
       var roles = {};
-      if (details.roles!.caller != null &&
-          details.roles!.caller!.features != null) {
-        var callerFeatures = {};
-        callerFeatures.addEntries([
-          MapEntry(
-            'call_canceling',
-            details.roles!.caller!.features!.callCanceling,
-          ),
-          MapEntry(
-            'call_timeout',
-            details.roles!.caller!.features!.callTimeout,
-          ),
-          MapEntry(
-            'caller_identification',
-            details.roles!.caller!.features!.callerIdentification,
-          ),
-          MapEntry(
-            'payload_passthru_mode',
-            details.roles!.caller!.features!.payloadPassThruMode,
-          ),
-          MapEntry(
-            'progressive_call_results',
-            details.roles!.caller!.features!.progressiveCallResults,
-          ),
-        ]);
-        roles.addEntries([
-          MapEntry('caller', {'features': callerFeatures}),
-        ]);
+      if (details.roles!.caller != null) {
+        final callerFeatures = details.roles!.caller!.features;
+        if (callerFeatures != null) {
+          var callerFeaturesMap = {};
+          callerFeaturesMap.addEntries([
+            MapEntry('call_canceling', callerFeatures.callCanceling),
+            MapEntry('call_timeout', callerFeatures.callTimeout),
+            MapEntry(
+              'caller_identification',
+              callerFeatures.callerIdentification,
+            ),
+            MapEntry(
+              'payload_passthru_mode',
+              callerFeatures.payloadPassThruMode,
+            ),
+            MapEntry(
+              'progressive_call_results',
+              callerFeatures.progressiveCallResults,
+            ),
+          ]);
+          roles.addEntries([
+            MapEntry('caller', {'features': callerFeaturesMap}),
+          ]);
+        } else {
+          roles.addEntries([const MapEntry('caller', {})]);
+        }
       }
-      if (details.roles!.callee != null &&
-          details.roles!.callee!.features != null) {
-        var calleeFeatures = {};
-        calleeFeatures.addEntries([
-          MapEntry(
-            'caller_identification',
-            details.roles!.callee!.features!.callerIdentification,
-          ),
-          MapEntry(
-            'call_trustlevels',
-            details.roles!.callee!.features!.callTrustlevels,
-          ),
-          MapEntry(
-            'pattern_based_registration',
-            details.roles!.callee!.features!.patternBasedRegistration,
-          ),
-          MapEntry(
-            'shared_registration',
-            details.roles!.callee!.features!.sharedRegistration,
-          ),
-          MapEntry(
-            'call_timeout',
-            details.roles!.callee!.features!.callTimeout,
-          ),
-          MapEntry(
-            'call_canceling',
-            details.roles!.callee!.features!.callCanceling,
-          ),
-          MapEntry(
-            'progressive_call_results',
-            details.roles!.callee!.features!.progressiveCallResults,
-          ),
-          MapEntry(
-            'payload_passthru_mode',
-            details.roles!.callee!.features!.payloadPassThruMode,
-          ),
-        ]);
-        roles.addEntries([
-          MapEntry('callee', {'features': calleeFeatures}),
-        ]);
+      if (details.roles!.callee != null) {
+        final calleeFeatures = details.roles!.callee!.features;
+        if (calleeFeatures != null) {
+          var calleeFeaturesMap = {};
+          calleeFeaturesMap.addEntries([
+            MapEntry(
+              'caller_identification',
+              calleeFeatures.callerIdentification,
+            ),
+            MapEntry('call_trustlevels', calleeFeatures.callTrustlevels),
+            MapEntry(
+              'pattern_based_registration',
+              calleeFeatures.patternBasedRegistration,
+            ),
+            MapEntry('shared_registration', calleeFeatures.sharedRegistration),
+            MapEntry('call_timeout', calleeFeatures.callTimeout),
+            MapEntry('call_canceling', calleeFeatures.callCanceling),
+            MapEntry(
+              'progressive_call_results',
+              calleeFeatures.progressiveCallResults,
+            ),
+            MapEntry(
+              'payload_passthru_mode',
+              calleeFeatures.payloadPassThruMode,
+            ),
+          ]);
+          roles.addEntries([
+            MapEntry('callee', {'features': calleeFeaturesMap}),
+          ]);
+        } else {
+          roles.addEntries([const MapEntry('callee', {})]);
+        }
       }
-      if (details.roles!.subscriber != null &&
-          details.roles!.subscriber!.features != null) {
-        var subscriberFeatures = {};
-        subscriberFeatures.addEntries([
-          MapEntry(
-            'call_timeout',
-            details.roles!.subscriber!.features!.callTimeout,
-          ),
-          MapEntry(
-            'call_canceling',
-            details.roles!.subscriber!.features!.callCanceling,
-          ),
-          MapEntry(
-            'progressive_call_results',
-            details.roles!.subscriber!.features!.progressiveCallResults,
-          ),
-          MapEntry(
-            'payload_passthru_mode',
-            details.roles!.subscriber!.features!.payloadPassThruMode,
-          ),
-          MapEntry(
-            'subscription_revocation',
-            details.roles!.subscriber!.features!.subscriptionRevocation,
-          ),
-        ]);
-        roles.addEntries([
-          MapEntry('subscriber', {'features': subscriberFeatures}),
-        ]);
+      if (details.roles!.subscriber != null) {
+        final subscriberFeatures = details.roles!.subscriber!.features;
+        if (subscriberFeatures != null) {
+          var subscriberFeaturesMap = {};
+          subscriberFeaturesMap.addEntries([
+            MapEntry('call_timeout', subscriberFeatures.callTimeout),
+            MapEntry('call_canceling', subscriberFeatures.callCanceling),
+            MapEntry(
+              'progressive_call_results',
+              subscriberFeatures.progressiveCallResults,
+            ),
+            MapEntry(
+              'payload_passthru_mode',
+              subscriberFeatures.payloadPassThruMode,
+            ),
+            MapEntry(
+              'subscription_revocation',
+              subscriberFeatures.subscriptionRevocation,
+            ),
+          ]);
+          roles.addEntries([
+            MapEntry('subscriber', {'features': subscriberFeaturesMap}),
+          ]);
+        } else {
+          roles.addEntries([const MapEntry('subscriber', {})]);
+        }
       }
-      if (details.roles!.publisher != null &&
-          details.roles!.publisher!.features != null) {
-        var publisherFeatures = {};
-        publisherFeatures.addEntries([
-          MapEntry(
-            'publisher_identification',
-            details.roles!.publisher!.features!.publisherIdentification,
-          ),
-          MapEntry(
-            'subscriber_blackwhite_listing',
-            details.roles!.publisher!.features!.subscriberBlackWhiteListing,
-          ),
-          MapEntry(
-            'publisher_exclusion',
-            details.roles!.publisher!.features!.publisherExclusion,
-          ),
-          MapEntry(
-            'payload_passthru_mode',
-            details.roles!.publisher!.features!.payloadPassThruMode,
-          ),
-        ]);
-        roles.addEntries([
-          MapEntry('publisher', {'features': publisherFeatures}),
-        ]);
+      if (details.roles!.publisher != null) {
+        final publisherFeatures = details.roles!.publisher!.features;
+        if (publisherFeatures != null) {
+          var publisherFeaturesMap = {};
+          publisherFeaturesMap.addEntries([
+            MapEntry(
+              'publisher_identification',
+              publisherFeatures.publisherIdentification,
+            ),
+            MapEntry(
+              'subscriber_blackwhite_listing',
+              publisherFeatures.subscriberBlackWhiteListing,
+            ),
+            MapEntry(
+              'publisher_exclusion',
+              publisherFeatures.publisherExclusion,
+            ),
+            MapEntry(
+              'payload_passthru_mode',
+              publisherFeatures.payloadPassThruMode,
+            ),
+          ]);
+          roles.addEntries([
+            MapEntry('publisher', {'features': publisherFeaturesMap}),
+          ]);
+        } else {
+          roles.addEntries([const MapEntry('publisher', {})]);
+        }
+      }
+      if (details.roles!.broker != null) {
+        final brokerFeatures = details.roles!.broker!.features;
+        final brokerMap = <String, dynamic>{};
+        if (brokerFeatures != null) {
+          brokerMap['features'] = {
+            'publisher_identification': brokerFeatures.publisherIdentification,
+            'publication_trustlevels': brokerFeatures.publicationTrustLevels,
+            'pattern_based_subscription':
+                brokerFeatures.patternBasedSubscription,
+            'subscription_meta_api': brokerFeatures.subscriptionMetaApi,
+            'subscriber_blackwhite_listing':
+                brokerFeatures.subscriberBlackWhiteListing,
+            'session_meta_api': brokerFeatures.sessionMetaApi,
+            'publisher_exclusion': brokerFeatures.publisherExclusion,
+            'event_history': brokerFeatures.eventHistory,
+            'payload_passthru_mode': brokerFeatures.payloadPassThruMode,
+          };
+        }
+        if (details.roles!.broker!.reflection != null) {
+          brokerMap['reflection'] = details.roles!.broker!.reflection;
+        }
+        roles.addEntries([MapEntry('broker', brokerMap)]);
+      }
+      if (details.roles!.dealer != null) {
+        final dealerFeatures = details.roles!.dealer!.features;
+        final dealerMap = <String, dynamic>{};
+        if (dealerFeatures != null) {
+          dealerMap['features'] = {
+            'caller_identification': dealerFeatures.callerIdentification,
+            'call_trustlevels': dealerFeatures.callTrustLevels,
+            'pattern_based_registration':
+                dealerFeatures.patternBasedRegistration,
+            'registration_meta_api': dealerFeatures.registrationMetaApi,
+            'shared_registration': dealerFeatures.sharedRegistration,
+            'session_meta_api': dealerFeatures.sessionMetaApi,
+            'call_timeout': dealerFeatures.callTimeout,
+            'call_canceling': dealerFeatures.callCanceling,
+            'progressive_call_results': dealerFeatures.progressiveCallResults,
+            'payload_passthru_mode': dealerFeatures.payloadPassThruMode,
+          };
+        }
+        if (details.roles!.dealer!.reflection != null) {
+          dealerMap['reflection'] = details.roles!.dealer!.reflection;
+        }
+        roles.addEntries([MapEntry('dealer', dealerMap)]);
       }
       var detailsParts = <String, dynamic>{};
       detailsParts['roles'] = roles;

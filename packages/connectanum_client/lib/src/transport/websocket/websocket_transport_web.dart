@@ -26,33 +26,60 @@ class WebSocketTransport extends AbstractTransport {
   Completer? _onDisconnect;
   late Completer _onReady;
 
-  WebSocketTransport(this._url, this._serializer, this._serializerType)
-    : assert(
-        _serializerType == WebSocketSerialization.serializationJson ||
-            _serializerType == WebSocketSerialization.serializationMsgpack ||
-            _serializerType == WebSocketSerialization.serializationCbor,
-      );
+  WebSocketTransport(
+    this._url,
+    this._serializer,
+    this._serializerType, [
+    Map<String, dynamic>? additionalHeaders,
+    bool allowInsecureCertificates = false,
+    Object? tlsSecurityContext,
+  ]) : assert(
+         _serializerType == WebSocketSerialization.serializationJson ||
+             _serializerType == WebSocketSerialization.serializationMsgpack ||
+             _serializerType == WebSocketSerialization.serializationCbor,
+       );
 
-  factory WebSocketTransport.withJsonSerializer(String url) =>
-      WebSocketTransport(
-        url,
-        serializer_json.Serializer(),
-        WebSocketSerialization.serializationJson,
-      );
+  factory WebSocketTransport.withJsonSerializer(
+    String url, [
+    Map<String, dynamic>? additionalHeaders,
+    bool allowInsecureCertificates = false,
+    Object? tlsSecurityContext,
+  ]) => WebSocketTransport(
+    url,
+    serializer_json.Serializer(),
+    WebSocketSerialization.serializationJson,
+    additionalHeaders,
+    allowInsecureCertificates,
+    tlsSecurityContext,
+  );
 
-  factory WebSocketTransport.withMsgpackSerializer(String url) =>
-      WebSocketTransport(
-        url,
-        serializer_msgpack.Serializer(),
-        WebSocketSerialization.serializationMsgpack,
-      );
+  factory WebSocketTransport.withMsgpackSerializer(
+    String url, [
+    Map<String, dynamic>? additionalHeaders,
+    bool allowInsecureCertificates = false,
+    Object? tlsSecurityContext,
+  ]) => WebSocketTransport(
+    url,
+    serializer_msgpack.Serializer(),
+    WebSocketSerialization.serializationMsgpack,
+    additionalHeaders,
+    allowInsecureCertificates,
+    tlsSecurityContext,
+  );
 
-  factory WebSocketTransport.withCborSerializer(String url) =>
-      WebSocketTransport(
-        url,
-        serializer_cbor.Serializer(),
-        WebSocketSerialization.serializationCbor,
-      );
+  factory WebSocketTransport.withCborSerializer(
+    String url, [
+    Map<String, dynamic>? additionalHeaders,
+    bool allowInsecureCertificates = false,
+    Object? tlsSecurityContext,
+  ]) => WebSocketTransport(
+    url,
+    serializer_cbor.Serializer(),
+    WebSocketSerialization.serializationCbor,
+    additionalHeaders,
+    allowInsecureCertificates,
+    tlsSecurityContext,
+  );
 
   /// Calling close will close the underlying socket connection
   @override

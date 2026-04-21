@@ -32,7 +32,8 @@ use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{DigitallySignedStruct, SignatureScheme};
 use serde::Deserialize;
 use serde_json::{json, Value};
-use tokio::net::lookup_host;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::{lookup_host, TcpStream};
 use tokio::runtime::Runtime;
 use tokio::task::JoinSet;
 use tokio_rustls::TlsConnector;
@@ -334,6 +335,14 @@ fn run_bench_suite(
                 let started_at = now_millis();
                 let samples = if prepared.is_wamp() {
                     run_wamp_workload(&http_control, &prepared)
+                        .with_context(|| format!("workload \"{}\" failed", workload.name))?
+                } else if prepared.is_rawsocket_auth_frames() {
+                    runtime
+                        .block_on(run_rawsocket_auth_frame_workload(
+                            router_config_path,
+                            prepared.clone(),
+                            workload_timeout,
+                        ))
                         .with_context(|| format!("workload \"{}\" failed", workload.name))?
                 } else {
                     runtime
@@ -808,6 +817,8 @@ struct WorkloadConfig {
     auth_secret: Option<String>,
     #[serde(default)]
     auth_bearer_token: Option<String>,
+    #[serde(default)]
+    frame_case: Option<String>,
 }
 
 fn default_protocol() -> String {
@@ -1008,6 +1019,52 @@ fn parse_wamp_protocol(protocol: &str) -> Option<(BenchWampTransport, BenchWampM
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum RawSocketFrameProtocol {
+    RemoteAuth,
+}
+
+fn parse_rawsocket_frame_protocol(protocol: &str) -> Option<RawSocketFrameProtocol> {
+    match protocol.to_ascii_lowercase().as_str() {
+        "rawsocket_auth_frames" | "wamp_rawsocket_auth_frames" => {
+            Some(RawSocketFrameProtocol::RemoteAuth)
+        }
+        _ => None,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum RawSocketAuthFrameCase {
+    Success,
+    InvalidTicket,
+    MissingAuthId,
+    DisconnectAfterChallenge,
+}
+
+impl RawSocketAuthFrameCase {
+    fn parse(raw: Option<&str>) -> Result<Self> {
+        match raw
+            .map(|value| value.trim().to_ascii_lowercase())
+            .as_deref()
+            .unwrap_or("success")
+        {
+            "success" => Ok(Self::Success),
+            "invalid_ticket" | "bad_ticket" => Ok(Self::InvalidTicket),
+            "missing_authid" | "hello_missing_authid" => Ok(Self::MissingAuthId),
+            "disconnect_after_challenge" | "drop_after_challenge" => {
+                Ok(Self::DisconnectAfterChallenge)
+            }
+            other => bail!("unsupported rawsocket auth frame case {other}"),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct RawSocketEndpoint {
+    host: String,
+    port: u16,
+}
+
 #[derive(Clone)]
 struct PreparedWorkload {
     name: String,
@@ -1036,6 +1093,7 @@ struct PreparedWorkload {
     auth_id: String,
     auth_secret: String,
     auth_bearer_token: Option<String>,
+    frame_case: Option<String>,
 }
 
 impl PreparedWorkload {
@@ -1076,7 +1134,8 @@ impl PreparedWorkload {
             bail!("HTTP/1.1 does not support streams_per_connection > 1");
         }
         let is_wamp = parse_wamp_protocol(&config.protocol).is_some();
-        let path = if is_wamp {
+        let is_rawsocket_frame = parse_rawsocket_frame_protocol(&config.protocol).is_some();
+        let path = if is_wamp || is_rawsocket_frame {
             config.path.clone()
         } else if config.path.starts_with('/') {
             config.path.clone()
@@ -1089,7 +1148,7 @@ impl PreparedWorkload {
             "n/a".to_string()
         };
         let auth_flow = parse_http_auth_flow(config.auth_flow.as_deref())?;
-        if auth_flow.is_some() && is_wamp {
+        if auth_flow.is_some() && (is_wamp || is_rawsocket_frame) {
             bail!("HTTP auth workloads are not valid for WAMP protocols");
         }
         let auth_path = config
@@ -1097,36 +1156,50 @@ impl PreparedWorkload {
             .clone()
             .unwrap_or_else(|| "/bench/auth".to_string());
         let auth_realm = config.auth_realm.clone().unwrap_or_else(|| {
-            if is_wamp {
+            if is_rawsocket_frame {
+                "bench.remote_auth".to_string()
+            } else if is_wamp {
                 "bench.control".to_string()
             } else {
                 "bench.secure".to_string()
             }
         });
         let auth_method = config.auth_method.clone().unwrap_or_else(|| {
-            if is_wamp {
+            if is_rawsocket_frame {
+                "ticket".to_string()
+            } else if is_wamp {
                 "anonymous".to_string()
             } else {
                 "ticket".to_string()
             }
         });
         let auth_id = config.auth_id.clone().unwrap_or_else(|| {
-            if is_wamp && auth_method.eq_ignore_ascii_case("anonymous") {
+            if is_rawsocket_frame {
+                "ticket-user".to_string()
+            } else if is_wamp && auth_method.eq_ignore_ascii_case("anonymous") {
                 "".to_string()
             } else {
                 "bench-user".to_string()
             }
         });
         let auth_secret = config.auth_secret.clone().unwrap_or_else(|| {
-            if is_wamp && auth_method.eq_ignore_ascii_case("anonymous") {
+            if is_rawsocket_frame {
+                "ticket-secret".to_string()
+            } else if is_wamp && auth_method.eq_ignore_ascii_case("anonymous") {
                 "".to_string()
             } else {
                 "bench-ticket".to_string()
             }
         });
         let auth_bearer_token = config.auth_bearer_token.clone();
+        if is_rawsocket_frame && !config.serializer.eq_ignore_ascii_case("json") {
+            bail!("rawsocket auth frame workloads currently support json only");
+        }
         if auth_flow.is_some() && auth_method != "ticket" && auth_bearer_token.is_none() {
             bail!("HTTP auth bench currently supports ticket only");
+        }
+        if is_rawsocket_frame {
+            RawSocketAuthFrameCase::parse(config.frame_case.as_deref())?;
         }
         Ok(Self {
             name: config.name.clone(),
@@ -1157,11 +1230,19 @@ impl PreparedWorkload {
             auth_id,
             auth_secret,
             auth_bearer_token,
+            frame_case: config.frame_case.clone(),
         })
     }
 
     fn is_wamp(&self) -> bool {
         parse_wamp_protocol(&self.protocol).is_some()
+    }
+
+    fn is_rawsocket_auth_frames(&self) -> bool {
+        matches!(
+            parse_rawsocket_frame_protocol(&self.protocol),
+            Some(RawSocketFrameProtocol::RemoteAuth)
+        )
     }
 }
 
@@ -1394,6 +1475,299 @@ fn run_wamp_workload(
     let samples: Vec<WorkloadSample> =
         serde_json::from_value(samples_value).context("failed to decode WAMP workload samples")?;
     Ok(samples)
+}
+
+async fn run_rawsocket_auth_frame_workload(
+    router_config_path: &str,
+    workload: PreparedWorkload,
+    timeout: Duration,
+) -> Result<Vec<WorkloadSample>> {
+    let endpoint = infer_rawsocket_endpoint(router_config_path)?;
+    let case = RawSocketAuthFrameCase::parse(workload.frame_case.as_deref())?;
+    let mut join_set = JoinSet::new();
+    for worker_id in 0..workload.concurrency {
+        let endpoint_clone = endpoint.clone();
+        let workload_clone = workload.clone();
+        join_set.spawn(async move {
+            run_rawsocket_auth_frame_worker(endpoint_clone, workload_clone, worker_id, case).await
+        });
+    }
+    let label = format!("{} [RawSocket auth frames]", workload.name.as_str());
+    collect_worker_samples(join_set, timeout, &label).await
+}
+
+async fn run_rawsocket_auth_frame_worker(
+    endpoint: RawSocketEndpoint,
+    workload: PreparedWorkload,
+    worker_id: u32,
+    case: RawSocketAuthFrameCase,
+) -> Result<Vec<WorkloadSample>> {
+    let mut samples = Vec::with_capacity(workload.iterations as usize);
+    for iteration in 0..workload.iterations {
+        samples.push(
+            run_rawsocket_auth_frame_iteration(&endpoint, &workload, case, worker_id, iteration)
+                .await?,
+        );
+    }
+    Ok(samples)
+}
+
+async fn run_rawsocket_auth_frame_iteration(
+    endpoint: &RawSocketEndpoint,
+    workload: &PreparedWorkload,
+    case: RawSocketAuthFrameCase,
+    worker_id: u32,
+    iteration: u32,
+) -> Result<WorkloadSample> {
+    let start = Instant::now();
+    let mut request_bytes = 0u64;
+    let mut response_bytes = 0u64;
+    let mut stream = TcpStream::connect((&endpoint.host[..], endpoint.port))
+        .await
+        .with_context(|| format!("failed to connect to {}:{}", endpoint.host, endpoint.port))?;
+
+    rawsocket_handshake(&mut stream).await?;
+
+    let hello = build_hello_payload(workload, case)?;
+    request_bytes += hello.len() as u64;
+    write_rawsocket_message(&mut stream, &hello).await?;
+
+    let challenge = read_rawsocket_message(&mut stream).await?;
+    response_bytes += challenge.len() as u64;
+    let challenge_message = parse_json_message(&challenge)?;
+    let challenge_type = message_type(&challenge_message)?;
+    match case {
+        RawSocketAuthFrameCase::Success => {
+            if challenge_type != 4 {
+                bail!("CHALLENGE frame had unexpected code {challenge_type}");
+            }
+        }
+        RawSocketAuthFrameCase::DisconnectAfterChallenge => {
+            if challenge_type == 3 {
+                return Ok(WorkloadSample {
+                    worker: worker_id,
+                    iteration,
+                    latency_ms: start.elapsed().as_secs_f64() * 1000.0,
+                    request_bytes,
+                    response_bytes,
+                });
+            }
+            if challenge_type != 4 {
+                bail!("CHALLENGE frame had unexpected code {challenge_type}");
+            }
+        }
+        RawSocketAuthFrameCase::InvalidTicket | RawSocketAuthFrameCase::MissingAuthId => {
+            if challenge_type == 3 {
+                return Ok(WorkloadSample {
+                    worker: worker_id,
+                    iteration,
+                    latency_ms: start.elapsed().as_secs_f64() * 1000.0,
+                    request_bytes,
+                    response_bytes,
+                });
+            }
+            if challenge_type != 4 {
+                bail!("CHALLENGE frame had unexpected code {challenge_type}");
+            }
+        }
+    }
+
+    if case == RawSocketAuthFrameCase::DisconnectAfterChallenge {
+        stream.shutdown().await?;
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        return Ok(WorkloadSample {
+            worker: worker_id,
+            iteration,
+            latency_ms: start.elapsed().as_secs_f64() * 1000.0,
+            request_bytes,
+            response_bytes,
+        });
+    }
+
+    let authenticate = build_authenticate_payload(workload, case)?;
+    request_bytes += authenticate.len() as u64;
+    write_rawsocket_message(&mut stream, &authenticate).await?;
+
+    let final_message = read_rawsocket_message(&mut stream).await?;
+    response_bytes += final_message.len() as u64;
+    let decoded_final = parse_json_message(&final_message)?;
+    match case {
+        RawSocketAuthFrameCase::Success => {
+            ensure_message_type(&decoded_final, 2, "WELCOME")?;
+        }
+        RawSocketAuthFrameCase::InvalidTicket | RawSocketAuthFrameCase::MissingAuthId => {
+            ensure_message_type(&decoded_final, 3, "ABORT")?;
+        }
+        RawSocketAuthFrameCase::DisconnectAfterChallenge => {}
+    }
+
+    Ok(WorkloadSample {
+        worker: worker_id,
+        iteration,
+        latency_ms: start.elapsed().as_secs_f64() * 1000.0,
+        request_bytes,
+        response_bytes,
+    })
+}
+
+fn infer_rawsocket_endpoint(router_config_path: &str) -> Result<RawSocketEndpoint> {
+    let contents = std::fs::read_to_string(router_config_path)
+        .with_context(|| format!("failed to read router config {router_config_path}"))?;
+    let value: Value = serde_json::from_str(&contents)
+        .with_context(|| format!("failed to parse router config {router_config_path}"))?;
+    let listeners = value
+        .get("router")
+        .and_then(|node| node.get("listeners"))
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow!("router config missing listeners array"))?;
+    for listener in listeners {
+        let protocols = listener
+            .get("protocols")
+            .and_then(Value::as_array)
+            .ok_or_else(|| anyhow!("listener missing protocols array"))?;
+        let has_rawsocket = protocols.iter().any(|value| {
+            value
+                .as_str()
+                .map(|protocol| protocol.eq_ignore_ascii_case("rawsocket"))
+                .unwrap_or(false)
+        });
+        if !has_rawsocket {
+            continue;
+        }
+        let endpoint = listener
+            .get("endpoint")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow!("rawsocket listener missing endpoint"))?;
+        let socket_addr: SocketAddr = endpoint
+            .parse()
+            .with_context(|| format!("invalid rawsocket listener endpoint {endpoint}"))?;
+        let host = match socket_addr.ip() {
+            IpAddr::V4(ip) if ip == Ipv4Addr::UNSPECIFIED => "127.0.0.1".to_string(),
+            IpAddr::V6(ip) if ip.is_unspecified() => "::1".to_string(),
+            other => other.to_string(),
+        };
+        return Ok(RawSocketEndpoint {
+            host,
+            port: socket_addr.port(),
+        });
+    }
+    bail!("router config does not define a rawsocket listener")
+}
+
+async fn rawsocket_handshake(stream: &mut TcpStream) -> Result<()> {
+    let request = [0x7F, ((18u8 - 9) << 4) | 0x01, 0, 0];
+    stream
+        .write_all(&request)
+        .await
+        .context("failed to send rawsocket handshake")?;
+    let mut response = [0u8; 4];
+    stream
+        .read_exact(&mut response)
+        .await
+        .context("failed to read rawsocket handshake response")?;
+    if response[0] != 0x7F || response[2] != 0 || response[3] != 0 {
+        bail!("invalid rawsocket handshake response");
+    }
+    if (response[1] & 0x0F) != 0x01 {
+        bail!("rawsocket handshake negotiated unexpected serializer");
+    }
+    Ok(())
+}
+
+async fn write_rawsocket_message(stream: &mut TcpStream, payload: &[u8]) -> Result<()> {
+    if payload.len() > 0x00FF_FFFF {
+        bail!("rawsocket payload too large");
+    }
+    let header = [
+        0u8,
+        ((payload.len() >> 16) & 0xFF) as u8,
+        ((payload.len() >> 8) & 0xFF) as u8,
+        (payload.len() & 0xFF) as u8,
+    ];
+    stream
+        .write_all(&header)
+        .await
+        .context("failed to send rawsocket frame header")?;
+    stream
+        .write_all(payload)
+        .await
+        .context("failed to send rawsocket frame payload")?;
+    Ok(())
+}
+
+async fn read_rawsocket_message(stream: &mut TcpStream) -> Result<Vec<u8>> {
+    let mut header = [0u8; 4];
+    stream
+        .read_exact(&mut header)
+        .await
+        .context("failed to read rawsocket frame header")?;
+    if header[0] != 0 {
+        bail!("unexpected rawsocket frame type {}", header[0]);
+    }
+    let payload_len =
+        ((header[1] as usize) << 16) | ((header[2] as usize) << 8) | header[3] as usize;
+    let mut payload = vec![0u8; payload_len];
+    stream
+        .read_exact(&mut payload)
+        .await
+        .context("failed to read rawsocket frame payload")?;
+    Ok(payload)
+}
+
+fn build_hello_payload(workload: &PreparedWorkload, case: RawSocketAuthFrameCase) -> Result<Vec<u8>> {
+    let mut details = serde_json::Map::new();
+    details.insert(
+        "roles".to_string(),
+        json!({
+            "caller": {},
+            "subscriber": {},
+            "publisher": {},
+        }),
+    );
+    details.insert(
+        "authmethods".to_string(),
+        Value::Array(vec![Value::String(workload.auth_method.clone())]),
+    );
+    if case != RawSocketAuthFrameCase::MissingAuthId && !workload.auth_id.is_empty() {
+        details.insert("authid".to_string(), Value::String(workload.auth_id.clone()));
+    }
+    serde_json::to_vec(&json!([1, workload.auth_realm, Value::Object(details)]))
+        .context("failed to serialize HELLO payload")
+}
+
+fn build_authenticate_payload(
+    workload: &PreparedWorkload,
+    case: RawSocketAuthFrameCase,
+) -> Result<Vec<u8>> {
+    let signature = match case {
+        RawSocketAuthFrameCase::InvalidTicket => "invalid-ticket".to_string(),
+        _ => workload.auth_secret.clone(),
+    };
+    serde_json::to_vec(&json!([5, signature, {}]))
+        .context("failed to serialize AUTHENTICATE payload")
+}
+
+fn parse_json_message(payload: &[u8]) -> Result<Vec<Value>> {
+    let value: Value = serde_json::from_slice(payload).context("failed to decode JSON WAMP frame")?;
+    value
+        .as_array()
+        .cloned()
+        .ok_or_else(|| anyhow!("expected JSON array WAMP frame"))
+}
+
+fn ensure_message_type(message: &[Value], expected: u64, label: &str) -> Result<()> {
+    let actual = message_type(message)?;
+    if actual != expected {
+        bail!("{label} frame had unexpected code {actual}");
+    }
+    Ok(())
+}
+
+fn message_type(message: &[Value]) -> Result<u64> {
+    message
+        .first()
+        .and_then(Value::as_u64)
+        .ok_or_else(|| anyhow!("WAMP frame missing message code"))
 }
 
 async fn execute_workload(
@@ -3685,6 +4059,7 @@ mod tests {
             auth_id: None,
             auth_secret: None,
             auth_bearer_token: None,
+            frame_case: None,
         };
         let prepared = PreparedWorkload::from_config(&config).unwrap();
         assert!(prepared.reuse_connections);
@@ -3722,6 +4097,7 @@ mod tests {
             auth_id: None,
             auth_secret: None,
             auth_bearer_token: None,
+            frame_case: None,
         };
 
         let error = PreparedWorkload::from_config(&config).err().unwrap();
@@ -3772,6 +4148,19 @@ mod tests {
     }
 
     #[test]
+    fn parse_rawsocket_frame_protocol_supports_auth_frame_labels() {
+        assert_eq!(
+            parse_rawsocket_frame_protocol("rawsocket_auth_frames"),
+            Some(RawSocketFrameProtocol::RemoteAuth)
+        );
+        assert_eq!(
+            parse_rawsocket_frame_protocol("wamp_rawsocket_auth_frames"),
+            Some(RawSocketFrameProtocol::RemoteAuth)
+        );
+        assert_eq!(parse_rawsocket_frame_protocol("wamp_rawsocket_auth"), None);
+    }
+
+    #[test]
     fn prepared_workload_defaults_wamp_auth_to_anonymous_control_realm() {
         let config = WorkloadConfig {
             name: "load".to_string(),
@@ -3801,6 +4190,7 @@ mod tests {
             auth_id: None,
             auth_secret: None,
             auth_bearer_token: None,
+            frame_case: None,
         };
 
         let prepared = PreparedWorkload::from_config(&config).unwrap();
@@ -3809,6 +4199,48 @@ mod tests {
         assert_eq!(prepared.auth_method, "anonymous");
         assert!(prepared.auth_id.is_empty());
         assert!(prepared.auth_secret.is_empty());
+    }
+
+    #[test]
+    fn prepared_workload_defaults_rawsocket_auth_frames_to_remote_auth_ticket() {
+        let config = WorkloadConfig {
+            name: "remote_auth".to_string(),
+            protocol: "wamp_rawsocket_auth_frames".to_string(),
+            client_impl: default_wamp_client_impl(),
+            serializer: default_wamp_serializer(),
+            method: default_method(),
+            path: default_path(),
+            iterations: default_iterations(),
+            concurrency: default_concurrency(),
+            in_flight_per_session: default_in_flight_per_session(),
+            peer_count: default_peer_count(),
+            request_bytes: 0,
+            websocket_fragment_size: None,
+            ppt_scheme: None,
+            ppt_serializer: None,
+            response_bytes: 0,
+            request_chunk_bytes: default_chunk_bytes(),
+            response_chunk_bytes: None,
+            warmup_ms: None,
+            reuse_connections: default_reuse_connections(),
+            streams_per_connection: default_streams_per_connection(),
+            auth_flow: None,
+            auth_path: None,
+            auth_realm: None,
+            auth_method: None,
+            auth_id: None,
+            auth_secret: None,
+            auth_bearer_token: None,
+            frame_case: None,
+        };
+
+        let prepared = PreparedWorkload::from_config(&config).unwrap();
+
+        assert!(prepared.is_rawsocket_auth_frames());
+        assert_eq!(prepared.auth_realm, "bench.remote_auth");
+        assert_eq!(prepared.auth_method, "ticket");
+        assert_eq!(prepared.auth_id, "ticket-user");
+        assert_eq!(prepared.auth_secret, "ticket-secret");
     }
 
     #[test]
@@ -3841,6 +4273,7 @@ mod tests {
             auth_id: None,
             auth_secret: None,
             auth_bearer_token: None,
+            frame_case: None,
         };
         let prepared = PreparedWorkload::from_config(&config).unwrap();
         assert!(prepared.is_wamp());
@@ -3878,6 +4311,7 @@ mod tests {
             auth_id: None,
             auth_secret: None,
             auth_bearer_token: None,
+            frame_case: None,
         };
         let prepared = PreparedWorkload::from_config(&config).unwrap();
         assert_eq!(prepared.serializer, "msgpack");
@@ -3913,6 +4347,7 @@ mod tests {
             auth_id: None,
             auth_secret: None,
             auth_bearer_token: None,
+            frame_case: None,
         };
         let prepared = PreparedWorkload::from_config(&config).unwrap();
         assert_eq!(prepared.in_flight_per_session, 4);
@@ -3948,6 +4383,7 @@ mod tests {
             auth_id: None,
             auth_secret: None,
             auth_bearer_token: None,
+            frame_case: None,
         };
         let prepared = PreparedWorkload::from_config(&config).unwrap();
         assert_eq!(prepared.peer_count, 8);
@@ -3983,6 +4419,7 @@ mod tests {
             auth_id: None,
             auth_secret: None,
             auth_bearer_token: None,
+            frame_case: None,
         };
         let error = PreparedWorkload::from_config(&config).err().unwrap();
         assert!(error
@@ -4020,6 +4457,7 @@ mod tests {
             auth_id: None,
             auth_secret: None,
             auth_bearer_token: None,
+            frame_case: None,
         };
         let error = PreparedWorkload::from_config(&config).err().unwrap();
         assert!(error
@@ -4057,6 +4495,7 @@ mod tests {
             auth_id: None,
             auth_secret: None,
             auth_bearer_token: None,
+            frame_case: None,
         };
         let error = PreparedWorkload::from_config(&config).err().unwrap();
         assert!(error
@@ -4095,6 +4534,7 @@ mod tests {
             auth_id: "bench-user".to_string(),
             auth_secret: "bench-ticket".to_string(),
             auth_bearer_token: None,
+            frame_case: None,
         };
         let request = build_http_request(&endpoint, &workload, Body::empty(), 0, false).unwrap();
         assert_eq!(request.uri().path(), "/bench/stream");
@@ -4135,6 +4575,7 @@ mod tests {
             auth_id: None,
             auth_secret: None,
             auth_bearer_token: Some("static-bearer".to_string()),
+            frame_case: None,
         };
 
         let prepared = PreparedWorkload::from_config(&config).unwrap();
@@ -4550,6 +4991,97 @@ mod tests {
         )
     }
 
+    fn sample_rawsocket_auth_frame_workload(case: &str) -> PreparedWorkload {
+        PreparedWorkload {
+            name: "rawsocket_auth_frame_test".to_string(),
+            protocol: "wamp_rawsocket_auth_frames".to_string(),
+            client_impl: "n/a".to_string(),
+            serializer: "json".to_string(),
+            method: HyperMethod::POST,
+            path: default_path(),
+            iterations: 1,
+            concurrency: 1,
+            in_flight_per_session: 1,
+            peer_count: 1,
+            request_bytes: 0,
+            websocket_fragment_size: None,
+            ppt_scheme: None,
+            ppt_serializer: None,
+            response_bytes: 0,
+            request_chunk_bytes: 1024,
+            response_chunk_bytes: 1024,
+            reuse_connections: true,
+            streams_per_connection: 1,
+            auth_flow: None,
+            auth_path: "/bench/auth".to_string(),
+            auth_realm: "bench.remote_auth".to_string(),
+            auth_method: "ticket".to_string(),
+            auth_id: "ticket-user".to_string(),
+            auth_secret: "ticket-secret".to_string(),
+            auth_bearer_token: None,
+            frame_case: Some(case.to_string()),
+        }
+    }
+
+    #[tokio::test]
+    async fn rawsocket_auth_frame_iteration_completes_success_flow() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .unwrap();
+        let endpoint = RawSocketEndpoint {
+            host: "127.0.0.1".to_string(),
+            port: listener.local_addr().unwrap().port(),
+        };
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut handshake = [0u8; 4];
+            socket.read_exact(&mut handshake).await.unwrap();
+            assert_eq!(handshake, [0x7F, ((18u8 - 9) << 4) | 0x01, 0, 0]);
+            socket.write_all(&handshake).await.unwrap();
+
+            let hello = read_rawsocket_message(&mut socket).await.unwrap();
+            let hello_message = parse_json_message(&hello).unwrap();
+            assert_eq!(hello_message[0].as_u64(), Some(1));
+            assert_eq!(hello_message[1].as_str(), Some("bench.remote_auth"));
+
+            let challenge = serde_json::to_vec(&json!([4, "ticket", {}])).unwrap();
+            write_rawsocket_message(&mut socket, &challenge).await.unwrap();
+
+            let authenticate = read_rawsocket_message(&mut socket).await.unwrap();
+            let authenticate_message = parse_json_message(&authenticate).unwrap();
+            assert_eq!(authenticate_message[0].as_u64(), Some(5));
+            assert_eq!(authenticate_message[1].as_str(), Some("ticket-secret"));
+
+            let welcome = serde_json::to_vec(&json!([
+                2,
+                123,
+                {
+                    "realm": "bench.remote_auth",
+                    "authid": "ticket-user",
+                    "authrole": "member",
+                    "authmethod": "ticket",
+                    "authprovider": "bench-remote-auth-server"
+                }
+            ]))
+            .unwrap();
+            write_rawsocket_message(&mut socket, &welcome).await.unwrap();
+        });
+
+        let sample = run_rawsocket_auth_frame_iteration(
+            &endpoint,
+            &sample_rawsocket_auth_frame_workload("success"),
+            RawSocketAuthFrameCase::Success,
+            0,
+            0,
+        )
+        .await
+        .unwrap();
+
+        assert!(sample.request_bytes > 0);
+        assert!(sample.response_bytes > 0);
+        server.await.unwrap();
+    }
+
     fn sample_h1_workload(reuse_connections: bool) -> PreparedWorkload {
         PreparedWorkload {
             name: "h1_test".to_string(),
@@ -4578,6 +5110,7 @@ mod tests {
             auth_id: "bench-user".to_string(),
             auth_secret: "bench-ticket".to_string(),
             auth_bearer_token: None,
+            frame_case: None,
         }
     }
 
@@ -4612,6 +5145,7 @@ mod tests {
             auth_id: "bench-user".to_string(),
             auth_secret: "bench-ticket".to_string(),
             auth_bearer_token: None,
+            frame_case: None,
         }
     }
 
@@ -4646,6 +5180,7 @@ mod tests {
             auth_id: "bench-user".to_string(),
             auth_secret: "bench-ticket".to_string(),
             auth_bearer_token: None,
+            frame_case: None,
         }
     }
 

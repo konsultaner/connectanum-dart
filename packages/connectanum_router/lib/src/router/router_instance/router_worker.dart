@@ -246,9 +246,13 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
       ? RouterSettingsCodec.fromMap(settingsMap)
       : RouterSettings(realms: const [], listeners: const [], metrics: null);
 
+  unawaited(RemoteWampDelegateRegistry.warmUpForSettings(settings));
+
   final decoder = NativeMessageHandleDecoder(libraryPath: libraryPath);
   final commandPort = ReceivePort();
-  final Map<int, int> connections = {initialConnectionId: initialListenerId};
+  final Map<int, int> connections = initialConnectionId > 0
+      ? <int, int>{initialConnectionId: initialListenerId}
+      : <int, int>{};
   final RealmContextCache? realmContexts = statePort != null
       ? RealmContextCache(statePort: statePort)
       : null;
@@ -267,36 +271,38 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
   }
 
   final connectionStates = <int, WorkerConnectionState>{};
-  final initialListener = resolveListener(
-    listeners,
-    settings,
-    initialListenerId,
-  );
-  final initialState = WorkerConnectionState(
-    listener: initialListener,
-    listenerSettings: lookupListenerSettings(settings, initialListener),
-  );
-  initialState.protocol =
-      initialListener.settings?.primaryProtocol ?? ListenerProtocol.rawsocket;
-  final Map<Object?, Object?>? initialMetadata = init['metadata'] is Map
-      ? init['metadata'] as Map<Object?, Object?>
-      : null;
-  if (initialMetadata != null) {
-    final protocol = initialMetadata['protocol'] as String?;
-    if (protocol != null) {
-      initialState.protocol = listenerProtocolFromString(protocol);
+  if (initialConnectionId > 0) {
+    final initialListener = resolveListener(
+      listeners,
+      settings,
+      initialListenerId,
+    );
+    final initialState = WorkerConnectionState(
+      listener: initialListener,
+      listenerSettings: lookupListenerSettings(settings, initialListener),
+    );
+    initialState.protocol =
+        initialListener.settings?.primaryProtocol ?? ListenerProtocol.rawsocket;
+    final Map<Object?, Object?>? initialMetadata = init['metadata'] is Map
+        ? init['metadata'] as Map<Object?, Object?>
+        : null;
+    if (initialMetadata != null) {
+      final protocol = initialMetadata['protocol'] as String?;
+      if (protocol != null) {
+        initialState.protocol = listenerProtocolFromString(protocol);
+      }
+      final wsProtocol = initialMetadata['websocketProtocol'] as String?;
+      if (wsProtocol != null) {
+        initialState.websocketProtocol = wsProtocol;
+      }
+      final wsSerializer = initialMetadata['websocketSerializer'] as String?;
+      if (wsSerializer != null) {
+        initialState.websocketSerializer = wsSerializer;
+        initialState.serializer ??= _serializerFromName(wsSerializer);
+      }
     }
-    final wsProtocol = initialMetadata['websocketProtocol'] as String?;
-    if (wsProtocol != null) {
-      initialState.websocketProtocol = wsProtocol;
-    }
-    final wsSerializer = initialMetadata['websocketSerializer'] as String?;
-    if (wsSerializer != null) {
-      initialState.websocketSerializer = wsSerializer;
-      initialState.serializer ??= _serializerFromName(wsSerializer);
-    }
+    connectionStates[initialConnectionId] = initialState;
   }
-  connectionStates[initialConnectionId] = initialState;
 
   final workerId = Isolate.current.hashCode;
 

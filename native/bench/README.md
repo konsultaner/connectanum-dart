@@ -91,8 +91,8 @@ recording transport metrics deltas.
    - `h2_large.toml` (multi-MB uploads/downloads).
    - `h3_idle.toml` (deliberate pauses to trigger idle/body timeouts).
    - `wamp_smoke.toml` / `all_transports_smoke.toml` (transport-aware connectanum_client workloads over RawSocket and WebSocket alongside HTTP traffic).
-   - `mass_connections.toml` (thousands of short-lived sessions to stress connect/disconnect paths; later extended with “remote auth” when that feature lands).
-   - `mass_auth.toml` (remote authenticator heavy-load scenario to validate CRA/SCRAM/remote delegates once implemented).
+   - `mass_connections.toml` (thousands of short-lived sessions to stress connect/disconnect paths; later extended with heavier remote-auth churn once the large auth matrix lands).
+   - `mass_auth.toml` (follow-up heavy-load scenario placeholder for remote authenticator stress beyond the current constrained rawsocket frame-pusher smoke).
 4. **Output format**
    - `bench_results.jsonl` capturing per-iteration numbers + metric deltas.
    - `native/bench/artifacts/bench_results.prom` rendered from the JSONL so the
@@ -129,7 +129,11 @@ All handlers continue to be callable over WAMP, which keeps the YAML scenario
 runner and existing integration tests working without changes. The Rust
 orchestrator now pings `/bench/healthz`, fetches `/bench/metrics`, and issues a
 POST to `/bench/stop` before waiting for the Dart process to exit, ensuring the
-HTTP routes are live before real workloads are added.
+HTTP routes are live before real workloads are added. When the loaded bench
+config contains a rawsocket remote authenticator, `bench_main.dart` also starts
+an auxiliary auth router plus `AuthServerProcedureBinding`, so remote-auth
+benchmarks exercise the real router-to-auth-service RPC path instead of a
+synthetic in-process stub.
 
 ### Scenario Format
 
@@ -216,6 +220,17 @@ HTTP auth workloads can also declare:
   protected route directly with a static bearer token. This is used by the
   JWT provider smoke so local bearer validation overhead can be compared
   separately from the ticket bridge.
+
+The orchestrator also exposes a constrained RawSocket auth-frame protocol for
+remote-auth hardening runs:
+
+- `protocol = "wamp_rawsocket_auth_frames"` sends HELLO/CHALLENGE/
+  AUTHENTICATE frames directly over RawSocket without `connectanum_client`.
+- `frame_case = "success" | "invalid_ticket" | "missing_authid" |
+  "disconnect_after_challenge"` selects the exact auth-state-machine path.
+- These workloads still use the normal `/bench/metrics` before/after snapshots,
+  so router backpressure and invocation counters can be correlated with the
+  auth latency samples.
 
 The default `bench_router.json` now exposes both an ACL-off WAMP realm and an
 ACL-on one so the same bench run can compare authorization overhead:
@@ -742,3 +757,13 @@ Because `/bench/metrics` now returns both the structured snapshot and the raw
 OpenMetrics payload, every workload in `bench_results.jsonl` carries a verbatim
 copy (`open_metrics_before` / `open_metrics_after`). That makes it trivial to
 correlate historical runs with what Prometheus scraped during the same workload.
+- `remote_auth_rawsocket_smoke.toml` – constrained RawSocket frame-pusher
+  scenario for the remote authenticator path. It drives HELLO/CHALLENGE/
+  AUTHENTICATE directly, covers success, invalid-ticket, missing-authid, and
+  disconnect-after-challenge flows, and records the normal metrics deltas so
+  remote-auth latency can be compared with router backpressure counters.
+- `remote_auth_rawsocket_cold_warm.toml` – focused first-hit versus warmed
+  remote-auth latency split on the same RawSocket frame-pusher path. The cold
+  row captures the first remote-auth success after startup; the warm row runs
+  a follow-up success sweep against the already-established router-to-auth-
+  service session so session setup cost can be isolated from steady-state auth.

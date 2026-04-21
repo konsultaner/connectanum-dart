@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:connectanum_client/connectanum.dart' as client_pkg;
 import 'package:connectanum_client/socket.dart' as client_socket;
@@ -11,10 +12,11 @@ import 'package:connectanum_core/msgpack_serializer.dart' as msgpack_serializer;
 
 import '../config/authenticator.dart';
 import '../config/router_settings.dart';
+import '../models/validators.dart';
 import 'remote_authenticator.dart';
 
 class RemoteWampDelegateConfig {
-  RemoteWampDelegateConfig({
+  RemoteWampDelegateConfig._({
     required this.realm,
     required this.transport,
     required this.helloProcedure,
@@ -22,12 +24,13 @@ class RemoteWampDelegateConfig {
     required this.abortProcedure,
     required this.callTimeout,
     required this.connectTimeout,
-    required this.authToken,
+    required _RemoteStringSource? authTokenSource,
     required this.authId,
     required this.authRole,
     required this.authExtra,
-    required this.authenticationMethods,
-  });
+    required _RemoteServiceAuthenticationConfig? serviceAuthentication,
+  }) : _authTokenSource = authTokenSource,
+       _serviceAuthentication = serviceAuthentication;
 
   final String realm;
   final RemoteWampTransportConfig transport;
@@ -36,11 +39,11 @@ class RemoteWampDelegateConfig {
   final String abortProcedure;
   final Duration callTimeout;
   final Duration connectTimeout;
-  final String? authToken;
+  final _RemoteStringSource? _authTokenSource;
   final String? authId;
   final String? authRole;
   final Map<String, dynamic>? authExtra;
-  final List<AbstractAuthentication> authenticationMethods;
+  final _RemoteServiceAuthenticationConfig? _serviceAuthentication;
 
   String cacheKey() => jsonEncode(<String, Object?>{
     'realm': realm,
@@ -50,14 +53,29 @@ class RemoteWampDelegateConfig {
     'abortProcedure': abortProcedure,
     'callTimeoutMs': callTimeout.inMilliseconds,
     'connectTimeoutMs': connectTimeout.inMilliseconds,
-    'authToken': authToken,
+    'authToken': _authTokenSource?.cacheKeyMap(),
     'authId': authId,
     'authRole': authRole,
     'authExtra': authExtra,
-    'authenticationMethods': authenticationMethods
-        .map(_authenticationCacheKey)
-        .toList(growable: false),
+    'serviceAuthentication': _serviceAuthentication?.cacheKeyMap(),
   });
+
+  Future<String?> resolveAuthToken() async => await _authTokenSource?.resolve();
+
+  Future<List<AbstractAuthentication>> buildAuthenticationMethods() async {
+    return (await _serviceAuthentication?.build()) ??
+        const <AbstractAuthentication>[];
+  }
+
+  Future<String> connectionFingerprint() async {
+    return jsonEncode(<String, Object?>{
+      'transport': await transport.fingerprintMap(),
+      'serviceAuthentication': await _serviceAuthentication?.fingerprintMap(),
+      'authId': authId,
+      'authRole': authRole,
+      'authExtra': authExtra,
+    });
+  }
 
   static RemoteWampDelegateConfig parse(
     Map<String, Object?> options,
@@ -96,14 +114,16 @@ class RemoteWampDelegateConfig {
     final authExtra = _parseStringDynamicMap(rpcMap['service_auth_extra']);
     final authId = _trimmedOrNull(rpcMap['service_auth_id'] as String?);
     final authRole = _trimmedOrNull(rpcMap['service_auth_role'] as String?);
-    final authToken =
-        _trimmedOrNull(rpcMap['auth_token'] as String?) ??
-        _trimmedOrNull(options['auth_token'] as String?);
-    final authenticationMethods = _parseAuthenticationMethods(
+    final authTokenSource = _RemoteStringSource.parseWithFallback(
+      primary: rpcMap,
+      fallback: options,
+      field: 'auth_token',
+    );
+    final serviceAuthentication = _RemoteServiceAuthenticationConfig.parse(
       rpcMap,
       realm: realm,
     );
-    return RemoteWampDelegateConfig(
+    return RemoteWampDelegateConfig._(
       realm: realmName,
       transport: RemoteWampTransportConfig.parse(rpcMap),
       helloProcedure: helloProcedure,
@@ -111,75 +131,12 @@ class RemoteWampDelegateConfig {
       abortProcedure: abortProcedure,
       callTimeout: callTimeout,
       connectTimeout: connectTimeout,
-      authToken: authToken,
+      authTokenSource: authTokenSource,
       authId: authId,
       authRole: authRole,
       authExtra: authExtra,
-      authenticationMethods: authenticationMethods,
+      serviceAuthentication: serviceAuthentication,
     );
-  }
-
-  static List<AbstractAuthentication> _parseAuthenticationMethods(
-    Map<String, Object?> rpcMap, {
-    required RealmSettings realm,
-  }) {
-    final method = _trimmedOrNull(rpcMap['service_auth_method'] as String?);
-    if (method == null || method == 'anonymous') {
-      return const <AbstractAuthentication>[];
-    }
-    switch (method) {
-      case 'ticket':
-        final secret = _requireString(
-          rpcMap['service_auth_secret'],
-          'rpc.service_auth_secret',
-        );
-        return <AbstractAuthentication>[TicketAuthentication(secret)];
-      case 'wampcra':
-        final secret = _requireString(
-          rpcMap['service_auth_secret'],
-          'rpc.service_auth_secret',
-        );
-        return <AbstractAuthentication>[CraAuthentication(secret)];
-      case 'wamp-scram':
-        final secret = _requireString(
-          rpcMap['service_auth_secret'],
-          'rpc.service_auth_secret',
-        );
-        return <AbstractAuthentication>[ScramAuthentication(secret)];
-      case 'cryptosign':
-        final key = _requireString(
-          rpcMap['service_private_key'],
-          'rpc.service_private_key',
-        );
-        final format =
-            _trimmedOrNull(rpcMap['service_private_key_format'] as String?) ??
-            'base64';
-        final password = _trimmedOrNull(
-          rpcMap['service_private_key_password'] as String?,
-        );
-        return <AbstractAuthentication>[
-          switch (format) {
-            'base64' => CryptosignAuthentication.fromBase64(key),
-            'hex' => CryptosignAuthentication.fromHex(key),
-            'openssh' => CryptosignAuthentication.fromOpenSshPrivateKey(
-              key,
-              password: password,
-            ),
-            'putty' => CryptosignAuthentication.fromPuttyPrivateKey(
-              key,
-              password: password,
-            ),
-            'pkcs8' => CryptosignAuthentication.fromPkcs8PrivateKey(key),
-            _ => throw ArgumentError(
-              'Unsupported rpc.service_private_key_format: $format',
-            ),
-          },
-        ];
-      default:
-        throw ArgumentError(
-          'Unsupported rpc.service_auth_method "$method" for realm ${realm.name}.',
-        );
-    }
   }
 
   static int _parsePositiveInt(Object? value, int defaultValue) {
@@ -203,14 +160,6 @@ class RemoteWampDelegateConfig {
     return Map<String, dynamic>.from(value.cast<Object?, Object?>());
   }
 
-  static String _requireString(Object? value, String field) {
-    final string = _trimmedOrNull(value as String?);
-    if (string == null) {
-      throw ArgumentError('Missing required $field');
-    }
-    return string;
-  }
-
   static String? _trimmedOrNull(String? value) {
     if (value == null) {
       return null;
@@ -224,23 +173,23 @@ class RemoteWampTransportConfig {
   RemoteWampTransportConfig._({
     required this.type,
     required this.serializer,
+    required this.tls,
     this.host,
     this.port,
     this.ssl = false,
     this.url,
     this.libraryPath,
-    this.allowInsecureCertificates = false,
     this.headers = const <String, dynamic>{},
   });
 
   final String type;
   final String serializer;
+  final RemoteWampTransportTlsConfig tls;
   final String? host;
   final int? port;
   final bool ssl;
   final String? url;
   final String? libraryPath;
-  final bool allowInsecureCertificates;
   final Map<String, dynamic> headers;
 
   factory RemoteWampTransportConfig.parse(Map<String, Object?> rpcMap) {
@@ -260,6 +209,7 @@ class RemoteWampTransportConfig {
     final serializer = (map['serializer'] as String?)?.trim().isNotEmpty == true
         ? (map['serializer'] as String).trim()
         : 'json';
+    final tls = RemoteWampTransportTlsConfig.parse(map);
     switch (type) {
       case 'rawsocket':
         final host = (map['host'] as String?)?.trim();
@@ -269,31 +219,44 @@ class RemoteWampTransportConfig {
             'rpc.transport.rawsocket requires host and numeric port.',
           );
         }
+        if (map['ssl'] != true && !tls.allowInsecureTransport) {
+          throw ArgumentError(
+            'rpc.transport.rawsocket.ssl must be true unless '
+            'rpc.transport.tls.allow_insecure_transport is true.',
+          );
+        }
         return RemoteWampTransportConfig._(
           type: type,
           serializer: serializer,
+          tls: tls,
           host: host,
           port: portValue.toInt(),
           ssl: map['ssl'] == true,
           libraryPath: RemoteWampDelegateConfig._trimmedOrNull(
             map['library_path'] as String?,
           ),
-          allowInsecureCertificates: map['allow_insecure_certificates'] == true,
         );
       case 'websocket':
         final url = (map['url'] as String?)?.trim();
         if (url == null || url.isEmpty) {
           throw ArgumentError('rpc.transport.websocket requires url.');
         }
+        final uri = Uri.parse(url);
+        if (uri.scheme != 'wss' && !tls.allowInsecureTransport) {
+          throw ArgumentError(
+            'rpc.transport.websocket.url must use wss:// unless '
+            'rpc.transport.tls.allow_insecure_transport is true.',
+          );
+        }
         final headers = map['headers'];
         return RemoteWampTransportConfig._(
           type: type,
           serializer: serializer,
+          tls: tls,
           url: url,
           libraryPath: RemoteWampDelegateConfig._trimmedOrNull(
             map['library_path'] as String?,
           ),
-          allowInsecureCertificates: map['allow_insecure_certificates'] == true,
           headers: headers is Map
               ? Map<String, dynamic>.from(headers.cast<Object?, Object?>())
               : const <String, dynamic>{},
@@ -303,6 +266,18 @@ class RemoteWampTransportConfig {
     }
   }
 
+  Future<Map<String, Object?>> fingerprintMap() async => <String, Object?>{
+    'type': type,
+    'serializer': serializer,
+    'host': host,
+    'port': port,
+    'ssl': ssl,
+    'url': url,
+    'libraryPath': libraryPath,
+    'headers': headers,
+    'tls': await tls.fingerprintMap(),
+  };
+
   Map<String, Object?> cacheKeyMap() => <String, Object?>{
     'type': type,
     'serializer': serializer,
@@ -311,9 +286,350 @@ class RemoteWampTransportConfig {
     'ssl': ssl,
     'url': url,
     'libraryPath': libraryPath,
-    'allowInsecureCertificates': allowInsecureCertificates,
     'headers': headers,
+    'tls': tls.cacheKeyMap(),
   };
+}
+
+class RemoteWampTransportTlsConfig {
+  RemoteWampTransportTlsConfig._({
+    required this.allowInsecureTransport,
+    required this.allowInsecureCertificates,
+    required _RemoteStringSource? caCertificates,
+    required _RemoteStringSource? clientCertificate,
+    required _RemoteStringSource? clientPrivateKey,
+    required _RemoteStringSource? clientPrivateKeyPassword,
+  }) : _caCertificates = caCertificates,
+       _clientCertificate = clientCertificate,
+       _clientPrivateKey = clientPrivateKey,
+       _clientPrivateKeyPassword = clientPrivateKeyPassword;
+
+  final bool allowInsecureTransport;
+  final bool allowInsecureCertificates;
+  final _RemoteStringSource? _caCertificates;
+  final _RemoteStringSource? _clientCertificate;
+  final _RemoteStringSource? _clientPrivateKey;
+  final _RemoteStringSource? _clientPrivateKeyPassword;
+
+  factory RemoteWampTransportTlsConfig.parse(
+    Map<String, Object?> transportMap,
+  ) {
+    final tlsValue = transportMap['tls'];
+    if (tlsValue != null && tlsValue is! Map) {
+      throw ArgumentError.value(
+        tlsValue,
+        'rpc.transport.tls',
+        'Expected a map describing TLS settings.',
+      );
+    }
+    final tlsMap = tlsValue is Map
+        ? Map<String, Object?>.from(tlsValue.cast<Object?, Object?>())
+        : const <String, Object?>{};
+    final config = RemoteWampTransportTlsConfig._(
+      allowInsecureTransport:
+          transportMap['allow_insecure_transport'] == true ||
+          tlsMap['allow_insecure_transport'] == true,
+      allowInsecureCertificates:
+          transportMap['allow_insecure_certificates'] == true ||
+          tlsMap['allow_insecure_certificates'] == true,
+      caCertificates: _RemoteStringSource.parse(tlsMap, 'ca_certificates'),
+      clientCertificate: _RemoteStringSource.parse(
+        tlsMap,
+        'client_certificate',
+      ),
+      clientPrivateKey: _RemoteStringSource.parse(tlsMap, 'client_private_key'),
+      clientPrivateKeyPassword: _RemoteStringSource.parse(
+        tlsMap,
+        'client_private_key_password',
+      ),
+    );
+    final hasCertificate = config._clientCertificate != null;
+    final hasPrivateKey = config._clientPrivateKey != null;
+    if (hasCertificate != hasPrivateKey) {
+      throw ArgumentError(
+        'rpc.transport.tls.client_certificate and '
+        'rpc.transport.tls.client_private_key must be configured together.',
+      );
+    }
+    return config;
+  }
+
+  Map<String, Object?> cacheKeyMap() => <String, Object?>{
+    'allowInsecureTransport': allowInsecureTransport,
+    'allowInsecureCertificates': allowInsecureCertificates,
+    'caCertificates': _caCertificates?.cacheKeyMap(),
+    'clientCertificate': _clientCertificate?.cacheKeyMap(),
+    'clientPrivateKey': _clientPrivateKey?.cacheKeyMap(),
+    'clientPrivateKeyPassword': _clientPrivateKeyPassword?.cacheKeyMap(),
+  };
+
+  Future<Map<String, Object?>> fingerprintMap() async => <String, Object?>{
+    'allowInsecureTransport': allowInsecureTransport,
+    'allowInsecureCertificates': allowInsecureCertificates,
+    'caCertificates': await _caCertificates?.fingerprint(),
+    'clientCertificate': await _clientCertificate?.fingerprint(),
+    'clientPrivateKey': await _clientPrivateKey?.fingerprint(),
+    'clientPrivateKeyPassword': await _clientPrivateKeyPassword?.fingerprint(),
+  };
+
+  Future<SecurityContext?> buildSecurityContext() async {
+    final resolvedCaCertificates = await _caCertificates?.resolve();
+    final resolvedClientCertificate = await _clientCertificate?.resolve();
+    final resolvedClientPrivateKey = await _clientPrivateKey?.resolve();
+    final resolvedClientPrivateKeyPassword = await _clientPrivateKeyPassword
+        ?.resolve();
+    if (resolvedCaCertificates == null &&
+        resolvedClientCertificate == null &&
+        resolvedClientPrivateKey == null) {
+      return null;
+    }
+    final context = SecurityContext(
+      withTrustedRoots: resolvedCaCertificates == null,
+    );
+    if (resolvedCaCertificates != null) {
+      context.setTrustedCertificatesBytes(
+        utf8.encode(
+          normalizePem(
+            resolvedCaCertificates,
+            'rpc.transport.tls.ca_certificates',
+          ),
+        ),
+      );
+    }
+    if (resolvedClientCertificate != null && resolvedClientPrivateKey != null) {
+      context.useCertificateChainBytes(
+        utf8.encode(
+          normalizePem(
+            resolvedClientCertificate,
+            'rpc.transport.tls.client_certificate',
+          ),
+        ),
+      );
+      context.usePrivateKeyBytes(
+        utf8.encode(
+          normalizePem(
+            resolvedClientPrivateKey,
+            'rpc.transport.tls.client_private_key',
+          ),
+        ),
+        password: resolvedClientPrivateKeyPassword,
+      );
+    }
+    return context;
+  }
+}
+
+class _RemoteServiceAuthenticationConfig {
+  const _RemoteServiceAuthenticationConfig._({
+    required this.method,
+    this.secret,
+    this.privateKey,
+    this.privateKeyFormat = 'base64',
+    this.privateKeyPassword,
+  });
+
+  final String method;
+  final _RemoteStringSource? secret;
+  final _RemoteStringSource? privateKey;
+  final String privateKeyFormat;
+  final _RemoteStringSource? privateKeyPassword;
+
+  static _RemoteServiceAuthenticationConfig? parse(
+    Map<String, Object?> rpcMap, {
+    required RealmSettings realm,
+  }) {
+    final method = RemoteWampDelegateConfig._trimmedOrNull(
+      rpcMap['service_auth_method'] as String?,
+    );
+    if (method == null || method == 'anonymous') {
+      return null;
+    }
+    switch (method) {
+      case 'ticket':
+      case 'wampcra':
+      case 'wamp-scram':
+        final secret = _RemoteStringSource.parse(rpcMap, 'service_auth_secret');
+        if (secret == null) {
+          throw ArgumentError('Missing required rpc.service_auth_secret');
+        }
+        return _RemoteServiceAuthenticationConfig._(
+          method: method,
+          secret: secret,
+        );
+      case 'cryptosign':
+        final privateKey = _RemoteStringSource.parse(
+          rpcMap,
+          'service_private_key',
+        );
+        if (privateKey == null) {
+          throw ArgumentError('Missing required rpc.service_private_key');
+        }
+        return _RemoteServiceAuthenticationConfig._(
+          method: method,
+          privateKey: privateKey,
+          privateKeyFormat:
+              RemoteWampDelegateConfig._trimmedOrNull(
+                rpcMap['service_private_key_format'] as String?,
+              ) ??
+              'base64',
+          privateKeyPassword: _RemoteStringSource.parse(
+            rpcMap,
+            'service_private_key_password',
+          ),
+        );
+      default:
+        throw ArgumentError(
+          'Unsupported rpc.service_auth_method "$method" for realm ${realm.name}.',
+        );
+    }
+  }
+
+  Map<String, Object?> cacheKeyMap() => <String, Object?>{
+    'method': method,
+    'secret': secret?.cacheKeyMap(),
+    'privateKey': privateKey?.cacheKeyMap(),
+    'privateKeyFormat': privateKeyFormat,
+    'privateKeyPassword': privateKeyPassword?.cacheKeyMap(),
+  };
+
+  Future<Map<String, Object?>> fingerprintMap() async => <String, Object?>{
+    'method': method,
+    'secret': await secret?.fingerprint(),
+    'privateKey': await privateKey?.fingerprint(),
+    'privateKeyFormat': privateKeyFormat,
+    'privateKeyPassword': await privateKeyPassword?.fingerprint(),
+  };
+
+  Future<List<AbstractAuthentication>> build() async {
+    switch (method) {
+      case 'ticket':
+        return <AbstractAuthentication>[
+          TicketAuthentication(await secret!.resolveRequired()),
+        ];
+      case 'wampcra':
+        return <AbstractAuthentication>[
+          CraAuthentication(await secret!.resolveRequired()),
+        ];
+      case 'wamp-scram':
+        return <AbstractAuthentication>[
+          ScramAuthentication(await secret!.resolveRequired()),
+        ];
+      case 'cryptosign':
+        final key = await privateKey!.resolveRequired();
+        final password = await privateKeyPassword?.resolve();
+        return <AbstractAuthentication>[
+          switch (privateKeyFormat) {
+            'base64' => CryptosignAuthentication.fromBase64(key),
+            'hex' => CryptosignAuthentication.fromHex(key),
+            'openssh' => CryptosignAuthentication.fromOpenSshPrivateKey(
+              key,
+              password: password,
+            ),
+            'putty' => CryptosignAuthentication.fromPuttyPrivateKey(
+              key,
+              password: password,
+            ),
+            'pkcs8' => CryptosignAuthentication.fromPkcs8PrivateKey(key),
+            _ => throw ArgumentError(
+              'Unsupported rpc.service_private_key_format: $privateKeyFormat',
+            ),
+          },
+        ];
+      default:
+        throw StateError('Unsupported authentication method $method');
+    }
+  }
+}
+
+class _RemoteStringSource {
+  const _RemoteStringSource._({
+    this.inlineValue,
+    this.filePath,
+    required this.field,
+  });
+
+  final String? inlineValue;
+  final String? filePath;
+  final String field;
+
+  static _RemoteStringSource? parse(Map<String, Object?> values, String field) {
+    final hasInline = values.containsKey(field);
+    final fileField = '${field}_file';
+    final hasFile = values.containsKey(fileField);
+    if (!hasInline && !hasFile) {
+      return null;
+    }
+    final inlineValue = _readStringOption(values[field], field);
+    final filePath = _readStringOption(values[fileField], fileField);
+    if (inlineValue != null && filePath != null) {
+      throw ArgumentError(
+        'Only one of $field or $fileField may be configured.',
+      );
+    }
+    if (inlineValue == null && filePath == null) {
+      return null;
+    }
+    return _RemoteStringSource._(
+      inlineValue: inlineValue,
+      filePath: filePath,
+      field: field,
+    );
+  }
+
+  static _RemoteStringSource? parseWithFallback({
+    required Map<String, Object?> primary,
+    required Map<String, Object?> fallback,
+    required String field,
+  }) {
+    final source = parse(primary, field);
+    return source ?? parse(fallback, field);
+  }
+
+  Map<String, Object?> cacheKeyMap() => <String, Object?>{
+    'field': field,
+    if (inlineValue != null) 'inlineHash': _stableFingerprint(inlineValue!),
+    if (filePath != null) 'filePath': filePath,
+  };
+
+  Future<String?> fingerprint() async {
+    final value = await resolve();
+    return value == null ? null : _stableFingerprint(value);
+  }
+
+  Future<String?> resolve() async {
+    if (inlineValue != null) {
+      return inlineValue;
+    }
+    final path = filePath;
+    if (path == null) {
+      return null;
+    }
+    final file = File(path);
+    if (!file.existsSync()) {
+      throw StateError('Missing configured file for $field: $path');
+    }
+    final value = (await file.readAsString()).trim();
+    return value.isEmpty ? null : value;
+  }
+
+  Future<String> resolveRequired() async {
+    final value = await resolve();
+    if (value == null) {
+      throw StateError('Missing required value for $field');
+    }
+    return value;
+  }
+
+  static String? _readStringOption(Object? value, String field) {
+    if (value == null) {
+      return null;
+    }
+    if (value is! String) {
+      throw ArgumentError.value(value, field, 'Expected a string value.');
+    }
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
 }
 
 class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
@@ -323,16 +639,23 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
   client_pkg.Client? _client;
   client_pkg.Session? _session;
   Future<client_pkg.Session>? _connecting;
+  String? _connectionFingerprint;
+
+  Future<void> warmUpSession() async {
+    try {
+      await _ensureSession();
+    } catch (_) {
+      // Fail closed on real auth attempts, but keep startup warmup best-effort.
+    }
+  }
 
   @override
   Future<RemoteHelloResponse> onHello(RemoteHelloRequest request) async {
     try {
       final session = await _ensureSession();
+      final payload = await _buildHelloRequestPayload(request);
       final result = await session
-          .callSinglePayload(
-            _config.helloProcedure,
-            argumentsKeywords: _buildHelloRequestPayload(request),
-          )
+          .callSinglePayload(_config.helloProcedure, argumentsKeywords: payload)
           .timeout(_config.callTimeout);
       return _decodeHelloResponse(result.argumentsKeywords, result.arguments);
     } on wamp_core.Error catch (error) {
@@ -357,10 +680,11 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
   ) async {
     try {
       final session = await _ensureSession();
+      final payload = await _buildAuthenticateRequestPayload(request);
       final result = await session
           .callSinglePayload(
             _config.authenticateProcedure,
-            argumentsKeywords: _buildAuthenticateRequestPayload(request),
+            argumentsKeywords: payload,
           )
           .timeout(_config.callTimeout);
       return _decodeAuthenticateResponse(
@@ -387,21 +711,23 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
   Future<void> onAbort(RemoteAbortRequest request) async {
     try {
       final session = await _ensureSession();
+      final payload = await _buildAbortRequestPayload(request);
       await session
-          .callSinglePayload(
-            _config.abortProcedure,
-            argumentsKeywords: _buildAbortRequestPayload(request),
-          )
+          .callSinglePayload(_config.abortProcedure, argumentsKeywords: payload)
           .timeout(_config.callTimeout);
     } catch (_) {
       _invalidateSession();
     }
   }
 
-  Future<client_pkg.Session> _ensureSession() {
+  Future<client_pkg.Session> _ensureSession() async {
     final existing = _session;
     if (existing != null) {
-      return Future<client_pkg.Session>.value(existing);
+      final currentFingerprint = await _config.connectionFingerprint();
+      if (_connectionFingerprint == currentFingerprint) {
+        return existing;
+      }
+      _invalidateSession();
     }
     final connecting = _connecting;
     if (connecting != null) {
@@ -417,13 +743,15 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
   }
 
   Future<client_pkg.Session> _connect() async {
+    final connectionFingerprint = await _config.connectionFingerprint();
+    final authenticationMethods = await _config.buildAuthenticationMethods();
     final client = client_pkg.Client(
       realm: _config.realm,
-      transport: _buildTransport(_config.transport),
+      transport: await _buildTransport(_config.transport),
       authId: _config.authId,
       authRole: _config.authRole,
       authExtra: _config.authExtra,
-      authenticationMethods: _config.authenticationMethods,
+      authenticationMethods: authenticationMethods,
     );
     try {
       final session = await client
@@ -432,6 +760,7 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
           .timeout(_config.connectTimeout);
       _client = client;
       _session = session;
+      _connectionFingerprint = connectionFingerprint;
       unawaited(
         Future.any<dynamic>([
           session.onDisconnect,
@@ -450,12 +779,16 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
     _client = null;
     _session = null;
     _connecting = null;
+    _connectionFingerprint = null;
     if (client != null) {
       unawaited(client.disconnect());
     }
   }
 
-  Map<String, Object?> _buildHelloRequestPayload(RemoteHelloRequest request) {
+  Future<Map<String, Object?>> _buildHelloRequestPayload(
+    RemoteHelloRequest request,
+  ) async {
+    final authToken = await _config.resolveAuthToken();
     return <String, Object?>{
       'transactionId': request.transactionId,
       'hello': <String, Object?>{
@@ -469,13 +802,14 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
           'isEncrypted': request.context.transport.isEncrypted,
         },
       },
-      if (_config.authToken != null) 'auth_token': _config.authToken,
+      if (authToken != null) 'auth_token': authToken,
     };
   }
 
-  Map<String, Object?> _buildAuthenticateRequestPayload(
+  Future<Map<String, Object?>> _buildAuthenticateRequestPayload(
     RemoteAuthenticateRequest request,
-  ) {
+  ) async {
+    final authToken = await _config.resolveAuthToken();
     final payload = <String, Object?>{
       'transactionId': request.transactionId,
       'authenticate': <String, Object?>{
@@ -484,17 +818,20 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
           'extra': Map<String, Object?>.from(request.authenticate.extra),
       },
     };
-    if (_config.authToken != null) {
-      payload['auth_token'] = _config.authToken;
+    if (authToken != null) {
+      payload['auth_token'] = authToken;
     }
     return payload;
   }
 
-  Map<String, Object?> _buildAbortRequestPayload(RemoteAbortRequest request) {
+  Future<Map<String, Object?>> _buildAbortRequestPayload(
+    RemoteAbortRequest request,
+  ) async {
+    final authToken = await _config.resolveAuthToken();
     return <String, Object?>{
       'transactionId': request.transactionId,
       if (request.reason != null) 'reason': request.reason,
-      if (_config.authToken != null) 'auth_token': _config.authToken,
+      if (authToken != null) 'auth_token': authToken,
     };
   }
 
@@ -731,6 +1068,13 @@ class RemoteWampDelegateRegistry {
     );
   }
 
+  static Future<void> warmUpForSettings(RouterSettings settings) async {
+    final futures = collectRemoteWampDelegateConfigsForSettings(
+      settings,
+    ).map((config) => forConfig(config).warmUpSession());
+    await Future.wait(futures, eagerError: false);
+  }
+
   static void clear() {
     for (final delegate in _delegates.values) {
       delegate._invalidateSession();
@@ -739,7 +1083,71 @@ class RemoteWampDelegateRegistry {
   }
 }
 
-client_pkg.AbstractTransport _buildTransport(RemoteWampTransportConfig config) {
+Iterable<RemoteWampDelegateConfig> collectRemoteWampDelegateConfigsForSettings(
+  RouterSettings settings,
+) sync* {
+  final seen = <String>{};
+  for (final realm in settings.realms) {
+    for (final method in realm.auth.methods) {
+      if (method == 'anonymous') {
+        continue;
+      }
+      final mergedOptions = _mergedRemoteAuthenticatorOptionsForMethod(
+        settings: settings,
+        realm: realm,
+        method: method,
+      );
+      if (mergedOptions == null) {
+        continue;
+      }
+      final config = RemoteAuthenticatorConfig.parse(mergedOptions, realm);
+      final rpcDelegate = config.rpcDelegate;
+      if (rpcDelegate == null) {
+        continue;
+      }
+      final cacheKey = rpcDelegate.cacheKey();
+      if (seen.add(cacheKey)) {
+        yield rpcDelegate;
+      }
+    }
+  }
+}
+
+Map<String, Object?>? _mergedRemoteAuthenticatorOptionsForMethod({
+  required RouterSettings settings,
+  required RealmSettings realm,
+  required String method,
+}) {
+  final realmOptions = realm.auth.optionsFor(method);
+  String? authenticatorKey;
+  final options = <String, Object?>{};
+  if (realmOptions != null) {
+    authenticatorKey =
+        realmOptions['authenticator'] as String? ??
+        realmOptions['use'] as String?;
+    options.addAll(realmOptions);
+    options.remove('authenticator');
+    options.remove('use');
+  }
+
+  final definitionKey = authenticatorKey ?? method;
+  final definition = settings.authenticators[definitionKey];
+  final factoryKey = definition?.type ?? definitionKey;
+  if (factoryKey != 'remote') {
+    return null;
+  }
+
+  if (definition != null) {
+    options.addAll(definition.options);
+  }
+  options['authenticator'] ??= definitionKey;
+  return options;
+}
+
+Future<client_pkg.AbstractTransport> _buildTransport(
+  RemoteWampTransportConfig config,
+) async {
+  final tlsSecurityContext = await config.tls.buildSecurityContext();
   switch (config.type) {
     case 'rawsocket':
       switch (config.serializer) {
@@ -750,7 +1158,8 @@ client_pkg.AbstractTransport _buildTransport(RemoteWampTransportConfig config) {
             json_serializer.Serializer(),
             _rawSocketSerializerJson,
             ssl: config.ssl,
-            allowInsecureCertificates: config.allowInsecureCertificates,
+            allowInsecureCertificates: config.tls.allowInsecureCertificates,
+            tlsSecurityContext: tlsSecurityContext,
           );
         case 'msgpack':
           return client_socket.SocketTransport(
@@ -759,7 +1168,8 @@ client_pkg.AbstractTransport _buildTransport(RemoteWampTransportConfig config) {
             msgpack_serializer.Serializer(),
             _rawSocketSerializerMsgpack,
             ssl: config.ssl,
-            allowInsecureCertificates: config.allowInsecureCertificates,
+            allowInsecureCertificates: config.tls.allowInsecureCertificates,
+            tlsSecurityContext: tlsSecurityContext,
           );
         case 'cbor':
           return client_socket.SocketTransport(
@@ -768,7 +1178,8 @@ client_pkg.AbstractTransport _buildTransport(RemoteWampTransportConfig config) {
             cbor_serializer.Serializer(),
             _rawSocketSerializerCbor,
             ssl: config.ssl,
-            allowInsecureCertificates: config.allowInsecureCertificates,
+            allowInsecureCertificates: config.tls.allowInsecureCertificates,
+            tlsSecurityContext: tlsSecurityContext,
           );
         default:
           throw ArgumentError(
@@ -781,16 +1192,22 @@ client_pkg.AbstractTransport _buildTransport(RemoteWampTransportConfig config) {
           return client_pkg.WebSocketTransport.withJsonSerializer(
             config.url!,
             config.headers,
+            config.tls.allowInsecureCertificates,
+            tlsSecurityContext,
           );
         case 'msgpack':
           return client_pkg.WebSocketTransport.withMsgpackSerializer(
             config.url!,
             config.headers,
+            config.tls.allowInsecureCertificates,
+            tlsSecurityContext,
           );
         case 'cbor':
           return client_pkg.WebSocketTransport.withCborSerializer(
             config.url!,
             config.headers,
+            config.tls.allowInsecureCertificates,
+            tlsSecurityContext,
           );
         default:
           throw ArgumentError(
@@ -806,12 +1223,11 @@ const int _rawSocketSerializerJson = 1;
 const int _rawSocketSerializerMsgpack = 2;
 const int _rawSocketSerializerCbor = 3;
 
-String _authenticationCacheKey(AbstractAuthentication authentication) {
-  return switch (authentication) {
-    TicketAuthentication() => 'ticket',
-    CraAuthentication() => 'wampcra',
-    ScramAuthentication() => 'wamp-scram',
-    CryptosignAuthentication() => 'cryptosign',
-    _ => authentication.getName(),
-  };
+String _stableFingerprint(String value) {
+  var hash = 0x811c9dc5;
+  for (final codeUnit in value.codeUnits) {
+    hash ^= codeUnit;
+    hash = (hash * 0x01000193) & 0xffffffff;
+  }
+  return hash.toRadixString(16).padLeft(8, '0');
 }

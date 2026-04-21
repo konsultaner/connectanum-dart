@@ -10,6 +10,7 @@ import 'package:logging/logging.dart';
 
 import 'package:connectanum_bench/src/http_stream_handler.dart';
 import 'package:connectanum_bench/src/native_wamp_worker.dart';
+import 'package:connectanum_bench/src/remote_auth_bench_harness.dart';
 import 'package:connectanum_bench/src/wamp_echo_handler.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
@@ -125,6 +126,7 @@ class _BenchRouterService {
   NativeTransportRuntime? _runtime;
   RouterBinding? _binding;
   _BenchControlRegistry? _controlRegistry;
+  RemoteAuthBenchHarness? _remoteAuthHarness;
   StreamSubscription<String>? _stdinSubscription;
 
   Future<void> run() async {
@@ -147,6 +149,10 @@ class _BenchRouterService {
       final runtime = NativeTransportRuntime(libraryPath: nativeLibraryPath);
       runtime.start();
       _runtime = runtime;
+      _remoteAuthHarness = await RemoteAuthBenchHarness.maybeStart(
+        settings: routerSettings,
+        runtime: runtime,
+      );
 
       final router = Router(routerConfig, settings: routerSettings);
       final binding = router.start(
@@ -280,6 +286,12 @@ class _BenchRouterService {
           );
         }
       }
+    }
+    final remoteAuthHarness = _remoteAuthHarness;
+    if (remoteAuthHarness != null) {
+      _logger.fine('Disposing remote auth bench harness');
+      await remoteAuthHarness.close();
+      _remoteAuthHarness = null;
     }
     _logger.fine('Shutting down native runtime');
     _runtime?.shutdown();

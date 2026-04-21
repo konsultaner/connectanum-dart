@@ -59,17 +59,15 @@ void main() {
 
       expect(welcome[0], MessageTypes.codeWelcome);
       expect(welcome[1], 4242);
-      expect(
-        welcome[2],
-        equals({
-          'roles': {},
-          'realm': 'test.realm',
-          'authid': 'native-user',
-          'authmethod': 'ticket',
-          'authprovider': 'native-router',
-          'authrole': 'client',
-        }),
-      );
+      final details = welcome[2] as Map<dynamic, dynamic>;
+      expect(details['realm'], 'test.realm');
+      expect(details['authid'], 'native-user');
+      expect(details['authmethod'], 'ticket');
+      expect(details['authprovider'], 'native-router');
+      expect(details['authrole'], 'client');
+      expect(details['roles'], isA<Map<dynamic, dynamic>>());
+      final roles = details['roles'] as Map<dynamic, dynamic>;
+      expect(roles.keys, containsAll(['broker', 'dealer']));
     });
 
     test('serializes result and interrupt frames', () {

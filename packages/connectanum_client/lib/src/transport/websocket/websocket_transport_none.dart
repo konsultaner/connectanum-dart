@@ -14,36 +14,50 @@ class WebSocketTransport extends AbstractTransport {
     AbstractSerializer serializer,
     String serializerType, [
     Map<String, dynamic>? additionalHeaders,
+    bool allowInsecureCertificates = false,
+    Object? tlsSecurityContext,
   ]);
 
   factory WebSocketTransport.withJsonSerializer(
     String url, [
     Map<String, dynamic>? additionalHeaders,
+    bool allowInsecureCertificates = false,
+    Object? tlsSecurityContext,
   ]) => WebSocketTransport(
     url,
     serializer_json.Serializer(),
     WebSocketSerialization.serializationJson,
     additionalHeaders,
+    allowInsecureCertificates,
+    tlsSecurityContext,
   );
 
   factory WebSocketTransport.withMsgpackSerializer(
     String url, [
     Map<String, dynamic>? additionalHeaders,
+    bool allowInsecureCertificates = false,
+    Object? tlsSecurityContext,
   ]) => WebSocketTransport(
     url,
     serializer_msgpack.Serializer(),
     WebSocketSerialization.serializationMsgpack,
     additionalHeaders,
+    allowInsecureCertificates,
+    tlsSecurityContext,
   );
 
   factory WebSocketTransport.withCborSerializer(
     String url, [
     Map<String, dynamic>? additionalHeaders,
+    bool allowInsecureCertificates = false,
+    Object? tlsSecurityContext,
   ]) => WebSocketTransport(
     url,
     serializer_cbor.Serializer(),
     WebSocketSerialization.serializationCbor,
     additionalHeaders,
+    allowInsecureCertificates,
+    tlsSecurityContext,
   );
 
   /// on connection lost will only complete if the other end closes unexpectedly

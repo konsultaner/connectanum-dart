@@ -1242,7 +1242,7 @@ void main() {
         equals([
           MessageTypes.codeResult,
           7814135,
-          {'progress': false},
+          {},
           ['lazy'],
         ]),
       );
@@ -1266,7 +1266,7 @@ void main() {
           equals([
             MessageTypes.codeResult,
             7814135,
-            {'progress': false},
+            {},
             ['lazy'],
             {'worker': 1},
           ]),
@@ -2915,10 +2915,9 @@ void main() {
         ),
         equals(
           Uint8List.fromList([
-            147, 6, 129, 167, 109, 101, 115, 115, 97, 103, //
-            101, 160, 182, 119, 97, 109, 112, 46, 101, 114, //
-            114, 111, 114, 46, 99, 108, 111, 115, 101, 95, //
-            114, 101, 97, 108, 109,
+            147, 6, 128, 182, 119, 97, 109, 112, 46, 101, 114, //
+            114, 111, 114, 46, 99, 108, 111, 115, 101, 95, 114, //
+            101, 97, 108, 109,
           ]),
         ),
       );
@@ -4490,7 +4489,7 @@ void main() {
       expect(result.id, equals(MessageTypes.codeResult));
       expect(result.callRequestId, equals(7814135));
       expect(result.details, isNotNull);
-      expect(result.details.progress, false);
+      expect(result.details.progress, isNull);
       expect(result.arguments, isNull);
       expect(result.argumentsKeywords, isNull);
 
@@ -4507,7 +4506,7 @@ void main() {
       expect(result.id, equals(MessageTypes.codeResult));
       expect(result.callRequestId, equals(7814135));
       expect(result.details, isNotNull);
-      expect(result.details.progress, false);
+      expect(result.details.progress, isNull);
       expect(result.arguments![0], equals(30));
       expect(result.argumentsKeywords, isNull);
 
@@ -4526,7 +4525,7 @@ void main() {
       expect(result.id, equals(MessageTypes.codeResult));
       expect(result.callRequestId, equals(6131533));
       expect(result.details, isNotNull);
-      expect(result.details.progress, false);
+      expect(result.details.progress, isNull);
       expect(result.arguments![0], equals('johnny'));
       expect(result.argumentsKeywords!['userid'], equals(123));
       expect(result.argumentsKeywords!['karma'], equals(10));

@@ -822,6 +822,12 @@ Uint8List _asBytes(Object? value) {
     return Uint8List.fromList(value);
   }
   if (value is String) {
+    if (value.startsWith('\u0000')) {
+      return Uint8List.fromList(base64.decode(value.substring(1)));
+    }
+    if (value.startsWith(r'\u0000')) {
+      return Uint8List.fromList(base64.decode(value.substring(6)));
+    }
     return Uint8List.fromList(utf8.encode(value));
   }
   throw ArgumentError.value(value, 'value', 'Unsupported payload type');

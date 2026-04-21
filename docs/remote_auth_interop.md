@@ -38,10 +38,18 @@ Realm authenticator entries may include the following options in addition to `me
           "realm": "connectanum.authenticate",
           "call_timeout_ms": 5000,
           "connect_timeout_ms": 5000,
+          "service_auth_method": "ticket",
+          "service_auth_id": "edge-auth-client",
+          "service_auth_secret_file": "/etc/connectanum/auth-service-ticket",
           "transport": {
             "type": "websocket",
             "url": "wss://auth.example/ws",
-            "serializer": "json"
+            "serializer": "json",
+            "tls": {
+              "ca_certificates_file": "/etc/connectanum/auth-ca.pem",
+              "client_certificate_file": "/etc/connectanum/auth-client-cert.pem",
+              "client_private_key_file": "/etc/connectanum/auth-client-key.pem"
+            }
           }
         }
       }
@@ -55,8 +63,10 @@ Realm authenticator entries may include the following options in addition to `me
 - `rate_limit_max_attempts` (optional, default `5`): number of remote failures within the window before backoff kicks in.
 - `rate_limit_window_ms` (optional, default `10000`): sliding window for counting failures.
 - `backoff_base_ms` / `backoff_factor` / `backoff_max_ms` (optional): exponential backoff parameters applied once the max attempts threshold is exceeded.  The router refuses further attempts until the backoff expires.
-- `auth_token` (optional): shared token forwarded on `authenticate.hello` / `authenticate.authenticate` / `authenticate.abort`. The Dart auth server now validates it on all three procedures.
+- `auth_token` / `auth_token_file` (optional): shared token forwarded on `authenticate.hello` / `authenticate.authenticate` / `authenticate.abort`. The Dart auth server now validates it on all three procedures, and file-backed tokens are reread on each RPC so operators can rotate them without restarting the edge router.
 - `rpc` (optional): transport-backed remote auth configuration. The Dart router now supports `websocket` and `rawsocket` RPC delegates in worker isolates; the in-process registry path remains available for tests/examples.
+- `rpc.service_auth_secret_file`, `rpc.service_private_key_file`, and `rpc.transport.tls.*_file` (optional): file-backed service credentials and TLS material. The router recomputes a connection fingerprint from these sources on each remote auth call and reconnects the service session when they change.
+- `rpc.transport.tls.allow_insecure_transport` (optional, default `false`): required to permit `ws://` or non-TLS rawsocket RPC transports. Without it, the router enforces `wss://` or `ssl: true`.
 
 
 ### `authenticate.hello`
@@ -184,7 +194,7 @@ The Java executor generates a “fake” SCRAM/Cra challenge when the remote ser
 
 ## Implementation Checklist for Dart Delegates
 
-1. Connect to `connectanum.authenticate` with service credentials or a shared token (mutual TLS still recommended for production).
+1. Connect to `connectanum.authenticate` with service credentials or a shared token. The Dart router now supports secure-by-default TLS and mutual TLS for this RPC hop; use `allow_insecure_transport` only for local development.
 2. Register RPC handlers for the three procedures above, or use `AuthServerProcedureBinding` from `connectanum_auth_server`.
 3. Persist transaction metadata keyed by `transactionId` and expire entries on `authenticate.abort` or timeout.
 4. Produce deterministic challenge / welcome payloads adhering to the schema.

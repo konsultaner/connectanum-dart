@@ -99,6 +99,7 @@ import 'config/router_settings_codec.dart';
 import 'auth/authorization.dart';
 import 'auth/default_authenticators.dart';
 import 'auth/http_auth_provider.dart';
+import 'auth/remote_wamp_delegate.dart';
 import 'auth/security.dart';
 
 export 'models/router_listener.dart';

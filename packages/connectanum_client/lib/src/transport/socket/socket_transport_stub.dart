@@ -24,6 +24,7 @@ class SocketTransport extends AbstractTransport {
     String serializerType, {
     ssl = false,
     allowInsecureCertificates = false,
+    Object? tlsSecurityContext,
     messageLengthExponent = SocketHelper.maxMessageLengthExponent,
   });
 

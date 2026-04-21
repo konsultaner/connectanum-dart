@@ -67,6 +67,48 @@ class Serializer extends AbstractSerializer {
     'ppt_cipher',
     'ppt_keyid',
   };
+  static const Set<String> _callOptionKeys = {
+    'receive_progress',
+    'timeout',
+    'disclose_me',
+    'ppt_scheme',
+    'ppt_serializer',
+    'ppt_cipher',
+    'ppt_keyid',
+  };
+  static const Set<String> _publishOptionKeys = {
+    'acknowledge',
+    'exclude',
+    'exclude_authid',
+    'exclude_authrole',
+    'eligible',
+    'eligible_authid',
+    'eligible_authrole',
+    'exclude_me',
+    'disclose_me',
+    'retain',
+    'ppt_scheme',
+    'ppt_serializer',
+    'ppt_cipher',
+    'ppt_keyid',
+  };
+  static const Set<String> _registerOptionKeys = {
+    'disclose_caller',
+    'match',
+    'invoke',
+  };
+  static const Set<String> _subscribeOptionKeys = {
+    'match',
+    'meta_topic',
+    'get_retained',
+  };
+  static const Set<String> _yieldOptionKeys = {
+    'progress',
+    'ppt_scheme',
+    'ppt_serializer',
+    'ppt_cipher',
+    'ppt_keyid',
+  };
 
   /// Converts a uint8 msgpack message into a WAMP message object
   @override
@@ -81,6 +123,14 @@ class Serializer extends AbstractSerializer {
     Object? message = msgpack_dart.deserialize(msgPack);
     if (message is List) {
       int messageId = message[0];
+      if (messageId == MessageTypes.codeHello) {
+        return Hello(
+          message[1] as String?,
+          _decodeDetailsMap(
+            Map<dynamic, dynamic>.from(message[2] as Map<dynamic, dynamic>),
+          ),
+        );
+      }
       if (messageId == MessageTypes.codeChallenge) {
         return Challenge(
           message[1],
@@ -89,12 +139,98 @@ class Serializer extends AbstractSerializer {
           ),
         );
       }
+      if (messageId == MessageTypes.codeAuthenticate) {
+        return Authenticate(signature: message[1] as String?)
+          ..extra = message[2] is Map
+              ? Map<String, Object?>.from(
+                  _normalizeDynamicMap(
+                    Map<dynamic, dynamic>.from(
+                      message[2] as Map<dynamic, dynamic>,
+                    ),
+                  ),
+                )
+              : <String, Object?>{};
+      }
       if (messageId == MessageTypes.codeWelcome) {
         return Welcome(
           message[1],
           _decodeWelcomeDetailsMap(
             Map<dynamic, dynamic>.from(message[2] as Map<dynamic, dynamic>),
           ),
+        );
+      }
+      if (messageId == MessageTypes.codeRegister) {
+        return Register(
+          message[1],
+          message[3],
+          options: _decodeRegisterOptions(
+            message[2] is Map
+                ? _normalizeDynamicMap(
+                    Map<dynamic, dynamic>.from(
+                      message[2] as Map<dynamic, dynamic>,
+                    ),
+                  )
+                : null,
+          ),
+        );
+      }
+      if (messageId == MessageTypes.codeUnregister) {
+        return Unregister(message[1], message[2]);
+      }
+      if (messageId == MessageTypes.codeCall) {
+        return _addPayload(
+          Call(
+            message[1],
+            message[3],
+            options: _decodeCallOptions(
+              message[2] is Map
+                  ? _normalizeDynamicMap(
+                      Map<dynamic, dynamic>.from(
+                        message[2] as Map<dynamic, dynamic>,
+                      ),
+                    )
+                  : null,
+            ),
+          ),
+          message,
+          4,
+        );
+      }
+      if (messageId == MessageTypes.codeYield) {
+        return _addPayload(
+          Yield(
+            message[1],
+            options: _decodeYieldOptions(
+              message[2] is Map
+                  ? _normalizeDynamicMap(
+                      Map<dynamic, dynamic>.from(
+                        message[2] as Map<dynamic, dynamic>,
+                      ),
+                    )
+                  : null,
+            ),
+          ),
+          message,
+          3,
+        );
+      }
+      if (messageId == MessageTypes.codePublish) {
+        return _addPayload(
+          Publish(
+            message[1],
+            message[3],
+            options: _decodePublishOptions(
+              message[2] is Map
+                  ? _normalizeDynamicMap(
+                      Map<dynamic, dynamic>.from(
+                        message[2] as Map<dynamic, dynamic>,
+                      ),
+                    )
+                  : null,
+            ),
+          ),
+          message,
+          4,
         );
       }
       if (messageId == MessageTypes.codeRegistered) {
@@ -187,8 +323,26 @@ class Serializer extends AbstractSerializer {
       if (messageId == MessageTypes.codePublished) {
         return Published(message[1], message[2]);
       }
+      if (messageId == MessageTypes.codeSubscribe) {
+        return Subscribe(
+          message[1],
+          message[3],
+          options: _decodeSubscribeOptions(
+            message[2] is Map
+                ? _normalizeDynamicMap(
+                    Map<dynamic, dynamic>.from(
+                      message[2] as Map<dynamic, dynamic>,
+                    ),
+                  )
+                : null,
+          ),
+        );
+      }
       if (messageId == MessageTypes.codeSubscribed) {
         return Subscribed(message[1], message[2]);
+      }
+      if (messageId == MessageTypes.codeUnsubscribe) {
+        return Unsubscribe(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeUnsubscribed) {
         return Unsubscribed(
@@ -278,7 +432,12 @@ class Serializer extends AbstractSerializer {
     argumentsOffset,
   ) {
     if (messageData.length >= argumentsOffset + 1) {
-      message.arguments = messageData[argumentsOffset] as List<dynamic>?;
+      final arguments = messageData[argumentsOffset];
+      if (arguments is Uint8List) {
+        message.transparentBinaryPayload = arguments;
+      } else {
+        message.arguments = arguments as List<dynamic>?;
+      }
     }
     if (messageData.length >= argumentsOffset + 2) {
       message.argumentsKeywords =
@@ -484,96 +643,7 @@ class Serializer extends AbstractSerializer {
 
   Details _decodeWelcomeDetailsMap(Map<dynamic, dynamic> detailsMap) {
     final details = Details();
-    details.realm = detailsMap['realm'] as String? ?? '';
-    details.authid = detailsMap['authid'] as String? ?? '';
-    details.authprovider = detailsMap['authprovider'] as String? ?? '';
-    details.authmethod = detailsMap['authmethod'] as String? ?? '';
-    details.authrole = detailsMap['authrole'] as String? ?? '';
-    final authMethods = detailsMap['authmethods'];
-    if (authMethods is List) {
-      details.authmethods = authMethods.cast<String>();
-    }
-    final authExtra = detailsMap['authextra'];
-    if (authExtra is Map) {
-      details.authextra = authExtra.map(
-        (key, value) => MapEntry(key.toString(), value),
-      );
-    }
-    final rolesMap = _asDynamicMap(detailsMap['roles']);
-    if (rolesMap != null) {
-      final roles = Roles();
-      final dealerMap = _asDynamicMap(rolesMap['dealer']);
-      if (dealerMap != null) {
-        roles.dealer = Dealer();
-        final featuresMap = _asDynamicMap(dealerMap['features']);
-        if (featuresMap != null) {
-          roles.dealer!.features = DealerFeatures();
-          roles.dealer!.features!.callerIdentification =
-              featuresMap['caller_identification'] as bool? ?? false;
-          roles.dealer!.features!.callTrustLevels =
-              featuresMap['call_trustlevels'] as bool? ?? false;
-          roles.dealer!.features!.patternBasedRegistration =
-              featuresMap['pattern_based_registration'] as bool? ?? false;
-          roles.dealer!.features!.registrationMetaApi =
-              featuresMap['registration_meta_api'] as bool? ?? false;
-          roles.dealer!.features!.sharedRegistration =
-              featuresMap['shared_registration'] as bool? ?? false;
-          roles.dealer!.features!.sessionMetaApi =
-              featuresMap['session_meta_api'] as bool? ?? false;
-          roles.dealer!.features!.callTimeout =
-              featuresMap['call_timeout'] as bool? ?? false;
-          roles.dealer!.features!.callCanceling =
-              featuresMap['call_canceling'] as bool? ?? false;
-          roles.dealer!.features!.progressiveCallResults =
-              featuresMap['progressive_call_results'] as bool? ?? false;
-          roles.dealer!.features!.payloadPassThruMode =
-              featuresMap['payload_passthru_mode'] as bool? ?? false;
-        }
-      }
-      final brokerMap = _asDynamicMap(rolesMap['broker']);
-      if (brokerMap != null) {
-        roles.broker = Broker();
-        final featuresMap = _asDynamicMap(brokerMap['features']);
-        if (featuresMap != null) {
-          roles.broker!.features = BrokerFeatures();
-          roles.broker!.features!.publisherIdentification =
-              featuresMap['publisher_identification'] as bool? ?? false;
-          roles.broker!.features!.publicationTrustLevels =
-              featuresMap['publication_trustlevels'] as bool? ?? false;
-          roles.broker!.features!.patternBasedSubscription =
-              featuresMap['pattern_based_subscription'] as bool? ?? false;
-          roles.broker!.features!.subscriptionMetaApi =
-              featuresMap['subscription_meta_api'] as bool? ?? false;
-          roles.broker!.features!.subscriberBlackWhiteListing =
-              featuresMap['subscriber_blackwhite_listing'] as bool? ?? false;
-          roles.broker!.features!.sessionMetaApi =
-              featuresMap['session_meta_api'] as bool? ?? false;
-          roles.broker!.features!.publisherExclusion =
-              featuresMap['publisher_exclusion'] as bool? ?? false;
-          roles.broker!.features!.eventHistory =
-              featuresMap['event_history'] as bool? ?? false;
-          roles.broker!.features!.payloadPassThruMode =
-              featuresMap['payload_passthru_mode'] as bool? ?? false;
-        }
-      }
-      if (roles.dealer != null || roles.broker != null) {
-        details.roles = roles;
-      }
-    }
-    final remainingDetails = detailsMap.map(
-      (key, value) => MapEntry(key.toString(), value),
-    );
-    remainingDetails.remove('roles');
-    remainingDetails.remove('realm');
-    remainingDetails.remove('authid');
-    remainingDetails.remove('authprovider');
-    remainingDetails.remove('authmethod');
-    remainingDetails.remove('authrole');
-    remainingDetails.remove('authextra');
-    remainingDetails.remove('authmethods');
-    if (remainingDetails.isNotEmpty) {
-      details.custom.addAll(remainingDetails);
-    }
+    details.setLazyFieldsLoader(() => _normalizeDynamicMap(detailsMap));
     return details;
   }
 
@@ -601,11 +671,119 @@ class Serializer extends AbstractSerializer {
     return message == null ? null : GoodbyeMessage(message);
   }
 
-  Map<dynamic, dynamic>? _asDynamicMap(Object? value) {
-    if (value is Map) {
-      return Map<dynamic, dynamic>.from(value);
+  Details _decodeDetailsMap(Map<dynamic, dynamic> detailsMap) {
+    final details = Details();
+    details.setLazyFieldsLoader(() => _normalizeDynamicMap(detailsMap));
+    return details;
+  }
+
+  Map<String, dynamic> _normalizeDynamicMap(Map<dynamic, dynamic> map) {
+    return map.map((key, value) => MapEntry(key.toString(), value));
+  }
+
+  RegisterOptions? _decodeRegisterOptions(Map<String, dynamic>? optionsMap) {
+    if (optionsMap == null || optionsMap.isEmpty) {
+      return null;
     }
-    return null;
+    final custom = _copyWithoutKeys(optionsMap, _registerOptionKeys);
+    return RegisterOptions(
+      discloseCaller: optionsMap['disclose_caller'] as bool?,
+      match: optionsMap['match'] as String?,
+      invoke: optionsMap['invoke'] as String?,
+      custom: custom.isEmpty ? null : custom,
+    );
+  }
+
+  CallOptions? _decodeCallOptions(Map<String, dynamic>? optionsMap) {
+    if (optionsMap == null || optionsMap.isEmpty) {
+      return null;
+    }
+    final custom = _copyWithoutKeys(optionsMap, _callOptionKeys);
+    return CallOptions(
+      receiveProgress: optionsMap['receive_progress'] as bool?,
+      timeout: _coerceInt(optionsMap['timeout']),
+      discloseMe: optionsMap['disclose_me'] as bool?,
+      pptScheme: optionsMap['ppt_scheme'] as String?,
+      pptSerializer: optionsMap['ppt_serializer'] as String?,
+      pptCipher: optionsMap['ppt_cipher'] as String?,
+      pptKeyId: optionsMap['ppt_keyid'] as String?,
+      custom: custom.isEmpty ? null : custom,
+    );
+  }
+
+  YieldOptions? _decodeYieldOptions(Map<String, dynamic>? optionsMap) {
+    if (optionsMap == null || optionsMap.isEmpty) {
+      return null;
+    }
+    final custom = _copyWithoutKeys(optionsMap, _yieldOptionKeys);
+    return YieldOptions(
+      progress: optionsMap['progress'] as bool?,
+      pptScheme: optionsMap['ppt_scheme'] as String?,
+      pptSerializer: optionsMap['ppt_serializer'] as String?,
+      pptCipher: optionsMap['ppt_cipher'] as String?,
+      pptKeyId: optionsMap['ppt_keyid'] as String?,
+      custom: custom.isEmpty ? null : custom,
+    );
+  }
+
+  PublishOptions? _decodePublishOptions(Map<String, dynamic>? optionsMap) {
+    if (optionsMap == null || optionsMap.isEmpty) {
+      return null;
+    }
+    final custom = _copyWithoutKeys(optionsMap, _publishOptionKeys);
+    return PublishOptions(
+      acknowledge: optionsMap['acknowledge'] as bool?,
+      exclude: _asIntList(optionsMap['exclude']),
+      excludeAuthId: _asStringList(optionsMap['exclude_authid']),
+      excludeAuthRole: _asStringList(optionsMap['exclude_authrole']),
+      eligible: _asIntList(optionsMap['eligible']),
+      eligibleAuthId: _asStringList(optionsMap['eligible_authid']),
+      eligibleAuthRole: _asStringList(optionsMap['eligible_authrole']),
+      excludeMe: optionsMap['exclude_me'] as bool?,
+      discloseMe: optionsMap['disclose_me'] as bool?,
+      retain: optionsMap['retain'] as bool?,
+      pptScheme: optionsMap['ppt_scheme'] as String?,
+      pptSerializer: optionsMap['ppt_serializer'] as String?,
+      pptCipher: optionsMap['ppt_cipher'] as String?,
+      pptKeyId: optionsMap['ppt_keyid'] as String?,
+      custom: custom.isEmpty ? null : custom,
+    );
+  }
+
+  SubscribeOptions? _decodeSubscribeOptions(Map<String, dynamic>? optionsMap) {
+    if (optionsMap == null || optionsMap.isEmpty) {
+      return null;
+    }
+    final custom = _copyWithoutKeys(optionsMap, _subscribeOptionKeys);
+    return SubscribeOptions(
+      match: optionsMap['match'] as String?,
+      metaTopic: optionsMap['meta_topic'] as String?,
+      getRetained: optionsMap['get_retained'] as bool?,
+      custom: custom.isEmpty ? null : custom,
+    );
+  }
+
+  Map<String, dynamic> _copyWithoutKeys(
+    Map<String, dynamic> map,
+    Set<String> keys,
+  ) {
+    final custom = Map<String, dynamic>.from(map);
+    custom.removeWhere((key, _) => keys.contains(key));
+    return custom;
+  }
+
+  List<int>? _asIntList(Object? value) {
+    if (value is! List) {
+      return null;
+    }
+    return value.whereType<num>().map((entry) => entry.toInt()).toList();
+  }
+
+  List<String>? _asStringList(Object? value) {
+    if (value is! List) {
+      return null;
+    }
+    return value.map((entry) => entry.toString()).toList();
   }
 
   void _setLazyMsgPackPayload(
@@ -618,6 +796,14 @@ class Serializer extends AbstractSerializer {
     final hasArgumentsKeywords = ranges.length > argumentsOffset + 1;
     if (!hasArguments && !hasArgumentsKeywords) {
       return;
+    }
+    if (hasArguments && !hasArgumentsKeywords) {
+      final argumentsBytes = _sliceRange(msgPack, ranges[argumentsOffset]);
+      final decodedArguments = _decodeMsgPackFragment(argumentsBytes);
+      if (decodedArguments is Uint8List) {
+        message.transparentBinaryPayload = decodedArguments;
+        return;
+      }
     }
     message.setLazyPayload(
       argumentsBytes: hasArguments
@@ -889,8 +1075,8 @@ class Serializer extends AbstractSerializer {
       return _buildMessage(3, [
         msgpack_dart.serialize(MessageTypes.codeGoodbye),
         msgpack_dart.serialize(
-          message.message != null
-              ? {'message': message.message!.message ?? ''}
+          message.message?.message != null
+              ? {'message': message.message!.message}
               : {},
         ),
         msgpack_dart.serialize(message.reason),
@@ -948,133 +1134,171 @@ class Serializer extends AbstractSerializer {
   Uint8List? _serializeDetails(Details details) {
     if (details.roles != null) {
       var roles = {};
-      if (details.roles!.caller != null &&
-          details.roles!.caller!.features != null) {
-        var callerFeatures = {};
-        callerFeatures.addEntries([
-          MapEntry(
-            'call_canceling',
-            details.roles!.caller!.features!.callCanceling,
-          ),
-          MapEntry(
-            'call_timeout',
-            details.roles!.caller!.features!.callTimeout,
-          ),
-          MapEntry(
-            'caller_identification',
-            details.roles!.caller!.features!.callerIdentification,
-          ),
-          MapEntry(
-            'payload_passthru_mode',
-            details.roles!.caller!.features!.payloadPassThruMode,
-          ),
-          MapEntry(
-            'progressive_call_results',
-            details.roles!.caller!.features!.progressiveCallResults,
-          ),
-        ]);
-        roles.addEntries([
-          MapEntry('caller', {'features': callerFeatures}),
-        ]);
+      if (details.roles!.caller != null) {
+        final callerFeatures = details.roles!.caller!.features;
+        if (callerFeatures != null) {
+          var callerFeaturesMap = {};
+          callerFeaturesMap.addEntries([
+            MapEntry('call_canceling', callerFeatures.callCanceling),
+            MapEntry('call_timeout', callerFeatures.callTimeout),
+            MapEntry(
+              'caller_identification',
+              callerFeatures.callerIdentification,
+            ),
+            MapEntry(
+              'payload_passthru_mode',
+              callerFeatures.payloadPassThruMode,
+            ),
+            MapEntry(
+              'progressive_call_results',
+              callerFeatures.progressiveCallResults,
+            ),
+          ]);
+          roles.addEntries([
+            MapEntry('caller', {'features': callerFeaturesMap}),
+          ]);
+        } else {
+          roles.addEntries([const MapEntry('caller', {})]);
+        }
       }
-      if (details.roles!.callee != null &&
-          details.roles!.callee!.features != null) {
-        var calleeFeatures = {};
-        calleeFeatures.addEntries([
-          MapEntry(
-            'caller_identification',
-            details.roles!.callee!.features!.callerIdentification,
-          ),
-          MapEntry(
-            'call_trustlevels',
-            details.roles!.callee!.features!.callTrustlevels,
-          ),
-          MapEntry(
-            'pattern_based_registration',
-            details.roles!.callee!.features!.patternBasedRegistration,
-          ),
-          MapEntry(
-            'shared_registration',
-            details.roles!.callee!.features!.sharedRegistration,
-          ),
-          MapEntry(
-            'call_canceling',
-            details.roles!.callee!.features!.callCanceling,
-          ),
-          MapEntry(
-            'call_timeout',
-            details.roles!.callee!.features!.callTimeout,
-          ),
-          MapEntry(
-            'caller_identification',
-            details.roles!.callee!.features!.callerIdentification,
-          ),
-          MapEntry(
-            'payload_passthru_mode',
-            details.roles!.callee!.features!.payloadPassThruMode,
-          ),
-          MapEntry(
-            'progressive_call_results',
-            details.roles!.callee!.features!.progressiveCallResults,
-          ),
-        ]);
-        roles.addEntries([
-          MapEntry('callee', {'features': calleeFeatures}),
-        ]);
+      if (details.roles!.callee != null) {
+        final calleeFeatures = details.roles!.callee!.features;
+        if (calleeFeatures != null) {
+          var calleeFeaturesMap = {};
+          calleeFeaturesMap.addEntries([
+            MapEntry(
+              'caller_identification',
+              calleeFeatures.callerIdentification,
+            ),
+            MapEntry('call_trustlevels', calleeFeatures.callTrustlevels),
+            MapEntry(
+              'pattern_based_registration',
+              calleeFeatures.patternBasedRegistration,
+            ),
+            MapEntry('shared_registration', calleeFeatures.sharedRegistration),
+            MapEntry('call_canceling', calleeFeatures.callCanceling),
+            MapEntry('call_timeout', calleeFeatures.callTimeout),
+            MapEntry(
+              'caller_identification',
+              calleeFeatures.callerIdentification,
+            ),
+            MapEntry(
+              'payload_passthru_mode',
+              calleeFeatures.payloadPassThruMode,
+            ),
+            MapEntry(
+              'progressive_call_results',
+              calleeFeatures.progressiveCallResults,
+            ),
+          ]);
+          roles.addEntries([
+            MapEntry('callee', {'features': calleeFeaturesMap}),
+          ]);
+        } else {
+          roles.addEntries([const MapEntry('callee', {})]);
+        }
       }
-      if (details.roles!.subscriber != null &&
-          details.roles!.subscriber!.features != null) {
-        var subscriberFeatures = {};
-        subscriberFeatures.addEntries([
-          MapEntry(
-            'call_canceling',
-            details.roles!.subscriber!.features!.callCanceling,
-          ),
-          MapEntry(
-            'call_timeout',
-            details.roles!.subscriber!.features!.callTimeout,
-          ),
-          MapEntry(
-            'payload_passthru_mode',
-            details.roles!.subscriber!.features!.payloadPassThruMode,
-          ),
-          MapEntry(
-            'progressive_call_results',
-            details.roles!.subscriber!.features!.progressiveCallResults,
-          ),
-          MapEntry(
-            'subscription_revocation',
-            details.roles!.subscriber!.features!.subscriptionRevocation,
-          ),
-        ]);
-        roles.addEntries([
-          MapEntry('subscriber', {'features': subscriberFeatures}),
-        ]);
+      if (details.roles!.subscriber != null) {
+        final subscriberFeatures = details.roles!.subscriber!.features;
+        if (subscriberFeatures != null) {
+          var subscriberFeaturesMap = {};
+          subscriberFeaturesMap.addEntries([
+            MapEntry('call_canceling', subscriberFeatures.callCanceling),
+            MapEntry('call_timeout', subscriberFeatures.callTimeout),
+            MapEntry(
+              'payload_passthru_mode',
+              subscriberFeatures.payloadPassThruMode,
+            ),
+            MapEntry(
+              'progressive_call_results',
+              subscriberFeatures.progressiveCallResults,
+            ),
+            MapEntry(
+              'subscription_revocation',
+              subscriberFeatures.subscriptionRevocation,
+            ),
+          ]);
+          roles.addEntries([
+            MapEntry('subscriber', {'features': subscriberFeaturesMap}),
+          ]);
+        } else {
+          roles.addEntries([const MapEntry('subscriber', {})]);
+        }
       }
-      if (details.roles!.publisher != null &&
-          details.roles!.publisher!.features != null) {
-        var publisherFeatures = {};
-        publisherFeatures.addEntries([
-          MapEntry(
-            'publisher_identification',
-            details.roles!.publisher!.features!.publisherIdentification,
-          ),
-          MapEntry(
-            'subscriber_blackwhite_listing',
-            details.roles!.publisher!.features!.subscriberBlackWhiteListing,
-          ),
-          MapEntry(
-            'publisher_exclusion',
-            details.roles!.publisher!.features!.publisherExclusion,
-          ),
-          MapEntry(
-            'payload_passthru_mode',
-            details.roles!.publisher!.features!.payloadPassThruMode,
-          ),
-        ]);
-        roles.addEntries([
-          MapEntry('publisher', {'features': publisherFeatures}),
-        ]);
+      if (details.roles!.publisher != null) {
+        final publisherFeatures = details.roles!.publisher!.features;
+        if (publisherFeatures != null) {
+          var publisherFeaturesMap = {};
+          publisherFeaturesMap.addEntries([
+            MapEntry(
+              'publisher_identification',
+              publisherFeatures.publisherIdentification,
+            ),
+            MapEntry(
+              'subscriber_blackwhite_listing',
+              publisherFeatures.subscriberBlackWhiteListing,
+            ),
+            MapEntry(
+              'publisher_exclusion',
+              publisherFeatures.publisherExclusion,
+            ),
+            MapEntry(
+              'payload_passthru_mode',
+              publisherFeatures.payloadPassThruMode,
+            ),
+          ]);
+          roles.addEntries([
+            MapEntry('publisher', {'features': publisherFeaturesMap}),
+          ]);
+        } else {
+          roles.addEntries([const MapEntry('publisher', {})]);
+        }
+      }
+      if (details.roles!.broker != null) {
+        final brokerFeatures = details.roles!.broker!.features;
+        final brokerMap = <String, dynamic>{};
+        if (brokerFeatures != null) {
+          brokerMap['features'] = {
+            'publisher_identification': brokerFeatures.publisherIdentification,
+            'publication_trustlevels': brokerFeatures.publicationTrustLevels,
+            'pattern_based_subscription':
+                brokerFeatures.patternBasedSubscription,
+            'subscription_meta_api': brokerFeatures.subscriptionMetaApi,
+            'subscriber_blackwhite_listing':
+                brokerFeatures.subscriberBlackWhiteListing,
+            'session_meta_api': brokerFeatures.sessionMetaApi,
+            'publisher_exclusion': brokerFeatures.publisherExclusion,
+            'event_history': brokerFeatures.eventHistory,
+            'payload_passthru_mode': brokerFeatures.payloadPassThruMode,
+          };
+        }
+        if (details.roles!.broker!.reflection != null) {
+          brokerMap['reflection'] = details.roles!.broker!.reflection;
+        }
+        roles.addEntries([MapEntry('broker', brokerMap)]);
+      }
+      if (details.roles!.dealer != null) {
+        final dealerFeatures = details.roles!.dealer!.features;
+        final dealerMap = <String, dynamic>{};
+        if (dealerFeatures != null) {
+          dealerMap['features'] = {
+            'caller_identification': dealerFeatures.callerIdentification,
+            'call_trustlevels': dealerFeatures.callTrustLevels,
+            'pattern_based_registration':
+                dealerFeatures.patternBasedRegistration,
+            'registration_meta_api': dealerFeatures.registrationMetaApi,
+            'shared_registration': dealerFeatures.sharedRegistration,
+            'session_meta_api': dealerFeatures.sessionMetaApi,
+            'call_timeout': dealerFeatures.callTimeout,
+            'call_canceling': dealerFeatures.callCanceling,
+            'progressive_call_results': dealerFeatures.progressiveCallResults,
+            'payload_passthru_mode': dealerFeatures.payloadPassThruMode,
+          };
+        }
+        if (details.roles!.dealer!.reflection != null) {
+          dealerMap['reflection'] = details.roles!.dealer!.reflection;
+        }
+        roles.addEntries([MapEntry('dealer', dealerMap)]);
       }
       var detailsParts = <String, dynamic>{};
       detailsParts['roles'] = roles;
@@ -1303,6 +1527,12 @@ class Serializer extends AbstractSerializer {
   SerializedPayload<int, Uint8List> _serializePayload(
     AbstractMessageWithPayload message,
   ) {
+    if (message.transparentBinaryPayload != null) {
+      return SerializedPayload(
+        1,
+        msgpack_dart.serialize(message.transparentBinaryPayload),
+      );
+    }
     final encodedArgs =
         message.lazyPayloadEncoding == LazyPayloadEncoding.messagePack
         ? message.debugEncodedArgumentsBytes

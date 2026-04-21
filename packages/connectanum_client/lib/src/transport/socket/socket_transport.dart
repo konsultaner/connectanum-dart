@@ -17,6 +17,7 @@ class SocketTransport extends AbstractTransport {
 
   late bool _ssl;
   late bool _allowInsecureCertificates;
+  final Object? _tlsSecurityContext;
   final String _host;
   final int _port;
   Socket? _socket;
@@ -48,12 +49,14 @@ class SocketTransport extends AbstractTransport {
     this._serializerType, {
     ssl = false,
     allowInsecureCertificates = false,
+    Object? tlsSecurityContext,
     messageLengthExponent = SocketHelper.maxMessageLengthExponent,
   }) : assert(
          _serializerType == SocketHelper.serializationJson ||
              _serializerType == SocketHelper.serializationMsgpack ||
              _serializerType == SocketHelper.serializationCbor,
-       ) {
+       ),
+       _tlsSecurityContext = tlsSecurityContext {
     _ssl = ssl;
     _allowInsecureCertificates = allowInsecureCertificates;
     _messageLengthExponent = messageLengthExponent;
@@ -166,6 +169,7 @@ class SocketTransport extends AbstractTransport {
         _socket = await SecureSocket.connect(
           _host,
           _port,
+          context: _tlsSecurityContext as SecurityContext?,
           onBadCertificate: (certificate) => _allowInsecureCertificates,
         );
       } else {

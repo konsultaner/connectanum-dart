@@ -63,6 +63,34 @@
         ]
       },
       {
+        "name": "bench.remote_auth",
+        "auth": {
+          "authmethods": ["ticket"],
+          "ticket": {
+            "authenticator": "remote-ticket"
+          }
+        },
+        "roles": [
+          {
+            "name": "member",
+            "permissions": [
+              {
+                "uri": "bench.",
+                "match": "prefix",
+                "allow": [
+                  "register",
+                  "unregister",
+                  "subscribe",
+                  "unsubscribe",
+                  "publish",
+                  "call"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
         "name": "connectanum.metrics",
         "auth": {
           "authmethods": ["anonymous"]
@@ -298,6 +326,33 @@
               "ticket": "bench-ticket",
               "role": "member",
               "provider": "bench-ticket-store"
+            }
+          }
+        }
+      },
+      "remote-ticket": {
+        "type": "remote",
+        "options": {
+          "allowed_roles": ["member"],
+          "auth_token_file": "native/bench/remote_auth_token.txt",
+          "rpc": {
+            "realm": "connectanum.authenticate",
+            "call_timeout_ms": 1000,
+            "connect_timeout_ms": 1000,
+            "service_auth_method": "ticket",
+            "service_auth_id": "auth-service",
+            "service_auth_secret_file": "native/bench/remote_auth_service_ticket.txt",
+            "transport": {
+              "type": "rawsocket",
+              "host": "127.0.0.1",
+              "port": 8082,
+              "ssl": true,
+              "serializer": "json",
+              "tls": {
+                "ca_certificates_file": "packages/connectanum_router/test/certs/remote_auth_ca_cert.pem",
+                "client_certificate_file": "packages/connectanum_router/test/certs/remote_auth_client_cert.pem",
+                "client_private_key_file": "packages/connectanum_router/test/certs/remote_auth_client_key.pem"
+              }
             }
           }
         }

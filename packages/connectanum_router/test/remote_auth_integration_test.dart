@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:connectanum_auth_server/connectanum_auth_server.dart';
 import 'package:connectanum_client/connectanum.dart' as client_pkg;
@@ -19,65 +20,19 @@ void main() {
 
   group('Remote auth integration', () {
     test(
-      'authenticates ticket clients through the remote auth RPC service',
+      'authenticates ticket clients through the remote auth RPC service over mTLS',
       () async {
-        final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
-        addTearDown(() {
-          runtime.shutdown();
-          runtime.dispose();
-        });
+        final harness = await _RemoteAuthHarness.start(nativeLib: nativeLib!);
+        addTearDown(harness.dispose);
 
-        final authRouter = Router(
-          _webSocketConfig(),
-          settings: _buildAuthRouterSettings(),
-        ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
-        addTearDown(authRouter.dispose);
-
-        final authServer = AuthServer(
-          settings: _buildAuthServerSettings(),
-          authTokens: const ['shared-token'],
-        );
-        final authSession = await authRouter.createInternalSession(
-          realmUri: 'connectanum.authenticate',
-          authId: 'auth-service',
-          authRole: 'internal',
-        );
-        addTearDown(authSession.close);
-
-        final procedures = await AuthServerProcedureBinding.bind(
-          server: authServer,
-          session: authSession,
-        );
-        addTearDown(procedures.close);
-
-        final authListener = authRouter.listeners.single;
-        final authUrl = 'ws://127.0.0.1:${authListener.port}/ws';
-
-        final edgeRouter = Router(
-          _webSocketConfig(),
-          settings: _buildEdgeRouterSettings(
-            authUrl: authUrl,
-            nativeLib: nativeLib!,
-          ),
-        ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
-        addTearDown(edgeRouter.dispose);
-
-        final edgeListener = edgeRouter.listeners.single;
-        final client = client_pkg.Client(
-          realm: 'demo.realm',
-          authId: 'ticket-user',
-          authenticationMethods: <client_pkg.AbstractAuthentication>[
-            client_pkg.TicketAuthentication('ticket-secret'),
-          ],
-          transport: client_pkg.WebSocketTransport.withJsonSerializer(
-            'ws://127.0.0.1:${edgeListener.port}/ws',
+        await harness.bindAuthServer(
+          AuthServer(
+            settings: _buildAuthServerSettings(),
+            authTokens: const ['shared-token'],
           ),
         );
-        addTearDown(client.disconnect);
 
-        final session = await client.connect().first.timeout(
-          const Duration(seconds: 10),
-        );
+        final session = await harness.connectTicketUser();
         addTearDown(session.close);
 
         expect(session.authId, equals('ticket-user'));
@@ -90,61 +45,17 @@ void main() {
     test(
       'applies realm permissions after remote authentication succeeds',
       () async {
-        final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
-        addTearDown(() {
-          runtime.shutdown();
-          runtime.dispose();
-        });
+        final harness = await _RemoteAuthHarness.start(nativeLib: nativeLib!);
+        addTearDown(harness.dispose);
 
-        final authRouter = Router(
-          _webSocketConfig(),
-          settings: _buildAuthRouterSettings(),
-        ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
-        addTearDown(authRouter.dispose);
-
-        final authServer = AuthServer(
-          settings: _buildAuthServerSettings(),
-          authTokens: const ['shared-token'],
-        );
-        final authSession = await authRouter.createInternalSession(
-          realmUri: 'connectanum.authenticate',
-          authId: 'auth-service',
-          authRole: 'internal',
-        );
-        addTearDown(authSession.close);
-
-        final procedures = await AuthServerProcedureBinding.bind(
-          server: authServer,
-          session: authSession,
-        );
-        addTearDown(procedures.close);
-
-        final authListener = authRouter.listeners.single;
-        final edgeRouter = Router(
-          _webSocketConfig(),
-          settings: _buildEdgeRouterSettings(
-            authUrl: 'ws://127.0.0.1:${authListener.port}/ws',
-            nativeLib: nativeLib!,
-          ),
-        ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
-        addTearDown(edgeRouter.dispose);
-
-        final edgeListener = edgeRouter.listeners.single;
-        final client = client_pkg.Client(
-          realm: 'demo.realm',
-          authId: 'ticket-user',
-          authenticationMethods: <client_pkg.AbstractAuthentication>[
-            client_pkg.TicketAuthentication('ticket-secret'),
-          ],
-          transport: client_pkg.WebSocketTransport.withJsonSerializer(
-            'ws://127.0.0.1:${edgeListener.port}/ws',
+        await harness.bindAuthServer(
+          AuthServer(
+            settings: _buildAuthServerSettings(),
+            authTokens: const ['shared-token'],
           ),
         );
-        addTearDown(client.disconnect);
 
-        final session = await client.connect().first.timeout(
-          const Duration(seconds: 10),
-        );
+        final session = await harness.connectTicketUser();
         addTearDown(session.close);
 
         await expectLater(
@@ -166,28 +77,78 @@ void main() {
     );
 
     test(
+      'picks up auth_token_file rotation on subsequent remote auth RPCs',
+      () async {
+        final harness = await _RemoteAuthHarness.start(nativeLib: nativeLib!);
+        addTearDown(harness.dispose);
+
+        await harness.bindAuthServer(
+          AuthServer(
+            settings: _buildAuthServerSettings(),
+            authTokens: const ['shared-token'],
+          ),
+        );
+
+        final firstSession = await harness.connectTicketUser();
+        await firstSession.close();
+
+        await harness.rebindAuthServer(
+          AuthServer(
+            settings: _buildAuthServerSettings(),
+            authTokens: const ['rotated-token'],
+          ),
+        );
+        await harness.authTokenFile.writeAsString('rotated-token');
+
+        final secondSession = await harness.connectTicketUser();
+        addTearDown(secondSession.close);
+
+        expect(secondSession.authRole, equals('member'));
+        expect(secondSession.authProvider, equals('remote-auth-server'));
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'reconnects to the remote auth service when service credentials rotate',
+      () async {
+        final harness = await _RemoteAuthHarness.start(nativeLib: nativeLib!);
+        addTearDown(harness.dispose);
+
+        await harness.bindAuthServer(
+          AuthServer(
+            settings: _buildAuthServerSettings(),
+            authTokens: const ['shared-token'],
+          ),
+        );
+
+        final firstSession = await harness.connectTicketUser();
+        await firstSession.close();
+
+        await harness.serviceSecretFile.writeAsString('service-ticket-v2');
+        await harness.restartAuthRouter(serviceTicket: 'service-ticket-v2');
+        await harness.bindAuthServer(
+          AuthServer(
+            settings: _buildAuthServerSettings(),
+            authTokens: const ['shared-token'],
+          ),
+        );
+
+        final secondSession = await harness.connectTicketUser();
+        addTearDown(secondSession.close);
+
+        expect(secondSession.authRole, equals('member'));
+      },
+      skip: skipReason,
+    );
+
+    test(
       'fails closed when the remote auth service returns malformed hello payload',
       () async {
-        final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
-        addTearDown(() {
-          runtime.shutdown();
-          runtime.dispose();
-        });
+        final harness = await _RemoteAuthHarness.start(nativeLib: nativeLib!);
+        addTearDown(harness.dispose);
 
-        final authRouter = Router(
-          _webSocketConfig(),
-          settings: _buildAuthRouterSettings(),
-        ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
-        addTearDown(authRouter.dispose);
-
-        final authSession = await authRouter.createInternalSession(
-          realmUri: 'connectanum.authenticate',
-          authId: 'auth-service',
-          authRole: 'internal',
-        );
-        addTearDown(authSession.close);
-
-        final helloRegistration = await authSession.register(
+        final helloRegistration = await harness.authSession.register(
           'authenticate.hello',
         );
         helloRegistration.onLazyInvokePayload((invocation) {
@@ -199,31 +160,8 @@ void main() {
           );
         });
 
-        final authListener = authRouter.listeners.single;
-        final edgeRouter = Router(
-          _webSocketConfig(),
-          settings: _buildEdgeRouterSettings(
-            authUrl: 'ws://127.0.0.1:${authListener.port}/ws',
-            nativeLib: nativeLib!,
-          ),
-        ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
-        addTearDown(edgeRouter.dispose);
-
-        final edgeListener = edgeRouter.listeners.single;
-        final client = client_pkg.Client(
-          realm: 'demo.realm',
-          authId: 'ticket-user',
-          authenticationMethods: <client_pkg.AbstractAuthentication>[
-            client_pkg.TicketAuthentication('ticket-secret'),
-          ],
-          transport: client_pkg.WebSocketTransport.withJsonSerializer(
-            'ws://127.0.0.1:${edgeListener.port}/ws',
-          ),
-        );
-        addTearDown(client.disconnect);
-
         await expectLater(
-          client.connect().first.timeout(const Duration(seconds: 10)),
+          harness.connectTicketUser(),
           throwsA(
             isA<client_pkg.Abort>().having(
               (abort) => abort.reason,
@@ -237,26 +175,13 @@ void main() {
     );
 
     test('fails closed when the remote auth service times out', () async {
-      final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
-      addTearDown(() {
-        runtime.shutdown();
-        runtime.dispose();
-      });
-
-      final authRouter = Router(
-        _webSocketConfig(),
-        settings: _buildAuthRouterSettings(),
-      ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
-      addTearDown(authRouter.dispose);
-
-      final authSession = await authRouter.createInternalSession(
-        realmUri: 'connectanum.authenticate',
-        authId: 'auth-service',
-        authRole: 'internal',
+      final harness = await _RemoteAuthHarness.start(
+        nativeLib: nativeLib!,
+        callTimeoutMs: 75,
       );
-      addTearDown(authSession.close);
+      addTearDown(harness.dispose);
 
-      final helloRegistration = await authSession.register(
+      final helloRegistration = await harness.authSession.register(
         'authenticate.hello',
       );
       helloRegistration.onLazyInvokePayload((invocation) async {
@@ -270,32 +195,8 @@ void main() {
         );
       });
 
-      final authListener = authRouter.listeners.single;
-      final edgeRouter = Router(
-        _webSocketConfig(),
-        settings: _buildEdgeRouterSettings(
-          authUrl: 'ws://127.0.0.1:${authListener.port}/ws',
-          nativeLib: nativeLib!,
-          callTimeoutMs: 75,
-        ),
-      ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
-      addTearDown(edgeRouter.dispose);
-
-      final edgeListener = edgeRouter.listeners.single;
-      final client = client_pkg.Client(
-        realm: 'demo.realm',
-        authId: 'ticket-user',
-        authenticationMethods: <client_pkg.AbstractAuthentication>[
-          client_pkg.TicketAuthentication('ticket-secret'),
-        ],
-        transport: client_pkg.WebSocketTransport.withJsonSerializer(
-          'ws://127.0.0.1:${edgeListener.port}/ws',
-        ),
-      );
-      addTearDown(client.disconnect);
-
       await expectLater(
-        client.connect().first.timeout(const Duration(seconds: 10)),
+        harness.connectTicketUser(),
         throwsA(
           isA<client_pkg.Abort>().having(
             (abort) => abort.reason,
@@ -308,14 +209,184 @@ void main() {
   });
 }
 
-RouterConfig _webSocketConfig() => RouterConfig(
+class _RemoteAuthHarness {
+  _RemoteAuthHarness._({
+    required this.runtime,
+    required this.authRouter,
+    required this.edgeRouter,
+    required this.authSession,
+    required this.authTokenFile,
+    required this.serviceSecretFile,
+    required this.workingDirectory,
+    required this.authPort,
+  });
+
+  final NativeTransportRuntime runtime;
+  dynamic authRouter;
+  final dynamic edgeRouter;
+  dynamic authSession;
+  final File authTokenFile;
+  final File serviceSecretFile;
+  final Directory workingDirectory;
+  final int authPort;
+  final List<client_pkg.Client> _clients = <client_pkg.Client>[];
+  AuthServerProcedureBinding? _procedures;
+  AuthServer? _boundAuthServer;
+
+  static Future<_RemoteAuthHarness> start({
+    required String nativeLib,
+    int callTimeoutMs = 1000,
+  }) async {
+    final workingDirectory = await Directory.systemTemp.createTemp(
+      'connectanum_remote_auth_',
+    );
+    final authTokenFile = File('${workingDirectory.path}/auth_token.txt')
+      ..writeAsStringSync('shared-token');
+    final serviceSecretFile = File(
+      '${workingDirectory.path}/service_ticket.txt',
+    )..writeAsStringSync('service-ticket-v1');
+
+    final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
+    final authPort = await _allocatePort();
+    final authRouter = Router(
+      _webSocketConfig(
+        enableTls: true,
+        requireClientAuth: true,
+        port: authPort,
+      ),
+      settings: _buildAuthRouterSettings(
+        serviceTicket: 'service-ticket-v1',
+        endpoint: '127.0.0.1:$authPort',
+      ),
+    ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
+    final authSession = await authRouter.createInternalSession(
+      realmUri: 'connectanum.authenticate',
+      authId: 'auth-service',
+      authRole: 'internal',
+    );
+
+    final edgeRouter = Router(
+      _webSocketConfig(),
+      settings: _buildEdgeRouterSettings(
+        authHost: '127.0.0.1',
+        authPort: authPort,
+        authTokenFile: authTokenFile.path,
+        serviceSecretFile: serviceSecretFile.path,
+        callTimeoutMs: callTimeoutMs,
+      ),
+    ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
+
+    return _RemoteAuthHarness._(
+      runtime: runtime,
+      authRouter: authRouter,
+      edgeRouter: edgeRouter,
+      authSession: authSession,
+      authTokenFile: authTokenFile,
+      serviceSecretFile: serviceSecretFile,
+      workingDirectory: workingDirectory,
+      authPort: authPort,
+    );
+  }
+
+  Future<void> bindAuthServer(AuthServer server) async {
+    _boundAuthServer = server;
+    await _procedures?.close();
+    _procedures = await AuthServerProcedureBinding.bind(
+      server: server,
+      session: authSession,
+    );
+  }
+
+  Future<void> rebindAuthServer(AuthServer server) => bindAuthServer(server);
+
+  Future<void> restartAuthRouter({required String serviceTicket}) async {
+    await _procedures?.close();
+    _procedures = null;
+    await authSession.close();
+    await authRouter.dispose();
+    authRouter = Router(
+      _webSocketConfig(
+        enableTls: true,
+        requireClientAuth: true,
+        port: authPort,
+      ),
+      settings: _buildAuthRouterSettings(
+        serviceTicket: serviceTicket,
+        endpoint: '127.0.0.1:$authPort',
+      ),
+    ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
+    authSession = await authRouter.createInternalSession(
+      realmUri: 'connectanum.authenticate',
+      authId: 'auth-service',
+      authRole: 'internal',
+    );
+    final server = _boundAuthServer;
+    if (server != null) {
+      await bindAuthServer(server);
+    }
+  }
+
+  Future<client_pkg.Session> connectTicketUser() async {
+    final listener = edgeRouter.listeners.single;
+    final client = client_pkg.Client(
+      realm: 'demo.realm',
+      authId: 'ticket-user',
+      authenticationMethods: <client_pkg.AbstractAuthentication>[
+        client_pkg.TicketAuthentication('ticket-secret'),
+      ],
+      transport: client_pkg.WebSocketTransport.withJsonSerializer(
+        'ws://127.0.0.1:${listener.port}/ws',
+      ),
+    );
+    _clients.add(client);
+    return client.connect().first.timeout(const Duration(seconds: 10));
+  }
+
+  Future<void> dispose() async {
+    for (final client in _clients) {
+      await client.disconnect();
+    }
+    await _procedures?.close();
+    await authSession.close();
+    await edgeRouter.dispose();
+    await authRouter.dispose();
+    runtime.shutdown();
+    runtime.dispose();
+    if (workingDirectory.existsSync()) {
+      await workingDirectory.delete(recursive: true);
+    }
+  }
+}
+
+RouterConfig _webSocketConfig({
+  bool enableTls = false,
+  bool requireClientAuth = false,
+  int port = 0,
+}) => RouterConfig(
   endpoints: <Endpoint>[
     Endpoint(
       host: '127.0.0.1',
-      port: 0,
-      tlsMode: TlsMode.disabled,
+      port: port,
+      tlsMode: enableTls ? TlsMode.native : TlsMode.disabled,
       maxRawSocketSizeExponent: 16,
       webSocketPath: '/ws',
+      sniCertificates: enableTls
+          ? <SniCertificate>[
+              SniCertificate(
+                hostname: 'localhost',
+                certificateChainPem: _readCertFixture(
+                  'remote_auth_server_cert.pem',
+                ),
+                privateKeyPem: _readCertFixture('remote_auth_server_key.pem'),
+              ),
+            ]
+          : const <SniCertificate>[],
+      clientAuth: requireClientAuth
+          ? TlsClientAuth(
+              mode: TlsClientAuthMode.required,
+              caCertificatesPem: _readCertFixture('remote_auth_ca_cert.pem'),
+            )
+          : null,
     ),
   ],
 );
@@ -359,20 +430,42 @@ RouterSettings _buildAuthServerSettings() {
   return builder.build();
 }
 
-RouterSettings _buildAuthRouterSettings() {
-  final listener = ListenerSettingsBuilder('websocket', '127.0.0.1:0')
-    ..setPath('/ws')
-    ..addProtocol(ListenerProtocol.websocket)
-    ..setWebSocketOptions(
-      const WebSocketListenerSettings(subprotocols: <String>['wamp.2.json']),
+RouterSettings _buildAuthRouterSettings({
+  required String serviceTicket,
+  required String endpoint,
+}) {
+  final listener = ListenerSettingsBuilder('rawsocket', endpoint)
+    ..addAuthMethod('ticket')
+    ..addProtocol(ListenerProtocol.rawsocket)
+    ..setRawSocketOptions(
+      const RawSocketListenerSettings(maxFrameExponent: 16),
     );
 
   final builder = RouterSettingsBuilder()
+    ..addAuthenticator(
+      'ticket-service',
+      AuthenticatorDefinition(
+        type: 'ticket',
+        options: <String, Object?>{
+          'secrets': <String, Object?>{
+            'auth-service': <String, Object?>{
+              'ticket': serviceTicket,
+              'role': 'service',
+              'provider': 'remote-auth-router',
+            },
+          },
+        },
+      ),
+    )
     ..addRealmFromBuilder(
       RealmSettingsBuilder('connectanum.authenticate')
         ..setLimits(const RealmLimitSettings())
+        ..addAuthMethod(
+          'ticket',
+          options: const {'authenticator': 'ticket-service'},
+        )
         ..addRoleFromBuilder(
-          RoleSettingsBuilder('anonymous')..addPermissionFromBuilder(
+          RoleSettingsBuilder('service')..addPermissionFromBuilder(
             PermissionSettingsBuilder('authenticate.')
               ..setMatchPolicy(PermissionMatchPolicy.prefix)
               ..allowOperations(const <String>['call']),
@@ -392,8 +485,10 @@ RouterSettings _buildAuthRouterSettings() {
 }
 
 RouterSettings _buildEdgeRouterSettings({
-  required String authUrl,
-  required String nativeLib,
+  required String authHost,
+  required int authPort,
+  required String authTokenFile,
+  required String serviceSecretFile,
   int callTimeoutMs = 1000,
 }) {
   final listener = ListenerSettingsBuilder('websocket', '127.0.0.1:0')
@@ -433,16 +528,29 @@ RouterSettings _buildEdgeRouterSettings({
           'method': 'remote',
           'allowed_roles': const <String>['member'],
           'challenge_timeout_ms': 1000,
-          'auth_token': 'shared-token',
+          'auth_token_file': authTokenFile,
           'rpc': <String, Object?>{
             'realm': 'connectanum.authenticate',
             'call_timeout_ms': callTimeoutMs,
             'connect_timeout_ms': 1000,
+            'service_auth_method': 'ticket',
+            'service_auth_id': 'auth-service',
+            'service_auth_secret_file': serviceSecretFile,
             'transport': <String, Object?>{
-              'type': 'websocket',
-              'url': authUrl,
+              'type': 'rawsocket',
+              'host': authHost,
+              'port': authPort,
+              'ssl': true,
               'serializer': 'json',
-              'library_path': nativeLib,
+              'tls': <String, Object?>{
+                'ca_certificates_file': _fixturePath('remote_auth_ca_cert.pem'),
+                'client_certificate_file': _fixturePath(
+                  'remote_auth_client_cert.pem',
+                ),
+                'client_private_key_file': _fixturePath(
+                  'remote_auth_client_key.pem',
+                ),
+              },
             },
           },
         },
@@ -450,4 +558,29 @@ RouterSettings _buildEdgeRouterSettings({
     )
     ..setWorkerPool(const WorkerPoolSettings(minWorkers: 1));
   return builder.build();
+}
+
+String _readCertFixture(String fileName) =>
+    File(_fixturePath(fileName)).readAsStringSync();
+
+String _fixturePath(String fileName) {
+  final candidates = <String>[
+    'packages/connectanum_router/test/certs/$fileName',
+    'test/certs/$fileName',
+    fileName,
+  ];
+  for (final path in candidates) {
+    final file = File(path);
+    if (file.existsSync()) {
+      return file.absolute.path;
+    }
+  }
+  throw StateError('Missing router test certificate $fileName');
+}
+
+Future<int> _allocatePort() async {
+  final socket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+  final port = socket.port;
+  await socket.close();
+  return port;
 }

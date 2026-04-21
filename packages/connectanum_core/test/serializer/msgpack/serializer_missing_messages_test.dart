@@ -61,21 +61,19 @@ void main() {
         ),
       );
 
-      expect(
-        msgpack_dart.deserialize(encoded),
-        equals([
-          MessageTypes.codeWelcome,
-          4242,
-          {
-            'roles': {},
-            'realm': 'test.realm',
-            'authid': 'native-user',
-            'authmethod': 'ticket',
-            'authprovider': 'native-router',
-            'authrole': 'client',
-          },
-        ]),
-      );
+      expect(msgpack_dart.deserialize(encoded), isA<List<dynamic>>());
+      final frame = msgpack_dart.deserialize(encoded) as List<dynamic>;
+      expect(frame[0], MessageTypes.codeWelcome);
+      expect(frame[1], 4242);
+      final details = frame[2] as Map<dynamic, dynamic>;
+      expect(details['realm'], 'test.realm');
+      expect(details['authid'], 'native-user');
+      expect(details['authmethod'], 'ticket');
+      expect(details['authprovider'], 'native-router');
+      expect(details['authrole'], 'client');
+      expect(details['roles'], isA<Map<dynamic, dynamic>>());
+      final roles = details['roles'] as Map<dynamic, dynamic>;
+      expect(roles.keys, containsAll(['broker', 'dealer']));
     });
   });
 }
