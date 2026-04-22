@@ -135,7 +135,9 @@ Future<void> _withPackageRoot(Future<void> Function() body) async {
   final original = Directory.current;
   Directory.current = _locatePackageRoot('connectanum_client');
   try {
+    await _cleanPackageBuildArtifacts();
     await body();
+    await _cleanPackageBuildArtifacts();
   } finally {
     Directory.current = original;
   }
@@ -159,6 +161,35 @@ bool _isPackageRoot(Directory directory, String packageName) {
     return false;
   }
   return pubspec.readAsStringSync().contains('name: $packageName');
+}
+
+Future<void> _cleanPackageBuildArtifacts() async {
+  for (final path in [
+    '${Directory.current.path}/.dart_tool/lib',
+    '${Directory.current.path}/.dart_tool/connectanum',
+  ]) {
+    final directory = Directory(path);
+    if (directory.existsSync()) {
+      await directory.delete(recursive: true);
+    }
+  }
+  final nativeAssetsYaml = File(
+    '${Directory.current.path}/.dart_tool/native_assets.yaml',
+  );
+  if (nativeAssetsYaml.existsSync()) {
+    await nativeAssetsYaml.delete();
+  }
+
+  final repoRoot = Directory('${Directory.current.path}/../..').absolute;
+  for (final path in [
+    '${repoRoot.path}/.dart_tool/hooks_runner/connectanum_client',
+    '${repoRoot.path}/.dart_tool/hooks_runner/shared/connectanum_client',
+  ]) {
+    final directory = Directory(path);
+    if (directory.existsSync()) {
+      await directory.delete(recursive: true);
+    }
+  }
 }
 
 String _defaultLibraryFileName() => switch (Platform.operatingSystem) {

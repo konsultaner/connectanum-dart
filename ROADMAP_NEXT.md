@@ -140,7 +140,8 @@ Focus for the next session:
   - ✅ A dedicated GitHub Actions workflow now packages host-native Linux/macOS `ct_ffi` archives through `bin/package-native-artifact`, uploading reusable bundles for the existing `CONNECTANUM_NATIVE_LIB` contract.
   - ✅ Release-tag and explicit manual native-artifact runs are now configured to publish those packaged Linux/macOS bundles to GitHub Releases, so the `CONNECTANUM_NATIVE_LIB` path has a durable hosted download target instead of workflow-artifact retention only.
   - ✅ The router/client hooks can now download and checksum-verify hosted `ct_ffi` release bundles directly when `CONNECTANUM_NATIVE_RELEASE_TAG` is set, so downstream users can opt into prebuilt binaries without Cargo or manual extraction.
-  - Next: decide whether a true install-time (`dart pub get` / publishable package flow) acquisition path is still needed beyond the explicit release-tag hooks, and add detached/offline signatures as a follow-up if GitHub-hosted attestations are not sufficient for downstream verification.
+  - ✅ `connectanum_router:tool/install_native.dart` and `connectanum_client:tool/install_native.dart` now provide an explicit downstream prefetch path: they download and checksum-verify the hosted bundle into `.dart_tool/connectanum/native/<host-triple>/` and print the resulting library path for `CONNECTANUM_NATIVE_LIB`.
+  - Next: add detached/offline signatures if GitHub-hosted attestations are not sufficient for downstream verification, and only revisit true `dart pub get`-time acquisition if the Dart SDK adds a supported install-time execution model.
 
 13. **TLS & Deployment Hardening**
    - ✅ Native TCP TLS termination (rustls + SNI) is live.

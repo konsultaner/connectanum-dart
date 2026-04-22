@@ -4,15 +4,15 @@ import 'package:code_assets/code_assets.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hooks/hooks.dart';
 
-const _nativeLibEnv = 'CONNECTANUM_NATIVE_LIB';
-const _nativeReleaseTagEnv = 'CONNECTANUM_NATIVE_RELEASE_TAG';
-const _nativeReleaseRepoEnv = 'CONNECTANUM_NATIVE_RELEASE_REPOSITORY';
-const _skipNativeBuildEnv = 'CONNECTANUM_SKIP_NATIVE_BUILD';
-const _defaultReleaseRepository = 'konsultaner/connectanum-dart';
+const nativeLibEnv = 'CONNECTANUM_NATIVE_LIB';
+const nativeReleaseTagEnv = 'CONNECTANUM_NATIVE_RELEASE_TAG';
+const nativeReleaseRepoEnv = 'CONNECTANUM_NATIVE_RELEASE_REPOSITORY';
+const skipNativeBuildEnv = 'CONNECTANUM_SKIP_NATIVE_BUILD';
+const defaultReleaseRepository = 'konsultaner/connectanum-dart';
 
-typedef _DownloadArtifact =
+typedef DownloadArtifact =
     Future<void> Function({required Uri source, required File destination});
-typedef _ExtractArchive =
+typedef ExtractArchive =
     void Function({required File archive, required Directory destination});
 
 Future<void> main(List<String> args) => runBuildHook(args);
@@ -26,8 +26,8 @@ Future<void> runBuildHook(
     required Map<String, String> environment,
   })?
   cargoRunner,
-  _DownloadArtifact? artifactDownloader,
-  _ExtractArchive? archiveExtractor,
+  DownloadArtifact? artifactDownloader,
+  ExtractArchive? archiveExtractor,
 }) async {
   final buildEnvironment = environment ?? Platform.environment;
   final runCargo = cargoRunner ?? _runCargo;
@@ -54,7 +54,6 @@ Future<void> runBuildHook(
     final builtDylibName = targetOS.dylibFileName('ct_ffi');
     final outputLibUri = input.outputDirectory.resolve(outputDylibName);
     final outputLibFile = File.fromUri(outputLibUri);
-
     final configuredNativeLib = _configuredNativeLibrary(buildEnvironment);
     final releaseAsset = _configuredReleaseAsset(
       buildEnvironment,
@@ -64,7 +63,7 @@ Future<void> runBuildHook(
     if (configuredNativeLib != null && !configuredNativeLib.existsSync()) {
       throw BuildError(
         message:
-            '$_nativeLibEnv points to ${configuredNativeLib.path}, but that '
+            '$nativeLibEnv points to ${configuredNativeLib.path}, but that '
             'file does not exist.',
       );
     }
@@ -94,7 +93,7 @@ Future<void> runBuildHook(
     output.dependencies.addAll(dependencies.map((e) => e.uri));
 
     if (releaseAsset != null) {
-      await _installReleaseAsset(
+      await installReleaseAsset(
         releaseAsset: releaseAsset,
         outputLibFile: outputLibFile,
         bundledLibName: builtDylibName,
@@ -203,36 +202,95 @@ Future<void> runBuildHook(
 }
 
 bool _shouldSkipNativeBuild(Map<String, String> environment) =>
-    _isTruthy(environment[_skipNativeBuildEnv]);
+    _isTruthy(environment[skipNativeBuildEnv]);
 
 File? _configuredNativeLibrary(Map<String, String> environment) {
-  final configuredPath = environment[_nativeLibEnv];
+  final configuredPath = environment[nativeLibEnv];
   if (configuredPath == null || configuredPath.isEmpty) {
     return null;
   }
   return File(configuredPath);
 }
 
-_ReleaseAssetSpec? _configuredReleaseAsset(
+ReleaseAssetSpec? _configuredReleaseAsset(
   Map<String, String> environment, {
   required OS targetOS,
   required Architecture targetArch,
 }) {
-  final tag = environment[_nativeReleaseTagEnv]?.trim();
+  final tag = environment[nativeReleaseTagEnv]?.trim();
   if (tag == null || tag.isEmpty) {
     return null;
   }
 
   final repository =
-      environment[_nativeReleaseRepoEnv]?.trim().isNotEmpty == true
-      ? environment[_nativeReleaseRepoEnv]!.trim()
-      : _defaultReleaseRepository;
+      environment[nativeReleaseRepoEnv]?.trim().isNotEmpty == true
+      ? environment[nativeReleaseRepoEnv]!.trim()
+      : defaultReleaseRepository;
 
-  return _ReleaseAssetSpec(
+  return ReleaseAssetSpec(
     repository: repository,
     tag: tag,
-    hostTriple: _hostTriple(targetOS: targetOS, targetArch: targetArch),
+    hostTriple: hostTripleForTarget(targetOS: targetOS, targetArch: targetArch),
   );
+}
+
+Directory defaultInstalledNativeLibraryDirectory({
+  required String hostTriple,
+  Directory? workingDirectory,
+}) => Directory(
+  '${(workingDirectory ?? Directory.current).path}/.dart_tool/connectanum/native/$hostTriple',
+);
+
+File installedNativeLibraryPath({
+  required String hostTriple,
+  required String bundledLibName,
+  Directory? workingDirectory,
+}) => File(
+  '${defaultInstalledNativeLibraryDirectory(hostTriple: hostTriple, workingDirectory: workingDirectory).path}/$bundledLibName',
+);
+
+File? installedNativeLibrary({
+  required String hostTriple,
+  required String bundledLibName,
+  Directory? workingDirectory,
+}) {
+  final library = installedNativeLibraryPath(
+    hostTriple: hostTriple,
+    bundledLibName: bundledLibName,
+    workingDirectory: workingDirectory,
+  );
+  return library.existsSync() ? library : null;
+}
+
+Future<File> installHostedNativeLibrary({
+  required String tag,
+  String? repository,
+  Directory? installRoot,
+  DownloadArtifact? artifactDownloader,
+  ExtractArchive? archiveExtractor,
+}) async {
+  final releaseAsset = ReleaseAssetSpec(
+    repository: repository?.trim().isNotEmpty == true
+        ? repository!.trim()
+        : defaultReleaseRepository,
+    tag: tag.trim(),
+    hostTriple: currentHostTriple(),
+  );
+  final outputDirectory =
+      installRoot ??
+      defaultInstalledNativeLibraryDirectory(
+        hostTriple: releaseAsset.hostTriple,
+      );
+  final bundledLibName = currentPlatformLibraryFileName('ct_ffi');
+  final outputLibFile = File('${outputDirectory.path}/$bundledLibName');
+  await installReleaseAsset(
+    releaseAsset: releaseAsset,
+    outputLibFile: outputLibFile,
+    bundledLibName: bundledLibName,
+    downloadArtifact: artifactDownloader ?? _downloadArtifact,
+    extractArchive: archiveExtractor ?? _extractArchive,
+  );
+  return outputLibFile;
 }
 
 bool _isTruthy(String? value) {
@@ -250,12 +308,12 @@ bool _isTruthy(String? value) {
   }
 }
 
-Future<void> _installReleaseAsset({
-  required _ReleaseAssetSpec releaseAsset,
+Future<void> installReleaseAsset({
+  required ReleaseAssetSpec releaseAsset,
   required File outputLibFile,
   required String bundledLibName,
-  required _DownloadArtifact downloadArtifact,
-  required _ExtractArchive extractArchive,
+  required DownloadArtifact downloadArtifact,
+  required ExtractArchive extractArchive,
 }) async {
   final cacheRoot = Directory(
     '${outputLibFile.parent.path}/prebuilt/'
@@ -328,7 +386,10 @@ void _verifyDownloadedArchive(File archiveFile, File checksumFile) {
   }
 }
 
-String _hostTriple({required OS targetOS, required Architecture targetArch}) {
+String hostTripleForTarget({
+  required OS targetOS,
+  required Architecture targetArch,
+}) {
   return switch ((targetOS, targetArch)) {
     (OS.linux, Architecture.x64) => 'x86_64-unknown-linux-gnu',
     (OS.macOS, Architecture.x64) => 'x86_64-apple-darwin',
@@ -339,8 +400,39 @@ String _hostTriple({required OS targetOS, required Architecture targetArch}) {
   };
 }
 
+String currentHostTriple() => switch (Platform.operatingSystem) {
+  'linux' => 'x86_64-unknown-linux-gnu',
+  'macos' =>
+    _currentArchitectureLabel() == 'arm64'
+        ? 'aarch64-apple-darwin'
+        : 'x86_64-apple-darwin',
+  _ => throw StateError(
+    'Unsupported install host ${Platform.operatingSystem}.',
+  ),
+};
+
+String currentPlatformLibraryFileName(String libraryBaseName) =>
+    switch (Platform.operatingSystem) {
+      'linux' => 'lib$libraryBaseName.so',
+      'macos' => 'lib$libraryBaseName.dylib',
+      'windows' => '$libraryBaseName.dll',
+      _ => throw StateError(
+        'Unsupported install host ${Platform.operatingSystem}.',
+      ),
+    };
+
 String _sanitizePathComponent(String value) =>
     value.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_');
+
+String _currentArchitectureLabel() {
+  if (Platform.operatingSystem != 'macos') {
+    return 'x64';
+  }
+  if (Platform.version.contains('arm64')) {
+    return 'arm64';
+  }
+  return 'x64';
+}
 
 Directory? _findTransportWorkspace(Directory start) {
   var current = start.absolute;
@@ -416,7 +508,7 @@ Future<void> _downloadArtifact({
       throw BuildError(
         message:
             'Failed to download $source (HTTP ${response.statusCode} '
-            '${response.reasonPhrase ?? ''}).',
+            '${response.reasonPhrase}).',
       );
     }
 
@@ -470,8 +562,8 @@ ProcessResult _runCargo({
   }
 }
 
-final class _ReleaseAssetSpec {
-  const _ReleaseAssetSpec({
+final class ReleaseAssetSpec {
+  const ReleaseAssetSpec({
     required this.repository,
     required this.tag,
     required this.hostTriple,
@@ -491,6 +583,6 @@ final class _ReleaseAssetSpec {
 
   Uri get checksumUri => Uri.https(
     'github.com',
-    '/$repository/releases/download/$tag/${archiveName}.sha256',
+    '/$repository/releases/download/$tag/$archiveName.sha256',
   );
 }

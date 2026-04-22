@@ -42,6 +42,8 @@ Last reviewed commit: `704970c` (`docs: record attested native release baseline`
 - Hosted validation for the release path is now complete: GitHub Actions run `24756862771` validated release publishing after the `c4bd069` shell-variable fix, and run `24757138619` validated the attestation-enabled workflow end to end on both Linux and macOS while keeping `Publish GitHub Release` green.
 - The router/client build hooks can now download a hosted `ct_ffi` release bundle directly when `CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` is set, verify the published `.sha256`, extract the archive, and stage the native library without invoking Cargo.
 - `CONNECTANUM_NATIVE_RELEASE_REPOSITORY=<owner/repo>` overrides the default GitHub Releases source for that hook-managed prebuilt flow, and the explicit prebuilt/system-library paths no longer require a local `native/transport` checkout.
+- `connectanum_router:tool/install_native.dart` and `connectanum_client:tool/install_native.dart` now provide the explicit downstream prefetch path for hosted native assets: they download the current host bundle into `.dart_tool/connectanum/native/<host-triple>/`, verify the published checksum, and print the resulting library path for `CONNECTANUM_NATIVE_LIB`.
+- The install helpers deliberately keep the deployment/runtime contract explicit instead of trying to simulate unsupported `dart pub get` automation; automatic hook cache reuse was tested and then dropped after hitting a Dart native-assets bundler bug on this macOS setup.
 - The local autonomy blockers from the 2026-04-21 audit are resolved for this macOS shell environment.
 - In-app heartbeat sandboxes are more restricted than the interactive shell here; remote CI inspection and git metadata writes should still happen from unrestricted interactive runs or the external launchd worker.
 
@@ -100,17 +102,21 @@ Last reviewed commit: `704970c` (`docs: record attested native release baseline`
 - 2026-04-22: `cd packages/connectanum_router && dart test test/hook/build_hook_test.dart -r expanded` passed on Darwin arm64 after adding the router hook's hosted-release download path and checksum verification.
 - 2026-04-22: `cd packages/connectanum_client && dart test test/hook/build_hook_test.dart -r expanded` passed on Darwin arm64 after adding the client hook's hosted-release download path and checksum verification.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after landing `CONNECTANUM_NATIVE_RELEASE_TAG`, `CONNECTANUM_NATIVE_RELEASE_REPOSITORY`, the focused hook regressions, and the hosted-bundle deployment docs.
+- 2026-04-22: `dart analyze packages/connectanum_router/tool/install_native.dart packages/connectanum_client/tool/install_native.dart packages/connectanum_router/lib/src/native_release_installer.dart packages/connectanum_client/lib/src/native_release_installer.dart packages/connectanum_router/test/hook/install_native_test.dart packages/connectanum_client/test/hook/install_native_test.dart` passed on Darwin arm64 after splitting the runtime install helpers away from hook-only build modules.
+- 2026-04-22: `dart test packages/connectanum_router/test/hook/build_hook_test.dart -r expanded` and `dart test packages/connectanum_client/test/hook/build_hook_test.dart -r expanded` passed on Darwin arm64 after keeping the hook contract explicit (`CONNECTANUM_NATIVE_LIB` / `CONNECTANUM_NATIVE_RELEASE_TAG`) and fixing the new analyzer warnings in both build hooks.
+- 2026-04-22: `dart test packages/connectanum_router/test/hook/install_native_test.dart -r expanded` and `dart test packages/connectanum_client/test/hook/install_native_test.dart -r expanded` passed on Darwin arm64 after adding the explicit `install_native` package entrypoints and their hosted-download regression coverage.
+- 2026-04-22: `bin/test-fast` passed on Darwin arm64 after adding the explicit `install_native` package entrypoints and removing the failed hook-cache reuse experiment.
+- 2026-04-22: `bin/verify` passed on Darwin arm64 after landing the explicit `install_native` package entrypoints, cleaning the package hook tests so they do not poison shared native-asset caches with fake dylibs, and keeping the build-hook contract explicit (`CONNECTANUM_NATIVE_LIB` / `CONNECTANUM_NATIVE_RELEASE_TAG`).
 
 ## Active Plan
 
 - No active execution plan is checked in right now.
 - Supporting research note: `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-22-prebuilt-native-download-hooks.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-22-ct-ffi-artifact-attestations.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-22-native-install-helper.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-22-prebuilt-native-download-hooks.md`
 
 ## Known Follow-Ups
 
-- Decide whether a true install-time (`dart pub get`) native acquisition path is still needed now that explicit release-tag hook downloads cover the downstream no-Cargo/no-manual-extraction case.
 - Decide whether detached/offline signatures are still needed beyond the new GitHub-hosted artifact attestations for downstream verification flows.
 - Multi-arch deployment images and deeper native transport tuning remain separate follow-up work after the artifact-packaging baseline.
 

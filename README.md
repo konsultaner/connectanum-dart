@@ -67,6 +67,23 @@ library without requiring a local Rust toolchain. Use
 `CONNECTANUM_NATIVE_RELEASE_REPOSITORY=<owner/repo>` to override the default
 release source (`konsultaner/connectanum-dart`).
 
+If you want to prefetch the native bundle before runtime or build-hook
+execution, use the package install helpers instead:
+
+```bash
+dart run connectanum_router:tool/install_native.dart --tag <release-tag>
+dart run connectanum_client:tool/install_native.dart --tag <release-tag>
+```
+
+Each command downloads the host-native bundle into
+`.dart_tool/connectanum/native/<host-triple>/` and prints the installed library
+path on stdout. That makes the deployment-friendly path explicit:
+
+```bash
+export CONNECTANUM_NATIVE_LIB="$(dart run connectanum_router:tool/install_native.dart --tag <release-tag>)"
+dart run connectanum_router --config path/to/router.yaml
+```
+
 Prebuilt Linux/macOS `ct_ffi` bundles are also available from the dedicated
 GitHub Actions workflow in [native-artifacts.yml](.github/workflows/native-artifacts.yml).
 Manual runs always upload workflow artifacts, and release-tag runs publish the
