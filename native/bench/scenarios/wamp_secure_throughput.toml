@@ -1,0 +1,182 @@
+name = "wamp_secure_throughput"
+description = "Large-payload secure WAMP throughput sweep covering PUB/SUB + RPC across JSON, MsgPack, and CBOR on RawSocket and WebSocket against the TLS WAMP listener."
+
+[[workloads]]
+name = "rawsocket_secure_pubsub_json_64k"
+protocol = "wamp_rawsocket_pubsub"
+serializer = "json"
+path = "bench.wamp.topic"
+iterations = 48
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "rawsocket_secure_pubsub_msgpack_64k"
+protocol = "wamp_rawsocket_pubsub"
+serializer = "msgpack"
+path = "bench.wamp.topic"
+iterations = 48
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "rawsocket_secure_pubsub_cbor_64k"
+protocol = "wamp_rawsocket_pubsub"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 48
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "rawsocket_secure_rpc_json_64k"
+protocol = "wamp_rawsocket_rpc"
+serializer = "json"
+path = "bench.rpc.echo"
+iterations = 48
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "rawsocket_secure_rpc_msgpack_64k"
+protocol = "wamp_rawsocket_rpc"
+serializer = "msgpack"
+path = "bench.rpc.echo"
+iterations = 48
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "rawsocket_secure_rpc_cbor_64k"
+protocol = "wamp_rawsocket_rpc"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 48
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_secure_pubsub_json_64k"
+protocol = "wamp_websocket_pubsub"
+serializer = "json"
+path = "bench.wamp.topic"
+iterations = 48
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_secure_pubsub_msgpack_64k"
+protocol = "wamp_websocket_pubsub"
+serializer = "msgpack"
+path = "bench.wamp.topic"
+iterations = 48
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_secure_pubsub_cbor_64k"
+protocol = "wamp_websocket_pubsub"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 48
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_secure_rpc_json_64k"
+protocol = "wamp_websocket_rpc"
+serializer = "json"
+path = "bench.rpc.echo"
+iterations = 48
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_secure_rpc_msgpack_64k"
+protocol = "wamp_websocket_rpc"
+serializer = "msgpack"
+path = "bench.rpc.echo"
+iterations = 48
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_secure_rpc_cbor_64k"
+protocol = "wamp_websocket_rpc"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 48
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true

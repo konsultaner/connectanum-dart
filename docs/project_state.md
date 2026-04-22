@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `b6e458e` (`fix(ci): serialize bench package verification`)
+Last reviewed commit: `0b4f1e7` (`fix(bench): unblock secure websocket validation`)
 
 ## Resume Order
 
@@ -29,8 +29,9 @@ Last reviewed commit: `b6e458e` (`fix(ci): serialize bench package verification`
 - Hosted Linux validation exposed a router/native config mismatch in that new secure WAMP path. GitHub Actions run `24777296956` first failed in Dart validation because the router layer incorrectly rejected shared SNI hostname `localhost` across distinct TLS endpoints, and follow-up runs `24778942812`, `24778930521`, and `24778930527` showed that the attempted `127.0.0.1` workaround was also invalid because the native TLS config requires DNS-style SNI hostnames. The shipped bench config is back on shared `localhost`, the cross-endpoint duplicate-SNI restriction is removed, and a bench-package regression now starts the shipped config through `RouterConfigLoaderIo -> Endpoint.fromListenerSettings -> Router.start(NativeTransportRuntime)` with distinct reserved ports while temporarily anchoring relative TLS asset lookup to the repo root, so this startup path now stays valid from both the repo root and the bench package root.
 - GitHub Actions runs `24780721173` (`kTLS Validation`) and `24780721191` (`kTLS HTTP/2 Benchmarks`) passed on commit `70f1525`, confirming the secure-WAMP startup fix on hosted Linux.
 - GitHub Actions run `24782645871` (`CI`) then passed on commit `b6e458e`, confirming the root `Full Verify` path now runs the bench package from `packages/connectanum_bench` under its checked-in serial `dart_test.yaml` contract on hosted Linux too.
-- The remaining secure-WAMP hosted blocker is now the Dart bench WebSocket client path rather than router startup. Manual `kTLS Validation` run `24783846529` reached the secure WAMP workloads, completed the secure RawSocket cases, then failed on `websocket_secure_rpc_json` with `HandshakeException: CERTIFICATE_VERIFY_FAILED: self signed certificate` because `WebSocketWampSessionFactory` was not forwarding `allowInsecureCertificates` to the Dart `connectanum_client` WebSocket transport.
-- `packages/connectanum_bench/test/wamp_session_factory_test.dart` now reproduces that self-signed `wss://localhost` path locally, and `WebSocketWampSessionFactory` now forwards `allowInsecureCertificates` for JSON, MsgPack, and CBOR secure Dart WebSocket workloads.
+- GitHub Actions run `24785214332` (`kTLS Validation`, `workflow_dispatch`) passed on commit `0b4f1e7` after the Dart secure-WebSocket certificate-path fix, and push `CI` run `24785189137` also passed on the same commit, so secure RawSocket and secure WebSocket WAMP smoke validation is now green on hosted Linux.
+- The current secure-WAMP benchmark milestone is now throughput characterization rather than smoke-path debugging. `native/bench/scenarios/wamp_secure_throughput.toml` mirrors the existing 64 KiB cleartext transport sweep for secure RawSocket/WebSocket RPC + pubsub across JSON, MsgPack, and CBOR on `bench.secure`.
+- The direct Rust bench CLI now defaults its control plane to `https://127.0.0.1:8080/bench` instead of `https://localhost:8080/bench`, because the shipped bench router binds the TLS control listener on IPv4 loopback and the old default could hit the wrong socket on this macOS host.
 - `packages/connectanum_router/test/router_worker_auth_test.dart` no longer has the old 1-in-256 false-success path in `Cryptosign authenticator rejects wrong signature`; the test now always mutates the first signature byte instead of sometimes regenerating the same `ff...` prefix and leaving the signature unchanged.
 - `connectanum_core` now exposes a typed `WampE2eeProvider` contract plus an explicit `WampE2eeProviderUnavailableException`, so `ppt_scheme = "wamp"` payloads no longer silently materialize empty args/kwargs when no decryptor is available.
 - The Dart client/session path now threads an optional `e2eeProvider` through outbound publish/call/yield packing, materialized inbound messages, and native direct-result/event/invocation payload views while preserving the existing packed-byte passthrough behavior for matching lazy WAMP payloads.
@@ -236,15 +237,21 @@ Last reviewed commit: `b6e458e` (`fix(ci): serialize bench package verification`
 - 2026-04-22: `cd packages/connectanum_bench && dart test test -r expanded` passed on Darwin arm64 after the same secure-WebSocket fix, keeping the bench package green under its package-root serial test contract.
 - 2026-04-22: `cd packages/connectanum_router && for i in {1..20}; do dart test test/router_worker_auth_test.dart --plain-name 'Cryptosign authenticator rejects wrong signature' -r compact >/tmp/cryptosign-auth-test.log || { cat /tmp/cryptosign-auth-test.log; exit 1; }; done` passed on Darwin arm64 after making the cryptosign negative-path test always flip the first signature byte instead of relying on a hard-coded `ff` prefix that could occasionally match the original signature.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after fixing the Dart secure-WebSocket certificate path in `WebSocketWampSessionFactory`, adding the new bench regression file, and stabilizing the flaky cryptosign negative-path router test.
+- 2026-04-22: GitHub Actions run `24785214332` (`kTLS Validation`, `workflow_dispatch`) passed on `add-router` for commit `0b4f1e7`, confirming secure RawSocket + secure WebSocket WAMP smoke workloads on hosted Linux after the Dart secure-WebSocket certificate fix.
+- 2026-04-22: GitHub Actions run `24785189137` (`CI`) passed on `add-router` for commit `0b4f1e7`.
+- 2026-04-22: `python3` `tomllib` parsing confirmed `native/bench/scenarios/wamp_secure_throughput.toml` loads cleanly with 12 workloads.
+- 2026-04-22: `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib /Users/konsultaner/Projects/connectanum-dart/native/transport/target/release/libct_ffi.dylib --control-base https://127.0.0.1:8080/bench --scenario native/bench/scenarios/wamp_secure_throughput.toml` passed on Darwin arm64 and produced the first local secure-WAMP 64 KiB baseline: secure RawSocket RPC roughly `151/163/109 Mbps` (JSON/MsgPack/CBOR) and pubsub roughly `44/56/38 Mbps`; secure WebSocket RPC roughly `146/156/141 Mbps` and pubsub roughly `42/71/52 Mbps`.
+- 2026-04-22: `cargo test --manifest-path native/bench/Cargo.toml http_endpoint_accepts_https_control_base -- --nocapture`, `cargo test --manifest-path native/bench/Cargo.toml build_http1_request_uses_origin_form_and_host_header -- --nocapture`, and `cargo test --manifest-path native/bench/Cargo.toml bench_http_client_builds_https_client -- --nocapture` all passed after changing the direct orchestrator default control base to `https://127.0.0.1:8080/bench`.
+- 2026-04-22: `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib /Users/konsultaner/Projects/connectanum-dart/native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/wamp_secure_smoke.toml` passed on Darwin arm64 after the same control-base default change, confirming the direct local CLI path works again without a hidden override.
 
 ## Active Plan
 
-- Active plan: `docs/exec-plans/2026-04-22-ktls-secure-wamp-benchmarks.md`
+- Active plan: `docs/exec-plans/2026-04-22-ktls-secure-wamp-throughput.md`
 - Supporting research notes:
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-22-workspace-public-package-docs.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-22-ktls-http2-benchmarks.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-22-ktls-secure-wamp-benchmarks.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-22-workspace-public-package-docs.md`
 
 ## Known Follow-Ups
 
@@ -252,9 +259,10 @@ Last reviewed commit: `b6e458e` (`fix(ci): serialize bench package verification`
   disables future kTLS attempts after socket-setup or handoff failures in one
   process in try-mode, and still is not the final production story for TLS 1.3
   key-update handling.
-- The current active benchmark expansion remains secure WAMP TLS coverage, but
-  the remaining work has narrowed to hosted Linux confirmation after the Dart
-  secure-WebSocket certificate-path fix and then performance characterization.
+- The current active benchmark expansion is secure WAMP throughput
+  characterization: the hosted smoke milestone is closed, and the next work is
+  deciding whether to queue a hosted Linux throughput run or tune the secure
+  transport baselines further.
 
 ## Update Checklist
 

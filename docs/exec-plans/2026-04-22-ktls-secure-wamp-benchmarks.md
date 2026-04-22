@@ -1,6 +1,6 @@
 # Exec Plan: ktls-secure-wamp-benchmarks
 
-Status: in_progress
+Status: completed
 Owner: Codex
 Created: 2026-04-22
 Last updated: 2026-04-22
@@ -126,12 +126,14 @@ for the HTTP/2 kTLS prototype.
   same signature because it hard-coded the first byte to `ff`; the test now
   always flips the first byte so the full suite can validate the secure-WAMP
   work without a 1-in-256 false negative.
+- 2026-04-22: GitHub Actions run `24785214332` (`kTLS Validation`,
+  `workflow_dispatch`) passed on commit `0b4f1e7`, and push `CI` run
+  `24785189137` passed on the same commit, closing the hosted secure-WAMP
+  smoke milestone.
 
 ## Handoff
 
 - This plan starts with harness/config work, not more low-level kTLS handoff
   changes.
-- The remaining question is now hosted Linux confirmation after the Dart
-  secure-WebSocket certificate-path fix, and then performance characterization
-  rather than more bench-target-selection work or low-level kTLS handoff
-  debugging.
+- This milestone is closed. The next active work is throughput-grade secure
+  WAMP measurement in `docs/exec-plans/2026-04-22-ktls-secure-wamp-throughput.md`.

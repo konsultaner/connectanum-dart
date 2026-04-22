@@ -85,7 +85,7 @@ struct Args {
     native_lib: String,
 
     /// Base URL for the /bench/* HTTP control endpoints.
-    #[arg(long, default_value = "https://localhost:8080/bench")]
+    #[arg(long, default_value = "https://127.0.0.1:8080/bench")]
     control_base: String,
 
     /// Optional HTTP/3 port override (defaults to control port).
@@ -4034,9 +4034,9 @@ mod tests {
     #[test]
     fn http_endpoint_accepts_https_control_base() {
         let endpoint =
-            HttpEndpoint::from_control_base("https://localhost:8080/bench", Some(8443)).unwrap();
+            HttpEndpoint::from_control_base("https://127.0.0.1:8080/bench", Some(8443)).unwrap();
         assert_eq!(endpoint.scheme, "https");
-        assert_eq!(endpoint.host, "localhost");
+        assert_eq!(endpoint.host, "127.0.0.1");
         assert_eq!(endpoint.port, 8080);
         assert_eq!(endpoint.http3_port(), 8443);
     }
@@ -4570,7 +4570,7 @@ mod tests {
     #[test]
     fn build_http1_request_uses_origin_form_and_host_header() {
         let endpoint =
-            HttpEndpoint::from_control_base("https://localhost:8080/bench", Some(8443)).unwrap();
+            HttpEndpoint::from_control_base("https://127.0.0.1:8080/bench", Some(8443)).unwrap();
         let workload = PreparedWorkload {
             name: "h1_test".to_string(),
             protocol: "h1".to_string(),
@@ -4606,7 +4606,7 @@ mod tests {
         assert_eq!(request.uri().scheme_str(), None);
         assert_eq!(
             request.headers().get("host").unwrap(),
-            &HyperHeaderValue::from_static("localhost:8080")
+            &HyperHeaderValue::from_static("127.0.0.1:8080")
         );
     }
 
@@ -5376,7 +5376,7 @@ mod tests {
 
     #[test]
     fn bench_http_client_builds_https_client() {
-        let client = BenchHttpClient::new("https://localhost:8080/bench").unwrap();
+        let client = BenchHttpClient::new("https://127.0.0.1:8080/bench").unwrap();
         client.build_client().unwrap();
     }
 

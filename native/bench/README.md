@@ -16,6 +16,10 @@ set `secure_transport = true` and point the workload at `bench.secure` ticket
 auth if it should run through the TLS WAMP listener in
 `native/bench/bench_router.json`.
 
+`native/bench/scenarios/wamp_secure_throughput.toml` is the throughput-grade
+secure WAMP baseline. It mirrors the existing 64 KiB cleartext transport sweep
+but routes through the TLS WAMP listener and `bench.secure` ticket auth.
+
 ## What It Measures
 
 - HTTP/1.1, HTTP/2, and HTTP/3 throughput and latency
@@ -30,6 +34,11 @@ auth if it should run through the TLS WAMP listener in
 cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- \
   --scenario native/bench/scenarios/h2_smoke.toml
 ```
+
+The direct CLI now defaults its control plane to `https://127.0.0.1:8080/bench`
+so local runs target the shipped IPv4 TLS listener consistently on dual-stack
+hosts. Override `--control-base` only if you intentionally move the bench
+control plane elsewhere.
 
 For the kTLS comparison runner, use the repo helper:
 
