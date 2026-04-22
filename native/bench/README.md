@@ -338,6 +338,9 @@ ACL-on one so the same bench run can compare authorization overhead:
   WebSocket, HTTP/1.1, HTTP/2, and HTTP/3 in one run. The WAMP side now mixes
   JSON, MessagePack, and CBOR across RawSocket/WebSocket workloads so serializer
   regressions show up in the default cross-transport run.
+- `h2_ktls_benchmark.toml` – focused HTTP/2-only sustained plus multiplexed
+  workload intended for baseline TLS versus required-kTLS comparison runs on a
+  Linux host.
 - `real_world_smoke.toml` – higher-connection smoke that mixes RawSocket and
   WebSocket WAMP pubsub/RPC with HTTP/2 and HTTP/3 fanout; roughly 2k
   RawSocket WAMP connections plus a smaller WebSocket comparison load and
@@ -375,6 +378,20 @@ you only want a router-worker sanity check.
 Use `cargo run --release` for throughput work; the debug/profile-default
 orchestrator is fine for harness development, but HTTP/3 numbers in particular
 are noisy enough in debug builds to mislead scaling conclusions.
+
+For the Linux kTLS comparison path, use the repo wrapper instead of running the
+orchestrator twice by hand:
+
+```sh
+bin/ktls-http2-bench \
+  --scenario native/bench/scenarios/h2_ktls_benchmark.toml \
+  --out-dir out/ktls-http2-bench
+```
+
+That wrapper requires Linux, builds the release `ct_ffi` library once, runs the
+same HTTP/2 workload set first with `CONNECTANUM_ENABLE_KTLS=0` and then with
+`CONNECTANUM_ENABLE_KTLS=1` plus `CONNECTANUM_REQUIRE_KTLS=1`, and writes
+baseline/ktls artifact bundles alongside `comparison.json` and `comparison.md`.
 
 ```
 cargo run --release --manifest-path native/bench/Cargo.toml -- \

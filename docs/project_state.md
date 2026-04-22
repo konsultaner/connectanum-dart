@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `04c33fb` (`fix(ktls): pass native lib into validation bench`)
+Last reviewed commit: `dd4c6b7` (`docs(ktls): record hosted linux validation`)
 
 ## Resume Order
 
@@ -155,7 +155,7 @@ Last reviewed commit: `04c33fb` (`fix(ktls): pass native lib into validation ben
 
 ## Active Plan
 
-- No active execution plan is checked in right now.
+- Active plan: `docs/exec-plans/2026-04-22-ktls-http2-benchmarks.md`
 - Supporting research notes:
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`

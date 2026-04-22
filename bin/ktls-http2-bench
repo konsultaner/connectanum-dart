@@ -1,0 +1,237 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+
+usage() {
+  cat <<'EOF'
+Usage: bin/ktls-http2-bench [--scenario <path>] [--out-dir <dir>] [--router-worker-counts <csv>] [--native-runtime-thread-counts <csv>]
+
+Runs the Linux-only HTTP/2 comparison bench:
+1. baseline TLS over the existing HTTP/2 listener
+2. required-kTLS over the same HTTP/2 listener
+
+Outputs:
+  <out-dir>/baseline/*
+  <out-dir>/ktls/*
+  <out-dir>/comparison.json
+  <out-dir>/comparison.md
+
+Environment:
+  CONNECTANUM_ENABLE_KTLS            Forced to 0 for baseline and 1 for kTLS
+  CONNECTANUM_REQUIRE_KTLS           Forced to 0 for baseline and 1 for kTLS
+EOF
+}
+
+scenario="$(repo_root)/native/bench/scenarios/h2_ktls_benchmark.toml"
+out_dir="$(repo_root)/out/ktls-http2-bench"
+router_worker_counts="1"
+native_runtime_thread_counts="1,4"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --scenario)
+      scenario="$2"
+      shift 2
+      ;;
+    --out-dir)
+      out_dir="$2"
+      shift 2
+      ;;
+    --router-worker-counts)
+      router_worker_counts="$2"
+      shift 2
+      ;;
+    --native-runtime-thread-counts)
+      native_runtime_thread_counts="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Unknown argument: %s\n' "$1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+require_command cargo
+require_command dart
+require_command python3
+cd_repo_root
+
+if [[ "$(uname -s)" != "Linux" ]]; then
+  printf 'bin/ktls-http2-bench requires Linux.\n' >&2
+  exit 1
+fi
+
+mkdir -p "$out_dir"
+
+scenario="$(cd "$(dirname "$scenario")" && pwd)/$(basename "$scenario")"
+baseline_dir="${out_dir%/}/baseline"
+ktls_dir="${out_dir%/}/ktls"
+comparison_json="${out_dir%/}/comparison.json"
+comparison_md="${out_dir%/}/comparison.md"
+host_info_path="${out_dir%/}/host-info.txt"
+
+build_native_ffi_test_release
+
+if [[ -z "${CONNECTANUM_NATIVE_LIB:-}" ]]; then
+  printf 'Failed to resolve CONNECTANUM_NATIVE_LIB for HTTP/2 kTLS benchmark.\n' >&2
+  exit 1
+fi
+
+{
+  printf 'date_utc=%s\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  printf 'uname=%s\n' "$(uname -a)"
+  if [[ -r /proc/version ]]; then
+    printf 'proc_version=%s\n' "$(tr '\n' ' ' </proc/version)"
+  fi
+  if [[ -r /proc/sys/net/ipv4/tcp_available_ulp ]]; then
+    printf 'tcp_available_ulp=%s\n' "$(tr '\n' ' ' </proc/sys/net/ipv4/tcp_available_ulp)"
+  fi
+  printf 'rustc=%s\n' "$(rustc -V)"
+  printf 'cargo=%s\n' "$(cargo -V)"
+  printf 'dart=%s\n' "$("$(dart_binary)" --version 2>&1 | tr '\n' ' ')"
+  printf 'scenario=%s\n' "$scenario"
+  printf 'router_worker_counts=%s\n' "$router_worker_counts"
+  printf 'native_runtime_thread_counts=%s\n' "$native_runtime_thread_counts"
+  printf 'native_lib=%s\n' "$CONNECTANUM_NATIVE_LIB"
+} >"$host_info_path"
+
+run_pass() {
+  local label="$1"
+  local pass_out_dir="$2"
+  local enable_ktls="$3"
+  local require_ktls="$4"
+
+  mkdir -p "$pass_out_dir"
+
+  printf 'Running %s HTTP/2 bench (CONNECTANUM_ENABLE_KTLS=%s, CONNECTANUM_REQUIRE_KTLS=%s)...\n' \
+    "$label" "$enable_ktls" "$require_ktls"
+
+  CONNECTANUM_ENABLE_KTLS="$enable_ktls" \
+  CONNECTANUM_REQUIRE_KTLS="$require_ktls" \
+  cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- \
+    --native-lib "$CONNECTANUM_NATIVE_LIB" \
+    --scenario "$scenario" \
+    --results "${pass_out_dir}/bench_results.jsonl" \
+    --artifact-dir "$pass_out_dir" \
+    --router-worker-counts "$router_worker_counts" \
+    --native-runtime-thread-counts "$native_runtime_thread_counts"
+}
+
+run_pass baseline "$baseline_dir" 0 0
+run_pass ktls "$ktls_dir" 1 1
+
+python3 - "$baseline_dir/bench_results.summary.json" "$ktls_dir/bench_results.summary.json" "$comparison_json" "$comparison_md" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+baseline_path = Path(sys.argv[1])
+ktls_path = Path(sys.argv[2])
+comparison_json_path = Path(sys.argv[3])
+comparison_md_path = Path(sys.argv[4])
+
+baseline = json.loads(baseline_path.read_text())
+ktls = json.loads(ktls_path.read_text())
+
+
+def key(entry):
+    return (
+        entry["scenario"],
+        entry["workload"],
+        entry["protocol"],
+        entry.get("client_impl", "n/a"),
+        entry["router_workers"],
+        entry["native_runtime_threads"],
+    )
+
+
+baseline_workloads = {key(entry): entry for entry in baseline["workloads"]}
+ktls_workloads = {key(entry): entry for entry in ktls["workloads"]}
+all_keys = sorted(set(baseline_workloads) | set(ktls_workloads))
+
+
+def pct_delta(base, current):
+    if base == 0:
+        return None
+    return ((current - base) / base) * 100.0
+
+
+rows = []
+for workload_key in all_keys:
+    base = baseline_workloads.get(workload_key)
+    current = ktls_workloads.get(workload_key)
+    row = {
+        "scenario": workload_key[0],
+        "workload": workload_key[1],
+        "protocol": workload_key[2],
+        "client_impl": workload_key[3],
+        "router_workers": workload_key[4],
+        "native_runtime_threads": workload_key[5],
+        "baseline": base,
+        "ktls": current,
+    }
+    if base and current:
+        row["delta"] = {
+            "throughput_mbps": current["throughput_mbps"] - base["throughput_mbps"],
+            "throughput_pct": pct_delta(base["throughput_mbps"], current["throughput_mbps"]),
+            "latency_p95_ms": current["latency_p95_ms"] - base["latency_p95_ms"],
+            "latency_p95_pct": pct_delta(base["latency_p95_ms"], current["latency_p95_ms"]),
+            "latency_avg_ms": current["latency_avg_ms"] - base["latency_avg_ms"],
+            "latency_avg_pct": pct_delta(base["latency_avg_ms"], current["latency_avg_ms"]),
+        }
+    else:
+        row["delta"] = None
+    rows.append(row)
+
+comparison = {
+    "baseline_source": str(baseline_path),
+    "ktls_source": str(ktls_path),
+    "rows": rows,
+}
+comparison_json_path.write_text(json.dumps(comparison, indent=2) + "\n")
+
+lines = [
+    "# HTTP/2 TLS vs kTLS Comparison",
+    "",
+    "| Workload | Router workers | Native runtime threads | Baseline Mbps | kTLS Mbps | Delta | Baseline p95 ms | kTLS p95 ms | Delta |",
+    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+]
+
+for row in rows:
+    base = row["baseline"]
+    current = row["ktls"]
+    delta = row["delta"]
+    if not base or not current or not delta:
+        continue
+    throughput_pct = delta["throughput_pct"]
+    latency_pct = delta["latency_p95_pct"]
+    throughput_pct_text = "n/a" if throughput_pct is None else f"{throughput_pct:+.2f}%"
+    latency_pct_text = "n/a" if latency_pct is None else f"{latency_pct:+.2f}%"
+    lines.append(
+        "| {workload} | {router_workers} | {native_runtime_threads} | {baseline_mbps:.2f} | {ktls_mbps:.2f} | {throughput_delta:+.2f} Mbps ({throughput_pct}) | {baseline_p95:.2f} | {ktls_p95:.2f} | {latency_delta:+.2f} ms ({latency_pct}) |".format(
+            workload=row["workload"],
+            router_workers=row["router_workers"],
+            native_runtime_threads=row["native_runtime_threads"],
+            baseline_mbps=base["throughput_mbps"],
+            ktls_mbps=current["throughput_mbps"],
+            throughput_delta=delta["throughput_mbps"],
+            throughput_pct=throughput_pct_text,
+            baseline_p95=base["latency_p95_ms"],
+            ktls_p95=current["latency_p95_ms"],
+            latency_delta=delta["latency_p95_ms"],
+            latency_pct=latency_pct_text,
+        )
+    )
+
+comparison_md_path.write_text("\n".join(lines) + "\n")
+PY
+
+printf 'HTTP/2 TLS vs kTLS benchmark artifacts written to %s\n' "$out_dir"
