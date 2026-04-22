@@ -5,6 +5,7 @@ pub(crate) const ENABLE_KTLS_ENV: &str = "CONNECTANUM_ENABLE_KTLS";
 #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 pub(crate) const REQUIRE_KTLS_ENV: &str = "CONNECTANUM_REQUIRE_KTLS";
 
+use std::io::{self, BufRead};
 #[cfg(target_os = "linux")]
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -112,6 +113,38 @@ fn dummy_server_session(
     }
 }
 
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn drain_buffered_plaintext(
+    session: &mut rustls::ServerConnection,
+) -> Result<Option<Vec<u8>>, String> {
+    let mut plaintext = Vec::new();
+
+    loop {
+        let chunk_len = {
+            let chunk = match session.reader().into_first_chunk() {
+                Ok(chunk) => chunk,
+                Err(err) if err.kind() == io::ErrorKind::WouldBlock => break,
+                Err(err) => {
+                    return Err(format!(
+                        "failed to drain buffered plaintext before Linux kTLS handoff: {err}"
+                    ))
+                }
+            };
+
+            if chunk.is_empty() {
+                break;
+            }
+
+            plaintext.extend_from_slice(chunk);
+            chunk.len()
+        };
+
+        session.reader().consume(chunk_len);
+    }
+
+    Ok((!plaintext.is_empty()).then_some(plaintext))
+}
+
 #[cfg(target_os = "linux")]
 pub(crate) async fn try_offload_server_stream(
     mut tls_stream: ServerTlsStream<TcpStream>,
@@ -130,6 +163,12 @@ pub(crate) async fn try_offload_server_stream(
         disable_server_offload();
         err
     })?;
+    let buffered_plaintext = drain_buffered_plaintext(&mut session)
+        .map(|buffer| buffer.map(ktls_core::Buffer::from))
+        .map_err(|err| {
+            disable_server_offload();
+            err
+        })?;
     // tokio-rustls returns a buffered ServerConnection. Its public API exposes
     // secret extraction, but not rustls's kernel-connection handoff, so the
     // prototype uses a dummy server-side session for short-lived validation
@@ -146,10 +185,11 @@ pub(crate) async fn try_offload_server_stream(
     // TCP stream is only ready for that once the TLS handshake has completed,
     // so the dummy-session helper performs the ULP setup here instead of on
     // the pre-handshake socket.
-    let stream = ktls_stream::Stream::new_dummy(stream, secrets, dummy_session, None).map_err(|err| {
-        disable_server_offload();
-        format!("failed to initialize Linux kTLS stream: {err}")
-    })?;
+    let stream = ktls_stream::Stream::new_dummy(stream, secrets, dummy_session, buffered_plaintext)
+        .map_err(|err| {
+            disable_server_offload();
+            format!("failed to initialize Linux kTLS stream: {err}")
+        })?;
     Ok(crate::io_stream::IoStream::ktls_server(
         stream,
         negotiated_alpn,
@@ -178,7 +218,15 @@ fn parse_enabled_flag(raw: Option<&str>) -> bool {
 mod tests {
     use super::*;
     use crate::config::{EndpointRuntimeConfig, TlsMode};
-    use std::time::Duration;
+    use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
+    use rustls::pki_types::{PrivateKeyDer, ServerName};
+    use rustls::{ClientConfig as RustlsClientConfig, ServerConfig as RustlsServerConfig};
+    use rustls_pemfile::{certs, pkcs8_private_keys};
+    use std::{
+        io::{Cursor, Write},
+        sync::Arc,
+        time::Duration,
+    };
 
     #[test]
     fn parse_enabled_flag_accepts_common_truthy_values() {
@@ -242,6 +290,171 @@ mod tests {
         assert!(!server_http_eligible(&endpoint_with_protocols(vec![
             TransportProtocol::Websocket
         ])));
+    }
+
+    #[test]
+    fn drain_buffered_plaintext_preserves_post_handshake_http2_preface() {
+        let server_cert_pem = include_str!("../../../bench/bench_tls.crt");
+        let server_key_pem = include_str!("../../../bench/bench_tls.key");
+        let cert_chain = parse_cert_chain(server_cert_pem);
+        let server_key = parse_private_key(server_key_pem);
+
+        let server_config = Arc::new(
+            RustlsServerConfig::builder()
+                .with_no_client_auth()
+                .with_single_cert(cert_chain, server_key)
+                .expect("server config"),
+        );
+        let provider = Arc::new(rustls::crypto::ring::default_provider());
+        let verifier = Arc::new(NoCertificateVerification {
+            schemes: provider
+                .signature_verification_algorithms
+                .supported_schemes(),
+        });
+        let client_config = Arc::new(
+            RustlsClientConfig::builder_with_provider(Arc::clone(&provider))
+                .with_protocol_versions(&[&rustls::version::TLS13])
+                .expect("client protocol versions")
+                .dangerous()
+                .with_custom_certificate_verifier(verifier)
+                .with_no_client_auth(),
+        );
+
+        let mut server = rustls::ServerConnection::new(server_config).expect("server connection");
+        let mut client = rustls::ClientConnection::new(
+            client_config,
+            ServerName::try_from("localhost").expect("server name"),
+        )
+        .expect("client connection");
+
+        complete_handshake(&mut client, &mut server);
+
+        let http2_preface = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
+        client
+            .writer()
+            .write_all(http2_preface)
+            .expect("queue application data");
+        pump_client_to_server(&mut client, &mut server);
+
+        let drained = drain_buffered_plaintext(&mut server)
+            .expect("drain buffered plaintext")
+            .expect("buffered plaintext");
+        assert_eq!(drained, http2_preface);
+        assert!(drain_buffered_plaintext(&mut server)
+            .expect("drain after consume")
+            .is_none());
+    }
+
+    #[derive(Debug)]
+    struct NoCertificateVerification {
+        schemes: Vec<rustls::SignatureScheme>,
+    }
+
+    impl ServerCertVerifier for NoCertificateVerification {
+        fn verify_server_cert(
+            &self,
+            _end_entity: &rustls::pki_types::CertificateDer<'_>,
+            _intermediates: &[rustls::pki_types::CertificateDer<'_>],
+            _server_name: &ServerName<'_>,
+            _ocsp_response: &[u8],
+            _now: rustls::pki_types::UnixTime,
+        ) -> Result<ServerCertVerified, rustls::Error> {
+            Ok(ServerCertVerified::assertion())
+        }
+
+        fn verify_tls12_signature(
+            &self,
+            _message: &[u8],
+            _cert: &rustls::pki_types::CertificateDer<'_>,
+            _dss: &rustls::DigitallySignedStruct,
+        ) -> Result<HandshakeSignatureValid, rustls::Error> {
+            Ok(HandshakeSignatureValid::assertion())
+        }
+
+        fn verify_tls13_signature(
+            &self,
+            _message: &[u8],
+            _cert: &rustls::pki_types::CertificateDer<'_>,
+            _dss: &rustls::DigitallySignedStruct,
+        ) -> Result<HandshakeSignatureValid, rustls::Error> {
+            Ok(HandshakeSignatureValid::assertion())
+        }
+
+        fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+            self.schemes.clone()
+        }
+    }
+
+    fn parse_cert_chain(pem: &str) -> Vec<rustls::pki_types::CertificateDer<'static>> {
+        let mut reader = Cursor::new(pem.as_bytes());
+        certs(&mut reader)
+            .collect::<Result<Vec<_>, _>>()
+            .expect("parse certificate chain")
+    }
+
+    fn parse_private_key(pem: &str) -> PrivateKeyDer<'static> {
+        let mut reader = Cursor::new(pem.as_bytes());
+        pkcs8_private_keys(&mut reader)
+            .collect::<Result<Vec<_>, _>>()
+            .expect("parse private key")
+            .into_iter()
+            .next()
+            .expect("private key present")
+            .into()
+    }
+
+    fn complete_handshake(
+        client: &mut rustls::ClientConnection,
+        server: &mut rustls::ServerConnection,
+    ) {
+        while client.is_handshaking() || server.is_handshaking() {
+            pump_client_to_server(client, server);
+            pump_server_to_client(server, client);
+        }
+    }
+
+    fn pump_client_to_server(
+        client: &mut rustls::ClientConnection,
+        server: &mut rustls::ServerConnection,
+    ) {
+        let mut tls_bytes = Vec::new();
+        while client.wants_write() {
+            client
+                .write_tls(&mut tls_bytes)
+                .expect("write client handshake bytes");
+        }
+        if tls_bytes.is_empty() {
+            return;
+        }
+        let mut cursor = Cursor::new(tls_bytes);
+        server
+            .read_tls(&mut cursor)
+            .expect("read client handshake bytes");
+        server
+            .process_new_packets()
+            .expect("process client packets");
+    }
+
+    fn pump_server_to_client(
+        server: &mut rustls::ServerConnection,
+        client: &mut rustls::ClientConnection,
+    ) {
+        let mut tls_bytes = Vec::new();
+        while server.wants_write() {
+            server
+                .write_tls(&mut tls_bytes)
+                .expect("write server handshake bytes");
+        }
+        if tls_bytes.is_empty() {
+            return;
+        }
+        let mut cursor = Cursor::new(tls_bytes);
+        client
+            .read_tls(&mut cursor)
+            .expect("read server handshake bytes");
+        client
+            .process_new_packets()
+            .expect("process server packets");
     }
 
     fn endpoint_with_protocols(protocols: Vec<TransportProtocol>) -> EndpointRuntimeConfig {
