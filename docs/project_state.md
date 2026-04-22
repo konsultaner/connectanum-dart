@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `795dbb8` (`ci(native): package ct_ffi workflow artifacts`)
+Last reviewed commit: `7ed40fd` (`ci(native): attest packaged release assets`)
 
 ## Resume Order
 
@@ -38,6 +38,8 @@ Last reviewed commit: `795dbb8` (`ci(native): package ct_ffi workflow artifacts`
 - `bin/package-native-artifact` now produces deterministic `ct_ffi` release bundles for the host platform, including the native library, a manifest, a README, and a SHA-256 checksum under `out/native-artifacts/`.
 - GitHub Actions now exposes a dedicated `Native Artifacts` workflow that runs `bin/package-native-artifact` on Linux and macOS and uploads the resulting tarball, checksum, and manifest as workflow artifacts for the existing `CONNECTANUM_NATIVE_LIB` deployment path.
 - The `Native Artifacts` workflow is now configured to publish those same Linux/macOS bundles to GitHub Releases on release-tag runs, and manual dispatches can publish/update a release when given an explicit tag name.
+- The same `Native Artifacts` workflow now generates GitHub artifact attestations for each packaged archive/checksum/manifest set, so released `ct_ffi` bundles have hosted provenance records in addition to the GitHub Release assets themselves.
+- Hosted validation for the release path is now complete: GitHub Actions run `24756862771` validated release publishing after the `c4bd069` shell-variable fix, and run `24757138619` validated the attestation-enabled workflow end to end on both Linux and macOS while keeping `Publish GitHub Release` green.
 - The local autonomy blockers from the 2026-04-21 audit are resolved for this macOS shell environment.
 - In-app heartbeat sandboxes are more restricted than the interactive shell here; remote CI inspection and git metadata writes should still happen from unrestricted interactive runs or the external launchd worker.
 
@@ -87,19 +89,23 @@ Last reviewed commit: `795dbb8` (`ci(native): package ct_ffi workflow artifacts`
 - 2026-04-22: `bin/test-fast` passed on Darwin arm64 before landing GitHub Release publishing on top of the `Native Artifacts` workflow and after restoring the hook/native-loader test files to the repo-standard `@TestOn` + `library;` layout.
 - 2026-04-22: `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/native-artifacts.yml'); puts 'yaml_ok'"` passed locally after adding the GitHub Release publishing job to the native artifact workflow.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after landing the GitHub Release publishing workflow changes, the release-path docs updates, and the `library;` analyzer-noise fix for the hook/native-loader tests.
+- 2026-04-22: GitHub Actions run `24756862771` passed on tag `ct-ffi-v2026.04.22-validation.042151` after `c4bd069` fixed the `Publish GitHub Release` shell variable bug found by run `24756798793`.
+- 2026-04-22: `bin/test-fast` passed on Darwin arm64 before landing GitHub artifact attestations for the packaged native release assets.
+- 2026-04-22: `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/native-artifacts.yml'); puts 'yaml_ok'"` passed locally after adding `actions/attest@v4` to the native artifact workflow.
+- 2026-04-22: GitHub Actions run `24757138619` passed on tag `ct-ffi-v2026.04.22-validation.043206-attest`, with both Linux/macOS `ct_ffi` jobs generating artifact attestations successfully and `Publish GitHub Release` remaining green.
+- 2026-04-22: `bin/verify` passed on Darwin arm64 after landing GitHub artifact attestations for the packaged release assets and updating the release/deployment docs to describe `gh attestation verify`.
 
 ## Active Plan
 
 - No active execution plan is checked in right now.
 - Supporting research note: `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-22-ct-ffi-github-release-publishing.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-22-ct-ffi-ci-artifacts.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-22-ct-ffi-artifact-attestations.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-22-ct-ffi-release-workflow-validation.md`
 
 ## Known Follow-Ups
 
-- Add signing or attestation for the released `ct_ffi` assets before treating the GitHub Release bundles as the final production distribution path.
 - Add install-time (`dart pub get`) native build hooks or another downstream-friendly artifact acquisition path so consumers do not need Cargo or manual artifact extraction.
-- Run the first live GitHub Actions tag/manual release-publish execution to confirm the new release job against the hosted runner environment rather than local YAML parsing only.
+- Decide whether detached/offline signatures are still needed beyond the new GitHub-hosted artifact attestations for downstream verification flows.
 - Multi-arch deployment images and deeper native transport tuning remain separate follow-up work after the artifact-packaging baseline.
 
 ## Update Checklist

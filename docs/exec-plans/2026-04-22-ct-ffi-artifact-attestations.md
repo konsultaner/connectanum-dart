@@ -1,6 +1,6 @@
 # Exec Plan: ct-ffi-artifact-attestations
 
-Status: in_progress
+Status: completed
 Owner: Codex
 Created: 2026-04-22
 Last updated: 2026-04-22
@@ -65,9 +65,20 @@ alone.
 - 2026-04-22: Use GitHub's built-in artifact attestation flow instead of adding
   a separate signing toolchain first, because it fits the existing GitHub
   release workflow and gives immediate provenance coverage for public releases.
+- 2026-04-22: Attest the packaged archive, checksum, and manifest together on
+  each matrix runner so the same provenance record covers the shipped archive
+  plus the metadata files consumers use alongside it.
 
 ## Handoff
 
-- Pending. Expected outcome: the release bundles gain hosted provenance
-  attestations, leaving install-time acquisition and optional detached/offline
-  signatures as the main packaging follow-ups.
+- Completed. `Native Artifacts` now generates GitHub artifact attestations for
+  each packaged Linux/macOS archive/checksum/manifest set via `actions/attest`.
+- Hosted validation passed on GitHub Actions run `24757138619` for validation
+  tag `ct-ffi-v2026.04.22-validation.043206-attest`, with both `ct_ffi`
+  matrix jobs generating attestations successfully and `Publish GitHub Release`
+  remaining green.
+- Local verification also passed with `bin/test-fast`, local YAML parsing of
+  `.github/workflows/native-artifacts.yml`, and `bin/verify`.
+- Remaining follow-up: install-time native acquisition/build hooks, plus
+  detached/offline signatures only if GitHub-hosted attestations are not
+  sufficient for downstream consumers.
