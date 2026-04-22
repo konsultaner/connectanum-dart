@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `b6d533d` (`ci(native): add detached signature bundles`)
+Last reviewed commit: `cad794b` (`ci(deploy): publish multi-arch router image`)
 
 ## Resume Order
 
@@ -46,6 +46,9 @@ Last reviewed commit: `b6d533d` (`ci(native): add detached signature bundles`)
 - `CONNECTANUM_NATIVE_RELEASE_REPOSITORY=<owner/repo>` overrides the default GitHub Releases source for that hook-managed prebuilt flow, and the explicit prebuilt/system-library paths no longer require a local `native/transport` checkout.
 - `connectanum_router:tool/install_native.dart` and `connectanum_client:tool/install_native.dart` now provide the explicit downstream prefetch path for hosted native assets: they download the current host bundle into `.dart_tool/connectanum/native/<host-triple>/`, verify the published checksum, and print the resulting library path for `CONNECTANUM_NATIVE_LIB`.
 - The install helpers deliberately keep the deployment/runtime contract explicit instead of trying to simulate unsupported `dart pub get` automation; automatic hook cache reuse was tested and then dropped after hitting a Dart native-assets bundler bug on this macOS setup.
+- kTLS remains unimplemented; `docs/ktls_research.md` now captures the
+  Linux-only feasibility result, the repo-local blockers, and the benchmark
+  order for the next deployment-hardening milestone.
 - The local autonomy blockers from the 2026-04-21 audit are resolved for this macOS shell environment.
 - In-app heartbeat sandboxes are more restricted than the interactive shell here; remote CI inspection and git metadata writes should still happen from unrestricted interactive runs or the external launchd worker.
 
@@ -113,17 +116,30 @@ Last reviewed commit: `b6d533d` (`ci(native): add detached signature bundles`)
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after landing detached Sigstore blob bundles (`<asset>.sigstore.json`) for the packaged native archive/checksum/manifest set and updating the release/deployment docs to describe `cosign verify-blob`.
 - 2026-04-22: `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/router-image.yml'); puts 'yaml_ok'"` passed locally after adding the multi-arch GHCR router image workflow.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after landing the `Router Image` workflow, the repo `.dockerignore`, and the deployment/template updates for `ghcr.io/konsultaner/connectanum-router`.
+- 2026-04-22: `bin/test-fast` passed on Darwin arm64 before landing the kTLS
+  research spike docs and project-state refresh.
+- 2026-04-22: `bin/verify` passed on Darwin arm64 after landing
+  `docs/ktls_research.md`, the kTLS research exec plan, and the associated
+  `docs/project_state.md` refresh.
 
 ## Active Plan
 
 - No active execution plan is checked in right now.
-- Supporting research note: `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-22-router-image-publishing.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-22-native-signature-bundles.md`
+- Supporting research notes:
+  - `docs/ktls_research.md`
+  - `docs/e2ee_ppt_research.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-22-ktls-research-spike.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-22-router-image-publishing.md`
 
 ## Known Follow-Ups
 
-- kTLS exploration/benchmarks remain the next deployment hardening follow-up after the multi-arch image baseline.
+- The next deployment-hardening milestone is the Linux-only kTLS prototype:
+  enable secret extraction in the native TLS configs, add a post-handshake
+  offloaded `IoStream` path with graceful fallback, and benchmark HTTPS /
+  HTTP/2 first.
+- After that prototype is stable, extend the bench router with a TLS WAMP
+  listener so secure RawSocket / WebSocket kTLS measurements can use the
+  existing WAMP benchmark harness.
 
 ## Update Checklist
 
