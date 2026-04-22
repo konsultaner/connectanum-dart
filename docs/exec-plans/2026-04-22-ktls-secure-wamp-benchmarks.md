@@ -77,11 +77,18 @@ for the HTTP/2 kTLS prototype.
 - 2026-04-22: Queued GitHub Actions run `24777296956` (`kTLS Validation`) via
   `workflow_dispatch` with `scenario=native/bench/scenarios/wamp_secure_smoke.toml`
   because the push-triggered workflow still defaults to `h2_smoke.toml`.
+- 2026-04-22: Hosted run `24777296956` failed before the bench reported `READY`
+  because `native/bench/bench_router.json` reused SNI hostname `localhost`
+  across both TLS listeners; the secure WAMP listener now uses `127.0.0.1`,
+  which is already in the bench cert SAN set, and a new regression test loads
+  the shipped bench config through `RouterConfigLoaderIo ->
+  Endpoint.fromListenerSettings -> Router(...)` so duplicate-SNI startup bugs
+  fail locally before another hosted run.
 
 ## Handoff
 
 - This plan starts with harness/config work, not more low-level kTLS handoff
   changes.
-- After the secure WAMP path is running, the remaining question becomes
-  hosted Linux validation and then performance characterization rather than
-  basic TLS-path correctness.
+- The remaining question is now hosted Linux confirmation for the fixed secure
+  WAMP startup path and then performance characterization rather than more
+  bench-target-selection work or low-level kTLS handoff debugging.

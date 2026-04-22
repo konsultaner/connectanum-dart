@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `121b92a` (`docs: polish package public surfaces`)
+Last reviewed commit: `63c6d75` (`docs: record secure wamp validation run`)
 
 ## Resume Order
 
@@ -25,6 +25,7 @@ Last reviewed commit: `121b92a` (`docs: polish package public surfaces`)
 - The bench WAMP harness now supports explicit secure-target selection through `secure_transport = true`, keeps separate cleartext and TLS listener target maps for both the in-process runner and the native helper worker, and fails closed instead of silently falling back to the cleartext WAMP listener.
 - `native/bench/bench_router.json` now ships both cleartext WAMP (`127.0.0.1:8081`) and TLS WAMP (`127.0.0.1:8083`) listeners, and both WebSocket listeners advertise `wamp.2.json`, `wamp.2.msgpack`, and `wamp.2.cbor` so the bench scenario surface matches the supported WAMP serializers.
 - The bench workload contract now includes `secure_transport`, and `native/bench/scenarios/wamp_secure_smoke.toml` provides the first checked-in secure RawSocket/WebSocket smoke coverage against `bench.secure` ticket auth.
+- Hosted Linux validation immediately exposed one config bug in that new secure WAMP path: GitHub Actions run `24777296956` failed before `READY` because the shipped bench router config reused SNI hostname `localhost` across both TLS listeners, so the secure WAMP listener now uses `127.0.0.1` and a new bench-package regression test loads `native/bench/bench_router.json` through `RouterConfigLoaderIo -> Endpoint.fromListenerSettings -> Router(...)` to keep that duplicate-SNI failure from recurring.
 - `connectanum_core` now exposes a typed `WampE2eeProvider` contract plus an explicit `WampE2eeProviderUnavailableException`, so `ppt_scheme = "wamp"` payloads no longer silently materialize empty args/kwargs when no decryptor is available.
 - The Dart client/session path now threads an optional `e2eeProvider` through outbound publish/call/yield packing, materialized inbound messages, and native direct-result/event/invocation payload views while preserving the existing packed-byte passthrough behavior for matching lazy WAMP payloads.
 - The first Dart-side WAMP E2EE prototype is now implemented. `connectanum_core` ships `WampCborXsalsa20Poly1305Provider`, explicit unsupported-cipher / missing-key / invalid-payload / decryption failure types, and a focused provider regression test.
@@ -215,6 +216,9 @@ Last reviewed commit: `121b92a` (`docs: polish package public surfaces`)
 - 2026-04-22: `python3` `tomllib` parsing confirmed `native/bench/scenarios/wamp_secure_smoke.toml` loads cleanly with four secure WAMP workloads.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after landing the secure WAMP bench harness/config/docs checkpoint.
 - 2026-04-22: GitHub Actions run `24777296956` (`kTLS Validation`, `workflow_dispatch`) was queued against `native/bench/scenarios/wamp_secure_smoke.toml` on `add-router` so hosted Linux can validate the new secure WAMP path directly instead of the workflow's default HTTP smoke scenario.
+- 2026-04-22: GitHub Actions run `24777296956` then failed during bench-router startup with `Invalid argument(s): Duplicate SNI hostname "localhost" detected across router endpoints`, proving the secure WAMP listener addition needed a distinct SNI hostname in the shipped bench config.
+- 2026-04-22: `dart test packages/connectanum_bench/test/bench_router_config_test.dart packages/connectanum_bench/test/wamp_transport_targets_test.dart -r expanded` passed on Darwin arm64 after changing the secure WAMP listener SNI hostname to `127.0.0.1` and adding a regression that loads `native/bench/bench_router.json` through the same router-validation path used by `packages/connectanum_bench/tool/bench_main.dart`.
+- 2026-04-22: `bin/verify` passed on Darwin arm64 after fixing the duplicate-SNI secure WAMP bench listener config and adding the shipped-config regression test.
 
 ## Active Plan
 
@@ -231,10 +235,10 @@ Last reviewed commit: `121b92a` (`docs: polish package public surfaces`)
   disables future kTLS attempts after socket-setup or handoff failures in one
   process in try-mode, and still is not the final production story for TLS 1.3
   key-update handling.
-- The current active benchmark expansion is secure WAMP TLS coverage: extend
-  the bench router with a TLS WAMP listener and make the bench runner select
-  secure WAMP targets explicitly instead of falling back to the higher-scored
-  cleartext listener.
+- The current active benchmark expansion remains secure WAMP TLS coverage, but
+  the remaining work has narrowed to hosted Linux confirmation and then
+  performance characterization now that the first config-level startup bug is
+  covered by a checked-in regression.
 
 ## Update Checklist
 

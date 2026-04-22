@@ -303,7 +303,7 @@
           "mode": "native",
           "sni_certificates": [
             {
-              "hostname": "localhost",
+              "hostname": "127.0.0.1",
               "certificate_chain_file": "native/bench/bench_tls.crt",
               "private_key_file": "native/bench/bench_tls.key"
             }
