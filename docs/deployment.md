@@ -75,7 +75,19 @@ archive/checksum/manifest set, so you can verify a downloaded archive with:
 gh attestation verify path/to/ct-ffi-<host-triple>.tar.gz -R konsultaner/connectanum-dart
 ```
 
-Detached offline signature files are not shipped yet.
+The workflow also ships detached Sigstore blob bundles as
+`<asset>.sigstore.json`, so the downloaded archive/checksum/manifest can be
+verified offline without relying on GitHub-hosted attestations:
+
+```sh
+cosign verify-blob path/to/ct-ffi-<host-triple>.tar.gz \
+  --bundle path/to/ct-ffi-<host-triple>.tar.gz.sigstore.json \
+  --certificate-identity "https://github.com/konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml@refs/tags/<tag>" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+For manually dispatched workflow runs, replace the tag-based identity with the
+actual workflow ref that produced the bundle.
 
 For production packaging you can compile the runner to a native executable:
 

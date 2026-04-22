@@ -93,7 +93,19 @@ library if you prefer to manage the bundle yourself. The release workflow also
 publishes GitHub artifact attestations for the archive/checksum/manifest set, so
 a downloaded archive can be verified with
 `gh attestation verify path/to/ct-ffi-<host-triple>.tar.gz -R konsultaner/connectanum-dart`.
-Detached offline signature files are not shipped yet.
+The same workflow now also attaches detached Sigstore blob bundles as
+`<asset>.sigstore.json`, which can be verified without GitHub-hosted
+attestation services:
+
+```bash
+cosign verify-blob path/to/ct-ffi-<host-triple>.tar.gz \
+  --bundle path/to/ct-ffi-<host-triple>.tar.gz.sigstore.json \
+  --certificate-identity "https://github.com/konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml@refs/tags/<tag>" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+For manual workflow runs, use the actual workflow ref that emitted the bundle
+instead of the tag-based identity above.
 
 ## Codex-Friendly Workflow
 

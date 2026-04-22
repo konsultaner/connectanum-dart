@@ -44,9 +44,42 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v4.0.0
+
       - name: Package ct_ffi artifact
         id: package
         run: bin/package-native-artifact
+
+      - name: Sign packaged artifacts
+        env:
+          ARCHIVE_PATH: ${{ steps.package.outputs.archive_path }}
+          CHECKSUM_PATH: ${{ steps.package.outputs.checksum_path }}
+          MANIFEST_PATH: ${{ steps.package.outputs.manifest_path }}
+        run: |
+          set -euo pipefail
+
+          for artifact in "$ARCHIVE_PATH" "$CHECKSUM_PATH" "$MANIFEST_PATH"; do
+            cosign sign-blob "$artifact" \
+              --bundle "${artifact}.sigstore.json" \
+              --yes
+          done
+
+      - name: Verify packaged artifact bundles
+        env:
+          ARCHIVE_PATH: ${{ steps.package.outputs.archive_path }}
+          CHECKSUM_PATH: ${{ steps.package.outputs.checksum_path }}
+          MANIFEST_PATH: ${{ steps.package.outputs.manifest_path }}
+          WORKFLOW_IDENTITY: https://github.com/${{ github.workflow_ref }}
+        run: |
+          set -euo pipefail
+
+          for artifact in "$ARCHIVE_PATH" "$CHECKSUM_PATH" "$MANIFEST_PATH"; do
+            cosign verify-blob "$artifact" \
+              --bundle "${artifact}.sigstore.json" \
+              --certificate-identity "$WORKFLOW_IDENTITY" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          done
 
       - name: Generate artifact attestation
         uses: actions/attest@v4
@@ -62,8 +95,11 @@ jobs:
           name: ${{ steps.package.outputs.bundle_name }}
           path: |
             ${{ steps.package.outputs.archive_path }}
+            ${{ steps.package.outputs.archive_path }}.sigstore.json
             ${{ steps.package.outputs.checksum_path }}
+            ${{ steps.package.outputs.checksum_path }}.sigstore.json
             ${{ steps.package.outputs.manifest_path }}
+            ${{ steps.package.outputs.manifest_path }}.sigstore.json
 
   publish-release:
     name: Publish GitHub Release
@@ -130,7 +166,8 @@ jobs:
             prerelease_args+=(--prerelease)
           fi
 
-          release_notes=$'Native `ct_ffi` bundles are attached for this tag.\n\nUse `CONNECTANUM_NATIVE_LIB` with the extracted host archive. GitHub artifact attestations are published for the bundled archive/checksum/manifest set; verify the downloaded archive with `gh attestation verify` against this repository.'
+          workflow_identity="https://github.com/${GITHUB_WORKFLOW_REF}"
+          release_notes=$'Native `ct_ffi` bundles are attached for this tag.\n\nUse `CONNECTANUM_NATIVE_LIB` with the extracted host archive. GitHub artifact attestations are published for the bundled archive/checksum/manifest set; verify the downloaded archive with `gh attestation verify` against this repository.\n\nDetached Sigstore blob bundles are also attached as `<asset>.sigstore.json`; verify a downloaded asset offline with `cosign verify-blob <asset> --bundle <asset>.sigstore.json --certificate-identity '"$workflow_identity"$' --certificate-oidc-issuer https://token.actions.githubusercontent.com`.'
 
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" \
