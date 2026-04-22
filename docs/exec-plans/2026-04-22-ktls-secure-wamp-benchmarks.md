@@ -74,6 +74,9 @@ for the HTTP/2 kTLS prototype.
 - 2026-04-22: Extended the shipped bench router config with a TLS WAMP listener
   on `127.0.0.1:8083` and aligned both the cleartext and TLS WebSocket
   listeners to advertise `wamp.2.json`, `wamp.2.msgpack`, and `wamp.2.cbor`.
+- 2026-04-22: Queued GitHub Actions run `24777296956` (`kTLS Validation`) via
+  `workflow_dispatch` with `scenario=native/bench/scenarios/wamp_secure_smoke.toml`
+  because the push-triggered workflow still defaults to `h2_smoke.toml`.
 
 ## Handoff
 
