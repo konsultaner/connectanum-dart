@@ -129,7 +129,7 @@ jobs:
             create_args=(
               --repo "$GITHUB_REPOSITORY"
               --generate-notes
-              --notes "$RELEASE_NOTES"
+              --notes "$release_notes"
             )
 
             if [[ -n "$RELEASE_TITLE" ]]; then
