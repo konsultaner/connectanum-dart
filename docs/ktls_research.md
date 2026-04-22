@@ -46,11 +46,11 @@ captures that answer and the resulting benchmark order.
 - `rustls 0.23` exposes `ExtractedSecrets`, documented specifically as the
   post-handshake material used to configure kTLS:
   <https://docs.rs/rustls/latest/rustls/struct.ExtractedSecrets.html>
-- `rustls 0.23` also exposes `dangerous_extract_secrets()` and
-  `dangerous_into_kernel_connection()`. The crate source marks
-  `dangerous_extract_secrets()` as deprecated for kTLS-style use because it does
-  not cover session tickets or key updates; the recommended path is
-  `dangerous_into_kernel_connection()`.
+- `rustls 0.23` exposes `dangerous_extract_secrets()` on the buffered
+  `ServerConnection` / `ClientConnection` types and exposes
+  `dangerous_into_kernel_connection()` on the unbuffered connection types. That
+  distinction matters here because `tokio-rustls 0.26` hands the repo back a
+  buffered `ServerConnection`, not an unbuffered one.
 - `tokio-rustls 0.26` exposes `into_inner()` on both client and server TLS
   streams, which means the repo can recover both the raw socket and the
   `rustls` connection state after handshake without replacing the TLS library.
@@ -64,15 +64,17 @@ captures that answer and the resulting benchmark order.
 
 ### Bottom Line
 
-Linux-only kTLS looks viable with the current Rust stack. The repo does not
-need a `rustls` or `tokio-rustls` version jump just to prototype it.
+Linux-only kTLS is still viable with the current Rust stack, but the current
+`tokio-rustls` integration limits how far the prototype can go without a deeper
+handshake refactor. The repo does not need a `rustls` or `tokio-rustls` version
+jump just to validate a short-lived HTTP/2 smoke path.
 
 ### What Is Already Good Enough
 
-- `rustls 0.23.38` is new enough to expose the kernel-handoff APIs and extracted
-  traffic secrets.
+- `rustls 0.23.38` is new enough to expose extracted traffic secrets and the
+  kernel-handoff APIs on its unbuffered connection types.
 - `tokio-rustls 0.26.4` is new enough to hand the underlying `TcpStream` and
-  `rustls` connection back after handshake.
+  buffered `rustls` connection back after handshake.
 - The current bench tooling already has a TLS-enabled HTTP path, so the first
   Linux benchmark does not need new benchmark infrastructure.
 
@@ -101,8 +103,11 @@ need a `rustls` or `tokio-rustls` version jump just to prototype it.
 2. Extend the server/client TLS builders in `native/transport/ct_core/src/tls.rs`
    so the Linux kTLS path can set `enable_secret_extraction = true`.
 3. After TLS handshake completion, convert the `tokio-rustls` stream with
-   `into_inner()`, then use `dangerous_into_kernel_connection()` rather than
-   the deprecated `dangerous_extract_secrets()` helper.
+   `into_inner()`. With the current buffered `ServerConnection` API, the
+   practical prototype path is `dangerous_extract_secrets()` plus a dummy
+   server-side kTLS session for short-lived validation traffic; a full kernel
+   connection handoff would require moving the server handshake onto rustls's
+   unbuffered API or another lower-level integration.
 4. Add a Linux-only `IoStream` variant for the offloaded socket and keep the
    existing `tokio-rustls` path as the default fallback when probing or setup
    fails.
@@ -167,6 +172,9 @@ already used in the bench suite.
 - HTTP/3 is out of scope because QUIC does not use kTLS
 - `TLS_TX_ZEROCOPY_RO` and similar zero-copy claims only become meaningful on a
   supported Linux host with device offload
+- the current `tokio-rustls` server path does not yet provide production-ready
+  TLS 1.3 key-update or ticket handling for kTLS, because the validated
+  prototype uses `dangerous_extract_secrets()` plus a dummy server session
 
 ## Recommended Next Milestone
 
@@ -175,6 +183,9 @@ Land a Linux-only prototype with these rules:
 - opt-in build/runtime path
 - graceful fallback to the current `tokio-rustls` implementation when kernel,
   cipher, or stream-setup prerequisites are not met
+- explicit acknowledgement that the current validated prototype is for
+  short-lived HTTP/2 smoke traffic, not final TLS 1.3 key-update/ticket
+  handling
 - benchmark HTTP/2 first
 - delay secure WAMP benchmarks until the bench router has a TLS WAMP listener
 

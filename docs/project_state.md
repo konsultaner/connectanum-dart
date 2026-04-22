@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `a35c72f` (`docs(public): polish release-facing artifacts`)
+Last reviewed commit: `04c33fb` (`fix(ktls): pass native lib into validation bench`)
 
 ## Resume Order
 
@@ -55,10 +55,20 @@ Last reviewed commit: `a35c72f` (`docs(public): polish release-facing artifacts`
   handoff into a kTLS-backed `IoStream`.
 - When `CONNECTANUM_ENABLE_KTLS` is unset or the host is not Linux, the native
   TLS path stays on the existing `tokio-rustls` implementation.
-- Linux runtime validation is still pending. This macOS host verified that the
-  default/non-Linux path stayed green through `bin/verify`, but a Linux-target
-  `cargo check` could not complete here because `ring` needs a Linux cross C
-  toolchain/sysroot on this machine.
+- The strict Linux validation path is now reproducible through
+  `bin/ktls-linux-validate` and GitHub Actions workflow `kTLS Validation`,
+  which auto-runs on pushes to `add-router` and `master` and remains available
+  through `workflow_dispatch`.
+- Hosted Linux validation is now green: GitHub Actions run `24767010221`
+  passed on Ubuntu 24.04 with `CONNECTANUM_ENABLE_KTLS=1` and
+  `CONNECTANUM_REQUIRE_KTLS=1`, including the targeted Rust kTLS tests and the
+  existing HTTP/2 smoke bench.
+- The current validated server prototype still uses
+  `dangerous_extract_secrets()` plus `ktls-core`'s dummy server session because
+  `tokio-rustls` returns a buffered `rustls::ServerConnection`, whose public
+  API does not expose `dangerous_into_kernel_connection()`. That is adequate
+  for the short-lived HTTP/2 smoke path, but it is not yet the final answer for
+  TLS 1.3 key-update or session-ticket handling.
 - The local autonomy blockers from the 2026-04-21 audit are resolved for this macOS shell environment.
 - In-app heartbeat sandboxes are more restricted than the interactive shell here; remote CI inspection and git metadata writes should still happen from unrestricted interactive runs or the external launchd worker.
 
@@ -137,25 +147,30 @@ Last reviewed commit: `a35c72f` (`docs(public): polish release-facing artifacts`
 - 2026-04-22: `bin/test-fast` passed on Darwin arm64 before landing the public-facing release/readme polish pass.
 - 2026-04-22: `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/native-artifacts.yml'); puts 'yaml_ok'"` and `ruby -e 'require "yaml"; wf = YAML.load_file(".github/workflows/native-artifacts.yml"); step = wf.fetch("jobs").values.flat_map { |job| job.fetch("steps", []) }.find { |s| s["name"] == "Create or update GitHub Release" }; abort("step not found") unless step; File.write("/tmp/connectanum-release-step.sh", step.fetch("run"));' && bash -n /tmp/connectanum-release-step.sh && echo shell_ok` both passed locally after polishing the native-artifact release metadata workflow.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after landing the public-facing release titles/details, the packaged native-bundle README rewrite, and the top-level README restructure.
+- 2026-04-22: `bin/test-fast` passed on Darwin arm64 before landing the strict Linux kTLS validation workflow and runner.
+- 2026-04-22: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core ktls::tests -- --nocapture` passed on Darwin arm64 after adding the strict Linux kTLS mode split and again after switching the Linux handoff path to `dangerous_extract_secrets()` plus the dummy server session.
+- 2026-04-22: `bash -n bin/ktls-linux-validate && bin/ktls-linux-validate --help >/dev/null` passed on Darwin arm64 after fixing the validation script to build/export `CONNECTANUM_NATIVE_LIB` and pass `--native-lib` into the bench runner explicitly.
+- 2026-04-22: `bin/verify` passed on Darwin arm64 after fixing the Linux kTLS handoff path and then rerunning it after the final `bin/ktls-linux-validate` contract fix.
+- 2026-04-22: GitHub Actions run `24767010221` (`kTLS Validation`) passed on `add-router`, validating the strict Linux kTLS runner end to end on Ubuntu 24.04 after run `24766303551` exposed the missing `--native-lib` bench argument.
 
 ## Active Plan
 
-- Active plan: `docs/exec-plans/2026-04-22-ktls-linux-validation.md`
+- No active execution plan is checked in right now.
 - Supporting research notes:
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-22-public-surface-polish.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-22-ktls-prototype.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-22-ktls-linux-validation.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-22-public-surface-polish.md`
 
 ## Known Follow-Ups
 
-- The next deployment-hardening milestone is Linux validation of the
-  `CONNECTANUM_ENABLE_KTLS=1` prototype on an actual Linux host, then HTTP/2
-  benchmark runs against the existing TLS HTTP listener.
-- The current prototype keeps default/non-Linux runs on `tokio-rustls` and
+- The next deployment-hardening milestone is HTTP/2 benchmark runs against the
+  existing TLS HTTP listener now that strict Linux validation of the
+  `CONNECTANUM_ENABLE_KTLS=1` prototype is green.
+- The current prototype keeps default/non-Linux runs on `tokio-rustls`,
   disables future kTLS attempts after socket-setup or handoff failures in one
-  process, but it still needs Linux runtime validation before it can be treated
-  as production-ready fallback behaviour.
+  process, and now has a green hosted Linux validation path, but it still is
+  not the final production story for TLS 1.3 key-update or ticket handling.
 - After that prototype is stable, extend the bench router with a TLS WAMP
   listener so secure RawSocket / WebSocket kTLS measurements can use the
   existing WAMP benchmark harness.
