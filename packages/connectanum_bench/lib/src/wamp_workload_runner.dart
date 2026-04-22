@@ -1150,12 +1150,18 @@ class WebSocketWampSessionFactory {
       WampSerializer.json => wamp_client.WebSocketTransport.withJsonSerializer(
         url,
         headers,
+        allowInsecureCertificates,
       ),
       WampSerializer.msgpack =>
-        wamp_client.WebSocketTransport.withMsgpackSerializer(url, headers),
+        wamp_client.WebSocketTransport.withMsgpackSerializer(
+          url,
+          headers,
+          allowInsecureCertificates,
+        ),
       WampSerializer.cbor => wamp_client.WebSocketTransport.withCborSerializer(
         url,
         headers,
+        allowInsecureCertificates,
       ),
     };
   }

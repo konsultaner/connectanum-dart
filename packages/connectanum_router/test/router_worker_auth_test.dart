@@ -562,7 +562,12 @@ void main() {
       await client.hello('realm1', helloDetails);
       await context.performHelloWithDetails(helloDetails);
       final authenticate = await client.challenge(context.lastChallenge!.extra);
-      final tamperedSignature = 'ff${authenticate.signature!.substring(2)}';
+      final signature = authenticate.signature!;
+      final firstByte = int.parse(signature.substring(0, 2), radix: 16);
+      final tamperedFirstByte = ((firstByte + 1) & 0xff)
+          .toRadixString(16)
+          .padLeft(2, '0');
+      final tamperedSignature = '$tamperedFirstByte${signature.substring(2)}';
       final tampered = Authenticate(signature: tamperedSignature)
         ..extra = authenticate.extra;
       await context.performAuthenticate(tampered);

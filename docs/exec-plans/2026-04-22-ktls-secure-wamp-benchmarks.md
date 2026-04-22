@@ -106,13 +106,32 @@ for the HTTP/2 kTLS prototype.
   starting `native/bench/bench_router.json`; the bench package stays
   serialised via `packages/connectanum_bench/dart_test.yaml`, so that cwd
   change does not race the rest of the suite.
+- 2026-04-22: GitHub Actions run `24782645871` (`CI`) passed on commit
+  `b6e458e`, confirming the hosted Linux root-verification fix for the bench
+  package package-root/serial test contract.
+- 2026-04-22: Manual `kTLS Validation` run `24783846529` reached the secure
+  WAMP workloads and completed the secure RawSocket cases, then failed on
+  `websocket_secure_rpc_json` with `HandshakeException:
+  CERTIFICATE_VERIFY_FAILED: self signed certificate`, which showed the
+  remaining blocker was the Dart secure WebSocket bench client path rather
+  than router startup or native secure-listener selection.
+- 2026-04-22: Added `packages/connectanum_bench/test/wamp_session_factory_test.dart`
+  as a real self-signed `wss://localhost` regression and fixed
+  `WebSocketWampSessionFactory` to forward `allowInsecureCertificates` into the
+  Dart `connectanum_client` WebSocket transport factories for JSON, MsgPack,
+  and CBOR workloads.
+- 2026-04-22: The first full local `bin/verify` pass after that bench fix
+  exposed an unrelated flaky router test:
+  `Cryptosign authenticator rejects wrong signature` sometimes regenerated the
+  same signature because it hard-coded the first byte to `ff`; the test now
+  always flips the first byte so the full suite can validate the secure-WAMP
+  work without a 1-in-256 false negative.
 
 ## Handoff
 
 - This plan starts with harness/config work, not more low-level kTLS handoff
   changes.
-- The remaining question is now hosted Linux confirmation for the fixed secure
-  WAMP startup path after the bench suite adopts the same package-root serial
-  test contract as `connectanum_router`, and then performance characterization
+- The remaining question is now hosted Linux confirmation after the Dart
+  secure-WebSocket certificate-path fix, and then performance characterization
   rather than more bench-target-selection work or low-level kTLS handoff
   debugging.
