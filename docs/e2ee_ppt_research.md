@@ -238,3 +238,218 @@ chooses to decrypt it, rather than forcing immediate materialization.
    stable.
 3. Revisit router-assisted key distribution only if deployments need it; do not
    collapse phase 1 back into router-side payload inspection.
+
+## Phase 2 Design Outcome
+
+The packaging/release prerequisite is now satisfied, so the next E2EE milestone
+can move from “research whether we should” to “design exactly how we do it”.
+The recommended phase-2 direction is:
+
+- keep `connectanum_core` responsible for PPT wire shape and payload framing
+- keep the router blind to encrypted payload contents
+- add a contextual runtime negotiation/provider layer above the current
+  `WampE2eeProvider`
+- add a backward-compatible auth-handshake extension for key/capability
+  negotiation before any Rust-native encrypt/decrypt work lands
+
+## Recommended Native / Off-Dart Architecture
+
+### 1. Split framing from runtime key decisions
+
+Phase 1 proved that the framing contract works. Phase 2 should avoid baking
+key selection and peer/session policy into serializer helpers. The current
+provider needs a richer runtime context, not more static helper branches.
+
+Recommended direction:
+
+- keep `E2EEPayload.packE2EEPayload` / `unpackE2EEPayload` as framing entry
+  points
+- introduce a runtime context object that carries:
+  - direction (`outbound` / `inbound`)
+  - message family (`CALL` / `PUBLISH` / `YIELD` / `EVENT` / `RESULT` /
+    `INVOCATION` / `ERROR`)
+  - realm
+  - URI / procedure / topic when available
+  - local auth identity (`authid`, `authrole`, provider)
+  - negotiated remote peer metadata when available
+  - selected `ppt_serializer`, `ppt_cipher`, and `ppt_keyid`
+- keep the current provider as the “pure Dart local implementation” adapter for
+  that richer contract
+
+That lets the client decide encryption policy from real session context without
+teaching `connectanum_core` about transport or auth state.
+
+### 2. Add a native-capable provider lane, not a router decryption lane
+
+The native parity target should be “encrypt/decrypt without bouncing payloads
+back through Dart”, not “let the router understand ciphertext”.
+
+Recommended shape:
+
+- the client owns the E2EE policy and key registry
+- the router continues to forward opaque ciphertext plus `ppt_*` metadata
+- `ct_ffi` gains a native E2EE session/keyring handle layer that is configured
+  from the client side before the session starts
+- native direct event/result/invocation paths decrypt at the client boundary,
+  where the current Dart provider already runs today
+
+This keeps the trust boundary intact:
+
+- transport/native runtime may accelerate cryptography
+- router still cannot read payload contents
+- mixed Dart/native client implementations can share the same negotiation
+  contract
+
+### 3. Stage native parity behind the negotiated Dart contract
+
+Do not start with a Rust-only key flow. The order should be:
+
+1. negotiation metadata contract
+2. client-side contextual provider contract
+3. Dart implementation using the negotiated contract
+4. `ct_ffi` parity for the same negotiated contract
+
+That avoids shipping two incompatible E2EE models.
+
+## Recommended HELLO / CHALLENGE Negotiation Shape
+
+The repo already has the right message surfaces:
+
+- `HELLO.details.authextra`
+- `CHALLENGE.extra`
+- `AUTHENTICATE.extra`
+- `WELCOME.details.authextra`
+
+Phase 2 should use one optional `e2ee` object within those existing maps rather
+than inventing new top-level WAMP message fields.
+
+### HELLO
+
+Client advertises support and local preferences:
+
+```json
+{
+  "authextra": {
+    "e2ee": {
+      "version": 1,
+      "required": false,
+      "schemes": ["wamp"],
+      "serializers": ["cbor"],
+      "ciphers": ["xsalsa20poly1305"],
+      "key_ids": ["kid-client-a"],
+      "client_pubkey": "<base64url-x25519-pubkey>",
+      "kex": "x25519-xsalsa20poly1305"
+    }
+  }
+}
+```
+
+Notes:
+
+- `required = true` means fail closed if the server/auth flow cannot establish
+  an agreed E2EE session.
+- `key_ids` advertises usable outbound recipient keys without exposing secret
+  material.
+- `client_pubkey` is optional and should be used only for negotiated ephemeral
+  or semi-static public-key schemes.
+
+### CHALLENGE
+
+Authenticator or router-auth flow returns policy plus server/authenticator
+parameters:
+
+```json
+{
+  "e2ee": {
+    "required": true,
+    "selected_scheme": "wamp",
+    "selected_serializer": "cbor",
+    "selected_cipher": "xsalsa20poly1305",
+    "accepted_key_id": "kid-client-a",
+    "server_pubkey": "<base64url-x25519-pubkey>",
+    "challenge_binding": "<opaque-binding-token>"
+  }
+}
+```
+
+Purpose:
+
+- bind key negotiation to the same auth challenge that establishes identity
+- let the client know whether the server accepted the advertised key/cipher
+- optionally bind the E2EE agreement to the auth challenge so replay/downgrade
+  attempts are explicit
+
+### AUTHENTICATE
+
+Client confirms the negotiated parameters:
+
+```json
+{
+  "extra": {
+    "e2ee": {
+      "accepted": true,
+      "key_id": "kid-client-a",
+      "client_pubkey": "<base64url-x25519-pubkey>",
+      "client_proof": "<opaque-proof-or-signature>"
+    }
+  }
+}
+```
+
+Purpose:
+
+- confirm which key identity the client is actually binding to the session
+- optionally prove possession or bind the key exchange to the auth challenge
+
+### WELCOME
+
+Server returns the established session parameters:
+
+```json
+{
+  "authextra": {
+    "e2ee": {
+      "established": true,
+      "scheme": "wamp",
+      "serializer": "cbor",
+      "cipher": "xsalsa20poly1305",
+      "peer_key_id": "kid-server-a",
+      "send_key_id": "kid-server-a",
+      "receive_key_id": "kid-client-a",
+      "peer_pubkey": "<base64url-x25519-pubkey>"
+    }
+  }
+}
+```
+
+This becomes the negotiated session contract that both Dart and native client
+paths consume.
+
+## Compatibility and Security Rules
+
+- Absence of `authextra.e2ee` means the session falls back to the current
+  out-of-band provider model.
+- `required = true` must fail the session if negotiation does not succeed; it
+  must not silently downgrade to plaintext WAMP payloads.
+- The router/authenticator may validate and relay negotiation metadata, but it
+  should not need payload decryption keys to do so.
+- Phase 2 should still support only:
+  - `ppt_scheme = "wamp"`
+  - `ppt_serializer = "cbor"`
+  - `ppt_cipher = "xsalsa20poly1305"`
+- Additional ciphers or serializers should come only after the negotiated
+  contract and native parity are stable.
+
+## Recommended Implementation Slices After This Design
+
+1. Add pass-through coverage for `authextra.e2ee` on `HELLO`, `CHALLENGE`,
+   `AUTHENTICATE`, and `WELCOME` without changing payload behavior yet.
+2. Introduce a contextual E2EE runtime contract on the client side that can use
+   either:
+   - the current Dart provider, or
+   - a future native/session-backed provider
+3. Add negotiated-session state to `Client` / `Session` so outbound/inbound PPT
+   paths can default from the established contract instead of requiring fully
+   out-of-band configuration.
+4. Add `ct_ffi` keyring/session handles and native encrypt/decrypt parity only
+   after the Dart negotiation contract is exercised end-to-end.
