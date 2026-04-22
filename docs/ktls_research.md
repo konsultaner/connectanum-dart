@@ -214,6 +214,21 @@ artifact bundle with both baseline and required-kTLS per-pass summaries.
   previous buffered handoff path leaving userspace/kernel receive state out of
   sync. The current local mitigation is the unbuffered rustls server-handshake
   refactor plus the still-narrow TLS 1.3 ticket suppression on the kTLS path.
+- Follow-up hosted runs `24772627167` (`kTLS HTTP/2 Benchmarks`) and
+  `24772627180` (`kTLS Validation`) then showed the first unbuffered handoff
+  patch regressed even earlier: the required-kTLS `/bench/healthz` handshake
+  aborted with server-side `received fatal alert: UnexpectedMessage` while the
+  client reported `got ApplicationData when expecting Handshake`.
+- A focused local repro against `rustls::server::UnbufferedServerConnection`
+  established two API constraints that matter directly for the Linux handoff:
+  `EncodeTlsData` can be emitted multiple times before one
+  `TransmitTlsData`, and `WriteTraffic` can coexist with a partial
+  post-handshake TLS record prefix still buffered in the caller-owned TLS input
+  slice.
+- The current local fix therefore accumulates every encoded handshake fragment
+  until `TransmitTlsData` and keeps draining userspace TLS bytes until any
+  partial buffered record is completed or consumed before calling
+  `dangerous_into_kernel_connection()`.
 - Benchmark artifact generation should stay resilient to partial pass failure,
   because hosted runs can now produce baseline plus partial kTLS summaries even
   when the full comparison does not complete successfully.

@@ -84,10 +84,21 @@ comparison artifact.
   kTLS accept path now uses rustls's unbuffered server handshake plus
   `dangerous_into_kernel_connection()` instead of the old
   buffered-`tokio-rustls` / dummy-session handoff.
+- Follow-up hosted runs `24772627167` (`kTLS HTTP/2 Benchmarks`) and
+  `24772627180` (`kTLS Validation`) showed that the first unbuffered handoff
+  patch regressed earlier in the flow: the required-kTLS `/bench/healthz`
+  handshake failed immediately with server-side
+  `received fatal alert: UnexpectedMessage` and client-side
+  `got ApplicationData when expecting Handshake`.
+- The current local fix now accumulates all unbuffered `EncodeTlsData`
+  fragments before `TransmitTlsData` and delays
+  `dangerous_into_kernel_connection()` until any partial post-handshake TLS
+  record prefix buffered in userspace has been completed or consumed.
 - Local verification now covers the updated macOS `ct_core` suites plus a real
   Linux `cargo check -p ct_core` in an official `rust:1` Docker container, but
-  the milestone still needs a fresh hosted benchmark rerun to confirm whether
-  the old `EINVAL` / `EMSGSIZE` cluster disappears under required-kTLS.
+  the milestone still needs a fresh hosted benchmark rerun plus a fresh strict
+  validation rerun to confirm the `UnexpectedMessage` regression is gone and
+  whether the old `EINVAL` / `EMSGSIZE` cluster disappears under required-kTLS.
 - `bin/ktls-http2-bench` now keeps writing per-pass summaries and the
   comparison files even when one pass exits non-zero, so future hosted runs
   remain diagnosable without manually reconstructing partial benchmark output.
@@ -114,3 +125,8 @@ comparison artifact.
   defensible place to keep iterating once the hosted log showed receive-path
   `EINVAL` / `EMSGSIZE`, so the next bounded change switched the Linux kTLS
   accept path to rustls's unbuffered handshake and real kernel-connection API.
+- 2026-04-22: Hosted runs `24772627167` and `24772627180` proved that the
+  first unbuffered handoff patch still mishandled handshake bytes before the
+  benchmark workload even started, so the next bounded fix had to buffer every
+  unbuffered `EncodeTlsData` fragment and refuse kTLS conversion while partial
+  post-handshake TLS record bytes remained buffered in userspace.

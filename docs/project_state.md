@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `4615156` (`fix(ktls): restore mutable linux handoff state`)
+Last reviewed commit: `59b22b1` (`fix(ktls): use unbuffered rustls server handoff`)
 
 ## Resume Order
 
@@ -83,9 +83,24 @@ Last reviewed commit: `4615156` (`fix(ktls): restore mutable linux handoff state
   post-handshake plaintext explicitly, converts with
   `dangerous_into_kernel_connection()`, and only then constructs the kTLS
   `IoStream`.
+- GitHub Actions runs `24772627167` (`kTLS HTTP/2 Benchmarks`) and
+  `24772627180` (`kTLS Validation`) showed that the first unbuffered handoff
+  patch still broke the required-kTLS path before the benchmark workload
+  started: the initial `/bench/healthz` handshake aborted with server-side
+  `received fatal alert: UnexpectedMessage` and client-side
+  `got ApplicationData when expecting Handshake`.
+- Local analysis showed two unbuffered-rustls constraints that the first patch
+  missed: `EncodeTlsData` can be emitted multiple times before a single
+  `TransmitTlsData`, and `WriteTraffic` can still leave a partial
+  post-handshake TLS record prefix buffered in the caller-owned input slice.
+- The current local fix now accumulates every encoded handshake fragment until
+  `TransmitTlsData` and keeps draining userspace TLS bytes until any partial
+  buffered record is completed or consumed before switching the socket into
+  kTLS.
 - TLS 1.3 session tickets are still kept disabled on the kTLS path for now, so
-  the local handshake refactor stays isolated while the next hosted benchmark
-  rerun confirms whether the old `EINVAL` / `EMSGSIZE` failure cluster is gone.
+  the corrected handoff stays isolated while the next hosted benchmark and
+  validation reruns confirm whether the `UnexpectedMessage` regression is gone
+  and whether the older `EINVAL` / `EMSGSIZE` cluster is still present.
 - The local autonomy blockers from the 2026-04-21 audit are resolved for this macOS shell environment.
 - In-app heartbeat sandboxes are more restricted than the interactive shell here; remote CI inspection and git metadata writes should still happen from unrestricted interactive runs or the external launchd worker.
 
@@ -178,6 +193,12 @@ Last reviewed commit: `4615156` (`fix(ktls): restore mutable linux handoff state
 - 2026-04-22: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core ktls::tests -- --nocapture` and `cargo test --manifest-path native/transport/Cargo.toml -p ct_core tls::tests -- --nocapture` passed on Darwin arm64 after replacing the Linux kTLS accept path with an unbuffered rustls server handshake and real kernel-connection handoff.
 - 2026-04-22: `docker run --rm --platform linux/amd64 -v /Users/konsultaner/Projects/connectanum-dart:/work -w /work/native/transport rust:1 bash -lc 'TOOLCHAIN=$(ls /usr/local/rustup/toolchains | head -n1); export PATH=\"/usr/local/rustup/toolchains/$TOOLCHAIN/bin:$PATH\"; cargo check -p ct_core'` passed, confirming the Linux-only unbuffered kTLS handoff path typechecks in a real Linux toolchain.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after replacing the Linux kTLS accept path with rustls's unbuffered server handshake plus `dangerous_into_kernel_connection()` and updating the kTLS benchmark plan/research/state docs.
+- 2026-04-22: GitHub Actions run `24772627167` (`kTLS HTTP/2 Benchmarks`) failed on `add-router` after the first unbuffered-handshake landing because the required-kTLS `/bench/healthz` handshake returned server-side `received fatal alert: UnexpectedMessage` while the client reported `got ApplicationData when expecting Handshake`.
+- 2026-04-22: GitHub Actions run `24772627180` (`kTLS Validation`) failed on `add-router` with the same `UnexpectedMessage` / `got ApplicationData when expecting Handshake` signature before the stricter Linux smoke path could complete.
+- 2026-04-22: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core ktls::tests -- --nocapture` passed on Darwin arm64 after buffering every unbuffered `EncodeTlsData` fragment until `TransmitTlsData` and adding a regression that proves `WriteTraffic` can still leave partial TLS bytes buffered in userspace.
+- 2026-04-22: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core tls::tests -- --nocapture` passed on Darwin arm64 after the same unbuffered-handshake byte-accounting fix.
+- 2026-04-22: `docker run --rm --platform linux/amd64 -v /Users/konsultaner/Projects/connectanum-dart:/work -w /work/native/transport rust:1 bash -lc 'TOOLCHAIN=$(ls /usr/local/rustup/toolchains | head -n1); export PATH=\"/usr/local/rustup/toolchains/$TOOLCHAIN/bin:$PATH\"; cargo check -p ct_core'` passed again, confirming the corrected Linux-only handoff path still typechecks in a real Linux toolchain.
+- 2026-04-22: `bin/verify` passed on Darwin arm64 after fixing the unbuffered-handshake byte aggregation/pending-record bug and refreshing the kTLS benchmark plan/research/state docs.
 
 ## Active Plan
 
@@ -201,9 +222,11 @@ Last reviewed commit: `4615156` (`fix(ktls): restore mutable linux handoff state
   still keeps TLS 1.3 session tickets suppressed on the kTLS path while the
   unbuffered handoff change is being validated.
 - The next kTLS-specific step is no longer another local handoff guess; it is a
-  fresh hosted HTTP/2 benchmark run against the unbuffered handoff path to see
-  whether the old Linux receive-path failures (`EINVAL`, `EMSGSIZE`,
-  intermittent `ENOTCONN`) and downstream HTTP/2 frame corruption are gone.
+  fresh hosted HTTP/2 benchmark run plus a fresh strict Linux validation run
+  against the corrected unbuffered handoff path to confirm the new
+  `UnexpectedMessage` regression is gone and to see whether the older Linux
+  receive-path failures (`EINVAL`, `EMSGSIZE`, intermittent `ENOTCONN`) and
+  downstream HTTP/2 frame corruption are still present.
 - After that prototype is stable, extend the bench router with a TLS WAMP
   listener so secure RawSocket / WebSocket kTLS measurements can use the
   existing WAMP benchmark harness.

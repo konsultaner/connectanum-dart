@@ -156,7 +156,7 @@ pub(crate) async fn accept_server_stream(
     })?;
     let mut incoming_tls = Vec::new();
     let mut outgoing_tls = vec![0; UNBUFFERED_TLS_WRITE_CHUNK];
-    let mut pending_outgoing_len: Option<usize> = None;
+    let mut pending_outgoing_tls = Vec::new();
     let mut buffered_plaintext = Vec::new();
     let mut read_buf = [0u8; UNBUFFERED_TLS_READ_CHUNK];
 
@@ -174,20 +174,24 @@ pub(crate) async fn accept_server_stream(
                     err
                 })?;
                 discard_front(&mut incoming_tls, discard);
-                pending_outgoing_len = Some(encoded);
+                pending_outgoing_tls.extend_from_slice(&outgoing_tls[..encoded]);
             }
             rustls::unbuffered::ConnectionState::TransmitTlsData(transmit) => {
                 discard_front(&mut incoming_tls, discard);
-                let encoded = pending_outgoing_len.take().ok_or_else(|| {
+                if pending_outgoing_tls.is_empty() {
                     disable_server_offload();
-                    "rustls requested TLS transmit without encoded handshake bytes".to_string()
-                })?;
-                stream.write_all(&outgoing_tls[..encoded]).await.map_err(|err| {
+                    return Err(
+                        "rustls requested TLS transmit without encoded handshake bytes"
+                            .to_string(),
+                    );
+                }
+                stream.write_all(&pending_outgoing_tls).await.map_err(|err| {
                     disable_server_offload();
                     format!(
                         "failed to transmit TLS handshake bytes before Linux kTLS handoff: {err}"
                     )
                 })?;
+                pending_outgoing_tls.clear();
                 transmit.done();
             }
             rustls::unbuffered::ConnectionState::BlockedHandshake => {
@@ -237,6 +241,30 @@ pub(crate) async fn accept_server_stream(
             rustls::unbuffered::ConnectionState::WriteTraffic(write_traffic) => {
                 discard_front(&mut incoming_tls, discard);
                 drop(write_traffic);
+
+                // The handshake can complete while the last socket read already
+                // contains a partial post-handshake TLS record. Those bytes are
+                // no longer visible to the kernel once we switch to kTLS, so
+                // keep draining userspace reads until the prefix is either
+                // completed into plaintext or there is nothing pending.
+                if !incoming_tls.is_empty() {
+                    let read = tokio::io::AsyncReadExt::read(&mut stream, &mut read_buf)
+                        .await
+                        .map_err(|err| {
+                            disable_server_offload();
+                            format!(
+                                "failed to complete pending TLS records before Linux kTLS handoff: {err}"
+                            )
+                        })?;
+                    if read == 0 {
+                        disable_server_offload();
+                        return Err(
+                            "tls record truncated before Linux kTLS handoff".into(),
+                        );
+                    }
+                    incoming_tls.extend_from_slice(&read_buf[..read]);
+                    continue;
+                }
 
                 let negotiated_alpn = negotiated_alpn(&session);
                 let (secrets, kernel_connection) = session
@@ -313,7 +341,17 @@ fn parse_enabled_flag(raw: Option<&str>) -> bool {
 mod tests {
     use super::*;
     use crate::config::{EndpointRuntimeConfig, TlsMode};
-    use std::time::Duration;
+    use rustls::client::danger::{
+        HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier,
+    };
+    use rustls::pki_types::{PrivateKeyDer, ServerName};
+    use rustls::{ClientConfig as RustlsClientConfig, ServerConfig as RustlsServerConfig};
+    use rustls_pemfile::{certs, pkcs8_private_keys};
+    use std::{
+        io::{Cursor, Write},
+        sync::Arc,
+        time::Duration,
+    };
 
     #[test]
     fn parse_enabled_flag_accepts_common_truthy_values() {
@@ -394,6 +432,220 @@ mod tests {
     fn into_plaintext_buffer_omits_empty_vectors() {
         assert!(into_plaintext_buffer(Vec::new()).is_none());
         assert!(into_plaintext_buffer(vec![1, 2, 3]).is_some());
+    }
+
+    #[test]
+    fn write_traffic_state_can_leave_partial_tls_bytes_buffered() {
+        let server_cert_pem = include_str!("../../../bench/bench_tls.crt");
+        let server_key_pem = include_str!("../../../bench/bench_tls.key");
+        let cert_chain = parse_cert_chain(server_cert_pem);
+        let server_key = parse_private_key(server_key_pem);
+
+        let mut server_config = RustlsServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(cert_chain, server_key)
+            .expect("server config");
+        server_config.send_tls13_tickets = 0;
+        let server_config = Arc::new(server_config);
+        let provider = Arc::new(rustls::crypto::ring::default_provider());
+        let verifier = Arc::new(NoCertificateVerification {
+            schemes: provider
+                .signature_verification_algorithms
+                .supported_schemes(),
+        });
+        let client_config = Arc::new(
+            RustlsClientConfig::builder_with_provider(Arc::clone(&provider))
+                .with_protocol_versions(&[&rustls::version::TLS13])
+                .expect("client protocol versions")
+                .dangerous()
+                .with_custom_certificate_verifier(verifier)
+                .with_no_client_auth(),
+        );
+
+        let mut server =
+            rustls::server::UnbufferedServerConnection::new(server_config).expect("server");
+        let mut client = rustls::ClientConnection::new(
+            client_config,
+            ServerName::try_from("localhost").expect("server name"),
+        )
+        .expect("client");
+
+        complete_handshake_to_write_traffic(&mut client, &mut server);
+
+        client
+            .writer()
+            .write_all(b"GET /bench/healthz HTTP/1.1\r\n\r\n")
+            .expect("queue application data");
+        let mut app_tls = Vec::new();
+        while client.wants_write() {
+            client
+                .write_tls(&mut app_tls)
+                .expect("write application tls");
+        }
+        assert!(app_tls.len() > 5, "expected full TLS record");
+
+        let mut partial_tls = app_tls[..5].to_vec();
+        let status = server.process_tls_records(partial_tls.as_mut_slice());
+        let discard = status.discard;
+        let state = status.state.expect("server state");
+        assert!(
+            matches!(state, rustls::unbuffered::ConnectionState::WriteTraffic(_)),
+            "expected write-traffic state with partial TLS input, got {state:?}"
+        );
+        test_discard_front(&mut partial_tls, discard);
+        assert!(
+            !partial_tls.is_empty(),
+            "partial TLS record should still be buffered at write-traffic"
+        );
+    }
+
+    #[derive(Debug)]
+    struct NoCertificateVerification {
+        schemes: Vec<rustls::SignatureScheme>,
+    }
+
+    impl ServerCertVerifier for NoCertificateVerification {
+        fn verify_server_cert(
+            &self,
+            _end_entity: &rustls::pki_types::CertificateDer<'_>,
+            _intermediates: &[rustls::pki_types::CertificateDer<'_>],
+            _server_name: &ServerName<'_>,
+            _ocsp_response: &[u8],
+            _now: rustls::pki_types::UnixTime,
+        ) -> Result<ServerCertVerified, rustls::Error> {
+            Ok(ServerCertVerified::assertion())
+        }
+
+        fn verify_tls12_signature(
+            &self,
+            _message: &[u8],
+            _cert: &rustls::pki_types::CertificateDer<'_>,
+            _dss: &rustls::DigitallySignedStruct,
+        ) -> Result<HandshakeSignatureValid, rustls::Error> {
+            Ok(HandshakeSignatureValid::assertion())
+        }
+
+        fn verify_tls13_signature(
+            &self,
+            _message: &[u8],
+            _cert: &rustls::pki_types::CertificateDer<'_>,
+            _dss: &rustls::DigitallySignedStruct,
+        ) -> Result<HandshakeSignatureValid, rustls::Error> {
+            Ok(HandshakeSignatureValid::assertion())
+        }
+
+        fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+            self.schemes.clone()
+        }
+    }
+
+    fn parse_cert_chain(pem: &str) -> Vec<rustls::pki_types::CertificateDer<'static>> {
+        let mut reader = Cursor::new(pem.as_bytes());
+        certs(&mut reader)
+            .collect::<Result<Vec<_>, _>>()
+            .expect("parse certificate chain")
+    }
+
+    fn parse_private_key(pem: &str) -> PrivateKeyDer<'static> {
+        let mut reader = Cursor::new(pem.as_bytes());
+        pkcs8_private_keys(&mut reader)
+            .collect::<Result<Vec<_>, _>>()
+            .expect("parse private key")
+            .into_iter()
+            .next()
+            .expect("private key present")
+            .into()
+    }
+
+    fn complete_handshake_to_write_traffic(
+        client: &mut rustls::ClientConnection,
+        server: &mut rustls::server::UnbufferedServerConnection,
+    ) {
+        let mut server_ready = false;
+        let mut outgoing_tls = vec![0; 16 * 1024];
+        let mut pending_outgoing_tls = Vec::new();
+
+        while client.is_handshaking() || !server_ready {
+            let mut client_to_server = Vec::new();
+            while client.wants_write() {
+                client
+                    .write_tls(&mut client_to_server)
+                    .expect("write client handshake bytes");
+            }
+
+            let mut server_to_client = Vec::new();
+            loop {
+                let status = server.process_tls_records(client_to_server.as_mut_slice());
+                let discard = status.discard;
+                let state = status.state.expect("server handshake state");
+                match state {
+                    rustls::unbuffered::ConnectionState::EncodeTlsData(encode) => {
+                        let encoded =
+                            test_encode_unbuffered_tls(encode, &mut outgoing_tls);
+                        test_discard_front(&mut client_to_server, discard);
+                        pending_outgoing_tls
+                            .extend_from_slice(&outgoing_tls[..encoded]);
+                    }
+                    rustls::unbuffered::ConnectionState::TransmitTlsData(transmit) => {
+                        test_discard_front(&mut client_to_server, discard);
+                        assert!(
+                            !pending_outgoing_tls.is_empty(),
+                            "transmit state should have encoded handshake bytes"
+                        );
+                        server_to_client.extend_from_slice(&pending_outgoing_tls);
+                        pending_outgoing_tls.clear();
+                        transmit.done();
+                    }
+                    rustls::unbuffered::ConnectionState::BlockedHandshake => {
+                        test_discard_front(&mut client_to_server, discard);
+                        break;
+                    }
+                    rustls::unbuffered::ConnectionState::WriteTraffic(write_traffic) => {
+                        test_discard_front(&mut client_to_server, discard);
+                        drop(write_traffic);
+                        assert!(
+                            client_to_server.is_empty(),
+                            "handshake should not leave buffered TLS bytes in this setup"
+                        );
+                        server_ready = true;
+                        break;
+                    }
+                    unexpected => panic!("unexpected handshake state: {unexpected:?}"),
+                }
+            }
+
+            if !server_to_client.is_empty() {
+                let mut cursor = Cursor::new(server_to_client);
+                client
+                    .read_tls(&mut cursor)
+                    .expect("read server handshake bytes");
+                client
+                    .process_new_packets()
+                    .expect("process server handshake packets");
+            }
+        }
+    }
+
+    fn test_encode_unbuffered_tls(
+        mut encode: rustls::unbuffered::EncodeTlsData<'_, rustls::server::ServerConnectionData>,
+        outgoing_tls: &mut Vec<u8>,
+    ) -> usize {
+        loop {
+            match encode.encode(outgoing_tls.as_mut_slice()) {
+                Ok(encoded) => return encoded,
+                Err(rustls::unbuffered::EncodeError::InsufficientSize(required)) => {
+                    outgoing_tls.resize(required.required_size, 0);
+                }
+                Err(err) => panic!("failed to encode TLS handshake data: {err}"),
+            }
+        }
+    }
+
+    fn test_discard_front(buffer: &mut Vec<u8>, discard: usize) {
+        if discard == 0 {
+            return;
+        }
+        buffer.drain(..discard);
     }
 
     fn endpoint_with_protocols(protocols: Vec<TransportProtocol>) -> EndpointRuntimeConfig {
