@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `0b4f1e7` (`fix(bench): unblock secure websocket validation`)
+Last reviewed commit: `c040ef9` (`feat(bench): add secure wamp throughput baseline`)
 
 ## Resume Order
 
@@ -32,7 +32,7 @@ Last reviewed commit: `0b4f1e7` (`fix(bench): unblock secure websocket validatio
 - GitHub Actions run `24785214332` (`kTLS Validation`, `workflow_dispatch`) passed on commit `0b4f1e7` after the Dart secure-WebSocket certificate-path fix, and push `CI` run `24785189137` also passed on the same commit, so secure RawSocket and secure WebSocket WAMP smoke validation is now green on hosted Linux.
 - The current secure-WAMP benchmark milestone is now throughput characterization rather than smoke-path debugging. `native/bench/scenarios/wamp_secure_throughput.toml` mirrors the existing 64 KiB cleartext transport sweep for secure RawSocket/WebSocket RPC + pubsub across JSON, MsgPack, and CBOR on `bench.secure`.
 - The direct Rust bench CLI now defaults its control plane to `https://127.0.0.1:8080/bench` instead of `https://localhost:8080/bench`, because the shipped bench router binds the TLS control listener on IPv4 loopback and the old default could hit the wrong socket on this macOS host.
-- Hosted Linux throughput follow-up is now queued too: GitHub Actions run `24786956501` (`kTLS Validation`, `workflow_dispatch`) was dispatched on commit `c040ef9` with `native/bench/scenarios/wamp_secure_throughput.toml` so the new secure-WAMP throughput scenario gets the same Ubuntu validation path as the earlier smoke scenario.
+- GitHub Actions run `24786956501` (`kTLS Validation`, `workflow_dispatch`) then passed on commit `c040ef9` with `native/bench/scenarios/wamp_secure_throughput.toml`, so the secure-WAMP throughput scenario now has a hosted Ubuntu baseline too. Response-throughput highlights were RawSocket pubsub `56.77/65.08/57.15 Mbps`, RawSocket RPC `176.60/215.09/164.48 Mbps`, WebSocket pubsub `62.04/78.81/64.83 Mbps`, and WebSocket RPC `191.13/231.59/168.71 Mbps` for JSON/MsgPack/CBOR at `48 x 6` with one router worker and one native runtime thread.
 - `packages/connectanum_router/test/router_worker_auth_test.dart` no longer has the old 1-in-256 false-success path in `Cryptosign authenticator rejects wrong signature`; the test now always mutates the first signature byte instead of sometimes regenerating the same `ff...` prefix and leaving the signature unchanged.
 - `connectanum_core` now exposes a typed `WampE2eeProvider` contract plus an explicit `WampE2eeProviderUnavailableException`, so `ppt_scheme = "wamp"` payloads no longer silently materialize empty args/kwargs when no decryptor is available.
 - The Dart client/session path now threads an optional `e2eeProvider` through outbound publish/call/yield packing, materialized inbound messages, and native direct-result/event/invocation payload views while preserving the existing packed-byte passthrough behavior for matching lazy WAMP payloads.
@@ -245,16 +245,16 @@ Last reviewed commit: `0b4f1e7` (`fix(bench): unblock secure websocket validatio
 - 2026-04-22: `cargo test --manifest-path native/bench/Cargo.toml http_endpoint_accepts_https_control_base -- --nocapture`, `cargo test --manifest-path native/bench/Cargo.toml build_http1_request_uses_origin_form_and_host_header -- --nocapture`, and `cargo test --manifest-path native/bench/Cargo.toml bench_http_client_builds_https_client -- --nocapture` all passed after changing the direct orchestrator default control base to `https://127.0.0.1:8080/bench`.
 - 2026-04-22: `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib /Users/konsultaner/Projects/connectanum-dart/native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/wamp_secure_smoke.toml` passed on Darwin arm64 after the same control-base default change, confirming the direct local CLI path works again without a hidden override.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after adding `native/bench/scenarios/wamp_secure_throughput.toml`, updating the direct bench CLI control-base default to `https://127.0.0.1:8080/bench`, and refreshing the secure-WAMP throughput plan/state docs.
-- 2026-04-22: GitHub Actions run `24786956501` (`kTLS Validation`, `workflow_dispatch`) was queued on `add-router` for commit `c040ef9` with scenario `native/bench/scenarios/wamp_secure_throughput.toml`.
+- 2026-04-22: GitHub Actions run `24786956501` (`kTLS Validation`, `workflow_dispatch`) passed on `add-router` for commit `c040ef9` with scenario `native/bench/scenarios/wamp_secure_throughput.toml`, recording the hosted Ubuntu response-throughput baseline as RawSocket pubsub `56.77/65.08/57.15 Mbps`, RawSocket RPC `176.60/215.09/164.48 Mbps`, WebSocket pubsub `62.04/78.81/64.83 Mbps`, and WebSocket RPC `191.13/231.59/168.71 Mbps` for JSON/MsgPack/CBOR.
 
 ## Active Plan
 
-- Active plan: `docs/exec-plans/2026-04-22-ktls-secure-wamp-throughput.md`
+- Active plan: none currently; choose the next milestone from `ROADMAP_NEXT.md`
 - Supporting research notes:
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-22-ktls-secure-wamp-benchmarks.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-22-workspace-public-package-docs.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-22-ktls-secure-wamp-throughput.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-22-ktls-secure-wamp-benchmarks.md`
 
 ## Known Follow-Ups
 
@@ -262,10 +262,9 @@ Last reviewed commit: `0b4f1e7` (`fix(bench): unblock secure websocket validatio
   disables future kTLS attempts after socket-setup or handoff failures in one
   process in try-mode, and still is not the final production story for TLS 1.3
   key-update handling.
-- The current active benchmark expansion is secure WAMP throughput
-  characterization: the hosted smoke milestone is closed, and the next work is
-  deciding whether to queue a hosted Linux throughput run or tune the secure
-  transport baselines further.
+- The secure WAMP throughput expansion is now closed on both local Darwin and
+  hosted Ubuntu baselines. The next session should pick a new roadmap item
+  instead of extending this benchmark plan.
 
 ## Update Checklist
 

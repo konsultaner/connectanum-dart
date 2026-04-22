@@ -1,6 +1,6 @@
 # Exec Plan: ktls-secure-wamp-throughput
 
-Status: in_progress
+Status: completed
 Owner: Codex
 Created: 2026-04-22
 Last updated: 2026-04-22
@@ -76,13 +76,19 @@ WebSocket performance on the same harness that already measures cleartext WAMP.
   tuning; GitHub Actions run `24786956501` (`kTLS Validation`,
   `workflow_dispatch`) is queued on commit `c040ef9` against
   `native/bench/scenarios/wamp_secure_throughput.toml`.
+- 2026-04-22: GitHub Actions run `24786956501` (`kTLS Validation`,
+  `workflow_dispatch`) passed on commit `c040ef9`, closing the hosted Linux
+  checkpoint. The Ubuntu 24.04 response-throughput baseline came in at roughly
+  RawSocket pubsub `56.77/65.08/57.15 Mbps`, RawSocket RPC
+  `176.60/215.09/164.48 Mbps`, WebSocket pubsub `62.04/78.81/64.83 Mbps`, and
+  WebSocket RPC `191.13/231.59/168.71 Mbps` for JSON/MsgPack/CBOR with one
+  router worker and one native runtime thread.
 
 ## Handoff
 
-- This plan assumes the secure transport-selection and certificate-handling
-  fixes are done; the next work is measurement, not more transport debugging.
-- The immediate open checkpoint is the queued hosted Linux run on `c040ef9`;
-  compare its Ubuntu artifact output against the checked-in local baseline
-  before changing scenario settings further.
+- This plan is complete. The local and hosted Ubuntu secure-WAMP throughput
+  baselines are both recorded in `docs/project_state.md`.
+- The next session should choose a new milestone from `ROADMAP_NEXT.md`
+  instead of extending this plan further.
 - If the throughput scenario cannot complete locally, capture the failing
   workload and stop at the minimal repro before changing harness behavior.
