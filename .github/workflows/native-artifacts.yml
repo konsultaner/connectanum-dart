@@ -28,6 +28,10 @@ jobs:
   ct-ffi:
     name: ct_ffi (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     strategy:
       fail-fast: false
       matrix:
@@ -43,6 +47,14 @@ jobs:
       - name: Package ct_ffi artifact
         id: package
         run: bin/package-native-artifact
+
+      - name: Generate artifact attestation
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            ${{ steps.package.outputs.archive_path }}
+            ${{ steps.package.outputs.checksum_path }}
+            ${{ steps.package.outputs.manifest_path }}
 
       - name: Upload packaged artifact
         uses: actions/upload-artifact@v4
@@ -118,7 +130,7 @@ jobs:
             prerelease_args+=(--prerelease)
           fi
 
-          release_notes=$'Native `ct_ffi` bundles are attached for this tag.\n\nUse `CONNECTANUM_NATIVE_LIB` with the extracted host archive. These assets are not signed yet.'
+          release_notes=$'Native `ct_ffi` bundles are attached for this tag.\n\nUse `CONNECTANUM_NATIVE_LIB` with the extracted host archive. GitHub artifact attestations are published for the bundled archive/checksum/manifest set; verify the downloaded archive with `gh attestation verify` against this repository.'
 
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" \

@@ -139,7 +139,7 @@ Focus for the next session:
   - ✅ Both hooks now reuse `CONNECTANUM_NATIVE_LIB` for prebuilt binaries and honor `CONNECTANUM_SKIP_NATIVE_BUILD=1` for system/shared-library deployments instead of invoking Cargo unconditionally.
   - ✅ A dedicated GitHub Actions workflow now packages host-native Linux/macOS `ct_ffi` archives through `bin/package-native-artifact`, uploading reusable bundles for the existing `CONNECTANUM_NATIVE_LIB` contract.
   - ✅ Release-tag and explicit manual native-artifact runs are now configured to publish those packaged Linux/macOS bundles to GitHub Releases, so the `CONNECTANUM_NATIVE_LIB` path has a durable hosted download target instead of workflow-artifact retention only.
-  - Next: add signing/attestation for the released native assets and install-time build hooks (`dart pub get` / publishable package flow) on top of the new release path.
+  - Next: add install-time build hooks (`dart pub get` / publishable package flow) on top of the new release path, and add detached/offline signatures as a follow-up if GitHub-hosted attestations are not sufficient for downstream verification.
 
 13. **TLS & Deployment Hardening**
    - ✅ Native TCP TLS termination (rustls + SNI) is live.

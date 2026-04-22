@@ -44,7 +44,14 @@ If you do not want to build Rust locally, the GitHub Actions
 `ct-ffi-<host-triple>.tar.gz`, and release-tag runs publish the same assets to
 GitHub Releases. Extract the archive for your host, then export
 `CONNECTANUM_NATIVE_LIB` to the bundled library path before starting the
-router. These prebuilt assets are not signed yet.
+router. The same workflow publishes GitHub artifact attestations for each
+archive/checksum/manifest set, so you can verify a downloaded archive with:
+
+```sh
+gh attestation verify path/to/ct-ffi-<host-triple>.tar.gz -R konsultaner/connectanum-dart
+```
+
+Detached offline signature files are not shipped yet.
 
 For production packaging you can compile the runner to a native executable:
 

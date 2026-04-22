@@ -65,7 +65,10 @@ GitHub Actions workflow in [native-artifacts.yml](.github/workflows/native-artif
 Manual runs always upload workflow artifacts, and release-tag runs publish the
 same `ct-ffi-<host-triple>.tar.gz` bundles to GitHub Releases. Extract the
 archive for your host and point `CONNECTANUM_NATIVE_LIB` at the included
-library. The release assets are not signed yet.
+library. The release workflow also publishes GitHub artifact attestations for
+the archive/checksum/manifest set, so a downloaded archive can be verified with
+`gh attestation verify path/to/ct-ffi-<host-triple>.tar.gz -R konsultaner/connectanum-dart`.
+Detached offline signature files are not shipped yet.
 
 ## Codex-Friendly Workflow
 

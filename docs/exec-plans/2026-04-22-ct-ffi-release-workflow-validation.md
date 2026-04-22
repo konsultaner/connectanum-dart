@@ -1,6 +1,6 @@
 # Exec Plan: ct-ffi-release-workflow-validation
 
-Status: in_progress
+Status: completed
 Owner: Codex
 Created: 2026-04-22
 Last updated: 2026-04-22
@@ -53,8 +53,19 @@ Actions itself, rather than relying on local YAML parsing only.
 - 2026-04-22: Prioritize hosted validation before more packaging work because
   the new GitHub release-publish job is the main remaining operational risk in
   the packaging path.
+- 2026-04-22: Use bounded GitHub-only validation tags (`ct-ffi-v*`) rather than
+  manual dispatch so the hosted runner exercises the exact tag-triggered
+  release path that production releases will use.
 
 ## Handoff
 
-- Pending. Expected outcome: either hosted confirmation that the release job
-  works as designed, or a concrete GitHub-only failure to fix next.
+- Completed. Hosted validation exposed one GitHub-only shell bug first:
+  `Native Artifacts` run `24756798793` built both Linux/macOS bundles, then the
+  `Publish GitHub Release` job failed because the workflow referenced
+  `$RELEASE_NOTES` instead of the shell variable it actually created,
+  `$release_notes`.
+- The fix landed in `c4bd069` (`fix(ci): use release notes shell variable`).
+- The follow-up hosted validation on tag
+  `ct-ffi-v2026.04.22-validation.042151` completed successfully in run
+  `24756862771`, with `ct_ffi (ubuntu-latest)`, `ct_ffi (macos-latest)`, and
+  `Publish GitHub Release` all green.
