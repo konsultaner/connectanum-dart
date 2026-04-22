@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `7ed40fd` (`ci(native): attest packaged release assets`)
+Last reviewed commit: `704970c` (`docs: record attested native release baseline`)
 
 ## Resume Order
 
@@ -40,6 +40,8 @@ Last reviewed commit: `7ed40fd` (`ci(native): attest packaged release assets`)
 - The `Native Artifacts` workflow is now configured to publish those same Linux/macOS bundles to GitHub Releases on release-tag runs, and manual dispatches can publish/update a release when given an explicit tag name.
 - The same `Native Artifacts` workflow now generates GitHub artifact attestations for each packaged archive/checksum/manifest set, so released `ct_ffi` bundles have hosted provenance records in addition to the GitHub Release assets themselves.
 - Hosted validation for the release path is now complete: GitHub Actions run `24756862771` validated release publishing after the `c4bd069` shell-variable fix, and run `24757138619` validated the attestation-enabled workflow end to end on both Linux and macOS while keeping `Publish GitHub Release` green.
+- The router/client build hooks can now download a hosted `ct_ffi` release bundle directly when `CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` is set, verify the published `.sha256`, extract the archive, and stage the native library without invoking Cargo.
+- `CONNECTANUM_NATIVE_RELEASE_REPOSITORY=<owner/repo>` overrides the default GitHub Releases source for that hook-managed prebuilt flow, and the explicit prebuilt/system-library paths no longer require a local `native/transport` checkout.
 - The local autonomy blockers from the 2026-04-21 audit are resolved for this macOS shell environment.
 - In-app heartbeat sandboxes are more restricted than the interactive shell here; remote CI inspection and git metadata writes should still happen from unrestricted interactive runs or the external launchd worker.
 
@@ -48,7 +50,7 @@ Last reviewed commit: `7ed40fd` (`ci(native): attest packaged release assets`)
 - Dart SDK `^3.9.2` (Flutter-bundled Dart is acceptable)
 - Rust stable toolchain
 - A Chrome or Chromium executable for browser-platform tests
-- `CONNECTANUM_NATIVE_LIB` pointing at a prebuilt `ct_ffi` library when the standard release path is not used
+- Either `CONNECTANUM_NATIVE_LIB` pointing at a prebuilt `ct_ffi` library or `CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` for the hook-managed hosted bundle path when the standard release location is not used
 - Linux or macOS is required for native runtime execution tests; other hosts verify the portable suites and browser coverage instead
 
 ## Verification Status
@@ -94,17 +96,21 @@ Last reviewed commit: `7ed40fd` (`ci(native): attest packaged release assets`)
 - 2026-04-22: `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/native-artifacts.yml'); puts 'yaml_ok'"` passed locally after adding `actions/attest@v4` to the native artifact workflow.
 - 2026-04-22: GitHub Actions run `24757138619` passed on tag `ct-ffi-v2026.04.22-validation.043206-attest`, with both Linux/macOS `ct_ffi` jobs generating artifact attestations successfully and `Publish GitHub Release` remaining green.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after landing GitHub artifact attestations for the packaged release assets and updating the release/deployment docs to describe `gh attestation verify`.
+- 2026-04-22: `bin/test-fast` passed on Darwin arm64 before landing explicit GitHub Release download/checksum support in the router/client build hooks.
+- 2026-04-22: `cd packages/connectanum_router && dart test test/hook/build_hook_test.dart -r expanded` passed on Darwin arm64 after adding the router hook's hosted-release download path and checksum verification.
+- 2026-04-22: `cd packages/connectanum_client && dart test test/hook/build_hook_test.dart -r expanded` passed on Darwin arm64 after adding the client hook's hosted-release download path and checksum verification.
+- 2026-04-22: `bin/verify` passed on Darwin arm64 after landing `CONNECTANUM_NATIVE_RELEASE_TAG`, `CONNECTANUM_NATIVE_RELEASE_REPOSITORY`, the focused hook regressions, and the hosted-bundle deployment docs.
 
 ## Active Plan
 
 - No active execution plan is checked in right now.
 - Supporting research note: `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-22-ct-ffi-artifact-attestations.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-22-ct-ffi-release-workflow-validation.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-22-prebuilt-native-download-hooks.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-22-ct-ffi-artifact-attestations.md`
 
 ## Known Follow-Ups
 
-- Add install-time (`dart pub get`) native build hooks or another downstream-friendly artifact acquisition path so consumers do not need Cargo or manual artifact extraction.
+- Decide whether a true install-time (`dart pub get`) native acquisition path is still needed now that explicit release-tag hook downloads cover the downstream no-Cargo/no-manual-extraction case.
 - Decide whether detached/offline signatures are still needed beyond the new GitHub-hosted artifact attestations for downstream verification flows.
 - Multi-arch deployment images and deeper native transport tuning remain separate follow-up work after the artifact-packaging baseline.
 

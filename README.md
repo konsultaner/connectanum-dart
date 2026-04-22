@@ -59,14 +59,22 @@ variable and will bundle the referenced library instead of invoking Cargo. For
 deployments that intentionally provide `ct_ffi` as a system/shared library, set
 `CONNECTANUM_SKIP_NATIVE_BUILD=1` to disable Cargo in the build hooks and rely
 on `CONNECTANUM_NATIVE_LIB` or the platform loader search path at runtime.
+If you want the hooks to acquire a hosted prebuilt bundle automatically, export
+`CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` before `dart run` / `dart test`. The
+hooks then download `ct-ffi-<host-triple>.tar.gz` plus its `.sha256` file from
+GitHub Releases, verify the checksum, extract the bundle, and stage the native
+library without requiring a local Rust toolchain. Use
+`CONNECTANUM_NATIVE_RELEASE_REPOSITORY=<owner/repo>` to override the default
+release source (`konsultaner/connectanum-dart`).
 
 Prebuilt Linux/macOS `ct_ffi` bundles are also available from the dedicated
 GitHub Actions workflow in [native-artifacts.yml](.github/workflows/native-artifacts.yml).
 Manual runs always upload workflow artifacts, and release-tag runs publish the
 same `ct-ffi-<host-triple>.tar.gz` bundles to GitHub Releases. Extract the
 archive for your host and point `CONNECTANUM_NATIVE_LIB` at the included
-library. The release workflow also publishes GitHub artifact attestations for
-the archive/checksum/manifest set, so a downloaded archive can be verified with
+library if you prefer to manage the bundle yourself. The release workflow also
+publishes GitHub artifact attestations for the archive/checksum/manifest set, so
+a downloaded archive can be verified with
 `gh attestation verify path/to/ct-ffi-<host-triple>.tar.gz -R konsultaner/connectanum-dart`.
 Detached offline signature files are not shipped yet.
 

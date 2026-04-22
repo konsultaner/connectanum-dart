@@ -4,6 +4,7 @@ library;
 import 'dart:io';
 
 import 'package:code_assets/code_assets.dart';
+import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
 
 import '../../hook/build.dart' as build_hook;
@@ -55,9 +56,73 @@ void main() {
       );
     });
   });
+
+  test('build hook downloads prebuilt release assets when configured', () {
+    return _withPackageRoot(() async {
+      final archiveBytes = 'client-release-archive'.codeUnits;
+      final downloaded = <Uri>[];
+
+      await testCodeBuildHook(
+        mainMethod: (args) => build_hook.runBuildHook(
+          args,
+          environment: {
+            _releaseTagEnv: 'ct-ffi-v2026.04.22-validation.043206-attest',
+            _releaseRepoEnv: 'konsultaner/connectanum-dart',
+          },
+          cargoRunner: _unexpectedCargoRunner,
+          artifactDownloader: ({required source, required destination}) async {
+            downloaded.add(source);
+            destination.parent.createSync(recursive: true);
+            if (destination.path.endsWith('.sha256')) {
+              final digest = sha256.convert(archiveBytes).toString();
+              destination.writeAsStringSync(
+                '$digest  ${_releaseArchiveName()}',
+              );
+            } else {
+              destination.writeAsBytesSync(archiveBytes);
+            }
+          },
+          archiveExtractor: ({required archive, required destination}) {
+            expect(archive.readAsBytesSync(), archiveBytes);
+            final extractedLib = File(
+              '${destination.path}/${_releaseBundleName()}/${_defaultLibraryFileName()}',
+            );
+            extractedLib.parent.createSync(recursive: true);
+            extractedLib.writeAsStringSync('client-release-prebuilt');
+          },
+        ),
+        check: (_, output) {
+          expect(output.assets.code, hasLength(1));
+          final asset = output.assets.code.single;
+          expect(asset.file, isNotNull);
+          expect(asset.file!.pathSegments.last, equals(_hookLibraryFileName()));
+          expect(
+            File.fromUri(asset.file!).readAsStringSync(),
+            equals('client-release-prebuilt'),
+          );
+          expect(
+            downloaded.map((uri) => uri.toString()),
+            contains(
+              'https://github.com/konsultaner/connectanum-dart/releases/download/'
+              'ct-ffi-v2026.04.22-validation.043206-attest/${_releaseArchiveName()}',
+            ),
+          );
+          expect(
+            downloaded.map((uri) => uri.toString()),
+            contains(
+              'https://github.com/konsultaner/connectanum-dart/releases/download/'
+              'ct-ffi-v2026.04.22-validation.043206-attest/${_releaseArchiveName()}.sha256',
+            ),
+          );
+        },
+      );
+    });
+  });
 }
 
 const _nativeLibEnv = 'CONNECTANUM_NATIVE_LIB';
+const _releaseTagEnv = 'CONNECTANUM_NATIVE_RELEASE_TAG';
+const _releaseRepoEnv = 'CONNECTANUM_NATIVE_RELEASE_REPOSITORY';
 const _skipNativeBuildEnv = 'CONNECTANUM_SKIP_NATIVE_BUILD';
 
 ProcessResult _unexpectedCargoRunner({
@@ -108,4 +173,17 @@ String _hookLibraryFileName() => switch (Platform.operatingSystem) {
   'macos' => 'libconnectanum_client_ct_ffi.dylib',
   'windows' => 'connectanum_client_ct_ffi.dll',
   _ => 'libconnectanum_client_ct_ffi.so',
+};
+
+String _releaseBundleName() => 'ct-ffi-${_hostTriple()}';
+
+String _releaseArchiveName() => '${_releaseBundleName()}.tar.gz';
+
+String _hostTriple() => switch (Platform.operatingSystem) {
+  'linux' => 'x86_64-unknown-linux-gnu',
+  'macos' =>
+    Platform.version.contains('arm64')
+        ? 'aarch64-apple-darwin'
+        : 'x86_64-apple-darwin',
+  _ => 'x86_64-unknown-linux-gnu',
 };

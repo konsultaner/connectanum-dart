@@ -38,11 +38,19 @@ automatically by default. If you already have a prebuilt library, export
 binary instead of running Cargo. If your environment installs `ct_ffi` on the
 platform loader search path, set `CONNECTANUM_SKIP_NATIVE_BUILD=1` to suppress
 Cargo entirely and let the runtime loader use the system library.
+If you want the hook to download a hosted prebuilt bundle instead of building
+locally, export `CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` before invoking Dart.
+The hook downloads `ct-ffi-<host-triple>.tar.gz` and its `.sha256` sidecar from
+GitHub Releases, verifies the checksum, extracts the archive, and bundles the
+native library automatically. Override the default release source
+(`konsultaner/connectanum-dart`) with
+`CONNECTANUM_NATIVE_RELEASE_REPOSITORY=<owner/repo>` when needed.
 
 If you do not want to build Rust locally, the GitHub Actions
 `Native Artifacts` workflow uploads prebuilt Linux/macOS bundles named
 `ct-ffi-<host-triple>.tar.gz`, and release-tag runs publish the same assets to
-GitHub Releases. Extract the archive for your host, then export
+GitHub Releases. You can either let the hook fetch those assets via
+`CONNECTANUM_NATIVE_RELEASE_TAG` or extract the archive manually and export
 `CONNECTANUM_NATIVE_LIB` to the bundled library path before starting the
 router. The same workflow publishes GitHub artifact attestations for each
 archive/checksum/manifest set, so you can verify a downloaded archive with:

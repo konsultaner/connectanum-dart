@@ -8,6 +8,7 @@ dependencies:
   meta: ^1.16.0
   msgpack_dart: ^1.0.0
   cbor: ^6.3.7
+  crypto: ^3.0.7
   web: ^1.1.1
   ffi: ^2.1.0
   hooks: ^0.20.1
