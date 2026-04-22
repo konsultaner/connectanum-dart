@@ -138,7 +138,7 @@ Focus for the next session:
   - ✅ Landed the first native parity lane: `ct_ffi` now exposes E2EE keyring/session handles plus `xsalsa20poly1305` encrypt/decrypt entrypoints, and `connectanum_client` now exports `NativeWampCborXsalsa20Poly1305Provider` on top of the negotiated session-provider contract.
   - ✅ Landed the richer per-message runtime-context slice: the shared provider contract now receives message family, URI/topic/procedure, local session auth identity, negotiated E2EE state, and disclosed peer metadata across outbound `CALL` / `PUBLISH` and inbound `RESULT` / `EVENT` / `INVOCATION`, including pending-call procedure recovery on the result path.
   - ✅ Landed provider-level key-selection policy surfaces on both the pure Dart and native provider lanes, so `WampCborXsalsa20Poly1305Provider` and `NativeWampCborXsalsa20Poly1305Provider` can derive `ppt_keyid` from `WampE2eeRuntimeContext` when the message itself does not set one.
-  - Next: add reusable negotiated/policy adapters that turn `WELCOME.authextra.e2ee`, peer identity, and trust metadata into concrete provider policy decisions without forcing each application to hand-roll its own selector callback.
+  - ✅ Landed reusable negotiated/policy adapters on top of the shared provider callback surface, so negotiated `WELCOME.authextra.e2ee` fallback, peer identity, and trust metadata can now be composed through `WampE2eeKeySelectionPolicies` and `WampE2eeKeySelectionRule` instead of ad hoc callbacks in each application.
 
 12. **Packaging & Build Hooks**
   - ✅ Add Dart 3.10+ build hook that compiles the Rust `ct_ffi` backend during `dart run`/`dart test` (native assets build hooks).

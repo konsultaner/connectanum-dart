@@ -6,7 +6,7 @@ import 'package:connectanum_core/connectanum_core.dart';
 import 'runtime.dart';
 
 class NativeWampCborXsalsa20Poly1305Provider
-    implements DisposableWampE2eeProvider {
+    implements DisposableWampE2eeProvider, WampE2eePolicyAwareProvider {
   NativeWampCborXsalsa20Poly1305Provider({
     required Map<String, List<int>> keys,
     String? defaultKeyId,
@@ -70,6 +70,9 @@ class NativeWampCborXsalsa20Poly1305Provider
   bool _released = false;
 
   String? get defaultKeyId => _defaultKeyId;
+
+  @override
+  WampE2eeKeySelectionPolicy? get keySelectionPolicy => _keySelectionPolicy;
 
   @override
   List<dynamic> packPayload(

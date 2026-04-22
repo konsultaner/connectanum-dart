@@ -3023,6 +3023,122 @@ void main() {
       },
     );
     test(
+      'registerHandler lets provider policy override negotiated inbound fallback',
+      () async {
+        final transport = _MockTransport();
+        final provider = WampCborXsalsa20Poly1305Provider(
+          keys: {
+            'kid-negotiated': List<int>.generate(32, (index) => index + 1),
+            'kid-peer-trusted': List<int>.generate(32, (index) => index + 65),
+          },
+          keySelectionPolicy: WampE2eeKeySelectionPolicies.firstDefined([
+            WampE2eeKeySelectionPolicies.rules([
+              const WampE2eeKeySelectionRule(
+                keyId: 'kid-peer-trusted',
+                directions: [WampE2eeDirection.inbound],
+                messageTypes: [WampE2eeMessageType.invocation],
+                uris: ['bench.proc'],
+                peerAuthProviders: ['remote-auth'],
+              ),
+            ]),
+            WampE2eeKeySelectionPolicies.negotiated(),
+          ]),
+        );
+        final invocationSeen = Completer<void>();
+
+        transport.outbound.stream.listen((message) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveMessage(
+              Welcome(
+                42,
+                Details.forWelcome(
+                  realm: 'test.realm',
+                  authId: 'callee-a',
+                  authRole: 'callee',
+                  authMethod: 'ticket',
+                  authProvider: 'bench-auth',
+                  authExtra: _negotiatedE2eeAuthExtra(
+                    sendKeyId: 'kid-negotiated',
+                    receiveKeyId: 'kid-negotiated',
+                    peerKeyId: 'kid-negotiated',
+                  ),
+                ),
+              ),
+            );
+            return;
+          }
+          if (message.id == MessageTypes.codeRegister) {
+            final register = message as Register;
+            transport.receiveMessage(Registered(register.requestId, 77));
+
+            const invocationDetails = {
+              'authid': 'caller-a',
+              'authrole': 'caller',
+              'authprovider': 'remote-auth',
+            };
+            final packOptions = InvocationDetails(
+              9001,
+              'bench.proc',
+              false,
+              'wamp',
+              'cbor',
+              null,
+              'kid-peer-trusted',
+              invocationDetails,
+            );
+            final packedArguments = provider.packPayload(
+              const ['wrapped-invocation'],
+              const {'worker': 3},
+              packOptions,
+              runtimeContext: const WampE2eeRuntimeContext(
+                direction: WampE2eeDirection.inbound,
+                messageType: WampE2eeMessageType.invocation,
+                uri: 'bench.proc',
+                peer: WampE2eePartyContext(authProvider: 'remote-auth'),
+                negotiated: {
+                  'receive_key_id': 'kid-negotiated',
+                  'peer_key_id': 'kid-negotiated',
+                },
+              ),
+            );
+            transport.receiveMessage(
+              Invocation(
+                1001,
+                77,
+                InvocationDetails(
+                  9001,
+                  'bench.proc',
+                  false,
+                  'wamp',
+                  'cbor',
+                  null,
+                  null,
+                  invocationDetails,
+                ),
+                arguments: packedArguments,
+              ),
+            );
+            return;
+          }
+        });
+
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+          e2eeProvider: provider,
+        ).connect().first;
+        await session.registerHandler('bench.proc', (invocation) {
+          expect(invocation.arguments, equals(const ['wrapped-invocation']));
+          expect(invocation.argumentsKeywords, equals(const {'worker': 3}));
+          invocation.respondWith(arguments: const ['ok']);
+          invocationSeen.complete();
+        });
+
+        await invocationSeen.future;
+        await session.close(timeout: Duration.zero);
+      },
+    );
+    test(
       'publishLazyPayload supports a native session E2EE provider resolver',
       () async {
         final transport = _MockTransport();
@@ -3478,16 +3594,20 @@ class _InspectingWampE2eeProvider implements WampE2eeProvider {
   }
 }
 
-Map<String, dynamic> _negotiatedE2eeAuthExtra() {
-  return const {
+Map<String, dynamic> _negotiatedE2eeAuthExtra({
+  String sendKeyId = 'kid-server-a',
+  String receiveKeyId = 'kid-client-a',
+  String peerKeyId = 'kid-server-a',
+}) {
+  return {
     'e2ee': {
       'established': true,
       'scheme': 'wamp',
       'serializer': 'cbor',
       'cipher': 'xsalsa20poly1305',
-      'send_key_id': 'kid-server-a',
-      'receive_key_id': 'kid-client-a',
-      'peer_key_id': 'kid-server-a',
+      'send_key_id': sendKeyId,
+      'receive_key_id': receiveKeyId,
+      'peer_key_id': peerKeyId,
     },
   };
 }

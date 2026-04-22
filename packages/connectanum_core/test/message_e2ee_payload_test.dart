@@ -125,6 +125,86 @@ void main() {
       );
     });
   });
+
+  group('WampE2eeKeySelectionPolicies', () {
+    test(
+      'uses negotiated session key ids for outbound and inbound fallback',
+      () {
+        final policy = WampE2eeKeySelectionPolicies.negotiated();
+        final options = PublishOptions(
+          pptScheme: 'wamp',
+          pptSerializer: 'cbor',
+        );
+
+        expect(
+          policy(
+            const WampE2eeRuntimeContext(
+              direction: WampE2eeDirection.outbound,
+              messageType: WampE2eeMessageType.publish,
+              negotiated: {
+                'peer_key_id': 'kid-peer',
+                'accepted_key_id': 'kid-accepted',
+              },
+            ),
+            options,
+          ),
+          equals('kid-peer'),
+        );
+        expect(
+          policy(
+            const WampE2eeRuntimeContext(
+              direction: WampE2eeDirection.inbound,
+              messageType: WampE2eeMessageType.result,
+              negotiated: {
+                'accepted_key_id': 'kid-accepted',
+                'peer_key_id': 'kid-peer',
+              },
+            ),
+            options,
+          ),
+          equals('kid-accepted'),
+        );
+      },
+    );
+
+    test('composes peer rules ahead of negotiated fallback', () {
+      final policy = WampE2eeKeySelectionPolicies.firstDefined([
+        WampE2eeKeySelectionPolicies.rules([
+          const WampE2eeKeySelectionRule(
+            keyId: 'kid-trusted-peer',
+            directions: [WampE2eeDirection.inbound],
+            messageTypes: [WampE2eeMessageType.event],
+            uriPrefixes: ['bench.secure.'],
+            peerAuthProviders: ['remote-auth'],
+            minPeerTrustLevel: 50,
+          ),
+        ]),
+        WampE2eeKeySelectionPolicies.negotiated(),
+      ]);
+      final options = PublishOptions(pptScheme: 'wamp', pptSerializer: 'cbor');
+      final baseContext = const WampE2eeRuntimeContext(
+        direction: WampE2eeDirection.inbound,
+        messageType: WampE2eeMessageType.event,
+        uri: 'bench.secure.topic',
+        peer: WampE2eePartyContext(authProvider: 'remote-auth', trustLevel: 80),
+        negotiated: {'receive_key_id': 'kid-negotiated'},
+      );
+
+      expect(policy(baseContext, options), equals('kid-trusted-peer'));
+      expect(
+        policy(
+          baseContext.copyWith(
+            peer: const WampE2eePartyContext(
+              authProvider: 'remote-auth',
+              trustLevel: 10,
+            ),
+          ),
+          options,
+        ),
+        equals('kid-negotiated'),
+      );
+    });
+  });
 }
 
 WampCborXsalsa20Poly1305Provider _testProvider() {

@@ -170,6 +170,148 @@ class WampE2eeRuntimeContext {
 typedef WampE2eeKeySelectionPolicy =
     String? Function(WampE2eeRuntimeContext runtimeContext, PPTOptions options);
 
+abstract class WampE2eePolicyAwareProvider implements WampE2eeProvider {
+  WampE2eeKeySelectionPolicy? get keySelectionPolicy;
+}
+
+class WampE2eeKeySelectionRule {
+  const WampE2eeKeySelectionRule({
+    required this.keyId,
+    this.directions,
+    this.messageTypes,
+    this.realms,
+    this.uris,
+    this.uriPrefixes,
+    this.localAuthIds,
+    this.localAuthRoles,
+    this.localAuthProviders,
+    this.peerAuthIds,
+    this.peerAuthRoles,
+    this.peerAuthProviders,
+    this.minPeerTrustLevel,
+    this.maxPeerTrustLevel,
+  });
+
+  final String keyId;
+  final List<WampE2eeDirection>? directions;
+  final List<WampE2eeMessageType>? messageTypes;
+  final List<String>? realms;
+  final List<String>? uris;
+  final List<String>? uriPrefixes;
+  final List<String>? localAuthIds;
+  final List<String>? localAuthRoles;
+  final List<String>? localAuthProviders;
+  final List<String>? peerAuthIds;
+  final List<String>? peerAuthRoles;
+  final List<String>? peerAuthProviders;
+  final int? minPeerTrustLevel;
+  final int? maxPeerTrustLevel;
+
+  bool matches(WampE2eeRuntimeContext runtimeContext) {
+    if (!_matchesFilter(directions, runtimeContext.direction)) {
+      return false;
+    }
+    if (!_matchesFilter(messageTypes, runtimeContext.messageType)) {
+      return false;
+    }
+    if (!_matchesStringFilter(realms, runtimeContext.realm)) {
+      return false;
+    }
+    if (!_matchesStringFilter(uris, runtimeContext.uri)) {
+      return false;
+    }
+    final prefixes = uriPrefixes;
+    if (prefixes != null && prefixes.isNotEmpty) {
+      final uri = runtimeContext.uri;
+      if (uri == null || !prefixes.any(uri.startsWith)) {
+        return false;
+      }
+    }
+    final local = runtimeContext.local;
+    if (!_matchesStringFilter(localAuthIds, local?.authId)) {
+      return false;
+    }
+    if (!_matchesStringFilter(localAuthRoles, local?.authRole)) {
+      return false;
+    }
+    if (!_matchesStringFilter(localAuthProviders, local?.authProvider)) {
+      return false;
+    }
+    final peer = runtimeContext.peer;
+    if (!_matchesStringFilter(peerAuthIds, peer?.authId)) {
+      return false;
+    }
+    if (!_matchesStringFilter(peerAuthRoles, peer?.authRole)) {
+      return false;
+    }
+    if (!_matchesStringFilter(peerAuthProviders, peer?.authProvider)) {
+      return false;
+    }
+    if (minPeerTrustLevel != null) {
+      final trustLevel = peer?.trustLevel;
+      if (trustLevel == null || trustLevel < minPeerTrustLevel!) {
+        return false;
+      }
+    }
+    if (maxPeerTrustLevel != null) {
+      final trustLevel = peer?.trustLevel;
+      if (trustLevel == null || trustLevel > maxPeerTrustLevel!) {
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
+class WampE2eeKeySelectionPolicies {
+  const WampE2eeKeySelectionPolicies._();
+
+  static WampE2eeKeySelectionPolicy firstDefined(
+    Iterable<WampE2eeKeySelectionPolicy?> policies,
+  ) {
+    final resolvedPolicies = policies
+        .whereType<WampE2eeKeySelectionPolicy>()
+        .toList(growable: false);
+    return (runtimeContext, options) {
+      for (final policy in resolvedPolicies) {
+        final keyId = policy(runtimeContext, options);
+        if (keyId != null) {
+          return keyId;
+        }
+      }
+      return null;
+    };
+  }
+
+  static WampE2eeKeySelectionPolicy negotiated() {
+    return (runtimeContext, _) {
+      final negotiated = runtimeContext.negotiated;
+      if (negotiated == null || negotiated.isEmpty) {
+        return null;
+      }
+      return switch (runtimeContext.direction) {
+        WampE2eeDirection.outbound => _negotiatedOutboundKeyId(negotiated),
+        WampE2eeDirection.inbound => _negotiatedInboundKeyId(negotiated),
+      };
+    };
+  }
+
+  static WampE2eeKeySelectionPolicy rules(
+    Iterable<WampE2eeKeySelectionRule> rules, {
+    String? fallbackKeyId,
+  }) {
+    final resolvedRules = rules.toList(growable: false);
+    return (runtimeContext, _) {
+      for (final rule in resolvedRules) {
+        if (rule.matches(runtimeContext)) {
+          return rule.keyId;
+        }
+      }
+      return fallbackKeyId;
+    };
+  }
+}
+
 abstract class WampE2eeProvider {
   List<dynamic> packPayload(
     List<dynamic>? arguments,
@@ -253,7 +395,7 @@ class WampE2eeDecryptionException extends WampE2eeException {
        );
 }
 
-class WampCborXsalsa20Poly1305Provider implements WampE2eeProvider {
+class WampCborXsalsa20Poly1305Provider implements WampE2eePolicyAwareProvider {
   WampCborXsalsa20Poly1305Provider({
     required Map<String, List<int>> keys,
     String? defaultKeyId,
@@ -283,6 +425,9 @@ class WampCborXsalsa20Poly1305Provider implements WampE2eeProvider {
   final WampE2eeKeySelectionPolicy? _keySelectionPolicy;
 
   String? get defaultKeyId => _defaultKeyId;
+
+  @override
+  WampE2eeKeySelectionPolicy? get keySelectionPolicy => _keySelectionPolicy;
 
   @override
   List<dynamic> packPayload(
@@ -572,6 +717,39 @@ List<String> _formatE2eeOptions(PPTOptions options) {
 }
 
 const Object _unsetContextValue = Object();
+
+String? _negotiatedOutboundKeyId(Map<String, dynamic> negotiated) {
+  return _asString(negotiated['send_key_id']) ??
+      _asString(negotiated['peer_key_id']) ??
+      _asString(negotiated['accepted_key_id']) ??
+      _asString(negotiated['key_id']);
+}
+
+String? _negotiatedInboundKeyId(Map<String, dynamic> negotiated) {
+  return _asString(negotiated['receive_key_id']) ??
+      _asString(negotiated['accepted_key_id']) ??
+      _asString(negotiated['key_id']) ??
+      _asString(negotiated['peer_key_id']);
+}
+
+bool _matchesStringFilter(List<String>? allowedValues, String? value) {
+  if (allowedValues == null || allowedValues.isEmpty) {
+    return true;
+  }
+  if (value == null) {
+    return false;
+  }
+  return allowedValues.contains(value);
+}
+
+bool _matchesFilter<T>(List<T>? allowedValues, T value) {
+  if (allowedValues == null || allowedValues.isEmpty) {
+    return true;
+  }
+  return allowedValues.contains(value);
+}
+
+String? _asString(Object? value) => value is String ? value : null;
 
 Map<String, dynamic>? _coerceStringDynamicMap(Object? value) {
   if (value is Map<String, dynamic>) {

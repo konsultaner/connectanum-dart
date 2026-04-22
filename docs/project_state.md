@@ -2,17 +2,14 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `82031d7` (`feat(e2ee): add runtime message context`)
+Last reviewed commit: `c1c1c2a` (`feat(e2ee): add provider key selection policies`)
 Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.md`
 
 ## Last Known Verification
 
 - `bin/test-fast`
-- `dart analyze packages/connectanum_core/lib/src/message/e2ee_payload.dart packages/connectanum_core/test/message_e2ee_payload_test.dart packages/connectanum_client/lib/src/transport/native/e2ee_provider_io.dart packages/connectanum_client/lib/src/transport/native/e2ee_provider_none.dart packages/connectanum_client/test/transport/native/e2ee_provider_test.dart packages/connectanum_client/test/client_test.dart`
-- `dart test packages/connectanum_core/test/message_e2ee_payload_test.dart packages/connectanum_client/test/transport/native/e2ee_provider_test.dart packages/connectanum_client/test/client_test.dart -r expanded`
-- `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi http2_handshake_surfaced_via_ffi -- --nocapture`
-- `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi http3_handshake_surfaced_via_ffi -- --nocapture`
-- `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi websocket_handshake_surfaced_via_ffi -- --nocapture`
+- `dart analyze packages/connectanum_core/lib/src/message/e2ee_payload.dart packages/connectanum_core/test/message_e2ee_payload_test.dart packages/connectanum_client/lib/src/protocol/session.dart packages/connectanum_client/lib/src/transport/native/e2ee_provider_io.dart packages/connectanum_client/test/client_test.dart`
+- `dart test packages/connectanum_core/test/message_e2ee_payload_test.dart packages/connectanum_client/test/client_test.dart -r expanded`
 - `bin/verify`
 
 ## Resume Order
@@ -58,6 +55,8 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - Repo-local client-native loading now prefers fresh `native/transport/target/*/libct_ffi` builds before hook-cache artifacts, which keeps local E2EE/provider tests on the current shared library instead of stale hook outputs.
 - The richer per-message E2EE runtime-context slice is now landed too: the shared provider contract now receives message family, URI/topic/procedure, local session identity, negotiated `authextra.e2ee`, and disclosed peer metadata across outbound `CALL` / `PUBLISH` and inbound `RESULT` / `EVENT` / `INVOCATION`, with lazy/materialized payload views preserving that context on the decode path.
 - The shared Dart and native E2EE provider lanes now both expose a provider-level `WampE2eeKeySelectionPolicy` callback. `WampCborXsalsa20Poly1305Provider` and `NativeWampCborXsalsa20Poly1305Provider` can derive `ppt_keyid` from `WampE2eeRuntimeContext` when the message itself does not set one, so session/runtime metadata now drives real key selection instead of being inspection-only.
+- `connectanum_core` now also ships reusable E2EE policy adapters on top of that callback surface: `WampE2eeKeySelectionPolicies.negotiated()`, `WampE2eeKeySelectionPolicies.rules(...)`, `WampE2eeKeySelectionPolicies.firstDefined(...)`, and `WampE2eeKeySelectionRule` cover negotiated `WELCOME.authextra.e2ee` fallback plus peer/local identity and trust-based selection without application-specific callback boilerplate.
+- The client session wrapper no longer hardcodes negotiated key-id fallback ahead of provider policy. Session-wrapped providers now compose provider-owned policy first and negotiated fallback second while still inheriting negotiated serializer/cipher defaults, so peer/trust rules can override session fallback cleanly on inbound and outbound `ppt_scheme = "wamp"` flows.
 - The `ct_ffi` surfaced-handshake regressions now use the suite’s wait helper for HTTP/3 and WebSocket plus a real `h2::client` prior-knowledge handshake for HTTP/2, which removes the old one-shot HTTP/2 preface race from full verification.
 - The `ct_core` runtime test suite now keeps the rawsocket config connection alive through its assertions and recovers the shared test mutex after prior panics so Linux `cargo test -p ct_core` does not cascade `PoisonError` failures after one flaky test.
 - The `ct_ffi` `runtime::ffi` unit tests now use the same shared suite guard as the rest of the FFI tests before touching global message handles, so concurrent `ct_shutdown()` calls from other tests no longer invalidate those handles mid-assertion.
@@ -283,6 +282,10 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - 2026-04-22: `dart analyze packages/connectanum_client/lib/src/client.dart packages/connectanum_client/lib/src/protocol/session.dart packages/connectanum_client/test/client_test.dart` passed on Darwin arm64 after adding the public session-scoped provider resolver surface.
 - 2026-04-22: `dart test packages/connectanum_client/test/client_test.dart -r expanded` passed on Darwin arm64 after adding resolver-backed outbound and inbound negotiated WAMP E2EE coverage.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after landing the session-backed E2EE provider lane and updating the E2EE roadmap/state docs.
+- 2026-04-22: `bin/test-fast` passed on Darwin arm64 before landing the reusable negotiated/policy adapter slice on top of the shared E2EE provider lane.
+- 2026-04-22: `dart analyze packages/connectanum_core/lib/src/message/e2ee_payload.dart packages/connectanum_core/test/message_e2ee_payload_test.dart packages/connectanum_client/lib/src/protocol/session.dart packages/connectanum_client/lib/src/transport/native/e2ee_provider_io.dart packages/connectanum_client/test/client_test.dart` passed on Darwin arm64 after adding `WampE2eeKeySelectionPolicies`, `WampE2eeKeySelectionRule`, and the policy-aware session wrapper.
+- 2026-04-22: `dart test packages/connectanum_core/test/message_e2ee_payload_test.dart packages/connectanum_client/test/client_test.dart -r expanded` passed on Darwin arm64 after adding negotiated fallback + peer/trust adapter regressions and the inbound invocation override regression on the client path.
+- 2026-04-22: `bin/verify` passed on Darwin arm64 after landing the reusable negotiated/policy adapters, wiring the session wrapper to compose provider policy ahead of negotiated fallback, and refreshing the E2EE roadmap/state docs.
 
 ## Active Plan
 
@@ -290,8 +293,8 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - Supporting research notes:
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-22-e2ee-session-provider-lane.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-22-e2ee-runtime-defaults.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-22-e2ee-policy-adapters.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-22-e2ee-session-provider-lane.md`
 
 ## Known Follow-Ups
 
@@ -302,10 +305,10 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - The secure WAMP throughput expansion is now closed on both local Darwin and
   hosted Ubuntu baselines. The next session should pick a new roadmap item
   instead of extending this benchmark plan.
-- The next E2EE implementation work should build reusable negotiated/policy
-  adapters on top of the now-shared Dart/native provider lane so applications
-  can derive provider decisions from `WELCOME.authextra.e2ee`, peer identity,
-  and trust metadata without each deployment hand-writing selector callbacks.
+- The current E2EE lane now covers negotiated fallback plus reusable
+  peer/trust adapters. Further E2EE work should be driven by a concrete app
+  integration need, or the next session should choose the next unfinished
+  non-E2EE roadmap item.
 
 ## Update Checklist
 

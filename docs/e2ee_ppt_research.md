@@ -373,10 +373,32 @@ That avoids shipping two incompatible E2EE models.
   the client path can attach a policy-aware provider once, and per-message key
   selection happens inside the provider without router participation or FFI
   contract changes.
-- The next E2EE step is no longer “add a callback.” It is to ship reusable
-  negotiated/policy adapters that map `WELCOME.authextra.e2ee`,
-  disclosed peer identity, and trust metadata into consistent provider policy
-  decisions across applications.
+- The next E2EE step is no longer “add a callback.” It is to make the callback
+  reusable across applications instead of forcing each deployment to re-encode
+  the same negotiated fallback and peer/trust rules by hand.
+
+## Phase 2 Policy Adapter Outcome
+
+- `connectanum_core` now ships reusable policy adapters on top of the shared
+  `WampE2eeKeySelectionPolicy` surface:
+  - `WampE2eeKeySelectionPolicies.negotiated()` maps
+    `WELCOME.authextra.e2ee` into direction-aware fallback key ids.
+  - `WampE2eeKeySelectionPolicies.rules(...)` and
+    `WampE2eeKeySelectionRule` match URI, message family, local auth identity,
+    peer auth identity, and peer trust metadata.
+  - `WampE2eeKeySelectionPolicies.firstDefined(...)` composes specific policy
+    rules ahead of broader negotiated fallback.
+- The built-in Dart and native providers now expose that policy surface through
+  `WampE2eePolicyAwareProvider`, so wrappers can preserve provider-owned
+  policy instead of treating negotiated session state as an unconditional
+  override.
+- The client session wrapper now applies negotiated serializer/cipher defaults
+  as before, but key selection is policy-first and negotiated-second. That
+  means a deployment can attach one provider with reusable policy adapters and
+  still let negotiated `WELCOME.authextra.e2ee` act as the fallback contract.
+- This closes the current “hand-roll selector callback” gap. Further E2EE work
+  should only happen if real application integrations justify higher-level
+  provider presets, rotation helpers, or wire-level key-agreement changes.
 
 ## Recommended HELLO / CHALLENGE Negotiation Shape
 

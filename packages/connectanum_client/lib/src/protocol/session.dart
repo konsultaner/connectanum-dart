@@ -1744,6 +1744,14 @@ class _NegotiatedSessionE2eeProvider implements WampE2eeProvider {
   final NegotiatedSessionE2ee negotiated;
   final String? realm;
   final WampE2eePartyContext? local;
+  late final WampE2eeKeySelectionPolicy _keySelectionPolicy =
+      WampE2eeKeySelectionPolicies.firstDefined([
+        if (provider case WampE2eePolicyAwareProvider(
+          :final keySelectionPolicy,
+        ))
+          keySelectionPolicy,
+        WampE2eeKeySelectionPolicies.negotiated(),
+      ]);
 
   @override
   List<dynamic> packPayload(
@@ -1752,12 +1760,17 @@ class _NegotiatedSessionE2eeProvider implements WampE2eeProvider {
     PPTOptions options, {
     WampE2eeRuntimeContext? runtimeContext,
   }) {
-    _applyDefaults(options, outbound: true);
+    final mergedRuntimeContext = _mergeRuntimeContext(runtimeContext);
+    _applyDefaults(
+      options,
+      outbound: true,
+      runtimeContext: mergedRuntimeContext,
+    );
     return provider.packPayload(
       arguments,
       argumentsKeywords,
       options,
-      runtimeContext: _mergeRuntimeContext(runtimeContext),
+      runtimeContext: mergedRuntimeContext,
     );
   }
 
@@ -1767,20 +1780,32 @@ class _NegotiatedSessionE2eeProvider implements WampE2eeProvider {
     PPTOptions options, {
     WampE2eeRuntimeContext? runtimeContext,
   }) {
-    _applyDefaults(options, outbound: false);
+    final mergedRuntimeContext = _mergeRuntimeContext(runtimeContext);
+    _applyDefaults(
+      options,
+      outbound: false,
+      runtimeContext: mergedRuntimeContext,
+    );
     return provider.unpackPayload(
       arguments,
       options,
-      runtimeContext: _mergeRuntimeContext(runtimeContext),
+      runtimeContext: mergedRuntimeContext,
     );
   }
 
-  void _applyDefaults(PPTOptions options, {required bool outbound}) {
+  void _applyDefaults(
+    PPTOptions options, {
+    required bool outbound,
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
     if (options.pptScheme != 'wamp') {
       return;
     }
     options.pptSerializer ??= negotiated.serializer;
     options.pptCipher ??= negotiated.cipher;
+    options.pptKeyId ??= runtimeContext == null
+        ? null
+        : _keySelectionPolicy(runtimeContext, options);
     options.pptKeyId ??= outbound
         ? negotiated.outboundKeyId
         : negotiated.inboundKeyId;
