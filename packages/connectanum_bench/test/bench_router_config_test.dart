@@ -16,59 +16,75 @@ void main() {
 
   group('bench router config', () {
     test('loads through router validation with shared TLS SNI hosts', () async {
-      final routerConfigPath = _resolveBenchRouterConfig();
-      final settings = await RouterConfigLoaderIo.fromFile(routerConfigPath);
-      final endpoints = settings.listeners
-          .map(Endpoint.fromListenerSettings)
-          .toList(growable: false);
+      await _withBenchRepoRoot(() async {
+        final routerConfigPath = _resolveBenchRouterConfig();
+        final settings = await RouterConfigLoaderIo.fromFile(routerConfigPath);
+        final endpoints = settings.listeners
+            .map(Endpoint.fromListenerSettings)
+            .toList(growable: false);
 
-      final sniHosts = endpoints
-          .expand((endpoint) => endpoint.sniCertificates)
-          .map((certificate) => certificate.hostname)
-          .toList(growable: false);
+        final sniHosts = endpoints
+            .expand((endpoint) => endpoint.sniCertificates)
+            .map((certificate) => certificate.hostname)
+            .toList(growable: false);
 
-      expect(sniHosts.where((host) => host == 'localhost'), hasLength(2));
-      expect(
-        () => Router(RouterConfig(endpoints: endpoints), settings: settings),
-        returnsNormally,
-      );
+        expect(sniHosts.where((host) => host == 'localhost'), hasLength(2));
+        expect(
+          () => Router(RouterConfig(endpoints: endpoints), settings: settings),
+          returnsNormally,
+        );
+      });
     });
 
     test(
       'starts through the native runtime with ephemeral listener ports',
       () async {
-        final routerConfigPath = _resolveBenchRouterConfig();
-        final settings = await RouterConfigLoaderIo.fromFile(routerConfigPath);
-        final ephemeralSettings = await _settingsWithFreePorts(settings);
-        final endpoints = ephemeralSettings.listeners
-            .map(Endpoint.fromListenerSettings)
-            .toList(growable: false);
-        final router = Router(
-          RouterConfig(endpoints: endpoints),
-          settings: ephemeralSettings,
-        );
-        final runtime = NativeTransportRuntime(libraryPath: nativeLib!)
-          ..start();
-        RouterBinding? binding;
+        await _withBenchRepoRoot(() async {
+          final routerConfigPath = _resolveBenchRouterConfig();
+          final settings = await RouterConfigLoaderIo.fromFile(
+            routerConfigPath,
+          );
+          final ephemeralSettings = await _settingsWithFreePorts(settings);
+          final endpoints = ephemeralSettings.listeners
+              .map(Endpoint.fromListenerSettings)
+              .toList(growable: false);
+          final router = Router(
+            RouterConfig(endpoints: endpoints),
+            settings: ephemeralSettings,
+          );
+          final runtime = NativeTransportRuntime(libraryPath: nativeLib!)
+            ..start();
+          RouterBinding? binding;
 
-        addTearDown(() async {
-          await binding?.dispose();
-          runtime.shutdown();
+          addTearDown(() async {
+            await binding?.dispose();
+            runtime.shutdown();
+          });
+
+          binding = router.start(runtime);
+
+          expect(
+            binding.listeners,
+            hasLength(ephemeralSettings.listeners.length),
+          );
+          for (final listener in binding.listeners) {
+            expect(listener.port, greaterThan(0));
+          }
         });
-
-        binding = router.start(runtime);
-
-        expect(
-          binding.listeners,
-          hasLength(ephemeralSettings.listeners.length),
-        );
-        for (final listener in binding.listeners) {
-          expect(listener.port, greaterThan(0));
-        }
       },
       skip: nativeSkipReason,
     );
   });
+}
+
+Future<T> _withBenchRepoRoot<T>(Future<T> Function() action) async {
+  final previousCurrent = Directory.current;
+  Directory.current = _resolveRepoRoot();
+  try {
+    return await action();
+  } finally {
+    Directory.current = previousCurrent;
+  }
 }
 
 String _resolveBenchRouterConfig() {
@@ -83,6 +99,23 @@ String _resolveBenchRouterConfig() {
   }
   throw StateError(
     'Failed to locate native/bench/bench_router.json from ${Directory.current.path}.',
+  );
+}
+
+String _resolveRepoRoot() {
+  final candidates = [
+    Directory.current,
+    Directory.current.parent,
+    Directory.current.parent.parent,
+  ];
+  for (final candidate in candidates) {
+    if (File('${candidate.path}/pubspec.yaml').existsSync() &&
+        Directory('${candidate.path}/native/bench').existsSync()) {
+      return candidate.absolute.path;
+    }
+  }
+  throw StateError(
+    'Failed to locate repo root from ${Directory.current.path}.',
   );
 }
 

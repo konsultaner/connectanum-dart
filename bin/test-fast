@@ -29,11 +29,19 @@ run_client_fast_tests() {
   printf 'Cargo not found; skipping native client transport fast tests.\n'
 }
 
+run_bench_vm_tests() {
+  printf 'Running bench suite from package root so package-local test config applies on %s.\n' "$(uname -s)"
+  (
+    cd packages/connectanum_bench
+    dart test test
+  )
+}
+
 dart analyze
 dart test packages/connectanum_core/test
 run_client_fast_tests
 dart test packages/connectanum_auth_server/test
-dart test packages/connectanum_bench/test
+run_bench_vm_tests
 
 if ensure_rust_env; then
   if native_runtime_supported; then

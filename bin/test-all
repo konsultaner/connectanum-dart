@@ -31,6 +31,14 @@ run_router_vm_tests() {
   )
 }
 
+run_bench_vm_tests() {
+  printf 'Running bench suite from package root so package-local test config applies on %s.\n' "$(uname -s)"
+  (
+    cd packages/connectanum_bench
+    dart test test
+  )
+}
+
 if native_runtime_supported; then
   cargo test --manifest-path native/transport/Cargo.toml -p ct_core
   cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi
@@ -43,7 +51,7 @@ build_native_ffi_test_release
 dart test packages/connectanum_core/test
 run_client_vm_tests
 dart test packages/connectanum_auth_server/test
-dart test packages/connectanum_bench/test
+run_bench_vm_tests
 run_router_vm_tests
 
 if ensure_chrome_env; then

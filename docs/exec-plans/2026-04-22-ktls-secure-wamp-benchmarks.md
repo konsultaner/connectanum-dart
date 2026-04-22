@@ -32,9 +32,12 @@ for the HTTP/2 kTLS prototype.
 - `native/bench/bench_router.json`
 - `native/bench/scenarios/*.toml`
 - `packages/connectanum_bench/lib/src/wamp_transport_targets.dart`
+- `packages/connectanum_bench/dart_test.yaml`
 - `packages/connectanum_bench/tool/bench_main.dart` and/or
   `packages/connectanum_bench/tool/wamp_client_main.dart` if secure-target
   selection needs to become explicit
+- `bin/test-fast`
+- `bin/test-all`
 - `docs/project_state.md`
 - `docs/exec-plans/2026-04-22-ktls-secure-wamp-benchmarks.md`
 - `docs/ktls_research.md` if the benchmark contract changes materially
@@ -89,11 +92,27 @@ for the HTTP/2 kTLS prototype.
   the shipped config through `Router.start(NativeTransportRuntime)` with
   distinct reserved listener/http3 ports so this startup path fails locally
   before another hosted run.
+- 2026-04-22: Hosted runs `24780721173` (`kTLS Validation`) and
+  `24780721191` (`kTLS HTTP/2 Benchmarks`) passed on commit `70f1525`, but the
+  generic `CI` run `24780721174` still failed in `Full Verify` because
+  `bin/test-all` invoked `dart test packages/connectanum_bench/test` from the
+  repo root, bypassing the bench package's future serial test contract and
+  letting `bench_router_config_test.dart` collide with the Linux-only
+  process-global native WAMP harness in the same package.
+- 2026-04-22: Running the bench suite from `packages/connectanum_bench` also
+  exposed that `bench_router_config_test.dart` relied on repo-root current
+  directory state for the shipped config's relative TLS asset paths, so the
+  regression now temporarily switches to the repo root while loading and
+  starting `native/bench/bench_router.json`; the bench package stays
+  serialised via `packages/connectanum_bench/dart_test.yaml`, so that cwd
+  change does not race the rest of the suite.
 
 ## Handoff
 
 - This plan starts with harness/config work, not more low-level kTLS handoff
   changes.
 - The remaining question is now hosted Linux confirmation for the fixed secure
-  WAMP startup path and then performance characterization rather than more
-  bench-target-selection work or low-level kTLS handoff debugging.
+  WAMP startup path after the bench suite adopts the same package-root serial
+  test contract as `connectanum_router`, and then performance characterization
+  rather than more bench-target-selection work or low-level kTLS handoff
+  debugging.
