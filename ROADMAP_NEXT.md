@@ -23,7 +23,7 @@ Fresh state:
 - GOAWAY detail assertions now cover HTTP/2 and HTTP/3 in both native `listen_flow` and Dart runtime suites.
 - Negotiated WebSocket subprotocol/serializer surfaces over FFI (`ct_connection_websocket_protocol`) and flows into boss/worker metadata, so listeners and workers can trace/route WebSocket WAMP sessions consistently.
 - Boss-side metrics now track listener backpressure and transport lifecycle spikes with configurable thresholds (`metrics.backpressure` / `metrics.transport_alerts`), throttling accepts and emitting alerts when GOAWAY/timeout deltas jump.
-- Analyzer still reports info-level issues isolated to `packages/connectanum_auth_server`; production packages are clean.
+- Workspace verification is green; the remaining analyzer output is non-blocking info-level lint cleanup in router internals rather than a package-level blocker.
 - JSON/MessagePack/CBOR serializers preserve custom option/detail fields; HTTP/2 and HTTP/3 responses stream directly from Rust into Dart (`context.streamResponse`) without buffering multi-MB payloads.
 - Router-side MsgPack `RESULT` serialization and the native CBOR decode/encode path are now complete for the benchmarked WAMP flows, and bench integration covers RawSocket/MsgPack RPC plus WebSocket/CBOR RPC against the live router.
 - Dart WebSocket integration suite now drives WAMP publish/call flows over WebSocket (continuation frames, large payloads) and asserts negotiated subprotocol/serializer on acceptance.
@@ -80,17 +80,18 @@ Focus for the next session:
   - Next: push HTTP/3 beyond the current `4` streams-per-connection bench shape and map where the ceiling shifts from QUIC transport tuning to application response scheduling. On the WAMP/WebSocket side, the next transport-adjacent task is to shrink any still-unsupported edge families that cannot be represented safely in the current `ct_message_peek` metadata contract, but the larger next spike is the E2EE/PPT work on top of the shared lazy-payload contract.
 
 5. **Pattern Routing & Shared Registrations**
-   - Implement wildcard/prefix ordering + priority handling and un-skip the advanced-profile placeholder test.
-   - Introduce shared registration policies (round-robin/first/last) and wire invocation dispatch to respect them.
+   - ✅ Wildcard/prefix ordering + priority handling are covered in `router_worker_session_test.dart` and `state/pattern_matching_test.dart`, including the advanced-profile placeholder path.
+   - ✅ Shared registration policies (`round_robin`, `first`, `last`) are wired through invocation dispatch and covered by focused router worker tests.
 
 6. **Authrole Filters & Analyzer Hygiene**
-   - Enforce authrole include/exclude lists when broadcasting EVENTs and extend tests accordingly.
-   - Resolve remaining analyzer warnings by fixing `packages/connectanum_auth_server` dependencies/imports or documenting follow-up tasks.
+   - ✅ Authrole include/exclude delivery filters are enforced on EVENT fan-out and covered by focused router worker tests.
+   - ✅ `packages/connectanum_auth_server` is analyzer-clean; the remaining analyzer output is limited to non-blocking router lint cleanup.
 
 7. **Remote Authentication Hardening & HTTP Auth Bridge**
    - Decide whether dynamic realm authorization should stay as the current runtime `AuthorizationProviderRegistry` hook or grow a config-driven provider/factory model per realm.
    - ✅ Tighten native listener-side transport auth enforcement so clearly unauthorized HTTP requests can be rejected before the Dart bridge/session layer. Protected routes now derive cheap `transport_auth` gates (TLS / mTLS / bearer presence) from `session_profiles` plus explicit route overrides, and `HttpRouteMatch.protocols` is now a first-class config field instead of an undocumented extra-map hook.
    - ✅ Add a dedicated HTTP bearer-provider bench (JWT local validation and OAuth introspection) so the new provider-backed route path is measured separately from the ticket bridge smoke. `http_bearer_provider_smoke.toml` now covers `/bench/secure-jwt` and `/bench/secure-oauth`, and the Dart bench runner hosts the local introspection endpoint needed by the shipped `oauth` provider config.
+   - ✅ Expand the HTTP auth bridge smoke bench beyond ticket-only login. `http_auth_smoke.toml` now covers `ticket`, `wampcra`, and `scram` login, refresh, and protected-route flows across HTTP/1.1, HTTP/2, and HTTP/3, and the shipped bench router config/auth profile now exposes those challenge methods on `/bench/auth`.
 
 8. **Benchmark Readiness**
   - ✅ Bench harness pieces are in place: Dart runner, Rust orchestrator, TOML scenarios, transformed Prometheus/summary artifacts, default HTTPS/TLS smoke runs over HTTP/2 + HTTP/3, explicit RawSocket/WebSocket WAMP scenarios, serializer-aware WAMP workloads (`json`, `msgpack`, `cbor`), and `all_transports_smoke.toml` / `wamp_serializer_matrix.toml` for cross-transport and serializer-specific sanity checks.

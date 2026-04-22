@@ -20,8 +20,12 @@ auth if it should run through the TLS WAMP listener in
 secure WAMP baseline. It mirrors the existing 64 KiB cleartext transport sweep
 but routes through the TLS WAMP listener and `bench.secure` ticket auth.
 
-`native/bench/scenarios/http_bearer_provider_smoke.toml` is the dedicated HTTP
-bearer-provider baseline. It exercises both local JWT validation and local
+`native/bench/scenarios/http_auth_smoke.toml` is the dedicated HTTP auth-bridge
+baseline. It exercises `ticket`, `wampcra`, and `scram` login, refresh, and
+protected-route flows across HTTP/1.1, HTTP/2, and HTTP/3.
+
+`native/bench/scenarios/http_bearer_provider_smoke.toml` is the companion
+HTTP bearer-provider baseline. It exercises both local JWT validation and local
 OAuth introspection-backed protected routes across HTTP/1.1, HTTP/2, and
 HTTP/3.
 

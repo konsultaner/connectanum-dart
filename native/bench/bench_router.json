@@ -20,9 +20,15 @@
       {
         "name": "bench.secure",
         "auth": {
-          "authmethods": ["ticket"],
+          "authmethods": ["ticket", "wampcra", "scram"],
           "ticket": {
             "authenticator": "ticket-basic"
+          },
+          "wampcra": {
+            "authenticator": "cra-basic"
+          },
+          "scram": {
+            "authenticator": "scram-basic"
           }
         },
         "roles": [
@@ -124,10 +130,10 @@
         }
       },
       {
-        "name": "http-ticket",
+        "name": "http-auth",
         "realm": "bench.secure",
         "auth": {
-          "methods": ["ticket"]
+          "methods": ["ticket", "wampcra", "scram"]
         }
       },
       {
@@ -204,7 +210,7 @@
               },
               "action": {
                 "type": "auth",
-                "session_profile": "http-ticket",
+                "session_profile": "http-auth",
                 "token_ttl_ms": 60000,
                 "refresh_token_ttl_ms": 300000,
                 "rotate_refresh_tokens": true
@@ -263,7 +269,7 @@
                 "type": "rpc",
                 "realm": "bench.secure",
                 "procedure": "bench.http.secure",
-                "session_profile": "http-ticket"
+                "session_profile": "http-auth"
               }
             },
             {
@@ -380,6 +386,38 @@
               "ticket": "bench-ticket",
               "role": "member",
               "provider": "bench-ticket-store"
+            }
+          }
+        }
+      },
+      "cra-basic": {
+        "type": "wampcra",
+        "options": {
+          "secrets": {
+            "bench-user": {
+              "secret": "bench-cra-secret",
+              "salt": "bench-cra-salt",
+              "iterations": 1000,
+              "keylen": 32,
+              "role": "member",
+              "provider": "bench-cra-store",
+              "challenge": {
+                "scope": "bench-http-auth"
+              }
+            }
+          }
+        }
+      },
+      "scram-basic": {
+        "type": "scram",
+        "options": {
+          "secrets": {
+            "bench-user": {
+              "secret": "bench-scram-secret",
+              "salt": "CgsMDQ4PEBESExQVFhcYGQ==",
+              "iterations": 4096,
+              "role": "member",
+              "provider": "bench-scram-store"
             }
           }
         }

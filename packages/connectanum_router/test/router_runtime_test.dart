@@ -10,10 +10,11 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/authentication.dart'
-    show CraAuthentication, TicketAuthentication;
+    show CraAuthentication, ScramAuthentication, TicketAuthentication;
 import 'package:connectanum_core/connectanum_core.dart'
     show
         CallOptions,
+        Details,
         Extra,
         LazyMessagePayload,
         LazyPayloadEncoding,
@@ -687,7 +688,42 @@ Future<({String accessToken, String refreshToken})> _issueTicketHttpTokens({
   String authId = 'user-1',
   String realm = 'realm1',
   String ticket = 'signed-token',
+}) => _issueHttpBridgeTokens(
+  runtime: runtime,
+  listenerId: listenerId,
+  startConnectionId: startConnectionId,
+  authId: authId,
+  realm: realm,
+  authMethod: 'ticket',
+  authSecret: ticket,
+);
+
+Future<({String accessToken, String refreshToken})> _issueHttpBridgeTokens({
+  required _HandleRuntime runtime,
+  required int listenerId,
+  required String authMethod,
+  required String authSecret,
+  int startConnectionId = 60,
+  String authId = 'user-1',
+  String realm = 'realm1',
 }) async {
+  final startBody = <String, Object?>{
+    'realm': realm,
+    'authmethod': authMethod,
+    'authid': authId,
+  };
+  ScramAuthentication? scramAuthentication;
+  if (authMethod == 'scram') {
+    scramAuthentication = ScramAuthentication(authSecret);
+    final helloDetails = Details.forHello()
+      ..authmethods = [authMethod]
+      ..authid = authId;
+    await scramAuthentication.hello(realm, helloDetails);
+    startBody['authextra'] = Map<String, Object?>.from(
+      helloDetails.authextra ?? const <String, Object?>{},
+    );
+  }
+
   _enqueueSyntheticHttpRequest(
     runtime: runtime,
     listenerId: listenerId,
@@ -696,11 +732,7 @@ Future<({String accessToken, String refreshToken})> _issueTicketHttpTokens({
     method: 'POST',
     target: '/auth',
     headers: const {'content-type': 'application/json'},
-    body: <String, Object?>{
-      'realm': realm,
-      'authmethod': 'ticket',
-      'authid': authId,
-    },
+    body: startBody,
     realm: 'router.http',
     procedure: 'router.http.auth',
   );
@@ -712,7 +744,16 @@ Future<({String accessToken, String refreshToken})> _issueTicketHttpTokens({
     runtime.httpResponses[startConnectionId]!.single,
   );
   final state = challengeBody['state'] as String;
-  final authenticate = await TicketAuthentication(ticket).challenge(Extra());
+  final authenticate = switch (authMethod) {
+    'ticket' => await TicketAuthentication(authSecret).challenge(Extra()),
+    'wampcra' => await CraAuthentication(
+      authSecret,
+    ).challenge(_httpAuthChallengeExtraFromBody(challengeBody)),
+    'scram' => await scramAuthentication!.challenge(
+      _httpAuthChallengeExtraFromBody(challengeBody),
+    ),
+    _ => throw UnsupportedError('Unsupported HTTP auth method $authMethod'),
+  };
 
   _enqueueSyntheticHttpRequest(
     runtime: runtime,
@@ -740,6 +781,24 @@ Future<({String accessToken, String refreshToken})> _issueTicketHttpTokens({
   return (
     accessToken: success['access_token'] as String,
     refreshToken: success['refresh_token'] as String,
+  );
+}
+
+Extra _httpAuthChallengeExtraFromBody(Map<String, Object?> body) {
+  final rawChallenge = body['challenge'];
+  final challenge = rawChallenge is Map<String, Object?>
+      ? rawChallenge
+      : rawChallenge is Map
+      ? Map<String, Object?>.from(rawChallenge)
+      : const <String, Object?>{};
+  return Extra(
+    challenge: challenge['challenge'] as String?,
+    nonce: challenge['nonce'] as String?,
+    salt: challenge['salt'] as String?,
+    keyLen: challenge['keylen'] as int?,
+    iterations: challenge['iterations'] as int?,
+    memory: challenge['memory'] as int?,
+    kdf: challenge['kdf'] as String?,
   );
 }
 
@@ -1298,6 +1357,14 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge() {
           'ticket',
           options: const {'authenticator': 'ticket-basic'},
         )
+        ..addAuthMethod(
+          'wampcra',
+          options: const {'authenticator': 'cra-basic'},
+        )
+        ..addAuthMethod(
+          'scram',
+          options: const {'authenticator': 'scram-basic'},
+        )
         ..addRoleFromBuilder(
           RoleSettingsBuilder('member')..addPermissionFromBuilder(
             PermissionSettingsBuilder('com.example.')
@@ -1320,7 +1387,7 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge() {
     ..addSessionProfileFromBuilder(
       SessionProfileSettingsBuilder('http-ticket')
         ..setRealm('realm1')
-        ..setAuthMethods(const ['ticket']),
+        ..setAuthMethods(const ['ticket', 'wampcra', 'scram']),
     )
     ..addListenerFromBuilder(
       (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
@@ -1373,6 +1440,42 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge() {
               'ticket': 'signed-token',
               'role': 'member',
               'provider': 'ticket-db',
+            },
+          },
+        },
+      ),
+    )
+    ..addAuthenticator(
+      'cra-basic',
+      const AuthenticatorDefinition(
+        type: 'wampcra',
+        options: <String, Object?>{
+          'secrets': <String, Object?>{
+            'user-1': <String, Object?>{
+              'secret': 'secret-1',
+              'salt': 'bench-cra-salt',
+              'iterations': 1000,
+              'keylen': 32,
+              'role': 'member',
+              'provider': 'cra-db',
+              'challenge': <String, Object?>{'scope': 'http-auth'},
+            },
+          },
+        },
+      ),
+    )
+    ..addAuthenticator(
+      'scram-basic',
+      const AuthenticatorDefinition(
+        type: 'scram',
+        options: <String, Object?>{
+          'secrets': <String, Object?>{
+            'user-1': <String, Object?>{
+              'secret': 'pencil',
+              'salt': 'CgsMDQ4PEBESExQVFhcYGQ==',
+              'iterations': 4096,
+              'role': 'member',
+              'provider': 'scram-db',
             },
           },
         },
@@ -3450,6 +3553,96 @@ void main() {
       );
     },
   );
+
+  for (final authCase in const <({String method, String secret})>[
+    (method: 'wampcra', secret: 'secret-1'),
+    (method: 'scram', secret: 'pencil'),
+  ]) {
+    test(
+      'auth bridge issues bearer token for ${authCase.method} and dispatches secure route',
+      () async {
+        final runtime = _HandleRuntime();
+        final router = Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                tlsMode: TlsMode.native,
+                maxRawSocketSizeExponent: 16,
+                sniCertificates: [_cert('localhost')],
+              ),
+            ],
+          ),
+          settings: _buildRouterSettingsWithHttpAuthBridge(),
+        );
+
+        final binding = router.start(runtime);
+        addTearDown(binding.dispose);
+
+        await Future<void>.delayed(Duration.zero);
+        final listenerId = binding.listeners.single.listenerId;
+
+        final callee = await binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'svc-http',
+          authRole: 'internal',
+          roles: const {'callee': <String, Object?>{}},
+        );
+        addTearDown(callee.close);
+        final registration = await callee.register('com.example.api.secure');
+        registration.onInvoke((invocation) {
+          final context = HttpInvocationContext.maybeFromInvocation(invocation);
+          expect(context, isNotNull);
+          expect(context!.request.path, '/api/secure');
+          context.sendText(body: authCase.method, status: HttpStatus.ok);
+        });
+
+        final tokens = await _issueHttpBridgeTokens(
+          runtime: runtime,
+          listenerId: listenerId,
+          startConnectionId: 90,
+          authMethod: authCase.method,
+          authSecret: authCase.secret,
+        );
+
+        const protectedConnectionId = 92;
+        runtime.setConnectionProtocol(
+          protectedConnectionId,
+          NativeConnectionProtocol.http,
+        );
+        runtime.enqueueHttpHandshake(
+          listenerId,
+          protectedConnectionId,
+          NativeHttpHandshake.synthetic(
+            handle: 52,
+            method: 'GET',
+            target: '/api/secure',
+            path: '/api/secure',
+            protocol: 'http/1.1',
+            headers: {'authorization': 'Bearer ${tokens.accessToken}'},
+            body: Uint8List(0),
+            realm: 'realm1',
+            procedure: 'com.example.api.secure',
+          ),
+        );
+
+        await _waitUntil(
+          () =>
+              runtime.httpResponses[protectedConnectionId]?.isNotEmpty ?? false,
+        );
+        final protectedResponse =
+            runtime.httpResponses[protectedConnectionId]!.single;
+        expect(protectedResponse.status, HttpStatus.ok);
+        expect(protectedResponse.body, isA<NativeHttpResponseText>());
+        expect(
+          (protectedResponse.body as NativeHttpResponseText).text,
+          authCase.method,
+        );
+        expect(tokens.refreshToken, isNotEmpty);
+      },
+    );
+  }
 
   test(
     'auth bridge rotates refresh tokens and rejects old credentials',

@@ -250,6 +250,6 @@ router:
 
 ## Next Steps
 
-1. The auth bench now covers the ticket bridge plus dedicated JWT and OAuth bearer-provider smoke; the next expansion is SCRAM/WAMP-CRA and remote-provider latency beyond those baselines.
+1. The auth bench now covers ticket, WAMP-CRA, and SCRAM challenge-response flows plus the dedicated JWT and OAuth bearer-provider baselines; the next expansion is remote-provider latency beyond those local baselines.
 2. Extend local bearer validation beyond the current HS256 baseline where required (for example JWK-backed RSA/EC verification or OIDC discovery helpers) without breaking the shared session-profile model.
 3. Decide whether additional transport gates should become fully typed config fields instead of living under `HttpRouteAction.options` overrides.

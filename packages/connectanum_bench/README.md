@@ -34,6 +34,11 @@ Dart runner also starts a local introspection endpoint for them. That keeps the
 HTTP bearer-provider scenarios self-contained instead of depending on an
 external OAuth service during local or CI bench runs.
 
+The shipped HTTP auth bridge smoke scenario now also covers challenge-response
+login for `ticket`, `wampcra`, and `scram`, so the Rust orchestrator exercises
+both multi-step HTTP auth bridge flows and the separate bearer-provider route
+path from the same checked-in bench config.
+
 ## Related Docs
 
 - orchestrator overview: [../../native/bench/README.md](../../native/bench/README.md)

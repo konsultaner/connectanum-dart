@@ -9,10 +9,12 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, bail, Context, Result};
+use base64::{engine::general_purpose::STANDARD as Base64Engine, Engine as _};
 use bytes::{Buf, Bytes};
 use clap::Parser;
 use h2::{client as h2_client, RecvStream as H2RecvStream};
 use h3_quinn::Connection as H3QuinnConnection;
+use hmac::{Hmac, Mac};
 use http as http3;
 use hyper::body::HttpBody as _;
 use hyper::client::conn::Builder as HyperConnBuilder;
@@ -23,6 +25,7 @@ use hyper::http::{
 use hyper::{Body, Request};
 use quinn::{ClientConfig as QuinnClientConfig, Endpoint as QuinnEndpoint, TransportConfig};
 use quinn_proto::crypto::rustls::QuicClientConfig;
+use pbkdf2::pbkdf2_hmac;
 use reqwest::blocking::Client as BlockingHttpClient;
 use reqwest::Url as ReqwestUrl;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
@@ -32,6 +35,7 @@ use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{DigitallySignedStruct, SignatureScheme};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{lookup_host, TcpStream};
 use tokio::runtime::Runtime;
@@ -1198,8 +1202,16 @@ impl PreparedWorkload {
         if is_rawsocket_frame && !config.serializer.eq_ignore_ascii_case("json") {
             bail!("rawsocket auth frame workloads currently support json only");
         }
-        if auth_flow.is_some() && auth_method != "ticket" && auth_bearer_token.is_none() {
-            bail!("HTTP auth bench currently supports ticket only");
+        if auth_flow.is_some()
+            && auth_bearer_token.is_none()
+            && !matches!(
+                auth_method.to_ascii_lowercase().as_str(),
+                "ticket" | "wampcra" | "scram"
+            )
+        {
+            bail!(
+                "HTTP auth bench currently supports interactive login for ticket, wampcra, and scram only"
+            );
         }
         if is_rawsocket_frame {
             RawSocketAuthFrameCase::parse(config.frame_case.as_deref())?;
@@ -1274,6 +1286,19 @@ fn parse_http_auth_flow(raw: Option<&str>) -> Result<Option<HttpAuthFlow>> {
 struct HttpAuthSession {
     access_token: String,
     refresh_token: String,
+}
+
+#[derive(Clone, Debug)]
+struct HttpAuthChallenge {
+    state: String,
+    challenge: Value,
+}
+
+#[derive(Clone, Debug)]
+enum HttpAuthClientState {
+    Ticket,
+    WampCra,
+    Scram { hello_nonce: String },
 }
 
 struct HttpBodyResponse {
@@ -2409,20 +2434,159 @@ async fn collect_worker_samples(
     Ok(samples)
 }
 
-fn build_auth_start_body(workload: &PreparedWorkload) -> Value {
-    json!({
-        "realm": workload.auth_realm,
-        "authmethod": workload.auth_method,
-        "authid": workload.auth_id,
-    })
+fn build_auth_start_body(workload: &PreparedWorkload) -> Result<(Value, HttpAuthClientState)> {
+    let method = workload.auth_method.to_ascii_lowercase();
+    match method.as_str() {
+        "ticket" => Ok((
+            json!({
+                "realm": workload.auth_realm,
+                "authmethod": workload.auth_method,
+                "authid": workload.auth_id,
+            }),
+            HttpAuthClientState::Ticket,
+        )),
+        "wampcra" => Ok((
+            json!({
+                "realm": workload.auth_realm,
+                "authmethod": workload.auth_method,
+                "authid": workload.auth_id,
+            }),
+            HttpAuthClientState::WampCra,
+        )),
+        "scram" => {
+            let hello_nonce = Base64Engine.encode(format!(
+                "bench-http-scram:{}:{}",
+                workload.auth_realm, workload.auth_id
+            ));
+            Ok((
+                json!({
+                    "realm": workload.auth_realm,
+                    "authmethod": workload.auth_method,
+                    "authid": workload.auth_id,
+                    "authextra": {
+                        "nonce": hello_nonce,
+                        "channel_binding": Value::Null,
+                    },
+                }),
+                HttpAuthClientState::Scram { hello_nonce },
+            ))
+        }
+        other => bail!("unsupported HTTP auth method {other}"),
+    }
 }
 
-fn build_auth_complete_body(state: &str, secret: &str) -> Value {
-    json!({
-        "state": state,
-        "signature": secret,
-        "extra": {},
-    })
+fn build_auth_complete_body(
+    workload: &PreparedWorkload,
+    client_state: &HttpAuthClientState,
+    challenge: &HttpAuthChallenge,
+) -> Result<Value> {
+    let method = workload.auth_method.to_ascii_lowercase();
+    match method.as_str() {
+        "ticket" => Ok(json!({
+            "state": challenge.state,
+            "signature": workload.auth_secret,
+            "extra": {},
+        })),
+        "wampcra" => {
+            let challenge_fields = challenge
+                .challenge
+                .as_object()
+                .ok_or_else(|| anyhow!("WAMP-CRA challenge payload must be an object"))?;
+            let challenge_text = challenge_fields
+                .get("challenge")
+                .and_then(Value::as_str)
+                .ok_or_else(|| anyhow!("WAMP-CRA challenge missing challenge text"))?;
+            let iterations = json_u32(challenge_fields.get("iterations"))
+                .unwrap_or(1000)
+                .max(1);
+            let key_len = json_usize(challenge_fields.get("keylen")).unwrap_or(32).max(1);
+            let secret_key = if let Some(salt) = challenge_fields.get("salt").and_then(Value::as_str) {
+                let mut derived = vec![0u8; key_len];
+                pbkdf2_hmac::<Sha256>(
+                    workload.auth_secret.as_bytes(),
+                    salt.as_bytes(),
+                    iterations,
+                    &mut derived,
+                );
+                derived
+            } else {
+                workload.auth_secret.as_bytes().to_vec()
+            };
+            let signature = hmac_base64(
+                Base64Engine.encode(secret_key).as_bytes(),
+                challenge_text.as_bytes(),
+                key_len,
+            )?;
+            Ok(json!({
+                "state": challenge.state,
+                "signature": signature,
+                "extra": {},
+            }))
+        }
+        "scram" => {
+            let hello_nonce = match client_state {
+                HttpAuthClientState::Scram { hello_nonce } => hello_nonce.as_str(),
+                _ => bail!("SCRAM auth completion requires SCRAM client state"),
+            };
+            let challenge_fields = challenge
+                .challenge
+                .as_object()
+                .ok_or_else(|| anyhow!("SCRAM challenge payload must be an object"))?;
+            let combined_nonce = challenge_fields
+                .get("nonce")
+                .and_then(Value::as_str)
+                .ok_or_else(|| anyhow!("SCRAM challenge missing nonce"))?;
+            let salt = challenge_fields
+                .get("salt")
+                .and_then(Value::as_str)
+                .ok_or_else(|| anyhow!("SCRAM challenge missing salt"))?;
+            let iterations = json_u32(challenge_fields.get("iterations"))
+                .unwrap_or(4096)
+                .max(1);
+            let kdf = challenge_fields
+                .get("kdf")
+                .and_then(Value::as_str)
+                .unwrap_or("pbkdf2");
+            if !kdf.eq_ignore_ascii_case("pbkdf2") {
+                bail!("SCRAM challenge uses unsupported kdf {kdf}");
+            }
+            let salted_password = {
+                let salt_bytes = Base64Engine
+                    .decode(salt)
+                    .with_context(|| format!("invalid SCRAM salt {salt}"))?;
+                let mut output = vec![0u8; 32];
+                pbkdf2_hmac::<Sha256>(
+                    workload.auth_secret.as_bytes(),
+                    &salt_bytes,
+                    iterations,
+                    &mut output,
+                );
+                output
+            };
+            let client_key = hmac_bytes(&salted_password, b"Client Key")?;
+            let stored_key = Sha256::digest(&client_key);
+            let auth_message = format!(
+                "n={},r={},r={},s={},i={},c=biws,r={}",
+                workload.auth_id, hello_nonce, combined_nonce, salt, iterations, combined_nonce
+            );
+            let client_signature = hmac_bytes(&stored_key, auth_message.as_bytes())?;
+            let proof: Vec<u8> = client_key
+                .iter()
+                .zip(client_signature.iter())
+                .map(|(lhs, rhs)| lhs ^ rhs)
+                .collect();
+            Ok(json!({
+                "state": challenge.state,
+                "signature": Base64Engine.encode(proof),
+                "extra": {
+                    "nonce": combined_nonce,
+                    "channel_binding": Value::Null,
+                    "cbind_data": Value::Null,
+                },
+            }))
+        }
+        other => bail!("unsupported HTTP auth method {other}"),
+    }
 }
 
 fn build_auth_refresh_body(refresh_token: &str) -> Value {
@@ -2436,7 +2600,7 @@ fn parse_json_response(response: &HttpBodyResponse) -> Result<Value> {
     serde_json::from_slice(&response.body).context("failed to decode JSON response")
 }
 
-fn parse_auth_challenge(response: &HttpBodyResponse) -> Result<String> {
+fn parse_auth_challenge(response: &HttpBodyResponse) -> Result<HttpAuthChallenge> {
     if response.status != HyperStatusCode::UNAUTHORIZED {
         bail!("expected 401 challenge, got {}", response.status);
     }
@@ -2445,7 +2609,33 @@ fn parse_auth_challenge(response: &HttpBodyResponse) -> Result<String> {
         .get("state")
         .and_then(Value::as_str)
         .ok_or_else(|| anyhow!("challenge response missing state"))?;
-    Ok(state.to_string())
+    Ok(HttpAuthChallenge {
+        state: state.to_string(),
+        challenge: body.get("challenge").cloned().unwrap_or(Value::Null),
+    })
+}
+
+fn json_u32(value: Option<&Value>) -> Option<u32> {
+    value
+        .and_then(Value::as_u64)
+        .and_then(|value| u32::try_from(value).ok())
+}
+
+fn json_usize(value: Option<&Value>) -> Option<usize> {
+    value
+        .and_then(Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
+}
+
+fn hmac_base64(key: &[u8], message: &[u8], key_len: usize) -> Result<String> {
+    Ok(Base64Engine.encode(hmac_bytes(key, message)?[..std::cmp::min(key_len, 32)].to_vec()))
+}
+
+fn hmac_bytes(key: &[u8], message: &[u8]) -> Result<Vec<u8>> {
+    let mut mac =
+        Hmac::<Sha256>::new_from_slice(key).map_err(|_| anyhow!("invalid HMAC key length"))?;
+    mac.update(message);
+    Ok(mac.finalize().into_bytes().to_vec())
 }
 
 fn parse_auth_success(response: &HttpBodyResponse) -> Result<HttpAuthSession> {
@@ -2750,7 +2940,7 @@ async fn h1_authenticate(
     endpoint: &HttpEndpoint,
     workload: &PreparedWorkload,
 ) -> Result<HttpAuthSession> {
-    let start_body = build_auth_start_body(workload);
+    let (start_body, client_state) = build_auth_start_body(workload)?;
     let (challenge, _) = send_h1_json_request(
         sender,
         endpoint,
@@ -2760,8 +2950,8 @@ async fn h1_authenticate(
         None,
     )
     .await?;
-    let state = parse_auth_challenge(&challenge)?;
-    let complete_body = build_auth_complete_body(&state, &workload.auth_secret);
+    let challenge = parse_auth_challenge(&challenge)?;
+    let complete_body = build_auth_complete_body(workload, &client_state, &challenge)?;
     let (success, _) = send_h1_json_request(
         sender,
         endpoint,
@@ -2779,7 +2969,7 @@ async fn h2_authenticate(
     endpoint: &HttpEndpoint,
     workload: &PreparedWorkload,
 ) -> Result<HttpAuthSession> {
-    let start_body = build_auth_start_body(workload);
+    let (start_body, client_state) = build_auth_start_body(workload)?;
     let (challenge, _) = send_h2_json_request(
         sender.clone(),
         endpoint,
@@ -2789,8 +2979,8 @@ async fn h2_authenticate(
         None,
     )
     .await?;
-    let state = parse_auth_challenge(&challenge)?;
-    let complete_body = build_auth_complete_body(&state, &workload.auth_secret);
+    let challenge = parse_auth_challenge(&challenge)?;
+    let complete_body = build_auth_complete_body(workload, &client_state, &challenge)?;
     let (success, _) = send_h2_json_request(
         sender,
         endpoint,
@@ -2808,7 +2998,7 @@ async fn h3_authenticate(
     endpoint: &HttpEndpoint,
     workload: &PreparedWorkload,
 ) -> Result<HttpAuthSession> {
-    let start_body = build_auth_start_body(workload);
+    let (start_body, client_state) = build_auth_start_body(workload)?;
     let (challenge, _) = send_h3_json_request(
         sender.clone(),
         endpoint,
@@ -2818,8 +3008,8 @@ async fn h3_authenticate(
         None,
     )
     .await?;
-    let state = parse_auth_challenge(&challenge)?;
-    let complete_body = build_auth_complete_body(&state, &workload.auth_secret);
+    let challenge = parse_auth_challenge(&challenge)?;
+    let complete_body = build_auth_complete_body(workload, &client_state, &challenge)?;
     let (success, _) = send_h3_json_request(
         sender,
         endpoint,
@@ -2840,7 +3030,7 @@ async fn h1_login_iteration(
     iteration: u32,
 ) -> Result<WorkloadSample> {
     let start = Instant::now();
-    let start_body = build_auth_start_body(workload);
+    let (start_body, client_state) = build_auth_start_body(workload)?;
     let (challenge, request1) = send_h1_json_request(
         sender,
         endpoint,
@@ -2851,8 +3041,8 @@ async fn h1_login_iteration(
     )
     .await?;
     let challenge_bytes = challenge.body.len() as u64;
-    let state = parse_auth_challenge(&challenge)?;
-    let complete_body = build_auth_complete_body(&state, &workload.auth_secret);
+    let challenge = parse_auth_challenge(&challenge)?;
+    let complete_body = build_auth_complete_body(workload, &client_state, &challenge)?;
     let (success, request2) = send_h1_json_request(
         sender,
         endpoint,
@@ -2881,7 +3071,7 @@ async fn h2_login_iteration(
     iteration: u32,
 ) -> Result<WorkloadSample> {
     let start = Instant::now();
-    let start_body = build_auth_start_body(workload);
+    let (start_body, client_state) = build_auth_start_body(workload)?;
     let (challenge, request1) = send_h2_json_request(
         sender.clone(),
         endpoint,
@@ -2892,8 +3082,8 @@ async fn h2_login_iteration(
     )
     .await?;
     let challenge_bytes = challenge.body.len() as u64;
-    let state = parse_auth_challenge(&challenge)?;
-    let complete_body = build_auth_complete_body(&state, &workload.auth_secret);
+    let challenge = parse_auth_challenge(&challenge)?;
+    let complete_body = build_auth_complete_body(workload, &client_state, &challenge)?;
     let (success, request2) = send_h2_json_request(
         sender,
         endpoint,
@@ -2922,7 +3112,7 @@ async fn h3_login_iteration(
     iteration: u32,
 ) -> Result<WorkloadSample> {
     let start = Instant::now();
-    let start_body = build_auth_start_body(workload);
+    let (start_body, client_state) = build_auth_start_body(workload)?;
     let (challenge, request1) = send_h3_json_request(
         sender.clone(),
         endpoint,
@@ -2933,8 +3123,8 @@ async fn h3_login_iteration(
     )
     .await?;
     let challenge_bytes = challenge.body.len() as u64;
-    let state = parse_auth_challenge(&challenge)?;
-    let complete_body = build_auth_complete_body(&state, &workload.auth_secret);
+    let challenge = parse_auth_challenge(&challenge)?;
+    let complete_body = build_auth_complete_body(workload, &client_state, &challenge)?;
     let (success, request2) = send_h3_json_request(
         sender,
         endpoint,
@@ -4690,6 +4880,237 @@ mod tests {
         assert_eq!(
             prepared.auth_bearer_token.as_deref(),
             Some("bench-oauth-token")
+        );
+    }
+
+    #[test]
+    fn prepared_workload_allows_wampcra_http_auth_bridge_flows() {
+        let config = WorkloadConfig {
+            name: "wampcra_protected".to_string(),
+            protocol: "h2".to_string(),
+            client_impl: default_wamp_client_impl(),
+            serializer: default_wamp_serializer(),
+            method: default_method(),
+            path: "/bench/secure".to_string(),
+            iterations: default_iterations(),
+            concurrency: default_concurrency(),
+            in_flight_per_session: default_in_flight_per_session(),
+            peer_count: default_peer_count(),
+            request_bytes: default_request_bytes(),
+            websocket_fragment_size: None,
+            ppt_scheme: None,
+            ppt_serializer: None,
+            secure_transport: false,
+            response_bytes: default_response_bytes(),
+            request_chunk_bytes: default_chunk_bytes(),
+            response_chunk_bytes: None,
+            warmup_ms: None,
+            reuse_connections: default_reuse_connections(),
+            streams_per_connection: default_streams_per_connection(),
+            auth_flow: Some("protected".to_string()),
+            auth_path: Some("/bench/auth".to_string()),
+            auth_realm: Some("bench.secure".to_string()),
+            auth_method: Some("wampcra".to_string()),
+            auth_id: Some("bench-user".to_string()),
+            auth_secret: Some("bench-cra-secret".to_string()),
+            auth_bearer_token: None,
+            frame_case: None,
+        };
+
+        let prepared = PreparedWorkload::from_config(&config).unwrap();
+        assert_eq!(prepared.auth_flow, Some(HttpAuthFlow::Protected));
+        assert_eq!(prepared.auth_method, "wampcra");
+        assert_eq!(prepared.auth_secret, "bench-cra-secret");
+    }
+
+    #[test]
+    fn prepared_workload_allows_scram_http_auth_bridge_flows() {
+        let config = WorkloadConfig {
+            name: "scram_refresh".to_string(),
+            protocol: "h3".to_string(),
+            client_impl: default_wamp_client_impl(),
+            serializer: default_wamp_serializer(),
+            method: default_method(),
+            path: "/bench/auth".to_string(),
+            iterations: default_iterations(),
+            concurrency: default_concurrency(),
+            in_flight_per_session: default_in_flight_per_session(),
+            peer_count: default_peer_count(),
+            request_bytes: default_request_bytes(),
+            websocket_fragment_size: None,
+            ppt_scheme: None,
+            ppt_serializer: None,
+            secure_transport: false,
+            response_bytes: default_response_bytes(),
+            request_chunk_bytes: default_chunk_bytes(),
+            response_chunk_bytes: None,
+            warmup_ms: None,
+            reuse_connections: default_reuse_connections(),
+            streams_per_connection: default_streams_per_connection(),
+            auth_flow: Some("refresh".to_string()),
+            auth_path: Some("/bench/auth".to_string()),
+            auth_realm: Some("bench.secure".to_string()),
+            auth_method: Some("scram".to_string()),
+            auth_id: Some("bench-user".to_string()),
+            auth_secret: Some("bench-scram-secret".to_string()),
+            auth_bearer_token: None,
+            frame_case: None,
+        };
+
+        let prepared = PreparedWorkload::from_config(&config).unwrap();
+        assert_eq!(prepared.auth_flow, Some(HttpAuthFlow::Refresh));
+        assert_eq!(prepared.auth_method, "scram");
+        assert_eq!(prepared.auth_secret, "bench-scram-secret");
+    }
+
+    #[test]
+    fn build_auth_start_body_adds_scram_authextra() {
+        let workload = PreparedWorkload {
+            name: "scram_login".to_string(),
+            protocol: "h1".to_string(),
+            client_impl: "n/a".to_string(),
+            serializer: default_wamp_serializer(),
+            method: HyperMethod::POST,
+            path: "/bench/auth".to_string(),
+            iterations: 1,
+            concurrency: 1,
+            in_flight_per_session: default_in_flight_per_session(),
+            peer_count: default_peer_count(),
+            request_bytes: 0,
+            websocket_fragment_size: None,
+            ppt_scheme: None,
+            ppt_serializer: None,
+            secure_transport: false,
+            response_bytes: 0,
+            request_chunk_bytes: 1024,
+            response_chunk_bytes: 1024,
+            reuse_connections: true,
+            streams_per_connection: 1,
+            auth_flow: Some(HttpAuthFlow::Login),
+            auth_path: "/bench/auth".to_string(),
+            auth_realm: "bench.secure".to_string(),
+            auth_method: "scram".to_string(),
+            auth_id: "bench-user".to_string(),
+            auth_secret: "bench-scram-secret".to_string(),
+            auth_bearer_token: None,
+            frame_case: None,
+        };
+
+        let (body, client_state) = build_auth_start_body(&workload).unwrap();
+        assert_eq!(body["authmethod"], "scram");
+        assert_eq!(body["authid"], "bench-user");
+        assert!(body["authextra"]["nonce"].as_str().is_some());
+        assert!(matches!(client_state, HttpAuthClientState::Scram { .. }));
+    }
+
+    #[test]
+    fn build_auth_complete_body_signs_wampcra_challenge() {
+        let workload = PreparedWorkload {
+            name: "cra_login".to_string(),
+            protocol: "h1".to_string(),
+            client_impl: "n/a".to_string(),
+            serializer: default_wamp_serializer(),
+            method: HyperMethod::POST,
+            path: "/bench/auth".to_string(),
+            iterations: 1,
+            concurrency: 1,
+            in_flight_per_session: default_in_flight_per_session(),
+            peer_count: default_peer_count(),
+            request_bytes: 0,
+            websocket_fragment_size: None,
+            ppt_scheme: None,
+            ppt_serializer: None,
+            secure_transport: false,
+            response_bytes: 0,
+            request_chunk_bytes: 1024,
+            response_chunk_bytes: 1024,
+            reuse_connections: true,
+            streams_per_connection: 1,
+            auth_flow: Some(HttpAuthFlow::Login),
+            auth_path: "/bench/auth".to_string(),
+            auth_realm: "bench.secure".to_string(),
+            auth_method: "wampcra".to_string(),
+            auth_id: "bench-user".to_string(),
+            auth_secret: "bench-cra-secret".to_string(),
+            auth_bearer_token: None,
+            frame_case: None,
+        };
+        let challenge = HttpAuthChallenge {
+            state: "auth-state".to_string(),
+            challenge: json!({
+                "challenge": "{\"authid\":\"bench-user\",\"realm\":\"bench.secure\",\"nonce\":\"fixed\"}",
+                "salt": "bench-cra-salt",
+                "iterations": 1000,
+                "keylen": 32,
+            }),
+        };
+
+        let body =
+            build_auth_complete_body(&workload, &HttpAuthClientState::WampCra, &challenge).unwrap();
+        assert_eq!(body["state"], "auth-state");
+        assert_eq!(body["signature"], "yYd61sRkvHj6Heqz4yjRxcb72u68tNQltpLCAiAP7EE=");
+        assert_eq!(body["extra"], json!({}));
+    }
+
+    #[test]
+    fn build_auth_complete_body_signs_scram_challenge() {
+        let workload = PreparedWorkload {
+            name: "scram_login".to_string(),
+            protocol: "h1".to_string(),
+            client_impl: "n/a".to_string(),
+            serializer: default_wamp_serializer(),
+            method: HyperMethod::POST,
+            path: "/bench/auth".to_string(),
+            iterations: 1,
+            concurrency: 1,
+            in_flight_per_session: default_in_flight_per_session(),
+            peer_count: default_peer_count(),
+            request_bytes: 0,
+            websocket_fragment_size: None,
+            ppt_scheme: None,
+            ppt_serializer: None,
+            secure_transport: false,
+            response_bytes: 0,
+            request_chunk_bytes: 1024,
+            response_chunk_bytes: 1024,
+            reuse_connections: true,
+            streams_per_connection: 1,
+            auth_flow: Some(HttpAuthFlow::Login),
+            auth_path: "/bench/auth".to_string(),
+            auth_realm: "bench.secure".to_string(),
+            auth_method: "scram".to_string(),
+            auth_id: "bench-user".to_string(),
+            auth_secret: "bench-scram-secret".to_string(),
+            auth_bearer_token: None,
+            frame_case: None,
+        };
+        let challenge = HttpAuthChallenge {
+            state: "auth-state".to_string(),
+            challenge: json!({
+                "nonce": "YmVuY2gtaHR0cC1zY3JhbS1ub25jZQ==c2VydmVyLW5vbmNl",
+                "salt": "CgsMDQ4PEBESExQVFhcYGQ==",
+                "iterations": 4096,
+                "kdf": "pbkdf2",
+            }),
+        };
+
+        let body = build_auth_complete_body(
+            &workload,
+            &HttpAuthClientState::Scram {
+                hello_nonce: "YmVuY2gtaHR0cC1zY3JhbS1ub25jZQ==".to_string(),
+            },
+            &challenge,
+        )
+        .unwrap();
+        assert_eq!(body["state"], "auth-state");
+        assert_eq!(body["signature"], "7RoGYFXvNOdJIrYZ7JO7MwQ5h7SpTgptDpShviU5lWo=");
+        assert_eq!(
+            body["extra"],
+            json!({
+                "nonce": "YmVuY2gtaHR0cC1zY3JhbS1ub25jZQ==c2VydmVyLW5vbmNl",
+                "channel_binding": Value::Null,
+                "cbind_data": Value::Null,
+            })
         );
     }
 

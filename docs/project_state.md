@@ -2,16 +2,17 @@
 
 Last updated: 2026-04-23
 Current branch: `add-router`
-Last reviewed commit: `5a04a61` (`test(router): cover transport alert metrics`)
+Last reviewed commit: `c3017bd` (`feat(bench): add oauth bearer-provider baseline`)
 Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.md`
 
 ## Last Known Verification
 
 - `bin/test-fast`
-- `dart analyze packages/connectanum_bench/lib/src/http_auth_bench_harness.dart packages/connectanum_bench/tool/bench_main.dart packages/connectanum_bench/test/http_auth_bench_harness_test.dart`
-- `dart test packages/connectanum_bench/test/http_auth_bench_harness_test.dart packages/connectanum_bench/test/bench_router_config_test.dart -r expanded`
-- `cargo test --manifest-path native/bench/Cargo.toml prepared_workload_allows -- --nocapture`
-- `python3 - <<'PY' ... tomllib.load('native/bench/scenarios/http_bearer_provider_smoke.toml') ... PY`
+- `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'auth bridge issues bearer token for wampcra and dispatches secure route' -r expanded`
+- `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'auth bridge issues bearer token for scram and dispatches secure route' -r expanded`
+- `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'auth bridge rotates refresh tokens and rejects old credentials' -r expanded`
+- `cargo test --manifest-path native/bench/Cargo.toml --bin http_stream -- --nocapture`
+- `python3 - <<'PY' ... tomllib.load('native/bench/scenarios/http_auth_smoke.toml') ... PY`
 - `bin/verify`
 
 ## Resume Order
@@ -34,6 +35,7 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - The bench WAMP integration tests now resolve their worker helper from either the bench package root or the repo root so Linux CI and local root-script runs share the same path contract.
 - The bench now ships `native/bench/scenarios/transport_mbit_matrix_throughput.toml` as the throughput-grade counterpart to the cross-transport/auth/authz smoke matrix, preserving the same auth/authz/public/protected row shape while raising sustained-workload settings for one canonical Mbps artifact set.
 - The bench now also ships `native/bench/scenarios/http_bearer_provider_smoke.toml` as the dedicated provider-backed HTTP auth baseline. It covers local JWT validation and local OAuth introspection against `/bench/secure-jwt` and `/bench/secure-oauth` across HTTP/1.1, HTTP/2, and HTTP/3, and the Dart bench runner now starts the local introspection endpoint required by the shipped `oauth` provider config.
+- The shipped HTTP auth bridge baseline now covers challenge-response auth too: `native/bench/scenarios/http_auth_smoke.toml` exercises `ticket`, `wampcra`, and `scram` login, refresh, and protected-route flows across HTTP/1.1, HTTP/2, and HTTP/3, and the bench router config now exposes those methods on `/bench/auth` for the secure bench realm.
 - The bench artifact pipeline now has a checked-in CI gate too: `native/bench`
   ships `check_artifact_gate`, the root `bin/check-bench-artifacts` wrapper
   writes sibling `*.gate.json` / `*.gate.md` reports next to transformed
@@ -309,6 +311,11 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - 2026-04-23: `dart analyze packages/connectanum_bench/lib/src/http_auth_bench_harness.dart packages/connectanum_bench/tool/bench_main.dart packages/connectanum_bench/test/http_auth_bench_harness_test.dart` and `dart test packages/connectanum_bench/test/http_auth_bench_harness_test.dart packages/connectanum_bench/test/bench_router_config_test.dart -r expanded` passed on Darwin arm64 after adding the local OAuth introspection bench harness and the `/bench/secure-oauth` route/config coverage.
 - 2026-04-23: `cargo test --manifest-path native/bench/Cargo.toml prepared_workload_allows -- --nocapture` passed after extending the bench workload parser coverage for static bearer-protected JWT and OAuth routes, and `python3` `tomllib` parsing confirmed `native/bench/scenarios/http_bearer_provider_smoke.toml` now loads with 6 workloads.
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after landing the self-contained HTTP bearer-provider bench support, including the new Dart harness, shipped bench router/provider config, expanded smoke scenario, and docs updates.
+- 2026-04-23: `dart analyze packages/connectanum_auth_server` passed on Darwin arm64 with no issues, confirming the stale roadmap note about `connectanum_auth_server` analyzer warnings is no longer actionable.
+- 2026-04-23: `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'auth bridge issues bearer token for wampcra and dispatches secure route' -r expanded`, `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'auth bridge issues bearer token for scram and dispatches secure route' -r expanded`, and `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'auth bridge rotates refresh tokens and rejects old credentials' -r expanded` all passed on Darwin arm64 after expanding the shipped auth bridge config to cover `ticket`, `wampcra`, and `scram`.
+- 2026-04-23: `cargo test --manifest-path native/bench/Cargo.toml --bin http_stream -- --nocapture` passed on Darwin arm64 after teaching the Rust HTTP bench orchestrator to complete WAMP-CRA and SCRAM challenge flows instead of hard-failing non-ticket auth methods.
+- 2026-04-23: `python3` `tomllib` parsing confirmed `native/bench/scenarios/http_auth_smoke.toml` loads cleanly with 27 workloads covering login, refresh, and protected-route flows for `ticket`, `wampcra`, and `scram` across HTTP/1.1, HTTP/2, and HTTP/3.
+- 2026-04-23: `bin/verify` passed on Darwin arm64 after landing the HTTP auth bridge challenge-method bench expansion, including the new router auth regressions, shipped bench router config changes, and expanded auth smoke scenario.
 
 ## Active Plan
 
@@ -316,8 +323,8 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - Supporting research notes:
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-23-http-bearer-provider-bench.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-22-bench-artifact-ci-gate.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-23-http-auth-challenge-bench.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-23-http-bearer-provider-bench.md`
 
 ## Known Follow-Ups
 
