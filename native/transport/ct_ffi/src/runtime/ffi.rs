@@ -4459,9 +4459,101 @@ mod tests {
     use crate::tests::test_guard;
     use bytes::Bytes;
     use ct_core::{parse_message_segments, WampMessage, WampPayload, WampRawFrame};
+    #[cfg(feature = "ffi-test")]
+    use ct_core::{
+        push_http_connection_event, ConnectionId, HttpConnectionCloseReason, HttpConnectionEvent,
+        ListenerId,
+    };
     use rmp_serde::encode::to_vec as to_msgpack;
     use serde_json::json;
     use std::collections::BTreeMap;
+    #[cfg(feature = "ffi-test")]
+    use std::collections::HashMap;
+
+    #[cfg(feature = "ffi-test")]
+    #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+    struct RouterMetricsBreakdownSnapshot {
+        total_events: u64,
+        graceful_events: u64,
+        goaway_events: u64,
+        idle_timeout_events: u64,
+        body_timeout_events: u64,
+        protocol_error_events: u64,
+        internal_error_events: u64,
+        backpressure_events: u64,
+        max_backpressure_depth: u32,
+    }
+
+    #[cfg(feature = "ffi-test")]
+    #[derive(Clone, Debug, Default)]
+    struct RouterMetricsSnapshot {
+        total_events: u64,
+        graceful_events: u64,
+        goaway_events: u64,
+        idle_timeout_events: u64,
+        body_timeout_events: u64,
+        protocol_error_events: u64,
+        internal_error_events: u64,
+        backpressure_events: u64,
+        max_backpressure_depth: u32,
+        breakdown: HashMap<(u32, i32), RouterMetricsBreakdownSnapshot>,
+    }
+
+    #[cfg(feature = "ffi-test")]
+    impl RouterMetricsSnapshot {
+        fn breakdown_for(&self, listener_id: u32, protocol: i32) -> RouterMetricsBreakdownSnapshot {
+            self.breakdown
+                .get(&(listener_id, protocol))
+                .copied()
+                .unwrap_or_default()
+        }
+    }
+
+    #[cfg(feature = "ffi-test")]
+    fn snapshot_router_metrics() -> RouterMetricsSnapshot {
+        let mut info = CtRouterMetricsInfo::default();
+        assert_eq!(
+            ct_router_metrics_snapshot(&mut info as *mut CtRouterMetricsInfo),
+            SUCCESS
+        );
+        let breakdown_slice: &[CtRouterMetricsBreakdownInfo] =
+            if info.breakdown_ptr.is_null() || info.breakdown_len == 0 {
+                &[]
+            } else {
+                unsafe { std::slice::from_raw_parts(info.breakdown_ptr, info.breakdown_len) }
+            };
+        let breakdown = breakdown_slice
+            .iter()
+            .map(|entry| {
+                (
+                    (entry.listener_id, entry.protocol),
+                    RouterMetricsBreakdownSnapshot {
+                        total_events: entry.total_events,
+                        graceful_events: entry.graceful_events,
+                        goaway_events: entry.goaway_events,
+                        idle_timeout_events: entry.idle_timeout_events,
+                        body_timeout_events: entry.body_timeout_events,
+                        protocol_error_events: entry.protocol_error_events,
+                        internal_error_events: entry.internal_error_events,
+                        backpressure_events: entry.backpressure_events,
+                        max_backpressure_depth: entry.max_backpressure_depth,
+                    },
+                )
+            })
+            .collect();
+        RouterMetricsSnapshot {
+            total_events: info.total_events,
+            graceful_events: info.graceful_events,
+            goaway_events: info.goaway_events,
+            idle_timeout_events: info.idle_timeout_events,
+            body_timeout_events: info.body_timeout_events,
+            protocol_error_events: info.protocol_error_events,
+            internal_error_events: info.internal_error_events,
+            backpressure_events: info.backpressure_events,
+            max_backpressure_depth: info.max_backpressure_depth,
+            breakdown,
+        }
+    }
 
     fn concat_segments(segments: Vec<Bytes>) -> Vec<u8> {
         let total_len: usize = segments.iter().map(Bytes::len).sum();
@@ -4710,6 +4802,150 @@ mod tests {
         .expect("stored message available after peek");
 
         ct_message_release(handle as c_int);
+    }
+
+    #[cfg(feature = "ffi-test")]
+    #[test]
+    fn router_metrics_snapshot_aggregates_reason_totals_and_listener_breakdowns() {
+        let _guard = test_guard();
+        let start_result = ct_start_runtime();
+        assert!(
+            start_result == SUCCESS
+                || start_result == crate::runtime::constants::ERR_ALREADY_STARTED
+        );
+        let before = snapshot_router_metrics();
+
+        let push_event = |connection_id: u32,
+                          listener_id: u32,
+                          protocol: ConnectionProtocol,
+                          reason: HttpConnectionCloseReason,
+                          backpressure_events: u32,
+                          max_backpressure_depth: u32| {
+            push_http_connection_event(
+                ListenerId(listener_id),
+                HttpConnectionEvent {
+                    connection_id: ConnectionId(connection_id),
+                    protocol,
+                    reason,
+                    request_count: 1,
+                    idle_timeouts: 0,
+                    body_timeouts: 0,
+                    backpressure_events,
+                    max_backpressure_depth,
+                    goaway_events: u32::from(reason == HttpConnectionCloseReason::GoAway),
+                    detail: None,
+                },
+            );
+        };
+
+        push_event(
+            91001,
+            9101,
+            ConnectionProtocol::Http2,
+            HttpConnectionCloseReason::IdleTimeout,
+            2,
+            7,
+        );
+        push_event(
+            91002,
+            9101,
+            ConnectionProtocol::Http2,
+            HttpConnectionCloseReason::BodyTimeout,
+            1,
+            3,
+        );
+        push_event(
+            91003,
+            9102,
+            ConnectionProtocol::Http3,
+            HttpConnectionCloseReason::ProtocolError,
+            0,
+            0,
+        );
+        push_event(
+            91004,
+            9102,
+            ConnectionProtocol::Http3,
+            HttpConnectionCloseReason::Internal,
+            4,
+            9,
+        );
+        push_event(
+            91005,
+            9103,
+            ConnectionProtocol::WebSocket,
+            HttpConnectionCloseReason::GoAway,
+            0,
+            0,
+        );
+
+        let after = snapshot_router_metrics();
+        assert_eq!(after.total_events - before.total_events, 5);
+        assert_eq!(after.goaway_events - before.goaway_events, 1);
+        assert_eq!(after.idle_timeout_events - before.idle_timeout_events, 1);
+        assert_eq!(after.body_timeout_events - before.body_timeout_events, 1);
+        assert_eq!(
+            after.protocol_error_events - before.protocol_error_events,
+            1
+        );
+        assert_eq!(
+            after.internal_error_events - before.internal_error_events,
+            1
+        );
+        assert_eq!(after.backpressure_events - before.backpressure_events, 7);
+        assert_eq!(
+            after.max_backpressure_depth,
+            before.max_backpressure_depth.max(9)
+        );
+        assert_eq!(after.graceful_events, before.graceful_events);
+
+        let before_http2 = before.breakdown_for(9101, PROTOCOL_HTTP2);
+        let after_http2 = after.breakdown_for(9101, PROTOCOL_HTTP2);
+        assert_eq!(after_http2.total_events - before_http2.total_events, 2);
+        assert_eq!(
+            after_http2.idle_timeout_events - before_http2.idle_timeout_events,
+            1
+        );
+        assert_eq!(
+            after_http2.body_timeout_events - before_http2.body_timeout_events,
+            1
+        );
+        assert_eq!(
+            after_http2.backpressure_events - before_http2.backpressure_events,
+            3
+        );
+        assert_eq!(after_http2.max_backpressure_depth, 7);
+
+        let before_http3 = before.breakdown_for(9102, PROTOCOL_HTTP3);
+        let after_http3 = after.breakdown_for(9102, PROTOCOL_HTTP3);
+        assert_eq!(after_http3.total_events - before_http3.total_events, 2);
+        assert_eq!(
+            after_http3.protocol_error_events - before_http3.protocol_error_events,
+            1
+        );
+        assert_eq!(
+            after_http3.internal_error_events - before_http3.internal_error_events,
+            1
+        );
+        assert_eq!(
+            after_http3.backpressure_events - before_http3.backpressure_events,
+            4
+        );
+        assert_eq!(after_http3.max_backpressure_depth, 9);
+
+        let before_websocket = before.breakdown_for(9103, PROTOCOL_WEBSOCKET);
+        let after_websocket = after.breakdown_for(9103, PROTOCOL_WEBSOCKET);
+        assert_eq!(after_websocket.total_events - before_websocket.total_events, 1);
+        assert_eq!(
+            after_websocket.goaway_events - before_websocket.goaway_events,
+            1
+        );
+        assert_eq!(
+            after_websocket.backpressure_events - before_websocket.backpressure_events,
+            0
+        );
+
+        assert_eq!(ct_shutdown(), SUCCESS);
     }
 
     #[test]

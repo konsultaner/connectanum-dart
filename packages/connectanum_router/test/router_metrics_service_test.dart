@@ -468,15 +468,216 @@ void main() {
     expect(alert['newEvents'], equals(2));
     expect(alert['throttled'], isTrue);
   });
+
+  test(
+    'metrics exporter exposes timeout and error transport alerts across payloads and OpenMetrics',
+    () async {
+      final events = <Object>[];
+      final metricsBefore = _buildMetricsBreakdown(
+        goAwayEvents: 0,
+        idleTimeoutEvents: 0,
+        bodyTimeoutEvents: 0,
+        protocolErrorEvents: 0,
+        internalErrorEvents: 0,
+        backpressureEvents: 0,
+        maxBackpressureDepth: 0,
+      );
+      final metricsAfter = _buildMetricsBreakdown(
+        goAwayEvents: 1,
+        idleTimeoutEvents: 2,
+        bodyTimeoutEvents: 3,
+        protocolErrorEvents: 4,
+        internalErrorEvents: 5,
+        backpressureEvents: 0,
+        maxBackpressureDepth: 0,
+      );
+      final runtime = _SequencedMetricsRuntime([
+        metricsBefore,
+        metricsAfter,
+        metricsAfter,
+      ]);
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.disabled,
+              maxRawSocketSizeExponent: 16,
+            ),
+          ],
+        ),
+        settings: _buildSettings(),
+      );
+
+      final binding = router.start(runtime, onEvent: events.add);
+      addTearDown(binding.dispose);
+
+      await _waitForTransportAlerts(events, expected: 5);
+
+      await binding.ensureInternalServicesReady();
+      final metricsClient = await binding.createInternalSession(
+        realmUri: 'connectanum.metrics',
+        authId: 'observer',
+        authRole: 'metrics',
+      );
+      addTearDown(metricsClient.close);
+
+      final snapshotResult = await metricsClient
+          .call('connectanum.metrics.snapshot')
+          .first;
+      final snapshotPayload =
+          snapshotResult.arguments?.first as Map<String, Object?>;
+      final routerMetrics =
+          snapshotPayload['router'] as Map<String, Object?>? ?? const {};
+      final transportMetrics =
+          routerMetrics['transport'] as Map<String, Object?>? ?? const {};
+      expect(transportMetrics['transport_alerts'], equals(5));
+      expect(transportMetrics['goaway_alerts'], equals(1));
+      expect(transportMetrics['idle_timeout_alerts'], equals(1));
+      expect(transportMetrics['body_timeout_alerts'], equals(1));
+      expect(transportMetrics['protocol_error_alerts'], equals(1));
+      expect(transportMetrics['internal_error_alerts'], equals(1));
+
+      final openMetricsResult = await metricsClient
+          .call('connectanum.metrics.openmetrics')
+          .first;
+      final openMetricsText = openMetricsResult.arguments?.first as String;
+      expect(
+        openMetricsText,
+        contains('connectanum_router_http_idle_timeouts_total 2'),
+      );
+      expect(
+        openMetricsText,
+        contains('connectanum_router_http_body_timeouts_total 3'),
+      );
+      expect(
+        openMetricsText,
+        contains('connectanum_router_http_protocol_errors_total 4'),
+      );
+      expect(
+        openMetricsText,
+        contains('connectanum_router_http_internal_errors_total 5'),
+      );
+      expect(
+        openMetricsText,
+        contains(
+          'connectanum_router_transport_alerts_total{reason="go_away"} 1',
+        ),
+      );
+      expect(
+        openMetricsText,
+        contains(
+          'connectanum_router_transport_alerts_total{reason="idle_timeout"} 1',
+        ),
+      );
+      expect(
+        openMetricsText,
+        contains(
+          'connectanum_router_transport_alerts_total{reason="body_timeout"} 1',
+        ),
+      );
+      expect(
+        openMetricsText,
+        contains(
+          'connectanum_router_transport_alerts_total{reason="protocol_error"} 1',
+        ),
+      );
+      expect(
+        openMetricsText,
+        contains(
+          'connectanum_router_transport_alerts_total{reason="internal_error"} 1',
+        ),
+      );
+      expect(
+        openMetricsText,
+        contains(
+          'connectanum_router_transport_alerts_by_listener_total{listener_id="1",protocol="http2",endpoint="127.0.0.1:5001",reason="idle_timeout"} 1',
+        ),
+      );
+      expect(
+        openMetricsText,
+        contains(
+          'connectanum_router_transport_alerts_by_listener_total{listener_id="1",protocol="http2",endpoint="127.0.0.1:5001",reason="body_timeout"} 1',
+        ),
+      );
+      expect(
+        openMetricsText,
+        contains(
+          'connectanum_router_transport_alerts_by_listener_total{listener_id="1",protocol="http2",endpoint="127.0.0.1:5001",reason="protocol_error"} 1',
+        ),
+      );
+      expect(
+        openMetricsText,
+        contains(
+          'connectanum_router_transport_alerts_by_listener_total{listener_id="1",protocol="http2",endpoint="127.0.0.1:5001",reason="internal_error"} 1',
+        ),
+      );
+
+      final transportAlerts =
+          snapshotPayload['alerts'] as Map<String, Object?>?;
+      expect(transportAlerts, isNotNull);
+      expect(transportAlerts!['transport'], equals(5));
+      expect(transportAlerts['goaway'], equals(1));
+      expect(transportAlerts['idle_timeout'], equals(1));
+      expect(transportAlerts['body_timeout'], equals(1));
+      expect(transportAlerts['protocol_error'], equals(1));
+      expect(transportAlerts['internal_error'], equals(1));
+      expect(transportAlerts['active_throttles'], equals(1));
+
+      final byListener =
+          transportAlerts['by_listener'] as List<Object?>? ?? const [];
+      final entry = byListener.whereType<Map<String, Object?>>().firstWhere(
+        (value) => value['listener_id'] == 1,
+        orElse: () => const {},
+      );
+      expect(entry['transport'], equals(5));
+      expect(entry['goaway'], equals(1));
+      expect(entry['idle_timeout'], equals(1));
+      expect(entry['body_timeout'], equals(1));
+      expect(entry['protocol_error'], equals(1));
+      expect(entry['internal_error'], equals(1));
+      expect(entry['last_alert_reason'], equals('internal_error'));
+      expect(entry['last_new_events'], equals(5));
+      expect(entry['last_total_events'], equals(5));
+
+      final alertEvents = events
+          .whereType<Map<String, Object?>>()
+          .where((event) => event['type'] == 'listener_transport_alert')
+          .toList(growable: false);
+      expect(alertEvents, hasLength(5));
+      final reasons = {
+        for (final alert in alertEvents) alert['reason']: alert['newEvents'],
+      };
+      expect(
+        reasons,
+        equals({
+          'go_away': 1,
+          'idle_timeout': 2,
+          'body_timeout': 3,
+          'protocol_error': 4,
+          'internal_error': 5,
+        }),
+      );
+    },
+  );
 }
 
 Future<void> _waitForTransportAlert(List<Object> events) async {
+  await _waitForTransportAlerts(events, expected: 1);
+}
+
+Future<void> _waitForTransportAlerts(
+  List<Object> events, {
+  required int expected,
+}) async {
   const attempts = 50;
   for (var i = 0; i < attempts; i += 1) {
-    final hasAlert = events.whereType<Map<String, Object?>>().any(
-      (event) => event['type'] == 'listener_transport_alert',
-    );
-    if (hasAlert) {
+    final count = events
+        .whereType<Map<String, Object?>>()
+        .where((event) => event['type'] == 'listener_transport_alert')
+        .length;
+    if (count >= expected) {
       return;
     }
     await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -485,29 +686,47 @@ Future<void> _waitForTransportAlert(List<Object> events) async {
 
 NativeRouterMetrics _buildMetricsBreakdown({
   int goAwayEvents = 1,
+  int idleTimeoutEvents = 2,
+  int bodyTimeoutEvents = 1,
+  int protocolErrorEvents = 0,
+  int internalErrorEvents = 0,
   int backpressureEvents = 3,
   int maxBackpressureDepth = 4,
 }) => NativeRouterMetrics(
-  totalEvents: goAwayEvents + backpressureEvents + 10,
+  totalEvents:
+      goAwayEvents +
+      idleTimeoutEvents +
+      bodyTimeoutEvents +
+      protocolErrorEvents +
+      internalErrorEvents +
+      backpressureEvents +
+      8,
   gracefulEvents: 8,
   goAwayEvents: goAwayEvents,
-  idleTimeoutEvents: 2,
-  bodyTimeoutEvents: 1,
-  protocolErrorEvents: 0,
-  internalErrorEvents: 0,
+  idleTimeoutEvents: idleTimeoutEvents,
+  bodyTimeoutEvents: bodyTimeoutEvents,
+  protocolErrorEvents: protocolErrorEvents,
+  internalErrorEvents: internalErrorEvents,
   backpressureEvents: backpressureEvents,
   maxBackpressureDepth: maxBackpressureDepth,
   breakdown: [
     NativeRouterMetricsBreakdown(
       listenerId: 1,
       protocol: NativeConnectionProtocol.http2,
-      totalEvents: goAwayEvents + backpressureEvents + 10,
+      totalEvents:
+          goAwayEvents +
+          idleTimeoutEvents +
+          bodyTimeoutEvents +
+          protocolErrorEvents +
+          internalErrorEvents +
+          backpressureEvents +
+          8,
       gracefulEvents: 8,
       goAwayEvents: goAwayEvents,
-      idleTimeoutEvents: 2,
-      bodyTimeoutEvents: 1,
-      protocolErrorEvents: 0,
-      internalErrorEvents: 0,
+      idleTimeoutEvents: idleTimeoutEvents,
+      bodyTimeoutEvents: bodyTimeoutEvents,
+      protocolErrorEvents: protocolErrorEvents,
+      internalErrorEvents: internalErrorEvents,
       backpressureEvents: backpressureEvents,
       maxBackpressureDepth: maxBackpressureDepth,
     ),
@@ -569,6 +788,10 @@ RouterSettings _buildSettings() {
         path: '/metrics',
         realm: 'connectanum.metrics',
       ),
+      backpressure: BackpressureThrottleSettings(
+        cooldown: Duration(seconds: 5),
+      ),
+      transportAlerts: TransportAlertSettings(cooldown: Duration(seconds: 5)),
     ),
     authenticators: const {
       'anonymous': AuthenticatorDefinition(type: 'anonymous'),

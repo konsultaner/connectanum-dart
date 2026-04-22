@@ -1,16 +1,17 @@
 # Project State
 
-Last updated: 2026-04-22
+Last updated: 2026-04-23
 Current branch: `add-router`
-Last reviewed commit: `75d33b3` (`feat(e2ee): add reusable policy adapters`)
+Last reviewed commit: `c9a0b03` (`ci(bench): gate transformed artifact regressions`)
 Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.md`
 
 ## Last Known Verification
 
 - `bin/test-fast`
-- `cargo test --manifest-path native/bench/Cargo.toml artifacts -- --nocapture`
-- `bash -n bin/check-bench-artifacts bin/ktls-linux-validate bin/ktls-http2-bench`
-- `bin/check-bench-artifacts --summary native/bench/artifacts/bench_results.summary.json`
+- `dart test packages/connectanum_router/test/router_metrics_service_test.dart -r expanded`
+- `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi --features ffi-test router_metrics_snapshot_aggregates_reason_totals_and_listener_breakdowns -- --nocapture`
+- `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi --no-run`
+- `bash -n bin/test-all`
 - `bin/verify`
 
 ## Resume Order
@@ -38,6 +39,13 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
   summaries, and the kTLS validation / benchmark runners now fail automatically
   on active throttles, transport alert deltas, transport error alert deltas,
   or backpressure deltas captured in `bench_results.summary.json`.
+- Telemetry alert coverage is now aligned across the native and Dart surfaces
+  too: `ct_ffi` has a focused router-metrics snapshot regression for
+  per-reason/per-listener mapping, `router_metrics_service_test.dart` now
+  asserts idle/body/protocol/internal alert counters across metrics snapshot
+  payloads and OpenMetrics output, and `bin/test-all` explicitly runs the
+  feature-gated native snapshot test alongside the default `ct_ffi` suite on
+  native-runtime hosts.
 - The bench WAMP harness now supports explicit secure-target selection through `secure_transport = true`, keeps separate cleartext and TLS listener target maps for both the in-process runner and the native helper worker, and fails closed instead of silently falling back to the cleartext WAMP listener.
 - `native/bench/bench_router.json` now ships both cleartext WAMP (`127.0.0.1:8081`) and TLS WAMP (`127.0.0.1:8083`) listeners, and both WebSocket listeners advertise `wamp.2.json`, `wamp.2.msgpack`, and `wamp.2.cbor` so the bench scenario surface matches the supported WAMP serializers.
 - The bench workload contract now includes `secure_transport`, and `native/bench/scenarios/wamp_secure_smoke.toml` provides the first checked-in secure RawSocket/WebSocket smoke coverage against `bench.secure` ticket auth.

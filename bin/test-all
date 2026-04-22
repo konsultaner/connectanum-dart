@@ -42,6 +42,11 @@ run_bench_vm_tests() {
 if native_runtime_supported; then
   cargo test --manifest-path native/transport/Cargo.toml -p ct_core
   cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi
+  cargo test \
+    --manifest-path native/transport/Cargo.toml \
+    -p ct_ffi \
+    --features ffi-test \
+    router_metrics_snapshot_aggregates_reason_totals_and_listener_breakdowns
 else
   printf 'Native Rust runtime tests are only supported on Linux; skipping them on %s.\n' "$(uname -s)"
 fi
