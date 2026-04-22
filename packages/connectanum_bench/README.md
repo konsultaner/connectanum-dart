@@ -29,6 +29,11 @@ in the workload definition; the Dart bench runner keeps separate cleartext and
 TLS listener targets so secure workloads do not silently fall back to the
 cleartext WAMP listener.
 
+When the shipped bench router config includes `oauth` HTTP auth providers, the
+Dart runner also starts a local introspection endpoint for them. That keeps the
+HTTP bearer-provider scenarios self-contained instead of depending on an
+external OAuth service during local or CI bench runs.
+
 ## Related Docs
 
 - orchestrator overview: [../../native/bench/README.md](../../native/bench/README.md)

@@ -137,6 +137,14 @@
           "methods": ["jwt"],
           "http_provider": "bench-jwt"
         }
+      },
+      {
+        "name": "http-oauth",
+        "realm": "bench.secure",
+        "auth": {
+          "methods": ["oauth"],
+          "http_provider": "bench-oauth"
+        }
       }
     ],
     "http_auth_providers": {
@@ -146,6 +154,18 @@
           "issuer": "https://issuer.example",
           "audience": ["connectanum-http"],
           "hmac_secret": "bench-jwt-secret",
+          "auth_id_claim": "sub",
+          "auth_role_claim": "role"
+        }
+      },
+      "bench-oauth": {
+        "type": "oauth",
+        "options": {
+          "issuer": "https://issuer.example",
+          "audience": ["connectanum-http"],
+          "introspection_url": "http://127.0.0.1:18083/introspect",
+          "client_id": "bench-client",
+          "client_secret": "bench-secret",
           "auth_id_claim": "sub",
           "auth_role_claim": "role"
         }
@@ -256,6 +276,18 @@
                 "realm": "bench.secure",
                 "procedure": "bench.http.secure",
                 "session_profile": "http-jwt"
+              }
+            },
+            {
+              "match": {
+                "path": "/bench/secure-oauth",
+                "methods": ["POST"]
+              },
+              "action": {
+                "type": "rpc",
+                "realm": "bench.secure",
+                "procedure": "bench.http.secure",
+                "session_profile": "http-oauth"
               }
             },
             {

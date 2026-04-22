@@ -2,16 +2,16 @@
 
 Last updated: 2026-04-23
 Current branch: `add-router`
-Last reviewed commit: `c9a0b03` (`ci(bench): gate transformed artifact regressions`)
+Last reviewed commit: `5a04a61` (`test(router): cover transport alert metrics`)
 Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.md`
 
 ## Last Known Verification
 
 - `bin/test-fast`
-- `dart test packages/connectanum_router/test/router_metrics_service_test.dart -r expanded`
-- `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi --features ffi-test router_metrics_snapshot_aggregates_reason_totals_and_listener_breakdowns -- --nocapture`
-- `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi --no-run`
-- `bash -n bin/test-all`
+- `dart analyze packages/connectanum_bench/lib/src/http_auth_bench_harness.dart packages/connectanum_bench/tool/bench_main.dart packages/connectanum_bench/test/http_auth_bench_harness_test.dart`
+- `dart test packages/connectanum_bench/test/http_auth_bench_harness_test.dart packages/connectanum_bench/test/bench_router_config_test.dart -r expanded`
+- `cargo test --manifest-path native/bench/Cargo.toml prepared_workload_allows -- --nocapture`
+- `python3 - <<'PY' ... tomllib.load('native/bench/scenarios/http_bearer_provider_smoke.toml') ... PY`
 - `bin/verify`
 
 ## Resume Order
@@ -33,6 +33,7 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - The root bench verification now runs from `packages/connectanum_bench` so the package-local `dart_test.yaml` (`concurrency: 1`) applies to the full suite on every host, matching the process-global native runtime constraint already enforced in the router package.
 - The bench WAMP integration tests now resolve their worker helper from either the bench package root or the repo root so Linux CI and local root-script runs share the same path contract.
 - The bench now ships `native/bench/scenarios/transport_mbit_matrix_throughput.toml` as the throughput-grade counterpart to the cross-transport/auth/authz smoke matrix, preserving the same auth/authz/public/protected row shape while raising sustained-workload settings for one canonical Mbps artifact set.
+- The bench now also ships `native/bench/scenarios/http_bearer_provider_smoke.toml` as the dedicated provider-backed HTTP auth baseline. It covers local JWT validation and local OAuth introspection against `/bench/secure-jwt` and `/bench/secure-oauth` across HTTP/1.1, HTTP/2, and HTTP/3, and the Dart bench runner now starts the local introspection endpoint required by the shipped `oauth` provider config.
 - The bench artifact pipeline now has a checked-in CI gate too: `native/bench`
   ships `check_artifact_gate`, the root `bin/check-bench-artifacts` wrapper
   writes sibling `*.gate.json` / `*.gate.md` reports next to transformed
@@ -305,6 +306,9 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - 2026-04-22: `bash -n bin/check-bench-artifacts bin/ktls-linux-validate bin/ktls-http2-bench` passed after wiring the new root bench-gate entrypoint into both kTLS runner scripts.
 - 2026-04-22: `bin/check-bench-artifacts --summary native/bench/artifacts/bench_results.summary.json` passed on the checked-in sample artifact set and wrote sibling `bench_results.gate.json` / `bench_results.gate.md`.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after landing the bench artifact validator, the root wrapper, the kTLS runner integration, and the associated bench metrics docs updates.
+- 2026-04-23: `dart analyze packages/connectanum_bench/lib/src/http_auth_bench_harness.dart packages/connectanum_bench/tool/bench_main.dart packages/connectanum_bench/test/http_auth_bench_harness_test.dart` and `dart test packages/connectanum_bench/test/http_auth_bench_harness_test.dart packages/connectanum_bench/test/bench_router_config_test.dart -r expanded` passed on Darwin arm64 after adding the local OAuth introspection bench harness and the `/bench/secure-oauth` route/config coverage.
+- 2026-04-23: `cargo test --manifest-path native/bench/Cargo.toml prepared_workload_allows -- --nocapture` passed after extending the bench workload parser coverage for static bearer-protected JWT and OAuth routes, and `python3` `tomllib` parsing confirmed `native/bench/scenarios/http_bearer_provider_smoke.toml` now loads with 6 workloads.
+- 2026-04-23: `bin/verify` passed on Darwin arm64 after landing the self-contained HTTP bearer-provider bench support, including the new Dart harness, shipped bench router/provider config, expanded smoke scenario, and docs updates.
 
 ## Active Plan
 
@@ -312,8 +316,8 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - Supporting research notes:
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-22-bench-artifact-ci-gate.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-22-e2ee-policy-adapters.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-23-http-bearer-provider-bench.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-22-bench-artifact-ci-gate.md`
 
 ## Known Follow-Ups
 

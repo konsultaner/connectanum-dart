@@ -1,5 +1,5 @@
 name = "http_bearer_provider_smoke"
-description = "HTTP bearer-provider smoke for JWT-backed protected routes across HTTP/1.1, HTTP/2, and HTTP/3."
+description = "HTTP bearer-provider smoke for JWT and OAuth protected routes across HTTP/1.1, HTTP/2, and HTTP/3."
 
 [[workloads]]
 name = "h1_jwt_protected"
@@ -43,6 +43,53 @@ streams_per_connection = 2
 auth_flow = "protected"
 auth_method = "jwt"
 auth_bearer_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiZW5jaC11c2VyIiwicm9sZSI6Im1lbWJlciIsImlzcyI6Imh0dHBzOi8vaXNzdWVyLmV4YW1wbGUiLCJhdWQiOlsiY29ubmVjdGFudW0taHR0cCJdLCJleHAiOjQxMDI0NDQ4MDB9.MM2g7l37iaFv4yRcNviriaTsitSR5HuZkTdkOD_HnkE"
+request_bytes = 4096
+response_bytes = 4096
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "h1_oauth_protected"
+protocol = "h1"
+path = "/bench/secure-oauth"
+method = "POST"
+iterations = 4
+concurrency = 2
+auth_flow = "protected"
+auth_method = "oauth"
+auth_bearer_token = "bench-oauth-token"
+request_bytes = 4096
+response_bytes = 4096
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "h2_oauth_protected"
+protocol = "h2"
+path = "/bench/secure-oauth"
+method = "POST"
+iterations = 4
+concurrency = 2
+streams_per_connection = 2
+auth_flow = "protected"
+auth_method = "oauth"
+auth_bearer_token = "bench-oauth-token"
+request_bytes = 4096
+response_bytes = 4096
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "h3_oauth_protected"
+protocol = "h3"
+path = "/bench/secure-oauth"
+method = "POST"
+iterations = 4
+concurrency = 2
+streams_per_connection = 2
+auth_flow = "protected"
+auth_method = "oauth"
+auth_bearer_token = "bench-oauth-token"
 request_bytes = 4096
 response_bytes = 4096
 request_chunk_bytes = 1024

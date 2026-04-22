@@ -9,6 +9,7 @@ import 'package:connectanum_router/connectanum_router.dart';
 import 'package:logging/logging.dart';
 
 import 'package:connectanum_bench/src/http_stream_handler.dart';
+import 'package:connectanum_bench/src/http_auth_bench_harness.dart';
 import 'package:connectanum_bench/src/native_wamp_worker.dart';
 import 'package:connectanum_bench/src/remote_auth_bench_harness.dart';
 import 'package:connectanum_bench/src/wamp_echo_handler.dart';
@@ -126,6 +127,7 @@ class _BenchRouterService {
   NativeTransportRuntime? _runtime;
   RouterBinding? _binding;
   _BenchControlRegistry? _controlRegistry;
+  HttpAuthBenchHarness? _httpAuthHarness;
   RemoteAuthBenchHarness? _remoteAuthHarness;
   StreamSubscription<String>? _stdinSubscription;
 
@@ -153,6 +155,9 @@ class _BenchRouterService {
       final runtime = NativeTransportRuntime(libraryPath: nativeLibraryPath);
       runtime.start();
       _runtime = runtime;
+      _httpAuthHarness = await HttpAuthBenchHarness.maybeStart(
+        settings: routerSettings,
+      );
       _remoteAuthHarness = await RemoteAuthBenchHarness.maybeStart(
         settings: routerSettings,
         runtime: runtime,
@@ -297,6 +302,12 @@ class _BenchRouterService {
       _logger.fine('Disposing remote auth bench harness');
       await remoteAuthHarness.close();
       _remoteAuthHarness = null;
+    }
+    final httpAuthHarness = _httpAuthHarness;
+    if (httpAuthHarness != null) {
+      _logger.fine('Disposing HTTP auth bench harness');
+      await httpAuthHarness.close();
+      _httpAuthHarness = null;
     }
     _logger.fine('Shutting down native runtime');
     _runtime?.shutdown();
@@ -487,10 +498,10 @@ class _BenchControlRegistry {
       final snapshot = await binding.collectMetrics();
       final openMetrics = await binding.collectOpenMetricsText(snapshot);
       final metricsPayload = snapshot.toJson();
-      final responseKeywords = <String, Object?>{
-        'metrics': metricsPayload,
-        if (openMetrics != null) 'open_metrics': openMetrics,
-      };
+      final responseKeywords = <String, Object?>{'metrics': metricsPayload};
+      if (openMetrics != null) {
+        responseKeywords['open_metrics'] = openMetrics;
+      }
       final context = HttpInvocationContext.maybeFromInvocation(invocation);
       if (context != null) {
         _logger.fine('HTTP metrics request served');

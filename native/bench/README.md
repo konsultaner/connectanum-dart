@@ -20,6 +20,11 @@ auth if it should run through the TLS WAMP listener in
 secure WAMP baseline. It mirrors the existing 64 KiB cleartext transport sweep
 but routes through the TLS WAMP listener and `bench.secure` ticket auth.
 
+`native/bench/scenarios/http_bearer_provider_smoke.toml` is the dedicated HTTP
+bearer-provider baseline. It exercises both local JWT validation and local
+OAuth introspection-backed protected routes across HTTP/1.1, HTTP/2, and
+HTTP/3.
+
 ## What It Measures
 
 - HTTP/1.1, HTTP/2, and HTTP/3 throughput and latency
@@ -85,6 +90,7 @@ The Dart bench runner exposes:
 - `POST /bench/auth`
 - `POST /bench/secure`
 - `POST /bench/secure-jwt`
+- `POST /bench/secure-oauth`
 - `POST /bench/stream`
 
 These paths are how the orchestrator coordinates startup, metrics collection,

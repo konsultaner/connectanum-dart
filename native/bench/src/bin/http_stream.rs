@@ -4651,6 +4651,49 @@ mod tests {
     }
 
     #[test]
+    fn prepared_workload_allows_oauth_protected_routes_with_static_bearer_token() {
+        let config = WorkloadConfig {
+            name: "oauth_protected".to_string(),
+            protocol: "h3".to_string(),
+            client_impl: default_wamp_client_impl(),
+            serializer: default_wamp_serializer(),
+            method: default_method(),
+            path: "/bench/secure-oauth".to_string(),
+            iterations: default_iterations(),
+            concurrency: default_concurrency(),
+            in_flight_per_session: default_in_flight_per_session(),
+            peer_count: default_peer_count(),
+            request_bytes: default_request_bytes(),
+            websocket_fragment_size: None,
+            ppt_scheme: None,
+            ppt_serializer: None,
+            secure_transport: false,
+            response_bytes: default_response_bytes(),
+            request_chunk_bytes: default_chunk_bytes(),
+            response_chunk_bytes: None,
+            warmup_ms: None,
+            reuse_connections: default_reuse_connections(),
+            streams_per_connection: default_streams_per_connection(),
+            auth_flow: Some("protected".to_string()),
+            auth_path: None,
+            auth_realm: None,
+            auth_method: Some("oauth".to_string()),
+            auth_id: None,
+            auth_secret: None,
+            auth_bearer_token: Some("bench-oauth-token".to_string()),
+            frame_case: None,
+        };
+
+        let prepared = PreparedWorkload::from_config(&config).unwrap();
+        assert_eq!(prepared.auth_flow, Some(HttpAuthFlow::Protected));
+        assert_eq!(prepared.auth_method, "oauth");
+        assert_eq!(
+            prepared.auth_bearer_token.as_deref(),
+            Some("bench-oauth-token")
+        );
+    }
+
+    #[test]
     fn split_request_body_chunks_slices_payload_by_chunk_size() {
         let payload = Bytes::from_static(b"abcdefghi");
         let chunks = split_request_body_chunks(&payload, 4);

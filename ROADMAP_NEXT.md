@@ -90,7 +90,7 @@ Focus for the next session:
 7. **Remote Authentication Hardening & HTTP Auth Bridge**
    - Decide whether dynamic realm authorization should stay as the current runtime `AuthorizationProviderRegistry` hook or grow a config-driven provider/factory model per realm.
    - ✅ Tighten native listener-side transport auth enforcement so clearly unauthorized HTTP requests can be rejected before the Dart bridge/session layer. Protected routes now derive cheap `transport_auth` gates (TLS / mTLS / bearer presence) from `session_profiles` plus explicit route overrides, and `HttpRouteMatch.protocols` is now a first-class config field instead of an undocumented extra-map hook.
-   - Add a dedicated HTTP bearer-provider bench (JWT local validation and OAuth introspection) so the new provider-backed route path is measured separately from the ticket bridge smoke.
+   - ✅ Add a dedicated HTTP bearer-provider bench (JWT local validation and OAuth introspection) so the new provider-backed route path is measured separately from the ticket bridge smoke. `http_bearer_provider_smoke.toml` now covers `/bench/secure-jwt` and `/bench/secure-oauth`, and the Dart bench runner hosts the local introspection endpoint needed by the shipped `oauth` provider config.
 
 8. **Benchmark Readiness**
   - ✅ Bench harness pieces are in place: Dart runner, Rust orchestrator, TOML scenarios, transformed Prometheus/summary artifacts, default HTTPS/TLS smoke runs over HTTP/2 + HTTP/3, explicit RawSocket/WebSocket WAMP scenarios, serializer-aware WAMP workloads (`json`, `msgpack`, `cbor`), and `all_transports_smoke.toml` / `wamp_serializer_matrix.toml` for cross-transport and serializer-specific sanity checks.
