@@ -138,6 +138,10 @@ pub(crate) async fn try_offload_server_stream(
         disable_server_offload();
         format!("failed to extract TLS secrets for Linux kTLS handoff: {err}")
     })?;
+    let secrets = ktls_core::ExtractedSecrets::try_from(secrets).map_err(|err| {
+        disable_server_offload();
+        format!("failed to adapt rustls secrets for Linux kTLS handoff: {err}")
+    })?;
     // `ktls-stream` expects TLS ULP setup on a connected socket. The accepted
     // TCP stream is only ready for that once the TLS handshake has completed,
     // so the dummy-session helper performs the ULP setup here instead of on
