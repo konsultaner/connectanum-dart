@@ -1,31 +1,58 @@
-# connectanum-dart Monorepo
+# Connectanum
 
-This repository hosts the next generation of the connectanum WAMP stack. It is
-split into a Dart workspace that keeps the client and upcoming router code
-side-by-side, and a Rust workspace that will provide the native transport
-runtime.
+Connectanum is a WAMP stack for Dart with a native transport runtime for the
+router and native client paths.
 
-- `packages/connectanum_core` - shared WAMP protocol types, serializers, and
-  conformance coverage.
+This repository is the main source tree for:
+
+- `packages/connectanum_core` - shared protocol types, serializers, and
+  conformance coverage
 - `packages/connectanum_client` - Dart client package, including native client
-  transports.
+  transports
 - `packages/connectanum_router` - router implementation, examples, runner, and
-  integration tests.
+  integration tests
 - `packages/connectanum_auth_server` - config-driven remote authentication
-  helpers and server building blocks.
-- `packages/connectanum_bench` - benchmark harnesses and scenarios.
-- `native/transport` - Rust workspace for the native transport runtime backing
-  the router and native client transports.
+  helpers and server building blocks
+- `packages/connectanum_bench` - benchmark harnesses and scenarios
+- `native/transport` - Rust workspace for the native transport runtime
 
-## Getting Started
+Status: active development. The project already publishes native runtime
+bundles and multi-arch router images, but APIs and release conventions are
+still settling.
 
-1. Validate the local toolchain and fetch workspace dependencies:
+## Quick Start
+
+Most users want one of these two paths:
+
+### Run The Router With Published Artifacts
+
+1. Install the native library bundle for your host:
+
+   ```bash
+   export CONNECTANUM_NATIVE_LIB="$(dart run connectanum_router:tool/install_native.dart --tag <release-tag>)"
+   ```
+
+2. Start the router:
+
+   ```bash
+   dart run connectanum_router --config path/to/router.yaml
+   ```
+
+3. Or use the published multi-arch container image:
+
+   - `ghcr.io/konsultaner/connectanum-router`
+
+For a fuller deployment walkthrough, see [docs/deployment.md](docs/deployment.md).
+
+### Work On The Codebase Locally
+
+1. Validate the toolchain and fetch dependencies:
 
    ```bash
    bin/bootstrap
    ```
 
-2. Run a fast local regression pass:
+2. Run a fast regression pass:
 
    ```bash
    bin/test-fast
@@ -51,6 +78,18 @@ runtime.
    compile `ct_ffi` automatically during `dart run`/`dart test` as long as a
    Rust toolchain is available.
 
+## Releases And Published Artifacts
+
+### Native Runtime Bundles
+
+The [Native Artifacts workflow](.github/workflows/native-artifacts.yml)
+publishes host-native `ct_ffi` bundles as:
+
+- `ct-ffi-<host-triple>.tar.gz`
+- `*.sha256`
+- `*.manifest.json`
+- `*.sigstore.json`
+
 The root scripts auto-detect the standard release location for `ct_ffi` and set
 `CONNECTANUM_NATIVE_LIB` when possible. If you are using a prebuilt library in a
 different location, export `CONNECTANUM_NATIVE_LIB` yourself before running
@@ -59,6 +98,7 @@ variable and will bundle the referenced library instead of invoking Cargo. For
 deployments that intentionally provide `ct_ffi` as a system/shared library, set
 `CONNECTANUM_SKIP_NATIVE_BUILD=1` to disable Cargo in the build hooks and rely
 on `CONNECTANUM_NATIVE_LIB` or the platform loader search path at runtime.
+
 If you want the hooks to acquire a hosted prebuilt bundle automatically, export
 `CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` before `dart run` / `dart test`. The
 hooks then download `ct-ffi-<host-triple>.tar.gz` plus its `.sha256` file from
@@ -67,8 +107,7 @@ library without requiring a local Rust toolchain. Use
 `CONNECTANUM_NATIVE_RELEASE_REPOSITORY=<owner/repo>` to override the default
 release source (`konsultaner/connectanum-dart`).
 
-If you want to prefetch the native bundle before runtime or build-hook
-execution, use the package install helpers instead:
+If you prefer an explicit prefetch step instead of hook-managed downloads, use:
 
 ```bash
 dart run connectanum_router:tool/install_native.dart --tag <release-tag>
@@ -77,52 +116,42 @@ dart run connectanum_client:tool/install_native.dart --tag <release-tag>
 
 Each command downloads the host-native bundle into
 `.dart_tool/connectanum/native/<host-triple>/` and prints the installed library
-path on stdout. That makes the deployment-friendly path explicit:
+path on stdout.
 
-```bash
-export CONNECTANUM_NATIVE_LIB="$(dart run connectanum_router:tool/install_native.dart --tag <release-tag>)"
-dart run connectanum_router --config path/to/router.yaml
-```
+Verification options:
 
-Prebuilt Linux/macOS `ct_ffi` bundles are also available from the dedicated
-GitHub Actions workflow in [native-artifacts.yml](.github/workflows/native-artifacts.yml).
-Manual runs always upload workflow artifacts, and release-tag runs publish the
-same `ct-ffi-<host-triple>.tar.gz` bundles to GitHub Releases. Extract the
-archive for your host and point `CONNECTANUM_NATIVE_LIB` at the included
-library if you prefer to manage the bundle yourself. The release workflow also
-publishes GitHub artifact attestations for the archive/checksum/manifest set, so
-a downloaded archive can be verified with
-`gh attestation verify path/to/ct-ffi-<host-triple>.tar.gz -R konsultaner/connectanum-dart`.
-The same workflow now also attaches detached Sigstore blob bundles as
-`<asset>.sigstore.json`, which can be verified without GitHub-hosted
-attestation services:
+- GitHub attestation:
+  `gh attestation verify path/to/ct-ffi-<host-triple>.tar.gz -R konsultaner/connectanum-dart`
+- Detached Sigstore bundle:
 
-```bash
-cosign verify-blob path/to/ct-ffi-<host-triple>.tar.gz \
-  --bundle path/to/ct-ffi-<host-triple>.tar.gz.sigstore.json \
-  --certificate-identity "https://github.com/konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml@refs/tags/<tag>" \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com
-```
+  ```bash
+  cosign verify-blob path/to/ct-ffi-<host-triple>.tar.gz \
+    --bundle path/to/ct-ffi-<host-triple>.tar.gz.sigstore.json \
+    --certificate-identity "https://github.com/konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml@refs/tags/<tag>" \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com
+  ```
 
 For manual workflow runs, use the actual workflow ref that emitted the bundle
 instead of the tag-based identity above.
 
-The repo also publishes multi-arch router container images through
-[router-image.yml](.github/workflows/router-image.yml). `v*` tags publish
-`linux/amd64` and `linux/arm64` images to
-`ghcr.io/konsultaner/connectanum-router`, including `:latest` for stable
-SemVer tags. Manual workflow dispatch can publish an explicit one-off image tag
-for validation.
+### Router Container Image
 
-## Codex-Friendly Workflow
+The [Router Image workflow](.github/workflows/router-image.yml) publishes
+multi-arch router images to `ghcr.io/konsultaner/connectanum-router`.
 
-- `AGENTS.md` contains the durable operating rules for autonomous runs.
-- `docs/project_state.md` is the small current-state file Codex should read
-  first when resuming work.
-- `docs/exec-plans/` stores one plan per substantial task so long-running work
-  can continue without rebuilding context from scratch.
-- `ROADMAP_NEXT.md` holds milestone candidates; `ROADMAP.md` and `STRUCTURE.md`
-  are reference material rather than required startup reading.
+- `v*` tags publish `linux/amd64` and `linux/arm64`
+- stable SemVer tags also publish `:latest`
+- manual workflow dispatch can publish a one-off validation tag
+
+## Maintainer Workflow
+
+The repository also carries a small amount of checked-in project state so long
+running maintainer and automation sessions can resume cleanly:
+
+- `AGENTS.md` contains the durable operating rules for autonomous runs
+- `docs/project_state.md` is the current-state file to read first when resuming
+- `docs/exec-plans/` stores one plan per substantial task
+- `ROADMAP_NEXT.md` holds milestone candidates
 
 ### External Codex Loop On macOS
 

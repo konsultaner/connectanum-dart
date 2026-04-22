@@ -138,8 +138,12 @@ jobs:
 
           if [[ -n "${INPUT_RELEASE_NAME:-}" ]]; then
             release_title="$INPUT_RELEASE_NAME"
+          elif [[ "$release_tag" == ct-ffi-v* ]]; then
+            release_title="Connectanum native transport assets v${release_tag#ct-ffi-v}"
+          elif [[ "$release_tag" == v* ]]; then
+            release_title="Connectanum ${release_tag}"
           else
-            release_title=""
+            release_title="Connectanum release ${release_tag}"
           fi
 
           printf 'release_tag=%s\n' "$release_tag" >> "$GITHUB_OUTPUT"
@@ -166,10 +170,77 @@ jobs:
             prerelease_args+=(--prerelease)
           fi
 
+          repo_url="${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY}"
           workflow_identity="https://github.com/${GITHUB_WORKFLOW_REF}"
-          release_notes=$'Native `ct_ffi` bundles are attached for this tag.\n\nUse `CONNECTANUM_NATIVE_LIB` with the extracted host archive. GitHub artifact attestations are published for the bundled archive/checksum/manifest set; verify the downloaded archive with `gh attestation verify` against this repository.\n\nDetached Sigstore blob bundles are also attached as `<asset>.sigstore.json`; verify a downloaded asset offline with `cosign verify-blob <asset> --bundle <asset>.sigstore.json --certificate-identity '"$workflow_identity"$' --certificate-oidc-issuer https://token.actions.githubusercontent.com`.'
+          owner="$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
+          human_summary='This release publishes the current prebuilt native transport bundles for Connectanum.'
+          related_artifacts_lines=$'- Deployment guide: '"${repo_url}/blob/${GITHUB_SHA}/docs/deployment.md"$'\n- Router container images: `ghcr.io/'"${owner}"'/connectanum-router`'
+          generate_notes='false'
+          generated_notes_body=''
+
+          if [[ "$RELEASE_TAG" == ct-ffi-v* ]]; then
+            human_summary='This release publishes the standalone native transport bundles used by the Connectanum router and native client transports.'
+          elif [[ "$RELEASE_TAG" == v* ]]; then
+            generate_notes='true'
+          fi
+
+          release_notes_file="$(mktemp)"
+          trap 'rm -f "$release_notes_file"' EXIT
+
+          cat > "$release_notes_file" <<EOF
+          ## What this release includes
+
+          ${human_summary}
+
+          ## Assets
+
+          - \`ct-ffi-<host-triple>.tar.gz\` - prebuilt native transport bundle for one platform
+          - \`*.sha256\` - checksum for the matching archive
+          - \`*.manifest.json\` - machine-readable build metadata
+          - \`*.sigstore.json\` - detached Sigstore verification bundle
+
+          ## How to use the bundle
+
+          1. Download the archive that matches your platform.
+          2. Extract it and point \`CONNECTANUM_NATIVE_LIB\` at the included library.
+          3. Or install the matching bundle directly with:
+             - \`dart run connectanum_router:tool/install_native.dart --tag ${RELEASE_TAG}\`
+             - \`dart run connectanum_client:tool/install_native.dart --tag ${RELEASE_TAG}\`
+
+          ## Verification
+
+          - GitHub attestation:
+            \`gh attestation verify path/to/ct-ffi-<host-triple>.tar.gz -R ${GITHUB_REPOSITORY}\`
+          - Detached Sigstore bundle:
+            \`cosign verify-blob path/to/ct-ffi-<host-triple>.tar.gz --bundle path/to/ct-ffi-<host-triple>.tar.gz.sigstore.json --certificate-identity ${workflow_identity} --certificate-oidc-issuer https://token.actions.githubusercontent.com\`
+
+          ## Related links
+
+          - Repository README: ${repo_url}/blob/${GITHUB_SHA}/README.md
+          ${related_artifacts_lines}
+          EOF
+
+          release_notes="$(cat "$release_notes_file")"
+
+          if [[ "$generate_notes" == 'true' ]]; then
+            generated_notes_body="$(gh api \
+              --method POST \
+              -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -f tag_name="$RELEASE_TAG" \
+              -f target_commitish="$GITHUB_SHA" \
+              --jq '.body')"
+
+            if [[ -n "$generated_notes_body" ]]; then
+              release_notes="${release_notes}"$'\n\n## Changelog\n\n'"${generated_notes_body}"
+            fi
+          fi
 
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$RELEASE_TITLE" \
+              --notes "$release_notes"
             gh release upload "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --clobber \
@@ -177,7 +248,6 @@ jobs:
           else
             create_args=(
               --repo "$GITHUB_REPOSITORY"
-              --generate-notes
               --notes "$release_notes"
             )
 

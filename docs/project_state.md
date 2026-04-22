@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `9e7de71` (`docs: capture ktls feasibility spike`)
+Last reviewed commit: `aaf0d3d` (`feat(native): add env-gated ktls prototype`)
 
 ## Resume Order
 
@@ -41,6 +41,8 @@ Last reviewed commit: `9e7de71` (`docs: capture ktls feasibility spike`)
 - The same `Native Artifacts` workflow now generates GitHub artifact attestations for each packaged archive/checksum/manifest set, so released `ct_ffi` bundles have hosted provenance records in addition to the GitHub Release assets themselves.
 - Hosted validation for the release path is now complete: GitHub Actions run `24756862771` validated release publishing after the `c4bd069` shell-variable fix, and run `24757138619` validated the attestation-enabled workflow end to end on both Linux and macOS while keeping `Publish GitHub Release` green.
 - The same `Native Artifacts` workflow now also emits detached Sigstore blob bundles (`<asset>.sigstore.json`) for the packaged archive/checksum/manifest set, so release assets can be verified offline with `cosign verify-blob` in addition to GitHub-hosted attestations.
+- Public-facing release metadata now defaults to human-readable titles and structured release details for both standalone native-bundle tags and `v*` project releases, while `v*` releases keep a generated changelog section even when an existing release is refreshed.
+- The top-level `README.md` and the packaged native-bundle `README.md` now lead with end-user quick-start and artifact usage guidance instead of internal workflow notes, while still preserving the maintainer/Codex guidance further down the repo README.
 - GitHub Actions now also exposes a dedicated `Router Image` workflow that publishes `ghcr.io/konsultaner/connectanum-router` for `linux/amd64` and `linux/arm64` on `v*` tags, with manual dispatch support for explicit validation tags.
 - The router/client build hooks can now download a hosted `ct_ffi` release bundle directly when `CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` is set, verify the published `.sha256`, extract the archive, and stage the native library without invoking Cargo.
 - `CONNECTANUM_NATIVE_RELEASE_REPOSITORY=<owner/repo>` overrides the default GitHub Releases source for that hook-managed prebuilt flow, and the explicit prebuilt/system-library paths no longer require a local `native/transport` checkout.
@@ -132,6 +134,9 @@ Last reviewed commit: `9e7de71` (`docs: capture ktls feasibility spike`)
 - 2026-04-22: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core ktls::tests -- --nocapture` passed on Darwin arm64 after landing the `CONNECTANUM_ENABLE_KTLS` parser and HTTP/HTTP2 eligibility coverage for the Linux-only prototype module.
 - 2026-04-22: `bin/test-fast` passed on Darwin arm64 before landing the env-gated Linux-only kTLS server prototype in `ct_core`.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after landing the env-gated Linux-only kTLS server prototype, keeping the default/non-Linux TLS path on `tokio-rustls`.
+- 2026-04-22: `bin/test-fast` passed on Darwin arm64 before landing the public-facing release/readme polish pass.
+- 2026-04-22: `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/native-artifacts.yml'); puts 'yaml_ok'"` and `ruby -e 'require "yaml"; wf = YAML.load_file(".github/workflows/native-artifacts.yml"); step = wf.fetch("jobs").values.flat_map { |job| job.fetch("steps", []) }.find { |s| s["name"] == "Create or update GitHub Release" }; abort("step not found") unless step; File.write("/tmp/connectanum-release-step.sh", step.fetch("run"));' && bash -n /tmp/connectanum-release-step.sh && echo shell_ok` both passed locally after polishing the native-artifact release metadata workflow.
+- 2026-04-22: `bin/verify` passed on Darwin arm64 after landing the public-facing release titles/details, the packaged native-bundle README rewrite, and the top-level README restructure.
 
 ## Active Plan
 
@@ -139,8 +144,8 @@ Last reviewed commit: `9e7de71` (`docs: capture ktls feasibility spike`)
 - Supporting research notes:
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-22-ktls-prototype.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-22-ktls-research-spike.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-22-public-surface-polish.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-22-ktls-prototype.md`
 
 ## Known Follow-Ups
 

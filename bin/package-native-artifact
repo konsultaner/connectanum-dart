@@ -75,18 +75,39 @@ fi
 built_at_utc="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
 cat > "${bundle_dir}/README.md" <<EOF
-# ${artifact_stem}
+# Connectanum Native Transport Bundle
 
-Prebuilt \`ct_ffi\` native library bundle for \`${host_triple}\`.
+This archive contains the prebuilt \`ct_ffi\` native library for
+\`${host_triple}\`.
+
+## Platform
 
 - OS: \`${host_os}\`
 - Architecture: \`${host_arch}\`
 - Rust host triple: \`${host_triple}\`
+
+## Files in this archive
+
+- \`${lib_name}\` - native transport library used by the router and native client
+- \`manifest.json\` - machine-readable build metadata
+- \`LICENSE\`
+
+## How to use it
+
+1. Extract the archive.
+2. Point \`CONNECTANUM_NATIVE_LIB\` at \`${lib_name}\`.
+3. Start the router or client process, or let an install helper wire the same
+   bundle for you with:
+   - \`dart run connectanum_router:tool/install_native.dart --tag <release-tag>\`
+   - \`dart run connectanum_client:tool/install_native.dart --tag <release-tag>\`
+
+You can also place the library on the platform loader search path if that fits
+your deployment setup better.
+
+## Build details
+
 - Git commit: \`${commit_sha}\`
 - Built at: \`${built_at_utc}\`
-
-After extraction, point \`CONNECTANUM_NATIVE_LIB\` at \`${lib_name}\` or place
-the library on the platform loader search path.
 EOF
 
 cat > "${bundle_dir}/manifest.json" <<EOF
