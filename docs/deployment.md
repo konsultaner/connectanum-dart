@@ -8,6 +8,20 @@ Deployment templates live in:
 - `deploy/systemd` (systemd unit file)
 - `deploy/k8s` (Kubernetes manifest)
 
+Published multi-arch router images are available from GitHub Container
+Registry through `.github/workflows/router-image.yml`:
+
+- Image name: `ghcr.io/konsultaner/connectanum-router`
+- Platforms: `linux/amd64`, `linux/arm64`
+- Tag flow:
+  - `v*` Git tags publish the matching version tag
+  - stable `v<major>.<minor>.<patch>` tags also publish `latest`,
+    `<major>.<minor>`, and `<major>`
+  - manual workflow dispatch can publish an explicit validation tag
+
+Prefer immutable version tags in production manifests and reserve `latest` for
+development or fast-follow environments.
+
 ## Build native transport
 
 ```sh
@@ -144,3 +158,4 @@ WantedBy=multi-user.target
 - Prefer running as a non-root user; bind privileged ports via a reverse proxy or `setcap cap_net_bind_service=+ep` on your launcher binary.
 - Mount TLS private keys read-only and keep them out of the repo; rotate certificates via your standard PKI process.
 - Expose metrics using the built-in OpenMetrics exporter (`metrics.open_metrics`) and scrape it with Prometheus.
+- The checked-in Kubernetes manifest now points at `ghcr.io/konsultaner/connectanum-router:latest`; replace it with a pinned version tag for real deployments.

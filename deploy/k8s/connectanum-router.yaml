@@ -96,7 +96,7 @@ spec:
     spec:
       containers:
         - name: router
-          image: ghcr.io/your-org/connectanum-router:latest
+          image: ghcr.io/konsultaner/connectanum-router:latest
           imagePullPolicy: IfNotPresent
           env:
             - name: CONNECTANUM_NATIVE_LIB

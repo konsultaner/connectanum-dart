@@ -107,6 +107,13 @@ cosign verify-blob path/to/ct-ffi-<host-triple>.tar.gz \
 For manual workflow runs, use the actual workflow ref that emitted the bundle
 instead of the tag-based identity above.
 
+The repo also publishes multi-arch router container images through
+[router-image.yml](.github/workflows/router-image.yml). `v*` tags publish
+`linux/amd64` and `linux/arm64` images to
+`ghcr.io/konsultaner/connectanum-router`, including `:latest` for stable
+SemVer tags. Manual workflow dispatch can publish an explicit one-off image tag
+for validation.
+
 ## Codex-Friendly Workflow
 
 - `AGENTS.md` contains the durable operating rules for autonomous runs.
