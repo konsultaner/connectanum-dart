@@ -133,6 +133,7 @@
     - [ ] Support structured metrics endpoints over HTTP/2 and HTTP/3 so observability stack can scrape without extra proxies.
 - [x] Outbound frame bridge (`ct_send`/FFI) for CHALLENGE/WELCOME/EVENT delivery
 - [ ] End-to-end payload encryption (E2EE) strategy
+  - [x] Capture the current WAMP E2EE/PPT references and land the shared Dart-side phase-1 contract (`WampE2eeProvider`, `WampCborXsalsa20Poly1305Provider`, router passthrough, and client/core coverage) without forcing router-side decryption.
   - [ ] Evaluate keeping encryption off the Dart hot-path (Dart’s 64-bit object model vs native/Rust or dedicated isolates with binary messaging).
   - [ ] Prototype native encryption/decryption pipeline that preserves zero-copy semantics and works across serializers.
   - [ ] Define key-management interfaces and handshake flow (HELLO/CHALLENGE payload negotiation).
@@ -278,7 +279,7 @@
 - [x] Router example CLI for local testing
 - [x] Router runner binary + deployment docs (`packages/connectanum_router/bin/connectanum_router.dart`, `docs/deployment.md`).
 - [ ] Developer docs for native runtime build pipeline
-- [ ] Dart 3.10+ build hooks to compile `ct_ffi` during pub install/`dart pub get` (detect Rust toolchains, allow opting out for prebuilt/shared lib consumers, and document `CONNECTANUM_NATIVE_LIB` override).
+- [ ] Dart 3.10+ build hooks to compile `ct_ffi` during pub install/`dart pub get` (the current run/test hooks now honor `CONNECTANUM_NATIVE_LIB`, support `CONNECTANUM_SKIP_NATIVE_BUILD`, and document prebuilt/system-library usage).
 - [ ] Configuration reference (realm JSON schema, TLS modes, worker tuning)
   - [x] TLS configuration notes + example config (`docs/tls.md`, `docs/router_example.yaml`).
   - [ ] Document feature toggles in crossbar-compatible config (meta events, benchmark exporters, zero-copy assertions)

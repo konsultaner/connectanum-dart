@@ -3,7 +3,23 @@ import 'dart:io';
 import 'package:code_assets/code_assets.dart';
 import 'package:hooks/hooks.dart';
 
-void main(List<String> args) async {
+const _nativeLibEnv = 'CONNECTANUM_NATIVE_LIB';
+const _skipNativeBuildEnv = 'CONNECTANUM_SKIP_NATIVE_BUILD';
+
+Future<void> main(List<String> args) => runBuildHook(args);
+
+Future<void> runBuildHook(
+  List<String> args, {
+  Map<String, String>? environment,
+  ProcessResult Function({
+    required List<String> args,
+    required String workingDirectory,
+    required Map<String, String> environment,
+  })?
+  cargoRunner,
+}) async {
+  final buildEnvironment = environment ?? Platform.environment;
+  final runCargo = cargoRunner ?? _runCargo;
   await build(args, (input, output) async {
     if (!input.config.buildCodeAssets) {
       return;
@@ -37,12 +53,41 @@ void main(List<String> args) async {
     final outputLibFile = File.fromUri(outputLibUri);
 
     final dependencies = _collectTransportDependencies(transportDir);
+    final configuredNativeLib = _configuredNativeLibrary(buildEnvironment);
+    if (configuredNativeLib != null && !configuredNativeLib.existsSync()) {
+      throw BuildError(
+        message:
+            '$_nativeLibEnv points to ${configuredNativeLib.path}, but that '
+            'file does not exist.',
+      );
+    }
+    if (configuredNativeLib != null) {
+      dependencies.add(configuredNativeLib);
+    }
     output.dependencies.addAll(dependencies.map((e) => e.uri));
+
+    if (_shouldSkipNativeBuild(buildEnvironment) &&
+        configuredNativeLib == null) {
+      return;
+    }
 
     final latestDependencyChange = _latestModified(dependencies);
     if (outputLibFile.existsSync() &&
         latestDependencyChange != null &&
         outputLibFile.lastModifiedSync().isAfter(latestDependencyChange)) {
+      output.assets.code.add(
+        CodeAsset(
+          package: input.packageName,
+          name: 'ct_ffi.dart',
+          linkMode: DynamicLoadingBundled(),
+          file: outputLibUri,
+        ),
+      );
+      return;
+    }
+
+    if (configuredNativeLib != null) {
+      configuredNativeLib.copySync(outputLibFile.path);
       output.assets.code.add(
         CodeAsset(
           package: input.packageName,
@@ -60,11 +105,11 @@ void main(List<String> args) async {
     cargoTargetDir.createSync(recursive: true);
 
     final buildEnv = <String, String>{
-      ...Platform.environment,
+      ...buildEnvironment,
       'CARGO_TARGET_DIR': cargoTargetDir.path,
     };
 
-    final result = _runCargo(
+    final result = runCargo(
       args: const ['build', '-p', 'ct_ffi', '--release'],
       workingDirectory: transportDir.path,
       environment: buildEnv,
@@ -98,6 +143,32 @@ void main(List<String> args) async {
       ),
     );
   });
+}
+
+bool _shouldSkipNativeBuild(Map<String, String> environment) =>
+    _isTruthy(environment[_skipNativeBuildEnv]);
+
+File? _configuredNativeLibrary(Map<String, String> environment) {
+  final configuredPath = environment[_nativeLibEnv];
+  if (configuredPath == null || configuredPath.isEmpty) {
+    return null;
+  }
+  return File(configuredPath);
+}
+
+bool _isTruthy(String? value) {
+  if (value == null) {
+    return false;
+  }
+  switch (value.trim().toLowerCase()) {
+    case '1':
+    case 'true':
+    case 'yes':
+    case 'on':
+      return true;
+    default:
+      return false;
+  }
 }
 
 Directory? _findTransportWorkspace(Directory start) {

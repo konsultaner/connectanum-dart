@@ -497,9 +497,7 @@ abstract final class NativeLibraryLoader {
         return candidate;
       }
     }
-    throw StateError(
-      'Failed to locate $_libraryFileName. Set CONNECTANUM_NATIVE_LIB or build ct_ffi first.',
-    );
+    return _libraryFileName;
   }
 
   static Iterable<String> get _relativeCandidates sync* {

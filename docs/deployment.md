@@ -32,6 +32,13 @@ export CONNECTANUM_NATIVE_LIB=/absolute/path/to/native/transport/target/release/
 dart run connectanum_router --config /etc/connectanum/router.yaml
 ```
 
+During `dart run` / `dart test`, the package build hooks compile `ct_ffi`
+automatically by default. If you already have a prebuilt library, export
+`CONNECTANUM_NATIVE_LIB` before invoking Dart and the hook will bundle that
+binary instead of running Cargo. If your environment installs `ct_ffi` on the
+platform loader search path, set `CONNECTANUM_SKIP_NATIVE_BUILD=1` to suppress
+Cargo entirely and let the runtime loader use the system library.
+
 For production packaging you can compile the runner to a native executable:
 
 ```sh

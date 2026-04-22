@@ -117,7 +117,7 @@ Focus for the next session:
     - `wamp_ppt_lazy_smoke.toml`: RawSocket CBOR PPT RPC/pubsub about `1.17/1.59 Mbps` Dart vs `2.17/2.02 Mbps` native; WebSocket CBOR PPT RPC/pubsub about `1.80/2.18 Mbps` Dart vs `3.74/3.15 Mbps` native.
     - `wamp_mixed_serializer_throughput.toml`: RawSocket JSON->MessagePack RPC about `126.14/302.29 Mbps` Dart/native and MsgPack->CBOR pubsub about `75.46/95.33 Mbps`; WebSocket JSON->CBOR RPC about `180.40/426.54 Mbps` and CBOR->JSON pubsub about `41.70/116.91 Mbps`.
   - ✅ The smoke matrix is now promoted into a throughput-grade canonical scenario too: `transport_mbit_matrix_throughput.toml` preserves the comparable auth/authz/public/protected row shape, adds larger protected HTTP samples, and raises iterations/concurrency/in-flight depth/multiplexing so CI/reporting can consume one canonical Mbps table per run.
-  - Next: use the shared lazy-payload contract for the E2EE/PPT research spike.
+  - Next: keep the same-serializer native fast path and mixed-serializer Dart fallback explicit as more transport-specific fast paths land.
 
 9. **Documentation & Examples**
    - Update router/auth docs to capture cancellation semantics, drain behaviour, and zero-copy guarantees.
@@ -129,14 +129,15 @@ Focus for the next session:
   - Keep the same-serializer native fast path and mixed-serializer Dart fallback explicit in tests/benchmarks as more transport-specific fast paths are added.
 
 11. **E2EE Research Spike**
-   - Outline options for end-to-end payload encryption without incurring Dart 64-bit object overhead (e.g. offloading to Rust FFI or dedicated binary isolates).
-   - Identify handshake/key-management changes required in HELLO/CHALLENGE and how they interact with zero-copy routing.
-   - Gather the current WAMP E2EE issue/spec references and existing implementation experiments before coding the first transport-neutral prototype, so the feature lands against the shared lazy-payload contract the router and client now use.
+  - ✅ Captured the current WAMP E2EE/PPT references and phase-1 constraints in `docs/e2ee_ppt_research.md`.
+  - ✅ Landed the first transport-neutral Dart-side prototype: `WampE2eeProvider`, `WampCborXsalsa20Poly1305Provider`, client/session/native-provider plumbing, and router passthrough coverage for `ppt_scheme = "wamp"`.
+  - Next: design the follow-on native/off-Dart encryption path and HELLO/CHALLENGE key-negotiation flow once packaging/release work for `ct_ffi` is in place.
 
 12. **Packaging & Build Hooks**
   - ✅ Add Dart 3.10+ build hook that compiles the Rust `ct_ffi` backend during `dart run`/`dart test` (native assets build hooks).
   - ✅ `connectanum_client` now ships its own build hook and runtime loader for native client transports, using a package-specific output library name so client+router apps can bundle both without asset-name collisions.
-  - Next: add a publishable packaging story (prebuilt artifacts per platform or vendoring Rust sources inside a publishable package), plus opt-out knobs for deployments that provide a system/shared library.
+  - ✅ Both hooks now reuse `CONNECTANUM_NATIVE_LIB` for prebuilt binaries and honor `CONNECTANUM_SKIP_NATIVE_BUILD=1` for system/shared-library deployments instead of invoking Cargo unconditionally.
+  - Next: add publishable prebuilt-artifact packaging and/or install-time build hooks (`dart pub get` / publishable package flow), rather than only the current local run/test hook contract.
 
 13. **TLS & Deployment Hardening**
    - ✅ Native TCP TLS termination (rustls + SNI) is live.

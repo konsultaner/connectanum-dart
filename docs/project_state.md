@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `edfb26a` (`feat(e2ee): add wamp provider plumbing`)
+Last reviewed commit: `fd01216` (`feat(e2ee): add wamp secretbox provider`)
 
 ## Resume Order
 
@@ -33,6 +33,8 @@ Last reviewed commit: `edfb26a` (`feat(e2ee): add wamp provider plumbing`)
 - Native runtime execution is now validated on both Linux and macOS; unsupported hosts still skip the native runtime slices.
 - Root verification now covers the full router package, including `publish_ack_test.dart` and `remote_auth_integration_test.dart`, while still serialising native runtime work through the router package's checked-in test config.
 - Package-local browser verification now runs from `packages/connectanum_client`, and the client/router build hooks build on Linux and macOS while still no-oping on unsupported hosts.
+- The client/router build hooks now reuse `CONNECTANUM_NATIVE_LIB` for prebuilt binaries and honor `CONNECTANUM_SKIP_NATIVE_BUILD=1` for deployments that intentionally provide `ct_ffi` themselves, instead of invoking Cargo unconditionally.
+- The client native runtime loader now falls back to the bare platform library name after hooks/local-build probing, so system-installed `ct_ffi` behaves the same way on the client path as it already did on the router path.
 - The local autonomy blockers from the 2026-04-21 audit are resolved for this macOS shell environment.
 - In-app heartbeat sandboxes are more restricted than the interactive shell here; remote CI inspection and git metadata writes should still happen from unrestricted interactive runs or the external launchd worker.
 
@@ -71,17 +73,22 @@ Last reviewed commit: `edfb26a` (`feat(e2ee): add wamp provider plumbing`)
 - 2026-04-22: `dart test packages/connectanum_client/test/client_test.dart -r expanded` passed on Darwin arm64 after asserting provider-backed `ppt_cipher` / `ppt_keyid` propagation and native direct-result decrypts against the real implementation.
 - 2026-04-22: `dart test packages/connectanum_router/test/router_runtime_test.dart -r expanded` passed on Darwin arm64 after pinning `ppt_cipher` / `ppt_keyid` passthrough on internal-session WAMP lazy publish/call flows.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after landing the concrete `WampCborXsalsa20Poly1305Provider`, the new provider regression file, and the router/client metadata assertions.
+- 2026-04-22: `bin/test-fast` passed on Darwin arm64 before landing the native build-hook packaging updates.
+- 2026-04-22: `cd packages/connectanum_router && dart test test/hook/build_hook_test.dart -r expanded` passed on Darwin arm64 after teaching the router build hook to reuse `CONNECTANUM_NATIVE_LIB` and honor `CONNECTANUM_SKIP_NATIVE_BUILD=1`.
+- 2026-04-22: `cd packages/connectanum_client && dart test test/hook/build_hook_test.dart -r expanded` passed on Darwin arm64 after teaching the client build hook to reuse `CONNECTANUM_NATIVE_LIB` and honor `CONNECTANUM_SKIP_NATIVE_BUILD=1`.
+- 2026-04-22: `cd packages/connectanum_client && dart test test/transport/native/native_library_loader_test.dart -r expanded` passed on Darwin arm64 after making the client runtime loader fall back to the bare platform library name for system-installed `ct_ffi`.
+- 2026-04-22: `bin/verify` passed on Darwin arm64 after landing the native build-hook packaging contract, the new hook regressions, the client loader fallback, and the associated doc updates.
 
 ## Active Plan
 
 - No active execution plan is checked in right now.
 - Supporting research note: `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-21-e2ee-research-spike.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-21-transport-mbit-matrix-throughput.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-22-native-build-hook-packaging.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-21-e2ee-research-spike.md`
 
 ## Known Follow-Ups
 
-- Refresh stale package-level docs so they match the monorepo and root-script workflow.
+- CI/release packaging for prebuilt `ct_ffi` artifacts and/or install-time (`dart pub get`) native build hooks still needs a dedicated implementation pass.
 
 ## Update Checklist
 

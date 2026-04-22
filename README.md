@@ -47,14 +47,18 @@ runtime.
    cargo llvm-cov
    ```
 
-   When working on the router package (`packages/connectanum_router`), Dart 3.10+
-   build hooks will compile `ct_ffi` automatically during `dart run`/`dart test`
-   as long as a Rust toolchain is available.
+   When working on the router or client packages, Dart 3.10+ build hooks will
+   compile `ct_ffi` automatically during `dart run`/`dart test` as long as a
+   Rust toolchain is available.
 
 The root scripts auto-detect the standard release location for `ct_ffi` and set
 `CONNECTANUM_NATIVE_LIB` when possible. If you are using a prebuilt library in a
 different location, export `CONNECTANUM_NATIVE_LIB` yourself before running
-tests or the router runner.
+tests or the router runner. The package-local build hooks also honor that same
+variable and will bundle the referenced library instead of invoking Cargo. For
+deployments that intentionally provide `ct_ffi` as a system/shared library, set
+`CONNECTANUM_SKIP_NATIVE_BUILD=1` to disable Cargo in the build hooks and rely
+on `CONNECTANUM_NATIVE_LIB` or the platform loader search path at runtime.
 
 ## Codex-Friendly Workflow
 
