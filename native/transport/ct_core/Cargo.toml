@@ -32,6 +32,7 @@ rand = "0.8"
 rustls-native-certs = "0.8"
 
 [target.'cfg(target_os = "linux")'.dependencies]
+ktls-core = { version = "0.0.5", default-features = false, features = ["shim-rustls"] }
 ktls-stream = { version = "0.0.5", default-features = false, features = ["async-io-tokio", "shim-rustls"] }
 
 [features]

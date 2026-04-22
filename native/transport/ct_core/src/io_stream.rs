@@ -10,10 +10,7 @@ use tokio::net::TcpStream;
 use tokio_rustls::{client::TlsStream as ClientTlsStream, server::TlsStream as ServerTlsStream};
 
 #[cfg(target_os = "linux")]
-type ServerKernelConnection =
-    rustls::kernel::KernelConnection<rustls::server::ServerConnectionData>;
-#[cfg(target_os = "linux")]
-type ServerKtlsStream = ktls_stream::Stream<TcpStream, ServerKernelConnection>;
+type ServerKtlsStream = ktls_stream::Stream<TcpStream, ktls_core::DummyTlsSession>;
 
 pub(crate) type IoReadHalf = tokio::io::ReadHalf<IoStream>;
 pub(crate) type IoWriteHalf = tokio::io::WriteHalf<IoStream>;

@@ -113,6 +113,20 @@ pub(crate) fn prepare_server_socket(
     Ok(true)
 }
 
+#[cfg(target_os = "linux")]
+fn dummy_server_session(
+    protocol_version: Option<rustls::ProtocolVersion>,
+) -> Result<ktls_core::DummyTlsSession, String> {
+    match protocol_version {
+        Some(rustls::ProtocolVersion::TLSv1_2) => Ok(ktls_core::DUMMY_TLS_12_SESSION_SERVER),
+        Some(rustls::ProtocolVersion::TLSv1_3) => Ok(ktls_core::DUMMY_TLS_13_SESSION_SERVER),
+        Some(version) => Err(format!(
+            "unsupported TLS protocol version for Linux kTLS handoff: {version:?}"
+        )),
+        None => Err("missing negotiated TLS protocol version for Linux kTLS handoff".into()),
+    }
+}
+
 #[cfg(not(target_os = "linux"))]
 pub(crate) fn prepare_server_socket(
     endpoint: &EndpointRuntimeConfig,
@@ -136,16 +150,22 @@ pub(crate) async fn try_offload_server_stream(
         .await
         .map_err(|err| format!("failed to flush TLS handshake before kTLS handoff: {err}"))?;
     let (stream, session) = tls_stream.into_inner();
-    let (secrets, kernel_connection) =
-        session.dangerous_into_kernel_connection().map_err(|err| {
-            disable_server_offload();
-            format!("failed to extract TLS kernel connection state: {err}")
-        })?;
-    let stream =
-        ktls_stream::Stream::new(stream, secrets, kernel_connection, None).map_err(|err| {
-            disable_server_offload();
-            format!("failed to initialize Linux kTLS stream: {err}")
-        })?;
+    let dummy_session = dummy_server_session(session.protocol_version()).map_err(|err| {
+        disable_server_offload();
+        err
+    })?;
+    // tokio-rustls returns a buffered ServerConnection. Its public API exposes
+    // secret extraction, but not rustls's kernel-connection handoff, so the
+    // prototype uses a dummy server-side session for short-lived validation
+    // traffic instead of tracking TLS 1.3 key updates or ticket state.
+    let secrets = session.dangerous_extract_secrets().map_err(|err| {
+        disable_server_offload();
+        format!("failed to extract TLS secrets for Linux kTLS handoff: {err}")
+    })?;
+    let stream = ktls_stream::Stream::new(stream, secrets, dummy_session, None).map_err(|err| {
+        disable_server_offload();
+        format!("failed to initialize Linux kTLS stream: {err}")
+    })?;
     Ok(crate::io_stream::IoStream::ktls_server(
         stream,
         negotiated_alpn,
@@ -217,10 +237,7 @@ mod tests {
 
     #[test]
     fn server_mode_distinguishes_try_and_require_modes() {
-        assert_eq!(
-            server_mode_from_env(Some("1"), None),
-            ServerKtlsMode::Try,
-        );
+        assert_eq!(server_mode_from_env(Some("1"), None), ServerKtlsMode::Try,);
         assert_eq!(
             server_mode_from_env(Some("true"), Some("1")),
             ServerKtlsMode::Require,
