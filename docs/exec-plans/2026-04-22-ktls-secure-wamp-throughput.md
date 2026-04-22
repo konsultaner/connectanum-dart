@@ -72,10 +72,17 @@ WebSocket performance on the same harness that already measures cleartext WAMP.
   on this macOS host; the CLI now defaults to
   `https://127.0.0.1:8080/bench`, which matches the shipped bench router's
   IPv4 TLS listener and makes direct local runs work without an override.
+- 2026-04-22: The next step is hosted Linux confirmation rather than more local
+  tuning; GitHub Actions run `24786956501` (`kTLS Validation`,
+  `workflow_dispatch`) is queued on commit `c040ef9` against
+  `native/bench/scenarios/wamp_secure_throughput.toml`.
 
 ## Handoff
 
 - This plan assumes the secure transport-selection and certificate-handling
   fixes are done; the next work is measurement, not more transport debugging.
+- The immediate open checkpoint is the queued hosted Linux run on `c040ef9`;
+  compare its Ubuntu artifact output against the checked-in local baseline
+  before changing scenario settings further.
 - If the throughput scenario cannot complete locally, capture the failing
   workload and stop at the minimal repro before changing harness behavior.
