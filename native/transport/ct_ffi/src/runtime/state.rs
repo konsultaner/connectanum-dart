@@ -2,6 +2,7 @@ use std::sync::{
     atomic::{AtomicU32, Ordering},
     Arc, Mutex, OnceLock,
 };
+use std::collections::HashMap;
 
 use bytes::Bytes;
 use ct_core::{
@@ -46,6 +47,8 @@ where
 pub fn clear_channels() {
     map().clear();
     clear_messages();
+    clear_e2ee_sessions();
+    clear_e2ee_keyrings();
     clear_http_handshakes();
     clear_websocket_handshakes();
     clear_http2_handshakes();
@@ -53,6 +56,187 @@ pub fn clear_channels() {
     clear_http3_connections();
     clear_http3_streams();
     clear_http_connection_events();
+}
+
+#[derive(Default)]
+struct StoredE2eeKeyringState {
+    keys: HashMap<String, Arc<[u8]>>,
+    default_key_id: Option<String>,
+    default_key_explicit: bool,
+}
+
+#[derive(Default)]
+pub struct StoredE2eeKeyring {
+    state: Mutex<StoredE2eeKeyringState>,
+}
+
+impl StoredE2eeKeyring {
+    pub fn add_key(&self, key_id: String, key: Vec<u8>, make_default: bool) {
+        let mut state = self.state.lock().unwrap();
+        let was_empty = state.keys.is_empty();
+        let had_implicit_default = state.default_key_id.is_some() && !state.default_key_explicit;
+        state.keys.insert(key_id.clone(), Arc::<[u8]>::from(key));
+        if make_default {
+            state.default_key_id = Some(key_id);
+            state.default_key_explicit = true;
+            return;
+        }
+        if was_empty {
+            state.default_key_id = Some(key_id);
+            state.default_key_explicit = false;
+            return;
+        }
+        if had_implicit_default {
+            state.default_key_id = None;
+            state.default_key_explicit = false;
+        }
+    }
+
+    pub fn contains_key(&self, key_id: &str) -> bool {
+        self.state.lock().unwrap().keys.contains_key(key_id)
+    }
+
+    pub fn resolve_key(&self, key_id: Option<&str>) -> Option<(Arc<[u8]>, String)> {
+        let state = self.state.lock().unwrap();
+        let resolved_key_id = match key_id {
+            Some(value) => value.to_string(),
+            None => state.default_key_id.clone()?,
+        };
+        let key = state.keys.get(&resolved_key_id)?.clone();
+        Some((key, resolved_key_id))
+    }
+}
+
+pub struct StoredE2eeSession {
+    keyring: Arc<StoredE2eeKeyring>,
+    default_key_id: Option<String>,
+}
+
+impl StoredE2eeSession {
+    pub fn new(keyring: Arc<StoredE2eeKeyring>, default_key_id: Option<String>) -> Self {
+        Self {
+            keyring,
+            default_key_id,
+        }
+    }
+
+    pub fn resolve_key(&self, key_id: Option<&str>) -> Option<(Arc<[u8]>, String)> {
+        let requested = key_id.or(self.default_key_id.as_deref());
+        self.keyring.resolve_key(requested)
+    }
+}
+
+struct E2eeKeyringStore {
+    next_id: AtomicU32,
+    keyrings: DashMap<u32, Arc<StoredE2eeKeyring>>,
+}
+
+impl Default for E2eeKeyringStore {
+    fn default() -> Self {
+        Self {
+            next_id: AtomicU32::new(1),
+            keyrings: DashMap::new(),
+        }
+    }
+}
+
+static E2EE_KEYRINGS: OnceLock<E2eeKeyringStore> = OnceLock::new();
+
+fn e2ee_keyring_store() -> &'static E2eeKeyringStore {
+    E2EE_KEYRINGS.get_or_init(E2eeKeyringStore::default)
+}
+
+pub fn store_e2ee_keyring() -> u32 {
+    let store = e2ee_keyring_store();
+    let id = store.next_id.fetch_add(1, Ordering::SeqCst);
+    store
+        .keyrings
+        .insert(id, Arc::new(StoredE2eeKeyring::default()));
+    id
+}
+
+pub fn get_e2ee_keyring(id: u32) -> Option<Arc<StoredE2eeKeyring>> {
+    e2ee_keyring_store()
+        .keyrings
+        .get(&id)
+        .map(|entry| Arc::clone(entry.value()))
+}
+
+pub fn with_e2ee_keyring<F, T>(id: u32, f: F) -> Option<T>
+where
+    F: FnOnce(&StoredE2eeKeyring) -> T,
+{
+    e2ee_keyring_store().keyrings.get(&id).map(|entry| {
+        let keyring = Arc::clone(entry.value());
+        f(keyring.as_ref())
+    })
+}
+
+pub fn remove_e2ee_keyring(id: u32) -> Option<Arc<StoredE2eeKeyring>> {
+    e2ee_keyring_store()
+        .keyrings
+        .remove(&id)
+        .map(|(_, keyring)| keyring)
+}
+
+fn clear_e2ee_keyrings() {
+    if let Some(store) = E2EE_KEYRINGS.get() {
+        store.keyrings.clear();
+        store.next_id.store(1, Ordering::SeqCst);
+    }
+}
+
+struct E2eeSessionStore {
+    next_id: AtomicU32,
+    sessions: DashMap<u32, Arc<StoredE2eeSession>>,
+}
+
+impl Default for E2eeSessionStore {
+    fn default() -> Self {
+        Self {
+            next_id: AtomicU32::new(1),
+            sessions: DashMap::new(),
+        }
+    }
+}
+
+static E2EE_SESSIONS: OnceLock<E2eeSessionStore> = OnceLock::new();
+
+fn e2ee_session_store() -> &'static E2eeSessionStore {
+    E2EE_SESSIONS.get_or_init(E2eeSessionStore::default)
+}
+
+pub fn store_e2ee_session(keyring: Arc<StoredE2eeKeyring>, default_key_id: Option<String>) -> u32 {
+    let store = e2ee_session_store();
+    let id = store.next_id.fetch_add(1, Ordering::SeqCst);
+    store
+        .sessions
+        .insert(id, Arc::new(StoredE2eeSession::new(keyring, default_key_id)));
+    id
+}
+
+pub fn with_e2ee_session<F, T>(id: u32, f: F) -> Option<T>
+where
+    F: FnOnce(&StoredE2eeSession) -> T,
+{
+    e2ee_session_store().sessions.get(&id).map(|entry| {
+        let session = Arc::clone(entry.value());
+        f(session.as_ref())
+    })
+}
+
+pub fn remove_e2ee_session(id: u32) -> Option<Arc<StoredE2eeSession>> {
+    e2ee_session_store()
+        .sessions
+        .remove(&id)
+        .map(|(_, session)| session)
+}
+
+fn clear_e2ee_sessions() {
+    if let Some(store) = E2EE_SESSIONS.get() {
+        store.sessions.clear();
+        store.next_id.store(1, Ordering::SeqCst);
+    }
 }
 
 #[derive(Clone)]

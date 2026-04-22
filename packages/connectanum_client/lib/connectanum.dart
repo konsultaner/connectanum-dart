@@ -12,4 +12,6 @@ export 'src/transport/socket/socket_transport_stub.dart'
     if (dart.library.io) 'src/transport/socket/socket_transport.dart';
 export 'src/transport/native/native_transports_none.dart'
     if (dart.library.io) 'src/transport/native/native_transports_io.dart';
+export 'src/transport/native/e2ee_provider_none.dart'
+    if (dart.library.io) 'src/transport/native/e2ee_provider_io.dart';
 export 'package:connectanum_core/connectanum_core.dart';

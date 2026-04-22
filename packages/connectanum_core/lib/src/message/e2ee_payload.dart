@@ -22,6 +22,10 @@ abstract class WampE2eeProvider {
   E2EEPayloadView unpackPayload(List<dynamic>? arguments, PPTOptions options);
 }
 
+abstract class DisposableWampE2eeProvider implements WampE2eeProvider {
+  void release();
+}
+
 abstract class WampE2eeException implements Exception {
   WampE2eeException(
     this.operation, {
@@ -43,7 +47,7 @@ abstract class WampE2eeException implements Exception {
       if (reason != null) 'reason: $reason',
       if (cause != null) 'cause: $cause',
     ];
-    return '${runtimeType}(${fields.join(', ')})';
+    return '$runtimeType(${fields.join(', ')})';
   }
 }
 

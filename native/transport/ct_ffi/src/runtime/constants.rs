@@ -16,6 +16,8 @@ pub const ERR_HANDLE_UNAVAILABLE: i32 = -14;
 pub const ERR_STREAM_CLOSED: i32 = -15;
 pub const ERR_INTERNAL: i32 = -16;
 pub const ERR_SEND_QUEUE_FULL: i32 = -17;
+pub const ERR_KEY_NOT_FOUND: i32 = -18;
+pub const ERR_DECRYPT_FAILED: i32 = -19;
 
 pub const PROTOCOL_RAWSOCKET: i32 = 1;
 pub const PROTOCOL_WEBSOCKET: i32 = 2;

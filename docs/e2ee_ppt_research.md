@@ -316,6 +316,22 @@ Do not start with a Rust-only key flow. The order should be:
 
 That avoids shipping two incompatible E2EE models.
 
+## Phase 2 Native Parity Outcome
+
+- `ct_ffi` now exposes native E2EE keyring/session handles plus synchronous
+  `xsalsa20poly1305` encrypt/decrypt entrypoints over already-framed PPT
+  bytes.
+- `connectanum_client` now ships
+  `NativeWampCborXsalsa20Poly1305Provider`, which keeps PPT framing in
+  `connectanum_core` while moving key storage and cryptography into the native
+  runtime.
+- Session-scoped resolver-created native providers now release their native
+  handles on session teardown through the shared
+  `DisposableWampE2eeProvider` contract.
+- The remaining phase-2 gap is no longer basic native crypto parity. The next
+  step is a richer provider runtime context for per-message policy and key
+  selection on top of the now-shared Dart/native provider lane.
+
 ## Recommended HELLO / CHALLENGE Negotiation Shape
 
 The repo already has the right message surfaces:

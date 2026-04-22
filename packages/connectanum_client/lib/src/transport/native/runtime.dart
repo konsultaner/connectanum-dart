@@ -32,7 +32,10 @@ abstract final class NativeTransportErrorCode {
   static const io = -7;
   static const connectionNotFound = -10;
   static const unsupportedSerializer = -11;
+  static const handleUnavailable = -14;
   static const sendQueueFull = -17;
+  static const keyNotFound = -18;
+  static const decryptionFailed = -19;
 }
 
 class NativeTransportException implements Exception {
@@ -176,6 +179,146 @@ class NativeClientRuntime {
       return result;
     } finally {
       malloc.free(hostPtr);
+    }
+  }
+
+  int createE2eeKeyring() {
+    ensureStarted();
+    final result = _bindings.ctE2eeKeyringNew();
+    if (result <= 0) {
+      _throwForError(result, 'Failed to create native E2EE keyring');
+    }
+    return result;
+  }
+
+  void addE2eeKey(
+    int keyringHandle,
+    String keyId,
+    Uint8List key, {
+    bool makeDefault = false,
+  }) {
+    ensureStarted();
+    final keyIdPtr = keyId.toNativeUtf8().cast<ffi.Char>();
+    final keyPtr = malloc<ffi.Uint8>(key.length);
+    try {
+      keyPtr.asTypedList(key.length).setAll(0, key);
+      final result = _bindings.ctE2eeKeyringAddKey(
+        keyringHandle,
+        keyIdPtr,
+        keyId.length,
+        keyPtr,
+        key.length,
+        makeDefault ? 1 : 0,
+      );
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'Failed to add key to native E2EE keyring');
+      }
+    } finally {
+      malloc.free(keyIdPtr);
+      malloc.free(keyPtr);
+    }
+  }
+
+  void releaseE2eeKeyring(int handle) {
+    ensureStarted();
+    final result = _bindings.ctE2eeKeyringRelease(handle);
+    if (result != NativeTransportErrorCode.success &&
+        result != NativeTransportErrorCode.handleUnavailable) {
+      _throwForError(result, 'Failed to release native E2EE keyring');
+    }
+  }
+
+  int createE2eeSession(int keyringHandle, {String? defaultKeyId}) {
+    ensureStarted();
+    final defaultKeyIdPtr =
+        defaultKeyId?.toNativeUtf8().cast<ffi.Char>() ?? ffi.nullptr;
+    try {
+      final result = _bindings.ctE2eeSessionNew(
+        keyringHandle,
+        defaultKeyIdPtr,
+        defaultKeyId?.length ?? 0,
+      );
+      if (result <= 0) {
+        _throwForError(result, 'Failed to create native E2EE session');
+      }
+      return result;
+    } finally {
+      if (defaultKeyIdPtr != ffi.nullptr) {
+        malloc.free(defaultKeyIdPtr);
+      }
+    }
+  }
+
+  void releaseE2eeSession(int handle) {
+    ensureStarted();
+    final result = _bindings.ctE2eeSessionRelease(handle);
+    if (result != NativeTransportErrorCode.success &&
+        result != NativeTransportErrorCode.handleUnavailable) {
+      _throwForError(result, 'Failed to release native E2EE session');
+    }
+  }
+
+  Uint8List encryptE2ee(
+    int sessionHandle,
+    Uint8List plaintext, {
+    String? keyId,
+  }) {
+    ensureStarted();
+    final keyIdPtr = keyId?.toNativeUtf8().cast<ffi.Char>() ?? ffi.nullptr;
+    final plaintextPtr = malloc<ffi.Uint8>(plaintext.length);
+    final bufferPtr = calloc<CtByteBuffer>();
+    try {
+      plaintextPtr.asTypedList(plaintext.length).setAll(0, plaintext);
+      final result = _bindings.ctE2eeSessionEncrypt(
+        sessionHandle,
+        keyIdPtr,
+        keyId?.length ?? 0,
+        plaintextPtr,
+        plaintext.length,
+        bufferPtr,
+      );
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'Failed to encrypt native E2EE payload');
+      }
+      return _copyAndFreeByteBuffer(bufferPtr.ref);
+    } finally {
+      if (keyIdPtr != ffi.nullptr) {
+        malloc.free(keyIdPtr);
+      }
+      malloc.free(plaintextPtr);
+      calloc.free(bufferPtr);
+    }
+  }
+
+  Uint8List decryptE2ee(
+    int sessionHandle,
+    Uint8List ciphertext, {
+    String? keyId,
+  }) {
+    ensureStarted();
+    final keyIdPtr = keyId?.toNativeUtf8().cast<ffi.Char>() ?? ffi.nullptr;
+    final ciphertextPtr = malloc<ffi.Uint8>(ciphertext.length);
+    final bufferPtr = calloc<CtByteBuffer>();
+    try {
+      ciphertextPtr.asTypedList(ciphertext.length).setAll(0, ciphertext);
+      final result = _bindings.ctE2eeSessionDecrypt(
+        sessionHandle,
+        keyIdPtr,
+        keyId?.length ?? 0,
+        ciphertextPtr,
+        ciphertext.length,
+        bufferPtr,
+      );
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'Failed to decrypt native E2EE payload');
+      }
+      return _copyAndFreeByteBuffer(bufferPtr.ref);
+    } finally {
+      if (keyIdPtr != ffi.nullptr) {
+        malloc.free(keyIdPtr);
+      }
+      malloc.free(ciphertextPtr);
+      calloc.free(bufferPtr);
     }
   }
 
@@ -457,12 +600,30 @@ String _buildNativeErrorMessage(int code, String context) {
     NativeTransportErrorCode.io => '$context: native I/O failure',
     NativeTransportErrorCode.connectionNotFound =>
       '$context: native connection not found',
+    NativeTransportErrorCode.handleUnavailable =>
+      '$context: native handle is unavailable',
     NativeTransportErrorCode.unsupportedSerializer =>
       '$context: serializer is unsupported by the native runtime',
     NativeTransportErrorCode.sendQueueFull =>
       '$context: native send queue is full',
+    NativeTransportErrorCode.keyNotFound =>
+      '$context: native E2EE key was not found',
+    NativeTransportErrorCode.decryptionFailed =>
+      '$context: native E2EE payload could not be decrypted',
     _ => '$context: native error $code',
   };
+}
+
+Uint8List _copyAndFreeByteBuffer(CtByteBuffer buffer) {
+  if (buffer.ptr == ffi.nullptr || buffer.len == 0) {
+    return Uint8List(0);
+  }
+  final bytes = Uint8List.fromList(buffer.ptr.asTypedList(buffer.len));
+  NativeClientRuntime.instance()._bindings.ctByteBufferFree(
+    buffer.ptr,
+    buffer.len,
+  );
+  return bytes;
 }
 
 abstract final class NativeLibraryLoader {
@@ -488,14 +649,14 @@ abstract final class NativeLibraryLoader {
     if (envOverride != null && envOverride.isNotEmpty) {
       return envOverride;
     }
-    final hooks = _probeHooksRunner(Directory.current);
-    if (hooks != null) {
-      return hooks;
-    }
     for (final candidate in _relativeCandidates) {
       if (File(candidate).existsSync()) {
         return candidate;
       }
+    }
+    final hooks = _probeHooksRunner(Directory.current);
+    if (hooks != null) {
+      return hooks;
     }
     return _libraryFileName;
   }

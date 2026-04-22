@@ -6,6 +6,80 @@ typedef CtStartRuntimeDart = int Function();
 typedef CtShutdownNative = ffi.Int32 Function();
 typedef CtShutdownDart = int Function();
 
+typedef CtByteBufferFreeNative =
+    ffi.Void Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef CtByteBufferFreeDart = void Function(ffi.Pointer<ffi.Uint8>, int);
+
+typedef CtE2eeKeyringNewNative = ffi.Int32 Function();
+typedef CtE2eeKeyringNewDart = int Function();
+
+typedef CtE2eeKeyringAddKeyNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Int32,
+      ffi.Int32,
+    );
+typedef CtE2eeKeyringAddKeyDart =
+    int Function(
+      int,
+      ffi.Pointer<ffi.Char>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+    );
+
+typedef CtE2eeKeyringReleaseNative = ffi.Int32 Function(ffi.Int32);
+typedef CtE2eeKeyringReleaseDart = int Function(int);
+
+typedef CtE2eeSessionNewNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Char>, ffi.Int32);
+typedef CtE2eeSessionNewDart = int Function(int, ffi.Pointer<ffi.Char>, int);
+
+typedef CtE2eeSessionReleaseNative = ffi.Int32 Function(ffi.Int32);
+typedef CtE2eeSessionReleaseDart = int Function(int);
+
+typedef CtE2eeSessionEncryptNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Int32,
+      ffi.Pointer<CtByteBuffer>,
+    );
+typedef CtE2eeSessionEncryptDart =
+    int Function(
+      int,
+      ffi.Pointer<ffi.Char>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<CtByteBuffer>,
+    );
+
+typedef CtE2eeSessionDecryptNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Int32,
+      ffi.Pointer<CtByteBuffer>,
+    );
+typedef CtE2eeSessionDecryptDart =
+    int Function(
+      int,
+      ffi.Pointer<ffi.Char>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<CtByteBuffer>,
+    );
+
 typedef CtClientConnectRawsocketNative =
     ffi.Int32 Function(
       ffi.Pointer<ffi.Char>,
@@ -95,6 +169,13 @@ final class CtHttpHeader extends ffi.Struct {
   external int valueLen;
 }
 
+final class CtByteBuffer extends ffi.Struct {
+  external ffi.Pointer<ffi.Uint8> ptr;
+
+  @ffi.Size()
+  external int len;
+}
+
 final class CtMessageInfo extends ffi.Struct {
   @ffi.Uint8()
   external int serializer;
@@ -172,6 +253,38 @@ class CtFfiBindings {
       ctShutdown = library.lookupFunction<CtShutdownNative, CtShutdownDart>(
         'ct_shutdown',
       ),
+      ctByteBufferFree = library
+          .lookupFunction<CtByteBufferFreeNative, CtByteBufferFreeDart>(
+            'ct_byte_buffer_free',
+          ),
+      ctE2eeKeyringNew = library
+          .lookupFunction<CtE2eeKeyringNewNative, CtE2eeKeyringNewDart>(
+            'ct_e2ee_keyring_new',
+          ),
+      ctE2eeKeyringAddKey = library
+          .lookupFunction<CtE2eeKeyringAddKeyNative, CtE2eeKeyringAddKeyDart>(
+            'ct_e2ee_keyring_add_key',
+          ),
+      ctE2eeKeyringRelease = library
+          .lookupFunction<CtE2eeKeyringReleaseNative, CtE2eeKeyringReleaseDart>(
+            'ct_e2ee_keyring_release',
+          ),
+      ctE2eeSessionNew = library
+          .lookupFunction<CtE2eeSessionNewNative, CtE2eeSessionNewDart>(
+            'ct_e2ee_session_new',
+          ),
+      ctE2eeSessionRelease = library
+          .lookupFunction<CtE2eeSessionReleaseNative, CtE2eeSessionReleaseDart>(
+            'ct_e2ee_session_release',
+          ),
+      ctE2eeSessionEncrypt = library
+          .lookupFunction<CtE2eeSessionEncryptNative, CtE2eeSessionEncryptDart>(
+            'ct_e2ee_session_encrypt',
+          ),
+      ctE2eeSessionDecrypt = library
+          .lookupFunction<CtE2eeSessionDecryptNative, CtE2eeSessionDecryptDart>(
+            'ct_e2ee_session_decrypt',
+          ),
       ctClientConnectRawsocket = library
           .lookupFunction<
             CtClientConnectRawsocketNative,
@@ -229,6 +342,14 @@ class CtFfiBindings {
 
   final CtStartRuntimeDart ctStartRuntime;
   final CtShutdownDart ctShutdown;
+  final CtByteBufferFreeDart ctByteBufferFree;
+  final CtE2eeKeyringNewDart ctE2eeKeyringNew;
+  final CtE2eeKeyringAddKeyDart ctE2eeKeyringAddKey;
+  final CtE2eeKeyringReleaseDart ctE2eeKeyringRelease;
+  final CtE2eeSessionNewDart ctE2eeSessionNew;
+  final CtE2eeSessionReleaseDart ctE2eeSessionRelease;
+  final CtE2eeSessionEncryptDart ctE2eeSessionEncrypt;
+  final CtE2eeSessionDecryptDart ctE2eeSessionDecrypt;
   final CtClientConnectRawsocketDart ctClientConnectRawsocket;
   final CtClientConnectWebSocketDart ctClientConnectWebSocket;
   final CtConnectionCloseDart ctConnectionClose;

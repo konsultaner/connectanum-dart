@@ -15,11 +15,11 @@ use std::net::SocketAddr;
 #[cfg(feature = "ffi-test")]
 use dashmap::DashMap;
 #[cfg(feature = "ffi-test")]
-use futures_util::future;
-#[cfg(feature = "ffi-test")]
 use std::collections::VecDeque;
 #[cfg(feature = "ffi-test")]
 use tokio::runtime::Runtime as TokioRuntime;
+#[cfg(feature = "ffi-test")]
+use futures_util::future;
 
 use ct_core::http_metrics_snapshot_with_breakdown;
 #[cfg(feature = "ffi-test")]
@@ -60,6 +60,11 @@ use rustls::pki_types::CertificateDer;
 use rustls::{ClientConfig as RustlsClientConfig, RootCertStore};
 #[cfg(feature = "ffi-test")]
 use rustls_pemfile::certs as read_pem_certs;
+use rand_core::{OsRng, RngCore};
+use xsalsa20poly1305::{
+    aead::{Aead, KeyInit},
+    Key, Nonce, XSalsa20Poly1305,
+};
 
 use crate::callbacks::{
     invoke_connection_callback, invoke_listener_callback, register_connection_callback,
@@ -71,18 +76,23 @@ use super::state::{
     clear_channels, clone_message, remove_http2_handshake, remove_http3_connection,
     remove_http3_handshake, remove_http3_stream, remove_http_body, remove_http_connection_event,
     remove_http_handshake, remove_http_response_stream, remove_message, remove_websocket_handshake,
+    get_e2ee_keyring, remove_e2ee_keyring, remove_e2ee_session,
+    with_e2ee_keyring, with_e2ee_session,
     store_channel, store_http2_handshake, store_http3_connection, store_http3_handshake,
     store_http3_stream, store_http_body, store_http_connection_event, store_http_request_metadata,
-    store_http_response_stream, store_message, store_websocket_handshake, with_channel,
-    with_http2_handshake, with_http3_handshake, with_http3_stream, with_http_body,
-    with_http_connection_event, with_http_handshake, with_http_response_stream, with_message,
-    with_websocket_handshake, HttpMetadata, StoredHttpHandshakePayload, StoredMessage,
-    StoredRawFrame,
+    store_http_response_stream, store_message, store_websocket_handshake, store_e2ee_keyring,
+    store_e2ee_session, with_channel, with_http2_handshake, with_http3_handshake,
+    with_http3_stream, with_http_body, with_http_connection_event, with_http_handshake,
+    with_http_response_stream, with_message, with_websocket_handshake, HttpMetadata,
+    StoredHttpHandshakePayload, StoredMessage, StoredRawFrame,
 };
 use rmp::encode::{write_array_len, write_u64};
 use serde::Serialize;
 use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
 use serde_value::Value as SerdeValue;
+
+const E2EE_KEY_LEN: usize = 32;
+const E2EE_NONCE_LEN: usize = 24;
 
 #[repr(C)]
 #[derive(Default)]
@@ -107,7 +117,6 @@ pub struct CtHttpHandshakeInfo {
     pub procedure_len: usize,
 }
 
-#[cfg(feature = "ffi-test")]
 #[repr(C)]
 pub struct CtByteBuffer {
     pub ptr: *mut u8,
@@ -492,6 +501,63 @@ fn read_optional_str(ptr: *const c_char, len: c_int) -> Result<Option<String>, c
     let bytes = unsafe { slice::from_raw_parts(ptr as *const u8, len) };
     let value = str::from_utf8(bytes).map_err(|_| ERR_INVALID_ARGUMENT)?;
     Ok(Some(value.to_string()))
+}
+
+fn read_required_bytes(ptr: *const u8, len: c_int) -> Result<Vec<u8>, c_int> {
+    if ptr.is_null() || len < 0 {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
+    Ok(unsafe { slice::from_raw_parts(ptr, len as usize) }.to_vec())
+}
+
+fn write_byte_buffer(out: *mut CtByteBuffer, bytes: Vec<u8>) -> c_int {
+    if out.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let (ptr, len) = if bytes.is_empty() {
+        (ptr::null_mut(), 0usize)
+    } else {
+        let len = bytes.len();
+        let boxed = bytes.into_boxed_slice();
+        (Box::into_raw(boxed) as *mut u8, len)
+    };
+    unsafe {
+        (*out).ptr = ptr;
+        (*out).len = len;
+    }
+    SUCCESS
+}
+
+fn normalize_key_material(key: &[u8]) -> Result<Key, c_int> {
+    if key.len() != E2EE_KEY_LEN {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
+    Ok(*Key::from_slice(key))
+}
+
+fn encrypt_e2ee_payload(key: &[u8], plaintext: &[u8]) -> Result<Vec<u8>, c_int> {
+    let cipher = XSalsa20Poly1305::new(&normalize_key_material(key)?);
+    let mut nonce = Nonce::default();
+    OsRng.fill_bytes(nonce.as_mut_slice());
+    let ciphertext = cipher
+        .encrypt(&nonce, plaintext)
+        .map_err(|_| ERR_INTERNAL)?;
+    let mut combined = Vec::with_capacity(E2EE_NONCE_LEN + ciphertext.len());
+    combined.extend_from_slice(nonce.as_slice());
+    combined.extend_from_slice(&ciphertext);
+    Ok(combined)
+}
+
+fn decrypt_e2ee_payload(key: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>, c_int> {
+    if ciphertext.len() < E2EE_NONCE_LEN {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
+    let cipher = XSalsa20Poly1305::new(&normalize_key_material(key)?);
+    let (nonce_bytes, message) = ciphertext.split_at(E2EE_NONCE_LEN);
+    let nonce = Nonce::from_slice(nonce_bytes);
+    cipher
+        .decrypt(nonce, message)
+        .map_err(|_| ERR_DECRYPT_FAILED)
 }
 
 fn encode_event_segments_json(
@@ -1318,6 +1384,165 @@ pub extern "C" fn ct_shutdown() -> c_int {
             SUCCESS
         }
         Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_byte_buffer_free(ptr: *mut u8, len: usize) {
+    if ptr.is_null() {
+        return;
+    }
+    unsafe {
+        Vec::from_raw_parts(ptr, len, len);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_e2ee_keyring_new() -> c_int {
+    store_e2ee_keyring() as c_int
+}
+
+#[no_mangle]
+pub extern "C" fn ct_e2ee_keyring_add_key(
+    handle: c_int,
+    key_id_ptr: *const c_char,
+    key_id_len: c_int,
+    key_ptr: *const u8,
+    key_len: c_int,
+    make_default: c_int,
+) -> c_int {
+    if handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let key_id = match read_optional_str(key_id_ptr, key_id_len) {
+        Ok(Some(value)) if !value.is_empty() => value,
+        _ => return ERR_INVALID_ARGUMENT,
+    };
+    let key = match read_required_bytes(key_ptr, key_len) {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    if key.len() != E2EE_KEY_LEN {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match with_e2ee_keyring(handle as u32, |keyring| {
+        keyring.add_key(key_id, key, make_default != 0);
+    }) {
+        Some(()) => SUCCESS,
+        None => ERR_HANDLE_UNAVAILABLE,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_e2ee_keyring_release(handle: c_int) -> c_int {
+    if handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match remove_e2ee_keyring(handle as u32) {
+        Some(_) => SUCCESS,
+        None => ERR_HANDLE_UNAVAILABLE,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_e2ee_session_new(
+    keyring_handle: c_int,
+    default_key_id_ptr: *const c_char,
+    default_key_id_len: c_int,
+) -> c_int {
+    if keyring_handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let default_key_id = match read_optional_str(default_key_id_ptr, default_key_id_len) {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    let keyring = match get_e2ee_keyring(keyring_handle as u32) {
+        Some(value) => value,
+        None => return ERR_HANDLE_UNAVAILABLE,
+    };
+    if let Some(ref key_id) = default_key_id {
+        if !keyring.contains_key(key_id) {
+            return ERR_KEY_NOT_FOUND;
+        }
+    }
+    store_e2ee_session(keyring, default_key_id) as c_int
+}
+
+#[no_mangle]
+pub extern "C" fn ct_e2ee_session_release(handle: c_int) -> c_int {
+    if handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match remove_e2ee_session(handle as u32) {
+        Some(_) => SUCCESS,
+        None => ERR_HANDLE_UNAVAILABLE,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_e2ee_session_encrypt(
+    session_handle: c_int,
+    key_id_ptr: *const c_char,
+    key_id_len: c_int,
+    plaintext_ptr: *const u8,
+    plaintext_len: c_int,
+    out: *mut CtByteBuffer,
+) -> c_int {
+    if session_handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let key_id = match read_optional_str(key_id_ptr, key_id_len) {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    let plaintext = match read_required_bytes(plaintext_ptr, plaintext_len) {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    let result = with_e2ee_session(session_handle as u32, |session| {
+        let Some((key, _)) = session.resolve_key(key_id.as_deref()) else {
+            return Err(ERR_KEY_NOT_FOUND);
+        };
+        encrypt_e2ee_payload(key.as_ref(), &plaintext)
+    });
+    match result {
+        Some(Ok(bytes)) => write_byte_buffer(out, bytes),
+        Some(Err(code)) => code,
+        None => ERR_HANDLE_UNAVAILABLE,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_e2ee_session_decrypt(
+    session_handle: c_int,
+    key_id_ptr: *const c_char,
+    key_id_len: c_int,
+    ciphertext_ptr: *const u8,
+    ciphertext_len: c_int,
+    out: *mut CtByteBuffer,
+) -> c_int {
+    if session_handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let key_id = match read_optional_str(key_id_ptr, key_id_len) {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    let ciphertext = match read_required_bytes(ciphertext_ptr, ciphertext_len) {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    let result = with_e2ee_session(session_handle as u32, |session| {
+        let Some((key, _)) = session.resolve_key(key_id.as_deref()) else {
+            return Err(ERR_KEY_NOT_FOUND);
+        };
+        decrypt_e2ee_payload(key.as_ref(), &ciphertext)
+    });
+    match result {
+        Some(Ok(bytes)) => write_byte_buffer(out, bytes),
+        Some(Err(code)) => code,
+        None => ERR_HANDLE_UNAVAILABLE,
     }
 }
 

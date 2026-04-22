@@ -1291,6 +1291,12 @@ class Session {
     for (final registration in activeRegistrations) {
       await registration.closeInvocationStream();
     }
+
+    final sessionProvider = _sessionE2eeProvider;
+    _sessionE2eeProvider = null;
+    if (sessionProvider is DisposableWampE2eeProvider) {
+      sessionProvider.release();
+    }
   }
 
   void _completePendingError<T>(
