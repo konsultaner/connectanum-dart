@@ -155,6 +155,7 @@ class Invocation extends AbstractMessageWithPayload {
       }
 
       if (options?.pptScheme == 'wamp') {
+        final runtimeContext = _responseRuntimeContext();
         // Preserve matching wrapped payload bytes until actual E2EE decode is
         // implemented, otherwise fall back to the current placeholder packer.
         invokeArguments = packedPayload == null
@@ -163,6 +164,7 @@ class Invocation extends AbstractMessageWithPayload {
                 argumentsKeywords,
                 options!,
                 provider: lazyPayload?.e2eeProvider ?? e2eeProvider,
+                runtimeContext: runtimeContext,
               )
             : <dynamic>[packedPayload];
         invokeArgumentsKeywords = null;
@@ -181,6 +183,7 @@ class Invocation extends AbstractMessageWithPayload {
         argumentsKeywords: invokeArgumentsKeywords,
       );
       yield.attachE2eeProvider(lazyPayload?.e2eeProvider ?? e2eeProvider);
+      yield.attachE2eeRuntimeContext(_responseRuntimeContext());
       if (lazyPayload != null) {
         if (options?.pptScheme != null) {
           if (packedPayload != null) {
@@ -277,6 +280,18 @@ class Invocation extends AbstractMessageWithPayload {
       return;
     }
     _responseClosed = true;
+  }
+
+  WampE2eeRuntimeContext? _responseRuntimeContext() {
+    final runtimeContext = e2eeRuntimeContext;
+    if (runtimeContext == null) {
+      return null;
+    }
+    return runtimeContext.copyWith(
+      direction: WampE2eeDirection.outbound,
+      messageType: WampE2eeMessageType.yield,
+      uri: details.procedure ?? runtimeContext.uri,
+    );
   }
 
   InvocationPayload toPayload() {

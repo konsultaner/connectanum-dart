@@ -24,16 +24,20 @@ class NativeWampCborXsalsa20Poly1305Provider
   List<dynamic> packPayload(
     List<dynamic>? arguments,
     Map<String, dynamic>? argumentsKeywords,
-    PPTOptions options,
-  ) => throw UnsupportedError(
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) => throw UnsupportedError(
     'Native WAMP E2EE provider requires dart:io and the ct_ffi runtime',
   );
 
   @override
-  E2EEPayloadView unpackPayload(List<dynamic>? arguments, PPTOptions options) =>
-      throw UnsupportedError(
-        'Native WAMP E2EE provider requires dart:io and the ct_ffi runtime',
-      );
+  E2EEPayloadView unpackPayload(
+    List<dynamic>? arguments,
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) => throw UnsupportedError(
+    'Native WAMP E2EE provider requires dart:io and the ct_ffi runtime',
+  );
 
   @override
   void release() {}

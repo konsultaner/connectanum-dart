@@ -136,7 +136,8 @@ Focus for the next session:
   - ✅ Landed the negotiated runtime-defaults slice on the Dart path: `Session` now wraps attached `WampE2eeProvider` instances with negotiated `WELCOME.authextra.e2ee` defaults so outbound and inbound `ppt_scheme = "wamp"` payloads inherit serializer/cipher/key-id state without per-message plumbing.
   - ✅ Landed the session-backed provider lane on the Dart client path: `Client.e2eeProviderResolver` can now resolve the concrete provider per session from authenticated/negotiated runtime state while preserving `Client.e2eeProvider` as the fallback surface.
   - ✅ Landed the first native parity lane: `ct_ffi` now exposes E2EE keyring/session handles plus `xsalsa20poly1305` encrypt/decrypt entrypoints, and `connectanum_client` now exports `NativeWampCborXsalsa20Poly1305Provider` on top of the negotiated session-provider contract.
-  - Next: extend the provider contract from negotiated session defaults to richer per-message runtime context (URI/topic/procedure/auth peer metadata) so both the Dart and native providers can make policy/key-selection decisions without adding router-side decryption.
+  - ✅ Landed the richer per-message runtime-context slice: the shared provider contract now receives message family, URI/topic/procedure, local session auth identity, negotiated E2EE state, and disclosed peer metadata across outbound `CALL` / `PUBLISH` and inbound `RESULT` / `EVENT` / `INVOCATION`, including pending-call procedure recovery on the result path.
+  - Next: add policy-aware provider/key-selection surfaces that actively consume the new runtime context on both the Dart and native provider lanes without moving payload decryption into the router.
 
 12. **Packaging & Build Hooks**
   - ✅ Add Dart 3.10+ build hook that compiles the Rust `ct_ffi` backend during `dart run`/`dart test` (native assets build hooks).

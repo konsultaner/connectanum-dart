@@ -12,14 +12,174 @@ typedef E2EEPayloadView = ({
   Map<String, dynamic>? argumentsKeywords,
 });
 
+enum WampE2eeDirection { outbound, inbound }
+
+enum WampE2eeMessageType {
+  call,
+  publish,
+  yield,
+  event,
+  result,
+  invocation,
+  error,
+}
+
+class WampE2eePartyContext {
+  const WampE2eePartyContext({
+    this.sessionId,
+    this.authId,
+    this.authRole,
+    this.authMethod,
+    this.authProvider,
+    this.authExtra,
+    this.trustLevel,
+    this.details,
+  });
+
+  factory WampE2eePartyContext.fromDetails({
+    int? sessionId,
+    int? trustLevel,
+    Map<String, dynamic>? details,
+  }) {
+    if (sessionId == null &&
+        trustLevel == null &&
+        (details == null || details.isEmpty)) {
+      return const WampE2eePartyContext();
+    }
+    final copiedDetails = details == null || details.isEmpty
+        ? null
+        : Map<String, dynamic>.unmodifiable(Map<String, dynamic>.from(details));
+    return WampE2eePartyContext(
+      sessionId: sessionId,
+      authId: copiedDetails?['authid'] as String?,
+      authRole: copiedDetails?['authrole'] as String?,
+      authMethod: copiedDetails?['authmethod'] as String?,
+      authProvider: copiedDetails?['authprovider'] as String?,
+      authExtra: _coerceStringDynamicMap(copiedDetails?['authextra']),
+      trustLevel: trustLevel,
+      details: copiedDetails,
+    );
+  }
+
+  final int? sessionId;
+  final String? authId;
+  final String? authRole;
+  final String? authMethod;
+  final String? authProvider;
+  final Map<String, dynamic>? authExtra;
+  final int? trustLevel;
+  final Map<String, dynamic>? details;
+
+  bool get isEmpty =>
+      sessionId == null &&
+      authId == null &&
+      authRole == null &&
+      authMethod == null &&
+      authProvider == null &&
+      authExtra == null &&
+      trustLevel == null &&
+      details == null;
+
+  WampE2eePartyContext copyWith({
+    Object? sessionId = _unsetContextValue,
+    Object? authId = _unsetContextValue,
+    Object? authRole = _unsetContextValue,
+    Object? authMethod = _unsetContextValue,
+    Object? authProvider = _unsetContextValue,
+    Object? authExtra = _unsetContextValue,
+    Object? trustLevel = _unsetContextValue,
+    Object? details = _unsetContextValue,
+  }) {
+    return WampE2eePartyContext(
+      sessionId: identical(sessionId, _unsetContextValue)
+          ? this.sessionId
+          : sessionId as int?,
+      authId: identical(authId, _unsetContextValue)
+          ? this.authId
+          : authId as String?,
+      authRole: identical(authRole, _unsetContextValue)
+          ? this.authRole
+          : authRole as String?,
+      authMethod: identical(authMethod, _unsetContextValue)
+          ? this.authMethod
+          : authMethod as String?,
+      authProvider: identical(authProvider, _unsetContextValue)
+          ? this.authProvider
+          : authProvider as String?,
+      authExtra: identical(authExtra, _unsetContextValue)
+          ? this.authExtra
+          : authExtra as Map<String, dynamic>?,
+      trustLevel: identical(trustLevel, _unsetContextValue)
+          ? this.trustLevel
+          : trustLevel as int?,
+      details: identical(details, _unsetContextValue)
+          ? this.details
+          : details as Map<String, dynamic>?,
+    );
+  }
+}
+
+class WampE2eeRuntimeContext {
+  const WampE2eeRuntimeContext({
+    required this.direction,
+    required this.messageType,
+    this.realm,
+    this.uri,
+    this.local,
+    this.peer,
+    this.negotiated,
+  });
+
+  final WampE2eeDirection direction;
+  final WampE2eeMessageType messageType;
+  final String? realm;
+  final String? uri;
+  final WampE2eePartyContext? local;
+  final WampE2eePartyContext? peer;
+  final Map<String, dynamic>? negotiated;
+
+  WampE2eeRuntimeContext copyWith({
+    WampE2eeDirection? direction,
+    WampE2eeMessageType? messageType,
+    Object? realm = _unsetContextValue,
+    Object? uri = _unsetContextValue,
+    Object? local = _unsetContextValue,
+    Object? peer = _unsetContextValue,
+    Object? negotiated = _unsetContextValue,
+  }) {
+    return WampE2eeRuntimeContext(
+      direction: direction ?? this.direction,
+      messageType: messageType ?? this.messageType,
+      realm: identical(realm, _unsetContextValue)
+          ? this.realm
+          : realm as String?,
+      uri: identical(uri, _unsetContextValue) ? this.uri : uri as String?,
+      local: identical(local, _unsetContextValue)
+          ? this.local
+          : local as WampE2eePartyContext?,
+      peer: identical(peer, _unsetContextValue)
+          ? this.peer
+          : peer as WampE2eePartyContext?,
+      negotiated: identical(negotiated, _unsetContextValue)
+          ? this.negotiated
+          : negotiated as Map<String, dynamic>?,
+    );
+  }
+}
+
 abstract class WampE2eeProvider {
   List<dynamic> packPayload(
     List<dynamic>? arguments,
     Map<String, dynamic>? argumentsKeywords,
-    PPTOptions options,
-  );
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  });
 
-  E2EEPayloadView unpackPayload(List<dynamic>? arguments, PPTOptions options);
+  E2EEPayloadView unpackPayload(
+    List<dynamic>? arguments,
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  });
 }
 
 abstract class DisposableWampE2eeProvider implements WampE2eeProvider {
@@ -117,8 +277,9 @@ class WampCborXsalsa20Poly1305Provider implements WampE2eeProvider {
   List<dynamic> packPayload(
     List<dynamic>? arguments,
     Map<String, dynamic>? argumentsKeywords,
-    PPTOptions options,
-  ) {
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
     _verifyScheme(options);
     _verifySerializer(options);
     final keyId = _resolveKeyId(options, operation: 'pack');
@@ -139,7 +300,11 @@ class WampCborXsalsa20Poly1305Provider implements WampE2eeProvider {
   }
 
   @override
-  E2EEPayloadView unpackPayload(List<dynamic>? arguments, PPTOptions options) {
+  E2EEPayloadView unpackPayload(
+    List<dynamic>? arguments,
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
     _verifyScheme(options);
     _verifySerializer(options);
     _resolveCipher(options, operation: 'unpack');
@@ -324,24 +489,35 @@ class E2EEPayload extends PPTPayload {
     Map<String, dynamic>? argumentsKeywords,
     PPTOptions options, {
     WampE2eeProvider? provider,
+    WampE2eeRuntimeContext? runtimeContext,
   }) {
     final resolvedProvider = provider;
     if (resolvedProvider == null) {
       throw WampE2eeProviderUnavailableException('pack', options: options);
     }
-    return resolvedProvider.packPayload(arguments, argumentsKeywords, options);
+    return resolvedProvider.packPayload(
+      arguments,
+      argumentsKeywords,
+      options,
+      runtimeContext: runtimeContext,
+    );
   }
 
   static E2EEPayload unpackE2EEPayload(
     List<dynamic>? arguments,
     PPTOptions options, {
     WampE2eeProvider? provider,
+    WampE2eeRuntimeContext? runtimeContext,
   }) {
     final resolvedProvider = provider;
     if (resolvedProvider == null) {
       throw WampE2eeProviderUnavailableException('unpack', options: options);
     }
-    final decoded = resolvedProvider.unpackPayload(arguments, options);
+    final decoded = resolvedProvider.unpackPayload(
+      arguments,
+      options,
+      runtimeContext: runtimeContext,
+    );
     return E2EEPayload(
       arguments: decoded.arguments,
       argumentsKeywords: decoded.argumentsKeywords,
@@ -356,4 +532,18 @@ List<String> _formatE2eeOptions(PPTOptions options) {
     "pptCipher=${options.pptCipher ?? 'null'}",
     "pptKeyId=${options.pptKeyId ?? 'null'}",
   ];
+}
+
+const Object _unsetContextValue = Object();
+
+Map<String, dynamic>? _coerceStringDynamicMap(Object? value) {
+  if (value is Map<String, dynamic>) {
+    return Map<String, dynamic>.unmodifiable(value);
+  }
+  if (value is Map) {
+    return Map<String, dynamic>.unmodifiable(
+      value.map((key, entryValue) => MapEntry(key.toString(), entryValue)),
+    );
+  }
+  return null;
 }

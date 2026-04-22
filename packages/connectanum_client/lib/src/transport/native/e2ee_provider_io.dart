@@ -66,8 +66,9 @@ class NativeWampCborXsalsa20Poly1305Provider
   List<dynamic> packPayload(
     List<dynamic>? arguments,
     Map<String, dynamic>? argumentsKeywords,
-    PPTOptions options,
-  ) {
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
     _ensureOpen();
     _verifyScheme(options);
     _verifySerializer(options);
@@ -98,7 +99,11 @@ class NativeWampCborXsalsa20Poly1305Provider
   }
 
   @override
-  E2EEPayloadView unpackPayload(List<dynamic>? arguments, PPTOptions options) {
+  E2EEPayloadView unpackPayload(
+    List<dynamic>? arguments,
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
     _ensureOpen();
     _verifyScheme(options);
     _verifySerializer(options);

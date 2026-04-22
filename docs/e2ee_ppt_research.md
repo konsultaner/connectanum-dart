@@ -332,6 +332,30 @@ That avoids shipping two incompatible E2EE models.
   step is a richer provider runtime context for per-message policy and key
   selection on top of the now-shared Dart/native provider lane.
 
+## Phase 2 Runtime Context Outcome
+
+- `connectanum_core` now exposes `WampE2eeRuntimeContext` and
+  `WampE2eePartyContext` on the provider contract, so providers can inspect:
+  - direction (`outbound` / `inbound`)
+  - message family (`CALL` / `PUBLISH` / `YIELD` / `EVENT` / `RESULT` /
+    `INVOCATION` / `ERROR`)
+  - realm and URI/topic/procedure context
+  - local session identity (`sessionId`, `authid`, `authrole`,
+    `authmethod`, `authprovider`, `authextra`)
+  - disclosed peer metadata (`caller` / `publisher`, `trustlevel`, and
+    auth-related custom detail fields when present)
+  - negotiated `WELCOME.authextra.e2ee` state
+- Lazy/materialized payload views now preserve that runtime context alongside
+  the attached E2EE provider, so zero-copy forwarding still works without
+  dropping policy inputs before actual decrypt-on-access.
+- The Dart client now fills this context on outbound `CALL` / `PUBLISH`, on
+  inbound `RESULT` / `EVENT` / `INVOCATION`, and on invocation-response
+  `YIELD` messages. The `RESULT` path also recovers the original procedure from
+  pending-call state so providers can make result-side decisions with the same
+  URI context that the call used.
+- The next E2EE step should consume this runtime context for actual policy and
+  key-selection decisions rather than adding more transport/session plumbing.
+
 ## Recommended HELLO / CHALLENGE Negotiation Shape
 
 The repo already has the right message surfaces:

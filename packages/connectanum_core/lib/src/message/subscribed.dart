@@ -8,6 +8,7 @@ import 'message_types.dart';
 class Subscribed extends AbstractMessage {
   int subscribeRequestId;
   int subscriptionId;
+  String? topic;
   Stream<Event>? _eventStreamOverride;
   StreamController<Event>? _eventController;
   StreamSubscription<Event>? _streamEventSubscription;

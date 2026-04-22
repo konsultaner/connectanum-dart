@@ -2,16 +2,14 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `db02434` (`feat(e2ee): add session-scoped provider resolver`)
+Last reviewed commit: `9511f56` (`feat(e2ee): add native provider parity`)
 Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.md`
 
 ## Last Known Verification
 
 - `bin/test-fast`
-- `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi e2ee -- --nocapture`
-- `dart analyze packages/connectanum_client/lib/src/transport/native/runtime.dart packages/connectanum_client/lib/src/transport/native/e2ee_provider_io.dart packages/connectanum_client/lib/src/protocol/session.dart packages/connectanum_client/test/transport/native/e2ee_provider_test.dart packages/connectanum_client/test/client_test.dart packages/connectanum_core/lib/src/message/e2ee_payload.dart`
-- `dart test packages/connectanum_client/test/transport/native/e2ee_provider_test.dart -r expanded`
-- `dart test packages/connectanum_client/test/client_test.dart --plain-name 'publishLazyPayload supports a native session E2EE provider resolver' -r expanded`
+- `dart analyze packages/connectanum_core/lib/src/message/e2ee_payload.dart packages/connectanum_core/lib/src/message/abstract_message_with_payload.dart packages/connectanum_core/lib/src/message/invocation.dart packages/connectanum_core/lib/src/message/subscribed.dart packages/connectanum_client/lib/src/protocol/session.dart packages/connectanum_client/lib/src/transport/native/e2ee_provider_io.dart packages/connectanum_client/lib/src/transport/native/e2ee_provider_none.dart packages/connectanum_client/lib/src/transport/native/message_binding.dart packages/connectanum_client/test/client_test.dart`
+- `dart test packages/connectanum_core/test/message_e2ee_payload_test.dart packages/connectanum_core/test/message_invocation_test.dart packages/connectanum_client/test/transport/native/e2ee_provider_test.dart packages/connectanum_client/test/client_test.dart -r expanded`
 - `bin/verify`
 
 ## Resume Order
@@ -55,7 +53,8 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - The first native phase-2 parity lane is now landed too: `ct_ffi` exposes E2EE keyring/session handles plus synchronous `xsalsa20poly1305` encrypt/decrypt entrypoints over already-framed PPT bytes, and `connectanum_client` now exports `NativeWampCborXsalsa20Poly1305Provider` on top of the existing negotiated session-provider contract.
 - Session teardown now releases resolver-scoped `DisposableWampE2eeProvider` instances, so native E2EE keyring/session handles do not leak across client sessions.
 - Repo-local client-native loading now prefers fresh `native/transport/target/*/libct_ffi` builds before hook-cache artifacts, which keeps local E2EE/provider tests on the current shared library instead of stale hook outputs.
-- The next concrete E2EE implementation slice is now richer per-message provider runtime context for policy/key selection on top of the shared Dart/native provider lane; router-side decryption is still intentionally out of scope.
+- The richer per-message E2EE runtime-context slice is now landed too: the shared provider contract now receives message family, URI/topic/procedure, local session identity, negotiated `authextra.e2ee`, and disclosed peer metadata across outbound `CALL` / `PUBLISH` and inbound `RESULT` / `EVENT` / `INVOCATION`, with lazy/materialized payload views preserving that context on the decode path.
+- The next concrete E2EE implementation slice is now policy-aware provider/key-selection behavior on top of that shared Dart/native runtime-context lane; router-side decryption is still intentionally out of scope.
 - The `ct_core` runtime test suite now keeps the rawsocket config connection alive through its assertions and recovers the shared test mutex after prior panics so Linux `cargo test -p ct_core` does not cascade `PoisonError` failures after one flaky test.
 - The `ct_ffi` `runtime::ffi` unit tests now use the same shared suite guard as the rest of the FFI tests before touching global message handles, so concurrent `ct_shutdown()` calls from other tests no longer invalidate those handles mid-assertion.
 - The `ct_ffi` HTTP/2 and HTTP/3 body-timeout regressions now keep request bodies flowing well below the idle timeout and assert only on the emitted lifecycle event, so full-suite verification no longer flakes between timeout reasons or handshake-queue timing on this host.

@@ -108,7 +108,7 @@ class Session {
   final Map<int, _PendingInvocationResponder> _pendingInvocations = {};
   final Map<int, String?> _pendingInvocationInterrupts = {};
   final Map<int, Completer<Published>> _pendingPublishes = {};
-  final Map<int, Completer<Subscribed>> _pendingSubscribes = {};
+  final Map<int, _PendingSubscribe> _pendingSubscribes = {};
   final Map<int, _PendingUnsubscribe> _pendingUnsubscribes = {};
   final Map<int, _PendingRegister> _pendingRegisters = {};
   final Map<int, _PendingUnregister> _pendingUnregisters = {};
@@ -348,13 +348,179 @@ class Session {
       return null;
     }
     if (message is NativeSessionMessage) {
-      message.attachE2eeProvider(_resolveRuntimeE2eeProvider());
+      _attachSessionE2eeState(message);
       return message.materialize();
     }
     if (message is AbstractMessageWithPayload) {
-      message.attachE2eeProvider(_resolveRuntimeE2eeProvider());
+      _attachSessionE2eeState(message);
     }
     return message as AbstractMessage?;
+  }
+
+  void _attachSessionE2eeState(AbstractMessageWithPayload message) {
+    message.attachE2eeProvider(_resolveRuntimeE2eeProvider());
+    if (message is NativeSessionMessage) {
+      message.attachE2eeRuntimeContext(
+        _buildInboundRuntimeContextForNative(message),
+      );
+      return;
+    }
+    message.attachE2eeRuntimeContext(
+      _buildInboundRuntimeContextForMessage(message),
+    );
+  }
+
+  WampE2eeRuntimeContext? _buildOutboundRuntimeContext({
+    required WampE2eeMessageType messageType,
+    String? uri,
+    WampE2eePartyContext? peer,
+  }) {
+    return WampE2eeRuntimeContext(
+      direction: WampE2eeDirection.outbound,
+      messageType: messageType,
+      realm: realm,
+      uri: uri,
+      local: _localE2eePartyContext(),
+      peer: peer,
+      negotiated: _negotiatedE2eeRaw(),
+    );
+  }
+
+  WampE2eeRuntimeContext? _buildInboundRuntimeContextForMessage(
+    AbstractMessageWithPayload message,
+  ) {
+    if (message is Result) {
+      return _buildInboundRuntimeContext(
+        messageType: WampE2eeMessageType.result,
+        uri: _pendingCalls[message.callRequestId]?.procedure,
+        peer: _partyContextFromDetails(details: message.details.custom),
+      );
+    }
+    if (message is Event) {
+      return _buildInboundRuntimeContext(
+        messageType: WampE2eeMessageType.event,
+        uri:
+            message.details.topic ??
+            subscriptions[message.subscriptionId]?.topic,
+        peer: _partyContextFromDetails(
+          sessionId: message.details.publisher,
+          trustLevel: message.details.trustlevel,
+          details: message.details.custom,
+        ),
+      );
+    }
+    if (message is Invocation) {
+      return _buildInboundRuntimeContext(
+        messageType: WampE2eeMessageType.invocation,
+        uri:
+            message.details.procedure ??
+            registrations[message.registrationId]?.procedure,
+        peer: _partyContextFromDetails(
+          sessionId: message.details.caller,
+          details: message.details.custom,
+        ),
+      );
+    }
+    return null;
+  }
+
+  WampE2eeRuntimeContext? _buildInboundRuntimeContextForNative(
+    NativeSessionMessage message,
+  ) {
+    final metadata = message.metadata;
+    if (metadata.messageCode == MessageTypes.codeResult) {
+      return _buildInboundRuntimeContext(
+        messageType: WampE2eeMessageType.result,
+        uri: _pendingCalls[metadata.primaryId]?.procedure,
+      );
+    }
+    if (metadata.messageCode == MessageTypes.codeEvent) {
+      return _buildInboundRuntimeContext(
+        messageType: WampE2eeMessageType.event,
+        uri: metadata.stringA ?? subscriptions[metadata.primaryId]?.topic,
+        peer: _partyContextFromNativeMetadata(
+          metadata,
+          sessionIdFlag: NativeMessageMetadata.flagDetailNumberAPresent,
+          trustLevelFlag: NativeMessageMetadata.flagDetailNumberBPresent,
+        ),
+      );
+    }
+    if (metadata.messageCode == MessageTypes.codeInvocation) {
+      return _buildInboundRuntimeContext(
+        messageType: WampE2eeMessageType.invocation,
+        uri: metadata.stringA ?? registrations[metadata.secondaryId]?.procedure,
+        peer: _partyContextFromNativeMetadata(
+          metadata,
+          sessionIdFlag: NativeMessageMetadata.flagDetailNumberAPresent,
+        ),
+      );
+    }
+    return null;
+  }
+
+  WampE2eeRuntimeContext _buildInboundRuntimeContext({
+    required WampE2eeMessageType messageType,
+    String? uri,
+    WampE2eePartyContext? peer,
+  }) {
+    return WampE2eeRuntimeContext(
+      direction: WampE2eeDirection.inbound,
+      messageType: messageType,
+      realm: realm,
+      uri: uri,
+      local: _localE2eePartyContext(),
+      peer: peer,
+      negotiated: _negotiatedE2eeRaw(),
+    );
+  }
+
+  WampE2eePartyContext? _localE2eePartyContext() {
+    final context = WampE2eePartyContext(
+      sessionId: id,
+      authId: authId,
+      authRole: authRole,
+      authMethod: authMethod,
+      authProvider: authProvider,
+      authExtra: _copyStringDynamicMap(authExtra),
+    );
+    return context.isEmpty ? null : context;
+  }
+
+  WampE2eePartyContext? _partyContextFromDetails({
+    int? sessionId,
+    int? trustLevel,
+    Map<String, dynamic>? details,
+  }) {
+    final context = WampE2eePartyContext.fromDetails(
+      sessionId: sessionId,
+      trustLevel: trustLevel,
+      details: details,
+    );
+    return context.isEmpty ? null : context;
+  }
+
+  WampE2eePartyContext? _partyContextFromNativeMetadata(
+    NativeMessageMetadata metadata, {
+    required int sessionIdFlag,
+    int? trustLevelFlag,
+  }) {
+    final sessionId = metadata.hasFlag(sessionIdFlag)
+        ? metadata.detailNumberA
+        : null;
+    final trustLevel =
+        trustLevelFlag != null && metadata.hasFlag(trustLevelFlag)
+        ? metadata.detailNumberB
+        : null;
+    final context = WampE2eePartyContext(
+      sessionId: sessionId,
+      trustLevel: trustLevel,
+    );
+    return context.isEmpty ? null : context;
+  }
+
+  Map<String, dynamic>? _negotiatedE2eeRaw() {
+    final negotiated = negotiatedE2ee?.raw;
+    return _copyStringDynamicMap(negotiated);
   }
 
   /// If there is a transport object that is opened and the incoming stream has not
@@ -411,7 +577,10 @@ class Session {
         }
       },
     );
-    _pendingCalls[call.requestId] = _PendingCallStream(controller);
+    _pendingCalls[call.requestId] = _PendingCallStream(
+      procedure: procedure,
+      controller: controller,
+    );
     _transport.send(call);
     _attachCallCancellation(call.requestId, cancelCompleter);
     return controller.stream;
@@ -525,7 +694,10 @@ class Session {
       options: options,
     );
     final completer = Completer<LazyResultPayload>();
-    _pendingCalls[call.requestId] = _PendingCallLazyPayloadFuture(completer);
+    _pendingCalls[call.requestId] = _PendingCallLazyPayloadFuture(
+      procedure: procedure,
+      completer: completer,
+    );
     _transport.send(call);
     _attachCallCancellation(call.requestId, cancelCompleter);
     return completer.future;
@@ -537,7 +709,10 @@ class Session {
   Future<Subscribed> subscribe(String topic, {SubscribeOptions? options}) {
     final subscribe = Subscribe(nextSubscribeId++, topic, options: options);
     final completer = Completer<Subscribed>();
-    _pendingSubscribes[subscribe.requestId] = completer;
+    _pendingSubscribes[subscribe.requestId] = _PendingSubscribe(
+      topic: topic,
+      completer: completer,
+    );
     _transport.send(subscribe);
     return completer.future;
   }
@@ -712,7 +887,7 @@ class Session {
       return;
     }
     if (message is AbstractMessageWithPayload) {
-      message.attachE2eeProvider(_resolveRuntimeE2eeProvider());
+      _attachSessionE2eeState(message);
     }
     if (message is NativeSessionMessage) {
       _handleNativeSessionMessage(message);
@@ -728,7 +903,11 @@ class Session {
     }
     if (message is Subscribed) {
       subscriptions[message.subscriptionId] = message;
-      _pendingSubscribes.remove(message.subscribeRequestId)?.complete(message);
+      final pending = _pendingSubscribes.remove(message.subscribeRequestId);
+      if (pending != null) {
+        message.topic = pending.topic;
+        pending.completer.complete(message);
+      }
       return;
     }
     if (message is Unsubscribed) {
@@ -816,7 +995,7 @@ class Session {
   }
 
   void _handleNativeSessionMessage(NativeSessionMessage message) {
-    message.attachE2eeProvider(_resolveRuntimeE2eeProvider());
+    _attachSessionE2eeState(message);
     final code = message.metadata.messageCode;
     if (code == MessageTypes.codeResult) {
       _handleNativeResult(message);
@@ -984,7 +1163,7 @@ class Session {
     }
     if (message.requestTypeId == MessageTypes.codeSubscribe) {
       _completePendingError(
-        _pendingSubscribes.remove(message.requestId),
+        _pendingSubscribes.remove(message.requestId)?.completer,
         message,
       );
       return;
@@ -1066,6 +1245,11 @@ class Session {
     NativeSessionMessage message,
   ) {
     var responseClosed = false;
+    final yieldRuntimeContext = message.e2eeRuntimeContext?.copyWith(
+      direction: WampE2eeDirection.outbound,
+      messageType: WampE2eeMessageType.yield,
+      uri: message.metadata.stringA ?? message.e2eeRuntimeContext?.uri,
+    );
 
     void respondWith({
       LazyMessagePayload? lazyPayload,
@@ -1139,6 +1323,7 @@ class Session {
       yieldMessage.attachE2eeProvider(
         _resolveRuntimeE2eeProvider(lazyPayload?.e2eeProvider),
       );
+      yieldMessage.attachE2eeRuntimeContext(yieldRuntimeContext);
       _transport.send(yieldMessage);
       if (options?.progress != true) {
         responseClosed = true;
@@ -1243,9 +1428,9 @@ class Session {
     }
 
     final publishCompleters = _pendingPublishes.values.toList(growable: false);
-    final subscribeCompleters = _pendingSubscribes.values.toList(
-      growable: false,
-    );
+    final subscribeCompleters = _pendingSubscribes.values
+        .map((pending) => pending.completer)
+        .toList(growable: false);
     final unsubscribeCompleters = _pendingUnsubscribes.values
         .map((pending) => pending.completer)
         .toList(growable: false);
@@ -1333,6 +1518,12 @@ class Session {
     CallOptions? options,
   }) {
     final call = Call(nextCallId++, procedure, options: options);
+    call.attachE2eeRuntimeContext(
+      _buildOutboundRuntimeContext(
+        messageType: WampE2eeMessageType.call,
+        uri: procedure,
+      ),
+    );
     _applyOutboundLazyPayload(call, payload, options);
     return call;
   }
@@ -1343,6 +1534,12 @@ class Session {
     PublishOptions? options,
   }) {
     final publish = Publish(nextPublishId++, topic, options: options);
+    publish.attachE2eeRuntimeContext(
+      _buildOutboundRuntimeContext(
+        messageType: WampE2eeMessageType.publish,
+        uri: topic,
+      ),
+    );
     _applyOutboundLazyPayload(publish, payload, options);
     return publish;
   }
@@ -1368,6 +1565,7 @@ class Session {
               payload.argumentsKeywords,
               options!,
               provider: runtimeE2eeProvider ?? message.e2eeProvider,
+              runtimeContext: message.e2eeRuntimeContext,
             )
           : <dynamic>[packedPayload];
       message.argumentsKeywords = null;
@@ -1429,6 +1627,8 @@ class Session {
     return _NegotiatedSessionE2eeProvider(
       provider: resolvedProvider,
       negotiated: negotiated,
+      realm: realm,
+      local: _localE2eePartyContext(),
     );
   }
 
@@ -1536,25 +1736,43 @@ class _NegotiatedSessionE2eeProvider implements WampE2eeProvider {
   _NegotiatedSessionE2eeProvider({
     required this.provider,
     required this.negotiated,
+    required this.realm,
+    required this.local,
   });
 
   final WampE2eeProvider provider;
   final NegotiatedSessionE2ee negotiated;
+  final String? realm;
+  final WampE2eePartyContext? local;
 
   @override
   List<dynamic> packPayload(
     List<dynamic>? arguments,
     Map<String, dynamic>? argumentsKeywords,
-    PPTOptions options,
-  ) {
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
     _applyDefaults(options, outbound: true);
-    return provider.packPayload(arguments, argumentsKeywords, options);
+    return provider.packPayload(
+      arguments,
+      argumentsKeywords,
+      options,
+      runtimeContext: _mergeRuntimeContext(runtimeContext),
+    );
   }
 
   @override
-  E2EEPayloadView unpackPayload(List<dynamic>? arguments, PPTOptions options) {
+  E2EEPayloadView unpackPayload(
+    List<dynamic>? arguments,
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
     _applyDefaults(options, outbound: false);
-    return provider.unpackPayload(arguments, options);
+    return provider.unpackPayload(
+      arguments,
+      options,
+      runtimeContext: _mergeRuntimeContext(runtimeContext),
+    );
   }
 
   void _applyDefaults(PPTOptions options, {required bool outbound}) {
@@ -1566,6 +1784,23 @@ class _NegotiatedSessionE2eeProvider implements WampE2eeProvider {
     options.pptKeyId ??= outbound
         ? negotiated.outboundKeyId
         : negotiated.inboundKeyId;
+  }
+
+  WampE2eeRuntimeContext? _mergeRuntimeContext(
+    WampE2eeRuntimeContext? runtimeContext,
+  ) {
+    if (runtimeContext == null) {
+      return null;
+    }
+    return runtimeContext.copyWith(
+      realm: runtimeContext.realm ?? realm,
+      local: runtimeContext.local ?? local,
+      negotiated:
+          runtimeContext.negotiated ??
+          Map<String, dynamic>.unmodifiable(
+            Map<String, dynamic>.from(negotiated.raw),
+          ),
+    );
   }
 }
 
@@ -1580,6 +1815,8 @@ Map<String, dynamic>? _asStringDynamicMap(Object? value) {
 }
 
 abstract class _PendingCall {
+  String get procedure;
+
   bool addResult(Result result);
 
   void addError(Object error, [StackTrace? stackTrace]);
@@ -1588,7 +1825,10 @@ abstract class _PendingCall {
 }
 
 class _PendingCallStream implements _PendingCall {
-  _PendingCallStream(this.controller);
+  _PendingCallStream({required this.procedure, required this.controller});
+
+  @override
+  final String procedure;
 
   final StreamController<Result> controller;
 
@@ -1613,7 +1853,13 @@ class _PendingCallStream implements _PendingCall {
 }
 
 class _PendingCallLazyPayloadFuture implements _PendingCall {
-  _PendingCallLazyPayloadFuture(this.completer);
+  _PendingCallLazyPayloadFuture({
+    required this.procedure,
+    required this.completer,
+  });
+
+  @override
+  final String procedure;
 
   final Completer<LazyResultPayload> completer;
 
@@ -1651,6 +1897,13 @@ class _PendingInvocationResponder {
   final void Function(String? mode) cancel;
 }
 
+class _PendingSubscribe {
+  _PendingSubscribe({required this.topic, required this.completer});
+
+  final String topic;
+  final Completer<Subscribed> completer;
+}
+
 class _PendingUnsubscribe {
   _PendingUnsubscribe({required this.subscriptionId, required this.completer});
 
@@ -1670,4 +1923,11 @@ class _PendingUnregister {
 
   final int registrationId;
   final Completer<void> completer;
+}
+
+Map<String, dynamic>? _copyStringDynamicMap(Map<String, dynamic>? value) {
+  if (value == null) {
+    return null;
+  }
+  return Map<String, dynamic>.unmodifiable(Map<String, dynamic>.from(value));
 }

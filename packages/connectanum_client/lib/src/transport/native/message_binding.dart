@@ -35,6 +35,7 @@ class NativeSessionMessage extends AbstractMessageWithPayload {
     }
     if (boundMessage is AbstractMessageWithPayload) {
       boundMessage.attachE2eeProvider(e2eeProvider);
+      boundMessage.attachE2eeRuntimeContext(e2eeRuntimeContext);
     }
     return boundMessage;
   }

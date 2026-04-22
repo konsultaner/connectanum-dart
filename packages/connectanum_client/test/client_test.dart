@@ -3024,6 +3024,215 @@ void main() {
         await session.close(timeout: Duration.zero);
       },
     );
+    test('publishLazyPayload forwards E2EE runtime context', () async {
+      final transport = _MockTransport();
+      final inspectingProvider = _InspectingWampE2eeProvider(
+        _testWampE2eeNegotiatedProvider(),
+      );
+      final client = Client(
+        realm: 'test.realm',
+        transport: transport,
+        authId: 'client-a',
+        authRole: 'publisher',
+        e2eeProvider: inspectingProvider,
+      );
+
+      transport.outbound.stream.listen((message) {
+        if (message.id == MessageTypes.codeHello) {
+          transport.receiveMessage(
+            Welcome(
+              42,
+              Details.forWelcome(
+                realm: 'test.realm',
+                authId: 'client-a',
+                authRole: 'publisher',
+                authMethod: 'ticket',
+                authProvider: 'bench-auth',
+                authExtra: _negotiatedE2eeAuthExtra(),
+              ),
+            ),
+          );
+        }
+      });
+
+      final session = await client.connect().first;
+      await session.publishLazyPayload(
+        'bench.secure.topic',
+        payload: LazyMessagePayload.materialized(
+          arguments: const ['wrapped'],
+          argumentsKeywords: const {'worker': 4},
+        ),
+        options: PublishOptions(pptScheme: 'wamp'),
+      );
+
+      final context = inspectingProvider.lastPackRuntimeContext;
+      expect(context, isNotNull);
+      expect(context!.direction, equals(WampE2eeDirection.outbound));
+      expect(context.messageType, equals(WampE2eeMessageType.publish));
+      expect(context.realm, equals('test.realm'));
+      expect(context.uri, equals('bench.secure.topic'));
+      expect(context.local?.sessionId, equals(42));
+      expect(context.local?.authId, equals('client-a'));
+      expect(context.local?.authRole, equals('publisher'));
+      expect(context.local?.authMethod, equals('ticket'));
+      expect(context.local?.authProvider, equals('bench-auth'));
+      expect(context.negotiated?['send_key_id'], equals('kid-server-a'));
+
+      await session.close(timeout: Duration.zero);
+    });
+    test(
+      'callSingle forwards E2EE runtime context for native direct results',
+      () async {
+        final packer = _testWampE2eeProvider();
+        final inspectingProvider = _InspectingWampE2eeProvider(packer);
+        final packOptions = ResultDetails(
+          pptScheme: 'wamp',
+          pptSerializer: 'cbor',
+        );
+        final packedArguments = packer.packPayload(
+          const ['wrapped-result'],
+          const {'worker': 12},
+          packOptions,
+        );
+        final transport = _SessionOptimizedMockTransport((message, transport) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveObject(
+              Welcome(
+                42,
+                Details.forWelcome(
+                  realm: 'test.realm',
+                  authId: 'client-a',
+                  authRole: 'caller',
+                  authMethod: 'ticket',
+                  authProvider: 'bench-auth',
+                ),
+              ),
+            );
+            return;
+          }
+          if (message.id == MessageTypes.codeCall) {
+            transport.receiveObject(
+              _nativeDirectResultMessage(
+                requestId: (message as Call).requestId,
+                pptScheme: 'wamp',
+                pptSerializer: 'cbor',
+                pptCipher: packOptions.pptCipher,
+                pptKeyId: packOptions.pptKeyId,
+                argsBytes: Uint8List.fromList(
+                  cbor.cborEncode(
+                    cbor.CborValue(<Object?>[packedArguments.single]),
+                  ),
+                ),
+              ),
+            );
+          }
+        });
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+          e2eeProvider: inspectingProvider,
+        ).connect().first;
+
+        final result = await session.callSingle('wamp.result');
+        expect(result.arguments, equals(const ['wrapped-result']));
+        expect(result.argumentsKeywords, equals(const {'worker': 12}));
+
+        final context = inspectingProvider.lastUnpackRuntimeContext;
+        expect(context, isNotNull);
+        expect(context!.direction, equals(WampE2eeDirection.inbound));
+        expect(context.messageType, equals(WampE2eeMessageType.result));
+        expect(context.realm, equals('test.realm'));
+        expect(context.uri, equals('wamp.result'));
+        expect(context.local?.sessionId, equals(42));
+        expect(context.local?.authId, equals('client-a'));
+        expect(context.local?.authRole, equals('caller'));
+        expect(context.local?.authMethod, equals('ticket'));
+        expect(context.local?.authProvider, equals('bench-auth'));
+      },
+    );
+    test(
+      'registerHandler forwards peer metadata in E2EE runtime context',
+      () async {
+        final packer = _testWampE2eeProvider();
+        final inspectingProvider = _InspectingWampE2eeProvider(packer);
+        final invocationSeen = Completer<void>();
+        final transport = _MockTransport();
+
+        transport.outbound.stream.listen((message) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveMessage(
+              Welcome(
+                42,
+                Details.forWelcome(
+                  realm: 'test.realm',
+                  authId: 'callee-a',
+                  authRole: 'callee',
+                  authMethod: 'ticket',
+                  authProvider: 'bench-auth',
+                ),
+              ),
+            );
+            return;
+          }
+          if (message.id == MessageTypes.codeRegister) {
+            final register = message as Register;
+            transport.receiveMessage(Registered(register.requestId, 77));
+
+            final options = InvocationDetails(
+              9001,
+              'bench.proc',
+              false,
+              'wamp',
+              'cbor',
+              null,
+              null,
+              const {
+                'authid': 'caller-a',
+                'authrole': 'caller',
+                'authprovider': 'remote-auth',
+              },
+            );
+            final packedArguments = packer.packPayload(
+              const ['wrapped-invocation'],
+              const {'worker': 3},
+              options,
+            );
+            transport.receiveMessage(
+              Invocation(1001, 77, options, arguments: packedArguments),
+            );
+            return;
+          }
+        });
+
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+          e2eeProvider: inspectingProvider,
+        ).connect().first;
+        await session.registerHandler('bench.proc', (invocation) {
+          expect(invocation.arguments, equals(const ['wrapped-invocation']));
+          expect(invocation.argumentsKeywords, equals(const {'worker': 3}));
+          invocation.respondWith(arguments: const ['ok']);
+          invocationSeen.complete();
+        });
+
+        await invocationSeen.future;
+        final context = inspectingProvider.lastUnpackRuntimeContext;
+        expect(context, isNotNull);
+        expect(context!.direction, equals(WampE2eeDirection.inbound));
+        expect(context.messageType, equals(WampE2eeMessageType.invocation));
+        expect(context.realm, equals('test.realm'));
+        expect(context.uri, equals('bench.proc'));
+        expect(context.local?.sessionId, equals(42));
+        expect(context.local?.authId, equals('callee-a'));
+        expect(context.peer?.sessionId, equals(9001));
+        expect(context.peer?.authId, equals('caller-a'));
+        expect(context.peer?.authRole, equals('caller'));
+        expect(context.peer?.authProvider, equals('remote-auth'));
+
+        await session.close(timeout: Duration.zero);
+      },
+    );
     test('request routing handles out-of-order router replies', () async {
       const stepTimeout = Duration(seconds: 1);
       final transport = _OutOfOrderResponseTransport();
@@ -3174,6 +3383,44 @@ WampCborXsalsa20Poly1305Provider _testWampE2eeNegotiatedProvider() {
       'kid-client-a': List<int>.generate(32, (index) => index + 65),
     },
   );
+}
+
+class _InspectingWampE2eeProvider implements WampE2eeProvider {
+  _InspectingWampE2eeProvider(this.delegate);
+
+  final WampE2eeProvider delegate;
+  WampE2eeRuntimeContext? lastPackRuntimeContext;
+  WampE2eeRuntimeContext? lastUnpackRuntimeContext;
+
+  @override
+  List<dynamic> packPayload(
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
+    lastPackRuntimeContext = runtimeContext;
+    return delegate.packPayload(
+      arguments,
+      argumentsKeywords,
+      options,
+      runtimeContext: runtimeContext,
+    );
+  }
+
+  @override
+  E2EEPayloadView unpackPayload(
+    List<dynamic>? arguments,
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
+    lastUnpackRuntimeContext = runtimeContext;
+    return delegate.unpackPayload(
+      arguments,
+      options,
+      runtimeContext: runtimeContext,
+    );
+  }
 }
 
 Map<String, dynamic> _negotiatedE2eeAuthExtra() {

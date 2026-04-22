@@ -22,6 +22,7 @@ class LazyMessagePayload {
     this.encoding,
     this.pptDecoded = false,
     this.e2eeProvider,
+    this.e2eeRuntimeContext,
     Uint8List? argumentsBytes,
     Uint8List? argumentsKeywordsBytes,
     PayloadListDecoder? argumentsDecoder,
@@ -44,6 +45,7 @@ class LazyMessagePayload {
     Uint8List? transparentBinaryPayload,
     LazyPayloadEncoding? encoding,
     WampE2eeProvider? e2eeProvider,
+    WampE2eeRuntimeContext? e2eeRuntimeContext,
     Uint8List? argumentsBytes,
     Uint8List? argumentsKeywordsBytes,
     PayloadListDecoder? argumentsDecoder,
@@ -56,6 +58,7 @@ class LazyMessagePayload {
       transparentBinaryPayload: transparentBinaryPayload,
       encoding: encoding,
       e2eeProvider: e2eeProvider,
+      e2eeRuntimeContext: e2eeRuntimeContext,
       argumentsBytes: argumentsBytes,
       argumentsKeywordsBytes: argumentsKeywordsBytes,
       argumentsDecoder: argumentsDecoder,
@@ -75,12 +78,14 @@ class LazyMessagePayload {
     required PackedPayloadDecoder packedPayloadDecoder,
     bool pptDecoded = true,
     WampE2eeProvider? e2eeProvider,
+    WampE2eeRuntimeContext? e2eeRuntimeContext,
     Object? anchor,
   }) {
     return LazyMessagePayload._(
       transparentBinaryPayload: transparentBinaryPayload,
       encoding: encoding,
       e2eeProvider: e2eeProvider,
+      e2eeRuntimeContext: e2eeRuntimeContext,
       packedPayloadBytes: packedPayloadBytes,
       packedPayloadDecoder: packedPayloadDecoder,
       pptDecoded: pptDecoded,
@@ -95,12 +100,14 @@ class LazyMessagePayload {
     Map<String, dynamic>? argumentsKeywords,
     bool pptDecoded = false,
     WampE2eeProvider? e2eeProvider,
+    WampE2eeRuntimeContext? e2eeRuntimeContext,
     Object? anchor,
   }) {
     return LazyMessagePayload._(
       transparentBinaryPayload: transparentBinaryPayload,
       encoding: encoding,
       e2eeProvider: e2eeProvider,
+      e2eeRuntimeContext: e2eeRuntimeContext,
       arguments: arguments,
       argumentsKeywords: argumentsKeywords,
       pptDecoded: pptDecoded,
@@ -112,6 +119,7 @@ class LazyMessagePayload {
   final LazyPayloadEncoding? encoding;
   final bool pptDecoded;
   final WampE2eeProvider? e2eeProvider;
+  final WampE2eeRuntimeContext? e2eeRuntimeContext;
   final Object? anchor;
 
   Uint8List? _argumentsBytes;
@@ -163,6 +171,7 @@ class LazyMessagePayload {
       encoding: encoding,
       pptDecoded: pptDecoded,
       e2eeProvider: e2eeProvider,
+      e2eeRuntimeContext: e2eeRuntimeContext,
       argumentsBytes: _argumentsBytes == null
           ? null
           : Uint8List.fromList(_argumentsBytes!),
@@ -200,6 +209,7 @@ class LazyMessagePayload {
       encoding: encoding,
       pptDecoded: pptDecoded,
       e2eeProvider: e2eeProvider,
+      e2eeRuntimeContext: e2eeRuntimeContext,
       argumentsBytes: _argumentsBytes,
       argumentsKeywordsBytes: _argumentsKeywordsBytes,
       argumentsDecoder: _argumentsDecoder,
@@ -221,6 +231,31 @@ class LazyMessagePayload {
       encoding: encoding,
       pptDecoded: pptDecoded,
       e2eeProvider: provider,
+      e2eeRuntimeContext: e2eeRuntimeContext,
+      argumentsBytes: _argumentsBytes,
+      argumentsKeywordsBytes: _argumentsKeywordsBytes,
+      argumentsDecoder: _argumentsDecoder,
+      argumentsKeywordsDecoder: _argumentsKeywordsDecoder,
+      packedPayloadBytes: _packedPayloadBytes,
+      packedPayloadDecoder: _packedPayloadDecoder,
+      arguments: _arguments,
+      argumentsKeywords: _argumentsKeywords,
+      anchor: anchor,
+    );
+  }
+
+  LazyMessagePayload withE2eeRuntimeContext(
+    WampE2eeRuntimeContext? runtimeContext,
+  ) {
+    if (runtimeContext == e2eeRuntimeContext) {
+      return this;
+    }
+    return LazyMessagePayload._(
+      transparentBinaryPayload: transparentBinaryPayload,
+      encoding: encoding,
+      pptDecoded: pptDecoded,
+      e2eeProvider: e2eeProvider,
+      e2eeRuntimeContext: runtimeContext,
       argumentsBytes: _argumentsBytes,
       argumentsKeywordsBytes: _argumentsKeywordsBytes,
       argumentsDecoder: _argumentsDecoder,
@@ -242,6 +277,7 @@ MaterializedPayloadView decodePayloadView(
   String? pptCipher,
   String? pptKeyId,
   WampE2eeProvider? e2eeProvider,
+  WampE2eeRuntimeContext? runtimeContext,
 }) {
   if (pptScheme == null) {
     return (arguments: arguments, argumentsKeywords: argumentsKeywords);
@@ -258,6 +294,7 @@ MaterializedPayloadView decodePayloadView(
       arguments,
       options,
       provider: e2eeProvider,
+      runtimeContext: runtimeContext,
     );
     return (
       arguments: e2eePayload.arguments,
@@ -278,6 +315,7 @@ MaterializedPayloadView decodeLazyPayloadView(
   String? pptCipher,
   String? pptKeyId,
   WampE2eeProvider? e2eeProvider,
+  WampE2eeRuntimeContext? runtimeContext,
 }) {
   if (payload.pptDecoded) {
     return (
@@ -293,6 +331,7 @@ MaterializedPayloadView decodeLazyPayloadView(
     pptCipher: pptCipher,
     pptKeyId: pptKeyId,
     e2eeProvider: e2eeProvider ?? payload.e2eeProvider,
+    runtimeContext: runtimeContext ?? payload.e2eeRuntimeContext,
   );
 }
 
@@ -303,12 +342,16 @@ LazyMessagePayload unwrapLazyPayloadView(
   String? pptCipher,
   String? pptKeyId,
   WampE2eeProvider? e2eeProvider,
+  WampE2eeRuntimeContext? runtimeContext,
 }) {
   final resolvedE2eeProvider = e2eeProvider ?? payload.e2eeProvider;
+  final resolvedRuntimeContext = runtimeContext ?? payload.e2eeRuntimeContext;
   if (pptScheme == null ||
       payload.pptDecoded ||
       payload.packedPayloadBytes != null) {
-    return payload.withE2eeProvider(resolvedE2eeProvider);
+    return payload
+        .withE2eeProvider(resolvedE2eeProvider)
+        .withE2eeRuntimeContext(resolvedRuntimeContext);
   }
   final outerArguments = payload.arguments;
   final outerArgumentsKeywords = payload.argumentsKeywords;
@@ -320,6 +363,7 @@ LazyMessagePayload unwrapLazyPayloadView(
       argumentsKeywords: const <String, dynamic>{},
       pptDecoded: true,
       e2eeProvider: resolvedE2eeProvider,
+      e2eeRuntimeContext: resolvedRuntimeContext,
       anchor: payload.anchor,
     );
   }
@@ -341,6 +385,7 @@ LazyMessagePayload unwrapLazyPayloadView(
           pptCipher: pptCipher,
           pptKeyId: pptKeyId,
           e2eeProvider: resolvedE2eeProvider,
+          runtimeContext: resolvedRuntimeContext,
         );
         return (
           arguments: decoded.arguments,
@@ -348,6 +393,7 @@ LazyMessagePayload unwrapLazyPayloadView(
         );
       },
       e2eeProvider: resolvedE2eeProvider,
+      e2eeRuntimeContext: resolvedRuntimeContext,
       anchor: payload.anchor,
     );
   }
@@ -358,6 +404,7 @@ LazyMessagePayload unwrapLazyPayloadView(
     pptCipher: pptCipher,
     pptKeyId: pptKeyId,
     e2eeProvider: resolvedE2eeProvider,
+    runtimeContext: resolvedRuntimeContext,
   );
   return LazyMessagePayload.materialized(
     transparentBinaryPayload: payload.transparentBinaryPayload,
@@ -366,6 +413,7 @@ LazyMessagePayload unwrapLazyPayloadView(
     argumentsKeywords: decoded.argumentsKeywords,
     pptDecoded: true,
     e2eeProvider: resolvedE2eeProvider,
+    e2eeRuntimeContext: resolvedRuntimeContext,
     anchor: payload.anchor,
   );
 }
@@ -445,6 +493,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
   bool _pptPayloadDecoded = false;
   LazyMessagePayload? _retainedLazyPayload;
   WampE2eeProvider? _e2eeProvider;
+  WampE2eeRuntimeContext? _e2eeRuntimeContext;
 
   AbstractMessageWithPayload({
     List<dynamic>? arguments,
@@ -506,12 +555,25 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
   WampE2eeProvider? get e2eeProvider =>
       _retainedLazyPayload?.e2eeProvider ?? _e2eeProvider;
 
+  WampE2eeRuntimeContext? get e2eeRuntimeContext =>
+      _e2eeRuntimeContext ?? _retainedLazyPayload?.e2eeRuntimeContext;
+
   void attachE2eeProvider(WampE2eeProvider? provider) {
     _e2eeProvider = provider;
     final retainedLazyPayload = _retainedLazyPayload;
     if (retainedLazyPayload != null) {
       _retainedLazyPayload = retainedLazyPayload
           .withE2eeProvider(provider)
+          .withAnchor(this);
+    }
+  }
+
+  void attachE2eeRuntimeContext(WampE2eeRuntimeContext? runtimeContext) {
+    _e2eeRuntimeContext = runtimeContext;
+    final retainedLazyPayload = _retainedLazyPayload;
+    if (retainedLazyPayload != null) {
+      _retainedLazyPayload = retainedLazyPayload
+          .withE2eeRuntimeContext(runtimeContext)
           .withAnchor(this);
     }
   }
@@ -533,6 +595,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
         argumentsKeywords: argumentsKeywords,
         pptDecoded: true,
         e2eeProvider: e2eeProvider,
+        e2eeRuntimeContext: e2eeRuntimeContext,
         anchor: anchor ?? this,
       );
     }
@@ -551,6 +614,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
             ? _argumentsKeywords
             : null,
         e2eeProvider: e2eeProvider,
+        e2eeRuntimeContext: e2eeRuntimeContext,
         anchor: anchor ?? this,
       );
     }
@@ -560,6 +624,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
       arguments: _arguments,
       argumentsKeywords: _argumentsKeywords,
       e2eeProvider: e2eeProvider,
+      e2eeRuntimeContext: e2eeRuntimeContext,
       anchor: anchor ?? this,
     );
   }
@@ -589,8 +654,13 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
 
   void retainLazyPayload(LazyMessagePayload payload) {
     final provider = payload.e2eeProvider ?? _e2eeProvider;
+    final runtimeContext = _e2eeRuntimeContext ?? payload.e2eeRuntimeContext;
     _e2eeProvider = provider;
-    _retainedLazyPayload = payload.withE2eeProvider(provider).withAnchor(this);
+    _e2eeRuntimeContext = runtimeContext;
+    _retainedLazyPayload = payload
+        .withE2eeProvider(provider)
+        .withE2eeRuntimeContext(runtimeContext)
+        .withAnchor(this);
     _lazyPayloadEncoding ??= payload.encoding;
   }
 
@@ -599,13 +669,19 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
   /// arguments so decode-on-access still works for classic getters.
   void restoreLazyPayload(LazyMessagePayload payload) {
     final provider = payload.e2eeProvider ?? _e2eeProvider;
+    final runtimeContext = _e2eeRuntimeContext ?? payload.e2eeRuntimeContext;
     transparentBinaryPayload = payload.transparentBinaryPayload;
     _lazyPayloadEncoding = payload.encoding;
     if (payload.packedPayloadBytes != null) {
       arguments = <dynamic>[payload.packedPayloadBytes!];
       argumentsKeywords = null;
       attachE2eeProvider(provider);
-      retainLazyPayload(payload.withE2eeProvider(provider));
+      attachE2eeRuntimeContext(runtimeContext);
+      retainLazyPayload(
+        payload
+            .withE2eeProvider(provider)
+            .withE2eeRuntimeContext(runtimeContext),
+      );
       return;
     }
     setLazyPayload(
@@ -629,7 +705,10 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
       markPptPayloadDecoded();
     }
     attachE2eeProvider(provider);
-    retainLazyPayload(payload.withE2eeProvider(provider));
+    attachE2eeRuntimeContext(runtimeContext);
+    retainLazyPayload(
+      payload.withE2eeProvider(provider).withE2eeRuntimeContext(runtimeContext),
+    );
   }
 
   /// Unpacks PPT/E2EE payloads in place only when a caller actually touches the
@@ -666,6 +745,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
       pptCipher: pptCipher,
       pptKeyId: pptKeyId,
       e2eeProvider: e2eeProvider,
+      runtimeContext: e2eeRuntimeContext,
     );
     _arguments = decoded.arguments;
     _argumentsKeywords = decoded.argumentsKeywords;
@@ -693,6 +773,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
   /// Transfers the message payload to another message
   void copyPayloadTo(AbstractMessageWithPayload message) {
     message.attachE2eeProvider(e2eeProvider);
+    message.attachE2eeRuntimeContext(e2eeRuntimeContext);
     message.transparentBinaryPayload = transparentBinaryPayload;
 
     if ((_encodedArguments != null && _argumentsDecoder != null) ||
