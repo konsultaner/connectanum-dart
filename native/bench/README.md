@@ -11,6 +11,11 @@ It works together with:
 - `native/bench/scenarios/*.toml`
   Scenario files that define concrete workloads.
 
+Secure WAMP scenarios use the same workload format with one extra selector:
+set `secure_transport = true` and point the workload at `bench.secure` ticket
+auth if it should run through the TLS WAMP listener in
+`native/bench/bench_router.json`.
+
 ## What It Measures
 
 - HTTP/1.1, HTTP/2, and HTTP/3 throughput and latency

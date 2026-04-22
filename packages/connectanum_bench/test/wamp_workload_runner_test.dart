@@ -776,6 +776,20 @@ void main() {
       expect(scenario.toJson()['realm'], 'bench.secure');
       expect(scenario.toJson()['auth_method'], 'ticket');
     });
+
+    test('parses secure transport selection', () {
+      final scenario = WampScenario.fromJson({
+        'realm': 'bench.secure',
+        'auth_method': 'ticket',
+        'transport': 'ws',
+        'mode': 'rpc',
+        'uri': 'bench.rpc.echo',
+        'secure_transport': true,
+      });
+
+      expect(scenario.secureTransport, isTrue);
+      expect(scenario.toJson()['secure_transport'], isTrue);
+    });
   });
 
   group('authenticationMethodsForScenario', () {

@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `6d18344` (`fix(ktls): preserve unbuffered handshake bytes`)
+Last reviewed commit: `121b92a` (`docs: polish package public surfaces`)
 
 ## Resume Order
 
@@ -22,6 +22,9 @@ Last reviewed commit: `6d18344` (`fix(ktls): preserve unbuffered handshake bytes
 - The root router verification now runs from `packages/connectanum_router` so the package-local `dart_test.yaml` (`concurrency: 1`) applies to the full suite on every host.
 - The bench WAMP integration tests now resolve their worker helper from either the bench package root or the repo root so Linux CI and local root-script runs share the same path contract.
 - The bench now ships `native/bench/scenarios/transport_mbit_matrix_throughput.toml` as the throughput-grade counterpart to the cross-transport/auth/authz smoke matrix, preserving the same auth/authz/public/protected row shape while raising sustained-workload settings for one canonical Mbps artifact set.
+- The bench WAMP harness now supports explicit secure-target selection through `secure_transport = true`, keeps separate cleartext and TLS listener target maps for both the in-process runner and the native helper worker, and fails closed instead of silently falling back to the cleartext WAMP listener.
+- `native/bench/bench_router.json` now ships both cleartext WAMP (`127.0.0.1:8081`) and TLS WAMP (`127.0.0.1:8083`) listeners, and both WebSocket listeners advertise `wamp.2.json`, `wamp.2.msgpack`, and `wamp.2.cbor` so the bench scenario surface matches the supported WAMP serializers.
+- The bench workload contract now includes `secure_transport`, and `native/bench/scenarios/wamp_secure_smoke.toml` provides the first checked-in secure RawSocket/WebSocket smoke coverage against `bench.secure` ticket auth.
 - `connectanum_core` now exposes a typed `WampE2eeProvider` contract plus an explicit `WampE2eeProviderUnavailableException`, so `ppt_scheme = "wamp"` payloads no longer silently materialize empty args/kwargs when no decryptor is available.
 - The Dart client/session path now threads an optional `e2eeProvider` through outbound publish/call/yield packing, materialized inbound messages, and native direct-result/event/invocation payload views while preserving the existing packed-byte passthrough behavior for matching lazy WAMP payloads.
 - The first Dart-side WAMP E2EE prototype is now implemented. `connectanum_core` ships `WampCborXsalsa20Poly1305Provider`, explicit unsupported-cipher / missing-key / invalid-payload / decryption failure types, and a focused provider regression test.
@@ -207,6 +210,9 @@ Last reviewed commit: `6d18344` (`fix(ktls): preserve unbuffered handshake bytes
 - 2026-04-22: GitHub Actions runs `24773860109` (`CI`), `24773860116` (`kTLS Validation`), and `24773860158` (`kTLS HTTP/2 Benchmarks`) all passed on `add-router` for commit `6d18344`, closing the HTTP/2 kTLS correctness milestone on hosted Linux.
 - 2026-04-22: `bin/test-fast` passed on Darwin arm64 before the package-level public-surface docs cleanup pass.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after the package-level public-surface docs cleanup pass, including the full Rust, Dart, router, and browser suites.
+- 2026-04-22: `dart test packages/connectanum_bench/test/wamp_transport_targets_test.dart packages/connectanum_bench/test/wamp_workload_runner_test.dart -r expanded` passed on Darwin arm64 after adding explicit secure WAMP target selection and the new `secure_transport` scenario flag.
+- 2026-04-22: `cargo test --manifest-path native/bench/Cargo.toml prepared_workload -- --nocapture` passed on Darwin arm64 after extending the Rust bench orchestrator to forward `secure_transport` into the Dart WAMP control payload.
+- 2026-04-22: `python3` `tomllib` parsing confirmed `native/bench/scenarios/wamp_secure_smoke.toml` loads cleanly with four secure WAMP workloads.
 
 ## Active Plan
 

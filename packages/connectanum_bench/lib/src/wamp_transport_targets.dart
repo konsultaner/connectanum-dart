@@ -54,12 +54,16 @@ class WampTransportTarget {
 }
 
 Map<WampTransport, WampTransportTarget> resolveWampTransportTargets(
-  Iterable<ListenerSettings> listeners,
-) {
+  Iterable<ListenerSettings> listeners, {
+  bool secureOnly = false,
+}) {
   final bestTargets = <WampTransport, _ScoredTarget>{};
   for (final listener in listeners) {
     final endpoint = Endpoint.fromListenerSettings(listener);
     final secure = endpoint.tlsMode != TlsMode.disabled;
+    if (secureOnly && !secure) {
+      continue;
+    }
     final host = _benchClientHost(endpoint.host);
     final path = endpoint.webSocketPath ?? '/wamp';
     final score = _targetScore(listener, secure: secure);
@@ -106,6 +110,25 @@ Map<WampTransport, WampTransportTarget> resolveWampTransportTargets(
         scored.target,
       ),
     ),
+  );
+}
+
+WampTransportTarget resolveWampTransportTargetForScenario({
+  required WampScenario scenario,
+  required Map<WampTransport, WampTransportTarget> wampTargets,
+  Map<WampTransport, WampTransportTarget> secureWampTargets = const {},
+}) {
+  final selectedTargets = scenario.secureTransport
+      ? secureWampTargets
+      : wampTargets;
+  final target = selectedTargets[scenario.transport];
+  if (target != null) {
+    return target;
+  }
+  final securePrefix = scenario.secureTransport ? 'secure ' : '';
+  throw StateError(
+    'No ${securePrefix}bench listener configured for WAMP transport '
+    '${scenario.transport.name}',
   );
 }
 

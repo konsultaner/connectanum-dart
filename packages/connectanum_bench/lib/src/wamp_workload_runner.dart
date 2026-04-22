@@ -1490,6 +1490,7 @@ class WampScenario {
     this.authMethod = 'anonymous',
     this.authId,
     this.authSecret,
+    this.secureTransport = false,
     required this.transport,
     this.clientImplementation = WampClientImplementation.dart,
     required this.serializer,
@@ -1511,6 +1512,7 @@ class WampScenario {
   final String authMethod;
   final String? authId;
   final String? authSecret;
+  final bool secureTransport;
   final WampTransport transport;
   final WampClientImplementation clientImplementation;
   final WampSerializer serializer;
@@ -1560,6 +1562,7 @@ class WampScenario {
       authSecret: rawAuthSecret is String && rawAuthSecret.trim().isNotEmpty
           ? rawAuthSecret
           : null,
+      secureTransport: json['secure_transport'] == true,
       transport: WampTransport.parse(rawTransport),
       clientImplementation: WampClientImplementation.parse(json['client_impl']),
       serializer: WampSerializer.parse(rawSerializer),
@@ -1606,6 +1609,7 @@ class WampScenario {
     'auth_method': authMethod,
     if (authId != null) 'auth_id': authId,
     if (authSecret != null) 'auth_secret': authSecret,
+    if (secureTransport) 'secure_transport': true,
     'transport': transport.name,
     'client_impl': clientImplementation.name,
     'serializer': serializer.name,
@@ -1629,6 +1633,7 @@ class WampScenario {
     String? authMethod,
     Object? authId = _copySentinel,
     Object? authSecret = _copySentinel,
+    bool? secureTransport,
     WampTransport? transport,
     WampClientImplementation? clientImplementation,
     WampSerializer? serializer,
@@ -1654,6 +1659,7 @@ class WampScenario {
       authSecret: identical(authSecret, _copySentinel)
           ? this.authSecret
           : authSecret as String?,
+      secureTransport: secureTransport ?? this.secureTransport,
       transport: transport ?? this.transport,
       clientImplementation: clientImplementation ?? this.clientImplementation,
       serializer: serializer ?? this.serializer,

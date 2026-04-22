@@ -126,16 +126,20 @@ Reason:
 ### Phase 2: Secure WAMP Coverage
 
 1. Add a TLS-enabled RawSocket / WebSocket listener to `native/bench/bench_router.json`.
-2. Reuse the existing WAMP transport target machinery, which already switches
-   to `wss://` when the endpoint is marked secure.
+2. Reuse the existing WAMP transport target machinery, but make secure-target
+   selection explicit with `secure_transport = true` so secure workloads do not
+   silently fall back to the higher-scored cleartext listener.
 3. Add secure RawSocket / WebSocket scenarios only after the HTTP prototype is
    stable.
 
 Reason:
 
-- The benchmark harness already knows how to target secure WAMP transports.
-- The missing piece is the TLS-enabled WAMP listener, not a new benchmark
-  runner.
+- The benchmark harness already knew how to dial secure WAMP transports, but
+  it needed an explicit secure selector once both cleartext and TLS listeners
+  existed at the same time.
+- The resulting scenario contract is now straightforward: keep the existing
+  WAMP protocol names, add `secure_transport = true`, and point secure
+  workloads at the `bench.secure` ticket-auth realm.
 
 ## Benchmark Plan
 

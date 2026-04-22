@@ -12,6 +12,7 @@ class NativeWampWorker {
   NativeWampWorker({
     required this.realmUri,
     required this.wampTargets,
+    this.secureWampTargets = const {},
     required String nativeLibraryPath,
     required String workerScriptPath,
     String? dartExecutable,
@@ -25,6 +26,7 @@ class NativeWampWorker {
 
   final String realmUri;
   final Map<WampTransport, WampTransportTarget> wampTargets;
+  final Map<WampTransport, WampTransportTarget> secureWampTargets;
   final String nativeLibraryPath;
   final String workerScriptPath;
   final String dartExecutable;
@@ -111,12 +113,18 @@ class NativeWampWorker {
       for (final entry in wampTargets.entries)
         entry.key.name: entry.value.toJson(),
     });
+    final secureTargetsJson = jsonEncode({
+      for (final entry in secureWampTargets.entries)
+        entry.key.name: entry.value.toJson(),
+    });
     final process = await Process.start(dartExecutable, [
       workerScriptPath,
       '--realm',
       realmUri,
       '--targets-json',
       targetsJson,
+      '--secure-targets-json',
+      secureTargetsJson,
       '--native-lib',
       nativeLibraryPath,
     ], workingDirectory: _workerPackageDirectory.path);

@@ -1,0 +1,58 @@
+name = "wamp_secure_smoke"
+description = "Smoke-test secure RawSocket and WebSocket WAMP workloads against the TLS bench listener."
+
+[[workloads]]
+name = "rawsocket_secure_rpc_json"
+protocol = "wamp_rawsocket_rpc"
+serializer = "json"
+path = "bench.rpc.echo"
+iterations = 24
+concurrency = 2
+request_bytes = 256
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "rawsocket_secure_pubsub_cbor"
+protocol = "wamp_rawsocket_pubsub"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 16
+concurrency = 2
+request_bytes = 256
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_secure_rpc_json"
+protocol = "wamp_websocket_rpc"
+serializer = "json"
+path = "bench.rpc.echo"
+iterations = 24
+concurrency = 2
+request_bytes = 256
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_secure_pubsub_cbor"
+protocol = "wamp_websocket_pubsub"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 16
+concurrency = 2
+request_bytes = 256
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true

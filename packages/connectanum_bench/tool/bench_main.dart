@@ -145,6 +145,10 @@ class _BenchRouterService {
       }
       final routerConfig = RouterConfig(endpoints: endpoints);
       final wampTargets = resolveWampTransportTargets(routerSettings.listeners);
+      final secureWampTargets = resolveWampTransportTargets(
+        routerSettings.listeners,
+        secureOnly: true,
+      );
 
       final runtime = NativeTransportRuntime(libraryPath: nativeLibraryPath);
       runtime.start();
@@ -178,6 +182,7 @@ class _BenchRouterService {
         onStopRequested: () => requestShutdown('RPC'),
         realmUri: controlRealm,
         wampTargets: wampTargets,
+        secureWampTargets: secureWampTargets,
         nativeLibraryPath: nativeLibraryPath,
         workerScriptPath: File.fromUri(
           Platform.script.resolve('wamp_client_main.dart'),
@@ -310,6 +315,7 @@ class _BenchControlRegistry {
     required this.onStopRequested,
     required this.realmUri,
     required this.wampTargets,
+    required this.secureWampTargets,
     required this.nativeLibraryPath,
     required this.workerScriptPath,
   }) {
@@ -320,6 +326,7 @@ class _BenchControlRegistry {
     _nativeWampWorker = NativeWampWorker(
       realmUri: realmUri,
       wampTargets: wampTargets,
+      secureWampTargets: secureWampTargets,
       nativeLibraryPath: nativeLibraryPath,
       workerScriptPath: workerScriptPath,
       logger: _logger,
@@ -332,6 +339,7 @@ class _BenchControlRegistry {
   final void Function() onStopRequested;
   final String realmUri;
   final Map<WampTransport, WampTransportTarget> wampTargets;
+  final Map<WampTransport, WampTransportTarget> secureWampTargets;
   final String nativeLibraryPath;
   final String workerScriptPath;
 
@@ -342,12 +350,11 @@ class _BenchControlRegistry {
   late final NativeWampWorker _nativeWampWorker;
 
   Future<WampSession> _openWampSession(WampScenario scenario) {
-    final target = wampTargets[scenario.transport];
-    if (target == null) {
-      throw StateError(
-        'No bench listener configured for WAMP transport ${scenario.transport.name}',
-      );
-    }
+    final target = resolveWampTransportTargetForScenario(
+      scenario: scenario,
+      wampTargets: wampTargets,
+      secureWampTargets: secureWampTargets,
+    );
     switch (scenario.transport) {
       case WampTransport.rawsocket:
         final factory = RawSocketWampSessionFactory(

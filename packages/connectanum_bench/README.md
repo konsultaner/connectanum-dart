@@ -24,6 +24,11 @@ dart run packages/connectanum_bench/tool/bench_main.dart
 In practice it is usually started by the Rust orchestrator and scenario files
 under `native/bench/scenarios/`.
 
+Secure WAMP scenarios are selected explicitly with `secure_transport = true`
+in the workload definition; the Dart bench runner keeps separate cleartext and
+TLS listener targets so secure workloads do not silently fall back to the
+cleartext WAMP listener.
+
 ## Related Docs
 
 - orchestrator overview: [../../native/bench/README.md](../../native/bench/README.md)

@@ -292,7 +292,29 @@
         },
         "websocket": {
           "path": "/wamp",
-          "subprotocols": ["wamp.2.json"]
+          "subprotocols": ["wamp.2.json", "wamp.2.msgpack", "wamp.2.cbor"]
+        }
+      },
+      {
+        "endpoint": "127.0.0.1:8083",
+        "authmethods": ["anonymous", "ticket"],
+        "protocols": ["rawsocket", "websocket"],
+        "tls": {
+          "mode": "native",
+          "sni_certificates": [
+            {
+              "hostname": "localhost",
+              "certificate_chain_file": "native/bench/bench_tls.crt",
+              "private_key_file": "native/bench/bench_tls.key"
+            }
+          ]
+        },
+        "rawsocket": {
+          "max_rawsocket_size_exponent": 18
+        },
+        "websocket": {
+          "path": "/wamp",
+          "subprotocols": ["wamp.2.json", "wamp.2.msgpack", "wamp.2.cbor"]
         }
       }
     ],

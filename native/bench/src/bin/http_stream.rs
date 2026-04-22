@@ -788,6 +788,8 @@ struct WorkloadConfig {
     #[serde(default)]
     websocket_fragment_size: Option<u32>,
     #[serde(default)]
+    secure_transport: bool,
+    #[serde(default)]
     ppt_scheme: Option<String>,
     #[serde(default)]
     ppt_serializer: Option<String>,
@@ -1079,6 +1081,7 @@ struct PreparedWorkload {
     peer_count: u32,
     request_bytes: u64,
     websocket_fragment_size: Option<u32>,
+    secure_transport: bool,
     ppt_scheme: Option<String>,
     ppt_serializer: Option<String>,
     response_bytes: u64,
@@ -1214,6 +1217,7 @@ impl PreparedWorkload {
             peer_count: config.peer_count,
             request_bytes: config.request_bytes,
             websocket_fragment_size: config.websocket_fragment_size,
+            secure_transport: config.secure_transport,
             ppt_scheme: config.ppt_scheme.clone(),
             ppt_serializer: config.ppt_serializer.clone(),
             response_bytes: config.response_bytes,
@@ -1464,6 +1468,7 @@ fn run_wamp_workload(
         "peer_count": workload.peer_count,
         "payload_bytes": workload.request_bytes,
         "websocket_fragment_size": workload.websocket_fragment_size,
+        "secure_transport": workload.secure_transport,
         "ppt_scheme": workload.ppt_scheme.clone(),
         "ppt_serializer": workload.ppt_serializer.clone(),
     });
@@ -1714,7 +1719,10 @@ async fn read_rawsocket_message(stream: &mut TcpStream) -> Result<Vec<u8>> {
     Ok(payload)
 }
 
-fn build_hello_payload(workload: &PreparedWorkload, case: RawSocketAuthFrameCase) -> Result<Vec<u8>> {
+fn build_hello_payload(
+    workload: &PreparedWorkload,
+    case: RawSocketAuthFrameCase,
+) -> Result<Vec<u8>> {
     let mut details = serde_json::Map::new();
     details.insert(
         "roles".to_string(),
@@ -1729,7 +1737,10 @@ fn build_hello_payload(workload: &PreparedWorkload, case: RawSocketAuthFrameCase
         Value::Array(vec![Value::String(workload.auth_method.clone())]),
     );
     if case != RawSocketAuthFrameCase::MissingAuthId && !workload.auth_id.is_empty() {
-        details.insert("authid".to_string(), Value::String(workload.auth_id.clone()));
+        details.insert(
+            "authid".to_string(),
+            Value::String(workload.auth_id.clone()),
+        );
     }
     serde_json::to_vec(&json!([1, workload.auth_realm, Value::Object(details)]))
         .context("failed to serialize HELLO payload")
@@ -1748,7 +1759,8 @@ fn build_authenticate_payload(
 }
 
 fn parse_json_message(payload: &[u8]) -> Result<Vec<Value>> {
-    let value: Value = serde_json::from_slice(payload).context("failed to decode JSON WAMP frame")?;
+    let value: Value =
+        serde_json::from_slice(payload).context("failed to decode JSON WAMP frame")?;
     value
         .as_array()
         .cloned()
@@ -4046,6 +4058,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
             response_chunk_bytes: None,
@@ -4084,6 +4097,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
             response_chunk_bytes: None,
@@ -4177,6 +4191,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
             response_chunk_bytes: None,
@@ -4218,6 +4233,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            secure_transport: false,
             response_bytes: 0,
             request_chunk_bytes: default_chunk_bytes(),
             response_chunk_bytes: None,
@@ -4260,6 +4276,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
             response_chunk_bytes: None,
@@ -4282,6 +4299,47 @@ mod tests {
     }
 
     #[test]
+    fn prepared_workload_preserves_secure_wamp_transport_flag() {
+        let config = WorkloadConfig {
+            name: "load".to_string(),
+            protocol: "wamp_websocket_rpc".to_string(),
+            client_impl: default_wamp_client_impl(),
+            serializer: default_wamp_serializer(),
+            method: default_method(),
+            path: "bench.rpc.echo".to_string(),
+            iterations: default_iterations(),
+            concurrency: default_concurrency(),
+            in_flight_per_session: default_in_flight_per_session(),
+            peer_count: default_peer_count(),
+            request_bytes: default_request_bytes(),
+            websocket_fragment_size: None,
+            ppt_scheme: None,
+            ppt_serializer: None,
+            secure_transport: true,
+            response_bytes: default_response_bytes(),
+            request_chunk_bytes: default_chunk_bytes(),
+            response_chunk_bytes: None,
+            warmup_ms: None,
+            reuse_connections: default_reuse_connections(),
+            streams_per_connection: default_streams_per_connection(),
+            auth_flow: None,
+            auth_path: None,
+            auth_realm: Some("bench.secure".to_string()),
+            auth_method: Some("ticket".to_string()),
+            auth_id: Some("bench-user".to_string()),
+            auth_secret: Some("bench-ticket".to_string()),
+            auth_bearer_token: None,
+            frame_case: None,
+        };
+
+        let prepared = PreparedWorkload::from_config(&config).unwrap();
+
+        assert!(prepared.secure_transport);
+        assert_eq!(prepared.auth_realm, "bench.secure");
+        assert_eq!(prepared.auth_method, "ticket");
+    }
+
+    #[test]
     fn prepared_workload_preserves_wamp_serializer() {
         let config = WorkloadConfig {
             name: "load".to_string(),
@@ -4298,6 +4356,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
             response_chunk_bytes: None,
@@ -4334,6 +4393,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
             response_chunk_bytes: None,
@@ -4370,6 +4430,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
             response_chunk_bytes: None,
@@ -4406,6 +4467,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
             response_chunk_bytes: None,
@@ -4444,6 +4506,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
             response_chunk_bytes: None,
@@ -4482,6 +4545,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
             response_chunk_bytes: None,
@@ -4522,6 +4586,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            secure_transport: false,
             response_bytes: 0,
             request_chunk_bytes: 1024,
             response_chunk_bytes: 1024,
@@ -4562,6 +4627,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
             response_chunk_bytes: None,
@@ -5007,6 +5073,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            secure_transport: false,
             response_bytes: 0,
             request_chunk_bytes: 1024,
             response_chunk_bytes: 1024,
@@ -5025,9 +5092,7 @@ mod tests {
 
     #[tokio::test]
     async fn rawsocket_auth_frame_iteration_completes_success_flow() {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-            .await
-            .unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let endpoint = RawSocketEndpoint {
             host: "127.0.0.1".to_string(),
             port: listener.local_addr().unwrap().port(),
@@ -5045,7 +5110,9 @@ mod tests {
             assert_eq!(hello_message[1].as_str(), Some("bench.remote_auth"));
 
             let challenge = serde_json::to_vec(&json!([4, "ticket", {}])).unwrap();
-            write_rawsocket_message(&mut socket, &challenge).await.unwrap();
+            write_rawsocket_message(&mut socket, &challenge)
+                .await
+                .unwrap();
 
             let authenticate = read_rawsocket_message(&mut socket).await.unwrap();
             let authenticate_message = parse_json_message(&authenticate).unwrap();
@@ -5064,7 +5131,9 @@ mod tests {
                 }
             ]))
             .unwrap();
-            write_rawsocket_message(&mut socket, &welcome).await.unwrap();
+            write_rawsocket_message(&mut socket, &welcome)
+                .await
+                .unwrap();
         });
 
         let sample = run_rawsocket_auth_frame_iteration(
@@ -5098,6 +5167,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            secure_transport: false,
             response_bytes: 0,
             request_chunk_bytes: 1024,
             response_chunk_bytes: 1024,
@@ -5133,6 +5203,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            secure_transport: false,
             response_bytes: 0,
             request_chunk_bytes: 1024,
             response_chunk_bytes: 1024,
@@ -5168,6 +5239,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            secure_transport: false,
             response_bytes: 0,
             request_chunk_bytes: 1024,
             response_chunk_bytes: 1024,

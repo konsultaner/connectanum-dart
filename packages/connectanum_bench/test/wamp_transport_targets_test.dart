@@ -47,5 +47,49 @@ void main() {
       expect(websocket?.host, '127.0.0.1');
       expect(websocket?.webSocketUri.toString(), 'ws://127.0.0.1:9090/wamp');
     });
+
+    test('exposes secure-only targets without falling back to cleartext', () {
+      final listeners = [
+        const ListenerSettings(
+          endpoint: '127.0.0.1:8081',
+          authmethods: ['anonymous', 'ticket'],
+          protocols: [ListenerProtocol.rawsocket, ListenerProtocol.websocket],
+          websocket: WebSocketListenerSettings(path: '/wamp'),
+        ),
+        const ListenerSettings(
+          endpoint: '127.0.0.1:8083',
+          authmethods: ['anonymous', 'ticket'],
+          protocols: [ListenerProtocol.rawsocket, ListenerProtocol.websocket],
+          tls: {
+            'mode': 'native',
+            'sni_certificates': [
+              {
+                'hostname': 'localhost',
+                'certificate_chain_pem':
+                    '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----',
+                'private_key_pem':
+                    '-----BEGIN PRIVATE KEY-----\nMIIB\n-----END PRIVATE KEY-----',
+              },
+            ],
+          },
+          websocket: WebSocketListenerSettings(path: '/wamp'),
+        ),
+      ];
+
+      final clearTargets = resolveWampTransportTargets(listeners);
+      final secureTargets = resolveWampTransportTargets(
+        listeners,
+        secureOnly: true,
+      );
+
+      expect(clearTargets[WampTransport.rawsocket]?.port, 8081);
+      expect(clearTargets[WampTransport.rawsocket]?.secure, isFalse);
+      expect(secureTargets[WampTransport.rawsocket]?.port, 8083);
+      expect(secureTargets[WampTransport.rawsocket]?.secure, isTrue);
+      expect(
+        secureTargets[WampTransport.websocket]?.webSocketUri.toString(),
+        'wss://127.0.0.1:8083/wamp',
+      );
+    });
   });
 }

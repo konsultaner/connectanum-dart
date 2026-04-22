@@ -12,6 +12,7 @@ Future<void> main(List<String> args) async {
   final parser = ArgParser()
     ..addOption('realm', mandatory: true)
     ..addOption('targets-json', mandatory: true)
+    ..addOption('secure-targets-json', defaultsTo: '{}')
     ..addOption('native-lib', mandatory: true)
     ..addFlag('verbose', negatable: true, defaultsTo: false)
     ..addFlag('help', abbr: 'h', negatable: false);
@@ -36,22 +37,17 @@ Future<void> main(List<String> args) async {
   final realmUri = results['realm'] as String;
   final nativeLibraryPath = results['native-lib'] as String;
   final targetsJson = results['targets-json'] as String;
-  final decodedTargets = jsonDecode(targetsJson) as Map<String, Object?>;
-  final wampTargets = <WampTransport, WampTransportTarget>{
-    for (final entry in decodedTargets.entries)
-      WampTransport.parse(entry.key): WampTransportTarget.fromJson(
-        Map<String, Object?>.from(entry.value as Map),
-      ),
-  };
+  final secureTargetsJson = results['secure-targets-json'] as String;
+  final wampTargets = _decodeTargets(targetsJson);
+  final secureWampTargets = _decodeTargets(secureTargetsJson);
 
   final runner = WampWorkloadRunner(
     sessionFactory: (scenario) {
-      final target = wampTargets[scenario.transport];
-      if (target == null) {
-        throw StateError(
-          'No bench listener configured for WAMP transport ${scenario.transport.name}',
-        );
-      }
+      final target = resolveWampTransportTargetForScenario(
+        scenario: scenario,
+        wampTargets: wampTargets,
+        secureWampTargets: secureWampTargets,
+      );
       switch (scenario.transport) {
         case WampTransport.rawsocket:
           final scenarioRealm = scenario.realmUri.isEmpty
@@ -125,6 +121,16 @@ Future<void> main(List<String> args) async {
   } finally {
     NativeClientRuntime.shutdownShared();
   }
+}
+
+Map<WampTransport, WampTransportTarget> _decodeTargets(String raw) {
+  final decodedTargets = jsonDecode(raw) as Map<String, Object?>;
+  return <WampTransport, WampTransportTarget>{
+    for (final entry in decodedTargets.entries)
+      WampTransport.parse(entry.key): WampTransportTarget.fromJson(
+        Map<String, Object?>.from(entry.value as Map),
+      ),
+  };
 }
 
 void _configureLogging(bool verbose) {

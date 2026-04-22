@@ -68,10 +68,17 @@ for the HTTP/2 kTLS prototype.
 - 2026-04-22: The current bench target scorer prefers non-HTTP, non-secure
   listeners, so secure WAMP benchmarking needs an explicit selection path
   rather than relying on listener ordering.
+- 2026-04-22: Used an explicit `secure_transport = true` workload flag instead
+  of inventing a second secure-only WAMP protocol family, because the existing
+  protocol names already describe the wire transport and serializer surface.
+- 2026-04-22: Extended the shipped bench router config with a TLS WAMP listener
+  on `127.0.0.1:8083` and aligned both the cleartext and TLS WebSocket
+  listeners to advertise `wamp.2.json`, `wamp.2.msgpack`, and `wamp.2.cbor`.
 
 ## Handoff
 
 - This plan starts with harness/config work, not more low-level kTLS handoff
   changes.
 - After the secure WAMP path is running, the remaining question becomes
-  performance characterization rather than basic TLS-path correctness.
+  hosted Linux validation and then performance characterization rather than
+  basic TLS-path correctness.
