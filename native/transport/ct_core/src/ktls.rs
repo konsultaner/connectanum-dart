@@ -66,7 +66,7 @@ fn server_http_eligible(endpoint: &EndpointRuntimeConfig) -> bool {
 }
 
 #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
-fn server_runtime_requested(endpoint: &EndpointRuntimeConfig) -> bool {
+pub(crate) fn server_runtime_requested(endpoint: &EndpointRuntimeConfig) -> bool {
     #[cfg(target_os = "linux")]
     {
         if !server_http_eligible(endpoint) {
@@ -99,21 +99,6 @@ fn disable_server_offload() {
 }
 
 #[cfg(target_os = "linux")]
-pub(crate) fn prepare_server_socket(
-    endpoint: &EndpointRuntimeConfig,
-    stream: &TcpStream,
-) -> Result<bool, String> {
-    if !server_runtime_requested(endpoint) {
-        return Ok(false);
-    }
-    ktls_stream::prelude::setup_ulp(stream).map_err(|err| {
-        disable_server_offload();
-        err.to_string()
-    })?;
-    Ok(true)
-}
-
-#[cfg(target_os = "linux")]
 fn dummy_server_session(
     protocol_version: Option<rustls::ProtocolVersion>,
 ) -> Result<ktls_core::DummyTlsSession, String> {
@@ -125,15 +110,6 @@ fn dummy_server_session(
         )),
         None => Err("missing negotiated TLS protocol version for Linux kTLS handoff".into()),
     }
-}
-
-#[cfg(not(target_os = "linux"))]
-pub(crate) fn prepare_server_socket(
-    endpoint: &EndpointRuntimeConfig,
-    stream: &tokio::net::TcpStream,
-) -> Result<bool, String> {
-    let _ = (endpoint, stream);
-    Ok(false)
 }
 
 #[cfg(target_os = "linux")]
@@ -162,7 +138,11 @@ pub(crate) async fn try_offload_server_stream(
         disable_server_offload();
         format!("failed to extract TLS secrets for Linux kTLS handoff: {err}")
     })?;
-    let stream = ktls_stream::Stream::new(stream, secrets, dummy_session, None).map_err(|err| {
+    // `ktls-stream` expects TLS ULP setup on a connected socket. The accepted
+    // TCP stream is only ready for that once the TLS handshake has completed,
+    // so the dummy-session helper performs the ULP setup here instead of on
+    // the pre-handshake socket.
+    let stream = ktls_stream::Stream::new_dummy(stream, secrets, dummy_session, None).map_err(|err| {
         disable_server_offload();
         format!("failed to initialize Linux kTLS stream: {err}")
     })?;

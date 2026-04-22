@@ -3488,26 +3488,8 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                             let tls_acceptor_for_task = config_state_for_task.tls_acceptor();
                             let io_stream = match tls_acceptor_for_task.as_ref() {
                                 Some(acceptor) => {
-                                    let ktls_prepared = match ktls::prepare_server_socket(
-                                        runtime_config_for_task.as_ref(),
-                                        &stream,
-                                    ) {
-                                        Ok(prepared) => prepared,
-                                        Err(err) => {
-                                            eprintln!(
-                                                "kTLS socket preparation failed for listener {}:{}: {}",
-                                                runtime_config_for_task.host,
-                                                runtime_config_for_task.port,
-                                                err
-                                            );
-                                            if ktls::server_runtime_required(
-                                                runtime_config_for_task.as_ref(),
-                                            ) {
-                                                continue;
-                                            }
-                                            false
-                                        }
-                                    };
+                                    let ktls_requested =
+                                        ktls::server_runtime_requested(runtime_config_for_task.as_ref());
                                     let handshake = acceptor.accept(stream);
                                     match time::timeout(
                                         runtime_config_for_task.handshake_timeout,
@@ -3516,7 +3498,7 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                                     .await
                                     {
                                         Ok(Ok(tls_stream)) => {
-                                            if ktls_prepared {
+                                            if ktls_requested {
                                                 match ktls::try_offload_server_stream(tls_stream)
                                                     .await
                                                 {
