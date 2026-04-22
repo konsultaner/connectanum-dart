@@ -158,7 +158,7 @@ pub(crate) async fn try_offload_server_stream(
         .flush()
         .await
         .map_err(|err| format!("failed to flush TLS handshake before kTLS handoff: {err}"))?;
-    let (stream, session) = tls_stream.into_inner();
+    let (stream, mut session) = tls_stream.into_inner();
     let dummy_session = dummy_server_session(session.protocol_version()).map_err(|err| {
         disable_server_offload();
         err
