@@ -2185,6 +2185,55 @@ void main() {
       expect(session.negotiatedE2ee?.receiveKeyId, 'kid-client-a');
       expect(session.negotiatedE2ee?.peerPublicKey, 'server-pubkey');
     });
+    test(
+      'session creation resolves an E2EE provider from session context',
+      () async {
+        final transport = _MockTransport();
+        final provider = _testWampE2eeNegotiatedProvider();
+        SessionE2eeProviderContext? seenContext;
+        final welcomeAuthExtra = _negotiatedE2eeAuthExtra();
+        final client = Client(
+          realm: 'test.realm',
+          transport: transport,
+          e2eeProviderResolver: (context) async {
+            seenContext = context;
+            await Future<void>.delayed(Duration.zero);
+            return provider;
+          },
+        );
+
+        transport.outbound.stream.listen((message) {
+          if (message.id != MessageTypes.codeHello) {
+            return;
+          }
+          transport.receiveMessage(
+            Welcome(
+              42,
+              Details.forWelcome(
+                authId: 'Richi',
+                authMethod: 'ticket',
+                authProvider: 'auth-service',
+                authRole: 'client',
+                authExtra: welcomeAuthExtra,
+              ),
+            ),
+          );
+        });
+
+        final session = await client.connect().first;
+        expect(session.e2eeProvider, same(provider));
+        expect(seenContext, isNotNull);
+        expect(seenContext?.sessionId, 42);
+        expect(seenContext?.realm, 'test.realm');
+        expect(seenContext?.authId, 'Richi');
+        expect(seenContext?.authRole, 'client');
+        expect(seenContext?.authMethod, 'ticket');
+        expect(seenContext?.authProvider, 'auth-service');
+        expect(seenContext?.authExtra, equals(welcomeAuthExtra));
+        expect(seenContext?.negotiatedE2ee?.established, isTrue);
+        expect(seenContext?.configuredProvider, isNull);
+      },
+    );
     test('session creation transport open fail', () async {
       final transport = _MockTransport();
       transport.failToOpen = true;
@@ -2534,6 +2583,58 @@ void main() {
       },
     );
     test(
+      'callSingle decodes wamp payloads on the native direct result path with a session E2EE provider resolver',
+      () async {
+        final provider = _testWampE2eeNegotiatedProvider();
+        final packOptions = ResultDetails(
+          pptScheme: 'wamp',
+          pptSerializer: 'cbor',
+          pptKeyId: 'kid-client-a',
+        );
+        final packedArguments = provider.packPayload(
+          const ['wrapped-result'],
+          const {'worker': 12},
+          packOptions,
+        );
+        final transport = _SessionOptimizedMockTransport((message, transport) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveObject(
+              Welcome(
+                42,
+                Details.forWelcome(authExtra: _negotiatedE2eeAuthExtra()),
+              ),
+            );
+            return;
+          }
+          if (message.id == MessageTypes.codeCall) {
+            transport.receiveObject(
+              _nativeDirectResultMessage(
+                requestId: (message as Call).requestId,
+                pptScheme: 'wamp',
+                pptSerializer: 'cbor',
+                argsBytes: Uint8List.fromList(
+                  cbor.cborEncode(
+                    cbor.CborValue(<Object?>[packedArguments.single]),
+                  ),
+                ),
+              ),
+            );
+          }
+        });
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+          e2eeProviderResolver: (_) => provider,
+        ).connect().first;
+
+        final result = await session.callSingle('wamp.result');
+        expect(result.hasDecodedPptPayload, isFalse);
+        expect(result.arguments, equals(const ['wrapped-result']));
+        expect(result.argumentsKeywords, equals(const {'worker': 12}));
+        expect(result.hasDecodedPptPayload, isTrue);
+      },
+    );
+    test(
       'callSingleLazyPayload preserves packed PPT bytes on the native direct result path',
       () async {
         final transport = _SessionOptimizedMockTransport((message, transport) {
@@ -2781,6 +2882,53 @@ void main() {
           realm: 'test.realm',
           transport: transport,
           e2eeProvider: provider,
+        );
+
+        transport.outbound.stream.listen((message) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveMessage(
+              Welcome(
+                42,
+                Details.forWelcome(authExtra: _negotiatedE2eeAuthExtra()),
+              ),
+            );
+            return;
+          }
+          if (message.id == MessageTypes.codePublish) {
+            final publish = message as Publish;
+            expect(publish.options?.pptSerializer, equals('cbor'));
+            expect(publish.options?.pptCipher, equals('xsalsa20poly1305'));
+            expect(publish.options?.pptKeyId, equals('kid-server-a'));
+            final decoded = provider.unpackPayload(
+              publish.arguments,
+              publish.options!,
+            );
+            expect(decoded.arguments, equals(const ['wrapped']));
+            expect(decoded.argumentsKeywords, equals(const {'worker': 4}));
+            expect(publish.argumentsKeywords, isNull);
+          }
+        });
+
+        final session = await client.connect().first;
+        await session.publishLazyPayload(
+          'ppt.topic',
+          payload: LazyMessagePayload.materialized(
+            arguments: const ['wrapped'],
+            argumentsKeywords: const {'worker': 4},
+          ),
+          options: PublishOptions(pptScheme: 'wamp'),
+        );
+      },
+    );
+    test(
+      'publishLazyPayload uses a session E2EE provider resolver with negotiated outbound defaults',
+      () async {
+        final transport = _MockTransport();
+        final provider = _testWampE2eeNegotiatedProvider();
+        final client = Client(
+          realm: 'test.realm',
+          transport: transport,
+          e2eeProviderResolver: (_) => provider,
         );
 
         transport.outbound.stream.listen((message) {

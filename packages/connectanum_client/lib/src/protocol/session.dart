@@ -8,6 +8,33 @@ import '../transport/abstract_transport.dart';
 import '../transport/native/message_binding.dart';
 import '../transport/native/message_protocol.dart';
 
+typedef SessionE2eeProviderResolver =
+    FutureOr<WampE2eeProvider?> Function(SessionE2eeProviderContext context);
+
+class SessionE2eeProviderContext {
+  const SessionE2eeProviderContext({
+    required this.sessionId,
+    required this.realm,
+    required this.authId,
+    required this.authRole,
+    required this.authMethod,
+    required this.authProvider,
+    required this.authExtra,
+    required this.negotiatedE2ee,
+    required this.configuredProvider,
+  });
+
+  final int? sessionId;
+  final String? realm;
+  final String? authId;
+  final String? authRole;
+  final String? authMethod;
+  final String? authProvider;
+  final Map<String, dynamic>? authExtra;
+  final NegotiatedSessionE2ee? negotiatedE2ee;
+  final WampE2eeProvider? configuredProvider;
+}
+
 class Session {
   static final Logger _logger = Logger('Connectanum.Session');
 
@@ -33,9 +60,12 @@ class Session {
   Map<String, dynamic>? authExtra;
 
   final AbstractTransport _transport;
-  final WampE2eeProvider? _e2eeProvider;
+  final WampE2eeProvider? _configuredE2eeProvider;
+  final SessionE2eeProviderResolver? _e2eeProviderResolver;
+  WampE2eeProvider? _sessionE2eeProvider;
 
-  WampE2eeProvider? get e2eeProvider => _e2eeProvider;
+  WampE2eeProvider? get e2eeProvider =>
+      _sessionE2eeProvider ?? _configuredE2eeProvider;
 
   NegotiatedSessionE2ee? get negotiatedE2ee {
     final authExtraMap = authExtra;
@@ -84,9 +114,14 @@ class Session {
   final Map<int, _PendingUnregister> _pendingUnregisters = {};
   bool _incomingClosed = false;
 
-  Session(this.realm, this._transport, {WampE2eeProvider? e2eeProvider})
-    : _e2eeProvider = e2eeProvider,
-      assert(realm == null || UriPattern.match(realm), _transport.isOpen);
+  Session(
+    this.realm,
+    this._transport, {
+    WampE2eeProvider? e2eeProvider,
+    SessionE2eeProviderResolver? e2eeProviderResolver,
+  }) : _configuredE2eeProvider = e2eeProvider,
+       _e2eeProviderResolver = e2eeProviderResolver,
+       assert(realm == null || UriPattern.match(realm), _transport.isOpen);
 
   /// Starting the session will also start the authentication process.
   static Future<Session> start(
@@ -98,8 +133,14 @@ class Session {
     List<AbstractAuthentication>? authMethods,
     Duration? reconnect,
     WampE2eeProvider? e2eeProvider,
+    SessionE2eeProviderResolver? e2eeProviderResolver,
   }) async {
-    final session = Session(realm, transport, e2eeProvider: e2eeProvider);
+    final session = Session(
+      realm,
+      transport,
+      e2eeProvider: e2eeProvider,
+      e2eeProviderResolver: e2eeProviderResolver,
+    );
 
     final hello = Hello(realm, Details.forHello());
     if (authId != null) {
@@ -200,13 +241,30 @@ class Session {
           session.authMethod = materialized.details.authmethod;
           session.authProvider = materialized.details.authprovider;
           session.authExtra = materialized.details.authextra;
-          session._transportStreamSubscription.onData(
-            session._handleTransportMessage,
+          session._initializeSessionE2eeProvider().then(
+            (_) {
+              if (welcomeCompleter.isCompleted) {
+                return;
+              }
+              session._transportStreamSubscription.onData(
+                session._handleTransportMessage,
+              );
+              session._transportStreamSubscription.onDone(() {
+                unawaited(session._handleTransportClosed());
+              });
+              welcomeCompleter.complete(session);
+            },
+            onError: (error, stackTrace) {
+              try {
+                transport.close();
+              } catch (_) {
+                /* transport may already be closed */
+              }
+              if (!welcomeCompleter.isCompleted) {
+                welcomeCompleter.completeError(error, stackTrace);
+              }
+            },
           );
-          session._transportStreamSubscription.onDone(() {
-            unawaited(session._handleTransportClosed());
-          });
-          welcomeCompleter.complete(session);
           return;
         }
 
@@ -256,6 +314,27 @@ class Session {
 
   Future<dynamic> get onDisconnect => _transport.onDisconnect!.future;
   Future<dynamic> get onConnectionLost => _transport.onConnectionLost!.future;
+
+  Future<void> _initializeSessionE2eeProvider() async {
+    final resolver = _e2eeProviderResolver;
+    if (resolver == null) {
+      _sessionE2eeProvider = null;
+      return;
+    }
+    _sessionE2eeProvider = await resolver(
+      SessionE2eeProviderContext(
+        sessionId: id,
+        realm: realm,
+        authId: authId,
+        authRole: authRole,
+        authMethod: authMethod,
+        authProvider: authProvider,
+        authExtra: authExtra,
+        negotiatedE2ee: negotiatedE2ee,
+        configuredProvider: _configuredE2eeProvider,
+      ),
+    );
+  }
 
   Stream<Object?> _receiveSessionMessages() {
     if (_transport is SessionOptimizedTransport) {
@@ -1330,7 +1409,7 @@ class Session {
   }
 
   WampE2eeProvider? _resolveRuntimeE2eeProvider([WampE2eeProvider? provider]) {
-    final resolvedProvider = provider ?? _e2eeProvider;
+    final resolvedProvider = provider ?? e2eeProvider;
     if (resolvedProvider == null) {
       return null;
     }

@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `6ac6343` (`feat(e2ee): add negotiation scaffolding`)
+Last reviewed commit: `1448315` (`feat(e2ee): apply negotiated runtime defaults`)
 Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.md`
 
 ## Resume Order
@@ -42,7 +42,8 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - The phase-2 E2EE design is now captured in `docs/e2ee_ppt_research.md`: native/off-Dart parity should happen at the client boundary rather than the router boundary, and negotiated session state should ride one optional `authextra.e2ee` object across `HELLO`, `CHALLENGE`, `AUTHENTICATE`, and `WELCOME`.
 - The first phase-2 Dart handshake slice is now landed too: `Client.authExtra` reaches `HELLO`, `CHALLENGE.extra` preserves custom `e2ee` metadata across JSON/MsgPack/CBOR/native binding, and `Session.negotiatedE2ee` exposes typed `WELCOME.authextra.e2ee` state without changing payload behavior yet.
 - The next phase-2 Dart slice is now landed too: `Session` wraps attached `WampE2eeProvider` instances with negotiated `WELCOME.authextra.e2ee` defaults, so outbound and inbound `ppt_scheme = "wamp"` payloads can inherit session-selected serializer/cipher/key ids without per-message key-id plumbing.
-- The next concrete E2EE implementation slice is native/session-backed parity on that same negotiated contract: `ct_ffi` keyring/session handles and native encrypt/decrypt work are still intentionally deferred until after the Dart path is exercised end to end.
+- The session-backed E2EE provider lane is now landed on the Dart client path too: `Client.e2eeProviderResolver` can resolve a concrete provider per session from `WELCOME`/auth context, `Session.e2eeProvider` now surfaces the resolved provider, and the negotiated runtime-defaults wrapper still sits on top of that resolved provider for outbound and inbound `ppt_scheme = "wamp"` flows.
+- The next concrete E2EE implementation slice is now `ct_ffi` keyring/session parity on that same negotiated contract; router-side decryption is still intentionally out of scope.
 - The `ct_core` runtime test suite now keeps the rawsocket config connection alive through its assertions and recovers the shared test mutex after prior panics so Linux `cargo test -p ct_core` does not cascade `PoisonError` failures after one flaky test.
 - The `ct_ffi` `runtime::ffi` unit tests now use the same shared suite guard as the rest of the FFI tests before touching global message handles, so concurrent `ct_shutdown()` calls from other tests no longer invalidate those handles mid-assertion.
 - The `ct_ffi` HTTP/2 and HTTP/3 body-timeout regressions now keep request bodies flowing well below the idle timeout and assert only on the emitted lifecycle event, so full-suite verification no longer flakes between timeout reasons or handshake-queue timing on this host.
@@ -263,6 +264,10 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - 2026-04-22: `dart test packages/connectanum_client/test/client_test.dart -r expanded` passed on Darwin arm64 after proving negotiated outbound defaults and negotiated inbound native direct-result decrypts.
 - 2026-04-22: `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi http2_body_timeout_emits_connection_event -- --nocapture`, `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi http2_idle_timeout_emits_connection_event -- --nocapture`, and `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi http3_body_timeout_emits_connection_event -- --nocapture` all passed on Darwin arm64 after stabilizing the HTTP timeout-path regressions.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after landing the negotiated E2EE runtime-defaults slice, updating the E2EE roadmap/state docs, and stabilizing the `ct_ffi` HTTP/2 + HTTP/3 body-timeout regressions.
+- 2026-04-22: `bin/test-fast` passed on Darwin arm64 before landing the session-backed E2EE provider lane.
+- 2026-04-22: `dart analyze packages/connectanum_client/lib/src/client.dart packages/connectanum_client/lib/src/protocol/session.dart packages/connectanum_client/test/client_test.dart` passed on Darwin arm64 after adding the public session-scoped provider resolver surface.
+- 2026-04-22: `dart test packages/connectanum_client/test/client_test.dart -r expanded` passed on Darwin arm64 after adding resolver-backed outbound and inbound negotiated WAMP E2EE coverage.
+- 2026-04-22: `bin/verify` passed on Darwin arm64 after landing the session-backed E2EE provider lane and updating the E2EE roadmap/state docs.
 
 ## Active Plan
 
@@ -270,8 +275,8 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - Supporting research notes:
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-22-e2ee-runtime-defaults.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-22-e2ee-negotiation-scaffolding.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-22-e2ee-session-provider-lane.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-22-e2ee-runtime-defaults.md`
 
 ## Known Follow-Ups
 
@@ -282,9 +287,9 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - The secure WAMP throughput expansion is now closed on both local Darwin and
   hosted Ubuntu baselines. The next session should pick a new roadmap item
   instead of extending this benchmark plan.
-- The next E2EE implementation work should add a session-backed or native-backed
-  provider lane on top of the negotiated runtime contract before attempting
-  full `ct_ffi` keyring/session parity.
+- The next E2EE implementation work should add `ct_ffi` keyring/session handles
+  and native encrypt/decrypt parity on top of the now-landed negotiated
+  session-provider contract.
 
 ## Update Checklist
 

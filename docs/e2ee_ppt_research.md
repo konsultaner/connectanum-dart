@@ -27,6 +27,11 @@ first implementation and now records the resulting phase-1 prototype.
 - `packages/connectanum_client/lib/src/client.dart` already exposes
   `Client.e2eeProvider`, so the concrete provider is part of the public client
   configuration surface without another transport-specific config layer.
+- `packages/connectanum_client/lib/src/protocol/session.dart` now also exposes
+  `SessionE2eeProviderContext` plus `Client.e2eeProviderResolver`, so each
+  session can resolve its concrete provider from authenticated/negotiated
+  runtime state before message traffic starts while preserving the static
+  `Client.e2eeProvider` fallback.
 - Router forwarding still treats WAMP E2EE payloads as opaque ciphertext bytes;
   the router runtime tests now pin `ppt_cipher` / `ppt_keyid` passthrough on
   internal-session publish/call flows.
@@ -452,4 +457,5 @@ paths consume.
    callers do not need fully out-of-band configuration for every encrypted
    session.
 4. Add `ct_ffi` keyring/session handles and native encrypt/decrypt parity only
-   after the Dart negotiation contract is exercised end-to-end.
+   after the Dart negotiation + session-provider contract is exercised
+   end-to-end.

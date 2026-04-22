@@ -44,6 +44,7 @@ class Client {
   final AbstractTransport transport;
   List<AbstractAuthentication>? authenticationMethods;
   final WampE2eeProvider? e2eeProvider;
+  final SessionE2eeProviderResolver? e2eeProviderResolver;
 
   final StreamController<Session> _controller = StreamController<Session>();
 
@@ -79,6 +80,7 @@ class Client {
     this.authenticationMethods,
     this.authExtra,
     this.e2eeProvider,
+    this.e2eeProviderResolver,
     this.isolateCount = 1,
   }) : assert(realm == null || UriPattern.match(realm)) {
     _connectStreamSubscription = _connectStreamController.stream.listen(
@@ -203,6 +205,7 @@ class Client {
         authMethods: authenticationMethods,
         reconnect: options.reconnectTime,
         e2eeProvider: e2eeProvider,
+        e2eeProviderResolver: e2eeProviderResolver,
       );
       _controller.add(session);
       _changeState(_ClientState.active);
