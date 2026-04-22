@@ -298,7 +298,10 @@ bundled `native/bench/docker-compose.yml` uses a `node-exporter` textfile
 collector to ingest the `.prom` file, while Prometheus also loads
 `native/bench/connectanum_bench_artifact_alerts.yml` so transport regressions
 captured by a finished run surface as alertable series without a custom import
-step.
+step. For CI or local bench gating, `bin/check-bench-artifacts --summary <...>`
+evaluates the transformed summary directly and writes sibling
+`*.gate.json` / `*.gate.md` reports before failing on the same regression
+signals.
 
 ## Compatibility Notes
 

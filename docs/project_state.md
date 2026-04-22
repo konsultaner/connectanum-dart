@@ -2,14 +2,15 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `c1c1c2a` (`feat(e2ee): add provider key selection policies`)
+Last reviewed commit: `75d33b3` (`feat(e2ee): add reusable policy adapters`)
 Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.md`
 
 ## Last Known Verification
 
 - `bin/test-fast`
-- `dart analyze packages/connectanum_core/lib/src/message/e2ee_payload.dart packages/connectanum_core/test/message_e2ee_payload_test.dart packages/connectanum_client/lib/src/protocol/session.dart packages/connectanum_client/lib/src/transport/native/e2ee_provider_io.dart packages/connectanum_client/test/client_test.dart`
-- `dart test packages/connectanum_core/test/message_e2ee_payload_test.dart packages/connectanum_client/test/client_test.dart -r expanded`
+- `cargo test --manifest-path native/bench/Cargo.toml artifacts -- --nocapture`
+- `bash -n bin/check-bench-artifacts bin/ktls-linux-validate bin/ktls-http2-bench`
+- `bin/check-bench-artifacts --summary native/bench/artifacts/bench_results.summary.json`
 - `bin/verify`
 
 ## Resume Order
@@ -31,6 +32,12 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - The root bench verification now runs from `packages/connectanum_bench` so the package-local `dart_test.yaml` (`concurrency: 1`) applies to the full suite on every host, matching the process-global native runtime constraint already enforced in the router package.
 - The bench WAMP integration tests now resolve their worker helper from either the bench package root or the repo root so Linux CI and local root-script runs share the same path contract.
 - The bench now ships `native/bench/scenarios/transport_mbit_matrix_throughput.toml` as the throughput-grade counterpart to the cross-transport/auth/authz smoke matrix, preserving the same auth/authz/public/protected row shape while raising sustained-workload settings for one canonical Mbps artifact set.
+- The bench artifact pipeline now has a checked-in CI gate too: `native/bench`
+  ships `check_artifact_gate`, the root `bin/check-bench-artifacts` wrapper
+  writes sibling `*.gate.json` / `*.gate.md` reports next to transformed
+  summaries, and the kTLS validation / benchmark runners now fail automatically
+  on active throttles, transport alert deltas, transport error alert deltas,
+  or backpressure deltas captured in `bench_results.summary.json`.
 - The bench WAMP harness now supports explicit secure-target selection through `secure_transport = true`, keeps separate cleartext and TLS listener target maps for both the in-process runner and the native helper worker, and fails closed instead of silently falling back to the cleartext WAMP listener.
 - `native/bench/bench_router.json` now ships both cleartext WAMP (`127.0.0.1:8081`) and TLS WAMP (`127.0.0.1:8083`) listeners, and both WebSocket listeners advertise `wamp.2.json`, `wamp.2.msgpack`, and `wamp.2.cbor` so the bench scenario surface matches the supported WAMP serializers.
 - The bench workload contract now includes `secure_transport`, and `native/bench/scenarios/wamp_secure_smoke.toml` provides the first checked-in secure RawSocket/WebSocket smoke coverage against `bench.secure` ticket auth.
@@ -286,6 +293,10 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - 2026-04-22: `dart analyze packages/connectanum_core/lib/src/message/e2ee_payload.dart packages/connectanum_core/test/message_e2ee_payload_test.dart packages/connectanum_client/lib/src/protocol/session.dart packages/connectanum_client/lib/src/transport/native/e2ee_provider_io.dart packages/connectanum_client/test/client_test.dart` passed on Darwin arm64 after adding `WampE2eeKeySelectionPolicies`, `WampE2eeKeySelectionRule`, and the policy-aware session wrapper.
 - 2026-04-22: `dart test packages/connectanum_core/test/message_e2ee_payload_test.dart packages/connectanum_client/test/client_test.dart -r expanded` passed on Darwin arm64 after adding negotiated fallback + peer/trust adapter regressions and the inbound invocation override regression on the client path.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after landing the reusable negotiated/policy adapters, wiring the session wrapper to compose provider policy ahead of negotiated fallback, and refreshing the E2EE roadmap/state docs.
+- 2026-04-22: `cargo test --manifest-path native/bench/Cargo.toml artifacts -- --nocapture` passed on Darwin arm64 after landing the bench artifact gate, including summary load/write coverage and both clean/failing gate regressions.
+- 2026-04-22: `bash -n bin/check-bench-artifacts bin/ktls-linux-validate bin/ktls-http2-bench` passed after wiring the new root bench-gate entrypoint into both kTLS runner scripts.
+- 2026-04-22: `bin/check-bench-artifacts --summary native/bench/artifacts/bench_results.summary.json` passed on the checked-in sample artifact set and wrote sibling `bench_results.gate.json` / `bench_results.gate.md`.
+- 2026-04-22: `bin/verify` passed on Darwin arm64 after landing the bench artifact validator, the root wrapper, the kTLS runner integration, and the associated bench metrics docs updates.
 
 ## Active Plan
 
@@ -293,8 +304,8 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - Supporting research notes:
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-22-e2ee-policy-adapters.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-22-e2ee-session-provider-lane.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-22-bench-artifact-ci-gate.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-22-e2ee-policy-adapters.md`
 
 ## Known Follow-Ups
 
@@ -305,6 +316,9 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - The secure WAMP throughput expansion is now closed on both local Darwin and
   hosted Ubuntu baselines. The next session should pick a new roadmap item
   instead of extending this benchmark plan.
+- The bench artifact gate only enforces transport-regression signals for now.
+  Throughput or latency budgets still need an explicit policy/config layer if
+  future CI should fail on performance drift instead of alert counters alone.
 - The current E2EE lane now covers negotiated fallback plus reusable
   peer/trust adapters. Further E2EE work should be driven by a concrete app
   integration need, or the next session should choose the next unfinished

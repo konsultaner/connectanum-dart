@@ -108,6 +108,8 @@ run_pass() {
   local pass_out_dir="$2"
   local enable_ktls="$3"
   local require_ktls="$4"
+  local pass_status=0
+  local gate_status=0
 
   mkdir -p "$pass_out_dir"
 
@@ -122,7 +124,23 @@ run_pass() {
     --results "${pass_out_dir}/bench_results.jsonl" \
     --artifact-dir "$pass_out_dir" \
     --router-worker-counts "$router_worker_counts" \
-    --native-runtime-thread-counts "$native_runtime_thread_counts"
+    --native-runtime-thread-counts "$native_runtime_thread_counts" \
+    || pass_status=$?
+
+  if [[ -f "${pass_out_dir}/bench_results.summary.json" ]]; then
+    printf 'Checking %s bench artifacts for transport regressions...\n' "$label"
+    bin/check-bench-artifacts \
+      --summary "${pass_out_dir}/bench_results.summary.json" \
+      || gate_status=$?
+  fi
+
+  if (( pass_status != 0 )); then
+    return "$pass_status"
+  fi
+
+  if (( gate_status != 0 )); then
+    return "$gate_status"
+  fi
 }
 
 baseline_status=0

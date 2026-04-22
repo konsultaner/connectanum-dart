@@ -3,13 +3,13 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::report::{
     router_counter_delta, transport_counter_after, transport_counter_delta, WorkloadReport,
 };
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TransportDeltaSummary {
     pub http_events: i64,
     pub goaway_events: i64,
@@ -29,7 +29,7 @@ pub struct TransportDeltaSummary {
     pub active_throttles_after: u64,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct WorkloadArtifactSummary {
     pub scenario: String,
     pub workload: String,
@@ -57,7 +57,7 @@ pub struct WorkloadArtifactSummary {
     pub transport: TransportDeltaSummary,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ArtifactBundle {
     pub generated_at_ms: u128,
     pub source_results: String,
@@ -92,8 +92,178 @@ pub fn load_reports_from_jsonl(path: &Path) -> Result<Vec<WorkloadReport>> {
     Ok(reports)
 }
 
+pub fn load_artifact_bundle(path: &Path) -> Result<ArtifactBundle> {
+    let bytes = fs::read(path).with_context(|| format!("failed to read {}", path.display()))?;
+    serde_json::from_slice(&bytes).with_context(|| format!("failed to parse {}", path.display()))
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ArtifactGateSeverity {
+    Warning,
+    Critical,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ArtifactGateFinding {
+    pub severity: ArtifactGateSeverity,
+    pub scenario: String,
+    pub workload: String,
+    pub protocol: String,
+    pub client_impl: String,
+    pub router_workers: u32,
+    pub native_runtime_threads: u32,
+    pub kind: String,
+    pub observed: u64,
+    pub threshold: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ArtifactGateReport {
+    pub generated_at_ms: u128,
+    pub source_summary: String,
+    pub source_results: String,
+    pub workload_count: usize,
+    pub findings: Vec<ArtifactGateFinding>,
+}
+
+impl ArtifactGateReport {
+    pub fn failed(&self) -> bool {
+        !self.findings.is_empty()
+    }
+}
+
 pub fn summarize_reports(reports: &[WorkloadReport]) -> Vec<WorkloadArtifactSummary> {
     reports.iter().map(summarize_report).collect()
+}
+
+pub fn evaluate_default_artifact_gate(
+    bundle: &ArtifactBundle,
+    summary_path: &Path,
+) -> ArtifactGateReport {
+    let mut findings = Vec::new();
+    for workload in &bundle.workloads {
+        push_gate_i64_finding(
+            &mut findings,
+            workload,
+            ArtifactGateSeverity::Warning,
+            "backpressure_events",
+            workload.transport.backpressure_events,
+        );
+        push_gate_i64_finding(
+            &mut findings,
+            workload,
+            ArtifactGateSeverity::Warning,
+            "backpressure_alerts",
+            workload.transport.backpressure_alerts,
+        );
+        push_gate_i64_finding(
+            &mut findings,
+            workload,
+            ArtifactGateSeverity::Warning,
+            "transport_alerts",
+            workload.transport.transport_alerts,
+        );
+        push_gate_i64_finding(
+            &mut findings,
+            workload,
+            ArtifactGateSeverity::Critical,
+            "goaway_alerts",
+            workload.transport.goaway_alerts,
+        );
+        push_gate_i64_finding(
+            &mut findings,
+            workload,
+            ArtifactGateSeverity::Critical,
+            "idle_timeout_alerts",
+            workload.transport.idle_timeout_alerts,
+        );
+        push_gate_i64_finding(
+            &mut findings,
+            workload,
+            ArtifactGateSeverity::Critical,
+            "body_timeout_alerts",
+            workload.transport.body_timeout_alerts,
+        );
+        push_gate_i64_finding(
+            &mut findings,
+            workload,
+            ArtifactGateSeverity::Critical,
+            "protocol_error_alerts",
+            workload.transport.protocol_error_alerts,
+        );
+        push_gate_i64_finding(
+            &mut findings,
+            workload,
+            ArtifactGateSeverity::Critical,
+            "internal_error_alerts",
+            workload.transport.internal_error_alerts,
+        );
+        push_gate_u64_finding(
+            &mut findings,
+            workload,
+            ArtifactGateSeverity::Critical,
+            "active_throttles",
+            workload.transport.active_throttles_after,
+        );
+    }
+
+    ArtifactGateReport {
+        generated_at_ms: now_millis(),
+        source_summary: summary_path.display().to_string(),
+        source_results: bundle.source_results.clone(),
+        workload_count: bundle.workloads.len(),
+        findings,
+    }
+}
+
+pub fn render_artifact_gate_markdown(report: &ArtifactGateReport) -> String {
+    let mut lines = vec![
+        "# Bench Artifact Gate".to_string(),
+        "".to_string(),
+        format!("Summary: `{}`", report.source_summary.replace('`', "\\`")),
+        format!(
+            "Source results: `{}`",
+            report.source_results.replace('`', "\\`")
+        ),
+        format!("Workloads checked: {}", report.workload_count),
+        "".to_string(),
+    ];
+
+    if report.findings.is_empty() {
+        lines.push("Gate passed. No transport regressions were detected.".to_string());
+        return lines.join("\n") + "\n";
+    }
+
+    lines.push(
+        "Gate failed. The transformed bench artifacts captured transport regressions.".to_string(),
+    );
+    lines.push("".to_string());
+    lines.push(
+        "| Severity | Scenario | Workload | Protocol | Client | Router workers | Native runtime threads | Kind | Observed | Threshold |"
+            .to_string(),
+    );
+    lines.push("| --- | --- | --- | --- | --- | ---: | ---: | --- | ---: | ---: |".to_string());
+    for finding in &report.findings {
+        lines.push(format!(
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
+            match finding.severity {
+                ArtifactGateSeverity::Warning => "warning",
+                ArtifactGateSeverity::Critical => "critical",
+            },
+            finding.scenario,
+            finding.workload,
+            finding.protocol,
+            finding.client_impl,
+            finding.router_workers,
+            native_runtime_threads_label(finding.native_runtime_threads),
+            finding.kind,
+            finding.observed,
+            finding.threshold,
+        ));
+    }
+
+    lines.join("\n") + "\n"
 }
 
 pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
@@ -491,6 +661,53 @@ fn native_runtime_threads_label(value: u32) -> String {
     }
 }
 
+fn push_gate_i64_finding(
+    findings: &mut Vec<ArtifactGateFinding>,
+    workload: &WorkloadArtifactSummary,
+    severity: ArtifactGateSeverity,
+    kind: &str,
+    observed: i64,
+) {
+    if observed <= 0 {
+        return;
+    }
+    push_gate_finding(findings, workload, severity, kind, observed as u64);
+}
+
+fn push_gate_u64_finding(
+    findings: &mut Vec<ArtifactGateFinding>,
+    workload: &WorkloadArtifactSummary,
+    severity: ArtifactGateSeverity,
+    kind: &str,
+    observed: u64,
+) {
+    if observed == 0 {
+        return;
+    }
+    push_gate_finding(findings, workload, severity, kind, observed);
+}
+
+fn push_gate_finding(
+    findings: &mut Vec<ArtifactGateFinding>,
+    workload: &WorkloadArtifactSummary,
+    severity: ArtifactGateSeverity,
+    kind: &str,
+    observed: u64,
+) {
+    findings.push(ArtifactGateFinding {
+        severity,
+        scenario: workload.scenario.clone(),
+        workload: workload.workload.clone(),
+        protocol: workload.protocol.clone(),
+        client_impl: workload.client_impl.clone(),
+        router_workers: workload.router_workers,
+        native_runtime_threads: workload.native_runtime_threads,
+        kind: kind.to_string(),
+        observed,
+        threshold: 0,
+    });
+}
+
 pub fn write_artifact_bundle(
     reports: &[WorkloadReport],
     results_path: &Path,
@@ -740,6 +957,35 @@ mod tests {
         }
     }
 
+    fn clean_report() -> WorkloadReport {
+        let mut report = sample_report();
+        let metrics = metrics(
+            10,
+            20,
+            json!({
+                "total_events": 100,
+                "goaway_events": 1,
+                "idle_timeout_events": 2,
+                "body_timeout_events": 3,
+                "protocol_error_events": 4,
+                "internal_error_events": 5,
+                "backpressure_events": 6,
+                "backpressure_alerts": 1,
+                "transport_alerts": 2,
+                "goaway_alerts": 3,
+                "idle_timeout_alerts": 4,
+                "body_timeout_alerts": 5,
+                "protocol_error_alerts": 6,
+                "internal_error_alerts": 7,
+                "max_backpressure_depth": 8,
+                "active_throttles": 0,
+            }),
+        );
+        report.metrics_after = metrics.clone();
+        report.scenario_metrics_after = Some(metrics);
+        report
+    }
+
     #[test]
     fn summarize_report_computes_latency_and_deltas() {
         let summary = summarize_report(&sample_report());
@@ -838,6 +1084,81 @@ mod tests {
         assert!(prometheus.contains("connectanum_bench_artifact_workload_transport_after"));
 
         fs::remove_dir_all(&temp_dir).unwrap();
+    }
+
+    #[test]
+    fn load_artifact_bundle_reads_written_summary_json() {
+        let temp_dir = unique_temp_dir("load_bundle");
+        let results_path = temp_dir.join("bench_results.jsonl");
+        let output_dir = temp_dir.join("artifacts");
+        fs::create_dir_all(&output_dir).unwrap();
+        fs::write(&results_path, "").unwrap();
+
+        let paths =
+            write_artifact_bundle(&[sample_report()], &results_path, Some(&output_dir)).unwrap();
+        let bundle = load_artifact_bundle(&paths.summary_json).unwrap();
+
+        assert_eq!(bundle.source_results, results_path.to_string_lossy());
+        assert_eq!(bundle.workloads.len(), 1);
+        assert_eq!(bundle.workloads[0].workload, "load");
+
+        fs::remove_dir_all(&temp_dir).unwrap();
+    }
+
+    #[test]
+    fn default_artifact_gate_passes_clean_summary() {
+        let bundle = ArtifactBundle {
+            generated_at_ms: 1,
+            source_results: "bench_results.jsonl".to_string(),
+            workloads: vec![summarize_report(&clean_report())],
+        };
+
+        let report = evaluate_default_artifact_gate(
+            &bundle,
+            Path::new("native/bench/artifacts/bench_results.summary.json"),
+        );
+
+        assert_eq!(report.workload_count, 1);
+        assert!(!report.failed());
+        assert!(report.findings.is_empty());
+        assert!(render_artifact_gate_markdown(&report)
+            .contains("Gate passed. No transport regressions were detected."));
+    }
+
+    #[test]
+    fn default_artifact_gate_flags_transport_regressions() {
+        let bundle = ArtifactBundle {
+            generated_at_ms: 1,
+            source_results: "bench_results.jsonl".to_string(),
+            workloads: vec![summarize_report(&sample_report())],
+        };
+
+        let report = evaluate_default_artifact_gate(
+            &bundle,
+            Path::new("native/bench/artifacts/bench_results.summary.json"),
+        );
+        let kinds = report
+            .findings
+            .iter()
+            .map(|finding| finding.kind.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(report.failed());
+        assert_eq!(
+            kinds,
+            vec![
+                "backpressure_events",
+                "backpressure_alerts",
+                "transport_alerts",
+                "goaway_alerts",
+                "body_timeout_alerts",
+                "internal_error_alerts",
+                "active_throttles",
+            ]
+        );
+        assert!(render_artifact_gate_markdown(&report).contains(
+            "Gate failed. The transformed bench artifacts captured transport regressions."
+        ));
     }
 
     fn unique_temp_dir(prefix: &str) -> PathBuf {

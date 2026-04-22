@@ -53,7 +53,16 @@ Bench runs emit:
 - `bench_results.jsonl`
 - `native/bench/artifacts/bench_results.prom`
 - `native/bench/artifacts/bench_results.summary.json`
+- `native/bench/artifacts/bench_results.gate.json`
+- `native/bench/artifacts/bench_results.gate.md`
 - optional before/after OpenMetrics payloads
+
+Validate a transformed summary directly with:
+
+```bash
+bin/check-bench-artifacts \
+  --summary native/bench/artifacts/bench_results.summary.json
+```
 
 ## Main Components
 

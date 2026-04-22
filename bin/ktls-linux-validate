@@ -109,4 +109,8 @@ cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- \
   --router-worker-counts "$router_worker_counts" \
   --native-runtime-thread-counts "$native_runtime_thread_counts"
 
+printf 'Checking transformed bench artifacts for transport regressions...\n'
+bin/check-bench-artifacts \
+  --summary "${out_dir%/}/bench_results.summary.json"
+
 printf 'kTLS validation artifacts written to %s\n' "$out_dir"

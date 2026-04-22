@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+
+usage() {
+  cat <<'EOF'
+Usage: bin/check-bench-artifacts [--summary <path>] [--report-json <path>] [--report-md <path>]
+
+Validate a transformed bench summary and fail when it records transport
+regressions that should gate CI.
+
+Defaults:
+  --summary native/bench/artifacts/bench_results.summary.json
+
+Outputs:
+  Writes sibling *.gate.json and *.gate.md reports next to the summary unless
+  explicit report paths are provided.
+EOF
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+  esac
+done
+
+require_command cargo
+cd_repo_root
+
+cargo run --manifest-path native/bench/Cargo.toml --bin check_artifact_gate -- "$@"
