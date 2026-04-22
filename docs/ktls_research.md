@@ -170,7 +170,9 @@ already used in the bench suite.
 ## Hosted HTTP/2 Benchmark Findings
 
 GitHub Actions run `24768909306` on Ubuntu 24.04 provided the first hosted
-artifact bundle with both baseline and required-kTLS per-pass summaries.
+artifact bundle with both baseline and required-kTLS per-pass summaries, and
+GitHub Actions run `24773860158` later closed the benchmark milestone on the
+corrected handoff path.
 
 ### What Improved
 
@@ -191,47 +193,58 @@ artifact bundle with both baseline and required-kTLS per-pass summaries.
   - native runtime threads `1`: `5807.50` Mbps, p95 `36.30` ms
   - native runtime threads `4`: `5779.71` Mbps, p95 `38.51` ms
 
-### Current Required-kTLS Blocker
+### Final Hosted Result
 
-- The same hosted run completed only `h2_sustained_transfer` under
-  required-kTLS, and only at native runtime thread count `1`
-  (`1911.93` Mbps, p95 `18.85` ms, two protocol-error events).
-- The multiplexed HTTP/2 workload still fails under
-  `CONNECTANUM_ENABLE_KTLS=1` plus `CONNECTANUM_REQUIRE_KTLS=1` with:
-  - `http/2 handshake failed ... Invalid argument (os error 22)`
-  - `http/2 handshake failed ... Message too long (os error 90)`
-  - intermittent `Failed to set TLS ULP: Transport endpoint is not connected (os error 107)`
-  - downstream HTTP/2 send failures reported as `unexpected frame type`
-  - client-visible `connection reset`
+Follow-up hosted runs `24772627167` (`kTLS HTTP/2 Benchmarks`) and
+`24772627180` (`kTLS Validation`) showed that the first unbuffered handoff
+patch regressed earlier in the flow with
+`received fatal alert: UnexpectedMessage` /
+`got ApplicationData when expecting Handshake`.
+
+A focused local repro against `rustls::server::UnbufferedServerConnection`
+established two API constraints that matter directly for the Linux handoff:
+
+- `EncodeTlsData` can be emitted multiple times before one `TransmitTlsData`
+- `WriteTraffic` can coexist with a partial post-handshake TLS record prefix
+  still buffered in the caller-owned TLS input slice
+
+The final local fix therefore accumulates every encoded handshake fragment
+until `TransmitTlsData` and keeps draining userspace TLS bytes until any
+partial buffered record is completed or consumed before calling
+`dangerous_into_kernel_connection()`.
+
+Hosted confirmation on commit `6d18344` then closed the correctness side of the
+milestone:
+
+- `24773860109` (`CI`) passed
+- `24773860116` (`kTLS Validation`) passed
+- `24773860158` (`kTLS HTTP/2 Benchmarks`) passed
+
+The final hosted comparison from run `24773860158` showed:
+
+- `h2_multiplexed_streams`, native runtime threads `1`
+  - baseline: `6357.68` Mbps, p95 `32.93` ms
+  - required-kTLS: `5724.93` Mbps, p95 `37.46` ms
+- `h2_multiplexed_streams`, native runtime threads `4`
+  - baseline: `6565.00` Mbps, p95 `32.56` ms
+  - required-kTLS: `2500.95` Mbps, p95 `220.07` ms
+- `h2_sustained_transfer`, native runtime threads `1`
+  - baseline: `4534.38` Mbps, p95 `9.94` ms
+  - required-kTLS: `1968.00` Mbps, p95 `16.06` ms
+- `h2_sustained_transfer`, native runtime threads `4`
+  - baseline: `4793.49` Mbps, p95 `9.42` ms
+  - required-kTLS: `2157.84` Mbps, p95 `16.53` ms
 
 ### Resulting Direction
 
-- The next useful kTLS task is no longer proving that the Linux handoff can
-  start at all; that is now true for the single-stream sustained-transfer case.
-- The remaining blocker is the multiplexed HTTP/2 path under required-kTLS.
-- The same hosted log also shows intermittent required-kTLS handshake failures
-  in the nominally simpler single-stream workload, which is consistent with the
-  previous buffered handoff path leaving userspace/kernel receive state out of
-  sync. The current local mitigation is the unbuffered rustls server-handshake
-  refactor plus the still-narrow TLS 1.3 ticket suppression on the kTLS path.
-- Follow-up hosted runs `24772627167` (`kTLS HTTP/2 Benchmarks`) and
-  `24772627180` (`kTLS Validation`) then showed the first unbuffered handoff
-  patch regressed even earlier: the required-kTLS `/bench/healthz` handshake
-  aborted with server-side `received fatal alert: UnexpectedMessage` while the
-  client reported `got ApplicationData when expecting Handshake`.
-- A focused local repro against `rustls::server::UnbufferedServerConnection`
-  established two API constraints that matter directly for the Linux handoff:
-  `EncodeTlsData` can be emitted multiple times before one
-  `TransmitTlsData`, and `WriteTraffic` can coexist with a partial
-  post-handshake TLS record prefix still buffered in the caller-owned TLS input
-  slice.
-- The current local fix therefore accumulates every encoded handshake fragment
-  until `TransmitTlsData` and keeps draining userspace TLS bytes until any
-  partial buffered record is completed or consumed before calling
-  `dangerous_into_kernel_connection()`.
-- Benchmark artifact generation should stay resilient to partial pass failure,
-  because hosted runs can now produce baseline plus partial kTLS summaries even
-  when the full comparison does not complete successfully.
+- The earlier handshake regression is gone.
+- The earlier multiplexed `EINVAL` / `EMSGSIZE` / `unexpected frame type`
+  blocker is also gone.
+- The remaining issue is performance tuning rather than correctness, especially
+  for the 4-thread multiplexed required-kTLS shape.
+- The next useful kTLS-specific benchmark step is secure WAMP TLS coverage:
+  add a TLS WAMP listener to the bench router and measure secure RawSocket and
+  secure WebSocket on the existing harness.
 
 ### What Not To Overclaim
 

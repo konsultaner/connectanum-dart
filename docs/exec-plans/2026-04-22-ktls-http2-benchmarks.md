@@ -1,6 +1,6 @@
 # Exec Plan: ktls-http2-benchmarks
 
-Status: in_progress
+Status: completed
 Owner: Codex
 Created: 2026-04-22
 Last updated: 2026-04-22
@@ -66,39 +66,23 @@ comparison artifact.
 ## Current Status
 
 - GitHub Actions run `24768909306` on Ubuntu 24.04 produced the first usable
-  hosted benchmark artifact bundle for this milestone.
-- Baseline TLS completed both workloads cleanly and produced full summaries for
-  native runtime thread counts `1` and `4`.
-- Required-kTLS now gets far enough to complete the single-stream
-  `h2_sustained_transfer` workload at native runtime thread count `1`, which is
-  materially further than the earlier runs that failed before any kTLS summary
-  data existed.
-- The milestone is still blocked because the multiplexed HTTP/2 workload
-  (`h2_multiplexed_streams`) fails under `CONNECTANUM_REQUIRE_KTLS=1` with
-  Linux socket/handshake errors (`EINVAL`, `EMSGSIZE`, intermittent `ENOTCONN`)
-  followed by HTTP/2 `unexpected frame type` resets.
-- The hosted job log shows the same `EINVAL` / `EMSGSIZE` handshake failures
-  intermittently even in the required-kTLS single-stream workload, so the
-  blocker is not limited to the multiplexed scenario shape.
-- The next checked-in narrowing step has already landed locally: the Linux
-  kTLS accept path now uses rustls's unbuffered server handshake plus
-  `dangerous_into_kernel_connection()` instead of the old
-  buffered-`tokio-rustls` / dummy-session handoff.
+  hosted benchmark artifact bundle for this milestone and identified the
+  receive-path failure cluster on the required-kTLS path.
 - Follow-up hosted runs `24772627167` (`kTLS HTTP/2 Benchmarks`) and
   `24772627180` (`kTLS Validation`) showed that the first unbuffered handoff
-  patch regressed earlier in the flow: the required-kTLS `/bench/healthz`
-  handshake failed immediately with server-side
-  `received fatal alert: UnexpectedMessage` and client-side
+  patch regressed earlier in the flow with
+  `received fatal alert: UnexpectedMessage` /
   `got ApplicationData when expecting Handshake`.
-- The current local fix now accumulates all unbuffered `EncodeTlsData`
-  fragments before `TransmitTlsData` and delays
-  `dangerous_into_kernel_connection()` until any partial post-handshake TLS
-  record prefix buffered in userspace has been completed or consumed.
-- Local verification now covers the updated macOS `ct_core` suites plus a real
-  Linux `cargo check -p ct_core` in an official `rust:1` Docker container, but
-  the milestone still needs a fresh hosted benchmark rerun plus a fresh strict
-  validation rerun to confirm the `UnexpectedMessage` regression is gone and
-  whether the old `EINVAL` / `EMSGSIZE` cluster disappears under required-kTLS.
+- The final hosted confirmation landed on commit `6d18344`:
+  - `24773860109` (`CI`) passed
+  - `24773860116` (`kTLS Validation`) passed
+  - `24773860158` (`kTLS HTTP/2 Benchmarks`) passed
+- The completed benchmark run confirmed that the earlier handshake regression
+  and the older multiplexed `EINVAL` / `EMSGSIZE` / `unexpected frame type`
+  failure cluster are gone.
+- The remaining caveat is now performance rather than correctness. Required
+  kTLS still underperforms baseline TLS in the hosted benchmark, especially in
+  the 4-thread multiplexed HTTP/2 shape.
 - `bin/ktls-http2-bench` now keeps writing per-pass summaries and the
   comparison files even when one pass exits non-zero, so future hosted runs
   remain diagnosable without manually reconstructing partial benchmark output.
@@ -130,3 +114,7 @@ comparison artifact.
   benchmark workload even started, so the next bounded fix had to buffer every
   unbuffered `EncodeTlsData` fragment and refuse kTLS conversion while partial
   post-handshake TLS record bytes remained buffered in userspace.
+- 2026-04-22: Hosted runs `24773860109`, `24773860116`, and `24773860158`
+  closed the milestone: the required-kTLS benchmark now completes end to end,
+  so the next kTLS-specific task is secure WAMP TLS coverage and performance
+  tuning rather than more HTTP/2 correctness debugging.

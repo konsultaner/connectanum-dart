@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `59b22b1` (`fix(ktls): use unbuffered rustls server handoff`)
+Last reviewed commit: `6d18344` (`fix(ktls): preserve unbuffered handshake bytes`)
 
 ## Resume Order
 
@@ -43,6 +43,12 @@ Last reviewed commit: `59b22b1` (`fix(ktls): use unbuffered rustls server handof
 - The same `Native Artifacts` workflow now also emits detached Sigstore blob bundles (`<asset>.sigstore.json`) for the packaged archive/checksum/manifest set, so release assets can be verified offline with `cosign verify-blob` in addition to GitHub-hosted attestations.
 - Public-facing release metadata now defaults to human-readable titles and structured release details for both standalone native-bundle tags and `v*` project releases, while `v*` releases keep a generated changelog section even when an existing release is refreshed.
 - The top-level `README.md` and the packaged native-bundle `README.md` now lead with end-user quick-start and artifact usage guidance instead of internal workflow notes, while still preserving the maintainer/Codex guidance further down the repo README.
+- Public-facing docs are now consistent across the repo root, the packaged
+  native bundle, the public workspace folders, and the implemented benchmark
+  workspace docs. The stale pre-monorepo `connectanum_client` README is gone,
+  the auth/router/core/bench package folders now have current top-level
+  README files, and `native/bench/README.md` now documents the implemented
+  orchestrator instead of a design draft.
 - GitHub Actions now also exposes a dedicated `Router Image` workflow that publishes `ghcr.io/konsultaner/connectanum-router` for `linux/amd64` and `linux/arm64` on `v*` tags, with manual dispatch support for explicit validation tags.
 - The router/client build hooks can now download a hosted `ct_ffi` release bundle directly when `CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` is set, verify the published `.sha256`, extract the archive, and stage the native library without invoking Cargo.
 - `CONNECTANUM_NATIVE_RELEASE_REPOSITORY=<owner/repo>` overrides the default GitHub Releases source for that hook-managed prebuilt flow, and the explicit prebuilt/system-library paths no longer require a local `native/transport` checkout.
@@ -63,16 +69,15 @@ Last reviewed commit: `59b22b1` (`fix(ktls): use unbuffered rustls server handof
   passed on Ubuntu 24.04 with `CONNECTANUM_ENABLE_KTLS=1` and
   `CONNECTANUM_REQUIRE_KTLS=1`, including the targeted Rust kTLS tests and the
   existing HTTP/2 smoke bench.
-- The hosted Linux HTTP/2 benchmark milestone is now partially instrumented.
-  GitHub Actions run `24768909306` wrote baseline and required-kTLS per-pass
-  summaries on Ubuntu 24.04, which confirmed that baseline TLS stays green and
-  required-kTLS can complete the single-stream sustained-transfer workload, but
-  the multiplexed HTTP/2 workload still fails under `CONNECTANUM_REQUIRE_KTLS=1`
-  with Linux socket/handshake errors (`EINVAL`, `EMSGSIZE`, and occasional
-  `ENOTCONN`) plus downstream HTTP/2 `unexpected frame type` resets.
-- The same hosted job log shows intermittent required-kTLS handshake failures
-  even in the single-stream workload, so the Linux blocker is broader than one
-  multiplexed benchmark shape.
+- The hosted Linux HTTP/2 benchmark milestone is now complete. GitHub Actions
+  runs `24773860109` (`CI`), `24773860116` (`kTLS Validation`), and
+  `24773860158` (`kTLS HTTP/2 Benchmarks`) all passed on commit `6d18344`,
+  which confirmed that the earlier required-kTLS handshake regression and the
+  older multiplexed HTTP/2 `EINVAL` / `EMSGSIZE` / `unexpected frame type`
+  failure cluster are gone on hosted Linux.
+- The remaining kTLS caveat is performance rather than correctness: required
+  kTLS still trails baseline TLS in the hosted HTTP/2 benchmark, especially in
+  the 4-thread multiplexed workload shape.
 - `bin/ktls-http2-bench` now preserves partial benchmark artifacts even when a
   pass fails partway through, so hosted runs still upload per-pass summaries
   and generate `comparison.json` / `comparison.md` from whatever completed
@@ -98,9 +103,9 @@ Last reviewed commit: `59b22b1` (`fix(ktls): use unbuffered rustls server handof
   buffered record is completed or consumed before switching the socket into
   kTLS.
 - TLS 1.3 session tickets are still kept disabled on the kTLS path for now, so
-  the corrected handoff stays isolated while the next hosted benchmark and
-  validation reruns confirm whether the `UnexpectedMessage` regression is gone
-  and whether the older `EINVAL` / `EMSGSIZE` cluster is still present.
+  the validated handoff remains intentionally narrow while the next kTLS task
+  shifts from HTTP/2 correctness into secure WAMP TLS coverage and later
+  performance tuning.
 - The local autonomy blockers from the 2026-04-21 audit are resolved for this macOS shell environment.
 - In-app heartbeat sandboxes are more restricted than the interactive shell here; remote CI inspection and git metadata writes should still happen from unrestricted interactive runs or the external launchd worker.
 
@@ -199,37 +204,29 @@ Last reviewed commit: `59b22b1` (`fix(ktls): use unbuffered rustls server handof
 - 2026-04-22: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core tls::tests -- --nocapture` passed on Darwin arm64 after the same unbuffered-handshake byte-accounting fix.
 - 2026-04-22: `docker run --rm --platform linux/amd64 -v /Users/konsultaner/Projects/connectanum-dart:/work -w /work/native/transport rust:1 bash -lc 'TOOLCHAIN=$(ls /usr/local/rustup/toolchains | head -n1); export PATH=\"/usr/local/rustup/toolchains/$TOOLCHAIN/bin:$PATH\"; cargo check -p ct_core'` passed again, confirming the corrected Linux-only handoff path still typechecks in a real Linux toolchain.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after fixing the unbuffered-handshake byte aggregation/pending-record bug and refreshing the kTLS benchmark plan/research/state docs.
+- 2026-04-22: GitHub Actions runs `24773860109` (`CI`), `24773860116` (`kTLS Validation`), and `24773860158` (`kTLS HTTP/2 Benchmarks`) all passed on `add-router` for commit `6d18344`, closing the HTTP/2 kTLS correctness milestone on hosted Linux.
+- 2026-04-22: `bin/test-fast` passed on Darwin arm64 before the package-level public-surface docs cleanup pass.
+- 2026-04-22: `bin/verify` passed on Darwin arm64 after the package-level public-surface docs cleanup pass, including the full Rust, Dart, router, and browser suites.
 
 ## Active Plan
 
-- Active plan: `docs/exec-plans/2026-04-22-ktls-http2-benchmarks.md`
+- Active plan: `docs/exec-plans/2026-04-22-ktls-secure-wamp-benchmarks.md`
 - Supporting research notes:
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-22-ktls-linux-validation.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-22-public-surface-polish.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-22-workspace-public-package-docs.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-22-ktls-http2-benchmarks.md`
 
 ## Known Follow-Ups
 
-- The current deployment-hardening milestone remains the HTTP/2 benchmark
-  closeout. Baseline TLS is now measured on hosted Linux, but required-kTLS
-  still fails in the multiplexed HTTP/2 workload after the single-stream
-  sustained-transfer case succeeds.
-- The current prototype keeps default/non-Linux runs on `tokio-rustls`,
+- The current kTLS prototype keeps default/non-Linux runs on `tokio-rustls`,
   disables future kTLS attempts after socket-setup or handoff failures in one
-  process in try-mode, and now has a green hosted Linux validation path, but it
-  still is not the final production story for TLS 1.3 key-update handling and
-  still keeps TLS 1.3 session tickets suppressed on the kTLS path while the
-  unbuffered handoff change is being validated.
-- The next kTLS-specific step is no longer another local handoff guess; it is a
-  fresh hosted HTTP/2 benchmark run plus a fresh strict Linux validation run
-  against the corrected unbuffered handoff path to confirm the new
-  `UnexpectedMessage` regression is gone and to see whether the older Linux
-  receive-path failures (`EINVAL`, `EMSGSIZE`, intermittent `ENOTCONN`) and
-  downstream HTTP/2 frame corruption are still present.
-- After that prototype is stable, extend the bench router with a TLS WAMP
-  listener so secure RawSocket / WebSocket kTLS measurements can use the
-  existing WAMP benchmark harness.
+  process in try-mode, and still is not the final production story for TLS 1.3
+  key-update handling.
+- The current active benchmark expansion is secure WAMP TLS coverage: extend
+  the bench router with a TLS WAMP listener and make the bench runner select
+  secure WAMP targets explicitly instead of falling back to the higher-scored
+  cleartext listener.
 
 ## Update Checklist
 

@@ -1,84 +1,103 @@
-# Connectanum Auth Server (preview)
+# connectanum_auth_server
 
-This package provides the reusable pieces for running a standalone remote
-authentication service that speaks the same WAMP RPC contract as the router's
-`RemoteAuthenticatorDelegate` integration.
+`connectanum_auth_server` provides the reusable pieces for running a standalone
+remote authentication service for Connectanum routers.
 
-Roadmap for the next steps:
+It implements the same WAMP RPC contract used by the router's
+`RemoteAuthenticatorDelegate` integration, so you can move authentication out
+of the main router process without changing the protocol boundary.
 
-1. Share realm/credential configuration with the router so both can consume the
-   same JSON/YAML settings.
-2. Expose a simple CLI (`bin/auth_server.dart`) that boots the remote auth
-   realm and wires in credential providers via `AuthCredentialRegistry`.
-3. Provide CLI/examples/documentation guiding operators on how to migrate from
-   in-process authenticators to a remote delegate.
+Status: workspace package, currently `publish_to: none`.
 
-### Quick start (library usage)
+## What It Provides
+
+- `AuthServer`
+  Config-driven remote authenticator implementation backed by
+  `RouterSettings`.
+- `AuthServerProcedureBinding`
+  Registers the WAMP procedures that expose the remote-auth contract on a
+  router session.
+
+The default procedure names are:
+
+- `authenticate.hello`
+- `authenticate.authenticate`
+- `authenticate.abort`
+
+## Quick Start
 
 ```dart
 import 'package:connectanum_auth_server/connectanum_auth_server.dart';
 import 'package:connectanum_router/connectanum_router.dart';
 
 Future<void> main() async {
-  final settings = RouterSettingsBuilder()
-    ..addRealmFromBuilder(RealmSettingsBuilder('demo')
-      ..addAuthMethod('ticket', options: {'authenticator': 'ticket-basic'}))
-    ..addAuthenticator(
-      'ticket-basic',
-      const AuthenticatorDefinition(
-        type: 'ticket',
-        options: {
-          'secrets': {
-            'alice': {'ticket': 's3cr3t', 'role': 'member'},
-          },
-        },
-      ),
-    );
-
-  final server = AuthServer(settings: settings.build());
-  final authRealmSettings = (RouterSettingsBuilder()
-        ..addRealmFromBuilder(RealmSettingsBuilder('connectanum.authenticate'))
-        ..addListenerFromBuilder(
-          ListenerSettingsBuilder('websocket', '127.0.0.1:8085')
-            ..setPath('/ws')
-            ..addProtocol(ListenerProtocol.websocket),
+  final settings = (RouterSettingsBuilder()
+        ..addRealmFromBuilder(
+          RealmSettingsBuilder('demo.realm')
+            ..addAuthMethod(
+              'ticket',
+              options: {'authenticator': 'ticket-basic'},
+            ),
+        )
+        ..addAuthenticator(
+          'ticket-basic',
+          const AuthenticatorDefinition(
+            type: 'ticket',
+            options: {
+              'secrets': {
+                'alice': {'ticket': 's3cr3t', 'role': 'member'},
+              },
+            },
+          ),
         ))
       .build();
+
+  final authServer = AuthServer(settings: settings);
+
+  final runtime = NativeTransportRuntime()..start();
   final router = Router(
     RouterConfig(
       endpoints: [
         Endpoint(
           host: '127.0.0.1',
           port: 8085,
-          tlsMode: TlsMode.disabled,
-          maxRawSocketSizeExponent: 16,
           webSocketPath: '/ws',
+          maxRawSocketSizeExponent: 16,
         ),
       ],
     ),
-    settings: authRealmSettings,
+    settings: (RouterSettingsBuilder()
+          ..addRealmFromBuilder(
+            RealmSettingsBuilder('connectanum.authenticate'),
+          ))
+        .build(),
   );
-  final runtime = NativeTransportRuntime()..start();
+
   final binding = router.start(runtime);
   final session = await binding.createInternalSession(
     realmUri: 'connectanum.authenticate',
     authId: 'auth-service',
     authRole: 'internal',
   );
-  final procedures = await AuthServerProcedureBinding.bind(
-    server: server,
+
+  await AuthServerProcedureBinding.bind(
+    server: authServer,
     session: session,
   );
 }
 ```
 
-`AuthServerProcedureBinding` registers `authenticate.hello`,
-`authenticate.authenticate`, and `authenticate.abort` on the given internal
-session, performs strict request-shape validation, and forwards the calls into
-`AuthServer`.
+## Operational Notes
 
-For production deployments, pair the auth-service listener with TLS/mTLS and
-point the edge router's remote-auth `rpc.transport` at it using file-backed
-`auth_token` / service credentials. The router now rereads those files on
-subsequent remote-auth RPCs and reconnects the service session when transport
-or service-auth material changes.
+- Pair the auth service listener with TLS or mTLS in production.
+- Use shared `auth_token` or service credentials when the edge router calls the
+  remote authenticator.
+- The package is designed to consume the same `RouterSettings` and credential
+  providers as the in-process router auth path.
+
+## Examples And Related Docs
+
+- remote auth demo:
+  [../connectanum_router/example/remote_websocket.dart](../connectanum_router/example/remote_websocket.dart)
+- repo deployment guide: [../../docs/deployment.md](../../docs/deployment.md)
+- repo overview: [../../README.md](../../README.md)
