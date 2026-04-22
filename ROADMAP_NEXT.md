@@ -137,7 +137,8 @@ Focus for the next session:
   - ✅ Add Dart 3.10+ build hook that compiles the Rust `ct_ffi` backend during `dart run`/`dart test` (native assets build hooks).
   - ✅ `connectanum_client` now ships its own build hook and runtime loader for native client transports, using a package-specific output library name so client+router apps can bundle both without asset-name collisions.
   - ✅ Both hooks now reuse `CONNECTANUM_NATIVE_LIB` for prebuilt binaries and honor `CONNECTANUM_SKIP_NATIVE_BUILD=1` for system/shared-library deployments instead of invoking Cargo unconditionally.
-  - Next: add publishable prebuilt-artifact packaging and/or install-time build hooks (`dart pub get` / publishable package flow), rather than only the current local run/test hook contract.
+  - ✅ A dedicated GitHub Actions workflow now packages host-native Linux/macOS `ct_ffi` archives through `bin/package-native-artifact`, uploading reusable bundles for the existing `CONNECTANUM_NATIVE_LIB` contract.
+  - Next: add install-time build hooks (`dart pub get` / publishable package flow) and/or GitHub Release publishing/signing on top of the new artifact workflow.
 
 13. **TLS & Deployment Hardening**
    - ✅ Native TCP TLS termination (rustls + SNI) is live.
@@ -145,7 +146,7 @@ Focus for the next session:
    - ✅ TLS reload hooks are available via `ct_reload_tls`; the runner reloads certs/CA on `SIGHUP`.
    - ✅ Router runner exposes an OpenMetrics HTTP endpoint when `metrics.open_metrics.listen` is set (`/metrics` + `/healthz`).
    - ✅ Deployment templates added under `deploy/` (Docker/systemd/K8s) plus updated production docs/configs.
-   - Next: CI packaging for prebuilt `ct_ffi` artifacts (and multi-arch container images), plus kTLS exploration/benchmarks.
+   - Next: multi-arch container images plus kTLS exploration/benchmarks.
 
 Regression / validation to run after changes:
 - `dart test packages/connectanum_router/test/router_worker_session_test.dart --chain-stack-traces`

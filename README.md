@@ -60,6 +60,12 @@ deployments that intentionally provide `ct_ffi` as a system/shared library, set
 `CONNECTANUM_SKIP_NATIVE_BUILD=1` to disable Cargo in the build hooks and rely
 on `CONNECTANUM_NATIVE_LIB` or the platform loader search path at runtime.
 
+Prebuilt Linux/macOS `ct_ffi` bundles are also available from the dedicated
+GitHub Actions workflow in [native-artifacts.yml](.github/workflows/native-artifacts.yml).
+Run it manually or on a release tag, then extract the uploaded
+`ct-ffi-<host-triple>.tar.gz` bundle and point `CONNECTANUM_NATIVE_LIB` at the
+included library.
+
 ## Codex-Friendly Workflow
 
 - `AGENTS.md` contains the durable operating rules for autonomous runs.

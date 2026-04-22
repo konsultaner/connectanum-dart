@@ -1,6 +1,4 @@
 @TestOn('vm')
-library build_hook_test;
-
 import 'dart:io';
 
 import 'package:code_assets/code_assets.dart';

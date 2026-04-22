@@ -1,6 +1,4 @@
 @TestOn('vm')
-library native_library_loader_test;
-
 import 'dart:io';
 
 import 'package:connectanum_client/src/transport/native/runtime.dart';

@@ -39,6 +39,12 @@ binary instead of running Cargo. If your environment installs `ct_ffi` on the
 platform loader search path, set `CONNECTANUM_SKIP_NATIVE_BUILD=1` to suppress
 Cargo entirely and let the runtime loader use the system library.
 
+If you do not want to build Rust locally, the GitHub Actions
+`Native Artifacts` workflow uploads prebuilt Linux/macOS bundles named
+`ct-ffi-<host-triple>.tar.gz`. Extract the archive, then export
+`CONNECTANUM_NATIVE_LIB` to the bundled library path before starting the
+router.
+
 For production packaging you can compile the runner to a native executable:
 
 ```sh

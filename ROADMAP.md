@@ -304,7 +304,7 @@
   - [ ] Migrate existing delegate tests/examples to the internal transport once available
 - [ ] End-to-end smoke tests (native runtime ↔ router ↔ client)
 - [ ] Benchmarks (throughput/latency per worker configuration)
-  - [ ] Provide release-build workflow for `ct_ffi` (and document `CONNECTANUM_NATIVE_LIB` usage) dedicated to performance runs.
+  - [x] Provide release-build workflow for `ct_ffi` (and document `CONNECTANUM_NATIVE_LIB` usage) dedicated to performance runs.
   - [ ] Implement a reusable load generator (multi-session HELLO/PUB/SUB/RPC workloads) to stress the router.
   - [ ] Expose lightweight instrumentation (per-worker queue depth, handle retention counts, throughput/latency timers) for benchmark reporting.
   - [ ] Add automation scripts that run warm-up + steady-state cycles and emit latency/throughput summaries.

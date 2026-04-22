@@ -129,20 +129,86 @@ require_command() {
 }
 
 native_lib_path() {
+  local file_name
+
+  if ! file_name="$(native_lib_file_name)"; then
+    return 1
+  fi
+
+  printf '%s/native/transport/target/release/%s\n' "$ROOT_DIR" "$file_name"
+}
+
+native_lib_file_name() {
   case "$(uname -s)" in
     Darwin)
-      printf '%s/native/transport/target/release/libct_ffi.dylib\n' "$ROOT_DIR"
+      printf 'libct_ffi.dylib\n'
       ;;
     Linux)
-      printf '%s/native/transport/target/release/libct_ffi.so\n' "$ROOT_DIR"
+      printf 'libct_ffi.so\n'
       ;;
     CYGWIN*|MINGW*|MSYS*)
-      printf '%s/native/transport/target/release/ct_ffi.dll\n' "$ROOT_DIR"
+      printf 'ct_ffi.dll\n'
       ;;
     *)
       return 1
       ;;
   esac
+}
+
+host_os_slug() {
+  case "$(uname -s)" in
+    Darwin)
+      printf 'macos\n'
+      ;;
+    Linux)
+      printf 'linux\n'
+      ;;
+    CYGWIN*|MINGW*|MSYS*)
+      printf 'windows\n'
+      ;;
+    *)
+      printf '%s\n' "$(uname -s | tr '[:upper:]' '[:lower:]')"
+      ;;
+  esac
+}
+
+host_arch_slug() {
+  case "$(uname -m)" in
+    x86_64|amd64)
+      printf 'x86_64\n'
+      ;;
+    arm64|aarch64)
+      printf 'arm64\n'
+      ;;
+    *)
+      printf '%s\n' "$(uname -m)"
+      ;;
+  esac
+}
+
+host_rust_triple() {
+  local rustc_version
+
+  require_command rustc >/dev/null
+  rustc_version="$(rustc -vV)"
+  awk '/^host: / { print $2 }' <<<"$rustc_version"
+}
+
+sha256_file() {
+  local file_path="$1"
+
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$file_path" | awk '{print $1}'
+    return 0
+  fi
+
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$file_path" | awk '{print $1}'
+    return 0
+  fi
+
+  printf 'Missing required command: sha256sum or shasum\n' >&2
+  return 1
 }
 
 ensure_native_lib_env() {

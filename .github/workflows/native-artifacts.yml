@@ -1,0 +1,40 @@
+name: Native Artifacts
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'ct-ffi-v*'
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  ct-ffi:
+    name: ct_ffi (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Package ct_ffi artifact
+        id: package
+        run: bin/package-native-artifact
+
+      - name: Upload packaged artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.bundle_name }}
+          path: |
+            ${{ steps.package.outputs.archive_path }}
+            ${{ steps.package.outputs.checksum_path }}
+            ${{ steps.package.outputs.manifest_path }}

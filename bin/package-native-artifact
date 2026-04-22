@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/common.sh"
+
+usage() {
+  cat <<'EOF'
+Usage: bin/package-native-artifact [--out-dir <dir>]
+
+Build ct_ffi in release mode, package the host-native library plus metadata into
+a tar.gz bundle, and write a matching SHA-256 checksum file.
+EOF
+}
+
+out_dir="$(repo_root)/out/native-artifacts"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --out-dir)
+      out_dir="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Unknown argument: %s\n' "$1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+cd_repo_root
+require_command cargo
+require_command rustc
+
+host_os="$(host_os_slug)"
+host_arch="$(host_arch_slug)"
+host_triple="$(host_rust_triple)"
+lib_name="$(native_lib_file_name)"
+lib_path="$(native_lib_path)"
+
+cargo build --manifest-path native/transport/Cargo.toml -p ct_ffi --release
+
+if [[ ! -f "$lib_path" ]]; then
+  printf 'Expected built library at %s, but it was not found.\n' "$lib_path" >&2
+  exit 1
+fi
+
+mkdir -p "$out_dir"
+out_dir="$(cd "$out_dir" && pwd)"
+
+artifact_stem="ct-ffi-${host_triple}"
+archive_path="${out_dir}/${artifact_stem}.tar.gz"
+checksum_path="${archive_path}.sha256"
+manifest_path="${out_dir}/${artifact_stem}.manifest.json"
+
+staging_dir="$(mktemp -d)"
+trap 'rm -rf "$staging_dir"' EXIT
+
+bundle_dir="${staging_dir}/${artifact_stem}"
+mkdir -p "$bundle_dir"
+
+cp "$lib_path" "${bundle_dir}/${lib_name}"
+cp LICENSE "${bundle_dir}/LICENSE"
+
+commit_sha="unknown"
+if command -v git >/dev/null 2>&1; then
+  commit_sha="$(git rev-parse HEAD 2>/dev/null || printf 'unknown')"
+fi
+
+built_at_utc="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+cat > "${bundle_dir}/README.md" <<EOF
+# ${artifact_stem}
+
+Prebuilt \`ct_ffi\` native library bundle for \`${host_triple}\`.
+
+- OS: \`${host_os}\`
+- Architecture: \`${host_arch}\`
+- Rust host triple: \`${host_triple}\`
+- Git commit: \`${commit_sha}\`
+- Built at: \`${built_at_utc}\`
+
+After extraction, point \`CONNECTANUM_NATIVE_LIB\` at \`${lib_name}\` or place
+the library on the platform loader search path.
+EOF
+
+cat > "${bundle_dir}/manifest.json" <<EOF
+{
+  "schema_version": 1,
+  "artifact": "${artifact_stem}",
+  "crate": "ct_ffi",
+  "library_file": "${lib_name}",
+  "host_os": "${host_os}",
+  "host_arch": "${host_arch}",
+  "host_triple": "${host_triple}",
+  "git_commit": "${commit_sha}",
+  "built_at_utc": "${built_at_utc}"
+}
+EOF
+
+cp "${bundle_dir}/manifest.json" "$manifest_path"
+
+tar -czf "$archive_path" -C "$staging_dir" "$artifact_stem"
+archive_sha256="$(sha256_file "$archive_path")"
+printf '%s  %s\n' "$archive_sha256" "$(basename "$archive_path")" > "$checksum_path"
+
+printf 'Packaged %s\n' "$archive_path"
+printf 'Checksum  %s\n' "$checksum_path"
+printf 'Manifest  %s\n' "$manifest_path"
+
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+  {
+    printf 'bundle_name=%s\n' "$artifact_stem"
+    printf 'archive_path=%s\n' "$archive_path"
+    printf 'checksum_path=%s\n' "$checksum_path"
+    printf 'manifest_path=%s\n' "$manifest_path"
+    printf 'host_triple=%s\n' "$host_triple"
+  } >> "$GITHUB_OUTPUT"
+fi
