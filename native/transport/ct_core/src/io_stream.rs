@@ -1,4 +1,5 @@
 use std::{
+    fmt,
     io,
     pin::Pin,
     task::{Context, Poll},
@@ -10,12 +11,13 @@ use tokio::net::TcpStream;
 use tokio_rustls::{client::TlsStream as ClientTlsStream, server::TlsStream as ServerTlsStream};
 
 #[cfg(target_os = "linux")]
-type ServerKtlsStream = ktls_stream::Stream<TcpStream, ktls_core::DummyTlsSession>;
+type ServerKtlsSession = rustls::kernel::KernelConnection<rustls::server::ServerConnectionData>;
+#[cfg(target_os = "linux")]
+type ServerKtlsStream = ktls_stream::Stream<TcpStream, ServerKtlsSession>;
 
 pub(crate) type IoReadHalf = tokio::io::ReadHalf<IoStream>;
 pub(crate) type IoWriteHalf = tokio::io::WriteHalf<IoStream>;
 
-#[derive(Debug)]
 pub(crate) enum StreamInner {
     Tcp(TcpStream),
     TlsServer(ServerTlsStream<TcpStream>),
@@ -24,12 +26,34 @@ pub(crate) enum StreamInner {
     KtlsServer(ServerKtlsStream),
 }
 
-#[derive(Debug)]
 pub(crate) struct IoStream {
     inner: StreamInner,
     negotiated_alpn: Option<String>,
     buffered: BytesMut,
     buffered_offset: usize,
+}
+
+impl fmt::Debug for StreamInner {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Tcp(_) => f.write_str("Tcp"),
+            Self::TlsServer(_) => f.write_str("TlsServer"),
+            Self::TlsClient(_) => f.write_str("TlsClient"),
+            #[cfg(target_os = "linux")]
+            Self::KtlsServer(_) => f.write_str("KtlsServer"),
+        }
+    }
+}
+
+impl fmt::Debug for IoStream {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("IoStream")
+            .field("inner", &self.inner)
+            .field("negotiated_alpn", &self.negotiated_alpn)
+            .field("buffered_len", &self.buffered.len())
+            .field("buffered_offset", &self.buffered_offset)
+            .finish()
+    }
 }
 
 impl IoStream {

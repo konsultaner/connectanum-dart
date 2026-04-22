@@ -77,13 +77,15 @@ Last reviewed commit: `4615156` (`fix(ktls): restore mutable linux handoff state
   pass fails partway through, so hosted runs still upload per-pass summaries
   and generate `comparison.json` / `comparison.md` from whatever completed
   workloads exist before returning a non-zero exit code.
-- The current validated server prototype still uses
-  `dangerous_extract_secrets()` plus `ktls-core`'s dummy server session because
-  `tokio-rustls` returns a buffered `rustls::ServerConnection`, whose public
-  API does not expose `dangerous_into_kernel_connection()`. That is adequate
-  for the short-lived HTTP/2 smoke path, but it is not yet the final answer for
-  TLS 1.3 key-update handling and therefore keeps TLS 1.3 session tickets
-  disabled on the kTLS path.
+- The current local kTLS server handoff no longer uses the buffered
+  `tokio-rustls` / dummy-session path. When kTLS is requested on Linux,
+  `ct_core` now drives rustls's unbuffered server handshake, buffers any
+  post-handshake plaintext explicitly, converts with
+  `dangerous_into_kernel_connection()`, and only then constructs the kTLS
+  `IoStream`.
+- TLS 1.3 session tickets are still kept disabled on the kTLS path for now, so
+  the local handshake refactor stays isolated while the next hosted benchmark
+  rerun confirms whether the old `EINVAL` / `EMSGSIZE` failure cluster is gone.
 - The local autonomy blockers from the 2026-04-21 audit are resolved for this macOS shell environment.
 - In-app heartbeat sandboxes are more restricted than the interactive shell here; remote CI inspection and git metadata writes should still happen from unrestricted interactive runs or the external launchd worker.
 
@@ -173,6 +175,9 @@ Last reviewed commit: `4615156` (`fix(ktls): restore mutable linux handoff state
 - 2026-04-22: GitHub Actions run `24768909306` (`kTLS HTTP/2 Benchmarks`) uploaded baseline plus required-kTLS artifacts on Ubuntu 24.04. Baseline TLS completed both workloads cleanly (`h2_sustained_transfer`: `3994.58` Mbps / `4247.40` Mbps at 1/4 native threads, `h2_multiplexed_streams`: `5807.50` Mbps / `5779.71` Mbps at 1/4 native threads). Required-kTLS completed only `h2_sustained_transfer` at 1 thread (`1911.93` Mbps, p95 `18.85` ms, two protocol-error events) before `h2_multiplexed_streams` failed with `Invalid argument (os error 22)`, `Message too long (os error 90)`, occasional `Failed to set TLS ULP: Transport endpoint is not connected (os error 107)`, and downstream HTTP/2 `unexpected frame type` resets.
 - 2026-04-22: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core apply_server_tls_runtime_settings -- --nocapture` passed on Darwin arm64 after making the kTLS server prototype suppress TLS 1.3 session tickets whenever secret extraction is enabled.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after making the kTLS server prototype suppress TLS 1.3 session tickets on the dummy-session handoff path and updating the kTLS benchmark plan/research/state docs.
+- 2026-04-22: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core ktls::tests -- --nocapture` and `cargo test --manifest-path native/transport/Cargo.toml -p ct_core tls::tests -- --nocapture` passed on Darwin arm64 after replacing the Linux kTLS accept path with an unbuffered rustls server handshake and real kernel-connection handoff.
+- 2026-04-22: `docker run --rm --platform linux/amd64 -v /Users/konsultaner/Projects/connectanum-dart:/work -w /work/native/transport rust:1 bash -lc 'TOOLCHAIN=$(ls /usr/local/rustup/toolchains | head -n1); export PATH=\"/usr/local/rustup/toolchains/$TOOLCHAIN/bin:$PATH\"; cargo check -p ct_core'` passed, confirming the Linux-only unbuffered kTLS handoff path typechecks in a real Linux toolchain.
+- 2026-04-22: `bin/verify` passed on Darwin arm64 after replacing the Linux kTLS accept path with rustls's unbuffered server handshake plus `dangerous_into_kernel_connection()` and updating the kTLS benchmark plan/research/state docs.
 
 ## Active Plan
 
@@ -192,13 +197,13 @@ Last reviewed commit: `4615156` (`fix(ktls): restore mutable linux handoff state
 - The current prototype keeps default/non-Linux runs on `tokio-rustls`,
   disables future kTLS attempts after socket-setup or handoff failures in one
   process in try-mode, and now has a green hosted Linux validation path, but it
-  still is not the final production story for TLS 1.3 key-update handling; the
-  dummy-session path now suppresses TLS 1.3 session tickets rather than claim
-  support for them.
-- The next kTLS-specific fix should focus on the required-kTLS multiplexed
-  HTTP/2 path, where the current hosted run shows Linux socket setup errors
-  (`EINVAL`, `EMSGSIZE`, intermittent `ENOTCONN`) and HTTP/2 frame corruption
-  after the buffered-plaintext handoff was fixed.
+  still is not the final production story for TLS 1.3 key-update handling and
+  still keeps TLS 1.3 session tickets suppressed on the kTLS path while the
+  unbuffered handoff change is being validated.
+- The next kTLS-specific step is no longer another local handoff guess; it is a
+  fresh hosted HTTP/2 benchmark run against the unbuffered handoff path to see
+  whether the old Linux receive-path failures (`EINVAL`, `EMSGSIZE`,
+  intermittent `ENOTCONN`) and downstream HTTP/2 frame corruption are gone.
 - After that prototype is stable, extend the bench router with a TLS WAMP
   listener so secure RawSocket / WebSocket kTLS measurements can use the
   existing WAMP benchmark harness.

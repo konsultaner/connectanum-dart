@@ -49,8 +49,10 @@ captures that answer and the resulting benchmark order.
 - `rustls 0.23` exposes `dangerous_extract_secrets()` on the buffered
   `ServerConnection` / `ClientConnection` types and exposes
   `dangerous_into_kernel_connection()` on the unbuffered connection types. That
-  distinction matters here because `tokio-rustls 0.26` hands the repo back a
-  buffered `ServerConnection`, not an unbuffered one.
+  distinction mattered directly here because the initial repo prototype used
+  `tokio-rustls`'s buffered `ServerConnection`, and the current local kTLS
+  handoff fix replaces that with an explicit unbuffered rustls server handshake
+  on the Linux kTLS path.
 - `tokio-rustls 0.26` exposes `into_inner()` on both client and server TLS
   streams, which means the repo can recover both the raw socket and the
   `rustls` connection state after handshake without replacing the TLS library.
@@ -64,10 +66,10 @@ captures that answer and the resulting benchmark order.
 
 ### Bottom Line
 
-Linux-only kTLS is still viable with the current Rust stack, but the current
-`tokio-rustls` integration limits how far the prototype can go without a deeper
-handshake refactor. The repo does not need a `rustls` or `tokio-rustls` version
-jump just to validate a short-lived HTTP/2 smoke path.
+Linux-only kTLS is still viable with the current Rust stack, and the deeper
+server-handshake refactor is now the checked-in local direction. The repo did
+not need a `rustls` or `tokio-rustls` version jump to move from the short-lived
+dummy-session prototype to an unbuffered kernel-connection handoff.
 
 ### What Is Already Good Enough
 
@@ -102,14 +104,13 @@ jump just to validate a short-lived HTTP/2 smoke path.
    target-gated build path.
 2. Extend the server/client TLS builders in `native/transport/ct_core/src/tls.rs`
    so the Linux kTLS path can set `enable_secret_extraction = true`.
-3. After TLS handshake completion, convert the `tokio-rustls` stream with
-   `into_inner()`. With the current buffered `ServerConnection` API, the
-   practical prototype path is `dangerous_extract_secrets()` plus a dummy
-   server-side kTLS session for short-lived validation traffic; a full kernel
-   connection handoff would require moving the server handshake onto rustls's
-   unbuffered API or another lower-level integration. As long as that dummy
-   session path remains in place, the server should not advertise TLS 1.3
-   session tickets on kTLS-enabled listeners.
+3. Drive the Linux kTLS server path through rustls's unbuffered handshake API,
+   then switch into `dangerous_into_kernel_connection()` only once the
+   handshake is complete and any post-handshake plaintext has been buffered
+   explicitly in userspace. The repo now has this local refactor checked in,
+   and it avoids the hidden buffered state that the earlier
+   `dangerous_extract_secrets()` / dummy-session handoff could not transfer
+   cleanly.
 4. Add a Linux-only `IoStream` variant for the offloaded socket and keep the
    existing `tokio-rustls` path as the default fallback when probing or setup
    fails.
@@ -177,8 +178,9 @@ artifact bundle with both baseline and required-kTLS per-pass summaries.
   thread counts `1` and `4`.
 - Required-kTLS now gets through the single-stream
   `h2_sustained_transfer` workload at native runtime thread count `1`, which
-  confirms the buffered-plaintext drain added ahead of `ktls_stream::new_dummy`
-  fixed at least one real part of the earlier handoff corruption.
+  confirmed the buffered-plaintext preservation step fixed at least one real
+  part of the earlier handoff corruption before the repo moved on to the
+  unbuffered server-handshake refactor.
 
 ### Baseline TLS Numbers From Run `24768909306`
 
@@ -209,9 +211,9 @@ artifact bundle with both baseline and required-kTLS per-pass summaries.
 - The remaining blocker is the multiplexed HTTP/2 path under required-kTLS.
 - The same hosted log also shows intermittent required-kTLS handshake failures
   in the nominally simpler single-stream workload, which is consistent with the
-  current dummy-session path still exposing unsupported post-handshake TLS 1.3
-  behavior. The current mitigation is to suppress server-side TLS 1.3 session
-  tickets whenever that handoff path is active.
+  previous buffered handoff path leaving userspace/kernel receive state out of
+  sync. The current local mitigation is the unbuffered rustls server-handshake
+  refactor plus the still-narrow TLS 1.3 ticket suppression on the kTLS path.
 - Benchmark artifact generation should stay resilient to partial pass failure,
   because hosted runs can now produce baseline plus partial kTLS summaries even
   when the full comparison does not complete successfully.
@@ -224,10 +226,11 @@ artifact bundle with both baseline and required-kTLS per-pass summaries.
 - HTTP/3 is out of scope because QUIC does not use kTLS
 - `TLS_TX_ZEROCOPY_RO` and similar zero-copy claims only become meaningful on a
   supported Linux host with device offload
-- the current `tokio-rustls` server path does not yet provide production-ready
-  TLS 1.3 key-update or ticket handling for kTLS, because the validated
-  prototype uses `dangerous_extract_secrets()` plus a dummy server session, and
-  therefore now suppresses TLS 1.3 session tickets on that path
+- the current local kTLS path now uses rustls's unbuffered server handshake and
+  `dangerous_into_kernel_connection()`, but it still is not the final
+  production story for TLS 1.3 key-update handling, and it still keeps TLS 1.3
+  session tickets suppressed until the refreshed hosted benchmark run confirms
+  the new handoff path
 
 ## Recommended Next Milestone
 

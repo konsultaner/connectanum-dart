@@ -80,9 +80,14 @@ comparison artifact.
 - The hosted job log shows the same `EINVAL` / `EMSGSIZE` handshake failures
   intermittently even in the required-kTLS single-stream workload, so the
   blocker is not limited to the multiplexed scenario shape.
-- The next checked-in narrowing step is to suppress server-side TLS 1.3 session
-  tickets on the current dummy-session kTLS path, because that prototype does
-  not keep rustls alive for post-handshake ticket management.
+- The next checked-in narrowing step has already landed locally: the Linux
+  kTLS accept path now uses rustls's unbuffered server handshake plus
+  `dangerous_into_kernel_connection()` instead of the old
+  buffered-`tokio-rustls` / dummy-session handoff.
+- Local verification now covers the updated macOS `ct_core` suites plus a real
+  Linux `cargo check -p ct_core` in an official `rust:1` Docker container, but
+  the milestone still needs a fresh hosted benchmark rerun to confirm whether
+  the old `EINVAL` / `EMSGSIZE` cluster disappears under required-kTLS.
 - `bin/ktls-http2-bench` now keeps writing per-pass summaries and the
   comparison files even when one pass exits non-zero, so future hosted runs
   remain diagnosable without manually reconstructing partial benchmark output.
@@ -105,3 +110,7 @@ comparison artifact.
   handshake failures before multiplexing is even involved, so the next bounded
   mitigation is to stop advertising TLS 1.3 session tickets on the dummy-server
   handoff path before attempting a deeper unbuffered-handshake refactor.
+- 2026-04-22: The buffered `tokio-rustls` server handoff was no longer a
+  defensible place to keep iterating once the hosted log showed receive-path
+  `EINVAL` / `EMSGSIZE`, so the next bounded change switched the Linux kTLS
+  accept path to rustls's unbuffered handshake and real kernel-connection API.

@@ -5,17 +5,21 @@ pub(crate) const ENABLE_KTLS_ENV: &str = "CONNECTANUM_ENABLE_KTLS";
 #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 pub(crate) const REQUIRE_KTLS_ENV: &str = "CONNECTANUM_REQUIRE_KTLS";
 
-use std::io::{self, BufRead};
+#[cfg(target_os = "linux")]
+use std::sync::Arc;
 #[cfg(target_os = "linux")]
 use std::sync::atomic::{AtomicBool, Ordering};
 
 #[cfg(target_os = "linux")]
 use tokio::{io::AsyncWriteExt, net::TcpStream};
-#[cfg(target_os = "linux")]
-use tokio_rustls::server::TlsStream as ServerTlsStream;
 
 #[cfg(target_os = "linux")]
 static SERVER_OFFLOAD_DISABLED: AtomicBool = AtomicBool::new(false);
+
+#[cfg(target_os = "linux")]
+const UNBUFFERED_TLS_READ_CHUNK: usize = 16 * 1024;
+#[cfg(target_os = "linux")]
+const UNBUFFERED_TLS_WRITE_CHUNK: usize = 16 * 1024;
 
 #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -100,107 +104,198 @@ fn disable_server_offload() {
 }
 
 #[cfg(target_os = "linux")]
-fn dummy_server_session(
-    protocol_version: Option<rustls::ProtocolVersion>,
-) -> Result<ktls_core::DummyTlsSession, String> {
-    match protocol_version {
-        Some(rustls::ProtocolVersion::TLSv1_2) => Ok(ktls_core::DUMMY_TLS_12_SESSION_SERVER),
-        Some(rustls::ProtocolVersion::TLSv1_3) => Ok(ktls_core::DUMMY_TLS_13_SESSION_SERVER),
-        Some(version) => Err(format!(
-            "unsupported TLS protocol version for Linux kTLS handoff: {version:?}"
-        )),
-        None => Err("missing negotiated TLS protocol version for Linux kTLS handoff".into()),
+fn discard_front(buffer: &mut Vec<u8>, discard: usize) {
+    if discard == 0 {
+        return;
     }
-}
-
-#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
-fn drain_buffered_plaintext(
-    session: &mut rustls::ServerConnection,
-) -> Result<Option<Vec<u8>>, String> {
-    let mut plaintext = Vec::new();
-
-    loop {
-        let chunk_len = {
-            let chunk = match session.reader().into_first_chunk() {
-                Ok(chunk) => chunk,
-                Err(err) if err.kind() == io::ErrorKind::WouldBlock => break,
-                Err(err) => {
-                    return Err(format!(
-                        "failed to drain buffered plaintext before Linux kTLS handoff: {err}"
-                    ))
-                }
-            };
-
-            if chunk.is_empty() {
-                break;
-            }
-
-            plaintext.extend_from_slice(chunk);
-            chunk.len()
-        };
-
-        session.reader().consume(chunk_len);
-    }
-
-    Ok((!plaintext.is_empty()).then_some(plaintext))
+    buffer.drain(..discard);
 }
 
 #[cfg(target_os = "linux")]
-pub(crate) async fn try_offload_server_stream(
-    mut tls_stream: ServerTlsStream<TcpStream>,
-) -> Result<crate::io_stream::IoStream, String> {
-    let negotiated_alpn = tls_stream
-        .get_ref()
-        .1
+fn encode_unbuffered_tls(
+    mut encode: rustls::unbuffered::EncodeTlsData<'_, rustls::server::ServerConnectionData>,
+    outgoing_tls: &mut Vec<u8>,
+) -> Result<usize, String> {
+    loop {
+        match encode.encode(outgoing_tls.as_mut_slice()) {
+            Ok(encoded) => return Ok(encoded),
+            Err(rustls::unbuffered::EncodeError::InsufficientSize(required)) => {
+                outgoing_tls.resize(required.required_size, 0);
+            }
+            Err(err) => {
+                return Err(format!(
+                    "failed to encode TLS handshake data for Linux kTLS handoff: {err}"
+                ));
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn negotiated_alpn(
+    session: &rustls::server::UnbufferedServerConnection,
+) -> Option<String> {
+    session
         .alpn_protocol()
-        .map(|bytes| String::from_utf8_lossy(bytes).to_string());
-    tls_stream
-        .flush()
-        .await
-        .map_err(|err| format!("failed to flush TLS handshake before kTLS handoff: {err}"))?;
-    let (stream, mut session) = tls_stream.into_inner();
-    let dummy_session = dummy_server_session(session.protocol_version()).map_err(|err| {
+        .map(|bytes| String::from_utf8_lossy(bytes).to_string())
+}
+
+#[cfg(target_os = "linux")]
+fn into_plaintext_buffer(bytes: Vec<u8>) -> Option<ktls_core::Buffer> {
+    (!bytes.is_empty()).then_some(ktls_core::Buffer::from(bytes))
+}
+
+#[cfg(target_os = "linux")]
+pub(crate) async fn accept_server_stream(
+    config: Arc<rustls::ServerConfig>,
+    mut stream: TcpStream,
+) -> Result<crate::io_stream::IoStream, String> {
+    let mut session = rustls::server::UnbufferedServerConnection::new(config).map_err(|err| {
         disable_server_offload();
-        err
+        format!("failed to initialize unbuffered TLS server for Linux kTLS handoff: {err}")
     })?;
-    let buffered_plaintext = drain_buffered_plaintext(&mut session)
-        .map(|buffer| buffer.map(ktls_core::Buffer::from))
-        .map_err(|err| {
+    let mut incoming_tls = Vec::new();
+    let mut outgoing_tls = vec![0; UNBUFFERED_TLS_WRITE_CHUNK];
+    let mut pending_outgoing_len: Option<usize> = None;
+    let mut buffered_plaintext = Vec::new();
+    let mut read_buf = [0u8; UNBUFFERED_TLS_READ_CHUNK];
+
+    loop {
+        let status = session.process_tls_records(incoming_tls.as_mut_slice());
+        let mut discard = status.discard;
+        let state = status.state.map_err(|err| {
             disable_server_offload();
-            err
+            format!("failed to process TLS handshake for Linux kTLS handoff: {err}")
         })?;
-    // tokio-rustls returns a buffered ServerConnection. Its public API exposes
-    // secret extraction, but not rustls's kernel-connection handoff, so the
-    // prototype uses a dummy server-side session for short-lived validation
-    // traffic instead of tracking TLS 1.3 key updates or ticket state.
-    let secrets = session.dangerous_extract_secrets().map_err(|err| {
-        disable_server_offload();
-        format!("failed to extract TLS secrets for Linux kTLS handoff: {err}")
-    })?;
-    let secrets = ktls_core::ExtractedSecrets::try_from(secrets).map_err(|err| {
-        disable_server_offload();
-        format!("failed to adapt rustls secrets for Linux kTLS handoff: {err}")
-    })?;
-    // `ktls-stream` expects TLS ULP setup on a connected socket. The accepted
-    // TCP stream is only ready for that once the TLS handshake has completed,
-    // so the dummy-session helper performs the ULP setup here instead of on
-    // the pre-handshake socket.
-    let stream = ktls_stream::Stream::new_dummy(stream, secrets, dummy_session, buffered_plaintext)
-        .map_err(|err| {
-            disable_server_offload();
-            format!("failed to initialize Linux kTLS stream: {err}")
-        })?;
-    Ok(crate::io_stream::IoStream::ktls_server(
-        stream,
-        negotiated_alpn,
-    ))
+        match state {
+            rustls::unbuffered::ConnectionState::EncodeTlsData(encode) => {
+                let encoded = encode_unbuffered_tls(encode, &mut outgoing_tls).map_err(|err| {
+                    disable_server_offload();
+                    err
+                })?;
+                discard_front(&mut incoming_tls, discard);
+                pending_outgoing_len = Some(encoded);
+            }
+            rustls::unbuffered::ConnectionState::TransmitTlsData(transmit) => {
+                discard_front(&mut incoming_tls, discard);
+                let encoded = pending_outgoing_len.take().ok_or_else(|| {
+                    disable_server_offload();
+                    "rustls requested TLS transmit without encoded handshake bytes".to_string()
+                })?;
+                stream.write_all(&outgoing_tls[..encoded]).await.map_err(|err| {
+                    disable_server_offload();
+                    format!(
+                        "failed to transmit TLS handshake bytes before Linux kTLS handoff: {err}"
+                    )
+                })?;
+                transmit.done();
+            }
+            rustls::unbuffered::ConnectionState::BlockedHandshake => {
+                discard_front(&mut incoming_tls, discard);
+                let read = tokio::io::AsyncReadExt::read(&mut stream, &mut read_buf)
+                    .await
+                    .map_err(|err| {
+                        disable_server_offload();
+                        format!(
+                            "failed to read TLS handshake bytes before Linux kTLS handoff: {err}"
+                        )
+                    })?;
+                if read == 0 {
+                    disable_server_offload();
+                    return Err("tls handshake eof before Linux kTLS handoff".into());
+                }
+                incoming_tls.extend_from_slice(&read_buf[..read]);
+            }
+            rustls::unbuffered::ConnectionState::ReadTraffic(mut read_traffic) => {
+                while let Some(record) = read_traffic.next_record() {
+                    let record = record.map_err(|err| {
+                        disable_server_offload();
+                        format!(
+                            "failed to decode post-handshake application data before Linux kTLS handoff: {err}"
+                        )
+                    })?;
+                    discard += record.discard;
+                    buffered_plaintext.extend_from_slice(record.payload);
+                }
+                drop(read_traffic);
+                discard_front(&mut incoming_tls, discard);
+            }
+            rustls::unbuffered::ConnectionState::ReadEarlyData(mut early_data) => {
+                while let Some(record) = early_data.next_record() {
+                    let record = record.map_err(|err| {
+                        disable_server_offload();
+                        format!(
+                            "failed to decode early data before Linux kTLS handoff: {err}"
+                        )
+                    })?;
+                    discard += record.discard;
+                    buffered_plaintext.extend_from_slice(record.payload);
+                }
+                drop(early_data);
+                discard_front(&mut incoming_tls, discard);
+            }
+            rustls::unbuffered::ConnectionState::WriteTraffic(write_traffic) => {
+                discard_front(&mut incoming_tls, discard);
+                drop(write_traffic);
+
+                let negotiated_alpn = negotiated_alpn(&session);
+                let (secrets, kernel_connection) = session
+                    .dangerous_into_kernel_connection()
+                    .map_err(|err| {
+                        disable_server_offload();
+                        format!(
+                            "failed to convert TLS session into Linux kTLS kernel connection: {err}"
+                        )
+                    })?;
+                let secrets = ktls_core::ExtractedSecrets::try_from(secrets).map_err(|err| {
+                    disable_server_offload();
+                    format!("failed to adapt rustls secrets for Linux kTLS handoff: {err}")
+                })?;
+                ktls_core::setup_ulp(&stream).map_err(|err| {
+                    disable_server_offload();
+                    format!("failed to set TLS ULP before Linux kTLS handoff: {err}")
+                })?;
+                let stream = ktls_stream::Stream::new(
+                    stream,
+                    secrets,
+                    kernel_connection,
+                    into_plaintext_buffer(buffered_plaintext),
+                )
+                .map_err(|err| {
+                    disable_server_offload();
+                    format!("failed to initialize Linux kTLS stream: {err}")
+                })?;
+                return Ok(crate::io_stream::IoStream::ktls_server(
+                    stream,
+                    negotiated_alpn,
+                ));
+            }
+            rustls::unbuffered::ConnectionState::PeerClosed => {
+                discard_front(&mut incoming_tls, discard);
+                disable_server_offload();
+                return Err("peer closed during Linux kTLS handshake handoff".into());
+            }
+            rustls::unbuffered::ConnectionState::Closed => {
+                discard_front(&mut incoming_tls, discard);
+                disable_server_offload();
+                return Err("connection closed during Linux kTLS handshake handoff".into());
+            }
+            _ => {
+                discard_front(&mut incoming_tls, discard);
+                disable_server_offload();
+                return Err("unexpected rustls unbuffered state during Linux kTLS handoff".into());
+            }
+        }
+    }
 }
 
 #[cfg(not(target_os = "linux"))]
-pub(crate) async fn try_offload_server_stream(
-    tls_stream: tokio_rustls::server::TlsStream<tokio::net::TcpStream>,
+pub(crate) async fn accept_server_stream(
+    config: std::sync::Arc<rustls::ServerConfig>,
+    stream: tokio::net::TcpStream,
 ) -> Result<crate::io_stream::IoStream, String> {
-    let _ = tls_stream;
+    let _ = config;
+    let _ = stream;
     Err("kTLS server handoff is unavailable on this platform".into())
 }
 
@@ -218,15 +313,7 @@ fn parse_enabled_flag(raw: Option<&str>) -> bool {
 mod tests {
     use super::*;
     use crate::config::{EndpointRuntimeConfig, TlsMode};
-    use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-    use rustls::pki_types::{PrivateKeyDer, ServerName};
-    use rustls::{ClientConfig as RustlsClientConfig, ServerConfig as RustlsServerConfig};
-    use rustls_pemfile::{certs, pkcs8_private_keys};
-    use std::{
-        io::{Cursor, Write},
-        sync::Arc,
-        time::Duration,
-    };
+    use std::time::Duration;
 
     #[test]
     fn parse_enabled_flag_accepts_common_truthy_values() {
@@ -292,169 +379,21 @@ mod tests {
         ])));
     }
 
+    #[cfg(target_os = "linux")]
     #[test]
-    fn drain_buffered_plaintext_preserves_post_handshake_http2_preface() {
-        let server_cert_pem = include_str!("../../../bench/bench_tls.crt");
-        let server_key_pem = include_str!("../../../bench/bench_tls.key");
-        let cert_chain = parse_cert_chain(server_cert_pem);
-        let server_key = parse_private_key(server_key_pem);
-
-        let server_config = Arc::new(
-            RustlsServerConfig::builder()
-                .with_no_client_auth()
-                .with_single_cert(cert_chain, server_key)
-                .expect("server config"),
-        );
-        let provider = Arc::new(rustls::crypto::ring::default_provider());
-        let verifier = Arc::new(NoCertificateVerification {
-            schemes: provider
-                .signature_verification_algorithms
-                .supported_schemes(),
-        });
-        let client_config = Arc::new(
-            RustlsClientConfig::builder_with_provider(Arc::clone(&provider))
-                .with_protocol_versions(&[&rustls::version::TLS13])
-                .expect("client protocol versions")
-                .dangerous()
-                .with_custom_certificate_verifier(verifier)
-                .with_no_client_auth(),
-        );
-
-        let mut server = rustls::ServerConnection::new(server_config).expect("server connection");
-        let mut client = rustls::ClientConnection::new(
-            client_config,
-            ServerName::try_from("localhost").expect("server name"),
-        )
-        .expect("client connection");
-
-        complete_handshake(&mut client, &mut server);
-
-        let http2_preface = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
-        client
-            .writer()
-            .write_all(http2_preface)
-            .expect("queue application data");
-        pump_client_to_server(&mut client, &mut server);
-
-        let drained = drain_buffered_plaintext(&mut server)
-            .expect("drain buffered plaintext")
-            .expect("buffered plaintext");
-        assert_eq!(drained, http2_preface);
-        assert!(drain_buffered_plaintext(&mut server)
-            .expect("drain after consume")
-            .is_none());
+    fn discard_front_removes_prefix_bytes() {
+        let mut buffer = b"abcdef".to_vec();
+        discard_front(&mut buffer, 2);
+        assert_eq!(buffer, b"cdef");
+        discard_front(&mut buffer, 0);
+        assert_eq!(buffer, b"cdef");
     }
 
-    #[derive(Debug)]
-    struct NoCertificateVerification {
-        schemes: Vec<rustls::SignatureScheme>,
-    }
-
-    impl ServerCertVerifier for NoCertificateVerification {
-        fn verify_server_cert(
-            &self,
-            _end_entity: &rustls::pki_types::CertificateDer<'_>,
-            _intermediates: &[rustls::pki_types::CertificateDer<'_>],
-            _server_name: &ServerName<'_>,
-            _ocsp_response: &[u8],
-            _now: rustls::pki_types::UnixTime,
-        ) -> Result<ServerCertVerified, rustls::Error> {
-            Ok(ServerCertVerified::assertion())
-        }
-
-        fn verify_tls12_signature(
-            &self,
-            _message: &[u8],
-            _cert: &rustls::pki_types::CertificateDer<'_>,
-            _dss: &rustls::DigitallySignedStruct,
-        ) -> Result<HandshakeSignatureValid, rustls::Error> {
-            Ok(HandshakeSignatureValid::assertion())
-        }
-
-        fn verify_tls13_signature(
-            &self,
-            _message: &[u8],
-            _cert: &rustls::pki_types::CertificateDer<'_>,
-            _dss: &rustls::DigitallySignedStruct,
-        ) -> Result<HandshakeSignatureValid, rustls::Error> {
-            Ok(HandshakeSignatureValid::assertion())
-        }
-
-        fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
-            self.schemes.clone()
-        }
-    }
-
-    fn parse_cert_chain(pem: &str) -> Vec<rustls::pki_types::CertificateDer<'static>> {
-        let mut reader = Cursor::new(pem.as_bytes());
-        certs(&mut reader)
-            .collect::<Result<Vec<_>, _>>()
-            .expect("parse certificate chain")
-    }
-
-    fn parse_private_key(pem: &str) -> PrivateKeyDer<'static> {
-        let mut reader = Cursor::new(pem.as_bytes());
-        pkcs8_private_keys(&mut reader)
-            .collect::<Result<Vec<_>, _>>()
-            .expect("parse private key")
-            .into_iter()
-            .next()
-            .expect("private key present")
-            .into()
-    }
-
-    fn complete_handshake(
-        client: &mut rustls::ClientConnection,
-        server: &mut rustls::ServerConnection,
-    ) {
-        while client.is_handshaking() || server.is_handshaking() {
-            pump_client_to_server(client, server);
-            pump_server_to_client(server, client);
-        }
-    }
-
-    fn pump_client_to_server(
-        client: &mut rustls::ClientConnection,
-        server: &mut rustls::ServerConnection,
-    ) {
-        let mut tls_bytes = Vec::new();
-        while client.wants_write() {
-            client
-                .write_tls(&mut tls_bytes)
-                .expect("write client handshake bytes");
-        }
-        if tls_bytes.is_empty() {
-            return;
-        }
-        let mut cursor = Cursor::new(tls_bytes);
-        server
-            .read_tls(&mut cursor)
-            .expect("read client handshake bytes");
-        server
-            .process_new_packets()
-            .expect("process client packets");
-    }
-
-    fn pump_server_to_client(
-        server: &mut rustls::ServerConnection,
-        client: &mut rustls::ClientConnection,
-    ) {
-        let mut tls_bytes = Vec::new();
-        while server.wants_write() {
-            server
-                .write_tls(&mut tls_bytes)
-                .expect("write server handshake bytes");
-        }
-        if tls_bytes.is_empty() {
-            return;
-        }
-        let mut cursor = Cursor::new(tls_bytes);
-        client
-            .read_tls(&mut cursor)
-            .expect("read server handshake bytes");
-        client
-            .process_new_packets()
-            .expect("process server packets");
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn into_plaintext_buffer_omits_empty_vectors() {
+        assert!(into_plaintext_buffer(Vec::new()).is_none());
+        assert!(into_plaintext_buffer(vec![1, 2, 3]).is_some());
     }
 
     fn endpoint_with_protocols(protocols: Vec<TransportProtocol>) -> EndpointRuntimeConfig {

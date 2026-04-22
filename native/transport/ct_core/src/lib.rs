@@ -3490,44 +3490,55 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                                 Some(acceptor) => {
                                     let ktls_requested =
                                         ktls::server_runtime_requested(runtime_config_for_task.as_ref());
-                                    let handshake = acceptor.accept(stream);
-                                    match time::timeout(
-                                        runtime_config_for_task.handshake_timeout,
-                                        handshake,
-                                    )
-                                    .await
-                                    {
-                                        Ok(Ok(tls_stream)) => {
-                                            if ktls_requested {
-                                                match ktls::try_offload_server_stream(tls_stream)
-                                                    .await
-                                                {
-                                                    Ok(io_stream) => io_stream,
-                                                    Err(err) => {
-                                                        eprintln!(
-                                                            "kTLS handoff failed for connection from {}: {}",
-                                                            addr, err
-                                                        );
-                                                        continue;
-                                                    }
-                                                }
-                                            } else {
-                                                IoStream::tls(tls_stream)
+                                    if ktls_requested {
+                                        match time::timeout(
+                                            runtime_config_for_task.handshake_timeout,
+                                            ktls::accept_server_stream(
+                                                acceptor.config().clone(),
+                                                stream,
+                                            ),
+                                        )
+                                        .await
+                                        {
+                                            Ok(Ok(io_stream)) => io_stream,
+                                            Ok(Err(err)) => {
+                                                eprintln!(
+                                                    "kTLS handoff failed for connection from {}: {}",
+                                                    addr, err
+                                                );
+                                                continue;
+                                            }
+                                            Err(_) => {
+                                                eprintln!(
+                                                    "kTLS handshake timed out for connection from {}",
+                                                    addr
+                                                );
+                                                continue;
                                             }
                                         }
-                                        Ok(Err(err)) => {
-                                            eprintln!(
-                                                "tls handshake failed for connection from {}: {}",
-                                                addr, err
-                                            );
-                                            continue;
-                                        }
-                                        Err(_) => {
-                                            eprintln!(
-                                                "tls handshake timed out for connection from {}",
-                                                addr
-                                            );
-                                            continue;
+                                    } else {
+                                        let handshake = acceptor.accept(stream);
+                                        match time::timeout(
+                                            runtime_config_for_task.handshake_timeout,
+                                            handshake,
+                                        )
+                                        .await
+                                        {
+                                            Ok(Ok(tls_stream)) => IoStream::tls(tls_stream),
+                                            Ok(Err(err)) => {
+                                                eprintln!(
+                                                    "tls handshake failed for connection from {}: {}",
+                                                    addr, err
+                                                );
+                                                continue;
+                                            }
+                                            Err(_) => {
+                                                eprintln!(
+                                                    "tls handshake timed out for connection from {}",
+                                                    addr
+                                                );
+                                                continue;
+                                            }
                                         }
                                     }
                                 }
