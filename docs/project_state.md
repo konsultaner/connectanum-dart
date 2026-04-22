@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `aaf0d3d` (`feat(native): add env-gated ktls prototype`)
+Last reviewed commit: `a35c72f` (`docs(public): polish release-facing artifacts`)
 
 ## Resume Order
 
@@ -140,7 +140,7 @@ Last reviewed commit: `aaf0d3d` (`feat(native): add env-gated ktls prototype`)
 
 ## Active Plan
 
-- No active execution plan is checked in right now.
+- Active plan: `docs/exec-plans/2026-04-22-ktls-linux-validation.md`
 - Supporting research notes:
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`

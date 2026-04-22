@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+
+usage() {
+  cat <<'EOF'
+Usage: bin/ktls-linux-validate [--scenario <path>] [--out-dir <dir>] [--router-worker-counts <csv>] [--native-runtime-thread-counts <csv>]
+
+Runs the Linux-only kTLS validation path:
+1. targeted Rust kTLS tests
+2. HTTP/2 smoke bench with kTLS required
+
+Environment:
+  CONNECTANUM_ENABLE_KTLS            Defaults to 1 for this script
+  CONNECTANUM_REQUIRE_KTLS           Defaults to 1 for this script
+EOF
+}
+
+scenario="$(repo_root)/native/bench/scenarios/h2_smoke.toml"
+out_dir="$(repo_root)/out/ktls-validation"
+router_worker_counts="1"
+native_runtime_thread_counts="1"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --scenario)
+      scenario="$2"
+      shift 2
+      ;;
+    --out-dir)
+      out_dir="$2"
+      shift 2
+      ;;
+    --router-worker-counts)
+      router_worker_counts="$2"
+      shift 2
+      ;;
+    --native-runtime-thread-counts)
+      native_runtime_thread_counts="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Unknown argument: %s\n' "$1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+require_command cargo
+require_command dart
+cd_repo_root
+
+if [[ "$(uname -s)" != "Linux" ]]; then
+  printf 'bin/ktls-linux-validate requires Linux.\n' >&2
+  exit 1
+fi
+
+mkdir -p "$out_dir"
+
+scenario="$(cd "$(dirname "$scenario")" && pwd)/$(basename "$scenario")"
+results_path="${out_dir%/}/bench_results.jsonl"
+host_info_path="${out_dir%/}/host-info.txt"
+
+export CONNECTANUM_ENABLE_KTLS="${CONNECTANUM_ENABLE_KTLS:-1}"
+export CONNECTANUM_REQUIRE_KTLS="${CONNECTANUM_REQUIRE_KTLS:-1}"
+
+{
+  printf 'date_utc=%s\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  printf 'uname=%s\n' "$(uname -a)"
+  if [[ -r /proc/version ]]; then
+    printf 'proc_version=%s\n' "$(tr '\n' ' ' </proc/version)"
+  fi
+  if [[ -r /proc/sys/net/ipv4/tcp_available_ulp ]]; then
+    printf 'tcp_available_ulp=%s\n' "$(tr '\n' ' ' </proc/sys/net/ipv4/tcp_available_ulp)"
+  fi
+  printf 'rustc=%s\n' "$(rustc -V)"
+  printf 'cargo=%s\n' "$(cargo -V)"
+  printf 'dart=%s\n' "$("$(dart_binary)" --version 2>&1 | tr '\n' ' ')"
+  printf 'scenario=%s\n' "$scenario"
+  printf 'router_worker_counts=%s\n' "$router_worker_counts"
+  printf 'native_runtime_thread_counts=%s\n' "$native_runtime_thread_counts"
+  printf 'CONNECTANUM_ENABLE_KTLS=%s\n' "$CONNECTANUM_ENABLE_KTLS"
+  printf 'CONNECTANUM_REQUIRE_KTLS=%s\n' "$CONNECTANUM_REQUIRE_KTLS"
+} >"$host_info_path"
+
+printf 'Running targeted kTLS Rust tests...\n'
+cargo test --manifest-path native/transport/Cargo.toml -p ct_core ktls::tests -- --nocapture
+
+printf 'Running HTTP/2 smoke bench with kTLS required...\n'
+cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- \
+  --scenario "$scenario" \
+  --results "$results_path" \
+  --artifact-dir "$out_dir" \
+  --router-worker-counts "$router_worker_counts" \
+  --native-runtime-thread-counts "$native_runtime_thread_counts"
+
+printf 'kTLS validation artifacts written to %s\n' "$out_dir"

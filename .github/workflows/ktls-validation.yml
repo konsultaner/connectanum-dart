@@ -1,0 +1,62 @@
+name: kTLS Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: Bench scenario to run with kTLS required
+        required: false
+        default: native/bench/scenarios/h2_smoke.toml
+        type: string
+      router_worker_counts:
+        description: Router worker counts passed to the bench orchestrator
+        required: false
+        default: "1"
+        type: string
+      native_runtime_thread_counts:
+        description: Tokio runtime thread counts passed to the bench orchestrator
+        required: false
+        default: "1"
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+
+jobs:
+  linux-ktls:
+    name: Linux kTLS validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dart-lang/setup-dart@v1
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Bootstrap workspace
+        run: bin/bootstrap
+
+      - name: Run strict Linux kTLS validation
+        env:
+          INPUT_SCENARIO: ${{ github.event.inputs.scenario }}
+          INPUT_ROUTER_WORKER_COUNTS: ${{ github.event.inputs.router_worker_counts }}
+          INPUT_NATIVE_RUNTIME_THREAD_COUNTS: ${{ github.event.inputs.native_runtime_thread_counts }}
+        run: |
+          set -euo pipefail
+          bin/ktls-linux-validate \
+            --scenario "${INPUT_SCENARIO:-native/bench/scenarios/h2_smoke.toml}" \
+            --out-dir "${GITHUB_WORKSPACE}/out/ktls-validation" \
+            --router-worker-counts "${INPUT_ROUTER_WORKER_COUNTS:-1}" \
+            --native-runtime-thread-counts "${INPUT_NATIVE_RUNTIME_THREAD_COUNTS:-1}"
+
+      - name: Upload kTLS validation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ktls-validation-artifacts
+          path: out/ktls-validation
+          if-no-files-found: error

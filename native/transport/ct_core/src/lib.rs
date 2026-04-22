@@ -3495,11 +3495,16 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                                         Ok(prepared) => prepared,
                                         Err(err) => {
                                             eprintln!(
-                                                "kTLS setup disabled for listener {}:{} after socket preparation failure: {}",
+                                                "kTLS socket preparation failed for listener {}:{}: {}",
                                                 runtime_config_for_task.host,
                                                 runtime_config_for_task.port,
                                                 err
                                             );
+                                            if ktls::server_runtime_required(
+                                                runtime_config_for_task.as_ref(),
+                                            ) {
+                                                continue;
+                                            }
                                             false
                                         }
                                     };

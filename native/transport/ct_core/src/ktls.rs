@@ -2,6 +2,8 @@ use crate::config::{EndpointRuntimeConfig, TransportProtocol};
 
 #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 pub(crate) const ENABLE_KTLS_ENV: &str = "CONNECTANUM_ENABLE_KTLS";
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+pub(crate) const REQUIRE_KTLS_ENV: &str = "CONNECTANUM_REQUIRE_KTLS";
 
 #[cfg(target_os = "linux")]
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -14,15 +16,47 @@ use tokio_rustls::server::TlsStream as ServerTlsStream;
 #[cfg(target_os = "linux")]
 static SERVER_OFFLOAD_DISABLED: AtomicBool = AtomicBool::new(false);
 
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ServerKtlsMode {
+    Disabled,
+    Try,
+    Require,
+}
+
 pub(crate) fn secret_extraction_requested() -> bool {
     #[cfg(target_os = "linux")]
     {
-        parse_enabled_flag(std::env::var(ENABLE_KTLS_ENV).ok().as_deref())
+        !matches!(server_mode(), ServerKtlsMode::Disabled)
     }
     #[cfg(not(target_os = "linux"))]
     {
         false
     }
+}
+
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn server_mode_from_env(enable_raw: Option<&str>, require_raw: Option<&str>) -> ServerKtlsMode {
+    if !parse_enabled_flag(enable_raw) {
+        ServerKtlsMode::Disabled
+    } else if parse_enabled_flag(require_raw) {
+        ServerKtlsMode::Require
+    } else {
+        ServerKtlsMode::Try
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn server_mode() -> ServerKtlsMode {
+    server_mode_from_env(
+        std::env::var(ENABLE_KTLS_ENV).ok().as_deref(),
+        std::env::var(REQUIRE_KTLS_ENV).ok().as_deref(),
+    )
+}
+
+#[cfg(not(target_os = "linux"))]
+fn server_mode() -> ServerKtlsMode {
+    ServerKtlsMode::Disabled
 }
 
 #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
@@ -35,9 +69,15 @@ fn server_http_eligible(endpoint: &EndpointRuntimeConfig) -> bool {
 fn server_runtime_requested(endpoint: &EndpointRuntimeConfig) -> bool {
     #[cfg(target_os = "linux")]
     {
-        secret_extraction_requested()
-            && !SERVER_OFFLOAD_DISABLED.load(Ordering::Relaxed)
-            && server_http_eligible(endpoint)
+        if !server_http_eligible(endpoint) {
+            return false;
+        }
+
+        match server_mode() {
+            ServerKtlsMode::Disabled => false,
+            ServerKtlsMode::Try => !SERVER_OFFLOAD_DISABLED.load(Ordering::Relaxed),
+            ServerKtlsMode::Require => true,
+        }
     }
     #[cfg(not(target_os = "linux"))]
     {
@@ -46,9 +86,16 @@ fn server_runtime_requested(endpoint: &EndpointRuntimeConfig) -> bool {
     }
 }
 
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+pub(crate) fn server_runtime_required(endpoint: &EndpointRuntimeConfig) -> bool {
+    server_http_eligible(endpoint) && matches!(server_mode(), ServerKtlsMode::Require)
+}
+
 #[cfg(target_os = "linux")]
 fn disable_server_offload() {
-    SERVER_OFFLOAD_DISABLED.store(true, Ordering::Relaxed);
+    if !matches!(server_mode(), ServerKtlsMode::Require) {
+        SERVER_OFFLOAD_DISABLED.store(true, Ordering::Relaxed);
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -154,6 +201,30 @@ mod tests {
                 "expected {value:?} to disable kTLS"
             );
         }
+    }
+
+    #[test]
+    fn server_mode_requires_enable_flag() {
+        assert_eq!(
+            server_mode_from_env(None, Some("1")),
+            ServerKtlsMode::Disabled,
+        );
+        assert_eq!(
+            server_mode_from_env(Some("0"), Some("1")),
+            ServerKtlsMode::Disabled,
+        );
+    }
+
+    #[test]
+    fn server_mode_distinguishes_try_and_require_modes() {
+        assert_eq!(
+            server_mode_from_env(Some("1"), None),
+            ServerKtlsMode::Try,
+        );
+        assert_eq!(
+            server_mode_from_env(Some("true"), Some("1")),
+            ServerKtlsMode::Require,
+        );
     }
 
     #[test]
