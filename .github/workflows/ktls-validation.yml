@@ -1,6 +1,15 @@
 name: kTLS Validation
 
 on:
+  push:
+    branches:
+      - add-router
+      - master
+    paths:
+      - .github/workflows/ktls-validation.yml
+      - bin/ktls-linux-validate
+      - native/bench/**
+      - native/transport/ct_core/**
   workflow_dispatch:
     inputs:
       scenario:
