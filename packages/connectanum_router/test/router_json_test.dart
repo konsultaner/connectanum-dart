@@ -54,7 +54,7 @@ void main() {
       );
     });
 
-    test('throws on duplicate SNI host within same router', () {
+    test('allows duplicate SNI host across distinct endpoints', () {
       final cert = _cert('example.com');
       final endpoints = [
         Endpoint(
@@ -72,10 +72,7 @@ void main() {
           sniCertificates: [cert],
         ),
       ];
-      expect(
-        () => Router(RouterConfig(endpoints: endpoints)),
-        throwsArgumentError,
-      );
+      expect(() => Router(RouterConfig(endpoints: endpoints)), returnsNormally);
     });
   });
 }

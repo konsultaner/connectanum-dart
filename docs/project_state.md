@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `63c6d75` (`docs: record secure wamp validation run`)
+Last reviewed commit: `eade5a6` (`fix(bench): validate secure wamp router config`)
 
 ## Resume Order
 
@@ -25,7 +25,7 @@ Last reviewed commit: `63c6d75` (`docs: record secure wamp validation run`)
 - The bench WAMP harness now supports explicit secure-target selection through `secure_transport = true`, keeps separate cleartext and TLS listener target maps for both the in-process runner and the native helper worker, and fails closed instead of silently falling back to the cleartext WAMP listener.
 - `native/bench/bench_router.json` now ships both cleartext WAMP (`127.0.0.1:8081`) and TLS WAMP (`127.0.0.1:8083`) listeners, and both WebSocket listeners advertise `wamp.2.json`, `wamp.2.msgpack`, and `wamp.2.cbor` so the bench scenario surface matches the supported WAMP serializers.
 - The bench workload contract now includes `secure_transport`, and `native/bench/scenarios/wamp_secure_smoke.toml` provides the first checked-in secure RawSocket/WebSocket smoke coverage against `bench.secure` ticket auth.
-- Hosted Linux validation immediately exposed one config bug in that new secure WAMP path: GitHub Actions run `24777296956` failed before `READY` because the shipped bench router config reused SNI hostname `localhost` across both TLS listeners, so the secure WAMP listener now uses `127.0.0.1` and a new bench-package regression test loads `native/bench/bench_router.json` through `RouterConfigLoaderIo -> Endpoint.fromListenerSettings -> Router(...)` to keep that duplicate-SNI failure from recurring.
+- Hosted Linux validation exposed a router/native config mismatch in that new secure WAMP path. GitHub Actions run `24777296956` first failed in Dart validation because the router layer incorrectly rejected shared SNI hostname `localhost` across distinct TLS endpoints, and follow-up runs `24778942812`, `24778930521`, and `24778930527` showed that the attempted `127.0.0.1` workaround was also invalid because the native TLS config requires DNS-style SNI hostnames. The shipped bench config is back on shared `localhost`, the cross-endpoint duplicate-SNI restriction is removed, and a bench-package regression now starts the shipped config through `RouterConfigLoaderIo -> Endpoint.fromListenerSettings -> Router.start(NativeTransportRuntime)` with distinct reserved ports so this startup path fails locally before another hosted run.
 - `connectanum_core` now exposes a typed `WampE2eeProvider` contract plus an explicit `WampE2eeProviderUnavailableException`, so `ppt_scheme = "wamp"` payloads no longer silently materialize empty args/kwargs when no decryptor is available.
 - The Dart client/session path now threads an optional `e2eeProvider` through outbound publish/call/yield packing, materialized inbound messages, and native direct-result/event/invocation payload views while preserving the existing packed-byte passthrough behavior for matching lazy WAMP payloads.
 - The first Dart-side WAMP E2EE prototype is now implemented. `connectanum_core` ships `WampCborXsalsa20Poly1305Provider`, explicit unsupported-cipher / missing-key / invalid-payload / decryption failure types, and a focused provider regression test.
@@ -216,9 +216,10 @@ Last reviewed commit: `63c6d75` (`docs: record secure wamp validation run`)
 - 2026-04-22: `python3` `tomllib` parsing confirmed `native/bench/scenarios/wamp_secure_smoke.toml` loads cleanly with four secure WAMP workloads.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after landing the secure WAMP bench harness/config/docs checkpoint.
 - 2026-04-22: GitHub Actions run `24777296956` (`kTLS Validation`, `workflow_dispatch`) was queued against `native/bench/scenarios/wamp_secure_smoke.toml` on `add-router` so hosted Linux can validate the new secure WAMP path directly instead of the workflow's default HTTP smoke scenario.
-- 2026-04-22: GitHub Actions run `24777296956` then failed during bench-router startup with `Invalid argument(s): Duplicate SNI hostname "localhost" detected across router endpoints`, proving the secure WAMP listener addition needed a distinct SNI hostname in the shipped bench config.
-- 2026-04-22: `dart test packages/connectanum_bench/test/bench_router_config_test.dart packages/connectanum_bench/test/wamp_transport_targets_test.dart -r expanded` passed on Darwin arm64 after changing the secure WAMP listener SNI hostname to `127.0.0.1` and adding a regression that loads `native/bench/bench_router.json` through the same router-validation path used by `packages/connectanum_bench/tool/bench_main.dart`.
-- 2026-04-22: `bin/verify` passed on Darwin arm64 after fixing the duplicate-SNI secure WAMP bench listener config and adding the shipped-config regression test.
+- 2026-04-22: GitHub Actions run `24777296956` failed before `READY` with `Invalid argument(s): Duplicate SNI hostname "localhost" detected across router endpoints`, exposing an over-restrictive Dart-side router validation rule rather than a native runtime requirement.
+- 2026-04-22: Follow-up runs `24778942812` (`workflow_dispatch`), `24778930521` (`push`), and `24778930527` (`kTLS HTTP/2 Benchmarks`) then failed after the attempted `127.0.0.1` workaround because the native config path rejected that IP-literal SNI hostname during secure bench startup.
+- 2026-04-22: `dart test packages/connectanum_router/test/router_json_test.dart packages/connectanum_bench/test/bench_router_config_test.dart -r expanded` passed on Darwin arm64 after allowing shared DNS SNI hostnames across distinct endpoints, restoring the secure WAMP bench listener to `localhost`, and upgrading the bench regression to start the shipped config through the native runtime with distinct reserved listener/http3 ports.
+- 2026-04-22: `bin/verify` passed on Darwin arm64 after removing the cross-endpoint duplicate-SNI restriction, restoring the secure WAMP bench listener to `localhost`, and updating the bench/router regressions plus secure-WAMP state docs.
 
 ## Active Plan
 

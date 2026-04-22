@@ -78,12 +78,17 @@ for the HTTP/2 kTLS prototype.
   `workflow_dispatch` with `scenario=native/bench/scenarios/wamp_secure_smoke.toml`
   because the push-triggered workflow still defaults to `h2_smoke.toml`.
 - 2026-04-22: Hosted run `24777296956` failed before the bench reported `READY`
-  because `native/bench/bench_router.json` reused SNI hostname `localhost`
-  across both TLS listeners; the secure WAMP listener now uses `127.0.0.1`,
-  which is already in the bench cert SAN set, and a new regression test loads
-  the shipped bench config through `RouterConfigLoaderIo ->
-  Endpoint.fromListenerSettings -> Router(...)` so duplicate-SNI startup bugs
-  fail locally before another hosted run.
+  because the Dart router layer incorrectly rejected shared SNI hostname
+  `localhost` across distinct TLS endpoints.
+- 2026-04-22: Follow-up runs `24778942812`, `24778930521`, and `24778930527`
+  showed that the attempted `127.0.0.1` workaround was also wrong because the
+  native TLS config path requires DNS-style SNI hostnames, not IP literals.
+- 2026-04-22: The shipped secure WAMP listener is back on `localhost`, the
+  cross-endpoint duplicate-SNI restriction is removed from the Dart router, and
+  `packages/connectanum_bench/test/bench_router_config_test.dart` now starts
+  the shipped config through `Router.start(NativeTransportRuntime)` with
+  distinct reserved listener/http3 ports so this startup path fails locally
+  before another hosted run.
 
 ## Handoff
 

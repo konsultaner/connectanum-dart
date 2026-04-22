@@ -361,7 +361,6 @@ class Router {
       throw ArgumentError('Router requires at least one endpoint');
     }
     final tlsModes = <TlsMode>{};
-    final sniHosts = <String>{};
     int? nativeExponent;
     for (final endpoint in config.endpoints) {
       if (endpoint.tlsMode == TlsMode.dart) {
@@ -376,14 +375,6 @@ class Router {
           throw ArgumentError(
             'All native TLS endpoints must share the same maxRawSocketSizeExponent. '
             'Expected $nativeExponent but found ${endpoint.maxRawSocketSizeExponent} on ${endpoint.host}:${endpoint.port}.',
-          );
-        }
-      }
-      for (final cert in endpoint.sniCertificates) {
-        final key = cert.hostname.toLowerCase();
-        if (!sniHosts.add(key)) {
-          throw ArgumentError(
-            'Duplicate SNI hostname "${cert.hostname}" detected across router endpoints',
           );
         }
       }
