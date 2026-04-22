@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `dd4c6b7` (`docs(ktls): record hosted linux validation`)
+Last reviewed commit: `4615156` (`fix(ktls): restore mutable linux handoff state`)
 
 ## Resume Order
 
@@ -63,6 +63,17 @@ Last reviewed commit: `dd4c6b7` (`docs(ktls): record hosted linux validation`)
   passed on Ubuntu 24.04 with `CONNECTANUM_ENABLE_KTLS=1` and
   `CONNECTANUM_REQUIRE_KTLS=1`, including the targeted Rust kTLS tests and the
   existing HTTP/2 smoke bench.
+- The hosted Linux HTTP/2 benchmark milestone is now partially instrumented.
+  GitHub Actions run `24768909306` wrote baseline and required-kTLS per-pass
+  summaries on Ubuntu 24.04, which confirmed that baseline TLS stays green and
+  required-kTLS can complete the single-stream sustained-transfer workload, but
+  the multiplexed HTTP/2 workload still fails under `CONNECTANUM_REQUIRE_KTLS=1`
+  with Linux socket/handshake errors (`EINVAL`, `EMSGSIZE`, and occasional
+  `ENOTCONN`) plus downstream HTTP/2 `unexpected frame type` resets.
+- `bin/ktls-http2-bench` now preserves partial benchmark artifacts even when a
+  pass fails partway through, so hosted runs still upload per-pass summaries
+  and generate `comparison.json` / `comparison.md` from whatever completed
+  workloads exist before returning a non-zero exit code.
 - The current validated server prototype still uses
   `dangerous_extract_secrets()` plus `ktls-core`'s dummy server session because
   `tokio-rustls` returns a buffered `rustls::ServerConnection`, whose public
@@ -152,6 +163,10 @@ Last reviewed commit: `dd4c6b7` (`docs(ktls): record hosted linux validation`)
 - 2026-04-22: `bash -n bin/ktls-linux-validate && bin/ktls-linux-validate --help >/dev/null` passed on Darwin arm64 after fixing the validation script to build/export `CONNECTANUM_NATIVE_LIB` and pass `--native-lib` into the bench runner explicitly.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after fixing the Linux kTLS handoff path and then rerunning it after the final `bin/ktls-linux-validate` contract fix.
 - 2026-04-22: GitHub Actions run `24767010221` (`kTLS Validation`) passed on `add-router`, validating the strict Linux kTLS runner end to end on Ubuntu 24.04 after run `24766303551` exposed the missing `--native-lib` bench argument.
+- 2026-04-22: `bin/test-fast` passed on Darwin arm64 before landing the HTTP/2 benchmark handoff fixes.
+- 2026-04-22: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core ktls::tests -- --nocapture` passed on Darwin arm64 after preserving buffered rustls plaintext across the Linux kTLS handoff and adding the in-memory regression that proves the HTTP/2 client preface survives that drain step.
+- 2026-04-22: GitHub Actions run `24768800167` (`kTLS HTTP/2 Benchmarks`) failed on `add-router` only because the first buffered-plaintext handoff patch forgot to keep the Linux-only `session` binding mutable during `drain_buffered_plaintext(&mut session)`.
+- 2026-04-22: GitHub Actions run `24768909306` (`kTLS HTTP/2 Benchmarks`) uploaded baseline plus required-kTLS artifacts on Ubuntu 24.04. Baseline TLS completed both workloads cleanly (`h2_sustained_transfer`: `3994.58` Mbps / `4247.40` Mbps at 1/4 native threads, `h2_multiplexed_streams`: `5807.50` Mbps / `5779.71` Mbps at 1/4 native threads). Required-kTLS completed only `h2_sustained_transfer` at 1 thread (`1911.93` Mbps, p95 `18.85` ms, two protocol-error events) before `h2_multiplexed_streams` failed with `Invalid argument (os error 22)`, `Message too long (os error 90)`, occasional `Failed to set TLS ULP: Transport endpoint is not connected (os error 107)`, and downstream HTTP/2 `unexpected frame type` resets.
 
 ## Active Plan
 
@@ -164,13 +179,19 @@ Last reviewed commit: `dd4c6b7` (`docs(ktls): record hosted linux validation`)
 
 ## Known Follow-Ups
 
-- The next deployment-hardening milestone is HTTP/2 benchmark runs against the
-  existing TLS HTTP listener now that strict Linux validation of the
-  `CONNECTANUM_ENABLE_KTLS=1` prototype is green.
+- The current deployment-hardening milestone remains the HTTP/2 benchmark
+  closeout. Baseline TLS is now measured on hosted Linux, but required-kTLS
+  still fails in the multiplexed HTTP/2 workload after the single-stream
+  sustained-transfer case succeeds.
 - The current prototype keeps default/non-Linux runs on `tokio-rustls`,
   disables future kTLS attempts after socket-setup or handoff failures in one
-  process, and now has a green hosted Linux validation path, but it still is
-  not the final production story for TLS 1.3 key-update or ticket handling.
+  process in try-mode, and now has a green hosted Linux validation path, but it
+  still is not the final production story for TLS 1.3 key-update or ticket
+  handling.
+- The next kTLS-specific fix should focus on the required-kTLS multiplexed
+  HTTP/2 path, where the current hosted run shows Linux socket setup errors
+  (`EINVAL`, `EMSGSIZE`, intermittent `ENOTCONN`) and HTTP/2 frame corruption
+  after the buffered-plaintext handoff was fixed.
 - After that prototype is stable, extend the bench router with a TLS WAMP
   listener so secure RawSocket / WebSocket kTLS measurements can use the
   existing WAMP benchmark harness.

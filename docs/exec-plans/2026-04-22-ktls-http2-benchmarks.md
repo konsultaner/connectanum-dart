@@ -61,6 +61,24 @@ comparison artifact.
 - One hosted Linux run of the new HTTP/2 kTLS benchmark workflow on
   `add-router`
 
+## Current Status
+
+- GitHub Actions run `24768909306` on Ubuntu 24.04 produced the first usable
+  hosted benchmark artifact bundle for this milestone.
+- Baseline TLS completed both workloads cleanly and produced full summaries for
+  native runtime thread counts `1` and `4`.
+- Required-kTLS now gets far enough to complete the single-stream
+  `h2_sustained_transfer` workload at native runtime thread count `1`, which is
+  materially further than the earlier runs that failed before any kTLS summary
+  data existed.
+- The milestone is still blocked because the multiplexed HTTP/2 workload
+  (`h2_multiplexed_streams`) fails under `CONNECTANUM_REQUIRE_KTLS=1` with
+  Linux socket/handshake errors (`EINVAL`, `EMSGSIZE`, intermittent `ENOTCONN`)
+  followed by HTTP/2 `unexpected frame type` resets.
+- `bin/ktls-http2-bench` now keeps writing per-pass summaries and the
+  comparison files even when one pass exits non-zero, so future hosted runs
+  remain diagnosable without manually reconstructing partial benchmark output.
+
 ## Decision Log
 
 - 2026-04-22: The next useful question is comparative HTTP/2 throughput and
@@ -69,3 +87,9 @@ comparison artifact.
 - 2026-04-22: The benchmark should compare baseline TLS and required kTLS under
   the same scenario because a single kTLS-only number is not actionable on its
   own.
+- 2026-04-22: Hosted run `24768800167` showed the buffered-plaintext handoff
+  patch was directionally correct but exposed a Linux-only compile miss
+  (`session` needed to stay mutable through `drain_buffered_plaintext`).
+- 2026-04-22: Hosted run `24768909306` showed the buffered-plaintext handoff
+  fix materially improved the required-kTLS path: single-stream HTTP/2 now
+  completes, but multiplexed HTTP/2 still fails and remains the next blocker.

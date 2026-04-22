@@ -125,8 +125,11 @@ run_pass() {
     --native-runtime-thread-counts "$native_runtime_thread_counts"
 }
 
-run_pass baseline "$baseline_dir" 0 0
-run_pass ktls "$ktls_dir" 1 1
+baseline_status=0
+ktls_status=0
+
+run_pass baseline "$baseline_dir" 0 0 || baseline_status=$?
+run_pass ktls "$ktls_dir" 1 1 || ktls_status=$?
 
 python3 - "$baseline_dir/bench_results.summary.json" "$ktls_dir/bench_results.summary.json" "$comparison_json" "$comparison_md" <<'PY'
 import json
@@ -138,8 +141,13 @@ ktls_path = Path(sys.argv[2])
 comparison_json_path = Path(sys.argv[3])
 comparison_md_path = Path(sys.argv[4])
 
-baseline = json.loads(baseline_path.read_text())
-ktls = json.loads(ktls_path.read_text())
+def load_summary(path):
+    if not path.exists():
+        return {"workloads": []}
+    return json.loads(path.read_text())
+
+baseline = load_summary(baseline_path)
+ktls = load_summary(ktls_path)
 
 
 def key(entry):
@@ -194,6 +202,8 @@ for workload_key in all_keys:
 comparison = {
     "baseline_source": str(baseline_path),
     "ktls_source": str(ktls_path),
+    "baseline_summary_present": baseline_path.exists(),
+    "ktls_summary_present": ktls_path.exists(),
     "rows": rows,
 }
 comparison_json_path.write_text(json.dumps(comparison, indent=2) + "\n")
@@ -201,16 +211,27 @@ comparison_json_path.write_text(json.dumps(comparison, indent=2) + "\n")
 lines = [
     "# HTTP/2 TLS vs kTLS Comparison",
     "",
-    "| Workload | Router workers | Native runtime threads | Baseline Mbps | kTLS Mbps | Delta | Baseline p95 ms | kTLS p95 ms | Delta |",
-    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
 ]
 
+if not baseline_path.exists() or not ktls_path.exists():
+    lines.extend([
+        "One or both per-pass summary files were missing, so this comparison is partial.",
+        "",
+    ])
+
+lines.extend([
+    "| Workload | Router workers | Native runtime threads | Baseline Mbps | kTLS Mbps | Delta | Baseline p95 ms | kTLS p95 ms | Delta |",
+    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+])
+
+has_comparable_rows = False
 for row in rows:
     base = row["baseline"]
     current = row["ktls"]
     delta = row["delta"]
     if not base or not current or not delta:
         continue
+    has_comparable_rows = True
     throughput_pct = delta["throughput_pct"]
     latency_pct = delta["latency_p95_pct"]
     throughput_pct_text = "n/a" if throughput_pct is None else f"{throughput_pct:+.2f}%"
@@ -231,7 +252,17 @@ for row in rows:
         )
     )
 
+if not has_comparable_rows:
+    lines.append("| No overlapping completed workloads | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
+
 comparison_md_path.write_text("\n".join(lines) + "\n")
 PY
+
+if (( baseline_status != 0 || ktls_status != 0 )); then
+  printf 'HTTP/2 benchmark pass statuses: baseline=%s ktls=%s\n' \
+    "$baseline_status" "$ktls_status" >&2
+  printf 'Partial benchmark artifacts were still written to %s\n' "$out_dir" >&2
+  exit 1
+fi
 
 printf 'HTTP/2 TLS vs kTLS benchmark artifacts written to %s\n' "$out_dir"

@@ -164,6 +164,51 @@ After adding a TLS WAMP listener, compare:
 Do this for both small control-heavy shapes and the larger throughput shapes
 already used in the bench suite.
 
+## Hosted HTTP/2 Benchmark Findings
+
+GitHub Actions run `24768909306` on Ubuntu 24.04 provided the first hosted
+artifact bundle with both baseline and required-kTLS per-pass summaries.
+
+### What Improved
+
+- Baseline TLS completed both HTTP/2 workloads cleanly for native runtime
+  thread counts `1` and `4`.
+- Required-kTLS now gets through the single-stream
+  `h2_sustained_transfer` workload at native runtime thread count `1`, which
+  confirms the buffered-plaintext drain added ahead of `ktls_stream::new_dummy`
+  fixed at least one real part of the earlier handoff corruption.
+
+### Baseline TLS Numbers From Run `24768909306`
+
+- `h2_sustained_transfer`
+  - native runtime threads `1`: `3994.58` Mbps, p95 `10.99` ms
+  - native runtime threads `4`: `4247.40` Mbps, p95 `11.74` ms
+- `h2_multiplexed_streams`
+  - native runtime threads `1`: `5807.50` Mbps, p95 `36.30` ms
+  - native runtime threads `4`: `5779.71` Mbps, p95 `38.51` ms
+
+### Current Required-kTLS Blocker
+
+- The same hosted run completed only `h2_sustained_transfer` under
+  required-kTLS, and only at native runtime thread count `1`
+  (`1911.93` Mbps, p95 `18.85` ms, two protocol-error events).
+- The multiplexed HTTP/2 workload still fails under
+  `CONNECTANUM_ENABLE_KTLS=1` plus `CONNECTANUM_REQUIRE_KTLS=1` with:
+  - `http/2 handshake failed ... Invalid argument (os error 22)`
+  - `http/2 handshake failed ... Message too long (os error 90)`
+  - intermittent `Failed to set TLS ULP: Transport endpoint is not connected (os error 107)`
+  - downstream HTTP/2 send failures reported as `unexpected frame type`
+  - client-visible `connection reset`
+
+### Resulting Direction
+
+- The next useful kTLS task is no longer proving that the Linux handoff can
+  start at all; that is now true for the single-stream sustained-transfer case.
+- The remaining blocker is the multiplexed HTTP/2 path under required-kTLS.
+- Benchmark artifact generation should stay resilient to partial pass failure,
+  because hosted runs can now produce baseline plus partial kTLS summaries even
+  when the full comparison does not complete successfully.
+
 ### What Not To Overclaim
 
 - macOS results are irrelevant for kTLS itself.
