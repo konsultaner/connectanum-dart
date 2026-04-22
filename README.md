@@ -62,9 +62,10 @@ on `CONNECTANUM_NATIVE_LIB` or the platform loader search path at runtime.
 
 Prebuilt Linux/macOS `ct_ffi` bundles are also available from the dedicated
 GitHub Actions workflow in [native-artifacts.yml](.github/workflows/native-artifacts.yml).
-Run it manually or on a release tag, then extract the uploaded
-`ct-ffi-<host-triple>.tar.gz` bundle and point `CONNECTANUM_NATIVE_LIB` at the
-included library.
+Manual runs always upload workflow artifacts, and release-tag runs publish the
+same `ct-ffi-<host-triple>.tar.gz` bundles to GitHub Releases. Extract the
+archive for your host and point `CONNECTANUM_NATIVE_LIB` at the included
+library. The release assets are not signed yet.
 
 ## Codex-Friendly Workflow
 

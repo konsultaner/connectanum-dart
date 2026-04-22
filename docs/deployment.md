@@ -41,9 +41,10 @@ Cargo entirely and let the runtime loader use the system library.
 
 If you do not want to build Rust locally, the GitHub Actions
 `Native Artifacts` workflow uploads prebuilt Linux/macOS bundles named
-`ct-ffi-<host-triple>.tar.gz`. Extract the archive, then export
+`ct-ffi-<host-triple>.tar.gz`, and release-tag runs publish the same assets to
+GitHub Releases. Extract the archive for your host, then export
 `CONNECTANUM_NATIVE_LIB` to the bundled library path before starting the
-router.
+router. These prebuilt assets are not signed yet.
 
 For production packaging you can compile the runner to a native executable:
 

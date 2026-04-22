@@ -1,4 +1,6 @@
 @TestOn('vm')
+library;
+
 import 'dart:io';
 
 import 'package:code_assets/code_assets.dart';

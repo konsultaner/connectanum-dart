@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `42deaec` (`feat(native): support prebuilt and system hook packaging`)
+Last reviewed commit: `795dbb8` (`ci(native): package ct_ffi workflow artifacts`)
 
 ## Resume Order
 
@@ -37,6 +37,7 @@ Last reviewed commit: `42deaec` (`feat(native): support prebuilt and system hook
 - The client native runtime loader now falls back to the bare platform library name after hooks/local-build probing, so system-installed `ct_ffi` behaves the same way on the client path as it already did on the router path.
 - `bin/package-native-artifact` now produces deterministic `ct_ffi` release bundles for the host platform, including the native library, a manifest, a README, and a SHA-256 checksum under `out/native-artifacts/`.
 - GitHub Actions now exposes a dedicated `Native Artifacts` workflow that runs `bin/package-native-artifact` on Linux and macOS and uploads the resulting tarball, checksum, and manifest as workflow artifacts for the existing `CONNECTANUM_NATIVE_LIB` deployment path.
+- The `Native Artifacts` workflow is now configured to publish those same Linux/macOS bundles to GitHub Releases on release-tag runs, and manual dispatches can publish/update a release when given an explicit tag name.
 - The local autonomy blockers from the 2026-04-21 audit are resolved for this macOS shell environment.
 - In-app heartbeat sandboxes are more restricted than the interactive shell here; remote CI inspection and git metadata writes should still happen from unrestricted interactive runs or the external launchd worker.
 
@@ -83,18 +84,22 @@ Last reviewed commit: `42deaec` (`feat(native): support prebuilt and system hook
 - 2026-04-22: `bin/test-fast` passed on Darwin arm64 before landing the dedicated `ct_ffi` artifact-packaging workflow and local packaging script.
 - 2026-04-22: `bin/package-native-artifact --out-dir out/native-artifacts-test` passed on Darwin arm64 and produced `ct-ffi-aarch64-apple-darwin.tar.gz`, a matching `.sha256`, and a `.manifest.json` that captures the host triple plus commit metadata.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after landing `bin/package-native-artifact`, the `Native Artifacts` GitHub Actions workflow, the deployment/readme updates, and the analyzer-cleanup follow-up in the hook/native-loader tests.
+- 2026-04-22: `bin/test-fast` passed on Darwin arm64 before landing GitHub Release publishing on top of the `Native Artifacts` workflow and after restoring the hook/native-loader test files to the repo-standard `@TestOn` + `library;` layout.
+- 2026-04-22: `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/native-artifacts.yml'); puts 'yaml_ok'"` passed locally after adding the GitHub Release publishing job to the native artifact workflow.
+- 2026-04-22: `bin/verify` passed on Darwin arm64 after landing the GitHub Release publishing workflow changes, the release-path docs updates, and the `library;` analyzer-noise fix for the hook/native-loader tests.
 
 ## Active Plan
 
 - No active execution plan is checked in right now.
 - Supporting research note: `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-22-ct-ffi-ci-artifacts.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-22-native-build-hook-packaging.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-22-ct-ffi-github-release-publishing.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-22-ct-ffi-ci-artifacts.md`
 
 ## Known Follow-Ups
 
-- Publish/sign the packaged `ct_ffi` archives through GitHub Releases or another durable release channel instead of workflow-artifact retention only.
+- Add signing or attestation for the released `ct_ffi` assets before treating the GitHub Release bundles as the final production distribution path.
 - Add install-time (`dart pub get`) native build hooks or another downstream-friendly artifact acquisition path so consumers do not need Cargo or manual artifact extraction.
+- Run the first live GitHub Actions tag/manual release-publish execution to confirm the new release job against the hosted runner environment rather than local YAML parsing only.
 - Multi-arch deployment images and deeper native transport tuning remain separate follow-up work after the artifact-packaging baseline.
 
 ## Update Checklist

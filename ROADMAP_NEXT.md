@@ -138,7 +138,8 @@ Focus for the next session:
   - ✅ `connectanum_client` now ships its own build hook and runtime loader for native client transports, using a package-specific output library name so client+router apps can bundle both without asset-name collisions.
   - ✅ Both hooks now reuse `CONNECTANUM_NATIVE_LIB` for prebuilt binaries and honor `CONNECTANUM_SKIP_NATIVE_BUILD=1` for system/shared-library deployments instead of invoking Cargo unconditionally.
   - ✅ A dedicated GitHub Actions workflow now packages host-native Linux/macOS `ct_ffi` archives through `bin/package-native-artifact`, uploading reusable bundles for the existing `CONNECTANUM_NATIVE_LIB` contract.
-  - Next: add install-time build hooks (`dart pub get` / publishable package flow) and/or GitHub Release publishing/signing on top of the new artifact workflow.
+  - ✅ Release-tag and explicit manual native-artifact runs are now configured to publish those packaged Linux/macOS bundles to GitHub Releases, so the `CONNECTANUM_NATIVE_LIB` path has a durable hosted download target instead of workflow-artifact retention only.
+  - Next: add signing/attestation for the released native assets and install-time build hooks (`dart pub get` / publishable package flow) on top of the new release path.
 
 13. **TLS & Deployment Hardening**
    - ✅ Native TCP TLS termination (rustls + SNI) is live.
