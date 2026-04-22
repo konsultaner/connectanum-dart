@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `cad794b` (`ci(deploy): publish multi-arch router image`)
+Last reviewed commit: `9e7de71` (`docs: capture ktls feasibility spike`)
 
 ## Resume Order
 
@@ -46,9 +46,17 @@ Last reviewed commit: `cad794b` (`ci(deploy): publish multi-arch router image`)
 - `CONNECTANUM_NATIVE_RELEASE_REPOSITORY=<owner/repo>` overrides the default GitHub Releases source for that hook-managed prebuilt flow, and the explicit prebuilt/system-library paths no longer require a local `native/transport` checkout.
 - `connectanum_router:tool/install_native.dart` and `connectanum_client:tool/install_native.dart` now provide the explicit downstream prefetch path for hosted native assets: they download the current host bundle into `.dart_tool/connectanum/native/<host-triple>/`, verify the published checksum, and print the resulting library path for `CONNECTANUM_NATIVE_LIB`.
 - The install helpers deliberately keep the deployment/runtime contract explicit instead of trying to simulate unsupported `dart pub get` automation; automatic hook cache reuse was tested and then dropped after hitting a Dart native-assets bundler bug on this macOS setup.
-- kTLS remains unimplemented; `docs/ktls_research.md` now captures the
-  Linux-only feasibility result, the repo-local blockers, and the benchmark
-  order for the next deployment-hardening milestone.
+- `ct_core` now has an env-gated Linux-only kTLS server prototype. When
+  `CONNECTANUM_ENABLE_KTLS=1` is set on Linux and a native-TLS listener
+  exposes HTTP or HTTP/2, the accepted socket is prepared for Linux TLS ULP,
+  Rustls secret extraction is enabled, and the server attempts a post-handshake
+  handoff into a kTLS-backed `IoStream`.
+- When `CONNECTANUM_ENABLE_KTLS` is unset or the host is not Linux, the native
+  TLS path stays on the existing `tokio-rustls` implementation.
+- Linux runtime validation is still pending. This macOS host verified that the
+  default/non-Linux path stayed green through `bin/verify`, but a Linux-target
+  `cargo check` could not complete here because `ring` needs a Linux cross C
+  toolchain/sysroot on this machine.
 - The local autonomy blockers from the 2026-04-21 audit are resolved for this macOS shell environment.
 - In-app heartbeat sandboxes are more restricted than the interactive shell here; remote CI inspection and git metadata writes should still happen from unrestricted interactive runs or the external launchd worker.
 
@@ -121,6 +129,9 @@ Last reviewed commit: `cad794b` (`ci(deploy): publish multi-arch router image`)
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after landing
   `docs/ktls_research.md`, the kTLS research exec plan, and the associated
   `docs/project_state.md` refresh.
+- 2026-04-22: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core ktls::tests -- --nocapture` passed on Darwin arm64 after landing the `CONNECTANUM_ENABLE_KTLS` parser and HTTP/HTTP2 eligibility coverage for the Linux-only prototype module.
+- 2026-04-22: `bin/test-fast` passed on Darwin arm64 before landing the env-gated Linux-only kTLS server prototype in `ct_core`.
+- 2026-04-22: `bin/verify` passed on Darwin arm64 after landing the env-gated Linux-only kTLS server prototype, keeping the default/non-Linux TLS path on `tokio-rustls`.
 
 ## Active Plan
 
@@ -128,15 +139,18 @@ Last reviewed commit: `cad794b` (`ci(deploy): publish multi-arch router image`)
 - Supporting research notes:
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-22-ktls-research-spike.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-22-router-image-publishing.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-22-ktls-prototype.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-22-ktls-research-spike.md`
 
 ## Known Follow-Ups
 
-- The next deployment-hardening milestone is the Linux-only kTLS prototype:
-  enable secret extraction in the native TLS configs, add a post-handshake
-  offloaded `IoStream` path with graceful fallback, and benchmark HTTPS /
-  HTTP/2 first.
+- The next deployment-hardening milestone is Linux validation of the
+  `CONNECTANUM_ENABLE_KTLS=1` prototype on an actual Linux host, then HTTP/2
+  benchmark runs against the existing TLS HTTP listener.
+- The current prototype keeps default/non-Linux runs on `tokio-rustls` and
+  disables future kTLS attempts after socket-setup or handoff failures in one
+  process, but it still needs Linux runtime validation before it can be treated
+  as production-ready fallback behaviour.
 - After that prototype is stable, extend the bench router with a TLS WAMP
   listener so secure RawSocket / WebSocket kTLS measurements can use the
   existing WAMP benchmark harness.

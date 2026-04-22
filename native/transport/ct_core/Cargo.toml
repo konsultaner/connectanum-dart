@@ -31,6 +31,9 @@ base64 = "0.21"
 rand = "0.8"
 rustls-native-certs = "0.8"
 
+[target.'cfg(target_os = "linux")'.dependencies]
+ktls-stream = { version = "0.0.5", default-features = false, features = ["async-io-tokio", "shim-rustls"] }
+
 [features]
 ffi-test = []
 

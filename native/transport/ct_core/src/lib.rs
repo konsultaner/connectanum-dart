@@ -54,6 +54,7 @@ mod http1_stream;
 mod http_body;
 mod http_stream;
 mod io_stream;
+mod ktls;
 mod platform;
 mod protocol;
 mod rawsocket;
@@ -3487,6 +3488,21 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                             let tls_acceptor_for_task = config_state_for_task.tls_acceptor();
                             let io_stream = match tls_acceptor_for_task.as_ref() {
                                 Some(acceptor) => {
+                                    let ktls_prepared = match ktls::prepare_server_socket(
+                                        runtime_config_for_task.as_ref(),
+                                        &stream,
+                                    ) {
+                                        Ok(prepared) => prepared,
+                                        Err(err) => {
+                                            eprintln!(
+                                                "kTLS setup disabled for listener {}:{} after socket preparation failure: {}",
+                                                runtime_config_for_task.host,
+                                                runtime_config_for_task.port,
+                                                err
+                                            );
+                                            false
+                                        }
+                                    };
                                     let handshake = acceptor.accept(stream);
                                     match time::timeout(
                                         runtime_config_for_task.handshake_timeout,
@@ -3494,7 +3510,24 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                                     )
                                     .await
                                     {
-                                        Ok(Ok(tls_stream)) => IoStream::tls(tls_stream),
+                                        Ok(Ok(tls_stream)) => {
+                                            if ktls_prepared {
+                                                match ktls::try_offload_server_stream(tls_stream)
+                                                    .await
+                                                {
+                                                    Ok(io_stream) => io_stream,
+                                                    Err(err) => {
+                                                        eprintln!(
+                                                            "kTLS handoff failed for connection from {}: {}",
+                                                            addr, err
+                                                        );
+                                                        continue;
+                                                    }
+                                                }
+                                            } else {
+                                                IoStream::tls(tls_stream)
+                                            }
+                                        }
                                         Ok(Err(err)) => {
                                             eprintln!(
                                                 "tls handshake failed for connection from {}: {}",

@@ -14,7 +14,7 @@ use tokio_rustls::{TlsAcceptor, TlsConnector};
 
 use crate::{
     config::{ClientAuthMode, EndpointRuntimeConfig, TlsMode, TransportProtocol},
-    Error,
+    ktls, Error,
 };
 
 #[derive(Debug)]
@@ -90,6 +90,7 @@ pub(crate) fn build_tls_acceptor(
             .with_no_client_auth()
             .with_cert_resolver(Arc::new(resolver)),
     };
+    config.enable_secret_extraction = ktls::secret_extraction_requested();
     config.alpn_protocols = tcp_alpn_protocols(endpoint);
 
     Ok(Some(TlsAcceptor::from(Arc::new(config))))
@@ -179,6 +180,7 @@ pub(crate) fn build_client_connector(
             .with_root_certificates(roots)
             .with_no_client_auth()
     };
+    config.enable_secret_extraction = ktls::secret_extraction_requested();
     config.alpn_protocols = alpn_protocols.to_vec();
     Ok(TlsConnector::from(Arc::new(config)))
 }
