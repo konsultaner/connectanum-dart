@@ -10,10 +10,12 @@ class NativeWampCborXsalsa20Poly1305Provider
   NativeWampCborXsalsa20Poly1305Provider({
     required Map<String, List<int>> keys,
     String? defaultKeyId,
+    WampE2eeKeySelectionPolicy? keySelectionPolicy,
     NativeClientRuntime? runtime,
   }) : _runtime = runtime ?? NativeClientRuntime.instance(),
        _defaultKeyId = _resolveDefaultKeyId(keys, defaultKeyId),
-       _knownKeyIds = Set.unmodifiable(keys.keys) {
+       _knownKeyIds = Set.unmodifiable(keys.keys),
+       _keySelectionPolicy = keySelectionPolicy {
     final normalizedKeys = _normalizeKeys(keys);
     final keyringHandle = _runtime.createE2eeKeyring();
     var sessionHandle = 0;
@@ -44,8 +46,14 @@ class NativeWampCborXsalsa20Poly1305Provider
   NativeWampCborXsalsa20Poly1305Provider.single({
     required String keyId,
     required List<int> key,
+    WampE2eeKeySelectionPolicy? keySelectionPolicy,
     NativeClientRuntime? runtime,
-  }) : this(keys: {keyId: key}, defaultKeyId: keyId, runtime: runtime);
+  }) : this(
+         keys: {keyId: key},
+         defaultKeyId: keyId,
+         keySelectionPolicy: keySelectionPolicy,
+         runtime: runtime,
+       );
 
   static const supportedSerializer = 'cbor';
   static const supportedCipher = 'xsalsa20poly1305';
@@ -56,6 +64,7 @@ class NativeWampCborXsalsa20Poly1305Provider
   final NativeClientRuntime _runtime;
   final Set<String> _knownKeyIds;
   final String? _defaultKeyId;
+  final WampE2eeKeySelectionPolicy? _keySelectionPolicy;
   late final int _keyringHandle;
   late final int _sessionHandle;
   bool _released = false;
@@ -72,7 +81,11 @@ class NativeWampCborXsalsa20Poly1305Provider
     _ensureOpen();
     _verifyScheme(options);
     _verifySerializer(options);
-    final keyId = _resolveKeyId(options, operation: 'pack');
+    final keyId = _resolveKeyId(
+      options,
+      operation: 'pack',
+      runtimeContext: runtimeContext,
+    );
     _resolveCipher(options, operation: 'pack');
 
     options.pptScheme ??= 'wamp';
@@ -108,7 +121,11 @@ class NativeWampCborXsalsa20Poly1305Provider
     _verifyScheme(options);
     _verifySerializer(options);
     _resolveCipher(options, operation: 'unpack');
-    final keyId = _resolveKeyId(options, operation: 'unpack');
+    final keyId = _resolveKeyId(
+      options,
+      operation: 'unpack',
+      runtimeContext: runtimeContext,
+    );
     final encryptedBytes = _coerceEncryptedPayload(arguments, options);
     try {
       final plaintext = _runtime.decryptE2ee(
@@ -179,8 +196,15 @@ class NativeWampCborXsalsa20Poly1305Provider
     return cipher;
   }
 
-  String _resolveKeyId(PPTOptions options, {required String operation}) {
-    final keyId = options.pptKeyId ?? _defaultKeyId;
+  String _resolveKeyId(
+    PPTOptions options, {
+    required String operation,
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
+    final keyId =
+        options.pptKeyId ??
+        _resolvePolicyKeyId(runtimeContext, options) ??
+        _defaultKeyId;
     if (keyId == null) {
       throw WampE2eeKeyNotFoundException(
         operation,
@@ -195,7 +219,18 @@ class NativeWampCborXsalsa20Poly1305Provider
         reason: 'No key is configured for ppt_keyid "$keyId"',
       );
     }
+    options.pptKeyId ??= keyId;
     return keyId;
+  }
+
+  String? _resolvePolicyKeyId(
+    WampE2eeRuntimeContext? runtimeContext,
+    PPTOptions options,
+  ) {
+    if (runtimeContext == null) {
+      return null;
+    }
+    return _keySelectionPolicy?.call(runtimeContext, options);
   }
 
   Uint8List _coerceEncryptedPayload(

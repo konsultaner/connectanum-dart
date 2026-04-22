@@ -5,6 +5,7 @@ class NativeWampCborXsalsa20Poly1305Provider
   NativeWampCborXsalsa20Poly1305Provider({
     required Map<String, List<int>> keys,
     String? defaultKeyId,
+    WampE2eeKeySelectionPolicy? keySelectionPolicy,
   }) {
     throw UnsupportedError(
       'Native WAMP E2EE provider requires dart:io and the ct_ffi runtime',
@@ -14,6 +15,7 @@ class NativeWampCborXsalsa20Poly1305Provider
   NativeWampCborXsalsa20Poly1305Provider.single({
     required String keyId,
     required List<int> key,
+    WampE2eeKeySelectionPolicy? keySelectionPolicy,
   }) {
     throw UnsupportedError(
       'Native WAMP E2EE provider requires dart:io and the ct_ffi runtime',

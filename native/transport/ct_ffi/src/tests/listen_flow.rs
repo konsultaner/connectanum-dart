@@ -22,7 +22,6 @@ use serde_json::json;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::runtime::Runtime as TokioRuntime;
 
-const HTTP2_PREFACE: &[u8] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
 const HTTP2_TEST_MAX_CONCURRENT_STREAMS: u32 = 1024;
 const HTTP2_TEST_INITIAL_STREAM_WINDOW: u32 = 8 * 1024 * 1024;
 const HTTP2_TEST_INITIAL_CONNECTION_WINDOW: u32 = 64 * 1024 * 1024;
@@ -2238,19 +2237,25 @@ fn http2_handshake_surfaced_via_ffi() {
     let port = ct_get_local_port(listener_id);
     assert!(port > 0);
 
-    let rt = TokioRuntime::new().unwrap();
-    rt.block_on(async move {
-        let addr = format!("127.0.0.1:{}", port);
-        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
-        stream
-            .write_all(HTTP2_PREFACE)
-            .await
-            .expect("preface write");
-        tokio::time::sleep(Duration::from_millis(50)).await;
+    let (client_tx, client_rx) = std::sync::mpsc::channel();
+    let client_handle = std::thread::spawn(move || {
+        let rt = TokioRuntime::new().unwrap();
+        rt.block_on(async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let tcp = tokio::net::TcpStream::connect(&addr).await.unwrap();
+            let builder = http2_test_client_builder();
+            let (_client, connection) = builder.handshake::<_, Bytes>(tcp).await.unwrap();
+            client_tx.send(()).unwrap();
+            tokio::spawn(async move {
+                let _ = connection.await;
+            });
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        })
     });
 
-    let connection_id = ct_poll_connection(listener_id);
-    assert!(connection_id > 0);
+    client_rx.recv().unwrap();
+
+    let connection_id = wait_for_connection(listener_id);
     assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP2);
 
     let handle = ct_connection_take_http2_handshake(connection_id);
@@ -2314,6 +2319,7 @@ fn http2_handshake_surfaced_via_ffi() {
     );
 
     assert_eq!(ct_http2_handshake_release(handle), SUCCESS);
+    client_handle.join().unwrap();
     assert_eq!(ct_shutdown(), SUCCESS);
 }
 
@@ -2397,8 +2403,7 @@ fn http3_handshake_surfaced_via_ffi() {
         tokio::time::sleep(Duration::from_millis(50)).await;
     });
 
-    let connection_id = ct_poll_connection(listener_id);
-    assert!(connection_id > 0);
+    let connection_id = wait_for_connection(listener_id);
     assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP3);
 
     let handle = ct_connection_take_http3_handshake(connection_id);
@@ -4816,8 +4821,7 @@ Sec-WebSocket-Extensions: permessage-deflate\r\n\r\n",
         tokio::time::sleep(Duration::from_millis(50)).await;
     });
 
-    let connection_id = ct_poll_connection(listener_id);
-    assert!(connection_id > 0);
+    let connection_id = wait_for_connection(listener_id);
     assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_WEBSOCKET);
 
     let handle = ct_connection_take_websocket_handshake(connection_id);

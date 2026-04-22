@@ -2874,6 +2874,61 @@ void main() {
       },
     );
     test(
+      'publishLazyPayload uses provider key-selection policy from runtime context',
+      () async {
+        final transport = _MockTransport();
+        final provider = WampCborXsalsa20Poly1305Provider(
+          keys: {
+            'kid-policy-alpha': List<int>.generate(32, (index) => index + 1),
+            'kid-policy-beta': List<int>.generate(32, (index) => index + 65),
+          },
+          keySelectionPolicy: (runtimeContext, _) =>
+              runtimeContext.uri == 'policy.topic.beta'
+              ? 'kid-policy-beta'
+              : 'kid-policy-alpha',
+        );
+        final client = Client(
+          realm: 'test.realm',
+          transport: transport,
+          e2eeProvider: provider,
+        );
+
+        transport.outbound.stream.listen((message) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveMessage(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codePublish) {
+            final publish = message as Publish;
+            expect(publish.options?.pptCipher, equals('xsalsa20poly1305'));
+            expect(publish.options?.pptKeyId, equals('kid-policy-beta'));
+            final decoded = provider.unpackPayload(
+              publish.arguments,
+              PublishOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
+              runtimeContext: const WampE2eeRuntimeContext(
+                direction: WampE2eeDirection.inbound,
+                messageType: WampE2eeMessageType.event,
+                uri: 'policy.topic.beta',
+              ),
+            );
+            expect(decoded.arguments, equals(const ['wrapped']));
+            expect(decoded.argumentsKeywords, equals(const {'worker': 4}));
+            expect(publish.argumentsKeywords, isNull);
+          }
+        });
+
+        final session = await client.connect().first;
+        await session.publishLazyPayload(
+          'policy.topic.beta',
+          payload: LazyMessagePayload.materialized(
+            arguments: const ['wrapped'],
+            argumentsKeywords: const {'worker': 4},
+          ),
+          options: PublishOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
+        );
+      },
+    );
+    test(
       'publishLazyPayload uses negotiated outbound E2EE defaults when message options omit them',
       () async {
         final transport = _MockTransport();

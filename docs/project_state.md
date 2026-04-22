@@ -2,14 +2,17 @@
 
 Last updated: 2026-04-22
 Current branch: `add-router`
-Last reviewed commit: `9511f56` (`feat(e2ee): add native provider parity`)
+Last reviewed commit: `82031d7` (`feat(e2ee): add runtime message context`)
 Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.md`
 
 ## Last Known Verification
 
 - `bin/test-fast`
-- `dart analyze packages/connectanum_core/lib/src/message/e2ee_payload.dart packages/connectanum_core/lib/src/message/abstract_message_with_payload.dart packages/connectanum_core/lib/src/message/invocation.dart packages/connectanum_core/lib/src/message/subscribed.dart packages/connectanum_client/lib/src/protocol/session.dart packages/connectanum_client/lib/src/transport/native/e2ee_provider_io.dart packages/connectanum_client/lib/src/transport/native/e2ee_provider_none.dart packages/connectanum_client/lib/src/transport/native/message_binding.dart packages/connectanum_client/test/client_test.dart`
-- `dart test packages/connectanum_core/test/message_e2ee_payload_test.dart packages/connectanum_core/test/message_invocation_test.dart packages/connectanum_client/test/transport/native/e2ee_provider_test.dart packages/connectanum_client/test/client_test.dart -r expanded`
+- `dart analyze packages/connectanum_core/lib/src/message/e2ee_payload.dart packages/connectanum_core/test/message_e2ee_payload_test.dart packages/connectanum_client/lib/src/transport/native/e2ee_provider_io.dart packages/connectanum_client/lib/src/transport/native/e2ee_provider_none.dart packages/connectanum_client/test/transport/native/e2ee_provider_test.dart packages/connectanum_client/test/client_test.dart`
+- `dart test packages/connectanum_core/test/message_e2ee_payload_test.dart packages/connectanum_client/test/transport/native/e2ee_provider_test.dart packages/connectanum_client/test/client_test.dart -r expanded`
+- `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi http2_handshake_surfaced_via_ffi -- --nocapture`
+- `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi http3_handshake_surfaced_via_ffi -- --nocapture`
+- `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi websocket_handshake_surfaced_via_ffi -- --nocapture`
 - `bin/verify`
 
 ## Resume Order
@@ -54,7 +57,8 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - Session teardown now releases resolver-scoped `DisposableWampE2eeProvider` instances, so native E2EE keyring/session handles do not leak across client sessions.
 - Repo-local client-native loading now prefers fresh `native/transport/target/*/libct_ffi` builds before hook-cache artifacts, which keeps local E2EE/provider tests on the current shared library instead of stale hook outputs.
 - The richer per-message E2EE runtime-context slice is now landed too: the shared provider contract now receives message family, URI/topic/procedure, local session identity, negotiated `authextra.e2ee`, and disclosed peer metadata across outbound `CALL` / `PUBLISH` and inbound `RESULT` / `EVENT` / `INVOCATION`, with lazy/materialized payload views preserving that context on the decode path.
-- The next concrete E2EE implementation slice is now policy-aware provider/key-selection behavior on top of that shared Dart/native runtime-context lane; router-side decryption is still intentionally out of scope.
+- The shared Dart and native E2EE provider lanes now both expose a provider-level `WampE2eeKeySelectionPolicy` callback. `WampCborXsalsa20Poly1305Provider` and `NativeWampCborXsalsa20Poly1305Provider` can derive `ppt_keyid` from `WampE2eeRuntimeContext` when the message itself does not set one, so session/runtime metadata now drives real key selection instead of being inspection-only.
+- The `ct_ffi` surfaced-handshake regressions now use the suite’s wait helper for HTTP/3 and WebSocket plus a real `h2::client` prior-knowledge handshake for HTTP/2, which removes the old one-shot HTTP/2 preface race from full verification.
 - The `ct_core` runtime test suite now keeps the rawsocket config connection alive through its assertions and recovers the shared test mutex after prior panics so Linux `cargo test -p ct_core` does not cascade `PoisonError` failures after one flaky test.
 - The `ct_ffi` `runtime::ffi` unit tests now use the same shared suite guard as the rest of the FFI tests before touching global message handles, so concurrent `ct_shutdown()` calls from other tests no longer invalidate those handles mid-assertion.
 - The `ct_ffi` HTTP/2 and HTTP/3 body-timeout regressions now keep request bodies flowing well below the idle timeout and assert only on the emitted lifecycle event, so full-suite verification no longer flakes between timeout reasons or handshake-queue timing on this host.
@@ -233,9 +237,9 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - 2026-04-22: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core ktls::tests -- --nocapture` passed on Darwin arm64 after buffering every unbuffered `EncodeTlsData` fragment until `TransmitTlsData` and adding a regression that proves `WriteTraffic` can still leave partial TLS bytes buffered in userspace.
 - 2026-04-22: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core tls::tests -- --nocapture` passed on Darwin arm64 after the same unbuffered-handshake byte-accounting fix.
 - 2026-04-22: `docker run --rm --platform linux/amd64 -v /Users/konsultaner/Projects/connectanum-dart:/work -w /work/native/transport rust:1 bash -lc 'TOOLCHAIN=$(ls /usr/local/rustup/toolchains | head -n1); export PATH=\"/usr/local/rustup/toolchains/$TOOLCHAIN/bin:$PATH\"; cargo check -p ct_core'` passed again, confirming the corrected Linux-only handoff path still typechecks in a real Linux toolchain.
-- 2026-04-22: `bin/verify` passed on Darwin arm64 after fixing the unbuffered-handshake byte aggregation/pending-record bug and refreshing the kTLS benchmark plan/research/state docs.
+- 2026-04-22: `bin/verify` passed on Darwin arm64 after landing provider-level E2EE key-selection policies on the Dart and native lanes, updating the E2EE docs/roadmap/state files, and stabilizing the `ct_ffi` surfaced HTTP/2 handshake test with a real h2 client handshake.
 - 2026-04-22: GitHub Actions runs `24773860109` (`CI`), `24773860116` (`kTLS Validation`), and `24773860158` (`kTLS HTTP/2 Benchmarks`) all passed on `add-router` for commit `6d18344`, closing the HTTP/2 kTLS correctness milestone on hosted Linux.
-- 2026-04-22: `bin/test-fast` passed on Darwin arm64 before the package-level public-surface docs cleanup pass.
+- 2026-04-22: `bin/test-fast` passed on Darwin arm64 before landing provider-level E2EE key-selection policies on the shared Dart/native provider lane.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after the package-level public-surface docs cleanup pass, including the full Rust, Dart, router, and browser suites.
 - 2026-04-22: `dart test packages/connectanum_bench/test/wamp_transport_targets_test.dart packages/connectanum_bench/test/wamp_workload_runner_test.dart -r expanded` passed on Darwin arm64 after adding explicit secure WAMP target selection and the new `secure_transport` scenario flag.
 - 2026-04-22: `cargo test --manifest-path native/bench/Cargo.toml prepared_workload -- --nocapture` passed on Darwin arm64 after extending the Rust bench orchestrator to forward `secure_transport` into the Dart WAMP control payload.
@@ -298,9 +302,10 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - The secure WAMP throughput expansion is now closed on both local Darwin and
   hosted Ubuntu baselines. The next session should pick a new roadmap item
   instead of extending this benchmark plan.
-- The next E2EE implementation work should extend the now-shared Dart/native
-  provider lane with richer per-message runtime context for key selection and
-  policy rather than adding more basic native crypto plumbing.
+- The next E2EE implementation work should build reusable negotiated/policy
+  adapters on top of the now-shared Dart/native provider lane so applications
+  can derive provider decisions from `WELCOME.authextra.e2ee`, peer identity,
+  and trust metadata without each deployment hand-writing selector callbacks.
 
 ## Update Checklist
 

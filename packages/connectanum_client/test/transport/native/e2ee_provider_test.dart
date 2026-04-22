@@ -32,6 +32,55 @@ void main() {
       expect(decoded.argumentsKeywords, equals(const {'worker': 4}));
     });
 
+    test('selects a key id from runtime context when options omit it', () {
+      final provider = NativeWampCborXsalsa20Poly1305Provider(
+        keys: {
+          'kid-alpha': List<int>.generate(32, (index) => index + 1),
+          'kid-beta': List<int>.generate(32, (index) => index + 65),
+        },
+        keySelectionPolicy: (runtimeContext, _) =>
+            runtimeContext.uri == 'policy.topic.beta'
+            ? 'kid-beta'
+            : 'kid-alpha',
+      );
+      addTearDown(provider.release);
+
+      final runtimeContext = const WampE2eeRuntimeContext(
+        direction: WampE2eeDirection.outbound,
+        messageType: WampE2eeMessageType.publish,
+        uri: 'policy.topic.beta',
+      );
+      final packOptions = PublishOptions(
+        pptScheme: 'wamp',
+        pptSerializer: 'cbor',
+      );
+
+      final packed = provider.packPayload(
+        const ['wrapped'],
+        const {'worker': 4},
+        packOptions,
+        runtimeContext: runtimeContext,
+      );
+
+      expect(packOptions.pptKeyId, equals('kid-beta'));
+
+      final unpackOptions = PublishOptions(
+        pptScheme: 'wamp',
+        pptSerializer: 'cbor',
+      );
+      final decoded = provider.unpackPayload(
+        packed,
+        unpackOptions,
+        runtimeContext: runtimeContext.copyWith(
+          direction: WampE2eeDirection.inbound,
+        ),
+      );
+
+      expect(unpackOptions.pptKeyId, equals('kid-beta'));
+      expect(decoded.arguments, equals(const ['wrapped']));
+      expect(decoded.argumentsKeywords, equals(const {'worker': 4}));
+    });
+
     test('interoperates with the pure Dart provider', () {
       final key = List<int>.generate(32, (index) => index + 1);
       final nativeProvider = NativeWampCborXsalsa20Poly1305Provider.single(

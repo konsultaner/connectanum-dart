@@ -356,6 +356,28 @@ That avoids shipping two incompatible E2EE models.
 - The next E2EE step should consume this runtime context for actual policy and
   key-selection decisions rather than adding more transport/session plumbing.
 
+## Phase 2 Key-Selection Policy Outcome
+
+- `connectanum_core` now exposes `WampE2eeKeySelectionPolicy`, a small
+  provider-level callback surface that receives the current
+  `WampE2eeRuntimeContext` plus mutable `PPTOptions` and can return the
+  `ppt_keyid` the provider should use.
+- Both `WampCborXsalsa20Poly1305Provider` and
+  `NativeWampCborXsalsa20Poly1305Provider` now consume that callback before
+  falling back to their provider-wide default key id, which means:
+  - outbound `CALL` / `PUBLISH` can choose different keys from URI/topic,
+    realm, local auth identity, peer metadata, or negotiated session state
+  - inbound `RESULT` / `EVENT` / `INVOCATION` can recover a key id from the
+    same runtime context when message details do not already carry one
+- The session/runtime plumbing from the previous slice is now materially useful:
+  the client path can attach a policy-aware provider once, and per-message key
+  selection happens inside the provider without router participation or FFI
+  contract changes.
+- The next E2EE step is no longer “add a callback.” It is to ship reusable
+  negotiated/policy adapters that map `WELCOME.authextra.e2ee`,
+  disclosed peer identity, and trust metadata into consistent provider policy
+  decisions across applications.
+
 ## Recommended HELLO / CHALLENGE Negotiation Shape
 
 The repo already has the right message surfaces:

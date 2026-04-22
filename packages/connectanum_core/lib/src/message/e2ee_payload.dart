@@ -167,6 +167,9 @@ class WampE2eeRuntimeContext {
   }
 }
 
+typedef WampE2eeKeySelectionPolicy =
+    String? Function(WampE2eeRuntimeContext runtimeContext, PPTOptions options);
+
 abstract class WampE2eeProvider {
   List<dynamic> packPayload(
     List<dynamic>? arguments,
@@ -254,13 +257,20 @@ class WampCborXsalsa20Poly1305Provider implements WampE2eeProvider {
   WampCborXsalsa20Poly1305Provider({
     required Map<String, List<int>> keys,
     String? defaultKeyId,
+    WampE2eeKeySelectionPolicy? keySelectionPolicy,
   }) : _keys = Map.unmodifiable(_normalizeKeys(keys)),
-       _defaultKeyId = _resolveDefaultKeyId(keys, defaultKeyId);
+       _defaultKeyId = _resolveDefaultKeyId(keys, defaultKeyId),
+       _keySelectionPolicy = keySelectionPolicy;
 
   WampCborXsalsa20Poly1305Provider.single({
     required String keyId,
     required List<int> key,
-  }) : this(keys: {keyId: key}, defaultKeyId: keyId);
+    WampE2eeKeySelectionPolicy? keySelectionPolicy,
+  }) : this(
+         keys: {keyId: key},
+         defaultKeyId: keyId,
+         keySelectionPolicy: keySelectionPolicy,
+       );
 
   static const supportedSerializer = 'cbor';
   static const supportedCipher = 'xsalsa20poly1305';
@@ -270,6 +280,7 @@ class WampCborXsalsa20Poly1305Provider implements WampE2eeProvider {
 
   final Map<String, Uint8List> _keys;
   final String? _defaultKeyId;
+  final WampE2eeKeySelectionPolicy? _keySelectionPolicy;
 
   String? get defaultKeyId => _defaultKeyId;
 
@@ -282,7 +293,11 @@ class WampCborXsalsa20Poly1305Provider implements WampE2eeProvider {
   }) {
     _verifyScheme(options);
     _verifySerializer(options);
-    final keyId = _resolveKeyId(options, operation: 'pack');
+    final keyId = _resolveKeyId(
+      options,
+      operation: 'pack',
+      runtimeContext: runtimeContext,
+    );
     _resolveCipher(options, operation: 'pack');
 
     options.pptScheme ??= 'wamp';
@@ -308,7 +323,11 @@ class WampCborXsalsa20Poly1305Provider implements WampE2eeProvider {
     _verifyScheme(options);
     _verifySerializer(options);
     _resolveCipher(options, operation: 'unpack');
-    final keyId = _resolveKeyId(options, operation: 'unpack');
+    final keyId = _resolveKeyId(
+      options,
+      operation: 'unpack',
+      runtimeContext: runtimeContext,
+    );
     final encryptedBytes = _coerceEncryptedPayload(arguments, options);
 
     final decoded = _decryptPayload(encryptedBytes, options, _keys[keyId]!);
@@ -378,8 +397,15 @@ class WampCborXsalsa20Poly1305Provider implements WampE2eeProvider {
     return cipher;
   }
 
-  String _resolveKeyId(PPTOptions options, {required String operation}) {
-    final keyId = options.pptKeyId ?? _defaultKeyId;
+  String _resolveKeyId(
+    PPTOptions options, {
+    required String operation,
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
+    final keyId =
+        options.pptKeyId ??
+        _resolvePolicyKeyId(runtimeContext, options) ??
+        _defaultKeyId;
     if (keyId == null) {
       throw WampE2eeKeyNotFoundException(
         operation,
@@ -394,7 +420,18 @@ class WampCborXsalsa20Poly1305Provider implements WampE2eeProvider {
         reason: 'No key is configured for ppt_keyid "$keyId"',
       );
     }
+    options.pptKeyId ??= keyId;
     return keyId;
+  }
+
+  String? _resolvePolicyKeyId(
+    WampE2eeRuntimeContext? runtimeContext,
+    PPTOptions options,
+  ) {
+    if (runtimeContext == null) {
+      return null;
+    }
+    return _keySelectionPolicy?.call(runtimeContext, options);
   }
 
   Uint8List _coerceEncryptedPayload(
