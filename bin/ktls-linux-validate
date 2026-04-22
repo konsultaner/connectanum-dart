@@ -71,6 +71,13 @@ host_info_path="${out_dir%/}/host-info.txt"
 export CONNECTANUM_ENABLE_KTLS="${CONNECTANUM_ENABLE_KTLS:-1}"
 export CONNECTANUM_REQUIRE_KTLS="${CONNECTANUM_REQUIRE_KTLS:-1}"
 
+build_native_ffi_test_release
+
+if [[ -z "${CONNECTANUM_NATIVE_LIB:-}" ]]; then
+  printf 'Failed to resolve CONNECTANUM_NATIVE_LIB for kTLS validation.\n' >&2
+  exit 1
+fi
+
 {
   printf 'date_utc=%s\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
   printf 'uname=%s\n' "$(uname -a)"
@@ -95,6 +102,7 @@ cargo test --manifest-path native/transport/Cargo.toml -p ct_core ktls::tests --
 
 printf 'Running HTTP/2 smoke bench with kTLS required...\n'
 cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- \
+  --native-lib "$CONNECTANUM_NATIVE_LIB" \
   --scenario "$scenario" \
   --results "$results_path" \
   --artifact-dir "$out_dir" \
