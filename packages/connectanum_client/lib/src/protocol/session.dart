@@ -269,11 +269,11 @@ class Session {
       return null;
     }
     if (message is NativeSessionMessage) {
-      message.attachE2eeProvider(_e2eeProvider);
+      message.attachE2eeProvider(_resolveRuntimeE2eeProvider());
       return message.materialize();
     }
     if (message is AbstractMessageWithPayload) {
-      message.attachE2eeProvider(_e2eeProvider);
+      message.attachE2eeProvider(_resolveRuntimeE2eeProvider());
     }
     return message as AbstractMessage?;
   }
@@ -633,7 +633,7 @@ class Session {
       return;
     }
     if (message is AbstractMessageWithPayload) {
-      message.attachE2eeProvider(_e2eeProvider);
+      message.attachE2eeProvider(_resolveRuntimeE2eeProvider());
     }
     if (message is NativeSessionMessage) {
       _handleNativeSessionMessage(message);
@@ -737,7 +737,7 @@ class Session {
   }
 
   void _handleNativeSessionMessage(NativeSessionMessage message) {
-    message.attachE2eeProvider(_e2eeProvider);
+    message.attachE2eeProvider(_resolveRuntimeE2eeProvider());
     final code = message.metadata.messageCode;
     if (code == MessageTypes.codeResult) {
       _handleNativeResult(message);
@@ -1058,7 +1058,7 @@ class Session {
         }
       }
       yieldMessage.attachE2eeProvider(
-        lazyPayload?.e2eeProvider ?? _e2eeProvider,
+        _resolveRuntimeE2eeProvider(lazyPayload?.e2eeProvider),
       );
       _transport.send(yieldMessage);
       if (options?.progress != true) {
@@ -1267,7 +1267,10 @@ class Session {
     LazyMessagePayload payload,
     PPTOptions? options,
   ) {
-    message.attachE2eeProvider(payload.e2eeProvider ?? _e2eeProvider);
+    final runtimeE2eeProvider = _resolveRuntimeE2eeProvider(
+      payload.e2eeProvider,
+    );
+    message.attachE2eeProvider(runtimeE2eeProvider);
     message.transparentBinaryPayload = payload.transparentBinaryPayload;
     Uint8List? packedPayload;
     if (options?.pptScheme != null) {
@@ -1279,7 +1282,7 @@ class Session {
               payload.arguments,
               payload.argumentsKeywords,
               options!,
-              provider: payload.e2eeProvider ?? message.e2eeProvider,
+              provider: runtimeE2eeProvider ?? message.e2eeProvider,
             )
           : <dynamic>[packedPayload];
       message.argumentsKeywords = null;
@@ -1324,6 +1327,24 @@ class Session {
     if (payload.pptDecoded) {
       message.markPptPayloadDecoded();
     }
+  }
+
+  WampE2eeProvider? _resolveRuntimeE2eeProvider([WampE2eeProvider? provider]) {
+    final resolvedProvider = provider ?? _e2eeProvider;
+    if (resolvedProvider == null) {
+      return null;
+    }
+    if (resolvedProvider is _NegotiatedSessionE2eeProvider) {
+      return resolvedProvider;
+    }
+    final negotiated = negotiatedE2ee;
+    if (negotiated == null) {
+      return resolvedProvider;
+    }
+    return _NegotiatedSessionE2eeProvider(
+      provider: resolvedProvider,
+      negotiated: negotiated,
+    );
   }
 
   Uint8List? _packMatchingLazyPayload(
@@ -1409,6 +1430,10 @@ class NegotiatedSessionE2ee {
 
   String? get receiveKeyId => raw['receive_key_id'] as String?;
 
+  String? get outboundKeyId => sendKeyId ?? peerKeyId ?? acceptedKeyId;
+
+  String? get inboundKeyId => receiveKeyId ?? acceptedKeyId ?? peerKeyId;
+
   String? get peerKeyId => raw['peer_key_id'] as String?;
 
   String? get kex => raw['kex'] as String?;
@@ -1420,6 +1445,43 @@ class NegotiatedSessionE2ee {
   String? get peerPublicKey => raw['peer_pubkey'] as String?;
 
   Object? operator [](String key) => raw[key];
+}
+
+class _NegotiatedSessionE2eeProvider implements WampE2eeProvider {
+  _NegotiatedSessionE2eeProvider({
+    required this.provider,
+    required this.negotiated,
+  });
+
+  final WampE2eeProvider provider;
+  final NegotiatedSessionE2ee negotiated;
+
+  @override
+  List<dynamic> packPayload(
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    PPTOptions options,
+  ) {
+    _applyDefaults(options, outbound: true);
+    return provider.packPayload(arguments, argumentsKeywords, options);
+  }
+
+  @override
+  E2EEPayloadView unpackPayload(List<dynamic>? arguments, PPTOptions options) {
+    _applyDefaults(options, outbound: false);
+    return provider.unpackPayload(arguments, options);
+  }
+
+  void _applyDefaults(PPTOptions options, {required bool outbound}) {
+    if (options.pptScheme != 'wamp') {
+      return;
+    }
+    options.pptSerializer ??= negotiated.serializer;
+    options.pptCipher ??= negotiated.cipher;
+    options.pptKeyId ??= outbound
+        ? negotiated.outboundKeyId
+        : negotiated.inboundKeyId;
+  }
 }
 
 Map<String, dynamic>? _asStringDynamicMap(Object? value) {

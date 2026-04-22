@@ -133,7 +133,8 @@ Focus for the next session:
   - ✅ Landed the first transport-neutral Dart-side prototype: `WampE2eeProvider`, `WampCborXsalsa20Poly1305Provider`, client/session/native-provider plumbing, and router passthrough coverage for `ppt_scheme = "wamp"`.
   - ✅ Designed the phase-2 native/off-Dart encryption path and the backward-compatible `HELLO` / `CHALLENGE` / `AUTHENTICATE` / `WELCOME` negotiation contract in `docs/e2ee_ppt_research.md`.
   - ✅ Landed the first phase-2 handshake slice on the Dart path: `Client.authExtra` now reaches `HELLO`, `CHALLENGE.extra` preserves custom `e2ee` metadata across JSON/MsgPack/CBOR/native binding, and `Session.negotiatedE2ee` exposes `WELCOME.authextra.e2ee`.
-  - Next: thread the negotiated session state into a richer client-side runtime/provider contract before adding `ct_ffi` native keyring/encrypt-decrypt parity.
+  - ✅ Landed the negotiated runtime-defaults slice on the Dart path: `Session` now wraps attached `WampE2eeProvider` instances with negotiated `WELCOME.authextra.e2ee` defaults so outbound and inbound `ppt_scheme = "wamp"` payloads inherit serializer/cipher/key-id state without per-message plumbing.
+  - Next: add a session-backed/native-backed provider lane and then `ct_ffi` keyring/session parity on top of that negotiated contract.
 
 12. **Packaging & Build Hooks**
   - ✅ Add Dart 3.10+ build hook that compiles the Rust `ct_ffi` backend during `dart run`/`dart test` (native assets build hooks).

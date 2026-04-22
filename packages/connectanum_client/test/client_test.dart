@@ -2482,6 +2482,58 @@ void main() {
       },
     );
     test(
+      'callSingle decodes wamp payloads on the native direct result path with negotiated receive defaults',
+      () async {
+        final provider = _testWampE2eeNegotiatedProvider();
+        final packOptions = ResultDetails(
+          pptScheme: 'wamp',
+          pptSerializer: 'cbor',
+          pptKeyId: 'kid-client-a',
+        );
+        final packedArguments = provider.packPayload(
+          const ['wrapped-result'],
+          const {'worker': 12},
+          packOptions,
+        );
+        final transport = _SessionOptimizedMockTransport((message, transport) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveObject(
+              Welcome(
+                42,
+                Details.forWelcome(authExtra: _negotiatedE2eeAuthExtra()),
+              ),
+            );
+            return;
+          }
+          if (message.id == MessageTypes.codeCall) {
+            transport.receiveObject(
+              _nativeDirectResultMessage(
+                requestId: (message as Call).requestId,
+                pptScheme: 'wamp',
+                pptSerializer: 'cbor',
+                argsBytes: Uint8List.fromList(
+                  cbor.cborEncode(
+                    cbor.CborValue(<Object?>[packedArguments.single]),
+                  ),
+                ),
+              ),
+            );
+          }
+        });
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+          e2eeProvider: provider,
+        ).connect().first;
+
+        final result = await session.callSingle('wamp.result');
+        expect(result.hasDecodedPptPayload, isFalse);
+        expect(result.arguments, equals(const ['wrapped-result']));
+        expect(result.argumentsKeywords, equals(const {'worker': 12}));
+        expect(result.hasDecodedPptPayload, isTrue);
+      },
+    );
+    test(
       'callSingleLazyPayload preserves packed PPT bytes on the native direct result path',
       () async {
         final transport = _SessionOptimizedMockTransport((message, transport) {
@@ -2720,6 +2772,53 @@ void main() {
         );
       },
     );
+    test(
+      'publishLazyPayload uses negotiated outbound E2EE defaults when message options omit them',
+      () async {
+        final transport = _MockTransport();
+        final provider = _testWampE2eeNegotiatedProvider();
+        final client = Client(
+          realm: 'test.realm',
+          transport: transport,
+          e2eeProvider: provider,
+        );
+
+        transport.outbound.stream.listen((message) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveMessage(
+              Welcome(
+                42,
+                Details.forWelcome(authExtra: _negotiatedE2eeAuthExtra()),
+              ),
+            );
+            return;
+          }
+          if (message.id == MessageTypes.codePublish) {
+            final publish = message as Publish;
+            expect(publish.options?.pptSerializer, equals('cbor'));
+            expect(publish.options?.pptCipher, equals('xsalsa20poly1305'));
+            expect(publish.options?.pptKeyId, equals('kid-server-a'));
+            final decoded = provider.unpackPayload(
+              publish.arguments,
+              publish.options!,
+            );
+            expect(decoded.arguments, equals(const ['wrapped']));
+            expect(decoded.argumentsKeywords, equals(const {'worker': 4}));
+            expect(publish.argumentsKeywords, isNull);
+          }
+        });
+
+        final session = await client.connect().first;
+        await session.publishLazyPayload(
+          'ppt.topic',
+          payload: LazyMessagePayload.materialized(
+            arguments: const ['wrapped'],
+            argumentsKeywords: const {'worker': 4},
+          ),
+          options: PublishOptions(pptScheme: 'wamp'),
+        );
+      },
+    );
     test('request routing handles out-of-order router replies', () async {
       const stepTimeout = Duration(seconds: 1);
       final transport = _OutOfOrderResponseTransport();
@@ -2861,6 +2960,29 @@ WampCborXsalsa20Poly1305Provider _testWampE2eeProvider() {
     keyId: 'test-key',
     key: Uint8List.fromList(List<int>.generate(32, (index) => index + 1)),
   );
+}
+
+WampCborXsalsa20Poly1305Provider _testWampE2eeNegotiatedProvider() {
+  return WampCborXsalsa20Poly1305Provider(
+    keys: {
+      'kid-server-a': List<int>.generate(32, (index) => index + 1),
+      'kid-client-a': List<int>.generate(32, (index) => index + 65),
+    },
+  );
+}
+
+Map<String, dynamic> _negotiatedE2eeAuthExtra() {
+  return const {
+    'e2ee': {
+      'established': true,
+      'scheme': 'wamp',
+      'serializer': 'cbor',
+      'cipher': 'xsalsa20poly1305',
+      'send_key_id': 'kid-server-a',
+      'receive_key_id': 'kid-client-a',
+      'peer_key_id': 'kid-server-a',
+    },
+  };
 }
 
 class _MockTransport extends AbstractTransport {
