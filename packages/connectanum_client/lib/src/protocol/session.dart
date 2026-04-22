@@ -35,6 +35,20 @@ class Session {
   final AbstractTransport _transport;
   final WampE2eeProvider? _e2eeProvider;
 
+  WampE2eeProvider? get e2eeProvider => _e2eeProvider;
+
+  NegotiatedSessionE2ee? get negotiatedE2ee {
+    final authExtraMap = authExtra;
+    if (authExtraMap == null) {
+      return null;
+    }
+    final e2eeMap = _asStringDynamicMap(authExtraMap['e2ee']);
+    if (e2eeMap == null) {
+      return null;
+    }
+    return NegotiatedSessionE2ee(e2eeMap);
+  }
+
   /// the next id used to generate request id for a call
   int nextCallId = 1;
 
@@ -1364,6 +1378,58 @@ class Session {
       }),
     );
   }
+}
+
+class NegotiatedSessionE2ee {
+  NegotiatedSessionE2ee(this.raw);
+
+  final Map<String, dynamic> raw;
+
+  int? get version => raw['version'] is int ? raw['version'] as int : null;
+
+  bool? get isRequired =>
+      raw['required'] is bool ? raw['required'] as bool : null;
+
+  bool? get established =>
+      raw['established'] is bool ? raw['established'] as bool : null;
+
+  String? get scheme =>
+      raw['scheme'] as String? ?? raw['selected_scheme'] as String?;
+
+  String? get serializer =>
+      raw['serializer'] as String? ?? raw['selected_serializer'] as String?;
+
+  String? get cipher =>
+      raw['cipher'] as String? ?? raw['selected_cipher'] as String?;
+
+  String? get acceptedKeyId =>
+      raw['accepted_key_id'] as String? ?? raw['key_id'] as String?;
+
+  String? get sendKeyId => raw['send_key_id'] as String?;
+
+  String? get receiveKeyId => raw['receive_key_id'] as String?;
+
+  String? get peerKeyId => raw['peer_key_id'] as String?;
+
+  String? get kex => raw['kex'] as String?;
+
+  String? get clientPublicKey => raw['client_pubkey'] as String?;
+
+  String? get serverPublicKey => raw['server_pubkey'] as String?;
+
+  String? get peerPublicKey => raw['peer_pubkey'] as String?;
+
+  Object? operator [](String key) => raw[key];
+}
+
+Map<String, dynamic>? _asStringDynamicMap(Object? value) {
+  if (value is Map<String, dynamic>) {
+    return value;
+  }
+  if (value is Map) {
+    return value.map((key, entryValue) => MapEntry(key.toString(), entryValue));
+  }
+  return null;
 }
 
 abstract class _PendingCall {

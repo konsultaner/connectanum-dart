@@ -596,16 +596,7 @@ Challenge _bindChallenge(List<dynamic> message) {
   final extraMap = _asStringKeyMap(message.length > 2 ? message[2] : null);
   return Challenge(
     message[1] as String,
-    Extra(
-      challenge: extraMap?['challenge'] as String?,
-      salt: extraMap?['salt'] as String?,
-      keyLen: _asInt(extraMap?['keylen']),
-      channelBinding: extraMap?['channel_binding'] as String?,
-      iterations: _asInt(extraMap?['iterations']),
-      memory: _asInt(extraMap?['memory']),
-      kdf: extraMap?['kdf'] as String?,
-      nonce: extraMap?['nonce'] as String?,
-    ),
+    Extra.fromMap(extraMap ?? const <String, dynamic>{}),
   );
 }
 

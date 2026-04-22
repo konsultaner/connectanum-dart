@@ -199,6 +199,7 @@ class Client {
         transport,
         authId: authId,
         authRole: authRole,
+        authExtra: authExtra,
         authMethods: authenticationMethods,
         reconnect: options.reconnectTime,
         e2eeProvider: e2eeProvider,

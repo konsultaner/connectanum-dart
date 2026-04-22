@@ -132,18 +132,10 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeChallenge) {
-        return Challenge(
-          message[1],
-          Extra(
-            challenge: message[2]['challenge'],
-            salt: message[2]['salt'],
-            keyLen: message[2]['keylen'],
-            iterations: message[2]['iterations'],
-            memory: message[2]['memory'],
-            kdf: message[2]['kdf'],
-            nonce: message[2]['nonce'],
-          ),
-        );
+        final extraMap = message[2] is Map
+            ? _normalizeJsonStringKeyMap(message[2] as Map<dynamic, dynamic>)
+            : const <String, dynamic>{};
+        return Challenge(message[1], Extra.fromMap(extraMap));
       }
       if (messageId == MessageTypes.codeAuthenticate) {
         return Authenticate(signature: message[1] as String?)
@@ -1429,31 +1421,6 @@ class Serializer extends AbstractSerializer {
   }
 
   Map<String, Object?> _challengeExtraToMap(Extra extra) {
-    final map = <String, Object?>{};
-    if (extra.challenge != null) {
-      map['challenge'] = extra.challenge;
-    }
-    if (extra.salt != null) {
-      map['salt'] = extra.salt;
-    }
-    if (extra.keyLen != null) {
-      map['keylen'] = extra.keyLen;
-    }
-    if (extra.iterations != null) {
-      map['iterations'] = extra.iterations;
-    }
-    if (extra.memory != null) {
-      map['memory'] = extra.memory;
-    }
-    if (extra.kdf != null) {
-      map['kdf'] = extra.kdf;
-    }
-    if (extra.channelBinding != null) {
-      map['channel_binding'] = extra.channelBinding;
-    }
-    if (extra.nonce != null) {
-      map['nonce'] = extra.nonce;
-    }
-    return map;
+    return extra.toMap();
   }
 }

@@ -117,51 +117,10 @@ class Serializer extends AbstractSerializer {
         }
         if (messageId == MessageTypes.codeChallenge &&
             decodedMessage.length == 3) {
+          final extraMap = _cborMapToStringMap(decodedMessage[2] as CborMap);
           return Challenge(
             (decodedMessage[1] as CborString).toString(),
-            Extra(
-              challenge:
-                  (decodedMessage[2] as CborMap)[CborString('challenge')] ==
-                      null
-                  ? null
-                  : ((decodedMessage[2] as CborMap)[CborString('challenge')]
-                            as CborString)
-                        .toString(),
-              salt: (decodedMessage[2] as CborMap)[CborString('salt')] == null
-                  ? null
-                  : ((decodedMessage[2] as CborMap)[CborString('salt')]
-                            as CborString)
-                        .toString(),
-              keyLen:
-                  (decodedMessage[2] as CborMap)[CborString('keylen')] == null
-                  ? null
-                  : ((decodedMessage[2] as CborMap)[CborString('keylen')]
-                            as CborInt)
-                        .toInt(),
-              iterations:
-                  (decodedMessage[2] as CborMap)[CborString('iterations')] ==
-                      null
-                  ? null
-                  : ((decodedMessage[2] as CborMap)[CborString('iterations')]
-                            as CborInt)
-                        .toInt(),
-              memory:
-                  (decodedMessage[2] as CborMap)[CborString('memory')] == null
-                  ? null
-                  : ((decodedMessage[2] as CborMap)[CborString('memory')]
-                            as CborInt)
-                        .toInt(),
-              kdf: (decodedMessage[2] as CborMap)[CborString('kdf')] == null
-                  ? null
-                  : ((decodedMessage[2] as CborMap)[CborString('kdf')]
-                            as CborString)
-                        .toString(),
-              nonce: (decodedMessage[2] as CborMap)[CborString('nonce')] == null
-                  ? null
-                  : ((decodedMessage[2] as CborMap)[CborString('nonce')]
-                            as CborString)
-                        .toString(),
-            ),
+            Extra.fromMap(extraMap),
           );
         }
         if (messageId == MessageTypes.codeHello && decodedMessage.length == 3) {
@@ -712,16 +671,7 @@ class Serializer extends AbstractSerializer {
   }
 
   Extra _decodeChallengeExtraDetailMap(Map<String, dynamic> detailsMap) {
-    return Extra(
-      challenge: detailsMap['challenge'] as String?,
-      salt: detailsMap['salt'] as String?,
-      channelBinding: detailsMap['channel_binding'] as String?,
-      keyLen: _coerceNumToInt(detailsMap['keylen']),
-      iterations: _coerceNumToInt(detailsMap['iterations']),
-      memory: _coerceNumToInt(detailsMap['memory']),
-      kdf: detailsMap['kdf'] as String?,
-      nonce: detailsMap['nonce'] as String?,
-    );
+    return Extra.fromMap(detailsMap);
   }
 
   Details _decodeDetailsMap(Map<String, dynamic> detailsMap) {
@@ -1942,32 +1892,7 @@ class Serializer extends AbstractSerializer {
   }
 
   Map<String, Object?> _challengeExtraToMap(Extra extra) {
-    final map = <String, Object?>{};
-    if (extra.challenge != null) {
-      map['challenge'] = extra.challenge;
-    }
-    if (extra.salt != null) {
-      map['salt'] = extra.salt;
-    }
-    if (extra.keyLen != null) {
-      map['keylen'] = extra.keyLen;
-    }
-    if (extra.iterations != null) {
-      map['iterations'] = extra.iterations;
-    }
-    if (extra.memory != null) {
-      map['memory'] = extra.memory;
-    }
-    if (extra.kdf != null) {
-      map['kdf'] = extra.kdf;
-    }
-    if (extra.channelBinding != null) {
-      map['channel_binding'] = extra.channelBinding;
-    }
-    if (extra.nonce != null) {
-      map['nonce'] = extra.nonce;
-    }
-    return map;
+    return extra.toMap();
   }
 }
 

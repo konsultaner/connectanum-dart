@@ -94,6 +94,7 @@ void main() {
           'salt': 'salt',
           'iterations': 4096,
           'channel_binding': 'tls-unique',
+          'e2ee': {'required': true, 'selected_cipher': 'xsalsa20poly1305'},
         };
       });
 
@@ -104,6 +105,10 @@ void main() {
       expect(extra.salt, 'salt');
       expect(extra.iterations, 4096);
       expect(extra.channelBinding, 'tls-unique');
+      expect(
+        extra.custom['e2ee'],
+        equals({'required': true, 'selected_cipher': 'xsalsa20poly1305'}),
+      );
       expect(loadCount, 1);
     });
 

@@ -442,14 +442,14 @@ paths consume.
 
 ## Recommended Implementation Slices After This Design
 
-1. Add pass-through coverage for `authextra.e2ee` on `HELLO`, `CHALLENGE`,
-   `AUTHENTICATE`, and `WELCOME` without changing payload behavior yet.
+1. ✅ Preserve `authextra.e2ee` / `CHALLENGE.extra.e2ee` metadata on the Dart
+   handshake path and expose negotiated session state through `Session`.
 2. Introduce a contextual E2EE runtime contract on the client side that can use
    either:
    - the current Dart provider, or
    - a future native/session-backed provider
-3. Add negotiated-session state to `Client` / `Session` so outbound/inbound PPT
-   paths can default from the established contract instead of requiring fully
-   out-of-band configuration.
+3. Thread outbound/inbound PPT defaults from the negotiated session contract so
+   callers do not need fully out-of-band configuration for every encrypted
+   session.
 4. Add `ct_ffi` keyring/session handles and native encrypt/decrypt parity only
    after the Dart negotiation contract is exercised end-to-end.

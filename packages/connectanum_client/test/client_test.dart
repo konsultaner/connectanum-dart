@@ -2081,6 +2081,7 @@ void main() {
     });
     test('session creation with authextra', () async {
       final transport = _MockTransport();
+      Hello? sentHello;
       final client = Client(
         realm: 'test.realm',
         transport: transport,
@@ -2088,6 +2089,7 @@ void main() {
       );
       transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.codeHello) {
+          sentHello = message as Hello;
           transport.receiveMessage(
             Welcome(
               42,
@@ -2116,10 +2118,72 @@ void main() {
       expect(session.authProvider, equals('noProvider'));
       expect(session.authMethod, equals('none'));
       expect(session.authExtra, equals({'test': true}));
+      expect(sentHello?.details.authextra, equals({'test': true}));
       expect(
         logRecords[2].message,
         equals('Warning! No realm returned by the router'),
       );
+    });
+
+    test('session exposes negotiated e2ee auth extra state', () async {
+      final transport = _MockTransport();
+      final helloAuthExtra = {
+        'e2ee': {
+          'version': 1,
+          'required': false,
+          'schemes': ['wamp'],
+          'ciphers': ['xsalsa20poly1305'],
+        },
+      };
+      final welcomeAuthExtra = {
+        'e2ee': {
+          'established': true,
+          'scheme': 'wamp',
+          'serializer': 'cbor',
+          'cipher': 'xsalsa20poly1305',
+          'send_key_id': 'kid-server-a',
+          'receive_key_id': 'kid-client-a',
+          'peer_pubkey': 'server-pubkey',
+        },
+      };
+      Hello? sentHello;
+      final client = Client(
+        realm: 'test.realm',
+        transport: transport,
+        authExtra: helloAuthExtra,
+      );
+
+      transport.outbound.stream.listen((message) {
+        if (message.id != MessageTypes.codeHello) {
+          return;
+        }
+        sentHello = message as Hello;
+        transport.receiveMessage(
+          Welcome(
+            42,
+            Details.forWelcome(
+              authId: 'Richi',
+              authMethod: 'ticket',
+              authProvider: 'auth-service',
+              authRole: 'client',
+              authExtra: welcomeAuthExtra,
+            ),
+          ),
+        );
+      });
+
+      final session = await client.connect().first;
+      expect(sentHello?.details.authextra, equals(helloAuthExtra));
+      expect(session.authExtra, equals(welcomeAuthExtra));
+      expect(session.e2eeProvider, isNull);
+      expect(session.negotiatedE2ee, isNotNull);
+      expect(session.negotiatedE2ee?.established, isTrue);
+      expect(session.negotiatedE2ee?.scheme, 'wamp');
+      expect(session.negotiatedE2ee?.serializer, 'cbor');
+      expect(session.negotiatedE2ee?.cipher, 'xsalsa20poly1305');
+      expect(session.negotiatedE2ee?.sendKeyId, 'kid-server-a');
+      expect(session.negotiatedE2ee?.receiveKeyId, 'kid-client-a');
+      expect(session.negotiatedE2ee?.peerPublicKey, 'server-pubkey');
     });
     test('session creation transport open fail', () async {
       final transport = _MockTransport();

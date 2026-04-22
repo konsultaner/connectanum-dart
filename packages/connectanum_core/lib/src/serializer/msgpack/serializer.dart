@@ -629,16 +629,7 @@ class Serializer extends AbstractSerializer {
   }
 
   Extra _decodeChallengeExtraMap(Map<dynamic, dynamic> extraMap) {
-    return Extra(
-      challenge: extraMap['challenge'] as String?,
-      salt: extraMap['salt'] as String?,
-      channelBinding: extraMap['channel_binding'] as String?,
-      keyLen: _coerceInt(extraMap['keylen']),
-      iterations: _coerceInt(extraMap['iterations']),
-      memory: _coerceInt(extraMap['memory']),
-      kdf: extraMap['kdf'] as String?,
-      nonce: extraMap['nonce'] as String?,
-    );
+    return Extra.fromMap(_normalizeDynamicMap(extraMap));
   }
 
   Details _decodeWelcomeDetailsMap(Map<dynamic, dynamic> detailsMap) {
@@ -1650,32 +1641,7 @@ class Serializer extends AbstractSerializer {
   }
 
   Map<String, Object?> _challengeExtraToMap(Extra extra) {
-    final map = <String, Object?>{};
-    if (extra.challenge != null) {
-      map['challenge'] = extra.challenge;
-    }
-    if (extra.salt != null) {
-      map['salt'] = extra.salt;
-    }
-    if (extra.keyLen != null) {
-      map['keylen'] = extra.keyLen;
-    }
-    if (extra.iterations != null) {
-      map['iterations'] = extra.iterations;
-    }
-    if (extra.memory != null) {
-      map['memory'] = extra.memory;
-    }
-    if (extra.kdf != null) {
-      map['kdf'] = extra.kdf;
-    }
-    if (extra.channelBinding != null) {
-      map['channel_binding'] = extra.channelBinding;
-    }
-    if (extra.nonce != null) {
-      map['nonce'] = extra.nonce;
-    }
-    return map;
+    return extra.toMap();
   }
 }
 

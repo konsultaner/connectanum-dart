@@ -39,7 +39,8 @@ Last reviewed commit: `6031410` (`docs(bench): close secure throughput plan`)
 - The first Dart-side WAMP E2EE prototype is now implemented. `connectanum_core` ships `WampCborXsalsa20Poly1305Provider`, explicit unsupported-cipher / missing-key / invalid-payload / decryption failure types, and a focused provider regression test.
 - Client and router coverage now prove the full phase-1 path: outbound WAMP payloads populate `ppt_cipher` + `ppt_keyid`, inbound native direct result/event/invocation paths decrypt through the configured provider, and router internal-session forwarding preserves ciphertext bytes plus `ppt_*` metadata without forcing router-side decryption.
 - The phase-2 E2EE design is now captured in `docs/e2ee_ppt_research.md`: native/off-Dart parity should happen at the client boundary rather than the router boundary, and negotiated session state should ride one optional `authextra.e2ee` object across `HELLO`, `CHALLENGE`, `AUTHENTICATE`, and `WELCOME`.
-- The next concrete E2EE implementation slice is metadata pass-through plus a contextual negotiated-session/provider contract on the Dart path. `ct_ffi` native keyring/encrypt-decrypt parity is intentionally deferred until that contract is exercised end-to-end.
+- The first phase-2 Dart handshake slice is now landed too: `Client.authExtra` reaches `HELLO`, `CHALLENGE.extra` preserves custom `e2ee` metadata across JSON/MsgPack/CBOR/native binding, and `Session.negotiatedE2ee` exposes typed `WELCOME.authextra.e2ee` state without changing payload behavior yet.
+- The next concrete E2EE implementation slice is a richer negotiated-session/provider runtime contract on the Dart path. `ct_ffi` native keyring/encrypt-decrypt parity is intentionally deferred until that contract is exercised end-to-end.
 - The `ct_core` runtime test suite now keeps the rawsocket config connection alive through its assertions and recovers the shared test mutex after prior panics so Linux `cargo test -p ct_core` does not cascade `PoisonError` failures after one flaky test.
 - The `ct_ffi` `runtime::ffi` unit tests now use the same shared suite guard as the rest of the FFI tests before touching global message handles, so concurrent `ct_shutdown()` calls from other tests no longer invalidate those handles mid-assertion.
 - The native Rust workspace no longer emits the previously-tracked dead-code warning block during local verification; the cleanup landed in `2fac53b` without changing runtime behavior.
@@ -250,6 +251,10 @@ Last reviewed commit: `6031410` (`docs(bench): close secure throughput plan`)
 - 2026-04-22: GitHub Actions run `24786956501` (`kTLS Validation`, `workflow_dispatch`) passed on `add-router` for commit `c040ef9` with scenario `native/bench/scenarios/wamp_secure_throughput.toml`, recording the hosted Ubuntu response-throughput baseline as RawSocket pubsub `56.77/65.08/57.15 Mbps`, RawSocket RPC `176.60/215.09/164.48 Mbps`, WebSocket pubsub `62.04/78.81/64.83 Mbps`, and WebSocket RPC `191.13/231.59/168.71 Mbps` for JSON/MsgPack/CBOR.
 - 2026-04-22: `bin/test-fast` passed on Darwin arm64 before landing the phase-2 E2EE design checkpoint in `docs/e2ee_ppt_research.md`, `ROADMAP_NEXT.md`, and `docs/project_state.md`.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after landing the phase-2 E2EE design checkpoint and adding `docs/exec-plans/2026-04-22-e2ee-phase2-design.md`.
+- 2026-04-22: `bin/test-fast` passed on Darwin arm64 before landing the phase-2 E2EE negotiation scaffolding slice.
+- 2026-04-22: `dart test packages/connectanum_core/test/custom_fields_test.dart packages/connectanum_core/test/serializer_challenge_welcome_test.dart -r expanded` passed on Darwin arm64 after preserving custom `CHALLENGE.extra` fields across JSON/MsgPack/CBOR.
+- 2026-04-22: `dart test packages/connectanum_client/test/client_test.dart packages/connectanum_client/test/transport/native/message_binding_test.dart -r expanded` passed on Darwin arm64 after wiring `Client.authExtra` into `HELLO`, exposing `Session.negotiatedE2ee`, and preserving native-bound challenge metadata.
+- 2026-04-22: `bin/verify` passed on Darwin arm64 after landing the phase-2 E2EE negotiation scaffolding slice and closing `docs/exec-plans/2026-04-22-e2ee-negotiation-scaffolding.md`.
 
 ## Active Plan
 
@@ -257,8 +262,8 @@ Last reviewed commit: `6031410` (`docs(bench): close secure throughput plan`)
 - Supporting research notes:
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-22-e2ee-phase2-design.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-22-ktls-secure-wamp-throughput.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-22-e2ee-negotiation-scaffolding.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-22-e2ee-phase2-design.md`
 
 ## Known Follow-Ups
 
@@ -269,9 +274,9 @@ Last reviewed commit: `6031410` (`docs(bench): close secure throughput plan`)
 - The secure WAMP throughput expansion is now closed on both local Darwin and
   hosted Ubuntu baselines. The next session should pick a new roadmap item
   instead of extending this benchmark plan.
-- The next E2EE implementation work should start with `authextra.e2ee`
-  negotiation pass-through and contextual provider/session scaffolding, not
-  direct Rust-native crypto changes.
+- The next E2EE implementation work should thread the negotiated session state
+  into a richer client-side runtime/provider contract before attempting
+  `ct_ffi` keyring/session parity or native encrypt/decrypt work.
 
 ## Update Checklist
 

@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:connectanum_core/connectanum_core.dart';
+import 'package:connectanum_core/src/serializer/cbor/serializer.dart'
+    as cbor_serializer;
 import 'package:connectanum_core/src/serializer/json/serializer.dart'
     as json_serializer;
 import 'package:connectanum_core/src/serializer/msgpack/serializer.dart'
@@ -66,6 +68,54 @@ void main() {
           msgpack_serializer.Serializer().deserialize(encoded) as Challenge;
       expect(decoded.authMethod, 'ticket');
       expect(decoded.extra.challenge, 'abc');
+    });
+
+    test('challenge extra custom fields round-trip across serializers', () {
+      final challenge = Challenge(
+        'cryptosign',
+        Extra(
+          challenge: 'abc',
+          channelBinding: 'tls-unique',
+          custom: {
+            'e2ee': {
+              'required': true,
+              'selected_cipher': 'xsalsa20poly1305',
+              'accepted_key_id': 'kid-client-a',
+            },
+          },
+        ),
+      );
+
+      final jsonSerializer = json_serializer.Serializer();
+      final jsonDecoded =
+          jsonSerializer.deserializeFromString(
+                jsonSerializer.serializeToString(challenge),
+              )
+              as Challenge;
+
+      final msgpackSerializer = msgpack_serializer.Serializer();
+      final msgpackDecoded =
+          msgpackSerializer.deserialize(msgpackSerializer.serialize(challenge))
+              as Challenge;
+
+      final cborSerializer = cbor_serializer.Serializer();
+      final cborDecoded =
+          cborSerializer.deserialize(cborSerializer.serialize(challenge))
+              as Challenge;
+
+      for (final decoded in [jsonDecoded, msgpackDecoded, cborDecoded]) {
+        expect(decoded.authMethod, 'cryptosign');
+        expect(decoded.extra.challenge, 'abc');
+        expect(decoded.extra.channelBinding, 'tls-unique');
+        expect(
+          decoded.extra.custom['e2ee'],
+          equals({
+            'required': true,
+            'selected_cipher': 'xsalsa20poly1305',
+            'accepted_key_id': 'kid-client-a',
+          }),
+        );
+      }
     });
 
     test('msgpack serializer encodes welcome', () {

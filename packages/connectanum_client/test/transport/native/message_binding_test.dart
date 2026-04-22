@@ -139,7 +139,12 @@ void main() {
           msgpack.serialize([
             MessageTypes.codeChallenge,
             'ticket',
-            {'challenge': 'abc123', 'salt': 'salt', 'iterations': 4096},
+            {
+              'challenge': 'abc123',
+              'salt': 'salt',
+              'iterations': 4096,
+              'e2ee': {'required': true},
+            },
           ]),
         ),
       );
@@ -150,6 +155,7 @@ void main() {
       expect(challenge.extra.challenge, 'abc123');
       expect(challenge.extra.salt, 'salt');
       expect(challenge.extra.iterations, 4096);
+      expect(challenge.extra.custom['e2ee'], equals({'required': true}));
     });
 
     test('decodes Heartbeat and Unknown messages from full frames', () {
@@ -315,6 +321,7 @@ void main() {
               'salt': 'salt',
               'iterations': 4096,
               'channel_binding': 'tls-unique',
+              'e2ee': {'required': true, 'selected_cipher': 'xsalsa20poly1305'},
             }),
           ),
         ),
@@ -327,6 +334,10 @@ void main() {
       expect(challenge.extra.salt, 'salt');
       expect(challenge.extra.iterations, 4096);
       expect(challenge.extra.channelBinding, 'tls-unique');
+      expect(
+        challenge.extra.custom['e2ee'],
+        equals({'required': true, 'selected_cipher': 'xsalsa20poly1305'}),
+      );
     });
 
     test('direct binds JSON events without decoding the full frame', () {
