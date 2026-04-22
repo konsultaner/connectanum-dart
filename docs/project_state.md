@@ -70,6 +70,9 @@ Last reviewed commit: `4615156` (`fix(ktls): restore mutable linux handoff state
   the multiplexed HTTP/2 workload still fails under `CONNECTANUM_REQUIRE_KTLS=1`
   with Linux socket/handshake errors (`EINVAL`, `EMSGSIZE`, and occasional
   `ENOTCONN`) plus downstream HTTP/2 `unexpected frame type` resets.
+- The same hosted job log shows intermittent required-kTLS handshake failures
+  even in the single-stream workload, so the Linux blocker is broader than one
+  multiplexed benchmark shape.
 - `bin/ktls-http2-bench` now preserves partial benchmark artifacts even when a
   pass fails partway through, so hosted runs still upload per-pass summaries
   and generate `comparison.json` / `comparison.md` from whatever completed
@@ -79,7 +82,8 @@ Last reviewed commit: `4615156` (`fix(ktls): restore mutable linux handoff state
   `tokio-rustls` returns a buffered `rustls::ServerConnection`, whose public
   API does not expose `dangerous_into_kernel_connection()`. That is adequate
   for the short-lived HTTP/2 smoke path, but it is not yet the final answer for
-  TLS 1.3 key-update or session-ticket handling.
+  TLS 1.3 key-update handling and therefore keeps TLS 1.3 session tickets
+  disabled on the kTLS path.
 - The local autonomy blockers from the 2026-04-21 audit are resolved for this macOS shell environment.
 - In-app heartbeat sandboxes are more restricted than the interactive shell here; remote CI inspection and git metadata writes should still happen from unrestricted interactive runs or the external launchd worker.
 
@@ -167,6 +171,8 @@ Last reviewed commit: `4615156` (`fix(ktls): restore mutable linux handoff state
 - 2026-04-22: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core ktls::tests -- --nocapture` passed on Darwin arm64 after preserving buffered rustls plaintext across the Linux kTLS handoff and adding the in-memory regression that proves the HTTP/2 client preface survives that drain step.
 - 2026-04-22: GitHub Actions run `24768800167` (`kTLS HTTP/2 Benchmarks`) failed on `add-router` only because the first buffered-plaintext handoff patch forgot to keep the Linux-only `session` binding mutable during `drain_buffered_plaintext(&mut session)`.
 - 2026-04-22: GitHub Actions run `24768909306` (`kTLS HTTP/2 Benchmarks`) uploaded baseline plus required-kTLS artifacts on Ubuntu 24.04. Baseline TLS completed both workloads cleanly (`h2_sustained_transfer`: `3994.58` Mbps / `4247.40` Mbps at 1/4 native threads, `h2_multiplexed_streams`: `5807.50` Mbps / `5779.71` Mbps at 1/4 native threads). Required-kTLS completed only `h2_sustained_transfer` at 1 thread (`1911.93` Mbps, p95 `18.85` ms, two protocol-error events) before `h2_multiplexed_streams` failed with `Invalid argument (os error 22)`, `Message too long (os error 90)`, occasional `Failed to set TLS ULP: Transport endpoint is not connected (os error 107)`, and downstream HTTP/2 `unexpected frame type` resets.
+- 2026-04-22: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core apply_server_tls_runtime_settings -- --nocapture` passed on Darwin arm64 after making the kTLS server prototype suppress TLS 1.3 session tickets whenever secret extraction is enabled.
+- 2026-04-22: `bin/verify` passed on Darwin arm64 after making the kTLS server prototype suppress TLS 1.3 session tickets on the dummy-session handoff path and updating the kTLS benchmark plan/research/state docs.
 
 ## Active Plan
 
@@ -186,8 +192,9 @@ Last reviewed commit: `4615156` (`fix(ktls): restore mutable linux handoff state
 - The current prototype keeps default/non-Linux runs on `tokio-rustls`,
   disables future kTLS attempts after socket-setup or handoff failures in one
   process in try-mode, and now has a green hosted Linux validation path, but it
-  still is not the final production story for TLS 1.3 key-update or ticket
-  handling.
+  still is not the final production story for TLS 1.3 key-update handling; the
+  dummy-session path now suppresses TLS 1.3 session tickets rather than claim
+  support for them.
 - The next kTLS-specific fix should focus on the required-kTLS multiplexed
   HTTP/2 path, where the current hosted run shows Linux socket setup errors
   (`EINVAL`, `EMSGSIZE`, intermittent `ENOTCONN`) and HTTP/2 frame corruption

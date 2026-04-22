@@ -90,10 +90,29 @@ pub(crate) fn build_tls_acceptor(
             .with_no_client_auth()
             .with_cert_resolver(Arc::new(resolver)),
     };
-    config.enable_secret_extraction = ktls::secret_extraction_requested();
-    config.alpn_protocols = tcp_alpn_protocols(endpoint);
+    apply_server_tls_runtime_settings(
+        &mut config,
+        endpoint,
+        ktls::secret_extraction_requested(),
+    );
 
     Ok(Some(TlsAcceptor::from(Arc::new(config))))
+}
+
+fn apply_server_tls_runtime_settings(
+    config: &mut RustlsServerConfig,
+    endpoint: &EndpointRuntimeConfig,
+    secret_extraction_requested: bool,
+) {
+    config.enable_secret_extraction = secret_extraction_requested;
+    config.alpn_protocols = tcp_alpn_protocols(endpoint);
+
+    if secret_extraction_requested {
+        // The current Linux kTLS server path hands traffic off after the TLS
+        // handshake and no longer keeps rustls around to emit post-handshake
+        // TLS 1.3 session tickets, so suppress them on that prototype path.
+        config.send_tls13_tickets = 0;
+    }
 }
 
 #[derive(Debug)]
@@ -304,4 +323,78 @@ fn parse_identity(
     };
 
     Ok((certs, private_key))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{EndpointRuntimeConfig, SniCertificate, TlsMode, TransportProtocol};
+    use std::time::Duration;
+
+    #[test]
+    fn apply_server_tls_runtime_settings_disables_tls13_tickets_for_secret_extraction() {
+        let endpoint = test_endpoint_config();
+        let mut config = test_server_config(&endpoint);
+
+        assert!(config.send_tls13_tickets > 0);
+
+        apply_server_tls_runtime_settings(&mut config, &endpoint, true);
+
+        assert!(config.enable_secret_extraction);
+        assert_eq!(config.send_tls13_tickets, 0);
+        assert_eq!(config.alpn_protocols, vec![b"h2".to_vec()]);
+    }
+
+    #[test]
+    fn apply_server_tls_runtime_settings_preserves_ticket_defaults_without_secret_extraction() {
+        let endpoint = test_endpoint_config();
+        let mut config = test_server_config(&endpoint);
+        let default_ticket_count = config.send_tls13_tickets;
+
+        apply_server_tls_runtime_settings(&mut config, &endpoint, false);
+
+        assert!(!config.enable_secret_extraction);
+        assert_eq!(config.send_tls13_tickets, default_ticket_count);
+        assert_eq!(config.alpn_protocols, vec![b"h2".to_vec()]);
+    }
+
+    fn test_server_config(endpoint: &EndpointRuntimeConfig) -> RustlsServerConfig {
+        let cert_entry = endpoint
+            .sni_certificates
+            .first()
+            .expect("test endpoint tls certificate");
+        let (cert_chain, key_der) = parse_identity(cert_entry, endpoint).expect("test identity");
+
+        RustlsServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(cert_chain, key_der)
+            .expect("server config")
+    }
+
+    fn test_endpoint_config() -> EndpointRuntimeConfig {
+        EndpointRuntimeConfig {
+            host: "127.0.0.1".into(),
+            port: 443,
+            tls_mode: TlsMode::Native,
+            client_auth: None,
+            protocols: vec![TransportProtocol::Http2],
+            idle_timeout: None,
+            heartbeat_interval: None,
+            heartbeat_timeout: None,
+            handshake_timeout: Duration::from_secs(5),
+            max_http_content_length: None,
+            max_rawsocket_size_exponent: 16,
+            max_rawsocket_size: 1u64 << 16,
+            max_upgrade_exponent: None,
+            outbound_send_queue_capacity: 1024,
+            websocket_path: None,
+            sni_certificates: vec![SniCertificate {
+                hostname: "localhost".into(),
+                certificate_chain_pem: include_str!("../../../bench/bench_tls.crt").into(),
+                private_key_pem: include_str!("../../../bench/bench_tls.key").into(),
+            }],
+            http_routes: Vec::new(),
+            http: None,
+        }
+    }
 }

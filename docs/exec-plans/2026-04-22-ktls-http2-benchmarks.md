@@ -21,10 +21,12 @@ comparison artifact.
     comparison summary.
   - Add a manual GitHub Actions workflow for the Linux benchmark run and its
     artifacts.
+  - Make focused `ct_core` kTLS-path adjustments when the hosted benchmark
+    shows a concrete Linux blocker on the required-kTLS path.
   - Refresh checked-in state/docs with the benchmark contract and first hosted
     result.
 - Out of scope:
-  - New transport/runtime behavior changes in `ct_core`.
+  - Broad TLS/runtime refactors outside the required-kTLS HTTP/2 blocker.
   - Secure RawSocket / WebSocket TLS benchmarks.
   - Claiming NIC-offload wins from hosted CI.
 
@@ -75,6 +77,12 @@ comparison artifact.
   (`h2_multiplexed_streams`) fails under `CONNECTANUM_REQUIRE_KTLS=1` with
   Linux socket/handshake errors (`EINVAL`, `EMSGSIZE`, intermittent `ENOTCONN`)
   followed by HTTP/2 `unexpected frame type` resets.
+- The hosted job log shows the same `EINVAL` / `EMSGSIZE` handshake failures
+  intermittently even in the required-kTLS single-stream workload, so the
+  blocker is not limited to the multiplexed scenario shape.
+- The next checked-in narrowing step is to suppress server-side TLS 1.3 session
+  tickets on the current dummy-session kTLS path, because that prototype does
+  not keep rustls alive for post-handshake ticket management.
 - `bin/ktls-http2-bench` now keeps writing per-pass summaries and the
   comparison files even when one pass exits non-zero, so future hosted runs
   remain diagnosable without manually reconstructing partial benchmark output.
@@ -93,3 +101,7 @@ comparison artifact.
 - 2026-04-22: Hosted run `24768909306` showed the buffered-plaintext handoff
   fix materially improved the required-kTLS path: single-stream HTTP/2 now
   completes, but multiplexed HTTP/2 still fails and remains the next blocker.
+- 2026-04-22: The `24768909306` job log shows intermittent required-kTLS
+  handshake failures before multiplexing is even involved, so the next bounded
+  mitigation is to stop advertising TLS 1.3 session tickets on the dummy-server
+  handoff path before attempting a deeper unbuffered-handshake refactor.

@@ -107,7 +107,9 @@ jump just to validate a short-lived HTTP/2 smoke path.
    practical prototype path is `dangerous_extract_secrets()` plus a dummy
    server-side kTLS session for short-lived validation traffic; a full kernel
    connection handoff would require moving the server handshake onto rustls's
-   unbuffered API or another lower-level integration.
+   unbuffered API or another lower-level integration. As long as that dummy
+   session path remains in place, the server should not advertise TLS 1.3
+   session tickets on kTLS-enabled listeners.
 4. Add a Linux-only `IoStream` variant for the offloaded socket and keep the
    existing `tokio-rustls` path as the default fallback when probing or setup
    fails.
@@ -205,6 +207,11 @@ artifact bundle with both baseline and required-kTLS per-pass summaries.
 - The next useful kTLS task is no longer proving that the Linux handoff can
   start at all; that is now true for the single-stream sustained-transfer case.
 - The remaining blocker is the multiplexed HTTP/2 path under required-kTLS.
+- The same hosted log also shows intermittent required-kTLS handshake failures
+  in the nominally simpler single-stream workload, which is consistent with the
+  current dummy-session path still exposing unsupported post-handshake TLS 1.3
+  behavior. The current mitigation is to suppress server-side TLS 1.3 session
+  tickets whenever that handoff path is active.
 - Benchmark artifact generation should stay resilient to partial pass failure,
   because hosted runs can now produce baseline plus partial kTLS summaries even
   when the full comparison does not complete successfully.
@@ -219,7 +226,8 @@ artifact bundle with both baseline and required-kTLS per-pass summaries.
   supported Linux host with device offload
 - the current `tokio-rustls` server path does not yet provide production-ready
   TLS 1.3 key-update or ticket handling for kTLS, because the validated
-  prototype uses `dangerous_extract_secrets()` plus a dummy server session
+  prototype uses `dangerous_extract_secrets()` plus a dummy server session, and
+  therefore now suppresses TLS 1.3 session tickets on that path
 
 ## Recommended Next Milestone
 
