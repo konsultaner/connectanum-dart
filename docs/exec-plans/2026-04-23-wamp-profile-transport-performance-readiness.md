@@ -139,12 +139,22 @@ release decisions for real RawSocket/WebSocket WAMP users.
   five gates with 64 workloads using
   `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-smoke-release-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`,
   and final `bin/verify` passed after the script/docs update.
+- 2026-04-23: Hosted Linux evidence for the expanded WAMP release gate is now
+  green too. GitHub Actions run `24846498743` passed the dedicated `WAMP
+  Profile Benchmarks` workflow on commit `a2eef0f`, and push `CI` run
+  `24846498753` passed `Fast Checks` and `Full Verify` on the same commit.
+- 2026-04-23: Added `bin/wamp-profile-diagnostics` and a hosted `WAMP Profile
+  Diagnostics` workflow for the diagnostic WAMP throughput scenarios. These
+  runs use the default transport-counter gate only; they are not release
+  throughput budgets until repeated hosted baselines justify explicit
+  policies. `bash -n bin/wamp-profile-diagnostics` and
+  `bin/wamp-profile-diagnostics --out-dir out/wamp-profile-diagnostics-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`
+  passed locally on Darwin arm64 with zero gate findings.
 
 ## Next Slice
 
-- Push the expanded smoke-plus-throughput WAMP release-gate entrypoint and
-  confirm hosted Linux passes the dedicated `WAMP Profile Benchmarks` workflow
-  plus the normal `CI` chain.
-- After hosted evidence lands, evaluate whether the diagnostic WAMP scenarios
-  need promotion into explicit gated artifacts before tightening any existing
+- Push the diagnostic runner/workflow and confirm hosted Linux passes the new
+  `WAMP Profile Diagnostics` workflow plus the normal `CI` chain.
+- After hosted diagnostic evidence lands, decide whether any diagnostic WAMP
+  scenarios should become explicit release gates before tightening existing
   throughput policy floors.

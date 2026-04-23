@@ -31,6 +31,12 @@ These scenarios are useful for explaining regressions after a release gate
 fails, but they should not be treated as standalone release evidence until they
 have explicit policies and hosted baselines.
 
+Run the full diagnostic set with `bin/wamp-profile-diagnostics`. The runner
+writes one artifact directory per scenario and applies the default
+transport-counter gate only. Diagnostic throughput numbers are trend data, not
+release blockers, until repeated local and hosted baselines justify explicit
+policies.
+
 | Scenario | Use |
 | --- | --- |
 | `wamp_client_impl_throughput` | Compares Dart and native client hot-session throughput on the same CBOR workloads. Useful for deciding whether a regression is in the router path or native client path. |
@@ -77,6 +83,19 @@ The expanded release-gate entrypoint was revalidated locally on Darwin arm64 on
 | `wamp_transport_throughput` | 12 | 57.65 Mbps (`websocket_pubsub_json_64k`) | 241.860 ms (`websocket_pubsub_json_64k`) | `native/bench/artifact_gate/wamp_transport_throughput.json` |
 | `wamp_secure_throughput` | 12 | 35.86 Mbps (`rawsocket_secure_pubsub_json_64k`) | 389.237 ms (`rawsocket_secure_pubsub_json_64k`) | `native/bench/artifact_gate/wamp_secure_throughput.json` |
 
+The diagnostic runner was also validated locally on Darwin arm64 on 2026-04-23
+with `router_workers=1` and `native_runtime_threads=1`. All diagnostic artifact
+bundles passed the default transport-counter gate with zero findings. These
+numbers are baselines for comparison, not performance floors.
+
+| Scenario | Workloads | Lowest throughput observed | Highest p95 observed |
+| --- | ---: | ---: | ---: |
+| `wamp_client_impl_throughput` | 8 | 9.74 Mbps (`websocket_pubsub_cbor_64k_native`) | 255.423 ms (`rawsocket_pubsub_cbor_64k_dart`) |
+| `wamp_payload_mode_throughput` | 16 | 7.94 Mbps (`rawsocket_pubsub_cbor_ppt_native`) | 816.177 ms (`rawsocket_pubsub_cbor_ppt_native`) |
+| `wamp_mixed_serializer_throughput` | 8 | 11.39 Mbps (`rawsocket_pubsub_msgpack_to_cbor_native`) | 371.637 ms (`rawsocket_pubsub_msgpack_to_cbor_native`) |
+| `wamp_publish_fanout_throughput` | 6 | 24.49 Mbps (`websocket_pubsub_json_64k_fanout8`) | 508.916 ms (`rawsocket_pubsub_cbor_64k_fanout8`) |
+| `wamp_websocket_fragmentation_throughput` | 8 | 11.51 Mbps (`websocket_pubsub_cbor_64k_native_fragmented_4k`) | 221.649 ms (`websocket_pubsub_cbor_64k_native_fragmented_4k`) |
+
 ## Running The Gates
 
 Run the canonical WAMP profile release gates together:
@@ -120,3 +139,16 @@ bin/check-bench-artifacts \
 
 For secure WAMP, switch the scenario and policy to
 `wamp_secure_throughput.toml` and `wamp_secure_throughput.json`.
+
+Run the diagnostic WAMP scenarios together when a release gate needs more
+context:
+
+```bash
+bin/wamp-profile-diagnostics \
+  --out-dir out/wamp-profile-diagnostics \
+  --router-worker-counts 1 \
+  --native-runtime-thread-counts 1
+```
+
+The hosted Linux `WAMP Profile Diagnostics` workflow uses the same command and
+uploads `wamp-profile-diagnostic-artifacts`.

@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-23
 Current branch: `add-router`
-Last reviewed commit: `50faaa0` (`ci: make ktls http2 comparison manual`)
+Last reviewed commit: `a2eef0f` (`ci: include wamp smoke gates in profile validation`)
 Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance-readiness.md`
 
 ## Last Known Verification
@@ -10,6 +10,8 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
 - `bin/test-fast`
 - `bash -n bin/wamp-profile-validate`
 - `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-smoke-release-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`
+- `bash -n bin/wamp-profile-diagnostics`
+- `bin/wamp-profile-diagnostics --out-dir out/wamp-profile-diagnostics-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`
 - `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`
 - `cargo test --manifest-path native/bench/Cargo.toml artifacts -- --nocapture`
 - `bin/check-bench-artifacts --summary out/wamp-transport-local/bench_results.summary.json --policy native/bench/artifact_gate/wamp_transport_throughput.json`
@@ -89,11 +91,20 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
   (`websocket_pubsub_json_64k`) with max p95 `241.860 ms`, and the lowest
   secure throughput-gate result was `35.86 Mbps`
   (`rawsocket_secure_pubsub_json_64k`) with max p95 `389.237 ms`.
-- GitHub Actions now includes a dedicated `WAMP Profile Benchmarks` workflow
-  that runs `bin/wamp-profile-validate` on hosted Ubuntu and uploads
-  `wamp-profile-benchmark-artifacts`. The expanded smoke-plus-throughput
-  release-gate entrypoint still needs hosted evidence after these local
-  changes are pushed.
+- GitHub Actions includes a dedicated `WAMP Profile Benchmarks` workflow that
+  runs `bin/wamp-profile-validate` on hosted Ubuntu and uploads
+  `wamp-profile-benchmark-artifacts`. Hosted run `24846498743` passed on
+  commit `a2eef0f`, confirming the expanded smoke-plus-throughput WAMP
+  release-gate entrypoint on Linux.
+- `bin/wamp-profile-diagnostics` now runs the non-release-blocking diagnostic
+  WAMP throughput scenarios together and validates each artifact bundle with
+  the strict default transport-counter gate. Local Darwin arm64 validation on
+  2026-04-23 passed `wamp_client_impl_throughput`,
+  `wamp_payload_mode_throughput`, `wamp_mixed_serializer_throughput`,
+  `wamp_publish_fanout_throughput`, and
+  `wamp_websocket_fragmentation_throughput` with zero gate findings. The new
+  hosted `WAMP Profile Diagnostics` workflow still needs evidence after this
+  slice is pushed.
 - The existing `CI` workflow also has a `workflow_dispatch`-only `WAMP Profile
   Gates` job. Use that path for branch-hosted WAMP evidence until the
   dedicated `WAMP Profile Benchmarks` workflow exists on the default branch
@@ -115,10 +126,9 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
 - GitHub Actions CI now runs through the canonical root `bin/*` entrypoints on branch pushes and PRs to `master`; GitHub Actions run `24732889424` for `2fac53b` completed successfully with both `Fast Checks` and `Full Verify`.
 - The CI workflow now targets all branch pushes plus PRs to `master`, and it also exposes `workflow_dispatch` for manual runs.
 - The latest known pushed branch CI is green. GitHub Actions run
-  `24844042608` on commit `50faaa0` passed push `CI`, and manual CI dispatch
-  run `24844047555` on the same commit passed `Fast Checks`, `Full Verify`,
-  and `WAMP Profile Gates`. The current local WAMP release-gate expansion has
-  not yet been validated by hosted CI.
+  `24846498753` on commit `a2eef0f` passed push `CI`, including `Fast Checks`
+  and `Full Verify`. The dedicated `WAMP Profile Benchmarks` push run
+  `24846498743` on the same commit also passed.
 - `bin/test-fast` now provisions
   the native client runtime before `packages/connectanum_client/test/client_test.dart`
   on supported hosts, both root client flows now include

@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+
+usage() {
+  cat <<'EOF'
+Usage: bin/wamp-profile-diagnostics [--out-dir <dir>] [--router-worker-counts <csv>] [--native-runtime-thread-counts <csv>] [--workload-timeout-ms <ms>]
+
+Runs the canonical WAMP profile diagnostic throughput scenarios:
+1. Dart versus native WAMP client implementation throughput
+2. Plain versus PPT payload mode throughput
+3. Mixed-serializer peer throughput
+4. Native pub/sub fan-out throughput
+5. Native WebSocket fragmentation throughput
+
+Diagnostic scenarios are not release blockers by themselves. Each scenario
+writes transformed bench artifacts and validates them with the strict default
+transport-counter gate, but does not enforce performance budgets until repeated
+local and hosted baselines justify scenario-specific policies.
+EOF
+}
+
+absolute_path() {
+  local path="$1"
+
+  if [[ "$path" == /* ]]; then
+    printf '%s\n' "$path"
+  else
+    printf '%s/%s\n' "$(repo_root)" "$path"
+  fi
+}
+
+out_dir="$(repo_root)/out/wamp-profile-diagnostics"
+router_worker_counts="1"
+native_runtime_thread_counts="1"
+workload_timeout_ms="300000"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --out-dir)
+      out_dir="$(absolute_path "$2")"
+      shift 2
+      ;;
+    --router-worker-counts)
+      router_worker_counts="$2"
+      shift 2
+      ;;
+    --native-runtime-thread-counts)
+      native_runtime_thread_counts="$2"
+      shift 2
+      ;;
+    --workload-timeout-ms)
+      workload_timeout_ms="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Unknown argument: %s\n' "$1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+require_command cargo
+require_command dart
+require_command rustc
+cd_repo_root
+
+mkdir -p "$out_dir"
+
+build_native_ffi_test_release
+
+if [[ -z "${CONNECTANUM_NATIVE_LIB:-}" ]]; then
+  printf 'Failed to resolve CONNECTANUM_NATIVE_LIB for WAMP profile diagnostics.\n' >&2
+  exit 1
+fi
+
+{
+  printf 'date_utc=%s\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  printf 'uname=%s\n' "$(uname -a)"
+  printf 'rustc=%s\n' "$(rustc -V)"
+  printf 'cargo=%s\n' "$(cargo -V)"
+  printf 'dart=%s\n' "$(dart --version 2>&1 | tr '\n' ' ')"
+  printf 'native_lib=%s\n' "$CONNECTANUM_NATIVE_LIB"
+  printf 'router_worker_counts=%s\n' "$router_worker_counts"
+  printf 'native_runtime_thread_counts=%s\n' "$native_runtime_thread_counts"
+  printf 'workload_timeout_ms=%s\n' "$workload_timeout_ms"
+} >"${out_dir%/}/host-info.txt"
+
+run_diagnostic() {
+  local name="$1"
+  local scenario="$2"
+  local scenario_out="${out_dir%/}/$name"
+  local results_path="${scenario_out%/}/bench_results.jsonl"
+
+  scenario="$(absolute_path "$scenario")"
+
+  if [[ ! -f "$scenario" ]]; then
+    printf 'Missing WAMP diagnostic scenario: %s\n' "$scenario" >&2
+    exit 1
+  fi
+
+  mkdir -p "$scenario_out"
+
+  printf 'Running %s...\n' "$name"
+  cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- \
+    --native-lib "$CONNECTANUM_NATIVE_LIB" \
+    --scenario "$scenario" \
+    --results "$results_path" \
+    --artifact-dir "$scenario_out" \
+    --router-worker-counts "$router_worker_counts" \
+    --native-runtime-thread-counts "$native_runtime_thread_counts" \
+    --workload-timeout-ms "$workload_timeout_ms"
+
+  printf 'Checking %s against the default transport-counter gate...\n' "$name"
+  bin/check-bench-artifacts \
+    --summary "${scenario_out%/}/bench_results.summary.json"
+}
+
+run_diagnostic \
+  wamp_client_impl_throughput \
+  native/bench/scenarios/wamp_client_impl_throughput.toml
+
+run_diagnostic \
+  wamp_payload_mode_throughput \
+  native/bench/scenarios/wamp_payload_mode_throughput.toml
+
+run_diagnostic \
+  wamp_mixed_serializer_throughput \
+  native/bench/scenarios/wamp_mixed_serializer_throughput.toml
+
+run_diagnostic \
+  wamp_publish_fanout_throughput \
+  native/bench/scenarios/wamp_publish_fanout_throughput.toml
+
+run_diagnostic \
+  wamp_websocket_fragmentation_throughput \
+  native/bench/scenarios/wamp_websocket_fragmentation_throughput.toml
+
+printf 'WAMP profile diagnostic artifacts written to %s\n' "$out_dir"
