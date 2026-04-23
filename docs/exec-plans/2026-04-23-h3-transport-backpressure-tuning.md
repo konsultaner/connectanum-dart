@@ -32,3 +32,22 @@ connection depths by targeting the transport/backpressure path directly.
 ## Status
 
 - in_progress
+
+## Findings
+
+- The local Darwin `h3_multiplex_scaling` counters confirmed that the reported
+  HTTP/3 `backpressure_events` are sourced from
+  `ListenerRegistry::enqueue_http_request()` queue depth, not Quinn send-side
+  pressure.
+- A send-side response chunking experiment was measured and rejected. `32 KiB`
+  and `64 KiB` HTTP/3 body-write chunking changed throughput and latency, but
+  they did not materially reduce the benchmark's backpressure counters, so that
+  path is not the primary bottleneck.
+- An HTTP/3 accept-loop backlog gate was also measured and rejected for now.
+  `soft_limit = 1` drove backpressure events to zero, proving the queue source,
+  but it over-serialized the workload. `soft_limit = 4` capped
+  `max_backpressure_depth` at `4` and helped some `s4/s8` and one `s16`
+  combination, but it still regressed too many other quadrants to keep.
+- The next candidate should target boss-loop request-drain cadence or queue
+  handoff scheduling around the native HTTP request backlog rather than QUIC
+  body-write chunking.
