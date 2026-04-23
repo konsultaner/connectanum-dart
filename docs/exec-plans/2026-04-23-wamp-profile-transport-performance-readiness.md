@@ -108,10 +108,15 @@ release decisions for real RawSocket/WebSocket WAMP users.
   attempt hit a transient `ct_ffi` connection-poll timeout, but the failing
   test passed in isolation, the full `ct_ffi` suite passed, and the full
   `bin/verify` rerun passed.
+- 2026-04-23: Pushed the verified checkpoint and confirmed manual GitHub
+  `CI` dispatch works on `add-router`. The branch-added dedicated WAMP
+  workflow is not dispatchable until it exists on the default branch, so the
+  existing `CI` workflow now has a `workflow_dispatch`-only `WAMP Profile
+  Gates` job for branch-hosted WAMP evidence.
 
 ## Next Slice
 
-- Run the new WAMP profile workflow on hosted Linux after pushing these local
-  changes.
+- Dispatch the existing `CI` workflow on `add-router` and confirm `Fast
+  Checks`, `Full Verify`, and `WAMP Profile Gates` all pass on hosted Linux.
 - After hosted evidence lands, tighten policy floors only where repeated runs
   prove the current conservative budgets are too loose for release decisions.

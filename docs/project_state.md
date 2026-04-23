@@ -87,6 +87,10 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
   that runs `bin/wamp-profile-validate` on hosted Ubuntu and uploads
   `wamp-profile-benchmark-artifacts`. It still needs hosted evidence on the
   new workflow after these local changes are pushed.
+- The existing `CI` workflow also has a `workflow_dispatch`-only `WAMP Profile
+  Gates` job. Use that path for branch-hosted WAMP evidence until the
+  dedicated `WAMP Profile Benchmarks` workflow exists on the default branch
+  and becomes directly dispatchable.
 - Final local handoff verification on 2026-04-23 passed with `bin/verify`.
   The first `bin/verify` attempt hit a transient
   `ct_ffi::tests::listen_flow::poll_connection_message_returns_payload`
