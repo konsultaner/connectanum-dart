@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-23
 Current branch: `add-router`
-Last reviewed commit: `7d40433` (`bench: promote wamp fanout to release gate`)
+Last reviewed commit: `35b4cd1` (`fix(bench): bound wamp benchmark hangs`)
 Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance-readiness.md`
 
 ## Last Known Verification
@@ -161,7 +161,8 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
   `24848746640` on commit `eb0aa5c`, which passed push `CI`, including
   `Fast Checks` and `Full Verify`. The dedicated `WAMP Profile Diagnostics`
   push run `24848746691` on the same commit also passed.
-- Commit `7d40433` is pushed to both remotes after fan-out promotion, but the
+- Commit `35b4cd1` is pushed to both remotes with the timeout-hardening
+  follow-up, but the
   hosted GitHub workflow status for that commit has not been confirmed yet
   from this environment.
 - `bin/test-fast` now provisions

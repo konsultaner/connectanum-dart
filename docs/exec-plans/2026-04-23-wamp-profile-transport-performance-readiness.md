@@ -184,6 +184,9 @@ release decisions for real RawSocket/WebSocket WAMP users.
   explicit session-open timeouts across workload modes while cleaning up
   partially opened session sets on later-open failures. Targeted timeout tests
   plus a full `bin/verify` run passed locally on Darwin arm64.
+- 2026-04-23: Pushed the timeout-hardening follow-up as commit `35b4cd1` to
+  both remotes. Hosted GitHub workflow status for that commit still needs
+  confirmation from a working CI-status source.
 
 ## Next Slice
 
