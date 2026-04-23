@@ -45,6 +45,7 @@ run_bench_vm_tests() {
 
 dart analyze
 dart test packages/connectanum_core/test
+dart test packages/connectanum_mcp/test
 run_client_fast_tests
 dart test packages/connectanum_auth_server/test
 run_bench_vm_tests

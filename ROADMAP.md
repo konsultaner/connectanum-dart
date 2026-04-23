@@ -341,6 +341,31 @@
   - [x] Ship Prometheus exporters and Grafana dashboards for benchmark metrics visualization.
   - [x] Provide docs/scripts to bootstrap a local Grafana/Prometheus stack alongside benchmarks.
 - [ ] MCP (Model Context Protocol) server implementation for agentic AI integrations
+  - [ ] Promoted as the next product-readiness milestone for downstream
+    `groli/app`; work it before speculative transport or benchmark expansion
+    once CI and shipped-path blockers are clean.
+  - [x] Research the current official MCP lifecycle, transport, tools, prompts,
+    and resources contracts, then record implementation decisions in checked-in
+    docs before coding.
+  - [x] Land the first narrow Dart API/server slice in `packages/connectanum_mcp`
+    covering initialization, capability negotiation, tool discovery, tool
+    calls, and clean shutdown/error behavior with focused tests.
+  - [ ] Add a stdio transport adapter and small CLI example.
+  - [ ] Add the WAMP-backed tool delegate for Connectanum procedure calls.
+  - [ ] Add Streamable HTTP/router integration if `groli/app` needs a network
+    MCP endpoint.
+- [ ] WAMP profile transport benchmark production readiness
+  - [ ] Queued immediately after MCP support for `groli/app`; use it to make
+    RawSocket/WebSocket WAMP transport performance release-decision ready
+    before speculative transport exploration resumes.
+  - [ ] Define the canonical WAMP benchmark gate set across cleartext/TLS,
+    Dart/native clients, JSON/MessagePack/CBOR, RPC/pub/sub, auth/session
+    setup, mixed serializer, PPT payload mode, fan-out, and control paths.
+  - [ ] Add scenario-specific throughput and latency budgets to the bench
+    artifact gate and record local plus hosted Linux baselines.
+  - [ ] Make public-facing benchmark artifacts human-readable enough for users
+    to understand what passed, what regressed, and which transport/profile owns
+    the failure.
 - [ ] Metrics & logging integration (Prometheus metrics, structured logs, CPU/RAM/throughput gauges)
   - [x] Always-on low-cost counters (native/Dart) exposed via on-demand snapshots for benchmark harnesses. `ct_router_metrics_snapshot` feeds `_RouterBoss` + `_MetricsService`, so the OpenMetrics payload now carries GOAWAY/backpressure/timeout totals.
   - [x] Prometheus/Grafana wiring documented; HTTP scrape regression added (metrics route bridged to `connectanum.metrics.openmetrics`) and CI now captures `CONNECTANUM_ARTIFACT_DIR` OpenMetrics/JSON snapshots from long-payload regressions.

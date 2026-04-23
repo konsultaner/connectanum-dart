@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-23
 Current branch: `add-router`
-Last reviewed commit: `7049801` (`ci(native): drop raw ci artifacts and expand bundle matrix`)
-Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.md`
+Last reviewed commit: `7ca6798` (`docs(ci): close native artifact matrix plan`)
+Active exec plan: `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`
 
 ## Last Known Verification
 
@@ -14,7 +14,9 @@ Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.m
 
 1. Keep the CI chain clean first. If local `bin/verify` is failing or the latest known branch CI is red, continuation work should switch to restoring green before new implementation or benchmark work.
 2. Prioritize production readiness of current functionality before exploratory expansion. That includes correctness, release/deployment behavior, observability, packaging, operational docs, and coverage for shipped paths.
-3. Benchmark and performance work stays important, but it should serve production readiness and release confidence rather than run ahead of them.
+3. Treat MCP support for downstream `groli/app` as the next product-readiness milestone once CI and shipped-path blockers are clean. It outranks speculative H3, kTLS, E2EE, and benchmark exploration until the first usable MCP server/bridge path is designed, implemented, tested, and documented.
+4. After the first usable MCP path is complete, make WAMP profile-related transport performance production-ready in the benchmark suite before returning to speculative transport work. That means canonical RawSocket/WebSocket WAMP scenarios, secure and cleartext coverage, serializer/profile coverage, explicit budgets/gates, and hosted CI evidence for release decisions.
+5. Other benchmark and performance work stays important, but it should serve production readiness and release confidence rather than run ahead of it.
 
 ## Resume Order
 
@@ -29,6 +31,27 @@ Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.m
 - The repo is a Dart workspace plus a Rust native transport workspace.
 - The canonical root entrypoints are `bin/bootstrap`, `bin/test-fast`, `bin/test-all`, and `bin/verify`.
 - Root shell helpers now auto-detect Dart from Flutter, Rust from `~/.cargo`, Chrome/Chromium, and the standard prebuilt native library path.
+- MCP support is now the next active product-readiness milestone for the
+  downstream `groli/app` integration. Future continuation work should start
+  from `docs/exec-plans/2026-04-23-mcp-support-groli-app.md` after confirming
+  CI is still clean.
+- Initial MCP research is captured in `docs/mcp_integration_research.md`.
+  The first implementation slice now lives in `packages/connectanum_mcp` with
+  a transport-independent Dart server core, typed protocol errors/capabilities,
+  callback-backed tools, and focused lifecycle/tool tests. Stdio and Streamable
+  HTTP/router integration are still pending.
+- The root verification scripts now include the MCP package tests:
+  `bin/test-fast` and `bin/test-all` both run
+  `dart test packages/connectanum_mcp/test`.
+- `packages/connectanum_core` is approved as a design reference for MCP package
+  shape: typed protocol models, serializer-independent boundaries, explicit
+  errors, small barrel exports, and focused tests. Reuse the style, not WAMP
+  semantics.
+- After the MCP milestone, the queued next product-readiness plan is
+  `docs/exec-plans/2026-04-23-wamp-profile-transport-performance-readiness.md`.
+  Its goal is to turn WAMP-profile transport benchmarks into canonical,
+  budgeted RawSocket/WebSocket release-decision gates rather than loose
+  performance artifacts.
 - GitHub Actions CI now runs through the canonical root `bin/*` entrypoints on branch pushes and PRs to `master`; GitHub Actions run `24732889424` for `2fac53b` completed successfully with both `Fast Checks` and `Full Verify`.
 - The CI workflow now targets all branch pushes plus PRs to `master`, and it also exposes `workflow_dispatch` for manual runs.
 - The latest known branch CI is green. GitHub Actions run `24824613232` on
@@ -307,6 +330,24 @@ Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.m
 
 ## Verification Status
 
+- 2026-04-23: `bin/verify` passed on Darwin arm64 after adding the first
+  `packages/connectanum_mcp` implementation slice, wiring its tests into
+  `bin/test-fast` / `bin/test-all`, and updating the MCP plan, roadmap, and
+  structure docs.
+- 2026-04-23: `bin/test-fast` passed on Darwin arm64 before creating the first
+  `packages/connectanum_mcp` implementation slice.
+- 2026-04-23: `dart analyze packages/connectanum_mcp` and
+  `dart test packages/connectanum_mcp -r expanded` passed on Darwin arm64
+  after adding the in-memory MCP lifecycle and tool-registry package slice.
+- 2026-04-23: `bin/verify` passed on Darwin arm64 after recording
+  `packages/connectanum_core` as the approved design reference for the MCP
+  package shape.
+- 2026-04-23: `bin/verify` passed on Darwin arm64 after queuing WAMP
+  profile-related transport benchmark production readiness immediately after
+  the active MCP milestone.
+- 2026-04-23: `bin/verify` passed on Darwin arm64 after promoting MCP support
+  for downstream `groli/app` in `AGENTS.md`, `ROADMAP.md`,
+  `ROADMAP_NEXT.md`, project state, and the new active MCP exec plan.
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after closing the
   CI-artifact cleanup/native-matrix plan in project state and reactivating the
   HTTP/3 transport/backpressure plan.
@@ -513,8 +554,11 @@ Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.m
 
 ## Active Plan
 
-- Active plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.md`
+- Active plan: `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`
+- Queued after MCP:
+  `docs/exec-plans/2026-04-23-wamp-profile-transport-performance-readiness.md`
 - Supporting research notes:
+  - `docs/mcp_integration_research.md`
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
 - Most recent completed plan: `docs/exec-plans/2026-04-23-ci-artifact-cleanup-and-native-matrix.md`
@@ -532,6 +576,11 @@ Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.m
 - The bench artifact gate only enforces transport-regression signals for now.
   Throughput or latency budgets still need an explicit policy/config layer if
   future CI should fail on performance drift instead of alert counters alone.
+- HTTP/3 transport/backpressure follow-up work is paused behind MCP support
+  unless CI or a release blocker requires revisiting it first.
+- WAMP-profile transport benchmark readiness is queued immediately after MCP.
+  It should define the canonical WAMP release gate set before any new broad
+  benchmark expansion.
 - The current E2EE lane now covers negotiated fallback plus reusable
   peer/trust adapters. Further E2EE work should be driven by a concrete app
   integration need, or the next session should choose the next unfinished

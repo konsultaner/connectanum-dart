@@ -23,7 +23,14 @@ Fresh state:
 - GOAWAY detail assertions now cover HTTP/2 and HTTP/3 in both native `listen_flow` and Dart runtime suites.
 - Negotiated WebSocket subprotocol/serializer surfaces over FFI (`ct_connection_websocket_protocol`) and flows into boss/worker metadata, so listeners and workers can trace/route WebSocket WAMP sessions consistently.
 - Boss-side metrics now track listener backpressure and transport lifecycle spikes with configurable thresholds (`metrics.backpressure` / `metrics.transport_alerts`), throttling accepts and emitting alerts when GOAWAY/timeout deltas jump.
-- Workspace verification is green; the remaining analyzer output is non-blocking info-level lint cleanup in router internals rather than a package-level blocker.
+- MCP support for downstream `groli/app` is now the next product-readiness
+  milestone after CI health and shipped-path blockers. It should be worked
+  before speculative H3, kTLS, E2EE, or benchmark exploration.
+- After MCP, WAMP-profile transport performance is the queued
+  production-readiness focus. Treat canonical RawSocket/WebSocket WAMP bench
+  gates, budgets, and hosted baselines as the next release-readiness work before
+  returning to speculative transport experiments.
+- Workspace verification is green; `packages/connectanum_router` is analyzer-clean after the router null-aware collection cleanup.
 - JSON/MessagePack/CBOR serializers preserve custom option/detail fields; HTTP/2 and HTTP/3 responses stream directly from Rust into Dart (`context.streamResponse`) without buffering multi-MB payloads.
 - Router-side MsgPack `RESULT` serialization and the native CBOR decode/encode path are now complete for the benchmarked WAMP flows, and bench integration covers RawSocket/MsgPack RPC plus WebSocket/CBOR RPC against the live router.
 - Dart WebSocket integration suite now drives WAMP publish/call flows over WebSocket (continuation frames, large payloads) and asserts negotiated subprotocol/serializer on acceptance.
@@ -40,6 +47,20 @@ Fresh state:
 - A fresh release-built `all_transports_smoke` run on this laptop now lands roughly at `5.0 ms` RawSocket pub/sub (JSON), `3.4 ms` RawSocket RPC (MsgPack), `4.0 ms` RawSocket RPC (CBOR), `3.4 ms` WebSocket pub/sub (JSON), `3.3 ms` WebSocket RPC (MsgPack), `3.3 ms` WebSocket RPC (CBOR), `227 Mbps` HTTP/1.1 response throughput, `932 Mbps` HTTP/2, and `524 Mbps` HTTP/3. The remaining transport gap is still HTTP/3 trailing HTTP/2 on the shared smoke workload even after the WAMP-side race fix.
 - Focused release-built WAMP throughput runs are materially better than the earlier single-outstanding-call shape. In this environment `wamp_serializer_matrix.toml` now lands roughly at `72-94 Mbps` on RawSocket and `81-110 Mbps` on WebSocket for the 16 KiB RPC matrix, `wamp_transport_throughput.toml` lands roughly at `92-131 Mbps` on RawSocket and `104-138 Mbps` on WebSocket across the older 64 KiB serializer sweep, and the new client-implementation throughput comparison lands roughly at `123-139 Mbps` on native RawSocket versus `46-58 Mbps` on Dart RawSocket and `140-183 Mbps` on native WebSocket versus `50-106 Mbps` on Dart WebSocket.
 - Router shutdown/drain now closes native listeners up-front (`ct_listener_close`) so no new accepts are queued while workers drain; `/healthz` reports `draining` during shutdown and OpenMetrics exports drain counters.
+
+Priority override:
+- **MCP Support for groli/app** is the next active milestone. Start from
+  `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`, research the current
+  MCP spec into checked-in design notes, choose the first public API/transport
+  shape, and then land the smallest tested MCP server/bridge slice needed by
+  `groli/app`. The first in-memory package slice now exists in
+  `packages/connectanum_mcp`; continue with stdio framing, then the WAMP-backed
+  tool delegate.
+- **Queued after MCP:** WAMP-profile transport performance readiness. Start
+  from
+  `docs/exec-plans/2026-04-23-wamp-profile-transport-performance-readiness.md`
+  and make the benchmark suite's RawSocket/WebSocket WAMP scenarios canonical,
+  budgeted, and useful for release decisions.
 
 Focus for the next session:
 1. **Boss Telemetry Stream & Prometheus Exporter**
@@ -78,7 +99,11 @@ Focus for the next session:
    - ✅ HTTP/1.1 ingress now parses with `BytesMut`, keeps buffered bodies as `Bytes` inside `HttpBodyHandle`, preserves prefetched bytes across the handshake/body-reader handoff, and Dart/native regressions cover inline vs streaming request bodies on the real runtime path.
    - ✅ `_RouterBoss` now drains queued HTTP/1.1 keep-alive requests on active sockets, `router_runtime_test.dart` covers the synthetic queue-drain path, `router_integration_native_test.dart` exercises a streamed request + chunked streamed response followed by a second request on the same connection, and `native/bench/scenarios/h1_smoke.toml` runs with `reuse_connections = true` again. Recent H1 smoke runs completed at roughly 381 Mbps (1 native thread) and 442 Mbps (4 native threads) response throughput in this environment instead of hanging after the first request.
    - ✅ HTTP/2 and HTTP/3 body readers now enqueue inbound `Bytes` directly into `StreamingBodyState` instead of cloning each chunk into a temporary `Vec`.
-  - Next: continue HTTP/3 transport/backpressure tuning from the active plan. A steady-state round-robin drain across tracked HTTP/3 connections is now kept because `out/h3-http3-round-robin/` beat `out/h3-followup-direction` in `12/20` throughput quadrants and `13/20` p95 quadrants, especially at the deeper `s4/s8/s16` reuse points. The remaining gap is absolute queue pressure: the shipped bench artifact gate still flags every `s2+` quadrant because `backpressure_events` remain non-zero, so the next candidate should reduce queue depth further rather than revisit accept-time draining. On the WAMP/WebSocket side, the next transport-adjacent task is still to shrink any unsupported edge families that cannot be represented safely in the current `ct_message_peek` metadata contract, but the larger next spike remains the E2EE/PPT work on top of the shared lazy-payload contract.
+  - Next: HTTP/3 transport/backpressure tuning is paused behind the MCP support
+    milestone unless CI or a release blocker requires it. The kept H3 baseline
+    remains the steady-state round-robin drain across tracked HTTP/3
+    connections, and future H3 work should reduce absolute queue pressure
+    rather than revisit accept-time draining.
 
 5. **Pattern Routing & Shared Registrations**
    - ✅ Wildcard/prefix ordering + priority handling are covered in `router_worker_session_test.dart` and `state/pattern_matching_test.dart`, including the advanced-profile placeholder path.
@@ -86,7 +111,7 @@ Focus for the next session:
 
 6. **Authrole Filters & Analyzer Hygiene**
    - ✅ Authrole include/exclude delivery filters are enforced on EVENT fan-out and covered by focused router worker tests.
-   - ✅ `packages/connectanum_auth_server` is analyzer-clean; the remaining analyzer output is limited to non-blocking router lint cleanup.
+  - ✅ `packages/connectanum_auth_server` and `packages/connectanum_router` are analyzer-clean.
 
 7. **Remote Authentication Hardening & HTTP Auth Bridge**
    - Decide whether dynamic realm authorization should stay as the current runtime `AuthorizationProviderRegistry` hook or grow a config-driven provider/factory model per realm.
@@ -118,6 +143,10 @@ Focus for the next session:
     - `wamp_client_impl_throughput.toml`: RawSocket 64 KiB RPC/pubsub about `53.49/48.54 Mbps` Dart vs `98.98/128.07 Mbps` native; WebSocket 64 KiB RPC/pubsub about `52.90/47.28 Mbps` Dart vs `116.51/127.91 Mbps` native.
     - `wamp_ppt_lazy_smoke.toml`: RawSocket CBOR PPT RPC/pubsub about `1.17/1.59 Mbps` Dart vs `2.17/2.02 Mbps` native; WebSocket CBOR PPT RPC/pubsub about `1.80/2.18 Mbps` Dart vs `3.74/3.15 Mbps` native.
     - `wamp_mixed_serializer_throughput.toml`: RawSocket JSON->MessagePack RPC about `126.14/302.29 Mbps` Dart/native and MsgPack->CBOR pubsub about `75.46/95.33 Mbps`; WebSocket JSON->CBOR RPC about `180.40/426.54 Mbps` and CBOR->JSON pubsub about `41.70/116.91 Mbps`.
+  - Queued after MCP: turn the WAMP-profile transport scenarios into a
+    production-ready release gate set with explicit smoke/throughput roles,
+    scenario-specific throughput and latency budgets, and hosted Linux evidence
+    for the canonical RawSocket/WebSocket WAMP profiles.
   - ✅ The smoke matrix is now promoted into a throughput-grade canonical scenario too: `transport_mbit_matrix_throughput.toml` preserves the comparable auth/authz/public/protected row shape, adds larger protected HTTP samples, and raises iterations/concurrency/in-flight depth/multiplexing so CI/reporting can consume one canonical Mbps table per run.
   - Next: keep the same-serializer native fast path and mixed-serializer Dart fallback explicit as more transport-specific fast paths land.
 
