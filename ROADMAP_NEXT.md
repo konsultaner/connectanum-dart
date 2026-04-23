@@ -49,18 +49,16 @@ Fresh state:
 - Router shutdown/drain now closes native listeners up-front (`ct_listener_close`) so no new accepts are queued while workers drain; `/healthz` reports `draining` during shutdown and OpenMetrics exports drain counters.
 
 Priority override:
-- **MCP Support for groli/app** is the next active milestone. Start from
-  `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`, research the current
-  MCP spec into checked-in design notes, choose the first public API/transport
-  shape, and then land the smallest tested MCP server/bridge slice needed by
-  `groli/app`. The first in-memory package slice now exists in
-  `packages/connectanum_mcp`; continue with stdio framing, then the WAMP-backed
-  tool delegate.
-- **Queued after MCP:** WAMP-profile transport performance readiness. Start
-  from
+- **WAMP-profile transport performance readiness** is the next active
+  milestone. Start from
   `docs/exec-plans/2026-04-23-wamp-profile-transport-performance-readiness.md`
   and make the benchmark suite's RawSocket/WebSocket WAMP scenarios canonical,
   budgeted, and useful for release decisions.
+- **MCP Support for groli/app:** the first usable local bridge path now exists
+  in `packages/connectanum_mcp`: in-memory server core, stdio transport, and
+  WAMP-backed tool delegation through `connectanum_client` sessions.
+  Streamable HTTP/router MCP integration is conditional on `groli/app` needing
+  a network endpoint.
 
 Focus for the next session:
 1. **Boss Telemetry Stream & Prometheus Exporter**

@@ -1,8 +1,8 @@
+use std::collections::HashMap;
 use std::sync::{
     atomic::{AtomicU32, Ordering},
     Arc, Mutex, OnceLock,
 };
-use std::collections::HashMap;
 
 use bytes::Bytes;
 use ct_core::{
@@ -209,9 +209,10 @@ fn e2ee_session_store() -> &'static E2eeSessionStore {
 pub fn store_e2ee_session(keyring: Arc<StoredE2eeKeyring>, default_key_id: Option<String>) -> u32 {
     let store = e2ee_session_store();
     let id = store.next_id.fetch_add(1, Ordering::SeqCst);
-    store
-        .sessions
-        .insert(id, Arc::new(StoredE2eeSession::new(keyring, default_key_id)));
+    store.sessions.insert(
+        id,
+        Arc::new(StoredE2eeSession::new(keyring, default_key_id)),
+    );
     id
 }
 

@@ -6,10 +6,10 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 usage() {
   cat <<'EOF'
-Usage: bin/check-bench-artifacts [--summary <path>] [--report-json <path>] [--report-md <path>]
+Usage: bin/check-bench-artifacts [--summary <path>] [--policy <path>] [--report-json <path>] [--report-md <path>]
 
-Validate a transformed bench summary and fail when it records transport
-regressions that should gate CI.
+Validate a transformed bench summary and fail when it records transport or
+performance regressions that should gate CI.
 
 Defaults:
   --summary native/bench/artifacts/bench_results.summary.json
@@ -17,6 +17,11 @@ Defaults:
 Outputs:
   Writes sibling *.gate.json and *.gate.md reports next to the summary unless
   explicit report paths are provided.
+
+Policies:
+  --policy <path> may provide scoped non-zero thresholds for expected counters
+  and opt-in throughput/p95 latency budgets. Without a policy the gate remains
+  strict for transport counters and does not enforce performance budgets.
 EOF
 }
 

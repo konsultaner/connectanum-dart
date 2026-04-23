@@ -133,13 +133,10 @@ class RouterConfigLoader {
     final host = _asNullableString(matchMap.remove('host'));
     final methods = _stringList(matchMap.remove('methods'));
     final method = _asNullableString(matchMap.remove('method'));
-    final combinedMethods = <String>[...methods, if (method != null) method];
+    final combinedMethods = <String>[...methods, ?method];
     final protocols = _stringList(matchMap.remove('protocols'));
     final protocol = _asNullableString(matchMap.remove('protocol'));
-    final combinedProtocols = <String>[
-      ...protocols,
-      if (protocol != null) protocol,
-    ];
+    final combinedProtocols = <String>[...protocols, ?protocol];
     final headers = _stringStringMap(matchMap.remove('headers'));
     return HttpRouteMatch(
       path: path,

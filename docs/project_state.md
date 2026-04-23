@@ -2,12 +2,17 @@
 
 Last updated: 2026-04-23
 Current branch: `add-router`
-Last reviewed commit: `7ca6798` (`docs(ci): close native artifact matrix plan`)
-Active exec plan: `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`
+Last reviewed commit: `3ebccbe` (`feat(mcp): add transport-independent server core`)
+Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance-readiness.md`
 
 ## Last Known Verification
 
 - `bin/test-fast`
+- `bash -n bin/wamp-profile-validate`
+- `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`
+- `cargo test --manifest-path native/bench/Cargo.toml artifacts -- --nocapture`
+- `bin/check-bench-artifacts --summary out/wamp-transport-local/bench_results.summary.json --policy native/bench/artifact_gate/wamp_transport_throughput.json`
+- `bin/check-bench-artifacts --summary out/wamp-secure-local/bench_results.summary.json --policy native/bench/artifact_gate/wamp_secure_throughput.json`
 - `bin/verify`
 
 ## Autonomous Priority
@@ -31,15 +36,20 @@ Active exec plan: `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`
 - The repo is a Dart workspace plus a Rust native transport workspace.
 - The canonical root entrypoints are `bin/bootstrap`, `bin/test-fast`, `bin/test-all`, and `bin/verify`.
 - Root shell helpers now auto-detect Dart from Flutter, Rust from `~/.cargo`, Chrome/Chromium, and the standard prebuilt native library path.
-- MCP support is now the next active product-readiness milestone for the
-  downstream `groli/app` integration. Future continuation work should start
-  from `docs/exec-plans/2026-04-23-mcp-support-groli-app.md` after confirming
-  CI is still clean.
+- The first usable MCP path for the downstream `groli/app` integration is now
+  complete for local stdio usage: `packages/connectanum_mcp` has the
+  transport-independent server core, stdio framing, and WAMP-backed tool
+  delegation through existing `connectanum_client` sessions. Streamable
+  HTTP/router MCP remains conditional on whether `groli/app` needs a network
+  endpoint.
 - Initial MCP research is captured in `docs/mcp_integration_research.md`.
   The first implementation slice now lives in `packages/connectanum_mcp` with
   a transport-independent Dart server core, typed protocol errors/capabilities,
-  callback-backed tools, and focused lifecycle/tool tests. Stdio and Streamable
-  HTTP/router integration are still pending.
+  callback-backed tools, focused lifecycle/tool tests, a stdio transport
+  adapter, a tiny stdio echo CLI example, and WAMP-backed tool delegation
+  through existing `connectanum_client` sessions. The first usable local MCP
+  bridge path is now in place. Streamable HTTP/router integration is still
+  conditional on whether `groli/app` needs a network MCP endpoint.
 - The root verification scripts now include the MCP package tests:
   `bin/test-fast` and `bin/test-all` both run
   `dart test packages/connectanum_mcp/test`.
@@ -47,16 +57,47 @@ Active exec plan: `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`
   shape: typed protocol models, serializer-independent boundaries, explicit
   errors, small barrel exports, and focused tests. Reuse the style, not WAMP
   semantics.
-- After the MCP milestone, the queued next product-readiness plan is
+- The active product-readiness plan is now
   `docs/exec-plans/2026-04-23-wamp-profile-transport-performance-readiness.md`.
   Its goal is to turn WAMP-profile transport benchmarks into canonical,
   budgeted RawSocket/WebSocket release-decision gates rather than loose
   performance artifacts.
+- The first WAMP benchmark-readiness slice now has a human-readable contract in
+  `docs/wamp_profile_benchmarks.md`. The canonical release-decision throughput
+  gates are `native/bench/scenarios/wamp_transport_throughput.toml` and
+  `native/bench/scenarios/wamp_secure_throughput.toml`, with conservative
+  per-workload throughput and p95-latency floors in
+  `native/bench/artifact_gate/wamp_transport_throughput.json` and
+  `native/bench/artifact_gate/wamp_secure_throughput.json`.
+- Local Darwin arm64 baselines captured on 2026-04-23 with
+  `router_workers=1` and `native_runtime_threads=1` passed the default
+  zero-transport-counter gate and the new policy gates. The lowest cleartext
+  throughput was `48.79 Mbps` (`websocket_pubsub_json_64k`) and the highest
+  cleartext p95 was `264.493 ms`; the lowest secure throughput was
+  `32.48 Mbps` (`websocket_secure_pubsub_json_64k`) and the highest secure p95
+  was `450.015 ms`.
+- `bin/wamp-profile-validate` is now the canonical WAMP release-gate entry
+  point for both local and hosted validation. A local Darwin arm64 run on
+  2026-04-23 passed both checked-in policies; the lowest cleartext throughput
+  in that run was `55.99 Mbps` (`websocket_pubsub_json_64k`) and the highest
+  cleartext p95 was `251.067 ms` (`rawsocket_pubsub_cbor_64k`), while the
+  lowest secure throughput and highest secure p95 were both on
+  `rawsocket_secure_pubsub_json_64k` at `35.99 Mbps` and `408.703 ms`.
+- GitHub Actions now includes a dedicated `WAMP Profile Benchmarks` workflow
+  that runs `bin/wamp-profile-validate` on hosted Ubuntu and uploads
+  `wamp-profile-benchmark-artifacts`. It still needs hosted evidence on the
+  new workflow after these local changes are pushed.
+- Final local handoff verification on 2026-04-23 passed with `bin/verify`.
+  The first `bin/verify` attempt hit a transient
+  `ct_ffi::tests::listen_flow::poll_connection_message_returns_payload`
+  timeout; the test passed in isolation, the full `ct_ffi` suite then passed,
+  and the full `bin/verify` rerun passed.
 - GitHub Actions CI now runs through the canonical root `bin/*` entrypoints on branch pushes and PRs to `master`; GitHub Actions run `24732889424` for `2fac53b` completed successfully with both `Fast Checks` and `Full Verify`.
 - The CI workflow now targets all branch pushes plus PRs to `master`, and it also exposes `workflow_dispatch` for manual runs.
-- The latest known branch CI is green. GitHub Actions run `24824613232` on
-  commit `7049801` passed both `Fast Checks` and `Full Verify` after the main
-  `CI` workflow was kept verification-only.
+- The latest known branch CI is green. GitHub Actions run `24826431486` on
+  commit `7ca6798` passed both `Fast Checks` and `Full Verify`. The local
+  branch also has unpushed commit `3ebccbe` plus current working-tree changes,
+  so hosted CI has not yet validated the newest local state.
 - `bin/test-fast` now provisions
   the native client runtime before `packages/connectanum_client/test/client_test.dart`
   on supported hosts, both root client flows now include
@@ -82,7 +123,8 @@ Active exec plan: `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`
   writes sibling `*.gate.json` / `*.gate.md` reports next to transformed
   summaries, and the kTLS validation / benchmark runners now fail automatically
   on active throttles, transport alert deltas, transport error alert deltas,
-  or backpressure deltas captured in `bench_results.summary.json`.
+  backpressure deltas, or explicitly budgeted throughput/p95-latency drift
+  captured in `bench_results.summary.json`.
 - Telemetry alert coverage is now aligned across the native and Dart surfaces
   too: `ct_ffi` has a focused router-metrics snapshot regression for
   per-reason/per-listener mapping, `router_metrics_service_test.dart` now
@@ -202,16 +244,46 @@ Active exec plan: `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`
   `s16` at `threads=4, workers=1`
   (`627.92 -> 380.89 Mbps`, `894.39 -> 1435.18 ms`). The bench gate still
   failed with `32` findings.
-- The next HTTP/3 candidate should therefore move away from wake-only queue
-  notifications and back toward direct queue-depth reduction inside the native
-  HTTP/3 request path rather than more boss-loop reshaping.
+- A post-enqueue native HTTP/3 accept-loop yield has now been ruled out too.
+  Yielding after each queued HTTP/3 request and after installing its response
+  waiter produced `out/h3-http3-post-enqueue-yield-probe/` on a focused
+  `router_workers=1`, `native_runtime_threads=1` slice. It lost every measured
+  workload versus `out/h3-http3-round-robin`: `s1`
+  `683.91 -> 533.14 Mbps`, `s2` `682.61 -> 619.94 Mbps`, `s4`
+  `681.74 -> 428.47 Mbps`, `s8` `712.03 -> 403.81 Mbps`, and `s16`
+  `620.66 -> 522.25 Mbps`. `max_backpressure_depth_after` stayed at
+  `0/2/4/8/16`, and `bin/check-bench-artifacts` still failed with `8`
+  findings on that single-quadrant probe.
+- The explicit HTTP/3 multiplex artifact-gate decision is now landed. The
+  bench gate still uses zero thresholds by default, but
+  `bin/check-bench-artifacts --policy <path>` can apply scoped thresholds, and
+  `native/bench/artifact_gate/h3_multiplex_scaling.json` allows only the
+  expected `backpressure_events` / `backpressure_alerts` budget for the shipped
+  H3 `s2/s4/s8/s16` multiplex workloads. With that policy,
+  `bin/check-bench-artifacts --summary out/h3-http3-round-robin/bench_results.summary.json --policy native/bench/artifact_gate/h3_multiplex_scaling.json`
+  passes all 20 local Darwin round-robin workloads while other transport
+  alert/error/throttle signals remain strict.
+- The H3 transport/backpressure plan is complete. It kept the steady-state
+  round-robin drain as the transport-side improvement, rejected the later
+  accept-loop wake/yield and queue-drain reshaping experiments, and now records
+  the remaining H3 multiplex queue depth as normal only when an explicit
+  scenario policy is supplied. Future H3 work should require either a concrete
+  response-progress handoff/window design or a performance budget layer for
+  throughput/p95 drift.
 - The pinned WAMP conformance snapshot now covers one router-level
   multi-session vector in addition to the existing single-message serializer
   subset. `packages/connectanum_core/testdata/wamp_conformance/multisession/advanced/publisher_exclusion_disabled.json`
   is now vendored from `wamp-proto/wamp-proto#557`, and
   `packages/connectanum_router/test/conformance/wamp_multisession_conformance_test.dart`
   executes it against local worker-session routing with placeholder-aware
-  matching for router-assigned ids.
+  matching for router-assigned ids. The upstream PR head was rechecked on
+  2026-04-23 and still matches the vendored `59303fd1290f472b29a40392caeca525d0324e37`
+  snapshot, so broader conformance expansion remains blocked on upstream
+  runner/vector stabilization.
+- `packages/connectanum_router` is analyzer-clean after replacing the remaining
+  nullable map/list collection-if lints in native message binding, remote-auth
+  delegate payloads, route config loading, and router session transfer metadata
+  with Dart null-aware collection elements.
 - `packages/connectanum_router/test/router_worker_auth_test.dart` no longer has the old 1-in-256 false-success path in `Cryptosign authenticator rejects wrong signature`; the test now always mutates the first signature byte instead of sometimes regenerating the same `ff...` prefix and leaving the signature unchanged.
 - `connectanum_core` now exposes a typed `WampE2eeProvider` contract plus an explicit `WampE2eeProviderUnavailableException`, so `ppt_scheme = "wamp"` payloads no longer silently materialize empty args/kwargs when no decryptor is available.
 - The Dart client/session path now threads an optional `e2eeProvider` through outbound publish/call/yield packing, materialized inbound messages, and native direct-result/event/invocation payload views while preserving the existing packed-byte passthrough behavior for matching lazy WAMP payloads.
@@ -330,6 +402,24 @@ Active exec plan: `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`
 
 ## Verification Status
 
+- 2026-04-23: `bin/test-fast`,
+  `cargo test --manifest-path native/bench/Cargo.toml artifacts -- --nocapture`,
+  both WAMP throughput policy gate checks against `out/wamp-transport-local`
+  and `out/wamp-secure-local`, and `bin/verify` passed on Darwin arm64 after
+  adding the WAMP benchmark contract and initial cleartext/TLS policy floors.
+- 2026-04-23: `dart analyze packages/connectanum_mcp`,
+  `dart test packages/connectanum_mcp -r expanded`, and `bin/verify` passed on
+  Darwin arm64 after adding the WAMP-backed MCP tool delegate. The active plan
+  is now switched to WAMP-profile transport performance readiness.
+- 2026-04-23: `bin/test-fast` passed on Darwin arm64 before adding the
+  WAMP-backed MCP tool delegate slice.
+- 2026-04-23: `dart analyze packages/connectanum_mcp`,
+  `dart test packages/connectanum_mcp -r expanded`, and `bin/verify` passed on
+  Darwin arm64 after adding the MCP stdio transport adapter,
+  `packages/connectanum_mcp/example/stdio_echo_server.dart`, focused stdio
+  framing tests, and the associated roadmap/state docs.
+- 2026-04-23: `bin/test-fast` passed on Darwin arm64 before adding the MCP
+  stdio transport adapter slice.
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after adding the first
   `packages/connectanum_mcp` implementation slice, wiring its tests into
   `bin/test-fast` / `bin/test-all`, and updating the MCP plan, roadmap, and
@@ -348,6 +438,38 @@ Active exec plan: `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after promoting MCP support
   for downstream `groli/app` in `AGENTS.md`, `ROADMAP.md`,
   `ROADMAP_NEXT.md`, project state, and the new active MCP exec plan.
+- 2026-04-23: `bin/verify` passed on Darwin arm64 after adding opt-in
+  throughput/p95 performance budgets to the bench artifact gate, keeping the
+  default transport-counter gate strict, and updating the active plan/state
+  docs.
+- 2026-04-23: `cargo test --manifest-path native/bench/Cargo.toml artifacts -- --nocapture`,
+  `bash -n bin/check-bench-artifacts`,
+  `bin/check-bench-artifacts --summary native/bench/artifacts/bench_results.summary.json --report-json /tmp/connectanum-default.gate.json --report-md /tmp/connectanum-default.gate.md`,
+  and a temporary metrics-policy failure check passed on Darwin arm64 after
+  adding `throughput_mbps_min` and `latency_p95_ms_max` gate findings.
+- 2026-04-23: `bin/check-bench-artifacts --summary out/h3-http3-round-robin/bench_results.summary.json --policy native/bench/artifact_gate/h3_multiplex_scaling.json --report-json /tmp/connectanum-h3.gate.json --report-md /tmp/connectanum-h3.gate.md`
+  still passed all 20 H3 round-robin workloads with the existing scoped counter
+  policy after the performance-budget gate extension.
+- 2026-04-23: `bin/test-fast` passed on Darwin arm64 before adding the
+  bench artifact performance-budget layer.
+- 2026-04-23: `bin/verify` passed on Darwin arm64 after landing the
+  policy-aware bench artifact gate path, adding the H3 multiplex gate policy,
+  and closing the H3 transport/backpressure plan.
+- 2026-04-23: `bin/test-fast` passed on Darwin arm64 before landing the
+  policy-aware bench artifact gate path for the H3 multiplex backlog decision.
+- 2026-04-23: `cargo test --manifest-path native/bench/Cargo.toml artifacts -- --nocapture`
+  and `bash -n bin/check-bench-artifacts` passed on Darwin arm64 after adding
+  scoped artifact-gate policies while keeping the strict default gate.
+- 2026-04-23: `bin/check-bench-artifacts --summary out/h3-http3-round-robin/bench_results.summary.json --policy native/bench/artifact_gate/h3_multiplex_scaling.json`
+  passed on Darwin arm64 with 20 workloads, and
+  `bin/check-bench-artifacts --summary native/bench/artifacts/bench_results.summary.json`
+  still passed the checked-in sample artifact set without a policy.
+- 2026-04-23: `bin/verify` passed on Darwin arm64 after recording the
+  rejected `out/h3-http3-post-enqueue-yield-probe/` experiment and reverting
+  the native HTTP/3 request-path code to the kept steady-state round-robin
+  drain baseline.
+- 2026-04-23: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core http_connection_stats -- --nocapture` and `cargo build --manifest-path native/transport/Cargo.toml -p ct_ffi --release` passed on Darwin arm64 while probing a post-enqueue HTTP/3 accept-loop yield. The code change was reverted after measurement.
+- 2026-04-23: `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h3_multiplex_scaling.toml --router-worker-counts 1 --native-runtime-thread-counts 1 --results out/h3-http3-post-enqueue-yield-probe/bench_results.jsonl --artifact-dir out/h3-http3-post-enqueue-yield-probe` passed on Darwin arm64 and was recorded as a negative result. Compared with `out/h3-http3-round-robin`, the post-enqueue yield probe lost all five measured workloads in the `workers=1`, `threads=1` quadrant, left `max_backpressure_depth_after` unchanged at `0/2/4/8/16`, and `bin/check-bench-artifacts --summary out/h3-http3-post-enqueue-yield-probe/bench_results.summary.json` still failed with `8` findings.
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after closing the
   CI-artifact cleanup/native-matrix plan in project state and reactivating the
   HTTP/3 transport/backpressure plan.
@@ -551,18 +673,30 @@ Active exec plan: `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`
   docs/examples refresh across `README.md`, the router/client package READMEs,
   `docs/deployment.md`, `docs/examples.md`, and the associated roadmap/state
   updates.
+- 2026-04-23: `bin/test-fast` passed on Darwin arm64 before the router analyzer
+  hygiene cleanup.
+- 2026-04-23: `dart analyze packages/connectanum_router` and
+  `dart test packages/connectanum_client/test/transport/native/message_binding_test.dart packages/connectanum_router/test/router_worker_auth_test.dart packages/connectanum_router/test/router_worker_session_test.dart`
+  passed on Darwin arm64 after clearing the remaining router null-aware
+  collection lint output.
+- 2026-04-23: `bin/verify` passed on Darwin arm64 after the router analyzer
+  hygiene cleanup and roadmap/state refresh.
 
 ## Active Plan
 
-- Active plan: `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`
-- Queued after MCP:
+- Active plan:
   `docs/exec-plans/2026-04-23-wamp-profile-transport-performance-readiness.md`
+- Most recent completed product-readiness plan:
+  `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`
 - Supporting research notes:
   - `docs/mcp_integration_research.md`
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-23-ci-artifact-cleanup-and-native-matrix.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-23-public-docs-runtime-semantics.md`
+- Most recent completed plan:
+  `docs/exec-plans/2026-04-23-bench-artifact-performance-budgets.md`
+- Completed immediately before that:
+  `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.md`
+- Completed before those: `docs/exec-plans/2026-04-23-ci-artifact-cleanup-and-native-matrix.md`
 
 ## Known Follow-Ups
 
@@ -573,12 +707,13 @@ Active exec plan: `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`
 - The secure WAMP throughput expansion is now closed on both local Darwin and
   hosted Ubuntu baselines. The next session should pick a new roadmap item
   instead of extending this benchmark plan.
-- The bench artifact gate only enforces transport-regression signals for now.
-  Throughput or latency budgets still need an explicit policy/config layer if
-  future CI should fail on performance drift instead of alert counters alone.
-- HTTP/3 transport/backpressure follow-up work is paused behind MCP support
-  unless CI or a release blocker requires revisiting it first.
-- WAMP-profile transport benchmark readiness is queued immediately after MCP.
+- The bench artifact gate now has the mechanism for both transport-regression
+  counters and opt-in performance budgets. It still needs scenario-specific
+  throughput/p95 thresholds before CI should fail on performance drift for a
+  given benchmark family.
+- HTTP/3 transport/backpressure follow-up work is paused behind WAMP-profile
+  transport benchmark readiness unless CI or a release blocker requires
+  revisiting it first.
   It should define the canonical WAMP release gate set before any new broad
   benchmark expansion.
 - The current E2EE lane now covers negotiated fallback plus reusable

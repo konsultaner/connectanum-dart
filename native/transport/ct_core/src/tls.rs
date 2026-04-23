@@ -90,11 +90,7 @@ pub(crate) fn build_tls_acceptor(
             .with_no_client_auth()
             .with_cert_resolver(Arc::new(resolver)),
     };
-    apply_server_tls_runtime_settings(
-        &mut config,
-        endpoint,
-        ktls::secret_extraction_requested(),
-    );
+    apply_server_tls_runtime_settings(&mut config, endpoint, ktls::secret_extraction_requested());
 
     Ok(Some(TlsAcceptor::from(Arc::new(config))))
 }

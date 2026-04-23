@@ -1800,7 +1800,7 @@ class RouterBinding {
       _headerValue(request.headers, 'x-connectanum-auth-id'),
     );
     final helloDetails = <String, Object?>{
-      if (authId != null) 'authid': authId,
+      'authid': ?authId,
       'authmethods': <String>[authMethod],
       if (body['authextra'] is Map<String, Object?>)
         'authextra': Map<String, Object?>.from(

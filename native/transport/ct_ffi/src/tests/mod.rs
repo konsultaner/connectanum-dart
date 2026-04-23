@@ -13,9 +13,9 @@ pub(crate) fn test_guard() -> std::sync::MutexGuard<'static, ()> {
     guard
 }
 
+mod e2ee;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod error_cases;
-mod e2ee;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod listen_flow;
 mod router_config;

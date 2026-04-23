@@ -802,7 +802,7 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
           'isEncrypted': request.context.transport.isEncrypted,
         },
       },
-      if (authToken != null) 'auth_token': authToken,
+      'auth_token': ?authToken,
     };
   }
 
@@ -817,10 +817,8 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
         if (request.authenticate.extra.isNotEmpty)
           'extra': Map<String, Object?>.from(request.authenticate.extra),
       },
+      'auth_token': ?authToken,
     };
-    if (authToken != null) {
-      payload['auth_token'] = authToken;
-    }
     return payload;
   }
 
@@ -830,8 +828,8 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
     final authToken = await _config.resolveAuthToken();
     return <String, Object?>{
       'transactionId': request.transactionId,
-      if (request.reason != null) 'reason': request.reason,
-      if (authToken != null) 'auth_token': authToken,
+      'reason': ?request.reason,
+      'auth_token': ?authToken,
     };
   }
 

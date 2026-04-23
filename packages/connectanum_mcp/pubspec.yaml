@@ -5,6 +5,7 @@ publish_to: none
 environment:
   sdk: '^3.9.2'
 dependencies:
+  connectanum_client: ^2.2.6
   meta: ^1.16.0
 dev_dependencies:
   lints: ^6.0.0

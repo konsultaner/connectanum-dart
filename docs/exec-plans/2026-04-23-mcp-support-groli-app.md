@@ -83,5 +83,25 @@ protocol bridge.
   objects, a transport-independent `McpServer`, callback-backed tool registry,
   in-memory lifecycle tests, and `tools/list` / `tools/call` tests. The root
   `bin/test-fast` and `bin/test-all` scripts now include the MCP package tests.
-- Next implementation step: add a stdio transport adapter plus a tiny CLI
-  example, then add the WAMP-backed tool delegate once stdio framing is green.
+- 2026-04-23: Added the stdio transport adapter plus
+  `packages/connectanum_mcp/example/stdio_echo_server.dart`. Focused stdio
+  tests now cover newline-delimited JSON-RPC request handling, notifications
+  without response lines, parse errors, continued processing after malformed
+  input, and EOF shutdown behavior.
+- 2026-04-23: `dart analyze packages/connectanum_mcp`,
+  `dart test packages/connectanum_mcp -r expanded`, and `bin/verify` passed on
+  Darwin arm64 after the stdio adapter slice.
+- 2026-04-23: Added `McpWampToolDelegate` for forwarding MCP tool calls to
+  Connectanum WAMP procedures through an existing `connectanum_client`
+  `Session`. The default mapping sends MCP arguments as WAMP kwargs and returns
+  a lossless JSON-shaped MCP tool result; custom argument builders and result
+  mappers are supported. Focused tests cover the default mapping, custom
+  mapping, and a real `Session.callSinglePayload` adapter path against a fake
+  transport.
+- 2026-04-23: `dart analyze packages/connectanum_mcp`,
+  `dart test packages/connectanum_mcp -r expanded`, and `bin/verify` passed on
+  Darwin arm64 after the WAMP delegate slice.
+- First usable stdio MCP bridge path is complete. Streamable HTTP/router
+  integration remains conditional on whether `groli/app` needs a network MCP
+  endpoint, so autonomous continuation should move to the WAMP-profile
+  transport performance readiness plan unless that product decision changes.

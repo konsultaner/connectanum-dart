@@ -6,9 +6,9 @@ pub(crate) const ENABLE_KTLS_ENV: &str = "CONNECTANUM_ENABLE_KTLS";
 pub(crate) const REQUIRE_KTLS_ENV: &str = "CONNECTANUM_REQUIRE_KTLS";
 
 #[cfg(target_os = "linux")]
-use std::sync::Arc;
-#[cfg(target_os = "linux")]
 use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(target_os = "linux")]
+use std::sync::Arc;
 
 #[cfg(target_os = "linux")]
 use tokio::{io::AsyncWriteExt, net::TcpStream};
@@ -132,9 +132,7 @@ fn encode_unbuffered_tls(
 }
 
 #[cfg(target_os = "linux")]
-fn negotiated_alpn(
-    session: &rustls::server::UnbufferedServerConnection,
-) -> Option<String> {
+fn negotiated_alpn(session: &rustls::server::UnbufferedServerConnection) -> Option<String> {
     session
         .alpn_protocol()
         .map(|bytes| String::from_utf8_lossy(bytes).to_string())
@@ -181,16 +179,18 @@ pub(crate) async fn accept_server_stream(
                 if pending_outgoing_tls.is_empty() {
                     disable_server_offload();
                     return Err(
-                        "rustls requested TLS transmit without encoded handshake bytes"
-                            .to_string(),
+                        "rustls requested TLS transmit without encoded handshake bytes".to_string(),
                     );
                 }
-                stream.write_all(&pending_outgoing_tls).await.map_err(|err| {
-                    disable_server_offload();
-                    format!(
+                stream
+                    .write_all(&pending_outgoing_tls)
+                    .await
+                    .map_err(|err| {
+                        disable_server_offload();
+                        format!(
                         "failed to transmit TLS handshake bytes before Linux kTLS handoff: {err}"
                     )
-                })?;
+                    })?;
                 pending_outgoing_tls.clear();
                 transmit.done();
             }
@@ -228,9 +228,7 @@ pub(crate) async fn accept_server_stream(
                 while let Some(record) = early_data.next_record() {
                     let record = record.map_err(|err| {
                         disable_server_offload();
-                        format!(
-                            "failed to decode early data before Linux kTLS handoff: {err}"
-                        )
+                        format!("failed to decode early data before Linux kTLS handoff: {err}")
                     })?;
                     discard += record.discard;
                     buffered_plaintext.extend_from_slice(record.payload);
@@ -258,18 +256,15 @@ pub(crate) async fn accept_server_stream(
                         })?;
                     if read == 0 {
                         disable_server_offload();
-                        return Err(
-                            "tls record truncated before Linux kTLS handoff".into(),
-                        );
+                        return Err("tls record truncated before Linux kTLS handoff".into());
                     }
                     incoming_tls.extend_from_slice(&read_buf[..read]);
                     continue;
                 }
 
                 let negotiated_alpn = negotiated_alpn(&session);
-                let (secrets, kernel_connection) = session
-                    .dangerous_into_kernel_connection()
-                    .map_err(|err| {
+                let (secrets, kernel_connection) =
+                    session.dangerous_into_kernel_connection().map_err(|err| {
                         disable_server_offload();
                         format!(
                             "failed to convert TLS session into Linux kTLS kernel connection: {err}"
@@ -341,9 +336,7 @@ fn parse_enabled_flag(raw: Option<&str>) -> bool {
 mod tests {
     use super::*;
     use crate::config::{EndpointRuntimeConfig, TlsMode};
-    use rustls::client::danger::{
-        HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier,
-    };
+    use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
     use rustls::pki_types::{PrivateKeyDer, ServerName};
     use rustls::{ClientConfig as RustlsClientConfig, ServerConfig as RustlsServerConfig};
     use rustls_pemfile::{certs, pkcs8_private_keys};
@@ -580,11 +573,9 @@ mod tests {
                 let state = status.state.expect("server handshake state");
                 match state {
                     rustls::unbuffered::ConnectionState::EncodeTlsData(encode) => {
-                        let encoded =
-                            test_encode_unbuffered_tls(encode, &mut outgoing_tls);
+                        let encoded = test_encode_unbuffered_tls(encode, &mut outgoing_tls);
                         test_discard_front(&mut client_to_server, discard);
-                        pending_outgoing_tls
-                            .extend_from_slice(&outgoing_tls[..encoded]);
+                        pending_outgoing_tls.extend_from_slice(&outgoing_tls[..encoded]);
                     }
                     rustls::unbuffered::ConnectionState::TransmitTlsData(transmit) => {
                         test_discard_front(&mut client_to_server, discard);

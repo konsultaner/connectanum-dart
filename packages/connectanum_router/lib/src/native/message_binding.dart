@@ -123,9 +123,7 @@ AbstractMessage? bindMessageFromMetadata(
         ? _lazyObjectDetailMap(
             serializer,
             detailsBytes,
-            initialValues: <String, Object?>{
-              if (stringB != null) 'message': stringB,
-            },
+            initialValues: <String, Object?>{'message': ?stringB},
             knownKeys: const {'message'},
           )
         : _decodeOptionalMapFragment(serializer, detailsBytes) == null
@@ -322,9 +320,7 @@ AbstractMessage? bindMessageFromMetadata(
         ? _lazyDynamicDetailMap(
             serializer,
             detailsBytes,
-            initialValues: <String, dynamic>{
-              if (stringB != null) 'message': stringB,
-            },
+            initialValues: <String, dynamic>{'message': ?stringB},
             knownKeys: const {'message'},
           )
         : _decodeOptionalMapFragment(serializer, detailsBytes) ??

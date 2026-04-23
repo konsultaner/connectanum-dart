@@ -200,7 +200,7 @@ class Router {
         final appendSuffix = _resolveAppendMethodSuffix(action);
         return <String, Object?>{
           'type': 'reserved_realm',
-          if (namespace != null) 'namespace': namespace,
+          'namespace': ?namespace,
           'append_method_suffix': appendSuffix,
         };
       case HttpRouteActionType.namespace:

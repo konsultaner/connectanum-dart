@@ -103,9 +103,12 @@ Driving downstream: `groli/app`
 4. Implement the tool registry and `tools/call` with text and structured JSON
    results, including `isError` tool-execution failures versus protocol errors.
 5. Add a stdio adapter and a small CLI example that exposes one callback-backed
-   tool.
+   tool. Done in `packages/connectanum_mcp` with `McpStdioTransport` and
+   `example/stdio_echo_server.dart`.
 6. Add a WAMP-backed tool delegate that calls a configured procedure through a
-   `connectanum_client` session.
+   `connectanum_client` session. Done in `packages/connectanum_mcp` with
+   `McpWampToolDelegate`; the default mapping sends MCP arguments as WAMP
+   kwargs and returns a lossless JSON-shaped MCP tool result.
 7. Add a Streamable HTTP adapter and then wire it into router HTTP routes if
    `groli/app` needs a network endpoint instead of stdio.
 8. Add resource support only after tool calls are stable and access-control

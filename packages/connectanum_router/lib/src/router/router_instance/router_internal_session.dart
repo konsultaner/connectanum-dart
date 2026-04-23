@@ -976,12 +976,10 @@ Object? _buildTransferredLazyPayload({
   }
   return <String, Object?>{
     _transferredLazyPayloadMarkerKey: true,
-    if (encoding != null) _transferredLazyPayloadEncodingKey: encoding.name,
+    _transferredLazyPayloadEncodingKey: ?encoding?.name,
     if (pptDecoded) _transferredLazyPayloadPptDecodedKey: true,
-    if (transparentBinaryPayload != null)
-      _transferredLazyPayloadTransparentBinaryKey: transparentBinaryPayload,
-    if (packedPayloadBytes != null)
-      _transferredLazyPayloadPackedPayloadBytesKey: packedPayloadBytes,
+    _transferredLazyPayloadTransparentBinaryKey: ?transparentBinaryPayload,
+    _transferredLazyPayloadPackedPayloadBytesKey: ?packedPayloadBytes,
     if (argumentsBytes != null)
       _transferredLazyPayloadArgumentsBytesKey: argumentsBytes
     else if (arguments != null)

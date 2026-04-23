@@ -341,21 +341,20 @@
   - [x] Ship Prometheus exporters and Grafana dashboards for benchmark metrics visualization.
   - [x] Provide docs/scripts to bootstrap a local Grafana/Prometheus stack alongside benchmarks.
 - [ ] MCP (Model Context Protocol) server implementation for agentic AI integrations
-  - [ ] Promoted as the next product-readiness milestone for downstream
-    `groli/app`; work it before speculative transport or benchmark expansion
-    once CI and shipped-path blockers are clean.
+  - [x] First usable local bridge path for downstream `groli/app` is complete:
+    server core, stdio transport, and WAMP-backed tool delegation.
   - [x] Research the current official MCP lifecycle, transport, tools, prompts,
     and resources contracts, then record implementation decisions in checked-in
     docs before coding.
   - [x] Land the first narrow Dart API/server slice in `packages/connectanum_mcp`
     covering initialization, capability negotiation, tool discovery, tool
     calls, and clean shutdown/error behavior with focused tests.
-  - [ ] Add a stdio transport adapter and small CLI example.
-  - [ ] Add the WAMP-backed tool delegate for Connectanum procedure calls.
+  - [x] Add a stdio transport adapter and small CLI example.
+  - [x] Add the WAMP-backed tool delegate for Connectanum procedure calls.
   - [ ] Add Streamable HTTP/router integration if `groli/app` needs a network
     MCP endpoint.
 - [ ] WAMP profile transport benchmark production readiness
-  - [ ] Queued immediately after MCP support for `groli/app`; use it to make
+  - [ ] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready
     before speculative transport exploration resumes.
   - [ ] Define the canonical WAMP benchmark gate set across cleartext/TLS,

@@ -2,8 +2,8 @@ use std::ptr;
 
 use crate::runtime::{
     ct_byte_buffer_free, ct_e2ee_keyring_add_key, ct_e2ee_keyring_new, ct_e2ee_keyring_release,
-    ct_e2ee_session_decrypt, ct_e2ee_session_encrypt, ct_e2ee_session_new,
-    ct_e2ee_session_release, CtByteBuffer, ERR_DECRYPT_FAILED, ERR_KEY_NOT_FOUND, SUCCESS,
+    ct_e2ee_session_decrypt, ct_e2ee_session_encrypt, ct_e2ee_session_new, ct_e2ee_session_release,
+    CtByteBuffer, ERR_DECRYPT_FAILED, ERR_KEY_NOT_FOUND, SUCCESS,
 };
 
 use super::test_guard;
@@ -25,12 +25,7 @@ fn native_e2ee_round_trips_with_session_default_key() {
     let _guard = test_guard();
     let keyring = ct_e2ee_keyring_new();
     assert!(keyring > 0);
-    add_key(
-        keyring,
-        "kid-1",
-        &(1u8..=32u8).collect::<Vec<_>>(),
-        true,
-    );
+    add_key(keyring, "kid-1", &(1u8..=32u8).collect::<Vec<_>>(), true);
     let session = ct_e2ee_session_new(keyring, ptr::null(), 0);
     assert!(session > 0);
 
@@ -77,18 +72,8 @@ fn native_e2ee_uses_explicit_session_default_key_id() {
     let _guard = test_guard();
     let keyring = ct_e2ee_keyring_new();
     assert!(keyring > 0);
-    add_key(
-        keyring,
-        "kid-a",
-        &(1u8..=32u8).collect::<Vec<_>>(),
-        false,
-    );
-    add_key(
-        keyring,
-        "kid-b",
-        &(33u8..=64u8).collect::<Vec<_>>(),
-        false,
-    );
+    add_key(keyring, "kid-a", &(1u8..=32u8).collect::<Vec<_>>(), false);
+    add_key(keyring, "kid-b", &(33u8..=64u8).collect::<Vec<_>>(), false);
 
     let session = ct_e2ee_session_new(keyring, "kid-b".as_ptr() as *const i8, 5);
     assert!(session > 0);
@@ -135,18 +120,8 @@ fn native_e2ee_reports_missing_keys_and_decrypt_failures() {
     let _guard = test_guard();
     let keyring = ct_e2ee_keyring_new();
     assert!(keyring > 0);
-    add_key(
-        keyring,
-        "kid-1",
-        &(1u8..=32u8).collect::<Vec<_>>(),
-        true,
-    );
-    add_key(
-        keyring,
-        "kid-2",
-        &(33u8..=64u8).collect::<Vec<_>>(),
-        false,
-    );
+    add_key(keyring, "kid-1", &(1u8..=32u8).collect::<Vec<_>>(), true);
+    add_key(keyring, "kid-2", &(33u8..=64u8).collect::<Vec<_>>(), false);
     let session = ct_e2ee_session_new(keyring, ptr::null(), 0);
     assert!(session > 0);
 

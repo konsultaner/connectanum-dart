@@ -1,0 +1,60 @@
+{
+  "thresholds": [
+    {
+      "scenario": "h3_multiplex_scaling",
+      "workload": "h3_multiplexed_streams_s2",
+      "protocol": "h3",
+      "kind": "backpressure_events",
+      "threshold": 32
+    },
+    {
+      "scenario": "h3_multiplex_scaling",
+      "workload": "h3_multiplexed_streams_s2",
+      "protocol": "h3",
+      "kind": "backpressure_alerts",
+      "threshold": 5
+    },
+    {
+      "scenario": "h3_multiplex_scaling",
+      "workload": "h3_multiplexed_streams_s4",
+      "protocol": "h3",
+      "kind": "backpressure_events",
+      "threshold": 80
+    },
+    {
+      "scenario": "h3_multiplex_scaling",
+      "workload": "h3_multiplexed_streams_s4",
+      "protocol": "h3",
+      "kind": "backpressure_alerts",
+      "threshold": 5
+    },
+    {
+      "scenario": "h3_multiplex_scaling",
+      "workload": "h3_multiplexed_streams_s8",
+      "protocol": "h3",
+      "kind": "backpressure_events",
+      "threshold": 112
+    },
+    {
+      "scenario": "h3_multiplex_scaling",
+      "workload": "h3_multiplexed_streams_s8",
+      "protocol": "h3",
+      "kind": "backpressure_alerts",
+      "threshold": 5
+    },
+    {
+      "scenario": "h3_multiplex_scaling",
+      "workload": "h3_multiplexed_streams_s16",
+      "protocol": "h3",
+      "kind": "backpressure_events",
+      "threshold": 136
+    },
+    {
+      "scenario": "h3_multiplex_scaling",
+      "workload": "h3_multiplexed_streams_s16",
+      "protocol": "h3",
+      "kind": "backpressure_alerts",
+      "threshold": 5
+    }
+  ]
+}

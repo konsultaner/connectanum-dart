@@ -2,7 +2,8 @@
 
 ## Status
 
-Queued behind `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`.
+Active after the first usable MCP stdio bridge path landed in
+`packages/connectanum_mcp`.
 
 ## Goal
 
@@ -13,8 +14,8 @@ release decisions for real RawSocket/WebSocket WAMP users.
 ## Priority
 
 - Keep the CI chain green first.
-- Finish the active MCP milestone before starting this plan unless CI or a
-  shipped-path blocker requires WAMP benchmark work sooner.
+- The first usable MCP stdio bridge path is complete; Streamable HTTP MCP
+  remains conditional on a `groli/app` network-endpoint decision.
 - Treat this as production-readiness work, not speculative performance
   exploration.
 - Defer unrelated HTTP/3, kTLS, E2EE, and broad benchmark exploration until the
@@ -74,3 +75,43 @@ release decisions for real RawSocket/WebSocket WAMP users.
 - Add or adjust artifact policies for that gate set, starting with budgets that
   reflect current known local and hosted baselines rather than aspirational
   targets.
+
+## Progress
+
+- 2026-04-23: Confirmed latest hosted branch CI is green on GitHub Actions run
+  `24826431486` for `7ca6798`.
+- 2026-04-23: Ran `bin/test-fast` before benchmark-readiness edits; it passed
+  on Darwin arm64.
+- 2026-04-23: Captured local Darwin arm64 baselines for
+  `wamp_transport_throughput` and `wamp_secure_throughput` with
+  `router_workers=1` and `native_runtime_threads=1`; both passed the default
+  zero transport-counter artifact gate.
+- 2026-04-23: Added `docs/wamp_profile_benchmarks.md` to classify WAMP
+  scenarios into release gates, diagnostic scenarios, and smoke-only checks.
+- 2026-04-23: Added initial per-workload artifact policies for
+  `wamp_transport_throughput` and `wamp_secure_throughput`. These are
+  conservative release floors based on current local/known hosted baselines,
+  not aspirational performance targets.
+- 2026-04-23: Validated the new policies against local summaries with
+  `bin/check-bench-artifacts`, then ran `bin/verify` successfully on Darwin
+  arm64.
+- 2026-04-23: Added `bin/wamp-profile-validate` and the dedicated `WAMP
+  Profile Benchmarks` GitHub Actions workflow so hosted Linux uses the same
+  canonical cleartext and secure WAMP policy gates as local release
+  validation.
+- 2026-04-23: Ran `bash -n bin/wamp-profile-validate` and then
+  `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-local
+  --router-worker-counts 1 --native-runtime-thread-counts 1
+  --workload-timeout-ms 300000`; both canonical WAMP policy gates passed on
+  Darwin arm64.
+- 2026-04-23: Ran final local handoff verification. A first `bin/verify`
+  attempt hit a transient `ct_ffi` connection-poll timeout, but the failing
+  test passed in isolation, the full `ct_ffi` suite passed, and the full
+  `bin/verify` rerun passed.
+
+## Next Slice
+
+- Run the new WAMP profile workflow on hosted Linux after pushing these local
+  changes.
+- After hosted evidence lands, tighten policy floors only where repeated runs
+  prove the current conservative budgets are too loose for release decisions.

@@ -20,6 +20,12 @@ auth if it should run through the TLS WAMP listener in
 secure WAMP baseline. It mirrors the existing 64 KiB cleartext transport sweep
 but routes through the TLS WAMP listener and `bench.secure` ticket auth.
 
+The focused WAMP release-decision contract is documented in
+`docs/wamp_profile_benchmarks.md`. In short, `wamp_transport_throughput` and
+`wamp_secure_throughput` are the canonical throughput gates; the broader
+WAMP/client/PPT/fan-out/fragmentation scenarios are diagnostic until they have
+their own hosted baselines and artifact policies.
+
 `native/bench/scenarios/http_auth_smoke.toml` is the dedicated HTTP auth-bridge
 baseline. It exercises `ticket`, `wampcra`, and `scram` login, refresh, and
 protected-route flows across HTTP/1.1, HTTP/2, and HTTP/3.
@@ -63,6 +69,18 @@ For the kTLS comparison runner, use the repo helper:
 bin/ktls-http2-bench
 ```
 
+For the canonical WAMP release gates, use the WAMP profile helper. It builds
+the release FFI library, runs the cleartext and secure WAMP throughput
+scenarios, and validates both artifact bundles against their checked-in
+policies:
+
+```bash
+bin/wamp-profile-validate
+```
+
+Hosted Linux runs use the same command through the `WAMP Profile Benchmarks`
+GitHub Actions workflow.
+
 ## Outputs
 
 Bench runs emit:
@@ -79,6 +97,44 @@ Validate a transformed summary directly with:
 ```bash
 bin/check-bench-artifacts \
   --summary native/bench/artifacts/bench_results.summary.json
+```
+
+The artifact gate uses zero transport-counter thresholds and no performance
+budgets unless a policy is provided. Scoped policies can document expected
+counters for a specific scenario while leaving all other transport regression
+signals strict, and can also add explicit performance budgets:
+
+```json
+{
+  "thresholds": [
+    {
+      "kind": "backpressure_events",
+      "threshold": 80,
+      "scenario": "h3_multiplex_scaling",
+      "workload": "h3_multiplexed_streams_s4"
+    }
+  ],
+  "metrics": [
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 600.0,
+      "scenario": "h3_multiplex_scaling"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 350.0,
+      "scenario": "h3_multiplex_scaling"
+    }
+  ]
+}
+```
+
+Metric policy kinds are `throughput_mbps_min` and `latency_p95_ms_max`.
+
+```bash
+bin/check-bench-artifacts \
+  --summary out/h3-http3-round-robin/bench_results.summary.json \
+  --policy native/bench/artifact_gate/h3_multiplex_scaling.json
 ```
 
 ## Main Components

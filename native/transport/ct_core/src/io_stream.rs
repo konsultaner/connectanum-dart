@@ -1,6 +1,5 @@
 use std::{
-    fmt,
-    io,
+    fmt, io,
     pin::Pin,
     task::{Context, Poll},
 };

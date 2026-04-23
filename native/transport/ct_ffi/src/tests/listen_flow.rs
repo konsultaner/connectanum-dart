@@ -35,14 +35,14 @@ const MESSAGE_FLAG_DETAIL_NUMBER_B_PRESENT: u32 = 1 << 2;
 const MESSAGE_FLAG_DETAIL_BOOL_A_TRUE: u32 = 1 << 3;
 const MESSAGE_FLAG_METADATA_BIND: u32 = 1 << 4;
 
+#[cfg(feature = "ffi-test")]
+use crate::runtime::constants::HTTP_EVENT_REASON_GOAWAY;
 use crate::runtime::constants::{
     ERR_CONNECTION_NOT_FOUND, ERR_ENDPOINT_NOT_CONFIGURED, ERR_INVALID_ARGUMENT,
     ERR_LISTENER_NOT_FOUND, ERR_UNSUPPORTED, HTTP_EVENT_REASON_BODY_TIMEOUT,
     HTTP_EVENT_REASON_IDLE_TIMEOUT, PROTOCOL_HTTP, PROTOCOL_HTTP2, PROTOCOL_HTTP3,
     PROTOCOL_RAWSOCKET, PROTOCOL_WEBSOCKET, SUCCESS,
 };
-#[cfg(feature = "ffi-test")]
-use crate::runtime::constants::HTTP_EVENT_REASON_GOAWAY;
 use crate::runtime::ffi::{
     ct_apply_router_config, ct_client_connect_rawsocket, ct_client_connect_websocket,
     ct_connection_accept_websocket, ct_connection_close, ct_connection_get_http3_connection,
@@ -60,11 +60,10 @@ use crate::runtime::ffi::{
     ct_http_response_stream_write, ct_listen, ct_listener_close, ct_message_get, ct_message_peek,
     ct_message_release, ct_poll_connection, ct_poll_connection_message, ct_send_message,
     ct_set_on_connection, ct_set_on_listener_started, ct_shutdown, ct_start_runtime,
-    ct_wait_connection_message, ct_websocket_handshake_extension,
-    ct_websocket_handshake_get, ct_websocket_handshake_protocol,
-    ct_websocket_handshake_release, CtHttp2HandshakeInfo, CtHttp3HandshakeInfo,
-    CtHttpBodyView, CtHttpConnectionEventInfo, CtHttpHandshakeInfo, CtHttpHeader,
-    CtMessageInfo, CtStringView, CtWebSocketHandshakeInfo,
+    ct_wait_connection_message, ct_websocket_handshake_extension, ct_websocket_handshake_get,
+    ct_websocket_handshake_protocol, ct_websocket_handshake_release, CtHttp2HandshakeInfo,
+    CtHttp3HandshakeInfo, CtHttpBodyView, CtHttpConnectionEventInfo, CtHttpHandshakeInfo,
+    CtHttpHeader, CtMessageInfo, CtStringView, CtWebSocketHandshakeInfo,
 };
 use crate::runtime::store_http_body;
 

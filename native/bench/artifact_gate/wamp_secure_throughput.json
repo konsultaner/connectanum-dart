@@ -1,0 +1,148 @@
+{
+  "metrics": [
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 25.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "rawsocket_secure_pubsub_json_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 700.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "rawsocket_secure_pubsub_json_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 30.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "rawsocket_secure_pubsub_msgpack_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 550.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "rawsocket_secure_pubsub_msgpack_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 25.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "rawsocket_secure_pubsub_cbor_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 700.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "rawsocket_secure_pubsub_cbor_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 75.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "rawsocket_secure_rpc_json_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 220.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "rawsocket_secure_rpc_json_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 95.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "rawsocket_secure_rpc_msgpack_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 180.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "rawsocket_secure_rpc_msgpack_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 70.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "rawsocket_secure_rpc_cbor_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 240.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "rawsocket_secure_rpc_cbor_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 25.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "websocket_secure_pubsub_json_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 700.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "websocket_secure_pubsub_json_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 38.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "websocket_secure_pubsub_msgpack_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 450.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "websocket_secure_pubsub_msgpack_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 28.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "websocket_secure_pubsub_cbor_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 650.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "websocket_secure_pubsub_cbor_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 75.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "websocket_secure_rpc_json_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 220.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "websocket_secure_rpc_json_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 100.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "websocket_secure_rpc_msgpack_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 180.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "websocket_secure_rpc_msgpack_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 75.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "websocket_secure_rpc_cbor_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 240.0,
+      "scenario": "wamp_secure_throughput",
+      "workload": "websocket_secure_rpc_cbor_64k"
+    }
+  ]
+}

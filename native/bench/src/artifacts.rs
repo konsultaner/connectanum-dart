@@ -97,12 +97,28 @@ pub fn load_artifact_bundle(path: &Path) -> Result<ArtifactBundle> {
     serde_json::from_slice(&bytes).with_context(|| format!("failed to parse {}", path.display()))
 }
 
+pub fn load_artifact_gate_policy(path: &Path) -> Result<ArtifactGatePolicy> {
+    let bytes = fs::read(path).with_context(|| format!("failed to read {}", path.display()))?;
+    serde_json::from_slice(&bytes)
+        .with_context(|| format!("failed to parse artifact gate policy {}", path.display()))
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ArtifactGateSeverity {
     Warning,
     Critical,
 }
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ArtifactGateMetricComparison {
+    Min,
+    Max,
+}
+
+const THROUGHPUT_MBPS_MIN: &str = "throughput_mbps_min";
+const LATENCY_P95_MS_MAX: &str = "latency_p95_ms_max";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ArtifactGateFinding {
@@ -118,18 +134,213 @@ pub struct ArtifactGateFinding {
     pub threshold: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ArtifactGateMetricFinding {
+    pub severity: ArtifactGateSeverity,
+    pub scenario: String,
+    pub workload: String,
+    pub protocol: String,
+    pub client_impl: String,
+    pub router_workers: u32,
+    pub native_runtime_threads: u32,
+    pub kind: String,
+    pub observed: f64,
+    pub threshold: f64,
+    pub comparison: ArtifactGateMetricComparison,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ArtifactGateReport {
     pub generated_at_ms: u128,
     pub source_summary: String,
     pub source_results: String,
     pub workload_count: usize,
     pub findings: Vec<ArtifactGateFinding>,
+    #[serde(default)]
+    pub metric_findings: Vec<ArtifactGateMetricFinding>,
 }
 
 impl ArtifactGateReport {
     pub fn failed(&self) -> bool {
-        !self.findings.is_empty()
+        self.finding_count() > 0
+    }
+
+    pub fn finding_count(&self) -> usize {
+        self.findings.len() + self.metric_findings.len()
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct ArtifactGatePolicy {
+    #[serde(default)]
+    pub thresholds: Vec<ArtifactGateThreshold>,
+    #[serde(default)]
+    pub metrics: Vec<ArtifactGateMetricThreshold>,
+}
+
+impl ArtifactGatePolicy {
+    pub fn threshold_for(&self, workload: &WorkloadArtifactSummary, kind: &str) -> u64 {
+        let mut best: Option<(usize, u64)> = None;
+        for threshold in &self.thresholds {
+            if !threshold.matches(workload, kind) {
+                continue;
+            }
+
+            let specificity = threshold.specificity();
+            match best {
+                None => best = Some((specificity, threshold.threshold)),
+                Some((best_specificity, best_threshold)) => {
+                    if specificity > best_specificity
+                        || (specificity == best_specificity && threshold.threshold > best_threshold)
+                    {
+                        best = Some((specificity, threshold.threshold));
+                    }
+                }
+            }
+        }
+
+        best.map(|(_, threshold)| threshold).unwrap_or(0)
+    }
+
+    pub fn metric_threshold_for(
+        &self,
+        workload: &WorkloadArtifactSummary,
+        kind: &str,
+    ) -> Option<f64> {
+        let comparison = metric_kind_comparison(kind)?;
+        let mut best: Option<(usize, f64)> = None;
+        for threshold in &self.metrics {
+            if !threshold.matches(workload, kind) || !threshold.threshold.is_finite() {
+                continue;
+            }
+
+            let specificity = threshold.specificity();
+            match best {
+                None => best = Some((specificity, threshold.threshold)),
+                Some((best_specificity, best_threshold)) => {
+                    if specificity > best_specificity
+                        || (specificity == best_specificity
+                            && metric_threshold_is_more_permissive(
+                                threshold.threshold,
+                                best_threshold,
+                                comparison,
+                            ))
+                    {
+                        best = Some((specificity, threshold.threshold));
+                    }
+                }
+            }
+        }
+
+        best.map(|(_, threshold)| threshold)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ArtifactGateThreshold {
+    pub kind: String,
+    pub threshold: u64,
+    #[serde(default)]
+    pub scenario: Option<String>,
+    #[serde(default)]
+    pub workload: Option<String>,
+    #[serde(default)]
+    pub protocol: Option<String>,
+    #[serde(default)]
+    pub client_impl: Option<String>,
+    #[serde(default)]
+    pub router_workers: Option<u32>,
+    #[serde(default)]
+    pub native_runtime_threads: Option<u32>,
+}
+
+impl ArtifactGateThreshold {
+    fn matches(&self, workload: &WorkloadArtifactSummary, kind: &str) -> bool {
+        self.kind == kind
+            && self.matches_str(self.scenario.as_deref(), &workload.scenario)
+            && self.matches_str(self.workload.as_deref(), &workload.workload)
+            && self.matches_str(self.protocol.as_deref(), &workload.protocol)
+            && self.matches_str(self.client_impl.as_deref(), &workload.client_impl)
+            && self
+                .router_workers
+                .map(|expected| expected == workload.router_workers)
+                .unwrap_or(true)
+            && self
+                .native_runtime_threads
+                .map(|expected| expected == workload.native_runtime_threads)
+                .unwrap_or(true)
+    }
+
+    fn matches_str(&self, expected: Option<&str>, actual: &str) -> bool {
+        expected.map(|expected| expected == actual).unwrap_or(true)
+    }
+
+    fn specificity(&self) -> usize {
+        [
+            self.scenario.is_some(),
+            self.workload.is_some(),
+            self.protocol.is_some(),
+            self.client_impl.is_some(),
+            self.router_workers.is_some(),
+            self.native_runtime_threads.is_some(),
+        ]
+        .into_iter()
+        .filter(|specified| *specified)
+        .count()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ArtifactGateMetricThreshold {
+    pub kind: String,
+    pub threshold: f64,
+    #[serde(default)]
+    pub scenario: Option<String>,
+    #[serde(default)]
+    pub workload: Option<String>,
+    #[serde(default)]
+    pub protocol: Option<String>,
+    #[serde(default)]
+    pub client_impl: Option<String>,
+    #[serde(default)]
+    pub router_workers: Option<u32>,
+    #[serde(default)]
+    pub native_runtime_threads: Option<u32>,
+}
+
+impl ArtifactGateMetricThreshold {
+    fn matches(&self, workload: &WorkloadArtifactSummary, kind: &str) -> bool {
+        self.kind == kind
+            && self.matches_str(self.scenario.as_deref(), &workload.scenario)
+            && self.matches_str(self.workload.as_deref(), &workload.workload)
+            && self.matches_str(self.protocol.as_deref(), &workload.protocol)
+            && self.matches_str(self.client_impl.as_deref(), &workload.client_impl)
+            && self
+                .router_workers
+                .map(|expected| expected == workload.router_workers)
+                .unwrap_or(true)
+            && self
+                .native_runtime_threads
+                .map(|expected| expected == workload.native_runtime_threads)
+                .unwrap_or(true)
+    }
+
+    fn matches_str(&self, expected: Option<&str>, actual: &str) -> bool {
+        expected.map(|expected| expected == actual).unwrap_or(true)
+    }
+
+    fn specificity(&self) -> usize {
+        [
+            self.scenario.is_some(),
+            self.workload.is_some(),
+            self.protocol.is_some(),
+            self.client_impl.is_some(),
+            self.router_workers.is_some(),
+            self.native_runtime_threads.is_some(),
+        ]
+        .into_iter()
+        .filter(|specified| *specified)
+        .count()
     }
 }
 
@@ -141,7 +352,16 @@ pub fn evaluate_default_artifact_gate(
     bundle: &ArtifactBundle,
     summary_path: &Path,
 ) -> ArtifactGateReport {
+    evaluate_artifact_gate(bundle, summary_path, &ArtifactGatePolicy::default())
+}
+
+pub fn evaluate_artifact_gate(
+    bundle: &ArtifactBundle,
+    summary_path: &Path,
+    policy: &ArtifactGatePolicy,
+) -> ArtifactGateReport {
     let mut findings = Vec::new();
+    let mut metric_findings = Vec::new();
     for workload in &bundle.workloads {
         push_gate_i64_finding(
             &mut findings,
@@ -149,6 +369,7 @@ pub fn evaluate_default_artifact_gate(
             ArtifactGateSeverity::Warning,
             "backpressure_events",
             workload.transport.backpressure_events,
+            policy.threshold_for(workload, "backpressure_events"),
         );
         push_gate_i64_finding(
             &mut findings,
@@ -156,6 +377,7 @@ pub fn evaluate_default_artifact_gate(
             ArtifactGateSeverity::Warning,
             "backpressure_alerts",
             workload.transport.backpressure_alerts,
+            policy.threshold_for(workload, "backpressure_alerts"),
         );
         push_gate_i64_finding(
             &mut findings,
@@ -163,6 +385,7 @@ pub fn evaluate_default_artifact_gate(
             ArtifactGateSeverity::Warning,
             "transport_alerts",
             workload.transport.transport_alerts,
+            policy.threshold_for(workload, "transport_alerts"),
         );
         push_gate_i64_finding(
             &mut findings,
@@ -170,6 +393,7 @@ pub fn evaluate_default_artifact_gate(
             ArtifactGateSeverity::Critical,
             "goaway_alerts",
             workload.transport.goaway_alerts,
+            policy.threshold_for(workload, "goaway_alerts"),
         );
         push_gate_i64_finding(
             &mut findings,
@@ -177,6 +401,7 @@ pub fn evaluate_default_artifact_gate(
             ArtifactGateSeverity::Critical,
             "idle_timeout_alerts",
             workload.transport.idle_timeout_alerts,
+            policy.threshold_for(workload, "idle_timeout_alerts"),
         );
         push_gate_i64_finding(
             &mut findings,
@@ -184,6 +409,7 @@ pub fn evaluate_default_artifact_gate(
             ArtifactGateSeverity::Critical,
             "body_timeout_alerts",
             workload.transport.body_timeout_alerts,
+            policy.threshold_for(workload, "body_timeout_alerts"),
         );
         push_gate_i64_finding(
             &mut findings,
@@ -191,6 +417,7 @@ pub fn evaluate_default_artifact_gate(
             ArtifactGateSeverity::Critical,
             "protocol_error_alerts",
             workload.transport.protocol_error_alerts,
+            policy.threshold_for(workload, "protocol_error_alerts"),
         );
         push_gate_i64_finding(
             &mut findings,
@@ -198,6 +425,7 @@ pub fn evaluate_default_artifact_gate(
             ArtifactGateSeverity::Critical,
             "internal_error_alerts",
             workload.transport.internal_error_alerts,
+            policy.threshold_for(workload, "internal_error_alerts"),
         );
         push_gate_u64_finding(
             &mut findings,
@@ -205,6 +433,25 @@ pub fn evaluate_default_artifact_gate(
             ArtifactGateSeverity::Critical,
             "active_throttles",
             workload.transport.active_throttles_after,
+            policy.threshold_for(workload, "active_throttles"),
+        );
+        push_gate_metric_finding(
+            &mut metric_findings,
+            workload,
+            ArtifactGateSeverity::Warning,
+            THROUGHPUT_MBPS_MIN,
+            workload.throughput_mbps,
+            policy.metric_threshold_for(workload, THROUGHPUT_MBPS_MIN),
+            ArtifactGateMetricComparison::Min,
+        );
+        push_gate_metric_finding(
+            &mut metric_findings,
+            workload,
+            ArtifactGateSeverity::Warning,
+            LATENCY_P95_MS_MAX,
+            workload.latency_p95_ms,
+            policy.metric_threshold_for(workload, LATENCY_P95_MS_MAX),
+            ArtifactGateMetricComparison::Max,
         );
     }
 
@@ -214,6 +461,7 @@ pub fn evaluate_default_artifact_gate(
         source_results: bundle.source_results.clone(),
         workload_count: bundle.workloads.len(),
         findings,
+        metric_findings,
     }
 }
 
@@ -230,37 +478,69 @@ pub fn render_artifact_gate_markdown(report: &ArtifactGateReport) -> String {
         "".to_string(),
     ];
 
-    if report.findings.is_empty() {
-        lines.push("Gate passed. No transport regressions were detected.".to_string());
+    if !report.failed() {
+        lines.push(
+            "Gate passed. No transport or performance regressions were detected.".to_string(),
+        );
         return lines.join("\n") + "\n";
     }
 
     lines.push(
-        "Gate failed. The transformed bench artifacts captured transport regressions.".to_string(),
-    );
-    lines.push("".to_string());
-    lines.push(
-        "| Severity | Scenario | Workload | Protocol | Client | Router workers | Native runtime threads | Kind | Observed | Threshold |"
+        "Gate failed. The transformed bench artifacts captured transport or performance regressions."
             .to_string(),
     );
-    lines.push("| --- | --- | --- | --- | --- | ---: | ---: | --- | ---: | ---: |".to_string());
-    for finding in &report.findings {
-        lines.push(format!(
-            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
-            match finding.severity {
-                ArtifactGateSeverity::Warning => "warning",
-                ArtifactGateSeverity::Critical => "critical",
-            },
-            finding.scenario,
-            finding.workload,
-            finding.protocol,
-            finding.client_impl,
-            finding.router_workers,
-            native_runtime_threads_label(finding.native_runtime_threads),
-            finding.kind,
-            finding.observed,
-            finding.threshold,
-        ));
+    if !report.findings.is_empty() {
+        lines.push("".to_string());
+        lines.push("## Transport Findings".to_string());
+        lines.push("".to_string());
+        lines.push(
+            "| Severity | Scenario | Workload | Protocol | Client | Router workers | Native runtime threads | Kind | Observed | Threshold |"
+                .to_string(),
+        );
+        lines.push("| --- | --- | --- | --- | --- | ---: | ---: | --- | ---: | ---: |".to_string());
+        for finding in &report.findings {
+            lines.push(format!(
+                "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
+                severity_label(finding.severity),
+                finding.scenario,
+                finding.workload,
+                finding.protocol,
+                finding.client_impl,
+                finding.router_workers,
+                native_runtime_threads_label(finding.native_runtime_threads),
+                finding.kind,
+                finding.observed,
+                finding.threshold,
+            ));
+        }
+    }
+    if !report.metric_findings.is_empty() {
+        lines.push("".to_string());
+        lines.push("## Performance Findings".to_string());
+        lines.push("".to_string());
+        lines.push(
+            "| Severity | Scenario | Workload | Protocol | Client | Router workers | Native runtime threads | Kind | Observed | Threshold | Rule |"
+                .to_string(),
+        );
+        lines.push(
+            "| --- | --- | --- | --- | --- | ---: | ---: | --- | ---: | ---: | --- |".to_string(),
+        );
+        for finding in &report.metric_findings {
+            lines.push(format!(
+                "| {} | {} | {} | {} | {} | {} | {} | {} | {:.3} | {:.3} | {} |",
+                severity_label(finding.severity),
+                finding.scenario,
+                finding.workload,
+                finding.protocol,
+                finding.client_impl,
+                finding.router_workers,
+                native_runtime_threads_label(finding.native_runtime_threads),
+                finding.kind,
+                finding.observed,
+                finding.threshold,
+                metric_comparison_label(finding.comparison),
+            ));
+        }
     }
 
     lines.join("\n") + "\n"
@@ -661,17 +941,58 @@ fn native_runtime_threads_label(value: u32) -> String {
     }
 }
 
+fn severity_label(severity: ArtifactGateSeverity) -> &'static str {
+    match severity {
+        ArtifactGateSeverity::Warning => "warning",
+        ArtifactGateSeverity::Critical => "critical",
+    }
+}
+
+fn metric_comparison_label(comparison: ArtifactGateMetricComparison) -> &'static str {
+    match comparison {
+        ArtifactGateMetricComparison::Min => "min",
+        ArtifactGateMetricComparison::Max => "max",
+    }
+}
+
+fn metric_kind_comparison(kind: &str) -> Option<ArtifactGateMetricComparison> {
+    match kind {
+        THROUGHPUT_MBPS_MIN => Some(ArtifactGateMetricComparison::Min),
+        LATENCY_P95_MS_MAX => Some(ArtifactGateMetricComparison::Max),
+        _ => None,
+    }
+}
+
+fn metric_threshold_is_more_permissive(
+    candidate: f64,
+    current: f64,
+    comparison: ArtifactGateMetricComparison,
+) -> bool {
+    match comparison {
+        ArtifactGateMetricComparison::Min => candidate < current,
+        ArtifactGateMetricComparison::Max => candidate > current,
+    }
+}
+
 fn push_gate_i64_finding(
     findings: &mut Vec<ArtifactGateFinding>,
     workload: &WorkloadArtifactSummary,
     severity: ArtifactGateSeverity,
     kind: &str,
     observed: i64,
+    threshold: u64,
 ) {
     if observed <= 0 {
         return;
     }
-    push_gate_finding(findings, workload, severity, kind, observed as u64);
+    push_gate_finding(
+        findings,
+        workload,
+        severity,
+        kind,
+        observed as u64,
+        threshold,
+    );
 }
 
 fn push_gate_u64_finding(
@@ -680,11 +1001,12 @@ fn push_gate_u64_finding(
     severity: ArtifactGateSeverity,
     kind: &str,
     observed: u64,
+    threshold: u64,
 ) {
-    if observed == 0 {
+    if observed <= threshold {
         return;
     }
-    push_gate_finding(findings, workload, severity, kind, observed);
+    push_gate_finding(findings, workload, severity, kind, observed, threshold);
 }
 
 fn push_gate_finding(
@@ -693,7 +1015,12 @@ fn push_gate_finding(
     severity: ArtifactGateSeverity,
     kind: &str,
     observed: u64,
+    threshold: u64,
 ) {
+    if observed <= threshold {
+        return;
+    }
+
     findings.push(ArtifactGateFinding {
         severity,
         scenario: workload.scenario.clone(),
@@ -704,7 +1031,45 @@ fn push_gate_finding(
         native_runtime_threads: workload.native_runtime_threads,
         kind: kind.to_string(),
         observed,
-        threshold: 0,
+        threshold,
+    });
+}
+
+fn push_gate_metric_finding(
+    findings: &mut Vec<ArtifactGateMetricFinding>,
+    workload: &WorkloadArtifactSummary,
+    severity: ArtifactGateSeverity,
+    kind: &str,
+    observed: f64,
+    threshold: Option<f64>,
+    comparison: ArtifactGateMetricComparison,
+) {
+    let Some(threshold) = threshold else {
+        return;
+    };
+    if !observed.is_finite() || !threshold.is_finite() {
+        return;
+    }
+    let failed = match comparison {
+        ArtifactGateMetricComparison::Min => observed < threshold,
+        ArtifactGateMetricComparison::Max => observed > threshold,
+    };
+    if !failed {
+        return;
+    }
+
+    findings.push(ArtifactGateMetricFinding {
+        severity,
+        scenario: workload.scenario.clone(),
+        workload: workload.workload.clone(),
+        protocol: workload.protocol.clone(),
+        client_impl: workload.client_impl.clone(),
+        router_workers: workload.router_workers,
+        native_runtime_threads: workload.native_runtime_threads,
+        kind: kind.to_string(),
+        observed,
+        threshold,
+        comparison,
     });
 }
 
@@ -1121,8 +1486,9 @@ mod tests {
         assert_eq!(report.workload_count, 1);
         assert!(!report.failed());
         assert!(report.findings.is_empty());
+        assert!(report.metric_findings.is_empty());
         assert!(render_artifact_gate_markdown(&report)
-            .contains("Gate passed. No transport regressions were detected."));
+            .contains("Gate passed. No transport or performance regressions were detected."));
     }
 
     #[test]
@@ -1157,8 +1523,188 @@ mod tests {
             ]
         );
         assert!(render_artifact_gate_markdown(&report).contains(
-            "Gate failed. The transformed bench artifacts captured transport regressions."
+            "Gate failed. The transformed bench artifacts captured transport or performance regressions."
         ));
+    }
+
+    #[test]
+    fn artifact_gate_policy_allows_scoped_expected_counters() {
+        let mut workload = summarize_report(&clean_report());
+        workload.scenario = "h3_multiplex_scaling".to_string();
+        workload.workload = "h3_multiplexed_streams_s4".to_string();
+        workload.protocol = "h3".to_string();
+        workload.transport.backpressure_events = 63;
+        workload.transport.backpressure_alerts = 4;
+        let bundle = ArtifactBundle {
+            generated_at_ms: 1,
+            source_results: "bench_results.jsonl".to_string(),
+            workloads: vec![workload],
+        };
+        let policy = ArtifactGatePolicy {
+            thresholds: vec![
+                test_threshold("backpressure_events", 8, Some("h3_multiplex_scaling"), None),
+                test_threshold(
+                    "backpressure_events",
+                    80,
+                    Some("h3_multiplex_scaling"),
+                    Some("h3_multiplexed_streams_s4"),
+                ),
+                test_threshold(
+                    "backpressure_alerts",
+                    4,
+                    Some("h3_multiplex_scaling"),
+                    Some("h3_multiplexed_streams_s4"),
+                ),
+            ],
+            metrics: Vec::new(),
+        };
+
+        let report = evaluate_artifact_gate(
+            &bundle,
+            Path::new("native/bench/artifacts/bench_results.summary.json"),
+            &policy,
+        );
+
+        assert!(!report.failed());
+        assert!(report.findings.is_empty());
+    }
+
+    #[test]
+    fn artifact_gate_policy_still_flags_values_above_threshold() {
+        let mut workload = summarize_report(&clean_report());
+        workload.scenario = "h3_multiplex_scaling".to_string();
+        workload.workload = "h3_multiplexed_streams_s4".to_string();
+        workload.protocol = "h3".to_string();
+        workload.transport.backpressure_events = 81;
+        let bundle = ArtifactBundle {
+            generated_at_ms: 1,
+            source_results: "bench_results.jsonl".to_string(),
+            workloads: vec![workload],
+        };
+        let policy = ArtifactGatePolicy {
+            thresholds: vec![test_threshold(
+                "backpressure_events",
+                80,
+                Some("h3_multiplex_scaling"),
+                Some("h3_multiplexed_streams_s4"),
+            )],
+            metrics: Vec::new(),
+        };
+
+        let report = evaluate_artifact_gate(
+            &bundle,
+            Path::new("native/bench/artifacts/bench_results.summary.json"),
+            &policy,
+        );
+
+        assert!(report.failed());
+        assert_eq!(report.findings.len(), 1);
+        assert_eq!(report.findings[0].kind, "backpressure_events");
+        assert_eq!(report.findings[0].observed, 81);
+        assert_eq!(report.findings[0].threshold, 80);
+    }
+
+    #[test]
+    fn artifact_gate_metric_policy_flags_performance_regressions() {
+        let bundle = ArtifactBundle {
+            generated_at_ms: 1,
+            source_results: "bench_results.jsonl".to_string(),
+            workloads: vec![summarize_report(&clean_report())],
+        };
+        let policy = ArtifactGatePolicy {
+            thresholds: Vec::new(),
+            metrics: vec![
+                test_metric_threshold(THROUGHPUT_MBPS_MIN, 1.0, None, None),
+                test_metric_threshold(LATENCY_P95_MS_MAX, 25.0, None, None),
+            ],
+        };
+
+        let report = evaluate_artifact_gate(
+            &bundle,
+            Path::new("native/bench/artifacts/bench_results.summary.json"),
+            &policy,
+        );
+        let kinds = report
+            .metric_findings
+            .iter()
+            .map(|finding| finding.kind.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(report.failed());
+        assert!(report.findings.is_empty());
+        assert_eq!(report.finding_count(), 2);
+        assert_eq!(kinds, vec![THROUGHPUT_MBPS_MIN, LATENCY_P95_MS_MAX]);
+        assert_eq!(
+            report.metric_findings[0].comparison,
+            ArtifactGateMetricComparison::Min
+        );
+        assert_eq!(
+            report.metric_findings[1].comparison,
+            ArtifactGateMetricComparison::Max
+        );
+        assert!(render_artifact_gate_markdown(&report).contains("## Performance Findings"));
+    }
+
+    #[test]
+    fn artifact_gate_metric_policy_passes_values_within_thresholds() {
+        let bundle = ArtifactBundle {
+            generated_at_ms: 1,
+            source_results: "bench_results.jsonl".to_string(),
+            workloads: vec![summarize_report(&clean_report())],
+        };
+        let policy = ArtifactGatePolicy {
+            thresholds: Vec::new(),
+            metrics: vec![
+                test_metric_threshold(THROUGHPUT_MBPS_MIN, 0.009, None, None),
+                test_metric_threshold(LATENCY_P95_MS_MAX, 30.0, None, None),
+            ],
+        };
+
+        let report = evaluate_artifact_gate(
+            &bundle,
+            Path::new("native/bench/artifacts/bench_results.summary.json"),
+            &policy,
+        );
+
+        assert!(!report.failed());
+        assert!(report.findings.is_empty());
+        assert!(report.metric_findings.is_empty());
+    }
+
+    fn test_threshold(
+        kind: &str,
+        threshold: u64,
+        scenario: Option<&str>,
+        workload: Option<&str>,
+    ) -> ArtifactGateThreshold {
+        ArtifactGateThreshold {
+            kind: kind.to_string(),
+            threshold,
+            scenario: scenario.map(ToString::to_string),
+            workload: workload.map(ToString::to_string),
+            protocol: Some("h3".to_string()),
+            client_impl: None,
+            router_workers: None,
+            native_runtime_threads: None,
+        }
+    }
+
+    fn test_metric_threshold(
+        kind: &str,
+        threshold: f64,
+        scenario: Option<&str>,
+        workload: Option<&str>,
+    ) -> ArtifactGateMetricThreshold {
+        ArtifactGateMetricThreshold {
+            kind: kind.to_string(),
+            threshold,
+            scenario: scenario.map(ToString::to_string),
+            workload: workload.map(ToString::to_string),
+            protocol: None,
+            client_impl: None,
+            router_workers: None,
+            native_runtime_threads: None,
+        }
     }
 
     fn unique_temp_dir(prefix: &str) -> PathBuf {
