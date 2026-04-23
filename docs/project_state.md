@@ -114,10 +114,22 @@ Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.m
   `s1` at `threads=1, workers=1` (`683.91 -> 435.95 Mbps`,
   `66.64 -> 121.99 ms`), and `s16` at `threads=1, workers=1`
   (`620.66 -> 385.13 Mbps`, `884.91 -> 1449.49 ms`).
-- The next HTTP/3 candidate should therefore move away from larger
-  per-connection drain bursts and toward native wake/handoff behavior or a
-  lighter-weight way to surface queued HTTP/3 requests without reintroducing
-  one-worker starvation.
+- A lighter-weight HTTP/3 request-handle staging experiment has now been
+  ruled out too. Draining raw native request handles before materializing
+  them into `NativeHttpHandshake` objects produced
+  `out/h3-http3-handle-stage/`, which won `12/20` throughput quadrants but
+  still lost `12/20` p95 quadrants versus the kept
+  `out/h3-http3-round-robin/` baseline while barely moving queue depth. The
+  worst losses were `s2` at `threads=4, workers=1`
+  (`732.93 -> 659.55 Mbps`, `116.86 -> 132.12 ms`), `s8` at
+  `threads=1, workers=1` (`712.03 -> 654.72 Mbps`, `435.16 -> 495.72 ms`),
+  and `s16` at `threads=1, workers=4` (`678.72 -> 609.39 Mbps`,
+  `1104.96 -> 1114.05 ms`). `bin/check-bench-artifacts` still failed with
+  `32` findings because the `s2+` quadrants remained above the zero-threshold
+  `backpressure_events`/`backpressure_alerts` gate.
+- The next HTTP/3 candidate should therefore move away from Dart-side handle
+  staging and back toward a real native wake/handoff or queue-depth reduction
+  path rather than more boss-loop reshaping.
 - The pinned WAMP conformance snapshot now covers one router-level
   multi-session vector in addition to the existing single-message serializer
   subset. `packages/connectanum_core/testdata/wamp_conformance/multisession/advanced/publisher_exclusion_disabled.json`

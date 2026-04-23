@@ -105,7 +105,19 @@ connection depths by targeting the transport/backpressure path directly.
   `s1` at `threads=1, workers=1` (`683.91 -> 435.95 Mbps`,
   `66.64 -> 121.99 ms`), and `s16` at `threads=1, workers=1`
   (`620.66 -> 385.13 Mbps`, `884.91 -> 1449.49 ms`).
-- The next candidate should therefore move away from larger per-connection
-  drain bursts and toward native wake/handoff behavior or a lighter-weight way
-  to surface queued HTTP/3 requests without letting a single connection
-  dominate the one-worker path again.
+- A lighter-weight HTTP/3 request-handle staging experiment was measured and
+  rejected next. Draining raw native request handles into a staged Dart list
+  before materializing them into `NativeHttpHandshake` objects produced
+  `out/h3-http3-handle-stage/`, which won `12/20` throughput quadrants but
+  still lost `12/20` p95 quadrants versus the kept
+  `out/h3-http3-round-robin/` baseline while barely moving queue depth. The
+  worst losses were `s2` at `threads=4, workers=1`
+  (`732.93 -> 659.55 Mbps`, `116.86 -> 132.12 ms`), `s8` at
+  `threads=1, workers=1` (`712.03 -> 654.72 Mbps`, `435.16 -> 495.72 ms`),
+  and `s16` at `threads=1, workers=4` (`678.72 -> 609.39 Mbps`,
+  `1104.96 -> 1114.05 ms`). `bin/check-bench-artifacts --summary out/h3-http3-handle-stage/bench_results.summary.json`
+  still failed with `32` findings because the `s2+` quadrants remained above
+  the zero-threshold `backpressure_events`/`backpressure_alerts` gate.
+- The next candidate should therefore move away from Dart-side handle staging
+  and back toward a real native wake/handoff or queue-depth reduction path
+  rather than more boss-loop reshaping.
