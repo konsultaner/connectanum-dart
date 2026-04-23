@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-23
 Current branch: `add-router`
-Last reviewed commit: `06f3b43` (`test(ci): provision native client runtime before fast checks`)
-Active exec plan: `docs/exec-plans/2026-04-23-ci-artifact-cleanup-and-native-matrix.md`
+Last reviewed commit: `7049801` (`ci(native): drop raw ci artifacts and expand bundle matrix`)
+Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.md`
 
 ## Last Known Verification
 
@@ -31,10 +31,9 @@ Active exec plan: `docs/exec-plans/2026-04-23-ci-artifact-cleanup-and-native-mat
 - Root shell helpers now auto-detect Dart from Flutter, Rust from `~/.cargo`, Chrome/Chromium, and the standard prebuilt native library path.
 - GitHub Actions CI now runs through the canonical root `bin/*` entrypoints on branch pushes and PRs to `master`; GitHub Actions run `24732889424` for `2fac53b` completed successfully with both `Fast Checks` and `Full Verify`.
 - The CI workflow now targets all branch pushes plus PRs to `master`, and it also exposes `workflow_dispatch` for manual runs.
-- The latest known branch CI is green again. GitHub Actions run `24823387475`
-  on commit `06f3b43` passed both `Fast Checks` and `Full Verify` after the
-  canonical root flows started provisioning the native client runtime before
-  the native client E2EE coverage.
+- The latest known branch CI is green. GitHub Actions run `24824613232` on
+  commit `7049801` passed both `Fast Checks` and `Full Verify` after the main
+  `CI` workflow was kept verification-only.
 - `bin/test-fast` now provisions
   the native client runtime before `packages/connectanum_client/test/client_test.dart`
   on supported hosts, both root client flows now include
@@ -45,6 +44,10 @@ Active exec plan: `docs/exec-plans/2026-04-23-ci-artifact-cleanup-and-native-mat
   `CONNECTANUM_ARTIFACT_DIR` remains an explicit local/debug switch, and
   published artifacts now come from the dedicated `Native Artifacts` and
   bench/gate workflows instead.
+- GitHub Actions run `24825770571` (`Native Artifacts`, `workflow_dispatch`)
+  passed on commit `7049801` across Linux x64, Linux arm64, macOS arm64, and
+  macOS Intel. The release-publishing job was skipped as expected because the
+  validation dispatch did not provide a release tag.
 - The root router verification now runs from `packages/connectanum_router` so the package-local `dart_test.yaml` (`concurrency: 1`) applies to the full suite on every host.
 - The root bench verification now runs from `packages/connectanum_bench` so the package-local `dart_test.yaml` (`concurrency: 1`) applies to the full suite on every host, matching the process-global native runtime constraint already enforced in the router package.
 - The bench WAMP integration tests now resolve their worker helper from either the bench package root or the repo root so Linux CI and local root-script runs share the same path contract.
@@ -304,6 +307,21 @@ Active exec plan: `docs/exec-plans/2026-04-23-ci-artifact-cleanup-and-native-mat
 
 ## Verification Status
 
+- 2026-04-23: `bin/verify` passed on Darwin arm64 after closing the
+  CI-artifact cleanup/native-matrix plan in project state and reactivating the
+  HTTP/3 transport/backpressure plan.
+- 2026-04-23: GitHub Actions run `24825770571` (`Native Artifacts`,
+  `workflow_dispatch`) passed on commit `7049801` across Linux x64, Linux
+  arm64, macOS arm64, and macOS Intel; `Publish GitHub Release` skipped because
+  no release tag was provided for the validation dispatch.
+- 2026-04-23: GitHub Actions run `24824613232` (`CI`) passed on commit
+  `7049801`, with both `Fast Checks` and `Full Verify` green after removing
+  the generic CI metrics artifact upload and expanding the native bundle
+  matrix.
+- 2026-04-23: `bin/test-fast`, workflow YAML parsing via Ruby, and
+  `bin/verify` passed on Darwin arm64 after keeping the main `CI` workflow
+  verification-only and expanding `Native Artifacts` to Linux x64, Linux arm64,
+  macOS arm64, and macOS Intel.
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after updating `AGENTS.md` and this state file so autonomous continuation now prioritizes a clean CI chain and production-readiness work before exploratory implementation.
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after recording the rejected `out/h3-http3-request-ready-wake/` experiment and reverting the router/native code to the kept steady-state round-robin HTTP/3 drain.
 - 2026-04-23: `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h3_multiplex_scaling.toml --router-worker-counts 1,4 --native-runtime-thread-counts 1,4 --results out/h3-http3-request-ready-wake/bench_results.jsonl --artifact-dir out/h3-http3-request-ready-wake` passed on Darwin arm64 and was recorded as a negative result. Compared with `out/h3-http3-round-robin`, the request-ready wake variant won only `7/20` throughput quadrants and `7/20` p95 quadrants, still failed the bench gate with `32` findings, and regressed deep `s8/s16` reuse too hard to keep.
@@ -495,12 +513,12 @@ Active exec plan: `docs/exec-plans/2026-04-23-ci-artifact-cleanup-and-native-mat
 
 ## Active Plan
 
-- Active plan: none currently; choose the next milestone from `ROADMAP_NEXT.md`
+- Active plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.md`
 - Supporting research notes:
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-23-public-docs-runtime-semantics.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-23-multisession-conformance-gate.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-23-ci-artifact-cleanup-and-native-matrix.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-23-public-docs-runtime-semantics.md`
 
 ## Known Follow-Ups
 

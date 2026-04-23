@@ -34,7 +34,7 @@ expanding the `Native Artifacts` workflow to an explicit four-platform
 
 ## Status
 
-- in_progress
+- completed
 
 ## Findings
 
@@ -53,5 +53,11 @@ expanding the `Native Artifacts` workflow to an explicit four-platform
   public repositories, which matches the desired four-platform `ct_ffi`
   release matrix.
 - Local verification is green for the workflow/doc change set: `bin/test-fast`,
-  workflow YAML parsing, and `bin/verify` all pass. Hosted workflow
-  confirmation is the remaining step keeping this plan active.
+  workflow YAML parsing, and `bin/verify` all pass.
+- GitHub Actions run `24824613232` on commit `7049801` confirmed the branch
+  `CI` chain stayed green after the generic metrics artifact upload was
+  removed.
+- GitHub Actions run `24825770571` (`Native Artifacts`, `workflow_dispatch`)
+  confirmed the expanded hosted bundle matrix on Linux x64, Linux arm64, macOS
+  arm64, and macOS Intel. The `Publish GitHub Release` job skipped as expected
+  because no release tag was supplied for the validation dispatch.
