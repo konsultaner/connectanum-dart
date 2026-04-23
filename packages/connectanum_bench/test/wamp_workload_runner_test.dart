@@ -171,6 +171,40 @@ void main() {
       },
     );
 
+    test(
+      'throws when rpc peer registration does not complete before timeout',
+      () async {
+        final broker = _FakeWampBroker();
+        var sessionOpenCount = 0;
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async {
+            sessionOpenCount += 1;
+            if (sessionOpenCount == 1) {
+              return _FakeWampSession(broker);
+            }
+            return _FakeWampSession(broker, hangRegister: true);
+          },
+          logger: Logger.detached('rpc_peer_register_timeout_test'),
+          eventTimeout: const Duration(milliseconds: 50),
+        );
+        final scenario = WampScenario(
+          transport: WampTransport.rawsocket,
+          serializer: WampSerializer.json,
+          peerSerializer: WampSerializer.cbor,
+          mode: WampMode.rpc,
+          uri: 'bench.rpc.echo',
+          iterations: 1,
+          concurrency: 1,
+          payloadBytes: 4,
+        );
+
+        await expectLater(
+          () => runner.run(scenario),
+          throwsA(isA<TimeoutException>()),
+        );
+      },
+    );
+
     test('executes RPC scenario via the single-result call path', () async {
       final broker = _FakeWampBroker(
         callDelay: const Duration(milliseconds: 10),
@@ -300,6 +334,33 @@ void main() {
       },
     );
 
+    test(
+      'publish-ack scenario times out when publish acknowledgement stalls',
+      () async {
+        final broker = _FakeWampBroker();
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async =>
+              _FakeWampSession(broker, hangPublishLazyPayload: true),
+          logger: Logger.detached('publish_ack_timeout_test'),
+          eventTimeout: const Duration(milliseconds: 50),
+        );
+        final scenario = WampScenario(
+          transport: WampTransport.rawsocket,
+          serializer: WampSerializer.cbor,
+          mode: WampMode.publishAck,
+          uri: 'bench.control.topic',
+          iterations: 1,
+          concurrency: 1,
+          payloadBytes: 8,
+        );
+
+        await expectLater(
+          () => runner.run(scenario),
+          throwsA(isA<TimeoutException>()),
+        );
+      },
+    );
+
     test('control workloads can add custom option fields', () async {
       final broker = _FakeWampBroker();
       final runner = WampWorkloadRunner(
@@ -358,6 +419,61 @@ void main() {
       expect(broker.lastSubscribeOptions?.getRetained, isTrue);
     });
 
+    test(
+      'subscribe-cycle scenario times out when subscribe never completes',
+      () async {
+        final broker = _FakeWampBroker();
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async =>
+              _FakeWampSession(broker, hangSubscribe: true),
+          logger: Logger.detached('subscribe_cycle_subscribe_timeout_test'),
+          eventTimeout: const Duration(milliseconds: 50),
+        );
+        final scenario = WampScenario(
+          transport: WampTransport.websocket,
+          serializer: WampSerializer.msgpack,
+          mode: WampMode.subscribeCycle,
+          uri: 'bench.control.topic',
+          iterations: 1,
+          concurrency: 1,
+          payloadBytes: 0,
+        );
+
+        await expectLater(
+          () => runner.run(scenario),
+          throwsA(isA<TimeoutException>()),
+        );
+      },
+    );
+
+    test(
+      'subscribe-cycle scenario times out when unsubscribe never completes',
+      () async {
+        final broker = _FakeWampBroker();
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async =>
+              _FakeWampSession(broker, hangSubscriptionCancel: true),
+          logger: Logger.detached('subscribe_cycle_unsubscribe_timeout_test'),
+          eventTimeout: const Duration(milliseconds: 50),
+          cancelCleanupTimeout: const Duration(milliseconds: 10),
+        );
+        final scenario = WampScenario(
+          transport: WampTransport.websocket,
+          serializer: WampSerializer.msgpack,
+          mode: WampMode.subscribeCycle,
+          uri: 'bench.control.topic',
+          iterations: 1,
+          concurrency: 1,
+          payloadBytes: 0,
+        );
+
+        await expectLater(
+          () => runner.run(scenario),
+          throwsA(isA<TimeoutException>()),
+        );
+      },
+    );
+
     test('executes register-cycle control workloads', () async {
       final broker = _FakeWampBroker();
       final runner = WampWorkloadRunner(
@@ -390,6 +506,61 @@ void main() {
         wamp_core.RegisterOptions.invocationPolicyRoundRobin,
       );
     });
+
+    test(
+      'register-cycle scenario times out when register never completes',
+      () async {
+        final broker = _FakeWampBroker();
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async =>
+              _FakeWampSession(broker, hangRegister: true),
+          logger: Logger.detached('register_cycle_register_timeout_test'),
+          eventTimeout: const Duration(milliseconds: 50),
+        );
+        final scenario = WampScenario(
+          transport: WampTransport.rawsocket,
+          serializer: WampSerializer.json,
+          mode: WampMode.registerCycle,
+          uri: 'bench.control.proc',
+          iterations: 1,
+          concurrency: 1,
+          payloadBytes: 0,
+        );
+
+        await expectLater(
+          () => runner.run(scenario),
+          throwsA(isA<TimeoutException>()),
+        );
+      },
+    );
+
+    test(
+      'register-cycle scenario times out when unregister never completes',
+      () async {
+        final broker = _FakeWampBroker();
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async =>
+              _FakeWampSession(broker, hangRegistrationCancel: true),
+          logger: Logger.detached('register_cycle_unregister_timeout_test'),
+          eventTimeout: const Duration(milliseconds: 50),
+          cancelCleanupTimeout: const Duration(milliseconds: 10),
+        );
+        final scenario = WampScenario(
+          transport: WampTransport.rawsocket,
+          serializer: WampSerializer.json,
+          mode: WampMode.registerCycle,
+          uri: 'bench.control.proc',
+          iterations: 1,
+          concurrency: 1,
+          payloadBytes: 0,
+        );
+
+        await expectLater(
+          () => runner.run(scenario),
+          throwsA(isA<TimeoutException>()),
+        );
+      },
+    );
 
     test('executes cancel-cycle control workloads', () async {
       final broker = _FakeWampBroker();
@@ -1300,10 +1471,23 @@ class _FakeWampBroker {
 }
 
 class _FakeWampSession implements WampSession {
-  _FakeWampSession(this._broker, {this.useDirectEventHandler = false});
+  _FakeWampSession(
+    this._broker, {
+    this.useDirectEventHandler = false,
+    this.hangPublishLazyPayload = false,
+    this.hangSubscribe = false,
+    this.hangSubscriptionCancel = false,
+    this.hangRegister = false,
+    this.hangRegistrationCancel = false,
+  });
 
   final _FakeWampBroker _broker;
   final bool useDirectEventHandler;
+  final bool hangPublishLazyPayload;
+  final bool hangSubscribe;
+  final bool hangSubscriptionCancel;
+  final bool hangRegister;
+  final bool hangRegistrationCancel;
   final List<WampSubscription> _subscriptions = [];
   final _disconnectCompleter = Completer<void>();
   var isClosed = false;
@@ -1318,9 +1502,17 @@ class _FakeWampSession implements WampSession {
     onInvoke, {
     wamp_core.RegisterOptions? options,
   }) async {
+    if (hangRegister) {
+      return Completer<WampRegistration>().future;
+    }
     _broker.addLazyRegistration(procedure, onInvoke, options: options);
     return WampRegistration(
-      cancel: () async => _broker.removeLazyRegistration(procedure),
+      cancel: () async {
+        if (hangRegistrationCancel) {
+          return Completer<void>().future;
+        }
+        _broker.removeLazyRegistration(procedure);
+      },
     );
   }
 
@@ -1353,6 +1545,9 @@ class _FakeWampSession implements WampSession {
     required wamp_core.LazyMessagePayload payload,
     wamp_core.PublishOptions? options,
   }) {
+    if (hangPublishLazyPayload) {
+      return Completer<void>().future;
+    }
     return publish(
       topic,
       arguments: payload.arguments,
@@ -1366,6 +1561,9 @@ class _FakeWampSession implements WampSession {
     String topic, {
     wamp_core.SubscribeOptions? options,
   }) async {
+    if (hangSubscribe) {
+      return Completer<WampSubscription>().future;
+    }
     _broker.lastSubscribeOptions = options;
     WampSubscription subscription;
     if (useDirectEventHandler) {
@@ -1376,6 +1574,9 @@ class _FakeWampSession implements WampSession {
           _broker.addPayloadCallbackSubscriber(topic, onEvent);
         },
         cancel: () async {
+          if (hangSubscriptionCancel) {
+            return Completer<void>().future;
+          }
           final activeCallback = callback;
           if (activeCallback != null) {
             _broker.removePayloadCallbackSubscriber(topic, activeCallback);
@@ -1390,6 +1591,9 @@ class _FakeWampSession implements WampSession {
       subscription = WampSubscription(
         eventStreamFactory: () => controller.stream,
         cancel: () async {
+          if (hangSubscriptionCancel) {
+            return Completer<void>().future;
+          }
           _broker.removePayloadSubscriber(topic, controller);
           await controller.close();
         },
@@ -1404,6 +1608,9 @@ class _FakeWampSession implements WampSession {
     String topic, {
     wamp_core.SubscribeOptions? options,
   }) async {
+    if (hangSubscribe) {
+      return Completer<WampSubscription>().future;
+    }
     _broker.lastSubscribeOptions = options;
     WampSubscription subscription;
     if (useDirectEventHandler) {
@@ -1414,6 +1621,9 @@ class _FakeWampSession implements WampSession {
           _broker.addPayloadCallbackSubscriber(topic, onEvent);
         },
         cancel: () async {
+          if (hangSubscriptionCancel) {
+            return Completer<void>().future;
+          }
           final activeCallback = callback;
           if (activeCallback != null) {
             _broker.removePayloadCallbackSubscriber(topic, activeCallback);
@@ -1428,6 +1638,9 @@ class _FakeWampSession implements WampSession {
       subscription = WampSubscription(
         eventStreamFactory: () => controller.stream,
         cancel: () async {
+          if (hangSubscriptionCancel) {
+            return Completer<void>().future;
+          }
           _broker.removePayloadSubscriber(topic, controller);
           await controller.close();
         },

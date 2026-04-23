@@ -105,7 +105,17 @@ class WampWorkloadRunner {
       timeoutLabel: 'wamp_auth',
       logLabel: 'Authenticate',
     );
-    await session.close();
+    await _runTimedOperation(
+      session.close(),
+      timeout: _eventTimeout,
+      timeoutLabel: 'wamp_auth_close_timeout',
+      logLabel: 'Authenticate close',
+      details: _operationDetails(
+        scenario,
+        workerId: workerId,
+        iteration: iteration,
+      ),
+    );
     final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
     return WampSample(
       worker: workerId,
@@ -143,8 +153,16 @@ class WampWorkloadRunner {
           logLabel: 'PUBSUB subscriber',
         );
         subscribers.add(subscriber);
-        final subscription = await subscriber.subscribeLazyPayload(
-          scenario.uri,
+        final subscription = await _runTimedOperation(
+          subscriber.subscribeLazyPayload(scenario.uri),
+          timeout: _eventTimeout,
+          timeoutLabel: 'pubsub_subscribe_timeout',
+          logLabel: 'PUBSUB subscribe',
+          details: _operationDetails(
+            subscriberScenario,
+            workerId: workerId,
+            peerIndex: peerIndex,
+          ),
         );
         final eventBuffer = WampEventBuffer();
         subscription.onEvent((event) {
@@ -195,12 +213,26 @@ class WampWorkloadRunner {
         eventBuffer.close();
       }
       for (final subscription in subscriptions) {
-        await subscription.cancel();
+        await _runCleanupOperation(
+          subscription.cancel,
+          logLabel: 'PUBSUB subscription',
+          details: _operationDetails(scenario, workerId: workerId),
+        );
       }
       for (final subscriber in subscribers) {
-        await subscriber.close();
+        await _runCleanupOperation(
+          subscriber.close,
+          logLabel: 'PUBSUB subscriber session',
+          details: _operationDetails(scenario, workerId: workerId),
+        );
       }
-      await publisher?.close();
+      if (publisher != null) {
+        await _runCleanupOperation(
+          publisher.close,
+          logLabel: 'PUBSUB publisher session',
+          details: _operationDetails(scenario, workerId: workerId),
+        );
+      }
     }
     return samples;
   }
@@ -227,14 +259,24 @@ class WampWorkloadRunner {
             .timeout(_eventTimeout),
     ];
     final start = DateTime.now();
-    await publisher.publishLazyPayload(
-      scenario.uri,
-      payload: _buildLazyPayload(
-        scenario,
-        arguments: [payload],
-        argumentsKeywords: metadata,
+    await _runTimedOperation(
+      publisher.publishLazyPayload(
+        scenario.uri,
+        payload: _buildLazyPayload(
+          scenario,
+          arguments: [payload],
+          argumentsKeywords: metadata,
+        ),
+        options: _buildPublishOptions(scenario),
       ),
-      options: _buildPublishOptions(scenario),
+      timeout: _eventTimeout,
+      timeoutLabel: 'pubsub_publish_timeout',
+      logLabel: 'PUBSUB publish',
+      details: _operationDetails(
+        scenario,
+        workerId: workerId,
+        iteration: iteration,
+      ),
     );
     _logger.fine(
       'PUBSUB publish acked worker=$workerId iteration=$iteration uri=${scenario.uri}',
@@ -298,14 +340,158 @@ class WampWorkloadRunner {
     if (peerIndex != null) {
       details.write(' peer=$peerIndex');
     }
-    return _sessionFactory(scenario).timeout(
-      _eventTimeout,
+    return _runTimedOperation(
+      _sessionFactory(scenario),
+      timeout: _eventTimeout,
+      timeoutLabel: '${timeoutLabel}_open_timeout',
+      logLabel: '$logLabel session open',
+      details: details.toString(),
+    );
+  }
+
+  String _operationDetails(
+    WampScenario scenario, {
+    required int workerId,
+    int? iteration,
+    int? peerIndex,
+    String? targetUri,
+  }) {
+    final details = StringBuffer()
+      ..write('worker=$workerId ')
+      ..write('transport=${scenario.transport.name} ')
+      ..write('serializer=${scenario.serializer.name} ')
+      ..write('realm=${scenario.realmUri} ')
+      ..write('uri=${targetUri ?? scenario.uri}');
+    if (iteration != null) {
+      details.write(' iteration=$iteration');
+    }
+    if (peerIndex != null) {
+      details.write(' peer=$peerIndex');
+    }
+    return details.toString();
+  }
+
+  Future<T> _runTimedOperation<T>(
+    Future<T> operation, {
+    required Duration timeout,
+    required String timeoutLabel,
+    required String logLabel,
+    required String details,
+  }) {
+    return operation.timeout(
+      timeout,
       onTimeout: () {
-        _logger.severe(
-          '$logLabel session open timed out ${details.toString()}',
-        );
-        throw TimeoutException('${timeoutLabel}_open_timeout');
+        _logger.severe('$logLabel timed out $details timeout=$timeout');
+        throw TimeoutException(timeoutLabel);
       },
+    );
+  }
+
+  Future<void> _runCleanupOperation(
+    Future<void> Function() operation, {
+    required String logLabel,
+    required String details,
+  }) async {
+    try {
+      await operation().timeout(_cancelCleanupTimeout);
+    } on TimeoutException {
+      _logger.warning(
+        '$logLabel cleanup timed out $details timeout=$_cancelCleanupTimeout',
+      );
+    }
+  }
+
+  Future<WampRegistration> _registerLazyPayloadHandler(
+    WampSession session,
+    String procedure,
+    FutureOr<void> Function(wamp_core.LazyInvocationPayload invocation)
+    onInvoke, {
+    required WampScenario scenario,
+    required int workerId,
+    int? iteration,
+    required String timeoutLabel,
+    required String logLabel,
+    wamp_core.RegisterOptions? options,
+  }) {
+    return _runTimedOperation(
+      session.registerLazyPayloadHandler(procedure, onInvoke, options: options),
+      timeout: _eventTimeout,
+      timeoutLabel: timeoutLabel,
+      logLabel: logLabel,
+      details: _operationDetails(
+        scenario,
+        workerId: workerId,
+        iteration: iteration,
+        targetUri: procedure,
+      ),
+    );
+  }
+
+  Future<WampSubscription> _subscribeLazyPayload(
+    WampSession session,
+    String topic, {
+    required WampScenario scenario,
+    required int workerId,
+    int? iteration,
+    int? peerIndex,
+    required String timeoutLabel,
+    required String logLabel,
+    wamp_core.SubscribeOptions? options,
+  }) {
+    return _runTimedOperation(
+      session.subscribeLazyPayload(topic, options: options),
+      timeout: _eventTimeout,
+      timeoutLabel: timeoutLabel,
+      logLabel: logLabel,
+      details: _operationDetails(
+        scenario,
+        workerId: workerId,
+        iteration: iteration,
+        peerIndex: peerIndex,
+        targetUri: topic,
+      ),
+    );
+  }
+
+  Future<void> _cancelSubscription(
+    WampSubscription subscription, {
+    required WampScenario scenario,
+    required int workerId,
+    required int iteration,
+    required String timeoutLabel,
+    required String logLabel,
+  }) {
+    return _runTimedOperation(
+      subscription.cancel(),
+      timeout: _eventTimeout,
+      timeoutLabel: timeoutLabel,
+      logLabel: logLabel,
+      details: _operationDetails(
+        scenario,
+        workerId: workerId,
+        iteration: iteration,
+      ),
+    );
+  }
+
+  Future<void> _cancelRegistration(
+    WampRegistration registration, {
+    required WampScenario scenario,
+    required int workerId,
+    required int iteration,
+    required String timeoutLabel,
+    required String logLabel,
+  }) {
+    return _runTimedOperation(
+      registration.cancel(),
+      timeout: _eventTimeout,
+      timeoutLabel: timeoutLabel,
+      logLabel: logLabel,
+      details: _operationDetails(
+        scenario,
+        workerId: workerId,
+        iteration: iteration,
+      ),
     );
   }
 
@@ -345,10 +531,15 @@ class WampWorkloadRunner {
           timeoutLabel: 'rpc_callee',
           logLabel: 'RPC callee',
         );
-        registration = await calleeSession.registerLazyPayloadHandler(
+        registration = await _registerLazyPayloadHandler(
+          calleeSession,
           procedure,
           (invocation) =>
               respondEchoLazyInvocation(invocation, logger: _logger),
+          scenario: peerScenario,
+          workerId: workerId,
+          timeoutLabel: 'rpc_register_timeout',
+          logLabel: 'RPC registration',
         );
       }
       samples.addAll(
@@ -373,9 +564,39 @@ class WampWorkloadRunner {
       );
       rethrow;
     } finally {
-      await registration?.cancel();
-      await calleeSession?.close();
-      await session?.close();
+      if (registration != null) {
+        await _runCleanupOperation(
+          registration.cancel,
+          logLabel: 'RPC registration',
+          details: _operationDetails(
+            scenario,
+            workerId: workerId,
+            targetUri: procedure,
+          ),
+        );
+      }
+      if (calleeSession != null) {
+        await _runCleanupOperation(
+          calleeSession.close,
+          logLabel: 'RPC callee session',
+          details: _operationDetails(
+            scenario,
+            workerId: workerId,
+            targetUri: procedure,
+          ),
+        );
+      }
+      if (session != null) {
+        await _runCleanupOperation(
+          session.close,
+          logLabel: 'RPC caller session',
+          details: _operationDetails(
+            scenario,
+            workerId: workerId,
+            targetUri: procedure,
+          ),
+        );
+      }
     }
     return samples;
   }
@@ -457,7 +678,13 @@ class WampWorkloadRunner {
         ),
       );
     } finally {
-      await publisher?.close();
+      if (publisher != null) {
+        await _runCleanupOperation(
+          publisher.close,
+          logLabel: 'Publish-ack publisher session',
+          details: _operationDetails(scenario, workerId: workerId),
+        );
+      }
     }
   }
 
@@ -470,13 +697,24 @@ class WampWorkloadRunner {
   ) async {
     final topic = _iterationUri(scenario.uri, workerId, iteration);
     final start = DateTime.now();
-    await publisher.publishLazyPayload(
-      topic,
-      payload: _buildLazyPayload(
-        scenario,
-        arguments: payload.isEmpty ? null : [payload],
+    await _runTimedOperation(
+      publisher.publishLazyPayload(
+        topic,
+        payload: _buildLazyPayload(
+          scenario,
+          arguments: payload.isEmpty ? null : [payload],
+        ),
+        options: _buildControlPublishOptions(scenario),
       ),
-      options: _buildControlPublishOptions(scenario),
+      timeout: _eventTimeout,
+      timeoutLabel: 'publish_ack_timeout',
+      logLabel: 'Publish-ack publish',
+      details: _operationDetails(
+        scenario,
+        workerId: workerId,
+        iteration: iteration,
+        targetUri: topic,
+      ),
     );
     final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
     return WampSample(
@@ -522,7 +760,13 @@ class WampWorkloadRunner {
         ),
       );
     } finally {
-      await session?.close();
+      if (session != null) {
+        await _runCleanupOperation(
+          session.close,
+          logLabel: 'Subscribe-cycle session',
+          details: _operationDetails(scenario, workerId: workerId),
+        );
+      }
     }
   }
 
@@ -534,11 +778,24 @@ class WampWorkloadRunner {
   ) async {
     final topic = _iterationUri(scenario.uri, workerId, iteration);
     final start = DateTime.now();
-    final subscription = await session.subscribeLazyPayload(
+    final subscription = await _subscribeLazyPayload(
+      session,
       topic,
+      scenario: scenario,
+      workerId: workerId,
+      iteration: iteration,
+      timeoutLabel: 'subscribe_cycle_subscribe_timeout',
+      logLabel: 'Subscribe-cycle subscribe',
       options: _buildControlSubscribeOptions(scenario),
     );
-    await subscription.cancel();
+    await _cancelSubscription(
+      subscription,
+      scenario: scenario,
+      workerId: workerId,
+      iteration: iteration,
+      timeoutLabel: 'subscribe_cycle_unsubscribe_timeout',
+      logLabel: 'Subscribe-cycle unsubscribe',
+    );
     final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
     return WampSample(
       worker: workerId,
@@ -579,7 +836,13 @@ class WampWorkloadRunner {
             _runRegisterCycleIteration(workerId, iteration, scenario, session!),
       );
     } finally {
-      await session?.close();
+      if (session != null) {
+        await _runCleanupOperation(
+          session.close,
+          logLabel: 'Register-cycle session',
+          details: _operationDetails(scenario, workerId: workerId),
+        );
+      }
     }
   }
 
@@ -591,12 +854,25 @@ class WampWorkloadRunner {
   ) async {
     final procedure = _iterationUri(scenario.uri, workerId, iteration);
     final start = DateTime.now();
-    final registration = await session.registerLazyPayloadHandler(
+    final registration = await _registerLazyPayloadHandler(
+      session,
       procedure,
       (_) {},
+      scenario: scenario,
+      workerId: workerId,
+      iteration: iteration,
+      timeoutLabel: 'register_cycle_register_timeout',
+      logLabel: 'Register-cycle register',
       options: _buildControlRegisterOptions(scenario),
     );
-    await registration.cancel();
+    await _cancelRegistration(
+      registration,
+      scenario: scenario,
+      workerId: workerId,
+      iteration: iteration,
+      timeoutLabel: 'register_cycle_unregister_timeout',
+      logLabel: 'Register-cycle unregister',
+    );
     final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
     return WampSample(
       worker: workerId,
@@ -640,22 +916,16 @@ class WampWorkloadRunner {
         timeoutLabel: 'cancel_callee',
         logLabel: 'Cancel-cycle callee',
       );
-      registration = await callee
-          .registerLazyPayloadHandler(
-            procedure,
-            (_) {},
-            options: _buildControlRegisterOptions(scenario),
-          )
-          .timeout(
-            _eventTimeout,
-            onTimeout: () {
-              _logger.severe(
-                'Cancel-cycle registration timed out '
-                'worker=$workerId uri=$procedure',
-              );
-              throw TimeoutException('cancel_register_timeout');
-            },
-          );
+      registration = await _registerLazyPayloadHandler(
+        callee,
+        procedure,
+        (_) {},
+        scenario: _peerScenario(scenario),
+        workerId: workerId,
+        timeoutLabel: 'cancel_register_timeout',
+        logLabel: 'Cancel-cycle registration',
+        options: _buildControlRegisterOptions(scenario),
+      );
       return await _runWithInFlightLimit(
         iterations: scenario.iterations,
         maxInFlight: scenario.inFlightPerSession,
@@ -664,17 +934,38 @@ class WampWorkloadRunner {
       );
     } finally {
       if (registration != null) {
-        try {
-          await registration.cancel().timeout(_cancelCleanupTimeout);
-        } on TimeoutException {
-          _logger.warning(
-            'Cancel-cycle registration cleanup timed out for $procedure; '
-            'closing sessions to force teardown of interrupted invocations.',
-          );
-        }
+        await _runCleanupOperation(
+          registration.cancel,
+          logLabel: 'Cancel-cycle registration',
+          details: _operationDetails(
+            scenario,
+            workerId: workerId,
+            targetUri: procedure,
+          ),
+        );
       }
-      await callee?.close();
-      await caller?.close();
+      if (callee != null) {
+        await _runCleanupOperation(
+          callee.close,
+          logLabel: 'Cancel-cycle callee session',
+          details: _operationDetails(
+            scenario,
+            workerId: workerId,
+            targetUri: procedure,
+          ),
+        );
+      }
+      if (caller != null) {
+        await _runCleanupOperation(
+          caller.close,
+          logLabel: 'Cancel-cycle caller session',
+          details: _operationDetails(
+            scenario,
+            workerId: workerId,
+            targetUri: procedure,
+          ),
+        );
+      }
     }
   }
 

@@ -184,15 +184,29 @@ release decisions for real RawSocket/WebSocket WAMP users.
   explicit session-open timeouts across workload modes while cleaning up
   partially opened session sets on later-open failures. Targeted timeout tests
   plus a full `bin/verify` run passed locally on Darwin arm64.
-- 2026-04-23: Pushed the timeout-hardening follow-up as commit `35b4cd1` to
-  both remotes. Hosted GitHub workflow status for that commit still needs
-  confirmation from a working CI-status source.
+- 2026-04-23: Hosted GitHub validation for the timeout-hardening checkpoint is
+  now confirmed green. Commit `35b4cd1` passed `kTLS Validation`
+  (`24852537007`), `WAMP Profile Benchmarks` (`24852537018`), and push `CI`
+  (`24852537035`), and the follow-up docs checkpoint `9462ba1` also passed
+  push `CI` (`24852585677`).
+- 2026-04-23: Audited the remaining WAMP setup/control paths and found more
+  unbounded waits after the first hang fix: publish acknowledgements,
+  subscribe/register setup, unregister/unsubscribe teardown, and some
+  session-close cleanup paths could still stall the canonical release gate.
+  `packages/connectanum_bench/lib/src/wamp_workload_runner.dart` now bounds
+  those operations too and applies cleanup timeouts during worker teardown.
+  Added focused regressions in
+  `packages/connectanum_bench/test/wamp_workload_runner_test.dart` for RPC
+  peer-registration stalls plus publish-ack, subscribe-cycle, and
+  register-cycle timeout cases. `dart test
+  packages/connectanum_bench/test/wamp_workload_runner_test.dart` and
+  `bin/verify` both passed locally on Darwin arm64 for the follow-up working
+  tree.
 
 ## Next Slice
 
-- Push the timeout-hardening follow-up and confirm hosted Linux passes the
-  updated canonical `WAMP Profile Benchmarks` workflow plus the normal `CI`
-  chain.
-- If hosted runs stay green, decide whether the remaining WAMP orchestration
-  setup phases need their own explicit local timeouts or whether this plan can
-  close with monitoring-only follow-up.
+- Push the remaining WAMP control/setup timeout-hardening follow-up and confirm
+  hosted Linux keeps the branch CI chain green on the new commit.
+- If hosted runs stay green, decide whether this WAMP performance-readiness
+  plan can close or whether one more failure-reporting/observability slice is
+  needed before handing priority back to the next milestone.

@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-23
 Current branch: `add-router`
-Last reviewed commit: `35b4cd1` (`fix(bench): bound wamp benchmark hangs`)
+Last reviewed commit: `9462ba1` (`docs: refresh benchmark timeout state`)
 Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance-readiness.md`
 
 ## Last Known Verification
@@ -157,14 +157,20 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
   and the full `bin/verify` rerun passed.
 - GitHub Actions CI now runs through the canonical root `bin/*` entrypoints on branch pushes and PRs to `master`; GitHub Actions run `24732889424` for `2fac53b` completed successfully with both `Fast Checks` and `Full Verify`.
 - The CI workflow now targets all branch pushes plus PRs to `master`, and it also exposes `workflow_dispatch` for manual runs.
-- The last confirmed green pushed branch CI on GitHub remains run
-  `24848746640` on commit `eb0aa5c`, which passed push `CI`, including
-  `Fast Checks` and `Full Verify`. The dedicated `WAMP Profile Diagnostics`
-  push run `24848746691` on the same commit also passed.
-- Commit `35b4cd1` is pushed to both remotes with the timeout-hardening
-  follow-up, but the
-  hosted GitHub workflow status for that commit has not been confirmed yet
-  from this environment.
+- Hosted GitHub validation is now confirmed green through the latest pushed
+  checkpoint. Commit `35b4cd1` passed `kTLS Validation`
+  (`24852537007`), `WAMP Profile Benchmarks` (`24852537018`), and push `CI`
+  (`24852537035`), and the follow-up docs checkpoint `9462ba1` also passed
+  push `CI` (`24852585677`).
+- The remaining WAMP control/setup timeout gaps are now hardened locally on top
+  of `9462ba1`. `packages/connectanum_bench/lib/src/wamp_workload_runner.dart`
+  now bounds the remaining publish/subscribe/register/close paths and applies
+  cleanup timeouts during worker teardown, and
+  `packages/connectanum_bench/test/wamp_workload_runner_test.dart` now covers
+  RPC peer-registration stalls plus publish-ack, subscribe-cycle, and
+  register-cycle timeout cases. `dart test
+  packages/connectanum_bench/test/wamp_workload_runner_test.dart` and
+  `bin/verify` passed locally on Darwin arm64 for this follow-up working tree.
 - `bin/test-fast` now provisions
   the native client runtime before `packages/connectanum_client/test/client_test.dart`
   on supported hosts, both root client flows now include
