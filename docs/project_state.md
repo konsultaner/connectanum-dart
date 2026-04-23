@@ -127,9 +127,24 @@ Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.m
   `1104.96 -> 1114.05 ms`). `bin/check-bench-artifacts` still failed with
   `32` findings because the `s2+` quadrants remained above the zero-threshold
   `backpressure_events`/`backpressure_alerts` gate.
+- A native HTTP/3 ready-queue experiment has now been ruled out too.
+  Publishing one native ready token per empty-to-non-empty HTTP/3 request
+  queue and draining through a `ct_http3_poll_ready_connection()` FFI path
+  produced `out/h3-http3-native-ready-queue/`, which won only `6/20`
+  throughput quadrants and `9/20` p95 quadrants versus the kept
+  `out/h3-http3-round-robin/` baseline. It improved some `s2/s4` points,
+  including `s2` at `threads=1, workers=1`
+  (`682.61 -> 759.90 Mbps`, `123.65 -> 119.00 ms`) and `s4` at
+  `threads=4, workers=4` (`665.68 -> 723.06 Mbps`, `284.97 -> 253.78 ms`),
+  but it regressed deeper reuse points such as `s8` at `threads=1, workers=1`
+  (`712.03 -> 666.92 Mbps`, `435.16 -> 478.63 ms`) and `s16` at
+  `threads=1, workers=4` (`678.72 -> 623.54 Mbps`, `1104.96 -> 1039.79 ms`).
+  `max_backpressure_depth_after` stayed unchanged in every quadrant, and
+  `bin/check-bench-artifacts` still failed with `32` findings.
 - The next HTTP/3 candidate should therefore move away from Dart-side handle
-  staging and back toward a real native wake/handoff or queue-depth reduction
-  path rather than more boss-loop reshaping.
+  staging and passive native ready-token publication and back toward a real
+  native wake/handoff or queue-depth reduction path rather than more boss-loop
+  reshaping.
 - The pinned WAMP conformance snapshot now covers one router-level
   multi-session vector in addition to the existing single-message serializer
   subset. `packages/connectanum_core/testdata/wamp_conformance/multisession/advanced/publisher_exclusion_disabled.json`
@@ -254,6 +269,8 @@ Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.m
 
 ## Verification Status
 
+- 2026-04-23: `bin/verify` passed on Darwin arm64 after recording the rejected `out/h3-http3-native-ready-queue/` experiment and reverting the router/native code to the kept steady-state round-robin HTTP/3 drain.
+- 2026-04-23: `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h3_multiplex_scaling.toml --router-worker-counts 1,4 --native-runtime-thread-counts 1,4 --results out/h3-http3-native-ready-queue/bench_results.jsonl --artifact-dir out/h3-http3-native-ready-queue` passed on Darwin arm64 and was recorded as a negative result. Compared with `out/h3-http3-round-robin`, the native ready-queue variant won only `6/20` throughput quadrants and `9/20` p95 quadrants, left `max_backpressure_depth_after` unchanged in every quadrant, and still failed the bench gate with `32` findings.
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after recording the rejected `out/h3-http3-followup-burst2/` bounded-follow-up-burst experiment and reverting the router code to the kept steady-state round-robin HTTP/3 drain.
 - 2026-04-23: `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h3_multiplex_scaling.toml --router-worker-counts 1,4 --native-runtime-thread-counts 1,4 --results out/h3-http3-followup-burst2/bench_results.jsonl --artifact-dir out/h3-http3-followup-burst2` passed on Darwin arm64 and was recorded as a negative result. Compared with `out/h3-http3-round-robin`, the bounded follow-up burst variant won only `9/20` throughput quadrants and `8/20` p95 quadrants, so the code was reverted and the active H3 plan remained open.
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after recording the rejected `out/h3-http3-priority/` loop-order experiment and stabilizing `native/transport/ct_ffi/src/tests/listen_flow.rs::http2_handshake_surfaced_via_ffi`.

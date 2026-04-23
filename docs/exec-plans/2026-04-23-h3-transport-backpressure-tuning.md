@@ -118,6 +118,22 @@ connection depths by targeting the transport/backpressure path directly.
   `1104.96 -> 1114.05 ms`). `bin/check-bench-artifacts --summary out/h3-http3-handle-stage/bench_results.summary.json`
   still failed with `32` findings because the `s2+` quadrants remained above
   the zero-threshold `backpressure_events`/`backpressure_alerts` gate.
+- A native HTTP/3 ready-queue experiment was measured and rejected next.
+  Publishing one native ready token per empty-to-non-empty HTTP/3 request
+  queue and draining through a `ct_http3_poll_ready_connection()` FFI path
+  produced `out/h3-http3-native-ready-queue/`, which won only `6/20`
+  throughput quadrants and `9/20` p95 quadrants versus the kept
+  `out/h3-http3-round-robin/` baseline. It improved some `s2/s4` points,
+  including `s2` at `threads=1, workers=1`
+  (`682.61 -> 759.90 Mbps`, `123.65 -> 119.00 ms`) and `s4` at
+  `threads=4, workers=4` (`665.68 -> 723.06 Mbps`, `284.97 -> 253.78 ms`),
+  but it regressed deeper reuse points such as `s8` at `threads=1, workers=1`
+  (`712.03 -> 666.92 Mbps`, `435.16 -> 478.63 ms`) and `s16` at
+  `threads=1, workers=4` (`678.72 -> 623.54 Mbps`, `1104.96 -> 1039.79 ms`).
+  `bin/check-bench-artifacts --summary out/h3-http3-native-ready-queue/bench_results.summary.json`
+  still failed with `32` findings, and `max_backpressure_depth_after` stayed
+  unchanged in every quadrant.
 - The next candidate should therefore move away from Dart-side handle staging
-  and back toward a real native wake/handoff or queue-depth reduction path
-  rather than more boss-loop reshaping.
+  and passive native ready-token publication and back toward a real native
+  wake/handoff or queue-depth reduction path rather than more boss-loop
+  reshaping.
