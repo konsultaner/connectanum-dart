@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-23
 Current branch: `add-router`
-Last reviewed commit: `eecc483` (`test(router): gate multisession conformance vector`)
-Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.md`
+Last reviewed commit: `2e84084` (`docs: clarify runtime behavior and examples`)
+Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.md`
 
 ## Last Known Verification
 
@@ -54,8 +54,8 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - The repo now also ships throughput-grade secure-WAMP coverage. `native/bench/scenarios/wamp_secure_throughput.toml` mirrors the existing 64 KiB cleartext transport sweep for secure RawSocket/WebSocket RPC + pubsub across JSON, MsgPack, and CBOR on `bench.secure`.
 - The direct Rust bench CLI now defaults its control plane to `https://127.0.0.1:8080/bench` instead of `https://localhost:8080/bench`, because the shipped bench router binds the TLS control listener on IPv4 loopback and the old default could hit the wrong socket on this macOS host.
 - GitHub Actions run `24786956501` (`kTLS Validation`, `workflow_dispatch`) then passed on commit `c040ef9` with `native/bench/scenarios/wamp_secure_throughput.toml`, so the secure-WAMP throughput scenario now has a hosted Ubuntu baseline too. Response-throughput highlights were RawSocket pubsub `56.77/65.08/57.15 Mbps`, RawSocket RPC `176.60/215.09/164.48 Mbps`, WebSocket pubsub `62.04/78.81/64.83 Mbps`, and WebSocket RPC `191.13/231.59/168.71 Mbps` for JSON/MsgPack/CBOR at `48 x 6` with one router worker and one native runtime thread.
-- The shipped HTTP/3 multiplex ceiling map is now broader too: `native/bench/scenarios/h3_multiplex_scaling.toml` sweeps `streams_per_connection = 1, 2, 4, 8, 16` on the same sustained-transfer workload shape instead of pinning only the old `4`-stream point.
-- The latest local Darwin H3 multiplex baseline with `router_workers = 1` shows that higher stream depth is not monotonic on this host. The best response-throughput point was `643.73 Mbps` / p95 `463.68 ms` at `8` streams for `1` native runtime thread and `672.77 Mbps` / p95 `58.37 ms` at `1` stream for `4` native runtime threads; `16` streams mainly increased latency and backpressure counters (`108` events at `1` thread, `106` events at `4` threads) rather than improving throughput.
+- The shipped HTTP/3 multiplex ceiling map now sweeps `streams_per_connection = 1, 2, 4, 8, 16` on the same sustained-transfer workload shape instead of pinning only the old `4`-stream point.
+- The latest local Darwin H3 direction sweep now covers `router_workers = 1,4` and `native_runtime_threads = 1,4` on that shipped scenario. Extra router workers only helped the lowest-multiplex `s1` point (`721.60 Mbps`, p95 `54.61 ms` at `threads=1, workers=4`) and were neutral or harmful at the deeper `s4/s8/s16` points. The best overall point was `761.52 Mbps` / p95 `124.85 ms` at `s2` with `threads=4, workers=1`, while `s16` still emitted `103-117` backpressure events across all combinations and regressed as low as `465.43 Mbps` / p95 `1350.94 ms`. The next HTTP/3 milestone should therefore target transport/backpressure tuning rather than application response scheduling.
 - The pinned WAMP conformance snapshot now covers one router-level
   multi-session vector in addition to the existing single-message serializer
   subset. `packages/connectanum_core/testdata/wamp_conformance/multisession/advanced/publisher_exclusion_disabled.json`
@@ -329,6 +329,8 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - 2026-04-23: `python3` `tomllib` parsing confirmed `native/bench/scenarios/h3_multiplex_scaling.toml` now loads cleanly with 5 workloads sweeping `streams_per_connection = 1, 2, 4, 8, 16`.
 - 2026-04-23: `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h3_multiplex_scaling.toml --router-worker-counts 1 --native-runtime-thread-counts 1,4 --results out/h3-multiplex-scaling/bench_results.jsonl --artifact-dir out/h3-multiplex-scaling` passed on Darwin arm64 and produced the current local HTTP/3 multiplex baseline. Response-throughput peaked at `643.73 Mbps` / p95 `463.68 ms` for `8` streams with `1` native runtime thread and `672.77 Mbps` / p95 `58.37 ms` for `1` stream with `4` native runtime threads.
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after expanding the shipped HTTP/3 multiplex scenario, updating the bench docs/roadmap notes, and recording the new local ceiling map in project state.
+- 2026-04-23: `bin/test-fast` passed on Darwin arm64 before the HTTP/3 follow-up direction spike.
+- 2026-04-23: `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h3_multiplex_scaling.toml --router-worker-counts 1,4 --native-runtime-thread-counts 1,4 --results out/h3-followup-direction/bench_results.jsonl --artifact-dir out/h3-followup-direction` passed on Darwin arm64 and resolved the HTTP/3 roadmap ambiguity. The best low-depth result was `721.60 Mbps` / p95 `54.61 ms` at `s1` with `threads=1, workers=4`, the best overall result was `761.52 Mbps` / p95 `124.85 ms` at `s2` with `threads=4, workers=1`, and the deeper `s8/s16` points still correlated with `82-117` backpressure events rather than a clean router-worker scaling story.
 - 2026-04-23: `cd packages/connectanum_router && dart test test/conformance/wamp_multisession_conformance_test.dart -r expanded` passed on Darwin arm64 after vendoring the upstream `publisher_exclusion_disabled` multi-session vector and wiring the router-side conformance harness.
 - 2026-04-23: `dart analyze packages/connectanum_router/test/conformance/wamp_multisession_conformance_test.dart` passed on Darwin arm64 with no issues.
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after landing the vendored multi-session conformance vector, the new router-side harness, and the associated roadmap/state updates.

@@ -32,7 +32,10 @@ HTTP/3.
 `native/bench/scenarios/h3_multiplex_scaling.toml` is the focused HTTP/3
 multiplex ceiling map. It holds the sustained-transfer workload shape steady
 while sweeping `streams_per_connection = 1, 2, 4, 8, 16` on reused QUIC
-connections.
+connections. The latest local worker/thread direction sweep on that scenario
+showed the next H3 follow-up should target transport/backpressure tuning:
+extra router workers only helped the lowest-multiplex point, while the deeper
+`s8/s16` cases still correlated with heavy backpressure counters.
 
 ## What It Measures
 
