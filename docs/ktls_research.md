@@ -89,6 +89,9 @@ dummy-session prototype to an unbuffered kernel-connection handoff.
    - That keeps routine CI lean, but it also means performance follow-ups need
      clear comparison artifacts so one hosted run is easy to interpret without
      re-reading raw per-workload rows.
+   - The repo now summarizes throughput, latency, CPU-total, wall-time, and
+     max-RSS deltas in the comparison bundle, but it still needs a fresh hosted
+     rerun before those extra signals can drive the next tuning decision.
 3. This macOS workstation still cannot execute the runtime path itself.
    - Any real kTLS verification or tuning step still has to land through Linux
      hosts or hosted workflow runs.
@@ -244,8 +247,11 @@ The final hosted comparison from run `24773860158` showed:
 - The remaining issue is performance tuning rather than correctness, especially
   for the 4-thread multiplexed required-kTLS shape.
 - Secure WAMP TLS coverage is now complete too, so the next useful kTLS step
-  is to keep the hosted comparison artifacts readable enough that future Linux
+  was to keep the hosted comparison artifacts readable enough that future Linux
   reruns can answer "is required-kTLS improving or regressing?" quickly.
+- That readability slice now also includes per-pass resource-usage summaries,
+  so future hosted reruns can show whether required-kTLS is paying its penalty
+  in CPU, wall time, or memory footprint instead of only raw throughput/p95.
 
 ### What Not To Overclaim
 
@@ -262,16 +268,17 @@ The final hosted comparison from run `24773860158` showed:
 
 ## Recommended Next Milestone
 
-Keep the current Linux-only prototype stable and make the manual benchmark path
-easier to interpret:
+Keep the current Linux-only prototype stable and use the richer manual
+benchmark path to pick the next real hotspot:
 
 - preserve the existing opt-in runtime path and strict Linux validation gate
 - keep secure WAMP coverage as supplemental evidence, but use the HTTP/2
   comparison run as the primary required-kTLS performance signal
-- make the generated benchmark artifacts summarize headline wins, losses, and
-  worst regressions so one hosted run answers the tuning question directly
+- keep the generated benchmark artifacts summarizing headline wins, losses,
+  worst regressions, and CPU / RSS deltas so one hosted run answers the tuning
+  question directly
 - delay deeper transport tuning until a fresh hosted comparison shows a
-  concrete hotspot worth attacking
+  concrete hotspot worth attacking with those extra signals in hand
 
 That is the smallest next milestone that improves decision quality without
 pretending the remaining kTLS work is already a clear runtime bug.

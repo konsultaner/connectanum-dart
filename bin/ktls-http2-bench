@@ -80,6 +80,9 @@ host_info_path="${out_dir%/}/host-info.txt"
 
 build_native_ffi_test_release
 
+printf 'Building release HTTP bench binary for stable comparison runs...\n'
+cargo build --release --manifest-path native/bench/Cargo.toml --bin http_stream
+
 if [[ -z "${CONNECTANUM_NATIVE_LIB:-}" ]]; then
   printf 'Failed to resolve CONNECTANUM_NATIVE_LIB for HTTP/2 kTLS benchmark.\n' >&2
   exit 1
@@ -110,22 +113,39 @@ run_pass() {
   local require_ktls="$4"
   local pass_status=0
   local gate_status=0
+  local resource_usage_path="${pass_out_dir}/resource-usage.txt"
 
   mkdir -p "$pass_out_dir"
 
   printf 'Running %s HTTP/2 bench (CONNECTANUM_ENABLE_KTLS=%s, CONNECTANUM_REQUIRE_KTLS=%s)...\n' \
     "$label" "$enable_ktls" "$require_ktls"
 
-  CONNECTANUM_ENABLE_KTLS="$enable_ktls" \
-  CONNECTANUM_REQUIRE_KTLS="$require_ktls" \
-  cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- \
-    --native-lib "$CONNECTANUM_NATIVE_LIB" \
-    --scenario "$scenario" \
-    --results "${pass_out_dir}/bench_results.jsonl" \
-    --artifact-dir "$pass_out_dir" \
-    --router-worker-counts "$router_worker_counts" \
-    --native-runtime-thread-counts "$native_runtime_thread_counts" \
-    || pass_status=$?
+  if [[ -x /usr/bin/time ]]; then
+    /usr/bin/time -v -o "$resource_usage_path" env \
+      CONNECTANUM_ENABLE_KTLS="$enable_ktls" \
+      CONNECTANUM_REQUIRE_KTLS="$require_ktls" \
+      cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- \
+        --native-lib "$CONNECTANUM_NATIVE_LIB" \
+        --scenario "$scenario" \
+        --results "${pass_out_dir}/bench_results.jsonl" \
+        --artifact-dir "$pass_out_dir" \
+        --router-worker-counts "$router_worker_counts" \
+        --native-runtime-thread-counts "$native_runtime_thread_counts" \
+        || pass_status=$?
+  else
+    printf 'resource_usage_capture=unavailable\nreason=/usr/bin/time not found\n' \
+      >"$resource_usage_path"
+    CONNECTANUM_ENABLE_KTLS="$enable_ktls" \
+    CONNECTANUM_REQUIRE_KTLS="$require_ktls" \
+    cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- \
+      --native-lib "$CONNECTANUM_NATIVE_LIB" \
+      --scenario "$scenario" \
+      --results "${pass_out_dir}/bench_results.jsonl" \
+      --artifact-dir "$pass_out_dir" \
+      --router-worker-counts "$router_worker_counts" \
+      --native-runtime-thread-counts "$native_runtime_thread_counts" \
+      || pass_status=$?
+  fi
 
   if [[ -f "${pass_out_dir}/bench_results.summary.json" ]]; then
     printf 'Checking %s bench artifacts for transport regressions...\n' "$label"

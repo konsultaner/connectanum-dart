@@ -1,16 +1,16 @@
 # Project State
 
-Last updated: 2026-04-23
+Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `c97eff4` (`feat(router): add worker-safe realm authorization providers`)
+Last reviewed commit: `8da3602` (`build(ktls): summarize comparison artifacts`)
 Active exec plan: `none`
 
 ## Last Known Verification
 
 - `bin/test-fast`
 - `bash -n bin/ktls-http2-bench`
+- `python3 -m py_compile tool/ktls_http2_compare.py`
 - focused synthetic comparison generation via `python3 tool/ktls_http2_compare.py ...`
-- `dart analyze packages/connectanum_router/test/authorization_integration_test.dart`
 - `bin/verify`
 
 ## Autonomous Priority
@@ -81,7 +81,11 @@ Active exec plan: `none`
   macOS-supported path.
 - Hosted GitHub validation is green through commit `c97eff4`: push `CI` run
   `24858211416` and `WAMP Profile Benchmarks` run `24858211413` both completed
-  successfully on the current branch head.
+  successfully on the earlier branch head.
+- Hosted GitHub validation is now also green through commit `8da3602`:
+  push `CI` run `24860616844` and `WAMP Profile Benchmarks` run `24860616860`
+  both completed successfully after the kTLS comparison-artifact readability
+  follow-up was pushed to both remotes.
 - The worker-safe realm authorization follow-up is now complete on the local
   working tree. Router settings now carry top-level
   `authorization_providers` definitions plus per-realm
@@ -105,6 +109,20 @@ Active exec plan: `none`
   rendering to `tool/ktls_http2_compare.py`, and both `comparison.json` and
   `comparison.md` now carry aggregate summary findings instead of only raw
   per-workload rows.
+- The next active kTLS slice is to make the same manual HTTP/2 comparison
+  artifacts capture and summarize per-pass resource usage, because the current
+  kTLS decision gap is performance interpretation rather than missing
+  correctness coverage.
+- That resource-usage slice is now complete on the local working tree too.
+  `bin/ktls-http2-bench` now writes per-pass `resource-usage.txt` sidecars for
+  the baseline and required-kTLS passes, and `tool/ktls_http2_compare.py` now
+  folds CPU-total, wall-time, and max-RSS deltas into `comparison.json` and
+  `comparison.md`.
+- Local verification for the current kTLS resource-usage follow-up is green on
+  2026-04-24: `bin/test-fast`, `bash -n bin/ktls-http2-bench`,
+  `python3 -m py_compile tool/ktls_http2_compare.py`, a focused synthetic
+  `tool/ktls_http2_compare.py` run with Linux-style `resource-usage.txt`
+  sidecars, and `bin/verify` all passed.
 - `docs/ktls_research.md` is now aligned with the current post-secure-WAMP
   state: secure WAMP coverage is complete, the remaining kTLS issue is
   performance rather than correctness, and the next kTLS-specific need is

@@ -5,6 +5,15 @@ import json
 from pathlib import Path
 
 
+RESOURCE_USAGE_KEYS = {
+    "user_seconds": "User time (seconds)",
+    "system_seconds": "System time (seconds)",
+    "cpu_percent": "Percent of CPU this job got",
+    "elapsed_seconds": "Elapsed (wall clock) time (h:mm:ss or m:ss)",
+    "max_rss_kib": "Maximum resident set size (kbytes)",
+}
+
+
 def load_summary(path: Path) -> dict:
     if not path.exists():
         return {"workloads": []}
@@ -26,6 +35,69 @@ def pct_delta(base: float, current: float) -> float | None:
     if base == 0:
         return None
     return ((current - base) / base) * 100.0
+
+
+def parse_elapsed_seconds(value: str) -> float | None:
+    text = value.strip()
+    if not text:
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        pass
+
+    parts = text.split(":")
+    try:
+        if len(parts) == 2:
+            minutes, seconds = parts
+            return float(minutes) * 60.0 + float(seconds)
+        if len(parts) == 3:
+            hours, minutes, seconds = parts
+            return float(hours) * 3600.0 + float(minutes) * 60.0 + float(seconds)
+    except ValueError:
+        return None
+    return None
+
+
+def parse_resource_usage(path: Path) -> dict | None:
+    if not path.exists():
+        return None
+
+    fields: dict[str, float] = {}
+    for line in path.read_text().splitlines():
+        if ":" not in line:
+            continue
+        label, raw_value = line.split(":", 1)
+        label = label.strip()
+        value = raw_value.strip()
+        for field_name, expected_label in RESOURCE_USAGE_KEYS.items():
+            if label != expected_label:
+                continue
+            if field_name == "cpu_percent":
+                normalized = value.rstrip("%").strip()
+                try:
+                    fields[field_name] = float(normalized)
+                except ValueError:
+                    pass
+            elif field_name == "elapsed_seconds":
+                parsed = parse_elapsed_seconds(value)
+                if parsed is not None:
+                    fields[field_name] = parsed
+            else:
+                try:
+                    fields[field_name] = float(value)
+                except ValueError:
+                    pass
+            break
+
+    if not fields:
+        return None
+
+    fields["source"] = str(path)
+    fields["cpu_total_seconds"] = fields.get("user_seconds", 0.0) + fields.get(
+        "system_seconds", 0.0
+    )
+    return fields
 
 
 def build_label(row: dict) -> str:
@@ -80,10 +152,56 @@ def build_metric_summary(rows: list[dict], metric: str) -> dict | None:
     }
 
 
+def build_resource_usage_summary(baseline: dict | None, ktls: dict | None) -> dict | None:
+    if baseline is None and ktls is None:
+        return None
+
+    summary = {
+        "baseline": baseline,
+        "ktls": ktls,
+    }
+    if baseline is None or ktls is None:
+        summary["delta"] = None
+        return summary
+
+    delta: dict[str, float | None] = {}
+    for metric in (
+        "cpu_total_seconds",
+        "user_seconds",
+        "system_seconds",
+        "elapsed_seconds",
+        "cpu_percent",
+        "max_rss_kib",
+    ):
+        base_value = baseline.get(metric)
+        ktls_value = ktls.get(metric)
+        if base_value is None or ktls_value is None:
+            delta[metric] = None
+            delta[f"{metric}_pct"] = None
+            continue
+        delta[metric] = ktls_value - base_value
+        delta[f"{metric}_pct"] = pct_delta(base_value, ktls_value)
+
+    summary["delta"] = delta
+    return summary
+
+
 def render_pct(value: float | None) -> str:
     if value is None:
         return "n/a"
     return f"{value:+.2f}%"
+
+
+def render_seconds(value: float | None) -> str:
+    if value is None:
+        return "n/a"
+    return f"{value:.2f}s"
+
+
+def render_kib(value: float | None) -> str:
+    if value is None:
+        return "n/a"
+    return f"{value / 1024.0:.2f} MiB"
 
 
 def render_summary_line(name: str, summary: dict | None, comparable_rows: int) -> str:
@@ -101,6 +219,41 @@ def render_summary_line(name: str, summary: dict | None, comparable_rows: int) -
     )
 
 
+def render_resource_usage_line(summary: dict | None) -> list[str]:
+    if summary is None:
+        return ["- Resource usage: no per-pass usage artifacts were present."]
+
+    baseline = summary.get("baseline")
+    ktls = summary.get("ktls")
+    delta = summary.get("delta")
+    if baseline is None or ktls is None or delta is None:
+        return ["- Resource usage: partial capture only; one pass did not emit usage data."]
+
+    return [
+        (
+            "- CPU total: baseline "
+            f"{render_seconds(baseline.get('cpu_total_seconds'))}, "
+            f"kTLS {render_seconds(ktls.get('cpu_total_seconds'))}, "
+            f"delta {render_seconds(delta.get('cpu_total_seconds'))} "
+            f"({render_pct(delta.get('cpu_total_seconds_pct'))})."
+        ),
+        (
+            "- Elapsed wall time: baseline "
+            f"{render_seconds(baseline.get('elapsed_seconds'))}, "
+            f"kTLS {render_seconds(ktls.get('elapsed_seconds'))}, "
+            f"delta {render_seconds(delta.get('elapsed_seconds'))} "
+            f"({render_pct(delta.get('elapsed_seconds_pct'))})."
+        ),
+        (
+            "- Max RSS: baseline "
+            f"{render_kib(baseline.get('max_rss_kib'))}, "
+            f"kTLS {render_kib(ktls.get('max_rss_kib'))}, "
+            f"delta {render_kib(delta.get('max_rss_kib'))} "
+            f"({render_pct(delta.get('max_rss_kib_pct'))})."
+        ),
+    ]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Compare HTTP/2 baseline TLS and required-kTLS benchmark summaries.",
@@ -115,9 +268,13 @@ def main() -> None:
     ktls_path = Path(args.ktls_summary)
     comparison_json_path = Path(args.comparison_json)
     comparison_md_path = Path(args.comparison_md)
+    baseline_resource_path = baseline_path.parent / "resource-usage.txt"
+    ktls_resource_path = ktls_path.parent / "resource-usage.txt"
 
     baseline = load_summary(baseline_path)
     ktls = load_summary(ktls_path)
+    baseline_resource_usage = parse_resource_usage(baseline_resource_path)
+    ktls_resource_usage = parse_resource_usage(ktls_resource_path)
 
     baseline_workloads = {
         workload_key(entry): entry for entry in baseline.get("workloads", [])
@@ -168,6 +325,9 @@ def main() -> None:
         "ktls_only_rows": len(ktls_only_rows),
         "throughput": build_metric_summary(rows, "throughput_pct"),
         "latency_p95": build_metric_summary(rows, "latency_p95_pct"),
+        "resource_usage": build_resource_usage_summary(
+            baseline_resource_usage, ktls_resource_usage
+        ),
     }
 
     comparison = {
@@ -206,6 +366,7 @@ def main() -> None:
             render_summary_line(
                 "p95 latency", summary["latency_p95"], summary["comparable_rows"]
             ),
+            *render_resource_usage_line(summary["resource_usage"]),
             "",
             "| Workload | Router workers | Native runtime threads | Baseline Mbps | kTLS Mbps | Delta | Baseline p95 ms | kTLS p95 ms | Delta |",
             "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",

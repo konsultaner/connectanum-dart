@@ -69,6 +69,11 @@ For the kTLS comparison runner, use the repo helper:
 bin/ktls-http2-bench
 ```
 
+That helper writes per-pass benchmark artifacts under `baseline/` and `ktls/`,
+including `resource-usage.txt` sidecars from GNU `time -v`, and a top-level
+`comparison.json` / `comparison.md` pair that now summarizes throughput,
+latency, CPU-total, wall-time, and max-RSS deltas between the two passes.
+
 For the canonical WAMP release gates, use the WAMP profile helper. It builds
 the release FFI library, runs the cleartext and secure WAMP throughput
 scenarios, and validates both artifact bundles against their checked-in
