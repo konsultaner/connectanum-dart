@@ -2,12 +2,13 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `8da3602` (`build(ktls): summarize comparison artifacts`)
+Last reviewed commit: `7bf3d8a` (`build(ktls): capture benchmark resource usage`)
 Active exec plan: `none`
 
 ## Last Known Verification
 
 - `bin/test-fast`
+- `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ktls-http2-benchmarks.yml")'`
 - `bash -n bin/ktls-http2-bench`
 - `python3 -m py_compile tool/ktls_http2_compare.py`
 - focused synthetic comparison generation via `python3 tool/ktls_http2_compare.py ...`
@@ -86,6 +87,10 @@ Active exec plan: `none`
   push `CI` run `24860616844` and `WAMP Profile Benchmarks` run `24860616860`
   both completed successfully after the kTLS comparison-artifact readability
   follow-up was pushed to both remotes.
+- Hosted GitHub validation is now also green through commit `7bf3d8a`:
+  push `CI` run `24861886418`, `WAMP Profile Benchmarks` run `24861886401`,
+  and `kTLS Validation` run `24861886408` all completed successfully after the
+  kTLS resource-usage follow-up was pushed to both remotes.
 - The worker-safe realm authorization follow-up is now complete on the local
   working tree. Router settings now carry top-level
   `authorization_providers` definitions plus per-realm
@@ -118,6 +123,18 @@ Active exec plan: `none`
   the baseline and required-kTLS passes, and `tool/ktls_http2_compare.py` now
   folds CPU-total, wall-time, and max-RSS deltas into `comparison.json` and
   `comparison.md`.
+- The next active kTLS slice is to publish the generated comparison directly in
+  the manual GitHub Actions workflow summary, so the next hosted Linux rerun is
+  readable from the Actions UI before anyone downloads `ktls-http2-bench`
+  artifacts.
+- That workflow-summary slice is now complete on the local working tree too.
+  The manual `kTLS HTTP/2 Benchmarks` workflow now writes the generated
+  `comparison.md` and `host-info.txt` content into the Actions job summary on
+  `always()`, so future hosted reruns have a readable first-stop view in the
+  run UI before artifact download.
+- Local verification for the current kTLS workflow-summary follow-up is green
+  on 2026-04-24: `bin/test-fast`, YAML parsing of
+  `.github/workflows/ktls-http2-benchmarks.yml`, and `bin/verify` all passed.
 - Local verification for the current kTLS resource-usage follow-up is green on
   2026-04-24: `bin/test-fast`, `bash -n bin/ktls-http2-bench`,
   `python3 -m py_compile tool/ktls_http2_compare.py`, a focused synthetic

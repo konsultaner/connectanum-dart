@@ -92,6 +92,9 @@ dummy-session prototype to an unbuffered kernel-connection handoff.
    - The repo now summarizes throughput, latency, CPU-total, wall-time, and
      max-RSS deltas in the comparison bundle, but it still needs a fresh hosted
      rerun before those extra signals can drive the next tuning decision.
+   - The manual workflow now also mirrors that comparison into the GitHub
+     Actions job summary, so the first inspection path is the run UI rather
+     than a downloaded artifact archive.
 3. This macOS workstation still cannot execute the runtime path itself.
    - Any real kTLS verification or tuning step still has to land through Linux
      hosts or hosted workflow runs.

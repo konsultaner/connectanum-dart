@@ -53,6 +53,38 @@ jobs:
             --router-worker-counts "${INPUT_ROUTER_WORKER_COUNTS:-1}" \
             --native-runtime-thread-counts "${INPUT_NATIVE_RUNTIME_THREAD_COUNTS:-1,4}"
 
+      - name: Publish benchmark summary
+        if: always()
+        run: |
+          set -euo pipefail
+          out_dir="${GITHUB_WORKSPACE}/out/ktls-http2-bench"
+          comparison_md="${out_dir}/comparison.md"
+          host_info="${out_dir}/host-info.txt"
+
+          {
+            echo "# kTLS HTTP/2 benchmark"
+            echo
+            echo "- Workflow artifact: \`ktls-http2-bench-artifacts\`"
+            echo "- Branch: \`${GITHUB_REF_NAME}\`"
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo
+
+            if [[ -f "${comparison_md}" ]]; then
+              cat "${comparison_md}"
+            else
+              echo "Comparison summary was not generated. Check the uploaded artifact bundle for partial outputs."
+            fi
+
+            if [[ -f "${host_info}" ]]; then
+              echo
+              echo "## Host Inputs"
+              echo
+              echo '```text'
+              cat "${host_info}"
+              echo '```'
+            fi
+          } >>"${GITHUB_STEP_SUMMARY}"
+
       - name: Upload HTTP/2 kTLS benchmark artifacts
         if: always()
         uses: actions/upload-artifact@v4
