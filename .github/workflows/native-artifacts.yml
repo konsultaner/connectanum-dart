@@ -26,8 +26,8 @@ permissions:
 
 jobs:
   ct-ffi:
-    name: ct_ffi (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    name: ct_ffi (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       id-token: write
@@ -35,9 +35,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
+        include:
+          - name: Linux x64
+            runner: ubuntu-24.04
+          - name: Linux arm64
+            runner: ubuntu-24.04-arm
+          - name: macOS Apple Silicon
+            runner: macos-15
+          - name: macOS Intel
+            runner: macos-15-intel
 
     steps:
       - uses: actions/checkout@v4
@@ -198,6 +204,13 @@ jobs:
           - \`*.sha256\` - checksum for the matching archive
           - \`*.manifest.json\` - machine-readable build metadata
           - \`*.sigstore.json\` - detached Sigstore verification bundle
+
+          ## Current prebuilt platforms
+
+          - Linux x64 (\`x86_64-unknown-linux-gnu\`)
+          - Linux arm64 (\`aarch64-unknown-linux-gnu\`)
+          - macOS arm64 (\`aarch64-apple-darwin\`)
+          - macOS Intel (\`x86_64-apple-darwin\`)
 
           ## How to use the bundle
 

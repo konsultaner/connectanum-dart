@@ -77,12 +77,21 @@ and print the installed library path so deployment scripts can wire
 `CONNECTANUM_NATIVE_LIB` explicitly.
 
 If you do not want to build Rust locally, the GitHub Actions
-`Native Artifacts` workflow uploads prebuilt Linux/macOS bundles named
-`ct-ffi-<host-triple>.tar.gz`, and release-tag runs publish the same assets to
-GitHub Releases. You can either let the hook fetch those assets via
+`Native Artifacts` workflow uploads prebuilt `ct-ffi-<host-triple>.tar.gz`
+bundles for:
+
+- Linux x64 (`x86_64-unknown-linux-gnu`)
+- Linux arm64 (`aarch64-unknown-linux-gnu`)
+- macOS arm64 (`aarch64-apple-darwin`)
+- macOS Intel (`x86_64-apple-darwin`)
+
+Release-tag runs publish the same assets to GitHub Releases. You can either
+let the hook fetch those assets via
 `CONNECTANUM_NATIVE_RELEASE_TAG` or extract the archive manually and export
 `CONNECTANUM_NATIVE_LIB` to the bundled library path before starting the
-router. The same workflow publishes GitHub artifact attestations for each
+router. The main `CI` workflow does not publish generic debug metrics dumps,
+so production packaging should rely on this workflow or GitHub Releases rather
+than arbitrary branch-run artifacts. The same workflow publishes GitHub artifact attestations for each
 archive/checksum/manifest set, so you can verify a downloaded archive with:
 
 ```sh

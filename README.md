@@ -142,12 +142,24 @@ and re-encode payloads.
 ### Native Runtime Bundles
 
 The [Native Artifacts workflow](.github/workflows/native-artifacts.yml)
-publishes host-native `ct_ffi` bundles as:
+publishes prebuilt `ct_ffi` bundles as:
 
 - `ct-ffi-<host-triple>.tar.gz`
 - `*.sha256`
 - `*.manifest.json`
 - `*.sigstore.json`
+
+Current GitHub-hosted release targets:
+
+- Linux x64 (`x86_64-unknown-linux-gnu`)
+- Linux arm64 (`aarch64-unknown-linux-gnu`)
+- macOS arm64 (`aarch64-apple-darwin`)
+- macOS Intel (`x86_64-apple-darwin`)
+
+The main `CI` workflow intentionally does not publish raw per-test metrics
+snapshots. Release-facing native artifacts come from this workflow and GitHub
+Releases, while performance/transport evidence comes from the dedicated bench
+artifact and gate outputs.
 
 The root scripts auto-detect the standard release location for `ct_ffi` and set
 `CONNECTANUM_NATIVE_LIB` when possible. If you are using a prebuilt library in a

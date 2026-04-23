@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-23
 Current branch: `add-router`
-Last reviewed commit: `26e9db1` (`perf(router): round-robin http3 request drain`)
-Active exec plan: `docs/exec-plans/2026-04-23-ci-native-client-fast-coverage.md`
+Last reviewed commit: `06f3b43` (`test(ci): provision native client runtime before fast checks`)
+Active exec plan: `docs/exec-plans/2026-04-23-ci-artifact-cleanup-and-native-matrix.md`
 
 ## Last Known Verification
 
@@ -31,21 +31,20 @@ Active exec plan: `docs/exec-plans/2026-04-23-ci-native-client-fast-coverage.md`
 - Root shell helpers now auto-detect Dart from Flutter, Rust from `~/.cargo`, Chrome/Chromium, and the standard prebuilt native library path.
 - GitHub Actions CI now runs through the canonical root `bin/*` entrypoints on branch pushes and PRs to `master`; GitHub Actions run `24732889424` for `2fac53b` completed successfully with both `Fast Checks` and `Full Verify`.
 - The CI workflow now targets all branch pushes plus PRs to `master`, and it also exposes `workflow_dispatch` for manual runs.
-- The latest known branch CI is red again, so autonomous continuation is
-  paused on the HTTP/3 benchmark track until the branch is back to green.
-  GitHub Actions runs `24822621244` (`eb9c427`) and `24822956656`
-  (`5c0e7ec`) both failed in `Fast Checks` because `bin/test-fast` reached a
-  native client E2EE provider test before building/exporting `libct_ffi.so`.
-  The current repair path is to make the root client fast/full flows build the
-  native client runtime first on supported hosts and to add the dedicated
-  native provider regression file to the canonical scripts.
-- The local CI repair is now implemented too. `bin/test-fast` now provisions
+- The latest known branch CI is green again. GitHub Actions run `24823387475`
+  on commit `06f3b43` passed both `Fast Checks` and `Full Verify` after the
+  canonical root flows started provisioning the native client runtime before
+  the native client E2EE coverage.
+- `bin/test-fast` now provisions
   the native client runtime before `packages/connectanum_client/test/client_test.dart`
   on supported hosts, both root client flows now include
   `packages/connectanum_client/test/transport/native/e2ee_provider_test.dart`,
   and the native-only client tests now skip with an explicit reason when
-  `libct_ffi` is genuinely unavailable. Local `bin/test-fast` and `bin/verify`
-  are green on the repaired tree; hosted confirmation is the remaining step.
+  `libct_ffi` is genuinely unavailable.
+- The main `CI` workflow no longer uploads raw per-test metrics snapshots.
+  `CONNECTANUM_ARTIFACT_DIR` remains an explicit local/debug switch, and
+  published artifacts now come from the dedicated `Native Artifacts` and
+  bench/gate workflows instead.
 - The root router verification now runs from `packages/connectanum_router` so the package-local `dart_test.yaml` (`concurrency: 1`) applies to the full suite on every host.
 - The root bench verification now runs from `packages/connectanum_bench` so the package-local `dart_test.yaml` (`concurrency: 1`) applies to the full suite on every host, matching the process-global native runtime constraint already enforced in the router package.
 - The bench WAMP integration tests now resolve their worker helper from either the bench package root or the repo root so Linux CI and local root-script runs share the same path contract.
@@ -215,8 +214,9 @@ Active exec plan: `docs/exec-plans/2026-04-23-ci-native-client-fast-coverage.md`
 - The client/router build hooks now reuse `CONNECTANUM_NATIVE_LIB` for prebuilt binaries and honor `CONNECTANUM_SKIP_NATIVE_BUILD=1` for deployments that intentionally provide `ct_ffi` themselves, instead of invoking Cargo unconditionally.
 - The client native runtime loader now falls back to the bare platform library name after hooks/local-build probing, so system-installed `ct_ffi` behaves the same way on the client path as it already did on the router path.
 - `bin/package-native-artifact` now produces deterministic `ct_ffi` release bundles for the host platform, including the native library, a manifest, a README, and a SHA-256 checksum under `out/native-artifacts/`.
-- GitHub Actions now exposes a dedicated `Native Artifacts` workflow that runs `bin/package-native-artifact` on Linux and macOS and uploads the resulting tarball, checksum, and manifest as workflow artifacts for the existing `CONNECTANUM_NATIVE_LIB` deployment path.
-- The `Native Artifacts` workflow is now configured to publish those same Linux/macOS bundles to GitHub Releases on release-tag runs, and manual dispatches can publish/update a release when given an explicit tag name.
+- GitHub Actions now exposes a dedicated `Native Artifacts` workflow that runs `bin/package-native-artifact` on explicit GitHub-hosted platforms and uploads the resulting tarball, checksum, and manifest as workflow artifacts for the existing `CONNECTANUM_NATIVE_LIB` deployment path.
+- The current target matrix for those hosted native bundles is Linux x64 (`x86_64-unknown-linux-gnu`), Linux arm64 (`aarch64-unknown-linux-gnu`), macOS arm64 (`aarch64-apple-darwin`), and macOS Intel (`x86_64-apple-darwin`).
+- The `Native Artifacts` workflow is now configured to publish those same bundles to GitHub Releases on release-tag runs, and manual dispatches can publish/update a release when given an explicit tag name.
 - The same `Native Artifacts` workflow now generates GitHub artifact attestations for each packaged archive/checksum/manifest set, so released `ct_ffi` bundles have hosted provenance records in addition to the GitHub Release assets themselves.
 - Hosted validation for the release path is now complete: GitHub Actions run `24756862771` validated release publishing after the `c4bd069` shell-variable fix, and run `24757138619` validated the attestation-enabled workflow end to end on both Linux and macOS while keeping `Publish GitHub Release` green.
 - The same `Native Artifacts` workflow now also emits detached Sigstore blob bundles (`<asset>.sigstore.json`) for the packaged archive/checksum/manifest set, so release assets can be verified offline with `cosign verify-blob` in addition to GitHub-hosted attestations.

@@ -30,7 +30,7 @@ deterministic in the canonical root test scripts.
 
 ## Status
 
-- in_progress
+- completed
 
 ## Findings
 
@@ -56,5 +56,7 @@ deterministic in the canonical root test scripts.
   load exception during ad hoc local runs.
 - Local verification is green on the repaired tree:
   the focused native-provider tests, `bin/test-fast`, and `bin/verify` all
-  pass. Hosted branch CI confirmation is still pending and keeps this plan
-  active for now.
+  pass.
+- Hosted branch CI confirmation is now complete too. GitHub Actions run
+  `24823387475` on commit `06f3b43` passed both `Fast Checks` and
+  `Full Verify`, closing the repair.
