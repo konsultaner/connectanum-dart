@@ -141,10 +141,24 @@ Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.m
   `threads=1, workers=4` (`678.72 -> 623.54 Mbps`, `1104.96 -> 1039.79 ms`).
   `max_backpressure_depth_after` stayed unchanged in every quadrant, and
   `bin/check-bench-artifacts` still failed with `32` findings.
-- The next HTTP/3 candidate should therefore move away from Dart-side handle
-  staging and passive native ready-token publication and back toward a real
-  native wake/handoff or queue-depth reduction path rather than more boss-loop
-  reshaping.
+- A native HTTP/3 request-ready wake experiment has now been ruled out too.
+  Publishing a boss wake only when an HTTP/3 request queue transitions from
+  empty to non-empty produced `out/h3-http3-request-ready-wake/`. After fixing
+  an experimental callback-lifecycle teardown hang in the first attempt, the
+  corrected variant still won only `7/20` throughput quadrants and `7/20` p95
+  quadrants versus the kept `out/h3-http3-round-robin/` baseline. It improved
+  some mid-depth quadrants, including `s2` at `threads=4, workers=4`
+  (`698.14 -> 751.92 Mbps`, `135.30 -> 130.73 ms`, backpressure `17 -> 9`)
+  and `s4` at `threads=4, workers=4`
+  (`665.68 -> 713.45 Mbps`, `284.97 -> 252.78 ms`, backpressure `52 -> 49`),
+  but it regressed too many deeper reuse points to keep, including `s8` at
+  `threads=1, workers=1` (`712.03 -> 394.18 Mbps`, `435.16 -> 792.74 ms`) and
+  `s16` at `threads=4, workers=1`
+  (`627.92 -> 380.89 Mbps`, `894.39 -> 1435.18 ms`). The bench gate still
+  failed with `32` findings.
+- The next HTTP/3 candidate should therefore move away from wake-only queue
+  notifications and back toward direct queue-depth reduction inside the native
+  HTTP/3 request path rather than more boss-loop reshaping.
 - The pinned WAMP conformance snapshot now covers one router-level
   multi-session vector in addition to the existing single-message serializer
   subset. `packages/connectanum_core/testdata/wamp_conformance/multisession/advanced/publisher_exclusion_disabled.json`
@@ -269,6 +283,8 @@ Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.m
 
 ## Verification Status
 
+- 2026-04-23: `bin/verify` passed on Darwin arm64 after recording the rejected `out/h3-http3-request-ready-wake/` experiment and reverting the router/native code to the kept steady-state round-robin HTTP/3 drain.
+- 2026-04-23: `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h3_multiplex_scaling.toml --router-worker-counts 1,4 --native-runtime-thread-counts 1,4 --results out/h3-http3-request-ready-wake/bench_results.jsonl --artifact-dir out/h3-http3-request-ready-wake` passed on Darwin arm64 and was recorded as a negative result. Compared with `out/h3-http3-round-robin`, the request-ready wake variant won only `7/20` throughput quadrants and `7/20` p95 quadrants, still failed the bench gate with `32` findings, and regressed deep `s8/s16` reuse too hard to keep.
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after recording the rejected `out/h3-http3-native-ready-queue/` experiment and reverting the router/native code to the kept steady-state round-robin HTTP/3 drain.
 - 2026-04-23: `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h3_multiplex_scaling.toml --router-worker-counts 1,4 --native-runtime-thread-counts 1,4 --results out/h3-http3-native-ready-queue/bench_results.jsonl --artifact-dir out/h3-http3-native-ready-queue` passed on Darwin arm64 and was recorded as a negative result. Compared with `out/h3-http3-round-robin`, the native ready-queue variant won only `6/20` throughput quadrants and `9/20` p95 quadrants, left `max_backpressure_depth_after` unchanged in every quadrant, and still failed the bench gate with `32` findings.
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after recording the rejected `out/h3-http3-followup-burst2/` bounded-follow-up-burst experiment and reverting the router code to the kept steady-state round-robin HTTP/3 drain.

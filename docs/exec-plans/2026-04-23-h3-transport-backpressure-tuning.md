@@ -133,7 +133,22 @@ connection depths by targeting the transport/backpressure path directly.
   `bin/check-bench-artifacts --summary out/h3-http3-native-ready-queue/bench_results.summary.json`
   still failed with `32` findings, and `max_backpressure_depth_after` stayed
   unchanged in every quadrant.
-- The next candidate should therefore move away from Dart-side handle staging
-  and passive native ready-token publication and back toward a real native
-  wake/handoff or queue-depth reduction path rather than more boss-loop
-  reshaping.
+- A native HTTP/3 request-ready wake experiment was measured and rejected
+  next. Publishing a boss wake only when an HTTP/3 request queue transitions
+  from empty to non-empty produced `out/h3-http3-request-ready-wake/`. After
+  fixing an experimental callback-lifecycle teardown hang in the first
+  attempt, the corrected variant still won only `7/20` throughput quadrants
+  and `7/20` p95 quadrants versus the kept
+  `out/h3-http3-round-robin/` baseline. It improved some mid-depth quadrants,
+  including `s2` at `threads=4, workers=4`
+  (`698.14 -> 751.92 Mbps`, `135.30 -> 130.73 ms`, backpressure `17 -> 9`)
+  and `s4` at `threads=4, workers=4`
+  (`665.68 -> 713.45 Mbps`, `284.97 -> 252.78 ms`, backpressure `52 -> 49`),
+  but it regressed deeper reuse points too hard to keep, including `s8` at
+  `threads=1, workers=1` (`712.03 -> 394.18 Mbps`, `435.16 -> 792.74 ms`) and
+  `s16` at `threads=4, workers=1`
+  (`627.92 -> 380.89 Mbps`, `894.39 -> 1435.18 ms`). The bench gate still
+  failed with `32` findings.
+- The next candidate should therefore move away from wake-only queue
+  notifications and back toward direct queue-depth reduction inside the native
+  HTTP/3 request path rather than more boss-loop reshaping.
