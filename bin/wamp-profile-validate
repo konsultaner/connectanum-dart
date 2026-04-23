@@ -14,6 +14,7 @@ Runs the canonical WAMP profile release gates:
 3. WAMP control-plane smoke
 4. cleartext RawSocket/WebSocket WAMP throughput
 5. TLS RawSocket/WebSocket WAMP throughput
+6. native-client WAMP pub/sub fan-out throughput
 
 Each scenario writes transformed bench artifacts and validates them. Smoke
 scenarios use the strict default transport-counter gate; throughput scenarios
@@ -159,5 +160,10 @@ run_gate \
   wamp_secure_throughput \
   native/bench/scenarios/wamp_secure_throughput.toml \
   native/bench/artifact_gate/wamp_secure_throughput.json
+
+run_gate \
+  wamp_publish_fanout_throughput \
+  native/bench/scenarios/wamp_publish_fanout_throughput.toml \
+  native/bench/artifact_gate/wamp_publish_fanout_throughput.json
 
 printf 'WAMP profile validation artifacts written to %s\n' "$out_dir"

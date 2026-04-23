@@ -12,7 +12,6 @@ on:
       - native/bench/scenarios/wamp_client_impl_throughput.toml
       - native/bench/scenarios/wamp_payload_mode_throughput.toml
       - native/bench/scenarios/wamp_mixed_serializer_throughput.toml
-      - native/bench/scenarios/wamp_publish_fanout_throughput.toml
       - native/bench/scenarios/wamp_websocket_fragmentation_throughput.toml
   workflow_dispatch:
     inputs:

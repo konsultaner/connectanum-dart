@@ -12,13 +12,13 @@ Runs the canonical WAMP profile diagnostic throughput scenarios:
 1. Dart versus native WAMP client implementation throughput
 2. Plain versus PPT payload mode throughput
 3. Mixed-serializer peer throughput
-4. Native pub/sub fan-out throughput
-5. Native WebSocket fragmentation throughput
+4. Native WebSocket fragmentation throughput
 
 Diagnostic scenarios are not release blockers by themselves. Each scenario
 writes transformed bench artifacts and validates them with the strict default
-transport-counter gate, but does not enforce performance budgets until repeated
-local and hosted baselines justify scenario-specific policies.
+transport-counter gate. The representative pub/sub fan-out path now has a
+checked-in release policy under bin/wamp-profile-validate instead of living in
+this diagnostic runner.
 EOF
 }
 
@@ -134,10 +134,6 @@ run_diagnostic \
 run_diagnostic \
   wamp_mixed_serializer_throughput \
   native/bench/scenarios/wamp_mixed_serializer_throughput.toml
-
-run_diagnostic \
-  wamp_publish_fanout_throughput \
-  native/bench/scenarios/wamp_publish_fanout_throughput.toml
 
 run_diagnostic \
   wamp_websocket_fragmentation_throughput \

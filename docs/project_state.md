@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-23
 Current branch: `add-router`
-Last reviewed commit: `a2eef0f` (`ci: include wamp smoke gates in profile validation`)
+Last reviewed commit: `eb0aa5c` (`ci: add wamp profile diagnostics`)
 Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance-readiness.md`
 
 ## Last Known Verification
@@ -12,6 +12,9 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
 - `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-smoke-release-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`
 - `bash -n bin/wamp-profile-diagnostics`
 - `bin/wamp-profile-diagnostics --out-dir out/wamp-profile-diagnostics-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`
+- `bin/check-bench-artifacts --summary out/wamp-profile-diagnostics-local/wamp_publish_fanout_throughput/bench_results.summary.json --policy native/bench/artifact_gate/wamp_publish_fanout_throughput.json`
+- `cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib /Users/konsultaner/Projects/connectanum-dart/native/transport/target/release/libct_ffi.dylib --scenario /Users/konsultaner/Projects/connectanum-dart/native/bench/scenarios/wamp_publish_fanout_throughput.toml --results /Users/konsultaner/Projects/connectanum-dart/out/wamp-publish-fanout-policy-local/bench_results.jsonl --artifact-dir /Users/konsultaner/Projects/connectanum-dart/out/wamp-publish-fanout-policy-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`
+- `bin/check-bench-artifacts --summary out/wamp-publish-fanout-policy-local/bench_results.summary.json --policy native/bench/artifact_gate/wamp_publish_fanout_throughput.json`
 - `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`
 - `cargo test --manifest-path native/bench/Cargo.toml artifacts -- --nocapture`
 - `bin/check-bench-artifacts --summary out/wamp-transport-local/bench_results.summary.json --policy native/bench/artifact_gate/wamp_transport_throughput.json`
@@ -84,10 +87,11 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
 - `bin/wamp-profile-validate` is now the canonical WAMP release-gate entry
   point for both local and hosted validation. It runs the three strict
   default-counter smoke gates (`wamp_smoke`, `wamp_secure_smoke`, and
-  `wamp_control_smoke`) plus the two policy-backed throughput gates
-  (`wamp_transport_throughput` and `wamp_secure_throughput`). A local Darwin
-  arm64 run on 2026-04-23 passed all five gates with 64 workloads. In that
-  run, the lowest cleartext throughput-gate result was `57.65 Mbps`
+  `wamp_control_smoke`) plus the policy-backed throughput gates
+  (`wamp_transport_throughput`, `wamp_secure_throughput`, and
+  `wamp_publish_fanout_throughput`). A local Darwin arm64 run on 2026-04-23
+  passed the original five-gate set with 64 workloads. In that run, the
+  lowest cleartext throughput-gate result was `57.65 Mbps`
   (`websocket_pubsub_json_64k`) with max p95 `241.860 ms`, and the lowest
   secure throughput-gate result was `35.86 Mbps`
   (`rawsocket_secure_pubsub_json_64k`) with max p95 `389.237 ms`.
@@ -95,16 +99,37 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
   runs `bin/wamp-profile-validate` on hosted Ubuntu and uploads
   `wamp-profile-benchmark-artifacts`. Hosted run `24846498743` passed on
   commit `a2eef0f`, confirming the expanded smoke-plus-throughput WAMP
-  release-gate entrypoint on Linux.
-- `bin/wamp-profile-diagnostics` now runs the non-release-blocking diagnostic
-  WAMP throughput scenarios together and validates each artifact bundle with
-  the strict default transport-counter gate. Local Darwin arm64 validation on
-  2026-04-23 passed `wamp_client_impl_throughput`,
-  `wamp_payload_mode_throughput`, `wamp_mixed_serializer_throughput`,
-  `wamp_publish_fanout_throughput`, and
-  `wamp_websocket_fragmentation_throughput` with zero gate findings. The new
-  hosted `WAMP Profile Diagnostics` workflow still needs evidence after this
-  slice is pushed.
+  release-gate entrypoint on Linux before fan-out promotion.
+- `wamp_publish_fanout_throughput` now has a conservative checked-in artifact
+  policy in `native/bench/artifact_gate/wamp_publish_fanout_throughput.json`.
+  Local Darwin arm64 fan-out baselines on 2026-04-23 ranged from `24.49 Mbps`
+  to `66.08 Mbps` with max p95 `508.916 ms`, while the first hosted Linux
+  diagnostic run ranged from `46.19 Mbps` to `138.73 Mbps` with max p95
+  `228.126 ms`. That makes fan-out stable enough to move from diagnostics into
+  the canonical WAMP release-gate entrypoint without tightening the existing
+  cleartext or secure transport floors yet.
+- A fresh local Darwin arm64 rerun of
+  `native/bench/scenarios/wamp_publish_fanout_throughput.toml` after the
+  policy landed also passed the new gate. That rerun ranged from `23.05 Mbps`
+  (`websocket_pubsub_cbor_64k_fanout8`) to `75.21 Mbps`
+  (`rawsocket_pubsub_json_64k_fanout8`) with max p95 `485.628 ms`, so the
+  checked-in fan-out floors still have healthy local headroom.
+- `bin/wamp-profile-diagnostics` now stays focused on the remaining
+  non-release-blocking diagnostic scenarios:
+  `wamp_client_impl_throughput`, `wamp_payload_mode_throughput`,
+  `wamp_mixed_serializer_throughput`, and
+  `wamp_websocket_fragmentation_throughput`. Hosted run `24848746691` passed
+  on commit `eb0aa5c`, and push `CI` run `24848746640` also passed on the same
+  commit.
+- A full local rerun of the expanded canonical
+  `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-fanout-release-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`
+  passed `wamp_smoke`, `wamp_secure_smoke`, `wamp_control_smoke`, and
+  `wamp_transport_throughput`, but then stalled in `wamp_secure_throughput` on
+  Darwin arm64. The `http_stream` and `bench_main` child processes sat at
+  `0%` CPU for minutes and the secure results file remained empty, so the run
+  was terminated. Until that is reproduced and fixed or cleared as transient,
+  the last known successful secure-throughput evidence remains the earlier
+  local and hosted runs recorded above.
 - The existing `CI` workflow also has a `workflow_dispatch`-only `WAMP Profile
   Gates` job. Use that path for branch-hosted WAMP evidence until the
   dedicated `WAMP Profile Benchmarks` workflow exists on the default branch
@@ -126,9 +151,9 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
 - GitHub Actions CI now runs through the canonical root `bin/*` entrypoints on branch pushes and PRs to `master`; GitHub Actions run `24732889424` for `2fac53b` completed successfully with both `Fast Checks` and `Full Verify`.
 - The CI workflow now targets all branch pushes plus PRs to `master`, and it also exposes `workflow_dispatch` for manual runs.
 - The latest known pushed branch CI is green. GitHub Actions run
-  `24846498753` on commit `a2eef0f` passed push `CI`, including `Fast Checks`
-  and `Full Verify`. The dedicated `WAMP Profile Benchmarks` push run
-  `24846498743` on the same commit also passed.
+  `24848746640` on commit `eb0aa5c` passed push `CI`, including `Fast Checks`
+  and `Full Verify`. The dedicated `WAMP Profile Diagnostics` push run
+  `24848746691` on the same commit also passed.
 - `bin/test-fast` now provisions
   the native client runtime before `packages/connectanum_client/test/client_test.dart`
   on supported hosts, both root client flows now include

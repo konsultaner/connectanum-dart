@@ -150,11 +150,34 @@ release decisions for real RawSocket/WebSocket WAMP users.
   policies. `bash -n bin/wamp-profile-diagnostics` and
   `bin/wamp-profile-diagnostics --out-dir out/wamp-profile-diagnostics-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`
   passed locally on Darwin arm64 with zero gate findings.
+- 2026-04-23: Hosted diagnostic evidence landed on commit `eb0aa5c`. GitHub
+  Actions run `24848746691` passed the new `WAMP Profile Diagnostics`
+  workflow, and push `CI` run `24848746640` passed on the same commit.
+- 2026-04-23: Promoted `wamp_publish_fanout_throughput` from diagnostic-only
+  evidence into the canonical WAMP release-gate set. Local Darwin arm64
+  fan-out results ranged from `24.49 Mbps` to `66.08 Mbps` with max p95
+  `508.916 ms`; the first hosted Linux diagnostic run ranged from
+  `46.19 Mbps` to `138.73 Mbps` with max p95 `228.126 ms`. Added
+  `native/bench/artifact_gate/wamp_publish_fanout_throughput.json`,
+  moved the scenario into `bin/wamp-profile-validate`, and removed it from
+  the purely diagnostic runner so push CI protects a representative WAMP
+  fan-out path without duplicating work across workflows.
+- 2026-04-23: Revalidated the promoted fan-out gate locally with a fresh
+  Darwin arm64 run of `wamp_publish_fanout_throughput`; the new policy passed
+  with `23.05-75.21 Mbps` throughput across the six workloads and max p95
+  `485.628 ms`.
+- 2026-04-23: A full local rerun of the expanded
+  `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-fanout-release-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`
+  passed `wamp_smoke`, `wamp_secure_smoke`, `wamp_control_smoke`, and
+  `wamp_transport_throughput`, but then stalled in `wamp_secure_throughput` on
+  Darwin arm64. `http_stream` and `bench_main` both sat idle with zero result
+  rows for the secure scenario, so the run was terminated and recorded as a
+  local verification caveat rather than a clean pass.
 
 ## Next Slice
 
-- Push the diagnostic runner/workflow and confirm hosted Linux passes the new
-  `WAMP Profile Diagnostics` workflow plus the normal `CI` chain.
-- After hosted diagnostic evidence lands, decide whether any diagnostic WAMP
-  scenarios should become explicit release gates before tightening existing
-  throughput policy floors.
+- Push the promoted fan-out gate and confirm hosted Linux passes the updated
+  canonical `WAMP Profile Benchmarks` workflow plus the normal `CI` chain.
+- Reproduce or rule out the Darwin-local `wamp_secure_throughput` stall seen
+  during the full canonical rerun, because local production-readiness loops
+  still need a reliable end-to-end release-gate command.
