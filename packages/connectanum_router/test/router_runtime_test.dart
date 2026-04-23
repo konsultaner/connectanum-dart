@@ -60,6 +60,7 @@ class _FakeRuntime implements NativeRuntime {
   final Map<int, Queue<NativeHttp3Handshake>> _http3Handshakes = {};
   final Map<int, Queue<NativeHttpHandshake>> _http3Requests = {};
   final List<int> http3HandshakePolls = [];
+  final List<int> http3RequestPolls = [];
   final Queue<NativeHttpConnectionEvent> _httpConnectionEvents =
       Queue<NativeHttpConnectionEvent>();
   final Queue<NativeRouterMetrics> _routerMetricsQueue =
@@ -209,6 +210,7 @@ class _FakeRuntime implements NativeRuntime {
     if (queue == null || queue.isEmpty) {
       return null;
     }
+    http3RequestPolls.add(connectionId);
     return queue.removeFirst();
   }
 
@@ -4643,6 +4645,157 @@ void main() {
       equals(<String>['rawsocket', 'http', 'http2', 'http3']),
     );
   });
+
+  test(
+    'http3 connections are drained fairly across tracked requests',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithPendingProtocols(),
+      );
+
+      final events = <Map<String, Object?>>[];
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      const firstConnectionId = 301;
+      const secondConnectionId = 302;
+
+      runtime.setConnectionProtocol(
+        firstConnectionId,
+        NativeConnectionProtocol.http3,
+      );
+      runtime.setConnectionProtocol(
+        secondConnectionId,
+        NativeConnectionProtocol.http3,
+      );
+      runtime.enqueueConnection(listenerId, firstConnectionId);
+      runtime.enqueueHttp3Handshake(
+        firstConnectionId,
+        NativeHttp3Handshake.synthetic(
+          handle: 901,
+          protocol: 'http/3',
+          listenerProtocols: const ['rawsocket', 'http', 'http2', 'http3'],
+        ),
+      );
+      runtime.enqueueConnection(listenerId, secondConnectionId);
+      runtime.enqueueHttp3Handshake(
+        secondConnectionId,
+        NativeHttp3Handshake.synthetic(
+          handle: 902,
+          protocol: 'http/3',
+          listenerProtocols: const ['rawsocket', 'http', 'http2', 'http3'],
+        ),
+      );
+
+      await _waitUntil(
+        () =>
+            events
+                .where(
+                  (event) =>
+                      event['type'] == 'listener_protocol_pending' &&
+                      (event['connectionId'] == firstConnectionId ||
+                          event['connectionId'] == secondConnectionId),
+                )
+                .length ==
+            2,
+        timeout: const Duration(seconds: 2),
+      );
+
+      runtime.enqueueHttp3Request(
+        firstConnectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 911,
+          method: 'GET',
+          target: '/a1',
+          path: '/a1',
+          protocol: 'http/3',
+          headers: const {},
+          body: Uint8List(0),
+        ),
+      );
+      runtime.enqueueHttp3Request(
+        firstConnectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 912,
+          method: 'GET',
+          target: '/a2',
+          path: '/a2',
+          protocol: 'http/3',
+          headers: const {},
+          body: Uint8List(0),
+        ),
+      );
+      runtime.enqueueHttp3Request(
+        secondConnectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 913,
+          method: 'GET',
+          target: '/b1',
+          path: '/b1',
+          protocol: 'http/3',
+          headers: const {},
+          body: Uint8List(0),
+        ),
+      );
+      runtime.enqueueHttp3Request(
+        secondConnectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 914,
+          method: 'GET',
+          target: '/b2',
+          path: '/b2',
+          protocol: 'http/3',
+          headers: const {},
+          body: Uint8List(0),
+        ),
+      );
+
+      await _waitUntil(
+        () =>
+            events
+                .where((event) => event['type'] == 'listener_http_request')
+                .length ==
+            4,
+        timeout: const Duration(seconds: 2),
+      );
+
+      final paths = events
+          .where((event) => event['type'] == 'listener_http_request')
+          .map((event) => event['path'])
+          .toList(growable: false);
+      expect(paths, equals(const ['/a1', '/b1', '/a2', '/b2']));
+      expect(
+        runtime.http3RequestPolls,
+        equals(const [
+          firstConnectionId,
+          secondConnectionId,
+          firstConnectionId,
+          secondConnectionId,
+        ]),
+      );
+    },
+  );
 
   test('http2 connections are drained for additional requests', () async {
     final runtime = _HandleRuntime();

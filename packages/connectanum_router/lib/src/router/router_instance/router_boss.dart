@@ -6,6 +6,8 @@ Duration routerBossLoopDelay({
   required Duration pollInterval,
 }) => didWork ? Duration.zero : pollInterval;
 
+const int _http3RequestDrainBudgetPerConnection = 1;
+
 @visibleForTesting
 final class RouterBossLoopPacer {
   Completer<void>? _wakeCompleter;
@@ -1118,39 +1120,51 @@ class _RouterBoss {
       return false;
     }
     var didWork = false;
-    final connectionIds = List<int>.from(_http3ConnectionListeners.keys);
-    for (final connectionId in connectionIds) {
-      while (true) {
-        NativeHttpHandshake? handshake;
-        try {
-          handshake = runtime.pollHttp3Request(connectionId);
-        } on NativeTransportException catch (error) {
-          onEvent?.call({
-            'source': 'boss',
-            'type': 'boss_error',
-            'connectionId': connectionId,
-            'error': error.toString(),
-          });
-          if (error.code == NativeTransportErrorCode.connectionNotFound) {
-            _releaseHttp3Connection(connectionId);
+    while (true) {
+      var drainedInPass = false;
+      final connectionIds = List<int>.from(
+        _http3ConnectionListeners.keys,
+        growable: false,
+      );
+      for (final connectionId in connectionIds) {
+        var drainedForConnection = 0;
+        while (drainedForConnection < _http3RequestDrainBudgetPerConnection) {
+          NativeHttpHandshake? handshake;
+          try {
+            handshake = runtime.pollHttp3Request(connectionId);
+          } on NativeTransportException catch (error) {
+            onEvent?.call({
+              'source': 'boss',
+              'type': 'boss_error',
+              'connectionId': connectionId,
+              'error': error.toString(),
+            });
+            if (error.code == NativeTransportErrorCode.connectionNotFound) {
+              _releaseHttp3Connection(connectionId);
+            }
+            break;
           }
-          break;
+          if (handshake == null) {
+            break;
+          }
+          drainedForConnection++;
+          drainedInPass = true;
+          didWork = true;
+          final listener = _http3ConnectionListeners[connectionId];
+          if (listener == null) {
+            handshake.release();
+            continue;
+          }
+          _processHttpHandshake(
+            listener,
+            connectionId,
+            NativeConnectionProtocol.http3,
+            handshake,
+          );
         }
-        if (handshake == null) {
-          break;
-        }
-        didWork = true;
-        final listener = _http3ConnectionListeners[connectionId];
-        if (listener == null) {
-          handshake.release();
-          continue;
-        }
-        _processHttpHandshake(
-          listener,
-          connectionId,
-          NativeConnectionProtocol.http3,
-          handshake,
-        );
+      }
+      if (!drainedInPass) {
+        break;
       }
     }
     return didWork;

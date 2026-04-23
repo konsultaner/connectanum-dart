@@ -65,7 +65,23 @@ connection depths by targeting the transport/backpressure path directly.
   it was still too mixed to keep. It improved most `s1` points and some `s16`
   throughput, but it regressed every `s2` quadrant and enough `s4/s8` cases to
   leave the overall matrix worse than the current baseline.
-- The next candidate should move inside the steady-state tracked HTTP/3 drain
-  path instead of the accept path: a round-robin or bounded-per-connection
-  drain budget across already tracked HTTP/3 connections is more likely to
-  improve fairness than more accept-time special-casing.
+- A steady-state tracked-connection round-robin drain is the first keeper
+  under this plan. `_RouterBoss._drainHttp3Requests()` now drains one request
+  per HTTP/3 connection per pass before cycling again, and
+  `router_runtime_test.dart` now asserts `/a1, /b1, /a2, /b2` ordering across
+  two queued HTTP/3 connections instead of draining one connection to
+  exhaustion first.
+- Local Darwin reruns in `out/h3-http3-round-robin/` beat the last clean
+  `out/h3-followup-direction/` baseline in `12/20` throughput quadrants and
+  `13/20` p95-latency quadrants. The strongest wins were `s4` at
+  `threads=1, workers=1` (`423.07 -> 681.74 Mbps`, `411.66 -> 246.33 ms`),
+  `s4` at `threads=1, workers=4` (`406.87 -> 682.61 Mbps`,
+  `438.29 -> 238.25 ms`), `s8` at `threads=1, workers=4`
+  (`438.08 -> 658.33 Mbps`, `753.53 -> 482.78 ms`), and `s16` at
+  `threads=4, workers=4` (`465.43 -> 627.92 Mbps`, `1350.94 -> 980.68 ms`).
+- The remaining problem is now absolute queue depth, not just fairness.
+  `bin/check-bench-artifacts --summary out/h3-http3-round-robin/bench_results.summary.json`
+  still fails because the shipped gate treats any `backpressure_events` as a
+  finding, and the `s2+` workloads still exceed that zero-threshold floor even
+  after the round-robin improvement. The next candidate should therefore focus
+  on reducing queue depth further rather than reverting the new fair drain.
