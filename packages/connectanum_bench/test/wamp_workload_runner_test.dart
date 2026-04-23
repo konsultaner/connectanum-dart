@@ -112,6 +112,65 @@ void main() {
       );
     });
 
+    test(
+      'throws when pubsub session open does not complete before timeout',
+      () async {
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) => Completer<WampSession>().future,
+          logger: Logger.detached('pubsub_open_timeout_test'),
+          eventTimeout: const Duration(milliseconds: 50),
+        );
+        final scenario = WampScenario(
+          transport: WampTransport.rawsocket,
+          serializer: WampSerializer.json,
+          mode: WampMode.pubsub,
+          uri: 'bench.topic',
+          iterations: 1,
+          concurrency: 1,
+          payloadBytes: 4,
+        );
+
+        await expectLater(
+          () => runner.run(scenario),
+          throwsA(isA<TimeoutException>()),
+        );
+      },
+    );
+
+    test(
+      'throws when rpc peer session open does not complete before timeout',
+      () async {
+        final broker = _FakeWampBroker();
+        var sessionOpenCount = 0;
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async {
+            sessionOpenCount += 1;
+            if (sessionOpenCount == 1) {
+              return _FakeWampSession(broker);
+            }
+            return Completer<WampSession>().future;
+          },
+          logger: Logger.detached('rpc_peer_open_timeout_test'),
+          eventTimeout: const Duration(milliseconds: 50),
+        );
+        final scenario = WampScenario(
+          transport: WampTransport.rawsocket,
+          serializer: WampSerializer.json,
+          peerSerializer: WampSerializer.cbor,
+          mode: WampMode.rpc,
+          uri: 'bench.rpc.echo',
+          iterations: 1,
+          concurrency: 1,
+          payloadBytes: 4,
+        );
+
+        await expectLater(
+          () => runner.run(scenario),
+          throwsA(isA<TimeoutException>()),
+        );
+      },
+    );
+
     test('executes RPC scenario via the single-result call path', () async {
       final broker = _FakeWampBroker(
         callDelay: const Duration(milliseconds: 10),

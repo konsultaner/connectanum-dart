@@ -173,11 +173,23 @@ release decisions for real RawSocket/WebSocket WAMP users.
   Darwin arm64. `http_stream` and `bench_main` both sat idle with zero result
   rows for the secure scenario, so the run was terminated and recorded as a
   local verification caveat rather than a clean pass.
+- 2026-04-23: A second full local rerun of the canonical release entrypoint
+  with `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-rerun-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 60000`
+  passed all six gates on Darwin arm64 after commit `7d40433` was pushed. The
+  earlier `wamp_secure_throughput` stall did not reproduce on the rerun.
+- 2026-04-23: Hardened the WAMP bench orchestration loop against indefinite
+  hangs. `native/bench/src/bin/http_stream.rs` now times out if `bench_main`
+  does not signal `READY` within the configured timeout, and
+  `packages/connectanum_bench/lib/src/wamp_workload_runner.dart` now applies
+  explicit session-open timeouts across workload modes while cleaning up
+  partially opened session sets on later-open failures. Targeted timeout tests
+  plus a full `bin/verify` run passed locally on Darwin arm64.
 
 ## Next Slice
 
-- Push the promoted fan-out gate and confirm hosted Linux passes the updated
-  canonical `WAMP Profile Benchmarks` workflow plus the normal `CI` chain.
-- Reproduce or rule out the Darwin-local `wamp_secure_throughput` stall seen
-  during the full canonical rerun, because local production-readiness loops
-  still need a reliable end-to-end release-gate command.
+- Push the timeout-hardening follow-up and confirm hosted Linux passes the
+  updated canonical `WAMP Profile Benchmarks` workflow plus the normal `CI`
+  chain.
+- If hosted runs stay green, decide whether the remaining WAMP orchestration
+  setup phases need their own explicit local timeouts or whether this plan can
+  close with monitoring-only follow-up.

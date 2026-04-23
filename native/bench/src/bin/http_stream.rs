@@ -4,7 +4,10 @@ use std::io::{BufRead, BufReader, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::Path;
 use std::process::{Command, Stdio};
-use std::sync::Arc;
+use std::sync::{
+    mpsc::{self, RecvTimeoutError},
+    Arc,
+};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -23,9 +26,9 @@ use hyper::http::{
     Method as HyperMethod, StatusCode as HyperStatusCode, Version as HyperVersion,
 };
 use hyper::{Body, Request};
+use pbkdf2::pbkdf2_hmac;
 use quinn::{ClientConfig as QuinnClientConfig, Endpoint as QuinnEndpoint, TransportConfig};
 use quinn_proto::crypto::rustls::QuicClientConfig;
-use pbkdf2::pbkdf2_hmac;
 use reqwest::blocking::Client as BlockingHttpClient;
 use reqwest::Url as ReqwestUrl;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
@@ -214,43 +217,37 @@ fn run_bench_suite(
         .stdout
         .take()
         .context("failed to capture bench_main stdout")?;
-    let mut reader = BufReader::new(stdout);
-
-    let mut ready = false;
-    let mut line = String::new();
-    while reader.read_line(&mut line)? > 0 {
-        let trimmed = line.trim();
-        if trimmed == "READY" {
-            println!("bench_main reported READY");
-            ready = true;
-            break;
-        }
-        if !trimmed.is_empty() {
-            println!("[bench_main] {trimmed}");
-        }
-        line.clear();
-    }
-
-    if !ready {
-        bail!("bench_main exited before signaling READY");
-    }
-
+    let startup_timeout = Duration::from_millis(args.workload_timeout_ms);
+    let (stdout_event_tx, stdout_event_rx) = mpsc::channel();
     let stdout_reader = thread::spawn(move || -> Result<()> {
-        let mut reader = reader;
+        let mut reader = BufReader::new(stdout);
         let mut line = String::new();
         loop {
             line.clear();
-            let read = reader.read_line(&mut line)?;
-            if read == 0 {
-                break;
-            }
-            let trimmed = line.trim();
-            if !trimmed.is_empty() && trimmed != "READY" {
-                println!("[bench_main] {trimmed}");
+            match reader.read_line(&mut line) {
+                Ok(0) => {
+                    let _ = stdout_event_tx.send(BenchMainStdoutEvent::Eof);
+                    break;
+                }
+                Ok(_) => {
+                    let trimmed = line.trim();
+                    if trimmed == "READY" {
+                        let _ = stdout_event_tx.send(BenchMainStdoutEvent::Ready);
+                        continue;
+                    }
+                    if !trimmed.is_empty() {
+                        println!("[bench_main] {trimmed}");
+                    }
+                }
+                Err(error) => {
+                    let _ = stdout_event_tx.send(BenchMainStdoutEvent::Error(error.to_string()));
+                    return Err(error).context("failed to read bench_main stdout");
+                }
             }
         }
         Ok(())
     });
+    wait_for_bench_ready(&stdout_event_rx, startup_timeout)?;
 
     let scenarios = load_scenarios(&args.scenario)?;
     println!("Loaded {} scenario(s)", scenarios.len());
@@ -441,6 +438,34 @@ fn run_bench_suite(
         .map_err(|_| anyhow!("bench_main stdout reader panicked"))?;
     stdout_result?;
     Ok(())
+}
+
+enum BenchMainStdoutEvent {
+    Ready,
+    Eof,
+    Error(String),
+}
+
+fn wait_for_bench_ready(
+    receiver: &mpsc::Receiver<BenchMainStdoutEvent>,
+    timeout: Duration,
+) -> Result<()> {
+    match receiver.recv_timeout(timeout) {
+        Ok(BenchMainStdoutEvent::Ready) => {
+            println!("bench_main reported READY");
+            Ok(())
+        }
+        Ok(BenchMainStdoutEvent::Eof) => bail!("bench_main exited before signaling READY"),
+        Ok(BenchMainStdoutEvent::Error(message)) => {
+            bail!("failed to read bench_main stdout before READY: {message}")
+        }
+        Err(RecvTimeoutError::Timeout) => {
+            bail!("bench_main did not signal READY within {:?}", timeout)
+        }
+        Err(RecvTimeoutError::Disconnected) => {
+            bail!("bench_main stdout reader stopped before READY")
+        }
+    }
 }
 
 struct RouterConfigVariant {
@@ -2499,19 +2524,22 @@ fn build_auth_complete_body(
             let iterations = json_u32(challenge_fields.get("iterations"))
                 .unwrap_or(1000)
                 .max(1);
-            let key_len = json_usize(challenge_fields.get("keylen")).unwrap_or(32).max(1);
-            let secret_key = if let Some(salt) = challenge_fields.get("salt").and_then(Value::as_str) {
-                let mut derived = vec![0u8; key_len];
-                pbkdf2_hmac::<Sha256>(
-                    workload.auth_secret.as_bytes(),
-                    salt.as_bytes(),
-                    iterations,
-                    &mut derived,
-                );
-                derived
-            } else {
-                workload.auth_secret.as_bytes().to_vec()
-            };
+            let key_len = json_usize(challenge_fields.get("keylen"))
+                .unwrap_or(32)
+                .max(1);
+            let secret_key =
+                if let Some(salt) = challenge_fields.get("salt").and_then(Value::as_str) {
+                    let mut derived = vec![0u8; key_len];
+                    pbkdf2_hmac::<Sha256>(
+                        workload.auth_secret.as_bytes(),
+                        salt.as_bytes(),
+                        iterations,
+                        &mut derived,
+                    );
+                    derived
+                } else {
+                    workload.auth_secret.as_bytes().to_vec()
+                };
             let signature = hmac_base64(
                 Base64Engine.encode(secret_key).as_bytes(),
                 challenge_text.as_bytes(),
@@ -4171,6 +4199,23 @@ mod tests {
     }
 
     #[test]
+    fn wait_for_bench_ready_accepts_ready_signal() {
+        let (tx, rx) = mpsc::channel();
+        tx.send(BenchMainStdoutEvent::Ready).unwrap();
+        wait_for_bench_ready(&rx, Duration::from_millis(10)).unwrap();
+    }
+
+    #[test]
+    fn wait_for_bench_ready_times_out_without_ready() {
+        let (_tx, rx) = mpsc::channel::<BenchMainStdoutEvent>();
+        let error = wait_for_bench_ready(&rx, Duration::from_millis(5)).unwrap_err();
+        assert!(
+            error.to_string().contains("did not signal READY"),
+            "unexpected error {error}"
+        );
+    }
+
+    #[test]
     fn split_metrics_payload_extracts_open_metrics_text() {
         let (metrics, open_metrics) = split_metrics_payload(json!({
             "metrics": {
@@ -5048,7 +5093,10 @@ mod tests {
         let body =
             build_auth_complete_body(&workload, &HttpAuthClientState::WampCra, &challenge).unwrap();
         assert_eq!(body["state"], "auth-state");
-        assert_eq!(body["signature"], "yYd61sRkvHj6Heqz4yjRxcb72u68tNQltpLCAiAP7EE=");
+        assert_eq!(
+            body["signature"],
+            "yYd61sRkvHj6Heqz4yjRxcb72u68tNQltpLCAiAP7EE="
+        );
         assert_eq!(body["extra"], json!({}));
     }
 
@@ -5103,7 +5151,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(body["state"], "auth-state");
-        assert_eq!(body["signature"], "7RoGYFXvNOdJIrYZ7JO7MwQ5h7SpTgptDpShviU5lWo=");
+        assert_eq!(
+            body["signature"],
+            "7RoGYFXvNOdJIrYZ7JO7MwQ5h7SpTgptDpShviU5lWo="
+        );
         assert_eq!(
             body["extra"],
             json!({

@@ -98,16 +98,12 @@ class WampWorkloadRunner {
     WampScenario scenario,
   ) async {
     final start = DateTime.now();
-    final session = await _sessionFactory(scenario).timeout(
-      _eventTimeout,
-      onTimeout: () {
-        _logger.severe(
-          'Authenticate session open timed out '
-          'worker=$workerId iteration=$iteration '
-          'transport=${scenario.transport.name} realm=${scenario.realmUri}',
-        );
-        throw TimeoutException('wamp_auth_timeout');
-      },
+    final session = await _openSession(
+      scenario,
+      workerId: workerId,
+      iteration: iteration,
+      timeoutLabel: 'wamp_auth',
+      logLabel: 'Authenticate',
     );
     await session.close();
     final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
@@ -125,38 +121,53 @@ class WampWorkloadRunner {
     WampScenario scenario,
     String payload,
   ) async {
-    final publisher = await _sessionFactory(scenario);
+    WampSession? publisher;
     final subscribers = <WampSession>[];
     final subscriptions = <WampSubscription>[];
     final eventBuffers = <WampEventBuffer>[];
-    for (var peerIndex = 0; peerIndex < scenario.peerCount; peerIndex += 1) {
-      final subscriber = await _sessionFactory(_peerScenario(scenario));
-      final subscription = await subscriber.subscribeLazyPayload(scenario.uri);
-      final eventBuffer = WampEventBuffer();
-      subscription.onEvent((event) {
-        _logger.finer(
-          'PUBSUB event received worker=$workerId peer=$peerIndex '
-          'args=${event.arguments} kwargs=${event.argumentsKeywords}',
-        );
-        eventBuffer.add(event);
-      });
-      final onRevoke = subscription.onRevoke;
-      if (onRevoke != null) {
-        unawaited(onRevoke.then((_) => eventBuffer.close()));
-      }
-      unawaited(
-        subscriber.onDisconnect.then(
-          (_) => eventBuffer.close(),
-          onError: (error, stackTrace) =>
-              eventBuffer.closeWithError(error, stackTrace),
-        ),
-      );
-      subscribers.add(subscriber);
-      subscriptions.add(subscription);
-      eventBuffers.add(eventBuffer);
-    }
     final samples = <WampSample>[];
     try {
+      publisher = await _openSession(
+        scenario,
+        workerId: workerId,
+        timeoutLabel: 'pubsub_publisher',
+        logLabel: 'PUBSUB publisher',
+      );
+      for (var peerIndex = 0; peerIndex < scenario.peerCount; peerIndex += 1) {
+        final subscriberScenario = _peerScenario(scenario);
+        final subscriber = await _openSession(
+          subscriberScenario,
+          workerId: workerId,
+          peerIndex: peerIndex,
+          timeoutLabel: 'pubsub_subscriber',
+          logLabel: 'PUBSUB subscriber',
+        );
+        subscribers.add(subscriber);
+        final subscription = await subscriber.subscribeLazyPayload(
+          scenario.uri,
+        );
+        final eventBuffer = WampEventBuffer();
+        subscription.onEvent((event) {
+          _logger.finer(
+            'PUBSUB event received worker=$workerId peer=$peerIndex '
+            'args=${event.arguments} kwargs=${event.argumentsKeywords}',
+          );
+          eventBuffer.add(event);
+        });
+        final onRevoke = subscription.onRevoke;
+        if (onRevoke != null) {
+          unawaited(onRevoke.then((_) => eventBuffer.close()));
+        }
+        unawaited(
+          subscriber.onDisconnect.then(
+            (_) => eventBuffer.close(),
+            onError: (error, stackTrace) =>
+                eventBuffer.closeWithError(error, stackTrace),
+          ),
+        );
+        subscriptions.add(subscription);
+        eventBuffers.add(eventBuffer);
+      }
       samples.addAll(
         await _runWithInFlightLimit(
           iterations: scenario.iterations,
@@ -167,7 +178,7 @@ class WampWorkloadRunner {
             scenario,
             payload,
             eventBuffers,
-            publisher,
+            publisher!,
           ),
         ),
       );
@@ -189,7 +200,7 @@ class WampWorkloadRunner {
       for (final subscriber in subscribers) {
         await subscriber.close();
       }
-      await publisher.close();
+      await publisher?.close();
     }
     return samples;
   }
@@ -267,6 +278,37 @@ class WampWorkloadRunner {
     return parsed;
   }
 
+  Future<WampSession> _openSession(
+    WampScenario scenario, {
+    required int workerId,
+    int? iteration,
+    int? peerIndex,
+    required String timeoutLabel,
+    required String logLabel,
+  }) {
+    final details = StringBuffer()
+      ..write('worker=$workerId ')
+      ..write('transport=${scenario.transport.name} ')
+      ..write('serializer=${scenario.serializer.name} ')
+      ..write('realm=${scenario.realmUri} ')
+      ..write('uri=${scenario.uri}');
+    if (iteration != null) {
+      details.write(' iteration=$iteration');
+    }
+    if (peerIndex != null) {
+      details.write(' peer=$peerIndex');
+    }
+    return _sessionFactory(scenario).timeout(
+      _eventTimeout,
+      onTimeout: () {
+        _logger.severe(
+          '$logLabel session open timed out ${details.toString()}',
+        );
+        throw TimeoutException('${timeoutLabel}_open_timeout');
+      },
+    );
+  }
+
   Future<List<WampSample>> _runRpcScenario(WampScenario scenario) async {
     final payload = _buildPayloadString(scenario.payloadBytes);
     final workers = List.generate(
@@ -282,20 +324,33 @@ class WampWorkloadRunner {
     WampScenario scenario,
     String payload,
   ) async {
-    final session = await _sessionFactory(scenario);
+    WampSession? session;
     WampSession? calleeSession;
     WampRegistration? registration;
     var procedure = scenario.uri;
-    if (scenario.peerSerializer != null) {
-      procedure = _externalProcedureUri(scenario.uri, workerId);
-      calleeSession = await _sessionFactory(_peerScenario(scenario));
-      registration = await calleeSession.registerLazyPayloadHandler(
-        procedure,
-        (invocation) => respondEchoLazyInvocation(invocation, logger: _logger),
-      );
-    }
     final samples = <WampSample>[];
     try {
+      session = await _openSession(
+        scenario,
+        workerId: workerId,
+        timeoutLabel: 'rpc_caller',
+        logLabel: 'RPC caller',
+      );
+      if (scenario.peerSerializer != null) {
+        procedure = _externalProcedureUri(scenario.uri, workerId);
+        final peerScenario = _peerScenario(scenario);
+        calleeSession = await _openSession(
+          peerScenario,
+          workerId: workerId,
+          timeoutLabel: 'rpc_callee',
+          logLabel: 'RPC callee',
+        );
+        registration = await calleeSession.registerLazyPayloadHandler(
+          procedure,
+          (invocation) =>
+              respondEchoLazyInvocation(invocation, logger: _logger),
+        );
+      }
       samples.addAll(
         await _runWithInFlightLimit(
           iterations: scenario.iterations,
@@ -306,7 +361,7 @@ class WampWorkloadRunner {
             scenario,
             procedure,
             payload,
-            session,
+            session!,
           ),
         ),
       );
@@ -320,7 +375,7 @@ class WampWorkloadRunner {
     } finally {
       await registration?.cancel();
       await calleeSession?.close();
-      await session.close();
+      await session?.close();
     }
     return samples;
   }
@@ -382,8 +437,14 @@ class WampWorkloadRunner {
     WampScenario scenario,
     String payload,
   ) async {
-    final publisher = await _sessionFactory(scenario);
+    WampSession? publisher;
     try {
+      publisher = await _openSession(
+        scenario,
+        workerId: workerId,
+        timeoutLabel: 'publish_ack_publisher',
+        logLabel: 'Publish-ack publisher',
+      );
       return await _runWithInFlightLimit(
         iterations: scenario.iterations,
         maxInFlight: scenario.inFlightPerSession,
@@ -392,11 +453,11 @@ class WampWorkloadRunner {
           iteration,
           scenario,
           payload,
-          publisher,
+          publisher!,
         ),
       );
     } finally {
-      await publisher.close();
+      await publisher?.close();
     }
   }
 
@@ -442,16 +503,26 @@ class WampWorkloadRunner {
     int workerId,
     WampScenario scenario,
   ) async {
-    final session = await _sessionFactory(scenario);
+    WampSession? session;
     try {
+      session = await _openSession(
+        scenario,
+        workerId: workerId,
+        timeoutLabel: 'subscribe_cycle',
+        logLabel: 'Subscribe-cycle',
+      );
       return await _runWithInFlightLimit(
         iterations: scenario.iterations,
         maxInFlight: scenario.inFlightPerSession,
-        launch: (iteration) =>
-            _runSubscribeCycleIteration(workerId, iteration, scenario, session),
+        launch: (iteration) => _runSubscribeCycleIteration(
+          workerId,
+          iteration,
+          scenario,
+          session!,
+        ),
       );
     } finally {
-      await session.close();
+      await session?.close();
     }
   }
 
@@ -493,16 +564,22 @@ class WampWorkloadRunner {
     int workerId,
     WampScenario scenario,
   ) async {
-    final session = await _sessionFactory(scenario);
+    WampSession? session;
     try {
+      session = await _openSession(
+        scenario,
+        workerId: workerId,
+        timeoutLabel: 'register_cycle',
+        logLabel: 'Register-cycle',
+      );
       return await _runWithInFlightLimit(
         iterations: scenario.iterations,
         maxInFlight: scenario.inFlightPerSession,
         launch: (iteration) =>
-            _runRegisterCycleIteration(workerId, iteration, scenario, session),
+            _runRegisterCycleIteration(workerId, iteration, scenario, session!),
       );
     } finally {
-      await session.close();
+      await session?.close();
     }
   }
 
@@ -545,63 +622,59 @@ class WampWorkloadRunner {
     int workerId,
     WampScenario scenario,
   ) async {
-    final caller = await _sessionFactory(scenario).timeout(
-      _eventTimeout,
-      onTimeout: () {
-        _logger.severe(
-          'Cancel-cycle caller session open timed out '
-          'worker=$workerId transport=${scenario.transport.name} '
-          'serializer=${scenario.serializer.name}',
-        );
-        throw TimeoutException('cancel_caller_open_timeout');
-      },
-    );
-    final callee = await _sessionFactory(_peerScenario(scenario)).timeout(
-      _eventTimeout,
-      onTimeout: () {
-        _logger.severe(
-          'Cancel-cycle callee session open timed out '
-          'worker=$workerId transport=${scenario.transport.name} '
-          'serializer=${_peerScenario(scenario).serializer.name}',
-        );
-        throw TimeoutException('cancel_callee_open_timeout');
-      },
-    );
+    WampSession? caller;
+    WampSession? callee;
     final procedure = _externalProcedureUri(scenario.uri, workerId);
-    final registration = await callee
-        .registerLazyPayloadHandler(
-          procedure,
-          (_) {},
-          options: _buildControlRegisterOptions(scenario),
-        )
-        .timeout(
-          _eventTimeout,
-          onTimeout: () {
-            _logger.severe(
-              'Cancel-cycle registration timed out '
-              'worker=$workerId uri=$procedure',
-            );
-            throw TimeoutException('cancel_register_timeout');
-          },
-        );
+    WampRegistration? registration;
     try {
+      caller = await _openSession(
+        scenario,
+        workerId: workerId,
+        timeoutLabel: 'cancel_caller',
+        logLabel: 'Cancel-cycle caller',
+      );
+      final peerScenario = _peerScenario(scenario);
+      callee = await _openSession(
+        peerScenario,
+        workerId: workerId,
+        timeoutLabel: 'cancel_callee',
+        logLabel: 'Cancel-cycle callee',
+      );
+      registration = await callee
+          .registerLazyPayloadHandler(
+            procedure,
+            (_) {},
+            options: _buildControlRegisterOptions(scenario),
+          )
+          .timeout(
+            _eventTimeout,
+            onTimeout: () {
+              _logger.severe(
+                'Cancel-cycle registration timed out '
+                'worker=$workerId uri=$procedure',
+              );
+              throw TimeoutException('cancel_register_timeout');
+            },
+          );
       return await _runWithInFlightLimit(
         iterations: scenario.iterations,
         maxInFlight: scenario.inFlightPerSession,
         launch: (iteration) =>
-            _runCancelCycleIteration(workerId, iteration, procedure, caller),
+            _runCancelCycleIteration(workerId, iteration, procedure, caller!),
       );
     } finally {
-      try {
-        await registration.cancel().timeout(_cancelCleanupTimeout);
-      } on TimeoutException {
-        _logger.warning(
-          'Cancel-cycle registration cleanup timed out for $procedure; '
-          'closing sessions to force teardown of interrupted invocations.',
-        );
+      if (registration != null) {
+        try {
+          await registration.cancel().timeout(_cancelCleanupTimeout);
+        } on TimeoutException {
+          _logger.warning(
+            'Cancel-cycle registration cleanup timed out for $procedure; '
+            'closing sessions to force teardown of interrupted invocations.',
+          );
+        }
       }
-      await callee.close();
-      await caller.close();
+      await callee?.close();
+      await caller?.close();
     }
   }
 
