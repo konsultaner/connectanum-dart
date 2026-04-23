@@ -6028,6 +6028,9 @@ impl BenchHttpClient {
 
 fn build_control_http_client(scheme: &str) -> Result<BlockingHttpClient> {
     let mut builder = BlockingHttpClient::builder()
+        // Keep benchmark control traffic off HTTP/2 so control-plane TLS
+        // shutdown noise cannot pollute workload transport-alert deltas.
+        .http1_only()
         .timeout(Duration::from_secs(30))
         .pool_max_idle_per_host(0)
         .pool_idle_timeout(Duration::from_secs(0));

@@ -13,6 +13,8 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
 - `cargo test --manifest-path native/bench/Cargo.toml artifacts -- --nocapture`
 - `bin/check-bench-artifacts --summary out/wamp-transport-local/bench_results.summary.json --policy native/bench/artifact_gate/wamp_transport_throughput.json`
 - `bin/check-bench-artifacts --summary out/wamp-secure-local/bench_results.summary.json --policy native/bench/artifact_gate/wamp_secure_throughput.json`
+- `cargo test --manifest-path native/bench/Cargo.toml --bin http_stream http_endpoint_accepts_https_control_base -- --nocapture`
+- `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-http1-control-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`
 - `bin/verify`
 
 ## Autonomous Priority
@@ -91,6 +93,15 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
   Gates` job. Use that path for branch-hosted WAMP evidence until the
   dedicated `WAMP Profile Benchmarks` workflow exists on the default branch
   and becomes directly dispatchable.
+- The first hosted `WAMP Profile Benchmarks` run on `3acbf94` failed because
+  the Rust bench control client negotiated HTTP/2 for `/bench/metrics`, and
+  hosted Linux recorded occasional TLS close/protocol-error alerts from that
+  control channel inside otherwise successful WAMP workloads. The control
+  client now forces HTTP/1.1 so WAMP profile gates do not mix HTTP/2
+  control-plane shutdown noise into WAMP transport-alert deltas.
+- Local Darwin arm64 validation after forcing the Rust bench control client to
+  HTTP/1.1 passed both canonical WAMP profile gates with
+  `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-http1-control-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`.
 - Final local handoff verification on 2026-04-23 passed with `bin/verify`.
   The first `bin/verify` attempt hit a transient
   `ct_ffi::tests::listen_flow::poll_connection_message_returns_payload`
@@ -406,6 +417,10 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
 
 ## Verification Status
 
+- 2026-04-23: `cargo test --manifest-path native/bench/Cargo.toml --bin http_stream http_endpoint_accepts_https_control_base -- --nocapture`,
+  `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-http1-control-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`,
+  and `bin/verify` passed on Darwin arm64 after forcing the Rust bench
+  control client to HTTP/1.1 for WAMP profile gates.
 - 2026-04-23: `bin/test-fast`,
   `cargo test --manifest-path native/bench/Cargo.toml artifacts -- --nocapture`,
   both WAMP throughput policy gate checks against `out/wamp-transport-local`

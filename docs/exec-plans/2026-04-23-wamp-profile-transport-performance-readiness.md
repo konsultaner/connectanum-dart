@@ -113,6 +113,16 @@ release decisions for real RawSocket/WebSocket WAMP users.
   workflow is not dispatchable until it exists on the default branch, so the
   existing `CI` workflow now has a `workflow_dispatch`-only `WAMP Profile
   Gates` job for branch-hosted WAMP evidence.
+- 2026-04-23: Investigated hosted `WAMP Profile Benchmarks` failure on
+  `3acbf94`. The WAMP workloads completed and throughput budgets were fine,
+  but the artifact gate caught HTTP/2 control-plane TLS close/protocol alerts
+  from `/bench/metrics`. The Rust bench control client now forces HTTP/1.1 so
+  the WAMP gate does not mix control-channel shutdown noise into WAMP
+  transport deltas.
+- 2026-04-23: `cargo test --manifest-path native/bench/Cargo.toml --bin http_stream http_endpoint_accepts_https_control_base -- --nocapture`,
+  `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-http1-control-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`,
+  and `bin/verify` passed on Darwin arm64 after the HTTP/1.1 control-plane
+  fix.
 
 ## Next Slice
 
