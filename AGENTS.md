@@ -18,6 +18,11 @@ If the native library already exists in the standard release location, the root 
 
 ## Working rules
 
+- Autonomous continuation priority order:
+  1. Keep the CI chain clean. If local `bin/verify` is failing or the latest known branch CI is red, fix that before starting new feature or benchmark work.
+  2. Prioritize production readiness of already-shipped or partially-shipped functionality before exploratory work. That includes correctness, deployment behavior, release packaging, observability, operational docs, and test coverage.
+  3. Treat benchmark and performance work as production work only when it protects or improves a real shipped path, a CI gate, or a release decision. Do not let speculative benchmarking outrun product readiness.
+- Do not knowingly leave the branch in a state that would break the clean CI chain without recording the blocker clearly in `docs/project_state.md` and the active exec plan.
 - Reproduce blocking issues with a unit test or minimal repro before changing behavior.
 - Keep one active execution plan in `docs/exec-plans/` for any task that spans packages, native code, deployment, or multiple working sessions.
 - Update `docs/project_state.md` when the active milestone, blockers, or last-known verification status changes.

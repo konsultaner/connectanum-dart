@@ -10,6 +10,12 @@ Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.m
 - `bin/test-fast`
 - `bin/verify`
 
+## Autonomous Priority
+
+1. Keep the CI chain clean first. If local `bin/verify` is failing or the latest known branch CI is red, continuation work should switch to restoring green before new implementation or benchmark work.
+2. Prioritize production readiness of current functionality before exploratory expansion. That includes correctness, release/deployment behavior, observability, packaging, operational docs, and coverage for shipped paths.
+3. Benchmark and performance work stays important, but it should serve production readiness and release confidence rather than run ahead of them.
+
 ## Resume Order
 
 1. Read `AGENTS.md`.
@@ -283,6 +289,7 @@ Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.m
 
 ## Verification Status
 
+- 2026-04-23: `bin/verify` passed on Darwin arm64 after updating `AGENTS.md` and this state file so autonomous continuation now prioritizes a clean CI chain and production-readiness work before exploratory implementation.
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after recording the rejected `out/h3-http3-request-ready-wake/` experiment and reverting the router/native code to the kept steady-state round-robin HTTP/3 drain.
 - 2026-04-23: `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h3_multiplex_scaling.toml --router-worker-counts 1,4 --native-runtime-thread-counts 1,4 --results out/h3-http3-request-ready-wake/bench_results.jsonl --artifact-dir out/h3-http3-request-ready-wake` passed on Darwin arm64 and was recorded as a negative result. Compared with `out/h3-http3-round-robin`, the request-ready wake variant won only `7/20` throughput quadrants and `7/20` p95 quadrants, still failed the bench gate with `32` findings, and regressed deep `s8/s16` reuse too hard to keep.
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after recording the rejected `out/h3-http3-native-ready-queue/` experiment and reverting the router/native code to the kept steady-state round-robin HTTP/3 drain.
