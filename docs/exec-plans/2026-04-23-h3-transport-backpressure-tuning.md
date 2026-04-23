@@ -95,5 +95,17 @@ connection depths by targeting the transport/backpressure path directly.
   `threads=1, workers=4` (`658.33 -> 389.74 Mbps`, `482.78 -> 787.97 ms`),
   and `s16` at `threads=1, workers=4` (`678.72 -> 500.11 Mbps`,
   `1104.96 -> 1346.36 ms`).
-- The next candidate should therefore stay inside HTTP/3 queue/drain semantics
-  or native wake/handoff behavior, not simple boss-loop reordering.
+- A bounded follow-up burst inside `_drainHttp3Requests()` was measured and
+  rejected next. Keeping the first fair pass at one request per connection but
+  allowing two per connection on later passes reduced some backpressure counts,
+  but `out/h3-http3-followup-burst2/` still lost `11/20` throughput quadrants
+  and `12/20` p95 quadrants versus the kept
+  `out/h3-http3-round-robin/` baseline. The worst losses were `s4` at
+  `threads=1, workers=1` (`681.74 -> 285.04 Mbps`, `246.33 -> 873.80 ms`),
+  `s1` at `threads=1, workers=1` (`683.91 -> 435.95 Mbps`,
+  `66.64 -> 121.99 ms`), and `s16` at `threads=1, workers=1`
+  (`620.66 -> 385.13 Mbps`, `884.91 -> 1449.49 ms`).
+- The next candidate should therefore move away from larger per-connection
+  drain bursts and toward native wake/handoff behavior or a lighter-weight way
+  to surface queued HTTP/3 requests without letting a single connection
+  dominate the one-worker path again.
