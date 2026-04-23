@@ -85,3 +85,15 @@ connection depths by targeting the transport/backpressure path directly.
   finding, and the `s2+` workloads still exceed that zero-threshold floor even
   after the round-robin improvement. The next candidate should therefore focus
   on reducing queue depth further rather than reverting the new fair drain.
+- A top-level boss-loop priority change was then measured and rejected too.
+  Moving `_drainHttp3Requests()` ahead of `_dispatchMessages()` and the other
+  maintenance passes in `_loop()` looked plausible as a wake-latency reduction,
+  but `out/h3-http3-priority/` regressed `14/20` throughput quadrants and
+  `19/20` p95 quadrants versus the kept `out/h3-http3-round-robin/` baseline.
+  The worst losses were `s4` at `threads=1, workers=1`
+  (`681.74 -> 471.56 Mbps`, `246.33 -> 409.33 ms`), `s8` at
+  `threads=1, workers=4` (`658.33 -> 389.74 Mbps`, `482.78 -> 787.97 ms`),
+  and `s16` at `threads=1, workers=4` (`678.72 -> 500.11 Mbps`,
+  `1104.96 -> 1346.36 ms`).
+- The next candidate should therefore stay inside HTTP/3 queue/drain semantics
+  or native wake/handoff behavior, not simple boss-loop reordering.

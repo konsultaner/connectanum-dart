@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-23
 Current branch: `add-router`
-Last reviewed commit: `f0c4db0` (`docs(h3): record boss drain findings`)
+Last reviewed commit: `26e9db1` (`perf(router): round-robin http3 request drain`)
 Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.md`
 
 ## Last Known Verification
@@ -95,6 +95,17 @@ Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.m
   gate's zero-threshold floor on every `s2+` quadrant, so the active H3 plan
   stays open for further queue-depth reduction even though the round-robin
   drain is a clear net improvement worth keeping.
+- A top-level boss-loop priority change has now been ruled out too. Moving
+  `_drainHttp3Requests()` earlier in `_loop()` than `_dispatchMessages()` and
+  the other maintenance passes produced `out/h3-http3-priority/`, which
+  regressed `14/20` throughput quadrants and `19/20` p95 quadrants versus the
+  kept `out/h3-http3-round-robin/` baseline. The worst losses were `s4` at
+  `threads=1, workers=1` (`681.74 -> 471.56 Mbps`, `246.33 -> 409.33 ms`),
+  `s8` at `threads=1, workers=4` (`658.33 -> 389.74 Mbps`,
+  `482.78 -> 787.97 ms`), and `s16` at `threads=1, workers=4`
+  (`678.72 -> 500.11 Mbps`, `1104.96 -> 1346.36 ms`).
+- The next HTTP/3 candidate should therefore stay inside request-queue/drain
+  semantics or native wake/handoff behavior, not simple boss-loop reordering.
 - The pinned WAMP conformance snapshot now covers one router-level
   multi-session vector in addition to the existing single-message serializer
   subset. `packages/connectanum_core/testdata/wamp_conformance/multisession/advanced/publisher_exclusion_disabled.json`
@@ -219,6 +230,8 @@ Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.m
 
 ## Verification Status
 
+- 2026-04-23: `bin/verify` passed on Darwin arm64 after recording the rejected `out/h3-http3-priority/` loop-order experiment and stabilizing `native/transport/ct_ffi/src/tests/listen_flow.rs::http2_handshake_surfaced_via_ffi`.
+- 2026-04-23: `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h3_multiplex_scaling.toml --router-worker-counts 1,4 --native-runtime-thread-counts 1,4 --results out/h3-http3-priority/bench_results.jsonl --artifact-dir out/h3-http3-priority` passed on Darwin arm64 and was recorded as a negative result. Compared with `out/h3-http3-round-robin`, the loop-priority variant won only `6/20` throughput quadrants and `1/20` p95 quadrants, so the code was reverted and the active H3 plan remained open.
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after landing the steady-state HTTP/3 round-robin drain, the focused router fairness regression, and the updated active H3 transport/backpressure plan notes.
 - 2026-04-23: `dart analyze packages/connectanum_router/lib/src/router/router_instance/router_boss.dart packages/connectanum_router/test/router_runtime_test.dart` and `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'http3 connections are drained fairly across tracked requests' -r expanded` both passed on Darwin arm64 after landing the steady-state HTTP/3 round-robin drain change and the focused fairness regression.
 - 2026-04-23: `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h3_multiplex_scaling.toml --router-worker-counts 1,4 --native-runtime-thread-counts 1,4 --results out/h3-http3-round-robin/bench_results.jsonl --artifact-dir out/h3-http3-round-robin` passed on Darwin arm64. Compared with `out/h3-followup-direction`, the steady-state round-robin drain improved `12/20` throughput quadrants and `13/20` p95 quadrants, but `bin/check-bench-artifacts --summary out/h3-http3-round-robin/bench_results.summary.json` still reports absolute backpressure findings because the shipped gate threshold is zero and the `s2+` workloads are not there yet.

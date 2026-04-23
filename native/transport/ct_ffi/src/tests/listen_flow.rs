@@ -2241,6 +2241,7 @@ fn http2_handshake_surfaced_via_ffi() {
     assert!(port > 0);
 
     let (client_tx, client_rx) = std::sync::mpsc::channel();
+    let (client_done_tx, client_done_rx) = std::sync::mpsc::channel();
     let client_handle = std::thread::spawn(move || {
         let rt = TokioRuntime::new().unwrap();
         rt.block_on(async move {
@@ -2252,7 +2253,7 @@ fn http2_handshake_surfaced_via_ffi() {
             tokio::spawn(async move {
                 let _ = connection.await;
             });
-            tokio::time::sleep(Duration::from_millis(200)).await;
+            client_done_rx.recv().unwrap();
         })
     });
 
@@ -2322,6 +2323,7 @@ fn http2_handshake_surfaced_via_ffi() {
     );
 
     assert_eq!(ct_http2_handshake_release(handle), SUCCESS);
+    client_done_tx.send(()).unwrap();
     client_handle.join().unwrap();
     assert_eq!(ct_shutdown(), SUCCESS);
 }
