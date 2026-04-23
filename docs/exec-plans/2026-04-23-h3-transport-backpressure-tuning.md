@@ -48,6 +48,24 @@ connection depths by targeting the transport/backpressure path directly.
   but it over-serialized the workload. `soft_limit = 4` capped
   `max_backpressure_depth` at `4` and helped some `s4/s8` and one `s16`
   combination, but it still regressed too many other quadrants to keep.
-- The next candidate should target boss-loop request-drain cadence or queue
-  handoff scheduling around the native HTTP request backlog rather than QUIC
-  body-write chunking.
+- Three boss-side queue-drain variants were then measured locally and all
+  rejected after remeasurement on the shipped
+  `native/bench/scenarios/h3_multiplex_scaling.toml` matrix:
+  `out/h3-boss-drain-cadence/` (full extra boss-loop queue pass),
+  `out/h3-boss-connection-local/` (drain all queued requests on newly accepted
+  connections), and `out/h3-boss-http3-burst1/` (drain one immediate HTTP/3
+  request on accept).
+- The full extra boss-loop queue pass was the worst variant. It improved a few
+  `s4/s8` points, but it severely regressed the low-depth `s1` quadrants and
+  still did not cleanly reduce deep-queue pressure.
+- Draining whole accepted connections immediately helped some deep multi-worker
+  points, but it created fairness regressions elsewhere because one connection
+  could monopolize the boss loop before later accepted connections were polled.
+- The burst-1 HTTP/3 accept drain was the best of the three experiments, but
+  it was still too mixed to keep. It improved most `s1` points and some `s16`
+  throughput, but it regressed every `s2` quadrant and enough `s4/s8` cases to
+  leave the overall matrix worse than the current baseline.
+- The next candidate should move inside the steady-state tracked HTTP/3 drain
+  path instead of the accept path: a round-robin or bounded-per-connection
+  drain budget across already tracked HTTP/3 connections is more likely to
+  improve fairness than more accept-time special-casing.

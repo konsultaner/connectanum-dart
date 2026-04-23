@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-23
 Current branch: `add-router`
-Last reviewed commit: `2e84084` (`docs: clarify runtime behavior and examples`)
+Last reviewed commit: `99a23a0` (`docs(h3): record rejected backpressure experiments`)
 Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.md`
 
 ## Last Known Verification
@@ -58,6 +58,27 @@ Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.m
 - The latest local Darwin H3 direction sweep now covers `router_workers = 1,4` and `native_runtime_threads = 1,4` on that shipped scenario. Extra router workers only helped the lowest-multiplex `s1` point (`721.60 Mbps`, p95 `54.61 ms` at `threads=1, workers=4`) and were neutral or harmful at the deeper `s4/s8/s16` points. The best overall point was `761.52 Mbps` / p95 `124.85 ms` at `s2` with `threads=4, workers=1`, while `s16` still emitted `103-117` backpressure events across all combinations and regressed as low as `465.43 Mbps` / p95 `1350.94 ms`. The next HTTP/3 milestone should therefore target transport/backpressure tuning rather than application response scheduling.
 - The first two transport-side HTTP/3 tuning experiments are now ruled out locally on Darwin. Send-side body-write chunking at `32 KiB` and `64 KiB` shifted throughput between quadrants but barely changed `backpressure_events`, confirming the benchmark counter is not driven primarily by QUIC body-write burstiness.
 - A native HTTP/3 accept-loop backlog gate also proved to be the wrong tradeoff. `soft_limit = 1` eliminated `backpressure_events` completely but over-serialized the workload, and `soft_limit = 4` capped `max_backpressure_depth` at `4` while still regressing too many `s1/s2/s16` combinations to keep. The active H3 plan remains open, but the next candidate should target boss-loop request-drain cadence or queue handoff scheduling around the native HTTP request backlog instead of more body-write tuning.
+- Three boss-side HTTP/3 queue-drain variants were then measured locally and all
+  rejected after remeasurement on the shipped `h3_multiplex_scaling` matrix:
+  `out/h3-boss-drain-cadence/` (full extra boss-loop queue pass),
+  `out/h3-boss-connection-local/` (drain whole newly accepted connections
+  immediately), and `out/h3-boss-http3-burst1/` (drain one immediate HTTP/3
+  request on accept).
+- The full extra boss-loop queue pass was the clearest reject: it improved some
+  `s4/s8` points, but it heavily regressed the `s1` baselines and still did not
+  yield a clean deep-multiplex win.
+- Draining all queued requests for a just-accepted connection improved some
+  deep multi-worker cases, but it also caused fairness regressions because one
+  accepted connection could monopolize the boss loop before later accepted
+  connections were serviced.
+- The burst-1 accept drain was the best of those three boss-side variants, but
+  it was still too mixed to keep. It improved most `s1` points and some `s16`
+  throughput, but it regressed every `s2` quadrant and enough `s4/s8` points
+  that the baseline remains preferable.
+- The next H3 candidate should therefore move inside the steady-state tracked
+  HTTP/3 drain path instead of the accept path: a round-robin or bounded
+  per-connection drain budget across already tracked HTTP/3 connections is the
+  next plausible fairness target.
 - The pinned WAMP conformance snapshot now covers one router-level
   multi-session vector in addition to the existing single-message serializer
   subset. `packages/connectanum_core/testdata/wamp_conformance/multisession/advanced/publisher_exclusion_disabled.json`
@@ -182,9 +203,21 @@ Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.m
 
 ## Verification Status
 
+- 2026-04-23: `bin/verify` passed on Darwin arm64 after reverting the
+  measured boss-side HTTP/3 queue-drain experiments and checking in the
+  negative benchmark findings under the still-active H3
+  transport/backpressure plan.
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after reverting the rejected H3 chunking/backlog-gate code and checking in the negative benchmark findings for the still-active transport/backpressure plan.
 - 2026-04-23: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core http3_server_config_applies_transport_tuning -- --nocapture`, `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi http3_response_streaming_round_trip -- --nocapture`, and `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'streams HTTP/3 response chunks using native streams' -r expanded` all passed on Darwin arm64 while iterating on the H3 transport/backpressure milestone.
 - 2026-04-23: local Darwin reruns of `native/bench/scenarios/h3_multiplex_scaling.toml` with experimental send-side chunking (`out/h3-transport-chunking/`, `out/h3-transport-chunking-64k/`) and native HTTP/3 backlog gating (`out/h3-backlog-gate/`, `out/h3-backlog-gate-4/`) completed successfully and were recorded as negative results; neither candidate produced a clean enough improvement to keep.
+- 2026-04-23: `bin/test-fast` passed on Darwin arm64 before iterating on the
+  H3 boss-loop queue-drain experiments.
+- 2026-04-23: local Darwin reruns of
+  `native/bench/scenarios/h3_multiplex_scaling.toml` with
+  `out/h3-boss-drain-cadence/`, `out/h3-boss-connection-local/`, and
+  `out/h3-boss-http3-burst1/` all completed successfully and were recorded as
+  negative results; none of the measured boss-side accept/drain variants
+  produced a clean enough cross-matrix win to keep.
 - 2026-04-21: `bin/bootstrap` passed in a plain non-login shell on Darwin arm64.
 - 2026-04-21: `bin/test-fast` passed in a plain non-login shell on Darwin arm64, including the native client transport fast tests and the sequential router native runtime smoke test.
 - 2026-04-21: `bin/verify` passed in a plain non-login shell on Darwin arm64, including `ct_core`/`ct_ffi` Rust tests, the `ffi-test` native release build, native client transport tests, the full router package from `packages/connectanum_router`, and the Chromium/Dart2Wasm browser websocket test from `packages/connectanum_client`.
