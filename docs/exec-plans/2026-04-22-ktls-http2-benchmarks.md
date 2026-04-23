@@ -3,7 +3,7 @@
 Status: completed
 Owner: Codex
 Created: 2026-04-22
-Last updated: 2026-04-22
+Last updated: 2026-04-23
 
 ## Goal
 
@@ -86,6 +86,10 @@ comparison artifact.
 - `bin/ktls-http2-bench` now keeps writing per-pass summaries and the
   comparison files even when one pass exits non-zero, so future hosted runs
   remain diagnosable without manually reconstructing partial benchmark output.
+- As of 2026-04-23, `kTLS HTTP/2 Benchmarks` is manual-only. It remains
+  dispatchable for comparison artifacts, but no longer auto-runs on every
+  `native/bench/**` push; the strict `kTLS Validation` workflow is the
+  correctness gate for branch CI.
 
 ## Decision Log
 
@@ -118,3 +122,9 @@ comparison artifact.
   closed the milestone: the required-kTLS benchmark now completes end to end,
   so the next kTLS-specific task is secure WAMP TLS coverage and performance
   tuning rather than more HTTP/2 correctness debugging.
+- 2026-04-23: Hosted run `24843390566` failed only after both HTTP/2 benchmark
+  passes completed, because the generic zero-counter artifact gate flagged
+  intentional multiplexing backpressure and one baseline protocol-error alert.
+  That benchmark is no longer a push gate; correctness stays covered by
+  `kTLS Validation`, while comparative kTLS performance artifacts remain
+  available via manual dispatch.

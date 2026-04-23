@@ -123,6 +123,12 @@ release decisions for real RawSocket/WebSocket WAMP users.
   `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-http1-control-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`,
   and `bin/verify` passed on Darwin arm64 after the HTTP/1.1 control-plane
   fix.
+- 2026-04-23: Hosted `WAMP Profile Benchmarks` run `24843390575` passed on
+  commit `67bcf2f`. The separate `kTLS HTTP/2 Benchmarks` push run
+  `24843390566` failed after both benchmark passes completed because its
+  generic zero-counter artifact gate flagged multiplexing backpressure in a
+  completed research benchmark. The kTLS comparison workflow is being moved to
+  manual dispatch only; `kTLS Validation` remains the push correctness gate.
 
 ## Next Slice
 

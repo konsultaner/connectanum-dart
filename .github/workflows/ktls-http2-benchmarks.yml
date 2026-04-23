@@ -1,15 +1,6 @@
 name: kTLS HTTP/2 Benchmarks
 
 on:
-  push:
-    branches:
-      - add-router
-      - master
-    paths:
-      - .github/workflows/ktls-http2-benchmarks.yml
-      - bin/ktls-http2-bench
-      - native/bench/**
-      - native/transport/ct_core/**
   workflow_dispatch:
     inputs:
       scenario:

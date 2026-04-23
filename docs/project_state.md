@@ -373,6 +373,11 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
   which confirmed that the earlier required-kTLS handshake regression and the
   older multiplexed HTTP/2 `EINVAL` / `EMSGSIZE` / `unexpected frame type`
   failure cluster are gone on hosted Linux.
+- `kTLS HTTP/2 Benchmarks` is now manual-only. The workflow remains available
+  through `workflow_dispatch` for comparative hosted artifacts, but it no
+  longer auto-runs on every `native/bench/**` push because it is a completed
+  research benchmark and the strict `kTLS Validation` workflow is the CI
+  correctness gate.
 - The remaining kTLS caveat is performance rather than correctness: required
   kTLS still trails baseline TLS in the hosted HTTP/2 benchmark, especially in
   the 4-thread multiplexed workload shape.
@@ -417,6 +422,9 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
 
 ## Verification Status
 
+- 2026-04-23: `bin/test-fast` passed on Darwin arm64 before changing
+  `kTLS HTTP/2 Benchmarks` to manual-only so completed kTLS comparison
+  benchmarking no longer blocks unrelated WAMP profile CI pushes.
 - 2026-04-23: `cargo test --manifest-path native/bench/Cargo.toml --bin http_stream http_endpoint_accepts_https_control_base -- --nocapture`,
   `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-http1-control-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`,
   and `bin/verify` passed on Darwin arm64 after forcing the Rust bench
