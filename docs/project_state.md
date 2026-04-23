@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-23
 Current branch: `add-router`
-Last reviewed commit: `9462ba1` (`docs: refresh benchmark timeout state`)
+Last reviewed commit: `5a8b918` (`fix(bench): bound remaining wamp control hangs`)
 Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance-readiness.md`
 
 ## Last Known Verification
@@ -162,8 +162,11 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
   (`24852537007`), `WAMP Profile Benchmarks` (`24852537018`), and push `CI`
   (`24852537035`), and the follow-up docs checkpoint `9462ba1` also passed
   push `CI` (`24852585677`).
-- The remaining WAMP control/setup timeout gaps are now hardened locally on top
-  of `9462ba1`. `packages/connectanum_bench/lib/src/wamp_workload_runner.dart`
+- Commit `5a8b918` is now pushed to both remotes. GitHub has already started
+  push `CI` run `24853368527` and `WAMP Profile Benchmarks` run `24853368528`
+  for that commit.
+- The remaining WAMP control/setup timeout gaps are now hardened in
+  `5a8b918`. `packages/connectanum_bench/lib/src/wamp_workload_runner.dart`
   now bounds the remaining publish/subscribe/register/close paths and applies
   cleanup timeouts during worker teardown, and
   `packages/connectanum_bench/test/wamp_workload_runner_test.dart` now covers

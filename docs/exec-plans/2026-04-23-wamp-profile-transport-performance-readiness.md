@@ -202,11 +202,15 @@ release decisions for real RawSocket/WebSocket WAMP users.
   packages/connectanum_bench/test/wamp_workload_runner_test.dart` and
   `bin/verify` both passed locally on Darwin arm64 for the follow-up working
   tree.
+- 2026-04-23: Pushed the remaining control/setup timeout-hardening follow-up as
+  commit `5a8b918` to both remotes. GitHub has already started push `CI` run
+  `24853368527` and `WAMP Profile Benchmarks` run `24853368528` for that
+  commit.
 
 ## Next Slice
 
-- Push the remaining WAMP control/setup timeout-hardening follow-up and confirm
-  hosted Linux keeps the branch CI chain green on the new commit.
+- Confirm hosted Linux keeps the branch CI chain green on commit `5a8b918`
+  (`CI` run `24853368527`, `WAMP Profile Benchmarks` run `24853368528`).
 - If hosted runs stay green, decide whether this WAMP performance-readiness
   plan can close or whether one more failure-reporting/observability slice is
   needed before handing priority back to the next milestone.
