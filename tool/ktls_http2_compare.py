@@ -65,14 +65,11 @@ def parse_resource_usage(path: Path) -> dict | None:
 
     fields: dict[str, float] = {}
     for line in path.read_text().splitlines():
-        if ":" not in line:
-            continue
-        label, raw_value = line.split(":", 1)
-        label = label.strip()
-        value = raw_value.strip()
         for field_name, expected_label in RESOURCE_USAGE_KEYS.items():
-            if label != expected_label:
+            prefix = f"{expected_label}:"
+            if not line.startswith(prefix):
                 continue
+            value = line[len(prefix) :].strip()
             if field_name == "cpu_percent":
                 normalized = value.rstrip("%").strip()
                 try:
@@ -130,7 +127,11 @@ def build_metric_summary(rows: list[dict], metric: str) -> dict | None:
         best_row = min(comparable, key=lambda row: row["delta"][metric] or 0)
         worst_row = max(comparable, key=lambda row: row["delta"][metric] or 0)
 
-    deltas = [row["delta"][metric] for row in comparable if row["delta"][metric] is not None]
+    deltas = [
+        row["delta"][metric]
+        for row in comparable
+        if row["delta"][metric] is not None
+    ]
     average_delta = sum(deltas) / len(deltas) if deltas else None
 
     def pack_row(row: dict) -> dict:
@@ -150,6 +151,72 @@ def build_metric_summary(rows: list[dict], metric: str) -> dict | None:
         "best_row": pack_row(best_row),
         "worst_row": pack_row(worst_row),
     }
+
+
+def group_severity_score(
+    throughput_summary: dict | None, latency_summary: dict | None
+) -> float:
+    throughput_penalty = 0.0
+    latency_penalty = 0.0
+
+    if throughput_summary is not None:
+        average_throughput_delta = throughput_summary.get("average_pct_delta")
+        if average_throughput_delta is not None:
+            throughput_penalty = max(0.0, -average_throughput_delta)
+
+    if latency_summary is not None:
+        average_latency_delta = latency_summary.get("average_pct_delta")
+        if average_latency_delta is not None:
+            latency_penalty = max(0.0, average_latency_delta)
+
+    return throughput_penalty + latency_penalty
+
+
+def build_group_summaries(
+    rows: list[dict],
+    group_key: str,
+    group_value_for_row,
+    group_label_for_row,
+) -> list[dict]:
+    buckets: dict[object, dict] = {}
+    for row in rows:
+        if not row["baseline"] or not row["ktls"] or not row["delta"]:
+            continue
+        group_value = group_value_for_row(row)
+        bucket = buckets.setdefault(
+            group_value,
+            {
+                "group_value": group_value,
+                "label": group_label_for_row(row),
+                "rows": [],
+            },
+        )
+        bucket["rows"].append(row)
+
+    groups = []
+    for bucket in buckets.values():
+        throughput = build_metric_summary(bucket["rows"], "throughput_pct")
+        latency_p95 = build_metric_summary(bucket["rows"], "latency_p95_pct")
+        groups.append(
+            {
+                "group_key": group_key,
+                "group_value": bucket["group_value"],
+                "label": bucket["label"],
+                "comparable_rows": len(bucket["rows"]),
+                "throughput": throughput,
+                "latency_p95": latency_p95,
+                "severity_score": group_severity_score(throughput, latency_p95),
+            }
+        )
+
+    groups.sort(key=lambda group: (-group["severity_score"], str(group["label"])))
+    return groups
+
+
+def select_hotspot_group(groups: list[dict]) -> dict | None:
+    if not groups:
+        return None
+    return groups[0]
 
 
 def build_resource_usage_summary(baseline: dict | None, ktls: dict | None) -> dict | None:
@@ -219,6 +286,36 @@ def render_summary_line(name: str, summary: dict | None, comparable_rows: int) -
     )
 
 
+def render_group_focus_line(name: str, group: dict | None) -> str:
+    if group is None:
+        return f"- {name}: no overlapping completed workloads."
+
+    throughput = group.get("throughput")
+    latency = group.get("latency_p95")
+    throughput_worst_row = "n/a"
+    latency_worst_row = "n/a"
+    if throughput is not None:
+        throughput_worst_row = (
+            f"{throughput['worst_row']['label']} "
+            f"({render_pct(throughput['worst_row']['delta_pct'])})"
+        )
+    if latency is not None:
+        latency_worst_row = (
+            f"{latency['worst_row']['label']} "
+            f"({render_pct(latency['worst_row']['delta_pct'])})"
+        )
+
+    return (
+        f"- {name}: {group['label']} across {group['comparable_rows']} workloads. "
+        f"Average throughput delta "
+        f"{render_pct(throughput['average_pct_delta'] if throughput else None)}. "
+        f"Average p95 delta "
+        f"{render_pct(latency['average_pct_delta'] if latency else None)}. "
+        f"Worst throughput row: {throughput_worst_row}. "
+        f"Worst p95 row: {latency_worst_row}."
+    )
+
+
 def render_resource_usage_line(summary: dict | None) -> list[str]:
     if summary is None:
         return ["- Resource usage: no per-pass usage artifacts were present."]
@@ -254,20 +351,56 @@ def render_resource_usage_line(summary: dict | None) -> list[str]:
     ]
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Compare HTTP/2 baseline TLS and required-kTLS benchmark summaries.",
+def append_group_table(lines: list[str], title: str, groups: list[dict]) -> None:
+    lines.extend(
+        [
+            f"### {title}",
+            "",
+            "| Group | Comparable workloads | Avg throughput delta | Avg p95 delta | Worst throughput row | Worst p95 row |",
+            "| --- | ---: | ---: | ---: | --- | --- |",
+        ]
     )
-    parser.add_argument("baseline_summary")
-    parser.add_argument("ktls_summary")
-    parser.add_argument("comparison_json")
-    parser.add_argument("comparison_md")
-    args = parser.parse_args()
 
-    baseline_path = Path(args.baseline_summary)
-    ktls_path = Path(args.ktls_summary)
-    comparison_json_path = Path(args.comparison_json)
-    comparison_md_path = Path(args.comparison_md)
+    if not groups:
+        lines.append("| No overlapping completed workloads | 0 | n/a | n/a | n/a | n/a |")
+        lines.append("")
+        return
+
+    for group in groups:
+        throughput = group.get("throughput")
+        latency = group.get("latency_p95")
+        worst_throughput = "n/a"
+        worst_latency = "n/a"
+        if throughput is not None:
+            worst_throughput = (
+                f"{throughput['worst_row']['label']} "
+                f"({render_pct(throughput['worst_row']['delta_pct'])})"
+            )
+        if latency is not None:
+            worst_latency = (
+                f"{latency['worst_row']['label']} "
+                f"({render_pct(latency['worst_row']['delta_pct'])})"
+            )
+
+        lines.append(
+            "| {label} | {count} | {avg_throughput} | {avg_latency} | {worst_throughput} | {worst_latency} |".format(
+                label=group["label"],
+                count=group["comparable_rows"],
+                avg_throughput=render_pct(
+                    throughput["average_pct_delta"] if throughput else None
+                ),
+                avg_latency=render_pct(
+                    latency["average_pct_delta"] if latency else None
+                ),
+                worst_throughput=worst_throughput,
+                worst_latency=worst_latency,
+            )
+        )
+
+    lines.append("")
+
+
+def build_comparison(baseline_path: Path, ktls_path: Path) -> dict:
     baseline_resource_path = baseline_path.parent / "resource-usage.txt"
     ktls_resource_path = ktls_path.parent / "resource-usage.txt"
 
@@ -318,6 +451,18 @@ def main() -> None:
     comparable_rows = [row for row in rows if row["baseline"] and row["ktls"]]
     baseline_only_rows = [row for row in rows if row["baseline"] and not row["ktls"]]
     ktls_only_rows = [row for row in rows if row["ktls"] and not row["baseline"]]
+    workload_groups = build_group_summaries(
+        rows,
+        "workload",
+        lambda row: row["workload"],
+        lambda row: row["workload"],
+    )
+    runtime_thread_groups = build_group_summaries(
+        rows,
+        "native_runtime_threads",
+        lambda row: row["native_runtime_threads"],
+        lambda row: f"threads={row['native_runtime_threads']}",
+    )
 
     summary = {
         "comparable_rows": len(comparable_rows),
@@ -328,9 +473,17 @@ def main() -> None:
         "resource_usage": build_resource_usage_summary(
             baseline_resource_usage, ktls_resource_usage
         ),
+        "group_summaries": {
+            "by_workload": workload_groups,
+            "by_native_runtime_threads": runtime_thread_groups,
+        },
+        "hotspots": {
+            "by_workload": select_hotspot_group(workload_groups),
+            "by_native_runtime_threads": select_hotspot_group(runtime_thread_groups),
+        },
     }
 
-    comparison = {
+    return {
         "baseline_source": str(baseline_path),
         "ktls_source": str(ktls_path),
         "baseline_summary_present": baseline_path.exists(),
@@ -338,14 +491,18 @@ def main() -> None:
         "summary": summary,
         "rows": rows,
     }
-    comparison_json_path.write_text(json.dumps(comparison, indent=2) + "\n")
+
+
+def render_markdown(comparison: dict) -> str:
+    summary = comparison["summary"]
+    rows = comparison["rows"]
 
     lines = [
         "# HTTP/2 TLS vs kTLS Comparison",
         "",
     ]
 
-    if not baseline_path.exists() or not ktls_path.exists():
+    if not comparison["baseline_summary_present"] or not comparison["ktls_summary_present"]:
         lines.extend(
             [
                 "One or both per-pass summary files were missing, so this comparison is partial.",
@@ -367,6 +524,34 @@ def main() -> None:
                 "p95 latency", summary["latency_p95"], summary["comparable_rows"]
             ),
             *render_resource_usage_line(summary["resource_usage"]),
+            render_group_focus_line(
+                "Workload-family investigation focus",
+                summary["hotspots"]["by_workload"],
+            ),
+            render_group_focus_line(
+                "Runtime-thread investigation focus",
+                summary["hotspots"]["by_native_runtime_threads"],
+            ),
+            "",
+            "## Group Rollups",
+            "",
+        ]
+    )
+
+    append_group_table(
+        lines,
+        "By workload family",
+        summary["group_summaries"]["by_workload"],
+    )
+    append_group_table(
+        lines,
+        "By native runtime threads",
+        summary["group_summaries"]["by_native_runtime_threads"],
+    )
+
+    lines.extend(
+        [
+            "## Per-workload Rows",
             "",
             "| Workload | Router workers | Native runtime threads | Baseline Mbps | kTLS Mbps | Delta | Baseline p95 ms | kTLS p95 ms | Delta |",
             "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
@@ -402,7 +587,27 @@ def main() -> None:
             "| No overlapping completed workloads | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |"
         )
 
-    comparison_md_path.write_text("\n".join(lines) + "\n")
+    return "\n".join(lines) + "\n"
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Compare HTTP/2 baseline TLS and required-kTLS benchmark summaries.",
+    )
+    parser.add_argument("baseline_summary")
+    parser.add_argument("ktls_summary")
+    parser.add_argument("comparison_json")
+    parser.add_argument("comparison_md")
+    args = parser.parse_args()
+
+    baseline_path = Path(args.baseline_summary)
+    ktls_path = Path(args.ktls_summary)
+    comparison_json_path = Path(args.comparison_json)
+    comparison_md_path = Path(args.comparison_md)
+
+    comparison = build_comparison(baseline_path, ktls_path)
+    comparison_json_path.write_text(json.dumps(comparison, indent=2) + "\n")
+    comparison_md_path.write_text(render_markdown(comparison))
 
 
 if __name__ == "__main__":

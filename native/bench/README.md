@@ -73,9 +73,13 @@ That helper writes per-pass benchmark artifacts under `baseline/` and `ktls/`,
 including `resource-usage.txt` sidecars from GNU `time -v`, and a top-level
 `comparison.json` / `comparison.md` pair that now summarizes throughput,
 latency, CPU-total, wall-time, and max-RSS deltas between the two passes.
-The hosted `kTLS HTTP/2 Benchmarks` workflow now mirrors that summary into the
-GitHub Actions job summary as well, so the first read can happen in the run UI
-before downloading `ktls-http2-bench-artifacts`.
+Those comparison artifacts also roll up the deltas by workload family and
+native runtime thread count, then highlight the current investigation focus for
+each grouping so one hosted rerun can point at the likely hotspot without
+re-reading every per-workload row. The hosted `kTLS HTTP/2 Benchmarks`
+workflow now mirrors that summary into the GitHub Actions job summary as well,
+so the first read can happen in the run UI before downloading
+`ktls-http2-bench-artifacts`.
 
 For the canonical WAMP release gates, use the WAMP profile helper. It builds
 the release FFI library, runs the cleartext and secure WAMP throughput

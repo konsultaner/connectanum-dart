@@ -2,15 +2,14 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `7bf3d8a` (`build(ktls): capture benchmark resource usage`)
+Last reviewed commit: `911b208` (`ci(ktls): publish benchmark summary`)
 Active exec plan: `none`
 
 ## Last Known Verification
 
 - `bin/test-fast`
-- `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ktls-http2-benchmarks.yml")'`
-- `bash -n bin/ktls-http2-bench`
-- `python3 -m py_compile tool/ktls_http2_compare.py`
+- `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
+- `python3 tool/test_ktls_http2_compare.py`
 - focused synthetic comparison generation via `python3 tool/ktls_http2_compare.py ...`
 - `bin/verify`
 
@@ -91,6 +90,10 @@ Active exec plan: `none`
   push `CI` run `24861886418`, `WAMP Profile Benchmarks` run `24861886401`,
   and `kTLS Validation` run `24861886408` all completed successfully after the
   kTLS resource-usage follow-up was pushed to both remotes.
+- Hosted GitHub validation is now also green through commit `911b208`:
+  push `CI` run `24862887602`, `kTLS Validation` run `24862887603`, and
+  `WAMP Profile Benchmarks` run `24862887632` all completed successfully after
+  the kTLS workflow-summary follow-up was pushed to both remotes.
 - The worker-safe realm authorization follow-up is now complete on the local
   working tree. Router settings now carry top-level
   `authorization_providers` definitions plus per-realm
@@ -132,12 +135,23 @@ Active exec plan: `none`
   `comparison.md` and `host-info.txt` content into the Actions job summary on
   `always()`, so future hosted reruns have a readable first-stop view in the
   run UI before artifact download.
+- The next kTLS comparison-readability slice is now complete on the local
+  working tree too. `tool/ktls_http2_compare.py` now rolls the comparison up
+  by workload family and native runtime thread count, highlights the current
+  investigation focus for both groupings, and correctly parses GNU `time -v`
+  elapsed wall-time labels that include embedded colons.
 - Local verification for the current kTLS workflow-summary follow-up is green
   on 2026-04-24: `bin/test-fast`, YAML parsing of
   `.github/workflows/ktls-http2-benchmarks.yml`, and `bin/verify` all passed.
 - Local verification for the current kTLS resource-usage follow-up is green on
   2026-04-24: `bin/test-fast`, `bash -n bin/ktls-http2-bench`,
   `python3 -m py_compile tool/ktls_http2_compare.py`, a focused synthetic
+  `tool/ktls_http2_compare.py` run with Linux-style `resource-usage.txt`
+  sidecars, and `bin/verify` all passed.
+- Local verification for the current kTLS hotspot-rollup follow-up is green on
+  2026-04-24: `bin/test-fast`,
+  `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`,
+  `python3 tool/test_ktls_http2_compare.py`, a focused synthetic
   `tool/ktls_http2_compare.py` run with Linux-style `resource-usage.txt`
   sidecars, and `bin/verify` all passed.
 - `docs/ktls_research.md` is now aligned with the current post-secure-WAMP

@@ -255,6 +255,11 @@ The final hosted comparison from run `24773860158` showed:
 - That readability slice now also includes per-pass resource-usage summaries,
   so future hosted reruns can show whether required-kTLS is paying its penalty
   in CPU, wall time, or memory footprint instead of only raw throughput/p95.
+- The same comparison bundle now also rolls those deltas up by workload family
+  and native runtime thread count, and it correctly parses GNU `time -v`
+  elapsed wall-time labels even though that label includes embedded colons.
+  The first read can now answer whether the penalty still clusters around
+  `h2_multiplexed_streams`, `threads=4`, or both.
 
 ### What Not To Overclaim
 
@@ -278,8 +283,8 @@ benchmark path to pick the next real hotspot:
 - keep secure WAMP coverage as supplemental evidence, but use the HTTP/2
   comparison run as the primary required-kTLS performance signal
 - keep the generated benchmark artifacts summarizing headline wins, losses,
-  worst regressions, and CPU / RSS deltas so one hosted run answers the tuning
-  question directly
+  worst regressions, grouped workload/runtime hotspots, and CPU / wall-time /
+  RSS deltas so one hosted run answers the tuning question directly
 - delay deeper transport tuning until a fresh hosted comparison shows a
   concrete hotspot worth attacking with those extra signals in hand
 
