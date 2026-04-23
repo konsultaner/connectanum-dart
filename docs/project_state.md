@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-23
 Current branch: `add-router`
-Last reviewed commit: `5a8b918` (`fix(bench): bound remaining wamp control hangs`)
-Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance-readiness.md`
+Last reviewed commit: `175ae0a` (`docs: refresh wamp timeout checkpoint`)
+Active exec plan: none; choose the next milestone from `ROADMAP_NEXT.md`
 
 ## Last Known Verification
 
@@ -17,6 +17,7 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
 - `bin/check-bench-artifacts --summary out/wamp-publish-fanout-policy-local/bench_results.summary.json --policy native/bench/artifact_gate/wamp_publish_fanout_throughput.json`
 - `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`
 - `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-rerun-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 60000`
+- `cd packages/connectanum_router && dart test test/publish_ack_test.dart test/router_integration_websocket_test.dart -r expanded`
 - `dart test packages/connectanum_bench/test/wamp_workload_runner_test.dart`
 - `cargo test --manifest-path native/bench/Cargo.toml wait_for_bench_ready -- --nocapture`
 - `cargo test --manifest-path native/bench/Cargo.toml artifacts -- --nocapture`
@@ -32,7 +33,12 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
 2. Prioritize production readiness of current functionality before exploratory expansion. That includes correctness, release/deployment behavior, observability, packaging, operational docs, and coverage for shipped paths.
 3. Treat MCP support for downstream `groli/app` as the next product-readiness milestone once CI and shipped-path blockers are clean. It outranks speculative H3, kTLS, E2EE, and benchmark exploration until the first usable MCP server/bridge path is designed, implemented, tested, and documented.
 4. After the first usable MCP path is complete, make WAMP profile-related transport performance production-ready in the benchmark suite before returning to speculative transport work. That means canonical RawSocket/WebSocket WAMP scenarios, secure and cleartext coverage, serializer/profile coverage, explicit budgets/gates, and hosted CI evidence for release decisions.
-5. Other benchmark and performance work stays important, but it should serve production readiness and release confidence rather than run ahead of it.
+5. With the first MCP path, the WAMP benchmark-readiness milestone, and the
+   host-supported WAMP transport-interop slice complete, choose the next
+   milestone from `ROADMAP_NEXT.md` and keep prioritizing shipped-path
+   correctness before speculative transport work.
+6. Other benchmark and performance work stays important, but it should serve
+   production readiness and release confidence rather than run ahead of it.
 
 ## Resume Order
 
@@ -68,11 +74,28 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
   shape: typed protocol models, serializer-independent boundaries, explicit
   errors, small barrel exports, and focused tests. Reuse the style, not WAMP
   semantics.
-- The active product-readiness plan is now
-  `docs/exec-plans/2026-04-23-wamp-profile-transport-performance-readiness.md`.
-  Its goal is to turn WAMP-profile transport benchmarks into canonical,
-  budgeted RawSocket/WebSocket release-decision gates rather than loose
-  performance artifacts.
+- The WAMP profile transport performance-readiness plan is complete. Hosted
+  GitHub validation is green through commit `175ae0a`: commit `5a8b918`
+  passed push `CI` (`24853368527`) and `WAMP Profile Benchmarks`
+  (`24853368528`), and the follow-up docs checkpoint `175ae0a` passed push
+  `CI` (`24853407962`).
+- The most recent product-readiness plan is now complete too:
+  `docs/exec-plans/2026-04-23-wamp-transport-interop-coverage.md` added
+  host-supported live WAMP transport interop coverage for the pure Dart
+  RawSocket client path and mixed RawSocket/WebSocket routing, so the shipped
+  transport surface is now protected beyond serializer and router-state
+  conformance alone.
+- `packages/connectanum_router/test/publish_ack_test.dart` now covers the pure
+  Dart RawSocket publish-ack path across JSON, MessagePack, and CBOR against a
+  live router.
+- `packages/connectanum_router/test/router_integration_websocket_test.dart`
+  now covers mixed RawSocket/WebSocket publish, call, and error routing across
+  rawsocket JSON + CBOR clients and a websocket MsgPack client on the current
+  macOS-supported path.
+- There is no new active execution plan yet. The next resume step should pick
+  the highest-priority remaining shipped-path milestone from
+  `ROADMAP_NEXT.md`; the clearest still-open item there is the unresolved
+  dynamic realm-authorization model under Remote Authentication Hardening.
 - The first WAMP benchmark-readiness slice now has a human-readable contract in
   `docs/wamp_profile_benchmarks.md`. The canonical release-decision throughput
   gates are `native/bench/scenarios/wamp_transport_throughput.toml` and
@@ -162,9 +185,10 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
   (`24852537007`), `WAMP Profile Benchmarks` (`24852537018`), and push `CI`
   (`24852537035`), and the follow-up docs checkpoint `9462ba1` also passed
   push `CI` (`24852585677`).
-- Commit `5a8b918` is now pushed to both remotes. GitHub has already started
-  push `CI` run `24853368527` and `WAMP Profile Benchmarks` run `24853368528`
-  for that commit.
+- The latest pushed WAMP readiness checkpoint is fully green on GitHub too.
+  Commit `5a8b918` passed push `CI` (`24853368527`) and
+  `WAMP Profile Benchmarks` (`24853368528`), and the follow-up docs commit
+  `175ae0a` passed push `CI` (`24853407962`).
 - The remaining WAMP control/setup timeout gaps are now hardened in
   `5a8b918`. `packages/connectanum_bench/lib/src/wamp_workload_runner.dart`
   now bounds the remaining publish/subscribe/register/close paths and applies
@@ -174,6 +198,13 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
   register-cycle timeout cases. `dart test
   packages/connectanum_bench/test/wamp_workload_runner_test.dart` and
   `bin/verify` passed locally on Darwin arm64 for this follow-up working tree.
+- The next live WAMP correctness gap on the local macOS-supported path is now
+  closed too. `cd packages/connectanum_router && dart test
+  test/publish_ack_test.dart test/router_integration_websocket_test.dart -r
+  expanded` passed after expanding the pure Dart RawSocket publish-ack smoke to
+  JSON/MessagePack/CBOR and adding mixed RawSocket/WebSocket routing coverage
+  in the websocket integration suite, and the full root `bin/verify` run also
+  passed on the same working tree.
 - `bin/test-fast` now provisions
   the native client runtime before `packages/connectanum_client/test/client_test.dart`
   on supported hosts, both root client flows now include

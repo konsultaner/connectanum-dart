@@ -10,11 +10,19 @@ import 'dart:typed_data';
 
 import 'package:async/async.dart' show StreamQueue;
 import 'package:connectanum_client/connectanum.dart' as client_pkg;
+import 'package:connectanum_client/src/transport/socket/socket_helper.dart'
+    as socket_helper;
+import 'package:connectanum_client/src/transport/socket/socket_transport.dart'
+    as socket_transport;
 import 'package:connectanum_core/connectanum_core.dart'
     as core_error
     show Error;
 import 'package:connectanum_client/src/transport/websocket/websocket_transport_io.dart'
     as ws_transport;
+import 'package:connectanum_core/src/serializer/cbor/serializer.dart'
+    as cbor_serializer;
+import 'package:connectanum_core/src/serializer/json/serializer.dart'
+    as json_serializer;
 import 'package:connectanum_core/connectanum_core.dart'
     show
         CallOptions,
@@ -245,6 +253,246 @@ void main() {
         expect(lazyEvents.single['argumentsKeywords'], isNotNull);
         expect(lazyInvocations.single['arguments'], isNotNull);
         expect(lazyInvocations.single['argumentsKeywords'], isNotNull);
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'bridges events, results, and errors across rawsocket and websocket transports',
+      () async {
+        final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
+        addTearDown(() {
+          runtime.shutdown();
+          runtime.dispose();
+        });
+
+        final binding = Router(
+          _buildWebSocketConfig(),
+          settings: _buildWebSocketSettings(),
+        ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
+        addTearDown(binding.dispose);
+
+        final listener = binding.listeners.single;
+        final websocketUrl = 'ws://127.0.0.1:${listener.port}/ws';
+
+        final rawJsonClient = client_pkg.Client(
+          realm: 'realm1',
+          transport: socket_transport.SocketTransport(
+            '127.0.0.1',
+            listener.port,
+            json_serializer.Serializer(),
+            socket_helper.SocketHelper.serializationJson,
+          ),
+        );
+        final websocketMsgpackClient = client_pkg.Client(
+          realm: 'realm1',
+          transport: ws_transport.WebSocketTransport.withMsgpackSerializer(
+            websocketUrl,
+          ),
+        );
+        final rawCborClient = client_pkg.Client(
+          realm: 'realm1',
+          transport: socket_transport.SocketTransport(
+            '127.0.0.1',
+            listener.port,
+            cbor_serializer.Serializer(),
+            socket_helper.SocketHelper.serializationCbor,
+          ),
+        );
+
+        final rawJsonSession = await rawJsonClient.connect().first.timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => fail('raw json connect timeout'),
+        );
+        final websocketMsgpackSession = await websocketMsgpackClient
+            .connect()
+            .first
+            .timeout(
+              const Duration(seconds: 10),
+              onTimeout: () => fail('websocket msgpack connect timeout'),
+            );
+        final rawCborSession = await rawCborClient.connect().first.timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => fail('raw cbor connect timeout'),
+        );
+        addTearDown(rawJsonSession.close);
+        addTearDown(websocketMsgpackSession.close);
+        addTearDown(rawCborSession.close);
+
+        final subscription = await rawJsonSession.subscribe(
+          'com.example.transport.mixed.topic',
+        );
+        final eventFuture = subscription.eventStream!.first.timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => fail('transport mixed event timeout'),
+        );
+
+        final echoRegistration = await websocketMsgpackSession.register(
+          'com.example.transport.mixed.proc',
+        );
+        echoRegistration.onInvoke((invocation) async {
+          final payload = _asBytes(invocation.arguments?.first);
+          final callNested = invocation.details.custom['nested'];
+          invocation.respondWith(
+            options: YieldOptions(
+              custom: {
+                'trace_id': 'yield-trace',
+                'blob': Uint8List.fromList(const [13, 14, 15]),
+                'nested': {
+                  'payload': Uint8List.fromList(const [16, 17]),
+                },
+              },
+            ),
+            arguments: [payload],
+            argumentsKeywords: {
+              'transport': 'websocket',
+              'serializer': 'msgpack',
+              'len': payload.length,
+              'source': invocation.argumentsKeywords?['source'],
+              'call_trace_id': invocation.details.custom['trace_id'],
+              'call_blob': invocation.details.custom['blob'],
+              'call_nested': callNested is Map ? callNested['payload'] : null,
+            },
+          );
+        });
+
+        final errorRegistration = await websocketMsgpackSession.register(
+          'com.example.transport.mixed.error',
+        );
+        errorRegistration.onInvoke((invocation) async {
+          final payload = _asBytes(invocation.arguments?.first);
+          invocation.respondWith(
+            isError: true,
+            errorUri: core_error.Error.runtimeError,
+            arguments: [payload],
+            argumentsKeywords: {
+              'transport': 'websocket',
+              'serializer': 'msgpack',
+              'len': payload.length,
+              'source': invocation.argumentsKeywords?['source'],
+            },
+          );
+        });
+
+        final payload = Uint8List.fromList(
+          List<int>.generate(128 * 1024 + 29, (index) => index % 251),
+        );
+
+        await rawCborSession.publish(
+          'com.example.transport.mixed.topic',
+          arguments: [payload],
+          argumentsKeywords: const {'source': 'raw-cbor', 'count': 1},
+          options: PublishOptions(
+            acknowledge: true,
+            excludeMe: false,
+            custom: {
+              'trace_id': 'publish-trace',
+              'blob': Uint8List.fromList(const [1, 2, 3]),
+              'nested': {
+                'payload': Uint8List.fromList(const [4, 5, 6]),
+              },
+            },
+          ),
+        );
+
+        final event = await eventFuture;
+        expect(_asBytes(event.arguments?.first), orderedEquals(payload));
+        expect(
+          event.argumentsKeywords,
+          equals(const {'source': 'raw-cbor', 'count': 1}),
+        );
+        expect(event.details.custom['trace_id'], equals('publish-trace'));
+        expect(
+          event.details.custom['blob'],
+          orderedEquals(Uint8List.fromList(const [1, 2, 3])),
+        );
+        expect(
+          (event.details.custom['nested'] as Map)['payload'],
+          orderedEquals(Uint8List.fromList(const [4, 5, 6])),
+        );
+
+        final result = await rawJsonSession
+            .callSingle(
+              'com.example.transport.mixed.proc',
+              arguments: [payload],
+              argumentsKeywords: const {'source': 'raw-json', 'count': 2},
+              options: CallOptions(
+                custom: {
+                  'trace_id': 'call-trace',
+                  'blob': Uint8List.fromList(const [7, 8, 9]),
+                  'nested': {
+                    'payload': Uint8List.fromList(const [10, 11, 12]),
+                  },
+                },
+              ),
+            )
+            .timeout(
+              const Duration(seconds: 10),
+              onTimeout: () => fail('transport mixed result timeout'),
+            );
+        expect(result, isA<Result>());
+        expect(_asBytes(result.arguments?.first), orderedEquals(payload));
+        expect(result.argumentsKeywords?['transport'], equals('websocket'));
+        expect(result.argumentsKeywords?['serializer'], equals('msgpack'));
+        expect(result.argumentsKeywords?['len'], equals(131101));
+        expect(result.argumentsKeywords?['source'], equals('raw-json'));
+        expect(
+          result.argumentsKeywords?['call_trace_id'],
+          equals('call-trace'),
+        );
+        expect(
+          result.argumentsKeywords?['call_blob'],
+          orderedEquals(Uint8List.fromList(const [7, 8, 9])),
+        );
+        expect(
+          result.argumentsKeywords?['call_nested'],
+          orderedEquals(Uint8List.fromList(const [10, 11, 12])),
+        );
+        expect(result.details.custom['trace_id'], equals('yield-trace'));
+        expect(
+          result.details.custom['blob'],
+          orderedEquals(Uint8List.fromList(const [13, 14, 15])),
+        );
+        expect(
+          (result.details.custom['nested'] as Map)['payload'],
+          orderedEquals(Uint8List.fromList(const [16, 17])),
+        );
+
+        await expectLater(
+          rawCborSession
+              .callSingle(
+                'com.example.transport.mixed.error',
+                arguments: [payload],
+                argumentsKeywords: const {'source': 'raw-cbor', 'count': 3},
+              )
+              .timeout(
+                const Duration(seconds: 10),
+                onTimeout: () => fail('transport mixed error timeout'),
+              ),
+          throwsA(
+            isA<core_error.Error>()
+                .having(
+                  (error) => error.error,
+                  'error',
+                  core_error.Error.runtimeError,
+                )
+                .having(
+                  (error) => _asBytes(error.arguments?.first),
+                  'payload',
+                  orderedEquals(payload),
+                )
+                .having(
+                  (error) => error.argumentsKeywords,
+                  'argumentsKeywords',
+                  equals(const {
+                    'transport': 'websocket',
+                    'serializer': 'msgpack',
+                    'len': 131101,
+                    'source': 'raw-cbor',
+                  }),
+                ),
+          ),
+        );
       },
       skip: skipReason,
     );
@@ -752,7 +1000,7 @@ RouterConfig _buildWebSocketConfig() => RouterConfig(
       host: '127.0.0.1',
       port: 0,
       tlsMode: TlsMode.disabled,
-      maxRawSocketSizeExponent: 16,
+      maxRawSocketSizeExponent: 18,
       webSocketPath: '/ws',
     ),
   ],
@@ -792,11 +1040,13 @@ RouterSettings _buildWebSocketSettings() {
 
   final listener = ListenerSettingsBuilder('websocket', '127.0.0.1:0')
     ..addAuthMethod('anonymous')
+    ..addProtocol(ListenerProtocol.rawsocket)
     ..setPath('/ws')
     ..addProtocol(ListenerProtocol.websocket)
+    ..setRawSocketOptions(const RawSocketListenerSettings(maxFrameExponent: 18))
     ..setWebSocketOptions(
       const WebSocketListenerSettings(
-        subprotocols: ['wamp.2.msgpack', 'wamp.2.json'],
+        subprotocols: ['wamp.2.msgpack', 'wamp.2.json', 'wamp.2.cbor'],
       ),
     );
 

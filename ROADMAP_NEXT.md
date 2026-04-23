@@ -81,7 +81,8 @@ Focus for the next session:
   - ✅ Streamed HTTP bridge responses now request a native response-stream descriptor once, write chunks directly from the internal-session isolate, and emit only a final completion result through the shared call lifecycle. The sustained worker sweep no longer regresses when `router_workers` increases on the default bench workload.
   - ✅ Pin the current upstream WAMP conformance vectors locally and gate the handled single-message serializer subset in CI (`packages/connectanum_core/test/conformance/wamp_singlemessage_conformance_test.dart` against the vendored `wamp-proto/wamp-proto#557` snapshot).
   - ✅ The current upstream router-level multi-session publish-exclusion vector is now vendored too (`packages/connectanum_core/testdata/wamp_conformance/multisession/advanced/publisher_exclusion_disabled.json`), and `packages/connectanum_router/test/conformance/wamp_multisession_conformance_test.dart` executes it against local worker-session routing with placeholder-aware matching for router-assigned IDs.
-  - [ ] Extend that gate to the eventual merged upstream single-session plus broader multi-session suite once the upstream vectors and runner format stabilize, then add transport-level interop coverage on top of the serializer/router subset.
+  - ✅ Host-supported transport-level interop coverage now sits on top of the serializer/router subset too: `packages/connectanum_router/test/publish_ack_test.dart` covers the pure Dart RawSocket publish-ack path across JSON/MessagePack/CBOR, and `packages/connectanum_router/test/router_integration_websocket_test.dart` now covers mixed RawSocket/WebSocket publish/call/error routing across rawsocket JSON + CBOR and websocket MsgPack clients.
+  - [ ] Extend the pinned conformance gate to the eventual merged upstream single-session and broader multi-session suite once the upstream vectors and runner format stabilize.
   - ✅ HTTP/3 streaming integration test now runs its QUIC client on a dedicated isolate using the ffi-test helper and bundled CA/cert/key, so the Dart boss remains responsive while the native client drains the stream (timeout regression fixed).
 
 4. **WebSocket Transport Completion**
@@ -141,10 +142,7 @@ Focus for the next session:
     - `wamp_client_impl_throughput.toml`: RawSocket 64 KiB RPC/pubsub about `53.49/48.54 Mbps` Dart vs `98.98/128.07 Mbps` native; WebSocket 64 KiB RPC/pubsub about `52.90/47.28 Mbps` Dart vs `116.51/127.91 Mbps` native.
     - `wamp_ppt_lazy_smoke.toml`: RawSocket CBOR PPT RPC/pubsub about `1.17/1.59 Mbps` Dart vs `2.17/2.02 Mbps` native; WebSocket CBOR PPT RPC/pubsub about `1.80/2.18 Mbps` Dart vs `3.74/3.15 Mbps` native.
     - `wamp_mixed_serializer_throughput.toml`: RawSocket JSON->MessagePack RPC about `126.14/302.29 Mbps` Dart/native and MsgPack->CBOR pubsub about `75.46/95.33 Mbps`; WebSocket JSON->CBOR RPC about `180.40/426.54 Mbps` and CBOR->JSON pubsub about `41.70/116.91 Mbps`.
-  - Queued after MCP: turn the WAMP-profile transport scenarios into a
-    production-ready release gate set with explicit smoke/throughput roles,
-    scenario-specific throughput and latency budgets, and hosted Linux evidence
-    for the canonical RawSocket/WebSocket WAMP profiles.
+  - ✅ The WAMP-profile transport scenarios are now a production-ready release gate set with explicit smoke/throughput roles, scenario-specific throughput and latency budgets, and hosted Linux evidence for the canonical RawSocket/WebSocket WAMP profiles.
   - ✅ The smoke matrix is now promoted into a throughput-grade canonical scenario too: `transport_mbit_matrix_throughput.toml` preserves the comparable auth/authz/public/protected row shape, adds larger protected HTTP samples, and raises iterations/concurrency/in-flight depth/multiplexing so CI/reporting can consume one canonical Mbps table per run.
   - Next: keep the same-serializer native fast path and mixed-serializer Dart fallback explicit as more transport-specific fast paths land.
 

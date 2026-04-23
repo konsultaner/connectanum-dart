@@ -2,8 +2,8 @@
 
 ## Status
 
-Active after the first usable MCP stdio bridge path landed in
-`packages/connectanum_mcp`.
+Completed on 2026-04-23 after the canonical WAMP release gates and diagnostic
+lanes were verified locally and the latest hosted branch runs stayed green.
 
 ## Goal
 
@@ -206,11 +206,18 @@ release decisions for real RawSocket/WebSocket WAMP users.
   commit `5a8b918` to both remotes. GitHub has already started push `CI` run
   `24853368527` and `WAMP Profile Benchmarks` run `24853368528` for that
   commit.
+- 2026-04-23: Hosted Linux confirmed the final timeout-hardening checkpoint is
+  green. Commit `5a8b918` passed push `CI` (`24853368527`) and `WAMP Profile
+  Benchmarks` (`24853368528`), and the follow-up docs checkpoint `175ae0a`
+  passed push `CI` (`24853407962`).
 
-## Next Slice
+## Handoff
 
-- Confirm hosted Linux keeps the branch CI chain green on commit `5a8b918`
-  (`CI` run `24853368527`, `WAMP Profile Benchmarks` run `24853368528`).
-- If hosted runs stay green, decide whether this WAMP performance-readiness
-  plan can close or whether one more failure-reporting/observability slice is
-  needed before handing priority back to the next milestone.
+- Completed. The repo now has a human-readable WAMP benchmark contract,
+  canonical smoke and throughput release gates, scoped diagnostic workflows,
+  explicit artifact policies, local Darwin baselines, and hosted Linux
+  evidence for the release-decision scenarios.
+- The next shipped-path gap is transport-level WAMP correctness coverage for
+  the pure Dart RawSocket client path and mixed RawSocket/WebSocket routing.
+  That follow-up now lives in
+  `docs/exec-plans/2026-04-23-wamp-transport-interop-coverage.md`.
