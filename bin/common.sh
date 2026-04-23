@@ -300,3 +300,20 @@ build_native_ffi_test_release() {
   cargo build --manifest-path native/transport/Cargo.toml -p ct_ffi --features ffi-test --release
   ensure_native_lib_env
 }
+
+ensure_native_client_test_runtime() {
+  if ! native_runtime_supported; then
+    return 1
+  fi
+
+  if ! ensure_rust_env; then
+    return 1
+  fi
+
+  ensure_native_lib_env
+  if [[ -n "${CONNECTANUM_NATIVE_LIB:-}" ]]; then
+    return 0
+  fi
+
+  build_native_ffi_test_release
+}

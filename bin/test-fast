@@ -8,6 +8,12 @@ cd_repo_root
 dart_workspace_bootstrap
 
 run_client_fast_tests() {
+  local native_client_runtime_ready=1
+
+  if ensure_native_client_test_runtime; then
+    native_client_runtime_ready=0
+  fi
+
   dart test packages/connectanum_client/test/client_test.dart
   dart test packages/connectanum_client/test/client_on_transport_io_events_test.dart
   dart test packages/connectanum_client/test/transport/local
@@ -20,13 +26,13 @@ run_client_fast_tests() {
     return 0
   fi
 
-  if ensure_rust_env; then
-    build_native_ffi_test_release
+  if [[ "$native_client_runtime_ready" -eq 0 ]]; then
+    dart test packages/connectanum_client/test/transport/native/e2ee_provider_test.dart
     dart test packages/connectanum_client/test/transport/native/native_transports_test.dart
     return 0
   fi
 
-  printf 'Cargo not found; skipping native client transport fast tests.\n'
+  printf 'Cargo not found or native client runtime unavailable; skipping native client E2EE and transport fast tests.\n'
 }
 
 run_bench_vm_tests() {

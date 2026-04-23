@@ -3,7 +3,7 @@
 Last updated: 2026-04-23
 Current branch: `add-router`
 Last reviewed commit: `26e9db1` (`perf(router): round-robin http3 request drain`)
-Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.md`
+Active exec plan: `docs/exec-plans/2026-04-23-ci-native-client-fast-coverage.md`
 
 ## Last Known Verification
 
@@ -31,6 +31,21 @@ Active exec plan: `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.m
 - Root shell helpers now auto-detect Dart from Flutter, Rust from `~/.cargo`, Chrome/Chromium, and the standard prebuilt native library path.
 - GitHub Actions CI now runs through the canonical root `bin/*` entrypoints on branch pushes and PRs to `master`; GitHub Actions run `24732889424` for `2fac53b` completed successfully with both `Fast Checks` and `Full Verify`.
 - The CI workflow now targets all branch pushes plus PRs to `master`, and it also exposes `workflow_dispatch` for manual runs.
+- The latest known branch CI is red again, so autonomous continuation is
+  paused on the HTTP/3 benchmark track until the branch is back to green.
+  GitHub Actions runs `24822621244` (`eb9c427`) and `24822956656`
+  (`5c0e7ec`) both failed in `Fast Checks` because `bin/test-fast` reached a
+  native client E2EE provider test before building/exporting `libct_ffi.so`.
+  The current repair path is to make the root client fast/full flows build the
+  native client runtime first on supported hosts and to add the dedicated
+  native provider regression file to the canonical scripts.
+- The local CI repair is now implemented too. `bin/test-fast` now provisions
+  the native client runtime before `packages/connectanum_client/test/client_test.dart`
+  on supported hosts, both root client flows now include
+  `packages/connectanum_client/test/transport/native/e2ee_provider_test.dart`,
+  and the native-only client tests now skip with an explicit reason when
+  `libct_ffi` is genuinely unavailable. Local `bin/test-fast` and `bin/verify`
+  are green on the repaired tree; hosted confirmation is the remaining step.
 - The root router verification now runs from `packages/connectanum_router` so the package-local `dart_test.yaml` (`concurrency: 1`) applies to the full suite on every host.
 - The root bench verification now runs from `packages/connectanum_bench` so the package-local `dart_test.yaml` (`concurrency: 1`) applies to the full suite on every host, matching the process-global native runtime constraint already enforced in the router package.
 - The bench WAMP integration tests now resolve their worker helper from either the bench package root or the repo root so Linux CI and local root-script runs share the same path contract.

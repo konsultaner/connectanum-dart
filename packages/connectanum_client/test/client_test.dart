@@ -10,7 +10,11 @@ import 'package:connectanum_client/src/transport/native/message_protocol.dart';
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 
+import 'test_support/native_runtime_support.dart';
+
 void main() {
+  final nativeClientRuntimeUnavailableReason = nativeClientRuntimeSkipReason();
+
   group('Client', () {
     test('session creation without authentication process', () async {
       final transport = _MockTransport();
@@ -3194,6 +3198,7 @@ void main() {
         );
         await session.close(timeout: Duration.zero);
       },
+      skip: nativeClientRuntimeUnavailableReason,
     );
     test('publishLazyPayload forwards E2EE runtime context', () async {
       final transport = _MockTransport();

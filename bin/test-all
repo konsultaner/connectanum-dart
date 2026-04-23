@@ -17,6 +17,7 @@ run_client_vm_tests() {
   dart test packages/connectanum_client/test/transport/native/message_binding_test.dart
 
   if native_runtime_supported; then
+    dart test packages/connectanum_client/test/transport/native/e2ee_provider_test.dart
     dart test packages/connectanum_client/test/transport/native/native_transports_test.dart
   else
     printf 'Native client transports are only supported on Linux; skipping native transport tests on %s.\n' "$(uname -s)"
