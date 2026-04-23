@@ -112,16 +112,45 @@ dart compile exe packages/connectanum_router/bin/connectanum_router.dart -o conn
 
 Example config starter: `docs/router_example.yaml`.
 
+## Graceful shutdown and drain behavior
+
+The production runner handles `SIGINT` and `SIGTERM` by calling
+`RouterBinding.dispose()`. That path drains before the process exits:
+
+- native listeners close first so no new accepts enter the pipeline
+- pending accepted-but-unassigned connections are closed
+- worker sessions finish GOODBYE / close handling within the drain timeout
+
+If you manage the router as a library instead of the CLI, call
+`await binding.drain()` explicitly when you need the same behavior.
+
+When `metrics.open_metrics.listen` is configured, the same HTTP server exposes
+`/healthz`. The response is:
+
+- `200 ok` while the router is ready
+- `503 starting` before the binding is ready
+- `503 draining` while graceful shutdown is in progress
+
+That is the intended readiness signal for a load balancer or orchestrator to
+stop routing new traffic before final process exit.
+
 ## OpenMetrics exporter
 
 If the config sets `metrics.open_metrics.listen`, the router runner starts an
 HTTP server on that address that serves:
 
 - `GET /metrics` (OpenMetrics text)
-- `GET /healthz` (200 OK)
+- `GET /healthz` (`200 ok`, `503 starting`, or `503 draining`)
 
 If `metrics.open_metrics.auth_token` is set, `GET /metrics` requires
 `Authorization: Bearer <token>`.
+
+The OpenMetrics payload also exports drain counters such as:
+
+- `connectanum_router_drain_in_progress`
+- `connectanum_router_drain_total`
+- `connectanum_router_drain_timeouts_total`
+- `connectanum_router_last_drain_duration_ms`
 
 ## TLS reload / certificate rotation
 

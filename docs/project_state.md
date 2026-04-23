@@ -2,14 +2,12 @@
 
 Last updated: 2026-04-23
 Current branch: `add-router`
-Last reviewed commit: `1142621` (`bench(http3): expand multiplex scaling sweep`)
+Last reviewed commit: `eecc483` (`test(router): gate multisession conformance vector`)
 Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.md`
 
 ## Last Known Verification
 
 - `bin/test-fast`
-- `cd packages/connectanum_router && dart test test/conformance/wamp_multisession_conformance_test.dart -r expanded`
-- `dart analyze packages/connectanum_router/test/conformance/wamp_multisession_conformance_test.dart`
 - `bin/verify`
 
 ## Resume Order
@@ -106,6 +104,12 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
   the auth/router/core/bench package folders now have current top-level
   README files, and `native/bench/README.md` now documents the implemented
   orchestrator instead of a design draft.
+- The public docs surface now states the current runtime contracts directly
+  too. `README.md`, the router/client package READMEs, `docs/deployment.md`,
+  and `docs/examples.md` now document the supported cancellation modes
+  (`skip`, `kill`, `killnowait`), graceful drain behavior and `/healthz`, and
+  the lazy-payload / zero-copy boundaries instead of leaving those details
+  scattered across tests and internal notes.
 - GitHub Actions now also exposes a dedicated `Router Image` workflow that publishes `ghcr.io/konsultaner/connectanum-router` for `linux/amd64` and `linux/arm64` on `v*` tags, with manual dispatch support for explicit validation tags.
 - The router/client build hooks can now download a hosted `ct_ffi` release bundle directly when `CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` is set, verify the published `.sha256`, extract the archive, and stage the native library without invoking Cargo.
 - `CONNECTANUM_NATIVE_RELEASE_REPOSITORY=<owner/repo>` overrides the default GitHub Releases source for that hook-managed prebuilt flow, and the explicit prebuilt/system-library paths no longer require a local `native/transport` checkout.
@@ -328,6 +332,13 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - 2026-04-23: `cd packages/connectanum_router && dart test test/conformance/wamp_multisession_conformance_test.dart -r expanded` passed on Darwin arm64 after vendoring the upstream `publisher_exclusion_disabled` multi-session vector and wiring the router-side conformance harness.
 - 2026-04-23: `dart analyze packages/connectanum_router/test/conformance/wamp_multisession_conformance_test.dart` passed on Darwin arm64 with no issues.
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after landing the vendored multi-session conformance vector, the new router-side harness, and the associated roadmap/state updates.
+- 2026-04-23: `bin/test-fast` passed on Darwin arm64 before refreshing the
+  public docs/examples surface around cancellation semantics, graceful drain,
+  lazy payload boundaries, and example discovery.
+- 2026-04-23: `bin/verify` passed on Darwin arm64 after landing the public
+  docs/examples refresh across `README.md`, the router/client package READMEs,
+  `docs/deployment.md`, `docs/examples.md`, and the associated roadmap/state
+  updates.
 
 ## Active Plan
 
@@ -335,8 +346,8 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - Supporting research notes:
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-23-multisession-conformance-gate.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-23-h3-multiplex-scaling.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-23-public-docs-runtime-semantics.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-23-multisession-conformance-gate.md`
 
 ## Known Follow-Ups
 

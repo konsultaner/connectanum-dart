@@ -53,6 +53,9 @@ Future<void> main() async {
 
 More examples live under [example/](example).
 
+For a curated repo-level examples page, see
+[../../docs/examples.md](../../docs/examples.md).
+
 ## Transport Options
 
 Use `WebSocketTransport` for standard WAMP-over-WebSocket and
@@ -99,10 +102,69 @@ The client supports the current Connectanum feature set for:
 - SCRAM
 - cryptosign
 - progressive call results
-- call canceling
+- call cancellation (`skip`, `killnowait`, `kill`)
 - shared registrations
 - pattern-based subscriptions
 - payload passthrough mode
+
+## Progressive Results And Cancellation
+
+Progressive RPC callers should use `Session.call(...)` with
+`CallOptions(receiveProgress: true)` and inspect `result.progress`:
+
+```dart
+final stream = session.call(
+  'bench.progressive',
+  options: CallOptions(receiveProgress: true),
+);
+
+await for (final result in stream) {
+  if (result.progress) {
+    print('partial: ${result.arguments}');
+  } else {
+    print('final: ${result.arguments}');
+  }
+}
+```
+
+If the caller may need to stop an in-flight call, pass `cancelCompleter`
+(`dart:async`):
+
+```dart
+final cancel = Completer<String>();
+
+final stream = session.call(
+  'bench.slow',
+  cancelCompleter: cancel,
+);
+
+cancel.complete(CancelOptions.modeKillNoWait);
+```
+
+Supported cancellation modes today are:
+
+- `CancelOptions.modeSkip`
+- `CancelOptions.modeKillNoWait`
+- `CancelOptions.modeKill`
+
+`modeKill` waits for the callee-side cancellation/error acknowledgement.
+`modeKillNoWait` interrupts the callee and completes the caller immediately.
+`modeSkip` stops waiting locally without interrupting the callee.
+
+## Lazy Payload And Native Fast Path
+
+Use the lazy/payload APIs when you need to keep encoded args / kwargs bytes
+intact for as long as possible:
+
+- `publishLazyPayload(...)`
+- `callSingleLazyPayload(...)`
+- `subscribeLazyPayloadHandler(...)`
+- `registerLazyPayloadHandler(...)`
+
+On same-serializer and native direct paths, those APIs keep payload bytes lazy
+until first access and can avoid allocating full `Event` / `Invocation` /
+`Result` wrappers. Materialized APIs and mixed-serializer paths may still
+decode and re-encode payloads when required by the route.
 
 The shared protocol and serializer primitives live in
 [`connectanum_core`](../connectanum_core/README.md).

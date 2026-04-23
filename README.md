@@ -78,6 +78,65 @@ For a fuller deployment walkthrough, see [docs/deployment.md](docs/deployment.md
    compile `ct_ffi` automatically during `dart run`/`dart test` as long as a
    Rust toolchain is available.
 
+## Examples
+
+Start with the shortest runnable entrypoint for the workflow you need:
+
+- [docs/examples.md](docs/examples.md) - curated examples for progressive
+  results, call cancellation, lazy payload APIs, and router startup
+- [packages/connectanum_client/example/main.dart](packages/connectanum_client/example/main.dart)
+  - basic client connection, registration, call, and publish flow
+- [packages/connectanum_router/example/main.dart](packages/connectanum_router/example/main.dart)
+  - local router with ticket, WAMP-CRA, SCRAM, and remote-auth demo providers
+- [packages/connectanum_router/example/remote_websocket.dart](packages/connectanum_router/example/remote_websocket.dart)
+  - router + WebSocket listener + in-process remote auth server
+- [docs/router_example.yaml](docs/router_example.yaml) - minimal config starter
+
+## Runtime Semantics
+
+### Call Cancellation
+
+Client `Session.call...` APIs accept an optional `cancelCompleter`. Completing
+that completer sends a WAMP `CANCEL` using one of the currently supported
+modes:
+
+- `skip` - stop waiting locally without interrupting the callee
+- `killnowait` - interrupt the callee and return cancellation to the caller
+  immediately
+- `kill` - interrupt the callee and wait for the callee-side cancellation/error
+  acknowledgement before completing the caller
+
+`killall` is not part of the current public contract.
+
+### Graceful Drain
+
+`RouterBinding.drain()` is the graceful shutdown entrypoint for the router. It:
+
+- closes native listener sockets first so no new accepts enter the pipeline
+- lets workers finish session shutdown and GOODBYE/close handling
+- flips `/healthz` to `503 draining` while shutdown is in progress when the
+  OpenMetrics server is enabled
+
+`RouterBinding.dispose()` already calls `drain()` before tearing down the boss,
+internal sessions, and metrics server, so CLI/process shutdown uses the same
+path.
+
+### Lazy Payload And Zero-Copy Boundaries
+
+Connectanum preserves encoded payload bytes when the transport, serializer, and
+API shape allow it. The relevant public entrypoints are:
+
+- `LazyMessagePayload`
+- `Session.callSingleLazyPayload(...)`
+- `Session.subscribeLazyPayloadHandler(...)`
+- `Session.registerLazyPayloadHandler(...)`
+- `Session.publishLazyPayload(...)`
+
+That is not a blanket promise that every path is zero-copy. Same-serializer and
+native fast paths can usually keep payload bytes lazy until first access; mixed
+serializers, unsupported metadata shapes, or materialized APIs may still decode
+and re-encode payloads.
+
 ## Releases And Published Artifacts
 
 ### Native Runtime Bundles
@@ -299,7 +358,9 @@ Key points:
 
 ## Design Notes
 
-- Advanced-profile call cancellation modes (`kill`, `killnowait`, `killall`) will
-  be implemented so that cancellers can wait for the callee to perform any
-  required cleanup. This guarantees that subsequent processing shuts down
-  gracefully instead of leaving background work dangling.
+- The public lazy-payload APIs are intentional. If an integration needs to keep
+  encoded WAMP payload bytes intact across client, router, or internal-session
+  boundaries, use those APIs instead of the materialized convenience wrappers.
+- Advanced-profile cancellation currently supports `skip`, `kill`, and
+  `killnowait`. If `killall` is added later, it should be documented as a new
+  contract rather than assumed implicitly.

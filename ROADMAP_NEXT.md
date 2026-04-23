@@ -122,8 +122,12 @@ Focus for the next session:
   - Next: keep the same-serializer native fast path and mixed-serializer Dart fallback explicit as more transport-specific fast paths land.
 
 9. **Documentation & Examples**
-   - Update router/auth docs to capture cancellation semantics, drain behaviour, and zero-copy guarantees.
-   - Expand the example gallery (progressive results + cancellation walkthrough) to help integrators.
+   - ✅ Public-facing docs now capture current cancellation semantics, graceful
+     drain behaviour, and lazy-payload / zero-copy boundaries across the root
+     README, router/client package READMEs, and deployment guide.
+   - ✅ The repo now ships a small public examples gallery in `docs/examples.md`
+     that links the runnable entrypoints and covers progressive results,
+     cancellation, and graceful drain usage.
 
 10. **Serializer Interop Bridge**
   - ✅ Wrapped/custom-detail routing is now covered on top of the mixed-serializer bridge: JSON ↔ MessagePack ↔ CBOR clients retain nested binary custom fields on EVENT / INVOCATION / RESULT / ERROR paths, router native ingress preserves custom options/details, and the live bridge keeps the same-serializer native fast path versus mixed-serializer Dart fallback explicit.

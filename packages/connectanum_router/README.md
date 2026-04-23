@@ -61,7 +61,49 @@ Future<void> main() async {
 }
 ```
 
-For fuller examples, see [example/](example).
+For fuller examples, see:
+
+- [example/main.dart](example/main.dart) - local router with demo credential
+  providers and multiple auth methods
+- [example/remote_websocket.dart](example/remote_websocket.dart) - WebSocket
+  listener plus in-process remote auth delegate
+- [../../docs/router_example.yaml](../../docs/router_example.yaml) - minimal
+  config starter
+- [../../docs/examples.md](../../docs/examples.md) - curated repo-level example
+  gallery
+
+## Graceful Drain And Health Checks
+
+`RouterBinding.drain()` is the graceful shutdown entrypoint. It closes listener
+sockets first, then lets workers finish session shutdown and GOODBYE/close
+handling before the binding is torn down.
+
+`RouterBinding.dispose()` already uses that same path, so a normal process
+shutdown or CLI exit drains before the boss/runtime are released.
+
+When the optional OpenMetrics HTTP server is enabled, `/healthz` returns:
+
+- `200 ok` while the router is ready
+- `503 starting` before the router is ready
+- `503 draining` while `drain()` is in progress
+
+OpenMetrics also exposes drain counters such as
+`connectanum_router_drain_in_progress` and
+`connectanum_router_last_drain_duration_ms`.
+
+## Lazy Payload And Forwarding Boundaries
+
+The router keeps payload bytes lazy when the route stays on a supported
+same-serializer or native-forward path. That matters for:
+
+- internal-session call/event/result forwarding
+- native fast-path WAMP routing
+- PPT / E2EE payload forwarding where the router should stay blind to the
+  wrapped payload
+
+That is still a conditional optimization, not a blanket promise. Mixed
+serializers or unsupported metadata shapes may materialize payloads in Dart
+before re-encoding.
 
 ## Native Runtime Packaging
 
