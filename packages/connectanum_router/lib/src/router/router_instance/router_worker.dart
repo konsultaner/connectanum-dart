@@ -30,6 +30,7 @@ final json_serializer.Serializer _jsonSerializer = json_serializer.Serializer();
 final cbor_serializer.Serializer _cborSerializer = cbor_serializer.Serializer();
 final msgpack_serializer.Serializer _msgpackSerializer =
     msgpack_serializer.Serializer();
+RealmAuthorizationProviderCache? _workerAuthorizationProviderCache;
 
 RouterListener decodeListener(Map<String, Object?> data) {
   final endpointMap = data['endpoint'] as Map<String, Object?>;
@@ -231,6 +232,12 @@ Future<int> allocateSessionId(SendPort? statePort) async {
 
 /// Default worker entry point that materialises native message handles in an
 /// isolate and hands them over to the router once available.
+void defaultRouterWorkerEntryPoint(Map<String, Object?> init) {
+  _routerWorkerEntryPoint(init);
+}
+
+/// Default worker entry point that materialises native message handles in an
+/// isolate and hands them over to the router once available.
 void _routerWorkerEntryPoint(Map<String, Object?> init) {
   registerDefaultAuthenticators();
 
@@ -245,6 +252,7 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
   final RouterSettings settings = settingsMap != null
       ? RouterSettingsCodec.fromMap(settingsMap)
       : RouterSettings(realms: const [], listeners: const [], metrics: null);
+  _workerAuthorizationProviderCache = RealmAuthorizationProviderCache(settings);
 
   unawaited(RemoteWampDelegateRegistry.warmUpForSettings(settings));
 

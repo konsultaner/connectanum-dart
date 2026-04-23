@@ -12,6 +12,7 @@ void main() {
           'realms': [
             <String, Object?>{
               'name': 'realm1',
+              'authorization_provider': 'realm-authz',
               'auth': <String, Object?>{
                 'authmethods': ['anonymous'],
               },
@@ -81,6 +82,12 @@ void main() {
                 'issuer': 'https://issuer.example',
                 'audience': ['connectanum-http'],
               },
+            },
+          },
+          'authorization_providers': <String, Object?>{
+            'realm-authz': <String, Object?>{
+              'type': 'remote',
+              'options': <String, Object?>{'endpoint': 'wamp://authz'},
             },
           },
           'internal_realms': [
@@ -161,6 +168,8 @@ void main() {
         'edge-jwt',
       );
       expect(settings.httpAuthProviders.keys, contains('edge-jwt'));
+      expect(settings.authorizationProviders.keys, contains('realm-authz'));
+      expect(settings.realms.single.authorizationProvider, 'realm-authz');
       expect(settings.internalRealms.single.sessionProfile, 'http-handler');
     });
 
@@ -374,7 +383,9 @@ void main() {
     test('codec round-trips shared session profiles and references', () {
       final updatedBuilder = RouterSettingsBuilder()
         ..addRealmFromBuilder(
-          RealmSettingsBuilder('realm1')..addAuthMethod('anonymous'),
+          RealmSettingsBuilder('realm1')
+            ..addAuthMethod('anonymous')
+            ..setAuthorizationProvider('realm-authz'),
         )
         ..addSessionProfileFromBuilder(
           SessionProfileSettingsBuilder('public-wamp')
@@ -399,6 +410,13 @@ void main() {
               'issuer': 'https://issuer.example',
               'audience': <String>['connectanum-http'],
             },
+          ),
+        )
+        ..addAuthorizationProvider(
+          'realm-authz',
+          const AuthorizationProviderDefinition(
+            type: 'remote',
+            options: <String, Object?>{'endpoint': 'wamp://authz'},
           ),
         )
         ..addListenerFromBuilder(
@@ -488,6 +506,8 @@ void main() {
         'http-handler',
       );
       expect(decoded.httpAuthProviders.keys, contains('edge-jwt'));
+      expect(decoded.authorizationProviders.keys, contains('realm-authz'));
+      expect(decoded.realms.single.authorizationProvider, 'realm-authz');
       expect(
         decoded.sessionProfiles
             .firstWhere((profile) => profile.name == 'http-handler')

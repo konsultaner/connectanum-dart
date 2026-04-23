@@ -29,6 +29,7 @@ class RouterSettings {
     this.internalRealms = const [],
     this.metrics,
     this.authenticators = const {},
+    this.authorizationProviders = const {},
     this.httpAuthProviders = const {},
     this.workerPool = const WorkerPoolSettings(),
   });
@@ -39,6 +40,7 @@ class RouterSettings {
   final List<InternalRealmSettings> internalRealms;
   final MetricsSettings? metrics;
   final Map<String, AuthenticatorDefinition> authenticators;
+  final Map<String, AuthorizationProviderDefinition> authorizationProviders;
   final Map<String, HttpAuthProviderDefinition> httpAuthProviders;
   final WorkerPoolSettings workerPool;
 
@@ -49,6 +51,7 @@ class RouterSettings {
     List<InternalRealmSettings>? internalRealms,
     MetricsSettings? metrics,
     Map<String, AuthenticatorDefinition>? authenticators,
+    Map<String, AuthorizationProviderDefinition>? authorizationProviders,
     Map<String, HttpAuthProviderDefinition>? httpAuthProviders,
     WorkerPoolSettings? workerPool,
   }) {
@@ -59,6 +62,8 @@ class RouterSettings {
       internalRealms: internalRealms ?? this.internalRealms,
       metrics: metrics ?? this.metrics,
       authenticators: authenticators ?? this.authenticators,
+      authorizationProviders:
+          authorizationProviders ?? this.authorizationProviders,
       httpAuthProviders: httpAuthProviders ?? this.httpAuthProviders,
       workerPool: workerPool ?? this.workerPool,
     );
@@ -69,6 +74,18 @@ class RouterSettings {
 @immutable
 class AuthenticatorDefinition {
   const AuthenticatorDefinition({required this.type, this.options = const {}});
+
+  final String type;
+  final Map<String, Object?> options;
+}
+
+/// Definition of a realm authorization provider referenced by realm config.
+@immutable
+class AuthorizationProviderDefinition {
+  const AuthorizationProviderDefinition({
+    required this.type,
+    this.options = const {},
+  });
 
   final String type;
   final Map<String, Object?> options;
@@ -167,6 +184,7 @@ class RealmSettings {
     required this.roles,
     required this.limits,
     this.autoCreate = false,
+    this.authorizationProvider,
   });
 
   final String name;
@@ -174,6 +192,7 @@ class RealmSettings {
   final List<RoleSettings> roles;
   final RealmLimitSettings limits;
   final bool autoCreate;
+  final String? authorizationProvider;
 }
 
 /// Pluggable auth configuration for a realm.
@@ -959,6 +978,14 @@ class RouterSettingsEquality implements Equality<RouterSettings> {
         e1.authenticators,
         e2.authenticators,
       ) &&
+      const DeepCollectionEquality().equals(
+        e1.authorizationProviders,
+        e2.authorizationProviders,
+      ) &&
+      const DeepCollectionEquality().equals(
+        e1.httpAuthProviders,
+        e2.httpAuthProviders,
+      ) &&
       e1.metrics == e2.metrics &&
       e1.workerPool == e2.workerPool;
 
@@ -969,6 +996,8 @@ class RouterSettingsEquality implements Equality<RouterSettings> {
     const ListEquality<SessionProfileSettings>().hash(e.sessionProfiles),
     const ListEquality<InternalRealmSettings>().hash(e.internalRealms),
     const DeepCollectionEquality().hash(e.authenticators),
+    const DeepCollectionEquality().hash(e.authorizationProviders),
+    const DeepCollectionEquality().hash(e.httpAuthProviders),
     e.metrics,
     e.workerPool,
   );

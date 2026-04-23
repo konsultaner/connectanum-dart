@@ -2,8 +2,14 @@ import 'package:connectanum_router/connectanum_router.dart';
 import 'package:test/test.dart';
 
 void main() {
-  setUp(AuthorizationProviderRegistry.clear);
-  tearDown(AuthorizationProviderRegistry.clear);
+  setUp(() {
+    AuthorizationProviderRegistry.clear();
+    AuthorizationProviderFactoryRegistry.clear();
+  });
+  tearDown(() {
+    AuthorizationProviderRegistry.clear();
+    AuthorizationProviderFactoryRegistry.clear();
+  });
 
   group('RealmAuthorizer', () {
     test('allows static exact, prefix, and wildcard permissions', () async {
@@ -165,6 +171,30 @@ void main() {
       expect(decision.allowed, isTrue);
     });
 
+    test('accepts an explicit provider for configured worker use', () async {
+      final realm = _realmWithRole(
+        'member',
+        permissions: const <PermissionSettings>[
+          PermissionSettings(uri: 'com.demo.proc', allow: <String>['call']),
+        ],
+      );
+
+      final decision = await RealmAuthorizer.authorize(
+        realmSettings: realm,
+        provider: _CallbackAuthorizationProvider(
+          (request) =>
+              const AuthorizationDecision.deny(message: 'configured deny'),
+        ),
+        request: _request(
+          action: AuthorizationAction.call,
+          uri: 'com.demo.proc',
+        ),
+      );
+
+      expect(decision.allowed, isFalse);
+      expect(decision.message, equals('configured deny'));
+    });
+
     test(
       'preserves legacy allow-all when no permissions are configured',
       () async {
@@ -209,14 +239,55 @@ void main() {
       },
     );
   });
+
+  group('RealmAuthorizationProviderCache', () {
+    test('resolves configured providers from router settings', () async {
+      AuthorizationProviderFactoryRegistry.registerFactory(
+        _CallbackAuthorizationProviderFactory(
+          'deny-topic',
+          (options) => _CallbackAuthorizationProvider(
+            (request) => request.uri == options['topic']
+                ? const AuthorizationDecision.deny(message: 'configured deny')
+                : null,
+          ),
+        ),
+      );
+
+      final realm = _realmWithRole(
+        'member',
+        authorizationProvider: 'realm-provider',
+      );
+      final settings = RouterSettings(
+        realms: <RealmSettings>[realm],
+        listeners: const <ListenerSettings>[],
+        authorizationProviders: const <String, AuthorizationProviderDefinition>{
+          'realm-provider': AuthorizationProviderDefinition(
+            type: 'deny-topic',
+            options: <String, Object?>{'topic': 'com.demo.proc'},
+          ),
+        },
+      );
+
+      final cache = RealmAuthorizationProviderCache(settings);
+      final provider = await cache.providerFor(realm);
+      final decision = await provider!.authorize(
+        _request(action: AuthorizationAction.call, uri: 'com.demo.proc'),
+      );
+
+      expect(decision?.allowed, isFalse);
+      expect(decision?.message, equals('configured deny'));
+    });
+  });
 }
 
 RealmSettings _realmWithRole(
   String roleName, {
   List<PermissionSettings> permissions = const <PermissionSettings>[],
+  String? authorizationProvider,
 }) {
   return RealmSettings(
     name: 'realm1',
+    authorizationProvider: authorizationProvider,
     auth: const RealmAuthSettings(methods: <String>['anonymous']),
     roles: <RoleSettings>[
       RoleSettings(name: roleName, permissions: permissions),
@@ -247,5 +318,21 @@ class _CallbackAuthorizationProvider implements AuthorizationProvider {
   @override
   Future<AuthorizationDecision?> authorize(AuthorizationRequest request) async {
     return _callback(request);
+  }
+}
+
+class _CallbackAuthorizationProviderFactory
+    extends AuthorizationProviderFactory {
+  _CallbackAuthorizationProviderFactory(this._type, this._create);
+
+  final String _type;
+  final AuthorizationProvider Function(Map<String, Object?> options) _create;
+
+  @override
+  String get type => _type;
+
+  @override
+  Future<AuthorizationProvider> create(Map<String, Object?> options) async {
+    return _create(options);
   }
 }

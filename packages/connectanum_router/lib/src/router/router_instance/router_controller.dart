@@ -36,7 +36,7 @@ class Router {
       endpoints: config.endpoints,
       configJson: configBytes,
       settings: routerSettings,
-      workerEntryPoint: workerEntryPoint ?? _routerWorkerEntryPoint,
+      workerEntryPoint: workerEntryPoint ?? defaultRouterWorkerEntryPoint,
       workerPollInterval: workerPollInterval,
       onEvent: onEvent,
     );

@@ -6,6 +6,8 @@ class RouterSettingsBuilder {
   final List<ListenerSettings> _listeners = [];
   final List<SessionProfileSettings> _sessionProfiles = [];
   final Map<String, AuthenticatorDefinition> _authenticators = {};
+  final Map<String, AuthorizationProviderDefinition> _authorizationProviders =
+      {};
   final Map<String, HttpAuthProviderDefinition> _httpAuthProviders = {};
   final List<InternalRealmSettings> _internalRealms = [];
   MetricsSettings? _metrics;
@@ -65,6 +67,14 @@ class RouterSettingsBuilder {
     return this;
   }
 
+  RouterSettingsBuilder addAuthorizationProvider(
+    String name,
+    AuthorizationProviderDefinition definition,
+  ) {
+    _authorizationProviders[name] = definition;
+    return this;
+  }
+
   RouterSettingsBuilder addHttpAuthProvider(
     String name,
     HttpAuthProviderDefinition definition,
@@ -90,6 +100,7 @@ class RouterSettingsBuilder {
     internalRealms: List.unmodifiable(_internalRealms),
     metrics: _metrics,
     authenticators: Map.unmodifiable(_authenticators),
+    authorizationProviders: Map.unmodifiable(_authorizationProviders),
     httpAuthProviders: Map.unmodifiable(_httpAuthProviders),
     workerPool: _workerPool,
   );
@@ -170,10 +181,16 @@ class RealmSettingsBuilder {
 
   final String name;
   bool autoCreate = false;
+  String? authorizationProvider;
   final List<String> _methods = [];
   final Map<String, Map<String, Object?>> _methodOptions = {};
   final List<RoleSettings> _roles = [];
   RealmLimitSettings limits = const RealmLimitSettings();
+
+  RealmSettingsBuilder setAuthorizationProvider(String? provider) {
+    authorizationProvider = provider;
+    return this;
+  }
 
   RealmSettingsBuilder addAuthMethod(
     String method, {
@@ -206,6 +223,7 @@ class RealmSettingsBuilder {
   RealmSettings build() => RealmSettings(
     name: name,
     autoCreate: autoCreate,
+    authorizationProvider: authorizationProvider,
     auth: RealmAuthSettings(
       methods: List.unmodifiable(_methods),
       methodOptions: Map.unmodifiable(_methodOptions),

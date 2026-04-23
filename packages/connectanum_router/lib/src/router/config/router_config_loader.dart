@@ -277,6 +277,9 @@ class RouterConfigLoader {
     final internalRealms = _parseInternalRealms(routerNode['internal_realms']);
     final metrics = _parseMetrics(routerNode['metrics']);
     final authenticators = _parseAuthenticators(routerNode['authenticators']);
+    final authorizationProviders = _parseAuthorizationProviders(
+      routerNode['authorization_providers'],
+    );
     final httpAuthProviders = _parseHttpAuthProviders(
       routerNode['http_auth_providers'],
     );
@@ -289,6 +292,7 @@ class RouterConfigLoader {
       internalRealms: internalRealms,
       metrics: metrics,
       authenticators: authenticators,
+      authorizationProviders: authorizationProviders,
       httpAuthProviders: httpAuthProviders,
       workerPool: workerPool,
     );
@@ -335,6 +339,40 @@ class RouterConfigLoader {
         node['http_provider'] ?? node['httpProvider'] ?? node['provider'],
       ),
     );
+  }
+
+  static Map<String, AuthorizationProviderDefinition>
+  _parseAuthorizationProviders(dynamic node) {
+    if (node == null) {
+      return const {};
+    }
+    if (node is! Map<String, Object?>) {
+      throw FormatException('Router "authorization_providers" must be a map');
+    }
+    final providers = <String, AuthorizationProviderDefinition>{};
+    for (final entry in node.entries) {
+      final name = entry.key;
+      final value = entry.value;
+      if (value is String) {
+        providers[name] = AuthorizationProviderDefinition(type: value);
+        continue;
+      }
+      if (value is! Map<String, Object?>) {
+        throw FormatException(
+          'authorization_providers.$name must be a string or map',
+        );
+      }
+      final type = _expectString(
+        value['type'] ?? value['provider_type'],
+        'authorization_providers.$name.type',
+      );
+      final options = _asMap(value['options'], allowNull: true) ?? const {};
+      providers[name] = AuthorizationProviderDefinition(
+        type: type,
+        options: options,
+      );
+    }
+    return Map.unmodifiable(providers);
   }
 
   static Map<String, HttpAuthProviderDefinition> _parseHttpAuthProviders(
@@ -386,12 +424,16 @@ class RouterConfigLoader {
           }
           final name = _expectString(entry['name'], 'realm.name');
           final autoCreate = _asBool(entry['auto_create'], defaultValue: false);
+          final authorizationProvider = _asNullableString(
+            entry['authorization_provider'] ?? entry['authorizationProvider'],
+          );
           final auth = _parseRealmAuth(entry['auth']);
           final roles = _parseRoles(entry['roles']);
           final limits = _parseRealmLimits(entry['limits']);
           return RealmSettings(
             name: name,
             autoCreate: autoCreate,
+            authorizationProvider: authorizationProvider,
             auth: auth,
             roles: roles,
             limits: limits,

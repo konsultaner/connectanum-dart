@@ -16,6 +16,13 @@ abstract final class RouterSettingsCodec {
         'session_profiles': settings.sessionProfiles
             .map(_sessionProfileToMap)
             .toList(),
+      if (settings.authorizationProviders.isNotEmpty)
+        'authorization_providers': settings.authorizationProviders.map((
+          key,
+          value,
+        ) {
+          return MapEntry(key, _authorizationProviderToMap(value));
+        }),
       if (settings.httpAuthProviders.isNotEmpty)
         'http_auth_providers': settings.httpAuthProviders.map((key, value) {
           return MapEntry(key, _httpAuthProviderToMap(value));
@@ -40,6 +47,8 @@ abstract final class RouterSettingsCodec {
     return <String, Object?>{
       'name': realm.name,
       'auto_create': realm.autoCreate,
+      if (realm.authorizationProvider != null)
+        'authorization_provider': realm.authorizationProvider,
       'auth': _realmAuthToMap(realm.auth),
       'roles': realm.roles.map(_roleToMap).toList(),
       'limits': _limitsToMap(realm.limits),
@@ -351,6 +360,15 @@ abstract final class RouterSettingsCodec {
       if (auth.authId != null) 'auth_id': auth.authId,
       if (auth.authRole != null) 'auth_role': auth.authRole,
       if (auth.httpProvider != null) 'http_provider': auth.httpProvider,
+    };
+  }
+
+  static Map<String, Object?> _authorizationProviderToMap(
+    AuthorizationProviderDefinition definition,
+  ) {
+    return <String, Object?>{
+      'type': definition.type,
+      if (definition.options.isNotEmpty) 'options': definition.options,
     };
   }
 

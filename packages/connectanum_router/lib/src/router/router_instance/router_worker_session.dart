@@ -2348,9 +2348,13 @@ Future<AuthorizationDecision> _authorizeRealmAction({
   required bool isInternal,
   Map<String, Object?> options = const <String, Object?>{},
   PermissionMatchPolicy? targetMatchPolicy,
-}) {
+}) async {
+  final providerFuture = _workerAuthorizationProviderCache?.providerFor(
+    realmSettings,
+  );
   return RealmAuthorizer.authorize(
     realmSettings: realmSettings,
+    provider: providerFuture == null ? null : await providerFuture,
     request: AuthorizationRequest(
       realmUri: realmUri,
       action: action,

@@ -67,7 +67,7 @@ class RouterBinding {
     required List<Endpoint> endpoints,
     required this.configJson,
     required this.settings,
-    this.workerEntryPoint = _routerWorkerEntryPoint,
+    this.workerEntryPoint = defaultRouterWorkerEntryPoint,
     this.workerPollInterval = const Duration(milliseconds: 1),
     this.onEvent,
   }) : _pendingEndpoints = List<Endpoint>.unmodifiable(endpoints),

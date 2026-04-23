@@ -96,7 +96,87 @@ abstract class AuthorizationProvider {
   FutureOr<AuthorizationDecision?> authorize(AuthorizationRequest request);
 }
 
-/// Global registry for optional authorization providers.
+/// Factory interface for configured realm authorization providers.
+abstract class AuthorizationProviderFactory {
+  const AuthorizationProviderFactory();
+
+  String get type;
+
+  FutureOr<AuthorizationProvider> create(Map<String, Object?> options);
+}
+
+/// Registry for pluggable realm authorization provider factories.
+class AuthorizationProviderFactoryRegistry {
+  AuthorizationProviderFactoryRegistry._();
+
+  static final Map<String, AuthorizationProviderFactory> _factories = {};
+
+  static void registerFactory(AuthorizationProviderFactory factory) {
+    _factories[factory.type] = factory;
+  }
+
+  static void registerFactories(
+    Iterable<AuthorizationProviderFactory> factories,
+  ) {
+    for (final factory in factories) {
+      registerFactory(factory);
+    }
+  }
+
+  static void unregisterFactory(String type) {
+    _factories.remove(type);
+  }
+
+  static AuthorizationProviderFactory? factoryFor(String type) =>
+      _factories[type];
+
+  static Map<String, AuthorizationProviderFactory> get factories =>
+      Map.unmodifiable(_factories);
+
+  static void clear() => _factories.clear();
+}
+
+/// Worker-local cache for configured realm authorization providers.
+class RealmAuthorizationProviderCache {
+  RealmAuthorizationProviderCache(this._settings);
+
+  final RouterSettings _settings;
+  final Map<String, Future<AuthorizationProvider>> _providers = {};
+
+  Future<AuthorizationProvider?> providerFor(
+    RealmSettings realmSettings,
+  ) async {
+    final providerName = realmSettings.authorizationProvider?.trim();
+    if (providerName == null || providerName.isEmpty) {
+      return null;
+    }
+    final definition = _settings.authorizationProviders[providerName];
+    if (definition == null) {
+      throw StateError(
+        'Realm ${realmSettings.name} references unknown authorization '
+        'provider $providerName',
+      );
+    }
+    final future = _providers.putIfAbsent(providerName, () async {
+      final factory = AuthorizationProviderFactoryRegistry.factoryFor(
+        definition.type,
+      );
+      if (factory == null) {
+        throw StateError(
+          'No authorization provider factory registered for '
+          '${definition.type}',
+        );
+      }
+      return await factory.create(<String, Object?>{
+        'name': providerName,
+        ...definition.options,
+      });
+    });
+    return future;
+  }
+}
+
+/// Legacy global registry for optional in-process authorization providers.
 class AuthorizationProviderRegistry {
   AuthorizationProviderRegistry._();
 
@@ -121,6 +201,7 @@ class RealmAuthorizer {
   static Future<AuthorizationDecision> authorize({
     required RealmSettings realmSettings,
     required AuthorizationRequest request,
+    AuthorizationProvider? provider,
   }) async {
     final hasStaticPolicy = realmSettings.roles.any(
       (role) => role.permissions.isNotEmpty,
@@ -133,10 +214,10 @@ class RealmAuthorizer {
       return staticDecision;
     }
 
-    final provider = AuthorizationProviderRegistry.provider;
-    final providerDecision = provider == null
+    final dynamicProvider = provider ?? AuthorizationProviderRegistry.provider;
+    final providerDecision = dynamicProvider == null
         ? null
-        : await provider.authorize(request);
+        : await dynamicProvider.authorize(request);
     if (providerDecision != null) {
       if (!providerDecision.allowed) {
         return providerDecision;

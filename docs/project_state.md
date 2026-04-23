@@ -2,29 +2,13 @@
 
 Last updated: 2026-04-23
 Current branch: `add-router`
-Last reviewed commit: `175ae0a` (`docs: refresh wamp timeout checkpoint`)
-Active exec plan: none; choose the next milestone from `ROADMAP_NEXT.md`
+Last reviewed commit: `e5d8752` (`test(router): add wamp transport interop coverage`)
+Active exec plan: `none`
 
 ## Last Known Verification
 
 - `bin/test-fast`
-- `bash -n bin/wamp-profile-validate`
-- `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-smoke-release-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`
-- `bash -n bin/wamp-profile-diagnostics`
-- `bin/wamp-profile-diagnostics --out-dir out/wamp-profile-diagnostics-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`
-- `bin/check-bench-artifacts --summary out/wamp-profile-diagnostics-local/wamp_publish_fanout_throughput/bench_results.summary.json --policy native/bench/artifact_gate/wamp_publish_fanout_throughput.json`
-- `cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib /Users/konsultaner/Projects/connectanum-dart/native/transport/target/release/libct_ffi.dylib --scenario /Users/konsultaner/Projects/connectanum-dart/native/bench/scenarios/wamp_publish_fanout_throughput.toml --results /Users/konsultaner/Projects/connectanum-dart/out/wamp-publish-fanout-policy-local/bench_results.jsonl --artifact-dir /Users/konsultaner/Projects/connectanum-dart/out/wamp-publish-fanout-policy-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`
-- `bin/check-bench-artifacts --summary out/wamp-publish-fanout-policy-local/bench_results.summary.json --policy native/bench/artifact_gate/wamp_publish_fanout_throughput.json`
-- `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`
-- `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-rerun-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 60000`
-- `cd packages/connectanum_router && dart test test/publish_ack_test.dart test/router_integration_websocket_test.dart -r expanded`
-- `dart test packages/connectanum_bench/test/wamp_workload_runner_test.dart`
-- `cargo test --manifest-path native/bench/Cargo.toml wait_for_bench_ready -- --nocapture`
-- `cargo test --manifest-path native/bench/Cargo.toml artifacts -- --nocapture`
-- `bin/check-bench-artifacts --summary out/wamp-transport-local/bench_results.summary.json --policy native/bench/artifact_gate/wamp_transport_throughput.json`
-- `bin/check-bench-artifacts --summary out/wamp-secure-local/bench_results.summary.json --policy native/bench/artifact_gate/wamp_secure_throughput.json`
-- `cargo test --manifest-path native/bench/Cargo.toml --bin http_stream http_endpoint_accepts_https_control_base -- --nocapture`
-- `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-http1-control-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`
+- `cd packages/connectanum_router && dart test test/authorization_test.dart test/authorization_integration_test.dart test/router_config_loader_test.dart -r expanded`
 - `bin/verify`
 
 ## Autonomous Priority
@@ -33,10 +17,11 @@ Active exec plan: none; choose the next milestone from `ROADMAP_NEXT.md`
 2. Prioritize production readiness of current functionality before exploratory expansion. That includes correctness, release/deployment behavior, observability, packaging, operational docs, and coverage for shipped paths.
 3. Treat MCP support for downstream `groli/app` as the next product-readiness milestone once CI and shipped-path blockers are clean. It outranks speculative H3, kTLS, E2EE, and benchmark exploration until the first usable MCP server/bridge path is designed, implemented, tested, and documented.
 4. After the first usable MCP path is complete, make WAMP profile-related transport performance production-ready in the benchmark suite before returning to speculative transport work. That means canonical RawSocket/WebSocket WAMP scenarios, secure and cleartext coverage, serializer/profile coverage, explicit budgets/gates, and hosted CI evidence for release decisions.
-5. With the first MCP path, the WAMP benchmark-readiness milestone, and the
-   host-supported WAMP transport-interop slice complete, choose the next
-   milestone from `ROADMAP_NEXT.md` and keep prioritizing shipped-path
-   correctness before speculative transport work.
+5. With the first MCP path, the WAMP benchmark-readiness milestone, the
+   host-supported WAMP transport-interop slice, and the worker-safe realm
+   authorization milestone complete, use `ROADMAP_NEXT.md` to choose the next
+   production-readiness task and keep prioritizing shipped-path correctness
+   before speculative transport work.
 6. Other benchmark and performance work stays important, but it should serve
    production readiness and release confidence rather than run ahead of it.
 
@@ -92,10 +77,27 @@ Active exec plan: none; choose the next milestone from `ROADMAP_NEXT.md`
   now covers mixed RawSocket/WebSocket publish, call, and error routing across
   rawsocket JSON + CBOR clients and a websocket MsgPack client on the current
   macOS-supported path.
-- There is no new active execution plan yet. The next resume step should pick
-  the highest-priority remaining shipped-path milestone from
-  `ROADMAP_NEXT.md`; the clearest still-open item there is the unresolved
-  dynamic realm-authorization model under Remote Authentication Hardening.
+- Hosted GitHub validation is green through commit `e5d8752`: push `CI` run
+  `24855148071` and `WAMP Profile Benchmarks` run `24855148024` both completed
+  successfully on the current branch head.
+- The worker-safe realm authorization follow-up is now complete on the local
+  working tree. Router settings now carry top-level
+  `authorization_providers` definitions plus per-realm
+  `authorization_provider` selection, worker isolates resolve providers from
+  serialized settings instead of relying on a single isolate-local
+  `AuthorizationProviderRegistry` object, and the default router worker
+  entrypoint is now public so custom worker bootstraps can register provider
+  factories before delegating to the standard worker.
+- The old dynamic-authorization gap is now covered by a focused live
+  integration regression in
+  `packages/connectanum_router/test/authorization_integration_test.dart`,
+  which reproduces the real worker-isolate path instead of only the old
+  in-process callback path.
+- Local verification for the current realm-authorization follow-up is green:
+  `bin/test-fast`, `cd packages/connectanum_router && dart test
+  test/authorization_test.dart test/authorization_integration_test.dart
+  test/router_config_loader_test.dart -r expanded`, and `bin/verify` all
+  passed on 2026-04-23.
 - The first WAMP benchmark-readiness slice now has a human-readable contract in
   `docs/wamp_profile_benchmarks.md`. The canonical release-decision throughput
   gates are `native/bench/scenarios/wamp_transport_throughput.toml` and

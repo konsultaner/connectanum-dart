@@ -23,13 +23,12 @@ Fresh state:
 - GOAWAY detail assertions now cover HTTP/2 and HTTP/3 in both native `listen_flow` and Dart runtime suites.
 - Negotiated WebSocket subprotocol/serializer surfaces over FFI (`ct_connection_websocket_protocol`) and flows into boss/worker metadata, so listeners and workers can trace/route WebSocket WAMP sessions consistently.
 - Boss-side metrics now track listener backpressure and transport lifecycle spikes with configurable thresholds (`metrics.backpressure` / `metrics.transport_alerts`), throttling accepts and emitting alerts when GOAWAY/timeout deltas jump.
-- MCP support for downstream `groli/app` is now the next product-readiness
-  milestone after CI health and shipped-path blockers. It should be worked
-  before speculative H3, kTLS, E2EE, or benchmark exploration.
-- After MCP, WAMP-profile transport performance is the queued
-  production-readiness focus. Treat canonical RawSocket/WebSocket WAMP bench
-  gates, budgets, and hosted baselines as the next release-readiness work before
-  returning to speculative transport experiments.
+- MCP support for downstream `groli/app` now has a first usable local bridge
+  path in `packages/connectanum_mcp` (transport-independent core, stdio
+  framing, and WAMP-backed tool delegation).
+- WAMP-profile transport performance readiness is also complete: the canonical
+  RawSocket/WebSocket release-gate scenarios, budgets, and hosted baselines are
+  now checked in for release decisions.
 - Workspace verification is green; `packages/connectanum_router` is analyzer-clean after the router null-aware collection cleanup.
 - JSON/MessagePack/CBOR serializers preserve custom option/detail fields; HTTP/2 and HTTP/3 responses stream directly from Rust into Dart (`context.streamResponse`) without buffering multi-MB payloads.
 - Router-side MsgPack `RESULT` serialization and the native CBOR decode/encode path are now complete for the benchmarked WAMP flows, and bench integration covers RawSocket/MsgPack RPC plus WebSocket/CBOR RPC against the live router.
@@ -49,16 +48,17 @@ Fresh state:
 - Router shutdown/drain now closes native listeners up-front (`ct_listener_close`) so no new accepts are queued while workers drain; `/healthz` reports `draining` during shutdown and OpenMetrics exports drain counters.
 
 Priority override:
-- **WAMP-profile transport performance readiness** is the next active
-  milestone. Start from
-  `docs/exec-plans/2026-04-23-wamp-profile-transport-performance-readiness.md`
-  and make the benchmark suite's RawSocket/WebSocket WAMP scenarios canonical,
-  budgeted, and useful for release decisions.
-- **MCP Support for groli/app:** the first usable local bridge path now exists
-  in `packages/connectanum_mcp`: in-memory server core, stdio transport, and
-  WAMP-backed tool delegation through `connectanum_client` sessions.
-  Streamable HTTP/router MCP integration is conditional on `groli/app` needing
-  a network endpoint.
+- **Authoritative continuation state lives in `docs/project_state.md`.** The
+  MCP bridge path, WAMP profile benchmark-readiness milestone, HTTP/3
+  transport/backpressure plan, WAMP transport-interop slice, and worker-safe
+  realm-authorization slice are all complete on the current local branch
+  checkpoint.
+- **The broader WAMP conformance expansion remains blocked on upstream**
+  vector/runner stabilization. Do not reopen it unless the vendored upstream
+  snapshot changes.
+- **The next unblocked transport-research lane is kTLS
+  exploration/benchmarks**, but only after the current locally verified
+  branch checkpoint is committed/pushed and the CI chain remains green.
 
 Focus for the next session:
 1. **Boss Telemetry Stream & Prometheus Exporter**
@@ -98,11 +98,11 @@ Focus for the next session:
    - ✅ HTTP/1.1 ingress now parses with `BytesMut`, keeps buffered bodies as `Bytes` inside `HttpBodyHandle`, preserves prefetched bytes across the handshake/body-reader handoff, and Dart/native regressions cover inline vs streaming request bodies on the real runtime path.
    - ✅ `_RouterBoss` now drains queued HTTP/1.1 keep-alive requests on active sockets, `router_runtime_test.dart` covers the synthetic queue-drain path, `router_integration_native_test.dart` exercises a streamed request + chunked streamed response followed by a second request on the same connection, and `native/bench/scenarios/h1_smoke.toml` runs with `reuse_connections = true` again. Recent H1 smoke runs completed at roughly 381 Mbps (1 native thread) and 442 Mbps (4 native threads) response throughput in this environment instead of hanging after the first request.
    - ✅ HTTP/2 and HTTP/3 body readers now enqueue inbound `Bytes` directly into `StreamingBodyState` instead of cloning each chunk into a temporary `Vec`.
-  - Next: HTTP/3 transport/backpressure tuning is paused behind the MCP support
-    milestone unless CI or a release blocker requires it. The kept H3 baseline
-    remains the steady-state round-robin drain across tracked HTTP/3
-    connections, and future H3 work should reduce absolute queue pressure
-    rather than revisit accept-time draining.
+  - Future HTTP/3 work should start only from a concrete response-progress
+    handoff/window design or an explicit performance-budget need. The kept H3
+    baseline remains the steady-state round-robin drain across tracked HTTP/3
+    connections; accept-time drain reshaping and similar queue-order probes are
+    already closed out as negative results in `docs/project_state.md`.
 
 5. **Pattern Routing & Shared Registrations**
    - ✅ Wildcard/prefix ordering + priority handling are covered in `router_worker_session_test.dart` and `state/pattern_matching_test.dart`, including the advanced-profile placeholder path.
@@ -113,7 +113,7 @@ Focus for the next session:
   - ✅ `packages/connectanum_auth_server` and `packages/connectanum_router` are analyzer-clean.
 
 7. **Remote Authentication Hardening & HTTP Auth Bridge**
-   - Decide whether dynamic realm authorization should stay as the current runtime `AuthorizationProviderRegistry` hook or grow a config-driven provider/factory model per realm.
+   - ✅ Dynamic realm authorization is now worker-safe and config-driven: router settings carry top-level `authorization_providers` definitions plus per-realm `authorization_provider` selection, worker isolates resolve providers from serialized settings, and `defaultRouterWorkerEntryPoint(...)` is public so custom bootstraps can register provider factories before delegating to the standard worker.
    - ✅ Tighten native listener-side transport auth enforcement so clearly unauthorized HTTP requests can be rejected before the Dart bridge/session layer. Protected routes now derive cheap `transport_auth` gates (TLS / mTLS / bearer presence) from `session_profiles` plus explicit route overrides, and `HttpRouteMatch.protocols` is now a first-class config field instead of an undocumented extra-map hook.
    - ✅ Add a dedicated HTTP bearer-provider bench (JWT local validation and OAuth introspection) so the new provider-backed route path is measured separately from the ticket bridge smoke. `http_bearer_provider_smoke.toml` now covers `/bench/secure-jwt` and `/bench/secure-oauth`, and the Dart bench runner hosts the local introspection endpoint needed by the shipped `oauth` provider config.
    - ✅ Expand the HTTP auth bridge smoke bench beyond ticket-only login. `http_auth_smoke.toml` now covers `ticket`, `wampcra`, and `scram` login, refresh, and protected-route flows across HTTP/1.1, HTTP/2, and HTTP/3, and the shipped bench router config/auth profile now exposes those challenge methods on `/bench/auth`.
