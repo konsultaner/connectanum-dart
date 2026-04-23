@@ -2,13 +2,14 @@
 
 Last updated: 2026-04-23
 Current branch: `add-router`
-Last reviewed commit: `3ebccbe` (`feat(mcp): add transport-independent server core`)
+Last reviewed commit: `50faaa0` (`ci: make ktls http2 comparison manual`)
 Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance-readiness.md`
 
 ## Last Known Verification
 
 - `bin/test-fast`
 - `bash -n bin/wamp-profile-validate`
+- `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-smoke-release-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`
 - `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`
 - `cargo test --manifest-path native/bench/Cargo.toml artifacts -- --nocapture`
 - `bin/check-bench-artifacts --summary out/wamp-transport-local/bench_results.summary.json --policy native/bench/artifact_gate/wamp_transport_throughput.json`
@@ -79,16 +80,20 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
   `32.48 Mbps` (`websocket_secure_pubsub_json_64k`) and the highest secure p95
   was `450.015 ms`.
 - `bin/wamp-profile-validate` is now the canonical WAMP release-gate entry
-  point for both local and hosted validation. A local Darwin arm64 run on
-  2026-04-23 passed both checked-in policies; the lowest cleartext throughput
-  in that run was `55.99 Mbps` (`websocket_pubsub_json_64k`) and the highest
-  cleartext p95 was `251.067 ms` (`rawsocket_pubsub_cbor_64k`), while the
-  lowest secure throughput and highest secure p95 were both on
-  `rawsocket_secure_pubsub_json_64k` at `35.99 Mbps` and `408.703 ms`.
+  point for both local and hosted validation. It runs the three strict
+  default-counter smoke gates (`wamp_smoke`, `wamp_secure_smoke`, and
+  `wamp_control_smoke`) plus the two policy-backed throughput gates
+  (`wamp_transport_throughput` and `wamp_secure_throughput`). A local Darwin
+  arm64 run on 2026-04-23 passed all five gates with 64 workloads. In that
+  run, the lowest cleartext throughput-gate result was `57.65 Mbps`
+  (`websocket_pubsub_json_64k`) with max p95 `241.860 ms`, and the lowest
+  secure throughput-gate result was `35.86 Mbps`
+  (`rawsocket_secure_pubsub_json_64k`) with max p95 `389.237 ms`.
 - GitHub Actions now includes a dedicated `WAMP Profile Benchmarks` workflow
   that runs `bin/wamp-profile-validate` on hosted Ubuntu and uploads
-  `wamp-profile-benchmark-artifacts`. It still needs hosted evidence on the
-  new workflow after these local changes are pushed.
+  `wamp-profile-benchmark-artifacts`. The expanded smoke-plus-throughput
+  release-gate entrypoint still needs hosted evidence after these local
+  changes are pushed.
 - The existing `CI` workflow also has a `workflow_dispatch`-only `WAMP Profile
   Gates` job. Use that path for branch-hosted WAMP evidence until the
   dedicated `WAMP Profile Benchmarks` workflow exists on the default branch
@@ -109,10 +114,11 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
   and the full `bin/verify` rerun passed.
 - GitHub Actions CI now runs through the canonical root `bin/*` entrypoints on branch pushes and PRs to `master`; GitHub Actions run `24732889424` for `2fac53b` completed successfully with both `Fast Checks` and `Full Verify`.
 - The CI workflow now targets all branch pushes plus PRs to `master`, and it also exposes `workflow_dispatch` for manual runs.
-- The latest known branch CI is green. GitHub Actions run `24826431486` on
-  commit `7ca6798` passed both `Fast Checks` and `Full Verify`. The local
-  branch also has unpushed commit `3ebccbe` plus current working-tree changes,
-  so hosted CI has not yet validated the newest local state.
+- The latest known pushed branch CI is green. GitHub Actions run
+  `24844042608` on commit `50faaa0` passed push `CI`, and manual CI dispatch
+  run `24844047555` on the same commit passed `Fast Checks`, `Full Verify`,
+  and `WAMP Profile Gates`. The current local WAMP release-gate expansion has
+  not yet been validated by hosted CI.
 - `bin/test-fast` now provisions
   the native client runtime before `packages/connectanum_client/test/client_test.dart`
   on supported hosts, both root client flows now include
@@ -422,6 +428,11 @@ Active exec plan: `docs/exec-plans/2026-04-23-wamp-profile-transport-performance
 
 ## Verification Status
 
+- 2026-04-23: `bin/test-fast`, `bash -n bin/wamp-profile-validate`,
+  `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-smoke-release-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`,
+  and `bin/verify` passed on Darwin arm64 after expanding the canonical WAMP
+  release-gate entrypoint to include cleartext, secure, and control-plane
+  smoke gates before the policy-backed throughput gates.
 - 2026-04-23: `bin/test-fast` passed on Darwin arm64 before changing
   `kTLS HTTP/2 Benchmarks` to manual-only so completed kTLS comparison
   benchmarking no longer blocks unrelated WAMP profile CI pushes.

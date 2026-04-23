@@ -66,9 +66,20 @@ The first local Darwin arm64 baseline was captured on 2026-04-23 with
 | `wamp_transport_throughput` | 48.79 Mbps (`websocket_pubsub_json_64k`) | 264.493 ms (`rawsocket_pubsub_json_64k`) | Default gate passed: no backpressure, transport alerts, or active throttles |
 | `wamp_secure_throughput` | 32.48 Mbps (`websocket_secure_pubsub_json_64k`) | 450.015 ms (`rawsocket_secure_pubsub_json_64k`) | Default gate passed: no backpressure, transport alerts, or active throttles |
 
+The expanded release-gate entrypoint was revalidated locally on Darwin arm64 on
+2026-04-23 with the same worker settings. All five release gates passed.
+
+| Scenario | Workloads | Lowest throughput observed | Highest p95 observed | Gate policy |
+| --- | ---: | ---: | ---: | --- |
+| `wamp_smoke` | 12 | 0.76 Mbps (`rawsocket_pubsub_json`) | 11.151 ms (`rawsocket_pubsub_json`) | Default transport-counter gate |
+| `wamp_secure_smoke` | 4 | 0.22 Mbps (`rawsocket_secure_pubsub_cbor`) | 9.268 ms (`websocket_secure_pubsub_cbor`) | Default transport-counter gate |
+| `wamp_control_smoke` | 24 | Not meaningful for zero-payload control workloads | 345.534 ms (`rawsocket_cancel_cycle_json`) | Default transport-counter gate |
+| `wamp_transport_throughput` | 12 | 57.65 Mbps (`websocket_pubsub_json_64k`) | 241.860 ms (`websocket_pubsub_json_64k`) | `native/bench/artifact_gate/wamp_transport_throughput.json` |
+| `wamp_secure_throughput` | 12 | 35.86 Mbps (`rawsocket_secure_pubsub_json_64k`) | 389.237 ms (`rawsocket_secure_pubsub_json_64k`) | `native/bench/artifact_gate/wamp_secure_throughput.json` |
+
 ## Running The Gates
 
-Run the canonical cleartext and secure WAMP throughput gates together:
+Run the canonical WAMP profile release gates together:
 
 ```bash
 bin/wamp-profile-validate \
@@ -80,7 +91,9 @@ bin/wamp-profile-validate \
 The same command is used by the hosted Linux `WAMP Profile Benchmarks`
 workflow. Its artifact bundle is `wamp-profile-benchmark-artifacts`, with one
 subdirectory per release gate and a top-level `host-info.txt` that records the
-runner/toolchain inputs.
+runner/toolchain inputs. The smoke-gate subdirectories use the default
+transport-counter gate; the throughput-gate subdirectories also include
+scenario-specific performance policy reports.
 
 Use the direct bench command only when iterating on a single scenario or
 capturing a focused local baseline.

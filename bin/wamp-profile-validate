@@ -8,12 +8,16 @@ usage() {
   cat <<'EOF'
 Usage: bin/wamp-profile-validate [--out-dir <dir>] [--router-worker-counts <csv>] [--native-runtime-thread-counts <csv>] [--workload-timeout-ms <ms>]
 
-Runs the canonical WAMP profile throughput release gates:
-1. cleartext RawSocket/WebSocket WAMP throughput
-2. TLS RawSocket/WebSocket WAMP throughput
+Runs the canonical WAMP profile release gates:
+1. cleartext RawSocket/WebSocket WAMP smoke
+2. TLS RawSocket/WebSocket WAMP smoke
+3. WAMP control-plane smoke
+4. cleartext RawSocket/WebSocket WAMP throughput
+5. TLS RawSocket/WebSocket WAMP throughput
 
-Each scenario writes transformed bench artifacts and validates them against the
-checked-in WAMP artifact policy.
+Each scenario writes transformed bench artifacts and validates them. Smoke
+scenarios use the strict default transport-counter gate; throughput scenarios
+also validate against checked-in performance policies.
 EOF
 }
 
@@ -91,21 +95,23 @@ fi
 run_gate() {
   local name="$1"
   local scenario="$2"
-  local policy="$3"
+  local policy="${3:-}"
   local scenario_out="${out_dir%/}/$name"
   local results_path="${scenario_out%/}/bench_results.jsonl"
 
   scenario="$(absolute_path "$scenario")"
-  policy="$(absolute_path "$policy")"
 
   if [[ ! -f "$scenario" ]]; then
     printf 'Missing WAMP scenario: %s\n' "$scenario" >&2
     exit 1
   fi
 
-  if [[ ! -f "$policy" ]]; then
-    printf 'Missing WAMP artifact policy: %s\n' "$policy" >&2
-    exit 1
+  if [[ -n "$policy" ]]; then
+    policy="$(absolute_path "$policy")"
+    if [[ ! -f "$policy" ]]; then
+      printf 'Missing WAMP artifact policy: %s\n' "$policy" >&2
+      exit 1
+    fi
   fi
 
   mkdir -p "$scenario_out"
@@ -120,11 +126,29 @@ run_gate() {
     --native-runtime-thread-counts "$native_runtime_thread_counts" \
     --workload-timeout-ms "$workload_timeout_ms"
 
-  printf 'Checking %s against %s...\n' "$name" "$policy"
-  bin/check-bench-artifacts \
-    --summary "${scenario_out%/}/bench_results.summary.json" \
-    --policy "$policy"
+  if [[ -n "$policy" ]]; then
+    printf 'Checking %s against %s...\n' "$name" "$policy"
+    bin/check-bench-artifacts \
+      --summary "${scenario_out%/}/bench_results.summary.json" \
+      --policy "$policy"
+  else
+    printf 'Checking %s against the default transport-counter gate...\n' "$name"
+    bin/check-bench-artifacts \
+      --summary "${scenario_out%/}/bench_results.summary.json"
+  fi
 }
+
+run_gate \
+  wamp_smoke \
+  native/bench/scenarios/wamp_smoke.toml
+
+run_gate \
+  wamp_secure_smoke \
+  native/bench/scenarios/wamp_secure_smoke.toml
+
+run_gate \
+  wamp_control_smoke \
+  native/bench/scenarios/wamp_control_smoke.toml
 
 run_gate \
   wamp_transport_throughput \

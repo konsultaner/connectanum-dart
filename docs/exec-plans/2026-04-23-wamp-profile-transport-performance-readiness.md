@@ -129,10 +129,22 @@ release decisions for real RawSocket/WebSocket WAMP users.
   generic zero-counter artifact gate flagged multiplexing backpressure in a
   completed research benchmark. The kTLS comparison workflow is being moved to
   manual dispatch only; `kTLS Validation` remains the push correctness gate.
+- 2026-04-23: Confirmed `50faaa0` restored the hosted branch CI chain:
+  GitHub Actions push run `24844042608` passed `CI`, and manual dispatch run
+  `24844047555` passed `Fast Checks`, `Full Verify`, and `WAMP Profile Gates`.
+- 2026-04-23: Expanded `bin/wamp-profile-validate` so the canonical
+  release-gate entrypoint runs the three default-counter smoke gates
+  (`wamp_smoke`, `wamp_secure_smoke`, `wamp_control_smoke`) before the two
+  policy-backed throughput gates. Local Darwin arm64 validation passed all
+  five gates with 64 workloads using
+  `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-smoke-release-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`,
+  and final `bin/verify` passed after the script/docs update.
 
 ## Next Slice
 
-- Dispatch the existing `CI` workflow on `add-router` and confirm `Fast
-  Checks`, `Full Verify`, and `WAMP Profile Gates` all pass on hosted Linux.
-- After hosted evidence lands, tighten policy floors only where repeated runs
-  prove the current conservative budgets are too loose for release decisions.
+- Push the expanded smoke-plus-throughput WAMP release-gate entrypoint and
+  confirm hosted Linux passes the dedicated `WAMP Profile Benchmarks` workflow
+  plus the normal `CI` chain.
+- After hosted evidence lands, evaluate whether the diagnostic WAMP scenarios
+  need promotion into explicit gated artifacts before tightening any existing
+  throughput policy floors.
