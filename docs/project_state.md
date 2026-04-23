@@ -2,13 +2,15 @@
 
 Last updated: 2026-04-23
 Current branch: `add-router`
-Last reviewed commit: `e5d8752` (`test(router): add wamp transport interop coverage`)
+Last reviewed commit: `c97eff4` (`feat(router): add worker-safe realm authorization providers`)
 Active exec plan: `none`
 
 ## Last Known Verification
 
 - `bin/test-fast`
-- `cd packages/connectanum_router && dart test test/authorization_test.dart test/authorization_integration_test.dart test/router_config_loader_test.dart -r expanded`
+- `bash -n bin/ktls-http2-bench`
+- focused synthetic comparison generation via `python3 tool/ktls_http2_compare.py ...`
+- `dart analyze packages/connectanum_router/test/authorization_integration_test.dart`
 - `bin/verify`
 
 ## Autonomous Priority
@@ -77,8 +79,8 @@ Active exec plan: `none`
   now covers mixed RawSocket/WebSocket publish, call, and error routing across
   rawsocket JSON + CBOR clients and a websocket MsgPack client on the current
   macOS-supported path.
-- Hosted GitHub validation is green through commit `e5d8752`: push `CI` run
-  `24855148071` and `WAMP Profile Benchmarks` run `24855148024` both completed
+- Hosted GitHub validation is green through commit `c97eff4`: push `CI` run
+  `24858211416` and `WAMP Profile Benchmarks` run `24858211413` both completed
   successfully on the current branch head.
 - The worker-safe realm authorization follow-up is now complete on the local
   working tree. Router settings now carry top-level
@@ -98,6 +100,18 @@ Active exec plan: `none`
   test/authorization_test.dart test/authorization_integration_test.dart
   test/router_config_loader_test.dart -r expanded`, and `bin/verify` all
   passed on 2026-04-23.
+- The kTLS comparison-artifact readability follow-up is now complete on the
+  local working tree. `bin/ktls-http2-bench` now delegates comparison
+  rendering to `tool/ktls_http2_compare.py`, and both `comparison.json` and
+  `comparison.md` now carry aggregate summary findings instead of only raw
+  per-workload rows.
+- `docs/ktls_research.md` is now aligned with the current post-secure-WAMP
+  state: secure WAMP coverage is complete, the remaining kTLS issue is
+  performance rather than correctness, and the next kTLS-specific need is
+  readable hosted comparison evidence before deeper Linux-only tuning.
+- `packages/connectanum_router/test/authorization_integration_test.dart` is
+  analyzer-clean again; the earlier worker-authorization slice no longer
+  leaves avoidable info-level noise in the fast verification baseline.
 - The first WAMP benchmark-readiness slice now has a human-readable contract in
   `docs/wamp_profile_benchmarks.md`. The canonical release-decision throughput
   gates are `native/bench/scenarios/wamp_transport_throughput.toml` and

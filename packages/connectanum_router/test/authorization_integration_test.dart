@@ -1,5 +1,5 @@
 @TestOn('vm')
-library authorization_integration_test;
+library;
 
 import 'dart:async';
 
@@ -8,11 +8,6 @@ import 'package:connectanum_client/src/transport/websocket/websocket_transport_i
     as ws_transport;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
 import 'package:connectanum_router/connectanum_router.dart';
-import 'package:connectanum_router/src/native/runtime.dart';
-import 'package:connectanum_router/src/router/models/endpoint.dart';
-import 'package:connectanum_router/src/router/models/router_config.dart';
-import 'package:connectanum_router/src/router/models/tls_mode.dart';
-import 'package:connectanum_router/src/router/router_instance.dart';
 import 'package:test/test.dart';
 
 import 'support/native_lib.dart';

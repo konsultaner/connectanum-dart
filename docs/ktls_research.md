@@ -22,11 +22,10 @@ captures that answer and the resulting benchmark order.
 - `native/transport/ct_core/Cargo.toml` currently depends on `rustls = 0.23`
   and `tokio-rustls = 0.26`, but there is no `ktls` / `ktls-stream`
   dependency yet.
-- The shipped bench router config already exposes a TLS-enabled HTTP listener
-  on `127.0.0.1:8080` for HTTP/1.1, HTTP/2, and HTTP/3, but the WAMP listener
-  on `127.0.0.1:8081` is currently cleartext only. That means the existing
-  bench harness can measure HTTPS / HTTP/2 immediately, but not secure
-  RawSocket / WebSocket yet.
+- The shipped bench router config now exposes both the TLS-enabled HTTP
+  listener on `127.0.0.1:8080` and secure WAMP listeners alongside the
+  existing cleartext WAMP listeners, so the harness can already measure both
+  HTTP/2 and secure RawSocket / WebSocket shapes on Linux.
 
 ## External References
 
@@ -80,21 +79,19 @@ dummy-session prototype to an unbuffered kernel-connection handoff.
 - The current bench tooling already has a TLS-enabled HTTP path, so the first
   Linux benchmark does not need new benchmark infrastructure.
 
-### Repo-Local Blockers
+### Current Blockers
 
-1. Secret extraction is disabled today.
-   - `rustls` client/server builders default `enable_secret_extraction` to
-     `false`.
-   - `native/transport/ct_core/src/tls.rs` builds configs through those
-     defaults and never overrides them.
-2. `IoStream` has no post-handshake Linux kTLS variant.
-   - The current stream model assumes either plain TCP or an always-attached
-     `tokio-rustls` session object.
-3. There is no kTLS dependency or capability probe in the native workspace.
-4. The benchmark router does not yet expose a TLS WAMP listener, so secure
-   RawSocket / WebSocket cannot be measured on the shipped bench config.
-5. This macOS workstation cannot execute the runtime path even after it exists.
-   - Any real kTLS verification has to happen on Linux.
+1. The remaining kTLS issue is performance rather than correctness.
+   - Hosted Linux validation is green, but required-kTLS still trails baseline
+     TLS in the HTTP/2 comparison benchmark, especially in the 4-thread
+     multiplexed workload.
+2. The benchmark workflow is manual-only.
+   - That keeps routine CI lean, but it also means performance follow-ups need
+     clear comparison artifacts so one hosted run is easy to interpret without
+     re-reading raw per-workload rows.
+3. This macOS workstation still cannot execute the runtime path itself.
+   - Any real kTLS verification or tuning step still has to land through Linux
+     hosts or hosted workflow runs.
 
 ## Recommended Implementation Order
 
@@ -246,9 +243,9 @@ The final hosted comparison from run `24773860158` showed:
   blocker is also gone.
 - The remaining issue is performance tuning rather than correctness, especially
   for the 4-thread multiplexed required-kTLS shape.
-- The next useful kTLS-specific benchmark step is secure WAMP TLS coverage:
-  add a TLS WAMP listener to the bench router and measure secure RawSocket and
-  secure WebSocket on the existing harness.
+- Secure WAMP TLS coverage is now complete too, so the next useful kTLS step
+  is to keep the hosted comparison artifacts readable enough that future Linux
+  reruns can answer "is required-kTLS improving or regressing?" quickly.
 
 ### What Not To Overclaim
 
@@ -261,21 +258,20 @@ The final hosted comparison from run `24773860158` showed:
 - the current local kTLS path now uses rustls's unbuffered server handshake and
   `dangerous_into_kernel_connection()`, but it still is not the final
   production story for TLS 1.3 key-update handling, and it still keeps TLS 1.3
-  session tickets suppressed until the refreshed hosted benchmark run confirms
-  the new handoff path
+  session tickets suppressed while the prototype remains intentionally narrow
 
 ## Recommended Next Milestone
 
-Land a Linux-only prototype with these rules:
+Keep the current Linux-only prototype stable and make the manual benchmark path
+easier to interpret:
 
-- opt-in build/runtime path
-- graceful fallback to the current `tokio-rustls` implementation when kernel,
-  cipher, or stream-setup prerequisites are not met
-- explicit acknowledgement that the current validated prototype is for
-  short-lived HTTP/2 smoke traffic, not final TLS 1.3 key-update/ticket
-  handling
-- benchmark HTTP/2 first
-- delay secure WAMP benchmarks until the bench router has a TLS WAMP listener
+- preserve the existing opt-in runtime path and strict Linux validation gate
+- keep secure WAMP coverage as supplemental evidence, but use the HTTP/2
+  comparison run as the primary required-kTLS performance signal
+- make the generated benchmark artifacts summarize headline wins, losses, and
+  worst regressions so one hosted run answers the tuning question directly
+- delay deeper transport tuning until a fresh hosted comparison shows a
+  concrete hotspot worth attacking
 
-That is the smallest milestone that produces a real answer instead of more
-research churn.
+That is the smallest next milestone that improves decision quality without
+pretending the remaining kTLS work is already a clear runtime bug.
