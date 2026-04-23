@@ -8,11 +8,8 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 ## Last Known Verification
 
 - `bin/test-fast`
-- `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'auth bridge issues bearer token for wampcra and dispatches secure route' -r expanded`
-- `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'auth bridge issues bearer token for scram and dispatches secure route' -r expanded`
-- `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'auth bridge rotates refresh tokens and rejects old credentials' -r expanded`
-- `cargo test --manifest-path native/bench/Cargo.toml --bin http_stream -- --nocapture`
-- `python3 - <<'PY' ... tomllib.load('native/bench/scenarios/http_auth_smoke.toml') ... PY`
+- `python3 - <<'PY' ... tomllib.load('native/bench/scenarios/h3_multiplex_scaling.toml') ... PY`
+- `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h3_multiplex_scaling.toml --router-worker-counts 1 --native-runtime-thread-counts 1,4 --results out/h3-multiplex-scaling/bench_results.jsonl --artifact-dir out/h3-multiplex-scaling`
 - `bin/verify`
 
 ## Resume Order
@@ -59,6 +56,8 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - The repo now also ships throughput-grade secure-WAMP coverage. `native/bench/scenarios/wamp_secure_throughput.toml` mirrors the existing 64 KiB cleartext transport sweep for secure RawSocket/WebSocket RPC + pubsub across JSON, MsgPack, and CBOR on `bench.secure`.
 - The direct Rust bench CLI now defaults its control plane to `https://127.0.0.1:8080/bench` instead of `https://localhost:8080/bench`, because the shipped bench router binds the TLS control listener on IPv4 loopback and the old default could hit the wrong socket on this macOS host.
 - GitHub Actions run `24786956501` (`kTLS Validation`, `workflow_dispatch`) then passed on commit `c040ef9` with `native/bench/scenarios/wamp_secure_throughput.toml`, so the secure-WAMP throughput scenario now has a hosted Ubuntu baseline too. Response-throughput highlights were RawSocket pubsub `56.77/65.08/57.15 Mbps`, RawSocket RPC `176.60/215.09/164.48 Mbps`, WebSocket pubsub `62.04/78.81/64.83 Mbps`, and WebSocket RPC `191.13/231.59/168.71 Mbps` for JSON/MsgPack/CBOR at `48 x 6` with one router worker and one native runtime thread.
+- The shipped HTTP/3 multiplex ceiling map is now broader too: `native/bench/scenarios/h3_multiplex_scaling.toml` sweeps `streams_per_connection = 1, 2, 4, 8, 16` on the same sustained-transfer workload shape instead of pinning only the old `4`-stream point.
+- The latest local Darwin H3 multiplex baseline with `router_workers = 1` shows that higher stream depth is not monotonic on this host. The best response-throughput point was `643.73 Mbps` / p95 `463.68 ms` at `8` streams for `1` native runtime thread and `672.77 Mbps` / p95 `58.37 ms` at `1` stream for `4` native runtime threads; `16` streams mainly increased latency and backpressure counters (`108` events at `1` thread, `106` events at `4` threads) rather than improving throughput.
 - `packages/connectanum_router/test/router_worker_auth_test.dart` no longer has the old 1-in-256 false-success path in `Cryptosign authenticator rejects wrong signature`; the test now always mutates the first signature byte instead of sometimes regenerating the same `ff...` prefix and leaving the signature unchanged.
 - `connectanum_core` now exposes a typed `WampE2eeProvider` contract plus an explicit `WampE2eeProviderUnavailableException`, so `ppt_scheme = "wamp"` payloads no longer silently materialize empty args/kwargs when no decryptor is available.
 - The Dart client/session path now threads an optional `e2eeProvider` through outbound publish/call/yield packing, materialized inbound messages, and native direct-result/event/invocation payload views while preserving the existing packed-byte passthrough behavior for matching lazy WAMP payloads.
@@ -316,6 +315,9 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - 2026-04-23: `cargo test --manifest-path native/bench/Cargo.toml --bin http_stream -- --nocapture` passed on Darwin arm64 after teaching the Rust HTTP bench orchestrator to complete WAMP-CRA and SCRAM challenge flows instead of hard-failing non-ticket auth methods.
 - 2026-04-23: `python3` `tomllib` parsing confirmed `native/bench/scenarios/http_auth_smoke.toml` loads cleanly with 27 workloads covering login, refresh, and protected-route flows for `ticket`, `wampcra`, and `scram` across HTTP/1.1, HTTP/2, and HTTP/3.
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after landing the HTTP auth bridge challenge-method bench expansion, including the new router auth regressions, shipped bench router config changes, and expanded auth smoke scenario.
+- 2026-04-23: `python3` `tomllib` parsing confirmed `native/bench/scenarios/h3_multiplex_scaling.toml` now loads cleanly with 5 workloads sweeping `streams_per_connection = 1, 2, 4, 8, 16`.
+- 2026-04-23: `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h3_multiplex_scaling.toml --router-worker-counts 1 --native-runtime-thread-counts 1,4 --results out/h3-multiplex-scaling/bench_results.jsonl --artifact-dir out/h3-multiplex-scaling` passed on Darwin arm64 and produced the current local HTTP/3 multiplex baseline. Response-throughput peaked at `643.73 Mbps` / p95 `463.68 ms` for `8` streams with `1` native runtime thread and `672.77 Mbps` / p95 `58.37 ms` for `1` stream with `4` native runtime threads.
+- 2026-04-23: `bin/verify` passed on Darwin arm64 after expanding the shipped HTTP/3 multiplex scenario, updating the bench docs/roadmap notes, and recording the new local ceiling map in project state.
 
 ## Active Plan
 
@@ -323,8 +325,8 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - Supporting research notes:
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-23-http-auth-challenge-bench.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-23-http-bearer-provider-bench.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-23-h3-multiplex-scaling.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-23-http-auth-challenge-bench.md`
 
 ## Known Follow-Ups
 

@@ -29,6 +29,11 @@ HTTP bearer-provider baseline. It exercises both local JWT validation and local
 OAuth introspection-backed protected routes across HTTP/1.1, HTTP/2, and
 HTTP/3.
 
+`native/bench/scenarios/h3_multiplex_scaling.toml` is the focused HTTP/3
+multiplex ceiling map. It holds the sustained-transfer workload shape steady
+while sweeping `streams_per_connection = 1, 2, 4, 8, 16` on reused QUIC
+connections.
+
 ## What It Measures
 
 - HTTP/1.1, HTTP/2, and HTTP/3 throughput and latency
