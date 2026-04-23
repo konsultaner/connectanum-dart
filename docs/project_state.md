@@ -2,14 +2,14 @@
 
 Last updated: 2026-04-23
 Current branch: `add-router`
-Last reviewed commit: `c3017bd` (`feat(bench): add oauth bearer-provider baseline`)
+Last reviewed commit: `1142621` (`bench(http3): expand multiplex scaling sweep`)
 Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.md`
 
 ## Last Known Verification
 
 - `bin/test-fast`
-- `python3 - <<'PY' ... tomllib.load('native/bench/scenarios/h3_multiplex_scaling.toml') ... PY`
-- `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h3_multiplex_scaling.toml --router-worker-counts 1 --native-runtime-thread-counts 1,4 --results out/h3-multiplex-scaling/bench_results.jsonl --artifact-dir out/h3-multiplex-scaling`
+- `cd packages/connectanum_router && dart test test/conformance/wamp_multisession_conformance_test.dart -r expanded`
+- `dart analyze packages/connectanum_router/test/conformance/wamp_multisession_conformance_test.dart`
 - `bin/verify`
 
 ## Resume Order
@@ -58,6 +58,13 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - GitHub Actions run `24786956501` (`kTLS Validation`, `workflow_dispatch`) then passed on commit `c040ef9` with `native/bench/scenarios/wamp_secure_throughput.toml`, so the secure-WAMP throughput scenario now has a hosted Ubuntu baseline too. Response-throughput highlights were RawSocket pubsub `56.77/65.08/57.15 Mbps`, RawSocket RPC `176.60/215.09/164.48 Mbps`, WebSocket pubsub `62.04/78.81/64.83 Mbps`, and WebSocket RPC `191.13/231.59/168.71 Mbps` for JSON/MsgPack/CBOR at `48 x 6` with one router worker and one native runtime thread.
 - The shipped HTTP/3 multiplex ceiling map is now broader too: `native/bench/scenarios/h3_multiplex_scaling.toml` sweeps `streams_per_connection = 1, 2, 4, 8, 16` on the same sustained-transfer workload shape instead of pinning only the old `4`-stream point.
 - The latest local Darwin H3 multiplex baseline with `router_workers = 1` shows that higher stream depth is not monotonic on this host. The best response-throughput point was `643.73 Mbps` / p95 `463.68 ms` at `8` streams for `1` native runtime thread and `672.77 Mbps` / p95 `58.37 ms` at `1` stream for `4` native runtime threads; `16` streams mainly increased latency and backpressure counters (`108` events at `1` thread, `106` events at `4` threads) rather than improving throughput.
+- The pinned WAMP conformance snapshot now covers one router-level
+  multi-session vector in addition to the existing single-message serializer
+  subset. `packages/connectanum_core/testdata/wamp_conformance/multisession/advanced/publisher_exclusion_disabled.json`
+  is now vendored from `wamp-proto/wamp-proto#557`, and
+  `packages/connectanum_router/test/conformance/wamp_multisession_conformance_test.dart`
+  executes it against local worker-session routing with placeholder-aware
+  matching for router-assigned ids.
 - `packages/connectanum_router/test/router_worker_auth_test.dart` no longer has the old 1-in-256 false-success path in `Cryptosign authenticator rejects wrong signature`; the test now always mutates the first signature byte instead of sometimes regenerating the same `ff...` prefix and leaving the signature unchanged.
 - `connectanum_core` now exposes a typed `WampE2eeProvider` contract plus an explicit `WampE2eeProviderUnavailableException`, so `ppt_scheme = "wamp"` payloads no longer silently materialize empty args/kwargs when no decryptor is available.
 - The Dart client/session path now threads an optional `e2eeProvider` through outbound publish/call/yield packing, materialized inbound messages, and native direct-result/event/invocation payload views while preserving the existing packed-byte passthrough behavior for matching lazy WAMP payloads.
@@ -318,6 +325,9 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - 2026-04-23: `python3` `tomllib` parsing confirmed `native/bench/scenarios/h3_multiplex_scaling.toml` now loads cleanly with 5 workloads sweeping `streams_per_connection = 1, 2, 4, 8, 16`.
 - 2026-04-23: `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h3_multiplex_scaling.toml --router-worker-counts 1 --native-runtime-thread-counts 1,4 --results out/h3-multiplex-scaling/bench_results.jsonl --artifact-dir out/h3-multiplex-scaling` passed on Darwin arm64 and produced the current local HTTP/3 multiplex baseline. Response-throughput peaked at `643.73 Mbps` / p95 `463.68 ms` for `8` streams with `1` native runtime thread and `672.77 Mbps` / p95 `58.37 ms` for `1` stream with `4` native runtime threads.
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after expanding the shipped HTTP/3 multiplex scenario, updating the bench docs/roadmap notes, and recording the new local ceiling map in project state.
+- 2026-04-23: `cd packages/connectanum_router && dart test test/conformance/wamp_multisession_conformance_test.dart -r expanded` passed on Darwin arm64 after vendoring the upstream `publisher_exclusion_disabled` multi-session vector and wiring the router-side conformance harness.
+- 2026-04-23: `dart analyze packages/connectanum_router/test/conformance/wamp_multisession_conformance_test.dart` passed on Darwin arm64 with no issues.
+- 2026-04-23: `bin/verify` passed on Darwin arm64 after landing the vendored multi-session conformance vector, the new router-side harness, and the associated roadmap/state updates.
 
 ## Active Plan
 
@@ -325,8 +335,8 @@ Active exec plan: none currently; choose the next milestone from `ROADMAP_NEXT.m
 - Supporting research notes:
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
-- Most recent completed plan: `docs/exec-plans/2026-04-23-h3-multiplex-scaling.md`
-- Completed immediately before that: `docs/exec-plans/2026-04-23-http-auth-challenge-bench.md`
+- Most recent completed plan: `docs/exec-plans/2026-04-23-multisession-conformance-gate.md`
+- Completed immediately before that: `docs/exec-plans/2026-04-23-h3-multiplex-scaling.md`
 
 ## Known Follow-Ups
 
