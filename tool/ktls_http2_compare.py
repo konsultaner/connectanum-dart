@@ -67,6 +67,14 @@ PHASE_TIMING_SUMMARY_KEYS = (
     ("response_headers_wait_p95_ms", "Response headers wait p95"),
     ("response_body_read_avg_ms", "Response body read avg"),
     ("response_body_read_p95_ms", "Response body read p95"),
+    ("response_body_first_chunk_wait_avg_ms", "Response body first chunk wait avg"),
+    ("response_body_first_chunk_wait_p95_ms", "Response body first chunk wait p95"),
+    ("response_body_tail_read_avg_ms", "Response body tail read avg"),
+    ("response_body_tail_read_p95_ms", "Response body tail read p95"),
+    ("response_body_chunk_count_avg", "Response body chunks avg"),
+    ("response_body_chunk_count_p95", "Response body chunks p95"),
+    ("response_body_first_chunk_bytes_avg", "Response body first chunk bytes avg"),
+    ("response_body_first_chunk_bytes_p95", "Response body first chunk bytes p95"),
     ("request_round_trip_avg_ms", "Request round trip avg"),
     ("request_round_trip_p95_ms", "Request round trip p95"),
 )
@@ -834,8 +842,11 @@ def render_phase_timing_focus_line(name: str, focus: dict | None) -> str:
     return (
         f"- {name}: {focus['label']} shows "
         f"stream acquire wait avg {render_connection_metric_snapshot(metrics['stream_acquire_wait_avg_ms'])}, "
-        f"request enqueue avg {render_connection_metric_snapshot(metrics['request_enqueue_avg_ms'])}, "
         f"response headers wait avg {render_connection_metric_snapshot(metrics['response_headers_wait_avg_ms'])}, "
+        f"response body first chunk wait avg {render_connection_metric_snapshot(metrics['response_body_first_chunk_wait_avg_ms'])}, "
+        f"response body tail read avg {render_connection_metric_snapshot(metrics['response_body_tail_read_avg_ms'])}, "
+        f"response body chunks avg {render_connection_metric_snapshot(metrics['response_body_chunk_count_avg'])}, "
+        f"response body first chunk bytes avg {render_connection_metric_snapshot(metrics['response_body_first_chunk_bytes_avg'])}, "
         f"response body read avg {render_connection_metric_snapshot(metrics['response_body_read_avg_ms'])}, "
         f"request round trip p95 {render_connection_metric_snapshot(metrics['request_round_trip_p95_ms'])}."
     )
@@ -1370,6 +1381,49 @@ def render_markdown(comparison: dict) -> str:
 
     if not has_phase_rows:
         lines.append("| No HTTP phase timing metrics | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
+
+    lines.append("")
+    lines.extend(
+        [
+            "## HTTP Response-Body Diagnostics",
+            "",
+            "| Workload | Router workers | Native runtime threads | First chunk wait avg ms | Tail read avg ms | Body chunks avg | First chunk bytes avg | Response body read p95 ms |",
+            "| --- | ---: | ---: | --- | --- | --- | --- | --- |",
+        ]
+    )
+
+    has_body_rows = False
+    for row in rows:
+        phase_timing = row.get("phase_timing_summary")
+        if phase_timing is None:
+            continue
+        has_body_rows = True
+        metrics = phase_timing["metrics"]
+        lines.append(
+            "| {workload} | {router_workers} | {native_runtime_threads} | {response_body_first_chunk_wait_avg_ms} | {response_body_tail_read_avg_ms} | {response_body_chunk_count_avg} | {response_body_first_chunk_bytes_avg} | {response_body_read_p95_ms} |".format(
+                workload=row["workload"],
+                router_workers=row["router_workers"],
+                native_runtime_threads=row["native_runtime_threads"],
+                response_body_first_chunk_wait_avg_ms=render_connection_metric_snapshot(
+                    metrics["response_body_first_chunk_wait_avg_ms"]
+                ),
+                response_body_tail_read_avg_ms=render_connection_metric_snapshot(
+                    metrics["response_body_tail_read_avg_ms"]
+                ),
+                response_body_chunk_count_avg=render_connection_metric_snapshot(
+                    metrics["response_body_chunk_count_avg"]
+                ),
+                response_body_first_chunk_bytes_avg=render_connection_metric_snapshot(
+                    metrics["response_body_first_chunk_bytes_avg"]
+                ),
+                response_body_read_p95_ms=render_connection_metric_snapshot(
+                    metrics["response_body_read_p95_ms"]
+                ),
+            )
+        )
+
+    if not has_body_rows:
+        lines.append("| No HTTP response-body diagnostics | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
 
     lines.append("")
 

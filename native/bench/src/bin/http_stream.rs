@@ -70,6 +70,15 @@ const HTTP3_SEND_WINDOW: u64 = 64 * 1024 * 1024;
 const HTTP3_DATAGRAM_BUFFER_BYTES: usize = 8 * 1024 * 1024;
 const HTTP3_KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(5);
 
+#[derive(Debug, Clone, Copy)]
+struct H2ResponseDrainStats {
+    received_bytes: u64,
+    first_chunk_wait_ms: f64,
+    tail_read_ms: f64,
+    chunk_count: u32,
+    first_chunk_bytes: u64,
+}
+
 #[derive(Parser, Debug)]
 #[command(author, version, about = "Connectanum bench orchestrator")]
 struct Args {
@@ -1536,6 +1545,26 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
                 phase_timing.response_body_read_avg_ms, phase_timing.response_body_read_p95_ms
             );
             println!(
+                "  HTTP response body first chunk wait avg/p95: {:.2} / {:.2} ms",
+                phase_timing.response_body_first_chunk_wait_avg_ms,
+                phase_timing.response_body_first_chunk_wait_p95_ms
+            );
+            println!(
+                "  HTTP response body tail read avg/p95: {:.2} / {:.2} ms",
+                phase_timing.response_body_tail_read_avg_ms,
+                phase_timing.response_body_tail_read_p95_ms
+            );
+            println!(
+                "  HTTP response body chunks avg/p95: {:.2} / {:.2}",
+                phase_timing.response_body_chunk_count_avg,
+                phase_timing.response_body_chunk_count_p95
+            );
+            println!(
+                "  HTTP response body first chunk bytes avg/p95: {:.0} / {:.0} B",
+                phase_timing.response_body_first_chunk_bytes_avg,
+                phase_timing.response_body_first_chunk_bytes_p95
+            );
+            println!(
                 "  HTTP request round trip avg/p95: {:.2} / {:.2} ms",
                 phase_timing.request_round_trip_avg_ms, phase_timing.request_round_trip_p95_ms
             );
@@ -1588,6 +1617,26 @@ fn summarize_http_phase_timing(
         .filter_map(|sample| sample.http_phase_timing.as_ref())
         .map(|timing| timing.response_body_read_ms)
         .collect::<Vec<_>>();
+    let mut response_body_first_chunk_waits = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .map(|timing| timing.response_body_first_chunk_wait_ms)
+        .collect::<Vec<_>>();
+    let mut response_body_tail_reads = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .map(|timing| timing.response_body_tail_read_ms)
+        .collect::<Vec<_>>();
+    let mut response_body_chunk_counts = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .map(|timing| timing.response_body_chunk_count as f64)
+        .collect::<Vec<_>>();
+    let mut response_body_first_chunk_bytes = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .map(|timing| timing.response_body_first_chunk_bytes as f64)
+        .collect::<Vec<_>>();
     let mut request_round_trips = samples
         .iter()
         .filter_map(|sample| sample.http_phase_timing.as_ref())
@@ -1598,6 +1647,10 @@ fn summarize_http_phase_timing(
     request_enqueue_times.sort_by(|left, right| left.total_cmp(right));
     response_headers_waits.sort_by(|left, right| left.total_cmp(right));
     response_body_reads.sort_by(|left, right| left.total_cmp(right));
+    response_body_first_chunk_waits.sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_reads.sort_by(|left, right| left.total_cmp(right));
+    response_body_chunk_counts.sort_by(|left, right| left.total_cmp(right));
+    response_body_first_chunk_bytes.sort_by(|left, right| left.total_cmp(right));
     request_round_trips.sort_by(|left, right| left.total_cmp(right));
 
     Some(
@@ -1614,6 +1667,25 @@ fn summarize_http_phase_timing(
             response_body_read_avg_ms: response_body_reads.iter().sum::<f64>()
                 / response_body_reads.len() as f64,
             response_body_read_p95_ms: percentile(&response_body_reads, 0.95),
+            response_body_first_chunk_wait_avg_ms: response_body_first_chunk_waits
+                .iter()
+                .sum::<f64>()
+                / response_body_first_chunk_waits.len() as f64,
+            response_body_first_chunk_wait_p95_ms: percentile(
+                &response_body_first_chunk_waits,
+                0.95,
+            ),
+            response_body_tail_read_avg_ms: response_body_tail_reads.iter().sum::<f64>()
+                / response_body_tail_reads.len() as f64,
+            response_body_tail_read_p95_ms: percentile(&response_body_tail_reads, 0.95),
+            response_body_chunk_count_avg: response_body_chunk_counts.iter().sum::<f64>()
+                / response_body_chunk_counts.len() as f64,
+            response_body_chunk_count_p95: percentile(&response_body_chunk_counts, 0.95),
+            response_body_first_chunk_bytes_avg: response_body_first_chunk_bytes
+                .iter()
+                .sum::<f64>()
+                / response_body_first_chunk_bytes.len() as f64,
+            response_body_first_chunk_bytes_p95: percentile(&response_body_first_chunk_bytes, 0.95),
             request_round_trip_avg_ms: request_round_trips.iter().sum::<f64>()
                 / request_round_trips.len() as f64,
             request_round_trip_p95_ms: percentile(&request_round_trips, 0.95),
@@ -3846,17 +3918,31 @@ async fn drain_hyper_response(response: hyper::Response<Body>) -> Result<u64> {
     Ok(received)
 }
 
-async fn drain_h2_response(response: hyper::http::Response<H2RecvStream>) -> Result<u64> {
+async fn drain_h2_response(
+    response: hyper::http::Response<H2RecvStream>,
+) -> Result<H2ResponseDrainStats> {
     let status = response.status();
     let mut body = response.into_body();
     let mut received = 0u64;
     let mut error_body = Vec::new();
+    let drain_start = Instant::now();
+    let mut first_chunk_wait_ms = None;
+    let mut first_chunk_at = None;
+    let mut first_chunk_bytes = 0u64;
+    let mut chunk_count = 0u32;
     while let Some(chunk) = body.data().await {
         let bytes = chunk?;
+        let chunk_len = bytes.len() as u64;
+        if first_chunk_wait_ms.is_none() {
+            first_chunk_wait_ms = Some(drain_start.elapsed().as_secs_f64() * 1000.0);
+            first_chunk_at = Some(Instant::now());
+            first_chunk_bytes = chunk_len;
+        }
         body.flow_control()
             .release_capacity(bytes.len())
             .context("failed to release HTTP/2 flow-control capacity")?;
-        received += bytes.len() as u64;
+        chunk_count = chunk_count.saturating_add(1);
+        received += chunk_len;
         if !status.is_success() && error_body.len() < 256 {
             let remaining = 256 - error_body.len();
             error_body.extend_from_slice(&bytes[..bytes.len().min(remaining)]);
@@ -3866,7 +3952,16 @@ async fn drain_h2_response(response: hyper::http::Response<H2RecvStream>) -> Res
         let preview = String::from_utf8_lossy(&error_body);
         bail!("unexpected HTTP/2 status {} with body {}", status, preview);
     }
-    Ok(received)
+    Ok(H2ResponseDrainStats {
+        received_bytes: received,
+        first_chunk_wait_ms: first_chunk_wait_ms
+            .unwrap_or_else(|| drain_start.elapsed().as_secs_f64() * 1000.0),
+        tail_read_ms: first_chunk_at
+            .map(|instant: Instant| instant.elapsed().as_secs_f64() * 1000.0)
+            .unwrap_or(0.0),
+        chunk_count,
+        first_chunk_bytes,
+    })
 }
 
 async fn send_h1_request(
@@ -3996,7 +4091,7 @@ async fn send_h2_request(
     let response = response.await.context("failed to receive response")?;
     let response_headers_wait_ms = response_headers_start.elapsed().as_secs_f64() * 1000.0;
     let response_body_start = Instant::now();
-    let received = drain_h2_response(response).await?;
+    let response_body = drain_h2_response(response).await?;
     let response_body_read_ms = response_body_start.elapsed().as_secs_f64() * 1000.0;
     let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
     Ok(WorkloadSample {
@@ -4004,12 +4099,16 @@ async fn send_h2_request(
         iteration,
         latency_ms,
         request_bytes: workload.request_bytes,
-        response_bytes: received,
+        response_bytes: response_body.received_bytes,
         http_phase_timing: Some(HttpPhaseTimingSample {
             stream_acquire_wait_ms,
             request_enqueue_ms,
             response_headers_wait_ms,
             response_body_read_ms,
+            response_body_first_chunk_wait_ms: response_body.first_chunk_wait_ms,
+            response_body_tail_read_ms: response_body.tail_read_ms,
+            response_body_chunk_count: response_body.chunk_count,
+            response_body_first_chunk_bytes: response_body.first_chunk_bytes,
             request_round_trip_ms: latency_ms,
         }),
     })

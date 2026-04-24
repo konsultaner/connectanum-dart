@@ -2,15 +2,16 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `3d85b51` (`build(ktls): capture http2 phase timing`)
-Active exec plan: `docs/exec-plans/2026-04-24-h2-request-path-phase-split.md`
+Last reviewed commit: `a88a8b7` (`build(ktls): split http2 request path timing`)
+Active exec plan: `docs/exec-plans/2026-04-24-h2-response-body-drain-diagnostics.md`
 
 ## Last Known Verification
 
 - `bin/test-fast`
-- `bash -n bin/ktls-http2-bench`
-- `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ktls-http2-benchmarks.yml")'`
-- `bin/ktls-http2-bench --help`
+- `cargo test --manifest-path native/bench/Cargo.toml -- --nocapture`
+- `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
+- `python3 tool/test_ktls_http2_compare.py`
+- rerender hosted artifact `24875528924`
 - `bin/verify`
 
 ## Autonomous Priority
@@ -287,6 +288,41 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-request-path-phase-split.md`
   tool/test_ktls_http2_compare.py`,
   `python3 tool/test_ktls_http2_compare.py`, a rerender of hosted artifact
   `24874338657`, and `bin/verify`.
+- That request-path phase-split slice is now complete on the pushed branch
+  head too. Commit `a88a8b7` passed hosted push `CI` (`24874851886`),
+  `kTLS Validation` (`24874851872`), and `WAMP Profile Benchmarks`
+  (`24874851879`) before the next focused manual rerun.
+- Manual workflow run `24875528924` then exercised the same focused scenario
+  with the deeper request-path timing enabled, and it narrowed the remaining
+  hotspot to the HTTP/2 response-body drain:
+  - worst throughput row and worst p95 row both landed on
+    `h2_multiplexed_streams_s8` at `threads=1`
+  - `stream acquire wait avg` improved slightly (`0.05 -> 0.02`)
+  - `request enqueue avg` stayed negligible (`0.04 -> 0.06`)
+  - `response headers wait avg` stayed flat (`28.65 -> 28.52`)
+  - `response body read avg` jumped from `7.86` to `58.91`
+  - `response body read p95` jumped from `14.11` to `467.44`
+- The next bounded kTLS slice is therefore response-body-drain diagnostics on
+  the HTTP/2 client path. The next active plan is to separate first-body-byte
+  wait from sustained body-drain time and capture the observed chunk shape so
+  the next rerun can tell whether the regression is a first-chunk stall or a
+  sustained read/flow-control problem.
+- That response-body-drain instrumentation slice is now implemented on the
+  local working tree too. The HTTP/2 bench path now records response-body
+  first-chunk wait, post-first-chunk tail-read time, observed chunk count, and
+  first-chunk bytes, and `tool/ktls_http2_compare.py` now renders those
+  metrics in the worst-row phase views plus a dedicated
+  `HTTP Response-Body Diagnostics` section.
+- Historical hosted artifact `24875528924` rerenders cleanly with the updated
+  helper, and the new response-body diagnostics correctly show `n/a` there
+  because that bundle predates the new instrumentation fields.
+- Local verification for the current response-body-drain instrumentation slice
+  is green on 2026-04-24: `bin/test-fast`, `cargo test --manifest-path
+  native/bench/Cargo.toml -- --nocapture`,
+  `python3 -m py_compile tool/ktls_http2_compare.py
+  tool/test_ktls_http2_compare.py`,
+  `python3 tool/test_ktls_http2_compare.py`, a rerender of hosted artifact
+  `24875528924`, and `bin/verify`.
 - Local verification for the current kTLS transport-delta follow-up is green
   on 2026-04-24: `bin/test-fast`,
   `python3 -m py_compile tool/ktls_http2_compare.py

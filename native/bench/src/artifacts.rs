@@ -792,6 +792,26 @@ fn summarize_http_phase_timing(
         .filter_map(|sample| sample.http_phase_timing.as_ref())
         .map(|timing| timing.response_body_read_ms)
         .collect::<Vec<_>>();
+    let mut response_body_first_chunk_waits = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .map(|timing| timing.response_body_first_chunk_wait_ms)
+        .collect::<Vec<_>>();
+    let mut response_body_tail_reads = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .map(|timing| timing.response_body_tail_read_ms)
+        .collect::<Vec<_>>();
+    let mut response_body_chunk_counts = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .map(|timing| timing.response_body_chunk_count as f64)
+        .collect::<Vec<_>>();
+    let mut response_body_first_chunk_bytes = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .map(|timing| timing.response_body_first_chunk_bytes as f64)
+        .collect::<Vec<_>>();
     let mut request_round_trips = samples
         .iter()
         .filter_map(|sample| sample.http_phase_timing.as_ref())
@@ -802,6 +822,10 @@ fn summarize_http_phase_timing(
     request_enqueue_times.sort_by(|left, right| left.total_cmp(right));
     response_headers_waits.sort_by(|left, right| left.total_cmp(right));
     response_body_reads.sort_by(|left, right| left.total_cmp(right));
+    response_body_first_chunk_waits.sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_reads.sort_by(|left, right| left.total_cmp(right));
+    response_body_chunk_counts.sort_by(|left, right| left.total_cmp(right));
+    response_body_first_chunk_bytes.sort_by(|left, right| left.total_cmp(right));
     request_round_trips.sort_by(|left, right| left.total_cmp(right));
 
     let stream_acquire_wait_avg_ms =
@@ -824,6 +848,18 @@ fn summarize_http_phase_timing(
         response_headers_wait_p95_ms: percentile(&response_headers_waits, 0.95),
         response_body_read_avg_ms,
         response_body_read_p95_ms: percentile(&response_body_reads, 0.95),
+        response_body_first_chunk_wait_avg_ms: response_body_first_chunk_waits.iter().sum::<f64>()
+            / response_body_first_chunk_waits.len() as f64,
+        response_body_first_chunk_wait_p95_ms: percentile(&response_body_first_chunk_waits, 0.95),
+        response_body_tail_read_avg_ms: response_body_tail_reads.iter().sum::<f64>()
+            / response_body_tail_reads.len() as f64,
+        response_body_tail_read_p95_ms: percentile(&response_body_tail_reads, 0.95),
+        response_body_chunk_count_avg: response_body_chunk_counts.iter().sum::<f64>()
+            / response_body_chunk_counts.len() as f64,
+        response_body_chunk_count_p95: percentile(&response_body_chunk_counts, 0.95),
+        response_body_first_chunk_bytes_avg: response_body_first_chunk_bytes.iter().sum::<f64>()
+            / response_body_first_chunk_bytes.len() as f64,
+        response_body_first_chunk_bytes_p95: percentile(&response_body_first_chunk_bytes, 0.95),
         request_round_trip_avg_ms,
         request_round_trip_p95_ms: percentile(&request_round_trips, 0.95),
     })
@@ -1446,6 +1482,10 @@ mod tests {
                         request_enqueue_ms: 2.0,
                         response_headers_wait_ms: 3.0,
                         response_body_read_ms: 4.0,
+                        response_body_first_chunk_wait_ms: 2.0,
+                        response_body_tail_read_ms: 2.0,
+                        response_body_chunk_count: 1,
+                        response_body_first_chunk_bytes: 200,
                         request_round_trip_ms: 9.0,
                     }),
                 },
@@ -1460,6 +1500,10 @@ mod tests {
                         request_enqueue_ms: 4.0,
                         response_headers_wait_ms: 5.0,
                         response_body_read_ms: 8.0,
+                        response_body_first_chunk_wait_ms: 3.0,
+                        response_body_tail_read_ms: 5.0,
+                        response_body_chunk_count: 2,
+                        response_body_first_chunk_bytes: 160,
                         request_round_trip_ms: 17.0,
                     }),
                 },
@@ -1474,6 +1518,10 @@ mod tests {
                         request_enqueue_ms: 6.0,
                         response_headers_wait_ms: 7.0,
                         response_body_read_ms: 12.0,
+                        response_body_first_chunk_wait_ms: 4.0,
+                        response_body_tail_read_ms: 8.0,
+                        response_body_chunk_count: 4,
+                        response_body_first_chunk_bytes: 120,
                         request_round_trip_ms: 25.0,
                     }),
                 },
@@ -1543,6 +1591,14 @@ mod tests {
         assert!((phase_timing.response_headers_wait_p95_ms - 7.0).abs() < f64::EPSILON);
         assert!((phase_timing.response_body_read_avg_ms - 8.0).abs() < f64::EPSILON);
         assert!((phase_timing.response_body_read_p95_ms - 12.0).abs() < f64::EPSILON);
+        assert!((phase_timing.response_body_first_chunk_wait_avg_ms - 3.0).abs() < f64::EPSILON);
+        assert!((phase_timing.response_body_first_chunk_wait_p95_ms - 4.0).abs() < f64::EPSILON);
+        assert!((phase_timing.response_body_tail_read_avg_ms - 5.0).abs() < f64::EPSILON);
+        assert!((phase_timing.response_body_tail_read_p95_ms - 8.0).abs() < f64::EPSILON);
+        assert!((phase_timing.response_body_chunk_count_avg - (7.0 / 3.0)).abs() < f64::EPSILON);
+        assert!((phase_timing.response_body_chunk_count_p95 - 4.0).abs() < f64::EPSILON);
+        assert!((phase_timing.response_body_first_chunk_bytes_avg - 160.0).abs() < f64::EPSILON);
+        assert!((phase_timing.response_body_first_chunk_bytes_p95 - 200.0).abs() < f64::EPSILON);
         assert!((phase_timing.request_round_trip_avg_ms - 17.0).abs() < f64::EPSILON);
         assert!((phase_timing.request_round_trip_p95_ms - 25.0).abs() < f64::EPSILON);
         assert!((summary.latency_avg_ms - 20.0).abs() < f64::EPSILON);

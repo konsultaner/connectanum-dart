@@ -446,6 +446,45 @@ That sets up the next hosted rerun to answer the remaining narrow question:
 whether the post-acquire regression is concentrated in request upload,
 response-header wait, or response-body drain.
 
+### Hosted Request-Path Phase Split Result
+
+That rerun has now landed as workflow run `24875528924` on commit `a88a8b7`,
+and it narrowed the regression to the HTTP/2 response-body drain:
+
+- the same row is now both the worst throughput and worst p95 hotspot:
+  `h2_multiplexed_streams_s8`, `threads=1`
+- the non-body phases stayed effectively flat there:
+  - `stream acquire wait avg 0.05 -> 0.02`
+  - `request enqueue avg 0.04 -> 0.06`
+  - `response headers wait avg 28.65 -> 28.52`
+- the body-drain portion exploded instead:
+  - `response body read avg 7.86 -> 58.91`
+  - `response body read p95 14.11 -> 467.44`
+  - `request round trip p95 52.96 -> 512.05`
+
+That means the next useful slice is not another generic phase split. It is a
+response-body-drain probe that can separate first-body-byte delay from the
+tail of the body read and capture the chunk shape the client actually sees.
+
+### Response-Body Drain Instrumentation
+
+That next probe is now landed locally too:
+
+- the HTTP/2 bench path now records:
+  - response-body first-chunk wait
+  - post-first-chunk tail-read time
+  - observed body chunk count
+  - observed first-chunk bytes
+- the comparison helper now renders those signals in the worst-row phase view
+  and a dedicated `HTTP Response-Body Diagnostics` section
+- rerendering historical hosted artifact `24875528924` stays backward
+  compatible; the new fields show `n/a` there because that bundle predates the
+  added metrics
+
+That means the next hosted rerun can finally distinguish a first-body-byte
+stall from a sustained drain-tail regression and also show whether the client
+observes a materially different chunk shape under required-kTLS.
+
 ### What Not To Overclaim
 
 - macOS results are irrelevant for kTLS itself.
@@ -483,10 +522,10 @@ blind generic instrumentation:
   `native/bench/scenarios/h2_ktls_multiplex_scaling.toml` for the next hosted
   rerun, with an explicit scenario policy once thresholds are understood or
   `skip_artifact_gate=true` while the run is still purely investigative
-- rerun the focused multiplex-scaling workflow on a clean head with a deeper
-  HTTP/2 request-path split so the comparison can separate request upload,
-  response-header wait, and response-body drain inside the already-confirmed
-  post-acquire regression path
+- rerun the focused multiplex-scaling workflow on a clean head with the now
+  landed response-body-drain diagnostics so the comparison can separate
+  first-body wait from sustained body drain and record the observed chunk
+  shape on the worst rows
 
 That is the smallest next milestone that improves decision quality without
 pretending the remaining kTLS work is already a clear runtime bug.

@@ -57,6 +57,14 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         response_headers_wait_p95_ms=4.0,
                         response_body_read_avg_ms=24.2,
                         response_body_read_p95_ms=27.4,
+                        response_body_first_chunk_wait_avg_ms=4.4,
+                        response_body_first_chunk_wait_p95_ms=6.0,
+                        response_body_tail_read_avg_ms=19.8,
+                        response_body_tail_read_p95_ms=22.0,
+                        response_body_chunk_count_avg=3.0,
+                        response_body_chunk_count_p95=4.0,
+                        response_body_first_chunk_bytes_avg=8192.0,
+                        response_body_first_chunk_bytes_p95=8192.0,
                         request_round_trip_avg_ms=27.2,
                         request_round_trip_p95_ms=32.5,
                     ),
@@ -100,6 +108,14 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         response_headers_wait_p95_ms=29.0,
                         response_body_read_avg_ms=121.6,
                         response_body_read_p95_ms=188.0,
+                        response_body_first_chunk_wait_avg_ms=6.1,
+                        response_body_first_chunk_wait_p95_ms=9.4,
+                        response_body_tail_read_avg_ms=115.5,
+                        response_body_tail_read_p95_ms=178.6,
+                        response_body_chunk_count_avg=12.0,
+                        response_body_chunk_count_p95=18.0,
+                        response_body_first_chunk_bytes_avg=1536.0,
+                        response_body_first_chunk_bytes_p95=2048.0,
                         request_round_trip_avg_ms=142.0,
                         request_round_trip_p95_ms=220.0,
                     ),
@@ -217,11 +233,30 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                 ]["response_body_read_avg_ms"]["delta"],
                 97.4,
             )
+            self.assertAlmostEqual(
+                comparison["summary"]["phase_timing_focus"]["worst_throughput_row"][
+                    "metrics"
+                ]["response_body_first_chunk_wait_avg_ms"]["delta"],
+                1.7,
+            )
+            self.assertAlmostEqual(
+                comparison["summary"]["phase_timing_focus"]["worst_throughput_row"][
+                    "metrics"
+                ]["response_body_tail_read_avg_ms"]["delta"],
+                95.7,
+            )
+            self.assertAlmostEqual(
+                comparison["summary"]["phase_timing_focus"]["worst_throughput_row"][
+                    "metrics"
+                ]["response_body_chunk_count_avg"]["delta"],
+                9.0,
+            )
 
             markdown = compare.render_markdown(comparison)
             self.assertIn("## Group Rollups", markdown)
             self.assertIn("## HTTP Connection Usage", markdown)
             self.assertIn("## HTTP Phase Timing", markdown)
+            self.assertIn("## HTTP Response-Body Diagnostics", markdown)
             self.assertIn("## Linux TLS Stats", markdown)
             self.assertIn("## Transport Counter Deltas", markdown)
             self.assertIn("Workload-family investigation focus", markdown)
@@ -245,6 +280,13 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("82 -> 97 (+15)", markdown)
             self.assertIn("connections opened 4 -> 5 (+1)", markdown)
             self.assertIn("stream acquire wait avg 0.80 -> 7.60 (+6.80)", markdown)
+            self.assertIn(
+                "response body first chunk wait avg 4.40 -> 6.10 (+1.70)", markdown
+            )
+            self.assertIn(
+                "response body tail read avg 19.80 -> 115.50 (+95.70)", markdown
+            )
+            self.assertIn("response body chunks avg 3.00 -> 12.00 (+9.00)", markdown)
             self.assertIn("response body read avg 24.20 -> 121.60 (+97.40)", markdown)
 
     def test_transport_focus_reports_signal_gap_for_hotspot_row(self) -> None:
@@ -368,6 +410,14 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         response_headers_wait_p95_ms: float | None = 2.2,
         response_body_read_avg_ms: float | None = 5.7,
         response_body_read_p95_ms: float | None = 8.1,
+        response_body_first_chunk_wait_avg_ms: float | None = 2.1,
+        response_body_first_chunk_wait_p95_ms: float | None = 3.0,
+        response_body_tail_read_avg_ms: float | None = 3.6,
+        response_body_tail_read_p95_ms: float | None = 5.1,
+        response_body_chunk_count_avg: float | None = 1.0,
+        response_body_chunk_count_p95: float | None = 1.0,
+        response_body_first_chunk_bytes_avg: float | None = 16384.0,
+        response_body_first_chunk_bytes_p95: float | None = 16384.0,
         request_round_trip_avg_ms: float | None = 7.6,
         request_round_trip_p95_ms: float | None = 10.8,
     ) -> dict:
@@ -399,6 +449,14 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "response_headers_wait_p95_ms": response_headers_wait_p95_ms,
                     "response_body_read_avg_ms": response_body_read_avg_ms,
                     "response_body_read_p95_ms": response_body_read_p95_ms,
+                    "response_body_first_chunk_wait_avg_ms": response_body_first_chunk_wait_avg_ms,
+                    "response_body_first_chunk_wait_p95_ms": response_body_first_chunk_wait_p95_ms,
+                    "response_body_tail_read_avg_ms": response_body_tail_read_avg_ms,
+                    "response_body_tail_read_p95_ms": response_body_tail_read_p95_ms,
+                    "response_body_chunk_count_avg": response_body_chunk_count_avg,
+                    "response_body_chunk_count_p95": response_body_chunk_count_p95,
+                    "response_body_first_chunk_bytes_avg": response_body_first_chunk_bytes_avg,
+                    "response_body_first_chunk_bytes_p95": response_body_first_chunk_bytes_p95,
                     "request_round_trip_avg_ms": request_round_trip_avg_ms,
                     "request_round_trip_p95_ms": request_round_trip_p95_ms,
                 }

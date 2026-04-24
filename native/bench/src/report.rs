@@ -25,6 +25,10 @@ pub struct HttpPhaseTimingSample {
     pub request_enqueue_ms: f64,
     pub response_headers_wait_ms: f64,
     pub response_body_read_ms: f64,
+    pub response_body_first_chunk_wait_ms: f64,
+    pub response_body_tail_read_ms: f64,
+    pub response_body_chunk_count: u32,
+    pub response_body_first_chunk_bytes: u64,
     pub request_round_trip_ms: f64,
 }
 
@@ -38,6 +42,14 @@ pub struct HttpPhaseTimingSummary {
     pub response_headers_wait_p95_ms: f64,
     pub response_body_read_avg_ms: f64,
     pub response_body_read_p95_ms: f64,
+    pub response_body_first_chunk_wait_avg_ms: f64,
+    pub response_body_first_chunk_wait_p95_ms: f64,
+    pub response_body_tail_read_avg_ms: f64,
+    pub response_body_tail_read_p95_ms: f64,
+    pub response_body_chunk_count_avg: f64,
+    pub response_body_chunk_count_p95: f64,
+    pub response_body_first_chunk_bytes_avg: f64,
+    pub response_body_first_chunk_bytes_p95: f64,
     pub request_round_trip_avg_ms: f64,
     pub request_round_trip_p95_ms: f64,
 }

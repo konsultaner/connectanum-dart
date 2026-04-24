@@ -1,6 +1,6 @@
 # HTTP/2 Request-Path Phase Split
 
-Status: in_progress
+Status: completed
 
 ## Context
 
@@ -48,3 +48,27 @@ Status: in_progress
 - `python3 tool/test_ktls_http2_compare.py`
 - rerender hosted artifact `24874338657`
 - `bin/verify`
+
+## Outcome
+
+- Commit `a88a8b7` (`build(ktls): split http2 request path timing`) cleared
+  the hosted push chain:
+  - `CI` `24874851886`
+  - `kTLS Validation` `24874851872`
+  - `WAMP Profile Benchmarks` `24874851879`
+- Manual hosted run `24875528924` (`kTLS HTTP/2 Benchmarks`) then reran
+  `native/bench/scenarios/h2_ktls_multiplex_scaling.toml` on that clean head.
+- The new request-path split ruled out request upload and response-header wait
+  as the primary regression source:
+  - worst throughput row and worst p95 row were both
+    `h2_multiplexed_streams_s8` at `threads=1`
+  - `stream acquire wait avg 0.05 -> 0.02`
+  - `request enqueue avg 0.04 -> 0.06`
+  - `response headers wait avg 28.65 -> 28.52`
+- The visible regression is concentrated in the response-body drain instead:
+  - `response body read avg 7.86 -> 58.91`
+  - `response body read p95 14.11 -> 467.44`
+  - `request round trip p95 52.96 -> 512.05`
+- The next bounded diagnostic slice is therefore response-body-drain
+  instrumentation that can separate first-body-byte delay from sustained body
+  drain and record the observed body chunk shape.
