@@ -105,10 +105,12 @@ per-repeat artifacts under `repeats/repeat-XX/` and turns the top-level
 `comparison.json` / `comparison.md` pair into an aggregate repeat-stability
 report. It also writes `repeat-plan.txt`, which records the exact pass order
 used for each repeat plus the configured cooldown. The manual workflow exposes
-the same controls through `repeat_count`, `repeat_order`, and
-`cooldown_seconds` inputs. For manual reruns, the workflow now defaults to
-`repeat_order=alternating` and `cooldown_seconds=15` so repeated hosted runs do
-not always benchmark `baseline -> kTLS` back-to-back on a warming runner.
+the same controls through `repeat_count`, `repeat_order`,
+`cooldown_seconds`, and `workloads` inputs. For manual reruns, the workflow
+now defaults to `repeat_order=alternating` and `cooldown_seconds=15` so
+repeated hosted runs do not always benchmark `baseline -> kTLS` back-to-back
+on a warming runner. Use `--workloads <csv>` when the next question is about a
+small hotspot set rather than the whole scenario.
 
 For the current HTTP/2 multiplex hotspot, the quick diagnostic scenario is:
 
@@ -126,6 +128,19 @@ bin/ktls-http2-bench \
   --scenario native/bench/scenarios/h2_ktls_multiplex_stability.toml \
   --repeat-count 3 \
   --repeat-order alternating \
+  --cooldown-seconds 15 \
+  --skip-artifact-gate
+```
+
+When the goal is to isolate one hotspot workload instead of rerunning the
+whole multiplex sweep, keep the same scenario but select the workload by name:
+
+```bash
+bin/ktls-http2-bench \
+  --scenario native/bench/scenarios/h2_ktls_multiplex_stability.toml \
+  --workloads h2_multiplexed_streams_s4 \
+  --repeat-count 3 \
+  --repeat-order baseline-first \
   --cooldown-seconds 15 \
   --skip-artifact-gate
 ```

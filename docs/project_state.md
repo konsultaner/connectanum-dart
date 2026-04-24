@@ -2,11 +2,24 @@
 
 Last updated: 2026-04-25
 Current branch: `add-router`
-Last reviewed commit: `a2a66ea` (`build(ktls): label repeat instability sources`)
+Last reviewed commit: `45fcba8` (`build(ktls): add repeat cooldown controls`)
 Active exec plan: `docs/exec-plans/2026-04-24-ktls-repeat-stability.md`
 
 ## Last Known Verification
 
+- Hosted GitHub push runs on `45fcba8` completed successfully:
+  `CI` `24914678995`, `kTLS Validation` `24914678987`,
+  `WAMP Profile Benchmarks` `24914678985`
+- The current workload-isolation methodology slice is green locally:
+  - `bin/test-fast`
+  - `bash -n bin/ktls-http2-bench`
+  - `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/ktls-http2-benchmarks.yml')"`
+  - `python3 -m py_compile tool/filter_bench_scenario.py tool/test_filter_bench_scenario.py tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`
+  - `python3 tool/test_filter_bench_scenario.py`
+  - `python3 tool/test_ktls_http2_compare.py`
+  - `python3 tool/filter_bench_scenario.py native/bench/scenarios/h2_ktls_multiplex_stability.toml /tmp/connectanum-ktls-filtered.toml h2_multiplexed_streams_s4,h2_multiplexed_streams_s8`
+  - `bin/ktls-http2-bench --help | rg 'workloads|repeat-order|cooldown-seconds|repeat-count'`
+  - `bin/verify`
 - Hosted GitHub push run on `a2a66ea` completed successfully:
   `CI` `24913663589`
 - Hosted GitHub push runs on `c0e9171` completed successfully:
@@ -32,13 +45,6 @@ Active exec plan: `docs/exec-plans/2026-04-24-ktls-repeat-stability.md`
 - Manual hosted `kTLS HTTP/2 Benchmarks` rerun `24906538797`
 - Manual hosted `kTLS HTTP/2 Benchmarks` rerun `24904942758`
 - Manual hosted `kTLS HTTP/2 Benchmarks` rerun `24903103241`
-- `bin/test-fast`
-- `bash -n bin/ktls-http2-bench`
-- `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/ktls-http2-benchmarks.yml')"`
-- `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`
-- `python3 tool/test_ktls_http2_compare.py`
-- `python3 tool/ktls_http2_compare_repeats.py /tmp/ktls-repeat-summary.json /tmp/ktls-repeat-summary.md /tmp/ktls-run-24908173404/extracted/comparison.json /tmp/ktls-run-24908372116/extracted/comparison.json`
-- `bin/verify`
 
 ## Autonomous Priority
 
@@ -278,16 +284,81 @@ Active exec plan: `docs/exec-plans/2026-04-24-ktls-repeat-stability.md`
   - `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/ktls-http2-benchmarks.yml')"`
   - `bin/ktls-http2-bench --help | rg 'repeat-order|cooldown-seconds|repeat-count'`
   - `bin/verify`
-- The next useful hosted check is now explicit:
-  - rerun the manual `kTLS HTTP/2 Benchmarks` workflow on the clean head with
-    `scenario=native/bench/scenarios/h2_ktls_multiplex_stability.toml`
-  - keep `router_worker_counts=1`, `native_runtime_thread_counts=4`,
-    `repeat_count=3`, and `skip_artifact_gate=true`
-  - rely on the new defaults `repeat_order=alternating` and
-    `cooldown_seconds=15` to see whether the remaining `threads=4` noise
-    narrows without another transport change
+- Manual hosted rerun `24915345703` then completed successfully on clean head
+  `45fcba8` with:
+  - `scenario=native/bench/scenarios/h2_ktls_multiplex_stability.toml`
+  - `router_worker_counts=1`
+  - `native_runtime_thread_counts=4`
+  - `repeat_count=3`
+  - `repeat_order=alternating`
+  - `cooldown_seconds=15`
+  - `skip_artifact_gate=true`
+- That first controlled rerun did not become decision-quality, but it improved
+  the throughput side materially versus `24913116550`:
+  - largest throughput span dropped from `216.79pp` on
+    `h2_multiplexed_streams_s2` to `47.32pp` on `s1`
+  - the old `h2_multiplexed_streams_s16` p95 outlier disappeared
+  - the only `ktls-first` repeat (`repeat-02`) was also the clear outlier,
+    with `h2_multiplexed_streams_s8` jumping to `+457.45%` p95
+- Manual hosted rerun `24915629218` then completed successfully on the same
+  clean head with the same settings except `repeat_order=baseline-first`.
+- That confirmation rerun still did not become decision-quality, but it
+  narrowed the blocker further:
+  - the prior `s8` and `s16` kTLS-side p95 instability disappeared
+  - `h2_multiplexed_streams_s2` also stabilized
+  - the remaining blocker is now concentrated in
+    `h2_multiplexed_streams_s4`, where one baseline repeat spiked to
+    `216.48 ms` p95 and drove a `119.62pp` p95 span plus `64.53pp`
+    throughput span
+  - `h2_multiplexed_streams_s1` still shows a kTLS-side throughput span of
+    `51.18pp`
+- The hosted runner-control picture is therefore clearer now:
+  - alternating order exposed that `ktls-first` repeats were the worst shape
+  - fixed `baseline-first` removed the earlier kTLS-side p95 explosion
+  - the remaining instability is smaller and now split between a baseline-side
+    `s4` spike and a kTLS-side `s1` throughput spread
+- Manual hosted rerun `24916589841` then completed successfully on the same
+  clean head with the same settings as `24915629218` except
+  `cooldown_seconds=60`.
+- That longer-cooldown rerun made the lane less stable again:
+  - `h2_multiplexed_streams_s2` returned as the worst throughput and p95 row
+    with a `76.69pp` throughput span and `981.77pp` p95 span, both kTLS-side
+  - `h2_multiplexed_streams_s8` and `s16` also became unstable again on the
+    baseline side
+  - the result is materially worse than the `15s` baseline-first run, so
+    simply increasing cooldown is not a monotonic fix
+- The next useful step is therefore no longer "try a larger sleep":
+  - simple runner timing knobs are exhausted enough to stop tuning them blindly
+  - the next methodology slice should isolate repeats or hotspot workloads more
+    structurally, rather than keep stretching one multi-repeat run on one
+    runner
   - the hosted `threads=4` lane is therefore mixed-noise, not one clean
     transport regression shape
+- The current working tree now carries that structural methodology slice:
+  - `tool/filter_bench_scenario.py` materializes a temporary focused scenario
+    by keeping only named workloads from an existing checked-in scenario
+  - `bin/ktls-http2-bench` now accepts `--workloads <csv>` and records both
+    `scenario_source` and `scenario_effective` in `host-info.txt`
+  - the manual `kTLS HTTP/2 Benchmarks` workflow exposes the same filter as the
+    `workloads` input
+  - `native/bench/README.md` now documents hotspot-isolated reruns instead of
+    only full-scenario stability reruns
+- Focused local verification is green on that slice:
+  - `bin/test-fast`
+  - `bash -n bin/ktls-http2-bench`
+  - `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/ktls-http2-benchmarks.yml')"`
+  - `python3 -m py_compile tool/filter_bench_scenario.py tool/test_filter_bench_scenario.py tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`
+  - `python3 tool/test_filter_bench_scenario.py`
+  - `python3 tool/filter_bench_scenario.py native/bench/scenarios/h2_ktls_multiplex_stability.toml /tmp/connectanum-ktls-filtered.toml h2_multiplexed_streams_s4,h2_multiplexed_streams_s8`
+  - `bin/ktls-http2-bench --help | rg 'workloads|repeat-order|cooldown-seconds|repeat-count'`
+- The next useful hosted step is now explicit:
+  - run `h2_multiplexed_streams_s1` and `h2_multiplexed_streams_s4` as
+    isolated manual reruns on
+    `native/bench/scenarios/h2_ktls_multiplex_stability.toml`
+  - keep `repeat_count=3`, `repeat_order=baseline-first`,
+    `cooldown_seconds=15`, and `skip_artifact_gate=true`
+  - use those isolated repeats to decide whether any remaining spread is still
+    runner noise or a real transport regression before changing HTTP/2 again
 - GitLab has not surfaced an `add-router` pipeline for `c0e9171` through the
   current token-backed API query.
 - `packages/connectanum_core` is approved as a design reference for MCP package

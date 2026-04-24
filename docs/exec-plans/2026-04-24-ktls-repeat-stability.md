@@ -170,17 +170,77 @@ Status: in_progress
   - `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/ktls-http2-benchmarks.yml')"`
   - `bin/ktls-http2-bench --help | rg 'repeat-order|cooldown-seconds|repeat-count'`
   - `bin/verify`
+- That runner-control slice is now pushed as commit `45fcba8`
+  (`build(ktls): add repeat cooldown controls`).
+- Its visible GitHub push chain completed successfully:
+  - `CI` `24914678995`
+  - `kTLS Validation` `24914678987`
+  - `WAMP Profile Benchmarks` `24914678985`
+- Manual hosted rerun `24915345703` completed successfully on that clean head
+  with:
+  - `scenario=native/bench/scenarios/h2_ktls_multiplex_stability.toml`
+  - `router_worker_counts=1`
+  - `native_runtime_thread_counts=4`
+  - `repeat_count=3`
+  - `repeat_order=alternating`
+  - `cooldown_seconds=15`
+  - `skip_artifact_gate=true`
+- That first controlled rerun did not reach decision quality, but it improved
+  throughput stability materially versus `24913116550`:
+  - largest throughput span dropped from `216.79pp` on
+    `h2_multiplexed_streams_s2` to `47.32pp` on `s1`
+  - the old `h2_multiplexed_streams_s16` p95 outlier disappeared
+  - the only `ktls-first` repeat (`repeat-02`) was also the clear outlier,
+    with `h2_multiplexed_streams_s8` jumping to `+457.45%` p95
+- Manual hosted rerun `24915629218` then completed successfully with the same
+  settings except `repeat_order=baseline-first`.
+- That confirmation rerun still did not reach decision quality, but it
+  narrowed the blocker further:
+  - `h2_multiplexed_streams_s8`, `s16`, and `s2` all stabilized into
+    in-family ranges
+  - the remaining blocker is now concentrated in a baseline-side
+    `h2_multiplexed_streams_s4` spike and a kTLS-side
+    `h2_multiplexed_streams_s1` throughput spread
+  - `s4` now drives the largest spans: `64.53pp` throughput and `119.62pp`
+    p95, with one baseline repeat reaching `216.48 ms` p95 while kTLS stayed
+    near `32-35 ms`
+
+- Manual hosted rerun `24916589841` then completed successfully with the same
+  settings as `24915629218` except `cooldown_seconds=60`.
+- That longer-cooldown rerun made the lane less stable again:
+  - `h2_multiplexed_streams_s2` returned as the worst throughput and p95 row
+    with a `76.69pp` throughput span and `981.77pp` p95 span, both kTLS-side
+  - `h2_multiplexed_streams_s8` and `s16` also became unstable again on the
+    baseline side
+  - the result is materially worse than the `15s` baseline-first run, so
+    larger sleeps are not a monotonic fix
+- The current working tree now carries the next structural methodology slice:
+  - `tool/filter_bench_scenario.py` materializes a temporary focused scenario
+    by keeping only named workloads from an existing checked-in scenario
+  - `bin/ktls-http2-bench` now accepts `--workloads <csv>` and records both
+    `scenario_source` and `scenario_effective` in `host-info.txt`
+  - the manual `kTLS HTTP/2 Benchmarks` workflow exposes the same workload
+    filter as the `workloads` input
+  - `native/bench/README.md` now documents hotspot-isolated reruns instead of
+    only full-scenario stability reruns
+- Focused local verification is green on that slice:
+  - `bin/test-fast`
+  - `bash -n bin/ktls-http2-bench`
+  - `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/ktls-http2-benchmarks.yml')"`
+  - `python3 -m py_compile tool/filter_bench_scenario.py tool/test_filter_bench_scenario.py tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`
+  - `python3 tool/test_filter_bench_scenario.py`
+  - `python3 tool/test_ktls_http2_compare.py`
+  - `python3 tool/filter_bench_scenario.py native/bench/scenarios/h2_ktls_multiplex_stability.toml /tmp/connectanum-ktls-filtered.toml h2_multiplexed_streams_s4,h2_multiplexed_streams_s8`
+  - `bin/ktls-http2-bench --help | rg 'workloads|repeat-order|cooldown-seconds|repeat-count'`
+  - `bin/verify`
 
 ## Next Step
 
-The hosted `threads=4` lane is still unstable even in isolation, but the
-runner now supports bounded pass-order and cooldown controls. The next useful
-step is to rerun the manual `kTLS HTTP/2 Benchmarks` workflow on the clean head
-with:
-
-- `scenario=native/bench/scenarios/h2_ktls_multiplex_stability.toml`
-- `router_worker_counts=1`
-- `native_runtime_thread_counts=4`
-- `repeat_count=3`
-- `skip_artifact_gate=true`
-- workflow defaults `repeat_order=alternating` and `cooldown_seconds=15`
+Simple runner timing knobs are now exhausted enough to stop tuning them
+blindly. The next useful step is no longer a larger cooldown; it is a focused
+hosted rerun strategy using the new workload filter. Start with
+`h2_multiplexed_streams_s1` and `h2_multiplexed_streams_s4` as isolated manual
+reruns on `native/bench/scenarios/h2_ktls_multiplex_stability.toml` with
+`repeat_count=3`, `repeat_order=baseline-first`, `cooldown_seconds=15`, and
+`skip_artifact_gate=true`, then decide whether any remaining spread is still
+runner noise or a real transport shape.

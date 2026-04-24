@@ -6,7 +6,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 usage() {
   cat <<'EOF'
-Usage: bin/ktls-http2-bench [--scenario <path>] [--out-dir <dir>] [--router-worker-counts <csv>] [--native-runtime-thread-counts <csv>] [--repeat-count <count>] [--repeat-order <baseline-first|ktls-first|alternating>] [--cooldown-seconds <seconds>] [--artifact-policy <path>] [--skip-artifact-gate]
+Usage: bin/ktls-http2-bench [--scenario <path>] [--workloads <csv>] [--out-dir <dir>] [--router-worker-counts <csv>] [--native-runtime-thread-counts <csv>] [--repeat-count <count>] [--repeat-order <baseline-first|ktls-first|alternating>] [--cooldown-seconds <seconds>] [--artifact-policy <path>] [--skip-artifact-gate]
 
 Runs the Linux-only HTTP/2 comparison bench:
 1. baseline TLS over the existing HTTP/2 listener
@@ -29,6 +29,7 @@ EOF
 }
 
 scenario="$(repo_root)/native/bench/scenarios/h2_ktls_benchmark.toml"
+workloads=""
 out_dir="$(repo_root)/out/ktls-http2-bench"
 router_worker_counts="1"
 native_runtime_thread_counts="1,4"
@@ -46,6 +47,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --out-dir)
       out_dir="$2"
+      shift 2
+      ;;
+    --workloads)
+      workloads="$2"
       shift 2
       ;;
     --router-worker-counts)
@@ -120,7 +125,8 @@ fi
 
 mkdir -p "$out_dir"
 
-scenario="$(cd "$(dirname "$scenario")" && pwd)/$(basename "$scenario")"
+scenario_source="$(cd "$(dirname "$scenario")" && pwd)/$(basename "$scenario")"
+scenario="$scenario_source"
 if [[ -n "$artifact_policy" ]]; then
   artifact_policy="$(cd "$(dirname "$artifact_policy")" && pwd)/$(basename "$artifact_policy")"
 fi
@@ -130,7 +136,25 @@ comparison_json="${out_dir%/}/comparison.json"
 comparison_md="${out_dir%/}/comparison.md"
 host_info_path="${out_dir%/}/host-info.txt"
 repeat_plan_path="${out_dir%/}/repeat-plan.txt"
-default_artifact_policy="$(repo_root)/native/bench/artifact_gate/$(basename "${scenario%.toml}").json"
+default_artifact_policy="$(repo_root)/native/bench/artifact_gate/$(basename "${scenario_source%.toml}").json"
+temporary_scenario_dir=""
+
+cleanup() {
+  if [[ -n "$temporary_scenario_dir" && -d "$temporary_scenario_dir" ]]; then
+    rm -rf "$temporary_scenario_dir"
+  fi
+}
+
+trap cleanup EXIT
+
+if [[ -n "$workloads" ]]; then
+  temporary_scenario_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-ktls-scenario.XXXXXX")"
+  scenario="${temporary_scenario_dir}/$(basename "$scenario_source")"
+  python3 "$(repo_root)/tool/filter_bench_scenario.py" \
+    "$scenario_source" \
+    "$scenario" \
+    "$workloads"
+fi
 
 if (( ! skip_artifact_gate )) && [[ -z "$artifact_policy" && -f "$default_artifact_policy" ]]; then
   artifact_policy="$default_artifact_policy"
@@ -163,7 +187,9 @@ fi
   printf 'rustc=%s\n' "$(rustc -V)"
   printf 'cargo=%s\n' "$(cargo -V)"
   printf 'dart=%s\n' "$("$(dart_binary)" --version 2>&1 | tr '\n' ' ')"
-  printf 'scenario=%s\n' "$scenario"
+  printf 'scenario_source=%s\n' "$scenario_source"
+  printf 'scenario_effective=%s\n' "$scenario"
+  printf 'workloads=%s\n' "${workloads:-all}"
   printf 'router_worker_counts=%s\n' "$router_worker_counts"
   printf 'native_runtime_thread_counts=%s\n' "$native_runtime_thread_counts"
   printf 'repeat_count=%s\n' "$repeat_count"
