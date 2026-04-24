@@ -2,19 +2,19 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `0a9c3c8` (`build(ktls): capture h2 first connection write timing`)
-Active exec plan: `docs/exec-plans/2026-04-24-h2-direct-stream-control-path-split.md`
+Last reviewed commit: `d892676` (`build(ktls): split direct-stream control timing`)
+Active exec plan: `docs/exec-plans/2026-04-24-h2-direct-stream-shared-reply-channel.md`
 
 ## Last Known Verification
 
 - `bin/test-fast`
-- `cargo test --manifest-path native/transport/ct_core/Cargo.toml http2_connection_write_tracker_records_headers_to_first_connection_write -- --nocapture`
+- `dart test packages/connectanum_router/test/direct_stream_reply_channel_test.dart -r expanded`
+- `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
+- `dart test packages/connectanum_router/test/router_runtime_test.dart -r expanded`
 - `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
-- `cargo test --manifest-path native/transport/ct_ffi/Cargo.toml http2_response_streaming_round_trip -- --nocapture`
 - `dart analyze packages/connectanum_router packages/connectanum_bench`
 - `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
 - `python3 tool/test_ktls_http2_compare.py`
-- `python3 tool/ktls_http2_compare.py tmp/ktls-run-24891851907/extracted/baseline/bench_results.summary.json tmp/ktls-run-24891851907/extracted/ktls/bench_results.summary.json tmp/ktls-run-24891851907/rerender/comparison.json tmp/ktls-run-24891851907/rerender/comparison.md`
 - `bin/verify`
 
 ## Autonomous Priority
@@ -538,33 +538,44 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-direct-stream-control-path-spli
   - `CI` `24893449385`
   - `kTLS Validation` `24893449381`
   - `WAMP Profile Benchmarks` `24893449378`
-- GitLab has not surfaced a pipeline for `0a9c3c8` through the current
+- GitLab has not surfaced a pipeline for `d892676` through the current
   token-backed query.
-- Manual hosted rerun `24894437415` then completed successfully on `0a9c3c8`
-  and ruled out the post-header transport-write path too:
-  - worst throughput and p95 row:
-    `h2_multiplexed_streams_s8`, `threads=4`
-    - `response headers wait avg 24.10 -> 211.03 (+186.93)`
-    - `response body first chunk wait avg 8.92 -> 72.21 (+63.29)`
-    - `native headers-to-first-connection-write avg 0.16 -> 0.12 (-0.04)`
-    - `native headers-to-first-chunk-dequeue avg 6.95 -> 68.54 (+61.59)`
-    - `native headers-to-first-chunk-send-call avg 7.41 -> 69.35 (+61.94)`
-    - `server queue-to-first-body-write avg 12.33 -> 104.86 (+92.53)`
-    - `server direct-stream open round trip avg 12.29 -> 104.83 (+92.53)`
-    - `server direct-stream descriptor-open call avg 0.05 -> 0.03 (-0.01)`
-- That rerun moved the remaining blind spot back into the direct-stream
-  control/open path outside `descriptorOpenUs`. The current local working tree
-  therefore carries the next bounded slice: splitting
-  `direct_stream_open_round_trip` into request-side control-queue delay and
-  reply-side delivery delay.
-- Local verification for the current direct-stream control-path split is green
-  so far on 2026-04-24: `bin/test-fast`, `dart test
-  packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`,
-  `dart test packages/connectanum_router/test/router_runtime_test.dart
+- Commit `d892676` is now on both `origin` and `github`, and the visible
+  GitHub push chain completed:
+  - `CI` `24895983686`
+  - `kTLS Validation` `24895983707`
+  - `WAMP Profile Benchmarks` `24895983693`
+- Manual hosted rerun `24897078545` then completed successfully on clean head
+  `d892676` with the focused multiplex scenario and `skip_artifact_gate=true`.
+  It closed the direct-stream control split:
+  - worst p95 row:
+    `h2_multiplexed_streams_s8`, `threads=1`
+    - `server direct-stream open round trip avg 12.19 -> 19.09 (+6.90)`
+    - `server direct-stream request queue delay avg 5.46 -> 6.56 (+1.10)`
+    - `server direct-stream reply delivery delay avg 6.70 -> 12.50 (+5.80)`
+    - `native headers-to-first-chunk-dequeue avg 7.13 -> 13.50 (+6.37)`
+  - worst throughput row:
+    `h2_multiplexed_streams_s2`, `threads=1`
+    - `server direct-stream open round trip avg 3.42 -> 2.29 (-1.13)`
+    - `server direct-stream request queue delay avg 1.78 -> 0.94 (-0.84)`
+    - `server direct-stream reply delivery delay avg 1.60 -> 1.32 (-0.28)`
+- That rerun showed the worst p95 movement on the reply side of the
+  direct-stream control path, while the worst throughput row still points at
+  the native first-chunk path instead of the control handshake itself.
+- The current local working tree therefore carries the next bounded slice:
+  replacing the per-open direct-stream reply `ReceivePort` with a shared
+  isolate-local reply channel keyed by request id.
+- Local verification for the current shared-reply-channel slice is green on
+  2026-04-24: `bin/test-fast`, `dart test
+  packages/connectanum_router/test/direct_stream_reply_channel_test.dart
+  -r expanded`, `dart test packages/connectanum_router/test/router_runtime_test.dart
+  -r expanded`, `dart test packages/connectanum_bench/test/http_stream_handler_test.dart
   -r expanded`, `cargo test --manifest-path native/bench/Cargo.toml
   summarize_report_computes_latency_and_deltas -- --nocapture`,
+  `dart analyze packages/connectanum_router packages/connectanum_bench`,
   `python3 -m py_compile tool/ktls_http2_compare.py
-  tool/test_ktls_http2_compare.py`, and `python3 tool/test_ktls_http2_compare.py`.
+  tool/test_ktls_http2_compare.py`, `python3 tool/test_ktls_http2_compare.py`,
+  and `bin/verify`.
 - Local verification for that stream-open-to-headers-send slice is green on
   2026-04-24: `bin/test-fast`, `cargo test --manifest-path
   native/bench/Cargo.toml summarize_report_computes_latency_and_deltas --

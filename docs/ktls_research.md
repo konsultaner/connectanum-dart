@@ -839,6 +839,38 @@ The next hosted rerun should therefore answer the new bounded question that now
 matters: whether the remaining multiplex regression is dominated by request-side
 control queueing, reply delivery, or some deeper path still not instrumented.
 
+### Hosted Direct-Stream Control-Path Result
+
+That rerun has now landed as workflow run `24897078545` on clean head
+`d892676`, and it closed the control-path split:
+
+- worst p95 row:
+  `h2_multiplexed_streams_s8`, `threads=1`
+  - `server direct-stream open round trip avg 12.19 -> 19.09 (+6.90)`
+  - `server direct-stream request queue delay avg 5.46 -> 6.56 (+1.10)`
+  - `server direct-stream reply delivery delay avg 6.70 -> 12.50 (+5.80)`
+  - `native headers-to-first-chunk-dequeue avg 7.13 -> 13.50 (+6.37)`
+- worst throughput row:
+  `h2_multiplexed_streams_s2`, `threads=1`
+  - `server direct-stream open round trip avg 3.42 -> 2.29 (-1.13)`
+  - `server direct-stream request queue delay avg 1.78 -> 0.94 (-0.84)`
+  - `server direct-stream reply delivery delay avg 1.60 -> 1.32 (-0.28)`
+
+That means the worst p95 movement inside `direct_stream_open_round_trip` is on
+the reply side, not the request side, while the worst throughput row is still
+driven by the native first-chunk path instead of the control handshake.
+
+### Shared Direct-Stream Reply Channel
+
+The current local slice is therefore an optimization, not another blind metric:
+
+- replace the per-open direct-stream `ReceivePort` with a shared isolate-local
+  reply channel keyed by request id
+- keep the existing request-queue and reply-delivery metrics so the next hosted
+  rerun shows whether the reply-side movement actually drops
+- add focused regression coverage for out-of-order reply routing on the shared
+  channel so the lower-overhead path is still correct under concurrency
+
 ### What Not To Overclaim
 
 - macOS results are irrelevant for kTLS itself.

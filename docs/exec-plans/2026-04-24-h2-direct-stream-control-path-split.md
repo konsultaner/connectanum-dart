@@ -1,6 +1,6 @@
 # HTTP/2 Direct-Stream Control-Path Split
 
-Status: in_progress
+Status: completed
 
 ## Context
 
@@ -8,6 +8,12 @@ Status: in_progress
   - `CI` `24893449385`
   - `kTLS Validation` `24893449381`
   - `WAMP Profile Benchmarks` `24893449378`
+- The control-path split is now implemented and pushed as `d892676`
+  (`build(ktls): split direct-stream control timing`).
+- The current hosted push chain for `d892676` is in progress:
+  - `CI` `24895983686`
+  - `kTLS Validation` `24895983707`
+  - `WAMP Profile Benchmarks` `24895983693`
 - Manual hosted rerun `24894437415` on clean head `0a9c3c8` ruled out the
   post-header transport-write path:
   - worst throughput and p95 row:
@@ -53,3 +59,17 @@ Status: in_progress
 - `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
 - `python3 tool/test_ktls_http2_compare.py`
 - `bin/verify`
+
+## Outcome
+
+- Manual hosted rerun `24897078545` on clean head `d892676` completed
+  successfully with the focused multiplex scenario and `skip_artifact_gate=true`.
+- The worst p95 row stayed `h2_multiplexed_streams_s8`, `threads=1`, and the
+  direct-stream control-path split showed the movement is mostly on reply
+  delivery rather than request queueing:
+  - `server direct-stream open round trip avg 12.19 -> 19.09 (+6.90)`
+  - `server direct-stream request queue delay avg 5.46 -> 6.56 (+1.10)`
+  - `server direct-stream reply delivery delay avg 6.70 -> 12.50 (+5.80)`
+- The worst throughput row `h2_multiplexed_streams_s2`, `threads=1` did not
+  regress on the direct-stream control path, so that row remains explained by
+  the native first-chunk path rather than the control handshake itself.

@@ -481,6 +481,7 @@ class RouterSession {
       final headers = (message['headers'] as Map?)?.cast<String, String>();
       final sentAtUs = message['sentAtUs'] as int?;
       final replyPort = message['replyPort'] as SendPort?;
+      final replyRequestId = message['replyRequestId'] as int?;
       if (requestId == null ||
           status == null ||
           headers == null ||
@@ -489,7 +490,12 @@ class RouterSession {
       }
       final pending = binding._pendingHttpCalls[requestId];
       if (pending == null) {
-        replyPort.send(const {'error': 'pending_http_request_not_found'});
+        replyPort.send({
+          ...?(replyRequestId == null
+              ? null
+              : <String, Object?>{'replyRequestId': replyRequestId}),
+          'error': 'pending_http_request_not_found',
+        });
         return;
       }
       int? requestQueueDelayUs;
@@ -505,18 +511,28 @@ class RouterSession {
         headers: headers,
       );
       if (descriptor == null) {
-        replyPort.send(const {'error': 'unsupported'});
+        replyPort.send({
+          ...?(replyRequestId == null
+              ? null
+              : <String, Object?>{'replyRequestId': replyRequestId}),
+          'error': 'unsupported',
+        });
         return;
       }
       final response = <String, Object?>{
+        ...?(replyRequestId == null
+            ? null
+            : <String, Object?>{'replyRequestId': replyRequestId}),
         'handle': descriptor.handle,
         'descriptorOpenUs': openStopwatch.elapsedMicroseconds,
-        if (requestQueueDelayUs != null)
-          'requestQueueDelayUs': requestQueueDelayUs,
-        if (descriptor.libraryPath != null)
-          'libraryPath': descriptor.libraryPath,
+        ...?(requestQueueDelayUs == null
+            ? null
+            : <String, Object?>{'requestQueueDelayUs': requestQueueDelayUs}),
+        ...?(descriptor.libraryPath == null
+            ? null
+            : <String, Object?>{'libraryPath': descriptor.libraryPath}),
+        'replySentAtUs': DateTime.now().microsecondsSinceEpoch,
       };
-      response['replySentAtUs'] = DateTime.now().microsecondsSinceEpoch;
       replyPort.send(response);
     }
   }

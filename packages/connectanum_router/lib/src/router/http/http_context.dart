@@ -9,6 +9,7 @@ import 'dart:typed_data';
 import 'package:connectanum_core/src/message/invocation.dart' as invocation_msg;
 import 'package:connectanum_core/src/message/yield.dart' as yield_msg;
 import 'package:connectanum_router/src/native/runtime.dart';
+import 'package:connectanum_router/src/router/http/direct_stream_reply_channel.dart';
 
 /// Keys used for encoding HTTP metadata into WAMP custom maps.
 abstract final class HttpInvocationKeys {
@@ -29,6 +30,9 @@ abstract final class HttpInvocationKeys {
 abstract final class HttpInvocationControlMessages {
   static const openResponseStream = '_http_response_stream_open';
 }
+
+final DirectStreamReplyChannel _sharedDirectStreamReplyChannel =
+    DirectStreamReplyChannel();
 
 /// Snapshot of an HTTP request that is routed through the WAMP invocation
 /// pipeline.
@@ -869,55 +873,46 @@ class _DirectHttpResponseStreamController {
   }
 
   Future<NativeHttpResponseStream?> _openStream() async {
-    final replyPort = ReceivePort();
     final roundTripStopwatch = Stopwatch()..start();
     final requestSentAtUs = DateTime.now().microsecondsSinceEpoch;
-    try {
-      controlPort.send({
-        'type': HttpInvocationControlMessages.openResponseStream,
-        'requestId': requestId,
-        'status': status,
-        'headers': headers,
-        'sentAtUs': requestSentAtUs,
-        'replyPort': replyPort.sendPort,
-      });
-      final response = await replyPort.first;
-      final responseReceivedAtUs = DateTime.now().microsecondsSinceEpoch;
-      if (response is! Map) {
-        return null;
-      }
-      final handle = response['handle'];
-      if (handle is! int || handle <= 0) {
-        return null;
-      }
-      onDirectStreamOpenRoundTrip?.call(roundTripStopwatch.elapsed);
-      final requestQueueDelayUs = response['requestQueueDelayUs'];
-      if (requestQueueDelayUs is int && requestQueueDelayUs >= 0) {
-        onDirectStreamRequestQueueDelay?.call(
-          Duration(microseconds: requestQueueDelayUs),
-        );
-      }
-      final descriptorOpenUs = response['descriptorOpenUs'];
-      if (descriptorOpenUs is int && descriptorOpenUs >= 0) {
-        onDirectStreamDescriptorOpenCall?.call(
-          Duration(microseconds: descriptorOpenUs),
-        );
-      }
-      final replySentAtUs = response['replySentAtUs'];
-      if (replySentAtUs is int &&
-          replySentAtUs >= 0 &&
-          responseReceivedAtUs >= replySentAtUs) {
-        onDirectStreamReplyDeliveryDelay?.call(
-          Duration(microseconds: responseReceivedAtUs - replySentAtUs),
-        );
-      }
-      return NativeHttpResponseStream.borrowed(
-        handle: handle,
-        libraryPath: response['libraryPath'] as String?,
-      );
-    } finally {
-      replyPort.close();
+    final response = await _sharedDirectStreamReplyChannel
+        .request(controlPort, {
+          'type': HttpInvocationControlMessages.openResponseStream,
+          'requestId': requestId,
+          'status': status,
+          'headers': headers,
+          'sentAtUs': requestSentAtUs,
+        });
+    final responseReceivedAtUs = DateTime.now().microsecondsSinceEpoch;
+    final handle = response['handle'];
+    if (handle is! int || handle <= 0) {
+      return null;
     }
+    onDirectStreamOpenRoundTrip?.call(roundTripStopwatch.elapsed);
+    final requestQueueDelayUs = response['requestQueueDelayUs'];
+    if (requestQueueDelayUs is int && requestQueueDelayUs >= 0) {
+      onDirectStreamRequestQueueDelay?.call(
+        Duration(microseconds: requestQueueDelayUs),
+      );
+    }
+    final descriptorOpenUs = response['descriptorOpenUs'];
+    if (descriptorOpenUs is int && descriptorOpenUs >= 0) {
+      onDirectStreamDescriptorOpenCall?.call(
+        Duration(microseconds: descriptorOpenUs),
+      );
+    }
+    final replySentAtUs = response['replySentAtUs'];
+    if (replySentAtUs is int &&
+        replySentAtUs >= 0 &&
+        responseReceivedAtUs >= replySentAtUs) {
+      onDirectStreamReplyDeliveryDelay?.call(
+        Duration(microseconds: responseReceivedAtUs - replySentAtUs),
+      );
+    }
+    return NativeHttpResponseStream.borrowed(
+      handle: handle,
+      libraryPath: response['libraryPath'] as String?,
+    );
   }
 
   void _fallbackPendingChunks() {
