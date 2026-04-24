@@ -22,36 +22,47 @@ Status: in_progress
 - The current implementation still creates a fresh `ReceivePort` for every
   direct-stream open request, so the regressing side of the path is also the
   side with per-open reply-port churn.
+- The shared reply-channel implementation is now pushed as `3f60a18`
+  (`perf(router): reuse direct-stream reply channel`).
+- The visible hosted push chain for `3f60a18` completed successfully:
+  - `CI` `24897944475`
+  - `WAMP Profile Benchmarks` `24897944543`
+- Manual hosted rerun `24898979218` on clean head `3f60a18` then stayed
+  `in_progress` far beyond the normal ~4 minute runtime while the benchmark
+  job remained stuck in `Run HTTP/2 TLS vs kTLS benchmark`.
+- A focused local repro on macOS using the same multiplex scenario without
+  Linux-only kTLS support wrote the result summary successfully but left the
+  `bench_main.dart` helper process running, which showed the regression was in
+  helper-process shutdown rather than the measurement loop.
+- Root cause: the shared `DirectStreamReplyChannel` kept a top-level
+  `RawReceivePort` open for the full isolate lifetime, so the helper isolate
+  never became idle enough to exit after the benchmark finished.
 
 ## Goals
 
-1. Replace the per-open direct-stream reply port with a shared isolate-local
-   reply channel keyed by request id.
-2. Preserve the existing benchmark metrics so the next hosted rerun can show
-   whether reply-delivery delay improved.
-3. Add focused regression coverage for reply routing, including out-of-order
-   replies on the shared channel.
-4. Keep local `bin/verify` green before pushing.
+1. Keep the shared isolate-local reply channel keyed by request id so the
+   reply-delivery optimization remains in place.
+2. Close the shared receive port automatically when the channel becomes idle so
+   helper isolates can exit cleanly after the benchmark finishes.
+3. Add focused regression coverage for both out-of-order reply routing and
+   reuse after the channel returns to an idle state.
+4. Keep local `bin/verify` green before pushing the fix.
 
 ## Planned Changes
 
-1. Add a shared direct-stream reply channel helper in the router HTTP layer
-   that owns one receive port and routes replies back to pending completers by
-   request id.
-2. Update `HttpResponseStream` direct-stream opens to use that helper instead
-   of allocating a one-shot `ReceivePort` per request.
-3. Thread the request id through the control reply map in the internal session
-   handler, including error replies.
-4. Add a focused router test for out-of-order reply routing and keep the
-   existing benchmark diagnostics intact.
+1. Make `DirectStreamReplyChannel` allocate its `RawReceivePort` lazily and
+   close it again automatically once no reply waiters remain.
+2. Preserve the current shared-channel request-id routing semantics so multiple
+   concurrent direct-stream opens still share one port while the channel is
+   busy.
+3. Extend the focused router tests to cover reuse after the channel becomes
+   idle again.
+4. Re-run the focused local HTTP/2 multiplex benchmark command and confirm the
+   helper process exits normally after writing the summary.
 
 ## Verification
 
 - `bin/test-fast`
 - `dart test packages/connectanum_router/test/direct_stream_reply_channel_test.dart -r expanded`
-- `dart test packages/connectanum_router/test/router_runtime_test.dart -r expanded`
-- `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
-- `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
-- `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
-- `python3 tool/test_ktls_http2_compare.py`
+- `CONNECTANUM_ENABLE_KTLS=0 CONNECTANUM_REQUIRE_KTLS=0 cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h2_ktls_multiplex_scaling.toml --results /tmp/connectanum-h2-local-results.jsonl --artifact-dir /tmp/connectanum-h2-local-artifacts --router-worker-counts 1 --native-runtime-thread-counts 1,4`
 - `bin/verify`

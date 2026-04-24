@@ -2,13 +2,14 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `d892676` (`build(ktls): split direct-stream control timing`)
+Last reviewed commit: `3f60a18` (`perf(router): reuse direct-stream reply channel`)
 Active exec plan: `docs/exec-plans/2026-04-24-h2-direct-stream-shared-reply-channel.md`
 
 ## Last Known Verification
 
 - `bin/test-fast`
 - `dart test packages/connectanum_router/test/direct_stream_reply_channel_test.dart -r expanded`
+- `CONNECTANUM_ENABLE_KTLS=0 CONNECTANUM_REQUIRE_KTLS=0 cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h2_ktls_multiplex_scaling.toml --results /tmp/connectanum-h2-local-results.jsonl --artifact-dir /tmp/connectanum-h2-local-artifacts --router-worker-counts 1 --native-runtime-thread-counts 1,4`
 - `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
 - `dart test packages/connectanum_router/test/router_runtime_test.dart -r expanded`
 - `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
@@ -538,7 +539,7 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-direct-stream-shared-reply-chan
   - `CI` `24893449385`
   - `kTLS Validation` `24893449381`
   - `WAMP Profile Benchmarks` `24893449378`
-- GitLab has not surfaced a pipeline for `d892676` through the current
+- GitLab has not surfaced a pipeline for `3f60a18` through the current
   token-backed query.
 - Commit `d892676` is now on both `origin` and `github`, and the visible
   GitHub push chain completed:
@@ -576,6 +577,39 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-direct-stream-shared-reply-chan
   `python3 -m py_compile tool/ktls_http2_compare.py
   tool/test_ktls_http2_compare.py`, `python3 tool/test_ktls_http2_compare.py`,
   and `bin/verify`.
+- That shared-reply-channel slice is now pushed as commit `3f60a18`
+  (`perf(router): reuse direct-stream reply channel`).
+- The visible GitHub push chain for `3f60a18` completed successfully:
+  - `CI` `24897944475`
+  - `WAMP Profile Benchmarks` `24897944543`
+- `kTLS Validation` still has not surfaced for `3f60a18` through the current
+  public Actions query.
+- Manual hosted rerun `24898979218` on clean head `3f60a18` then stayed
+  `in_progress` well past the normal runtime while the benchmark job remained
+  stuck in `Run HTTP/2 TLS vs kTLS benchmark`.
+- A focused local repro on macOS using the same multiplex scenario without the
+  Linux-only kTLS pass wrote its results successfully but left the
+  `bench_main.dart` helper process alive, which isolated the regression to
+  helper-process shutdown rather than workload execution.
+- Root cause: the shared `DirectStreamReplyChannel` kept a top-level
+  `RawReceivePort` open for the full isolate lifetime, so the helper isolate
+  never became idle enough to exit after the benchmark completed.
+- The current local working tree fixes that leak by opening the shared reply
+  port lazily and closing it again automatically once the channel has no
+  pending waiters, while preserving shared-port reuse during concurrent
+  direct-stream opens.
+- Focused local verification for that fix is green on 2026-04-24:
+  `bin/test-fast`, `dart test
+  packages/connectanum_router/test/direct_stream_reply_channel_test.dart
+  -r expanded`, and a full local HTTP/2 multiplex bench run with
+  `CONNECTANUM_ENABLE_KTLS=0 CONNECTANUM_REQUIRE_KTLS=0 cargo run --release
+  --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib
+  native/transport/target/release/libct_ffi.dylib --scenario
+  native/bench/scenarios/h2_ktls_multiplex_scaling.toml --results
+  /tmp/connectanum-h2-local-results.jsonl --artifact-dir
+  /tmp/connectanum-h2-local-artifacts --router-worker-counts 1
+  --native-runtime-thread-counts 1,4`, which now exits cleanly after writing
+  the summary instead of hanging on helper shutdown.
 - Local verification for that stream-open-to-headers-send slice is green on
   2026-04-24: `bin/test-fast`, `cargo test --manifest-path
   native/bench/Cargo.toml summarize_report_computes_latency_and_deltas --

@@ -2,16 +2,12 @@ import 'dart:async';
 import 'dart:isolate';
 
 class DirectStreamReplyChannel {
-  DirectStreamReplyChannel() : _port = RawReceivePort() {
-    _port.handler = _handleMessage;
-  }
-
-  final RawReceivePort _port;
+  RawReceivePort? _port;
   final Map<int, Completer<Map<String, Object?>>> _pending = {};
   int _nextRequestId = 1;
   bool _closed = false;
 
-  SendPort get sendPort => _port.sendPort;
+  SendPort get sendPort => _ensurePort().sendPort;
 
   Future<Map<String, Object?>> request(
     SendPort controlPort,
@@ -24,13 +20,15 @@ class DirectStreamReplyChannel {
     final completer = Completer<Map<String, Object?>>();
     _pending[replyRequestId] = completer;
     try {
+      final replyPort = _ensurePort().sendPort;
       controlPort.send({
         ...message,
-        'replyPort': sendPort,
+        'replyPort': replyPort,
         'replyRequestId': replyRequestId,
       });
     } catch (_) {
       _pending.remove(replyRequestId);
+      _closePortIfIdle();
       rethrow;
     }
     return completer.future;
@@ -48,7 +46,8 @@ class DirectStreamReplyChannel {
       }
     }
     _pending.clear();
-    _port.close();
+    _port?.close();
+    _port = null;
   }
 
   void _handleMessage(dynamic message) {
@@ -61,8 +60,29 @@ class DirectStreamReplyChannel {
     }
     final completer = _pending.remove(replyRequestId);
     if (completer == null || completer.isCompleted) {
+      _closePortIfIdle();
       return;
     }
     completer.complete(Map<String, Object?>.from(message));
+    _closePortIfIdle();
+  }
+
+  RawReceivePort _ensurePort() {
+    final existing = _port;
+    if (existing != null) {
+      return existing;
+    }
+    final port = RawReceivePort();
+    port.handler = _handleMessage;
+    _port = port;
+    return port;
+  }
+
+  void _closePortIfIdle() {
+    if (_pending.isNotEmpty) {
+      return;
+    }
+    _port?.close();
+    _port = null;
   }
 }

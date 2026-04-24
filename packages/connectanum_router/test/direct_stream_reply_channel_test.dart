@@ -62,4 +62,62 @@ void main() {
 
     await expectLater(pending, throwsStateError);
   });
+
+  test('recreates its reply port after becoming idle', () async {
+    final channel = DirectStreamReplyChannel();
+    addTearDown(channel.close);
+
+    final controlPort = ReceivePort();
+    addTearDown(controlPort.close);
+
+    final seenMessages = <Map<String, Object?>>[];
+    Completer<void>? ready;
+    int expectedMessageCount = 0;
+    Future<void> waitForMessageCount(int count) {
+      if (seenMessages.length >= count) {
+        return Future.value();
+      }
+      expectedMessageCount = count;
+      ready = Completer<void>();
+      return ready!.future;
+    }
+
+    final subscription = controlPort.listen((dynamic message) {
+      seenMessages.add(Map<String, Object?>.from(message as Map));
+      final pending = ready;
+      if (pending != null &&
+          !pending.isCompleted &&
+          seenMessages.length >= expectedMessageCount) {
+        pending.complete();
+      }
+    });
+    addTearDown(subscription.cancel);
+
+    final first = channel.request(controlPort.sendPort, {
+      'type': 'open',
+      'requestId': 1,
+    });
+    await waitForMessageCount(1);
+    final firstMessage = seenMessages.removeAt(0);
+    final firstReplyPort = firstMessage['replyPort'] as SendPort;
+    firstReplyPort.send({
+      'replyRequestId': firstMessage['replyRequestId'],
+      'handle': 1,
+    });
+    expect((await first)['handle'], 1);
+
+    final second = channel.request(controlPort.sendPort, {
+      'type': 'open',
+      'requestId': 2,
+    });
+    await waitForMessageCount(1);
+    final secondMessage = seenMessages.removeAt(0);
+    final secondReplyPort = secondMessage['replyPort'] as SendPort;
+    expect(secondReplyPort, isNot(equals(firstReplyPort)));
+    secondReplyPort.send({
+      'replyRequestId': secondMessage['replyRequestId'],
+      'handle': 2,
+    });
+    expect((await second)['handle'], 2);
+  });
 }
