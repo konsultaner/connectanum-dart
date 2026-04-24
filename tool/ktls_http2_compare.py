@@ -58,6 +58,13 @@ CONNECTION_USAGE_SUMMARY_KEYS = (
     ("samples_per_connection_avg", "Samples per opened connection"),
 )
 
+PHASE_TIMING_SUMMARY_KEYS = (
+    ("stream_acquire_wait_avg_ms", "Stream acquire wait avg"),
+    ("stream_acquire_wait_p95_ms", "Stream acquire wait p95"),
+    ("request_round_trip_avg_ms", "Request round trip avg"),
+    ("request_round_trip_p95_ms", "Request round trip p95"),
+)
+
 
 def load_summary(path: Path) -> dict:
     if not path.exists():
@@ -589,6 +596,78 @@ def build_connection_focus(rows: list[dict], packed_row: dict | None) -> dict | 
     }
 
 
+def build_phase_timing_metric_snapshot(
+    baseline_timing: dict | None, ktls_timing: dict | None, metric: str
+) -> dict | None:
+    baseline_value = None if baseline_timing is None else baseline_timing.get(metric)
+    ktls_value = None if ktls_timing is None else ktls_timing.get(metric)
+    if baseline_value is None and ktls_value is None:
+        return None
+
+    delta = None
+    delta_pct = None
+    if baseline_value is not None and ktls_value is not None:
+        delta = ktls_value - baseline_value
+        delta_pct = pct_delta(float(baseline_value), float(ktls_value))
+
+    return {
+        "baseline": baseline_value,
+        "ktls": ktls_value,
+        "delta": delta,
+        "delta_pct": delta_pct,
+    }
+
+
+def summarize_row_phase_timing(row: dict) -> dict | None:
+    baseline = row.get("baseline")
+    ktls = row.get("ktls")
+    if not baseline or not ktls:
+        return None
+
+    baseline_timing = baseline.get("http_phase_timing")
+    ktls_timing = ktls.get("http_phase_timing")
+    if baseline_timing is None and ktls_timing is None:
+        return None
+
+    metrics: dict[str, dict | None] = {}
+    signals: list[dict] = []
+    for metric, label in PHASE_TIMING_SUMMARY_KEYS:
+        snapshot = build_phase_timing_metric_snapshot(
+            baseline_timing, ktls_timing, metric
+        )
+        metrics[metric] = snapshot
+        if snapshot is None or snapshot["delta"] in (None, 0, 0.0):
+            continue
+        signals.append(
+            {
+                "metric": metric,
+                "label": label,
+                "baseline": snapshot["baseline"],
+                "ktls": snapshot["ktls"],
+                "delta": snapshot["delta"],
+                "delta_pct": snapshot["delta_pct"],
+            }
+        )
+
+    return {"metrics": metrics, "signals": signals}
+
+
+def build_phase_timing_focus(rows: list[dict], packed_row: dict | None) -> dict | None:
+    row = find_matching_row(rows, packed_row)
+    if row is None:
+        return None
+
+    phase_timing = row.get("phase_timing_summary")
+    if phase_timing is None:
+        return None
+
+    return {
+        "label": build_label(row),
+        "metrics": phase_timing["metrics"],
+        "signals": phase_timing["signals"],
+    }
+
+
 def render_pct(value: float | None) -> str:
     if value is None:
         return "n/a"
@@ -738,6 +817,20 @@ def render_connection_focus_line(name: str, focus: dict | None) -> str:
         f"streams per connection {render_connection_config_snapshot(config['streams_per_connection'])}, "
         f"connections opened {render_connection_metric_snapshot(metrics['connections_opened'])}, "
         f"samples per opened connection {render_connection_metric_snapshot(metrics['samples_per_connection_avg'])}."
+    )
+
+
+def render_phase_timing_focus_line(name: str, focus: dict | None) -> str:
+    if focus is None:
+        return f"- {name}: no HTTP phase timing metrics were present."
+
+    metrics = focus["metrics"]
+    return (
+        f"- {name}: {focus['label']} shows "
+        f"stream acquire wait avg {render_connection_metric_snapshot(metrics['stream_acquire_wait_avg_ms'])}, "
+        f"stream acquire wait p95 {render_connection_metric_snapshot(metrics['stream_acquire_wait_p95_ms'])}, "
+        f"request round trip avg {render_connection_metric_snapshot(metrics['request_round_trip_avg_ms'])}, "
+        f"request round trip p95 {render_connection_metric_snapshot(metrics['request_round_trip_p95_ms'])}."
     )
 
 
@@ -946,6 +1039,7 @@ def build_comparison(baseline_path: Path, ktls_path: Path) -> dict:
             row["delta"] = None
         row["transport_summary"] = summarize_row_transport(row)
         row["connection_usage_summary"] = summarize_row_connection_usage(row)
+        row["phase_timing_summary"] = summarize_row_phase_timing(row)
         rows.append(row)
 
     comparable_rows = [row for row in rows if row["baseline"] and row["ktls"]]
@@ -993,6 +1087,16 @@ def build_comparison(baseline_path: Path, ktls_path: Path) -> dict:
                 throughput_summary["worst_row"] if throughput_summary else None,
             ),
             "worst_latency_row": build_connection_focus(
+                rows,
+                latency_p95_summary["worst_row"] if latency_p95_summary else None,
+            ),
+        },
+        "phase_timing_focus": {
+            "worst_throughput_row": build_phase_timing_focus(
+                rows,
+                throughput_summary["worst_row"] if throughput_summary else None,
+            ),
+            "worst_latency_row": build_phase_timing_focus(
                 rows,
                 latency_p95_summary["worst_row"] if latency_p95_summary else None,
             ),
@@ -1072,6 +1176,14 @@ def render_markdown(comparison: dict) -> str:
             render_connection_focus_line(
                 "Worst p95 row connection view",
                 summary["connection_focus"]["worst_latency_row"],
+            ),
+            render_phase_timing_focus_line(
+                "Worst throughput row phase view",
+                summary["phase_timing_focus"]["worst_throughput_row"],
+            ),
+            render_phase_timing_focus_line(
+                "Worst p95 row phase view",
+                summary["phase_timing_focus"]["worst_latency_row"],
             ),
             "",
             "## Linux TLS Stats",
@@ -1205,6 +1317,46 @@ def render_markdown(comparison: dict) -> str:
 
     if not has_connection_rows:
         lines.append("| No HTTP connection usage metrics | n/a | n/a | n/a | n/a | n/a | n/a |")
+
+    lines.append("")
+    lines.extend(
+        [
+            "## HTTP Phase Timing",
+            "",
+            "| Workload | Router workers | Native runtime threads | Stream acquire wait avg ms | Stream acquire wait p95 ms | Request round trip avg ms | Request round trip p95 ms |",
+            "| --- | ---: | ---: | --- | --- | --- | --- |",
+        ]
+    )
+
+    has_phase_rows = False
+    for row in rows:
+        phase_timing = row.get("phase_timing_summary")
+        if phase_timing is None:
+            continue
+        has_phase_rows = True
+        metrics = phase_timing["metrics"]
+        lines.append(
+            "| {workload} | {router_workers} | {native_runtime_threads} | {stream_acquire_wait_avg_ms} | {stream_acquire_wait_p95_ms} | {request_round_trip_avg_ms} | {request_round_trip_p95_ms} |".format(
+                workload=row["workload"],
+                router_workers=row["router_workers"],
+                native_runtime_threads=row["native_runtime_threads"],
+                stream_acquire_wait_avg_ms=render_connection_metric_snapshot(
+                    metrics["stream_acquire_wait_avg_ms"]
+                ),
+                stream_acquire_wait_p95_ms=render_connection_metric_snapshot(
+                    metrics["stream_acquire_wait_p95_ms"]
+                ),
+                request_round_trip_avg_ms=render_connection_metric_snapshot(
+                    metrics["request_round_trip_avg_ms"]
+                ),
+                request_round_trip_p95_ms=render_connection_metric_snapshot(
+                    metrics["request_round_trip_p95_ms"]
+                ),
+            )
+        )
+
+    if not has_phase_rows:
+        lines.append("| No HTTP phase timing metrics | n/a | n/a | n/a | n/a | n/a | n/a |")
 
     lines.append("")
 

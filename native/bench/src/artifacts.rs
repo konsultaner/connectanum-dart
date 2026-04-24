@@ -6,8 +6,8 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::report::{
-    router_counter_delta, transport_counter_after, transport_counter_delta,
-    HttpConnectionUsage, WorkloadReport,
+    router_counter_delta, transport_counter_after, transport_counter_delta, HttpConnectionUsage,
+    HttpPhaseTimingSummary, WorkloadReport,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -58,6 +58,8 @@ pub struct WorkloadArtifactSummary {
     pub transport: TransportDeltaSummary,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub http_connection_usage: Option<HttpConnectionUsageSummary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub http_phase_timing: Option<HttpPhaseTimingSummary>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -591,6 +593,7 @@ pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
     };
     let http_connection_usage =
         summarize_http_connection_usage(report.http_connection_usage.as_ref(), sample_count);
+    let http_phase_timing = summarize_http_phase_timing(&report.samples);
 
     let scenario_before = report
         .scenario_metrics_before
@@ -742,6 +745,7 @@ pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
             .unwrap_or(0),
         },
         http_connection_usage,
+        http_phase_timing,
     }
 }
 
@@ -758,6 +762,40 @@ fn summarize_http_connection_usage(
         } else {
             sample_count as f64 / usage.connections_opened as f64
         },
+    })
+}
+
+fn summarize_http_phase_timing(
+    samples: &[crate::report::WorkloadSample],
+) -> Option<HttpPhaseTimingSummary> {
+    let mut stream_acquire_waits = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .map(|timing| timing.stream_acquire_wait_ms)
+        .collect::<Vec<_>>();
+    if stream_acquire_waits.is_empty() {
+        return None;
+    }
+
+    let mut request_round_trips = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .map(|timing| timing.request_round_trip_ms)
+        .collect::<Vec<_>>();
+
+    stream_acquire_waits.sort_by(|left, right| left.total_cmp(right));
+    request_round_trips.sort_by(|left, right| left.total_cmp(right));
+
+    let stream_acquire_wait_avg_ms =
+        stream_acquire_waits.iter().sum::<f64>() / stream_acquire_waits.len() as f64;
+    let request_round_trip_avg_ms =
+        request_round_trips.iter().sum::<f64>() / request_round_trips.len() as f64;
+
+    Some(HttpPhaseTimingSummary {
+        stream_acquire_wait_avg_ms,
+        stream_acquire_wait_p95_ms: percentile(&stream_acquire_waits, 0.95),
+        request_round_trip_avg_ms,
+        request_round_trip_p95_ms: percentile(&request_round_trips, 0.95),
     })
 }
 
@@ -830,9 +868,7 @@ pub fn render_prometheus_metrics(
     output.push_str(
         "# HELP connectanum_bench_artifact_workload_http_connection_usage HTTP connection usage observed for a workload\n",
     );
-    output.push_str(
-        "# TYPE connectanum_bench_artifact_workload_http_connection_usage gauge\n",
-    );
+    output.push_str("# TYPE connectanum_bench_artifact_workload_http_connection_usage gauge\n");
 
     for summary in summaries {
         let router_workers = summary.router_workers.to_string();
@@ -1242,7 +1278,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::report::{WorkloadReport, WorkloadSample};
+    use crate::report::{HttpPhaseTimingSample, WorkloadReport, WorkloadSample};
 
     fn metrics(
         invocations: i64,
@@ -1367,6 +1403,7 @@ mod tests {
                 streams_per_connection: 4,
                 connections_opened: 2,
             }),
+            http_phase_timing: None,
             samples: vec![
                 WorkloadSample {
                     worker: 0,
@@ -1374,6 +1411,10 @@ mod tests {
                     latency_ms: 10.0,
                     request_bytes: 100,
                     response_bytes: 200,
+                    http_phase_timing: Some(HttpPhaseTimingSample {
+                        stream_acquire_wait_ms: 1.0,
+                        request_round_trip_ms: 9.0,
+                    }),
                 },
                 WorkloadSample {
                     worker: 1,
@@ -1381,6 +1422,10 @@ mod tests {
                     latency_ms: 20.0,
                     request_bytes: 100,
                     response_bytes: 400,
+                    http_phase_timing: Some(HttpPhaseTimingSample {
+                        stream_acquire_wait_ms: 3.0,
+                        request_round_trip_ms: 17.0,
+                    }),
                 },
                 WorkloadSample {
                     worker: 1,
@@ -1388,6 +1433,10 @@ mod tests {
                     latency_ms: 30.0,
                     request_bytes: 100,
                     response_bytes: 600,
+                    http_phase_timing: Some(HttpPhaseTimingSample {
+                        stream_acquire_wait_ms: 5.0,
+                        request_round_trip_ms: 25.0,
+                    }),
                 },
             ],
         }
@@ -1446,6 +1495,11 @@ mod tests {
         assert_eq!(connection_usage.streams_per_connection, 4);
         assert_eq!(connection_usage.connections_opened, 2);
         assert!((connection_usage.samples_per_connection_avg - 1.5).abs() < f64::EPSILON);
+        let phase_timing = summary.http_phase_timing.unwrap();
+        assert!((phase_timing.stream_acquire_wait_avg_ms - 3.0).abs() < f64::EPSILON);
+        assert!((phase_timing.stream_acquire_wait_p95_ms - 5.0).abs() < f64::EPSILON);
+        assert!((phase_timing.request_round_trip_avg_ms - 17.0).abs() < f64::EPSILON);
+        assert!((phase_timing.request_round_trip_p95_ms - 25.0).abs() < f64::EPSILON);
         assert!((summary.latency_avg_ms - 20.0).abs() < f64::EPSILON);
         assert!((summary.latency_p95_ms - 30.0).abs() < f64::EPSILON);
     }

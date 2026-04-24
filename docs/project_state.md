@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `257f9aa` (`build(ktls): add multiplex diagnostic controls`)
-Active exec plan: `docs/exec-plans/2026-04-24-h2-connection-usage-hosted-rerun.md`
+Last reviewed commit: `55f23d3` (`build(ktls): capture http connection usage`)
+Active exec plan: `docs/exec-plans/2026-04-24-h2-phase-timing-hosted-rerun.md`
 
 ## Last Known Verification
 
@@ -243,24 +243,31 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-connection-usage-hosted-rerun.m
 - That rerun also confirms the old kernel-path question is closed for this
   scenario too: required-kTLS opened software TX/RX sessions cleanly
   (`TlsTxSw/TlsRxSw 66/66`) with no decrypt or rekey anomalies.
-- That connection-usage instrumentation slice is now complete on the local
-  working tree too. The native HTTP bench path now records optional
-  `http_connection_usage` fields in workload reports, transformed artifact
-  bundles derive `samples_per_connection_avg`, the console summary prints
-  connection-open counts for HTTP workloads, and
-  `tool/ktls_http2_compare.py` now renders worst-row connection views plus a
-  dedicated `HTTP Connection Usage` section for comparable rows.
-- The next active kTLS slice is therefore to push that instrumentation on a
-  clean head and rerun the focused hosted multiplex-scaling benchmark, because
-  the remaining question is now whether required-kTLS opens more HTTP
-  connections under load or whether connection reuse stays stable and the
-  hotspot lies elsewhere.
-- Local verification for the connection-usage instrumentation slice is green
-  on 2026-04-24: `bin/test-fast`, `cargo test --manifest-path
+- That connection-usage instrumentation slice is now complete on the pushed
+  branch head too. Commit `55f23d3` passed hosted push `CI`
+  (`24872329789`), `kTLS Validation` (`24872329782`), and
+  `WAMP Profile Benchmarks` (`24872329792`) before the focused manual rerun.
+- Manual workflow run `24872903498` then exercised the same focused scenario
+  with the new connection section enabled, and it ruled out connection churn:
+  every comparable row held `connections_opened` flat at `4 -> 4 (+0)`, and
+  every row held `samples_per_connection_avg` flat at
+  `20.00 -> 20.00 (+0.00)`.
+- That hosted rerun leaves the same workload shape as the unresolved hotspot:
+  `h2_multiplexed_streams_s16` at `threads=4` is still the worst throughput
+  row (`-65.14%`), and `h2_multiplexed_streams_s8` at `threads=4` is still the
+  worst p95 row (`+423.24%`).
+- The next bounded kTLS slice is therefore HTTP phase timing, not more
+  connection accounting. The local working tree now records optional HTTP
+  phase-timing samples on the HTTP/2 client path, the transformed artifact
+  summary carries aggregate stream-acquire and request-round-trip timing, and
+  `tool/ktls_http2_compare.py` now renders worst-row phase views plus a
+  dedicated `HTTP Phase Timing` section.
+- Local verification for the phase-timing instrumentation slice is green on
+  2026-04-24: `bin/test-fast`, `cargo test --manifest-path
   native/bench/Cargo.toml -- --nocapture`,
   `python3 -m py_compile tool/ktls_http2_compare.py
-  tool/test_ktls_http2_compare.py`, `python3 tool/test_ktls_http2_compare.py`,
-  and `bin/verify` all passed.
+  tool/test_ktls_http2_compare.py`,
+  `python3 tool/test_ktls_http2_compare.py`, and `bin/verify`.
 - Local verification for the current kTLS transport-delta follow-up is green
   on 2026-04-24: `bin/test-fast`,
   `python3 -m py_compile tool/ktls_http2_compare.py

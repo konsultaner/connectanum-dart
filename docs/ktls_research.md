@@ -376,6 +376,40 @@ whether required-kTLS is opening materially more HTTP connections than the
 baseline pass, or whether the regression persists even when the new
 connection-usage metrics stay flat.
 
+### Hosted Connection Usage Result
+
+That rerun has now landed as workflow run `24872903498` on commit `55f23d3`,
+and it closed the connection-churn hypothesis:
+
+- every comparable row held `connections_opened` flat at `4 -> 4 (+0)`
+- every comparable row held `samples_per_connection_avg` flat at
+  `20.00 -> 20.00 (+0.00)`
+- the dominant hotspot stayed on the same reused-connection HTTP/2 multiplex
+  rows:
+  - worst throughput row:
+    `h2_multiplexed_streams_s16`, `threads=4` (`-65.14%`)
+  - worst p95 row:
+    `h2_multiplexed_streams_s8`, `threads=4` (`+423.24%`)
+
+That means the current regression is not explained by extra HTTP connection
+opens or weaker connection reuse under required-kTLS.
+
+### Phase Timing Instrumentation
+
+The next visibility slice is now landed locally too:
+
+- the native HTTP bench path records optional per-sample HTTP phase timing on
+  the HTTP/2 client path
+- transformed artifact summaries now carry aggregate
+  `stream_acquire_wait_*` and `request_round_trip_*` timing
+- the comparison helper now renders worst-row phase views plus a dedicated
+  `HTTP Phase Timing` section
+
+That sets up the next hosted rerun to answer a sharper question than either
+the transport counters or the connection section could answer:
+whether the remaining hotspot is dominated by stream-slot acquisition or by
+the post-acquire request round trip.
+
 ### What Not To Overclaim
 
 - macOS results are irrelevant for kTLS itself.
@@ -414,8 +448,8 @@ blind generic instrumentation:
   rerun, with an explicit scenario policy once thresholds are understood or
   `skip_artifact_gate=true` while the run is still purely investigative
 - rerun the focused multiplex-scaling workflow on a clean head with the new
-  connection section enabled, then use that output to decide whether the next
-  slice should target connection churn, deeper Linux-side runtime
+  phase-timing section enabled, then use that output to decide whether the
+  next slice should target stream-slot acquisition, deeper Linux-side runtime
   instrumentation, or an HTTP/2 request-path hypothesis
 
 That is the smallest next milestone that improves decision quality without

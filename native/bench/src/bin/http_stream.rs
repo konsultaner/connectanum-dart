@@ -49,7 +49,8 @@ use url::Url;
 use connectanum_bench_orchestrator::artifacts::summarize_report;
 use connectanum_bench_orchestrator::artifacts::{write_artifact_bundle, WorkloadArtifactSummary};
 use connectanum_bench_orchestrator::report::{
-    router_counter_delta, HttpConnectionUsage, WorkloadReport, WorkloadSample,
+    router_counter_delta, HttpConnectionUsage, HttpPhaseTimingSample, WorkloadReport,
+    WorkloadSample,
 };
 
 type H3RequestSender = h3::client::SendRequest<h3_quinn::OpenStreams, Bytes>;
@@ -391,6 +392,7 @@ fn run_bench_suite(
                     scenario_open_metrics_before: scenario_open_metrics_before.clone(),
                     scenario_open_metrics_after: scenario_open_metrics_after.clone(),
                     http_connection_usage: execution.http_connection_usage.clone(),
+                    http_phase_timing: summarize_http_phase_timing(&execution.samples),
                     samples: execution.samples,
                 };
                 print_workload_summary(&report, &prepared);
@@ -1515,6 +1517,16 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
                 samples_per_connection
             );
         }
+        if let Some(phase_timing) = &report.http_phase_timing {
+            println!(
+                "  HTTP stream acquire wait avg/p95: {:.2} / {:.2} ms",
+                phase_timing.stream_acquire_wait_avg_ms, phase_timing.stream_acquire_wait_p95_ms
+            );
+            println!(
+                "  HTTP request round trip avg/p95: {:.2} / {:.2} ms",
+                phase_timing.request_round_trip_avg_ms, phase_timing.request_round_trip_p95_ms
+            );
+        }
     }
 }
 
@@ -1534,6 +1546,48 @@ fn now_millis() -> u128 {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis())
         .unwrap_or(0)
+}
+
+fn summarize_http_phase_timing(
+    samples: &[WorkloadSample],
+) -> Option<connectanum_bench_orchestrator::report::HttpPhaseTimingSummary> {
+    let mut stream_acquire_waits = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .map(|timing| timing.stream_acquire_wait_ms)
+        .collect::<Vec<_>>();
+    if stream_acquire_waits.is_empty() {
+        return None;
+    }
+
+    let mut request_round_trips = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .map(|timing| timing.request_round_trip_ms)
+        .collect::<Vec<_>>();
+
+    stream_acquire_waits.sort_by(|left, right| left.total_cmp(right));
+    request_round_trips.sort_by(|left, right| left.total_cmp(right));
+
+    Some(
+        connectanum_bench_orchestrator::report::HttpPhaseTimingSummary {
+            stream_acquire_wait_avg_ms: stream_acquire_waits.iter().sum::<f64>()
+                / stream_acquire_waits.len() as f64,
+            stream_acquire_wait_p95_ms: percentile(&stream_acquire_waits, 0.95),
+            request_round_trip_avg_ms: request_round_trips.iter().sum::<f64>()
+                / request_round_trips.len() as f64,
+            request_round_trip_p95_ms: percentile(&request_round_trips, 0.95),
+        },
+    )
+}
+
+fn percentile(values: &[f64], quantile: f64) -> f64 {
+    if values.is_empty() {
+        return 0.0;
+    }
+    let quantile = quantile.clamp(0.0, 1.0);
+    let index = ((values.len() - 1) as f64 * quantile).round() as usize;
+    values[index]
 }
 
 fn split_metrics_payload(mut value: Value) -> (Value, Option<String>) {
@@ -1661,6 +1715,7 @@ async fn run_rawsocket_auth_frame_iteration(
                     latency_ms: start.elapsed().as_secs_f64() * 1000.0,
                     request_bytes,
                     response_bytes,
+                    http_phase_timing: None,
                 });
             }
             if challenge_type != 4 {
@@ -1675,6 +1730,7 @@ async fn run_rawsocket_auth_frame_iteration(
                     latency_ms: start.elapsed().as_secs_f64() * 1000.0,
                     request_bytes,
                     response_bytes,
+                    http_phase_timing: None,
                 });
             }
             if challenge_type != 4 {
@@ -1692,6 +1748,7 @@ async fn run_rawsocket_auth_frame_iteration(
             latency_ms: start.elapsed().as_secs_f64() * 1000.0,
             request_bytes,
             response_bytes,
+            http_phase_timing: None,
         });
     }
 
@@ -1718,6 +1775,7 @@ async fn run_rawsocket_auth_frame_iteration(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes,
         response_bytes,
+        http_phase_timing: None,
     })
 }
 
@@ -2373,6 +2431,7 @@ async fn run_h1_auth_worker(
                     latency_ms: start.elapsed().as_secs_f64() * 1000.0,
                     request_bytes,
                     response_bytes,
+                    http_phase_timing: None,
                 }
             }
         };
@@ -2446,6 +2505,7 @@ async fn run_h2_auth_worker(
                     latency_ms: start.elapsed().as_secs_f64() * 1000.0,
                     request_bytes,
                     response_bytes,
+                    http_phase_timing: None,
                 }
             }
         };
@@ -2527,6 +2587,7 @@ async fn run_h3_auth_worker(
                     latency_ms: start.elapsed().as_secs_f64() * 1000.0,
                     request_bytes,
                     response_bytes,
+                    http_phase_timing: None,
                 }
             }
         };
@@ -3236,6 +3297,7 @@ async fn h1_login_iteration(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: request1 + request2,
         response_bytes: challenge_bytes + success_bytes,
+        http_phase_timing: None,
     })
 }
 
@@ -3277,6 +3339,7 @@ async fn h2_login_iteration(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: request1 + request2,
         response_bytes: challenge_bytes + success_bytes,
+        http_phase_timing: None,
     })
 }
 
@@ -3318,6 +3381,7 @@ async fn h3_login_iteration(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: request1 + request2,
         response_bytes: challenge_bytes + success_bytes,
+        http_phase_timing: None,
     })
 }
 
@@ -3792,6 +3856,7 @@ async fn send_h1_request(
         latency_ms,
         request_bytes: sent,
         response_bytes: received,
+        http_phase_timing: None,
     })
 }
 
@@ -3830,6 +3895,7 @@ async fn send_h1_protected_request(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: sent,
         response_bytes: response.body.len() as u64,
+        http_phase_timing: None,
     })
 }
 
@@ -3860,10 +3926,12 @@ async fn send_h2_request(
     worker_id: u32,
     iteration: u32,
 ) -> Result<WorkloadSample> {
+    let ready_start = Instant::now();
     let mut sender = sender
         .ready()
         .await
         .context("HTTP/2 sender not ready for a new stream")?;
+    let stream_acquire_wait_ms = ready_start.elapsed().as_secs_f64() * 1000.0;
     let request = build_h2_request(endpoint, workload)?;
     let start = Instant::now();
     let end_stream = request_body.is_empty();
@@ -3890,6 +3958,10 @@ async fn send_h2_request(
         latency_ms,
         request_bytes: workload.request_bytes,
         response_bytes: received,
+        http_phase_timing: Some(HttpPhaseTimingSample {
+            stream_acquire_wait_ms,
+            request_round_trip_ms: latency_ms,
+        }),
     })
 }
 
@@ -3943,6 +4015,7 @@ async fn send_h2_protected_request(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: workload.request_bytes,
         response_bytes: response.body.len() as u64,
+        http_phase_timing: None,
     })
 }
 
@@ -4128,6 +4201,7 @@ async fn send_h3_request(
         latency_ms,
         request_bytes: sent,
         response_bytes: received,
+        http_phase_timing: None,
     })
 }
 
@@ -4238,6 +4312,7 @@ async fn send_h3_protected_request(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: sent,
         response_bytes: received.len() as u64,
+        http_phase_timing: None,
     })
 }
 
@@ -4316,6 +4391,7 @@ mod tests {
             latency_ms: 0.0,
             request_bytes: 0,
             response_bytes: 0,
+            http_phase_timing: None,
         }
     }
 
@@ -4402,6 +4478,7 @@ mod tests {
             scenario_open_metrics_before: None,
             scenario_open_metrics_after: None,
             http_connection_usage: None,
+            http_phase_timing: None,
             samples: vec![sample(0)],
         };
 

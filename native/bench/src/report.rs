@@ -8,6 +8,8 @@ pub struct WorkloadSample {
     pub latency_ms: f64,
     pub request_bytes: u64,
     pub response_bytes: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub http_phase_timing: Option<HttpPhaseTimingSample>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -15,6 +17,20 @@ pub struct HttpConnectionUsage {
     pub reuse_connections: bool,
     pub streams_per_connection: u32,
     pub connections_opened: u32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct HttpPhaseTimingSample {
+    pub stream_acquire_wait_ms: f64,
+    pub request_round_trip_ms: f64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct HttpPhaseTimingSummary {
+    pub stream_acquire_wait_avg_ms: f64,
+    pub stream_acquire_wait_p95_ms: f64,
+    pub request_round_trip_avg_ms: f64,
+    pub request_round_trip_p95_ms: f64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -48,6 +64,8 @@ pub struct WorkloadReport {
     pub scenario_open_metrics_after: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub http_connection_usage: Option<HttpConnectionUsage>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub http_phase_timing: Option<HttpPhaseTimingSummary>,
     pub samples: Vec<WorkloadSample>,
 }
 

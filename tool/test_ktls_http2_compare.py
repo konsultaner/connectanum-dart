@@ -49,6 +49,10 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         ),
                         connections_opened=4,
                         samples_per_connection_avg=8.0,
+                        stream_acquire_wait_avg_ms=0.8,
+                        stream_acquire_wait_p95_ms=1.4,
+                        request_round_trip_avg_ms=27.2,
+                        request_round_trip_p95_ms=32.5,
                     ),
                 ],
             )
@@ -82,6 +86,10 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         ),
                         connections_opened=5,
                         samples_per_connection_avg=6.4,
+                        stream_acquire_wait_avg_ms=7.6,
+                        stream_acquire_wait_p95_ms=12.1,
+                        request_round_trip_avg_ms=142.0,
+                        request_round_trip_p95_ms=220.0,
                     ),
                 ],
             )
@@ -185,16 +193,24 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                 ]["connections_opened"]["delta"],
                 1,
             )
+            self.assertAlmostEqual(
+                comparison["summary"]["phase_timing_focus"]["worst_throughput_row"][
+                    "metrics"
+                ]["stream_acquire_wait_avg_ms"]["delta"],
+                6.8,
+            )
 
             markdown = compare.render_markdown(comparison)
             self.assertIn("## Group Rollups", markdown)
             self.assertIn("## HTTP Connection Usage", markdown)
+            self.assertIn("## HTTP Phase Timing", markdown)
             self.assertIn("## Linux TLS Stats", markdown)
             self.assertIn("## Transport Counter Deltas", markdown)
             self.assertIn("Workload-family investigation focus", markdown)
             self.assertIn("Runtime-thread investigation focus", markdown)
             self.assertIn("Worst throughput row transport view", markdown)
             self.assertIn("Worst throughput row connection view", markdown)
+            self.assertIn("Worst throughput row phase view", markdown)
             self.assertIn(
                 "Linux TLS session opens: baseline software TX/RX 0/0, device TX/RX 0/0; kTLS software TX/RX 4/4, device TX/RX 0/0.",
                 markdown,
@@ -210,6 +226,7 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("Elapsed wall time: baseline 12.50s, kTLS 14.00s", markdown)
             self.assertIn("82 -> 97 (+15)", markdown)
             self.assertIn("connections opened 4 -> 5 (+1)", markdown)
+            self.assertIn("stream acquire wait avg 0.80 -> 7.60 (+6.80)", markdown)
 
     def test_transport_focus_reports_signal_gap_for_hotspot_row(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -324,6 +341,10 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         streams_per_connection: int = 1,
         reuse_connections: bool = True,
         samples_per_connection_avg: float = 8.0,
+        stream_acquire_wait_avg_ms: float | None = 0.4,
+        stream_acquire_wait_p95_ms: float | None = 0.8,
+        request_round_trip_avg_ms: float | None = 7.6,
+        request_round_trip_p95_ms: float | None = 10.8,
     ) -> dict:
         return {
             "scenario": "h2_ktls_benchmark",
@@ -341,6 +362,16 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                 "connections_opened": connections_opened,
                 "samples_per_connection_avg": samples_per_connection_avg,
             },
+            "http_phase_timing": (
+                None
+                if stream_acquire_wait_avg_ms is None
+                else {
+                    "stream_acquire_wait_avg_ms": stream_acquire_wait_avg_ms,
+                    "stream_acquire_wait_p95_ms": stream_acquire_wait_p95_ms,
+                    "request_round_trip_avg_ms": request_round_trip_avg_ms,
+                    "request_round_trip_p95_ms": request_round_trip_p95_ms,
+                }
+            ),
         }
 
     @staticmethod

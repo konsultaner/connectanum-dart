@@ -1,6 +1,6 @@
 # HTTP/2 Connection Usage Hosted Rerun
 
-Status: in_progress
+Status: completed
 
 ## Context
 
@@ -38,3 +38,25 @@ Status: in_progress
 - `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
 - `python3 tool/test_ktls_http2_compare.py`
 - `bin/verify`
+
+## Outcome
+
+- Commit `55f23d3` (`build(ktls): capture http connection usage`) cleared the
+  hosted push chain:
+  - `CI` `24872329789`
+  - `kTLS Validation` `24872329782`
+  - `WAMP Profile Benchmarks` `24872329792`
+- Manual hosted run `24872903498` (`kTLS HTTP/2 Benchmarks`) then reran
+  `native/bench/scenarios/h2_ktls_multiplex_scaling.toml` on that clean head.
+- The new connection section ruled out connection churn as the bottleneck:
+  every comparable row held `connections_opened` flat at `4 -> 4 (+0)`, and
+  every row held `samples_per_connection_avg` flat at `20.00 -> 20.00 (+0.00)`.
+- The remaining hotspot is still the reused-connection HTTP/2 multiplex path,
+  especially at `threads=4`:
+  - worst throughput row:
+    `h2_multiplexed_streams_s16` at `threads=4` (`-65.14%`)
+  - worst p95 row:
+    `h2_multiplexed_streams_s8` at `threads=4` (`+423.24%`)
+- The current transport counters still do not explain that gap cleanly, so the
+  next bounded diagnostic slice is HTTP phase timing rather than more
+  connection accounting.
