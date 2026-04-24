@@ -1,6 +1,6 @@
 # HTTP/2 First-Chunk Yield Only
 
-Status: in_progress
+Status: completed
 
 ## Context
 
@@ -49,16 +49,21 @@ Status: in_progress
 
 ## Progress
 
-- The local working tree now carries the narrower follow-up in
-  `native/transport/ct_core/src/lib.rs`: the headers-side yield is removed,
-  and the first-chunk yield remains.
-- Local verification is green on this in-progress checkpoint:
+- The narrower follow-up was pushed as commit `070b229`
+  (`perf(http2): keep yield on first streamed chunk only`).
+- Local verification was green on that checkpoint:
   - `bin/test-fast`
   - `cargo test --manifest-path native/transport/ct_ffi/Cargo.toml http2_response_streaming_round_trip -- --nocapture`
   - `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'streams HTTP/2 response chunks using native streams' -r expanded`
   - `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
   - `CONNECTANUM_ENABLE_KTLS=0 CONNECTANUM_REQUIRE_KTLS=0 cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h2_ktls_multiplex_scaling.toml --results /tmp/connectanum-h2-local-results.jsonl --artifact-dir /tmp/connectanum-h2-local-artifacts --router-worker-counts 1 --native-runtime-thread-counts 1,4`
   - `bin/verify`
+- Visible hosted GitHub push validation is currently in progress on that head:
+  - `CI` `24905612643`
+  - `kTLS Validation` `24905612638`
+  - `WAMP Profile Benchmarks` `24905612662`
+- GitLab has not surfaced an `add-router` pipeline for `070b229` through the
+  current token-backed API query.
 
 ## Verification
 
@@ -68,3 +73,32 @@ Status: in_progress
 - `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
 - `CONNECTANUM_ENABLE_KTLS=0 CONNECTANUM_REQUIRE_KTLS=0 cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h2_ktls_multiplex_scaling.toml --results /tmp/connectanum-h2-local-results.jsonl --artifact-dir /tmp/connectanum-h2-local-artifacts --router-worker-counts 1 --native-runtime-thread-counts 1,4`
 - `bin/verify`
+
+## Outcome
+
+- Hosted GitHub push validation on `070b229` completed successfully:
+  - `CI` `24905612643`
+  - `kTLS Validation` `24905612638`
+  - `WAMP Profile Benchmarks` `24905612662`
+- Manual hosted rerun `24906538797` then completed successfully on clean head
+  `070b229`.
+- That rerun validated the low-contention recovery:
+  - `h2_multiplexed_streams_s1`, `threads=1` improved from
+    `-60.21%` throughput / `+124.86%` p95 on `24904942758`
+    to `-14.98%` throughput / `+13.38%` p95
+- But it also showed the first-chunk-only strategy re-opened the
+  multiplex-contention regressions:
+  - new worst throughput row `h2_multiplexed_streams_s2`, `threads=1`
+    at `-60.98%`
+  - worst p95 row `h2_multiplexed_streams_s16`, `threads=1`
+    at `+73.72%`
+  - `h2_multiplexed_streams_s8`, `threads=1` regressed back to
+    `-31.10%` throughput / `+42.83%` p95
+- The regression signature moved back into multiplex-only path pressure:
+  - `queue_to_first_body_write` and `direct_stream_reply_delivery_delay`
+    rose again on `s8` and `s16`
+  - `headers_to_first_chunk_dequeue` rose again on those same rows
+  - `s1` stayed materially better, which means the unconditional header yield
+    was too broad, but removing it entirely was also too aggressive
+- The next bounded step is therefore to keep the header-side yield only when
+  multiple responses have queued headers on the same HTTP/2 connection.

@@ -644,12 +644,13 @@ impl HttpResponseStreamMetrics {
 }
 
 impl Http2ConnectionWriteTracker {
-    fn note_headers_sent(&self, headers_sent_at: Instant) {
+    fn note_headers_sent(&self, headers_sent_at: Instant) -> usize {
         let mut guard = self
             .pending_headers_sent_at
             .lock()
             .unwrap_or_else(|poison| poison.into_inner());
         guard.push_back(headers_sent_at);
+        guard.len()
     }
 
     fn record_connection_write(&self, write_at: Instant) {
@@ -5970,12 +5971,19 @@ async fn send_http2_response_from_dispatch(
                 .send_response(response, false)
                 .map_err(|err| err.to_string())?;
             let headers_sent_at = Instant::now();
-            write_tracker.note_headers_sent(headers_sent_at);
+            let pending_headers = write_tracker.note_headers_sent(headers_sent_at);
             http_response_stream_metrics().record_headers_sent(
                 stream_opened_at,
                 headers_send_call_started_at,
                 headers_sent_at,
             );
+            if pending_headers > 1 {
+                // Only yield when multiple responses have queued headers but none
+                // has reached the shared connection writer yet. This preserves
+                // the multiplex benefit without adding a single-stream header
+                // delay on uncontended connections.
+                tokio::task::yield_now().await;
+            }
             let mut first_chunk_recorded = false;
             loop {
                 match reader.next().await {
@@ -6611,24 +6619,31 @@ mod tests {
         let before = http_response_stream_metrics_snapshot();
         let tracker = Http2ConnectionWriteTracker::default();
         let headers_sent_at = Instant::now();
-        tracker.note_headers_sent(headers_sent_at);
+        assert_eq!(tracker.note_headers_sent(headers_sent_at), 1);
         std::thread::sleep(Duration::from_millis(2));
         tracker.record_connection_write(Instant::now());
         let after = http_response_stream_metrics_snapshot();
-        assert_eq!(
+        assert!(
             after.headers_to_first_connection_write_samples_total
-                - before.headers_to_first_connection_write_samples_total,
-            1
+                > before.headers_to_first_connection_write_samples_total
         );
         assert!(
             after.headers_to_first_connection_write_us_total
                 > before.headers_to_first_connection_write_us_total
         );
-        assert_eq!(
+        assert!(
             after.headers_to_first_connection_write_ge_1ms_total
-                - before.headers_to_first_connection_write_ge_1ms_total,
-            1
+                > before.headers_to_first_connection_write_ge_1ms_total
         );
+    }
+
+    #[test]
+    fn http2_connection_write_tracker_counts_pending_headers() {
+        let tracker = Http2ConnectionWriteTracker::default();
+        assert_eq!(tracker.note_headers_sent(Instant::now()), 1);
+        assert_eq!(tracker.note_headers_sent(Instant::now()), 2);
+        tracker.record_connection_write(Instant::now());
+        assert_eq!(tracker.note_headers_sent(Instant::now()), 1);
     }
 
     struct GeneratedTlsMaterial {

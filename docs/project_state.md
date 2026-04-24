@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `c21172f` (`perf(http2): yield streamed response driver turns`)
-Active exec plan: `docs/exec-plans/2026-04-24-h2-first-chunk-yield-only.md`
+Last reviewed commit: `070b229` (`perf(http2): keep yield on first streamed chunk only`)
+Active exec plan: `docs/exec-plans/2026-04-24-h2-multiplex-aware-header-yield.md`
 
 ## Last Known Verification
 
@@ -12,6 +12,10 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-first-chunk-yield-only.md`
 - Hosted GitHub push runs on `c21172f` completed successfully:
   `CI` `24903966470`, `kTLS Validation` `24903966478`,
   `WAMP Profile Benchmarks` `24903966456`
+- Hosted GitHub push runs on `070b229` completed successfully:
+  `CI` `24905612643`, `kTLS Validation` `24905612638`,
+  `WAMP Profile Benchmarks` `24905612662`
+- Manual hosted `kTLS HTTP/2 Benchmarks` rerun `24906538797`
 - Manual hosted `kTLS HTTP/2 Benchmarks` rerun `24904942758`
 - Manual hosted `kTLS HTTP/2 Benchmarks` rerun `24903103241`
 - `cargo test --manifest-path native/transport/ct_ffi/Cargo.toml http2_response_streaming_round_trip -- --nocapture`
@@ -94,11 +98,32 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-first-chunk-yield-only.md`
   - that new worst row regressed on `response headers wait` while
     `response body first chunk wait` improved, which implicates the
     unconditional headers-side yield rather than the first-chunk yield
-- The current local working tree therefore carries the narrower follow-up in
-  `native/transport/ct_core/src/lib.rs`: remove the headers-side yield and
-  keep only the first-chunk yield before the next hosted rerun.
-- Full local verification is green on that narrower follow-up, including
-  `bin/verify`.
+- That narrowed follow-up is now pushed as commit `070b229`
+  (`perf(http2): keep yield on first streamed chunk only`), and its GitHub
+  push chain completed successfully.
+- Manual hosted rerun `24906538797` on clean head `070b229` showed the
+  low-contention fix was real but incomplete:
+  - `h2_multiplexed_streams_s1`, `threads=1` improved to
+    `-14.98%` throughput / `+13.38%` p95
+  - but `h2_multiplexed_streams_s2`, `threads=1` became the new worst
+    throughput row at `-60.98%`
+  - and `h2_multiplexed_streams_s16`, `threads=1` became the new worst p95 row
+    at `+73.72%`
+  - `h2_multiplexed_streams_s8`, `threads=1` regressed back to
+    `-31.10%` throughput / `+42.83%` p95
+- That outcome narrows the next local follow-up now on the working tree in
+  `native/transport/ct_core/src/lib.rs`: keep the header-side yield only when
+  multiple streamed responses have queued headers on the same HTTP/2
+  connection, while still keeping the first-chunk yield.
+- Focused local verification is green on that multiplex-aware follow-up:
+  - `bin/test-fast`
+  - `cargo test --manifest-path native/transport/ct_core/Cargo.toml http2_connection_write_tracker -- --nocapture`
+  - `cargo test --manifest-path native/transport/ct_ffi/Cargo.toml http2_response_streaming_round_trip -- --nocapture`
+  - `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'streams HTTP/2 response chunks using native streams' -r expanded`
+  - `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
+  - `CONNECTANUM_ENABLE_KTLS=0 CONNECTANUM_REQUIRE_KTLS=0 cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h2_ktls_multiplex_scaling.toml --results /tmp/connectanum-h2-local-results.jsonl --artifact-dir /tmp/connectanum-h2-local-artifacts --router-worker-counts 1 --native-runtime-thread-counts 1,4`
+- GitLab has not surfaced an `add-router` pipeline for `070b229` through the
+  current token-backed API query.
 - `packages/connectanum_core` is approved as a design reference for MCP package
   shape: typed protocol models, serializer-independent boundaries, explicit
   errors, small barrel exports, and focused tests. Reuse the style, not WAMP
