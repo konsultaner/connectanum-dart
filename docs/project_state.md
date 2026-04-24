@@ -2,11 +2,14 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `a2e7f81` (`perf(http2): yield on header contention only`)
+Last reviewed commit: `d66a72d` (`build(ktls): add repeat stability reporting`)
 Active exec plan: `docs/exec-plans/2026-04-24-ktls-repeat-stability.md`
 
 ## Last Known Verification
 
+- Hosted GitHub push runs on `d66a72d` completed successfully:
+  `CI` `24910233897`, `kTLS Validation` `24910233859`,
+  `WAMP Profile Benchmarks` `24910233901`
 - Hosted GitHub push runs on `25b2b7a` completed successfully:
   `CI` `24902101047`, `WAMP Profile Benchmarks` `24902101976`
 - Hosted GitHub push runs on `c21172f` completed successfully:
@@ -149,18 +152,45 @@ Active exec plan: `docs/exec-plans/2026-04-24-ktls-repeat-stability.md`
     `h2_multiplexed_streams_s2`, `threads=4` at `-83.11%`
   - worst p95 row also moved to
     `h2_multiplexed_streams_s2`, `threads=4` at `+1316.65%`
-- The current local working tree therefore carries the next bounded slice in
-  the benchmark tooling rather than the transport runtime:
-  - `bin/ktls-http2-bench` now supports `--repeat-count <n>`
-  - `.github/workflows/ktls-http2-benchmarks.yml` exposes the same
+- The repeat-stability tooling is now pushed as commit `d66a72d`
+  (`build(ktls): add repeat stability reporting`):
+  - `bin/ktls-http2-bench` supports `--repeat-count <n>`
+  - `.github/workflows/ktls-http2-benchmarks.yml` exposes the matching
     `repeat_count` input
-  - `tool/ktls_http2_compare_repeats.py` now aggregates repeated comparisons
-    into one repeat-stability report that marks the hosted evidence as
+  - `tool/ktls_http2_compare_repeats.py` aggregates repeated comparison files
+    into a top-level repeat-stability report that marks the hosted evidence as
     decision-quality or not
-- The next hosted milestone is to push that repeat-stability tooling, wait for
-  a clean push chain, and then rerun the focused multiplex scenario with
-  `repeat_count=3` and `skip_artifact_gate=true`.
-- GitLab has not surfaced an `add-router` pipeline for `a2e7f81` through the
+- That commit's GitHub push chain completed successfully:
+  - `CI` `24910233897`
+  - `kTLS Validation` `24910233859`
+  - `WAMP Profile Benchmarks` `24910233901`
+- Focused manual hosted rerun `24911158486` completed successfully on the same
+  clean head with:
+  - `scenario=native/bench/scenarios/h2_ktls_multiplex_scaling.toml`
+  - `router_worker_counts=1`
+  - `native_runtime_thread_counts=1,4`
+  - `repeat_count=3`
+  - `skip_artifact_gate=true`
+- That repeat-stability artifact still marked the hosted evidence as not
+  decision-quality:
+  - worst throughput row changed across all three repeats
+  - worst p95 row changed across all three repeats
+  - `h2_multiplexed_streams_s4`, `threads=1` spanned `77.77pp` throughput
+    delta
+  - `h2_multiplexed_streams_s2`, `threads=1` spanned `1174.48pp` p95 delta
+- The baseline side stayed relatively stable while the kTLS side did not:
+  - `h2_multiplexed_streams_s2`, `threads=1` baseline throughput only spanned
+    `470.25 Mbps`, while kTLS throughput spanned `3470.66 Mbps`
+  - `h2_multiplexed_streams_s2`, `threads=1` baseline p95 only spanned
+    `2.34 ms`, while kTLS p95 spanned `190.52 ms`
+- The current local working tree therefore carries the next bounded
+  stabilization slice:
+  - `native/bench/scenarios/h2_ktls_multiplex_stability.toml` keeps the same
+    multiplex sweep but raises each workload to `48` iterations with
+    `1000 ms` warmup for manual repeat runs
+  - `native/bench/scenarios/h2_ktls_multiplex_scaling.toml` stays unchanged as
+    the quick diagnostic scenario
+- GitLab has not surfaced an `add-router` pipeline for `d66a72d` through the
   current token-backed API query.
 - `packages/connectanum_core` is approved as a design reference for MCP package
   shape: typed protocol models, serializer-independent boundaries, explicit

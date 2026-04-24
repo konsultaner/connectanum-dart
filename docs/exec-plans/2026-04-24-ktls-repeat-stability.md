@@ -59,7 +59,6 @@ Status: in_progress
   - whether the repeated evidence is decision-quality under explicit span
     thresholds
 - `tool/test_ktls_http2_compare.py` now covers the repeat-stability path.
-- Focused local verification is green so far:
 - Full local verification is now green:
   - `bin/test-fast`
   - `bash -n bin/ktls-http2-bench`
@@ -68,14 +67,46 @@ Status: in_progress
   - `python3 tool/test_ktls_http2_compare.py`
   - `python3 tool/ktls_http2_compare_repeats.py /tmp/ktls-repeat-summary.json /tmp/ktls-repeat-summary.md /tmp/ktls-run-24908173404/extracted/comparison.json /tmp/ktls-run-24908372116/extracted/comparison.json`
   - `bin/verify`
+- The repeat-stability tooling is now pushed as commit `d66a72d`
+  (`build(ktls): add repeat stability reporting`).
+- The visible GitHub push chain for `d66a72d` completed successfully:
+  - `CI` `24910233897`
+  - `kTLS Validation` `24910233859`
+  - `WAMP Profile Benchmarks` `24910233901`
+- Focused manual hosted rerun `24911158486` ran with:
+  - `scenario=native/bench/scenarios/h2_ktls_multiplex_scaling.toml`
+  - `router_worker_counts=1`
+  - `native_runtime_thread_counts=1,4`
+  - `repeat_count=3`
+  - `skip_artifact_gate=true`
+- That rerun completed successfully, but the aggregate artifact still marked
+  the evidence as not decision-quality:
+  - worst throughput row changed across all three repeats
+  - worst p95 row changed across all three repeats
+  - `h2_multiplexed_streams_s4`, `threads=1` spanned `77.77pp` throughput
+    delta
+  - `h2_multiplexed_streams_s2`, `threads=1` spanned `1174.48pp` p95 delta
+- The instability is still on the kTLS side, not on the baseline side:
+  - `h2_multiplexed_streams_s2`, `threads=1` baseline throughput only spanned
+    `470.25 Mbps`, while kTLS throughput spanned `3470.66 Mbps`
+  - `h2_multiplexed_streams_s2`, `threads=1` baseline p95 only spanned
+    `2.34 ms`, while kTLS p95 spanned `190.52 ms`
+- The current working tree now carries the next bounded stabilization slice:
+  - `native/bench/scenarios/h2_ktls_multiplex_stability.toml` keeps the same
+    multiplex sweep but raises each workload to `48` iterations with
+    `1000 ms` warmup
+  - `native/bench/scenarios/h2_ktls_multiplex_scaling.toml` stays unchanged as
+    the quick spot-check scenario
+  - `native/bench/README.md` now separates quick diagnostic usage from
+    decision-quality repeat usage
 
 ## Next Step
 
-Once the local tree is fully verified and pushed, wait for the branch push
-chain to go green and then dispatch the focused manual
-`kTLS HTTP/2 Benchmarks` workflow on this new helper path with:
+Finish local verification, push the dedicated stability scenario, wait for the
+branch push chain to go green again, and then dispatch the manual
+`kTLS HTTP/2 Benchmarks` workflow with:
 
-- `scenario=native/bench/scenarios/h2_ktls_multiplex_scaling.toml`
+- `scenario=native/bench/scenarios/h2_ktls_multiplex_stability.toml`
 - `router_worker_counts=1`
 - `native_runtime_thread_counts=1,4`
 - `repeat_count=3`

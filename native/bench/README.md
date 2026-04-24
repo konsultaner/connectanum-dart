@@ -106,11 +106,20 @@ per-repeat artifacts under `repeats/repeat-XX/` and turns the top-level
 report. The manual workflow exposes the same control through the
 `repeat_count` input.
 
-For the current HTTP/2 multiplex hotspot, the dedicated diagnostic scenario is:
+For the current HTTP/2 multiplex hotspot, the quick diagnostic scenario is:
 
 ```bash
 bin/ktls-http2-bench \
   --scenario native/bench/scenarios/h2_ktls_multiplex_scaling.toml \
+  --skip-artifact-gate
+```
+
+When the goal is hosted repeat stability rather than a fast spot check, use
+the dedicated stability scenario with a larger sample set:
+
+```bash
+bin/ktls-http2-bench \
+  --scenario native/bench/scenarios/h2_ktls_multiplex_stability.toml \
   --repeat-count 3 \
   --skip-artifact-gate
 ```

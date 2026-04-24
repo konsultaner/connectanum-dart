@@ -1,0 +1,72 @@
+name = "h2_ktls_multiplex_stability"
+description = "HTTP/2 multiplex-only stability benchmark for repeated baseline TLS versus required kTLS hosted comparisons."
+
+[[workloads]]
+name = "h2_multiplexed_streams_s1"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 48
+concurrency = 4
+streams_per_connection = 1
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+warmup_ms = 1000
+
+[[workloads]]
+name = "h2_multiplexed_streams_s2"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 48
+concurrency = 4
+streams_per_connection = 2
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+warmup_ms = 1000
+
+[[workloads]]
+name = "h2_multiplexed_streams_s4"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 48
+concurrency = 4
+streams_per_connection = 4
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+warmup_ms = 1000
+
+[[workloads]]
+name = "h2_multiplexed_streams_s8"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 48
+concurrency = 4
+streams_per_connection = 8
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+warmup_ms = 1000
+
+[[workloads]]
+name = "h2_multiplexed_streams_s16"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 48
+concurrency = 4
+streams_per_connection = 16
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+warmup_ms = 1000
