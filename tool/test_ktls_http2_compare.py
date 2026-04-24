@@ -67,6 +67,15 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         response_body_first_chunk_bytes_p95=8192.0,
                         request_round_trip_avg_ms=27.2,
                         request_round_trip_p95_ms=32.5,
+                        server_requests_total=32,
+                        server_synthetic_responses_total=32,
+                        server_request_body_drain_avg_ms=1.2,
+                        server_stream_open_avg_ms=2.4,
+                        server_first_chunk_queued_avg_ms=2.8,
+                        server_first_body_write_avg_ms=3.1,
+                        server_headers_to_first_body_write_avg_ms=0.7,
+                        server_queue_to_first_body_write_avg_ms=0.3,
+                        server_handler_avg_ms=4.0,
                     ),
                 ],
             )
@@ -118,6 +127,15 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         response_body_first_chunk_bytes_p95=2048.0,
                         request_round_trip_avg_ms=142.0,
                         request_round_trip_p95_ms=220.0,
+                        server_requests_total=32,
+                        server_synthetic_responses_total=32,
+                        server_request_body_drain_avg_ms=1.4,
+                        server_stream_open_avg_ms=4.1,
+                        server_first_chunk_queued_avg_ms=7.0,
+                        server_first_body_write_avg_ms=10.0,
+                        server_headers_to_first_body_write_avg_ms=5.9,
+                        server_queue_to_first_body_write_avg_ms=3.0,
+                        server_handler_avg_ms=12.0,
                     ),
                 ],
             )
@@ -251,12 +269,25 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                 ]["response_body_chunk_count_avg"]["delta"],
                 9.0,
             )
+            self.assertAlmostEqual(
+                comparison["summary"]["server_emission_focus"]["worst_throughput_row"][
+                    "metrics"
+                ]["headers_to_first_body_write_avg_ms"]["delta"],
+                5.2,
+            )
+            self.assertAlmostEqual(
+                comparison["summary"]["server_emission_focus"]["worst_throughput_row"][
+                    "metrics"
+                ]["queue_to_first_body_write_avg_ms"]["delta"],
+                2.7,
+            )
 
             markdown = compare.render_markdown(comparison)
             self.assertIn("## Group Rollups", markdown)
             self.assertIn("## HTTP Connection Usage", markdown)
             self.assertIn("## HTTP Phase Timing", markdown)
             self.assertIn("## HTTP Response-Body Diagnostics", markdown)
+            self.assertIn("## HTTP Server Emission Timing", markdown)
             self.assertIn("## Linux TLS Stats", markdown)
             self.assertIn("## Transport Counter Deltas", markdown)
             self.assertIn("Workload-family investigation focus", markdown)
@@ -264,6 +295,7 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("Worst throughput row transport view", markdown)
             self.assertIn("Worst throughput row connection view", markdown)
             self.assertIn("Worst throughput row phase view", markdown)
+            self.assertIn("Worst throughput row server-emission view", markdown)
             self.assertIn(
                 "Linux TLS session opens: baseline software TX/RX 0/0, device TX/RX 0/0; kTLS software TX/RX 4/4, device TX/RX 0/0.",
                 markdown,
@@ -280,6 +312,10 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("82 -> 97 (+15)", markdown)
             self.assertIn("connections opened 4 -> 5 (+1)", markdown)
             self.assertIn("stream acquire wait avg 0.80 -> 7.60 (+6.80)", markdown)
+            self.assertIn(
+                "server headers-to-first-body-write avg 0.70 -> 5.90 (+5.20)",
+                markdown,
+            )
             self.assertIn(
                 "response body first chunk wait avg 4.40 -> 6.10 (+1.70)", markdown
             )
@@ -420,6 +456,15 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         response_body_first_chunk_bytes_p95: float | None = 16384.0,
         request_round_trip_avg_ms: float | None = 7.6,
         request_round_trip_p95_ms: float | None = 10.8,
+        server_requests_total: int | None = 16,
+        server_synthetic_responses_total: int | None = 16,
+        server_request_body_drain_avg_ms: float | None = 1.2,
+        server_stream_open_avg_ms: float | None = 2.4,
+        server_first_chunk_queued_avg_ms: float | None = 2.8,
+        server_first_body_write_avg_ms: float | None = 3.2,
+        server_headers_to_first_body_write_avg_ms: float | None = 0.8,
+        server_queue_to_first_body_write_avg_ms: float | None = 0.4,
+        server_handler_avg_ms: float | None = 4.0,
     ) -> dict:
         return {
             "scenario": "h2_ktls_benchmark",
@@ -459,6 +504,23 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "response_body_first_chunk_bytes_p95": response_body_first_chunk_bytes_p95,
                     "request_round_trip_avg_ms": request_round_trip_avg_ms,
                     "request_round_trip_p95_ms": request_round_trip_p95_ms,
+                }
+            ),
+            "http_server_emission_timing": (
+                None
+                if server_requests_total is None
+                else {
+                    "requests_total": server_requests_total,
+                    "synthetic_responses_total": server_synthetic_responses_total,
+                    "native_forwarded_responses_total": 0,
+                    "buffered_responses_total": 0,
+                    "request_body_drain_avg_ms": server_request_body_drain_avg_ms,
+                    "stream_open_avg_ms": server_stream_open_avg_ms,
+                    "first_chunk_queued_avg_ms": server_first_chunk_queued_avg_ms,
+                    "first_body_write_avg_ms": server_first_body_write_avg_ms,
+                    "headers_to_first_body_write_avg_ms": server_headers_to_first_body_write_avg_ms,
+                    "queue_to_first_body_write_avg_ms": server_queue_to_first_body_write_avg_ms,
+                    "handler_avg_ms": server_handler_avg_ms,
                 }
             ),
         }

@@ -356,6 +356,7 @@ class _BenchControlRegistry {
 
   final _logger = Logger('BenchControlRegistry');
   final List<_BenchRegisteredHandler> _registrations = [];
+  final _httpStreamDiagnostics = BenchHttpStreamDiagnostics();
   bool _stopping = false;
   late final WampWorkloadRunner _wampRunner;
   late final NativeWampWorker _nativeWampWorker;
@@ -497,7 +498,10 @@ class _BenchControlRegistry {
     try {
       final snapshot = await binding.collectMetrics();
       final openMetrics = await binding.collectOpenMetricsText(snapshot);
-      final metricsPayload = snapshot.toJson();
+      final metricsPayload = <String, Object?>{
+        ...snapshot.toJson(),
+        'bench_http_stream': _httpStreamDiagnostics.toJson(),
+      };
       final responseKeywords = <String, Object?>{'metrics': metricsPayload};
       if (openMetrics != null) {
         responseKeywords['open_metrics'] = openMetrics;
@@ -549,17 +553,25 @@ class _BenchControlRegistry {
       invocation.respondWith(arguments: ['no_http_context']);
       return;
     }
+    final writeTracker = BenchHttpStreamWriteTracker();
     final response = context.streamResponse(
       status: 207,
       headers: const {
         'content-type': 'application/octet-stream',
         'x-bench': 'stream',
       },
+      onStreamOpened: writeTracker.markStreamOpened,
+      onFirstBodyWrite: writeTracker.markFirstBodyWrite,
     );
-    await streamBenchHttpResponse(
+    final stats = await streamBenchHttpResponse(
       request: context.request,
       addChunk: response.add,
       close: response.close,
+    );
+    _httpStreamDiagnostics.record(
+      response: stats,
+      streamOpened: writeTracker.streamOpened,
+      firstBodyWrite: writeTracker.firstBodyWrite,
     );
   }
 
@@ -569,17 +581,25 @@ class _BenchControlRegistry {
       invocation.respondWith(arguments: ['no_http_context']);
       return;
     }
+    final writeTracker = BenchHttpStreamWriteTracker();
     final response = context.streamResponse(
       status: 200,
       headers: const {
         'content-type': 'application/octet-stream',
         'x-bench': 'secure',
       },
+      onStreamOpened: writeTracker.markStreamOpened,
+      onFirstBodyWrite: writeTracker.markFirstBodyWrite,
     );
-    await streamBenchHttpResponse(
+    final stats = await streamBenchHttpResponse(
       request: context.request,
       addChunk: response.add,
       close: response.close,
+    );
+    _httpStreamDiagnostics.record(
+      response: stats,
+      streamOpened: writeTracker.streamOpened,
+      firstBodyWrite: writeTracker.firstBodyWrite,
     );
   }
 

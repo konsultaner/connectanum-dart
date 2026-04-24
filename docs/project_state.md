@@ -2,16 +2,20 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `a88a8b7` (`build(ktls): split http2 request path timing`)
-Active exec plan: `docs/exec-plans/2026-04-24-h2-response-body-drain-diagnostics.md`
+Last reviewed commit: `ce55324` (`build(ktls): instrument h2 body drain phases`)
+Active exec plan: `docs/exec-plans/2026-04-24-h2-server-emission-hosted-rerun.md`
 
 ## Last Known Verification
 
 - `bin/test-fast`
+- `dart analyze packages/connectanum_bench/lib/src/http_stream_handler.dart packages/connectanum_bench/tool/bench_main.dart packages/connectanum_router/lib/src/router/http/http_context.dart packages/connectanum_bench/test/http_stream_handler_test.dart`
+- `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
+- `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name "streams HTTP/2 response chunks using native streams" -r expanded`
+- `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name "HTTP/2 stream response callbacks fire once in open-then-write order" -r expanded`
 - `cargo test --manifest-path native/bench/Cargo.toml -- --nocapture`
 - `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
 - `python3 tool/test_ktls_http2_compare.py`
-- rerender hosted artifact `24875528924`
+- rerender hosted artifact `24876728695`
 - `bin/verify`
 
 ## Autonomous Priority
@@ -323,6 +327,50 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-response-body-drain-diagnostics
   tool/test_ktls_http2_compare.py`,
   `python3 tool/test_ktls_http2_compare.py`, a rerender of hosted artifact
   `24875528924`, and `bin/verify`.
+- That response-body-drain slice is now complete on the pushed branch head
+  too. Commit `ce55324` passed hosted push `kTLS Validation`
+  (`24876283985`), `WAMP Profile Benchmarks` (`24876284006`), and `CI`
+  (`24876283996`) before the next focused manual rerun.
+- Manual workflow run `24876728695` then reran the same focused scenario with
+  the new response-body diagnostics enabled, and it narrowed the remaining
+  regression again:
+  - worst throughput row:
+    `h2_multiplexed_streams_s4` at `threads=4`
+  - worst p95 row:
+    `h2_multiplexed_streams_s8` at `threads=1`
+  - `response body chunks avg` stayed flat on the hotspot rows
+  - `response body first chunk bytes avg` stayed flat on the hotspot rows
+  - the first-body-byte gap dominated the added body timing:
+    - throughput hotspot:
+      `first chunk wait avg +2.57 ms` vs `tail read avg +0.99 ms`
+    - p95 hotspot:
+      `first chunk wait avg +16.98 ms` vs `tail read avg +2.90 ms`
+- The next bounded kTLS slice is therefore header-to-first-body gap
+  diagnostics, ideally on the server response-emission path rather than more
+  client chunk-shape probing. The next active plan is to instrument where that
+  first body delay is introduced.
+- That first-body-gap instrumentation slice is now complete on the local
+  working tree too. `packages/connectanum_router` now exposes response-stream
+  callbacks for stream-open and first-body-write events,
+  `packages/connectanum_bench` aggregates those timings into
+  `bench_http_stream`, `native/bench` summarizes them into
+  `http_server_emission_timing`, and `tool/ktls_http2_compare.py` now renders
+  an `HTTP Server Emission Timing` section plus hotspot focus lines.
+- Focused local verification for that server-emission slice is green on
+  2026-04-24: `bin/test-fast`, targeted Dart analyze/tests for the bench and
+  router stream paths, `cargo test --manifest-path native/bench/Cargo.toml
+  -- --nocapture`, `python3 -m py_compile
+  tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`,
+  `python3 tool/test_ktls_http2_compare.py`, a rerender of hosted artifact
+  `24876728695`, and `bin/verify`.
+- The historical rerender remained backward compatible: the new comparison now
+  renders an `HTTP Server Emission Timing` section, and the old hosted bundle
+  correctly reports no server-emission metrics because it predates the new
+  counters.
+- The next active kTLS step is now the hosted rerun on the new instrumentation
+  checkpoint. That rerun should determine whether the remaining gap is already
+  visible in server-side `headers_to_first_body_write_avg_ms` or whether it
+  still opens only after the first body write leaves the server stream path.
 - Local verification for the current kTLS transport-delta follow-up is green
   on 2026-04-24: `bin/test-fast`,
   `python3 -m py_compile tool/ktls_http2_compare.py

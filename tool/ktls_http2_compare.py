@@ -79,6 +79,22 @@ PHASE_TIMING_SUMMARY_KEYS = (
     ("request_round_trip_p95_ms", "Request round trip p95"),
 )
 
+SERVER_EMISSION_SUMMARY_KEYS = (
+    ("request_body_drain_avg_ms", "Server request body drain avg"),
+    ("stream_open_avg_ms", "Server stream open avg"),
+    ("first_chunk_queued_avg_ms", "Server first chunk queued avg"),
+    ("first_body_write_avg_ms", "Server first body write avg"),
+    (
+        "headers_to_first_body_write_avg_ms",
+        "Server headers-to-first-body-write avg",
+    ),
+    (
+        "queue_to_first_body_write_avg_ms",
+        "Server queue-to-first-body-write avg",
+    ),
+    ("handler_avg_ms", "Server handler avg"),
+)
+
 
 def load_summary(path: Path) -> dict:
     if not path.exists():
@@ -682,6 +698,72 @@ def build_phase_timing_focus(rows: list[dict], packed_row: dict | None) -> dict 
     }
 
 
+def summarize_row_server_emission_timing(row: dict) -> dict | None:
+    baseline = row.get("baseline")
+    ktls = row.get("ktls")
+    if not baseline or not ktls:
+        return None
+
+    baseline_timing = baseline.get("http_server_emission_timing")
+    ktls_timing = ktls.get("http_server_emission_timing")
+    if baseline_timing is None and ktls_timing is None:
+        return None
+
+    counts = {
+        "requests_total": build_connection_metric_snapshot(
+            baseline_timing, ktls_timing, "requests_total"
+        ),
+        "synthetic_responses_total": build_connection_metric_snapshot(
+            baseline_timing, ktls_timing, "synthetic_responses_total"
+        ),
+        "native_forwarded_responses_total": build_connection_metric_snapshot(
+            baseline_timing, ktls_timing, "native_forwarded_responses_total"
+        ),
+        "buffered_responses_total": build_connection_metric_snapshot(
+            baseline_timing, ktls_timing, "buffered_responses_total"
+        ),
+    }
+
+    metrics: dict[str, dict | None] = {}
+    signals: list[dict] = []
+    for metric, label in SERVER_EMISSION_SUMMARY_KEYS:
+        snapshot = build_phase_timing_metric_snapshot(
+            baseline_timing, ktls_timing, metric
+        )
+        metrics[metric] = snapshot
+        if snapshot is None or snapshot["delta"] in (None, 0, 0.0):
+            continue
+        signals.append(
+            {
+                "metric": metric,
+                "label": label,
+                "baseline": snapshot["baseline"],
+                "ktls": snapshot["ktls"],
+                "delta": snapshot["delta"],
+                "delta_pct": snapshot["delta_pct"],
+            }
+        )
+
+    return {"counts": counts, "metrics": metrics, "signals": signals}
+
+
+def build_server_emission_focus(rows: list[dict], packed_row: dict | None) -> dict | None:
+    row = find_matching_row(rows, packed_row)
+    if row is None:
+        return None
+
+    server_emission = row.get("server_emission_summary")
+    if server_emission is None:
+        return None
+
+    return {
+        "label": build_label(row),
+        "counts": server_emission["counts"],
+        "metrics": server_emission["metrics"],
+        "signals": server_emission["signals"],
+    }
+
+
 def render_pct(value: float | None) -> str:
     if value is None:
         return "n/a"
@@ -849,6 +931,29 @@ def render_phase_timing_focus_line(name: str, focus: dict | None) -> str:
         f"response body first chunk bytes avg {render_connection_metric_snapshot(metrics['response_body_first_chunk_bytes_avg'])}, "
         f"response body read avg {render_connection_metric_snapshot(metrics['response_body_read_avg_ms'])}, "
         f"request round trip p95 {render_connection_metric_snapshot(metrics['request_round_trip_p95_ms'])}."
+    )
+
+
+def render_server_emission_focus_line(name: str, focus: dict | None) -> str:
+    if focus is None:
+        return f"- {name}: no HTTP server emission metrics were present."
+
+    counts = focus["counts"]
+    metrics = focus["metrics"]
+    return (
+        f"- {name}: {focus['label']} shows "
+        f"requests {render_connection_metric_snapshot(counts['requests_total'])}, "
+        f"synthetic responses {render_connection_metric_snapshot(counts['synthetic_responses_total'])}, "
+        f"server headers-to-first-body-write avg "
+        f"{render_connection_metric_snapshot(metrics['headers_to_first_body_write_avg_ms'])}, "
+        f"server queue-to-first-body-write avg "
+        f"{render_connection_metric_snapshot(metrics['queue_to_first_body_write_avg_ms'])}, "
+        f"server first body write avg "
+        f"{render_connection_metric_snapshot(metrics['first_body_write_avg_ms'])}, "
+        f"server stream open avg "
+        f"{render_connection_metric_snapshot(metrics['stream_open_avg_ms'])}, "
+        f"server request body drain avg "
+        f"{render_connection_metric_snapshot(metrics['request_body_drain_avg_ms'])}."
     )
 
 
@@ -1058,6 +1163,7 @@ def build_comparison(baseline_path: Path, ktls_path: Path) -> dict:
         row["transport_summary"] = summarize_row_transport(row)
         row["connection_usage_summary"] = summarize_row_connection_usage(row)
         row["phase_timing_summary"] = summarize_row_phase_timing(row)
+        row["server_emission_summary"] = summarize_row_server_emission_timing(row)
         rows.append(row)
 
     comparable_rows = [row for row in rows if row["baseline"] and row["ktls"]]
@@ -1115,6 +1221,16 @@ def build_comparison(baseline_path: Path, ktls_path: Path) -> dict:
                 throughput_summary["worst_row"] if throughput_summary else None,
             ),
             "worst_latency_row": build_phase_timing_focus(
+                rows,
+                latency_p95_summary["worst_row"] if latency_p95_summary else None,
+            ),
+        },
+        "server_emission_focus": {
+            "worst_throughput_row": build_server_emission_focus(
+                rows,
+                throughput_summary["worst_row"] if throughput_summary else None,
+            ),
+            "worst_latency_row": build_server_emission_focus(
                 rows,
                 latency_p95_summary["worst_row"] if latency_p95_summary else None,
             ),
@@ -1202,6 +1318,14 @@ def render_markdown(comparison: dict) -> str:
             render_phase_timing_focus_line(
                 "Worst p95 row phase view",
                 summary["phase_timing_focus"]["worst_latency_row"],
+            ),
+            render_server_emission_focus_line(
+                "Worst throughput row server-emission view",
+                summary["server_emission_focus"]["worst_throughput_row"],
+            ),
+            render_server_emission_focus_line(
+                "Worst p95 row server-emission view",
+                summary["server_emission_focus"]["worst_latency_row"],
             ),
             "",
             "## Linux TLS Stats",
@@ -1424,6 +1548,56 @@ def render_markdown(comparison: dict) -> str:
 
     if not has_body_rows:
         lines.append("| No HTTP response-body diagnostics | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
+
+    lines.append("")
+    lines.extend(
+        [
+            "## HTTP Server Emission Timing",
+            "",
+            "| Workload | Router workers | Native runtime threads | Requests | Synthetic responses | Headers to first body write avg ms | Queue to first body write avg ms | First body write avg ms | Stream open avg ms | Request body drain avg ms |",
+            "| --- | ---: | ---: | --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+
+    has_server_emission_rows = False
+    for row in rows:
+        server_emission = row.get("server_emission_summary")
+        if server_emission is None:
+            continue
+        has_server_emission_rows = True
+        counts = server_emission["counts"]
+        metrics = server_emission["metrics"]
+        lines.append(
+            "| {workload} | {router_workers} | {native_runtime_threads} | {requests_total} | {synthetic_responses_total} | {headers_to_first_body_write_avg_ms} | {queue_to_first_body_write_avg_ms} | {first_body_write_avg_ms} | {stream_open_avg_ms} | {request_body_drain_avg_ms} |".format(
+                workload=row["workload"],
+                router_workers=row["router_workers"],
+                native_runtime_threads=row["native_runtime_threads"],
+                requests_total=render_connection_metric_snapshot(
+                    counts["requests_total"]
+                ),
+                synthetic_responses_total=render_connection_metric_snapshot(
+                    counts["synthetic_responses_total"]
+                ),
+                headers_to_first_body_write_avg_ms=render_connection_metric_snapshot(
+                    metrics["headers_to_first_body_write_avg_ms"]
+                ),
+                queue_to_first_body_write_avg_ms=render_connection_metric_snapshot(
+                    metrics["queue_to_first_body_write_avg_ms"]
+                ),
+                first_body_write_avg_ms=render_connection_metric_snapshot(
+                    metrics["first_body_write_avg_ms"]
+                ),
+                stream_open_avg_ms=render_connection_metric_snapshot(
+                    metrics["stream_open_avg_ms"]
+                ),
+                request_body_drain_avg_ms=render_connection_metric_snapshot(
+                    metrics["request_body_drain_avg_ms"]
+                ),
+            )
+        )
+
+    if not has_server_emission_rows:
+        lines.append("| No HTTP server emission metrics | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
 
     lines.append("")
 

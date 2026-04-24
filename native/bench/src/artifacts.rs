@@ -6,8 +6,9 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::report::{
-    router_counter_delta, transport_counter_after, transport_counter_delta, HttpConnectionUsage,
-    HttpPhaseTimingSummary, WorkloadReport,
+    bench_http_stream_counter_delta, router_counter_delta, transport_counter_after,
+    transport_counter_delta, HttpConnectionUsage, HttpPhaseTimingSummary,
+    HttpServerEmissionTimingSummary, WorkloadReport,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -60,6 +61,8 @@ pub struct WorkloadArtifactSummary {
     pub http_connection_usage: Option<HttpConnectionUsageSummary>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub http_phase_timing: Option<HttpPhaseTimingSummary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub http_server_emission_timing: Option<HttpServerEmissionTimingSummary>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -594,6 +597,7 @@ pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
     let http_connection_usage =
         summarize_http_connection_usage(report.http_connection_usage.as_ref(), sample_count);
     let http_phase_timing = summarize_http_phase_timing(&report.samples);
+    let http_server_emission_timing = summarize_http_server_emission_timing(report);
 
     let scenario_before = report
         .scenario_metrics_before
@@ -746,6 +750,7 @@ pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
         },
         http_connection_usage,
         http_phase_timing,
+        http_server_emission_timing,
     }
 }
 
@@ -863,6 +868,181 @@ fn summarize_http_phase_timing(
         request_round_trip_avg_ms,
         request_round_trip_p95_ms: percentile(&request_round_trips, 0.95),
     })
+}
+
+fn summarize_http_server_emission_timing(
+    report: &WorkloadReport,
+) -> Option<HttpServerEmissionTimingSummary> {
+    let requests_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "requests_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    if requests_total == 0 {
+        return None;
+    }
+
+    let synthetic_responses_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "synthetic_responses_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let native_forwarded_responses_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "native_forwarded_responses_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let buffered_responses_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "buffered_responses_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let request_body_drain_samples_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "request_body_drain_samples_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let stream_open_samples_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "stream_open_samples_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let first_chunk_queued_samples_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "first_chunk_queued_samples_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let first_body_write_samples_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "first_body_write_samples_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let headers_to_first_body_write_samples_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "headers_to_first_body_write_samples_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let queue_to_first_body_write_samples_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "queue_to_first_body_write_samples_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let handler_samples_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "handler_samples_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+
+    let request_body_drain_us_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "request_body_drain_us_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let stream_open_us_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "stream_open_us_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let first_chunk_queued_us_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "first_chunk_queued_us_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let first_body_write_us_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "first_body_write_us_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let headers_to_first_body_write_us_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "headers_to_first_body_write_us_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let queue_to_first_body_write_us_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "queue_to_first_body_write_us_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let handler_us_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "handler_us_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+
+    Some(HttpServerEmissionTimingSummary {
+        requests_total,
+        synthetic_responses_total,
+        native_forwarded_responses_total,
+        buffered_responses_total,
+        request_body_drain_avg_ms: average_microseconds_to_millis(
+            request_body_drain_us_total,
+            request_body_drain_samples_total,
+        ),
+        stream_open_avg_ms: average_microseconds_to_millis(
+            stream_open_us_total,
+            stream_open_samples_total,
+        ),
+        first_chunk_queued_avg_ms: average_microseconds_to_millis(
+            first_chunk_queued_us_total,
+            first_chunk_queued_samples_total,
+        ),
+        first_body_write_avg_ms: average_microseconds_to_millis(
+            first_body_write_us_total,
+            first_body_write_samples_total,
+        ),
+        headers_to_first_body_write_avg_ms: average_microseconds_to_millis(
+            headers_to_first_body_write_us_total,
+            headers_to_first_body_write_samples_total,
+        ),
+        queue_to_first_body_write_avg_ms: average_microseconds_to_millis(
+            queue_to_first_body_write_us_total,
+            queue_to_first_body_write_samples_total,
+        ),
+        handler_avg_ms: average_microseconds_to_millis(handler_us_total, handler_samples_total),
+    })
+}
+
+fn average_microseconds_to_millis(total_us: u64, sample_count: u64) -> f64 {
+    if sample_count == 0 {
+        return 0.0;
+    }
+    total_us as f64 / sample_count as f64 / 1000.0
 }
 
 pub fn render_prometheus_metrics(
@@ -1351,11 +1531,21 @@ mod tests {
         publications: i64,
         transport: serde_json::Value,
     ) -> serde_json::Value {
+        metrics_with_bench_http_stream(invocations, publications, transport, None)
+    }
+
+    fn metrics_with_bench_http_stream(
+        invocations: i64,
+        publications: i64,
+        transport: serde_json::Value,
+        bench_http_stream: Option<serde_json::Value>,
+    ) -> serde_json::Value {
         json!({
             "metrics": {
                 "total_invocations_dispatched": invocations,
                 "total_publications_routed": publications,
                 "transport": transport,
+                "bench_http_stream": bench_http_stream,
             }
         })
     }
@@ -1372,7 +1562,7 @@ mod tests {
             concurrency: 2,
             started_at_ms: 1_000,
             completed_at_ms: 2_000,
-            metrics_before: metrics(
+            metrics_before: metrics_with_bench_http_stream(
                 10,
                 20,
                 json!({
@@ -1393,8 +1583,28 @@ mod tests {
                     "max_backpressure_depth": 8,
                     "active_throttles": 0,
                 }),
+                Some(json!({
+                    "requests_total": 2,
+                    "synthetic_responses_total": 2,
+                    "native_forwarded_responses_total": 0,
+                    "buffered_responses_total": 0,
+                    "request_body_drain_samples_total": 2,
+                    "stream_open_samples_total": 2,
+                    "first_chunk_queued_samples_total": 2,
+                    "first_body_write_samples_total": 2,
+                    "headers_to_first_body_write_samples_total": 2,
+                    "queue_to_first_body_write_samples_total": 2,
+                    "handler_samples_total": 2,
+                    "request_body_drain_us_total": 4000,
+                    "stream_open_us_total": 9000,
+                    "first_chunk_queued_us_total": 12000,
+                    "first_body_write_us_total": 15000,
+                    "headers_to_first_body_write_us_total": 6000,
+                    "queue_to_first_body_write_us_total": 3000,
+                    "handler_us_total": 18000,
+                })),
             ),
-            metrics_after: metrics(
+            metrics_after: metrics_with_bench_http_stream(
                 15,
                 29,
                 json!({
@@ -1415,6 +1625,26 @@ mod tests {
                     "max_backpressure_depth": 11,
                     "active_throttles": 1,
                 }),
+                Some(json!({
+                    "requests_total": 5,
+                    "synthetic_responses_total": 5,
+                    "native_forwarded_responses_total": 0,
+                    "buffered_responses_total": 0,
+                    "request_body_drain_samples_total": 5,
+                    "stream_open_samples_total": 5,
+                    "first_chunk_queued_samples_total": 5,
+                    "first_body_write_samples_total": 5,
+                    "headers_to_first_body_write_samples_total": 5,
+                    "queue_to_first_body_write_samples_total": 5,
+                    "handler_samples_total": 5,
+                    "request_body_drain_us_total": 16000,
+                    "stream_open_us_total": 30000,
+                    "first_chunk_queued_us_total": 39000,
+                    "first_body_write_us_total": 51000,
+                    "headers_to_first_body_write_us_total": 21000,
+                    "queue_to_first_body_write_us_total": 12000,
+                    "handler_us_total": 60000,
+                })),
             ),
             open_metrics_before: None,
             open_metrics_after: None,
@@ -1601,6 +1831,20 @@ mod tests {
         assert!((phase_timing.response_body_first_chunk_bytes_p95 - 200.0).abs() < f64::EPSILON);
         assert!((phase_timing.request_round_trip_avg_ms - 17.0).abs() < f64::EPSILON);
         assert!((phase_timing.request_round_trip_p95_ms - 25.0).abs() < f64::EPSILON);
+        let server_timing = summary.http_server_emission_timing.unwrap();
+        assert_eq!(server_timing.requests_total, 3);
+        assert_eq!(server_timing.synthetic_responses_total, 3);
+        assert!((server_timing.request_body_drain_avg_ms - 4.0).abs() < f64::EPSILON);
+        assert!((server_timing.stream_open_avg_ms - 7.0).abs() < f64::EPSILON);
+        assert!((server_timing.first_chunk_queued_avg_ms - 9.0).abs() < f64::EPSILON);
+        assert!((server_timing.first_body_write_avg_ms - 12.0).abs() < f64::EPSILON);
+        assert!(
+            (server_timing.headers_to_first_body_write_avg_ms - 5.0).abs() < f64::EPSILON
+        );
+        assert!(
+            (server_timing.queue_to_first_body_write_avg_ms - 3.0).abs() < f64::EPSILON
+        );
+        assert!((server_timing.handler_avg_ms - 14.0).abs() < f64::EPSILON);
         assert!((summary.latency_avg_ms - 20.0).abs() < f64::EPSILON);
         assert!((summary.latency_p95_ms - 30.0).abs() < f64::EPSILON);
     }

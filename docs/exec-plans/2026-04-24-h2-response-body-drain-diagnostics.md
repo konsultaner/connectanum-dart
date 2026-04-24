@@ -1,6 +1,6 @@
 # HTTP/2 Response-Body Drain Diagnostics
 
-Status: in_progress
+Status: completed
 
 ## Context
 
@@ -58,3 +58,29 @@ Status: in_progress
 - `python3 tool/test_ktls_http2_compare.py`
 - rerender hosted artifact `24875528924`
 - `bin/verify`
+
+## Outcome
+
+- Commit `ce55324` (`build(ktls): instrument h2 body drain phases`) cleared the
+  hosted push chain:
+  - `kTLS Validation` `24876283985`
+  - `WAMP Profile Benchmarks` `24876284006`
+  - `CI` `24876283996`
+- Manual hosted run `24876728695` then reran
+  `native/bench/scenarios/h2_ktls_multiplex_scaling.toml` with the new
+  response-body diagnostics enabled.
+- The new metrics ruled out chunk-shape drift as the primary explanation:
+  - `response body chunks avg` stayed flat on the hotspot rows
+  - `response body first chunk bytes avg` stayed flat too
+- The remaining regression is dominated by first-body-byte delay after headers,
+  not by a materially different chunk shape and not mainly by the post-first
+  tail:
+  - worst throughput row:
+    `h2_multiplexed_streams_s4` at `threads=4`
+    (`first chunk wait avg +2.57 ms`, `tail read avg +0.99 ms`)
+  - worst p95 row:
+    `h2_multiplexed_streams_s8` at `threads=1`
+    (`first chunk wait avg +16.98 ms`, `tail read avg +2.90 ms`)
+- The next bounded slice is therefore to instrument the header-to-first-body
+  gap more directly, ideally against the server response-emission path rather
+  than the already-stable client-observed chunk shape.

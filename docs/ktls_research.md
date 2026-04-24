@@ -485,6 +485,60 @@ That means the next hosted rerun can finally distinguish a first-body-byte
 stall from a sustained drain-tail regression and also show whether the client
 observes a materially different chunk shape under required-kTLS.
 
+### Hosted Response-Body Drain Result
+
+That rerun has now landed as workflow run `24876728695` on commit `ce55324`,
+and it changed the remaining question again:
+
+- the chunk shape stayed stable on the hotspot rows:
+  - `response body chunks avg` stayed flat
+  - `response body first chunk bytes avg` stayed flat
+- the first-body-byte gap dominated the remaining body regression:
+  - worst throughput row:
+    `h2_multiplexed_streams_s4`, `threads=4`
+    (`first chunk wait avg +2.57 ms`, `tail read avg +0.99 ms`)
+  - worst p95 row:
+    `h2_multiplexed_streams_s8`, `threads=1`
+    (`first chunk wait avg +16.98 ms`, `tail read avg +2.90 ms`)
+
+That means the next useful slice is no longer chunk-shape instrumentation.
+It is to instrument the header-to-first-body gap more directly, ideally
+through the server response-emission path or any transport scheduling point
+before the first DATA frame reaches the client.
+
+### Server Emission Instrumentation
+
+That implementation slice is now complete on the local working tree:
+
+- `packages/connectanum_router` exposes HTTP response-stream callbacks for:
+  - stream open
+  - first body write
+- `packages/connectanum_bench` now aggregates those timings into
+  `bench_http_stream`
+- `native/bench` now summarizes those counters into
+  `http_server_emission_timing`
+- `tool/ktls_http2_compare.py` now renders:
+  - hotspot focus lines for the worst throughput and p95 rows
+  - an `HTTP Server Emission Timing` table for all comparable rows
+
+The key new server-side signals are:
+
+- request body drain avg
+- stream open avg
+- first chunk queued avg
+- first body write avg
+- headers-to-first-body-write avg
+- queue-to-first-body-write avg
+
+That means the next hosted rerun can finally answer the current question
+directly: whether the remaining first-body-byte gap is already visible between
+server stream open and first body write, or whether the gap still appears only
+after the first body write leaves the server stream path.
+
+Historical rerender of hosted artifact `24876728695` stayed backward
+compatible. The new comparison section renders, and the old bundle correctly
+shows no server-emission metrics because it predates the new counters.
+
 ### What Not To Overclaim
 
 - macOS results are irrelevant for kTLS itself.
@@ -522,10 +576,9 @@ blind generic instrumentation:
   `native/bench/scenarios/h2_ktls_multiplex_scaling.toml` for the next hosted
   rerun, with an explicit scenario policy once thresholds are understood or
   `skip_artifact_gate=true` while the run is still purely investigative
-- rerun the focused multiplex-scaling workflow on a clean head with the now
-  landed response-body-drain diagnostics so the comparison can separate
-  first-body wait from sustained body drain and record the observed chunk
-  shape on the worst rows
+- rerun the focused multiplex-scaling workflow on a clean head with targeted
+  first-body-gap diagnostics so the comparison can separate server/body
+  emission delay from client-side first-body receipt
 
 That is the smallest next milestone that improves decision quality without
 pretending the remaining kTLS work is already a clear runtime bug.

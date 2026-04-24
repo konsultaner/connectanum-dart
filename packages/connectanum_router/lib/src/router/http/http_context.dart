@@ -544,12 +544,16 @@ class HttpInvocationContext {
   HttpResponseStream streamResponse({
     int status = 200,
     Map<String, String>? headers,
+    void Function()? onStreamOpened,
+    void Function()? onFirstBodyWrite,
   }) {
     return HttpResponseStream._(
       invocation: invocation,
       requestId: requestId,
       status: status,
       headers: headers ?? const {},
+      onStreamOpened: onStreamOpened,
+      onFirstBodyWrite: onFirstBodyWrite,
       responseStreamControlPort:
           invocation.details.custom[HttpInvocationKeys
                   .responseStreamControlPort]
@@ -564,14 +568,20 @@ class HttpResponseStream {
     required this.requestId,
     required this.status,
     required Map<String, String> headers,
+    void Function()? onStreamOpened,
+    void Function()? onFirstBodyWrite,
     SendPort? responseStreamControlPort,
   }) : headers = Map.unmodifiable(headers),
+       _onStreamOpened = onStreamOpened,
+       _onFirstBodyWrite = onFirstBodyWrite,
        _directStream = responseStreamControlPort == null
            ? null
            : _DirectHttpResponseStreamController(
                requestId: requestId,
                status: status,
                headers: Map.unmodifiable(headers),
+               onStreamOpened: onStreamOpened,
+               onFirstBodyWrite: onFirstBodyWrite,
                controlPort: responseStreamControlPort,
                onFallbackProgress: (chunk) {
                  final payload = HttpResponsePayload._(
@@ -602,10 +612,30 @@ class HttpResponseStream {
   final int requestId;
   final int status;
   final Map<String, String> headers;
+  final void Function()? _onStreamOpened;
+  final void Function()? _onFirstBodyWrite;
   final _DirectHttpResponseStreamController? _directStream;
   bool _closed = false;
+  bool _streamOpenedNotified = false;
+  bool _firstBodyWriteNotified = false;
 
   bool get isClosed => _closed;
+
+  void _notifyStreamOpened() {
+    if (_streamOpenedNotified) {
+      return;
+    }
+    _streamOpenedNotified = true;
+    _onStreamOpened?.call();
+  }
+
+  void _notifyFirstBodyWrite() {
+    if (_firstBodyWriteNotified) {
+      return;
+    }
+    _firstBodyWriteNotified = true;
+    _onFirstBodyWrite?.call();
+  }
 
   void add(List<int> chunk) {
     if (_closed) {
@@ -619,6 +649,8 @@ class HttpResponseStream {
     if (directStream != null && directStream.add(bytes)) {
       return;
     }
+    _notifyStreamOpened();
+    _notifyFirstBodyWrite();
     final payload = HttpResponsePayload._(
       requestId: requestId,
       status: status,
@@ -663,6 +695,8 @@ class _DirectHttpResponseStreamController {
     required this.requestId,
     required this.status,
     required this.headers,
+    this.onStreamOpened,
+    this.onFirstBodyWrite,
     required this.controlPort,
     required this.onFallbackProgress,
     required this.onFallbackClose,
@@ -672,6 +706,8 @@ class _DirectHttpResponseStreamController {
   final int requestId;
   final int status;
   final Map<String, String> headers;
+  final void Function()? onStreamOpened;
+  final void Function()? onFirstBodyWrite;
   final SendPort controlPort;
   final void Function(Uint8List chunk) onFallbackProgress;
   final void Function(Uint8List? finalChunk) onFallbackClose;
@@ -686,6 +722,8 @@ class _DirectHttpResponseStreamController {
   bool _flushing = false;
   bool _completionSent = false;
   bool _directWriteStarted = false;
+  bool _streamOpenedReported = false;
+  bool _firstBodyWriteReported = false;
 
   bool add(Uint8List chunk) {
     if (_fallback) {
@@ -726,6 +764,7 @@ class _DirectHttpResponseStreamController {
         if (chunk.isEmpty) {
           continue;
         }
+        _reportFirstBodyWrite();
         stream.add(chunk);
         _directWriteStarted = true;
       }
@@ -733,6 +772,7 @@ class _DirectHttpResponseStreamController {
         final finalChunk = _finalChunk;
         _finalChunk = null;
         if (finalChunk != null && finalChunk.isNotEmpty) {
+          _reportFirstBodyWrite();
           stream.add(finalChunk);
           _directWriteStarted = true;
         }
@@ -763,6 +803,9 @@ class _DirectHttpResponseStreamController {
     final future = _streamFuture ??= _openStream();
     final resolved = await future;
     _stream = resolved;
+    if (resolved != null) {
+      _reportStreamOpened();
+    }
     return resolved;
   }
 
@@ -801,10 +844,16 @@ class _DirectHttpResponseStreamController {
     while (_pendingChunks.isNotEmpty) {
       final chunk = _pendingChunks.removeFirst();
       if (chunk.isNotEmpty) {
+        _reportStreamOpened();
+        _reportFirstBodyWrite();
         onFallbackProgress(chunk);
       }
     }
     if (_closed) {
+      if (_finalChunk != null && _finalChunk!.isNotEmpty) {
+        _reportStreamOpened();
+        _reportFirstBodyWrite();
+      }
       onFallbackClose(_finalChunk);
       _completionSent = true;
     }
@@ -816,5 +865,21 @@ class _DirectHttpResponseStreamController {
     }
     _completionSent = true;
     onDirectComplete();
+  }
+
+  void _reportStreamOpened() {
+    if (_streamOpenedReported) {
+      return;
+    }
+    _streamOpenedReported = true;
+    onStreamOpened?.call();
+  }
+
+  void _reportFirstBodyWrite() {
+    if (_firstBodyWriteReported) {
+      return;
+    }
+    _firstBodyWriteReported = true;
+    onFirstBodyWrite?.call();
   }
 }

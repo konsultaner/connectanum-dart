@@ -4065,6 +4065,81 @@ void main() {
     expect(utf8.decode(chunks[2]), 'done');
   });
 
+  test(
+    'HTTP/2 stream response callbacks fire once in open-then-write order',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithPendingProtocols(),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      const connectionId = 144;
+      final callbackEvents = <String>[];
+
+      final internalSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+      );
+      final registered = await internalSession.register(
+        'com.example.api.stream',
+      );
+      registered.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull);
+        final stream = context!.streamResponse(
+          status: 207,
+          headers: const {'x-http2': 'true'},
+          onStreamOpened: () => callbackEvents.add('open'),
+          onFirstBodyWrite: () => callbackEvents.add('write'),
+        );
+        stream.add(utf8.encode('h2-a'));
+        stream.close(utf8.encode('done'));
+      });
+
+      runtime.setConnectionProtocol(
+        connectionId,
+        NativeConnectionProtocol.http2,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 111,
+          method: 'GET',
+          target: '/api/stream',
+          path: '/api/stream',
+          protocol: 'http/2',
+          headers: const {'x-test': 'h2'},
+          body: Uint8List(0),
+          realm: 'realm1',
+          procedure: 'com.example.api.stream',
+        ),
+      );
+
+      await _waitUntil(
+        () => callbackEvents.length == 2,
+        timeout: const Duration(seconds: 2),
+      );
+
+      expect(callbackEvents, ['open', 'write']);
+    },
+  );
+
   test('streams HTTP/3 response chunks using native streams', () async {
     final runtime = _HandleRuntime();
     final router = Router(

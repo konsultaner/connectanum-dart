@@ -55,6 +55,21 @@ pub struct HttpPhaseTimingSummary {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct HttpServerEmissionTimingSummary {
+    pub requests_total: u64,
+    pub synthetic_responses_total: u64,
+    pub native_forwarded_responses_total: u64,
+    pub buffered_responses_total: u64,
+    pub request_body_drain_avg_ms: f64,
+    pub stream_open_avg_ms: f64,
+    pub first_chunk_queued_avg_ms: f64,
+    pub first_body_write_avg_ms: f64,
+    pub headers_to_first_body_write_avg_ms: f64,
+    pub queue_to_first_body_write_avg_ms: f64,
+    pub handler_avg_ms: f64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct WorkloadReport {
     pub scenario: String,
     pub workload: String,
@@ -141,6 +156,14 @@ pub fn transport_counter_after(after: &Value, field: &str) -> Option<u64> {
     extract_u64(after, &["transport", field])
 }
 
+pub fn bench_http_stream_counter_delta(before: &Value, after: &Value, field: &str) -> Option<i64> {
+    counter_delta(before, after, &["bench_http_stream", field])
+}
+
+pub fn bench_http_stream_counter_after(after: &Value, field: &str) -> Option<u64> {
+    extract_u64(after, &["bench_http_stream", field])
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -186,6 +209,28 @@ mod tests {
             Some(4)
         );
         assert_eq!(transport_counter_after(&flat, "active_throttles"), Some(3));
+        let before = json!({
+            "metrics": {
+                "bench_http_stream": {
+                    "requests_total": 4,
+                }
+            }
+        });
+        let after = json!({
+            "metrics": {
+                "bench_http_stream": {
+                    "requests_total": 9,
+                }
+            }
+        });
+        assert_eq!(
+            bench_http_stream_counter_delta(&before, &after, "requests_total"),
+            Some(5)
+        );
+        assert_eq!(
+            bench_http_stream_counter_after(&after, "requests_total"),
+            Some(9)
+        );
     }
 
     #[test]
