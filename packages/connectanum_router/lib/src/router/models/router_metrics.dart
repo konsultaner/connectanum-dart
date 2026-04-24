@@ -181,10 +181,19 @@ class RouterHttpResponseStreamMetrics {
     required this.streamingResponsesTotal,
     required this.firstChunkChannelWaitSamplesTotal,
     required this.firstChunkChannelWaitUsTotal,
+    required this.firstChunkChannelWaitGe1msTotal,
+    required this.firstChunkChannelWaitGe5msTotal,
+    required this.firstChunkChannelWaitGe10msTotal,
     required this.headersToFirstChunkDequeueSamplesTotal,
     required this.headersToFirstChunkDequeueUsTotal,
+    required this.headersToFirstChunkDequeueGe1msTotal,
+    required this.headersToFirstChunkDequeueGe5msTotal,
+    required this.headersToFirstChunkDequeueGe10msTotal,
     required this.firstChunkSendCallSamplesTotal,
     required this.firstChunkSendCallUsTotal,
+    required this.firstChunkSendCallGe1msTotal,
+    required this.firstChunkSendCallGe5msTotal,
+    required this.firstChunkSendCallGe10msTotal,
     required this.headersToFirstChunkSendCallSamplesTotal,
     required this.headersToFirstChunkSendCallUsTotal,
   });
@@ -192,10 +201,19 @@ class RouterHttpResponseStreamMetrics {
   final int streamingResponsesTotal;
   final int firstChunkChannelWaitSamplesTotal;
   final int firstChunkChannelWaitUsTotal;
+  final int firstChunkChannelWaitGe1msTotal;
+  final int firstChunkChannelWaitGe5msTotal;
+  final int firstChunkChannelWaitGe10msTotal;
   final int headersToFirstChunkDequeueSamplesTotal;
   final int headersToFirstChunkDequeueUsTotal;
+  final int headersToFirstChunkDequeueGe1msTotal;
+  final int headersToFirstChunkDequeueGe5msTotal;
+  final int headersToFirstChunkDequeueGe10msTotal;
   final int firstChunkSendCallSamplesTotal;
   final int firstChunkSendCallUsTotal;
+  final int firstChunkSendCallGe1msTotal;
+  final int firstChunkSendCallGe5msTotal;
+  final int firstChunkSendCallGe10msTotal;
   final int headersToFirstChunkSendCallSamplesTotal;
   final int headersToFirstChunkSendCallUsTotal;
 
@@ -203,12 +221,24 @@ class RouterHttpResponseStreamMetrics {
     'streaming_responses_total': streamingResponsesTotal,
     'first_chunk_channel_wait_samples_total': firstChunkChannelWaitSamplesTotal,
     'first_chunk_channel_wait_us_total': firstChunkChannelWaitUsTotal,
+    'first_chunk_channel_wait_ge_1ms_total': firstChunkChannelWaitGe1msTotal,
+    'first_chunk_channel_wait_ge_5ms_total': firstChunkChannelWaitGe5msTotal,
+    'first_chunk_channel_wait_ge_10ms_total': firstChunkChannelWaitGe10msTotal,
     'headers_to_first_chunk_dequeue_samples_total':
         headersToFirstChunkDequeueSamplesTotal,
     'headers_to_first_chunk_dequeue_us_total':
         headersToFirstChunkDequeueUsTotal,
+    'headers_to_first_chunk_dequeue_ge_1ms_total':
+        headersToFirstChunkDequeueGe1msTotal,
+    'headers_to_first_chunk_dequeue_ge_5ms_total':
+        headersToFirstChunkDequeueGe5msTotal,
+    'headers_to_first_chunk_dequeue_ge_10ms_total':
+        headersToFirstChunkDequeueGe10msTotal,
     'first_chunk_send_call_samples_total': firstChunkSendCallSamplesTotal,
     'first_chunk_send_call_us_total': firstChunkSendCallUsTotal,
+    'first_chunk_send_call_ge_1ms_total': firstChunkSendCallGe1msTotal,
+    'first_chunk_send_call_ge_5ms_total': firstChunkSendCallGe5msTotal,
+    'first_chunk_send_call_ge_10ms_total': firstChunkSendCallGe10msTotal,
     'headers_to_first_chunk_send_call_samples_total':
         headersToFirstChunkSendCallSamplesTotal,
     'headers_to_first_chunk_send_call_us_total':

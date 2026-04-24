@@ -100,6 +100,9 @@ const HTTP3_SEND_WINDOW: u64 = 64 * 1024 * 1024;
 const HTTP3_DATAGRAM_BUFFER_BYTES: usize = 8 * 1024 * 1024;
 const HTTP3_KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(5);
 const WEBSOCKET_MASK_CHUNK_SIZE: usize = 4 * 1024;
+const RESPONSE_STREAM_SLOW_PATH_1MS_US: u64 = 1_000;
+const RESPONSE_STREAM_SLOW_PATH_5MS_US: u64 = 5_000;
+const RESPONSE_STREAM_SLOW_PATH_10MS_US: u64 = 10_000;
 
 fn http_stream_timeouts(config: &config::EndpointRuntimeConfig) -> (Duration, Duration) {
     let idle = config.idle_timeout.unwrap_or(HTTP_STREAM_IDLE_FALLBACK);
@@ -257,10 +260,19 @@ struct HttpResponseStreamMetrics {
     streaming_responses_total: AtomicU64,
     first_chunk_channel_wait_samples_total: AtomicU64,
     first_chunk_channel_wait_us_total: AtomicU64,
+    first_chunk_channel_wait_ge_1ms_total: AtomicU64,
+    first_chunk_channel_wait_ge_5ms_total: AtomicU64,
+    first_chunk_channel_wait_ge_10ms_total: AtomicU64,
     headers_to_first_chunk_dequeue_samples_total: AtomicU64,
     headers_to_first_chunk_dequeue_us_total: AtomicU64,
+    headers_to_first_chunk_dequeue_ge_1ms_total: AtomicU64,
+    headers_to_first_chunk_dequeue_ge_5ms_total: AtomicU64,
+    headers_to_first_chunk_dequeue_ge_10ms_total: AtomicU64,
     first_chunk_send_call_samples_total: AtomicU64,
     first_chunk_send_call_us_total: AtomicU64,
+    first_chunk_send_call_ge_1ms_total: AtomicU64,
+    first_chunk_send_call_ge_5ms_total: AtomicU64,
+    first_chunk_send_call_ge_10ms_total: AtomicU64,
     headers_to_first_chunk_send_call_samples_total: AtomicU64,
     headers_to_first_chunk_send_call_us_total: AtomicU64,
 }
@@ -283,10 +295,19 @@ pub struct HttpResponseStreamMetricsSnapshot {
     pub streaming_responses_total: u64,
     pub first_chunk_channel_wait_samples_total: u64,
     pub first_chunk_channel_wait_us_total: u64,
+    pub first_chunk_channel_wait_ge_1ms_total: u64,
+    pub first_chunk_channel_wait_ge_5ms_total: u64,
+    pub first_chunk_channel_wait_ge_10ms_total: u64,
     pub headers_to_first_chunk_dequeue_samples_total: u64,
     pub headers_to_first_chunk_dequeue_us_total: u64,
+    pub headers_to_first_chunk_dequeue_ge_1ms_total: u64,
+    pub headers_to_first_chunk_dequeue_ge_5ms_total: u64,
+    pub headers_to_first_chunk_dequeue_ge_10ms_total: u64,
     pub first_chunk_send_call_samples_total: u64,
     pub first_chunk_send_call_us_total: u64,
+    pub first_chunk_send_call_ge_1ms_total: u64,
+    pub first_chunk_send_call_ge_5ms_total: u64,
+    pub first_chunk_send_call_ge_10ms_total: u64,
     pub headers_to_first_chunk_send_call_samples_total: u64,
     pub headers_to_first_chunk_send_call_us_total: u64,
 }
@@ -427,30 +448,46 @@ impl HttpResponseStreamMetrics {
         send_call_started_at: Instant,
         send_call_finished_at: Instant,
     ) {
+        let channel_wait_us = saturating_instant_delta_us(queued_at, dequeue_at);
+        let headers_to_dequeue_us = saturating_instant_delta_us(headers_sent_at, dequeue_at);
+        let send_call_us = saturating_instant_delta_us(send_call_started_at, send_call_finished_at);
+        let headers_to_send_call_us =
+            saturating_instant_delta_us(headers_sent_at, send_call_finished_at);
+
         self.first_chunk_channel_wait_samples_total
             .fetch_add(1, Ordering::SeqCst);
-        self.first_chunk_channel_wait_us_total.fetch_add(
-            saturating_instant_delta_us(queued_at, dequeue_at),
-            Ordering::SeqCst,
+        self.first_chunk_channel_wait_us_total
+            .fetch_add(channel_wait_us, Ordering::SeqCst);
+        record_response_stream_slow_path(
+            channel_wait_us,
+            &self.first_chunk_channel_wait_ge_1ms_total,
+            &self.first_chunk_channel_wait_ge_5ms_total,
+            &self.first_chunk_channel_wait_ge_10ms_total,
         );
         self.headers_to_first_chunk_dequeue_samples_total
             .fetch_add(1, Ordering::SeqCst);
-        self.headers_to_first_chunk_dequeue_us_total.fetch_add(
-            saturating_instant_delta_us(headers_sent_at, dequeue_at),
-            Ordering::SeqCst,
+        self.headers_to_first_chunk_dequeue_us_total
+            .fetch_add(headers_to_dequeue_us, Ordering::SeqCst);
+        record_response_stream_slow_path(
+            headers_to_dequeue_us,
+            &self.headers_to_first_chunk_dequeue_ge_1ms_total,
+            &self.headers_to_first_chunk_dequeue_ge_5ms_total,
+            &self.headers_to_first_chunk_dequeue_ge_10ms_total,
         );
         self.first_chunk_send_call_samples_total
             .fetch_add(1, Ordering::SeqCst);
-        self.first_chunk_send_call_us_total.fetch_add(
-            saturating_instant_delta_us(send_call_started_at, send_call_finished_at),
-            Ordering::SeqCst,
+        self.first_chunk_send_call_us_total
+            .fetch_add(send_call_us, Ordering::SeqCst);
+        record_response_stream_slow_path(
+            send_call_us,
+            &self.first_chunk_send_call_ge_1ms_total,
+            &self.first_chunk_send_call_ge_5ms_total,
+            &self.first_chunk_send_call_ge_10ms_total,
         );
         self.headers_to_first_chunk_send_call_samples_total
             .fetch_add(1, Ordering::SeqCst);
-        self.headers_to_first_chunk_send_call_us_total.fetch_add(
-            saturating_instant_delta_us(headers_sent_at, send_call_finished_at),
-            Ordering::SeqCst,
-        );
+        self.headers_to_first_chunk_send_call_us_total
+            .fetch_add(headers_to_send_call_us, Ordering::SeqCst);
     }
 
     fn snapshot(&self) -> HttpResponseStreamMetricsSnapshot {
@@ -462,17 +499,44 @@ impl HttpResponseStreamMetrics {
             first_chunk_channel_wait_us_total: self
                 .first_chunk_channel_wait_us_total
                 .load(Ordering::SeqCst),
+            first_chunk_channel_wait_ge_1ms_total: self
+                .first_chunk_channel_wait_ge_1ms_total
+                .load(Ordering::SeqCst),
+            first_chunk_channel_wait_ge_5ms_total: self
+                .first_chunk_channel_wait_ge_5ms_total
+                .load(Ordering::SeqCst),
+            first_chunk_channel_wait_ge_10ms_total: self
+                .first_chunk_channel_wait_ge_10ms_total
+                .load(Ordering::SeqCst),
             headers_to_first_chunk_dequeue_samples_total: self
                 .headers_to_first_chunk_dequeue_samples_total
                 .load(Ordering::SeqCst),
             headers_to_first_chunk_dequeue_us_total: self
                 .headers_to_first_chunk_dequeue_us_total
                 .load(Ordering::SeqCst),
+            headers_to_first_chunk_dequeue_ge_1ms_total: self
+                .headers_to_first_chunk_dequeue_ge_1ms_total
+                .load(Ordering::SeqCst),
+            headers_to_first_chunk_dequeue_ge_5ms_total: self
+                .headers_to_first_chunk_dequeue_ge_5ms_total
+                .load(Ordering::SeqCst),
+            headers_to_first_chunk_dequeue_ge_10ms_total: self
+                .headers_to_first_chunk_dequeue_ge_10ms_total
+                .load(Ordering::SeqCst),
             first_chunk_send_call_samples_total: self
                 .first_chunk_send_call_samples_total
                 .load(Ordering::SeqCst),
             first_chunk_send_call_us_total: self
                 .first_chunk_send_call_us_total
+                .load(Ordering::SeqCst),
+            first_chunk_send_call_ge_1ms_total: self
+                .first_chunk_send_call_ge_1ms_total
+                .load(Ordering::SeqCst),
+            first_chunk_send_call_ge_5ms_total: self
+                .first_chunk_send_call_ge_5ms_total
+                .load(Ordering::SeqCst),
+            first_chunk_send_call_ge_10ms_total: self
+                .first_chunk_send_call_ge_10ms_total
                 .load(Ordering::SeqCst),
             headers_to_first_chunk_send_call_samples_total: self
                 .headers_to_first_chunk_send_call_samples_total
@@ -498,6 +562,23 @@ fn saturating_instant_delta_us(start: Instant, end: Instant) -> u64 {
     end.saturating_duration_since(start)
         .as_micros()
         .min(u64::MAX as u128) as u64
+}
+
+fn record_response_stream_slow_path(
+    value_us: u64,
+    ge_1ms_total: &AtomicU64,
+    ge_5ms_total: &AtomicU64,
+    ge_10ms_total: &AtomicU64,
+) {
+    if value_us >= RESPONSE_STREAM_SLOW_PATH_1MS_US {
+        ge_1ms_total.fetch_add(1, Ordering::SeqCst);
+    }
+    if value_us >= RESPONSE_STREAM_SLOW_PATH_5MS_US {
+        ge_5ms_total.fetch_add(1, Ordering::SeqCst);
+    }
+    if value_us >= RESPONSE_STREAM_SLOW_PATH_10MS_US {
+        ge_10ms_total.fetch_add(1, Ordering::SeqCst);
+    }
 }
 
 pub fn http_metrics_snapshot() -> HttpMetricsSnapshot {

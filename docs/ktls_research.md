@@ -623,6 +623,46 @@ whether the hotspot is introduced before the native send task dequeues the
 first chunk, during the first native `send_data` handoff, or only later in
 the HTTP/2 + kTLS path.
 
+### Hosted Native Response-Stream Handoff Result
+
+That rerun has now landed as workflow run `24883756346` on commit `8ed8014`,
+and it closes the average-path question too:
+
+- the worst throughput and p95 hotspot moved to the same row:
+  `h2_multiplexed_streams_s2`, `threads=1`
+  - `response headers wait avg +2.21 ms`
+  - `response body first chunk wait avg +13.64 ms`
+  - `request round trip p95 +201.63 ms`
+- average native handoff movement on that row stayed much smaller:
+  - `native first chunk channel wait avg +0.41 ms`
+  - `native headers-to-first-chunk-dequeue avg +0.50 ms`
+  - `native first chunk send call avg -0.00 ms`
+  - `native headers-to-first-chunk-send-call avg +0.50 ms`
+
+That means the average native handoff counters are useful but still too coarse
+for the worst latency spike. The missing signal is no longer another mean; it
+is native handoff tail behavior.
+
+### Native Response-Stream Slow-Path Buckets
+
+The next local slice now adds that tail signal without abandoning the existing
+cumulative metrics model:
+
+- `ct_core` records `>=1ms`, `>=5ms`, and `>=10ms` counters for:
+  - first chunk channel wait
+  - headers-to-first-chunk dequeue
+  - first chunk send call
+- `ct_ffi` and `connectanum_router` expose those counters through the same
+  transport metrics snapshot path
+- `native/bench` summarizes them into
+  `http_native_response_stream_slow_path`
+- `tool/ktls_http2_compare.py` renders the new
+  `HTTP Native Response-Stream Slow Paths` section plus worst-row focus lines
+
+That means the next hosted rerun can answer the narrower question that now
+matters: whether kTLS is creating rare multi-millisecond dequeue stalls or
+rare first-send-call stalls that the average-only metrics were smoothing away.
+
 ### What Not To Overclaim
 
 - macOS results are irrelevant for kTLS itself.

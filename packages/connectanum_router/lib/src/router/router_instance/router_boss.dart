@@ -879,15 +879,33 @@ class _RouterBoss {
                   metrics.responseStream!.firstChunkChannelWaitSamplesTotal,
               firstChunkChannelWaitUsTotal:
                   metrics.responseStream!.firstChunkChannelWaitUsTotal,
+              firstChunkChannelWaitGe1msTotal:
+                  metrics.responseStream!.firstChunkChannelWaitGe1msTotal,
+              firstChunkChannelWaitGe5msTotal:
+                  metrics.responseStream!.firstChunkChannelWaitGe5msTotal,
+              firstChunkChannelWaitGe10msTotal:
+                  metrics.responseStream!.firstChunkChannelWaitGe10msTotal,
               headersToFirstChunkDequeueSamplesTotal: metrics
                   .responseStream!
                   .headersToFirstChunkDequeueSamplesTotal,
               headersToFirstChunkDequeueUsTotal:
                   metrics.responseStream!.headersToFirstChunkDequeueUsTotal,
+              headersToFirstChunkDequeueGe1msTotal:
+                  metrics.responseStream!.headersToFirstChunkDequeueGe1msTotal,
+              headersToFirstChunkDequeueGe5msTotal:
+                  metrics.responseStream!.headersToFirstChunkDequeueGe5msTotal,
+              headersToFirstChunkDequeueGe10msTotal:
+                  metrics.responseStream!.headersToFirstChunkDequeueGe10msTotal,
               firstChunkSendCallSamplesTotal:
                   metrics.responseStream!.firstChunkSendCallSamplesTotal,
               firstChunkSendCallUsTotal:
                   metrics.responseStream!.firstChunkSendCallUsTotal,
+              firstChunkSendCallGe1msTotal:
+                  metrics.responseStream!.firstChunkSendCallGe1msTotal,
+              firstChunkSendCallGe5msTotal:
+                  metrics.responseStream!.firstChunkSendCallGe5msTotal,
+              firstChunkSendCallGe10msTotal:
+                  metrics.responseStream!.firstChunkSendCallGe10msTotal,
               headersToFirstChunkSendCallSamplesTotal: metrics
                   .responseStream!
                   .headersToFirstChunkSendCallSamplesTotal,

@@ -85,6 +85,15 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         native_headers_to_first_chunk_dequeue_avg_ms=1.4,
                         native_first_chunk_send_call_avg_ms=0.2,
                         native_headers_to_first_chunk_send_call_avg_ms=1.6,
+                        native_first_chunk_channel_wait_ge_1ms_total=2,
+                        native_first_chunk_channel_wait_ge_5ms_total=0,
+                        native_first_chunk_channel_wait_ge_10ms_total=0,
+                        native_headers_to_first_chunk_dequeue_ge_1ms_total=4,
+                        native_headers_to_first_chunk_dequeue_ge_5ms_total=1,
+                        native_headers_to_first_chunk_dequeue_ge_10ms_total=0,
+                        native_first_chunk_send_call_ge_1ms_total=0,
+                        native_first_chunk_send_call_ge_5ms_total=0,
+                        native_first_chunk_send_call_ge_10ms_total=0,
                     ),
                 ],
             )
@@ -154,6 +163,15 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         native_headers_to_first_chunk_dequeue_avg_ms=11.9,
                         native_first_chunk_send_call_avg_ms=0.9,
                         native_headers_to_first_chunk_send_call_avg_ms=12.8,
+                        native_first_chunk_channel_wait_ge_1ms_total=14,
+                        native_first_chunk_channel_wait_ge_5ms_total=7,
+                        native_first_chunk_channel_wait_ge_10ms_total=2,
+                        native_headers_to_first_chunk_dequeue_ge_1ms_total=24,
+                        native_headers_to_first_chunk_dequeue_ge_5ms_total=16,
+                        native_headers_to_first_chunk_dequeue_ge_10ms_total=9,
+                        native_first_chunk_send_call_ge_1ms_total=1,
+                        native_first_chunk_send_call_ge_5ms_total=0,
+                        native_first_chunk_send_call_ge_10ms_total=0,
                     ),
                 ],
             )
@@ -323,6 +341,14 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                 ]["metrics"]["headers_to_first_chunk_dequeue_avg_ms"]["delta"],
                 10.5,
             )
+            self.assertEqual(
+                comparison["summary"]["native_response_stream_slow_path_focus"][
+                    "worst_throughput_row"
+                ]["buckets"]["headers_to_first_chunk_dequeue"]["ge_5ms_total"][
+                    "delta"
+                ],
+                15,
+            )
 
             markdown = compare.render_markdown(comparison)
             self.assertIn("## Group Rollups", markdown)
@@ -331,6 +357,7 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("## HTTP Response-Body Diagnostics", markdown)
             self.assertIn("## HTTP Server Emission Timing", markdown)
             self.assertIn("## HTTP Native Response-Stream Timing", markdown)
+            self.assertIn("## HTTP Native Response-Stream Slow Paths", markdown)
             self.assertIn("## Linux TLS Stats", markdown)
             self.assertIn("## Transport Counter Deltas", markdown)
             self.assertIn("Workload-family investigation focus", markdown)
@@ -340,6 +367,7 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("Worst throughput row phase view", markdown)
             self.assertIn("Worst throughput row server-emission view", markdown)
             self.assertIn("Worst throughput row native-stream view", markdown)
+            self.assertIn("Worst throughput row native-stream slow-path view", markdown)
             self.assertIn(
                 "Linux TLS session opens: baseline software TX/RX 0/0, device TX/RX 0/0; kTLS software TX/RX 4/4, device TX/RX 0/0.",
                 markdown,
@@ -358,6 +386,10 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("stream acquire wait avg 0.80 -> 7.60 (+6.80)", markdown)
             self.assertIn(
                 "server headers-to-first-body-write avg 0.70 -> 5.90 (+5.20)",
+                markdown,
+            )
+            self.assertIn(
+                "native headers-to-first-chunk-dequeue >=1/5/10ms 4/1/0 -> 24/16/9",
                 markdown,
             )
             self.assertIn(
@@ -534,6 +566,15 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         native_headers_to_first_chunk_dequeue_avg_ms: float | None = 1.2,
         native_first_chunk_send_call_avg_ms: float | None = 0.2,
         native_headers_to_first_chunk_send_call_avg_ms: float | None = 1.4,
+        native_first_chunk_channel_wait_ge_1ms_total: int | None = 1,
+        native_first_chunk_channel_wait_ge_5ms_total: int | None = 0,
+        native_first_chunk_channel_wait_ge_10ms_total: int | None = 0,
+        native_headers_to_first_chunk_dequeue_ge_1ms_total: int | None = 2,
+        native_headers_to_first_chunk_dequeue_ge_5ms_total: int | None = 0,
+        native_headers_to_first_chunk_dequeue_ge_10ms_total: int | None = 0,
+        native_first_chunk_send_call_ge_1ms_total: int | None = 0,
+        native_first_chunk_send_call_ge_5ms_total: int | None = 0,
+        native_first_chunk_send_call_ge_10ms_total: int | None = 0,
     ) -> dict:
         return {
             "scenario": "h2_ktls_benchmark",
@@ -605,6 +646,22 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "headers_to_first_chunk_dequeue_avg_ms": native_headers_to_first_chunk_dequeue_avg_ms,
                     "first_chunk_send_call_avg_ms": native_first_chunk_send_call_avg_ms,
                     "headers_to_first_chunk_send_call_avg_ms": native_headers_to_first_chunk_send_call_avg_ms,
+                }
+            ),
+            "http_native_response_stream_slow_path": (
+                None
+                if native_streaming_responses_total is None
+                else {
+                    "streaming_responses_total": native_streaming_responses_total,
+                    "first_chunk_channel_wait_ge_1ms_total": native_first_chunk_channel_wait_ge_1ms_total,
+                    "first_chunk_channel_wait_ge_5ms_total": native_first_chunk_channel_wait_ge_5ms_total,
+                    "first_chunk_channel_wait_ge_10ms_total": native_first_chunk_channel_wait_ge_10ms_total,
+                    "headers_to_first_chunk_dequeue_ge_1ms_total": native_headers_to_first_chunk_dequeue_ge_1ms_total,
+                    "headers_to_first_chunk_dequeue_ge_5ms_total": native_headers_to_first_chunk_dequeue_ge_5ms_total,
+                    "headers_to_first_chunk_dequeue_ge_10ms_total": native_headers_to_first_chunk_dequeue_ge_10ms_total,
+                    "first_chunk_send_call_ge_1ms_total": native_first_chunk_send_call_ge_1ms_total,
+                    "first_chunk_send_call_ge_5ms_total": native_first_chunk_send_call_ge_5ms_total,
+                    "first_chunk_send_call_ge_10ms_total": native_first_chunk_send_call_ge_10ms_total,
                 }
             ),
         }

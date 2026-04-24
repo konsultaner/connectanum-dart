@@ -559,16 +559,43 @@ final class CtRouterMetricsInfo extends ffi.Struct {
   external int responseStreamFirstChunkChannelWaitUsTotal;
 
   @ffi.Uint64()
+  external int responseStreamFirstChunkChannelWaitGe1msTotal;
+
+  @ffi.Uint64()
+  external int responseStreamFirstChunkChannelWaitGe5msTotal;
+
+  @ffi.Uint64()
+  external int responseStreamFirstChunkChannelWaitGe10msTotal;
+
+  @ffi.Uint64()
   external int responseStreamHeadersToFirstChunkDequeueSamplesTotal;
 
   @ffi.Uint64()
   external int responseStreamHeadersToFirstChunkDequeueUsTotal;
 
   @ffi.Uint64()
+  external int responseStreamHeadersToFirstChunkDequeueGe1msTotal;
+
+  @ffi.Uint64()
+  external int responseStreamHeadersToFirstChunkDequeueGe5msTotal;
+
+  @ffi.Uint64()
+  external int responseStreamHeadersToFirstChunkDequeueGe10msTotal;
+
+  @ffi.Uint64()
   external int responseStreamFirstChunkSendCallSamplesTotal;
 
   @ffi.Uint64()
   external int responseStreamFirstChunkSendCallUsTotal;
+
+  @ffi.Uint64()
+  external int responseStreamFirstChunkSendCallGe1msTotal;
+
+  @ffi.Uint64()
+  external int responseStreamFirstChunkSendCallGe5msTotal;
+
+  @ffi.Uint64()
+  external int responseStreamFirstChunkSendCallGe10msTotal;
 
   @ffi.Uint64()
   external int responseStreamHeadersToFirstChunkSendCallSamplesTotal;

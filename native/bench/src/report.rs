@@ -83,6 +83,20 @@ pub struct HttpNativeResponseStreamTimingSummary {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct HttpNativeResponseStreamSlowPathSummary {
+    pub streaming_responses_total: u64,
+    pub first_chunk_channel_wait_ge_1ms_total: u64,
+    pub first_chunk_channel_wait_ge_5ms_total: u64,
+    pub first_chunk_channel_wait_ge_10ms_total: u64,
+    pub headers_to_first_chunk_dequeue_ge_1ms_total: u64,
+    pub headers_to_first_chunk_dequeue_ge_5ms_total: u64,
+    pub headers_to_first_chunk_dequeue_ge_10ms_total: u64,
+    pub first_chunk_send_call_ge_1ms_total: u64,
+    pub first_chunk_send_call_ge_5ms_total: u64,
+    pub first_chunk_send_call_ge_10ms_total: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct WorkloadReport {
     pub scenario: String,
     pub workload: String,

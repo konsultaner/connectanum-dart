@@ -547,10 +547,19 @@ class NativeHttpResponseStreamMetrics {
     required this.streamingResponsesTotal,
     required this.firstChunkChannelWaitSamplesTotal,
     required this.firstChunkChannelWaitUsTotal,
+    required this.firstChunkChannelWaitGe1msTotal,
+    required this.firstChunkChannelWaitGe5msTotal,
+    required this.firstChunkChannelWaitGe10msTotal,
     required this.headersToFirstChunkDequeueSamplesTotal,
     required this.headersToFirstChunkDequeueUsTotal,
+    required this.headersToFirstChunkDequeueGe1msTotal,
+    required this.headersToFirstChunkDequeueGe5msTotal,
+    required this.headersToFirstChunkDequeueGe10msTotal,
     required this.firstChunkSendCallSamplesTotal,
     required this.firstChunkSendCallUsTotal,
+    required this.firstChunkSendCallGe1msTotal,
+    required this.firstChunkSendCallGe5msTotal,
+    required this.firstChunkSendCallGe10msTotal,
     required this.headersToFirstChunkSendCallSamplesTotal,
     required this.headersToFirstChunkSendCallUsTotal,
   });
@@ -558,10 +567,19 @@ class NativeHttpResponseStreamMetrics {
   final int streamingResponsesTotal;
   final int firstChunkChannelWaitSamplesTotal;
   final int firstChunkChannelWaitUsTotal;
+  final int firstChunkChannelWaitGe1msTotal;
+  final int firstChunkChannelWaitGe5msTotal;
+  final int firstChunkChannelWaitGe10msTotal;
   final int headersToFirstChunkDequeueSamplesTotal;
   final int headersToFirstChunkDequeueUsTotal;
+  final int headersToFirstChunkDequeueGe1msTotal;
+  final int headersToFirstChunkDequeueGe5msTotal;
+  final int headersToFirstChunkDequeueGe10msTotal;
   final int firstChunkSendCallSamplesTotal;
   final int firstChunkSendCallUsTotal;
+  final int firstChunkSendCallGe1msTotal;
+  final int firstChunkSendCallGe5msTotal;
+  final int firstChunkSendCallGe10msTotal;
   final int headersToFirstChunkSendCallSamplesTotal;
   final int headersToFirstChunkSendCallUsTotal;
 
@@ -571,13 +589,28 @@ class NativeHttpResponseStreamMetrics {
         firstChunkChannelWaitSamplesTotal ==
             other.firstChunkChannelWaitSamplesTotal &&
         firstChunkChannelWaitUsTotal == other.firstChunkChannelWaitUsTotal &&
+        firstChunkChannelWaitGe1msTotal ==
+            other.firstChunkChannelWaitGe1msTotal &&
+        firstChunkChannelWaitGe5msTotal ==
+            other.firstChunkChannelWaitGe5msTotal &&
+        firstChunkChannelWaitGe10msTotal ==
+            other.firstChunkChannelWaitGe10msTotal &&
         headersToFirstChunkDequeueSamplesTotal ==
             other.headersToFirstChunkDequeueSamplesTotal &&
         headersToFirstChunkDequeueUsTotal ==
             other.headersToFirstChunkDequeueUsTotal &&
+        headersToFirstChunkDequeueGe1msTotal ==
+            other.headersToFirstChunkDequeueGe1msTotal &&
+        headersToFirstChunkDequeueGe5msTotal ==
+            other.headersToFirstChunkDequeueGe5msTotal &&
+        headersToFirstChunkDequeueGe10msTotal ==
+            other.headersToFirstChunkDequeueGe10msTotal &&
         firstChunkSendCallSamplesTotal ==
             other.firstChunkSendCallSamplesTotal &&
         firstChunkSendCallUsTotal == other.firstChunkSendCallUsTotal &&
+        firstChunkSendCallGe1msTotal == other.firstChunkSendCallGe1msTotal &&
+        firstChunkSendCallGe5msTotal == other.firstChunkSendCallGe5msTotal &&
+        firstChunkSendCallGe10msTotal == other.firstChunkSendCallGe10msTotal &&
         headersToFirstChunkSendCallSamplesTotal ==
             other.headersToFirstChunkSendCallSamplesTotal &&
         headersToFirstChunkSendCallUsTotal ==
@@ -2659,14 +2692,32 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
                   info.responseStreamFirstChunkChannelWaitSamplesTotal,
               firstChunkChannelWaitUsTotal:
                   info.responseStreamFirstChunkChannelWaitUsTotal,
+              firstChunkChannelWaitGe1msTotal:
+                  info.responseStreamFirstChunkChannelWaitGe1msTotal,
+              firstChunkChannelWaitGe5msTotal:
+                  info.responseStreamFirstChunkChannelWaitGe5msTotal,
+              firstChunkChannelWaitGe10msTotal:
+                  info.responseStreamFirstChunkChannelWaitGe10msTotal,
               headersToFirstChunkDequeueSamplesTotal:
                   info.responseStreamHeadersToFirstChunkDequeueSamplesTotal,
               headersToFirstChunkDequeueUsTotal:
                   info.responseStreamHeadersToFirstChunkDequeueUsTotal,
+              headersToFirstChunkDequeueGe1msTotal:
+                  info.responseStreamHeadersToFirstChunkDequeueGe1msTotal,
+              headersToFirstChunkDequeueGe5msTotal:
+                  info.responseStreamHeadersToFirstChunkDequeueGe5msTotal,
+              headersToFirstChunkDequeueGe10msTotal:
+                  info.responseStreamHeadersToFirstChunkDequeueGe10msTotal,
               firstChunkSendCallSamplesTotal:
                   info.responseStreamFirstChunkSendCallSamplesTotal,
               firstChunkSendCallUsTotal:
                   info.responseStreamFirstChunkSendCallUsTotal,
+              firstChunkSendCallGe1msTotal:
+                  info.responseStreamFirstChunkSendCallGe1msTotal,
+              firstChunkSendCallGe5msTotal:
+                  info.responseStreamFirstChunkSendCallGe5msTotal,
+              firstChunkSendCallGe10msTotal:
+                  info.responseStreamFirstChunkSendCallGe10msTotal,
               headersToFirstChunkSendCallSamplesTotal:
                   info.responseStreamHeadersToFirstChunkSendCallSamplesTotal,
               headersToFirstChunkSendCallUsTotal:

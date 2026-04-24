@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 use crate::report::{
     bench_http_stream_counter_delta, router_counter_delta, transport_counter_after,
     transport_counter_delta, transport_http_response_stream_counter_delta, HttpConnectionUsage,
-    HttpNativeResponseStreamTimingSummary, HttpPhaseTimingSummary, HttpServerEmissionTimingSummary,
-    WorkloadReport,
+    HttpNativeResponseStreamSlowPathSummary, HttpNativeResponseStreamTimingSummary,
+    HttpPhaseTimingSummary, HttpServerEmissionTimingSummary, WorkloadReport,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -66,6 +66,8 @@ pub struct WorkloadArtifactSummary {
     pub http_server_emission_timing: Option<HttpServerEmissionTimingSummary>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub http_native_response_stream_timing: Option<HttpNativeResponseStreamTimingSummary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub http_native_response_stream_slow_path: Option<HttpNativeResponseStreamSlowPathSummary>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -602,6 +604,8 @@ pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
     let http_phase_timing = summarize_http_phase_timing(&report.samples);
     let http_server_emission_timing = summarize_http_server_emission_timing(report);
     let http_native_response_stream_timing = summarize_http_native_response_stream_timing(report);
+    let http_native_response_stream_slow_path =
+        summarize_http_native_response_stream_slow_path(report);
 
     let scenario_before = report
         .scenario_metrics_before
@@ -756,6 +760,7 @@ pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
         http_phase_timing,
         http_server_emission_timing,
         http_native_response_stream_timing,
+        http_native_response_stream_slow_path,
     }
 }
 
@@ -1205,6 +1210,88 @@ fn summarize_http_native_response_stream_timing(
             headers_to_first_chunk_send_call_us_total,
             headers_to_first_chunk_send_call_samples_total,
         ),
+    })
+}
+
+fn summarize_http_native_response_stream_slow_path(
+    report: &WorkloadReport,
+) -> Option<HttpNativeResponseStreamSlowPathSummary> {
+    let streaming_responses_total = transport_http_response_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "streaming_responses_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    if streaming_responses_total == 0 {
+        return None;
+    }
+
+    Some(HttpNativeResponseStreamSlowPathSummary {
+        streaming_responses_total,
+        first_chunk_channel_wait_ge_1ms_total: transport_http_response_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "first_chunk_channel_wait_ge_1ms_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64,
+        first_chunk_channel_wait_ge_5ms_total: transport_http_response_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "first_chunk_channel_wait_ge_5ms_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64,
+        first_chunk_channel_wait_ge_10ms_total: transport_http_response_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "first_chunk_channel_wait_ge_10ms_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64,
+        headers_to_first_chunk_dequeue_ge_1ms_total: transport_http_response_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "headers_to_first_chunk_dequeue_ge_1ms_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64,
+        headers_to_first_chunk_dequeue_ge_5ms_total: transport_http_response_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "headers_to_first_chunk_dequeue_ge_5ms_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64,
+        headers_to_first_chunk_dequeue_ge_10ms_total: transport_http_response_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "headers_to_first_chunk_dequeue_ge_10ms_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64,
+        first_chunk_send_call_ge_1ms_total: transport_http_response_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "first_chunk_send_call_ge_1ms_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64,
+        first_chunk_send_call_ge_5ms_total: transport_http_response_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "first_chunk_send_call_ge_5ms_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64,
+        first_chunk_send_call_ge_10ms_total: transport_http_response_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "first_chunk_send_call_ge_10ms_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64,
     })
 }
 
@@ -1756,10 +1843,19 @@ mod tests {
                         "streaming_responses_total": 2,
                         "first_chunk_channel_wait_samples_total": 2,
                         "first_chunk_channel_wait_us_total": 3000,
+                        "first_chunk_channel_wait_ge_1ms_total": 1,
+                        "first_chunk_channel_wait_ge_5ms_total": 0,
+                        "first_chunk_channel_wait_ge_10ms_total": 0,
                         "headers_to_first_chunk_dequeue_samples_total": 2,
                         "headers_to_first_chunk_dequeue_us_total": 5000,
+                        "headers_to_first_chunk_dequeue_ge_1ms_total": 2,
+                        "headers_to_first_chunk_dequeue_ge_5ms_total": 0,
+                        "headers_to_first_chunk_dequeue_ge_10ms_total": 0,
                         "first_chunk_send_call_samples_total": 2,
                         "first_chunk_send_call_us_total": 2000,
+                        "first_chunk_send_call_ge_1ms_total": 0,
+                        "first_chunk_send_call_ge_5ms_total": 0,
+                        "first_chunk_send_call_ge_10ms_total": 0,
                         "headers_to_first_chunk_send_call_samples_total": 2,
                         "headers_to_first_chunk_send_call_us_total": 7000,
                     },
@@ -1817,10 +1913,19 @@ mod tests {
                         "streaming_responses_total": 5,
                         "first_chunk_channel_wait_samples_total": 5,
                         "first_chunk_channel_wait_us_total": 12000,
+                        "first_chunk_channel_wait_ge_1ms_total": 4,
+                        "first_chunk_channel_wait_ge_5ms_total": 1,
+                        "first_chunk_channel_wait_ge_10ms_total": 0,
                         "headers_to_first_chunk_dequeue_samples_total": 5,
                         "headers_to_first_chunk_dequeue_us_total": 23000,
+                        "headers_to_first_chunk_dequeue_ge_1ms_total": 5,
+                        "headers_to_first_chunk_dequeue_ge_5ms_total": 2,
+                        "headers_to_first_chunk_dequeue_ge_10ms_total": 1,
                         "first_chunk_send_call_samples_total": 5,
                         "first_chunk_send_call_us_total": 8000,
+                        "first_chunk_send_call_ge_1ms_total": 2,
+                        "first_chunk_send_call_ge_5ms_total": 0,
+                        "first_chunk_send_call_ge_10ms_total": 0,
                         "headers_to_first_chunk_send_call_samples_total": 5,
                         "headers_to_first_chunk_send_call_us_total": 28000,
                     },
@@ -1993,10 +2098,19 @@ mod tests {
                     "streaming_responses_total": 2,
                     "first_chunk_channel_wait_samples_total": 2,
                     "first_chunk_channel_wait_us_total": 3000,
+                    "first_chunk_channel_wait_ge_1ms_total": 1,
+                    "first_chunk_channel_wait_ge_5ms_total": 0,
+                    "first_chunk_channel_wait_ge_10ms_total": 0,
                     "headers_to_first_chunk_dequeue_samples_total": 2,
                     "headers_to_first_chunk_dequeue_us_total": 5000,
+                    "headers_to_first_chunk_dequeue_ge_1ms_total": 2,
+                    "headers_to_first_chunk_dequeue_ge_5ms_total": 0,
+                    "headers_to_first_chunk_dequeue_ge_10ms_total": 0,
                     "first_chunk_send_call_samples_total": 2,
                     "first_chunk_send_call_us_total": 2000,
+                    "first_chunk_send_call_ge_1ms_total": 0,
+                    "first_chunk_send_call_ge_5ms_total": 0,
+                    "first_chunk_send_call_ge_10ms_total": 0,
                     "headers_to_first_chunk_send_call_samples_total": 2,
                     "headers_to_first_chunk_send_call_us_total": 7000,
                 },
@@ -2082,6 +2196,44 @@ mod tests {
         assert!(
             (native_stream_timing.headers_to_first_chunk_send_call_avg_ms - 7.0).abs()
                 < f64::EPSILON
+        );
+        let native_stream_slow_path = summary.http_native_response_stream_slow_path.unwrap();
+        assert_eq!(native_stream_slow_path.streaming_responses_total, 3);
+        assert_eq!(
+            native_stream_slow_path.first_chunk_channel_wait_ge_1ms_total,
+            3
+        );
+        assert_eq!(
+            native_stream_slow_path.first_chunk_channel_wait_ge_5ms_total,
+            1
+        );
+        assert_eq!(
+            native_stream_slow_path.first_chunk_channel_wait_ge_10ms_total,
+            0
+        );
+        assert_eq!(
+            native_stream_slow_path.headers_to_first_chunk_dequeue_ge_1ms_total,
+            3
+        );
+        assert_eq!(
+            native_stream_slow_path.headers_to_first_chunk_dequeue_ge_5ms_total,
+            2
+        );
+        assert_eq!(
+            native_stream_slow_path.headers_to_first_chunk_dequeue_ge_10ms_total,
+            1
+        );
+        assert_eq!(
+            native_stream_slow_path.first_chunk_send_call_ge_1ms_total,
+            2
+        );
+        assert_eq!(
+            native_stream_slow_path.first_chunk_send_call_ge_5ms_total,
+            0
+        );
+        assert_eq!(
+            native_stream_slow_path.first_chunk_send_call_ge_10ms_total,
+            0
         );
         assert!((summary.latency_avg_ms - 20.0).abs() < f64::EPSILON);
         assert!((summary.latency_p95_ms - 30.0).abs() < f64::EPSILON);

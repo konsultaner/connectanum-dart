@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `b8645af` (`build(ktls): capture first-write completion timing`)
-Active exec plan: `docs/exec-plans/2026-04-24-h2-native-response-stream-handoff-metrics.md`
+Last reviewed commit: `8ed8014` (`build(ktls): capture native response-stream handoff timing`)
+Active exec plan: `docs/exec-plans/2026-04-24-h2-native-response-stream-slow-path-buckets.md`
 
 ## Last Known Verification
 
@@ -13,6 +13,7 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-native-response-stream-handoff-
 - `cargo test --manifest-path native/transport/ct_ffi/Cargo.toml http2_response_streaming_round_trip -- --nocapture`
 - `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
 - `python3 tool/test_ktls_http2_compare.py`
+- rerender hosted artifact `24883756346`
 - `bin/verify`
 
 ## Autonomous Priority
@@ -426,6 +427,50 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-native-response-stream-handoff-
   `python3 tool/test_ktls_http2_compare.py`.
 - Full local verification for the native response-stream handoff slice is also
   green on 2026-04-24: `bin/verify`.
+- That native response-stream handoff slice is now complete on the pushed
+  branch head too. Commit `8ed8014` is now on both `origin` and `github`, and
+  the hosted GitHub push chain completed cleanly:
+  - `WAMP Profile Benchmarks` `24882795293`
+  - `kTLS Validation` `24882795301`
+  - `CI` `24882795327`
+- GitLab has not surfaced a pipeline for `8ed8014` yet through the current
+  token-backed pipeline query.
+- Manual workflow run `24883756346` reran the same focused scenario on
+  `8ed8014` with `skip_artifact_gate=true`, and it closed the current
+  handoff-average question:
+  - worst throughput and p95 hotspot:
+    `h2_multiplexed_streams_s2`, `threads=1`
+    - `response headers wait avg +2.21 ms`
+    - `response body first chunk wait avg +13.64 ms`
+    - `request round trip p95 +201.63 ms`
+  - native handoff averages on that same row moved much less:
+    - `native first chunk channel wait avg +0.41 ms`
+    - `native headers-to-first-chunk-dequeue avg +0.50 ms`
+    - `native first chunk send call avg -0.00 ms`
+    - `native headers-to-first-chunk-send-call avg +0.50 ms`
+- That means the native handoff averages are informative but still too coarse
+  for the worst latency spike. The next bounded slice is native
+  response-stream slow-path buckets, not more average-only timing.
+- That native response-stream slow-path slice is now implemented on the local
+  working tree too. `ct_core` records `>=1ms`, `>=5ms`, and `>=10ms` counters
+  for channel wait, headers-to-first-chunk dequeue, and first send-call
+  timings; `ct_ffi` and `connectanum_router` expose those counters through the
+  transport metrics snapshot; `native/bench` summarizes them into
+  `http_native_response_stream_slow_path`; and
+  `tool/ktls_http2_compare.py` now renders dedicated slow-path focus lines and
+  an `HTTP Native Response-Stream Slow Paths` section.
+- Focused local verification for the native response-stream slow-path slice is
+  green on 2026-04-24: `bin/test-fast`,
+  `dart analyze packages/connectanum_router packages/connectanum_bench`,
+  `cargo test --manifest-path native/bench/Cargo.toml
+  summarize_report_computes_latency_and_deltas -- --nocapture`,
+  `cargo test --manifest-path native/transport/ct_ffi/Cargo.toml
+  http2_response_streaming_round_trip -- --nocapture`,
+  `python3 -m py_compile tool/ktls_http2_compare.py
+  tool/test_ktls_http2_compare.py`, `python3 tool/test_ktls_http2_compare.py`,
+  and a rerender of hosted artifact `24883756346`.
+- Full local verification for the native response-stream slow-path slice is
+  also green on 2026-04-24: `bin/verify`.
 - Local verification for the current kTLS transport-delta follow-up is green
   on 2026-04-24: `bin/test-fast`,
   `python3 -m py_compile tool/ktls_http2_compare.py

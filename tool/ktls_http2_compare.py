@@ -118,6 +118,21 @@ NATIVE_RESPONSE_STREAM_SUMMARY_KEYS = (
     ),
 )
 
+NATIVE_RESPONSE_STREAM_SLOW_PATH_KEYS = (
+    ("first_chunk_channel_wait", "Native first chunk channel wait"),
+    (
+        "headers_to_first_chunk_dequeue",
+        "Native headers-to-first-chunk-dequeue",
+    ),
+    ("first_chunk_send_call", "Native first chunk send call"),
+)
+
+NATIVE_RESPONSE_STREAM_SLOW_PATH_BUCKET_KEYS = (
+    "ge_1ms_total",
+    "ge_5ms_total",
+    "ge_10ms_total",
+)
+
 
 def load_summary(path: Path) -> dict:
     if not path.exists():
@@ -846,6 +861,64 @@ def build_native_response_stream_focus(
     }
 
 
+def build_native_response_stream_slow_path_snapshot(
+    baseline_timing: dict | None, ktls_timing: dict | None, prefix: str
+) -> dict | None:
+    snapshots: dict[str, dict | None] = {}
+    for suffix in NATIVE_RESPONSE_STREAM_SLOW_PATH_BUCKET_KEYS:
+        metric = f"{prefix}_{suffix}"
+        snapshots[suffix] = build_connection_metric_snapshot(
+            baseline_timing, ktls_timing, metric
+        )
+
+    if all(snapshot is None for snapshot in snapshots.values()):
+        return None
+    return snapshots
+
+
+def summarize_row_native_response_stream_slow_path(row: dict) -> dict | None:
+    baseline = row.get("baseline")
+    ktls = row.get("ktls")
+    if not baseline or not ktls:
+        return None
+
+    baseline_timing = baseline.get("http_native_response_stream_slow_path")
+    ktls_timing = ktls.get("http_native_response_stream_slow_path")
+    if baseline_timing is None and ktls_timing is None:
+        return None
+
+    counts = {
+        "streaming_responses_total": build_connection_metric_snapshot(
+            baseline_timing, ktls_timing, "streaming_responses_total"
+        ),
+    }
+    buckets = {
+        prefix: build_native_response_stream_slow_path_snapshot(
+            baseline_timing, ktls_timing, prefix
+        )
+        for prefix, _label in NATIVE_RESPONSE_STREAM_SLOW_PATH_KEYS
+    }
+    return {"counts": counts, "buckets": buckets}
+
+
+def build_native_response_stream_slow_path_focus(
+    rows: list[dict], packed_row: dict | None
+) -> dict | None:
+    row = find_matching_row(rows, packed_row)
+    if row is None:
+        return None
+
+    native_stream = row.get("native_response_stream_slow_path_summary")
+    if native_stream is None:
+        return None
+
+    return {
+        "label": build_label(row),
+        "counts": native_stream["counts"],
+        "buckets": native_stream["buckets"],
+    }
+
+
 def render_pct(value: float | None) -> str:
     if value is None:
         return "n/a"
@@ -1068,6 +1141,40 @@ def render_native_response_stream_focus_line(name: str, focus: dict | None) -> s
     )
 
 
+def render_native_response_stream_slow_path_bucket(snapshot: dict | None) -> str:
+    if snapshot is None:
+        return "n/a"
+
+    ordered = [snapshot.get(suffix) for suffix in NATIVE_RESPONSE_STREAM_SLOW_PATH_BUCKET_KEYS]
+    if any(entry is None for entry in ordered):
+        return "n/a"
+
+    baseline = "/".join(str(int(entry["baseline"])) for entry in ordered)
+    ktls = "/".join(str(int(entry["ktls"])) for entry in ordered)
+    return f"{baseline} -> {ktls}"
+
+
+def render_native_response_stream_slow_path_focus_line(
+    name: str, focus: dict | None
+) -> str:
+    if focus is None:
+        return f"- {name}: no HTTP native response-stream slow-path metrics were present."
+
+    counts = focus["counts"]
+    buckets = focus["buckets"]
+    return (
+        f"- {name}: {focus['label']} shows "
+        f"streaming responses "
+        f"{render_connection_metric_snapshot(counts['streaming_responses_total'])}, "
+        f"native first chunk channel wait >=1/5/10ms "
+        f"{render_native_response_stream_slow_path_bucket(buckets['first_chunk_channel_wait'])}, "
+        f"native headers-to-first-chunk-dequeue >=1/5/10ms "
+        f"{render_native_response_stream_slow_path_bucket(buckets['headers_to_first_chunk_dequeue'])}, "
+        f"native first chunk send call >=1/5/10ms "
+        f"{render_native_response_stream_slow_path_bucket(buckets['first_chunk_send_call'])}."
+    )
+
+
 def render_resource_usage_line(summary: dict | None) -> list[str]:
     if summary is None:
         return ["- Resource usage: no per-pass usage artifacts were present."]
@@ -1278,6 +1385,9 @@ def build_comparison(baseline_path: Path, ktls_path: Path) -> dict:
         row["native_response_stream_summary"] = summarize_row_native_response_stream_timing(
             row
         )
+        row["native_response_stream_slow_path_summary"] = (
+            summarize_row_native_response_stream_slow_path(row)
+        )
         rows.append(row)
 
     comparable_rows = [row for row in rows if row["baseline"] and row["ktls"]]
@@ -1355,6 +1465,16 @@ def build_comparison(baseline_path: Path, ktls_path: Path) -> dict:
                 throughput_summary["worst_row"] if throughput_summary else None,
             ),
             "worst_latency_row": build_native_response_stream_focus(
+                rows,
+                latency_p95_summary["worst_row"] if latency_p95_summary else None,
+            ),
+        },
+        "native_response_stream_slow_path_focus": {
+            "worst_throughput_row": build_native_response_stream_slow_path_focus(
+                rows,
+                throughput_summary["worst_row"] if throughput_summary else None,
+            ),
+            "worst_latency_row": build_native_response_stream_slow_path_focus(
                 rows,
                 latency_p95_summary["worst_row"] if latency_p95_summary else None,
             ),
@@ -1458,6 +1578,18 @@ def render_markdown(comparison: dict) -> str:
             render_native_response_stream_focus_line(
                 "Worst p95 row native-stream view",
                 summary["native_response_stream_focus"]["worst_latency_row"],
+            ),
+            render_native_response_stream_slow_path_focus_line(
+                "Worst throughput row native-stream slow-path view",
+                summary["native_response_stream_slow_path_focus"][
+                    "worst_throughput_row"
+                ],
+            ),
+            render_native_response_stream_slow_path_focus_line(
+                "Worst p95 row native-stream slow-path view",
+                summary["native_response_stream_slow_path_focus"][
+                    "worst_latency_row"
+                ],
             ),
             "",
             "## Linux TLS Stats",
@@ -1786,6 +1918,47 @@ def render_markdown(comparison: dict) -> str:
 
     if not has_native_stream_rows:
         lines.append("| No HTTP native response-stream metrics | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
+
+    lines.append("")
+    lines.extend(
+        [
+            "## HTTP Native Response-Stream Slow Paths",
+            "",
+            "| Workload | Router workers | Native runtime threads | Streaming responses | Channel wait >=1/5/10ms | Headers to dequeue >=1/5/10ms | Send call >=1/5/10ms |",
+            "| --- | ---: | ---: | --- | --- | --- | --- |",
+        ]
+    )
+
+    has_native_stream_slow_path_rows = False
+    for row in rows:
+        native_stream = row.get("native_response_stream_slow_path_summary")
+        if native_stream is None:
+            continue
+        has_native_stream_slow_path_rows = True
+        counts = native_stream["counts"]
+        buckets = native_stream["buckets"]
+        lines.append(
+            "| {workload} | {router_workers} | {native_runtime_threads} | {streaming_responses_total} | {first_chunk_channel_wait} | {headers_to_first_chunk_dequeue} | {first_chunk_send_call} |".format(
+                workload=row["workload"],
+                router_workers=row["router_workers"],
+                native_runtime_threads=row["native_runtime_threads"],
+                streaming_responses_total=render_connection_metric_snapshot(
+                    counts["streaming_responses_total"]
+                ),
+                first_chunk_channel_wait=render_native_response_stream_slow_path_bucket(
+                    buckets["first_chunk_channel_wait"]
+                ),
+                headers_to_first_chunk_dequeue=render_native_response_stream_slow_path_bucket(
+                    buckets["headers_to_first_chunk_dequeue"]
+                ),
+                first_chunk_send_call=render_native_response_stream_slow_path_bucket(
+                    buckets["first_chunk_send_call"]
+                ),
+            )
+        )
+
+    if not has_native_stream_slow_path_rows:
+        lines.append("| No HTTP native response-stream slow-path metrics | n/a | n/a | n/a | n/a | n/a | n/a |")
 
     lines.append("")
 
