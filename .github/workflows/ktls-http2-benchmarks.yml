@@ -23,6 +23,20 @@ on:
         required: false
         default: "1"
         type: string
+      repeat_order:
+        description: Pass ordering for repeats. Use alternating to reduce thermal/order bias during manual reruns.
+        required: false
+        default: alternating
+        type: choice
+        options:
+          - alternating
+          - baseline-first
+          - ktls-first
+      cooldown_seconds:
+        description: Seconds to sleep between passes and between repeats during manual reruns
+        required: false
+        default: "15"
+        type: string
       artifact_policy:
         description: Optional artifact policy path. Leave blank to auto-use a matching scenario policy when present.
         required: false
@@ -61,6 +75,8 @@ jobs:
           INPUT_ROUTER_WORKER_COUNTS: ${{ github.event.inputs.router_worker_counts }}
           INPUT_NATIVE_RUNTIME_THREAD_COUNTS: ${{ github.event.inputs.native_runtime_thread_counts }}
           INPUT_REPEAT_COUNT: ${{ github.event.inputs.repeat_count }}
+          INPUT_REPEAT_ORDER: ${{ github.event.inputs.repeat_order }}
+          INPUT_COOLDOWN_SECONDS: ${{ github.event.inputs.cooldown_seconds }}
           INPUT_ARTIFACT_POLICY: ${{ github.event.inputs.artifact_policy }}
           INPUT_SKIP_ARTIFACT_GATE: ${{ github.event.inputs.skip_artifact_gate }}
         run: |
@@ -78,6 +94,8 @@ jobs:
             --router-worker-counts "${INPUT_ROUTER_WORKER_COUNTS:-1}" \
             --native-runtime-thread-counts "${INPUT_NATIVE_RUNTIME_THREAD_COUNTS:-1,4}" \
             --repeat-count "${INPUT_REPEAT_COUNT:-1}" \
+            --repeat-order "${INPUT_REPEAT_ORDER:-alternating}" \
+            --cooldown-seconds "${INPUT_COOLDOWN_SECONDS:-15}" \
             "${extra_gate_args[@]}"
 
       - name: Publish benchmark summary

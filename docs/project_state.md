@@ -1,12 +1,14 @@
 # Project State
 
-Last updated: 2026-04-24
+Last updated: 2026-04-25
 Current branch: `add-router`
-Last reviewed commit: `c0e9171` (`build(ktls): add stability benchmark scenario`)
+Last reviewed commit: `a2a66ea` (`build(ktls): label repeat instability sources`)
 Active exec plan: `docs/exec-plans/2026-04-24-ktls-repeat-stability.md`
 
 ## Last Known Verification
 
+- Hosted GitHub push run on `a2a66ea` completed successfully:
+  `CI` `24913663589`
 - Hosted GitHub push runs on `c0e9171` completed successfully:
   `CI` `24911914621`, `kTLS Validation` `24911914629`,
   `WAMP Profile Benchmarks` `24911914617`
@@ -258,6 +260,32 @@ Active exec plan: `docs/exec-plans/2026-04-24-ktls-repeat-stability.md`
   - `h2_multiplexed_streams_s16`, `threads=4` is still primarily kTLS-side
   - `h2_multiplexed_streams_s2`, `threads=4` and `s1`, `threads=4` show
     baseline-side throughput instability
+- That repeat-analysis slice is now pushed as commit `a2a66ea`
+  (`build(ktls): label repeat instability sources`).
+- The next branch-head slice now targets runner control rather than transport
+  behavior:
+  - `bin/ktls-http2-bench` now accepts `--repeat-order` and
+    `--cooldown-seconds`
+  - repeated runs now emit `repeat-plan.txt` so the artifact records the exact
+    pass order and cooldown used for each repeat
+  - the manual `kTLS HTTP/2 Benchmarks` workflow exposes the same controls and
+    now defaults manual repeats to `repeat_order=alternating` and
+    `cooldown_seconds=15`
+  - `native/bench/README.md` documents those new runner-control defaults
+- Local verification is green on that runner-control slice:
+  - `bin/test-fast`
+  - `bash -n bin/ktls-http2-bench`
+  - `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/ktls-http2-benchmarks.yml')"`
+  - `bin/ktls-http2-bench --help | rg 'repeat-order|cooldown-seconds|repeat-count'`
+  - `bin/verify`
+- The next useful hosted check is now explicit:
+  - rerun the manual `kTLS HTTP/2 Benchmarks` workflow on the clean head with
+    `scenario=native/bench/scenarios/h2_ktls_multiplex_stability.toml`
+  - keep `router_worker_counts=1`, `native_runtime_thread_counts=4`,
+    `repeat_count=3`, and `skip_artifact_gate=true`
+  - rely on the new defaults `repeat_order=alternating` and
+    `cooldown_seconds=15` to see whether the remaining `threads=4` noise
+    narrows without another transport change
   - the hosted `threads=4` lane is therefore mixed-noise, not one clean
     transport regression shape
 - GitLab has not surfaced an `add-router` pipeline for `c0e9171` through the

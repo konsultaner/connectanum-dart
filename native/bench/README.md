@@ -103,8 +103,12 @@ When a hosted rerun needs decision-quality evidence rather than a single
 baseline-vs-kTLS sample, pass `--repeat-count <n>`. The helper then writes
 per-repeat artifacts under `repeats/repeat-XX/` and turns the top-level
 `comparison.json` / `comparison.md` pair into an aggregate repeat-stability
-report. The manual workflow exposes the same control through the
-`repeat_count` input.
+report. It also writes `repeat-plan.txt`, which records the exact pass order
+used for each repeat plus the configured cooldown. The manual workflow exposes
+the same controls through `repeat_count`, `repeat_order`, and
+`cooldown_seconds` inputs. For manual reruns, the workflow now defaults to
+`repeat_order=alternating` and `cooldown_seconds=15` so repeated hosted runs do
+not always benchmark `baseline -> kTLS` back-to-back on a warming runner.
 
 For the current HTTP/2 multiplex hotspot, the quick diagnostic scenario is:
 
@@ -121,6 +125,8 @@ the dedicated stability scenario with a larger sample set:
 bin/ktls-http2-bench \
   --scenario native/bench/scenarios/h2_ktls_multiplex_stability.toml \
   --repeat-count 3 \
+  --repeat-order alternating \
+  --cooldown-seconds 15 \
   --skip-artifact-gate
 ```
 

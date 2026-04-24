@@ -153,9 +153,34 @@ Status: in_progress
   - `h2_multiplexed_streams_s16`, `threads=4` still skews kTLS-side
   - `h2_multiplexed_streams_s2`, `threads=4` and `s1`, `threads=4` skew
     baseline-side for throughput instability
+- That repeat-analysis slice is now pushed as commit `a2a66ea`
+  (`build(ktls): label repeat instability sources`).
+- The current branch head now carries the next bounded methodology slice:
+  - `bin/ktls-http2-bench` accepts `--repeat-order` and
+    `--cooldown-seconds`
+  - repeated runs emit `repeat-plan.txt`, recording the exact pass order and
+    cooldown used for each repeat
+  - `.github/workflows/ktls-http2-benchmarks.yml` exposes the same controls and
+    defaults manual repeats to `repeat_order=alternating` plus
+    `cooldown_seconds=15`
+  - `native/bench/README.md` documents those runner-control defaults
+- Local verification is green on that slice:
+  - `bin/test-fast`
+  - `bash -n bin/ktls-http2-bench`
+  - `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/ktls-http2-benchmarks.yml')"`
+  - `bin/ktls-http2-bench --help | rg 'repeat-order|cooldown-seconds|repeat-count'`
+  - `bin/verify`
 
 ## Next Step
 
-The hosted `threads=4` lane is still unstable even in isolation. The next
-useful slice should therefore change benchmark methodology or runner control,
-not the HTTP/2 transport path.
+The hosted `threads=4` lane is still unstable even in isolation, but the
+runner now supports bounded pass-order and cooldown controls. The next useful
+step is to rerun the manual `kTLS HTTP/2 Benchmarks` workflow on the clean head
+with:
+
+- `scenario=native/bench/scenarios/h2_ktls_multiplex_stability.toml`
+- `router_worker_counts=1`
+- `native_runtime_thread_counts=4`
+- `repeat_count=3`
+- `skip_artifact_gate=true`
+- workflow defaults `repeat_order=alternating` and `cooldown_seconds=15`
