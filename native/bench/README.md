@@ -77,8 +77,14 @@ Those comparison artifacts also roll up the deltas by workload family and
 native runtime thread count, then surface compact transport-counter deltas for
 each comparable row. That means a hosted rerun can now show whether a hotspot
 already correlates with backpressure/alert telemetry or whether the slowdown is
-still invisible to the current transport counters. The hosted
-`kTLS HTTP/2 Benchmarks` workflow now mirrors that summary into the GitHub
+still invisible to the current transport counters. The helper also captures
+`/proc/net/tls_stat` before and after each pass when that
+Linux proc file is readable, writes `tls-stat-before.txt` /
+`tls-stat-after.txt` sidecars, and summarizes the resulting kernel TLS
+session-open plus decrypt/rekey deltas in `comparison.json` / `comparison.md`.
+That gives the next hosted rerun a direct answer to "did required-kTLS
+actually open kernel TLS sessions cleanly?" before moving on to heavier
+diagnostics. The hosted `kTLS HTTP/2 Benchmarks` workflow now mirrors that summary into the GitHub
 Actions job summary as well, so the first read can happen in the run UI before
 downloading `ktls-http2-bench-artifacts`. The helper also validates each pass
 against the scoped `native/bench/artifact_gate/h2_ktls_benchmark.json` policy

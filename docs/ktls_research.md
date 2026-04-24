@@ -271,6 +271,11 @@ The final hosted comparison from run `24773860158` showed:
 - The same comparison bundle now also renders per-workload transport-counter
   deltas, so the first read can distinguish transport-visible pressure from a
   hotspot that stays invisible to the current bench telemetry.
+- The next Linux-side signal is now narrower and lower-overhead than ptrace or
+  perf: the manual comparison helper captures `/proc/net/tls_stat` before and
+  after each pass and summarizes the delta, so hosted runs can show whether
+  required-kTLS is actually opening software/device TX/RX sessions and whether
+  decrypt/rekey counters stay quiet while the throughput/p95 gap persists.
 
 ### Latest Hosted Comparison
 
@@ -344,6 +349,10 @@ artifact-format gaps:
 - use the current rerun as the baseline for any deeper Linux-side
   instrumentation or tuning, with `h2_sustained_transfer` and
   `native_runtime_threads = 1` as the first concrete hotspots to explain
+- keep the comparison helper capturing `/proc/net/tls_stat` sidecars and
+  summarizing the Linux TLS session-open and decrypt/rekey deltas, because
+  that is the cheapest hosted-run signal for "did required-kTLS actually stay
+  on the kernel path cleanly?" before escalating to heavier diagnostics
 
 That is the smallest next milestone that improves decision quality without
 pretending the remaining kTLS work is already a clear runtime bug.

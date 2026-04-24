@@ -97,6 +97,38 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                 elapsed="0:14.00",
                 max_rss_kib=6144.0,
             )
+            self._write_tls_stat(
+                baseline_dir / "tls-stat-before.txt",
+                TlsTxSw=10,
+                TlsRxSw=10,
+                TlsTxDevice=0,
+                TlsRxDevice=0,
+                TlsDecryptRetry=4,
+            )
+            self._write_tls_stat(
+                baseline_dir / "tls-stat-after.txt",
+                TlsTxSw=10,
+                TlsRxSw=10,
+                TlsTxDevice=0,
+                TlsRxDevice=0,
+                TlsDecryptRetry=4,
+            )
+            self._write_tls_stat(
+                ktls_dir / "tls-stat-before.txt",
+                TlsTxSw=10,
+                TlsRxSw=10,
+                TlsTxDevice=0,
+                TlsRxDevice=0,
+                TlsDecryptRetry=4,
+            )
+            self._write_tls_stat(
+                ktls_dir / "tls-stat-after.txt",
+                TlsTxSw=14,
+                TlsRxSw=14,
+                TlsTxDevice=0,
+                TlsRxDevice=0,
+                TlsDecryptRetry=6,
+            )
 
             comparison = compare.build_comparison(
                 baseline_dir / "bench_results.summary.json",
@@ -132,6 +164,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                 1.5,
             )
             self.assertEqual(
+                comparison["summary"]["linux_tls_stat"]["metrics"]["TlsTxSw"][
+                    "ktls_delta"
+                ],
+                4,
+            )
+            self.assertEqual(
                 comparison["summary"]["transport_focus"]["worst_throughput_row"][
                     "signals"
                 ][0]["metric"],
@@ -140,10 +178,19 @@ class KtlsHttp2CompareTest(unittest.TestCase):
 
             markdown = compare.render_markdown(comparison)
             self.assertIn("## Group Rollups", markdown)
+            self.assertIn("## Linux TLS Stats", markdown)
             self.assertIn("## Transport Counter Deltas", markdown)
             self.assertIn("Workload-family investigation focus", markdown)
             self.assertIn("Runtime-thread investigation focus", markdown)
             self.assertIn("Worst throughput row transport view", markdown)
+            self.assertIn(
+                "Linux TLS session opens: baseline software TX/RX 0/0, device TX/RX 0/0; kTLS software TX/RX 4/4, device TX/RX 0/0.",
+                markdown,
+            )
+            self.assertIn(
+                "Linux TLS anomalies: Decrypt retries baseline 0, kTLS 2.",
+                markdown,
+            )
             self.assertIn("### By workload family", markdown)
             self.assertIn("### By native runtime threads", markdown)
             self.assertIn("h2_multiplexed_streams", markdown)
@@ -211,6 +258,9 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn(
                 "shows no non-zero transport counters in either pass", markdown
             )
+            self.assertIn(
+                "no `/proc/net/tls_stat` sidecars were present", markdown
+            )
 
     @staticmethod
     def _write_summary(path: Path, workloads: list[dict]) -> None:
@@ -237,6 +287,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                 ]
             )
             + "\n"
+        )
+
+    @staticmethod
+    def _write_tls_stat(path: Path, **metrics: int) -> None:
+        path.write_text(
+            "\n".join(f"{name} {value}" for name, value in metrics.items()) + "\n"
         )
 
     @staticmethod

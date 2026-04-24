@@ -13,6 +13,29 @@ RESOURCE_USAGE_KEYS = {
     "max_rss_kib": "Maximum resident set size (kbytes)",
 }
 
+TLS_STAT_SESSION_OPEN_KEYS = (
+    ("TlsTxSw", "Software TX opens"),
+    ("TlsRxSw", "Software RX opens"),
+    ("TlsTxDevice", "Device TX opens"),
+    ("TlsRxDevice", "Device RX opens"),
+)
+
+TLS_STAT_ERROR_KEYS = (
+    ("TlsDecryptError", "Decrypt errors"),
+    ("TlsDecryptRetry", "Decrypt retries"),
+    ("TlsRxNoPadViolation", "RX no-pad violations"),
+    ("TlsTxRekeyOk", "TX rekeys OK"),
+    ("TlsRxRekeyOk", "RX rekeys OK"),
+    ("TlsTxRekeyError", "TX rekey errors"),
+    ("TlsRxRekeyError", "RX rekey errors"),
+    ("TlsRxRekeyReceived", "RX KeyUpdate received"),
+)
+
+TLS_STAT_SUMMARY_KEYS = (
+    *TLS_STAT_SESSION_OPEN_KEYS,
+    *TLS_STAT_ERROR_KEYS,
+)
+
 TRANSPORT_EVENT_TOTAL_KEYS = (
     "goaway_events",
     "idle_timeout_events",
@@ -113,6 +136,34 @@ def parse_resource_usage(path: Path) -> dict | None:
         "system_seconds", 0.0
     )
     return fields
+
+
+def parse_tls_stat(path: Path) -> dict | None:
+    if not path.exists():
+        return None
+
+    values: dict[str, int] = {}
+    for line in path.read_text().splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if "=" in stripped and " " not in stripped:
+            continue
+
+        parts = stripped.split()
+        if len(parts) != 2:
+            continue
+
+        name, value = parts
+        try:
+            values[name] = int(value)
+        except ValueError:
+            continue
+
+    if not values:
+        return None
+
+    return values
 
 
 def build_label(row: dict) -> str:
@@ -274,6 +325,81 @@ def build_resource_usage_summary(baseline: dict | None, ktls: dict | None) -> di
     return summary
 
 
+def build_tls_stat_pass_summary(before: dict | None, after: dict | None) -> dict | None:
+    if before is None and after is None:
+        return None
+
+    summary = {
+        "before": before,
+        "after": after,
+    }
+    if before is None or after is None:
+        summary["delta"] = None
+        return summary
+
+    keys = sorted(set(before) | set(after))
+    summary["delta"] = {key: after.get(key, 0) - before.get(key, 0) for key in keys}
+    return summary
+
+
+def build_tls_stat_metric_snapshot(
+    baseline_pass: dict | None, ktls_pass: dict | None, metric: str
+) -> dict | None:
+    baseline_delta = None
+    if baseline_pass is not None and baseline_pass.get("delta") is not None:
+        baseline_delta = baseline_pass["delta"].get(metric, 0)
+
+    ktls_delta = None
+    if ktls_pass is not None and ktls_pass.get("delta") is not None:
+        ktls_delta = ktls_pass["delta"].get(metric, 0)
+
+    if baseline_delta is None and ktls_delta is None:
+        return None
+
+    return {
+        "baseline_delta": baseline_delta,
+        "ktls_delta": ktls_delta,
+        "delta": None
+        if baseline_delta is None or ktls_delta is None
+        else ktls_delta - baseline_delta,
+    }
+
+
+def build_tls_stat_summary(
+    baseline_pass: dict | None, ktls_pass: dict | None
+) -> dict | None:
+    if baseline_pass is None and ktls_pass is None:
+        return None
+
+    metrics: dict[str, dict | None] = {}
+    signals: list[dict] = []
+    for metric, label in TLS_STAT_SUMMARY_KEYS:
+        snapshot = build_tls_stat_metric_snapshot(baseline_pass, ktls_pass, metric)
+        metrics[metric] = snapshot
+        if snapshot is None:
+            continue
+        baseline_delta = snapshot["baseline_delta"] or 0
+        ktls_delta = snapshot["ktls_delta"] or 0
+        if baseline_delta == 0 and ktls_delta == 0:
+            continue
+        signals.append(
+            {
+                "metric": metric,
+                "label": label,
+                "baseline_delta": snapshot["baseline_delta"],
+                "ktls_delta": snapshot["ktls_delta"],
+                "delta": snapshot["delta"],
+            }
+        )
+
+    return {
+        "baseline": baseline_pass,
+        "ktls": ktls_pass,
+        "metrics": metrics,
+        "signals": signals,
+    }
+
+
 def build_transport_metric_snapshot(
     baseline_transport: dict, ktls_transport: dict, metric: str
 ) -> dict | None:
@@ -385,6 +511,12 @@ def render_kib(value: float | None) -> str:
     return f"{value / 1024.0:.2f} MiB"
 
 
+def render_int(value: int | None) -> str:
+    if value is None:
+        return "n/a"
+    return str(value)
+
+
 def render_summary_line(name: str, summary: dict | None, comparable_rows: int) -> str:
     if summary is None:
         return f"- {name}: no overlapping completed workloads."
@@ -490,6 +622,67 @@ def render_resource_usage_line(summary: dict | None) -> list[str]:
     ]
 
 
+def render_tls_stat_line(summary: dict | None) -> list[str]:
+    if summary is None:
+        return ["- Linux TLS stats: no `/proc/net/tls_stat` sidecars were present."]
+
+    baseline_pass = summary.get("baseline")
+    ktls_pass = summary.get("ktls")
+    if (
+        baseline_pass is None
+        or ktls_pass is None
+        or baseline_pass.get("delta") is None
+        or ktls_pass.get("delta") is None
+    ):
+        return [
+            "- Linux TLS stats: partial capture only; one or more `/proc/net/tls_stat` snapshots were missing."
+        ]
+
+    metrics = summary["metrics"]
+
+    def metric_delta(metric: str, field: str) -> int | None:
+        snapshot = metrics.get(metric)
+        if snapshot is None:
+            return None
+        return snapshot.get(field)
+
+    session_line = (
+        "- Linux TLS session opens: baseline software TX/RX "
+        f"{render_int(metric_delta('TlsTxSw', 'baseline_delta'))}/"
+        f"{render_int(metric_delta('TlsRxSw', 'baseline_delta'))}, "
+        "device TX/RX "
+        f"{render_int(metric_delta('TlsTxDevice', 'baseline_delta'))}/"
+        f"{render_int(metric_delta('TlsRxDevice', 'baseline_delta'))}; "
+        "kTLS software TX/RX "
+        f"{render_int(metric_delta('TlsTxSw', 'ktls_delta'))}/"
+        f"{render_int(metric_delta('TlsRxSw', 'ktls_delta'))}, "
+        "device TX/RX "
+        f"{render_int(metric_delta('TlsTxDevice', 'ktls_delta'))}/"
+        f"{render_int(metric_delta('TlsRxDevice', 'ktls_delta'))}."
+    )
+
+    error_signals = [
+        signal
+        for signal in summary.get("signals", [])
+        if signal["metric"] in {metric for metric, _ in TLS_STAT_ERROR_KEYS}
+    ]
+    if not error_signals:
+        return [
+            session_line,
+            "- Linux TLS anomalies: no non-zero decrypt/rekey counters were captured in either pass.",
+        ]
+
+    rendered_signals = "; ".join(
+        f"{signal['label']} baseline {render_int(signal['baseline_delta'])}, "
+        f"kTLS {render_int(signal['ktls_delta'])}"
+        for signal in error_signals
+    )
+    return [
+        session_line,
+        f"- Linux TLS anomalies: {rendered_signals}.",
+    ]
+
+
 def append_group_table(lines: list[str], title: str, groups: list[dict]) -> None:
     lines.extend(
         [
@@ -542,11 +735,23 @@ def append_group_table(lines: list[str], title: str, groups: list[dict]) -> None
 def build_comparison(baseline_path: Path, ktls_path: Path) -> dict:
     baseline_resource_path = baseline_path.parent / "resource-usage.txt"
     ktls_resource_path = ktls_path.parent / "resource-usage.txt"
+    baseline_tls_stat_before_path = baseline_path.parent / "tls-stat-before.txt"
+    baseline_tls_stat_after_path = baseline_path.parent / "tls-stat-after.txt"
+    ktls_tls_stat_before_path = ktls_path.parent / "tls-stat-before.txt"
+    ktls_tls_stat_after_path = ktls_path.parent / "tls-stat-after.txt"
 
     baseline = load_summary(baseline_path)
     ktls = load_summary(ktls_path)
     baseline_resource_usage = parse_resource_usage(baseline_resource_path)
     ktls_resource_usage = parse_resource_usage(ktls_resource_path)
+    baseline_tls_stat = build_tls_stat_pass_summary(
+        parse_tls_stat(baseline_tls_stat_before_path),
+        parse_tls_stat(baseline_tls_stat_after_path),
+    )
+    ktls_tls_stat = build_tls_stat_pass_summary(
+        parse_tls_stat(ktls_tls_stat_before_path),
+        parse_tls_stat(ktls_tls_stat_after_path),
+    )
 
     baseline_workloads = {
         workload_key(entry): entry for entry in baseline.get("workloads", [])
@@ -616,6 +821,7 @@ def build_comparison(baseline_path: Path, ktls_path: Path) -> dict:
         "resource_usage": build_resource_usage_summary(
             baseline_resource_usage, ktls_resource_usage
         ),
+        "linux_tls_stat": build_tls_stat_summary(baseline_tls_stat, ktls_tls_stat),
         "transport_focus": {
             "worst_throughput_row": build_transport_focus(
                 rows,
@@ -677,6 +883,7 @@ def render_markdown(comparison: dict) -> str:
                 "p95 latency", summary["latency_p95"], summary["comparable_rows"]
             ),
             *render_resource_usage_line(summary["resource_usage"]),
+            *render_tls_stat_line(summary["linux_tls_stat"]),
             render_group_focus_line(
                 "Workload-family investigation focus",
                 summary["hotspots"]["by_workload"],
@@ -693,6 +900,35 @@ def render_markdown(comparison: dict) -> str:
                 "Worst p95 row transport view",
                 summary["transport_focus"]["worst_latency_row"],
             ),
+            "",
+            "## Linux TLS Stats",
+            "",
+            "| Metric | Baseline delta | kTLS delta |",
+            "| --- | ---: | ---: |",
+        ]
+    )
+
+    tls_stat_summary = summary["linux_tls_stat"]
+    has_tls_stat_rows = False
+    if tls_stat_summary is not None:
+        for metric, label in TLS_STAT_SUMMARY_KEYS:
+            snapshot = tls_stat_summary["metrics"].get(metric)
+            if snapshot is None:
+                continue
+            has_tls_stat_rows = True
+            lines.append(
+                "| {label} | {baseline_delta} | {ktls_delta} |".format(
+                    label=label,
+                    baseline_delta=render_int(snapshot["baseline_delta"]),
+                    ktls_delta=render_int(snapshot["ktls_delta"]),
+                )
+            )
+
+    if not has_tls_stat_rows:
+        lines.append("| No `/proc/net/tls_stat` capture | n/a | n/a |")
+
+    lines.extend(
+        [
             "",
             "## Group Rollups",
             "",

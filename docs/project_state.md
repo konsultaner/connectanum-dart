@@ -2,14 +2,17 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `6deaabe` (`build(ktls): parse hosted resource usage artifacts`)
+Last reviewed commit: `db2ff96` (`build(ktls): compare transport counter deltas`)
 Active exec plan: `none`
 
 ## Last Known Verification
 
 - `bin/test-fast`
+- `bash -n bin/ktls-http2-bench`
 - `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
 - `python3 tool/test_ktls_http2_compare.py`
+- focused synthetic `tool/ktls_http2_compare.py` run with `tls-stat-before.txt` /
+  `tls-stat-after.txt` sidecars
 - `bin/verify`
 
 ## Autonomous Priority
@@ -168,6 +171,10 @@ Active exec plan: `none`
 - Hosted GitHub validation is now also green through commit `6deaabe`:
   push `CI` run `24866820516` completed successfully after the hosted
   resource-usage parser fix landed.
+- Hosted GitHub validation is now also green through commit `db2ff96`:
+  push `CI` run `24868012745`, push `kTLS Validation` run `24868012749`, and
+  push `WAMP Profile Benchmarks` run `24868012750` all completed successfully
+  after the kTLS transport-delta comparison follow-up landed.
 - The latest hosted `ktls-http2-bench-artifacts` bundle from run `24865337582`
   also exposed a concrete summary bug: both per-pass `resource-usage.txt`
   sidecars were present, but the generated comparison still claimed they were
@@ -192,6 +199,11 @@ Active exec plan: `none`
   `tool/ktls_http2_compare.py` now renders transport-counter views for the
   worst throughput row, the worst p95 row, and each comparable workload row in
   both `comparison.json` and `comparison.md`.
+- That Linux TLS-stat slice is now complete on the local working tree too.
+  `bin/ktls-http2-bench` now captures `/proc/net/tls_stat` before and after
+  each pass when the proc file is readable, and
+  `tool/ktls_http2_compare.py` now summarizes kernel TLS session-open plus
+  decrypt/rekey deltas in both `comparison.json` and `comparison.md`.
 - The current hosted rerender now makes the boundary explicit: the worst p95
   row (`h2_sustained_transfer`, `threads=1`) still shows no non-zero transport
   counters in either pass, while only the multiplexed rows expose bounded
@@ -208,6 +220,13 @@ Active exec plan: `none`
   `python3 -m py_compile tool/ktls_http2_compare.py
   tool/test_ktls_http2_compare.py`, `python3 tool/test_ktls_http2_compare.py`,
   a rerender of the hosted `24865337582` artifact bundle, and `bin/verify` all
+  passed.
+- Local verification for the current kTLS Linux TLS-stat follow-up is green on
+  2026-04-24: `bin/test-fast`, `bash -n bin/ktls-http2-bench`,
+  `python3 -m py_compile tool/ktls_http2_compare.py
+  tool/test_ktls_http2_compare.py`, `python3 tool/test_ktls_http2_compare.py`,
+  a focused synthetic `tool/ktls_http2_compare.py` run with
+  `tls-stat-before.txt` / `tls-stat-after.txt` sidecars, and `bin/verify` all
   passed.
 - Local verification for the current kTLS workflow-summary follow-up is green
   on 2026-04-24: `bin/test-fast`, YAML parsing of

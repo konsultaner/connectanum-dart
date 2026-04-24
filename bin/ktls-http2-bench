@@ -107,6 +107,16 @@ fi
   printf 'native_lib=%s\n' "$CONNECTANUM_NATIVE_LIB"
 } >"$host_info_path"
 
+capture_tls_stat() {
+  local output_path="$1"
+  if [[ -r /proc/net/tls_stat ]]; then
+    cat /proc/net/tls_stat >"$output_path"
+  else
+    printf 'tls_stat_capture=unavailable\nreason=/proc/net/tls_stat not readable\n' \
+      >"$output_path"
+  fi
+}
+
 run_pass() {
   local label="$1"
   local pass_out_dir="$2"
@@ -115,8 +125,11 @@ run_pass() {
   local pass_status=0
   local gate_status=0
   local resource_usage_path="${pass_out_dir}/resource-usage.txt"
+  local tls_stat_before_path="${pass_out_dir}/tls-stat-before.txt"
+  local tls_stat_after_path="${pass_out_dir}/tls-stat-after.txt"
 
   mkdir -p "$pass_out_dir"
+  capture_tls_stat "$tls_stat_before_path"
 
   printf 'Running %s HTTP/2 bench (CONNECTANUM_ENABLE_KTLS=%s, CONNECTANUM_REQUIRE_KTLS=%s)...\n' \
     "$label" "$enable_ktls" "$require_ktls"
@@ -147,6 +160,8 @@ run_pass() {
       --native-runtime-thread-counts "$native_runtime_thread_counts" \
       || pass_status=$?
   fi
+
+  capture_tls_stat "$tls_stat_after_path"
 
   if [[ -f "${pass_out_dir}/bench_results.summary.json" ]]; then
     printf 'Checking %s bench artifacts for transport regressions...\n' "$label"
