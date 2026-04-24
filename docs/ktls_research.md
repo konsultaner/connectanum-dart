@@ -268,6 +268,9 @@ The final hosted comparison from run `24773860158` showed:
   elapsed wall-time labels even though that label includes embedded colons.
   The first read can now answer where the penalty clusters on the latest hosted
   rerun instead of falling back to stale assumptions.
+- The same comparison bundle now also renders per-workload transport-counter
+  deltas, so the first read can distinguish transport-visible pressure from a
+  hotspot that stays invisible to the current bench telemetry.
 
 ### Latest Hosted Comparison
 
@@ -299,6 +302,19 @@ The grouped summary shifted the current hotspot away from the old
 - workload-family hotspot: `h2_sustained_transfer`
 - runtime-thread hotspot: `threads=1`
 
+The transport-delta view now makes the next interpretation boundary explicit:
+
+- worst p95 row: `h2_sustained_transfer` at `threads=1`, with no non-zero
+  transport counters in either baseline or required-kTLS
+- multiplexed rows still show bounded backpressure only:
+  - `threads=1`: `backpressure_events 76 -> 70`, alerts `2 -> 2`
+  - `threads=4`: `backpressure_events 82 -> 97`, alerts `4 -> 4`
+
+That means the current sustained-transfer hotspot is not already explained by
+existing backpressure/alert telemetry; any deeper explanation now needs either
+additional Linux-side instrumentation or a runtime change that shifts the
+throughput/p95 numbers themselves.
+
 ### What Not To Overclaim
 
 - macOS results are irrelevant for kTLS itself.
@@ -322,8 +338,9 @@ artifact-format gaps:
 - keep secure WAMP coverage as supplemental evidence, but use the HTTP/2
   comparison run as the primary required-kTLS performance signal
 - keep the generated benchmark artifacts summarizing headline wins, losses,
-  worst regressions, grouped workload/runtime hotspots, and CPU / wall-time /
-  RSS deltas so one hosted run answers the tuning question directly
+  worst regressions, grouped workload/runtime hotspots, CPU / wall-time / RSS
+  deltas, and transport-counter deltas so one hosted run answers the tuning
+  question directly
 - use the current rerun as the baseline for any deeper Linux-side
   instrumentation or tuning, with `h2_sustained_transfer` and
   `native_runtime_threads = 1` as the first concrete hotspots to explain

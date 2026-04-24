@@ -13,6 +13,23 @@ RESOURCE_USAGE_KEYS = {
     "max_rss_kib": "Maximum resident set size (kbytes)",
 }
 
+TRANSPORT_EVENT_TOTAL_KEYS = (
+    "goaway_events",
+    "idle_timeout_events",
+    "body_timeout_events",
+    "protocol_error_events",
+    "internal_error_events",
+)
+
+TRANSPORT_SUMMARY_KEYS = (
+    ("backpressure_events", "Backpressure events"),
+    ("backpressure_alerts", "Backpressure alerts"),
+    ("transport_events_total", "Transport events"),
+    ("transport_alerts", "Transport alerts"),
+    ("max_backpressure_depth_after", "Max backpressure depth after"),
+    ("active_throttles_after", "Active throttles after"),
+)
+
 
 def load_summary(path: Path) -> dict:
     if not path.exists():
@@ -138,7 +155,10 @@ def build_metric_summary(rows: list[dict], metric: str) -> dict | None:
     def pack_row(row: dict) -> dict:
         return {
             "label": build_label(row),
+            "scenario": row["scenario"],
             "workload": row["workload"],
+            "protocol": row["protocol"],
+            "client_impl": row["client_impl"],
             "router_workers": row["router_workers"],
             "native_runtime_threads": row["native_runtime_threads"],
             "delta_pct": row["delta"][metric],
@@ -254,6 +274,99 @@ def build_resource_usage_summary(baseline: dict | None, ktls: dict | None) -> di
     return summary
 
 
+def build_transport_metric_snapshot(
+    baseline_transport: dict, ktls_transport: dict, metric: str
+) -> dict | None:
+    if metric == "transport_events_total":
+        baseline_value = sum(
+            int(baseline_transport.get(key, 0)) for key in TRANSPORT_EVENT_TOTAL_KEYS
+        )
+        ktls_value = sum(
+            int(ktls_transport.get(key, 0)) for key in TRANSPORT_EVENT_TOTAL_KEYS
+        )
+    else:
+        baseline_value = baseline_transport.get(metric)
+        ktls_value = ktls_transport.get(metric)
+
+    if baseline_value is None or ktls_value is None:
+        return None
+
+    return {
+        "baseline": baseline_value,
+        "ktls": ktls_value,
+        "delta": ktls_value - baseline_value,
+    }
+
+
+def summarize_row_transport(row: dict) -> dict | None:
+    baseline = row.get("baseline")
+    ktls = row.get("ktls")
+    if not baseline or not ktls:
+        return None
+
+    baseline_transport = baseline.get("transport") or {}
+    ktls_transport = ktls.get("transport") or {}
+
+    metrics: dict[str, dict | None] = {}
+    signals: list[dict] = []
+    for metric, label in TRANSPORT_SUMMARY_KEYS:
+        snapshot = build_transport_metric_snapshot(
+            baseline_transport, ktls_transport, metric
+        )
+        metrics[metric] = snapshot
+        if snapshot is None:
+            continue
+        if snapshot["baseline"] == 0 and snapshot["ktls"] == 0:
+            continue
+        signals.append(
+            {
+                "metric": metric,
+                "label": label,
+                "baseline": snapshot["baseline"],
+                "ktls": snapshot["ktls"],
+                "delta": snapshot["delta"],
+            }
+        )
+
+    return {
+        "metrics": metrics,
+        "signals": signals,
+    }
+
+
+def find_matching_row(rows: list[dict], packed_row: dict | None) -> dict | None:
+    if packed_row is None:
+        return None
+
+    for row in rows:
+        if (
+            row["scenario"] == packed_row["scenario"]
+            and row["workload"] == packed_row["workload"]
+            and row["protocol"] == packed_row["protocol"]
+            and row["client_impl"] == packed_row["client_impl"]
+            and row["router_workers"] == packed_row["router_workers"]
+            and row["native_runtime_threads"] == packed_row["native_runtime_threads"]
+        ):
+            return row
+    return None
+
+
+def build_transport_focus(rows: list[dict], packed_row: dict | None) -> dict | None:
+    row = find_matching_row(rows, packed_row)
+    if row is None:
+        return None
+
+    transport = row.get("transport_summary")
+    if transport is None:
+        return None
+
+    return {
+        "label": build_label(row),
+        "signals": transport["signals"],
+        "metrics": transport["metrics"],
+    }
+
+
 def render_pct(value: float | None) -> str:
     if value is None:
         return "n/a"
@@ -315,6 +428,31 @@ def render_group_focus_line(name: str, group: dict | None) -> str:
         f"Worst throughput row: {throughput_worst_row}. "
         f"Worst p95 row: {latency_worst_row}."
     )
+
+
+def render_transport_snapshot(snapshot: dict | None) -> str:
+    if snapshot is None:
+        return "n/a"
+    return f"{snapshot['baseline']} -> {snapshot['ktls']} ({snapshot['delta']:+d})"
+
+
+def render_transport_focus_line(name: str, focus: dict | None) -> str:
+    if focus is None:
+        return f"- {name}: no overlapping completed workloads."
+
+    signals = focus.get("signals") or []
+    if not signals:
+        return (
+            f"- {name}: {focus['label']} shows no non-zero transport counters "
+            "in either pass."
+        )
+
+    rendered_signals = "; ".join(
+        f"{signal['label']} {signal['baseline']} -> {signal['ktls']} "
+        f"({signal['delta']:+d})"
+        for signal in signals
+    )
+    return f"- {name}: {focus['label']} shows {rendered_signals}."
 
 
 def render_resource_usage_line(summary: dict | None) -> list[str]:
@@ -447,6 +585,7 @@ def build_comparison(baseline_path: Path, ktls_path: Path) -> dict:
             }
         else:
             row["delta"] = None
+        row["transport_summary"] = summarize_row_transport(row)
         rows.append(row)
 
     comparable_rows = [row for row in rows if row["baseline"] and row["ktls"]]
@@ -465,15 +604,28 @@ def build_comparison(baseline_path: Path, ktls_path: Path) -> dict:
         lambda row: f"threads={row['native_runtime_threads']}",
     )
 
+    throughput_summary = build_metric_summary(rows, "throughput_pct")
+    latency_p95_summary = build_metric_summary(rows, "latency_p95_pct")
+
     summary = {
         "comparable_rows": len(comparable_rows),
         "baseline_only_rows": len(baseline_only_rows),
         "ktls_only_rows": len(ktls_only_rows),
-        "throughput": build_metric_summary(rows, "throughput_pct"),
-        "latency_p95": build_metric_summary(rows, "latency_p95_pct"),
+        "throughput": throughput_summary,
+        "latency_p95": latency_p95_summary,
         "resource_usage": build_resource_usage_summary(
             baseline_resource_usage, ktls_resource_usage
         ),
+        "transport_focus": {
+            "worst_throughput_row": build_transport_focus(
+                rows,
+                throughput_summary["worst_row"] if throughput_summary else None,
+            ),
+            "worst_latency_row": build_transport_focus(
+                rows,
+                latency_p95_summary["worst_row"] if latency_p95_summary else None,
+            ),
+        },
         "group_summaries": {
             "by_workload": workload_groups,
             "by_native_runtime_threads": runtime_thread_groups,
@@ -533,6 +685,14 @@ def render_markdown(comparison: dict) -> str:
                 "Runtime-thread investigation focus",
                 summary["hotspots"]["by_native_runtime_threads"],
             ),
+            render_transport_focus_line(
+                "Worst throughput row transport view",
+                summary["transport_focus"]["worst_throughput_row"],
+            ),
+            render_transport_focus_line(
+                "Worst p95 row transport view",
+                summary["transport_focus"]["worst_latency_row"],
+            ),
             "",
             "## Group Rollups",
             "",
@@ -549,6 +709,53 @@ def render_markdown(comparison: dict) -> str:
         "By native runtime threads",
         summary["group_summaries"]["by_native_runtime_threads"],
     )
+
+    lines.extend(
+        [
+            "## Transport Counter Deltas",
+            "",
+            "| Workload | Router workers | Native runtime threads | Backpressure events | Backpressure alerts | Transport events | Transport alerts | Max depth after | Active throttles after |",
+            "| --- | ---: | ---: | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+
+    has_transport_rows = False
+    for row in rows:
+        transport_summary = row.get("transport_summary")
+        if transport_summary is None:
+            continue
+        has_transport_rows = True
+        metrics = transport_summary["metrics"]
+        lines.append(
+            "| {workload} | {router_workers} | {native_runtime_threads} | {backpressure_events} | {backpressure_alerts} | {transport_events_total} | {transport_alerts} | {max_backpressure_depth_after} | {active_throttles_after} |".format(
+                workload=row["workload"],
+                router_workers=row["router_workers"],
+                native_runtime_threads=row["native_runtime_threads"],
+                backpressure_events=render_transport_snapshot(
+                    metrics["backpressure_events"]
+                ),
+                backpressure_alerts=render_transport_snapshot(
+                    metrics["backpressure_alerts"]
+                ),
+                transport_events_total=render_transport_snapshot(
+                    metrics["transport_events_total"]
+                ),
+                transport_alerts=render_transport_snapshot(
+                    metrics["transport_alerts"]
+                ),
+                max_backpressure_depth_after=render_transport_snapshot(
+                    metrics["max_backpressure_depth_after"]
+                ),
+                active_throttles_after=render_transport_snapshot(
+                    metrics["active_throttles_after"]
+                ),
+            )
+        )
+
+    if not has_transport_rows:
+        lines.append("| No overlapping completed workloads | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
+
+    lines.append("")
 
     lines.extend(
         [

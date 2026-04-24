@@ -2,14 +2,14 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `706d8b8` (`build(ktls): scope benchmark artifact gate`)
+Last reviewed commit: `6deaabe` (`build(ktls): parse hosted resource usage artifacts`)
 Active exec plan: `none`
 
 ## Last Known Verification
 
 - `bin/test-fast`
-- `cargo test --manifest-path native/bench/Cargo.toml artifact_gate_policy_allows_thread_scoped_thresholds -- --nocapture`
-- `bash -n bin/ktls-http2-bench`
+- `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
+- `python3 tool/test_ktls_http2_compare.py`
 - `bin/verify`
 
 ## Autonomous Priority
@@ -165,6 +165,9 @@ Active exec plan: `none`
   push `WAMP Profile Benchmarks` run `24865318353`, and manual
   `kTLS HTTP/2 Benchmarks` run `24865337582` all completed successfully after
   the scoped `h2_ktls_benchmark` artifact-policy follow-up landed.
+- Hosted GitHub validation is now also green through commit `6deaabe`:
+  push `CI` run `24866820516` completed successfully after the hosted
+  resource-usage parser fix landed.
 - The latest hosted `ktls-http2-bench-artifacts` bundle from run `24865337582`
   also exposed a concrete summary bug: both per-pass `resource-usage.txt`
   sidecars were present, but the generated comparison still claimed they were
@@ -180,6 +183,26 @@ Active exec plan: `none`
   `max_rss_kib +0.57%`. The grouped hotspot is now
   `h2_sustained_transfer` by workload family and `threads=1` by native runtime
   thread count.
+- The raw hosted per-workload summaries also show that current transport
+  counters do not explain that hotspot directly: both `h2_sustained_transfer`
+  rows stayed at zero for backpressure, alerts, throttles, and timeout/error
+  counters in both baseline and required-kTLS passes, while only the
+  `h2_multiplexed_streams` rows showed bounded backpressure differences.
+- That transport-delta slice is now complete on the local working tree too.
+  `tool/ktls_http2_compare.py` now renders transport-counter views for the
+  worst throughput row, the worst p95 row, and each comparable workload row in
+  both `comparison.json` and `comparison.md`.
+- The current hosted rerender now makes the boundary explicit: the worst p95
+  row (`h2_sustained_transfer`, `threads=1`) still shows no non-zero transport
+  counters in either pass, while only the multiplexed rows expose bounded
+  `backpressure_events` differences (`76 -> 70` at `threads=1`,
+  `82 -> 97` at `threads=4`).
+- Local verification for the current kTLS transport-delta follow-up is green
+  on 2026-04-24: `bin/test-fast`,
+  `python3 -m py_compile tool/ktls_http2_compare.py
+  tool/test_ktls_http2_compare.py`, `python3 tool/test_ktls_http2_compare.py`,
+  a rerender of the hosted `24865337582` artifact bundle, and `bin/verify` all
+  passed.
 - Local verification for the current kTLS resource-usage parser follow-up is
   green on 2026-04-24: `bin/test-fast`,
   `python3 -m py_compile tool/ktls_http2_compare.py
