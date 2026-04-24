@@ -579,6 +579,14 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                 stability["max_latency_p95_span_row"]["label"],
                 "h2_multiplexed_streams_s2 (workers=1, threads=4)",
             )
+            self.assertEqual(
+                stability["max_throughput_span_row"]["throughput_span_source"],
+                "mixed",
+            )
+            self.assertEqual(
+                stability["max_latency_p95_span_row"]["latency_p95_span_source"],
+                "kTLS",
+            )
             self.assertGreater(
                 stability["max_throughput_span_row"]["throughput_pct_delta"]["span"],
                 300.0,
@@ -592,12 +600,16 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("## Repeat Overview", markdown)
             self.assertIn("## Rows Exceeding Stability Thresholds", markdown)
             self.assertIn("## Per-row Stability", markdown)
+            self.assertIn("## Summary", markdown)
+            self.assertIn("Instability source highlights", markdown)
             self.assertIn("Decision quality: no", markdown)
             self.assertIn(
                 "Worst throughput row consistency: changed across repeats",
                 markdown,
             )
             self.assertIn("Worst p95 row consistency: changed across repeats", markdown)
+            self.assertIn("mixed throughput span", markdown)
+            self.assertIn("kTLS-side p95 span", markdown)
             self.assertIn("repeat-01", markdown)
             self.assertIn("repeat-02", markdown)
             self.assertIn("h2_multiplexed_streams_s4", markdown)

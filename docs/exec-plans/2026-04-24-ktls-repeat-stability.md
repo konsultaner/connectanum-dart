@@ -99,15 +99,63 @@ Status: in_progress
     the quick spot-check scenario
   - `native/bench/README.md` now separates quick diagnostic usage from
     decision-quality repeat usage
+- That stabilization slice is now pushed as commit `c0e9171`
+  (`build(ktls): add stability benchmark scenario`).
+- Local verification was green before that push:
+  - `bin/test-fast`
+  - `bin/verify`
+- The visible GitHub push chain for `c0e9171` completed successfully:
+  - `CI` `24911914621`
+  - `kTLS Validation` `24911914629`
+  - `WAMP Profile Benchmarks` `24911914617`
+- Focused manual hosted rerun `24912748466` completed successfully with:
+  - `scenario=native/bench/scenarios/h2_ktls_multiplex_stability.toml`
+  - `router_worker_counts=1`
+  - `native_runtime_thread_counts=1,4`
+  - `repeat_count=3`
+  - `skip_artifact_gate=true`
+- That larger-sample rerun still did not reach decision quality, but it
+  narrowed the instability sharply:
+  - every remaining row that exceeded the stability thresholds used
+    `native_runtime_threads=4`
+  - the `native_runtime_threads=1` rows now fit within the current
+    throughput/p95 span thresholds
+  - `h2_multiplexed_streams_s16`, `threads=4` stayed the worst p95 row in
+    `2/3` repeats, with p95 delta spanning `641.63pp`
+  - `h2_multiplexed_streams_s4`, `threads=4` showed a baseline collapse in one
+    repeat, producing a `228.53pp` throughput-delta span
+- Focused manual hosted rerun `24913116550` then completed successfully with:
+  - `scenario=native/bench/scenarios/h2_ktls_multiplex_stability.toml`
+  - `router_worker_counts=1`
+  - `native_runtime_thread_counts=4`
+  - `repeat_count=3`
+  - `skip_artifact_gate=true`
+- That isolated `threads=4` rerun still did not reach decision quality:
+  - `h2_multiplexed_streams_s16`, `threads=4` remained the worst p95 row in
+    `2/3` repeats, with p95 delta spanning `460.16pp`
+  - `h2_multiplexed_streams_s2`, `threads=4` still showed a baseline collapse
+    in one repeat, producing a `216.79pp` throughput-delta span
+  - `h2_multiplexed_streams_s1`, `threads=4` also still showed baseline-side
+    instability, with throughput delta spanning `124.79pp`
+- The current branch head now carries a bounded repeat-analysis slice:
+  - `tool/ktls_http2_compare_repeats.py` labels unstable rows as
+    baseline-side, kTLS-side, or mixed for throughput and p95 span sources
+  - the repeat summary markdown now emits an `Instability source highlights`
+    section and source columns in the threshold table
+  - `tool/test_ktls_http2_compare.py` pins the new classification and markdown
+    output
+- Local verification is green on that slice:
+  - `bin/test-fast`
+  - focused Python compile/tests and repeat-summary rerenders against hosted
+    runs `24912748466` and `24913116550`
+  - `bin/verify`
+- The new source labeling confirms the remaining blocker is mixed hosted noise:
+  - `h2_multiplexed_streams_s16`, `threads=4` still skews kTLS-side
+  - `h2_multiplexed_streams_s2`, `threads=4` and `s1`, `threads=4` skew
+    baseline-side for throughput instability
 
 ## Next Step
 
-Finish local verification, push the dedicated stability scenario, wait for the
-branch push chain to go green again, and then dispatch the manual
-`kTLS HTTP/2 Benchmarks` workflow with:
-
-- `scenario=native/bench/scenarios/h2_ktls_multiplex_stability.toml`
-- `router_worker_counts=1`
-- `native_runtime_thread_counts=1,4`
-- `repeat_count=3`
-- `skip_artifact_gate=true`
+The hosted `threads=4` lane is still unstable even in isolation. The next
+useful slice should therefore change benchmark methodology or runner control,
+not the HTTP/2 transport path.

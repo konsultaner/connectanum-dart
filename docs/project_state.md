@@ -2,11 +2,14 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `d66a72d` (`build(ktls): add repeat stability reporting`)
+Last reviewed commit: `c0e9171` (`build(ktls): add stability benchmark scenario`)
 Active exec plan: `docs/exec-plans/2026-04-24-ktls-repeat-stability.md`
 
 ## Last Known Verification
 
+- Hosted GitHub push runs on `c0e9171` completed successfully:
+  `CI` `24911914621`, `kTLS Validation` `24911914629`,
+  `WAMP Profile Benchmarks` `24911914617`
 - Hosted GitHub push runs on `d66a72d` completed successfully:
   `CI` `24910233897`, `kTLS Validation` `24910233859`,
   `WAMP Profile Benchmarks` `24910233901`
@@ -183,14 +186,81 @@ Active exec plan: `docs/exec-plans/2026-04-24-ktls-repeat-stability.md`
     `470.25 Mbps`, while kTLS throughput spanned `3470.66 Mbps`
   - `h2_multiplexed_streams_s2`, `threads=1` baseline p95 only spanned
     `2.34 ms`, while kTLS p95 spanned `190.52 ms`
-- The current local working tree therefore carries the next bounded
-  stabilization slice:
+- The next bounded stabilization slice is now pushed as commit `c0e9171`
+  (`build(ktls): add stability benchmark scenario`):
   - `native/bench/scenarios/h2_ktls_multiplex_stability.toml` keeps the same
     multiplex sweep but raises each workload to `48` iterations with
     `1000 ms` warmup for manual repeat runs
   - `native/bench/scenarios/h2_ktls_multiplex_scaling.toml` stays unchanged as
     the quick diagnostic scenario
-- GitLab has not surfaced an `add-router` pipeline for `d66a72d` through the
+  - `native/bench/README.md` now separates quick diagnostic usage from
+    decision-quality repeat usage
+- Local verification was green before that push:
+  - `bin/test-fast`
+  - `bin/verify`
+- Hosted GitHub push runs for `c0e9171` completed successfully:
+  - `CI` `24911914621`
+  - `kTLS Validation` `24911914629`
+  - `WAMP Profile Benchmarks` `24911914617`
+- Focused manual hosted rerun `24912748466` completed successfully on the same
+  clean head with:
+  - `scenario=native/bench/scenarios/h2_ktls_multiplex_stability.toml`
+  - `router_worker_counts=1`
+  - `native_runtime_thread_counts=1,4`
+  - `repeat_count=3`
+  - `skip_artifact_gate=true`
+- That larger-sample rerun still did not reach decision quality, but it
+  narrowed the instability sharply:
+  - every remaining row that exceeded the stability thresholds used
+    `native_runtime_threads=4`
+  - the `native_runtime_threads=1` rows now fit within the current
+    throughput/p95 span thresholds
+  - `h2_multiplexed_streams_s16`, `threads=4` stayed the worst p95 row in
+    `2/3` repeats, with p95 delta spanning `641.63pp`
+  - `h2_multiplexed_streams_s4`, `threads=4` showed a baseline collapse in one
+    repeat, producing a `228.53pp` throughput-delta span
+- The next manual diagnostic step is therefore narrower than before:
+  - rerun the same stability scenario with `native_runtime_thread_counts=4`
+    only to determine whether the remaining instability is intrinsic to the
+    `threads=4` lane or partly caused by mixing `1,4` in one hosted run
+- Focused manual hosted rerun `24913116550` then completed successfully with:
+  - `scenario=native/bench/scenarios/h2_ktls_multiplex_stability.toml`
+  - `router_worker_counts=1`
+  - `native_runtime_thread_counts=4`
+  - `repeat_count=3`
+  - `skip_artifact_gate=true`
+- That isolated `threads=4` rerun still did not reach decision quality:
+  - `h2_multiplexed_streams_s16`, `threads=4` remained the worst p95 row in
+    `2/3` repeats, with p95 delta spanning `460.16pp`
+  - `h2_multiplexed_streams_s2`, `threads=4` still showed a baseline collapse
+    in one repeat, producing a `216.79pp` throughput-delta span
+  - `h2_multiplexed_streams_s1`, `threads=4` also still showed baseline-side
+    instability, with throughput delta spanning `124.79pp`
+- The current blocker is now clearer:
+  - isolating `threads=4` from `threads=1` did not make the hosted lane
+    decision-quality
+  - the next useful slice should change benchmark methodology or runner
+    control, not the HTTP/2 transport path
+- The current branch head now carries a bounded repeat-analysis slice on top of
+  that blocker:
+  - `tool/ktls_http2_compare_repeats.py` now labels each unstable row as
+    baseline-side, kTLS-side, or mixed for throughput and p95 span sources
+  - the repeat summary markdown now calls out the top instability-source
+    highlights before the per-row table
+  - `tool/test_ktls_http2_compare.py` pins that new classification and markdown
+    output
+- Local verification is green on that working tree:
+  - `bin/test-fast`
+  - focused Python compile/tests and repeat-summary rerenders against hosted
+    runs `24912748466` and `24913116550`
+  - `bin/verify`
+- The new repeat-source labeling makes the hosted blocker more precise:
+  - `h2_multiplexed_streams_s16`, `threads=4` is still primarily kTLS-side
+  - `h2_multiplexed_streams_s2`, `threads=4` and `s1`, `threads=4` show
+    baseline-side throughput instability
+  - the hosted `threads=4` lane is therefore mixed-noise, not one clean
+    transport regression shape
+- GitLab has not surfaced an `add-router` pipeline for `c0e9171` through the
   current token-backed API query.
 - `packages/connectanum_core` is approved as a design reference for MCP package
   shape: typed protocol models, serializer-independent boundaries, explicit

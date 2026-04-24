@@ -55,6 +55,30 @@ def render_range(summary: dict | None, unit: str = "") -> str:
     )
 
 
+def classify_span_source(
+    baseline_summary: dict | None, ktls_summary: dict | None
+) -> str:
+    baseline_span = 0.0 if baseline_summary is None else baseline_summary["span"]
+    ktls_span = 0.0 if ktls_summary is None else ktls_summary["span"]
+    if baseline_span <= 0.0 and ktls_span <= 0.0:
+        return "stable"
+    if baseline_span >= ktls_span * 2.0 and baseline_span > 0.0:
+        return "baseline"
+    if ktls_span >= baseline_span * 2.0 and ktls_span > 0.0:
+        return "kTLS"
+    return "mixed"
+
+
+def render_span_source(source: str) -> str:
+    if source == "baseline":
+        return "baseline-side"
+    if source == "kTLS":
+        return "kTLS-side"
+    if source == "mixed":
+        return "mixed"
+    return "stable"
+
+
 def pack_worst_row(row: dict | None) -> dict | None:
     if row is None:
         return None
@@ -216,6 +240,14 @@ def build_repeat_stability(comparison_paths: list[Path]) -> dict:
                     row["baseline_latency_p95_ms"]
                 ),
                 "ktls_latency_p95_ms": numeric_summary(row["ktls_latency_p95_ms"]),
+                "throughput_span_source": classify_span_source(
+                    numeric_summary(row["baseline_throughput_mbps"]),
+                    numeric_summary(row["ktls_throughput_mbps"]),
+                ),
+                "latency_p95_span_source": classify_span_source(
+                    numeric_summary(row["baseline_latency_p95_ms"]),
+                    numeric_summary(row["ktls_latency_p95_ms"]),
+                ),
             }
         )
 
@@ -344,6 +376,32 @@ def render_markdown(stability: dict) -> str:
             f"{compare.render_pct(max_latency_p95_span_row['latency_p95_pct_delta']['max'])}."
         )
 
+    threshold_rows = [
+        row
+        for row in stability["row_stability"]
+        if row["throughput_pct_delta"]["span"]
+        > thresholds["throughput_pct_delta_span"]
+        or row["latency_p95_pct_delta"]["span"]
+        > thresholds["latency_p95_pct_delta_span"]
+    ]
+    if threshold_rows:
+        lines.append("- Instability source highlights:")
+        for row in threshold_rows[:3]:
+            notes = []
+            if row["throughput_pct_delta"]["span"] > thresholds["throughput_pct_delta_span"]:
+                notes.append(
+                    f"{render_span_source(row['throughput_span_source'])} throughput span"
+                )
+            if (
+                row["latency_p95_pct_delta"]["span"]
+                > thresholds["latency_p95_pct_delta_span"]
+            ):
+                notes.append(
+                    f"{render_span_source(row['latency_p95_span_source'])} p95 span"
+                )
+            note_text = ", ".join(notes) if notes else "stable"
+            lines.append(f"  - {row['label']}: {note_text}.")
+
     lines.extend(
         [
             "",
@@ -370,32 +428,26 @@ def render_markdown(stability: dict) -> str:
             "",
             "## Rows Exceeding Stability Thresholds",
             "",
-            "| Workload | Router workers | Native runtime threads | Throughput delta span | p95 delta span |",
-            "| --- | ---: | ---: | ---: | ---: |",
+            "| Workload | Router workers | Native runtime threads | Throughput delta span | Throughput source | p95 delta span | p95 source |",
+            "| --- | ---: | ---: | ---: | --- | ---: | --- |",
         ]
     )
 
-    threshold_rows = [
-        row
-        for row in stability["row_stability"]
-        if row["throughput_pct_delta"]["span"]
-        > thresholds["throughput_pct_delta_span"]
-        or row["latency_p95_pct_delta"]["span"]
-        > thresholds["latency_p95_pct_delta_span"]
-    ]
     if threshold_rows:
         for row in threshold_rows:
             lines.append(
-                "| {workload} | {router_workers} | {native_runtime_threads} | {throughput_span} | {latency_span} |".format(
+                "| {workload} | {router_workers} | {native_runtime_threads} | {throughput_span} | {throughput_source} | {latency_span} | {latency_source} |".format(
                     workload=row["workload"],
                     router_workers=row["router_workers"],
                     native_runtime_threads=row["native_runtime_threads"],
                     throughput_span=render_span(row["throughput_pct_delta"]["span"]),
+                    throughput_source=render_span_source(row["throughput_span_source"]),
                     latency_span=render_span(row["latency_p95_pct_delta"]["span"]),
+                    latency_source=render_span_source(row["latency_p95_span_source"]),
                 )
             )
     else:
-        lines.append("| None | n/a | n/a | n/a | n/a |")
+        lines.append("| None | n/a | n/a | n/a | n/a | n/a | n/a |")
 
     lines.extend(
         [
