@@ -886,31 +886,36 @@ The current local slice is therefore an optimization, not another blind metric:
 
 ## Recommended Next Milestone
 
-Keep the current Linux-only prototype stable and target the now-confirmed
-HTTP/2 multiplex hotspot with more focused diagnostic reruns instead of adding
-blind generic instrumentation:
+The next bounded milestone is no longer another HTTP/2 scheduler tweak. Clean
+head `a2e7f81` already passed its hosted push chain, and the focused manual
+reruns on that same head showed the actual blocker:
 
-- preserve the existing opt-in runtime path and strict Linux validation gate
-- keep secure WAMP coverage as supplemental evidence, but use the HTTP/2
-  comparison run as the primary required-kTLS performance signal
-- keep the generated benchmark artifacts summarizing headline wins, losses,
-  worst regressions, grouped workload/runtime hotspots, CPU / wall-time / RSS
-  deltas, and transport-counter deltas so one hosted run answers the tuning
-  question directly
-- use run `24869856621` as the baseline for any deeper Linux-side
-  instrumentation or tuning, then use focused run `24870980724` as the first
-  workload-shape baseline for `h2_multiplexed_streams`
-- keep the comparison helper capturing `/proc/net/tls_stat` sidecars and
-  summarizing the Linux TLS session-open and decrypt/rekey deltas, because
-  that is the cheapest hosted-run signal for "did required-kTLS actually stay
-  on the kernel path cleanly?" before escalating to heavier diagnostics
-- use the new manual diagnostic controls and
-  `native/bench/scenarios/h2_ktls_multiplex_scaling.toml` for the next hosted
-  rerun, with an explicit scenario policy once thresholds are understood or
-  `skip_artifact_gate=true` while the run is still purely investigative
-- rerun the focused multiplex-scaling workflow on a clean head with the new
-  stream-open-to-headers-send diagnostics so the comparison can separate
-  native header-dispatch delay from the later first-chunk path
+- `24908173404` made `h2_multiplexed_streams_s4`, `threads=4` look like a huge
+  kTLS win because baseline throughput collapsed to `868 Mbps`
+- `24908372116` did not repeat that collapse and instead made
+  `h2_multiplexed_streams_s2`, `threads=4` the worst throughput and p95 row
 
-That is the smallest next milestone that improves decision quality without
-pretending the remaining kTLS work is already a clear runtime bug.
+Two reruns on the same clean head therefore produced different extreme
+outliers. That means the immediate problem is hosted benchmark stability, not a
+missing transport metric.
+
+The current local slice addresses that exact evidence-quality gap:
+
+- `bin/ktls-http2-bench` now supports `--repeat-count <n>`
+- the manual `kTLS HTTP/2 Benchmarks` workflow exposes the same `repeat_count`
+  input
+- repeated runs now produce per-repeat artifacts under `repeats/repeat-XX/`
+- the new top-level `comparison.json` / `comparison.md` pair becomes an
+  aggregate repeat-stability report that makes it explicit whether the hosted
+  evidence is decision-quality
+
+The next hosted milestone should therefore be:
+
+- wait for the push chain on the repeat-stability tooling to go green
+- dispatch `kTLS HTTP/2 Benchmarks` on
+  `native/bench/scenarios/h2_ktls_multiplex_scaling.toml`
+- use `repeat_count=3`
+- keep `skip_artifact_gate=true` while the run stays diagnostic
+
+Only after that aggregate report converges on a stable hotspot should the next
+session return to HTTP/2 runtime tuning.

@@ -99,11 +99,19 @@ than uphold the canonical release-decision contract. The manual workflow
 exposes the same controls through `artifact_policy` and
 `skip_artifact_gate` inputs.
 
+When a hosted rerun needs decision-quality evidence rather than a single
+baseline-vs-kTLS sample, pass `--repeat-count <n>`. The helper then writes
+per-repeat artifacts under `repeats/repeat-XX/` and turns the top-level
+`comparison.json` / `comparison.md` pair into an aggregate repeat-stability
+report. The manual workflow exposes the same control through the
+`repeat_count` input.
+
 For the current HTTP/2 multiplex hotspot, the dedicated diagnostic scenario is:
 
 ```bash
 bin/ktls-http2-bench \
   --scenario native/bench/scenarios/h2_ktls_multiplex_scaling.toml \
+  --repeat-count 3 \
   --skip-artifact-gate
 ```
 

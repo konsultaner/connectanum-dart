@@ -1,6 +1,6 @@
 # HTTP/2 Multiplex-Aware Header Yield
 
-Status: in_progress
+Status: completed
 
 ## Context
 
@@ -50,8 +50,9 @@ Status: in_progress
 
 ## Progress
 
-- The local working tree now carries the multiplex-aware follow-up in
-  `native/transport/ct_core/src/lib.rs`:
+- The multiplex-aware follow-up is now pushed as commit `a2e7f81`
+  (`perf(http2): yield on header contention only`).
+- The change in `native/transport/ct_core/src/lib.rs` is:
   - `note_headers_sent(...)` now returns the current pending-header count
   - the header-side yield now triggers only when `pending_headers > 1`
   - the first-chunk yield remains unchanged
@@ -64,6 +65,42 @@ Status: in_progress
   - `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'streams HTTP/2 response chunks using native streams' -r expanded`
   - `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
   - `CONNECTANUM_ENABLE_KTLS=0 CONNECTANUM_REQUIRE_KTLS=0 cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h2_ktls_multiplex_scaling.toml --results /tmp/connectanum-h2-local-results.jsonl --artifact-dir /tmp/connectanum-h2-local-artifacts --router-worker-counts 1 --native-runtime-thread-counts 1,4`
+  - `bin/verify`
+- Visible hosted GitHub push validation completed on that head:
+  - `CI` `24907299479`
+  - `kTLS Validation` `24907299524`
+  - `WAMP Profile Benchmarks` `24907299451`
+- GitLab has not surfaced an `add-router` pipeline for `a2e7f81` through the
+  current token-backed API query.
+
+## Hosted Checkpoint
+
+- Hosted GitHub push validation on `a2e7f81` completed successfully:
+  - `CI` `24907299479`
+  - `kTLS Validation` `24907299524`
+  - `WAMP Profile Benchmarks` `24907299451`
+- Manual hosted rerun `24908173404` completed successfully on clean head
+  `a2e7f81`, but the result is not decision-quality:
+  - `h2_multiplexed_streams_s4`, `threads=4` showed a baseline collapse to
+    `868 Mbps`
+  - `h2_multiplexed_streams_s8`, `threads=4` swung the other way to
+    `-66.89%` throughput / `+423.33%` p95
+  - those outliers contradict the prior hosted reruns and the local repro, so
+    they are more consistent with host instability than with a coherent
+    scheduler regression
+- Confirmatory rerun `24908372116` also completed successfully on the same
+  clean head, but it did not converge on the same hotspot shape:
+  - worst throughput row moved to
+    `h2_multiplexed_streams_s2`, `threads=4` at `-83.11%`
+  - worst p95 row also moved to
+    `h2_multiplexed_streams_s2`, `threads=4` at `+1316.65%`
+  - the earlier `s4`, `threads=4` baseline collapse did not repeat, while
+    `s2`, `threads=4` became the new outlier
+- That means the scheduler change itself reached a real evidence-quality
+  boundary: the next blocker is hosted benchmark stability, not another blind
+  HTTP/2 scheduler tweak on top of `a2e7f81`.
+- Follow-up continuation moved to
+  `docs/exec-plans/2026-04-24-ktls-repeat-stability.md`.
 
 ## Verification
 

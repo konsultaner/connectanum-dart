@@ -8,6 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import ktls_http2_compare as compare
+import ktls_http2_compare_repeats as repeat_compare
 
 
 class KtlsHttp2CompareTest(unittest.TestCase):
@@ -499,6 +500,108 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             )
             self.assertIn("response body chunks avg 3.00 -> 12.00 (+9.00)", markdown)
             self.assertIn("response body read avg 24.20 -> 121.60 (+97.40)", markdown)
+
+    def test_repeat_stability_flags_inconsistent_hosted_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+
+            repeat_one = root / "repeats" / "repeat-01"
+            repeat_two = root / "repeats" / "repeat-02"
+            repeat_one_baseline = repeat_one / "baseline"
+            repeat_one_ktls = repeat_one / "ktls"
+            repeat_two_baseline = repeat_two / "baseline"
+            repeat_two_ktls = repeat_two / "ktls"
+            repeat_one_baseline.mkdir(parents=True)
+            repeat_one_ktls.mkdir(parents=True)
+            repeat_two_baseline.mkdir(parents=True)
+            repeat_two_ktls.mkdir(parents=True)
+
+            self._write_summary(
+                repeat_one_baseline / "bench_results.summary.json",
+                [
+                    self._row("h2_multiplexed_streams_s1", 4, 5200.0, 18.0, 12.0),
+                    self._row("h2_multiplexed_streams_s2", 4, 5200.0, 18.0, 12.0),
+                    self._row("h2_multiplexed_streams_s4", 4, 900.0, 240.0, 120.0),
+                ],
+            )
+            self._write_summary(
+                repeat_one_ktls / "bench_results.summary.json",
+                [
+                    self._row("h2_multiplexed_streams_s1", 4, 1900.0, 32.0, 20.0),
+                    self._row("h2_multiplexed_streams_s2", 4, 4200.0, 24.0, 16.0),
+                    self._row("h2_multiplexed_streams_s4", 4, 4600.0, 30.0, 18.0),
+                ],
+            )
+            self._write_summary(
+                repeat_two_baseline / "bench_results.summary.json",
+                [
+                    self._row("h2_multiplexed_streams_s1", 4, 5200.0, 18.0, 12.0),
+                    self._row("h2_multiplexed_streams_s2", 4, 5200.0, 16.0, 11.0),
+                    self._row("h2_multiplexed_streams_s4", 4, 5600.0, 28.0, 19.0),
+                ],
+            )
+            self._write_summary(
+                repeat_two_ktls / "bench_results.summary.json",
+                [
+                    self._row("h2_multiplexed_streams_s1", 4, 3200.0, 30.0, 18.0),
+                    self._row("h2_multiplexed_streams_s2", 4, 880.0, 220.0, 140.0),
+                    self._row("h2_multiplexed_streams_s4", 4, 2100.0, 42.0, 24.0),
+                ],
+            )
+
+            repeat_one_comparison = compare.build_comparison(
+                repeat_one_baseline / "bench_results.summary.json",
+                repeat_one_ktls / "bench_results.summary.json",
+            )
+            repeat_two_comparison = compare.build_comparison(
+                repeat_two_baseline / "bench_results.summary.json",
+                repeat_two_ktls / "bench_results.summary.json",
+            )
+
+            repeat_one_path = repeat_one / "comparison.json"
+            repeat_two_path = repeat_two / "comparison.json"
+            repeat_one_path.write_text(json.dumps(repeat_one_comparison))
+            repeat_two_path.write_text(json.dumps(repeat_two_comparison))
+
+            stability = repeat_compare.build_repeat_stability(
+                [repeat_one_path, repeat_two_path]
+            )
+
+            self.assertFalse(stability["decision_quality"])
+            self.assertEqual(stability["repeat_count"], 2)
+            self.assertFalse(stability["worst_throughput_consensus"]["consistent"])
+            self.assertFalse(stability["worst_latency_consensus"]["consistent"])
+            self.assertEqual(
+                stability["max_throughput_span_row"]["label"],
+                "h2_multiplexed_streams_s4 (workers=1, threads=4)",
+            )
+            self.assertEqual(
+                stability["max_latency_p95_span_row"]["label"],
+                "h2_multiplexed_streams_s2 (workers=1, threads=4)",
+            )
+            self.assertGreater(
+                stability["max_throughput_span_row"]["throughput_pct_delta"]["span"],
+                300.0,
+            )
+            self.assertGreater(
+                stability["max_latency_p95_span_row"]["latency_p95_pct_delta"]["span"],
+                1000.0,
+            )
+
+            markdown = repeat_compare.render_markdown(stability)
+            self.assertIn("## Repeat Overview", markdown)
+            self.assertIn("## Rows Exceeding Stability Thresholds", markdown)
+            self.assertIn("## Per-row Stability", markdown)
+            self.assertIn("Decision quality: no", markdown)
+            self.assertIn(
+                "Worst throughput row consistency: changed across repeats",
+                markdown,
+            )
+            self.assertIn("Worst p95 row consistency: changed across repeats", markdown)
+            self.assertIn("repeat-01", markdown)
+            self.assertIn("repeat-02", markdown)
+            self.assertIn("h2_multiplexed_streams_s4", markdown)
+            self.assertIn("h2_multiplexed_streams_s2", markdown)
 
     def test_transport_focus_reports_signal_gap_for_hotspot_row(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

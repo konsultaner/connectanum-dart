@@ -6,7 +6,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 usage() {
   cat <<'EOF'
-Usage: bin/ktls-http2-bench [--scenario <path>] [--out-dir <dir>] [--router-worker-counts <csv>] [--native-runtime-thread-counts <csv>] [--artifact-policy <path>] [--skip-artifact-gate]
+Usage: bin/ktls-http2-bench [--scenario <path>] [--out-dir <dir>] [--router-worker-counts <csv>] [--native-runtime-thread-counts <csv>] [--repeat-count <count>] [--artifact-policy <path>] [--skip-artifact-gate]
 
 Runs the Linux-only HTTP/2 comparison bench:
 1. baseline TLS over the existing HTTP/2 listener
@@ -18,6 +18,10 @@ Outputs:
   <out-dir>/comparison.json
   <out-dir>/comparison.md
 
+With --repeat-count > 1, per-repeat artifacts move under:
+  <out-dir>/repeats/repeat-XX/{baseline,ktls,comparison.json,comparison.md}
+and the top-level comparison.* files become the aggregate repeat-stability report.
+
 Environment:
   CONNECTANUM_ENABLE_KTLS            Forced to 0 for baseline and 1 for kTLS
   CONNECTANUM_REQUIRE_KTLS           Forced to 0 for baseline and 1 for kTLS
@@ -28,6 +32,7 @@ scenario="$(repo_root)/native/bench/scenarios/h2_ktls_benchmark.toml"
 out_dir="$(repo_root)/out/ktls-http2-bench"
 router_worker_counts="1"
 native_runtime_thread_counts="1,4"
+repeat_count=1
 artifact_policy=""
 skip_artifact_gate=0
 
@@ -47,6 +52,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --native-runtime-thread-counts)
       native_runtime_thread_counts="$2"
+      shift 2
+      ;;
+    --repeat-count)
+      repeat_count="$2"
       shift 2
       ;;
     --artifact-policy)
@@ -73,6 +82,11 @@ require_command cargo
 require_command dart
 require_command python3
 cd_repo_root
+
+if ! [[ "$repeat_count" =~ ^[1-9][0-9]*$ ]]; then
+  printf 'Repeat count must be a positive integer: %s\n' "$repeat_count" >&2
+  exit 1
+fi
 
 if [[ "$(uname -s)" != "Linux" ]]; then
   printf 'bin/ktls-http2-bench requires Linux.\n' >&2
@@ -126,6 +140,7 @@ fi
   printf 'scenario=%s\n' "$scenario"
   printf 'router_worker_counts=%s\n' "$router_worker_counts"
   printf 'native_runtime_thread_counts=%s\n' "$native_runtime_thread_counts"
+  printf 'repeat_count=%s\n' "$repeat_count"
   printf 'native_lib=%s\n' "$CONNECTANUM_NATIVE_LIB"
   if (( skip_artifact_gate )); then
     printf 'artifact_gate=skipped\n'
@@ -219,23 +234,73 @@ run_pass() {
   fi
 }
 
-baseline_status=0
-ktls_status=0
+write_single_comparison() {
+  local baseline_dir="$1"
+  local ktls_dir="$2"
+  local output_json="$3"
+  local output_md="$4"
 
-run_pass baseline "$baseline_dir" 0 0 || baseline_status=$?
-run_pass ktls "$ktls_dir" 1 1 || ktls_status=$?
+  python3 "$(repo_root)/tool/ktls_http2_compare.py" \
+    "$baseline_dir/bench_results.summary.json" \
+    "$ktls_dir/bench_results.summary.json" \
+    "$output_json" \
+    "$output_md"
+}
 
-python3 "$(repo_root)/tool/ktls_http2_compare.py" \
-  "$baseline_dir/bench_results.summary.json" \
-  "$ktls_dir/bench_results.summary.json" \
-  "$comparison_json" \
-  "$comparison_md"
+if (( repeat_count == 1 )); then
+  baseline_status=0
+  ktls_status=0
 
-if (( baseline_status != 0 || ktls_status != 0 )); then
-  printf 'HTTP/2 benchmark pass statuses: baseline=%s ktls=%s\n' \
-    "$baseline_status" "$ktls_status" >&2
-  printf 'Partial benchmark artifacts were still written to %s\n' "$out_dir" >&2
-  exit 1
+  run_pass baseline "$baseline_dir" 0 0 || baseline_status=$?
+  run_pass ktls "$ktls_dir" 1 1 || ktls_status=$?
+  write_single_comparison "$baseline_dir" "$ktls_dir" "$comparison_json" "$comparison_md"
+
+  if (( baseline_status != 0 || ktls_status != 0 )); then
+    printf 'HTTP/2 benchmark pass statuses: baseline=%s ktls=%s\n' \
+      "$baseline_status" "$ktls_status" >&2
+    printf 'Partial benchmark artifacts were still written to %s\n' "$out_dir" >&2
+    exit 1
+  fi
+else
+  comparison_inputs=()
+  overall_failure=0
+
+  for (( repeat_index = 1; repeat_index <= repeat_count; repeat_index++ )); do
+    repeat_name="$(printf 'repeat-%02d' "$repeat_index")"
+    repeat_dir="${out_dir%/}/repeats/${repeat_name}"
+    repeat_baseline_dir="${repeat_dir}/baseline"
+    repeat_ktls_dir="${repeat_dir}/ktls"
+    repeat_comparison_json="${repeat_dir}/comparison.json"
+    repeat_comparison_md="${repeat_dir}/comparison.md"
+    baseline_status=0
+    ktls_status=0
+
+    run_pass "${repeat_name} baseline" "$repeat_baseline_dir" 0 0 || baseline_status=$?
+    run_pass "${repeat_name} ktls" "$repeat_ktls_dir" 1 1 || ktls_status=$?
+    write_single_comparison \
+      "$repeat_baseline_dir" \
+      "$repeat_ktls_dir" \
+      "$repeat_comparison_json" \
+      "$repeat_comparison_md"
+    comparison_inputs+=("$repeat_comparison_json")
+
+    if (( baseline_status != 0 || ktls_status != 0 )); then
+      printf 'HTTP/2 benchmark pass statuses for %s: baseline=%s ktls=%s\n' \
+        "$repeat_name" "$baseline_status" "$ktls_status" >&2
+      printf 'Partial benchmark artifacts were still written to %s\n' "$repeat_dir" >&2
+      overall_failure=1
+      break
+    fi
+  done
+
+  python3 "$(repo_root)/tool/ktls_http2_compare_repeats.py" \
+    "$comparison_json" \
+    "$comparison_md" \
+    "${comparison_inputs[@]}"
+
+  if (( overall_failure != 0 )); then
+    exit 1
+  fi
 fi
 
 printf 'HTTP/2 TLS vs kTLS benchmark artifacts written to %s\n' "$out_dir"

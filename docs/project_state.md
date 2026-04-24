@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `070b229` (`perf(http2): keep yield on first streamed chunk only`)
-Active exec plan: `docs/exec-plans/2026-04-24-h2-multiplex-aware-header-yield.md`
+Last reviewed commit: `a2e7f81` (`perf(http2): yield on header contention only`)
+Active exec plan: `docs/exec-plans/2026-04-24-ktls-repeat-stability.md`
 
 ## Last Known Verification
 
@@ -15,16 +15,21 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-multiplex-aware-header-yield.md
 - Hosted GitHub push runs on `070b229` completed successfully:
   `CI` `24905612643`, `kTLS Validation` `24905612638`,
   `WAMP Profile Benchmarks` `24905612662`
+- Hosted GitHub push runs on `a2e7f81` completed successfully:
+  `CI` `24907299479`, `kTLS Validation` `24907299524`,
+  `WAMP Profile Benchmarks` `24907299451`
+- Manual hosted `kTLS HTTP/2 Benchmarks` reruns `24908173404` and
+  `24908372116` both completed successfully on clean head `a2e7f81`, but they
+  did not converge on a decision-quality result
 - Manual hosted `kTLS HTTP/2 Benchmarks` rerun `24906538797`
 - Manual hosted `kTLS HTTP/2 Benchmarks` rerun `24904942758`
 - Manual hosted `kTLS HTTP/2 Benchmarks` rerun `24903103241`
-- `cargo test --manifest-path native/transport/ct_ffi/Cargo.toml http2_response_streaming_round_trip -- --nocapture`
-- `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
 - `bin/test-fast`
-- `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'streams HTTP/2 response chunks using native streams' -r expanded`
-- `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'streams HTTP/3 response chunks using native streams' -r expanded`
-- `dart analyze packages/connectanum_router`
-- `CONNECTANUM_ENABLE_KTLS=0 CONNECTANUM_REQUIRE_KTLS=0 cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h2_ktls_multiplex_scaling.toml --results /tmp/connectanum-h2-local-results.jsonl --artifact-dir /tmp/connectanum-h2-local-artifacts --router-worker-counts 1 --native-runtime-thread-counts 1,4`
+- `bash -n bin/ktls-http2-bench`
+- `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/ktls-http2-benchmarks.yml')"`
+- `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`
+- `python3 tool/test_ktls_http2_compare.py`
+- `python3 tool/ktls_http2_compare_repeats.py /tmp/ktls-repeat-summary.json /tmp/ktls-repeat-summary.md /tmp/ktls-run-24908173404/extracted/comparison.json /tmp/ktls-run-24908372116/extracted/comparison.json`
 - `bin/verify`
 
 ## Autonomous Priority
@@ -80,14 +85,16 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-multiplex-aware-header-yield.md
   direct-stream timings improved, but client `response headers wait`,
   `response body first chunk wait`, and native
   `headers_to_first_connection_write` still regressed.
-- The current local working tree therefore carries the next bounded fix in
-  `native/transport/ct_core/src/lib.rs`: yield the HTTP/2 streaming response
-  task once after queuing headers and once after queuing the first body chunk,
-  so the shared h2 connection driver can flush the first bytes before the task
-  drains a buffered stream.
-- That bounded scheduler slice is now pushed as commit `c21172f`
-  (`perf(http2): yield streamed response driver turns`). Its hosted push chain
-  completed successfully.
+- The local HTTP/2 scheduler tuning lane reached a real hosted evidence limit
+  on clean head `a2e7f81`.
+- Two focused reruns on that same clean head produced different extreme
+  outliers:
+  - `24908173404` made `h2_multiplexed_streams_s4`, `threads=4` look like a
+    huge kTLS win because baseline throughput collapsed to `868 Mbps`
+  - `24908372116` instead made
+    `h2_multiplexed_streams_s2`, `threads=4` the worst throughput and p95 row
+- That means the next blocker is hosted benchmark stability, not another blind
+  HTTP/2 scheduler tweak on top of `a2e7f81`.
 - Manual hosted rerun `24904942758` on clean head `c21172f` showed the
   change was only half-right:
   - the old `h2_multiplexed_streams_s8`, `threads=1` hotspot improved sharply
@@ -122,7 +129,38 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-multiplex-aware-header-yield.md
   - `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'streams HTTP/2 response chunks using native streams' -r expanded`
   - `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
   - `CONNECTANUM_ENABLE_KTLS=0 CONNECTANUM_REQUIRE_KTLS=0 cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h2_ktls_multiplex_scaling.toml --results /tmp/connectanum-h2-local-results.jsonl --artifact-dir /tmp/connectanum-h2-local-artifacts --router-worker-counts 1 --native-runtime-thread-counts 1,4`
-- GitLab has not surfaced an `add-router` pipeline for `070b229` through the
+- That multiplex-aware follow-up is now pushed as commit `a2e7f81`
+  (`perf(http2): yield on header contention only`).
+- Its GitHub push chain completed successfully:
+  - `CI` `24907299479`
+  - `kTLS Validation` `24907299524`
+  - `WAMP Profile Benchmarks` `24907299451`
+- Manual hosted rerun `24908173404` completed successfully on the same head,
+  but the result is not decision-quality:
+  - `h2_multiplexed_streams_s4`, `threads=4` showed a baseline collapse to
+    `868 Mbps` while adjacent rows stayed in-family
+  - `h2_multiplexed_streams_s8`, `threads=4` inverted the other way with
+    `-66.89%` throughput / `+423.33%` p95
+  - that pattern is inconsistent with the prior hosted reruns and the local
+    repro, so it is more likely host noise than a coherent regression shape
+- Confirmatory rerun `24908372116` also completed successfully on clean head
+  `a2e7f81`, but it shifted the outlier elsewhere instead of converging:
+  - worst throughput row moved to
+    `h2_multiplexed_streams_s2`, `threads=4` at `-83.11%`
+  - worst p95 row also moved to
+    `h2_multiplexed_streams_s2`, `threads=4` at `+1316.65%`
+- The current local working tree therefore carries the next bounded slice in
+  the benchmark tooling rather than the transport runtime:
+  - `bin/ktls-http2-bench` now supports `--repeat-count <n>`
+  - `.github/workflows/ktls-http2-benchmarks.yml` exposes the same
+    `repeat_count` input
+  - `tool/ktls_http2_compare_repeats.py` now aggregates repeated comparisons
+    into one repeat-stability report that marks the hosted evidence as
+    decision-quality or not
+- The next hosted milestone is to push that repeat-stability tooling, wait for
+  a clean push chain, and then rerun the focused multiplex scenario with
+  `repeat_count=3` and `skip_artifact_gate=true`.
+- GitLab has not surfaced an `add-router` pipeline for `a2e7f81` through the
   current token-backed API query.
 - `packages/connectanum_core` is approved as a design reference for MCP package
   shape: typed protocol models, serializer-independent boundaries, explicit
@@ -1433,7 +1471,7 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-multiplex-aware-header-yield.md
 ## Active Plan
 
 - Active plan:
-  `docs/exec-plans/2026-04-24-h2-main-isolate-control-port-hosted-rerun.md`
+  `docs/exec-plans/2026-04-24-ktls-repeat-stability.md`
 - Most recent completed product-readiness plan:
   `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`
 - Supporting research notes:
