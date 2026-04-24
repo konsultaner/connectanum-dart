@@ -71,7 +71,9 @@ pub struct HttpServerEmissionTimingSummary {
     pub queue_to_first_body_write_completed_avg_ms: f64,
     pub first_body_write_call_avg_ms: f64,
     pub direct_stream_open_round_trip_avg_ms: f64,
+    pub direct_stream_request_queue_delay_avg_ms: f64,
     pub direct_stream_descriptor_open_call_avg_ms: f64,
+    pub direct_stream_reply_delivery_delay_avg_ms: f64,
     pub handler_avg_ms: f64,
 }
 

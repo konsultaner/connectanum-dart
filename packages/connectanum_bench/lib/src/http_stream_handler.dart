@@ -29,14 +29,19 @@ class BenchHttpStreamWriteTracker {
   Duration? _firstBodyWrite;
   Duration? _firstBodyWriteCompleted;
   Duration? _directStreamOpenRoundTrip;
+  Duration? _directStreamRequestQueueDelay;
   Duration? _directStreamDescriptorOpenCall;
+  Duration? _directStreamReplyDeliveryDelay;
 
   Duration? get streamOpened => _streamOpened;
   Duration? get firstBodyWrite => _firstBodyWrite;
   Duration? get firstBodyWriteCompleted => _firstBodyWriteCompleted;
   Duration? get directStreamOpenRoundTrip => _directStreamOpenRoundTrip;
+  Duration? get directStreamRequestQueueDelay => _directStreamRequestQueueDelay;
   Duration? get directStreamDescriptorOpenCall =>
       _directStreamDescriptorOpenCall;
+  Duration? get directStreamReplyDeliveryDelay =>
+      _directStreamReplyDeliveryDelay;
 
   void markStreamOpened() {
     _streamOpened ??= _stopwatch.elapsed;
@@ -54,8 +59,16 @@ class BenchHttpStreamWriteTracker {
     _directStreamOpenRoundTrip ??= duration;
   }
 
+  void markDirectStreamRequestQueueDelay(Duration duration) {
+    _directStreamRequestQueueDelay ??= duration;
+  }
+
   void markDirectStreamDescriptorOpenCall(Duration duration) {
     _directStreamDescriptorOpenCall ??= duration;
+  }
+
+  void markDirectStreamReplyDeliveryDelay(Duration duration) {
+    _directStreamReplyDeliveryDelay ??= duration;
   }
 }
 
@@ -75,7 +88,9 @@ class BenchHttpStreamDiagnostics {
   int _queueToFirstBodyWriteCompletedSamplesTotal = 0;
   int _firstBodyWriteCallSamplesTotal = 0;
   int _directStreamOpenRoundTripSamplesTotal = 0;
+  int _directStreamRequestQueueDelaySamplesTotal = 0;
   int _directStreamDescriptorOpenCallSamplesTotal = 0;
+  int _directStreamReplyDeliveryDelaySamplesTotal = 0;
   int _handlerSamplesTotal = 0;
   int _requestBodyDrainUsTotal = 0;
   int _streamOpenUsTotal = 0;
@@ -88,7 +103,9 @@ class BenchHttpStreamDiagnostics {
   int _queueToFirstBodyWriteCompletedUsTotal = 0;
   int _firstBodyWriteCallUsTotal = 0;
   int _directStreamOpenRoundTripUsTotal = 0;
+  int _directStreamRequestQueueDelayUsTotal = 0;
   int _directStreamDescriptorOpenCallUsTotal = 0;
+  int _directStreamReplyDeliveryDelayUsTotal = 0;
   int _handlerUsTotal = 0;
 
   void record({
@@ -97,7 +114,9 @@ class BenchHttpStreamDiagnostics {
     Duration? firstBodyWrite,
     Duration? firstBodyWriteCompleted,
     Duration? directStreamOpenRoundTrip,
+    Duration? directStreamRequestQueueDelay,
     Duration? directStreamDescriptorOpenCall,
+    Duration? directStreamReplyDeliveryDelay,
   }) {
     _requestsTotal++;
     switch (response.responseMode) {
@@ -171,10 +190,20 @@ class BenchHttpStreamDiagnostics {
       _directStreamOpenRoundTripUsTotal +=
           directStreamOpenRoundTrip.inMicroseconds;
     }
+    if (directStreamRequestQueueDelay != null) {
+      _directStreamRequestQueueDelaySamplesTotal++;
+      _directStreamRequestQueueDelayUsTotal +=
+          directStreamRequestQueueDelay.inMicroseconds;
+    }
     if (directStreamDescriptorOpenCall != null) {
       _directStreamDescriptorOpenCallSamplesTotal++;
       _directStreamDescriptorOpenCallUsTotal +=
           directStreamDescriptorOpenCall.inMicroseconds;
+    }
+    if (directStreamReplyDeliveryDelay != null) {
+      _directStreamReplyDeliveryDelaySamplesTotal++;
+      _directStreamReplyDeliveryDelayUsTotal +=
+          directStreamReplyDeliveryDelay.inMicroseconds;
     }
     _handlerSamplesTotal++;
     _handlerUsTotal += response.handlerElapsed.inMicroseconds;
@@ -203,8 +232,12 @@ class BenchHttpStreamDiagnostics {
       'first_body_write_call_samples_total': _firstBodyWriteCallSamplesTotal,
       'direct_stream_open_round_trip_samples_total':
           _directStreamOpenRoundTripSamplesTotal,
+      'direct_stream_request_queue_delay_samples_total':
+          _directStreamRequestQueueDelaySamplesTotal,
       'direct_stream_descriptor_open_call_samples_total':
           _directStreamDescriptorOpenCallSamplesTotal,
+      'direct_stream_reply_delivery_delay_samples_total':
+          _directStreamReplyDeliveryDelaySamplesTotal,
       'handler_samples_total': _handlerSamplesTotal,
       'request_body_drain_us_total': _requestBodyDrainUsTotal,
       'stream_open_us_total': _streamOpenUsTotal,
@@ -220,8 +253,12 @@ class BenchHttpStreamDiagnostics {
       'first_body_write_call_us_total': _firstBodyWriteCallUsTotal,
       'direct_stream_open_round_trip_us_total':
           _directStreamOpenRoundTripUsTotal,
+      'direct_stream_request_queue_delay_us_total':
+          _directStreamRequestQueueDelayUsTotal,
       'direct_stream_descriptor_open_call_us_total':
           _directStreamDescriptorOpenCallUsTotal,
+      'direct_stream_reply_delivery_delay_us_total':
+          _directStreamReplyDeliveryDelayUsTotal,
       'handler_us_total': _handlerUsTotal,
     };
   }

@@ -475,9 +475,11 @@ class RouterSession {
             ?.cast<String, Object?>(),
       );
     } else if (type == HttpInvocationControlMessages.openResponseStream) {
+      final messageReceivedAtUs = DateTime.now().microsecondsSinceEpoch;
       final requestId = message['requestId'] as int?;
       final status = message['status'] as int?;
       final headers = (message['headers'] as Map?)?.cast<String, String>();
+      final sentAtUs = message['sentAtUs'] as int?;
       final replyPort = message['replyPort'] as SendPort?;
       if (requestId == null ||
           status == null ||
@@ -490,6 +492,12 @@ class RouterSession {
         replyPort.send(const {'error': 'pending_http_request_not_found'});
         return;
       }
+      int? requestQueueDelayUs;
+      if (sentAtUs != null &&
+          sentAtUs >= 0 &&
+          messageReceivedAtUs >= sentAtUs) {
+        requestQueueDelayUs = messageReceivedAtUs - sentAtUs;
+      }
       final openStopwatch = Stopwatch()..start();
       final descriptor = binding._openDirectResponseStream(
         pending,
@@ -500,12 +508,16 @@ class RouterSession {
         replyPort.send(const {'error': 'unsupported'});
         return;
       }
-      replyPort.send({
+      final response = <String, Object?>{
         'handle': descriptor.handle,
         'descriptorOpenUs': openStopwatch.elapsedMicroseconds,
+        if (requestQueueDelayUs != null)
+          'requestQueueDelayUs': requestQueueDelayUs,
         if (descriptor.libraryPath != null)
           'libraryPath': descriptor.libraryPath,
-      });
+      };
+      response['replySentAtUs'] = DateTime.now().microsecondsSinceEpoch;
+      replyPort.send(response);
     }
   }
 

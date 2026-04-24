@@ -564,8 +564,12 @@ class _BenchControlRegistry {
       onFirstBodyWrite: writeTracker.markFirstBodyWrite,
       onFirstBodyWriteCompleted: writeTracker.markFirstBodyWriteCompleted,
       onDirectStreamOpenRoundTrip: writeTracker.markDirectStreamOpenRoundTrip,
+      onDirectStreamRequestQueueDelay:
+          writeTracker.markDirectStreamRequestQueueDelay,
       onDirectStreamDescriptorOpenCall:
           writeTracker.markDirectStreamDescriptorOpenCall,
+      onDirectStreamReplyDeliveryDelay:
+          writeTracker.markDirectStreamReplyDeliveryDelay,
     );
     final stats = await streamBenchHttpResponse(
       request: context.request,
@@ -579,8 +583,11 @@ class _BenchControlRegistry {
       firstBodyWrite: writeTracker.firstBodyWrite,
       firstBodyWriteCompleted: writeTracker.firstBodyWriteCompleted,
       directStreamOpenRoundTrip: writeTracker.directStreamOpenRoundTrip,
+      directStreamRequestQueueDelay: writeTracker.directStreamRequestQueueDelay,
       directStreamDescriptorOpenCall:
           writeTracker.directStreamDescriptorOpenCall,
+      directStreamReplyDeliveryDelay:
+          writeTracker.directStreamReplyDeliveryDelay,
     );
   }
 
@@ -601,8 +608,12 @@ class _BenchControlRegistry {
       onFirstBodyWrite: writeTracker.markFirstBodyWrite,
       onFirstBodyWriteCompleted: writeTracker.markFirstBodyWriteCompleted,
       onDirectStreamOpenRoundTrip: writeTracker.markDirectStreamOpenRoundTrip,
+      onDirectStreamRequestQueueDelay:
+          writeTracker.markDirectStreamRequestQueueDelay,
       onDirectStreamDescriptorOpenCall:
           writeTracker.markDirectStreamDescriptorOpenCall,
+      onDirectStreamReplyDeliveryDelay:
+          writeTracker.markDirectStreamReplyDeliveryDelay,
     );
     final stats = await streamBenchHttpResponse(
       request: context.request,
@@ -616,8 +627,11 @@ class _BenchControlRegistry {
       firstBodyWrite: writeTracker.firstBodyWrite,
       firstBodyWriteCompleted: writeTracker.firstBodyWriteCompleted,
       directStreamOpenRoundTrip: writeTracker.directStreamOpenRoundTrip,
+      directStreamRequestQueueDelay: writeTracker.directStreamRequestQueueDelay,
       directStreamDescriptorOpenCall:
           writeTracker.directStreamDescriptorOpenCall,
+      directStreamReplyDeliveryDelay:
+          writeTracker.directStreamReplyDeliveryDelay,
     );
   }
 

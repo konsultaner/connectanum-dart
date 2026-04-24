@@ -548,7 +548,9 @@ class HttpInvocationContext {
     void Function()? onFirstBodyWrite,
     void Function()? onFirstBodyWriteCompleted,
     void Function(Duration duration)? onDirectStreamOpenRoundTrip,
+    void Function(Duration duration)? onDirectStreamRequestQueueDelay,
     void Function(Duration duration)? onDirectStreamDescriptorOpenCall,
+    void Function(Duration duration)? onDirectStreamReplyDeliveryDelay,
   }) {
     return HttpResponseStream._(
       invocation: invocation,
@@ -559,7 +561,9 @@ class HttpInvocationContext {
       onFirstBodyWrite: onFirstBodyWrite,
       onFirstBodyWriteCompleted: onFirstBodyWriteCompleted,
       onDirectStreamOpenRoundTrip: onDirectStreamOpenRoundTrip,
+      onDirectStreamRequestQueueDelay: onDirectStreamRequestQueueDelay,
       onDirectStreamDescriptorOpenCall: onDirectStreamDescriptorOpenCall,
+      onDirectStreamReplyDeliveryDelay: onDirectStreamReplyDeliveryDelay,
       responseStreamControlPort:
           invocation.details.custom[HttpInvocationKeys
                   .responseStreamControlPort]
@@ -578,7 +582,9 @@ class HttpResponseStream {
     void Function()? onFirstBodyWrite,
     void Function()? onFirstBodyWriteCompleted,
     void Function(Duration duration)? onDirectStreamOpenRoundTrip,
+    void Function(Duration duration)? onDirectStreamRequestQueueDelay,
     void Function(Duration duration)? onDirectStreamDescriptorOpenCall,
+    void Function(Duration duration)? onDirectStreamReplyDeliveryDelay,
     SendPort? responseStreamControlPort,
   }) : headers = Map.unmodifiable(headers),
        _onStreamOpened = onStreamOpened,
@@ -594,7 +600,9 @@ class HttpResponseStream {
             onFirstBodyWrite: onFirstBodyWrite,
             onFirstBodyWriteCompleted: onFirstBodyWriteCompleted,
             onDirectStreamOpenRoundTrip: onDirectStreamOpenRoundTrip,
+            onDirectStreamRequestQueueDelay: onDirectStreamRequestQueueDelay,
             onDirectStreamDescriptorOpenCall: onDirectStreamDescriptorOpenCall,
+            onDirectStreamReplyDeliveryDelay: onDirectStreamReplyDeliveryDelay,
             controlPort: responseStreamControlPort,
             onFallbackProgress: (chunk) {
               final payload = HttpResponsePayload._(
@@ -735,7 +743,9 @@ class _DirectHttpResponseStreamController {
     this.onFirstBodyWrite,
     this.onFirstBodyWriteCompleted,
     this.onDirectStreamOpenRoundTrip,
+    this.onDirectStreamRequestQueueDelay,
     this.onDirectStreamDescriptorOpenCall,
+    this.onDirectStreamReplyDeliveryDelay,
     required this.controlPort,
     required this.onFallbackProgress,
     required this.onFallbackClose,
@@ -750,7 +760,9 @@ class _DirectHttpResponseStreamController {
   final void Function()? onFirstBodyWrite;
   final void Function()? onFirstBodyWriteCompleted;
   final void Function(Duration duration)? onDirectStreamOpenRoundTrip;
+  final void Function(Duration duration)? onDirectStreamRequestQueueDelay;
   final void Function(Duration duration)? onDirectStreamDescriptorOpenCall;
+  final void Function(Duration duration)? onDirectStreamReplyDeliveryDelay;
   final SendPort controlPort;
   final void Function(Uint8List chunk) onFallbackProgress;
   final void Function(Uint8List? finalChunk) onFallbackClose;
@@ -859,15 +871,18 @@ class _DirectHttpResponseStreamController {
   Future<NativeHttpResponseStream?> _openStream() async {
     final replyPort = ReceivePort();
     final roundTripStopwatch = Stopwatch()..start();
+    final requestSentAtUs = DateTime.now().microsecondsSinceEpoch;
     try {
       controlPort.send({
         'type': HttpInvocationControlMessages.openResponseStream,
         'requestId': requestId,
         'status': status,
         'headers': headers,
+        'sentAtUs': requestSentAtUs,
         'replyPort': replyPort.sendPort,
       });
       final response = await replyPort.first;
+      final responseReceivedAtUs = DateTime.now().microsecondsSinceEpoch;
       if (response is! Map) {
         return null;
       }
@@ -876,10 +891,24 @@ class _DirectHttpResponseStreamController {
         return null;
       }
       onDirectStreamOpenRoundTrip?.call(roundTripStopwatch.elapsed);
+      final requestQueueDelayUs = response['requestQueueDelayUs'];
+      if (requestQueueDelayUs is int && requestQueueDelayUs >= 0) {
+        onDirectStreamRequestQueueDelay?.call(
+          Duration(microseconds: requestQueueDelayUs),
+        );
+      }
       final descriptorOpenUs = response['descriptorOpenUs'];
       if (descriptorOpenUs is int && descriptorOpenUs >= 0) {
         onDirectStreamDescriptorOpenCall?.call(
           Duration(microseconds: descriptorOpenUs),
+        );
+      }
+      final replySentAtUs = response['replySentAtUs'];
+      if (replySentAtUs is int &&
+          replySentAtUs >= 0 &&
+          responseReceivedAtUs >= replySentAtUs) {
+        onDirectStreamReplyDeliveryDelay?.call(
+          Duration(microseconds: responseReceivedAtUs - replySentAtUs),
         );
       }
       return NativeHttpResponseStream.borrowed(

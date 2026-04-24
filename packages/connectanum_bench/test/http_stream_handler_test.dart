@@ -146,7 +146,9 @@ void main() {
       firstBodyWrite: const Duration(milliseconds: 9),
       firstBodyWriteCompleted: const Duration(milliseconds: 10),
       directStreamOpenRoundTrip: const Duration(milliseconds: 4),
+      directStreamRequestQueueDelay: const Duration(milliseconds: 1),
       directStreamDescriptorOpenCall: const Duration(milliseconds: 2),
+      directStreamReplyDeliveryDelay: const Duration(milliseconds: 3),
     );
 
     expect(diagnostics.toJson(), containsPair('synthetic_responses_total', 1));
@@ -176,7 +178,15 @@ void main() {
     );
     expect(
       diagnostics.toJson(),
+      containsPair('direct_stream_request_queue_delay_us_total', 1000),
+    );
+    expect(
+      diagnostics.toJson(),
       containsPair('direct_stream_descriptor_open_call_us_total', 2000),
+    );
+    expect(
+      diagnostics.toJson(),
+      containsPair('direct_stream_reply_delivery_delay_us_total', 3000),
     );
   });
 }

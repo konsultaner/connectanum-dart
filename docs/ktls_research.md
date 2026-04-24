@@ -799,25 +799,45 @@ That means the current regression is not explained by the direct-stream open
 path either. The remaining blind spot is after HTTP/2 headers are queued and
 before the first actual connection write is observed.
 
-### Headers Queued To First Connection Write
+### Hosted Headers-Queued-To-First-Connection-Write Result
+
+That rerun has now landed as workflow run `24894437415` on clean head
+`0a9c3c8`, and it ruled out the post-header transport-write path too:
+
+- worst throughput and p95 row:
+  `h2_multiplexed_streams_s8`, `threads=4`
+  - `response headers wait avg 24.10 -> 211.03 (+186.93)`
+  - `response body first chunk wait avg 8.92 -> 72.21 (+63.29)`
+  - `native headers-to-first-connection-write avg 0.16 -> 0.12 (-0.04)`
+  - `native headers-to-first-chunk-dequeue avg 6.95 -> 68.54 (+61.59)`
+  - `native headers-to-first-chunk-send-call avg 7.41 -> 69.35 (+61.94)`
+  - `server queue-to-first-body-write avg 12.33 -> 104.86 (+92.53)`
+  - `server direct-stream open round trip avg 12.29 -> 104.83 (+92.53)`
+  - `server direct-stream descriptor-open call avg 0.05 -> 0.03 (-0.01)`
+
+That means the current regression is not inside `send_response(...)` and is
+not explained by the first actual connection write after headers are queued.
+The remaining blind spot is still inside `direct_stream_open_round_trip`, but
+outside the existing `descriptorOpenUs` metric.
+
+### Direct-Stream Control-Path Split
 
 The current local slice adds the next minimum signal needed to cover that gap:
 
-- `Http2ConnectionWriteTracker` pairs queued-header timestamps with the first
-  successful connection write seen by an instrumented HTTP/2 I/O wrapper
-- `ct_ffi`, Dart runtime metrics, and `RouterHttpResponseStreamMetrics` now
-  export `headers_to_first_connection_write` samples, totals, and slow-path
-  buckets
-- `native/bench` summarizes that metric into
-  `http_native_response_stream_timing` and
-  `http_native_response_stream_slow_paths`
-- `tool/ktls_http2_compare.py` renders the new averages and `>=1/5/10ms`
-  buckets while staying compatible with older hosted artifacts that do not
-  carry the field
+- `HttpResponseStream` now timestamps the control-message send and derives
+  request-side queue delay plus reply-delivery delay from the worker reply
+- the internal session control handler now records worker receive time and
+  reply send time alongside the existing `descriptorOpenUs` measurement
+- `packages/connectanum_bench` aggregates both new durations into
+  `http_server_emission_timing`
+- `native/bench` summarizes those counters into the per-workload server
+  emission block
+- `tool/ktls_http2_compare.py` now renders the two new metrics in the focus
+  lines and timing table while staying compatible with older hosted artifacts
 
 The next hosted rerun should therefore answer the new bounded question that now
-matters: whether the remaining multiplex regression is concentrated in the
-actual transport-write path after `send_response(...)` returns.
+matters: whether the remaining multiplex regression is dominated by request-side
+control queueing, reply delivery, or some deeper path still not instrumented.
 
 ### What Not To Overclaim
 

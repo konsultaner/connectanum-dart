@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `33d45f0` (`build(ktls): split direct-stream open timing`)
-Active exec plan: `docs/exec-plans/2026-04-24-h2-headers-queued-to-first-connection-write.md`
+Last reviewed commit: `0a9c3c8` (`build(ktls): capture h2 first connection write timing`)
+Active exec plan: `docs/exec-plans/2026-04-24-h2-direct-stream-control-path-split.md`
 
 ## Last Known Verification
 
@@ -532,46 +532,39 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-headers-queued-to-first-connect
   `stream_open_to_headers_send` plus `headers_send_call`, threaded through the
   router metrics snapshot, native bench artifact summaries, and comparison
   output as part of `http_native_response_stream_timing`.
-- The direct-stream open-path split is now pushed too. Commit `33d45f0` is on
-  both `origin` and `github`, and the visible GitHub push chain completed:
-  - `CI` `24890762043`
-  - `kTLS Validation` `24890762101`
-  - `WAMP Profile Benchmarks` `24890762044`
-- GitLab has not surfaced a pipeline for `33d45f0` through the current
+- The headers-queued-to-first-connection-write slice is now pushed too.
+  Commit `0a9c3c8` is on both `origin` and `github`, and the visible GitHub
+  push chain completed:
+  - `CI` `24893449385`
+  - `kTLS Validation` `24893449381`
+  - `WAMP Profile Benchmarks` `24893449378`
+- GitLab has not surfaced a pipeline for `0a9c3c8` through the current
   token-backed query.
-- Manual hosted rerun `24891851907` then completed successfully on `33d45f0`
-  and showed the remaining hotspot is not in the direct-stream open path
-  either:
+- Manual hosted rerun `24894437415` then completed successfully on `0a9c3c8`
+  and ruled out the post-header transport-write path too:
   - worst throughput and p95 row:
-    `h2_multiplexed_streams_s4`, `threads=4`
-    - `response headers wait avg 12.91 -> 35.04 (+22.13)`
-    - `response body first chunk wait avg 3.79 -> 24.60 (+20.81)`
-    - `server direct-stream open round trip avg 5.78 -> 3.98 (-1.80)`
-    - `server stream open avg 6.14 -> 4.35 (-1.79)`
-    - `native stream-open-to-headers-send avg 0.08 -> 0.12 (+0.04)`
-    - `native headers-to-first-chunk-dequeue avg 3.03 -> 2.07 (-0.96)`
-- The current local working tree now carries the next bounded metric slice:
-  `headers_to_first_connection_write`, which measures the gap after HTTP/2
-  headers are queued and before the first actual connection write is observed.
-- Local verification for the direct-stream open-path slice is green on
-  2026-04-24: `bin/test-fast`, `dart analyze packages/connectanum_router
-  packages/connectanum_bench`, `dart test
+    `h2_multiplexed_streams_s8`, `threads=4`
+    - `response headers wait avg 24.10 -> 211.03 (+186.93)`
+    - `response body first chunk wait avg 8.92 -> 72.21 (+63.29)`
+    - `native headers-to-first-connection-write avg 0.16 -> 0.12 (-0.04)`
+    - `native headers-to-first-chunk-dequeue avg 6.95 -> 68.54 (+61.59)`
+    - `native headers-to-first-chunk-send-call avg 7.41 -> 69.35 (+61.94)`
+    - `server queue-to-first-body-write avg 12.33 -> 104.86 (+92.53)`
+    - `server direct-stream open round trip avg 12.29 -> 104.83 (+92.53)`
+    - `server direct-stream descriptor-open call avg 0.05 -> 0.03 (-0.01)`
+- That rerun moved the remaining blind spot back into the direct-stream
+  control/open path outside `descriptorOpenUs`. The current local working tree
+  therefore carries the next bounded slice: splitting
+  `direct_stream_open_round_trip` into request-side control-queue delay and
+  reply-side delivery delay.
+- Local verification for the current direct-stream control-path split is green
+  so far on 2026-04-24: `bin/test-fast`, `dart test
   packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`,
-  `cargo test --manifest-path native/bench/Cargo.toml
+  `dart test packages/connectanum_router/test/router_runtime_test.dart
+  -r expanded`, `cargo test --manifest-path native/bench/Cargo.toml
   summarize_report_computes_latency_and_deltas -- --nocapture`,
-  `python3 tool/test_ktls_http2_compare.py`, and `bin/verify`.
-- Local verification for the current headers-to-first-connection-write slice
-  is green so far on 2026-04-24: `bin/test-fast`, `cargo test
-  --manifest-path native/transport/ct_core/Cargo.toml
-  http2_connection_write_tracker_records_headers_to_first_connection_write --
-  --nocapture`, `cargo test --manifest-path native/bench/Cargo.toml
-  summarize_report_computes_latency_and_deltas -- --nocapture`, `cargo test
-  --manifest-path native/transport/ct_ffi/Cargo.toml
-  http2_response_streaming_round_trip -- --nocapture`, `dart analyze
-  packages/connectanum_router packages/connectanum_bench`, `python3 -m
-  py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`,
-  `python3 tool/test_ktls_http2_compare.py`, and a rerender of the hosted
-  `24891851907` artifact bundle.
+  `python3 -m py_compile tool/ktls_http2_compare.py
+  tool/test_ktls_http2_compare.py`, and `python3 tool/test_ktls_http2_compare.py`.
 - Local verification for that stream-open-to-headers-send slice is green on
   2026-04-24: `bin/test-fast`, `cargo test --manifest-path
   native/bench/Cargo.toml summarize_report_computes_latency_and_deltas --
