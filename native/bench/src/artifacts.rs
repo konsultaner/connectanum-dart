@@ -6,7 +6,8 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::report::{
-    router_counter_delta, transport_counter_after, transport_counter_delta, WorkloadReport,
+    router_counter_delta, transport_counter_after, transport_counter_delta,
+    HttpConnectionUsage, WorkloadReport,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -55,6 +56,16 @@ pub struct WorkloadArtifactSummary {
     pub scenario_router_invocations_delta: i64,
     pub scenario_router_publications_delta: i64,
     pub transport: TransportDeltaSummary,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub http_connection_usage: Option<HttpConnectionUsageSummary>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct HttpConnectionUsageSummary {
+    pub reuse_connections: bool,
+    pub streams_per_connection: u32,
+    pub connections_opened: u32,
+    pub samples_per_connection_avg: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -578,6 +589,8 @@ pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
     } else {
         (response_bytes_total as f64 * 8.0 / 1_000_000.0) / (elapsed_ms / 1000.0)
     };
+    let http_connection_usage =
+        summarize_http_connection_usage(report.http_connection_usage.as_ref(), sample_count);
 
     let scenario_before = report
         .scenario_metrics_before
@@ -728,7 +741,24 @@ pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
             )
             .unwrap_or(0),
         },
+        http_connection_usage,
     }
+}
+
+fn summarize_http_connection_usage(
+    usage: Option<&HttpConnectionUsage>,
+    sample_count: usize,
+) -> Option<HttpConnectionUsageSummary> {
+    usage.map(|usage| HttpConnectionUsageSummary {
+        reuse_connections: usage.reuse_connections,
+        streams_per_connection: usage.streams_per_connection,
+        connections_opened: usage.connections_opened,
+        samples_per_connection_avg: if usage.connections_opened == 0 {
+            0.0
+        } else {
+            sample_count as f64 / usage.connections_opened as f64
+        },
+    })
 }
 
 pub fn render_prometheus_metrics(
@@ -797,6 +827,12 @@ pub fn render_prometheus_metrics(
         "# HELP connectanum_bench_artifact_workload_transport_after Transport gauge values observed after a workload\n",
     );
     output.push_str("# TYPE connectanum_bench_artifact_workload_transport_after gauge\n");
+    output.push_str(
+        "# HELP connectanum_bench_artifact_workload_http_connection_usage HTTP connection usage observed for a workload\n",
+    );
+    output.push_str(
+        "# TYPE connectanum_bench_artifact_workload_http_connection_usage gauge\n",
+    );
 
     for summary in summaries {
         let router_workers = summary.router_workers.to_string();
@@ -927,6 +963,36 @@ pub fn render_prometheus_metrics(
                 format_labels_with_extra(&base_labels, &[("kind", kind)]),
                 value
             ));
+        }
+        if let Some(connection_usage) = &summary.http_connection_usage {
+            for (kind, value) in [
+                (
+                    "connections_opened",
+                    connection_usage.connections_opened as f64,
+                ),
+                (
+                    "streams_per_connection",
+                    connection_usage.streams_per_connection as f64,
+                ),
+                (
+                    "samples_per_connection_avg",
+                    connection_usage.samples_per_connection_avg,
+                ),
+                (
+                    "reuse_connections",
+                    if connection_usage.reuse_connections {
+                        1.0
+                    } else {
+                        0.0
+                    },
+                ),
+            ] {
+                output.push_str(&format!(
+                    "connectanum_bench_artifact_workload_http_connection_usage{} {}\n",
+                    format_labels_with_extra(&base_labels, &[("kind", kind)]),
+                    value
+                ));
+            }
         }
     }
 
@@ -1296,6 +1362,11 @@ mod tests {
             )),
             scenario_open_metrics_before: None,
             scenario_open_metrics_after: None,
+            http_connection_usage: Some(HttpConnectionUsage {
+                reuse_connections: true,
+                streams_per_connection: 4,
+                connections_opened: 2,
+            }),
             samples: vec![
                 WorkloadSample {
                     worker: 0,
@@ -1370,6 +1441,11 @@ mod tests {
         assert_eq!(summary.transport.transport_alerts, 3);
         assert_eq!(summary.transport.active_throttles_after, 1);
         assert_eq!(summary.transport.max_backpressure_depth_after, 11);
+        let connection_usage = summary.http_connection_usage.unwrap();
+        assert!(connection_usage.reuse_connections);
+        assert_eq!(connection_usage.streams_per_connection, 4);
+        assert_eq!(connection_usage.connections_opened, 2);
+        assert!((connection_usage.samples_per_connection_avg - 1.5).abs() < f64::EPSILON);
         assert!((summary.latency_avg_ms - 20.0).abs() < f64::EPSILON);
         assert!((summary.latency_p95_ms - 30.0).abs() < f64::EPSILON);
     }
@@ -1386,6 +1462,8 @@ mod tests {
         assert!(text.contains("native_runtime_threads=\"4\""));
         assert!(text.contains("kind=\"active_throttles\""));
         assert!(text.contains("counter=\"invocations_dispatched\""));
+        assert!(text.contains("connectanum_bench_artifact_workload_http_connection_usage"));
+        assert!(text.contains("kind=\"connections_opened\""));
     }
 
     #[test]

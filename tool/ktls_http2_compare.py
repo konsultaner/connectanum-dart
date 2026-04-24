@@ -53,6 +53,11 @@ TRANSPORT_SUMMARY_KEYS = (
     ("active_throttles_after", "Active throttles after"),
 )
 
+CONNECTION_USAGE_SUMMARY_KEYS = (
+    ("connections_opened", "Connections opened"),
+    ("samples_per_connection_avg", "Samples per opened connection"),
+)
+
 
 def load_summary(path: Path) -> dict:
     if not path.exists():
@@ -493,6 +498,97 @@ def build_transport_focus(rows: list[dict], packed_row: dict | None) -> dict | N
     }
 
 
+def build_connection_metric_snapshot(
+    baseline_usage: dict | None, ktls_usage: dict | None, metric: str
+) -> dict | None:
+    baseline_value = None if baseline_usage is None else baseline_usage.get(metric)
+    ktls_value = None if ktls_usage is None else ktls_usage.get(metric)
+    if baseline_value is None and ktls_value is None:
+        return None
+
+    delta = None
+    delta_pct = None
+    if baseline_value is not None and ktls_value is not None:
+        delta = ktls_value - baseline_value
+        if isinstance(baseline_value, (int, float)) and isinstance(ktls_value, (int, float)):
+            delta_pct = pct_delta(float(baseline_value), float(ktls_value))
+
+    return {
+        "baseline": baseline_value,
+        "ktls": ktls_value,
+        "delta": delta,
+        "delta_pct": delta_pct,
+    }
+
+
+def summarize_row_connection_usage(row: dict) -> dict | None:
+    baseline = row.get("baseline")
+    ktls = row.get("ktls")
+    if not baseline or not ktls:
+        return None
+
+    baseline_usage = baseline.get("http_connection_usage")
+    ktls_usage = ktls.get("http_connection_usage")
+    if baseline_usage is None and ktls_usage is None:
+        return None
+
+    config = {
+        "reuse_connections": {
+            "baseline": None
+            if baseline_usage is None
+            else baseline_usage.get("reuse_connections"),
+            "ktls": None if ktls_usage is None else ktls_usage.get("reuse_connections"),
+        },
+        "streams_per_connection": {
+            "baseline": None
+            if baseline_usage is None
+            else baseline_usage.get("streams_per_connection"),
+            "ktls": None if ktls_usage is None else ktls_usage.get("streams_per_connection"),
+        },
+    }
+
+    metrics: dict[str, dict | None] = {}
+    signals: list[dict] = []
+    for metric, label in CONNECTION_USAGE_SUMMARY_KEYS:
+        snapshot = build_connection_metric_snapshot(baseline_usage, ktls_usage, metric)
+        metrics[metric] = snapshot
+        if snapshot is None or snapshot["delta"] in (None, 0, 0.0):
+            continue
+        signals.append(
+            {
+                "metric": metric,
+                "label": label,
+                "baseline": snapshot["baseline"],
+                "ktls": snapshot["ktls"],
+                "delta": snapshot["delta"],
+                "delta_pct": snapshot["delta_pct"],
+            }
+        )
+
+    return {
+        "config": config,
+        "metrics": metrics,
+        "signals": signals,
+    }
+
+
+def build_connection_focus(rows: list[dict], packed_row: dict | None) -> dict | None:
+    row = find_matching_row(rows, packed_row)
+    if row is None:
+        return None
+
+    connection_usage = row.get("connection_usage_summary")
+    if connection_usage is None:
+        return None
+
+    return {
+        "label": build_label(row),
+        "config": connection_usage["config"],
+        "metrics": connection_usage["metrics"],
+        "signals": connection_usage["signals"],
+    }
+
+
 def render_pct(value: float | None) -> str:
     if value is None:
         return "n/a"
@@ -515,6 +611,18 @@ def render_int(value: int | None) -> str:
     if value is None:
         return "n/a"
     return str(value)
+
+
+def render_bool(value: bool | None) -> str:
+    if value is None:
+        return "n/a"
+    return "enabled" if value else "disabled"
+
+
+def render_float(value: float | int | None) -> str:
+    if value is None:
+        return "n/a"
+    return f"{float(value):.2f}"
 
 
 def render_summary_line(name: str, summary: dict | None, comparable_rows: int) -> str:
@@ -585,6 +693,52 @@ def render_transport_focus_line(name: str, focus: dict | None) -> str:
         for signal in signals
     )
     return f"- {name}: {focus['label']} shows {rendered_signals}."
+
+
+def render_connection_config_snapshot(snapshot: dict | None, *, bool_value: bool = False) -> str:
+    if snapshot is None:
+        return "n/a"
+    baseline = snapshot.get("baseline")
+    ktls = snapshot.get("ktls")
+    if bool_value:
+        baseline_rendered = render_bool(baseline)
+        ktls_rendered = render_bool(ktls)
+    else:
+        baseline_rendered = render_int(baseline)
+        ktls_rendered = render_int(ktls)
+    if baseline == ktls:
+        return baseline_rendered
+    return f"{baseline_rendered} -> {ktls_rendered}"
+
+
+def render_connection_metric_snapshot(snapshot: dict | None) -> str:
+    if snapshot is None:
+        return "n/a"
+    baseline = snapshot.get("baseline")
+    ktls = snapshot.get("ktls")
+    delta = snapshot.get("delta")
+    if isinstance(baseline, int) and isinstance(ktls, int) and isinstance(delta, int):
+        return f"{baseline} -> {ktls} ({delta:+d})"
+    if isinstance(baseline, (int, float)) and isinstance(ktls, (int, float)):
+        if delta is None:
+            return f"{float(baseline):.2f} -> {float(ktls):.2f}"
+        return f"{float(baseline):.2f} -> {float(ktls):.2f} ({float(delta):+.2f})"
+    return "n/a"
+
+
+def render_connection_focus_line(name: str, focus: dict | None) -> str:
+    if focus is None:
+        return f"- {name}: no HTTP connection usage metrics were present."
+
+    config = focus["config"]
+    metrics = focus["metrics"]
+    return (
+        f"- {name}: {focus['label']} uses "
+        f"reuse {render_connection_config_snapshot(config['reuse_connections'], bool_value=True)}, "
+        f"streams per connection {render_connection_config_snapshot(config['streams_per_connection'])}, "
+        f"connections opened {render_connection_metric_snapshot(metrics['connections_opened'])}, "
+        f"samples per opened connection {render_connection_metric_snapshot(metrics['samples_per_connection_avg'])}."
+    )
 
 
 def render_resource_usage_line(summary: dict | None) -> list[str]:
@@ -791,6 +945,7 @@ def build_comparison(baseline_path: Path, ktls_path: Path) -> dict:
         else:
             row["delta"] = None
         row["transport_summary"] = summarize_row_transport(row)
+        row["connection_usage_summary"] = summarize_row_connection_usage(row)
         rows.append(row)
 
     comparable_rows = [row for row in rows if row["baseline"] and row["ktls"]]
@@ -828,6 +983,16 @@ def build_comparison(baseline_path: Path, ktls_path: Path) -> dict:
                 throughput_summary["worst_row"] if throughput_summary else None,
             ),
             "worst_latency_row": build_transport_focus(
+                rows,
+                latency_p95_summary["worst_row"] if latency_p95_summary else None,
+            ),
+        },
+        "connection_focus": {
+            "worst_throughput_row": build_connection_focus(
+                rows,
+                throughput_summary["worst_row"] if throughput_summary else None,
+            ),
+            "worst_latency_row": build_connection_focus(
                 rows,
                 latency_p95_summary["worst_row"] if latency_p95_summary else None,
             ),
@@ -899,6 +1064,14 @@ def render_markdown(comparison: dict) -> str:
             render_transport_focus_line(
                 "Worst p95 row transport view",
                 summary["transport_focus"]["worst_latency_row"],
+            ),
+            render_connection_focus_line(
+                "Worst throughput row connection view",
+                summary["connection_focus"]["worst_throughput_row"],
+            ),
+            render_connection_focus_line(
+                "Worst p95 row connection view",
+                summary["connection_focus"]["worst_latency_row"],
             ),
             "",
             "## Linux TLS Stats",
@@ -990,6 +1163,48 @@ def render_markdown(comparison: dict) -> str:
 
     if not has_transport_rows:
         lines.append("| No overlapping completed workloads | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
+
+    lines.append("")
+    lines.extend(
+        [
+            "## HTTP Connection Usage",
+            "",
+            "| Workload | Router workers | Native runtime threads | Reuse | Streams per connection | Connections opened | Samples per opened connection |",
+            "| --- | ---: | ---: | --- | --- | --- | --- |",
+        ]
+    )
+
+    has_connection_rows = False
+    for row in rows:
+        connection_usage = row.get("connection_usage_summary")
+        if connection_usage is None:
+            continue
+        has_connection_rows = True
+        config = connection_usage["config"]
+        metrics = connection_usage["metrics"]
+        lines.append(
+            "| {workload} | {router_workers} | {native_runtime_threads} | {reuse} | {streams_per_connection} | {connections_opened} | {samples_per_connection_avg} |".format(
+                workload=row["workload"],
+                router_workers=row["router_workers"],
+                native_runtime_threads=row["native_runtime_threads"],
+                reuse=render_connection_config_snapshot(
+                    config["reuse_connections"],
+                    bool_value=True,
+                ),
+                streams_per_connection=render_connection_config_snapshot(
+                    config["streams_per_connection"]
+                ),
+                connections_opened=render_connection_metric_snapshot(
+                    metrics["connections_opened"]
+                ),
+                samples_per_connection_avg=render_connection_metric_snapshot(
+                    metrics["samples_per_connection_avg"]
+                ),
+            )
+        )
+
+    if not has_connection_rows:
+        lines.append("| No HTTP connection usage metrics | n/a | n/a | n/a | n/a | n/a | n/a |")
 
     lines.append("")
 

@@ -10,6 +10,13 @@ pub struct WorkloadSample {
     pub response_bytes: u64,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct HttpConnectionUsage {
+    pub reuse_connections: bool,
+    pub streams_per_connection: u32,
+    pub connections_opened: u32,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct WorkloadReport {
     pub scenario: String,
@@ -39,6 +46,8 @@ pub struct WorkloadReport {
     pub scenario_open_metrics_before: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scenario_open_metrics_after: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub http_connection_usage: Option<HttpConnectionUsage>,
     pub samples: Vec<WorkloadSample>,
 }
 
@@ -176,5 +185,6 @@ mod tests {
         assert_eq!(report.client_impl, "n/a");
         assert_eq!(report.router_workers, 1);
         assert_eq!(report.native_runtime_threads, 0);
+        assert_eq!(report.http_connection_usage, None);
     }
 }

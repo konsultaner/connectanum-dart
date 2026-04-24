@@ -329,6 +329,53 @@ rekey anomalies. The remaining question is now much narrower: why multiplexed
 HTTP/2 streams regress materially once concurrency is layered onto that clean
 kTLS path.
 
+### Focused Multiplex Scaling Rerun
+
+The first targeted rerun of that hypothesis landed on commit `257f9aa` as
+workflow run `24870980724` (`kTLS HTTP/2 Benchmarks`) with:
+
+- `scenario = native/bench/scenarios/h2_ktls_multiplex_scaling.toml`
+- `skip_artifact_gate = true`
+
+That run made three points explicit:
+
+1. The regression is not limited to deep multiplexing.
+   - `h2_multiplexed_streams_s1`, `threads=1`: `3947.58 -> 1985.47` Mbps
+     (`-49.70%`), p95 `12.22 -> 20.62` ms (`+68.80%`)
+   - `h2_multiplexed_streams_s1`, `threads=4`: `3947.58 -> 1906.50` Mbps
+     (`-51.70%`), p95 `13.93 -> 22.69` ms (`+62.88%`)
+2. The worst throughput row still sits in the reused-connection HTTP/2 path,
+   but it is not the highest stream count:
+   - `h2_multiplexed_streams_s4`, `threads=4`: `6100.81 -> 2137.22` Mbps
+     (`-64.97%`)
+3. The old explanations are still not showing up.
+   - required-kTLS again stayed on the kernel software path cleanly:
+     `TlsTxSw/TlsRxSw 66/66`, no decrypt/rekey anomalies
+   - `h2_multiplexed_streams_s1` stayed at zero transport counters in both
+     passes, so the large `s1` regression is not already explained by the
+     current backpressure/alert telemetry
+
+That narrowed the next question further: the bench needed better visibility
+into HTTP connection reuse/open behavior per workload row before another
+runtime change would be justified.
+
+### Connection Usage Instrumentation
+
+That visibility slice is now landed locally:
+
+- the native HTTP bench path records optional `http_connection_usage` in
+  per-workload JSONL rows
+- transformed artifact bundles now expose `connections_opened`,
+  `streams_per_connection`, and derived
+  `samples_per_connection_avg`
+- the comparison helper now renders worst-row connection views plus a dedicated
+  `HTTP Connection Usage` section for comparable rows
+
+That means the next hosted rerun can answer a narrower question than before:
+whether required-kTLS is opening materially more HTTP connections than the
+baseline pass, or whether the regression persists even when the new
+connection-usage metrics stay flat.
+
 ### What Not To Overclaim
 
 - macOS results are irrelevant for kTLS itself.
@@ -356,8 +403,8 @@ blind generic instrumentation:
   deltas, and transport-counter deltas so one hosted run answers the tuning
   question directly
 - use run `24869856621` as the baseline for any deeper Linux-side
-  instrumentation or tuning, with `h2_multiplexed_streams` as the first
-  concrete hotspot to explain
+  instrumentation or tuning, then use focused run `24870980724` as the first
+  workload-shape baseline for `h2_multiplexed_streams`
 - keep the comparison helper capturing `/proc/net/tls_stat` sidecars and
   summarizing the Linux TLS session-open and decrypt/rekey deltas, because
   that is the cheapest hosted-run signal for "did required-kTLS actually stay
@@ -366,6 +413,10 @@ blind generic instrumentation:
   `native/bench/scenarios/h2_ktls_multiplex_scaling.toml` for the next hosted
   rerun, with an explicit scenario policy once thresholds are understood or
   `skip_artifact_gate=true` while the run is still purely investigative
+- rerun the focused multiplex-scaling workflow on a clean head with the new
+  connection section enabled, then use that output to decide whether the next
+  slice should target connection churn, deeper Linux-side runtime
+  instrumentation, or an HTTP/2 request-path hypothesis
 
 That is the smallest next milestone that improves decision quality without
 pretending the remaining kTLS work is already a clear runtime bug.

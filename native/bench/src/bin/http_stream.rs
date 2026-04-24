@@ -49,7 +49,7 @@ use url::Url;
 use connectanum_bench_orchestrator::artifacts::summarize_report;
 use connectanum_bench_orchestrator::artifacts::{write_artifact_bundle, WorkloadArtifactSummary};
 use connectanum_bench_orchestrator::report::{
-    router_counter_delta, WorkloadReport, WorkloadSample,
+    router_counter_delta, HttpConnectionUsage, WorkloadReport, WorkloadSample,
 };
 
 type H3RequestSender = h3::client::SendRequest<h3_quinn::OpenStreams, Bytes>;
@@ -334,17 +334,21 @@ fn run_bench_suite(
                     split_metrics_payload(raw)
                 };
                 let started_at = now_millis();
-                let samples = if prepared.is_wamp() {
-                    run_wamp_workload(&http_control, &prepared)
-                        .with_context(|| format!("workload \"{}\" failed", workload.name))?
+                let execution = if prepared.is_wamp() {
+                    WorkloadExecution::samples_only(
+                        run_wamp_workload(&http_control, &prepared)
+                            .with_context(|| format!("workload \"{}\" failed", workload.name))?,
+                    )
                 } else if prepared.is_rawsocket_auth_frames() {
-                    runtime
-                        .block_on(run_rawsocket_auth_frame_workload(
-                            router_config_path,
-                            prepared.clone(),
-                            workload_timeout,
-                        ))
-                        .with_context(|| format!("workload \"{}\" failed", workload.name))?
+                    WorkloadExecution::samples_only(
+                        runtime
+                            .block_on(run_rawsocket_auth_frame_workload(
+                                router_config_path,
+                                prepared.clone(),
+                                workload_timeout,
+                            ))
+                            .with_context(|| format!("workload \"{}\" failed", workload.name))?,
+                    )
                 } else {
                     runtime
                         .block_on(execute_workload(
@@ -386,7 +390,8 @@ fn run_bench_suite(
                     scenario_metrics_after: Some(scenario_metrics_after.clone()),
                     scenario_open_metrics_before: scenario_open_metrics_before.clone(),
                     scenario_open_metrics_after: scenario_open_metrics_after.clone(),
-                    samples,
+                    http_connection_usage: execution.http_connection_usage.clone(),
+                    samples: execution.samples,
                 };
                 print_workload_summary(&report, &prepared);
                 results_writer.write(&report)?;
@@ -1331,6 +1336,42 @@ struct HttpBodyResponse {
     body: Vec<u8>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+struct HttpWorkerExecution {
+    samples: Vec<WorkloadSample>,
+    connections_opened: u32,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct WorkloadExecution {
+    samples: Vec<WorkloadSample>,
+    http_connection_usage: Option<HttpConnectionUsage>,
+}
+
+impl WorkloadExecution {
+    fn samples_only(samples: Vec<WorkloadSample>) -> Self {
+        Self {
+            samples,
+            http_connection_usage: None,
+        }
+    }
+
+    fn with_http_usage(
+        workload: &PreparedWorkload,
+        samples: Vec<WorkloadSample>,
+        connections_opened: u32,
+    ) -> Self {
+        Self {
+            samples,
+            http_connection_usage: Some(HttpConnectionUsage {
+                reuse_connections: workload.reuse_connections,
+                streams_per_connection: workload.streams_per_connection,
+                connections_opened,
+            }),
+        }
+    }
+}
+
 fn normalize_wamp_client_impl(raw: &str) -> Result<String> {
     match raw.to_ascii_lowercase().as_str() {
         "dart" | "vm" => Ok("dart".to_string()),
@@ -1459,6 +1500,21 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
             "  Streams per connection: {}",
             workload.streams_per_connection
         );
+        if let Some(connection_usage) = &report.http_connection_usage {
+            println!(
+                "  HTTP connections opened: {}",
+                connection_usage.connections_opened
+            );
+            let samples_per_connection = if connection_usage.connections_opened == 0 {
+                0.0
+            } else {
+                total_samples as f64 / connection_usage.connections_opened as f64
+            };
+            println!(
+                "  Samples per opened connection: {:.2}",
+                samples_per_connection
+            );
+        }
     }
 }
 
@@ -1836,7 +1892,7 @@ async fn execute_workload(
     endpoint: HttpEndpoint,
     workload: PreparedWorkload,
     timeout: Duration,
-) -> Result<Vec<WorkloadSample>> {
+) -> Result<WorkloadExecution> {
     match workload.protocol.as_str() {
         "h1" | "http1" | "http" => run_h1_workload(endpoint, workload, timeout).await,
         "h2" | "http2" => run_h2_workload(endpoint, workload, timeout).await,
@@ -1849,7 +1905,7 @@ async fn run_h1_workload(
     endpoint: HttpEndpoint,
     workload: PreparedWorkload,
     timeout: Duration,
-) -> Result<Vec<WorkloadSample>> {
+) -> Result<WorkloadExecution> {
     let mut join_set = JoinSet::new();
     for worker_id in 0..workload.concurrency {
         let endpoint_clone = endpoint.clone();
@@ -1858,24 +1914,26 @@ async fn run_h1_workload(
             .spawn(async move { run_h1_worker(endpoint_clone, workload_clone, worker_id).await });
     }
     let label = format!("{} [HTTP/1.1]", workload.name.as_str());
-    collect_worker_samples(join_set, timeout, &label).await
+    collect_http_worker_executions(join_set, &workload, timeout, &label).await
 }
 
 async fn run_h1_worker(
     endpoint: HttpEndpoint,
     workload: PreparedWorkload,
     worker_id: u32,
-) -> Result<Vec<WorkloadSample>> {
+) -> Result<HttpWorkerExecution> {
     if workload.auth_flow.is_some() {
         return run_h1_auth_worker(endpoint, workload, worker_id).await;
     }
     let mut samples = Vec::with_capacity(workload.iterations as usize);
+    let mut connections_opened = 0u32;
     let request_body = build_payload(
         workload.request_bytes,
         workload.request_chunk_bytes as usize,
     );
     if workload.reuse_connections {
         let mut sender = connect_h1_sender(&endpoint).await?;
+        connections_opened += 1;
         for iteration in 0..workload.iterations {
             let sample = match send_h1_request(
                 &mut sender,
@@ -1895,6 +1953,7 @@ async fn run_h1_worker(
                             worker_id, first_error
                         )
                     })?;
+                    connections_opened += 1;
                     send_h1_request(
                         &mut sender,
                         &endpoint,
@@ -1914,7 +1973,10 @@ async fn run_h1_worker(
             };
             samples.push(sample);
         }
-        return Ok(samples);
+        return Ok(HttpWorkerExecution {
+            samples,
+            connections_opened,
+        });
     }
     for iteration in 0..workload.iterations {
         let sample = run_h1_iteration(
@@ -1926,15 +1988,19 @@ async fn run_h1_worker(
         )
         .await?;
         samples.push(sample);
+        connections_opened += 1;
     }
-    Ok(samples)
+    Ok(HttpWorkerExecution {
+        samples,
+        connections_opened,
+    })
 }
 
 async fn run_h2_workload(
     endpoint: HttpEndpoint,
     workload: PreparedWorkload,
     timeout: Duration,
-) -> Result<Vec<WorkloadSample>> {
+) -> Result<WorkloadExecution> {
     let mut join_set = JoinSet::new();
     for worker_id in 0..workload.concurrency {
         let endpoint_clone = endpoint.clone();
@@ -1943,27 +2009,36 @@ async fn run_h2_workload(
             .spawn(async move { run_h2_worker(endpoint_clone, workload_clone, worker_id).await });
     }
     let label = format!("{} [HTTP/2]", workload.name.as_str());
-    collect_worker_samples(join_set, timeout, &label).await
+    collect_http_worker_executions(join_set, &workload, timeout, &label).await
 }
 
 async fn run_h2_worker(
     endpoint: HttpEndpoint,
     workload: PreparedWorkload,
     worker_id: u32,
-) -> Result<Vec<WorkloadSample>> {
+) -> Result<HttpWorkerExecution> {
     if workload.auth_flow.is_some() {
         return run_h2_auth_worker(endpoint, workload, worker_id).await;
     }
     let mut samples = Vec::with_capacity(workload.iterations as usize);
+    let mut connections_opened = 0u32;
     let request_body = build_payload(
         workload.request_bytes,
         workload.request_chunk_bytes as usize,
     );
     if workload.reuse_connections {
         let mut sender = connect_h2_sender(&endpoint).await?;
+        connections_opened += 1;
         if workload.streams_per_connection > 1 {
-            return run_h2_multiplexed_worker(sender, endpoint, workload, request_body, worker_id)
-                .await;
+            return run_h2_multiplexed_worker(
+                sender,
+                endpoint,
+                workload,
+                request_body,
+                worker_id,
+                connections_opened,
+            )
+            .await;
         }
         for iteration in 0..workload.iterations {
             let sample = match send_h2_request(
@@ -1984,6 +2059,7 @@ async fn run_h2_worker(
                             worker_id, first_error
                         )
                     })?;
+                    connections_opened += 1;
                     send_h2_request(
                         sender.clone(),
                         &endpoint,
@@ -2003,7 +2079,10 @@ async fn run_h2_worker(
             };
             samples.push(sample);
         }
-        return Ok(samples);
+        return Ok(HttpWorkerExecution {
+            samples,
+            connections_opened,
+        });
     }
     for iteration in 0..workload.iterations {
         let sample = run_h2_iteration(
@@ -2015,8 +2094,12 @@ async fn run_h2_worker(
         )
         .await?;
         samples.push(sample);
+        connections_opened += 1;
     }
-    Ok(samples)
+    Ok(HttpWorkerExecution {
+        samples,
+        connections_opened,
+    })
 }
 
 async fn run_h2_multiplexed_worker(
@@ -2025,7 +2108,8 @@ async fn run_h2_multiplexed_worker(
     workload: PreparedWorkload,
     request_body: Bytes,
     worker_id: u32,
-) -> Result<Vec<WorkloadSample>> {
+    connections_opened: u32,
+) -> Result<HttpWorkerExecution> {
     let mut join_set = JoinSet::new();
     let mut samples = Vec::with_capacity(workload.iterations as usize);
     let mut next_iteration = 0u32;
@@ -2062,14 +2146,17 @@ async fn run_h2_multiplexed_worker(
         samples.push(sample);
     }
 
-    Ok(samples)
+    Ok(HttpWorkerExecution {
+        samples,
+        connections_opened,
+    })
 }
 
 async fn run_h3_workload(
     endpoint: HttpEndpoint,
     workload: PreparedWorkload,
     timeout: Duration,
-) -> Result<Vec<WorkloadSample>> {
+) -> Result<WorkloadExecution> {
     let mut join_set = JoinSet::new();
     for worker_id in 0..workload.concurrency {
         let endpoint_clone = endpoint.clone();
@@ -2078,22 +2165,24 @@ async fn run_h3_workload(
             .spawn(async move { run_h3_worker(endpoint_clone, workload_clone, worker_id).await });
     }
     let label = format!("{} [HTTP/3]", workload.name.as_str());
-    collect_worker_samples(join_set, timeout, &label).await
+    collect_http_worker_executions(join_set, &workload, timeout, &label).await
 }
 
 async fn run_h3_worker(
     endpoint: HttpEndpoint,
     workload: PreparedWorkload,
     worker_id: u32,
-) -> Result<Vec<WorkloadSample>> {
+) -> Result<HttpWorkerExecution> {
     if workload.auth_flow.is_some() {
         return run_h3_auth_worker(endpoint, workload, worker_id).await;
     }
     let mut samples = Vec::with_capacity(workload.iterations as usize);
+    let mut connections_opened = 0u32;
     let request_chunk =
         build_pattern_chunk(std::cmp::max(1, workload.request_chunk_bytes as usize));
     if workload.reuse_connections {
         let (mut quinn_endpoint, mut send_request) = connect_h3_sender(&endpoint).await?;
+        connections_opened += 1;
         if workload.streams_per_connection > 1 {
             return run_h3_multiplexed_worker(
                 quinn_endpoint,
@@ -2102,6 +2191,7 @@ async fn run_h3_worker(
                 workload,
                 request_chunk,
                 worker_id,
+                connections_opened,
             )
             .await;
         }
@@ -2128,6 +2218,7 @@ async fn run_h3_worker(
                         })?;
                     quinn_endpoint = new_endpoint;
                     send_request = new_send_request;
+                    connections_opened += 1;
                     send_h3_request(
                         send_request.clone(),
                         &endpoint,
@@ -2148,7 +2239,10 @@ async fn run_h3_worker(
             samples.push(sample);
         }
         quinn_endpoint.close(0u32.into(), b"done");
-        return Ok(samples);
+        return Ok(HttpWorkerExecution {
+            samples,
+            connections_opened,
+        });
     }
     for iteration in 0..workload.iterations {
         let sample = run_h3_iteration(
@@ -2160,8 +2254,12 @@ async fn run_h3_worker(
         )
         .await?;
         samples.push(sample);
+        connections_opened += 1;
     }
-    Ok(samples)
+    Ok(HttpWorkerExecution {
+        samples,
+        connections_opened,
+    })
 }
 
 async fn run_h3_multiplexed_worker(
@@ -2171,7 +2269,8 @@ async fn run_h3_multiplexed_worker(
     workload: PreparedWorkload,
     request_chunk: Bytes,
     worker_id: u32,
-) -> Result<Vec<WorkloadSample>> {
+    connections_opened: u32,
+) -> Result<HttpWorkerExecution> {
     let mut join_set = JoinSet::new();
     let mut samples = Vec::with_capacity(workload.iterations as usize);
     let mut next_iteration = 0u32;
@@ -2209,14 +2308,17 @@ async fn run_h3_multiplexed_worker(
     }
 
     quinn_endpoint.close(0u32.into(), b"done");
-    Ok(samples)
+    Ok(HttpWorkerExecution {
+        samples,
+        connections_opened,
+    })
 }
 
 async fn run_h1_auth_worker(
     endpoint: HttpEndpoint,
     workload: PreparedWorkload,
     worker_id: u32,
-) -> Result<Vec<WorkloadSample>> {
+) -> Result<HttpWorkerExecution> {
     let mut sender = connect_h1_sender(&endpoint).await?;
     let mut samples = Vec::with_capacity(workload.iterations as usize);
     let request_body = build_payload(
@@ -2277,14 +2379,17 @@ async fn run_h1_auth_worker(
         samples.push(sample);
     }
 
-    Ok(samples)
+    Ok(HttpWorkerExecution {
+        samples,
+        connections_opened: 1,
+    })
 }
 
 async fn run_h2_auth_worker(
     endpoint: HttpEndpoint,
     workload: PreparedWorkload,
     worker_id: u32,
-) -> Result<Vec<WorkloadSample>> {
+) -> Result<HttpWorkerExecution> {
     let sender = connect_h2_sender(&endpoint).await?;
     let mut samples = Vec::with_capacity(workload.iterations as usize);
     let request_body = build_payload(
@@ -2347,14 +2452,17 @@ async fn run_h2_auth_worker(
         samples.push(sample);
     }
 
-    Ok(samples)
+    Ok(HttpWorkerExecution {
+        samples,
+        connections_opened: 1,
+    })
 }
 
 async fn run_h3_auth_worker(
     endpoint: HttpEndpoint,
     workload: PreparedWorkload,
     worker_id: u32,
-) -> Result<Vec<WorkloadSample>> {
+) -> Result<HttpWorkerExecution> {
     let (quinn_endpoint, send_request) = connect_h3_sender(&endpoint).await?;
     let mut samples = Vec::with_capacity(workload.iterations as usize);
     let request_chunk =
@@ -2426,7 +2534,10 @@ async fn run_h3_auth_worker(
     }
 
     quinn_endpoint.close(0u32.into(), b"done");
-    Ok(samples)
+    Ok(HttpWorkerExecution {
+        samples,
+        connections_opened: 1,
+    })
 }
 
 async fn collect_worker_samples(
@@ -2457,6 +2568,43 @@ async fn collect_worker_samples(
         }
     }
     Ok(samples)
+}
+
+async fn collect_http_worker_executions(
+    mut join_set: JoinSet<Result<HttpWorkerExecution>>,
+    workload: &PreparedWorkload,
+    timeout: Duration,
+    label: &str,
+) -> Result<WorkloadExecution> {
+    let mut samples = Vec::new();
+    let mut connections_opened = 0u32;
+    let start = Instant::now();
+    loop {
+        let elapsed = start.elapsed();
+        if elapsed >= timeout {
+            join_set.shutdown().await;
+            bail!("{label} timed out after {:?}", timeout);
+        }
+        let remaining = timeout - elapsed;
+        match tokio::time::timeout(remaining, join_set.join_next()).await {
+            Ok(Some(join_result)) => {
+                let worker_execution =
+                    join_result.map_err(|err| anyhow!("{label} worker failed: {err}"))??;
+                samples.extend(worker_execution.samples);
+                connections_opened += worker_execution.connections_opened;
+            }
+            Ok(None) => break,
+            Err(_) => {
+                join_set.shutdown().await;
+                bail!("{label} timed out after {:?}", timeout);
+            }
+        }
+    }
+    Ok(WorkloadExecution::with_http_usage(
+        workload,
+        samples,
+        connections_opened,
+    ))
 }
 
 fn build_auth_start_body(workload: &PreparedWorkload) -> Result<(Value, HttpAuthClientState)> {
@@ -4253,6 +4401,7 @@ mod tests {
             scenario_metrics_after: None,
             scenario_open_metrics_before: None,
             scenario_open_metrics_after: None,
+            http_connection_usage: None,
             samples: vec![sample(0)],
         };
 
@@ -5774,10 +5923,11 @@ mod tests {
     #[tokio::test]
     async fn h1_worker_reuses_single_connection_when_enabled() {
         let (endpoint, accept_count, request_count, _, server) = spawn_h1_test_server().await;
-        let samples = run_h1_worker(endpoint, sample_h1_workload(true), 0)
+        let execution = run_h1_worker(endpoint, sample_h1_workload(true), 0)
             .await
             .unwrap();
-        assert_eq!(samples.len(), 3);
+        assert_eq!(execution.samples.len(), 3);
+        assert_eq!(execution.connections_opened, 1);
         tokio::time::sleep(Duration::from_millis(50)).await;
         assert_eq!(accept_count.load(Ordering::SeqCst), 1);
         assert_eq!(request_count.load(Ordering::SeqCst), 3);
@@ -5787,10 +5937,11 @@ mod tests {
     #[tokio::test]
     async fn h1_worker_reconnects_per_iteration_when_disabled() {
         let (endpoint, accept_count, request_count, _, server) = spawn_h1_test_server().await;
-        let samples = run_h1_worker(endpoint, sample_h1_workload(false), 0)
+        let execution = run_h1_worker(endpoint, sample_h1_workload(false), 0)
             .await
             .unwrap();
-        assert_eq!(samples.len(), 3);
+        assert_eq!(execution.samples.len(), 3);
+        assert_eq!(execution.connections_opened, 3);
         tokio::time::sleep(Duration::from_millis(50)).await;
         assert_eq!(accept_count.load(Ordering::SeqCst), 3);
         assert_eq!(request_count.load(Ordering::SeqCst), 3);
@@ -5820,10 +5971,11 @@ mod tests {
     #[tokio::test]
     async fn h2_worker_reuses_single_connection_when_enabled() {
         let (endpoint, accept_count, request_count, _, server) = spawn_h2_test_server().await;
-        let samples = run_h2_worker(endpoint, sample_h2_workload(true, 1), 0)
+        let execution = run_h2_worker(endpoint, sample_h2_workload(true, 1), 0)
             .await
             .unwrap();
-        assert_eq!(samples.len(), 3);
+        assert_eq!(execution.samples.len(), 3);
+        assert_eq!(execution.connections_opened, 1);
         tokio::time::sleep(Duration::from_millis(50)).await;
         assert_eq!(accept_count.load(Ordering::SeqCst), 1);
         assert_eq!(request_count.load(Ordering::SeqCst), 3);
@@ -5833,10 +5985,11 @@ mod tests {
     #[tokio::test]
     async fn h2_worker_reconnects_per_iteration_when_disabled() {
         let (endpoint, accept_count, request_count, _, server) = spawn_h2_test_server().await;
-        let samples = run_h2_worker(endpoint, sample_h2_workload(false, 1), 0)
+        let execution = run_h2_worker(endpoint, sample_h2_workload(false, 1), 0)
             .await
             .unwrap();
-        assert_eq!(samples.len(), 3);
+        assert_eq!(execution.samples.len(), 3);
+        assert_eq!(execution.connections_opened, 3);
         tokio::time::sleep(Duration::from_millis(50)).await;
         assert_eq!(accept_count.load(Ordering::SeqCst), 3);
         assert_eq!(request_count.load(Ordering::SeqCst), 3);
@@ -5850,8 +6003,9 @@ mod tests {
         workload.iterations = 1;
         workload.request_bytes = 4096;
         workload.request_chunk_bytes = 1024;
-        let samples = run_h2_worker(endpoint, workload, 0).await.unwrap();
-        assert_eq!(samples.len(), 1);
+        let execution = run_h2_worker(endpoint, workload, 0).await.unwrap();
+        assert_eq!(execution.samples.len(), 1);
+        assert_eq!(execution.connections_opened, 1);
         tokio::time::sleep(Duration::from_millis(50)).await;
         assert_eq!(request_count.load(Ordering::SeqCst), 1);
         assert!(max_request_chunks.load(Ordering::SeqCst) > 1);
@@ -5862,10 +6016,11 @@ mod tests {
     async fn h2_worker_multiplexes_streams_on_single_connection() {
         let (endpoint, accept_count, request_count, max_in_flight, server) =
             spawn_h2_overlap_test_server().await;
-        let samples = run_h2_worker(endpoint, sample_h2_workload(true, 3), 0)
+        let execution = run_h2_worker(endpoint, sample_h2_workload(true, 3), 0)
             .await
             .unwrap();
-        assert_eq!(samples.len(), 3);
+        assert_eq!(execution.samples.len(), 3);
+        assert_eq!(execution.connections_opened, 1);
         tokio::time::sleep(Duration::from_millis(100)).await;
         assert_eq!(accept_count.load(Ordering::SeqCst), 1);
         assert_eq!(request_count.load(Ordering::SeqCst), 3);
@@ -5878,10 +6033,11 @@ mod tests {
         let _ = ring::default_provider().install_default();
         let (endpoint, accept_count, request_count, max_in_flight, server) =
             spawn_h3_overlap_test_server().await;
-        let samples = run_h3_worker(endpoint, sample_h3_workload(true, 3), 0)
+        let execution = run_h3_worker(endpoint, sample_h3_workload(true, 3), 0)
             .await
             .unwrap();
-        assert_eq!(samples.len(), 3);
+        assert_eq!(execution.samples.len(), 3);
+        assert_eq!(execution.connections_opened, 1);
         tokio::time::sleep(Duration::from_millis(100)).await;
         assert_eq!(accept_count.load(Ordering::SeqCst), 1);
         assert_eq!(request_count.load(Ordering::SeqCst), 3);

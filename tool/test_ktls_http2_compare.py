@@ -47,6 +47,8 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                             backpressure_alerts=4,
                             max_backpressure_depth_after=4,
                         ),
+                        connections_opened=4,
+                        samples_per_connection_avg=8.0,
                     ),
                 ],
             )
@@ -78,6 +80,8 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                             backpressure_alerts=4,
                             max_backpressure_depth_after=4,
                         ),
+                        connections_opened=5,
+                        samples_per_connection_avg=6.4,
                     ),
                 ],
             )
@@ -175,14 +179,22 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                 ][0]["metric"],
                 "backpressure_events",
             )
+            self.assertEqual(
+                comparison["summary"]["connection_focus"]["worst_throughput_row"][
+                    "metrics"
+                ]["connections_opened"]["delta"],
+                1,
+            )
 
             markdown = compare.render_markdown(comparison)
             self.assertIn("## Group Rollups", markdown)
+            self.assertIn("## HTTP Connection Usage", markdown)
             self.assertIn("## Linux TLS Stats", markdown)
             self.assertIn("## Transport Counter Deltas", markdown)
             self.assertIn("Workload-family investigation focus", markdown)
             self.assertIn("Runtime-thread investigation focus", markdown)
             self.assertIn("Worst throughput row transport view", markdown)
+            self.assertIn("Worst throughput row connection view", markdown)
             self.assertIn(
                 "Linux TLS session opens: baseline software TX/RX 0/0, device TX/RX 0/0; kTLS software TX/RX 4/4, device TX/RX 0/0.",
                 markdown,
@@ -197,6 +209,7 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("threads=4", markdown)
             self.assertIn("Elapsed wall time: baseline 12.50s, kTLS 14.00s", markdown)
             self.assertIn("82 -> 97 (+15)", markdown)
+            self.assertIn("connections opened 4 -> 5 (+1)", markdown)
 
     def test_transport_focus_reports_signal_gap_for_hotspot_row(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -259,6 +272,9 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                 "shows no non-zero transport counters in either pass", markdown
             )
             self.assertIn(
+                "connections opened 2 -> 2 (+0)", markdown
+            )
+            self.assertIn(
                 "no `/proc/net/tls_stat` sidecars were present", markdown
             )
 
@@ -304,6 +320,10 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         latency_avg_ms: float,
         *,
         transport: dict | None = None,
+        connections_opened: int = 2,
+        streams_per_connection: int = 1,
+        reuse_connections: bool = True,
+        samples_per_connection_avg: float = 8.0,
     ) -> dict:
         return {
             "scenario": "h2_ktls_benchmark",
@@ -315,6 +335,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             "latency_p95_ms": latency_p95_ms,
             "latency_avg_ms": latency_avg_ms,
             "transport": transport or KtlsHttp2CompareTest._transport(),
+            "http_connection_usage": {
+                "reuse_connections": reuse_connections,
+                "streams_per_connection": streams_per_connection,
+                "connections_opened": connections_opened,
+                "samples_per_connection_avg": samples_per_connection_avg,
+            },
         }
 
     @staticmethod

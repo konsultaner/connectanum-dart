@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `2393a01` (`build(ktls): capture linux tls stats`)
-Active exec plan: `none`
+Last reviewed commit: `257f9aa` (`build(ktls): add multiplex diagnostic controls`)
+Active exec plan: `docs/exec-plans/2026-04-24-h2-connection-usage-hosted-rerun.md`
 
 ## Last Known Verification
 
@@ -177,6 +177,10 @@ Active exec plan: `none`
   push `CI` run `24868963261`, push `kTLS Validation` run `24868963265`, and
   push `WAMP Profile Benchmarks` run `24868963262` all completed successfully
   after the Linux TLS-stat follow-up landed.
+- Hosted GitHub validation is now also green through commit `257f9aa`:
+  push `CI` run `24870440483`, push `kTLS Validation` run `24870440482`, and
+  push `WAMP Profile Benchmarks` run `24870440494` all completed successfully
+  after the multiplex-diagnostic control follow-up landed.
 - The latest hosted `ktls-http2-bench-artifacts` bundle from run `24865337582`
   also exposed a concrete summary bug: both per-pass `resource-usage.txt`
   sidecars were present, but the generated comparison still claimed they were
@@ -228,6 +232,35 @@ Active exec plan: `none`
   `native/bench/scenarios/h2_ktls_multiplex_scaling.toml` now gives the next
   hosted rerun a checked-in HTTP/2 multiplex-only hotspot scenario without
   weakening the canonical `h2_ktls_benchmark` release-decision path.
+- Manual workflow run `24870980724` then exercised that new focused scenario
+  on `257f9aa` with `skip_artifact_gate=true`, and the result tightened the
+  kTLS question again:
+  every `h2_ktls_multiplex_scaling` row regressed under required-kTLS, the
+  best row was still `-12.23%` throughput (`s2`, `threads=4`), the worst row
+  was `-64.97%` throughput (`s4`, `threads=4`), and even
+  `streams_per_connection=1` regressed by roughly `-50%` with zero transport
+  counters in either pass.
+- That rerun also confirms the old kernel-path question is closed for this
+  scenario too: required-kTLS opened software TX/RX sessions cleanly
+  (`TlsTxSw/TlsRxSw 66/66`) with no decrypt or rekey anomalies.
+- That connection-usage instrumentation slice is now complete on the local
+  working tree too. The native HTTP bench path now records optional
+  `http_connection_usage` fields in workload reports, transformed artifact
+  bundles derive `samples_per_connection_avg`, the console summary prints
+  connection-open counts for HTTP workloads, and
+  `tool/ktls_http2_compare.py` now renders worst-row connection views plus a
+  dedicated `HTTP Connection Usage` section for comparable rows.
+- The next active kTLS slice is therefore to push that instrumentation on a
+  clean head and rerun the focused hosted multiplex-scaling benchmark, because
+  the remaining question is now whether required-kTLS opens more HTTP
+  connections under load or whether connection reuse stays stable and the
+  hotspot lies elsewhere.
+- Local verification for the connection-usage instrumentation slice is green
+  on 2026-04-24: `bin/test-fast`, `cargo test --manifest-path
+  native/bench/Cargo.toml -- --nocapture`,
+  `python3 -m py_compile tool/ktls_http2_compare.py
+  tool/test_ktls_http2_compare.py`, `python3 tool/test_ktls_http2_compare.py`,
+  and `bin/verify` all passed.
 - Local verification for the current kTLS transport-delta follow-up is green
   on 2026-04-24: `bin/test-fast`,
   `python3 -m py_compile tool/ktls_http2_compare.py
