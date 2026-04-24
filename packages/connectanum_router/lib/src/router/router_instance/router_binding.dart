@@ -361,7 +361,7 @@ class RouterBinding {
             : null);
     final statePort = boss.stateCommandPort;
     final sessionId = await _allocateSessionId(statePort);
-    final controlPort = ReceivePort();
+    final controlPort = RawReceivePort();
     final handshakePort = ReceivePort();
     final isolate = await Isolate.spawn<_InternalSessionBootstrap>(
       _routerInternalSessionIsolate,
@@ -417,11 +417,9 @@ class RouterBinding {
       roles: resolvedRoles,
       commandPort: requestPort,
       controlPort: controlPort,
-      controlSubscription: null,
       responsePort: responsePort,
       isolate: isolate,
     );
-    session._attachControlListener();
     final record = SessionRecord(
       id: sessionId,
       authId: resolvedAuthId,

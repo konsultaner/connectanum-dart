@@ -14,16 +14,17 @@ class RouterSession {
     this.cacheKey,
     required Map<String, Object?> roles,
     required SendPort commandPort,
-    required ReceivePort controlPort,
-    required StreamSubscription<dynamic>? controlSubscription,
+    required RawReceivePort controlPort,
     required ReceivePort responsePort,
     required Isolate isolate,
   }) : roles = Map.unmodifiable(roles),
        _commandPort = commandPort,
        _controlPort = controlPort,
-       _controlSubscription = controlSubscription,
        _responsePort = responsePort,
        _isolate = isolate {
+    _controlPort.handler = Zone.current.bindUnaryCallbackGuarded(
+      _handleControlMessage,
+    );
     _responsePort.listen(_handleResponseMessage);
   }
 
@@ -38,8 +39,7 @@ class RouterSession {
   final Map<String, Object?> roles;
 
   final SendPort _commandPort;
-  final ReceivePort _controlPort;
-  StreamSubscription<dynamic>? _controlSubscription;
+  final RawReceivePort _controlPort;
   final ReceivePort _responsePort;
   final Isolate _isolate;
 
@@ -62,7 +62,6 @@ class RouterSession {
     final closeFuture = _sendCommand(_internalCmdClose, const {});
     _closed = true;
     await closeFuture;
-    await _controlSubscription?.cancel();
     _controlPort.close();
     _responsePort.close();
     _pendingCommands.clear();
@@ -535,11 +534,6 @@ class RouterSession {
       };
       replyPort.send(response);
     }
-  }
-
-  void _attachControlListener() {
-    _controlSubscription?.cancel();
-    _controlSubscription = _controlPort.listen(_handleControlMessage);
   }
 
   void _emitCallResult(

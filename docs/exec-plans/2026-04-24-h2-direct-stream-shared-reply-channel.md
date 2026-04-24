@@ -1,6 +1,6 @@
 # HTTP/2 Direct-Stream Shared Reply Channel
 
-Status: in_progress
+Status: completed
 
 ## Context
 
@@ -66,3 +66,26 @@ Status: in_progress
 - `dart test packages/connectanum_router/test/direct_stream_reply_channel_test.dart -r expanded`
 - `CONNECTANUM_ENABLE_KTLS=0 CONNECTANUM_REQUIRE_KTLS=0 cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h2_ktls_multiplex_scaling.toml --results /tmp/connectanum-h2-local-results.jsonl --artifact-dir /tmp/connectanum-h2-local-artifacts --router-worker-counts 1 --native-runtime-thread-counts 1,4`
 - `bin/verify`
+
+## Outcome
+
+- The fix landed as commit `15185ad` (`fix(router): close shared direct-stream
+  reply port`).
+- Visible hosted GitHub push validation on that head completed successfully:
+  - `CI` `24900200506`
+  - `WAMP Profile Benchmarks` `24900200444`
+- Manual hosted rerun `24901158700` then completed successfully on clean head
+  `15185ad` with:
+  - `scenario=native/bench/scenarios/h2_ktls_multiplex_scaling.toml`
+  - `router_worker_counts=1`
+  - `native_runtime_thread_counts=1,4`
+  - `skip_artifact_gate=true`
+- That rerun confirmed the helper-exit regression was fixed and moved the
+  remaining hotspot away from reply-port lifetime management:
+  - worst row:
+    `h2_multiplexed_streams_s2`, `threads=1`
+    - `server direct-stream open round trip avg 3.60 -> 12.21 (+8.61)`
+    - `server direct-stream request queue delay avg 1.91 -> 10.54 (+8.63)`
+    - `server direct-stream reply delivery delay avg 1.65 -> 1.63 (-0.02)`
+- The next bounded slice is therefore the main-isolate direct-stream control
+  path, not further reply-channel work.

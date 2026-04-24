@@ -2,20 +2,16 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `3f60a18` (`perf(router): reuse direct-stream reply channel`)
-Active exec plan: `docs/exec-plans/2026-04-24-h2-direct-stream-shared-reply-channel.md`
+Last reviewed commit: `15185ad` (`fix(router): close shared direct-stream reply port`)
+Active exec plan: `docs/exec-plans/2026-04-24-h2-main-isolate-control-port-optimization.md`
 
 ## Last Known Verification
 
 - `bin/test-fast`
-- `dart test packages/connectanum_router/test/direct_stream_reply_channel_test.dart -r expanded`
+- `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'streams HTTP/2 response chunks using native streams' -r expanded`
+- `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'streams HTTP/3 response chunks using native streams' -r expanded`
+- `dart analyze packages/connectanum_router`
 - `CONNECTANUM_ENABLE_KTLS=0 CONNECTANUM_REQUIRE_KTLS=0 cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h2_ktls_multiplex_scaling.toml --results /tmp/connectanum-h2-local-results.jsonl --artifact-dir /tmp/connectanum-h2-local-artifacts --router-worker-counts 1 --native-runtime-thread-counts 1,4`
-- `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
-- `dart test packages/connectanum_router/test/router_runtime_test.dart -r expanded`
-- `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
-- `dart analyze packages/connectanum_router packages/connectanum_bench`
-- `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
-- `python3 tool/test_ktls_http2_compare.py`
 - `bin/verify`
 
 ## Autonomous Priority
@@ -1371,7 +1367,7 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-direct-stream-shared-reply-chan
 ## Active Plan
 
 - Active plan:
-  `docs/exec-plans/2026-04-24-h2-headers-queued-to-first-connection-write.md`
+  `docs/exec-plans/2026-04-24-h2-main-isolate-control-port-optimization.md`
 - Most recent completed product-readiness plan:
   `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`
 - Supporting research notes:
@@ -1379,9 +1375,9 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-direct-stream-shared-reply-chan
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
 - Most recent completed plan:
-  `docs/exec-plans/2026-04-24-h2-direct-stream-open-path-hosted-rerun.md`
+  `docs/exec-plans/2026-04-24-h2-direct-stream-shared-reply-channel.md`
 - Completed immediately before that:
-  `docs/exec-plans/2026-04-24-h2-stream-open-to-headers-send-hosted-rerun.md`
+  `docs/exec-plans/2026-04-24-h2-direct-stream-open-path-hosted-rerun.md`
 - Completed before those: `docs/exec-plans/2026-04-23-ci-artifact-cleanup-and-native-matrix.md`
 
 ## Known Follow-Ups
