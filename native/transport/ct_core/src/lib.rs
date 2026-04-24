@@ -5976,6 +5976,10 @@ async fn send_http2_response_from_dispatch(
                 headers_send_call_started_at,
                 headers_sent_at,
             );
+            // The h2 connection driver and per-response streaming tasks share the
+            // same Tokio runtime workers. Yield once after queuing headers so the
+            // connection can flush them before this task drains ready body chunks.
+            tokio::task::yield_now().await;
             let mut first_chunk_recorded = false;
             loop {
                 match reader.next().await {
@@ -5995,6 +5999,11 @@ async fn send_http2_response_from_dispatch(
                                 send_call_finished_at,
                             );
                             first_chunk_recorded = true;
+                            // The first body chunk determines the client-side
+                            // first-byte gap. Yield once after queueing it so
+                            // the connection driver can make progress before we
+                            // enqueue the rest of a buffered stream.
+                            tokio::task::yield_now().await;
                         }
                     }
                     Ok(ResponseStreamFrame::Finished { .. }) => {

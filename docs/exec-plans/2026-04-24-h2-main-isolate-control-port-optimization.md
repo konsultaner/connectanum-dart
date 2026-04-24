@@ -1,6 +1,6 @@
 # HTTP/2 Main-Isolate Control-Port Optimization
 
-Status: in_progress
+Status: completed
 
 ## Context
 
@@ -49,6 +49,13 @@ Status: in_progress
 
 ## Progress
 
+- The implementation is now pushed as commit `25b2b7a`
+  (`perf(router): use raw control port for internal sessions`).
+- Visible hosted GitHub push validation on that head is currently in progress:
+  - `CI` `24902101047`
+  - `WAMP Profile Benchmarks` `24902101976`
+- GitLab has not surfaced a pipeline for `25b2b7a` through the current
+  token-backed API query.
 - The local working tree now replaces the internal-session main-isolate
   control listener with a zone-bound `RawReceivePort` handler in
   `RouterSession`, while leaving the command-response port on `ReceivePort`.
@@ -73,3 +80,18 @@ Status: in_progress
 - `dart analyze packages/connectanum_router`
 - `CONNECTANUM_ENABLE_KTLS=0 CONNECTANUM_REQUIRE_KTLS=0 cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h2_ktls_multiplex_scaling.toml --results /tmp/connectanum-h2-local-results.jsonl --artifact-dir /tmp/connectanum-h2-local-artifacts --router-worker-counts 1 --native-runtime-thread-counts 1,4`
 - `bin/verify`
+
+## Outcome
+
+- The optimization landed as commit `25b2b7a`
+  (`perf(router): use raw control port for internal sessions`).
+- Visible hosted GitHub push validation on that head completed successfully:
+  - `CI` `24902101047`
+  - `WAMP Profile Benchmarks` `24902101976`
+- GitLab still did not surface a pipeline for `25b2b7a` through the current
+  token-backed API query.
+- The next bounded step is a focused hosted rerun of
+  `kTLS HTTP/2 Benchmarks` on clean head `25b2b7a` with the multiplex-only
+  scenario, so the repo can verify whether the main-isolate control-path
+  change reduced the `direct_stream_request_queue_delay` hotspot on the real
+  Linux kTLS comparison path.

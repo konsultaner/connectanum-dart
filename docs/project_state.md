@@ -2,11 +2,16 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `15185ad` (`fix(router): close shared direct-stream reply port`)
-Active exec plan: `docs/exec-plans/2026-04-24-h2-main-isolate-control-port-optimization.md`
+Last reviewed commit: `25b2b7a` (`perf(router): use raw control port for internal sessions`)
+Active exec plan: `docs/exec-plans/2026-04-24-h2-response-stream-driver-yield.md`
 
 ## Last Known Verification
 
+- Hosted GitHub push runs on `25b2b7a` completed successfully:
+  `CI` `24902101047`, `WAMP Profile Benchmarks` `24902101976`
+- Manual hosted `kTLS HTTP/2 Benchmarks` rerun `24903103241`
+- `cargo test --manifest-path native/transport/ct_ffi/Cargo.toml http2_response_streaming_round_trip -- --nocapture`
+- `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
 - `bin/test-fast`
 - `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'streams HTTP/2 response chunks using native streams' -r expanded`
 - `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'streams HTTP/3 response chunks using native streams' -r expanded`
@@ -58,6 +63,20 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-main-isolate-control-port-optim
 - The root verification scripts now include the MCP package tests:
   `bin/test-fast` and `bin/test-all` both run
   `dart test packages/connectanum_mcp/test`.
+- Manual hosted rerun `24903103241` on clean head `25b2b7a` confirmed the
+  main-isolate control-port optimization closed the old
+  `direct_stream_request_queue_delay` hotspot on
+  `h2_multiplexed_streams_s2`, `threads=1`.
+- That rerun also moved the remaining hotspot deeper into the HTTP/2 native
+  response-stream path on `h2_multiplexed_streams_s8`, `threads=1`: server
+  direct-stream timings improved, but client `response headers wait`,
+  `response body first chunk wait`, and native
+  `headers_to_first_connection_write` still regressed.
+- The current local working tree therefore carries the next bounded fix in
+  `native/transport/ct_core/src/lib.rs`: yield the HTTP/2 streaming response
+  task once after queuing headers and once after queuing the first body chunk,
+  so the shared h2 connection driver can flush the first bytes before the task
+  drains a buffered stream.
 - `packages/connectanum_core` is approved as a design reference for MCP package
   shape: typed protocol models, serializer-independent boundaries, explicit
   errors, small barrel exports, and focused tests. Reuse the style, not WAMP
@@ -1367,7 +1386,7 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-main-isolate-control-port-optim
 ## Active Plan
 
 - Active plan:
-  `docs/exec-plans/2026-04-24-h2-main-isolate-control-port-optimization.md`
+  `docs/exec-plans/2026-04-24-h2-main-isolate-control-port-hosted-rerun.md`
 - Most recent completed product-readiness plan:
   `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`
 - Supporting research notes:
@@ -1375,9 +1394,9 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-main-isolate-control-port-optim
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
 - Most recent completed plan:
-  `docs/exec-plans/2026-04-24-h2-direct-stream-shared-reply-channel.md`
+  `docs/exec-plans/2026-04-24-h2-main-isolate-control-port-optimization.md`
 - Completed immediately before that:
-  `docs/exec-plans/2026-04-24-h2-direct-stream-open-path-hosted-rerun.md`
+  `docs/exec-plans/2026-04-24-h2-direct-stream-shared-reply-channel.md`
 - Completed before those: `docs/exec-plans/2026-04-23-ci-artifact-cleanup-and-native-matrix.md`
 
 ## Known Follow-Ups
