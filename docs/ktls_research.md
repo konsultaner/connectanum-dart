@@ -95,6 +95,15 @@ dummy-session prototype to an unbuffered kernel-connection handoff.
    - The manual workflow now also mirrors that comparison into the GitHub
      Actions job summary, so the first inspection path is the run UI rather
      than a downloaded artifact archive.
+   - Hosted run `24864760931` confirmed a remaining harness issue too: the
+     comparison job can still go red after both passes complete because the
+     generic zero-counter artifact gate rejects the expected multiplexed
+     `backpressure_events` / `backpressure_alerts` counters in
+     `h2_multiplexed_streams`.
+   - The next bounded repo-side fix is to give
+     `native/bench/scenarios/h2_ktls_benchmark.toml` its own checked-in
+     artifact policy so the manual workflow stays diagnostic and
+     comparison-focused instead of failing on known workload-local backlog.
 3. This macOS workstation still cannot execute the runtime path itself.
    - Any real kTLS verification or tuning step still has to land through Linux
      hosts or hosted workflow runs.

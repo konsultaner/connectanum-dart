@@ -2,15 +2,14 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `911b208` (`ci(ktls): publish benchmark summary`)
-Active exec plan: `none`
+Last reviewed commit: `f2b5fe8` (`build(ktls): highlight comparison hotspots`)
+Active exec plan: `docs/exec-plans/2026-04-24-ktls-benchmark-artifact-policy.md`
 
 ## Last Known Verification
 
 - `bin/test-fast`
-- `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
-- `python3 tool/test_ktls_http2_compare.py`
-- focused synthetic comparison generation via `python3 tool/ktls_http2_compare.py ...`
+- `cargo test --manifest-path native/bench/Cargo.toml artifact_gate_policy_allows_thread_scoped_thresholds -- --nocapture`
+- `bash -n bin/ktls-http2-bench`
 - `bin/verify`
 
 ## Autonomous Priority
@@ -140,6 +139,27 @@ Active exec plan: `none`
   by workload family and native runtime thread count, highlights the current
   investigation focus for both groupings, and correctly parses GNU `time -v`
   elapsed wall-time labels that include embedded colons.
+- Hosted GitHub validation is now also green through commit `f2b5fe8`:
+  push `kTLS Validation` run `24864087126`, `WAMP Profile Benchmarks` run
+  `24864087127`, and `CI` run `24864087129` all completed successfully after
+  the kTLS hotspot-rollup follow-up was pushed to both remotes.
+- Manual workflow run `24864760931` (`kTLS HTTP/2 Benchmarks`) then failed on
+  `add-router` only because the generic zero-counter artifact gate rejected the
+  expected `h2_multiplexed_streams` backpressure counters after both baseline
+  and required-kTLS passes completed and uploaded comparison artifacts.
+- The active kTLS slice is therefore to scope `bin/ktls-http2-bench` to a
+  checked-in `h2_ktls_benchmark` artifact policy, so the manual comparison
+  workflow stays meaningful without weakening the stricter correctness contract
+  that remains covered by `kTLS Validation`.
+- That artifact-policy slice is now complete on the local working tree too.
+  `bin/ktls-http2-bench` validates both comparison passes against
+  `native/bench/artifact_gate/h2_ktls_benchmark.json`, and `native/bench`
+  now has focused regression coverage for thread-scoped policy matching.
+- Local verification for the current kTLS artifact-policy follow-up is green on
+  2026-04-24: `bin/test-fast`, `cargo test --manifest-path
+  native/bench/Cargo.toml artifact_gate_policy_allows_thread_scoped_thresholds
+  -- --nocapture`, `bash -n bin/ktls-http2-bench`, and `bin/verify` all
+  passed.
 - Local verification for the current kTLS workflow-summary follow-up is green
   on 2026-04-24: `bin/test-fast`, YAML parsing of
   `.github/workflows/ktls-http2-benchmarks.yml`, and `bin/verify` all passed.

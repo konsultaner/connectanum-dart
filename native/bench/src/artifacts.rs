@@ -1605,6 +1605,67 @@ mod tests {
     }
 
     #[test]
+    fn artifact_gate_policy_allows_thread_scoped_thresholds() {
+        let mut workload = summarize_report(&clean_report());
+        workload.scenario = "h2_ktls_benchmark".to_string();
+        workload.workload = "h2_multiplexed_streams".to_string();
+        workload.protocol = "h2".to_string();
+        workload.router_workers = 1;
+        workload.native_runtime_threads = 4;
+        workload.transport.backpressure_events = 87;
+        workload.transport.backpressure_alerts = 6;
+        let bundle = ArtifactBundle {
+            generated_at_ms: 1,
+            source_results: "bench_results.jsonl".to_string(),
+            workloads: vec![workload],
+        };
+        let policy = ArtifactGatePolicy {
+            thresholds: vec![
+                ArtifactGateThreshold {
+                    kind: "backpressure_events".to_string(),
+                    threshold: 8,
+                    scenario: Some("h2_ktls_benchmark".to_string()),
+                    workload: Some("h2_multiplexed_streams".to_string()),
+                    protocol: Some("h2".to_string()),
+                    client_impl: None,
+                    router_workers: Some(1),
+                    native_runtime_threads: Some(1),
+                },
+                ArtifactGateThreshold {
+                    kind: "backpressure_events".to_string(),
+                    threshold: 128,
+                    scenario: Some("h2_ktls_benchmark".to_string()),
+                    workload: Some("h2_multiplexed_streams".to_string()),
+                    protocol: Some("h2".to_string()),
+                    client_impl: None,
+                    router_workers: Some(1),
+                    native_runtime_threads: Some(4),
+                },
+                ArtifactGateThreshold {
+                    kind: "backpressure_alerts".to_string(),
+                    threshold: 8,
+                    scenario: Some("h2_ktls_benchmark".to_string()),
+                    workload: Some("h2_multiplexed_streams".to_string()),
+                    protocol: Some("h2".to_string()),
+                    client_impl: None,
+                    router_workers: Some(1),
+                    native_runtime_threads: Some(4),
+                },
+            ],
+            metrics: Vec::new(),
+        };
+
+        let report = evaluate_artifact_gate(
+            &bundle,
+            Path::new("native/bench/artifacts/bench_results.summary.json"),
+            &policy,
+        );
+
+        assert!(!report.failed());
+        assert!(report.findings.is_empty());
+    }
+
+    #[test]
     fn artifact_gate_metric_policy_flags_performance_regressions() {
         let bundle = ArtifactBundle {
             generated_at_ms: 1,

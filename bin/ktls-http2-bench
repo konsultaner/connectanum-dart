@@ -77,6 +77,7 @@ ktls_dir="${out_dir%/}/ktls"
 comparison_json="${out_dir%/}/comparison.json"
 comparison_md="${out_dir%/}/comparison.md"
 host_info_path="${out_dir%/}/host-info.txt"
+artifact_policy="$(repo_root)/native/bench/artifact_gate/h2_ktls_benchmark.json"
 
 build_native_ffi_test_release
 
@@ -151,6 +152,7 @@ run_pass() {
     printf 'Checking %s bench artifacts for transport regressions...\n' "$label"
     bin/check-bench-artifacts \
       --summary "${pass_out_dir}/bench_results.summary.json" \
+      --policy "$artifact_policy" \
       || gate_status=$?
   fi
 

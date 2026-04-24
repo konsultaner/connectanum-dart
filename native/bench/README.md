@@ -79,7 +79,10 @@ each grouping so one hosted rerun can point at the likely hotspot without
 re-reading every per-workload row. The hosted `kTLS HTTP/2 Benchmarks`
 workflow now mirrors that summary into the GitHub Actions job summary as well,
 so the first read can happen in the run UI before downloading
-`ktls-http2-bench-artifacts`.
+`ktls-http2-bench-artifacts`. The helper also validates each pass against the
+scoped `native/bench/artifact_gate/h2_ktls_benchmark.json` policy rather than
+the generic zero-counter gate, because the comparison scenario intentionally
+exercises multiplexing hard enough to produce bounded backpressure counters.
 
 For the canonical WAMP release gates, use the WAMP profile helper. It builds
 the release FFI library, runs the cleartext and secure WAMP throughput

@@ -1,0 +1,40 @@
+{
+  "thresholds": [
+    {
+      "scenario": "h2_ktls_benchmark",
+      "workload": "h2_multiplexed_streams",
+      "protocol": "h2",
+      "router_workers": 1,
+      "native_runtime_threads": 1,
+      "kind": "backpressure_events",
+      "threshold": 128
+    },
+    {
+      "scenario": "h2_ktls_benchmark",
+      "workload": "h2_multiplexed_streams",
+      "protocol": "h2",
+      "router_workers": 1,
+      "native_runtime_threads": 1,
+      "kind": "backpressure_alerts",
+      "threshold": 8
+    },
+    {
+      "scenario": "h2_ktls_benchmark",
+      "workload": "h2_multiplexed_streams",
+      "protocol": "h2",
+      "router_workers": 1,
+      "native_runtime_threads": 4,
+      "kind": "backpressure_events",
+      "threshold": 128
+    },
+    {
+      "scenario": "h2_ktls_benchmark",
+      "workload": "h2_multiplexed_streams",
+      "protocol": "h2",
+      "router_workers": 1,
+      "native_runtime_threads": 4,
+      "kind": "backpressure_alerts",
+      "threshold": 8
+    }
+  ]
+}
