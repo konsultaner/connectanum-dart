@@ -1,6 +1,6 @@
 # HTTP/2 Response-Stream Driver Yield
 
-Status: in_progress
+Status: completed
 
 ## Context
 
@@ -51,14 +51,19 @@ Status: in_progress
 
 ## Progress
 
-- The implementation is now on the local working tree in
-  `native/transport/ct_core/src/lib.rs`.
-- Focused verification is currently green on this in-progress checkpoint:
+- The implementation was pushed as commit `c21172f`
+  (`perf(http2): yield streamed response driver turns`).
+- Visible hosted GitHub push validation on that head completed successfully:
+  - `CI` `24903966470`
+  - `kTLS Validation` `24903966478`
+  - `WAMP Profile Benchmarks` `24903966456`
+- Focused verification was green on that checkpoint:
   - `bin/test-fast`
   - `cargo test --manifest-path native/transport/ct_ffi/Cargo.toml http2_response_streaming_round_trip -- --nocapture`
   - `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name 'streams HTTP/2 response chunks using native streams' -r expanded`
   - `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
   - `CONNECTANUM_ENABLE_KTLS=0 CONNECTANUM_REQUIRE_KTLS=0 cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h2_ktls_multiplex_scaling.toml --results /tmp/connectanum-h2-local-results.jsonl --artifact-dir /tmp/connectanum-h2-local-artifacts --router-worker-counts 1 --native-runtime-thread-counts 1,4`
+  - `bin/verify`
 
 ## Verification
 
@@ -68,3 +73,24 @@ Status: in_progress
 - `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
 - `CONNECTANUM_ENABLE_KTLS=0 CONNECTANUM_REQUIRE_KTLS=0 cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/h2_ktls_multiplex_scaling.toml --results /tmp/connectanum-h2-local-results.jsonl --artifact-dir /tmp/connectanum-h2-local-artifacts --router-worker-counts 1 --native-runtime-thread-counts 1,4`
 - `bin/verify`
+
+## Outcome
+
+- Manual hosted rerun `24904942758` completed successfully on clean head
+  `c21172f` with the focused multiplex scenario and `skip_artifact_gate=true`.
+- The first-chunk-side part of the change materially improved the old hotspot:
+  - `h2_multiplexed_streams_s8`, `threads=1` moved from
+    `-57.58%` throughput / `+407.14%` p95 on rerun `24903103241`
+    to `-13.12%` throughput / `+11.40%` p95
+  - `response body first chunk wait avg` on that row improved from
+    `13.57 ms` to `9.80 ms`
+  - `headers_to_first_connection_write avg` improved from `0.025 ms`
+    baseline to `0.020 ms` under kTLS instead of regressing
+- The unconditional headers-side yield was too broad and created a new worst
+  row at `h2_multiplexed_streams_s1`, `threads=1`:
+  - `-60.21%` throughput
+  - `+124.86%` p95
+  - `response headers wait avg 5.92 -> 19.35 (+13.43)`
+  - `response body first chunk wait avg 1.81 -> 1.38 (-0.43)`
+- That result narrows the next action: remove the unconditional header yield,
+  keep the first-chunk yield, and rerun the same focused hosted benchmark.

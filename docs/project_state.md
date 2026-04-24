@@ -2,13 +2,17 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `25b2b7a` (`perf(router): use raw control port for internal sessions`)
-Active exec plan: `docs/exec-plans/2026-04-24-h2-response-stream-driver-yield.md`
+Last reviewed commit: `c21172f` (`perf(http2): yield streamed response driver turns`)
+Active exec plan: `docs/exec-plans/2026-04-24-h2-first-chunk-yield-only.md`
 
 ## Last Known Verification
 
 - Hosted GitHub push runs on `25b2b7a` completed successfully:
   `CI` `24902101047`, `WAMP Profile Benchmarks` `24902101976`
+- Hosted GitHub push runs on `c21172f` completed successfully:
+  `CI` `24903966470`, `kTLS Validation` `24903966478`,
+  `WAMP Profile Benchmarks` `24903966456`
+- Manual hosted `kTLS HTTP/2 Benchmarks` rerun `24904942758`
 - Manual hosted `kTLS HTTP/2 Benchmarks` rerun `24903103241`
 - `cargo test --manifest-path native/transport/ct_ffi/Cargo.toml http2_response_streaming_round_trip -- --nocapture`
 - `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
@@ -77,6 +81,24 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-response-stream-driver-yield.md
   task once after queuing headers and once after queuing the first body chunk,
   so the shared h2 connection driver can flush the first bytes before the task
   drains a buffered stream.
+- That bounded scheduler slice is now pushed as commit `c21172f`
+  (`perf(http2): yield streamed response driver turns`). Its hosted push chain
+  completed successfully.
+- Manual hosted rerun `24904942758` on clean head `c21172f` showed the
+  change was only half-right:
+  - the old `h2_multiplexed_streams_s8`, `threads=1` hotspot improved sharply
+    to `-13.12%` throughput / `+11.40%` p95
+  - a new low-multiplex regression appeared on
+    `h2_multiplexed_streams_s1`, `threads=1`
+    with `-60.21%` throughput / `+124.86%` p95
+  - that new worst row regressed on `response headers wait` while
+    `response body first chunk wait` improved, which implicates the
+    unconditional headers-side yield rather than the first-chunk yield
+- The current local working tree therefore carries the narrower follow-up in
+  `native/transport/ct_core/src/lib.rs`: remove the headers-side yield and
+  keep only the first-chunk yield before the next hosted rerun.
+- Full local verification is green on that narrower follow-up, including
+  `bin/verify`.
 - `packages/connectanum_core` is approved as a design reference for MCP package
   shape: typed protocol models, serializer-independent boundaries, explicit
   errors, small barrel exports, and focused tests. Reuse the style, not WAMP
