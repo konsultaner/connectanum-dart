@@ -76,6 +76,8 @@ pub struct HttpServerEmissionTimingSummary {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct HttpNativeResponseStreamTimingSummary {
     pub streaming_responses_total: u64,
+    pub stream_open_to_headers_send_avg_ms: f64,
+    pub headers_send_call_avg_ms: f64,
     pub first_chunk_channel_wait_avg_ms: f64,
     pub headers_to_first_chunk_dequeue_avg_ms: f64,
     pub first_chunk_send_call_avg_ms: f64,

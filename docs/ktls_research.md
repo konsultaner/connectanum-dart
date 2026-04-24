@@ -706,6 +706,47 @@ whether the missing `h2_multiplexed_streams_s1` / `threads=4` hotspot becomes
 visible in server-emission timing once the bench samples after direct-stream
 completion instead of mid-flight.
 
+### Hosted Direct-Stream Completion Result
+
+That rerun has now landed as workflow run `24887510264` on clean head
+`a12227d`, and it answered the completion question cleanly:
+
+- the `h2_multiplexed_streams_s1` rows now appear in
+  `HTTP Server Emission Timing`, so the earlier omission was a bench sampling
+  bug rather than a missing transport signal
+- the hotspot moved back to the deeper multiplex rows:
+  - worst throughput row:
+    `h2_multiplexed_streams_s8`, `threads=4`
+    - `response headers wait avg 24.33 -> 37.67 (+13.34)`
+    - `response body first chunk wait avg 7.40 -> 15.76 (+8.35)`
+    - `server stream open avg 11.88 -> 14.12 (+2.24)`
+    - `server first body write completed avg 11.93 -> 14.17 (+2.24)`
+    - `native headers-to-first-chunk-send-call avg 6.26 -> 9.46 (+3.20)`
+
+That means the remaining blind spot is not direct-stream completion anymore.
+It is the native gap between response-stream open and HTTP/2 header dispatch,
+because the client-visible header delay is still materially larger than the
+current server-emission and first-chunk handoff deltas.
+
+### Native Header Dispatch Boundary
+
+The current local slice adds that exact native boundary without broadening the
+instrumentation scope unnecessarily:
+
+- `ct_core` now records:
+  - `stream_open_to_headers_send`
+  - `headers_send_call`
+- `ct_ffi` and `connectanum_router` export those counters through the existing
+  router metrics snapshot path
+- `native/bench` summarizes them into
+  `http_native_response_stream_timing`
+- `tool/ktls_http2_compare.py` now renders them in the native response-stream
+  focus lines and timing table
+
+The next hosted rerun should therefore answer the narrower question that now
+matters: whether the remaining response-header regression opens before
+`send_response(...)` returns, inside that call, or only after that boundary.
+
 ### What Not To Overclaim
 
 - macOS results are irrelevant for kTLS itself.
@@ -743,9 +784,9 @@ blind generic instrumentation:
   `native/bench/scenarios/h2_ktls_multiplex_scaling.toml` for the next hosted
   rerun, with an explicit scenario policy once thresholds are understood or
   `skip_artifact_gate=true` while the run is still purely investigative
-- rerun the focused multiplex-scaling workflow on a clean head with targeted
-  first-body-gap diagnostics so the comparison can separate server/body
-  emission delay from client-side first-body receipt
+- rerun the focused multiplex-scaling workflow on a clean head with the new
+  stream-open-to-headers-send diagnostics so the comparison can separate
+  native header-dispatch delay from the later first-chunk path
 
 That is the smallest next milestone that improves decision quality without
 pretending the remaining kTLS work is already a clear runtime bug.

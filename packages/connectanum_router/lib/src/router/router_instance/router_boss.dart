@@ -875,6 +875,14 @@ class _RouterBoss {
           : RouterHttpResponseStreamMetrics(
               streamingResponsesTotal:
                   metrics.responseStream!.streamingResponsesTotal,
+              streamOpenToHeadersSendSamplesTotal:
+                  metrics.responseStream!.streamOpenToHeadersSendSamplesTotal,
+              streamOpenToHeadersSendUsTotal:
+                  metrics.responseStream!.streamOpenToHeadersSendUsTotal,
+              headersSendCallSamplesTotal:
+                  metrics.responseStream!.headersSendCallSamplesTotal,
+              headersSendCallUsTotal:
+                  metrics.responseStream!.headersSendCallUsTotal,
               firstChunkChannelWaitSamplesTotal:
                   metrics.responseStream!.firstChunkChannelWaitSamplesTotal,
               firstChunkChannelWaitUsTotal:

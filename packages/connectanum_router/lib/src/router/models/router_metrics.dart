@@ -179,6 +179,10 @@ class RouterAlertMetrics {
 class RouterHttpResponseStreamMetrics {
   const RouterHttpResponseStreamMetrics({
     required this.streamingResponsesTotal,
+    required this.streamOpenToHeadersSendSamplesTotal,
+    required this.streamOpenToHeadersSendUsTotal,
+    required this.headersSendCallSamplesTotal,
+    required this.headersSendCallUsTotal,
     required this.firstChunkChannelWaitSamplesTotal,
     required this.firstChunkChannelWaitUsTotal,
     required this.firstChunkChannelWaitGe1msTotal,
@@ -199,6 +203,10 @@ class RouterHttpResponseStreamMetrics {
   });
 
   final int streamingResponsesTotal;
+  final int streamOpenToHeadersSendSamplesTotal;
+  final int streamOpenToHeadersSendUsTotal;
+  final int headersSendCallSamplesTotal;
+  final int headersSendCallUsTotal;
   final int firstChunkChannelWaitSamplesTotal;
   final int firstChunkChannelWaitUsTotal;
   final int firstChunkChannelWaitGe1msTotal;
@@ -219,6 +227,11 @@ class RouterHttpResponseStreamMetrics {
 
   Map<String, Object?> toJson() => {
     'streaming_responses_total': streamingResponsesTotal,
+    'stream_open_to_headers_send_samples_total':
+        streamOpenToHeadersSendSamplesTotal,
+    'stream_open_to_headers_send_us_total': streamOpenToHeadersSendUsTotal,
+    'headers_send_call_samples_total': headersSendCallSamplesTotal,
+    'headers_send_call_us_total': headersSendCallUsTotal,
     'first_chunk_channel_wait_samples_total': firstChunkChannelWaitSamplesTotal,
     'first_chunk_channel_wait_us_total': firstChunkChannelWaitUsTotal,
     'first_chunk_channel_wait_ge_1ms_total': firstChunkChannelWaitGe1msTotal,

@@ -71,11 +71,16 @@ impl ResponseStreamWriter {
 #[derive(Debug)]
 pub struct ResponseStreamReader {
     rx: mpsc::Receiver<ResponseStreamFrame>,
+    opened_at: Instant,
 }
 
 impl ResponseStreamReader {
     pub async fn next(&mut self) -> Result<ResponseStreamFrame, ResponseStreamError> {
         self.rx.recv().await.ok_or(ResponseStreamError::Closed)
+    }
+
+    pub fn opened_at(&self) -> Instant {
+        self.opened_at
     }
 
     pub fn close(&mut self) {
@@ -85,10 +90,11 @@ impl ResponseStreamReader {
 
 pub fn response_stream_channel(capacity: usize) -> (ResponseStreamWriter, ResponseStreamReader) {
     let (tx, rx) = mpsc::channel(capacity.max(1));
+    let opened_at = Instant::now();
     let writer = ResponseStreamWriter {
         tx,
         closed: Arc::new(AtomicBool::new(false)),
     };
-    let reader = ResponseStreamReader { rx };
+    let reader = ResponseStreamReader { rx, opened_at };
     (writer, reader)
 }

@@ -258,6 +258,10 @@ struct HttpMetrics {
 #[derive(Default)]
 struct HttpResponseStreamMetrics {
     streaming_responses_total: AtomicU64,
+    stream_open_to_headers_send_samples_total: AtomicU64,
+    stream_open_to_headers_send_us_total: AtomicU64,
+    headers_send_call_samples_total: AtomicU64,
+    headers_send_call_us_total: AtomicU64,
     first_chunk_channel_wait_samples_total: AtomicU64,
     first_chunk_channel_wait_us_total: AtomicU64,
     first_chunk_channel_wait_ge_1ms_total: AtomicU64,
@@ -293,6 +297,10 @@ pub struct HttpMetricsSnapshot {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct HttpResponseStreamMetricsSnapshot {
     pub streaming_responses_total: u64,
+    pub stream_open_to_headers_send_samples_total: u64,
+    pub stream_open_to_headers_send_us_total: u64,
+    pub headers_send_call_samples_total: u64,
+    pub headers_send_call_us_total: u64,
     pub first_chunk_channel_wait_samples_total: u64,
     pub first_chunk_channel_wait_us_total: u64,
     pub first_chunk_channel_wait_ge_1ms_total: u64,
@@ -440,6 +448,29 @@ impl HttpResponseStreamMetrics {
             .fetch_add(1, Ordering::SeqCst);
     }
 
+    fn record_headers_sent(
+        &self,
+        stream_opened_at: Instant,
+        headers_send_call_started_at: Instant,
+        headers_send_call_finished_at: Instant,
+    ) {
+        let stream_open_to_headers_send_us =
+            saturating_instant_delta_us(stream_opened_at, headers_send_call_finished_at);
+        let headers_send_call_us = saturating_instant_delta_us(
+            headers_send_call_started_at,
+            headers_send_call_finished_at,
+        );
+
+        self.stream_open_to_headers_send_samples_total
+            .fetch_add(1, Ordering::SeqCst);
+        self.stream_open_to_headers_send_us_total
+            .fetch_add(stream_open_to_headers_send_us, Ordering::SeqCst);
+        self.headers_send_call_samples_total
+            .fetch_add(1, Ordering::SeqCst);
+        self.headers_send_call_us_total
+            .fetch_add(headers_send_call_us, Ordering::SeqCst);
+    }
+
     fn record_first_chunk(
         &self,
         queued_at: Instant,
@@ -493,6 +524,18 @@ impl HttpResponseStreamMetrics {
     fn snapshot(&self) -> HttpResponseStreamMetricsSnapshot {
         HttpResponseStreamMetricsSnapshot {
             streaming_responses_total: self.streaming_responses_total.load(Ordering::SeqCst),
+            stream_open_to_headers_send_samples_total: self
+                .stream_open_to_headers_send_samples_total
+                .load(Ordering::SeqCst),
+            stream_open_to_headers_send_us_total: self
+                .stream_open_to_headers_send_us_total
+                .load(Ordering::SeqCst),
+            headers_send_call_samples_total: self
+                .headers_send_call_samples_total
+                .load(Ordering::SeqCst),
+            headers_send_call_us_total: self
+                .headers_send_call_us_total
+                .load(Ordering::SeqCst),
             first_chunk_channel_wait_samples_total: self
                 .first_chunk_channel_wait_samples_total
                 .load(Ordering::SeqCst),
@@ -5787,10 +5830,17 @@ async fn send_http2_response_from_dispatch(
                 }
             }
             let response = builder.body(()).map_err(|err| err.to_string())?;
+            let stream_opened_at = reader.opened_at();
+            let headers_send_call_started_at = Instant::now();
             let mut send_stream = respond
                 .send_response(response, false)
                 .map_err(|err| err.to_string())?;
             let headers_sent_at = Instant::now();
+            http_response_stream_metrics().record_headers_sent(
+                stream_opened_at,
+                headers_send_call_started_at,
+                headers_sent_at,
+            );
             let mut first_chunk_recorded = false;
             loop {
                 match reader.next().await {
@@ -6292,11 +6342,18 @@ async fn send_http3_response_from_dispatch(
                 }
             }
             let response = builder.body(()).map_err(|err| err.to_string())?;
+            let stream_opened_at = reader.opened_at();
+            let headers_send_call_started_at = Instant::now();
             stream
                 .send_response(response)
                 .await
                 .map_err(|err| err.to_string())?;
             let headers_sent_at = Instant::now();
+            http_response_stream_metrics().record_headers_sent(
+                stream_opened_at,
+                headers_send_call_started_at,
+                headers_sent_at,
+            );
             let mut first_chunk_recorded = false;
             loop {
                 match reader.next().await {

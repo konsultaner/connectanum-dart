@@ -545,6 +545,10 @@ class NativeRouterMetrics {
 class NativeHttpResponseStreamMetrics {
   const NativeHttpResponseStreamMetrics({
     required this.streamingResponsesTotal,
+    required this.streamOpenToHeadersSendSamplesTotal,
+    required this.streamOpenToHeadersSendUsTotal,
+    required this.headersSendCallSamplesTotal,
+    required this.headersSendCallUsTotal,
     required this.firstChunkChannelWaitSamplesTotal,
     required this.firstChunkChannelWaitUsTotal,
     required this.firstChunkChannelWaitGe1msTotal,
@@ -565,6 +569,10 @@ class NativeHttpResponseStreamMetrics {
   });
 
   final int streamingResponsesTotal;
+  final int streamOpenToHeadersSendSamplesTotal;
+  final int streamOpenToHeadersSendUsTotal;
+  final int headersSendCallSamplesTotal;
+  final int headersSendCallUsTotal;
   final int firstChunkChannelWaitSamplesTotal;
   final int firstChunkChannelWaitUsTotal;
   final int firstChunkChannelWaitGe1msTotal;
@@ -586,6 +594,12 @@ class NativeHttpResponseStreamMetrics {
   bool sameValues(NativeHttpResponseStreamMetrics? other) {
     return other != null &&
         streamingResponsesTotal == other.streamingResponsesTotal &&
+        streamOpenToHeadersSendSamplesTotal ==
+            other.streamOpenToHeadersSendSamplesTotal &&
+        streamOpenToHeadersSendUsTotal ==
+            other.streamOpenToHeadersSendUsTotal &&
+        headersSendCallSamplesTotal == other.headersSendCallSamplesTotal &&
+        headersSendCallUsTotal == other.headersSendCallUsTotal &&
         firstChunkChannelWaitSamplesTotal ==
             other.firstChunkChannelWaitSamplesTotal &&
         firstChunkChannelWaitUsTotal == other.firstChunkChannelWaitUsTotal &&
@@ -2682,12 +2696,21 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
       }
       final responseStream =
           info.responseStreamingResponsesTotal > 0 ||
+              info.responseStreamOpenToHeadersSendSamplesTotal > 0 ||
+              info.responseStreamHeadersSendCallSamplesTotal > 0 ||
               info.responseStreamFirstChunkChannelWaitSamplesTotal > 0 ||
               info.responseStreamHeadersToFirstChunkDequeueSamplesTotal > 0 ||
               info.responseStreamFirstChunkSendCallSamplesTotal > 0 ||
               info.responseStreamHeadersToFirstChunkSendCallSamplesTotal > 0
           ? NativeHttpResponseStreamMetrics(
               streamingResponsesTotal: info.responseStreamingResponsesTotal,
+              streamOpenToHeadersSendSamplesTotal:
+                  info.responseStreamOpenToHeadersSendSamplesTotal,
+              streamOpenToHeadersSendUsTotal:
+                  info.responseStreamOpenToHeadersSendUsTotal,
+              headersSendCallSamplesTotal:
+                  info.responseStreamHeadersSendCallSamplesTotal,
+              headersSendCallUsTotal: info.responseStreamHeadersSendCallUsTotal,
               firstChunkChannelWaitSamplesTotal:
                   info.responseStreamFirstChunkChannelWaitSamplesTotal,
               firstChunkChannelWaitUsTotal:

@@ -180,6 +180,10 @@ pub struct CtRouterMetricsInfo {
     pub backpressure_events: u64,
     pub max_backpressure_depth: u32,
     pub response_streaming_responses_total: u64,
+    pub response_stream_open_to_headers_send_samples_total: u64,
+    pub response_stream_open_to_headers_send_us_total: u64,
+    pub response_stream_headers_send_call_samples_total: u64,
+    pub response_stream_headers_send_call_us_total: u64,
     pub response_stream_first_chunk_channel_wait_samples_total: u64,
     pub response_stream_first_chunk_channel_wait_us_total: u64,
     pub response_stream_first_chunk_channel_wait_ge_1ms_total: u64,
@@ -2177,6 +2181,14 @@ pub extern "C" fn ct_router_metrics_snapshot(info: *mut CtRouterMetricsInfo) -> 
     info_ref.max_backpressure_depth = snapshot.max_backpressure_depth;
     info_ref.response_streaming_responses_total =
         response_stream_snapshot.streaming_responses_total;
+    info_ref.response_stream_open_to_headers_send_samples_total =
+        response_stream_snapshot.stream_open_to_headers_send_samples_total;
+    info_ref.response_stream_open_to_headers_send_us_total =
+        response_stream_snapshot.stream_open_to_headers_send_us_total;
+    info_ref.response_stream_headers_send_call_samples_total =
+        response_stream_snapshot.headers_send_call_samples_total;
+    info_ref.response_stream_headers_send_call_us_total =
+        response_stream_snapshot.headers_send_call_us_total;
     info_ref.response_stream_first_chunk_channel_wait_samples_total =
         response_stream_snapshot.first_chunk_channel_wait_samples_total;
     info_ref.response_stream_first_chunk_channel_wait_us_total =

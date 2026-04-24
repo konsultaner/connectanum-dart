@@ -106,6 +106,11 @@ SERVER_EMISSION_SUMMARY_KEYS = (
 )
 
 NATIVE_RESPONSE_STREAM_SUMMARY_KEYS = (
+    (
+        "stream_open_to_headers_send_avg_ms",
+        "Native stream-open-to-headers-send avg",
+    ),
+    ("headers_send_call_avg_ms", "Native headers send call avg"),
     ("first_chunk_channel_wait_avg_ms", "Native first chunk channel wait avg"),
     (
         "headers_to_first_chunk_dequeue_avg_ms",
@@ -1130,6 +1135,10 @@ def render_native_response_stream_focus_line(name: str, focus: dict | None) -> s
         f"- {name}: {focus['label']} shows "
         f"streaming responses "
         f"{render_connection_metric_snapshot(counts['streaming_responses_total'])}, "
+        f"native stream-open-to-headers-send avg "
+        f"{render_connection_metric_snapshot(metrics['stream_open_to_headers_send_avg_ms'])}, "
+        f"native headers send call avg "
+        f"{render_connection_metric_snapshot(metrics['headers_send_call_avg_ms'])}, "
         f"native first chunk channel wait avg "
         f"{render_connection_metric_snapshot(metrics['first_chunk_channel_wait_avg_ms'])}, "
         f"native headers-to-first-chunk-dequeue avg "

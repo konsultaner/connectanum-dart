@@ -1134,6 +1134,34 @@ fn summarize_http_native_response_stream_timing(
         return None;
     }
 
+    let stream_open_to_headers_send_samples_total = transport_http_response_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "stream_open_to_headers_send_samples_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let stream_open_to_headers_send_us_total = transport_http_response_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "stream_open_to_headers_send_us_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let headers_send_call_samples_total = transport_http_response_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "headers_send_call_samples_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let headers_send_call_us_total = transport_http_response_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "headers_send_call_us_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
     let first_chunk_channel_wait_samples_total = transport_http_response_stream_counter_delta(
         &report.metrics_before,
         &report.metrics_after,
@@ -1194,6 +1222,14 @@ fn summarize_http_native_response_stream_timing(
 
     Some(HttpNativeResponseStreamTimingSummary {
         streaming_responses_total,
+        stream_open_to_headers_send_avg_ms: average_microseconds_to_millis(
+            stream_open_to_headers_send_us_total,
+            stream_open_to_headers_send_samples_total,
+        ),
+        headers_send_call_avg_ms: average_microseconds_to_millis(
+            headers_send_call_us_total,
+            headers_send_call_samples_total,
+        ),
         first_chunk_channel_wait_avg_ms: average_microseconds_to_millis(
             first_chunk_channel_wait_us_total,
             first_chunk_channel_wait_samples_total,
@@ -1841,6 +1877,10 @@ mod tests {
                     "active_throttles": 0,
                     "http_response_stream": {
                         "streaming_responses_total": 2,
+                        "stream_open_to_headers_send_samples_total": 2,
+                        "stream_open_to_headers_send_us_total": 4000,
+                        "headers_send_call_samples_total": 2,
+                        "headers_send_call_us_total": 1000,
                         "first_chunk_channel_wait_samples_total": 2,
                         "first_chunk_channel_wait_us_total": 3000,
                         "first_chunk_channel_wait_ge_1ms_total": 1,
@@ -1911,6 +1951,10 @@ mod tests {
                     "active_throttles": 1,
                     "http_response_stream": {
                         "streaming_responses_total": 5,
+                        "stream_open_to_headers_send_samples_total": 5,
+                        "stream_open_to_headers_send_us_total": 15000,
+                        "headers_send_call_samples_total": 5,
+                        "headers_send_call_us_total": 3000,
                         "first_chunk_channel_wait_samples_total": 5,
                         "first_chunk_channel_wait_us_total": 12000,
                         "first_chunk_channel_wait_ge_1ms_total": 4,
@@ -2096,6 +2140,10 @@ mod tests {
                 "active_throttles": 0,
                 "http_response_stream": {
                     "streaming_responses_total": 2,
+                    "stream_open_to_headers_send_samples_total": 2,
+                    "stream_open_to_headers_send_us_total": 4000,
+                    "headers_send_call_samples_total": 2,
+                    "headers_send_call_us_total": 1000,
                     "first_chunk_channel_wait_samples_total": 2,
                     "first_chunk_channel_wait_us_total": 3000,
                     "first_chunk_channel_wait_ge_1ms_total": 1,
@@ -2188,6 +2236,13 @@ mod tests {
         assert!((server_timing.handler_avg_ms - 14.0).abs() < f64::EPSILON);
         let native_stream_timing = summary.http_native_response_stream_timing.unwrap();
         assert_eq!(native_stream_timing.streaming_responses_total, 3);
+        assert!(
+            (native_stream_timing.stream_open_to_headers_send_avg_ms - (11.0 / 3.0)).abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (native_stream_timing.headers_send_call_avg_ms - (2.0 / 3.0)).abs() < f64::EPSILON
+        );
         assert!((native_stream_timing.first_chunk_channel_wait_avg_ms - 3.0).abs() < f64::EPSILON);
         assert!(
             (native_stream_timing.headers_to_first_chunk_dequeue_avg_ms - 6.0).abs() < f64::EPSILON

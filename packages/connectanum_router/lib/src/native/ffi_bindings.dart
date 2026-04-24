@@ -553,6 +553,18 @@ final class CtRouterMetricsInfo extends ffi.Struct {
   external int responseStreamingResponsesTotal;
 
   @ffi.Uint64()
+  external int responseStreamOpenToHeadersSendSamplesTotal;
+
+  @ffi.Uint64()
+  external int responseStreamOpenToHeadersSendUsTotal;
+
+  @ffi.Uint64()
+  external int responseStreamHeadersSendCallSamplesTotal;
+
+  @ffi.Uint64()
+  external int responseStreamHeadersSendCallUsTotal;
+
+  @ffi.Uint64()
   external int responseStreamFirstChunkChannelWaitSamplesTotal;
 
   @ffi.Uint64()

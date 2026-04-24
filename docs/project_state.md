@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `547d6e4` (`build(ktls): bucket native response-stream slow paths`)
-Active exec plan: `docs/exec-plans/2026-04-24-h2-direct-stream-completion-hosted-rerun.md`
+Last reviewed commit: `a12227d` (`build(bench): await direct stream completion metrics`)
+Active exec plan: `docs/exec-plans/2026-04-24-h2-stream-open-to-headers-send-hosted-rerun.md`
 
 ## Last Known Verification
 
@@ -13,9 +13,6 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-direct-stream-completion-hosted
 - `cargo test --manifest-path native/transport/ct_ffi/Cargo.toml http2_response_streaming_round_trip -- --nocapture`
 - `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
 - `python3 tool/test_ktls_http2_compare.py`
-- `dart test packages/connectanum_router/test/router_runtime_test.dart -r expanded`
-- `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
-- rerender hosted artifact `24885834166`
 - `bin/verify`
 
 ## Autonomous Priority
@@ -499,11 +496,42 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-direct-stream-completion-hosted
   await direct-stream completion before recording server-emission diagnostics.
   That fixes the measurement boundary that kept the `s1` rows out of the
   current native/direct-stream timing summaries.
-- Local verification for that direct-stream completion slice is green on
-  2026-04-24: `bin/test-fast`, `dart test
-  packages/connectanum_router/test/router_runtime_test.dart -r expanded`,
-  `dart test packages/connectanum_bench/test/http_stream_handler_test.dart
-  -r expanded`, and `bin/verify`.
+- That direct-stream completion slice is now pushed too. Commit `a12227d`
+  passed the visible hosted GitHub push chain:
+  - `CI` `24886626863`
+  - `WAMP Profile Benchmarks` `24886626856`
+- `kTLS Validation` still has not surfaced for `a12227d` through the GitHub
+  API, and GitLab also did not surface a pipeline for that head through the
+  current token-backed query.
+- Manual workflow run `24887510264` reran the same focused
+  `h2_ktls_multiplex_scaling` scenario on clean head `a12227d` with
+  `skip_artifact_gate=true`, and it closed the direct-stream question:
+  - `h2_multiplexed_streams_s1` rows now appear in
+    `HTTP Server Emission Timing`, so the earlier omission was a bench
+    sampling bug rather than a transport-path gap
+  - worst throughput row:
+    `h2_multiplexed_streams_s8`, `threads=4`
+    - `response headers wait avg 24.33 -> 37.67 (+13.34)`
+    - `response body first chunk wait avg 7.40 -> 15.76 (+8.35)`
+    - `server stream open avg 11.88 -> 14.12 (+2.24)`
+    - `server first body write completed avg 11.93 -> 14.17 (+2.24)`
+    - `native first chunk channel wait avg 0.22 -> 0.37 (+0.16)`
+    - `native headers-to-first-chunk-dequeue avg 5.93 -> 8.59 (+2.66)`
+    - `native first chunk send call avg 0.32 -> 0.87 (+0.54)`
+    - `native headers-to-first-chunk-send-call avg 6.26 -> 9.46 (+3.20)`
+- The current local working tree now carries the next bounded diagnostic slice:
+  native response-stream metrics now capture `stream_open_to_headers_send` and
+  `headers_send_call`, and the bench artifact/comparison path renders those
+  values in `http_native_response_stream_timing`.
+- Local verification for that stream-open-to-headers-send slice is green on
+  2026-04-24: `bin/test-fast`, `cargo test --manifest-path
+  native/bench/Cargo.toml summarize_report_computes_latency_and_deltas --
+  --nocapture`, `cargo test --manifest-path
+  native/transport/ct_ffi/Cargo.toml http2_response_streaming_round_trip --
+  --nocapture`, `dart analyze packages/connectanum_router
+  packages/connectanum_bench`, `python3 -m py_compile
+  tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`,
+  `python3 tool/test_ktls_http2_compare.py`, and `bin/verify`.
 - Local verification for the current kTLS transport-delta follow-up is green
   on 2026-04-24: `bin/test-fast`,
   `python3 -m py_compile tool/ktls_http2_compare.py
