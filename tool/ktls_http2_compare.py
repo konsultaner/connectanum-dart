@@ -119,6 +119,10 @@ NATIVE_RESPONSE_STREAM_SUMMARY_KEYS = (
         "Native stream-open-to-headers-send avg",
     ),
     ("headers_send_call_avg_ms", "Native headers send call avg"),
+    (
+        "headers_to_first_connection_write_avg_ms",
+        "Native headers-to-first-connection-write avg",
+    ),
     ("first_chunk_channel_wait_avg_ms", "Native first chunk channel wait avg"),
     (
         "headers_to_first_chunk_dequeue_avg_ms",
@@ -132,6 +136,10 @@ NATIVE_RESPONSE_STREAM_SUMMARY_KEYS = (
 )
 
 NATIVE_RESPONSE_STREAM_SLOW_PATH_KEYS = (
+    (
+        "headers_to_first_connection_write",
+        "Native headers-to-first-connection-write",
+    ),
     ("first_chunk_channel_wait", "Native first chunk channel wait"),
     (
         "headers_to_first_chunk_dequeue",
@@ -1151,6 +1159,8 @@ def render_native_response_stream_focus_line(name: str, focus: dict | None) -> s
         f"{render_connection_metric_snapshot(metrics['stream_open_to_headers_send_avg_ms'])}, "
         f"native headers send call avg "
         f"{render_connection_metric_snapshot(metrics['headers_send_call_avg_ms'])}, "
+        f"native headers-to-first-connection-write avg "
+        f"{render_connection_metric_snapshot(metrics['headers_to_first_connection_write_avg_ms'])}, "
         f"native first chunk channel wait avg "
         f"{render_connection_metric_snapshot(metrics['first_chunk_channel_wait_avg_ms'])}, "
         f"native headers-to-first-chunk-dequeue avg "
@@ -1187,6 +1197,8 @@ def render_native_response_stream_slow_path_focus_line(
         f"- {name}: {focus['label']} shows "
         f"streaming responses "
         f"{render_connection_metric_snapshot(counts['streaming_responses_total'])}, "
+        f"native headers-to-first-connection-write >=1/5/10ms "
+        f"{render_native_response_stream_slow_path_bucket(buckets['headers_to_first_connection_write'])}, "
         f"native first chunk channel wait >=1/5/10ms "
         f"{render_native_response_stream_slow_path_bucket(buckets['first_chunk_channel_wait'])}, "
         f"native headers-to-first-chunk-dequeue >=1/5/10ms "
@@ -1907,8 +1919,8 @@ def render_markdown(comparison: dict) -> str:
         [
             "## HTTP Native Response-Stream Timing",
             "",
-            "| Workload | Router workers | Native runtime threads | Streaming responses | First chunk channel wait avg ms | Headers to first chunk dequeue avg ms | First chunk send call avg ms | Headers to first chunk send call avg ms |",
-            "| --- | ---: | ---: | --- | --- | --- | --- | --- |",
+            "| Workload | Router workers | Native runtime threads | Streaming responses | Headers to first connection write avg ms | First chunk channel wait avg ms | Headers to first chunk dequeue avg ms | First chunk send call avg ms | Headers to first chunk send call avg ms |",
+            "| --- | ---: | ---: | --- | --- | --- | --- | --- | --- |",
         ]
     )
 
@@ -1921,12 +1933,15 @@ def render_markdown(comparison: dict) -> str:
         counts = native_stream["counts"]
         metrics = native_stream["metrics"]
         lines.append(
-            "| {workload} | {router_workers} | {native_runtime_threads} | {streaming_responses_total} | {first_chunk_channel_wait_avg_ms} | {headers_to_first_chunk_dequeue_avg_ms} | {first_chunk_send_call_avg_ms} | {headers_to_first_chunk_send_call_avg_ms} |".format(
+            "| {workload} | {router_workers} | {native_runtime_threads} | {streaming_responses_total} | {headers_to_first_connection_write_avg_ms} | {first_chunk_channel_wait_avg_ms} | {headers_to_first_chunk_dequeue_avg_ms} | {first_chunk_send_call_avg_ms} | {headers_to_first_chunk_send_call_avg_ms} |".format(
                 workload=row["workload"],
                 router_workers=row["router_workers"],
                 native_runtime_threads=row["native_runtime_threads"],
                 streaming_responses_total=render_connection_metric_snapshot(
                     counts["streaming_responses_total"]
+                ),
+                headers_to_first_connection_write_avg_ms=render_connection_metric_snapshot(
+                    metrics["headers_to_first_connection_write_avg_ms"]
                 ),
                 first_chunk_channel_wait_avg_ms=render_connection_metric_snapshot(
                     metrics["first_chunk_channel_wait_avg_ms"]
@@ -1944,15 +1959,15 @@ def render_markdown(comparison: dict) -> str:
         )
 
     if not has_native_stream_rows:
-        lines.append("| No HTTP native response-stream metrics | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
+        lines.append("| No HTTP native response-stream metrics | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
 
     lines.append("")
     lines.extend(
         [
             "## HTTP Native Response-Stream Slow Paths",
             "",
-            "| Workload | Router workers | Native runtime threads | Streaming responses | Channel wait >=1/5/10ms | Headers to dequeue >=1/5/10ms | Send call >=1/5/10ms |",
-            "| --- | ---: | ---: | --- | --- | --- | --- |",
+            "| Workload | Router workers | Native runtime threads | Streaming responses | Headers to first connection write >=1/5/10ms | Channel wait >=1/5/10ms | Headers to dequeue >=1/5/10ms | Send call >=1/5/10ms |",
+            "| --- | ---: | ---: | --- | --- | --- | --- | --- |",
         ]
     )
 
@@ -1965,12 +1980,15 @@ def render_markdown(comparison: dict) -> str:
         counts = native_stream["counts"]
         buckets = native_stream["buckets"]
         lines.append(
-            "| {workload} | {router_workers} | {native_runtime_threads} | {streaming_responses_total} | {first_chunk_channel_wait} | {headers_to_first_chunk_dequeue} | {first_chunk_send_call} |".format(
+            "| {workload} | {router_workers} | {native_runtime_threads} | {streaming_responses_total} | {headers_to_first_connection_write} | {first_chunk_channel_wait} | {headers_to_first_chunk_dequeue} | {first_chunk_send_call} |".format(
                 workload=row["workload"],
                 router_workers=row["router_workers"],
                 native_runtime_threads=row["native_runtime_threads"],
                 streaming_responses_total=render_connection_metric_snapshot(
                     counts["streaming_responses_total"]
+                ),
+                headers_to_first_connection_write=render_native_response_stream_slow_path_bucket(
+                    buckets["headers_to_first_connection_write"]
                 ),
                 first_chunk_channel_wait=render_native_response_stream_slow_path_bucket(
                     buckets["first_chunk_channel_wait"]
@@ -1985,7 +2003,7 @@ def render_markdown(comparison: dict) -> str:
         )
 
     if not has_native_stream_slow_path_rows:
-        lines.append("| No HTTP native response-stream slow-path metrics | n/a | n/a | n/a | n/a | n/a | n/a |")
+        lines.append("| No HTTP native response-stream slow-path metrics | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
 
     lines.append("")
 

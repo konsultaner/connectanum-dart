@@ -883,6 +883,20 @@ class _RouterBoss {
                   metrics.responseStream!.headersSendCallSamplesTotal,
               headersSendCallUsTotal:
                   metrics.responseStream!.headersSendCallUsTotal,
+              headersToFirstConnectionWriteSamplesTotal: metrics
+                  .responseStream!
+                  .headersToFirstConnectionWriteSamplesTotal,
+              headersToFirstConnectionWriteUsTotal:
+                  metrics.responseStream!.headersToFirstConnectionWriteUsTotal,
+              headersToFirstConnectionWriteGe1msTotal: metrics
+                  .responseStream!
+                  .headersToFirstConnectionWriteGe1msTotal,
+              headersToFirstConnectionWriteGe5msTotal: metrics
+                  .responseStream!
+                  .headersToFirstConnectionWriteGe5msTotal,
+              headersToFirstConnectionWriteGe10msTotal: metrics
+                  .responseStream!
+                  .headersToFirstConnectionWriteGe10msTotal,
               firstChunkChannelWaitSamplesTotal:
                   metrics.responseStream!.firstChunkChannelWaitSamplesTotal,
               firstChunkChannelWaitUsTotal:

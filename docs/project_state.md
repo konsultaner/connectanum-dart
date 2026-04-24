@@ -2,16 +2,19 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `fbc5566` (`build(ktls): capture http2 header dispatch timing`)
-Active exec plan: `docs/exec-plans/2026-04-24-h2-direct-stream-open-path-hosted-rerun.md`
+Last reviewed commit: `33d45f0` (`build(ktls): split direct-stream open timing`)
+Active exec plan: `docs/exec-plans/2026-04-24-h2-headers-queued-to-first-connection-write.md`
 
 ## Last Known Verification
 
 - `bin/test-fast`
-- `dart analyze packages/connectanum_router packages/connectanum_bench`
-- `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
+- `cargo test --manifest-path native/transport/ct_core/Cargo.toml http2_connection_write_tracker_records_headers_to_first_connection_write -- --nocapture`
 - `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
+- `cargo test --manifest-path native/transport/ct_ffi/Cargo.toml http2_response_streaming_round_trip -- --nocapture`
+- `dart analyze packages/connectanum_router packages/connectanum_bench`
+- `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
 - `python3 tool/test_ktls_http2_compare.py`
+- `python3 tool/ktls_http2_compare.py tmp/ktls-run-24891851907/extracted/baseline/bench_results.summary.json tmp/ktls-run-24891851907/extracted/ktls/bench_results.summary.json tmp/ktls-run-24891851907/rerender/comparison.json tmp/ktls-run-24891851907/rerender/comparison.md`
 - `bin/verify`
 
 ## Autonomous Priority
@@ -529,27 +532,46 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-direct-stream-open-path-hosted-
   `stream_open_to_headers_send` plus `headers_send_call`, threaded through the
   router metrics snapshot, native bench artifact summaries, and comparison
   output as part of `http_native_response_stream_timing`.
-- Manual hosted rerun `24889688795` then completed successfully on `fbc5566`
-  and showed the remaining hotspot is not inside the header-send call:
+- The direct-stream open-path split is now pushed too. Commit `33d45f0` is on
+  both `origin` and `github`, and the visible GitHub push chain completed:
+  - `CI` `24890762043`
+  - `kTLS Validation` `24890762101`
+  - `WAMP Profile Benchmarks` `24890762044`
+- GitLab has not surfaced a pipeline for `33d45f0` through the current
+  token-backed query.
+- Manual hosted rerun `24891851907` then completed successfully on `33d45f0`
+  and showed the remaining hotspot is not in the direct-stream open path
+  either:
   - worst throughput and p95 row:
-    `h2_multiplexed_streams_s8`, `threads=1`
-    - `response headers wait avg 26.45 -> 41.65 (+15.20)`
-    - `server stream open avg 14.09 -> 18.45 (+4.36)`
-    - `native stream-open-to-headers-send avg 0.09 -> 0.63 (+0.54)`
-    - `native headers send call avg 0.00 -> 0.00 (-0.00)`
-    - `native headers-to-first-chunk-dequeue avg 7.85 -> 12.43 (+4.59)`
-- The current local working tree now carries the next bounded metric slice for
-  the direct-stream open path:
-  - bench-side `direct_stream_open_round_trip`
-  - bench-side `direct_stream_descriptor_open_call`
-  - comparison rendering for both values in `HTTP Server Emission Timing`
-- Local verification for the current direct-stream open-path slice is green on
+    `h2_multiplexed_streams_s4`, `threads=4`
+    - `response headers wait avg 12.91 -> 35.04 (+22.13)`
+    - `response body first chunk wait avg 3.79 -> 24.60 (+20.81)`
+    - `server direct-stream open round trip avg 5.78 -> 3.98 (-1.80)`
+    - `server stream open avg 6.14 -> 4.35 (-1.79)`
+    - `native stream-open-to-headers-send avg 0.08 -> 0.12 (+0.04)`
+    - `native headers-to-first-chunk-dequeue avg 3.03 -> 2.07 (-0.96)`
+- The current local working tree now carries the next bounded metric slice:
+  `headers_to_first_connection_write`, which measures the gap after HTTP/2
+  headers are queued and before the first actual connection write is observed.
+- Local verification for the direct-stream open-path slice is green on
   2026-04-24: `bin/test-fast`, `dart analyze packages/connectanum_router
   packages/connectanum_bench`, `dart test
   packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`,
   `cargo test --manifest-path native/bench/Cargo.toml
   summarize_report_computes_latency_and_deltas -- --nocapture`,
   `python3 tool/test_ktls_http2_compare.py`, and `bin/verify`.
+- Local verification for the current headers-to-first-connection-write slice
+  is green so far on 2026-04-24: `bin/test-fast`, `cargo test
+  --manifest-path native/transport/ct_core/Cargo.toml
+  http2_connection_write_tracker_records_headers_to_first_connection_write --
+  --nocapture`, `cargo test --manifest-path native/bench/Cargo.toml
+  summarize_report_computes_latency_and_deltas -- --nocapture`, `cargo test
+  --manifest-path native/transport/ct_ffi/Cargo.toml
+  http2_response_streaming_round_trip -- --nocapture`, `dart analyze
+  packages/connectanum_router packages/connectanum_bench`, `python3 -m
+  py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`,
+  `python3 tool/test_ktls_http2_compare.py`, and a rerender of the hosted
+  `24891851907` artifact bundle.
 - Local verification for that stream-open-to-headers-send slice is green on
   2026-04-24: `bin/test-fast`, `cargo test --manifest-path
   native/bench/Cargo.toml summarize_report_computes_latency_and_deltas --
@@ -1311,7 +1333,7 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-direct-stream-open-path-hosted-
 ## Active Plan
 
 - Active plan:
-  `docs/exec-plans/2026-04-23-wamp-profile-transport-performance-readiness.md`
+  `docs/exec-plans/2026-04-24-h2-headers-queued-to-first-connection-write.md`
 - Most recent completed product-readiness plan:
   `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`
 - Supporting research notes:
@@ -1319,9 +1341,9 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-direct-stream-open-path-hosted-
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
 - Most recent completed plan:
-  `docs/exec-plans/2026-04-23-bench-artifact-performance-budgets.md`
+  `docs/exec-plans/2026-04-24-h2-direct-stream-open-path-hosted-rerun.md`
 - Completed immediately before that:
-  `docs/exec-plans/2026-04-23-h3-transport-backpressure-tuning.md`
+  `docs/exec-plans/2026-04-24-h2-stream-open-to-headers-send-hosted-rerun.md`
 - Completed before those: `docs/exec-plans/2026-04-23-ci-artifact-cleanup-and-native-matrix.md`
 
 ## Known Follow-Ups

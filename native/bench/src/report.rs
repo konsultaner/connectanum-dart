@@ -80,6 +80,7 @@ pub struct HttpNativeResponseStreamTimingSummary {
     pub streaming_responses_total: u64,
     pub stream_open_to_headers_send_avg_ms: f64,
     pub headers_send_call_avg_ms: f64,
+    pub headers_to_first_connection_write_avg_ms: f64,
     pub first_chunk_channel_wait_avg_ms: f64,
     pub headers_to_first_chunk_dequeue_avg_ms: f64,
     pub first_chunk_send_call_avg_ms: f64,
@@ -89,6 +90,9 @@ pub struct HttpNativeResponseStreamTimingSummary {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct HttpNativeResponseStreamSlowPathSummary {
     pub streaming_responses_total: u64,
+    pub headers_to_first_connection_write_ge_1ms_total: u64,
+    pub headers_to_first_connection_write_ge_5ms_total: u64,
+    pub headers_to_first_connection_write_ge_10ms_total: u64,
     pub first_chunk_channel_wait_ge_1ms_total: u64,
     pub first_chunk_channel_wait_ge_5ms_total: u64,
     pub first_chunk_channel_wait_ge_10ms_total: u64,

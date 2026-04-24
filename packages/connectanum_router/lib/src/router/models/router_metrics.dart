@@ -183,6 +183,11 @@ class RouterHttpResponseStreamMetrics {
     required this.streamOpenToHeadersSendUsTotal,
     required this.headersSendCallSamplesTotal,
     required this.headersSendCallUsTotal,
+    required this.headersToFirstConnectionWriteSamplesTotal,
+    required this.headersToFirstConnectionWriteUsTotal,
+    required this.headersToFirstConnectionWriteGe1msTotal,
+    required this.headersToFirstConnectionWriteGe5msTotal,
+    required this.headersToFirstConnectionWriteGe10msTotal,
     required this.firstChunkChannelWaitSamplesTotal,
     required this.firstChunkChannelWaitUsTotal,
     required this.firstChunkChannelWaitGe1msTotal,
@@ -207,6 +212,11 @@ class RouterHttpResponseStreamMetrics {
   final int streamOpenToHeadersSendUsTotal;
   final int headersSendCallSamplesTotal;
   final int headersSendCallUsTotal;
+  final int headersToFirstConnectionWriteSamplesTotal;
+  final int headersToFirstConnectionWriteUsTotal;
+  final int headersToFirstConnectionWriteGe1msTotal;
+  final int headersToFirstConnectionWriteGe5msTotal;
+  final int headersToFirstConnectionWriteGe10msTotal;
   final int firstChunkChannelWaitSamplesTotal;
   final int firstChunkChannelWaitUsTotal;
   final int firstChunkChannelWaitGe1msTotal;
@@ -232,6 +242,16 @@ class RouterHttpResponseStreamMetrics {
     'stream_open_to_headers_send_us_total': streamOpenToHeadersSendUsTotal,
     'headers_send_call_samples_total': headersSendCallSamplesTotal,
     'headers_send_call_us_total': headersSendCallUsTotal,
+    'headers_to_first_connection_write_samples_total':
+        headersToFirstConnectionWriteSamplesTotal,
+    'headers_to_first_connection_write_us_total':
+        headersToFirstConnectionWriteUsTotal,
+    'headers_to_first_connection_write_ge_1ms_total':
+        headersToFirstConnectionWriteGe1msTotal,
+    'headers_to_first_connection_write_ge_5ms_total':
+        headersToFirstConnectionWriteGe5msTotal,
+    'headers_to_first_connection_write_ge_10ms_total':
+        headersToFirstConnectionWriteGe10msTotal,
     'first_chunk_channel_wait_samples_total': firstChunkChannelWaitSamplesTotal,
     'first_chunk_channel_wait_us_total': firstChunkChannelWaitUsTotal,
     'first_chunk_channel_wait_ge_1ms_total': firstChunkChannelWaitGe1msTotal,

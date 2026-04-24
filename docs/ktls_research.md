@@ -781,6 +781,44 @@ The next hosted rerun should therefore answer the new bounded question that
 matters: whether the remaining `stream_open` regression is mostly control-port
 round-trip overhead or the descriptor-open call itself.
 
+### Hosted Direct-Stream Open Result
+
+That rerun has now landed as workflow run `24891851907` on clean head
+`33d45f0`, and it narrowed the hotspot again:
+
+- worst throughput and p95 row:
+  `h2_multiplexed_streams_s4`, `threads=4`
+  - `response headers wait avg 12.91 -> 35.04 (+22.13)`
+  - `response body first chunk wait avg 3.79 -> 24.60 (+20.81)`
+  - `server direct-stream open round trip avg 5.78 -> 3.98 (-1.80)`
+  - `server stream open avg 6.14 -> 4.35 (-1.79)`
+  - `native stream-open-to-headers-send avg 0.08 -> 0.12 (+0.04)`
+  - `native headers-to-first-chunk-dequeue avg 3.03 -> 2.07 (-0.96)`
+
+That means the current regression is not explained by the direct-stream open
+path either. The remaining blind spot is after HTTP/2 headers are queued and
+before the first actual connection write is observed.
+
+### Headers Queued To First Connection Write
+
+The current local slice adds the next minimum signal needed to cover that gap:
+
+- `Http2ConnectionWriteTracker` pairs queued-header timestamps with the first
+  successful connection write seen by an instrumented HTTP/2 I/O wrapper
+- `ct_ffi`, Dart runtime metrics, and `RouterHttpResponseStreamMetrics` now
+  export `headers_to_first_connection_write` samples, totals, and slow-path
+  buckets
+- `native/bench` summarizes that metric into
+  `http_native_response_stream_timing` and
+  `http_native_response_stream_slow_paths`
+- `tool/ktls_http2_compare.py` renders the new averages and `>=1/5/10ms`
+  buckets while staying compatible with older hosted artifacts that do not
+  carry the field
+
+The next hosted rerun should therefore answer the new bounded question that now
+matters: whether the remaining multiplex regression is concentrated in the
+actual transport-write path after `send_response(...)` returns.
+
 ### What Not To Overclaim
 
 - macOS results are irrelevant for kTLS itself.

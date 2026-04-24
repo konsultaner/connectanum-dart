@@ -184,6 +184,11 @@ pub struct CtRouterMetricsInfo {
     pub response_stream_open_to_headers_send_us_total: u64,
     pub response_stream_headers_send_call_samples_total: u64,
     pub response_stream_headers_send_call_us_total: u64,
+    pub response_stream_headers_to_first_connection_write_samples_total: u64,
+    pub response_stream_headers_to_first_connection_write_us_total: u64,
+    pub response_stream_headers_to_first_connection_write_ge_1ms_total: u64,
+    pub response_stream_headers_to_first_connection_write_ge_5ms_total: u64,
+    pub response_stream_headers_to_first_connection_write_ge_10ms_total: u64,
     pub response_stream_first_chunk_channel_wait_samples_total: u64,
     pub response_stream_first_chunk_channel_wait_us_total: u64,
     pub response_stream_first_chunk_channel_wait_ge_1ms_total: u64,
@@ -2189,6 +2194,16 @@ pub extern "C" fn ct_router_metrics_snapshot(info: *mut CtRouterMetricsInfo) -> 
         response_stream_snapshot.headers_send_call_samples_total;
     info_ref.response_stream_headers_send_call_us_total =
         response_stream_snapshot.headers_send_call_us_total;
+    info_ref.response_stream_headers_to_first_connection_write_samples_total =
+        response_stream_snapshot.headers_to_first_connection_write_samples_total;
+    info_ref.response_stream_headers_to_first_connection_write_us_total =
+        response_stream_snapshot.headers_to_first_connection_write_us_total;
+    info_ref.response_stream_headers_to_first_connection_write_ge_1ms_total =
+        response_stream_snapshot.headers_to_first_connection_write_ge_1ms_total;
+    info_ref.response_stream_headers_to_first_connection_write_ge_5ms_total =
+        response_stream_snapshot.headers_to_first_connection_write_ge_5ms_total;
+    info_ref.response_stream_headers_to_first_connection_write_ge_10ms_total =
+        response_stream_snapshot.headers_to_first_connection_write_ge_10ms_total;
     info_ref.response_stream_first_chunk_channel_wait_samples_total =
         response_stream_snapshot.first_chunk_channel_wait_samples_total;
     info_ref.response_stream_first_chunk_channel_wait_us_total =

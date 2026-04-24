@@ -549,6 +549,11 @@ class NativeHttpResponseStreamMetrics {
     required this.streamOpenToHeadersSendUsTotal,
     required this.headersSendCallSamplesTotal,
     required this.headersSendCallUsTotal,
+    required this.headersToFirstConnectionWriteSamplesTotal,
+    required this.headersToFirstConnectionWriteUsTotal,
+    required this.headersToFirstConnectionWriteGe1msTotal,
+    required this.headersToFirstConnectionWriteGe5msTotal,
+    required this.headersToFirstConnectionWriteGe10msTotal,
     required this.firstChunkChannelWaitSamplesTotal,
     required this.firstChunkChannelWaitUsTotal,
     required this.firstChunkChannelWaitGe1msTotal,
@@ -573,6 +578,11 @@ class NativeHttpResponseStreamMetrics {
   final int streamOpenToHeadersSendUsTotal;
   final int headersSendCallSamplesTotal;
   final int headersSendCallUsTotal;
+  final int headersToFirstConnectionWriteSamplesTotal;
+  final int headersToFirstConnectionWriteUsTotal;
+  final int headersToFirstConnectionWriteGe1msTotal;
+  final int headersToFirstConnectionWriteGe5msTotal;
+  final int headersToFirstConnectionWriteGe10msTotal;
   final int firstChunkChannelWaitSamplesTotal;
   final int firstChunkChannelWaitUsTotal;
   final int firstChunkChannelWaitGe1msTotal;
@@ -600,6 +610,16 @@ class NativeHttpResponseStreamMetrics {
             other.streamOpenToHeadersSendUsTotal &&
         headersSendCallSamplesTotal == other.headersSendCallSamplesTotal &&
         headersSendCallUsTotal == other.headersSendCallUsTotal &&
+        headersToFirstConnectionWriteSamplesTotal ==
+            other.headersToFirstConnectionWriteSamplesTotal &&
+        headersToFirstConnectionWriteUsTotal ==
+            other.headersToFirstConnectionWriteUsTotal &&
+        headersToFirstConnectionWriteGe1msTotal ==
+            other.headersToFirstConnectionWriteGe1msTotal &&
+        headersToFirstConnectionWriteGe5msTotal ==
+            other.headersToFirstConnectionWriteGe5msTotal &&
+        headersToFirstConnectionWriteGe10msTotal ==
+            other.headersToFirstConnectionWriteGe10msTotal &&
         firstChunkChannelWaitSamplesTotal ==
             other.firstChunkChannelWaitSamplesTotal &&
         firstChunkChannelWaitUsTotal == other.firstChunkChannelWaitUsTotal &&
@@ -2698,6 +2718,8 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
           info.responseStreamingResponsesTotal > 0 ||
               info.responseStreamOpenToHeadersSendSamplesTotal > 0 ||
               info.responseStreamHeadersSendCallSamplesTotal > 0 ||
+              info.responseStreamHeadersToFirstConnectionWriteSamplesTotal >
+                  0 ||
               info.responseStreamFirstChunkChannelWaitSamplesTotal > 0 ||
               info.responseStreamHeadersToFirstChunkDequeueSamplesTotal > 0 ||
               info.responseStreamFirstChunkSendCallSamplesTotal > 0 ||
@@ -2711,6 +2733,16 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
               headersSendCallSamplesTotal:
                   info.responseStreamHeadersSendCallSamplesTotal,
               headersSendCallUsTotal: info.responseStreamHeadersSendCallUsTotal,
+              headersToFirstConnectionWriteSamplesTotal:
+                  info.responseStreamHeadersToFirstConnectionWriteSamplesTotal,
+              headersToFirstConnectionWriteUsTotal:
+                  info.responseStreamHeadersToFirstConnectionWriteUsTotal,
+              headersToFirstConnectionWriteGe1msTotal:
+                  info.responseStreamHeadersToFirstConnectionWriteGe1msTotal,
+              headersToFirstConnectionWriteGe5msTotal:
+                  info.responseStreamHeadersToFirstConnectionWriteGe5msTotal,
+              headersToFirstConnectionWriteGe10msTotal:
+                  info.responseStreamHeadersToFirstConnectionWriteGe10msTotal,
               firstChunkChannelWaitSamplesTotal:
                   info.responseStreamFirstChunkChannelWaitSamplesTotal,
               firstChunkChannelWaitUsTotal:

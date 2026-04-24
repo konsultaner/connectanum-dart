@@ -85,10 +85,14 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         native_streaming_responses_total=32,
                         native_stream_open_to_headers_send_avg_ms=1.2,
                         native_headers_send_call_avg_ms=0.1,
+                        native_headers_to_first_connection_write_avg_ms=1.8,
                         native_first_chunk_channel_wait_avg_ms=0.6,
                         native_headers_to_first_chunk_dequeue_avg_ms=1.4,
                         native_first_chunk_send_call_avg_ms=0.2,
                         native_headers_to_first_chunk_send_call_avg_ms=1.6,
+                        native_headers_to_first_connection_write_ge_1ms_total=3,
+                        native_headers_to_first_connection_write_ge_5ms_total=0,
+                        native_headers_to_first_connection_write_ge_10ms_total=0,
                         native_first_chunk_channel_wait_ge_1ms_total=2,
                         native_first_chunk_channel_wait_ge_5ms_total=0,
                         native_first_chunk_channel_wait_ge_10ms_total=0,
@@ -167,10 +171,14 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         native_streaming_responses_total=32,
                         native_stream_open_to_headers_send_avg_ms=8.2,
                         native_headers_send_call_avg_ms=0.4,
+                        native_headers_to_first_connection_write_avg_ms=9.0,
                         native_first_chunk_channel_wait_avg_ms=5.4,
                         native_headers_to_first_chunk_dequeue_avg_ms=11.9,
                         native_first_chunk_send_call_avg_ms=0.9,
                         native_headers_to_first_chunk_send_call_avg_ms=12.8,
+                        native_headers_to_first_connection_write_ge_1ms_total=23,
+                        native_headers_to_first_connection_write_ge_5ms_total=15,
+                        native_headers_to_first_connection_write_ge_10ms_total=8,
                         native_first_chunk_channel_wait_ge_1ms_total=14,
                         native_first_chunk_channel_wait_ge_5ms_total=7,
                         native_first_chunk_channel_wait_ge_10ms_total=2,
@@ -364,6 +372,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertAlmostEqual(
                 comparison["summary"]["native_response_stream_focus"][
                     "worst_throughput_row"
+                ]["metrics"]["headers_to_first_connection_write_avg_ms"]["delta"],
+                7.2,
+            )
+            self.assertAlmostEqual(
+                comparison["summary"]["native_response_stream_focus"][
+                    "worst_throughput_row"
                 ]["metrics"]["first_chunk_channel_wait_avg_ms"]["delta"],
                 4.8,
             )
@@ -372,6 +386,14 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "worst_throughput_row"
                 ]["metrics"]["headers_to_first_chunk_dequeue_avg_ms"]["delta"],
                 10.5,
+            )
+            self.assertEqual(
+                comparison["summary"]["native_response_stream_slow_path_focus"][
+                    "worst_throughput_row"
+                ]["buckets"]["headers_to_first_connection_write"]["ge_5ms_total"][
+                    "delta"
+                ],
+                15,
             )
             self.assertEqual(
                 comparison["summary"]["native_response_stream_slow_path_focus"][
@@ -401,6 +423,7 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("Worst throughput row server-emission view", markdown)
             self.assertIn("Worst throughput row native-stream view", markdown)
             self.assertIn("native stream-open-to-headers-send avg", markdown)
+            self.assertIn("Headers to first connection write avg ms", markdown)
             self.assertIn("Worst throughput row native-stream slow-path view", markdown)
             self.assertIn(
                 "Linux TLS session opens: baseline software TX/RX 0/0, device TX/RX 0/0; kTLS software TX/RX 4/4, device TX/RX 0/0.",
@@ -420,6 +443,14 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("stream acquire wait avg 0.80 -> 7.60 (+6.80)", markdown)
             self.assertIn(
                 "server headers-to-first-body-write avg 0.70 -> 5.90 (+5.20)",
+                markdown,
+            )
+            self.assertIn(
+                "native headers-to-first-connection-write >=1/5/10ms 3/0/0 -> 23/15/8",
+                markdown,
+            )
+            self.assertIn(
+                "native headers-to-first-connection-write avg 1.80 -> 9.00 (+7.20)",
                 markdown,
             )
             self.assertIn(
@@ -600,10 +631,14 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         native_streaming_responses_total: int | None = 16,
         native_stream_open_to_headers_send_avg_ms: float | None = 1.0,
         native_headers_send_call_avg_ms: float | None = 0.1,
+        native_headers_to_first_connection_write_avg_ms: float | None = 1.3,
         native_first_chunk_channel_wait_avg_ms: float | None = 0.5,
         native_headers_to_first_chunk_dequeue_avg_ms: float | None = 1.2,
         native_first_chunk_send_call_avg_ms: float | None = 0.2,
         native_headers_to_first_chunk_send_call_avg_ms: float | None = 1.4,
+        native_headers_to_first_connection_write_ge_1ms_total: int | None = 1,
+        native_headers_to_first_connection_write_ge_5ms_total: int | None = 0,
+        native_headers_to_first_connection_write_ge_10ms_total: int | None = 0,
         native_first_chunk_channel_wait_ge_1ms_total: int | None = 1,
         native_first_chunk_channel_wait_ge_5ms_total: int | None = 0,
         native_first_chunk_channel_wait_ge_10ms_total: int | None = 0,
@@ -684,6 +719,7 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "streaming_responses_total": native_streaming_responses_total,
                     "stream_open_to_headers_send_avg_ms": native_stream_open_to_headers_send_avg_ms,
                     "headers_send_call_avg_ms": native_headers_send_call_avg_ms,
+                    "headers_to_first_connection_write_avg_ms": native_headers_to_first_connection_write_avg_ms,
                     "first_chunk_channel_wait_avg_ms": native_first_chunk_channel_wait_avg_ms,
                     "headers_to_first_chunk_dequeue_avg_ms": native_headers_to_first_chunk_dequeue_avg_ms,
                     "first_chunk_send_call_avg_ms": native_first_chunk_send_call_avg_ms,
@@ -695,6 +731,9 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                 if native_streaming_responses_total is None
                 else {
                     "streaming_responses_total": native_streaming_responses_total,
+                    "headers_to_first_connection_write_ge_1ms_total": native_headers_to_first_connection_write_ge_1ms_total,
+                    "headers_to_first_connection_write_ge_5ms_total": native_headers_to_first_connection_write_ge_5ms_total,
+                    "headers_to_first_connection_write_ge_10ms_total": native_headers_to_first_connection_write_ge_10ms_total,
                     "first_chunk_channel_wait_ge_1ms_total": native_first_chunk_channel_wait_ge_1ms_total,
                     "first_chunk_channel_wait_ge_5ms_total": native_first_chunk_channel_wait_ge_5ms_total,
                     "first_chunk_channel_wait_ge_10ms_total": native_first_chunk_channel_wait_ge_10ms_total,

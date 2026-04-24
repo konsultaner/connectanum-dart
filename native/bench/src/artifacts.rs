@@ -1198,6 +1198,22 @@ fn summarize_http_native_response_stream_timing(
     )
     .unwrap_or(0)
     .max(0) as u64;
+    let headers_to_first_connection_write_samples_total =
+        transport_http_response_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "headers_to_first_connection_write_samples_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
+    let headers_to_first_connection_write_us_total =
+        transport_http_response_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "headers_to_first_connection_write_us_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
     let first_chunk_channel_wait_samples_total = transport_http_response_stream_counter_delta(
         &report.metrics_before,
         &report.metrics_after,
@@ -1266,6 +1282,10 @@ fn summarize_http_native_response_stream_timing(
             headers_send_call_us_total,
             headers_send_call_samples_total,
         ),
+        headers_to_first_connection_write_avg_ms: average_microseconds_to_millis(
+            headers_to_first_connection_write_us_total,
+            headers_to_first_connection_write_samples_total,
+        ),
         first_chunk_channel_wait_avg_ms: average_microseconds_to_millis(
             first_chunk_channel_wait_us_total,
             first_chunk_channel_wait_samples_total,
@@ -1301,6 +1321,30 @@ fn summarize_http_native_response_stream_slow_path(
 
     Some(HttpNativeResponseStreamSlowPathSummary {
         streaming_responses_total,
+        headers_to_first_connection_write_ge_1ms_total:
+            transport_http_response_stream_counter_delta(
+                &report.metrics_before,
+                &report.metrics_after,
+                "headers_to_first_connection_write_ge_1ms_total",
+            )
+            .unwrap_or(0)
+            .max(0) as u64,
+        headers_to_first_connection_write_ge_5ms_total:
+            transport_http_response_stream_counter_delta(
+                &report.metrics_before,
+                &report.metrics_after,
+                "headers_to_first_connection_write_ge_5ms_total",
+            )
+            .unwrap_or(0)
+            .max(0) as u64,
+        headers_to_first_connection_write_ge_10ms_total:
+            transport_http_response_stream_counter_delta(
+                &report.metrics_before,
+                &report.metrics_after,
+                "headers_to_first_connection_write_ge_10ms_total",
+            )
+            .unwrap_or(0)
+            .max(0) as u64,
         first_chunk_channel_wait_ge_1ms_total: transport_http_response_stream_counter_delta(
             &report.metrics_before,
             &report.metrics_after,
@@ -1917,6 +1961,11 @@ mod tests {
                         "stream_open_to_headers_send_us_total": 4000,
                         "headers_send_call_samples_total": 2,
                         "headers_send_call_us_total": 1000,
+                        "headers_to_first_connection_write_samples_total": 2,
+                        "headers_to_first_connection_write_us_total": 3000,
+                        "headers_to_first_connection_write_ge_1ms_total": 2,
+                        "headers_to_first_connection_write_ge_5ms_total": 0,
+                        "headers_to_first_connection_write_ge_10ms_total": 0,
                         "first_chunk_channel_wait_samples_total": 2,
                         "first_chunk_channel_wait_us_total": 3000,
                         "first_chunk_channel_wait_ge_1ms_total": 1,
@@ -1995,6 +2044,11 @@ mod tests {
                         "stream_open_to_headers_send_us_total": 15000,
                         "headers_send_call_samples_total": 5,
                         "headers_send_call_us_total": 3000,
+                        "headers_to_first_connection_write_samples_total": 5,
+                        "headers_to_first_connection_write_us_total": 18000,
+                        "headers_to_first_connection_write_ge_1ms_total": 5,
+                        "headers_to_first_connection_write_ge_5ms_total": 2,
+                        "headers_to_first_connection_write_ge_10ms_total": 1,
                         "first_chunk_channel_wait_samples_total": 5,
                         "first_chunk_channel_wait_us_total": 12000,
                         "first_chunk_channel_wait_ge_1ms_total": 4,
@@ -2188,6 +2242,11 @@ mod tests {
                     "stream_open_to_headers_send_us_total": 4000,
                     "headers_send_call_samples_total": 2,
                     "headers_send_call_us_total": 1000,
+                    "headers_to_first_connection_write_samples_total": 2,
+                    "headers_to_first_connection_write_us_total": 3000,
+                    "headers_to_first_connection_write_ge_1ms_total": 2,
+                    "headers_to_first_connection_write_ge_5ms_total": 0,
+                    "headers_to_first_connection_write_ge_10ms_total": 0,
                     "first_chunk_channel_wait_samples_total": 2,
                     "first_chunk_channel_wait_us_total": 3000,
                     "first_chunk_channel_wait_ge_1ms_total": 1,
@@ -2292,6 +2351,10 @@ mod tests {
         assert!(
             (native_stream_timing.headers_send_call_avg_ms - (2.0 / 3.0)).abs() < f64::EPSILON
         );
+        assert!(
+            (native_stream_timing.headers_to_first_connection_write_avg_ms - 5.0).abs()
+                < f64::EPSILON
+        );
         assert!((native_stream_timing.first_chunk_channel_wait_avg_ms - 3.0).abs() < f64::EPSILON);
         assert!(
             (native_stream_timing.headers_to_first_chunk_dequeue_avg_ms - 6.0).abs() < f64::EPSILON
@@ -2303,6 +2366,18 @@ mod tests {
         );
         let native_stream_slow_path = summary.http_native_response_stream_slow_path.unwrap();
         assert_eq!(native_stream_slow_path.streaming_responses_total, 3);
+        assert_eq!(
+            native_stream_slow_path.headers_to_first_connection_write_ge_1ms_total,
+            3
+        );
+        assert_eq!(
+            native_stream_slow_path.headers_to_first_connection_write_ge_5ms_total,
+            2
+        );
+        assert_eq!(
+            native_stream_slow_path.headers_to_first_connection_write_ge_10ms_total,
+            1
+        );
         assert_eq!(
             native_stream_slow_path.first_chunk_channel_wait_ge_1ms_total,
             3

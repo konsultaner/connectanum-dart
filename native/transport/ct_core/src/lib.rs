@@ -5,10 +5,12 @@ use std::{
     io::{self, Cursor, Write},
     net::{IpAddr, SocketAddr, ToSocketAddrs},
     ops::Deref,
+    pin::Pin,
     sync::{
         atomic::{AtomicU32, AtomicU64, Ordering},
         Arc, Mutex, OnceLock, RwLock,
     },
+    task::{Context, Poll},
     time::{Duration, Instant},
 };
 
@@ -262,6 +264,11 @@ struct HttpResponseStreamMetrics {
     stream_open_to_headers_send_us_total: AtomicU64,
     headers_send_call_samples_total: AtomicU64,
     headers_send_call_us_total: AtomicU64,
+    headers_to_first_connection_write_samples_total: AtomicU64,
+    headers_to_first_connection_write_us_total: AtomicU64,
+    headers_to_first_connection_write_ge_1ms_total: AtomicU64,
+    headers_to_first_connection_write_ge_5ms_total: AtomicU64,
+    headers_to_first_connection_write_ge_10ms_total: AtomicU64,
     first_chunk_channel_wait_samples_total: AtomicU64,
     first_chunk_channel_wait_us_total: AtomicU64,
     first_chunk_channel_wait_ge_1ms_total: AtomicU64,
@@ -301,6 +308,11 @@ pub struct HttpResponseStreamMetricsSnapshot {
     pub stream_open_to_headers_send_us_total: u64,
     pub headers_send_call_samples_total: u64,
     pub headers_send_call_us_total: u64,
+    pub headers_to_first_connection_write_samples_total: u64,
+    pub headers_to_first_connection_write_us_total: u64,
+    pub headers_to_first_connection_write_ge_1ms_total: u64,
+    pub headers_to_first_connection_write_ge_5ms_total: u64,
+    pub headers_to_first_connection_write_ge_10ms_total: u64,
     pub first_chunk_channel_wait_samples_total: u64,
     pub first_chunk_channel_wait_us_total: u64,
     pub first_chunk_channel_wait_ge_1ms_total: u64,
@@ -337,6 +349,16 @@ struct HttpMetricsKey {
 struct HttpMetricsStore {
     totals: HttpMetrics,
     by_key: Mutex<HashMap<HttpMetricsKey, Arc<HttpMetrics>>>,
+}
+
+#[derive(Default)]
+struct Http2ConnectionWriteTracker {
+    pending_headers_sent_at: Mutex<VecDeque<Instant>>,
+}
+
+struct InstrumentedHttp2IoStream {
+    inner: IoStream,
+    write_tracker: Arc<Http2ConnectionWriteTracker>,
 }
 
 static HTTP_RESPONSE_STREAM_METRICS: OnceLock<HttpResponseStreamMetrics> = OnceLock::new();
@@ -471,6 +493,21 @@ impl HttpResponseStreamMetrics {
             .fetch_add(headers_send_call_us, Ordering::SeqCst);
     }
 
+    fn record_headers_to_first_connection_write(&self, headers_sent_at: Instant, write_at: Instant) {
+        let headers_to_first_connection_write_us =
+            saturating_instant_delta_us(headers_sent_at, write_at);
+        self.headers_to_first_connection_write_samples_total
+            .fetch_add(1, Ordering::SeqCst);
+        self.headers_to_first_connection_write_us_total
+            .fetch_add(headers_to_first_connection_write_us, Ordering::SeqCst);
+        record_response_stream_slow_path(
+            headers_to_first_connection_write_us,
+            &self.headers_to_first_connection_write_ge_1ms_total,
+            &self.headers_to_first_connection_write_ge_5ms_total,
+            &self.headers_to_first_connection_write_ge_10ms_total,
+        );
+    }
+
     fn record_first_chunk(
         &self,
         queued_at: Instant,
@@ -536,6 +573,21 @@ impl HttpResponseStreamMetrics {
             headers_send_call_us_total: self
                 .headers_send_call_us_total
                 .load(Ordering::SeqCst),
+            headers_to_first_connection_write_samples_total: self
+                .headers_to_first_connection_write_samples_total
+                .load(Ordering::SeqCst),
+            headers_to_first_connection_write_us_total: self
+                .headers_to_first_connection_write_us_total
+                .load(Ordering::SeqCst),
+            headers_to_first_connection_write_ge_1ms_total: self
+                .headers_to_first_connection_write_ge_1ms_total
+                .load(Ordering::SeqCst),
+            headers_to_first_connection_write_ge_5ms_total: self
+                .headers_to_first_connection_write_ge_5ms_total
+                .load(Ordering::SeqCst),
+            headers_to_first_connection_write_ge_10ms_total: self
+                .headers_to_first_connection_write_ge_10ms_total
+                .load(Ordering::SeqCst),
             first_chunk_channel_wait_samples_total: self
                 .first_chunk_channel_wait_samples_total
                 .load(Ordering::SeqCst),
@@ -588,6 +640,73 @@ impl HttpResponseStreamMetrics {
                 .headers_to_first_chunk_send_call_us_total
                 .load(Ordering::SeqCst),
         }
+    }
+}
+
+impl Http2ConnectionWriteTracker {
+    fn note_headers_sent(&self, headers_sent_at: Instant) {
+        let mut guard = self
+            .pending_headers_sent_at
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        guard.push_back(headers_sent_at);
+    }
+
+    fn record_connection_write(&self, write_at: Instant) {
+        let pending_headers_sent_at = {
+            let mut guard = self
+                .pending_headers_sent_at
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner());
+            guard.drain(..).collect::<Vec<_>>()
+        };
+        if pending_headers_sent_at.is_empty() {
+            return;
+        }
+        let metrics = http_response_stream_metrics();
+        for headers_sent_at in pending_headers_sent_at {
+            metrics.record_headers_to_first_connection_write(headers_sent_at, write_at);
+        }
+    }
+}
+
+impl tokio::io::AsyncRead for InstrumentedHttp2IoStream {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        let me = self.get_mut();
+        Pin::new(&mut me.inner).poll_read(cx, buf)
+    }
+}
+
+impl tokio::io::AsyncWrite for InstrumentedHttp2IoStream {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<Result<usize, io::Error>> {
+        let me = self.get_mut();
+        match Pin::new(&mut me.inner).poll_write(cx, buf) {
+            Poll::Ready(Ok(written)) => {
+                if written > 0 {
+                    me.write_tracker.record_connection_write(Instant::now());
+                }
+                Poll::Ready(Ok(written))
+            }
+            other => other,
+        }
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        let me = self.get_mut();
+        Pin::new(&mut me.inner).poll_flush(cx)
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        let me = self.get_mut();
+        Pin::new(&mut me.inner).poll_shutdown(cx)
     }
 }
 
@@ -5399,7 +5518,14 @@ async fn serve_http2_connection(
     registry: Arc<ListenerRegistry>,
 ) {
     let builder = http2_server_builder();
-    let mut connection = match builder.handshake(stream).await {
+    let write_tracker = Arc::new(Http2ConnectionWriteTracker::default());
+    let mut connection = match builder
+        .handshake(InstrumentedHttp2IoStream {
+            inner: stream,
+            write_tracker: Arc::clone(&write_tracker),
+        })
+        .await
+    {
         Ok(connection) => connection,
         Err(err) => {
             eprintln!(
@@ -5430,6 +5556,7 @@ async fn serve_http2_connection(
                     respond,
                     Arc::clone(&endpoint_config),
                     Arc::clone(&registry),
+                    Arc::clone(&write_tracker),
                 )
                 .await
                 {
@@ -5480,6 +5607,7 @@ async fn handle_http2_request(
     respond: H2SendResponse<Bytes>,
     endpoint_config: Arc<config::EndpointRuntimeConfig>,
     registry: Arc<ListenerRegistry>,
+    write_tracker: Arc<Http2ConnectionWriteTracker>,
 ) -> Result<(), String> {
     let (parts, body_stream) = request.into_parts();
     let method = parts.method.as_str().to_string();
@@ -5587,7 +5715,12 @@ async fn handle_http2_request(
             tokio::spawn(async move {
                 match rx.await {
                     Ok(dispatch) => {
-                        if let Err(err) = send_http2_response_from_dispatch(respond, dispatch).await
+                        if let Err(err) = send_http2_response_from_dispatch(
+                            respond,
+                            dispatch,
+                            write_tracker,
+                        )
+                        .await
                         {
                             eprintln!(
                                 "failed to send http/2 response for connection {:?}: {}",
@@ -5776,6 +5909,7 @@ async fn send_http2_plain_response(
 async fn send_http2_response_from_dispatch(
     mut respond: H2SendResponse<Bytes>,
     dispatch: HttpResponseDispatch,
+    write_tracker: Arc<Http2ConnectionWriteTracker>,
 ) -> Result<(), String> {
     let HttpResponseDispatch {
         status,
@@ -5836,6 +5970,7 @@ async fn send_http2_response_from_dispatch(
                 .send_response(response, false)
                 .map_err(|err| err.to_string())?;
             let headers_sent_at = Instant::now();
+            write_tracker.note_headers_sent(headers_sent_at);
             http_response_stream_metrics().record_headers_sent(
                 stream_opened_at,
                 headers_send_call_started_at,
@@ -6464,6 +6599,31 @@ mod tests {
             parse_runtime_worker_threads(Some("abc")),
             Err(Error::InvalidRuntimeThreadCount(_))
         ));
+    }
+
+    #[test]
+    fn http2_connection_write_tracker_records_headers_to_first_connection_write() {
+        let before = http_response_stream_metrics_snapshot();
+        let tracker = Http2ConnectionWriteTracker::default();
+        let headers_sent_at = Instant::now();
+        tracker.note_headers_sent(headers_sent_at);
+        std::thread::sleep(Duration::from_millis(2));
+        tracker.record_connection_write(Instant::now());
+        let after = http_response_stream_metrics_snapshot();
+        assert_eq!(
+            after.headers_to_first_connection_write_samples_total
+                - before.headers_to_first_connection_write_samples_total,
+            1
+        );
+        assert!(
+            after.headers_to_first_connection_write_us_total
+                > before.headers_to_first_connection_write_us_total
+        );
+        assert_eq!(
+            after.headers_to_first_connection_write_ge_1ms_total
+                - before.headers_to_first_connection_write_ge_1ms_total,
+            1
+        );
     }
 
     struct GeneratedTlsMaterial {
