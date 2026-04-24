@@ -84,14 +84,24 @@ SERVER_EMISSION_SUMMARY_KEYS = (
     ("stream_open_avg_ms", "Server stream open avg"),
     ("first_chunk_queued_avg_ms", "Server first chunk queued avg"),
     ("first_body_write_avg_ms", "Server first body write avg"),
+    ("first_body_write_completed_avg_ms", "Server first body write completed avg"),
     (
         "headers_to_first_body_write_avg_ms",
         "Server headers-to-first-body-write avg",
     ),
     (
+        "headers_to_first_body_write_completed_avg_ms",
+        "Server headers-to-first-body-write-completed avg",
+    ),
+    (
         "queue_to_first_body_write_avg_ms",
         "Server queue-to-first-body-write avg",
     ),
+    (
+        "queue_to_first_body_write_completed_avg_ms",
+        "Server queue-to-first-body-write-completed avg",
+    ),
+    ("first_body_write_call_avg_ms", "Server first body write call avg"),
     ("handler_avg_ms", "Server handler avg"),
 )
 
@@ -946,10 +956,18 @@ def render_server_emission_focus_line(name: str, focus: dict | None) -> str:
         f"synthetic responses {render_connection_metric_snapshot(counts['synthetic_responses_total'])}, "
         f"server headers-to-first-body-write avg "
         f"{render_connection_metric_snapshot(metrics['headers_to_first_body_write_avg_ms'])}, "
+        f"server headers-to-first-body-write-completed avg "
+        f"{render_connection_metric_snapshot(metrics['headers_to_first_body_write_completed_avg_ms'])}, "
         f"server queue-to-first-body-write avg "
         f"{render_connection_metric_snapshot(metrics['queue_to_first_body_write_avg_ms'])}, "
+        f"server queue-to-first-body-write-completed avg "
+        f"{render_connection_metric_snapshot(metrics['queue_to_first_body_write_completed_avg_ms'])}, "
         f"server first body write avg "
         f"{render_connection_metric_snapshot(metrics['first_body_write_avg_ms'])}, "
+        f"server first body write completed avg "
+        f"{render_connection_metric_snapshot(metrics['first_body_write_completed_avg_ms'])}, "
+        f"server first body write call avg "
+        f"{render_connection_metric_snapshot(metrics['first_body_write_call_avg_ms'])}, "
         f"server stream open avg "
         f"{render_connection_metric_snapshot(metrics['stream_open_avg_ms'])}, "
         f"server request body drain avg "
@@ -1554,8 +1572,8 @@ def render_markdown(comparison: dict) -> str:
         [
             "## HTTP Server Emission Timing",
             "",
-            "| Workload | Router workers | Native runtime threads | Requests | Synthetic responses | Headers to first body write avg ms | Queue to first body write avg ms | First body write avg ms | Stream open avg ms | Request body drain avg ms |",
-            "| --- | ---: | ---: | --- | --- | --- | --- | --- | --- | --- |",
+            "| Workload | Router workers | Native runtime threads | Requests | Synthetic responses | Headers to first body write avg ms | Headers to first body write completed avg ms | Queue to first body write avg ms | Queue to first body write completed avg ms | First body write avg ms | First body write completed avg ms | First body write call avg ms | Stream open avg ms | Request body drain avg ms |",
+            "| --- | ---: | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
 
@@ -1568,7 +1586,7 @@ def render_markdown(comparison: dict) -> str:
         counts = server_emission["counts"]
         metrics = server_emission["metrics"]
         lines.append(
-            "| {workload} | {router_workers} | {native_runtime_threads} | {requests_total} | {synthetic_responses_total} | {headers_to_first_body_write_avg_ms} | {queue_to_first_body_write_avg_ms} | {first_body_write_avg_ms} | {stream_open_avg_ms} | {request_body_drain_avg_ms} |".format(
+            "| {workload} | {router_workers} | {native_runtime_threads} | {requests_total} | {synthetic_responses_total} | {headers_to_first_body_write_avg_ms} | {headers_to_first_body_write_completed_avg_ms} | {queue_to_first_body_write_avg_ms} | {queue_to_first_body_write_completed_avg_ms} | {first_body_write_avg_ms} | {first_body_write_completed_avg_ms} | {first_body_write_call_avg_ms} | {stream_open_avg_ms} | {request_body_drain_avg_ms} |".format(
                 workload=row["workload"],
                 router_workers=row["router_workers"],
                 native_runtime_threads=row["native_runtime_threads"],
@@ -1581,11 +1599,23 @@ def render_markdown(comparison: dict) -> str:
                 headers_to_first_body_write_avg_ms=render_connection_metric_snapshot(
                     metrics["headers_to_first_body_write_avg_ms"]
                 ),
+                headers_to_first_body_write_completed_avg_ms=render_connection_metric_snapshot(
+                    metrics["headers_to_first_body_write_completed_avg_ms"]
+                ),
                 queue_to_first_body_write_avg_ms=render_connection_metric_snapshot(
                     metrics["queue_to_first_body_write_avg_ms"]
                 ),
+                queue_to_first_body_write_completed_avg_ms=render_connection_metric_snapshot(
+                    metrics["queue_to_first_body_write_completed_avg_ms"]
+                ),
                 first_body_write_avg_ms=render_connection_metric_snapshot(
                     metrics["first_body_write_avg_ms"]
+                ),
+                first_body_write_completed_avg_ms=render_connection_metric_snapshot(
+                    metrics["first_body_write_completed_avg_ms"]
+                ),
+                first_body_write_call_avg_ms=render_connection_metric_snapshot(
+                    metrics["first_body_write_call_avg_ms"]
                 ),
                 stream_open_avg_ms=render_connection_metric_snapshot(
                     metrics["stream_open_avg_ms"]

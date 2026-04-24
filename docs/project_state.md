@@ -2,20 +2,18 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `ce55324` (`build(ktls): instrument h2 body drain phases`)
-Active exec plan: `docs/exec-plans/2026-04-24-h2-server-emission-hosted-rerun.md`
+Last reviewed commit: `7755828` (`build(ktls): capture server emission timing`)
+Active exec plan: `docs/exec-plans/2026-04-24-h2-first-write-completion-rerun.md`
 
 ## Last Known Verification
 
 - `bin/test-fast`
-- `dart analyze packages/connectanum_bench/lib/src/http_stream_handler.dart packages/connectanum_bench/tool/bench_main.dart packages/connectanum_router/lib/src/router/http/http_context.dart packages/connectanum_bench/test/http_stream_handler_test.dart`
+- `dart analyze packages/connectanum_bench/lib/src/http_stream_handler.dart packages/connectanum_bench/tool/bench_main.dart packages/connectanum_router/lib/src/router/http/http_context.dart packages/connectanum_bench/test/http_stream_handler_test.dart packages/connectanum_router/test/router_runtime_test.dart`
 - `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
-- `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name "streams HTTP/2 response chunks using native streams" -r expanded`
-- `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name "HTTP/2 stream response callbacks fire once in open-then-write order" -r expanded`
-- `cargo test --manifest-path native/bench/Cargo.toml -- --nocapture`
-- `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
+- `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name "HTTP/2 stream response callbacks fire once in open-write-complete order" -r expanded`
+- `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
 - `python3 tool/test_ktls_http2_compare.py`
-- rerender hosted artifact `24876728695`
+- rerender hosted artifact `24879483421`
 - `bin/verify`
 
 ## Autonomous Priority
@@ -349,28 +347,47 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-server-emission-hosted-rerun.md
   diagnostics, ideally on the server response-emission path rather than more
   client chunk-shape probing. The next active plan is to instrument where that
   first body delay is introduced.
-- That first-body-gap instrumentation slice is now complete on the local
-  working tree too. `packages/connectanum_router` now exposes response-stream
-  callbacks for stream-open and first-body-write events,
-  `packages/connectanum_bench` aggregates those timings into
-  `bench_http_stream`, `native/bench` summarizes them into
-  `http_server_emission_timing`, and `tool/ktls_http2_compare.py` now renders
-  an `HTTP Server Emission Timing` section plus hotspot focus lines.
-- Focused local verification for that server-emission slice is green on
-  2026-04-24: `bin/test-fast`, targeted Dart analyze/tests for the bench and
-  router stream paths, `cargo test --manifest-path native/bench/Cargo.toml
-  -- --nocapture`, `python3 -m py_compile
-  tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`,
-  `python3 tool/test_ktls_http2_compare.py`, a rerender of hosted artifact
-  `24876728695`, and `bin/verify`.
+- That first-body-gap instrumentation slice is now complete on the pushed
+  branch head too. Commit `7755828` passed hosted push `kTLS Validation`
+  (`24878452943`), `WAMP Profile Benchmarks` (`24878452920`), and `CI`
+  (`24878452921`) before the next focused manual rerun.
 - The historical rerender remained backward compatible: the new comparison now
   renders an `HTTP Server Emission Timing` section, and the old hosted bundle
   correctly reports no server-emission metrics because it predates the new
   counters.
-- The next active kTLS step is now the hosted rerun on the new instrumentation
-  checkpoint. That rerun should determine whether the remaining gap is already
-  visible in server-side `headers_to_first_body_write_avg_ms` or whether it
-  still opens only after the first body write leaves the server stream path.
+- Manual workflow run `24879483421` then reran the same focused scenario on
+  `7755828` with `skip_artifact_gate=true`, and it closed the current
+  question:
+  - worst throughput row:
+    `h2_multiplexed_streams_s4` at `threads=4`
+    still showed `response headers wait avg +6.71 ms` and
+    `first chunk wait avg +4.83 ms`
+  - worst p95 row:
+    `h2_multiplexed_streams_s1` at `threads=4`
+    still showed `response body read avg +3.21 ms` and
+    `request round trip p95 +14.95 ms`
+  - every comparable row held the current server-emission boundary flat:
+    - `headers_to_first_body_write_avg_ms 0.00 -> 0.00 (+0.00)`
+    - `queue_to_first_body_write_avg_ms 0.00 -> 0.00 (+0.00)`
+    - `first_body_write_avg_ms 0.00 -> 0.00 (+0.00)`
+- That means the remaining gap still opens after the current
+  `onFirstBodyWrite` callback point. The next bounded slice is now the
+  post-write completion boundary, not more pre-write handler timing.
+- That first-write-completion slice is now implemented on the local working
+  tree too. `packages/connectanum_router` now exposes
+  `onFirstBodyWriteCompleted`, `packages/connectanum_bench` records
+  `first_body_write_completed`, `headers_to_first_body_write_completed`,
+  `queue_to_first_body_write_completed`, and `first_body_write_call`,
+  `native/bench` summarizes those counters into
+  `http_server_emission_timing`, and `tool/ktls_http2_compare.py` now renders
+  the new completion boundary in both hotspot focus lines and the server
+  timing table.
+- Focused local verification for that first-write-completion slice is green on
+  2026-04-24: `bin/test-fast`, targeted Dart analyze/tests for the bench and
+  router stream paths, `cargo test --manifest-path native/bench/Cargo.toml
+  summarize_report_computes_latency_and_deltas -- --nocapture`,
+  `python3 tool/test_ktls_http2_compare.py`, a rerender of hosted artifact
+  `24879483421`, and the slice is ready for full `bin/verify`.
 - Local verification for the current kTLS transport-delta follow-up is green
   on 2026-04-24: `bin/test-fast`,
   `python3 -m py_compile tool/ktls_http2_compare.py

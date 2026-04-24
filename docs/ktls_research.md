@@ -539,6 +539,51 @@ Historical rerender of hosted artifact `24876728695` stayed backward
 compatible. The new comparison section renders, and the old bundle correctly
 shows no server-emission metrics because it predates the new counters.
 
+### Hosted Server Emission Result
+
+That rerun has now landed as workflow run `24879483421` on commit `7755828`,
+and it closed the current question without resolving the hotspot:
+
+- the client-side gap is still present:
+  - worst throughput row:
+    `h2_multiplexed_streams_s4`, `threads=4`
+    (`response headers wait avg +6.71 ms`,
+    `first chunk wait avg +4.83 ms`)
+  - worst p95 row:
+    `h2_multiplexed_streams_s1`, `threads=4`
+    (`response body read avg +3.21 ms`,
+    `request round trip p95 +14.95 ms`)
+- the current server-emission boundary stayed flat on every comparable row:
+  - `headers_to_first_body_write_avg_ms 0.00 -> 0.00 (+0.00)`
+  - `queue_to_first_body_write_avg_ms 0.00 -> 0.00 (+0.00)`
+  - `first_body_write_avg_ms 0.00 -> 0.00 (+0.00)`
+
+That means the remaining gap still opens after the current
+`onFirstBodyWrite` callback point. The current instrumentation is useful for
+proving that the handler itself is not the bottleneck, but it is too early to
+distinguish native write blocking from downstream transport delay.
+
+### First-Write Completion Instrumentation
+
+That next implementation slice is now complete on the local working tree:
+
+- `packages/connectanum_router` exposes a second response-stream callback:
+  - `onFirstBodyWriteCompleted`
+- `packages/connectanum_bench` now aggregates:
+  - `first_body_write_completed`
+  - `headers_to_first_body_write_completed`
+  - `queue_to_first_body_write_completed`
+  - `first_body_write_call`
+- `native/bench` now carries those new completion-boundary averages in
+  `http_server_emission_timing`
+- `tool/ktls_http2_compare.py` now renders the completion-boundary metrics in
+  both hotspot focus lines and the `HTTP Server Emission Timing` table
+
+That means the next hosted rerun can answer the narrower question that now
+matters: whether the first write blocks inside the native response-stream call
+itself, or whether the remaining delay still opens only after that call
+returns.
+
 ### What Not To Overclaim
 
 - macOS results are irrelevant for kTLS itself.

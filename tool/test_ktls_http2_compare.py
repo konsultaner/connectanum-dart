@@ -73,8 +73,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         server_stream_open_avg_ms=2.4,
                         server_first_chunk_queued_avg_ms=2.8,
                         server_first_body_write_avg_ms=3.1,
+                        server_first_body_write_completed_avg_ms=3.4,
                         server_headers_to_first_body_write_avg_ms=0.7,
+                        server_headers_to_first_body_write_completed_avg_ms=1.0,
                         server_queue_to_first_body_write_avg_ms=0.3,
+                        server_queue_to_first_body_write_completed_avg_ms=0.6,
+                        server_first_body_write_call_avg_ms=0.3,
                         server_handler_avg_ms=4.0,
                     ),
                 ],
@@ -133,8 +137,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         server_stream_open_avg_ms=4.1,
                         server_first_chunk_queued_avg_ms=7.0,
                         server_first_body_write_avg_ms=10.0,
+                        server_first_body_write_completed_avg_ms=10.8,
                         server_headers_to_first_body_write_avg_ms=5.9,
+                        server_headers_to_first_body_write_completed_avg_ms=6.7,
                         server_queue_to_first_body_write_avg_ms=3.0,
+                        server_queue_to_first_body_write_completed_avg_ms=3.8,
+                        server_first_body_write_call_avg_ms=0.8,
                         server_handler_avg_ms=12.0,
                     ),
                 ],
@@ -278,8 +286,20 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertAlmostEqual(
                 comparison["summary"]["server_emission_focus"]["worst_throughput_row"][
                     "metrics"
+                ]["headers_to_first_body_write_completed_avg_ms"]["delta"],
+                5.7,
+            )
+            self.assertAlmostEqual(
+                comparison["summary"]["server_emission_focus"]["worst_throughput_row"][
+                    "metrics"
                 ]["queue_to_first_body_write_avg_ms"]["delta"],
                 2.7,
+            )
+            self.assertAlmostEqual(
+                comparison["summary"]["server_emission_focus"]["worst_throughput_row"][
+                    "metrics"
+                ]["first_body_write_call_avg_ms"]["delta"],
+                0.5,
             )
 
             markdown = compare.render_markdown(comparison)
@@ -314,6 +334,14 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("stream acquire wait avg 0.80 -> 7.60 (+6.80)", markdown)
             self.assertIn(
                 "server headers-to-first-body-write avg 0.70 -> 5.90 (+5.20)",
+                markdown,
+            )
+            self.assertIn(
+                "server headers-to-first-body-write-completed avg 1.00 -> 6.70 (+5.70)",
+                markdown,
+            )
+            self.assertIn(
+                "server first body write call avg 0.30 -> 0.80 (+0.50)",
                 markdown,
             )
             self.assertIn(
@@ -462,8 +490,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         server_stream_open_avg_ms: float | None = 2.4,
         server_first_chunk_queued_avg_ms: float | None = 2.8,
         server_first_body_write_avg_ms: float | None = 3.2,
+        server_first_body_write_completed_avg_ms: float | None = 3.5,
         server_headers_to_first_body_write_avg_ms: float | None = 0.8,
+        server_headers_to_first_body_write_completed_avg_ms: float | None = 1.1,
         server_queue_to_first_body_write_avg_ms: float | None = 0.4,
+        server_queue_to_first_body_write_completed_avg_ms: float | None = 0.7,
+        server_first_body_write_call_avg_ms: float | None = 0.3,
         server_handler_avg_ms: float | None = 4.0,
     ) -> dict:
         return {
@@ -518,8 +550,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "stream_open_avg_ms": server_stream_open_avg_ms,
                     "first_chunk_queued_avg_ms": server_first_chunk_queued_avg_ms,
                     "first_body_write_avg_ms": server_first_body_write_avg_ms,
+                    "first_body_write_completed_avg_ms": server_first_body_write_completed_avg_ms,
                     "headers_to_first_body_write_avg_ms": server_headers_to_first_body_write_avg_ms,
+                    "headers_to_first_body_write_completed_avg_ms": server_headers_to_first_body_write_completed_avg_ms,
                     "queue_to_first_body_write_avg_ms": server_queue_to_first_body_write_avg_ms,
+                    "queue_to_first_body_write_completed_avg_ms": server_queue_to_first_body_write_completed_avg_ms,
+                    "first_body_write_call_avg_ms": server_first_body_write_call_avg_ms,
                     "handler_avg_ms": server_handler_avg_ms,
                 }
             ),

@@ -562,6 +562,7 @@ class _BenchControlRegistry {
       },
       onStreamOpened: writeTracker.markStreamOpened,
       onFirstBodyWrite: writeTracker.markFirstBodyWrite,
+      onFirstBodyWriteCompleted: writeTracker.markFirstBodyWriteCompleted,
     );
     final stats = await streamBenchHttpResponse(
       request: context.request,
@@ -572,6 +573,7 @@ class _BenchControlRegistry {
       response: stats,
       streamOpened: writeTracker.streamOpened,
       firstBodyWrite: writeTracker.firstBodyWrite,
+      firstBodyWriteCompleted: writeTracker.firstBodyWriteCompleted,
     );
   }
 
@@ -590,6 +592,7 @@ class _BenchControlRegistry {
       },
       onStreamOpened: writeTracker.markStreamOpened,
       onFirstBodyWrite: writeTracker.markFirstBodyWrite,
+      onFirstBodyWriteCompleted: writeTracker.markFirstBodyWriteCompleted,
     );
     final stats = await streamBenchHttpResponse(
       request: context.request,
@@ -600,6 +603,7 @@ class _BenchControlRegistry {
       response: stats,
       streamOpened: writeTracker.streamOpened,
       firstBodyWrite: writeTracker.firstBodyWrite,
+      firstBodyWriteCompleted: writeTracker.firstBodyWriteCompleted,
     );
   }
 

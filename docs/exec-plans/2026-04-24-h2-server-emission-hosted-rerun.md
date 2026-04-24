@@ -1,6 +1,6 @@
 # HTTP/2 Server Emission Hosted Rerun
 
-Status: in_progress
+Status: completed
 
 ## Context
 
@@ -38,6 +38,36 @@ Status: in_progress
 2. Wait for the push CI chain to go green on the new checkpoint.
 3. Dispatch the focused hosted rerun and capture the result in
    `docs/project_state.md` and `docs/ktls_research.md`.
+
+## Outcome
+
+- Commit `7755828` passed the hosted push chain cleanly:
+  - `kTLS Validation` `24878452943`
+  - `WAMP Profile Benchmarks` `24878452920`
+  - `CI` `24878452921`
+- Manual workflow run `24879483421` reran
+  `native/bench/scenarios/h2_ktls_multiplex_scaling.toml` on that clean head
+  with `skip_artifact_gate = true` and completed successfully.
+- The rerun answered the active question directly:
+  - client-side hotspot signals still moved materially:
+    - worst throughput row:
+      `h2_multiplexed_streams_s4`, `threads=4`
+      (`response headers wait avg +6.71 ms`,
+      `first chunk wait avg +4.83 ms`)
+    - worst p95 row:
+      `h2_multiplexed_streams_s1`, `threads=4`
+      (`response body read avg +3.21 ms`,
+      `request round trip p95 +14.95 ms`)
+  - the current server-emission boundary stayed flat:
+    - every comparable row held
+      `headers_to_first_body_write_avg_ms 0.00 -> 0.00 (+0.00)`
+    - every comparable row held
+      `queue_to_first_body_write_avg_ms 0.00 -> 0.00 (+0.00)`
+    - `first_body_write_avg_ms` also stayed `0.00 -> 0.00 (+0.00)`
+- That means the remaining gap still opens after the current
+  `onFirstBodyWrite` callback point. The next bounded slice is therefore to
+  instrument the first write after the native response-stream call returns,
+  not to add more pre-write handler timing.
 
 ## Verification
 

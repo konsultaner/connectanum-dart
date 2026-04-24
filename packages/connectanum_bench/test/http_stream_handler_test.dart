@@ -144,6 +144,7 @@ void main() {
       ),
       streamOpened: const Duration(milliseconds: 5),
       firstBodyWrite: const Duration(milliseconds: 9),
+      firstBodyWriteCompleted: const Duration(milliseconds: 10),
     );
 
     expect(diagnostics.toJson(), containsPair('synthetic_responses_total', 1));
@@ -154,6 +155,18 @@ void main() {
     expect(
       diagnostics.toJson(),
       containsPair('queue_to_first_body_write_us_total', 2000),
+    );
+    expect(
+      diagnostics.toJson(),
+      containsPair('headers_to_first_body_write_completed_us_total', 5000),
+    );
+    expect(
+      diagnostics.toJson(),
+      containsPair('queue_to_first_body_write_completed_us_total', 3000),
+    );
+    expect(
+      diagnostics.toJson(),
+      containsPair('first_body_write_call_us_total', 1000),
     );
   });
 }

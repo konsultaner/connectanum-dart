@@ -27,9 +27,11 @@ class BenchHttpStreamWriteTracker {
   final Stopwatch _stopwatch = Stopwatch()..start();
   Duration? _streamOpened;
   Duration? _firstBodyWrite;
+  Duration? _firstBodyWriteCompleted;
 
   Duration? get streamOpened => _streamOpened;
   Duration? get firstBodyWrite => _firstBodyWrite;
+  Duration? get firstBodyWriteCompleted => _firstBodyWriteCompleted;
 
   void markStreamOpened() {
     _streamOpened ??= _stopwatch.elapsed;
@@ -37,6 +39,10 @@ class BenchHttpStreamWriteTracker {
 
   void markFirstBodyWrite() {
     _firstBodyWrite ??= _stopwatch.elapsed;
+  }
+
+  void markFirstBodyWriteCompleted() {
+    _firstBodyWriteCompleted ??= _stopwatch.elapsed;
   }
 }
 
@@ -49,21 +55,30 @@ class BenchHttpStreamDiagnostics {
   int _streamOpenSamplesTotal = 0;
   int _firstChunkQueuedSamplesTotal = 0;
   int _firstBodyWriteSamplesTotal = 0;
+  int _firstBodyWriteCompletedSamplesTotal = 0;
   int _headersToFirstBodyWriteSamplesTotal = 0;
+  int _headersToFirstBodyWriteCompletedSamplesTotal = 0;
   int _queueToFirstBodyWriteSamplesTotal = 0;
+  int _queueToFirstBodyWriteCompletedSamplesTotal = 0;
+  int _firstBodyWriteCallSamplesTotal = 0;
   int _handlerSamplesTotal = 0;
   int _requestBodyDrainUsTotal = 0;
   int _streamOpenUsTotal = 0;
   int _firstChunkQueuedUsTotal = 0;
   int _firstBodyWriteUsTotal = 0;
+  int _firstBodyWriteCompletedUsTotal = 0;
   int _headersToFirstBodyWriteUsTotal = 0;
+  int _headersToFirstBodyWriteCompletedUsTotal = 0;
   int _queueToFirstBodyWriteUsTotal = 0;
+  int _queueToFirstBodyWriteCompletedUsTotal = 0;
+  int _firstBodyWriteCallUsTotal = 0;
   int _handlerUsTotal = 0;
 
   void record({
     required BenchHttpStreamResponseStats response,
     Duration? streamOpened,
     Duration? firstBodyWrite,
+    Duration? firstBodyWriteCompleted,
   }) {
     _requestsTotal++;
     switch (response.responseMode) {
@@ -93,6 +108,10 @@ class BenchHttpStreamDiagnostics {
       _firstBodyWriteSamplesTotal++;
       _firstBodyWriteUsTotal += firstBodyWrite.inMicroseconds;
     }
+    if (firstBodyWriteCompleted != null) {
+      _firstBodyWriteCompletedSamplesTotal++;
+      _firstBodyWriteCompletedUsTotal += firstBodyWriteCompleted.inMicroseconds;
+    }
     if (streamOpened != null &&
         firstBodyWrite != null &&
         firstBodyWrite >= streamOpened) {
@@ -100,12 +119,33 @@ class BenchHttpStreamDiagnostics {
       _headersToFirstBodyWriteUsTotal +=
           (firstBodyWrite - streamOpened).inMicroseconds;
     }
+    if (streamOpened != null &&
+        firstBodyWriteCompleted != null &&
+        firstBodyWriteCompleted >= streamOpened) {
+      _headersToFirstBodyWriteCompletedSamplesTotal++;
+      _headersToFirstBodyWriteCompletedUsTotal +=
+          (firstBodyWriteCompleted - streamOpened).inMicroseconds;
+    }
     if (firstChunkQueued != null &&
         firstBodyWrite != null &&
         firstBodyWrite >= firstChunkQueued) {
       _queueToFirstBodyWriteSamplesTotal++;
       _queueToFirstBodyWriteUsTotal +=
           (firstBodyWrite - firstChunkQueued).inMicroseconds;
+    }
+    if (firstChunkQueued != null &&
+        firstBodyWriteCompleted != null &&
+        firstBodyWriteCompleted >= firstChunkQueued) {
+      _queueToFirstBodyWriteCompletedSamplesTotal++;
+      _queueToFirstBodyWriteCompletedUsTotal +=
+          (firstBodyWriteCompleted - firstChunkQueued).inMicroseconds;
+    }
+    if (firstBodyWrite != null &&
+        firstBodyWriteCompleted != null &&
+        firstBodyWriteCompleted >= firstBodyWrite) {
+      _firstBodyWriteCallSamplesTotal++;
+      _firstBodyWriteCallUsTotal +=
+          (firstBodyWriteCompleted - firstBodyWrite).inMicroseconds;
     }
     _handlerSamplesTotal++;
     _handlerUsTotal += response.handlerElapsed.inMicroseconds;
@@ -121,17 +161,30 @@ class BenchHttpStreamDiagnostics {
       'stream_open_samples_total': _streamOpenSamplesTotal,
       'first_chunk_queued_samples_total': _firstChunkQueuedSamplesTotal,
       'first_body_write_samples_total': _firstBodyWriteSamplesTotal,
+      'first_body_write_completed_samples_total':
+          _firstBodyWriteCompletedSamplesTotal,
       'headers_to_first_body_write_samples_total':
           _headersToFirstBodyWriteSamplesTotal,
+      'headers_to_first_body_write_completed_samples_total':
+          _headersToFirstBodyWriteCompletedSamplesTotal,
       'queue_to_first_body_write_samples_total':
           _queueToFirstBodyWriteSamplesTotal,
+      'queue_to_first_body_write_completed_samples_total':
+          _queueToFirstBodyWriteCompletedSamplesTotal,
+      'first_body_write_call_samples_total': _firstBodyWriteCallSamplesTotal,
       'handler_samples_total': _handlerSamplesTotal,
       'request_body_drain_us_total': _requestBodyDrainUsTotal,
       'stream_open_us_total': _streamOpenUsTotal,
       'first_chunk_queued_us_total': _firstChunkQueuedUsTotal,
       'first_body_write_us_total': _firstBodyWriteUsTotal,
+      'first_body_write_completed_us_total': _firstBodyWriteCompletedUsTotal,
       'headers_to_first_body_write_us_total': _headersToFirstBodyWriteUsTotal,
+      'headers_to_first_body_write_completed_us_total':
+          _headersToFirstBodyWriteCompletedUsTotal,
       'queue_to_first_body_write_us_total': _queueToFirstBodyWriteUsTotal,
+      'queue_to_first_body_write_completed_us_total':
+          _queueToFirstBodyWriteCompletedUsTotal,
+      'first_body_write_call_us_total': _firstBodyWriteCallUsTotal,
       'handler_us_total': _handlerUsTotal,
     };
   }

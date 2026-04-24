@@ -64,8 +64,12 @@ pub struct HttpServerEmissionTimingSummary {
     pub stream_open_avg_ms: f64,
     pub first_chunk_queued_avg_ms: f64,
     pub first_body_write_avg_ms: f64,
+    pub first_body_write_completed_avg_ms: f64,
     pub headers_to_first_body_write_avg_ms: f64,
+    pub headers_to_first_body_write_completed_avg_ms: f64,
     pub queue_to_first_body_write_avg_ms: f64,
+    pub queue_to_first_body_write_completed_avg_ms: f64,
+    pub first_body_write_call_avg_ms: f64,
     pub handler_avg_ms: f64,
 }
 

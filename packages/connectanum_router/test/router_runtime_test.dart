@@ -4066,7 +4066,7 @@ void main() {
   });
 
   test(
-    'HTTP/2 stream response callbacks fire once in open-then-write order',
+    'HTTP/2 stream response callbacks fire once in open-write-complete order',
     () async {
       final runtime = _HandleRuntime();
       final router = Router(
@@ -4106,6 +4106,7 @@ void main() {
           headers: const {'x-http2': 'true'},
           onStreamOpened: () => callbackEvents.add('open'),
           onFirstBodyWrite: () => callbackEvents.add('write'),
+          onFirstBodyWriteCompleted: () => callbackEvents.add('write-complete'),
         );
         stream.add(utf8.encode('h2-a'));
         stream.close(utf8.encode('done'));
@@ -4132,11 +4133,11 @@ void main() {
       );
 
       await _waitUntil(
-        () => callbackEvents.length == 2,
+        () => callbackEvents.length == 3,
         timeout: const Duration(seconds: 2),
       );
 
-      expect(callbackEvents, ['open', 'write']);
+      expect(callbackEvents, ['open', 'write', 'write-complete']);
     },
   );
 
