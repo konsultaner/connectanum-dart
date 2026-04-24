@@ -6,7 +6,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 usage() {
   cat <<'EOF'
-Usage: bin/ktls-http2-bench [--scenario <path>] [--out-dir <dir>] [--router-worker-counts <csv>] [--native-runtime-thread-counts <csv>]
+Usage: bin/ktls-http2-bench [--scenario <path>] [--out-dir <dir>] [--router-worker-counts <csv>] [--native-runtime-thread-counts <csv>] [--artifact-policy <path>] [--skip-artifact-gate]
 
 Runs the Linux-only HTTP/2 comparison bench:
 1. baseline TLS over the existing HTTP/2 listener
@@ -28,6 +28,8 @@ scenario="$(repo_root)/native/bench/scenarios/h2_ktls_benchmark.toml"
 out_dir="$(repo_root)/out/ktls-http2-bench"
 router_worker_counts="1"
 native_runtime_thread_counts="1,4"
+artifact_policy=""
+skip_artifact_gate=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -46,6 +48,14 @@ while [[ $# -gt 0 ]]; do
     --native-runtime-thread-counts)
       native_runtime_thread_counts="$2"
       shift 2
+      ;;
+    --artifact-policy)
+      artifact_policy="$2"
+      shift 2
+      ;;
+    --skip-artifact-gate)
+      skip_artifact_gate=1
+      shift
       ;;
     -h|--help)
       usage
@@ -72,12 +82,24 @@ fi
 mkdir -p "$out_dir"
 
 scenario="$(cd "$(dirname "$scenario")" && pwd)/$(basename "$scenario")"
+if [[ -n "$artifact_policy" ]]; then
+  artifact_policy="$(cd "$(dirname "$artifact_policy")" && pwd)/$(basename "$artifact_policy")"
+fi
 baseline_dir="${out_dir%/}/baseline"
 ktls_dir="${out_dir%/}/ktls"
 comparison_json="${out_dir%/}/comparison.json"
 comparison_md="${out_dir%/}/comparison.md"
 host_info_path="${out_dir%/}/host-info.txt"
-artifact_policy="$(repo_root)/native/bench/artifact_gate/h2_ktls_benchmark.json"
+default_artifact_policy="$(repo_root)/native/bench/artifact_gate/$(basename "${scenario%.toml}").json"
+
+if (( ! skip_artifact_gate )) && [[ -z "$artifact_policy" && -f "$default_artifact_policy" ]]; then
+  artifact_policy="$default_artifact_policy"
+fi
+
+if [[ -n "$artifact_policy" && ! -f "$artifact_policy" ]]; then
+  printf 'Artifact policy not found: %s\n' "$artifact_policy" >&2
+  exit 1
+fi
 
 build_native_ffi_test_release
 
@@ -105,6 +127,13 @@ fi
   printf 'router_worker_counts=%s\n' "$router_worker_counts"
   printf 'native_runtime_thread_counts=%s\n' "$native_runtime_thread_counts"
   printf 'native_lib=%s\n' "$CONNECTANUM_NATIVE_LIB"
+  if (( skip_artifact_gate )); then
+    printf 'artifact_gate=skipped\n'
+  elif [[ -n "$artifact_policy" ]]; then
+    printf 'artifact_policy=%s\n' "$artifact_policy"
+  else
+    printf 'artifact_gate=default_strict\n'
+  fi
 } >"$host_info_path"
 
 capture_tls_stat() {
@@ -164,11 +193,21 @@ run_pass() {
   capture_tls_stat "$tls_stat_after_path"
 
   if [[ -f "${pass_out_dir}/bench_results.summary.json" ]]; then
-    printf 'Checking %s bench artifacts for transport regressions...\n' "$label"
-    bin/check-bench-artifacts \
-      --summary "${pass_out_dir}/bench_results.summary.json" \
-      --policy "$artifact_policy" \
-      || gate_status=$?
+    if (( skip_artifact_gate )); then
+      printf 'Skipping %s bench artifact gate by request.\n' "$label"
+    else
+      printf 'Checking %s bench artifacts for transport regressions...\n' "$label"
+      if [[ -n "$artifact_policy" ]]; then
+        bin/check-bench-artifacts \
+          --summary "${pass_out_dir}/bench_results.summary.json" \
+          --policy "$artifact_policy" \
+          || gate_status=$?
+      else
+        bin/check-bench-artifacts \
+          --summary "${pass_out_dir}/bench_results.summary.json" \
+          || gate_status=$?
+      fi
+    fi
   fi
 
   if (( pass_status != 0 )); then

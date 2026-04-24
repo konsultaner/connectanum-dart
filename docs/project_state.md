@@ -2,17 +2,15 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `db2ff96` (`build(ktls): compare transport counter deltas`)
+Last reviewed commit: `2393a01` (`build(ktls): capture linux tls stats`)
 Active exec plan: `none`
 
 ## Last Known Verification
 
 - `bin/test-fast`
 - `bash -n bin/ktls-http2-bench`
-- `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
-- `python3 tool/test_ktls_http2_compare.py`
-- focused synthetic `tool/ktls_http2_compare.py` run with `tls-stat-before.txt` /
-  `tls-stat-after.txt` sidecars
+- `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ktls-http2-benchmarks.yml")'`
+- `bin/ktls-http2-bench --help`
 - `bin/verify`
 
 ## Autonomous Priority
@@ -175,6 +173,10 @@ Active exec plan: `none`
   push `CI` run `24868012745`, push `kTLS Validation` run `24868012749`, and
   push `WAMP Profile Benchmarks` run `24868012750` all completed successfully
   after the kTLS transport-delta comparison follow-up landed.
+- Hosted GitHub validation is now also green through commit `2393a01`:
+  push `CI` run `24868963261`, push `kTLS Validation` run `24868963265`, and
+  push `WAMP Profile Benchmarks` run `24868963262` all completed successfully
+  after the Linux TLS-stat follow-up landed.
 - The latest hosted `ktls-http2-bench-artifacts` bundle from run `24865337582`
   also exposed a concrete summary bug: both per-pass `resource-usage.txt`
   sidecars were present, but the generated comparison still claimed they were
@@ -209,6 +211,23 @@ Active exec plan: `none`
   counters in either pass, while only the multiplexed rows expose bounded
   `backpressure_events` differences (`76 -> 70` at `threads=1`,
   `82 -> 97` at `threads=4`).
+- Manual workflow run `24869856621` (`kTLS HTTP/2 Benchmarks`) then reran the
+  updated helper on `2393a01` and changed the current boundary again:
+  required-kTLS now clearly opens kernel software TX/RX sessions
+  (`TlsTxSw/TlsRxSw 34/34`) with no decrypt/rekey anomalies, while the
+  dominant regression shifts back to `h2_multiplexed_streams` rather than
+  `h2_sustained_transfer`.
+- That means the next bounded kTLS follow-up should enable focused diagnostic
+  reruns around the multiplex case instead of adding more generic artifact
+  formatting or treating the old sustained-transfer row as the primary
+  hotspot.
+- That diagnostic-control slice is now complete on the local working tree too.
+  `bin/ktls-http2-bench` now supports explicit `--artifact-policy` selection
+  plus `--skip-artifact-gate`, the manual `kTLS HTTP/2 Benchmarks` workflow
+  mirrors those controls as workflow inputs, and
+  `native/bench/scenarios/h2_ktls_multiplex_scaling.toml` now gives the next
+  hosted rerun a checked-in HTTP/2 multiplex-only hotspot scenario without
+  weakening the canonical `h2_ktls_benchmark` release-decision path.
 - Local verification for the current kTLS transport-delta follow-up is green
   on 2026-04-24: `bin/test-fast`,
   `python3 -m py_compile tool/ktls_http2_compare.py
@@ -228,6 +247,10 @@ Active exec plan: `none`
   a focused synthetic `tool/ktls_http2_compare.py` run with
   `tls-stat-before.txt` / `tls-stat-after.txt` sidecars, and `bin/verify` all
   passed.
+- Local verification for the current kTLS multiplex-diagnostic control slice
+  is green on 2026-04-24: `bin/test-fast`, `bash -n bin/ktls-http2-bench`,
+  `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ktls-http2-benchmarks.yml")'`,
+  `bin/ktls-http2-bench --help`, and `bin/verify` all passed.
 - Local verification for the current kTLS workflow-summary follow-up is green
   on 2026-04-24: `bin/test-fast`, YAML parsing of
   `.github/workflows/ktls-http2-benchmarks.yml`, and `bin/verify` all passed.

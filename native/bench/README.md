@@ -92,6 +92,21 @@ rather than the generic zero-counter gate, because the comparison scenario
 intentionally exercises multiplexing hard enough to produce bounded
 backpressure counters.
 
+Focused diagnostic reruns can now override that behavior. Pass
+`--artifact-policy <path>` to use a scenario-specific gate, or
+`--skip-artifact-gate` when the goal is to inspect a targeted hotspot rather
+than uphold the canonical release-decision contract. The manual workflow
+exposes the same controls through `artifact_policy` and
+`skip_artifact_gate` inputs.
+
+For the current HTTP/2 multiplex hotspot, the dedicated diagnostic scenario is:
+
+```bash
+bin/ktls-http2-bench \
+  --scenario native/bench/scenarios/h2_ktls_multiplex_scaling.toml \
+  --skip-artifact-gate
+```
+
 For the canonical WAMP release gates, use the WAMP profile helper. It builds
 the release FFI library, runs the cleartext and secure WAMP throughput
 scenarios, and validates both artifact bundles against their checked-in

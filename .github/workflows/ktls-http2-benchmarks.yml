@@ -18,6 +18,16 @@ on:
         required: false
         default: "1,4"
         type: string
+      artifact_policy:
+        description: Optional artifact policy path. Leave blank to auto-use a matching scenario policy when present.
+        required: false
+        default: ""
+        type: string
+      skip_artifact_gate:
+        description: Skip the artifact gate entirely for focused diagnostic reruns.
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -45,13 +55,23 @@ jobs:
           INPUT_SCENARIO: ${{ github.event.inputs.scenario }}
           INPUT_ROUTER_WORKER_COUNTS: ${{ github.event.inputs.router_worker_counts }}
           INPUT_NATIVE_RUNTIME_THREAD_COUNTS: ${{ github.event.inputs.native_runtime_thread_counts }}
+          INPUT_ARTIFACT_POLICY: ${{ github.event.inputs.artifact_policy }}
+          INPUT_SKIP_ARTIFACT_GATE: ${{ github.event.inputs.skip_artifact_gate }}
         run: |
           set -euo pipefail
+          extra_gate_args=()
+          if [[ "${INPUT_SKIP_ARTIFACT_GATE:-false}" == "true" ]]; then
+            extra_gate_args+=(--skip-artifact-gate)
+          elif [[ -n "${INPUT_ARTIFACT_POLICY:-}" ]]; then
+            extra_gate_args+=(--artifact-policy "${INPUT_ARTIFACT_POLICY}")
+          fi
+
           bin/ktls-http2-bench \
             --scenario "${INPUT_SCENARIO:-native/bench/scenarios/h2_ktls_benchmark.toml}" \
             --out-dir "${GITHUB_WORKSPACE}/out/ktls-http2-bench" \
             --router-worker-counts "${INPUT_ROUTER_WORKER_COUNTS:-1}" \
-            --native-runtime-thread-counts "${INPUT_NATIVE_RUNTIME_THREAD_COUNTS:-1,4}"
+            --native-runtime-thread-counts "${INPUT_NATIVE_RUNTIME_THREAD_COUNTS:-1,4}" \
+            "${extra_gate_args[@]}"
 
       - name: Publish benchmark summary
         if: always()

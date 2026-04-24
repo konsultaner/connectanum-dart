@@ -279,46 +279,55 @@ The final hosted comparison from run `24773860158` showed:
 
 ### Latest Hosted Comparison
 
-The latest hosted rerun landed on commit `706d8b8` as workflow run
-`24865337582` (`kTLS HTTP/2 Benchmarks`). Its artifact bundle showed:
+The latest hosted rerun landed on commit `2393a01` as workflow run
+`24869856621` (`kTLS HTTP/2 Benchmarks`). Its artifact bundle showed:
 
 - `h2_multiplexed_streams`, native runtime threads `1`
-  - baseline: `6131.77` Mbps, p95 `40.59` ms
-  - required-kTLS: `4026.53` Mbps, p95 `58.03` ms
+  - baseline: `5752.19` Mbps, p95 `38.83` ms
+  - required-kTLS: `3822.66` Mbps, p95 `59.07` ms
 - `h2_multiplexed_streams`, native runtime threads `4`
-  - baseline: `6070.15` Mbps, p95 `38.03` ms
-  - required-kTLS: `4971.03` Mbps, p95 `44.19` ms
+  - baseline: `5835.55` Mbps, p95 `38.15` ms
+  - required-kTLS: `4831.84` Mbps, p95 `47.67` ms
 - `h2_sustained_transfer`, native runtime threads `1`
-  - baseline: `4194.30` Mbps, p95 `10.48` ms
-  - required-kTLS: `2995.93` Mbps, p95 `16.99` ms
+  - baseline: `1766.02` Mbps, p95 `23.25` ms
+  - required-kTLS: `2015.28` Mbps, p95 `21.09` ms
 - `h2_sustained_transfer`, native runtime threads `4`
-  - baseline: `4194.30` Mbps, p95 `10.70` ms
-  - required-kTLS: `3532.05` Mbps, p95 `15.01` ms
+  - baseline: `3901.68` Mbps, p95 `12.95` ms
+  - required-kTLS: `3477.14` Mbps, p95 `14.27` ms
 
 The same rerun also showed:
 
-- CPU total: baseline `28.35s`, required-kTLS `28.99s`, delta `+2.26%`
-- Elapsed wall time: baseline `18.17s`, required-kTLS `18.48s`, delta `+1.71%`
-- Max RSS: baseline `519.98 MiB`, required-kTLS `522.92 MiB`, delta `+0.57%`
+- CPU total: baseline `29.97s`, required-kTLS `29.93s`, delta `-0.13%`
+- Elapsed wall time: baseline `19.37s`, required-kTLS `19.22s`, delta `-0.77%`
+- Max RSS: baseline `528.32 MiB`, required-kTLS `523.09 MiB`, delta `-0.99%`
+- Linux TLS session opens:
+  - baseline: software TX/RX `0/0`, device TX/RX `0/0`
+  - required-kTLS: software TX/RX `34/34`, device TX/RX `0/0`
+- Linux TLS anomalies: no non-zero decrypt/rekey counters in either pass
 
-The grouped summary shifted the current hotspot away from the old
-`threads=4`-multiplex assumption:
+That rerun changes the interpretation boundary again:
 
-- workload-family hotspot: `h2_sustained_transfer`
-- runtime-thread hotspot: `threads=1`
+- workload-family hotspot: `h2_multiplexed_streams`
+- runtime-thread hotspot: `threads=4`
+- `h2_sustained_transfer` is no longer the problem statement:
+  - `threads=1` improved under required-kTLS
+  - `threads=4` regressed modestly, but nowhere near the multiplex penalty
 
-The transport-delta view now makes the next interpretation boundary explicit:
+The transport-delta view still says the slowdown is not already explained by
+the current router counters alone:
 
-- worst p95 row: `h2_sustained_transfer` at `threads=1`, with no non-zero
-  transport counters in either baseline or required-kTLS
-- multiplexed rows still show bounded backpressure only:
-  - `threads=1`: `backpressure_events 76 -> 70`, alerts `2 -> 2`
-  - `threads=4`: `backpressure_events 82 -> 97`, alerts `4 -> 4`
+- worst throughput row: `h2_multiplexed_streams` at `threads=1`
+  - `backpressure_events 79 -> 76`
+  - `backpressure_alerts 3 -> 3`
+  - `max_backpressure_depth_after 4 -> 4`
+- `h2_sustained_transfer` rows remain all-zero for the current
+  transport/backpressure telemetry
 
-That means the current sustained-transfer hotspot is not already explained by
-existing backpressure/alert telemetry; any deeper explanation now needs either
-additional Linux-side instrumentation or a runtime change that shifts the
-throughput/p95 numbers themselves.
+That means the Linux TLS-stat slice answered one question cleanly: required
+kTLS is staying on the kernel software TX/RX path without obvious decrypt or
+rekey anomalies. The remaining question is now much narrower: why multiplexed
+HTTP/2 streams regress materially once concurrency is layered onto that clean
+kTLS path.
 
 ### What Not To Overclaim
 
@@ -335,9 +344,9 @@ throughput/p95 numbers themselves.
 
 ## Recommended Next Milestone
 
-Keep the current Linux-only prototype stable and use the corrected manual
-benchmark path to target the now-observed hotspot instead of chasing stale
-artifact-format gaps:
+Keep the current Linux-only prototype stable and target the now-confirmed
+HTTP/2 multiplex hotspot with more focused diagnostic reruns instead of adding
+blind generic instrumentation:
 
 - preserve the existing opt-in runtime path and strict Linux validation gate
 - keep secure WAMP coverage as supplemental evidence, but use the HTTP/2
@@ -346,13 +355,17 @@ artifact-format gaps:
   worst regressions, grouped workload/runtime hotspots, CPU / wall-time / RSS
   deltas, and transport-counter deltas so one hosted run answers the tuning
   question directly
-- use the current rerun as the baseline for any deeper Linux-side
-  instrumentation or tuning, with `h2_sustained_transfer` and
-  `native_runtime_threads = 1` as the first concrete hotspots to explain
+- use run `24869856621` as the baseline for any deeper Linux-side
+  instrumentation or tuning, with `h2_multiplexed_streams` as the first
+  concrete hotspot to explain
 - keep the comparison helper capturing `/proc/net/tls_stat` sidecars and
   summarizing the Linux TLS session-open and decrypt/rekey deltas, because
   that is the cheapest hosted-run signal for "did required-kTLS actually stay
   on the kernel path cleanly?" before escalating to heavier diagnostics
+- use the new manual diagnostic controls and
+  `native/bench/scenarios/h2_ktls_multiplex_scaling.toml` for the next hosted
+  rerun, with an explicit scenario policy once thresholds are understood or
+  `skip_artifact_gate=true` while the run is still purely investigative
 
 That is the smallest next milestone that improves decision quality without
 pretending the remaining kTLS work is already a clear runtime bug.
