@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `f2b5fe8` (`build(ktls): highlight comparison hotspots`)
-Active exec plan: `docs/exec-plans/2026-04-24-ktls-benchmark-artifact-policy.md`
+Last reviewed commit: `706d8b8` (`build(ktls): scope benchmark artifact gate`)
+Active exec plan: `none`
 
 ## Last Known Verification
 
@@ -160,14 +160,35 @@ Active exec plan: `docs/exec-plans/2026-04-24-ktls-benchmark-artifact-policy.md`
   native/bench/Cargo.toml artifact_gate_policy_allows_thread_scoped_thresholds
   -- --nocapture`, `bash -n bin/ktls-http2-bench`, and `bin/verify` all
   passed.
+- Hosted GitHub validation is now green through commit `706d8b8` too:
+  push `CI` run `24865318342`, push `kTLS Validation` run `24865318343`,
+  push `WAMP Profile Benchmarks` run `24865318353`, and manual
+  `kTLS HTTP/2 Benchmarks` run `24865337582` all completed successfully after
+  the scoped `h2_ktls_benchmark` artifact-policy follow-up landed.
+- The latest hosted `ktls-http2-bench-artifacts` bundle from run `24865337582`
+  also exposed a concrete summary bug: both per-pass `resource-usage.txt`
+  sidecars were present, but the generated comparison still claimed they were
+  missing because GNU `time -v` prefixes its fields with tabs on hosted Linux.
+- That resource-usage parser slice is now complete on the local working tree
+  too. `tool/ktls_http2_compare.py` now strips leading whitespace before
+  matching GNU `time -v` field labels, so the hosted Linux tab-indented
+  `resource-usage.txt` sidecars are summarized instead of being ignored.
+- The corrected rerender of that hosted artifact shows required-kTLS still
+  loses mainly on throughput and p95, not on gross CPU or memory blow-up:
+  average throughput delta `-24.20%`, average p95 delta `+40.38%`,
+  `cpu_total_seconds +2.26%`, `elapsed_seconds +1.71%`, and
+  `max_rss_kib +0.57%`. The grouped hotspot is now
+  `h2_sustained_transfer` by workload family and `threads=1` by native runtime
+  thread count.
+- Local verification for the current kTLS resource-usage parser follow-up is
+  green on 2026-04-24: `bin/test-fast`,
+  `python3 -m py_compile tool/ktls_http2_compare.py
+  tool/test_ktls_http2_compare.py`, `python3 tool/test_ktls_http2_compare.py`,
+  a rerender of the hosted `24865337582` artifact bundle, and `bin/verify` all
+  passed.
 - Local verification for the current kTLS workflow-summary follow-up is green
   on 2026-04-24: `bin/test-fast`, YAML parsing of
   `.github/workflows/ktls-http2-benchmarks.yml`, and `bin/verify` all passed.
-- Local verification for the current kTLS resource-usage follow-up is green on
-  2026-04-24: `bin/test-fast`, `bash -n bin/ktls-http2-bench`,
-  `python3 -m py_compile tool/ktls_http2_compare.py`, a focused synthetic
-  `tool/ktls_http2_compare.py` run with Linux-style `resource-usage.txt`
-  sidecars, and `bin/verify` all passed.
 - Local verification for the current kTLS hotspot-rollup follow-up is green on
   2026-04-24: `bin/test-fast`,
   `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`,

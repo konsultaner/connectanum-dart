@@ -1,6 +1,6 @@
 # Exec Plan: kTLS Benchmark Artifact Policy
 
-Status: in_progress
+Status: completed
 Owner: Codex
 Created: 2026-04-24
 Last updated: 2026-04-24
@@ -72,10 +72,19 @@ correctness-oriented `kTLS Validation` workflow.
   failure makes the workflow red even when both comparison passes complete and
   publish usable artifacts, so it needs a scoped scenario policy rather than
   the generic zero-counter default.
+- 2026-04-24: The scoped `h2_ktls_benchmark` policy restored the hosted manual
+  comparison lane without changing the stricter push-time correctness signal.
+  The replacement manual run `24865337582` passed on the same head that also
+  cleared push `CI`, `kTLS Validation`, and `WAMP Profile Benchmarks`.
 
 ## Handoff
 
-- In progress on 2026-04-24.
-- The repo-side harness change is staged locally; the remaining work is local
-  verification, commit/push, and a fresh hosted manual rerun to confirm the
-  branch is green again.
+- Completed on 2026-04-24.
+- Local verification passed via `bin/test-fast`, `cargo test --manifest-path
+  native/bench/Cargo.toml artifact_gate_policy_allows_thread_scoped_thresholds
+  -- --nocapture`, `bash -n bin/ktls-http2-bench`, and `bin/verify`.
+- Commit `706d8b8` (`build(ktls): scope benchmark artifact gate`) was pushed to
+  both remotes.
+- Hosted runs on `706d8b8` all passed: push `CI` `24865318342`, push
+  `kTLS Validation` `24865318343`, push `WAMP Profile Benchmarks`
+  `24865318353`, and manual `kTLS HTTP/2 Benchmarks` `24865337582`.

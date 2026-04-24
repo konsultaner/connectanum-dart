@@ -65,11 +65,12 @@ def parse_resource_usage(path: Path) -> dict | None:
 
     fields: dict[str, float] = {}
     for line in path.read_text().splitlines():
+        normalized_line = line.lstrip()
         for field_name, expected_label in RESOURCE_USAGE_KEYS.items():
             prefix = f"{expected_label}:"
-            if not line.startswith(prefix):
+            if not normalized_line.startswith(prefix):
                 continue
-            value = line[len(prefix) :].strip()
+            value = normalized_line[len(prefix) :].strip()
             if field_name == "cpu_percent":
                 normalized = value.rstrip("%").strip()
                 try:

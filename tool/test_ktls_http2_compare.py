@@ -115,11 +115,11 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         path.write_text(
             "\n".join(
                 [
-                    f"User time (seconds): {user_seconds}",
-                    f"System time (seconds): {system_seconds}",
-                    f"Percent of CPU this job got: {cpu_percent}%",
-                    f"Elapsed (wall clock) time (h:mm:ss or m:ss): {elapsed}",
-                    f"Maximum resident set size (kbytes): {max_rss_kib}",
+                    f"\tUser time (seconds): {user_seconds}",
+                    f"\tSystem time (seconds): {system_seconds}",
+                    f"\tPercent of CPU this job got: {cpu_percent}%",
+                    f"\tElapsed (wall clock) time (h:mm:ss or m:ss): {elapsed}",
+                    f"\tMaximum resident set size (kbytes): {max_rss_kib}",
                 ]
             )
             + "\n"

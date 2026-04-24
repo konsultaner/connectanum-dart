@@ -90,20 +90,19 @@ dummy-session prototype to an unbuffered kernel-connection handoff.
      clear comparison artifacts so one hosted run is easy to interpret without
      re-reading raw per-workload rows.
    - The repo now summarizes throughput, latency, CPU-total, wall-time, and
-     max-RSS deltas in the comparison bundle, but it still needs a fresh hosted
-     rerun before those extra signals can drive the next tuning decision.
-   - The manual workflow now also mirrors that comparison into the GitHub
-     Actions job summary, so the first inspection path is the run UI rather
-     than a downloaded artifact archive.
-   - Hosted run `24864760931` confirmed a remaining harness issue too: the
-     comparison job can still go red after both passes complete because the
-     generic zero-counter artifact gate rejects the expected multiplexed
-     `backpressure_events` / `backpressure_alerts` counters in
-     `h2_multiplexed_streams`.
-   - The next bounded repo-side fix is to give
-     `native/bench/scenarios/h2_ktls_benchmark.toml` its own checked-in
-     artifact policy so the manual workflow stays diagnostic and
-     comparison-focused instead of failing on known workload-local backlog.
+     max-RSS deltas in the comparison bundle, and hosted rerun `24865337582`
+     on commit `706d8b8` now gives the current decision point directly.
+   - That rerun showed modest gross resource deltas
+     (`cpu_total_seconds +2.26%`, `elapsed_seconds +1.71%`,
+     `max_rss_kib +0.57%`) while throughput still regressed by `24.20%` on
+     average and p95 latency still rose by `40.38%` on average. That keeps the
+     remaining problem firmly in request-path performance rather than obvious
+     CPU or memory blow-up.
+   - The old `Resource usage: no per-pass usage artifacts were present.` line
+     turned out to be a parser bug, not a missing-artifact problem: GNU
+     `time -v` prefixes its fields with tabs on hosted Linux. The comparison
+     tool now strips leading whitespace so future summaries surface those
+     resource deltas directly.
 3. This macOS workstation still cannot execute the runtime path itself.
    - Any real kTLS verification or tuning step still has to land through Linux
      hosts or hosted workflow runs.
@@ -267,8 +266,38 @@ The final hosted comparison from run `24773860158` showed:
 - The same comparison bundle now also rolls those deltas up by workload family
   and native runtime thread count, and it correctly parses GNU `time -v`
   elapsed wall-time labels even though that label includes embedded colons.
-  The first read can now answer whether the penalty still clusters around
-  `h2_multiplexed_streams`, `threads=4`, or both.
+  The first read can now answer where the penalty clusters on the latest hosted
+  rerun instead of falling back to stale assumptions.
+
+### Latest Hosted Comparison
+
+The latest hosted rerun landed on commit `706d8b8` as workflow run
+`24865337582` (`kTLS HTTP/2 Benchmarks`). Its artifact bundle showed:
+
+- `h2_multiplexed_streams`, native runtime threads `1`
+  - baseline: `6131.77` Mbps, p95 `40.59` ms
+  - required-kTLS: `4026.53` Mbps, p95 `58.03` ms
+- `h2_multiplexed_streams`, native runtime threads `4`
+  - baseline: `6070.15` Mbps, p95 `38.03` ms
+  - required-kTLS: `4971.03` Mbps, p95 `44.19` ms
+- `h2_sustained_transfer`, native runtime threads `1`
+  - baseline: `4194.30` Mbps, p95 `10.48` ms
+  - required-kTLS: `2995.93` Mbps, p95 `16.99` ms
+- `h2_sustained_transfer`, native runtime threads `4`
+  - baseline: `4194.30` Mbps, p95 `10.70` ms
+  - required-kTLS: `3532.05` Mbps, p95 `15.01` ms
+
+The same rerun also showed:
+
+- CPU total: baseline `28.35s`, required-kTLS `28.99s`, delta `+2.26%`
+- Elapsed wall time: baseline `18.17s`, required-kTLS `18.48s`, delta `+1.71%`
+- Max RSS: baseline `519.98 MiB`, required-kTLS `522.92 MiB`, delta `+0.57%`
+
+The grouped summary shifted the current hotspot away from the old
+`threads=4`-multiplex assumption:
+
+- workload-family hotspot: `h2_sustained_transfer`
+- runtime-thread hotspot: `threads=1`
 
 ### What Not To Overclaim
 
@@ -285,8 +314,9 @@ The final hosted comparison from run `24773860158` showed:
 
 ## Recommended Next Milestone
 
-Keep the current Linux-only prototype stable and use the richer manual
-benchmark path to pick the next real hotspot:
+Keep the current Linux-only prototype stable and use the corrected manual
+benchmark path to target the now-observed hotspot instead of chasing stale
+artifact-format gaps:
 
 - preserve the existing opt-in runtime path and strict Linux validation gate
 - keep secure WAMP coverage as supplemental evidence, but use the HTTP/2
@@ -294,8 +324,9 @@ benchmark path to pick the next real hotspot:
 - keep the generated benchmark artifacts summarizing headline wins, losses,
   worst regressions, grouped workload/runtime hotspots, and CPU / wall-time /
   RSS deltas so one hosted run answers the tuning question directly
-- delay deeper transport tuning until a fresh hosted comparison shows a
-  concrete hotspot worth attacking with those extra signals in hand
+- use the current rerun as the baseline for any deeper Linux-side
+  instrumentation or tuning, with `h2_sustained_transfer` and
+  `native_runtime_threads = 1` as the first concrete hotspots to explain
 
 That is the smallest next milestone that improves decision quality without
 pretending the remaining kTLS work is already a clear runtime bug.
