@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `55f23d3` (`build(ktls): capture http connection usage`)
-Active exec plan: `docs/exec-plans/2026-04-24-h2-phase-timing-hosted-rerun.md`
+Last reviewed commit: `3d85b51` (`build(ktls): capture http2 phase timing`)
+Active exec plan: `docs/exec-plans/2026-04-24-h2-request-path-phase-split.md`
 
 ## Last Known Verification
 
@@ -256,18 +256,37 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-phase-timing-hosted-rerun.md`
   `h2_multiplexed_streams_s16` at `threads=4` is still the worst throughput
   row (`-65.14%`), and `h2_multiplexed_streams_s8` at `threads=4` is still the
   worst p95 row (`+423.24%`).
-- The next bounded kTLS slice is therefore HTTP phase timing, not more
-  connection accounting. The local working tree now records optional HTTP
-  phase-timing samples on the HTTP/2 client path, the transformed artifact
-  summary carries aggregate stream-acquire and request-round-trip timing, and
-  `tool/ktls_http2_compare.py` now renders worst-row phase views plus a
-  dedicated `HTTP Phase Timing` section.
-- Local verification for the phase-timing instrumentation slice is green on
+- That phase-timing instrumentation slice is now complete on the pushed branch
+  head too. Commit `3d85b51` passed hosted push `CI` (`24873599372`),
+  `kTLS Validation` (`24873599375`), and `WAMP Profile Benchmarks`
+  (`24873599379`) before the next focused manual rerun.
+- Manual workflow run `24874338657` then exercised the same focused scenario
+  with the new phase-timing section enabled, and it ruled out stream-slot
+  acquisition as the primary bottleneck:
+  - stream acquire wait stayed effectively flat on the same hotspot rows
+  - worst throughput row:
+    `h2_multiplexed_streams_s4` at `threads=4`
+    (`stream acquire wait avg 0.00 -> 0.00`, `request round trip avg 18.20 -> 31.72`)
+  - worst p95 row:
+    `h2_multiplexed_streams_s8` at `threads=1`
+    (`stream acquire wait p95 0.00 -> 0.12`, `request round trip p95 39.13 -> 70.01`)
+- The next bounded kTLS slice is therefore deeper HTTP/2 request-path
+  diagnostics, not more connection or acquire-wait instrumentation. The next
+  active plan is to split the post-acquire path so the artifacts can show
+  whether the regression is concentrated in request upload, response-header
+  wait, or response-body drain.
+- That deeper request-path split is now implemented on the local working tree
+  too. The HTTP/2 bench path now records request enqueue, response-header
+  wait, and response-body read timing alongside the existing acquire-wait and
+  round-trip timing, and `tool/ktls_http2_compare.py` now renders those new
+  sub-phases in the phase summary.
+- Local verification for the request-path phase-split slice is green on
   2026-04-24: `bin/test-fast`, `cargo test --manifest-path
   native/bench/Cargo.toml -- --nocapture`,
   `python3 -m py_compile tool/ktls_http2_compare.py
   tool/test_ktls_http2_compare.py`,
-  `python3 tool/test_ktls_http2_compare.py`, and `bin/verify`.
+  `python3 tool/test_ktls_http2_compare.py`, a rerender of hosted artifact
+  `24874338657`, and `bin/verify`.
 - Local verification for the current kTLS transport-delta follow-up is green
   on 2026-04-24: `bin/test-fast`,
   `python3 -m py_compile tool/ktls_http2_compare.py

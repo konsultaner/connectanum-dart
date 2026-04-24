@@ -51,6 +51,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         samples_per_connection_avg=8.0,
                         stream_acquire_wait_avg_ms=0.8,
                         stream_acquire_wait_p95_ms=1.4,
+                        request_enqueue_avg_ms=0.6,
+                        request_enqueue_p95_ms=1.1,
+                        response_headers_wait_avg_ms=2.4,
+                        response_headers_wait_p95_ms=4.0,
+                        response_body_read_avg_ms=24.2,
+                        response_body_read_p95_ms=27.4,
                         request_round_trip_avg_ms=27.2,
                         request_round_trip_p95_ms=32.5,
                     ),
@@ -88,6 +94,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         samples_per_connection_avg=6.4,
                         stream_acquire_wait_avg_ms=7.6,
                         stream_acquire_wait_p95_ms=12.1,
+                        request_enqueue_avg_ms=1.9,
+                        request_enqueue_p95_ms=3.3,
+                        response_headers_wait_avg_ms=18.5,
+                        response_headers_wait_p95_ms=29.0,
+                        response_body_read_avg_ms=121.6,
+                        response_body_read_p95_ms=188.0,
                         request_round_trip_avg_ms=142.0,
                         request_round_trip_p95_ms=220.0,
                     ),
@@ -199,6 +211,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                 ]["stream_acquire_wait_avg_ms"]["delta"],
                 6.8,
             )
+            self.assertAlmostEqual(
+                comparison["summary"]["phase_timing_focus"]["worst_throughput_row"][
+                    "metrics"
+                ]["response_body_read_avg_ms"]["delta"],
+                97.4,
+            )
 
             markdown = compare.render_markdown(comparison)
             self.assertIn("## Group Rollups", markdown)
@@ -227,6 +245,7 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("82 -> 97 (+15)", markdown)
             self.assertIn("connections opened 4 -> 5 (+1)", markdown)
             self.assertIn("stream acquire wait avg 0.80 -> 7.60 (+6.80)", markdown)
+            self.assertIn("response body read avg 24.20 -> 121.60 (+97.40)", markdown)
 
     def test_transport_focus_reports_signal_gap_for_hotspot_row(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -343,6 +362,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         samples_per_connection_avg: float = 8.0,
         stream_acquire_wait_avg_ms: float | None = 0.4,
         stream_acquire_wait_p95_ms: float | None = 0.8,
+        request_enqueue_avg_ms: float | None = 0.3,
+        request_enqueue_p95_ms: float | None = 0.5,
+        response_headers_wait_avg_ms: float | None = 1.6,
+        response_headers_wait_p95_ms: float | None = 2.2,
+        response_body_read_avg_ms: float | None = 5.7,
+        response_body_read_p95_ms: float | None = 8.1,
         request_round_trip_avg_ms: float | None = 7.6,
         request_round_trip_p95_ms: float | None = 10.8,
     ) -> dict:
@@ -368,6 +393,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                 else {
                     "stream_acquire_wait_avg_ms": stream_acquire_wait_avg_ms,
                     "stream_acquire_wait_p95_ms": stream_acquire_wait_p95_ms,
+                    "request_enqueue_avg_ms": request_enqueue_avg_ms,
+                    "request_enqueue_p95_ms": request_enqueue_p95_ms,
+                    "response_headers_wait_avg_ms": response_headers_wait_avg_ms,
+                    "response_headers_wait_p95_ms": response_headers_wait_p95_ms,
+                    "response_body_read_avg_ms": response_body_read_avg_ms,
+                    "response_body_read_p95_ms": response_body_read_p95_ms,
                     "request_round_trip_avg_ms": request_round_trip_avg_ms,
                     "request_round_trip_p95_ms": request_round_trip_p95_ms,
                 }

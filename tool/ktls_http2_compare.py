@@ -61,6 +61,12 @@ CONNECTION_USAGE_SUMMARY_KEYS = (
 PHASE_TIMING_SUMMARY_KEYS = (
     ("stream_acquire_wait_avg_ms", "Stream acquire wait avg"),
     ("stream_acquire_wait_p95_ms", "Stream acquire wait p95"),
+    ("request_enqueue_avg_ms", "Request enqueue avg"),
+    ("request_enqueue_p95_ms", "Request enqueue p95"),
+    ("response_headers_wait_avg_ms", "Response headers wait avg"),
+    ("response_headers_wait_p95_ms", "Response headers wait p95"),
+    ("response_body_read_avg_ms", "Response body read avg"),
+    ("response_body_read_p95_ms", "Response body read p95"),
     ("request_round_trip_avg_ms", "Request round trip avg"),
     ("request_round_trip_p95_ms", "Request round trip p95"),
 )
@@ -828,8 +834,9 @@ def render_phase_timing_focus_line(name: str, focus: dict | None) -> str:
     return (
         f"- {name}: {focus['label']} shows "
         f"stream acquire wait avg {render_connection_metric_snapshot(metrics['stream_acquire_wait_avg_ms'])}, "
-        f"stream acquire wait p95 {render_connection_metric_snapshot(metrics['stream_acquire_wait_p95_ms'])}, "
-        f"request round trip avg {render_connection_metric_snapshot(metrics['request_round_trip_avg_ms'])}, "
+        f"request enqueue avg {render_connection_metric_snapshot(metrics['request_enqueue_avg_ms'])}, "
+        f"response headers wait avg {render_connection_metric_snapshot(metrics['response_headers_wait_avg_ms'])}, "
+        f"response body read avg {render_connection_metric_snapshot(metrics['response_body_read_avg_ms'])}, "
         f"request round trip p95 {render_connection_metric_snapshot(metrics['request_round_trip_p95_ms'])}."
     )
 
@@ -1323,8 +1330,8 @@ def render_markdown(comparison: dict) -> str:
         [
             "## HTTP Phase Timing",
             "",
-            "| Workload | Router workers | Native runtime threads | Stream acquire wait avg ms | Stream acquire wait p95 ms | Request round trip avg ms | Request round trip p95 ms |",
-            "| --- | ---: | ---: | --- | --- | --- | --- |",
+            "| Workload | Router workers | Native runtime threads | Stream acquire wait avg ms | Request enqueue avg ms | Response headers wait avg ms | Response body read avg ms | Request round trip avg ms | Request round trip p95 ms |",
+            "| --- | ---: | ---: | --- | --- | --- | --- | --- | --- |",
         ]
     )
 
@@ -1336,15 +1343,21 @@ def render_markdown(comparison: dict) -> str:
         has_phase_rows = True
         metrics = phase_timing["metrics"]
         lines.append(
-            "| {workload} | {router_workers} | {native_runtime_threads} | {stream_acquire_wait_avg_ms} | {stream_acquire_wait_p95_ms} | {request_round_trip_avg_ms} | {request_round_trip_p95_ms} |".format(
+            "| {workload} | {router_workers} | {native_runtime_threads} | {stream_acquire_wait_avg_ms} | {request_enqueue_avg_ms} | {response_headers_wait_avg_ms} | {response_body_read_avg_ms} | {request_round_trip_avg_ms} | {request_round_trip_p95_ms} |".format(
                 workload=row["workload"],
                 router_workers=row["router_workers"],
                 native_runtime_threads=row["native_runtime_threads"],
                 stream_acquire_wait_avg_ms=render_connection_metric_snapshot(
                     metrics["stream_acquire_wait_avg_ms"]
                 ),
-                stream_acquire_wait_p95_ms=render_connection_metric_snapshot(
-                    metrics["stream_acquire_wait_p95_ms"]
+                request_enqueue_avg_ms=render_connection_metric_snapshot(
+                    metrics["request_enqueue_avg_ms"]
+                ),
+                response_headers_wait_avg_ms=render_connection_metric_snapshot(
+                    metrics["response_headers_wait_avg_ms"]
+                ),
+                response_body_read_avg_ms=render_connection_metric_snapshot(
+                    metrics["response_body_read_avg_ms"]
                 ),
                 request_round_trip_avg_ms=render_connection_metric_snapshot(
                     metrics["request_round_trip_avg_ms"]
@@ -1356,7 +1369,7 @@ def render_markdown(comparison: dict) -> str:
         )
 
     if not has_phase_rows:
-        lines.append("| No HTTP phase timing metrics | n/a | n/a | n/a | n/a | n/a | n/a |")
+        lines.append("| No HTTP phase timing metrics | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
 
     lines.append("")
 

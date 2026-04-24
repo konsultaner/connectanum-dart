@@ -22,6 +22,9 @@ pub struct HttpConnectionUsage {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct HttpPhaseTimingSample {
     pub stream_acquire_wait_ms: f64,
+    pub request_enqueue_ms: f64,
+    pub response_headers_wait_ms: f64,
+    pub response_body_read_ms: f64,
     pub request_round_trip_ms: f64,
 }
 
@@ -29,6 +32,12 @@ pub struct HttpPhaseTimingSample {
 pub struct HttpPhaseTimingSummary {
     pub stream_acquire_wait_avg_ms: f64,
     pub stream_acquire_wait_p95_ms: f64,
+    pub request_enqueue_avg_ms: f64,
+    pub request_enqueue_p95_ms: f64,
+    pub response_headers_wait_avg_ms: f64,
+    pub response_headers_wait_p95_ms: f64,
+    pub response_body_read_avg_ms: f64,
+    pub response_body_read_p95_ms: f64,
     pub request_round_trip_avg_ms: f64,
     pub request_round_trip_p95_ms: f64,
 }

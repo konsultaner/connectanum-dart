@@ -1,6 +1,6 @@
 # HTTP/2 Phase Timing Hosted Rerun
 
-Status: in_progress
+Status: completed
 
 ## Context
 
@@ -48,3 +48,26 @@ Status: in_progress
 - `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
 - `python3 tool/test_ktls_http2_compare.py`
 - `bin/verify`
+
+## Outcome
+
+- Commit `3d85b51` (`build(ktls): capture http2 phase timing`) cleared the
+  hosted push chain:
+  - `CI` `24873599372`
+  - `kTLS Validation` `24873599375`
+  - `WAMP Profile Benchmarks` `24873599379`
+- Manual hosted run `24874338657` (`kTLS HTTP/2 Benchmarks`) then reran
+  `native/bench/scenarios/h2_ktls_multiplex_scaling.toml` on that clean head.
+- The new phase-timing section ruled out stream-slot acquisition as the main
+  regression source:
+  - worst throughput row:
+    `h2_multiplexed_streams_s4` at `threads=4` held
+    `stream acquire wait avg 0.00 -> 0.00 (+0.00)` while
+    `request round trip avg 18.20 -> 31.72 (+13.53)`
+  - worst p95 row:
+    `h2_multiplexed_streams_s8` at `threads=1` held
+    `stream acquire wait p95 0.00 -> 0.12 (+0.12)` while
+    `request round trip p95 39.13 -> 70.01 (+30.88)`
+- The next bounded diagnostic slice is therefore deeper HTTP/2 request-path
+  timing so the hosted artifacts can separate request upload, response-header
+  wait, and response-body drain.

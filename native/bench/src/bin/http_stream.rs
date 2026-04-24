@@ -1523,6 +1523,19 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
                 phase_timing.stream_acquire_wait_avg_ms, phase_timing.stream_acquire_wait_p95_ms
             );
             println!(
+                "  HTTP request enqueue avg/p95: {:.2} / {:.2} ms",
+                phase_timing.request_enqueue_avg_ms, phase_timing.request_enqueue_p95_ms
+            );
+            println!(
+                "  HTTP response headers wait avg/p95: {:.2} / {:.2} ms",
+                phase_timing.response_headers_wait_avg_ms,
+                phase_timing.response_headers_wait_p95_ms
+            );
+            println!(
+                "  HTTP response body read avg/p95: {:.2} / {:.2} ms",
+                phase_timing.response_body_read_avg_ms, phase_timing.response_body_read_p95_ms
+            );
+            println!(
                 "  HTTP request round trip avg/p95: {:.2} / {:.2} ms",
                 phase_timing.request_round_trip_avg_ms, phase_timing.request_round_trip_p95_ms
             );
@@ -1560,6 +1573,21 @@ fn summarize_http_phase_timing(
         return None;
     }
 
+    let mut request_enqueue_times = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .map(|timing| timing.request_enqueue_ms)
+        .collect::<Vec<_>>();
+    let mut response_headers_waits = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .map(|timing| timing.response_headers_wait_ms)
+        .collect::<Vec<_>>();
+    let mut response_body_reads = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .map(|timing| timing.response_body_read_ms)
+        .collect::<Vec<_>>();
     let mut request_round_trips = samples
         .iter()
         .filter_map(|sample| sample.http_phase_timing.as_ref())
@@ -1567,6 +1595,9 @@ fn summarize_http_phase_timing(
         .collect::<Vec<_>>();
 
     stream_acquire_waits.sort_by(|left, right| left.total_cmp(right));
+    request_enqueue_times.sort_by(|left, right| left.total_cmp(right));
+    response_headers_waits.sort_by(|left, right| left.total_cmp(right));
+    response_body_reads.sort_by(|left, right| left.total_cmp(right));
     request_round_trips.sort_by(|left, right| left.total_cmp(right));
 
     Some(
@@ -1574,6 +1605,15 @@ fn summarize_http_phase_timing(
             stream_acquire_wait_avg_ms: stream_acquire_waits.iter().sum::<f64>()
                 / stream_acquire_waits.len() as f64,
             stream_acquire_wait_p95_ms: percentile(&stream_acquire_waits, 0.95),
+            request_enqueue_avg_ms: request_enqueue_times.iter().sum::<f64>()
+                / request_enqueue_times.len() as f64,
+            request_enqueue_p95_ms: percentile(&request_enqueue_times, 0.95),
+            response_headers_wait_avg_ms: response_headers_waits.iter().sum::<f64>()
+                / response_headers_waits.len() as f64,
+            response_headers_wait_p95_ms: percentile(&response_headers_waits, 0.95),
+            response_body_read_avg_ms: response_body_reads.iter().sum::<f64>()
+                / response_body_reads.len() as f64,
+            response_body_read_p95_ms: percentile(&response_body_reads, 0.95),
             request_round_trip_avg_ms: request_round_trips.iter().sum::<f64>()
                 / request_round_trips.len() as f64,
             request_round_trip_p95_ms: percentile(&request_round_trips, 0.95),
@@ -3934,6 +3974,7 @@ async fn send_h2_request(
     let stream_acquire_wait_ms = ready_start.elapsed().as_secs_f64() * 1000.0;
     let request = build_h2_request(endpoint, workload)?;
     let start = Instant::now();
+    let request_enqueue_start = Instant::now();
     let end_stream = request_body.is_empty();
     let (response, mut send_stream) = sender
         .send_request(request, end_stream)
@@ -3949,8 +3990,14 @@ async fn send_h2_request(
                 .context("failed to send HTTP/2 request body")?;
         }
     }
+    let request_enqueue_ms = request_enqueue_start.elapsed().as_secs_f64() * 1000.0;
 
-    let received = drain_h2_response(response.await.context("failed to receive response")?).await?;
+    let response_headers_start = Instant::now();
+    let response = response.await.context("failed to receive response")?;
+    let response_headers_wait_ms = response_headers_start.elapsed().as_secs_f64() * 1000.0;
+    let response_body_start = Instant::now();
+    let received = drain_h2_response(response).await?;
+    let response_body_read_ms = response_body_start.elapsed().as_secs_f64() * 1000.0;
     let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
     Ok(WorkloadSample {
         worker: worker_id,
@@ -3960,6 +4007,9 @@ async fn send_h2_request(
         response_bytes: received,
         http_phase_timing: Some(HttpPhaseTimingSample {
             stream_acquire_wait_ms,
+            request_enqueue_ms,
+            response_headers_wait_ms,
+            response_body_read_ms,
             request_round_trip_ms: latency_ms,
         }),
     })

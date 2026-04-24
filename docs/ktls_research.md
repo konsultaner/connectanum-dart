@@ -410,6 +410,42 @@ the transport counters or the connection section could answer:
 whether the remaining hotspot is dominated by stream-slot acquisition or by
 the post-acquire request round trip.
 
+### Hosted Phase Timing Result
+
+That rerun has now landed as workflow run `24874338657` on commit `3d85b51`,
+and it closed the stream-acquire hypothesis:
+
+- stream acquire wait stayed effectively flat on the same hotspot rows:
+  - worst throughput row:
+    `h2_multiplexed_streams_s4`, `threads=4`
+    (`stream acquire wait avg 0.00 -> 0.00`, `stream acquire wait p95 0.00 -> 0.00`)
+  - worst p95 row:
+    `h2_multiplexed_streams_s8`, `threads=1`
+    (`stream acquire wait avg 0.01 -> 0.01`, `stream acquire wait p95 0.00 -> 0.12`)
+- the visible regression sits in the post-acquire request path instead:
+  - worst throughput row:
+    `h2_multiplexed_streams_s4`, `threads=4`
+    (`request round trip avg 18.20 -> 31.72`, `request round trip p95 27.11 -> 29.99`)
+  - worst p95 row:
+    `h2_multiplexed_streams_s8`, `threads=1`
+    (`request round trip avg 32.49 -> 49.68`, `request round trip p95 39.13 -> 70.01`)
+
+That means the next useful instrumentation slice is inside the HTTP/2 request
+path itself, not in connection reuse or stream-slot acquisition.
+
+### Request-Path Phase Split Instrumentation
+
+That next visibility slice is now landed locally too:
+
+- the HTTP/2 bench path now records request enqueue timing
+- it separately records response-header wait and response-body drain timing
+- the comparison helper now renders those deeper request-path sub-phases in
+  the `HTTP Phase Timing` section and worst-row phase views
+
+That sets up the next hosted rerun to answer the remaining narrow question:
+whether the post-acquire regression is concentrated in request upload,
+response-header wait, or response-body drain.
+
 ### What Not To Overclaim
 
 - macOS results are irrelevant for kTLS itself.
@@ -447,10 +483,10 @@ blind generic instrumentation:
   `native/bench/scenarios/h2_ktls_multiplex_scaling.toml` for the next hosted
   rerun, with an explicit scenario policy once thresholds are understood or
   `skip_artifact_gate=true` while the run is still purely investigative
-- rerun the focused multiplex-scaling workflow on a clean head with the new
-  phase-timing section enabled, then use that output to decide whether the
-  next slice should target stream-slot acquisition, deeper Linux-side runtime
-  instrumentation, or an HTTP/2 request-path hypothesis
+- rerun the focused multiplex-scaling workflow on a clean head with a deeper
+  HTTP/2 request-path split so the comparison can separate request upload,
+  response-header wait, and response-body drain inside the already-confirmed
+  post-acquire regression path
 
 That is the smallest next milestone that improves decision quality without
 pretending the remaining kTLS work is already a clear runtime bug.

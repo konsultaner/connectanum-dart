@@ -777,6 +777,21 @@ fn summarize_http_phase_timing(
         return None;
     }
 
+    let mut request_enqueue_times = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .map(|timing| timing.request_enqueue_ms)
+        .collect::<Vec<_>>();
+    let mut response_headers_waits = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .map(|timing| timing.response_headers_wait_ms)
+        .collect::<Vec<_>>();
+    let mut response_body_reads = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .map(|timing| timing.response_body_read_ms)
+        .collect::<Vec<_>>();
     let mut request_round_trips = samples
         .iter()
         .filter_map(|sample| sample.http_phase_timing.as_ref())
@@ -784,16 +799,31 @@ fn summarize_http_phase_timing(
         .collect::<Vec<_>>();
 
     stream_acquire_waits.sort_by(|left, right| left.total_cmp(right));
+    request_enqueue_times.sort_by(|left, right| left.total_cmp(right));
+    response_headers_waits.sort_by(|left, right| left.total_cmp(right));
+    response_body_reads.sort_by(|left, right| left.total_cmp(right));
     request_round_trips.sort_by(|left, right| left.total_cmp(right));
 
     let stream_acquire_wait_avg_ms =
         stream_acquire_waits.iter().sum::<f64>() / stream_acquire_waits.len() as f64;
+    let request_enqueue_avg_ms =
+        request_enqueue_times.iter().sum::<f64>() / request_enqueue_times.len() as f64;
+    let response_headers_wait_avg_ms =
+        response_headers_waits.iter().sum::<f64>() / response_headers_waits.len() as f64;
+    let response_body_read_avg_ms =
+        response_body_reads.iter().sum::<f64>() / response_body_reads.len() as f64;
     let request_round_trip_avg_ms =
         request_round_trips.iter().sum::<f64>() / request_round_trips.len() as f64;
 
     Some(HttpPhaseTimingSummary {
         stream_acquire_wait_avg_ms,
         stream_acquire_wait_p95_ms: percentile(&stream_acquire_waits, 0.95),
+        request_enqueue_avg_ms,
+        request_enqueue_p95_ms: percentile(&request_enqueue_times, 0.95),
+        response_headers_wait_avg_ms,
+        response_headers_wait_p95_ms: percentile(&response_headers_waits, 0.95),
+        response_body_read_avg_ms,
+        response_body_read_p95_ms: percentile(&response_body_reads, 0.95),
         request_round_trip_avg_ms,
         request_round_trip_p95_ms: percentile(&request_round_trips, 0.95),
     })
@@ -1413,6 +1443,9 @@ mod tests {
                     response_bytes: 200,
                     http_phase_timing: Some(HttpPhaseTimingSample {
                         stream_acquire_wait_ms: 1.0,
+                        request_enqueue_ms: 2.0,
+                        response_headers_wait_ms: 3.0,
+                        response_body_read_ms: 4.0,
                         request_round_trip_ms: 9.0,
                     }),
                 },
@@ -1424,6 +1457,9 @@ mod tests {
                     response_bytes: 400,
                     http_phase_timing: Some(HttpPhaseTimingSample {
                         stream_acquire_wait_ms: 3.0,
+                        request_enqueue_ms: 4.0,
+                        response_headers_wait_ms: 5.0,
+                        response_body_read_ms: 8.0,
                         request_round_trip_ms: 17.0,
                     }),
                 },
@@ -1435,6 +1471,9 @@ mod tests {
                     response_bytes: 600,
                     http_phase_timing: Some(HttpPhaseTimingSample {
                         stream_acquire_wait_ms: 5.0,
+                        request_enqueue_ms: 6.0,
+                        response_headers_wait_ms: 7.0,
+                        response_body_read_ms: 12.0,
                         request_round_trip_ms: 25.0,
                     }),
                 },
@@ -1498,6 +1537,12 @@ mod tests {
         let phase_timing = summary.http_phase_timing.unwrap();
         assert!((phase_timing.stream_acquire_wait_avg_ms - 3.0).abs() < f64::EPSILON);
         assert!((phase_timing.stream_acquire_wait_p95_ms - 5.0).abs() < f64::EPSILON);
+        assert!((phase_timing.request_enqueue_avg_ms - 4.0).abs() < f64::EPSILON);
+        assert!((phase_timing.request_enqueue_p95_ms - 6.0).abs() < f64::EPSILON);
+        assert!((phase_timing.response_headers_wait_avg_ms - 5.0).abs() < f64::EPSILON);
+        assert!((phase_timing.response_headers_wait_p95_ms - 7.0).abs() < f64::EPSILON);
+        assert!((phase_timing.response_body_read_avg_ms - 8.0).abs() < f64::EPSILON);
+        assert!((phase_timing.response_body_read_p95_ms - 12.0).abs() < f64::EPSILON);
         assert!((phase_timing.request_round_trip_avg_ms - 17.0).abs() < f64::EPSILON);
         assert!((phase_timing.request_round_trip_p95_ms - 25.0).abs() < f64::EPSILON);
         assert!((summary.latency_avg_ms - 20.0).abs() < f64::EPSILON);
