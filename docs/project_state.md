@@ -2,16 +2,15 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `a12227d` (`build(bench): await direct stream completion metrics`)
-Active exec plan: `docs/exec-plans/2026-04-24-h2-stream-open-to-headers-send-hosted-rerun.md`
+Last reviewed commit: `fbc5566` (`build(ktls): capture http2 header dispatch timing`)
+Active exec plan: `docs/exec-plans/2026-04-24-h2-direct-stream-open-path-hosted-rerun.md`
 
 ## Last Known Verification
 
 - `bin/test-fast`
 - `dart analyze packages/connectanum_router packages/connectanum_bench`
+- `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
 - `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
-- `cargo test --manifest-path native/transport/ct_ffi/Cargo.toml http2_response_streaming_round_trip -- --nocapture`
-- `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
 - `python3 tool/test_ktls_http2_compare.py`
 - `bin/verify`
 
@@ -519,10 +518,38 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-stream-open-to-headers-send-hos
     - `native headers-to-first-chunk-dequeue avg 5.93 -> 8.59 (+2.66)`
     - `native first chunk send call avg 0.32 -> 0.87 (+0.54)`
     - `native headers-to-first-chunk-send-call avg 6.26 -> 9.46 (+3.20)`
-- The current local working tree now carries the next bounded diagnostic slice:
-  native response-stream metrics now capture `stream_open_to_headers_send` and
-  `headers_send_call`, and the bench artifact/comparison path renders those
-  values in `http_native_response_stream_timing`.
+- The next bounded diagnostic slice is now pushed too. Commit `fbc5566` is on
+  both `origin` and `github`, and the visible GitHub push chain completed:
+  - `CI` `24888660106`
+  - `kTLS Validation` `24888660101`
+  - `WAMP Profile Benchmarks` `24888660111`
+- GitLab has not surfaced a pipeline for `fbc5566` through the current
+  token-backed query.
+- That checkpoint adds native response-stream header-dispatch timing:
+  `stream_open_to_headers_send` plus `headers_send_call`, threaded through the
+  router metrics snapshot, native bench artifact summaries, and comparison
+  output as part of `http_native_response_stream_timing`.
+- Manual hosted rerun `24889688795` then completed successfully on `fbc5566`
+  and showed the remaining hotspot is not inside the header-send call:
+  - worst throughput and p95 row:
+    `h2_multiplexed_streams_s8`, `threads=1`
+    - `response headers wait avg 26.45 -> 41.65 (+15.20)`
+    - `server stream open avg 14.09 -> 18.45 (+4.36)`
+    - `native stream-open-to-headers-send avg 0.09 -> 0.63 (+0.54)`
+    - `native headers send call avg 0.00 -> 0.00 (-0.00)`
+    - `native headers-to-first-chunk-dequeue avg 7.85 -> 12.43 (+4.59)`
+- The current local working tree now carries the next bounded metric slice for
+  the direct-stream open path:
+  - bench-side `direct_stream_open_round_trip`
+  - bench-side `direct_stream_descriptor_open_call`
+  - comparison rendering for both values in `HTTP Server Emission Timing`
+- Local verification for the current direct-stream open-path slice is green on
+  2026-04-24: `bin/test-fast`, `dart analyze packages/connectanum_router
+  packages/connectanum_bench`, `dart test
+  packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`,
+  `cargo test --manifest-path native/bench/Cargo.toml
+  summarize_report_computes_latency_and_deltas -- --nocapture`,
+  `python3 tool/test_ktls_http2_compare.py`, and `bin/verify`.
 - Local verification for that stream-open-to-headers-send slice is green on
   2026-04-24: `bin/test-fast`, `cargo test --manifest-path
   native/bench/Cargo.toml summarize_report_computes_latency_and_deltas --

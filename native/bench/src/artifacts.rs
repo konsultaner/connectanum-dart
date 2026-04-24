@@ -985,6 +985,20 @@ fn summarize_http_server_emission_timing(
     )
     .unwrap_or(0)
     .max(0) as u64;
+    let direct_stream_open_round_trip_samples_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "direct_stream_open_round_trip_samples_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let direct_stream_descriptor_open_call_samples_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "direct_stream_descriptor_open_call_samples_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
     let handler_samples_total = bench_http_stream_counter_delta(
         &report.metrics_before,
         &report.metrics_after,
@@ -1063,6 +1077,20 @@ fn summarize_http_server_emission_timing(
     )
     .unwrap_or(0)
     .max(0) as u64;
+    let direct_stream_open_round_trip_us_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "direct_stream_open_round_trip_us_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let direct_stream_descriptor_open_call_us_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "direct_stream_descriptor_open_call_us_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
     let handler_us_total = bench_http_stream_counter_delta(
         &report.metrics_before,
         &report.metrics_after,
@@ -1115,6 +1143,14 @@ fn summarize_http_server_emission_timing(
         first_body_write_call_avg_ms: average_microseconds_to_millis(
             first_body_write_call_us_total,
             first_body_write_call_samples_total,
+        ),
+        direct_stream_open_round_trip_avg_ms: average_microseconds_to_millis(
+            direct_stream_open_round_trip_us_total,
+            direct_stream_open_round_trip_samples_total,
+        ),
+        direct_stream_descriptor_open_call_avg_ms: average_microseconds_to_millis(
+            direct_stream_descriptor_open_call_us_total,
+            direct_stream_descriptor_open_call_samples_total,
         ),
         handler_avg_ms: average_microseconds_to_millis(handler_us_total, handler_samples_total),
     })
@@ -1915,6 +1951,8 @@ mod tests {
                     "queue_to_first_body_write_samples_total": 2,
                     "queue_to_first_body_write_completed_samples_total": 2,
                     "first_body_write_call_samples_total": 2,
+                    "direct_stream_open_round_trip_samples_total": 2,
+                    "direct_stream_descriptor_open_call_samples_total": 2,
                     "handler_samples_total": 2,
                     "request_body_drain_us_total": 4000,
                     "stream_open_us_total": 9000,
@@ -1926,6 +1964,8 @@ mod tests {
                     "queue_to_first_body_write_us_total": 3000,
                     "queue_to_first_body_write_completed_us_total": 5000,
                     "first_body_write_call_us_total": 2000,
+                    "direct_stream_open_round_trip_us_total": 3000,
+                    "direct_stream_descriptor_open_call_us_total": 1000,
                     "handler_us_total": 18000,
                 })),
             ),
@@ -1989,6 +2029,8 @@ mod tests {
                     "queue_to_first_body_write_samples_total": 5,
                     "queue_to_first_body_write_completed_samples_total": 5,
                     "first_body_write_call_samples_total": 5,
+                    "direct_stream_open_round_trip_samples_total": 5,
+                    "direct_stream_descriptor_open_call_samples_total": 5,
                     "handler_samples_total": 5,
                     "request_body_drain_us_total": 16000,
                     "stream_open_us_total": 30000,
@@ -2000,6 +2042,8 @@ mod tests {
                     "queue_to_first_body_write_us_total": 12000,
                     "queue_to_first_body_write_completed_us_total": 18000,
                     "first_body_write_call_us_total": 6000,
+                    "direct_stream_open_round_trip_us_total": 15000,
+                    "direct_stream_descriptor_open_call_us_total": 7000,
                     "handler_us_total": 60000,
                 })),
             ),
@@ -2233,6 +2277,11 @@ mod tests {
                 < f64::EPSILON
         );
         assert!((server_timing.first_body_write_call_avg_ms - (4.0 / 3.0)).abs() < f64::EPSILON);
+        assert!((server_timing.direct_stream_open_round_trip_avg_ms - 4.0).abs() < f64::EPSILON);
+        assert!(
+            (server_timing.direct_stream_descriptor_open_call_avg_ms - 2.0).abs()
+                < f64::EPSILON
+        );
         assert!((server_timing.handler_avg_ms - 14.0).abs() < f64::EPSILON);
         let native_stream_timing = summary.http_native_response_stream_timing.unwrap();
         assert_eq!(native_stream_timing.streaming_responses_total, 3);

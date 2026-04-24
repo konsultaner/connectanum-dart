@@ -490,6 +490,7 @@ class RouterSession {
         replyPort.send(const {'error': 'pending_http_request_not_found'});
         return;
       }
+      final openStopwatch = Stopwatch()..start();
       final descriptor = binding._openDirectResponseStream(
         pending,
         status: status,
@@ -501,6 +502,7 @@ class RouterSession {
       }
       replyPort.send({
         'handle': descriptor.handle,
+        'descriptorOpenUs': openStopwatch.elapsedMicroseconds,
         if (descriptor.libraryPath != null)
           'libraryPath': descriptor.libraryPath,
       });

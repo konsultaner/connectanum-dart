@@ -79,6 +79,8 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         server_queue_to_first_body_write_avg_ms=0.3,
                         server_queue_to_first_body_write_completed_avg_ms=0.6,
                         server_first_body_write_call_avg_ms=0.3,
+                        server_direct_stream_open_round_trip_avg_ms=1.5,
+                        server_direct_stream_descriptor_open_call_avg_ms=0.4,
                         server_handler_avg_ms=4.0,
                         native_streaming_responses_total=32,
                         native_stream_open_to_headers_send_avg_ms=1.2,
@@ -159,6 +161,8 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         server_queue_to_first_body_write_avg_ms=3.0,
                         server_queue_to_first_body_write_completed_avg_ms=3.8,
                         server_first_body_write_call_avg_ms=0.8,
+                        server_direct_stream_open_round_trip_avg_ms=5.0,
+                        server_direct_stream_descriptor_open_call_avg_ms=1.1,
                         server_handler_avg_ms=12.0,
                         native_streaming_responses_total=32,
                         native_stream_open_to_headers_send_avg_ms=8.2,
@@ -334,6 +338,18 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                 0.5,
             )
             self.assertAlmostEqual(
+                comparison["summary"]["server_emission_focus"]["worst_throughput_row"][
+                    "metrics"
+                ]["direct_stream_open_round_trip_avg_ms"]["delta"],
+                3.5,
+            )
+            self.assertAlmostEqual(
+                comparison["summary"]["server_emission_focus"]["worst_throughput_row"][
+                    "metrics"
+                ]["direct_stream_descriptor_open_call_avg_ms"]["delta"],
+                0.7,
+            )
+            self.assertAlmostEqual(
                 comparison["summary"]["native_response_stream_focus"][
                     "worst_throughput_row"
                 ]["metrics"]["stream_open_to_headers_send_avg_ms"]["delta"],
@@ -372,6 +388,7 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("## HTTP Phase Timing", markdown)
             self.assertIn("## HTTP Response-Body Diagnostics", markdown)
             self.assertIn("## HTTP Server Emission Timing", markdown)
+            self.assertIn("Direct stream open round trip avg ms", markdown)
             self.assertIn("## HTTP Native Response-Stream Timing", markdown)
             self.assertIn("## HTTP Native Response-Stream Slow Paths", markdown)
             self.assertIn("## Linux TLS Stats", markdown)
@@ -577,6 +594,8 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         server_queue_to_first_body_write_avg_ms: float | None = 0.4,
         server_queue_to_first_body_write_completed_avg_ms: float | None = 0.7,
         server_first_body_write_call_avg_ms: float | None = 0.3,
+        server_direct_stream_open_round_trip_avg_ms: float | None = 1.5,
+        server_direct_stream_descriptor_open_call_avg_ms: float | None = 0.4,
         server_handler_avg_ms: float | None = 4.0,
         native_streaming_responses_total: int | None = 16,
         native_stream_open_to_headers_send_avg_ms: float | None = 1.0,
@@ -653,6 +672,8 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "queue_to_first_body_write_avg_ms": server_queue_to_first_body_write_avg_ms,
                     "queue_to_first_body_write_completed_avg_ms": server_queue_to_first_body_write_completed_avg_ms,
                     "first_body_write_call_avg_ms": server_first_body_write_call_avg_ms,
+                    "direct_stream_open_round_trip_avg_ms": server_direct_stream_open_round_trip_avg_ms,
+                    "direct_stream_descriptor_open_call_avg_ms": server_direct_stream_descriptor_open_call_avg_ms,
                     "handler_avg_ms": server_handler_avg_ms,
                 }
             ),

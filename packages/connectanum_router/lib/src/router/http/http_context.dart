@@ -547,6 +547,8 @@ class HttpInvocationContext {
     void Function()? onStreamOpened,
     void Function()? onFirstBodyWrite,
     void Function()? onFirstBodyWriteCompleted,
+    void Function(Duration duration)? onDirectStreamOpenRoundTrip,
+    void Function(Duration duration)? onDirectStreamDescriptorOpenCall,
   }) {
     return HttpResponseStream._(
       invocation: invocation,
@@ -556,6 +558,8 @@ class HttpInvocationContext {
       onStreamOpened: onStreamOpened,
       onFirstBodyWrite: onFirstBodyWrite,
       onFirstBodyWriteCompleted: onFirstBodyWriteCompleted,
+      onDirectStreamOpenRoundTrip: onDirectStreamOpenRoundTrip,
+      onDirectStreamDescriptorOpenCall: onDirectStreamDescriptorOpenCall,
       responseStreamControlPort:
           invocation.details.custom[HttpInvocationKeys
                   .responseStreamControlPort]
@@ -573,6 +577,8 @@ class HttpResponseStream {
     void Function()? onStreamOpened,
     void Function()? onFirstBodyWrite,
     void Function()? onFirstBodyWriteCompleted,
+    void Function(Duration duration)? onDirectStreamOpenRoundTrip,
+    void Function(Duration duration)? onDirectStreamDescriptorOpenCall,
     SendPort? responseStreamControlPort,
   }) : headers = Map.unmodifiable(headers),
        _onStreamOpened = onStreamOpened,
@@ -587,6 +593,8 @@ class HttpResponseStream {
             onStreamOpened: onStreamOpened,
             onFirstBodyWrite: onFirstBodyWrite,
             onFirstBodyWriteCompleted: onFirstBodyWriteCompleted,
+            onDirectStreamOpenRoundTrip: onDirectStreamOpenRoundTrip,
+            onDirectStreamDescriptorOpenCall: onDirectStreamDescriptorOpenCall,
             controlPort: responseStreamControlPort,
             onFallbackProgress: (chunk) {
               final payload = HttpResponsePayload._(
@@ -726,6 +734,8 @@ class _DirectHttpResponseStreamController {
     this.onStreamOpened,
     this.onFirstBodyWrite,
     this.onFirstBodyWriteCompleted,
+    this.onDirectStreamOpenRoundTrip,
+    this.onDirectStreamDescriptorOpenCall,
     required this.controlPort,
     required this.onFallbackProgress,
     required this.onFallbackClose,
@@ -739,6 +749,8 @@ class _DirectHttpResponseStreamController {
   final void Function()? onStreamOpened;
   final void Function()? onFirstBodyWrite;
   final void Function()? onFirstBodyWriteCompleted;
+  final void Function(Duration duration)? onDirectStreamOpenRoundTrip;
+  final void Function(Duration duration)? onDirectStreamDescriptorOpenCall;
   final SendPort controlPort;
   final void Function(Uint8List chunk) onFallbackProgress;
   final void Function(Uint8List? finalChunk) onFallbackClose;
@@ -846,6 +858,7 @@ class _DirectHttpResponseStreamController {
 
   Future<NativeHttpResponseStream?> _openStream() async {
     final replyPort = ReceivePort();
+    final roundTripStopwatch = Stopwatch()..start();
     try {
       controlPort.send({
         'type': HttpInvocationControlMessages.openResponseStream,
@@ -861,6 +874,13 @@ class _DirectHttpResponseStreamController {
       final handle = response['handle'];
       if (handle is! int || handle <= 0) {
         return null;
+      }
+      onDirectStreamOpenRoundTrip?.call(roundTripStopwatch.elapsed);
+      final descriptorOpenUs = response['descriptorOpenUs'];
+      if (descriptorOpenUs is int && descriptorOpenUs >= 0) {
+        onDirectStreamDescriptorOpenCall?.call(
+          Duration(microseconds: descriptorOpenUs),
+        );
       }
       return NativeHttpResponseStream.borrowed(
         handle: handle,

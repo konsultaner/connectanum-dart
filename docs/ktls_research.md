@@ -747,6 +747,40 @@ The next hosted rerun should therefore answer the narrower question that now
 matters: whether the remaining response-header regression opens before
 `send_response(...)` returns, inside that call, or only after that boundary.
 
+### Hosted Stream-Open to Headers-Send Result
+
+That rerun has now landed as workflow run `24889688795` on clean head
+`fbc5566`, and it narrowed the hotspot again:
+
+- worst throughput and p95 row:
+  `h2_multiplexed_streams_s8`, `threads=1`
+  - `response headers wait avg 26.45 -> 41.65 (+15.20)`
+  - `server stream open avg 14.09 -> 18.45 (+4.36)`
+  - `native stream-open-to-headers-send avg 0.09 -> 0.63 (+0.54)`
+  - `native headers send call avg 0.00 -> 0.00 (-0.00)`
+  - `native headers-to-first-chunk-dequeue avg 7.85 -> 12.43 (+4.59)`
+
+That means the current regression is not inside `send_response(...)`.
+The remaining blind spot is the direct-stream open path before the native
+header-dispatch timing even starts.
+
+### Direct-Stream Open Path Split
+
+The current local slice adds the minimum new signal needed to split that path:
+
+- `HttpResponseStream` now records direct-stream open control round-trip time
+  from control message send to descriptor reply
+- the router-side control reply now includes `descriptorOpenUs`, measured
+  around `_openDirectResponseStream(...)`
+- `packages/connectanum_bench` aggregates both values into
+  `http_server_emission_timing`
+- `tool/ktls_http2_compare.py` now renders them in the server-emission focus
+  lines and timing table
+
+The next hosted rerun should therefore answer the new bounded question that
+matters: whether the remaining `stream_open` regression is mostly control-port
+round-trip overhead or the descriptor-open call itself.
+
 ### What Not To Overclaim
 
 - macOS results are irrelevant for kTLS itself.

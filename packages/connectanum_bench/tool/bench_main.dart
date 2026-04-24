@@ -563,6 +563,9 @@ class _BenchControlRegistry {
       onStreamOpened: writeTracker.markStreamOpened,
       onFirstBodyWrite: writeTracker.markFirstBodyWrite,
       onFirstBodyWriteCompleted: writeTracker.markFirstBodyWriteCompleted,
+      onDirectStreamOpenRoundTrip: writeTracker.markDirectStreamOpenRoundTrip,
+      onDirectStreamDescriptorOpenCall:
+          writeTracker.markDirectStreamDescriptorOpenCall,
     );
     final stats = await streamBenchHttpResponse(
       request: context.request,
@@ -575,6 +578,9 @@ class _BenchControlRegistry {
       streamOpened: writeTracker.streamOpened,
       firstBodyWrite: writeTracker.firstBodyWrite,
       firstBodyWriteCompleted: writeTracker.firstBodyWriteCompleted,
+      directStreamOpenRoundTrip: writeTracker.directStreamOpenRoundTrip,
+      directStreamDescriptorOpenCall:
+          writeTracker.directStreamDescriptorOpenCall,
     );
   }
 
@@ -594,6 +600,9 @@ class _BenchControlRegistry {
       onStreamOpened: writeTracker.markStreamOpened,
       onFirstBodyWrite: writeTracker.markFirstBodyWrite,
       onFirstBodyWriteCompleted: writeTracker.markFirstBodyWriteCompleted,
+      onDirectStreamOpenRoundTrip: writeTracker.markDirectStreamOpenRoundTrip,
+      onDirectStreamDescriptorOpenCall:
+          writeTracker.markDirectStreamDescriptorOpenCall,
     );
     final stats = await streamBenchHttpResponse(
       request: context.request,
@@ -606,6 +615,9 @@ class _BenchControlRegistry {
       streamOpened: writeTracker.streamOpened,
       firstBodyWrite: writeTracker.firstBodyWrite,
       firstBodyWriteCompleted: writeTracker.firstBodyWriteCompleted,
+      directStreamOpenRoundTrip: writeTracker.directStreamOpenRoundTrip,
+      directStreamDescriptorOpenCall:
+          writeTracker.directStreamDescriptorOpenCall,
     );
   }
 

@@ -28,10 +28,15 @@ class BenchHttpStreamWriteTracker {
   Duration? _streamOpened;
   Duration? _firstBodyWrite;
   Duration? _firstBodyWriteCompleted;
+  Duration? _directStreamOpenRoundTrip;
+  Duration? _directStreamDescriptorOpenCall;
 
   Duration? get streamOpened => _streamOpened;
   Duration? get firstBodyWrite => _firstBodyWrite;
   Duration? get firstBodyWriteCompleted => _firstBodyWriteCompleted;
+  Duration? get directStreamOpenRoundTrip => _directStreamOpenRoundTrip;
+  Duration? get directStreamDescriptorOpenCall =>
+      _directStreamDescriptorOpenCall;
 
   void markStreamOpened() {
     _streamOpened ??= _stopwatch.elapsed;
@@ -43,6 +48,14 @@ class BenchHttpStreamWriteTracker {
 
   void markFirstBodyWriteCompleted() {
     _firstBodyWriteCompleted ??= _stopwatch.elapsed;
+  }
+
+  void markDirectStreamOpenRoundTrip(Duration duration) {
+    _directStreamOpenRoundTrip ??= duration;
+  }
+
+  void markDirectStreamDescriptorOpenCall(Duration duration) {
+    _directStreamDescriptorOpenCall ??= duration;
   }
 }
 
@@ -61,6 +74,8 @@ class BenchHttpStreamDiagnostics {
   int _queueToFirstBodyWriteSamplesTotal = 0;
   int _queueToFirstBodyWriteCompletedSamplesTotal = 0;
   int _firstBodyWriteCallSamplesTotal = 0;
+  int _directStreamOpenRoundTripSamplesTotal = 0;
+  int _directStreamDescriptorOpenCallSamplesTotal = 0;
   int _handlerSamplesTotal = 0;
   int _requestBodyDrainUsTotal = 0;
   int _streamOpenUsTotal = 0;
@@ -72,6 +87,8 @@ class BenchHttpStreamDiagnostics {
   int _queueToFirstBodyWriteUsTotal = 0;
   int _queueToFirstBodyWriteCompletedUsTotal = 0;
   int _firstBodyWriteCallUsTotal = 0;
+  int _directStreamOpenRoundTripUsTotal = 0;
+  int _directStreamDescriptorOpenCallUsTotal = 0;
   int _handlerUsTotal = 0;
 
   void record({
@@ -79,6 +96,8 @@ class BenchHttpStreamDiagnostics {
     Duration? streamOpened,
     Duration? firstBodyWrite,
     Duration? firstBodyWriteCompleted,
+    Duration? directStreamOpenRoundTrip,
+    Duration? directStreamDescriptorOpenCall,
   }) {
     _requestsTotal++;
     switch (response.responseMode) {
@@ -147,6 +166,16 @@ class BenchHttpStreamDiagnostics {
       _firstBodyWriteCallUsTotal +=
           (firstBodyWriteCompleted - firstBodyWrite).inMicroseconds;
     }
+    if (directStreamOpenRoundTrip != null) {
+      _directStreamOpenRoundTripSamplesTotal++;
+      _directStreamOpenRoundTripUsTotal +=
+          directStreamOpenRoundTrip.inMicroseconds;
+    }
+    if (directStreamDescriptorOpenCall != null) {
+      _directStreamDescriptorOpenCallSamplesTotal++;
+      _directStreamDescriptorOpenCallUsTotal +=
+          directStreamDescriptorOpenCall.inMicroseconds;
+    }
     _handlerSamplesTotal++;
     _handlerUsTotal += response.handlerElapsed.inMicroseconds;
   }
@@ -172,6 +201,10 @@ class BenchHttpStreamDiagnostics {
       'queue_to_first_body_write_completed_samples_total':
           _queueToFirstBodyWriteCompletedSamplesTotal,
       'first_body_write_call_samples_total': _firstBodyWriteCallSamplesTotal,
+      'direct_stream_open_round_trip_samples_total':
+          _directStreamOpenRoundTripSamplesTotal,
+      'direct_stream_descriptor_open_call_samples_total':
+          _directStreamDescriptorOpenCallSamplesTotal,
       'handler_samples_total': _handlerSamplesTotal,
       'request_body_drain_us_total': _requestBodyDrainUsTotal,
       'stream_open_us_total': _streamOpenUsTotal,
@@ -185,6 +218,10 @@ class BenchHttpStreamDiagnostics {
       'queue_to_first_body_write_completed_us_total':
           _queueToFirstBodyWriteCompletedUsTotal,
       'first_body_write_call_us_total': _firstBodyWriteCallUsTotal,
+      'direct_stream_open_round_trip_us_total':
+          _directStreamOpenRoundTripUsTotal,
+      'direct_stream_descriptor_open_call_us_total':
+          _directStreamDescriptorOpenCallUsTotal,
       'handler_us_total': _handlerUsTotal,
     };
   }

@@ -1,6 +1,6 @@
 # HTTP/2 Stream-Open to Headers-Send Hosted Rerun
 
-Status: in_progress
+Status: completed
 
 ## Context
 
@@ -20,7 +20,29 @@ Status: in_progress
     - `server stream open avg 11.88 -> 14.12 (+2.24)`
     - `server first body write completed avg 11.93 -> 14.17 (+2.24)`
     - `native headers-to-first-chunk-send-call avg 6.26 -> 9.46 (+3.20)`
-- The current local working tree now carries the next bounded metric slice:
+- The current pushed checkpoint is `fbc5566` (`build(ktls): capture http2
+  header dispatch timing`), now on both `origin` and `github`.
+- The visible GitHub push chain for `fbc5566` completed successfully:
+  - `CI` `24888660106`
+  - `kTLS Validation` `24888660101`
+  - `WAMP Profile Benchmarks` `24888660111`
+- GitLab has not surfaced a pipeline for `fbc5566` through the current
+  token-backed query.
+- Manual hosted rerun `24889688795` (`kTLS HTTP/2 Benchmarks`) then completed
+  successfully on `fbc5566` with
+  `scenario=native/bench/scenarios/h2_ktls_multiplex_scaling.toml` and
+  `skip_artifact_gate=true`.
+- That rerun answered the header-dispatch question directly:
+  - worst throughput and p95 row:
+    `h2_multiplexed_streams_s8`, `threads=1`
+    - `response headers wait avg 26.45 -> 41.65 (+15.20)`
+    - `server stream open avg 14.09 -> 18.45 (+4.36)`
+    - `native stream-open-to-headers-send avg 0.09 -> 0.63 (+0.54)`
+    - `native headers send call avg 0.00 -> 0.00 (-0.00)`
+    - `native headers-to-first-chunk-dequeue avg 7.85 -> 12.43 (+4.59)`
+- That means the remaining hotspot is not inside `send_response(...)`.
+  The next bounded lane is to split the direct-stream open path itself.
+- The completed checkpoint carried the native header-dispatch metric slice:
   - `ct_core` records:
     - `stream_open_to_headers_send`
     - `headers_send_call`
