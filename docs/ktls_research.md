@@ -663,6 +663,49 @@ That means the next hosted rerun can answer the narrower question that now
 matters: whether kTLS is creating rare multi-millisecond dequeue stalls or
 rare first-send-call stalls that the average-only metrics were smoothing away.
 
+### Hosted Native Response-Stream Slow-Path Result
+
+That rerun has now landed as workflow run `24885834166` on clean head
+`547d6e4`, and it shows the new slow-path buckets are useful but not yet
+complete enough to explain the whole hotspot:
+
+- worst throughput row:
+  `h2_multiplexed_streams_s2`, `threads=4`
+  - `Backpressure events 14 -> 25 (+11)`
+  - `native first chunk channel wait >=1/5/10ms 0/0/0 -> 6/0/0`
+  - `native first chunk send call >=1/5/10ms 1/0/0 -> 7/0/0`
+- the deeper `threads=1` rows now clearly show dequeue-tail growth too, for
+  example `h2_multiplexed_streams_s8` moved
+  `headers-to-first-chunk-dequeue >=1/5/10ms 67/36/10 -> 77/61/39`
+- worst p95 row:
+  `h2_multiplexed_streams_s1`, `threads=4`
+  - `request round trip p95 13.04 -> 24.95 (+11.90)`
+  - `response body first chunk wait avg 1.37 -> 6.12 (+4.75)`
+  - no `http_native_response_stream_*` metrics were present for that row
+
+That means the native slow-path buckets are capturing real movement on the
+direct response-stream path, but the current worst p95 row is still falling
+outside that boundary.
+
+### Direct-Stream Completion Boundary
+
+The missing `s1` row signal exposed a bench-side measurement bug rather than
+another transport blind spot:
+
+- `HttpResponseStream` direct writes flush asynchronously
+- the bench was recording server-emission timings immediately after
+  `streamBenchHttpResponse(...)` returned
+- that meant `streamOpened`, `firstBodyWrite`, and
+  `firstBodyWriteCompleted` could still be unset when diagnostics were
+  sampled, even though the direct stream later completed successfully
+
+The current local fix adds `HttpResponseStream.done` and makes the bench await
+that completion before recording diagnostics. The next hosted rerun should
+therefore answer the new bounded question directly:
+whether the missing `h2_multiplexed_streams_s1` / `threads=4` hotspot becomes
+visible in server-emission timing once the bench samples after direct-stream
+completion instead of mid-flight.
+
 ### What Not To Overclaim
 
 - macOS results are irrelevant for kTLS itself.

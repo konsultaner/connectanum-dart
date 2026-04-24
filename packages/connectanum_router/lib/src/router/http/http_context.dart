@@ -577,41 +577,43 @@ class HttpResponseStream {
   }) : headers = Map.unmodifiable(headers),
        _onStreamOpened = onStreamOpened,
        _onFirstBodyWrite = onFirstBodyWrite,
-       _onFirstBodyWriteCompleted = onFirstBodyWriteCompleted,
-       _directStream = responseStreamControlPort == null
-           ? null
-           : _DirectHttpResponseStreamController(
-               requestId: requestId,
-               status: status,
-               headers: Map.unmodifiable(headers),
-               onStreamOpened: onStreamOpened,
-               onFirstBodyWrite: onFirstBodyWrite,
-               onFirstBodyWriteCompleted: onFirstBodyWriteCompleted,
-               controlPort: responseStreamControlPort,
-               onFallbackProgress: (chunk) {
-                 final payload = HttpResponsePayload._(
-                   requestId: requestId,
-                   status: status,
-                   headers: headers,
-                   bodyKind: HttpResponseBodyKind.bytes,
-                   bodyBytes: chunk,
-                   progress: true,
-                 );
-                 HttpResponseUtil.respond(invocation, payload, progress: true);
-               },
-               onFallbackClose: (finalChunk) {
-                 final payload = HttpResponsePayload._(
-                   requestId: requestId,
-                   status: status,
-                   headers: headers,
-                   bodyKind: HttpResponseBodyKind.bytes,
-                   bodyBytes: finalChunk,
-                   progress: false,
-                 );
-                 HttpResponseUtil.respond(invocation, payload);
-               },
-               onDirectComplete: () => invocation.respondWith(),
-             );
+       _onFirstBodyWriteCompleted = onFirstBodyWriteCompleted {
+    _directStream = responseStreamControlPort == null
+        ? null
+        : _DirectHttpResponseStreamController(
+            requestId: requestId,
+            status: status,
+            headers: Map.unmodifiable(headers),
+            onStreamOpened: onStreamOpened,
+            onFirstBodyWrite: onFirstBodyWrite,
+            onFirstBodyWriteCompleted: onFirstBodyWriteCompleted,
+            controlPort: responseStreamControlPort,
+            onFallbackProgress: (chunk) {
+              final payload = HttpResponsePayload._(
+                requestId: requestId,
+                status: status,
+                headers: headers,
+                bodyKind: HttpResponseBodyKind.bytes,
+                bodyBytes: chunk,
+                progress: true,
+              );
+              HttpResponseUtil.respond(invocation, payload, progress: true);
+            },
+            onFallbackClose: (finalChunk) {
+              final payload = HttpResponsePayload._(
+                requestId: requestId,
+                status: status,
+                headers: headers,
+                bodyKind: HttpResponseBodyKind.bytes,
+                bodyBytes: finalChunk,
+                progress: false,
+              );
+              HttpResponseUtil.respond(invocation, payload);
+            },
+            onDirectComplete: () => invocation.respondWith(),
+            onCompleted: _completeDone,
+          );
+  }
 
   final invocation_msg.Invocation invocation;
   final int requestId;
@@ -620,13 +622,22 @@ class HttpResponseStream {
   final void Function()? _onStreamOpened;
   final void Function()? _onFirstBodyWrite;
   final void Function()? _onFirstBodyWriteCompleted;
-  final _DirectHttpResponseStreamController? _directStream;
+  late final _DirectHttpResponseStreamController? _directStream;
+  final Completer<void> _doneCompleter = Completer<void>();
   bool _closed = false;
   bool _streamOpenedNotified = false;
   bool _firstBodyWriteNotified = false;
   bool _firstBodyWriteCompletedNotified = false;
 
   bool get isClosed => _closed;
+  Future<void> get done => _doneCompleter.future;
+
+  void _completeDone() {
+    if (_doneCompleter.isCompleted) {
+      return;
+    }
+    _doneCompleter.complete();
+  }
 
   void _notifyStreamOpened() {
     if (_streamOpenedNotified) {
@@ -703,6 +714,7 @@ class HttpResponseStream {
     );
     HttpResponseUtil.respond(invocation, payload);
     _closed = true;
+    _completeDone();
   }
 }
 
@@ -718,6 +730,7 @@ class _DirectHttpResponseStreamController {
     required this.onFallbackProgress,
     required this.onFallbackClose,
     required this.onDirectComplete,
+    required this.onCompleted,
   });
 
   final int requestId;
@@ -730,6 +743,7 @@ class _DirectHttpResponseStreamController {
   final void Function(Uint8List chunk) onFallbackProgress;
   final void Function(Uint8List? finalChunk) onFallbackClose;
   final void Function() onDirectComplete;
+  final void Function() onCompleted;
 
   final Queue<Uint8List> _pendingChunks = Queue<Uint8List>();
   Future<NativeHttpResponseStream?>? _streamFuture;
@@ -881,6 +895,7 @@ class _DirectHttpResponseStreamController {
         _reportFirstBodyWriteCompleted();
       }
       _completionSent = true;
+      onCompleted();
     }
   }
 
@@ -890,6 +905,7 @@ class _DirectHttpResponseStreamController {
     }
     _completionSent = true;
     onDirectComplete();
+    onCompleted();
   }
 
   void _reportStreamOpened() {

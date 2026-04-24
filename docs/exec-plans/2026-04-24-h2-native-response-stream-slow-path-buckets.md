@@ -1,6 +1,6 @@
 # HTTP/2 Native Response-Stream Slow-Path Buckets
 
-Status: in_progress
+Status: completed
 
 ## Context
 
@@ -37,6 +37,35 @@ Status: in_progress
   - `python3 tool/test_ktls_http2_compare.py`
   - rerender hosted artifact `24883756346`
   - `bin/verify`
+- Commit `547d6e4` has now been pushed to both `origin` and `github`.
+- The hosted GitHub push chain for `547d6e4` completed cleanly:
+  - `CI` `24884889546`
+  - `WAMP Profile Benchmarks` `24884889549`
+  - `kTLS Validation` `24884889561`
+- GitLab has not surfaced a pipeline for `547d6e4` yet through the current
+  token-backed pipeline query.
+- Manual hosted run `24885834166` reran
+  `native/bench/scenarios/h2_ktls_multiplex_scaling.toml` on that clean head
+  with `skip_artifact_gate=true`.
+- That rerun showed the new native slow-path buckets are useful on the direct
+  response-stream rows:
+  - worst throughput row:
+    `h2_multiplexed_streams_s2`, `threads=4`
+    - `native first chunk channel wait >=1/5/10ms 0/0/0 -> 6/0/0`
+    - `native first chunk send call >=1/5/10ms 1/0/0 -> 7/0/0`
+  - deeper `threads=1` rows now show clear dequeue-tail growth too, including
+    `h2_multiplexed_streams_s8` moving
+    `headers-to-first-chunk-dequeue >=1/5/10ms 67/36/10 -> 77/61/39`
+- The rerun also exposed the next missing boundary directly:
+  - worst p95 row:
+    `h2_multiplexed_streams_s1`, `threads=4`
+  - that row had no `http_native_response_stream_*` metrics at all, even
+    though client-side `response body first chunk wait avg` still regressed by
+    `+4.75 ms`
+- That means this slow-path bucket slice answered its bounded question:
+  native tail movement is real on the direct response-stream path, but the
+  current worst p95 row is still hidden behind the bench's async direct-stream
+  completion boundary.
 
 ## Goals
 
@@ -44,9 +73,8 @@ Status: in_progress
    handoff tail behavior.
 2. Show whether kTLS creates rare multi-millisecond stalls before dequeue or
    inside the first native send call.
-3. Push a clean checkpoint and rerun the focused hosted benchmark so the next
-   artifact can confirm whether the tail spike is already visible at the
-   native handoff boundary.
+3. Rerun the focused hosted benchmark and decide whether the current hotspot is
+   already visible at the native handoff boundary.
 
 ## Planned Changes
 
@@ -57,7 +85,8 @@ Status: in_progress
 3. Summarize the counters in `native/bench` and render a dedicated
    `HTTP Native Response-Stream Slow Paths` section plus worst-row focus lines
    in `tool/ktls_http2_compare.py`.
-4. Verify locally, then run full `bin/verify` before the next push.
+4. Verify locally, push a clean checkpoint, and rerun the focused hosted
+   benchmark.
 
 ## Verification
 
@@ -68,4 +97,5 @@ Status: in_progress
 - `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
 - `python3 tool/test_ktls_http2_compare.py`
 - rerender hosted artifact `24883756346`
+- manual hosted rerun `24885834166`
 - `bin/verify`

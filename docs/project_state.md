@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `8ed8014` (`build(ktls): capture native response-stream handoff timing`)
-Active exec plan: `docs/exec-plans/2026-04-24-h2-native-response-stream-slow-path-buckets.md`
+Last reviewed commit: `547d6e4` (`build(ktls): bucket native response-stream slow paths`)
+Active exec plan: `docs/exec-plans/2026-04-24-h2-direct-stream-completion-hosted-rerun.md`
 
 ## Last Known Verification
 
@@ -13,7 +13,9 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-native-response-stream-slow-pat
 - `cargo test --manifest-path native/transport/ct_ffi/Cargo.toml http2_response_streaming_round_trip -- --nocapture`
 - `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
 - `python3 tool/test_ktls_http2_compare.py`
-- rerender hosted artifact `24883756346`
+- `dart test packages/connectanum_router/test/router_runtime_test.dart -r expanded`
+- `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
+- rerender hosted artifact `24885834166`
 - `bin/verify`
 
 ## Autonomous Priority
@@ -471,6 +473,37 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-native-response-stream-slow-pat
   and a rerender of hosted artifact `24883756346`.
 - Full local verification for the native response-stream slow-path slice is
   also green on 2026-04-24: `bin/verify`.
+- That native response-stream slow-path slice is now complete on the pushed
+  branch head too. Commit `547d6e4` is now on both `origin` and `github`, and
+  the hosted GitHub push chain completed cleanly:
+  - `CI` `24884889546`
+  - `WAMP Profile Benchmarks` `24884889549`
+  - `kTLS Validation` `24884889561`
+- GitLab has not surfaced a pipeline for `547d6e4` yet through the current
+  token-backed pipeline query.
+- Manual workflow run `24885834166` reran the same focused
+  `h2_ktls_multiplex_scaling` scenario on clean head `547d6e4` with
+  `skip_artifact_gate=true`, and it sharpened the boundary again:
+  - worst throughput row:
+    `h2_multiplexed_streams_s2`, `threads=4`
+    - `Backpressure events 14 -> 25 (+11)`
+    - `native first chunk channel wait >=1/5/10ms 0/0/0 -> 6/0/0`
+    - `native first chunk send call >=1/5/10ms 1/0/0 -> 7/0/0`
+  - worst p95 row:
+    `h2_multiplexed_streams_s1`, `threads=4`
+    - `request round trip p95 13.04 -> 24.95 (+11.90)`
+    - `response body first chunk wait avg 1.37 -> 6.12 (+4.75)`
+    - no `http_native_response_stream_*` metrics were present for that row
+- The current local working tree now carries the next bounded diagnostic fix:
+  `HttpResponseStream` exposes a completion future, and the bench handlers now
+  await direct-stream completion before recording server-emission diagnostics.
+  That fixes the measurement boundary that kept the `s1` rows out of the
+  current native/direct-stream timing summaries.
+- Local verification for that direct-stream completion slice is green on
+  2026-04-24: `bin/test-fast`, `dart test
+  packages/connectanum_router/test/router_runtime_test.dart -r expanded`,
+  `dart test packages/connectanum_bench/test/http_stream_handler_test.dart
+  -r expanded`, and `bin/verify`.
 - Local verification for the current kTLS transport-delta follow-up is green
   on 2026-04-24: `bin/test-fast`,
   `python3 -m py_compile tool/ktls_http2_compare.py

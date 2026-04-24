@@ -4091,6 +4091,7 @@ void main() {
       final listenerId = binding.listeners.single.listenerId;
       const connectionId = 144;
       final callbackEvents = <String>[];
+      Future<void>? doneFuture;
 
       final internalSession = await binding.createInternalSession(
         realmUri: 'realm1',
@@ -4108,6 +4109,7 @@ void main() {
           onFirstBodyWrite: () => callbackEvents.add('write'),
           onFirstBodyWriteCompleted: () => callbackEvents.add('write-complete'),
         );
+        doneFuture = stream.done.then((_) => callbackEvents.add('done'));
         stream.add(utf8.encode('h2-a'));
         stream.close(utf8.encode('done'));
       });
@@ -4133,11 +4135,12 @@ void main() {
       );
 
       await _waitUntil(
-        () => callbackEvents.length == 3,
+        () => callbackEvents.length == 4,
         timeout: const Duration(seconds: 2),
       );
 
-      expect(callbackEvents, ['open', 'write', 'write-complete']);
+      await doneFuture;
+      expect(callbackEvents, ['open', 'write', 'write-complete', 'done']);
     },
   );
 

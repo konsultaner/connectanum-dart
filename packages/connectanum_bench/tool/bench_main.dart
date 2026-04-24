@@ -569,6 +569,7 @@ class _BenchControlRegistry {
       addChunk: response.add,
       close: response.close,
     );
+    await response.done;
     _httpStreamDiagnostics.record(
       response: stats,
       streamOpened: writeTracker.streamOpened,
@@ -599,6 +600,7 @@ class _BenchControlRegistry {
       addChunk: response.add,
       close: response.close,
     );
+    await response.done;
     _httpStreamDiagnostics.record(
       response: stats,
       streamOpened: writeTracker.streamOpened,
