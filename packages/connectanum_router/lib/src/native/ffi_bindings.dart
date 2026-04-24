@@ -549,6 +549,33 @@ final class CtRouterMetricsInfo extends ffi.Struct {
   @ffi.Uint32()
   external int maxBackpressureDepth;
 
+  @ffi.Uint64()
+  external int responseStreamingResponsesTotal;
+
+  @ffi.Uint64()
+  external int responseStreamFirstChunkChannelWaitSamplesTotal;
+
+  @ffi.Uint64()
+  external int responseStreamFirstChunkChannelWaitUsTotal;
+
+  @ffi.Uint64()
+  external int responseStreamHeadersToFirstChunkDequeueSamplesTotal;
+
+  @ffi.Uint64()
+  external int responseStreamHeadersToFirstChunkDequeueUsTotal;
+
+  @ffi.Uint64()
+  external int responseStreamFirstChunkSendCallSamplesTotal;
+
+  @ffi.Uint64()
+  external int responseStreamFirstChunkSendCallUsTotal;
+
+  @ffi.Uint64()
+  external int responseStreamHeadersToFirstChunkSendCallSamplesTotal;
+
+  @ffi.Uint64()
+  external int responseStreamHeadersToFirstChunkSendCallUsTotal;
+
   external ffi.Pointer<CtRouterMetricsBreakdownInfo> breakdownPtr;
 
   @ffi.Size()

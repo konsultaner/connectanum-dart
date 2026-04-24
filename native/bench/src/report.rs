@@ -74,6 +74,15 @@ pub struct HttpServerEmissionTimingSummary {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct HttpNativeResponseStreamTimingSummary {
+    pub streaming_responses_total: u64,
+    pub first_chunk_channel_wait_avg_ms: f64,
+    pub headers_to_first_chunk_dequeue_avg_ms: f64,
+    pub first_chunk_send_call_avg_ms: f64,
+    pub headers_to_first_chunk_send_call_avg_ms: f64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct WorkloadReport {
     pub scenario: String,
     pub workload: String,
@@ -160,6 +169,18 @@ pub fn transport_counter_after(after: &Value, field: &str) -> Option<u64> {
     extract_u64(after, &["transport", field])
 }
 
+pub fn transport_http_response_stream_counter_delta(
+    before: &Value,
+    after: &Value,
+    field: &str,
+) -> Option<i64> {
+    counter_delta(before, after, &["transport", "http_response_stream", field])
+}
+
+pub fn transport_http_response_stream_counter_after(after: &Value, field: &str) -> Option<u64> {
+    extract_u64(after, &["transport", "http_response_stream", field])
+}
+
 pub fn bench_http_stream_counter_delta(before: &Value, after: &Value, field: &str) -> Option<i64> {
     counter_delta(before, after, &["bench_http_stream", field])
 }
@@ -213,6 +234,37 @@ mod tests {
             Some(4)
         );
         assert_eq!(transport_counter_after(&flat, "active_throttles"), Some(3));
+        let response_stream_before = json!({
+            "metrics": {
+                "transport": {
+                    "http_response_stream": {
+                        "streaming_responses_total": 2,
+                    }
+                }
+            }
+        });
+        let response_stream_after = json!({
+            "transport": {
+                "http_response_stream": {
+                    "streaming_responses_total": 7,
+                }
+            }
+        });
+        assert_eq!(
+            transport_http_response_stream_counter_delta(
+                &response_stream_before,
+                &response_stream_after,
+                "streaming_responses_total",
+            ),
+            Some(5)
+        );
+        assert_eq!(
+            transport_http_response_stream_counter_after(
+                &response_stream_after,
+                "streaming_responses_total",
+            ),
+            Some(7)
+        );
         let before = json!({
             "metrics": {
                 "bench_http_stream": {

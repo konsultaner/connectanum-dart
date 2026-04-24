@@ -499,6 +499,7 @@ class NativeRouterMetrics {
     required this.internalErrorEvents,
     required this.backpressureEvents,
     required this.maxBackpressureDepth,
+    this.responseStream,
     this.breakdown = const <NativeRouterMetricsBreakdown>[],
   });
 
@@ -511,6 +512,7 @@ class NativeRouterMetrics {
   final int internalErrorEvents;
   final int backpressureEvents;
   final int maxBackpressureDepth;
+  final NativeHttpResponseStreamMetrics? responseStream;
   final List<NativeRouterMetricsBreakdown> breakdown;
 
   bool sameValues(NativeRouterMetrics other) {
@@ -522,7 +524,10 @@ class NativeRouterMetrics {
         protocolErrorEvents != other.protocolErrorEvents ||
         internalErrorEvents != other.internalErrorEvents ||
         backpressureEvents != other.backpressureEvents ||
-        maxBackpressureDepth != other.maxBackpressureDepth) {
+        maxBackpressureDepth != other.maxBackpressureDepth ||
+        ((responseStream == null) != (other.responseStream == null)) ||
+        (responseStream != null &&
+            !responseStream!.sameValues(other.responseStream))) {
       return false;
     }
     if (breakdown.length != other.breakdown.length) {
@@ -534,6 +539,49 @@ class NativeRouterMetrics {
       }
     }
     return true;
+  }
+}
+
+class NativeHttpResponseStreamMetrics {
+  const NativeHttpResponseStreamMetrics({
+    required this.streamingResponsesTotal,
+    required this.firstChunkChannelWaitSamplesTotal,
+    required this.firstChunkChannelWaitUsTotal,
+    required this.headersToFirstChunkDequeueSamplesTotal,
+    required this.headersToFirstChunkDequeueUsTotal,
+    required this.firstChunkSendCallSamplesTotal,
+    required this.firstChunkSendCallUsTotal,
+    required this.headersToFirstChunkSendCallSamplesTotal,
+    required this.headersToFirstChunkSendCallUsTotal,
+  });
+
+  final int streamingResponsesTotal;
+  final int firstChunkChannelWaitSamplesTotal;
+  final int firstChunkChannelWaitUsTotal;
+  final int headersToFirstChunkDequeueSamplesTotal;
+  final int headersToFirstChunkDequeueUsTotal;
+  final int firstChunkSendCallSamplesTotal;
+  final int firstChunkSendCallUsTotal;
+  final int headersToFirstChunkSendCallSamplesTotal;
+  final int headersToFirstChunkSendCallUsTotal;
+
+  bool sameValues(NativeHttpResponseStreamMetrics? other) {
+    return other != null &&
+        streamingResponsesTotal == other.streamingResponsesTotal &&
+        firstChunkChannelWaitSamplesTotal ==
+            other.firstChunkChannelWaitSamplesTotal &&
+        firstChunkChannelWaitUsTotal == other.firstChunkChannelWaitUsTotal &&
+        headersToFirstChunkDequeueSamplesTotal ==
+            other.headersToFirstChunkDequeueSamplesTotal &&
+        headersToFirstChunkDequeueUsTotal ==
+            other.headersToFirstChunkDequeueUsTotal &&
+        firstChunkSendCallSamplesTotal ==
+            other.firstChunkSendCallSamplesTotal &&
+        firstChunkSendCallUsTotal == other.firstChunkSendCallUsTotal &&
+        headersToFirstChunkSendCallSamplesTotal ==
+            other.headersToFirstChunkSendCallSamplesTotal &&
+        headersToFirstChunkSendCallUsTotal ==
+            other.headersToFirstChunkSendCallUsTotal;
   }
 }
 
@@ -2599,6 +2647,32 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
           );
         }
       }
+      final responseStream =
+          info.responseStreamingResponsesTotal > 0 ||
+              info.responseStreamFirstChunkChannelWaitSamplesTotal > 0 ||
+              info.responseStreamHeadersToFirstChunkDequeueSamplesTotal > 0 ||
+              info.responseStreamFirstChunkSendCallSamplesTotal > 0 ||
+              info.responseStreamHeadersToFirstChunkSendCallSamplesTotal > 0
+          ? NativeHttpResponseStreamMetrics(
+              streamingResponsesTotal: info.responseStreamingResponsesTotal,
+              firstChunkChannelWaitSamplesTotal:
+                  info.responseStreamFirstChunkChannelWaitSamplesTotal,
+              firstChunkChannelWaitUsTotal:
+                  info.responseStreamFirstChunkChannelWaitUsTotal,
+              headersToFirstChunkDequeueSamplesTotal:
+                  info.responseStreamHeadersToFirstChunkDequeueSamplesTotal,
+              headersToFirstChunkDequeueUsTotal:
+                  info.responseStreamHeadersToFirstChunkDequeueUsTotal,
+              firstChunkSendCallSamplesTotal:
+                  info.responseStreamFirstChunkSendCallSamplesTotal,
+              firstChunkSendCallUsTotal:
+                  info.responseStreamFirstChunkSendCallUsTotal,
+              headersToFirstChunkSendCallSamplesTotal:
+                  info.responseStreamHeadersToFirstChunkSendCallSamplesTotal,
+              headersToFirstChunkSendCallUsTotal:
+                  info.responseStreamHeadersToFirstChunkSendCallUsTotal,
+            )
+          : null;
       return NativeRouterMetrics(
         totalEvents: info.totalEvents,
         gracefulEvents: info.gracefulEvents,
@@ -2609,6 +2683,7 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
         internalErrorEvents: info.internalErrorEvents,
         backpressureEvents: info.backpressureEvents,
         maxBackpressureDepth: info.maxBackpressureDepth,
+        responseStream: responseStream,
         breakdown: breakdown,
       );
     } finally {

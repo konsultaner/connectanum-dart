@@ -252,6 +252,19 @@ struct HttpMetrics {
     max_backpressure_depth: AtomicU32,
 }
 
+#[derive(Default)]
+struct HttpResponseStreamMetrics {
+    streaming_responses_total: AtomicU64,
+    first_chunk_channel_wait_samples_total: AtomicU64,
+    first_chunk_channel_wait_us_total: AtomicU64,
+    headers_to_first_chunk_dequeue_samples_total: AtomicU64,
+    headers_to_first_chunk_dequeue_us_total: AtomicU64,
+    first_chunk_send_call_samples_total: AtomicU64,
+    first_chunk_send_call_us_total: AtomicU64,
+    headers_to_first_chunk_send_call_samples_total: AtomicU64,
+    headers_to_first_chunk_send_call_us_total: AtomicU64,
+}
+
 #[derive(Debug, Clone, Copy, Default)]
 pub struct HttpMetricsSnapshot {
     pub total_events: u64,
@@ -263,6 +276,19 @@ pub struct HttpMetricsSnapshot {
     pub internal_error_events: u64,
     pub backpressure_events: u64,
     pub max_backpressure_depth: u32,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct HttpResponseStreamMetricsSnapshot {
+    pub streaming_responses_total: u64,
+    pub first_chunk_channel_wait_samples_total: u64,
+    pub first_chunk_channel_wait_us_total: u64,
+    pub headers_to_first_chunk_dequeue_samples_total: u64,
+    pub headers_to_first_chunk_dequeue_us_total: u64,
+    pub first_chunk_send_call_samples_total: u64,
+    pub first_chunk_send_call_us_total: u64,
+    pub headers_to_first_chunk_send_call_samples_total: u64,
+    pub headers_to_first_chunk_send_call_us_total: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -283,6 +309,8 @@ struct HttpMetricsStore {
     totals: HttpMetrics,
     by_key: Mutex<HashMap<HttpMetricsKey, Arc<HttpMetrics>>>,
 }
+
+static HTTP_RESPONSE_STREAM_METRICS: OnceLock<HttpResponseStreamMetrics> = OnceLock::new();
 
 impl HttpMetrics {
     fn record(&self, event: &HttpConnectionEvent) {
@@ -385,10 +413,91 @@ impl HttpMetricsStore {
     }
 }
 
+impl HttpResponseStreamMetrics {
+    fn record_streaming_response(&self) {
+        self.streaming_responses_total
+            .fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn record_first_chunk(
+        &self,
+        queued_at: Instant,
+        headers_sent_at: Instant,
+        dequeue_at: Instant,
+        send_call_started_at: Instant,
+        send_call_finished_at: Instant,
+    ) {
+        self.first_chunk_channel_wait_samples_total
+            .fetch_add(1, Ordering::SeqCst);
+        self.first_chunk_channel_wait_us_total.fetch_add(
+            saturating_instant_delta_us(queued_at, dequeue_at),
+            Ordering::SeqCst,
+        );
+        self.headers_to_first_chunk_dequeue_samples_total
+            .fetch_add(1, Ordering::SeqCst);
+        self.headers_to_first_chunk_dequeue_us_total.fetch_add(
+            saturating_instant_delta_us(headers_sent_at, dequeue_at),
+            Ordering::SeqCst,
+        );
+        self.first_chunk_send_call_samples_total
+            .fetch_add(1, Ordering::SeqCst);
+        self.first_chunk_send_call_us_total.fetch_add(
+            saturating_instant_delta_us(send_call_started_at, send_call_finished_at),
+            Ordering::SeqCst,
+        );
+        self.headers_to_first_chunk_send_call_samples_total
+            .fetch_add(1, Ordering::SeqCst);
+        self.headers_to_first_chunk_send_call_us_total.fetch_add(
+            saturating_instant_delta_us(headers_sent_at, send_call_finished_at),
+            Ordering::SeqCst,
+        );
+    }
+
+    fn snapshot(&self) -> HttpResponseStreamMetricsSnapshot {
+        HttpResponseStreamMetricsSnapshot {
+            streaming_responses_total: self.streaming_responses_total.load(Ordering::SeqCst),
+            first_chunk_channel_wait_samples_total: self
+                .first_chunk_channel_wait_samples_total
+                .load(Ordering::SeqCst),
+            first_chunk_channel_wait_us_total: self
+                .first_chunk_channel_wait_us_total
+                .load(Ordering::SeqCst),
+            headers_to_first_chunk_dequeue_samples_total: self
+                .headers_to_first_chunk_dequeue_samples_total
+                .load(Ordering::SeqCst),
+            headers_to_first_chunk_dequeue_us_total: self
+                .headers_to_first_chunk_dequeue_us_total
+                .load(Ordering::SeqCst),
+            first_chunk_send_call_samples_total: self
+                .first_chunk_send_call_samples_total
+                .load(Ordering::SeqCst),
+            first_chunk_send_call_us_total: self
+                .first_chunk_send_call_us_total
+                .load(Ordering::SeqCst),
+            headers_to_first_chunk_send_call_samples_total: self
+                .headers_to_first_chunk_send_call_samples_total
+                .load(Ordering::SeqCst),
+            headers_to_first_chunk_send_call_us_total: self
+                .headers_to_first_chunk_send_call_us_total
+                .load(Ordering::SeqCst),
+        }
+    }
+}
+
 static HTTP_METRICS: OnceLock<HttpMetricsStore> = OnceLock::new();
 
 fn http_metrics() -> &'static HttpMetricsStore {
     HTTP_METRICS.get_or_init(HttpMetricsStore::default)
+}
+
+fn http_response_stream_metrics() -> &'static HttpResponseStreamMetrics {
+    HTTP_RESPONSE_STREAM_METRICS.get_or_init(HttpResponseStreamMetrics::default)
+}
+
+fn saturating_instant_delta_us(start: Instant, end: Instant) -> u64 {
+    end.saturating_duration_since(start)
+        .as_micros()
+        .min(u64::MAX as u128) as u64
 }
 
 pub fn http_metrics_snapshot() -> HttpMetricsSnapshot {
@@ -398,6 +507,10 @@ pub fn http_metrics_snapshot() -> HttpMetricsSnapshot {
 pub fn http_metrics_snapshot_with_breakdown(
 ) -> (HttpMetricsSnapshot, Vec<HttpMetricsBreakdownSnapshot>) {
     http_metrics().snapshot_with_breakdown()
+}
+
+pub fn http_response_stream_metrics_snapshot() -> HttpResponseStreamMetricsSnapshot {
+    http_response_stream_metrics().snapshot()
 }
 
 fn protocol_sort_key(protocol: ConnectionProtocol) -> u8 {
@@ -4649,7 +4762,7 @@ async fn write_http1_chunked_response(
 
     loop {
         match reader.next().await {
-            Ok(ResponseStreamFrame::Chunk(bytes)) => {
+            Ok(ResponseStreamFrame::Chunk { bytes, .. }) => {
                 if bytes.is_empty() {
                     continue;
                 }
@@ -4667,7 +4780,7 @@ async fn write_http1_chunked_response(
                     return Err(err.to_string());
                 }
             }
-            Ok(ResponseStreamFrame::Finished) => {
+            Ok(ResponseStreamFrame::Finished { .. }) => {
                 if let Err(err) = writer.write_all(b"0\r\n\r\n").await {
                     reader.close();
                     return Err(err.to_string());
@@ -5579,6 +5692,7 @@ async fn send_http2_response_from_dispatch(
             Ok(())
         }
         HttpResponseBody::Streaming(mut reader) => {
+            http_response_stream_metrics().record_streaming_response();
             strip_content_length(&mut headers);
             {
                 let header_map = builder.headers_mut().expect("headers available");
@@ -5595,15 +5709,29 @@ async fn send_http2_response_from_dispatch(
             let mut send_stream = respond
                 .send_response(response, false)
                 .map_err(|err| err.to_string())?;
+            let headers_sent_at = Instant::now();
+            let mut first_chunk_recorded = false;
             loop {
                 match reader.next().await {
-                    Ok(ResponseStreamFrame::Chunk(bytes)) => {
+                    Ok(ResponseStreamFrame::Chunk { bytes, queued_at }) => {
+                        let send_call_started_at = Instant::now();
                         if let Err(err) = send_stream.send_data(bytes, false) {
                             reader.close();
                             return Err(err.to_string());
                         }
+                        if !first_chunk_recorded {
+                            let send_call_finished_at = Instant::now();
+                            http_response_stream_metrics().record_first_chunk(
+                                queued_at,
+                                headers_sent_at,
+                                send_call_started_at,
+                                send_call_started_at,
+                                send_call_finished_at,
+                            );
+                            first_chunk_recorded = true;
+                        }
                     }
-                    Ok(ResponseStreamFrame::Finished) => {
+                    Ok(ResponseStreamFrame::Finished { .. }) => {
                         if let Err(err) = send_stream.send_data(Bytes::new(), true) {
                             return Err(err.to_string());
                         }
@@ -6068,6 +6196,7 @@ async fn send_http3_response_from_dispatch(
             stream.finish().await.map_err(|err| err.to_string())
         }
         HttpResponseBody::Streaming(mut reader) => {
+            http_response_stream_metrics().record_streaming_response();
             strip_content_length(&mut headers);
             let mut builder = HttpResponse::builder().status(status_code);
             {
@@ -6086,15 +6215,29 @@ async fn send_http3_response_from_dispatch(
                 .send_response(response)
                 .await
                 .map_err(|err| err.to_string())?;
+            let headers_sent_at = Instant::now();
+            let mut first_chunk_recorded = false;
             loop {
                 match reader.next().await {
-                    Ok(ResponseStreamFrame::Chunk(bytes)) => {
+                    Ok(ResponseStreamFrame::Chunk { bytes, queued_at }) => {
+                        let send_call_started_at = Instant::now();
                         stream
                             .send_data(bytes)
                             .await
                             .map_err(|err| err.to_string())?;
+                        if !first_chunk_recorded {
+                            let send_call_finished_at = Instant::now();
+                            http_response_stream_metrics().record_first_chunk(
+                                queued_at,
+                                headers_sent_at,
+                                send_call_started_at,
+                                send_call_started_at,
+                                send_call_finished_at,
+                            );
+                            first_chunk_recorded = true;
+                        }
                     }
-                    Ok(ResponseStreamFrame::Finished) => {
+                    Ok(ResponseStreamFrame::Finished { .. }) => {
                         reader.close();
                         return stream.finish().await.map_err(|err| err.to_string());
                     }

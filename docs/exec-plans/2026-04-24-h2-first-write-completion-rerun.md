@@ -1,6 +1,6 @@
 # HTTP/2 First-Write Completion Rerun
 
-Status: in_progress
+Status: completed
 
 ## Context
 
@@ -47,6 +47,30 @@ Status: in_progress
    new completion boundary.
 4. Verify locally, then push and wait for the push CI chain before running the
    next focused hosted rerun.
+
+## Outcome
+
+- Commit `b8645af` passed the hosted push chain cleanly:
+  - `kTLS Validation` `24880362805`
+  - `WAMP Profile Benchmarks` `24880362819`
+  - `CI` `24880362829`
+- Manual workflow run `24881249566` reran
+  `native/bench/scenarios/h2_ktls_multiplex_scaling.toml` on that clean head
+  with `skip_artifact_gate = true` and completed successfully.
+- The rerun answered the current question directly:
+  - worst throughput and p95 hotspot:
+    `h2_multiplexed_streams_s4`, `threads=4`
+    - `response headers wait avg +8.38 ms`
+    - `response body first chunk wait avg +19.33 ms`
+    - `response body tail read avg +3.00 ms`
+  - the first-write-completion boundary stayed flat across comparable rows:
+    - `headers_to_first_body_write_completed_avg_ms 0.00 -> 0.00 (+0.00)`
+    - `queue_to_first_body_write_completed_avg_ms 0.00 -> 0.00 (+0.00)`
+    - `first_body_write_completed_avg_ms 0.00 -> 0.00 (+0.00)`
+    - `first_body_write_call_avg_ms 0.00 -> 0.00 (+0.00)`
+- That means the remaining delay still opens after the first native
+  response-stream write returns. The next bounded slice is therefore native
+  response-stream handoff timing, not more Dart-side write timing.
 
 ## Verification
 

@@ -15,13 +15,12 @@ use std::net::SocketAddr;
 #[cfg(feature = "ffi-test")]
 use dashmap::DashMap;
 #[cfg(feature = "ffi-test")]
+use futures_util::future;
+#[cfg(feature = "ffi-test")]
 use std::collections::VecDeque;
 #[cfg(feature = "ffi-test")]
 use tokio::runtime::Runtime as TokioRuntime;
-#[cfg(feature = "ffi-test")]
-use futures_util::future;
 
-use ct_core::http_metrics_snapshot_with_breakdown;
 #[cfg(feature = "ffi-test")]
 use ct_core::parse_message;
 use ct_core::{
@@ -35,8 +34,10 @@ use ct_core::{
     send_wamp_message, send_wamp_segments, shutdown, start_runtime, wait_connection_message,
     ConnectionId, ConnectionProtocol, Error as CoreError, HttpConnectionCloseReason,
     HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot, HttpResponseBody, HttpResponseDispatch,
-    ListenerId, RawSocketSerializer, WampMessage, RESPONSE_STREAM_BUFFER,
+    HttpResponseStreamMetricsSnapshot, ListenerId, RawSocketSerializer, WampMessage,
+    RESPONSE_STREAM_BUFFER,
 };
+use ct_core::{http_metrics_snapshot_with_breakdown, http_response_stream_metrics_snapshot};
 #[cfg(feature = "ffi-test")]
 use ct_core::{
     push_http_connection_event, register_http3_pending, Http3Handshake, HttpBodyHandle,
@@ -52,6 +53,7 @@ use quinn::{
     crypto::rustls::QuicClientConfig as QuinnRustlsClientConfig, ClientConfig as QuinnClientConfig,
     Endpoint as QuinnEndpoint, TransportConfig,
 };
+use rand_core::{OsRng, RngCore};
 #[cfg(feature = "ffi-test")]
 use rustls::client::WebPkiServerVerifier;
 #[cfg(feature = "ffi-test")]
@@ -60,7 +62,6 @@ use rustls::pki_types::CertificateDer;
 use rustls::{ClientConfig as RustlsClientConfig, RootCertStore};
 #[cfg(feature = "ffi-test")]
 use rustls_pemfile::certs as read_pem_certs;
-use rand_core::{OsRng, RngCore};
 use xsalsa20poly1305::{
     aead::{Aead, KeyInit},
     Key, Nonce, XSalsa20Poly1305,
@@ -73,18 +74,18 @@ use crate::callbacks::{
 
 use super::constants::*;
 use super::state::{
-    clear_channels, clone_message, remove_http2_handshake, remove_http3_connection,
-    remove_http3_handshake, remove_http3_stream, remove_http_body, remove_http_connection_event,
-    remove_http_handshake, remove_http_response_stream, remove_message, remove_websocket_handshake,
-    get_e2ee_keyring, remove_e2ee_keyring, remove_e2ee_session,
-    with_e2ee_keyring, with_e2ee_session,
-    store_channel, store_http2_handshake, store_http3_connection, store_http3_handshake,
-    store_http3_stream, store_http_body, store_http_connection_event, store_http_request_metadata,
-    store_http_response_stream, store_message, store_websocket_handshake, store_e2ee_keyring,
-    store_e2ee_session, with_channel, with_http2_handshake, with_http3_handshake,
-    with_http3_stream, with_http_body, with_http_connection_event, with_http_handshake,
-    with_http_response_stream, with_message, with_websocket_handshake, HttpMetadata,
-    StoredHttpHandshakePayload, StoredMessage, StoredRawFrame,
+    clear_channels, clone_message, get_e2ee_keyring, remove_e2ee_keyring, remove_e2ee_session,
+    remove_http2_handshake, remove_http3_connection, remove_http3_handshake, remove_http3_stream,
+    remove_http_body, remove_http_connection_event, remove_http_handshake,
+    remove_http_response_stream, remove_message, remove_websocket_handshake, store_channel,
+    store_e2ee_keyring, store_e2ee_session, store_http2_handshake, store_http3_connection,
+    store_http3_handshake, store_http3_stream, store_http_body, store_http_connection_event,
+    store_http_request_metadata, store_http_response_stream, store_message,
+    store_websocket_handshake, with_channel, with_e2ee_keyring, with_e2ee_session,
+    with_http2_handshake, with_http3_handshake, with_http3_stream, with_http_body,
+    with_http_connection_event, with_http_handshake, with_http_response_stream, with_message,
+    with_websocket_handshake, HttpMetadata, StoredHttpHandshakePayload, StoredMessage,
+    StoredRawFrame,
 };
 use rmp::encode::{write_array_len, write_u64};
 use serde::Serialize;
@@ -178,6 +179,15 @@ pub struct CtRouterMetricsInfo {
     pub internal_error_events: u64,
     pub backpressure_events: u64,
     pub max_backpressure_depth: u32,
+    pub response_streaming_responses_total: u64,
+    pub response_stream_first_chunk_channel_wait_samples_total: u64,
+    pub response_stream_first_chunk_channel_wait_us_total: u64,
+    pub response_stream_headers_to_first_chunk_dequeue_samples_total: u64,
+    pub response_stream_headers_to_first_chunk_dequeue_us_total: u64,
+    pub response_stream_first_chunk_send_call_samples_total: u64,
+    pub response_stream_first_chunk_send_call_us_total: u64,
+    pub response_stream_headers_to_first_chunk_send_call_samples_total: u64,
+    pub response_stream_headers_to_first_chunk_send_call_us_total: u64,
     pub breakdown_ptr: *const CtRouterMetricsBreakdownInfo,
     pub breakdown_len: usize,
 }
@@ -2144,6 +2154,8 @@ pub extern "C" fn ct_router_metrics_snapshot(info: *mut CtRouterMetricsInfo) -> 
     }
     let (snapshot, breakdown): (HttpMetricsSnapshot, Vec<HttpMetricsBreakdownSnapshot>) =
         http_metrics_snapshot_with_breakdown();
+    let response_stream_snapshot: HttpResponseStreamMetricsSnapshot =
+        http_response_stream_metrics_snapshot();
     let info_ref = unsafe { info.as_mut().unwrap() };
     info_ref.total_events = snapshot.total_events;
     info_ref.graceful_events = snapshot.graceful_events;
@@ -2154,6 +2166,24 @@ pub extern "C" fn ct_router_metrics_snapshot(info: *mut CtRouterMetricsInfo) -> 
     info_ref.internal_error_events = snapshot.internal_error_events;
     info_ref.backpressure_events = snapshot.backpressure_events;
     info_ref.max_backpressure_depth = snapshot.max_backpressure_depth;
+    info_ref.response_streaming_responses_total =
+        response_stream_snapshot.streaming_responses_total;
+    info_ref.response_stream_first_chunk_channel_wait_samples_total =
+        response_stream_snapshot.first_chunk_channel_wait_samples_total;
+    info_ref.response_stream_first_chunk_channel_wait_us_total =
+        response_stream_snapshot.first_chunk_channel_wait_us_total;
+    info_ref.response_stream_headers_to_first_chunk_dequeue_samples_total =
+        response_stream_snapshot.headers_to_first_chunk_dequeue_samples_total;
+    info_ref.response_stream_headers_to_first_chunk_dequeue_us_total =
+        response_stream_snapshot.headers_to_first_chunk_dequeue_us_total;
+    info_ref.response_stream_first_chunk_send_call_samples_total =
+        response_stream_snapshot.first_chunk_send_call_samples_total;
+    info_ref.response_stream_first_chunk_send_call_us_total =
+        response_stream_snapshot.first_chunk_send_call_us_total;
+    info_ref.response_stream_headers_to_first_chunk_send_call_samples_total =
+        response_stream_snapshot.headers_to_first_chunk_send_call_samples_total;
+    info_ref.response_stream_headers_to_first_chunk_send_call_us_total =
+        response_stream_snapshot.headers_to_first_chunk_send_call_us_total;
     if breakdown.is_empty() {
         info_ref.breakdown_ptr = ptr::null();
         info_ref.breakdown_len = 0;
@@ -4935,7 +4965,10 @@ mod tests {
 
         let before_websocket = before.breakdown_for(9103, PROTOCOL_WEBSOCKET);
         let after_websocket = after.breakdown_for(9103, PROTOCOL_WEBSOCKET);
-        assert_eq!(after_websocket.total_events - before_websocket.total_events, 1);
+        assert_eq!(
+            after_websocket.total_events - before_websocket.total_events,
+            1
+        );
         assert_eq!(
             after_websocket.goaway_events - before_websocket.goaway_events,
             1

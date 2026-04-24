@@ -105,6 +105,19 @@ SERVER_EMISSION_SUMMARY_KEYS = (
     ("handler_avg_ms", "Server handler avg"),
 )
 
+NATIVE_RESPONSE_STREAM_SUMMARY_KEYS = (
+    ("first_chunk_channel_wait_avg_ms", "Native first chunk channel wait avg"),
+    (
+        "headers_to_first_chunk_dequeue_avg_ms",
+        "Native headers-to-first-chunk-dequeue avg",
+    ),
+    ("first_chunk_send_call_avg_ms", "Native first chunk send call avg"),
+    (
+        "headers_to_first_chunk_send_call_avg_ms",
+        "Native headers-to-first-chunk-send-call avg",
+    ),
+)
+
 
 def load_summary(path: Path) -> dict:
     if not path.exists():
@@ -774,6 +787,65 @@ def build_server_emission_focus(rows: list[dict], packed_row: dict | None) -> di
     }
 
 
+def summarize_row_native_response_stream_timing(row: dict) -> dict | None:
+    baseline = row.get("baseline")
+    ktls = row.get("ktls")
+    if not baseline or not ktls:
+        return None
+
+    baseline_timing = baseline.get("http_native_response_stream_timing")
+    ktls_timing = ktls.get("http_native_response_stream_timing")
+    if baseline_timing is None and ktls_timing is None:
+        return None
+
+    counts = {
+        "streaming_responses_total": build_connection_metric_snapshot(
+            baseline_timing, ktls_timing, "streaming_responses_total"
+        ),
+    }
+
+    metrics: dict[str, dict | None] = {}
+    signals: list[dict] = []
+    for metric, label in NATIVE_RESPONSE_STREAM_SUMMARY_KEYS:
+        snapshot = build_phase_timing_metric_snapshot(
+            baseline_timing, ktls_timing, metric
+        )
+        metrics[metric] = snapshot
+        if snapshot is None or snapshot["delta"] in (None, 0, 0.0):
+            continue
+        signals.append(
+            {
+                "metric": metric,
+                "label": label,
+                "baseline": snapshot["baseline"],
+                "ktls": snapshot["ktls"],
+                "delta": snapshot["delta"],
+                "delta_pct": snapshot["delta_pct"],
+            }
+        )
+
+    return {"counts": counts, "metrics": metrics, "signals": signals}
+
+
+def build_native_response_stream_focus(
+    rows: list[dict], packed_row: dict | None
+) -> dict | None:
+    row = find_matching_row(rows, packed_row)
+    if row is None:
+        return None
+
+    native_stream = row.get("native_response_stream_summary")
+    if native_stream is None:
+        return None
+
+    return {
+        "label": build_label(row),
+        "counts": native_stream["counts"],
+        "metrics": native_stream["metrics"],
+        "signals": native_stream["signals"],
+    }
+
+
 def render_pct(value: float | None) -> str:
     if value is None:
         return "n/a"
@@ -972,6 +1044,27 @@ def render_server_emission_focus_line(name: str, focus: dict | None) -> str:
         f"{render_connection_metric_snapshot(metrics['stream_open_avg_ms'])}, "
         f"server request body drain avg "
         f"{render_connection_metric_snapshot(metrics['request_body_drain_avg_ms'])}."
+    )
+
+
+def render_native_response_stream_focus_line(name: str, focus: dict | None) -> str:
+    if focus is None:
+        return f"- {name}: no HTTP native response-stream metrics were present."
+
+    counts = focus["counts"]
+    metrics = focus["metrics"]
+    return (
+        f"- {name}: {focus['label']} shows "
+        f"streaming responses "
+        f"{render_connection_metric_snapshot(counts['streaming_responses_total'])}, "
+        f"native first chunk channel wait avg "
+        f"{render_connection_metric_snapshot(metrics['first_chunk_channel_wait_avg_ms'])}, "
+        f"native headers-to-first-chunk-dequeue avg "
+        f"{render_connection_metric_snapshot(metrics['headers_to_first_chunk_dequeue_avg_ms'])}, "
+        f"native first chunk send call avg "
+        f"{render_connection_metric_snapshot(metrics['first_chunk_send_call_avg_ms'])}, "
+        f"native headers-to-first-chunk-send-call avg "
+        f"{render_connection_metric_snapshot(metrics['headers_to_first_chunk_send_call_avg_ms'])}."
     )
 
 
@@ -1182,6 +1275,9 @@ def build_comparison(baseline_path: Path, ktls_path: Path) -> dict:
         row["connection_usage_summary"] = summarize_row_connection_usage(row)
         row["phase_timing_summary"] = summarize_row_phase_timing(row)
         row["server_emission_summary"] = summarize_row_server_emission_timing(row)
+        row["native_response_stream_summary"] = summarize_row_native_response_stream_timing(
+            row
+        )
         rows.append(row)
 
     comparable_rows = [row for row in rows if row["baseline"] and row["ktls"]]
@@ -1249,6 +1345,16 @@ def build_comparison(baseline_path: Path, ktls_path: Path) -> dict:
                 throughput_summary["worst_row"] if throughput_summary else None,
             ),
             "worst_latency_row": build_server_emission_focus(
+                rows,
+                latency_p95_summary["worst_row"] if latency_p95_summary else None,
+            ),
+        },
+        "native_response_stream_focus": {
+            "worst_throughput_row": build_native_response_stream_focus(
+                rows,
+                throughput_summary["worst_row"] if throughput_summary else None,
+            ),
+            "worst_latency_row": build_native_response_stream_focus(
                 rows,
                 latency_p95_summary["worst_row"] if latency_p95_summary else None,
             ),
@@ -1344,6 +1450,14 @@ def render_markdown(comparison: dict) -> str:
             render_server_emission_focus_line(
                 "Worst p95 row server-emission view",
                 summary["server_emission_focus"]["worst_latency_row"],
+            ),
+            render_native_response_stream_focus_line(
+                "Worst throughput row native-stream view",
+                summary["native_response_stream_focus"]["worst_throughput_row"],
+            ),
+            render_native_response_stream_focus_line(
+                "Worst p95 row native-stream view",
+                summary["native_response_stream_focus"]["worst_latency_row"],
             ),
             "",
             "## Linux TLS Stats",
@@ -1628,6 +1742,50 @@ def render_markdown(comparison: dict) -> str:
 
     if not has_server_emission_rows:
         lines.append("| No HTTP server emission metrics | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
+
+    lines.append("")
+    lines.extend(
+        [
+            "## HTTP Native Response-Stream Timing",
+            "",
+            "| Workload | Router workers | Native runtime threads | Streaming responses | First chunk channel wait avg ms | Headers to first chunk dequeue avg ms | First chunk send call avg ms | Headers to first chunk send call avg ms |",
+            "| --- | ---: | ---: | --- | --- | --- | --- | --- |",
+        ]
+    )
+
+    has_native_stream_rows = False
+    for row in rows:
+        native_stream = row.get("native_response_stream_summary")
+        if native_stream is None:
+            continue
+        has_native_stream_rows = True
+        counts = native_stream["counts"]
+        metrics = native_stream["metrics"]
+        lines.append(
+            "| {workload} | {router_workers} | {native_runtime_threads} | {streaming_responses_total} | {first_chunk_channel_wait_avg_ms} | {headers_to_first_chunk_dequeue_avg_ms} | {first_chunk_send_call_avg_ms} | {headers_to_first_chunk_send_call_avg_ms} |".format(
+                workload=row["workload"],
+                router_workers=row["router_workers"],
+                native_runtime_threads=row["native_runtime_threads"],
+                streaming_responses_total=render_connection_metric_snapshot(
+                    counts["streaming_responses_total"]
+                ),
+                first_chunk_channel_wait_avg_ms=render_connection_metric_snapshot(
+                    metrics["first_chunk_channel_wait_avg_ms"]
+                ),
+                headers_to_first_chunk_dequeue_avg_ms=render_connection_metric_snapshot(
+                    metrics["headers_to_first_chunk_dequeue_avg_ms"]
+                ),
+                first_chunk_send_call_avg_ms=render_connection_metric_snapshot(
+                    metrics["first_chunk_send_call_avg_ms"]
+                ),
+                headers_to_first_chunk_send_call_avg_ms=render_connection_metric_snapshot(
+                    metrics["headers_to_first_chunk_send_call_avg_ms"]
+                ),
+            )
+        )
+
+    if not has_native_stream_rows:
+        lines.append("| No HTTP native response-stream metrics | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
 
     lines.append("")
 

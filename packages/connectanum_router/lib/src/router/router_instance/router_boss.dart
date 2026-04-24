@@ -870,6 +870,30 @@ class _RouterBoss {
       bodyTimeoutAlerts: _totalBodyTimeoutAlerts,
       protocolErrorAlerts: _totalProtocolErrorAlerts,
       internalErrorAlerts: _totalInternalErrorAlerts,
+      httpResponseStream: metrics.responseStream == null
+          ? null
+          : RouterHttpResponseStreamMetrics(
+              streamingResponsesTotal:
+                  metrics.responseStream!.streamingResponsesTotal,
+              firstChunkChannelWaitSamplesTotal:
+                  metrics.responseStream!.firstChunkChannelWaitSamplesTotal,
+              firstChunkChannelWaitUsTotal:
+                  metrics.responseStream!.firstChunkChannelWaitUsTotal,
+              headersToFirstChunkDequeueSamplesTotal: metrics
+                  .responseStream!
+                  .headersToFirstChunkDequeueSamplesTotal,
+              headersToFirstChunkDequeueUsTotal:
+                  metrics.responseStream!.headersToFirstChunkDequeueUsTotal,
+              firstChunkSendCallSamplesTotal:
+                  metrics.responseStream!.firstChunkSendCallSamplesTotal,
+              firstChunkSendCallUsTotal:
+                  metrics.responseStream!.firstChunkSendCallUsTotal,
+              headersToFirstChunkSendCallSamplesTotal: metrics
+                  .responseStream!
+                  .headersToFirstChunkSendCallSamplesTotal,
+              headersToFirstChunkSendCallUsTotal:
+                  metrics.responseStream!.headersToFirstChunkSendCallUsTotal,
+            ),
       alertBreakdown: alertBreakdown,
       breakdown: breakdown,
     );

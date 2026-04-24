@@ -2,6 +2,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
+use std::time::Instant;
 
 use bytes::Bytes;
 use thiserror::Error;
@@ -13,8 +14,8 @@ pub const RESPONSE_STREAM_BUFFER: usize = 8;
 /// Events emitted by a streaming HTTP response.
 #[derive(Debug)]
 pub enum ResponseStreamFrame {
-    Chunk(Bytes),
-    Finished,
+    Chunk { bytes: Bytes, queued_at: Instant },
+    Finished { queued_at: Instant },
 }
 
 /// Errors that can occur while interacting with a streaming HTTP response.
@@ -40,7 +41,10 @@ impl ResponseStreamWriter {
             return Err(ResponseStreamError::Closed);
         }
         self.tx
-            .blocking_send(ResponseStreamFrame::Chunk(chunk))
+            .blocking_send(ResponseStreamFrame::Chunk {
+                bytes: chunk,
+                queued_at: Instant::now(),
+            })
             .map_err(|_| {
                 self.closed.store(true, Ordering::SeqCst);
                 ResponseStreamError::Closed
@@ -52,7 +56,9 @@ impl ResponseStreamWriter {
             return Ok(());
         }
         self.tx
-            .blocking_send(ResponseStreamFrame::Finished)
+            .blocking_send(ResponseStreamFrame::Finished {
+                queued_at: Instant::now(),
+            })
             .map_err(|_| ResponseStreamError::Closed)
     }
 

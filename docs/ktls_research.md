@@ -584,6 +584,45 @@ matters: whether the first write blocks inside the native response-stream call
 itself, or whether the remaining delay still opens only after that call
 returns.
 
+### Hosted First-Write Completion Result
+
+That rerun has now landed as workflow run `24881249566` on commit `b8645af`,
+and it closed that question too:
+
+- the worst hotspot is still the same row:
+  `h2_multiplexed_streams_s4`, `threads=4`
+  - `response headers wait avg +8.38 ms`
+  - `response body first chunk wait avg +19.33 ms`
+  - `response body tail read avg +3.00 ms`
+- the first-write-completion boundary stayed flat on every comparable row:
+  - `headers_to_first_body_write_completed_avg_ms 0.00 -> 0.00 (+0.00)`
+  - `queue_to_first_body_write_completed_avg_ms 0.00 -> 0.00 (+0.00)`
+  - `first_body_write_completed_avg_ms 0.00 -> 0.00 (+0.00)`
+  - `first_body_write_call_avg_ms 0.00 -> 0.00 (+0.00)`
+
+That means the remaining delay still opens after the synchronous native
+response-stream write returns. The next useful boundary is no longer in the
+Dart router or the FFI write call itself; it is in the native response-stream
+handoff path after the chunk enters `ct_core`.
+
+### Native Response-Stream Handoff Instrumentation
+
+The next local slice now instruments that boundary directly:
+
+- `ct_core` timestamps streamed response frames and records cumulative
+  first-chunk channel/dequeue/send-call counters
+- `ct_ffi` and `connectanum_router` expose those counters through the
+  transport metrics snapshot
+- `native/bench` summarizes the counter deltas into
+  `http_native_response_stream_timing`
+- `tool/ktls_http2_compare.py` renders the new focus lines and the
+  `HTTP Native Response-Stream Timing` section
+
+That means the next hosted rerun can answer the next bounded question:
+whether the hotspot is introduced before the native send task dequeues the
+first chunk, during the first native `send_data` handoff, or only later in
+the HTTP/2 + kTLS path.
+
 ### What Not To Overclaim
 
 - macOS results are irrelevant for kTLS itself.

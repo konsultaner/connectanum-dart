@@ -2,18 +2,17 @@
 
 Last updated: 2026-04-24
 Current branch: `add-router`
-Last reviewed commit: `7755828` (`build(ktls): capture server emission timing`)
-Active exec plan: `docs/exec-plans/2026-04-24-h2-first-write-completion-rerun.md`
+Last reviewed commit: `b8645af` (`build(ktls): capture first-write completion timing`)
+Active exec plan: `docs/exec-plans/2026-04-24-h2-native-response-stream-handoff-metrics.md`
 
 ## Last Known Verification
 
 - `bin/test-fast`
-- `dart analyze packages/connectanum_bench/lib/src/http_stream_handler.dart packages/connectanum_bench/tool/bench_main.dart packages/connectanum_router/lib/src/router/http/http_context.dart packages/connectanum_bench/test/http_stream_handler_test.dart packages/connectanum_router/test/router_runtime_test.dart`
-- `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
-- `dart test packages/connectanum_router/test/router_runtime_test.dart --plain-name "HTTP/2 stream response callbacks fire once in open-write-complete order" -r expanded`
+- `dart analyze packages/connectanum_router packages/connectanum_bench`
 - `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
+- `cargo test --manifest-path native/transport/ct_ffi/Cargo.toml http2_response_streaming_round_trip -- --nocapture`
+- `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
 - `python3 tool/test_ktls_http2_compare.py`
-- rerender hosted artifact `24879483421`
 - `bin/verify`
 
 ## Autonomous Priority
@@ -388,6 +387,45 @@ Active exec plan: `docs/exec-plans/2026-04-24-h2-first-write-completion-rerun.md
   summarize_report_computes_latency_and_deltas -- --nocapture`,
   `python3 tool/test_ktls_http2_compare.py`, a rerender of hosted artifact
   `24879483421`, and the slice is ready for full `bin/verify`.
+- Commit `b8645af` then passed the hosted push chain cleanly too:
+  - `kTLS Validation` `24880362805`
+  - `WAMP Profile Benchmarks` `24880362819`
+  - `CI` `24880362829`
+- Manual workflow run `24881249566` reran the same focused scenario on
+  `b8645af` with `skip_artifact_gate=true`, and it moved the boundary again:
+  - worst throughput and p95 hotspot:
+    `h2_multiplexed_streams_s4`, `threads=4`
+    - `response headers wait avg +8.38 ms`
+    - `response body first chunk wait avg +19.33 ms`
+    - `response body tail read avg +3.00 ms`
+  - the completion boundary still stayed flat:
+    - `headers_to_first_body_write_completed_avg_ms 0.00 -> 0.00 (+0.00)`
+    - `queue_to_first_body_write_completed_avg_ms 0.00 -> 0.00 (+0.00)`
+    - `first_body_write_completed_avg_ms 0.00 -> 0.00 (+0.00)`
+    - `first_body_write_call_avg_ms 0.00 -> 0.00 (+0.00)`
+- That means the remaining delay still opens after the first native
+  response-stream write returns. The next bounded slice is now native
+  response-stream handoff timing, not more Dart-side write timing.
+- That native response-stream handoff slice is now implemented on the local
+  working tree too. `ct_core` timestamps streamed response frames and records
+  cumulative first-chunk channel/dequeue/send-call counters, `ct_ffi` and
+  `connectanum_router` expose them through the transport metrics snapshot,
+  `native/bench` summarizes them into
+  `http_native_response_stream_timing`, and
+  `tool/ktls_http2_compare.py` now renders the new focus lines and markdown
+  section.
+- Focused local verification for the native response-stream handoff slice is
+  green on 2026-04-24: `bin/test-fast`,
+  `dart analyze packages/connectanum_router packages/connectanum_bench`,
+  `cargo test --manifest-path native/bench/Cargo.toml
+  summarize_report_computes_latency_and_deltas -- --nocapture`,
+  `cargo test --manifest-path native/transport/ct_ffi/Cargo.toml
+  http2_response_streaming_round_trip -- --nocapture`,
+  `python3 -m py_compile tool/ktls_http2_compare.py
+  tool/test_ktls_http2_compare.py`, and
+  `python3 tool/test_ktls_http2_compare.py`.
+- Full local verification for the native response-stream handoff slice is also
+  green on 2026-04-24: `bin/verify`.
 - Local verification for the current kTLS transport-delta follow-up is green
   on 2026-04-24: `bin/test-fast`,
   `python3 -m py_compile tool/ktls_http2_compare.py
