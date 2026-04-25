@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-25
 Current branch: `add-router`
-Last reviewed commit: `b551a6d` (`build(bench): split h2 response header receive timing`)
+Last reviewed commit: `355a117` (`build(bench): split h2 header-wait write timing`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -19,6 +19,9 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
 - Hosted GitHub push runs on `b551a6d` completed successfully:
   `CI` `24920276210`, `kTLS Validation` `24920276202`,
   `WAMP Profile Benchmarks` `24920276214`
+- Hosted GitHub push runs on `355a117` completed successfully:
+  `CI` `24921028426`, `kTLS Validation` `24921028397`,
+  `WAMP Profile Benchmarks` `24921028403`
 - Manual hosted `kTLS HTTP/2 Benchmarks` rerun `24920655184` completed
   successfully on clean head `b551a6d`, but remained not decision-quality for
   isolated `h2_multiplexed_streams_s1`, `threads=4`:
@@ -30,11 +33,21 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     `response_headers_connection_read_to_headers`,
     `post_header_connection_read_wait`, and
     `connection_read_to_first_chunk` all stayed flat or nearly flat
-- The current isolated-regression diagnosis slice is green locally:
+- Manual hosted `kTLS HTTP/2 Benchmarks` rerun `24921433741` completed
+  successfully on clean head `355a117` and reached decision-quality for
+  isolated `h2_multiplexed_streams_s1`, `threads=4`:
+  - throughput delta span `20.81pp`
+  - p95 delta span `15.55pp`
+  - worst throughput and p95 rows stayed stable at
+    `h2_multiplexed_streams_s1 (workers=1, threads=4)` across all repeats
+  - `response_headers_connection_write_wait` and
+    `response_headers_connection_write_span` stayed small and flat enough that
+    request-flush activity is no longer the lead suspect
+- The current compare-report readability slice is green locally:
   - `bin/test-fast`
-  - `cargo test --manifest-path native/bench/Cargo.toml -- --nocapture`
   - `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
   - `python3 tool/test_ktls_http2_compare.py`
+  - `tmpdir=$(mktemp -d /tmp/connectanum-ktls-rerender-XXXXXX) && python3 tool/ktls_http2_compare.py /tmp/connectanum-run-24921433741/extracted/repeats/repeat-02/baseline/bench_results.summary.json /tmp/connectanum-run-24921433741/extracted/repeats/repeat-02/ktls/bench_results.summary.json "$tmpdir/comparison.json" "$tmpdir/comparison.md"`
   - `bin/verify`
 - The current workload-isolation methodology slice is green locally:
   - `bin/test-fast`
@@ -131,17 +144,24 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     `response_body_connection_read_to_first_chunk` stayed flat enough that
     header parsing and post-header body delivery are no longer the lead
     suspects
-- The current working tree now carries the next bounded split for that same
-  isolated `s1` path:
-  - `native/bench/src/bin/http_stream.rs` records write-side activity while
-    waiting for response headers:
-    `response_headers_connection_write_wait_*` and
-    `response_headers_connection_write_span_*`
-  - `native/bench/src/report.rs`, `native/bench/src/artifacts.rs`, and
-    `tool/ktls_http2_compare.py` now carry and render those metrics
-  - the next hosted rerun should decide whether the remaining instability is
-    still coupled to request-flush activity or persists after the client has
-    stopped writing
+- Manual hosted rerun `24921433741` on clean head `355a117` resolved the
+  write-side branch of that same isolated `s1` diagnosis:
+  - the rerun is decision-quality instead of another noisy partial read
+  - `response_headers_connection_write_wait` stayed around
+    `0.04..0.07 ms`
+  - `response_headers_connection_write_span` stayed around
+    `0.18..0.19 ms`
+  - those write-side metrics did not move with the repeat-level throughput or
+    p95 deltas, so the remaining isolated `s1` gap is not explained by the
+    client still flushing request bytes while waiting for response headers
+- The current working tree now carries the bounded readability follow-up for
+  that result:
+  - `tool/ktls_http2_compare.py` renders the header-write metrics in
+    `comparison.md`, not only in `comparison.json`
+  - the phase focus lines now surface `response-header connection write` wait
+    and span alongside the existing read-side diagnostics
+  - the header diagnostics table now exposes those same fields so hosted
+    artifacts are useful without opening raw JSON
 - That rerun also moved the remaining hotspot deeper into the HTTP/2 native
   response-stream path on `h2_multiplexed_streams_s8`, `threads=1`: server
   direct-stream timings improved, but client `response headers wait`,

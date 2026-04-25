@@ -488,6 +488,7 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("## HTTP Header-Receive Diagnostics", markdown)
             self.assertIn("## HTTP Response-Body Diagnostics", markdown)
             self.assertIn("## HTTP Server Emission Timing", markdown)
+            self.assertIn("Header conn write samples", markdown)
             self.assertIn("Direct stream open round trip avg ms", markdown)
             self.assertIn("Request queue delay avg ms", markdown)
             self.assertIn("Reply delivery delay avg ms", markdown)
@@ -526,6 +527,17 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             )
             self.assertIn(
                 "response-header connection read-to-headers avg 1.40 -> 17.40 (+16.00)",
+                markdown,
+            )
+            self.assertIn(
+                "response-header connection write samples 12 -> 12 (+0)", markdown
+            )
+            self.assertIn(
+                "response-header connection write wait avg 0.90 -> 1.00 (+0.10)",
+                markdown,
+            )
+            self.assertIn(
+                "response-header connection write-span avg 1.60 -> 14.20 (+12.60)",
                 markdown,
             )
             self.assertIn(

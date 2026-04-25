@@ -1215,6 +1215,24 @@ def render_phase_timing_focus_line(name: str, focus: dict | None) -> str:
             f"{render_connection_metric_snapshot(metrics['response_headers_connection_read_to_headers_avg_ms'])}"
         )
     if connection_metric_snapshot_has_samples(
+        metrics["response_headers_connection_write_wait_samples_total"]
+    ):
+        rendered += (
+            f", response-header connection write samples "
+            f"{render_connection_metric_snapshot(metrics['response_headers_connection_write_wait_samples_total'])}, "
+            f"response-header connection write wait avg "
+            f"{render_connection_metric_snapshot(metrics['response_headers_connection_write_wait_avg_ms'])}"
+        )
+    if connection_metric_snapshot_has_samples(
+        metrics["response_headers_connection_write_span_samples_total"]
+    ):
+        rendered += (
+            f", response-header connection write-span samples "
+            f"{render_connection_metric_snapshot(metrics['response_headers_connection_write_span_samples_total'])}, "
+            f"response-header connection write-span avg "
+            f"{render_connection_metric_snapshot(metrics['response_headers_connection_write_span_avg_ms'])}"
+        )
+    if connection_metric_snapshot_has_samples(
         metrics["response_body_post_header_connection_read_wait_samples_total"]
     ):
         rendered += (
@@ -1937,8 +1955,8 @@ def render_markdown(comparison: dict) -> str:
         [
             "## HTTP Header-Receive Diagnostics",
             "",
-            "| Workload | Router workers | Native runtime threads | Response headers wait avg ms | Header conn read samples | Header conn read wait avg ms | Header conn read-to-headers samples | Header conn read-to-headers avg ms | Response headers wait p95 ms |",
-            "| --- | ---: | ---: | --- | --- | --- | --- | --- | --- |",
+            "| Workload | Router workers | Native runtime threads | Response headers wait avg ms | Header conn read samples | Header conn read wait avg ms | Header conn read-to-headers samples | Header conn read-to-headers avg ms | Header conn write samples | Header conn write wait avg ms | Header conn write-span samples | Header conn write-span avg ms | Response headers wait p95 ms |",
+            "| --- | ---: | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
 
@@ -1950,7 +1968,7 @@ def render_markdown(comparison: dict) -> str:
         has_header_rows = True
         metrics = phase_timing["metrics"]
         lines.append(
-            "| {workload} | {router_workers} | {native_runtime_threads} | {response_headers_wait_avg_ms} | {response_headers_connection_read_wait_samples_total} | {response_headers_connection_read_wait_avg_ms} | {response_headers_connection_read_to_headers_samples_total} | {response_headers_connection_read_to_headers_avg_ms} | {response_headers_wait_p95_ms} |".format(
+            "| {workload} | {router_workers} | {native_runtime_threads} | {response_headers_wait_avg_ms} | {response_headers_connection_read_wait_samples_total} | {response_headers_connection_read_wait_avg_ms} | {response_headers_connection_read_to_headers_samples_total} | {response_headers_connection_read_to_headers_avg_ms} | {response_headers_connection_write_wait_samples_total} | {response_headers_connection_write_wait_avg_ms} | {response_headers_connection_write_span_samples_total} | {response_headers_connection_write_span_avg_ms} | {response_headers_wait_p95_ms} |".format(
                 workload=row["workload"],
                 router_workers=row["router_workers"],
                 native_runtime_threads=row["native_runtime_threads"],
@@ -1969,6 +1987,18 @@ def render_markdown(comparison: dict) -> str:
                 response_headers_connection_read_to_headers_avg_ms=render_connection_metric_snapshot(
                     metrics["response_headers_connection_read_to_headers_avg_ms"]
                 ),
+                response_headers_connection_write_wait_samples_total=render_connection_metric_snapshot(
+                    metrics["response_headers_connection_write_wait_samples_total"]
+                ),
+                response_headers_connection_write_wait_avg_ms=render_connection_metric_snapshot(
+                    metrics["response_headers_connection_write_wait_avg_ms"]
+                ),
+                response_headers_connection_write_span_samples_total=render_connection_metric_snapshot(
+                    metrics["response_headers_connection_write_span_samples_total"]
+                ),
+                response_headers_connection_write_span_avg_ms=render_connection_metric_snapshot(
+                    metrics["response_headers_connection_write_span_avg_ms"]
+                ),
                 response_headers_wait_p95_ms=render_connection_metric_snapshot(
                     metrics["response_headers_wait_p95_ms"]
                 ),
@@ -1976,7 +2006,9 @@ def render_markdown(comparison: dict) -> str:
         )
 
     if not has_header_rows:
-        lines.append("| No HTTP header-receive metrics | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
+        lines.append(
+            "| No HTTP header-receive metrics | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |"
+        )
 
     lines.append("")
     lines.extend(
