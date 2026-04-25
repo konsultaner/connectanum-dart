@@ -1,6 +1,6 @@
 # kTLS Repeat Stability
 
-Status: in_progress
+Status: completed
 
 ## Context
 
@@ -233,14 +233,53 @@ Status: in_progress
   - `python3 tool/filter_bench_scenario.py native/bench/scenarios/h2_ktls_multiplex_stability.toml /tmp/connectanum-ktls-filtered.toml h2_multiplexed_streams_s4,h2_multiplexed_streams_s8`
   - `bin/ktls-http2-bench --help | rg 'workloads|repeat-order|cooldown-seconds|repeat-count'`
   - `bin/verify`
+- That workload-isolation slice is now pushed as commit `1fa0c45`
+  (`build(ktls): isolate hotspot stability reruns`).
+- Its GitHub push chain completed successfully:
+  - `CI` `24917321434`
+  - `kTLS Validation` `24917321426`
+  - `WAMP Profile Benchmarks` `24917321423`
+- Manual hosted rerun `24917873323` then completed successfully on that clean
+  head with the planned isolated `s1` settings:
+  - `scenario=native/bench/scenarios/h2_ktls_multiplex_stability.toml`
+  - `workloads=h2_multiplexed_streams_s1`
+  - `router_worker_counts=1`
+  - `native_runtime_thread_counts=4`
+  - `repeat_count=3`
+  - `repeat_order=baseline-first`
+  - `cooldown_seconds=15`
+  - `skip_artifact_gate=true`
+- That isolated `s1` rerun still did not become decision-quality:
+  - throughput delta spanned `46.95pp`, from `-62.63%` to `-15.68%`
+  - p95 delta stayed within threshold at `42.53pp`
+  - there were no non-zero transport counters, no connection churn, and
+    server-emission timings improved while client-side first-chunk/body-read
+    timings regressed
+- Manual hosted rerun `24917876488` then completed successfully on the same
+  clean head with the same settings except
+  `workloads=h2_multiplexed_streams_s4`.
+- That isolated `s4` rerun is decision-quality:
+  - throughput delta stayed within `5.15pp`, from `-17.35%` to `-12.20%`
+  - p95 delta stayed within `7.81pp`, from `+4.19%` to `+12.00%`
+  - the stable regression shape includes `Backpressure events 71 -> 82 (+11)`,
+    `Backpressure alerts 2 -> 3 (+1)`, and
+    `response headers wait avg 17.55 -> 21.16 (+3.61)`
+- Manual hosted rerun `24918088324` then retried isolated `s1` with
+  `repeat_count=5`.
+- That longer `s1` rerun failed in the benchmark step, but the uploaded
+  artifact still narrowed the picture:
+  - the completed repeats converged into decision-quality spans:
+    throughput `11.85pp`, p95 `21.75pp`
+  - `repeat-04` is partial and baseline-only summary output is missing
+  - the partial comparison reports `baseline` elapsed wall time `308.65s`
+    versus `9.17s` for the `kTLS` pass, which points to a long-repeat
+    baseline stall rather than another wide spread in the completed samples
 
 ## Next Step
 
-Simple runner timing knobs are now exhausted enough to stop tuning them
-blindly. The next useful step is no longer a larger cooldown; it is a focused
-hosted rerun strategy using the new workload filter. Start with
-`h2_multiplexed_streams_s1` and `h2_multiplexed_streams_s4` as isolated manual
-reruns on `native/bench/scenarios/h2_ktls_multiplex_stability.toml` with
-`repeat_count=3`, `repeat_order=baseline-first`, `cooldown_seconds=15`, and
-`skip_artifact_gate=true`, then decide whether any remaining spread is still
-runner noise or a real transport shape.
+Repeat stability is now good enough to stop broad methodology tuning. The next
+useful step is a transport-diagnosis plan driven by isolated evidence:
+`s4` is a stable multiplex/backpressure regression shape, `s1` is likely a
+stable low-contention first-body-delivery regression shape, and the
+`repeat_count=5` baseline stall should be tracked separately as a harness
+issue.

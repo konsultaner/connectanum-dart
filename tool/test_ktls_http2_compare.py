@@ -105,6 +105,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         native_first_chunk_send_call_ge_1ms_total=0,
                         native_first_chunk_send_call_ge_5ms_total=0,
                         native_first_chunk_send_call_ge_10ms_total=0,
+                        response_body_post_header_connection_read_wait_samples_total=12,
+                        response_body_post_header_connection_read_wait_avg_ms=1.2,
+                        response_body_post_header_connection_read_wait_p95_ms=1.8,
+                        response_body_connection_read_to_first_chunk_samples_total=12,
+                        response_body_connection_read_to_first_chunk_avg_ms=1.2,
+                        response_body_connection_read_to_first_chunk_p95_ms=1.9,
                     ),
                 ],
             )
@@ -154,6 +160,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         response_body_chunk_count_p95=18.0,
                         response_body_first_chunk_bytes_avg=1536.0,
                         response_body_first_chunk_bytes_p95=2048.0,
+                        response_body_post_header_connection_read_wait_samples_total=12,
+                        response_body_post_header_connection_read_wait_avg_ms=1.6,
+                        response_body_post_header_connection_read_wait_p95_ms=2.3,
+                        response_body_connection_read_to_first_chunk_samples_total=12,
+                        response_body_connection_read_to_first_chunk_avg_ms=4.6,
+                        response_body_connection_read_to_first_chunk_p95_ms=7.4,
                         request_round_trip_avg_ms=142.0,
                         request_round_trip_p95_ms=220.0,
                         server_requests_total=32,
@@ -496,6 +508,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                 "response body first chunk wait avg 4.40 -> 6.10 (+1.70)", markdown
             )
             self.assertIn(
+                "post-header connection read samples 12 -> 12 (+0)", markdown
+            )
+            self.assertIn(
+                "connection read-to-first-chunk avg 1.20 -> 4.60 (+3.40)", markdown
+            )
+            self.assertIn(
                 "response body tail read avg 19.80 -> 115.50 (+95.70)", markdown
             )
             self.assertIn("response body chunks avg 3.00 -> 12.00 (+9.00)", markdown)
@@ -744,6 +762,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         response_body_chunk_count_p95: float | None = 1.0,
         response_body_first_chunk_bytes_avg: float | None = 16384.0,
         response_body_first_chunk_bytes_p95: float | None = 16384.0,
+        response_body_post_header_connection_read_wait_samples_total: int | None = 16,
+        response_body_post_header_connection_read_wait_avg_ms: float | None = 0.9,
+        response_body_post_header_connection_read_wait_p95_ms: float | None = 1.3,
+        response_body_connection_read_to_first_chunk_samples_total: int | None = 16,
+        response_body_connection_read_to_first_chunk_avg_ms: float | None = 1.2,
+        response_body_connection_read_to_first_chunk_p95_ms: float | None = 1.8,
         request_round_trip_avg_ms: float | None = 7.6,
         request_round_trip_p95_ms: float | None = 10.8,
         server_requests_total: int | None = 16,
@@ -820,6 +844,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "response_body_chunk_count_p95": response_body_chunk_count_p95,
                     "response_body_first_chunk_bytes_avg": response_body_first_chunk_bytes_avg,
                     "response_body_first_chunk_bytes_p95": response_body_first_chunk_bytes_p95,
+                    "response_body_post_header_connection_read_wait_samples_total": response_body_post_header_connection_read_wait_samples_total,
+                    "response_body_post_header_connection_read_wait_avg_ms": response_body_post_header_connection_read_wait_avg_ms,
+                    "response_body_post_header_connection_read_wait_p95_ms": response_body_post_header_connection_read_wait_p95_ms,
+                    "response_body_connection_read_to_first_chunk_samples_total": response_body_connection_read_to_first_chunk_samples_total,
+                    "response_body_connection_read_to_first_chunk_avg_ms": response_body_connection_read_to_first_chunk_avg_ms,
+                    "response_body_connection_read_to_first_chunk_p95_ms": response_body_connection_read_to_first_chunk_p95_ms,
                     "request_round_trip_avg_ms": request_round_trip_avg_ms,
                     "request_round_trip_p95_ms": request_round_trip_p95_ms,
                 }

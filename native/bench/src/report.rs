@@ -29,6 +29,10 @@ pub struct HttpPhaseTimingSample {
     pub response_body_tail_read_ms: f64,
     pub response_body_chunk_count: u32,
     pub response_body_first_chunk_bytes: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_body_post_header_connection_read_wait_ms: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_body_connection_read_to_first_chunk_ms: Option<f64>,
     pub request_round_trip_ms: f64,
 }
 
@@ -50,6 +54,12 @@ pub struct HttpPhaseTimingSummary {
     pub response_body_chunk_count_p95: f64,
     pub response_body_first_chunk_bytes_avg: f64,
     pub response_body_first_chunk_bytes_p95: f64,
+    pub response_body_post_header_connection_read_wait_samples_total: u64,
+    pub response_body_post_header_connection_read_wait_avg_ms: f64,
+    pub response_body_post_header_connection_read_wait_p95_ms: f64,
+    pub response_body_connection_read_to_first_chunk_samples_total: u64,
+    pub response_body_connection_read_to_first_chunk_avg_ms: f64,
+    pub response_body_connection_read_to_first_chunk_p95_ms: f64,
     pub request_round_trip_avg_ms: f64,
     pub request_round_trip_p95_ms: f64,
 }

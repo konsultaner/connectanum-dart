@@ -2,14 +2,24 @@
 
 Last updated: 2026-04-25
 Current branch: `add-router`
-Last reviewed commit: `45fcba8` (`build(ktls): add repeat cooldown controls`)
-Active exec plan: `docs/exec-plans/2026-04-24-ktls-repeat-stability.md`
+Last reviewed commit: `1fa0c45` (`build(ktls): isolate hotspot stability reruns`)
+Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
 
 - Hosted GitHub push runs on `45fcba8` completed successfully:
   `CI` `24914678995`, `kTLS Validation` `24914678987`,
   `WAMP Profile Benchmarks` `24914678985`
+- Hosted GitHub push runs on `1fa0c45` completed successfully:
+  `CI` `24917321434`, `kTLS Validation` `24917321426`,
+  `WAMP Profile Benchmarks` `24917321423`
+- The current isolated-regression diagnosis slice is green locally:
+  - `bin/test-fast`
+  - `cargo test --manifest-path native/bench/Cargo.toml h2_client_read_probe_records_post_header_read_split -- --nocapture`
+  - `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
+  - `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
+  - `python3 tool/test_ktls_http2_compare.py`
+  - `bin/verify`
 - The current workload-isolation methodology slice is green locally:
   - `bin/test-fast`
   - `bash -n bin/ktls-http2-bench`
@@ -351,16 +361,70 @@ Active exec plan: `docs/exec-plans/2026-04-24-ktls-repeat-stability.md`
   - `python3 tool/test_filter_bench_scenario.py`
   - `python3 tool/filter_bench_scenario.py native/bench/scenarios/h2_ktls_multiplex_stability.toml /tmp/connectanum-ktls-filtered.toml h2_multiplexed_streams_s4,h2_multiplexed_streams_s8`
   - `bin/ktls-http2-bench --help | rg 'workloads|repeat-order|cooldown-seconds|repeat-count'`
-- The next useful hosted step is now explicit:
-  - run `h2_multiplexed_streams_s1` and `h2_multiplexed_streams_s4` as
-    isolated manual reruns on
-    `native/bench/scenarios/h2_ktls_multiplex_stability.toml`
-  - keep `repeat_count=3`, `repeat_order=baseline-first`,
-    `cooldown_seconds=15`, and `skip_artifact_gate=true`
-  - use those isolated repeats to decide whether any remaining spread is still
-    runner noise or a real transport regression before changing HTTP/2 again
-- GitLab has not surfaced an `add-router` pipeline for `c0e9171` through the
-  current token-backed API query.
+- Manual hosted rerun `24917873323` then completed successfully on clean head
+  `1fa0c45` with:
+  - `scenario=native/bench/scenarios/h2_ktls_multiplex_stability.toml`
+  - `workloads=h2_multiplexed_streams_s1`
+  - `router_worker_counts=1`
+  - `native_runtime_thread_counts=4`
+  - `repeat_count=3`
+  - `repeat_order=baseline-first`
+  - `cooldown_seconds=15`
+  - `skip_artifact_gate=true`
+- That isolated `s1` rerun still did not become decision-quality:
+  - throughput delta spanned `46.95pp`, from `-62.63%` to `-15.68%`
+  - p95 delta stayed within threshold at `42.53pp`, from `-12.50%` to
+    `+30.02%`
+  - the remaining spread was explicitly kTLS-side on throughput
+  - there were still no non-zero transport counters, no connection churn, and
+    server-emission timings improved while client-side first-chunk/body-read
+    timings regressed
+- Manual hosted rerun `24917876488` then completed successfully on the same
+  clean head with the same settings except
+  `workloads=h2_multiplexed_streams_s4`.
+- That isolated `s4` rerun is decision-quality:
+  - throughput delta stayed within `5.15pp`, from `-17.35%` to `-12.20%`
+  - p95 delta stayed within `7.81pp`, from `+4.19%` to `+12.00%`
+  - the stable regression shape includes `Backpressure events 71 -> 82 (+11)`,
+    `Backpressure alerts 2 -> 3 (+1)`, and
+    `response headers wait avg 17.55 -> 21.16 (+3.61)`
+  - connections opened, samples per connection, and chunk shape all stayed
+    flat, so the isolated `s4` result now looks like a real multiplex-path
+    regression rather than runner noise
+- Manual hosted rerun `24918088324` then ran the same isolated `s1` workload
+  with `repeat_count=5`.
+- That longer `s1` rerun failed in the benchmark step, but the uploaded
+  artifact still sharpened the picture:
+  - the completed repeats converged into decision-quality spans:
+    throughput `11.85pp` and p95 `21.75pp`
+  - repeat outputs exist for `repeat-01` through `repeat-04`, but
+    `repeat-04` is partial and baseline-only summary output is missing
+  - the partial comparison reports `baseline` elapsed wall time `308.65s`
+    versus `9.17s` for the `kTLS` pass, which points to a long-repeat
+    baseline stall rather than another wide spread in the completed samples
+- The repeat-stability blocker is therefore narrow enough to stop broad
+  methodology tuning:
+  - `s4` is now a stable, decision-quality transport regression shape
+  - `s1` is likely also a real low-contention regression shape, but the
+    repeat-05 attempt exposed a separate long-repeat harness stall that should
+    not be conflated with the transport deltas themselves
+  - the next useful step is transport diagnosis on isolated `s1` / `s4`
+    evidence, with the long-repeat baseline stall tracked as a harness issue
+- The current working tree now carries the next bounded diagnosis slice for
+  isolated `s1`:
+  - `native/bench/src/bin/http_stream.rs` wraps the HTTP/2 client transport so
+    the bench can see the first successful socket read after response headers
+  - `native/bench/src/report.rs` and `native/bench/src/artifacts.rs` now
+    summarize two new receive-side timings:
+    `response_body_post_header_connection_read_wait_*` and
+    `response_body_connection_read_to_first_chunk_*`
+  - `tool/ktls_http2_compare.py` now renders those new fields in the
+    response-body diagnostics table and focus lines
+  - the new metric split should tell the next isolated hosted `s1` rerun
+    whether the remaining gap appears before the first post-header connection
+    read or after bytes have already reached the HTTP/2 client body path
+- GitLab has not surfaced an `add-router` pipeline for `1fa0c45` or the
+  isolated manual rerun follow-ups through the current token-backed API query.
 - `packages/connectanum_core` is approved as a design reference for MCP package
   shape: typed protocol models, serializer-independent boundaries, explicit
   errors, small barrel exports, and focused tests. Reuse the style, not WAMP
@@ -1670,7 +1734,7 @@ Active exec plan: `docs/exec-plans/2026-04-24-ktls-repeat-stability.md`
 ## Active Plan
 
 - Active plan:
-  `docs/exec-plans/2026-04-24-ktls-repeat-stability.md`
+  `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 - Most recent completed product-readiness plan:
   `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`
 - Supporting research notes:
@@ -1678,9 +1742,9 @@ Active exec plan: `docs/exec-plans/2026-04-24-ktls-repeat-stability.md`
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
 - Most recent completed plan:
-  `docs/exec-plans/2026-04-24-h2-main-isolate-control-port-optimization.md`
+  `docs/exec-plans/2026-04-24-ktls-repeat-stability.md`
 - Completed immediately before that:
-  `docs/exec-plans/2026-04-24-h2-direct-stream-shared-reply-channel.md`
+  `docs/exec-plans/2026-04-24-h2-main-isolate-control-port-optimization.md`
 - Completed before those: `docs/exec-plans/2026-04-23-ci-artifact-cleanup-and-native-matrix.md`
 
 ## Known Follow-Ups

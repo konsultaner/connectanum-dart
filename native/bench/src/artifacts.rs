@@ -827,6 +827,16 @@ fn summarize_http_phase_timing(
         .filter_map(|sample| sample.http_phase_timing.as_ref())
         .map(|timing| timing.response_body_first_chunk_bytes as f64)
         .collect::<Vec<_>>();
+    let mut response_body_post_header_connection_read_waits = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_body_post_header_connection_read_wait_ms)
+        .collect::<Vec<_>>();
+    let mut response_body_connection_read_to_first_chunks = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_body_connection_read_to_first_chunk_ms)
+        .collect::<Vec<_>>();
     let mut request_round_trips = samples
         .iter()
         .filter_map(|sample| sample.http_phase_timing.as_ref())
@@ -841,6 +851,8 @@ fn summarize_http_phase_timing(
     response_body_tail_reads.sort_by(|left, right| left.total_cmp(right));
     response_body_chunk_counts.sort_by(|left, right| left.total_cmp(right));
     response_body_first_chunk_bytes.sort_by(|left, right| left.total_cmp(right));
+    response_body_post_header_connection_read_waits.sort_by(|left, right| left.total_cmp(right));
+    response_body_connection_read_to_first_chunks.sort_by(|left, right| left.total_cmp(right));
     request_round_trips.sort_by(|left, right| left.total_cmp(right));
 
     let stream_acquire_wait_avg_ms =
@@ -875,6 +887,40 @@ fn summarize_http_phase_timing(
         response_body_first_chunk_bytes_avg: response_body_first_chunk_bytes.iter().sum::<f64>()
             / response_body_first_chunk_bytes.len() as f64,
         response_body_first_chunk_bytes_p95: percentile(&response_body_first_chunk_bytes, 0.95),
+        response_body_post_header_connection_read_wait_samples_total:
+            response_body_post_header_connection_read_waits.len() as u64,
+        response_body_post_header_connection_read_wait_avg_ms:
+            if response_body_post_header_connection_read_waits.is_empty() {
+                0.0
+            } else {
+                response_body_post_header_connection_read_waits
+                    .iter()
+                    .sum::<f64>()
+                    / response_body_post_header_connection_read_waits.len() as f64
+            },
+        response_body_post_header_connection_read_wait_p95_ms:
+            if response_body_post_header_connection_read_waits.is_empty() {
+                0.0
+            } else {
+                percentile(&response_body_post_header_connection_read_waits, 0.95)
+            },
+        response_body_connection_read_to_first_chunk_samples_total:
+            response_body_connection_read_to_first_chunks.len() as u64,
+        response_body_connection_read_to_first_chunk_avg_ms:
+            if response_body_connection_read_to_first_chunks.is_empty() {
+                0.0
+            } else {
+                response_body_connection_read_to_first_chunks
+                    .iter()
+                    .sum::<f64>()
+                    / response_body_connection_read_to_first_chunks.len() as f64
+            },
+        response_body_connection_read_to_first_chunk_p95_ms:
+            if response_body_connection_read_to_first_chunks.is_empty() {
+                0.0
+            } else {
+                percentile(&response_body_connection_read_to_first_chunks, 0.95)
+            },
         request_round_trip_avg_ms,
         request_round_trip_p95_ms: percentile(&request_round_trips, 0.95),
     })
@@ -1242,14 +1288,13 @@ fn summarize_http_native_response_stream_timing(
         )
         .unwrap_or(0)
         .max(0) as u64;
-    let headers_to_first_connection_write_us_total =
-        transport_http_response_stream_counter_delta(
-            &report.metrics_before,
-            &report.metrics_after,
-            "headers_to_first_connection_write_us_total",
-        )
-        .unwrap_or(0)
-        .max(0) as u64;
+    let headers_to_first_connection_write_us_total = transport_http_response_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "headers_to_first_connection_write_us_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
     let first_chunk_channel_wait_samples_total = transport_http_response_stream_counter_delta(
         &report.metrics_before,
         &report.metrics_after,
@@ -2215,6 +2260,8 @@ mod tests {
                         response_body_tail_read_ms: 2.0,
                         response_body_chunk_count: 1,
                         response_body_first_chunk_bytes: 200,
+                        response_body_post_header_connection_read_wait_ms: Some(0.5),
+                        response_body_connection_read_to_first_chunk_ms: Some(1.5),
                         request_round_trip_ms: 9.0,
                     }),
                 },
@@ -2233,6 +2280,8 @@ mod tests {
                         response_body_tail_read_ms: 5.0,
                         response_body_chunk_count: 2,
                         response_body_first_chunk_bytes: 160,
+                        response_body_post_header_connection_read_wait_ms: Some(1.5),
+                        response_body_connection_read_to_first_chunk_ms: Some(1.5),
                         request_round_trip_ms: 17.0,
                     }),
                 },
@@ -2251,6 +2300,8 @@ mod tests {
                         response_body_tail_read_ms: 8.0,
                         response_body_chunk_count: 4,
                         response_body_first_chunk_bytes: 120,
+                        response_body_post_header_connection_read_wait_ms: None,
+                        response_body_connection_read_to_first_chunk_ms: None,
                         request_round_trip_ms: 25.0,
                     }),
                 },
@@ -2357,6 +2408,30 @@ mod tests {
         assert!((phase_timing.response_body_chunk_count_p95 - 4.0).abs() < f64::EPSILON);
         assert!((phase_timing.response_body_first_chunk_bytes_avg - 160.0).abs() < f64::EPSILON);
         assert!((phase_timing.response_body_first_chunk_bytes_p95 - 200.0).abs() < f64::EPSILON);
+        assert_eq!(
+            phase_timing.response_body_post_header_connection_read_wait_samples_total,
+            2
+        );
+        assert!(
+            (phase_timing.response_body_post_header_connection_read_wait_avg_ms - 1.0).abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (phase_timing.response_body_post_header_connection_read_wait_p95_ms - 1.5).abs()
+                < f64::EPSILON
+        );
+        assert_eq!(
+            phase_timing.response_body_connection_read_to_first_chunk_samples_total,
+            2
+        );
+        assert!(
+            (phase_timing.response_body_connection_read_to_first_chunk_avg_ms - 1.5).abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (phase_timing.response_body_connection_read_to_first_chunk_p95_ms - 1.5).abs()
+                < f64::EPSILON
+        );
         assert!((phase_timing.request_round_trip_avg_ms - 17.0).abs() < f64::EPSILON);
         assert!((phase_timing.request_round_trip_p95_ms - 25.0).abs() < f64::EPSILON);
         let server_timing = summary.http_server_emission_timing.unwrap();
@@ -2382,16 +2457,13 @@ mod tests {
         assert!((server_timing.first_body_write_call_avg_ms - (4.0 / 3.0)).abs() < f64::EPSILON);
         assert!((server_timing.direct_stream_open_round_trip_avg_ms - 4.0).abs() < f64::EPSILON);
         assert!(
-            (server_timing.direct_stream_request_queue_delay_avg_ms - 0.4).abs()
-                < f64::EPSILON
+            (server_timing.direct_stream_request_queue_delay_avg_ms - 0.4).abs() < f64::EPSILON
         );
         assert!(
-            (server_timing.direct_stream_descriptor_open_call_avg_ms - 2.0).abs()
-                < f64::EPSILON
+            (server_timing.direct_stream_descriptor_open_call_avg_ms - 2.0).abs() < f64::EPSILON
         );
         assert!(
-            (server_timing.direct_stream_reply_delivery_delay_avg_ms - 0.8).abs()
-                < f64::EPSILON
+            (server_timing.direct_stream_reply_delivery_delay_avg_ms - 0.8).abs() < f64::EPSILON
         );
         assert!((server_timing.handler_avg_ms - 14.0).abs() < f64::EPSILON);
         let native_stream_timing = summary.http_native_response_stream_timing.unwrap();
@@ -2400,9 +2472,7 @@ mod tests {
             (native_stream_timing.stream_open_to_headers_send_avg_ms - (11.0 / 3.0)).abs()
                 < f64::EPSILON
         );
-        assert!(
-            (native_stream_timing.headers_send_call_avg_ms - (2.0 / 3.0)).abs() < f64::EPSILON
-        );
+        assert!((native_stream_timing.headers_send_call_avg_ms - (2.0 / 3.0)).abs() < f64::EPSILON);
         assert!(
             (native_stream_timing.headers_to_first_connection_write_avg_ms - 5.0).abs()
                 < f64::EPSILON

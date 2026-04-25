@@ -1,13 +1,16 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::Path;
+use std::pin::Pin;
 use std::process::{Command, Stdio};
 use std::sync::{
+    atomic::{AtomicBool, Ordering},
     mpsc::{self, RecvTimeoutError},
-    Arc,
+    Arc, Mutex,
 };
+use std::task::{Context as TaskContext, Poll};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -39,7 +42,7 @@ use rustls::{DigitallySignedStruct, SignatureScheme};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
 use tokio::net::{lookup_host, TcpStream};
 use tokio::runtime::Runtime;
 use tokio::task::JoinSet;
@@ -77,6 +80,42 @@ struct H2ResponseDrainStats {
     tail_read_ms: f64,
     chunk_count: u32,
     first_chunk_bytes: u64,
+    post_header_connection_read_wait_ms: Option<f64>,
+    connection_read_to_first_chunk_ms: Option<f64>,
+}
+
+#[derive(Clone)]
+struct H2BenchSender {
+    sender: h2_client::SendRequest<Bytes>,
+    read_tracker: Arc<H2ClientReadTracker>,
+}
+
+#[derive(Debug, Default)]
+struct H2ClientReadTracker {
+    probes: Mutex<VecDeque<Arc<H2ClientReadProbeState>>>,
+}
+
+#[derive(Clone, Debug)]
+struct H2ClientReadProbe {
+    state: Arc<H2ClientReadProbeState>,
+}
+
+#[derive(Debug)]
+struct H2ClientReadProbeState {
+    headers_received_at: Instant,
+    first_connection_read_at: Mutex<Option<Instant>>,
+    finished: AtomicBool,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct H2ClientConnectionReadStats {
+    post_header_connection_read_wait_ms: Option<f64>,
+    connection_read_to_first_chunk_ms: Option<f64>,
+}
+
+struct InstrumentedH2ClientIo<T> {
+    inner: T,
+    read_tracker: Arc<H2ClientReadTracker>,
 }
 
 #[derive(Parser, Debug)]
@@ -761,6 +800,111 @@ fn format_native_runtime_threads(value: u32) -> String {
         "auto".to_string()
     } else {
         value.to_string()
+    }
+}
+
+impl H2ClientReadTracker {
+    fn note_headers_received(&self) -> H2ClientReadProbe {
+        let probe = Arc::new(H2ClientReadProbeState {
+            headers_received_at: Instant::now(),
+            first_connection_read_at: Mutex::new(None),
+            finished: AtomicBool::new(false),
+        });
+        let mut guard = self
+            .probes
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        guard.retain(|state| !state.finished.load(Ordering::SeqCst));
+        guard.push_back(probe.clone());
+        H2ClientReadProbe { state: probe }
+    }
+
+    fn record_connection_read(&self, read_at: Instant) {
+        let mut guard = self
+            .probes
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        guard.retain(|state| !state.finished.load(Ordering::SeqCst));
+        for state in guard.iter() {
+            if state.finished.load(Ordering::SeqCst) {
+                continue;
+            }
+            let mut first_connection_read_at = state
+                .first_connection_read_at
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner());
+            if first_connection_read_at.is_none() {
+                *first_connection_read_at = Some(read_at);
+            }
+        }
+    }
+}
+
+impl H2ClientReadProbe {
+    fn finish(&self, first_chunk_at: Option<Instant>) -> H2ClientConnectionReadStats {
+        self.state.finished.store(true, Ordering::SeqCst);
+        let first_connection_read_at = *self
+            .state
+            .first_connection_read_at
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let post_header_connection_read_wait_ms = first_connection_read_at.map(|read_at| {
+            read_at
+                .saturating_duration_since(self.state.headers_received_at)
+                .as_secs_f64()
+                * 1000.0
+        });
+        let connection_read_to_first_chunk_ms = match (first_connection_read_at, first_chunk_at) {
+            (Some(read_at), Some(chunk_at)) if chunk_at >= read_at => {
+                Some(chunk_at.saturating_duration_since(read_at).as_secs_f64() * 1000.0)
+            }
+            _ => None,
+        };
+        H2ClientConnectionReadStats {
+            post_header_connection_read_wait_ms,
+            connection_read_to_first_chunk_ms,
+        }
+    }
+}
+
+impl<T: AsyncRead + Unpin> AsyncRead for InstrumentedH2ClientIo<T> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut TaskContext<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        let me = self.get_mut();
+        let filled_before = buf.filled().len();
+        match Pin::new(&mut me.inner).poll_read(cx, buf) {
+            Poll::Ready(Ok(())) => {
+                if buf.filled().len() > filled_before {
+                    me.read_tracker.record_connection_read(Instant::now());
+                }
+                Poll::Ready(Ok(()))
+            }
+            other => other,
+        }
+    }
+}
+
+impl<T: AsyncWrite + Unpin> AsyncWrite for InstrumentedH2ClientIo<T> {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut TaskContext<'_>,
+        buf: &[u8],
+    ) -> Poll<std::io::Result<usize>> {
+        let me = self.get_mut();
+        Pin::new(&mut me.inner).poll_write(cx, buf)
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut TaskContext<'_>) -> Poll<std::io::Result<()>> {
+        let me = self.get_mut();
+        Pin::new(&mut me.inner).poll_flush(cx)
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut TaskContext<'_>) -> Poll<std::io::Result<()>> {
+        let me = self.get_mut();
+        Pin::new(&mut me.inner).poll_shutdown(cx)
     }
 }
 
@@ -1564,6 +1708,22 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
                 phase_timing.response_body_first_chunk_bytes_avg,
                 phase_timing.response_body_first_chunk_bytes_p95
             );
+            if phase_timing.response_body_post_header_connection_read_wait_samples_total > 0 {
+                println!(
+                    "  HTTP post-header connection read wait avg/p95: {:.2} / {:.2} ms (samples {})",
+                    phase_timing.response_body_post_header_connection_read_wait_avg_ms,
+                    phase_timing.response_body_post_header_connection_read_wait_p95_ms,
+                    phase_timing.response_body_post_header_connection_read_wait_samples_total
+                );
+            }
+            if phase_timing.response_body_connection_read_to_first_chunk_samples_total > 0 {
+                println!(
+                    "  HTTP connection read to first chunk avg/p95: {:.2} / {:.2} ms (samples {})",
+                    phase_timing.response_body_connection_read_to_first_chunk_avg_ms,
+                    phase_timing.response_body_connection_read_to_first_chunk_p95_ms,
+                    phase_timing.response_body_connection_read_to_first_chunk_samples_total
+                );
+            }
             println!(
                 "  HTTP request round trip avg/p95: {:.2} / {:.2} ms",
                 phase_timing.request_round_trip_avg_ms, phase_timing.request_round_trip_p95_ms
@@ -1637,6 +1797,16 @@ fn summarize_http_phase_timing(
         .filter_map(|sample| sample.http_phase_timing.as_ref())
         .map(|timing| timing.response_body_first_chunk_bytes as f64)
         .collect::<Vec<_>>();
+    let mut response_body_post_header_connection_read_waits = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_body_post_header_connection_read_wait_ms)
+        .collect::<Vec<_>>();
+    let mut response_body_connection_read_to_first_chunks = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_body_connection_read_to_first_chunk_ms)
+        .collect::<Vec<_>>();
     let mut request_round_trips = samples
         .iter()
         .filter_map(|sample| sample.http_phase_timing.as_ref())
@@ -1651,6 +1821,8 @@ fn summarize_http_phase_timing(
     response_body_tail_reads.sort_by(|left, right| left.total_cmp(right));
     response_body_chunk_counts.sort_by(|left, right| left.total_cmp(right));
     response_body_first_chunk_bytes.sort_by(|left, right| left.total_cmp(right));
+    response_body_post_header_connection_read_waits.sort_by(|left, right| left.total_cmp(right));
+    response_body_connection_read_to_first_chunks.sort_by(|left, right| left.total_cmp(right));
     request_round_trips.sort_by(|left, right| left.total_cmp(right));
 
     Some(
@@ -1686,6 +1858,40 @@ fn summarize_http_phase_timing(
                 .sum::<f64>()
                 / response_body_first_chunk_bytes.len() as f64,
             response_body_first_chunk_bytes_p95: percentile(&response_body_first_chunk_bytes, 0.95),
+            response_body_post_header_connection_read_wait_samples_total:
+                response_body_post_header_connection_read_waits.len() as u64,
+            response_body_post_header_connection_read_wait_avg_ms:
+                if response_body_post_header_connection_read_waits.is_empty() {
+                    0.0
+                } else {
+                    response_body_post_header_connection_read_waits
+                        .iter()
+                        .sum::<f64>()
+                        / response_body_post_header_connection_read_waits.len() as f64
+                },
+            response_body_post_header_connection_read_wait_p95_ms:
+                if response_body_post_header_connection_read_waits.is_empty() {
+                    0.0
+                } else {
+                    percentile(&response_body_post_header_connection_read_waits, 0.95)
+                },
+            response_body_connection_read_to_first_chunk_samples_total:
+                response_body_connection_read_to_first_chunks.len() as u64,
+            response_body_connection_read_to_first_chunk_avg_ms:
+                if response_body_connection_read_to_first_chunks.is_empty() {
+                    0.0
+                } else {
+                    response_body_connection_read_to_first_chunks
+                        .iter()
+                        .sum::<f64>()
+                        / response_body_connection_read_to_first_chunks.len() as f64
+                },
+            response_body_connection_read_to_first_chunk_p95_ms:
+                if response_body_connection_read_to_first_chunks.is_empty() {
+                    0.0
+                } else {
+                    percentile(&response_body_connection_read_to_first_chunks, 0.95)
+                },
             request_round_trip_avg_ms: request_round_trips.iter().sum::<f64>()
                 / request_round_trips.len() as f64,
             request_round_trip_p95_ms: percentile(&request_round_trips, 0.95),
@@ -2273,7 +2479,7 @@ async fn run_h2_worker(
 }
 
 async fn run_h2_multiplexed_worker(
-    sender: h2_client::SendRequest<Bytes>,
+    sender: H2BenchSender,
     endpoint: HttpEndpoint,
     workload: PreparedWorkload,
     request_body: Bytes,
@@ -3199,7 +3405,7 @@ async fn send_h1_json_request(
 }
 
 async fn send_h2_json_request(
-    sender: h2_client::SendRequest<Bytes>,
+    sender: H2BenchSender,
     endpoint: &HttpEndpoint,
     method: &HyperMethod,
     path: &str,
@@ -3208,6 +3414,7 @@ async fn send_h2_json_request(
 ) -> Result<(HttpBodyResponse, u64)> {
     let payload = json_request_bytes(body)?;
     let mut sender = sender
+        .sender
         .ready()
         .await
         .context("HTTP/2 sender not ready for JSON request")?;
@@ -3314,7 +3521,7 @@ async fn h1_authenticate(
 }
 
 async fn h2_authenticate(
-    sender: h2_client::SendRequest<Bytes>,
+    sender: H2BenchSender,
     endpoint: &HttpEndpoint,
     workload: &PreparedWorkload,
 ) -> Result<HttpAuthSession> {
@@ -3414,7 +3621,7 @@ async fn h1_login_iteration(
 }
 
 async fn h2_login_iteration(
-    sender: h2_client::SendRequest<Bytes>,
+    sender: H2BenchSender,
     endpoint: &HttpEndpoint,
     workload: &PreparedWorkload,
     worker_id: u32,
@@ -3522,7 +3729,7 @@ async fn h1_refresh(
 }
 
 async fn h2_refresh(
-    sender: h2_client::SendRequest<Bytes>,
+    sender: H2BenchSender,
     endpoint: &HttpEndpoint,
     workload: &PreparedWorkload,
     refresh_token: &str,
@@ -3771,7 +3978,7 @@ fn apply_http2_transport_tuning(builder: &mut h2_client::Builder) {
         .max_send_buffer_size(HTTP2_MAX_SEND_BUFFER_SIZE);
 }
 
-async fn connect_h2_sender(endpoint: &HttpEndpoint) -> Result<h2_client::SendRequest<Bytes>> {
+async fn connect_h2_sender(endpoint: &HttpEndpoint) -> Result<H2BenchSender> {
     let addr = format!("{}:{}", endpoint.host, endpoint.port);
     let stream = tokio::net::TcpStream::connect(&addr)
         .await
@@ -3779,6 +3986,7 @@ async fn connect_h2_sender(endpoint: &HttpEndpoint) -> Result<h2_client::SendReq
     stream.set_nodelay(true)?;
     let mut builder = h2_client::Builder::new();
     apply_http2_transport_tuning(&mut builder);
+    let read_tracker = Arc::new(H2ClientReadTracker::default());
     if endpoint.scheme == "https" {
         let connector = TlsConnector::from(insecure_rustls_client_config(&[b"h2"]));
         let server_name = ServerName::try_from(endpoint.host.clone())
@@ -3787,8 +3995,12 @@ async fn connect_h2_sender(endpoint: &HttpEndpoint) -> Result<h2_client::SendReq
             .connect(server_name, stream)
             .await
             .context("TLS handshake failed")?;
+        let instrumented_stream = InstrumentedH2ClientIo {
+            inner: tls_stream,
+            read_tracker: read_tracker.clone(),
+        };
         let (sender, connection) = builder
-            .handshake(tls_stream)
+            .handshake(instrumented_stream)
             .await
             .context("HTTP/2 handshake failed")?;
         tokio::spawn(async move {
@@ -3796,10 +4008,17 @@ async fn connect_h2_sender(endpoint: &HttpEndpoint) -> Result<h2_client::SendReq
                 eprintln!("h2 connection error: {err:?}");
             }
         });
-        Ok(sender)
+        Ok(H2BenchSender {
+            sender,
+            read_tracker,
+        })
     } else {
+        let instrumented_stream = InstrumentedH2ClientIo {
+            inner: stream,
+            read_tracker: read_tracker.clone(),
+        };
         let (sender, connection) = builder
-            .handshake(stream)
+            .handshake(instrumented_stream)
             .await
             .context("HTTP/2 handshake failed")?;
         tokio::spawn(async move {
@@ -3807,7 +4026,10 @@ async fn connect_h2_sender(endpoint: &HttpEndpoint) -> Result<h2_client::SendReq
                 eprintln!("h2 connection error: {err:?}");
             }
         });
-        Ok(sender)
+        Ok(H2BenchSender {
+            sender,
+            read_tracker,
+        })
     }
 }
 
@@ -3920,6 +4142,7 @@ async fn drain_hyper_response(response: hyper::Response<Body>) -> Result<u64> {
 
 async fn drain_h2_response(
     response: hyper::http::Response<H2RecvStream>,
+    read_probe: H2ClientReadProbe,
 ) -> Result<H2ResponseDrainStats> {
     let status = response.status();
     let mut body = response.into_body();
@@ -3952,6 +4175,7 @@ async fn drain_h2_response(
         let preview = String::from_utf8_lossy(&error_body);
         bail!("unexpected HTTP/2 status {} with body {}", status, preview);
     }
+    let connection_read_stats = read_probe.finish(first_chunk_at);
     Ok(H2ResponseDrainStats {
         received_bytes: received,
         first_chunk_wait_ms: first_chunk_wait_ms
@@ -3961,6 +4185,9 @@ async fn drain_h2_response(
             .unwrap_or(0.0),
         chunk_count,
         first_chunk_bytes,
+        post_header_connection_read_wait_ms: connection_read_stats
+            .post_header_connection_read_wait_ms,
+        connection_read_to_first_chunk_ms: connection_read_stats.connection_read_to_first_chunk_ms,
     })
 }
 
@@ -4054,7 +4281,7 @@ async fn run_h1_iteration(
 }
 
 async fn send_h2_request(
-    sender: h2_client::SendRequest<Bytes>,
+    sender: H2BenchSender,
     endpoint: &HttpEndpoint,
     workload: &PreparedWorkload,
     request_body: Bytes,
@@ -4062,7 +4289,9 @@ async fn send_h2_request(
     iteration: u32,
 ) -> Result<WorkloadSample> {
     let ready_start = Instant::now();
+    let read_tracker = sender.read_tracker.clone();
     let mut sender = sender
+        .sender
         .ready()
         .await
         .context("HTTP/2 sender not ready for a new stream")?;
@@ -4090,8 +4319,9 @@ async fn send_h2_request(
     let response_headers_start = Instant::now();
     let response = response.await.context("failed to receive response")?;
     let response_headers_wait_ms = response_headers_start.elapsed().as_secs_f64() * 1000.0;
+    let read_probe = read_tracker.note_headers_received();
     let response_body_start = Instant::now();
-    let response_body = drain_h2_response(response).await?;
+    let response_body = drain_h2_response(response, read_probe).await?;
     let response_body_read_ms = response_body_start.elapsed().as_secs_f64() * 1000.0;
     let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
     Ok(WorkloadSample {
@@ -4109,13 +4339,17 @@ async fn send_h2_request(
             response_body_tail_read_ms: response_body.tail_read_ms,
             response_body_chunk_count: response_body.chunk_count,
             response_body_first_chunk_bytes: response_body.first_chunk_bytes,
+            response_body_post_header_connection_read_wait_ms: response_body
+                .post_header_connection_read_wait_ms,
+            response_body_connection_read_to_first_chunk_ms: response_body
+                .connection_read_to_first_chunk_ms,
             request_round_trip_ms: latency_ms,
         }),
     })
 }
 
 async fn send_h2_protected_request(
-    sender: h2_client::SendRequest<Bytes>,
+    sender: H2BenchSender,
     endpoint: &HttpEndpoint,
     workload: &PreparedWorkload,
     request_body: Bytes,
@@ -4124,6 +4358,7 @@ async fn send_h2_protected_request(
     iteration: u32,
 ) -> Result<WorkloadSample> {
     let mut sender = sender
+        .sender
         .ready()
         .await
         .context("HTTP/2 sender not ready for protected request")?;
@@ -4586,6 +4821,18 @@ mod tests {
             error.to_string().contains("did not signal READY"),
             "unexpected error {error}"
         );
+    }
+
+    #[test]
+    fn h2_client_read_probe_records_post_header_read_split() {
+        let tracker = H2ClientReadTracker::default();
+        let probe = tracker.note_headers_received();
+        std::thread::sleep(Duration::from_millis(1));
+        tracker.record_connection_read(Instant::now());
+        std::thread::sleep(Duration::from_millis(1));
+        let stats = probe.finish(Some(Instant::now()));
+        assert!(stats.post_header_connection_read_wait_ms.is_some());
+        assert!(stats.connection_read_to_first_chunk_ms.is_some());
     }
 
     #[test]
