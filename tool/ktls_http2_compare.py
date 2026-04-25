@@ -65,6 +65,30 @@ PHASE_TIMING_SUMMARY_KEYS = (
     ("request_enqueue_p95_ms", "Request enqueue p95"),
     ("response_headers_wait_avg_ms", "Response headers wait avg"),
     ("response_headers_wait_p95_ms", "Response headers wait p95"),
+    (
+        "response_headers_connection_read_wait_samples_total",
+        "Response headers connection read samples",
+    ),
+    (
+        "response_headers_connection_read_wait_avg_ms",
+        "Response headers connection read wait avg",
+    ),
+    (
+        "response_headers_connection_read_wait_p95_ms",
+        "Response headers connection read wait p95",
+    ),
+    (
+        "response_headers_connection_read_to_headers_samples_total",
+        "Response headers connection read-to-headers samples",
+    ),
+    (
+        "response_headers_connection_read_to_headers_avg_ms",
+        "Response headers connection read-to-headers avg",
+    ),
+    (
+        "response_headers_connection_read_to_headers_p95_ms",
+        "Response headers connection read-to-headers p95",
+    ),
     ("response_body_read_avg_ms", "Response body read avg"),
     ("response_body_read_p95_ms", "Response body read p95"),
     ("response_body_first_chunk_wait_avg_ms", "Response body first chunk wait avg"),
@@ -1149,6 +1173,24 @@ def render_phase_timing_focus_line(name: str, focus: dict | None) -> str:
         f"request round trip p95 {render_connection_metric_snapshot(metrics['request_round_trip_p95_ms'])}"
     )
     if connection_metric_snapshot_has_samples(
+        metrics["response_headers_connection_read_wait_samples_total"]
+    ):
+        rendered += (
+            f", response-header connection read samples "
+            f"{render_connection_metric_snapshot(metrics['response_headers_connection_read_wait_samples_total'])}, "
+            f"response-header connection read wait avg "
+            f"{render_connection_metric_snapshot(metrics['response_headers_connection_read_wait_avg_ms'])}"
+        )
+    if connection_metric_snapshot_has_samples(
+        metrics["response_headers_connection_read_to_headers_samples_total"]
+    ):
+        rendered += (
+            f", response-header connection read-to-headers samples "
+            f"{render_connection_metric_snapshot(metrics['response_headers_connection_read_to_headers_samples_total'])}, "
+            f"response-header connection read-to-headers avg "
+            f"{render_connection_metric_snapshot(metrics['response_headers_connection_read_to_headers_avg_ms'])}"
+        )
+    if connection_metric_snapshot_has_samples(
         metrics["response_body_post_header_connection_read_wait_samples_total"]
     ):
         rendered += (
@@ -1865,6 +1907,52 @@ def render_markdown(comparison: dict) -> str:
 
     if not has_phase_rows:
         lines.append("| No HTTP phase timing metrics | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
+
+    lines.append("")
+    lines.extend(
+        [
+            "## HTTP Header-Receive Diagnostics",
+            "",
+            "| Workload | Router workers | Native runtime threads | Response headers wait avg ms | Header conn read samples | Header conn read wait avg ms | Header conn read-to-headers samples | Header conn read-to-headers avg ms | Response headers wait p95 ms |",
+            "| --- | ---: | ---: | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+
+    has_header_rows = False
+    for row in rows:
+        phase_timing = row.get("phase_timing_summary")
+        if phase_timing is None:
+            continue
+        has_header_rows = True
+        metrics = phase_timing["metrics"]
+        lines.append(
+            "| {workload} | {router_workers} | {native_runtime_threads} | {response_headers_wait_avg_ms} | {response_headers_connection_read_wait_samples_total} | {response_headers_connection_read_wait_avg_ms} | {response_headers_connection_read_to_headers_samples_total} | {response_headers_connection_read_to_headers_avg_ms} | {response_headers_wait_p95_ms} |".format(
+                workload=row["workload"],
+                router_workers=row["router_workers"],
+                native_runtime_threads=row["native_runtime_threads"],
+                response_headers_wait_avg_ms=render_connection_metric_snapshot(
+                    metrics["response_headers_wait_avg_ms"]
+                ),
+                response_headers_connection_read_wait_samples_total=render_connection_metric_snapshot(
+                    metrics["response_headers_connection_read_wait_samples_total"]
+                ),
+                response_headers_connection_read_wait_avg_ms=render_connection_metric_snapshot(
+                    metrics["response_headers_connection_read_wait_avg_ms"]
+                ),
+                response_headers_connection_read_to_headers_samples_total=render_connection_metric_snapshot(
+                    metrics["response_headers_connection_read_to_headers_samples_total"]
+                ),
+                response_headers_connection_read_to_headers_avg_ms=render_connection_metric_snapshot(
+                    metrics["response_headers_connection_read_to_headers_avg_ms"]
+                ),
+                response_headers_wait_p95_ms=render_connection_metric_snapshot(
+                    metrics["response_headers_wait_p95_ms"]
+                ),
+            )
+        )
+
+    if not has_header_rows:
+        lines.append("| No HTTP header-receive metrics | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
 
     lines.append("")
     lines.extend(

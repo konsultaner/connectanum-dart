@@ -24,6 +24,10 @@ pub struct HttpPhaseTimingSample {
     pub stream_acquire_wait_ms: f64,
     pub request_enqueue_ms: f64,
     pub response_headers_wait_ms: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_headers_connection_read_wait_ms: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_headers_connection_read_to_headers_ms: Option<f64>,
     pub response_body_read_ms: f64,
     pub response_body_first_chunk_wait_ms: f64,
     pub response_body_tail_read_ms: f64,
@@ -44,6 +48,12 @@ pub struct HttpPhaseTimingSummary {
     pub request_enqueue_p95_ms: f64,
     pub response_headers_wait_avg_ms: f64,
     pub response_headers_wait_p95_ms: f64,
+    pub response_headers_connection_read_wait_samples_total: u64,
+    pub response_headers_connection_read_wait_avg_ms: f64,
+    pub response_headers_connection_read_wait_p95_ms: f64,
+    pub response_headers_connection_read_to_headers_samples_total: u64,
+    pub response_headers_connection_read_to_headers_avg_ms: f64,
+    pub response_headers_connection_read_to_headers_p95_ms: f64,
     pub response_body_read_avg_ms: f64,
     pub response_body_read_p95_ms: f64,
     pub response_body_first_chunk_wait_avg_ms: f64,

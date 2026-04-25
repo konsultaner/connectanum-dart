@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-25
 Current branch: `add-router`
-Last reviewed commit: `1fa0c45` (`build(ktls): isolate hotspot stability reruns`)
+Last reviewed commit: `4228983` (`build(bench): split h2 client first-body read timing`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -13,9 +13,12 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
 - Hosted GitHub push runs on `1fa0c45` completed successfully:
   `CI` `24917321434`, `kTLS Validation` `24917321426`,
   `WAMP Profile Benchmarks` `24917321423`
+- Hosted GitHub push runs on `4228983` completed successfully:
+  `CI` `24919421672`, `kTLS Validation` `24919421664`,
+  `WAMP Profile Benchmarks` `24919421657`
 - The current isolated-regression diagnosis slice is green locally:
   - `bin/test-fast`
-  - `cargo test --manifest-path native/bench/Cargo.toml h2_client_read_probe_records_post_header_read_split -- --nocapture`
+  - `cargo test --manifest-path native/bench/Cargo.toml h2_client_read_probe_records_connection_read_split -- --nocapture`
   - `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
   - `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
   - `python3 tool/test_ktls_http2_compare.py`
@@ -423,6 +426,36 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
   - the new metric split should tell the next isolated hosted `s1` rerun
     whether the remaining gap appears before the first post-header connection
     read or after bytes have already reached the HTTP/2 client body path
+- Manual hosted rerun `24919870963` then completed successfully on clean head
+  `4228983` with:
+  - `scenario=native/bench/scenarios/h2_ktls_multiplex_stability.toml`
+  - `workloads=h2_multiplexed_streams_s1`
+  - `router_worker_counts=1`
+  - `native_runtime_thread_counts=4`
+  - `repeat_count=3`
+  - `repeat_order=baseline-first`
+  - `cooldown_seconds=15`
+  - `skip_artifact_gate=true`
+- That rerun ruled out the post-header first-body hypothesis:
+  - the worst throughput and p95 row stayed stable at
+    `h2_multiplexed_streams_s1`, `threads=4`, but the result is still not
+    decision-quality because throughput span stayed at `290.71pp` and p95 span
+    at `1833.65pp`
+  - the new post-header receive-side metrics stayed flat or improved in all
+    repeats:
+    `post-header connection read wait avg 1.08 -> 0.94`, `1.18 -> 0.72`,
+    `1.22 -> 1.11`
+  - `connection read-to-first-chunk avg` also stayed flat:
+    `0.35 -> 0.31`, `0.39 -> 0.38`, `0.38 -> 0.44`
+  - the instability remained in `response headers wait avg` instead:
+    `4.31 -> 29.65`, `29.01 -> 3.47`, `8.33 -> 4.27`
+- The current working tree therefore carries the next bounded diagnosis slice:
+  - split `response_headers_wait` into
+    `response_headers_connection_read_wait_*` and
+    `response_headers_connection_read_to_headers_*`
+  - the next isolated hosted `s1` rerun should decide whether the remaining
+    instability appears before the first response connection read or between
+    that read and header parsing
 - GitLab has not surfaced an `add-router` pipeline for `1fa0c45` or the
   isolated manual rerun follow-ups through the current token-backed API query.
 - `packages/connectanum_core` is approved as a design reference for MCP package

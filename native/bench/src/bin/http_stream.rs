@@ -102,15 +102,15 @@ struct H2ClientReadProbe {
 
 #[derive(Debug)]
 struct H2ClientReadProbeState {
-    headers_received_at: Instant,
+    phase_started_at: Instant,
     first_connection_read_at: Mutex<Option<Instant>>,
     finished: AtomicBool,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
-struct H2ClientConnectionReadStats {
-    post_header_connection_read_wait_ms: Option<f64>,
-    connection_read_to_first_chunk_ms: Option<f64>,
+struct H2ClientPhaseReadStats {
+    connection_read_wait_ms: Option<f64>,
+    connection_read_to_phase_end_ms: Option<f64>,
 }
 
 struct InstrumentedH2ClientIo<T> {
@@ -804,9 +804,9 @@ fn format_native_runtime_threads(value: u32) -> String {
 }
 
 impl H2ClientReadTracker {
-    fn note_headers_received(&self) -> H2ClientReadProbe {
+    fn note_phase_started(&self) -> H2ClientReadProbe {
         let probe = Arc::new(H2ClientReadProbeState {
-            headers_received_at: Instant::now(),
+            phase_started_at: Instant::now(),
             first_connection_read_at: Mutex::new(None),
             finished: AtomicBool::new(false),
         });
@@ -841,28 +841,31 @@ impl H2ClientReadTracker {
 }
 
 impl H2ClientReadProbe {
-    fn finish(&self, first_chunk_at: Option<Instant>) -> H2ClientConnectionReadStats {
+    fn finish(&self, phase_finished_at: Option<Instant>) -> H2ClientPhaseReadStats {
         self.state.finished.store(true, Ordering::SeqCst);
         let first_connection_read_at = *self
             .state
             .first_connection_read_at
             .lock()
             .unwrap_or_else(|poison| poison.into_inner());
-        let post_header_connection_read_wait_ms = first_connection_read_at.map(|read_at| {
+        let connection_read_wait_ms = first_connection_read_at.map(|read_at| {
             read_at
-                .saturating_duration_since(self.state.headers_received_at)
+                .saturating_duration_since(self.state.phase_started_at)
                 .as_secs_f64()
                 * 1000.0
         });
-        let connection_read_to_first_chunk_ms = match (first_connection_read_at, first_chunk_at) {
-            (Some(read_at), Some(chunk_at)) if chunk_at >= read_at => {
-                Some(chunk_at.saturating_duration_since(read_at).as_secs_f64() * 1000.0)
-            }
+        let connection_read_to_phase_end_ms = match (first_connection_read_at, phase_finished_at) {
+            (Some(read_at), Some(phase_end_at)) if phase_end_at >= read_at => Some(
+                phase_end_at
+                    .saturating_duration_since(read_at)
+                    .as_secs_f64()
+                    * 1000.0,
+            ),
             _ => None,
         };
-        H2ClientConnectionReadStats {
-            post_header_connection_read_wait_ms,
-            connection_read_to_first_chunk_ms,
+        H2ClientPhaseReadStats {
+            connection_read_wait_ms,
+            connection_read_to_phase_end_ms,
         }
     }
 }
@@ -1684,6 +1687,22 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
                 phase_timing.response_headers_wait_avg_ms,
                 phase_timing.response_headers_wait_p95_ms
             );
+            if phase_timing.response_headers_connection_read_wait_samples_total > 0 {
+                println!(
+                    "  HTTP response-header connection read wait avg/p95: {:.2} / {:.2} ms (samples {})",
+                    phase_timing.response_headers_connection_read_wait_avg_ms,
+                    phase_timing.response_headers_connection_read_wait_p95_ms,
+                    phase_timing.response_headers_connection_read_wait_samples_total
+                );
+            }
+            if phase_timing.response_headers_connection_read_to_headers_samples_total > 0 {
+                println!(
+                    "  HTTP response-header connection read to headers avg/p95: {:.2} / {:.2} ms (samples {})",
+                    phase_timing.response_headers_connection_read_to_headers_avg_ms,
+                    phase_timing.response_headers_connection_read_to_headers_p95_ms,
+                    phase_timing.response_headers_connection_read_to_headers_samples_total
+                );
+            }
             println!(
                 "  HTTP response body read avg/p95: {:.2} / {:.2} ms",
                 phase_timing.response_body_read_avg_ms, phase_timing.response_body_read_p95_ms
@@ -1772,6 +1791,16 @@ fn summarize_http_phase_timing(
         .filter_map(|sample| sample.http_phase_timing.as_ref())
         .map(|timing| timing.response_headers_wait_ms)
         .collect::<Vec<_>>();
+    let mut response_headers_connection_read_waits = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_headers_connection_read_wait_ms)
+        .collect::<Vec<_>>();
+    let mut response_headers_connection_read_to_headers = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_headers_connection_read_to_headers_ms)
+        .collect::<Vec<_>>();
     let mut response_body_reads = samples
         .iter()
         .filter_map(|sample| sample.http_phase_timing.as_ref())
@@ -1816,6 +1845,8 @@ fn summarize_http_phase_timing(
     stream_acquire_waits.sort_by(|left, right| left.total_cmp(right));
     request_enqueue_times.sort_by(|left, right| left.total_cmp(right));
     response_headers_waits.sort_by(|left, right| left.total_cmp(right));
+    response_headers_connection_read_waits.sort_by(|left, right| left.total_cmp(right));
+    response_headers_connection_read_to_headers.sort_by(|left, right| left.total_cmp(right));
     response_body_reads.sort_by(|left, right| left.total_cmp(right));
     response_body_first_chunk_waits.sort_by(|left, right| left.total_cmp(right));
     response_body_tail_reads.sort_by(|left, right| left.total_cmp(right));
@@ -1836,6 +1867,40 @@ fn summarize_http_phase_timing(
             response_headers_wait_avg_ms: response_headers_waits.iter().sum::<f64>()
                 / response_headers_waits.len() as f64,
             response_headers_wait_p95_ms: percentile(&response_headers_waits, 0.95),
+            response_headers_connection_read_wait_samples_total:
+                response_headers_connection_read_waits.len() as u64,
+            response_headers_connection_read_wait_avg_ms: if response_headers_connection_read_waits
+                .is_empty()
+            {
+                0.0
+            } else {
+                response_headers_connection_read_waits.iter().sum::<f64>()
+                    / response_headers_connection_read_waits.len() as f64
+            },
+            response_headers_connection_read_wait_p95_ms: if response_headers_connection_read_waits
+                .is_empty()
+            {
+                0.0
+            } else {
+                percentile(&response_headers_connection_read_waits, 0.95)
+            },
+            response_headers_connection_read_to_headers_samples_total:
+                response_headers_connection_read_to_headers.len() as u64,
+            response_headers_connection_read_to_headers_avg_ms:
+                if response_headers_connection_read_to_headers.is_empty() {
+                    0.0
+                } else {
+                    response_headers_connection_read_to_headers
+                        .iter()
+                        .sum::<f64>()
+                        / response_headers_connection_read_to_headers.len() as f64
+                },
+            response_headers_connection_read_to_headers_p95_ms:
+                if response_headers_connection_read_to_headers.is_empty() {
+                    0.0
+                } else {
+                    percentile(&response_headers_connection_read_to_headers, 0.95)
+                },
             response_body_read_avg_ms: response_body_reads.iter().sum::<f64>()
                 / response_body_reads.len() as f64,
             response_body_read_p95_ms: percentile(&response_body_reads, 0.95),
@@ -4185,9 +4250,8 @@ async fn drain_h2_response(
             .unwrap_or(0.0),
         chunk_count,
         first_chunk_bytes,
-        post_header_connection_read_wait_ms: connection_read_stats
-            .post_header_connection_read_wait_ms,
-        connection_read_to_first_chunk_ms: connection_read_stats.connection_read_to_first_chunk_ms,
+        post_header_connection_read_wait_ms: connection_read_stats.connection_read_wait_ms,
+        connection_read_to_first_chunk_ms: connection_read_stats.connection_read_to_phase_end_ms,
     })
 }
 
@@ -4317,9 +4381,11 @@ async fn send_h2_request(
     let request_enqueue_ms = request_enqueue_start.elapsed().as_secs_f64() * 1000.0;
 
     let response_headers_start = Instant::now();
+    let response_headers_probe = read_tracker.note_phase_started();
     let response = response.await.context("failed to receive response")?;
     let response_headers_wait_ms = response_headers_start.elapsed().as_secs_f64() * 1000.0;
-    let read_probe = read_tracker.note_headers_received();
+    let response_headers_read_stats = response_headers_probe.finish(Some(Instant::now()));
+    let read_probe = read_tracker.note_phase_started();
     let response_body_start = Instant::now();
     let response_body = drain_h2_response(response, read_probe).await?;
     let response_body_read_ms = response_body_start.elapsed().as_secs_f64() * 1000.0;
@@ -4334,6 +4400,10 @@ async fn send_h2_request(
             stream_acquire_wait_ms,
             request_enqueue_ms,
             response_headers_wait_ms,
+            response_headers_connection_read_wait_ms: response_headers_read_stats
+                .connection_read_wait_ms,
+            response_headers_connection_read_to_headers_ms: response_headers_read_stats
+                .connection_read_to_phase_end_ms,
             response_body_read_ms,
             response_body_first_chunk_wait_ms: response_body.first_chunk_wait_ms,
             response_body_tail_read_ms: response_body.tail_read_ms,
@@ -4824,15 +4894,15 @@ mod tests {
     }
 
     #[test]
-    fn h2_client_read_probe_records_post_header_read_split() {
+    fn h2_client_read_probe_records_connection_read_split() {
         let tracker = H2ClientReadTracker::default();
-        let probe = tracker.note_headers_received();
+        let probe = tracker.note_phase_started();
         std::thread::sleep(Duration::from_millis(1));
         tracker.record_connection_read(Instant::now());
         std::thread::sleep(Duration::from_millis(1));
         let stats = probe.finish(Some(Instant::now()));
-        assert!(stats.post_header_connection_read_wait_ms.is_some());
-        assert!(stats.connection_read_to_first_chunk_ms.is_some());
+        assert!(stats.connection_read_wait_ms.is_some());
+        assert!(stats.connection_read_to_phase_end_ms.is_some());
     }
 
     #[test]

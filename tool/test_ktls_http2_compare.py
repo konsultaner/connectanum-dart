@@ -56,6 +56,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         request_enqueue_p95_ms=1.1,
                         response_headers_wait_avg_ms=2.4,
                         response_headers_wait_p95_ms=4.0,
+                        response_headers_connection_read_wait_samples_total=12,
+                        response_headers_connection_read_wait_avg_ms=0.9,
+                        response_headers_connection_read_wait_p95_ms=1.4,
+                        response_headers_connection_read_to_headers_samples_total=12,
+                        response_headers_connection_read_to_headers_avg_ms=1.4,
+                        response_headers_connection_read_to_headers_p95_ms=2.1,
                         response_body_read_avg_ms=24.2,
                         response_body_read_p95_ms=27.4,
                         response_body_first_chunk_wait_avg_ms=4.4,
@@ -150,6 +156,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         request_enqueue_p95_ms=3.3,
                         response_headers_wait_avg_ms=18.5,
                         response_headers_wait_p95_ms=29.0,
+                        response_headers_connection_read_wait_samples_total=12,
+                        response_headers_connection_read_wait_avg_ms=1.0,
+                        response_headers_connection_read_wait_p95_ms=1.5,
+                        response_headers_connection_read_to_headers_samples_total=12,
+                        response_headers_connection_read_to_headers_avg_ms=17.4,
+                        response_headers_connection_read_to_headers_p95_ms=27.2,
                         response_body_read_avg_ms=121.6,
                         response_body_read_p95_ms=188.0,
                         response_body_first_chunk_wait_avg_ms=6.1,
@@ -317,6 +329,18 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertAlmostEqual(
                 comparison["summary"]["phase_timing_focus"]["worst_throughput_row"][
                     "metrics"
+                ]["response_headers_connection_read_wait_avg_ms"]["delta"],
+                0.1,
+            )
+            self.assertAlmostEqual(
+                comparison["summary"]["phase_timing_focus"]["worst_throughput_row"][
+                    "metrics"
+                ]["response_headers_connection_read_to_headers_avg_ms"]["delta"],
+                16.0,
+            )
+            self.assertAlmostEqual(
+                comparison["summary"]["phase_timing_focus"]["worst_throughput_row"][
+                    "metrics"
                 ]["response_body_read_avg_ms"]["delta"],
                 97.4,
             )
@@ -437,6 +461,7 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("## Group Rollups", markdown)
             self.assertIn("## HTTP Connection Usage", markdown)
             self.assertIn("## HTTP Phase Timing", markdown)
+            self.assertIn("## HTTP Header-Receive Diagnostics", markdown)
             self.assertIn("## HTTP Response-Body Diagnostics", markdown)
             self.assertIn("## HTTP Server Emission Timing", markdown)
             self.assertIn("Direct stream open round trip avg ms", markdown)
@@ -472,6 +497,13 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("82 -> 97 (+15)", markdown)
             self.assertIn("connections opened 4 -> 5 (+1)", markdown)
             self.assertIn("stream acquire wait avg 0.80 -> 7.60 (+6.80)", markdown)
+            self.assertIn(
+                "response-header connection read samples 12 -> 12 (+0)", markdown
+            )
+            self.assertIn(
+                "response-header connection read-to-headers avg 1.40 -> 17.40 (+16.00)",
+                markdown,
+            )
             self.assertIn(
                 "server headers-to-first-body-write avg 0.70 -> 5.90 (+5.20)",
                 markdown,
@@ -752,6 +784,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         request_enqueue_p95_ms: float | None = 0.5,
         response_headers_wait_avg_ms: float | None = 1.6,
         response_headers_wait_p95_ms: float | None = 2.2,
+        response_headers_connection_read_wait_samples_total: int | None = 16,
+        response_headers_connection_read_wait_avg_ms: float | None = 0.8,
+        response_headers_connection_read_wait_p95_ms: float | None = 1.2,
+        response_headers_connection_read_to_headers_samples_total: int | None = 16,
+        response_headers_connection_read_to_headers_avg_ms: float | None = 0.8,
+        response_headers_connection_read_to_headers_p95_ms: float | None = 1.2,
         response_body_read_avg_ms: float | None = 5.7,
         response_body_read_p95_ms: float | None = 8.1,
         response_body_first_chunk_wait_avg_ms: float | None = 2.1,
@@ -834,6 +872,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "request_enqueue_p95_ms": request_enqueue_p95_ms,
                     "response_headers_wait_avg_ms": response_headers_wait_avg_ms,
                     "response_headers_wait_p95_ms": response_headers_wait_p95_ms,
+                    "response_headers_connection_read_wait_samples_total": response_headers_connection_read_wait_samples_total,
+                    "response_headers_connection_read_wait_avg_ms": response_headers_connection_read_wait_avg_ms,
+                    "response_headers_connection_read_wait_p95_ms": response_headers_connection_read_wait_p95_ms,
+                    "response_headers_connection_read_to_headers_samples_total": response_headers_connection_read_to_headers_samples_total,
+                    "response_headers_connection_read_to_headers_avg_ms": response_headers_connection_read_to_headers_avg_ms,
+                    "response_headers_connection_read_to_headers_p95_ms": response_headers_connection_read_to_headers_p95_ms,
                     "response_body_read_avg_ms": response_body_read_avg_ms,
                     "response_body_read_p95_ms": response_body_read_p95_ms,
                     "response_body_first_chunk_wait_avg_ms": response_body_first_chunk_wait_avg_ms,
