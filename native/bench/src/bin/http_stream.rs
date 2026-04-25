@@ -88,6 +88,7 @@ struct H2ResponseDrainStats {
 struct H2BenchSender {
     sender: h2_client::SendRequest<Bytes>,
     read_tracker: Arc<H2ClientReadTracker>,
+    write_tracker: Arc<H2ClientWriteTracker>,
 }
 
 #[derive(Debug, Default)]
@@ -113,9 +114,34 @@ struct H2ClientPhaseReadStats {
     connection_read_to_phase_end_ms: Option<f64>,
 }
 
+#[derive(Debug, Default)]
+struct H2ClientWriteTracker {
+    probes: Mutex<VecDeque<Arc<H2ClientWriteProbeState>>>,
+}
+
+#[derive(Clone, Debug)]
+struct H2ClientWriteProbe {
+    state: Arc<H2ClientWriteProbeState>,
+}
+
+#[derive(Debug)]
+struct H2ClientWriteProbeState {
+    phase_started_at: Instant,
+    first_connection_write_at: Mutex<Option<Instant>>,
+    last_connection_write_at: Mutex<Option<Instant>>,
+    finished: AtomicBool,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct H2ClientPhaseWriteStats {
+    connection_write_wait_ms: Option<f64>,
+    connection_write_span_ms: Option<f64>,
+}
+
 struct InstrumentedH2ClientIo<T> {
     inner: T,
     read_tracker: Arc<H2ClientReadTracker>,
+    write_tracker: Arc<H2ClientWriteTracker>,
 }
 
 #[derive(Parser, Debug)]
@@ -870,6 +896,85 @@ impl H2ClientReadProbe {
     }
 }
 
+impl H2ClientWriteTracker {
+    fn note_phase_started(&self) -> H2ClientWriteProbe {
+        let probe = Arc::new(H2ClientWriteProbeState {
+            phase_started_at: Instant::now(),
+            first_connection_write_at: Mutex::new(None),
+            last_connection_write_at: Mutex::new(None),
+            finished: AtomicBool::new(false),
+        });
+        let mut guard = self
+            .probes
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        guard.retain(|state| !state.finished.load(Ordering::SeqCst));
+        guard.push_back(probe.clone());
+        H2ClientWriteProbe { state: probe }
+    }
+
+    fn record_connection_write(&self, write_at: Instant) {
+        let mut guard = self
+            .probes
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        guard.retain(|state| !state.finished.load(Ordering::SeqCst));
+        for state in guard.iter() {
+            if state.finished.load(Ordering::SeqCst) {
+                continue;
+            }
+            let mut first_connection_write_at = state
+                .first_connection_write_at
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner());
+            if first_connection_write_at.is_none() {
+                *first_connection_write_at = Some(write_at);
+            }
+            drop(first_connection_write_at);
+            let mut last_connection_write_at = state
+                .last_connection_write_at
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner());
+            *last_connection_write_at = Some(write_at);
+        }
+    }
+}
+
+impl H2ClientWriteProbe {
+    fn finish(&self) -> H2ClientPhaseWriteStats {
+        self.state.finished.store(true, Ordering::SeqCst);
+        let first_connection_write_at = *self
+            .state
+            .first_connection_write_at
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let last_connection_write_at = *self
+            .state
+            .last_connection_write_at
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let connection_write_wait_ms = first_connection_write_at.map(|write_at| {
+            write_at
+                .saturating_duration_since(self.state.phase_started_at)
+                .as_secs_f64()
+                * 1000.0
+        });
+        let connection_write_span_ms = match (first_connection_write_at, last_connection_write_at) {
+            (Some(first_write_at), Some(last_write_at)) if last_write_at >= first_write_at => Some(
+                last_write_at
+                    .saturating_duration_since(first_write_at)
+                    .as_secs_f64()
+                    * 1000.0,
+            ),
+            _ => None,
+        };
+        H2ClientPhaseWriteStats {
+            connection_write_wait_ms,
+            connection_write_span_ms,
+        }
+    }
+}
+
 impl<T: AsyncRead + Unpin> AsyncRead for InstrumentedH2ClientIo<T> {
     fn poll_read(
         self: Pin<&mut Self>,
@@ -897,7 +1002,15 @@ impl<T: AsyncWrite + Unpin> AsyncWrite for InstrumentedH2ClientIo<T> {
         buf: &[u8],
     ) -> Poll<std::io::Result<usize>> {
         let me = self.get_mut();
-        Pin::new(&mut me.inner).poll_write(cx, buf)
+        match Pin::new(&mut me.inner).poll_write(cx, buf) {
+            Poll::Ready(Ok(written)) => {
+                if written > 0 {
+                    me.write_tracker.record_connection_write(Instant::now());
+                }
+                Poll::Ready(Ok(written))
+            }
+            other => other,
+        }
     }
 
     fn poll_flush(self: Pin<&mut Self>, cx: &mut TaskContext<'_>) -> Poll<std::io::Result<()>> {
@@ -1703,6 +1816,22 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
                     phase_timing.response_headers_connection_read_to_headers_samples_total
                 );
             }
+            if phase_timing.response_headers_connection_write_wait_samples_total > 0 {
+                println!(
+                    "  HTTP response-header connection write wait avg/p95: {:.2} / {:.2} ms (samples {})",
+                    phase_timing.response_headers_connection_write_wait_avg_ms,
+                    phase_timing.response_headers_connection_write_wait_p95_ms,
+                    phase_timing.response_headers_connection_write_wait_samples_total
+                );
+            }
+            if phase_timing.response_headers_connection_write_span_samples_total > 0 {
+                println!(
+                    "  HTTP response-header connection write span avg/p95: {:.2} / {:.2} ms (samples {})",
+                    phase_timing.response_headers_connection_write_span_avg_ms,
+                    phase_timing.response_headers_connection_write_span_p95_ms,
+                    phase_timing.response_headers_connection_write_span_samples_total
+                );
+            }
             println!(
                 "  HTTP response body read avg/p95: {:.2} / {:.2} ms",
                 phase_timing.response_body_read_avg_ms, phase_timing.response_body_read_p95_ms
@@ -1801,6 +1930,16 @@ fn summarize_http_phase_timing(
         .filter_map(|sample| sample.http_phase_timing.as_ref())
         .filter_map(|timing| timing.response_headers_connection_read_to_headers_ms)
         .collect::<Vec<_>>();
+    let mut response_headers_connection_write_waits = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_headers_connection_write_wait_ms)
+        .collect::<Vec<_>>();
+    let mut response_headers_connection_write_spans = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_headers_connection_write_span_ms)
+        .collect::<Vec<_>>();
     let mut response_body_reads = samples
         .iter()
         .filter_map(|sample| sample.http_phase_timing.as_ref())
@@ -1847,6 +1986,8 @@ fn summarize_http_phase_timing(
     response_headers_waits.sort_by(|left, right| left.total_cmp(right));
     response_headers_connection_read_waits.sort_by(|left, right| left.total_cmp(right));
     response_headers_connection_read_to_headers.sort_by(|left, right| left.total_cmp(right));
+    response_headers_connection_write_waits.sort_by(|left, right| left.total_cmp(right));
+    response_headers_connection_write_spans.sort_by(|left, right| left.total_cmp(right));
     response_body_reads.sort_by(|left, right| left.total_cmp(right));
     response_body_first_chunk_waits.sort_by(|left, right| left.total_cmp(right));
     response_body_tail_reads.sort_by(|left, right| left.total_cmp(right));
@@ -1900,6 +2041,36 @@ fn summarize_http_phase_timing(
                     0.0
                 } else {
                     percentile(&response_headers_connection_read_to_headers, 0.95)
+                },
+            response_headers_connection_write_wait_samples_total:
+                response_headers_connection_write_waits.len() as u64,
+            response_headers_connection_write_wait_avg_ms:
+                if response_headers_connection_write_waits.is_empty() {
+                    0.0
+                } else {
+                    response_headers_connection_write_waits.iter().sum::<f64>()
+                        / response_headers_connection_write_waits.len() as f64
+                },
+            response_headers_connection_write_wait_p95_ms:
+                if response_headers_connection_write_waits.is_empty() {
+                    0.0
+                } else {
+                    percentile(&response_headers_connection_write_waits, 0.95)
+                },
+            response_headers_connection_write_span_samples_total:
+                response_headers_connection_write_spans.len() as u64,
+            response_headers_connection_write_span_avg_ms:
+                if response_headers_connection_write_spans.is_empty() {
+                    0.0
+                } else {
+                    response_headers_connection_write_spans.iter().sum::<f64>()
+                        / response_headers_connection_write_spans.len() as f64
+                },
+            response_headers_connection_write_span_p95_ms:
+                if response_headers_connection_write_spans.is_empty() {
+                    0.0
+                } else {
+                    percentile(&response_headers_connection_write_spans, 0.95)
                 },
             response_body_read_avg_ms: response_body_reads.iter().sum::<f64>()
                 / response_body_reads.len() as f64,
@@ -4052,6 +4223,7 @@ async fn connect_h2_sender(endpoint: &HttpEndpoint) -> Result<H2BenchSender> {
     let mut builder = h2_client::Builder::new();
     apply_http2_transport_tuning(&mut builder);
     let read_tracker = Arc::new(H2ClientReadTracker::default());
+    let write_tracker = Arc::new(H2ClientWriteTracker::default());
     if endpoint.scheme == "https" {
         let connector = TlsConnector::from(insecure_rustls_client_config(&[b"h2"]));
         let server_name = ServerName::try_from(endpoint.host.clone())
@@ -4063,6 +4235,7 @@ async fn connect_h2_sender(endpoint: &HttpEndpoint) -> Result<H2BenchSender> {
         let instrumented_stream = InstrumentedH2ClientIo {
             inner: tls_stream,
             read_tracker: read_tracker.clone(),
+            write_tracker: write_tracker.clone(),
         };
         let (sender, connection) = builder
             .handshake(instrumented_stream)
@@ -4076,11 +4249,13 @@ async fn connect_h2_sender(endpoint: &HttpEndpoint) -> Result<H2BenchSender> {
         Ok(H2BenchSender {
             sender,
             read_tracker,
+            write_tracker,
         })
     } else {
         let instrumented_stream = InstrumentedH2ClientIo {
             inner: stream,
             read_tracker: read_tracker.clone(),
+            write_tracker: write_tracker.clone(),
         };
         let (sender, connection) = builder
             .handshake(instrumented_stream)
@@ -4094,6 +4269,7 @@ async fn connect_h2_sender(endpoint: &HttpEndpoint) -> Result<H2BenchSender> {
         Ok(H2BenchSender {
             sender,
             read_tracker,
+            write_tracker,
         })
     }
 }
@@ -4354,6 +4530,7 @@ async fn send_h2_request(
 ) -> Result<WorkloadSample> {
     let ready_start = Instant::now();
     let read_tracker = sender.read_tracker.clone();
+    let write_tracker = sender.write_tracker.clone();
     let mut sender = sender
         .sender
         .ready()
@@ -4381,10 +4558,12 @@ async fn send_h2_request(
     let request_enqueue_ms = request_enqueue_start.elapsed().as_secs_f64() * 1000.0;
 
     let response_headers_start = Instant::now();
-    let response_headers_probe = read_tracker.note_phase_started();
+    let response_headers_read_probe = read_tracker.note_phase_started();
+    let response_headers_write_probe = write_tracker.note_phase_started();
     let response = response.await.context("failed to receive response")?;
     let response_headers_wait_ms = response_headers_start.elapsed().as_secs_f64() * 1000.0;
-    let response_headers_read_stats = response_headers_probe.finish(Some(Instant::now()));
+    let response_headers_read_stats = response_headers_read_probe.finish(Some(Instant::now()));
+    let response_headers_write_stats = response_headers_write_probe.finish();
     let read_probe = read_tracker.note_phase_started();
     let response_body_start = Instant::now();
     let response_body = drain_h2_response(response, read_probe).await?;
@@ -4404,6 +4583,10 @@ async fn send_h2_request(
                 .connection_read_wait_ms,
             response_headers_connection_read_to_headers_ms: response_headers_read_stats
                 .connection_read_to_phase_end_ms,
+            response_headers_connection_write_wait_ms: response_headers_write_stats
+                .connection_write_wait_ms,
+            response_headers_connection_write_span_ms: response_headers_write_stats
+                .connection_write_span_ms,
             response_body_read_ms,
             response_body_first_chunk_wait_ms: response_body.first_chunk_wait_ms,
             response_body_tail_read_ms: response_body.tail_read_ms,
@@ -4903,6 +5086,19 @@ mod tests {
         let stats = probe.finish(Some(Instant::now()));
         assert!(stats.connection_read_wait_ms.is_some());
         assert!(stats.connection_read_to_phase_end_ms.is_some());
+    }
+
+    #[test]
+    fn h2_client_write_probe_records_connection_write_span() {
+        let tracker = H2ClientWriteTracker::default();
+        let probe = tracker.note_phase_started();
+        std::thread::sleep(Duration::from_millis(1));
+        tracker.record_connection_write(Instant::now());
+        std::thread::sleep(Duration::from_millis(1));
+        tracker.record_connection_write(Instant::now());
+        let stats = probe.finish();
+        assert!(stats.connection_write_wait_ms.is_some());
+        assert!(stats.connection_write_span_ms.is_some());
     }
 
     #[test]

@@ -4,11 +4,11 @@ Status: in_progress
 
 ## Context
 
-- Commit `4228983` (`build(bench): split h2 client first-body read timing`)
+- Commit `b551a6d` (`build(bench): split h2 response header receive timing`)
   passed the visible GitHub push chain:
-  - `CI` `24919421672`
-  - `kTLS Validation` `24919421664`
-  - `WAMP Profile Benchmarks` `24919421657`
+  - `CI` `24920276210`
+  - `kTLS Validation` `24920276202`
+  - `WAMP Profile Benchmarks` `24920276214`
 - Manual hosted rerun `24917876488` isolated
   `h2_multiplexed_streams_s4`, `threads=4` into a decision-quality result:
   - throughput delta `-17.35%..-12.20%`
@@ -38,6 +38,15 @@ Status: in_progress
     `connection_read_to_first_chunk`
   - the next missing split is therefore on the header path rather than the
     body path
+- Manual hosted rerun `24920655184` then reran isolated `s1` on clean head
+  `b551a6d` with the same stability settings.
+- That rerun resolved the new header-read branch of the diagnosis:
+  - throughput span stayed within the decision threshold, but p95 span stayed
+    kTLS-side and far above threshold
+  - `response_headers_connection_read_wait` moved with the unstable repeats
+  - `response_headers_connection_read_to_headers` stayed nearly flat
+  - post-header body metrics also stayed flat enough that the next missing
+    split is now on the write side of the header-wait phase
 
 ## Goals
 
@@ -51,6 +60,9 @@ Status: in_progress
    blur the stable transport evidence.
 5. Split the remaining `response_headers_wait` instability into a client-side
    connection-read phase and a post-read headers-parse phase.
+6. Determine whether isolated `s1` is still flushing request bytes while it is
+   already waiting for response headers, or whether the remaining gap is fully
+   downstream of client writes.
 
 ## Planned Changes
 
@@ -88,22 +100,22 @@ Status: in_progress
     repeats
   - `connection read-to-first-chunk avg` also stayed flat in all repeats
   - `response headers wait avg` carried the remaining instability instead
-- The current working tree now carries the next bounded headers-path split:
-  - `native/bench/src/bin/http_stream.rs` records the first successful
-    connection read while waiting for response headers
+- The current working tree now carries the next bounded write-side split:
+  - `native/bench/src/bin/http_stream.rs` records the first successful socket
+    write after `response_headers_wait` begins and the span between the first
+    and last writes observed before headers arrive
   - `native/bench/src/report.rs` and `native/bench/src/artifacts.rs` now carry
     and summarize:
-    `response_headers_connection_read_wait_*` and
-    `response_headers_connection_read_to_headers_*`
-  - `tool/ktls_http2_compare.py` now renders those fields in a dedicated
-    header-receive diagnostics section and the phase-focus lines
-- Focused local verification is green on the new headers-path diagnosis slice.
+    `response_headers_connection_write_wait_*` and
+    `response_headers_connection_write_span_*`
+  - `tool/ktls_http2_compare.py` now renders those fields alongside the
+    existing header-read diagnostics
+- Focused local verification is green on the new write-side diagnosis slice.
 
 ## Current Verification
 
 - `bin/test-fast`
-- `cargo test --manifest-path native/bench/Cargo.toml h2_client_read_probe_records_connection_read_split -- --nocapture`
-- `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
+- `cargo test --manifest-path native/bench/Cargo.toml -- --nocapture`
 - `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
 - `python3 tool/test_ktls_http2_compare.py`
 - `bin/verify`
@@ -111,6 +123,6 @@ Status: in_progress
 ## Next Step
 
 Run the next isolated hosted `s1` rerun on the clean branch head with the same
-stability settings as `24919870963`, then use the new headers-path split to
-decide whether the remaining instability appears before the first response
-connection read or between that read and header parsing.
+stability settings as `24920655184`, then use the new write-side split to
+decide whether the remaining instability is still coupled to client request
+flush activity or persists after the client has stopped writing.

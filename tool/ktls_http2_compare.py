@@ -89,6 +89,30 @@ PHASE_TIMING_SUMMARY_KEYS = (
         "response_headers_connection_read_to_headers_p95_ms",
         "Response headers connection read-to-headers p95",
     ),
+    (
+        "response_headers_connection_write_wait_samples_total",
+        "Response headers connection write samples",
+    ),
+    (
+        "response_headers_connection_write_wait_avg_ms",
+        "Response headers connection write wait avg",
+    ),
+    (
+        "response_headers_connection_write_wait_p95_ms",
+        "Response headers connection write wait p95",
+    ),
+    (
+        "response_headers_connection_write_span_samples_total",
+        "Response headers connection write-span samples",
+    ),
+    (
+        "response_headers_connection_write_span_avg_ms",
+        "Response headers connection write span avg",
+    ),
+    (
+        "response_headers_connection_write_span_p95_ms",
+        "Response headers connection write span p95",
+    ),
     ("response_body_read_avg_ms", "Response body read avg"),
     ("response_body_read_p95_ms", "Response body read p95"),
     ("response_body_first_chunk_wait_avg_ms", "Response body first chunk wait avg"),

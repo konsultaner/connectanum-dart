@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-25
 Current branch: `add-router`
-Last reviewed commit: `4228983` (`build(bench): split h2 client first-body read timing`)
+Last reviewed commit: `b551a6d` (`build(bench): split h2 response header receive timing`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -16,10 +16,23 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
 - Hosted GitHub push runs on `4228983` completed successfully:
   `CI` `24919421672`, `kTLS Validation` `24919421664`,
   `WAMP Profile Benchmarks` `24919421657`
+- Hosted GitHub push runs on `b551a6d` completed successfully:
+  `CI` `24920276210`, `kTLS Validation` `24920276202`,
+  `WAMP Profile Benchmarks` `24920276214`
+- Manual hosted `kTLS HTTP/2 Benchmarks` rerun `24920655184` completed
+  successfully on clean head `b551a6d`, but remained not decision-quality for
+  isolated `h2_multiplexed_streams_s1`, `threads=4`:
+  - throughput delta span `23.53pp` stayed within the stability threshold
+  - p95 delta span `371.80pp` remained far above threshold and stayed on the
+    kTLS side
+  - the new header-path split narrowed the remaining gap to
+    `response_headers_connection_read_wait`, while
+    `response_headers_connection_read_to_headers`,
+    `post_header_connection_read_wait`, and
+    `connection_read_to_first_chunk` all stayed flat or nearly flat
 - The current isolated-regression diagnosis slice is green locally:
   - `bin/test-fast`
-  - `cargo test --manifest-path native/bench/Cargo.toml h2_client_read_probe_records_connection_read_split -- --nocapture`
-  - `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
+  - `cargo test --manifest-path native/bench/Cargo.toml -- --nocapture`
   - `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
   - `python3 tool/test_ktls_http2_compare.py`
   - `bin/verify`
@@ -107,6 +120,28 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
   main-isolate control-port optimization closed the old
   `direct_stream_request_queue_delay` hotspot on
   `h2_multiplexed_streams_s2`, `threads=1`.
+- Manual hosted rerun `24920655184` on clean head `b551a6d` tightened the
+  isolated `h2_multiplexed_streams_s1`, `threads=4` diagnosis:
+  - repeat-level instability still sits in the client-side
+    `response_headers_wait` path
+  - the new header split showed the movement almost entirely in
+    `response_headers_connection_read_wait`
+  - `response_headers_connection_read_to_headers`,
+    `response_body_post_header_connection_read_wait`, and
+    `response_body_connection_read_to_first_chunk` stayed flat enough that
+    header parsing and post-header body delivery are no longer the lead
+    suspects
+- The current working tree now carries the next bounded split for that same
+  isolated `s1` path:
+  - `native/bench/src/bin/http_stream.rs` records write-side activity while
+    waiting for response headers:
+    `response_headers_connection_write_wait_*` and
+    `response_headers_connection_write_span_*`
+  - `native/bench/src/report.rs`, `native/bench/src/artifacts.rs`, and
+    `tool/ktls_http2_compare.py` now carry and render those metrics
+  - the next hosted rerun should decide whether the remaining instability is
+    still coupled to request-flush activity or persists after the client has
+    stopped writing
 - That rerun also moved the remaining hotspot deeper into the HTTP/2 native
   response-stream path on `h2_multiplexed_streams_s8`, `threads=1`: server
   direct-stream timings improved, but client `response headers wait`,
