@@ -76,6 +76,13 @@ operator evidence over speculative feature or benchmark work.
   - make the native release install/build hooks resolve Linux arm64 and Windows
     x64 release triples
   - update public release-target docs to include Windows x64
+- Completed hosted validation for the Windows native artifact slice:
+  - `Native Artifacts` run `25048283917` on `86a4e7c` passed Linux x64,
+    Linux arm64, macOS Apple Silicon, macOS Intel, and Windows x64 packaging,
+    signing, sigstore attestation, and artifact upload
+  - GitHub `CI` run `25048277995` on `86a4e7c` passed `Fast Checks` and
+    `Full Verify`; `WAMP Profile Gates` was skipped for this non-benchmark
+    change as expected
 
 ## Verification
 
@@ -103,6 +110,10 @@ operator evidence over speculative feature or benchmark work.
   Actions path fix. An earlier local `bin/verify` attempt failed because the
   autonomous launchd runner was holding the shared native runtime lock during
   its own `bin/test-fast`; rerunning after the lock was released passed.
+- GitHub-hosted deployment-chain validation is clean for the Windows native
+  artifact slice:
+  - `CI` run `25048277995` passed on `86a4e7c`
+  - manual `Native Artifacts` run `25048283917` passed on `86a4e7c`
 
 ## Decision Log
 
@@ -115,9 +126,13 @@ operator evidence over speculative feature or benchmark work.
   Linux/macOS publishing already exists, install helpers already understand the
   Windows `.dll` filename, and GitHub-hosted Windows runners can provide the
   MSVC C toolchain that local macOS cross-checks cannot.
+- 2026-04-28: Kept shell/cosign paths as `bin/package-native-artifact` outputs
+  and used workspace-relative paths for Node-based GitHub actions. This avoids
+  Windows Git Bash `/d/a/...` paths in `actions/attest` and `upload-artifact`
+  while preserving working POSIX paths for Bash and cosign.
 
 ## Handoff
 
-- Next continuation should inspect the GitHub workflows and release-related
-  exec plans, then choose the smallest deployment-chain gap that moves the
-  project closer to production releases with multi-platform FFI artifacts.
+- Next continuation should keep GitHub CI green, then move to the next
+  deployment-chain gap: release publishing dry-run/readiness, release metadata,
+  or installer coverage for the now-hosted multi-platform native artifacts.

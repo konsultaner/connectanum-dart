@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `d97d34f` (`tool: surface repeat phase timing focus`)
+Last reviewed commit: `86a4e7c` (`ci: use workspace-relative artifact paths`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -106,6 +106,15 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
   fix. The first local attempt failed only because the autonomous launchd runner
   held the shared native runtime lock during its own `bin/test-fast`; rerunning
   once the lock was released passed, including the Chrome browser-platform test.
+- Hosted GitHub deployment-chain validation is clean on `86a4e7c`
+  (`ci: use workspace-relative artifact paths`):
+  - GitHub `CI` run `25048277995` passed `Fast Checks` and `Full Verify`;
+    `WAMP Profile Gates` was skipped for this non-benchmark change as expected
+  - manual `Native Artifacts` run `25048283917` passed all matrix legs:
+    Linux x64, Linux arm64, macOS Apple Silicon, macOS Intel, and Windows x64
+  - the Windows x64 leg now builds, packages, signs, verifies, attests, and
+    uploads the `ct_ffi` bundle using workspace-relative paths for Node-based
+    GitHub actions
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.
