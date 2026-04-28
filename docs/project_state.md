@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `20dbc9a` (`bench: split h2 response body tail timing`)
-Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
+Last reviewed commit: `d97d34f` (`tool: surface repeat phase timing focus`)
+Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
 
@@ -73,6 +73,9 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     `25044549578`, and `bin/verify`
   - commit `d97d34f` (`tool: surface repeat phase timing focus`) passed
     hosted GitHub `CI` run `25045630570`
+- The active autonomous focus is now the GitHub deployment chain. Continue H2
+  or kTLS diagnosis only when it protects a deployment/release decision or after
+  the GitHub release path is production-ready.
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.
@@ -185,15 +188,19 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
 ## Autonomous Priority
 
 1. Keep the CI chain clean first. If local `bin/verify` is failing or the latest known branch CI is red, continuation work should switch to restoring green before new implementation or benchmark work.
-2. Prioritize production readiness of current functionality before exploratory expansion. That includes correctness, release/deployment behavior, observability, packaging, operational docs, and coverage for shipped paths.
-3. Treat MCP support for downstream `groli/app` as the next product-readiness milestone once CI and shipped-path blockers are clean. It outranks speculative H3, kTLS, E2EE, and benchmark exploration until the first usable MCP server/bridge path is designed, implemented, tested, and documented.
-4. After the first usable MCP path is complete, make WAMP profile-related transport performance production-ready in the benchmark suite before returning to speculative transport work. That means canonical RawSocket/WebSocket WAMP scenarios, secure and cleartext coverage, serializer/profile coverage, explicit budgets/gates, and hosted CI evidence for release decisions.
-5. With the first MCP path, the WAMP benchmark-readiness milestone, the
+2. Make the GitHub deployment chain the main project spine. Prefer GitHub
+   Actions health, release workflow validation, multi-platform FFI artifacts,
+   human-readable releases/artifacts, public package metadata, and branch
+   protection/deployment evidence before speculative implementation work.
+3. Prioritize production readiness of current functionality before exploratory expansion. That includes correctness, release/deployment behavior, observability, packaging, operational docs, and coverage for shipped paths.
+4. Treat MCP support for downstream `groli/app` as the next product-readiness milestone once CI, GitHub deployment-chain blockers, and shipped-path blockers are clean. It outranks speculative H3, kTLS, E2EE, and benchmark exploration until the first usable MCP server/bridge path is designed, implemented, tested, and documented.
+5. After the first usable MCP path is complete, make WAMP profile-related transport performance production-ready in the benchmark suite before returning to speculative transport work. That means canonical RawSocket/WebSocket WAMP scenarios, secure and cleartext coverage, serializer/profile coverage, explicit budgets/gates, and hosted CI evidence for release decisions.
+6. With the first MCP path, the WAMP benchmark-readiness milestone, the
    host-supported WAMP transport-interop slice, and the worker-safe realm
    authorization milestone complete, use `ROADMAP_NEXT.md` to choose the next
    production-readiness task and keep prioritizing shipped-path correctness
    before speculative transport work.
-6. Other benchmark and performance work stays important, but it should serve
+7. Other benchmark and performance work stays important, but it should serve
    production readiness and release confidence rather than run ahead of it.
 
 ## Resume Order
@@ -209,6 +216,10 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
 - The repo is a Dart workspace plus a Rust native transport workspace.
 - The canonical root entrypoints are `bin/bootstrap`, `bin/test-fast`, `bin/test-all`, and `bin/verify`.
 - Root shell helpers now auto-detect Dart from Flutter, Rust from `~/.cargo`, Chrome/Chromium, and the standard prebuilt native library path.
+- GitHub Actions is the primary deployment-chain signal for autonomous work on
+  this branch. Keep workflow warnings, skipped jobs, release artifacts, and
+  public release metadata readable and intentional before returning to
+  speculative transport diagnosis.
 - The first usable MCP path for the downstream `groli/app` integration is now
   complete for local stdio usage: `packages/connectanum_mcp` has the
   transport-independent server core, stdio framing, and WAMP-backed tool

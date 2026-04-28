@@ -1,9 +1,10 @@
 # HTTP/2 Isolated Regression Diagnosis
 
-Status: in_progress
+Status: paused
 
 Resumed after `docs/exec-plans/2026-04-25-ci-noise-and-skip-cleanup.md`
-completed on clean branch checkpoint `17697ae`.
+completed on clean branch checkpoint `17697ae`. Paused on 2026-04-28 after
+the project priority shifted to the GitHub deployment chain.
 
 ## Context
 
@@ -271,9 +272,11 @@ completed on clean branch checkpoint `17697ae`.
 
 ## Next Step
 
-Rerun the same isolated hosted `s1` workload on `d97d34f` or newer now that the
-top-level artifact exposes per-repeat phase-timing focus directly. Use the next
-decision-quality run to decide whether the stable throughput loss is mostly
-waiting for connection reads after first chunk or processing/draining after
-those reads; if the run is still non-decision-quality, use the aggregate focus
-table to classify which repeats are header-wait noise versus body-tail signal.
+Resume only after the GitHub deployment-chain readiness plan has a clean
+production path. The next H2 step is to rerun the same isolated hosted `s1`
+workload on `d97d34f` or newer now that the top-level artifact exposes
+per-repeat phase-timing focus directly. Use the next decision-quality run to
+decide whether the stable throughput loss is mostly waiting for connection
+reads after first chunk or processing/draining after those reads; if the run is
+still non-decision-quality, use the aggregate focus table to classify which
+repeats are header-wait noise versus body-tail signal.
