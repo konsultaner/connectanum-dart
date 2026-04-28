@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `39e68b1` (`installer: cover native release artifact matrix`)
+Last reviewed commit: `34cf2cd` (`docs: record installer ci success`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -165,6 +165,31 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     `WAMP Profile Gates` was skipped inside the main CI workflow
   - GitHub `WAMP Profile Benchmarks` run `25052974498` passed the Linux
     canonical WAMP profile gate and uploaded its artifacts
+- Documentation checkpoint `34cf2cd`
+  (`docs: record installer ci success`) passed hosted GitHub `CI` run
+  `25053975131`; `Fast Checks` and `Full Verify` succeeded, while
+  `WAMP Profile Gates` was correctly skipped for the docs-only push.
+- Native release/install validation is clean for validation prerelease
+  `ct-ffi-v2026.04.28-validation.34cf2cd`:
+  - manual GitHub `Native Artifacts` run `25054948537` passed Linux x64,
+    Linux arm64, macOS Apple Silicon, macOS Intel, Windows x64, and the
+    `Publish GitHub Release` job
+  - the release was created as a prerelease with the full hosted matrix asset
+    set
+  - direct source-checkout installer smoke validation passed on macOS arm64 via
+    `bin/validate-native-release-install --tag ct-ffi-v2026.04.28-validation.34cf2cd`
+- The validation exposed a public-instruction issue rather than a packaging
+  failure: `dart run <package>:tool/install_native.dart` is not the reliable
+  public install path because package runs invoke native build hooks before the
+  helper can run. The current follow-up corrects README/deployment/release-note
+  guidance to prefer `CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` for normal
+  hook-managed downloads and direct `dart packages/.../tool/install_native.dart`
+  only for source-checkout prefetches.
+  - focused local checks passed:
+    `python3 -m py_compile tool/render_native_release_notes.py tool/test_render_native_release_notes.py`,
+    `python3 tool/test_render_native_release_notes.py`,
+    `bash -n bin/validate-native-release-install`, `git diff --check`, and
+    `bin/verify`
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.

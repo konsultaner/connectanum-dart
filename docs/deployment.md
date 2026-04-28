@@ -60,21 +60,28 @@ native library automatically. Override the default release source
 (`konsultaner/connectanum-dart`) with
 `CONNECTANUM_NATIVE_RELEASE_REPOSITORY=<owner/repo>` when needed.
 
-If you want to prefetch the native library before the hook runs, use the new
-package entrypoint instead:
+If you want to prefetch the native library before the hook runs, use the
+source-checkout helper instead:
 
 ```sh
 export CONNECTANUM_NATIVE_LIB="$(
-  dart run connectanum_router:tool/install_native.dart --tag <release-tag>
+  dart packages/connectanum_router/tool/install_native.dart --tag <release-tag>
 )"
 ```
 
-`connectanum_router:tool/install_native.dart` and
-`connectanum_client:tool/install_native.dart`
-download the hosted bundle for the current host into
+`packages/connectanum_router/tool/install_native.dart` and
+`packages/connectanum_client/tool/install_native.dart` download the hosted
+bundle for the current host into
 `.dart_tool/connectanum/native/<host-triple>/`, verify the published checksum,
 and print the installed library path so deployment scripts can wire
 `CONNECTANUM_NATIVE_LIB` explicitly.
+
+Maintainers can validate both source-checkout installer helpers against a
+published GitHub Release with:
+
+```sh
+bin/validate-native-release-install --tag <release-tag>
+```
 
 If you do not want to build Rust locally, the GitHub Actions
 `Native Artifacts` workflow uploads prebuilt `ct-ffi-<host-triple>.tar.gz`

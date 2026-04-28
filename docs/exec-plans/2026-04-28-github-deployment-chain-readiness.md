@@ -118,6 +118,25 @@ operator evidence over speculative feature or benchmark work.
     inside the main CI workflow
   - GitHub `WAMP Profile Benchmarks` run `25052974498` passed the Linux
     canonical WAMP profile gate and uploaded its artifacts
+- Recorded the docs-only validation checkpoint:
+  - commit `34cf2cd` (`docs: record installer ci success`) passed GitHub `CI`
+    run `25053975131`
+  - `Fast Checks` and `Full Verify` succeeded; `WAMP Profile Gates` was skipped
+    as expected for a docs-only push
+- Completed the first real GitHub Release install validation:
+  - manual `Native Artifacts` run `25054948537` passed all Linux, macOS, and
+    Windows native artifact legs plus `Publish GitHub Release`
+  - the workflow created prerelease
+    `ct-ffi-v2026.04.28-validation.34cf2cd`
+  - source-checkout installer smoke validation passed on macOS arm64 with
+    `bin/validate-native-release-install --tag ct-ffi-v2026.04.28-validation.34cf2cd`
+- Started the public install-instructions correction:
+  - release-note generation and public docs now prefer
+    `CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` for hook-managed downloads
+  - direct `dart packages/.../tool/install_native.dart` commands are described
+    as source-checkout prefetch helpers, not package `dart run` executables
+  - `bin/validate-native-release-install` codifies the release install smoke
+    test for future validation tags
 
 ## Verification
 
@@ -173,6 +192,17 @@ operator evidence over speculative feature or benchmark work.
 - Hosted installer-coverage checks on `39e68b1`:
   - GitHub `CI` run `25052974513`
   - GitHub `WAMP Profile Benchmarks` run `25052974498`
+- Documentation checkpoint `34cf2cd` passed hosted GitHub `CI` run
+  `25053975131`.
+- Native release/install checks:
+  - GitHub `Native Artifacts` run `25054948537`
+  - `bash -n bin/validate-native-release-install`
+  - `bin/validate-native-release-install --tag ct-ffi-v2026.04.28-validation.34cf2cd`
+- Current public install-instructions focused local checks:
+  - `python3 -m py_compile tool/render_native_release_notes.py tool/test_render_native_release_notes.py`
+  - `python3 tool/test_render_native_release_notes.py`
+  - `git diff --check`
+  - `bin/verify`
 
 ## Decision Log
 
@@ -192,10 +222,16 @@ operator evidence over speculative feature or benchmark work.
 - 2026-04-28: Added a GitHub release dry-run mode before publishing any new
   validation tags. This keeps the deployment chain testable without creating
   throwaway releases when the only thing being reviewed is release metadata.
+- 2026-04-28: Kept normal package consumption on
+  `CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` rather than documenting
+  `dart run <package>:tool/install_native.dart`. Package `dart run` invokes
+  native build hooks before the helper can complete, while the direct
+  source-checkout helper path is repeatable for maintainer prefetch smoke
+  tests.
 
 ## Handoff
 
-- Next continuation should move to release/install evidence for a real or
-  validation native release tag: prove that the explicit installer can download
-  the hosted matrix assets from GitHub Releases, or document the remaining
-  blocker if a safe validation tag cannot be created.
+- Next continuation should finish the public install-instructions correction:
+  run full verification, commit and push the docs/tooling update, watch hosted
+  GitHub CI, and then use the corrected release-note generator for the next
+  native release dry-run or validation prerelease.

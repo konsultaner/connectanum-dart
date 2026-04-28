@@ -71,12 +71,18 @@ or lower-allocation deployments.
 During `dart run` and `dart test`, the build hook can compile `ct_ffi`
 automatically when a Rust toolchain is available.
 
-If you want to use a published prebuilt bundle instead, install it explicitly:
+If you want to use a published prebuilt bundle instead, let the build hook
+download it automatically:
 
 ```bash
-export CONNECTANUM_NATIVE_LIB="$(
-  dart run connectanum_client:tool/install_native.dart --tag <release-tag>
-)"
+export CONNECTANUM_NATIVE_RELEASE_TAG=<release-tag>
+```
+
+From a source checkout, you can also prefetch the current host bundle and wire
+the printed path into `CONNECTANUM_NATIVE_LIB`:
+
+```bash
+export CONNECTANUM_NATIVE_LIB="$(dart packages/connectanum_client/tool/install_native.dart --tag <release-tag>)"
 ```
 
 The package also supports:

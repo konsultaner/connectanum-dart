@@ -26,10 +26,10 @@ Most users want one of these two paths:
 
 ### Run The Router With Published Artifacts
 
-1. Install the native library bundle for your host:
+1. Tell the build hook which published native bundle to use:
 
    ```bash
-   export CONNECTANUM_NATIVE_LIB="$(dart run connectanum_router:tool/install_native.dart --tag <release-tag>)"
+   export CONNECTANUM_NATIVE_RELEASE_TAG=<release-tag>
    ```
 
 2. Start the router:
@@ -186,11 +186,12 @@ library without requiring a local Rust toolchain. Use
 `CONNECTANUM_NATIVE_RELEASE_REPOSITORY=<owner/repo>` to override the default
 release source (`konsultaner/connectanum-dart`).
 
-If you prefer an explicit prefetch step instead of hook-managed downloads, use:
+If you prefer an explicit source-checkout prefetch step instead of
+hook-managed downloads, use:
 
 ```bash
-dart run connectanum_router:tool/install_native.dart --tag <release-tag>
-dart run connectanum_client:tool/install_native.dart --tag <release-tag>
+dart packages/connectanum_router/tool/install_native.dart --tag <release-tag>
+dart packages/connectanum_client/tool/install_native.dart --tag <release-tag>
 ```
 
 Each command downloads the host-native bundle into

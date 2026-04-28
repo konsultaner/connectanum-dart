@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/common.sh"
+
+usage() {
+  cat <<'USAGE'
+Usage: bin/validate-native-release-install --tag <release-tag> [options]
+
+Downloads the current host's native ct_ffi bundle from GitHub Releases through
+both package installer helpers and verifies that each helper produces a
+non-empty library file.
+
+Options:
+  --tag <release-tag>        GitHub Release tag to validate.
+  --repository <owner/repo>  GitHub Releases source. Defaults to
+                             CONNECTANUM_NATIVE_RELEASE_REPOSITORY or
+                             konsultaner/connectanum-dart.
+  --keep-temp                Keep the temporary install root for inspection.
+  -h, --help                 Show this help text.
+USAGE
+}
+
+release_tag=""
+repository="${CONNECTANUM_NATIVE_RELEASE_REPOSITORY:-konsultaner/connectanum-dart}"
+keep_temp=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --tag)
+      [[ $# -ge 2 ]] || {
+        printf 'Expected a value after --tag.\n' >&2
+        exit 64
+      }
+      release_tag="$2"
+      shift 2
+      ;;
+    --tag=*)
+      release_tag="${1#--tag=}"
+      shift
+      ;;
+    --repository)
+      [[ $# -ge 2 ]] || {
+        printf 'Expected a value after --repository.\n' >&2
+        exit 64
+      }
+      repository="$2"
+      shift 2
+      ;;
+    --repository=*)
+      repository="${1#--repository=}"
+      shift
+      ;;
+    --keep-temp)
+      keep_temp=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Unrecognized argument: %s\n' "$1" >&2
+      usage >&2
+      exit 64
+      ;;
+  esac
+done
+
+if [[ -z "$release_tag" ]]; then
+  printf 'Missing required --tag <release-tag>.\n' >&2
+  usage >&2
+  exit 64
+fi
+
+require_command dart
+cd_repo_root
+
+tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-native-release-install.XXXXXX")"
+cleanup() {
+  if [[ "$keep_temp" -eq 0 ]]; then
+    rm -rf "$tmp_root"
+  else
+    printf 'Temporary install root kept at %s\n' "$tmp_root"
+  fi
+}
+trap cleanup EXIT
+
+validate_installer() {
+  local package_name="$1"
+  local script_path="$2"
+  local out_dir="$tmp_root/$package_name"
+  local installed_path
+
+  installed_path="$(
+    dart "$script_path" \
+      --tag "$release_tag" \
+      --repository "$repository" \
+      --out-dir "$out_dir"
+  )"
+
+  if [[ ! -f "$installed_path" ]]; then
+    printf '%s installer did not produce %s\n' "$package_name" "$installed_path" >&2
+    return 1
+  fi
+
+  if [[ ! -s "$installed_path" ]]; then
+    printf '%s installer produced an empty library at %s\n' "$package_name" "$installed_path" >&2
+    return 1
+  fi
+
+  printf '%s installed %s\n' "$package_name" "$installed_path"
+}
+
+validate_installer \
+  connectanum_client \
+  packages/connectanum_client/tool/install_native.dart
+validate_installer \
+  connectanum_router \
+  packages/connectanum_router/tool/install_native.dart
+
+printf 'Native release install validation passed for %s from %s.\n' \
+  "$release_tag" \
+  "$repository"

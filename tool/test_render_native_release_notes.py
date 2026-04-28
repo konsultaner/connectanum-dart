@@ -26,7 +26,12 @@ class NativeReleaseNotesTest(unittest.TestCase):
         self.assertIn("standalone native transport bundles", rendered)
         self.assertIn("Windows x64 (`x86_64-pc-windows-msvc`)", rendered)
         self.assertIn(
-            "dart run connectanum_router:tool/install_native.dart --tag "
+            "CONNECTANUM_NATIVE_RELEASE_TAG=ct-ffi-v2026.04.28 dart run "
+            "connectanum_router --config path/to/router.yaml",
+            rendered,
+        )
+        self.assertIn(
+            "dart packages/connectanum_router/tool/install_native.dart --tag "
             "ct-ffi-v2026.04.28",
             rendered,
         )

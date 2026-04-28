@@ -66,11 +66,14 @@ def render_release_notes(
 
 ## How to use the bundle
 
-1. Download the archive that matches your platform.
-2. Extract it and point `CONNECTANUM_NATIVE_LIB` at the included library.
-3. Or install the matching bundle directly with:
-   - `dart run connectanum_router:tool/install_native.dart --tag {release_tag}`
-   - `dart run connectanum_client:tool/install_native.dart --tag {release_tag}`
+1. Let the Dart build hook fetch the matching bundle automatically:
+   - `CONNECTANUM_NATIVE_RELEASE_TAG={release_tag} dart run connectanum_router --config path/to/router.yaml`
+   - `CONNECTANUM_NATIVE_RELEASE_TAG={release_tag} dart test`
+2. Or download the archive that matches your platform, extract it, and point
+   `CONNECTANUM_NATIVE_LIB` at the included library.
+3. From a source checkout, you can prefetch the current host bundle explicitly:
+   - `dart packages/connectanum_router/tool/install_native.dart --tag {release_tag}`
+   - `dart packages/connectanum_client/tool/install_native.dart --tag {release_tag}`
 
 ## Verification
 

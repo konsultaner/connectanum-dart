@@ -13,12 +13,10 @@ it is not yet published as a stable public package.
 
 ## Run The Router
 
-Install or point at a native runtime bundle:
+Tell the build hook which published native bundle to use:
 
 ```bash
-export CONNECTANUM_NATIVE_LIB="$(
-  dart run connectanum_router:tool/install_native.dart --tag <release-tag>
-)"
+export CONNECTANUM_NATIVE_RELEASE_TAG=<release-tag>
 ```
 
 Then start the router:
@@ -29,6 +27,13 @@ dart run connectanum_router --config path/to/router.yaml
 
 The CLI also accepts `--native-lib <path>` when you do not want to rely on an
 environment variable.
+
+From a source checkout, you can prefetch the current host bundle explicitly and
+wire the printed path into `CONNECTANUM_NATIVE_LIB`:
+
+```bash
+export CONNECTANUM_NATIVE_LIB="$(dart packages/connectanum_router/tool/install_native.dart --tag <release-tag>)"
+```
 
 ## Library Usage
 
