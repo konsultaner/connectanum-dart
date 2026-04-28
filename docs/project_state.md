@@ -76,6 +76,22 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
 - The active autonomous focus is now the GitHub deployment chain. Continue H2
   or kTLS diagnosis only when it protects a deployment/release decision or after
   the GitHub release path is production-ready.
+- Documentation commit `639c095` (`docs: prioritize github deployment chain`)
+  passed hosted GitHub `CI` run `25046524665`; `Fast Checks` and
+  `Full Verify` succeeded, while `WAMP Profile Gates` were correctly skipped
+  for a docs-only push.
+- The current deployment-chain implementation slice expands native release
+  artifacts toward Windows:
+  - `.github/workflows/native-artifacts.yml` adds a Windows x64 packaging
+    runner and uses Bash for the packaging/signing shell steps
+  - client/router build hooks now map Linux arm64 and Windows x64 release host
+    triples
+  - public deployment docs list Windows x64 as a release target
+  - local checks are green for `bin/test-fast`, focused hook tests, workflow
+    YAML parsing, and `git diff --check`
+  - local macOS `cargo check --target x86_64-pc-windows-msvc` cannot complete
+    because the Windows MSVC C headers/toolchain are unavailable locally; the
+    GitHub Windows runner is the required validation signal
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.

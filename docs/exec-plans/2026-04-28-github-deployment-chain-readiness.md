@@ -62,11 +62,33 @@ operator evidence over speculative feature or benchmark work.
 5. Push each deployment-chain slice, watch GitHub Actions, and update the plan
    with run IDs and remaining blockers.
 
+## Progress
+
+- Promoted this plan to the active autonomous milestone and paused the H2
+  isolated regression diagnosis plan.
+- Confirmed pushed documentation head `639c095` passed GitHub `CI` run
+  `25046524665`:
+  - `Fast Checks`: success
+  - `Full Verify`: success
+  - `WAMP Profile Gates`: skipped as expected for docs-only changes
+- Started the first deployment-chain implementation slice:
+  - add Windows x64 to the `Native Artifacts` matrix
+  - make the native release install/build hooks resolve Linux arm64 and Windows
+    x64 release triples
+  - update public release-target docs to include Windows x64
+
 ## Verification
 
 - `bin/test-fast` before substantial implementation changes.
 - `bin/verify` before handoff when local code or workflow behavior changes.
 - Hosted GitHub Actions run IDs for every pushed deployment-chain slice.
+- Current Windows artifact slice local checks:
+  - `bin/test-fast`
+  - `dart test packages/connectanum_client/test/hook/build_hook_test.dart`
+  - `dart test packages/connectanum_router/test/hook/build_hook_test.dart`
+  - `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/native-artifacts.yml')"`
+  - `git diff --check`
+  - `rustup target add x86_64-pc-windows-msvc && cargo check --manifest-path native/transport/Cargo.toml -p ct_ffi --target x86_64-pc-windows-msvc` was attempted locally, but macOS lacks the Windows MSVC C toolchain/headers needed by `ring`; hosted Windows validation is the required signal.
 
 ## Decision Log
 
@@ -75,6 +97,10 @@ operator evidence over speculative feature or benchmark work.
   this plan to the active autonomous milestone.
 - 2026-04-28: Latest pushed head `d97d34f` passed GitHub `CI` run
   `25045630570`.
+- 2026-04-28: Chose Windows x64 as the next native artifact target because
+  Linux/macOS publishing already exists, install helpers already understand the
+  Windows `.dll` filename, and GitHub-hosted Windows runners can provide the
+  MSVC C toolchain that local macOS cross-checks cannot.
 
 ## Handoff
 

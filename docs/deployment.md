@@ -84,6 +84,7 @@ bundles for:
 - Linux arm64 (`aarch64-unknown-linux-gnu`)
 - macOS arm64 (`aarch64-apple-darwin`)
 - macOS Intel (`x86_64-apple-darwin`)
+- Windows x64 (`x86_64-pc-windows-msvc`)
 
 Release-tag runs publish the same assets to GitHub Releases. You can either
 let the hook fetch those assets via

@@ -118,6 +118,37 @@ void main() {
       );
     });
   });
+
+  test('release host triples cover native artifact matrix targets', () {
+    expect(
+      build_hook.hostTripleForTarget(
+        targetOS: OS.linux,
+        targetArch: Architecture.x64,
+      ),
+      equals('x86_64-unknown-linux-gnu'),
+    );
+    expect(
+      build_hook.hostTripleForTarget(
+        targetOS: OS.linux,
+        targetArch: Architecture.arm64,
+      ),
+      equals('aarch64-unknown-linux-gnu'),
+    );
+    expect(
+      build_hook.hostTripleForTarget(
+        targetOS: OS.macOS,
+        targetArch: Architecture.arm64,
+      ),
+      equals('aarch64-apple-darwin'),
+    );
+    expect(
+      build_hook.hostTripleForTarget(
+        targetOS: OS.windows,
+        targetArch: Architecture.x64,
+      ),
+      equals('x86_64-pc-windows-msvc'),
+    );
+  });
 }
 
 const _nativeLibEnv = 'CONNECTANUM_NATIVE_LIB';

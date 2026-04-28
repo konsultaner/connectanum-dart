@@ -41,10 +41,13 @@ Future<void> runBuildHook(
     final targetOS = input.config.code.targetOS;
     final targetArch = input.config.code.targetArchitecture;
     final supportedHost =
-        (targetOS == OS.linux && targetArch == Architecture.x64) ||
+        (targetOS == OS.linux &&
+            (targetArch == Architecture.x64 ||
+                targetArch == Architecture.arm64)) ||
         (targetOS == OS.macOS &&
             (targetArch == Architecture.x64 ||
-                targetArch == Architecture.arm64));
+                targetArch == Architecture.arm64)) ||
+        (targetOS == OS.windows && targetArch == Architecture.x64);
     if (!supportedHost) {
       // Unsupported hosts should still be able to run pure Dart/browser flows.
       return;
@@ -391,24 +394,29 @@ String hostTripleForTarget({
 }) {
   return switch ((targetOS, targetArch)) {
     (OS.linux, Architecture.x64) => 'x86_64-unknown-linux-gnu',
+    (OS.linux, Architecture.arm64) => 'aarch64-unknown-linux-gnu',
     (OS.macOS, Architecture.x64) => 'x86_64-apple-darwin',
     (OS.macOS, Architecture.arm64) => 'aarch64-apple-darwin',
+    (OS.windows, Architecture.x64) => 'x86_64-pc-windows-msvc',
     _ => throw StateError(
       'Unsupported release host combination: $targetOS / $targetArch',
     ),
   };
 }
 
-String currentHostTriple() => switch (Platform.operatingSystem) {
-  'linux' => 'x86_64-unknown-linux-gnu',
-  'macos' =>
-    _currentArchitectureLabel() == 'arm64'
-        ? 'aarch64-apple-darwin'
-        : 'x86_64-apple-darwin',
-  _ => throw StateError(
-    'Unsupported install host ${Platform.operatingSystem}.',
-  ),
-};
+String currentHostTriple() {
+  final arch = _currentArchitectureLabel();
+  return switch ((Platform.operatingSystem, arch)) {
+    ('linux', 'x64') => 'x86_64-unknown-linux-gnu',
+    ('linux', 'arm64') => 'aarch64-unknown-linux-gnu',
+    ('macos', 'x64') => 'x86_64-apple-darwin',
+    ('macos', 'arm64') => 'aarch64-apple-darwin',
+    ('windows', 'x64') => 'x86_64-pc-windows-msvc',
+    _ => throw StateError(
+      'Unsupported install host ${Platform.operatingSystem} / $arch.',
+    ),
+  };
+}
 
 String currentPlatformLibraryFileName(String libraryBaseName) =>
     switch (Platform.operatingSystem) {
@@ -424,10 +432,8 @@ String _sanitizePathComponent(String value) =>
     value.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_');
 
 String _currentArchitectureLabel() {
-  if (Platform.operatingSystem != 'macos') {
-    return 'x64';
-  }
-  if (Platform.version.contains('arm64')) {
+  if (Platform.version.contains('arm64') ||
+      Platform.version.contains('aarch64')) {
     return 'arm64';
   }
   return 'x64';

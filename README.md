@@ -155,6 +155,7 @@ Current GitHub-hosted release targets:
 - Linux arm64 (`aarch64-unknown-linux-gnu`)
 - macOS arm64 (`aarch64-apple-darwin`)
 - macOS Intel (`x86_64-apple-darwin`)
+- Windows x64 (`x86_64-pc-windows-msvc`)
 
 The main `CI` workflow intentionally does not publish raw per-test metrics
 snapshots. Release-facing native artifacts come from this workflow and GitHub
