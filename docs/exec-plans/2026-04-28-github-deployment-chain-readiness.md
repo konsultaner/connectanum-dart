@@ -91,6 +91,15 @@ operator evidence over speculative feature or benchmark work.
   - dry-run publish jobs write `release-notes.md` and `release-metadata.txt`
     into a `native-release-preview` artifact and stop before any GitHub
     Release mutation
+- Completed hosted validation for the release dry-run slice:
+  - commit `7b45ede` (`ci: add native release dry run`) passed GitHub `CI` run
+    `25050575954`
+  - manual `Native Artifacts` dry-run `25051217251` passed all Linux, macOS,
+    and Windows native artifact legs, then rendered and uploaded
+    `native-release-preview`
+  - `gh release view ct-ffi-v2026.04.28-dry-run.7b45ede` returned
+    `release not found`, confirming the dry-run path did not mutate GitHub
+    Releases
 
 ## Verification
 
@@ -129,6 +138,13 @@ operator evidence over speculative feature or benchmark work.
   - `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/native-artifacts.yml')"`
   - `python3 tool/render_native_release_notes.py --release-tag ct-ffi-v2026.04.28-preview --repository konsultaner/connectanum-dart --server-url https://github.com --commit HEAD --workflow-ref konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml@refs/heads/add-router --owner konsultaner`
   - `bin/verify`
+- Hosted release-dry-run checks:
+  - GitHub `CI` run `25050575954` passed on `7b45ede`
+  - manual `Native Artifacts` run `25051217251` passed on `7b45ede` with
+    artifacts `native-release-preview`,
+    `ct-ffi-x86_64-pc-windows-msvc`, `ct-ffi-x86_64-apple-darwin`,
+    `ct-ffi-aarch64-apple-darwin`, `ct-ffi-x86_64-unknown-linux-gnu`, and
+    `ct-ffi-aarch64-unknown-linux-gnu`
 
 ## Decision Log
 
@@ -151,6 +167,5 @@ operator evidence over speculative feature or benchmark work.
 
 ## Handoff
 
-- Next continuation should keep GitHub CI green, finish hosted validation for
-  the native release dry-run path, then move to installer coverage for the
-  now-hosted multi-platform native artifacts.
+- Next continuation should keep GitHub CI green, then move to installer
+  coverage for the now-hosted multi-platform native artifacts.

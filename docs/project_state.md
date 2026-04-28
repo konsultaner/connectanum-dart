@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `7a411e3` (`docs: record native artifact ci success`)
+Last reviewed commit: `7b45ede` (`ci: add native release dry run`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -132,6 +132,18 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     `python3 tool/test_render_native_release_notes.py`,
     `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/native-artifacts.yml')"`,
     a local render preview for `ct-ffi-v2026.04.28-preview`, and `bin/verify`
+- Hosted GitHub validation is clean on `7b45ede`
+  (`ci: add native release dry run`):
+  - GitHub `CI` run `25050575954` passed `Fast Checks` and `Full Verify`;
+    `WAMP Profile Gates` was skipped for this non-benchmark change as expected
+  - manual `Native Artifacts` dry-run `25051217251` passed all native matrix
+    legs: Linux x64, Linux arm64, macOS Apple Silicon, macOS Intel, and
+    Windows x64
+  - the dry-run publish job rendered the release metadata, uploaded
+    `native-release-preview`, and stopped before release mutation
+  - `gh release view ct-ffi-v2026.04.28-dry-run.7b45ede` returned
+    `release not found`, confirming the dry-run path did not create or update a
+    GitHub Release
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.
