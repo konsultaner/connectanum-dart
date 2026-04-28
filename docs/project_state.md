@@ -283,6 +283,17 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     `cargo test --manifest-path native/transport/Cargo.toml -p ct_core websocket_io_disconnects_are_classified_as_peer_shutdowns -- --nocapture`
     and `bin/test-fast`; the local cancel-cycle fast-test segment no longer
     emitted the connection-reset line
+- Rawsocket benign-shutdown log cleanup is hosted-clean on `6a6f036`
+  (`native: quiet benign rawsocket shutdowns`):
+  - local `bin/verify` passed end-to-end before commit
+  - GitHub `CI` run `25065253852` passed `Fast Checks` and `Full Verify`;
+    `WAMP Profile Gates` was skipped for this non-benchmark push path
+  - GitHub `kTLS Validation` run `25065253836` passed
+  - hosted log scanning found no `Connection reset by peer` or
+    `connection ConnectionId` lines after the rawsocket reader started using
+    `is_benign_socket_shutdown`
+  - remaining `failed` matches were passing test names/result summaries, not
+    failed checks
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.

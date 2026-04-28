@@ -200,6 +200,12 @@ operator evidence over speculative feature or benchmark work.
   - the rawsocket frame reader now uses `is_benign_socket_shutdown` so expected
     peer shutdowns are quiet, matching the existing WebSocket shutdown
     classification
+- Completed hosted validation for the rawsocket benign-shutdown log cleanup:
+  - commit `6a6f036` (`native: quiet benign rawsocket shutdowns`) passed GitHub
+    `CI` run `25065253852`
+  - GitHub `kTLS Validation` run `25065253836` passed
+  - hosted log scanning found no `Connection reset by peer` or
+    `connection ConnectionId` lines on the cleaned-up run
 
 ## Verification
 
@@ -312,6 +318,11 @@ operator evidence over speculative feature or benchmark work.
 - Rawsocket benign-shutdown log cleanup checks:
   - `cargo test --manifest-path native/transport/Cargo.toml -p ct_core websocket_io_disconnects_are_classified_as_peer_shutdowns -- --nocapture`
   - `bin/test-fast`
+  - `bin/verify`
+  - GitHub `CI` run `25065253852`
+  - GitHub `kTLS Validation` run `25065253836`
+  - hosted log scan for `Connection reset by peer`,
+    `connection ConnectionId`, warnings, and deprecations
 
 ## Decision Log
 
@@ -355,8 +366,7 @@ operator evidence over speculative feature or benchmark work.
 
 ## Handoff
 
-- Next continuation should keep GitHub CI clean, validate the rawsocket
-  benign-shutdown log cleanup on hosted GitHub Actions, then move to branch
+- Next continuation should keep GitHub CI clean, then move to branch
   protection/release evidence or Dart package publishing readiness. Do not
   publish a stable non-validation release tag without an explicit
   product/version decision.
