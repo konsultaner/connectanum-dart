@@ -261,6 +261,14 @@ operator evidence over speculative feature or benchmark work.
     release evidence policy, and the branch-protection gap: `master` is
     protected but has no required status checks
   - no remote branch protection was changed autonomously
+- Completed hosted validation for the branch-protection/release-evidence audit:
+  - commit `be37ec4` (`docs: add github deployment audit`) passed GitHub `CI`
+    run `25073711527`
+  - `Fast Checks` and `Full Verify` succeeded; `WAMP Profile Gates` was
+    skipped as expected for a non-manual CI run
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, or errors; remaining matches were passing
+    test names or Rust test summaries
 
 ## Verification
 
@@ -410,6 +418,9 @@ operator evidence over speculative feature or benchmark work.
     exits non-zero
   - `git diff --check`
   - `bin/verify`
+  - GitHub `CI` run `25073711527`
+  - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
+    cancellation, and real error lines
 
 ## Decision Log
 

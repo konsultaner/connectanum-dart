@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `4b17fa6` (`docs: record package publish readiness ci`)
+Last reviewed commit: `be37ec4` (`docs: add github deployment audit`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -364,6 +364,10 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     were added
   - local `bin/verify` passed after the audit script and evidence docs were
     added, including the Chrome browser-platform test
+  - hosted GitHub `CI` run `25073711527` passed on `be37ec4`; `Fast Checks`
+    and `Full Verify` succeeded, `WAMP Profile Gates` was skipped as expected
+    for a non-manual run, and hosted log scanning found no real warnings,
+    deprecations, rawsocket reset noise, timeouts, cancellations, or errors
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.
