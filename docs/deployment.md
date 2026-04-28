@@ -8,10 +8,11 @@ Deployment templates live in:
 - `deploy/systemd` (systemd unit file)
 - `deploy/k8s` (Kubernetes manifest)
 
-Published multi-arch router images are available from GitHub Container
-Registry through `.github/workflows/router-image.yml`:
+Multi-arch router image publishing is staged through
+`.github/workflows/router-image.yml`, but it is not yet a verified public
+artifact on GitHub's default branch:
 
-- Image name: `ghcr.io/konsultaner/connectanum-router`
+- Intended image name: `ghcr.io/konsultaner/connectanum-router`
 - Platforms: `linux/amd64`, `linux/arm64`
 - Tag flow:
   - `v*` Git tags publish the matching version tag
@@ -19,8 +20,12 @@ Registry through `.github/workflows/router-image.yml`:
     `<major>.<minor>`, and `<major>`
   - manual workflow dispatch can publish an explicit validation tag
 
-Prefer immutable version tags in production manifests and reserve `latest` for
-development or fast-follow environments.
+Current release status: GitHub does not yet expose the router image workflow on
+the default branch, and `ghcr.io/konsultaner/connectanum-router` is not visible
+as a published package. Use the Dart runner or publish an image to your own
+registry until the deployment-chain audit records GHCR validation. Once the
+package exists, prefer immutable version tags in production manifests and
+reserve `latest` for development or fast-follow environments.
 
 Maintainer-side GitHub Actions, branch protection, and release-evidence
 expectations are tracked in `docs/github_deployment_chain.md`.
@@ -215,4 +220,7 @@ WantedBy=multi-user.target
 - Prefer running as a non-root user; bind privileged ports via a reverse proxy or `setcap cap_net_bind_service=+ep` on your launcher binary.
 - Mount TLS private keys read-only and keep them out of the repo; rotate certificates via your standard PKI process.
 - Expose metrics using the built-in OpenMetrics exporter (`metrics.open_metrics`) and scrape it with Prometheus.
-- The checked-in Kubernetes manifest now points at `ghcr.io/konsultaner/connectanum-router:latest`; replace it with a pinned version tag for real deployments.
+- The checked-in Kubernetes manifest uses the intended GHCR image path with a
+  `replace-me` tag; replace it with a pinned version tag only after the router
+  image workflow has published and validated that package, or point it at your
+  own registry build.

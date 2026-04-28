@@ -15,8 +15,9 @@ bin/audit-github-deployment-chain --branch add-router
 ```
 
 The audit is read-only. It uses the GitHub CLI and prints repository metadata,
-branch protection, repository rulesets, active workflows, and recent branch
-runs. If `gh` is not on `PATH`, set `GH_BIN` to the executable path.
+branch protection, repository rulesets, active workflows, checked-in workflow
+visibility, router container package visibility, and recent branch runs. If
+`gh` is not on `PATH`, set `GH_BIN` to the executable path.
 
 Use strict mode when the repository is ready for the branch-protection gap to
 be enforced by automation:
@@ -45,6 +46,14 @@ checks configured. A clean release branch should require at least:
 
 - `Fast Checks`
 - `Full Verify`
+
+The current workflow visibility gap is router image publishing:
+`.github/workflows/router-image.yml` exists on `add-router`, but GitHub does
+not expose it through the Actions workflow API because it is not on the default
+branch. `gh workflow view router-image.yml` currently returns `404`, and the
+GHCR package `ghcr.io/konsultaner/connectanum-router` is not visible through
+the GitHub Packages API. Public docs should therefore describe the router image
+as staged until the workflow and package are validated.
 
 `add-router` is not protected. That is acceptable for the active development
 branch only while every pushed slice is watched manually and recorded in
@@ -81,16 +90,19 @@ Rust result summaries containing `0 failed`.
 
 The latest audited branch evidence on 2026-04-28:
 
-- `add-router` commit `4b17fa6` passed GitHub `CI` run `25072248218`.
+- `add-router` commit `21a998d` passed GitHub `CI` run `25074424163`.
 - `Fast Checks` and `Full Verify` completed successfully.
 - `WAMP Profile Gates` in the main `CI` workflow were skipped because the run
   was not a manual `workflow_dispatch`; the dedicated `WAMP Profile Benchmarks`
   workflow remains the benchmark gate for relevant push paths and manual runs.
 - Hosted log scanning found no real warnings, deprecations, rawsocket reset
   noise, timeouts, cancellations, or errors.
-- `add-router` commit `1b95c9d` also passed the dedicated `WAMP Profile
-  Benchmarks` run `25071505445`.
+- `add-router` commit `1b95c9d` passed the dedicated `WAMP Profile Benchmarks`
+  run `25071505445`.
+- `be37ec4` added the read-only deployment-chain audit and passed GitHub `CI`
+  run `25073711527`.
 
 The next deployment-chain improvement should either apply the approved branch
-protection settings or continue tightening release evidence around GitHub
-Releases and Dart package publishing without publishing stable artifacts.
+protection settings, promote and validate the router image workflow/package, or
+continue tightening release evidence around GitHub Releases and Dart package
+publishing without publishing stable artifacts.

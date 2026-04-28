@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `be37ec4` (`docs: add github deployment audit`)
+Last reviewed commit: `21a998d` (`docs: record github deployment audit ci`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -368,6 +368,35 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     and `Full Verify` succeeded, `WAMP Profile Gates` was skipped as expected
     for a non-manual run, and hosted log scanning found no real warnings,
     deprecations, rawsocket reset noise, timeouts, cancellations, or errors
+- Documentation checkpoint `21a998d`
+  (`docs: record github deployment audit ci`) passed hosted GitHub `CI` run
+  `25074424163`; `Fast Checks` and `Full Verify` succeeded, while
+  `WAMP Profile Gates` was correctly skipped for the docs-only push. Hosted
+  log scanning found no real warnings, deprecations, rawsocket reset noise,
+  timeouts, cancellations, or errors.
+- The current router-image release-evidence slice corrects an advertised
+  public-artifact gap:
+  - GitHub's workflow API does not expose `.github/workflows/router-image.yml`
+    because the workflow file is not on the default branch
+  - `gh workflow view router-image.yml --repo konsultaner/connectanum-dart`
+    returns `404`, and the GitHub Packages API returns `404` for
+    `ghcr.io/konsultaner/connectanum-router`
+  - `README.md` and `docs/deployment.md` now describe the router image as a
+    staged intended release target, not a currently published production
+    artifact
+  - `deploy/k8s/connectanum-router.yaml` now uses
+    `ghcr.io/konsultaner/connectanum-router:replace-me` instead of `:latest`
+    so the template no longer points at an unavailable floating production tag
+  - `bin/audit-github-deployment-chain` now reports checked-in workflow
+    visibility and GHCR router package visibility so this gap remains visible
+    until the workflow/package are promoted and validated
+  - focused checks passed: `bin/test-fast`, `bash -n
+    bin/audit-github-deployment-chain`,
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 2`,
+    strict-mode failure smoke test for the known release-readiness gaps, and
+    `git diff --check`
+  - local `bin/verify` passed after the audit and public-documentation
+    changes, including the Chrome browser-platform test
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.

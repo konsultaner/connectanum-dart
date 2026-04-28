@@ -96,7 +96,8 @@ spec:
     spec:
       containers:
         - name: router
-          image: ghcr.io/konsultaner/connectanum-router:latest
+          # Replace with your own image or a validated published Connectanum tag.
+          image: ghcr.io/konsultaner/connectanum-router:replace-me
           imagePullPolicy: IfNotPresent
           env:
             - name: CONNECTANUM_NATIVE_LIB

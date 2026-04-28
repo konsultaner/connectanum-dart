@@ -269,6 +269,23 @@ operator evidence over speculative feature or benchmark work.
   - hosted log scanning found no real warnings, deprecations, rawsocket reset
     noise, timeouts, cancellations, or errors; remaining matches were passing
     test names or Rust test summaries
+- Recorded the deployment-audit docs checkpoint:
+  - commit `21a998d` (`docs: record github deployment audit ci`) passed
+    GitHub `CI` run `25074424163`
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, or errors; remaining matches were passing
+    test names or Rust test summaries
+- Started the router-image release-evidence cleanup:
+  - GitHub does not currently expose `.github/workflows/router-image.yml`
+    through the workflow API because that workflow is not on the default branch
+  - `gh workflow view router-image.yml` returns `404`, and GitHub Packages
+    returns `404` for `ghcr.io/konsultaner/connectanum-router`
+  - `README.md` and `docs/deployment.md` now describe the router image as a
+    staged intended release target instead of a published artifact
+  - `deploy/k8s/connectanum-router.yaml` now uses a `replace-me` image tag
+    instead of the unavailable floating `latest` tag
+  - `bin/audit-github-deployment-chain` now reports checked-in workflow
+    visibility and GHCR router package visibility
 
 ## Verification
 
@@ -421,6 +438,15 @@ operator evidence over speculative feature or benchmark work.
   - GitHub `CI` run `25073711527`
   - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
     cancellation, and real error lines
+- Current router-image release-evidence checks:
+  - GitHub `CI` run `25074424163`
+  - `bin/test-fast`
+  - `bash -n bin/audit-github-deployment-chain`
+  - `bin/audit-github-deployment-chain --branch add-router --run-limit 2`
+  - strict-mode smoke test confirming known release-readiness gaps exit
+    non-zero
+  - `git diff --check`
+  - `bin/verify`
 
 ## Decision Log
 
@@ -475,11 +501,16 @@ operator evidence over speculative feature or benchmark work.
   `master` is protected and requires one CODEOWNER review, but required status
   checks are unset. The recommended minimum required checks are `Fast Checks`
   and `Full Verify`.
+- 2026-04-28: Treated the router image as staged rather than published because
+  GitHub cannot currently dispatch or view `router-image.yml` from the default
+  branch and no `ghcr.io/konsultaner/connectanum-router` package is visible.
+  Public docs now avoid promising an unavailable artifact.
 
 ## Handoff
 
 - Next continuation should keep hosted GitHub CI clean, then either apply
-  branch protection once the operator approves required checks or continue
-  tightening release evidence around GitHub Releases and Dart package
-  publishing. Do not publish a stable non-validation release tag or Dart
-  package without an explicit product/version/ownership decision.
+  branch protection once the operator approves required checks, promote and
+  validate the router image workflow/package, or continue tightening release
+  evidence around GitHub Releases and Dart package publishing. Do not publish a
+  stable non-validation release tag, router image, or Dart package without an
+  explicit product/version/ownership decision.

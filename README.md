@@ -16,9 +16,9 @@ This repository is the main source tree for:
 - `packages/connectanum_bench` - benchmark harnesses and scenarios
 - `native/transport` - Rust workspace for the native transport runtime
 
-Status: active development. The project already publishes native runtime
-bundles and multi-arch router images, but APIs and release conventions are
-still settling.
+Status: active development. The GitHub deployment chain can build and validate
+native runtime bundles; public Dart package publishing and router container
+image publishing are still being hardened before stable release use.
 
 ## Quick Start
 
@@ -38,9 +38,9 @@ Most users want one of these two paths:
    dart run connectanum_router --config path/to/router.yaml
    ```
 
-3. Or use the published multi-arch container image:
-
-   - `ghcr.io/konsultaner/connectanum-router`
+3. Container image publishing is staged but not yet a verified public artifact.
+   Until the GHCR package is published, run the router directly as shown above
+   or build an image from `deploy/docker/Dockerfile` in your own registry.
 
 For a fuller deployment walkthrough, see [docs/deployment.md](docs/deployment.md).
 
@@ -216,12 +216,18 @@ instead of the tag-based identity above.
 
 ### Router Container Image
 
-The [Router Image workflow](.github/workflows/router-image.yml) publishes
-multi-arch router images to `ghcr.io/konsultaner/connectanum-router`.
+The [Router Image workflow](.github/workflows/router-image.yml) is staged on
+the deployment branch to publish multi-arch router images to
+`ghcr.io/konsultaner/connectanum-router`.
 
 - `v*` tags publish `linux/amd64` and `linux/arm64`
 - stable SemVer tags also publish `:latest`
 - manual workflow dispatch can publish a one-off validation tag
+
+Current release status: the workflow is not visible on GitHub's default branch
+yet and the GHCR package is not published. Treat the image name as the intended
+release target, not as a production artifact, until the GitHub deployment-chain
+audit reports it as discoverable and the package exists.
 
 ## Maintainer Workflow
 

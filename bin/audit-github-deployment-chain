@@ -137,6 +137,7 @@ allow_auto_merge="$(api_jq "" '.allow_auto_merge')"
 delete_branch_on_merge="$(api_jq "" '.delete_branch_on_merge')"
 branch_protected="$(api_jq_optional "branches/${branch}" '.protected')"
 ruleset_count="$(api_jq_optional "rulesets" 'length')"
+package_owner="${repository%%/*}"
 
 printf '# GitHub Deployment Chain Audit\n\n'
 printf 'Repository: %s\n' "$repository"
@@ -158,6 +159,7 @@ fi
 printf 'Protected: %s\n' "$branch_protected"
 
 missing_required_checks=0
+missing_visible_workflow=0
 required_contexts=""
 
 if [[ "$branch_protected" == "true" ]]; then
@@ -214,6 +216,63 @@ api_jq_optional \
   "actions/workflows" \
   '.workflows[] | "- \(.name): \(.state) (\(.path))"'
 
+printf '\n## Checked-In Workflow Visibility\n\n'
+
+active_workflow_paths="$(
+  api_jq_optional \
+    "actions/workflows" \
+    '.workflows[].path'
+)"
+
+workflow_count=0
+while IFS= read -r workflow_path; do
+  [[ -n "$workflow_path" ]] || continue
+  workflow_path="${workflow_path#./}"
+  workflow_count=$((workflow_count + 1))
+
+  if printf '%s\n' "$active_workflow_paths" | grep -Fxq "$workflow_path"; then
+    printf -- '- %s: discoverable\n' "$workflow_path"
+  else
+    printf -- '- %s: not discoverable through GitHub Actions API\n' "$workflow_path"
+    printf 'Finding: checked-in workflow is not discoverable by GitHub: %s\n' "$workflow_path"
+    missing_visible_workflow=1
+  fi
+done < <(
+  find .github/workflows \
+    -maxdepth 1 \
+    -type f \
+    \( -name '*.yml' -o -name '*.yaml' \) \
+    -print 2>/dev/null \
+    | sed 's#^\./##' \
+    | sort
+)
+
+if [[ "$workflow_count" -eq 0 ]]; then
+  printf 'No checked-in workflow files found.\n'
+fi
+
+printf '\n## Router Container Package\n\n'
+
+router_package=""
+if candidate_package="$(
+  "$gh_bin" api "users/${package_owner}/packages/container/connectanum-router" \
+    --jq '.name' 2>/dev/null
+)"; then
+  router_package="$candidate_package"
+elif candidate_package="$(
+  "$gh_bin" api "orgs/${package_owner}/packages/container/connectanum-router" \
+    --jq '.name' 2>/dev/null
+)"; then
+  router_package="$candidate_package"
+fi
+
+if [[ -n "$router_package" ]]; then
+  printf 'GHCR package: ghcr.io/%s/%s\n' "$package_owner" "$router_package"
+else
+  printf 'GHCR package: not found for ghcr.io/%s/connectanum-router\n' "$package_owner"
+  printf 'Finding: router container package is not currently visible in GitHub Packages.\n'
+fi
+
 printf '\n## Latest Branch Runs\n\n'
 "$gh_bin" run list \
   --repo "$repository" \
@@ -223,7 +282,7 @@ printf '\n## Latest Branch Runs\n\n'
   --jq '.[] | "- \(.name) #\(.databaseId): \(.status)/\(.conclusion // "pending") @ \(.headSha[0:7]) (\(.createdAt))"' \
   || true
 
-if [[ "$strict" -eq 1 && "$missing_required_checks" -ne 0 ]]; then
-  printf '\nStrict audit failed: protected release branches should require Fast Checks and Full Verify.\n' >&2
+if [[ "$strict" -eq 1 && ( "$missing_required_checks" -ne 0 || "$missing_visible_workflow" -ne 0 ) ]]; then
+  printf '\nStrict audit failed: protected release branches should require Fast Checks and Full Verify, and checked-in workflows should be visible to GitHub Actions.\n' >&2
   exit 1
 fi
