@@ -294,6 +294,20 @@ operator evidence over speculative feature or benchmark work.
   - hosted log scanning found no real warnings, deprecations, rawsocket reset
     noise, timeouts, cancellations, or errors; remaining matches were a passing
     bcrypt test name and Rust `0 failed` summaries
+- Recorded the router-image evidence docs checkpoint and started publish-safety
+  hardening:
+  - commit `391590d` (`docs: record router image evidence ci`) passed GitHub
+    `CI` run `25077810300`
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, or errors; remaining matches were a passing
+    bcrypt test name and Rust `0 failed` summaries
+  - `.github/workflows/router-image.yml` now defaults manual dispatch to a
+    dry-run build and requires `publish_approval` to exactly match the primary
+    image tag for manual GHCR publishes
+  - `tool/render_router_image_metadata.py` makes router image tag/label and
+    publish-intent resolution locally testable
+  - local `bin/verify` passed after the workflow, tool, and documentation
+    changes, including the Chrome browser-platform test
 
 ## Verification
 
@@ -448,11 +462,23 @@ operator evidence over speculative feature or benchmark work.
     cancellation, and real error lines
 - Current router-image release-evidence checks:
   - GitHub `CI` run `25074424163`
+  - GitHub `CI` run `25077810300`
   - `bin/test-fast`
   - `bash -n bin/audit-github-deployment-chain`
   - `bin/audit-github-deployment-chain --branch add-router --run-limit 2`
   - strict-mode smoke test confirming known release-readiness gaps exit
     non-zero
+  - `git diff --check`
+  - `bin/verify`
+- Current router-image publish-safety checks:
+  - `bin/test-fast`
+  - `python3 -m py_compile tool/render_router_image_metadata.py tool/test_render_router_image_metadata.py`
+  - `python3 tool/test_render_router_image_metadata.py`
+  - `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/router-image.yml')"`
+  - CLI smoke render for a stable tag-push metadata set
+  - CLI smoke rejection for a manual publish without matching
+    `publish_approval`
+  - `bin/audit-github-deployment-chain --branch add-router --run-limit 2`
   - `git diff --check`
   - `bin/verify`
 
@@ -513,6 +539,10 @@ operator evidence over speculative feature or benchmark work.
   GitHub cannot currently dispatch or view `router-image.yml` from the default
   branch and no `ghcr.io/konsultaner/connectanum-router` package is visible.
   Public docs now avoid promising an unavailable artifact.
+- 2026-04-28: Added a router image dry-run/manual approval gate before the
+  workflow is promoted to the default branch. This keeps validation builds
+  non-mutating by default and requires an explicit tag match before a manual
+  GHCR publish.
 
 ## Handoff
 

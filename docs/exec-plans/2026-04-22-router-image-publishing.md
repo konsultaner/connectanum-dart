@@ -1,9 +1,16 @@
 # Exec Plan: router-image-publishing
 
-Status: completed
+Status: superseded
 Owner: Codex
 Created: 2026-04-22
-Last updated: 2026-04-22
+Last updated: 2026-04-28
+
+Superseded note: the 2026-04-28 GitHub deployment-chain audit found that this
+workflow is staged on `add-router` but is not visible from GitHub's default
+branch yet, and `ghcr.io/konsultaner/connectanum-router` is not currently a
+visible GHCR package. Use
+`docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md` as the active
+source of truth for router image promotion and validation.
 
 ## Goal
 
@@ -70,17 +77,19 @@ deployment manifests can point at a real hosted image path for both
 
 ## Handoff
 
-- GitHub Actions now ships a dedicated `Router Image` workflow that builds and
-  publishes `ghcr.io/konsultaner/connectanum-router` for `linux/amd64` and
-  `linux/arm64` using Docker Buildx.
+- The branch contains a dedicated `Router Image` workflow that builds
+  `ghcr.io/konsultaner/connectanum-router` for `linux/amd64` and `linux/arm64`
+  using Docker Buildx, but the workflow still needs default-branch promotion
+  and hosted GHCR validation before public docs can call it published.
 - Stable `v<major>.<minor>.<patch>` tags publish `<version>`, `<major>.<minor>`,
   `<major>`, and `latest`; prerelease tags publish only the explicit version;
-  manual workflow dispatch can publish an explicit validation tag.
+  manual workflow dispatch now defaults to dry-run validation and requires
+  explicit tag approval before publishing.
 - The repo now has a `.dockerignore` tuned for this monorepo so Docker builds
   do not upload local caches, build outputs, or unrelated docs/deployment files
   as context.
-- The Kubernetes manifest and deployment docs now point at the published GHCR
-  image path and note that production should prefer immutable version tags.
+- The Kubernetes manifest and deployment docs now keep the intended GHCR image
+  path staged behind a `replace-me` tag until a hosted package is validated.
 - Verification that passed for this milestone:
   - `bin/test-fast`
   - `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/router-image.yml'); puts 'yaml_ok'"`

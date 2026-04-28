@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `ad6412d` (`docs: correct router image release evidence`)
+Last reviewed commit: `391590d` (`docs: record router image evidence ci`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -403,6 +403,28 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     non-manual push. Hosted log scanning found no real warnings, deprecations,
     rawsocket reset noise, timeouts, cancellations, or errors; remaining
     matches were a passing bcrypt test name and Rust `0 failed` summaries.
+- Documentation checkpoint `391590d`
+  (`docs: record router image evidence ci`) passed hosted GitHub `CI` run
+  `25077810300`; `Fast Checks` and `Full Verify` succeeded, while
+  `WAMP Profile Gates` was correctly skipped for the docs-only push. Hosted
+  log scanning found no real warnings, deprecations, rawsocket reset noise,
+  timeouts, cancellations, or errors; remaining matches were a passing bcrypt
+  test name and Rust `0 failed` summaries.
+- The current router-image publish-safety slice keeps future manual image
+  validation non-mutating by default:
+  - `.github/workflows/router-image.yml` now has a manual `dry_run` input that
+    defaults to `true`
+  - manual publishes require `dry_run=false` plus `publish_approval` exactly
+    matching the primary image tag before GHCR login or push can run
+  - `tool/render_router_image_metadata.py` centralizes image tag, label,
+    dry-run output, and publish-intent resolution with focused unit coverage
+  - tag pushes still resolve the existing `v*` publishing contract, while
+    manual dry-runs build with `type=cacheonly` and do not log in to GHCR
+  - focused local checks passed: `bin/test-fast`, Python compile/unit tests for
+    the metadata tool, workflow YAML parsing, stable tag metadata render, manual
+    publish rejection smoke test, deployment-chain audit, and `git diff --check`
+  - local `bin/verify` passed after the workflow, tool, and documentation
+    changes, including the Chrome browser-platform test
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.
@@ -1910,7 +1932,11 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
   (`skip`, `kill`, `killnowait`), graceful drain behavior and `/healthz`, and
   the lazy-payload / zero-copy boundaries instead of leaving those details
   scattered across tests and internal notes.
-- GitHub Actions now also exposes a dedicated `Router Image` workflow that publishes `ghcr.io/konsultaner/connectanum-router` for `linux/amd64` and `linux/arm64` on `v*` tags, with manual dispatch support for explicit validation tags.
+- The `add-router` branch contains a dedicated `Router Image` workflow staged
+  to publish `ghcr.io/konsultaner/connectanum-router` for `linux/amd64` and
+  `linux/arm64` on `v*` tags. GitHub does not expose that workflow from the
+  default branch yet, and no GHCR router package is visible, so the current
+  public contract remains staged rather than published.
 - The router/client build hooks can now download a hosted `ct_ffi` release bundle directly when `CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` is set, verify the published `.sha256`, extract the archive, and stage the native library without invoking Cargo.
 - `CONNECTANUM_NATIVE_RELEASE_REPOSITORY=<owner/repo>` overrides the default GitHub Releases source for that hook-managed prebuilt flow, and the explicit prebuilt/system-library paths no longer require a local `native/transport` checkout.
 - `connectanum_router:tool/install_native.dart` and `connectanum_client:tool/install_native.dart` now provide the explicit downstream prefetch path for hosted native assets: they download the current host bundle into `.dart_tool/connectanum/native/<host-triple>/`, verify the published checksum, and print the resulting library path for `CONNECTANUM_NATIVE_LIB`.

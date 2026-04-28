@@ -53,7 +53,9 @@ not expose it through the Actions workflow API because it is not on the default
 branch. `gh workflow view router-image.yml` currently returns `404`, and the
 GHCR package `ghcr.io/konsultaner/connectanum-router` is not visible through
 the GitHub Packages API. Public docs should therefore describe the router image
-as staged until the workflow and package are validated.
+as staged until the workflow and package are validated. Manual router image
+workflow dispatches are being kept dry-run by default until that promotion path
+is explicitly validated.
 
 `add-router` is not protected. That is acceptable for the active development
 branch only while every pushed slice is watched manually and recorded in
@@ -90,7 +92,7 @@ Rust result summaries containing `0 failed`.
 
 The latest audited branch evidence on 2026-04-28:
 
-- `add-router` commit `21a998d` passed GitHub `CI` run `25074424163`.
+- `add-router` commit `391590d` passed GitHub `CI` run `25077810300`.
 - `Fast Checks` and `Full Verify` completed successfully.
 - `WAMP Profile Gates` in the main `CI` workflow were skipped because the run
   was not a manual `workflow_dispatch`; the dedicated `WAMP Profile Benchmarks`
@@ -99,8 +101,8 @@ The latest audited branch evidence on 2026-04-28:
   noise, timeouts, cancellations, or errors.
 - `add-router` commit `1b95c9d` passed the dedicated `WAMP Profile Benchmarks`
   run `25071505445`.
-- `be37ec4` added the read-only deployment-chain audit and passed GitHub `CI`
-  run `25073711527`.
+- `ad6412d` corrected the router image public-artifact evidence and passed
+  GitHub `CI` run `25077069136`.
 
 The next deployment-chain improvement should either apply the approved branch
 protection settings, promote and validate the router image workflow/package, or

@@ -18,14 +18,17 @@ artifact on GitHub's default branch:
   - `v*` Git tags publish the matching version tag
   - stable `v<major>.<minor>.<patch>` tags also publish `latest`,
     `<major>.<minor>`, and `<major>`
-  - manual workflow dispatch can publish an explicit validation tag
+  - manual workflow dispatch defaults to a dry-run build that validates image
+    metadata without pushing to GHCR
+  - manual publishes require `dry_run=false` and `publish_approval` set exactly
+    to the primary image tag
 
 Current release status: GitHub does not yet expose the router image workflow on
 the default branch, and `ghcr.io/konsultaner/connectanum-router` is not visible
 as a published package. Use the Dart runner or publish an image to your own
-registry until the deployment-chain audit records GHCR validation. Once the
-package exists, prefer immutable version tags in production manifests and
-reserve `latest` for development or fast-follow environments.
+registry until the deployment-chain audit records workflow and GHCR validation.
+Once the package exists, prefer immutable version tags in production manifests
+and reserve `latest` for development or fast-follow environments.
 
 Maintainer-side GitHub Actions, branch protection, and release-evidence
 expectations are tracked in `docs/github_deployment_chain.md`.
