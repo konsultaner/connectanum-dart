@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `ccb61f9` (`ci: bound github workflow runtimes`)
+Last reviewed commit: `1b95c9d` (`docs: prepare dart package publishing`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -317,20 +317,26 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     `DeprecationWarning`, `Connection reset by peer`,
     `connection ConnectionId`, timeout, cancellation, or real error lines;
     remaining `failed` matches were passing test names or Rust test summaries
-- The current Dart package publishing readiness slice documents and reduces
-  pub.dev blockers without publishing or making private packages public:
+- Dart package publishing readiness is hosted-clean on `1b95c9d`
+  (`docs: prepare dart package publishing`):
   - `bin/test-fast` passed before package metadata changes
   - every package now has a package-root MIT `LICENSE`, matching the repo
     license and satisfying pub.dev's mandatory package-root license check
   - package pubspecs now expose GitHub `homepage`, `repository`, and
     `issue_tracker` metadata for readable future package pages
   - `dart pub publish --dry-run` from `packages/connectanum_client` passes
-    locally with `Package has 0 warnings`
+    from a clean git state with `Package has 0 warnings`
   - `docs/dart_package_publishing.md` records the remaining product/deployment
     blocker: pub.dev currently returns `404` for both `connectanum_client` and
     `connectanum_core`, while `connectanum_client` depends on
     `connectanum_core: ^0.1.0`; real publishing still needs explicit package
     ownership, version, and publish-order decisions
+  - local `bin/verify` passed after the package metadata/docs changes
+  - hosted GitHub `CI` run `25071505471` passed and `WAMP Profile Benchmarks`
+    run `25071505445` passed
+  - hosted log scanning found no warnings, deprecations, rawsocket reset noise,
+    timeouts, cancellations, or real errors; remaining matches were passing
+    test names or Rust test summaries
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.

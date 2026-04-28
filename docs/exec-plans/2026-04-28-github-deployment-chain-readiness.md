@@ -240,6 +240,13 @@ operator evidence over speculative feature or benchmark work.
     while `connectanum_client` depends on `connectanum_core: ^0.1.0`
   - no package publish, package-name claim, or `publish_to: none` removal has
     been attempted; those still require an explicit operator/product decision
+- Completed hosted validation for the Dart package publishing readiness slice:
+  - commit `1b95c9d` (`docs: prepare dart package publishing`) passed GitHub
+    `CI` run `25071505471`
+  - GitHub `WAMP Profile Benchmarks` run `25071505445` passed
+  - hosted log scanning found no warnings, deprecations, rawsocket reset noise,
+    timeouts, cancellations, or real errors; remaining matches were passing
+    test names or Rust test summaries
 
 ## Verification
 
@@ -374,6 +381,10 @@ operator evidence over speculative feature or benchmark work.
   - pub.dev API probes for `connectanum_client` and `connectanum_core`
   - `git diff --check`
   - `bin/verify`
+  - GitHub `CI` run `25071505471`
+  - GitHub `WAMP Profile Benchmarks` run `25071505445`
+  - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
+    cancellation, and real error lines
 
 ## Decision Log
 
@@ -426,7 +437,6 @@ operator evidence over speculative feature or benchmark work.
 
 ## Handoff
 
-- Next continuation should keep hosted GitHub CI clean, finish validating the
-  Dart package publishing readiness slice, then move to branch
+- Next continuation should keep hosted GitHub CI clean, then move to branch
   protection/release evidence. Do not publish a stable non-validation release
   tag or Dart package without an explicit product/version/ownership decision.
