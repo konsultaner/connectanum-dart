@@ -46,6 +46,10 @@ Status: local_complete_hosted_pending
   - `.github/workflows/dart.yml` now uses `actions/checkout@v5` and
     `browser-actions/setup-chrome@v2`
   - the remaining checked-in workflows now use `actions/checkout@v5`
+  - hosted log inspection on push run `25039130298` still found a Node.js 20
+    deprecation warning from `actions/upload-artifact@v4`, so artifact actions
+    were also upgraded to Node 24-backed versions:
+    `actions/upload-artifact@v7` and `actions/download-artifact@v8`
 - Removed low-value test output from:
   - `packages/connectanum_core/test/authentication/cryptosign_authentication_test.dart`
   - `packages/connectanum_client/test/transport/websocket/websocket_transport_io_test.dart`
@@ -112,6 +116,9 @@ Status: local_complete_hosted_pending
   from `packages/connectanum_bench`
 - `bin/test-fast`
 - `bin/verify`
+- `rg -n "actions/(upload|download)-artifact@" .github/workflows`
+- `ruby -e 'require "yaml"; Dir[".github/workflows/*.yml"].sort.each { |path| YAML.load_file(path); puts path }'`
+- `git diff --check`
 - exploratory only, intentionally not adopted into the scripts:
   - `CONNECTANUM_FORWARD_NATIVE_PUBLISH=1 dart test test --chain-stack-traces`
     from `packages/connectanum_router` reproduced unrelated websocket

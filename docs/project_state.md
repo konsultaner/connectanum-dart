@@ -21,7 +21,9 @@ Active exec plan: `docs/exec-plans/2026-04-25-ci-noise-and-skip-cleanup.md`
   - `bin/test-fast`
   - `bin/verify`
 - The current working tree carries uncommitted CI-cleanup changes:
-  - workflow action upgrades to remove hosted deprecation warnings
+  - workflow action upgrades to remove hosted deprecation warnings, including
+    Node 24-backed `actions/upload-artifact@v7` and
+    `actions/download-artifact@v8`
   - Darwin-native bench transport coverage now runs instead of staying
     Linux-only
   - Darwin runtime-lock retry now handles both `errno 11` and `errno 35`

@@ -139,7 +139,7 @@ jobs:
 
       - name: Upload HTTP/2 kTLS benchmark artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ktls-http2-bench-artifacts
           path: out/ktls-http2-bench

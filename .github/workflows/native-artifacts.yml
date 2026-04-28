@@ -96,7 +96,7 @@ jobs:
             ${{ steps.package.outputs.manifest_path }}
 
       - name: Upload packaged artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.package.outputs.bundle_name }}
           path: |
@@ -117,7 +117,7 @@ jobs:
 
     steps:
       - name: Download packaged artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: ct-ffi-*
           path: out/github-release

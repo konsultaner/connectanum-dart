@@ -89,7 +89,7 @@ jobs:
 
       - name: Upload WAMP profile artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wamp-profile-benchmark-artifacts
           path: out/wamp-profile-validation
