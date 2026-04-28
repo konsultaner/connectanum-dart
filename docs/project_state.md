@@ -92,6 +92,11 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
   - local macOS `cargo check --target x86_64-pc-windows-msvc` cannot complete
     because the Windows MSVC C headers/toolchain are unavailable locally; the
     GitHub Windows runner is the required validation signal
+- Manual hosted `Native Artifacts` run `25047530571` on `9bfdee1` confirmed the
+  Windows x64 job builds, packages, signs, and verifies the bundle, but failed
+  in `actions/attest@v4` because the multiline `subject-path` was interpreted
+  as one literal path on Windows. The current follow-up splits archive,
+  checksum, and manifest attestations into separate single-subject steps.
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.

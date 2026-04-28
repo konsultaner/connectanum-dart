@@ -92,13 +92,20 @@ jobs:
               --certificate-oidc-issuer https://token.actions.githubusercontent.com
           done
 
-      - name: Generate artifact attestation
+      - name: Generate archive attestation
         uses: actions/attest@v4
         with:
-          subject-path: |
-            ${{ steps.package.outputs.archive_path }}
-            ${{ steps.package.outputs.checksum_path }}
-            ${{ steps.package.outputs.manifest_path }}
+          subject-path: ${{ steps.package.outputs.archive_path }}
+
+      - name: Generate checksum attestation
+        uses: actions/attest@v4
+        with:
+          subject-path: ${{ steps.package.outputs.checksum_path }}
+
+      - name: Generate manifest attestation
+        uses: actions/attest@v4
+        with:
+          subject-path: ${{ steps.package.outputs.manifest_path }}
 
       - name: Upload packaged artifact
         uses: actions/upload-artifact@v7

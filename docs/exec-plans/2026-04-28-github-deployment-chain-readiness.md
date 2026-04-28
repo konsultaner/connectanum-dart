@@ -89,6 +89,11 @@ operator evidence over speculative feature or benchmark work.
   - `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/native-artifacts.yml')"`
   - `git diff --check`
   - `rustup target add x86_64-pc-windows-msvc && cargo check --manifest-path native/transport/Cargo.toml -p ct_ffi --target x86_64-pc-windows-msvc` was attempted locally, but macOS lacks the Windows MSVC C toolchain/headers needed by `ring`; hosted Windows validation is the required signal.
+- Manual hosted `Native Artifacts` run `25047530571` on `9bfdee1` proved the
+  new Windows x64 leg can build, package, sign, and verify `ct_ffi`, but it
+  failed in `actions/attest@v4` because Windows treated the multiline
+  `subject-path` as one literal path. The follow-up workflow fix splits archive,
+  checksum, and manifest attestations into separate single-subject steps.
 
 ## Decision Log
 
