@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `21a998d` (`docs: record github deployment audit ci`)
+Last reviewed commit: `ad6412d` (`docs: correct router image release evidence`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -397,6 +397,12 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     `git diff --check`
   - local `bin/verify` passed after the audit and public-documentation
     changes, including the Chrome browser-platform test
+  - commit `ad6412d` (`docs: correct router image release evidence`) passed
+    hosted GitHub `CI` run `25077069136`; `Fast Checks` and `Full Verify`
+    succeeded, while `WAMP Profile Gates` was correctly skipped for the
+    non-manual push. Hosted log scanning found no real warnings, deprecations,
+    rawsocket reset noise, timeouts, cancellations, or errors; remaining
+    matches were a passing bcrypt test name and Rust `0 failed` summaries.
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.

@@ -286,6 +286,14 @@ operator evidence over speculative feature or benchmark work.
     instead of the unavailable floating `latest` tag
   - `bin/audit-github-deployment-chain` now reports checked-in workflow
     visibility and GHCR router package visibility
+- Completed hosted validation for the router-image release-evidence cleanup:
+  - commit `ad6412d` (`docs: correct router image release evidence`) passed
+    GitHub `CI` run `25077069136`
+  - `Fast Checks` and `Full Verify` succeeded; `WAMP Profile Gates` was
+    skipped as expected for a non-manual CI run
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, or errors; remaining matches were a passing
+    bcrypt test name and Rust `0 failed` summaries
 
 ## Verification
 
