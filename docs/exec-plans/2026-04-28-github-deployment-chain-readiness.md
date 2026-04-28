@@ -308,6 +308,14 @@ operator evidence over speculative feature or benchmark work.
     publish-intent resolution locally testable
   - local `bin/verify` passed after the workflow, tool, and documentation
     changes, including the Chrome browser-platform test
+- Completed hosted validation for the router-image publish-safety hardening:
+  - commit `be29fe6` (`ci: gate router image manual publishes`) passed GitHub
+    `CI` run `25080054856`
+  - `Fast Checks` and `Full Verify` succeeded; `WAMP Profile Gates` was
+    skipped as expected for a normal push
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, or errors; remaining matches were a passing
+    bcrypt test name and Rust `0 failed` summaries
 
 ## Verification
 
@@ -481,6 +489,9 @@ operator evidence over speculative feature or benchmark work.
   - `bin/audit-github-deployment-chain --branch add-router --run-limit 2`
   - `git diff --check`
   - `bin/verify`
+  - GitHub `CI` run `25080054856`
+  - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
+    cancellation, and real error lines
 
 ## Decision Log
 

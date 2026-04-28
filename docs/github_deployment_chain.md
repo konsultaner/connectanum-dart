@@ -92,7 +92,7 @@ Rust result summaries containing `0 failed`.
 
 The latest audited branch evidence on 2026-04-28:
 
-- `add-router` commit `391590d` passed GitHub `CI` run `25077810300`.
+- `add-router` commit `be29fe6` passed GitHub `CI` run `25080054856`.
 - `Fast Checks` and `Full Verify` completed successfully.
 - `WAMP Profile Gates` in the main `CI` workflow were skipped because the run
   was not a manual `workflow_dispatch`; the dedicated `WAMP Profile Benchmarks`
@@ -101,8 +101,8 @@ The latest audited branch evidence on 2026-04-28:
   noise, timeouts, cancellations, or errors.
 - `add-router` commit `1b95c9d` passed the dedicated `WAMP Profile Benchmarks`
   run `25071505445`.
-- `ad6412d` corrected the router image public-artifact evidence and passed
-  GitHub `CI` run `25077069136`.
+- `be29fe6` added the router image dry-run/manual publish-approval gate before
+  default-branch workflow promotion.
 
 The next deployment-chain improvement should either apply the approved branch
 protection settings, promote and validate the router image workflow/package, or

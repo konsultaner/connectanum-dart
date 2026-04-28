@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `391590d` (`docs: record router image evidence ci`)
+Last reviewed commit: `be29fe6` (`ci: gate router image manual publishes`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -425,6 +425,12 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     publish rejection smoke test, deployment-chain audit, and `git diff --check`
   - local `bin/verify` passed after the workflow, tool, and documentation
     changes, including the Chrome browser-platform test
+  - commit `be29fe6` (`ci: gate router image manual publishes`) passed hosted
+    GitHub `CI` run `25080054856`; `Fast Checks` and `Full Verify` succeeded,
+    while `WAMP Profile Gates` was correctly skipped for the normal push.
+    Hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, or errors; remaining matches were a
+    passing bcrypt test name and Rust `0 failed` summaries.
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.
