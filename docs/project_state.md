@@ -102,6 +102,10 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
   not resolve the Git Bash `/d/a/...` path inside the Node-based attestation
   action. The current follow-up keeps POSIX paths for shell/cosign and uses
   workspace-relative paths for `actions/attest` and `actions/upload-artifact`.
+- Local `bin/verify` passed after the workspace-relative GitHub Actions path
+  fix. The first local attempt failed only because the autonomous launchd runner
+  held the shared native runtime lock during its own `bin/test-fast`; rerunning
+  once the lock was released passed, including the Chrome browser-platform test.
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.

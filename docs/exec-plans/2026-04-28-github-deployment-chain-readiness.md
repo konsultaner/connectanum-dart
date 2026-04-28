@@ -99,6 +99,10 @@ operator evidence over speculative feature or benchmark work.
   resolve the Git Bash `/d/a/...` path inside the Node-based attestation action.
   The follow-up workflow fix keeps POSIX paths for shell/cosign and uses
   workspace-relative paths for `actions/attest` and `actions/upload-artifact`.
+- Local `bin/verify` passed on macOS after the workspace-relative GitHub
+  Actions path fix. An earlier local `bin/verify` attempt failed because the
+  autonomous launchd runner was holding the shared native runtime lock during
+  its own `bin/test-fast`; rerunning after the lock was released passed.
 
 ## Decision Log
 
