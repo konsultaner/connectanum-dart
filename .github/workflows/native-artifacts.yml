@@ -130,17 +130,40 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release_tag != ''
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: write
 
     steps:
       - uses: actions/checkout@v5
 
       - name: Download packaged artifacts
-        uses: actions/download-artifact@v8
-        with:
-          pattern: ct-ffi-*
-          path: out/github-release
-          merge-multiple: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          download_dir="out/github-release-download"
+          release_dir="out/github-release"
+
+          rm -rf "$download_dir" "$release_dir"
+          mkdir -p "$download_dir" "$release_dir"
+
+          gh run download "$GITHUB_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'ct-ffi-*' \
+            --dir "$download_dir"
+
+          assets=("$download_dir"/ct-ffi-*/*)
+          if [[ ${#assets[@]} -eq 0 ]]; then
+            printf 'No packaged artifacts were downloaded.\n' >&2
+            exit 1
+          fi
+
+          for asset in "${assets[@]}"; do
+            cp "$asset" "$release_dir/"
+          done
 
       - name: Resolve release metadata
         id: meta
