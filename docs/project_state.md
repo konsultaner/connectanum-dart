@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `17697ae` (`ci: move artifact actions to node24`)
+Last reviewed commit: `649afcb` (`docs: resume ktls diagnosis after ci cleanup`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -23,9 +23,34 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
   - kTLS validation log inspection confirmed the earlier Node 20 artifact
     deprecation warning is gone after the artifact action upgrade
   - `git status -sb` is clean on `add-router`
-- GitLab has not surfaced an `add-router` pipeline for latest commit
-  `17697ae64e725ad84f42a73d04a063471f3448c3` through the current API query,
-  so GitHub Actions is the current visible hosted CI source for this branch.
+- Documentation checkpoint `649afcb` passed hosted GitHub `CI` run
+  `25041573952`; `Fast Checks` and `Full Verify` completed successfully and
+  `WAMP Profile Gates` were correctly skipped for the docs-only change.
+- Manual hosted `kTLS HTTP/2 Benchmarks` run `25042279631` completed
+  successfully on clean head `649afcb` with isolated
+  `h2_multiplexed_streams_s1`, `threads=4`:
+  - result was decision-quality across 3 repeats
+  - throughput delta span was `13.11pp`, with kTLS at `-47.86%..-34.75%`
+  - p95 delta span was `22.98pp`, with kTLS at `-6.28%..+16.70%`
+  - `response_headers_last_write_to_first_read` only moved materially in
+    repeat 02, while the stable throughput gap stayed in
+    `response_body_tail_read_avg_ms` after the first response-body chunk
+- The bounded body-tail diagnostic split verifies locally:
+  - `native/bench/src/bin/http_stream.rs` starts a second H2 client read probe
+    after the first response-body chunk
+  - `native/bench/src/report.rs` and `native/bench/src/artifacts.rs` summarize
+    `response_body_tail_connection_read_wait_*` and
+    `response_body_tail_connection_read_to_end_*`
+  - `tool/ktls_http2_compare.py` and `tool/test_ktls_http2_compare.py` render
+    and pin the new fields in the response-body diagnostics
+  - local verification is green:
+    `bin/test-fast`,
+    `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`,
+    `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`, and `bin/verify`
+- GitLab has not surfaced an `add-router` pipeline through the current API
+  query, so GitHub Actions is the current visible hosted CI source for this
+  branch.
 - A same-workspace background process can still block local native-suite
   verification by holding the shared
   `${TMPDIR:-/tmp}/connectanum_native_runtime.lock` file.
@@ -58,6 +83,10 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
   `WAMP Profile Benchmarks` `25039426501`
   - `kTLS Validation` confirmed the artifact action warning is gone after the
     workflow action upgrade
+- Hosted GitHub `CI` run `25041573952` completed successfully on `649afcb`.
+- Manual hosted `kTLS HTTP/2 Benchmarks` run `25042279631` completed
+  successfully on `649afcb` and produced decision-quality isolated `s1`,
+  `threads=4` evidence.
 - Manual hosted `kTLS HTTP/2 Benchmarks` rerun `24920655184` completed
   successfully on clean head `b551a6d`, but remained not decision-quality for
   isolated `h2_multiplexed_streams_s1`, `threads=4`:
@@ -215,6 +244,19 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
   - if the next isolated hosted `s1` rerun moves on that gap, the remaining
     instability is downstream of client flush completion and upstream of the
     first response read
+- Manual hosted rerun `25042279631` on clean head `649afcb` showed that
+  `response_headers_last_write_to_first_read` is not the stable throughput
+  explanation:
+  - repeat 02 moved on that header post-flush gap and on p95
+  - repeats 01 and 03 stayed flat or improved on the header post-flush gap
+  - the decision-quality throughput regression persisted across all repeats
+    in `response_body_tail_read_avg_ms` after the first response-body chunk
+- The bounded body-tail diagnostic split needed for the next hosted rerun is
+  implemented and locally verified:
+  - the bench records `response_body_tail_connection_read_wait_*`
+  - the bench records `response_body_tail_connection_read_to_end_*`
+  - the compare report renders both fields in the phase focus lines and the
+    response-body diagnostics table
 - That rerun also moved the remaining hotspot deeper into the HTTP/2 native
   response-stream path on `h2_multiplexed_streams_s8`, `threads=1`: server
   direct-stream timings improved, but client `response headers wait`,

@@ -82,6 +82,8 @@ struct H2ResponseDrainStats {
     first_chunk_bytes: u64,
     post_header_connection_read_wait_ms: Option<f64>,
     connection_read_to_first_chunk_ms: Option<f64>,
+    tail_connection_read_wait_ms: Option<f64>,
+    tail_connection_read_to_end_ms: Option<f64>,
 }
 
 #[derive(Clone)]
@@ -1902,6 +1904,22 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
                     phase_timing.response_body_connection_read_to_first_chunk_samples_total
                 );
             }
+            if phase_timing.response_body_tail_connection_read_wait_samples_total > 0 {
+                println!(
+                    "  HTTP tail connection read wait avg/p95: {:.2} / {:.2} ms (samples {})",
+                    phase_timing.response_body_tail_connection_read_wait_avg_ms,
+                    phase_timing.response_body_tail_connection_read_wait_p95_ms,
+                    phase_timing.response_body_tail_connection_read_wait_samples_total
+                );
+            }
+            if phase_timing.response_body_tail_connection_read_to_end_samples_total > 0 {
+                println!(
+                    "  HTTP tail connection read to end avg/p95: {:.2} / {:.2} ms (samples {})",
+                    phase_timing.response_body_tail_connection_read_to_end_avg_ms,
+                    phase_timing.response_body_tail_connection_read_to_end_p95_ms,
+                    phase_timing.response_body_tail_connection_read_to_end_samples_total
+                );
+            }
             println!(
                 "  HTTP request round trip avg/p95: {:.2} / {:.2} ms",
                 phase_timing.request_round_trip_avg_ms, phase_timing.request_round_trip_p95_ms
@@ -2010,6 +2028,16 @@ fn summarize_http_phase_timing(
         .filter_map(|sample| sample.http_phase_timing.as_ref())
         .filter_map(|timing| timing.response_body_connection_read_to_first_chunk_ms)
         .collect::<Vec<_>>();
+    let mut response_body_tail_connection_read_waits = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_body_tail_connection_read_wait_ms)
+        .collect::<Vec<_>>();
+    let mut response_body_tail_connection_read_to_ends = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_body_tail_connection_read_to_end_ms)
+        .collect::<Vec<_>>();
     let mut request_round_trips = samples
         .iter()
         .filter_map(|sample| sample.http_phase_timing.as_ref())
@@ -2031,6 +2059,8 @@ fn summarize_http_phase_timing(
     response_body_first_chunk_bytes.sort_by(|left, right| left.total_cmp(right));
     response_body_post_header_connection_read_waits.sort_by(|left, right| left.total_cmp(right));
     response_body_connection_read_to_first_chunks.sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_connection_read_waits.sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_connection_read_to_ends.sort_by(|left, right| left.total_cmp(right));
     request_round_trips.sort_by(|left, right| left.total_cmp(right));
 
     Some(
@@ -2180,6 +2210,38 @@ fn summarize_http_phase_timing(
                     0.0
                 } else {
                     percentile(&response_body_connection_read_to_first_chunks, 0.95)
+                },
+            response_body_tail_connection_read_wait_samples_total:
+                response_body_tail_connection_read_waits.len() as u64,
+            response_body_tail_connection_read_wait_avg_ms:
+                if response_body_tail_connection_read_waits.is_empty() {
+                    0.0
+                } else {
+                    response_body_tail_connection_read_waits.iter().sum::<f64>()
+                        / response_body_tail_connection_read_waits.len() as f64
+                },
+            response_body_tail_connection_read_wait_p95_ms:
+                if response_body_tail_connection_read_waits.is_empty() {
+                    0.0
+                } else {
+                    percentile(&response_body_tail_connection_read_waits, 0.95)
+                },
+            response_body_tail_connection_read_to_end_samples_total:
+                response_body_tail_connection_read_to_ends.len() as u64,
+            response_body_tail_connection_read_to_end_avg_ms:
+                if response_body_tail_connection_read_to_ends.is_empty() {
+                    0.0
+                } else {
+                    response_body_tail_connection_read_to_ends
+                        .iter()
+                        .sum::<f64>()
+                        / response_body_tail_connection_read_to_ends.len() as f64
+                },
+            response_body_tail_connection_read_to_end_p95_ms:
+                if response_body_tail_connection_read_to_ends.is_empty() {
+                    0.0
+                } else {
+                    percentile(&response_body_tail_connection_read_to_ends, 0.95)
                 },
             request_round_trip_avg_ms: request_round_trips.iter().sum::<f64>()
                 / request_round_trips.len() as f64,
@@ -4437,6 +4499,7 @@ async fn drain_hyper_response(response: hyper::Response<Body>) -> Result<u64> {
 async fn drain_h2_response(
     response: hyper::http::Response<H2RecvStream>,
     read_probe: H2ClientReadProbe,
+    read_tracker: Arc<H2ClientReadTracker>,
 ) -> Result<H2ResponseDrainStats> {
     let status = response.status();
     let mut body = response.into_body();
@@ -4447,6 +4510,7 @@ async fn drain_h2_response(
     let mut first_chunk_at = None;
     let mut first_chunk_bytes = 0u64;
     let mut chunk_count = 0u32;
+    let mut tail_read_probe = None;
     while let Some(chunk) = body.data().await {
         let bytes = chunk?;
         let chunk_len = bytes.len() as u64;
@@ -4454,6 +4518,7 @@ async fn drain_h2_response(
             first_chunk_wait_ms = Some(drain_start.elapsed().as_secs_f64() * 1000.0);
             first_chunk_at = Some(Instant::now());
             first_chunk_bytes = chunk_len;
+            tail_read_probe = Some(read_tracker.note_phase_started());
         }
         body.flow_control()
             .release_capacity(bytes.len())
@@ -4469,18 +4534,30 @@ async fn drain_h2_response(
         let preview = String::from_utf8_lossy(&error_body);
         bail!("unexpected HTTP/2 status {} with body {}", status, preview);
     }
+    let body_finished_at = Instant::now();
     let connection_read_stats = read_probe.finish(first_chunk_at);
+    let tail_connection_read_stats = tail_read_probe
+        .as_ref()
+        .map(|probe| probe.finish(Some(body_finished_at)))
+        .unwrap_or_default();
     Ok(H2ResponseDrainStats {
         received_bytes: received,
         first_chunk_wait_ms: first_chunk_wait_ms
             .unwrap_or_else(|| drain_start.elapsed().as_secs_f64() * 1000.0),
         tail_read_ms: first_chunk_at
-            .map(|instant: Instant| instant.elapsed().as_secs_f64() * 1000.0)
+            .map(|instant: Instant| {
+                body_finished_at
+                    .saturating_duration_since(instant)
+                    .as_secs_f64()
+                    * 1000.0
+            })
             .unwrap_or(0.0),
         chunk_count,
         first_chunk_bytes,
         post_header_connection_read_wait_ms: connection_read_stats.connection_read_wait_ms,
         connection_read_to_first_chunk_ms: connection_read_stats.connection_read_to_phase_end_ms,
+        tail_connection_read_wait_ms: tail_connection_read_stats.connection_read_wait_ms,
+        tail_connection_read_to_end_ms: tail_connection_read_stats.connection_read_to_phase_end_ms,
     })
 }
 
@@ -4621,7 +4698,7 @@ async fn send_h2_request(
         h2_last_write_to_first_read_ms(&response_headers_write_stats, &response_headers_read_stats);
     let read_probe = read_tracker.note_phase_started();
     let response_body_start = Instant::now();
-    let response_body = drain_h2_response(response, read_probe).await?;
+    let response_body = drain_h2_response(response, read_probe, read_tracker).await?;
     let response_body_read_ms = response_body_start.elapsed().as_secs_f64() * 1000.0;
     let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
     Ok(WorkloadSample {
@@ -4652,6 +4729,9 @@ async fn send_h2_request(
                 .post_header_connection_read_wait_ms,
             response_body_connection_read_to_first_chunk_ms: response_body
                 .connection_read_to_first_chunk_ms,
+            response_body_tail_connection_read_wait_ms: response_body.tail_connection_read_wait_ms,
+            response_body_tail_connection_read_to_end_ms: response_body
+                .tail_connection_read_to_end_ms,
             request_round_trip_ms: latency_ms,
         }),
     })

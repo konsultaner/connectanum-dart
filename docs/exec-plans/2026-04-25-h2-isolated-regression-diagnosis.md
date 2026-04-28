@@ -28,6 +28,8 @@ completed on clean branch checkpoint `17697ae`.
   - `kTLS Validation` `25039426508`
   - `WAMP Profile Diagnostics` `25039426526`
   - `WAMP Profile Benchmarks` `25039426501`
+- Commit `649afcb` (`docs: resume ktls diagnosis after ci cleanup`) passed
+  hosted GitHub `CI` run `25041573952`.
 - Manual hosted rerun `24917876488` isolated
   `h2_multiplexed_streams_s4`, `threads=4` into a decision-quality result:
   - throughput delta `-17.35%..-12.20%`
@@ -157,6 +159,48 @@ completed on clean branch checkpoint `17697ae`.
   - artifact actions moved to Node 24-backed versions in `17697ae`
   - the hosted push chain for `17697ae` is green, and log inspection confirmed
     the prior artifact-action Node 20 deprecation warning is gone
+- Manual hosted rerun `25042279631` completed successfully on clean head
+  `649afcb` with the isolated `h2_multiplexed_streams_s1`, `threads=4`
+  settings:
+  - `scenario=native/bench/scenarios/h2_ktls_multiplex_stability.toml`
+  - `workloads=h2_multiplexed_streams_s1`
+  - `router_worker_counts=1`
+  - `native_runtime_thread_counts=4`
+  - `repeat_count=3`
+  - `repeat_order=baseline-first`
+  - `cooldown_seconds=15`
+  - `skip_artifact_gate=true`
+- That rerun is decision-quality:
+  - worst throughput and p95 rows stayed stable at
+    `h2_multiplexed_streams_s1 (workers=1, threads=4)` across all repeats
+  - throughput delta span narrowed to `13.11pp`, with kTLS at
+    `-47.86%..-34.75%`
+  - p95 delta span narrowed to `22.98pp`, with kTLS at `-6.28%..+16.70%`
+  - no non-zero transport counters, no connection churn, and samples per
+    connection stayed stable
+- The new post-flush `response_headers_last_write_to_first_read` split only
+  moved materially in repeat 02:
+  - repeat 02 showed `4.09 -> 7.97 ms`, matching the temporary header-wait
+    and p95 movement
+  - repeats 01 and 03 stayed flat or improved on that metric
+  - the stable throughput regression therefore is not explained by the header
+    post-flush wait alone
+- The stable remaining `s1` throughput gap now sits in the response-body tail
+  after the first body chunk:
+  - first-chunk wait stayed flat or improved across repeats
+  - post-header connection read wait stayed flat or improved across repeats
+  - `connection_read_to_first_chunk` stayed small
+  - `response_body_tail_read_avg_ms` regressed by about `+1.52..+2.39 ms`
+    across all repeats, while chunk count and first-chunk bytes stayed stable
+- The next bounded body-tail split is implemented locally:
+  - `native/bench/src/bin/http_stream.rs` now starts a second H2 client read
+    probe after the first response-body chunk
+  - `native/bench/src/report.rs` and `native/bench/src/artifacts.rs` now carry
+    and summarize `response_body_tail_connection_read_wait_*` and
+    `response_body_tail_connection_read_to_end_*`
+  - `tool/ktls_http2_compare.py` renders those fields in the focus lines and
+    `## HTTP Response-Body Diagnostics`
+  - `tool/test_ktls_http2_compare.py` pins the JSON deltas and markdown output
 
 ## Current Verification
 
@@ -169,9 +213,20 @@ completed on clean branch checkpoint `17697ae`.
 - Hosted GitHub push runs on `17697ae`: `CI` `25039426534`,
   `kTLS Validation` `25039426508`, `WAMP Profile Diagnostics` `25039426526`,
   and `WAMP Profile Benchmarks` `25039426501`
+- Hosted GitHub `CI` run `25041573952` completed successfully on `649afcb`
+- Manual hosted `kTLS HTTP/2 Benchmarks` run `25042279631` completed
+  successfully and produced decision-quality isolated `s1`, `threads=4`
+  evidence
+- Current body-tail split local verification:
+  - `bin/test-fast`
+  - `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
+  - `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
+  - `python3 tool/test_ktls_http2_compare.py`
+  - `bin/verify`
 
 ## Next Step
 
-Run the next isolated hosted `s1` rerun on clean head `17697ae` to check
-whether the remaining instability moves on the post-flush write-to-read gap or
-stays deeper inside `response_headers_connection_read_wait`.
+Push the body-tail split through branch CI, then rerun the same isolated hosted
+`s1` workload to decide whether the stable throughput loss is mostly waiting
+for the next connection read after first chunk or processing/draining after
+that read.

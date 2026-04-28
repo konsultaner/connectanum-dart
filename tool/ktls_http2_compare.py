@@ -159,6 +159,30 @@ PHASE_TIMING_SUMMARY_KEYS = (
         "response_body_connection_read_to_first_chunk_p95_ms",
         "Response body connection read-to-first-chunk p95",
     ),
+    (
+        "response_body_tail_connection_read_wait_samples_total",
+        "Response body tail connection read samples",
+    ),
+    (
+        "response_body_tail_connection_read_wait_avg_ms",
+        "Response body tail connection read wait avg",
+    ),
+    (
+        "response_body_tail_connection_read_wait_p95_ms",
+        "Response body tail connection read wait p95",
+    ),
+    (
+        "response_body_tail_connection_read_to_end_samples_total",
+        "Response body tail connection read-to-end samples",
+    ),
+    (
+        "response_body_tail_connection_read_to_end_avg_ms",
+        "Response body tail connection read-to-end avg",
+    ),
+    (
+        "response_body_tail_connection_read_to_end_p95_ms",
+        "Response body tail connection read-to-end p95",
+    ),
     ("request_round_trip_avg_ms", "Request round trip avg"),
     ("request_round_trip_p95_ms", "Request round trip p95"),
 )
@@ -1271,6 +1295,24 @@ def render_phase_timing_focus_line(name: str, focus: dict | None) -> str:
             f"connection read-to-first-chunk avg "
             f"{render_connection_metric_snapshot(metrics['response_body_connection_read_to_first_chunk_avg_ms'])}"
         )
+    if connection_metric_snapshot_has_samples(
+        metrics["response_body_tail_connection_read_wait_samples_total"]
+    ):
+        rendered += (
+            f", tail connection read samples "
+            f"{render_connection_metric_snapshot(metrics['response_body_tail_connection_read_wait_samples_total'])}, "
+            f"tail connection read wait avg "
+            f"{render_connection_metric_snapshot(metrics['response_body_tail_connection_read_wait_avg_ms'])}"
+        )
+    if connection_metric_snapshot_has_samples(
+        metrics["response_body_tail_connection_read_to_end_samples_total"]
+    ):
+        rendered += (
+            f", tail connection read-to-end samples "
+            f"{render_connection_metric_snapshot(metrics['response_body_tail_connection_read_to_end_samples_total'])}, "
+            f"tail connection read-to-end avg "
+            f"{render_connection_metric_snapshot(metrics['response_body_tail_connection_read_to_end_avg_ms'])}"
+        )
     return rendered + "."
 
 
@@ -2042,8 +2084,8 @@ def render_markdown(comparison: dict) -> str:
         [
             "## HTTP Response-Body Diagnostics",
             "",
-            "| Workload | Router workers | Native runtime threads | First chunk wait avg ms | Tail read avg ms | Body chunks avg | First chunk bytes avg | Post-header conn read samples | Post-header conn read wait avg ms | Conn read-to-first-chunk samples | Conn read-to-first-chunk avg ms | Response body read p95 ms |",
-            "| --- | ---: | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+            "| Workload | Router workers | Native runtime threads | First chunk wait avg ms | Tail read avg ms | Body chunks avg | First chunk bytes avg | Post-header conn read samples | Post-header conn read wait avg ms | Conn read-to-first-chunk samples | Conn read-to-first-chunk avg ms | Tail conn read samples | Tail conn read wait avg ms | Tail conn read-to-end samples | Tail conn read-to-end avg ms | Response body read p95 ms |",
+            "| --- | ---: | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
 
@@ -2055,7 +2097,7 @@ def render_markdown(comparison: dict) -> str:
         has_body_rows = True
         metrics = phase_timing["metrics"]
         lines.append(
-            "| {workload} | {router_workers} | {native_runtime_threads} | {response_body_first_chunk_wait_avg_ms} | {response_body_tail_read_avg_ms} | {response_body_chunk_count_avg} | {response_body_first_chunk_bytes_avg} | {response_body_post_header_connection_read_wait_samples_total} | {response_body_post_header_connection_read_wait_avg_ms} | {response_body_connection_read_to_first_chunk_samples_total} | {response_body_connection_read_to_first_chunk_avg_ms} | {response_body_read_p95_ms} |".format(
+            "| {workload} | {router_workers} | {native_runtime_threads} | {response_body_first_chunk_wait_avg_ms} | {response_body_tail_read_avg_ms} | {response_body_chunk_count_avg} | {response_body_first_chunk_bytes_avg} | {response_body_post_header_connection_read_wait_samples_total} | {response_body_post_header_connection_read_wait_avg_ms} | {response_body_connection_read_to_first_chunk_samples_total} | {response_body_connection_read_to_first_chunk_avg_ms} | {response_body_tail_connection_read_wait_samples_total} | {response_body_tail_connection_read_wait_avg_ms} | {response_body_tail_connection_read_to_end_samples_total} | {response_body_tail_connection_read_to_end_avg_ms} | {response_body_read_p95_ms} |".format(
                 workload=row["workload"],
                 router_workers=row["router_workers"],
                 native_runtime_threads=row["native_runtime_threads"],
@@ -2086,6 +2128,18 @@ def render_markdown(comparison: dict) -> str:
                 ),
                 response_body_connection_read_to_first_chunk_avg_ms=render_connection_metric_snapshot(
                     metrics["response_body_connection_read_to_first_chunk_avg_ms"]
+                ),
+                response_body_tail_connection_read_wait_samples_total=render_connection_metric_snapshot(
+                    metrics["response_body_tail_connection_read_wait_samples_total"]
+                ),
+                response_body_tail_connection_read_wait_avg_ms=render_connection_metric_snapshot(
+                    metrics["response_body_tail_connection_read_wait_avg_ms"]
+                ),
+                response_body_tail_connection_read_to_end_samples_total=render_connection_metric_snapshot(
+                    metrics["response_body_tail_connection_read_to_end_samples_total"]
+                ),
+                response_body_tail_connection_read_to_end_avg_ms=render_connection_metric_snapshot(
+                    metrics["response_body_tail_connection_read_to_end_avg_ms"]
                 ),
                 response_body_read_p95_ms=render_connection_metric_snapshot(
                     metrics["response_body_read_p95_ms"]

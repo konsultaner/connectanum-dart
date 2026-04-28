@@ -126,6 +126,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         response_body_connection_read_to_first_chunk_samples_total=12,
                         response_body_connection_read_to_first_chunk_avg_ms=1.2,
                         response_body_connection_read_to_first_chunk_p95_ms=1.9,
+                        response_body_tail_connection_read_wait_samples_total=12,
+                        response_body_tail_connection_read_wait_avg_ms=18.6,
+                        response_body_tail_connection_read_wait_p95_ms=20.1,
+                        response_body_tail_connection_read_to_end_samples_total=12,
+                        response_body_tail_connection_read_to_end_avg_ms=1.2,
+                        response_body_tail_connection_read_to_end_p95_ms=1.9,
                     ),
                 ],
             )
@@ -196,6 +202,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         response_body_connection_read_to_first_chunk_samples_total=12,
                         response_body_connection_read_to_first_chunk_avg_ms=4.6,
                         response_body_connection_read_to_first_chunk_p95_ms=7.4,
+                        response_body_tail_connection_read_wait_samples_total=12,
+                        response_body_tail_connection_read_wait_avg_ms=42.0,
+                        response_body_tail_connection_read_wait_p95_ms=70.0,
+                        response_body_tail_connection_read_to_end_samples_total=12,
+                        response_body_tail_connection_read_to_end_avg_ms=73.5,
+                        response_body_tail_connection_read_to_end_p95_ms=108.6,
                         request_round_trip_avg_ms=142.0,
                         request_round_trip_p95_ms=220.0,
                         server_requests_total=32,
@@ -391,6 +403,18 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "metrics"
                 ]["response_body_tail_read_avg_ms"]["delta"],
                 95.7,
+            )
+            self.assertAlmostEqual(
+                comparison["summary"]["phase_timing_focus"]["worst_throughput_row"][
+                    "metrics"
+                ]["response_body_tail_connection_read_wait_avg_ms"]["delta"],
+                23.4,
+            )
+            self.assertAlmostEqual(
+                comparison["summary"]["phase_timing_focus"]["worst_throughput_row"][
+                    "metrics"
+                ]["response_body_tail_connection_read_to_end_avg_ms"]["delta"],
+                72.3,
             )
             self.assertAlmostEqual(
                 comparison["summary"]["phase_timing_focus"]["worst_throughput_row"][
@@ -596,6 +620,14 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             )
             self.assertIn(
                 "connection read-to-first-chunk avg 1.20 -> 4.60 (+3.40)", markdown
+            )
+            self.assertIn(
+                "tail connection read wait avg 18.60 -> 42.00 (+23.40)",
+                markdown,
+            )
+            self.assertIn(
+                "tail connection read-to-end avg 1.20 -> 73.50 (+72.30)",
+                markdown,
             )
             self.assertIn(
                 "response body tail read avg 19.80 -> 115.50 (+95.70)", markdown
@@ -867,6 +899,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         response_body_connection_read_to_first_chunk_samples_total: int | None = 16,
         response_body_connection_read_to_first_chunk_avg_ms: float | None = 1.2,
         response_body_connection_read_to_first_chunk_p95_ms: float | None = 1.8,
+        response_body_tail_connection_read_wait_samples_total: int | None = 16,
+        response_body_tail_connection_read_wait_avg_ms: float | None = 0.7,
+        response_body_tail_connection_read_wait_p95_ms: float | None = 1.1,
+        response_body_tail_connection_read_to_end_samples_total: int | None = 16,
+        response_body_tail_connection_read_to_end_avg_ms: float | None = 1.8,
+        response_body_tail_connection_read_to_end_p95_ms: float | None = 2.4,
         request_round_trip_avg_ms: float | None = 7.6,
         request_round_trip_p95_ms: float | None = 10.8,
         server_requests_total: int | None = 16,
@@ -964,6 +1002,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "response_body_connection_read_to_first_chunk_samples_total": response_body_connection_read_to_first_chunk_samples_total,
                     "response_body_connection_read_to_first_chunk_avg_ms": response_body_connection_read_to_first_chunk_avg_ms,
                     "response_body_connection_read_to_first_chunk_p95_ms": response_body_connection_read_to_first_chunk_p95_ms,
+                    "response_body_tail_connection_read_wait_samples_total": response_body_tail_connection_read_wait_samples_total,
+                    "response_body_tail_connection_read_wait_avg_ms": response_body_tail_connection_read_wait_avg_ms,
+                    "response_body_tail_connection_read_wait_p95_ms": response_body_tail_connection_read_wait_p95_ms,
+                    "response_body_tail_connection_read_to_end_samples_total": response_body_tail_connection_read_to_end_samples_total,
+                    "response_body_tail_connection_read_to_end_avg_ms": response_body_tail_connection_read_to_end_avg_ms,
+                    "response_body_tail_connection_read_to_end_p95_ms": response_body_tail_connection_read_to_end_p95_ms,
                     "request_round_trip_avg_ms": request_round_trip_avg_ms,
                     "request_round_trip_p95_ms": request_round_trip_p95_ms,
                 }
