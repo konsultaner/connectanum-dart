@@ -1,6 +1,6 @@
 # CI Noise And Skip Cleanup
 
-Status: local_complete_hosted_pending
+Status: completed
 
 ## Context
 
@@ -99,6 +99,18 @@ Status: local_complete_hosted_pending
   `CONNECTANUM_FFI_TEST_DEBUG` instead of deleting them. Normal passing CI no
   longer prints registry/request traces, while the traces remain opt-in for
   native debugging.
+- Committed and pushed the CI-cleanup slice as `ce05721`, then pushed the
+  artifact-action follow-up as `17697ae`.
+- Hosted GitHub push runs on `17697ae` completed successfully:
+  `CI` `25039426534`, `kTLS Validation` `25039426508`,
+  `WAMP Profile Diagnostics` `25039426526`, and
+  `WAMP Profile Benchmarks` `25039426501`.
+- The `kTLS Validation` log for `17697ae` confirmed the earlier Node 20
+  artifact-action deprecation warning is gone after moving artifact upload and
+  download actions to Node 24-backed versions.
+- GitLab has not surfaced an `add-router` pipeline for latest commit
+  `17697ae64e725ad84f42a73d04a063471f3448c3` through the current API query;
+  GitHub Actions is the visible hosted branch CI source for this checkpoint.
 
 ## Current Verification
 
@@ -119,6 +131,9 @@ Status: local_complete_hosted_pending
 - `rg -n "actions/(upload|download)-artifact@" .github/workflows`
 - `ruby -e 'require "yaml"; Dir[".github/workflows/*.yml"].sort.each { |path| YAML.load_file(path); puts path }'`
 - `git diff --check`
+- Hosted GitHub push runs on `17697ae`: `CI` `25039426534`,
+  `kTLS Validation` `25039426508`, `WAMP Profile Diagnostics` `25039426526`,
+  and `WAMP Profile Benchmarks` `25039426501`
 - exploratory only, intentionally not adopted into the scripts:
   - `CONNECTANUM_FORWARD_NATIVE_PUBLISH=1 dart test test --chain-stack-traces`
     from `packages/connectanum_router` reproduced unrelated websocket
@@ -126,9 +141,8 @@ Status: local_complete_hosted_pending
 
 ## Next Step
 
-Commit and push the CI-noise cleanup slice, then watch hosted GitHub CI for
-warnings, skip lines, and platform-specific regressions. If hosted CI stays
-clean, close this plan and return to the normal autonomous priority order:
-production readiness first, then MCP follow-up only if the downstream
-`groli/app` integration needs more than the current stdio bridge, then WAMP
-profile benchmark readiness.
+Completed. Return to the normal autonomous priority order with a clean branch:
+production readiness first, MCP follow-up only if the downstream `groli/app`
+integration needs more than the current stdio bridge, then the next unblocked
+kTLS/HTTP/2 diagnosis lane documented in
+`docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`.

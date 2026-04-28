@@ -1,9 +1,9 @@
 # HTTP/2 Isolated Regression Diagnosis
 
-Status: paused
+Status: in_progress
 
-Paused behind `docs/exec-plans/2026-04-25-ci-noise-and-skip-cleanup.md` while
-clean-CI work outranks further kTLS diagnosis.
+Resumed after `docs/exec-plans/2026-04-25-ci-noise-and-skip-cleanup.md`
+completed on clean branch checkpoint `17697ae`.
 
 ## Context
 
@@ -22,6 +22,12 @@ clean-CI work outranks further kTLS diagnosis.
   - `CI` `24921840775`
   - `kTLS Validation` and `WAMP Profile Benchmarks` were correctly skipped by
     their `push.paths` filters because that change only touched report tooling
+- Commit `17697ae` (`ci: move artifact actions to node24`) passed the visible
+  GitHub push chain after the CI-cleanup detour completed:
+  - `CI` `25039426534`
+  - `kTLS Validation` `25039426508`
+  - `WAMP Profile Diagnostics` `25039426526`
+  - `WAMP Profile Benchmarks` `25039426501`
 - Manual hosted rerun `24917876488` isolated
   `h2_multiplexed_streams_s4`, `threads=4` into a decision-quality result:
   - throughput delta `-17.35%..-12.20%`
@@ -130,8 +136,8 @@ clean-CI work outranks further kTLS diagnosis.
     p95 deltas
 - The artifact-readability follow-up is now pushed and CI-cleared on `5f79e40`,
   so the next blocker is no longer visibility.
-- The current working tree now carries the next bounded split inside
-  `response_headers_connection_read_wait`:
+- The next bounded split inside `response_headers_connection_read_wait` is
+  committed and hosted-clean through `17697ae`:
   - `native/bench/src/bin/http_stream.rs` now records the gap from the last
     request-side connection write to the first response-side connection read
     during `response_headers_wait`
@@ -146,6 +152,11 @@ clean-CI work outranks further kTLS diagnosis.
     client flush completion and before the first response-side read
   - if it stays flat, the next missing split is deeper inside
     `response_headers_connection_read_wait` before the first read completes
+- The clean-CI detour is complete:
+  - the CI cleanup landed as `ce05721`
+  - artifact actions moved to Node 24-backed versions in `17697ae`
+  - the hosted push chain for `17697ae` is green, and log inspection confirmed
+    the prior artifact-action Node 20 deprecation warning is gone
 
 ## Current Verification
 
@@ -155,10 +166,12 @@ clean-CI work outranks further kTLS diagnosis.
 - `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
 - `python3 tool/test_ktls_http2_compare.py`
 - `tmpdir=$(mktemp -d /tmp/connectanum-ktls-rerender-XXXXXX) && python3 tool/ktls_http2_compare.py /tmp/connectanum-run-24921433741/extracted/repeats/repeat-02/baseline/bench_results.summary.json /tmp/connectanum-run-24921433741/extracted/repeats/repeat-02/ktls/bench_results.summary.json "$tmpdir/comparison.json" "$tmpdir/comparison.md"`
+- Hosted GitHub push runs on `17697ae`: `CI` `25039426534`,
+  `kTLS Validation` `25039426508`, `WAMP Profile Diagnostics` `25039426526`,
+  and `WAMP Profile Benchmarks` `25039426501`
 
 ## Next Step
 
-Push the `response_headers_last_write_to_first_read` slice through the branch
-CI gate, then run the next isolated hosted `s1` rerun on that clean head to
-check whether the remaining instability moves on the post-flush write-to-read
-gap or stays deeper inside `response_headers_connection_read_wait`.
+Run the next isolated hosted `s1` rerun on clean head `17697ae` to check
+whether the remaining instability moves on the post-flush write-to-read gap or
+stays deeper inside `response_headers_connection_read_wait`.
