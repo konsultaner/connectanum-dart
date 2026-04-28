@@ -219,6 +219,15 @@ operator evidence over speculative feature or benchmark work.
     for fast checks, 45 minutes for full verify and native packaging,
     30-45 minutes for validation/gate jobs, and 120 minutes for long manual
     image or kTLS benchmark jobs
+- Completed hosted validation for the CI-timeout hardening slice:
+  - commit `ccb61f9` (`ci: bound github workflow runtimes`) passed GitHub
+    `CI` run `25068442355`
+  - GitHub `kTLS Validation` run `25068442344` passed
+  - GitHub `WAMP Profile Benchmarks` run `25068442348` passed
+  - GitHub `WAMP Profile Diagnostics` run `25068442381` passed
+  - hosted log scanning found no warnings, deprecations, rawsocket reset noise,
+    timeouts, cancellations, or real errors; remaining `failed` matches were
+    passing test names or Rust test summaries
 
 ## Verification
 
@@ -341,6 +350,12 @@ operator evidence over speculative feature or benchmark work.
   - workflow YAML parsing across `.github/workflows/*.yml`
   - `git diff --check`
   - `bin/verify`
+  - GitHub `CI` run `25068442355`
+  - GitHub `kTLS Validation` run `25068442344`
+  - GitHub `WAMP Profile Benchmarks` run `25068442348`
+  - GitHub `WAMP Profile Diagnostics` run `25068442381`
+  - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
+    cancellation, and real error lines
 
 ## Decision Log
 
@@ -388,8 +403,7 @@ operator evidence over speculative feature or benchmark work.
 
 ## Handoff
 
-- Next continuation should first confirm the timeout-hardening push has clean
-  hosted GitHub CI and no warning/deprecation regressions, then move to branch
+- Next continuation should keep hosted GitHub CI clean, then move to branch
   protection/release evidence or Dart package publishing readiness. Do not
   publish a stable non-validation release tag without an explicit
   product/version decision.

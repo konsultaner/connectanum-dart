@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `b63be66` (`docs: record native artifact warning cleanup`)
+Last reviewed commit: `ccb61f9` (`ci: bound github workflow runtimes`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -294,8 +294,8 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     `is_benign_socket_shutdown`
   - remaining `failed` matches were passing test names/result summaries, not
     failed checks
-- The current CI-timeout hardening slice addresses a stalled GitHub `Full
-  Verify` job on docs checkpoint `d0afe06`:
+- CI-timeout hardening is hosted-clean on `ccb61f9`
+  (`ci: bound github workflow runtimes`):
   - GitHub `CI` run `25066016309` passed `Fast Checks` but left
     `Full Verify` in progress for more than 30 minutes after the prior
     comparable full-verify job completed in about 9 minutes
@@ -307,7 +307,16 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     `Fast Checks` 20 minutes, `Full Verify` 45 minutes, WAMP/kTLS validation
     30-45 minutes, native artifact packaging 45 minutes, native publish 20
     minutes, and long manual image/kTLS benchmark jobs 120 minutes
-  - local `bin/test-fast` passed before the workflow timeout changes
+  - local `bin/test-fast`, workflow YAML parsing, `git diff --check`, and
+    `bin/verify` passed before commit
+  - hosted GitHub push runs on `ccb61f9` passed:
+    `CI` `25068442355`, `kTLS Validation` `25068442344`,
+    `WAMP Profile Benchmarks` `25068442348`, and
+    `WAMP Profile Diagnostics` `25068442381`
+  - hosted log scanning found no `warning:`, `::warning`,
+    `DeprecationWarning`, `Connection reset by peer`,
+    `connection ConnectionId`, timeout, cancellation, or real error lines;
+    remaining `failed` matches were passing test names or Rust test summaries
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.
