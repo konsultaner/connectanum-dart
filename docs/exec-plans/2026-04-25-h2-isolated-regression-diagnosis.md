@@ -201,6 +201,37 @@ completed on clean branch checkpoint `17697ae`.
   - `tool/ktls_http2_compare.py` renders those fields in the focus lines and
     `## HTTP Response-Body Diagnostics`
   - `tool/test_ktls_http2_compare.py` pins the JSON deltas and markdown output
+- Commit `20dbc9a` (`bench: split h2 response body tail timing`) passed the
+  hosted GitHub push chain:
+  - `CI` `25043856689`
+  - `kTLS Validation` `25043856696`
+  - `WAMP Profile Benchmarks` `25043856615`
+- Manual hosted rerun `25044549578` completed successfully on clean head
+  `20dbc9a` with the same isolated `s1`, `threads=4` settings, but did not
+  reach decision quality:
+  - throughput delta span widened to `66.64pp`, with deltas
+    `-53.21%`, `+13.43%`, and `-15.07%`
+  - p95 delta span stayed within threshold at `25.96pp`
+  - the worst throughput and p95 rows were still stable at
+    `h2_multiplexed_streams_s1 (workers=1, threads=4)`
+  - the spread source was mixed rather than cleanly baseline-side or kTLS-side
+- The new body-tail fields were still useful inside the per-repeat artifacts:
+  - repeat 01 showed body-side kTLS delay around first body connection-read and
+    tail connection-read wait
+  - repeat 02 was dominated by a bad baseline header wait
+    (`response_headers_last_write_to_first_read` `7.95 -> 3.37 ms`)
+  - repeat 03 was dominated by a bad kTLS header wait
+    (`response_headers_last_write_to_first_read` `3.62 -> 8.52 ms`)
+  - that means `25044549578` is a mixed hosted-noise run, not a clean answer to
+    the body-tail diagnosis
+- The current follow-up slice makes non-decision repeat artifacts more
+  human-readable:
+  - `tool/ktls_http2_compare_repeats.py` now lifts per-repeat phase timing for
+    the worst throughput/p95 rows into the top-level repeat-stability report
+  - the new `## Repeat Phase-Timing Focus` table includes header wait,
+    last-write-to-first-read, body read, first-chunk, tail-read,
+    read-to-first-chunk, tail connection-read wait, and tail read-to-end
+    metrics
 
 ## Current Verification
 
@@ -217,16 +248,29 @@ completed on clean branch checkpoint `17697ae`.
 - Manual hosted `kTLS HTTP/2 Benchmarks` run `25042279631` completed
   successfully and produced decision-quality isolated `s1`, `threads=4`
   evidence
+- Hosted GitHub push runs on `20dbc9a`: `CI` `25043856689`,
+  `kTLS Validation` `25043856696`, and `WAMP Profile Benchmarks`
+  `25043856615`
+- Manual hosted `kTLS HTTP/2 Benchmarks` run `25044549578` completed
+  successfully but was not decision-quality because throughput delta span was
+  `66.64pp`
 - Current body-tail split local verification:
   - `bin/test-fast`
   - `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
   - `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
   - `python3 tool/test_ktls_http2_compare.py`
   - `bin/verify`
+- Current repeat-report focus verification:
+  - `bin/test-fast`
+  - `python3 -m py_compile tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`
+  - `python3 tool/test_ktls_http2_compare.py`
+  - rerendered `25044549578` repeat artifacts with
+    `tool/ktls_http2_compare_repeats.py`
 
 ## Next Step
 
-Push the body-tail split through branch CI, then rerun the same isolated hosted
-`s1` workload to decide whether the stable throughput loss is mostly waiting
-for the next connection read after first chunk or processing/draining after
-that read.
+Push the repeat-report focus slice through branch CI. Then rerun the same
+isolated hosted `s1` workload only after the top-level artifact can expose the
+per-repeat phase-timing focus directly; use the next decision-quality run to
+decide whether the stable throughput loss is mostly waiting for connection
+reads after first chunk or processing/draining after those reads.

@@ -12,6 +12,29 @@ import ktls_http2_compare as compare
 THROUGHPUT_DELTA_SPAN_THRESHOLD_PCT = 25.0
 LATENCY_P95_DELTA_SPAN_THRESHOLD_PCT = 50.0
 
+PHASE_FOCUS_METRICS = (
+    ("response_headers_wait_avg_ms", "Headers wait avg ms"),
+    (
+        "response_headers_last_write_to_first_read_avg_ms",
+        "Header last-write-to-first-read avg ms",
+    ),
+    ("response_body_read_avg_ms", "Body read avg ms"),
+    ("response_body_first_chunk_wait_avg_ms", "First chunk wait avg ms"),
+    ("response_body_tail_read_avg_ms", "Tail read avg ms"),
+    (
+        "response_body_connection_read_to_first_chunk_avg_ms",
+        "Conn read-to-first-chunk avg ms",
+    ),
+    (
+        "response_body_tail_connection_read_wait_avg_ms",
+        "Tail conn read wait avg ms",
+    ),
+    (
+        "response_body_tail_connection_read_to_end_avg_ms",
+        "Tail conn read-to-end avg ms",
+    ),
+)
+
 
 def row_key(row: dict) -> tuple:
     return (
@@ -94,6 +117,31 @@ def pack_worst_row(row: dict | None) -> dict | None:
     }
 
 
+def pack_phase_focus_row(row: dict | None) -> dict | None:
+    if row is None:
+        return None
+
+    metrics = row.get("metrics") or {}
+    selected_metrics = {
+        key: metrics[key]
+        for key, _ in PHASE_FOCUS_METRICS
+        if metrics.get(key) is not None
+    }
+    if not selected_metrics:
+        return None
+
+    return {
+        "label": row["label"],
+        "scenario": row.get("scenario"),
+        "workload": row.get("workload"),
+        "protocol": row.get("protocol"),
+        "client_impl": row.get("client_impl"),
+        "router_workers": row.get("router_workers"),
+        "native_runtime_threads": row.get("native_runtime_threads"),
+        "metrics": selected_metrics,
+    }
+
+
 def render_worst_row(row: dict | None) -> str:
     if row is None:
         return "n/a"
@@ -165,6 +213,7 @@ def build_repeat_stability(comparison_paths: list[Path]) -> dict:
         summary = comparison_data["summary"]
         throughput = summary.get("throughput")
         latency = summary.get("latency_p95")
+        phase_timing_focus = summary.get("phase_timing_focus") or {}
 
         runs.append(
             {
@@ -183,6 +232,12 @@ def build_repeat_stability(comparison_paths: list[Path]) -> dict:
                 "worst_latency_row": None
                 if latency is None
                 else pack_worst_row(latency.get("worst_row")),
+                "worst_throughput_phase_timing": pack_phase_focus_row(
+                    phase_timing_focus.get("worst_throughput_row")
+                ),
+                "worst_latency_phase_timing": pack_phase_focus_row(
+                    phase_timing_focus.get("worst_latency_row")
+                ),
             }
         )
 
@@ -421,6 +476,58 @@ def render_markdown(stability: dict) -> str:
                 worst_throughput=render_worst_row(run["worst_throughput_row"]),
                 worst_latency=render_worst_row(run["worst_latency_row"]),
             )
+        )
+
+    phase_focus_rows = []
+    for run in stability["runs"]:
+        seen_labels = set()
+        for focus_name, key in (
+            ("Worst throughput", "worst_throughput_phase_timing"),
+            ("Worst p95", "worst_latency_phase_timing"),
+        ):
+            phase_row = run.get(key)
+            if phase_row is None:
+                continue
+            label_key = phase_row["label"]
+            if label_key in seen_labels:
+                continue
+            seen_labels.add(label_key)
+            phase_focus_rows.append((run["repeat_label"], focus_name, phase_row))
+
+    lines.extend(
+        [
+            "",
+            "## Repeat Phase-Timing Focus",
+            "",
+            "| Repeat | Focus | Row | "
+            + " | ".join(label for _, label in PHASE_FOCUS_METRICS)
+            + " |",
+            "| --- | --- | --- | "
+            + " | ".join("---:" for _ in PHASE_FOCUS_METRICS)
+            + " |",
+        ]
+    )
+
+    if phase_focus_rows:
+        for repeat_label, focus_name, phase_row in phase_focus_rows:
+            metrics = phase_row["metrics"]
+            rendered_metrics = [
+                compare.render_connection_metric_snapshot(metrics.get(key))
+                for key, _ in PHASE_FOCUS_METRICS
+            ]
+            lines.append(
+                "| {repeat} | {focus} | {row} | {metrics} |".format(
+                    repeat=repeat_label,
+                    focus=focus_name,
+                    row=phase_row["label"],
+                    metrics=" | ".join(rendered_metrics),
+                )
+            )
+    else:
+        lines.append(
+            "| None | n/a | n/a | "
+            + " | ".join("n/a" for _ in PHASE_FOCUS_METRICS)
+            + " |"
         )
 
     lines.extend(

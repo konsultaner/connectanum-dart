@@ -729,9 +729,20 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                 stability["max_latency_p95_span_row"]["latency_p95_pct_delta"]["span"],
                 1000.0,
             )
+            self.assertEqual(
+                stability["runs"][0]["worst_throughput_phase_timing"]["label"],
+                "h2_multiplexed_streams_s1 (workers=1, threads=4)",
+            )
+            self.assertAlmostEqual(
+                stability["runs"][0]["worst_throughput_phase_timing"]["metrics"][
+                    "response_body_tail_connection_read_wait_avg_ms"
+                ]["baseline"],
+                0.7,
+            )
 
             markdown = repeat_compare.render_markdown(stability)
             self.assertIn("## Repeat Overview", markdown)
+            self.assertIn("## Repeat Phase-Timing Focus", markdown)
             self.assertIn("## Rows Exceeding Stability Thresholds", markdown)
             self.assertIn("## Per-row Stability", markdown)
             self.assertIn("## Summary", markdown)
@@ -748,6 +759,8 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("repeat-02", markdown)
             self.assertIn("h2_multiplexed_streams_s4", markdown)
             self.assertIn("h2_multiplexed_streams_s2", markdown)
+            self.assertIn("Tail conn read wait avg ms", markdown)
+            self.assertIn("0.70 -> 0.70 (+0.00)", markdown)
 
     def test_transport_focus_reports_signal_gap_for_hotspot_row(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

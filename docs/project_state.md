@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `649afcb` (`docs: resume ktls diagnosis after ci cleanup`)
+Last reviewed commit: `20dbc9a` (`bench: split h2 response body tail timing`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -48,6 +48,29 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`,
     `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`,
     `python3 tool/test_ktls_http2_compare.py`, and `bin/verify`
+- Commit `20dbc9a` passed the hosted GitHub push chain:
+  - `CI` `25043856689`
+  - `kTLS Validation` `25043856696`
+  - `WAMP Profile Benchmarks` `25043856615`
+- Manual hosted `kTLS HTTP/2 Benchmarks` run `25044549578` completed
+  successfully on `20dbc9a`, but was not decision-quality:
+  - throughput delta span was `66.64pp`, with deltas `-53.21%`, `+13.43%`,
+    and `-15.07%`
+  - p95 delta span was within threshold at `25.96pp`
+  - worst throughput and p95 rows stayed stable at
+    `h2_multiplexed_streams_s1 (workers=1, threads=4)`
+  - repeat 01 showed kTLS body-side connection-read waits, repeat 02 was
+    baseline-header-wait dominated, and repeat 03 was kTLS-header-wait
+    dominated, so this hosted run is mixed noise rather than a clean answer
+- The current follow-up slice makes those non-decision artifacts more readable:
+  - `tool/ktls_http2_compare_repeats.py` adds a top-level
+    `## Repeat Phase-Timing Focus` table
+  - `tool/test_ktls_http2_compare.py` pins the new aggregate report fields
+  - local focused verification is green:
+    `bin/test-fast`,
+    `python3 -m py_compile tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`, and a rerender of hosted run
+    `25044549578`
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.
