@@ -228,6 +228,18 @@ operator evidence over speculative feature or benchmark work.
   - hosted log scanning found no warnings, deprecations, rawsocket reset noise,
     timeouts, cancellations, or real errors; remaining `failed` matches were
     passing test names or Rust test summaries
+- Started the Dart package publishing readiness slice:
+  - added package-root MIT `LICENSE` files to every workspace package so future
+    pub archives satisfy the mandatory license check
+  - added GitHub `homepage`, `repository`, and `issue_tracker` metadata across
+    package pubspecs
+  - `dart pub publish --dry-run` now passes locally for
+    `packages/connectanum_client` with `Package has 0 warnings`
+  - `docs/dart_package_publishing.md` records the remaining blocker: pub.dev
+    currently returns `404` for `connectanum_client` and `connectanum_core`,
+    while `connectanum_client` depends on `connectanum_core: ^0.1.0`
+  - no package publish, package-name claim, or `publish_to: none` removal has
+    been attempted; those still require an explicit operator/product decision
 
 ## Verification
 
@@ -356,6 +368,12 @@ operator evidence over speculative feature or benchmark work.
   - GitHub `WAMP Profile Diagnostics` run `25068442381`
   - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
     cancellation, and real error lines
+- Current Dart package publishing readiness checks:
+  - `bin/test-fast`
+  - `dart pub publish --dry-run` from `packages/connectanum_client`
+  - pub.dev API probes for `connectanum_client` and `connectanum_core`
+  - `git diff --check`
+  - `bin/verify`
 
 ## Decision Log
 
@@ -400,10 +418,15 @@ operator evidence over speculative feature or benchmark work.
   `Full Verify` run stayed pending far beyond recent normal duration. This
   keeps the clean-CI rule enforceable because future runner hangs become
   bounded failures instead of indefinite pending checks.
+- 2026-04-28: Kept Dart package publishing blocked behind an explicit
+  operator/product decision. Local client package validation now passes, but a
+  real publish still needs pub.dev ownership and dependency publish-order
+  decisions because `connectanum_client` depends on private
+  `connectanum_core`.
 
 ## Handoff
 
-- Next continuation should keep hosted GitHub CI clean, then move to branch
-  protection/release evidence or Dart package publishing readiness. Do not
-  publish a stable non-validation release tag without an explicit
-  product/version decision.
+- Next continuation should keep hosted GitHub CI clean, finish validating the
+  Dart package publishing readiness slice, then move to branch
+  protection/release evidence. Do not publish a stable non-validation release
+  tag or Dart package without an explicit product/version/ownership decision.

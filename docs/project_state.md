@@ -317,6 +317,20 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     `DeprecationWarning`, `Connection reset by peer`,
     `connection ConnectionId`, timeout, cancellation, or real error lines;
     remaining `failed` matches were passing test names or Rust test summaries
+- The current Dart package publishing readiness slice documents and reduces
+  pub.dev blockers without publishing or making private packages public:
+  - `bin/test-fast` passed before package metadata changes
+  - every package now has a package-root MIT `LICENSE`, matching the repo
+    license and satisfying pub.dev's mandatory package-root license check
+  - package pubspecs now expose GitHub `homepage`, `repository`, and
+    `issue_tracker` metadata for readable future package pages
+  - `dart pub publish --dry-run` from `packages/connectanum_client` passes
+    locally with `Package has 0 warnings`
+  - `docs/dart_package_publishing.md` records the remaining product/deployment
+    blocker: pub.dev currently returns `404` for both `connectanum_client` and
+    `connectanum_core`, while `connectanum_client` depends on
+    `connectanum_core: ^0.1.0`; real publishing still needs explicit package
+    ownership, version, and publish-order decisions
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.
@@ -2201,6 +2215,7 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
   `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`
 - Supporting research notes:
   - `docs/mcp_integration_research.md`
+  - `docs/dart_package_publishing.md`
   - `docs/ktls_research.md`
   - `docs/e2ee_ppt_research.md`
 - Most recent completed plan:
