@@ -266,11 +266,14 @@ completed on clean branch checkpoint `17697ae`.
   - `python3 tool/test_ktls_http2_compare.py`
   - rerendered `25044549578` repeat artifacts with
     `tool/ktls_http2_compare_repeats.py`
+  - `bin/verify`
+  - hosted GitHub `CI` run `25045630570` completed successfully on `d97d34f`
 
 ## Next Step
 
-Push the repeat-report focus slice through branch CI. Then rerun the same
-isolated hosted `s1` workload only after the top-level artifact can expose the
-per-repeat phase-timing focus directly; use the next decision-quality run to
-decide whether the stable throughput loss is mostly waiting for connection
-reads after first chunk or processing/draining after those reads.
+Rerun the same isolated hosted `s1` workload on `d97d34f` or newer now that the
+top-level artifact exposes per-repeat phase-timing focus directly. Use the next
+decision-quality run to decide whether the stable throughput loss is mostly
+waiting for connection reads after first chunk or processing/draining after
+those reads; if the run is still non-decision-quality, use the aggregate focus
+table to classify which repeats are header-wait noise versus body-tail signal.

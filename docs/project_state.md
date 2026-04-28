@@ -69,8 +69,10 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
   - local focused verification is green:
     `bin/test-fast`,
     `python3 -m py_compile tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
-    `python3 tool/test_ktls_http2_compare.py`, and a rerender of hosted run
-    `25044549578`
+    `python3 tool/test_ktls_http2_compare.py`, a rerender of hosted run
+    `25044549578`, and `bin/verify`
+  - commit `d97d34f` (`tool: surface repeat phase timing focus`) passed
+    hosted GitHub `CI` run `25045630570`
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.
