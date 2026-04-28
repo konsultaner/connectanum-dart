@@ -1,0 +1,44 @@
+name: Dart Package Publish Dry Run
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - '.github/workflows/dart-package-publish.yml'
+      - 'bin/dart-package-publish-dry-run'
+      - 'docs/dart_package_publishing.md'
+      - 'packages/**/CHANGELOG.md'
+      - 'packages/**/LICENSE'
+      - 'packages/**/README.md'
+      - 'packages/**/pubspec.yaml'
+  pull_request:
+    branches: [master]
+    paths:
+      - '.github/workflows/dart-package-publish.yml'
+      - 'bin/dart-package-publish-dry-run'
+      - 'docs/dart_package_publishing.md'
+      - 'packages/**/CHANGELOG.md'
+      - 'packages/**/LICENSE'
+      - 'packages/**/README.md'
+      - 'packages/**/pubspec.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+
+jobs:
+  publish-dry-run:
+    name: Publish Dry Run
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dart-lang/setup-dart@v1
+
+      - name: Validate publishable Dart packages
+        run: bin/dart-package-publish-dry-run

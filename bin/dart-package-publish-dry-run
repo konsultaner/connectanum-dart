@@ -1,0 +1,187 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/common.sh"
+
+usage() {
+  cat <<'USAGE'
+Usage: bin/dart-package-publish-dry-run [options] [package-or-path ...]
+
+Runs `dart pub publish --dry-run` for publishable Dart workspace packages.
+When no package is provided, the command discovers packages under packages/
+and skips packages whose pubspec declares `publish_to: none`.
+
+Options:
+  --include-private   Also run dry-runs for packages with `publish_to: none`.
+                      This is expected to fail unless the package is made
+                      publishable first.
+  -h, --help          Show this help text.
+USAGE
+}
+
+include_private=0
+requested_packages=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --include-private)
+      include_private=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      while [[ $# -gt 0 ]]; do
+        requested_packages+=("$1")
+        shift
+      done
+      ;;
+    -*)
+      printf 'Unrecognized argument: %s\n' "$1" >&2
+      usage >&2
+      exit 64
+      ;;
+    *)
+      requested_packages+=("$1")
+      shift
+      ;;
+  esac
+done
+
+pubspec_name() {
+  local pubspec="$1"
+
+  awk '
+    /^[[:space:]]*name:[[:space:]]*/ {
+      value = $0
+      sub(/^[[:space:]]*name:[[:space:]]*/, "", value)
+      sub(/[[:space:]]*#.*$/, "", value)
+      gsub(/^[[:space:]]*["'\'']?/, "", value)
+      gsub(/["'\'']?[[:space:]]*$/, "", value)
+      print value
+      exit
+    }
+  ' "$pubspec"
+}
+
+publish_to_none() {
+  local pubspec="$1"
+
+  grep -Eq "^[[:space:]]*publish_to:[[:space:]]*['\"]?none['\"]?[[:space:]]*(#.*)?$" "$pubspec"
+}
+
+resolve_package_root() {
+  local package="$1"
+  local candidate
+  local pubspec
+  local name
+
+  if [[ -d "$package" && -f "$package/pubspec.yaml" ]]; then
+    (cd "$package" && pwd -P)
+    return 0
+  fi
+
+  candidate="packages/$package"
+  if [[ -d "$candidate" && -f "$candidate/pubspec.yaml" ]]; then
+    (cd "$candidate" && pwd -P)
+    return 0
+  fi
+
+  for pubspec in packages/*/pubspec.yaml; do
+    [[ -f "$pubspec" ]] || continue
+    name="$(pubspec_name "$pubspec")"
+    if [[ "$name" == "$package" ]]; then
+      (cd "$(dirname "$pubspec")" && pwd -P)
+      return 0
+    fi
+  done
+
+  printf 'Could not resolve Dart workspace package or path: %s\n' "$package" >&2
+  return 1
+}
+
+append_unique_root() {
+  local root="$1"
+  local existing
+
+  for existing in "${package_roots[@]-}"; do
+    [[ -n "$existing" ]] || continue
+    if [[ "$existing" == "$root" ]]; then
+      return 0
+    fi
+  done
+
+  package_roots+=("$root")
+}
+
+cd_repo_root
+require_command dart
+
+package_roots=()
+skipped_packages=()
+
+if [[ "${#requested_packages[@]}" -gt 0 ]]; then
+  for package in "${requested_packages[@]}"; do
+    append_unique_root "$(resolve_package_root "$package")"
+  done
+else
+  for pubspec in packages/*/pubspec.yaml; do
+    [[ -f "$pubspec" ]] || continue
+    append_unique_root "$(cd "$(dirname "$pubspec")" && pwd -P)"
+  done
+fi
+
+if [[ "${#package_roots[@]}" -eq 0 ]]; then
+  printf 'No Dart workspace packages found.\n' >&2
+  exit 1
+fi
+
+dart_workspace_bootstrap
+
+dry_run_packages=()
+
+for root in "${package_roots[@]}"; do
+  pubspec="$root/pubspec.yaml"
+  package_name="$(pubspec_name "$pubspec")"
+  rel_root="${root#"$(repo_root)/"}"
+
+  if [[ "$include_private" -eq 0 ]] && publish_to_none "$pubspec"; then
+    skipped_packages+=("${package_name} (${rel_root})")
+    printf 'Skipping private package %s (%s): publish_to is none.\n' "$package_name" "$rel_root"
+    continue
+  fi
+
+  dry_run_packages+=("${package_name} (${rel_root})")
+  printf '\n## Publish dry-run: %s (%s)\n\n' "$package_name" "$rel_root"
+  (
+    cd "$root"
+    dart pub publish --dry-run
+  )
+done
+
+if [[ "${#dry_run_packages[@]}" -eq 0 ]]; then
+  printf '\nNo publishable Dart packages found.\n' >&2
+  exit 1
+fi
+
+printf '\nDart package publish dry-run completed for %d package(s).\n' "${#dry_run_packages[@]}"
+
+if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+  {
+    printf '## Dart Package Publish Dry Run\n\n'
+    printf 'Validated package archives:\n'
+    for package in "${dry_run_packages[@]}"; do
+      printf -- '- %s\n' "$package"
+    done
+    if [[ "${#skipped_packages[@]}" -gt 0 ]]; then
+      printf '\nSkipped private workspace packages:\n'
+      for package in "${skipped_packages[@]}"; do
+        printf -- '- %s\n' "$package"
+      done
+    fi
+  } >>"$GITHUB_STEP_SUMMARY"
+fi

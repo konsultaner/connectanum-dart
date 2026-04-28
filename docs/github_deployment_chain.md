@@ -90,9 +90,9 @@ Rust result summaries containing `0 failed`.
 
 ## Current Evidence
 
-The latest audited branch evidence on 2026-04-28:
+The latest audited branch evidence on 2026-04-29:
 
-- `add-router` commit `be29fe6` passed GitHub `CI` run `25080054856`.
+- `add-router` commit `b6d05ca` passed GitHub `CI` run `25080633807`.
 - `Fast Checks` and `Full Verify` completed successfully.
 - `WAMP Profile Gates` in the main `CI` workflow were skipped because the run
   was not a manual `workflow_dispatch`; the dedicated `WAMP Profile Benchmarks`
@@ -103,6 +103,9 @@ The latest audited branch evidence on 2026-04-28:
   run `25071505445`.
 - `be29fe6` added the router image dry-run/manual publish-approval gate before
   default-branch workflow promotion.
+- The current package-publish readiness slice adds a dedicated non-mutating
+  Dart package publish dry-run workflow. It validates publishable package
+  archives on GitHub without publishing to pub.dev.
 
 The next deployment-chain improvement should either apply the approved branch
 protection settings, promote and validate the router image workflow/package, or

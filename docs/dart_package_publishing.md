@@ -16,13 +16,22 @@ and version-sequencing decisions.
   package archives satisfy pub.dev's mandatory license check.
 - Every package pubspec now points to the GitHub repository and issue tracker
   so package metadata is readable when a package becomes public.
+- `bin/dart-package-publish-dry-run` is the canonical non-mutating local check
+  for package archive readiness. It discovers publishable workspace packages,
+  skips private packages by default, and runs `dart pub publish --dry-run` for
+  each publishable package.
+- `.github/workflows/dart-package-publish.yml` runs the same dry-run on GitHub
+  for package metadata, package docs, package license/changelog, and workflow
+  changes. It can also be started manually with `workflow_dispatch`.
 
 ## Latest Local Evidence
 
-As of 2026-04-28:
+As of 2026-04-29:
 
-- `dart pub publish --dry-run` from `packages/connectanum_client` passes with
-  `Package has 0 warnings`.
+- `bin/dart-package-publish-dry-run` skips the private workspace packages and
+  validates `packages/connectanum_client`.
+- The underlying `dart pub publish --dry-run` for `connectanum_client` passes
+  with `Package has 0 warnings`.
 - The same dry-run is only local package validation. The pub.dev API currently
   returns `404` for both `connectanum_client` and `connectanum_core`, so a real
   publish still needs package ownership and publish-order decisions.

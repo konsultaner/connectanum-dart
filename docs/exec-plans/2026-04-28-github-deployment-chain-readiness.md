@@ -3,7 +3,7 @@
 Status: in_progress
 Owner: Codex
 Created: 2026-04-28
-Last updated: 2026-04-28
+Last updated: 2026-04-29
 
 ## Goal
 
@@ -316,6 +316,22 @@ operator evidence over speculative feature or benchmark work.
   - hosted log scanning found no real warnings, deprecations, rawsocket reset
     noise, timeouts, cancellations, or errors; remaining matches were a passing
     bcrypt test name and Rust `0 failed` summaries
+- Recorded the router-image publish-safety docs checkpoint:
+  - commit `b6d05ca` (`docs: record router image publish gate ci`) passed
+    GitHub `CI` run `25080633807`
+  - `Fast Checks` and `Full Verify` succeeded; `WAMP Profile Gates` was
+    skipped as expected for a docs-only push
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, or errors; remaining matches were a passing
+    bcrypt test name and Rust `0 failed` summaries
+- Started the Dart package publish dry-run evidence slice:
+  - `bin/dart-package-publish-dry-run` discovers publishable workspace
+    packages, skips `publish_to: none` packages by default, and runs
+    `dart pub publish --dry-run` for every publishable package
+  - `.github/workflows/dart-package-publish.yml` runs the dry-run on package
+    metadata/docs/license/changelog changes and manual dispatch
+  - this keeps pub.dev archive validation hosted and repeatable without
+    publishing packages or changing package ownership/version policy
 
 ## Verification
 
@@ -492,6 +508,15 @@ operator evidence over speculative feature or benchmark work.
   - GitHub `CI` run `25080054856`
   - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
     cancellation, and real error lines
+- Current Dart package publish dry-run checks:
+  - GitHub `CI` run `25080633807`
+  - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
+    cancellation, and real error lines
+  - `bin/test-fast`
+  - `bash -n bin/dart-package-publish-dry-run`
+  - workflow YAML parsing for `.github/workflows/dart-package-publish.yml`
+  - `bin/dart-package-publish-dry-run`
+  - `bin/verify`
 
 ## Decision Log
 
@@ -554,6 +579,11 @@ operator evidence over speculative feature or benchmark work.
   workflow is promoted to the default branch. This keeps validation builds
   non-mutating by default and requires an explicit tag match before a manual
   GHCR publish.
+- 2026-04-29: Added a dedicated Dart package publish dry-run workflow rather
+  than folding pub.dev archive checks into `bin/verify`. Package publishing has
+  network-facing release semantics and known product blockers, so it should
+  produce hosted deployment evidence without slowing every local verification
+  run or publishing anything.
 
 ## Handoff
 

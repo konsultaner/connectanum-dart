@@ -1,8 +1,8 @@
 # Project State
 
-Last updated: 2026-04-28
+Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `be29fe6` (`ci: gate router image manual publishes`)
+Last reviewed commit: `b6d05ca` (`docs: record router image publish gate ci`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -431,6 +431,29 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     Hosted log scanning found no real warnings, deprecations, rawsocket reset
     noise, timeouts, cancellations, or errors; remaining matches were a
     passing bcrypt test name and Rust `0 failed` summaries.
+- Documentation checkpoint `b6d05ca`
+  (`docs: record router image publish gate ci`) passed hosted GitHub `CI` run
+  `25080633807`; `Fast Checks` and `Full Verify` succeeded, while
+  `WAMP Profile Gates` was correctly skipped for the docs-only push. Hosted
+  log scanning found no real warnings, deprecations, rawsocket reset noise,
+  timeouts, cancellations, or errors; remaining matches were a passing bcrypt
+  test name and Rust `0 failed` summaries.
+- The current Dart package publish-readiness slice adds hosted non-mutating
+  pub.dev archive validation:
+  - `bin/dart-package-publish-dry-run` discovers publishable workspace
+    packages, skips `publish_to: none` packages by default, and runs
+    `dart pub publish --dry-run` for every publishable package
+  - `.github/workflows/dart-package-publish.yml` runs the same check on
+    package metadata/docs/license/changelog changes and on manual dispatch
+  - the local dry-run currently validates `packages/connectanum_client` and
+    reports `Package has 0 warnings`; private workspace packages remain
+    skipped until an explicit publish decision changes their `publish_to`
+    policy
+  - focused local checks passed: `bin/test-fast`, `bash -n
+    bin/dart-package-publish-dry-run`, workflow YAML parsing, and
+    `bin/dart-package-publish-dry-run`
+  - local `bin/verify` passed after the workflow, script, and documentation
+    changes, including the Chrome browser-platform test
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.
