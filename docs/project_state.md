@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `1b95c9d` (`docs: prepare dart package publishing`)
+Last reviewed commit: `4b17fa6` (`docs: record package publish readiness ci`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -337,6 +337,33 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
   - hosted log scanning found no warnings, deprecations, rawsocket reset noise,
     timeouts, cancellations, or real errors; remaining matches were passing
     test names or Rust test summaries
+- Documentation checkpoint `4b17fa6`
+  (`docs: record package publish readiness ci`) passed hosted GitHub `CI` run
+  `25072248218`:
+  - `Fast Checks` and `Full Verify` completed successfully
+  - `WAMP Profile Gates` was skipped because the docs-only push was not a
+    manual benchmark dispatch
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, or errors; remaining matches were passing
+    test names or Rust test summaries
+- The current branch-protection/release-evidence slice adds a repeatable
+  GitHub deployment-chain audit:
+  - `bin/audit-github-deployment-chain --branch master --run-limit 4` reports
+    that `master` is protected, requires one CODEOWNER review, disallows force
+    pushes/deletions, has no repository rulesets, and currently has no required
+    status checks
+  - `bin/audit-github-deployment-chain --branch add-router --run-limit 6`
+    reports that `add-router` is unprotected and that the latest branch runs
+    are hosted-clean through `CI` run `25072248218`
+  - `docs/github_deployment_chain.md` records the branch-protection gap and the
+    recommended minimum required checks: `Fast Checks` and `Full Verify`
+  - no remote branch-protection setting was changed autonomously; applying
+    required status checks remains an operator decision because it changes
+    merge policy
+  - local `bin/test-fast` passed before the audit script and evidence docs
+    were added
+  - local `bin/verify` passed after the audit script and evidence docs were
+    added, including the Chrome browser-platform test
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.

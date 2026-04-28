@@ -1,0 +1,229 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/common.sh"
+
+usage() {
+  cat <<'USAGE'
+Usage: bin/audit-github-deployment-chain [options]
+
+Prints a read-only GitHub deployment-chain audit for the repository: default
+branch protection, required status checks, repository rulesets, active workflows,
+and the latest branch runs.
+
+Options:
+  --repository <owner/repo>  Repository to inspect. Defaults to
+                             GITHUB_REPOSITORY or konsultaner/connectanum-dart.
+  --branch <branch>         Branch to inspect. Defaults to the repository
+                             default branch.
+  --run-limit <count>       Latest branch runs to print. Defaults to 6.
+  --strict                  Exit non-zero when the branch lacks the baseline
+                             required checks expected for protected releases.
+  -h, --help                Show this help text.
+USAGE
+}
+
+repository="${GITHUB_REPOSITORY:-konsultaner/connectanum-dart}"
+branch=""
+run_limit=6
+strict=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --repository)
+      [[ $# -ge 2 ]] || {
+        printf 'Expected a value after --repository.\n' >&2
+        exit 64
+      }
+      repository="$2"
+      shift 2
+      ;;
+    --repository=*)
+      repository="${1#--repository=}"
+      shift
+      ;;
+    --branch)
+      [[ $# -ge 2 ]] || {
+        printf 'Expected a value after --branch.\n' >&2
+        exit 64
+      }
+      branch="$2"
+      shift 2
+      ;;
+    --branch=*)
+      branch="${1#--branch=}"
+      shift
+      ;;
+    --run-limit)
+      [[ $# -ge 2 ]] || {
+        printf 'Expected a value after --run-limit.\n' >&2
+        exit 64
+      }
+      run_limit="$2"
+      shift 2
+      ;;
+    --run-limit=*)
+      run_limit="${1#--run-limit=}"
+      shift
+      ;;
+    --strict)
+      strict=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Unrecognized argument: %s\n' "$1" >&2
+      usage >&2
+      exit 64
+      ;;
+  esac
+done
+
+if ! [[ "$run_limit" =~ ^[0-9]+$ ]] || [[ "$run_limit" -eq 0 ]]; then
+  printf 'Expected --run-limit to be a positive integer, got %s.\n' "$run_limit" >&2
+  exit 64
+fi
+
+cd_repo_root
+
+gh_bin="${GH_BIN:-}"
+if [[ -z "$gh_bin" ]]; then
+  if command -v gh >/dev/null 2>&1; then
+    gh_bin="$(command -v gh)"
+  elif [[ -x "$HOME/bin/gh" ]]; then
+    gh_bin="$HOME/bin/gh"
+  else
+    printf 'Missing required command: gh. Set GH_BIN to the GitHub CLI path if it is not on PATH.\n' >&2
+    exit 1
+  fi
+fi
+
+api_jq() {
+  local path="$1"
+  local filter="$2"
+  local api_path="repos/${repository}"
+
+  if [[ -n "$path" ]]; then
+    api_path="${api_path}/${path}"
+  fi
+
+  "$gh_bin" api "$api_path" --jq "$filter"
+}
+
+api_jq_optional() {
+  local path="$1"
+  local filter="$2"
+  local api_path="repos/${repository}"
+
+  if [[ -n "$path" ]]; then
+    api_path="${api_path}/${path}"
+  fi
+
+  "$gh_bin" api "$api_path" --jq "$filter" 2>/dev/null || true
+}
+
+if [[ -z "$branch" ]]; then
+  branch="$(api_jq "" '.default_branch')"
+fi
+
+repo_visibility="$(api_jq "" '.visibility')"
+repo_private="$(api_jq "" '.private')"
+default_branch="$(api_jq "" '.default_branch')"
+allow_auto_merge="$(api_jq "" '.allow_auto_merge')"
+delete_branch_on_merge="$(api_jq "" '.delete_branch_on_merge')"
+branch_protected="$(api_jq_optional "branches/${branch}" '.protected')"
+ruleset_count="$(api_jq_optional "rulesets" 'length')"
+
+printf '# GitHub Deployment Chain Audit\n\n'
+printf 'Repository: %s\n' "$repository"
+printf 'Visibility: %s (private=%s)\n' "$repo_visibility" "$repo_private"
+printf 'Default branch: %s\n' "$default_branch"
+printf 'Audited branch: %s\n' "$branch"
+printf 'Allow auto-merge: %s\n' "$allow_auto_merge"
+printf 'Delete branch on merge: %s\n' "$delete_branch_on_merge"
+printf 'Repository rulesets: %s\n\n' "${ruleset_count:-unknown}"
+
+printf '## Branch Protection\n\n'
+
+if [[ -z "$branch_protected" ]]; then
+  printf 'Branch exists/protection status: unknown\n'
+  printf 'Finding: could not inspect branch %s.\n' "$branch"
+  exit 1
+fi
+
+printf 'Protected: %s\n' "$branch_protected"
+
+missing_required_checks=0
+required_contexts=""
+
+if [[ "$branch_protected" == "true" ]]; then
+  required_contexts="$(
+    api_jq_optional \
+      "branches/${branch}/protection" \
+      '((.required_status_checks.contexts // []) + ((.required_status_checks.checks // []) | map(.context))) | unique | join(", ")'
+  )"
+  status_strict="$(
+    api_jq_optional \
+      "branches/${branch}/protection" \
+      '.required_status_checks.strict // false'
+  )"
+  review_count="$(
+    api_jq_optional \
+      "branches/${branch}/protection" \
+      '.required_pull_request_reviews.required_approving_review_count // 0'
+  )"
+  code_owner_reviews="$(
+    api_jq_optional \
+      "branches/${branch}/protection" \
+      '.required_pull_request_reviews.require_code_owner_reviews // false'
+  )"
+  enforce_admins="$(api_jq_optional "branches/${branch}/protection" '.enforce_admins.enabled // false')"
+  allow_force_pushes="$(api_jq_optional "branches/${branch}/protection" '.allow_force_pushes.enabled // false')"
+  allow_deletions="$(api_jq_optional "branches/${branch}/protection" '.allow_deletions.enabled // false')"
+  linear_history="$(api_jq_optional "branches/${branch}/protection" '.required_linear_history.enabled // false')"
+  conversation_resolution="$(api_jq_optional "branches/${branch}/protection" '.required_conversation_resolution.enabled // false')"
+
+  printf 'Required status checks: %s\n' "${required_contexts:-none}"
+  printf 'Require up-to-date branches: %s\n' "$status_strict"
+  printf 'Required approving reviews: %s\n' "$review_count"
+  printf 'Require code-owner reviews: %s\n' "$code_owner_reviews"
+  printf 'Enforce admins: %s\n' "$enforce_admins"
+  printf 'Allow force pushes: %s\n' "$allow_force_pushes"
+  printf 'Allow deletions: %s\n' "$allow_deletions"
+  printf 'Required linear history: %s\n' "$linear_history"
+  printf 'Required conversation resolution: %s\n' "$conversation_resolution"
+
+  for expected_check in 'Fast Checks' 'Full Verify'; do
+    if [[ "$required_contexts" != *"$expected_check"* ]]; then
+      printf 'Finding: missing required status check: %s\n' "$expected_check"
+      missing_required_checks=1
+    fi
+  done
+else
+  printf 'Required status checks: none\n'
+  printf 'Finding: branch is not protected.\n'
+  missing_required_checks=1
+fi
+
+printf '\n## Active Workflows\n\n'
+api_jq_optional \
+  "actions/workflows" \
+  '.workflows[] | "- \(.name): \(.state) (\(.path))"'
+
+printf '\n## Latest Branch Runs\n\n'
+"$gh_bin" run list \
+  --repo "$repository" \
+  --branch "$branch" \
+  --limit "$run_limit" \
+  --json name,databaseId,status,conclusion,headSha,createdAt \
+  --jq '.[] | "- \(.name) #\(.databaseId): \(.status)/\(.conclusion // "pending") @ \(.headSha[0:7]) (\(.createdAt))"' \
+  || true
+
+if [[ "$strict" -eq 1 && "$missing_required_checks" -ne 0 ]]; then
+  printf '\nStrict audit failed: protected release branches should require Fast Checks and Full Verify.\n' >&2
+  exit 1
+fi

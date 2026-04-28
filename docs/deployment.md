@@ -22,6 +22,9 @@ Registry through `.github/workflows/router-image.yml`:
 Prefer immutable version tags in production manifests and reserve `latest` for
 development or fast-follow environments.
 
+Maintainer-side GitHub Actions, branch protection, and release-evidence
+expectations are tracked in `docs/github_deployment_chain.md`.
+
 ## Build native transport
 
 ```sh

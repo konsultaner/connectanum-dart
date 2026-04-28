@@ -247,6 +247,20 @@ operator evidence over speculative feature or benchmark work.
   - hosted log scanning found no warnings, deprecations, rawsocket reset noise,
     timeouts, cancellations, or real errors; remaining matches were passing
     test names or Rust test summaries
+- Recorded the Dart package publishing docs checkpoint and started branch
+  protection/release evidence:
+  - commit `4b17fa6` (`docs: record package publish readiness ci`) passed
+    GitHub `CI` run `25072248218`
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, or errors; remaining matches were passing
+    test names or Rust test summaries
+  - `bin/audit-github-deployment-chain` now provides a repeatable read-only
+    audit of repository metadata, branch protection, rulesets, active
+    workflows, and recent branch runs
+  - `docs/github_deployment_chain.md` records the current GitHub controls,
+    release evidence policy, and the branch-protection gap: `master` is
+    protected but has no required status checks
+  - no remote branch protection was changed autonomously
 
 ## Verification
 
@@ -385,6 +399,17 @@ operator evidence over speculative feature or benchmark work.
   - GitHub `WAMP Profile Benchmarks` run `25071505445`
   - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
     cancellation, and real error lines
+- Current branch-protection/release-evidence checks:
+  - GitHub `CI` run `25072248218`
+  - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
+    cancellation, and real error lines
+  - `bin/test-fast`
+  - `bin/audit-github-deployment-chain --branch master --run-limit 4`
+  - `bin/audit-github-deployment-chain --branch add-router --run-limit 6`
+  - strict-mode smoke test confirming the known `master` required-check gap
+    exits non-zero
+  - `git diff --check`
+  - `bin/verify`
 
 ## Decision Log
 
@@ -434,9 +459,16 @@ operator evidence over speculative feature or benchmark work.
   real publish still needs pub.dev ownership and dependency publish-order
   decisions because `connectanum_client` depends on private
   `connectanum_core`.
+- 2026-04-28: Treated GitHub branch protection changes as an operator decision
+  instead of silently mutating repository settings. The current evidence shows
+  `master` is protected and requires one CODEOWNER review, but required status
+  checks are unset. The recommended minimum required checks are `Fast Checks`
+  and `Full Verify`.
 
 ## Handoff
 
-- Next continuation should keep hosted GitHub CI clean, then move to branch
-  protection/release evidence. Do not publish a stable non-validation release
-  tag or Dart package without an explicit product/version/ownership decision.
+- Next continuation should keep hosted GitHub CI clean, then either apply
+  branch protection once the operator approves required checks or continue
+  tightening release evidence around GitHub Releases and Dart package
+  publishing. Do not publish a stable non-validation release tag or Dart
+  package without an explicit product/version/ownership decision.
