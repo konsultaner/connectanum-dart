@@ -63,6 +63,7 @@ jobs:
   linux-ktls-http2:
     name: Linux HTTP/2 kTLS benchmark
     runs-on: ubuntu-latest
+    timeout-minutes: 120
 
     steps:
       - uses: actions/checkout@v5

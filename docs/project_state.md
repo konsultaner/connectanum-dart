@@ -294,6 +294,20 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     `is_benign_socket_shutdown`
   - remaining `failed` matches were passing test names/result summaries, not
     failed checks
+- The current CI-timeout hardening slice addresses a stalled GitHub `Full
+  Verify` job on docs checkpoint `d0afe06`:
+  - GitHub `CI` run `25066016309` passed `Fast Checks` but left
+    `Full Verify` in progress for more than 30 minutes after the prior
+    comparable full-verify job completed in about 9 minutes
+  - the stale unbounded run was cancelled after the timeout-hardening slice
+    started, so the next pushed head can provide the branch-cleanliness signal
+  - the GitHub workflows now use job-level `timeout-minutes` so stuck runners
+    fail closed instead of leaving branch status indefinitely pending
+  - timeout budgets are intentionally generous relative to recent hosted runs:
+    `Fast Checks` 20 minutes, `Full Verify` 45 minutes, WAMP/kTLS validation
+    30-45 minutes, native artifact packaging 45 minutes, native publish 20
+    minutes, and long manual image/kTLS benchmark jobs 120 minutes
+  - local `bin/test-fast` passed before the workflow timeout changes
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.
@@ -2171,6 +2185,8 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
 ## Active Plan
 
 - Active plan:
+  `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
+- Paused benchmark-diagnosis plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 - Most recent completed product-readiness plan:
   `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`

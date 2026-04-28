@@ -19,6 +19,7 @@ jobs:
   publish-router-image:
     name: Publish Router Image
     runs-on: ubuntu-latest
+    timeout-minutes: 120
 
     steps:
       - uses: actions/checkout@v5

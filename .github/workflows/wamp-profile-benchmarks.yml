@@ -42,6 +42,7 @@ jobs:
   linux-wamp-profile:
     name: Linux WAMP profile gates
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v5

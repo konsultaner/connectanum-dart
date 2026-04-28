@@ -206,6 +206,19 @@ operator evidence over speculative feature or benchmark work.
   - GitHub `kTLS Validation` run `25065253836` passed
   - hosted log scanning found no `Connection reset by peer` or
     `connection ConnectionId` lines on the cleaned-up run
+- Started a CI-timeout hardening slice after docs checkpoint `d0afe06` left
+  GitHub `CI` run `25066016309` with `Full Verify` in progress for more than
+  30 minutes:
+  - the previous comparable hosted full-verify job completed in about
+    9 minutes, so this is being treated as a stalled runner/status issue
+  - the stale unbounded run was cancelled after the timeout-hardening slice
+    started, so the next pushed head can provide the branch-cleanliness signal
+  - all GitHub workflows now use job-level `timeout-minutes` so a stuck job
+    fails closed instead of leaving the branch indefinitely pending
+  - timeout budgets remain generous relative to recent hosted runs: 20 minutes
+    for fast checks, 45 minutes for full verify and native packaging,
+    30-45 minutes for validation/gate jobs, and 120 minutes for long manual
+    image or kTLS benchmark jobs
 
 ## Verification
 
@@ -323,6 +336,11 @@ operator evidence over speculative feature or benchmark work.
   - GitHub `kTLS Validation` run `25065253836`
   - hosted log scan for `Connection reset by peer`,
     `connection ConnectionId`, warnings, and deprecations
+- Current CI-timeout hardening checks:
+  - `bin/test-fast`
+  - workflow YAML parsing across `.github/workflows/*.yml`
+  - `git diff --check`
+  - `bin/verify`
 
 ## Decision Log
 
@@ -363,10 +381,15 @@ operator evidence over speculative feature or benchmark work.
   as benign CI log noise, not a behavior failure. The fix reuses the existing
   `is_benign_socket_shutdown` policy rather than deleting diagnostics
   wholesale.
+- 2026-04-28: Added job-level GitHub Actions timeouts after a docs-only
+  `Full Verify` run stayed pending far beyond recent normal duration. This
+  keeps the clean-CI rule enforceable because future runner hangs become
+  bounded failures instead of indefinite pending checks.
 
 ## Handoff
 
-- Next continuation should keep GitHub CI clean, then move to branch
+- Next continuation should first confirm the timeout-hardening push has clean
+  hosted GitHub CI and no warning/deprecation regressions, then move to branch
   protection/release evidence or Dart package publishing readiness. Do not
   publish a stable non-validation release tag without an explicit
   product/version decision.
