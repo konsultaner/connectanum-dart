@@ -97,6 +97,11 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
   in `actions/attest@v4` because the multiline `subject-path` was interpreted
   as one literal path on Windows. The current follow-up splits archive,
   checksum, and manifest attestations into separate single-subject steps.
+- Manual hosted `Native Artifacts` run `25047880947` on `f26f358` confirmed the
+  split attestation steps are valid on Linux and macOS, but Windows still could
+  not resolve the Git Bash `/d/a/...` path inside the Node-based attestation
+  action. The current follow-up keeps POSIX paths for shell/cosign and uses
+  workspace-relative paths for `actions/attest` and `actions/upload-artifact`.
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.

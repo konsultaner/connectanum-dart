@@ -94,6 +94,11 @@ operator evidence over speculative feature or benchmark work.
   failed in `actions/attest@v4` because Windows treated the multiline
   `subject-path` as one literal path. The follow-up workflow fix splits archive,
   checksum, and manifest attestations into separate single-subject steps.
+- Manual hosted `Native Artifacts` run `25047880947` on `f26f358` proved the
+  split attestation steps work on Linux and macOS, but Windows still could not
+  resolve the Git Bash `/d/a/...` path inside the Node-based attestation action.
+  The follow-up workflow fix keeps POSIX paths for shell/cosign and uses
+  workspace-relative paths for `actions/attest` and `actions/upload-artifact`.
 
 ## Decision Log
 

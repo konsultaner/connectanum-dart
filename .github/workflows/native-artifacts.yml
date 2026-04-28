@@ -95,29 +95,29 @@ jobs:
       - name: Generate archive attestation
         uses: actions/attest@v4
         with:
-          subject-path: ${{ steps.package.outputs.archive_path }}
+          subject-path: out/native-artifacts/${{ steps.package.outputs.bundle_name }}.tar.gz
 
       - name: Generate checksum attestation
         uses: actions/attest@v4
         with:
-          subject-path: ${{ steps.package.outputs.checksum_path }}
+          subject-path: out/native-artifacts/${{ steps.package.outputs.bundle_name }}.tar.gz.sha256
 
       - name: Generate manifest attestation
         uses: actions/attest@v4
         with:
-          subject-path: ${{ steps.package.outputs.manifest_path }}
+          subject-path: out/native-artifacts/${{ steps.package.outputs.bundle_name }}.manifest.json
 
       - name: Upload packaged artifact
         uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.package.outputs.bundle_name }}
           path: |
-            ${{ steps.package.outputs.archive_path }}
-            ${{ steps.package.outputs.archive_path }}.sigstore.json
-            ${{ steps.package.outputs.checksum_path }}
-            ${{ steps.package.outputs.checksum_path }}.sigstore.json
-            ${{ steps.package.outputs.manifest_path }}
-            ${{ steps.package.outputs.manifest_path }}.sigstore.json
+            out/native-artifacts/${{ steps.package.outputs.bundle_name }}.tar.gz
+            out/native-artifacts/${{ steps.package.outputs.bundle_name }}.tar.gz.sigstore.json
+            out/native-artifacts/${{ steps.package.outputs.bundle_name }}.tar.gz.sha256
+            out/native-artifacts/${{ steps.package.outputs.bundle_name }}.tar.gz.sha256.sigstore.json
+            out/native-artifacts/${{ steps.package.outputs.bundle_name }}.manifest.json
+            out/native-artifacts/${{ steps.package.outputs.bundle_name }}.manifest.json.sigstore.json
 
   publish-release:
     name: Publish GitHub Release
