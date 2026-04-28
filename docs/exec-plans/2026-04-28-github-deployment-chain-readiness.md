@@ -100,6 +100,17 @@ operator evidence over speculative feature or benchmark work.
   - `gh release view ct-ffi-v2026.04.28-dry-run.7b45ede` returned
     `release not found`, confirming the dry-run path did not mutate GitHub
     Releases
+- Recorded the docs-only validation checkpoint:
+  - commit `d3ecfd1` (`docs: record native release dry run validation`) passed
+    GitHub `CI` run `25051747670`
+  - `Fast Checks` and `Full Verify` succeeded; `WAMP Profile Gates` was skipped
+    as expected for a docs-only push
+- Started installer coverage for hosted multi-platform native artifacts:
+  - `connectanum_client` and `connectanum_router` explicit installer helpers
+    now map the same release target triples as the hosted artifact matrix:
+    Linux x64, Linux arm64, macOS x64, macOS arm64, and Windows x64
+  - focused installer tests cover the hosted matrix mapping and unsupported
+    host/architecture errors
 
 ## Verification
 
@@ -145,6 +156,13 @@ operator evidence over speculative feature or benchmark work.
     `ct-ffi-x86_64-pc-windows-msvc`, `ct-ffi-x86_64-apple-darwin`,
     `ct-ffi-aarch64-apple-darwin`, `ct-ffi-x86_64-unknown-linux-gnu`, and
     `ct-ffi-aarch64-unknown-linux-gnu`
+- Documentation checkpoint `d3ecfd1` passed hosted GitHub `CI` run
+  `25051747670`.
+- Current installer-coverage slice focused local checks:
+  - `bin/test-fast`
+  - `dart test packages/connectanum_client/test/hook/install_native_test.dart`
+  - `dart test packages/connectanum_router/test/hook/install_native_test.dart`
+  - `bin/verify`
 
 ## Decision Log
 
@@ -167,5 +185,6 @@ operator evidence over speculative feature or benchmark work.
 
 ## Handoff
 
-- Next continuation should keep GitHub CI green, then move to installer
-  coverage for the now-hosted multi-platform native artifacts.
+- Next continuation should push the installer coverage slice, watch GitHub CI,
+  then move to release/install evidence for a real or validation native release
+  tag.

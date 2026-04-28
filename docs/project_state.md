@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `7b45ede` (`ci: add native release dry run`)
+Last reviewed commit: `d3ecfd1` (`docs: record native release dry run validation`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -144,6 +144,21 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
   - `gh release view ct-ffi-v2026.04.28-dry-run.7b45ede` returned
     `release not found`, confirming the dry-run path did not create or update a
     GitHub Release
+- Documentation checkpoint `d3ecfd1`
+  (`docs: record native release dry run validation`) passed hosted GitHub `CI`
+  run `25051747670`; `Fast Checks` and `Full Verify` succeeded, while
+  `WAMP Profile Gates` was correctly skipped for the docs-only push.
+- The current installer-coverage slice aligns explicit `install_native.dart`
+  host mapping with the hosted native release matrix:
+  - `connectanum_client` and `connectanum_router` installer helpers now map
+    Linux x64, Linux arm64, macOS x64, macOS arm64, and Windows x64 release
+    triples
+  - focused installer tests cover every hosted target mapping and unsupported
+    host/architecture errors
+  - local checks are green for `bin/test-fast`,
+    `dart test packages/connectanum_client/test/hook/install_native_test.dart`,
+    `dart test packages/connectanum_router/test/hook/install_native_test.dart`,
+    and `bin/verify`
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.

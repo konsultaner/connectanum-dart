@@ -130,14 +130,22 @@ Future<void> installReleaseAsset({
   extractedLib.copySync(outputLibFile.path);
 }
 
-String currentHostTriple() => switch (Platform.operatingSystem) {
-  'linux' => 'x86_64-unknown-linux-gnu',
-  'macos' =>
-    _currentArchitectureLabel() == 'arm64'
-        ? 'aarch64-apple-darwin'
-        : 'x86_64-apple-darwin',
+String currentHostTriple() => hostTripleForPlatform(
+  operatingSystem: Platform.operatingSystem,
+  architectureLabel: _currentArchitectureLabel(),
+);
+
+String hostTripleForPlatform({
+  required String operatingSystem,
+  required String architectureLabel,
+}) => switch ((operatingSystem, architectureLabel)) {
+  ('linux', 'x64') => 'x86_64-unknown-linux-gnu',
+  ('linux', 'arm64') => 'aarch64-unknown-linux-gnu',
+  ('macos', 'x64') => 'x86_64-apple-darwin',
+  ('macos', 'arm64') => 'aarch64-apple-darwin',
+  ('windows', 'x64') => 'x86_64-pc-windows-msvc',
   _ => throw StateError(
-    'Unsupported install host ${Platform.operatingSystem}.',
+    'Unsupported install host $operatingSystem / $architectureLabel.',
   ),
 };
 
@@ -152,10 +160,8 @@ String currentPlatformLibraryFileName(String libraryBaseName) =>
     };
 
 String _currentArchitectureLabel() {
-  if (Platform.operatingSystem != 'macos') {
-    return 'x64';
-  }
-  if (Platform.version.contains('arm64')) {
+  if (Platform.version.contains('arm64') ||
+      Platform.version.contains('aarch64')) {
     return 'arm64';
   }
   return 'x64';

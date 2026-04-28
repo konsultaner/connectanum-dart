@@ -6,6 +6,9 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
 
+import 'package:connectanum_client/src/native_release_installer.dart'
+    as native_installer;
+
 import '../../tool/install_native.dart' as install_native;
 import '../../hook/build.dart' as build_hook;
 
@@ -68,6 +71,60 @@ void main() {
       );
     },
   );
+
+  test('release installer maps every hosted native artifact target', () {
+    expect(
+      native_installer.hostTripleForPlatform(
+        operatingSystem: 'linux',
+        architectureLabel: 'x64',
+      ),
+      equals('x86_64-unknown-linux-gnu'),
+    );
+    expect(
+      native_installer.hostTripleForPlatform(
+        operatingSystem: 'linux',
+        architectureLabel: 'arm64',
+      ),
+      equals('aarch64-unknown-linux-gnu'),
+    );
+    expect(
+      native_installer.hostTripleForPlatform(
+        operatingSystem: 'macos',
+        architectureLabel: 'x64',
+      ),
+      equals('x86_64-apple-darwin'),
+    );
+    expect(
+      native_installer.hostTripleForPlatform(
+        operatingSystem: 'macos',
+        architectureLabel: 'arm64',
+      ),
+      equals('aarch64-apple-darwin'),
+    );
+    expect(
+      native_installer.hostTripleForPlatform(
+        operatingSystem: 'windows',
+        architectureLabel: 'x64',
+      ),
+      equals('x86_64-pc-windows-msvc'),
+    );
+  });
+
+  test('release installer reports unsupported host and architecture', () {
+    expect(
+      () => native_installer.hostTripleForPlatform(
+        operatingSystem: 'windows',
+        architectureLabel: 'arm64',
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('Unsupported install host windows / arm64.'),
+        ),
+      ),
+    );
+  });
 }
 
 String _defaultLibraryFileName() => switch (Platform.operatingSystem) {
