@@ -162,6 +162,18 @@ operator evidence over speculative feature or benchmark work.
     macOS Apple Silicon, macOS Intel, and Windows x64
   - source-checkout installer smoke validation passed with
     `bin/validate-native-release-install --tag ct-ffi-v2026.04.28-validation.51f7061`
+- Removed an upstream action warning from the native publish job:
+  - commit `95837fb` (`ci: download native artifacts with gh`) replaced
+    `actions/download-artifact@v8` with `gh run download` in the
+    `Publish GitHub Release` job
+  - the job now uses explicit `actions: read` permission and flattens
+    downloaded `ct-ffi-*` artifact files into `out/github-release`
+  - GitHub `CI` run `25059702813` passed `Fast Checks` and `Full Verify`;
+    `WAMP Profile Gates` was skipped as expected for the workflow-only push
+  - manual `Native Artifacts` dry-run `25060480993` passed all Linux, macOS,
+    and Windows native artifact legs plus the preview publish job
+  - hosted log scanning confirmed the previous Node `Buffer()` deprecation from
+    `actions/download-artifact` is gone
 
 ## Verification
 
@@ -244,6 +256,19 @@ operator evidence over speculative feature or benchmark work.
     prerelease targeting `51f706179e9ec654639c19e170f38fd2d03573da` with 30
     assets
   - `bin/validate-native-release-install --tag ct-ffi-v2026.04.28-validation.51f7061`
+- Native artifact publish-job warning cleanup checks:
+  - `bin/test-fast`
+  - `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/native-artifacts.yml')"`
+  - `git diff --check`
+  - GitHub `CI` run `25059702813`
+  - GitHub `Native Artifacts` dry-run `25060480993`
+  - inspected `native-release-preview/release-metadata.txt` and confirmed all
+    30 expected release assets remain present
+  - `gh release view ct-ffi-v2026.04.28-dry-run.95837fb` returned
+    `release not found`
+  - hosted log scan found no `DeprecationWarning`, `warning:`, or `::warning`
+    lines after replacing `actions/download-artifact@v8`; the only match was a
+    Cosign installer shell alias containing the literal text `ERROR:`
 
 ## Decision Log
 
@@ -272,6 +297,10 @@ operator evidence over speculative feature or benchmark work.
 - 2026-04-28: Validated the corrected native release notes in both dry-run and
   real prerelease modes. The native asset publish path is now ready for a
   non-validation release once the canonical release version/tag is chosen.
+- 2026-04-28: Replaced `actions/download-artifact@v8` in the native publish job
+  because the latest official release still emitted a Node `Buffer()`
+  deprecation warning. `gh run download` keeps the job on GitHub APIs while
+  removing the warning from hosted logs.
 
 ## Handoff
 

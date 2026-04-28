@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `51f7061` (`docs: record install path ci success`)
+Last reviewed commit: `95837fb` (`ci: download native artifacts with gh`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -219,6 +219,27 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     contains the corrected public install instructions
   - source-checkout installer smoke validation passed via
     `bin/validate-native-release-install --tag ct-ffi-v2026.04.28-validation.51f7061`
+- Native artifact publish-job log cleanliness is validated on `95837fb`
+  (`ci: download native artifacts with gh`):
+  - the publish job now downloads current-run `ct-ffi-*` artifacts through
+    `gh run download` with explicit `actions: read` permission instead of
+    `actions/download-artifact@v8`
+  - the change removes the Node `Buffer()` deprecation warning previously
+    emitted by the latest `actions/download-artifact` release during the
+    `Download packaged artifacts` step
+  - local checks passed: `bin/test-fast`, YAML parsing for
+    `.github/workflows/native-artifacts.yml`, and `git diff --check`
+  - hosted GitHub `CI` run `25059702813` passed `Fast Checks` and
+    `Full Verify`; `WAMP Profile Gates` was skipped for the workflow-only push
+  - manual GitHub `Native Artifacts` dry-run `25060480993` passed Linux x64,
+    Linux arm64, macOS Apple Silicon, macOS Intel, Windows x64, and the
+    preview publish job using the `gh run download` path
+  - the dry-run `native-release-preview` still listed all 30 expected release
+    assets, and `gh release view ct-ffi-v2026.04.28-dry-run.95837fb` returned
+    `release not found`
+  - a hosted log scan found no `DeprecationWarning`, `warning:`, or
+    `::warning` lines; the only match was a Cosign installer shell alias that
+    contains the literal text `ERROR:`
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.
