@@ -137,6 +137,11 @@ operator evidence over speculative feature or benchmark work.
     as source-checkout prefetch helpers, not package `dart run` executables
   - `bin/validate-native-release-install` codifies the release install smoke
     test for future validation tags
+- Completed hosted validation for the public install-instructions correction:
+  - commit `c925e1e` (`docs: clarify native release install path`) passed
+    GitHub `CI` run `25055877717`
+  - GitHub `WAMP Profile Benchmarks` run `25055877739` passed the Linux
+    canonical WAMP profile gate
 
 ## Verification
 
@@ -203,6 +208,9 @@ operator evidence over speculative feature or benchmark work.
   - `python3 tool/test_render_native_release_notes.py`
   - `git diff --check`
   - `bin/verify`
+- Hosted public install-instructions checks on `c925e1e`:
+  - GitHub `CI` run `25055877717`
+  - GitHub `WAMP Profile Benchmarks` run `25055877739`
 
 ## Decision Log
 
@@ -231,7 +239,7 @@ operator evidence over speculative feature or benchmark work.
 
 ## Handoff
 
-- Next continuation should finish the public install-instructions correction:
-  run full verification, commit and push the docs/tooling update, watch hosted
-  GitHub CI, and then use the corrected release-note generator for the next
-  native release dry-run or validation prerelease.
+- Next continuation should use the corrected release-note generator for the next
+  native release dry-run or validation prerelease, then promote the release
+  command path only if the generated public notes match the documented
+  `CONNECTANUM_NATIVE_RELEASE_TAG` and source-checkout prefetch flow.

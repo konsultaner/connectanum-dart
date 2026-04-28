@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `34cf2cd` (`docs: record installer ci success`)
+Last reviewed commit: `c925e1e` (`docs: clarify native release install path`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -190,6 +190,12 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     `python3 tool/test_render_native_release_notes.py`,
     `bash -n bin/validate-native-release-install`, `git diff --check`, and
     `bin/verify`
+- Hosted GitHub validation is clean on `c925e1e`
+  (`docs: clarify native release install path`):
+  - GitHub `CI` run `25055877717` passed `Fast Checks` and `Full Verify`;
+    `WAMP Profile Gates` was skipped inside the main CI workflow
+  - GitHub `WAMP Profile Benchmarks` run `25055877739` passed the Linux
+    canonical WAMP profile gate and uploaded its artifacts
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.
