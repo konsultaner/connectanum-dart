@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `d3ecfd1` (`docs: record native release dry run validation`)
+Last reviewed commit: `39e68b1` (`installer: cover native release artifact matrix`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -159,6 +159,12 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     `dart test packages/connectanum_client/test/hook/install_native_test.dart`,
     `dart test packages/connectanum_router/test/hook/install_native_test.dart`,
     and `bin/verify`
+- Hosted GitHub validation is clean on `39e68b1`
+  (`installer: cover native release artifact matrix`):
+  - GitHub `CI` run `25052974513` passed `Fast Checks` and `Full Verify`;
+    `WAMP Profile Gates` was skipped inside the main CI workflow
+  - GitHub `WAMP Profile Benchmarks` run `25052974498` passed the Linux
+    canonical WAMP profile gate and uploaded its artifacts
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.

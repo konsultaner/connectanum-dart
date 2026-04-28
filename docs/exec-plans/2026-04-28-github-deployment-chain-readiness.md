@@ -111,6 +111,13 @@ operator evidence over speculative feature or benchmark work.
     Linux x64, Linux arm64, macOS x64, macOS arm64, and Windows x64
   - focused installer tests cover the hosted matrix mapping and unsupported
     host/architecture errors
+- Completed hosted validation for the installer-coverage slice:
+  - commit `39e68b1` (`installer: cover native release artifact matrix`) passed
+    GitHub `CI` run `25052974513`
+  - `Fast Checks` and `Full Verify` succeeded; `WAMP Profile Gates` was skipped
+    inside the main CI workflow
+  - GitHub `WAMP Profile Benchmarks` run `25052974498` passed the Linux
+    canonical WAMP profile gate and uploaded its artifacts
 
 ## Verification
 
@@ -163,6 +170,9 @@ operator evidence over speculative feature or benchmark work.
   - `dart test packages/connectanum_client/test/hook/install_native_test.dart`
   - `dart test packages/connectanum_router/test/hook/install_native_test.dart`
   - `bin/verify`
+- Hosted installer-coverage checks on `39e68b1`:
+  - GitHub `CI` run `25052974513`
+  - GitHub `WAMP Profile Benchmarks` run `25052974498`
 
 ## Decision Log
 
@@ -185,6 +195,7 @@ operator evidence over speculative feature or benchmark work.
 
 ## Handoff
 
-- Next continuation should push the installer coverage slice, watch GitHub CI,
-  then move to release/install evidence for a real or validation native release
-  tag.
+- Next continuation should move to release/install evidence for a real or
+  validation native release tag: prove that the explicit installer can download
+  the hosted matrix assets from GitHub Releases, or document the remaining
+  blocker if a safe validation tag cannot be created.
