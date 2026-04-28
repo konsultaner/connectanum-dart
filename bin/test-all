@@ -12,6 +12,7 @@ run_client_vm_tests() {
   dart test packages/connectanum_client/test/client_test.dart
   dart test packages/connectanum_client/test/client_on_transport_io_events_test.dart
   dart test packages/connectanum_client/test/transport/local
+  dart test packages/connectanum_client/test/transport/native/native_library_loader_test.dart
   dart test packages/connectanum_client/test/transport/socket/socket_transport_test.dart
   dart test packages/connectanum_client/test/transport/websocket/websocket_transport_io_test.dart
   dart test packages/connectanum_client/test/transport/native/message_binding_test.dart
@@ -20,7 +21,7 @@ run_client_vm_tests() {
     dart test packages/connectanum_client/test/transport/native/e2ee_provider_test.dart
     dart test packages/connectanum_client/test/transport/native/native_transports_test.dart
   else
-    printf 'Native client transports are only supported on Linux; skipping native transport tests on %s.\n' "$(uname -s)"
+    printf 'Native client transports require Linux or macOS; skipping native transport tests on %s.\n' "$(uname -s)"
   fi
 }
 
@@ -28,7 +29,19 @@ run_router_vm_tests() {
   printf 'Running router suite from package root so package-local test config applies on %s.\n' "$(uname -s)"
   (
     cd packages/connectanum_router
-    dart test test
+    dart test test --exclude-tags zero_copy_publish
+  )
+}
+
+run_router_zero_copy_publish_tests() {
+  (
+    cd packages/connectanum_router
+    CONNECTANUM_FORWARD_NATIVE_PUBLISH=1 \
+      dart test \
+        test/router_worker_session_test.dart \
+        test/router_integration_native_test.dart \
+        --tags zero_copy_publish \
+        --chain-stack-traces
   )
 }
 
@@ -36,7 +49,7 @@ run_bench_vm_tests() {
   printf 'Running bench suite from package root so package-local test config applies on %s.\n' "$(uname -s)"
   (
     cd packages/connectanum_bench
-    dart test test
+    env -u CONNECTANUM_NATIVE_LIB CONNECTANUM_SKIP_NATIVE_BUILD=1 dart test test
   )
 }
 
@@ -49,7 +62,7 @@ if native_runtime_supported; then
     --features ffi-test \
     router_metrics_snapshot_aggregates_reason_totals_and_listener_breakdowns
 else
-  printf 'Native Rust runtime tests are only supported on Linux; skipping them on %s.\n' "$(uname -s)"
+  printf 'Native Rust runtime tests require Linux or macOS; skipping them on %s.\n' "$(uname -s)"
 fi
 
 build_native_ffi_test_release
@@ -60,6 +73,7 @@ run_client_vm_tests
 dart test packages/connectanum_auth_server/test
 run_bench_vm_tests
 run_router_vm_tests
+run_router_zero_copy_publish_tests
 
 if ensure_chrome_env; then
   (

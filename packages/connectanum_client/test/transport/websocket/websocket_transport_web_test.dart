@@ -93,17 +93,14 @@ void main() {
             );
           }
           if (channelValues.length == 1) {
-            print('Connect to ws://localhost:$port/wamp via json');
             await transportJSON!.open();
           }
           if (channelValues.length == 2) {
             jsonCompleter.complete();
-            print('Connect to ws://localhost:$port/wamp via msgpack');
             await transportMsgpack!.open();
           }
           if (channelValues.length == 3) {
             msgpackCompleter.complete();
-            print('Connect to ws://localhost:$port/wamp via cbor');
             await transportCbor!.open();
           }
           if (channelValues.length == 4) {
@@ -111,19 +108,16 @@ void main() {
           }
         });
 
-        print('#### JSON transport');
         await jsonCompleter.future;
         transportJSON!.send(Hello('my.realm', Details.forHello()));
         var welcome = await transportJSON!.receive().first;
         expect(welcome, isA<Welcome>());
 
-        print('#### MSGPACK transport');
         await msgpackCompleter.future;
         transportMsgpack!.send(Hello('my.realm', Details.forHello()));
         welcome = await transportMsgpack!.receive().first;
         expect(welcome, isA<Welcome>());
 
-        print('#### CBOR transport');
         await cborCompleter.future;
         transportCbor!.send(Hello('my.realm', Details.forHello()));
         welcome = await transportCbor!.receive().first;

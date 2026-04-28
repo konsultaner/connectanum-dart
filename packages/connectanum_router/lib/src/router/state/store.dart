@@ -139,7 +139,11 @@ class RouterStateStore {
           );
           command.replyPort.send(registrationId);
         } catch (error) {
-          command.replyPort.send(error);
+          if (error is StoreCommandError) {
+            command.replyPort.send(StoreErrorResponse(error.toString()));
+          } else {
+            command.replyPort.send(error);
+          }
         }
       case ProcedureUnregisterCommand():
         _unregisterProcedure(
@@ -236,6 +240,9 @@ class RouterStateStore {
     StackTrace stackTrace, {
     RouterStateCommand? command,
   }) {
+    if (error is StoreCommandError) {
+      return;
+    }
     // For now, surface errors to stdout so tests and embedding code can see
     // unexpected failures without silently killing the isolate.
     // In the future we can plug this into a proper logger.
@@ -335,7 +342,9 @@ class RouterStateStore {
     final realm = _getOrCreateRealm(realmUri);
     final session =
         realm.sessions[sessionId] ??
-        (throw StateError('Session $sessionId not found in realm $realmUri'));
+        (throw StoreCommandError(
+          'Session $sessionId not found in realm $realmUri',
+        ));
     final id = ids.subscription.next();
     final entry = realm.findOrCreateSubscription(topic, matchPolicy, id);
     final wasEmpty = entry.subscribers.isEmpty;
@@ -430,7 +439,9 @@ class RouterStateStore {
     final realm = _getOrCreateRealm(realmUri);
     final session =
         realm.sessions[sessionId] ??
-        (throw StateError('Session $sessionId not found in realm $realmUri'));
+        (throw StoreCommandError(
+          'Session $sessionId not found in realm $realmUri',
+        ));
     final policy = _policyFromDetails(details);
     final matchPolicy = _matchPolicyFromDetails(details);
     final registrationId = ids.registration.next();
@@ -443,10 +454,10 @@ class RouterStateStore {
     final wasEmpty = entry.callees.isEmpty;
     if (!wasEmpty) {
       if (entry.policy == InvocationPolicy.single) {
-        throw StateError('Procedure $procedure already registered');
+        throw StoreCommandError('Procedure $procedure already registered');
       }
       if (entry.matchPolicy != matchPolicy) {
-        throw StateError(
+        throw StoreCommandError(
           'Procedure $procedure already registered with match policy '
           '${entry.matchPolicy.name}',
         );
@@ -454,7 +465,7 @@ class RouterStateStore {
       if (policy != entry.policy &&
           details.containsKey('invoke') &&
           entry.policy != InvocationPolicy.single) {
-        throw StateError(
+        throw StoreCommandError(
           'Procedure $procedure already registered with policy '
           '${entry.policy.name}',
         );
@@ -566,15 +577,15 @@ class RouterStateStore {
     final realm = _getOrCreateRealm(realmUri);
     final entry = realm.procedureAtlas.match(procedure);
     if (entry == null || entry.callees.isEmpty) {
-      throw StateError('No registration for procedure $procedure');
+      throw StoreCommandError('No registration for procedure $procedure');
     }
     final callee = entry.nextCallee();
     if (callee == null) {
-      throw StateError('No available callee for procedure $procedure');
+      throw StoreCommandError('No available callee for procedure $procedure');
     }
     final invocationId = ids.invocation.next();
     if (!realm.sessions.containsKey(callerSessionId)) {
-      throw StateError('Caller session $callerSessionId not found');
+      throw StoreCommandError('Caller session $callerSessionId not found');
     }
     final callerSession = realm.sessions[callerSessionId];
     final calleeSession = realm.sessions[callee.sessionId];

@@ -1,6 +1,9 @@
 # HTTP/2 Isolated Regression Diagnosis
 
-Status: in_progress
+Status: paused
+
+Paused behind `docs/exec-plans/2026-04-25-ci-noise-and-skip-cleanup.md` while
+clean-CI work outranks further kTLS diagnosis.
 
 ## Context
 
@@ -14,6 +17,11 @@ Status: in_progress
   - `CI` `24921028426`
   - `kTLS Validation` `24921028397`
   - `WAMP Profile Benchmarks` `24921028403`
+- Commit `5f79e40` (`build(ktls): render header-write diagnostics`)
+  passed the branch `CI` run:
+  - `CI` `24921840775`
+  - `kTLS Validation` and `WAMP Profile Benchmarks` were correctly skipped by
+    their `push.paths` filters because that change only touched report tooling
 - Manual hosted rerun `24917876488` isolated
   `h2_multiplexed_streams_s4`, `threads=4` into a decision-quality result:
   - throughput delta `-17.35%..-12.20%`
@@ -120,26 +128,37 @@ Status: in_progress
   - `response_headers_connection_write_span` stayed around `0.18..0.19 ms`
   - those write-side metrics did not move with the repeat-level throughput or
     p95 deltas
-- The current working tree now carries the bounded artifact-readability
-  follow-up for that result:
-  - `tool/ktls_http2_compare.py` renders the header-write metrics in the
-    markdown focus lines and `## HTTP Header-Receive Diagnostics` table
+- The artifact-readability follow-up is now pushed and CI-cleared on `5f79e40`,
+  so the next blocker is no longer visibility.
+- The current working tree now carries the next bounded split inside
+  `response_headers_connection_read_wait`:
+  - `native/bench/src/bin/http_stream.rs` now records the gap from the last
+    request-side connection write to the first response-side connection read
+    during `response_headers_wait`
+  - `native/bench/src/report.rs` and `native/bench/src/artifacts.rs` now carry
+    and summarize `response_headers_last_write_to_first_read_*`
+  - `tool/ktls_http2_compare.py` now renders those fields in the markdown
+    focus lines and `## HTTP Header-Receive Diagnostics` table
   - `tool/test_ktls_http2_compare.py` pins those new human-readable fields
-  - the hosted diagnosis is now visible in `comparison.md`, not only in
-    `comparison.json`
-- Focused local verification is green on the report-readability slice.
+- That split is intentionally narrow:
+  - if isolated hosted `s1` moves on
+    `response_headers_last_write_to_first_read`, the remaining gap is after
+    client flush completion and before the first response-side read
+  - if it stays flat, the next missing split is deeper inside
+    `response_headers_connection_read_wait` before the first read completes
 
 ## Current Verification
 
 - `bin/test-fast`
+- `cargo test --manifest-path native/bench/Cargo.toml h2_last_write_to_first_read_gap_uses_last_write_boundary --bin http_stream -- --nocapture`
+- `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
 - `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
 - `python3 tool/test_ktls_http2_compare.py`
 - `tmpdir=$(mktemp -d /tmp/connectanum-ktls-rerender-XXXXXX) && python3 tool/ktls_http2_compare.py /tmp/connectanum-run-24921433741/extracted/repeats/repeat-02/baseline/bench_results.summary.json /tmp/connectanum-run-24921433741/extracted/repeats/repeat-02/ktls/bench_results.summary.json "$tmpdir/comparison.json" "$tmpdir/comparison.md"`
-- `bin/verify`
 
 ## Next Step
 
-Push the readability slice through the branch CI gate, then use the now-visible
-`response-header connection write` evidence from `comparison.md` to choose the
-next bounded split inside `response_headers_connection_read_wait` instead of
-repeating the same hosted rerun blindly.
+Push the `response_headers_last_write_to_first_read` slice through the branch
+CI gate, then run the next isolated hosted `s1` rerun on that clean head to
+check whether the remaining instability moves on the post-flush write-to-read
+gap or stays deeper inside `response_headers_connection_read_wait`.

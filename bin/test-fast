@@ -17,12 +17,13 @@ run_client_fast_tests() {
   dart test packages/connectanum_client/test/client_test.dart
   dart test packages/connectanum_client/test/client_on_transport_io_events_test.dart
   dart test packages/connectanum_client/test/transport/local
+  dart test packages/connectanum_client/test/transport/native/native_library_loader_test.dart
   dart test packages/connectanum_client/test/transport/socket/socket_transport_test.dart
   dart test packages/connectanum_client/test/transport/websocket/websocket_transport_io_test.dart
   dart test packages/connectanum_client/test/transport/native/message_binding_test.dart
 
   if ! native_runtime_supported; then
-    printf 'Native client transports are only supported on Linux; skipping native transport fast tests on %s.\n' "$(uname -s)"
+    printf 'Native client transports require Linux or macOS; skipping native transport fast tests on %s.\n' "$(uname -s)"
     return 0
   fi
 
@@ -37,9 +38,12 @@ run_client_fast_tests() {
 
 run_bench_vm_tests() {
   printf 'Running bench suite from package root so package-local test config applies on %s.\n' "$(uname -s)"
+  if ensure_rust_env && native_runtime_supported; then
+    build_native_ffi_test_release
+  fi
   (
     cd packages/connectanum_bench
-    dart test test
+    env -u CONNECTANUM_NATIVE_LIB CONNECTANUM_SKIP_NATIVE_BUILD=1 dart test test
   )
 }
 
@@ -49,13 +53,17 @@ dart test packages/connectanum_mcp/test
 run_client_fast_tests
 dart test packages/connectanum_auth_server/test
 run_bench_vm_tests
+dart test packages/connectanum_router/test/native/native_library_loader_test.dart
 
 if ensure_rust_env; then
   if native_runtime_supported; then
     dart test packages/connectanum_router/test/native/native_runtime_test.dart --concurrency=1
   fi
   dart test packages/connectanum_router/test/router_worker_auth_test.dart
-  dart test packages/connectanum_router/test/router_worker_session_test.dart --chain-stack-traces
+  CONNECTANUM_FORWARD_NATIVE_PUBLISH=1 \
+    dart test packages/connectanum_router/test/router_worker_session_test.dart \
+      --tags zero_copy_publish \
+      --chain-stack-traces
 else
   printf 'Cargo not found; skipping native router fast tests.\n'
 fi

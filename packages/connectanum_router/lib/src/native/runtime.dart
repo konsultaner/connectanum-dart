@@ -1683,13 +1683,16 @@ abstract final class NativeLibraryLoader {
   static String resolvePath(
     String? overridePath, {
     Directory? currentDirectory,
+    bool ignoreEnvironmentOverride = false,
   }) {
     if (overridePath != null && overridePath.isNotEmpty) {
       return overridePath;
     }
-    final envOverride = Platform.environment['CONNECTANUM_NATIVE_LIB'];
-    if (envOverride != null && envOverride.isNotEmpty) {
-      return envOverride;
+    if (!ignoreEnvironmentOverride) {
+      final envOverride = Platform.environment['CONNECTANUM_NATIVE_LIB'];
+      if (envOverride != null && envOverride.isNotEmpty) {
+        return envOverride;
+      }
     }
     final cwd = currentDirectory ?? Directory.current;
     final searchRoots = <Directory>{
@@ -1752,6 +1755,10 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
   static NativeTransportRuntime? _instance;
   static final String _runtimeLockPath =
       '${Directory.systemTemp.path}/connectanum_native_runtime.lock';
+  static const Set<int> _runtimeLockRetryErrnos = {
+    11, // EAGAIN on Linux
+    35, // EWOULDBLOCK on macOS
+  };
 
   void Function(int listenerId, int status)? _onListenerStarted;
   void Function(int listenerId, int connectionId)? _onConnection;
@@ -1788,7 +1795,8 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
         break;
       } on FileSystemException catch (error) {
         final errno = error.osError?.errorCode;
-        if (errno == 11 && DateTime.now().isBefore(deadline)) {
+        if (_runtimeLockRetryErrnos.contains(errno) &&
+            DateTime.now().isBefore(deadline)) {
           sleep(backoff);
           if (backoff < const Duration(milliseconds: 250)) {
             backoff *= 2;

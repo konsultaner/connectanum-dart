@@ -39,6 +39,7 @@ final bool _forwardNativePublishEventsEnabled = forwardNativePublishEvents;
 final String? _nativePublishSkipReason = _forwardNativePublishEventsEnabled
     ? null
     : 'CONNECTANUM_FORWARD_NATIVE_PUBLISH not enabled (zero-copy publish forwarding disabled).';
+const _zeroCopyPublishTag = 'zero_copy_publish';
 
 void main() {
   late RouterSettings routerSettings;
@@ -1300,6 +1301,7 @@ void main() {
         expect(retainOrder, equals([902]));
         expect(releasedHandles, equals([901, 902]));
       },
+      tags: _zeroCopyPublishTag,
       skip: _nativePublishSkipReason,
     );
 
@@ -1424,6 +1426,7 @@ void main() {
         expect(taken, equals([120]));
         expect(released, equals([120]));
       },
+      tags: _zeroCopyPublishTag,
       skip: _nativePublishSkipReason,
     );
 
@@ -2047,6 +2050,7 @@ void main() {
         expect(retainedHandles, equals([951]));
         expect(releasedHandles, equals([951]));
       },
+      tags: _zeroCopyPublishTag,
       skip: _nativePublishSkipReason,
     );
 
@@ -3622,6 +3626,7 @@ void main() {
           isEmpty,
         );
       },
+      tags: _zeroCopyPublishTag,
       skip: _nativePublishSkipReason,
     );
 
@@ -3770,6 +3775,7 @@ void main() {
         expect(takenHandles, equals([600]));
         expect(retainedHandles, equals([601]));
       },
+      tags: _zeroCopyPublishTag,
       skip: _nativePublishSkipReason,
     );
 
@@ -3862,6 +3868,7 @@ void main() {
         final workerSends = _collectWorkerSends(bossMessages);
         expect(workerSends, isEmpty);
       },
+      tags: _zeroCopyPublishTag,
       skip: _nativePublishSkipReason,
     );
 
@@ -3977,98 +3984,104 @@ void main() {
           isEmpty,
         );
       },
+      tags: _zeroCopyPublishTag,
       skip: _nativePublishSkipReason,
     );
 
-    test('respects exclude_me option when publishing', () async {
-      final bossMessages = <Map<String, Object?>>[];
-      final bossPort = ReceivePort()
-        ..listen((dynamic message) {
-          if (message is Map<String, Object?>) {
-            bossMessages.add(message);
-          }
-        });
-      addTearDown(bossPort.close);
+    test(
+      'respects exclude_me option when publishing',
+      () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
 
-      final listener = _buildListener();
-      final workerState =
-          createWorkerStateForTest(
-                listener: listener,
-                listenerSettings: routerSettings.listeners.first,
+        final listener = _buildListener();
+        final workerState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        workerState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 821;
+
+        _openSession(
+          stateStore,
+          sessionId: workerState.sessionId!,
+          listener: listener,
+          connectionId: 31,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+        final subscribe = subscribe_msg.Subscribe(1301, 'com.exclude.me');
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: workerState,
+          message: subscribe,
+          connectionId: 31,
+        );
+        await Future<void>.delayed(Duration.zero);
+        bossMessages.clear();
+
+        final publish =
+            publish_msg.Publish(
+                1302,
+                'com.exclude.me',
+                arguments: const ['payload'],
               )
-              as WorkerConnectionState;
-      workerState
-        ..serializer = NativeMessageSerializer.json
-        ..phase = HandshakePhase.open
-        ..realmUri = 'realm1'
-        ..realmSettings = routerSettings.realms.first
-        ..sessionId = 821;
+              ..options = publish_msg.PublishOptions(
+                acknowledge: false,
+                excludeMe: true,
+                discloseMe: true,
+              );
+        final incoming = NativeIncomingMessage.test(
+          serializer: NativeMessageSerializer.json,
+          message: publish,
+          handle: 312,
+          onRetain: (handle) => handle,
+        );
 
-      _openSession(
-        stateStore,
-        sessionId: workerState.sessionId!,
-        listener: listener,
-        connectionId: 31,
-      );
-      await Future<void>.delayed(Duration.zero);
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: workerState,
+          message: publish,
+          connectionId: 31,
+          incomingMessage: incoming,
+        );
+        await Future<void>.delayed(Duration.zero);
 
-      final realmContexts = RealmContextCache(
-        statePort: stateStore.commandPort,
-      );
-      final subscribe = subscribe_msg.Subscribe(1301, 'com.exclude.me');
-      await handleSessionMessageForTest(
-        bossPort: bossPort.sendPort,
-        statePort: stateStore.commandPort,
-        realmContexts: realmContexts,
-        state: workerState,
-        message: subscribe,
-        connectionId: 31,
-      );
-      await Future<void>.delayed(Duration.zero);
-      bossMessages.clear();
-
-      final publish =
-          publish_msg.Publish(
-              1302,
-              'com.exclude.me',
-              arguments: const ['payload'],
-            )
-            ..options = publish_msg.PublishOptions(
-              acknowledge: false,
-              excludeMe: true,
-              discloseMe: true,
-            );
-      final incoming = NativeIncomingMessage.test(
-        serializer: NativeMessageSerializer.json,
-        message: publish,
-        handle: 312,
-        onRetain: (handle) => handle,
-      );
-
-      await handleSessionMessageForTest(
-        bossPort: bossPort.sendPort,
-        statePort: stateStore.commandPort,
-        realmContexts: realmContexts,
-        state: workerState,
-        message: publish,
-        connectionId: 31,
-        incomingMessage: incoming,
-      );
-      await Future<void>.delayed(Duration.zero);
-
-      expect(
-        bossMessages.where(
-          (message) => message['type'] == 'worker_forward_native_event',
-        ),
-        isEmpty,
-      );
-      expect(
-        bossMessages.where(
-          (message) => message['type'] == 'worker_forward_message',
-        ),
-        isEmpty,
-      );
-    }, skip: _nativePublishSkipReason);
+        expect(
+          bossMessages.where(
+            (message) => message['type'] == 'worker_forward_native_event',
+          ),
+          isEmpty,
+        );
+        expect(
+          bossMessages.where(
+            (message) => message['type'] == 'worker_forward_message',
+          ),
+          isEmpty,
+        );
+      },
+      tags: _zeroCopyPublishTag,
+      skip: _nativePublishSkipReason,
+    );
 
     test(
       'releases retained handles when native publish cloning fails',
@@ -4251,6 +4264,7 @@ void main() {
           isEmpty,
         );
       },
+      tags: _zeroCopyPublishTag,
       skip: _nativePublishSkipReason,
     );
 
@@ -4506,6 +4520,7 @@ void main() {
         expect(publishReply[2], equals(publicationId));
         expect(workerSends.single['connectionId'], equals(24));
       },
+      tags: _zeroCopyPublishTag,
       skip: _nativePublishSkipReason,
     );
 
@@ -4602,6 +4617,7 @@ void main() {
         expect(event.details.topic, equals('com.example.weather.topic'));
         expect(event.arguments, equals(['rain']));
       },
+      tags: _zeroCopyPublishTag,
       skip: _nativePublishSkipReason,
     );
 

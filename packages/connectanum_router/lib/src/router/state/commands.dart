@@ -274,3 +274,12 @@ class StoreErrorResponse {
 
   final String message;
 }
+
+class StoreCommandError implements Exception {
+  StoreCommandError(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'Bad state: $message';
+}

@@ -8,14 +8,7 @@ import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:test/test.dart';
 
 void main() {
-  final envOverride = Platform.environment['CONNECTANUM_NATIVE_LIB'];
-  final skipEnvReason = envOverride != null && envOverride.isNotEmpty
-      ? 'CONNECTANUM_NATIVE_LIB is set; resolution is env-driven.'
-      : null;
-
   test('resolvePath prefers hooks_runner artifacts when present', () async {
-    final envOverride = Platform.environment['CONNECTANUM_NATIVE_LIB'];
-    expect(envOverride, anyOf(isNull, isEmpty));
     final temp = await Directory.systemTemp.createTemp(
       'connectanum_native_loader_',
     );
@@ -32,9 +25,10 @@ void main() {
     final resolved = NativeLibraryLoader.resolvePath(
       null,
       currentDirectory: temp,
+      ignoreEnvironmentOverride: true,
     );
     expect(resolved, equals(libFile.path));
-  }, skip: skipEnvReason);
+  });
 
   test('resolvePath prefers explicit overridePath', () {
     const override = '/tmp/connectanum_test_override.so';

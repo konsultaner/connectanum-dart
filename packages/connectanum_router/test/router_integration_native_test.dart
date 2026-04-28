@@ -75,25 +75,13 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
         final synthetic = _connections.removeFirst();
         _syntheticConnections.remove(synthetic);
         _connectionMap[synthetic] = actualId;
-        // ignore: avoid_print
-        print(
-          'hybrid: mapping synthetic $synthetic -> actual $actualId (listener $listenerId)',
-        );
         return synthetic;
       }
-      // ignore: avoid_print
-      print(
-        'hybrid: returning actual connection $actualId for listener $listenerId',
-      );
       return actualId;
     }
     if (_connections.isNotEmpty) {
       final peek = _connections.first;
       if (_syntheticConnections.contains(peek)) {
-        // ignore: avoid_print
-        print(
-          'hybrid: returning synthetic connection $peek for listener $listenerId',
-        );
         return _connections.removeFirst();
       }
     }
@@ -115,12 +103,7 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
       return NativeConnectionProtocol.rawsocket;
     }
     final resolved = _resolveConnectionId(connectionId);
-    final protocol = _inner.connectionProtocol(resolved);
-    // ignore: avoid_print
-    print(
-      'hybrid: connectionProtocol synthetic $connectionId resolved $resolved -> $protocol',
-    );
-    return protocol;
+    return _inner.connectionProtocol(resolved);
   }
 
   @override
@@ -244,15 +227,7 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
   @override
   NativeHttpHandshake? pollHttp3Request(int connectionId) {
     final resolved = _resolveConnectionId(connectionId);
-    final handshake = _inner.pollHttp3Request(resolved);
-    if (handshake != null) {
-      // ignore: avoid_print
-      print(
-        'hybrid: polled http/3 request for synthetic $connectionId (actual $resolved) '
-        '${handshake.method} ${handshake.path}',
-      );
-    }
-    return handshake;
+    return _inner.pollHttp3Request(resolved);
   }
 
   @override
@@ -718,6 +693,7 @@ final bool _forwardNativePublishEventsEnabled = forwardNativePublishEvents;
 final String? _nativePublishSkipReason = _forwardNativePublishEventsEnabled
     ? null
     : 'CONNECTANUM_FORWARD_NATIVE_PUBLISH not enabled (zero-copy publish forwarding disabled).';
+const _zeroCopyPublishTag = 'zero_copy_publish';
 
 void main() {
   final nativeLib = resolveOrBuildNativeLib();
@@ -726,11 +702,6 @@ void main() {
       : null;
 
   group('Router + FFI test mode', () {
-    group('publish ack path', () {
-      // Skipped: rawsocket publish ACK is covered by publish_ack_test.dart.
-      test('publish acked for each routed event', () async {}, skip: true);
-    });
-
     test('forwards progressive and final results', () async {
       const stepTimeout = Duration(seconds: 10);
       final harness = await _RouterHarness.start(
@@ -840,14 +811,6 @@ void main() {
     test(
       'forwards native events to subscribers',
       () async {
-        if (!_forwardNativePublishEventsEnabled) {
-          // ignore: avoid_print
-          print(
-            'Skipping native publish forwarding test: CONNECTANUM_FORWARD_NATIVE_PUBLISH not enabled',
-          );
-          return;
-        }
-
         final harness = await _RouterHarness.start(
           connectionId: 9102,
           nativeLib: nativeLib,
@@ -874,61 +837,67 @@ void main() {
         expect(event['handle'], isA<int>());
         expect(event['handle'], greaterThan(0));
       },
+      tags: _zeroCopyPublishTag,
       skip: skipReason ?? _nativePublishSkipReason,
     );
 
-    test('routes HTTP request through native runtime', () async {
-      final harness = await _RouterHarness.start(
-        connectionId: 9102,
-        nativeLib: nativeLib,
-      );
-      addTearDown(harness.dispose);
-
-      final binding = harness.binding;
-
-      final httpSession = await binding.createInternalSession(
-        realmUri: 'realm1',
-        authId: 'http-handler',
-        authRole: 'internal',
-      );
-      addTearDown(httpSession.close);
-
-      final registration = await httpSession.register(
-        'com.example.http.health',
-      );
-      registration.onInvoke((invocation) {
-        final context = HttpInvocationContext.maybeFromInvocation(invocation);
-        expect(context, isNotNull, reason: 'Invocation missing HTTP context');
-        expect(context!.request.method, equals('GET'));
-        expect(context.request.path, equals('/api/health'));
-        context.sendText(
-          body: 'service:ok',
-          status: 202,
-          headers: const {'x-router': 'native'},
+    test(
+      'routes HTTP request through native runtime',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9102,
+          nativeLib: nativeLib,
         );
-      });
+        addTearDown(harness.dispose);
 
-      final listener = binding.listeners.single;
-      final socket = await Socket.connect('127.0.0.1', listener.port);
-      addTearDown(socket.destroy);
+        final binding = harness.binding;
 
-      socket.write('GET /api/health HTTP/1.1\r\nHost: localhost\r\n\r\n');
-      await socket.flush();
+        final httpSession = await binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'http-handler',
+          authRole: 'internal',
+        );
+        addTearDown(httpSession.close);
 
-      final requestEvent = await harness.nextEvent('listener_http_request');
-      expect(requestEvent['path'], equals('/api/health'));
-      expect(requestEvent['realm'], equals('realm1'));
-      expect(requestEvent['procedure'], equals('com.example.http.health'));
+        final registration = await httpSession.register(
+          'com.example.http.health',
+        );
+        registration.onInvoke((invocation) {
+          final context = HttpInvocationContext.maybeFromInvocation(invocation);
+          expect(context, isNotNull, reason: 'Invocation missing HTTP context');
+          expect(context!.request.method, equals('GET'));
+          expect(context.request.path, equals('/api/health'));
+          context.sendText(
+            body: 'service:ok',
+            status: 202,
+            headers: const {'x-router': 'native'},
+          );
+        });
 
-      await harness.nextEvent('http_request_dispatched');
-      final responseSent = await harness.nextEvent('http_response_sent');
-      expect(responseSent['listenerId'], equals(listener.listenerId));
+        final listener = binding.listeners.single;
+        final socket = await Socket.connect('127.0.0.1', listener.port);
+        addTearDown(socket.destroy);
 
-      final response = await _readHttpResponse(socket);
-      expect(response, contains('HTTP/1.1 202 Accepted'));
-      expect(response, contains('x-router: native'));
-      expect(response.trim(), endsWith('service:ok'));
-    }, skip: skipReason);
+        socket.write('GET /api/health HTTP/1.1\r\nHost: localhost\r\n\r\n');
+        await socket.flush();
+
+        final requestEvent = await harness.nextEvent('listener_http_request');
+        expect(requestEvent['path'], equals('/api/health'));
+        expect(requestEvent['realm'], equals('realm1'));
+        expect(requestEvent['procedure'], equals('com.example.http.health'));
+
+        await harness.nextEvent('http_request_dispatched');
+        final responseSent = await harness.nextEvent('http_response_sent');
+        expect(responseSent['listenerId'], equals(listener.listenerId));
+
+        final response = await _readHttpResponse(socket);
+        expect(response, contains('HTTP/1.1 202 Accepted'));
+        expect(response, contains('x-router: native'));
+        expect(response.trim(), endsWith('service:ok'));
+      },
+      tags: _zeroCopyPublishTag,
+      skip: skipReason ?? _nativePublishSkipReason,
+    );
 
     test('serves OpenMetrics payload over HTTP metrics route', () async {
       final harness = await _RouterHarness.start(

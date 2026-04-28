@@ -94,7 +94,7 @@ class NativeClientRuntime {
     if (current != null) {
       return current;
     }
-    final resolvedPath = NativeLibraryLoader.resolvePath(libraryPath);
+    final resolvedPath = NativeLibraryLoader.resolvePath(override: libraryPath);
     final library = ffi.DynamicLibrary.open(resolvedPath);
     final runtime = NativeClientRuntime._(
       resolvedPath,
@@ -641,13 +641,18 @@ abstract final class NativeLibraryLoader {
     _ => 'libconnectanum_client_ct_ffi.so',
   };
 
-  static String resolvePath([String? override]) {
+  static String resolvePath({
+    String? override,
+    bool ignoreEnvironmentOverride = false,
+  }) {
     if (override != null && override.isNotEmpty) {
       return override;
     }
-    final envOverride = Platform.environment['CONNECTANUM_NATIVE_LIB'];
-    if (envOverride != null && envOverride.isNotEmpty) {
-      return envOverride;
+    if (!ignoreEnvironmentOverride) {
+      final envOverride = Platform.environment['CONNECTANUM_NATIVE_LIB'];
+      if (envOverride != null && envOverride.isNotEmpty) {
+        return envOverride;
+      }
     }
     for (final candidate in _relativeCandidates) {
       if (File(candidate).existsSync()) {

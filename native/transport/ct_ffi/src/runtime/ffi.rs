@@ -1683,20 +1683,13 @@ pub extern "C" fn ct_connection_max_rawsocket_exponent(connection_id: c_int) -> 
 pub extern "C" fn ct_connection_protocol(connection_id: c_int) -> c_int {
     let connection_id = ConnectionId(connection_id as u32);
     match connection_protocol(connection_id) {
-        Ok(protocol) => {
-            #[cfg(feature = "ffi-test")]
-            eprintln!(
-                "ct_connection_protocol({:?}) -> {:?}",
-                connection_id, protocol
-            );
-            match protocol {
-                ConnectionProtocol::RawSocket => PROTOCOL_RAWSOCKET,
-                ConnectionProtocol::WebSocket => PROTOCOL_WEBSOCKET,
-                ConnectionProtocol::Http => PROTOCOL_HTTP,
-                ConnectionProtocol::Http2 => PROTOCOL_HTTP2,
-                ConnectionProtocol::Http3 => PROTOCOL_HTTP3,
-            }
-        }
+        Ok(protocol) => match protocol {
+            ConnectionProtocol::RawSocket => PROTOCOL_RAWSOCKET,
+            ConnectionProtocol::WebSocket => PROTOCOL_WEBSOCKET,
+            ConnectionProtocol::Http => PROTOCOL_HTTP,
+            ConnectionProtocol::Http2 => PROTOCOL_HTTP2,
+            ConnectionProtocol::Http3 => PROTOCOL_HTTP3,
+        },
         Err(err) => map_error(err),
     }
 }
@@ -1954,14 +1947,7 @@ pub extern "C" fn ct_connection_take_http3_handshake(connection_id: c_int) -> c_
     }
     let connection_id = ConnectionId(connection_id as u32);
     match connection_take_http3_handshake(connection_id) {
-        Ok(handshake) => {
-            #[cfg(feature = "ffi-test")]
-            eprintln!(
-                "ct_connection_take_http3_handshake {:?} -> stored handle",
-                connection_id
-            );
-            store_http3_handshake(handshake) as c_int
-        }
+        Ok(handshake) => store_http3_handshake(handshake) as c_int,
         Err(err) => {
             #[cfg(feature = "ffi-test")]
             eprintln!(

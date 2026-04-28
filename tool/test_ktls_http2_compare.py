@@ -68,6 +68,9 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         response_headers_connection_write_span_samples_total=12,
                         response_headers_connection_write_span_avg_ms=1.6,
                         response_headers_connection_write_span_p95_ms=2.2,
+                        response_headers_last_write_to_first_read_samples_total=12,
+                        response_headers_last_write_to_first_read_avg_ms=0.4,
+                        response_headers_last_write_to_first_read_p95_ms=0.7,
                         response_body_read_avg_ms=24.2,
                         response_body_read_p95_ms=27.4,
                         response_body_first_chunk_wait_avg_ms=4.4,
@@ -174,6 +177,9 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         response_headers_connection_write_span_samples_total=12,
                         response_headers_connection_write_span_avg_ms=14.2,
                         response_headers_connection_write_span_p95_ms=23.4,
+                        response_headers_last_write_to_first_read_samples_total=12,
+                        response_headers_last_write_to_first_read_avg_ms=16.0,
+                        response_headers_last_write_to_first_read_p95_ms=24.6,
                         response_body_read_avg_ms=121.6,
                         response_body_read_p95_ms=188.0,
                         response_body_first_chunk_wait_avg_ms=6.1,
@@ -365,6 +371,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertAlmostEqual(
                 comparison["summary"]["phase_timing_focus"]["worst_throughput_row"][
                     "metrics"
+                ]["response_headers_last_write_to_first_read_avg_ms"]["delta"],
+                15.6,
+            )
+            self.assertAlmostEqual(
+                comparison["summary"]["phase_timing_focus"]["worst_throughput_row"][
+                    "metrics"
                 ]["response_body_read_avg_ms"]["delta"],
                 97.4,
             )
@@ -489,6 +501,10 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("## HTTP Response-Body Diagnostics", markdown)
             self.assertIn("## HTTP Server Emission Timing", markdown)
             self.assertIn("Header conn write samples", markdown)
+            self.assertIn("Header last-write-to-first-read samples", markdown)
+            self.assertIn(
+                "response-header last-write-to-first-read avg", markdown
+            )
             self.assertIn("Direct stream open round trip avg ms", markdown)
             self.assertIn("Request queue delay avg ms", markdown)
             self.assertIn("Reply delivery delay avg ms", markdown)
@@ -832,6 +848,9 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         response_headers_connection_write_span_samples_total: int | None = 16,
         response_headers_connection_write_span_avg_ms: float | None = 1.2,
         response_headers_connection_write_span_p95_ms: float | None = 1.8,
+        response_headers_last_write_to_first_read_samples_total: int | None = 16,
+        response_headers_last_write_to_first_read_avg_ms: float | None = 0.4,
+        response_headers_last_write_to_first_read_p95_ms: float | None = 0.6,
         response_body_read_avg_ms: float | None = 5.7,
         response_body_read_p95_ms: float | None = 8.1,
         response_body_first_chunk_wait_avg_ms: float | None = 2.1,
@@ -926,6 +945,9 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "response_headers_connection_write_span_samples_total": response_headers_connection_write_span_samples_total,
                     "response_headers_connection_write_span_avg_ms": response_headers_connection_write_span_avg_ms,
                     "response_headers_connection_write_span_p95_ms": response_headers_connection_write_span_p95_ms,
+                    "response_headers_last_write_to_first_read_samples_total": response_headers_last_write_to_first_read_samples_total,
+                    "response_headers_last_write_to_first_read_avg_ms": response_headers_last_write_to_first_read_avg_ms,
+                    "response_headers_last_write_to_first_read_p95_ms": response_headers_last_write_to_first_read_p95_ms,
                     "response_body_read_avg_ms": response_body_read_avg_ms,
                     "response_body_read_p95_ms": response_body_read_p95_ms,
                     "response_body_first_chunk_wait_avg_ms": response_body_first_chunk_wait_avg_ms,

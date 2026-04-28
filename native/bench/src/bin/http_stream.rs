@@ -112,6 +112,7 @@ struct H2ClientReadProbeState {
 struct H2ClientPhaseReadStats {
     connection_read_wait_ms: Option<f64>,
     connection_read_to_phase_end_ms: Option<f64>,
+    first_connection_read_at: Option<Instant>,
 }
 
 #[derive(Debug, Default)]
@@ -136,6 +137,7 @@ struct H2ClientWriteProbeState {
 struct H2ClientPhaseWriteStats {
     connection_write_wait_ms: Option<f64>,
     connection_write_span_ms: Option<f64>,
+    last_connection_write_at: Option<Instant>,
 }
 
 struct InstrumentedH2ClientIo<T> {
@@ -892,6 +894,7 @@ impl H2ClientReadProbe {
         H2ClientPhaseReadStats {
             connection_read_wait_ms,
             connection_read_to_phase_end_ms,
+            first_connection_read_at,
         }
     }
 }
@@ -971,7 +974,26 @@ impl H2ClientWriteProbe {
         H2ClientPhaseWriteStats {
             connection_write_wait_ms,
             connection_write_span_ms,
+            last_connection_write_at,
         }
+    }
+}
+
+fn h2_last_write_to_first_read_ms(
+    write_stats: &H2ClientPhaseWriteStats,
+    read_stats: &H2ClientPhaseReadStats,
+) -> Option<f64> {
+    match (
+        write_stats.last_connection_write_at,
+        read_stats.first_connection_read_at,
+    ) {
+        (Some(last_write_at), Some(first_read_at)) if first_read_at >= last_write_at => Some(
+            first_read_at
+                .saturating_duration_since(last_write_at)
+                .as_secs_f64()
+                * 1000.0,
+        ),
+        _ => None,
     }
 }
 
@@ -1832,6 +1854,14 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
                     phase_timing.response_headers_connection_write_span_samples_total
                 );
             }
+            if phase_timing.response_headers_last_write_to_first_read_samples_total > 0 {
+                println!(
+                    "  HTTP response-header last write to first read avg/p95: {:.2} / {:.2} ms (samples {})",
+                    phase_timing.response_headers_last_write_to_first_read_avg_ms,
+                    phase_timing.response_headers_last_write_to_first_read_p95_ms,
+                    phase_timing.response_headers_last_write_to_first_read_samples_total
+                );
+            }
             println!(
                 "  HTTP response body read avg/p95: {:.2} / {:.2} ms",
                 phase_timing.response_body_read_avg_ms, phase_timing.response_body_read_p95_ms
@@ -1940,6 +1970,11 @@ fn summarize_http_phase_timing(
         .filter_map(|sample| sample.http_phase_timing.as_ref())
         .filter_map(|timing| timing.response_headers_connection_write_span_ms)
         .collect::<Vec<_>>();
+    let mut response_headers_last_write_to_first_reads = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_headers_last_write_to_first_read_ms)
+        .collect::<Vec<_>>();
     let mut response_body_reads = samples
         .iter()
         .filter_map(|sample| sample.http_phase_timing.as_ref())
@@ -1988,6 +2023,7 @@ fn summarize_http_phase_timing(
     response_headers_connection_read_to_headers.sort_by(|left, right| left.total_cmp(right));
     response_headers_connection_write_waits.sort_by(|left, right| left.total_cmp(right));
     response_headers_connection_write_spans.sort_by(|left, right| left.total_cmp(right));
+    response_headers_last_write_to_first_reads.sort_by(|left, right| left.total_cmp(right));
     response_body_reads.sort_by(|left, right| left.total_cmp(right));
     response_body_first_chunk_waits.sort_by(|left, right| left.total_cmp(right));
     response_body_tail_reads.sort_by(|left, right| left.total_cmp(right));
@@ -2071,6 +2107,23 @@ fn summarize_http_phase_timing(
                     0.0
                 } else {
                     percentile(&response_headers_connection_write_spans, 0.95)
+                },
+            response_headers_last_write_to_first_read_samples_total:
+                response_headers_last_write_to_first_reads.len() as u64,
+            response_headers_last_write_to_first_read_avg_ms:
+                if response_headers_last_write_to_first_reads.is_empty() {
+                    0.0
+                } else {
+                    response_headers_last_write_to_first_reads
+                        .iter()
+                        .sum::<f64>()
+                        / response_headers_last_write_to_first_reads.len() as f64
+                },
+            response_headers_last_write_to_first_read_p95_ms:
+                if response_headers_last_write_to_first_reads.is_empty() {
+                    0.0
+                } else {
+                    percentile(&response_headers_last_write_to_first_reads, 0.95)
                 },
             response_body_read_avg_ms: response_body_reads.iter().sum::<f64>()
                 / response_body_reads.len() as f64,
@@ -4564,6 +4617,8 @@ async fn send_h2_request(
     let response_headers_wait_ms = response_headers_start.elapsed().as_secs_f64() * 1000.0;
     let response_headers_read_stats = response_headers_read_probe.finish(Some(Instant::now()));
     let response_headers_write_stats = response_headers_write_probe.finish();
+    let response_headers_last_write_to_first_read_ms =
+        h2_last_write_to_first_read_ms(&response_headers_write_stats, &response_headers_read_stats);
     let read_probe = read_tracker.note_phase_started();
     let response_body_start = Instant::now();
     let response_body = drain_h2_response(response, read_probe).await?;
@@ -4587,6 +4642,7 @@ async fn send_h2_request(
                 .connection_write_wait_ms,
             response_headers_connection_write_span_ms: response_headers_write_stats
                 .connection_write_span_ms,
+            response_headers_last_write_to_first_read_ms,
             response_body_read_ms,
             response_body_first_chunk_wait_ms: response_body.first_chunk_wait_ms,
             response_body_tail_read_ms: response_body.tail_read_ms,
@@ -5099,6 +5155,23 @@ mod tests {
         let stats = probe.finish();
         assert!(stats.connection_write_wait_ms.is_some());
         assert!(stats.connection_write_span_ms.is_some());
+    }
+
+    #[test]
+    fn h2_last_write_to_first_read_gap_uses_last_write_boundary() {
+        let read_tracker = H2ClientReadTracker::default();
+        let write_tracker = H2ClientWriteTracker::default();
+        let read_probe = read_tracker.note_phase_started();
+        let write_probe = write_tracker.note_phase_started();
+        write_tracker.record_connection_write(Instant::now());
+        std::thread::sleep(Duration::from_millis(1));
+        write_tracker.record_connection_write(Instant::now());
+        std::thread::sleep(Duration::from_millis(1));
+        read_tracker.record_connection_read(Instant::now());
+        let write_stats = write_probe.finish();
+        let read_stats = read_probe.finish(Some(Instant::now()));
+        assert!(h2_last_write_to_first_read_ms(&write_stats, &read_stats)
+            .is_some_and(|value| value >= 1.0));
     }
 
     #[test]

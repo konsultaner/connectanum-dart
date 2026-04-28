@@ -7,11 +7,6 @@ import 'package:connectanum_client/src/transport/native/runtime.dart';
 import 'package:test/test.dart';
 
 void main() {
-  final envOverride = Platform.environment['CONNECTANUM_NATIVE_LIB'];
-  final skipEnvReason = envOverride != null && envOverride.isNotEmpty
-      ? 'CONNECTANUM_NATIVE_LIB is set; resolution is env-driven.'
-      : null;
-
   test('resolvePath prefers hooks_runner artifacts when present', () async {
     final temp = await Directory.systemTemp.createTemp(
       'connectanum_client_native_loader_',
@@ -29,38 +24,39 @@ void main() {
     Directory.current = temp;
     addTearDown(() => Directory.current = original);
 
-    final resolved = NativeLibraryLoader.resolvePath();
+    final resolved = NativeLibraryLoader.resolvePath(
+      ignoreEnvironmentOverride: true,
+    );
     expect(
       File(resolved).resolveSymbolicLinksSync(),
       equals(hookLibrary.resolveSymbolicLinksSync()),
     );
-  }, skip: skipEnvReason);
+  });
 
   test('resolvePath prefers explicit overridePath', () {
     const override = '/tmp/connectanum_client_test_override.so';
-    expect(NativeLibraryLoader.resolvePath(override), equals(override));
+    expect(
+      NativeLibraryLoader.resolvePath(override: override),
+      equals(override),
+    );
   });
 
-  test(
-    'resolvePath falls back to bare library name for system installs',
-    () {
-      final original = Directory.current;
-      final temp = Directory.systemTemp.createTempSync(
-        'connectanum_client_native_loader_empty_',
-      );
-      addTearDown(() {
-        Directory.current = original;
-        temp.deleteSync(recursive: true);
-      });
-      Directory.current = temp;
+  test('resolvePath falls back to bare library name for system installs', () {
+    final original = Directory.current;
+    final temp = Directory.systemTemp.createTempSync(
+      'connectanum_client_native_loader_empty_',
+    );
+    addTearDown(() {
+      Directory.current = original;
+      temp.deleteSync(recursive: true);
+    });
+    Directory.current = temp;
 
-      expect(
-        NativeLibraryLoader.resolvePath(),
-        equals(_defaultLibraryFileName()),
-      );
-    },
-    skip: skipEnvReason,
-  );
+    expect(
+      NativeLibraryLoader.resolvePath(ignoreEnvironmentOverride: true),
+      equals(_defaultLibraryFileName()),
+    );
+  });
 }
 
 String _defaultLibraryFileName() => switch (Platform.operatingSystem) {

@@ -111,7 +111,7 @@ void main() {
 
     test('message handling', () async {
       final pkcs8Pem = Pkcs8.fromEd25519Seed(Uint8List.fromList(openSshSeed));
-      print(pkcs8Pem);
+      expect(pkcs8Pem, contains('BEGIN PRIVATE KEY'));
 
       for (var vector in testVectors) {
         final authMethod = CryptosignAuthentication.fromHex(

@@ -138,6 +138,16 @@ native_lib_path() {
   printf '%s/native/transport/target/release/%s\n' "$ROOT_DIR" "$file_name"
 }
 
+native_ffi_test_lib_path() {
+  local file_name
+
+  if ! file_name="$(native_lib_file_name)"; then
+    return 1
+  fi
+
+  printf '%s/native/transport/target/ffi-test/release/%s\n' "$ROOT_DIR" "$file_name"
+}
+
 native_lib_file_name() {
   case "$(uname -s)" in
     Darwin)
@@ -153,6 +163,28 @@ native_lib_file_name() {
       return 1
       ;;
   esac
+}
+
+native_sources_newer_than() {
+  local target="$1"
+  local paths=()
+  local candidate
+
+  [[ -f "$target" ]] || return 0
+
+  for candidate in \
+    "$ROOT_DIR/native/transport/Cargo.toml" \
+    "$ROOT_DIR/native/transport/Cargo.lock" \
+    "$ROOT_DIR/native/transport/ct_core/Cargo.toml" \
+    "$ROOT_DIR/native/transport/ct_core/src" \
+    "$ROOT_DIR/native/transport/ct_ffi/Cargo.toml" \
+    "$ROOT_DIR/native/transport/ct_ffi/src"; do
+    [[ -e "$candidate" ]] || continue
+    paths+=("$candidate")
+  done
+
+  [[ "${#paths[@]}" -gt 0 ]] || return 1
+  [[ -n "$(find "${paths[@]}" -newer "$target" -print -quit)" ]]
 }
 
 host_os_slug() {
@@ -223,6 +255,9 @@ ensure_native_lib_env() {
   fi
 
   if [[ -f "$detected_path" ]]; then
+    if native_sources_newer_than "$detected_path"; then
+      return 0
+    fi
     export CONNECTANUM_NATIVE_LIB="$detected_path"
   fi
 }
@@ -295,10 +330,17 @@ cargo_workspace_check() {
 }
 
 build_native_ffi_test_release() {
+  local target_dir
+  local built_lib
+
   cargo_workspace_check
   cd_repo_root
-  cargo build --manifest-path native/transport/Cargo.toml -p ct_ffi --features ffi-test --release
-  ensure_native_lib_env
+  target_dir="$ROOT_DIR/native/transport/target/ffi-test"
+  CARGO_TARGET_DIR="$target_dir" \
+    cargo build --manifest-path native/transport/Cargo.toml -p ct_ffi --features ffi-test --release
+  if built_lib="$(native_ffi_test_lib_path)" && [[ -f "$built_lib" ]]; then
+    export CONNECTANUM_NATIVE_LIB="$built_lib"
+  fi
 }
 
 ensure_native_client_test_runtime() {

@@ -106,6 +106,11 @@ const RESPONSE_STREAM_SLOW_PATH_1MS_US: u64 = 1_000;
 const RESPONSE_STREAM_SLOW_PATH_5MS_US: u64 = 5_000;
 const RESPONSE_STREAM_SLOW_PATH_10MS_US: u64 = 10_000;
 
+#[cfg(feature = "ffi-test")]
+fn ffi_test_debug_logs_enabled() -> bool {
+    std::env::var_os("CONNECTANUM_FFI_TEST_DEBUG").is_some()
+}
+
 fn http_stream_timeouts(config: &config::EndpointRuntimeConfig) -> (Duration, Duration) {
     let idle = config.idle_timeout.unwrap_or(HTTP_STREAM_IDLE_FALLBACK);
     let total = idle
@@ -493,7 +498,11 @@ impl HttpResponseStreamMetrics {
             .fetch_add(headers_send_call_us, Ordering::SeqCst);
     }
 
-    fn record_headers_to_first_connection_write(&self, headers_sent_at: Instant, write_at: Instant) {
+    fn record_headers_to_first_connection_write(
+        &self,
+        headers_sent_at: Instant,
+        write_at: Instant,
+    ) {
         let headers_to_first_connection_write_us =
             saturating_instant_delta_us(headers_sent_at, write_at);
         self.headers_to_first_connection_write_samples_total
@@ -570,9 +579,7 @@ impl HttpResponseStreamMetrics {
             headers_send_call_samples_total: self
                 .headers_send_call_samples_total
                 .load(Ordering::SeqCst),
-            headers_send_call_us_total: self
-                .headers_send_call_us_total
-                .load(Ordering::SeqCst),
+            headers_send_call_us_total: self.headers_send_call_us_total.load(Ordering::SeqCst),
             headers_to_first_connection_write_samples_total: self
                 .headers_to_first_connection_write_samples_total
                 .load(Ordering::SeqCst),
@@ -1795,10 +1802,12 @@ impl ListenerRegistry {
         detail: Option<String>,
     ) {
         #[cfg(feature = "ffi-test")]
-        eprintln!(
-            "registry: finish_http_connection {:?} reason {:?} detail {:?}",
-            connection_id, reason, detail
-        );
+        if ffi_test_debug_logs_enabled() {
+            eprintln!(
+                "registry: finish_http_connection {:?} reason {:?} detail {:?}",
+                connection_id, reason, detail
+            );
+        }
         let entry = self
             .connections
             .lock()
@@ -1917,14 +1926,16 @@ impl ListenerRegistry {
             );
             #[cfg(feature = "ffi-test")]
             {
-                let snapshot: Vec<String> = guard
-                    .iter()
-                    .map(|(id, entry)| format!("{:?}:{:?}", id, entry.protocol))
-                    .collect();
-                eprintln!(
-                    "registry: registered http3 connection {:?} for listener {:?}, peers {:?}, connections={:?}",
-                    connection_id, listener_id, peer_addr, snapshot
-                );
+                if ffi_test_debug_logs_enabled() {
+                    let snapshot: Vec<String> = guard
+                        .iter()
+                        .map(|(id, entry)| format!("{:?}:{:?}", id, entry.protocol))
+                        .collect();
+                    eprintln!(
+                        "registry: registered http3 connection {:?} for listener {:?}, peers {:?}, connections={:?}",
+                        connection_id, listener_id, peer_addr, snapshot
+                    );
+                }
             }
         }
         streams
@@ -2117,14 +2128,16 @@ impl ListenerRegistry {
             .unwrap_or_else(|poison| poison.into_inner());
         #[cfg(feature = "ffi-test")]
         {
-            let snapshot: Vec<String> = connections
-                .iter()
-                .map(|(id, entry)| format!("{:?}:{:?}", id, entry.protocol))
-                .collect();
-            eprintln!(
-                "registry: take_http3_handshake {:?}, connections={:?}",
-                connection_id, snapshot
-            );
+            if ffi_test_debug_logs_enabled() {
+                let snapshot: Vec<String> = connections
+                    .iter()
+                    .map(|(id, entry)| format!("{:?}:{:?}", id, entry.protocol))
+                    .collect();
+                eprintln!(
+                    "registry: take_http3_handshake {:?}, connections={:?}",
+                    connection_id, snapshot
+                );
+            }
         }
         let entry = connections
             .get(&connection_id)
@@ -2138,10 +2151,12 @@ impl ListenerRegistry {
             }
             _ => {
                 #[cfg(feature = "ffi-test")]
-                eprintln!(
-                    "registry: take_http3_handshake {:?} unsupported protocol {:?}",
-                    connection_id, entry.protocol
-                );
+                if ffi_test_debug_logs_enabled() {
+                    eprintln!(
+                        "registry: take_http3_handshake {:?} unsupported protocol {:?}",
+                        connection_id, entry.protocol
+                    );
+                }
                 Err(Error::UnsupportedProtocol(connection_id, entry.protocol))
             }
         }
@@ -2276,10 +2291,12 @@ fn start_http3_listener(
                         let handshake = Http3Handshake::from_endpoint(&runtime_for_task);
                         let connection_id = registry_for_task.next_connection_id();
                         #[cfg(feature = "ffi-test")]
-                        eprintln!(
-                            "http3 connection accepted on {:?} from {} (id {:?})",
-                            listener_id, peer_addr, connection_id
-                        );
+                        if ffi_test_debug_logs_enabled() {
+                            eprintln!(
+                                "http3 connection accepted on {:?} from {} (id {:?})",
+                                listener_id, peer_addr, connection_id
+                            );
+                        }
                         let connection = Arc::new(connection);
                         let streams = registry_for_task.register_http3_connection(
                             listener_id,
@@ -2290,11 +2307,13 @@ fn start_http3_listener(
                             peer_addr,
                         );
                         #[cfg(feature = "ffi-test")]
-                        eprintln!(
-                            "http3 registry stored {:?} with protocol {:?}",
-                            connection_id,
-                            registry_for_task.connection_protocol(connection_id)
-                        );
+                        if ffi_test_debug_logs_enabled() {
+                            eprintln!(
+                                "http3 registry stored {:?} with protocol {:?}",
+                                connection_id,
+                                registry_for_task.connection_protocol(connection_id)
+                            );
+                        }
                         let registry_for_connection = Arc::clone(&registry_for_task);
                         let endpoint_for_connection = Arc::clone(&runtime_for_task);
                         tokio::spawn(async move {
@@ -5436,12 +5455,14 @@ async fn serve_http3_requests(
             Ok(Some(resolver)) => match resolver.resolve_request().await {
                 Ok((request, stream)) => {
                     #[cfg(feature = "ffi-test")]
-                    eprintln!(
-                        "http3 request accepted on connection {:?}: {} {}",
-                        connection_id,
-                        request.method(),
-                        request.uri()
-                    );
+                    if ffi_test_debug_logs_enabled() {
+                        eprintln!(
+                            "http3 request accepted on connection {:?}: {} {}",
+                            connection_id,
+                            request.method(),
+                            request.uri()
+                        );
+                    }
                     if let Err(err) = process_http3_request(
                         connection_id,
                         Arc::clone(&connection),
@@ -5484,6 +5505,16 @@ async fn serve_http3_requests(
                 };
                 if !graceful_close {
                     if let Some(message) = error_message.as_ref() {
+                        #[cfg(feature = "ffi-test")]
+                        {
+                            if ffi_test_debug_logs_enabled() {
+                                eprintln!(
+                                    "http3 accept loop stopped for listener {:?}: {}",
+                                    listener_id, message
+                                );
+                            }
+                        }
+                        #[cfg(not(feature = "ffi-test"))]
                         eprintln!(
                             "http3 accept loop stopped for listener {:?}: {}",
                             listener_id, message
@@ -5716,12 +5747,9 @@ async fn handle_http2_request(
             tokio::spawn(async move {
                 match rx.await {
                     Ok(dispatch) => {
-                        if let Err(err) = send_http2_response_from_dispatch(
-                            respond,
-                            dispatch,
-                            write_tracker,
-                        )
-                        .await
+                        if let Err(err) =
+                            send_http2_response_from_dispatch(respond, dispatch, write_tracker)
+                                .await
                         {
                             eprintln!(
                                 "failed to send http/2 response for connection {:?}: {}",
@@ -6035,12 +6063,14 @@ async fn process_http3_request(
     registry: Arc<ListenerRegistry>,
 ) -> Result<(), String> {
     #[cfg(feature = "ffi-test")]
-    eprintln!(
-        "http3 processing request {:?}: {} {}",
-        connection_id,
-        request.method(),
-        request.uri()
-    );
+    if ffi_test_debug_logs_enabled() {
+        eprintln!(
+            "http3 processing request {:?}: {} {}",
+            connection_id,
+            request.method(),
+            request.uri()
+        );
+    }
     let method = request.method().as_str().to_string();
     let normalized_method = method.to_uppercase();
     let target = request

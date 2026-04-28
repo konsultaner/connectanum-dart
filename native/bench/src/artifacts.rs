@@ -822,6 +822,11 @@ fn summarize_http_phase_timing(
         .filter_map(|sample| sample.http_phase_timing.as_ref())
         .filter_map(|timing| timing.response_headers_connection_write_span_ms)
         .collect::<Vec<_>>();
+    let mut response_headers_last_write_to_first_reads = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_headers_last_write_to_first_read_ms)
+        .collect::<Vec<_>>();
     let mut response_body_reads = samples
         .iter()
         .filter_map(|sample| sample.http_phase_timing.as_ref())
@@ -870,6 +875,7 @@ fn summarize_http_phase_timing(
     response_headers_connection_read_to_headers.sort_by(|left, right| left.total_cmp(right));
     response_headers_connection_write_waits.sort_by(|left, right| left.total_cmp(right));
     response_headers_connection_write_spans.sort_by(|left, right| left.total_cmp(right));
+    response_headers_last_write_to_first_reads.sort_by(|left, right| left.total_cmp(right));
     response_body_reads.sort_by(|left, right| left.total_cmp(right));
     response_body_first_chunk_waits.sort_by(|left, right| left.total_cmp(right));
     response_body_tail_reads.sort_by(|left, right| left.total_cmp(right));
@@ -915,6 +921,15 @@ fn summarize_http_phase_timing(
             response_headers_connection_write_spans.iter().sum::<f64>()
                 / response_headers_connection_write_spans.len() as f64
         };
+    let response_headers_last_write_to_first_read_avg_ms =
+        if response_headers_last_write_to_first_reads.is_empty() {
+            0.0
+        } else {
+            response_headers_last_write_to_first_reads
+                .iter()
+                .sum::<f64>()
+                / response_headers_last_write_to_first_reads.len() as f64
+        };
     let response_body_read_avg_ms =
         response_body_reads.iter().sum::<f64>() / response_body_reads.len() as f64;
     let request_round_trip_avg_ms =
@@ -950,21 +965,33 @@ fn summarize_http_phase_timing(
             response_headers_connection_write_waits.len() as u64,
         response_headers_connection_write_wait_avg_ms:
             response_headers_connection_write_wait_avg_ms,
-        response_headers_connection_write_wait_p95_ms:
-            if response_headers_connection_write_waits.is_empty() {
-                0.0
-            } else {
-                percentile(&response_headers_connection_write_waits, 0.95)
-            },
+        response_headers_connection_write_wait_p95_ms: if response_headers_connection_write_waits
+            .is_empty()
+        {
+            0.0
+        } else {
+            percentile(&response_headers_connection_write_waits, 0.95)
+        },
         response_headers_connection_write_span_samples_total:
             response_headers_connection_write_spans.len() as u64,
         response_headers_connection_write_span_avg_ms:
             response_headers_connection_write_span_avg_ms,
-        response_headers_connection_write_span_p95_ms:
-            if response_headers_connection_write_spans.is_empty() {
+        response_headers_connection_write_span_p95_ms: if response_headers_connection_write_spans
+            .is_empty()
+        {
+            0.0
+        } else {
+            percentile(&response_headers_connection_write_spans, 0.95)
+        },
+        response_headers_last_write_to_first_read_samples_total:
+            response_headers_last_write_to_first_reads.len() as u64,
+        response_headers_last_write_to_first_read_avg_ms:
+            response_headers_last_write_to_first_read_avg_ms,
+        response_headers_last_write_to_first_read_p95_ms:
+            if response_headers_last_write_to_first_reads.is_empty() {
                 0.0
             } else {
-                percentile(&response_headers_connection_write_spans, 0.95)
+                percentile(&response_headers_last_write_to_first_reads, 0.95)
             },
         response_body_read_avg_ms,
         response_body_read_p95_ms: percentile(&response_body_reads, 0.95),
@@ -2352,6 +2379,7 @@ mod tests {
                         response_headers_connection_read_to_headers_ms: Some(0.75),
                         response_headers_connection_write_wait_ms: Some(0.5),
                         response_headers_connection_write_span_ms: Some(1.0),
+                        response_headers_last_write_to_first_read_ms: Some(0.25),
                         response_body_read_ms: 4.0,
                         response_body_first_chunk_wait_ms: 2.0,
                         response_body_tail_read_ms: 2.0,
@@ -2376,6 +2404,7 @@ mod tests {
                         response_headers_connection_read_to_headers_ms: Some(1.25),
                         response_headers_connection_write_wait_ms: Some(1.0),
                         response_headers_connection_write_span_ms: Some(1.5),
+                        response_headers_last_write_to_first_read_ms: Some(0.75),
                         response_body_read_ms: 8.0,
                         response_body_first_chunk_wait_ms: 3.0,
                         response_body_tail_read_ms: 5.0,
@@ -2400,6 +2429,7 @@ mod tests {
                         response_headers_connection_read_to_headers_ms: None,
                         response_headers_connection_write_wait_ms: None,
                         response_headers_connection_write_span_ms: None,
+                        response_headers_last_write_to_first_read_ms: None,
                         response_body_read_ms: 12.0,
                         response_body_first_chunk_wait_ms: 4.0,
                         response_body_tail_read_ms: 8.0,
@@ -2534,8 +2564,7 @@ mod tests {
                 < f64::EPSILON
         );
         assert!(
-            (phase_timing.response_headers_connection_write_wait_p95_ms - 1.0).abs()
-                < f64::EPSILON
+            (phase_timing.response_headers_connection_write_wait_p95_ms - 1.0).abs() < f64::EPSILON
         );
         assert_eq!(
             phase_timing.response_headers_connection_write_span_samples_total,
@@ -2546,7 +2575,18 @@ mod tests {
                 < f64::EPSILON
         );
         assert!(
-            (phase_timing.response_headers_connection_write_span_p95_ms - 1.5).abs()
+            (phase_timing.response_headers_connection_write_span_p95_ms - 1.5).abs() < f64::EPSILON
+        );
+        assert_eq!(
+            phase_timing.response_headers_last_write_to_first_read_samples_total,
+            2
+        );
+        assert!(
+            (phase_timing.response_headers_last_write_to_first_read_avg_ms - 0.5).abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (phase_timing.response_headers_last_write_to_first_read_p95_ms - 0.75).abs()
                 < f64::EPSILON
         );
         assert!((phase_timing.response_body_read_avg_ms - 8.0).abs() < f64::EPSILON);

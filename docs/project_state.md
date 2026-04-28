@@ -1,12 +1,47 @@
 # Project State
 
-Last updated: 2026-04-25
+Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `355a117` (`build(bench): split h2 header-wait write timing`)
-Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
+Last reviewed commit: `5f79e40` (`build(ktls): render header-write diagnostics`)
+Active exec plan: `docs/exec-plans/2026-04-25-ci-noise-and-skip-cleanup.md`
 
 ## Last Known Verification
 
+- The current local CI-cleanup slice is green as of 2026-04-28:
+  - `bash -n bin/common.sh bin/test-fast bin/test-all`
+  - `dart analyze packages/connectanum_router/test/router_worker_session_test.dart packages/connectanum_router/test/router_integration_native_test.dart`
+  - `dart test test/router_worker_session_test.dart --exclude-tags zero_copy_publish -r expanded`
+    from `packages/connectanum_router`
+  - `CONNECTANUM_FORWARD_NATIVE_PUBLISH=1 dart test test/router_worker_session_test.dart test/router_integration_native_test.dart --tags zero_copy_publish --chain-stack-traces -r expanded`
+    from `packages/connectanum_router`
+  - focused HTTP/3 router integration tests against the refreshed
+    `target/ffi-test/release` native library
+  - focused bench WAMP RawSocket integration against the refreshed ffi-test
+    native library
+  - `bin/test-fast`
+  - `bin/verify`
+- The current working tree carries uncommitted CI-cleanup changes:
+  - workflow action upgrades to remove hosted deprecation warnings
+  - Darwin-native bench transport coverage now runs instead of staying
+    Linux-only
+  - Darwin runtime-lock retry now handles both `errno 11` and `errno 35`
+  - low-value test/debug prints are reduced across Dart and native code
+  - zero-copy publish tests are isolated under the `zero_copy_publish` tag and
+    run explicitly with `CONNECTANUM_FORWARD_NATIVE_PUBLISH=1`, so the default
+    router suite no longer emits skip lines for that coverage
+  - `build_native_ffi_test_release` now builds and exports the actual
+    `native/transport/target/ffi-test/release` library that Dart tests prefer,
+    preventing stale native debug strings from leaking into CI
+  - HTTP/3 ffi-test success diagnostics remain available behind
+    `CONNECTANUM_FFI_TEST_DEBUG`, but passing CI no longer prints registry or
+    request traces by default
+- A same-workspace background process can still block local native-suite
+  verification by holding the shared
+  `${TMPDIR:-/tmp}/connectanum_native_runtime.lock` file.
+  - The latest successful local `bin/verify` run required terminating a stale
+    background Codex loop that was still running
+    `packages/connectanum_bench/test/wamp_transport_integration_test.dart`
+  - That was a local workspace-concurrency issue, not a repo regression
 - Hosted GitHub push runs on `45fcba8` completed successfully:
   `CI` `24914678995`, `kTLS Validation` `24914678987`,
   `WAMP Profile Benchmarks` `24914678985`
@@ -22,6 +57,10 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
 - Hosted GitHub push runs on `355a117` completed successfully:
   `CI` `24921028426`, `kTLS Validation` `24921028397`,
   `WAMP Profile Benchmarks` `24921028403`
+- Hosted GitHub push run on `5f79e40` completed successfully:
+  `CI` `24921840775`
+  - `kTLS Validation` and `WAMP Profile Benchmarks` were correctly skipped by
+    their `push.paths` filters because `5f79e40` only changed report tooling
 - Manual hosted `kTLS HTTP/2 Benchmarks` rerun `24920655184` completed
   successfully on clean head `b551a6d`, but remained not decision-quality for
   isolated `h2_multiplexed_streams_s1`, `threads=4`:
@@ -49,6 +88,13 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
   - `python3 tool/test_ktls_http2_compare.py`
   - `tmpdir=$(mktemp -d /tmp/connectanum-ktls-rerender-XXXXXX) && python3 tool/ktls_http2_compare.py /tmp/connectanum-run-24921433741/extracted/repeats/repeat-02/baseline/bench_results.summary.json /tmp/connectanum-run-24921433741/extracted/repeats/repeat-02/ktls/bench_results.summary.json "$tmpdir/comparison.json" "$tmpdir/comparison.md"`
   - `bin/verify`
+- The current isolated header-gap split is green locally:
+  - `bin/test-fast`
+  - `cargo test --manifest-path native/bench/Cargo.toml h2_last_write_to_first_read_gap_uses_last_write_boundary --bin http_stream -- --nocapture`
+  - `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
+  - `python3 -m py_compile tool/ktls_http2_compare.py tool/test_ktls_http2_compare.py`
+  - `python3 tool/test_ktls_http2_compare.py`
+  - `tmpdir=$(mktemp -d /tmp/connectanum-ktls-rerender-XXXXXX) && python3 tool/ktls_http2_compare.py /tmp/connectanum-run-24921433741/extracted/repeats/repeat-02/baseline/bench_results.summary.json /tmp/connectanum-run-24921433741/extracted/repeats/repeat-02/ktls/bench_results.summary.json "$tmpdir/comparison.json" "$tmpdir/comparison.md"`
 - The current workload-isolation methodology slice is green locally:
   - `bin/test-fast`
   - `bash -n bin/ktls-http2-bench`
@@ -162,6 +208,16 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     and span alongside the existing read-side diagnostics
   - the header diagnostics table now exposes those same fields so hosted
     artifacts are useful without opening raw JSON
+- The current working tree now carries the next bounded split inside
+  `response_headers_connection_read_wait`:
+  - the native bench summary records
+    `response_headers_last_write_to_first_read_*`
+  - that metric isolates the idle gap after the last request-side connection
+    write and before the first response-side connection read during
+    `response_headers_wait`
+  - if the next isolated hosted `s1` rerun moves on that gap, the remaining
+    instability is downstream of client flush completion and upstream of the
+    first response read
 - That rerun also moved the remaining hotspot deeper into the HTTP/2 native
   response-stream path on `h2_multiplexed_streams_s8`, `threads=1`: server
   direct-stream timings improved, but client `response headers wait`,

@@ -17,9 +17,7 @@ void main() {
   final nativeLib = _resolveNativeLib();
   final workerScriptPath = _resolveBenchTool('wamp_client_main.dart');
   final workerPackageDirectory = File(workerScriptPath).absolute.parent.parent;
-  final skipReason = !Platform.isLinux
-      ? 'Native WAMP transport workloads currently require Linux runtime support.'
-      : nativeLib == null
+  final skipReason = nativeLib == null
       ? 'Native transport library missing; build native transport first.'
       : null;
 
@@ -226,9 +224,9 @@ void main() {
     );
 
     test(
-      'native control workloads run against a real router',
+      'native publish-ack control workload runs against a real router',
       () async {
-        final publishAckSamples = await harness!.runNative(
+        final samples = await harness!.runNative(
           WampScenario(
             transport: WampTransport.rawsocket,
             clientImplementation: WampClientImplementation.native,
@@ -240,7 +238,17 @@ void main() {
             payloadBytes: 32,
           ),
         );
-        final subscribeCycleSamples = await harness!.runNative(
+
+        expect(samples, hasLength(2));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
+      'native subscribe-cycle control workload runs against a real router',
+      () async {
+        final samples = await harness!.runNative(
           WampScenario(
             transport: WampTransport.websocket,
             clientImplementation: WampClientImplementation.native,
@@ -252,7 +260,17 @@ void main() {
             payloadBytes: 0,
           ),
         );
-        final registerCycleSamples = await harness!.runNative(
+
+        expect(samples, hasLength(2));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
+      'native register-cycle control workload runs against a real router',
+      () async {
+        final samples = await harness!.runNative(
           WampScenario(
             transport: WampTransport.rawsocket,
             clientImplementation: WampClientImplementation.native,
@@ -264,7 +282,17 @@ void main() {
             payloadBytes: 0,
           ),
         );
-        final cancelCycleSamples = await harness!.runNative(
+
+        expect(samples, hasLength(2));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
+      'native RawSocket JSON cancel-cycle control workload runs against a real router',
+      () async {
+        final samples = await harness!.runNative(
           WampScenario(
             transport: WampTransport.rawsocket,
             clientImplementation: WampClientImplementation.native,
@@ -276,7 +304,17 @@ void main() {
             payloadBytes: 0,
           ),
         );
-        final webSocketCancelCycleSamples = await harness!.runNative(
+
+        expect(samples, hasLength(2));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
+      'native WebSocket MsgPack cancel-cycle control workload runs against a real router',
+      () async {
+        final samples = await harness!.runNative(
           WampScenario(
             transport: WampTransport.websocket,
             clientImplementation: WampClientImplementation.native,
@@ -288,7 +326,17 @@ void main() {
             payloadBytes: 0,
           ),
         );
-        final rawSocketMsgPackCancelCycleSamples = await harness!.runNative(
+
+        expect(samples, hasLength(2));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
+      'native RawSocket MsgPack cancel-cycle control workload runs against a real router',
+      () async {
+        final samples = await harness!.runNative(
           WampScenario(
             transport: WampTransport.rawsocket,
             clientImplementation: WampClientImplementation.native,
@@ -301,12 +349,7 @@ void main() {
           ),
         );
 
-        expect(publishAckSamples, hasLength(2));
-        expect(subscribeCycleSamples, hasLength(2));
-        expect(registerCycleSamples, hasLength(2));
-        expect(cancelCycleSamples, hasLength(2));
-        expect(webSocketCancelCycleSamples, hasLength(2));
-        expect(rawSocketMsgPackCancelCycleSamples, hasLength(2));
+        expect(samples, hasLength(2));
       },
       skip: skipReason,
       timeout: const Timeout(Duration(seconds: 45)),
@@ -898,9 +941,18 @@ String? _resolveNativeLib() {
   if (envPath != null && File(envPath).existsSync()) {
     return envPath;
   }
-  const candidates = [
-    '../../native/transport/target/ffi-test/release/libct_ffi.so',
-    '../../native/transport/target/release/libct_ffi.so',
+  final fileName = switch (Platform.operatingSystem) {
+    'macos' => 'libct_ffi.dylib',
+    'linux' => 'libct_ffi.so',
+    'windows' => 'ct_ffi.dll',
+    _ => null,
+  };
+  if (fileName == null) {
+    return null;
+  }
+  final candidates = [
+    '../../native/transport/target/ffi-test/release/$fileName',
+    '../../native/transport/target/release/$fileName',
   ];
   for (final candidate in candidates) {
     final file = File(candidate);
