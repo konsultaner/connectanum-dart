@@ -83,6 +83,14 @@ operator evidence over speculative feature or benchmark work.
   - GitHub `CI` run `25048277995` on `86a4e7c` passed `Fast Checks` and
     `Full Verify`; `WAMP Profile Gates` was skipped for this non-benchmark
     change as expected
+- Started the release-publishing dry-run slice:
+  - `.github/workflows/native-artifacts.yml` adds a `dry_run` manual input for
+    release-tag preview runs
+  - `tool/render_native_release_notes.py` renders the human-readable native
+    release notes outside inline workflow shell, with unit coverage
+  - dry-run publish jobs write `release-notes.md` and `release-metadata.txt`
+    into a `native-release-preview` artifact and stop before any GitHub
+    Release mutation
 
 ## Verification
 
@@ -114,6 +122,13 @@ operator evidence over speculative feature or benchmark work.
   artifact slice:
   - `CI` run `25048277995` passed on `86a4e7c`
   - manual `Native Artifacts` run `25048283917` passed on `86a4e7c`
+- Current release-dry-run slice focused local checks:
+  - `bin/test-fast`
+  - `python3 -m py_compile tool/render_native_release_notes.py tool/test_render_native_release_notes.py`
+  - `python3 tool/test_render_native_release_notes.py`
+  - `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/native-artifacts.yml')"`
+  - `python3 tool/render_native_release_notes.py --release-tag ct-ffi-v2026.04.28-preview --repository konsultaner/connectanum-dart --server-url https://github.com --commit HEAD --workflow-ref konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml@refs/heads/add-router --owner konsultaner`
+  - `bin/verify`
 
 ## Decision Log
 
@@ -130,9 +145,12 @@ operator evidence over speculative feature or benchmark work.
   and used workspace-relative paths for Node-based GitHub actions. This avoids
   Windows Git Bash `/d/a/...` paths in `actions/attest` and `upload-artifact`
   while preserving working POSIX paths for Bash and cosign.
+- 2026-04-28: Added a GitHub release dry-run mode before publishing any new
+  validation tags. This keeps the deployment chain testable without creating
+  throwaway releases when the only thing being reviewed is release metadata.
 
 ## Handoff
 
-- Next continuation should keep GitHub CI green, then move to the next
-  deployment-chain gap: release publishing dry-run/readiness, release metadata,
-  or installer coverage for the now-hosted multi-platform native artifacts.
+- Next continuation should keep GitHub CI green, finish hosted validation for
+  the native release dry-run path, then move to installer coverage for the
+  now-hosted multi-platform native artifacts.

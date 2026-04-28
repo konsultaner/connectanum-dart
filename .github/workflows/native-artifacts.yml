@@ -16,6 +16,11 @@ on:
         required: false
         type: boolean
         default: false
+      dry_run:
+        description: Render release metadata and upload a preview without creating or updating a GitHub Release
+        required: false
+        type: boolean
+        default: false
   push:
     tags:
       - 'ct-ffi-v*'
@@ -128,6 +133,8 @@ jobs:
       contents: write
 
     steps:
+      - uses: actions/checkout@v5
+
       - name: Download packaged artifacts
         uses: actions/download-artifact@v8
         with:
@@ -167,10 +174,11 @@ jobs:
           printf 'release_tag=%s\n' "$release_tag" >> "$GITHUB_OUTPUT"
           printf 'release_title=%s\n' "$release_title" >> "$GITHUB_OUTPUT"
 
-      - name: Create or update GitHub Release
+      - name: Render or publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           INPUT_PRERELEASE: ${{ github.event.inputs.prerelease }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
           RELEASE_TAG: ${{ steps.meta.outputs.release_tag }}
           RELEASE_TITLE: ${{ steps.meta.outputs.release_title }}
         run: |
@@ -188,78 +196,74 @@ jobs:
             prerelease_args+=(--prerelease)
           fi
 
-          repo_url="${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY}"
-          workflow_identity="https://github.com/${GITHUB_WORKFLOW_REF}"
           owner="$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
-          human_summary='This release publishes the current prebuilt native transport bundles for Connectanum.'
-          related_artifacts_lines=$'- Deployment guide: '"${repo_url}/blob/${GITHUB_SHA}/docs/deployment.md"$'\n- Router container images: `ghcr.io/'"${owner}"'/connectanum-router`'
           generate_notes='false'
-          generated_notes_body=''
 
-          if [[ "$RELEASE_TAG" == ct-ffi-v* ]]; then
-            human_summary='This release publishes the standalone native transport bundles used by the Connectanum router and native client transports.'
-          elif [[ "$RELEASE_TAG" == v* ]]; then
+          if [[ "$RELEASE_TAG" == v* && "$RELEASE_TAG" != ct-ffi-v* ]]; then
             generate_notes='true'
           fi
 
           release_notes_file="$(mktemp)"
-          trap 'rm -f "$release_notes_file"' EXIT
-
-          cat > "$release_notes_file" <<EOF
-          ## What this release includes
-
-          ${human_summary}
-
-          ## Assets
-
-          - \`ct-ffi-<host-triple>.tar.gz\` - prebuilt native transport bundle for one platform
-          - \`*.sha256\` - checksum for the matching archive
-          - \`*.manifest.json\` - machine-readable build metadata
-          - \`*.sigstore.json\` - detached Sigstore verification bundle
-
-          ## Current prebuilt platforms
-
-          - Linux x64 (\`x86_64-unknown-linux-gnu\`)
-          - Linux arm64 (\`aarch64-unknown-linux-gnu\`)
-          - macOS arm64 (\`aarch64-apple-darwin\`)
-          - macOS Intel (\`x86_64-apple-darwin\`)
-          - Windows x64 (\`x86_64-pc-windows-msvc\`)
-
-          ## How to use the bundle
-
-          1. Download the archive that matches your platform.
-          2. Extract it and point \`CONNECTANUM_NATIVE_LIB\` at the included library.
-          3. Or install the matching bundle directly with:
-             - \`dart run connectanum_router:tool/install_native.dart --tag ${RELEASE_TAG}\`
-             - \`dart run connectanum_client:tool/install_native.dart --tag ${RELEASE_TAG}\`
-
-          ## Verification
-
-          - GitHub attestation:
-            \`gh attestation verify path/to/ct-ffi-<host-triple>.tar.gz -R ${GITHUB_REPOSITORY}\`
-          - Detached Sigstore bundle:
-            \`cosign verify-blob path/to/ct-ffi-<host-triple>.tar.gz --bundle path/to/ct-ffi-<host-triple>.tar.gz.sigstore.json --certificate-identity ${workflow_identity} --certificate-oidc-issuer https://token.actions.githubusercontent.com\`
-
-          ## Related links
-
-          - Repository README: ${repo_url}/blob/${GITHUB_SHA}/README.md
-          ${related_artifacts_lines}
-          EOF
-
-          release_notes="$(cat "$release_notes_file")"
+          generated_notes_file="$(mktemp)"
+          trap 'rm -f "$release_notes_file" "$generated_notes_file"' EXIT
 
           if [[ "$generate_notes" == 'true' ]]; then
-            generated_notes_body="$(gh api \
+            gh api \
               --method POST \
               -H 'Accept: application/vnd.github+json' \
               "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
               -f tag_name="$RELEASE_TAG" \
               -f target_commitish="$GITHUB_SHA" \
-              --jq '.body')"
+              --jq '.body' > "$generated_notes_file"
+          fi
 
-            if [[ -n "$generated_notes_body" ]]; then
-              release_notes="${release_notes}"$'\n\n## Changelog\n\n'"${generated_notes_body}"
-            fi
+          python3 tool/render_native_release_notes.py \
+            --release-tag "$RELEASE_TAG" \
+            --repository "$GITHUB_REPOSITORY" \
+            --server-url "${GITHUB_SERVER_URL:-https://github.com}" \
+            --commit "$GITHUB_SHA" \
+            --workflow-ref "$GITHUB_WORKFLOW_REF" \
+            --owner "$owner" \
+            --generated-notes-file "$generated_notes_file" \
+            > "$release_notes_file"
+
+          release_notes="$(cat "$release_notes_file")"
+
+          if [[ "${INPUT_DRY_RUN:-false}" == "true" ]]; then
+            preview_dir="out/release-preview"
+            mkdir -p "$preview_dir"
+            cp "$release_notes_file" "$preview_dir/release-notes.md"
+
+            {
+              printf 'Release tag: %s\n' "$RELEASE_TAG"
+              printf 'Release title: %s\n' "$RELEASE_TITLE"
+              printf 'Prerelease: %s\n' "${INPUT_PRERELEASE:-false}"
+              printf 'Commit: %s\n' "$GITHUB_SHA"
+              printf 'Assets:\n'
+              for asset in "${assets[@]}"; do
+                printf '%s\n' "- $(basename "$asset")"
+              done
+            } > "$preview_dir/release-metadata.txt"
+
+            summary_file="${GITHUB_STEP_SUMMARY:-/dev/null}"
+            {
+              printf '## Native release dry run\n\n'
+              printf 'No GitHub Release was created or updated.\n\n'
+              printf '%s\n' "- Release tag: \`$RELEASE_TAG\`"
+              printf '%s\n' "- Release title: \`$RELEASE_TITLE\`"
+              printf '%s\n' "- Prerelease: \`${INPUT_PRERELEASE:-false}\`"
+              printf '%s\n\n' "- Asset count: \`${#assets[@]}\`"
+              printf '### Assets\n\n'
+              for asset in "${assets[@]}"; do
+                printf '%s\n' "- \`$(basename "$asset")\`"
+              done
+              printf '\n### Release notes preview\n\n'
+              printf '<details>\n<summary>Rendered release notes</summary>\n\n'
+              cat "$release_notes_file"
+              printf '\n</details>\n'
+            } >> "$summary_file"
+
+            exit 0
           fi
 
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
@@ -296,3 +300,10 @@ jobs:
               "${prerelease_args[@]}" \
               "${assets[@]}"
           fi
+
+      - name: Upload release preview
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-release-preview
+          path: out/release-preview

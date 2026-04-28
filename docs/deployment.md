@@ -92,7 +92,15 @@ let the hook fetch those assets via
 `CONNECTANUM_NATIVE_LIB` to the bundled library path before starting the
 router. The main `CI` workflow does not publish generic debug metrics dumps,
 so production packaging should rely on this workflow or GitHub Releases rather
-than arbitrary branch-run artifacts. The same workflow publishes GitHub artifact attestations for each
+than arbitrary branch-run artifacts.
+
+Before publishing a real release, maintainers can manually dispatch the
+`Native Artifacts` workflow with `release_tag=<tag>` and `dry_run=true`. That
+path builds and verifies the native matrix, renders the exact release notes and
+asset metadata, uploads them as `native-release-preview`, and exits before
+creating or updating a GitHub Release.
+
+The same workflow publishes GitHub artifact attestations for each
 archive/checksum/manifest set, so you can verify a downloaded archive with:
 
 ```sh

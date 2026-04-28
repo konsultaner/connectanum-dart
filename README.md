@@ -157,6 +157,13 @@ Current GitHub-hosted release targets:
 - macOS Intel (`x86_64-apple-darwin`)
 - Windows x64 (`x86_64-pc-windows-msvc`)
 
+Maintainers can preview the exact GitHub Release title, asset list, and notes
+without publishing by manually dispatching the `Native Artifacts` workflow with
+`release_tag=<tag>` and `dry_run=true`. The run still builds and verifies the
+native matrix, then uploads a `native-release-preview` artifact containing
+`release-metadata.txt` and `release-notes.md`; no GitHub Release is created or
+updated.
+
 The main `CI` workflow intentionally does not publish raw per-test metrics
 snapshots. Release-facing native artifacts come from this workflow and GitHub
 Releases, while performance/transport evidence comes from the dedicated bench

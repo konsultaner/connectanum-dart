@@ -12,6 +12,8 @@ coverage
 Cargo.lock
 /native/transport/tmp/
 *.g.dart
+__pycache__/
+*.pyc
 /native/bench/target/
 bench_results.jsonl
 /native/bench/artifacts/bench_results.prom

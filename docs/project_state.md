@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `86a4e7c` (`ci: use workspace-relative artifact paths`)
+Last reviewed commit: `7a411e3` (`docs: record native artifact ci success`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -115,6 +115,23 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
   - the Windows x64 leg now builds, packages, signs, verifies, attests, and
     uploads the `ct_ffi` bundle using workspace-relative paths for Node-based
     GitHub actions
+- Documentation checkpoint `7a411e3`
+  (`docs: record native artifact ci success`) passed hosted GitHub `CI` run
+  `25049241654`; `Fast Checks` and `Full Verify` succeeded, while
+  `WAMP Profile Gates` was correctly skipped for the docs-only push.
+- The current deployment-chain slice adds a safe native-release dry-run path:
+  - `.github/workflows/native-artifacts.yml` accepts manual
+    `release_tag=<tag>` plus `dry_run=true`
+  - dry-run publish jobs render the exact GitHub Release title, release notes,
+    and asset list into a `native-release-preview` artifact, then exit before
+    creating or updating a GitHub Release
+  - `tool/render_native_release_notes.py` makes the release note body
+    locally testable instead of depending on inline workflow shell only
+  - focused local checks are green: `bin/test-fast`,
+    `python3 -m py_compile tool/render_native_release_notes.py tool/test_render_native_release_notes.py`,
+    `python3 tool/test_render_native_release_notes.py`,
+    `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/native-artifacts.yml')"`,
+    a local render preview for `ct-ffi-v2026.04.28-preview`, and `bin/verify`
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.
