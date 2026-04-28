@@ -258,6 +258,31 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     `python3 tool/test_validate_native_release_intent.py`, workflow YAML
     parsing, representative validator CLI acceptance checks, `git diff --check`,
     and `bin/verify`
+- Release-intent hosted validation is clean on `8dc966f`
+  (`ci: guard manual stable native releases`):
+  - GitHub `CI` run `25063769464` passed `Fast Checks` and `Full Verify`;
+    `WAMP Profile Gates` was skipped for the workflow/tooling push
+  - manual GitHub `Native Artifacts` dry-run `25063774771` passed Linux x64,
+    Linux arm64, macOS Apple Silicon, macOS Intel, Windows x64, and the
+    preview publish job
+  - the hosted `Validate release intent` step accepted
+    `ct-ffi-v2026.04.28-dry-run.8dc966f` as `(native, dry-run)`
+  - the preview metadata still listed all 30 expected native release assets,
+    and `gh release view ct-ffi-v2026.04.28-dry-run.8dc966f` returned
+    `release not found`
+- The current CI-log cleanup slice suppresses expected rawsocket peer shutdown
+  noise:
+  - hosted CI on `8dc966f` exposed a passing-test line,
+    `connection ConnectionId(...) io error: Connection reset by peer`, during
+    the native RawSocket MsgPack cancel-cycle workload
+  - `native/transport/ct_core/src/lib.rs` now uses the existing
+    `is_benign_socket_shutdown` helper for rawsocket frame-reader IO errors,
+    matching existing WebSocket shutdown classification for `UnexpectedEof`,
+    `BrokenPipe`, `ConnectionReset`, and `ConnectionAborted`
+  - focused local checks passed:
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_core websocket_io_disconnects_are_classified_as_peer_shutdowns -- --nocapture`
+    and `bin/test-fast`; the local cancel-cycle fast-test segment no longer
+    emitted the connection-reset line
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.

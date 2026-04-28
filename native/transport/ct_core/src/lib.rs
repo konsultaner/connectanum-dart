@@ -2595,7 +2595,7 @@ fn spawn_connection_reader(
             let frame = match frame {
                 Ok(frame) => frame,
                 Err(FrameReadError::Io(err)) => {
-                    if err.kind() != io::ErrorKind::UnexpectedEof {
+                    if !is_benign_socket_shutdown(err.kind()) {
                         eprintln!("connection {:?} io error: {}", connection_id, err);
                     }
                     break;

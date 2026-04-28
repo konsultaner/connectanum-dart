@@ -184,6 +184,22 @@ operator evidence over speculative feature or benchmark work.
     `gh release create` or `gh release edit`
   - this keeps dry-run and validation release work autonomous while making a
     stable non-validation release require an explicit operator/product decision
+- Completed hosted validation for the release-intent safety gate:
+  - commit `8dc966f` (`ci: guard manual stable native releases`) passed GitHub
+    `CI` run `25063769464`
+  - manual `Native Artifacts` dry-run `25063774771` passed all Linux, macOS,
+    and Windows native artifact legs plus the preview publish job
+  - the hosted `Validate release intent` step accepted
+    `ct-ffi-v2026.04.28-dry-run.8dc966f` as `(native, dry-run)`
+  - the dry-run preview still listed all 30 expected native release assets and
+    did not create a GitHub Release
+- Started a CI-log cleanup slice from the final `8dc966f` hosted log scan:
+  - the branch was green, but `Fast Checks` printed a passing-test rawsocket
+    reader line containing `io error: Connection reset by peer` during the
+    native RawSocket MsgPack cancel-cycle workload
+  - the rawsocket frame reader now uses `is_benign_socket_shutdown` so expected
+    peer shutdowns are quiet, matching the existing WebSocket shutdown
+    classification
 
 ## Verification
 
@@ -288,6 +304,14 @@ operator evidence over speculative feature or benchmark work.
     explicitly approved manual stable native release inputs
   - `git diff --check`
   - `bin/verify`
+- Hosted release-intent safety gate checks:
+  - GitHub `CI` run `25063769464`
+  - GitHub `Native Artifacts` dry-run `25063774771`
+  - `gh release view ct-ffi-v2026.04.28-dry-run.8dc966f` returned
+    `release not found`
+- Rawsocket benign-shutdown log cleanup checks:
+  - `cargo test --manifest-path native/transport/Cargo.toml -p ct_core websocket_io_disconnects_are_classified_as_peer_shutdowns -- --nocapture`
+  - `bin/test-fast`
 
 ## Decision Log
 
@@ -324,11 +348,15 @@ operator evidence over speculative feature or benchmark work.
   the canonical stable release version autonomously. Dry-runs and validation
   prereleases remain self-service; stable non-validation release publishing now
   fails closed until the operator intentionally confirms the exact tag.
+- 2026-04-28: Treated rawsocket `ConnectionReset` during cancel-cycle shutdown
+  as benign CI log noise, not a behavior failure. The fix reuses the existing
+  `is_benign_socket_shutdown` policy rather than deleting diagnostics
+  wholesale.
 
 ## Handoff
 
-- Next continuation should keep GitHub CI clean, then validate the release-intent
-  gate on hosted GitHub Actions. After that, the next deployment-chain gate is
-  branch protection/release evidence or Dart package publishing readiness. Do
-  not publish a stable non-validation release tag without an explicit
+- Next continuation should keep GitHub CI clean, validate the rawsocket
+  benign-shutdown log cleanup on hosted GitHub Actions, then move to branch
+  protection/release evidence or Dart package publishing readiness. Do not
+  publish a stable non-validation release tag without an explicit
   product/version decision.
