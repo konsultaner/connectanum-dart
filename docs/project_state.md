@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `c925e1e` (`docs: clarify native release install path`)
+Last reviewed commit: `51f7061` (`docs: record install path ci success`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -196,6 +196,29 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     `WAMP Profile Gates` was skipped inside the main CI workflow
   - GitHub `WAMP Profile Benchmarks` run `25055877739` passed the Linux
     canonical WAMP profile gate and uploaded its artifacts
+- Documentation checkpoint `51f7061`
+  (`docs: record install path ci success`) passed hosted GitHub `CI` run
+  `25056742848`; `Fast Checks` and `Full Verify` succeeded, while
+  `WAMP Profile Gates` was correctly skipped for the docs-only push.
+- Corrected native release notes and release publishing are validated on
+  `51f7061`:
+  - manual GitHub `Native Artifacts` dry-run `25057503370` passed Linux x64,
+    Linux arm64, macOS Apple Silicon, macOS Intel, Windows x64, and the
+    preview publish job
+  - the dry-run `native-release-preview` release notes documented
+    `CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` for normal hook-managed downloads
+    and direct `dart packages/.../tool/install_native.dart` commands only for
+    source-checkout prefetches
+  - `gh release view ct-ffi-v2026.04.28-dry-run.51f7061` returned
+    `release not found`, confirming the dry-run path did not create or update a
+    GitHub Release
+  - manual GitHub `Native Artifacts` run `25057834597` created prerelease
+    `ct-ffi-v2026.04.28-validation.51f7061` with 30 hosted matrix assets
+  - the published prerelease targets commit
+    `51f706179e9ec654639c19e170f38fd2d03573da`, is marked as prerelease, and
+    contains the corrected public install instructions
+  - source-checkout installer smoke validation passed via
+    `bin/validate-native-release-install --tag ct-ffi-v2026.04.28-validation.51f7061`
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.

@@ -142,6 +142,26 @@ operator evidence over speculative feature or benchmark work.
     GitHub `CI` run `25055877717`
   - GitHub `WAMP Profile Benchmarks` run `25055877739` passed the Linux
     canonical WAMP profile gate
+- Recorded the docs-only validation checkpoint:
+  - commit `51f7061` (`docs: record install path ci success`) passed GitHub
+    `CI` run `25056742848`
+  - `Fast Checks` and `Full Verify` succeeded; `WAMP Profile Gates` was skipped
+    as expected for a docs-only push
+- Completed corrected release-note validation:
+  - manual `Native Artifacts` dry-run `25057503370` passed all Linux, macOS,
+    and Windows native artifact legs, rendered `native-release-preview`, and
+    did not create `ct-ffi-v2026.04.28-dry-run.51f7061`
+  - the rendered preview documented
+    `CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` for normal hook-managed downloads
+    and direct `dart packages/.../tool/install_native.dart` commands only for
+    source-checkout prefetches
+- Completed a real corrected validation prerelease:
+  - manual `Native Artifacts` run `25057834597` created prerelease
+    `ct-ffi-v2026.04.28-validation.51f7061`
+  - the prerelease contains 30 hosted matrix assets for Linux x64, Linux arm64,
+    macOS Apple Silicon, macOS Intel, and Windows x64
+  - source-checkout installer smoke validation passed with
+    `bin/validate-native-release-install --tag ct-ffi-v2026.04.28-validation.51f7061`
 
 ## Verification
 
@@ -211,6 +231,19 @@ operator evidence over speculative feature or benchmark work.
 - Hosted public install-instructions checks on `c925e1e`:
   - GitHub `CI` run `25055877717`
   - GitHub `WAMP Profile Benchmarks` run `25055877739`
+- Documentation checkpoint `51f7061` passed hosted GitHub `CI` run
+  `25056742848`.
+- Corrected native release-note dry-run checks:
+  - GitHub `Native Artifacts` dry-run `25057503370`
+  - inspected `native-release-preview/release-notes.md`
+  - `gh release view ct-ffi-v2026.04.28-dry-run.51f7061` returned
+    `release not found`
+- Corrected validation prerelease checks:
+  - GitHub `Native Artifacts` run `25057834597`
+  - `gh release view ct-ffi-v2026.04.28-validation.51f7061` confirmed a
+    prerelease targeting `51f706179e9ec654639c19e170f38fd2d03573da` with 30
+    assets
+  - `bin/validate-native-release-install --tag ct-ffi-v2026.04.28-validation.51f7061`
 
 ## Decision Log
 
@@ -236,10 +269,14 @@ operator evidence over speculative feature or benchmark work.
   native build hooks before the helper can complete, while the direct
   source-checkout helper path is repeatable for maintainer prefetch smoke
   tests.
+- 2026-04-28: Validated the corrected native release notes in both dry-run and
+  real prerelease modes. The native asset publish path is now ready for a
+  non-validation release once the canonical release version/tag is chosen.
 
 ## Handoff
 
-- Next continuation should use the corrected release-note generator for the next
-  native release dry-run or validation prerelease, then promote the release
-  command path only if the generated public notes match the documented
-  `CONNECTANUM_NATIVE_RELEASE_TAG` and source-checkout prefetch flow.
+- Next continuation should keep GitHub CI clean, then decide or implement the
+  next deployment-chain gate around the now-validated native asset release path:
+  canonical non-validation release tagging/version policy, branch protection and
+  release evidence, or Dart package publishing readiness. Do not publish a
+  stable non-validation release tag without an explicit product/version decision.
