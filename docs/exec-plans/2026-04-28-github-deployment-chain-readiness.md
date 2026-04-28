@@ -174,6 +174,16 @@ operator evidence over speculative feature or benchmark work.
     and Windows native artifact legs plus the preview publish job
   - hosted log scanning confirmed the previous Node `Buffer()` deprecation from
     `actions/download-artifact` is gone
+- Added a pre-mutation release-intent safety gate for native GitHub Release
+  publishing:
+  - manual non-prerelease workflow dispatches now require
+    `stable_release_approval` to exactly match `release_tag`
+  - `tool/validate_native_release_intent.py` rejects malformed release tags,
+    publishing of `-dry-run` tags, non-prerelease `-validation` publishes, and
+    unapproved manual stable release publishes before the workflow reaches
+    `gh release create` or `gh release edit`
+  - this keeps dry-run and validation release work autonomous while making a
+    stable non-validation release require an explicit operator/product decision
 
 ## Verification
 
@@ -269,6 +279,15 @@ operator evidence over speculative feature or benchmark work.
   - hosted log scan found no `DeprecationWarning`, `warning:`, or `::warning`
     lines after replacing `actions/download-artifact@v8`; the only match was a
     Cosign installer shell alias containing the literal text `ERROR:`
+- Release-intent safety gate checks:
+  - `bin/test-fast`
+  - `python3 -m py_compile tool/validate_native_release_intent.py tool/test_validate_native_release_intent.py`
+  - `python3 tool/test_validate_native_release_intent.py`
+  - `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/native-artifacts.yml')"`
+  - accepted-intent CLI smoke checks for dry-run, validation prerelease, and
+    explicitly approved manual stable native release inputs
+  - `git diff --check`
+  - `bin/verify`
 
 ## Decision Log
 
@@ -301,11 +320,15 @@ operator evidence over speculative feature or benchmark work.
   because the latest official release still emitted a Node `Buffer()`
   deprecation warning. `gh run download` keeps the job on GitHub APIs while
   removing the warning from hosted logs.
+- 2026-04-28: Added a manual stable release approval token instead of choosing
+  the canonical stable release version autonomously. Dry-runs and validation
+  prereleases remain self-service; stable non-validation release publishing now
+  fails closed until the operator intentionally confirms the exact tag.
 
 ## Handoff
 
-- Next continuation should keep GitHub CI clean, then decide or implement the
-  next deployment-chain gate around the now-validated native asset release path:
-  canonical non-validation release tagging/version policy, branch protection and
-  release evidence, or Dart package publishing readiness. Do not publish a
-  stable non-validation release tag without an explicit product/version decision.
+- Next continuation should keep GitHub CI clean, then validate the release-intent
+  gate on hosted GitHub Actions. After that, the next deployment-chain gate is
+  branch protection/release evidence or Dart package publishing readiness. Do
+  not publish a stable non-validation release tag without an explicit
+  product/version decision.

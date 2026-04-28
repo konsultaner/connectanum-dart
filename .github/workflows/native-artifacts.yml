@@ -21,6 +21,10 @@ on:
         required: false
         type: boolean
         default: false
+      stable_release_approval:
+        description: Type release_tag exactly to allow a manual non-prerelease release
+        required: false
+        type: string
   push:
     tags:
       - 'ct-ffi-v*'
@@ -196,6 +200,23 @@ jobs:
 
           printf 'release_tag=%s\n' "$release_tag" >> "$GITHUB_OUTPUT"
           printf 'release_title=%s\n' "$release_title" >> "$GITHUB_OUTPUT"
+
+      - name: Validate release intent
+        env:
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
+          INPUT_PRERELEASE: ${{ github.event.inputs.prerelease }}
+          INPUT_STABLE_RELEASE_APPROVAL: ${{ github.event.inputs.stable_release_approval }}
+          RELEASE_TAG: ${{ steps.meta.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          python3 tool/validate_native_release_intent.py \
+            --release-tag "$RELEASE_TAG" \
+            --event-name "${GITHUB_EVENT_NAME:-}" \
+            --ref-type "${GITHUB_REF_TYPE:-}" \
+            --dry-run "${INPUT_DRY_RUN:-false}" \
+            --prerelease "${INPUT_PRERELEASE:-false}" \
+            --stable-release-approval "${INPUT_STABLE_RELEASE_APPROVAL:-}"
 
       - name: Render or publish GitHub Release
         env:

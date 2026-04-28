@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-28
 Current branch: `add-router`
-Last reviewed commit: `95837fb` (`ci: download native artifacts with gh`)
+Last reviewed commit: `b63be66` (`docs: record native artifact warning cleanup`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -240,6 +240,24 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
   - a hosted log scan found no `DeprecationWarning`, `warning:`, or
     `::warning` lines; the only match was a Cosign installer shell alias that
     contains the literal text `ERROR:`
+- Documentation checkpoint `b63be66`
+  (`docs: record native artifact warning cleanup`) passed hosted GitHub `CI`
+  run `25061163684`; `Fast Checks` and `Full Verify` succeeded, while
+  `WAMP Profile Gates` was correctly skipped for the docs-only push.
+- The current release-safety slice adds an explicit pre-mutation gate for
+  native GitHub Release publishing:
+  - `.github/workflows/native-artifacts.yml` adds
+    `stable_release_approval`, requiring manual non-prerelease release runs to
+    type the `release_tag` exactly before any GitHub Release is created or
+    updated
+  - `tool/validate_native_release_intent.py` rejects malformed release tags,
+    publishing of `-dry-run` tags, non-prerelease `-validation` publishes, and
+    unapproved manual stable release publishes
+  - focused local checks passed: `bin/test-fast`,
+    `python3 -m py_compile tool/validate_native_release_intent.py tool/test_validate_native_release_intent.py`,
+    `python3 tool/test_validate_native_release_intent.py`, workflow YAML
+    parsing, representative validator CLI acceptance checks, `git diff --check`,
+    and `bin/verify`
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.
