@@ -332,6 +332,14 @@ operator evidence over speculative feature or benchmark work.
     metadata/docs/license/changelog changes and manual dispatch
   - this keeps pub.dev archive validation hosted and repeatable without
     publishing packages or changing package ownership/version policy
+- Completed hosted validation for the Dart package publish dry-run evidence:
+  - commit `d9cbd81` (`ci: add dart package publish dry run`) passed GitHub
+    `CI` run `25082475062`
+  - the new `Dart Package Publish Dry Run` workflow run `25082475073` passed
+    and validated `connectanum_client` with `dart pub publish --dry-run`
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, or errors; remaining matches were a passing
+    bcrypt test name and Rust `0 failed` summaries
 
 ## Verification
 
@@ -517,6 +525,10 @@ operator evidence over speculative feature or benchmark work.
   - workflow YAML parsing for `.github/workflows/dart-package-publish.yml`
   - `bin/dart-package-publish-dry-run`
   - `bin/verify`
+  - GitHub `CI` run `25082475062`
+  - GitHub `Dart Package Publish Dry Run` run `25082475073`
+  - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
+    cancellation, and real error lines
 
 ## Decision Log
 

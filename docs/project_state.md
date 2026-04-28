@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `b6d05ca` (`docs: record router image publish gate ci`)
+Last reviewed commit: `d9cbd81` (`ci: add dart package publish dry run`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -454,6 +454,15 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     `bin/dart-package-publish-dry-run`
   - local `bin/verify` passed after the workflow, script, and documentation
     changes, including the Chrome browser-platform test
+  - commit `d9cbd81` (`ci: add dart package publish dry run`) passed hosted
+    GitHub `CI` run `25082475062`; `Fast Checks` and `Full Verify` succeeded,
+    while `WAMP Profile Gates` was correctly skipped for the normal push
+  - the dedicated `Dart Package Publish Dry Run` workflow run `25082475073`
+    passed and validated the publishable Dart package archive without
+    publishing to pub.dev
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, or errors; remaining matches were a
+    passing bcrypt test name and Rust `0 failed` summaries
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.
