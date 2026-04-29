@@ -287,6 +287,8 @@ decisions.
     instability reasons
   - the top-level markdown now includes a `## Repeat Completeness` table with
     comparable, baseline-only, and kTLS-only row counts
+- Commit `f85c70e` (`bench: mark partial repeats inconclusive`) passed hosted
+  GitHub `CI` run `25128558792`.
 
 ## Current Verification
 
@@ -345,6 +347,8 @@ decisions.
     `Decision quality: no` and lists `repeat-01` as incomplete
   - `git diff --check`
   - `bin/verify`
+  - hosted GitHub `CI` run `25128558792` completed successfully on `f85c70e`;
+    `Fast Checks` completed in 5m32s and `Full Verify` completed in 8m06s
 
 ## Next Step
 

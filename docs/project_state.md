@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `90fbbb9` (`docs: record repeat phase signal ci`)
+Last reviewed commit: `f85c70e` (`bench: mark partial repeats inconclusive`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -13,9 +13,9 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     decisions: branch protection mutation, default-branch router image
     promotion/GHCR publication, RC tag/prerelease selection, and Dart package
     public ownership/release order
-  - latest pushed branch head `90fbbb9` passed hosted GitHub `CI` run
-    `25126752936`; `Fast Checks` completed successfully in 5m43s and
-    `Full Verify` completed successfully in 8m05s
+  - latest pushed branch head `f85c70e` passed hosted GitHub `CI` run
+    `25128558792`; `Fast Checks` completed successfully in 5m32s and
+    `Full Verify` completed successfully in 8m06s
   - latest branch-head deployment audit passed with clean main `CI` jobs,
     clean hosted `CI` logs, clean hosted Dart package publish dry-run
     evidence, and clean native release dry-run evidence
@@ -63,6 +63,9 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     `25127431552` repeat artifact
   - `git diff --check` and full local `bin/verify` passed after the
     partial-repeat reporter fix on 2026-04-29
+  - commit `f85c70e` (`bench: mark partial repeats inconclusive`) passed
+    hosted GitHub `CI` run `25128558792`; `Fast Checks` completed
+    successfully in 5m32s and `Full Verify` completed successfully in 8m06s
 - Current deployment-chain evidence refresh:
   - commit `b338d58` (`docs: record current deployment evidence`) passed
     hosted GitHub `CI` run `25123037462`; `Fast Checks` completed
