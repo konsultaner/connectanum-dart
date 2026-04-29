@@ -578,6 +578,11 @@ operator evidence over speculative feature or benchmark work.
   - the hosted log scan found no high-signal warning, deprecation,
     skipped-test, rawsocket reset, or connection-noise matches
 - Started Dart package hosted dry-run audit hardening:
+  - commit `a67b86d` passed GitHub `CI` run `25109971104` with
+    `Fast Checks` in 5m18s and `Full Verify` in 8m14s
+  - branch-head deployment audit passed for `a67b86d` with clean main `CI`,
+    clean hosted `CI` logs, and clean/relevant hosted
+    `Dart Package Publish Dry Run` evidence
   - documentation checkpoint `47c3948` passed GitHub `CI` run `25108057451`
     with `Fast Checks` in 5m29s and `Full Verify` in 7m55s
   - `bin/audit-github-deployment-chain --show-dart-package-publish-dry-run`
@@ -804,6 +809,8 @@ operator evidence over speculative feature or benchmark work.
   - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 2 --show-rc-readiness`
   - `git diff --check`
   - `bin/verify`
+  - GitHub `CI` run `25109971104`
+  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run`
 - Current main-CI skipped-gate cleanup checks:
   - GitHub `CI` run `25085322707`
   - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
