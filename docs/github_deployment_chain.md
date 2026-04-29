@@ -19,6 +19,16 @@ branch protection, repository rulesets, active workflows, checked-in workflow
 visibility, router container package visibility, and recent branch runs. If
 `gh` is not on `PATH`, set `GH_BIN` to the executable path.
 
+Use the clean-CI gate before treating a pushed branch head as verified:
+
+```sh
+bin/audit-github-deployment-chain --branch add-router --require-clean-latest-ci
+```
+
+That mode exits non-zero when the latest `CI` run is missing `Fast Checks` or
+`Full Verify`, has unexpected jobs, has skipped jobs, or has pending/failed
+jobs.
+
 Use strict mode when the repository is ready for the branch-protection gap to
 be enforced by automation:
 
@@ -76,6 +86,9 @@ available:
 - Local `bin/verify` before handoff for code, workflow, or release behavior
   changes.
 - Hosted GitHub `CI` success for the pushed head.
+- Read-only clean-CI audit for the pushed head:
+  `bin/audit-github-deployment-chain --branch add-router --require-clean-latest-ci`
+  should report no skipped, pending, failed, missing, or unexpected `CI` jobs.
 - Hosted log scan with no real warnings, deprecations, unexpected skipped tests,
   rawsocket reset noise, timeouts, cancellations, or real errors.
 - Additional hosted workflow evidence when the slice changes release behavior:
@@ -92,11 +105,12 @@ Rust result summaries containing `0 failed`.
 
 The latest audited branch evidence on 2026-04-29:
 
-- `add-router` commit `ee32ad3` passed GitHub `CI` run `25084695576`.
+- `add-router` commit `5441730` passed GitHub `CI` run `25086102543`.
 - `Fast Checks` and `Full Verify` completed successfully.
-- `WAMP Profile Gates` in the main `CI` workflow were skipped because the run
-  was not a manual `workflow_dispatch`; the dedicated `WAMP Profile Benchmarks`
-  workflow remains the benchmark gate for relevant push paths and manual runs.
+- The main `CI` workflow now contains only `Fast Checks` and `Full Verify`;
+  `bin/audit-github-deployment-chain --branch add-router
+  --require-clean-latest-ci` reports no skipped, pending, failed, missing, or
+  unexpected `CI` jobs.
 - Hosted log scanning found no real warnings, deprecations, rawsocket reset
   noise, timeouts, cancellations, or errors.
 - `add-router` commit `1b95c9d` passed the dedicated `WAMP Profile Benchmarks`
@@ -109,6 +123,9 @@ The latest audited branch evidence on 2026-04-29:
   run `25084695572` passed and surfaced the current
   `connectanum_client` -> private `connectanum_core` blocker without
   publishing to pub.dev.
+- `5441730` removed the duplicate manual-only WAMP profile job from main `CI`;
+  canonical WAMP profile gates remain in the dedicated
+  `WAMP Profile Benchmarks` workflow.
 
 The next deployment-chain improvement should either apply the approved branch
 protection settings, promote and validate the router image workflow/package, or

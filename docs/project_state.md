@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `4b1ce40` (`docs: record dart release blocker ci`)
+Last reviewed commit: `5441730` (`ci: remove duplicate wamp gate skip`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -494,6 +494,22 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     `wamp-profile-benchmarks.yml`, plus `git diff --check`
   - local `bin/verify` passed after the workflow and documentation changes,
     including the Chrome browser-platform test
+  - commit `5441730` (`ci: remove duplicate wamp gate skip`) passed hosted
+    GitHub `CI` run `25086102543`; the workflow now contains only
+    `Fast Checks` and `Full Verify`, with no skipped WAMP job
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, or errors; remaining matches were a
+    passing bcrypt test name and Rust `0 failed` summaries
+- The current latest-CI audit gate makes that no-skipped-job expectation
+  repeatable:
+  - `bin/audit-github-deployment-chain --branch add-router
+    --run-limit 2 --require-clean-latest-ci` now checks the latest `CI` run
+    for exactly `Fast Checks` and `Full Verify`
+  - the gate exits non-zero if latest `CI` has skipped, pending, failed,
+    missing, or unexpected jobs
+  - focused local checks passed: `bash -n bin/audit-github-deployment-chain`,
+    `bin/audit-github-deployment-chain --help`, and the live read-only audit
+    above against `add-router`
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.

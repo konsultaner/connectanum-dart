@@ -561,6 +561,15 @@ operator evidence over speculative feature or benchmark work.
     `.github/workflows/wamp-profile-benchmarks.yml`
   - `git diff --check`
   - `bin/verify`
+  - GitHub `CI` run `25086102543`
+  - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
+    cancellation, and real error lines
+- Current latest-CI audit gate checks:
+  - `bin/test-fast`
+  - `bash -n bin/audit-github-deployment-chain`
+  - `bin/audit-github-deployment-chain --help`
+  - `bin/audit-github-deployment-chain --branch add-router --run-limit 2
+    --require-clean-latest-ci`
 
 ## Decision Log
 
@@ -633,6 +642,9 @@ operator evidence over speculative feature or benchmark work.
   pushes. Canonical WAMP profile gates remain covered by the dedicated
   `WAMP Profile Benchmarks` workflow, which runs on relevant path changes and
   manual dispatch.
+- 2026-04-29: Added an opt-in clean-latest-CI audit mode so future
+  continuations can fail fast on skipped, pending, failed, missing, or
+  unexpected main `CI` jobs without relying on manual Actions UI inspection.
 
 ## Handoff
 

@@ -18,6 +18,10 @@ Options:
   --branch <branch>         Branch to inspect. Defaults to the repository
                              default branch.
   --run-limit <count>       Latest branch runs to print. Defaults to 6.
+  --require-clean-latest-ci
+                             Exit non-zero unless the latest CI run on the
+                             audited branch completed with exactly the expected
+                             main jobs and no skipped, pending, or failed jobs.
   --strict                  Exit non-zero when the branch lacks the baseline
                              required checks expected for protected releases.
   -h, --help                Show this help text.
@@ -28,6 +32,8 @@ repository="${GITHUB_REPOSITORY:-konsultaner/connectanum-dart}"
 branch=""
 run_limit=6
 strict=0
+require_clean_latest_ci=0
+expected_ci_jobs=('Fast Checks' 'Full Verify')
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -65,6 +71,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --run-limit=*)
       run_limit="${1#--run-limit=}"
+      shift
+      ;;
+    --require-clean-latest-ci)
+      require_clean_latest_ci=1
       shift
       ;;
     --strict)
@@ -126,6 +136,19 @@ api_jq_optional() {
   "$gh_bin" api "$api_path" --jq "$filter" 2>/dev/null || true
 }
 
+is_expected_ci_job() {
+  local candidate="$1"
+  local expected_job
+
+  for expected_job in "${expected_ci_jobs[@]}"; do
+    if [[ "$candidate" == "$expected_job" ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 if [[ -z "$branch" ]]; then
   branch="$(api_jq "" '.default_branch')"
 fi
@@ -160,6 +183,7 @@ printf 'Protected: %s\n' "$branch_protected"
 
 missing_required_checks=0
 missing_visible_workflow=0
+latest_ci_failed=0
 required_contexts=""
 
 if [[ "$branch_protected" == "true" ]]; then
@@ -281,6 +305,92 @@ printf '\n## Latest Branch Runs\n\n'
   --json name,databaseId,status,conclusion,headSha,createdAt \
   --jq '.[] | "- \(.name) #\(.databaseId): \(.status)/\(.conclusion // "pending") @ \(.headSha[0:7]) (\(.createdAt))"' \
   || true
+
+if [[ "$require_clean_latest_ci" -eq 1 ]]; then
+  printf '\n## Latest CI Job Cleanliness\n\n'
+
+  latest_ci_id="$(
+    "$gh_bin" run list \
+      --repo "$repository" \
+      --branch "$branch" \
+      --workflow CI \
+      --limit 1 \
+      --json databaseId \
+      --jq '.[0].databaseId // empty'
+  )"
+
+  if [[ -z "$latest_ci_id" ]]; then
+    printf 'Finding: no CI run found for branch %s.\n' "$branch"
+    latest_ci_failed=1
+  else
+    latest_ci_summary="$(
+      "$gh_bin" run view "$latest_ci_id" \
+        --repo "$repository" \
+        --json status,conclusion,headSha,url \
+        --jq '"Run: CI #'"$latest_ci_id"' \(.status)/\(.conclusion // "pending") @ \(.headSha[0:7])\nURL: \(.url)"'
+    )"
+    printf '%s\n' "$latest_ci_summary"
+
+    latest_ci_state="$(
+      "$gh_bin" run view "$latest_ci_id" \
+        --repo "$repository" \
+        --json status,conclusion \
+        --jq '[.status, (.conclusion // "pending")] | @tsv'
+    )"
+    IFS=$'\t' read -r latest_ci_status latest_ci_conclusion <<<"$latest_ci_state"
+
+    if [[ "$latest_ci_status" != "completed" || "$latest_ci_conclusion" != "success" ]]; then
+      printf 'Finding: latest CI run is not green: %s/%s.\n' "$latest_ci_status" "$latest_ci_conclusion"
+      latest_ci_failed=1
+    fi
+
+    latest_ci_jobs="$(
+      "$gh_bin" run view "$latest_ci_id" \
+        --repo "$repository" \
+        --json jobs \
+        --jq '.jobs[] | [.name, .status, (.conclusion // "pending")] | @tsv'
+    )"
+
+    if [[ -z "$latest_ci_jobs" ]]; then
+      printf 'Finding: latest CI run has no inspectable jobs.\n'
+      latest_ci_failed=1
+    else
+      while IFS=$'\t' read -r job_name job_status job_conclusion; do
+        [[ -n "$job_name" ]] || continue
+        printf -- '- %s: %s/%s\n' "$job_name" "$job_status" "$job_conclusion"
+
+        if ! is_expected_ci_job "$job_name"; then
+          printf 'Finding: latest CI run contains unexpected job: %s\n' "$job_name"
+          latest_ci_failed=1
+        fi
+
+        if [[ "$job_conclusion" == "skipped" ]]; then
+          printf 'Finding: latest CI job was skipped: %s\n' "$job_name"
+          latest_ci_failed=1
+        elif [[ "$job_status" != "completed" || "$job_conclusion" != "success" ]]; then
+          printf 'Finding: latest CI job is not green: %s (%s/%s)\n' "$job_name" "$job_status" "$job_conclusion"
+          latest_ci_failed=1
+        fi
+      done <<<"$latest_ci_jobs"
+
+      for expected_job in "${expected_ci_jobs[@]}"; do
+        if ! printf '%s\n' "$latest_ci_jobs" | cut -f1 | grep -Fxq "$expected_job"; then
+          printf 'Finding: latest CI run is missing expected job: %s\n' "$expected_job"
+          latest_ci_failed=1
+        fi
+      done
+    fi
+
+    if [[ "$latest_ci_failed" -eq 0 ]]; then
+      printf 'Latest CI run is clean: no skipped, pending, failed, missing, or unexpected jobs.\n'
+    fi
+  fi
+fi
+
+if [[ "$require_clean_latest_ci" -eq 1 && "$latest_ci_failed" -ne 0 ]]; then
+  printf '\nLatest CI cleanliness audit failed.\n' >&2
+  exit 1
+fi
 
 if [[ "$strict" -eq 1 && ( "$missing_required_checks" -ne 0 || "$missing_visible_workflow" -ne 0 ) ]]; then
   printf '\nStrict audit failed: protected release branches should require Fast Checks and Full Verify, and checked-in workflows should be visible to GitHub Actions.\n' >&2
