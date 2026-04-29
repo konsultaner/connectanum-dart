@@ -2,12 +2,20 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `f946e18` (`docs: record dart package workflow audit ci`)
+Last reviewed commit: `449b218` (`ci: attest router image publishes`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
 
 - Current router image attestation hardening:
+  - commit `449b218` (`ci: attest router image publishes`) passed hosted
+    GitHub `CI` run `25112417559`; `Fast Checks` and `Full Verify` completed
+    successfully
+  - latest clean branch-head audit/log/package-dry-run scan passed against
+    `449b218` with no skipped, pending, failed, missing, or unexpected main
+    `CI` jobs, no high-signal warning, deprecation, skipped-test, rawsocket
+    reset, or connection-noise log matches, and clean/relevant hosted
+    `Dart Package Publish Dry Run` evidence
   - documentation checkpoint `f946e18`
     (`docs: record dart package workflow audit ci`) passed hosted GitHub `CI`
     run `25110768881`; `Fast Checks` and `Full Verify` completed successfully
@@ -51,7 +59,7 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     archive validation is audited separately from main `CI`
   - the Dart package hosted dry-run gate accepts the latest successful
     `Dart Package Publish Dry Run` run `25107394513` on `700ea74` for current
-    checked-out head `f946e18` because no package-publish-sensitive inputs
+    checked-out head `449b218` because no package-publish-sensitive inputs
     changed between those commits
   - `--show-rc-readiness` now includes the hosted Dart package dry-run gate in
     addition to clean main CI/logs and the strict local Dart package dry-run

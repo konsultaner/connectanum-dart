@@ -595,6 +595,11 @@ operator evidence over speculative feature or benchmark work.
   - `--show-rc-readiness` and `--require-rc-ready` include this hosted package
     dry-run gate before the strict local Dart package release-order gate
 - Started router image attestation hardening:
+  - commit `449b218` (`ci: attest router image publishes`) passed GitHub
+    `CI` run `25112417559`; `Fast Checks` and `Full Verify` succeeded
+  - branch-head deployment audit passed for `449b218` with clean main `CI`,
+    clean hosted `CI` logs, and clean/relevant hosted
+    `Dart Package Publish Dry Run` evidence
   - documentation checkpoint `f946e18` passed GitHub `CI` run `25110768881`
     and the branch-head audit passed with clean main `CI`, clean hosted `CI`
     logs, and clean/relevant hosted `Dart Package Publish Dry Run` evidence
@@ -829,6 +834,8 @@ operator evidence over speculative feature or benchmark work.
     `python3 tool/render_router_image_metadata.py --owner konsultaner --repository konsultaner/connectanum-dart --sha 0123456789abcdef0123456789abcdef01234567 --ref-type branch --ref-name add-router --event-name workflow_dispatch --input-image-tag validation-abc1234 --dry-run false --publish-approval wrong-tag`
   - `git diff --check`
   - `bin/verify`
+  - GitHub `CI` run `25112417559`
+  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run`
 - Current main-CI skipped-gate cleanup checks:
   - GitHub `CI` run `25085322707`
   - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
