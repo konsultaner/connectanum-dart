@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `ee32ad3` (`ci: report dart package release blockers`)
+Last reviewed commit: `4b1ce40` (`docs: record dart release blocker ci`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -479,6 +479,21 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
   - hosted log scanning found no real warnings, deprecations, rawsocket reset
     noise, timeouts, cancellations, or errors; remaining matches were a
     passing bcrypt test name and Rust `0 failed` summaries
+- Documentation checkpoint `4b1ce40`
+  (`docs: record dart release blocker ci`) passed hosted GitHub `CI` run
+  `25085322707`; `Fast Checks` and `Full Verify` succeeded. The only hosted
+  log-scan matches were benign: a passing bcrypt negative-auth test name and
+  Rust `0 failed` summaries.
+- The current CI skipped-gate cleanup removes the duplicate manual-only
+  `WAMP Profile Gates` job from the main `CI` workflow. Canonical WAMP profile
+  benchmark gates remain in the dedicated `WAMP Profile Benchmarks` workflow,
+  which runs on relevant benchmark/native/router/client path changes and on
+  manual dispatch.
+  - pre-change local `bin/test-fast` passed on 2026-04-29
+  - focused local checks passed: workflow YAML parsing for `dart.yml` and
+    `wamp-profile-benchmarks.yml`, plus `git diff --check`
+  - local `bin/verify` passed after the workflow and documentation changes,
+    including the Chrome browser-platform test
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.

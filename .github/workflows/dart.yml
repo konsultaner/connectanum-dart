@@ -64,36 +64,3 @@ jobs:
         env:
           CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
         run: bin/verify
-
-  wamp-profile:
-    name: WAMP Profile Gates
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    if: github.event_name == 'workflow_dispatch'
-
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: dart-lang/setup-dart@v1
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - name: Bootstrap workspace
-        run: bin/bootstrap
-
-      - name: Run canonical WAMP profile gates
-        run: |
-          set -euo pipefail
-          bin/wamp-profile-validate \
-            --out-dir "${GITHUB_WORKSPACE}/out/wamp-profile-validation" \
-            --router-worker-counts 1 \
-            --native-runtime-thread-counts 1 \
-            --workload-timeout-ms 300000
-
-      - name: Upload WAMP profile artifacts
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: wamp-profile-benchmark-artifacts
-          path: out/wamp-profile-validation
-          if-no-files-found: error

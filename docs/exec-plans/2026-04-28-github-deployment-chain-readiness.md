@@ -552,6 +552,15 @@ operator evidence over speculative feature or benchmark work.
   - GitHub `Dart Package Publish Dry Run` run `25084695572`
   - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
     cancellation, and real error lines
+- Current main-CI skipped-gate cleanup checks:
+  - GitHub `CI` run `25085322707`
+  - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
+    cancellation, and real error lines
+  - `bin/test-fast`
+  - workflow YAML parsing for `.github/workflows/dart.yml` and
+    `.github/workflows/wamp-profile-benchmarks.yml`
+  - `git diff --check`
+  - `bin/verify`
 
 ## Decision Log
 
@@ -619,6 +628,11 @@ operator evidence over speculative feature or benchmark work.
   network-facing release semantics and known product blockers, so it should
   produce hosted deployment evidence without slowing every local verification
   run or publishing anything.
+- 2026-04-29: Removed the duplicate manual-only `WAMP Profile Gates` job from
+  the main `CI` workflow instead of leaving a permanently skipped job on normal
+  pushes. Canonical WAMP profile gates remain covered by the dedicated
+  `WAMP Profile Benchmarks` workflow, which runs on relevant path changes and
+  manual dispatch.
 
 ## Handoff
 
