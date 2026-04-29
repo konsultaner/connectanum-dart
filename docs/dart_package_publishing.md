@@ -27,6 +27,8 @@ and version-sequencing decisions.
   depends on a private workspace package. Its default mode keeps archive
   validation non-mutating and green, while `--strict-release-ready` exits
   non-zero once the operator wants the package release plan enforced.
+- `--show-release-plan` prints the current dependency order and operator
+  decisions needed for a real publish without changing package publishability.
 - `.github/workflows/dart-package-publish.yml` runs the same dry-run on GitHub
   for package metadata, package docs, package license/changelog, and workflow
   changes. It can also be started manually with `workflow_dispatch`.
@@ -46,6 +48,9 @@ As of 2026-04-29:
 - `bin/dart-package-publish-dry-run --strict-release-ready` intentionally
   fails on that blocker until `connectanum_core` is published first or the
   client package is restructured to avoid the unpublished hosted dependency.
+- `bin/dart-package-publish-dry-run --show-release-plan` reports the current
+  public-release chain as `connectanum_core 0.1.0` before
+  `connectanum_client 2.2.6`.
 - The same dry-run is only local package validation. The pub.dev API currently
   returns `404` for both `connectanum_client` and `connectanum_core`, so a real
   publish still needs package ownership and publish-order decisions.
@@ -66,10 +71,12 @@ When that decision exists, use this sequence:
    `publish_to: none` only as part of an explicit release slice and publish it
    before packages that depend on it.
 3. Run `dart pub publish --dry-run` in each package that will be published.
-4. Run `bin/dart-package-publish-dry-run --strict-release-ready` and resolve
+4. Run `bin/dart-package-publish-dry-run --show-release-plan` to confirm the
+   dependency order and remaining operator decisions.
+5. Run `bin/dart-package-publish-dry-run --strict-release-ready` and resolve
    any private workspace dependency blockers before publishing.
-5. Publish packages in dependency order, starting with `connectanum_core`.
-6. Record exact package versions and pub.dev URLs in `docs/project_state.md`
+6. Publish packages in dependency order, starting with `connectanum_core`.
+7. Record exact package versions and pub.dev URLs in `docs/project_state.md`
    and the active execution plan.
 
 ## Current Blockers

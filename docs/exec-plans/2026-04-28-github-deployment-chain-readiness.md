@@ -554,6 +554,18 @@ operator evidence over speculative feature or benchmark work.
     `bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs`
   - the hosted log scan found no high-signal warning, deprecation,
     skipped-test, rawsocket reset, or connection-noise matches
+- Started Dart package release-order plan surfacing:
+  - latest clean branch-head audit/log scan passed against documentation
+    checkpoint `578a3f8`, confirming the hosted `CI` chain remains green
+    before the next slice
+  - `bin/dart-package-publish-dry-run --show-release-plan` now prints the
+    current non-mutating public package order:
+    `connectanum_core 0.1.0` before `connectanum_client 2.2.6`
+  - `bin/audit-github-deployment-chain --show-rc-readiness` includes that
+    package release-order plan when the strict Dart package gate blocks RC
+    readiness, keeping the blocker actionable from the primary audit command
+  - final local `bin/verify` passed after the script and documentation changes
+  - no package was made publishable and no pub.dev publish was attempted
 
 ## Verification
 
@@ -749,6 +761,17 @@ operator evidence over speculative feature or benchmark work.
   - GitHub `Dart Package Publish Dry Run` run `25084695572`
   - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
     cancellation, and real error lines
+- Current Dart package release-order plan checks:
+  - `bin/test-fast`
+  - `bash -n bin/dart-package-publish-dry-run`
+  - `bash -n bin/audit-github-deployment-chain`
+  - `bin/dart-package-publish-dry-run --help`
+  - `bin/dart-package-publish-dry-run --show-release-plan`
+  - expected failing
+    `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
+  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-rc-readiness`
+  - `git diff --check`
+  - `bin/verify`
 - Current main-CI skipped-gate cleanup checks:
   - GitHub `CI` run `25085322707`
   - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
@@ -892,6 +915,10 @@ operator evidence over speculative feature or benchmark work.
   stricter than process success alone, while still leaving real package
   publishing blocked on package ownership, version, and publish-order
   decisions.
+- 2026-04-29: Kept Dart package publishing non-mutating but made the
+  release-order blocker explicit in both the package dry-run and the RC audit.
+  The current operator decision is whether `connectanum_core 0.1.0` is approved
+  public API and should be published before `connectanum_client 2.2.6`.
 
 ## Handoff
 

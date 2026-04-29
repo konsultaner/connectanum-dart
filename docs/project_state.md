@@ -2,11 +2,42 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `b747033` (`ci: add release candidate readiness audit`)
+Last reviewed commit: `578a3f8` (`docs: record rc audit ci evidence`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
 
+- Current Dart package release-order plan surfacing:
+  - latest hosted GitHub `CI` run `25105965797` passed on `578a3f8`
+  - latest clean branch-head audit/log scan passed against `578a3f8` with no
+    skipped, pending, failed, missing, or unexpected main `CI` jobs and no
+    high-signal warning, deprecation, skipped-test, rawsocket reset, or
+    connection-noise log matches
+  - pre-change `bin/test-fast` passed locally on 2026-04-29
+  - `bin/dart-package-publish-dry-run --show-release-plan` now prints the
+    current Dart package public-release chain without changing publishability:
+    `connectanum_core 0.1.0` must be made public and published before
+    `connectanum_client 2.2.6`, unless the client package is restructured to
+    avoid that hosted dependency
+  - `bin/audit-github-deployment-chain --show-rc-readiness` now includes the
+    same release-order plan when the strict Dart package gate blocks RC
+    readiness
+  - focused local checks passed:
+    `bash -n bin/dart-package-publish-dry-run`,
+    `bash -n bin/audit-github-deployment-chain`,
+    `bin/dart-package-publish-dry-run --help`,
+    `bin/dart-package-publish-dry-run --show-release-plan`,
+    the expected failing
+    `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`,
+    and
+    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-rc-readiness`
+  - remaining Dart package RC blockers are still operator/product decisions:
+    pub.dev package ownership, canonical public versions, and whether
+    `connectanum_core` is approved public API
+  - final local `bin/verify` passed, including Rust/FFI tests, Dart package
+    tests, bench WAMP transport coverage, full router tests,
+    `remote_auth_integration_test`, and the Chrome Dart2Wasm browser websocket
+    test
 - Current release-candidate readiness audit hardening:
   - latest hosted GitHub `CI` run `25105031469` passed on `b747033`;
     `Fast Checks` completed successfully in 5m53s and `Full Verify` completed

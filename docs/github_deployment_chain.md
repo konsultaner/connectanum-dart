@@ -44,6 +44,27 @@ passing test names and Rust summaries currently include benign strings such as
 `BCRYPT check password failed` and `0 failed`. Job status is the authoritative
 source for real failed work.
 
+Use the release-candidate readiness view when deciding whether the current
+branch head is feature-wise ready to tag as an RC:
+
+```sh
+bin/audit-github-deployment-chain --branch add-router --show-rc-readiness
+```
+
+Use the strict RC gate only when the remaining operator-owned blockers are
+expected to be resolved:
+
+```sh
+bin/audit-github-deployment-chain --branch add-router --require-rc-ready
+```
+
+The RC view is read-only. It combines clean CI, clean hosted logs, branch
+protection, workflow visibility, router package visibility, RC tag/prerelease
+evidence, and strict Dart package readiness. When Dart package readiness is the
+blocker, the audit prints the package release-order plan so the current
+`connectanum_core` -> `connectanum_client` dependency decision is visible in the
+same output.
+
 Use the router package gate before treating the router image release path as
 ready:
 

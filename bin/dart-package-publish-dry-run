@@ -16,6 +16,10 @@ Options:
   --include-private   Also run dry-runs for packages with `publish_to: none`.
                       This is expected to fail unless the package is made
                       publishable first.
+  --show-release-plan
+                      Print the current package release-order plan, including
+                      private workspace packages that block publishable
+                      packages. This does not change publishability.
   --strict-release-ready
                       Exit non-zero when a publishable package still depends on
                       a private workspace package. The default reports those
@@ -25,6 +29,7 @@ USAGE
 }
 
 include_private=0
+show_release_plan=0
 strict_release_ready=0
 requested_packages=()
 
@@ -32,6 +37,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --include-private)
       include_private=1
+      shift
+      ;;
+    --show-release-plan)
+      show_release_plan=1
       shift
       ;;
     --strict-release-ready)
@@ -68,6 +77,22 @@ pubspec_name() {
     /^[[:space:]]*name:[[:space:]]*/ {
       value = $0
       sub(/^[[:space:]]*name:[[:space:]]*/, "", value)
+      sub(/[[:space:]]*#.*$/, "", value)
+      gsub(/^[[:space:]]*["'\'']?/, "", value)
+      gsub(/["'\'']?[[:space:]]*$/, "", value)
+      print value
+      exit
+    }
+  ' "$pubspec"
+}
+
+pubspec_version() {
+  local pubspec="$1"
+
+  awk '
+    /^[[:space:]]*version:[[:space:]]*/ {
+      value = $0
+      sub(/^[[:space:]]*version:[[:space:]]*/, "", value)
       sub(/[[:space:]]*#.*$/, "", value)
       gsub(/^[[:space:]]*["'\'']?/, "", value)
       gsub(/["'\'']?[[:space:]]*$/, "", value)
@@ -161,11 +186,92 @@ append_unique_root() {
   package_roots+=("$root")
 }
 
+append_unique_release_target() {
+  local value="$1"
+  local existing
+
+  for existing in "${release_plan_targets[@]-}"; do
+    [[ -n "$existing" ]] || continue
+    if [[ "$existing" == "$value" ]]; then
+      return 0
+    fi
+  done
+
+  release_plan_targets+=("$value")
+}
+
+append_unique_private_dependency() {
+  local value="$1"
+  local existing
+
+  for existing in "${release_plan_private_dependencies[@]-}"; do
+    [[ -n "$existing" ]] || continue
+    if [[ "$existing" == "$value" ]]; then
+      return 0
+    fi
+  done
+
+  release_plan_private_dependencies+=("$value")
+}
+
+append_unique_dependency_edge() {
+  local value="$1"
+  local existing
+
+  for existing in "${release_plan_dependency_edges[@]-}"; do
+    [[ -n "$existing" ]] || continue
+    if [[ "$existing" == "$value" ]]; then
+      return 0
+    fi
+  done
+
+  release_plan_dependency_edges+=("$value")
+}
+
+print_release_plan() {
+  printf '\nDart package release-order plan:\n'
+
+  if [[ "${#release_plan_targets[@]}" -gt 0 ]]; then
+    printf '\nCurrently publishable package archives:\n'
+    for target in "${release_plan_targets[@]}"; do
+      printf -- '- %s\n' "$target"
+    done
+  else
+    printf '\nCurrently publishable package archives: none.\n'
+  fi
+
+  if [[ "${#release_plan_private_dependencies[@]}" -gt 0 ]]; then
+    printf '\nPrivate workspace packages blocking publishable targets:\n'
+    for dependency in "${release_plan_private_dependencies[@]}"; do
+      printf -- '- %s\n' "$dependency"
+    done
+  else
+    printf '\nPrivate workspace packages blocking publishable targets: none.\n'
+  fi
+
+  if [[ "${#release_plan_dependency_edges[@]}" -gt 0 ]]; then
+    printf '\nWorkspace dependency order that must be satisfied before public publishing:\n'
+    for edge in "${release_plan_dependency_edges[@]}"; do
+      printf -- '- %s\n' "$edge"
+    done
+  else
+    printf '\nWorkspace dependency order: no publishable package depends on another workspace package.\n'
+  fi
+
+  printf '\nOperator decisions still required before a real publish:\n'
+  printf -- '- Confirm package-name ownership and publisher configuration on pub.dev.\n'
+  printf -- '- Choose canonical public versions for every package that becomes publishable.\n'
+  printf -- '- Remove publish_to: none only in an explicit release slice for packages that are approved public API.\n'
+}
+
 cd_repo_root
 require_command dart
 
 package_roots=()
 skipped_packages=()
+release_plan_targets=()
+release_plan_private_dependencies=()
+release_plan_dependency_edges=()
 
 if [[ "${#requested_packages[@]}" -gt 0 ]]; then
   for package in "${requested_packages[@]}"; do
@@ -202,6 +308,8 @@ for root in "${package_roots[@]}"; do
   fi
 
   dry_run_packages+=("${package_name} (${rel_root})")
+  package_version="$(pubspec_version "$pubspec")"
+  append_unique_release_target "${package_name} ${package_version:-unknown-version} (${rel_root})"
   printf '\n## Publish dry-run: %s (%s)\n\n' "$package_name" "$rel_root"
   dry_run_output="$(mktemp "${TMPDIR:-/tmp}/connectanum-dart-pub-dry-run.XXXXXX")"
   if ! (
@@ -227,9 +335,14 @@ for root in "${package_roots[@]}"; do
     dependency_rel_root="${dependency_root#"$(repo_root)/"}"
 
     if publish_to_none "$dependency_pubspec"; then
+      dependency_version="$(pubspec_version "$dependency_pubspec")"
+      append_unique_private_dependency "${dependency} ${dependency_version:-unknown-version} (${dependency_rel_root})"
+      append_unique_dependency_edge "${dependency} -> ${package_name}"
       release_blockers+=(
         "${package_name} depends on private workspace package ${dependency} (${dependency_rel_root}); publish ${dependency} first or remove the hosted dependency before publishing ${package_name}."
       )
+    else
+      append_unique_dependency_edge "${dependency} -> ${package_name}"
     fi
   done < <(pubspec_dependencies "$pubspec")
 done
@@ -262,6 +375,10 @@ else
   printf '\nAll Dart package publish dry-runs reported zero warnings.\n'
 fi
 
+if [[ "$show_release_plan" -ne 0 ]]; then
+  print_release_plan
+fi
+
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   {
     printf '## Dart Package Publish Dry Run\n\n'
@@ -291,6 +408,28 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
       done
     else
       printf '\nAll package publish dry-runs reported zero warnings.\n'
+    fi
+    if [[ "$show_release_plan" -ne 0 ]]; then
+      printf '\nRelease-order plan:\n'
+      if [[ "${#release_plan_targets[@]}" -gt 0 ]]; then
+        printf '\nCurrently publishable package archives:\n'
+        for target in "${release_plan_targets[@]}"; do
+          printf -- '- %s\n' "$target"
+        done
+      fi
+      if [[ "${#release_plan_private_dependencies[@]}" -gt 0 ]]; then
+        printf '\nPrivate workspace packages blocking publishable targets:\n'
+        for dependency in "${release_plan_private_dependencies[@]}"; do
+          printf -- '- %s\n' "$dependency"
+        done
+      fi
+      if [[ "${#release_plan_dependency_edges[@]}" -gt 0 ]]; then
+        printf '\nWorkspace dependency order:\n'
+        for edge in "${release_plan_dependency_edges[@]}"; do
+          printf -- '- %s\n' "$edge"
+        done
+      fi
+      printf '\nOperator decisions still required: package-name ownership, canonical public versions, and explicit publishability approval.\n'
     fi
   } >>"$GITHUB_STEP_SUMMARY"
 fi
