@@ -2,11 +2,31 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `bd99fcc` (`ci: audit hosted ci logs`)
+Last reviewed commit: `a62e097` (`docs: record ci log audit validation`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
 
+- Current Dart package publish warning-gate hardening:
+  - latest hosted GitHub `CI` run `25099734886` passed on `a62e097`, and the
+    combined clean branch-head audit/log scan passed with no skipped, pending,
+    failed, missing, or unexpected main `CI` jobs and no high-signal log
+    matches
+  - pre-change `bin/test-fast` passed locally on 2026-04-29
+  - `bin/dart-package-publish-dry-run` now captures each
+    `dart pub publish --dry-run` result and requires `Package has 0 warnings`
+    before treating the publishable package archive as clean release evidence
+  - focused local checks passed:
+    `bash -n bin/dart-package-publish-dry-run` and
+    `bin/dart-package-publish-dry-run`
+  - `bin/dart-package-publish-dry-run --strict-release-ready` still fails as
+    expected on the current release-order blocker:
+    `connectanum_client` depends on private workspace package
+    `connectanum_core`
+  - final local `bin/verify` passed, including Rust/FFI tests, Dart package
+    tests, bench WAMP transport coverage, full router tests,
+    `remote_auth_integration_test`, and the Chrome Dart2Wasm browser websocket
+    test
 - Current deployment-chain log-scan audit hardening:
   - pre-change `bin/test-fast` passed locally on 2026-04-29
   - `bin/audit-github-deployment-chain` now has

@@ -20,6 +20,9 @@ and version-sequencing decisions.
   for package archive readiness. It discovers publishable workspace packages,
   skips private packages by default, and runs `dart pub publish --dry-run` for
   each publishable package.
+- The dry-run command now also requires each publishable package dry-run to
+  report `Package has 0 warnings`; warning-bearing package archives fail the
+  release-evidence gate even when pub's process exit status is successful.
 - The same tool reports release-readiness blockers when a publishable package
   depends on a private workspace package. Its default mode keeps archive
   validation non-mutating and green, while `--strict-release-ready` exits
@@ -36,6 +39,8 @@ As of 2026-04-29:
   validates `packages/connectanum_client`.
 - The underlying `dart pub publish --dry-run` for `connectanum_client` passes
   with `Package has 0 warnings`.
+- The root dry-run command enforces that zero-warning result and reports
+  `All Dart package publish dry-runs reported zero warnings`.
 - The default dry-run reports that `connectanum_client` depends on private
   workspace package `connectanum_core`.
 - `bin/dart-package-publish-dry-run --strict-release-ready` intentionally

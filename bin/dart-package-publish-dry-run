@@ -187,11 +187,13 @@ dart_workspace_bootstrap
 
 dry_run_packages=()
 release_blockers=()
+dry_run_warning_failures=()
 
 for root in "${package_roots[@]}"; do
   pubspec="$root/pubspec.yaml"
   package_name="$(pubspec_name "$pubspec")"
   rel_root="${root#"$(repo_root)/"}"
+  dry_run_output=""
 
   if [[ "$include_private" -eq 0 ]] && publish_to_none "$pubspec"; then
     skipped_packages+=("${package_name} (${rel_root})")
@@ -201,10 +203,21 @@ for root in "${package_roots[@]}"; do
 
   dry_run_packages+=("${package_name} (${rel_root})")
   printf '\n## Publish dry-run: %s (%s)\n\n' "$package_name" "$rel_root"
-  (
+  dry_run_output="$(mktemp "${TMPDIR:-/tmp}/connectanum-dart-pub-dry-run.XXXXXX")"
+  if ! (
     cd "$root"
-    dart pub publish --dry-run
-  )
+    dart pub publish --dry-run 2>&1
+  ) | tee "$dry_run_output"; then
+    rm -f "$dry_run_output"
+    exit 1
+  fi
+
+  if ! grep -Eq 'Package has 0 warnings\.?' "$dry_run_output"; then
+    dry_run_warning_failures+=(
+      "${package_name} (${rel_root}) did not report a zero-warning publish dry-run."
+    )
+  fi
+  rm -f "$dry_run_output"
 
   while IFS= read -r dependency; do
     [[ -n "$dependency" ]] || continue
@@ -240,6 +253,15 @@ else
   printf '\nNo private workspace dependency blockers found for publishable packages.\n'
 fi
 
+if [[ "${#dry_run_warning_failures[@]}" -gt 0 ]]; then
+  printf '\nDart package publish dry-run warning gate failed:\n'
+  for warning_failure in "${dry_run_warning_failures[@]}"; do
+    printf -- '- %s\n' "$warning_failure"
+  done
+else
+  printf '\nAll Dart package publish dry-runs reported zero warnings.\n'
+fi
+
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   {
     printf '## Dart Package Publish Dry Run\n\n'
@@ -262,7 +284,19 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     else
       printf '\nNo private workspace dependency blockers found for publishable packages.\n'
     fi
+    if [[ "${#dry_run_warning_failures[@]}" -gt 0 ]]; then
+      printf '\nWarning gate failures:\n'
+      for warning_failure in "${dry_run_warning_failures[@]}"; do
+        printf -- '- %s\n' "$warning_failure"
+      done
+    else
+      printf '\nAll package publish dry-runs reported zero warnings.\n'
+    fi
   } >>"$GITHUB_STEP_SUMMARY"
+fi
+
+if [[ "${#dry_run_warning_failures[@]}" -gt 0 ]]; then
+  exit 1
 fi
 
 if [[ "$strict_release_ready" -ne 0 && "${#release_blockers[@]}" -gt 0 ]]; then

@@ -498,6 +498,19 @@ operator evidence over speculative feature or benchmark work.
     `bin/audit-github-deployment-chain --branch add-router --run-limit 4 --require-clean-latest-ci --require-clean-latest-ci-logs`
   - the new log scan found no high-signal warning, deprecation, skipped-test,
     rawsocket reset, or connection-noise matches
+- Started Dart package publish warning-gate hardening:
+  - `bin/dart-package-publish-dry-run` now requires each publishable
+    `dart pub publish --dry-run` to report `Package has 0 warnings`
+  - the default local dry-run still passes for `connectanum_client`, reports
+    the current private `connectanum_core` dependency blocker, and now prints
+    `All Dart package publish dry-runs reported zero warnings`
+  - `--strict-release-ready` still fails as expected on the current
+    release-order blocker until the Dart package publish plan is approved
+  - pre-change `bin/test-fast` passed locally
+  - final local `bin/verify` passed, including Rust/FFI tests, Dart package
+    tests, bench WAMP transport coverage, full router tests,
+    `remote_auth_integration_test`, and the Chrome Dart2Wasm browser websocket
+    test
 
 ## Verification
 
@@ -819,6 +832,11 @@ operator evidence over speculative feature or benchmark work.
   deprecation, skipped-test, rawsocket reset, and connection-noise patterns
   while leaving broad `error`/`failed` handling to job status because passing
   test names and Rust summaries contain benign failed/failure words.
+- 2026-04-29: Tightened Dart package publish dry-runs to require pub's
+  explicit zero-warning result. This keeps public package release evidence
+  stricter than process success alone, while still leaving real package
+  publishing blocked on package ownership, version, and publish-order
+  decisions.
 
 ## Handoff
 
