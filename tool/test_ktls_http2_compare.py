@@ -762,6 +762,111 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("Tail conn read wait avg ms", markdown)
             self.assertIn("0.70 -> 0.70 (+0.00)", markdown)
 
+    def test_repeat_stability_surfaces_sign_consistent_phase_signals(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+
+            repeat_one = root / "repeats" / "repeat-01"
+            repeat_two = root / "repeats" / "repeat-02"
+            repeat_one_baseline = repeat_one / "baseline"
+            repeat_one_ktls = repeat_one / "ktls"
+            repeat_two_baseline = repeat_two / "baseline"
+            repeat_two_ktls = repeat_two / "ktls"
+            repeat_one_baseline.mkdir(parents=True)
+            repeat_one_ktls.mkdir(parents=True)
+            repeat_two_baseline.mkdir(parents=True)
+            repeat_two_ktls.mkdir(parents=True)
+
+            self._write_summary(
+                repeat_one_baseline / "bench_results.summary.json",
+                [
+                    self._row(
+                        "h2_multiplexed_streams_s1",
+                        4,
+                        5000.0,
+                        10.0,
+                        8.0,
+                        response_body_tail_read_avg_ms=1.0,
+                        response_body_tail_connection_read_to_end_avg_ms=0.7,
+                    ),
+                ],
+            )
+            self._write_summary(
+                repeat_one_ktls / "bench_results.summary.json",
+                [
+                    self._row(
+                        "h2_multiplexed_streams_s1",
+                        4,
+                        3500.0,
+                        14.0,
+                        11.0,
+                        response_body_tail_read_avg_ms=2.0,
+                        response_body_tail_connection_read_to_end_avg_ms=1.4,
+                    ),
+                ],
+            )
+            self._write_summary(
+                repeat_two_baseline / "bench_results.summary.json",
+                [
+                    self._row(
+                        "h2_multiplexed_streams_s1",
+                        4,
+                        5200.0,
+                        11.0,
+                        8.5,
+                        response_body_tail_read_avg_ms=1.2,
+                        response_body_tail_connection_read_to_end_avg_ms=0.9,
+                    ),
+                ],
+            )
+            self._write_summary(
+                repeat_two_ktls / "bench_results.summary.json",
+                [
+                    self._row(
+                        "h2_multiplexed_streams_s1",
+                        4,
+                        3600.0,
+                        15.0,
+                        12.0,
+                        response_body_tail_read_avg_ms=2.3,
+                        response_body_tail_connection_read_to_end_avg_ms=1.8,
+                    ),
+                ],
+            )
+
+            repeat_one_comparison = compare.build_comparison(
+                repeat_one_baseline / "bench_results.summary.json",
+                repeat_one_ktls / "bench_results.summary.json",
+            )
+            repeat_two_comparison = compare.build_comparison(
+                repeat_two_baseline / "bench_results.summary.json",
+                repeat_two_ktls / "bench_results.summary.json",
+            )
+
+            repeat_one_path = repeat_one / "comparison.json"
+            repeat_two_path = repeat_two / "comparison.json"
+            repeat_one_path.write_text(json.dumps(repeat_one_comparison))
+            repeat_two_path.write_text(json.dumps(repeat_two_comparison))
+
+            stability = repeat_compare.build_repeat_stability(
+                [repeat_one_path, repeat_two_path]
+            )
+
+            tail_signal = next(
+                signal
+                for signal in stability["phase_signals"]
+                if signal["metric"] == "response_body_tail_read_avg_ms"
+            )
+            self.assertEqual(tail_signal["direction"], "kTLS higher")
+            self.assertEqual(tail_signal["repeat_count"], 2)
+            self.assertAlmostEqual(tail_signal["delta_ms"]["median"], 1.05)
+
+            markdown = repeat_compare.render_markdown(stability)
+            self.assertIn("## Repeat Phase Signals", markdown)
+            self.assertIn("Tail read avg ms", markdown)
+            self.assertIn("kTLS higher", markdown)
+            self.assertIn("+1.00 ms..+1.10 ms (median +1.05 ms)", markdown)
+
     def test_transport_focus_reports_signal_gap_for_hotspot_row(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

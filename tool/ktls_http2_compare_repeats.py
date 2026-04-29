@@ -11,6 +11,7 @@ import ktls_http2_compare as compare
 
 THROUGHPUT_DELTA_SPAN_THRESHOLD_PCT = 25.0
 LATENCY_P95_DELTA_SPAN_THRESHOLD_PCT = 50.0
+PHASE_SIGNAL_MIN_ABS_DELTA_MS = 0.01
 
 PHASE_FOCUS_METRICS = (
     ("response_headers_wait_avg_ms", "Headers wait avg ms"),
@@ -75,6 +76,16 @@ def render_range(summary: dict | None, unit: str = "") -> str:
     return (
         f"{summary['min']:.2f}{suffix}..{summary['max']:.2f}{suffix} "
         f"(median {summary['median']:.2f}{suffix})"
+    )
+
+
+def render_signed_range(summary: dict | None, unit: str = "") -> str:
+    if summary is None:
+        return "n/a"
+    suffix = unit if unit else ""
+    return (
+        f"{summary['min']:+.2f}{suffix}..{summary['max']:+.2f}{suffix} "
+        f"(median {summary['median']:+.2f}{suffix})"
     )
 
 
@@ -176,6 +187,99 @@ def format_consensus_line(title: str, consensus: dict, repeat_count: int) -> str
         f"{entry['label']} ({entry['count']}/{repeat_count})" for entry in counts
     )
     return f"- {title}: changed across repeats: {detail}."
+
+
+def build_phase_signals(runs: list[dict]) -> list[dict]:
+    buckets: dict[tuple[str, str], dict] = {}
+    metric_labels = {key: label for key, label in PHASE_FOCUS_METRICS}
+
+    for run in runs:
+        seen_labels = set()
+        for key in (
+            "worst_throughput_phase_timing",
+            "worst_latency_phase_timing",
+        ):
+            phase_row = run.get(key)
+            if phase_row is None:
+                continue
+
+            row_label = phase_row["label"]
+            if row_label in seen_labels:
+                continue
+            seen_labels.add(row_label)
+
+            for metric, _ in PHASE_FOCUS_METRICS:
+                snapshot = phase_row["metrics"].get(metric)
+                if snapshot is None:
+                    continue
+
+                baseline = snapshot.get("baseline")
+                ktls = snapshot.get("ktls")
+                delta = snapshot.get("delta")
+                if not all(
+                    isinstance(value, (int, float))
+                    for value in (baseline, ktls, delta)
+                ):
+                    continue
+                if abs(float(delta)) < PHASE_SIGNAL_MIN_ABS_DELTA_MS:
+                    continue
+
+                bucket = buckets.setdefault(
+                    (row_label, metric),
+                    {
+                        "label": row_label,
+                        "metric": metric,
+                        "metric_label": metric_labels[metric],
+                        "repeat_labels": [],
+                        "baseline_ms": [],
+                        "ktls_ms": [],
+                        "delta_ms": [],
+                        "delta_pct": [],
+                    },
+                )
+                bucket["repeat_labels"].append(run["repeat_label"])
+                bucket["baseline_ms"].append(float(baseline))
+                bucket["ktls_ms"].append(float(ktls))
+                bucket["delta_ms"].append(float(delta))
+                if isinstance(snapshot.get("delta_pct"), (int, float)):
+                    bucket["delta_pct"].append(float(snapshot["delta_pct"]))
+
+    signals = []
+    for bucket in buckets.values():
+        deltas = bucket["delta_ms"]
+        if len(deltas) < 2:
+            continue
+        if all(delta > 0 for delta in deltas):
+            direction = "kTLS higher"
+        elif all(delta < 0 for delta in deltas):
+            direction = "kTLS lower"
+        else:
+            continue
+
+        signals.append(
+            {
+                "label": bucket["label"],
+                "metric": bucket["metric"],
+                "metric_label": bucket["metric_label"],
+                "repeat_count": len(deltas),
+                "repeat_labels": bucket["repeat_labels"],
+                "direction": direction,
+                "baseline_ms": numeric_summary(bucket["baseline_ms"]),
+                "ktls_ms": numeric_summary(bucket["ktls_ms"]),
+                "delta_ms": numeric_summary(deltas),
+                "delta_pct": numeric_summary(bucket["delta_pct"]),
+            }
+        )
+
+    signals.sort(
+        key=lambda signal: (
+            -signal["repeat_count"],
+            -abs(signal["delta_ms"]["median"]),
+            signal["label"],
+            signal["metric"],
+        )
+    )
+    return signals
 
 
 def build_repeat_labels(paths: list[Path]) -> list[str]:
@@ -368,6 +472,7 @@ def build_repeat_stability(comparison_paths: list[Path]) -> dict:
         "worst_latency_consensus": worst_latency_consensus,
         "max_throughput_span_row": max_throughput_span_row,
         "max_latency_p95_span_row": max_latency_p95_span_row,
+        "phase_signals": build_phase_signals(runs),
         "runs": runs,
         "row_stability": row_stability,
     }
@@ -399,6 +504,15 @@ def render_markdown(stability: dict) -> str:
             repeat_count,
         ),
     ]
+
+    phase_signals = stability.get("phase_signals") or []
+    if phase_signals:
+        lines.append(
+            "- Repeat phase signals: "
+            f"{len(phase_signals)} sign-consistent phase deltas across repeated focus rows."
+        )
+    else:
+        lines.append("- Repeat phase signals: none across repeated focus rows.")
 
     if stability["instability_reasons"]:
         lines.append("- Repeat-stability result: not decision-quality because:")
@@ -477,6 +591,32 @@ def render_markdown(stability: dict) -> str:
                 worst_latency=render_worst_row(run["worst_latency_row"]),
             )
         )
+
+    lines.extend(
+        [
+            "",
+            "## Repeat Phase Signals",
+            "",
+            "| Row | Metric | Repeats | Direction | Baseline range | kTLS range | Delta range |",
+            "| --- | --- | ---: | --- | --- | --- | --- |",
+        ]
+    )
+
+    if phase_signals:
+        for signal in phase_signals:
+            lines.append(
+                "| {row} | {metric} | {repeats} | {direction} | {baseline} | {ktls} | {delta} |".format(
+                    row=signal["label"],
+                    metric=signal["metric_label"],
+                    repeats=signal["repeat_count"],
+                    direction=signal["direction"],
+                    baseline=render_range(signal["baseline_ms"], " ms"),
+                    ktls=render_range(signal["ktls_ms"], " ms"),
+                    delta=render_signed_range(signal["delta_ms"], " ms"),
+                )
+            )
+    else:
+        lines.append("| None | n/a | n/a | n/a | n/a | n/a | n/a |")
 
     phase_focus_rows = []
     for run in stability["runs"]:

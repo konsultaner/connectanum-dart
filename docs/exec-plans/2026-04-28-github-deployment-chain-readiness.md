@@ -1,6 +1,6 @@
 # GitHub Deployment Chain Readiness
 
-Status: in_progress
+Status: paused
 Owner: Codex
 Created: 2026-04-28
 Last updated: 2026-04-29
@@ -66,6 +66,9 @@ operator evidence over speculative feature or benchmark work.
 
 - Promoted this plan to the active autonomous milestone and paused the H2
   isolated regression diagnosis plan.
+- Paused this plan on 2026-04-29 after the deployment-chain evidence refreshed
+  cleanly on `b338d58` and the remaining blockers became explicit
+  operator/product/deployment decisions rather than code-ready autonomous work.
 - Confirmed pushed documentation head `639c095` passed GitHub `CI` run
   `25046524665`:
   - `Fast Checks`: success
@@ -923,6 +926,7 @@ operator evidence over speculative feature or benchmark work.
   - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-native-release-dry-run`
 - Current deployment-chain evidence refresh checks:
   - GitHub `CI` run `25120747925`
+  - GitHub `CI` run `25123037462`
   - GitHub `Dart Package Publish Dry Run` run `25122605506`
   - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 8 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-native-release-dry-run`
 - Current main-CI skipped-gate cleanup checks:
@@ -1088,12 +1092,17 @@ operator evidence over speculative feature or benchmark work.
   branch head even though the older run was still input-relevant. This keeps
   package release evidence current and removes avoidable staleness from the
   deployment audit without publishing to pub.dev.
+- 2026-04-29: Paused autonomous deployment-chain work after clean hosted
+  evidence on `b338d58`. Remaining deployment-chain work needs explicit
+  operator/product decisions: required branch-protection mutation, default
+  branch router-image promotion/GHCR package publication, RC tag/prerelease
+  selection, and Dart package public ownership/release order.
 
 ## Handoff
 
-- Next continuation should keep hosted GitHub CI clean, then either apply
-  branch protection once the operator approves required checks, promote and
-  validate the router image workflow/package, or continue tightening release
-  evidence around GitHub Releases and Dart package publishing. Do not publish a
-  stable non-validation release tag, router image, or Dart package without an
-  explicit product/version/ownership decision.
+- Next continuation should keep hosted GitHub CI clean. Resume this plan only
+  when the operator approves branch protection, default-branch router image
+  promotion/GHCR publication, an RC tag/prerelease, or Dart package
+  ownership/release order. Do not publish a stable non-validation release tag,
+  router image, or Dart package without an explicit product/version/ownership
+  decision.

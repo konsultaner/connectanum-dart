@@ -1,10 +1,13 @@
 # HTTP/2 Isolated Regression Diagnosis
 
-Status: paused
+Status: in_progress
 
 Resumed after `docs/exec-plans/2026-04-25-ci-noise-and-skip-cleanup.md`
 completed on clean branch checkpoint `17697ae`. Paused on 2026-04-28 after
-the project priority shifted to the GitHub deployment chain.
+the project priority shifted to the GitHub deployment chain. Resumed on
+2026-04-29 after the deployment-chain work reached a clean evidence checkpoint
+and its remaining blockers became explicit operator/product/deployment
+decisions.
 
 ## Context
 
@@ -233,6 +236,39 @@ the project priority shifted to the GitHub deployment chain.
     last-write-to-first-read, body read, first-chunk, tail-read,
     read-to-first-chunk, tail connection-read wait, and tail read-to-end
     metrics
+- Commit `d97d34f` (`bench: summarize repeat phase timing`) passed hosted
+  GitHub `CI` run `25045630570`, so the repeat phase-timing focus table is
+  available on a clean branch checkpoint.
+- Manual hosted rerun `25124797087` reran isolated
+  `h2_multiplexed_streams_s1`, `threads=4`, one router worker, on clean head
+  `b338d58` with `repeat_count=3`, `repeat_order=baseline-first`,
+  `cooldown_seconds=15`, and `skip_artifact_gate=true`.
+- That baseline-first rerun completed successfully but was not
+  decision-quality:
+  - throughput delta span was `123.16pp`
+  - p95 delta span was `77.26pp`
+  - baseline-side header wait noise made the aggregate look kTLS-favorable
+  - body-tail read and tail read-to-end deltas were still kTLS-higher in all
+    repeats
+- Manual hosted rerun `25125095595` reran the same isolated workload with
+  `repeat_order=alternating`.
+- That alternating rerun completed successfully but was not decision-quality:
+  - throughput delta span was `57.05pp`
+  - p95 delta span was `368.11pp`
+  - worst throughput and p95 rows stayed stable at
+    `h2_multiplexed_streams_s1 (workers=1, threads=4)`
+  - the p95 spread was kTLS-side while the throughput spread was mixed
+  - body read, tail read, and tail connection read-to-end were kTLS-higher in
+    all three repeats despite the noisy aggregate result
+- The current reporting slice makes that stable phase signal explicit:
+  - `tool/ktls_http2_compare_repeats.py` now computes sign-consistent phase
+    deltas across repeated focus rows
+  - the new `## Repeat Phase Signals` table renders the metric, repeat count,
+    direction, baseline range, kTLS range, and signed delta range
+  - `tool/test_ktls_http2_compare.py` pins that repeated phase-signal behavior
+  - rerendering the `25125095595` artifact shows six sign-consistent repeated
+    phase deltas, including kTLS-higher body read, tail read, and tail
+    connection read-to-end timing
 
 ## Current Verification
 
@@ -269,14 +305,24 @@ the project priority shifted to the GitHub deployment chain.
     `tool/ktls_http2_compare_repeats.py`
   - `bin/verify`
   - hosted GitHub `CI` run `25045630570` completed successfully on `d97d34f`
+- Current repeat-phase signal verification:
+  - `bin/test-fast`
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25124797087`
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25125095595`
+  - `python3 -m py_compile tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`
+  - `python3 tool/test_ktls_http2_compare.py`
+  - rerendered `25125095595` repeat artifacts with
+    `tool/ktls_http2_compare_repeats.py`
+  - `git diff --check`
+  - `bin/verify`
 
 ## Next Step
 
-Resume only after the GitHub deployment-chain readiness plan has a clean
-production path. The next H2 step is to rerun the same isolated hosted `s1`
-workload on `d97d34f` or newer now that the top-level artifact exposes
-per-repeat phase-timing focus directly. Use the next decision-quality run to
-decide whether the stable throughput loss is mostly waiting for connection
-reads after first chunk or processing/draining after those reads; if the run is
-still non-decision-quality, use the aggregate focus table to classify which
-repeats are header-wait noise versus body-tail signal.
+Commit this repeat-phase signal slice and push it. After the hosted `CI` run is
+clean, rerun the same isolated hosted `s1` workload on the new head with
+`repeat_order=alternating`. Use the next decision-quality run to decide whether
+the stable throughput loss is mostly waiting for connection reads after first
+chunk or processing/draining after those reads. If the run is still
+non-decision-quality, use the `## Repeat Phase Signals` table to classify which
+phase deltas remain sign-consistent across repeats before adding any more
+instrumentation.

@@ -2,22 +2,57 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `a358f43` (`docs: record native release dry run audit ci`)
-Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
+Last reviewed commit: `b338d58` (`docs: record current deployment evidence`)
+Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
 
+- Current kTLS/H2 isolated diagnosis/reporting slice:
+  - resumed after the GitHub deployment-chain plan reached a clean evidence
+    checkpoint where remaining blockers are operator/product/deployment
+    decisions: branch protection mutation, default-branch router image
+    promotion/GHCR publication, RC tag/prerelease selection, and Dart package
+    public ownership/release order
+  - latest pushed branch head `b338d58` passed hosted GitHub `CI` run
+    `25123037462`; `Fast Checks` completed successfully in 5m29s and
+    `Full Verify` completed successfully in 8m00s
+  - latest branch-head deployment audit passed with clean main `CI` jobs,
+    clean hosted `CI` logs, clean hosted Dart package publish dry-run
+    evidence, and clean native release dry-run evidence
+  - pre-change `bin/test-fast` passed locally on 2026-04-29 before changing
+    repeat-report tooling
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25124797087` reran isolated
+    `h2_multiplexed_streams_s1`, `threads=4`, `repeat_count=3`,
+    `repeat_order=baseline-first`; it completed successfully but was not
+    decision-quality because baseline-side header noise widened throughput and
+    p95 spans
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25125095595` reran the same
+    isolated workload with `repeat_order=alternating`; it completed
+    successfully but was not decision-quality because throughput delta span was
+    `57.05pp` and p95 delta span was `368.11pp`
+  - the alternating run still showed sign-consistent kTLS-higher body/tail
+    read cost across repeated focus rows, especially body read, tail read,
+    and tail connection read-to-end timing
+  - `tool/ktls_http2_compare_repeats.py` now renders a top-level
+    `## Repeat Phase Signals` table so noisy repeat artifacts still expose
+    sign-consistent phase deltas across repeated focus rows
+  - focused local checks passed:
+    `python3 -m py_compile tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`, and rerendering the
+    `25125095595` repeat artifact with `tool/ktls_http2_compare_repeats.py`
+  - full local `bin/verify` passed after the repeat-report tooling and
+    documentation updates on 2026-04-29
 - Current deployment-chain evidence refresh:
-  - commit `a358f43` (`docs: record native release dry run audit ci`) passed
-    hosted GitHub `CI` run `25120747925`; `Fast Checks` completed
-    successfully in 5m37s and `Full Verify` completed successfully in 8m15s
+  - commit `b338d58` (`docs: record current deployment evidence`) passed
+    hosted GitHub `CI` run `25123037462`; `Fast Checks` completed
+    successfully in 5m29s and `Full Verify` completed successfully in 8m00s
   - fresh manual hosted `Dart Package Publish Dry Run` run `25122605506`
     passed on `a358f43`; `Publish Dry Run` completed successfully in 20s and
     covers the checked-out package-publishing inputs
   - latest native release evidence remains clean and relevant through manual
     hosted `Native Artifacts` dry-run `25119602651`; no
     native-release-sensitive inputs changed after `d4e6fda`
-  - latest branch-head deployment audit passed against `a358f43` with clean
+  - latest branch-head deployment audit passed against `b338d58` with clean
     main `CI` jobs, clean hosted `CI` logs, clean/relevant hosted
     `Dart Package Publish Dry Run` evidence, and clean/relevant hosted
     `Native Artifacts` dry-run evidence
