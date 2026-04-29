@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `869bb7f` (`docs: record rawsocket ci recovery`)
+Last reviewed commit: `bd99fcc` (`ci: audit hosted ci logs`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -26,6 +26,13 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     tests, bench WAMP transport coverage, full router tests,
     `remote_auth_integration_test`, and the Chrome Dart2Wasm browser websocket
     test
+  - commit `bd99fcc` (`ci: audit hosted ci logs`) passed hosted GitHub `CI`
+    run `25099086900`; `Fast Checks` completed successfully in 5m48s and
+    `Full Verify` completed successfully in 8m9s
+  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 4 --require-clean-latest-ci --require-clean-latest-ci-logs`
+    passed against `bd99fcc`, confirming no skipped, pending, failed, missing,
+    or unexpected main `CI` jobs and no high-signal warning, deprecation,
+    skipped-test, rawsocket reset, or connection-noise log matches
 - Current CI cleanup checkpoint:
   - documentation checkpoint `cb55b1f` left hosted GitHub `CI` run
     `25095210918` red in `Full Verify`

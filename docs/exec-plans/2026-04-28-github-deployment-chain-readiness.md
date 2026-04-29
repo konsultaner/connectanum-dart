@@ -489,6 +489,15 @@ operator evidence over speculative feature or benchmark work.
     tests, bench WAMP transport coverage, full router tests,
     `remote_auth_integration_test`, and the Chrome Dart2Wasm browser websocket
     test
+- Completed hosted validation for the repeatable CI log-scan audit gate:
+  - commit `bd99fcc` (`ci: audit hosted ci logs`) passed GitHub `CI` run
+    `25099086900`
+  - `Fast Checks` completed successfully in 5m48s
+  - `Full Verify` completed successfully in 8m9s
+  - the combined clean branch-head audit passed:
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 4 --require-clean-latest-ci --require-clean-latest-ci-logs`
+  - the new log scan found no high-signal warning, deprecation, skipped-test,
+    rawsocket reset, or connection-noise matches
 
 ## Verification
 
