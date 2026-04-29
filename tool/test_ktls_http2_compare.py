@@ -867,6 +867,58 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("kTLS higher", markdown)
             self.assertIn("+1.00 ms..+1.10 ms (median +1.05 ms)", markdown)
 
+    def test_repeat_stability_marks_partial_repeats_inconclusive(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+
+            repeat_one = root / "repeats" / "repeat-01"
+            repeat_one_baseline = repeat_one / "baseline"
+            repeat_one_ktls = repeat_one / "ktls"
+            repeat_one_baseline.mkdir(parents=True)
+            repeat_one_ktls.mkdir(parents=True)
+
+            self._write_summary(
+                repeat_one_baseline / "bench_results.summary.json",
+                [self._row("h2_multiplexed_streams_s1", 4, 5200.0, 18.0, 12.0)],
+            )
+            self._write_summary(
+                repeat_one_ktls / "bench_results.summary.json",
+                [],
+            )
+
+            repeat_one_comparison = compare.build_comparison(
+                repeat_one_baseline / "bench_results.summary.json",
+                repeat_one_ktls / "bench_results.summary.json",
+            )
+
+            repeat_one_path = repeat_one / "comparison.json"
+            repeat_one_path.write_text(json.dumps(repeat_one_comparison))
+
+            stability = repeat_compare.build_repeat_stability([repeat_one_path])
+
+            self.assertFalse(stability["decision_quality"])
+            self.assertEqual(stability["repeat_count"], 1)
+            self.assertEqual(stability["runs"][0]["comparable_rows"], 0)
+            self.assertEqual(stability["runs"][0]["baseline_only_rows"], 1)
+            self.assertEqual(stability["runs"][0]["ktls_only_rows"], 0)
+            self.assertFalse(stability["runs"][0]["comparison_complete"])
+            self.assertIn(
+                "No comparable rows were produced across repeats.",
+                stability["instability_reasons"],
+            )
+            self.assertIn(
+                "repeat-01 produced no comparable rows (baseline-only 1, kTLS-only 0).",
+                stability["instability_reasons"],
+            )
+
+            markdown = repeat_compare.render_markdown(stability)
+            self.assertIn("Decision quality: no", markdown)
+            self.assertIn("Repeat completeness: 1/1 repeats", markdown)
+            self.assertIn("## Repeat Completeness", markdown)
+            self.assertIn("| repeat-01 | 0 | 1 | 0 | incomplete |", markdown)
+            self.assertIn("No comparable rows were produced across repeats.", markdown)
+            self.assertIn("repeat-01 produced no comparable rows", markdown)
+
     def test_transport_focus_reports_signal_gap_for_hotspot_row(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

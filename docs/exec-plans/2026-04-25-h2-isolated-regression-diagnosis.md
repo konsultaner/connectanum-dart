@@ -269,6 +269,24 @@ decisions.
   - rerendering the `25125095595` artifact shows six sign-consistent repeated
     phase deltas, including kTLS-higher body read, tail read, and tail
     connection read-to-end timing
+- Documentation checkpoint `90fbbb9` (`docs: record repeat phase signal ci`)
+  passed hosted GitHub `CI` run `25126752936`.
+- Manual hosted rerun `25127431552` retried the same isolated `s1`,
+  `threads=4`, one-router-worker workload on `90fbbb9` with
+  `repeat_order=alternating`.
+- That rerun failed during repeat 01 when the kTLS pass hit an HTTP/2 body
+  total timeout after the baseline pass completed:
+  - the partial artifact contained one baseline-only row and zero comparable
+    rows
+  - this is a harness/timeout signal, not transport decision evidence
+  - the failure exposed a reporter bug where a no-comparable-row repeat could
+    be labeled decision-quality
+- The repeat reporter now treats partial artifacts as inconclusive:
+  - repeats with zero comparable rows are explicit instability reasons
+  - repeats with any unmatched baseline-only or kTLS-only rows are explicit
+    instability reasons
+  - the top-level markdown now includes a `## Repeat Completeness` table with
+    comparable, baseline-only, and kTLS-only row counts
 
 ## Current Verification
 
@@ -316,13 +334,24 @@ decisions.
   - `git diff --check`
   - `bin/verify`
   - hosted GitHub `CI` run `25126070249` completed successfully on `e547232`
+- Current partial-repeat reporter verification:
+  - `bin/test-fast`
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25127431552` failed during
+    repeat 01 with a kTLS HTTP/2 body total timeout and partial artifacts
+  - `python3 -m py_compile tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`
+  - `python3 tool/test_ktls_http2_compare.py`
+  - rerendered the partial `25127431552` repeat artifact with
+    `tool/ktls_http2_compare_repeats.py`; it now reports
+    `Decision quality: no` and lists `repeat-01` as incomplete
+  - `git diff --check`
+  - `bin/verify`
 
 ## Next Step
 
-After the docs-only CI checkpoint is clean, rerun the same isolated hosted `s1`
-workload on the new head with `repeat_order=alternating`. Use the next
-decision-quality run to decide whether the stable throughput loss is mostly
-waiting for connection reads after first chunk or processing/draining after
-those reads. If the run is still non-decision-quality, use the
-`## Repeat Phase Signals` table to classify which phase deltas remain
+After the partial-repeat reporter fix is verified and pushed, rerun the same
+isolated hosted `s1` workload with `repeat_order=alternating`. Use the next
+completed decision-quality run to decide whether the stable throughput loss is
+mostly waiting for connection reads after first chunk or processing/draining
+after those reads. If the run is still non-decision-quality but complete, use
+the `## Repeat Phase Signals` table to classify which phase deltas remain
 sign-consistent across repeats before adding any more instrumentation.

@@ -318,12 +318,23 @@ def build_repeat_stability(comparison_paths: list[Path]) -> dict:
         throughput = summary.get("throughput")
         latency = summary.get("latency_p95")
         phase_timing_focus = summary.get("phase_timing_focus") or {}
+        comparable_rows = int(summary.get("comparable_rows") or 0)
+        baseline_only_rows = int(summary.get("baseline_only_rows") or 0)
+        ktls_only_rows = int(summary.get("ktls_only_rows") or 0)
 
         runs.append(
             {
                 "repeat_index": repeat_index,
                 "repeat_label": run_label,
                 "comparison_source": str(path),
+                "comparable_rows": comparable_rows,
+                "baseline_only_rows": baseline_only_rows,
+                "ktls_only_rows": ktls_only_rows,
+                "comparison_complete": (
+                    comparable_rows > 0
+                    and baseline_only_rows == 0
+                    and ktls_only_rows == 0
+                ),
                 "average_throughput_pct_delta": None
                 if throughput is None
                 else throughput.get("average_pct_delta"),
@@ -438,6 +449,22 @@ def build_repeat_stability(comparison_paths: list[Path]) -> dict:
     worst_latency_consensus = build_consensus(runs, "worst_latency_row")
 
     instability_reasons: list[str] = []
+    if not row_stability:
+        instability_reasons.append("No comparable rows were produced across repeats.")
+    for run in runs:
+        if run["comparable_rows"] == 0:
+            instability_reasons.append(
+                f"{run['repeat_label']} produced no comparable rows "
+                f"(baseline-only {run['baseline_only_rows']}, "
+                f"kTLS-only {run['ktls_only_rows']})."
+            )
+        elif not run["comparison_complete"]:
+            instability_reasons.append(
+                f"{run['repeat_label']} produced unmatched rows "
+                f"(comparable {run['comparable_rows']}, "
+                f"baseline-only {run['baseline_only_rows']}, "
+                f"kTLS-only {run['ktls_only_rows']})."
+            )
     if not worst_throughput_consensus["consistent"]:
         instability_reasons.append("Worst throughput row changed across repeats.")
     if not worst_latency_consensus["consistent"]:
@@ -514,6 +541,18 @@ def render_markdown(stability: dict) -> str:
     else:
         lines.append("- Repeat phase signals: none across repeated focus rows.")
 
+    incomplete_runs = [
+        run for run in stability["runs"] if not run["comparison_complete"]
+    ]
+    if incomplete_runs:
+        lines.append(
+            "- Repeat completeness: "
+            f"{len(incomplete_runs)}/{repeat_count} repeats had no comparable rows "
+            "or unmatched baseline/kTLS rows."
+        )
+    else:
+        lines.append("- Repeat completeness: all repeats produced matched rows.")
+
     if stability["instability_reasons"]:
         lines.append("- Repeat-stability result: not decision-quality because:")
         for reason in stability["instability_reasons"]:
@@ -570,6 +609,27 @@ def render_markdown(stability: dict) -> str:
                 )
             note_text = ", ".join(notes) if notes else "stable"
             lines.append(f"  - {row['label']}: {note_text}.")
+
+    lines.extend(
+        [
+            "",
+            "## Repeat Completeness",
+            "",
+            "| Repeat | Comparable rows | Baseline-only rows | kTLS-only rows | Result |",
+            "| --- | ---: | ---: | ---: | --- |",
+        ]
+    )
+
+    for run in stability["runs"]:
+        lines.append(
+            "| {repeat_label} | {comparable_rows} | {baseline_only_rows} | {ktls_only_rows} | {result} |".format(
+                repeat_label=run["repeat_label"],
+                comparable_rows=run["comparable_rows"],
+                baseline_only_rows=run["baseline_only_rows"],
+                ktls_only_rows=run["ktls_only_rows"],
+                result="complete" if run["comparison_complete"] else "incomplete",
+            )
+        )
 
     lines.extend(
         [

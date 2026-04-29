@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `e547232` (`bench: surface repeat phase signals`)
+Last reviewed commit: `90fbbb9` (`docs: record repeat phase signal ci`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -13,9 +13,9 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     decisions: branch protection mutation, default-branch router image
     promotion/GHCR publication, RC tag/prerelease selection, and Dart package
     public ownership/release order
-  - latest pushed branch head `b338d58` passed hosted GitHub `CI` run
-    `25123037462`; `Fast Checks` completed successfully in 5m29s and
-    `Full Verify` completed successfully in 8m00s
+  - latest pushed branch head `90fbbb9` passed hosted GitHub `CI` run
+    `25126752936`; `Fast Checks` completed successfully in 5m43s and
+    `Full Verify` completed successfully in 8m05s
   - latest branch-head deployment audit passed with clean main `CI` jobs,
     clean hosted `CI` logs, clean hosted Dart package publish dry-run
     evidence, and clean native release dry-run evidence
@@ -45,6 +45,24 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
   - commit `e547232` (`bench: surface repeat phase signals`) passed hosted
     GitHub `CI` run `25126070249`; `Fast Checks` completed successfully in
     5m31s and `Full Verify` completed successfully in 8m15s
+  - documentation checkpoint `90fbbb9`
+    (`docs: record repeat phase signal ci`) passed hosted GitHub `CI` run
+    `25126752936`; `Fast Checks` completed successfully in 5m43s and
+    `Full Verify` completed successfully in 8m05s
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25127431552` on `90fbbb9`
+    failed during repeat 01 when the kTLS pass hit an HTTP/2 body total
+    timeout; the partial artifact had one baseline-only row and zero
+    comparable rows, so it is a harness/timeout signal rather than transport
+    decision evidence
+  - `tool/ktls_http2_compare_repeats.py` now marks partial repeat artifacts
+    with no comparable rows or unmatched baseline/kTLS rows as not
+    decision-quality and renders a `## Repeat Completeness` table
+  - focused local checks passed for that reporter fix:
+    `python3 -m py_compile tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`, and rerendering the partial
+    `25127431552` repeat artifact
+  - `git diff --check` and full local `bin/verify` passed after the
+    partial-repeat reporter fix on 2026-04-29
 - Current deployment-chain evidence refresh:
   - commit `b338d58` (`docs: record current deployment evidence`) passed
     hosted GitHub `CI` run `25123037462`; `Fast Checks` completed
