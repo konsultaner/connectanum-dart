@@ -2,16 +2,16 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `d44cd8e` (`docs: record dart publish warning gate ci`)
+Last reviewed commit: `b747033` (`ci: add release candidate readiness audit`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
 
 - Current release-candidate readiness audit hardening:
-  - latest hosted GitHub `CI` run `25102685029` passed on `d44cd8e`;
-    `Fast Checks` completed successfully in 5m31s and `Full Verify` completed
-    successfully in 8m11s
-  - latest clean branch-head audit/log scan passed against `d44cd8e` with no
+  - latest hosted GitHub `CI` run `25105031469` passed on `b747033`;
+    `Fast Checks` completed successfully in 5m53s and `Full Verify` completed
+    successfully in 8m01s
+  - latest clean branch-head audit/log scan passed against `b747033` with no
     skipped, pending, failed, missing, or unexpected main `CI` jobs and no
     high-signal warning, deprecation, skipped-test, rawsocket reset, or
     connection-noise log matches

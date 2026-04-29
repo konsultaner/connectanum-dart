@@ -545,6 +545,15 @@ operator evidence over speculative feature or benchmark work.
     tests, bench WAMP transport coverage, full router tests,
     `remote_auth_integration_test`, and the Chrome Dart2Wasm browser websocket
     test
+- Completed hosted validation for release-candidate readiness audit hardening:
+  - commit `b747033` (`ci: add release candidate readiness audit`) passed
+    GitHub `CI` run `25105031469`
+  - `Fast Checks` completed successfully in 5m53s
+  - `Full Verify` completed successfully in 8m01s
+  - the clean branch-head audit passed:
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs`
+  - the hosted log scan found no high-signal warning, deprecation,
+    skipped-test, rawsocket reset, or connection-noise matches
 
 ## Verification
 
@@ -791,6 +800,9 @@ operator evidence over speculative feature or benchmark work.
   - expected failing
     `bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-rc-ready`
   - `bin/verify`
+  - GitHub `CI` run `25105031469`
+  - hosted clean branch-head CI/log audit:
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs`
 
 ## Decision Log
 
