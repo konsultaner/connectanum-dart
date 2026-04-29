@@ -2,20 +2,28 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `bf79824` (`docs: record router image preview ci`)
+Last reviewed commit: `d4e6fda` (`ci: audit native release dry runs`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
 
 - Current native release dry-run audit hardening:
-  - commit `bf79824` (`docs: record router image preview ci`) passed hosted
-    GitHub `CI` run `25116939802`; `Fast Checks` completed successfully in
-    5m26s and `Full Verify` completed successfully in 8m12s
-  - latest clean branch-head audit/log/package-dry-run scan passed against
-    `bf79824` with no skipped, pending, failed, missing, or unexpected main
-    `CI` jobs, no high-signal warning, deprecation, skipped-test, rawsocket
-    reset, or connection-noise log matches, and clean/relevant hosted
-    `Dart Package Publish Dry Run` evidence
+  - commit `d4e6fda` (`ci: audit native release dry runs`) passed hosted
+    GitHub `CI` run `25119596673`; `Fast Checks` completed successfully in
+    5m40s and `Full Verify` completed successfully in 8m19s
+  - manual GitHub `Native Artifacts` dry-run `25119602651` passed all hosted
+    Linux, macOS, and Windows `ct_ffi` artifact jobs plus
+    `Publish GitHub Release` on `d4e6fda`
+  - the dry-run accepted release intent
+    `ct-ffi-v2026.04.29-dry-run.d4e6fda`, uploaded
+    `native-release-preview`, and did not create a GitHub Release for that
+    tag
+  - latest clean branch-head audit/log/package/native-dry-run scan passed
+    against `d4e6fda` with no skipped, pending, failed, missing, or
+    unexpected main `CI` jobs, no high-signal warning, deprecation,
+    skipped-test, rawsocket reset, or connection-noise log matches,
+    clean/relevant hosted `Dart Package Publish Dry Run` evidence, and
+    clean/relevant hosted `Native Artifacts` dry-run evidence
   - pre-change `bin/test-fast` passed locally on 2026-04-29
   - `bin/audit-github-deployment-chain` now has
     `--show-native-release-dry-run` and
@@ -27,8 +35,8 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     accepted native dry-run release intent, confirms the dry-run tag did not
     create a GitHub Release, confirms `native-release-preview` was uploaded,
     and reports native-release-sensitive changes since the latest run
-  - current hosted native release evidence is correctly marked stale until a
-    fresh `Native Artifacts` dry-run covers changes since `8dc966f`
+  - the fresh `Native Artifacts` dry-run now covers the checked-out head for
+    native-release-sensitive inputs
   - focused local checks passed:
     `bash -n bin/audit-github-deployment-chain`,
     `bin/audit-github-deployment-chain --help`,
@@ -37,6 +45,10 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-native-release-dry-run`,
     and
     `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-rc-readiness`
+  - post-hosted audit checks passed:
+    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-native-release-dry-run`
+    and
+    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-native-release-dry-run`
   - full local `bin/verify` passed after the audit and documentation updates
     on 2026-04-29
 - Current router image dry-run preview hardening:

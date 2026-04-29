@@ -638,8 +638,19 @@ operator evidence over speculative feature or benchmark work.
     native dry-run intent and `native-release-preview` upload, confirms the
     dry-run tag did not create a GitHub Release, and reports
     native-release-sensitive changes since the latest dry-run
-  - the current latest hosted `Native Artifacts` dry-run is correctly marked
-    stale until a fresh dry-run covers native release changes after `8dc966f`
+  - the prior latest hosted `Native Artifacts` dry-run was correctly marked
+    stale until a fresh dry-run covered native release changes after `8dc966f`
+  - commit `d4e6fda` (`ci: audit native release dry runs`) passed GitHub
+    `CI` run `25119596673`; `Fast Checks` completed in 5m40s and
+    `Full Verify` completed in 8m19s
+  - manual `Native Artifacts` dry-run `25119602651` passed all hosted Linux,
+    macOS, and Windows `ct_ffi` artifact jobs plus `Publish GitHub Release`
+    on `d4e6fda`
+  - the fresh dry-run accepted
+    `ct-ffi-v2026.04.29-dry-run.d4e6fda`, uploaded
+    `native-release-preview`, did not create a GitHub Release for that tag,
+    and now satisfies the required native dry-run audit gate for the
+    checked-out head
 
 ## Verification
 
@@ -894,6 +905,10 @@ operator evidence over speculative feature or benchmark work.
   - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-rc-readiness`
   - `git diff --check`
   - `bin/verify`
+  - GitHub `CI` run `25119596673`
+  - GitHub `Native Artifacts` dry-run `25119602651`
+  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-native-release-dry-run`
+  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-native-release-dry-run`
 - Current main-CI skipped-gate cleanup checks:
   - GitHub `CI` run `25085322707`
   - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
