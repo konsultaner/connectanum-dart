@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `449887b` (`bench: split h2 tail read timing`)
+Last reviewed commit: `fc71d9a` (`bench: split native response tail send timing`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -172,6 +172,17 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
   - full local `bin/verify` passed after the native response-stream tail-send
     split on 2026-04-29, including Rust, Dart package, bench, router, and
     Chrome/Dart2Wasm browser coverage
+  - commit `fc71d9a` (`bench: split native response tail send timing`) passed
+    hosted GitHub `CI` run `25135516518`; `Fast Checks` completed
+    successfully in 5m38s and `Full Verify` completed successfully in 8m00s
+  - the matching hosted `kTLS Validation` run `25135516526` completed
+    successfully in 3m17s and hosted `WAMP Profile Benchmarks` run
+    `25135516530` completed successfully in 7m49s on `fc71d9a`
+  - the deployment-chain audit against `fc71d9a` reported the latest `CI` job
+    set and hosted `CI` log scan clean; manual hosted log scans for `CI`,
+    `kTLS Validation`, and `WAMP Profile Benchmarks` only matched benign
+    timeout-reference/configuration text and passing test names containing
+    expected words such as `failed` or `timeout`
 - Current deployment-chain evidence refresh:
   - commit `b338d58` (`docs: record current deployment evidence`) passed
     hosted GitHub `CI` run `25123037462`; `Fast Checks` completed

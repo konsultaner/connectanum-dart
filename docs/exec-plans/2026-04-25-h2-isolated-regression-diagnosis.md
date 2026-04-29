@@ -400,6 +400,15 @@ decisions.
     scheduling before the socket/TLS read path
   - if native tail-send stays flat while client tail reads remain kTLS-higher,
     the next target remains socket/TLS read delivery on the client side
+- Commit `fc71d9a` (`bench: split native response tail send timing`) passed
+  the hosted GitHub push chain:
+  - `CI` `25135516518`
+  - `kTLS Validation` `25135516526`
+  - `WAMP Profile Benchmarks` `25135516530`
+- The deployment-chain audit against `fc71d9a` reported clean latest `CI`
+  jobs and a clean hosted `CI` log scan. Manual log scans for the push-chain
+  runs only matched benign timeout-reference/configuration text and passing
+  test names containing expected words such as `failed` or `timeout`.
 
 ## Current Verification
 
@@ -514,11 +523,18 @@ decisions.
   - `dart analyze packages/connectanum_router`
   - `git diff --check`
   - `bin/verify`
+  - hosted GitHub `CI` run `25135516518` completed successfully on `fc71d9a`;
+    `Fast Checks` completed in 5m38s and `Full Verify` completed in 8m00s
+  - hosted GitHub `kTLS Validation` run `25135516526` completed successfully
+    on `fc71d9a`
+  - hosted GitHub `WAMP Profile Benchmarks` run `25135516530` completed
+    successfully on `fc71d9a`
+  - deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `fc71d9a`
 
 ## Next Step
 
-Push the native response-stream tail-send split and watch hosted GitHub CI. If
-CI is clean, rerun the isolated hosted `s1`, `threads=4`, one-router-worker
-benchmark with `repeat_order=alternating` to decide whether the remaining
-stable tail gap appears on native server tail-send or only after bytes enter
-the socket/TLS client read path.
+Rerun the isolated hosted `s1`, `threads=4`, one-router-worker benchmark with
+`repeat_order=alternating` to decide whether the remaining stable tail gap
+appears on native server tail-send or only after bytes enter the socket/TLS
+client read path.
