@@ -147,6 +147,9 @@ pub struct HttpNativeResponseStreamTimingSummary {
     pub headers_to_first_chunk_dequeue_avg_ms: f64,
     pub first_chunk_send_call_avg_ms: f64,
     pub headers_to_first_chunk_send_call_avg_ms: f64,
+    pub tail_chunk_channel_wait_avg_ms: f64,
+    pub tail_chunk_send_call_avg_ms: f64,
+    pub first_to_last_chunk_send_avg_ms: f64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -164,6 +167,15 @@ pub struct HttpNativeResponseStreamSlowPathSummary {
     pub first_chunk_send_call_ge_1ms_total: u64,
     pub first_chunk_send_call_ge_5ms_total: u64,
     pub first_chunk_send_call_ge_10ms_total: u64,
+    pub tail_chunk_channel_wait_ge_1ms_total: u64,
+    pub tail_chunk_channel_wait_ge_5ms_total: u64,
+    pub tail_chunk_channel_wait_ge_10ms_total: u64,
+    pub tail_chunk_send_call_ge_1ms_total: u64,
+    pub tail_chunk_send_call_ge_5ms_total: u64,
+    pub tail_chunk_send_call_ge_10ms_total: u64,
+    pub first_to_last_chunk_send_ge_1ms_total: u64,
+    pub first_to_last_chunk_send_ge_5ms_total: u64,
+    pub first_to_last_chunk_send_ge_10ms_total: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]

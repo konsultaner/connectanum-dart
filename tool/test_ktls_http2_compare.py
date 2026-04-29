@@ -108,6 +108,9 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         native_headers_to_first_chunk_dequeue_avg_ms=1.4,
                         native_first_chunk_send_call_avg_ms=0.2,
                         native_headers_to_first_chunk_send_call_avg_ms=1.6,
+                        native_tail_chunk_channel_wait_avg_ms=0.7,
+                        native_tail_chunk_send_call_avg_ms=0.2,
+                        native_first_to_last_chunk_send_avg_ms=1.9,
                         native_headers_to_first_connection_write_ge_1ms_total=3,
                         native_headers_to_first_connection_write_ge_5ms_total=0,
                         native_headers_to_first_connection_write_ge_10ms_total=0,
@@ -120,6 +123,15 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         native_first_chunk_send_call_ge_1ms_total=0,
                         native_first_chunk_send_call_ge_5ms_total=0,
                         native_first_chunk_send_call_ge_10ms_total=0,
+                        native_tail_chunk_channel_wait_ge_1ms_total=5,
+                        native_tail_chunk_channel_wait_ge_5ms_total=1,
+                        native_tail_chunk_channel_wait_ge_10ms_total=0,
+                        native_tail_chunk_send_call_ge_1ms_total=0,
+                        native_tail_chunk_send_call_ge_5ms_total=0,
+                        native_tail_chunk_send_call_ge_10ms_total=0,
+                        native_first_to_last_chunk_send_ge_1ms_total=5,
+                        native_first_to_last_chunk_send_ge_5ms_total=1,
+                        native_first_to_last_chunk_send_ge_10ms_total=0,
                         response_body_post_header_connection_read_wait_samples_total=12,
                         response_body_post_header_connection_read_wait_avg_ms=1.2,
                         response_body_post_header_connection_read_wait_p95_ms=1.8,
@@ -253,6 +265,9 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         native_headers_to_first_chunk_dequeue_avg_ms=11.9,
                         native_first_chunk_send_call_avg_ms=0.9,
                         native_headers_to_first_chunk_send_call_avg_ms=12.8,
+                        native_tail_chunk_channel_wait_avg_ms=6.3,
+                        native_tail_chunk_send_call_avg_ms=1.1,
+                        native_first_to_last_chunk_send_avg_ms=13.4,
                         native_headers_to_first_connection_write_ge_1ms_total=23,
                         native_headers_to_first_connection_write_ge_5ms_total=15,
                         native_headers_to_first_connection_write_ge_10ms_total=8,
@@ -265,6 +280,15 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         native_first_chunk_send_call_ge_1ms_total=1,
                         native_first_chunk_send_call_ge_5ms_total=0,
                         native_first_chunk_send_call_ge_10ms_total=0,
+                        native_tail_chunk_channel_wait_ge_1ms_total=21,
+                        native_tail_chunk_channel_wait_ge_5ms_total=12,
+                        native_tail_chunk_channel_wait_ge_10ms_total=4,
+                        native_tail_chunk_send_call_ge_1ms_total=3,
+                        native_tail_chunk_send_call_ge_5ms_total=1,
+                        native_tail_chunk_send_call_ge_10ms_total=0,
+                        native_first_to_last_chunk_send_ge_1ms_total=20,
+                        native_first_to_last_chunk_send_ge_5ms_total=12,
+                        native_first_to_last_chunk_send_ge_10ms_total=7,
                     ),
                 ],
             )
@@ -527,6 +551,24 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertAlmostEqual(
                 comparison["summary"]["native_response_stream_focus"][
                     "worst_throughput_row"
+                ]["metrics"]["tail_chunk_channel_wait_avg_ms"]["delta"],
+                5.6,
+            )
+            self.assertAlmostEqual(
+                comparison["summary"]["native_response_stream_focus"][
+                    "worst_throughput_row"
+                ]["metrics"]["tail_chunk_send_call_avg_ms"]["delta"],
+                0.9,
+            )
+            self.assertAlmostEqual(
+                comparison["summary"]["native_response_stream_focus"][
+                    "worst_throughput_row"
+                ]["metrics"]["first_to_last_chunk_send_avg_ms"]["delta"],
+                11.5,
+            )
+            self.assertAlmostEqual(
+                comparison["summary"]["native_response_stream_focus"][
+                    "worst_throughput_row"
                 ]["metrics"]["first_chunk_channel_wait_avg_ms"]["delta"],
                 4.8,
             )
@@ -551,6 +593,22 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "delta"
                 ],
                 15,
+            )
+            self.assertEqual(
+                comparison["summary"]["native_response_stream_slow_path_focus"][
+                    "worst_throughput_row"
+                ]["buckets"]["tail_chunk_channel_wait"]["ge_5ms_total"][
+                    "delta"
+                ],
+                11,
+            )
+            self.assertEqual(
+                comparison["summary"]["native_response_stream_slow_path_focus"][
+                    "worst_throughput_row"
+                ]["buckets"]["first_to_last_chunk_send"]["ge_10ms_total"][
+                    "delta"
+                ],
+                7,
             )
 
             markdown = compare.render_markdown(comparison)
@@ -633,6 +691,14 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                 markdown,
             )
             self.assertIn(
+                "native tail chunk channel wait >=1/5/10ms 5/1/0 -> 21/12/4",
+                markdown,
+            )
+            self.assertIn(
+                "native first-to-last chunk send >=1/5/10ms 5/1/0 -> 20/12/7",
+                markdown,
+            )
+            self.assertIn(
                 "server headers-to-first-body-write-completed avg 1.00 -> 6.70 (+5.70)",
                 markdown,
             )
@@ -646,6 +712,14 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             )
             self.assertIn(
                 "native headers-to-first-chunk-dequeue avg 1.40 -> 11.90 (+10.50)",
+                markdown,
+            )
+            self.assertIn(
+                "native tail chunk channel wait avg 0.70 -> 6.30 (+5.60)",
+                markdown,
+            )
+            self.assertIn(
+                "native first-to-last chunk send avg 1.90 -> 13.40 (+11.50)",
                 markdown,
             )
             self.assertIn(
@@ -1285,6 +1359,9 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         native_headers_to_first_chunk_dequeue_avg_ms: float | None = 1.2,
         native_first_chunk_send_call_avg_ms: float | None = 0.2,
         native_headers_to_first_chunk_send_call_avg_ms: float | None = 1.4,
+        native_tail_chunk_channel_wait_avg_ms: float | None = 0.6,
+        native_tail_chunk_send_call_avg_ms: float | None = 0.2,
+        native_first_to_last_chunk_send_avg_ms: float | None = 1.8,
         native_headers_to_first_connection_write_ge_1ms_total: int | None = 1,
         native_headers_to_first_connection_write_ge_5ms_total: int | None = 0,
         native_headers_to_first_connection_write_ge_10ms_total: int | None = 0,
@@ -1297,6 +1374,15 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         native_first_chunk_send_call_ge_1ms_total: int | None = 0,
         native_first_chunk_send_call_ge_5ms_total: int | None = 0,
         native_first_chunk_send_call_ge_10ms_total: int | None = 0,
+        native_tail_chunk_channel_wait_ge_1ms_total: int | None = 1,
+        native_tail_chunk_channel_wait_ge_5ms_total: int | None = 0,
+        native_tail_chunk_channel_wait_ge_10ms_total: int | None = 0,
+        native_tail_chunk_send_call_ge_1ms_total: int | None = 0,
+        native_tail_chunk_send_call_ge_5ms_total: int | None = 0,
+        native_tail_chunk_send_call_ge_10ms_total: int | None = 0,
+        native_first_to_last_chunk_send_ge_1ms_total: int | None = 1,
+        native_first_to_last_chunk_send_ge_5ms_total: int | None = 0,
+        native_first_to_last_chunk_send_ge_10ms_total: int | None = 0,
     ) -> dict:
         return {
             "scenario": "h2_ktls_benchmark",
@@ -1411,6 +1497,9 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "headers_to_first_chunk_dequeue_avg_ms": native_headers_to_first_chunk_dequeue_avg_ms,
                     "first_chunk_send_call_avg_ms": native_first_chunk_send_call_avg_ms,
                     "headers_to_first_chunk_send_call_avg_ms": native_headers_to_first_chunk_send_call_avg_ms,
+                    "tail_chunk_channel_wait_avg_ms": native_tail_chunk_channel_wait_avg_ms,
+                    "tail_chunk_send_call_avg_ms": native_tail_chunk_send_call_avg_ms,
+                    "first_to_last_chunk_send_avg_ms": native_first_to_last_chunk_send_avg_ms,
                 }
             ),
             "http_native_response_stream_slow_path": (
@@ -1430,6 +1519,15 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "first_chunk_send_call_ge_1ms_total": native_first_chunk_send_call_ge_1ms_total,
                     "first_chunk_send_call_ge_5ms_total": native_first_chunk_send_call_ge_5ms_total,
                     "first_chunk_send_call_ge_10ms_total": native_first_chunk_send_call_ge_10ms_total,
+                    "tail_chunk_channel_wait_ge_1ms_total": native_tail_chunk_channel_wait_ge_1ms_total,
+                    "tail_chunk_channel_wait_ge_5ms_total": native_tail_chunk_channel_wait_ge_5ms_total,
+                    "tail_chunk_channel_wait_ge_10ms_total": native_tail_chunk_channel_wait_ge_10ms_total,
+                    "tail_chunk_send_call_ge_1ms_total": native_tail_chunk_send_call_ge_1ms_total,
+                    "tail_chunk_send_call_ge_5ms_total": native_tail_chunk_send_call_ge_5ms_total,
+                    "tail_chunk_send_call_ge_10ms_total": native_tail_chunk_send_call_ge_10ms_total,
+                    "first_to_last_chunk_send_ge_1ms_total": native_first_to_last_chunk_send_ge_1ms_total,
+                    "first_to_last_chunk_send_ge_5ms_total": native_first_to_last_chunk_send_ge_5ms_total,
+                    "first_to_last_chunk_send_ge_10ms_total": native_first_to_last_chunk_send_ge_10ms_total,
                 }
             ),
         }

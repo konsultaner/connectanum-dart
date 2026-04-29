@@ -205,6 +205,21 @@ class RouterHttpResponseStreamMetrics {
     required this.firstChunkSendCallGe10msTotal,
     required this.headersToFirstChunkSendCallSamplesTotal,
     required this.headersToFirstChunkSendCallUsTotal,
+    required this.tailChunkChannelWaitSamplesTotal,
+    required this.tailChunkChannelWaitUsTotal,
+    required this.tailChunkChannelWaitGe1msTotal,
+    required this.tailChunkChannelWaitGe5msTotal,
+    required this.tailChunkChannelWaitGe10msTotal,
+    required this.tailChunkSendCallSamplesTotal,
+    required this.tailChunkSendCallUsTotal,
+    required this.tailChunkSendCallGe1msTotal,
+    required this.tailChunkSendCallGe5msTotal,
+    required this.tailChunkSendCallGe10msTotal,
+    required this.firstToLastChunkSendSamplesTotal,
+    required this.firstToLastChunkSendUsTotal,
+    required this.firstToLastChunkSendGe1msTotal,
+    required this.firstToLastChunkSendGe5msTotal,
+    required this.firstToLastChunkSendGe10msTotal,
   });
 
   final int streamingResponsesTotal;
@@ -234,6 +249,21 @@ class RouterHttpResponseStreamMetrics {
   final int firstChunkSendCallGe10msTotal;
   final int headersToFirstChunkSendCallSamplesTotal;
   final int headersToFirstChunkSendCallUsTotal;
+  final int tailChunkChannelWaitSamplesTotal;
+  final int tailChunkChannelWaitUsTotal;
+  final int tailChunkChannelWaitGe1msTotal;
+  final int tailChunkChannelWaitGe5msTotal;
+  final int tailChunkChannelWaitGe10msTotal;
+  final int tailChunkSendCallSamplesTotal;
+  final int tailChunkSendCallUsTotal;
+  final int tailChunkSendCallGe1msTotal;
+  final int tailChunkSendCallGe5msTotal;
+  final int tailChunkSendCallGe10msTotal;
+  final int firstToLastChunkSendSamplesTotal;
+  final int firstToLastChunkSendUsTotal;
+  final int firstToLastChunkSendGe1msTotal;
+  final int firstToLastChunkSendGe5msTotal;
+  final int firstToLastChunkSendGe10msTotal;
 
   Map<String, Object?> toJson() => {
     'streaming_responses_total': streamingResponsesTotal,
@@ -276,6 +306,21 @@ class RouterHttpResponseStreamMetrics {
         headersToFirstChunkSendCallSamplesTotal,
     'headers_to_first_chunk_send_call_us_total':
         headersToFirstChunkSendCallUsTotal,
+    'tail_chunk_channel_wait_samples_total': tailChunkChannelWaitSamplesTotal,
+    'tail_chunk_channel_wait_us_total': tailChunkChannelWaitUsTotal,
+    'tail_chunk_channel_wait_ge_1ms_total': tailChunkChannelWaitGe1msTotal,
+    'tail_chunk_channel_wait_ge_5ms_total': tailChunkChannelWaitGe5msTotal,
+    'tail_chunk_channel_wait_ge_10ms_total': tailChunkChannelWaitGe10msTotal,
+    'tail_chunk_send_call_samples_total': tailChunkSendCallSamplesTotal,
+    'tail_chunk_send_call_us_total': tailChunkSendCallUsTotal,
+    'tail_chunk_send_call_ge_1ms_total': tailChunkSendCallGe1msTotal,
+    'tail_chunk_send_call_ge_5ms_total': tailChunkSendCallGe5msTotal,
+    'tail_chunk_send_call_ge_10ms_total': tailChunkSendCallGe10msTotal,
+    'first_to_last_chunk_send_samples_total': firstToLastChunkSendSamplesTotal,
+    'first_to_last_chunk_send_us_total': firstToLastChunkSendUsTotal,
+    'first_to_last_chunk_send_ge_1ms_total': firstToLastChunkSendGe1msTotal,
+    'first_to_last_chunk_send_ge_5ms_total': firstToLastChunkSendGe5msTotal,
+    'first_to_last_chunk_send_ge_10ms_total': firstToLastChunkSendGe10msTotal,
   };
 }
 

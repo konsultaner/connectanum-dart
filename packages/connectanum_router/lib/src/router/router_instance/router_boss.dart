@@ -933,6 +933,36 @@ class _RouterBoss {
                   .headersToFirstChunkSendCallSamplesTotal,
               headersToFirstChunkSendCallUsTotal:
                   metrics.responseStream!.headersToFirstChunkSendCallUsTotal,
+              tailChunkChannelWaitSamplesTotal:
+                  metrics.responseStream!.tailChunkChannelWaitSamplesTotal,
+              tailChunkChannelWaitUsTotal:
+                  metrics.responseStream!.tailChunkChannelWaitUsTotal,
+              tailChunkChannelWaitGe1msTotal:
+                  metrics.responseStream!.tailChunkChannelWaitGe1msTotal,
+              tailChunkChannelWaitGe5msTotal:
+                  metrics.responseStream!.tailChunkChannelWaitGe5msTotal,
+              tailChunkChannelWaitGe10msTotal:
+                  metrics.responseStream!.tailChunkChannelWaitGe10msTotal,
+              tailChunkSendCallSamplesTotal:
+                  metrics.responseStream!.tailChunkSendCallSamplesTotal,
+              tailChunkSendCallUsTotal:
+                  metrics.responseStream!.tailChunkSendCallUsTotal,
+              tailChunkSendCallGe1msTotal:
+                  metrics.responseStream!.tailChunkSendCallGe1msTotal,
+              tailChunkSendCallGe5msTotal:
+                  metrics.responseStream!.tailChunkSendCallGe5msTotal,
+              tailChunkSendCallGe10msTotal:
+                  metrics.responseStream!.tailChunkSendCallGe10msTotal,
+              firstToLastChunkSendSamplesTotal:
+                  metrics.responseStream!.firstToLastChunkSendSamplesTotal,
+              firstToLastChunkSendUsTotal:
+                  metrics.responseStream!.firstToLastChunkSendUsTotal,
+              firstToLastChunkSendGe1msTotal:
+                  metrics.responseStream!.firstToLastChunkSendGe1msTotal,
+              firstToLastChunkSendGe5msTotal:
+                  metrics.responseStream!.firstToLastChunkSendGe5msTotal,
+              firstToLastChunkSendGe10msTotal:
+                  metrics.responseStream!.firstToLastChunkSendGe10msTotal,
             ),
       alertBreakdown: alertBreakdown,
       breakdown: breakdown,

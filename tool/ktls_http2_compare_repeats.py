@@ -102,6 +102,9 @@ NATIVE_RESPONSE_STREAM_FOCUS_METRICS = (
         "headers_to_first_chunk_send_call_avg_ms",
         "Headers-to-first-chunk send-call avg ms",
     ),
+    ("tail_chunk_channel_wait_avg_ms", "Tail chunk channel wait avg ms"),
+    ("tail_chunk_send_call_avg_ms", "Tail chunk send call avg ms"),
+    ("first_to_last_chunk_send_avg_ms", "First-to-last chunk send avg ms"),
 )
 
 

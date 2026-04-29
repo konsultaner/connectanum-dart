@@ -359,6 +359,47 @@ decisions.
     `tool/ktls_http2_compare.py`, and
     `tool/ktls_http2_compare_repeats.py` carry those fields through summaries,
     markdown diagnostics, and repeat focus/signal tables
+- Commit `449887b` (`bench: split h2 tail read timing`) passed the hosted
+  GitHub push chain:
+  - `CI` `25133186169`
+  - `kTLS Validation` `25133186157`
+  - `WAMP Profile Benchmarks` `25133186159`
+- The deployment-chain audit against `449887b` reported clean latest `CI`
+  jobs and a clean hosted `CI` log scan, so the next blocker is hosted
+  isolated benchmark evidence with the new tail-read split.
+- Manual hosted rerun `25134092006` reran isolated `s1`, `threads=4`, one
+  router worker on `449887b` with `repeat_order=alternating`.
+- That hosted rerun is decision-quality:
+  - throughput delta span was `23.73pp`
+  - p95 delta span was `15.47pp`
+  - all repeats produced matched rows
+  - worst throughput and p95 rows stayed stable at
+    `h2_multiplexed_streams_s1 (workers=1, threads=4)`
+  - kTLS throughput remained lower in all repeats at
+    `-36.18%..-12.44%`, median `-25.30%`
+- The new body-tail split narrows the stable gap:
+  - tail read-span was kTLS-higher by `+0.39..+1.70 ms`
+  - tail connection read-to-end was kTLS-higher by `+0.38..+1.70 ms`
+  - tail connection last-read-to-end stayed flat at about `0.02..0.04 ms`
+  - tail connection read count did not explain the result consistently
+  - native response-stream signals stayed empty
+- That points away from post-final-read H2 body processing and toward
+  client-side socket/TLS read scheduling or per-read delivery while consuming
+  the H2 body tail.
+- The native response-stream tail-send split is implemented locally:
+  - `ct_core` records tail chunk channel wait, tail chunk send-call duration,
+    and first-to-last chunk send span for HTTP/2 and HTTP/3 streaming native
+    responses
+  - `ct_ffi` and the Dart router metrics model expose those counters through
+    the native metrics snapshot
+  - `native/bench` summaries and the kTLS comparison reports render the new
+    timing and slow-path buckets in native response-stream focus rows
+- This split is intentionally bounded:
+  - if the next hosted isolated `s1` rerun shows a stable kTLS-side native
+    tail-send delta, the remaining work is on native server streaming
+    scheduling before the socket/TLS read path
+  - if native tail-send stays flat while client tail reads remain kTLS-higher,
+    the next target remains socket/TLS read delivery on the client side
 
 ## Current Verification
 
@@ -453,11 +494,31 @@ decisions.
   - `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
   - `git diff --check`
   - `bin/verify`
+  - hosted GitHub `CI` run `25133186169` completed successfully on `449887b`;
+    `Fast Checks` completed in 4m47s and `Full Verify` completed in 8m10s
+  - hosted GitHub `kTLS Validation` run `25133186157` completed successfully
+    on `449887b`
+  - hosted GitHub `WAMP Profile Benchmarks` run `25133186159` completed
+    successfully on `449887b`
+  - deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `449887b`
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25134092006` completed
+    successfully on `449887b` and produced decision-quality isolated
+    `s1`, `threads=4` evidence with the new tail-read split
+- Current native response-stream tail-send split verification:
+  - `bin/test-fast`
+  - `cargo test --manifest-path native/transport/Cargo.toml -p ct_core http_response_stream_metrics_record_tail_chunks -- --nocapture`
+  - `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
+  - `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`
+  - `python3 tool/test_ktls_http2_compare.py`
+  - `dart analyze packages/connectanum_router`
+  - `git diff --check`
+  - `bin/verify`
 
 ## Next Step
 
-Push the H2 tail-read split and watch hosted CI. Then rerun the same isolated
-hosted `s1` workload with `repeat_order=alternating`; if the new tail metrics
-show the stable body-tail delta mostly before the last tail connection read,
-inspect socket/TLS read scheduling, otherwise inspect H2 body processing after
-the final read.
+Push the native response-stream tail-send split and watch hosted GitHub CI. If
+CI is clean, rerun the isolated hosted `s1`, `threads=4`, one-router-worker
+benchmark with `repeat_order=alternating` to decide whether the remaining
+stable tail gap appears on native server tail-send or only after bytes enter
+the socket/TLS client read path.

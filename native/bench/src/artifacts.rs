@@ -1590,6 +1590,48 @@ fn summarize_http_native_response_stream_timing(
     )
     .unwrap_or(0)
     .max(0) as u64;
+    let tail_chunk_channel_wait_samples_total = transport_http_response_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "tail_chunk_channel_wait_samples_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let tail_chunk_channel_wait_us_total = transport_http_response_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "tail_chunk_channel_wait_us_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let tail_chunk_send_call_samples_total = transport_http_response_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "tail_chunk_send_call_samples_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let tail_chunk_send_call_us_total = transport_http_response_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "tail_chunk_send_call_us_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let first_to_last_chunk_send_samples_total = transport_http_response_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "first_to_last_chunk_send_samples_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let first_to_last_chunk_send_us_total = transport_http_response_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "first_to_last_chunk_send_us_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
 
     Some(HttpNativeResponseStreamTimingSummary {
         streaming_responses_total,
@@ -1620,6 +1662,18 @@ fn summarize_http_native_response_stream_timing(
         headers_to_first_chunk_send_call_avg_ms: average_microseconds_to_millis(
             headers_to_first_chunk_send_call_us_total,
             headers_to_first_chunk_send_call_samples_total,
+        ),
+        tail_chunk_channel_wait_avg_ms: average_microseconds_to_millis(
+            tail_chunk_channel_wait_us_total,
+            tail_chunk_channel_wait_samples_total,
+        ),
+        tail_chunk_send_call_avg_ms: average_microseconds_to_millis(
+            tail_chunk_send_call_us_total,
+            tail_chunk_send_call_samples_total,
+        ),
+        first_to_last_chunk_send_avg_ms: average_microseconds_to_millis(
+            first_to_last_chunk_send_us_total,
+            first_to_last_chunk_send_samples_total,
         ),
     })
 }
@@ -1724,6 +1778,69 @@ fn summarize_http_native_response_stream_slow_path(
             &report.metrics_before,
             &report.metrics_after,
             "first_chunk_send_call_ge_10ms_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64,
+        tail_chunk_channel_wait_ge_1ms_total: transport_http_response_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "tail_chunk_channel_wait_ge_1ms_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64,
+        tail_chunk_channel_wait_ge_5ms_total: transport_http_response_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "tail_chunk_channel_wait_ge_5ms_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64,
+        tail_chunk_channel_wait_ge_10ms_total: transport_http_response_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "tail_chunk_channel_wait_ge_10ms_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64,
+        tail_chunk_send_call_ge_1ms_total: transport_http_response_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "tail_chunk_send_call_ge_1ms_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64,
+        tail_chunk_send_call_ge_5ms_total: transport_http_response_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "tail_chunk_send_call_ge_5ms_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64,
+        tail_chunk_send_call_ge_10ms_total: transport_http_response_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "tail_chunk_send_call_ge_10ms_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64,
+        first_to_last_chunk_send_ge_1ms_total: transport_http_response_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "first_to_last_chunk_send_ge_1ms_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64,
+        first_to_last_chunk_send_ge_5ms_total: transport_http_response_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "first_to_last_chunk_send_ge_5ms_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64,
+        first_to_last_chunk_send_ge_10ms_total: transport_http_response_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "first_to_last_chunk_send_ge_10ms_total",
         )
         .unwrap_or(0)
         .max(0) as u64,
@@ -2302,6 +2419,21 @@ mod tests {
                         "first_chunk_send_call_ge_10ms_total": 0,
                         "headers_to_first_chunk_send_call_samples_total": 2,
                         "headers_to_first_chunk_send_call_us_total": 7000,
+                        "tail_chunk_channel_wait_samples_total": 4,
+                        "tail_chunk_channel_wait_us_total": 8000,
+                        "tail_chunk_channel_wait_ge_1ms_total": 4,
+                        "tail_chunk_channel_wait_ge_5ms_total": 1,
+                        "tail_chunk_channel_wait_ge_10ms_total": 0,
+                        "tail_chunk_send_call_samples_total": 4,
+                        "tail_chunk_send_call_us_total": 2000,
+                        "tail_chunk_send_call_ge_1ms_total": 1,
+                        "tail_chunk_send_call_ge_5ms_total": 0,
+                        "tail_chunk_send_call_ge_10ms_total": 0,
+                        "first_to_last_chunk_send_samples_total": 2,
+                        "first_to_last_chunk_send_us_total": 6000,
+                        "first_to_last_chunk_send_ge_1ms_total": 2,
+                        "first_to_last_chunk_send_ge_5ms_total": 1,
+                        "first_to_last_chunk_send_ge_10ms_total": 0,
                     },
                 }),
                 Some(json!({
@@ -2389,6 +2521,21 @@ mod tests {
                         "first_chunk_send_call_ge_10ms_total": 0,
                         "headers_to_first_chunk_send_call_samples_total": 5,
                         "headers_to_first_chunk_send_call_us_total": 28000,
+                        "tail_chunk_channel_wait_samples_total": 13,
+                        "tail_chunk_channel_wait_us_total": 35000,
+                        "tail_chunk_channel_wait_ge_1ms_total": 13,
+                        "tail_chunk_channel_wait_ge_5ms_total": 4,
+                        "tail_chunk_channel_wait_ge_10ms_total": 1,
+                        "tail_chunk_send_call_samples_total": 13,
+                        "tail_chunk_send_call_us_total": 7000,
+                        "tail_chunk_send_call_ge_1ms_total": 3,
+                        "tail_chunk_send_call_ge_5ms_total": 1,
+                        "tail_chunk_send_call_ge_10ms_total": 0,
+                        "first_to_last_chunk_send_samples_total": 5,
+                        "first_to_last_chunk_send_us_total": 27000,
+                        "first_to_last_chunk_send_ge_1ms_total": 5,
+                        "first_to_last_chunk_send_ge_5ms_total": 4,
+                        "first_to_last_chunk_send_ge_10ms_total": 1,
                     },
                 }),
                 Some(json!({
@@ -2868,6 +3015,11 @@ mod tests {
             (native_stream_timing.headers_to_first_chunk_send_call_avg_ms - 7.0).abs()
                 < f64::EPSILON
         );
+        assert!((native_stream_timing.tail_chunk_channel_wait_avg_ms - 3.0).abs() < f64::EPSILON);
+        assert!(
+            (native_stream_timing.tail_chunk_send_call_avg_ms - (5.0 / 9.0)).abs() < f64::EPSILON
+        );
+        assert!((native_stream_timing.first_to_last_chunk_send_avg_ms - 7.0).abs() < f64::EPSILON);
         let native_stream_slow_path = summary.http_native_response_stream_slow_path.unwrap();
         assert_eq!(native_stream_slow_path.streaming_responses_total, 3);
         assert_eq!(
@@ -2917,6 +3069,36 @@ mod tests {
         assert_eq!(
             native_stream_slow_path.first_chunk_send_call_ge_10ms_total,
             0
+        );
+        assert_eq!(
+            native_stream_slow_path.tail_chunk_channel_wait_ge_1ms_total,
+            9
+        );
+        assert_eq!(
+            native_stream_slow_path.tail_chunk_channel_wait_ge_5ms_total,
+            3
+        );
+        assert_eq!(
+            native_stream_slow_path.tail_chunk_channel_wait_ge_10ms_total,
+            1
+        );
+        assert_eq!(native_stream_slow_path.tail_chunk_send_call_ge_1ms_total, 2);
+        assert_eq!(native_stream_slow_path.tail_chunk_send_call_ge_5ms_total, 1);
+        assert_eq!(
+            native_stream_slow_path.tail_chunk_send_call_ge_10ms_total,
+            0
+        );
+        assert_eq!(
+            native_stream_slow_path.first_to_last_chunk_send_ge_1ms_total,
+            3
+        );
+        assert_eq!(
+            native_stream_slow_path.first_to_last_chunk_send_ge_5ms_total,
+            3
+        );
+        assert_eq!(
+            native_stream_slow_path.first_to_last_chunk_send_ge_10ms_total,
+            1
         );
         assert!((summary.latency_avg_ms - 20.0).abs() < f64::EPSILON);
         assert!((summary.latency_p95_ms - 30.0).abs() < f64::EPSILON);

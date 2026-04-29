@@ -291,6 +291,21 @@ struct HttpResponseStreamMetrics {
     first_chunk_send_call_ge_10ms_total: AtomicU64,
     headers_to_first_chunk_send_call_samples_total: AtomicU64,
     headers_to_first_chunk_send_call_us_total: AtomicU64,
+    tail_chunk_channel_wait_samples_total: AtomicU64,
+    tail_chunk_channel_wait_us_total: AtomicU64,
+    tail_chunk_channel_wait_ge_1ms_total: AtomicU64,
+    tail_chunk_channel_wait_ge_5ms_total: AtomicU64,
+    tail_chunk_channel_wait_ge_10ms_total: AtomicU64,
+    tail_chunk_send_call_samples_total: AtomicU64,
+    tail_chunk_send_call_us_total: AtomicU64,
+    tail_chunk_send_call_ge_1ms_total: AtomicU64,
+    tail_chunk_send_call_ge_5ms_total: AtomicU64,
+    tail_chunk_send_call_ge_10ms_total: AtomicU64,
+    first_to_last_chunk_send_samples_total: AtomicU64,
+    first_to_last_chunk_send_us_total: AtomicU64,
+    first_to_last_chunk_send_ge_1ms_total: AtomicU64,
+    first_to_last_chunk_send_ge_5ms_total: AtomicU64,
+    first_to_last_chunk_send_ge_10ms_total: AtomicU64,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -335,6 +350,21 @@ pub struct HttpResponseStreamMetricsSnapshot {
     pub first_chunk_send_call_ge_10ms_total: u64,
     pub headers_to_first_chunk_send_call_samples_total: u64,
     pub headers_to_first_chunk_send_call_us_total: u64,
+    pub tail_chunk_channel_wait_samples_total: u64,
+    pub tail_chunk_channel_wait_us_total: u64,
+    pub tail_chunk_channel_wait_ge_1ms_total: u64,
+    pub tail_chunk_channel_wait_ge_5ms_total: u64,
+    pub tail_chunk_channel_wait_ge_10ms_total: u64,
+    pub tail_chunk_send_call_samples_total: u64,
+    pub tail_chunk_send_call_us_total: u64,
+    pub tail_chunk_send_call_ge_1ms_total: u64,
+    pub tail_chunk_send_call_ge_5ms_total: u64,
+    pub tail_chunk_send_call_ge_10ms_total: u64,
+    pub first_to_last_chunk_send_samples_total: u64,
+    pub first_to_last_chunk_send_us_total: u64,
+    pub first_to_last_chunk_send_ge_1ms_total: u64,
+    pub first_to_last_chunk_send_ge_5ms_total: u64,
+    pub first_to_last_chunk_send_ge_10ms_total: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -567,6 +597,56 @@ impl HttpResponseStreamMetrics {
             .fetch_add(headers_to_send_call_us, Ordering::SeqCst);
     }
 
+    fn record_tail_chunk(
+        &self,
+        queued_at: Instant,
+        dequeue_at: Instant,
+        send_call_started_at: Instant,
+        send_call_finished_at: Instant,
+    ) {
+        let channel_wait_us = saturating_instant_delta_us(queued_at, dequeue_at);
+        let send_call_us = saturating_instant_delta_us(send_call_started_at, send_call_finished_at);
+
+        self.tail_chunk_channel_wait_samples_total
+            .fetch_add(1, Ordering::SeqCst);
+        self.tail_chunk_channel_wait_us_total
+            .fetch_add(channel_wait_us, Ordering::SeqCst);
+        record_response_stream_slow_path(
+            channel_wait_us,
+            &self.tail_chunk_channel_wait_ge_1ms_total,
+            &self.tail_chunk_channel_wait_ge_5ms_total,
+            &self.tail_chunk_channel_wait_ge_10ms_total,
+        );
+        self.tail_chunk_send_call_samples_total
+            .fetch_add(1, Ordering::SeqCst);
+        self.tail_chunk_send_call_us_total
+            .fetch_add(send_call_us, Ordering::SeqCst);
+        record_response_stream_slow_path(
+            send_call_us,
+            &self.tail_chunk_send_call_ge_1ms_total,
+            &self.tail_chunk_send_call_ge_5ms_total,
+            &self.tail_chunk_send_call_ge_10ms_total,
+        );
+    }
+
+    fn record_first_to_last_chunk_send(
+        &self,
+        first_chunk_sent_at: Instant,
+        last_chunk_sent_at: Instant,
+    ) {
+        let span_us = saturating_instant_delta_us(first_chunk_sent_at, last_chunk_sent_at);
+        self.first_to_last_chunk_send_samples_total
+            .fetch_add(1, Ordering::SeqCst);
+        self.first_to_last_chunk_send_us_total
+            .fetch_add(span_us, Ordering::SeqCst);
+        record_response_stream_slow_path(
+            span_us,
+            &self.first_to_last_chunk_send_ge_1ms_total,
+            &self.first_to_last_chunk_send_ge_5ms_total,
+            &self.first_to_last_chunk_send_ge_10ms_total,
+        );
+    }
+
     fn snapshot(&self) -> HttpResponseStreamMetricsSnapshot {
         HttpResponseStreamMetricsSnapshot {
             streaming_responses_total: self.streaming_responses_total.load(Ordering::SeqCst),
@@ -645,6 +725,51 @@ impl HttpResponseStreamMetrics {
                 .load(Ordering::SeqCst),
             headers_to_first_chunk_send_call_us_total: self
                 .headers_to_first_chunk_send_call_us_total
+                .load(Ordering::SeqCst),
+            tail_chunk_channel_wait_samples_total: self
+                .tail_chunk_channel_wait_samples_total
+                .load(Ordering::SeqCst),
+            tail_chunk_channel_wait_us_total: self
+                .tail_chunk_channel_wait_us_total
+                .load(Ordering::SeqCst),
+            tail_chunk_channel_wait_ge_1ms_total: self
+                .tail_chunk_channel_wait_ge_1ms_total
+                .load(Ordering::SeqCst),
+            tail_chunk_channel_wait_ge_5ms_total: self
+                .tail_chunk_channel_wait_ge_5ms_total
+                .load(Ordering::SeqCst),
+            tail_chunk_channel_wait_ge_10ms_total: self
+                .tail_chunk_channel_wait_ge_10ms_total
+                .load(Ordering::SeqCst),
+            tail_chunk_send_call_samples_total: self
+                .tail_chunk_send_call_samples_total
+                .load(Ordering::SeqCst),
+            tail_chunk_send_call_us_total: self
+                .tail_chunk_send_call_us_total
+                .load(Ordering::SeqCst),
+            tail_chunk_send_call_ge_1ms_total: self
+                .tail_chunk_send_call_ge_1ms_total
+                .load(Ordering::SeqCst),
+            tail_chunk_send_call_ge_5ms_total: self
+                .tail_chunk_send_call_ge_5ms_total
+                .load(Ordering::SeqCst),
+            tail_chunk_send_call_ge_10ms_total: self
+                .tail_chunk_send_call_ge_10ms_total
+                .load(Ordering::SeqCst),
+            first_to_last_chunk_send_samples_total: self
+                .first_to_last_chunk_send_samples_total
+                .load(Ordering::SeqCst),
+            first_to_last_chunk_send_us_total: self
+                .first_to_last_chunk_send_us_total
+                .load(Ordering::SeqCst),
+            first_to_last_chunk_send_ge_1ms_total: self
+                .first_to_last_chunk_send_ge_1ms_total
+                .load(Ordering::SeqCst),
+            first_to_last_chunk_send_ge_5ms_total: self
+                .first_to_last_chunk_send_ge_5ms_total
+                .load(Ordering::SeqCst),
+            first_to_last_chunk_send_ge_10ms_total: self
+                .first_to_last_chunk_send_ge_10ms_total
                 .load(Ordering::SeqCst),
         }
     }
@@ -6017,7 +6142,9 @@ async fn send_http2_response_from_dispatch(
                 // delay on uncontended connections.
                 tokio::task::yield_now().await;
             }
-            let mut first_chunk_recorded = false;
+            let mut first_chunk_sent_at = None;
+            let mut last_chunk_sent_at = None;
+            let mut tail_chunk_recorded = false;
             loop {
                 match reader.next().await {
                     Ok(ResponseStreamFrame::Chunk { bytes, queued_at }) => {
@@ -6026,8 +6153,9 @@ async fn send_http2_response_from_dispatch(
                             reader.close();
                             return Err(err.to_string());
                         }
-                        if !first_chunk_recorded {
-                            let send_call_finished_at = Instant::now();
+                        let send_call_finished_at = Instant::now();
+                        last_chunk_sent_at = Some(send_call_finished_at);
+                        if first_chunk_sent_at.is_none() {
                             http_response_stream_metrics().record_first_chunk(
                                 queued_at,
                                 headers_sent_at,
@@ -6035,15 +6163,31 @@ async fn send_http2_response_from_dispatch(
                                 send_call_started_at,
                                 send_call_finished_at,
                             );
-                            first_chunk_recorded = true;
+                            first_chunk_sent_at = Some(send_call_finished_at);
                             // The first body chunk determines the client-side
                             // first-byte gap. Yield once after queueing it so
                             // the connection driver can make progress before we
                             // enqueue the rest of a buffered stream.
                             tokio::task::yield_now().await;
+                        } else {
+                            http_response_stream_metrics().record_tail_chunk(
+                                queued_at,
+                                send_call_started_at,
+                                send_call_started_at,
+                                send_call_finished_at,
+                            );
+                            tail_chunk_recorded = true;
                         }
                     }
                     Ok(ResponseStreamFrame::Finished { .. }) => {
+                        if tail_chunk_recorded {
+                            if let (Some(first_sent_at), Some(last_sent_at)) =
+                                (first_chunk_sent_at, last_chunk_sent_at)
+                            {
+                                http_response_stream_metrics()
+                                    .record_first_to_last_chunk_send(first_sent_at, last_sent_at);
+                            }
+                        }
                         if let Err(err) = send_stream.send_data(Bytes::new(), true) {
                             return Err(err.to_string());
                         }
@@ -6537,7 +6681,9 @@ async fn send_http3_response_from_dispatch(
                 headers_send_call_started_at,
                 headers_sent_at,
             );
-            let mut first_chunk_recorded = false;
+            let mut first_chunk_sent_at = None;
+            let mut last_chunk_sent_at = None;
+            let mut tail_chunk_recorded = false;
             loop {
                 match reader.next().await {
                     Ok(ResponseStreamFrame::Chunk { bytes, queued_at }) => {
@@ -6546,8 +6692,9 @@ async fn send_http3_response_from_dispatch(
                             .send_data(bytes)
                             .await
                             .map_err(|err| err.to_string())?;
-                        if !first_chunk_recorded {
-                            let send_call_finished_at = Instant::now();
+                        let send_call_finished_at = Instant::now();
+                        last_chunk_sent_at = Some(send_call_finished_at);
+                        if first_chunk_sent_at.is_none() {
                             http_response_stream_metrics().record_first_chunk(
                                 queued_at,
                                 headers_sent_at,
@@ -6555,10 +6702,26 @@ async fn send_http3_response_from_dispatch(
                                 send_call_started_at,
                                 send_call_finished_at,
                             );
-                            first_chunk_recorded = true;
+                            first_chunk_sent_at = Some(send_call_finished_at);
+                        } else {
+                            http_response_stream_metrics().record_tail_chunk(
+                                queued_at,
+                                send_call_started_at,
+                                send_call_started_at,
+                                send_call_finished_at,
+                            );
+                            tail_chunk_recorded = true;
                         }
                     }
                     Ok(ResponseStreamFrame::Finished { .. }) => {
+                        if tail_chunk_recorded {
+                            if let (Some(first_sent_at), Some(last_sent_at)) =
+                                (first_chunk_sent_at, last_chunk_sent_at)
+                            {
+                                http_response_stream_metrics()
+                                    .record_first_to_last_chunk_send(first_sent_at, last_sent_at);
+                            }
+                        }
                         reader.close();
                         return stream.finish().await.map_err(|err| err.to_string());
                     }
@@ -6679,6 +6842,38 @@ mod tests {
         assert_eq!(tracker.note_headers_sent(Instant::now()), 2);
         tracker.record_connection_write(Instant::now());
         assert_eq!(tracker.note_headers_sent(Instant::now()), 1);
+    }
+
+    #[test]
+    fn http_response_stream_metrics_record_tail_chunks() {
+        let before = http_response_stream_metrics_snapshot();
+        let metrics = http_response_stream_metrics();
+        let queued_at = Instant::now();
+        let dequeue_at = queued_at + Duration::from_millis(2);
+        let send_finished_at = dequeue_at + Duration::from_millis(3);
+        metrics.record_tail_chunk(queued_at, dequeue_at, dequeue_at, send_finished_at);
+        metrics.record_first_to_last_chunk_send(queued_at, send_finished_at);
+        let after = http_response_stream_metrics_snapshot();
+        assert!(
+            after.tail_chunk_channel_wait_samples_total
+                > before.tail_chunk_channel_wait_samples_total
+        );
+        assert!(
+            after.tail_chunk_send_call_samples_total > before.tail_chunk_send_call_samples_total
+        );
+        assert!(
+            after.first_to_last_chunk_send_samples_total
+                > before.first_to_last_chunk_send_samples_total
+        );
+        assert!(
+            after.tail_chunk_channel_wait_ge_1ms_total
+                > before.tail_chunk_channel_wait_ge_1ms_total
+        );
+        assert!(after.tail_chunk_send_call_ge_1ms_total > before.tail_chunk_send_call_ge_1ms_total);
+        assert!(
+            after.first_to_last_chunk_send_ge_5ms_total
+                > before.first_to_last_chunk_send_ge_5ms_total
+        );
     }
 
     struct GeneratedTlsMaterial {

@@ -206,6 +206,21 @@ pub struct CtRouterMetricsInfo {
     pub response_stream_first_chunk_send_call_ge_10ms_total: u64,
     pub response_stream_headers_to_first_chunk_send_call_samples_total: u64,
     pub response_stream_headers_to_first_chunk_send_call_us_total: u64,
+    pub response_stream_tail_chunk_channel_wait_samples_total: u64,
+    pub response_stream_tail_chunk_channel_wait_us_total: u64,
+    pub response_stream_tail_chunk_channel_wait_ge_1ms_total: u64,
+    pub response_stream_tail_chunk_channel_wait_ge_5ms_total: u64,
+    pub response_stream_tail_chunk_channel_wait_ge_10ms_total: u64,
+    pub response_stream_tail_chunk_send_call_samples_total: u64,
+    pub response_stream_tail_chunk_send_call_us_total: u64,
+    pub response_stream_tail_chunk_send_call_ge_1ms_total: u64,
+    pub response_stream_tail_chunk_send_call_ge_5ms_total: u64,
+    pub response_stream_tail_chunk_send_call_ge_10ms_total: u64,
+    pub response_stream_first_to_last_chunk_send_samples_total: u64,
+    pub response_stream_first_to_last_chunk_send_us_total: u64,
+    pub response_stream_first_to_last_chunk_send_ge_1ms_total: u64,
+    pub response_stream_first_to_last_chunk_send_ge_5ms_total: u64,
+    pub response_stream_first_to_last_chunk_send_ge_10ms_total: u64,
     pub breakdown_ptr: *const CtRouterMetricsBreakdownInfo,
     pub breakdown_len: usize,
 }
@@ -2224,6 +2239,36 @@ pub extern "C" fn ct_router_metrics_snapshot(info: *mut CtRouterMetricsInfo) -> 
         response_stream_snapshot.headers_to_first_chunk_send_call_samples_total;
     info_ref.response_stream_headers_to_first_chunk_send_call_us_total =
         response_stream_snapshot.headers_to_first_chunk_send_call_us_total;
+    info_ref.response_stream_tail_chunk_channel_wait_samples_total =
+        response_stream_snapshot.tail_chunk_channel_wait_samples_total;
+    info_ref.response_stream_tail_chunk_channel_wait_us_total =
+        response_stream_snapshot.tail_chunk_channel_wait_us_total;
+    info_ref.response_stream_tail_chunk_channel_wait_ge_1ms_total =
+        response_stream_snapshot.tail_chunk_channel_wait_ge_1ms_total;
+    info_ref.response_stream_tail_chunk_channel_wait_ge_5ms_total =
+        response_stream_snapshot.tail_chunk_channel_wait_ge_5ms_total;
+    info_ref.response_stream_tail_chunk_channel_wait_ge_10ms_total =
+        response_stream_snapshot.tail_chunk_channel_wait_ge_10ms_total;
+    info_ref.response_stream_tail_chunk_send_call_samples_total =
+        response_stream_snapshot.tail_chunk_send_call_samples_total;
+    info_ref.response_stream_tail_chunk_send_call_us_total =
+        response_stream_snapshot.tail_chunk_send_call_us_total;
+    info_ref.response_stream_tail_chunk_send_call_ge_1ms_total =
+        response_stream_snapshot.tail_chunk_send_call_ge_1ms_total;
+    info_ref.response_stream_tail_chunk_send_call_ge_5ms_total =
+        response_stream_snapshot.tail_chunk_send_call_ge_5ms_total;
+    info_ref.response_stream_tail_chunk_send_call_ge_10ms_total =
+        response_stream_snapshot.tail_chunk_send_call_ge_10ms_total;
+    info_ref.response_stream_first_to_last_chunk_send_samples_total =
+        response_stream_snapshot.first_to_last_chunk_send_samples_total;
+    info_ref.response_stream_first_to_last_chunk_send_us_total =
+        response_stream_snapshot.first_to_last_chunk_send_us_total;
+    info_ref.response_stream_first_to_last_chunk_send_ge_1ms_total =
+        response_stream_snapshot.first_to_last_chunk_send_ge_1ms_total;
+    info_ref.response_stream_first_to_last_chunk_send_ge_5ms_total =
+        response_stream_snapshot.first_to_last_chunk_send_ge_5ms_total;
+    info_ref.response_stream_first_to_last_chunk_send_ge_10ms_total =
+        response_stream_snapshot.first_to_last_chunk_send_ge_10ms_total;
     if breakdown.is_empty() {
         info_ref.breakdown_ptr = ptr::null();
         info_ref.breakdown_len = 0;

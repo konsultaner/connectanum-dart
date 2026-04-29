@@ -571,6 +571,21 @@ class NativeHttpResponseStreamMetrics {
     required this.firstChunkSendCallGe10msTotal,
     required this.headersToFirstChunkSendCallSamplesTotal,
     required this.headersToFirstChunkSendCallUsTotal,
+    required this.tailChunkChannelWaitSamplesTotal,
+    required this.tailChunkChannelWaitUsTotal,
+    required this.tailChunkChannelWaitGe1msTotal,
+    required this.tailChunkChannelWaitGe5msTotal,
+    required this.tailChunkChannelWaitGe10msTotal,
+    required this.tailChunkSendCallSamplesTotal,
+    required this.tailChunkSendCallUsTotal,
+    required this.tailChunkSendCallGe1msTotal,
+    required this.tailChunkSendCallGe5msTotal,
+    required this.tailChunkSendCallGe10msTotal,
+    required this.firstToLastChunkSendSamplesTotal,
+    required this.firstToLastChunkSendUsTotal,
+    required this.firstToLastChunkSendGe1msTotal,
+    required this.firstToLastChunkSendGe5msTotal,
+    required this.firstToLastChunkSendGe10msTotal,
   });
 
   final int streamingResponsesTotal;
@@ -600,6 +615,21 @@ class NativeHttpResponseStreamMetrics {
   final int firstChunkSendCallGe10msTotal;
   final int headersToFirstChunkSendCallSamplesTotal;
   final int headersToFirstChunkSendCallUsTotal;
+  final int tailChunkChannelWaitSamplesTotal;
+  final int tailChunkChannelWaitUsTotal;
+  final int tailChunkChannelWaitGe1msTotal;
+  final int tailChunkChannelWaitGe5msTotal;
+  final int tailChunkChannelWaitGe10msTotal;
+  final int tailChunkSendCallSamplesTotal;
+  final int tailChunkSendCallUsTotal;
+  final int tailChunkSendCallGe1msTotal;
+  final int tailChunkSendCallGe5msTotal;
+  final int tailChunkSendCallGe10msTotal;
+  final int firstToLastChunkSendSamplesTotal;
+  final int firstToLastChunkSendUsTotal;
+  final int firstToLastChunkSendGe1msTotal;
+  final int firstToLastChunkSendGe5msTotal;
+  final int firstToLastChunkSendGe10msTotal;
 
   bool sameValues(NativeHttpResponseStreamMetrics? other) {
     return other != null &&
@@ -648,7 +678,30 @@ class NativeHttpResponseStreamMetrics {
         headersToFirstChunkSendCallSamplesTotal ==
             other.headersToFirstChunkSendCallSamplesTotal &&
         headersToFirstChunkSendCallUsTotal ==
-            other.headersToFirstChunkSendCallUsTotal;
+            other.headersToFirstChunkSendCallUsTotal &&
+        tailChunkChannelWaitSamplesTotal ==
+            other.tailChunkChannelWaitSamplesTotal &&
+        tailChunkChannelWaitUsTotal == other.tailChunkChannelWaitUsTotal &&
+        tailChunkChannelWaitGe1msTotal ==
+            other.tailChunkChannelWaitGe1msTotal &&
+        tailChunkChannelWaitGe5msTotal ==
+            other.tailChunkChannelWaitGe5msTotal &&
+        tailChunkChannelWaitGe10msTotal ==
+            other.tailChunkChannelWaitGe10msTotal &&
+        tailChunkSendCallSamplesTotal == other.tailChunkSendCallSamplesTotal &&
+        tailChunkSendCallUsTotal == other.tailChunkSendCallUsTotal &&
+        tailChunkSendCallGe1msTotal == other.tailChunkSendCallGe1msTotal &&
+        tailChunkSendCallGe5msTotal == other.tailChunkSendCallGe5msTotal &&
+        tailChunkSendCallGe10msTotal == other.tailChunkSendCallGe10msTotal &&
+        firstToLastChunkSendSamplesTotal ==
+            other.firstToLastChunkSendSamplesTotal &&
+        firstToLastChunkSendUsTotal == other.firstToLastChunkSendUsTotal &&
+        firstToLastChunkSendGe1msTotal ==
+            other.firstToLastChunkSendGe1msTotal &&
+        firstToLastChunkSendGe5msTotal ==
+            other.firstToLastChunkSendGe5msTotal &&
+        firstToLastChunkSendGe10msTotal ==
+            other.firstToLastChunkSendGe10msTotal;
   }
 }
 
@@ -2731,7 +2784,10 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
               info.responseStreamFirstChunkChannelWaitSamplesTotal > 0 ||
               info.responseStreamHeadersToFirstChunkDequeueSamplesTotal > 0 ||
               info.responseStreamFirstChunkSendCallSamplesTotal > 0 ||
-              info.responseStreamHeadersToFirstChunkSendCallSamplesTotal > 0
+              info.responseStreamHeadersToFirstChunkSendCallSamplesTotal > 0 ||
+              info.responseStreamTailChunkChannelWaitSamplesTotal > 0 ||
+              info.responseStreamTailChunkSendCallSamplesTotal > 0 ||
+              info.responseStreamFirstToLastChunkSendSamplesTotal > 0
           ? NativeHttpResponseStreamMetrics(
               streamingResponsesTotal: info.responseStreamingResponsesTotal,
               streamOpenToHeadersSendSamplesTotal:
@@ -2785,6 +2841,36 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
                   info.responseStreamHeadersToFirstChunkSendCallSamplesTotal,
               headersToFirstChunkSendCallUsTotal:
                   info.responseStreamHeadersToFirstChunkSendCallUsTotal,
+              tailChunkChannelWaitSamplesTotal:
+                  info.responseStreamTailChunkChannelWaitSamplesTotal,
+              tailChunkChannelWaitUsTotal:
+                  info.responseStreamTailChunkChannelWaitUsTotal,
+              tailChunkChannelWaitGe1msTotal:
+                  info.responseStreamTailChunkChannelWaitGe1msTotal,
+              tailChunkChannelWaitGe5msTotal:
+                  info.responseStreamTailChunkChannelWaitGe5msTotal,
+              tailChunkChannelWaitGe10msTotal:
+                  info.responseStreamTailChunkChannelWaitGe10msTotal,
+              tailChunkSendCallSamplesTotal:
+                  info.responseStreamTailChunkSendCallSamplesTotal,
+              tailChunkSendCallUsTotal:
+                  info.responseStreamTailChunkSendCallUsTotal,
+              tailChunkSendCallGe1msTotal:
+                  info.responseStreamTailChunkSendCallGe1msTotal,
+              tailChunkSendCallGe5msTotal:
+                  info.responseStreamTailChunkSendCallGe5msTotal,
+              tailChunkSendCallGe10msTotal:
+                  info.responseStreamTailChunkSendCallGe10msTotal,
+              firstToLastChunkSendSamplesTotal:
+                  info.responseStreamFirstToLastChunkSendSamplesTotal,
+              firstToLastChunkSendUsTotal:
+                  info.responseStreamFirstToLastChunkSendUsTotal,
+              firstToLastChunkSendGe1msTotal:
+                  info.responseStreamFirstToLastChunkSendGe1msTotal,
+              firstToLastChunkSendGe5msTotal:
+                  info.responseStreamFirstToLastChunkSendGe5msTotal,
+              firstToLastChunkSendGe10msTotal:
+                  info.responseStreamFirstToLastChunkSendGe10msTotal,
             )
           : null;
       return NativeRouterMetrics(

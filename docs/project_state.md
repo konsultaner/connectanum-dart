@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `1400ce1` (`bench: split repeat server signals`)
+Last reviewed commit: `449887b` (`bench: split h2 tail read timing`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -130,6 +130,48 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     `git diff --check`
   - full local `bin/verify` passed after the H2 tail-read split on
     2026-04-29
+  - commit `449887b` (`bench: split h2 tail read timing`) passed hosted
+    GitHub `CI` run `25133186169`; `Fast Checks` completed successfully in
+    4m47s and `Full Verify` completed successfully in 8m10s
+  - the matching hosted `WAMP Profile Benchmarks` run `25133186159` and
+    `kTLS Validation` run `25133186157` completed successfully on `449887b`
+  - the deployment-chain audit against `449887b` reported the latest `CI` job
+    set and hosted `CI` log scan clean, with no high-signal warning,
+    deprecation, skipped-test, reset, panic, timeout, or connection-noise
+    patterns beyond benign test names and toolchain timeout-reference text
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25134092006` completed
+    successfully on `449887b` with the same isolated `s1`, `threads=4`,
+    one-router-worker, alternating repeat settings and the new tail-read split
+  - `25134092006` is decision-quality: throughput delta span was `23.73pp`,
+    p95 delta span was `15.47pp`, all repeats produced matched rows, and the
+    worst throughput/p95 row stayed stable at
+    `h2_multiplexed_streams_s1 (workers=1, threads=4)`
+  - the decision-quality result keeps the throughput gap kTLS-side
+    (`-36.18%..-12.44%`, median `-25.30%`) and shows six material repeated
+    client phase signals, with no repeated native response-stream signal
+  - the new tail split narrows the stable body-tail gap to client-side
+    connection reads before the final read completes: tail read-span delta was
+    `+0.39..+1.70 ms`, tail read-to-end delta was `+0.38..+1.70 ms`, and
+    tail last-read-to-end stayed flat at about `0.02..0.04 ms`
+  - the hosted benchmark log had only the expected manual
+    `skip_artifact_gate=true` artifact-gate skip notices, so the next
+    investigation target is socket/TLS read scheduling during the H2 body tail
+  - local pre-change `bin/test-fast` passed before adding the native
+    response-stream tail-send metrics
+  - the native response-stream metrics now split streaming body tail emission
+    into tail chunk channel wait, tail chunk send-call duration, and
+    first-to-last chunk send span so the next hosted isolated rerun can tell
+    whether the stable tail gap is already visible before bytes enter the
+    socket/TLS read path
+  - focused local checks for that instrumentation passed:
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_core http_response_stream_metrics_record_tail_chunks -- --nocapture`,
+    `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`,
+    `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`,
+    `dart analyze packages/connectanum_router`, and `git diff --check`
+  - full local `bin/verify` passed after the native response-stream tail-send
+    split on 2026-04-29, including Rust, Dart package, bench, router, and
+    Chrome/Dart2Wasm browser coverage
 - Current deployment-chain evidence refresh:
   - commit `b338d58` (`docs: record current deployment evidence`) passed
     hosted GitHub `CI` run `25123037462`; `Fast Checks` completed
@@ -2928,9 +2970,9 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
 ## Active Plan
 
 - Active plan:
-  `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
-- Paused benchmark-diagnosis plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
+- Most recent deployment-chain checkpoint plan:
+  `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 - Most recent completed product-readiness plan:
   `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`
 - Supporting research notes:
