@@ -270,7 +270,10 @@ pub fn transport_http_response_stream_counter_delta(
     after: &Value,
     field: &str,
 ) -> Option<i64> {
-    counter_delta(before, after, &["transport", "http_response_stream", field])
+    let path = &["transport", "http_response_stream", field];
+    let end = extract_i64(after, path)?;
+    let start = extract_i64(before, path).unwrap_or(0);
+    Some(end - start)
 }
 
 pub fn transport_http_response_stream_counter_after(after: &Value, field: &str) -> Option<u64> {
@@ -356,6 +359,14 @@ mod tests {
         );
         assert_eq!(
             transport_http_response_stream_counter_after(
+                &response_stream_after,
+                "streaming_responses_total",
+            ),
+            Some(7)
+        );
+        assert_eq!(
+            transport_http_response_stream_counter_delta(
+                &json!({"metrics": {"transport": {}}}),
                 &response_stream_after,
                 "streaming_responses_total",
             ),

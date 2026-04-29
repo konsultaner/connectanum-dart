@@ -3105,6 +3105,27 @@ mod tests {
     }
 
     #[test]
+    fn summarize_report_uses_zero_start_for_missing_response_stream_counters() {
+        let mut report = sample_report();
+        report.metrics_before["metrics"]["transport"]
+            .as_object_mut()
+            .unwrap()
+            .remove("http_response_stream");
+
+        let summary = summarize_report(&report);
+        let native_stream_timing = summary.http_native_response_stream_timing.unwrap();
+        assert_eq!(native_stream_timing.streaming_responses_total, 5);
+        assert!((native_stream_timing.tail_chunk_channel_wait_avg_ms - (35.0 / 13.0)).abs() < 1e-9);
+
+        let native_stream_slow_path = summary.http_native_response_stream_slow_path.unwrap();
+        assert_eq!(native_stream_slow_path.streaming_responses_total, 5);
+        assert_eq!(
+            native_stream_slow_path.tail_chunk_channel_wait_ge_1ms_total,
+            13
+        );
+    }
+
+    #[test]
     fn render_prometheus_metrics_contains_expected_series() {
         let text =
             render_prometheus_metrics("bench_results.jsonl", &[summarize_report(&sample_report())]);
