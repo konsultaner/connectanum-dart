@@ -439,6 +439,16 @@ operator evidence over speculative feature or benchmark work.
   - final local `bin/verify` passed, including full router coverage,
     `remote_auth_integration_test`, bench WAMP transport coverage, and Chrome
     Dart2Wasm browser websocket coverage
+- Completed hosted validation for the workflow visibility audit-gate slice:
+  - commit `55e9dc0` (`ci: gate workflow visibility audit`) passed GitHub
+    `CI` run `25094700697`
+  - `Fast Checks` completed successfully in 5m33s
+  - `Full Verify` completed successfully in 8m10s
+  - the clean-CI audit passed against `55e9dc0`, confirming no skipped,
+    pending, failed, missing, or unexpected main `CI` jobs
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, skipped jobs, or errors; remaining matches
+    were a passing bcrypt negative-auth test name and Rust `0 failed` summaries
 
 ## Verification
 

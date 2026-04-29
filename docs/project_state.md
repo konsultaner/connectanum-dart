@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `d440745` (`docs: record router package audit ci`)
+Last reviewed commit: `55e9dc0` (`ci: gate workflow visibility audit`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -17,6 +17,15 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     tests, bench WAMP transport coverage, full router tests,
     `remote_auth_integration_test`, and the Chrome Dart2Wasm browser websocket
     test
+  - hosted GitHub `CI` run `25094700697` passed on `55e9dc0`:
+    `Fast Checks` completed successfully in 5m33s and `Full Verify` completed
+    successfully in 8m10s
+  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 4 --require-clean-latest-ci`
+    passed against `55e9dc0`, confirming no skipped, pending, failed, missing,
+    or unexpected main `CI` jobs
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, skipped jobs, or errors; remaining matches
+    were a passing bcrypt negative-auth test name and Rust `0 failed` summaries
   - `bin/audit-github-deployment-chain` now has an explicit
     `--require-workflows-visible` gate so checked-in workflow discoverability
     can fail independently from clean CI, branch-protection policy, and GHCR
