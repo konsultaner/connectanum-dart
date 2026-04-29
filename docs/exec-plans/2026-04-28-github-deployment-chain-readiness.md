@@ -623,6 +623,23 @@ operator evidence over speculative feature or benchmark work.
     to the Actions step summary, and upload it as `router-image-preview`
   - deployment-chain docs describe the downloadable dry-run preview artifact
     alongside the existing non-mutating publish gate and attestation behavior
+- Started native release dry-run audit hardening:
+  - commit `bf79824` (`docs: record router image preview ci`) passed GitHub
+    `CI` run `25116939802`; `Fast Checks` completed in 5m26s and
+    `Full Verify` completed in 8m12s
+  - branch-head deployment audit passed for `bf79824` with clean main `CI`,
+    clean hosted `CI` logs, and clean/relevant hosted
+    `Dart Package Publish Dry Run` evidence
+  - `bin/audit-github-deployment-chain` now exposes
+    `--show-native-release-dry-run` and
+    `--require-clean-native-release-dry-run`
+  - the native gate checks the expected hosted Linux, macOS, and Windows
+    `ct_ffi` artifact jobs, verifies the preview publish job, checks accepted
+    native dry-run intent and `native-release-preview` upload, confirms the
+    dry-run tag did not create a GitHub Release, and reports
+    native-release-sensitive changes since the latest dry-run
+  - the current latest hosted `Native Artifacts` dry-run is correctly marked
+    stale until a fresh dry-run covers native release changes after `8dc966f`
 
 ## Verification
 
@@ -867,6 +884,16 @@ operator evidence over speculative feature or benchmark work.
   - `bin/verify`
   - GitHub `CI` run `25116155461`
   - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run`
+- Current native release dry-run audit checks:
+  - `bin/test-fast`
+  - `bash -n bin/audit-github-deployment-chain`
+  - `bin/audit-github-deployment-chain --help`
+  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-native-release-dry-run`
+  - expected failing stale-evidence check:
+    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-native-release-dry-run`
+  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-rc-readiness`
+  - `git diff --check`
+  - `bin/verify`
 - Current main-CI skipped-gate cleanup checks:
   - GitHub `CI` run `25085322707`
   - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
@@ -1022,6 +1049,10 @@ operator evidence over speculative feature or benchmark work.
   `router-image-preview` artifact. This keeps the staged GHCR path
   non-mutating while preserving the exact resolved image tags, labels, publish
   mode, provenance setting, and SBOM setting as operator-readable evidence.
+- 2026-04-29: Added a native release dry-run audit gate instead of treating old
+  `Native Artifacts` workflow runs as indefinitely valid. This keeps native
+  matrix artifacts and release-preview evidence explicit, non-mutating, and
+  freshness-checked before release decisions.
 
 ## Handoff
 

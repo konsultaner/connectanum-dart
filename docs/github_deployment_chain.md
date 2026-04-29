@@ -60,6 +60,21 @@ that workflow run. Docs-only checkpoints can therefore stay valid without
 rerunning package archive validation, while package metadata or pubspec changes
 must be covered by a fresh dedicated dry-run.
 
+Use the dedicated native release evidence gate before treating native FFI
+artifacts or release-preview inputs as validated:
+
+```sh
+bin/audit-github-deployment-chain \
+  --branch add-router \
+  --require-clean-native-release-dry-run
+```
+
+That gate checks the latest manual `Native Artifacts` dry-run, verifies the
+Linux, macOS, and Windows matrix plus `Publish GitHub Release` preview job,
+confirms the `native-release-preview` artifact was uploaded, confirms the
+dry-run tag did not create a GitHub Release, and fails when checked-out native
+release-sensitive inputs changed after that run.
+
 Use the release-candidate readiness view when deciding whether the current
 branch head is feature-wise ready to tag as an RC:
 
@@ -76,10 +91,11 @@ bin/audit-github-deployment-chain --branch add-router --require-rc-ready
 
 The RC view is read-only. It combines clean CI, clean hosted logs, branch
 protection, workflow visibility, router package visibility, hosted Dart package
-publish dry-run evidence, RC tag/prerelease evidence, and strict Dart package
-readiness. When Dart package readiness is the blocker, the audit prints the
-package release-order plan so the current `connectanum_core` ->
-`connectanum_client` dependency decision is visible in the same output.
+publish dry-run evidence, hosted native release dry-run evidence, RC
+tag/prerelease evidence, and strict Dart package readiness. When Dart package
+readiness is the blocker, the audit prints the package release-order plan so
+the current `connectanum_core` -> `connectanum_client` dependency decision is
+visible in the same output.
 
 Use the router package gate before treating the router image release path as
 ready:
