@@ -2,11 +2,30 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `cf77754` (`native: stabilize rawsocket polling test`)
+Last reviewed commit: `869bb7f` (`docs: record rawsocket ci recovery`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
 
+- Current deployment-chain log-scan audit hardening:
+  - pre-change `bin/test-fast` passed locally on 2026-04-29
+  - `bin/audit-github-deployment-chain` now has
+    `--scan-latest-ci-logs` and `--require-clean-latest-ci-logs` modes so the
+    latest hosted `CI` run can be scanned repeatably for warning,
+    deprecation, skipped-test, rawsocket reset, and connection-noise patterns
+  - focused local checks passed:
+    `bash -n bin/audit-github-deployment-chain`,
+    `bin/audit-github-deployment-chain --help`,
+    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 2 --scan-latest-ci-logs`,
+    and
+    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 2 --require-clean-latest-ci --require-clean-latest-ci-logs`
+  - the new log-scan gate passed against latest hosted GitHub `CI` run
+    `25096910826` on `869bb7f`, confirming no high-signal warning,
+    deprecation, skipped-test, rawsocket reset, or connection-noise matches
+  - final local `bin/verify` passed, including Rust/FFI tests, Dart package
+    tests, bench WAMP transport coverage, full router tests,
+    `remote_auth_integration_test`, and the Chrome Dart2Wasm browser websocket
+    test
 - Current CI cleanup checkpoint:
   - documentation checkpoint `cb55b1f` left hosted GitHub `CI` run
     `25095210918` red in `Full Verify`

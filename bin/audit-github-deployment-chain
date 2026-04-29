@@ -22,6 +22,12 @@ Options:
                              Exit non-zero unless the latest CI run on the
                              audited branch completed with exactly the expected
                              main jobs and no skipped, pending, or failed jobs.
+  --scan-latest-ci-logs      Print high-signal warning/skipped-test/noisy
+                             runtime matches from the latest CI run logs.
+  --require-clean-latest-ci-logs
+                             Exit non-zero if the latest CI run logs contain
+                             high-signal warning/skipped-test/noisy runtime
+                             matches, or if the run is not complete and green.
   --require-router-package   Exit non-zero unless the GHCR router package is
                              visible through the GitHub Packages API.
   --require-workflows-visible
@@ -42,10 +48,13 @@ branch=""
 run_limit=6
 strict=0
 require_clean_latest_ci=0
+scan_latest_ci_logs=0
+require_clean_latest_ci_logs=0
 require_router_package=0
 require_workflows_visible=0
 show_required_checks_plan=0
 expected_ci_jobs=('Fast Checks' 'Full Verify')
+ci_log_issue_pattern='warning:|::warning|DeprecationWarning|Connection reset by peer|connection ConnectionId|skipped'
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -87,6 +96,15 @@ while [[ $# -gt 0 ]]; do
       ;;
     --require-clean-latest-ci)
       require_clean_latest_ci=1
+      shift
+      ;;
+    --scan-latest-ci-logs)
+      scan_latest_ci_logs=1
+      shift
+      ;;
+    --require-clean-latest-ci-logs)
+      scan_latest_ci_logs=1
+      require_clean_latest_ci_logs=1
       shift
       ;;
     --require-router-package)
@@ -171,6 +189,49 @@ is_expected_ci_job() {
   done
 
   return 1
+}
+
+latest_ci_run_id() {
+  "$gh_bin" run list \
+    --repo "$repository" \
+    --branch "$branch" \
+    --workflow CI \
+    --limit 1 \
+    --json databaseId \
+    --jq '.[0].databaseId // empty'
+}
+
+print_latest_ci_log_scan() {
+  local run_id="$1"
+  local log_file
+  local matches_file
+
+  log_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-ci-log.XXXXXX")"
+  matches_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-ci-log-matches.XXXXXX")"
+
+  if ! "$gh_bin" run view "$run_id" --repo "$repository" --log >"$log_file"; then
+    printf 'Finding: could not download logs for CI run #%s.\n' "$run_id"
+    rm -f "$log_file" "$matches_file"
+    return 1
+  fi
+
+  if LC_ALL=C grep -Eai "$ci_log_issue_pattern" "$log_file" >"$matches_file"; then
+    printf 'Potential hosted CI log issues matching: %s\n' "$ci_log_issue_pattern"
+    awk '
+      NR <= 200 { print "- " $0 }
+      END {
+        if (NR > 200) {
+          printf("- ... truncated %d additional matching lines\n", NR - 200)
+        }
+      }
+    ' "$matches_file"
+    rm -f "$log_file" "$matches_file"
+    return 1
+  fi
+
+  printf 'Latest CI log scan is clean: no warning/deprecation/skipped/reset/connection-noise patterns found.\n'
+  rm -f "$log_file" "$matches_file"
+  return 0
 }
 
 print_required_checks_plan() {
@@ -264,6 +325,8 @@ missing_required_checks=0
 missing_visible_workflow=0
 missing_router_package=0
 latest_ci_failed=0
+latest_ci_log_failed=0
+latest_ci_id=""
 required_contexts=""
 
 if [[ "$branch_protected" == "true" ]]; then
@@ -394,15 +457,7 @@ printf '\n## Latest Branch Runs\n\n'
 if [[ "$require_clean_latest_ci" -eq 1 ]]; then
   printf '\n## Latest CI Job Cleanliness\n\n'
 
-  latest_ci_id="$(
-    "$gh_bin" run list \
-      --repo "$repository" \
-      --branch "$branch" \
-      --workflow CI \
-      --limit 1 \
-      --json databaseId \
-      --jq '.[0].databaseId // empty'
-  )"
+  latest_ci_id="$(latest_ci_run_id)"
 
   if [[ -z "$latest_ci_id" ]]; then
     printf 'Finding: no CI run found for branch %s.\n' "$branch"
@@ -472,8 +527,51 @@ if [[ "$require_clean_latest_ci" -eq 1 ]]; then
   fi
 fi
 
+if [[ "$scan_latest_ci_logs" -eq 1 ]]; then
+  printf '\n## Latest CI Log Scan\n\n'
+
+  if [[ -z "$latest_ci_id" ]]; then
+    latest_ci_id="$(latest_ci_run_id)"
+  fi
+
+  if [[ -z "$latest_ci_id" ]]; then
+    printf 'Finding: no CI run found for branch %s.\n' "$branch"
+    latest_ci_log_failed=1
+  else
+    latest_ci_log_summary="$(
+      "$gh_bin" run view "$latest_ci_id" \
+        --repo "$repository" \
+        --json status,conclusion,headSha,url \
+        --jq '"Run: CI #'"$latest_ci_id"' \(.status)/\(.conclusion // "pending") @ \(.headSha[0:7])\nURL: \(.url)"'
+    )"
+    printf '%s\n' "$latest_ci_log_summary"
+
+    latest_ci_log_state="$(
+      "$gh_bin" run view "$latest_ci_id" \
+        --repo "$repository" \
+        --json status,conclusion \
+        --jq '[.status, (.conclusion // "pending")] | @tsv'
+    )"
+    IFS=$'\t' read -r latest_ci_log_status latest_ci_log_conclusion <<<"$latest_ci_log_state"
+
+    if [[ "$require_clean_latest_ci_logs" -eq 1 && ( "$latest_ci_log_status" != "completed" || "$latest_ci_log_conclusion" != "success" ) ]]; then
+      printf 'Finding: latest CI logs are not a complete green signal yet: %s/%s.\n' "$latest_ci_log_status" "$latest_ci_log_conclusion"
+      latest_ci_log_failed=1
+    fi
+
+    if ! print_latest_ci_log_scan "$latest_ci_id"; then
+      latest_ci_log_failed=1
+    fi
+  fi
+fi
+
 if [[ "$require_clean_latest_ci" -eq 1 && "$latest_ci_failed" -ne 0 ]]; then
   printf '\nLatest CI cleanliness audit failed.\n' >&2
+  exit 1
+fi
+
+if [[ "$require_clean_latest_ci_logs" -eq 1 && "$latest_ci_log_failed" -ne 0 ]]; then
+  printf '\nLatest CI log-scan audit failed.\n' >&2
   exit 1
 fi
 

@@ -473,6 +473,22 @@ operator evidence over speculative feature or benchmark work.
   - hosted log scanning found no real warnings, deprecations, rawsocket reset
     noise, timeouts, cancellations, skipped jobs, or errors; remaining matches
     were a passing bcrypt negative-auth test name and Rust `0 failed` summaries
+- Started the repeatable hosted CI log-scan gate:
+  - `bin/audit-github-deployment-chain --scan-latest-ci-logs` now prints
+    high-signal warning, deprecation, skipped-test, rawsocket reset, and
+    connection-noise matches from the latest hosted `CI` run
+  - `--require-clean-latest-ci-logs` exits non-zero on those matches or when
+    the latest `CI` logs are not a complete green signal
+  - the release-evidence policy now uses
+    `--require-clean-latest-ci --require-clean-latest-ci-logs` as the
+    repeatable clean branch-head gate instead of relying on manual log scans
+  - focused local checks passed against latest hosted GitHub `CI` run
+    `25096910826` on `869bb7f`, including the clean job audit and the new
+    clean log-scan audit
+  - final local `bin/verify` passed, including Rust/FFI tests, Dart package
+    tests, bench WAMP transport coverage, full router tests,
+    `remote_auth_integration_test`, and the Chrome Dart2Wasm browser websocket
+    test
 
 ## Verification
 
@@ -789,6 +805,11 @@ operator evidence over speculative feature or benchmark work.
   applying required checks autonomously. The plan prints the minimal
   required-status-check payload for `Fast Checks` and `Full Verify`, while the
   actual GitHub policy mutation remains an explicit operator decision.
+- 2026-04-29: Added a repeatable hosted CI log-scan audit instead of broad
+  manual log grepping. The scan intentionally targets high-signal warning,
+  deprecation, skipped-test, rawsocket reset, and connection-noise patterns
+  while leaving broad `error`/`failed` handling to job status because passing
+  test names and Rust summaries contain benign failed/failure words.
 
 ## Handoff
 

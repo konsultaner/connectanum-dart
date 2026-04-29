@@ -22,12 +22,27 @@ visibility, router container package visibility, and recent branch runs. If
 Use the clean-CI gate before treating a pushed branch head as verified:
 
 ```sh
-bin/audit-github-deployment-chain --branch add-router --require-clean-latest-ci
+bin/audit-github-deployment-chain \
+  --branch add-router \
+  --require-clean-latest-ci \
+  --require-clean-latest-ci-logs
 ```
 
-That mode exits non-zero when the latest `CI` run is missing `Fast Checks` or
-`Full Verify`, has unexpected jobs, has skipped jobs, or has pending/failed
-jobs.
+Those modes exit non-zero when the latest `CI` run is missing `Fast Checks` or
+`Full Verify`, has unexpected jobs, has skipped jobs, has pending/failed jobs,
+or when the hosted logs contain high-signal warning, deprecation, skipped-test,
+rawsocket reset, or connection-noise patterns.
+
+Use log-scan mode without failing the audit when manually triaging a run:
+
+```sh
+bin/audit-github-deployment-chain --branch add-router --scan-latest-ci-logs
+```
+
+The log scan intentionally avoids broad `error` and `failed` matching because
+passing test names and Rust summaries currently include benign strings such as
+`BCRYPT check password failed` and `0 failed`. Job status is the authoritative
+source for real failed work.
 
 Use the router package gate before treating the router image release path as
 ready:
@@ -117,19 +132,19 @@ available:
   changes.
 - Hosted GitHub `CI` success for the pushed head.
 - Read-only clean-CI audit for the pushed head:
-  `bin/audit-github-deployment-chain --branch add-router --require-clean-latest-ci`
-  should report no skipped, pending, failed, missing, or unexpected `CI` jobs.
-- Hosted log scan with no real warnings, deprecations, unexpected skipped tests,
-  rawsocket reset noise, timeouts, cancellations, or real errors.
+  `bin/audit-github-deployment-chain --branch add-router --require-clean-latest-ci --require-clean-latest-ci-logs`
+  should report no skipped, pending, failed, missing, or unexpected `CI` jobs,
+  and no high-signal warning/deprecation/skipped-test/reset/connection-noise
+  log matches.
 - Additional hosted workflow evidence when the slice changes release behavior:
   native artifact matrix, release dry-run, validation prerelease, WAMP profile
   benchmark gate, kTLS validation, or diagnostics as appropriate.
 - Run IDs and any remaining blockers recorded in `docs/project_state.md` and
   the active execution plan.
 
-Expected benign log matches must be called out explicitly. Current known benign
-matches include passing test names such as `BCRYPT check password failed` and
-Rust result summaries containing `0 failed`.
+Expected benign log matches outside the audit pattern must be called out
+explicitly. Current known benign strings include passing test names such as
+`BCRYPT check password failed` and Rust result summaries containing `0 failed`.
 
 ## Current Evidence
 
