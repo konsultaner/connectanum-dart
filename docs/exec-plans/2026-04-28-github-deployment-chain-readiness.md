@@ -340,6 +340,13 @@ operator evidence over speculative feature or benchmark work.
   - hosted log scanning found no real warnings, deprecations, rawsocket reset
     noise, timeouts, cancellations, or errors; remaining matches were a passing
     bcrypt test name and Rust `0 failed` summaries
+- Started Dart package release-readiness blocker enforcement:
+  - `bin/dart-package-publish-dry-run` now reports publishable packages that
+    depend on private workspace packages
+  - default mode keeps archive validation green while surfacing the blocker
+  - `--strict-release-ready` exits non-zero on the current
+    `connectanum_client` -> private `connectanum_core` dependency until the
+    package release plan is approved and resolved
 
 ## Verification
 
@@ -524,6 +531,8 @@ operator evidence over speculative feature or benchmark work.
   - `bash -n bin/dart-package-publish-dry-run`
   - workflow YAML parsing for `.github/workflows/dart-package-publish.yml`
   - `bin/dart-package-publish-dry-run`
+  - expected failing `bin/dart-package-publish-dry-run --strict-release-ready`
+    blocker check
   - `bin/verify`
   - GitHub `CI` run `25082475062`
   - GitHub `Dart Package Publish Dry Run` run `25082475073`

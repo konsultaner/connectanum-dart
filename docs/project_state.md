@@ -443,15 +443,20 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
   - `bin/dart-package-publish-dry-run` discovers publishable workspace
     packages, skips `publish_to: none` packages by default, and runs
     `dart pub publish --dry-run` for every publishable package
+  - the dry-run now reports publishable packages that still depend on private
+    workspace packages; `--strict-release-ready` turns that report into a
+    failing release gate once the package release plan is approved
   - `.github/workflows/dart-package-publish.yml` runs the same check on
     package metadata/docs/license/changelog changes and on manual dispatch
   - the local dry-run currently validates `packages/connectanum_client` and
-    reports `Package has 0 warnings`; private workspace packages remain
-    skipped until an explicit publish decision changes their `publish_to`
-    policy
+    reports `Package has 0 warnings`; it also reports that `connectanum_client`
+    depends on private workspace package `connectanum_core`
+  - private workspace packages remain skipped until an explicit publish
+    decision changes their `publish_to` policy
   - focused local checks passed: `bin/test-fast`, `bash -n
-    bin/dart-package-publish-dry-run`, workflow YAML parsing, and
-    `bin/dart-package-publish-dry-run`
+    bin/dart-package-publish-dry-run`, workflow YAML parsing,
+    `bin/dart-package-publish-dry-run`, and the expected failing
+    `bin/dart-package-publish-dry-run --strict-release-ready` blocker check
   - local `bin/verify` passed after the workflow, script, and documentation
     changes, including the Chrome browser-platform test
   - commit `d9cbd81` (`ci: add dart package publish dry run`) passed hosted

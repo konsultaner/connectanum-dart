@@ -16,17 +16,26 @@ Options:
   --include-private   Also run dry-runs for packages with `publish_to: none`.
                       This is expected to fail unless the package is made
                       publishable first.
+  --strict-release-ready
+                      Exit non-zero when a publishable package still depends on
+                      a private workspace package. The default reports those
+                      blockers without failing the archive dry-run.
   -h, --help          Show this help text.
 USAGE
 }
 
 include_private=0
+strict_release_ready=0
 requested_packages=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --include-private)
       include_private=1
+      shift
+      ;;
+    --strict-release-ready)
+      strict_release_ready=1
       shift
       ;;
     -h|--help)
@@ -74,6 +83,23 @@ publish_to_none() {
   grep -Eq "^[[:space:]]*publish_to:[[:space:]]*['\"]?none['\"]?[[:space:]]*(#.*)?$" "$pubspec"
 }
 
+pubspec_dependencies() {
+  local pubspec="$1"
+
+  awk '
+    /^[^[:space:]][^:]*:/ {
+      in_dependencies = ($1 == "dependencies:")
+      next
+    }
+    in_dependencies && /^[[:space:]]+[A-Za-z0-9_]+:[[:space:]]*/ {
+      value = $0
+      sub(/^[[:space:]]*/, "", value)
+      sub(/:.*/, "", value)
+      print value
+    }
+  ' "$pubspec"
+}
+
 resolve_package_root() {
   local package="$1"
   local candidate
@@ -101,6 +127,23 @@ resolve_package_root() {
   done
 
   printf 'Could not resolve Dart workspace package or path: %s\n' "$package" >&2
+  return 1
+}
+
+workspace_package_root_by_name() {
+  local package="$1"
+  local pubspec
+  local name
+
+  for pubspec in packages/*/pubspec.yaml; do
+    [[ -f "$pubspec" ]] || continue
+    name="$(pubspec_name "$pubspec")"
+    if [[ "$name" == "$package" ]]; then
+      (cd "$(dirname "$pubspec")" && pwd -P)
+      return 0
+    fi
+  done
+
   return 1
 }
 
@@ -143,6 +186,7 @@ fi
 dart_workspace_bootstrap
 
 dry_run_packages=()
+release_blockers=()
 
 for root in "${package_roots[@]}"; do
   pubspec="$root/pubspec.yaml"
@@ -161,6 +205,20 @@ for root in "${package_roots[@]}"; do
     cd "$root"
     dart pub publish --dry-run
   )
+
+  while IFS= read -r dependency; do
+    [[ -n "$dependency" ]] || continue
+    dependency_root="$(workspace_package_root_by_name "$dependency" || true)"
+    [[ -n "$dependency_root" ]] || continue
+    dependency_pubspec="$dependency_root/pubspec.yaml"
+    dependency_rel_root="${dependency_root#"$(repo_root)/"}"
+
+    if publish_to_none "$dependency_pubspec"; then
+      release_blockers+=(
+        "${package_name} depends on private workspace package ${dependency} (${dependency_rel_root}); publish ${dependency} first or remove the hosted dependency before publishing ${package_name}."
+      )
+    fi
+  done < <(pubspec_dependencies "$pubspec")
 done
 
 if [[ "${#dry_run_packages[@]}" -eq 0 ]]; then
@@ -169,6 +227,18 @@ if [[ "${#dry_run_packages[@]}" -eq 0 ]]; then
 fi
 
 printf '\nDart package publish dry-run completed for %d package(s).\n' "${#dry_run_packages[@]}"
+
+if [[ "${#release_blockers[@]}" -gt 0 ]]; then
+  printf '\nDart package release-readiness blockers:\n'
+  for blocker in "${release_blockers[@]}"; do
+    printf -- '- %s\n' "$blocker"
+  done
+  if [[ "$strict_release_ready" -eq 0 ]]; then
+    printf '\nDefault dry-run mode reports release-readiness blockers without failing. Re-run with --strict-release-ready when the package release plan is approved.\n'
+  fi
+else
+  printf '\nNo private workspace dependency blockers found for publishable packages.\n'
+fi
 
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   {
@@ -183,5 +253,18 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
         printf -- '- %s\n' "$package"
       done
     fi
+    if [[ "${#release_blockers[@]}" -gt 0 ]]; then
+      printf '\nRelease-readiness blockers:\n'
+      for blocker in "${release_blockers[@]}"; do
+        printf -- '- %s\n' "$blocker"
+      done
+      printf '\nDefault dry-run mode reports these blockers without failing. Use `--strict-release-ready` after the package release plan is approved.\n'
+    else
+      printf '\nNo private workspace dependency blockers found for publishable packages.\n'
+    fi
   } >>"$GITHUB_STEP_SUMMARY"
+fi
+
+if [[ "$strict_release_ready" -ne 0 && "${#release_blockers[@]}" -gt 0 ]]; then
+  exit 1
 fi
