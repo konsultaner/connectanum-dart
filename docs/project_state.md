@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `b338d58` (`docs: record current deployment evidence`)
+Last reviewed commit: `e547232` (`bench: surface repeat phase signals`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -42,6 +42,9 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     `25125095595` repeat artifact with `tool/ktls_http2_compare_repeats.py`
   - full local `bin/verify` passed after the repeat-report tooling and
     documentation updates on 2026-04-29
+  - commit `e547232` (`bench: surface repeat phase signals`) passed hosted
+    GitHub `CI` run `25126070249`; `Fast Checks` completed successfully in
+    5m31s and `Full Verify` completed successfully in 8m15s
 - Current deployment-chain evidence refresh:
   - commit `b338d58` (`docs: record current deployment evidence`) passed
     hosted GitHub `CI` run `25123037462`; `Fast Checks` completed

@@ -315,14 +315,14 @@ decisions.
     `tool/ktls_http2_compare_repeats.py`
   - `git diff --check`
   - `bin/verify`
+  - hosted GitHub `CI` run `25126070249` completed successfully on `e547232`
 
 ## Next Step
 
-Commit this repeat-phase signal slice and push it. After the hosted `CI` run is
-clean, rerun the same isolated hosted `s1` workload on the new head with
-`repeat_order=alternating`. Use the next decision-quality run to decide whether
-the stable throughput loss is mostly waiting for connection reads after first
-chunk or processing/draining after those reads. If the run is still
-non-decision-quality, use the `## Repeat Phase Signals` table to classify which
-phase deltas remain sign-consistent across repeats before adding any more
-instrumentation.
+After the docs-only CI checkpoint is clean, rerun the same isolated hosted `s1`
+workload on the new head with `repeat_order=alternating`. Use the next
+decision-quality run to decide whether the stable throughput loss is mostly
+waiting for connection reads after first chunk or processing/draining after
+those reads. If the run is still non-decision-quality, use the
+`## Repeat Phase Signals` table to classify which phase deltas remain
+sign-consistent across repeats before adding any more instrumentation.
