@@ -20,6 +20,8 @@ artifact on GitHub's default branch:
     `<major>.<minor>`, and `<major>`
   - manual workflow dispatch defaults to a dry-run build that validates image
     metadata without pushing to GHCR
+  - manual dry-runs upload a `router-image-preview` artifact containing the
+    rendered image tags, labels, publish mode, and attestation settings
   - manual publishes require `dry_run=false` and `publish_approval` set exactly
     to the primary image tag
   - publish builds request max-level provenance and SBOM attestations; dry-runs

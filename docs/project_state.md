@@ -2,11 +2,34 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `449b218` (`ci: attest router image publishes`)
+Last reviewed commit: `a8260b5` (`docs: record router image attestation ci`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
 
+- Current router image dry-run preview hardening:
+  - commit `a8260b5` (`docs: record router image attestation ci`) passed
+    hosted GitHub `CI` run `25113406609`; `Fast Checks` and `Full Verify`
+    completed successfully
+  - latest clean branch-head audit/log/package-dry-run scan passed against
+    `a8260b5` with no skipped, pending, failed, missing, or unexpected main
+    `CI` jobs, no high-signal warning, deprecation, skipped-test, rawsocket
+    reset, or connection-noise log matches, and clean/relevant hosted
+    `Dart Package Publish Dry Run` evidence
+  - pre-change `bin/test-fast` passed locally on 2026-04-29
+  - `.github/workflows/router-image.yml` now writes the resolved router image
+    metadata summary to `out/router-image-preview/router-image-metadata.md`,
+    appends the same content to the Actions step summary, and uploads
+    `router-image-preview` for manual dry-run dispatches
+  - public deployment docs now describe the router image dry-run preview
+    artifact alongside the existing dry-run, approval, provenance, and SBOM
+    behavior
+  - focused local checks passed: workflow YAML parsing, Python compile/unit
+    tests for the metadata helper, dry-run metadata render to a summary file,
+    publish metadata render, the expected manual publish rejection smoke, and
+    `git diff --check`
+  - full local `bin/verify` passed after the workflow and documentation updates
+    on 2026-04-29
 - Current router image attestation hardening:
   - commit `449b218` (`ci: attest router image publishes`) passed hosted
     GitHub `CI` run `25112417559`; `Fast Checks` and `Full Verify` completed

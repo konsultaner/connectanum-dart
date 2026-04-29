@@ -606,6 +606,17 @@ operator evidence over speculative feature or benchmark work.
   - the router image metadata helper now emits explicit provenance/SBOM
     settings so publish builds request `provenance=mode=max` and `sbom=true`
     while dry-run cache-only builds keep image attestations disabled
+- Started router image dry-run preview hardening:
+  - commit `a8260b5` (`docs: record router image attestation ci`) passed
+    GitHub `CI` run `25113406609`; `Fast Checks` and `Full Verify` succeeded
+  - branch-head deployment audit passed for `a8260b5` with clean main `CI`,
+    clean hosted `CI` logs, and clean/relevant hosted
+    `Dart Package Publish Dry Run` evidence
+  - manual router image dry-runs now write
+    `out/router-image-preview/router-image-metadata.md`, append that content
+    to the Actions step summary, and upload it as `router-image-preview`
+  - deployment-chain docs describe the downloadable dry-run preview artifact
+    alongside the existing non-mutating publish gate and attestation behavior
 
 ## Verification
 
@@ -836,6 +847,18 @@ operator evidence over speculative feature or benchmark work.
   - `bin/verify`
   - GitHub `CI` run `25112417559`
   - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run`
+- Current router image dry-run preview checks:
+  - `bin/test-fast`
+  - `python3 -m py_compile tool/render_router_image_metadata.py tool/test_render_router_image_metadata.py`
+  - `python3 tool/test_render_router_image_metadata.py`
+  - `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/router-image.yml'); puts 'yaml_ok'"`
+  - `python3 tool/render_router_image_metadata.py --owner konsultaner --repository konsultaner/connectanum-dart --sha 0123456789abcdef0123456789abcdef01234567 --ref-type branch --ref-name add-router --event-name workflow_dispatch --dry-run true --summary /tmp/router-image-metadata.md`
+  - `test -s /tmp/router-image-metadata.md`
+  - `python3 tool/render_router_image_metadata.py --owner konsultaner --repository konsultaner/connectanum-dart --sha 0123456789abcdef0123456789abcdef01234567 --ref-type tag --ref-name v1.2.3 --event-name push --dry-run false`
+  - expected failing manual publish rejection smoke:
+    `python3 tool/render_router_image_metadata.py --owner konsultaner --repository konsultaner/connectanum-dart --sha 0123456789abcdef0123456789abcdef01234567 --ref-type branch --ref-name add-router --event-name workflow_dispatch --input-image-tag validation-abc1234 --dry-run false --publish-approval wrong-tag`
+  - `git diff --check`
+  - `bin/verify`
 - Current main-CI skipped-gate cleanup checks:
   - GitHub `CI` run `25085322707`
   - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
@@ -987,6 +1010,10 @@ operator evidence over speculative feature or benchmark work.
   the deployment audit instead of assuming main `CI` covers package archive
   evidence. Docs-only checkpoints may reuse the latest successful package
   dry-run only when no package-publish-sensitive inputs changed since that run.
+- 2026-04-29: Made router image manual dry-runs produce a downloadable
+  `router-image-preview` artifact. This keeps the staged GHCR path
+  non-mutating while preserving the exact resolved image tags, labels, publish
+  mode, provenance setting, and SBOM setting as operator-readable evidence.
 
 ## Handoff
 

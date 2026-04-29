@@ -150,6 +150,9 @@ workflow dispatches are being kept dry-run by default until that promotion path
 is explicitly validated. Router image publish builds request max-level
 provenance and SBOM attestations; dry-run cache-only builds keep image
 attestations disabled because there is no registry image to attach them to.
+Manual dry-runs upload `router-image-preview/router-image-metadata.md` so the
+resolved tags, labels, publish mode, and attestation settings are available as
+a downloadable artifact as well as an Actions step summary.
 
 `add-router` is not protected. That is acceptable for the active development
 branch only while every pushed slice is watched manually and recorded in

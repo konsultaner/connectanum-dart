@@ -48,9 +48,24 @@ jobs:
           INPUT_DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
           INPUT_PUBLISH_APPROVAL: ${{ github.event.inputs.publish_approval }}
         run: |
+          set -euo pipefail
+
+          preview_dir="out/router-image-preview"
+          summary_file="$preview_dir/router-image-metadata.md"
+          mkdir -p "$preview_dir"
+
           python3 tool/render_router_image_metadata.py \
             --github-output "$GITHUB_OUTPUT" \
-            --summary "$GITHUB_STEP_SUMMARY"
+            --summary "$summary_file"
+
+          cat "$summary_file" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload router image preview
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: router-image-preview
+          path: out/router-image-preview
 
       - name: Log in to GHCR
         if: steps.meta.outputs.push == 'true'
