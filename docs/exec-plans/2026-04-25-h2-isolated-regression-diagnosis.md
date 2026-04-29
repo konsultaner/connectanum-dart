@@ -409,6 +409,39 @@ decisions.
   jobs and a clean hosted `CI` log scan. Manual log scans for the push-chain
   runs only matched benign timeout-reference/configuration text and passing
   test names containing expected words such as `failed` or `timeout`.
+- Documentation checkpoint `564de8e`
+  (`docs: record native tail send ci`) passed hosted GitHub `CI` run
+  `25136141646`, and the branch-head deployment audit/log scan was clean.
+- Manual hosted rerun `25136742292` reran isolated `s1`, `threads=4`, one
+  router worker on `564de8e` with `repeat_order=alternating`.
+- That hosted rerun completed with matched rows in all three repeats, but it
+  was not decision-quality:
+  - throughput delta span was `33.35pp`
+  - p95 delta span was `129.29pp`
+  - worst throughput and p95 rows stayed stable at
+    `h2_multiplexed_streams_s1 (workers=1, threads=4)`
+  - the throughput spread was mixed and the p95 spread was kTLS-side
+- The uploaded comparison unexpectedly rendered no native response-stream
+  rows, but the raw JSONL snapshots did contain
+  `transport.http_response_stream` counters for the same workload.
+- Root cause: the summary transformer required a populated
+  `metrics_before.transport.http_response_stream` object. On a clean start,
+  that object can be absent until the first streaming response increments the
+  counters, so valid after-counters were discarded.
+- Commit `8ff7b31` (`bench: keep response stream summaries`) now treats
+  missing response-stream `before` counters as zero when the matching `after`
+  counter exists.
+- Rerendering the `25136742292` raw JSONL with that fix keeps the run
+  non-decision-quality but makes the native tail-send signal visible:
+  - repeated client phase signals remain kTLS-higher across header wait and
+    body/tail read phases
+  - repeated server-emission signals remain empty
+  - native response-stream tail chunk channel wait is kTLS-higher by
+    `+0.20..+0.35 ms`, median `+0.32 ms`
+  - native response-stream first-to-last chunk send span is kTLS-higher by
+    `+0.23..+0.26 ms`, median `+0.25 ms`
+- This means the next diagnosis target is native server tail-send scheduling
+  under kTLS, not only client-side socket/TLS read delivery.
 
 ## Current Verification
 
@@ -531,10 +564,27 @@ decisions.
     successfully on `fc71d9a`
   - deployment-chain audit with `--require-clean-latest-ci` and
     `--require-clean-latest-ci-logs` passed against `fc71d9a`
+- Current native response-stream summary fix verification:
+  - hosted GitHub `CI` run `25136141646` completed successfully on `564de8e`;
+    `Fast Checks` completed in 5m48s and `Full Verify` completed in 7m51s
+  - branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `564de8e`
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25136742292` completed
+    successfully on `564de8e`; the hosted log scan only matched expected
+    manual artifact-gate skip notices and the Rust toolchain timeout-reference
+    URL
+  - `bin/test-fast`
+  - `cargo test --manifest-path native/bench/Cargo.toml --lib -- --nocapture`
+  - rerendered the `25136742292` raw JSONL with
+    `native/bench/target/debug/transform_results`,
+    `tool/ktls_http2_compare.py`, and `tool/ktls_http2_compare_repeats.py`
+  - `bin/verify`
 
 ## Next Step
 
-Rerun the isolated hosted `s1`, `threads=4`, one-router-worker benchmark with
-`repeat_order=alternating` to decide whether the remaining stable tail gap
-appears on native server tail-send or only after bytes enter the socket/TLS
-client read path.
+Push the response-stream summary fix, watch the GitHub push chain, then rerun
+the isolated hosted `s1`, `threads=4`, one-router-worker benchmark with
+`repeat_order=alternating` so the uploaded hosted artifacts include the native
+tail-send rows. If the native tail chunk channel wait and first-to-last send
+span signals repeat, inspect and instrument native HTTP/2 streaming response
+task scheduling before returning to client socket/TLS read delivery.

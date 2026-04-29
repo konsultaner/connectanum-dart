@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `fc71d9a` (`bench: split native response tail send timing`)
+Last reviewed commit: `8ff7b31` (`bench: keep response stream summaries`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -183,6 +183,50 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     `kTLS Validation`, and `WAMP Profile Benchmarks` only matched benign
     timeout-reference/configuration text and passing test names containing
     expected words such as `failed` or `timeout`
+  - documentation checkpoint `564de8e`
+    (`docs: record native tail send ci`) passed hosted GitHub `CI` run
+    `25136141646`; `Fast Checks` completed successfully in 5m48s and
+    `Full Verify` completed successfully in 7m51s
+  - the branch-head deployment audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `564de8e`; the hosted log
+    scan only matched benign timeout-reference/configuration text and passing
+    test names containing expected words
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25136742292` completed
+    successfully on `564de8e` with the same isolated `s1`, `threads=4`,
+    one-router-worker, alternating repeat settings and the new native
+    tail-send split
+  - `25136742292` was complete but not decision-quality: throughput delta
+    span was `33.35pp`, p95 delta span was `129.29pp`, all repeats produced
+    matched rows, the throughput span was mixed, and the p95 span was
+    kTLS-side
+  - the uploaded benchmark comparison initially showed no native
+    response-stream metrics even though the raw JSONL snapshots contained
+    `transport.http_response_stream` counters with `streaming_responses_total`
+    for the workload
+  - root cause: `metrics_before` can omit the
+    `transport.http_response_stream` object when all counters are still zero,
+    and the bench summary transformer treated that as an absent metric instead
+    of a zero starting counter
+  - commit `8ff7b31` (`bench: keep response stream summaries`) treats missing
+    response-stream `before` counters as zero when the corresponding `after`
+    counter exists; rerendering the downloaded `25136742292` raw JSONL then
+    populates the native response-stream tables
+  - that rerender keeps the run non-decision-quality but exposes two material
+    repeated native response-stream signals: tail chunk channel wait was
+    kTLS-higher by `+0.20..+0.35 ms` (median `+0.32 ms`), and
+    first-to-last chunk send span was kTLS-higher by `+0.23..+0.26 ms`
+    (median `+0.25 ms`)
+  - repeated client phase signals remained kTLS-higher for header
+    last-write-to-first-read, headers wait, body read, tail read, tail
+    connection read-span, tail connection read-to-end, connection
+    read-to-first-chunk, and tail connection read-wait timing
+  - current local verification for the summary fix passed:
+    `bin/test-fast`, `cargo test --manifest-path native/bench/Cargo.toml --lib -- --nocapture`,
+    and rerendering the `25136742292` raw JSONL with `transform_results`,
+    `tool/ktls_http2_compare.py`, and `tool/ktls_http2_compare_repeats.py`
+  - full local `bin/verify` passed after the response-stream summary fix on
+    2026-04-29, including Rust, Dart package, bench, router, and
+    Chrome/Dart2Wasm browser coverage
 - Current deployment-chain evidence refresh:
   - commit `b338d58` (`docs: record current deployment evidence`) passed
     hosted GitHub `CI` run `25123037462`; `Fast Checks` completed
