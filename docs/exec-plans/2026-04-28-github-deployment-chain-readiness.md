@@ -240,7 +240,7 @@ operator evidence over speculative feature or benchmark work.
     while `connectanum_client` depends on `connectanum_core: ^0.1.0`
   - no package publish, package-name claim, or `publish_to: none` removal has
     been attempted; those still require an explicit operator/product decision
-- Started a clean-CI recovery slice after documentation checkpoint `cb55b1f`
+- Completed a clean-CI recovery slice after documentation checkpoint `cb55b1f`
   left GitHub `CI` run `25095210918` red in `Full Verify`:
   - hosted failure:
     `tests::listen_flow::poll_connection_message_returns_payload` timed out
@@ -253,8 +253,17 @@ operator evidence over speculative feature or benchmark work.
   - the hosted Linux kTLS dead-code warning is being fixed by using
     `server_runtime_required` for optional-vs-required kTLS failure logging,
     not by deleting the helper
-  - local focused checks, `bin/test-fast`, and `bin/verify` pass after the
-    fix; hosted GitHub CI still needs to validate the pushed cleanup commit
+  - local focused checks, `bin/test-fast`, and `bin/verify` passed after the
+    fix
+  - commit `cf77754` (`native: stabilize rawsocket polling test`) passed
+    hosted GitHub `CI` run `25096329599`; `Fast Checks` completed in 5m28s and
+    `Full Verify` completed in 7m53s
+  - companion hosted runs also passed on `cf77754`: `kTLS Validation`
+    `25096329602` and `WAMP Profile Benchmarks` `25096329606`
+  - the GitHub deployment-chain audit with `--require-clean-latest-ci` passed
+    against `cf77754`, and hosted log scanning found no real warnings,
+    deprecations, rawsocket reset noise, connection ID noise, or skipped-test
+    output
 - Completed hosted validation for the Dart package publishing readiness slice:
   - commit `1b95c9d` (`docs: prepare dart package publishing`) passed GitHub
     `CI` run `25071505471`

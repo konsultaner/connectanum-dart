@@ -2,12 +2,12 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `55e9dc0` (`ci: gate workflow visibility audit`)
+Last reviewed commit: `cf77754` (`native: stabilize rawsocket polling test`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
 
-- Current CI cleanup:
+- Current CI cleanup checkpoint:
   - documentation checkpoint `cb55b1f` left hosted GitHub `CI` run
     `25095210918` red in `Full Verify`
   - the failure was reproduced locally in
@@ -30,6 +30,19 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     full `ct_ffi` suite, bench WAMP transport integration, router
     `remote_auth_integration_test`, and the Chrome Dart2Wasm browser websocket
     test
+  - commit `cf77754` (`native: stabilize rawsocket polling test`) restored the
+    hosted GitHub chain:
+    `CI` run `25096329599` passed with `Fast Checks` in 5m28s and
+    `Full Verify` in 7m53s, `kTLS Validation` run `25096329602` passed, and
+    `WAMP Profile Benchmarks` run `25096329606` passed
+  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 4 --require-clean-latest-ci`
+    passed against `cf77754`, confirming the latest main `CI` jobs are present
+    and successful with no skipped, pending, failed, missing, or unexpected
+    jobs
+  - hosted log scanning across `CI`, `kTLS Validation`, and
+    `WAMP Profile Benchmarks` found no real `warning:`, `::warning`,
+    `DeprecationWarning`, rawsocket reset noise, connection ID noise, or
+    skipped-test output
 - Current workflow visibility audit hardening:
   - pre-change `bin/test-fast` passed locally on 2026-04-29
   - focused local checks passed:
