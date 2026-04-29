@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `a3ae4a3` (`ci: print branch protection check plan`)
+Last reviewed commit: `3db2bbe` (`docs: record branch protection audit ci`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -545,6 +545,19 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     were a passing bcrypt negative-auth test name and Rust `0 failed` summaries
   - a follow-up local `bin/test-fast` pass on 2026-04-29 confirmed the branch
     remains locally healthy before refreshing this state
+- Documentation checkpoint `3db2bbe`
+  (`docs: record branch protection audit ci`) passed hosted GitHub `CI` run
+  `25089948391`; `Fast Checks` and `Full Verify` succeeded.
+  `bin/audit-github-deployment-chain --branch add-router --run-limit 4
+  --require-clean-latest-ci` confirmed the latest main `CI` run has no
+  skipped, pending, failed, missing, or unexpected jobs. Hosted log scanning
+  found no real warnings, deprecations, rawsocket reset noise, timeouts,
+  cancellations, skipped jobs, or errors; remaining matches were a passing
+  bcrypt negative-auth test name and Rust `0 failed` summaries.
+- The current public evidence refresh makes `docs/github_deployment_chain.md`
+  less brittle by pointing readers to the live clean-CI audit for branch-head
+  status and listing pinned deployment-chain checkpoints instead of calling an
+  older commit the latest audited branch evidence.
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.

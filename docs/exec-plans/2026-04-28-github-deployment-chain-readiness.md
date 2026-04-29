@@ -382,6 +382,20 @@ operator evidence over speculative feature or benchmark work.
   - hosted log scanning found no real warnings, deprecations, rawsocket reset
     noise, timeouts, cancellations, skipped jobs, or errors; remaining matches
     were a passing bcrypt negative-auth test name and Rust `0 failed` summaries
+- Completed hosted validation for the branch-protection audit docs checkpoint:
+  - commit `3db2bbe` (`docs: record branch protection audit ci`) passed GitHub
+    `CI` run `25089948391`
+  - `Fast Checks` and `Full Verify` completed successfully, with no skipped,
+    pending, failed, missing, or unexpected main `CI` jobs
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, skipped jobs, or errors; remaining matches
+    were a passing bcrypt negative-auth test name and Rust `0 failed` summaries
+- Started the public deployment-evidence refresh:
+  - `docs/github_deployment_chain.md` now directs volatile branch-head status
+    checks to the live clean-CI audit command
+  - the same page lists pinned deployment-chain checkpoints so public release
+    evidence stays readable without requiring a self-referential update after
+    every docs-only checkpoint
 
 ## Verification
 
@@ -615,6 +629,10 @@ operator evidence over speculative feature or benchmark work.
   - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
     cancellation, skipped jobs, and real error lines
   - follow-up local `bin/test-fast` before recording the hosted checkpoint
+- Current public deployment-evidence refresh checks:
+  - `bin/test-fast`
+  - `git diff --check`
+  - `bin/verify`
 
 ## Decision Log
 

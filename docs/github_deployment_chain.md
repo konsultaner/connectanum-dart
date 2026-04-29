@@ -110,32 +110,35 @@ Rust result summaries containing `0 failed`.
 
 ## Current Evidence
 
-The latest audited branch evidence on 2026-04-29:
+For the latest branch-head status, run the clean-CI audit command above. The
+items below are pinned deployment-chain checkpoints from 2026-04-29, not a
+replacement for the live audit:
 
-- `add-router` commit `1769982` passed GitHub `CI` run `25087405841`.
-- `Fast Checks` and `Full Verify` completed successfully.
-- The main `CI` workflow now contains only `Fast Checks` and `Full Verify`;
-  `bin/audit-github-deployment-chain --branch add-router
-  --require-clean-latest-ci` reports no skipped, pending, failed, missing, or
-  unexpected `CI` jobs.
-- Hosted log scanning found no real warnings, deprecations, rawsocket reset
-  noise, timeouts, cancellations, or errors.
-- `add-router` commit `1b95c9d` passed the dedicated `WAMP Profile Benchmarks`
-  run `25071505445`.
-- `be29fe6` added the router image dry-run/manual publish-approval gate before
-  default-branch workflow promotion.
-- `d9cbd81` added the dedicated non-mutating Dart package publish dry-run
-  workflow.
-- `ee32ad3` added release-readiness blocker reporting to that dry-run. GitHub
-  run `25084695572` passed and surfaced the current
-  `connectanum_client` -> private `connectanum_core` blocker without
-  publishing to pub.dev.
+- `add-router` commit `3db2bbe` passed GitHub `CI` run `25089948391`.
+  `Fast Checks` and `Full Verify` completed successfully, and the clean-CI
+  audit reported no skipped, pending, failed, missing, or unexpected `CI` jobs.
+- Hosted log scanning for `25089948391` found no real warnings, deprecations,
+  rawsocket reset noise, timeouts, cancellations, or errors. The only matches
+  were expected benign strings: a passing bcrypt negative-test name and Rust
+  `0 failed` summaries.
+- `a3ae4a3` added the branch-protection operator plan. The audit now prints
+  the required-status-check payload for `Fast Checks` and `Full Verify`
+  without mutating GitHub repository policy.
+- `1769982` added the clean-latest-CI audit gate. The main `CI` workflow now
+  contains only `Fast Checks` and `Full Verify`.
 - `5441730` removed the duplicate manual-only WAMP profile job from main `CI`;
   canonical WAMP profile gates remain in the dedicated
   `WAMP Profile Benchmarks` workflow.
-- `1769982` added the clean-latest-CI audit gate. The current branch-protection
-  follow-up keeps policy mutation operator-only while making the required-check
-  payload reproducible through `--show-required-checks-plan`.
+- `ee32ad3` added Dart package release-readiness blocker reporting. GitHub
+  run `25084695572` passed and surfaced the current
+  `connectanum_client` -> private `connectanum_core` blocker without
+  publishing to pub.dev.
+- `d9cbd81` added the dedicated non-mutating Dart package publish dry-run
+  workflow.
+- `be29fe6` added the router image dry-run/manual publish-approval gate before
+  default-branch workflow promotion.
+- `1b95c9d` passed the dedicated `WAMP Profile Benchmarks` run
+  `25071505445`.
 
 The next deployment-chain improvement should either apply the approved branch
 protection settings, promote and validate the router image workflow/package, or
