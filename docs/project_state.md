@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `1769982` (`ci: audit latest ci job cleanliness`)
+Last reviewed commit: `a3ae4a3` (`ci: print branch protection check plan`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -530,6 +530,21 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     `bin/verify` passed after adding the operator-plan output
   - applying required status checks to `master` still requires explicit
     operator approval because it changes repository merge policy
+- Hosted GitHub validation is clean on `a3ae4a3`
+  (`ci: print branch protection check plan`):
+  - GitHub `CI` run `25088676567` passed `Fast Checks` and `Full Verify`
+  - `bin/audit-github-deployment-chain --branch add-router --run-limit 4
+    --require-clean-latest-ci` reports no skipped, pending, failed, missing,
+    or unexpected `CI` jobs on the latest branch run
+  - `bin/audit-github-deployment-chain --branch master --run-limit 1
+    --show-required-checks-plan` confirms `master` is protected but still has
+    no required status checks, and prints the read-only operator plan for
+    `Fast Checks` plus `Full Verify`
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, skipped jobs, or errors; remaining matches
+    were a passing bcrypt negative-auth test name and Rust `0 failed` summaries
+  - a follow-up local `bin/test-fast` pass on 2026-04-29 confirmed the branch
+    remains locally healthy before refreshing this state
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.

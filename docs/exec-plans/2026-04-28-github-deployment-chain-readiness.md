@@ -371,6 +371,17 @@ operator evidence over speculative feature or benchmark work.
     payload for `Fast Checks` and `Full Verify`
   - the audit remains read-only and does not apply branch protection; remote
     policy mutation remains blocked on explicit operator approval
+- Completed hosted validation for the branch-protection operator plan:
+  - commit `a3ae4a3` (`ci: print branch protection check plan`) passed GitHub
+    `CI` run `25088676567`
+  - `Fast Checks` and `Full Verify` completed successfully, with no skipped,
+    pending, failed, missing, or unexpected main `CI` jobs
+  - the read-only `master` audit prints the required-status-check operator
+    payload for `Fast Checks` and `Full Verify`, while still leaving the
+    actual branch-protection mutation blocked on explicit operator approval
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, skipped jobs, or errors; remaining matches
+    were a passing bcrypt negative-auth test name and Rust `0 failed` summaries
 
 ## Verification
 
@@ -594,8 +605,16 @@ operator evidence over speculative feature or benchmark work.
   - `bin/audit-github-deployment-chain --help`
   - `bin/audit-github-deployment-chain --branch master --run-limit 2
     --show-required-checks-plan`
+  - `bin/audit-github-deployment-chain --branch add-router --run-limit 4
+    --require-clean-latest-ci`
+  - `bin/audit-github-deployment-chain --branch master --run-limit 1
+    --show-required-checks-plan`
   - `git diff --check`
   - `bin/verify`
+  - GitHub `CI` run `25088676567`
+  - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
+    cancellation, skipped jobs, and real error lines
+  - follow-up local `bin/test-fast` before recording the hosted checkpoint
 
 ## Decision Log
 
