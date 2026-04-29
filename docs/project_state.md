@@ -2,12 +2,20 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `a8260b5` (`docs: record router image attestation ci`)
+Last reviewed commit: `8fe3749` (`ci: upload router image dry-run preview`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
 
 - Current router image dry-run preview hardening:
+  - commit `8fe3749` (`ci: upload router image dry-run preview`) passed
+    hosted GitHub `CI` run `25116155461`; `Fast Checks` completed
+    successfully in 5m26s and `Full Verify` completed successfully in 7m58s
+  - latest clean branch-head audit/log/package-dry-run scan passed against
+    `8fe3749` with no skipped, pending, failed, missing, or unexpected main
+    `CI` jobs, no high-signal warning, deprecation, skipped-test, rawsocket
+    reset, or connection-noise log matches, and clean/relevant hosted
+    `Dart Package Publish Dry Run` evidence
   - commit `a8260b5` (`docs: record router image attestation ci`) passed
     hosted GitHub `CI` run `25113406609`; `Fast Checks` and `Full Verify`
     completed successfully

@@ -607,6 +607,12 @@ operator evidence over speculative feature or benchmark work.
     settings so publish builds request `provenance=mode=max` and `sbom=true`
     while dry-run cache-only builds keep image attestations disabled
 - Started router image dry-run preview hardening:
+  - commit `8fe3749` (`ci: upload router image dry-run preview`) passed
+    GitHub `CI` run `25116155461`; `Fast Checks` completed in 5m26s and
+    `Full Verify` completed in 7m58s
+  - branch-head deployment audit passed for `8fe3749` with clean main `CI`,
+    clean hosted `CI` logs, and clean/relevant hosted
+    `Dart Package Publish Dry Run` evidence
   - commit `a8260b5` (`docs: record router image attestation ci`) passed
     GitHub `CI` run `25113406609`; `Fast Checks` and `Full Verify` succeeded
   - branch-head deployment audit passed for `a8260b5` with clean main `CI`,
@@ -859,6 +865,8 @@ operator evidence over speculative feature or benchmark work.
     `python3 tool/render_router_image_metadata.py --owner konsultaner --repository konsultaner/connectanum-dart --sha 0123456789abcdef0123456789abcdef01234567 --ref-type branch --ref-name add-router --event-name workflow_dispatch --input-image-tag validation-abc1234 --dry-run false --publish-approval wrong-tag`
   - `git diff --check`
   - `bin/verify`
+  - GitHub `CI` run `25116155461`
+  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run`
 - Current main-CI skipped-gate cleanup checks:
   - GitHub `CI` run `25085322707`
   - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
