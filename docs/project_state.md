@@ -2,16 +2,23 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `a62e097` (`docs: record ci log audit validation`)
+Last reviewed commit: `1131e7e` (`ci: require zero-warning dart publish dry runs`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
 
 - Current Dart package publish warning-gate hardening:
-  - latest hosted GitHub `CI` run `25099734886` passed on `a62e097`, and the
-    combined clean branch-head audit/log scan passed with no skipped, pending,
-    failed, missing, or unexpected main `CI` jobs and no high-signal log
-    matches
+  - commit `1131e7e` (`ci: require zero-warning dart publish dry runs`) passed
+    hosted GitHub `CI` run `25102015230`; `Fast Checks` completed
+    successfully in 5m30s and `Full Verify` completed successfully in 8m14s
+  - hosted `Dart Package Publish Dry Run` run `25102015241` passed on
+    `1131e7e`; its log shows `Package has 0 warnings`, the known private
+    `connectanum_core` release-order blocker, and
+    `All Dart package publish dry-runs reported zero warnings`
+  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs`
+    passed against `1131e7e`, confirming no skipped, pending, failed, missing,
+    or unexpected main `CI` jobs and no high-signal warning, deprecation,
+    skipped-test, rawsocket reset, or connection-noise log matches
   - pre-change `bin/test-fast` passed locally on 2026-04-29
   - `bin/dart-package-publish-dry-run` now captures each
     `dart pub publish --dry-run` result and requires `Package has 0 warnings`

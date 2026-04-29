@@ -511,6 +511,18 @@ operator evidence over speculative feature or benchmark work.
     tests, bench WAMP transport coverage, full router tests,
     `remote_auth_integration_test`, and the Chrome Dart2Wasm browser websocket
     test
+- Completed hosted validation for the Dart package publish warning gate:
+  - commit `1131e7e` (`ci: require zero-warning dart publish dry runs`) passed
+    GitHub `CI` run `25102015230`
+  - `Fast Checks` completed successfully in 5m30s
+  - `Full Verify` completed successfully in 8m14s
+  - hosted `Dart Package Publish Dry Run` run `25102015241` passed and logged
+    `Package has 0 warnings` plus
+    `All Dart package publish dry-runs reported zero warnings`
+  - the combined clean branch-head audit passed:
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs`
+  - the audit log scan found no high-signal warning, deprecation,
+    skipped-test, rawsocket reset, or connection-noise matches
 
 ## Verification
 
