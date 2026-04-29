@@ -566,6 +566,17 @@ operator evidence over speculative feature or benchmark work.
     readiness, keeping the blocker actionable from the primary audit command
   - final local `bin/verify` passed after the script and documentation changes
   - no package was made publishable and no pub.dev publish was attempted
+- Completed hosted validation for Dart package release-order plan surfacing:
+  - commit `700ea74` (`ci: explain dart package release order`) passed GitHub
+    `CI` run `25107394525`
+  - `Fast Checks` completed successfully in 5m28s
+  - `Full Verify` completed successfully in 7m55s
+  - hosted `Dart Package Publish Dry Run` run `25107394513` passed on the same
+    commit
+  - the clean branch-head audit passed:
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs`
+  - the hosted log scan found no high-signal warning, deprecation,
+    skipped-test, rawsocket reset, or connection-noise matches
 
 ## Verification
 

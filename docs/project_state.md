@@ -2,14 +2,18 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `578a3f8` (`docs: record rc audit ci evidence`)
+Last reviewed commit: `700ea74` (`ci: explain dart package release order`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
 
 - Current Dart package release-order plan surfacing:
-  - latest hosted GitHub `CI` run `25105965797` passed on `578a3f8`
-  - latest clean branch-head audit/log scan passed against `578a3f8` with no
+  - commit `700ea74` (`ci: explain dart package release order`) passed hosted
+    GitHub `CI` run `25107394525`; `Fast Checks` completed successfully in
+    5m28s and `Full Verify` completed successfully in 7m55s
+  - hosted `Dart Package Publish Dry Run` run `25107394513` passed on
+    `700ea74`
+  - latest clean branch-head audit/log scan passed against `700ea74` with no
     skipped, pending, failed, missing, or unexpected main `CI` jobs and no
     high-signal warning, deprecation, skipped-test, rawsocket reset, or
     connection-noise log matches
