@@ -214,6 +214,20 @@ For the latest branch-head status, run the clean-CI audit command above. The
 items below are pinned deployment-chain checkpoints from 2026-04-29, not a
 replacement for the live audit:
 
+- `add-router` documentation checkpoint `a358f43` passed GitHub `CI` run
+  `25120747925`: `Fast Checks` completed in 5m37s and `Full Verify`
+  completed in 8m15s.
+- Fresh manual `Dart Package Publish Dry Run` run `25122605506` passed on
+  `a358f43`; the `Publish Dry Run` job completed in 20s and covered the
+  checked-out package-publishing inputs.
+- Manual `Native Artifacts` dry-run `25119602651` passed on `d4e6fda`,
+  uploaded `native-release-preview`, accepted
+  `ct-ffi-v2026.04.29-dry-run.d4e6fda`, and did not create a GitHub Release.
+  It remains relevant for `a358f43` because no native-release-sensitive inputs
+  changed after `d4e6fda`.
+- The current enforced audit gate passes with clean main `CI`, clean hosted
+  `CI` logs, clean/relevant Dart package dry-run evidence, and clean/relevant
+  native release dry-run evidence.
 - `add-router` commit `3db2bbe` passed GitHub `CI` run `25089948391`.
   `Fast Checks` and `Full Verify` completed successfully, and the clean-CI
   audit reported no skipped, pending, failed, missing, or unexpected `CI` jobs.

@@ -2,11 +2,31 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `d4e6fda` (`ci: audit native release dry runs`)
+Last reviewed commit: `a358f43` (`docs: record native release dry run audit ci`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
 
+- Current deployment-chain evidence refresh:
+  - commit `a358f43` (`docs: record native release dry run audit ci`) passed
+    hosted GitHub `CI` run `25120747925`; `Fast Checks` completed
+    successfully in 5m37s and `Full Verify` completed successfully in 8m15s
+  - fresh manual hosted `Dart Package Publish Dry Run` run `25122605506`
+    passed on `a358f43`; `Publish Dry Run` completed successfully in 20s and
+    covers the checked-out package-publishing inputs
+  - latest native release evidence remains clean and relevant through manual
+    hosted `Native Artifacts` dry-run `25119602651`; no
+    native-release-sensitive inputs changed after `d4e6fda`
+  - latest branch-head deployment audit passed against `a358f43` with clean
+    main `CI` jobs, clean hosted `CI` logs, clean/relevant hosted
+    `Dart Package Publish Dry Run` evidence, and clean/relevant hosted
+    `Native Artifacts` dry-run evidence
+  - current RC blockers remain operator/product/deployment decisions:
+    unprotected `add-router`, undiscoverable `router-image.yml` until default
+    branch promotion, no visible `ghcr.io/konsultaner/connectanum-router`
+    package, no selected RC tag/GitHub RC prerelease, and the strict Dart
+    package release-order blocker where `connectanum_client` depends on the
+    private workspace package `connectanum_core`
 - Current native release dry-run audit hardening:
   - commit `d4e6fda` (`ci: audit native release dry runs`) passed hosted
     GitHub `CI` run `25119596673`; `Fast Checks` completed successfully in

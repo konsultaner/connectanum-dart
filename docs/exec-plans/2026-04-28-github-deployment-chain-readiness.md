@@ -651,6 +651,18 @@ operator evidence over speculative feature or benchmark work.
     `native-release-preview`, did not create a GitHub Release for that tag,
     and now satisfies the required native dry-run audit gate for the
     checked-out head
+- Refreshed branch-head deployment evidence after the native audit checkpoint:
+  - documentation checkpoint `a358f43`
+    (`docs: record native release dry run audit ci`) passed GitHub `CI` run
+    `25120747925`; `Fast Checks` completed in 5m37s and `Full Verify`
+    completed in 8m15s
+  - fresh manual `Dart Package Publish Dry Run` run `25122605506` passed on
+    `a358f43`; `Publish Dry Run` completed in 20s and covers the checked-out
+    package-publishing inputs
+  - branch-head deployment audit passed for `a358f43` with clean main `CI`,
+    clean hosted `CI` logs, clean/relevant hosted
+    `Dart Package Publish Dry Run` evidence, and clean/relevant hosted
+    `Native Artifacts` dry-run evidence
 
 ## Verification
 
@@ -909,6 +921,10 @@ operator evidence over speculative feature or benchmark work.
   - GitHub `Native Artifacts` dry-run `25119602651`
   - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-native-release-dry-run`
   - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-native-release-dry-run`
+- Current deployment-chain evidence refresh checks:
+  - GitHub `CI` run `25120747925`
+  - GitHub `Dart Package Publish Dry Run` run `25122605506`
+  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 8 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-native-release-dry-run`
 - Current main-CI skipped-gate cleanup checks:
   - GitHub `CI` run `25085322707`
   - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
@@ -1068,6 +1084,10 @@ operator evidence over speculative feature or benchmark work.
   `Native Artifacts` workflow runs as indefinitely valid. This keeps native
   matrix artifacts and release-preview evidence explicit, non-mutating, and
   freshness-checked before release decisions.
+- 2026-04-29: Refreshed the hosted Dart package publish dry-run on the current
+  branch head even though the older run was still input-relevant. This keeps
+  package release evidence current and removes avoidable staleness from the
+  deployment audit without publishing to pub.dev.
 
 ## Handoff
 
