@@ -2,11 +2,28 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `3db2bbe` (`docs: record branch protection audit ci`)
+Last reviewed commit: `a6b3414` (`docs: refresh github deployment evidence`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
 
+- Current router package release-readiness audit hardening:
+  - pre-change `bin/test-fast` passed locally on 2026-04-29
+  - focused local checks passed:
+    `bash -n bin/audit-github-deployment-chain`,
+    `bin/audit-github-deployment-chain --help`, `git diff --check`,
+    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 2 --require-clean-latest-ci`
+  - final local `bin/verify` passed, including Rust/FFI tests, Dart package
+    tests, bench WAMP transport coverage, full router tests,
+    `remote_auth_integration_test`, and the Chrome Dart2Wasm browser websocket
+    test
+  - `bin/audit-github-deployment-chain` now has an explicit
+    `--require-router-package` gate so GHCR router package visibility can fail
+    independently from clean CI and branch-protection policy checks
+  - the gate is intentionally non-mutating and the focused
+    `--require-router-package` check failed as expected until
+    `ghcr.io/konsultaner/connectanum-router` is visible after the router image
+    workflow is promoted and validated
 - Current branch checkpoint `17697ae` is clean locally and hosted as of
   2026-04-28:
   - local CI-cleanup verification before commit `ce05721` covered shell syntax,

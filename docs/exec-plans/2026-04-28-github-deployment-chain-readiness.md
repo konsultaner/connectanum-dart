@@ -396,6 +396,22 @@ operator evidence over speculative feature or benchmark work.
   - the same page lists pinned deployment-chain checkpoints so public release
     evidence stays readable without requiring a self-referential update after
     every docs-only checkpoint
+- Started the router package release-readiness audit gate:
+  - `bin/audit-github-deployment-chain --require-router-package` now fails
+    independently when `ghcr.io/konsultaner/connectanum-router` is not visible
+    through the GitHub Packages API
+  - the gate is intentionally non-mutating and keeps the router image publish
+    blocker visible without dispatching, publishing, or changing repository
+    settings
+  - focused local checks passed: `bash -n bin/audit-github-deployment-chain`,
+    `bin/audit-github-deployment-chain --help`, `git diff --check`,
+    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 2 --require-clean-latest-ci`
+  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 2 --require-router-package`
+    failed as expected because the GHCR router package is not published or
+    visible yet
+  - final local `bin/verify` passed, including full router coverage,
+    `remote_auth_integration_test`, bench WAMP transport coverage, and Chrome
+    Dart2Wasm browser websocket coverage
 
 ## Verification
 

@@ -22,6 +22,8 @@ Options:
                              Exit non-zero unless the latest CI run on the
                              audited branch completed with exactly the expected
                              main jobs and no skipped, pending, or failed jobs.
+  --require-router-package   Exit non-zero unless the GHCR router package is
+                             visible through the GitHub Packages API.
   --show-required-checks-plan
                              Print the non-mutating operator plan for adding
                              the baseline required status checks to the audited
@@ -37,6 +39,7 @@ branch=""
 run_limit=6
 strict=0
 require_clean_latest_ci=0
+require_router_package=0
 show_required_checks_plan=0
 expected_ci_jobs=('Fast Checks' 'Full Verify')
 
@@ -80,6 +83,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --require-clean-latest-ci)
       require_clean_latest_ci=1
+      shift
+      ;;
+    --require-router-package)
+      require_router_package=1
       shift
       ;;
     --show-required-checks-plan)
@@ -247,6 +254,7 @@ printf 'Protected: %s\n' "$branch_protected"
 
 missing_required_checks=0
 missing_visible_workflow=0
+missing_router_package=0
 latest_ci_failed=0
 required_contexts=""
 
@@ -363,6 +371,7 @@ if [[ -n "$router_package" ]]; then
 else
   printf 'GHCR package: not found for ghcr.io/%s/connectanum-router\n' "$package_owner"
   printf 'Finding: router container package is not currently visible in GitHub Packages.\n'
+  missing_router_package=1
 fi
 
 printf '\n## Latest Branch Runs\n\n'
@@ -457,6 +466,11 @@ fi
 
 if [[ "$require_clean_latest_ci" -eq 1 && "$latest_ci_failed" -ne 0 ]]; then
   printf '\nLatest CI cleanliness audit failed.\n' >&2
+  exit 1
+fi
+
+if [[ "$require_router_package" -eq 1 && "$missing_router_package" -ne 0 ]]; then
+  printf '\nRouter package visibility audit failed.\n' >&2
   exit 1
 fi
 

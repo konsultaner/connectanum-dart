@@ -29,6 +29,17 @@ That mode exits non-zero when the latest `CI` run is missing `Fast Checks` or
 `Full Verify`, has unexpected jobs, has skipped jobs, or has pending/failed
 jobs.
 
+Use the router package gate before treating the router image release path as
+ready:
+
+```sh
+bin/audit-github-deployment-chain --branch add-router --require-router-package
+```
+
+That mode is also read-only. It intentionally exits non-zero until
+`ghcr.io/konsultaner/connectanum-router` is visible through the GitHub Packages
+API after the router image workflow is promoted and validated.
+
 Use strict mode when the repository is ready for the branch-protection gap to
 be enforced by automation:
 
