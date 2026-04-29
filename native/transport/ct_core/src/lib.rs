@@ -803,6 +803,10 @@ impl Http2ConnectionWriteTracker {
     }
 }
 
+fn should_yield_for_pending_http2_responses(pending_headers: usize) -> bool {
+    pending_headers > 1
+}
+
 impl tokio::io::AsyncRead for InstrumentedHttp2IoStream {
     fn poll_read(
         self: Pin<&mut Self>,
@@ -6135,7 +6139,7 @@ async fn send_http2_response_from_dispatch(
                 headers_send_call_started_at,
                 headers_sent_at,
             );
-            if pending_headers > 1 {
+            if should_yield_for_pending_http2_responses(pending_headers) {
                 // Only yield when multiple responses have queued headers but none
                 // has reached the shared connection writer yet. This preserves
                 // the multiplex benefit without adding a single-stream header
@@ -6164,11 +6168,12 @@ async fn send_http2_response_from_dispatch(
                                 send_call_finished_at,
                             );
                             first_chunk_sent_at = Some(send_call_finished_at);
-                            // The first body chunk determines the client-side
-                            // first-byte gap. Yield once after queueing it so
-                            // the connection driver can make progress before we
-                            // enqueue the rest of a buffered stream.
-                            tokio::task::yield_now().await;
+                            if should_yield_for_pending_http2_responses(pending_headers) {
+                                // On multiplexed connections, let the shared
+                                // driver move the first chunk before this task
+                                // drains the rest of a buffered response.
+                                tokio::task::yield_now().await;
+                            }
                         } else {
                             http_response_stream_metrics().record_tail_chunk(
                                 queued_at,
@@ -6842,6 +6847,13 @@ mod tests {
         assert_eq!(tracker.note_headers_sent(Instant::now()), 2);
         tracker.record_connection_write(Instant::now());
         assert_eq!(tracker.note_headers_sent(Instant::now()), 1);
+    }
+
+    #[test]
+    fn http2_response_yield_requires_multiple_pending_headers() {
+        assert!(!should_yield_for_pending_http2_responses(0));
+        assert!(!should_yield_for_pending_http2_responses(1));
+        assert!(should_yield_for_pending_http2_responses(2));
     }
 
     #[test]
