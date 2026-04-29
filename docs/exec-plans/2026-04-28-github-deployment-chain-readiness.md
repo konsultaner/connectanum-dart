@@ -422,6 +422,23 @@ operator evidence over speculative feature or benchmark work.
   - hosted log scanning found no real warnings, deprecations, rawsocket reset
     noise, timeouts, cancellations, skipped jobs, or errors; remaining matches
     were a passing bcrypt negative-auth test name and Rust `0 failed` summaries
+- Started the workflow visibility audit gate:
+  - `bin/audit-github-deployment-chain --require-workflows-visible` now fails
+    independently when any checked-in `.github/workflows/*.yml` or `.yaml`
+    file is not discoverable through the GitHub Actions API
+  - the gate is intentionally non-mutating and keeps the router image
+    default-branch promotion blocker visible without changing repository
+    settings or publishing images
+  - pre-change `bin/test-fast` passed locally on 2026-04-29
+  - focused local checks passed: `bash -n bin/audit-github-deployment-chain`,
+    `bin/audit-github-deployment-chain --help`, `git diff --check`,
+    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 2 --require-clean-latest-ci`
+  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 2 --require-workflows-visible`
+    failed as expected because `.github/workflows/router-image.yml` is not
+    discoverable through the GitHub Actions API yet
+  - final local `bin/verify` passed, including full router coverage,
+    `remote_auth_integration_test`, bench WAMP transport coverage, and Chrome
+    Dart2Wasm browser websocket coverage
 
 ## Verification
 

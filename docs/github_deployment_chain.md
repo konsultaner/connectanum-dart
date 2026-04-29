@@ -40,6 +40,18 @@ That mode is also read-only. It intentionally exits non-zero until
 `ghcr.io/konsultaner/connectanum-router` is visible through the GitHub Packages
 API after the router image workflow is promoted and validated.
 
+Use the workflow visibility gate before treating checked-in workflows as
+available on GitHub Actions:
+
+```sh
+bin/audit-github-deployment-chain --branch add-router --require-workflows-visible
+```
+
+That mode exits non-zero while checked-in workflows, currently
+`.github/workflows/router-image.yml`, are not discoverable through the GitHub
+Actions API. It is read-only and does not promote workflows to the default
+branch.
+
 Use strict mode when the repository is ready for the branch-protection gap to
 be enforced by automation:
 

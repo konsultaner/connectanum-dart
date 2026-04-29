@@ -2,11 +2,29 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `c061ae3` (`ci: gate router package visibility audit`)
+Last reviewed commit: `d440745` (`docs: record router package audit ci`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
 
+- Current workflow visibility audit hardening:
+  - pre-change `bin/test-fast` passed locally on 2026-04-29
+  - focused local checks passed:
+    `bash -n bin/audit-github-deployment-chain`,
+    `bin/audit-github-deployment-chain --help`, `git diff --check`,
+    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 2 --require-clean-latest-ci`
+  - final local `bin/verify` passed, including Rust/FFI tests, Dart package
+    tests, bench WAMP transport coverage, full router tests,
+    `remote_auth_integration_test`, and the Chrome Dart2Wasm browser websocket
+    test
+  - `bin/audit-github-deployment-chain` now has an explicit
+    `--require-workflows-visible` gate so checked-in workflow discoverability
+    can fail independently from clean CI, branch-protection policy, and GHCR
+    router package visibility checks
+  - the gate is intentionally non-mutating and the focused
+    `--require-workflows-visible` check failed as expected until
+    `.github/workflows/router-image.yml` is visible through the GitHub Actions
+    API after default-branch promotion
 - Current router package release-readiness audit hardening:
   - pre-change `bin/test-fast` passed locally on 2026-04-29
   - focused local checks passed:

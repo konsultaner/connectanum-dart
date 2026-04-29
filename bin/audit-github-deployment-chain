@@ -24,6 +24,9 @@ Options:
                              main jobs and no skipped, pending, or failed jobs.
   --require-router-package   Exit non-zero unless the GHCR router package is
                              visible through the GitHub Packages API.
+  --require-workflows-visible
+                             Exit non-zero unless every checked-in workflow is
+                             discoverable through the GitHub Actions API.
   --show-required-checks-plan
                              Print the non-mutating operator plan for adding
                              the baseline required status checks to the audited
@@ -40,6 +43,7 @@ run_limit=6
 strict=0
 require_clean_latest_ci=0
 require_router_package=0
+require_workflows_visible=0
 show_required_checks_plan=0
 expected_ci_jobs=('Fast Checks' 'Full Verify')
 
@@ -87,6 +91,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --require-router-package)
       require_router_package=1
+      shift
+      ;;
+    --require-workflows-visible)
+      require_workflows_visible=1
       shift
       ;;
     --show-required-checks-plan)
@@ -471,6 +479,11 @@ fi
 
 if [[ "$require_router_package" -eq 1 && "$missing_router_package" -ne 0 ]]; then
   printf '\nRouter package visibility audit failed.\n' >&2
+  exit 1
+fi
+
+if [[ "$require_workflows_visible" -eq 1 && "$missing_visible_workflow" -ne 0 ]]; then
+  printf '\nWorkflow visibility audit failed.\n' >&2
   exit 1
 fi
 
