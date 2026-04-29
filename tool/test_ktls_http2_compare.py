@@ -867,6 +867,132 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("kTLS higher", markdown)
             self.assertIn("+1.00 ms..+1.10 ms (median +1.05 ms)", markdown)
 
+    def test_repeat_stability_surfaces_server_and_native_signals(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+
+            repeat_one = root / "repeats" / "repeat-01"
+            repeat_two = root / "repeats" / "repeat-02"
+            repeat_one_baseline = repeat_one / "baseline"
+            repeat_one_ktls = repeat_one / "ktls"
+            repeat_two_baseline = repeat_two / "baseline"
+            repeat_two_ktls = repeat_two / "ktls"
+            repeat_one_baseline.mkdir(parents=True)
+            repeat_one_ktls.mkdir(parents=True)
+            repeat_two_baseline.mkdir(parents=True)
+            repeat_two_ktls.mkdir(parents=True)
+
+            self._write_summary(
+                repeat_one_baseline / "bench_results.summary.json",
+                [
+                    self._row(
+                        "h2_multiplexed_streams_s1",
+                        4,
+                        5000.0,
+                        10.0,
+                        8.0,
+                        server_queue_to_first_body_write_avg_ms=1.0,
+                        server_direct_stream_request_queue_delay_avg_ms=0.2,
+                        native_headers_to_first_connection_write_avg_ms=0.5,
+                        native_headers_to_first_chunk_dequeue_avg_ms=1.0,
+                    ),
+                ],
+            )
+            self._write_summary(
+                repeat_one_ktls / "bench_results.summary.json",
+                [
+                    self._row(
+                        "h2_multiplexed_streams_s1",
+                        4,
+                        4100.0,
+                        12.0,
+                        9.0,
+                        server_queue_to_first_body_write_avg_ms=2.6,
+                        server_direct_stream_request_queue_delay_avg_ms=0.8,
+                        native_headers_to_first_connection_write_avg_ms=0.9,
+                        native_headers_to_first_chunk_dequeue_avg_ms=1.8,
+                    ),
+                ],
+            )
+            self._write_summary(
+                repeat_two_baseline / "bench_results.summary.json",
+                [
+                    self._row(
+                        "h2_multiplexed_streams_s1",
+                        4,
+                        5200.0,
+                        11.0,
+                        8.5,
+                        server_queue_to_first_body_write_avg_ms=1.1,
+                        server_direct_stream_request_queue_delay_avg_ms=0.3,
+                        native_headers_to_first_connection_write_avg_ms=0.6,
+                        native_headers_to_first_chunk_dequeue_avg_ms=1.1,
+                    ),
+                ],
+            )
+            self._write_summary(
+                repeat_two_ktls / "bench_results.summary.json",
+                [
+                    self._row(
+                        "h2_multiplexed_streams_s1",
+                        4,
+                        4200.0,
+                        13.0,
+                        9.5,
+                        server_queue_to_first_body_write_avg_ms=2.8,
+                        server_direct_stream_request_queue_delay_avg_ms=1.0,
+                        native_headers_to_first_connection_write_avg_ms=1.1,
+                        native_headers_to_first_chunk_dequeue_avg_ms=2.2,
+                    ),
+                ],
+            )
+
+            repeat_one_comparison = compare.build_comparison(
+                repeat_one_baseline / "bench_results.summary.json",
+                repeat_one_ktls / "bench_results.summary.json",
+            )
+            repeat_two_comparison = compare.build_comparison(
+                repeat_two_baseline / "bench_results.summary.json",
+                repeat_two_ktls / "bench_results.summary.json",
+            )
+
+            repeat_one_path = repeat_one / "comparison.json"
+            repeat_two_path = repeat_two / "comparison.json"
+            repeat_one_path.write_text(json.dumps(repeat_one_comparison))
+            repeat_two_path.write_text(json.dumps(repeat_two_comparison))
+
+            stability = repeat_compare.build_repeat_stability(
+                [repeat_one_path, repeat_two_path]
+            )
+
+            server_signal = next(
+                signal
+                for signal in stability["server_emission_signals"]
+                if signal["metric"] == "direct_stream_request_queue_delay_avg_ms"
+            )
+            self.assertEqual(server_signal["direction"], "kTLS higher")
+            self.assertEqual(server_signal["repeat_count"], 2)
+            self.assertAlmostEqual(server_signal["delta_ms"]["median"], 0.65)
+
+            native_signal = next(
+                signal
+                for signal in stability["native_response_stream_signals"]
+                if signal["metric"] == "headers_to_first_connection_write_avg_ms"
+            )
+            self.assertEqual(native_signal["direction"], "kTLS higher")
+            self.assertEqual(native_signal["repeat_count"], 2)
+            self.assertAlmostEqual(native_signal["delta_ms"]["median"], 0.45)
+
+            markdown = repeat_compare.render_markdown(stability)
+            self.assertIn("## Repeat Server-Emission Signals", markdown)
+            self.assertIn("## Repeat Native Response-Stream Signals", markdown)
+            self.assertIn("## Repeat Server-Emission Focus", markdown)
+            self.assertIn("## Repeat Native Response-Stream Focus", markdown)
+            self.assertIn("Request queue delay avg ms", markdown)
+            self.assertIn("Headers-to-first-write avg ms", markdown)
+            self.assertIn("+0.60 ms..+0.70 ms (median +0.65 ms)", markdown)
+            self.assertIn("+0.40 ms..+0.50 ms (median +0.45 ms)", markdown)
+
     def test_repeat_stability_marks_partial_repeats_inconclusive(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

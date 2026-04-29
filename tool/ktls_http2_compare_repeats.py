@@ -12,6 +12,7 @@ import ktls_http2_compare as compare
 THROUGHPUT_DELTA_SPAN_THRESHOLD_PCT = 25.0
 LATENCY_P95_DELTA_SPAN_THRESHOLD_PCT = 50.0
 PHASE_SIGNAL_MIN_ABS_DELTA_MS = 0.01
+FOCUS_SIGNAL_MIN_MEDIAN_ABS_DELTA_MS = 0.10
 
 PHASE_FOCUS_METRICS = (
     ("response_headers_wait_avg_ms", "Headers wait avg ms"),
@@ -33,6 +34,61 @@ PHASE_FOCUS_METRICS = (
     (
         "response_body_tail_connection_read_to_end_avg_ms",
         "Tail conn read-to-end avg ms",
+    ),
+)
+
+SERVER_EMISSION_FOCUS_METRICS = (
+    (
+        "headers_to_first_body_write_avg_ms",
+        "Headers-to-first-body avg ms",
+    ),
+    (
+        "headers_to_first_body_write_completed_avg_ms",
+        "Headers-to-first-body completed avg ms",
+    ),
+    (
+        "queue_to_first_body_write_avg_ms",
+        "Queue-to-first-body avg ms",
+    ),
+    (
+        "queue_to_first_body_write_completed_avg_ms",
+        "Queue-to-first-body completed avg ms",
+    ),
+    ("first_body_write_avg_ms", "First body write avg ms"),
+    ("first_body_write_completed_avg_ms", "First body write completed avg ms"),
+    ("first_body_write_call_avg_ms", "First body write call avg ms"),
+    (
+        "direct_stream_open_round_trip_avg_ms",
+        "Direct stream open round trip avg ms",
+    ),
+    (
+        "direct_stream_request_queue_delay_avg_ms",
+        "Request queue delay avg ms",
+    ),
+    (
+        "direct_stream_reply_delivery_delay_avg_ms",
+        "Reply delivery delay avg ms",
+    ),
+)
+
+NATIVE_RESPONSE_STREAM_FOCUS_METRICS = (
+    (
+        "stream_open_to_headers_send_avg_ms",
+        "Stream-open-to-headers avg ms",
+    ),
+    (
+        "headers_to_first_connection_write_avg_ms",
+        "Headers-to-first-write avg ms",
+    ),
+    ("first_chunk_channel_wait_avg_ms", "First chunk channel wait avg ms"),
+    (
+        "headers_to_first_chunk_dequeue_avg_ms",
+        "Headers-to-first-chunk dequeue avg ms",
+    ),
+    ("first_chunk_send_call_avg_ms", "First chunk send call avg ms"),
+    (
+        "headers_to_first_chunk_send_call_avg_ms",
+        "Headers-to-first-chunk send-call avg ms",
     ),
 )
 
@@ -128,14 +184,16 @@ def pack_worst_row(row: dict | None) -> dict | None:
     }
 
 
-def pack_phase_focus_row(row: dict | None) -> dict | None:
+def pack_focus_row(
+    row: dict | None, metric_specs: tuple[tuple[str, str], ...]
+) -> dict | None:
     if row is None:
         return None
 
     metrics = row.get("metrics") or {}
     selected_metrics = {
         key: metrics[key]
-        for key, _ in PHASE_FOCUS_METRICS
+        for key, _ in metric_specs
         if metrics.get(key) is not None
     }
     if not selected_metrics:
@@ -151,6 +209,10 @@ def pack_phase_focus_row(row: dict | None) -> dict | None:
         "native_runtime_threads": row.get("native_runtime_threads"),
         "metrics": selected_metrics,
     }
+
+
+def pack_phase_focus_row(row: dict | None) -> dict | None:
+    return pack_focus_row(row, PHASE_FOCUS_METRICS)
 
 
 def render_worst_row(row: dict | None) -> str:
@@ -189,16 +251,17 @@ def format_consensus_line(title: str, consensus: dict, repeat_count: int) -> str
     return f"- {title}: changed across repeats: {detail}."
 
 
-def build_phase_signals(runs: list[dict]) -> list[dict]:
+def build_focus_signals(
+    runs: list[dict],
+    focus_keys: tuple[str, str],
+    metric_specs: tuple[tuple[str, str], ...],
+) -> list[dict]:
     buckets: dict[tuple[str, str], dict] = {}
-    metric_labels = {key: label for key, label in PHASE_FOCUS_METRICS}
+    metric_labels = {key: label for key, label in metric_specs}
 
     for run in runs:
         seen_labels = set()
-        for key in (
-            "worst_throughput_phase_timing",
-            "worst_latency_phase_timing",
-        ):
+        for key in focus_keys:
             phase_row = run.get(key)
             if phase_row is None:
                 continue
@@ -208,7 +271,7 @@ def build_phase_signals(runs: list[dict]) -> list[dict]:
                 continue
             seen_labels.add(row_label)
 
-            for metric, _ in PHASE_FOCUS_METRICS:
+            for metric, _ in metric_specs:
                 snapshot = phase_row["metrics"].get(metric)
                 if snapshot is None:
                     continue
@@ -256,6 +319,13 @@ def build_phase_signals(runs: list[dict]) -> list[dict]:
         else:
             continue
 
+        delta_summary = numeric_summary(deltas)
+        if (
+            delta_summary is None
+            or abs(delta_summary["median"]) < FOCUS_SIGNAL_MIN_MEDIAN_ABS_DELTA_MS
+        ):
+            continue
+
         signals.append(
             {
                 "label": bucket["label"],
@@ -266,7 +336,7 @@ def build_phase_signals(runs: list[dict]) -> list[dict]:
                 "direction": direction,
                 "baseline_ms": numeric_summary(bucket["baseline_ms"]),
                 "ktls_ms": numeric_summary(bucket["ktls_ms"]),
-                "delta_ms": numeric_summary(deltas),
+                "delta_ms": delta_summary,
                 "delta_pct": numeric_summary(bucket["delta_pct"]),
             }
         )
@@ -280,6 +350,57 @@ def build_phase_signals(runs: list[dict]) -> list[dict]:
         )
     )
     return signals
+
+
+def build_phase_signals(runs: list[dict]) -> list[dict]:
+    return build_focus_signals(
+        runs,
+        (
+            "worst_throughput_phase_timing",
+            "worst_latency_phase_timing",
+        ),
+        PHASE_FOCUS_METRICS,
+    )
+
+
+def build_server_emission_signals(runs: list[dict]) -> list[dict]:
+    return build_focus_signals(
+        runs,
+        (
+            "worst_throughput_server_emission",
+            "worst_latency_server_emission",
+        ),
+        SERVER_EMISSION_FOCUS_METRICS,
+    )
+
+
+def build_native_response_stream_signals(runs: list[dict]) -> list[dict]:
+    return build_focus_signals(
+        runs,
+        (
+            "worst_throughput_native_response_stream",
+            "worst_latency_native_response_stream",
+        ),
+        NATIVE_RESPONSE_STREAM_FOCUS_METRICS,
+    )
+
+
+def collect_repeat_focus_rows(
+    runs: list[dict], focus_keys: tuple[tuple[str, str], ...]
+) -> list[tuple[str, str, dict]]:
+    focus_rows = []
+    for run in runs:
+        seen_labels = set()
+        for focus_name, key in focus_keys:
+            focus_row = run.get(key)
+            if focus_row is None:
+                continue
+            label_key = focus_row["label"]
+            if label_key in seen_labels:
+                continue
+            seen_labels.add(label_key)
+            focus_rows.append((run["repeat_label"], focus_name, focus_row))
+    return focus_rows
 
 
 def build_repeat_labels(paths: list[Path]) -> list[str]:
@@ -318,6 +439,10 @@ def build_repeat_stability(comparison_paths: list[Path]) -> dict:
         throughput = summary.get("throughput")
         latency = summary.get("latency_p95")
         phase_timing_focus = summary.get("phase_timing_focus") or {}
+        server_emission_focus = summary.get("server_emission_focus") or {}
+        native_response_stream_focus = (
+            summary.get("native_response_stream_focus") or {}
+        )
         comparable_rows = int(summary.get("comparable_rows") or 0)
         baseline_only_rows = int(summary.get("baseline_only_rows") or 0)
         ktls_only_rows = int(summary.get("ktls_only_rows") or 0)
@@ -352,6 +477,22 @@ def build_repeat_stability(comparison_paths: list[Path]) -> dict:
                 ),
                 "worst_latency_phase_timing": pack_phase_focus_row(
                     phase_timing_focus.get("worst_latency_row")
+                ),
+                "worst_throughput_server_emission": pack_focus_row(
+                    server_emission_focus.get("worst_throughput_row"),
+                    SERVER_EMISSION_FOCUS_METRICS,
+                ),
+                "worst_latency_server_emission": pack_focus_row(
+                    server_emission_focus.get("worst_latency_row"),
+                    SERVER_EMISSION_FOCUS_METRICS,
+                ),
+                "worst_throughput_native_response_stream": pack_focus_row(
+                    native_response_stream_focus.get("worst_throughput_row"),
+                    NATIVE_RESPONSE_STREAM_FOCUS_METRICS,
+                ),
+                "worst_latency_native_response_stream": pack_focus_row(
+                    native_response_stream_focus.get("worst_latency_row"),
+                    NATIVE_RESPONSE_STREAM_FOCUS_METRICS,
                 ),
             }
         )
@@ -500,6 +641,8 @@ def build_repeat_stability(comparison_paths: list[Path]) -> dict:
         "max_throughput_span_row": max_throughput_span_row,
         "max_latency_p95_span_row": max_latency_p95_span_row,
         "phase_signals": build_phase_signals(runs),
+        "server_emission_signals": build_server_emission_signals(runs),
+        "native_response_stream_signals": build_native_response_stream_signals(runs),
         "runs": runs,
         "row_stability": row_stability,
     }
@@ -508,6 +651,11 @@ def build_repeat_stability(comparison_paths: list[Path]) -> dict:
 def render_markdown(stability: dict) -> str:
     repeat_count = stability["repeat_count"]
     thresholds = stability["stability_thresholds"]
+    phase_signals = stability.get("phase_signals") or []
+    server_emission_signals = stability.get("server_emission_signals") or []
+    native_response_stream_signals = (
+        stability.get("native_response_stream_signals") or []
+    )
     lines = [
         "# HTTP/2 TLS vs kTLS Repeat Stability",
         "",
@@ -532,7 +680,6 @@ def render_markdown(stability: dict) -> str:
         ),
     ]
 
-    phase_signals = stability.get("phase_signals") or []
     if phase_signals:
         lines.append(
             "- Repeat phase signals: "
@@ -540,6 +687,24 @@ def render_markdown(stability: dict) -> str:
         )
     else:
         lines.append("- Repeat phase signals: none across repeated focus rows.")
+
+    if server_emission_signals:
+        lines.append(
+            "- Repeat server-emission signals: "
+            f"{len(server_emission_signals)} sign-consistent server deltas across repeated focus rows."
+        )
+    else:
+        lines.append("- Repeat server-emission signals: none across repeated focus rows.")
+
+    if native_response_stream_signals:
+        lines.append(
+            "- Repeat native response-stream signals: "
+            f"{len(native_response_stream_signals)} sign-consistent native stream deltas across repeated focus rows."
+        )
+    else:
+        lines.append(
+            "- Repeat native response-stream signals: none across repeated focus rows."
+        )
 
     incomplete_runs = [
         run for run in stability["runs"] if not run["comparison_complete"]
@@ -652,83 +817,118 @@ def render_markdown(stability: dict) -> str:
             )
         )
 
-    lines.extend(
-        [
-            "",
-            "## Repeat Phase Signals",
-            "",
-            "| Row | Metric | Repeats | Direction | Baseline range | kTLS range | Delta range |",
-            "| --- | --- | ---: | --- | --- | --- | --- |",
-        ]
+    def append_signal_table(title: str, signals: list[dict]) -> None:
+        lines.extend(
+            [
+                "",
+                title,
+                "",
+                "| Row | Metric | Repeats | Direction | Baseline range | kTLS range | Delta range |",
+                "| --- | --- | ---: | --- | --- | --- | --- |",
+            ]
+        )
+
+        if signals:
+            for signal in signals:
+                lines.append(
+                    "| {row} | {metric} | {repeats} | {direction} | {baseline} | {ktls} | {delta} |".format(
+                        row=signal["label"],
+                        metric=signal["metric_label"],
+                        repeats=signal["repeat_count"],
+                        direction=signal["direction"],
+                        baseline=render_range(signal["baseline_ms"], " ms"),
+                        ktls=render_range(signal["ktls_ms"], " ms"),
+                        delta=render_signed_range(signal["delta_ms"], " ms"),
+                    )
+                )
+        else:
+            lines.append("| None | n/a | n/a | n/a | n/a | n/a | n/a |")
+
+    append_signal_table("## Repeat Phase Signals", phase_signals)
+    append_signal_table("## Repeat Server-Emission Signals", server_emission_signals)
+    append_signal_table(
+        "## Repeat Native Response-Stream Signals",
+        native_response_stream_signals,
     )
 
-    if phase_signals:
-        for signal in phase_signals:
-            lines.append(
-                "| {row} | {metric} | {repeats} | {direction} | {baseline} | {ktls} | {delta} |".format(
-                    row=signal["label"],
-                    metric=signal["metric_label"],
-                    repeats=signal["repeat_count"],
-                    direction=signal["direction"],
-                    baseline=render_range(signal["baseline_ms"], " ms"),
-                    ktls=render_range(signal["ktls_ms"], " ms"),
-                    delta=render_signed_range(signal["delta_ms"], " ms"),
-                )
-            )
-    else:
-        lines.append("| None | n/a | n/a | n/a | n/a | n/a | n/a |")
+    def append_focus_table(
+        title: str,
+        metric_specs: tuple[tuple[str, str], ...],
+        focus_rows: list[tuple[str, str, dict]],
+    ) -> None:
+        lines.extend(
+            [
+                "",
+                title,
+                "",
+                "| Repeat | Focus | Row | "
+                + " | ".join(label for _, label in metric_specs)
+                + " |",
+                "| --- | --- | --- | "
+                + " | ".join("---:" for _ in metric_specs)
+                + " |",
+            ]
+        )
 
-    phase_focus_rows = []
-    for run in stability["runs"]:
-        seen_labels = set()
-        for focus_name, key in (
+        if focus_rows:
+            for repeat_label, focus_name, focus_row in focus_rows:
+                metrics = focus_row["metrics"]
+                rendered_metrics = [
+                    compare.render_connection_metric_snapshot(metrics.get(key))
+                    for key, _ in metric_specs
+                ]
+                lines.append(
+                    "| {repeat} | {focus} | {row} | {metrics} |".format(
+                        repeat=repeat_label,
+                        focus=focus_name,
+                        row=focus_row["label"],
+                        metrics=" | ".join(rendered_metrics),
+                    )
+                )
+        else:
+            lines.append(
+                "| None | n/a | n/a | "
+                + " | ".join("n/a" for _ in metric_specs)
+                + " |"
+            )
+
+    phase_focus_rows = collect_repeat_focus_rows(
+        stability["runs"],
+        (
             ("Worst throughput", "worst_throughput_phase_timing"),
             ("Worst p95", "worst_latency_phase_timing"),
-        ):
-            phase_row = run.get(key)
-            if phase_row is None:
-                continue
-            label_key = phase_row["label"]
-            if label_key in seen_labels:
-                continue
-            seen_labels.add(label_key)
-            phase_focus_rows.append((run["repeat_label"], focus_name, phase_row))
-
-    lines.extend(
-        [
-            "",
-            "## Repeat Phase-Timing Focus",
-            "",
-            "| Repeat | Focus | Row | "
-            + " | ".join(label for _, label in PHASE_FOCUS_METRICS)
-            + " |",
-            "| --- | --- | --- | "
-            + " | ".join("---:" for _ in PHASE_FOCUS_METRICS)
-            + " |",
-        ]
+        ),
+    )
+    server_emission_focus_rows = collect_repeat_focus_rows(
+        stability["runs"],
+        (
+            ("Worst throughput", "worst_throughput_server_emission"),
+            ("Worst p95", "worst_latency_server_emission"),
+        ),
+    )
+    native_response_stream_focus_rows = collect_repeat_focus_rows(
+        stability["runs"],
+        (
+            ("Worst throughput", "worst_throughput_native_response_stream"),
+            ("Worst p95", "worst_latency_native_response_stream"),
+        ),
     )
 
-    if phase_focus_rows:
-        for repeat_label, focus_name, phase_row in phase_focus_rows:
-            metrics = phase_row["metrics"]
-            rendered_metrics = [
-                compare.render_connection_metric_snapshot(metrics.get(key))
-                for key, _ in PHASE_FOCUS_METRICS
-            ]
-            lines.append(
-                "| {repeat} | {focus} | {row} | {metrics} |".format(
-                    repeat=repeat_label,
-                    focus=focus_name,
-                    row=phase_row["label"],
-                    metrics=" | ".join(rendered_metrics),
-                )
-            )
-    else:
-        lines.append(
-            "| None | n/a | n/a | "
-            + " | ".join("n/a" for _ in PHASE_FOCUS_METRICS)
-            + " |"
-        )
+    append_focus_table(
+        "## Repeat Phase-Timing Focus",
+        PHASE_FOCUS_METRICS,
+        phase_focus_rows,
+    )
+    append_focus_table(
+        "## Repeat Server-Emission Focus",
+        SERVER_EMISSION_FOCUS_METRICS,
+        server_emission_focus_rows,
+    )
+    append_focus_table(
+        "## Repeat Native Response-Stream Focus",
+        NATIVE_RESPONSE_STREAM_FOCUS_METRICS,
+        native_response_stream_focus_rows,
+    )
 
     lines.extend(
         [

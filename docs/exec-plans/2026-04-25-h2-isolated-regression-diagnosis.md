@@ -289,6 +289,52 @@ decisions.
     comparable, baseline-only, and kTLS-only row counts
 - Commit `f85c70e` (`bench: mark partial repeats inconclusive`) passed hosted
   GitHub `CI` run `25128558792`.
+- Documentation checkpoint `7878467`
+  (`docs: record partial repeat reporter ci`) passed hosted GitHub `CI` run
+  `25129245463`.
+- Manual hosted rerun `25129905513` retried the isolated `s1`, `threads=4`,
+  one-router-worker workload on clean head `7878467` with
+  `repeat_order=alternating`.
+- That rerun completed successfully with matched baseline/kTLS rows in all
+  three repeats, but was not decision-quality:
+  - throughput delta span was `57.64pp`
+  - p95 delta span was `1390.49pp`
+  - worst throughput and p95 rows stayed stable at
+    `h2_multiplexed_streams_s1 (workers=1, threads=4)`
+  - the spread source was kTLS-side for both throughput and p95
+  - repeat 02 had a severe kTLS p95 outlier, and the hosted log contained one
+    `http/2 accept error ... broken pipe` line around a completed warm-up path
+- Rerendering `25129905513` with the current repeat reporter keeps the result
+  inconclusive but materially narrows the signal:
+  - client phase signals are kTLS-higher across all three repeats for header
+    last-write-to-first-read, headers wait, body read, tail read, tail
+    connection read-to-end, and tail connection read-wait timing
+  - server-emission signals have no material sign-consistent repeated deltas
+    after a `0.10 ms` median filter
+  - native response-stream signals have no material sign-consistent repeated
+    deltas
+  - the per-repeat server-emission focus table still exposes the repeat-02
+    server/direct-stream outlier without promoting it to a stable signal
+- The repeat reporter now separates repeated focus signals by source:
+  - `## Repeat Phase Signals` remains the client-side phase signal table
+  - new `## Repeat Server-Emission Signals` and
+    `## Repeat Native Response-Stream Signals` tables show material
+    sign-consistent server/native deltas only
+  - new `## Repeat Server-Emission Focus` and
+    `## Repeat Native Response-Stream Focus` tables keep per-repeat outliers
+    visible even when they are not stable repeated signals
+- The first full local `bin/verify` rerun exposed a separate CI-clean blocker:
+  - `http3_multiple_connections_handshake` timed out after the runtime logged
+    `failed to start http3 listener ... Address already in use`
+  - the root cause is the HTTP/3 FFI tests binding TCP on port `0` and then
+    assuming QUIC/UDP can always bind the same numeric ephemeral port
+  - on macOS that TCP-selected port can already be occupied for UDP, so this
+    is a real test harness race rather than a reporter regression
+- The HTTP/3 FFI network tests now use the split listener API explicitly:
+  - test router configs set `http3.port: 0` so QUIC gets its own ephemeral UDP
+    port
+  - clients connect through `ct_listener_http3_port`
+  - the normal TCP local port remains covered by the non-HTTP/3 listener tests
 
 ## Current Verification
 
@@ -349,13 +395,31 @@ decisions.
   - `bin/verify`
   - hosted GitHub `CI` run `25128558792` completed successfully on `f85c70e`;
     `Fast Checks` completed in 5m32s and `Full Verify` completed in 8m06s
+- Current repeat server/native signal verification:
+  - hosted GitHub `CI` run `25129245463` completed successfully on `7878467`;
+    `Fast Checks` completed in 5m34s and `Full Verify` completed in 8m15s
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25129905513` completed
+    successfully on `7878467` and produced complete but non-decision-quality
+    repeat evidence
+  - `bin/test-fast`
+  - `python3 -m py_compile tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`
+  - `python3 tool/test_ktls_http2_compare.py`
+  - rerendered the `25129905513` repeat artifact with
+    `tool/ktls_http2_compare_repeats.py`; it now reports six material client
+    phase signals and no material repeated server/native stream signals
+  - first full local `bin/verify` attempt failed in
+    `http3_multiple_connections_handshake` because the test assumed TCP and
+    QUIC could share a TCP-selected ephemeral port on macOS
+  - `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi http3_multiple_connections_handshake -- --nocapture`
+  - `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi`
+  - `bin/verify`
 
 ## Next Step
 
-After the partial-repeat reporter fix is verified and pushed, rerun the same
-isolated hosted `s1` workload with `repeat_order=alternating`. Use the next
-completed decision-quality run to decide whether the stable throughput loss is
-mostly waiting for connection reads after first chunk or processing/draining
-after those reads. If the run is still non-decision-quality but complete, use
-the `## Repeat Phase Signals` table to classify which phase deltas remain
-sign-consistent across repeats before adding any more instrumentation.
+After the server/native signal reporter change is verified and pushed, watch
+the hosted branch `CI` run. Then rerun the same isolated hosted `s1` workload
+with `repeat_order=alternating` so the hosted artifact contains the split
+client/server/native signal tables. If it remains complete but
+non-decision-quality and still shows material repeated client-phase deltas
+without material repeated server/native deltas, inspect the H2 client tail-read
+path before adding the next bounded metric.

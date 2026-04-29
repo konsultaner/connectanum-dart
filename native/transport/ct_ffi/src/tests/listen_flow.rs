@@ -57,13 +57,14 @@ use crate::runtime::ffi::{
     ct_http_connection_event_get, ct_http_connection_event_release, ct_http_handshake_body_retain,
     ct_http_handshake_get, ct_http_handshake_header, ct_http_handshake_release,
     ct_http_response_send, ct_http_response_stream_finish, ct_http_response_stream_open,
-    ct_http_response_stream_write, ct_listen, ct_listener_close, ct_message_get, ct_message_peek,
-    ct_message_release, ct_poll_connection, ct_poll_connection_message, ct_send_message,
-    ct_set_on_connection, ct_set_on_listener_started, ct_shutdown, ct_start_runtime,
-    ct_wait_connection_message, ct_websocket_handshake_extension, ct_websocket_handshake_get,
-    ct_websocket_handshake_protocol, ct_websocket_handshake_release, CtHttp2HandshakeInfo,
-    CtHttp3HandshakeInfo, CtHttpBodyView, CtHttpConnectionEventInfo, CtHttpHandshakeInfo,
-    CtHttpHeader, CtMessageInfo, CtStringView, CtWebSocketHandshakeInfo,
+    ct_http_response_stream_write, ct_listen, ct_listener_close, ct_listener_http3_port,
+    ct_message_get, ct_message_peek, ct_message_release, ct_poll_connection,
+    ct_poll_connection_message, ct_send_message, ct_set_on_connection,
+    ct_set_on_listener_started, ct_shutdown, ct_start_runtime, ct_wait_connection_message,
+    ct_websocket_handshake_extension, ct_websocket_handshake_get, ct_websocket_handshake_protocol,
+    ct_websocket_handshake_release, CtHttp2HandshakeInfo, CtHttp3HandshakeInfo, CtHttpBodyView,
+    CtHttpConnectionEventInfo, CtHttpHandshakeInfo, CtHttpHeader, CtMessageInfo, CtStringView,
+    CtWebSocketHandshakeInfo,
 };
 use crate::runtime::store_http_body;
 
@@ -95,6 +96,12 @@ fn wait_for_connection(listener_id: i32) -> i32 {
         }
         std::thread::sleep(Duration::from_millis(10));
     }
+}
+
+fn require_http3_port(listener_id: i32) -> i32 {
+    let port = ct_listener_http3_port(listener_id);
+    assert!(port > 0, "HTTP/3 listener did not start: {port}");
+    port
 }
 
 fn wait_for_message_handle(connection_id: i32) -> i32 {
@@ -2376,7 +2383,7 @@ fn http3_handshake_surfaced_via_ffi() {
                 ],
                 "http":{
                     "alpn":["http/1.1","h2","h3"],
-                    "http3":{"enabled":true}
+                    "http3":{"enabled":true,"port":0}
                 },
                 "http_routes":[
                     {
@@ -2406,8 +2413,7 @@ fn http3_handshake_surfaced_via_ffi() {
     let listener_id = ct_listen(addr.as_ptr(), 0, 128);
     assert!(listener_id > 0);
 
-    let port = ct_get_local_port(listener_id);
-    assert!(port > 0);
+    let port = require_http3_port(listener_id);
 
     let rt = TokioRuntime::new().unwrap();
     rt.block_on(async move {
@@ -2512,7 +2518,7 @@ fn http3_multiple_connections_handshake() {
                 ],
                 "http":{
                     "alpn":["h3","h2","http/1.1"],
-                    "http3":{"enabled":true}
+                    "http3":{"enabled":true,"port":0}
                 }
             }
         ]
@@ -2530,8 +2536,7 @@ fn http3_multiple_connections_handshake() {
     let listener_id = ct_listen(addr.as_ptr(), 0, 128);
     assert!(listener_id > 0);
 
-    let port = ct_get_local_port(listener_id);
-    assert!(port > 0);
+    let port = require_http3_port(listener_id);
 
     let connection_count = 5usize;
     let rt = TokioRuntime::new().unwrap();
@@ -2599,7 +2604,7 @@ fn http3_stream_poll_returns_handle() {
                 ],
                 "http":{
                     "alpn":["http/1.1","h2","h3"],
-                    "http3":{"enabled":true},
+                    "http3":{"enabled":true,"port":0},
                     "routes":[
                         {
                             "match":{"path":"/metrics"},
@@ -2627,8 +2632,7 @@ fn http3_stream_poll_returns_handle() {
     let listener_id = ct_listen(addr.as_ptr(), 0, 128);
     assert!(listener_id > 0);
 
-    let port = ct_get_local_port(listener_id);
-    assert!(port > 0);
+    let port = require_http3_port(listener_id);
 
     let rt = TokioRuntime::new().unwrap();
     rt.block_on(async move {
@@ -2714,7 +2718,7 @@ fn http3_request_poll_returns_metadata() {
                 ],
                 "http":{
                     "alpn":["http/1.1","h2","h3"],
-                    "http3":{"enabled":true}
+                    "http3":{"enabled":true,"port":0}
                 },
                 "http_routes":[
                     {
@@ -2837,7 +2841,7 @@ fn http3_request_round_trip_over_network() {
                 ],
                 "http":{
                     "alpn":["http/1.1","h2","h3"],
-                    "http3":{"enabled":true}
+                    "http3":{"enabled":true,"port":0}
                 },
                 "http_routes":[
                     {
@@ -2867,8 +2871,7 @@ fn http3_request_round_trip_over_network() {
     let listener_id = ct_listen(addr.as_ptr(), 0, 128);
     assert!(listener_id > 0);
 
-    let port = ct_get_local_port(listener_id);
-    assert!(port > 0);
+    let port = require_http3_port(listener_id);
 
     let (ready_tx, ready_rx) = std::sync::mpsc::channel();
     let client_handle = std::thread::spawn(move || {
@@ -3006,7 +3009,7 @@ fn http3_transport_auth_rejects_bearerless_route() {
                 ],
                 "http":{
                     "alpn":["http/1.1","h2","h3"],
-                    "http3":{"enabled":true}
+                    "http3":{"enabled":true,"port":0}
                 },
                 "http_routes":[
                     {
@@ -3037,8 +3040,7 @@ fn http3_transport_auth_rejects_bearerless_route() {
     let listener_id = ct_listen(addr.as_ptr(), 0, 128);
     assert!(listener_id > 0);
 
-    let port = ct_get_local_port(listener_id);
-    assert!(port > 0);
+    let port = require_http3_port(listener_id);
 
     let client_handle = std::thread::spawn(move || {
         let rt = TokioRuntime::new().unwrap();
@@ -3117,7 +3119,7 @@ fn http3_response_streaming_round_trip() {
                 ],
                 "http":{
                     "alpn":["http/1.1","h2","h3"],
-                    "http3":{"enabled":true}
+                    "http3":{"enabled":true,"port":0}
                 },
                 "http_routes":[
                     {
@@ -3147,8 +3149,7 @@ fn http3_response_streaming_round_trip() {
     let listener_id = ct_listen(addr.as_ptr(), 0, 128);
     assert!(listener_id > 0);
 
-    let port = ct_get_local_port(listener_id);
-    assert!(port > 0);
+    let port = require_http3_port(listener_id);
 
     let (ready_tx, ready_rx) = std::sync::mpsc::channel();
     let chunk = vec![b'r'; 24 * 1024];
@@ -3503,7 +3504,7 @@ fn http3_body_timeout_emits_connection_event() {
                 ],
                 "http":{
                     "alpn":["http/1.1","h2","h3"],
-                    "http3":{"enabled":true}
+                    "http3":{"enabled":true,"port":0}
                 },
                 "http_routes":[
                     {
@@ -3533,8 +3534,7 @@ fn http3_body_timeout_emits_connection_event() {
     let listener_id = ct_listen(addr.as_ptr(), 0, 128);
     assert!(listener_id > 0);
 
-    let port = ct_get_local_port(listener_id);
-    assert!(port > 0);
+    let port = require_http3_port(listener_id);
 
     let (ready_tx, ready_rx) = std::sync::mpsc::channel();
     let client_handle = std::thread::spawn(move || {
@@ -3639,7 +3639,7 @@ fn http3_idle_timeout_emits_connection_event() {
                 ],
                 "http":{
                     "alpn":["http/1.1","h2","h3"],
-                    "http3":{"enabled":true}
+                    "http3":{"enabled":true,"port":0}
                 },
                 "http_routes":[
                     {
@@ -3669,8 +3669,7 @@ fn http3_idle_timeout_emits_connection_event() {
     let listener_id = ct_listen(addr.as_ptr(), 0, 128);
     assert!(listener_id > 0);
 
-    let port = ct_get_local_port(listener_id);
-    assert!(port > 0);
+    let port = require_http3_port(listener_id);
 
     let (ready_tx, ready_rx) = std::sync::mpsc::channel();
     let client_handle = std::thread::spawn(move || {

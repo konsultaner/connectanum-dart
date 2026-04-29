@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `f85c70e` (`bench: mark partial repeats inconclusive`)
+Last reviewed commit: `7878467` (`docs: record partial repeat reporter ci`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -13,9 +13,9 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     decisions: branch protection mutation, default-branch router image
     promotion/GHCR publication, RC tag/prerelease selection, and Dart package
     public ownership/release order
-  - latest pushed branch head `f85c70e` passed hosted GitHub `CI` run
-    `25128558792`; `Fast Checks` completed successfully in 5m32s and
-    `Full Verify` completed successfully in 8m06s
+  - latest pushed branch head `7878467` passed hosted GitHub `CI` run
+    `25129245463`; `Fast Checks` completed successfully in 5m34s and
+    `Full Verify` completed successfully in 8m15s
   - latest branch-head deployment audit passed with clean main `CI` jobs,
     clean hosted `CI` logs, clean hosted Dart package publish dry-run
     evidence, and clean native release dry-run evidence
@@ -66,6 +66,40 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
   - commit `f85c70e` (`bench: mark partial repeats inconclusive`) passed
     hosted GitHub `CI` run `25128558792`; `Fast Checks` completed
     successfully in 5m32s and `Full Verify` completed successfully in 8m06s
+  - documentation checkpoint `7878467`
+    (`docs: record partial repeat reporter ci`) passed hosted GitHub `CI` run
+    `25129245463`; `Fast Checks` completed successfully in 5m34s and
+    `Full Verify` completed successfully in 8m15s
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25129905513` on `7878467`
+    completed successfully with matched rows in all three alternating repeats,
+    but was not decision-quality because throughput delta span was `57.64pp`
+    and p95 delta span was `1390.49pp`
+  - rerendering that artifact with the current repeat reporter shows six
+    material sign-consistent client phase deltas across all three repeats:
+    kTLS-higher header last-write-to-first-read, headers wait, body read,
+    tail read, tail connection read-to-end, and tail connection read-wait
+    timing
+  - the same rerender shows no material sign-consistent server-emission or
+    native response-stream deltas, while the per-repeat server-emission focus
+    table still exposes the repeat-02 direct-stream/server-side outlier
+  - current local reporter checks passed:
+    `bin/test-fast`,
+    `python3 -m py_compile tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`, and rerendering the
+    `25129905513` repeat artifact with `tool/ktls_http2_compare_repeats.py`
+  - the first full local `bin/verify` rerun exposed an existing macOS HTTP/3
+    FFI test race where the TCP listener's ephemeral port could already be in
+    use for UDP, so the QUIC listener silently failed and
+    `http3_multiple_connections_handshake` timed out
+  - HTTP/3 FFI network tests now configure a dedicated `http3.port: 0` and use
+    `ct_listener_http3_port`, which exercises the intended split TCP/UDP
+    listener API instead of assuming the TCP and QUIC listeners can always
+    share the same ephemeral port number
+  - focused local checks for that CI-clean fix passed:
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi http3_multiple_connections_handshake -- --nocapture`
+    and `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi`
+  - full local `bin/verify` passed after the repeat reporter update and HTTP/3
+    FFI test port-race fix on 2026-04-29
 - Current deployment-chain evidence refresh:
   - commit `b338d58` (`docs: record current deployment evidence`) passed
     hosted GitHub `CI` run `25123037462`; `Fast Checks` completed
