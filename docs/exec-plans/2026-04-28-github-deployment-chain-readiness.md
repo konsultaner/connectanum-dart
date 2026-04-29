@@ -412,6 +412,16 @@ operator evidence over speculative feature or benchmark work.
   - final local `bin/verify` passed, including full router coverage,
     `remote_auth_integration_test`, bench WAMP transport coverage, and Chrome
     Dart2Wasm browser websocket coverage
+- Completed hosted validation for the router package audit-gate slice:
+  - commit `c061ae3` (`ci: gate router package visibility audit`) passed
+    GitHub `CI` run `25092705443`
+  - `Fast Checks` completed successfully in 5m38s
+  - `Full Verify` completed successfully in 7m55s
+  - the clean-CI audit passed against `c061ae3`, confirming no skipped,
+    pending, failed, missing, or unexpected main `CI` jobs
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, skipped jobs, or errors; remaining matches
+    were a passing bcrypt negative-auth test name and Rust `0 failed` summaries
 
 ## Verification
 

@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `a6b3414` (`docs: refresh github deployment evidence`)
+Last reviewed commit: `c061ae3` (`ci: gate router package visibility audit`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -17,6 +17,15 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     tests, bench WAMP transport coverage, full router tests,
     `remote_auth_integration_test`, and the Chrome Dart2Wasm browser websocket
     test
+  - hosted GitHub `CI` run `25092705443` passed on `c061ae3`:
+    `Fast Checks` completed successfully in 5m38s and `Full Verify` completed
+    successfully in 7m55s
+  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 4 --require-clean-latest-ci`
+    passed against `c061ae3`, confirming no skipped, pending, failed, missing,
+    or unexpected main `CI` jobs
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, skipped jobs, or errors; remaining matches
+    were a passing bcrypt negative-auth test name and Rust `0 failed` summaries
   - `bin/audit-github-deployment-chain` now has an explicit
     `--require-router-package` gate so GHCR router package visibility can fail
     independently from clean CI and branch-protection policy checks
