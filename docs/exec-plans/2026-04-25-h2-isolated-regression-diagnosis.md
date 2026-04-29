@@ -479,6 +479,33 @@ decisions.
   - `kTLS Validation` `25138760315`
   - `WAMP Profile Benchmarks` `25138760280`
   - the branch-head deployment audit and hosted CI log scan are clean
+- Documentation checkpoint `d40543a` (`docs: record h2 yield gating evidence`)
+  passed hosted GitHub `CI` run `25139453507`, and the branch-head deployment
+  audit/log scan remained clean.
+- Manual hosted rerun `25139865949` reran isolated `s1`, `threads=4`, one
+  router worker on `d40543a` with `repeat_order=alternating`.
+- That post-yield-gate run completed with matched rows in all three repeats,
+  but it was not decision-quality:
+  - throughput delta span narrowed to `24.53pp`
+  - p95 delta span remained kTLS-side and far above threshold at `1640.36pp`
+  - worst throughput and p95 rows stayed stable at
+    `h2_multiplexed_streams_s1 (workers=1, threads=4)`
+- Compared with pre-fix run `25138038502`, the native response-stream tail
+  signal improved but did not collapse:
+  - tail chunk channel wait moved from `+0.26..+0.28 ms` to
+    `+0.14..+0.17 ms`
+  - first-to-last chunk send span moved from `+0.18..+0.20 ms` to
+    `+0.11..+0.16 ms`
+- The same post-fix run exposed repeated server-emission signals that were
+  absent before the yield-gate change:
+  - first body write was kTLS-higher by `+1.96..+4.16 ms`
+  - first body write completed was kTLS-higher by `+1.95..+4.14 ms`
+- Current interpretation:
+  - the unconditional single-stream first-body yield contributed to native
+    tail-send delay
+  - it was not the whole regression
+  - the next bounded target is native HTTP/2 server-side first-body write
+    scheduling/backpressure under kTLS
 
 ## Current Verification
 
@@ -640,15 +667,20 @@ decisions.
     successfully on `86c914e`
   - deployment-chain audit with `--require-clean-latest-ci` and
     `--require-clean-latest-ci-logs` passed against `86c914e`
+  - hosted GitHub `CI` run `25139453507` completed successfully on `d40543a`;
+    `Fast Checks` completed in 5m38s and `Full Verify` completed in 7m12s
+  - deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `d40543a`
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25139865949` completed
+    successfully on `d40543a`; the hosted log scan only matched the expected
+    manual artifact-gate skip notices and the Rust toolchain timeout-reference
+    URL
 
 ## Next Step
 
-Rerun the isolated hosted `s1`, `threads=4`, one-router-worker benchmark on
-`86c914e` with `repeat_order=alternating` so the next artifact tests whether
-removing the single-stream first-body yield collapses the native tail chunk
-channel-wait and first-to-last-send signal. If those native response-stream
-signals remain, inspect deeper native HTTP/2 streaming response scheduling and
-backpressure before returning to client socket/TLS read delivery. If they
-collapse while throughput improves, treat the unconditional single-stream yield
-as causal and decide whether the same condition should be reused in any
-adjacent HTTP/2 response scheduling paths.
+Inspect native HTTP/2 server-side first-body write scheduling/backpressure
+under kTLS. The next slice should explain why `first_body_write_avg_ms` and
+`first_body_write_completed_avg_ms` are kTLS-higher in all three post-yield
+repeats while native tail-send deltas are smaller but still sign-consistent.
+Prefer a narrow metric split or unit-level repro around first body write
+enqueue/dequeue/send-call timing before changing scheduling again.

@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `86c914e` (`perf: avoid h2 single-stream body yield`)
+Last reviewed commit: `d40543a` (`docs: record h2 yield gating evidence`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -265,6 +265,28 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     `86c914e`; manual raw log scans for the `CI`, `kTLS Validation`, and
     `WAMP Profile Benchmarks` runs only matched benign timeout-reference
     text, passing test names, and WAMP timeout configuration lines
+  - documentation checkpoint `d40543a`
+    (`docs: record h2 yield gating evidence`) passed hosted GitHub `CI` run
+    `25139453507`; `Fast Checks` completed in 5m38s, `Full Verify`
+    completed in 7m12s, and the branch-head deployment-chain audit/log scan
+    passed against `d40543a`
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25139865949` completed
+    successfully on `d40543a` in 5m29s with the same isolated `s1`,
+    `threads=4`, one-router-worker, alternating repeat settings after the
+    single-stream first-body yield gate landed
+  - `25139865949` was complete but not decision-quality: throughput delta span
+    narrowed to `24.53pp`, but p95 delta span remained kTLS-side and far above
+    threshold at `1640.36pp`; all repeats produced matched rows
+  - the first-body yield gate materially reduced, but did not remove, the
+    repeated native response-stream tail signal: tail chunk channel wait moved
+    from pre-fix `+0.26..+0.28 ms` to `+0.14..+0.17 ms`, and first-to-last
+    chunk send moved from pre-fix `+0.18..+0.20 ms` to `+0.11..+0.16 ms`
+  - the same post-fix run exposed two repeated server-emission signals that
+    were previously absent: first body write was kTLS-higher by
+    `+1.96..+4.16 ms`, and first body write completed was kTLS-higher by
+    `+1.95..+4.14 ms`; the next diagnosis target is therefore HTTP/2 native
+    server-side first-body write scheduling/backpressure under kTLS, before
+    returning to client socket/TLS read delivery
 - Current deployment-chain evidence refresh:
   - commit `b338d58` (`docs: record current deployment evidence`) passed
     hosted GitHub `CI` run `25123037462`; `Fast Checks` completed
