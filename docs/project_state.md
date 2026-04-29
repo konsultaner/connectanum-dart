@@ -2,11 +2,32 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `a67b86d` (`ci: audit dart package publish workflow`)
+Last reviewed commit: `f946e18` (`docs: record dart package workflow audit ci`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
 
+- Current router image attestation hardening:
+  - documentation checkpoint `f946e18`
+    (`docs: record dart package workflow audit ci`) passed hosted GitHub `CI`
+    run `25110768881`; `Fast Checks` and `Full Verify` completed successfully
+  - latest clean branch-head audit/log/package-dry-run scan passed against
+    `f946e18` with no skipped, pending, failed, missing, or unexpected main
+    `CI` jobs, no high-signal warning, deprecation, skipped-test, rawsocket
+    reset, or connection-noise log matches, and clean/relevant hosted
+    `Dart Package Publish Dry Run` evidence
+  - pre-change `bin/test-fast` passed locally on 2026-04-29
+  - `.github/workflows/router-image.yml` now consumes explicit router image
+    provenance/SBOM metadata: publish builds request `provenance=mode=max`
+    and `sbom=true`; dry-runs keep both disabled because cache-only outputs do
+    not create registry image attestations
+  - `tool/render_router_image_metadata.py` renders those attestation settings
+    into GitHub outputs and step summaries with focused unit coverage
+  - focused local checks passed: Python compile/unit tests for the metadata
+    tool, workflow YAML parsing, dry-run metadata render, publish metadata
+    render, the expected manual publish rejection smoke, and `git diff --check`
+  - full local `bin/verify` passed after the workflow, metadata helper, tests,
+    and documentation updates on 2026-04-29
 - Current Dart package hosted dry-run audit hardening:
   - commit `a67b86d` (`ci: audit dart package publish workflow`) passed
     hosted GitHub `CI` run `25109971104`; `Fast Checks` completed
@@ -30,7 +51,7 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     archive validation is audited separately from main `CI`
   - the Dart package hosted dry-run gate accepts the latest successful
     `Dart Package Publish Dry Run` run `25107394513` on `700ea74` for current
-    checked-out head `a67b86d` because no package-publish-sensitive inputs
+    checked-out head `f946e18` because no package-publish-sensitive inputs
     changed between those commits
   - `--show-rc-readiness` now includes the hosted Dart package dry-run gate in
     addition to clean main CI/logs and the strict local Dart package dry-run

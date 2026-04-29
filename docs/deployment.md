@@ -22,6 +22,9 @@ artifact on GitHub's default branch:
     metadata without pushing to GHCR
   - manual publishes require `dry_run=false` and `publish_approval` set exactly
     to the primary image tag
+  - publish builds request max-level provenance and SBOM attestations; dry-runs
+    disable image attestations because cache-only outputs do not create
+    registry image attestations
 
 Current release status: GitHub does not yet expose the router image workflow on
 the default branch, and `ghcr.io/konsultaner/connectanum-router` is not visible

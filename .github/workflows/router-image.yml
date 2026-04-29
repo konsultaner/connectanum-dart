@@ -70,5 +70,7 @@ jobs:
           outputs: ${{ steps.meta.outputs.outputs }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          provenance: ${{ steps.meta.outputs.provenance }}
+          sbom: ${{ steps.meta.outputs.sbom }}
           cache-from: type=gha,scope=router-image
           cache-to: type=gha,mode=max,scope=router-image

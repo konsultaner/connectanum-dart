@@ -26,6 +26,8 @@ class RouterImageMetadataTest(unittest.TestCase):
 
         self.assertTrue(result.publish)
         self.assertEqual(result.mode, "publish")
+        self.assertEqual(result.provenance, "mode=max")
+        self.assertEqual(result.sbom, "true")
         self.assertEqual(
             result.tags,
             (
@@ -66,6 +68,8 @@ class RouterImageMetadataTest(unittest.TestCase):
 
         self.assertFalse(result.publish)
         self.assertEqual(result.outputs, "type=cacheonly")
+        self.assertEqual(result.provenance, "false")
+        self.assertEqual(result.sbom, "false")
         self.assertEqual(
             result.tags,
             ("ghcr.io/konsultaner/connectanum-router:sha-0123456789ab",),
@@ -103,6 +107,8 @@ class RouterImageMetadataTest(unittest.TestCase):
 
         self.assertTrue(result.publish)
         self.assertEqual(result.outputs, "")
+        self.assertEqual(result.provenance, "mode=max")
+        self.assertEqual(result.sbom, "true")
 
     def test_rejects_publish_of_dry_run_tag(self) -> None:
         with self.assertRaisesRegex(
@@ -169,8 +175,13 @@ class RouterImageMetadataTest(unittest.TestCase):
             output = output_path.read_text(encoding="utf-8")
             self.assertIn("push=false", output)
             self.assertIn("outputs=type=cacheonly", output)
+            self.assertIn("provenance=false", output)
+            self.assertIn("sbom=false", output)
             self.assertIn("tags<<EOF", output)
-            self.assertIn("Router Image Metadata", summary_path.read_text())
+            summary = summary_path.read_text()
+            self.assertIn("Router Image Metadata", summary)
+            self.assertIn("Provenance: `false`", summary)
+            self.assertIn("SBOM: `false`", summary)
 
 
 if __name__ == "__main__":

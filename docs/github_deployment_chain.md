@@ -147,7 +147,9 @@ GHCR package `ghcr.io/konsultaner/connectanum-router` is not visible through
 the GitHub Packages API. Public docs should therefore describe the router image
 as staged until the workflow and package are validated. Manual router image
 workflow dispatches are being kept dry-run by default until that promotion path
-is explicitly validated.
+is explicitly validated. Router image publish builds request max-level
+provenance and SBOM attestations; dry-run cache-only builds keep image
+attestations disabled because there is no registry image to attach them to.
 
 `add-router` is not protected. That is acceptable for the active development
 branch only while every pushed slice is watched manually and recorded in

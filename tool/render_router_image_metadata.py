@@ -27,6 +27,8 @@ class RouterImageMetadata:
     publish: bool
     outputs: str
     mode: str
+    provenance: str
+    sbom: str
 
 
 def _parse_bool(value: str | bool, *, name: str) -> bool:
@@ -145,6 +147,8 @@ def resolve_router_image_metadata(
         publish=publish,
         outputs="" if publish else "type=cacheonly",
         mode=mode,
+        provenance="mode=max" if publish else "false",
+        sbom="true" if publish else "false",
     )
 
 
@@ -156,6 +160,8 @@ def render_summary(metadata: RouterImageMetadata) -> str:
 - Image: `{metadata.image}`
 - Mode: `{metadata.mode}`
 - Publish: `{str(metadata.publish).lower()}`
+- Provenance: `{metadata.provenance}`
+- SBOM: `{metadata.sbom}`
 
 ### Tags
 
@@ -175,6 +181,8 @@ def _append_github_output(path: str, metadata: RouterImageMetadata) -> None:
         "push": "true" if metadata.publish else "false",
         "outputs": metadata.outputs,
         "mode": metadata.mode,
+        "provenance": metadata.provenance,
+        "sbom": metadata.sbom,
     }
 
     with Path(path).open("a", encoding="utf-8") as output:
