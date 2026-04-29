@@ -2,11 +2,40 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `700ea74` (`ci: explain dart package release order`)
+Last reviewed commit: `47c3948` (`docs: record package release order ci`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
 
+- Current Dart package hosted dry-run audit hardening:
+  - documentation checkpoint `47c3948` passed hosted GitHub `CI` run
+    `25108057451`; `Fast Checks` completed successfully in 5m29s and
+    `Full Verify` completed successfully in 7m55s
+  - latest clean branch-head audit/log scan passed against `47c3948` with no
+    skipped, pending, failed, missing, or unexpected main `CI` jobs and no
+    high-signal warning, deprecation, skipped-test, rawsocket reset, or
+    connection-noise log matches
+  - pre-change `bin/test-fast` passed locally on 2026-04-29
+  - `bin/audit-github-deployment-chain` now has
+    `--show-dart-package-publish-dry-run` and
+    `--require-clean-dart-package-publish-dry-run` so dedicated Dart package
+    archive validation is audited separately from main `CI`
+  - the Dart package hosted dry-run gate accepts the latest successful
+    `Dart Package Publish Dry Run` run `25107394513` on `700ea74` for current
+    checked-out head `47c3948` because no package-publish-sensitive inputs
+    changed between those commits
+  - `--show-rc-readiness` now includes the hosted Dart package dry-run gate in
+    addition to clean main CI/logs and the strict local Dart package dry-run
+    release-order gate
+  - focused local checks passed:
+    `bash -n bin/audit-github-deployment-chain`,
+    `bin/audit-github-deployment-chain --help`,
+    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --show-dart-package-publish-dry-run`,
+    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-dart-package-publish-dry-run`,
+    and
+    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 2 --show-rc-readiness`
+  - `git diff --check` and full local `bin/verify` passed after the audit and
+    documentation updates on 2026-04-29
 - Current Dart package release-order plan surfacing:
   - commit `700ea74` (`ci: explain dart package release order`) passed hosted
     GitHub `CI` run `25107394525`; `Fast Checks` completed successfully in

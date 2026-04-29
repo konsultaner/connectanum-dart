@@ -28,6 +28,14 @@ Options:
                              Exit non-zero if the latest CI run logs contain
                              high-signal warning/skipped-test/noisy runtime
                              matches, or if the run is not complete and green.
+  --show-dart-package-publish-dry-run
+                             Print the latest dedicated Dart package publish
+                             dry-run workflow evidence.
+  --require-clean-dart-package-publish-dry-run
+                             Exit non-zero unless the latest relevant Dart
+                             package publish dry-run workflow completed
+                             successfully and still covers the checked-out
+                             package-publishing inputs.
   --require-router-package   Exit non-zero unless the GHCR router package is
                              visible through the GitHub Packages API.
   --require-workflows-visible
@@ -41,7 +49,8 @@ Options:
                              summary for the current checked-out head.
   --require-rc-ready         Exit non-zero unless the current checked-out head
                              has release-candidate evidence: clean hosted CI
-                             and logs, baseline branch protection, visible
+                             and logs, hosted Dart package publish dry-run
+                             evidence, baseline branch protection, visible
                              workflows, visible router package, an RC GitHub
                              prerelease, and strict Dart package dry-run
                              readiness.
@@ -60,12 +69,16 @@ require_clean_latest_ci=0
 check_latest_ci_logs=0
 scan_latest_ci_logs=0
 require_clean_latest_ci_logs=0
+check_dart_package_publish_dry_run=0
+require_clean_dart_package_publish_dry_run=0
 require_router_package=0
 require_workflows_visible=0
 show_required_checks_plan=0
 show_rc_readiness=0
 require_rc_ready=0
 expected_ci_jobs=('Fast Checks' 'Full Verify')
+dart_package_publish_workflow='Dart Package Publish Dry Run'
+expected_dart_package_publish_jobs=('Publish Dry Run')
 ci_log_issue_pattern='warning:|::warning|DeprecationWarning|Connection reset by peer|connection ConnectionId|skipped'
 
 while [[ $# -gt 0 ]]; do
@@ -122,6 +135,15 @@ while [[ $# -gt 0 ]]; do
       require_clean_latest_ci_logs=1
       shift
       ;;
+    --show-dart-package-publish-dry-run)
+      check_dart_package_publish_dry_run=1
+      shift
+      ;;
+    --require-clean-dart-package-publish-dry-run)
+      check_dart_package_publish_dry_run=1
+      require_clean_dart_package_publish_dry_run=1
+      shift
+      ;;
     --require-router-package)
       require_router_package=1
       shift
@@ -139,6 +161,7 @@ while [[ $# -gt 0 ]]; do
       check_clean_latest_ci=1
       check_latest_ci_logs=1
       scan_latest_ci_logs=1
+      check_dart_package_publish_dry_run=1
       shift
       ;;
     --require-rc-ready)
@@ -147,6 +170,7 @@ while [[ $# -gt 0 ]]; do
       check_clean_latest_ci=1
       check_latest_ci_logs=1
       scan_latest_ci_logs=1
+      check_dart_package_publish_dry_run=1
       shift
       ;;
     --strict)
@@ -221,20 +245,62 @@ is_expected_ci_job() {
   return 1
 }
 
+is_expected_dart_package_publish_job() {
+  local candidate="$1"
+  local expected_job
+
+  for expected_job in "${expected_dart_package_publish_jobs[@]}"; do
+    if [[ "$candidate" == "$expected_job" ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 is_release_candidate_tag() {
   local tag="$1"
 
   [[ "$tag" =~ (^|[-_.])rc([0-9]+|[-_.][0-9]+)?($|[-_.]) ]]
 }
 
-latest_ci_run_id() {
+latest_workflow_run_id() {
+  local workflow="$1"
+
   "$gh_bin" run list \
     --repo "$repository" \
     --branch "$branch" \
-    --workflow CI \
+    --workflow "$workflow" \
     --limit 1 \
     --json databaseId \
     --jq '.[0].databaseId // empty'
+}
+
+latest_ci_run_id() {
+  latest_workflow_run_id CI
+}
+
+latest_dart_package_publish_dry_run_id() {
+  latest_workflow_run_id "$dart_package_publish_workflow"
+}
+
+dart_package_publish_sensitive_changes_since() {
+  local base="$1"
+  local path
+
+  git diff --name-only "${base}..HEAD" | while IFS= read -r path; do
+    case "$path" in
+      .github/workflows/dart-package-publish.yml|\
+      bin/dart-package-publish-dry-run|\
+      docs/dart_package_publishing.md|\
+      packages/*/CHANGELOG.md|\
+      packages/*/LICENSE|\
+      packages/*/README.md|\
+      packages/*/pubspec.yaml)
+        printf '%s\n' "$path"
+        ;;
+    esac
+  done
 }
 
 print_latest_ci_log_scan() {
@@ -268,6 +334,116 @@ print_latest_ci_log_scan() {
   printf 'Latest CI log scan is clean: no warning/deprecation/skipped/reset/connection-noise patterns found.\n'
   rm -f "$log_file" "$matches_file"
   return 0
+}
+
+print_dart_package_publish_dry_run_gate() {
+  local run_id
+  local run_summary
+  local run_state
+  local run_status
+  local run_conclusion
+  local run_head_sha
+  local current_head_sha
+  local run_jobs
+  local job_name
+  local job_status
+  local job_conclusion
+  local expected_job
+  local changed_paths
+  local failed=0
+
+  run_id="$(latest_dart_package_publish_dry_run_id)"
+
+  if [[ -z "$run_id" ]]; then
+    printf 'Finding: no Dart Package Publish Dry Run workflow run found for branch %s.\n' "$branch"
+    return 1
+  fi
+
+  run_summary="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json status,conclusion,headSha,url,displayTitle \
+      --jq '"Run: Dart Package Publish Dry Run #'"$run_id"' \(.status)/\(.conclusion // "pending") @ \(.headSha[0:7])\nTitle: \(.displayTitle)\nURL: \(.url)"'
+  )"
+  printf '%s\n' "$run_summary"
+
+  run_state="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json status,conclusion,headSha \
+      --jq '[.status, (.conclusion // "pending"), .headSha] | @tsv'
+  )"
+  IFS=$'\t' read -r run_status run_conclusion run_head_sha <<<"$run_state"
+
+  if [[ "$run_status" != "completed" || "$run_conclusion" != "success" ]]; then
+    printf 'Finding: latest Dart package publish dry-run is not green: %s/%s.\n' "$run_status" "$run_conclusion"
+    failed=1
+  fi
+
+  run_jobs="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json jobs \
+      --jq '.jobs[] | [.name, .status, (.conclusion // "pending")] | @tsv'
+  )"
+
+  if [[ -z "$run_jobs" ]]; then
+    printf 'Finding: latest Dart package publish dry-run has no inspectable jobs.\n'
+    failed=1
+  else
+    while IFS=$'\t' read -r job_name job_status job_conclusion; do
+      [[ -n "$job_name" ]] || continue
+      printf -- '- %s: %s/%s\n' "$job_name" "$job_status" "$job_conclusion"
+
+      if ! is_expected_dart_package_publish_job "$job_name"; then
+        printf 'Finding: latest Dart package publish dry-run contains unexpected job: %s\n' "$job_name"
+        failed=1
+      fi
+
+      if [[ "$job_conclusion" == "skipped" ]]; then
+        printf 'Finding: latest Dart package publish dry-run job was skipped: %s\n' "$job_name"
+        failed=1
+      elif [[ "$job_status" != "completed" || "$job_conclusion" != "success" ]]; then
+        printf 'Finding: latest Dart package publish dry-run job is not green: %s (%s/%s)\n' "$job_name" "$job_status" "$job_conclusion"
+        failed=1
+      fi
+    done <<<"$run_jobs"
+
+    for expected_job in "${expected_dart_package_publish_jobs[@]}"; do
+      if ! printf '%s\n' "$run_jobs" | cut -f1 | grep -Fxq "$expected_job"; then
+        printf 'Finding: latest Dart package publish dry-run is missing expected job: %s\n' "$expected_job"
+        failed=1
+      fi
+    done
+  fi
+
+  current_head_sha="$(git rev-parse HEAD)"
+  if [[ "$run_head_sha" == "$current_head_sha" ]]; then
+    printf 'Dart package publish dry-run covers checked-out head: yes.\n'
+  else
+    if ! git cat-file -e "${run_head_sha}^{commit}" 2>/dev/null; then
+      printf 'Finding: cannot compare Dart package publish dry-run head %s with checked-out head; commit is not available locally.\n' "${run_head_sha:0:7}"
+      failed=1
+    elif ! changed_paths="$(dart_package_publish_sensitive_changes_since "$run_head_sha")"; then
+      printf 'Finding: failed to compare Dart package publish-sensitive paths since %s.\n' "${run_head_sha:0:7}"
+      failed=1
+    elif [[ -n "$changed_paths" ]]; then
+      printf 'Finding: checked-out head has Dart package publish-sensitive changes after dry-run head %s:\n' "${run_head_sha:0:7}"
+      while IFS= read -r changed_path; do
+        [[ -n "$changed_path" ]] || continue
+        printf -- '- %s\n' "$changed_path"
+      done <<<"$changed_paths"
+      failed=1
+    else
+      printf 'Dart package publish dry-run covers checked-out package inputs: yes; checked-out head differs from dry-run head %s, but no publish-sensitive paths changed since then.\n' "${run_head_sha:0:7}"
+    fi
+  fi
+
+  if [[ "$failed" -eq 0 ]]; then
+    printf 'Latest Dart package publish dry-run is clean and relevant.\n'
+  fi
+
+  return "$failed"
 }
 
 print_required_checks_plan() {
@@ -362,6 +538,18 @@ print_rc_readiness() {
     fi
   else
     printf 'Latest CI log gate: not evaluated; use --scan-latest-ci-logs or --require-rc-ready.\n'
+    rc_ready_failed=1
+  fi
+
+  if [[ "$check_dart_package_publish_dry_run" -eq 1 ]]; then
+    if [[ "$dart_package_publish_dry_run_failed" -eq 0 ]]; then
+      printf 'Dart package hosted dry-run gate: ready\n'
+    else
+      printf 'Dart package hosted dry-run gate: not ready\n'
+      rc_ready_failed=1
+    fi
+  else
+    printf 'Dart package hosted dry-run gate: not evaluated; use --show-dart-package-publish-dry-run or --require-rc-ready.\n'
     rc_ready_failed=1
   fi
 
@@ -494,6 +682,7 @@ missing_visible_workflow=0
 missing_router_package=0
 latest_ci_failed=0
 latest_ci_log_failed=0
+dart_package_publish_dry_run_failed=0
 latest_ci_id=""
 required_contexts=""
 
@@ -733,6 +922,14 @@ if [[ "$scan_latest_ci_logs" -eq 1 ]]; then
   fi
 fi
 
+if [[ "$check_dart_package_publish_dry_run" -eq 1 ]]; then
+  printf '\n## Latest Dart Package Publish Dry Run\n\n'
+
+  if ! print_dart_package_publish_dry_run_gate; then
+    dart_package_publish_dry_run_failed=1
+  fi
+fi
+
 rc_ready_failed=0
 if [[ "$show_rc_readiness" -eq 1 ]]; then
   if ! print_rc_readiness; then
@@ -747,6 +944,11 @@ fi
 
 if [[ "$require_clean_latest_ci_logs" -eq 1 && "$latest_ci_log_failed" -ne 0 ]]; then
   printf '\nLatest CI log-scan audit failed.\n' >&2
+  exit 1
+fi
+
+if [[ "$require_clean_dart_package_publish_dry_run" -eq 1 && "$dart_package_publish_dry_run_failed" -ne 0 ]]; then
+  printf '\nDart package publish dry-run audit failed.\n' >&2
   exit 1
 fi
 

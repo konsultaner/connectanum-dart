@@ -577,6 +577,18 @@ operator evidence over speculative feature or benchmark work.
     `bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs`
   - the hosted log scan found no high-signal warning, deprecation,
     skipped-test, rawsocket reset, or connection-noise matches
+- Started Dart package hosted dry-run audit hardening:
+  - documentation checkpoint `47c3948` passed GitHub `CI` run `25108057451`
+    with `Fast Checks` in 5m29s and `Full Verify` in 7m55s
+  - `bin/audit-github-deployment-chain --show-dart-package-publish-dry-run`
+    now prints the latest dedicated `Dart Package Publish Dry Run` workflow,
+    expected `Publish Dry Run` job status, and whether that run still covers
+    the checked-out package-publishing inputs
+  - `--require-clean-dart-package-publish-dry-run` fails when the dedicated
+    hosted package dry-run is missing, not green, has skipped/unexpected jobs,
+    or is older than the checked-out package-sensitive inputs
+  - `--show-rc-readiness` and `--require-rc-ready` include this hosted package
+    dry-run gate before the strict local Dart package release-order gate
 
 ## Verification
 
@@ -783,6 +795,15 @@ operator evidence over speculative feature or benchmark work.
   - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-rc-readiness`
   - `git diff --check`
   - `bin/verify`
+- Current Dart package hosted dry-run audit checks:
+  - `bin/test-fast`
+  - `bash -n bin/audit-github-deployment-chain`
+  - `bin/audit-github-deployment-chain --help`
+  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --show-dart-package-publish-dry-run`
+  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-dart-package-publish-dry-run`
+  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 2 --show-rc-readiness`
+  - `git diff --check`
+  - `bin/verify`
 - Current main-CI skipped-gate cleanup checks:
   - GitHub `CI` run `25085322707`
   - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
@@ -930,6 +951,10 @@ operator evidence over speculative feature or benchmark work.
   release-order blocker explicit in both the package dry-run and the RC audit.
   The current operator decision is whether `connectanum_core 0.1.0` is approved
   public API and should be published before `connectanum_client 2.2.6`.
+- 2026-04-29: Added a dedicated hosted Dart package publish dry-run gate to
+  the deployment audit instead of assuming main `CI` covers package archive
+  evidence. Docs-only checkpoints may reuse the latest successful package
+  dry-run only when no package-publish-sensitive inputs changed since that run.
 
 ## Handoff
 

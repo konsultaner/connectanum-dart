@@ -44,6 +44,22 @@ passing test names and Rust summaries currently include benign strings such as
 `BCRYPT check password failed` and `0 failed`. Job status is the authoritative
 source for real failed work.
 
+Use the dedicated Dart package evidence gate before treating package metadata
+or package release inputs as validated:
+
+```sh
+bin/audit-github-deployment-chain \
+  --branch add-router \
+  --require-clean-dart-package-publish-dry-run
+```
+
+That gate checks the latest `Dart Package Publish Dry Run` workflow, verifies
+the expected `Publish Dry Run` job completed successfully, and confirms the
+checked-out head has not changed any package-publish-sensitive inputs since
+that workflow run. Docs-only checkpoints can therefore stay valid without
+rerunning package archive validation, while package metadata or pubspec changes
+must be covered by a fresh dedicated dry-run.
+
 Use the release-candidate readiness view when deciding whether the current
 branch head is feature-wise ready to tag as an RC:
 
@@ -59,11 +75,11 @@ bin/audit-github-deployment-chain --branch add-router --require-rc-ready
 ```
 
 The RC view is read-only. It combines clean CI, clean hosted logs, branch
-protection, workflow visibility, router package visibility, RC tag/prerelease
-evidence, and strict Dart package readiness. When Dart package readiness is the
-blocker, the audit prints the package release-order plan so the current
-`connectanum_core` -> `connectanum_client` dependency decision is visible in the
-same output.
+protection, workflow visibility, router package visibility, hosted Dart package
+publish dry-run evidence, RC tag/prerelease evidence, and strict Dart package
+readiness. When Dart package readiness is the blocker, the audit prints the
+package release-order plan so the current `connectanum_core` ->
+`connectanum_client` dependency decision is visible in the same output.
 
 Use the router package gate before treating the router image release path as
 ready:
@@ -157,6 +173,10 @@ available:
   should report no skipped, pending, failed, missing, or unexpected `CI` jobs,
   and no high-signal warning/deprecation/skipped-test/reset/connection-noise
   log matches.
+- Dedicated Dart package publish dry-run evidence for package-release inputs:
+  `bin/audit-github-deployment-chain --branch add-router --require-clean-dart-package-publish-dry-run`
+  should report a successful `Publish Dry Run` job that covers the checked-out
+  package-publishing inputs.
 - Additional hosted workflow evidence when the slice changes release behavior:
   native artifact matrix, release dry-run, validation prerelease, WAMP profile
   benchmark gate, kTLS validation, or diagnostics as appropriate.
