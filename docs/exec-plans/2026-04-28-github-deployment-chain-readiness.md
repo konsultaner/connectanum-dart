@@ -240,6 +240,21 @@ operator evidence over speculative feature or benchmark work.
     while `connectanum_client` depends on `connectanum_core: ^0.1.0`
   - no package publish, package-name claim, or `publish_to: none` removal has
     been attempted; those still require an explicit operator/product decision
+- Started a clean-CI recovery slice after documentation checkpoint `cb55b1f`
+  left GitHub `CI` run `25095210918` red in `Full Verify`:
+  - hosted failure:
+    `tests::listen_flow::poll_connection_message_returns_payload` timed out
+    waiting for a RawSocket connection
+  - local reproduction reached the same polling path and failed because the
+    client stream could close before the message was visible to
+    `ct_poll_connection_message`
+  - the test now keeps the client alive with an explicit release signal while
+    the polling side waits for the message
+  - the hosted Linux kTLS dead-code warning is being fixed by using
+    `server_runtime_required` for optional-vs-required kTLS failure logging,
+    not by deleting the helper
+  - local focused checks, `bin/test-fast`, and `bin/verify` pass after the
+    fix; hosted GitHub CI still needs to validate the pushed cleanup commit
 - Completed hosted validation for the Dart package publishing readiness slice:
   - commit `1b95c9d` (`docs: prepare dart package publishing`) passed GitHub
     `CI` run `25071505471`

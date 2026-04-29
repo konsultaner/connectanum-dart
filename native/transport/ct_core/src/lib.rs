@@ -3866,6 +3866,8 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                                 Some(acceptor) => {
                                     let ktls_requested =
                                         ktls::server_runtime_requested(runtime_config_for_task.as_ref());
+                                    let ktls_required =
+                                        ktls::server_runtime_required(runtime_config_for_task.as_ref());
                                     if ktls_requested {
                                         match time::timeout(
                                             runtime_config_for_task.handshake_timeout,
@@ -3879,14 +3881,17 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                                             Ok(Ok(io_stream)) => io_stream,
                                             Ok(Err(err)) => {
                                                 eprintln!(
-                                                    "kTLS handoff failed for connection from {}: {}",
-                                                    addr, err
+                                                    "{} kTLS handoff failed for connection from {}: {}",
+                                                    if ktls_required { "required" } else { "optional" },
+                                                    addr,
+                                                    err
                                                 );
                                                 continue;
                                             }
                                             Err(_) => {
                                                 eprintln!(
-                                                    "kTLS handshake timed out for connection from {}",
+                                                    "{} kTLS handshake timed out for connection from {}",
+                                                    if ktls_required { "required" } else { "optional" },
                                                     addr
                                                 );
                                                 continue;

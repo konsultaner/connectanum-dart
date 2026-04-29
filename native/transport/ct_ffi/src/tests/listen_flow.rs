@@ -105,6 +105,23 @@ fn wait_for_message_handle(connection_id: i32) -> i32 {
     handle
 }
 
+fn poll_for_message_handle(connection_id: i32) -> i32 {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let handle = ct_poll_connection_message(connection_id);
+        if handle > 0 {
+            return handle;
+        }
+        if handle < 0 {
+            panic!("poll message failed for connection {connection_id}: {handle}");
+        }
+        if Instant::now() > deadline {
+            panic!("timed out polling for message on connection {connection_id}");
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
 fn wait_for_http_handshake(connection_id: i32) -> i32 {
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
@@ -480,29 +497,31 @@ fn poll_connection_message_returns_payload() {
     let port = ct_get_local_port(listener_id);
     assert!(port > 0);
 
-    let rt = TokioRuntime::new().unwrap();
-    rt.block_on(async move {
-        let addr = format!("127.0.0.1:{}", port);
-        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
-        perform_handshake(&mut stream, 16, None).await;
-        let message = serde_json::to_vec(&json!([
-            16,
-            42,
-            {},
-            "com.example.topic",
-            [1, 2, 3],
-            {"flag": true}
-        ]))
-        .unwrap();
-        send_json_frame(&mut stream, &message).await;
-        tokio::time::sleep(Duration::from_millis(50)).await;
+    let message = serde_json::to_vec(&json!([
+        16,
+        42,
+        {},
+        "com.example.topic",
+        [1, 2, 3],
+        {"flag": true}
+    ]))
+    .unwrap();
+    let (release_client_tx, release_client_rx) = tokio::sync::oneshot::channel();
+    let sender = std::thread::spawn(move || {
+        let rt = TokioRuntime::new().unwrap();
+        rt.block_on(async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+            perform_handshake(&mut stream, 16, None).await;
+            send_json_frame(&mut stream, &message).await;
+            let _ = tokio::time::timeout(Duration::from_secs(5), release_client_rx).await;
+        });
     });
 
     let connection_id = wait_for_connection(listener_id);
     assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_RAWSOCKET);
 
-    let handle = ct_poll_connection_message(connection_id);
-    assert!(handle > 0);
+    let handle = poll_for_message_handle(connection_id);
 
     let mut info = CtMessageInfo::default();
     assert_eq!(
@@ -531,6 +550,9 @@ fn poll_connection_message_returns_payload() {
     ct_message_release(handle);
     // Releasing twice should be a no-op.
     ct_message_release(handle);
+
+    let _ = release_client_tx.send(());
+    sender.join().expect("rawsocket sender thread");
 
     assert_eq!(ct_shutdown(), SUCCESS);
 }

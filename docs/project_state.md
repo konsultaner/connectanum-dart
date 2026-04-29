@@ -7,6 +7,29 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
 
 ## Last Known Verification
 
+- Current CI cleanup:
+  - documentation checkpoint `cb55b1f` left hosted GitHub `CI` run
+    `25095210918` red in `Full Verify`
+  - the failure was reproduced locally in
+    `tests::listen_flow::poll_connection_message_returns_payload`; hosted timed
+    out waiting for the accepted connection, while local focused reproduction
+    reached the same RawSocket polling path and failed before the message was
+    ready
+  - hosted Linux also reported `ct_core::ktls::server_runtime_required` as
+    unused; this helper was not deleted because it still represents the
+    operator-visible distinction between optional and required kTLS offload
+  - the current local fix keeps the RawSocket test client connected until the
+    polling side consumes the message and routes kTLS failure logging through
+    the optional/required distinction
+  - focused local checks now pass:
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi --features ffi-test tests::listen_flow::poll_connection_message_returns_payload -- --nocapture`
+    repeated 5 times,
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_core ktls::tests -- --nocapture`,
+    and `git diff --check`
+  - local `bin/test-fast` and `bin/verify` passed after the fix, including the
+    full `ct_ffi` suite, bench WAMP transport integration, router
+    `remote_auth_integration_test`, and the Chrome Dart2Wasm browser websocket
+    test
 - Current workflow visibility audit hardening:
   - pre-change `bin/test-fast` passed locally on 2026-04-29
   - focused local checks passed:
