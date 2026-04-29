@@ -47,6 +47,12 @@ pub struct HttpPhaseTimingSample {
     pub response_body_tail_connection_read_wait_ms: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub response_body_tail_connection_read_to_end_ms: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_body_tail_connection_read_count: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_body_tail_connection_read_span_ms: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_body_tail_connection_last_read_to_end_ms: Option<f64>,
     pub request_round_trip_ms: f64,
 }
 
@@ -95,6 +101,15 @@ pub struct HttpPhaseTimingSummary {
     pub response_body_tail_connection_read_to_end_samples_total: u64,
     pub response_body_tail_connection_read_to_end_avg_ms: f64,
     pub response_body_tail_connection_read_to_end_p95_ms: f64,
+    pub response_body_tail_connection_read_count_samples_total: u64,
+    pub response_body_tail_connection_read_count_avg: f64,
+    pub response_body_tail_connection_read_count_p95: f64,
+    pub response_body_tail_connection_read_span_samples_total: u64,
+    pub response_body_tail_connection_read_span_avg_ms: f64,
+    pub response_body_tail_connection_read_span_p95_ms: f64,
+    pub response_body_tail_connection_last_read_to_end_samples_total: u64,
+    pub response_body_tail_connection_last_read_to_end_avg_ms: f64,
+    pub response_body_tail_connection_last_read_to_end_p95_ms: f64,
     pub request_round_trip_avg_ms: f64,
     pub request_round_trip_p95_ms: f64,
 }

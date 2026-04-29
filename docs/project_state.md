@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `7878467` (`docs: record partial repeat reporter ci`)
+Last reviewed commit: `1400ce1` (`bench: split repeat server signals`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -100,6 +100,36 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     and `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi`
   - full local `bin/verify` passed after the repeat reporter update and HTTP/3
     FFI test port-race fix on 2026-04-29
+  - commit `1400ce1` (`bench: split repeat server signals`) passed hosted
+    GitHub `CI` run `25131284776`; `Fast Checks` completed successfully in
+    5m55s and `Full Verify` completed successfully in 8m07s
+  - the matching hosted `WAMP Profile Benchmarks` run `25131284793` completed
+    successfully on `1400ce1`; the deployment-chain audit reported the latest
+    CI job set and CI log scan clean
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25132037358` completed
+    successfully on `1400ce1` with the same isolated `s1`, `threads=4`,
+    one-router-worker, alternating repeat settings and the new split
+    client/server/native signal tables
+  - `25132037358` was complete but not decision-quality: throughput delta
+    span was `84.11pp`, p95 delta span was `2378.94pp`, all repeats produced
+    matched rows, repeated client phase signals remained kTLS-higher, and the
+    repeated server-emission/native response-stream signal tables stayed empty
+  - the hosted benchmark log had only the expected manual
+    `skip_artifact_gate=true` artifact-gate skip notices, so the run is valid
+    diagnostic evidence but not release-decision evidence
+  - pre-change `bin/test-fast` passed locally before adding the next H2 client
+    tail-read instrumentation slice
+  - the H2 client read probe now records last connection read and read count
+    for active phases, and the body-tail report path exposes tail connection
+    read count, first-to-last read span, and last-read-to-body-end timing so
+    the remaining tail cost can be split between socket wait and post-read
+    processing
+  - focused local checks for that instrumentation passed without new Rust
+    warnings: Python compile, Python comparison tests, the focused
+    `http_stream` H2 timing test, the bench artifact summary test, and
+    `git diff --check`
+  - full local `bin/verify` passed after the H2 tail-read split on
+    2026-04-29
 - Current deployment-chain evidence refresh:
   - commit `b338d58` (`docs: record current deployment evidence`) passed
     hosted GitHub `CI` run `25123037462`; `Fast Checks` completed

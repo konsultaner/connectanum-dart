@@ -872,6 +872,22 @@ fn summarize_http_phase_timing(
         .filter_map(|sample| sample.http_phase_timing.as_ref())
         .filter_map(|timing| timing.response_body_tail_connection_read_to_end_ms)
         .collect::<Vec<_>>();
+    let mut response_body_tail_connection_read_counts = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_body_tail_connection_read_count)
+        .map(|count| count as f64)
+        .collect::<Vec<_>>();
+    let mut response_body_tail_connection_read_spans = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_body_tail_connection_read_span_ms)
+        .collect::<Vec<_>>();
+    let mut response_body_tail_connection_last_read_to_ends = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_body_tail_connection_last_read_to_end_ms)
+        .collect::<Vec<_>>();
     let mut request_round_trips = samples
         .iter()
         .filter_map(|sample| sample.http_phase_timing.as_ref())
@@ -895,6 +911,9 @@ fn summarize_http_phase_timing(
     response_body_connection_read_to_first_chunks.sort_by(|left, right| left.total_cmp(right));
     response_body_tail_connection_read_waits.sort_by(|left, right| left.total_cmp(right));
     response_body_tail_connection_read_to_ends.sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_connection_read_counts.sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_connection_read_spans.sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_connection_last_read_to_ends.sort_by(|left, right| left.total_cmp(right));
     request_round_trips.sort_by(|left, right| left.total_cmp(right));
 
     let stream_acquire_wait_avg_ms =
@@ -1086,6 +1105,59 @@ fn summarize_http_phase_timing(
                 0.0
             } else {
                 percentile(&response_body_tail_connection_read_to_ends, 0.95)
+            },
+        response_body_tail_connection_read_count_samples_total:
+            response_body_tail_connection_read_counts.len() as u64,
+        response_body_tail_connection_read_count_avg: if response_body_tail_connection_read_counts
+            .is_empty()
+        {
+            0.0
+        } else {
+            response_body_tail_connection_read_counts
+                .iter()
+                .sum::<f64>()
+                / response_body_tail_connection_read_counts.len() as f64
+        },
+        response_body_tail_connection_read_count_p95: if response_body_tail_connection_read_counts
+            .is_empty()
+        {
+            0.0
+        } else {
+            percentile(&response_body_tail_connection_read_counts, 0.95)
+        },
+        response_body_tail_connection_read_span_samples_total:
+            response_body_tail_connection_read_spans.len() as u64,
+        response_body_tail_connection_read_span_avg_ms: if response_body_tail_connection_read_spans
+            .is_empty()
+        {
+            0.0
+        } else {
+            response_body_tail_connection_read_spans.iter().sum::<f64>()
+                / response_body_tail_connection_read_spans.len() as f64
+        },
+        response_body_tail_connection_read_span_p95_ms: if response_body_tail_connection_read_spans
+            .is_empty()
+        {
+            0.0
+        } else {
+            percentile(&response_body_tail_connection_read_spans, 0.95)
+        },
+        response_body_tail_connection_last_read_to_end_samples_total:
+            response_body_tail_connection_last_read_to_ends.len() as u64,
+        response_body_tail_connection_last_read_to_end_avg_ms:
+            if response_body_tail_connection_last_read_to_ends.is_empty() {
+                0.0
+            } else {
+                response_body_tail_connection_last_read_to_ends
+                    .iter()
+                    .sum::<f64>()
+                    / response_body_tail_connection_last_read_to_ends.len() as f64
+            },
+        response_body_tail_connection_last_read_to_end_p95_ms:
+            if response_body_tail_connection_last_read_to_ends.is_empty() {
+                0.0
+            } else {
+                percentile(&response_body_tail_connection_last_read_to_ends, 0.95)
             },
         request_round_trip_avg_ms,
         request_round_trip_p95_ms: percentile(&request_round_trips, 0.95),
@@ -2435,6 +2507,9 @@ mod tests {
                         response_body_connection_read_to_first_chunk_ms: Some(1.5),
                         response_body_tail_connection_read_wait_ms: Some(0.5),
                         response_body_tail_connection_read_to_end_ms: Some(1.5),
+                        response_body_tail_connection_read_count: Some(2),
+                        response_body_tail_connection_read_span_ms: Some(1.0),
+                        response_body_tail_connection_last_read_to_end_ms: Some(0.5),
                         request_round_trip_ms: 9.0,
                     }),
                 },
@@ -2462,6 +2537,9 @@ mod tests {
                         response_body_connection_read_to_first_chunk_ms: Some(1.5),
                         response_body_tail_connection_read_wait_ms: Some(1.5),
                         response_body_tail_connection_read_to_end_ms: Some(3.5),
+                        response_body_tail_connection_read_count: Some(4),
+                        response_body_tail_connection_read_span_ms: Some(2.0),
+                        response_body_tail_connection_last_read_to_end_ms: Some(1.5),
                         request_round_trip_ms: 17.0,
                     }),
                 },
@@ -2489,6 +2567,9 @@ mod tests {
                         response_body_connection_read_to_first_chunk_ms: None,
                         response_body_tail_connection_read_wait_ms: None,
                         response_body_tail_connection_read_to_end_ms: None,
+                        response_body_tail_connection_read_count: None,
+                        response_body_tail_connection_read_span_ms: None,
+                        response_body_tail_connection_last_read_to_end_ms: None,
                         request_round_trip_ms: 25.0,
                     }),
                 },
@@ -2697,6 +2778,40 @@ mod tests {
         );
         assert!(
             (phase_timing.response_body_tail_connection_read_to_end_p95_ms - 3.5).abs()
+                < f64::EPSILON
+        );
+        assert_eq!(
+            phase_timing.response_body_tail_connection_read_count_samples_total,
+            2
+        );
+        assert!(
+            (phase_timing.response_body_tail_connection_read_count_avg - 3.0).abs() < f64::EPSILON
+        );
+        assert!(
+            (phase_timing.response_body_tail_connection_read_count_p95 - 4.0).abs() < f64::EPSILON
+        );
+        assert_eq!(
+            phase_timing.response_body_tail_connection_read_span_samples_total,
+            2
+        );
+        assert!(
+            (phase_timing.response_body_tail_connection_read_span_avg_ms - 1.5).abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (phase_timing.response_body_tail_connection_read_span_p95_ms - 2.0).abs()
+                < f64::EPSILON
+        );
+        assert_eq!(
+            phase_timing.response_body_tail_connection_last_read_to_end_samples_total,
+            2
+        );
+        assert!(
+            (phase_timing.response_body_tail_connection_last_read_to_end_avg_ms - 1.0).abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (phase_timing.response_body_tail_connection_last_read_to_end_p95_ms - 1.5).abs()
                 < f64::EPSILON
         );
         assert!((phase_timing.request_round_trip_avg_ms - 17.0).abs() < f64::EPSILON);

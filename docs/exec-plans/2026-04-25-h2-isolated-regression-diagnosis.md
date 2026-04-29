@@ -335,6 +335,30 @@ decisions.
     port
   - clients connect through `ct_listener_http3_port`
   - the normal TCP local port remains covered by the non-HTTP/3 listener tests
+- Commit `1400ce1` (`bench: split repeat server signals`) passed hosted
+  GitHub `CI` run `25131284776`, and the same push passed hosted
+  `WAMP Profile Benchmarks` run `25131284793`.
+- Manual hosted rerun `25132037358` reran isolated `s1`, `threads=4`, one
+  router worker on `1400ce1` with `repeat_order=alternating`.
+- That hosted rerun completed and all repeats had matched rows, but it was not
+  decision-quality:
+  - throughput delta span was `84.11pp`
+  - p95 delta span was `2378.94pp`
+  - worst throughput and p95 rows stayed stable at
+    `h2_multiplexed_streams_s1 (workers=1, threads=4)`
+  - repeated client phase signals stayed kTLS-higher for body/tail timings
+  - repeated server-emission and native response-stream signal tables stayed
+    empty, while per-repeat focus rows still exposed server-side outliers in
+    repeats 02 and 03
+- The next bounded H2 client tail-read split is implemented locally:
+  - `native/bench/src/bin/http_stream.rs` now records last connection read and
+    connection read count for active H2 client read probes
+  - body-tail reports now expose tail connection read count, first-to-last read
+    span, and last-read-to-body-end timing
+  - `native/bench/src/report.rs`, `native/bench/src/artifacts.rs`,
+    `tool/ktls_http2_compare.py`, and
+    `tool/ktls_http2_compare_repeats.py` carry those fields through summaries,
+    markdown diagnostics, and repeat focus/signal tables
 
 ## Current Verification
 
@@ -413,13 +437,27 @@ decisions.
   - `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi http3_multiple_connections_handshake -- --nocapture`
   - `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi`
   - `bin/verify`
+- Current H2 tail-read split verification:
+  - hosted GitHub `CI` run `25131284776` completed successfully on `1400ce1`;
+    `Fast Checks` completed in 5m55s and `Full Verify` completed in 8m07s
+  - hosted GitHub `WAMP Profile Benchmarks` run `25131284793` completed
+    successfully on `1400ce1`
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25132037358` completed
+    successfully on `1400ce1` and produced complete but non-decision-quality
+    repeat evidence with five material repeated client phase signals and no
+    material repeated server/native stream signals
+  - `bin/test-fast`
+  - `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`
+  - `python3 tool/test_ktls_http2_compare.py`
+  - `cargo test --manifest-path native/bench/Cargo.toml h2_last_write_to_first_read_gap_uses_last_write_boundary --bin http_stream -- --nocapture`
+  - `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
+  - `git diff --check`
+  - `bin/verify`
 
 ## Next Step
 
-After the server/native signal reporter change is verified and pushed, watch
-the hosted branch `CI` run. Then rerun the same isolated hosted `s1` workload
-with `repeat_order=alternating` so the hosted artifact contains the split
-client/server/native signal tables. If it remains complete but
-non-decision-quality and still shows material repeated client-phase deltas
-without material repeated server/native deltas, inspect the H2 client tail-read
-path before adding the next bounded metric.
+Push the H2 tail-read split and watch hosted CI. Then rerun the same isolated
+hosted `s1` workload with `repeat_order=alternating`; if the new tail metrics
+show the stable body-tail delta mostly before the last tail connection read,
+inspect socket/TLS read scheduling, otherwise inspect H2 body processing after
+the final read.

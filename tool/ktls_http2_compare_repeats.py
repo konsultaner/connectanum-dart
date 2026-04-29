@@ -35,6 +35,18 @@ PHASE_FOCUS_METRICS = (
         "response_body_tail_connection_read_to_end_avg_ms",
         "Tail conn read-to-end avg ms",
     ),
+    (
+        "response_body_tail_connection_read_count_avg",
+        "Tail conn read-count avg",
+    ),
+    (
+        "response_body_tail_connection_read_span_avg_ms",
+        "Tail conn read-span avg ms",
+    ),
+    (
+        "response_body_tail_connection_last_read_to_end_avg_ms",
+        "Tail conn last-read-to-end avg ms",
+    ),
 )
 
 SERVER_EMISSION_FOCUS_METRICS = (

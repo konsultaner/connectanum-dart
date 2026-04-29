@@ -84,6 +84,9 @@ struct H2ResponseDrainStats {
     connection_read_to_first_chunk_ms: Option<f64>,
     tail_connection_read_wait_ms: Option<f64>,
     tail_connection_read_to_end_ms: Option<f64>,
+    tail_connection_read_count: Option<u64>,
+    tail_connection_read_span_ms: Option<f64>,
+    tail_connection_last_read_to_end_ms: Option<f64>,
 }
 
 #[derive(Clone)]
@@ -107,6 +110,8 @@ struct H2ClientReadProbe {
 struct H2ClientReadProbeState {
     phase_started_at: Instant,
     first_connection_read_at: Mutex<Option<Instant>>,
+    last_connection_read_at: Mutex<Option<Instant>>,
+    connection_read_count: Mutex<u64>,
     finished: AtomicBool,
 }
 
@@ -114,7 +119,10 @@ struct H2ClientReadProbeState {
 struct H2ClientPhaseReadStats {
     connection_read_wait_ms: Option<f64>,
     connection_read_to_phase_end_ms: Option<f64>,
+    connection_read_span_ms: Option<f64>,
+    last_connection_read_to_phase_end_ms: Option<f64>,
     first_connection_read_at: Option<Instant>,
+    connection_read_count: u64,
 }
 
 #[derive(Debug, Default)]
@@ -838,6 +846,8 @@ impl H2ClientReadTracker {
         let probe = Arc::new(H2ClientReadProbeState {
             phase_started_at: Instant::now(),
             first_connection_read_at: Mutex::new(None),
+            last_connection_read_at: Mutex::new(None),
+            connection_read_count: Mutex::new(0),
             finished: AtomicBool::new(false),
         });
         let mut guard = self
@@ -866,6 +876,18 @@ impl H2ClientReadTracker {
             if first_connection_read_at.is_none() {
                 *first_connection_read_at = Some(read_at);
             }
+            drop(first_connection_read_at);
+            let mut last_connection_read_at = state
+                .last_connection_read_at
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner());
+            *last_connection_read_at = Some(read_at);
+            drop(last_connection_read_at);
+            let mut connection_read_count = state
+                .connection_read_count
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner());
+            *connection_read_count = connection_read_count.saturating_add(1);
         }
     }
 }
@@ -876,6 +898,16 @@ impl H2ClientReadProbe {
         let first_connection_read_at = *self
             .state
             .first_connection_read_at
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let last_connection_read_at = *self
+            .state
+            .last_connection_read_at
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let connection_read_count = *self
+            .state
+            .connection_read_count
             .lock()
             .unwrap_or_else(|poison| poison.into_inner());
         let connection_read_wait_ms = first_connection_read_at.map(|read_at| {
@@ -893,10 +925,32 @@ impl H2ClientReadProbe {
             ),
             _ => None,
         };
+        let connection_read_span_ms = match (first_connection_read_at, last_connection_read_at) {
+            (Some(first_read_at), Some(last_read_at)) if last_read_at >= first_read_at => Some(
+                last_read_at
+                    .saturating_duration_since(first_read_at)
+                    .as_secs_f64()
+                    * 1000.0,
+            ),
+            _ => None,
+        };
+        let last_connection_read_to_phase_end_ms =
+            match (last_connection_read_at, phase_finished_at) {
+                (Some(last_read_at), Some(phase_end_at)) if phase_end_at >= last_read_at => Some(
+                    phase_end_at
+                        .saturating_duration_since(last_read_at)
+                        .as_secs_f64()
+                        * 1000.0,
+                ),
+                _ => None,
+            };
         H2ClientPhaseReadStats {
             connection_read_wait_ms,
             connection_read_to_phase_end_ms,
+            connection_read_span_ms,
+            last_connection_read_to_phase_end_ms,
             first_connection_read_at,
+            connection_read_count,
         }
     }
 }
@@ -2038,6 +2092,22 @@ fn summarize_http_phase_timing(
         .filter_map(|sample| sample.http_phase_timing.as_ref())
         .filter_map(|timing| timing.response_body_tail_connection_read_to_end_ms)
         .collect::<Vec<_>>();
+    let mut response_body_tail_connection_read_counts = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_body_tail_connection_read_count)
+        .map(|count| count as f64)
+        .collect::<Vec<_>>();
+    let mut response_body_tail_connection_read_spans = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_body_tail_connection_read_span_ms)
+        .collect::<Vec<_>>();
+    let mut response_body_tail_connection_last_read_to_ends = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_body_tail_connection_last_read_to_end_ms)
+        .collect::<Vec<_>>();
     let mut request_round_trips = samples
         .iter()
         .filter_map(|sample| sample.http_phase_timing.as_ref())
@@ -2061,6 +2131,9 @@ fn summarize_http_phase_timing(
     response_body_connection_read_to_first_chunks.sort_by(|left, right| left.total_cmp(right));
     response_body_tail_connection_read_waits.sort_by(|left, right| left.total_cmp(right));
     response_body_tail_connection_read_to_ends.sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_connection_read_counts.sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_connection_read_spans.sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_connection_last_read_to_ends.sort_by(|left, right| left.total_cmp(right));
     request_round_trips.sort_by(|left, right| left.total_cmp(right));
 
     Some(
@@ -2242,6 +2315,55 @@ fn summarize_http_phase_timing(
                     0.0
                 } else {
                     percentile(&response_body_tail_connection_read_to_ends, 0.95)
+                },
+            response_body_tail_connection_read_count_samples_total:
+                response_body_tail_connection_read_counts.len() as u64,
+            response_body_tail_connection_read_count_avg:
+                if response_body_tail_connection_read_counts.is_empty() {
+                    0.0
+                } else {
+                    response_body_tail_connection_read_counts
+                        .iter()
+                        .sum::<f64>()
+                        / response_body_tail_connection_read_counts.len() as f64
+                },
+            response_body_tail_connection_read_count_p95:
+                if response_body_tail_connection_read_counts.is_empty() {
+                    0.0
+                } else {
+                    percentile(&response_body_tail_connection_read_counts, 0.95)
+                },
+            response_body_tail_connection_read_span_samples_total:
+                response_body_tail_connection_read_spans.len() as u64,
+            response_body_tail_connection_read_span_avg_ms:
+                if response_body_tail_connection_read_spans.is_empty() {
+                    0.0
+                } else {
+                    response_body_tail_connection_read_spans.iter().sum::<f64>()
+                        / response_body_tail_connection_read_spans.len() as f64
+                },
+            response_body_tail_connection_read_span_p95_ms:
+                if response_body_tail_connection_read_spans.is_empty() {
+                    0.0
+                } else {
+                    percentile(&response_body_tail_connection_read_spans, 0.95)
+                },
+            response_body_tail_connection_last_read_to_end_samples_total:
+                response_body_tail_connection_last_read_to_ends.len() as u64,
+            response_body_tail_connection_last_read_to_end_avg_ms:
+                if response_body_tail_connection_last_read_to_ends.is_empty() {
+                    0.0
+                } else {
+                    response_body_tail_connection_last_read_to_ends
+                        .iter()
+                        .sum::<f64>()
+                        / response_body_tail_connection_last_read_to_ends.len() as f64
+                },
+            response_body_tail_connection_last_read_to_end_p95_ms:
+                if response_body_tail_connection_last_read_to_ends.is_empty() {
+                    0.0
+                } else {
+                    percentile(&response_body_tail_connection_last_read_to_ends, 0.95)
                 },
             request_round_trip_avg_ms: request_round_trips.iter().sum::<f64>()
                 / request_round_trips.len() as f64,
@@ -4538,8 +4660,7 @@ async fn drain_h2_response(
     let connection_read_stats = read_probe.finish(first_chunk_at);
     let tail_connection_read_stats = tail_read_probe
         .as_ref()
-        .map(|probe| probe.finish(Some(body_finished_at)))
-        .unwrap_or_default();
+        .map(|probe| probe.finish(Some(body_finished_at)));
     Ok(H2ResponseDrainStats {
         received_bytes: received,
         first_chunk_wait_ms: first_chunk_wait_ms
@@ -4556,8 +4677,16 @@ async fn drain_h2_response(
         first_chunk_bytes,
         post_header_connection_read_wait_ms: connection_read_stats.connection_read_wait_ms,
         connection_read_to_first_chunk_ms: connection_read_stats.connection_read_to_phase_end_ms,
-        tail_connection_read_wait_ms: tail_connection_read_stats.connection_read_wait_ms,
-        tail_connection_read_to_end_ms: tail_connection_read_stats.connection_read_to_phase_end_ms,
+        tail_connection_read_wait_ms: tail_connection_read_stats
+            .and_then(|stats| stats.connection_read_wait_ms),
+        tail_connection_read_to_end_ms: tail_connection_read_stats
+            .and_then(|stats| stats.connection_read_to_phase_end_ms),
+        tail_connection_read_count: tail_connection_read_stats
+            .map(|stats| stats.connection_read_count),
+        tail_connection_read_span_ms: tail_connection_read_stats
+            .and_then(|stats| stats.connection_read_span_ms),
+        tail_connection_last_read_to_end_ms: tail_connection_read_stats
+            .and_then(|stats| stats.last_connection_read_to_phase_end_ms),
     })
 }
 
@@ -4732,6 +4861,10 @@ async fn send_h2_request(
             response_body_tail_connection_read_wait_ms: response_body.tail_connection_read_wait_ms,
             response_body_tail_connection_read_to_end_ms: response_body
                 .tail_connection_read_to_end_ms,
+            response_body_tail_connection_read_count: response_body.tail_connection_read_count,
+            response_body_tail_connection_read_span_ms: response_body.tail_connection_read_span_ms,
+            response_body_tail_connection_last_read_to_end_ms: response_body
+                .tail_connection_last_read_to_end_ms,
             request_round_trip_ms: latency_ms,
         }),
     })
