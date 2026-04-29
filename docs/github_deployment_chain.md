@@ -36,6 +36,13 @@ be enforced by automation:
 bin/audit-github-deployment-chain --branch master --strict
 ```
 
+Use the operator plan mode to print the exact required-status-check payload
+without changing repository policy:
+
+```sh
+bin/audit-github-deployment-chain --branch master --show-required-checks-plan
+```
+
 ## Current GitHub Controls
 
 Snapshot date: 2026-04-28.
@@ -105,7 +112,7 @@ Rust result summaries containing `0 failed`.
 
 The latest audited branch evidence on 2026-04-29:
 
-- `add-router` commit `5441730` passed GitHub `CI` run `25086102543`.
+- `add-router` commit `1769982` passed GitHub `CI` run `25087405841`.
 - `Fast Checks` and `Full Verify` completed successfully.
 - The main `CI` workflow now contains only `Fast Checks` and `Full Verify`;
   `bin/audit-github-deployment-chain --branch add-router
@@ -126,6 +133,9 @@ The latest audited branch evidence on 2026-04-29:
 - `5441730` removed the duplicate manual-only WAMP profile job from main `CI`;
   canonical WAMP profile gates remain in the dedicated
   `WAMP Profile Benchmarks` workflow.
+- `1769982` added the clean-latest-CI audit gate. The current branch-protection
+  follow-up keeps policy mutation operator-only while making the required-check
+  payload reproducible through `--show-required-checks-plan`.
 
 The next deployment-chain improvement should either apply the approved branch
 protection settings, promote and validate the router image workflow/package, or

@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `5441730` (`ci: remove duplicate wamp gate skip`)
+Last reviewed commit: `1769982` (`ci: audit latest ci job cleanliness`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -510,6 +510,26 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
   - focused local checks passed: `bash -n bin/audit-github-deployment-chain`,
     `bin/audit-github-deployment-chain --help`, and the live read-only audit
     above against `add-router`
+- Hosted GitHub validation is clean on `1769982`
+  (`ci: audit latest ci job cleanliness`):
+  - local `bin/test-fast` and `bin/verify` passed before the audit gate commit
+  - GitHub `CI` run `25087405841` passed `Fast Checks` and `Full Verify`
+  - `bin/audit-github-deployment-chain --branch add-router --run-limit 4
+    --require-clean-latest-ci` reports no skipped, pending, failed, missing,
+    or unexpected `CI` jobs on the latest branch run
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, or errors; remaining matches were a
+    passing bcrypt test name and Rust `0 failed` summaries
+- The current branch-protection follow-up keeps the policy decision
+  operator-only while making the required-check plan reproducible:
+  - `bin/audit-github-deployment-chain --branch master
+    --show-required-checks-plan` prints the minimal
+    `required_status_checks` payload for `Fast Checks` and `Full Verify`
+    without mutating GitHub settings
+  - local `bin/test-fast`, focused audit checks, `git diff --check`, and
+    `bin/verify` passed after adding the operator-plan output
+  - applying required status checks to `master` still requires explicit
+    operator approval because it changes repository merge policy
 - GitLab has not surfaced an `add-router` pipeline through the current API
   query, so GitHub Actions is the current visible hosted CI source for this
   branch.

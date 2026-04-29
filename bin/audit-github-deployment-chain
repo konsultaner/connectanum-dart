@@ -22,6 +22,10 @@ Options:
                              Exit non-zero unless the latest CI run on the
                              audited branch completed with exactly the expected
                              main jobs and no skipped, pending, or failed jobs.
+  --show-required-checks-plan
+                             Print the non-mutating operator plan for adding
+                             the baseline required status checks to the audited
+                             protected branch.
   --strict                  Exit non-zero when the branch lacks the baseline
                              required checks expected for protected releases.
   -h, --help                Show this help text.
@@ -33,6 +37,7 @@ branch=""
 run_limit=6
 strict=0
 require_clean_latest_ci=0
+show_required_checks_plan=0
 expected_ci_jobs=('Fast Checks' 'Full Verify')
 
 while [[ $# -gt 0 ]]; do
@@ -75,6 +80,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --require-clean-latest-ci)
       require_clean_latest_ci=1
+      shift
+      ;;
+    --show-required-checks-plan)
+      show_required_checks_plan=1
       shift
       ;;
     --strict)
@@ -147,6 +156,61 @@ is_expected_ci_job() {
   done
 
   return 1
+}
+
+print_required_checks_plan() {
+  local target_branch="$1"
+  local protected="$2"
+  local existing_strict="$3"
+  local strict_value="false"
+  local expected_job
+  local job_count="${#expected_ci_jobs[@]}"
+  local index=0
+
+  if [[ "$existing_strict" == "true" ]]; then
+    strict_value="true"
+  fi
+
+  printf '\n## Required Status Check Operator Plan\n\n'
+  printf 'This audit does not change GitHub settings. Apply this only after operator approval.\n\n'
+
+  if [[ "$protected" != "true" ]]; then
+    printf 'Branch %s is not protected, so the required-status-check endpoint is unavailable until branch protection exists.\n' "$target_branch"
+    printf 'Recommended autonomous action: keep using clean hosted CI evidence; do not protect development branches silently.\n'
+    return
+  fi
+
+  printf 'Target branch: %s\n' "$target_branch"
+  printf 'Required checks to add or preserve:\n'
+  for expected_job in "${expected_ci_jobs[@]}"; do
+    printf -- '- %s\n' "$expected_job"
+  done
+  printf 'Require up-to-date branches: %s\n\n' "$strict_value"
+
+  printf 'Minimal required-status-check payload:\n\n'
+  printf '```json\n'
+  printf '{\n'
+  printf '  "strict": %s,\n' "$strict_value"
+  printf '  "contexts": [\n'
+  for expected_job in "${expected_ci_jobs[@]}"; do
+    index=$((index + 1))
+    if [[ "$index" -lt "$job_count" ]]; then
+      printf '    "%s",\n' "$expected_job"
+    else
+      printf '    "%s"\n' "$expected_job"
+    fi
+  done
+  printf '  ]\n'
+  printf '}\n'
+  printf '```\n\n'
+
+  printf 'Operator command, after saving the reviewed payload as required-status-checks.json:\n\n'
+  printf '```sh\n'
+  printf 'gh api \\\n'
+  printf '  --method PATCH \\\n'
+  printf '  repos/%s/branches/%s/protection/required_status_checks \\\n' "$repository" "$target_branch"
+  printf '  --input required-status-checks.json\n'
+  printf '```\n'
 }
 
 if [[ -z "$branch" ]]; then
@@ -233,6 +297,10 @@ else
   printf 'Required status checks: none\n'
   printf 'Finding: branch is not protected.\n'
   missing_required_checks=1
+fi
+
+if [[ "$show_required_checks_plan" -eq 1 ]]; then
+  print_required_checks_plan "$branch" "$branch_protected" "${status_strict:-false}"
 fi
 
 printf '\n## Active Workflows\n\n'

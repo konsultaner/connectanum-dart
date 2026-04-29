@@ -357,6 +357,20 @@ operator evidence over speculative feature or benchmark work.
   - hosted log scanning found no real warnings, deprecations, rawsocket reset
     noise, timeouts, cancellations, or errors; remaining matches were a passing
     bcrypt test name and Rust `0 failed` summaries
+- Completed hosted validation for the clean-latest-CI audit gate:
+  - commit `1769982` (`ci: audit latest ci job cleanliness`) passed GitHub
+    `CI` run `25087405841`
+  - `Fast Checks` and `Full Verify` completed successfully, with no skipped,
+    pending, failed, missing, or unexpected main `CI` jobs
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, or errors; remaining matches were a passing
+    bcrypt test name and Rust `0 failed` summaries
+- Started branch-protection operator-plan hardening:
+  - `bin/audit-github-deployment-chain --branch master
+    --show-required-checks-plan` prints the minimal required-status-check
+    payload for `Fast Checks` and `Full Verify`
+  - the audit remains read-only and does not apply branch protection; remote
+    policy mutation remains blocked on explicit operator approval
 
 ## Verification
 
@@ -570,6 +584,18 @@ operator evidence over speculative feature or benchmark work.
   - `bin/audit-github-deployment-chain --help`
   - `bin/audit-github-deployment-chain --branch add-router --run-limit 2
     --require-clean-latest-ci`
+  - `bin/verify`
+  - GitHub `CI` run `25087405841`
+  - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
+    cancellation, and real error lines
+- Current branch-protection operator-plan checks:
+  - `bin/test-fast`
+  - `bash -n bin/audit-github-deployment-chain`
+  - `bin/audit-github-deployment-chain --help`
+  - `bin/audit-github-deployment-chain --branch master --run-limit 2
+    --show-required-checks-plan`
+  - `git diff --check`
+  - `bin/verify`
 
 ## Decision Log
 
@@ -645,6 +671,10 @@ operator evidence over speculative feature or benchmark work.
 - 2026-04-29: Added an opt-in clean-latest-CI audit mode so future
   continuations can fail fast on skipped, pending, failed, missing, or
   unexpected main `CI` jobs without relying on manual Actions UI inspection.
+- 2026-04-29: Added an opt-in branch-protection operator plan instead of
+  applying required checks autonomously. The plan prints the minimal
+  required-status-check payload for `Fast Checks` and `Full Verify`, while the
+  actual GitHub policy mutation remains an explicit operator decision.
 
 ## Handoff
 
