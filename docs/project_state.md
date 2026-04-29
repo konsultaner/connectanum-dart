@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `d9cbd81` (`ci: add dart package publish dry run`)
+Last reviewed commit: `ee32ad3` (`ci: report dart package release blockers`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -465,6 +465,17 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
   - the dedicated `Dart Package Publish Dry Run` workflow run `25082475073`
     passed and validated the publishable Dart package archive without
     publishing to pub.dev
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, or errors; remaining matches were a
+    passing bcrypt test name and Rust `0 failed` summaries
+- Hosted GitHub validation is clean on `ee32ad3`
+  (`ci: report dart package release blockers`):
+  - GitHub `CI` run `25084695576` passed `Fast Checks` and `Full Verify`;
+    `WAMP Profile Gates` was skipped inside the main CI workflow for this
+    normal push
+  - GitHub `Dart Package Publish Dry Run` run `25084695572` passed and
+    surfaced the `connectanum_client` -> private `connectanum_core`
+    release-readiness blocker without publishing to pub.dev
   - hosted log scanning found no real warnings, deprecations, rawsocket reset
     noise, timeouts, cancellations, or errors; remaining matches were a
     passing bcrypt test name and Rust `0 failed` summaries

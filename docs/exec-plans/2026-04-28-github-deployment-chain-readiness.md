@@ -347,6 +347,16 @@ operator evidence over speculative feature or benchmark work.
   - `--strict-release-ready` exits non-zero on the current
     `connectanum_client` -> private `connectanum_core` dependency until the
     package release plan is approved and resolved
+- Completed hosted validation for Dart package release-readiness blocker
+  reporting:
+  - commit `ee32ad3` (`ci: report dart package release blockers`) passed
+    GitHub `CI` run `25084695576`
+  - GitHub `Dart Package Publish Dry Run` run `25084695572` passed and
+    surfaced the current private-workspace dependency blocker without
+    publishing to pub.dev
+  - hosted log scanning found no real warnings, deprecations, rawsocket reset
+    noise, timeouts, cancellations, or errors; remaining matches were a passing
+    bcrypt test name and Rust `0 failed` summaries
 
 ## Verification
 
@@ -536,6 +546,10 @@ operator evidence over speculative feature or benchmark work.
   - `bin/verify`
   - GitHub `CI` run `25082475062`
   - GitHub `Dart Package Publish Dry Run` run `25082475073`
+  - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
+    cancellation, and real error lines
+  - GitHub `CI` run `25084695576`
+  - GitHub `Dart Package Publish Dry Run` run `25084695572`
   - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
     cancellation, and real error lines
 
