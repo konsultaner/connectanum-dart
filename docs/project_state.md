@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `8ff7b31` (`bench: keep response stream summaries`)
+Last reviewed commit: `86c914e` (`perf: avoid h2 single-stream body yield`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -227,6 +227,44 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
   - full local `bin/verify` passed after the response-stream summary fix on
     2026-04-29, including Rust, Dart package, bench, router, and
     Chrome/Dart2Wasm browser coverage
+  - commit `c71ed8c` (`docs: record response stream summary fix`) passed the
+    hosted GitHub push chain: `CI` run `25137565822` completed with
+    `Fast Checks` in 4m43s and `Full Verify` in 8m19s; `kTLS Validation` run
+    `25137565809` completed in 2m57s; `WAMP Profile Benchmarks` run
+    `25137565865` completed in 8m00s
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25138038502` completed
+    successfully on `c71ed8c` in 5m20s; the uploaded comparison now includes
+    native response-stream rows without local rerendering, and the hosted log
+    scan only matched the expected manual artifact-gate skip notices plus the
+    Rust toolchain timeout-reference URL
+  - `25138038502` was complete but not decision-quality: throughput delta
+    span was `69.12pp`, p95 delta span was `1975.62pp`, all repeats produced
+    matched rows, and the instability was kTLS-side
+  - the repeated native response-stream signal on `25138038502` stayed small
+    but sign-consistent before the client-side body tail: tail chunk channel
+    wait was kTLS-higher by `+0.26..+0.28 ms` (median `+0.27 ms`) and
+    first-to-last chunk send span was kTLS-higher by `+0.18..+0.20 ms`
+    (median `+0.20 ms`), while repeated server-emission signals stayed empty
+  - commit `86c914e` (`perf: avoid h2 single-stream body yield`) gates the
+    HTTP/2 first-body-chunk fairness yield on `pending_headers > 1`; the
+    single-stream isolated `s1` response path no longer yields after the first
+    body chunk when there is no pending header backlog, while multiplexed
+    response fairness still uses the existing pending-header condition
+  - local verification for the H2 yield-gating change passed:
+    `bin/test-fast`,
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_core http2_response_yield_requires_multiple_pending_headers -- --nocapture`,
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_core http_response_stream_metrics_record_tail_chunks -- --nocapture`,
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_core -- --nocapture`,
+    `git diff --check`, and full `bin/verify`
+  - commit `86c914e` passed the hosted GitHub push chain: `CI` run
+    `25138760298` completed with `Fast Checks` in 5m20s and `Full Verify` in
+    8m29s; `kTLS Validation` run `25138760315` completed in 2m53s; `WAMP
+    Profile Benchmarks` run `25138760280` completed in 7m39s
+  - the branch-head deployment-chain audit with
+    `--require-clean-latest-ci --require-clean-latest-ci-logs` passed against
+    `86c914e`; manual raw log scans for the `CI`, `kTLS Validation`, and
+    `WAMP Profile Benchmarks` runs only matched benign timeout-reference
+    text, passing test names, and WAMP timeout configuration lines
 - Current deployment-chain evidence refresh:
   - commit `b338d58` (`docs: record current deployment evidence`) passed
     hosted GitHub `CI` run `25123037462`; `Fast Checks` completed

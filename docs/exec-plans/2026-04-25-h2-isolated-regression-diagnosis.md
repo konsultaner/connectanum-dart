@@ -442,6 +442,43 @@ decisions.
     `+0.23..+0.26 ms`, median `+0.25 ms`
 - This means the next diagnosis target is native server tail-send scheduling
   under kTLS, not only client-side socket/TLS read delivery.
+- Commit `c71ed8c` (`docs: record response stream summary fix`) passed the
+  hosted GitHub push chain:
+  - `CI` `25137565822`
+  - `kTLS Validation` `25137565809`
+  - `WAMP Profile Benchmarks` `25137565865`
+- Manual hosted rerun `25138038502` reran isolated `s1`, `threads=4`, one
+  router worker on `c71ed8c` with `repeat_order=alternating`.
+- That run confirmed the hosted artifacts now include native response-stream
+  rows without local rerendering, but it was not decision-quality:
+  - throughput delta span was `69.12pp`
+  - p95 delta span was `1975.62pp`
+  - all repeats produced matched rows
+  - the instability was kTLS-side
+- The repeated native response-stream signal remained small but
+  sign-consistent:
+  - tail chunk channel wait was kTLS-higher by `+0.26..+0.28 ms`, median
+    `+0.27 ms`
+  - first-to-last chunk send span was kTLS-higher by `+0.18..+0.20 ms`,
+    median `+0.20 ms`
+  - repeated server-emission signals stayed empty
+- Inspecting the single-stream HTTP/2 response path showed an unconditional
+  fairness yield after the first streamed body chunk. That helps multiplexed
+  responses only when another response header is pending, but in isolated
+  `streams_per_connection = 1` it can delay draining already-queued tail
+  chunks without improving fairness.
+- Commit `86c914e` (`perf: avoid h2 single-stream body yield`) gates the
+  first-body-chunk yield on the same `pending_headers > 1` condition already
+  used for the response-header yield:
+  - single-stream/uncontended HTTP/2 responses no longer yield after the first
+    body chunk
+  - multiplexed responses with pending header work still retain the fairness
+    yield
+- The hosted push chain for `86c914e` is clean:
+  - `CI` `25138760298`
+  - `kTLS Validation` `25138760315`
+  - `WAMP Profile Benchmarks` `25138760280`
+  - the branch-head deployment audit and hosted CI log scan are clean
 
 ## Current Verification
 
@@ -579,12 +616,39 @@ decisions.
     `native/bench/target/debug/transform_results`,
     `tool/ktls_http2_compare.py`, and `tool/ktls_http2_compare_repeats.py`
   - `bin/verify`
+- Current H2 single-stream response-yield verification:
+  - hosted GitHub `CI` run `25137565822` completed successfully on `c71ed8c`;
+    `Fast Checks` completed in 4m43s and `Full Verify` completed in 8m19s
+  - hosted GitHub `kTLS Validation` run `25137565809` completed successfully
+    on `c71ed8c`
+  - hosted GitHub `WAMP Profile Benchmarks` run `25137565865` completed
+    successfully on `c71ed8c`
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25138038502` completed
+    successfully on `c71ed8c`; it confirmed hosted native response-stream rows
+    are present, but the repeat result was not decision-quality
+  - `bin/test-fast`
+  - `cargo test --manifest-path native/transport/Cargo.toml -p ct_core http2_response_yield_requires_multiple_pending_headers -- --nocapture`
+  - `cargo test --manifest-path native/transport/Cargo.toml -p ct_core http_response_stream_metrics_record_tail_chunks -- --nocapture`
+  - `cargo test --manifest-path native/transport/Cargo.toml -p ct_core -- --nocapture`
+  - `git diff --check`
+  - `bin/verify`
+  - hosted GitHub `CI` run `25138760298` completed successfully on `86c914e`;
+    `Fast Checks` completed in 5m20s and `Full Verify` completed in 8m29s
+  - hosted GitHub `kTLS Validation` run `25138760315` completed successfully
+    on `86c914e`
+  - hosted GitHub `WAMP Profile Benchmarks` run `25138760280` completed
+    successfully on `86c914e`
+  - deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `86c914e`
 
 ## Next Step
 
-Push the response-stream summary fix, watch the GitHub push chain, then rerun
-the isolated hosted `s1`, `threads=4`, one-router-worker benchmark with
-`repeat_order=alternating` so the uploaded hosted artifacts include the native
-tail-send rows. If the native tail chunk channel wait and first-to-last send
-span signals repeat, inspect and instrument native HTTP/2 streaming response
-task scheduling before returning to client socket/TLS read delivery.
+Rerun the isolated hosted `s1`, `threads=4`, one-router-worker benchmark on
+`86c914e` with `repeat_order=alternating` so the next artifact tests whether
+removing the single-stream first-body yield collapses the native tail chunk
+channel-wait and first-to-last-send signal. If those native response-stream
+signals remain, inspect deeper native HTTP/2 streaming response scheduling and
+backpressure before returning to client socket/TLS read delivery. If they
+collapse while throughput improves, treat the unconditional single-stream yield
+as causal and decide whether the same condition should be reused in any
+adjacent HTTP/2 response scheduling paths.
