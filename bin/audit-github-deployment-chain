@@ -37,6 +37,14 @@ Options:
                              Print the non-mutating operator plan for adding
                              the baseline required status checks to the audited
                              protected branch.
+  --show-rc-readiness        Print a non-mutating release-candidate readiness
+                             summary for the current checked-out head.
+  --require-rc-ready         Exit non-zero unless the current checked-out head
+                             has release-candidate evidence: clean hosted CI
+                             and logs, baseline branch protection, visible
+                             workflows, visible router package, an RC GitHub
+                             prerelease, and strict Dart package dry-run
+                             readiness.
   --strict                  Exit non-zero when the branch lacks the baseline
                              required checks expected for protected releases.
   -h, --help                Show this help text.
@@ -47,12 +55,16 @@ repository="${GITHUB_REPOSITORY:-konsultaner/connectanum-dart}"
 branch=""
 run_limit=6
 strict=0
+check_clean_latest_ci=0
 require_clean_latest_ci=0
+check_latest_ci_logs=0
 scan_latest_ci_logs=0
 require_clean_latest_ci_logs=0
 require_router_package=0
 require_workflows_visible=0
 show_required_checks_plan=0
+show_rc_readiness=0
+require_rc_ready=0
 expected_ci_jobs=('Fast Checks' 'Full Verify')
 ci_log_issue_pattern='warning:|::warning|DeprecationWarning|Connection reset by peer|connection ConnectionId|skipped'
 
@@ -95,14 +107,17 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --require-clean-latest-ci)
+      check_clean_latest_ci=1
       require_clean_latest_ci=1
       shift
       ;;
     --scan-latest-ci-logs)
+      check_latest_ci_logs=1
       scan_latest_ci_logs=1
       shift
       ;;
     --require-clean-latest-ci-logs)
+      check_latest_ci_logs=1
       scan_latest_ci_logs=1
       require_clean_latest_ci_logs=1
       shift
@@ -117,6 +132,21 @@ while [[ $# -gt 0 ]]; do
       ;;
     --show-required-checks-plan)
       show_required_checks_plan=1
+      shift
+      ;;
+    --show-rc-readiness)
+      show_rc_readiness=1
+      check_clean_latest_ci=1
+      check_latest_ci_logs=1
+      scan_latest_ci_logs=1
+      shift
+      ;;
+    --require-rc-ready)
+      show_rc_readiness=1
+      require_rc_ready=1
+      check_clean_latest_ci=1
+      check_latest_ci_logs=1
+      scan_latest_ci_logs=1
       shift
       ;;
     --strict)
@@ -189,6 +219,12 @@ is_expected_ci_job() {
   done
 
   return 1
+}
+
+is_release_candidate_tag() {
+  local tag="$1"
+
+  [[ "$tag" =~ (^|[-_.])rc([0-9]+|[-_.][0-9]+)?($|[-_.]) ]]
 }
 
 latest_ci_run_id() {
@@ -287,6 +323,138 @@ print_required_checks_plan() {
   printf '  repos/%s/branches/%s/protection/required_status_checks \\\n' "$repository" "$target_branch"
   printf '  --input required-status-checks.json\n'
   printf '```\n'
+}
+
+print_rc_readiness() {
+  local rc_ready_failed=0
+  local head_sha
+  local short_head_sha
+  local rc_tags
+  local rc_tag
+  local selected_rc_tag=""
+  local selected_rc_release_state=""
+  local strict_dart_output
+
+  head_sha="$(git rev-parse HEAD)"
+  short_head_sha="${head_sha:0:7}"
+
+  printf '\n## Release Candidate Readiness\n\n'
+  printf 'Checked-out head: %s\n' "$short_head_sha"
+
+  if [[ "$check_clean_latest_ci" -eq 1 ]]; then
+    if [[ "$latest_ci_failed" -eq 0 ]]; then
+      printf 'Latest CI job gate: ready\n'
+    else
+      printf 'Latest CI job gate: not ready\n'
+      rc_ready_failed=1
+    fi
+  else
+    printf 'Latest CI job gate: not evaluated; use --require-clean-latest-ci or --require-rc-ready.\n'
+    rc_ready_failed=1
+  fi
+
+  if [[ "$scan_latest_ci_logs" -eq 1 ]]; then
+    if [[ "$latest_ci_log_failed" -eq 0 ]]; then
+      printf 'Latest CI log gate: ready\n'
+    else
+      printf 'Latest CI log gate: not ready\n'
+      rc_ready_failed=1
+    fi
+  else
+    printf 'Latest CI log gate: not evaluated; use --scan-latest-ci-logs or --require-rc-ready.\n'
+    rc_ready_failed=1
+  fi
+
+  if [[ "$missing_required_checks" -eq 0 ]]; then
+    printf 'Branch protection baseline: ready\n'
+  else
+    printf 'Branch protection baseline: not ready; the audited branch must protect release-critical CI checks.\n'
+    rc_ready_failed=1
+  fi
+
+  if [[ "$missing_visible_workflow" -eq 0 ]]; then
+    printf 'Workflow visibility: ready\n'
+  else
+    printf 'Workflow visibility: not ready; every checked-in workflow must be visible to GitHub Actions.\n'
+    rc_ready_failed=1
+  fi
+
+  if [[ "$missing_router_package" -eq 0 ]]; then
+    printf 'Router image package visibility: ready\n'
+  else
+    printf 'Router image package visibility: not ready; ghcr.io/%s/connectanum-router is not visible.\n' "$package_owner"
+    rc_ready_failed=1
+  fi
+
+  rc_tags="$(
+    while IFS= read -r rc_tag; do
+      [[ -n "$rc_tag" ]] || continue
+      if is_release_candidate_tag "$rc_tag"; then
+        printf '%s\n' "$rc_tag"
+      fi
+    done < <(git tag --points-at HEAD | sort)
+  )"
+
+  if [[ -z "$rc_tags" ]]; then
+    printf 'RC tag on checked-out head: not ready; no local tag with an rc segment points at %s.\n' "$short_head_sha"
+    rc_ready_failed=1
+  else
+    printf 'RC tag on checked-out head: ready\n'
+    while IFS= read -r rc_tag; do
+      [[ -n "$rc_tag" ]] || continue
+      printf -- '- %s\n' "$rc_tag"
+      if [[ -z "$selected_rc_tag" ]]; then
+        selected_rc_tag="$rc_tag"
+      fi
+    done <<<"$rc_tags"
+  fi
+
+  if [[ -n "$selected_rc_tag" ]]; then
+    if selected_rc_release_state="$(
+      "$gh_bin" release view "$selected_rc_tag" \
+        --repo "$repository" \
+        --json tagName,isPrerelease,isDraft \
+        --jq '[.tagName, .isPrerelease, .isDraft] | @tsv' \
+        2>/dev/null
+    )"; then
+      IFS=$'\t' read -r release_tag release_prerelease release_draft <<<"$selected_rc_release_state"
+      if [[ "$release_prerelease" == "true" && "$release_draft" != "true" ]]; then
+        printf 'GitHub RC prerelease: ready (%s)\n' "$release_tag"
+      else
+        printf 'GitHub RC prerelease: not ready; %s isPrerelease=%s isDraft=%s.\n' "$release_tag" "$release_prerelease" "$release_draft"
+        rc_ready_failed=1
+      fi
+    else
+      printf 'GitHub RC prerelease: not ready; no GitHub Release exists for %s.\n' "$selected_rc_tag"
+      rc_ready_failed=1
+    fi
+  else
+    printf 'GitHub RC prerelease: not ready; no RC tag selected.\n'
+    rc_ready_failed=1
+  fi
+
+  if [[ -x bin/dart-package-publish-dry-run ]]; then
+    strict_dart_output="$(mktemp "${TMPDIR:-/tmp}/connectanum-dart-pub-strict.XXXXXX")"
+    if bin/dart-package-publish-dry-run --strict-release-ready >"$strict_dart_output" 2>&1; then
+      printf 'Dart package strict publish dry-run: ready\n'
+    else
+      printf 'Dart package strict publish dry-run: not ready\n'
+      grep -E '^(Dart package release-readiness blockers:|- )' "$strict_dart_output" || true
+      rc_ready_failed=1
+    fi
+    rm -f "$strict_dart_output"
+  else
+    printf 'Dart package strict publish dry-run: not ready; bin/dart-package-publish-dry-run is missing or not executable.\n'
+    rc_ready_failed=1
+  fi
+
+  if [[ "$rc_ready_failed" -eq 0 ]]; then
+    printf '\nRelease candidate readiness: ready.\n'
+  else
+    printf '\nRelease candidate readiness: not ready.\n'
+  fi
+
+  return "$rc_ready_failed"
 }
 
 if [[ -z "$branch" ]]; then
@@ -454,7 +622,7 @@ printf '\n## Latest Branch Runs\n\n'
   --jq '.[] | "- \(.name) #\(.databaseId): \(.status)/\(.conclusion // "pending") @ \(.headSha[0:7]) (\(.createdAt))"' \
   || true
 
-if [[ "$require_clean_latest_ci" -eq 1 ]]; then
+if [[ "$check_clean_latest_ci" -eq 1 ]]; then
   printf '\n## Latest CI Job Cleanliness\n\n'
 
   latest_ci_id="$(latest_ci_run_id)"
@@ -565,6 +733,13 @@ if [[ "$scan_latest_ci_logs" -eq 1 ]]; then
   fi
 fi
 
+rc_ready_failed=0
+if [[ "$show_rc_readiness" -eq 1 ]]; then
+  if ! print_rc_readiness; then
+    rc_ready_failed=1
+  fi
+fi
+
 if [[ "$require_clean_latest_ci" -eq 1 && "$latest_ci_failed" -ne 0 ]]; then
   printf '\nLatest CI cleanliness audit failed.\n' >&2
   exit 1
@@ -587,5 +762,10 @@ fi
 
 if [[ "$strict" -eq 1 && ( "$missing_required_checks" -ne 0 || "$missing_visible_workflow" -ne 0 ) ]]; then
   printf '\nStrict audit failed: protected release branches should require Fast Checks and Full Verify, and checked-in workflows should be visible to GitHub Actions.\n' >&2
+  exit 1
+fi
+
+if [[ "$require_rc_ready" -eq 1 && "$rc_ready_failed" -ne 0 ]]; then
+  printf '\nRelease candidate readiness audit failed.\n' >&2
   exit 1
 fi

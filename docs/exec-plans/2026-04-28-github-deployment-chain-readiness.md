@@ -523,6 +523,28 @@ operator evidence over speculative feature or benchmark work.
     `bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs`
   - the audit log scan found no high-signal warning, deprecation,
     skipped-test, rawsocket reset, or connection-noise matches
+- Started release-candidate readiness audit hardening:
+  - `bin/audit-github-deployment-chain` now has `--show-rc-readiness` and
+    `--require-rc-ready` modes so RC status is checked repeatably against
+    clean hosted CI/logs, baseline branch protection, workflow visibility,
+    router package visibility, RC tag/GitHub prerelease evidence, and strict
+    Dart package dry-run readiness
+  - pre-change `bin/test-fast` passed locally
+  - focused local checks passed:
+    `bash -n bin/audit-github-deployment-chain` and
+    `bin/audit-github-deployment-chain --help`
+  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-rc-readiness`
+    completed successfully and reported the current branch as not RC-ready
+    without failing the command
+  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-rc-ready`
+    failed as expected: hosted CI/log gates are clean, while the actual RC
+    blockers remain branch protection, router workflow/package publication,
+    missing RC tag/prerelease evidence, and the strict Dart package
+    release-order blocker
+  - final local `bin/verify` passed, including Rust/FFI tests, Dart package
+    tests, bench WAMP transport coverage, full router tests,
+    `remote_auth_integration_test`, and the Chrome Dart2Wasm browser websocket
+    test
 
 ## Verification
 
@@ -759,6 +781,15 @@ operator evidence over speculative feature or benchmark work.
 - Current public deployment-evidence refresh checks:
   - `bin/test-fast`
   - `git diff --check`
+  - `bin/verify`
+- Current release-candidate readiness audit checks:
+  - `bin/test-fast`
+  - `bash -n bin/audit-github-deployment-chain`
+  - `bin/audit-github-deployment-chain --help`
+  - `bin/audit-github-deployment-chain --branch add-router --run-limit 1
+    --show-rc-readiness`
+  - expected failing
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-rc-ready`
   - `bin/verify`
 
 ## Decision Log

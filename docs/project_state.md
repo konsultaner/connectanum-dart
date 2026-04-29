@@ -2,11 +2,39 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `1131e7e` (`ci: require zero-warning dart publish dry runs`)
+Last reviewed commit: `d44cd8e` (`docs: record dart publish warning gate ci`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
 
+- Current release-candidate readiness audit hardening:
+  - latest hosted GitHub `CI` run `25102685029` passed on `d44cd8e`;
+    `Fast Checks` completed successfully in 5m31s and `Full Verify` completed
+    successfully in 8m11s
+  - latest clean branch-head audit/log scan passed against `d44cd8e` with no
+    skipped, pending, failed, missing, or unexpected main `CI` jobs and no
+    high-signal warning, deprecation, skipped-test, rawsocket reset, or
+    connection-noise log matches
+  - pre-change `bin/test-fast` passed locally on 2026-04-29
+  - `bin/audit-github-deployment-chain` now has `--show-rc-readiness` and
+    `--require-rc-ready` so release-candidate status is a repeatable
+    non-mutating gate instead of a chat-only judgment
+  - focused local checks passed:
+    `bash -n bin/audit-github-deployment-chain`,
+    `bin/audit-github-deployment-chain --help`,
+    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-rc-readiness`, and
+    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-rc-ready`
+    failed as expected on the current RC blockers while confirming clean CI
+    and clean hosted CI logs
+  - current RC blockers remain: unprotected `add-router`, undiscoverable
+    `router-image.yml`, no visible `ghcr.io/konsultaner/connectanum-router`
+    package, no local RC tag/GitHub RC prerelease on the checked-out head, and
+    the strict Dart package dry-run blocker where `connectanum_client` depends
+    on private workspace package `connectanum_core`
+  - final local `bin/verify` passed, including Rust/FFI tests, Dart package
+    tests, bench WAMP transport coverage, full router tests,
+    `remote_auth_integration_test`, and the Chrome Dart2Wasm browser websocket
+    test
 - Current Dart package publish warning-gate hardening:
   - commit `1131e7e` (`ci: require zero-warning dart publish dry runs`) passed
     hosted GitHub `CI` run `25102015230`; `Fast Checks` completed
