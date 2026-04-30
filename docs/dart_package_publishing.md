@@ -33,12 +33,12 @@ and version-sequencing decisions.
   for package metadata, package docs, package license/changelog, and workflow
   changes. It can also be started manually with `workflow_dispatch`.
 
-## Latest Local Evidence
+## Latest Evidence
 
-As of 2026-04-29:
+As of 2026-04-30:
 
-- `bin/dart-package-publish-dry-run` skips the private workspace packages and
-  validates `packages/connectanum_client`.
+- `bin/dart-package-publish-dry-run --show-release-plan` skips the private
+  workspace packages and validates `packages/connectanum_client`.
 - The underlying `dart pub publish --dry-run` for `connectanum_client` passes
   with `Package has 0 warnings`.
 - The root dry-run command enforces that zero-warning result and reports
@@ -58,6 +58,9 @@ As of 2026-04-29:
   `connectanum_client` publish should not be attempted until either
   `connectanum_core` is intentionally published first or the client package is
   restructured to avoid an unpublished public dependency.
+- Manual GitHub `Dart Package Publish Dry Run` run `25167072611` passed on
+  branch head `7098c54`; hosted log scanning found no warning, skipped-test,
+  panic, broken-pipe, reset, or package-warning patterns.
 
 ## Release Sequence
 

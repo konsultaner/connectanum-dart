@@ -120,6 +120,17 @@ operator evidence over speculative feature or benchmark work.
     `native-release-preview`, did not create a GitHub Release for that tag,
     and the preview notes contain the corrected separately released router
     image wording
+- Refreshed Dart package publish-readiness evidence for the current branch
+  head:
+  - local `bin/dart-package-publish-dry-run --show-release-plan` passed for
+    `connectanum_client 2.2.6` with `Package has 0 warnings`
+  - manual GitHub `Dart Package Publish Dry Run` run `25167072611` passed on
+    `7098c54`, and hosted log scanning found no warning, skipped-test, panic,
+    broken-pipe, reset, or package-warning patterns
+  - the remaining Dart package blocker is still non-code release policy:
+    decide whether and when to publish `connectanum_core 0.1.0` before
+    `connectanum_client 2.2.6`, plus pub.dev ownership and final public
+    version choices
 - Confirmed pushed documentation head `639c095` passed GitHub `CI` run
   `25046524665`:
   - `Fast Checks`: success

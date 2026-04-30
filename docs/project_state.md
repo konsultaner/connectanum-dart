@@ -30,6 +30,12 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     separately released target that must be confirmed in the deployment guide
     before production use, instead of implying the GHCR image is already
     published
+  - Dart package publish-readiness evidence is refreshed on `7098c54`:
+    local `bin/dart-package-publish-dry-run --show-release-plan` passed for
+    `connectanum_client` with `Package has 0 warnings`, and hosted GitHub
+    `Dart Package Publish Dry Run` run `25167072611` passed with a clean log
+    scan; the remaining blocker is still the intentional release-order decision
+    `connectanum_core -> connectanum_client`
   - remaining RC/deployment blockers are still operator/product/deployment
     decisions or externally visible release actions: branch protection required
     checks, default-branch visibility for `router-image.yml`, visible GHCR
