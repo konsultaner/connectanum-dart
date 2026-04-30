@@ -1007,9 +1007,39 @@ decisions.
     kTLS/WAMP log scans only matched benign setup/config text, not Rust
     warnings, skipped tests, panics, resets, broken pipes, or connection-noise
     patterns
+  - documentation checkpoint `b75dcca` (`docs: record chunk position ci`)
+    passed hosted GitHub `CI` run `25150349893`; `Fast Checks` completed in
+    5m44s, `Full Verify` completed in 7m58s, and the branch-head
+    deployment-chain audit/log scan remained clean
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25150816510` completed on
+    `b75dcca` but is excluded from clean decision evidence because the hosted
+    log contained `http/2 accept error ... broken pipe` and an H2 broken-pipe
+    connection error around the later repeats
+  - manual hosted retry `25151080248` completed successfully on `b75dcca`
+    with clean diagnostic logs apart from benign setup text and the expected
+    manual artifact-gate skip notices
+  - `25151080248` was complete and useful for diagnosis but still not
+    release-decision-quality: throughput delta span was within threshold at
+    `22.90pp`, p95 delta span was kTLS-side at `1271.34pp`, all repeats
+    produced matched rows, and the worst throughput/p95 row stayed stable at
+    `h2_multiplexed_streams_s1 (workers=1, threads=4)`
+  - the clean retry keeps the kTLS throughput loss stable at
+    `-82.00%..-59.09%` (median `-69.02%`) and shows p95 at
+    `+262.40%..+1533.73%`
+  - the chunk-position fields resolve the immediate question: the max tail
+    inter-read gap sits mid-response (`0.45..0.50` response-position ratio),
+    not at final-read completion, and the chunk-offset/boundary-distance
+    movement does not make app response chunk boundaries the sole explanation
+  - repeated clean-run signals now point to H2 request-body/response-tail
+    scheduling under kTLS: native request-body reader total and remaining
+    tail-read, Dart request-body tail drain, native response tail chunk
+    channel wait, native response first-to-last chunk send, and client body
+    tail read all move kTLS-higher in repeated focus rows
 
 ## Next Step
 
-Rerun the hosted isolated `h2_multiplexed_streams_s1`, `threads=4`,
-one-router-worker alternating kTLS benchmark so the new artifact fields can
-decide whether the mid-tail max gap is tied to response chunk boundaries.
+Inspect the native HTTP/2 request-body reader and response-tail scheduling
+path and add the smallest metric or fix that can explain why kTLS repeatedly
+delays request-body tail delivery and response-tail chunk send/read timing
+even though the client max-gap position is mid-response rather than a clear
+application chunk boundary.

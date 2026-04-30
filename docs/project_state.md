@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `41f9cb6` (`bench: classify h2 max gap chunk position`)
+Last reviewed commit: `b75dcca` (`docs: record chunk position ci`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -563,6 +563,37 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     kTLS/WAMP log scans only matched benign setup/config text, not Rust
     warnings, skipped tests, panics, resets, broken pipes, or connection-noise
     patterns
+  - documentation checkpoint `b75dcca` (`docs: record chunk position ci`)
+    passed hosted GitHub `CI` run `25150349893`; `Fast Checks` completed in
+    5m44s, `Full Verify` completed in 7m58s, and the branch-head
+    deployment-chain audit/log scan remained clean
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25150816510` completed on
+    `b75dcca` but is excluded from clean decision evidence: the artifact was
+    complete but not decision-quality, throughput delta span was `79.02pp`,
+    p95 delta span was `2171.61pp`, and the hosted log contained
+    `http/2 accept error ... broken pipe` plus an H2 broken-pipe connection
+    error around the later repeats
+  - manual hosted retry `25151080248` completed successfully on `b75dcca`
+    with clean diagnostic logs apart from benign setup text and the expected
+    manual `skip_artifact_gate=true` notices; all repeats produced matched
+    rows, throughput delta span was decision-quality at `22.90pp`, but p95
+    delta span was still kTLS-side and non-decision-quality at `1271.34pp`
+  - the clean retry keeps the kTLS throughput loss stable at
+    `-82.00%..-59.09%` (median `-69.02%`) and shows p95 at
+    `+262.40%..+1533.73%`; repeated client signals remain kTLS-higher for
+    body read, first-chunk wait, tail read, tail connection read span, and max
+    inter-read gap
+  - the new chunk-position fields make the chunk-boundary hypothesis unlikely
+    as the sole explanation: max-gap response position stays mid-response at
+    about `0.45..0.50`, while response chunk-offset and chunk-boundary
+    distance move kTLS-lower but remain far enough from a boundary that the
+    next target should be H2 request-body/response-tail scheduling rather than
+    app chunk sizing
+  - the clean retry also shows repeated native/server-side kTLS movement:
+    native request-body reader total and remaining tail-read, Dart
+    request-body tail drain, native response tail chunk channel wait, and
+    native response first-to-last chunk send all moved kTLS-higher in repeated
+    focus rows
 - Current deployment-chain evidence refresh:
   - commit `b338d58` (`docs: record current deployment evidence`) passed
     hosted GitHub `CI` run `25123037462`; `Fast Checks` completed
