@@ -1234,12 +1234,32 @@ decisions.
   - therefore the late wait does not correlate with H2 receive-window
     exhaustion or delayed capacity release; the next target is DATA
     arrival/scheduling or benchmark-side body-timeout behavior under kTLS
+  - latest pushed branch head `2288a50`
+    (`docs: record h2 flow window ci`) passed hosted GitHub `CI` run
+    `25161452394` with `Fast Checks` in 5m40s and `Full Verify` in 7m43s;
+    branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `2288a50`
+  - local commit `7d08440`
+    (`bench: flag transport counter issues in h2 repeats`) makes the
+    primary kTLS/H2 comparison expose individual transport event/alert
+    counters and makes repeat-stability artifacts non-decision-quality when
+    focus rows contain body timeouts, GOAWAY, idle timeouts,
+    protocol/internal errors, or transport alerts
+  - focused local checks for the transport-counter reporting change passed:
+    `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`, and `git diff --check`
+  - full local `bin/verify` passed after `7d08440` on 2026-04-30, including
+    native Rust/FFI, Dart package, MCP, bench, router, and Chrome/Dart2Wasm
+    browser coverage
 
 ## Next Step
 
-Investigate the kTLS repeat-02 body-total timeout path from manual run
-`25160953085` and the remaining DATA arrival/scheduling gap. Start by finding
-where `http/2 body reader error: http/2 body total timeout` is emitted and add a
+Push the local transport-counter reporting checkpoint, monitor the GitHub
+chain, then rerun the isolated manual `h2_multiplexed_streams_s1` kTLS/H2
+benchmark so future artifacts self-flag any body-timeout or transport-alert
+counters. If the kTLS repeat-02 body-total timeout path from run `25160953085`
+recurs, diagnose where
+`http/2 body reader error: http/2 body total timeout` is emitted and add a
 minimal repro or focused diagnostic that distinguishes a real transport stall
 from benchmark timeout handling; keep the baseline shutdown `BrokenPipe` log
 classified separately so it is not hidden as harmless without understanding the

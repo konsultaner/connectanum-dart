@@ -2,21 +2,32 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `b6c993f` (`docs: record h2 flow window diagnostic`)
+Last reviewed commit: `7d08440` (`bench: flag transport counter issues in h2 repeats`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
 
 - Current kTLS/H2 isolated diagnosis/reporting slice:
-  - current pushed branch head `b6c993f` passed the hosted GitHub push chain:
-    `CI` run `25160263301` completed successfully with `Fast Checks` in
-    5m47s and `Full Verify` in 7m53s; `kTLS Validation` run `25160263299`
-    completed in 3m18s; `WAMP Profile Benchmarks` run `25160263291`
-    completed in 6m47s
+  - latest pushed branch head `2288a50`
+    (`docs: record h2 flow window ci`) passed hosted GitHub `CI` run
+    `25161452394`: `Fast Checks` completed in 5m40s and `Full Verify`
+    completed in 7m43s
   - branch-head deployment-chain audit with `--require-clean-latest-ci` and
-    `--require-clean-latest-ci-logs` passed against `b6c993f`; companion
-    kTLS/WAMP log scans found no warning, skipped-test, panic, broken-pipe,
-    reset, or connection-noise matches
+    `--require-clean-latest-ci-logs` passed against `2288a50`; latest CI log
+    scan found no warning, skipped-test, panic, broken-pipe, reset, or
+    connection-noise matches
+  - local commit `7d08440`
+    (`bench: flag transport counter issues in h2 repeats`) makes the kTLS/H2
+    comparison artifacts self-report individual transport event/alert counters
+    and makes repeat-stability output non-decision-quality when focus rows
+    contain body timeouts, GOAWAY, idle timeouts, protocol/internal errors, or
+    transport alerts
+  - focused local checks for the reporting change passed:
+    `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`, and `git diff --check`
+  - full local `bin/verify` passed after `7d08440` on 2026-04-30, including
+    native Rust/FFI, Dart package, MCP, bench, router, and Chrome/Dart2Wasm
+    browser coverage
   - manual hosted `kTLS HTTP/2 Benchmarks` run `25160953085` completed
     successfully on `b6c993f` with the same isolated
     `h2_multiplexed_streams_s1`, `threads=4`, one-router-worker alternating
