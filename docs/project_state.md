@@ -2,12 +2,39 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `9f90448` (`bench: sample h2 request flow window`)
+Last reviewed commit: `b6c993f` (`docs: record h2 flow window diagnostic`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
 
 - Current kTLS/H2 isolated diagnosis/reporting slice:
+  - current pushed branch head `b6c993f` passed the hosted GitHub push chain:
+    `CI` run `25160263301` completed successfully with `Fast Checks` in
+    5m47s and `Full Verify` in 7m53s; `kTLS Validation` run `25160263299`
+    completed in 3m18s; `WAMP Profile Benchmarks` run `25160263291`
+    completed in 6m47s
+  - branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `b6c993f`; companion
+    kTLS/WAMP log scans found no warning, skipped-test, panic, broken-pipe,
+    reset, or connection-noise matches
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25160953085` completed
+    successfully on `b6c993f` with the same isolated
+    `h2_multiplexed_streams_s1`, `threads=4`, one-router-worker alternating
+    repeat settings
+  - `25160953085` is not clean release-decision evidence: throughput delta
+    span was `69.50pp`, p95 delta span was `4088.43pp`, repeat 02 had a
+    kTLS-side stall with three `http/2 body reader error: http/2 body total
+    timeout` lines, and the log also contained one baseline shutdown
+    `h2 connection error: ... BrokenPipe`
+  - the flow-window diagnostic still resolves the current receive-window
+    question: before the max remaining-tail `stream.data()` wait, both
+    baseline and kTLS had full available receive capacity
+    (`8388608 B`) and zero used capacity; after DATA delivery kTLS used only
+    about `36.8 KiB..38.6 KiB`, and after release the window was again nearly
+    full
+  - the next diagnosis target should therefore be DATA arrival/scheduling or
+    benchmark-side body-timeout behavior under kTLS, not H2 receive-window
+    exhaustion or delayed capacity release
   - documentation checkpoint `4025d6f`
     (`docs: record h2 accept shutdown ci`) passed hosted GitHub `CI` run
     `25159091408`; `Fast Checks` completed successfully in 5m55s and

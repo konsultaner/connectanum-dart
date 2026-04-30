@@ -1206,12 +1206,41 @@ decisions.
   - full local `bin/verify` passed after the flow-window diagnostic on
     2026-04-30, including Rust, FFI, Dart package, bench, router, and
     Chrome/Dart2Wasm browser coverage
+  - commit `b6c993f` (`docs: record h2 flow window diagnostic`) passed the
+    hosted GitHub push chain:
+    - `CI` `25160263301` with `Fast Checks` in 5m47s and `Full Verify` in
+      7m53s
+    - `kTLS Validation` `25160263299` in 3m18s
+    - `WAMP Profile Benchmarks` `25160263291` in 6m47s
+  - branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `b6c993f`; companion
+    kTLS/WAMP log scans found no warning, skipped-test, panic, broken-pipe,
+    reset, or connection-noise matches
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25160953085` completed
+    successfully on `b6c993f` with isolated
+    `h2_multiplexed_streams_s1`, `threads=4`, one router worker,
+    `repeat_count=3`, `repeat_order=alternating`, `cooldown_seconds=15`,
+    and `skip_artifact_gate=true`
+  - `25160953085` is not clean release-decision evidence: throughput delta
+    span was `69.50pp`, p95 delta span was `4088.43pp`, repeat 02 had a
+    kTLS-side stall with three `http/2 body reader error: http/2 body total
+    timeout` lines, and the log also contained one baseline shutdown
+    `h2 connection error: ... BrokenPipe`
+  - the flow-window diagnostic resolves the active receive-window split:
+    before the max remaining-tail `stream.data()` wait, both baseline and
+    kTLS had full available receive capacity (`8388608 B`) and zero used
+    capacity; after DATA delivery kTLS used only about `36.8 KiB..38.6 KiB`,
+    and after release the window was again nearly full
+  - therefore the late wait does not correlate with H2 receive-window
+    exhaustion or delayed capacity release; the next target is DATA
+    arrival/scheduling or benchmark-side body-timeout behavior under kTLS
 
 ## Next Step
 
-Push `9f90448`, watch the GitHub push chain and branch deployment audit/log
-scan, then dispatch the same isolated manual `kTLS HTTP/2 Benchmarks` rerun on
-the new clean head. Interpret whether the max remaining-tail `stream.data()`
-wait correlates with exhausted or negative receive-window capacity before the
-wait, or with non-zero used capacity after release; if the window stays healthy,
-the next target is DATA arrival/scheduling rather than receive-window release.
+Investigate the kTLS repeat-02 body-total timeout path from manual run
+`25160953085` and the remaining DATA arrival/scheduling gap. Start by finding
+where `http/2 body reader error: http/2 body total timeout` is emitted and add a
+minimal repro or focused diagnostic that distinguishes a real transport stall
+from benchmark timeout handling; keep the baseline shutdown `BrokenPipe` log
+classified separately so it is not hidden as harmless without understanding the
+shutdown path.
