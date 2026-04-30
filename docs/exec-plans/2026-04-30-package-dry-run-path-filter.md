@@ -52,6 +52,14 @@ including release-facing `tool/` files, instead of only package metadata files.
   confirmed the audit now marks `packages/**/tool/install_native.dart` changes
   as stale package dry-run inputs.
 - `bin/verify`
+- Hosted GitHub `Dart Package Publish Dry Run` run `25192039083` passed on
+  `4267e7a`.
+- Hosted GitHub `CI` run `25192039375` passed on `4267e7a`, with clean
+  branch-head CI log scan evidence.
+- Manual hosted `Native Artifacts` dry-run `25192553399` passed on `4267e7a`
+  for all configured FFI platforms and the dry-run release-preview job.
+- Branch-head deployment-chain audit passed with clean latest CI, CI logs, Dart
+  package dry-run, and native release dry-run requirements.
 
 ## Decision Log
 
@@ -61,5 +69,7 @@ including release-facing `tool/` files, instead of only package metadata files.
 
 ## Handoff
 
-- Completed locally. Commit, push, and confirm the next GitHub branch head
-  starts and passes `Dart Package Publish Dry Run` alongside `CI`.
+- Completed, committed, pushed, and confirmed in GitHub Actions. Remaining
+  release/RC blockers are operator-owned branch protection, router package
+  visibility/default-branch workflow visibility, RC tag/prerelease selection,
+  and Dart package release ownership/order.
