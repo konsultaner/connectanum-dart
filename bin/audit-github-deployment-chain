@@ -310,14 +310,32 @@ is_release_candidate_tag() {
 
 latest_workflow_run_id() {
   local workflow="$1"
+  local run_id
 
+  run_id="$(
+    "$gh_bin" run list \
+      --repo "$repository" \
+      --branch "$branch" \
+      --workflow "$workflow" \
+      --limit 1 \
+      --json databaseId \
+      --jq '.[0].databaseId // empty'
+  )"
+
+  if [[ -n "$run_id" ]]; then
+    printf '%s\n' "$run_id"
+    return 0
+  fi
+
+  # GitHub can briefly index a completed run in the branch list before the
+  # workflow-filtered list sees it. Fall back to the same branch run feed so a
+  # fresh clean run does not false-fail the deployment-chain audit.
   "$gh_bin" run list \
     --repo "$repository" \
     --branch "$branch" \
-    --workflow "$workflow" \
-    --limit 1 \
-    --json databaseId \
-    --jq '.[0].databaseId // empty'
+    --limit "$run_limit" \
+    --json name,databaseId \
+    --jq '[.[] | select(.name == "'"$workflow"'")][0].databaseId // empty'
 }
 
 latest_ci_run_id() {

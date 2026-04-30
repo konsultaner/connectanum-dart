@@ -159,6 +159,30 @@ operator evidence over speculative feature or benchmark work.
   - hosted Dart package dry-run `25168519708` and native release dry-run
     `25166714340` remain clean and relevant because the cleanup changed no
     package-publish-sensitive or native-release-sensitive inputs
+- Refreshed hosted validation for the generated-output cleanup checkpoint and
+  hardened audit lookup behavior:
+  - documentation checkpoint `a4818c8`
+    (`docs: record out artifact cleanup evidence`) passed GitHub `CI` run
+    `25170846499`; `Fast Checks` completed in 5m39s and `Full Verify`
+    completed in 8m17s
+  - hosted GitHub `Dart Package Publish Dry Run` run `25170846455` passed on
+    `a4818c8` and covers the checked-out head
+  - the branch-head clean-CI/log audit passed for `a4818c8`, and hosted logs
+    contained no high-signal warning, skipped-test, panic, broken-pipe, reset,
+    timeout, or connection-noise matches
+  - native release dry-run `25166714340` remains clean and relevant because no
+    native-release-sensitive inputs changed after `7098c54`
+  - the audit script now falls back from GitHub's workflow-filtered run list to
+    the unfiltered branch run list when a just-completed workflow is visible
+    only in the branch run feed, avoiding a transient false negative in the
+    package/native evidence gates
+  - pre-change `bin/test-fast` passed locally before the audit fallback change
+  - focused local checks passed:
+    `bash -n bin/audit-github-deployment-chain`,
+    `bin/audit-github-deployment-chain --help`,
+    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 10 --require-clean-latest-ci --require-clean-latest-ci-logs`,
+    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 10 --require-clean-dart-package-publish-dry-run --require-clean-native-release-dry-run`,
+    and `git diff --check`
 - Confirmed pushed documentation head `639c095` passed GitHub `CI` run
   `25046524665`:
   - `Fast Checks`: success

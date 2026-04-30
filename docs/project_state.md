@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `0b5cdfd` (`chore: stop tracking production out artifacts`)
+Last reviewed commit: `a4818c8` (`docs: record out artifact cleanup evidence`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -11,14 +11,17 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
   - return to GitHub deployment-chain and RC-readiness work; the H2/kTLS slice
     is complete for now and should not remain the default continuation path
     unless CI, release artifacts, or branch evidence regress
-  - latest pushed branch head `0b5cdfd`
-    (`chore: stop tracking production out artifacts`) passed hosted GitHub
-    `CI` run `25169497644`: `Fast Checks` completed in 5m51s and
-    `Full Verify` completed in 8m00s
+  - latest pushed branch head `a4818c8`
+    (`docs: record out artifact cleanup evidence`) passed hosted GitHub `CI`
+    run `25170846499`: `Fast Checks` completed in 5m39s and `Full Verify`
+    completed in 8m17s
   - branch-head deployment-chain audit with `--require-clean-latest-ci` and
-    `--require-clean-latest-ci-logs` passed against `0b5cdfd`; latest CI log
+    `--require-clean-latest-ci-logs` passed against `a4818c8`; latest CI log
     scan found no high-signal warning, skipped-test, panic, broken-pipe, reset,
     timeout, or connection-noise matches
+  - hosted GitHub `Dart Package Publish Dry Run` run `25170846455` passed on
+    `a4818c8`; the audit confirms it covers the checked-out head and the
+    package dry-run stayed at `Package has 0 warnings`
   - `out/production` generated output is no longer tracked by Git; `/out/`
     remains ignored and `git ls-files out` returns zero tracked paths
   - fresh manual `Native Artifacts` dry-run `25166714340` passed on
@@ -32,11 +35,14 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     separately released target that must be confirmed in the deployment guide
     before production use, instead of implying the GHCR image is already
     published
-  - Dart package publish-readiness evidence is still current on `0b5cdfd`:
-    hosted GitHub `Dart Package Publish Dry Run` run `25168519708` passed on
-    `324abeb`, and the audit confirms no package-publish-sensitive paths
-    changed after that run; the remaining blocker is still the intentional
-    release-order decision `connectanum_core -> connectanum_client`
+  - current local deployment-chain hardening slice makes
+    `bin/audit-github-deployment-chain` fall back from GitHub's
+    workflow-filtered run list to the unfiltered branch run list when a fresh
+    completed workflow run is visible only in the latter; this prevents a
+    transient false failure in the Dart/native evidence gates
+  - Dart package publish-readiness evidence is current on `a4818c8`; the
+    remaining blocker is still the intentional release-order decision
+    `connectanum_core -> connectanum_client`
   - remaining RC/deployment blockers are still operator/product/deployment
     decisions or externally visible release actions: branch protection required
     checks, default-branch visibility for `router-image.yml`, visible GHCR
