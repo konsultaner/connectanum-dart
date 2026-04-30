@@ -131,6 +131,21 @@ operator evidence over speculative feature or benchmark work.
     decide whether and when to publish `connectanum_core 0.1.0` before
     `connectanum_client 2.2.6`, plus pub.dev ownership and final public
     version choices
+- Recorded the latest documentation/deployment evidence checkpoint:
+  - branch head `e8a0438` (`docs: record deployment chain evidence`) passed
+    GitHub `CI` run `25167510955` with `Fast Checks` in 5m56s and
+    `Full Verify` in 8m04s
+  - the branch-head deployment-chain audit passed with
+    `--require-clean-latest-ci` and `--require-clean-latest-ci-logs`; latest
+    CI logs contained no high-signal warning, skipped-test, panic,
+    broken-pipe, reset, timeout, or connection-noise matches
+  - hosted GitHub `Dart Package Publish Dry Run` run `25167510967` passed on
+    `e8a0438`, and the latest native release dry-run remains clean and
+    relevant because no native-release-sensitive paths changed after
+    `7098c54`
+  - `docs/github_deployment_chain.md` now has a short RC promotion checklist
+    that keeps branch protection, router image/GHCR publication, RC tagging,
+    and Dart package ownership/release order explicit operator decisions
 - Confirmed pushed documentation head `639c095` passed GitHub `CI` run
   `25046524665`:
   - `Fast Checks`: success

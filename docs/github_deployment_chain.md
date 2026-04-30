@@ -134,9 +134,31 @@ without changing repository policy:
 bin/audit-github-deployment-chain --branch master --show-required-checks-plan
 ```
 
+## RC Promotion Checklist
+
+Before calling a branch head RC-ready, keep the order boring and observable:
+
+1. Confirm the candidate branch head has clean hosted `CI` and clean hosted
+   logs with `--require-clean-latest-ci --require-clean-latest-ci-logs`.
+2. Confirm dedicated package/release evidence with
+   `--require-clean-dart-package-publish-dry-run` and
+   `--require-clean-native-release-dry-run`.
+3. Apply or confirm branch protection on `master` only after operator approval.
+   The minimal required checks are `Fast Checks` and `Full Verify`.
+4. Promote `.github/workflows/router-image.yml` through the default branch,
+   run a manual dry-run, then publish and validate
+   `ghcr.io/konsultaner/connectanum-router` only after the image tag and
+   publish approval are explicit.
+5. Choose the RC tag and prerelease naming, then create the GitHub prerelease
+   only after the native release dry-run and package release-order evidence are
+   still current.
+6. Decide the Dart package release order and ownership before any pub.dev
+   publish. The current dependency order is `connectanum_core` before
+   `connectanum_client`.
+
 ## Current GitHub Controls
 
-Snapshot date: 2026-04-28.
+Snapshot date: 2026-04-30.
 
 - Repository: `konsultaner/connectanum-dart`
 - Visibility: public
@@ -211,23 +233,26 @@ explicitly. Current known benign strings include passing test names such as
 ## Current Evidence
 
 For the latest branch-head status, run the clean-CI audit command above. The
-items below are pinned deployment-chain checkpoints from 2026-04-29, not a
+items below are pinned deployment-chain checkpoints from 2026-04-30, not a
 replacement for the live audit:
 
-- `add-router` documentation checkpoint `a358f43` passed GitHub `CI` run
-  `25120747925`: `Fast Checks` completed in 5m37s and `Full Verify`
-  completed in 8m15s.
-- Fresh manual `Dart Package Publish Dry Run` run `25122605506` passed on
-  `a358f43`; the `Publish Dry Run` job completed in 20s and covered the
-  checked-out package-publishing inputs.
-- Manual `Native Artifacts` dry-run `25119602651` passed on `d4e6fda`,
+- `add-router` documentation checkpoint `e8a0438` passed GitHub `CI` run
+  `25167510955`: `Fast Checks` completed in 5m56s and `Full Verify`
+  completed in 8m04s.
+- The clean-CI audit passed for `e8a0438` with
+  `--require-clean-latest-ci --require-clean-latest-ci-logs`; hosted CI logs
+  had no high-signal warning, deprecation, skipped-test, panic, broken-pipe,
+  reset, timeout, or connection-noise matches.
+- GitHub `Dart Package Publish Dry Run` run `25167510967` passed on
+  `e8a0438` and covered the checked-out package-publishing inputs.
+- Manual `Native Artifacts` dry-run `25166714340` passed on `7098c54`,
   uploaded `native-release-preview`, accepted
-  `ct-ffi-v2026.04.29-dry-run.d4e6fda`, and did not create a GitHub Release.
-  It remains relevant for `a358f43` because no native-release-sensitive inputs
-  changed after `d4e6fda`.
-- The current enforced audit gate passes with clean main `CI`, clean hosted
-  `CI` logs, clean/relevant Dart package dry-run evidence, and clean/relevant
-  native release dry-run evidence.
+  `ct-ffi-v2026.04.30-dry-run.7098c54`, and did not create a GitHub Release.
+  It remains relevant for `e8a0438` because no native-release-sensitive inputs
+  changed after `7098c54`.
+- The current audit gates pass for clean main `CI`, clean hosted `CI` logs,
+  clean/relevant Dart package dry-run evidence, and clean/relevant native
+  release dry-run evidence.
 - `add-router` commit `3db2bbe` passed GitHub `CI` run `25089948391`.
   `Fast Checks` and `Full Verify` completed successfully, and the clean-CI
   audit reported no skipped, pending, failed, missing, or unexpected `CI` jobs.
