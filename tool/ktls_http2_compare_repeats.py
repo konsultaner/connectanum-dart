@@ -60,6 +60,14 @@ SERVER_EMISSION_FOCUS_METRICS = (
         "Request body tail drain avg ms",
     ),
     (
+        "request_body_drain_second_chunk_wait_avg_ms",
+        "Request body second-chunk wait avg ms",
+    ),
+    (
+        "request_body_drain_remaining_tail_read_avg_ms",
+        "Request body remaining tail-read avg ms",
+    ),
+    (
         "request_body_drain_chunk_count_avg",
         "Request body drain chunk-count avg",
     ),

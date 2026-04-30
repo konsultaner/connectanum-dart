@@ -1142,6 +1142,7 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("## Repeat Native Response-Stream Focus", markdown)
             self.assertIn("Stream open avg ms", markdown)
             self.assertIn("Request body first-chunk wait avg ms", markdown)
+            self.assertIn("Request body second-chunk wait avg ms", markdown)
             self.assertIn("Request queue delay avg ms", markdown)
             self.assertIn("Headers-to-first-write avg ms", markdown)
             self.assertIn("+0.50 ms..+0.60 ms (median +0.55 ms)", markdown)
@@ -1373,6 +1374,8 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         server_request_body_drain_avg_ms: float | None = 1.2,
         server_request_body_drain_first_chunk_wait_avg_ms: float | None = 0.4,
         server_request_body_drain_tail_read_avg_ms: float | None = 0.8,
+        server_request_body_drain_second_chunk_wait_avg_ms: float | None = 0.3,
+        server_request_body_drain_remaining_tail_read_avg_ms: float | None = 0.5,
         server_request_body_drain_chunk_count_avg: float | None = 4.0,
         server_stream_open_avg_ms: float | None = 2.4,
         server_first_chunk_queued_avg_ms: float | None = 2.8,
@@ -1508,6 +1511,8 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "request_body_drain_avg_ms": server_request_body_drain_avg_ms,
                     "request_body_drain_first_chunk_wait_avg_ms": server_request_body_drain_first_chunk_wait_avg_ms,
                     "request_body_drain_tail_read_avg_ms": server_request_body_drain_tail_read_avg_ms,
+                    "request_body_drain_second_chunk_wait_avg_ms": server_request_body_drain_second_chunk_wait_avg_ms,
+                    "request_body_drain_remaining_tail_read_avg_ms": server_request_body_drain_remaining_tail_read_avg_ms,
                     "request_body_drain_chunk_count_avg": server_request_body_drain_chunk_count_avg,
                     "stream_open_avg_ms": server_stream_open_avg_ms,
                     "first_chunk_queued_avg_ms": server_first_chunk_queued_avg_ms,

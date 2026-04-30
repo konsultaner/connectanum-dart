@@ -11,6 +11,8 @@ class BenchHttpStreamResponseStats {
     required this.requestBodyDrain,
     required this.requestBodyDrainFirstChunkWait,
     required this.requestBodyDrainTailRead,
+    required this.requestBodyDrainSecondChunkWait,
+    required this.requestBodyDrainRemainingTailRead,
     required this.requestBodyDrainChunkCount,
     required this.firstChunkQueued,
     required this.emittedChunkCount,
@@ -22,6 +24,8 @@ class BenchHttpStreamResponseStats {
   final Duration requestBodyDrain;
   final Duration? requestBodyDrainFirstChunkWait;
   final Duration? requestBodyDrainTailRead;
+  final Duration? requestBodyDrainSecondChunkWait;
+  final Duration? requestBodyDrainRemainingTailRead;
   final int requestBodyDrainChunkCount;
   final Duration? firstChunkQueued;
   final int emittedChunkCount;
@@ -34,6 +38,8 @@ class BenchHttpStreamDrainStats {
     required this.total,
     required this.firstChunkWait,
     required this.tailRead,
+    required this.secondChunkWait,
+    required this.remainingTailRead,
     required this.chunkCount,
   });
 
@@ -41,11 +47,15 @@ class BenchHttpStreamDrainStats {
     : total = Duration.zero,
       firstChunkWait = null,
       tailRead = null,
+      secondChunkWait = null,
+      remainingTailRead = null,
       chunkCount = 0;
 
   final Duration total;
   final Duration? firstChunkWait;
   final Duration? tailRead;
+  final Duration? secondChunkWait;
+  final Duration? remainingTailRead;
   final int chunkCount;
 }
 
@@ -106,6 +116,8 @@ class BenchHttpStreamDiagnostics {
   int _requestBodyDrainSamplesTotal = 0;
   int _requestBodyDrainFirstChunkWaitSamplesTotal = 0;
   int _requestBodyDrainTailReadSamplesTotal = 0;
+  int _requestBodyDrainSecondChunkWaitSamplesTotal = 0;
+  int _requestBodyDrainRemainingTailReadSamplesTotal = 0;
   int _requestBodyDrainChunkCountSamplesTotal = 0;
   int _streamOpenSamplesTotal = 0;
   int _firstChunkQueuedSamplesTotal = 0;
@@ -124,6 +136,8 @@ class BenchHttpStreamDiagnostics {
   int _requestBodyDrainUsTotal = 0;
   int _requestBodyDrainFirstChunkWaitUsTotal = 0;
   int _requestBodyDrainTailReadUsTotal = 0;
+  int _requestBodyDrainSecondChunkWaitUsTotal = 0;
+  int _requestBodyDrainRemainingTailReadUsTotal = 0;
   int _requestBodyDrainChunkCountTotal = 0;
   int _streamOpenUsTotal = 0;
   int _firstChunkQueuedUsTotal = 0;
@@ -166,6 +180,18 @@ class BenchHttpStreamDiagnostics {
         if (tailRead != null) {
           _requestBodyDrainTailReadSamplesTotal++;
           _requestBodyDrainTailReadUsTotal += tailRead.inMicroseconds;
+        }
+        final secondChunkWait = response.requestBodyDrainSecondChunkWait;
+        if (secondChunkWait != null) {
+          _requestBodyDrainSecondChunkWaitSamplesTotal++;
+          _requestBodyDrainSecondChunkWaitUsTotal +=
+              secondChunkWait.inMicroseconds;
+        }
+        final remainingTailRead = response.requestBodyDrainRemainingTailRead;
+        if (remainingTailRead != null) {
+          _requestBodyDrainRemainingTailReadSamplesTotal++;
+          _requestBodyDrainRemainingTailReadUsTotal +=
+              remainingTailRead.inMicroseconds;
         }
         _requestBodyDrainChunkCountSamplesTotal++;
         _requestBodyDrainChunkCountTotal += response.requestBodyDrainChunkCount;
@@ -265,6 +291,10 @@ class BenchHttpStreamDiagnostics {
           _requestBodyDrainFirstChunkWaitSamplesTotal,
       'request_body_drain_tail_read_samples_total':
           _requestBodyDrainTailReadSamplesTotal,
+      'request_body_drain_second_chunk_wait_samples_total':
+          _requestBodyDrainSecondChunkWaitSamplesTotal,
+      'request_body_drain_remaining_tail_read_samples_total':
+          _requestBodyDrainRemainingTailReadSamplesTotal,
       'request_body_drain_chunk_count_samples_total':
           _requestBodyDrainChunkCountSamplesTotal,
       'stream_open_samples_total': _streamOpenSamplesTotal,
@@ -294,6 +324,10 @@ class BenchHttpStreamDiagnostics {
       'request_body_drain_first_chunk_wait_us_total':
           _requestBodyDrainFirstChunkWaitUsTotal,
       'request_body_drain_tail_read_us_total': _requestBodyDrainTailReadUsTotal,
+      'request_body_drain_second_chunk_wait_us_total':
+          _requestBodyDrainSecondChunkWaitUsTotal,
+      'request_body_drain_remaining_tail_read_us_total':
+          _requestBodyDrainRemainingTailReadUsTotal,
       'request_body_drain_chunk_count_total': _requestBodyDrainChunkCountTotal,
       'stream_open_us_total': _streamOpenUsTotal,
       'first_chunk_queued_us_total': _firstChunkQueuedUsTotal,
@@ -385,6 +419,9 @@ Future<BenchHttpStreamResponseStats> streamBenchHttpResponse({
       requestBodyDrain: requestBodyDrain,
       requestBodyDrainFirstChunkWait: requestBodyDrainStats.firstChunkWait,
       requestBodyDrainTailRead: requestBodyDrainStats.tailRead,
+      requestBodyDrainSecondChunkWait: requestBodyDrainStats.secondChunkWait,
+      requestBodyDrainRemainingTailRead:
+          requestBodyDrainStats.remainingTailRead,
       requestBodyDrainChunkCount: requestBodyDrainStats.chunkCount,
       firstChunkQueued: firstChunkQueued,
       emittedChunkCount: emittedChunkCount,
@@ -412,6 +449,9 @@ Future<BenchHttpStreamResponseStats> streamBenchHttpResponse({
       requestBodyDrain: requestBodyDrain,
       requestBodyDrainFirstChunkWait: requestBodyDrainStats.firstChunkWait,
       requestBodyDrainTailRead: requestBodyDrainStats.tailRead,
+      requestBodyDrainSecondChunkWait: requestBodyDrainStats.secondChunkWait,
+      requestBodyDrainRemainingTailRead:
+          requestBodyDrainStats.remainingTailRead,
       requestBodyDrainChunkCount: requestBodyDrainStats.chunkCount,
       firstChunkQueued: firstChunkQueued,
       emittedChunkCount: emittedChunkCount,
@@ -432,6 +472,8 @@ Future<BenchHttpStreamResponseStats> streamBenchHttpResponse({
     requestBodyDrain: requestBodyDrain,
     requestBodyDrainFirstChunkWait: requestBodyDrainStats.firstChunkWait,
     requestBodyDrainTailRead: requestBodyDrainStats.tailRead,
+    requestBodyDrainSecondChunkWait: requestBodyDrainStats.secondChunkWait,
+    requestBodyDrainRemainingTailRead: requestBodyDrainStats.remainingTailRead,
     requestBodyDrainChunkCount: requestBodyDrainStats.chunkCount,
     firstChunkQueued: firstChunkQueued,
     emittedChunkCount: emittedChunkCount,
@@ -446,6 +488,9 @@ Future<BenchHttpStreamDrainStats> _drainRequestBody(
   final stopwatch = Stopwatch()..start();
   var chunkCount = 0;
   Duration? firstChunkWait;
+  Duration? firstChunkAt;
+  Duration? secondChunkAt;
+  Duration? secondChunkWait;
   final nativeBody = request.nativeBody;
   if (nativeBody == null) {
     request.body;
@@ -453,6 +498,8 @@ Future<BenchHttpStreamDrainStats> _drainRequestBody(
       total: stopwatch.elapsed,
       firstChunkWait: null,
       tailRead: null,
+      secondChunkWait: null,
+      remainingTailRead: null,
       chunkCount: 0,
     );
   }
@@ -460,7 +507,14 @@ Future<BenchHttpStreamDrainStats> _drainRequestBody(
     if (chunk.isEmpty) {
       continue;
     }
-    firstChunkWait ??= stopwatch.elapsed;
+    final chunkAt = stopwatch.elapsed;
+    if (firstChunkWait == null) {
+      firstChunkWait = chunkAt;
+      firstChunkAt = chunkAt;
+    } else if (secondChunkWait == null) {
+      secondChunkAt = chunkAt;
+      secondChunkWait = chunkAt - firstChunkAt!;
+    }
     chunkCount++;
   }
   final total = stopwatch.elapsed;
@@ -469,6 +523,8 @@ Future<BenchHttpStreamDrainStats> _drainRequestBody(
     total: total,
     firstChunkWait: first,
     tailRead: first == null ? null : total - first,
+    secondChunkWait: secondChunkWait,
+    remainingTailRead: secondChunkAt == null ? null : total - secondChunkAt,
     chunkCount: chunkCount,
   );
 }

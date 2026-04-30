@@ -523,6 +523,40 @@ decisions.
   - it was not the whole regression
   - the next bounded target is hosted evidence from the request-body drain
     split, not another first-body-write scheduling change
+- Commit `57c051d` (`bench: split h2 request body drain timing`) passed the
+  hosted GitHub push chain:
+  - `CI` `25140818328`
+  - `kTLS Validation` `25140818325`
+  - `WAMP Profile Benchmarks` `25140818382`
+  - the branch-head deployment audit and hosted CI log scan are clean
+- Manual hosted rerun `25141243287` reran isolated `s1`, `threads=4`, one
+  router worker on `57c051d` with `repeat_order=alternating`.
+- That run completed with matched rows in all three repeats, but it was not
+  decision-quality:
+  - throughput delta span was `52.94pp`
+  - p95 delta span was `1813.09pp`
+  - the instability source was kTLS-side
+- The new request-body drain split still resolves the server-side boundary:
+  - request-body first-chunk wait stayed effectively flat at `+0.00..+0.01 ms`
+  - request-body drain chunk count stayed flat at `4.08`
+  - request-body tail drain carried the server-side kTLS delta at
+    `+0.01..+3.41 ms`, median `+2.73 ms`
+- The remaining server-side delay is therefore in the post-first-chunk
+  request-body drain path / H2 request-body stream delivery, not before the
+  first request-body chunk reaches Dart.
+- The current local request-body inter-chunk split is implemented:
+  - `packages/connectanum_bench/lib/src/http_stream_handler.dart` records
+    second-chunk wait and remaining-tail-read timing while preserving the
+    existing total, first-chunk, tail-read, and chunk-count fields
+  - `native/bench` summaries carry the two new server-emission averages
+  - `tool/ktls_http2_compare.py` and `tool/ktls_http2_compare_repeats.py`
+    render the new fields in primary and repeated server-emission reports
+- This split is intentionally bounded:
+  - if the next hosted isolated `s1` rerun shows the kTLS delta concentrated
+    in second-chunk wait, the remaining issue is early post-first-chunk H2
+    request-body delivery
+  - if the delta stays in remaining-tail-read, the next target is later
+    request-body stream pacing across the remaining chunks
 
 ## Current Verification
 
@@ -707,12 +741,31 @@ decisions.
     `tool/ktls_http2_compare_repeats.py`
   - `git diff --check`
   - `bin/verify`
+  - hosted GitHub `CI` run `25140818328` completed successfully on `57c051d`;
+    `Fast Checks` completed in 5m28s and `Full Verify` completed in 8m23s
+  - hosted GitHub `kTLS Validation` run `25140818325` completed successfully
+    on `57c051d`
+  - hosted GitHub `WAMP Profile Benchmarks` run `25140818382` completed
+    successfully on `57c051d`
+  - deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `57c051d`
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25141243287` completed
+    successfully on `57c051d`; it produced complete but non-decision-quality
+    repeat evidence and confirmed the server-side request-body delta is in
+    tail drain, not first-chunk wait
+  - `dart analyze packages/connectanum_bench/lib/src/http_stream_handler.dart packages/connectanum_bench/test/http_stream_handler_test.dart`
+  - `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
+  - `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
+  - `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`
+  - `python3 tool/test_ktls_http2_compare.py`
+  - `git diff --check`
+  - `bin/verify`
 
 ## Next Step
 
 Dispatch an isolated hosted `h2_multiplexed_streams_s1`, `threads=4`,
-alternating repeat run on the request-body drain split. Use the new first-chunk
-wait, tail-read, and chunk-count fields to decide whether the remaining
-kTLS-side server delay is before the first streamed request-body chunk reaches
-Dart or in the post-first-chunk drain loop. Do not change HTTP/2 scheduling
-again until that boundary is visible.
+alternating repeat run on the request-body inter-chunk split. Use second-chunk
+wait versus remaining-tail-read to decide whether the kTLS-side tail-drain
+delay is concentrated immediately after the first request-body chunk or spread
+across later request-body chunks. Do not change first-body-write scheduling
+again until this post-first-chunk drain path is understood.

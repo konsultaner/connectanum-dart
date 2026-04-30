@@ -94,6 +94,8 @@ void main() {
       expect(stats.requestBodyDrain, isNot(Duration.zero));
       expect(stats.requestBodyDrainFirstChunkWait, isNotNull);
       expect(stats.requestBodyDrainTailRead, isNotNull);
+      expect(stats.requestBodyDrainSecondChunkWait, isNotNull);
+      expect(stats.requestBodyDrainRemainingTailRead, isNotNull);
       expect(stats.requestBodyDrainChunkCount, 2);
       expect(stats.emittedChunkCount, 2);
       expect(stats.firstChunkBytes, 4);
@@ -142,6 +144,8 @@ void main() {
         requestBodyDrain: Duration(milliseconds: 3),
         requestBodyDrainFirstChunkWait: Duration(milliseconds: 1),
         requestBodyDrainTailRead: Duration(milliseconds: 2),
+        requestBodyDrainSecondChunkWait: Duration(milliseconds: 1),
+        requestBodyDrainRemainingTailRead: Duration(milliseconds: 1),
         requestBodyDrainChunkCount: 4,
         firstChunkQueued: Duration(milliseconds: 7),
         emittedChunkCount: 2,
@@ -169,6 +173,14 @@ void main() {
     expect(
       diagnostics.toJson(),
       containsPair('request_body_drain_tail_read_us_total', 2000),
+    );
+    expect(
+      diagnostics.toJson(),
+      containsPair('request_body_drain_second_chunk_wait_us_total', 1000),
+    );
+    expect(
+      diagnostics.toJson(),
+      containsPair('request_body_drain_remaining_tail_read_us_total', 1000),
     );
     expect(
       diagnostics.toJson(),

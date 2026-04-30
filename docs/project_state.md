@@ -1,8 +1,8 @@
 # Project State
 
-Last updated: 2026-04-29
+Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `52e8e2a` (`docs: record h2 post-yield benchmark`)
+Last reviewed commit: `57c051d` (`bench: split h2 request body drain timing`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -308,6 +308,44 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
   - full local `bin/verify` passed after the request-body drain split on
     2026-04-29, including Rust, Dart package, bench, router, and
     Chrome/Dart2Wasm browser coverage
+  - commit `57c051d` (`bench: split h2 request body drain timing`) passed the
+    hosted GitHub push chain: `CI` run `25140818328` completed with
+    `Fast Checks` in 5m28s and `Full Verify` in 8m23s; `kTLS Validation` run
+    `25140818325` completed successfully; `WAMP Profile Benchmarks` run
+    `25140818382` completed successfully
+  - the branch-head deployment-chain audit with
+    `--require-clean-latest-ci --require-clean-latest-ci-logs` passed against
+    `57c051d`, and the hosted CI log scan found no warning, deprecation,
+    skipped-test, reset, timeout, panic, or connection-noise patterns
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25141243287` completed
+    successfully on `57c051d` in 5m34s with isolated
+    `h2_multiplexed_streams_s1`, `threads=4`, one router worker,
+    `repeat_count=3`, and `repeat_order=alternating`
+  - `25141243287` was complete but not decision-quality: throughput delta
+    span was `52.94pp`, p95 delta span was `1813.09pp`, all repeats produced
+    matched rows, and the instability source was kTLS-side
+  - the hosted request-body drain split resolves the next boundary:
+    request-body first-chunk wait stayed effectively flat at `+0.00..+0.01 ms`
+    while chunk count stayed flat at `4.08`, but request-body tail drain was
+    kTLS-higher by `+0.01..+3.41 ms` with median `+2.73 ms`
+  - the remaining server-side delay is therefore in the post-first-chunk
+    request-body drain path / H2 request-body stream delivery rather than
+    before the first streamed request-body chunk reaches Dart; first-body
+    write call duration remains flat, while handler elapsed, stream open, and
+    first-chunk queued timing move after the drain path waits
+  - the current local follow-up splits the synthetic request-body tail drain
+    into second-chunk wait and remaining-tail-read averages, and carries those
+    fields through bench summaries plus primary/repeat kTLS comparison
+    reports
+  - focused local checks for the request-body inter-chunk split passed:
+    `dart analyze packages/connectanum_bench/lib/src/http_stream_handler.dart packages/connectanum_bench/test/http_stream_handler_test.dart`,
+    `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`,
+    `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`,
+    `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`, and `git diff --check`
+  - full local `bin/verify` passed after the request-body inter-chunk split
+    on 2026-04-30, including Rust, Dart package, bench, router,
+    `remote_auth_integration_test`, and Chrome/Dart2Wasm browser coverage
 - Current deployment-chain evidence refresh:
   - commit `b338d58` (`docs: record current deployment evidence`) passed
     hosted GitHub `CI` run `25123037462`; `Fast Checks` completed

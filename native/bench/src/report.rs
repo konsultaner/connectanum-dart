@@ -123,6 +123,8 @@ pub struct HttpServerEmissionTimingSummary {
     pub request_body_drain_avg_ms: f64,
     pub request_body_drain_first_chunk_wait_avg_ms: f64,
     pub request_body_drain_tail_read_avg_ms: f64,
+    pub request_body_drain_second_chunk_wait_avg_ms: f64,
+    pub request_body_drain_remaining_tail_read_avg_ms: f64,
     pub request_body_drain_chunk_count_avg: f64,
     pub stream_open_avg_ms: f64,
     pub first_chunk_queued_avg_ms: f64,
