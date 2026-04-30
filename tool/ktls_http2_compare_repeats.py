@@ -50,6 +50,21 @@ PHASE_FOCUS_METRICS = (
 )
 
 SERVER_EMISSION_FOCUS_METRICS = (
+    ("request_body_drain_avg_ms", "Request body drain avg ms"),
+    (
+        "request_body_drain_first_chunk_wait_avg_ms",
+        "Request body first-chunk wait avg ms",
+    ),
+    (
+        "request_body_drain_tail_read_avg_ms",
+        "Request body tail drain avg ms",
+    ),
+    (
+        "request_body_drain_chunk_count_avg",
+        "Request body drain chunk-count avg",
+    ),
+    ("stream_open_avg_ms", "Stream open avg ms"),
+    ("first_chunk_queued_avg_ms", "First chunk queued avg ms"),
     (
         "headers_to_first_body_write_avg_ms",
         "Headers-to-first-body avg ms",
@@ -78,9 +93,14 @@ SERVER_EMISSION_FOCUS_METRICS = (
         "Request queue delay avg ms",
     ),
     (
+        "direct_stream_descriptor_open_call_avg_ms",
+        "Descriptor open call avg ms",
+    ),
+    (
         "direct_stream_reply_delivery_delay_avg_ms",
         "Reply delivery delay avg ms",
     ),
+    ("handler_avg_ms", "Handler avg ms"),
 )
 
 NATIVE_RESPONSE_STREAM_FOCUS_METRICS = (

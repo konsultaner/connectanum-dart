@@ -500,12 +500,29 @@ decisions.
   absent before the yield-gate change:
   - first body write was kTLS-higher by `+1.96..+4.16 ms`
   - first body write completed was kTLS-higher by `+1.95..+4.14 ms`
+- Documentation checkpoint `52e8e2a` (`docs: record h2 post-yield benchmark`)
+  passed hosted GitHub `CI` run `25140097069`; `Fast Checks` completed in
+  5m40s, `Full Verify` completed in 6m58s, and the branch-head
+  deployment-chain audit/log scan remained clean.
+- Expanding the repeat server-emission reporter to include already-collected
+  request-drain, stream-open, first-chunk-queued, descriptor-open, and handler
+  fields changed the diagnosis boundary:
+  - first body write and completion are kTLS-higher because stream-open,
+    request-body drain, handler elapsed, and first-chunk-queued timing are
+    already kTLS-higher before the first direct stream write call
+  - first body write call duration itself stays flat
+  - on rerendered `25139865949`, request body drain is kTLS-higher by
+    `+1.08..+3.37 ms` with median `+2.10 ms`, matching the handler and
+    first-chunk-queued median movement
+- The current local request-body drain split adds first-chunk wait, tail-read,
+  and chunk-count averages for synthetic streamed HTTP responses and renders
+  those fields in both primary and repeated kTLS comparison artifacts.
 - Current interpretation:
   - the unconditional single-stream first-body yield contributed to native
     tail-send delay
   - it was not the whole regression
-  - the next bounded target is native HTTP/2 server-side first-body write
-    scheduling/backpressure under kTLS
+  - the next bounded target is hosted evidence from the request-body drain
+    split, not another first-body-write scheduling change
 
 ## Current Verification
 
@@ -675,12 +692,27 @@ decisions.
     successfully on `d40543a`; the hosted log scan only matched the expected
     manual artifact-gate skip notices and the Rust toolchain timeout-reference
     URL
+- Current request-body drain split verification:
+  - hosted GitHub `CI` run `25140097069` completed successfully on `52e8e2a`;
+    `Fast Checks` completed in 5m40s and `Full Verify` completed in 6m58s
+  - branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `52e8e2a`
+  - `bin/test-fast`
+  - `dart analyze packages/connectanum_bench/lib/src/http_stream_handler.dart packages/connectanum_bench/test/http_stream_handler_test.dart`
+  - `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`
+  - `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
+  - `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`
+  - `python3 tool/test_ktls_http2_compare.py`
+  - rerendered the `25139865949` repeat artifact with
+    `tool/ktls_http2_compare_repeats.py`
+  - `git diff --check`
+  - `bin/verify`
 
 ## Next Step
 
-Inspect native HTTP/2 server-side first-body write scheduling/backpressure
-under kTLS. The next slice should explain why `first_body_write_avg_ms` and
-`first_body_write_completed_avg_ms` are kTLS-higher in all three post-yield
-repeats while native tail-send deltas are smaller but still sign-consistent.
-Prefer a narrow metric split or unit-level repro around first body write
-enqueue/dequeue/send-call timing before changing scheduling again.
+Dispatch an isolated hosted `h2_multiplexed_streams_s1`, `threads=4`,
+alternating repeat run on the request-body drain split. Use the new first-chunk
+wait, tail-read, and chunk-count fields to decide whether the remaining
+kTLS-side server delay is before the first streamed request-body chunk reaches
+Dart or in the post-first-chunk drain loop. Do not change HTTP/2 scheduling
+again until that boundary is visible.

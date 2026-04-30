@@ -9,6 +9,9 @@ class BenchHttpStreamResponseStats {
   const BenchHttpStreamResponseStats({
     required this.responseMode,
     required this.requestBodyDrain,
+    required this.requestBodyDrainFirstChunkWait,
+    required this.requestBodyDrainTailRead,
+    required this.requestBodyDrainChunkCount,
     required this.firstChunkQueued,
     required this.emittedChunkCount,
     required this.firstChunkBytes,
@@ -17,10 +20,33 @@ class BenchHttpStreamResponseStats {
 
   final BenchHttpStreamResponseMode responseMode;
   final Duration requestBodyDrain;
+  final Duration? requestBodyDrainFirstChunkWait;
+  final Duration? requestBodyDrainTailRead;
+  final int requestBodyDrainChunkCount;
   final Duration? firstChunkQueued;
   final int emittedChunkCount;
   final int firstChunkBytes;
   final Duration handlerElapsed;
+}
+
+class BenchHttpStreamDrainStats {
+  const BenchHttpStreamDrainStats({
+    required this.total,
+    required this.firstChunkWait,
+    required this.tailRead,
+    required this.chunkCount,
+  });
+
+  const BenchHttpStreamDrainStats.zero()
+    : total = Duration.zero,
+      firstChunkWait = null,
+      tailRead = null,
+      chunkCount = 0;
+
+  final Duration total;
+  final Duration? firstChunkWait;
+  final Duration? tailRead;
+  final int chunkCount;
 }
 
 class BenchHttpStreamWriteTracker {
@@ -78,6 +104,9 @@ class BenchHttpStreamDiagnostics {
   int _nativeForwardedResponsesTotal = 0;
   int _bufferedResponsesTotal = 0;
   int _requestBodyDrainSamplesTotal = 0;
+  int _requestBodyDrainFirstChunkWaitSamplesTotal = 0;
+  int _requestBodyDrainTailReadSamplesTotal = 0;
+  int _requestBodyDrainChunkCountSamplesTotal = 0;
   int _streamOpenSamplesTotal = 0;
   int _firstChunkQueuedSamplesTotal = 0;
   int _firstBodyWriteSamplesTotal = 0;
@@ -93,6 +122,9 @@ class BenchHttpStreamDiagnostics {
   int _directStreamReplyDeliveryDelaySamplesTotal = 0;
   int _handlerSamplesTotal = 0;
   int _requestBodyDrainUsTotal = 0;
+  int _requestBodyDrainFirstChunkWaitUsTotal = 0;
+  int _requestBodyDrainTailReadUsTotal = 0;
+  int _requestBodyDrainChunkCountTotal = 0;
   int _streamOpenUsTotal = 0;
   int _firstChunkQueuedUsTotal = 0;
   int _firstBodyWriteUsTotal = 0;
@@ -124,6 +156,19 @@ class BenchHttpStreamDiagnostics {
         _syntheticResponsesTotal++;
         _requestBodyDrainSamplesTotal++;
         _requestBodyDrainUsTotal += response.requestBodyDrain.inMicroseconds;
+        final firstChunkWait = response.requestBodyDrainFirstChunkWait;
+        if (firstChunkWait != null) {
+          _requestBodyDrainFirstChunkWaitSamplesTotal++;
+          _requestBodyDrainFirstChunkWaitUsTotal +=
+              firstChunkWait.inMicroseconds;
+        }
+        final tailRead = response.requestBodyDrainTailRead;
+        if (tailRead != null) {
+          _requestBodyDrainTailReadSamplesTotal++;
+          _requestBodyDrainTailReadUsTotal += tailRead.inMicroseconds;
+        }
+        _requestBodyDrainChunkCountSamplesTotal++;
+        _requestBodyDrainChunkCountTotal += response.requestBodyDrainChunkCount;
         break;
       case BenchHttpStreamResponseMode.nativeForwarded:
         _nativeForwardedResponsesTotal++;
@@ -216,6 +261,12 @@ class BenchHttpStreamDiagnostics {
       'native_forwarded_responses_total': _nativeForwardedResponsesTotal,
       'buffered_responses_total': _bufferedResponsesTotal,
       'request_body_drain_samples_total': _requestBodyDrainSamplesTotal,
+      'request_body_drain_first_chunk_wait_samples_total':
+          _requestBodyDrainFirstChunkWaitSamplesTotal,
+      'request_body_drain_tail_read_samples_total':
+          _requestBodyDrainTailReadSamplesTotal,
+      'request_body_drain_chunk_count_samples_total':
+          _requestBodyDrainChunkCountSamplesTotal,
       'stream_open_samples_total': _streamOpenSamplesTotal,
       'first_chunk_queued_samples_total': _firstChunkQueuedSamplesTotal,
       'first_body_write_samples_total': _firstBodyWriteSamplesTotal,
@@ -240,6 +291,10 @@ class BenchHttpStreamDiagnostics {
           _directStreamReplyDeliveryDelaySamplesTotal,
       'handler_samples_total': _handlerSamplesTotal,
       'request_body_drain_us_total': _requestBodyDrainUsTotal,
+      'request_body_drain_first_chunk_wait_us_total':
+          _requestBodyDrainFirstChunkWaitUsTotal,
+      'request_body_drain_tail_read_us_total': _requestBodyDrainTailReadUsTotal,
+      'request_body_drain_chunk_count_total': _requestBodyDrainChunkCountTotal,
       'stream_open_us_total': _streamOpenUsTotal,
       'first_chunk_queued_us_total': _firstChunkQueuedUsTotal,
       'first_body_write_us_total': _firstBodyWriteUsTotal,
@@ -297,6 +352,7 @@ Future<BenchHttpStreamResponseStats> streamBenchHttpResponse({
       parseBenchHeaderInt(request.headers, 'x-bench-response-chunk-bytes') ??
       math.min(requestLength, 64 * 1024);
   var requestBodyDrain = Duration.zero;
+  var requestBodyDrainStats = const BenchHttpStreamDrainStats.zero();
   Duration? firstChunkQueued;
   var emittedChunkCount = 0;
   var firstChunkBytes = 0;
@@ -314,9 +370,8 @@ Future<BenchHttpStreamResponseStats> streamBenchHttpResponse({
   }
 
   if (responseBytes != null && responseBytes > 0) {
-    final drainStopwatch = Stopwatch()..start();
-    await _drainRequestBody(request);
-    requestBodyDrain = drainStopwatch.elapsed;
+    requestBodyDrainStats = await _drainRequestBody(request);
+    requestBodyDrain = requestBodyDrainStats.total;
     final chunk = buildPatternChunk(math.max(1, responseChunkBytes));
     var remaining = responseBytes;
     while (remaining > 0) {
@@ -328,6 +383,9 @@ Future<BenchHttpStreamResponseStats> streamBenchHttpResponse({
     return BenchHttpStreamResponseStats(
       responseMode: BenchHttpStreamResponseMode.synthetic,
       requestBodyDrain: requestBodyDrain,
+      requestBodyDrainFirstChunkWait: requestBodyDrainStats.firstChunkWait,
+      requestBodyDrainTailRead: requestBodyDrainStats.tailRead,
+      requestBodyDrainChunkCount: requestBodyDrainStats.chunkCount,
       firstChunkQueued: firstChunkQueued,
       emittedChunkCount: emittedChunkCount,
       firstChunkBytes: firstChunkBytes,
@@ -352,6 +410,9 @@ Future<BenchHttpStreamResponseStats> streamBenchHttpResponse({
     return BenchHttpStreamResponseStats(
       responseMode: BenchHttpStreamResponseMode.nativeForwarded,
       requestBodyDrain: requestBodyDrain,
+      requestBodyDrainFirstChunkWait: requestBodyDrainStats.firstChunkWait,
+      requestBodyDrainTailRead: requestBodyDrainStats.tailRead,
+      requestBodyDrainChunkCount: requestBodyDrainStats.chunkCount,
       firstChunkQueued: firstChunkQueued,
       emittedChunkCount: emittedChunkCount,
       firstChunkBytes: firstChunkBytes,
@@ -369,6 +430,9 @@ Future<BenchHttpStreamResponseStats> streamBenchHttpResponse({
   return BenchHttpStreamResponseStats(
     responseMode: BenchHttpStreamResponseMode.buffered,
     requestBodyDrain: requestBodyDrain,
+    requestBodyDrainFirstChunkWait: requestBodyDrainStats.firstChunkWait,
+    requestBodyDrainTailRead: requestBodyDrainStats.tailRead,
+    requestBodyDrainChunkCount: requestBodyDrainStats.chunkCount,
     firstChunkQueued: firstChunkQueued,
     emittedChunkCount: emittedChunkCount,
     firstChunkBytes: firstChunkBytes,
@@ -376,11 +440,35 @@ Future<BenchHttpStreamResponseStats> streamBenchHttpResponse({
   );
 }
 
-Future<void> _drainRequestBody(HttpRequestSnapshot request) async {
+Future<BenchHttpStreamDrainStats> _drainRequestBody(
+  HttpRequestSnapshot request,
+) async {
+  final stopwatch = Stopwatch()..start();
+  var chunkCount = 0;
+  Duration? firstChunkWait;
   final nativeBody = request.nativeBody;
   if (nativeBody == null) {
     request.body;
-    return;
+    return BenchHttpStreamDrainStats(
+      total: stopwatch.elapsed,
+      firstChunkWait: null,
+      tailRead: null,
+      chunkCount: 0,
+    );
   }
-  await for (final _ in nativeBody.openRead()) {}
+  await for (final chunk in nativeBody.openRead()) {
+    if (chunk.isEmpty) {
+      continue;
+    }
+    firstChunkWait ??= stopwatch.elapsed;
+    chunkCount++;
+  }
+  final total = stopwatch.elapsed;
+  final first = firstChunkWait;
+  return BenchHttpStreamDrainStats(
+    total: total,
+    firstChunkWait: first,
+    tailRead: first == null ? null : total - first,
+    chunkCount: chunkCount,
+  );
 }

@@ -1013,6 +1013,8 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         5000.0,
                         10.0,
                         8.0,
+                        server_request_body_drain_first_chunk_wait_avg_ms=0.2,
+                        server_stream_open_avg_ms=1.0,
                         server_queue_to_first_body_write_avg_ms=1.0,
                         server_direct_stream_request_queue_delay_avg_ms=0.2,
                         native_headers_to_first_connection_write_avg_ms=0.5,
@@ -1029,6 +1031,8 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         4100.0,
                         12.0,
                         9.0,
+                        server_request_body_drain_first_chunk_wait_avg_ms=0.7,
+                        server_stream_open_avg_ms=1.4,
                         server_queue_to_first_body_write_avg_ms=2.6,
                         server_direct_stream_request_queue_delay_avg_ms=0.8,
                         native_headers_to_first_connection_write_avg_ms=0.9,
@@ -1045,6 +1049,8 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         5200.0,
                         11.0,
                         8.5,
+                        server_request_body_drain_first_chunk_wait_avg_ms=0.3,
+                        server_stream_open_avg_ms=1.1,
                         server_queue_to_first_body_write_avg_ms=1.1,
                         server_direct_stream_request_queue_delay_avg_ms=0.3,
                         native_headers_to_first_connection_write_avg_ms=0.6,
@@ -1061,6 +1067,8 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         4200.0,
                         13.0,
                         9.5,
+                        server_request_body_drain_first_chunk_wait_avg_ms=0.9,
+                        server_stream_open_avg_ms=1.7,
                         server_queue_to_first_body_write_avg_ms=2.8,
                         server_direct_stream_request_queue_delay_avg_ms=1.0,
                         native_headers_to_first_connection_write_avg_ms=1.1,
@@ -1096,6 +1104,28 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertEqual(server_signal["repeat_count"], 2)
             self.assertAlmostEqual(server_signal["delta_ms"]["median"], 0.65)
 
+            stream_open_signal = next(
+                signal
+                for signal in stability["server_emission_signals"]
+                if signal["metric"] == "stream_open_avg_ms"
+            )
+            self.assertEqual(stream_open_signal["direction"], "kTLS higher")
+            self.assertEqual(stream_open_signal["repeat_count"], 2)
+            self.assertAlmostEqual(stream_open_signal["delta_ms"]["median"], 0.5)
+
+            drain_first_chunk_signal = next(
+                signal
+                for signal in stability["server_emission_signals"]
+                if signal["metric"]
+                == "request_body_drain_first_chunk_wait_avg_ms"
+            )
+            self.assertEqual(drain_first_chunk_signal["direction"], "kTLS higher")
+            self.assertEqual(drain_first_chunk_signal["repeat_count"], 2)
+            self.assertAlmostEqual(
+                drain_first_chunk_signal["delta_ms"]["median"],
+                0.55,
+            )
+
             native_signal = next(
                 signal
                 for signal in stability["native_response_stream_signals"]
@@ -1110,8 +1140,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("## Repeat Native Response-Stream Signals", markdown)
             self.assertIn("## Repeat Server-Emission Focus", markdown)
             self.assertIn("## Repeat Native Response-Stream Focus", markdown)
+            self.assertIn("Stream open avg ms", markdown)
+            self.assertIn("Request body first-chunk wait avg ms", markdown)
             self.assertIn("Request queue delay avg ms", markdown)
             self.assertIn("Headers-to-first-write avg ms", markdown)
+            self.assertIn("+0.50 ms..+0.60 ms (median +0.55 ms)", markdown)
+            self.assertIn("+0.40 ms..+0.60 ms (median +0.50 ms)", markdown)
             self.assertIn("+0.60 ms..+0.70 ms (median +0.65 ms)", markdown)
             self.assertIn("+0.40 ms..+0.50 ms (median +0.45 ms)", markdown)
 
@@ -1337,6 +1371,9 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         server_requests_total: int | None = 16,
         server_synthetic_responses_total: int | None = 16,
         server_request_body_drain_avg_ms: float | None = 1.2,
+        server_request_body_drain_first_chunk_wait_avg_ms: float | None = 0.4,
+        server_request_body_drain_tail_read_avg_ms: float | None = 0.8,
+        server_request_body_drain_chunk_count_avg: float | None = 4.0,
         server_stream_open_avg_ms: float | None = 2.4,
         server_first_chunk_queued_avg_ms: float | None = 2.8,
         server_first_body_write_avg_ms: float | None = 3.2,
@@ -1469,6 +1506,9 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "native_forwarded_responses_total": 0,
                     "buffered_responses_total": 0,
                     "request_body_drain_avg_ms": server_request_body_drain_avg_ms,
+                    "request_body_drain_first_chunk_wait_avg_ms": server_request_body_drain_first_chunk_wait_avg_ms,
+                    "request_body_drain_tail_read_avg_ms": server_request_body_drain_tail_read_avg_ms,
+                    "request_body_drain_chunk_count_avg": server_request_body_drain_chunk_count_avg,
                     "stream_open_avg_ms": server_stream_open_avg_ms,
                     "first_chunk_queued_avg_ms": server_first_chunk_queued_avg_ms,
                     "first_body_write_avg_ms": server_first_body_write_avg_ms,

@@ -92,6 +92,9 @@ void main() {
       expect(closeCalls, 1);
       expect(stats.responseMode, BenchHttpStreamResponseMode.synthetic);
       expect(stats.requestBodyDrain, isNot(Duration.zero));
+      expect(stats.requestBodyDrainFirstChunkWait, isNotNull);
+      expect(stats.requestBodyDrainTailRead, isNotNull);
+      expect(stats.requestBodyDrainChunkCount, 2);
       expect(stats.emittedChunkCount, 2);
       expect(stats.firstChunkBytes, 4);
       expect(stats.firstChunkQueued, isNotNull);
@@ -137,6 +140,9 @@ void main() {
       response: const BenchHttpStreamResponseStats(
         responseMode: BenchHttpStreamResponseMode.synthetic,
         requestBodyDrain: Duration(milliseconds: 3),
+        requestBodyDrainFirstChunkWait: Duration(milliseconds: 1),
+        requestBodyDrainTailRead: Duration(milliseconds: 2),
+        requestBodyDrainChunkCount: 4,
         firstChunkQueued: Duration(milliseconds: 7),
         emittedChunkCount: 2,
         firstChunkBytes: 4,
@@ -155,6 +161,18 @@ void main() {
     expect(
       diagnostics.toJson(),
       containsPair('headers_to_first_body_write_us_total', 4000),
+    );
+    expect(
+      diagnostics.toJson(),
+      containsPair('request_body_drain_first_chunk_wait_us_total', 1000),
+    );
+    expect(
+      diagnostics.toJson(),
+      containsPair('request_body_drain_tail_read_us_total', 2000),
+    );
+    expect(
+      diagnostics.toJson(),
+      containsPair('request_body_drain_chunk_count_total', 4),
     );
     expect(
       diagnostics.toJson(),

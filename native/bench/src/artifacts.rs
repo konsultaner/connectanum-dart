@@ -1206,6 +1206,27 @@ fn summarize_http_server_emission_timing(
     )
     .unwrap_or(0)
     .max(0) as u64;
+    let request_body_drain_first_chunk_wait_samples_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "request_body_drain_first_chunk_wait_samples_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let request_body_drain_tail_read_samples_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "request_body_drain_tail_read_samples_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let request_body_drain_chunk_count_samples_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "request_body_drain_chunk_count_samples_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
     let stream_open_samples_total = bench_http_stream_counter_delta(
         &report.metrics_before,
         &report.metrics_after,
@@ -1309,6 +1330,27 @@ fn summarize_http_server_emission_timing(
         &report.metrics_before,
         &report.metrics_after,
         "request_body_drain_us_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let request_body_drain_first_chunk_wait_us_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "request_body_drain_first_chunk_wait_us_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let request_body_drain_tail_read_us_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "request_body_drain_tail_read_us_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
+    let request_body_drain_chunk_count_total = bench_http_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "request_body_drain_chunk_count_total",
     )
     .unwrap_or(0)
     .max(0) as u64;
@@ -1419,6 +1461,18 @@ fn summarize_http_server_emission_timing(
         request_body_drain_avg_ms: average_microseconds_to_millis(
             request_body_drain_us_total,
             request_body_drain_samples_total,
+        ),
+        request_body_drain_first_chunk_wait_avg_ms: average_microseconds_to_millis(
+            request_body_drain_first_chunk_wait_us_total,
+            request_body_drain_first_chunk_wait_samples_total,
+        ),
+        request_body_drain_tail_read_avg_ms: average_microseconds_to_millis(
+            request_body_drain_tail_read_us_total,
+            request_body_drain_tail_read_samples_total,
+        ),
+        request_body_drain_chunk_count_avg: average_u64(
+            request_body_drain_chunk_count_total,
+            request_body_drain_chunk_count_samples_total,
         ),
         stream_open_avg_ms: average_microseconds_to_millis(
             stream_open_us_total,
@@ -1852,6 +1906,13 @@ fn average_microseconds_to_millis(total_us: u64, sample_count: u64) -> f64 {
         return 0.0;
     }
     total_us as f64 / sample_count as f64 / 1000.0
+}
+
+fn average_u64(total: u64, sample_count: u64) -> f64 {
+    if sample_count == 0 {
+        return 0.0;
+    }
+    total as f64 / sample_count as f64
 }
 
 pub fn render_prometheus_metrics(
@@ -2457,6 +2518,12 @@ mod tests {
                     "direct_stream_reply_delivery_delay_samples_total": 2,
                     "handler_samples_total": 2,
                     "request_body_drain_us_total": 4000,
+                    "request_body_drain_first_chunk_wait_samples_total": 2,
+                    "request_body_drain_first_chunk_wait_us_total": 1000,
+                    "request_body_drain_tail_read_samples_total": 2,
+                    "request_body_drain_tail_read_us_total": 3000,
+                    "request_body_drain_chunk_count_samples_total": 2,
+                    "request_body_drain_chunk_count_total": 4,
                     "stream_open_us_total": 9000,
                     "first_chunk_queued_us_total": 12000,
                     "first_body_write_us_total": 15000,
@@ -2559,6 +2626,12 @@ mod tests {
                     "direct_stream_reply_delivery_delay_samples_total": 5,
                     "handler_samples_total": 5,
                     "request_body_drain_us_total": 16000,
+                    "request_body_drain_first_chunk_wait_samples_total": 5,
+                    "request_body_drain_first_chunk_wait_us_total": 7000,
+                    "request_body_drain_tail_read_samples_total": 5,
+                    "request_body_drain_tail_read_us_total": 9000,
+                    "request_body_drain_chunk_count_samples_total": 5,
+                    "request_body_drain_chunk_count_total": 13,
                     "stream_open_us_total": 30000,
                     "first_chunk_queued_us_total": 39000,
                     "first_body_write_us_total": 51000,
@@ -2967,6 +3040,11 @@ mod tests {
         assert_eq!(server_timing.requests_total, 3);
         assert_eq!(server_timing.synthetic_responses_total, 3);
         assert!((server_timing.request_body_drain_avg_ms - 4.0).abs() < f64::EPSILON);
+        assert!(
+            (server_timing.request_body_drain_first_chunk_wait_avg_ms - 2.0).abs() < f64::EPSILON
+        );
+        assert!((server_timing.request_body_drain_tail_read_avg_ms - 2.0).abs() < f64::EPSILON);
+        assert!((server_timing.request_body_drain_chunk_count_avg - 3.0).abs() < f64::EPSILON);
         assert!((server_timing.stream_open_avg_ms - 7.0).abs() < f64::EPSILON);
         assert!((server_timing.first_chunk_queued_avg_ms - 9.0).abs() < f64::EPSILON);
         assert!((server_timing.first_body_write_avg_ms - 12.0).abs() < f64::EPSILON);

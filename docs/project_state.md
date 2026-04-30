@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-29
 Current branch: `add-router`
-Last reviewed commit: `d40543a` (`docs: record h2 yield gating evidence`)
+Last reviewed commit: `52e8e2a` (`docs: record h2 post-yield benchmark`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -281,12 +281,33 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     repeated native response-stream tail signal: tail chunk channel wait moved
     from pre-fix `+0.26..+0.28 ms` to `+0.14..+0.17 ms`, and first-to-last
     chunk send moved from pre-fix `+0.18..+0.20 ms` to `+0.11..+0.16 ms`
-  - the same post-fix run exposed two repeated server-emission signals that
-    were previously absent: first body write was kTLS-higher by
-    `+1.96..+4.16 ms`, and first body write completed was kTLS-higher by
-    `+1.95..+4.14 ms`; the next diagnosis target is therefore HTTP/2 native
-    server-side first-body write scheduling/backpressure under kTLS, before
-    returning to client socket/TLS read delivery
+  - documentation checkpoint `52e8e2a`
+    (`docs: record h2 post-yield benchmark`) passed hosted GitHub `CI` run
+    `25140097069`; `Fast Checks` completed in 5m40s and `Full Verify`
+    completed in 6m58s, and the branch-head deployment-chain audit/log scan
+    remained clean against `52e8e2a`
+  - rerendering `25139865949` after exposing the already-collected
+    server-emission fields narrowed the repeated server-side signal: first
+    body write and first body write completion move because request-body
+    drain, handler elapsed, first-chunk queued, and stream-open timing are
+    kTLS-higher before the first direct stream write call
+  - the strongest repeated server-side request-drain signal on that rerender
+    is request body drain `+1.08..+3.37 ms` (median `+2.10 ms`), with the
+    same median movement on handler elapsed and first-chunk queued timing;
+    first body write call duration itself stays flat
+  - the bench HTTP stream diagnostics now split synthetic request-body drain
+    into first-chunk wait, tail-read, and chunk-count averages, and the
+    comparison/repeat reporters surface those fields in server-emission focus
+    and signal tables
+  - focused local checks for the request-body drain split passed:
+    `dart analyze packages/connectanum_bench/lib/src/http_stream_handler.dart packages/connectanum_bench/test/http_stream_handler_test.dart`,
+    `dart test packages/connectanum_bench/test/http_stream_handler_test.dart -r expanded`,
+    `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`,
+    `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`, and `git diff --check`
+  - full local `bin/verify` passed after the request-body drain split on
+    2026-04-29, including Rust, Dart package, bench, router, and
+    Chrome/Dart2Wasm browser coverage
 - Current deployment-chain evidence refresh:
   - commit `b338d58` (`docs: record current deployment evidence`) passed
     hosted GitHub `CI` run `25123037462`; `Fast Checks` completed
