@@ -886,13 +886,22 @@ decisions.
   - `python3 tool/test_ktls_http2_compare.py`
   - `git diff --check`
   - `bin/verify`
+  - hosted GitHub `CI` run `25145156786` completed successfully on
+    `fb1f949`; `Fast Checks` completed in 5m35s and `Full Verify` completed
+    in 7m58s
+  - hosted GitHub `kTLS Validation` run `25145156820` completed successfully
+    on `fb1f949`
+  - hosted GitHub `WAMP Profile Benchmarks` run `25145156826` completed
+    successfully on `fb1f949`
+  - deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `fb1f949`; the hosted CI
+    log scan found no warning, deprecation, skipped-test, reset, timeout,
+    panic, or connection-noise patterns
 
 ## Next Step
 
-Commit and push the H2 client tail read-size/gap split, then require hosted
-GitHub `CI`, `kTLS Validation`, and `WAMP Profile Benchmarks` to stay clean.
-After the push chain is green, run the same isolated hosted
-`h2_multiplexed_streams_s1`, `threads=4`, one-router-worker alternating kTLS
-benchmark and use the new tail read-byte/inter-read gap fields to decide
-whether the stable kTLS-side body-tail delta is read fragmentation, longer
-inter-read gaps, or processing around a similar socket-read sequence.
+Run the same isolated hosted `h2_multiplexed_streams_s1`, `threads=4`,
+one-router-worker alternating kTLS benchmark on `fb1f949` and use the new tail
+read-byte/inter-read gap fields to decide whether the stable kTLS-side
+body-tail delta is read fragmentation, longer inter-read gaps, or processing
+around a similar socket-read sequence.

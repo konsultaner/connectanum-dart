@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `a3eb74a` (`docs: record native request reader benchmark`)
+Last reviewed commit: `fb1f949` (`bench: expose h2 tail read sizes`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -13,9 +13,9 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     decisions: branch protection mutation, default-branch router image
     promotion/GHCR publication, RC tag/prerelease selection, and Dart package
     public ownership/release order
-  - latest pushed branch head `a3eb74a` passed hosted GitHub `CI` run
-    `25144304526`; `Fast Checks` completed successfully in 5m35s and
-    `Full Verify` completed successfully in 6m47s
+  - latest pushed branch head `fb1f949` passed hosted GitHub `CI` run
+    `25145156786`; `Fast Checks` completed successfully in 5m35s and
+    `Full Verify` completed successfully in 7m58s
   - latest branch-head deployment audit passed with clean main `CI` jobs and
     clean hosted `CI` logs; remaining deployment-chain findings are still the
     known operator/product items: missing branch protection, undiscoverable
@@ -437,6 +437,17 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
   - full local `bin/verify` passed after the H2 client tail-read byte/gap
     split on 2026-04-30, including Rust, Dart package, bench, router, and
     Chrome/Dart2Wasm browser coverage
+  - commit `fb1f949` (`bench: expose h2 tail read sizes`) passed hosted
+    GitHub `CI` run `25145156786`; `Fast Checks` completed in 5m35s and
+    `Full Verify` completed in 7m58s
+  - hosted `kTLS Validation` run `25145156820` completed successfully on
+    `fb1f949` in 3m19s
+  - hosted `WAMP Profile Benchmarks` run `25145156826` completed successfully
+    on `fb1f949` in 8m10s
+  - deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `fb1f949`; the hosted CI
+    log scan found no warning, deprecation, skipped-test, reset, timeout,
+    panic, or connection-noise patterns
 - Current deployment-chain evidence refresh:
   - commit `b338d58` (`docs: record current deployment evidence`) passed
     hosted GitHub `CI` run `25123037462`; `Fast Checks` completed
