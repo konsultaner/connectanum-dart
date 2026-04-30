@@ -675,6 +675,39 @@ final class CtRouterMetricsInfo extends ffi.Struct {
   @ffi.Uint64()
   external int responseStreamFirstToLastChunkSendGe10msTotal;
 
+  @ffi.Uint64()
+  external int requestBodyStreamingRequestsTotal;
+
+  @ffi.Uint64()
+  external int requestBodyStreamDataChunkSamplesTotal;
+
+  @ffi.Uint64()
+  external int requestBodyStreamDataChunkWaitUsTotal;
+
+  @ffi.Uint64()
+  external int requestBodyStreamFirstChunkWaitSamplesTotal;
+
+  @ffi.Uint64()
+  external int requestBodyStreamFirstChunkWaitUsTotal;
+
+  @ffi.Uint64()
+  external int requestBodyStreamSecondChunkWaitSamplesTotal;
+
+  @ffi.Uint64()
+  external int requestBodyStreamSecondChunkWaitUsTotal;
+
+  @ffi.Uint64()
+  external int requestBodyStreamRemainingTailReadSamplesTotal;
+
+  @ffi.Uint64()
+  external int requestBodyStreamRemainingTailReadUsTotal;
+
+  @ffi.Uint64()
+  external int requestBodyStreamTotalReadSamplesTotal;
+
+  @ffi.Uint64()
+  external int requestBodyStreamTotalReadUsTotal;
+
   external ffi.Pointer<CtRouterMetricsBreakdownInfo> breakdownPtr;
 
   @ffi.Size()

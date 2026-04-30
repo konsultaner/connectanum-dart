@@ -626,6 +626,7 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("Direct stream open round trip avg ms", markdown)
             self.assertIn("Request queue delay avg ms", markdown)
             self.assertIn("Reply delivery delay avg ms", markdown)
+            self.assertIn("Native request body reader total avg ms", markdown)
             self.assertIn("## HTTP Native Response-Stream Timing", markdown)
             self.assertIn("## HTTP Native Response-Stream Slow Paths", markdown)
             self.assertIn("## Linux TLS Stats", markdown)
@@ -1377,6 +1378,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         server_request_body_drain_second_chunk_wait_avg_ms: float | None = 0.3,
         server_request_body_drain_remaining_tail_read_avg_ms: float | None = 0.5,
         server_request_body_drain_chunk_count_avg: float | None = 4.0,
+        native_request_body_reader_total_avg_ms: float | None = 1.1,
+        native_request_body_reader_first_chunk_wait_avg_ms: float | None = 0.2,
+        native_request_body_reader_second_chunk_wait_avg_ms: float | None = 0.3,
+        native_request_body_reader_remaining_tail_read_avg_ms: float | None = 0.6,
+        native_request_body_reader_data_chunk_wait_avg_ms: float | None = 0.25,
+        native_request_body_reader_chunk_count_avg: float | None = 4.0,
         server_stream_open_avg_ms: float | None = 2.4,
         server_first_chunk_queued_avg_ms: float | None = 2.8,
         server_first_body_write_avg_ms: float | None = 3.2,
@@ -1514,6 +1521,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "request_body_drain_second_chunk_wait_avg_ms": server_request_body_drain_second_chunk_wait_avg_ms,
                     "request_body_drain_remaining_tail_read_avg_ms": server_request_body_drain_remaining_tail_read_avg_ms,
                     "request_body_drain_chunk_count_avg": server_request_body_drain_chunk_count_avg,
+                    "native_request_body_reader_total_avg_ms": native_request_body_reader_total_avg_ms,
+                    "native_request_body_reader_first_chunk_wait_avg_ms": native_request_body_reader_first_chunk_wait_avg_ms,
+                    "native_request_body_reader_second_chunk_wait_avg_ms": native_request_body_reader_second_chunk_wait_avg_ms,
+                    "native_request_body_reader_remaining_tail_read_avg_ms": native_request_body_reader_remaining_tail_read_avg_ms,
+                    "native_request_body_reader_data_chunk_wait_avg_ms": native_request_body_reader_data_chunk_wait_avg_ms,
+                    "native_request_body_reader_chunk_count_avg": native_request_body_reader_chunk_count_avg,
                     "stream_open_avg_ms": server_stream_open_avg_ms,
                     "first_chunk_queued_avg_ms": server_first_chunk_queued_avg_ms,
                     "first_body_write_avg_ms": server_first_body_write_avg_ms,

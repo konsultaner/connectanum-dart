@@ -324,6 +324,50 @@ class RouterHttpResponseStreamMetrics {
   };
 }
 
+/// Native HTTP request-body reader telemetry.
+@immutable
+class RouterHttpRequestBodyStreamMetrics {
+  const RouterHttpRequestBodyStreamMetrics({
+    required this.streamingRequestsTotal,
+    required this.dataChunkSamplesTotal,
+    required this.dataChunkWaitUsTotal,
+    required this.firstChunkWaitSamplesTotal,
+    required this.firstChunkWaitUsTotal,
+    required this.secondChunkWaitSamplesTotal,
+    required this.secondChunkWaitUsTotal,
+    required this.remainingTailReadSamplesTotal,
+    required this.remainingTailReadUsTotal,
+    required this.totalReadSamplesTotal,
+    required this.totalReadUsTotal,
+  });
+
+  final int streamingRequestsTotal;
+  final int dataChunkSamplesTotal;
+  final int dataChunkWaitUsTotal;
+  final int firstChunkWaitSamplesTotal;
+  final int firstChunkWaitUsTotal;
+  final int secondChunkWaitSamplesTotal;
+  final int secondChunkWaitUsTotal;
+  final int remainingTailReadSamplesTotal;
+  final int remainingTailReadUsTotal;
+  final int totalReadSamplesTotal;
+  final int totalReadUsTotal;
+
+  Map<String, Object?> toJson() => {
+    'streaming_requests_total': streamingRequestsTotal,
+    'data_chunk_samples_total': dataChunkSamplesTotal,
+    'data_chunk_wait_us_total': dataChunkWaitUsTotal,
+    'first_chunk_wait_samples_total': firstChunkWaitSamplesTotal,
+    'first_chunk_wait_us_total': firstChunkWaitUsTotal,
+    'second_chunk_wait_samples_total': secondChunkWaitSamplesTotal,
+    'second_chunk_wait_us_total': secondChunkWaitUsTotal,
+    'remaining_tail_read_samples_total': remainingTailReadSamplesTotal,
+    'remaining_tail_read_us_total': remainingTailReadUsTotal,
+    'total_read_samples_total': totalReadSamplesTotal,
+    'total_read_us_total': totalReadUsTotal,
+  };
+}
+
 /// Aggregated telemetry emitted by the native transport.
 @immutable
 class RouterTransportMetrics {
@@ -345,6 +389,7 @@ class RouterTransportMetrics {
     this.protocolErrorAlerts = 0,
     this.internalErrorAlerts = 0,
     this.httpResponseStream,
+    this.httpRequestBodyStream,
     this.alertBreakdown = const <RouterTransportAlertBreakdown>[],
     this.breakdown = const <RouterTransportMetricsBreakdown>[],
   });
@@ -366,6 +411,7 @@ class RouterTransportMetrics {
   final int protocolErrorAlerts;
   final int internalErrorAlerts;
   final RouterHttpResponseStreamMetrics? httpResponseStream;
+  final RouterHttpRequestBodyStreamMetrics? httpRequestBodyStream;
   final List<RouterTransportAlertBreakdown> alertBreakdown;
   final List<RouterTransportMetricsBreakdown> breakdown;
 
@@ -394,6 +440,7 @@ class RouterTransportMetrics {
     int? protocolErrorAlerts,
     int? internalErrorAlerts,
     RouterHttpResponseStreamMetrics? httpResponseStream,
+    RouterHttpRequestBodyStreamMetrics? httpRequestBodyStream,
     List<RouterTransportAlertBreakdown>? alertBreakdown,
     List<RouterTransportMetricsBreakdown>? breakdown,
   }) {
@@ -415,6 +462,8 @@ class RouterTransportMetrics {
       protocolErrorAlerts: protocolErrorAlerts ?? this.protocolErrorAlerts,
       internalErrorAlerts: internalErrorAlerts ?? this.internalErrorAlerts,
       httpResponseStream: httpResponseStream ?? this.httpResponseStream,
+      httpRequestBodyStream:
+          httpRequestBodyStream ?? this.httpRequestBodyStream,
       alertBreakdown: alertBreakdown ?? this.alertBreakdown,
       breakdown: breakdown ?? this.breakdown,
     );
@@ -440,6 +489,8 @@ class RouterTransportMetrics {
     'active_throttles': activeThrottleCount,
     if (httpResponseStream != null)
       'http_response_stream': httpResponseStream!.toJson(),
+    if (httpRequestBodyStream != null)
+      'http_request_body_stream': httpRequestBodyStream!.toJson(),
     if (activeThrottles.isNotEmpty)
       'active_throttle_listeners': activeThrottles
           .map((entry) => entry.toJson())

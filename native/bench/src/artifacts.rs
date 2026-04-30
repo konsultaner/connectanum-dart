@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::report::{
     bench_http_stream_counter_delta, router_counter_delta, transport_counter_after,
-    transport_counter_delta, transport_http_response_stream_counter_delta, HttpConnectionUsage,
+    transport_counter_delta, transport_http_request_body_stream_counter_delta,
+    transport_http_response_stream_counter_delta, HttpConnectionUsage,
     HttpNativeResponseStreamSlowPathSummary, HttpNativeResponseStreamTimingSummary,
     HttpPhaseTimingSummary, HttpServerEmissionTimingSummary, WorkloadReport,
 };
@@ -1241,6 +1242,54 @@ fn summarize_http_server_emission_timing(
     )
     .unwrap_or(0)
     .max(0) as u64;
+    let native_request_body_streaming_requests_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "streaming_requests_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
+    let native_request_body_data_chunk_samples_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "data_chunk_samples_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
+    let native_request_body_first_chunk_wait_samples_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "first_chunk_wait_samples_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
+    let native_request_body_second_chunk_wait_samples_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "second_chunk_wait_samples_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
+    let native_request_body_remaining_tail_read_samples_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "remaining_tail_read_samples_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
+    let native_request_body_total_read_samples_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "total_read_samples_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
     let stream_open_samples_total = bench_http_stream_counter_delta(
         &report.metrics_before,
         &report.metrics_after,
@@ -1382,6 +1431,45 @@ fn summarize_http_server_emission_timing(
     )
     .unwrap_or(0)
     .max(0) as u64;
+    let native_request_body_data_chunk_wait_us_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "data_chunk_wait_us_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
+    let native_request_body_first_chunk_wait_us_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "first_chunk_wait_us_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
+    let native_request_body_second_chunk_wait_us_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "second_chunk_wait_us_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
+    let native_request_body_remaining_tail_read_us_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "remaining_tail_read_us_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
+    let native_request_body_total_read_us_total = transport_http_request_body_stream_counter_delta(
+        &report.metrics_before,
+        &report.metrics_after,
+        "total_read_us_total",
+    )
+    .unwrap_or(0)
+    .max(0) as u64;
     let stream_open_us_total = bench_http_stream_counter_delta(
         &report.metrics_before,
         &report.metrics_after,
@@ -1509,6 +1597,30 @@ fn summarize_http_server_emission_timing(
         request_body_drain_chunk_count_avg: average_u64(
             request_body_drain_chunk_count_total,
             request_body_drain_chunk_count_samples_total,
+        ),
+        native_request_body_reader_total_avg_ms: average_microseconds_to_millis(
+            native_request_body_total_read_us_total,
+            native_request_body_total_read_samples_total,
+        ),
+        native_request_body_reader_first_chunk_wait_avg_ms: average_microseconds_to_millis(
+            native_request_body_first_chunk_wait_us_total,
+            native_request_body_first_chunk_wait_samples_total,
+        ),
+        native_request_body_reader_second_chunk_wait_avg_ms: average_microseconds_to_millis(
+            native_request_body_second_chunk_wait_us_total,
+            native_request_body_second_chunk_wait_samples_total,
+        ),
+        native_request_body_reader_remaining_tail_read_avg_ms: average_microseconds_to_millis(
+            native_request_body_remaining_tail_read_us_total,
+            native_request_body_remaining_tail_read_samples_total,
+        ),
+        native_request_body_reader_data_chunk_wait_avg_ms: average_microseconds_to_millis(
+            native_request_body_data_chunk_wait_us_total,
+            native_request_body_data_chunk_samples_total,
+        ),
+        native_request_body_reader_chunk_count_avg: average_u64(
+            native_request_body_data_chunk_samples_total,
+            native_request_body_streaming_requests_total,
         ),
         stream_open_avg_ms: average_microseconds_to_millis(
             stream_open_us_total,
@@ -2532,6 +2644,19 @@ mod tests {
                         "first_to_last_chunk_send_ge_5ms_total": 1,
                         "first_to_last_chunk_send_ge_10ms_total": 0,
                     },
+                    "http_request_body_stream": {
+                        "streaming_requests_total": 2,
+                        "data_chunk_samples_total": 8,
+                        "data_chunk_wait_us_total": 2000,
+                        "first_chunk_wait_samples_total": 2,
+                        "first_chunk_wait_us_total": 1000,
+                        "second_chunk_wait_samples_total": 2,
+                        "second_chunk_wait_us_total": 1200,
+                        "remaining_tail_read_samples_total": 2,
+                        "remaining_tail_read_us_total": 1800,
+                        "total_read_samples_total": 2,
+                        "total_read_us_total": 4000,
+                    },
                 }),
                 Some(json!({
                     "requests_total": 2,
@@ -2643,6 +2768,19 @@ mod tests {
                         "first_to_last_chunk_send_ge_1ms_total": 5,
                         "first_to_last_chunk_send_ge_5ms_total": 4,
                         "first_to_last_chunk_send_ge_10ms_total": 1,
+                    },
+                    "http_request_body_stream": {
+                        "streaming_requests_total": 5,
+                        "data_chunk_samples_total": 20,
+                        "data_chunk_wait_us_total": 8000,
+                        "first_chunk_wait_samples_total": 5,
+                        "first_chunk_wait_us_total": 3500,
+                        "second_chunk_wait_samples_total": 5,
+                        "second_chunk_wait_us_total": 4200,
+                        "remaining_tail_read_samples_total": 5,
+                        "remaining_tail_read_us_total": 7800,
+                        "total_read_samples_total": 5,
+                        "total_read_us_total": 18000,
                     },
                 }),
                 Some(json!({
@@ -3096,6 +3234,29 @@ mod tests {
                 < f64::EPSILON
         );
         assert!((server_timing.request_body_drain_chunk_count_avg - 3.0).abs() < f64::EPSILON);
+        assert!(
+            (server_timing.native_request_body_reader_total_avg_ms - (14.0 / 3.0)).abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (server_timing.native_request_body_reader_first_chunk_wait_avg_ms - (2.5 / 3.0)).abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (server_timing.native_request_body_reader_second_chunk_wait_avg_ms - 1.0).abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (server_timing.native_request_body_reader_remaining_tail_read_avg_ms - 2.0).abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (server_timing.native_request_body_reader_data_chunk_wait_avg_ms - 0.5).abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (server_timing.native_request_body_reader_chunk_count_avg - 4.0).abs() < f64::EPSILON
+        );
         assert!((server_timing.stream_open_avg_ms - 7.0).abs() < f64::EPSILON);
         assert!((server_timing.first_chunk_queued_avg_ms - 9.0).abs() < f64::EPSILON);
         assert!((server_timing.first_body_write_avg_ms - 12.0).abs() < f64::EPSILON);

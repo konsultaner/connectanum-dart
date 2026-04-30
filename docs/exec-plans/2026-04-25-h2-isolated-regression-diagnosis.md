@@ -557,6 +557,45 @@ decisions.
     request-body delivery
   - if the delta stays in remaining-tail-read, the next target is later
     request-body stream pacing across the remaining chunks
+- Commit `f9b3b27` (`bench: split request body tail drain timing`) passed the
+  hosted GitHub push chain:
+  - `CI` `25141807658`
+  - `kTLS Validation` `25141807596`
+  - `WAMP Profile Benchmarks` `25141807457`
+  - the branch-head deployment audit and hosted CI log scan are clean
+- Manual hosted rerun `25142223693` reran isolated `s1`, `threads=4`, one
+  router worker on `f9b3b27` with `repeat_order=alternating`.
+- That run completed with matched rows in all three repeats, but it was not
+  decision-quality:
+  - throughput delta span was `35.05pp`
+  - p95 delta span was `335.53pp`
+  - the instability source was kTLS-side
+- The new request-body inter-chunk split still narrows the server-side
+  boundary:
+  - request-body first-chunk wait stayed flat at about `0.05..0.06 ms`
+  - request-body second-chunk wait stayed flat in two repeats and had one
+    kTLS-side outlier (`0.02 -> 0.63 ms`)
+  - request-body remaining-tail-read carried the larger moving deltas
+    (`0.05 -> 2.41 ms` and `0.05 -> 1.13 ms` in the moving repeats)
+  - request-body chunk count stayed flat at `4.08`
+- The remaining server-side delay is therefore mostly after the second
+  request-body chunk in the native HTTP/2 request-body read path or the Dart
+  drain path above it.
+- The current local native request-body-reader split is implemented:
+  - `ct_core` records native HTTP/2 request-body reader totals, `stream.data()`
+    wait, first/second chunk wait, remaining tail-read, and chunk count
+  - `ct_ffi` and the Dart native/router metrics model expose those counters
+    through `transport.http_request_body_stream`
+  - `native/bench` summaries and `tool/ktls_http2_compare.py` /
+    `tool/ktls_http2_compare_repeats.py` render those fields in primary and
+    repeated server-emission reports
+- This split is intentionally bounded:
+  - if the next hosted isolated `s1` rerun shows the kTLS delta inside native
+    request-body reader timing, the next target is HTTP/2 stream pacing before
+    Dart receives/drains request chunks
+  - if native reader timing stays flat while Dart-side drain remains
+    kTLS-higher, the next target is Dart drain scheduling above the native
+    request-body reader
 
 ## Current Verification
 
@@ -760,12 +799,35 @@ decisions.
   - `python3 tool/test_ktls_http2_compare.py`
   - `git diff --check`
   - `bin/verify`
+- Current native request-body reader split verification:
+  - hosted GitHub `CI` run `25141807658` completed successfully on
+    `f9b3b27`; `Fast Checks` completed in 5m09s and `Full Verify` completed
+    in 8m12s
+  - hosted GitHub `kTLS Validation` run `25141807596` completed successfully
+    on `f9b3b27`
+  - hosted GitHub `WAMP Profile Benchmarks` run `25141807457` completed
+    successfully on `f9b3b27`
+  - deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `f9b3b27`
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25142223693` completed
+    successfully on `f9b3b27`; it produced complete but non-decision-quality
+    repeat evidence and confirmed the server-side request-body delta is mostly
+    after second-chunk wait
+  - `cargo test --manifest-path native/transport/Cargo.toml -p ct_core http_request_body_stream_metrics_record_reader_chunks -- --nocapture`
+  - `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
+  - `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`
+  - `python3 tool/test_ktls_http2_compare.py`
+  - `dart analyze packages/connectanum_router/lib/src/native/runtime.dart packages/connectanum_router/lib/src/native/ffi_bindings.dart packages/connectanum_router/lib/src/router/models/router_metrics.dart packages/connectanum_router/lib/src/router/router_instance/router_boss.dart`
+  - `git diff --check`
+  - `bin/test-fast`
+  - `bin/verify`
 
 ## Next Step
 
-Dispatch an isolated hosted `h2_multiplexed_streams_s1`, `threads=4`,
-alternating repeat run on the request-body inter-chunk split. Use second-chunk
-wait versus remaining-tail-read to decide whether the kTLS-side tail-drain
-delay is concentrated immediately after the first request-body chunk or spread
-across later request-body chunks. Do not change first-body-write scheduling
-again until this post-first-chunk drain path is understood.
+Commit and push the native request-body-reader split, then dispatch an
+isolated hosted `h2_multiplexed_streams_s1`, `threads=4`, alternating repeat
+run on the new branch head. Use native request-body reader timing versus
+Dart-side request-body drain timing to decide whether the kTLS-side tail-drain
+delay is below or above the native request-body reader. Do not change
+first-body-write scheduling again until this post-second-chunk drain path is
+understood.

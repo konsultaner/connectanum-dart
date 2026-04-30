@@ -126,6 +126,12 @@ pub struct HttpServerEmissionTimingSummary {
     pub request_body_drain_second_chunk_wait_avg_ms: f64,
     pub request_body_drain_remaining_tail_read_avg_ms: f64,
     pub request_body_drain_chunk_count_avg: f64,
+    pub native_request_body_reader_total_avg_ms: f64,
+    pub native_request_body_reader_first_chunk_wait_avg_ms: f64,
+    pub native_request_body_reader_second_chunk_wait_avg_ms: f64,
+    pub native_request_body_reader_remaining_tail_read_avg_ms: f64,
+    pub native_request_body_reader_data_chunk_wait_avg_ms: f64,
+    pub native_request_body_reader_chunk_count_avg: f64,
     pub stream_open_avg_ms: f64,
     pub first_chunk_queued_avg_ms: f64,
     pub first_body_write_avg_ms: f64,
@@ -283,6 +289,17 @@ pub fn transport_http_response_stream_counter_delta(
 
 pub fn transport_http_response_stream_counter_after(after: &Value, field: &str) -> Option<u64> {
     extract_u64(after, &["transport", "http_response_stream", field])
+}
+
+pub fn transport_http_request_body_stream_counter_delta(
+    before: &Value,
+    after: &Value,
+    field: &str,
+) -> Option<i64> {
+    let path = &["transport", "http_request_body_stream", field];
+    let end = extract_i64(after, path)?;
+    let start = extract_i64(before, path).unwrap_or(0);
+    Some(end - start)
 }
 
 pub fn bench_http_stream_counter_delta(before: &Value, after: &Value, field: &str) -> Option<i64> {

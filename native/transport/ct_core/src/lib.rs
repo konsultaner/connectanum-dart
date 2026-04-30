@@ -308,6 +308,21 @@ struct HttpResponseStreamMetrics {
     first_to_last_chunk_send_ge_10ms_total: AtomicU64,
 }
 
+#[derive(Default)]
+struct HttpRequestBodyStreamMetrics {
+    streaming_requests_total: AtomicU64,
+    data_chunk_samples_total: AtomicU64,
+    data_chunk_wait_us_total: AtomicU64,
+    first_chunk_wait_samples_total: AtomicU64,
+    first_chunk_wait_us_total: AtomicU64,
+    second_chunk_wait_samples_total: AtomicU64,
+    second_chunk_wait_us_total: AtomicU64,
+    remaining_tail_read_samples_total: AtomicU64,
+    remaining_tail_read_us_total: AtomicU64,
+    total_read_samples_total: AtomicU64,
+    total_read_us_total: AtomicU64,
+}
+
 #[derive(Debug, Clone, Copy, Default)]
 pub struct HttpMetricsSnapshot {
     pub total_events: u64,
@@ -367,6 +382,21 @@ pub struct HttpResponseStreamMetricsSnapshot {
     pub first_to_last_chunk_send_ge_10ms_total: u64,
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+pub struct HttpRequestBodyStreamMetricsSnapshot {
+    pub streaming_requests_total: u64,
+    pub data_chunk_samples_total: u64,
+    pub data_chunk_wait_us_total: u64,
+    pub first_chunk_wait_samples_total: u64,
+    pub first_chunk_wait_us_total: u64,
+    pub second_chunk_wait_samples_total: u64,
+    pub second_chunk_wait_us_total: u64,
+    pub remaining_tail_read_samples_total: u64,
+    pub remaining_tail_read_us_total: u64,
+    pub total_read_samples_total: u64,
+    pub total_read_us_total: u64,
+}
+
 #[derive(Debug, Clone)]
 pub struct HttpMetricsBreakdownSnapshot {
     pub listener_id: ListenerId,
@@ -397,6 +427,7 @@ struct InstrumentedHttp2IoStream {
 }
 
 static HTTP_RESPONSE_STREAM_METRICS: OnceLock<HttpResponseStreamMetrics> = OnceLock::new();
+static HTTP_REQUEST_BODY_STREAM_METRICS: OnceLock<HttpRequestBodyStreamMetrics> = OnceLock::new();
 
 impl HttpMetrics {
     fn record(&self, event: &HttpConnectionEvent) {
@@ -775,6 +806,78 @@ impl HttpResponseStreamMetrics {
     }
 }
 
+impl HttpRequestBodyStreamMetrics {
+    fn record_streaming_request(&self) {
+        self.streaming_requests_total.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn record_data_chunk_wait(&self, wait_started_at: Instant, data_received_at: Instant) {
+        let wait_us = saturating_instant_delta_us(wait_started_at, data_received_at);
+        self.data_chunk_samples_total.fetch_add(1, Ordering::SeqCst);
+        self.data_chunk_wait_us_total
+            .fetch_add(wait_us, Ordering::SeqCst);
+    }
+
+    fn record_first_chunk_wait(&self, reader_started_at: Instant, data_received_at: Instant) {
+        let wait_us = saturating_instant_delta_us(reader_started_at, data_received_at);
+        self.first_chunk_wait_samples_total
+            .fetch_add(1, Ordering::SeqCst);
+        self.first_chunk_wait_us_total
+            .fetch_add(wait_us, Ordering::SeqCst);
+    }
+
+    fn record_second_chunk_wait(&self, first_chunk_at: Instant, data_received_at: Instant) {
+        let wait_us = saturating_instant_delta_us(first_chunk_at, data_received_at);
+        self.second_chunk_wait_samples_total
+            .fetch_add(1, Ordering::SeqCst);
+        self.second_chunk_wait_us_total
+            .fetch_add(wait_us, Ordering::SeqCst);
+    }
+
+    fn record_reader_finished(
+        &self,
+        reader_started_at: Instant,
+        finished_at: Instant,
+        second_chunk_at: Option<Instant>,
+    ) {
+        self.total_read_samples_total.fetch_add(1, Ordering::SeqCst);
+        self.total_read_us_total.fetch_add(
+            saturating_instant_delta_us(reader_started_at, finished_at),
+            Ordering::SeqCst,
+        );
+        if let Some(second_at) = second_chunk_at {
+            self.remaining_tail_read_samples_total
+                .fetch_add(1, Ordering::SeqCst);
+            self.remaining_tail_read_us_total.fetch_add(
+                saturating_instant_delta_us(second_at, finished_at),
+                Ordering::SeqCst,
+            );
+        }
+    }
+
+    fn snapshot(&self) -> HttpRequestBodyStreamMetricsSnapshot {
+        HttpRequestBodyStreamMetricsSnapshot {
+            streaming_requests_total: self.streaming_requests_total.load(Ordering::SeqCst),
+            data_chunk_samples_total: self.data_chunk_samples_total.load(Ordering::SeqCst),
+            data_chunk_wait_us_total: self.data_chunk_wait_us_total.load(Ordering::SeqCst),
+            first_chunk_wait_samples_total: self
+                .first_chunk_wait_samples_total
+                .load(Ordering::SeqCst),
+            first_chunk_wait_us_total: self.first_chunk_wait_us_total.load(Ordering::SeqCst),
+            second_chunk_wait_samples_total: self
+                .second_chunk_wait_samples_total
+                .load(Ordering::SeqCst),
+            second_chunk_wait_us_total: self.second_chunk_wait_us_total.load(Ordering::SeqCst),
+            remaining_tail_read_samples_total: self
+                .remaining_tail_read_samples_total
+                .load(Ordering::SeqCst),
+            remaining_tail_read_us_total: self.remaining_tail_read_us_total.load(Ordering::SeqCst),
+            total_read_samples_total: self.total_read_samples_total.load(Ordering::SeqCst),
+            total_read_us_total: self.total_read_us_total.load(Ordering::SeqCst),
+        }
+    }
+}
+
 impl Http2ConnectionWriteTracker {
     fn note_headers_sent(&self, headers_sent_at: Instant) -> usize {
         let mut guard = self
@@ -857,6 +960,10 @@ fn http_response_stream_metrics() -> &'static HttpResponseStreamMetrics {
     HTTP_RESPONSE_STREAM_METRICS.get_or_init(HttpResponseStreamMetrics::default)
 }
 
+fn http_request_body_stream_metrics() -> &'static HttpRequestBodyStreamMetrics {
+    HTTP_REQUEST_BODY_STREAM_METRICS.get_or_init(HttpRequestBodyStreamMetrics::default)
+}
+
 fn saturating_instant_delta_us(start: Instant, end: Instant) -> u64 {
     end.saturating_duration_since(start)
         .as_micros()
@@ -891,6 +998,10 @@ pub fn http_metrics_snapshot_with_breakdown(
 
 pub fn http_response_stream_metrics_snapshot() -> HttpResponseStreamMetricsSnapshot {
     http_response_stream_metrics().snapshot()
+}
+
+pub fn http_request_body_stream_metrics_snapshot() -> HttpRequestBodyStreamMetricsSnapshot {
+    http_request_body_stream_metrics().snapshot()
 }
 
 fn protocol_sort_key(protocol: ConnectionProtocol) -> u8 {
@@ -5955,10 +6066,16 @@ async fn run_http2_stream_reader(
     idle_timeout: Duration,
     total_timeout: Duration,
 ) -> Result<(), String> {
+    let metrics = http_request_body_stream_metrics();
+    metrics.record_streaming_request();
+    let reader_started_at = Instant::now();
+    let mut first_chunk_at = None;
+    let mut second_chunk_at = None;
     let mut bytes_read: u64 = 0;
     let total_deadline = Instant::now() + total_timeout;
     loop {
         if state.finish_requested() {
+            metrics.record_reader_finished(reader_started_at, Instant::now(), second_chunk_at);
             state.mark_finished();
             return Ok(());
         }
@@ -5972,6 +6089,7 @@ async fn run_http2_stream_reader(
             return Err("http/2 body total timeout".into());
         }
 
+        let data_wait_started_at = Instant::now();
         let data_future = stream.data();
         let chunk = match time::timeout(idle_timeout, data_future).await {
             Ok(value) => value,
@@ -5988,6 +6106,16 @@ async fn run_http2_stream_reader(
 
         match chunk {
             Some(Ok(bytes)) => {
+                let data_received_at = Instant::now();
+                metrics.record_data_chunk_wait(data_wait_started_at, data_received_at);
+                if first_chunk_at.is_none() {
+                    first_chunk_at = Some(data_received_at);
+                    metrics.record_first_chunk_wait(reader_started_at, data_received_at);
+                } else if second_chunk_at.is_none() {
+                    let first_at = first_chunk_at.expect("first chunk set");
+                    second_chunk_at = Some(data_received_at);
+                    metrics.record_second_chunk_wait(first_at, data_received_at);
+                }
                 let len = bytes.len();
                 bytes_read += len as u64;
                 if bytes_read > max_body
@@ -6026,6 +6154,7 @@ async fn run_http2_stream_reader(
                         return Ok(());
                     }
                 }
+                metrics.record_reader_finished(reader_started_at, Instant::now(), second_chunk_at);
                 state.mark_finished();
                 return Ok(());
             }
@@ -6886,6 +7015,30 @@ mod tests {
             after.first_to_last_chunk_send_ge_5ms_total
                 > before.first_to_last_chunk_send_ge_5ms_total
         );
+    }
+
+    #[test]
+    fn http_request_body_stream_metrics_record_reader_chunks() {
+        let before = http_request_body_stream_metrics_snapshot();
+        let metrics = http_request_body_stream_metrics();
+        let started_at = Instant::now();
+        let first_at = started_at + Duration::from_millis(1);
+        let second_at = first_at + Duration::from_millis(2);
+        let finished_at = second_at + Duration::from_millis(3);
+        metrics.record_streaming_request();
+        metrics.record_data_chunk_wait(started_at, first_at);
+        metrics.record_first_chunk_wait(started_at, first_at);
+        metrics.record_data_chunk_wait(first_at, second_at);
+        metrics.record_second_chunk_wait(first_at, second_at);
+        metrics.record_reader_finished(started_at, finished_at, Some(second_at));
+        let after = http_request_body_stream_metrics_snapshot();
+        assert!(after.streaming_requests_total > before.streaming_requests_total);
+        assert!(after.data_chunk_samples_total > before.data_chunk_samples_total);
+        assert!(after.first_chunk_wait_samples_total > before.first_chunk_wait_samples_total);
+        assert!(after.second_chunk_wait_samples_total > before.second_chunk_wait_samples_total);
+        assert!(after.remaining_tail_read_samples_total > before.remaining_tail_read_samples_total);
+        assert!(after.total_read_samples_total > before.total_read_samples_total);
+        assert!(after.total_read_us_total > before.total_read_us_total);
     }
 
     struct GeneratedTlsMaterial {

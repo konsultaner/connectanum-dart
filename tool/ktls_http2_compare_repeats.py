@@ -71,6 +71,30 @@ SERVER_EMISSION_FOCUS_METRICS = (
         "request_body_drain_chunk_count_avg",
         "Request body drain chunk-count avg",
     ),
+    (
+        "native_request_body_reader_total_avg_ms",
+        "Native request body reader total avg ms",
+    ),
+    (
+        "native_request_body_reader_first_chunk_wait_avg_ms",
+        "Native request body reader first-chunk wait avg ms",
+    ),
+    (
+        "native_request_body_reader_second_chunk_wait_avg_ms",
+        "Native request body reader second-chunk wait avg ms",
+    ),
+    (
+        "native_request_body_reader_remaining_tail_read_avg_ms",
+        "Native request body reader remaining tail-read avg ms",
+    ),
+    (
+        "native_request_body_reader_data_chunk_wait_avg_ms",
+        "Native request body reader data-chunk wait avg ms",
+    ),
+    (
+        "native_request_body_reader_chunk_count_avg",
+        "Native request body reader chunk-count avg",
+    ),
     ("stream_open_avg_ms", "Stream open avg ms"),
     ("first_chunk_queued_avg_ms", "First chunk queued avg ms"),
     (

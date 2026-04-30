@@ -33,9 +33,9 @@ use ct_core::{
     listener_http3_port, local_addr, poll_connection_message, reload_tls, response_stream_channel,
     send_wamp_message, send_wamp_segments, shutdown, start_runtime, wait_connection_message,
     ConnectionId, ConnectionProtocol, Error as CoreError, HttpConnectionCloseReason,
-    HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot, HttpResponseBody, HttpResponseDispatch,
-    HttpResponseStreamMetricsSnapshot, ListenerId, RawSocketSerializer, WampMessage,
-    RESPONSE_STREAM_BUFFER,
+    HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot, HttpRequestBodyStreamMetricsSnapshot,
+    HttpResponseBody, HttpResponseDispatch, HttpResponseStreamMetricsSnapshot, ListenerId,
+    RawSocketSerializer, WampMessage, RESPONSE_STREAM_BUFFER,
 };
 use ct_core::{http_metrics_snapshot_with_breakdown, http_response_stream_metrics_snapshot};
 #[cfg(feature = "ffi-test")]
@@ -221,6 +221,17 @@ pub struct CtRouterMetricsInfo {
     pub response_stream_first_to_last_chunk_send_ge_1ms_total: u64,
     pub response_stream_first_to_last_chunk_send_ge_5ms_total: u64,
     pub response_stream_first_to_last_chunk_send_ge_10ms_total: u64,
+    pub request_body_streaming_requests_total: u64,
+    pub request_body_stream_data_chunk_samples_total: u64,
+    pub request_body_stream_data_chunk_wait_us_total: u64,
+    pub request_body_stream_first_chunk_wait_samples_total: u64,
+    pub request_body_stream_first_chunk_wait_us_total: u64,
+    pub request_body_stream_second_chunk_wait_samples_total: u64,
+    pub request_body_stream_second_chunk_wait_us_total: u64,
+    pub request_body_stream_remaining_tail_read_samples_total: u64,
+    pub request_body_stream_remaining_tail_read_us_total: u64,
+    pub request_body_stream_total_read_samples_total: u64,
+    pub request_body_stream_total_read_us_total: u64,
     pub breakdown_ptr: *const CtRouterMetricsBreakdownInfo,
     pub breakdown_len: usize,
 }
@@ -2175,6 +2186,8 @@ pub extern "C" fn ct_router_metrics_snapshot(info: *mut CtRouterMetricsInfo) -> 
         http_metrics_snapshot_with_breakdown();
     let response_stream_snapshot: HttpResponseStreamMetricsSnapshot =
         http_response_stream_metrics_snapshot();
+    let request_body_stream_snapshot: HttpRequestBodyStreamMetricsSnapshot =
+        ct_core::http_request_body_stream_metrics_snapshot();
     let info_ref = unsafe { info.as_mut().unwrap() };
     info_ref.total_events = snapshot.total_events;
     info_ref.graceful_events = snapshot.graceful_events;
@@ -2269,6 +2282,28 @@ pub extern "C" fn ct_router_metrics_snapshot(info: *mut CtRouterMetricsInfo) -> 
         response_stream_snapshot.first_to_last_chunk_send_ge_5ms_total;
     info_ref.response_stream_first_to_last_chunk_send_ge_10ms_total =
         response_stream_snapshot.first_to_last_chunk_send_ge_10ms_total;
+    info_ref.request_body_streaming_requests_total =
+        request_body_stream_snapshot.streaming_requests_total;
+    info_ref.request_body_stream_data_chunk_samples_total =
+        request_body_stream_snapshot.data_chunk_samples_total;
+    info_ref.request_body_stream_data_chunk_wait_us_total =
+        request_body_stream_snapshot.data_chunk_wait_us_total;
+    info_ref.request_body_stream_first_chunk_wait_samples_total =
+        request_body_stream_snapshot.first_chunk_wait_samples_total;
+    info_ref.request_body_stream_first_chunk_wait_us_total =
+        request_body_stream_snapshot.first_chunk_wait_us_total;
+    info_ref.request_body_stream_second_chunk_wait_samples_total =
+        request_body_stream_snapshot.second_chunk_wait_samples_total;
+    info_ref.request_body_stream_second_chunk_wait_us_total =
+        request_body_stream_snapshot.second_chunk_wait_us_total;
+    info_ref.request_body_stream_remaining_tail_read_samples_total =
+        request_body_stream_snapshot.remaining_tail_read_samples_total;
+    info_ref.request_body_stream_remaining_tail_read_us_total =
+        request_body_stream_snapshot.remaining_tail_read_us_total;
+    info_ref.request_body_stream_total_read_samples_total =
+        request_body_stream_snapshot.total_read_samples_total;
+    info_ref.request_body_stream_total_read_us_total =
+        request_body_stream_snapshot.total_read_us_total;
     if breakdown.is_empty() {
         info_ref.breakdown_ptr = ptr::null();
         info_ref.breakdown_len = 0;

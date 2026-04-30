@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `57c051d` (`bench: split h2 request body drain timing`)
+Last reviewed commit: `f9b3b27` (`bench: split request body tail drain timing`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -344,6 +344,44 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
     `python3 tool/test_ktls_http2_compare.py`, and `git diff --check`
   - full local `bin/verify` passed after the request-body inter-chunk split
+    on 2026-04-30, including Rust, Dart package, bench, router,
+    `remote_auth_integration_test`, and Chrome/Dart2Wasm browser coverage
+  - commit `f9b3b27` (`bench: split request body tail drain timing`) passed
+    the hosted GitHub push chain: `CI` run `25141807658` completed with
+    `Fast Checks` in 5m09s and `Full Verify` in 8m12s; `kTLS Validation` run
+    `25141807596` completed successfully; `WAMP Profile Benchmarks` run
+    `25141807457` completed successfully
+  - the branch-head deployment-chain audit with
+    `--require-clean-latest-ci --require-clean-latest-ci-logs` passed against
+    `f9b3b27`; the known non-blocking deployment findings remain branch
+    protection, default-branch router image discovery/GHCR visibility, and
+    release/package ownership decisions
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25142223693` completed
+    successfully on `f9b3b27` in 5m23s with isolated
+    `h2_multiplexed_streams_s1`, `threads=4`, one router worker,
+    `repeat_count=3`, and `repeat_order=alternating`
+  - `25142223693` was complete but not decision-quality: throughput delta
+    span was `35.05pp`, p95 delta span was `335.53pp`, all repeats produced
+    matched rows, and the instability source was kTLS-side
+  - the hosted request-body inter-chunk split rules out the first request-body
+    chunk as the dominant server-side delay and points mostly past the second
+    chunk: first-chunk wait stayed flat at about `0.05..0.06 ms`,
+    second-chunk wait stayed flat in two repeats with one kTLS-side outlier
+    (`0.02 -> 0.63 ms`), and remaining-tail-read carried the larger repeated
+    deltas (`0.05 -> 2.41 ms` and `0.05 -> 1.13 ms` in the moving repeats)
+  - the current local follow-up instruments native HTTP/2 request-body reader
+    timing before the Dart drain layer: `ct_core` records total reader time,
+    `stream.data()` wait, first/second chunk wait, remaining tail-read, and
+    chunk count; `ct_ffi`, the Dart native/router metrics models, and the
+    native bench comparison reports expose those counters
+  - focused local checks for the native request-body reader split passed:
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_core http_request_body_stream_metrics_record_reader_chunks -- --nocapture`,
+    `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`,
+    `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`,
+    `dart analyze packages/connectanum_router/lib/src/native/runtime.dart packages/connectanum_router/lib/src/native/ffi_bindings.dart packages/connectanum_router/lib/src/router/models/router_metrics.dart packages/connectanum_router/lib/src/router/router_instance/router_boss.dart`,
+    `git diff --check`, and `bin/test-fast`
+  - full local `bin/verify` passed after the native request-body reader split
     on 2026-04-30, including Rust, Dart package, bench, router,
     `remote_auth_integration_test`, and Chrome/Dart2Wasm browser coverage
 - Current deployment-chain evidence refresh:

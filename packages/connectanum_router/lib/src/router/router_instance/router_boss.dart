@@ -964,6 +964,31 @@ class _RouterBoss {
               firstToLastChunkSendGe10msTotal:
                   metrics.responseStream!.firstToLastChunkSendGe10msTotal,
             ),
+      httpRequestBodyStream: metrics.requestBodyStream == null
+          ? null
+          : RouterHttpRequestBodyStreamMetrics(
+              streamingRequestsTotal:
+                  metrics.requestBodyStream!.streamingRequestsTotal,
+              dataChunkSamplesTotal:
+                  metrics.requestBodyStream!.dataChunkSamplesTotal,
+              dataChunkWaitUsTotal:
+                  metrics.requestBodyStream!.dataChunkWaitUsTotal,
+              firstChunkWaitSamplesTotal:
+                  metrics.requestBodyStream!.firstChunkWaitSamplesTotal,
+              firstChunkWaitUsTotal:
+                  metrics.requestBodyStream!.firstChunkWaitUsTotal,
+              secondChunkWaitSamplesTotal:
+                  metrics.requestBodyStream!.secondChunkWaitSamplesTotal,
+              secondChunkWaitUsTotal:
+                  metrics.requestBodyStream!.secondChunkWaitUsTotal,
+              remainingTailReadSamplesTotal:
+                  metrics.requestBodyStream!.remainingTailReadSamplesTotal,
+              remainingTailReadUsTotal:
+                  metrics.requestBodyStream!.remainingTailReadUsTotal,
+              totalReadSamplesTotal:
+                  metrics.requestBodyStream!.totalReadSamplesTotal,
+              totalReadUsTotal: metrics.requestBodyStream!.totalReadUsTotal,
+            ),
       alertBreakdown: alertBreakdown,
       breakdown: breakdown,
     );
