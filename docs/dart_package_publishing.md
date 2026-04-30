@@ -58,9 +58,11 @@ As of 2026-04-30:
   `connectanum_client` publish should not be attempted until either
   `connectanum_core` is intentionally published first or the client package is
   restructured to avoid an unpublished public dependency.
-- GitHub `Dart Package Publish Dry Run` run `25167510967` passed on branch
-  head `e8a0438`; hosted log scanning found no warning, skipped-test,
-  panic, broken-pipe, reset, or package-warning patterns.
+- GitHub `Dart Package Publish Dry Run` run `25168519708` passed on branch
+  head `324abeb`; hosted log scanning found no warning, skipped-test, panic,
+  broken-pipe, reset, or package-warning patterns. The audit confirms that
+  dry-run remains relevant for `0b5cdfd` because no package-publish-sensitive
+  paths changed after that run.
 
 ## Release Sequence
 

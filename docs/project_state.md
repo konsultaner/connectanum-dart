@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `e8a0438` (`docs: record deployment chain evidence`)
+Last reviewed commit: `0b5cdfd` (`chore: stop tracking production out artifacts`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -11,14 +11,16 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
   - return to GitHub deployment-chain and RC-readiness work; the H2/kTLS slice
     is complete for now and should not remain the default continuation path
     unless CI, release artifacts, or branch evidence regress
-  - latest pushed branch head `e8a0438`
-    (`docs: record deployment chain evidence`) passed hosted GitHub `CI` run
-    `25167510955`: `Fast Checks` completed in 5m56s and `Full Verify`
-    completed in 8m04s
+  - latest pushed branch head `0b5cdfd`
+    (`chore: stop tracking production out artifacts`) passed hosted GitHub
+    `CI` run `25169497644`: `Fast Checks` completed in 5m51s and
+    `Full Verify` completed in 8m00s
   - branch-head deployment-chain audit with `--require-clean-latest-ci` and
-    `--require-clean-latest-ci-logs` passed against `e8a0438`; latest CI log
+    `--require-clean-latest-ci-logs` passed against `0b5cdfd`; latest CI log
     scan found no high-signal warning, skipped-test, panic, broken-pipe, reset,
     timeout, or connection-noise matches
+  - `out/production` generated output is no longer tracked by Git; `/out/`
+    remains ignored and `git ls-files out` returns zero tracked paths
   - fresh manual `Native Artifacts` dry-run `25166714340` passed on
     `7098c54`: Linux x64, Linux arm64, macOS arm64, macOS Intel, Windows x64,
     and `Publish GitHub Release` preview jobs all succeeded
@@ -30,9 +32,10 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     separately released target that must be confirmed in the deployment guide
     before production use, instead of implying the GHCR image is already
     published
-  - Dart package publish-readiness evidence is refreshed on `e8a0438`:
-    hosted GitHub `Dart Package Publish Dry Run` run `25167510967` passed with
-    a clean log scan; the remaining blocker is still the intentional
+  - Dart package publish-readiness evidence is still current on `0b5cdfd`:
+    hosted GitHub `Dart Package Publish Dry Run` run `25168519708` passed on
+    `324abeb`, and the audit confirms no package-publish-sensitive paths
+    changed after that run; the remaining blocker is still the intentional
     release-order decision `connectanum_core -> connectanum_client`
   - remaining RC/deployment blockers are still operator/product/deployment
     decisions or externally visible release actions: branch protection required

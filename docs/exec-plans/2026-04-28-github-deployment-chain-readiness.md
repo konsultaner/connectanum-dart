@@ -146,6 +146,19 @@ operator evidence over speculative feature or benchmark work.
   - `docs/github_deployment_chain.md` now has a short RC promotion checklist
     that keeps branch protection, router image/GHCR publication, RC tagging,
     and Dart package ownership/release order explicit operator decisions
+- Removed generated production output from version control:
+  - commit `0b5cdfd` (`chore: stop tracking production out artifacts`) removed
+    the previously tracked `out/production` tree from the Git index while
+    leaving local generated files ignored by `/out/`
+  - branch head `0b5cdfd` passed GitHub `CI` run `25169497644` with
+    `Fast Checks` in 5m51s and `Full Verify` in 8m00s
+  - the branch-head deployment-chain audit passed with
+    `--require-clean-latest-ci` and `--require-clean-latest-ci-logs`; latest
+    CI logs contained no high-signal warning, skipped-test, panic,
+    broken-pipe, reset, timeout, or connection-noise matches
+  - hosted Dart package dry-run `25168519708` and native release dry-run
+    `25166714340` remain clean and relevant because the cleanup changed no
+    package-publish-sensitive or native-release-sensitive inputs
 - Confirmed pushed documentation head `639c095` passed GitHub `CI` run
   `25046524665`:
   - `Fast Checks`: success
