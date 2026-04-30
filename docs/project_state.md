@@ -2,29 +2,42 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `6fcc174` (`docs: close ktls repeat stability follow-up`)
-Active exec plan: none; use `ROADMAP_NEXT.md` for the next milestone.
+Last reviewed commit: local Dart package release-plan readability slice on top
+of `4cb07d6` (`docs: align continuation priorities`)
+Active exec plan: none; use `ROADMAP_NEXT.md` after re-checking CI and
+GitHub deployment-chain evidence
 
 ## Last Known Verification
 
 - Current autonomous focus:
   - keep the CI chain clean first; the deployment-chain plan is paused because
     the remaining RC blockers are operator/release decisions
-  - latest pushed branch head `6fcc174`
-    (`docs: close ktls repeat stability follow-up`) passed hosted GitHub `CI`
-    run `25182467029`: `Fast Checks` completed in 5m35s and `Full Verify`
-    completed in 8m15s
+  - latest pushed branch head `4cb07d6`
+    (`docs: align continuation priorities`) passed hosted GitHub `CI` run
+    `25184860826`: `Fast Checks` completed in 5m29s and `Full Verify`
+    completed in 8m10s
   - branch-head deployment-chain audit with `--require-clean-latest-ci` and
-    `--require-clean-latest-ci-logs` passed against `6fcc174`; latest CI log
+    `--require-clean-latest-ci-logs` passed against `4cb07d6`; latest CI log
     scan found no high-signal warning, skipped-test, panic, broken-pipe, reset,
     timeout, or connection-noise matches
-  - local `bin/test-fast` passed on 2026-04-30 before this continuation-docs
-    refresh; this slice is docs/state-only and keeps the next autonomous focus
-    aligned with AGENTS.md
-  - local `bin/verify` passed on 2026-04-30 after this continuation-docs
-    refresh; it included formatting, Rust/Dart package tests, MCP tests, bench
-    integration tests, router tests, build hooks, and Chrome Dart2Wasm
-    WebSocket transport tests
+  - completed local slice is Dart package release-plan readability:
+    `bin/dart-package-publish-dry-run --show-release-plan` should expose every
+    private workspace package separately from private packages that block a
+    publishable target, so `connectanum_mcp` remains visible without implying
+    it is approved for pub.dev release
+  - local `bin/test-fast` passed on 2026-04-30 before editing the Dart package
+    release-plan readability slice
+  - local release-plan checks passed on 2026-04-30:
+    `bash -n bin/dart-package-publish-dry-run bin/audit-github-deployment-chain`,
+    `bin/dart-package-publish-dry-run --show-release-plan`,
+    expected-failing strict
+    `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`,
+    and expected-failing RC audit
+    `bin/audit-github-deployment-chain --require-rc-ready`
+  - local `bin/verify` passed on 2026-04-30 after the Dart package release-plan
+    readability slice; it included formatting, Rust/Dart package tests, MCP
+    tests, bench integration tests, router tests, build hooks, and Chrome
+    Dart2Wasm WebSocket transport tests
   - kTLS repeat-stability follow-up is complete and remains
     measurement-bound rather than runtime-tuning-ready: hosted runs
     `25181353679` and `25181697998` both completed successfully on `0573ce2`

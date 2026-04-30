@@ -883,7 +883,7 @@ print_rc_readiness() {
       printf 'Dart package strict publish dry-run: ready\n'
     else
       printf 'Dart package strict publish dry-run: not ready\n'
-      grep -E '^(Dart package release-readiness blockers:|Dart package release-order plan:|Currently publishable package archives:|Private workspace packages blocking publishable targets:|Workspace dependency order that must be satisfied before public publishing:|Operator decisions still required before a real publish:|- )' "$strict_dart_output" || true
+      grep -E '^(Dart package release-readiness blockers:|Dart package release-order plan:|Currently publishable package archives:|Private workspace packages not currently publishable:|Private workspace packages blocking publishable targets:|Workspace dependency order that must be satisfied before public publishing:|Operator decisions still required before a real publish:|- )' "$strict_dart_output" || true
       rc_ready_failed=1
     fi
     rm -f "$strict_dart_output"

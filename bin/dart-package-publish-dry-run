@@ -18,8 +18,9 @@ Options:
                       publishable first.
   --show-release-plan
                       Print the current package release-order plan, including
-                      private workspace packages that block publishable
-                      packages. This does not change publishability.
+                      the full private workspace package inventory and any
+                      private packages that block publishable packages. This
+                      does not change publishability.
   --strict-release-ready
                       Exit non-zero when a publishable package still depends on
                       a private workspace package. The default reports those
@@ -214,6 +215,20 @@ append_unique_private_dependency() {
   release_plan_private_dependencies+=("$value")
 }
 
+append_unique_private_package() {
+  local value="$1"
+  local existing
+
+  for existing in "${release_plan_private_packages[@]-}"; do
+    [[ -n "$existing" ]] || continue
+    if [[ "$existing" == "$value" ]]; then
+      return 0
+    fi
+  done
+
+  release_plan_private_packages+=("$value")
+}
+
 append_unique_dependency_edge() {
   local value="$1"
   local existing
@@ -238,6 +253,15 @@ print_release_plan() {
     done
   else
     printf '\nCurrently publishable package archives: none.\n'
+  fi
+
+  if [[ "${#release_plan_private_packages[@]}" -gt 0 ]]; then
+    printf '\nPrivate workspace packages not currently publishable:\n'
+    for package in "${release_plan_private_packages[@]}"; do
+      printf -- '- %s\n' "$package"
+    done
+  else
+    printf '\nPrivate workspace packages not currently publishable: none.\n'
   fi
 
   if [[ "${#release_plan_private_dependencies[@]}" -gt 0 ]]; then
@@ -270,6 +294,7 @@ require_command dart
 package_roots=()
 skipped_packages=()
 release_plan_targets=()
+release_plan_private_packages=()
 release_plan_private_dependencies=()
 release_plan_dependency_edges=()
 
@@ -300,6 +325,11 @@ for root in "${package_roots[@]}"; do
   package_name="$(pubspec_name "$pubspec")"
   rel_root="${root#"$(repo_root)/"}"
   dry_run_output=""
+
+  if publish_to_none "$pubspec"; then
+    package_version="$(pubspec_version "$pubspec")"
+    append_unique_private_package "${package_name} ${package_version:-unknown-version} (${rel_root})"
+  fi
 
   if [[ "$include_private" -eq 0 ]] && publish_to_none "$pubspec"; then
     skipped_packages+=("${package_name} (${rel_root})")
@@ -415,6 +445,12 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
         printf '\nCurrently publishable package archives:\n'
         for target in "${release_plan_targets[@]}"; do
           printf -- '- %s\n' "$target"
+        done
+      fi
+      if [[ "${#release_plan_private_packages[@]}" -gt 0 ]]; then
+        printf '\nPrivate workspace packages not currently publishable:\n'
+        for package in "${release_plan_private_packages[@]}"; do
+          printf -- '- %s\n' "$package"
         done
       fi
       if [[ "${#release_plan_private_dependencies[@]}" -gt 0 ]]; then
