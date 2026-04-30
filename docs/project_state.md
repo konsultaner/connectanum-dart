@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `9dcab42` (`docs: record audit lookup ci evidence`)
+Last reviewed commit: `c0a8f98` (`docs: record ktls repeat evidence`)
 Active exec plan: `docs/exec-plans/2026-04-30-ktls-repeat-stability-followup.md`
 
 ## Last Known Verification
@@ -10,12 +10,12 @@ Active exec plan: `docs/exec-plans/2026-04-30-ktls-repeat-stability-followup.md`
 - Current autonomous focus:
   - keep the CI chain clean first; the deployment-chain plan is paused because
     the remaining RC blockers are operator/release decisions
-  - latest pushed branch head `9dcab42`
-    (`docs: record audit lookup ci evidence`) passed hosted GitHub `CI` run
-    `25175047332`: `Fast Checks` completed in 5m42s and `Full Verify`
-    completed in 8m03s
+  - latest pushed branch head `c0a8f98`
+    (`docs: record ktls repeat evidence`) passed hosted GitHub `CI` run
+    `25178266164`: `Fast Checks` completed in 5m37s and `Full Verify`
+    completed in 8m04s
   - branch-head deployment-chain audit with `--require-clean-latest-ci` and
-    `--require-clean-latest-ci-logs` passed against `9dcab42`; latest CI log
+    `--require-clean-latest-ci-logs` passed against `c0a8f98`; latest CI log
     scan found no high-signal warning, skipped-test, panic, broken-pipe, reset,
     timeout, or connection-noise matches
   - hosted GitHub `Dart Package Publish Dry Run` run `25170846455` passed on
@@ -74,6 +74,14 @@ Active exec plan: `docs/exec-plans/2026-04-30-ktls-repeat-stability-followup.md`
   - local `bin/verify` passed on 2026-04-30 after recording this
     kTLS-repeat evidence; it included formatting, Rust/Dart package tests,
     router tests, build hooks, and Chrome Dart2Wasm WebSocket transport tests
+  - current local kTLS reporting slice adds per-repeat baseline/kTLS
+    throughput and p95 values to rows that exceed repeat-stability thresholds,
+    so the comparison artifact shows which repeat values caused a mixed p95
+    span; pre-change `bin/test-fast`, Python bytecode compilation, and
+    `python3 tool/test_ktls_http2_compare.py` passed
+  - local `bin/verify` passed after the kTLS reporting slice on 2026-04-30,
+    including formatting, Rust/Dart package tests, router tests, build hooks,
+    and Chrome Dart2Wasm WebSocket transport tests
   - the H2 body-timeout symptom did not recur across the post-reporting runs;
     current kTLS/H2 work should target benchmark repeat stability and hosted
     measurement evidence before any runtime tuning

@@ -387,6 +387,12 @@ def render_signed_range(summary: dict | None, unit: str = "") -> str:
     )
 
 
+def render_decimal(value: float | int | None) -> str:
+    if value is None:
+        return "n/a"
+    return f"{float(value):.2f}"
+
+
 def classify_span_source(
     baseline_summary: dict | None, ktls_summary: dict | None
 ) -> str:
@@ -855,6 +861,7 @@ def build_repeat_stability(comparison_paths: list[Path]) -> dict:
                     "ktls_throughput_mbps": [],
                     "baseline_latency_p95_ms": [],
                     "ktls_latency_p95_ms": [],
+                    "repeat_values": [],
                 },
             )
             bucket["throughput_pct_deltas"].append(row["delta"]["throughput_pct"])
@@ -863,6 +870,18 @@ def build_repeat_stability(comparison_paths: list[Path]) -> dict:
             bucket["ktls_throughput_mbps"].append(row["ktls"]["throughput_mbps"])
             bucket["baseline_latency_p95_ms"].append(row["baseline"]["latency_p95_ms"])
             bucket["ktls_latency_p95_ms"].append(row["ktls"]["latency_p95_ms"])
+            bucket["repeat_values"].append(
+                {
+                    "repeat_index": repeat_index,
+                    "repeat_label": run_label,
+                    "baseline_throughput_mbps": row["baseline"]["throughput_mbps"],
+                    "ktls_throughput_mbps": row["ktls"]["throughput_mbps"],
+                    "throughput_pct_delta": row["delta"]["throughput_pct"],
+                    "baseline_latency_p95_ms": row["baseline"]["latency_p95_ms"],
+                    "ktls_latency_p95_ms": row["ktls"]["latency_p95_ms"],
+                    "latency_p95_pct_delta": row["delta"]["latency_p95_pct"],
+                }
+            )
 
     row_stability = []
     for row in rows_by_key.values():
@@ -895,6 +914,10 @@ def build_repeat_stability(comparison_paths: list[Path]) -> dict:
                 "latency_p95_span_source": classify_span_source(
                     numeric_summary(row["baseline_latency_p95_ms"]),
                     numeric_summary(row["ktls_latency_p95_ms"]),
+                ),
+                "repeat_values": sorted(
+                    row["repeat_values"],
+                    key=lambda value: (value["repeat_index"], value["repeat_label"]),
                 ),
             }
         )
@@ -1362,6 +1385,44 @@ def render_markdown(stability: dict) -> str:
             )
     else:
         lines.append("| None | n/a | n/a | n/a | n/a | n/a | n/a |")
+
+    lines.extend(
+        [
+            "",
+            "## Stability Threshold Repeat Details",
+            "",
+            "| Workload | Router workers | Native runtime threads | Repeat | Baseline Mbps | kTLS Mbps | Throughput delta | Baseline p95 ms | kTLS p95 ms | p95 delta |",
+            "| --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+        ]
+    )
+
+    if threshold_rows:
+        for row in threshold_rows:
+            for value in row["repeat_values"]:
+                lines.append(
+                    "| {workload} | {router_workers} | {native_runtime_threads} | {repeat} | {baseline_mbps} | {ktls_mbps} | {throughput_delta} | {baseline_p95} | {ktls_p95} | {latency_delta} |".format(
+                        workload=row["workload"],
+                        router_workers=row["router_workers"],
+                        native_runtime_threads=row["native_runtime_threads"],
+                        repeat=value["repeat_label"],
+                        baseline_mbps=render_decimal(
+                            value["baseline_throughput_mbps"]
+                        ),
+                        ktls_mbps=render_decimal(value["ktls_throughput_mbps"]),
+                        throughput_delta=compare.render_pct(
+                            value["throughput_pct_delta"]
+                        ),
+                        baseline_p95=render_decimal(
+                            value["baseline_latency_p95_ms"]
+                        ),
+                        ktls_p95=render_decimal(value["ktls_latency_p95_ms"]),
+                        latency_delta=compare.render_pct(
+                            value["latency_p95_pct_delta"]
+                        ),
+                    )
+                )
+    else:
+        lines.append("| None | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
 
     lines.extend(
         [

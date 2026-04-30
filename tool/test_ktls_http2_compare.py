@@ -855,6 +855,21 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                 stability["max_latency_p95_span_row"]["latency_p95_span_source"],
                 "kTLS",
             )
+            self.assertEqual(
+                [
+                    value["repeat_label"]
+                    for value in stability["max_latency_p95_span_row"][
+                        "repeat_values"
+                    ]
+                ],
+                ["repeat-01", "repeat-02"],
+            )
+            self.assertAlmostEqual(
+                stability["max_latency_p95_span_row"]["repeat_values"][1][
+                    "latency_p95_pct_delta"
+                ],
+                1275.0,
+            )
             self.assertGreater(
                 stability["max_throughput_span_row"]["throughput_pct_delta"]["span"],
                 300.0,
@@ -878,6 +893,7 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("## Repeat Overview", markdown)
             self.assertIn("## Repeat Phase-Timing Focus", markdown)
             self.assertIn("## Rows Exceeding Stability Thresholds", markdown)
+            self.assertIn("## Stability Threshold Repeat Details", markdown)
             self.assertIn("## Per-row Stability", markdown)
             self.assertIn("## Summary", markdown)
             self.assertIn("Instability source highlights", markdown)
@@ -893,6 +909,10 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("repeat-02", markdown)
             self.assertIn("h2_multiplexed_streams_s4", markdown)
             self.assertIn("h2_multiplexed_streams_s2", markdown)
+            self.assertIn(
+                "| h2_multiplexed_streams_s2 | 1 | 4 | repeat-02 | 5200.00 | 880.00 | -83.08% | 16.00 | 220.00 | +1275.00% |",
+                markdown,
+            )
             self.assertIn("Tail conn read wait avg ms", markdown)
             self.assertIn("0.70 -> 0.70 (+0.00)", markdown)
 

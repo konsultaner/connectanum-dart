@@ -80,6 +80,19 @@ benchmark measurement rather than transport code.
   text: Git default-branch hint, rustup timeout-workaround comments,
   dependency names containing `thiserror`, and upload-artifact
   `if-no-files-found: error` configuration.
+- Added repeat-threshold detail reporting to
+  `tool/ktls_http2_compare_repeats.py`: each row stability entry now carries
+  per-repeat baseline/kTLS throughput, throughput delta, baseline/kTLS p95,
+  and p95 delta values, and the markdown report renders them under
+  `Stability Threshold Repeat Details` for rows that exceed the stability
+  gates.
+- Re-rendered run `25176887533` locally into `/tmp` with the reporting change;
+  the new table shows the current mixed p95 span directly:
+  `repeat-01` `21.70 -> 35.46 ms` (`+63.41%`), `repeat-02`
+  `23.81 -> 32.33 ms` (`+35.74%`), and `repeat-03`
+  `17.89 -> 35.12 ms` (`+96.27%`) for `h2_multiplexed_streams_s1`,
+  `threads=4`.
+- Full local `bin/verify` passed after the reporting change on 2026-04-30.
 
 ## Verification
 
@@ -88,6 +101,8 @@ benchmark measurement rather than transport code.
 - Hosted kTLS run log scan for warning/skipped/reset/panic/timeout/connection
   noise
 - `bin/test-fast`
+- `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`
+- `python3 tool/test_ktls_http2_compare.py`
 - `bin/verify`
 
 ## Handoff
