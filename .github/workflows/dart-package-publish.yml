@@ -7,20 +7,14 @@ on:
       - '.github/workflows/dart-package-publish.yml'
       - 'bin/dart-package-publish-dry-run'
       - 'docs/dart_package_publishing.md'
-      - 'packages/**/CHANGELOG.md'
-      - 'packages/**/LICENSE'
-      - 'packages/**/README.md'
-      - 'packages/**/pubspec.yaml'
+      - 'packages/**'
   pull_request:
     branches: [master]
     paths:
       - '.github/workflows/dart-package-publish.yml'
       - 'bin/dart-package-publish-dry-run'
       - 'docs/dart_package_publishing.md'
-      - 'packages/**/CHANGELOG.md'
-      - 'packages/**/LICENSE'
-      - 'packages/**/README.md'
-      - 'packages/**/pubspec.yaml'
+      - 'packages/**'
   workflow_dispatch:
 
 permissions:

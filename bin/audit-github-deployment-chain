@@ -359,10 +359,8 @@ dart_package_publish_sensitive_changes_since() {
       .github/workflows/dart-package-publish.yml|\
       bin/dart-package-publish-dry-run|\
       docs/dart_package_publishing.md|\
-      packages/*/CHANGELOG.md|\
-      packages/*/LICENSE|\
-      packages/*/README.md|\
-      packages/*/pubspec.yaml)
+      packages/*|\
+      packages/*/**)
         printf '%s\n' "$path"
         ;;
     esac

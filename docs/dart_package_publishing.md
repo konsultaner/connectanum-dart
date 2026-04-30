@@ -32,8 +32,9 @@ and version-sequencing decisions.
   and operator decisions needed for a real publish without changing package
   publishability.
 - `.github/workflows/dart-package-publish.yml` runs the same dry-run on GitHub
-  for package metadata, package docs, package license/changelog, and workflow
-  changes. It can also be started manually with `workflow_dispatch`.
+  for any package archive-input change under `packages/**`, the dry-run tool,
+  this readiness document, and the workflow itself. It can also be started
+  manually with `workflow_dispatch`.
 
 ## Latest Evidence
 
@@ -65,10 +66,10 @@ As of 2026-04-30:
   `connectanum_client` publish should not be attempted until either
   `connectanum_core` is intentionally published first or the client package is
   restructured to avoid an unpublished public dependency.
-- GitHub `Dart Package Publish Dry Run` run `25187265107` passed on branch
-  head `1b5686f`; the deployment-chain audit confirms that the run covers the
-  checked-out package-publishing inputs and remains clean/relevant for the
-  current branch head.
+- GitHub `Dart Package Publish Dry Run` run `25189464514` passed on branch
+  head `4d32688`. The current local follow-up broadens package-publishing
+  sensitivity to all `packages/**` archive inputs, so the next pushed branch
+  head should receive fresh dry-run evidence when package files change.
 
 ## Release Sequence
 

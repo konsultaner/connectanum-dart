@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: current native install command readability slice on top
-of `4d32688` (`docs: refresh release evidence checkpoints`)
+Last reviewed commit: current Dart package dry-run path-filter follow-up on top
+of `ef08f4b` (`ci: fix native install guidance`)
 Active exec plan: none; use `ROADMAP_NEXT.md` after re-checking CI and
 GitHub deployment-chain evidence
 
@@ -15,6 +15,24 @@ GitHub deployment-chain evidence
   - current local slice fixes the remaining public native install command
     guidance that still used the invalid package target form
     `dart run connectanum_router:tool/install_native.dart`
+  - current follow-up fixes the GitHub package dry-run path-filter gap exposed
+    by that slice: package archive inputs under `packages/**`, including
+    release-facing `tool/` files, should trigger fresh dry-run evidence and
+    invalidate stale dry-run audits
+  - completed Dart package dry-run path-filter follow-up broadens
+    `.github/workflows/dart-package-publish.yml` push/PR filters from
+    metadata-only package paths to `packages/**`, and aligns
+    `bin/audit-github-deployment-chain` package-sensitive change detection with
+    that boundary
+  - focused local checks passed on 2026-04-30:
+    `bash -n bin/audit-github-deployment-chain`, a Python path-filter content
+    check, and an expected-failing
+    `bin/audit-github-deployment-chain --require-clean-dart-package-publish-dry-run`
+    run that reported `packages/connectanum_client/tool/install_native.dart`
+    and `packages/connectanum_router/tool/install_native.dart` as stale
+    package dry-run inputs after `4d32688`
+  - local `bin/verify` passed on 2026-04-30 after the package dry-run
+    path-filter follow-up
   - latest pushed branch head `4d32688`
     (`docs: refresh release evidence checkpoints`) passed hosted GitHub `CI`
     run `25189464494`: `Fast Checks` completed in 5m37s and `Full Verify`
