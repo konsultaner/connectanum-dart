@@ -105,6 +105,21 @@ operator evidence over speculative feature or benchmark work.
     is already published
   - pre-change `bin/test-fast` passed locally, and focused renderer checks
     passed after the wording change
+- Completed hosted validation for the native release-note wording polish:
+  - commit `7098c54` (`release: clarify native release links`) passed GitHub
+    `CI` run `25166045940` with `Fast Checks` in 5m38s and `Full Verify` in
+    8m09s
+  - the branch-head deployment-chain audit passed with
+    `--require-clean-latest-ci` and `--require-clean-latest-ci-logs`; latest
+    CI logs contained no high-signal warning, skipped-test, panic,
+    broken-pipe, reset, timeout, or connection-noise matches
+  - manual `Native Artifacts` dry-run `25166714340` passed Linux x64, Linux
+    arm64, macOS Apple Silicon, macOS Intel, Windows x64, and the
+    `Publish GitHub Release` preview job
+  - the dry-run accepted `ct-ffi-v2026.04.30-dry-run.7098c54`, uploaded
+    `native-release-preview`, did not create a GitHub Release for that tag,
+    and the preview notes contain the corrected separately released router
+    image wording
 - Confirmed pushed documentation head `639c095` passed GitHub `CI` run
   `25046524665`:
   - `Fast Checks`: success

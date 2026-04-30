@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `1d999ea` (`docs: record h2 repeat confirmation`)
+Last reviewed commit: `7098c54` (`release: clarify native release links`)
 Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
@@ -11,33 +11,30 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
   - return to GitHub deployment-chain and RC-readiness work; the H2/kTLS slice
     is complete for now and should not remain the default continuation path
     unless CI, release artifacts, or branch evidence regress
-  - latest pushed branch head `1d999ea`
-    (`docs: record h2 repeat confirmation`) passed hosted GitHub `CI` run
-    `25164892705`: `Fast Checks` completed in 5m25s and `Full Verify`
-    completed in 8m04s
+  - latest pushed branch head `7098c54`
+    (`release: clarify native release links`) passed hosted GitHub `CI` run
+    `25166045940`: `Fast Checks` completed in 5m38s and `Full Verify`
+    completed in 8m09s
   - branch-head deployment-chain audit with `--require-clean-latest-ci` and
-    `--require-clean-latest-ci-logs` passed against `1d999ea`; latest CI log
+    `--require-clean-latest-ci-logs` passed against `7098c54`; latest CI log
     scan found no high-signal warning, skipped-test, panic, broken-pipe, reset,
     timeout, or connection-noise matches
-  - fresh manual `Native Artifacts` dry-run `25165578557` passed on
-    `1d999ea`: Linux x64, Linux arm64, macOS arm64, macOS Intel, Windows x64,
+  - fresh manual `Native Artifacts` dry-run `25166714340` passed on
+    `7098c54`: Linux x64, Linux arm64, macOS arm64, macOS Intel, Windows x64,
     and `Publish GitHub Release` preview jobs all succeeded
   - the native dry-run uploaded `native-release-preview`, accepted
-    `ct-ffi-v2026.04.30-dry-run.1d999ea`, and did not create or update a
+    `ct-ffi-v2026.04.30-dry-run.7098c54`, and did not create or update a
     GitHub Release for that dry-run tag; `--require-clean-native-release-dry-run`
     now passes for the checked-out head
+  - the rendered native release preview now describes the router image as a
+    separately released target that must be confirmed in the deployment guide
+    before production use, instead of implying the GHCR image is already
+    published
   - remaining RC/deployment blockers are still operator/product/deployment
     decisions or externally visible release actions: branch protection required
     checks, default-branch visibility for `router-image.yml`, visible GHCR
     router package evidence, RC tag/prerelease selection, and Dart package
     release-order/public ownership
-  - current local release-note polish changes the native release notes'
-    router-image related link from an implied published image to a staged
-    "released separately" target; pre-change `bin/test-fast` passed, and
-    focused renderer checks passed with
-    `python3 -m py_compile tool/render_native_release_notes.py tool/test_render_native_release_notes.py`,
-    `python3 tool/test_render_native_release_notes.py`, a sample render, and
-    `git diff --check`
   - manual hosted `kTLS HTTP/2 Benchmarks` run `25163851551` completed
     successfully on `0da1030`, its hosted log scan was clean, and the new
     transport-counter reporting found no non-zero focus-row transport
