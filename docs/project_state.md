@@ -2,12 +2,45 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `b75dcca` (`docs: record chunk position ci`)
+Last reviewed commit: `aab4c31` (`docs: record h2 chunk position benchmark`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
 
 - Current kTLS/H2 isolated diagnosis/reporting slice:
+  - latest pushed branch head `aab4c31` passed hosted GitHub `CI` run
+    `25151359137`; `Fast Checks` completed successfully in 5m44s and
+    `Full Verify` completed successfully in 8m16s
+  - branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `aab4c31`; the hosted CI
+    log scan found no warning, deprecation, skipped-test, reset,
+    connection-noise, panic, or timeout patterns
+  - local pre-change `bin/test-fast` passed on 2026-04-30 before adding the
+    request-body tail data-wait split
+  - the current local diagnostic slice records native HTTP/2 request-body
+    remaining-tail `stream.data()` wait totals and per-request max wait totals,
+    including the final EOF wait after the second chunk, and exposes them
+    through FFI, Dart router metrics, bench summaries, and primary/repeat
+    kTLS comparison reports
+  - focused local checks for that diagnostic passed:
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_core http_request_body_stream_metrics_record_reader_chunks -- --nocapture`,
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi --features ffi-test router_metrics_snapshot_aggregates_reason_totals_and_listener_breakdowns -- --nocapture`,
+    `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`,
+    `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`,
+    `dart analyze packages/connectanum_router/lib/src/native/ffi_bindings.dart packages/connectanum_router/lib/src/native/runtime.dart packages/connectanum_router/lib/src/router/models/router_metrics.dart packages/connectanum_router/lib/src/router/router_instance/router_boss.dart`,
+    and `git diff --check`
+  - first full local `bin/verify` attempt exposed an existing FFI listen-flow
+    race where `wait_connection_message_times_out_without_payload` dropped its
+    raw socket client before polling the accepted connection; the runtime could
+    then remove the connection before `ct_connection_protocol` ran
+  - that test now keeps the TCP stream alive while it polls the connection and
+    waits for the expected no-message timeout; focused repro
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi --features ffi-test wait_connection_message_times_out_without_payload -- --nocapture`
+    passed locally
+  - full local `bin/verify` passed on 2026-04-30 after the request-body tail
+    data-wait diagnostic and FFI listen-flow race fix, including Rust, Dart
+    package, bench, router, and Chrome/Dart2Wasm browser coverage
   - resumed after the GitHub deployment-chain plan reached a clean evidence
     checkpoint where remaining blockers are operator/product/deployment
     decisions: branch protection mutation, default-branch router image

@@ -1672,6 +1672,14 @@ fn summarize_http_server_emission_timing(
         )
         .unwrap_or(0)
         .max(0) as u64;
+    let native_request_body_remaining_tail_data_wait_samples_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "remaining_tail_data_wait_samples_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
     let native_request_body_total_read_samples_total =
         transport_http_request_body_stream_counter_delta(
             &report.metrics_before,
@@ -1853,6 +1861,22 @@ fn summarize_http_server_emission_timing(
         )
         .unwrap_or(0)
         .max(0) as u64;
+    let native_request_body_remaining_tail_data_wait_us_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "remaining_tail_data_wait_us_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
+    let native_request_body_remaining_tail_data_wait_max_us_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "remaining_tail_data_wait_max_us_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
     let native_request_body_total_read_us_total = transport_http_request_body_stream_counter_delta(
         &report.metrics_before,
         &report.metrics_after,
@@ -2004,6 +2028,15 @@ fn summarize_http_server_emission_timing(
             native_request_body_remaining_tail_read_us_total,
             native_request_body_remaining_tail_read_samples_total,
         ),
+        native_request_body_reader_remaining_tail_data_wait_avg_ms: average_microseconds_to_millis(
+            native_request_body_remaining_tail_data_wait_us_total,
+            native_request_body_remaining_tail_data_wait_samples_total,
+        ),
+        native_request_body_reader_remaining_tail_data_wait_max_avg_ms:
+            average_microseconds_to_millis(
+                native_request_body_remaining_tail_data_wait_max_us_total,
+                native_request_body_remaining_tail_data_wait_samples_total,
+            ),
         native_request_body_reader_data_chunk_wait_avg_ms: average_microseconds_to_millis(
             native_request_body_data_chunk_wait_us_total,
             native_request_body_data_chunk_samples_total,
@@ -3046,6 +3079,9 @@ mod tests {
                         "second_chunk_wait_us_total": 1200,
                         "remaining_tail_read_samples_total": 2,
                         "remaining_tail_read_us_total": 1800,
+                        "remaining_tail_data_wait_samples_total": 2,
+                        "remaining_tail_data_wait_us_total": 1400,
+                        "remaining_tail_data_wait_max_us_total": 800,
                         "total_read_samples_total": 2,
                         "total_read_us_total": 4000,
                     },
@@ -3171,6 +3207,9 @@ mod tests {
                         "second_chunk_wait_us_total": 4200,
                         "remaining_tail_read_samples_total": 5,
                         "remaining_tail_read_us_total": 7800,
+                        "remaining_tail_data_wait_samples_total": 5,
+                        "remaining_tail_data_wait_us_total": 5900,
+                        "remaining_tail_data_wait_max_us_total": 3200,
                         "total_read_samples_total": 5,
                         "total_read_us_total": 18000,
                     },
@@ -3843,6 +3882,15 @@ mod tests {
         );
         assert!(
             (server_timing.native_request_body_reader_remaining_tail_read_avg_ms - 2.0).abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (server_timing.native_request_body_reader_remaining_tail_data_wait_avg_ms - 1.5).abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (server_timing.native_request_body_reader_remaining_tail_data_wait_max_avg_ms - 0.8)
+                .abs()
                 < f64::EPSILON
         );
         assert!(

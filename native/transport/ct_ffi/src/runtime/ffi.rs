@@ -230,6 +230,9 @@ pub struct CtRouterMetricsInfo {
     pub request_body_stream_second_chunk_wait_us_total: u64,
     pub request_body_stream_remaining_tail_read_samples_total: u64,
     pub request_body_stream_remaining_tail_read_us_total: u64,
+    pub request_body_stream_remaining_tail_data_wait_samples_total: u64,
+    pub request_body_stream_remaining_tail_data_wait_us_total: u64,
+    pub request_body_stream_remaining_tail_data_wait_max_us_total: u64,
     pub request_body_stream_total_read_samples_total: u64,
     pub request_body_stream_total_read_us_total: u64,
     pub breakdown_ptr: *const CtRouterMetricsBreakdownInfo,
@@ -2300,6 +2303,12 @@ pub extern "C" fn ct_router_metrics_snapshot(info: *mut CtRouterMetricsInfo) -> 
         request_body_stream_snapshot.remaining_tail_read_samples_total;
     info_ref.request_body_stream_remaining_tail_read_us_total =
         request_body_stream_snapshot.remaining_tail_read_us_total;
+    info_ref.request_body_stream_remaining_tail_data_wait_samples_total =
+        request_body_stream_snapshot.remaining_tail_data_wait_samples_total;
+    info_ref.request_body_stream_remaining_tail_data_wait_us_total =
+        request_body_stream_snapshot.remaining_tail_data_wait_us_total;
+    info_ref.request_body_stream_remaining_tail_data_wait_max_us_total =
+        request_body_stream_snapshot.remaining_tail_data_wait_max_us_total;
     info_ref.request_body_stream_total_read_samples_total =
         request_body_stream_snapshot.total_read_samples_total;
     info_ref.request_body_stream_total_read_us_total =

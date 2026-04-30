@@ -985,6 +985,12 @@ class _RouterBoss {
                   metrics.requestBodyStream!.remainingTailReadSamplesTotal,
               remainingTailReadUsTotal:
                   metrics.requestBodyStream!.remainingTailReadUsTotal,
+              remainingTailDataWaitSamplesTotal:
+                  metrics.requestBodyStream!.remainingTailDataWaitSamplesTotal,
+              remainingTailDataWaitUsTotal:
+                  metrics.requestBodyStream!.remainingTailDataWaitUsTotal,
+              remainingTailDataWaitMaxUsTotal:
+                  metrics.requestBodyStream!.remainingTailDataWaitMaxUsTotal,
               totalReadSamplesTotal:
                   metrics.requestBodyStream!.totalReadSamplesTotal,
               totalReadUsTotal: metrics.requestBodyStream!.totalReadUsTotal,

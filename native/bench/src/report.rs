@@ -181,6 +181,8 @@ pub struct HttpServerEmissionTimingSummary {
     pub native_request_body_reader_first_chunk_wait_avg_ms: f64,
     pub native_request_body_reader_second_chunk_wait_avg_ms: f64,
     pub native_request_body_reader_remaining_tail_read_avg_ms: f64,
+    pub native_request_body_reader_remaining_tail_data_wait_avg_ms: f64,
+    pub native_request_body_reader_remaining_tail_data_wait_max_avg_ms: f64,
     pub native_request_body_reader_data_chunk_wait_avg_ms: f64,
     pub native_request_body_reader_chunk_count_avg: f64,
     pub stream_open_avg_ms: f64,

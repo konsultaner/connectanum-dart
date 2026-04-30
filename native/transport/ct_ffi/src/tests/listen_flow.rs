@@ -1044,16 +1044,16 @@ fn wait_connection_message_times_out_without_payload() {
     assert!(port > 0);
 
     let rt = TokioRuntime::new().unwrap();
-    rt.block_on(async move {
+    let wait_result = rt.block_on(async move {
         let addr = format!("127.0.0.1:{port}");
         let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
         perform_handshake(&mut stream, 16, None).await;
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    });
 
-    let connection_id = wait_for_connection(listener_id);
-    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_RAWSOCKET);
-    assert_eq!(ct_wait_connection_message(connection_id, 10), 0);
+        let connection_id = wait_for_connection(listener_id);
+        assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_RAWSOCKET);
+        ct_wait_connection_message(connection_id, 10)
+    });
+    assert_eq!(wait_result, 0);
 
     assert_eq!(ct_listener_close(listener_id), SUCCESS);
     assert_eq!(ct_shutdown(), SUCCESS);

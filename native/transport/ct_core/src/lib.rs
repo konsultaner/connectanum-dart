@@ -319,6 +319,9 @@ struct HttpRequestBodyStreamMetrics {
     second_chunk_wait_us_total: AtomicU64,
     remaining_tail_read_samples_total: AtomicU64,
     remaining_tail_read_us_total: AtomicU64,
+    remaining_tail_data_wait_samples_total: AtomicU64,
+    remaining_tail_data_wait_us_total: AtomicU64,
+    remaining_tail_data_wait_max_us_total: AtomicU64,
     total_read_samples_total: AtomicU64,
     total_read_us_total: AtomicU64,
 }
@@ -393,6 +396,9 @@ pub struct HttpRequestBodyStreamMetricsSnapshot {
     pub second_chunk_wait_us_total: u64,
     pub remaining_tail_read_samples_total: u64,
     pub remaining_tail_read_us_total: u64,
+    pub remaining_tail_data_wait_samples_total: u64,
+    pub remaining_tail_data_wait_us_total: u64,
+    pub remaining_tail_data_wait_max_us_total: u64,
     pub total_read_samples_total: u64,
     pub total_read_us_total: u64,
 }
@@ -811,8 +817,7 @@ impl HttpRequestBodyStreamMetrics {
         self.streaming_requests_total.fetch_add(1, Ordering::SeqCst);
     }
 
-    fn record_data_chunk_wait(&self, wait_started_at: Instant, data_received_at: Instant) {
-        let wait_us = saturating_instant_delta_us(wait_started_at, data_received_at);
+    fn record_data_chunk_wait_us(&self, wait_us: u64) {
         self.data_chunk_samples_total.fetch_add(1, Ordering::SeqCst);
         self.data_chunk_wait_us_total
             .fetch_add(wait_us, Ordering::SeqCst);
@@ -839,6 +844,8 @@ impl HttpRequestBodyStreamMetrics {
         reader_started_at: Instant,
         finished_at: Instant,
         second_chunk_at: Option<Instant>,
+        remaining_tail_data_wait_us: u64,
+        remaining_tail_data_wait_max_us: u64,
     ) {
         self.total_read_samples_total.fetch_add(1, Ordering::SeqCst);
         self.total_read_us_total.fetch_add(
@@ -852,6 +859,12 @@ impl HttpRequestBodyStreamMetrics {
                 saturating_instant_delta_us(second_at, finished_at),
                 Ordering::SeqCst,
             );
+            self.remaining_tail_data_wait_samples_total
+                .fetch_add(1, Ordering::SeqCst);
+            self.remaining_tail_data_wait_us_total
+                .fetch_add(remaining_tail_data_wait_us, Ordering::SeqCst);
+            self.remaining_tail_data_wait_max_us_total
+                .fetch_add(remaining_tail_data_wait_max_us, Ordering::SeqCst);
         }
     }
 
@@ -872,6 +885,15 @@ impl HttpRequestBodyStreamMetrics {
                 .remaining_tail_read_samples_total
                 .load(Ordering::SeqCst),
             remaining_tail_read_us_total: self.remaining_tail_read_us_total.load(Ordering::SeqCst),
+            remaining_tail_data_wait_samples_total: self
+                .remaining_tail_data_wait_samples_total
+                .load(Ordering::SeqCst),
+            remaining_tail_data_wait_us_total: self
+                .remaining_tail_data_wait_us_total
+                .load(Ordering::SeqCst),
+            remaining_tail_data_wait_max_us_total: self
+                .remaining_tail_data_wait_max_us_total
+                .load(Ordering::SeqCst),
             total_read_samples_total: self.total_read_samples_total.load(Ordering::SeqCst),
             total_read_us_total: self.total_read_us_total.load(Ordering::SeqCst),
         }
@@ -6071,11 +6093,19 @@ async fn run_http2_stream_reader(
     let reader_started_at = Instant::now();
     let mut first_chunk_at = None;
     let mut second_chunk_at = None;
+    let mut remaining_tail_data_wait_us = 0;
+    let mut remaining_tail_data_wait_max_us = 0;
     let mut bytes_read: u64 = 0;
     let total_deadline = Instant::now() + total_timeout;
     loop {
         if state.finish_requested() {
-            metrics.record_reader_finished(reader_started_at, Instant::now(), second_chunk_at);
+            metrics.record_reader_finished(
+                reader_started_at,
+                Instant::now(),
+                second_chunk_at,
+                remaining_tail_data_wait_us,
+                remaining_tail_data_wait_max_us,
+            );
             state.mark_finished();
             return Ok(());
         }
@@ -6103,11 +6133,19 @@ async fn run_http2_stream_reader(
                 return Err(message);
             }
         };
+        let data_received_at = Instant::now();
+        let data_wait_us = saturating_instant_delta_us(data_wait_started_at, data_received_at);
 
         match chunk {
             Some(Ok(bytes)) => {
-                let data_received_at = Instant::now();
-                metrics.record_data_chunk_wait(data_wait_started_at, data_received_at);
+                let is_remaining_tail_chunk = second_chunk_at.is_some();
+                metrics.record_data_chunk_wait_us(data_wait_us);
+                if is_remaining_tail_chunk {
+                    remaining_tail_data_wait_us =
+                        remaining_tail_data_wait_us.saturating_add(data_wait_us);
+                    remaining_tail_data_wait_max_us =
+                        remaining_tail_data_wait_max_us.max(data_wait_us);
+                }
                 if first_chunk_at.is_none() {
                     first_chunk_at = Some(data_received_at);
                     metrics.record_first_chunk_wait(reader_started_at, data_received_at);
@@ -6154,7 +6192,19 @@ async fn run_http2_stream_reader(
                         return Ok(());
                     }
                 }
-                metrics.record_reader_finished(reader_started_at, Instant::now(), second_chunk_at);
+                if second_chunk_at.is_some() {
+                    remaining_tail_data_wait_us =
+                        remaining_tail_data_wait_us.saturating_add(data_wait_us);
+                    remaining_tail_data_wait_max_us =
+                        remaining_tail_data_wait_max_us.max(data_wait_us);
+                }
+                metrics.record_reader_finished(
+                    reader_started_at,
+                    Instant::now(),
+                    second_chunk_at,
+                    remaining_tail_data_wait_us,
+                    remaining_tail_data_wait_max_us,
+                );
                 state.mark_finished();
                 return Ok(());
             }
@@ -7026,17 +7076,26 @@ mod tests {
         let second_at = first_at + Duration::from_millis(2);
         let finished_at = second_at + Duration::from_millis(3);
         metrics.record_streaming_request();
-        metrics.record_data_chunk_wait(started_at, first_at);
+        metrics.record_data_chunk_wait_us(1_000);
         metrics.record_first_chunk_wait(started_at, first_at);
-        metrics.record_data_chunk_wait(first_at, second_at);
+        metrics.record_data_chunk_wait_us(2_000);
         metrics.record_second_chunk_wait(first_at, second_at);
-        metrics.record_reader_finished(started_at, finished_at, Some(second_at));
+        metrics.record_reader_finished(started_at, finished_at, Some(second_at), 2_000, 1_500);
         let after = http_request_body_stream_metrics_snapshot();
         assert!(after.streaming_requests_total > before.streaming_requests_total);
         assert!(after.data_chunk_samples_total > before.data_chunk_samples_total);
         assert!(after.first_chunk_wait_samples_total > before.first_chunk_wait_samples_total);
         assert!(after.second_chunk_wait_samples_total > before.second_chunk_wait_samples_total);
         assert!(after.remaining_tail_read_samples_total > before.remaining_tail_read_samples_total);
+        assert!(
+            after.remaining_tail_data_wait_samples_total
+                > before.remaining_tail_data_wait_samples_total
+        );
+        assert!(after.remaining_tail_data_wait_us_total > before.remaining_tail_data_wait_us_total);
+        assert!(
+            after.remaining_tail_data_wait_max_us_total
+                > before.remaining_tail_data_wait_max_us_total
+        );
         assert!(after.total_read_samples_total > before.total_read_samples_total);
         assert!(after.total_read_us_total > before.total_read_us_total);
     }

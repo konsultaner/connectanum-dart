@@ -633,6 +633,7 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("Request queue delay avg ms", markdown)
             self.assertIn("Reply delivery delay avg ms", markdown)
             self.assertIn("Native request body reader total avg ms", markdown)
+            self.assertIn("Native request body reader remaining tail data wait avg ms", markdown)
             self.assertIn("## HTTP Native Response-Stream Timing", markdown)
             self.assertIn("## HTTP Native Response-Stream Slow Paths", markdown)
             self.assertIn("## Linux TLS Stats", markdown)
@@ -1514,6 +1515,8 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         native_request_body_reader_first_chunk_wait_avg_ms: float | None = 0.2,
         native_request_body_reader_second_chunk_wait_avg_ms: float | None = 0.3,
         native_request_body_reader_remaining_tail_read_avg_ms: float | None = 0.6,
+        native_request_body_reader_remaining_tail_data_wait_avg_ms: float | None = 0.45,
+        native_request_body_reader_remaining_tail_data_wait_max_avg_ms: float | None = 0.2,
         native_request_body_reader_data_chunk_wait_avg_ms: float | None = 0.25,
         native_request_body_reader_chunk_count_avg: float | None = 4.0,
         server_stream_open_avg_ms: float | None = 2.4,
@@ -1690,6 +1693,8 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "native_request_body_reader_first_chunk_wait_avg_ms": native_request_body_reader_first_chunk_wait_avg_ms,
                     "native_request_body_reader_second_chunk_wait_avg_ms": native_request_body_reader_second_chunk_wait_avg_ms,
                     "native_request_body_reader_remaining_tail_read_avg_ms": native_request_body_reader_remaining_tail_read_avg_ms,
+                    "native_request_body_reader_remaining_tail_data_wait_avg_ms": native_request_body_reader_remaining_tail_data_wait_avg_ms,
+                    "native_request_body_reader_remaining_tail_data_wait_max_avg_ms": native_request_body_reader_remaining_tail_data_wait_max_avg_ms,
                     "native_request_body_reader_data_chunk_wait_avg_ms": native_request_body_reader_data_chunk_wait_avg_ms,
                     "native_request_body_reader_chunk_count_avg": native_request_body_reader_chunk_count_avg,
                     "stream_open_avg_ms": server_stream_open_avg_ms,

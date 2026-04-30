@@ -1035,11 +1035,46 @@ decisions.
     tail-read, Dart request-body tail drain, native response tail chunk
     channel wait, native response first-to-last chunk send, and client body
     tail read all move kTLS-higher in repeated focus rows
+  - documentation checkpoint `aab4c31`
+    (`docs: record h2 chunk position benchmark`) passed hosted GitHub `CI`
+    run `25151359137`; `Fast Checks` completed in 5m44s, `Full Verify`
+    completed in 8m16s, and the branch-head deployment-chain audit/log scan
+    remained clean
+  - local pre-change `bin/test-fast` passed on 2026-04-30 before adding the
+    request-body tail data-wait split
+  - the current local native request-body tail data-wait split is
+    implemented:
+    native HTTP/2 request-body reader telemetry now separates remaining-tail
+    wall time from remaining-tail `stream.data()` waits, records the
+    per-request max wait, includes the final EOF wait after the second chunk,
+    and carries both averages through FFI, Dart router metrics, bench
+    summaries, and primary/repeat kTLS comparison reports
+  - focused local checks for that diagnostic passed:
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_core http_request_body_stream_metrics_record_reader_chunks -- --nocapture`,
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi --features ffi-test router_metrics_snapshot_aggregates_reason_totals_and_listener_breakdowns -- --nocapture`,
+    `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`,
+    `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`,
+    `dart analyze packages/connectanum_router/lib/src/native/ffi_bindings.dart packages/connectanum_router/lib/src/native/runtime.dart packages/connectanum_router/lib/src/router/models/router_metrics.dart packages/connectanum_router/lib/src/router/router_instance/router_boss.dart`,
+    and `git diff --check`
+  - first full local `bin/verify` attempt exposed an FFI listen-flow race:
+    `wait_connection_message_times_out_without_payload` dropped the raw socket
+    client before polling the accepted connection, so the runtime could remove
+    the connection and make `ct_connection_protocol` return
+    `ERR_CONNECTION_NOT_FOUND`
+  - that CI-clean blocker is fixed by keeping the TCP stream alive while the
+    test polls the connection and waits for the expected no-message timeout;
+    focused repro
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi --features ffi-test wait_connection_message_times_out_without_payload -- --nocapture`
+    passed locally
+  - full local `bin/verify` passed on 2026-04-30 after the request-body tail
+    data-wait diagnostic and FFI listen-flow race fix, including Rust, Dart
+    package, bench, router, and Chrome/Dart2Wasm browser coverage
 
 ## Next Step
 
-Inspect the native HTTP/2 request-body reader and response-tail scheduling
-path and add the smallest metric or fix that can explain why kTLS repeatedly
-delays request-body tail delivery and response-tail chunk send/read timing
-even though the client max-gap position is mid-response rather than a clear
-application chunk boundary.
+Push the verified request-body tail data-wait split and FFI test-race fix,
+then use the next clean hosted isolated `s1`, `threads=4`, one-router-worker
+alternating kTLS/H2 rerun to decide whether the remaining native request-body
+tail gap is actual `stream.data()` wait time or post-read enqueue/FFI/Dart
+drain time before making another scheduling change.

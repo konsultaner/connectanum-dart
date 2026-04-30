@@ -337,6 +337,9 @@ class RouterHttpRequestBodyStreamMetrics {
     required this.secondChunkWaitUsTotal,
     required this.remainingTailReadSamplesTotal,
     required this.remainingTailReadUsTotal,
+    required this.remainingTailDataWaitSamplesTotal,
+    required this.remainingTailDataWaitUsTotal,
+    required this.remainingTailDataWaitMaxUsTotal,
     required this.totalReadSamplesTotal,
     required this.totalReadUsTotal,
   });
@@ -350,6 +353,9 @@ class RouterHttpRequestBodyStreamMetrics {
   final int secondChunkWaitUsTotal;
   final int remainingTailReadSamplesTotal;
   final int remainingTailReadUsTotal;
+  final int remainingTailDataWaitSamplesTotal;
+  final int remainingTailDataWaitUsTotal;
+  final int remainingTailDataWaitMaxUsTotal;
   final int totalReadSamplesTotal;
   final int totalReadUsTotal;
 
@@ -363,6 +369,9 @@ class RouterHttpRequestBodyStreamMetrics {
     'second_chunk_wait_us_total': secondChunkWaitUsTotal,
     'remaining_tail_read_samples_total': remainingTailReadSamplesTotal,
     'remaining_tail_read_us_total': remainingTailReadUsTotal,
+    'remaining_tail_data_wait_samples_total': remainingTailDataWaitSamplesTotal,
+    'remaining_tail_data_wait_us_total': remainingTailDataWaitUsTotal,
+    'remaining_tail_data_wait_max_us_total': remainingTailDataWaitMaxUsTotal,
     'total_read_samples_total': totalReadSamplesTotal,
     'total_read_us_total': totalReadUsTotal,
   };

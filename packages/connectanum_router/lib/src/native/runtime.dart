@@ -721,6 +721,9 @@ class NativeHttpRequestBodyStreamMetrics {
     required this.secondChunkWaitUsTotal,
     required this.remainingTailReadSamplesTotal,
     required this.remainingTailReadUsTotal,
+    required this.remainingTailDataWaitSamplesTotal,
+    required this.remainingTailDataWaitUsTotal,
+    required this.remainingTailDataWaitMaxUsTotal,
     required this.totalReadSamplesTotal,
     required this.totalReadUsTotal,
   });
@@ -734,6 +737,9 @@ class NativeHttpRequestBodyStreamMetrics {
   final int secondChunkWaitUsTotal;
   final int remainingTailReadSamplesTotal;
   final int remainingTailReadUsTotal;
+  final int remainingTailDataWaitSamplesTotal;
+  final int remainingTailDataWaitUsTotal;
+  final int remainingTailDataWaitMaxUsTotal;
   final int totalReadSamplesTotal;
   final int totalReadUsTotal;
 
@@ -748,6 +754,11 @@ class NativeHttpRequestBodyStreamMetrics {
         secondChunkWaitUsTotal == other.secondChunkWaitUsTotal &&
         remainingTailReadSamplesTotal == other.remainingTailReadSamplesTotal &&
         remainingTailReadUsTotal == other.remainingTailReadUsTotal &&
+        remainingTailDataWaitSamplesTotal ==
+            other.remainingTailDataWaitSamplesTotal &&
+        remainingTailDataWaitUsTotal == other.remainingTailDataWaitUsTotal &&
+        remainingTailDataWaitMaxUsTotal ==
+            other.remainingTailDataWaitMaxUsTotal &&
         totalReadSamplesTotal == other.totalReadSamplesTotal &&
         totalReadUsTotal == other.totalReadUsTotal;
   }
@@ -2927,6 +2938,7 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
               info.requestBodyStreamFirstChunkWaitSamplesTotal > 0 ||
               info.requestBodyStreamSecondChunkWaitSamplesTotal > 0 ||
               info.requestBodyStreamRemainingTailReadSamplesTotal > 0 ||
+              info.requestBodyStreamRemainingTailDataWaitSamplesTotal > 0 ||
               info.requestBodyStreamTotalReadSamplesTotal > 0
           ? NativeHttpRequestBodyStreamMetrics(
               streamingRequestsTotal: info.requestBodyStreamingRequestsTotal,
@@ -2945,6 +2957,12 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
                   info.requestBodyStreamRemainingTailReadSamplesTotal,
               remainingTailReadUsTotal:
                   info.requestBodyStreamRemainingTailReadUsTotal,
+              remainingTailDataWaitSamplesTotal:
+                  info.requestBodyStreamRemainingTailDataWaitSamplesTotal,
+              remainingTailDataWaitUsTotal:
+                  info.requestBodyStreamRemainingTailDataWaitUsTotal,
+              remainingTailDataWaitMaxUsTotal:
+                  info.requestBodyStreamRemainingTailDataWaitMaxUsTotal,
               totalReadSamplesTotal:
                   info.requestBodyStreamTotalReadSamplesTotal,
               totalReadUsTotal: info.requestBodyStreamTotalReadUsTotal,
