@@ -11,6 +11,8 @@ current gaps with copyable snippets for the APIs that matter most in practice.
   - local router with ticket, WAMP-CRA, SCRAM, and remote-auth demo providers
 - [packages/connectanum_router/example/remote_websocket.dart](../packages/connectanum_router/example/remote_websocket.dart)
   - router with a WebSocket listener and an in-process remote auth delegate
+- [packages/connectanum_mcp/example/stdio_echo_server.dart](../packages/connectanum_mcp/example/stdio_echo_server.dart)
+  - local MCP stdio server example for agentic integrations
 - [router_example.yaml](router_example.yaml)
   - minimal config starter for the router CLI
 
@@ -109,3 +111,28 @@ you want to separate “stop accepting traffic” from final teardown.
 
 When the OpenMetrics HTTP server is enabled, `/healthz` returns `503 draining`
 while the router is draining so a load balancer can stop sending new traffic.
+
+## MCP stdio bridge
+
+Use `packages/connectanum_mcp` when a local agent or app needs a narrow MCP
+server surface on top of Connectanum procedures. The first supported transport
+is newline-delimited stdio:
+
+```bash
+dart run packages/connectanum_mcp/example/stdio_echo_server.dart
+```
+
+For app integrations, wrap an existing WAMP session procedure as an MCP tool:
+
+```dart
+final tool = McpWampToolDelegate.session(
+  session: session,
+  procedure: 'app.echo',
+).toTool(
+  name: 'echo',
+  description: 'Calls app.echo through the current WAMP session.',
+);
+```
+
+Streamable HTTP/router-backed MCP transport is intentionally not claimed yet;
+add it only if the downstream app needs a network MCP endpoint.

@@ -13,6 +13,8 @@ This repository is the main source tree for:
   integration tests
 - `packages/connectanum_auth_server` - config-driven remote authentication
   helpers and server building blocks
+- `packages/connectanum_mcp` - Model Context Protocol server primitives,
+  stdio transport support, and WAMP-backed tool delegation
 - `packages/connectanum_bench` - benchmark harnesses and scenarios
 - `native/transport` - Rust workspace for the native transport runtime
 
@@ -90,6 +92,8 @@ Start with the shortest runnable entrypoint for the workflow you need:
   - local router with ticket, WAMP-CRA, SCRAM, and remote-auth demo providers
 - [packages/connectanum_router/example/remote_websocket.dart](packages/connectanum_router/example/remote_websocket.dart)
   - router + WebSocket listener + in-process remote auth server
+- [packages/connectanum_mcp/example/stdio_echo_server.dart](packages/connectanum_mcp/example/stdio_echo_server.dart)
+  - local MCP stdio server example for agentic integrations
 - [docs/router_example.yaml](docs/router_example.yaml) - minimal config starter
 
 ## Runtime Semantics

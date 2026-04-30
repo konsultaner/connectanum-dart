@@ -353,16 +353,16 @@
   - [x] Add the WAMP-backed tool delegate for Connectanum procedure calls.
   - [ ] Add Streamable HTTP/router integration if `groli/app` needs a network
     MCP endpoint.
-- [ ] WAMP profile transport benchmark production readiness
-  - [ ] Active after the first usable MCP path; use it to make
+- [x] WAMP profile transport benchmark production readiness
+  - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready
     before speculative transport exploration resumes.
-  - [ ] Define the canonical WAMP benchmark gate set across cleartext/TLS,
+  - [x] Define the canonical WAMP benchmark gate set across cleartext/TLS,
     Dart/native clients, JSON/MessagePack/CBOR, RPC/pub/sub, auth/session
     setup, mixed serializer, PPT payload mode, fan-out, and control paths.
-  - [ ] Add scenario-specific throughput and latency budgets to the bench
+  - [x] Add scenario-specific throughput and latency budgets to the bench
     artifact gate and record local plus hosted Linux baselines.
-  - [ ] Make public-facing benchmark artifacts human-readable enough for users
+  - [x] Make public-facing benchmark artifacts human-readable enough for users
     to understand what passed, what regressed, and which transport/profile owns
     the failure.
 - [ ] Metrics & logging integration (Prometheus metrics, structured logs, CPU/RAM/throughput gauges)

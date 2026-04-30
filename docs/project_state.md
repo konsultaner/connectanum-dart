@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `0573ce2` (`bench: detail ktls repeat threshold rows`)
+Last reviewed commit: `6fcc174` (`docs: close ktls repeat stability follow-up`)
 Active exec plan: none; use `ROADMAP_NEXT.md` for the next milestone.
 
 ## Last Known Verification
@@ -10,14 +10,21 @@ Active exec plan: none; use `ROADMAP_NEXT.md` for the next milestone.
 - Current autonomous focus:
   - keep the CI chain clean first; the deployment-chain plan is paused because
     the remaining RC blockers are operator/release decisions
-  - latest pushed branch head `0573ce2`
-    (`bench: detail ktls repeat threshold rows`) passed hosted GitHub `CI` run
-    `25180639148`: `Fast Checks` completed in 5m47s and `Full Verify`
-    completed in 8m00s
+  - latest pushed branch head `6fcc174`
+    (`docs: close ktls repeat stability follow-up`) passed hosted GitHub `CI`
+    run `25182467029`: `Fast Checks` completed in 5m35s and `Full Verify`
+    completed in 8m15s
   - branch-head deployment-chain audit with `--require-clean-latest-ci` and
-    `--require-clean-latest-ci-logs` passed against `0573ce2`; latest CI log
+    `--require-clean-latest-ci-logs` passed against `6fcc174`; latest CI log
     scan found no high-signal warning, skipped-test, panic, broken-pipe, reset,
     timeout, or connection-noise matches
+  - local `bin/test-fast` passed on 2026-04-30 before this continuation-docs
+    refresh; this slice is docs/state-only and keeps the next autonomous focus
+    aligned with AGENTS.md
+  - local `bin/verify` passed on 2026-04-30 after this continuation-docs
+    refresh; it included formatting, Rust/Dart package tests, MCP tests, bench
+    integration tests, router tests, build hooks, and Chrome Dart2Wasm
+    WebSocket transport tests
   - kTLS repeat-stability follow-up is complete and remains
     measurement-bound rather than runtime-tuning-ready: hosted runs
     `25181353679` and `25181697998` both completed successfully on `0573ce2`
@@ -39,6 +46,10 @@ Active exec plan: none; use `ROADMAP_NEXT.md` for the next milestone.
     evidence; if kTLS/H2 is revisited, keep it as benchmark-methodology or
     runner-stability work behind the higher-priority GitHub deployment-chain,
     shipped-path production-readiness, MCP, and WAMP-profile priorities
+  - next unblocked autonomous work should stay on public release readiness:
+    GitHub deployment-chain evidence, human-readable release/public package
+    surfaces, MCP usability for downstream `groli/app`, and WAMP-profile
+    benchmark maintenance when a concrete shipped-path regression appears
   - hosted GitHub `Dart Package Publish Dry Run` run `25170846455` passed on
     `a4818c8`; the audit confirms it remains relevant for `9dcab42` because
     no package-publish-sensitive paths changed, and the package dry-run stayed

@@ -56,9 +56,11 @@ Priority override:
 - **The broader WAMP conformance expansion remains blocked on upstream**
   vector/runner stabilization. Do not reopen it unless the vendored upstream
   snapshot changes.
-- **The next unblocked transport-research lane is kTLS
-  exploration/benchmarks**, but only after the current locally verified
-  branch checkpoint is committed/pushed and the CI chain remains green.
+- **Do not resume speculative kTLS/H2 transport work by default.** The current
+  kTLS evidence is measurement-bound, not runtime-tuning-ready. After CI
+  health, keep autonomous work on GitHub deployment-chain reliability,
+  public/release readability, MCP usability for downstream `groli/app`, and
+  concrete WAMP-profile shipped-path regressions.
 
 Focus for the next session:
 1. **Boss Telemetry Stream & Prometheus Exporter**
