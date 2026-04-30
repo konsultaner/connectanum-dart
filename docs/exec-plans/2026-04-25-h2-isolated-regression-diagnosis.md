@@ -938,10 +938,32 @@ decisions.
     `--require-clean-latest-ci-logs` passed against `b898053`; the hosted CI
     log scan found no warning, deprecation, skipped-test, reset, timeout,
     panic, or connection-noise patterns
+  - documentation checkpoint `4752778`
+    (`docs: record repeat signal unit ci`) passed hosted GitHub `CI` run
+    `25147380520`; `Fast Checks` completed in 5m24s and `Full Verify`
+    completed in 8m10s
+  - branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `4752778`; the hosted CI
+    log scan found no warning, deprecation, skipped-test, reset, timeout,
+    panic, or connection-noise patterns
+  - pre-change `bin/test-fast` passed locally on 2026-04-30 before adding the
+    max tail inter-read gap position diagnostic
+  - current local diagnostic change records the maximum H2 tail inter-read gap
+    position at sample, summary, comparison, and repeat-report levels: read
+    index after the gap, bytes before the gap, bytes after the gap, and
+    byte-position ratio
+  - focused local checks passed for that diagnostic:
+    `cargo fmt --manifest-path native/bench/Cargo.toml -- --check`,
+    `cargo test --manifest-path native/bench/Cargo.toml h2_client_read_probe_records_read_sizes_and_gaps --bin http_stream -- --nocapture`,
+    `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`,
+    `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`, and `git diff --check`
+  - full local `bin/verify` passed after the max-gap position diagnostic on
+    2026-04-30, including Chrome/Dart2Wasm browser coverage
 
 ## Next Step
 
-Add the next bounded client tail-read diagnostic: identify where the maximum
-tail inter-read gap occurs within the tail read sequence so the stable
-kTLS-side body-tail delta can be tied to chunk-boundary scheduling, socket/TLS
-delivery, or later request/response stream pacing.
+Run full local `bin/verify`, then push the max-gap position diagnostic and use
+the next hosted isolated `h2_multiplexed_streams_s1`, `threads=4`,
+one-router-worker alternating kTLS run to decide whether the max inter-read gap
+lands early, around a chunk boundary, or late in the response-body tail.

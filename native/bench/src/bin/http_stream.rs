@@ -92,6 +92,10 @@ struct H2ResponseDrainStats {
     tail_connection_read_size_max: Option<u64>,
     tail_connection_inter_read_gap_avg_ms: Option<f64>,
     tail_connection_inter_read_gap_max_ms: Option<f64>,
+    tail_connection_inter_read_gap_max_read_index: Option<u64>,
+    tail_connection_inter_read_gap_max_bytes_before: Option<u64>,
+    tail_connection_inter_read_gap_max_bytes_after: Option<u64>,
+    tail_connection_inter_read_gap_max_byte_position_ratio: Option<f64>,
 }
 
 #[derive(Clone)]
@@ -121,6 +125,8 @@ struct H2ClientReadProbeState {
     connection_read_size_max: Mutex<u64>,
     inter_connection_read_gap_total_ms: Mutex<f64>,
     inter_connection_read_gap_max_ms: Mutex<f64>,
+    inter_connection_read_gap_max_read_index: Mutex<Option<u64>>,
+    inter_connection_read_gap_max_bytes_before: Mutex<Option<u64>>,
     finished: AtomicBool,
 }
 
@@ -137,6 +143,10 @@ struct H2ClientPhaseReadStats {
     connection_read_size_max: Option<u64>,
     inter_connection_read_gap_avg_ms: Option<f64>,
     inter_connection_read_gap_max_ms: Option<f64>,
+    inter_connection_read_gap_max_read_index: Option<u64>,
+    inter_connection_read_gap_max_bytes_before: Option<u64>,
+    inter_connection_read_gap_max_bytes_after: Option<u64>,
+    inter_connection_read_gap_max_byte_position_ratio: Option<f64>,
 }
 
 #[derive(Debug, Default)]
@@ -866,6 +876,8 @@ impl H2ClientReadTracker {
             connection_read_size_max: Mutex::new(0),
             inter_connection_read_gap_total_ms: Mutex::new(0.0),
             inter_connection_read_gap_max_ms: Mutex::new(0.0),
+            inter_connection_read_gap_max_read_index: Mutex::new(None),
+            inter_connection_read_gap_max_bytes_before: Mutex::new(None),
             finished: AtomicBool::new(false),
         });
         let mut guard = self
@@ -887,6 +899,14 @@ impl H2ClientReadTracker {
             if state.finished.load(Ordering::SeqCst) {
                 continue;
             }
+            let previous_read_count = *state
+                .connection_read_count
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner());
+            let previous_read_bytes = *state
+                .connection_read_bytes
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner());
             let mut first_connection_read_at = state
                 .first_connection_read_at
                 .lock()
@@ -915,7 +935,19 @@ impl H2ClientReadTracker {
                         .inter_connection_read_gap_max_ms
                         .lock()
                         .unwrap_or_else(|poison| poison.into_inner());
-                    *gap_max = (*gap_max).max(gap_ms);
+                    let mut max_read_index = state
+                        .inter_connection_read_gap_max_read_index
+                        .lock()
+                        .unwrap_or_else(|poison| poison.into_inner());
+                    if max_read_index.is_none() || gap_ms > *gap_max {
+                        *gap_max = gap_ms;
+                        *max_read_index = Some(previous_read_count.saturating_add(1));
+                        let mut max_bytes_before = state
+                            .inter_connection_read_gap_max_bytes_before
+                            .lock()
+                            .unwrap_or_else(|poison| poison.into_inner());
+                        *max_bytes_before = Some(previous_read_bytes);
+                    }
                 }
             }
             *last_connection_read_at = Some(read_at);
@@ -979,6 +1011,26 @@ impl H2ClientReadProbe {
             .inter_connection_read_gap_max_ms
             .lock()
             .unwrap_or_else(|poison| poison.into_inner());
+        let inter_connection_read_gap_max_read_index = *self
+            .state
+            .inter_connection_read_gap_max_read_index
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let inter_connection_read_gap_max_bytes_before = *self
+            .state
+            .inter_connection_read_gap_max_bytes_before
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let inter_connection_read_gap_max_bytes_after = inter_connection_read_gap_max_bytes_before
+            .map(|bytes_before| connection_read_bytes.saturating_sub(bytes_before));
+        let inter_connection_read_gap_max_byte_position_ratio =
+            inter_connection_read_gap_max_bytes_before.and_then(|bytes_before| {
+                if connection_read_bytes == 0 {
+                    None
+                } else {
+                    Some(bytes_before as f64 / connection_read_bytes as f64)
+                }
+            });
         let connection_read_wait_ms = first_connection_read_at.map(|read_at| {
             read_at
                 .saturating_duration_since(self.state.phase_started_at)
@@ -1041,6 +1093,10 @@ impl H2ClientReadProbe {
             } else {
                 Some(inter_connection_read_gap_max_ms)
             },
+            inter_connection_read_gap_max_read_index,
+            inter_connection_read_gap_max_bytes_before,
+            inter_connection_read_gap_max_bytes_after,
+            inter_connection_read_gap_max_byte_position_ratio,
         }
     }
 }
@@ -2247,6 +2303,31 @@ fn summarize_http_phase_timing(
         .filter_map(|sample| sample.http_phase_timing.as_ref())
         .filter_map(|timing| timing.response_body_tail_connection_inter_read_gap_max_ms)
         .collect::<Vec<_>>();
+    let mut response_body_tail_connection_inter_read_gap_max_read_indexes = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_body_tail_connection_inter_read_gap_max_read_index)
+        .map(|index| index as f64)
+        .collect::<Vec<_>>();
+    let mut response_body_tail_connection_inter_read_gap_max_bytes_befores = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_body_tail_connection_inter_read_gap_max_bytes_before)
+        .map(|bytes| bytes as f64)
+        .collect::<Vec<_>>();
+    let mut response_body_tail_connection_inter_read_gap_max_bytes_afters = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_body_tail_connection_inter_read_gap_max_bytes_after)
+        .map(|bytes| bytes as f64)
+        .collect::<Vec<_>>();
+    let mut response_body_tail_connection_inter_read_gap_max_byte_position_ratios = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| {
+            timing.response_body_tail_connection_inter_read_gap_max_byte_position_ratio
+        })
+        .collect::<Vec<_>>();
     let mut request_round_trips = samples
         .iter()
         .filter_map(|sample| sample.http_phase_timing.as_ref())
@@ -2278,6 +2359,14 @@ fn summarize_http_phase_timing(
     response_body_tail_connection_read_size_maxes.sort_by(|left, right| left.total_cmp(right));
     response_body_tail_connection_inter_read_gap_avgs.sort_by(|left, right| left.total_cmp(right));
     response_body_tail_connection_inter_read_gap_maxes.sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_connection_inter_read_gap_max_read_indexes
+        .sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_connection_inter_read_gap_max_bytes_befores
+        .sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_connection_inter_read_gap_max_bytes_afters
+        .sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_connection_inter_read_gap_max_byte_position_ratios
+        .sort_by(|left, right| left.total_cmp(right));
     request_round_trips.sort_by(|left, right| left.total_cmp(right));
 
     Some(
@@ -2591,6 +2680,84 @@ fn summarize_http_phase_timing(
                     0.0
                 } else {
                     percentile(&response_body_tail_connection_inter_read_gap_maxes, 0.95)
+                },
+            response_body_tail_connection_inter_read_gap_max_position_samples_total:
+                response_body_tail_connection_inter_read_gap_max_read_indexes.len() as u64,
+            response_body_tail_connection_inter_read_gap_max_read_index_avg:
+                if response_body_tail_connection_inter_read_gap_max_read_indexes.is_empty() {
+                    0.0
+                } else {
+                    response_body_tail_connection_inter_read_gap_max_read_indexes
+                        .iter()
+                        .sum::<f64>()
+                        / response_body_tail_connection_inter_read_gap_max_read_indexes.len() as f64
+                },
+            response_body_tail_connection_inter_read_gap_max_read_index_p95:
+                if response_body_tail_connection_inter_read_gap_max_read_indexes.is_empty() {
+                    0.0
+                } else {
+                    percentile(
+                        &response_body_tail_connection_inter_read_gap_max_read_indexes,
+                        0.95,
+                    )
+                },
+            response_body_tail_connection_inter_read_gap_max_bytes_before_avg:
+                if response_body_tail_connection_inter_read_gap_max_bytes_befores.is_empty() {
+                    0.0
+                } else {
+                    response_body_tail_connection_inter_read_gap_max_bytes_befores
+                        .iter()
+                        .sum::<f64>()
+                        / response_body_tail_connection_inter_read_gap_max_bytes_befores.len()
+                            as f64
+                },
+            response_body_tail_connection_inter_read_gap_max_bytes_before_p95:
+                if response_body_tail_connection_inter_read_gap_max_bytes_befores.is_empty() {
+                    0.0
+                } else {
+                    percentile(
+                        &response_body_tail_connection_inter_read_gap_max_bytes_befores,
+                        0.95,
+                    )
+                },
+            response_body_tail_connection_inter_read_gap_max_bytes_after_avg:
+                if response_body_tail_connection_inter_read_gap_max_bytes_afters.is_empty() {
+                    0.0
+                } else {
+                    response_body_tail_connection_inter_read_gap_max_bytes_afters
+                        .iter()
+                        .sum::<f64>()
+                        / response_body_tail_connection_inter_read_gap_max_bytes_afters.len() as f64
+                },
+            response_body_tail_connection_inter_read_gap_max_bytes_after_p95:
+                if response_body_tail_connection_inter_read_gap_max_bytes_afters.is_empty() {
+                    0.0
+                } else {
+                    percentile(
+                        &response_body_tail_connection_inter_read_gap_max_bytes_afters,
+                        0.95,
+                    )
+                },
+            response_body_tail_connection_inter_read_gap_max_byte_position_ratio_avg:
+                if response_body_tail_connection_inter_read_gap_max_byte_position_ratios.is_empty()
+                {
+                    0.0
+                } else {
+                    response_body_tail_connection_inter_read_gap_max_byte_position_ratios
+                        .iter()
+                        .sum::<f64>()
+                        / response_body_tail_connection_inter_read_gap_max_byte_position_ratios
+                            .len() as f64
+                },
+            response_body_tail_connection_inter_read_gap_max_byte_position_ratio_p95:
+                if response_body_tail_connection_inter_read_gap_max_byte_position_ratios.is_empty()
+                {
+                    0.0
+                } else {
+                    percentile(
+                        &response_body_tail_connection_inter_read_gap_max_byte_position_ratios,
+                        0.95,
+                    )
                 },
             request_round_trip_avg_ms: request_round_trips.iter().sum::<f64>()
                 / request_round_trips.len() as f64,
@@ -4924,6 +5091,14 @@ async fn drain_h2_response(
             .and_then(|stats| stats.inter_connection_read_gap_avg_ms),
         tail_connection_inter_read_gap_max_ms: tail_connection_read_stats
             .and_then(|stats| stats.inter_connection_read_gap_max_ms),
+        tail_connection_inter_read_gap_max_read_index: tail_connection_read_stats
+            .and_then(|stats| stats.inter_connection_read_gap_max_read_index),
+        tail_connection_inter_read_gap_max_bytes_before: tail_connection_read_stats
+            .and_then(|stats| stats.inter_connection_read_gap_max_bytes_before),
+        tail_connection_inter_read_gap_max_bytes_after: tail_connection_read_stats
+            .and_then(|stats| stats.inter_connection_read_gap_max_bytes_after),
+        tail_connection_inter_read_gap_max_byte_position_ratio: tail_connection_read_stats
+            .and_then(|stats| stats.inter_connection_read_gap_max_byte_position_ratio),
     })
 }
 
@@ -5111,6 +5286,14 @@ async fn send_h2_request(
                 .tail_connection_inter_read_gap_avg_ms,
             response_body_tail_connection_inter_read_gap_max_ms: response_body
                 .tail_connection_inter_read_gap_max_ms,
+            response_body_tail_connection_inter_read_gap_max_read_index: response_body
+                .tail_connection_inter_read_gap_max_read_index,
+            response_body_tail_connection_inter_read_gap_max_bytes_before: response_body
+                .tail_connection_inter_read_gap_max_bytes_before,
+            response_body_tail_connection_inter_read_gap_max_bytes_after: response_body
+                .tail_connection_inter_read_gap_max_bytes_after,
+            response_body_tail_connection_inter_read_gap_max_byte_position_ratio: response_body
+                .tail_connection_inter_read_gap_max_byte_position_ratio,
             request_round_trip_ms: latency_ms,
         }),
     })
@@ -5610,20 +5793,28 @@ mod tests {
     fn h2_client_read_probe_records_read_sizes_and_gaps() {
         let tracker = H2ClientReadTracker::default();
         let probe = tracker.note_phase_started();
-        tracker.record_connection_read(Instant::now(), 512);
-        std::thread::sleep(Duration::from_millis(1));
-        tracker.record_connection_read(Instant::now(), 1536);
-        let stats = probe.finish(Some(Instant::now()));
-        assert_eq!(stats.connection_read_count, 2);
-        assert_eq!(stats.connection_read_bytes, 2048);
-        assert_eq!(stats.connection_read_size_avg, Some(1024.0));
-        assert_eq!(stats.connection_read_size_max, Some(1536));
+        let first_read_at = Instant::now();
+        tracker.record_connection_read(first_read_at, 512);
+        tracker.record_connection_read(first_read_at + Duration::from_millis(1), 1536);
+        tracker.record_connection_read(first_read_at + Duration::from_millis(4), 2048);
+        let stats = probe.finish(Some(first_read_at + Duration::from_millis(5)));
+        assert_eq!(stats.connection_read_count, 3);
+        assert_eq!(stats.connection_read_bytes, 4096);
+        assert_eq!(stats.connection_read_size_avg, Some(4096.0 / 3.0));
+        assert_eq!(stats.connection_read_size_max, Some(2048));
         assert!(stats
             .inter_connection_read_gap_avg_ms
-            .is_some_and(|value| value >= 1.0));
+            .is_some_and(|value| (value - 2.0).abs() < f64::EPSILON));
         assert!(stats
             .inter_connection_read_gap_max_ms
-            .is_some_and(|value| value >= 1.0));
+            .is_some_and(|value| (value - 3.0).abs() < f64::EPSILON));
+        assert_eq!(stats.inter_connection_read_gap_max_read_index, Some(3));
+        assert_eq!(stats.inter_connection_read_gap_max_bytes_before, Some(2048));
+        assert_eq!(stats.inter_connection_read_gap_max_bytes_after, Some(2048));
+        assert_eq!(
+            stats.inter_connection_read_gap_max_byte_position_ratio,
+            Some(0.5)
+        );
     }
 
     #[test]

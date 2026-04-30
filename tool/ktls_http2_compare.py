@@ -279,6 +279,42 @@ PHASE_TIMING_SUMMARY_KEYS = (
         "response_body_tail_connection_inter_read_gap_max_p95_ms",
         "Response body tail connection max inter-read gap p95",
     ),
+    (
+        "response_body_tail_connection_inter_read_gap_max_position_samples_total",
+        "Response body tail connection max inter-read gap position samples",
+    ),
+    (
+        "response_body_tail_connection_inter_read_gap_max_read_index_avg",
+        "Response body tail connection max inter-read gap read-index avg",
+    ),
+    (
+        "response_body_tail_connection_inter_read_gap_max_read_index_p95",
+        "Response body tail connection max inter-read gap read-index p95",
+    ),
+    (
+        "response_body_tail_connection_inter_read_gap_max_bytes_before_avg",
+        "Response body tail connection max inter-read gap bytes-before avg",
+    ),
+    (
+        "response_body_tail_connection_inter_read_gap_max_bytes_before_p95",
+        "Response body tail connection max inter-read gap bytes-before p95",
+    ),
+    (
+        "response_body_tail_connection_inter_read_gap_max_bytes_after_avg",
+        "Response body tail connection max inter-read gap bytes-after avg",
+    ),
+    (
+        "response_body_tail_connection_inter_read_gap_max_bytes_after_p95",
+        "Response body tail connection max inter-read gap bytes-after p95",
+    ),
+    (
+        "response_body_tail_connection_inter_read_gap_max_byte_position_ratio_avg",
+        "Response body tail connection max inter-read gap byte-position ratio avg",
+    ),
+    (
+        "response_body_tail_connection_inter_read_gap_max_byte_position_ratio_p95",
+        "Response body tail connection max inter-read gap byte-position ratio p95",
+    ),
     ("request_round_trip_avg_ms", "Request round trip avg"),
     ("request_round_trip_p95_ms", "Request round trip p95"),
 )
@@ -2308,8 +2344,8 @@ def render_markdown(comparison: dict) -> str:
         [
             "## HTTP Response-Body Diagnostics",
             "",
-            "| Workload | Router workers | Native runtime threads | First chunk wait avg ms | Tail read avg ms | Body chunks avg | First chunk bytes avg | Post-header conn read samples | Post-header conn read wait avg ms | Conn read-to-first-chunk samples | Conn read-to-first-chunk avg ms | Tail conn read samples | Tail conn read wait avg ms | Tail conn read-to-end samples | Tail conn read-to-end avg ms | Tail conn read-count avg | Tail conn read-span avg ms | Tail conn last-read-to-end avg ms | Tail conn read bytes avg | Tail conn read-size avg B | Tail conn max read-size avg B | Tail conn inter-read gap avg ms | Tail conn max inter-read gap avg ms | Response body read p95 ms |",
-            "| --- | ---: | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+            "| Workload | Router workers | Native runtime threads | First chunk wait avg ms | Tail read avg ms | Body chunks avg | First chunk bytes avg | Post-header conn read samples | Post-header conn read wait avg ms | Conn read-to-first-chunk samples | Conn read-to-first-chunk avg ms | Tail conn read samples | Tail conn read wait avg ms | Tail conn read-to-end samples | Tail conn read-to-end avg ms | Tail conn read-count avg | Tail conn read-span avg ms | Tail conn last-read-to-end avg ms | Tail conn read bytes avg | Tail conn read-size avg B | Tail conn max read-size avg B | Tail conn inter-read gap avg ms | Tail conn max inter-read gap avg ms | Tail conn max-gap read-index avg | Tail conn max-gap bytes-before avg | Tail conn max-gap bytes-after avg | Tail conn max-gap byte-position ratio avg | Response body read p95 ms |",
+            "| --- | ---: | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
 
@@ -2321,7 +2357,7 @@ def render_markdown(comparison: dict) -> str:
         has_body_rows = True
         metrics = phase_timing["metrics"]
         lines.append(
-            "| {workload} | {router_workers} | {native_runtime_threads} | {response_body_first_chunk_wait_avg_ms} | {response_body_tail_read_avg_ms} | {response_body_chunk_count_avg} | {response_body_first_chunk_bytes_avg} | {response_body_post_header_connection_read_wait_samples_total} | {response_body_post_header_connection_read_wait_avg_ms} | {response_body_connection_read_to_first_chunk_samples_total} | {response_body_connection_read_to_first_chunk_avg_ms} | {response_body_tail_connection_read_wait_samples_total} | {response_body_tail_connection_read_wait_avg_ms} | {response_body_tail_connection_read_to_end_samples_total} | {response_body_tail_connection_read_to_end_avg_ms} | {response_body_tail_connection_read_count_avg} | {response_body_tail_connection_read_span_avg_ms} | {response_body_tail_connection_last_read_to_end_avg_ms} | {response_body_tail_connection_read_bytes_avg} | {response_body_tail_connection_read_size_avg} | {response_body_tail_connection_read_size_max_avg} | {response_body_tail_connection_inter_read_gap_avg_ms} | {response_body_tail_connection_inter_read_gap_max_avg_ms} | {response_body_read_p95_ms} |".format(
+            "| {workload} | {router_workers} | {native_runtime_threads} | {response_body_first_chunk_wait_avg_ms} | {response_body_tail_read_avg_ms} | {response_body_chunk_count_avg} | {response_body_first_chunk_bytes_avg} | {response_body_post_header_connection_read_wait_samples_total} | {response_body_post_header_connection_read_wait_avg_ms} | {response_body_connection_read_to_first_chunk_samples_total} | {response_body_connection_read_to_first_chunk_avg_ms} | {response_body_tail_connection_read_wait_samples_total} | {response_body_tail_connection_read_wait_avg_ms} | {response_body_tail_connection_read_to_end_samples_total} | {response_body_tail_connection_read_to_end_avg_ms} | {response_body_tail_connection_read_count_avg} | {response_body_tail_connection_read_span_avg_ms} | {response_body_tail_connection_last_read_to_end_avg_ms} | {response_body_tail_connection_read_bytes_avg} | {response_body_tail_connection_read_size_avg} | {response_body_tail_connection_read_size_max_avg} | {response_body_tail_connection_inter_read_gap_avg_ms} | {response_body_tail_connection_inter_read_gap_max_avg_ms} | {response_body_tail_connection_inter_read_gap_max_read_index_avg} | {response_body_tail_connection_inter_read_gap_max_bytes_before_avg} | {response_body_tail_connection_inter_read_gap_max_bytes_after_avg} | {response_body_tail_connection_inter_read_gap_max_byte_position_ratio_avg} | {response_body_read_p95_ms} |".format(
                 workload=row["workload"],
                 router_workers=row["router_workers"],
                 native_runtime_threads=row["native_runtime_threads"],
@@ -2389,6 +2425,26 @@ def render_markdown(comparison: dict) -> str:
                 response_body_tail_connection_inter_read_gap_max_avg_ms=render_connection_metric_snapshot(
                     metrics["response_body_tail_connection_inter_read_gap_max_avg_ms"]
                 ),
+                response_body_tail_connection_inter_read_gap_max_read_index_avg=render_connection_metric_snapshot(
+                    metrics[
+                        "response_body_tail_connection_inter_read_gap_max_read_index_avg"
+                    ]
+                ),
+                response_body_tail_connection_inter_read_gap_max_bytes_before_avg=render_connection_metric_snapshot(
+                    metrics[
+                        "response_body_tail_connection_inter_read_gap_max_bytes_before_avg"
+                    ]
+                ),
+                response_body_tail_connection_inter_read_gap_max_bytes_after_avg=render_connection_metric_snapshot(
+                    metrics[
+                        "response_body_tail_connection_inter_read_gap_max_bytes_after_avg"
+                    ]
+                ),
+                response_body_tail_connection_inter_read_gap_max_byte_position_ratio_avg=render_connection_metric_snapshot(
+                    metrics[
+                        "response_body_tail_connection_inter_read_gap_max_byte_position_ratio_avg"
+                    ]
+                ),
                 response_body_read_p95_ms=render_connection_metric_snapshot(
                     metrics["response_body_read_p95_ms"]
                 ),
@@ -2397,7 +2453,7 @@ def render_markdown(comparison: dict) -> str:
 
     if not has_body_rows:
         lines.append(
-            "| No HTTP response-body diagnostics | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |"
+            "| No HTTP response-body diagnostics | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |"
         )
 
     lines.append("")

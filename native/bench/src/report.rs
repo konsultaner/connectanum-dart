@@ -63,6 +63,14 @@ pub struct HttpPhaseTimingSample {
     pub response_body_tail_connection_inter_read_gap_avg_ms: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub response_body_tail_connection_inter_read_gap_max_ms: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_body_tail_connection_inter_read_gap_max_read_index: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_body_tail_connection_inter_read_gap_max_bytes_before: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_body_tail_connection_inter_read_gap_max_bytes_after: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_body_tail_connection_inter_read_gap_max_byte_position_ratio: Option<f64>,
     pub request_round_trip_ms: f64,
 }
 
@@ -135,6 +143,15 @@ pub struct HttpPhaseTimingSummary {
     pub response_body_tail_connection_inter_read_gap_max_samples_total: u64,
     pub response_body_tail_connection_inter_read_gap_max_avg_ms: f64,
     pub response_body_tail_connection_inter_read_gap_max_p95_ms: f64,
+    pub response_body_tail_connection_inter_read_gap_max_position_samples_total: u64,
+    pub response_body_tail_connection_inter_read_gap_max_read_index_avg: f64,
+    pub response_body_tail_connection_inter_read_gap_max_read_index_p95: f64,
+    pub response_body_tail_connection_inter_read_gap_max_bytes_before_avg: f64,
+    pub response_body_tail_connection_inter_read_gap_max_bytes_before_p95: f64,
+    pub response_body_tail_connection_inter_read_gap_max_bytes_after_avg: f64,
+    pub response_body_tail_connection_inter_read_gap_max_bytes_after_p95: f64,
+    pub response_body_tail_connection_inter_read_gap_max_byte_position_ratio_avg: f64,
+    pub response_body_tail_connection_inter_read_gap_max_byte_position_ratio_p95: f64,
     pub request_round_trip_avg_ms: f64,
     pub request_round_trip_p95_ms: f64,
 }
