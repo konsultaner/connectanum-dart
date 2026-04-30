@@ -2,22 +2,43 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `c0a8f98` (`docs: record ktls repeat evidence`)
-Active exec plan: `docs/exec-plans/2026-04-30-ktls-repeat-stability-followup.md`
+Last reviewed commit: `0573ce2` (`bench: detail ktls repeat threshold rows`)
+Active exec plan: none; use `ROADMAP_NEXT.md` for the next milestone.
 
 ## Last Known Verification
 
 - Current autonomous focus:
   - keep the CI chain clean first; the deployment-chain plan is paused because
     the remaining RC blockers are operator/release decisions
-  - latest pushed branch head `c0a8f98`
-    (`docs: record ktls repeat evidence`) passed hosted GitHub `CI` run
-    `25178266164`: `Fast Checks` completed in 5m37s and `Full Verify`
-    completed in 8m04s
+  - latest pushed branch head `0573ce2`
+    (`bench: detail ktls repeat threshold rows`) passed hosted GitHub `CI` run
+    `25180639148`: `Fast Checks` completed in 5m47s and `Full Verify`
+    completed in 8m00s
   - branch-head deployment-chain audit with `--require-clean-latest-ci` and
-    `--require-clean-latest-ci-logs` passed against `c0a8f98`; latest CI log
+    `--require-clean-latest-ci-logs` passed against `0573ce2`; latest CI log
     scan found no high-signal warning, skipped-test, panic, broken-pipe, reset,
     timeout, or connection-noise matches
+  - kTLS repeat-stability follow-up is complete and remains
+    measurement-bound rather than runtime-tuning-ready: hosted runs
+    `25181353679` and `25181697998` both completed successfully on `0573ce2`
+    with clean actionable log scans and no focus-row transport-counter issues,
+    but neither produced decision-quality repeat evidence
+  - quick diagnostic run `25181353679`
+    (`h2_ktls_multiplex_scaling`, `h2_multiplexed_streams_s1`,
+    `threads=4`, `repeat_count=3`) had stable throughput span `6.80pp`, but
+    p95 span stayed too wide at `104.73pp` with a mixed source; the new
+    repeat-detail artifact table shows repeat p95 deltas of `+4.60%`,
+    `-24.35%`, and `+80.37%`
+  - larger-sample stability run `25181697998`
+    (`h2_ktls_multiplex_stability`, same isolated workload/thread settings)
+    also was not decision-quality: throughput span was `101.10pp` with a
+    mixed source, and p95 span was `1503.92pp` with a kTLS-side source; the
+    baseline p95 range stayed tight at `13.02..15.54 ms` while kTLS p95 ranged
+    `15.15..208.47 ms`
+  - do not continue speculative HTTP/2/kTLS runtime tuning from the current
+    evidence; if kTLS/H2 is revisited, keep it as benchmark-methodology or
+    runner-stability work behind the higher-priority GitHub deployment-chain,
+    shipped-path production-readiness, MCP, and WAMP-profile priorities
   - hosted GitHub `Dart Package Publish Dry Run` run `25170846455` passed on
     `a4818c8`; the audit confirms it remains relevant for `9dcab42` because
     no package-publish-sensitive paths changed, and the package dry-run stayed

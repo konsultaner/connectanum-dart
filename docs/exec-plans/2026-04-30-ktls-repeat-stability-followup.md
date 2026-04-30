@@ -1,6 +1,6 @@
 # Exec Plan: kTLS Repeat Stability Follow-up
 
-Status: in_progress
+Status: completed
 Owner: Codex
 Created: 2026-04-30
 Last updated: 2026-04-30
@@ -93,6 +93,65 @@ benchmark measurement rather than transport code.
   `17.89 -> 35.12 ms` (`+96.27%`) for `h2_multiplexed_streams_s1`,
   `threads=4`.
 - Full local `bin/verify` passed after the reporting change on 2026-04-30.
+- GitHub `CI` run `25180639148` passed on `0573ce2`
+  (`bench: detail ktls repeat threshold rows`): `Fast Checks` completed in
+  5m47s and `Full Verify` completed in 8m00s. The branch-head
+  deployment-chain audit and CI log scan were clean.
+- Dispatched quick hosted follow-up run `25181353679` on `0573ce2` with the
+  same isolated shape as the previous run:
+  - `scenario = native/bench/scenarios/h2_ktls_multiplex_scaling.toml`
+  - `workloads = h2_multiplexed_streams_s1`
+  - `router_worker_counts = 1`
+  - `native_runtime_thread_counts = 4`
+  - `repeat_count = 3`
+  - `repeat_order = alternating`
+  - `skip_artifact_gate = true`
+- Run `25181353679` passed in 5m29s and uploaded
+  `ktls-http2-bench-artifacts`. Its hosted log scan had no actionable
+  warnings, skipped tests, resets, broken pipes, panics, timeout failures, or
+  transport noise. Matches were benign setup text, dependency names containing
+  `thiserror`, and the expected manual artifact-gate skip notices.
+- Run `25181353679` was cleaner for throughput but still not
+  decision-quality:
+  - throughput delta span was acceptable at `6.80pp`
+    (`-12.71%..-5.91%`)
+  - p95 delta span stayed too wide at `104.73pp`
+    (`-24.35%..+80.37%`) with a mixed source
+  - the repeat-detail table identified the p95 spread directly:
+    `repeat-01` `18.65 -> 19.50 ms` (`+4.60%`), `repeat-02`
+    `22.71 -> 17.18 ms` (`-24.35%`), and `repeat-03`
+    `14.04 -> 25.32 ms` (`+80.37%`)
+  - focus rows had no transport-counter issues and all transport counters
+    stayed zero
+- Dispatched a larger-sample hosted stability follow-up run `25181697998` on
+  `0573ce2`:
+  - `scenario = native/bench/scenarios/h2_ktls_multiplex_stability.toml`
+  - `workloads = h2_multiplexed_streams_s1`
+  - `router_worker_counts = 1`
+  - `native_runtime_thread_counts = 4`
+  - `repeat_count = 3`
+  - `repeat_order = alternating`
+  - `skip_artifact_gate = true`
+- Run `25181697998` passed in 5m35s and uploaded
+  `ktls-http2-bench-artifacts`. Its hosted log scan had no actionable
+  warnings, skipped tests, resets, broken pipes, panics, timeout failures, or
+  transport noise. Matches were benign setup text, dependency names containing
+  `thiserror`, and the expected manual artifact-gate skip notices.
+- Run `25181697998` also was not decision-quality and confirmed this lane is
+  still measurement-bound:
+  - throughput delta span was `101.10pp` (`-64.72%..+36.38%`) with a mixed
+    source
+  - p95 delta span was `1503.92pp` (`-2.53%..+1501.39%`) with a kTLS-side
+    source
+  - baseline p95 stayed comparatively tight at `13.02..15.54 ms`, while kTLS
+    p95 ranged `15.15..208.47 ms`
+  - focus rows had no transport-counter issues and all transport counters
+    stayed zero
+- Conclusion: the reporting change succeeded, and the hosted evidence is clean
+  enough to decide not to tune HTTP/2/kTLS runtime behavior from the current
+  data. Further kTLS/H2 work should remain measurement/runner-stability work
+  and should be lower priority than the GitHub deployment chain, shipped-path
+  production readiness, MCP integration, and WAMP profile performance.
 
 ## Verification
 
@@ -104,12 +163,25 @@ benchmark measurement rather than transport code.
 - `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`
 - `python3 tool/test_ktls_http2_compare.py`
 - `bin/verify`
+- GitHub `CI` run `25180639148`
+- Branch-head deployment-chain audit/log scan on `0573ce2`
+- GitHub `kTLS HTTP/2 Benchmarks` run `25181353679`
+- Hosted kTLS run `25181353679` log scan for warning/skipped/reset/panic/
+  timeout/connection noise
+- GitHub `kTLS HTTP/2 Benchmarks` run `25181697998`
+- Hosted kTLS run `25181697998` log scan for warning/skipped/reset/panic/
+  timeout/connection noise
 
 ## Handoff
 
-- Do not tune the HTTP/2 or kTLS runtime from this evidence alone: p95 remains
-  outside the decision-quality threshold.
-- The next bounded task should make the repeat artifact more actionable around
-  the mixed p95 span, or run a narrower follow-up that isolates why repeats 01
-  and 03 show large header/body timing movement while repeat 02 stays much
-  closer to baseline.
+- This exec plan is complete.
+- Do not tune the HTTP/2 or kTLS runtime from this evidence: the current hosted
+  repeat evidence remains outside decision-quality thresholds even after
+  improved repeat-detail reporting and the larger-sample stability scenario.
+- If kTLS/H2 is revisited, treat it as benchmark methodology or runner
+  stability work first. The current evidence points at unstable kTLS-side p95
+  measurement in hosted repeats, not a specific safe runtime change.
+- Resume higher-priority roadmap work next: keep CI clean, keep the GitHub
+  deployment chain as the main spine, then continue shipped-path production
+  readiness, MCP, and WAMP-profile performance before speculative transport
+  work.
