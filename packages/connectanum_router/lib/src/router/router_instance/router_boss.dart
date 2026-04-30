@@ -1002,6 +1002,24 @@ class _RouterBoss {
                   .remainingTailDataWaitMaxBytesAfterTotal,
               remainingTailDataWaitMaxEofTotal:
                   metrics.requestBodyStream!.remainingTailDataWaitMaxEofTotal,
+              remainingTailDataWaitMaxAvailableCapacityBeforeTotal: metrics
+                  .requestBodyStream!
+                  .remainingTailDataWaitMaxAvailableCapacityBeforeTotal,
+              remainingTailDataWaitMaxUsedCapacityBeforeTotal: metrics
+                  .requestBodyStream!
+                  .remainingTailDataWaitMaxUsedCapacityBeforeTotal,
+              remainingTailDataWaitMaxAvailableCapacityAfterDataTotal: metrics
+                  .requestBodyStream!
+                  .remainingTailDataWaitMaxAvailableCapacityAfterDataTotal,
+              remainingTailDataWaitMaxUsedCapacityAfterDataTotal: metrics
+                  .requestBodyStream!
+                  .remainingTailDataWaitMaxUsedCapacityAfterDataTotal,
+              remainingTailDataWaitMaxAvailableCapacityAfterReleaseTotal: metrics
+                  .requestBodyStream!
+                  .remainingTailDataWaitMaxAvailableCapacityAfterReleaseTotal,
+              remainingTailDataWaitMaxUsedCapacityAfterReleaseTotal: metrics
+                  .requestBodyStream!
+                  .remainingTailDataWaitMaxUsedCapacityAfterReleaseTotal,
               totalReadSamplesTotal:
                   metrics.requestBodyStream!.totalReadSamplesTotal,
               totalReadUsTotal: metrics.requestBodyStream!.totalReadUsTotal,

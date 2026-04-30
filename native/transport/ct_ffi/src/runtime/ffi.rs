@@ -237,6 +237,13 @@ pub struct CtRouterMetricsInfo {
     pub request_body_stream_remaining_tail_data_wait_max_bytes_before_total: u64,
     pub request_body_stream_remaining_tail_data_wait_max_bytes_after_total: u64,
     pub request_body_stream_remaining_tail_data_wait_max_eof_total: u64,
+    pub request_body_stream_remaining_tail_data_wait_max_available_capacity_before_total: i64,
+    pub request_body_stream_remaining_tail_data_wait_max_used_capacity_before_total: u64,
+    pub request_body_stream_remaining_tail_data_wait_max_available_capacity_after_data_total: i64,
+    pub request_body_stream_remaining_tail_data_wait_max_used_capacity_after_data_total: u64,
+    pub request_body_stream_remaining_tail_data_wait_max_available_capacity_after_release_total:
+        i64,
+    pub request_body_stream_remaining_tail_data_wait_max_used_capacity_after_release_total: u64,
     pub request_body_stream_total_read_samples_total: u64,
     pub request_body_stream_total_read_us_total: u64,
     pub breakdown_ptr: *const CtRouterMetricsBreakdownInfo,
@@ -2321,6 +2328,21 @@ pub extern "C" fn ct_router_metrics_snapshot(info: *mut CtRouterMetricsInfo) -> 
         request_body_stream_snapshot.remaining_tail_data_wait_max_bytes_after_total;
     info_ref.request_body_stream_remaining_tail_data_wait_max_eof_total =
         request_body_stream_snapshot.remaining_tail_data_wait_max_eof_total;
+    info_ref.request_body_stream_remaining_tail_data_wait_max_available_capacity_before_total =
+        request_body_stream_snapshot.remaining_tail_data_wait_max_available_capacity_before_total;
+    info_ref.request_body_stream_remaining_tail_data_wait_max_used_capacity_before_total =
+        request_body_stream_snapshot.remaining_tail_data_wait_max_used_capacity_before_total;
+    info_ref.request_body_stream_remaining_tail_data_wait_max_available_capacity_after_data_total =
+        request_body_stream_snapshot
+            .remaining_tail_data_wait_max_available_capacity_after_data_total;
+    info_ref.request_body_stream_remaining_tail_data_wait_max_used_capacity_after_data_total =
+        request_body_stream_snapshot.remaining_tail_data_wait_max_used_capacity_after_data_total;
+    info_ref
+        .request_body_stream_remaining_tail_data_wait_max_available_capacity_after_release_total =
+        request_body_stream_snapshot
+            .remaining_tail_data_wait_max_available_capacity_after_release_total;
+    info_ref.request_body_stream_remaining_tail_data_wait_max_used_capacity_after_release_total =
+        request_body_stream_snapshot.remaining_tail_data_wait_max_used_capacity_after_release_total;
     info_ref.request_body_stream_total_read_samples_total =
         request_body_stream_snapshot.total_read_samples_total;
     info_ref.request_body_stream_total_read_us_total =

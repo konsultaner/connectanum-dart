@@ -634,6 +634,10 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("Reply delivery delay avg ms", markdown)
             self.assertIn("Native request body reader total avg ms", markdown)
             self.assertIn("Native request body reader remaining tail data wait avg ms", markdown)
+            self.assertIn(
+                "Native request body reader remaining tail max data wait available window before avg",
+                markdown,
+            )
             self.assertIn("## HTTP Native Response-Stream Timing", markdown)
             self.assertIn("## HTTP Native Response-Stream Slow Paths", markdown)
             self.assertIn("## Linux TLS Stats", markdown)
@@ -1525,6 +1529,18 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         | None = 262144.0,
         native_request_body_reader_remaining_tail_data_wait_max_eof_ratio: float
         | None = 0.5,
+        native_request_body_reader_remaining_tail_data_wait_max_available_capacity_before_avg: float
+        | None = 65535.0,
+        native_request_body_reader_remaining_tail_data_wait_max_used_capacity_before_avg: float
+        | None = 65536.0,
+        native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_data_avg: float
+        | None = 0.0,
+        native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_data_avg: float
+        | None = 131072.0,
+        native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_release_avg: float
+        | None = 65536.0,
+        native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_release_avg: float
+        | None = 65536.0,
         native_request_body_reader_data_chunk_wait_avg_ms: float | None = 0.25,
         native_request_body_reader_chunk_count_avg: float | None = 4.0,
         server_stream_open_avg_ms: float | None = 2.4,
@@ -1707,6 +1723,12 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "native_request_body_reader_remaining_tail_data_wait_max_bytes_before_avg": native_request_body_reader_remaining_tail_data_wait_max_bytes_before_avg,
                     "native_request_body_reader_remaining_tail_data_wait_max_bytes_after_avg": native_request_body_reader_remaining_tail_data_wait_max_bytes_after_avg,
                     "native_request_body_reader_remaining_tail_data_wait_max_eof_ratio": native_request_body_reader_remaining_tail_data_wait_max_eof_ratio,
+                    "native_request_body_reader_remaining_tail_data_wait_max_available_capacity_before_avg": native_request_body_reader_remaining_tail_data_wait_max_available_capacity_before_avg,
+                    "native_request_body_reader_remaining_tail_data_wait_max_used_capacity_before_avg": native_request_body_reader_remaining_tail_data_wait_max_used_capacity_before_avg,
+                    "native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_data_avg": native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_data_avg,
+                    "native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_data_avg": native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_data_avg,
+                    "native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_release_avg": native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_release_avg,
+                    "native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_release_avg": native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_release_avg,
                     "native_request_body_reader_data_chunk_wait_avg_ms": native_request_body_reader_data_chunk_wait_avg_ms,
                     "native_request_body_reader_chunk_count_avg": native_request_body_reader_chunk_count_avg,
                     "stream_open_avg_ms": server_stream_open_avg_ms,

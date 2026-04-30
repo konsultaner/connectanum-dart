@@ -191,6 +191,21 @@ pub struct HttpServerEmissionTimingSummary {
     pub native_request_body_reader_remaining_tail_data_wait_max_bytes_after_avg: f64,
     #[serde(default)]
     pub native_request_body_reader_remaining_tail_data_wait_max_eof_ratio: f64,
+    #[serde(default)]
+    pub native_request_body_reader_remaining_tail_data_wait_max_available_capacity_before_avg: f64,
+    #[serde(default)]
+    pub native_request_body_reader_remaining_tail_data_wait_max_used_capacity_before_avg: f64,
+    #[serde(default)]
+    pub native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_data_avg:
+        f64,
+    #[serde(default)]
+    pub native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_data_avg: f64,
+    #[serde(default)]
+    pub native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_release_avg:
+        f64,
+    #[serde(default)]
+    pub native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_release_avg:
+        f64,
     pub native_request_body_reader_data_chunk_wait_avg_ms: f64,
     pub native_request_body_reader_chunk_count_avg: f64,
     pub stream_open_avg_ms: f64,

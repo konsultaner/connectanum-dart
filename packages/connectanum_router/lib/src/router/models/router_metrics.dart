@@ -344,6 +344,12 @@ class RouterHttpRequestBodyStreamMetrics {
     required this.remainingTailDataWaitMaxBytesBeforeTotal,
     required this.remainingTailDataWaitMaxBytesAfterTotal,
     required this.remainingTailDataWaitMaxEofTotal,
+    required this.remainingTailDataWaitMaxAvailableCapacityBeforeTotal,
+    required this.remainingTailDataWaitMaxUsedCapacityBeforeTotal,
+    required this.remainingTailDataWaitMaxAvailableCapacityAfterDataTotal,
+    required this.remainingTailDataWaitMaxUsedCapacityAfterDataTotal,
+    required this.remainingTailDataWaitMaxAvailableCapacityAfterReleaseTotal,
+    required this.remainingTailDataWaitMaxUsedCapacityAfterReleaseTotal,
     required this.totalReadSamplesTotal,
     required this.totalReadUsTotal,
   });
@@ -364,6 +370,12 @@ class RouterHttpRequestBodyStreamMetrics {
   final int remainingTailDataWaitMaxBytesBeforeTotal;
   final int remainingTailDataWaitMaxBytesAfterTotal;
   final int remainingTailDataWaitMaxEofTotal;
+  final int remainingTailDataWaitMaxAvailableCapacityBeforeTotal;
+  final int remainingTailDataWaitMaxUsedCapacityBeforeTotal;
+  final int remainingTailDataWaitMaxAvailableCapacityAfterDataTotal;
+  final int remainingTailDataWaitMaxUsedCapacityAfterDataTotal;
+  final int remainingTailDataWaitMaxAvailableCapacityAfterReleaseTotal;
+  final int remainingTailDataWaitMaxUsedCapacityAfterReleaseTotal;
   final int totalReadSamplesTotal;
   final int totalReadUsTotal;
 
@@ -387,6 +399,18 @@ class RouterHttpRequestBodyStreamMetrics {
     'remaining_tail_data_wait_max_bytes_after_total':
         remainingTailDataWaitMaxBytesAfterTotal,
     'remaining_tail_data_wait_max_eof_total': remainingTailDataWaitMaxEofTotal,
+    'remaining_tail_data_wait_max_available_capacity_before_total':
+        remainingTailDataWaitMaxAvailableCapacityBeforeTotal,
+    'remaining_tail_data_wait_max_used_capacity_before_total':
+        remainingTailDataWaitMaxUsedCapacityBeforeTotal,
+    'remaining_tail_data_wait_max_available_capacity_after_data_total':
+        remainingTailDataWaitMaxAvailableCapacityAfterDataTotal,
+    'remaining_tail_data_wait_max_used_capacity_after_data_total':
+        remainingTailDataWaitMaxUsedCapacityAfterDataTotal,
+    'remaining_tail_data_wait_max_available_capacity_after_release_total':
+        remainingTailDataWaitMaxAvailableCapacityAfterReleaseTotal,
+    'remaining_tail_data_wait_max_used_capacity_after_release_total':
+        remainingTailDataWaitMaxUsedCapacityAfterReleaseTotal,
     'total_read_samples_total': totalReadSamplesTotal,
     'total_read_us_total': totalReadUsTotal,
   };

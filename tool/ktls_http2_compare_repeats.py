@@ -188,6 +188,36 @@ SERVER_EMISSION_FOCUS_METRICS = (
         "",
     ),
     (
+        "native_request_body_reader_remaining_tail_data_wait_max_available_capacity_before_avg",
+        "Native request body reader remaining tail max data-wait available window before avg",
+        " B",
+    ),
+    (
+        "native_request_body_reader_remaining_tail_data_wait_max_used_capacity_before_avg",
+        "Native request body reader remaining tail max data-wait used window before avg",
+        " B",
+    ),
+    (
+        "native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_data_avg",
+        "Native request body reader remaining tail max data-wait available window after data avg",
+        " B",
+    ),
+    (
+        "native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_data_avg",
+        "Native request body reader remaining tail max data-wait used window after data avg",
+        " B",
+    ),
+    (
+        "native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_release_avg",
+        "Native request body reader remaining tail max data-wait available window after release avg",
+        " B",
+    ),
+    (
+        "native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_release_avg",
+        "Native request body reader remaining tail max data-wait used window after release avg",
+        " B",
+    ),
+    (
         "native_request_body_reader_data_chunk_wait_avg_ms",
         "Native request body reader data-chunk wait avg ms",
     ),

@@ -1909,6 +1909,51 @@ fn summarize_http_server_emission_timing(
         )
         .unwrap_or(0)
         .max(0) as u64;
+    let native_request_body_remaining_tail_data_wait_max_available_capacity_before_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "remaining_tail_data_wait_max_available_capacity_before_total",
+        )
+        .unwrap_or(0);
+    let native_request_body_remaining_tail_data_wait_max_used_capacity_before_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "remaining_tail_data_wait_max_used_capacity_before_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
+    let native_request_body_remaining_tail_data_wait_max_available_capacity_after_data_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "remaining_tail_data_wait_max_available_capacity_after_data_total",
+        )
+        .unwrap_or(0);
+    let native_request_body_remaining_tail_data_wait_max_used_capacity_after_data_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "remaining_tail_data_wait_max_used_capacity_after_data_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
+    let native_request_body_remaining_tail_data_wait_max_available_capacity_after_release_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "remaining_tail_data_wait_max_available_capacity_after_release_total",
+        )
+        .unwrap_or(0);
+    let native_request_body_remaining_tail_data_wait_max_used_capacity_after_release_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "remaining_tail_data_wait_max_used_capacity_after_release_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
     let native_request_body_total_read_us_total = transport_http_request_body_stream_counter_delta(
         &report.metrics_before,
         &report.metrics_after,
@@ -2085,6 +2130,36 @@ fn summarize_http_server_emission_timing(
             native_request_body_remaining_tail_data_wait_max_eof_total,
             native_request_body_remaining_tail_data_wait_samples_total,
         ),
+        native_request_body_reader_remaining_tail_data_wait_max_available_capacity_before_avg:
+            average_i64(
+                native_request_body_remaining_tail_data_wait_max_available_capacity_before_total,
+                native_request_body_remaining_tail_data_wait_samples_total,
+            ),
+        native_request_body_reader_remaining_tail_data_wait_max_used_capacity_before_avg:
+            average_u64(
+                native_request_body_remaining_tail_data_wait_max_used_capacity_before_total,
+                native_request_body_remaining_tail_data_wait_samples_total,
+            ),
+        native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_data_avg:
+            average_i64(
+                native_request_body_remaining_tail_data_wait_max_available_capacity_after_data_total,
+                native_request_body_remaining_tail_data_wait_samples_total,
+            ),
+        native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_data_avg:
+            average_u64(
+                native_request_body_remaining_tail_data_wait_max_used_capacity_after_data_total,
+                native_request_body_remaining_tail_data_wait_samples_total,
+            ),
+        native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_release_avg:
+            average_i64(
+                native_request_body_remaining_tail_data_wait_max_available_capacity_after_release_total,
+                native_request_body_remaining_tail_data_wait_samples_total,
+            ),
+        native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_release_avg:
+            average_u64(
+                native_request_body_remaining_tail_data_wait_max_used_capacity_after_release_total,
+                native_request_body_remaining_tail_data_wait_samples_total,
+            ),
         native_request_body_reader_data_chunk_wait_avg_ms: average_microseconds_to_millis(
             native_request_body_data_chunk_wait_us_total,
             native_request_body_data_chunk_samples_total,
@@ -2528,6 +2603,13 @@ fn average_microseconds_to_millis(total_us: u64, sample_count: u64) -> f64 {
 }
 
 fn average_u64(total: u64, sample_count: u64) -> f64 {
+    if sample_count == 0 {
+        return 0.0;
+    }
+    total as f64 / sample_count as f64
+}
+
+fn average_i64(total: i64, sample_count: u64) -> f64 {
     if sample_count == 0 {
         return 0.0;
     }
@@ -3134,6 +3216,12 @@ mod tests {
                         "remaining_tail_data_wait_max_bytes_before_total": 262144,
                         "remaining_tail_data_wait_max_bytes_after_total": 393216,
                         "remaining_tail_data_wait_max_eof_total": 1,
+                        "remaining_tail_data_wait_max_available_capacity_before_total": -1000,
+                        "remaining_tail_data_wait_max_used_capacity_before_total": 2000,
+                        "remaining_tail_data_wait_max_available_capacity_after_data_total": -2000,
+                        "remaining_tail_data_wait_max_used_capacity_after_data_total": 3000,
+                        "remaining_tail_data_wait_max_available_capacity_after_release_total": 4000,
+                        "remaining_tail_data_wait_max_used_capacity_after_release_total": 1000,
                         "total_read_samples_total": 2,
                         "total_read_us_total": 4000,
                     },
@@ -3266,6 +3354,12 @@ mod tests {
                         "remaining_tail_data_wait_max_bytes_before_total": 851968,
                         "remaining_tail_data_wait_max_bytes_after_total": 1179648,
                         "remaining_tail_data_wait_max_eof_total": 3,
+                        "remaining_tail_data_wait_max_available_capacity_before_total": -4000,
+                        "remaining_tail_data_wait_max_used_capacity_before_total": 8000,
+                        "remaining_tail_data_wait_max_available_capacity_after_data_total": -8000,
+                        "remaining_tail_data_wait_max_used_capacity_after_data_total": 12000,
+                        "remaining_tail_data_wait_max_available_capacity_after_release_total": 16000,
+                        "remaining_tail_data_wait_max_used_capacity_after_release_total": 4000,
                         "total_read_samples_total": 5,
                         "total_read_us_total": 18000,
                     },
@@ -3971,6 +4065,48 @@ mod tests {
         assert!(
             (server_timing.native_request_body_reader_remaining_tail_data_wait_max_eof_ratio
                 - (2.0 / 3.0))
+                .abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (server_timing
+                .native_request_body_reader_remaining_tail_data_wait_max_available_capacity_before_avg
+                + 1000.0)
+                .abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (server_timing
+                .native_request_body_reader_remaining_tail_data_wait_max_used_capacity_before_avg
+                - 2000.0)
+                .abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (server_timing
+                .native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_data_avg
+                + 2000.0)
+                .abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (server_timing
+                .native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_data_avg
+                - 3000.0)
+                .abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (server_timing
+                .native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_release_avg
+                - 4000.0)
+                .abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (server_timing
+                .native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_release_avg
+                - 1000.0)
                 .abs()
                 < f64::EPSILON
         );

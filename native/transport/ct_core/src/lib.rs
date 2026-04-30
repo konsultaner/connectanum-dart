@@ -7,7 +7,7 @@ use std::{
     ops::Deref,
     pin::Pin,
     sync::{
-        atomic::{AtomicU32, AtomicU64, Ordering},
+        atomic::{AtomicI64, AtomicU32, AtomicU64, Ordering},
         Arc, Mutex, OnceLock, RwLock,
     },
     task::{Context, Poll},
@@ -326,8 +326,20 @@ struct HttpRequestBodyStreamMetrics {
     remaining_tail_data_wait_max_bytes_before_total: AtomicU64,
     remaining_tail_data_wait_max_bytes_after_total: AtomicU64,
     remaining_tail_data_wait_max_eof_total: AtomicU64,
+    remaining_tail_data_wait_max_available_capacity_before_total: AtomicI64,
+    remaining_tail_data_wait_max_used_capacity_before_total: AtomicU64,
+    remaining_tail_data_wait_max_available_capacity_after_data_total: AtomicI64,
+    remaining_tail_data_wait_max_used_capacity_after_data_total: AtomicU64,
+    remaining_tail_data_wait_max_available_capacity_after_release_total: AtomicI64,
+    remaining_tail_data_wait_max_used_capacity_after_release_total: AtomicU64,
     total_read_samples_total: AtomicU64,
     total_read_us_total: AtomicU64,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct HttpRequestBodyFlowControlSample {
+    available_capacity: i64,
+    used_capacity: u64,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -337,6 +349,9 @@ struct HttpRequestBodyTailDataWaitMax {
     bytes_before: u64,
     bytes_after: u64,
     eof: bool,
+    flow_before_wait: HttpRequestBodyFlowControlSample,
+    flow_after_data: HttpRequestBodyFlowControlSample,
+    flow_after_release: HttpRequestBodyFlowControlSample,
 }
 
 impl HttpRequestBodyTailDataWaitMax {
@@ -347,6 +362,9 @@ impl HttpRequestBodyTailDataWaitMax {
         bytes_before: u64,
         bytes_after: u64,
         eof: bool,
+        flow_before_wait: HttpRequestBodyFlowControlSample,
+        flow_after_data: HttpRequestBodyFlowControlSample,
+        flow_after_release: HttpRequestBodyFlowControlSample,
     ) {
         if wait_us >= self.wait_us {
             *self = Self {
@@ -355,6 +373,9 @@ impl HttpRequestBodyTailDataWaitMax {
                 bytes_before,
                 bytes_after,
                 eof,
+                flow_before_wait,
+                flow_after_data,
+                flow_after_release,
             };
         }
     }
@@ -437,6 +458,12 @@ pub struct HttpRequestBodyStreamMetricsSnapshot {
     pub remaining_tail_data_wait_max_bytes_before_total: u64,
     pub remaining_tail_data_wait_max_bytes_after_total: u64,
     pub remaining_tail_data_wait_max_eof_total: u64,
+    pub remaining_tail_data_wait_max_available_capacity_before_total: i64,
+    pub remaining_tail_data_wait_max_used_capacity_before_total: u64,
+    pub remaining_tail_data_wait_max_available_capacity_after_data_total: i64,
+    pub remaining_tail_data_wait_max_used_capacity_after_data_total: u64,
+    pub remaining_tail_data_wait_max_available_capacity_after_release_total: i64,
+    pub remaining_tail_data_wait_max_used_capacity_after_release_total: u64,
     pub total_read_samples_total: u64,
     pub total_read_us_total: u64,
 }
@@ -913,6 +940,44 @@ impl HttpRequestBodyStreamMetrics {
                 self.remaining_tail_data_wait_max_eof_total
                     .fetch_add(1, Ordering::SeqCst);
             }
+            self.remaining_tail_data_wait_max_available_capacity_before_total
+                .fetch_add(
+                    remaining_tail_data_wait_max
+                        .flow_before_wait
+                        .available_capacity,
+                    Ordering::SeqCst,
+                );
+            self.remaining_tail_data_wait_max_used_capacity_before_total
+                .fetch_add(
+                    remaining_tail_data_wait_max.flow_before_wait.used_capacity,
+                    Ordering::SeqCst,
+                );
+            self.remaining_tail_data_wait_max_available_capacity_after_data_total
+                .fetch_add(
+                    remaining_tail_data_wait_max
+                        .flow_after_data
+                        .available_capacity,
+                    Ordering::SeqCst,
+                );
+            self.remaining_tail_data_wait_max_used_capacity_after_data_total
+                .fetch_add(
+                    remaining_tail_data_wait_max.flow_after_data.used_capacity,
+                    Ordering::SeqCst,
+                );
+            self.remaining_tail_data_wait_max_available_capacity_after_release_total
+                .fetch_add(
+                    remaining_tail_data_wait_max
+                        .flow_after_release
+                        .available_capacity,
+                    Ordering::SeqCst,
+                );
+            self.remaining_tail_data_wait_max_used_capacity_after_release_total
+                .fetch_add(
+                    remaining_tail_data_wait_max
+                        .flow_after_release
+                        .used_capacity,
+                    Ordering::SeqCst,
+                );
         }
     }
 
@@ -953,6 +1018,24 @@ impl HttpRequestBodyStreamMetrics {
                 .load(Ordering::SeqCst),
             remaining_tail_data_wait_max_eof_total: self
                 .remaining_tail_data_wait_max_eof_total
+                .load(Ordering::SeqCst),
+            remaining_tail_data_wait_max_available_capacity_before_total: self
+                .remaining_tail_data_wait_max_available_capacity_before_total
+                .load(Ordering::SeqCst),
+            remaining_tail_data_wait_max_used_capacity_before_total: self
+                .remaining_tail_data_wait_max_used_capacity_before_total
+                .load(Ordering::SeqCst),
+            remaining_tail_data_wait_max_available_capacity_after_data_total: self
+                .remaining_tail_data_wait_max_available_capacity_after_data_total
+                .load(Ordering::SeqCst),
+            remaining_tail_data_wait_max_used_capacity_after_data_total: self
+                .remaining_tail_data_wait_max_used_capacity_after_data_total
+                .load(Ordering::SeqCst),
+            remaining_tail_data_wait_max_available_capacity_after_release_total: self
+                .remaining_tail_data_wait_max_available_capacity_after_release_total
+                .load(Ordering::SeqCst),
+            remaining_tail_data_wait_max_used_capacity_after_release_total: self
+                .remaining_tail_data_wait_max_used_capacity_after_release_total
                 .load(Ordering::SeqCst),
             total_read_samples_total: self.total_read_samples_total.load(Ordering::SeqCst),
             total_read_us_total: self.total_read_us_total.load(Ordering::SeqCst),
@@ -6168,6 +6251,14 @@ fn spawn_http2_stream_reader(
     });
 }
 
+fn http2_recv_flow_control_sample(stream: &mut H2RecvStream) -> HttpRequestBodyFlowControlSample {
+    let flow_control = stream.flow_control();
+    HttpRequestBodyFlowControlSample {
+        available_capacity: flow_control.available_capacity() as i64,
+        used_capacity: flow_control.used_capacity() as u64,
+    }
+}
+
 async fn run_http2_stream_reader(
     stats: Option<Arc<HttpConnectionStats>>,
     state: Arc<StreamingBodyState>,
@@ -6211,6 +6302,12 @@ async fn run_http2_stream_reader(
 
         let data_wait_started_at = Instant::now();
         let bytes_before_wait = bytes_read;
+        let should_sample_tail_flow = second_chunk_at.is_some();
+        let flow_before_wait = if should_sample_tail_flow {
+            http2_recv_flow_control_sample(&mut stream)
+        } else {
+            HttpRequestBodyFlowControlSample::default()
+        };
         let data_future = stream.data();
         let chunk = match time::timeout(idle_timeout, data_future).await {
             Ok(value) => value,
@@ -6227,6 +6324,11 @@ async fn run_http2_stream_reader(
         let data_received_at = Instant::now();
         let data_wait_us = saturating_instant_delta_us(data_wait_started_at, data_received_at);
         data_event_index = data_event_index.saturating_add(1);
+        let flow_after_data = if should_sample_tail_flow {
+            http2_recv_flow_control_sample(&mut stream)
+        } else {
+            HttpRequestBodyFlowControlSample::default()
+        };
 
         match chunk {
             Some(Ok(bytes)) => {
@@ -6237,13 +6339,6 @@ async fn run_http2_stream_reader(
                 if is_remaining_tail_chunk {
                     remaining_tail_data_wait_us =
                         remaining_tail_data_wait_us.saturating_add(data_wait_us);
-                    remaining_tail_data_wait_max.observe(
-                        data_wait_us,
-                        data_event_index,
-                        bytes_before_wait,
-                        bytes_after_wait,
-                        false,
-                    );
                 }
                 if first_chunk_at.is_none() {
                     first_chunk_at = Some(data_received_at);
@@ -6268,9 +6363,27 @@ async fn run_http2_stream_reader(
                 if !state.finish_requested() {
                     state.enqueue_bytes(bytes);
                 }
-                if let Err(err) = stream.flow_control().release_capacity(len) {
+                let release_result = stream.flow_control().release_capacity(len);
+                let flow_after_release = if should_sample_tail_flow {
+                    http2_recv_flow_control_sample(&mut stream)
+                } else {
+                    HttpRequestBodyFlowControlSample::default()
+                };
+                if let Err(err) = release_result {
                     state.mark_error(format!("http/2 flow control error: {}", err));
                     return Err(err.to_string());
+                }
+                if is_remaining_tail_chunk {
+                    remaining_tail_data_wait_max.observe(
+                        data_wait_us,
+                        data_event_index,
+                        bytes_before_wait,
+                        bytes_after_wait,
+                        false,
+                        flow_before_wait,
+                        flow_after_data,
+                        flow_after_release,
+                    );
                 }
             }
             Some(Err(err)) => {
@@ -6299,6 +6412,9 @@ async fn run_http2_stream_reader(
                         bytes_before_wait,
                         bytes_before_wait,
                         true,
+                        flow_before_wait,
+                        flow_after_data,
+                        flow_after_data,
                     );
                 }
                 metrics.record_reader_finished(
@@ -7194,6 +7310,18 @@ mod tests {
                 bytes_before: 131_072,
                 bytes_after: 196_608,
                 eof: false,
+                flow_before_wait: HttpRequestBodyFlowControlSample {
+                    available_capacity: -16_384,
+                    used_capacity: 65_536,
+                },
+                flow_after_data: HttpRequestBodyFlowControlSample {
+                    available_capacity: -32_768,
+                    used_capacity: 131_072,
+                },
+                flow_after_release: HttpRequestBodyFlowControlSample {
+                    available_capacity: 32_768,
+                    used_capacity: 65_536,
+                },
             },
         );
         let after = http_request_body_stream_metrics_snapshot();
@@ -7222,6 +7350,30 @@ mod tests {
         assert!(
             after.remaining_tail_data_wait_max_bytes_after_total
                 > before.remaining_tail_data_wait_max_bytes_after_total
+        );
+        assert!(
+            after.remaining_tail_data_wait_max_available_capacity_before_total
+                < before.remaining_tail_data_wait_max_available_capacity_before_total
+        );
+        assert!(
+            after.remaining_tail_data_wait_max_used_capacity_before_total
+                > before.remaining_tail_data_wait_max_used_capacity_before_total
+        );
+        assert!(
+            after.remaining_tail_data_wait_max_available_capacity_after_data_total
+                < before.remaining_tail_data_wait_max_available_capacity_after_data_total
+        );
+        assert!(
+            after.remaining_tail_data_wait_max_used_capacity_after_data_total
+                > before.remaining_tail_data_wait_max_used_capacity_after_data_total
+        );
+        assert!(
+            after.remaining_tail_data_wait_max_available_capacity_after_release_total
+                > before.remaining_tail_data_wait_max_available_capacity_after_release_total
+        );
+        assert!(
+            after.remaining_tail_data_wait_max_used_capacity_after_release_total
+                > before.remaining_tail_data_wait_max_used_capacity_after_release_total
         );
         assert!(after.total_read_samples_total > before.total_read_samples_total);
         assert!(after.total_read_us_total > before.total_read_us_total);

@@ -728,6 +728,12 @@ class NativeHttpRequestBodyStreamMetrics {
     required this.remainingTailDataWaitMaxBytesBeforeTotal,
     required this.remainingTailDataWaitMaxBytesAfterTotal,
     required this.remainingTailDataWaitMaxEofTotal,
+    required this.remainingTailDataWaitMaxAvailableCapacityBeforeTotal,
+    required this.remainingTailDataWaitMaxUsedCapacityBeforeTotal,
+    required this.remainingTailDataWaitMaxAvailableCapacityAfterDataTotal,
+    required this.remainingTailDataWaitMaxUsedCapacityAfterDataTotal,
+    required this.remainingTailDataWaitMaxAvailableCapacityAfterReleaseTotal,
+    required this.remainingTailDataWaitMaxUsedCapacityAfterReleaseTotal,
     required this.totalReadSamplesTotal,
     required this.totalReadUsTotal,
   });
@@ -748,6 +754,12 @@ class NativeHttpRequestBodyStreamMetrics {
   final int remainingTailDataWaitMaxBytesBeforeTotal;
   final int remainingTailDataWaitMaxBytesAfterTotal;
   final int remainingTailDataWaitMaxEofTotal;
+  final int remainingTailDataWaitMaxAvailableCapacityBeforeTotal;
+  final int remainingTailDataWaitMaxUsedCapacityBeforeTotal;
+  final int remainingTailDataWaitMaxAvailableCapacityAfterDataTotal;
+  final int remainingTailDataWaitMaxUsedCapacityAfterDataTotal;
+  final int remainingTailDataWaitMaxAvailableCapacityAfterReleaseTotal;
+  final int remainingTailDataWaitMaxUsedCapacityAfterReleaseTotal;
   final int totalReadSamplesTotal;
   final int totalReadUsTotal;
 
@@ -775,6 +787,18 @@ class NativeHttpRequestBodyStreamMetrics {
             other.remainingTailDataWaitMaxBytesAfterTotal &&
         remainingTailDataWaitMaxEofTotal ==
             other.remainingTailDataWaitMaxEofTotal &&
+        remainingTailDataWaitMaxAvailableCapacityBeforeTotal ==
+            other.remainingTailDataWaitMaxAvailableCapacityBeforeTotal &&
+        remainingTailDataWaitMaxUsedCapacityBeforeTotal ==
+            other.remainingTailDataWaitMaxUsedCapacityBeforeTotal &&
+        remainingTailDataWaitMaxAvailableCapacityAfterDataTotal ==
+            other.remainingTailDataWaitMaxAvailableCapacityAfterDataTotal &&
+        remainingTailDataWaitMaxUsedCapacityAfterDataTotal ==
+            other.remainingTailDataWaitMaxUsedCapacityAfterDataTotal &&
+        remainingTailDataWaitMaxAvailableCapacityAfterReleaseTotal ==
+            other.remainingTailDataWaitMaxAvailableCapacityAfterReleaseTotal &&
+        remainingTailDataWaitMaxUsedCapacityAfterReleaseTotal ==
+            other.remainingTailDataWaitMaxUsedCapacityAfterReleaseTotal &&
         totalReadSamplesTotal == other.totalReadSamplesTotal &&
         totalReadUsTotal == other.totalReadUsTotal;
   }
@@ -2987,6 +3011,18 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
                   info.requestBodyStreamRemainingTailDataWaitMaxBytesAfterTotal,
               remainingTailDataWaitMaxEofTotal:
                   info.requestBodyStreamRemainingTailDataWaitMaxEofTotal,
+              remainingTailDataWaitMaxAvailableCapacityBeforeTotal: info
+                  .requestBodyStreamRemainingTailDataWaitMaxAvailableCapacityBeforeTotal,
+              remainingTailDataWaitMaxUsedCapacityBeforeTotal: info
+                  .requestBodyStreamRemainingTailDataWaitMaxUsedCapacityBeforeTotal,
+              remainingTailDataWaitMaxAvailableCapacityAfterDataTotal: info
+                  .requestBodyStreamRemainingTailDataWaitMaxAvailableCapacityAfterDataTotal,
+              remainingTailDataWaitMaxUsedCapacityAfterDataTotal: info
+                  .requestBodyStreamRemainingTailDataWaitMaxUsedCapacityAfterDataTotal,
+              remainingTailDataWaitMaxAvailableCapacityAfterReleaseTotal: info
+                  .requestBodyStreamRemainingTailDataWaitMaxAvailableCapacityAfterReleaseTotal,
+              remainingTailDataWaitMaxUsedCapacityAfterReleaseTotal: info
+                  .requestBodyStreamRemainingTailDataWaitMaxUsedCapacityAfterReleaseTotal,
               totalReadSamplesTotal:
                   info.requestBodyStreamTotalReadSamplesTotal,
               totalReadUsTotal: info.requestBodyStreamTotalReadUsTotal,
