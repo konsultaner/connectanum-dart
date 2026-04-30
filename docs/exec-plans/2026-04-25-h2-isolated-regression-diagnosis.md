@@ -931,11 +931,17 @@ decisions.
     `python3 tool/test_ktls_http2_compare.py`, `git diff --check`, and
     rerendering hosted run `25146345720`; full local `bin/verify` also
     passed on 2026-04-30, including Chrome/Dart2Wasm browser coverage
+  - commit `b898053` (`bench: keep repeat signal units`) passed hosted
+    GitHub `CI` run `25146937008`; `Fast Checks` completed in 5m56s and
+    `Full Verify` completed in 8m24s
+  - branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `b898053`; the hosted CI
+    log scan found no warning, deprecation, skipped-test, reset, timeout,
+    panic, or connection-noise patterns
 
 ## Next Step
 
-After the repeat-report unit fix is locally verified and hosted-clean, add the
-next bounded client tail-read diagnostic: identify where the maximum tail
-inter-read gap occurs within the tail read sequence so the stable kTLS-side
-body-tail delta can be tied to chunk-boundary scheduling, socket/TLS delivery,
-or later request/response stream pacing.
+Add the next bounded client tail-read diagnostic: identify where the maximum
+tail inter-read gap occurs within the tail read sequence so the stable
+kTLS-side body-tail delta can be tied to chunk-boundary scheduling, socket/TLS
+delivery, or later request/response stream pacing.

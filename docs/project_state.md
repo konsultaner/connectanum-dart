@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `6c8bd57` (`docs: record h2 tail read size ci`)
+Last reviewed commit: `b898053` (`bench: keep repeat signal units`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -488,6 +488,13 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
   - full local `bin/verify` passed after the repeat signal unit fix on
     2026-04-30, including Rust, Dart package, bench, router, and
     Chrome/Dart2Wasm browser coverage
+  - commit `b898053` (`bench: keep repeat signal units`) passed hosted
+    GitHub `CI` run `25146937008`; `Fast Checks` completed in 5m56s and
+    `Full Verify` completed in 8m24s
+  - branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `b898053`; the hosted CI
+    log scan found no warning, deprecation, skipped-test, reset, timeout,
+    panic, or connection-noise patterns
 - Current deployment-chain evidence refresh:
   - commit `b338d58` (`docs: record current deployment evidence`) passed
     hosted GitHub `CI` run `25123037462`; `Fast Checks` completed
