@@ -236,21 +236,22 @@ For the latest branch-head status, run the clean-CI audit command above. The
 items below are pinned deployment-chain checkpoints from 2026-04-30, not a
 replacement for the live audit:
 
-- `add-router` cleanup/evidence checkpoint `a4818c8` passed GitHub `CI` run
-  `25170846499`: `Fast Checks` completed in 5m39s and `Full Verify`
-  completed in 8m17s.
-- The clean-CI audit passed for `a4818c8` with
+- `add-router` deployment-audit checkpoint `c8b6a13` passed GitHub `CI` run
+  `25172656687`: `Fast Checks` completed in 5m37s and `Full Verify`
+  completed in 8m10s.
+- The clean-CI audit passed for `c8b6a13` with
   `--require-clean-latest-ci --require-clean-latest-ci-logs`; hosted CI logs
   had no high-signal warning, deprecation, skipped-test, panic, broken-pipe,
   reset, timeout, or connection-noise matches.
 - `out/production` generated output is no longer tracked by Git; `/out/`
   remains ignored and `git ls-files out` returns zero tracked paths.
 - GitHub `Dart Package Publish Dry Run` run `25170846455` passed on
-  `a4818c8` and covers the checked-out head.
+  `a4818c8` and remains relevant for `c8b6a13` because no
+  package-publish-sensitive inputs changed after that run.
 - Manual `Native Artifacts` dry-run `25166714340` passed on `7098c54`,
   uploaded `native-release-preview`, accepted
   `ct-ffi-v2026.04.30-dry-run.7098c54`, and did not create a GitHub Release.
-  It remains relevant for `a4818c8` because no native-release-sensitive inputs
+  It remains relevant for `c8b6a13` because no native-release-sensitive inputs
   changed after `7098c54`.
 - The current audit gates pass for clean main `CI`, clean hosted `CI` logs,
   clean/relevant Dart package dry-run evidence, and clean/relevant native

@@ -183,6 +183,23 @@ operator evidence over speculative feature or benchmark work.
     `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 10 --require-clean-latest-ci --require-clean-latest-ci-logs`,
     `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 10 --require-clean-dart-package-publish-dry-run --require-clean-native-release-dry-run`,
     and `git diff --check`
+  - implementation commit `c8b6a13`
+    (`ci: harden workflow run audit lookup`) passed local `bin/verify`,
+    including native Rust/FFI, Dart package, MCP, bench, router,
+    `remote_auth_integration_test`, and Chrome/Dart2Wasm browser coverage
+  - `c8b6a13` passed hosted GitHub `CI` run `25172656687`;
+    `Fast Checks` completed in 5m37s and `Full Verify` completed in 8m10s
+  - the branch-head clean-CI/log audit passed for `c8b6a13`, with no
+    high-signal warning, skipped-test, panic, broken-pipe, reset, timeout, or
+    connection-noise matches
+  - hosted Dart package dry-run `25170846455` remains clean and relevant for
+    `c8b6a13` because no package-publish-sensitive paths changed after
+    `a4818c8`; native release dry-run `25166714340` likewise remains clean and
+    relevant because no native-release-sensitive paths changed after `7098c54`
+  - RC readiness remains blocked only on operator/release actions: branch
+    protection, default-branch visibility for `router-image.yml`, visible
+    GHCR router package evidence, RC tag/prerelease selection, and the Dart
+    package release-order/pub.dev ownership decision
 - Confirmed pushed documentation head `639c095` passed GitHub `CI` run
   `25046524665`:
   - `Fast Checks`: success
