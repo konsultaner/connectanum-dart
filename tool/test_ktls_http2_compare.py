@@ -911,6 +911,9 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         8.0,
                         response_body_tail_read_avg_ms=1.0,
                         response_body_tail_connection_read_to_end_avg_ms=0.7,
+                        response_body_tail_connection_read_count_avg=4.0,
+                        response_body_tail_connection_read_bytes_avg=64000.0,
+                        response_body_tail_connection_read_size_avg=16000.0,
                     ),
                 ],
             )
@@ -925,6 +928,9 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         11.0,
                         response_body_tail_read_avg_ms=2.0,
                         response_body_tail_connection_read_to_end_avg_ms=1.4,
+                        response_body_tail_connection_read_count_avg=6.0,
+                        response_body_tail_connection_read_bytes_avg=70000.0,
+                        response_body_tail_connection_read_size_avg=15000.0,
                     ),
                 ],
             )
@@ -939,6 +945,9 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         8.5,
                         response_body_tail_read_avg_ms=1.2,
                         response_body_tail_connection_read_to_end_avg_ms=0.9,
+                        response_body_tail_connection_read_count_avg=5.0,
+                        response_body_tail_connection_read_bytes_avg=65000.0,
+                        response_body_tail_connection_read_size_avg=17000.0,
                     ),
                 ],
             )
@@ -953,6 +962,9 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         12.0,
                         response_body_tail_read_avg_ms=2.3,
                         response_body_tail_connection_read_to_end_avg_ms=1.8,
+                        response_body_tail_connection_read_count_avg=7.0,
+                        response_body_tail_connection_read_bytes_avg=71000.0,
+                        response_body_tail_connection_read_size_avg=15500.0,
                     ),
                 ],
             )
@@ -989,6 +1001,27 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("Tail read avg ms", markdown)
             self.assertIn("kTLS higher", markdown)
             self.assertIn("+1.00 ms..+1.10 ms (median +1.05 ms)", markdown)
+            self.assertIn(
+                "Tail conn read bytes avg | 2 | kTLS higher | "
+                "64000.00 B..65000.00 B (median 64500.00 B) | "
+                "70000.00 B..71000.00 B (median 70500.00 B) | "
+                "+6000.00 B..+6000.00 B (median +6000.00 B)",
+                markdown,
+            )
+            self.assertIn(
+                "Tail conn read-count avg | 2 | kTLS higher | "
+                "4.00..5.00 (median 4.50) | "
+                "6.00..7.00 (median 6.50) | "
+                "+2.00..+2.00 (median +2.00)",
+                markdown,
+            )
+            self.assertIn(
+                "Tail conn read-size avg B | 2 | kTLS lower | "
+                "16000.00 B..17000.00 B (median 16500.00 B) | "
+                "15000.00 B..15500.00 B (median 15250.00 B) | "
+                "-1500.00 B..-1000.00 B (median -1250.00 B)",
+                markdown,
+            )
 
     def test_repeat_stability_surfaces_server_and_native_signals(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

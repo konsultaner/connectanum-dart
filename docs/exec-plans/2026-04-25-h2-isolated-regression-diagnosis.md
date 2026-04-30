@@ -897,11 +897,45 @@ decisions.
     `--require-clean-latest-ci-logs` passed against `fb1f949`; the hosted CI
     log scan found no warning, deprecation, skipped-test, reset, timeout,
     panic, or connection-noise patterns
+  - documentation checkpoint `6c8bd57`
+    (`docs: record h2 tail read size ci`) passed hosted GitHub `CI` run
+    `25145654807`; `Fast Checks` completed in 5m32s and `Full Verify`
+    completed in 8m31s
+  - branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `6c8bd57`; the hosted CI
+    log scan found no warning, deprecation, skipped-test, reset, timeout,
+    panic, or connection-noise patterns
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25146117904` completed on
+    `6c8bd57` but is excluded from decision evidence because it was not
+    decision-quality and the hosted log had two
+    `http/2 accept error ... broken pipe` lines
+  - manual hosted retry `25146345720` completed successfully on `6c8bd57` and
+    produced decision-quality isolated `s1`, `threads=4`, one-router-worker
+    alternating evidence: throughput delta span was `2.05pp`, p95 delta span
+    was `10.26pp`, all repeats produced matched rows, and the hosted log scan
+    had no connection-noise pattern beyond expected manual artifact-gate skip
+    notices and benign setup/toolchain text
+  - the retry kept kTLS throughput lower in all repeats at
+    `-37.67%..-35.62%` and p95 higher at `+13.25%..+23.51%`
+  - the new read-size/gap fields narrow the body-tail diagnosis: tail
+    last-read-to-end stayed flat, average/max read size stayed flat/slightly
+    lower on kTLS, tail read-count was only modestly higher, and max
+    inter-read gap was kTLS-higher by `+0.25..+1.41 ms` with median
+    `+1.35 ms`
+  - the hosted artifact exposed a repeat-report readability bug where byte and
+    count signal rows rendered with the default `ms` suffix despite the metric
+    specs carrying `B` or empty units
+  - the current local reporter fix preserves each repeat signal unit through
+    rendering; focused verification passed with `bin/test-fast`,
+    `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`, `git diff --check`, and
+    rerendering hosted run `25146345720`; full local `bin/verify` also
+    passed on 2026-04-30, including Chrome/Dart2Wasm browser coverage
 
 ## Next Step
 
-Run the same isolated hosted `h2_multiplexed_streams_s1`, `threads=4`,
-one-router-worker alternating kTLS benchmark on `fb1f949` and use the new tail
-read-byte/inter-read gap fields to decide whether the stable kTLS-side
-body-tail delta is read fragmentation, longer inter-read gaps, or processing
-around a similar socket-read sequence.
+After the repeat-report unit fix is locally verified and hosted-clean, add the
+next bounded client tail-read diagnostic: identify where the maximum tail
+inter-read gap occurs within the tail read sequence so the stable kTLS-side
+body-tail delta can be tied to chunk-boundary scheduling, socket/TLS delivery,
+or later request/response stream pacing.

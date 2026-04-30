@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `fb1f949` (`bench: expose h2 tail read sizes`)
+Last reviewed commit: `6c8bd57` (`docs: record h2 tail read size ci`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -427,8 +427,7 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     between reads
   - comparison tooling now renders those fields in the HTTP response-body
     diagnostics table, phase focus lines, and repeat phase focus/signal
-    reports with byte/count units instead of treating every focus value as
-    milliseconds
+    reports
   - focused local checks for that instrumentation passed:
     `cargo test --manifest-path native/bench/Cargo.toml h2_client_read_probe_records --bin http_stream -- --nocapture`,
     `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`,
@@ -448,6 +447,47 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     `--require-clean-latest-ci-logs` passed against `fb1f949`; the hosted CI
     log scan found no warning, deprecation, skipped-test, reset, timeout,
     panic, or connection-noise patterns
+  - documentation checkpoint `6c8bd57`
+    (`docs: record h2 tail read size ci`) passed hosted GitHub `CI` run
+    `25145654807`; `Fast Checks` completed in 5m32s and `Full Verify`
+    completed in 8m31s
+  - branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `6c8bd57`; the hosted CI
+    log scan found no warning, deprecation, skipped-test, reset, timeout,
+    panic, or connection-noise patterns
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25146117904` completed on
+    `6c8bd57` but is excluded from decision evidence: the repeat artifact was
+    complete but not decision-quality, throughput delta span was `72.17pp`,
+    p95 delta span was `1493.48pp`, and the hosted log had two
+    `http/2 accept error ... broken pipe` lines
+  - manual hosted retry `25146345720` completed successfully on `6c8bd57`,
+    produced decision-quality isolated `s1`, `threads=4`,
+    one-router-worker alternating evidence, and its hosted log scan had no
+    connection-noise pattern beyond expected manual artifact-gate skip notices
+    and benign setup/toolchain text
+  - the decision-quality retry kept the kTLS-side regression stable:
+    throughput delta was `-37.67%..-35.62%`, p95 delta was
+    `+13.25%..+23.51%`, all repeats produced matched rows, and the worst
+    throughput/p95 row stayed stable at
+    `h2_multiplexed_streams_s1 (workers=1, threads=4)`
+  - the new tail read-size/gap fields show the stable body-tail delta is not
+    post-final-read processing and not primarily smaller reads: tail
+    last-read-to-end stayed flat, read-size averages were flat/slightly lower,
+    read-count was only modestly higher, and the repeated max inter-read gap
+    was kTLS-higher by `+0.25..+1.41 ms` (median `+1.35 ms`)
+  - the hosted artifact exposed a public readability bug in
+    `tool/ktls_http2_compare_repeats.py`: repeat phase signal rows carried
+    byte/count metadata internally but rendered byte/count ranges with the
+    default `ms` unit
+  - local reporter fix now preserves each repeat signal metric unit through
+    rendering; focused verification passed with `bin/test-fast`,
+    `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`, `git diff --check`, and
+    rerendering hosted run `25146345720` so byte fields render as `B` and
+    read-count fields render without an `ms` suffix
+  - full local `bin/verify` passed after the repeat signal unit fix on
+    2026-04-30, including Rust, Dart package, bench, router, and
+    Chrome/Dart2Wasm browser coverage
 - Current deployment-chain evidence refresh:
   - commit `b338d58` (`docs: record current deployment evidence`) passed
     hosted GitHub `CI` run `25123037462`; `Fast Checks` completed

@@ -448,6 +448,7 @@ def build_focus_signals(
                 "repeat_count": len(deltas),
                 "repeat_labels": bucket["repeat_labels"],
                 "direction": direction,
+                "unit": bucket["unit"],
                 "baseline_ms": numeric_summary(bucket["baseline_ms"]),
                 "ktls_ms": numeric_summary(bucket["ktls_ms"]),
                 "delta_ms": delta_summary,
