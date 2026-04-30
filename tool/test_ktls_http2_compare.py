@@ -1255,6 +1255,95 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("+0.60 ms..+0.70 ms (median +0.65 ms)", markdown)
             self.assertIn("+0.40 ms..+0.50 ms (median +0.45 ms)", markdown)
 
+    def test_repeat_stability_surfaces_transport_counter_issues(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+
+            repeat_one = root / "repeats" / "repeat-01"
+            repeat_two = root / "repeats" / "repeat-02"
+            repeat_one_baseline = repeat_one / "baseline"
+            repeat_one_ktls = repeat_one / "ktls"
+            repeat_two_baseline = repeat_two / "baseline"
+            repeat_two_ktls = repeat_two / "ktls"
+            repeat_one_baseline.mkdir(parents=True)
+            repeat_one_ktls.mkdir(parents=True)
+            repeat_two_baseline.mkdir(parents=True)
+            repeat_two_ktls.mkdir(parents=True)
+
+            clean_row = self._row("h2_multiplexed_streams_s1", 4, 5000.0, 12.0, 8.0)
+            clean_ktls_row = self._row(
+                "h2_multiplexed_streams_s1",
+                4,
+                4500.0,
+                14.0,
+                9.0,
+            )
+            noisy_ktls_row = self._row(
+                "h2_multiplexed_streams_s1",
+                4,
+                4500.0,
+                14.0,
+                9.0,
+                transport=self._transport(body_timeout_events=3),
+            )
+
+            self._write_summary(
+                repeat_one_baseline / "bench_results.summary.json", [clean_row]
+            )
+            self._write_summary(
+                repeat_one_ktls / "bench_results.summary.json", [clean_ktls_row]
+            )
+            self._write_summary(
+                repeat_two_baseline / "bench_results.summary.json", [clean_row]
+            )
+            self._write_summary(
+                repeat_two_ktls / "bench_results.summary.json", [noisy_ktls_row]
+            )
+
+            repeat_one_comparison = compare.build_comparison(
+                repeat_one_baseline / "bench_results.summary.json",
+                repeat_one_ktls / "bench_results.summary.json",
+            )
+            repeat_two_comparison = compare.build_comparison(
+                repeat_two_baseline / "bench_results.summary.json",
+                repeat_two_ktls / "bench_results.summary.json",
+            )
+
+            repeat_one_path = repeat_one / "comparison.json"
+            repeat_two_path = repeat_two / "comparison.json"
+            repeat_one_path.write_text(json.dumps(repeat_one_comparison))
+            repeat_two_path.write_text(json.dumps(repeat_two_comparison))
+
+            stability = repeat_compare.build_repeat_stability(
+                [repeat_one_path, repeat_two_path]
+            )
+
+            self.assertFalse(stability["decision_quality"])
+            self.assertIn(
+                "Transport counter issues appeared in repeat focus rows.",
+                stability["instability_reasons"],
+            )
+            self.assertEqual(len(stability["transport_counter_issues"]), 1)
+            self.assertEqual(
+                stability["transport_counter_issues"][0]["metric"],
+                "body_timeout_events",
+            )
+            self.assertEqual(
+                stability["runs"][1]["worst_throughput_transport"]["metrics"][
+                    "body_timeout_events"
+                ]["ktls"],
+                3,
+            )
+
+            markdown = repeat_compare.render_markdown(stability)
+            self.assertIn("Repeat transport counter issues: 1 non-zero", markdown)
+            self.assertIn("## Repeat Transport-Counter Signals", markdown)
+            self.assertIn("## Repeat Transport-Counter Focus", markdown)
+            self.assertIn("## Repeat Transport Counter Issues", markdown)
+            self.assertIn("Body timeout events", markdown)
+            self.assertIn("| repeat-02 | Worst throughput |", markdown)
+            self.assertIn("| 0 | 3 | +3 |", markdown)
+
     def test_repeat_stability_marks_partial_repeats_inconclusive(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -1805,6 +1894,11 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         body_timeout_events: int = 0,
         protocol_error_events: int = 0,
         internal_error_events: int = 0,
+        goaway_alerts: int = 0,
+        idle_timeout_alerts: int = 0,
+        body_timeout_alerts: int = 0,
+        protocol_error_alerts: int = 0,
+        internal_error_alerts: int = 0,
         max_backpressure_depth_after: int = 0,
         active_throttles_after: int = 0,
     ) -> dict:
@@ -1818,11 +1912,11 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             "backpressure_events": backpressure_events,
             "backpressure_alerts": backpressure_alerts,
             "transport_alerts": transport_alerts,
-            "goaway_alerts": 0,
-            "idle_timeout_alerts": 0,
-            "body_timeout_alerts": 0,
-            "protocol_error_alerts": 0,
-            "internal_error_alerts": 0,
+            "goaway_alerts": goaway_alerts,
+            "idle_timeout_alerts": idle_timeout_alerts,
+            "body_timeout_alerts": body_timeout_alerts,
+            "protocol_error_alerts": protocol_error_alerts,
+            "internal_error_alerts": internal_error_alerts,
             "max_backpressure_depth_after": max_backpressure_depth_after,
             "active_throttles_after": active_throttles_after,
         }

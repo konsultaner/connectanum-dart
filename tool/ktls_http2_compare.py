@@ -47,8 +47,18 @@ TRANSPORT_EVENT_TOTAL_KEYS = (
 TRANSPORT_SUMMARY_KEYS = (
     ("backpressure_events", "Backpressure events"),
     ("backpressure_alerts", "Backpressure alerts"),
+    ("goaway_events", "GOAWAY events"),
+    ("idle_timeout_events", "Idle timeout events"),
+    ("body_timeout_events", "Body timeout events"),
+    ("protocol_error_events", "Protocol error events"),
+    ("internal_error_events", "Internal error events"),
     ("transport_events_total", "Transport events"),
     ("transport_alerts", "Transport alerts"),
+    ("goaway_alerts", "GOAWAY alerts"),
+    ("idle_timeout_alerts", "Idle timeout alerts"),
+    ("body_timeout_alerts", "Body timeout alerts"),
+    ("protocol_error_alerts", "Protocol error alerts"),
+    ("internal_error_alerts", "Internal error alerts"),
     ("max_backpressure_depth_after", "Max backpressure depth after"),
     ("active_throttles_after", "Active throttles after"),
 )
@@ -2267,8 +2277,8 @@ def render_markdown(comparison: dict) -> str:
         [
             "## Transport Counter Deltas",
             "",
-            "| Workload | Router workers | Native runtime threads | Backpressure events | Backpressure alerts | Transport events | Transport alerts | Max depth after | Active throttles after |",
-            "| --- | ---: | ---: | --- | --- | --- | --- | --- | --- |",
+            "| Workload | Router workers | Native runtime threads | Backpressure events | Backpressure alerts | GOAWAY events | Idle timeout events | Body timeout events | Protocol error events | Internal error events | Transport events | Transport alerts | GOAWAY alerts | Idle timeout alerts | Body timeout alerts | Protocol error alerts | Internal error alerts | Max depth after | Active throttles after |",
+            "| --- | ---: | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
 
@@ -2280,7 +2290,7 @@ def render_markdown(comparison: dict) -> str:
         has_transport_rows = True
         metrics = transport_summary["metrics"]
         lines.append(
-            "| {workload} | {router_workers} | {native_runtime_threads} | {backpressure_events} | {backpressure_alerts} | {transport_events_total} | {transport_alerts} | {max_backpressure_depth_after} | {active_throttles_after} |".format(
+            "| {workload} | {router_workers} | {native_runtime_threads} | {backpressure_events} | {backpressure_alerts} | {goaway_events} | {idle_timeout_events} | {body_timeout_events} | {protocol_error_events} | {internal_error_events} | {transport_events_total} | {transport_alerts} | {goaway_alerts} | {idle_timeout_alerts} | {body_timeout_alerts} | {protocol_error_alerts} | {internal_error_alerts} | {max_backpressure_depth_after} | {active_throttles_after} |".format(
                 workload=row["workload"],
                 router_workers=row["router_workers"],
                 native_runtime_threads=row["native_runtime_threads"],
@@ -2290,11 +2300,37 @@ def render_markdown(comparison: dict) -> str:
                 backpressure_alerts=render_transport_snapshot(
                     metrics["backpressure_alerts"]
                 ),
+                goaway_events=render_transport_snapshot(metrics["goaway_events"]),
+                idle_timeout_events=render_transport_snapshot(
+                    metrics["idle_timeout_events"]
+                ),
+                body_timeout_events=render_transport_snapshot(
+                    metrics["body_timeout_events"]
+                ),
+                protocol_error_events=render_transport_snapshot(
+                    metrics["protocol_error_events"]
+                ),
+                internal_error_events=render_transport_snapshot(
+                    metrics["internal_error_events"]
+                ),
                 transport_events_total=render_transport_snapshot(
                     metrics["transport_events_total"]
                 ),
                 transport_alerts=render_transport_snapshot(
                     metrics["transport_alerts"]
+                ),
+                goaway_alerts=render_transport_snapshot(metrics["goaway_alerts"]),
+                idle_timeout_alerts=render_transport_snapshot(
+                    metrics["idle_timeout_alerts"]
+                ),
+                body_timeout_alerts=render_transport_snapshot(
+                    metrics["body_timeout_alerts"]
+                ),
+                protocol_error_alerts=render_transport_snapshot(
+                    metrics["protocol_error_alerts"]
+                ),
+                internal_error_alerts=render_transport_snapshot(
+                    metrics["internal_error_alerts"]
                 ),
                 max_backpressure_depth_after=render_transport_snapshot(
                     metrics["max_backpressure_depth_after"]
@@ -2306,7 +2342,7 @@ def render_markdown(comparison: dict) -> str:
         )
 
     if not has_transport_rows:
-        lines.append("| No overlapping completed workloads | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
+        lines.append("| No overlapping completed workloads | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
 
     lines.append("")
     lines.extend(

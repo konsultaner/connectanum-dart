@@ -289,6 +289,39 @@ NATIVE_RESPONSE_STREAM_FOCUS_METRICS = (
     ("first_to_last_chunk_send_avg_ms", "First-to-last chunk send avg ms"),
 )
 
+TRANSPORT_FOCUS_METRICS = (
+    ("backpressure_events", "Backpressure events", ""),
+    ("backpressure_alerts", "Backpressure alerts", ""),
+    ("goaway_events", "GOAWAY events", ""),
+    ("idle_timeout_events", "Idle timeout events", ""),
+    ("body_timeout_events", "Body timeout events", ""),
+    ("protocol_error_events", "Protocol error events", ""),
+    ("internal_error_events", "Internal error events", ""),
+    ("transport_events_total", "Transport events", ""),
+    ("transport_alerts", "Transport alerts", ""),
+    ("goaway_alerts", "GOAWAY alerts", ""),
+    ("idle_timeout_alerts", "Idle timeout alerts", ""),
+    ("body_timeout_alerts", "Body timeout alerts", ""),
+    ("protocol_error_alerts", "Protocol error alerts", ""),
+    ("internal_error_alerts", "Internal error alerts", ""),
+    ("max_backpressure_depth_after", "Max backpressure depth after", ""),
+    ("active_throttles_after", "Active throttles after", ""),
+)
+
+TRANSPORT_BLOCKER_METRICS = {
+    "goaway_events",
+    "idle_timeout_events",
+    "body_timeout_events",
+    "protocol_error_events",
+    "internal_error_events",
+    "transport_alerts",
+    "goaway_alerts",
+    "idle_timeout_alerts",
+    "body_timeout_alerts",
+    "protocol_error_alerts",
+    "internal_error_alerts",
+}
+
 
 def metric_key(spec: tuple) -> str:
     return spec[0]
@@ -428,6 +461,26 @@ def render_worst_row(row: dict | None) -> str:
     if row is None:
         return "n/a"
     return f"{row['label']} ({compare.render_pct(row['delta_pct'])})"
+
+
+def render_counter_value(value: float | int | None) -> str:
+    if value is None:
+        return "n/a"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return f"{float(value):.2f}"
+
+
+def render_counter_delta(value: float | int | None) -> str:
+    if value is None:
+        return "n/a"
+    if isinstance(value, int):
+        return f"{value:+d}"
+    if isinstance(value, float) and value.is_integer():
+        return f"{int(value):+d}"
+    return f"{float(value):+.2f}"
 
 
 def build_consensus(runs: list[dict], key: str) -> dict:
@@ -598,6 +651,68 @@ def build_native_response_stream_signals(runs: list[dict]) -> list[dict]:
     )
 
 
+def build_transport_signals(runs: list[dict]) -> list[dict]:
+    return build_focus_signals(
+        runs,
+        (
+            "worst_throughput_transport",
+            "worst_latency_transport",
+        ),
+        TRANSPORT_FOCUS_METRICS,
+    )
+
+
+def build_transport_counter_issues(runs: list[dict]) -> list[dict]:
+    metric_labels = {metric_key(spec): metric_label(spec) for spec in TRANSPORT_FOCUS_METRICS}
+    issues = []
+    focus_rows = collect_repeat_focus_rows(
+        runs,
+        (
+            ("Worst throughput", "worst_throughput_transport"),
+            ("Worst p95", "worst_latency_transport"),
+        ),
+    )
+
+    for repeat_label, focus_name, focus_row in focus_rows:
+        metrics = focus_row["metrics"]
+        for metric in TRANSPORT_BLOCKER_METRICS:
+            snapshot = metrics.get(metric)
+            if snapshot is None:
+                continue
+
+            baseline = snapshot.get("baseline")
+            ktls = snapshot.get("ktls")
+            if not isinstance(baseline, (int, float)) or not isinstance(
+                ktls, (int, float)
+            ):
+                continue
+            if baseline == 0 and ktls == 0:
+                continue
+
+            issues.append(
+                {
+                    "repeat_label": repeat_label,
+                    "focus": focus_name,
+                    "row": focus_row["label"],
+                    "metric": metric,
+                    "metric_label": metric_labels[metric],
+                    "baseline": baseline,
+                    "ktls": ktls,
+                    "delta": snapshot.get("delta"),
+                }
+            )
+
+    issues.sort(
+        key=lambda issue: (
+            issue["repeat_label"],
+            issue["focus"],
+            issue["row"],
+            issue["metric_label"],
+        )
+    )
+    return issues
+
+
 def collect_repeat_focus_rows(
     runs: list[dict], focus_keys: tuple[tuple[str, str], ...]
 ) -> list[tuple[str, str, dict]]:
@@ -652,6 +767,7 @@ def build_repeat_stability(comparison_paths: list[Path]) -> dict:
         throughput = summary.get("throughput")
         latency = summary.get("latency_p95")
         phase_timing_focus = summary.get("phase_timing_focus") or {}
+        transport_focus = summary.get("transport_focus") or {}
         server_emission_focus = summary.get("server_emission_focus") or {}
         native_response_stream_focus = (
             summary.get("native_response_stream_focus") or {}
@@ -690,6 +806,14 @@ def build_repeat_stability(comparison_paths: list[Path]) -> dict:
                 ),
                 "worst_latency_phase_timing": pack_phase_focus_row(
                     phase_timing_focus.get("worst_latency_row")
+                ),
+                "worst_throughput_transport": pack_focus_row(
+                    transport_focus.get("worst_throughput_row"),
+                    TRANSPORT_FOCUS_METRICS,
+                ),
+                "worst_latency_transport": pack_focus_row(
+                    transport_focus.get("worst_latency_row"),
+                    TRANSPORT_FOCUS_METRICS,
                 ),
                 "worst_throughput_server_emission": pack_focus_row(
                     server_emission_focus.get("worst_throughput_row"),
@@ -801,6 +925,7 @@ def build_repeat_stability(comparison_paths: list[Path]) -> dict:
 
     worst_throughput_consensus = build_consensus(runs, "worst_throughput_row")
     worst_latency_consensus = build_consensus(runs, "worst_latency_row")
+    transport_counter_issues = build_transport_counter_issues(runs)
 
     instability_reasons: list[str] = []
     if not row_stability:
@@ -839,6 +964,10 @@ def build_repeat_stability(comparison_paths: list[Path]) -> dict:
         instability_reasons.append(
             f"Largest p95 delta span exceeded {render_span(LATENCY_P95_DELTA_SPAN_THRESHOLD_PCT)}."
         )
+    if transport_counter_issues:
+        instability_reasons.append(
+            "Transport counter issues appeared in repeat focus rows."
+        )
 
     return {
         "mode": "repeat_stability",
@@ -854,6 +983,8 @@ def build_repeat_stability(comparison_paths: list[Path]) -> dict:
         "max_throughput_span_row": max_throughput_span_row,
         "max_latency_p95_span_row": max_latency_p95_span_row,
         "phase_signals": build_phase_signals(runs),
+        "transport_signals": build_transport_signals(runs),
+        "transport_counter_issues": transport_counter_issues,
         "server_emission_signals": build_server_emission_signals(runs),
         "native_response_stream_signals": build_native_response_stream_signals(runs),
         "runs": runs,
@@ -865,6 +996,8 @@ def render_markdown(stability: dict) -> str:
     repeat_count = stability["repeat_count"]
     thresholds = stability["stability_thresholds"]
     phase_signals = stability.get("phase_signals") or []
+    transport_signals = stability.get("transport_signals") or []
+    transport_counter_issues = stability.get("transport_counter_issues") or []
     server_emission_signals = stability.get("server_emission_signals") or []
     native_response_stream_signals = (
         stability.get("native_response_stream_signals") or []
@@ -900,6 +1033,26 @@ def render_markdown(stability: dict) -> str:
         )
     else:
         lines.append("- Repeat phase signals: none across repeated focus rows.")
+
+    if transport_signals:
+        lines.append(
+            "- Repeat transport-counter signals: "
+            f"{len(transport_signals)} sign-consistent transport counter deltas across repeated focus rows."
+        )
+    else:
+        lines.append(
+            "- Repeat transport-counter signals: none across repeated focus rows."
+        )
+
+    if transport_counter_issues:
+        lines.append(
+            "- Repeat transport counter issues: "
+            f"{len(transport_counter_issues)} non-zero event/alert counters in focus rows."
+        )
+    else:
+        lines.append(
+            "- Repeat transport counter issues: none in focus rows."
+        )
 
     if server_emission_signals:
         lines.append(
@@ -1060,6 +1213,7 @@ def render_markdown(stability: dict) -> str:
             lines.append("| None | n/a | n/a | n/a | n/a | n/a | n/a |")
 
     append_signal_table("## Repeat Phase Signals", phase_signals)
+    append_signal_table("## Repeat Transport-Counter Signals", transport_signals)
     append_signal_table("## Repeat Server-Emission Signals", server_emission_signals)
     append_signal_table(
         "## Repeat Native Response-Stream Signals",
@@ -1114,6 +1268,13 @@ def render_markdown(stability: dict) -> str:
             ("Worst p95", "worst_latency_phase_timing"),
         ),
     )
+    transport_focus_rows = collect_repeat_focus_rows(
+        stability["runs"],
+        (
+            ("Worst throughput", "worst_throughput_transport"),
+            ("Worst p95", "worst_latency_transport"),
+        ),
+    )
     server_emission_focus_rows = collect_repeat_focus_rows(
         stability["runs"],
         (
@@ -1135,6 +1296,11 @@ def render_markdown(stability: dict) -> str:
         phase_focus_rows,
     )
     append_focus_table(
+        "## Repeat Transport-Counter Focus",
+        TRANSPORT_FOCUS_METRICS,
+        transport_focus_rows,
+    )
+    append_focus_table(
         "## Repeat Server-Emission Focus",
         SERVER_EMISSION_FOCUS_METRICS,
         server_emission_focus_rows,
@@ -1144,6 +1310,32 @@ def render_markdown(stability: dict) -> str:
         NATIVE_RESPONSE_STREAM_FOCUS_METRICS,
         native_response_stream_focus_rows,
     )
+
+    lines.extend(
+        [
+            "",
+            "## Repeat Transport Counter Issues",
+            "",
+            "| Repeat | Focus | Row | Metric | Baseline | kTLS | Delta |",
+            "| --- | --- | --- | --- | ---: | ---: | ---: |",
+        ]
+    )
+
+    if transport_counter_issues:
+        for issue in transport_counter_issues:
+            lines.append(
+                "| {repeat} | {focus} | {row} | {metric} | {baseline} | {ktls} | {delta} |".format(
+                    repeat=issue["repeat_label"],
+                    focus=issue["focus"],
+                    row=issue["row"],
+                    metric=issue["metric_label"],
+                    baseline=render_counter_value(issue["baseline"]),
+                    ktls=render_counter_value(issue["ktls"]),
+                    delta=render_counter_delta(issue["delta"]),
+                )
+            )
+    else:
+        lines.append("| None | n/a | n/a | n/a | n/a | n/a | n/a |")
 
     lines.extend(
         [
