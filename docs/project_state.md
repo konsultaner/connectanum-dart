@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: local Dart package release-plan readability slice on top
-of `4cb07d6` (`docs: align continuation priorities`)
+Last reviewed commit: local release-evidence documentation refresh on top of
+`1b5686f` (`ci: show private dart package inventory`)
 Active exec plan: none; use `ROADMAP_NEXT.md` after re-checking CI and
 GitHub deployment-chain evidence
 
@@ -12,15 +12,30 @@ GitHub deployment-chain evidence
 - Current autonomous focus:
   - keep the CI chain clean first; the deployment-chain plan is paused because
     the remaining RC blockers are operator/release decisions
-  - latest pushed branch head `4cb07d6`
-    (`docs: align continuation priorities`) passed hosted GitHub `CI` run
-    `25184860826`: `Fast Checks` completed in 5m29s and `Full Verify`
-    completed in 8m10s
+  - latest pushed branch head `1b5686f`
+    (`ci: show private dart package inventory`) passed hosted GitHub `CI` run
+    `25187265086`: `Fast Checks` completed in 5m36s and `Full Verify`
+    completed in 8m01s
   - branch-head deployment-chain audit with `--require-clean-latest-ci` and
-    `--require-clean-latest-ci-logs` passed against `4cb07d6`; latest CI log
+    `--require-clean-latest-ci-logs` passed against `1b5686f`; latest CI log
     scan found no high-signal warning, skipped-test, panic, broken-pipe, reset,
     timeout, or connection-noise matches
-  - completed local slice is Dart package release-plan readability:
+  - hosted GitHub `Dart Package Publish Dry Run` run `25187265107` passed on
+    `1b5686f` and covers the checked-out package-publishing inputs
+  - branch-head deployment-chain audit with
+    `--require-clean-native-release-dry-run` also passed against the checked-out
+    head; manual `Native Artifacts` dry-run `25166714340` remains clean and
+    relevant because no native-release-sensitive paths changed after `7098c54`
+  - completed local slice is release-evidence documentation refresh: public
+    deployment-chain and package-publishing docs should point at the current
+    clean hosted branch-head evidence instead of older pinned run IDs
+  - local `bin/test-fast` passed on 2026-04-30 before editing the
+    release-evidence documentation refresh
+  - local `bin/verify` passed on 2026-04-30 after the release-evidence
+    documentation refresh; it included formatting, Rust/Dart package tests, MCP
+    tests, bench integration tests, router tests, build hooks, and Chrome
+    Dart2Wasm WebSocket transport tests
+  - completed Dart package release-plan readability slice:
     `bin/dart-package-publish-dry-run --show-release-plan` should expose every
     private workspace package separately from private packages that block a
     publishable target, so `connectanum_mcp` remains visible without implying

@@ -236,6 +236,23 @@ For the latest branch-head status, run the clean-CI audit command above. The
 items below are pinned deployment-chain checkpoints from 2026-04-30, not a
 replacement for the live audit:
 
+- `add-router` deployment-audit checkpoint `1b5686f` passed GitHub `CI` run
+  `25187265086`: `Fast Checks` completed in 5m36s and `Full Verify`
+  completed in 8m01s.
+- The clean-CI audit passed for `1b5686f` with
+  `--require-clean-latest-ci --require-clean-latest-ci-logs`; hosted CI logs
+  had no high-signal warning, deprecation, skipped-test, panic, broken-pipe,
+  reset, timeout, or connection-noise matches.
+- GitHub `Dart Package Publish Dry Run` run `25187265107` passed on
+  `1b5686f`; it covers the checked-out package-publishing inputs and keeps the
+  current `connectanum_core` before `connectanum_client` release-order blocker
+  visible without publishing to pub.dev.
+- The branch-head deployment-chain audit passes the clean main `CI`, clean
+  hosted `CI` log, and clean/relevant Dart package dry-run gates for
+  `1b5686f`.
+- Manual `Native Artifacts` dry-run `25166714340` remains clean and relevant
+  for `1b5686f` because no native-release-sensitive paths changed after
+  `7098c54`.
 - `add-router` deployment-audit checkpoint `c8b6a13` passed GitHub `CI` run
   `25172656687`: `Fast Checks` completed in 5m37s and `Full Verify`
   completed in 8m10s.
@@ -255,7 +272,7 @@ replacement for the live audit:
   changed after `7098c54`.
 - The current audit gates pass for clean main `CI`, clean hosted `CI` logs,
   clean/relevant Dart package dry-run evidence, and clean/relevant native
-  release dry-run evidence.
+  release dry-run evidence on the current branch head.
 - `bin/audit-github-deployment-chain` falls back to the unfiltered branch run
   list when GitHub's workflow-filtered run list temporarily lags a freshly
   completed run, avoiding false negatives in deployment-chain evidence checks.
