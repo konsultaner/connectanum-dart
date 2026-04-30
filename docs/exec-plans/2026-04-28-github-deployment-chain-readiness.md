@@ -1,6 +1,6 @@
 # GitHub Deployment Chain Readiness
 
-Status: in_progress
+Status: paused
 Owner: Codex
 Created: 2026-04-28
 Last updated: 2026-04-30

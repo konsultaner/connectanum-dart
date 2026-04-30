@@ -919,3 +919,31 @@ The next hosted milestone should therefore be:
 
 Only after that aggregate report converges on a stable hotspot should the next
 session return to HTTP/2 runtime tuning.
+
+### Current-Head Focused Repeat Result
+
+GitHub Actions run `25176887533` on commit `9dcab42` repeated the focused
+`h2_multiplexed_streams_s1`, `threads=4`, one-router-worker diagnostic shape
+with `repeat_count=3`, `repeat_order=alternating`, and
+`skip_artifact_gate=true`.
+
+The run completed successfully and uploaded `ktls-http2-bench-artifacts`, but
+the aggregate stayed below decision quality:
+
+- worst throughput and p95 row consistency was stable across all three repeats
+  at `h2_multiplexed_streams_s1 (workers=1, threads=4)`
+- throughput regression was consistent enough for the current stability gate:
+  `-55.01%..-42.00%`, span `13.01pp`
+- p95 remained unstable enough to block runtime-tuning decisions:
+  `+35.74%..+96.27%`, span `60.53pp` against the `50.00pp` threshold
+- focus-row transport counters stayed all-zero in every repeat
+- the repeated focus rows had sign-consistent phase, server-emission, and
+  native response-stream deltas, with the strongest repeated server-side
+  movement around native request-body remaining-tail/data-wait timing on the
+  kTLS side
+
+This means the next bounded kTLS task should still be measurement quality, not
+a runtime change. The useful next split is why repeats 01 and 03 show larger
+header/body timing movement while repeat 02 is closer to baseline, or a report
+improvement that makes that mixed p95 span directly actionable from the
+aggregate artifact.

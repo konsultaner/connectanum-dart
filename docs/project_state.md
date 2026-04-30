@@ -2,25 +2,24 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `c8b6a13` (`ci: harden workflow run audit lookup`)
-Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
+Last reviewed commit: `9dcab42` (`docs: record audit lookup ci evidence`)
+Active exec plan: `docs/exec-plans/2026-04-30-ktls-repeat-stability-followup.md`
 
 ## Last Known Verification
 
 - Current autonomous focus:
-  - return to GitHub deployment-chain and RC-readiness work; the H2/kTLS slice
-    is complete for now and should not remain the default continuation path
-    unless CI, release artifacts, or branch evidence regress
-  - latest pushed branch head `c8b6a13`
-    (`ci: harden workflow run audit lookup`) passed hosted GitHub `CI` run
-    `25172656687`: `Fast Checks` completed in 5m37s and `Full Verify`
-    completed in 8m10s
+  - keep the CI chain clean first; the deployment-chain plan is paused because
+    the remaining RC blockers are operator/release decisions
+  - latest pushed branch head `9dcab42`
+    (`docs: record audit lookup ci evidence`) passed hosted GitHub `CI` run
+    `25175047332`: `Fast Checks` completed in 5m42s and `Full Verify`
+    completed in 8m03s
   - branch-head deployment-chain audit with `--require-clean-latest-ci` and
-    `--require-clean-latest-ci-logs` passed against `c8b6a13`; latest CI log
+    `--require-clean-latest-ci-logs` passed against `9dcab42`; latest CI log
     scan found no high-signal warning, skipped-test, panic, broken-pipe, reset,
     timeout, or connection-noise matches
   - hosted GitHub `Dart Package Publish Dry Run` run `25170846455` passed on
-    `a4818c8`; the audit confirms it remains relevant for `c8b6a13` because
+    `a4818c8`; the audit confirms it remains relevant for `9dcab42` because
     no package-publish-sensitive paths changed, and the package dry-run stayed
     at `Package has 0 warnings`
   - `out/production` generated output is no longer tracked by Git; `/out/`
@@ -40,7 +39,7 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     workflow-filtered run list to the unfiltered branch run list when a fresh
     completed workflow run is visible only in the latter; this prevents a
     transient false failure in the Dart/native evidence gates
-  - Dart package publish-readiness evidence is current for `c8b6a13`; the
+  - Dart package publish-readiness evidence is current for `9dcab42`; the
     remaining blocker is still the intentional release-order decision
     `connectanum_core -> connectanum_client`
   - remaining RC/deployment blockers are still operator/product/deployment
@@ -60,9 +59,24 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     `0da1030` with a clean hosted log scan and no transport-counter issues;
     it was likewise not decision-quality, this time from kTLS-side instability
     (`58.76pp` throughput delta span and `1767.09pp` p95 delta span)
-  - the H2 body-timeout symptom did not recur across the two post-reporting
-    runs; any future H2 work should target benchmark repeat stability and
-    hosted-run measurement evidence, not speculative transport changes
+  - current-head kTLS repeat-stability run `25176887533` passed on `9dcab42`
+    with focused `h2_multiplexed_streams_s1`, `threads=4`,
+    `repeat_count=3`, alternating order, and `skip_artifact_gate=true`
+  - `25176887533` is diagnostic but not decision-quality: the worst throughput
+    and p95 row was stable across all three repeats, throughput delta span was
+    acceptable at `13.01pp` (`-55.01%..-42.00%`), but p95 delta span was still
+    too wide at `60.53pp` (`+35.74%..+96.27%`) against the `50.00pp` threshold
+  - `25176887533` had no focus-row transport-counter issues; all transport
+    counters stayed zero, and the hosted log scan only matched benign setup
+    text
+  - local `bin/test-fast` passed on 2026-04-30 before recording this
+    kTLS-repeat evidence
+  - local `bin/verify` passed on 2026-04-30 after recording this
+    kTLS-repeat evidence; it included formatting, Rust/Dart package tests,
+    router tests, build hooks, and Chrome Dart2Wasm WebSocket transport tests
+  - the H2 body-timeout symptom did not recur across the post-reporting runs;
+    current kTLS/H2 work should target benchmark repeat stability and hosted
+    measurement evidence before any runtime tuning
 - Recent kTLS/H2 isolated diagnosis/reporting slice:
   - commit `7d08440`
     (`bench: flag transport counter issues in h2 repeats`) makes the kTLS/H2
