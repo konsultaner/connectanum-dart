@@ -15,37 +15,69 @@ PHASE_SIGNAL_MIN_ABS_DELTA_MS = 0.01
 FOCUS_SIGNAL_MIN_MEDIAN_ABS_DELTA_MS = 0.10
 
 PHASE_FOCUS_METRICS = (
-    ("response_headers_wait_avg_ms", "Headers wait avg ms"),
+    ("response_headers_wait_avg_ms", "Headers wait avg ms", " ms"),
     (
         "response_headers_last_write_to_first_read_avg_ms",
         "Header last-write-to-first-read avg ms",
+        " ms",
     ),
-    ("response_body_read_avg_ms", "Body read avg ms"),
-    ("response_body_first_chunk_wait_avg_ms", "First chunk wait avg ms"),
-    ("response_body_tail_read_avg_ms", "Tail read avg ms"),
+    ("response_body_read_avg_ms", "Body read avg ms", " ms"),
+    ("response_body_first_chunk_wait_avg_ms", "First chunk wait avg ms", " ms"),
+    ("response_body_tail_read_avg_ms", "Tail read avg ms", " ms"),
     (
         "response_body_connection_read_to_first_chunk_avg_ms",
         "Conn read-to-first-chunk avg ms",
+        " ms",
     ),
     (
         "response_body_tail_connection_read_wait_avg_ms",
         "Tail conn read wait avg ms",
+        " ms",
     ),
     (
         "response_body_tail_connection_read_to_end_avg_ms",
         "Tail conn read-to-end avg ms",
+        " ms",
     ),
     (
         "response_body_tail_connection_read_count_avg",
         "Tail conn read-count avg",
+        "",
     ),
     (
         "response_body_tail_connection_read_span_avg_ms",
         "Tail conn read-span avg ms",
+        " ms",
     ),
     (
         "response_body_tail_connection_last_read_to_end_avg_ms",
         "Tail conn last-read-to-end avg ms",
+        " ms",
+    ),
+    (
+        "response_body_tail_connection_read_bytes_avg",
+        "Tail conn read bytes avg",
+        " B",
+    ),
+    (
+        "response_body_tail_connection_read_size_avg",
+        "Tail conn read-size avg B",
+        " B",
+    ),
+    (
+        "response_body_tail_connection_read_size_max_avg",
+        "Tail conn max read-size avg B",
+        " B",
+    ),
+    (
+        "response_body_tail_connection_inter_read_gap_avg_ms",
+        "Tail conn inter-read gap avg ms",
+        " ms",
+    ),
+    (
+        "response_body_tail_connection_inter_read_gap_max_avg_ms",
+        "Tail conn max inter-read gap avg ms",
+        " ms",
     ),
 )
 
@@ -160,6 +192,18 @@ NATIVE_RESPONSE_STREAM_FOCUS_METRICS = (
 )
 
 
+def metric_key(spec: tuple) -> str:
+    return spec[0]
+
+
+def metric_label(spec: tuple) -> str:
+    return spec[1]
+
+
+def metric_unit(spec: tuple) -> str:
+    return spec[2] if len(spec) > 2 else " ms"
+
+
 def row_key(row: dict) -> tuple:
     return (
         row["scenario"],
@@ -260,7 +304,7 @@ def pack_focus_row(
     metrics = row.get("metrics") or {}
     selected_metrics = {
         key: metrics[key]
-        for key, _ in metric_specs
+        for key in (metric_key(spec) for spec in metric_specs)
         if metrics.get(key) is not None
     }
     if not selected_metrics:
@@ -324,7 +368,8 @@ def build_focus_signals(
     metric_specs: tuple[tuple[str, str], ...],
 ) -> list[dict]:
     buckets: dict[tuple[str, str], dict] = {}
-    metric_labels = {key: label for key, label in metric_specs}
+    metric_labels = {metric_key(spec): metric_label(spec) for spec in metric_specs}
+    metric_units = {metric_key(spec): metric_unit(spec) for spec in metric_specs}
 
     for run in runs:
         seen_labels = set()
@@ -338,7 +383,8 @@ def build_focus_signals(
                 continue
             seen_labels.add(row_label)
 
-            for metric, _ in metric_specs:
+            for spec in metric_specs:
+                metric = metric_key(spec)
                 snapshot = phase_row["metrics"].get(metric)
                 if snapshot is None:
                     continue
@@ -360,6 +406,7 @@ def build_focus_signals(
                         "label": row_label,
                         "metric": metric,
                         "metric_label": metric_labels[metric],
+                        "unit": metric_units[metric],
                         "repeat_labels": [],
                         "baseline_ms": [],
                         "ktls_ms": [],
@@ -903,9 +950,11 @@ def render_markdown(stability: dict) -> str:
                         metric=signal["metric_label"],
                         repeats=signal["repeat_count"],
                         direction=signal["direction"],
-                        baseline=render_range(signal["baseline_ms"], " ms"),
-                        ktls=render_range(signal["ktls_ms"], " ms"),
-                        delta=render_signed_range(signal["delta_ms"], " ms"),
+                        baseline=render_range(signal["baseline_ms"], signal.get("unit", " ms")),
+                        ktls=render_range(signal["ktls_ms"], signal.get("unit", " ms")),
+                        delta=render_signed_range(
+                            signal["delta_ms"], signal.get("unit", " ms")
+                        ),
                     )
                 )
         else:
@@ -929,7 +978,7 @@ def render_markdown(stability: dict) -> str:
                 title,
                 "",
                 "| Repeat | Focus | Row | "
-                + " | ".join(label for _, label in metric_specs)
+                + " | ".join(metric_label(spec) for spec in metric_specs)
                 + " |",
                 "| --- | --- | --- | "
                 + " | ".join("---:" for _ in metric_specs)
@@ -942,7 +991,7 @@ def render_markdown(stability: dict) -> str:
                 metrics = focus_row["metrics"]
                 rendered_metrics = [
                     compare.render_connection_metric_snapshot(metrics.get(key))
-                    for key, _ in metric_specs
+                    for key in (metric_key(spec) for spec in metric_specs)
                 ]
                 lines.append(
                     "| {repeat} | {focus} | {row} | {metrics} |".format(

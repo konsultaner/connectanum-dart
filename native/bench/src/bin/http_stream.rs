@@ -87,6 +87,11 @@ struct H2ResponseDrainStats {
     tail_connection_read_count: Option<u64>,
     tail_connection_read_span_ms: Option<f64>,
     tail_connection_last_read_to_end_ms: Option<f64>,
+    tail_connection_read_bytes: Option<u64>,
+    tail_connection_read_size_avg: Option<f64>,
+    tail_connection_read_size_max: Option<u64>,
+    tail_connection_inter_read_gap_avg_ms: Option<f64>,
+    tail_connection_inter_read_gap_max_ms: Option<f64>,
 }
 
 #[derive(Clone)]
@@ -112,6 +117,10 @@ struct H2ClientReadProbeState {
     first_connection_read_at: Mutex<Option<Instant>>,
     last_connection_read_at: Mutex<Option<Instant>>,
     connection_read_count: Mutex<u64>,
+    connection_read_bytes: Mutex<u64>,
+    connection_read_size_max: Mutex<u64>,
+    inter_connection_read_gap_total_ms: Mutex<f64>,
+    inter_connection_read_gap_max_ms: Mutex<f64>,
     finished: AtomicBool,
 }
 
@@ -123,6 +132,11 @@ struct H2ClientPhaseReadStats {
     last_connection_read_to_phase_end_ms: Option<f64>,
     first_connection_read_at: Option<Instant>,
     connection_read_count: u64,
+    connection_read_bytes: u64,
+    connection_read_size_avg: Option<f64>,
+    connection_read_size_max: Option<u64>,
+    inter_connection_read_gap_avg_ms: Option<f64>,
+    inter_connection_read_gap_max_ms: Option<f64>,
 }
 
 #[derive(Debug, Default)]
@@ -848,6 +862,10 @@ impl H2ClientReadTracker {
             first_connection_read_at: Mutex::new(None),
             last_connection_read_at: Mutex::new(None),
             connection_read_count: Mutex::new(0),
+            connection_read_bytes: Mutex::new(0),
+            connection_read_size_max: Mutex::new(0),
+            inter_connection_read_gap_total_ms: Mutex::new(0.0),
+            inter_connection_read_gap_max_ms: Mutex::new(0.0),
             finished: AtomicBool::new(false),
         });
         let mut guard = self
@@ -859,7 +877,7 @@ impl H2ClientReadTracker {
         H2ClientReadProbe { state: probe }
     }
 
-    fn record_connection_read(&self, read_at: Instant) {
+    fn record_connection_read(&self, read_at: Instant, bytes_read: u64) {
         let mut guard = self
             .probes
             .lock()
@@ -881,6 +899,25 @@ impl H2ClientReadTracker {
                 .last_connection_read_at
                 .lock()
                 .unwrap_or_else(|poison| poison.into_inner());
+            if let Some(previous_read_at) = *last_connection_read_at {
+                if read_at >= previous_read_at {
+                    let gap_ms = read_at
+                        .saturating_duration_since(previous_read_at)
+                        .as_secs_f64()
+                        * 1000.0;
+                    let mut gap_total = state
+                        .inter_connection_read_gap_total_ms
+                        .lock()
+                        .unwrap_or_else(|poison| poison.into_inner());
+                    *gap_total += gap_ms;
+                    drop(gap_total);
+                    let mut gap_max = state
+                        .inter_connection_read_gap_max_ms
+                        .lock()
+                        .unwrap_or_else(|poison| poison.into_inner());
+                    *gap_max = (*gap_max).max(gap_ms);
+                }
+            }
             *last_connection_read_at = Some(read_at);
             drop(last_connection_read_at);
             let mut connection_read_count = state
@@ -888,6 +925,18 @@ impl H2ClientReadTracker {
                 .lock()
                 .unwrap_or_else(|poison| poison.into_inner());
             *connection_read_count = connection_read_count.saturating_add(1);
+            drop(connection_read_count);
+            let mut connection_read_bytes = state
+                .connection_read_bytes
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner());
+            *connection_read_bytes = connection_read_bytes.saturating_add(bytes_read);
+            drop(connection_read_bytes);
+            let mut connection_read_size_max = state
+                .connection_read_size_max
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner());
+            *connection_read_size_max = (*connection_read_size_max).max(bytes_read);
         }
     }
 }
@@ -908,6 +957,26 @@ impl H2ClientReadProbe {
         let connection_read_count = *self
             .state
             .connection_read_count
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let connection_read_bytes = *self
+            .state
+            .connection_read_bytes
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let connection_read_size_max = *self
+            .state
+            .connection_read_size_max
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let inter_connection_read_gap_total_ms = *self
+            .state
+            .inter_connection_read_gap_total_ms
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let inter_connection_read_gap_max_ms = *self
+            .state
+            .inter_connection_read_gap_max_ms
             .lock()
             .unwrap_or_else(|poison| poison.into_inner());
         let connection_read_wait_ms = first_connection_read_at.map(|read_at| {
@@ -951,6 +1020,27 @@ impl H2ClientReadProbe {
             last_connection_read_to_phase_end_ms,
             first_connection_read_at,
             connection_read_count,
+            connection_read_bytes,
+            connection_read_size_avg: if connection_read_count == 0 {
+                None
+            } else {
+                Some(connection_read_bytes as f64 / connection_read_count as f64)
+            },
+            connection_read_size_max: if connection_read_count == 0 {
+                None
+            } else {
+                Some(connection_read_size_max)
+            },
+            inter_connection_read_gap_avg_ms: if connection_read_count <= 1 {
+                None
+            } else {
+                Some(inter_connection_read_gap_total_ms / (connection_read_count - 1) as f64)
+            },
+            inter_connection_read_gap_max_ms: if connection_read_count <= 1 {
+                None
+            } else {
+                Some(inter_connection_read_gap_max_ms)
+            },
         }
     }
 }
@@ -1063,8 +1153,12 @@ impl<T: AsyncRead + Unpin> AsyncRead for InstrumentedH2ClientIo<T> {
         let filled_before = buf.filled().len();
         match Pin::new(&mut me.inner).poll_read(cx, buf) {
             Poll::Ready(Ok(())) => {
-                if buf.filled().len() > filled_before {
-                    me.read_tracker.record_connection_read(Instant::now());
+                let filled_after = buf.filled().len();
+                if filled_after > filled_before {
+                    me.read_tracker.record_connection_read(
+                        Instant::now(),
+                        (filled_after - filled_before) as u64,
+                    );
                 }
                 Poll::Ready(Ok(()))
             }
@@ -1974,6 +2068,24 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
                     phase_timing.response_body_tail_connection_read_to_end_samples_total
                 );
             }
+            if phase_timing.response_body_tail_connection_read_bytes_samples_total > 0 {
+                println!(
+                    "  HTTP tail connection read bytes avg/p95: {:.0} / {:.0} B, read size avg/p95: {:.0} / {:.0} B",
+                    phase_timing.response_body_tail_connection_read_bytes_avg,
+                    phase_timing.response_body_tail_connection_read_bytes_p95,
+                    phase_timing.response_body_tail_connection_read_size_avg,
+                    phase_timing.response_body_tail_connection_read_size_p95
+                );
+            }
+            if phase_timing.response_body_tail_connection_inter_read_gap_avg_samples_total > 0 {
+                println!(
+                    "  HTTP tail connection inter-read gap avg/p95: {:.2} / {:.2} ms, max avg/p95: {:.2} / {:.2} ms",
+                    phase_timing.response_body_tail_connection_inter_read_gap_avg_ms,
+                    phase_timing.response_body_tail_connection_inter_read_gap_p95_ms,
+                    phase_timing.response_body_tail_connection_inter_read_gap_max_avg_ms,
+                    phase_timing.response_body_tail_connection_inter_read_gap_max_p95_ms
+                );
+            }
             println!(
                 "  HTTP request round trip avg/p95: {:.2} / {:.2} ms",
                 phase_timing.request_round_trip_avg_ms, phase_timing.request_round_trip_p95_ms
@@ -2108,6 +2220,33 @@ fn summarize_http_phase_timing(
         .filter_map(|sample| sample.http_phase_timing.as_ref())
         .filter_map(|timing| timing.response_body_tail_connection_last_read_to_end_ms)
         .collect::<Vec<_>>();
+    let mut response_body_tail_connection_read_bytes = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_body_tail_connection_read_bytes)
+        .map(|bytes| bytes as f64)
+        .collect::<Vec<_>>();
+    let mut response_body_tail_connection_read_size_avgs = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_body_tail_connection_read_size_avg)
+        .collect::<Vec<_>>();
+    let mut response_body_tail_connection_read_size_maxes = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_body_tail_connection_read_size_max)
+        .map(|bytes| bytes as f64)
+        .collect::<Vec<_>>();
+    let mut response_body_tail_connection_inter_read_gap_avgs = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_body_tail_connection_inter_read_gap_avg_ms)
+        .collect::<Vec<_>>();
+    let mut response_body_tail_connection_inter_read_gap_maxes = samples
+        .iter()
+        .filter_map(|sample| sample.http_phase_timing.as_ref())
+        .filter_map(|timing| timing.response_body_tail_connection_inter_read_gap_max_ms)
+        .collect::<Vec<_>>();
     let mut request_round_trips = samples
         .iter()
         .filter_map(|sample| sample.http_phase_timing.as_ref())
@@ -2134,6 +2273,11 @@ fn summarize_http_phase_timing(
     response_body_tail_connection_read_counts.sort_by(|left, right| left.total_cmp(right));
     response_body_tail_connection_read_spans.sort_by(|left, right| left.total_cmp(right));
     response_body_tail_connection_last_read_to_ends.sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_connection_read_bytes.sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_connection_read_size_avgs.sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_connection_read_size_maxes.sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_connection_inter_read_gap_avgs.sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_connection_inter_read_gap_maxes.sort_by(|left, right| left.total_cmp(right));
     request_round_trips.sort_by(|left, right| left.total_cmp(right));
 
     Some(
@@ -2364,6 +2508,89 @@ fn summarize_http_phase_timing(
                     0.0
                 } else {
                     percentile(&response_body_tail_connection_last_read_to_ends, 0.95)
+                },
+            response_body_tail_connection_read_bytes_samples_total:
+                response_body_tail_connection_read_bytes.len() as u64,
+            response_body_tail_connection_read_bytes_avg:
+                if response_body_tail_connection_read_bytes.is_empty() {
+                    0.0
+                } else {
+                    response_body_tail_connection_read_bytes.iter().sum::<f64>()
+                        / response_body_tail_connection_read_bytes.len() as f64
+                },
+            response_body_tail_connection_read_bytes_p95:
+                if response_body_tail_connection_read_bytes.is_empty() {
+                    0.0
+                } else {
+                    percentile(&response_body_tail_connection_read_bytes, 0.95)
+                },
+            response_body_tail_connection_read_size_avg_samples_total:
+                response_body_tail_connection_read_size_avgs.len() as u64,
+            response_body_tail_connection_read_size_avg:
+                if response_body_tail_connection_read_size_avgs.is_empty() {
+                    0.0
+                } else {
+                    response_body_tail_connection_read_size_avgs
+                        .iter()
+                        .sum::<f64>()
+                        / response_body_tail_connection_read_size_avgs.len() as f64
+                },
+            response_body_tail_connection_read_size_p95:
+                if response_body_tail_connection_read_size_avgs.is_empty() {
+                    0.0
+                } else {
+                    percentile(&response_body_tail_connection_read_size_avgs, 0.95)
+                },
+            response_body_tail_connection_read_size_max_samples_total:
+                response_body_tail_connection_read_size_maxes.len() as u64,
+            response_body_tail_connection_read_size_max_avg:
+                if response_body_tail_connection_read_size_maxes.is_empty() {
+                    0.0
+                } else {
+                    response_body_tail_connection_read_size_maxes
+                        .iter()
+                        .sum::<f64>()
+                        / response_body_tail_connection_read_size_maxes.len() as f64
+                },
+            response_body_tail_connection_read_size_max_p95:
+                if response_body_tail_connection_read_size_maxes.is_empty() {
+                    0.0
+                } else {
+                    percentile(&response_body_tail_connection_read_size_maxes, 0.95)
+                },
+            response_body_tail_connection_inter_read_gap_avg_samples_total:
+                response_body_tail_connection_inter_read_gap_avgs.len() as u64,
+            response_body_tail_connection_inter_read_gap_avg_ms:
+                if response_body_tail_connection_inter_read_gap_avgs.is_empty() {
+                    0.0
+                } else {
+                    response_body_tail_connection_inter_read_gap_avgs
+                        .iter()
+                        .sum::<f64>()
+                        / response_body_tail_connection_inter_read_gap_avgs.len() as f64
+                },
+            response_body_tail_connection_inter_read_gap_p95_ms:
+                if response_body_tail_connection_inter_read_gap_avgs.is_empty() {
+                    0.0
+                } else {
+                    percentile(&response_body_tail_connection_inter_read_gap_avgs, 0.95)
+                },
+            response_body_tail_connection_inter_read_gap_max_samples_total:
+                response_body_tail_connection_inter_read_gap_maxes.len() as u64,
+            response_body_tail_connection_inter_read_gap_max_avg_ms:
+                if response_body_tail_connection_inter_read_gap_maxes.is_empty() {
+                    0.0
+                } else {
+                    response_body_tail_connection_inter_read_gap_maxes
+                        .iter()
+                        .sum::<f64>()
+                        / response_body_tail_connection_inter_read_gap_maxes.len() as f64
+                },
+            response_body_tail_connection_inter_read_gap_max_p95_ms:
+                if response_body_tail_connection_inter_read_gap_maxes.is_empty() {
+                    0.0
+                } else {
+                    percentile(&response_body_tail_connection_inter_read_gap_maxes, 0.95)
                 },
             request_round_trip_avg_ms: request_round_trips.iter().sum::<f64>()
                 / request_round_trips.len() as f64,
@@ -4687,6 +4914,16 @@ async fn drain_h2_response(
             .and_then(|stats| stats.connection_read_span_ms),
         tail_connection_last_read_to_end_ms: tail_connection_read_stats
             .and_then(|stats| stats.last_connection_read_to_phase_end_ms),
+        tail_connection_read_bytes: tail_connection_read_stats
+            .map(|stats| stats.connection_read_bytes),
+        tail_connection_read_size_avg: tail_connection_read_stats
+            .and_then(|stats| stats.connection_read_size_avg),
+        tail_connection_read_size_max: tail_connection_read_stats
+            .and_then(|stats| stats.connection_read_size_max),
+        tail_connection_inter_read_gap_avg_ms: tail_connection_read_stats
+            .and_then(|stats| stats.inter_connection_read_gap_avg_ms),
+        tail_connection_inter_read_gap_max_ms: tail_connection_read_stats
+            .and_then(|stats| stats.inter_connection_read_gap_max_ms),
     })
 }
 
@@ -4865,6 +5102,15 @@ async fn send_h2_request(
             response_body_tail_connection_read_span_ms: response_body.tail_connection_read_span_ms,
             response_body_tail_connection_last_read_to_end_ms: response_body
                 .tail_connection_last_read_to_end_ms,
+            response_body_tail_connection_read_bytes: response_body.tail_connection_read_bytes,
+            response_body_tail_connection_read_size_avg: response_body
+                .tail_connection_read_size_avg,
+            response_body_tail_connection_read_size_max: response_body
+                .tail_connection_read_size_max,
+            response_body_tail_connection_inter_read_gap_avg_ms: response_body
+                .tail_connection_inter_read_gap_avg_ms,
+            response_body_tail_connection_inter_read_gap_max_ms: response_body
+                .tail_connection_inter_read_gap_max_ms,
             request_round_trip_ms: latency_ms,
         }),
     })
@@ -5350,11 +5596,34 @@ mod tests {
         let tracker = H2ClientReadTracker::default();
         let probe = tracker.note_phase_started();
         std::thread::sleep(Duration::from_millis(1));
-        tracker.record_connection_read(Instant::now());
+        tracker.record_connection_read(Instant::now(), 1024);
         std::thread::sleep(Duration::from_millis(1));
         let stats = probe.finish(Some(Instant::now()));
         assert!(stats.connection_read_wait_ms.is_some());
         assert!(stats.connection_read_to_phase_end_ms.is_some());
+        assert_eq!(stats.connection_read_bytes, 1024);
+        assert_eq!(stats.connection_read_size_avg, Some(1024.0));
+        assert_eq!(stats.connection_read_size_max, Some(1024));
+    }
+
+    #[test]
+    fn h2_client_read_probe_records_read_sizes_and_gaps() {
+        let tracker = H2ClientReadTracker::default();
+        let probe = tracker.note_phase_started();
+        tracker.record_connection_read(Instant::now(), 512);
+        std::thread::sleep(Duration::from_millis(1));
+        tracker.record_connection_read(Instant::now(), 1536);
+        let stats = probe.finish(Some(Instant::now()));
+        assert_eq!(stats.connection_read_count, 2);
+        assert_eq!(stats.connection_read_bytes, 2048);
+        assert_eq!(stats.connection_read_size_avg, Some(1024.0));
+        assert_eq!(stats.connection_read_size_max, Some(1536));
+        assert!(stats
+            .inter_connection_read_gap_avg_ms
+            .is_some_and(|value| value >= 1.0));
+        assert!(stats
+            .inter_connection_read_gap_max_ms
+            .is_some_and(|value| value >= 1.0));
     }
 
     #[test]
@@ -5380,7 +5649,7 @@ mod tests {
         std::thread::sleep(Duration::from_millis(1));
         write_tracker.record_connection_write(Instant::now());
         std::thread::sleep(Duration::from_millis(1));
-        read_tracker.record_connection_read(Instant::now());
+        read_tracker.record_connection_read(Instant::now(), 1024);
         let write_stats = write_probe.finish();
         let read_stats = read_probe.finish(Some(Instant::now()));
         assert!(h2_last_write_to_first_read_ms(&write_stats, &read_stats)

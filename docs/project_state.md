@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `ffb1376` (`bench: expose native request body reader timing`)
+Last reviewed commit: `a3eb74a` (`docs: record native request reader benchmark`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -13,12 +13,13 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     decisions: branch protection mutation, default-branch router image
     promotion/GHCR publication, RC tag/prerelease selection, and Dart package
     public ownership/release order
-  - latest pushed branch head `7878467` passed hosted GitHub `CI` run
-    `25129245463`; `Fast Checks` completed successfully in 5m34s and
-    `Full Verify` completed successfully in 8m15s
-  - latest branch-head deployment audit passed with clean main `CI` jobs,
-    clean hosted `CI` logs, clean hosted Dart package publish dry-run
-    evidence, and clean native release dry-run evidence
+  - latest pushed branch head `a3eb74a` passed hosted GitHub `CI` run
+    `25144304526`; `Fast Checks` completed successfully in 5m35s and
+    `Full Verify` completed successfully in 6m47s
+  - latest branch-head deployment audit passed with clean main `CI` jobs and
+    clean hosted `CI` logs; remaining deployment-chain findings are still the
+    known operator/product items: missing branch protection, undiscoverable
+    `router-image.yml`, and no visible GHCR router package
   - pre-change `bin/test-fast` passed locally on 2026-04-29 before changing
     repeat-report tooling
   - manual hosted `kTLS HTTP/2 Benchmarks` run `25124797087` reran isolated
@@ -418,6 +419,24 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     body-tail read path, specifically splitting the tail connection read span
     into inter-read gap and read-size/read-count distribution before making
     more server request-body or first-body-write scheduling changes
+  - local pre-change `bin/test-fast` passed on 2026-04-30 before adding that
+    H2 client tail-read byte/gap instrumentation slice
+  - the H2 client read probe now records tail-phase connection read byte
+    totals, average/max read size, and average/max inter-read gap so the next
+    hosted isolated rerun can distinguish many small reads from longer gaps
+    between reads
+  - comparison tooling now renders those fields in the HTTP response-body
+    diagnostics table, phase focus lines, and repeat phase focus/signal
+    reports with byte/count units instead of treating every focus value as
+    milliseconds
+  - focused local checks for that instrumentation passed:
+    `cargo test --manifest-path native/bench/Cargo.toml h2_client_read_probe_records --bin http_stream -- --nocapture`,
+    `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`,
+    `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`, and `git diff --check`
+  - full local `bin/verify` passed after the H2 client tail-read byte/gap
+    split on 2026-04-30, including Rust, Dart package, bench, router, and
+    Chrome/Dart2Wasm browser coverage
 - Current deployment-chain evidence refresh:
   - commit `b338d58` (`docs: record current deployment evidence`) passed
     hosted GitHub `CI` run `25123037462`; `Fast Checks` completed

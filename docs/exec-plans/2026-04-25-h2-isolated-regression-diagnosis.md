@@ -871,13 +871,28 @@ decisions.
   - manual hosted `kTLS HTTP/2 Benchmarks` retry `25143991933` completed
     successfully, was decision-quality, and had no connection-noise log
     pattern beyond expected manual artifact-gate skip notices
+- Current H2 client tail read-size/gap split verification:
+  - latest docs checkpoint `a3eb74a` passed hosted GitHub `CI` run
+    `25144304526`; `Fast Checks` completed in 5m35s and `Full Verify`
+    completed in 6m47s
+  - branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `a3eb74a`; the hosted CI
+    log scan found no warning, deprecation, skipped-test, reset, timeout,
+    panic, or connection-noise patterns
+  - local pre-change `bin/test-fast`
+  - `cargo test --manifest-path native/bench/Cargo.toml h2_client_read_probe_records --bin http_stream -- --nocapture`
+  - `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`
+  - `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`
+  - `python3 tool/test_ktls_http2_compare.py`
+  - `git diff --check`
+  - `bin/verify`
 
 ## Next Step
 
-Add the next narrow benchmark-client split for HTTP/2 body-tail reads:
-record tail-phase inter-read gap and read-size/read-count distribution inside
-the instrumented client connection read probe. The goal is to determine
-whether the stable kTLS-side body-tail delta in `25143991933` is many small
-reads, longer gaps between reads, or larger H2/client processing around the
-same socket read sequence. Do not change server request-body or
-first-body-write scheduling until this client-side tail-read path is split.
+Commit and push the H2 client tail read-size/gap split, then require hosted
+GitHub `CI`, `kTLS Validation`, and `WAMP Profile Benchmarks` to stay clean.
+After the push chain is green, run the same isolated hosted
+`h2_multiplexed_streams_s1`, `threads=4`, one-router-worker alternating kTLS
+benchmark and use the new tail read-byte/inter-read gap fields to decide
+whether the stable kTLS-side body-tail delta is read fragmentation, longer
+inter-read gaps, or processing around a similar socket-read sequence.
