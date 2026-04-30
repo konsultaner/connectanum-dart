@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `b572b31` (`bench: locate h2 tail max gap`)
+Last reviewed commit: `41f9cb6` (`bench: classify h2 max gap chunk position`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -553,6 +553,16 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
   - full local `bin/verify` passed after the response chunk-boundary reporting
     slice on 2026-04-30, including Rust, Dart package, bench, router, and
     Chrome/Dart2Wasm browser coverage
+  - commit `41f9cb6` (`bench: classify h2 max gap chunk position`) passed the
+    hosted GitHub push chain: `CI` run `25149820481` completed with
+    `Fast Checks` in 5m40s and `Full Verify` in 8m04s; `kTLS Validation` run
+    `25149820488` completed successfully; `WAMP Profile Benchmarks` run
+    `25149820479` completed successfully
+  - branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `41f9cb6`; companion
+    kTLS/WAMP log scans only matched benign setup/config text, not Rust
+    warnings, skipped tests, panics, resets, broken pipes, or connection-noise
+    patterns
 - Current deployment-chain evidence refresh:
   - commit `b338d58` (`docs: record current deployment evidence`) passed
     hosted GitHub `CI` run `25123037462`; `Fast Checks` completed

@@ -996,10 +996,20 @@ decisions.
     `git diff --check`
   - full local `bin/verify` passed after the response chunk-boundary reporting
     slice on 2026-04-30, including Chrome/Dart2Wasm browser coverage
+  - commit `41f9cb6` (`bench: classify h2 max gap chunk position`) passed
+    hosted GitHub `CI` run `25149820481`; `Fast Checks` completed in 5m40s
+    and `Full Verify` completed in 8m04s
+  - hosted `kTLS Validation` run `25149820488` and hosted
+    `WAMP Profile Benchmarks` run `25149820479` completed successfully on
+    `41f9cb6`
+  - branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `41f9cb6`; companion
+    kTLS/WAMP log scans only matched benign setup/config text, not Rust
+    warnings, skipped tests, panics, resets, broken pipes, or connection-noise
+    patterns
 
 ## Next Step
 
-Push the response chunk-boundary reporting slice, wait for hosted CI/audit to
-stay clean, then rerun the hosted isolated `h2_multiplexed_streams_s1`,
-`threads=4`, one-router-worker alternating kTLS benchmark so the artifact can
+Rerun the hosted isolated `h2_multiplexed_streams_s1`, `threads=4`,
+one-router-worker alternating kTLS benchmark so the new artifact fields can
 decide whether the mid-tail max gap is tied to response chunk boundaries.
