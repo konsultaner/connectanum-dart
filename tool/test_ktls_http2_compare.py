@@ -620,6 +620,9 @@ class KtlsHttp2CompareTest(unittest.TestCase):
             self.assertIn("Tail conn max-gap read-index avg", markdown)
             self.assertIn("Tail conn max-gap bytes-before avg", markdown)
             self.assertIn("Tail conn max-gap byte-position ratio avg", markdown)
+            self.assertIn("Tail conn max-gap response bytes-before avg", markdown)
+            self.assertIn("Tail conn max-gap response chunk-offset avg", markdown)
+            self.assertIn("Tail conn max-gap chunk-boundary distance avg", markdown)
             self.assertIn("## HTTP Server Emission Timing", markdown)
             self.assertIn("Header conn write samples", markdown)
             self.assertIn("Header last-write-to-first-read samples", markdown)
@@ -921,6 +924,10 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         response_body_tail_connection_inter_read_gap_max_bytes_before_avg=32000.0,
                         response_body_tail_connection_inter_read_gap_max_bytes_after_avg=32000.0,
                         response_body_tail_connection_inter_read_gap_max_byte_position_ratio_avg=0.50,
+                        response_body_tail_connection_inter_read_gap_max_response_bytes_before_avg=40000.0,
+                        response_body_tail_connection_inter_read_gap_max_response_byte_position_ratio_avg=0.40,
+                        response_body_tail_connection_inter_read_gap_max_response_chunk_offset_avg=4096.0,
+                        response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distance_avg=4096.0,
                     ),
                 ],
             )
@@ -942,6 +949,10 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         response_body_tail_connection_inter_read_gap_max_bytes_before_avg=48000.0,
                         response_body_tail_connection_inter_read_gap_max_bytes_after_avg=22000.0,
                         response_body_tail_connection_inter_read_gap_max_byte_position_ratio_avg=0.70,
+                        response_body_tail_connection_inter_read_gap_max_response_bytes_before_avg=56000.0,
+                        response_body_tail_connection_inter_read_gap_max_response_byte_position_ratio_avg=0.56,
+                        response_body_tail_connection_inter_read_gap_max_response_chunk_offset_avg=2048.0,
+                        response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distance_avg=2048.0,
                     ),
                 ],
             )
@@ -963,6 +974,10 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         response_body_tail_connection_inter_read_gap_max_bytes_before_avg=33000.0,
                         response_body_tail_connection_inter_read_gap_max_bytes_after_avg=32000.0,
                         response_body_tail_connection_inter_read_gap_max_byte_position_ratio_avg=0.52,
+                        response_body_tail_connection_inter_read_gap_max_response_bytes_before_avg=41000.0,
+                        response_body_tail_connection_inter_read_gap_max_response_byte_position_ratio_avg=0.41,
+                        response_body_tail_connection_inter_read_gap_max_response_chunk_offset_avg=5120.0,
+                        response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distance_avg=5120.0,
                     ),
                 ],
             )
@@ -984,6 +999,10 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                         response_body_tail_connection_inter_read_gap_max_bytes_before_avg=50000.0,
                         response_body_tail_connection_inter_read_gap_max_bytes_after_avg=21000.0,
                         response_body_tail_connection_inter_read_gap_max_byte_position_ratio_avg=0.72,
+                        response_body_tail_connection_inter_read_gap_max_response_bytes_before_avg=57000.0,
+                        response_body_tail_connection_inter_read_gap_max_response_byte_position_ratio_avg=0.57,
+                        response_body_tail_connection_inter_read_gap_max_response_chunk_offset_avg=2048.0,
+                        response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distance_avg=2048.0,
                     ),
                 ],
             )
@@ -1053,6 +1072,20 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                 "0.50..0.52 (median 0.51) | "
                 "0.70..0.72 (median 0.71) | "
                 "+0.20..+0.20 (median +0.20)",
+                markdown,
+            )
+            self.assertIn(
+                "Tail conn max-gap response bytes-before avg | 2 | kTLS higher | "
+                "40000.00 B..41000.00 B (median 40500.00 B) | "
+                "56000.00 B..57000.00 B (median 56500.00 B) | "
+                "+16000.00 B..+16000.00 B (median +16000.00 B)",
+                markdown,
+            )
+            self.assertIn(
+                "Tail conn max-gap chunk-boundary distance avg | 2 | kTLS lower | "
+                "4096.00 B..5120.00 B (median 4608.00 B) | "
+                "2048.00 B..2048.00 B (median 2048.00 B) | "
+                "-3072.00 B..-2048.00 B (median -2560.00 B)",
                 markdown,
             )
 
@@ -1458,6 +1491,15 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         response_body_tail_connection_inter_read_gap_max_bytes_after_p95: float | None = 65536.0,
         response_body_tail_connection_inter_read_gap_max_byte_position_ratio_avg: float | None = 0.5,
         response_body_tail_connection_inter_read_gap_max_byte_position_ratio_p95: float | None = 0.75,
+        response_body_tail_connection_inter_read_gap_max_response_position_samples_total: int | None = 16,
+        response_body_tail_connection_inter_read_gap_max_response_bytes_before_avg: float | None = 40960.0,
+        response_body_tail_connection_inter_read_gap_max_response_bytes_before_p95: float | None = 73728.0,
+        response_body_tail_connection_inter_read_gap_max_response_byte_position_ratio_avg: float | None = 0.625,
+        response_body_tail_connection_inter_read_gap_max_response_byte_position_ratio_p95: float | None = 0.8,
+        response_body_tail_connection_inter_read_gap_max_response_chunk_offset_avg: float | None = 8192.0,
+        response_body_tail_connection_inter_read_gap_max_response_chunk_offset_p95: float | None = 16384.0,
+        response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distance_avg: float | None = 8192.0,
+        response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distance_p95: float | None = 16384.0,
         request_round_trip_avg_ms: float | None = 7.6,
         request_round_trip_p95_ms: float | None = 10.8,
         server_requests_total: int | None = 16,
@@ -1617,6 +1659,15 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "response_body_tail_connection_inter_read_gap_max_bytes_after_p95": response_body_tail_connection_inter_read_gap_max_bytes_after_p95,
                     "response_body_tail_connection_inter_read_gap_max_byte_position_ratio_avg": response_body_tail_connection_inter_read_gap_max_byte_position_ratio_avg,
                     "response_body_tail_connection_inter_read_gap_max_byte_position_ratio_p95": response_body_tail_connection_inter_read_gap_max_byte_position_ratio_p95,
+                    "response_body_tail_connection_inter_read_gap_max_response_position_samples_total": response_body_tail_connection_inter_read_gap_max_response_position_samples_total,
+                    "response_body_tail_connection_inter_read_gap_max_response_bytes_before_avg": response_body_tail_connection_inter_read_gap_max_response_bytes_before_avg,
+                    "response_body_tail_connection_inter_read_gap_max_response_bytes_before_p95": response_body_tail_connection_inter_read_gap_max_response_bytes_before_p95,
+                    "response_body_tail_connection_inter_read_gap_max_response_byte_position_ratio_avg": response_body_tail_connection_inter_read_gap_max_response_byte_position_ratio_avg,
+                    "response_body_tail_connection_inter_read_gap_max_response_byte_position_ratio_p95": response_body_tail_connection_inter_read_gap_max_response_byte_position_ratio_p95,
+                    "response_body_tail_connection_inter_read_gap_max_response_chunk_offset_avg": response_body_tail_connection_inter_read_gap_max_response_chunk_offset_avg,
+                    "response_body_tail_connection_inter_read_gap_max_response_chunk_offset_p95": response_body_tail_connection_inter_read_gap_max_response_chunk_offset_p95,
+                    "response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distance_avg": response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distance_avg,
+                    "response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distance_p95": response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distance_p95,
                     "request_round_trip_avg_ms": request_round_trip_avg_ms,
                     "request_round_trip_p95_ms": request_round_trip_p95_ms,
                 }

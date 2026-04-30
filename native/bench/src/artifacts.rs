@@ -43,6 +43,10 @@ pub struct WorkloadArtifactSummary {
     pub native_runtime_threads: u32,
     pub iterations: u32,
     pub concurrency: u32,
+    #[serde(default)]
+    pub request_chunk_bytes: u64,
+    #[serde(default)]
+    pub response_chunk_bytes: u64,
     pub started_at_ms: u128,
     pub completed_at_ms: u128,
     pub elapsed_ms: f64,
@@ -602,7 +606,8 @@ pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
     };
     let http_connection_usage =
         summarize_http_connection_usage(report.http_connection_usage.as_ref(), sample_count);
-    let http_phase_timing = summarize_http_phase_timing(&report.samples);
+    let http_phase_timing =
+        summarize_http_phase_timing(&report.samples, report.response_chunk_bytes);
     let http_server_emission_timing = summarize_http_server_emission_timing(report);
     let http_native_response_stream_timing = summarize_http_native_response_stream_timing(report);
     let http_native_response_stream_slow_path =
@@ -626,6 +631,8 @@ pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
         native_runtime_threads: report.native_runtime_threads,
         iterations: report.iterations,
         concurrency: report.concurrency,
+        request_chunk_bytes: report.request_chunk_bytes,
+        response_chunk_bytes: report.response_chunk_bytes,
         started_at_ms: report.started_at_ms,
         completed_at_ms: report.completed_at_ms,
         elapsed_ms,
@@ -783,6 +790,7 @@ fn summarize_http_connection_usage(
 
 fn summarize_http_phase_timing(
     samples: &[crate::report::WorkloadSample],
+    response_chunk_bytes: u64,
 ) -> Option<HttpPhaseTimingSummary> {
     let mut stream_acquire_waits = samples
         .iter()
@@ -941,6 +949,67 @@ fn summarize_http_phase_timing(
             timing.response_body_tail_connection_inter_read_gap_max_byte_position_ratio
         })
         .collect::<Vec<_>>();
+    let mut response_body_tail_connection_inter_read_gap_max_response_bytes_befores = samples
+        .iter()
+        .filter_map(|sample| {
+            let timing = sample.http_phase_timing.as_ref()?;
+            let tail_bytes_before =
+                timing.response_body_tail_connection_inter_read_gap_max_bytes_before?;
+            Some(
+                timing
+                    .response_body_first_chunk_bytes
+                    .saturating_add(tail_bytes_before) as f64,
+            )
+        })
+        .collect::<Vec<_>>();
+    let mut response_body_tail_connection_inter_read_gap_max_response_byte_position_ratios =
+        samples
+            .iter()
+            .filter_map(|sample| {
+                if sample.response_bytes == 0 {
+                    return None;
+                }
+                let timing = sample.http_phase_timing.as_ref()?;
+                let tail_bytes_before =
+                    timing.response_body_tail_connection_inter_read_gap_max_bytes_before?;
+                let response_bytes_before = timing
+                    .response_body_first_chunk_bytes
+                    .saturating_add(tail_bytes_before);
+                Some(response_bytes_before as f64 / sample.response_bytes as f64)
+            })
+            .collect::<Vec<_>>();
+    let mut response_body_tail_connection_inter_read_gap_max_response_chunk_offsets = samples
+        .iter()
+        .filter_map(|sample| {
+            if response_chunk_bytes == 0 {
+                return None;
+            }
+            let timing = sample.http_phase_timing.as_ref()?;
+            let tail_bytes_before =
+                timing.response_body_tail_connection_inter_read_gap_max_bytes_before?;
+            let response_bytes_before = timing
+                .response_body_first_chunk_bytes
+                .saturating_add(tail_bytes_before);
+            Some((response_bytes_before % response_chunk_bytes) as f64)
+        })
+        .collect::<Vec<_>>();
+    let mut response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distances =
+        samples
+            .iter()
+            .filter_map(|sample| {
+                if response_chunk_bytes == 0 {
+                    return None;
+                }
+                let timing = sample.http_phase_timing.as_ref()?;
+                let tail_bytes_before =
+                    timing.response_body_tail_connection_inter_read_gap_max_bytes_before?;
+                let response_bytes_before = timing
+                    .response_body_first_chunk_bytes
+                    .saturating_add(tail_bytes_before);
+                let offset = response_bytes_before % response_chunk_bytes;
+                Some(std::cmp::min(offset, response_chunk_bytes - offset) as f64)
+            })
+            .collect::<Vec<_>>();
     let mut request_round_trips = samples
         .iter()
         .filter_map(|sample| sample.http_phase_timing.as_ref())
@@ -979,6 +1048,14 @@ fn summarize_http_phase_timing(
     response_body_tail_connection_inter_read_gap_max_bytes_afters
         .sort_by(|left, right| left.total_cmp(right));
     response_body_tail_connection_inter_read_gap_max_byte_position_ratios
+        .sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_connection_inter_read_gap_max_response_bytes_befores
+        .sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_connection_inter_read_gap_max_response_byte_position_ratios
+        .sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_connection_inter_read_gap_max_response_chunk_offsets
+        .sort_by(|left, right| left.total_cmp(right));
+    response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distances
         .sort_by(|left, right| left.total_cmp(right));
     request_round_trips.sort_by(|left, right| left.total_cmp(right));
 
@@ -1384,6 +1461,92 @@ fn summarize_http_phase_timing(
             } else {
                 percentile(
                     &response_body_tail_connection_inter_read_gap_max_byte_position_ratios,
+                    0.95,
+                )
+            },
+        response_body_tail_connection_inter_read_gap_max_response_position_samples_total:
+            response_body_tail_connection_inter_read_gap_max_response_bytes_befores.len() as u64,
+        response_body_tail_connection_inter_read_gap_max_response_bytes_before_avg:
+            if response_body_tail_connection_inter_read_gap_max_response_bytes_befores.is_empty() {
+                0.0
+            } else {
+                response_body_tail_connection_inter_read_gap_max_response_bytes_befores
+                    .iter()
+                    .sum::<f64>()
+                    / response_body_tail_connection_inter_read_gap_max_response_bytes_befores.len()
+                        as f64
+            },
+        response_body_tail_connection_inter_read_gap_max_response_bytes_before_p95:
+            if response_body_tail_connection_inter_read_gap_max_response_bytes_befores.is_empty() {
+                0.0
+            } else {
+                percentile(
+                    &response_body_tail_connection_inter_read_gap_max_response_bytes_befores,
+                    0.95,
+                )
+            },
+        response_body_tail_connection_inter_read_gap_max_response_byte_position_ratio_avg:
+            if response_body_tail_connection_inter_read_gap_max_response_byte_position_ratios
+                .is_empty()
+            {
+                0.0
+            } else {
+                response_body_tail_connection_inter_read_gap_max_response_byte_position_ratios
+                    .iter()
+                    .sum::<f64>()
+                    / response_body_tail_connection_inter_read_gap_max_response_byte_position_ratios
+                        .len() as f64
+            },
+        response_body_tail_connection_inter_read_gap_max_response_byte_position_ratio_p95:
+            if response_body_tail_connection_inter_read_gap_max_response_byte_position_ratios
+                .is_empty()
+            {
+                0.0
+            } else {
+                percentile(
+                    &response_body_tail_connection_inter_read_gap_max_response_byte_position_ratios,
+                    0.95,
+                )
+            },
+        response_body_tail_connection_inter_read_gap_max_response_chunk_offset_avg:
+            if response_body_tail_connection_inter_read_gap_max_response_chunk_offsets.is_empty() {
+                0.0
+            } else {
+                response_body_tail_connection_inter_read_gap_max_response_chunk_offsets
+                    .iter()
+                    .sum::<f64>()
+                    / response_body_tail_connection_inter_read_gap_max_response_chunk_offsets.len()
+                        as f64
+            },
+        response_body_tail_connection_inter_read_gap_max_response_chunk_offset_p95:
+            if response_body_tail_connection_inter_read_gap_max_response_chunk_offsets.is_empty() {
+                0.0
+            } else {
+                percentile(
+                    &response_body_tail_connection_inter_read_gap_max_response_chunk_offsets,
+                    0.95,
+                )
+            },
+        response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distance_avg:
+            if response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distances
+                .is_empty()
+            {
+                0.0
+            } else {
+                response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distances
+                    .iter()
+                    .sum::<f64>()
+                    / response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distances
+                        .len() as f64
+            },
+        response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distance_p95:
+            if response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distances
+                .is_empty()
+            {
+                0.0
+            } else {
+                percentile(
+                    &response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distances,
                     0.95,
                 )
             },
@@ -2805,6 +2968,8 @@ mod tests {
             native_runtime_threads: 4,
             iterations: 4,
             concurrency: 2,
+            request_chunk_bytes: 512,
+            response_chunk_bytes: 1024,
             started_at_ms: 1_000,
             completed_at_ms: 2_000,
             metrics_before: metrics_with_bench_http_stream(
@@ -3302,6 +3467,8 @@ mod tests {
         assert_eq!(summary.client_impl, "n/a");
         assert_eq!(summary.router_workers, 3);
         assert_eq!(summary.native_runtime_threads, 4);
+        assert_eq!(summary.request_chunk_bytes, 512);
+        assert_eq!(summary.response_chunk_bytes, 1024);
         assert_eq!(summary.request_bytes_total, 300);
         assert_eq!(summary.response_bytes_total, 1200);
         assert_eq!(summary.router_invocations_delta, 5);
@@ -3580,6 +3747,67 @@ mod tests {
         assert!(
             (phase_timing.response_body_tail_connection_inter_read_gap_max_byte_position_ratio_p95
                 - 0.5)
+                .abs()
+                < f64::EPSILON
+        );
+        assert_eq!(
+            phase_timing
+                .response_body_tail_connection_inter_read_gap_max_response_position_samples_total,
+            2
+        );
+        assert!(
+            (phase_timing
+                .response_body_tail_connection_inter_read_gap_max_response_bytes_before_avg
+                - 1460.0)
+                .abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (phase_timing
+                .response_body_tail_connection_inter_read_gap_max_response_bytes_before_p95
+                - 2208.0)
+                .abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (phase_timing
+                .response_body_tail_connection_inter_read_gap_max_response_byte_position_ratio_avg
+                - 4.54)
+                .abs()
+                < 1e-12
+        );
+        assert!(
+            (phase_timing
+                .response_body_tail_connection_inter_read_gap_max_response_byte_position_ratio_p95
+                - 5.52)
+                .abs()
+                < 1e-12
+        );
+        assert!(
+            (phase_timing
+                .response_body_tail_connection_inter_read_gap_max_response_chunk_offset_avg
+                - 436.0)
+                .abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (phase_timing
+                .response_body_tail_connection_inter_read_gap_max_response_chunk_offset_p95
+                - 712.0)
+                .abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (phase_timing
+                .response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distance_avg
+                - 236.0)
+                .abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (phase_timing
+                .response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distance_p95
+                - 312.0)
                 .abs()
                 < f64::EPSILON
         );

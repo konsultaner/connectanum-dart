@@ -152,6 +152,15 @@ pub struct HttpPhaseTimingSummary {
     pub response_body_tail_connection_inter_read_gap_max_bytes_after_p95: f64,
     pub response_body_tail_connection_inter_read_gap_max_byte_position_ratio_avg: f64,
     pub response_body_tail_connection_inter_read_gap_max_byte_position_ratio_p95: f64,
+    pub response_body_tail_connection_inter_read_gap_max_response_position_samples_total: u64,
+    pub response_body_tail_connection_inter_read_gap_max_response_bytes_before_avg: f64,
+    pub response_body_tail_connection_inter_read_gap_max_response_bytes_before_p95: f64,
+    pub response_body_tail_connection_inter_read_gap_max_response_byte_position_ratio_avg: f64,
+    pub response_body_tail_connection_inter_read_gap_max_response_byte_position_ratio_p95: f64,
+    pub response_body_tail_connection_inter_read_gap_max_response_chunk_offset_avg: f64,
+    pub response_body_tail_connection_inter_read_gap_max_response_chunk_offset_p95: f64,
+    pub response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distance_avg: f64,
+    pub response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distance_p95: f64,
     pub request_round_trip_avg_ms: f64,
     pub request_round_trip_p95_ms: f64,
 }
@@ -244,6 +253,10 @@ pub struct WorkloadReport {
     pub native_runtime_threads: u32,
     pub iterations: u32,
     pub concurrency: u32,
+    #[serde(default)]
+    pub request_chunk_bytes: u64,
+    #[serde(default)]
+    pub response_chunk_bytes: u64,
     pub started_at_ms: u128,
     pub completed_at_ms: u128,
     pub metrics_before: Value,

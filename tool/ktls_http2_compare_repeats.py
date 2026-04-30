@@ -99,6 +99,26 @@ PHASE_FOCUS_METRICS = (
         "Tail conn max-gap byte-position ratio avg",
         "",
     ),
+    (
+        "response_body_tail_connection_inter_read_gap_max_response_bytes_before_avg",
+        "Tail conn max-gap response bytes-before avg",
+        " B",
+    ),
+    (
+        "response_body_tail_connection_inter_read_gap_max_response_byte_position_ratio_avg",
+        "Tail conn max-gap response-position ratio avg",
+        "",
+    ),
+    (
+        "response_body_tail_connection_inter_read_gap_max_response_chunk_offset_avg",
+        "Tail conn max-gap response chunk-offset avg",
+        " B",
+    ),
+    (
+        "response_body_tail_connection_inter_read_gap_max_response_chunk_boundary_distance_avg",
+        "Tail conn max-gap chunk-boundary distance avg",
+        " B",
+    ),
 )
 
 SERVER_EMISSION_FOCUS_METRICS = (

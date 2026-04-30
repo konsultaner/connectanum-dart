@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `4752778` (`docs: record repeat signal unit ci`)
+Last reviewed commit: `b572b31` (`bench: locate h2 tail max gap`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -517,6 +517,41 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     `python3 tool/test_ktls_http2_compare.py`, and `git diff --check`
   - full local `bin/verify` passed after the max-gap position diagnostic on
     2026-04-30, including Rust, Dart package, bench, router, and
+    Chrome/Dart2Wasm browser coverage
+  - commit `b572b31` (`bench: locate h2 tail max gap`) passed the hosted
+    GitHub push chain: `CI` run `25148383883` completed with `Fast Checks` in
+    5m24s and `Full Verify` in 7m54s; `kTLS Validation` run `25148383878`
+    completed successfully; `WAMP Profile Benchmarks` run `25148383890`
+    completed successfully
+  - branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `b572b31`; the hosted CI
+    log scan found no warning, deprecation, skipped-test, reset, timeout,
+    panic, or connection-noise patterns beyond benign tool/test text
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25148797004` completed
+    successfully on `b572b31` with isolated `h2_multiplexed_streams_s1`,
+    `threads=4`, one router worker, alternating repeats, and matched rows in
+    all repeats, but it was not decision-quality because throughput delta span
+    was `57.19pp` and p95 delta span was `1736.62pp`
+  - the hosted max-gap position evidence still narrows the client tail-read
+    boundary: max inter-read gap stayed kTLS-higher in all repeats by
+    `+0.33..+1.32 ms` (median `+0.88 ms`), the max-gap read index stayed
+    around `24..25`, and the response-level byte position sat around
+    `0.40..0.43` of the `1 MiB` response rather than at final-read
+    completion
+  - current local response chunk-boundary reporting carries workload
+    request/response chunk sizes into bench reports and derives response-level
+    max-gap bytes-before, response-position ratio, response chunk offset, and
+    response chunk-boundary distance for the primary and repeat kTLS reports
+  - focused local checks for the response chunk-boundary reporting passed:
+    `bin/test-fast`,
+    `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`,
+    `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`,
+    `cargo test --manifest-path native/bench/Cargo.toml h2_client_read_probe_records_read_sizes_and_gaps --bin http_stream -- --nocapture`,
+    `cargo fmt --manifest-path native/bench/Cargo.toml -- --check`, and
+    `git diff --check`
+  - full local `bin/verify` passed after the response chunk-boundary reporting
+    slice on 2026-04-30, including Rust, Dart package, bench, router, and
     Chrome/Dart2Wasm browser coverage
 - Current deployment-chain evidence refresh:
   - commit `b338d58` (`docs: record current deployment evidence`) passed

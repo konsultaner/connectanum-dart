@@ -960,10 +960,46 @@ decisions.
     `python3 tool/test_ktls_http2_compare.py`, and `git diff --check`
   - full local `bin/verify` passed after the max-gap position diagnostic on
     2026-04-30, including Chrome/Dart2Wasm browser coverage
+  - commit `b572b31` (`bench: locate h2 tail max gap`) passed hosted GitHub
+    `CI` run `25148383883`; `Fast Checks` completed in 5m24s and
+    `Full Verify` completed in 7m54s
+  - hosted `kTLS Validation` run `25148383878` and hosted
+    `WAMP Profile Benchmarks` run `25148383890` completed successfully on
+    `b572b31`
+  - branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `b572b31`; the hosted CI
+    log scan found no warning, deprecation, skipped-test, reset, timeout,
+    panic, or connection-noise patterns beyond benign tool/test text
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25148797004` completed
+    successfully on `b572b31` with isolated `s1`, `threads=4`, one router
+    worker, alternating repeats, and matched rows in all repeats
+  - `25148797004` was complete but not decision-quality:
+    throughput delta span was `57.19pp`, p95 delta span was `1736.62pp`, and
+    the instability source was kTLS-side
+  - the max-gap position diagnostic still narrows the tail-read boundary:
+    max inter-read gap stayed kTLS-higher in all repeats by `+0.33..+1.32 ms`
+    (median `+0.88 ms`), max-gap read index stayed around `24..25`, and the
+    response-level position sat around `0.40..0.43` of the `1 MiB` response
+    instead of at final-read completion
+  - the current local response chunk-boundary reporting slice is implemented:
+    workload request/response chunk sizes now flow into reports, and the max
+    tail inter-read gap is summarized as response bytes-before,
+    response-position ratio, response chunk offset, and response
+    chunk-boundary distance in primary and repeat kTLS artifacts
+  - focused local checks for that reporting slice passed:
+    `bin/test-fast`,
+    `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`,
+    `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`,
+    `cargo test --manifest-path native/bench/Cargo.toml h2_client_read_probe_records_read_sizes_and_gaps --bin http_stream -- --nocapture`,
+    `cargo fmt --manifest-path native/bench/Cargo.toml -- --check`, and
+    `git diff --check`
+  - full local `bin/verify` passed after the response chunk-boundary reporting
+    slice on 2026-04-30, including Chrome/Dart2Wasm browser coverage
 
 ## Next Step
 
-Run full local `bin/verify`, then push the max-gap position diagnostic and use
-the next hosted isolated `h2_multiplexed_streams_s1`, `threads=4`,
-one-router-worker alternating kTLS run to decide whether the max inter-read gap
-lands early, around a chunk boundary, or late in the response-body tail.
+Push the response chunk-boundary reporting slice, wait for hosted CI/audit to
+stay clean, then rerun the hosted isolated `h2_multiplexed_streams_s1`,
+`threads=4`, one-router-worker alternating kTLS benchmark so the artifact can
+decide whether the mid-tail max gap is tied to response chunk boundaries.
