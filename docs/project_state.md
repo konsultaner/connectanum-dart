@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `aab4c31` (`docs: record h2 chunk position benchmark`)
+Last reviewed commit: `6885def` (`bench: split h2 request tail data wait`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -41,6 +41,17 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
   - full local `bin/verify` passed on 2026-04-30 after the request-body tail
     data-wait diagnostic and FFI listen-flow race fix, including Rust, Dart
     package, bench, router, and Chrome/Dart2Wasm browser coverage
+  - commit `6885def` (`bench: split h2 request tail data wait`) passed the
+    hosted GitHub push chain: `CI` run `25153069857` completed with
+    `Fast Checks` in 5m45s and `Full Verify` in 8m12s; `kTLS Validation` run
+    `25153069860` completed in 2m44s; `WAMP Profile Benchmarks` run
+    `25153069894` completed in 7m53s
+  - branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `6885def`; companion
+    kTLS/WAMP log scans only matched benign setup/configuration text such as
+    git default-branch hints, Rust toolchain timeout-reference comments,
+    dependency names, workload timeout settings, and upload
+    `if-no-files-found: error` configuration
   - resumed after the GitHub deployment-chain plan reached a clean evidence
     checkpoint where remaining blockers are operator/product/deployment
     decisions: branch protection mutation, default-branch router image

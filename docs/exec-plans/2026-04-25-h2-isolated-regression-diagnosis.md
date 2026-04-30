@@ -1070,11 +1070,22 @@ decisions.
   - full local `bin/verify` passed on 2026-04-30 after the request-body tail
     data-wait diagnostic and FFI listen-flow race fix, including Rust, Dart
     package, bench, router, and Chrome/Dart2Wasm browser coverage
+  - commit `6885def` (`bench: split h2 request tail data wait`) passed the
+    hosted GitHub push chain:
+    - `CI` `25153069857` with `Fast Checks` in 5m45s and `Full Verify` in
+      8m12s
+    - `kTLS Validation` `25153069860` in 2m44s
+    - `WAMP Profile Benchmarks` `25153069894` in 7m53s
+  - branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `6885def`; companion
+    kTLS/WAMP log scans only matched benign setup/configuration text such as
+    git default-branch hints, Rust toolchain timeout-reference comments,
+    dependency names, workload timeout settings, and upload
+    `if-no-files-found: error` configuration
 
 ## Next Step
 
-Push the verified request-body tail data-wait split and FFI test-race fix,
-then use the next clean hosted isolated `s1`, `threads=4`, one-router-worker
+Use the next clean hosted isolated `s1`, `threads=4`, one-router-worker
 alternating kTLS/H2 rerun to decide whether the remaining native request-body
 tail gap is actual `stream.data()` wait time or post-read enqueue/FFI/Dart
 drain time before making another scheduling change.
