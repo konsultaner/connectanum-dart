@@ -724,6 +724,10 @@ class NativeHttpRequestBodyStreamMetrics {
     required this.remainingTailDataWaitSamplesTotal,
     required this.remainingTailDataWaitUsTotal,
     required this.remainingTailDataWaitMaxUsTotal,
+    required this.remainingTailDataWaitMaxEventIndexTotal,
+    required this.remainingTailDataWaitMaxBytesBeforeTotal,
+    required this.remainingTailDataWaitMaxBytesAfterTotal,
+    required this.remainingTailDataWaitMaxEofTotal,
     required this.totalReadSamplesTotal,
     required this.totalReadUsTotal,
   });
@@ -740,6 +744,10 @@ class NativeHttpRequestBodyStreamMetrics {
   final int remainingTailDataWaitSamplesTotal;
   final int remainingTailDataWaitUsTotal;
   final int remainingTailDataWaitMaxUsTotal;
+  final int remainingTailDataWaitMaxEventIndexTotal;
+  final int remainingTailDataWaitMaxBytesBeforeTotal;
+  final int remainingTailDataWaitMaxBytesAfterTotal;
+  final int remainingTailDataWaitMaxEofTotal;
   final int totalReadSamplesTotal;
   final int totalReadUsTotal;
 
@@ -759,6 +767,14 @@ class NativeHttpRequestBodyStreamMetrics {
         remainingTailDataWaitUsTotal == other.remainingTailDataWaitUsTotal &&
         remainingTailDataWaitMaxUsTotal ==
             other.remainingTailDataWaitMaxUsTotal &&
+        remainingTailDataWaitMaxEventIndexTotal ==
+            other.remainingTailDataWaitMaxEventIndexTotal &&
+        remainingTailDataWaitMaxBytesBeforeTotal ==
+            other.remainingTailDataWaitMaxBytesBeforeTotal &&
+        remainingTailDataWaitMaxBytesAfterTotal ==
+            other.remainingTailDataWaitMaxBytesAfterTotal &&
+        remainingTailDataWaitMaxEofTotal ==
+            other.remainingTailDataWaitMaxEofTotal &&
         totalReadSamplesTotal == other.totalReadSamplesTotal &&
         totalReadUsTotal == other.totalReadUsTotal;
   }
@@ -2963,6 +2979,14 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
                   info.requestBodyStreamRemainingTailDataWaitUsTotal,
               remainingTailDataWaitMaxUsTotal:
                   info.requestBodyStreamRemainingTailDataWaitMaxUsTotal,
+              remainingTailDataWaitMaxEventIndexTotal:
+                  info.requestBodyStreamRemainingTailDataWaitMaxEventIndexTotal,
+              remainingTailDataWaitMaxBytesBeforeTotal: info
+                  .requestBodyStreamRemainingTailDataWaitMaxBytesBeforeTotal,
+              remainingTailDataWaitMaxBytesAfterTotal:
+                  info.requestBodyStreamRemainingTailDataWaitMaxBytesAfterTotal,
+              remainingTailDataWaitMaxEofTotal:
+                  info.requestBodyStreamRemainingTailDataWaitMaxEofTotal,
               totalReadSamplesTotal:
                   info.requestBodyStreamTotalReadSamplesTotal,
               totalReadUsTotal: info.requestBodyStreamTotalReadUsTotal,

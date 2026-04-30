@@ -1517,6 +1517,14 @@ class KtlsHttp2CompareTest(unittest.TestCase):
         native_request_body_reader_remaining_tail_read_avg_ms: float | None = 0.6,
         native_request_body_reader_remaining_tail_data_wait_avg_ms: float | None = 0.45,
         native_request_body_reader_remaining_tail_data_wait_max_avg_ms: float | None = 0.2,
+        native_request_body_reader_remaining_tail_data_wait_max_event_index_avg: float
+        | None = 4.0,
+        native_request_body_reader_remaining_tail_data_wait_max_bytes_before_avg: float
+        | None = 196608.0,
+        native_request_body_reader_remaining_tail_data_wait_max_bytes_after_avg: float
+        | None = 262144.0,
+        native_request_body_reader_remaining_tail_data_wait_max_eof_ratio: float
+        | None = 0.5,
         native_request_body_reader_data_chunk_wait_avg_ms: float | None = 0.25,
         native_request_body_reader_chunk_count_avg: float | None = 4.0,
         server_stream_open_avg_ms: float | None = 2.4,
@@ -1695,6 +1703,10 @@ class KtlsHttp2CompareTest(unittest.TestCase):
                     "native_request_body_reader_remaining_tail_read_avg_ms": native_request_body_reader_remaining_tail_read_avg_ms,
                     "native_request_body_reader_remaining_tail_data_wait_avg_ms": native_request_body_reader_remaining_tail_data_wait_avg_ms,
                     "native_request_body_reader_remaining_tail_data_wait_max_avg_ms": native_request_body_reader_remaining_tail_data_wait_max_avg_ms,
+                    "native_request_body_reader_remaining_tail_data_wait_max_event_index_avg": native_request_body_reader_remaining_tail_data_wait_max_event_index_avg,
+                    "native_request_body_reader_remaining_tail_data_wait_max_bytes_before_avg": native_request_body_reader_remaining_tail_data_wait_max_bytes_before_avg,
+                    "native_request_body_reader_remaining_tail_data_wait_max_bytes_after_avg": native_request_body_reader_remaining_tail_data_wait_max_bytes_after_avg,
+                    "native_request_body_reader_remaining_tail_data_wait_max_eof_ratio": native_request_body_reader_remaining_tail_data_wait_max_eof_ratio,
                     "native_request_body_reader_data_chunk_wait_avg_ms": native_request_body_reader_data_chunk_wait_avg_ms,
                     "native_request_body_reader_chunk_count_avg": native_request_body_reader_chunk_count_avg,
                     "stream_open_avg_ms": server_stream_open_avg_ms,

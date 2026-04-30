@@ -168,6 +168,26 @@ SERVER_EMISSION_FOCUS_METRICS = (
         "Native request body reader remaining tail max data-wait avg ms",
     ),
     (
+        "native_request_body_reader_remaining_tail_data_wait_max_event_index_avg",
+        "Native request body reader remaining tail max data-wait event-index avg",
+        "",
+    ),
+    (
+        "native_request_body_reader_remaining_tail_data_wait_max_bytes_before_avg",
+        "Native request body reader remaining tail max data-wait bytes-before avg",
+        " B",
+    ),
+    (
+        "native_request_body_reader_remaining_tail_data_wait_max_bytes_after_avg",
+        "Native request body reader remaining tail max data-wait bytes-after avg",
+        " B",
+    ),
+    (
+        "native_request_body_reader_remaining_tail_data_wait_max_eof_ratio",
+        "Native request body reader remaining tail max data-wait EOF ratio",
+        "",
+    ),
+    (
         "native_request_body_reader_data_chunk_wait_avg_ms",
         "Native request body reader data-chunk wait avg ms",
     ),

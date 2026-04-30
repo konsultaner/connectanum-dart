@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `6885def` (`bench: split h2 request tail data wait`)
+Last reviewed commit: `724077b` (`docs: record request tail data wait ci`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -52,6 +52,47 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
     git default-branch hints, Rust toolchain timeout-reference comments,
     dependency names, workload timeout settings, and upload
     `if-no-files-found: error` configuration
+  - documentation checkpoint `724077b`
+    (`docs: record request tail data wait ci`) passed hosted GitHub `CI` run
+    `25153709708`; `Fast Checks` completed in 5m39s and `Full Verify`
+    completed in 7m53s
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25155199202` completed
+    successfully on `724077b` with isolated
+    `h2_multiplexed_streams_s1`, `threads=4`, one router worker,
+    `repeat_count=3`, `repeat_order=alternating`, `cooldown_seconds=15`,
+    and `skip_artifact_gate=true`
+  - `25155199202` was complete and log-clean apart from benign setup/toolchain
+    text and expected manual artifact-gate skip notices, but it was not
+    release-decision-quality: throughput delta span was `58.05pp`, p95 delta
+    span was `1283.94pp`, and repeat 03 had a kTLS-side p95/header-wait
+    outlier
+  - the same run is still useful diagnostic evidence for the active question:
+    when the native request-body tail delay appeared, remaining-tail wall time
+    tracked remaining-tail `stream.data()` wait directly (`0.06 -> 1.17 ms`
+    in repeat 01 and `1.14 -> 3.51 ms` in repeat 03), while repeat 02 stayed
+    flat/slightly lower on that field; this points away from post-read
+    enqueue/FFI/Dart drain as the remaining native request-body tail gap
+  - local pre-change `bin/test-fast` passed on 2026-04-30 before adding the
+    request-body tail max data-wait position diagnostic
+  - the current local diagnostic slice records the position of each request's
+    maximum native HTTP/2 request-body remaining-tail `stream.data()` wait:
+    returned event index, bytes before the wait, bytes after the wait, and
+    whether the max wait was the terminal EOF event; those counters now flow
+    through FFI, Dart router metrics, bench summaries, and primary/repeat
+    kTLS comparison reports
+  - focused local checks for that diagnostic passed:
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_core http_request_body_stream_metrics_record_reader_chunks -- --nocapture`,
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi --features ffi-test router_metrics_snapshot_aggregates_reason_totals_and_listener_breakdowns -- --nocapture`,
+    `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`,
+    `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`,
+    rerendering hosted run `25155199202` with
+    `tool/ktls_http2_compare_repeats.py`,
+    `dart analyze packages/connectanum_router/lib/src/native/ffi_bindings.dart packages/connectanum_router/lib/src/native/runtime.dart packages/connectanum_router/lib/src/router/models/router_metrics.dart packages/connectanum_router/lib/src/router/router_instance/router_boss.dart`,
+    and `git diff --check`
+  - full local `bin/verify` passed after the request-body tail max data-wait
+    position diagnostic on 2026-04-30, including Rust, FFI, Dart package,
+    bench, router, and Chrome/Dart2Wasm browser coverage
   - resumed after the GitHub deployment-chain plan reached a clean evidence
     checkpoint where remaining blockers are operator/product/deployment
     decisions: branch protection mutation, default-branch router image

@@ -1877,6 +1877,38 @@ fn summarize_http_server_emission_timing(
         )
         .unwrap_or(0)
         .max(0) as u64;
+    let native_request_body_remaining_tail_data_wait_max_event_index_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "remaining_tail_data_wait_max_event_index_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
+    let native_request_body_remaining_tail_data_wait_max_bytes_before_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "remaining_tail_data_wait_max_bytes_before_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
+    let native_request_body_remaining_tail_data_wait_max_bytes_after_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "remaining_tail_data_wait_max_bytes_after_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
+    let native_request_body_remaining_tail_data_wait_max_eof_total =
+        transport_http_request_body_stream_counter_delta(
+            &report.metrics_before,
+            &report.metrics_after,
+            "remaining_tail_data_wait_max_eof_total",
+        )
+        .unwrap_or(0)
+        .max(0) as u64;
     let native_request_body_total_read_us_total = transport_http_request_body_stream_counter_delta(
         &report.metrics_before,
         &report.metrics_after,
@@ -2037,6 +2069,22 @@ fn summarize_http_server_emission_timing(
                 native_request_body_remaining_tail_data_wait_max_us_total,
                 native_request_body_remaining_tail_data_wait_samples_total,
             ),
+        native_request_body_reader_remaining_tail_data_wait_max_event_index_avg: average_u64(
+            native_request_body_remaining_tail_data_wait_max_event_index_total,
+            native_request_body_remaining_tail_data_wait_samples_total,
+        ),
+        native_request_body_reader_remaining_tail_data_wait_max_bytes_before_avg: average_u64(
+            native_request_body_remaining_tail_data_wait_max_bytes_before_total,
+            native_request_body_remaining_tail_data_wait_samples_total,
+        ),
+        native_request_body_reader_remaining_tail_data_wait_max_bytes_after_avg: average_u64(
+            native_request_body_remaining_tail_data_wait_max_bytes_after_total,
+            native_request_body_remaining_tail_data_wait_samples_total,
+        ),
+        native_request_body_reader_remaining_tail_data_wait_max_eof_ratio: average_u64(
+            native_request_body_remaining_tail_data_wait_max_eof_total,
+            native_request_body_remaining_tail_data_wait_samples_total,
+        ),
         native_request_body_reader_data_chunk_wait_avg_ms: average_microseconds_to_millis(
             native_request_body_data_chunk_wait_us_total,
             native_request_body_data_chunk_samples_total,
@@ -3082,6 +3130,10 @@ mod tests {
                         "remaining_tail_data_wait_samples_total": 2,
                         "remaining_tail_data_wait_us_total": 1400,
                         "remaining_tail_data_wait_max_us_total": 800,
+                        "remaining_tail_data_wait_max_event_index_total": 6,
+                        "remaining_tail_data_wait_max_bytes_before_total": 262144,
+                        "remaining_tail_data_wait_max_bytes_after_total": 393216,
+                        "remaining_tail_data_wait_max_eof_total": 1,
                         "total_read_samples_total": 2,
                         "total_read_us_total": 4000,
                     },
@@ -3210,6 +3262,10 @@ mod tests {
                         "remaining_tail_data_wait_samples_total": 5,
                         "remaining_tail_data_wait_us_total": 5900,
                         "remaining_tail_data_wait_max_us_total": 3200,
+                        "remaining_tail_data_wait_max_event_index_total": 18,
+                        "remaining_tail_data_wait_max_bytes_before_total": 851968,
+                        "remaining_tail_data_wait_max_bytes_after_total": 1179648,
+                        "remaining_tail_data_wait_max_eof_total": 3,
                         "total_read_samples_total": 5,
                         "total_read_us_total": 18000,
                     },
@@ -3890,6 +3946,31 @@ mod tests {
         );
         assert!(
             (server_timing.native_request_body_reader_remaining_tail_data_wait_max_avg_ms - 0.8)
+                .abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (server_timing.native_request_body_reader_remaining_tail_data_wait_max_event_index_avg
+                - 4.0)
+                .abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (server_timing
+                .native_request_body_reader_remaining_tail_data_wait_max_bytes_before_avg
+                - 196608.0)
+                .abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (server_timing.native_request_body_reader_remaining_tail_data_wait_max_bytes_after_avg
+                - 262144.0)
+                .abs()
+                < f64::EPSILON
+        );
+        assert!(
+            (server_timing.native_request_body_reader_remaining_tail_data_wait_max_eof_ratio
+                - (2.0 / 3.0))
                 .abs()
                 < f64::EPSILON
         );

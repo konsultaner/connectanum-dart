@@ -712,6 +712,18 @@ final class CtRouterMetricsInfo extends ffi.Struct {
   external int requestBodyStreamRemainingTailDataWaitMaxUsTotal;
 
   @ffi.Uint64()
+  external int requestBodyStreamRemainingTailDataWaitMaxEventIndexTotal;
+
+  @ffi.Uint64()
+  external int requestBodyStreamRemainingTailDataWaitMaxBytesBeforeTotal;
+
+  @ffi.Uint64()
+  external int requestBodyStreamRemainingTailDataWaitMaxBytesAfterTotal;
+
+  @ffi.Uint64()
+  external int requestBodyStreamRemainingTailDataWaitMaxEofTotal;
+
+  @ffi.Uint64()
   external int requestBodyStreamTotalReadSamplesTotal;
 
   @ffi.Uint64()

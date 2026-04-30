@@ -402,6 +402,22 @@ SERVER_EMISSION_SUMMARY_KEYS = (
         "Native request body reader remaining tail max data-wait avg",
     ),
     (
+        "native_request_body_reader_remaining_tail_data_wait_max_event_index_avg",
+        "Native request body reader remaining tail max data-wait event-index avg",
+    ),
+    (
+        "native_request_body_reader_remaining_tail_data_wait_max_bytes_before_avg",
+        "Native request body reader remaining tail max data-wait bytes-before avg",
+    ),
+    (
+        "native_request_body_reader_remaining_tail_data_wait_max_bytes_after_avg",
+        "Native request body reader remaining tail max data-wait bytes-after avg",
+    ),
+    (
+        "native_request_body_reader_remaining_tail_data_wait_max_eof_ratio",
+        "Native request body reader remaining tail max data-wait EOF ratio",
+    ),
+    (
         "native_request_body_reader_data_chunk_wait_avg_ms",
         "Native request body reader data-chunk wait avg",
     ),
@@ -1659,6 +1675,14 @@ def render_server_emission_focus_line(name: str, focus: dict | None) -> str:
         f"{render_connection_metric_snapshot(metrics['native_request_body_reader_remaining_tail_data_wait_avg_ms'])}, "
         f"native request body reader remaining tail max data-wait avg "
         f"{render_connection_metric_snapshot(metrics['native_request_body_reader_remaining_tail_data_wait_max_avg_ms'])}, "
+        f"native request body reader remaining tail max data-wait event-index avg "
+        f"{render_connection_metric_snapshot(metrics['native_request_body_reader_remaining_tail_data_wait_max_event_index_avg'])}, "
+        f"native request body reader remaining tail max data-wait bytes-before avg "
+        f"{render_connection_metric_snapshot(metrics['native_request_body_reader_remaining_tail_data_wait_max_bytes_before_avg'])}, "
+        f"native request body reader remaining tail max data-wait bytes-after avg "
+        f"{render_connection_metric_snapshot(metrics['native_request_body_reader_remaining_tail_data_wait_max_bytes_after_avg'])}, "
+        f"native request body reader remaining tail max data-wait EOF ratio "
+        f"{render_connection_metric_snapshot(metrics['native_request_body_reader_remaining_tail_data_wait_max_eof_ratio'])}, "
         f"native request body reader data-chunk wait avg "
         f"{render_connection_metric_snapshot(metrics['native_request_body_reader_data_chunk_wait_avg_ms'])}, "
         f"native request body reader chunk-count avg "
@@ -2544,8 +2568,8 @@ def render_markdown(comparison: dict) -> str:
         [
             "## HTTP Server Emission Timing",
             "",
-            "| Workload | Router workers | Native runtime threads | Requests | Synthetic responses | Headers to first body write avg ms | Headers to first body write completed avg ms | Queue to first body write avg ms | Queue to first body write completed avg ms | First body write avg ms | First body write completed avg ms | First body write call avg ms | Direct stream open round trip avg ms | Request queue delay avg ms | Descriptor open call avg ms | Reply delivery delay avg ms | Stream open avg ms | Request body drain avg ms | Request body first chunk wait avg ms | Request body tail drain avg ms | Request body second chunk wait avg ms | Request body remaining tail read avg ms | Request body drain chunk count avg | Native request body reader total avg ms | Native request body reader first chunk wait avg ms | Native request body reader second chunk wait avg ms | Native request body reader remaining tail read avg ms | Native request body reader remaining tail data wait avg ms | Native request body reader remaining tail max data wait avg ms | Native request body reader data chunk wait avg ms | Native request body reader chunk count avg |",
-            "| --- | ---: | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+            "| Workload | Router workers | Native runtime threads | Requests | Synthetic responses | Headers to first body write avg ms | Headers to first body write completed avg ms | Queue to first body write avg ms | Queue to first body write completed avg ms | First body write avg ms | First body write completed avg ms | First body write call avg ms | Direct stream open round trip avg ms | Request queue delay avg ms | Descriptor open call avg ms | Reply delivery delay avg ms | Stream open avg ms | Request body drain avg ms | Request body first chunk wait avg ms | Request body tail drain avg ms | Request body second chunk wait avg ms | Request body remaining tail read avg ms | Request body drain chunk count avg | Native request body reader total avg ms | Native request body reader first chunk wait avg ms | Native request body reader second chunk wait avg ms | Native request body reader remaining tail read avg ms | Native request body reader remaining tail data wait avg ms | Native request body reader remaining tail max data wait avg ms | Native request body reader remaining tail max data wait event index avg | Native request body reader remaining tail max data wait bytes before avg | Native request body reader remaining tail max data wait bytes after avg | Native request body reader remaining tail max data wait EOF ratio | Native request body reader data chunk wait avg ms | Native request body reader chunk count avg |",
+            "| --- | ---: | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
 
@@ -2558,7 +2582,7 @@ def render_markdown(comparison: dict) -> str:
         counts = server_emission["counts"]
         metrics = server_emission["metrics"]
         lines.append(
-            "| {workload} | {router_workers} | {native_runtime_threads} | {requests_total} | {synthetic_responses_total} | {headers_to_first_body_write_avg_ms} | {headers_to_first_body_write_completed_avg_ms} | {queue_to_first_body_write_avg_ms} | {queue_to_first_body_write_completed_avg_ms} | {first_body_write_avg_ms} | {first_body_write_completed_avg_ms} | {first_body_write_call_avg_ms} | {direct_stream_open_round_trip_avg_ms} | {direct_stream_request_queue_delay_avg_ms} | {direct_stream_descriptor_open_call_avg_ms} | {direct_stream_reply_delivery_delay_avg_ms} | {stream_open_avg_ms} | {request_body_drain_avg_ms} | {request_body_drain_first_chunk_wait_avg_ms} | {request_body_drain_tail_read_avg_ms} | {request_body_drain_second_chunk_wait_avg_ms} | {request_body_drain_remaining_tail_read_avg_ms} | {request_body_drain_chunk_count_avg} | {native_request_body_reader_total_avg_ms} | {native_request_body_reader_first_chunk_wait_avg_ms} | {native_request_body_reader_second_chunk_wait_avg_ms} | {native_request_body_reader_remaining_tail_read_avg_ms} | {native_request_body_reader_remaining_tail_data_wait_avg_ms} | {native_request_body_reader_remaining_tail_data_wait_max_avg_ms} | {native_request_body_reader_data_chunk_wait_avg_ms} | {native_request_body_reader_chunk_count_avg} |".format(
+            "| {workload} | {router_workers} | {native_runtime_threads} | {requests_total} | {synthetic_responses_total} | {headers_to_first_body_write_avg_ms} | {headers_to_first_body_write_completed_avg_ms} | {queue_to_first_body_write_avg_ms} | {queue_to_first_body_write_completed_avg_ms} | {first_body_write_avg_ms} | {first_body_write_completed_avg_ms} | {first_body_write_call_avg_ms} | {direct_stream_open_round_trip_avg_ms} | {direct_stream_request_queue_delay_avg_ms} | {direct_stream_descriptor_open_call_avg_ms} | {direct_stream_reply_delivery_delay_avg_ms} | {stream_open_avg_ms} | {request_body_drain_avg_ms} | {request_body_drain_first_chunk_wait_avg_ms} | {request_body_drain_tail_read_avg_ms} | {request_body_drain_second_chunk_wait_avg_ms} | {request_body_drain_remaining_tail_read_avg_ms} | {request_body_drain_chunk_count_avg} | {native_request_body_reader_total_avg_ms} | {native_request_body_reader_first_chunk_wait_avg_ms} | {native_request_body_reader_second_chunk_wait_avg_ms} | {native_request_body_reader_remaining_tail_read_avg_ms} | {native_request_body_reader_remaining_tail_data_wait_avg_ms} | {native_request_body_reader_remaining_tail_data_wait_max_avg_ms} | {native_request_body_reader_remaining_tail_data_wait_max_event_index_avg} | {native_request_body_reader_remaining_tail_data_wait_max_bytes_before_avg} | {native_request_body_reader_remaining_tail_data_wait_max_bytes_after_avg} | {native_request_body_reader_remaining_tail_data_wait_max_eof_ratio} | {native_request_body_reader_data_chunk_wait_avg_ms} | {native_request_body_reader_chunk_count_avg} |".format(
                 workload=row["workload"],
                 router_workers=row["router_workers"],
                 native_runtime_threads=row["native_runtime_threads"],
@@ -2644,6 +2668,26 @@ def render_markdown(comparison: dict) -> str:
                         "native_request_body_reader_remaining_tail_data_wait_max_avg_ms"
                     ]
                 ),
+                native_request_body_reader_remaining_tail_data_wait_max_event_index_avg=render_connection_metric_snapshot(
+                    metrics[
+                        "native_request_body_reader_remaining_tail_data_wait_max_event_index_avg"
+                    ]
+                ),
+                native_request_body_reader_remaining_tail_data_wait_max_bytes_before_avg=render_connection_metric_snapshot(
+                    metrics[
+                        "native_request_body_reader_remaining_tail_data_wait_max_bytes_before_avg"
+                    ]
+                ),
+                native_request_body_reader_remaining_tail_data_wait_max_bytes_after_avg=render_connection_metric_snapshot(
+                    metrics[
+                        "native_request_body_reader_remaining_tail_data_wait_max_bytes_after_avg"
+                    ]
+                ),
+                native_request_body_reader_remaining_tail_data_wait_max_eof_ratio=render_connection_metric_snapshot(
+                    metrics[
+                        "native_request_body_reader_remaining_tail_data_wait_max_eof_ratio"
+                    ]
+                ),
                 native_request_body_reader_data_chunk_wait_avg_ms=render_connection_metric_snapshot(
                     metrics["native_request_body_reader_data_chunk_wait_avg_ms"]
                 ),
@@ -2654,7 +2698,7 @@ def render_markdown(comparison: dict) -> str:
         )
 
     if not has_server_emission_rows:
-        lines.append("| No HTTP server emission metrics | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
+        lines.append("| No HTTP server emission metrics | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
 
     lines.append("")
     lines.extend(

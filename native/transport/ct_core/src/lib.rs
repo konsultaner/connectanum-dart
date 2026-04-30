@@ -322,8 +322,42 @@ struct HttpRequestBodyStreamMetrics {
     remaining_tail_data_wait_samples_total: AtomicU64,
     remaining_tail_data_wait_us_total: AtomicU64,
     remaining_tail_data_wait_max_us_total: AtomicU64,
+    remaining_tail_data_wait_max_event_index_total: AtomicU64,
+    remaining_tail_data_wait_max_bytes_before_total: AtomicU64,
+    remaining_tail_data_wait_max_bytes_after_total: AtomicU64,
+    remaining_tail_data_wait_max_eof_total: AtomicU64,
     total_read_samples_total: AtomicU64,
     total_read_us_total: AtomicU64,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct HttpRequestBodyTailDataWaitMax {
+    wait_us: u64,
+    event_index: u64,
+    bytes_before: u64,
+    bytes_after: u64,
+    eof: bool,
+}
+
+impl HttpRequestBodyTailDataWaitMax {
+    fn observe(
+        &mut self,
+        wait_us: u64,
+        event_index: u64,
+        bytes_before: u64,
+        bytes_after: u64,
+        eof: bool,
+    ) {
+        if wait_us >= self.wait_us {
+            *self = Self {
+                wait_us,
+                event_index,
+                bytes_before,
+                bytes_after,
+                eof,
+            };
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -399,6 +433,10 @@ pub struct HttpRequestBodyStreamMetricsSnapshot {
     pub remaining_tail_data_wait_samples_total: u64,
     pub remaining_tail_data_wait_us_total: u64,
     pub remaining_tail_data_wait_max_us_total: u64,
+    pub remaining_tail_data_wait_max_event_index_total: u64,
+    pub remaining_tail_data_wait_max_bytes_before_total: u64,
+    pub remaining_tail_data_wait_max_bytes_after_total: u64,
+    pub remaining_tail_data_wait_max_eof_total: u64,
     pub total_read_samples_total: u64,
     pub total_read_us_total: u64,
 }
@@ -845,7 +883,7 @@ impl HttpRequestBodyStreamMetrics {
         finished_at: Instant,
         second_chunk_at: Option<Instant>,
         remaining_tail_data_wait_us: u64,
-        remaining_tail_data_wait_max_us: u64,
+        remaining_tail_data_wait_max: HttpRequestBodyTailDataWaitMax,
     ) {
         self.total_read_samples_total.fetch_add(1, Ordering::SeqCst);
         self.total_read_us_total.fetch_add(
@@ -864,7 +902,17 @@ impl HttpRequestBodyStreamMetrics {
             self.remaining_tail_data_wait_us_total
                 .fetch_add(remaining_tail_data_wait_us, Ordering::SeqCst);
             self.remaining_tail_data_wait_max_us_total
-                .fetch_add(remaining_tail_data_wait_max_us, Ordering::SeqCst);
+                .fetch_add(remaining_tail_data_wait_max.wait_us, Ordering::SeqCst);
+            self.remaining_tail_data_wait_max_event_index_total
+                .fetch_add(remaining_tail_data_wait_max.event_index, Ordering::SeqCst);
+            self.remaining_tail_data_wait_max_bytes_before_total
+                .fetch_add(remaining_tail_data_wait_max.bytes_before, Ordering::SeqCst);
+            self.remaining_tail_data_wait_max_bytes_after_total
+                .fetch_add(remaining_tail_data_wait_max.bytes_after, Ordering::SeqCst);
+            if remaining_tail_data_wait_max.eof {
+                self.remaining_tail_data_wait_max_eof_total
+                    .fetch_add(1, Ordering::SeqCst);
+            }
         }
     }
 
@@ -893,6 +941,18 @@ impl HttpRequestBodyStreamMetrics {
                 .load(Ordering::SeqCst),
             remaining_tail_data_wait_max_us_total: self
                 .remaining_tail_data_wait_max_us_total
+                .load(Ordering::SeqCst),
+            remaining_tail_data_wait_max_event_index_total: self
+                .remaining_tail_data_wait_max_event_index_total
+                .load(Ordering::SeqCst),
+            remaining_tail_data_wait_max_bytes_before_total: self
+                .remaining_tail_data_wait_max_bytes_before_total
+                .load(Ordering::SeqCst),
+            remaining_tail_data_wait_max_bytes_after_total: self
+                .remaining_tail_data_wait_max_bytes_after_total
+                .load(Ordering::SeqCst),
+            remaining_tail_data_wait_max_eof_total: self
+                .remaining_tail_data_wait_max_eof_total
                 .load(Ordering::SeqCst),
             total_read_samples_total: self.total_read_samples_total.load(Ordering::SeqCst),
             total_read_us_total: self.total_read_us_total.load(Ordering::SeqCst),
@@ -6094,8 +6154,9 @@ async fn run_http2_stream_reader(
     let mut first_chunk_at = None;
     let mut second_chunk_at = None;
     let mut remaining_tail_data_wait_us = 0;
-    let mut remaining_tail_data_wait_max_us = 0;
+    let mut remaining_tail_data_wait_max = HttpRequestBodyTailDataWaitMax::default();
     let mut bytes_read: u64 = 0;
+    let mut data_event_index: u64 = 0;
     let total_deadline = Instant::now() + total_timeout;
     loop {
         if state.finish_requested() {
@@ -6104,7 +6165,7 @@ async fn run_http2_stream_reader(
                 Instant::now(),
                 second_chunk_at,
                 remaining_tail_data_wait_us,
-                remaining_tail_data_wait_max_us,
+                remaining_tail_data_wait_max,
             );
             state.mark_finished();
             return Ok(());
@@ -6120,6 +6181,7 @@ async fn run_http2_stream_reader(
         }
 
         let data_wait_started_at = Instant::now();
+        let bytes_before_wait = bytes_read;
         let data_future = stream.data();
         let chunk = match time::timeout(idle_timeout, data_future).await {
             Ok(value) => value,
@@ -6135,16 +6197,24 @@ async fn run_http2_stream_reader(
         };
         let data_received_at = Instant::now();
         let data_wait_us = saturating_instant_delta_us(data_wait_started_at, data_received_at);
+        data_event_index = data_event_index.saturating_add(1);
 
         match chunk {
             Some(Ok(bytes)) => {
                 let is_remaining_tail_chunk = second_chunk_at.is_some();
+                let len = bytes.len();
+                let bytes_after_wait = bytes_before_wait.saturating_add(len as u64);
                 metrics.record_data_chunk_wait_us(data_wait_us);
                 if is_remaining_tail_chunk {
                     remaining_tail_data_wait_us =
                         remaining_tail_data_wait_us.saturating_add(data_wait_us);
-                    remaining_tail_data_wait_max_us =
-                        remaining_tail_data_wait_max_us.max(data_wait_us);
+                    remaining_tail_data_wait_max.observe(
+                        data_wait_us,
+                        data_event_index,
+                        bytes_before_wait,
+                        bytes_after_wait,
+                        false,
+                    );
                 }
                 if first_chunk_at.is_none() {
                     first_chunk_at = Some(data_received_at);
@@ -6154,8 +6224,7 @@ async fn run_http2_stream_reader(
                     second_chunk_at = Some(data_received_at);
                     metrics.record_second_chunk_wait(first_at, data_received_at);
                 }
-                let len = bytes.len();
-                bytes_read += len as u64;
+                bytes_read = bytes_after_wait;
                 if bytes_read > max_body
                     || content_length
                         .map(|limit| bytes_read > limit)
@@ -6195,15 +6264,20 @@ async fn run_http2_stream_reader(
                 if second_chunk_at.is_some() {
                     remaining_tail_data_wait_us =
                         remaining_tail_data_wait_us.saturating_add(data_wait_us);
-                    remaining_tail_data_wait_max_us =
-                        remaining_tail_data_wait_max_us.max(data_wait_us);
+                    remaining_tail_data_wait_max.observe(
+                        data_wait_us,
+                        data_event_index,
+                        bytes_before_wait,
+                        bytes_before_wait,
+                        true,
+                    );
                 }
                 metrics.record_reader_finished(
                     reader_started_at,
                     Instant::now(),
                     second_chunk_at,
                     remaining_tail_data_wait_us,
-                    remaining_tail_data_wait_max_us,
+                    remaining_tail_data_wait_max,
                 );
                 state.mark_finished();
                 return Ok(());
@@ -7080,7 +7154,19 @@ mod tests {
         metrics.record_first_chunk_wait(started_at, first_at);
         metrics.record_data_chunk_wait_us(2_000);
         metrics.record_second_chunk_wait(first_at, second_at);
-        metrics.record_reader_finished(started_at, finished_at, Some(second_at), 2_000, 1_500);
+        metrics.record_reader_finished(
+            started_at,
+            finished_at,
+            Some(second_at),
+            2_000,
+            HttpRequestBodyTailDataWaitMax {
+                wait_us: 1_500,
+                event_index: 4,
+                bytes_before: 131_072,
+                bytes_after: 196_608,
+                eof: false,
+            },
+        );
         let after = http_request_body_stream_metrics_snapshot();
         assert!(after.streaming_requests_total > before.streaming_requests_total);
         assert!(after.data_chunk_samples_total > before.data_chunk_samples_total);
@@ -7095,6 +7181,18 @@ mod tests {
         assert!(
             after.remaining_tail_data_wait_max_us_total
                 > before.remaining_tail_data_wait_max_us_total
+        );
+        assert!(
+            after.remaining_tail_data_wait_max_event_index_total
+                > before.remaining_tail_data_wait_max_event_index_total
+        );
+        assert!(
+            after.remaining_tail_data_wait_max_bytes_before_total
+                > before.remaining_tail_data_wait_max_bytes_before_total
+        );
+        assert!(
+            after.remaining_tail_data_wait_max_bytes_after_total
+                > before.remaining_tail_data_wait_max_bytes_after_total
         );
         assert!(after.total_read_samples_total > before.total_read_samples_total);
         assert!(after.total_read_us_total > before.total_read_us_total);
