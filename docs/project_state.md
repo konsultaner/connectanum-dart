@@ -32,6 +32,13 @@ Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.
     repeat artifact had a baseline-side outlier: throughput delta span was
     `17052.90pp` and p95 delta span was `108.52pp`; this validates the
     artifact guardrail rather than requiring more immediate H2 work
+  - repeat confirmation run `25164322244` also completed successfully on
+    `0da1030` with a clean hosted log scan and no transport-counter issues;
+    it was likewise not decision-quality, this time from kTLS-side instability
+    (`58.76pp` throughput delta span and `1767.09pp` p95 delta span)
+  - the H2 body-timeout symptom did not recur across the two post-reporting
+    runs; any future H2 work should target benchmark repeat stability and
+    hosted-run measurement evidence, not speculative transport changes
 - Recent kTLS/H2 isolated diagnosis/reporting slice:
   - commit `7d08440`
     (`bench: flag transport counter issues in h2 repeats`) makes the kTLS/H2

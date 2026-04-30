@@ -78,6 +78,11 @@ operator evidence over speculative feature or benchmark work.
   - manual H2/kTLS run `25163851551` was log-clean with no transport-counter
     issues in focus rows, but remained non-decision-quality due baseline-side
     benchmark noise, so H2 is no longer the default continuation path
+  - repeat confirmation run `25164322244` was also log-clean with no
+    transport-counter issues in focus rows; it remained non-decision-quality
+    from kTLS-side repeat instability, confirming the artifact guardrail is
+    working and that additional H2 work should be scoped to benchmark
+    repeat-stability evidence
   - the next autonomous priority is RC/deployment readiness around branch
     protection evidence, router workflow/package publication evidence, native
     release/RC tag evidence, Dart package release-order readiness, and
