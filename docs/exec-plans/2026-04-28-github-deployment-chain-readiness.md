@@ -87,6 +87,24 @@ operator evidence over speculative feature or benchmark work.
     protection evidence, router workflow/package publication evidence, native
     release/RC tag evidence, Dart package release-order readiness, and
     human-readable release/package surfaces
+- Refreshed native release dry-run evidence for the current branch head:
+  - branch head `1d999ea` passed GitHub `CI` run `25164892705`
+    (`Fast Checks` 5m25s, `Full Verify` 8m04s) and the clean-CI/log audit
+    passed
+  - manual `Native Artifacts` dry-run `25165578557` passed all hosted Linux,
+    macOS, and Windows `ct_ffi` artifact jobs plus the `Publish GitHub
+    Release` preview job
+  - `native-release-preview` was uploaded, the dry-run intent accepted
+    `ct-ffi-v2026.04.30-dry-run.1d999ea`, no GitHub Release was created for
+    that tag, and `--require-clean-native-release-dry-run` now passes for the
+    checked-out head
+- Started public native-release-note wording polish:
+  - the generated notes now describe `ghcr.io/konsultaner/connectanum-router`
+    as a separately released router image target that must be confirmed in the
+    deployment guide before production use, rather than implying the GHCR image
+    is already published
+  - pre-change `bin/test-fast` passed locally, and focused renderer checks
+    passed after the wording change
 - Confirmed pushed documentation head `639c095` passed GitHub `CI` run
   `25046524665`:
   - `Fast Checks`: success

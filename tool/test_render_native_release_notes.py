@@ -39,7 +39,12 @@ class NativeReleaseNotesTest(unittest.TestCase):
             "gh attestation verify path/to/ct-ffi-<host-triple>.tar.gz",
             rendered,
         )
-        self.assertIn("ghcr.io/konsultaner/connectanum-router", rendered)
+        self.assertIn(
+            "Router container image target: "
+            "`ghcr.io/konsultaner/connectanum-router`",
+            rendered,
+        )
+        self.assertIn("released separately", rendered)
         self.assertNotIn("## Changelog", rendered)
 
     def test_project_release_notes_append_generated_changelog(self) -> None:

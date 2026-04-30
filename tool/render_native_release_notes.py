@@ -86,7 +86,9 @@ def render_release_notes(
 
 - Repository README: {repo_url}/blob/{commit_sha}/README.md
 - Deployment guide: {repo_url}/blob/{commit_sha}/docs/deployment.md
-- Router container images: `ghcr.io/{owner.lower()}/connectanum-router`
+- Router container image target: `ghcr.io/{owner.lower()}/connectanum-router`
+  (released separately; confirm package availability in the deployment guide
+  before using it in production)
 """
 
     generated_notes = generated_notes.strip()
