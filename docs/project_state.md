@@ -2,12 +2,37 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `83976ed` (`fix: quiet benign h2 accept shutdowns`)
+Last reviewed commit: `9f90448` (`bench: sample h2 request flow window`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
 
 - Current kTLS/H2 isolated diagnosis/reporting slice:
+  - documentation checkpoint `4025d6f`
+    (`docs: record h2 accept shutdown ci`) passed hosted GitHub `CI` run
+    `25159091408`; `Fast Checks` completed successfully in 5m55s and
+    `Full Verify` completed successfully in 8m28s
+  - local pre-change `bin/test-fast` passed on 2026-04-30 before adding the
+    HTTP/2 request-body flow-window diagnostic
+  - current local commit `9f90448`
+    (`bench: sample h2 request flow window`) records H2 receive
+    flow-control state for each request's maximum remaining-tail
+    `stream.data()` wait: available capacity and used capacity before the
+    wait, after DATA/EOF delivery, and after releasing consumed DATA capacity
+  - those flow-window counters now flow through ct_core snapshots, the FFI
+    metrics struct, Dart router metrics, native bench summaries, and the
+    primary/repeat kTLS HTTP/2 comparison reports
+  - focused local checks for that diagnostic passed:
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_core http_request_body_stream_metrics_record_reader_chunks -- --nocapture`,
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi --features ffi-test router_metrics_snapshot_aggregates_reason_totals_and_listener_breakdowns -- --nocapture`,
+    `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`,
+    `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`,
+    `dart analyze packages/connectanum_router/lib/src/native/ffi_bindings.dart packages/connectanum_router/lib/src/native/runtime.dart packages/connectanum_router/lib/src/router/models/router_metrics.dart packages/connectanum_router/lib/src/router/router_instance/router_boss.dart`,
+    and `git diff --check`
+  - full local `bin/verify` passed after the flow-window diagnostic on
+    2026-04-30, including Rust, FFI, Dart package, bench, router, and
+    Chrome/Dart2Wasm browser coverage
   - current pushed branch head `83976ed` passed the hosted GitHub push chain:
     `CI` run `25158055327` completed successfully with `Fast Checks` in
     5m40s and `Full Verify` in 8m14s; `kTLS Validation` run `25158055341`

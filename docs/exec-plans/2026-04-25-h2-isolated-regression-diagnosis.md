@@ -1183,11 +1183,35 @@ decisions.
     data-wait and max data-wait were kTLS-higher across all repeats, the max
     wait stayed near event index `4`, and EOF ratio stayed mixed rather than a
     pure terminal EOF signal
+  - documentation checkpoint `4025d6f`
+    (`docs: record h2 accept shutdown ci`) passed hosted GitHub `CI` run
+    `25159091408` with `Fast Checks` in 5m55s and `Full Verify` in 8m28s
+  - local pre-change `bin/test-fast` passed on 2026-04-30 before adding the
+    HTTP/2 request-body flow-window diagnostic
+  - commit `9f90448` (`bench: sample h2 request flow window`) records H2
+    receive flow-control state for each request's maximum remaining-tail
+    `stream.data()` wait: available capacity and used capacity before the
+    wait, after DATA/EOF delivery, and after releasing consumed DATA capacity
+  - the flow-window counters now flow through ct_core snapshots, the FFI
+    metrics struct, Dart router metrics, native bench summaries, and the
+    primary/repeat kTLS HTTP/2 comparison reports
+  - focused local checks for the flow-window diagnostic passed:
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_core http_request_body_stream_metrics_record_reader_chunks -- --nocapture`,
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi --features ffi-test router_metrics_snapshot_aggregates_reason_totals_and_listener_breakdowns -- --nocapture`,
+    `cargo test --manifest-path native/bench/Cargo.toml summarize_report_computes_latency_and_deltas -- --nocapture`,
+    `python3 -m py_compile tool/ktls_http2_compare.py tool/ktls_http2_compare_repeats.py tool/test_ktls_http2_compare.py`,
+    `python3 tool/test_ktls_http2_compare.py`,
+    `dart analyze packages/connectanum_router/lib/src/native/ffi_bindings.dart packages/connectanum_router/lib/src/native/runtime.dart packages/connectanum_router/lib/src/router/models/router_metrics.dart packages/connectanum_router/lib/src/router/router_instance/router_boss.dart`,
+    and `git diff --check`
+  - full local `bin/verify` passed after the flow-window diagnostic on
+    2026-04-30, including Rust, FFI, Dart package, bench, router, and
+    Chrome/Dart2Wasm browser coverage
 
 ## Next Step
 
-Instrument request DATA-frame availability/window scheduling around the late
-native request-body `stream.data()` wait. The next split should explain why the
-max remaining-tail wait usually lands near event index `4` around the middle of
-the request body instead of at terminal EOF, without re-opening post-read
-enqueue, FFI, Dart drain, or final EOF handling as the primary hypothesis.
+Push `9f90448`, watch the GitHub push chain and branch deployment audit/log
+scan, then dispatch the same isolated manual `kTLS HTTP/2 Benchmarks` rerun on
+the new clean head. Interpret whether the max remaining-tail `stream.data()`
+wait correlates with exhausted or negative receive-window capacity before the
+wait, or with non-zero used capacity after release; if the window stays healthy,
+the next target is DATA arrival/scheduling rather than receive-window release.
