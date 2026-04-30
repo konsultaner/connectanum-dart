@@ -2,21 +2,38 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `7d08440` (`bench: flag transport counter issues in h2 repeats`)
-Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
+Last reviewed commit: `0da1030` (`docs: record h2 transport counter reporting`)
+Active exec plan: `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 
 ## Last Known Verification
 
-- Current kTLS/H2 isolated diagnosis/reporting slice:
-  - latest pushed branch head `2288a50`
-    (`docs: record h2 flow window ci`) passed hosted GitHub `CI` run
-    `25161452394`: `Fast Checks` completed in 5m40s and `Full Verify`
-    completed in 7m43s
+- Current autonomous focus:
+  - return to GitHub deployment-chain and RC-readiness work; the H2/kTLS slice
+    is complete for now and should not remain the default continuation path
+    unless CI, release artifacts, or branch evidence regress
+  - latest pushed branch head `0da1030`
+    (`docs: record h2 transport counter reporting`) passed hosted GitHub `CI`
+    run `25163209719`: `Fast Checks` completed in 5m35s and `Full Verify`
+    completed in 8m24s
   - branch-head deployment-chain audit with `--require-clean-latest-ci` and
-    `--require-clean-latest-ci-logs` passed against `2288a50`; latest CI log
-    scan found no warning, skipped-test, panic, broken-pipe, reset, or
-    connection-noise matches
-  - local commit `7d08440`
+    `--require-clean-latest-ci-logs` passed against `0da1030`; latest CI log
+    scan found no high-signal warning, skipped-test, panic, broken-pipe, reset,
+    timeout, or connection-noise matches
+  - remaining RC/deployment blockers are still operator/product/deployment
+    decisions or externally visible release actions: branch protection required
+    checks, default-branch visibility for `router-image.yml`, visible GHCR
+    router package evidence, RC tag/prerelease selection, and Dart package
+    release-order/public ownership
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25163851551` completed
+    successfully on `0da1030`, its hosted log scan was clean, and the new
+    transport-counter reporting found no non-zero focus-row transport
+    counters or transport-counter issues
+  - `25163851551` is intentionally not release-decision evidence because the
+    repeat artifact had a baseline-side outlier: throughput delta span was
+    `17052.90pp` and p95 delta span was `108.52pp`; this validates the
+    artifact guardrail rather than requiring more immediate H2 work
+- Recent kTLS/H2 isolated diagnosis/reporting slice:
+  - commit `7d08440`
     (`bench: flag transport counter issues in h2 repeats`) makes the kTLS/H2
     comparison artifacts self-report individual transport event/alert counters
     and makes repeat-stability output non-decision-quality when focus rows
@@ -28,6 +45,10 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
   - full local `bin/verify` passed after `7d08440` on 2026-04-30, including
     native Rust/FFI, Dart package, MCP, bench, router, and Chrome/Dart2Wasm
     browser coverage
+  - documentation checkpoint `0da1030`
+    (`docs: record h2 transport counter reporting`) passed hosted GitHub `CI`
+    run `25163209719`, and the branch-head deployment-chain audit/log scan was
+    clean
   - manual hosted `kTLS HTTP/2 Benchmarks` run `25160953085` completed
     successfully on `b6c993f` with the same isolated
     `h2_multiplexed_streams_s1`, `threads=4`, one-router-worker alternating

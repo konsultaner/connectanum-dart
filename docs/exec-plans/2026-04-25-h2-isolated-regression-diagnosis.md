@@ -1,13 +1,16 @@
 # HTTP/2 Isolated Regression Diagnosis
 
-Status: in_progress
+Status: paused
 
 Resumed after `docs/exec-plans/2026-04-25-ci-noise-and-skip-cleanup.md`
 completed on clean branch checkpoint `17697ae`. Paused on 2026-04-28 after
 the project priority shifted to the GitHub deployment chain. Resumed on
 2026-04-29 after the deployment-chain work reached a clean evidence checkpoint
 and its remaining blockers became explicit operator/product/deployment
-decisions.
+decisions. Paused again on 2026-04-30 after the transport-counter artifact
+guardrail was implemented, verified, pushed, and validated against one hosted
+manual rerun; do not continue H2 diagnosis unless CI, release artifacts, or
+branch evidence regress.
 
 ## Context
 
@@ -1251,16 +1254,31 @@ decisions.
   - full local `bin/verify` passed after `7d08440` on 2026-04-30, including
     native Rust/FFI, Dart package, MCP, bench, router, and Chrome/Dart2Wasm
     browser coverage
+  - documentation checkpoint `0da1030`
+    (`docs: record h2 transport counter reporting`) passed hosted GitHub `CI`
+    run `25163209719` with `Fast Checks` in 5m35s and `Full Verify` in 8m24s;
+    the branch-head deployment-chain audit with `--require-clean-latest-ci`
+    and `--require-clean-latest-ci-logs` passed against `0da1030`
+  - manual hosted rerun `25163851551` completed successfully on `0da1030`
+    with isolated `h2_multiplexed_streams_s1`, `threads=4`, one router worker,
+    `repeat_count=3`, `repeat_order=alternating`, `cooldown_seconds=15`, and
+    `skip_artifact_gate=true`
+  - `25163851551` had a clean hosted log scan and no transport-counter issues
+    in focus rows, but it is not release-decision evidence because a
+    baseline-side outlier widened throughput delta span to `17052.90pp` and
+    p95 delta span to `108.52pp`
+  - the reporting guardrail therefore worked as intended: it separated
+    transport-counter health from benchmark noise and leaves no immediate H2
+    blocker ahead of GitHub deployment-chain/RC-readiness work
 
 ## Next Step
 
-Push the local transport-counter reporting checkpoint, monitor the GitHub
-chain, then rerun the isolated manual `h2_multiplexed_streams_s1` kTLS/H2
-benchmark so future artifacts self-flag any body-timeout or transport-alert
-counters. If the kTLS repeat-02 body-total timeout path from run `25160953085`
-recurs, diagnose where
+No immediate H2 continuation. Resume
+`docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md` as the active
+plan and only return here if hosted CI, release artifacts, or benchmark
+evidence show a real H2/kTLS blocker for a shipped path. If the kTLS
+body-total timeout path from run `25160953085` recurs in clean CI or release
+evidence, diagnose where
 `http/2 body reader error: http/2 body total timeout` is emitted and add a
 minimal repro or focused diagnostic that distinguishes a real transport stall
-from benchmark timeout handling; keep the baseline shutdown `BrokenPipe` log
-classified separately so it is not hidden as harmless without understanding the
-shutdown path.
+from benchmark timeout handling.

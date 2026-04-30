@@ -1,9 +1,9 @@
 # GitHub Deployment Chain Readiness
 
-Status: paused
+Status: in_progress
 Owner: Codex
 Created: 2026-04-28
-Last updated: 2026-04-29
+Last updated: 2026-04-30
 
 ## Goal
 
@@ -69,6 +69,19 @@ operator evidence over speculative feature or benchmark work.
 - Paused this plan on 2026-04-29 after the deployment-chain evidence refreshed
   cleanly on `b338d58` and the remaining blockers became explicit
   operator/product/deployment decisions rather than code-ready autonomous work.
+- Reactivated this plan on 2026-04-30 after the H2 transport-counter artifact
+  guardrail reached a clean checkpoint:
+  - branch head `0da1030` passed GitHub `CI` run `25163209719`
+    (`Fast Checks` 5m35s, `Full Verify` 8m24s)
+  - the deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `0da1030`
+  - manual H2/kTLS run `25163851551` was log-clean with no transport-counter
+    issues in focus rows, but remained non-decision-quality due baseline-side
+    benchmark noise, so H2 is no longer the default continuation path
+  - the next autonomous priority is RC/deployment readiness around branch
+    protection evidence, router workflow/package publication evidence, native
+    release/RC tag evidence, Dart package release-order readiness, and
+    human-readable release/package surfaces
 - Confirmed pushed documentation head `639c095` passed GitHub `CI` run
   `25046524665`:
   - `Fast Checks`: success
