@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `f9b3b27` (`bench: split request body tail drain timing`)
+Last reviewed commit: `ffb1376` (`bench: expose native request body reader timing`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
@@ -384,6 +384,40 @@ Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.m
   - full local `bin/verify` passed after the native request-body reader split
     on 2026-04-30, including Rust, Dart package, bench, router,
     `remote_auth_integration_test`, and Chrome/Dart2Wasm browser coverage
+  - commit `ffb1376` (`bench: expose native request body reader timing`)
+    passed the hosted GitHub push chain: `CI` run `25143265285` completed
+    with `Fast Checks` in 5m43s and `Full Verify` in 8m10s; `kTLS Validation`
+    run `25143265320` completed successfully; `WAMP Profile Benchmarks` run
+    `25143265476` completed successfully
+  - the branch-head deployment-chain audit with
+    `--require-clean-latest-ci --require-clean-latest-ci-logs` passed against
+    `ffb1376`; the hosted CI log scan found no warning, deprecation,
+    skipped-test, reset, timeout, panic, or connection-noise patterns
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25143770043` completed
+    successfully on `ffb1376` but is not usable as clean decision evidence:
+    throughput delta span was `121.77pp`, p95 delta span was `1841.86pp`,
+    and the hosted log contained `http/2 accept error ... broken pipe` during
+    repeat-01 baseline warm-up immediately before the low baseline row
+  - manual hosted retry `25143991933` completed successfully on `ffb1376` and
+    produced decision-quality isolated `s1`, `threads=4`, one-router-worker
+    evidence: throughput delta span was `23.85pp`, p95 delta span was
+    `27.61pp`, all repeats produced matched rows, and the hosted log scan had
+    no connection-noise pattern beyond the expected manual
+    `skip_artifact_gate=true` notices and benign setup/toolchain text
+  - `25143991933` keeps the throughput gap kTLS-side
+    (`-39.24%..-15.38%`, median `-36.77%`) with p95 at
+    `+0.08%..+27.69%`; repeated client phase signals remain kTLS-higher for
+    body read, tail read, tail connection read-to-end/span, header wait, and
+    tail connection read wait
+  - the native request-body reader split shows the server request-body path is
+    not the broad stable explanation: repeat-01 had matching Dart drain and
+    native reader tail movement (`request body drain +1.06 ms`, native reader
+    total `+1.19 ms`), but repeats 02 and 03 kept Dart drain and native reader
+    totals essentially flat while client body/tail read remained kTLS-higher
+  - the next bounded diagnostic target is therefore the client-side HTTP/2
+    body-tail read path, specifically splitting the tail connection read span
+    into inter-read gap and read-size/read-count distribution before making
+    more server request-body or first-body-write scheduling changes
 - Current deployment-chain evidence refresh:
   - commit `b338d58` (`docs: record current deployment evidence`) passed
     hosted GitHub `CI` run `25123037462`; `Fast Checks` completed

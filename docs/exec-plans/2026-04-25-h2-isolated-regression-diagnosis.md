@@ -596,6 +596,41 @@ decisions.
   - if native reader timing stays flat while Dart-side drain remains
     kTLS-higher, the next target is Dart drain scheduling above the native
     request-body reader
+- Commit `ffb1376` (`bench: expose native request body reader timing`) passed
+  the hosted GitHub push chain:
+  - `CI` `25143265285`
+  - `kTLS Validation` `25143265320`
+  - `WAMP Profile Benchmarks` `25143265476`
+  - the branch-head deployment audit and hosted CI log scan are clean
+- Manual hosted rerun `25143770043` reran isolated `s1`, `threads=4`, one
+  router worker on `ffb1376` with `repeat_order=alternating`.
+- That run completed but is not clean decision evidence:
+  - throughput delta span was `121.77pp`
+  - p95 delta span was `1841.86pp`
+  - the hosted log contained `http/2 accept error ... broken pipe` during
+    repeat-01 baseline warm-up immediately before the low baseline row
+- Manual hosted retry `25143991933` reran the same workload on `ffb1376`.
+- That retry is decision-quality:
+  - throughput delta span was `23.85pp`
+  - p95 delta span was `27.61pp`
+  - all repeats produced matched rows
+  - the hosted log scan had no connection-noise pattern beyond the expected
+    manual artifact-gate skip notices and benign setup/toolchain text
+  - kTLS throughput remained lower in all repeats at
+    `-39.24%..-15.38%`, median `-36.77%`
+  - p95 moved by `+0.08%..+27.69%`
+- The native request-body reader split narrows the boundary:
+  - repeat-01 had matching server-side Dart drain and native reader tail
+    movement (`request body drain +1.06 ms`, native reader total `+1.19 ms`)
+  - repeats 02 and 03 kept Dart drain and native reader totals essentially
+    flat while client body/tail read remained kTLS-higher
+  - the only repeated native request-body reader signal was data-chunk wait in
+    two repeats (`+0.01..+0.29 ms`, median `+0.15 ms`)
+- That points away from a broad stable server request-body drain explanation.
+  The next bounded target is the client-side HTTP/2 body-tail read path:
+  split tail connection read span into inter-read gap and read-size/read-count
+  distribution before making more server request-body or first-body-write
+  scheduling changes.
 
 ## Current Verification
 
@@ -821,13 +856,28 @@ decisions.
   - `git diff --check`
   - `bin/test-fast`
   - `bin/verify`
+  - hosted GitHub `CI` run `25143265285` completed successfully on
+    `ffb1376`; `Fast Checks` completed in 5m43s and `Full Verify` completed
+    in 8m10s
+  - hosted GitHub `kTLS Validation` run `25143265320` completed successfully
+    on `ffb1376`
+  - hosted GitHub `WAMP Profile Benchmarks` run `25143265476` completed
+    successfully on `ffb1376`
+  - deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `ffb1376`
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25143770043` completed
+    successfully but was excluded from decision evidence because it was
+    non-decision-quality and had a repeat-01 baseline `broken pipe` log line
+  - manual hosted `kTLS HTTP/2 Benchmarks` retry `25143991933` completed
+    successfully, was decision-quality, and had no connection-noise log
+    pattern beyond expected manual artifact-gate skip notices
 
 ## Next Step
 
-Commit and push the native request-body-reader split, then dispatch an
-isolated hosted `h2_multiplexed_streams_s1`, `threads=4`, alternating repeat
-run on the new branch head. Use native request-body reader timing versus
-Dart-side request-body drain timing to decide whether the kTLS-side tail-drain
-delay is below or above the native request-body reader. Do not change
-first-body-write scheduling again until this post-second-chunk drain path is
-understood.
+Add the next narrow benchmark-client split for HTTP/2 body-tail reads:
+record tail-phase inter-read gap and read-size/read-count distribution inside
+the instrumented client connection read probe. The goal is to determine
+whether the stable kTLS-side body-tail delta in `25143991933` is many small
+reads, longer gaps between reads, or larger H2/client processing around the
+same socket read sequence. Do not change server request-body or
+first-body-write scheduling until this client-side tail-read path is split.
