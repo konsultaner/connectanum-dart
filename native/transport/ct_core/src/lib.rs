@@ -18,7 +18,7 @@ use base64::{engine::general_purpose::STANDARD as Base64Engine, Engine as _};
 use bytes::{Buf, Bytes, BytesMut};
 use h2::{
     server::{self as h2_server, SendResponse as H2SendResponse},
-    RecvStream as H2RecvStream,
+    Error as H2Error, RecvStream as H2RecvStream,
 };
 use h3::{quic::BidiStream as H3BidiStreamTrait, server::RequestStream as H3RequestStream};
 use h3_quinn::Connection as H3QuinnConnection;
@@ -5737,6 +5737,30 @@ fn is_benign_socket_shutdown(kind: io::ErrorKind) -> bool {
     )
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Http2AcceptErrorClass {
+    BenignShutdown,
+    GoAway,
+    ProtocolError,
+}
+
+fn classify_http2_accept_error_parts(
+    is_go_away: bool,
+    io_kind: Option<io::ErrorKind>,
+) -> Http2AcceptErrorClass {
+    if is_go_away {
+        Http2AcceptErrorClass::GoAway
+    } else if io_kind.is_some_and(is_benign_socket_shutdown) {
+        Http2AcceptErrorClass::BenignShutdown
+    } else {
+        Http2AcceptErrorClass::ProtocolError
+    }
+}
+
+fn classify_http2_accept_error(err: &H2Error) -> Http2AcceptErrorClass {
+    classify_http2_accept_error_parts(err.is_go_away(), err.get_io().map(io::Error::kind))
+}
+
 fn header_has_token(value: &str, needle: &str) -> bool {
     value
         .split(',')
@@ -5926,29 +5950,34 @@ async fn serve_http2_connection(
                 }
             }
             Err(err) => {
-                eprintln!(
-                    "http/2 accept error for listener {:?}: {}",
-                    listener_id, err
-                );
-                if let Some(stats) = connection_stats.as_ref() {
-                    if err.is_go_away() {
-                        stats.record_goaway(Some(err.to_string()));
-                    } else {
-                        stats.set_close_reason(
-                            HttpConnectionCloseReason::ProtocolError,
-                            Some(err.to_string()),
-                        );
+                let err_detail = err.to_string();
+                let (reason, detail) = match classify_http2_accept_error(&err) {
+                    Http2AcceptErrorClass::BenignShutdown => {
+                        (HttpConnectionCloseReason::Graceful, None)
                     }
-                }
-                registry.finish_http_connection(
-                    connection_id,
-                    if err.is_go_away() {
-                        HttpConnectionCloseReason::GoAway
-                    } else {
-                        HttpConnectionCloseReason::ProtocolError
-                    },
-                    Some(err.to_string()),
-                );
+                    Http2AcceptErrorClass::GoAway => {
+                        let detail = Some(err_detail);
+                        if let Some(stats) = connection_stats.as_ref() {
+                            stats.record_goaway(detail.clone());
+                        }
+                        (HttpConnectionCloseReason::GoAway, detail)
+                    }
+                    Http2AcceptErrorClass::ProtocolError => {
+                        eprintln!(
+                            "http/2 accept error for listener {:?}: {}",
+                            listener_id, err_detail
+                        );
+                        let detail = Some(err_detail);
+                        if let Some(stats) = connection_stats.as_ref() {
+                            stats.set_close_reason(
+                                HttpConnectionCloseReason::ProtocolError,
+                                detail.clone(),
+                            );
+                        }
+                        (HttpConnectionCloseReason::ProtocolError, detail)
+                    }
+                };
+                registry.finish_http_connection(connection_id, reason, detail);
                 closed = true;
                 break;
             }
@@ -8458,6 +8487,26 @@ mod tests {
         assert!(err.is_peer_disconnect());
         assert!(is_benign_socket_shutdown(io::ErrorKind::ConnectionReset));
         assert!(!is_benign_socket_shutdown(io::ErrorKind::InvalidData));
+    }
+
+    #[test]
+    fn http2_accept_broken_pipe_is_classified_as_graceful_shutdown() {
+        assert_eq!(
+            classify_http2_accept_error_parts(false, Some(io::ErrorKind::BrokenPipe)),
+            Http2AcceptErrorClass::BenignShutdown
+        );
+        assert_eq!(
+            classify_http2_accept_error_parts(false, Some(io::ErrorKind::ConnectionReset)),
+            Http2AcceptErrorClass::BenignShutdown
+        );
+        assert_eq!(
+            classify_http2_accept_error_parts(true, Some(io::ErrorKind::BrokenPipe)),
+            Http2AcceptErrorClass::GoAway
+        );
+        assert_eq!(
+            classify_http2_accept_error_parts(false, Some(io::ErrorKind::InvalidData)),
+            Http2AcceptErrorClass::ProtocolError
+        );
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

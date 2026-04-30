@@ -1124,12 +1124,47 @@ decisions.
   - full local `bin/verify` passed after the request-body tail max data-wait
     position diagnostic on 2026-04-30, including Rust, FFI, Dart package,
     bench, router, and Chrome/Dart2Wasm browser coverage
+  - commit `234e88d` (`bench: locate h2 request data wait`) passed the
+    hosted GitHub push chain:
+    - `CI` `25156460466` with `Fast Checks` in 5m43s and `Full Verify` in
+      8m21s
+    - `kTLS Validation` `25156460504` in 3m01s
+    - `WAMP Profile Benchmarks` `25156460459` in 7m41s
+  - branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `234e88d`; companion
+    kTLS/WAMP log scans only matched benign setup/configuration text and no
+    Rust warnings, skipped tests, panics, resets, broken pipes, or actionable
+    connection-noise patterns
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25157185705` reran isolated
+    `h2_multiplexed_streams_s1`, `threads=4`, one router worker, alternating
+    repeats on `234e88d`
+  - `25157185705` completed with matched rows in all repeats but is not clean
+    release-decision evidence: throughput delta span was `53.80pp`, p95 delta
+    span was `212.93pp`, and the hosted log contained one real
+    `http/2 accept error ... broken pipe` line during repeat 03
+  - the max data-wait position fields still answer the active split: the
+    remaining-tail max `stream.data()` wait is centered around event index
+    `4`, with bytes-before around `208 KiB..226 KiB`, bytes-after around
+    `244 KiB..250 KiB`, and a mixed EOF ratio around `0.46..0.64`; the gap is
+    therefore more consistent with waiting for a late DATA frame than with a
+    pure terminal EOF wait
+  - the current local clean-chain fix classifies HTTP/2 accept-loop I/O
+    shutdowns (`BrokenPipe`, `ConnectionReset`, `ConnectionAborted`,
+    `UnexpectedEof`) as graceful peer shutdowns, keeps GOAWAY recorded as
+    GOAWAY, and keeps true protocol errors logged
+  - focused repro
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_core http2_accept_broken_pipe_is_classified_as_graceful_shutdown -- --nocapture`
+    passed locally, `bin/test-fast` passed after the fix, and full local
+    `bin/verify` passed on 2026-04-30 including Chrome/Dart2Wasm browser
+    coverage
 
 ## Next Step
 
-After local/full verification and hosted CI for the max data-wait position
-diagnostic, run the same clean hosted isolated `s1`, `threads=4`,
-one-router-worker alternating kTLS/H2 rerun. Use the new max-wait event index,
-bytes-before/after, and EOF ratio fields to decide whether the `stream.data()`
-gap is waiting for a later DATA frame or for the terminal EOF before making a
-request-body scheduling change.
+Commit and push the HTTP/2 accept-loop shutdown classification fix, then watch
+the GitHub push chain and log scans. After the branch is hosted-clean again,
+rerun the same isolated `s1`, `threads=4`, one-router-worker alternating
+kTLS/H2 benchmark to confirm the diagnostic artifact stays free of broken-pipe
+connection noise. If the rerun stays clean and repeats the mixed EOF-ratio
+shape, the next diagnosis slice should instrument request DATA-frame
+availability/window scheduling around the late `stream.data()` wait instead of
+post-read enqueue, FFI, Dart drain, or terminal EOF handling.

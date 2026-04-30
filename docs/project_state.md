@@ -2,12 +2,47 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `724077b` (`docs: record request tail data wait ci`)
+Last reviewed commit: `234e88d` (`bench: locate h2 request data wait`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
 
 - Current kTLS/H2 isolated diagnosis/reporting slice:
+  - latest pushed branch head `234e88d` passed the hosted GitHub push chain:
+    `CI` run `25156460466` completed successfully with `Fast Checks` in
+    5m43s and `Full Verify` in 8m21s; `kTLS Validation` run `25156460504`
+    completed in 3m01s; `WAMP Profile Benchmarks` run `25156460459`
+    completed in 7m41s
+  - branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `234e88d`; companion
+    kTLS/WAMP log scans only matched benign setup/configuration text such as
+    git default-branch hints, Rust toolchain timeout-reference comments,
+    dependency names, workload timeout settings, and upload
+    `if-no-files-found: error` configuration
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25157185705` completed
+    successfully on `234e88d` with isolated
+    `h2_multiplexed_streams_s1`, `threads=4`, one router worker,
+    `repeat_count=3`, `repeat_order=alternating`, `cooldown_seconds=15`,
+    and `skip_artifact_gate=true`
+  - `25157185705` was complete but not clean release-decision evidence:
+    throughput delta span was `53.80pp`, p95 delta span was `212.93pp`, and
+    the hosted log contained one real `http/2 accept error ... broken pipe`
+    connection-noise line during repeat 03
+  - the new max-wait position fields still make that run useful diagnostic
+    evidence: the remaining native request-body tail `stream.data()` max wait
+    stayed near event index `4`, around `208 KiB..226 KiB` before the wait,
+    and EOF ratio stayed mixed at roughly `0.46..0.64`; that points toward a
+    late DATA-frame availability/scheduling gap rather than a pure terminal
+    EOF wait
+  - current local CI-clean fix classifies HTTP/2 accept-loop I/O shutdowns
+    (`BrokenPipe`, `ConnectionReset`, `ConnectionAborted`, `UnexpectedEof`)
+    as graceful peer shutdowns instead of protocol errors, while preserving
+    GOAWAY accounting and real protocol-error logging
+  - focused repro
+    `cargo test --manifest-path native/transport/Cargo.toml -p ct_core http2_accept_broken_pipe_is_classified_as_graceful_shutdown -- --nocapture`
+    passed locally, `bin/test-fast` passed after the fix, and full local
+    `bin/verify` passed on 2026-04-30 including Rust, FFI, Dart package,
+    bench, router, and Chrome/Dart2Wasm browser coverage
   - latest pushed branch head `aab4c31` passed hosted GitHub `CI` run
     `25151359137`; `Fast Checks` completed successfully in 5m44s and
     `Full Verify` completed successfully in 8m16s
