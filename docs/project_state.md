@@ -2,12 +2,36 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: `234e88d` (`bench: locate h2 request data wait`)
+Last reviewed commit: `83976ed` (`fix: quiet benign h2 accept shutdowns`)
 Active exec plan: `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
 
 ## Last Known Verification
 
 - Current kTLS/H2 isolated diagnosis/reporting slice:
+  - current pushed branch head `83976ed` passed the hosted GitHub push chain:
+    `CI` run `25158055327` completed successfully with `Fast Checks` in
+    5m40s and `Full Verify` in 8m14s; `kTLS Validation` run `25158055341`
+    completed in 2m57s; `WAMP Profile Benchmarks` run `25158055443`
+    completed in 7m43s
+  - branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `83976ed`; companion
+    kTLS/WAMP log scans only matched benign setup/configuration text, not
+    Rust warnings, skipped tests, panics, resets, broken pipes, or actionable
+    connection-noise patterns
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25158694031` completed
+    successfully on `83976ed` with the same isolated
+    `h2_multiplexed_streams_s1`, `threads=4`, one-router-worker alternating
+    repeat settings; its log was clean apart from benign setup text and the
+    expected manual artifact-gate skip notices, confirming the HTTP/2 benign
+    accept-shutdown fix removed the previous broken-pipe noise
+  - `25158694031` is complete and log-clean but still not release-decision
+    evidence: throughput delta span was `36.46pp`, p95 delta span was
+    `300.70pp`, throughput spread was mixed, and p95 spread was kTLS-side
+  - the clean rerun keeps the active diagnosis pointed at request DATA-frame
+    availability/window scheduling: native request-body reader remaining-tail
+    data-wait and max data-wait stayed kTLS-higher across all repeats, the
+    max wait remained around event index `4`, and EOF ratio remained mixed
+    rather than pure terminal EOF
   - latest pushed branch head `234e88d` passed the hosted GitHub push chain:
     `CI` run `25156460466` completed successfully with `Fast Checks` in
     5m43s and `Full Verify` in 8m21s; `kTLS Validation` run `25156460504`

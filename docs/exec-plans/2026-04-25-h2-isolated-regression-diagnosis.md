@@ -1157,14 +1157,37 @@ decisions.
     passed locally, `bin/test-fast` passed after the fix, and full local
     `bin/verify` passed on 2026-04-30 including Chrome/Dart2Wasm browser
     coverage
+  - commit `83976ed` (`fix: quiet benign h2 accept shutdowns`) passed the
+    hosted GitHub push chain:
+    - `CI` `25158055327` with `Fast Checks` in 5m40s and `Full Verify` in
+      8m14s
+    - `kTLS Validation` `25158055341` in 2m57s
+    - `WAMP Profile Benchmarks` `25158055443` in 7m43s
+  - branch-head deployment-chain audit with `--require-clean-latest-ci` and
+    `--require-clean-latest-ci-logs` passed against `83976ed`; companion
+    kTLS/WAMP log scans only matched benign setup/configuration text and no
+    Rust warnings, skipped tests, panics, resets, broken pipes, or actionable
+    connection-noise patterns
+  - manual hosted `kTLS HTTP/2 Benchmarks` run `25158694031` reran isolated
+    `h2_multiplexed_streams_s1`, `threads=4`, one router worker, alternating
+    repeats on `83976ed`
+  - `25158694031` completed with matched rows in all repeats and a clean log
+    apart from benign setup text and the expected manual artifact-gate skip
+    notices, confirming the HTTP/2 benign accept-shutdown fix removed the
+    previous broken-pipe noise
+  - `25158694031` is still not release-decision-quality: throughput delta span
+    was `36.46pp`, p95 delta span was `300.70pp`, throughput spread was mixed,
+    and p95 spread was kTLS-side
+  - the clean rerun keeps the active diagnosis pointed at request DATA-frame
+    availability/window scheduling: native request-body reader remaining-tail
+    data-wait and max data-wait were kTLS-higher across all repeats, the max
+    wait stayed near event index `4`, and EOF ratio stayed mixed rather than a
+    pure terminal EOF signal
 
 ## Next Step
 
-Commit and push the HTTP/2 accept-loop shutdown classification fix, then watch
-the GitHub push chain and log scans. After the branch is hosted-clean again,
-rerun the same isolated `s1`, `threads=4`, one-router-worker alternating
-kTLS/H2 benchmark to confirm the diagnostic artifact stays free of broken-pipe
-connection noise. If the rerun stays clean and repeats the mixed EOF-ratio
-shape, the next diagnosis slice should instrument request DATA-frame
-availability/window scheduling around the late `stream.data()` wait instead of
-post-read enqueue, FFI, Dart drain, or terminal EOF handling.
+Instrument request DATA-frame availability/window scheduling around the late
+native request-body `stream.data()` wait. The next split should explain why the
+max remaining-tail wait usually lands near event index `4` around the middle of
+the request body instead of at terminal EOF, without re-opening post-read
+enqueue, FFI, Dart drain, or final EOF handling as the primary hypothesis.
