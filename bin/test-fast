@@ -48,6 +48,7 @@ run_bench_vm_tests() {
 }
 
 dart analyze
+python3 tool/test_package_native_artifact.py
 dart test packages/connectanum_core/test
 dart test packages/connectanum_mcp/test
 run_client_fast_tests

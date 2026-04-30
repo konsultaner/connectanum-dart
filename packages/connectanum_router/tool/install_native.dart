@@ -124,7 +124,7 @@ _InstallArgs _parseArgs(List<String> args) {
 
 const _usage =
     '''
-Usage: dart run connectanum_router:tool/install_native.dart --tag <release-tag> [options]
+Usage: dart packages/connectanum_router/tool/install_native.dart --tag <release-tag> [options]
 
 Downloads the hosted ct_ffi bundle for the current host, verifies the published
 SHA-256 sidecar, extracts the native library, and prints the installed library

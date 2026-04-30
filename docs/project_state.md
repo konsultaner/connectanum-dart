@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-30
 Current branch: `add-router`
-Last reviewed commit: local release-evidence documentation refresh on top of
-`1b5686f` (`ci: show private dart package inventory`)
+Last reviewed commit: current native install command readability slice on top
+of `4d32688` (`docs: refresh release evidence checkpoints`)
 Active exec plan: none; use `ROADMAP_NEXT.md` after re-checking CI and
 GitHub deployment-chain evidence
 
@@ -12,29 +12,48 @@ GitHub deployment-chain evidence
 - Current autonomous focus:
   - keep the CI chain clean first; the deployment-chain plan is paused because
     the remaining RC blockers are operator/release decisions
-  - latest pushed branch head `1b5686f`
-    (`ci: show private dart package inventory`) passed hosted GitHub `CI` run
-    `25187265086`: `Fast Checks` completed in 5m36s and `Full Verify`
-    completed in 8m01s
+  - current local slice fixes the remaining public native install command
+    guidance that still used the invalid package target form
+    `dart run connectanum_router:tool/install_native.dart`
+  - latest pushed branch head `4d32688`
+    (`docs: refresh release evidence checkpoints`) passed hosted GitHub `CI`
+    run `25189464494`: `Fast Checks` completed in 5m37s and `Full Verify`
+    completed in 8m03s
   - branch-head deployment-chain audit with `--require-clean-latest-ci` and
-    `--require-clean-latest-ci-logs` passed against `1b5686f`; latest CI log
+    `--require-clean-latest-ci-logs` passed against `4d32688`; latest CI log
     scan found no high-signal warning, skipped-test, panic, broken-pipe, reset,
     timeout, or connection-noise matches
-  - hosted GitHub `Dart Package Publish Dry Run` run `25187265107` passed on
-    `1b5686f` and covers the checked-out package-publishing inputs
+  - hosted GitHub `Dart Package Publish Dry Run` run `25189464514` passed on
+    `4d32688` and covers the checked-out package-publishing inputs
   - branch-head deployment-chain audit with
     `--require-clean-native-release-dry-run` also passed against the checked-out
     head; manual `Native Artifacts` dry-run `25166714340` remains clean and
     relevant because no native-release-sensitive paths changed after `7098c54`
-  - completed local slice is release-evidence documentation refresh: public
-    deployment-chain and package-publishing docs should point at the current
-    clean hosted branch-head evidence instead of older pinned run IDs
-  - local `bin/test-fast` passed on 2026-04-30 before editing the
-    release-evidence documentation refresh
-  - local `bin/verify` passed on 2026-04-30 after the release-evidence
-    documentation refresh; it included formatting, Rust/Dart package tests, MCP
-    tests, bench integration tests, router tests, build hooks, and Chrome
-    Dart2Wasm WebSocket transport tests
+  - pre-change local `bin/test-fast` passed on 2026-04-30 before editing the
+    native install command readability slice
+  - reproduction check confirmed the stale public command fails locally:
+    `dart run connectanum_router:tool/install_native.dart --help` exits with
+    `Could not find file`
+  - completed native install command readability slice: generated native bundle
+    README text, router/client helper usage, and public roadmap/state wording
+    now use direct source-checkout paths such as
+    `dart packages/connectanum_router/tool/install_native.dart --tag <tag>`
+    instead of invalid package-target `dart run` commands
+  - focused local checks passed on 2026-04-30:
+    `python3 tool/test_package_native_artifact.py`,
+    `dart packages/connectanum_router/tool/install_native.dart --help`,
+    `dart packages/connectanum_client/tool/install_native.dart --help`,
+    `python3 -m py_compile tool/test_package_native_artifact.py`,
+    `bash -n bin/package-native-artifact bin/test-fast bin/test-all`, and
+    `git diff --check`
+  - local `bin/verify` passed on 2026-04-30 after the native install command
+    readability slice; it included formatting, Rust/Dart package tests, MCP
+    tests, bench integration tests, router tests, build hooks, the new
+    native-artifact guidance regression, and Chrome Dart2Wasm WebSocket
+    transport tests
+  - previous local slice was release-evidence documentation refresh: public
+    deployment-chain and package-publishing docs point at clean hosted
+    branch-head evidence instead of older pinned run IDs
   - completed Dart package release-plan readability slice:
     `bin/dart-package-publish-dry-run --show-release-plan` should expose every
     private workspace package separately from private packages that block a
@@ -3366,7 +3385,7 @@ GitHub deployment-chain evidence
   public contract remains staged rather than published.
 - The router/client build hooks can now download a hosted `ct_ffi` release bundle directly when `CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` is set, verify the published `.sha256`, extract the archive, and stage the native library without invoking Cargo.
 - `CONNECTANUM_NATIVE_RELEASE_REPOSITORY=<owner/repo>` overrides the default GitHub Releases source for that hook-managed prebuilt flow, and the explicit prebuilt/system-library paths no longer require a local `native/transport` checkout.
-- `connectanum_router:tool/install_native.dart` and `connectanum_client:tool/install_native.dart` now provide the explicit downstream prefetch path for hosted native assets: they download the current host bundle into `.dart_tool/connectanum/native/<host-triple>/`, verify the published checksum, and print the resulting library path for `CONNECTANUM_NATIVE_LIB`.
+- `packages/connectanum_router/tool/install_native.dart` and `packages/connectanum_client/tool/install_native.dart` now provide the explicit source-checkout prefetch path for hosted native assets: they download the current host bundle into `.dart_tool/connectanum/native/<host-triple>/`, verify the published checksum, and print the resulting library path for `CONNECTANUM_NATIVE_LIB`.
 - The install helpers deliberately keep the deployment/runtime contract explicit instead of trying to simulate unsupported `dart pub get` automation; automatic hook cache reuse was tested and then dropped after hitting a Dart native-assets bundler bug on this macOS setup.
 - `ct_core` now has an env-gated Linux-only kTLS server prototype. When
   `CONNECTANUM_ENABLE_KTLS=1` is set on Linux and a native-TLS listener
