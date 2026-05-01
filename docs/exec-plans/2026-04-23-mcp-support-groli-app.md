@@ -101,6 +101,18 @@ protocol bridge.
 - 2026-04-23: `dart analyze packages/connectanum_mcp`,
   `dart test packages/connectanum_mcp -r expanded`, and `bin/verify` passed on
   Darwin arm64 after the WAMP delegate slice.
+- 2026-05-01: Rechecked the official MCP 2025-11-25 tools/pagination
+  requirements and added cursor-safe `tools/list` pagination for larger Groli
+  tool catalogs. `McpServer(toolListPageSize: ...)` now emits stable opaque
+  `nextCursor` values and rejects malformed or stale cursors with
+  `invalidParams` instead of silently replaying the full tool list.
+- 2026-05-01: Pre-change `bin/test-fast` passed before the MCP pagination
+  slice. Focused `dart analyze packages/connectanum_mcp` and
+  `dart test packages/connectanum_mcp -r expanded` passed after the slice.
+- 2026-05-01: Full local `bin/verify` passed after the MCP pagination slice,
+  including formatting, Rust native/FFI tests, MCP tests, client/native tests,
+  auth-server tests, bench integration tests, router tests, zero-copy publish
+  tests, and Chrome Dart2Wasm WebSocket transport tests.
 - First usable stdio MCP bridge path is complete. Streamable HTTP/router
   integration remains conditional on whether `groli/app` needs a network MCP
   endpoint, so autonomous continuation should move to the WAMP-profile

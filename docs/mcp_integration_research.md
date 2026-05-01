@@ -1,6 +1,6 @@
 # MCP Integration Research
 
-Last checked: 2026-04-23
+Last checked: 2026-05-01
 Driving downstream: `groli/app`
 
 ## Sources
@@ -11,6 +11,8 @@ Driving downstream: `groli/app`
   https://modelcontextprotocol.io/specification/2025-11-25/basic/transports
 - MCP tools:
   https://modelcontextprotocol.io/specification/2025-11-25/server/tools
+- MCP pagination:
+  https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/pagination
 - MCP resources:
   https://modelcontextprotocol.io/specification/2025-11-25/server/resources
 - MCP prompts:
@@ -38,6 +40,9 @@ Driving downstream: `groli/app`
 - `tools/list` discovers tools and `tools/call` invokes them. Tool definitions
   carry JSON Schema input metadata, and tool results can include text, media,
   resource links, embedded resources, and structured JSON content.
+- `tools/list` supports cursor pagination. The server chooses page size,
+  clients treat returned cursors as opaque tokens, and invalid cursors should
+  fail with `invalidParams`.
 - `resources/list`, `resources/read`, and `resources/templates/list` expose
   context objects by URI. Resource subscriptions and list-change notifications
   are optional.
@@ -109,9 +114,12 @@ Driving downstream: `groli/app`
    `connectanum_client` session. Done in `packages/connectanum_mcp` with
    `McpWampToolDelegate`; the default mapping sends MCP arguments as WAMP
    kwargs and returns a lossless JSON-shaped MCP tool result.
-7. Add a Streamable HTTP adapter and then wire it into router HTTP routes if
+7. Add cursor-safe `tools/list` pagination for larger tool catalogs. Done in
+   `packages/connectanum_mcp` with `McpServer.toolListPageSize`, opaque
+   `nextCursor` responses, and `invalidParams` for malformed or stale cursors.
+8. Add a Streamable HTTP adapter and then wire it into router HTTP routes if
    `groli/app` needs a network endpoint instead of stdio.
-8. Add resource support only after tool calls are stable and access-control
+9. Add resource support only after tool calls are stable and access-control
    rules are documented.
 
 ## Open Decisions for groli/app

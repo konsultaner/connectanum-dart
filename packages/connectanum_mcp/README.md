@@ -8,7 +8,8 @@ This package is intentionally narrow in its first slice. It provides:
 - JSON-RPC response/error helpers for MCP server messages.
 - Typed server info and capability objects.
 - A small in-memory `McpServer` lifecycle implementation.
-- A callback-backed `McpToolRegistry` with `tools/list` and `tools/call`.
+- A callback-backed `McpToolRegistry` with `tools/list`, optional cursor
+  pagination, and `tools/call`.
 - A newline-delimited stdio transport adapter for local MCP clients.
 - A WAMP-backed tool delegate for forwarding MCP tool calls to Connectanum
   procedures through an existing client `Session`.
@@ -46,6 +47,10 @@ final server = McpServer(
 
 Transport adapters should call `server.handleMessage(...)` with decoded
 JSON-RPC objects and serialize the returned map when a response is produced.
+
+Set `toolListPageSize` on `McpServer` to return large tool lists in stable
+pages. Clients should pass the returned `nextCursor` back unchanged; malformed
+or stale cursors are rejected as MCP `invalidParams` errors.
 
 ## Stdio Example
 

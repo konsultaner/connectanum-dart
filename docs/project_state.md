@@ -2,8 +2,8 @@
 
 Last updated: 2026-05-01
 Current branch: `add-router`
-Last reviewed implementation commit: `425385d`
-(`ci: stabilize native wamp worker readiness`)
+Last reviewed implementation commit: `0482ebe`
+(`docs: record worker readiness ci evidence`)
 Active exec plan: none; use `ROADMAP_NEXT.md` after re-checking CI and
 GitHub deployment-chain evidence
 
@@ -12,7 +12,25 @@ GitHub deployment-chain evidence
 - Current autonomous focus:
   - keep the CI chain clean first; the deployment-chain plan is paused because
     the remaining RC blockers are operator/release decisions
-  - latest reviewed implementation commit `425385d`
+  - latest branch-head commit `0482ebe`
+    (`docs: record worker readiness ci evidence`) has clean hosted GitHub
+    evidence: `CI` run `25196057428` passed in 14m13s and `Dart Package
+    Publish Dry Run` run `25196057420` passed in 28s
+  - current MCP usability slice rechecked the official MCP 2025-11-25
+    tools/pagination requirements on 2026-05-01 and adds optional
+    `McpServer.toolListPageSize`, stable opaque `nextCursor` pages for
+    `tools/list`, and `invalidParams` errors for malformed or stale cursors;
+    this keeps larger `groli/app` tool catalogs usable without deciding on a
+    Streamable HTTP/router MCP endpoint yet
+  - pre-change local `bin/test-fast` passed on 2026-05-01 before the MCP
+    pagination edits; focused `dart analyze packages/connectanum_mcp` and
+    `dart test packages/connectanum_mcp -r expanded` passed after the edits
+  - local `bin/verify` passed on 2026-05-01 after the MCP pagination slice; it
+    included formatting, Rust `ct_core`/`ct_ffi`, Python package-artifact
+    checks, MCP tests, client/native tests, auth-server tests, bench
+    integration tests, router tests, zero-copy publish tests, and Chrome
+    Dart2Wasm WebSocket transport tests
+  - previous implementation commit `425385d`
     (`ci: stabilize native wamp worker readiness`) has clean hosted GitHub
     deployment-chain evidence: `CI` run `25195627202` passed with `Fast Checks`
     in 5m40s and `Full Verify` in 6m50s; `Dart Package Publish Dry Run` run

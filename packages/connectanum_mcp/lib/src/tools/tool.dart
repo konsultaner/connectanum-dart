@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math' as math;
 
+import '../protocol/errors.dart';
 import '../protocol/json_rpc.dart';
 
 typedef McpToolHandler = FutureOr<McpToolResult> Function(McpToolRequest);
@@ -118,11 +121,21 @@ class McpToolResult {
 }
 
 class McpToolRegistry {
-  McpToolRegistry([Iterable<McpTool> tools = const []]) {
+  McpToolRegistry([Iterable<McpTool> tools = const [], this.pageSize]) {
+    final pageSize = this.pageSize;
+    if (pageSize != null && pageSize <= 0) {
+      throw ArgumentError.value(
+        pageSize,
+        'pageSize',
+        'MCP tool list page size must be greater than zero.',
+      );
+    }
     registerAll(tools);
   }
 
+  final int? pageSize;
   final Map<String, McpTool> _tools = <String, McpTool>{};
+  int _revision = 0;
 
   bool get isNotEmpty => _tools.isNotEmpty;
 
@@ -131,6 +144,7 @@ class McpToolRegistry {
       throw ArgumentError.value(tool.name, 'tool.name', 'Duplicate MCP tool');
     }
     _tools[tool.name] = tool;
+    _revision += 1;
   }
 
   void registerAll(Iterable<McpTool> tools) {
@@ -139,8 +153,84 @@ class McpToolRegistry {
     }
   }
 
-  List<McpTool> list({String? cursor}) =>
-      List<McpTool>.unmodifiable(_tools.values);
+  List<McpTool> list({String? cursor}) => listPage(cursor: cursor).tools;
+
+  McpToolListPage listPage({String? cursor}) {
+    final tools = List<McpTool>.unmodifiable(_tools.values);
+    final pageSize = this.pageSize;
+    if (pageSize == null) {
+      if (cursor != null) {
+        throw McpException(
+          McpErrorCodes.invalidParams,
+          'tools/list.params.cursor is invalid or stale',
+        );
+      }
+      return McpToolListPage(tools: tools);
+    }
+
+    final start = _decodeCursor(
+      cursor,
+      expectedRevision: _revision,
+      maxOffset: tools.length,
+    );
+    final end = math.min(start + pageSize, tools.length);
+    return McpToolListPage(
+      tools: List<McpTool>.unmodifiable(tools.sublist(start, end)),
+      nextCursor: end < tools.length ? _encodeCursor(_revision, end) : null,
+    );
+  }
 
   McpTool? operator [](String name) => _tools[name];
+}
+
+class McpToolListPage {
+  const McpToolListPage({required this.tools, this.nextCursor});
+
+  final List<McpTool> tools;
+  final String? nextCursor;
+}
+
+const String _toolCursorPrefix = 'tools:';
+
+String _encodeCursor(int revision, int offset) {
+  final encoded = base64Url.encode(
+    utf8.encode('$_toolCursorPrefix$revision:$offset'),
+  );
+  return encoded.replaceAll('=', '');
+}
+
+int _decodeCursor(
+  String? cursor, {
+  required int expectedRevision,
+  required int maxOffset,
+}) {
+  if (cursor == null) {
+    return 0;
+  }
+  try {
+    final padding = (4 - cursor.length % 4) % 4;
+    final normalized = cursor.padRight(cursor.length + padding, '=');
+    final decoded = utf8.decode(base64Url.decode(normalized));
+    if (!decoded.startsWith(_toolCursorPrefix)) {
+      throw const FormatException('wrong prefix');
+    }
+    final cursorParts = decoded.substring(_toolCursorPrefix.length).split(':');
+    if (cursorParts.length != 2) {
+      throw const FormatException('wrong cursor shape');
+    }
+    final revision = int.parse(cursorParts[0]);
+    final offset = int.parse(cursorParts[1]);
+    if (revision != expectedRevision) {
+      throw const FormatException('cursor revision is stale');
+    }
+    if (offset < 0 || offset > maxOffset) {
+      throw const FormatException('cursor offset out of range');
+    }
+    return offset;
+  } on FormatException {
+    throw McpException(
+      McpErrorCodes.invalidParams,
+      'tools/list.params.cursor is invalid or stale',
+    );
+  }
 }

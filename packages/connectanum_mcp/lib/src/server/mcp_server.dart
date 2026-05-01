@@ -14,7 +14,8 @@ class McpServer {
     Iterable<McpTool> tools = const [],
     this.instructions,
     McpServerCapabilities? capabilities,
-  }) : tools = McpToolRegistry(tools),
+    int? toolListPageSize,
+  }) : tools = McpToolRegistry(tools, toolListPageSize),
        capabilities = capabilities ?? const McpServerCapabilities();
 
   final McpServerInfo serverInfo;
@@ -121,11 +122,15 @@ class McpServer {
         'tools/list.params.cursor must be a string',
       );
     }
-    return <String, Object?>{
-      'tools': [
-        for (final tool in tools.list(cursor: cursor as String?)) tool.toJson(),
-      ],
+    final page = tools.listPage(cursor: cursor as String?);
+    final result = <String, Object?>{
+      'tools': [for (final tool in page.tools) tool.toJson()],
     };
+    final nextCursor = page.nextCursor;
+    if (nextCursor != null) {
+      result['nextCursor'] = nextCursor;
+    }
+    return result;
   }
 
   Future<JsonMap> _callTool(JsonMap params) async {
