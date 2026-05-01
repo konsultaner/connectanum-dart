@@ -12,6 +12,21 @@ GitHub deployment-chain evidence
 - Current autonomous focus:
   - keep the CI chain clean first; the deployment-chain plan is paused because
     the remaining RC blockers are operator/release decisions
+  - current MCP public-surface readability slice improves
+    `packages/connectanum_mcp/README.md` for downstream app embedders: it now
+    states the supported `2025-11-25` MCP subset, provides a copy-paste stdio
+    initialize/list/call sequence, documents cursor paging, and explains the
+    default WAMP tool delegation mapping without implying Streamable HTTP or
+    router-backed MCP support is already shipped
+  - pre-change local `bin/test-fast` passed on 2026-05-01 before the MCP
+    README readability edit; focused `dart analyze packages/connectanum_mcp`,
+    `dart test packages/connectanum_mcp -r expanded`, and `git diff --check`
+    passed after the edit
+  - local `bin/verify` passed on 2026-05-01 after the MCP README readability
+    slice; it included formatting, Rust native/FFI tests, Python
+    package-artifact checks, MCP tests, client/native tests, auth-server
+    tests, bench integration tests, router tests, zero-copy publish tests, and
+    Chrome Dart2Wasm WebSocket transport tests
   - completed public/deployment-surface cleanup removes the obsolete root
     `.travis.yml` file so users see GitHub Actions as the only maintained
     hosted CI/deployment chain; the only remaining Travis reference is

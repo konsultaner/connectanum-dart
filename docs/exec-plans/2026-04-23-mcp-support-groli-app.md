@@ -119,6 +119,19 @@ protocol bridge.
   run `25198143194` passed in 19s, and the strict deployment-chain audit/log
   scan found no warning, deprecation, skipped-test, reset, connection-noise,
   panic, or failure patterns.
+- 2026-05-01: Public MCP package readability follow-up improved
+  `packages/connectanum_mcp/README.md` for downstream app embedders. The README
+  now distinguishes the supported stdio/WAMP-backed tool path from deferred
+  Streamable HTTP/router-backed MCP support, shows a copy-paste JSON-RPC
+  initialize/list/call sequence, documents `toolListPageSize` cursor behavior,
+  and explains the default WAMP tool delegation mapping for Groli-style apps.
+  Pre-change `bin/test-fast` passed before the edit; focused
+  `dart analyze packages/connectanum_mcp`,
+  `dart test packages/connectanum_mcp -r expanded`, and `git diff --check`
+  passed after it. Full local `bin/verify` also passed after the README slice,
+  including formatting, Rust native/FFI tests, MCP tests, client/native tests,
+  bench integration tests, router tests, zero-copy publish tests, and Chrome
+  Dart2Wasm WebSocket transport tests.
 - First usable stdio MCP bridge path is complete. Streamable HTTP/router
   integration remains conditional on whether `groli/app` needs a network MCP
   endpoint, so autonomous continuation should move to the WAMP-profile
