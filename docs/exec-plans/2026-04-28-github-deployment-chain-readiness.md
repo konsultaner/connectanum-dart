@@ -1228,6 +1228,11 @@ operator evidence over speculative feature or benchmark work.
   operator/product decisions: required branch-protection mutation, default
   branch router-image promotion/GHCR package publication, RC tag/prerelease
   selection, and Dart package public ownership/release order.
+- 2026-05-01: Removed the obsolete root `.travis.yml` config as a public
+  deployment-surface cleanup. GitHub Actions remains the only maintained hosted
+  CI/deployment chain, and the historical changelog entry about old Travis
+  builds stays untouched as release history rather than active configuration.
+  Pre-change `bin/test-fast` and post-change `bin/verify` passed locally.
 
 ## Handoff
 

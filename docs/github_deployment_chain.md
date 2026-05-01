@@ -4,6 +4,8 @@ This repository uses GitHub Actions as the visible hosted deployment signal for
 the `add-router` branch while the GitHub deployment chain is being hardened.
 This page records the current repository controls and the evidence that should
 exist before treating a release path as production-ready.
+Legacy Travis CI configuration has been removed so the public repository only
+advertises the GitHub Actions chain that is actually maintained.
 
 ## Repeatable Audit
 

@@ -12,6 +12,23 @@ GitHub deployment-chain evidence
 - Current autonomous focus:
   - keep the CI chain clean first; the deployment-chain plan is paused because
     the remaining RC blockers are operator/release decisions
+  - current public/deployment-surface cleanup removes the obsolete root
+    `.travis.yml` file so users see GitHub Actions as the only maintained
+    hosted CI/deployment chain; the only remaining Travis reference is
+    historical changelog text
+  - pre-change local `bin/test-fast` passed on 2026-05-01 before removing the
+    stale Travis CI config
+  - local `bin/verify` passed on 2026-05-01 after removing the stale Travis CI
+    config; it included formatting, Rust native/FFI tests, Python
+    package-artifact checks, MCP tests, client/native tests, auth-server tests,
+    bench integration tests, router tests, zero-copy publish tests, and Chrome
+    Dart2Wasm WebSocket transport tests
+  - branch-head deployment-chain audit passed on 2026-05-01 before this cleanup
+    with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+    `--require-clean-dart-package-publish-dry-run`, and
+    `--require-clean-native-release-dry-run`; remaining findings are still the
+    operator-owned branch protection, hidden `router-image.yml`, and missing
+    visible GHCR router package evidence
   - completed public-surface hygiene slice removes the tracked root `chat.txt`
     conversation transcript from the repository and ignores future local
     `chat.txt` exports so the public source tree only exposes intentional
